@@ -1,7 +1,8 @@
 # F01 common calibration Excel performance
 
 Status: bounded Linux Excel-wrapper increment passes its unchanged regression
-policy. The publication head's own cross-platform CI remains pending. Full F01
+policy. Publication head `a0801dec` passes all 35 cross-platform checks in
+`aad-calibration-excel-registration-ci-10.jsonl`. Full F01
 request integration and unresolved P01 production MC acceptance remain open.
 
 ## Inputs and protocol
@@ -164,4 +165,7 @@ to accepted fb1a116. It is not a comparison of the whole PR against current mast
 a Windows timing claim or closure of production MC host-noise investigation.
 Actual currency grouping and independently priced joint gradients are exercised
 by the binding tests; full native quote bump/recalibration acceptance remains
-unchanged. Final publication requires the new exact head's CI.
+unchanged. The exact repaired Excel head `a0801dec` subsequently passes all
+35 own CI checks, including full Windows runtime. Preserve its first GCC-13
+Eigen-checkout early EOF and same-head failed-job rerun evidence; no compiled
+input or acceptance threshold changed.

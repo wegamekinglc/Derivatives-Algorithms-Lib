@@ -3,7 +3,7 @@
 Verdict: Approve the common C++ increment `12b3d7d1a9e43ac008c257c24b6365e424b458e5`.
 Full local correctness, installed-package and incremental performance checks pass;
 all 35 exact-head CI checks succeed in `aad-calibration-pullback-ci-05.jsonl`.
-The separate Python review and unfinished Excel/request integration do not close F01.
+The separate accepted Python/Excel increments do not close F01 request integration.
 
 ## Findings
 
@@ -56,9 +56,10 @@ derivative or complete market Greek. Those limits are stated in the guide.
 
 Exact new-head Linux/MSVC/shared-DLL/ARM wheel/sanitizer CI has passed.
 The separate Python increment supplies strict Boolean capture and common
-immutable/copy projections and passes all 35 exact `fb1a116b` CI checks. Excel capture
-options/handles/registrations, serialization errors, numeric budgets and market
-request integration remain required. None of the full F01 boxes is closed here.
+immutable/copy projections and passes all 35 exact `fb1a116b` CI checks. The
+separate Excel capture/handle/registration increment passes its own 35 checks
+at `a0801dec`. Numeric budgets and market request integration remain required.
+None of the full F01 boxes is closed here.
 
 ## Tests
 

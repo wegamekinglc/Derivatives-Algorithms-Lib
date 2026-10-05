@@ -3,10 +3,13 @@
 Status: active contract. Native opt-in record capture and the shared C++
 operation/result are accepted, including all 35 exact `12b3d7d` CI checks.
 Python capture/common projections are accepted with full local verification,
-incremental performance checks and all 35 exact `fb1a116b` CI checks. Excel and
-complete F01 request/budget integration remain open.
+incremental performance checks and all 35 exact `fb1a116b` CI checks. Excel
+capture/common projections are accepted with local incremental performance and
+all 35 exact `a0801dec` CI checks in
+`aad-calibration-excel-registration-ci-10.jsonl`. Complete F01 request/budget
+integration remains open.
 This contract completes the common curve-adaptation portion of F01 without
-closing the remaining binding, request-integration or performance requirements.
+closing the remaining request-integration or production-performance requirements.
 
 ## Source and problem
 

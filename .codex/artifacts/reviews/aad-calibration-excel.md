@@ -1,8 +1,10 @@
 # F01 common calibration Excel review
 
-Verdict: Comment Only pending this increment's own publication-head CI.
+Verdict: Approve the Excel capture/common increment at
+`a0801deceff9e89ac2aa8a121d985f2b2146c223`.
 Local correctness, actual MSVC declaration/registration compilation, generation
-integrity and incremental Linux performance pass. This review accepts neither
+integrity, incremental Linux performance and all 35 own exact-head checks pass.
+This review accepts neither
 the full F01 request integration nor the entire PR's merge readiness.
 
 ## Findings
@@ -38,7 +40,14 @@ Update that expectation to the complete six-argument list with the optional
 `[retainCalibrationRecord]` marker, assert its original five-argument prefix
 for all five capture factories, and include all 13 common entries in the long-name/
 help/count checks. Existing resolution, uniqueness and help assertions remain.
-No production input changes. Final registration GREEN requires the next exact CI head.
+No production input changes. Final registration GREEN is confirmed by all 35
+checks at `a0801dec`, including all four actual Windows runtime jobs.
+
+The first `a0801dec` GCC-13 job fails during Eigen submodule checkout with an
+early EOF; it never compiles. Preserve `registration-gcc13-failure-01.log` and
+the first rerun rejection while its parent workflow is active. After completion,
+rerun only that failed job plus dependents; unchanged `a0801dec` passes all 35
+checks in `registration-ci-10.jsonl`. No flags, tests or thresholds change.
 
 Read the capture overloads, dispatcher, common header/implementation, raw-cell
 validators, generated inc/HTML pairs, tests, source native APIs, controlling
@@ -59,7 +68,7 @@ zero-based coordinates. NUL names/selectors reject before result replacement.
 
 ## Open questions
 
-None requiring user input. Windows runtime and all platform checks must pass
+None requiring user input. Windows runtime and all platform checks pass
 for the published Excel head. F01 request/budget/market integration and P01
 production performance remain separate open work. The user authorizes whole-PR
 fixes and merge after full F01 acceptance, then subsequent work in new PRs.
@@ -103,5 +112,6 @@ All names below have prefix `aad-calibration-excel-`.
 ## Summary
 
 The Excel common boundary preserves native math, scaling, currency semantics
-and lifecycle. Publication-head Windows runtime/ARM/wheel/quality acceptance
-remains required. Earlier Python or C++ green heads cannot satisfy this gate.
+and lifecycle. Its own publication-head Windows runtime/ARM/wheel/quality
+acceptance passes; this does not accept later request integration or whole-PR
+production performance and merge readiness.
