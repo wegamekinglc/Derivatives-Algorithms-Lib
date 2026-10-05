@@ -72,11 +72,7 @@ namespace {
         const double actualIntensity = NumericInput(intensity, "MertonIVS_; intensity");
         const double actualJump = NumericInput(jump, "MertonIVS_; average_jump");
         const double actualDeviation = NumericInput(deviation, "MertonIVS_; jump_std");
-        REQUIRE(actualSpot > 0.0, "InvalidDupireCalibration: MertonIVS_; spot must be positive");
-        REQUIRE(actualVol >= 0.0, "InvalidDupireCalibration: MertonIVS_; vol must be nonnegative");
-        REQUIRE(actualIntensity >= 0.0, "InvalidDupireCalibration: MertonIVS_; intensity must be nonnegative");
-        REQUIRE(actualDeviation >= 0.0, "InvalidDupireCalibration: MertonIVS_; jump_std must be nonnegative");
-        return {actualSpot, actualVol, actualIntensity, actualJump, actualDeviation};
+        return NewMertonIVS(actualSpot, actualVol, actualIntensity, actualJump, actualDeviation);
     }
 
     DupireCalibrationSnapshot_ Freeze(const py::object& base, const py::object& inputs, const py::object& name) {
@@ -159,6 +155,22 @@ void init_bindings_dupirerisk(py::module_& m) {
         .def_property_readonly("algorithm", [](const DupireCalibrationSnapshot_& value) { return Text(value.Algorithm()); })
         .def("matches", &DupireCalibrationSnapshot_::Matches, py::arg("other"));
     m.def("DupireCalibration_New", &Freeze, py::arg("base"), py::arg("inputs"), py::kw_only(), py::arg("name") = "");
+    m.def(
+        "DupireModelData_New",
+        [](const py::object& calibration, const py::object& index, const py::object& currency, const py::object& factor, const py::object& name,
+           const py::object& maxStep) {
+            const auto snapshot =
+                RequiredInput<DupireCalibrationSnapshot_>(calibration, "DupireModelData_New; calibration", "DupireCalibrationSnapshot_");
+            const auto label = SettingStringInput(name, "DupireModelData_New; name", "InvalidDupireInput");
+            const auto observable = SettingStringInput(index, "DupireModelData_New; index", "InvalidDupireInput");
+            const auto domestic = SettingStringInput(currency, "DupireModelData_New; currency", "InvalidDupireInput");
+            const auto brownian = SettingStringInput(factor, "DupireModelData_New; factor", "InvalidDupireInput");
+            const auto step = NumericInput(maxStep, "DupireModelData_New; max_step");
+            REQUIRE(step > 0.0, "InvalidDupireInput: DupireModelData_New; max_step must be positive");
+            return std::const_pointer_cast<ModelData_>(NewDupireModelData(label, snapshot, observable, domestic, brownian, step));
+        },
+        py::arg("calibration"), py::arg("index"), py::arg("currency"), py::arg("factor"), py::kw_only(), py::arg("name") = "",
+        py::arg("max_step") = 1.0 / 12.0);
     BindSeeds<DupireParameterAdjoints_>(m, "DupireParameterAdjoints_");
     BindSeeds<DupireDirectQuoteAdjoints_>(m, "DupireDirectQuoteAdjoints_");
 

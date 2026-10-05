@@ -646,6 +646,29 @@ TEST(DupireScriptRiskTest, TestCompatibleSeedAggregationHasExactPowerTwoControl)
                         1e-10);
 }
 
+TEST(DupireScriptRiskTest, TestSharedFactoriesPreserveCarryAndDetachModelSurface) {
+    const FlatIVS_ ivs;
+    const auto calibration = Dal::CalibrateDupireWithRisk(ivs, Inputs());
+    const auto original = calibration.Surface()->vols_(0, 0);
+    const auto model = Dal::NewDupireModelData("local", calibration, "EQ[LOCAL]", "USD", "F_LOCAL", 0.25);
+    const auto hybrid = Dal::handle_cast<Dal::HybridModelData_>(model);
+    ASSERT_TRUE(hybrid);
+    const auto equity = Dal::handle_cast<Dal::HybridLocalVolEquityData_>(hybrid->components_[0]);
+    const auto rate = Dal::handle_cast<Dal::HybridDeterministicRateData_>(hybrid->components_[1]);
+    ASSERT_TRUE(equity && rate);
+    ASSERT_EQ(equity->Name(), "equity");
+    ASSERT_EQ(rate->Name(), "rate");
+    ASSERT_EQ(equity->spot_, calibration.Spot());
+    ASSERT_EQ(equity->div_, calibration.DividendYield());
+    ASSERT_EQ(rate->rate_, calibration.Rate());
+    ASSERT_NE(equity->surface_.get(), calibration.Surface().get());
+    const_cast<Dal::LocalVolSurfaceData_*>(equity->surface_.get())->vols_(0, 0) += 0.01;
+    ASSERT_EQ(calibration.Surface()->vols_(0, 0), original);
+    const auto merton = Dal::NewMertonIVS(100.0, 0.15, 0.05, -0.08, 0.12);
+    const Dal::AAD::MertonIVS_ reference(100.0, 0.15, 0.05, -0.08, 0.12);
+    ASSERT_EQ(merton.ImpliedVol(105.0, 0.4), reference.ImpliedVol(105.0, 0.4));
+}
+
 TEST(DupireScriptRiskTest, TestDistinctTradeSeedAggregationMatchesFullPortfolioRecalibration) {
     const SingleWorker_ worker;
     const FlatIVS_ ivs;

@@ -56,3 +56,12 @@ failed steps, flat parallel-vol reference, rectangular/reordered grids, direct
 terms, lifetime/alias tests and success/failure/success recovery. Reconcile
 combined diagnostics, sanitizers, binding parity and final-head CI independently
 from the still-inconclusive P01 production-performance gate.
+
+For Excel, review the actual generated signatures/defaults and DLL exports,
+not only portable functions. Original cell text must be checked for NUL even
+when a generic converter truncates it. Integer normalization belongs to the
+new entry points. A model factory must copy frozen carry and surface; requiring
+a dummy BS model leaves the Merton worksheet workflow incomplete. Worker
+isolation must configure and restore the XLL runtime as well as the independent
+native oracle runtime. Existing string conversion returns a plain String_, so
+an optional string default must not generate an optional-value method call.

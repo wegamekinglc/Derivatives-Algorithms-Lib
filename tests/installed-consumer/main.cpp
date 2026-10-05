@@ -33,6 +33,12 @@ namespace {
         Dal::ScriptValuationSettings_ valuation;
         valuation.evaluationDate_ = Dal::Date_(2026, 9, 12);
         const auto source = Dal::ValueByMonteCarloWithRisk(product, model, 257, {}, valuation);
+        const auto convenience = Dal::NewDupireModelData("installed-hybrid", calibration, "EQ[INSTALLED]", "USD", "W_EQ", 0.25);
+        const auto comparable = Dal::ValueByMonteCarloWithRisk(product, convenience, 257, {}, valuation);
+        if (comparable.Values() != source.Values() || comparable.Jacobian().Rows() != source.Jacobian().Rows() ||
+            comparable.Jacobian().Cols() != source.Jacobian().Cols() ||
+            !std::equal(comparable.Jacobian().begin(), comparable.Jacobian().end(), source.Jacobian().begin()))
+            return false;
         const auto extracted = Dal::ExtractDupireParameterAdjoints(source, calibration, "equity");
         const auto reference = Dal::PullbackDupireCalibration(calibration, extracted);
         const auto result = Dal::PullbackDupireScriptRisk(source, calibration, "equity");
@@ -77,6 +83,10 @@ int main() {
         return 8;
     if (!CheckFlatConvenience(inputs))
         return 9;
+    const auto merton = Dal::NewMertonIVS(100.0, 0.2, 0.08, -0.1, 0.15);
+    const Dal::AAD::MertonIVS_ mertonReference(100.0, 0.2, 0.08, -0.1, 0.15);
+    if (merton.ImpliedVol(105.0, 0.4) != mertonReference.ImpliedVol(105.0, 0.4))
+        return 10;
     const Dal::Date_ start(2026, 1, 1);
     if (start.AddDays(1) - start != 1)
         return 1;

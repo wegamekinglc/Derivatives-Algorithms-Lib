@@ -10,6 +10,16 @@
 
 namespace Dal {
     struct BSModelData_;
+    struct ModelData_;
+
+    AAD::MertonIVS_ NewMertonIVS(double spot, double vol, double intensity, double averageJump, double jumpStd);
+
+    Handle_<ModelData_> NewDupireModelData(const String_& name,
+                                           const DupireCalibrationSnapshot_& calibration,
+                                           const String_& index,
+                                           const String_& currency,
+                                           const String_& factor,
+                                           double maxStep = 1.0 / 12.0);
 
     DupireCalibrationSnapshot_ CalibrateDupireWithRisk(const BSModelData_& baseModel, const DupireRiskInputs_& inputs, const String_& name = {});
 

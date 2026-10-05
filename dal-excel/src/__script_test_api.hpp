@@ -69,6 +69,8 @@ namespace Dal {
     namespace Excel {
         DAL_SCRIPT_TEST_API Vector_<String_> ScriptDiagnosticChunks(const String_& json, const String_& function);
         DAL_SCRIPT_TEST_API void ScriptTestInitialize(int threads);
+        DAL_SCRIPT_TEST_API std::pair<size_t, bool> ScriptTestStartWorkers(size_t threads);
+        DAL_SCRIPT_TEST_API void ScriptTestRestoreWorkers(const std::pair<size_t, bool>& state);
         DAL_SCRIPT_TEST_API Date_ ScriptTestSetDate(const Date_& date);
         DAL_SCRIPT_TEST_API void ScriptTestStoreFixings(const String_& name, const FixHistory_& history);
         DAL_SCRIPT_TEST_API Detail::FixingReadObserver_*& ScriptTestFixingObserver();

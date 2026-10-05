@@ -170,3 +170,11 @@ pullback must also adapt the existing curve quote-risk axis/state/provenance
 without replacing its inverse or changing its analytic/bumped semantics.
 F02 multiple outputs, implicit calibration, stochastic-rate joint calibration,
 delta-quoted moving strikes and quote Gamma have separate later requirements.
+
+The [Excel boundary](../api-notes/aad-dupire-excel.md) requires a complete
+worksheet chain, including model creation from frozen carry. New shared C++
+factories provide validated Merton inputs and a detached one-factor Hybrid
+model. Excel numeric-range conversion normalizes integer cells locally;
+settings and native entries retain strict type/domain/context checks. All
+getters and composite extraction avoid valuation/history work. Windows DLL
+tests must scope the actual XLL worker state, distinct from the test runtime.

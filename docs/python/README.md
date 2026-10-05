@@ -198,12 +198,15 @@ raw = quotes.total_adjoints.to_rows()
 ```
 
 This example differentiates the sum of calibrated surface nodes. For trade risk,
-use `calibration.surface` in a Hybrid local-vol component and obtain a
+create `DupireModelData_New(calibration, index, currency, factor, *, name="",
+max_step=1/12)` or use `calibration.surface` in a Hybrid local-vol component, then obtain a
 `MonteCarlo_ValueWithRisk` result with every surface input selected. Then call
 `DupireScriptQuoteRisk_New(valuation, calibration, component, *, direct=None)`.
 Its `valuation`, `quote_risk`, `component` and `method` retain the source and
 quote results. `DupireParameterAdjoints_FromRisk` extracts the surface seed
 separately for compatible portfolio accumulation.
+The convenience model copies the surface, preserves frozen spot/rate/dividend,
+and names its local-vol component `equity` and deterministic-rate component `rate`.
 
 `DupireDirectQuoteAdjoints_(calibration, matrix)` supplies an optional raw PV
 quote contribution. Results separate `calibration_adjoints`, `direct_adjoints`

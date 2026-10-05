@@ -1,0 +1,99 @@
+# F01 Excel Dupire boundary review
+
+Verdict: Comment Only. No unresolved local correctness or API findings.
+Exact publication-head CI, especially Windows DLL/registration compilation,
+remains required. This increment does not complete common curve integration,
+P01 production acceptance or the full Stage B/C/D plan.
+
+## Findings and design
+
+Read the shared C++ factories, model-builder refactor, Python registration,
+Excel handles/entry points/markup, generated signatures, tests, installed
+consumer, active API/spec/critique and current-state guides. New worksheet
+factories provide both flat-BS and Merton calibration and the complete matching
+Hybrid model/valuation/quote-result chain. The model takes frozen carry and
+detaches its surface. The common internal builder preserves the old BS
+factory's constructor sequence and surface sharing; its temporary input view
+does not retain borrowed strings. Both seed factories share copied-value and
+shape/finite validation. Per-row Excel constraints retain location diagnostics,
+while the shared Merton factory also protects direct C++ callers.
+
+Immutable handles retain passive values and reject archive serialization.
+Required handles and typed base dispatch reject null/wrong types. Original
+Excel strings are checked for NUL, and numeric integers are normalized locally
+before generic conversion. Direct optional handles unwrap one-cell ranges.
+Getters copy values/surfaces and do no valuation/history work. Raw mean model
+gradients, reversed selected axes and reporting factors preserve the existing
+typed Hybrid mapping. Direct PV quote contributions are added once.
+
+The first generation attempt places insertion code before the first argument,
+which Machinist rejects; retain `aad-dupire-excel-generate-01.log`. Move checks
+after their declared argument and check the original Excel cell before dispatch.
+Review also catches an optional string default producing `.value_or()` on the
+plain String_ converter. A focused blank-contribution test fails, then passes
+with native blank-to-total handling and regenerated markup. No converter,
+generator, compiler flag, assertion precision or CI policy changes.
+
+Windows and the statically linked XLL own distinct runtimes. Test-only exports
+scope and restore actual XLL workers as well as the native oracle workers;
+both use one worker and all original 257 paths. A Windows-only cell test covers
+integer normalization and original embedded-NUL rejection. Linux portable
+tests cannot certify its DLL imports or registration ABI.
+
+## Tests
+
+Raw evidence persists under
+`/home/wegamekinglc/.cache/dal-aad-evidence-20261004-8886c083/evidence`.
+
+- Shared factories first fail to compile because the public names are absent;
+  `aad-dupire-excel-public-red-01.log`. The initial GREEN compile catches an
+  attempted copy of noncopyable storable data; construct detached geometry and
+  matrices instead. Final public factory checks pass.
+- Excel missing-header/interface RED and minimum zero-seed GREEN precede full
+  chain implementation. Keep both expanded RED logs; the first also catches
+  use of the matrix's const iterator for mutation, corrected with indexed writes.
+  All nine final Excel cases pass; `aad-dupire-excel-focused-final-02.log`.
+- Flat/Merton × tree/compiled independent legacy calibration/price oracles:
+  all 84 rows pass unchanged steps 2e-4/1e-4/5e-5, abs/rel 1e-3 and adjacent-step
+  policy. The shared-builder refactor preserves every numeric trace bitwise.
+- Strict settings, negative/zero seeds, direct separation, copied getters,
+  mismatched quote content, null/wrong-type errors, output preservation,
+  serialization rejection and success/failure/success recovery pass.
+- Full OFF/combined: 2,394/2,408 passes;
+  `aad-dupire-excel-{off,combined}-full-final-02.log`. OFF includes 857 Python
+  cases and 33 regular examples. The unchanged slow BS example retains its
+  accepted earlier result and is excluded with existing benchmark labels.
+- First OFF full run catches a new test using the absent ModelData_ `.name`
+  property. Correct it to the existing native type contract; preserve the
+  failure log. Complete Python rerun passes 857. Four one-worker parity cases
+  compare the actual old/new factories' PV, complete Jacobian and quote risks
+  bitwise. No numeric assertion or oracle tolerance is relaxed.
+- Fully instrumented ASan/UBSan with lifetime/profiling: 71 relevant cases pass;
+  `aad-dupire-excel-sanitized-final-01.log`, leak detection disabled.
+- Old installed headers fail the new consumer as expected. Final OFF/combined
+  prefixes each pass both installed consumers, including both shared factory
+  exports. Installed joint and freshly built standalone Python each pass 64
+  quote/scalar-risk cases. Preserve the first installed-Python probe's wrong
+  package-root failure, then use the actual installed root.
+- Formatting, CCN-eight and documentation checks pass; 82 checked functions,
+  no complexity warnings. All 23 new registration/HTML pairs are generated
+  with their markup; final generation/drift checks pass.
+
+## Performance and limits
+
+All nine existing OFF gate executables and the native archive remain bitwise
+identical to the accepted `95f0706d` evidence. The changed shared builder also
+receives a separate old-entry cost comparison against its frozen installed
+headers and libraries. CPU 4, one initialized worker, two rounds of ten
+interleaved processes per side, five internal 10,000-call minima and the same
+4% two-round criterion are declared before measurement. All 40 process numeric
+checks pass and input hashes remain unchanged. Round movements are +0.2891%
+and +0.4874%; `aad-dupire-excel-factory-cost-paired-02/summary.json`.
+Retain the first runner's initialization-log JSON parsing failure and protocol;
+the correction parses the final numeric line and saves raw stdout without
+changing workload, threshold or numeric checks.
+
+This measures existing model construction, not total new Excel-wrapper cost or
+production MC throughput. P01's prior inconclusive workload evidence remains
+open. New-head CI acceptance remains separate from the already accepted
+35 checks at `95f0706d`.

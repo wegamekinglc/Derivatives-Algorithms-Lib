@@ -16,9 +16,8 @@ in the [method chapters](../README.md#quantitative-methods).
 =MONTECARLO.VALUE(product_handle, model_handle, 65536, "sobol", FALSE, TRUE, 0.01)
 ```
 
-For local-volatility pricing, calibrate or provide a surface in C++ or Python
-and compose the equity with a rate component in `HybridModelData_`. Excel's
-model constructors do not currently expose the local-volatility component.
+For local-volatility pricing, create a frozen Dupire calibration and a matching
+model with `DUPIRECALIBRATION.NEW` and `DUPIREMODELDATA.NEW`, as below.
 Both Excel Value functions require a finite integer path count in
 `1..2147483647`.
 
@@ -61,6 +60,63 @@ matrix/handle rules, diagnostics, and the executable workbook with PV/AAD oracle
 `SOBOLRSG.NEW(name, i_path, n_dim, precise, polish)` uses the same independent
 normal-draw flags as C++ and Python. Pass `TRUE, TRUE` for the precise-CDF Newton
 correction; leaving both optional flags `FALSE` selects the Acklam-only default.
+
+## Dupire quote risk
+
+The calibration holds the base IVS, deterministic carry and grid choices fixed;
+quotes are additive absolute decimal-volatility spreads. Quote matrix rows are
+strikes and columns are maturities. For a BS base, use this worksheet sequence
+with `spreads` a 3×2 numeric range and all surface inputs selected in valuation:
+
+```text
+=DUPIREGRID.NEW("grid", {60;100;140}, 10, {0.5;1}, 0.5)
+=DUPIRERISKINPUTS.NEW("quotes", {75;105;135}, {0.4;1.2}, spreads, grid_handle)
+=BSMODELDATA.NEW("base", 100, 0.20, 0.05, 0.02)
+=DUPIRECALIBRATION.NEW("calibration", base_handle, inputs_handle)
+=DUPIREMODELDATA.NEW("local", calibration_handle, "EQ[LOCAL]", "USD", "F_LOCAL", 0.25)
+=MONTECARLO.VALUEWITHRISK(product_handle, model_handle, 65536, , valuation_handle, simulation_handle)
+=DUPIRESCRIPTQUOTERISK.NEW("quotes", valuation_risk_handle, calibration_handle, "equity", )
+=DUPIRESCRIPTQUOTERISK.GET.QUOTERISK(combined_handle)
+=DUPIREQUOTERISK.GET.ADJOINTS(quote_risk_handle, "total")
+```
+
+`DUPIREMODELDATA.NEW` copies the surface and uses the calibration's spot, rate
+and dividend yield; its components are named `equity` and `rate`. The optional
+maximum model time step defaults to `1/12`. A Merton base uses
+`MERTONIVS.NEW(name, settings)` instead of the BS handle, with these five required
+numeric key/value rows:
+
+| Key          | Example |
+|--------------|---------|
+| spot         | 100     |
+| vol          | 0.20    |
+| intensity    | 0.08    |
+| average_jump | -0.10   |
+| jump_std     | 0.15    |
+
+Merton carry is zero. Settings reject duplicate/unknown/missing keys, bool/text
+values and invalid numeric domains. Calibration rejects invalid grids, quotes,
+discrete curvature or local variance rather than regularizing them.
+
+`DUPIREPARAMETERADJOINTS.FROMRISK(name, valuation, calibration, component)`
+extracts raw surface seeds for compatible portfolio accumulation. To provide
+seeds explicitly, use `DUPIREPARAMETERADJOINTS.NEW(name, calibration, adjoints)`
+with spot rows/time columns, then
+`DUPIREQUOTERISK.NEW(name, calibration, parameters, [direct])`.
+`DUPIREDIRECTQUOTEADJOINTS.NEW(name, calibration, adjoints)` takes strike
+rows/maturity columns. Direct seeds are PV derivatives, including any cashflow
+discount already applied. Quote results separate `calibration`, `direct`, and
+`total` contributions; omitting the getter's contribution selects `total`.
+Neither path averaging nor report factors are applied again.
+
+Calibration getters copy the completed `SPOTS`, `TIMES`, `VOLS`, quote rows
+(`QUOTES`) and field/value `PROVENANCE`. `GET.SURFACE` returns detached data.
+Composite getters return passive `VALUATION`, `QUOTERISK` and `PROVENANCE`;
+they run no valuation or history lookup. Seeds and results are immutable
+handles and do not support archive serialization. Snapshot mismatches and
+missing selected surface risks fail explicitly. See the
+[discrete calibration method](../methodology/aad.md#discrete-dupire-calibration-pullback)
+for identity, units, rounding and estimator boundaries.
 
 ## Curve workflows
 

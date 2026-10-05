@@ -277,11 +277,33 @@ in each configuration. Rebuilt standalone Python passes 62; joint/standalone
 installed modules each match all 248 accepted native cells bitwise. Previous
 42 core, 321 Hybrid and 84 Python oracle traces remain identical. Generation
 has zero drift in 497 files. Fully instrumented Clang FMA with lifetime/profiling
-also passes all 11 cases. Corrective exact-head CI remains before acceptance; see the
+also passes all 11 cases. Corrective head `95f0706d` passes all 35 CI checks,
+including ARM wheels (`aad-dupire-replay-ci-05.jsonl`); see the
 [review](../reviews/aad-dupire-replay-rounding.md) and
 [cost report](../performance/aad-dupire-replay-rounding.md). Excel and common
-curve integration are the next F01 implementation tasks; every full F01 box
+curve integration remain F01 implementation tasks; every full F01 box
 and the Stage B/C/D requirements remain open.
+
+The [Excel boundary](../api-notes/aad-dupire-excel.md) is now implemented and
+locally verified: immutable grid/quote/calibration/seed/result handles, checked
+Merton inputs, a detached model from frozen carry, complete Hybrid quote mapping
+and copied getters. C++ and Python share the checked factories; the existing
+BS-local-vol factory shares an internal builder without changing its alias or
+constructor convention. Nine Excel cases and all 84 independent legacy quote
+oracle rows pass. Refactoring preserves every oracle row bitwise. Final
+OFF/combined pass 2,394/2,408 cases, including 857 Python checks OFF and 33 regular
+examples. Fully instrumented ASan/UBSan passes 71 relevant cases. Both final
+installed prefixes pass two C++ consumers; installed joint and freshly built
+standalone Python each pass 64 cases. All 23 new registration/HTML pairs have
+matching markup. CCN-eight, formatting and documentation checks pass.
+
+Existing nine gate binaries and native archive remain bitwise identical to the
+accepted correction. The changed old BS model factory's separately declared
+two-by-ten/4% cost comparison passes both rounds (+0.29%/+0.49%) with all 40
+numeric checks and unchanged input hashes. Preserve the initial test/tool
+failures; the [Excel review](../reviews/aad-dupire-excel.md) records the exact
+evidence and limits. Excel publication-head CI and common curve adaptation
+remain required before full F01 acceptance.
 
 ### Whole-plan status and remaining effort
 
@@ -289,18 +311,18 @@ This snapshot distinguishes accepted increments from locally implemented work.
 Estimates are remaining single-developer effort, not promises of calendar time;
 overlapping acceptance work is included once in the integration allowance.
 
-| Work item               | Implementation/local verification                                  | Publication/CI                                  | Remaining person-days |
-|-------------------------|--------------------------------------------------------------------|-------------------------------------------------|-----------------------|
-| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                      | Accepted exact-head checks                      | 0                     |
-| Scalar D04              | Accepted C++/Python/Excel                                          | Accepted exact-head checks                      | 0                     |
-| P01                     | Tooling complete; production MC acceptance inconclusive            | Published tooling; performance verdict open     | 2–5                   |
-| F01                     | Core/Hybrid accepted; Python replay repair local; Excel/curve open | Core/Hybrid accepted; corrective Python CI open | 6–10                  |
-| F02                     | Multiple outputs and portfolio integration remain                  | Open                                            | 7–11                  |
-| P02/P03                 | Worker reuse/block selection/extraction remain                     | Open                                            | 4–7                   |
-| F03                     | Solve, implicit calibration and PDE operators remain               | Open                                            | 12–20                 |
-| P04/P05                 | Structural sparsity/checkpointing remain                           | Open                                            | 9–15                  |
-| F04                     | Second-order implementation/estimator validation remain            | Open                                            | 12–20                 |
-| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains         | Open                                            | 7–11                  |
+| Work item               | Implementation/local verification                               | Publication/CI                                | Remaining person-days |
+|-------------------------|-----------------------------------------------------------------|-----------------------------------------------|-----------------------|
+| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                   | Accepted exact-head checks                    | 0                     |
+| Scalar D04              | Accepted C++/Python/Excel                                       | Accepted exact-head checks                    | 0                     |
+| P01                     | Tooling complete; production MC acceptance inconclusive         | Published tooling; performance verdict open   | 2–5                   |
+| F01                     | Core/Hybrid/Python accepted; Excel locally verified; curve open | Accepted through `95f0706d`; Excel CI pending | 6–10                  |
+| F02                     | Multiple outputs and portfolio integration remain               | Open                                          | 7–11                  |
+| P02/P03                 | Worker reuse/block selection/extraction remain                  | Open                                          | 4–7                   |
+| F03                     | Solve, implicit calibration and PDE operators remain            | Open                                          | 12–20                 |
+| P04/P05                 | Structural sparsity/checkpointing remain                        | Open                                          | 9–15                  |
+| F04                     | Second-order implementation/estimator validation remain         | Open                                          | 12–20                 |
+| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains      | Open                                          | 7–11                  |
 
 Remaining total: approximately 60–100 person-days, or 12–20 working weeks.
 Allow approximately 15–25 weeks including cross-platform and performance
@@ -667,9 +689,9 @@ corrected head passes fresh correctness and all changed-workload comparisons;
 all 46 exact publication-head CI checks subsequently pass at `0ee84e1`.
 Do not reuse the ownership snapshot's acceptance as proof for these new changes.
 
-Next: publish and inspect the exact-head Python binding CI, then implement
-Excel boundaries and common curve adaptation after the accepted core and
-Hybrid increments. Continue F02 output seeds under their controlling design.
+Next: publish and inspect Excel boundary CI, then implement common
+curve adaptation after the accepted core, Hybrid and Python increments.
+Continue F02 output seeds under their controlling design.
 Reconcile P01's unresolved performance with controlled-environment evidence;
 retain every failure and do not replace the threshold or sample until a pass.
 Stage A and the full Stage B/C/D goal remain incomplete.

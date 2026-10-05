@@ -1,7 +1,9 @@
 # F01 Dupire binding boundary
 
-Status: Python implemented with complete local verification; new-head CI, Excel
-and common curve adaptation remain required. The [binding review](../reviews/aad-dupire-python-bindings.md)
+Status: Python calibration/pullback is accepted through `95f0706d` with all
+35 CI checks. The [Excel extension](aad-dupire-excel.md), including the shared
+model factory, is locally verified and needs publication-head CI. Common curve
+adaptation remains required. The [binding review](../reviews/aad-dupire-python-bindings.md)
 retains acceptance evidence. This extends the accepted [core/Hybrid API](aad-dupire-pullback.md),
 without changing its frozen-input derivative or estimator.
 
@@ -73,8 +75,8 @@ the existing three steps and tolerance, using one worker initialized before
 import. Native and Python results also receive an independent installed-consumer
 comparison. Exact new-head CI is separate from previous accepted checks.
 
-Excel will use immutable nonserializable handles and `_New`/`_Get_` factories,
-split grid configuration to avoid seven positional settings, expose detached
-surfaces and separated contributions, and perform no getter valuation. Final
-Excel names/markup are a subsequent API decision before implementation; this
-Python increment does not close that requirement or common curve adaptation.
+Excel's [separate API decision](aad-dupire-excel.md) defines immutable
+nonserializable `_New`/`_Get_` handles, split grid configuration, detached
+model/surface getters and separated contributions. It is implemented and
+locally verified; this boundary does not close publication-head CI or common
+curve adaptation.

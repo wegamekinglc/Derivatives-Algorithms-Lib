@@ -32,6 +32,49 @@ def flat_calibration():
     return dal.DupireCalibration_New(base, inputs(), name="frozen")
 
 
+def test_model_factory_uses_frozen_carry_and_strict_inputs():
+    calibration = flat_calibration()
+    model = dal.DupireModelData_New(calibration, "EQ[LOCAL]", "USD", "F_LOCAL", name="local", max_step=0.25)
+    assert isinstance(model, dal.ModelData_)
+    for kwargs, field in [({"max_step": True}, "max_step"), ({"max_step": 0}, "max_step"), ({"max_step": float("inf")}, "max_step"),
+                          ({"factor": "bad\0factor"}, "factor")]:
+        arguments = dict(index="EQ[LOCAL]", currency="USD", factor="F_LOCAL")
+        arguments.update(kwargs)
+        with pytest.raises((RuntimeError, TypeError), match=field):
+            dal.DupireModelData_New(calibration, **arguments)
+    with pytest.raises(TypeError, match="calibration"):
+        dal.DupireModelData_New(None, "EQ[LOCAL]", "USD", "F_LOCAL")
+
+
+def _check_convenience_model_parity():
+    dal.EvaluationDate_Set(dal.Date_(2026, 9, 12))
+    for base in [dal.BSModelData_New(100, 0.2, 0.05, 0.02),
+                 dal.MertonIVS_(spot=100, vol=0.2, intensity=0.08, average_jump=-0.1, jump_std=0.15)]:
+        calibration = dal.DupireCalibration_New(base, inputs())
+        model = dal.DupireModelData_New(calibration, "EQ[LOCAL]", "USD", "F_LOCAL", name="local", max_step=0.25)
+        carry = dal.BSModelData_New(calibration.spot, 0.2, calibration.rate, calibration.dividend_yield)
+        control = dal.BSLocalVolModelData_New("local", "EQ[LOCAL]", "USD", "F_LOCAL", carry, calibration.surface, max_step=0.25)
+        product = dal.Product_New([dal.Date_(2027, 9, 12)], ["pay PAYS FIX(EQ[LOCAL]) * FIX(EQ[LOCAL]) / 100"])
+        for compiled in [False, True]:
+            simulation = dal.MonteCarloSettings_(enable_aad=True, compiled=compiled)
+            left = dal.MonteCarlo_ValueWithRisk(product, model, 257, simulation=simulation)
+            right = dal.MonteCarlo_ValueWithRisk(product, control, 257, simulation=simulation)
+            assert left.values == right.values
+            assert left.jacobian.to_rows() == right.jacobian.to_rows()
+            assert (dal.DupireScriptQuoteRisk_New(left, calibration, "equity").quote_risk.total_adjoints.to_rows() ==
+                    dal.DupireScriptQuoteRisk_New(right, calibration, "equity").quote_risk.total_adjoints.to_rows())
+
+
+def test_convenience_model_matches_existing_factory_in_one_worker():
+    probe = ("import json, runpy, sys; sys.path[:] = json.loads(sys.argv[1]); "
+             "runpy.run_path(sys.argv[2])['_check_convenience_model_parity']()")
+    completed = subprocess.run(
+        [sys.executable, "-S", "-c", probe, json.dumps(sys.path), str(Path(__file__).resolve())],
+        env={**os.environ, "DAL_NUM_THREADS": "1"}, capture_output=True, text=True, timeout=60, check=False,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+
+
 def test_flat_calibration_and_quote_getters_are_detached():
     calibration = flat_calibration()
     assert calibration.spot == 100.0

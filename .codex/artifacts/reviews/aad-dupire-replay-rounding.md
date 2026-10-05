@@ -1,7 +1,8 @@
 # F01 contracted-arithmetic replay review
 
-Verdict: Comment Only. No unresolved local correctness or API findings;
-the final corrective publication's CI is required before acceptance.
+Verdict: Approve. No unresolved correctness or API findings. Exact corrective
+head `95f0706d7c906cbbbfe90ae633194134a25532cc` passes all 35 CI checks,
+including ARM wheels; capture `aad-dupire-replay-ci-05.jsonl`.
 
 ## Findings
 
@@ -73,8 +74,7 @@ Evidence root:
 
 ## Open questions and limits
 
-The combined-diagnostic FMA fixture passes the final local check. Exact new-head
-CI, especially ARM wheels, remains required.
-Core/Hybrid prior 35-check acceptance cannot certify this correction. P01,
+The combined-diagnostic FMA fixture and exact corrective-head CI pass.
+This acceptance applies to the correction at `95f0706d`. P01,
 Excel/common curve integration, the remaining Stage B/C/D work and final audit
 remain open; neither full F01 nor the overall objective is complete.

@@ -10,6 +10,7 @@
 #include <dal/storage/json.hpp>
 
 #include <dal-public/src/dupirerisk.hpp>
+#include <dal-public/src/models.hpp>
 
 namespace Dal {
     namespace {
@@ -131,6 +132,27 @@ namespace Dal {
             return seeds;
         }
     } // namespace
+
+    AAD::MertonIVS_ NewMertonIVS(double spot, double vol, double intensity, double averageJump, double jumpStd) {
+        REQUIRE(std::isfinite(spot) && spot > 0.0, "InvalidDupireCalibration: MertonIVS_; spot must be finite and positive");
+        REQUIRE(std::isfinite(vol) && vol >= 0.0, "InvalidDupireCalibration: MertonIVS_; vol must be finite and nonnegative");
+        REQUIRE(std::isfinite(intensity) && intensity >= 0.0, "InvalidDupireCalibration: MertonIVS_; intensity must be finite and nonnegative");
+        REQUIRE(std::isfinite(averageJump), "InvalidDupireCalibration: MertonIVS_; average_jump must be finite");
+        REQUIRE(std::isfinite(jumpStd) && jumpStd >= 0.0, "InvalidDupireCalibration: MertonIVS_; jump_std must be finite and nonnegative");
+        return {spot, vol, intensity, averageJump, jumpStd};
+    }
+
+    Handle_<ModelData_> NewDupireModelData(const String_& name,
+                                           const DupireCalibrationSnapshot_& calibration,
+                                           const String_& index,
+                                           const String_& currency,
+                                           const String_& factor,
+                                           double maxStep) {
+        const auto& frozen = *calibration.Surface();
+        const auto surface = NewLocalVolSurfaceData(frozen.Name(), frozen.spots_, frozen.times_, frozen.vols_);
+        return Detail::NewLocalVolModelData(
+            name, {index, currency, factor, calibration.Spot(), calibration.Rate(), calibration.DividendYield(), maxStep}, surface);
+    }
 
     DupireCalibrationSnapshot_ CalibrateDupireWithRisk(const BSModelData_& baseModel, const DupireRiskInputs_& inputs, const String_& name) {
         return CalibrateDupireWithRisk(ConstantVolIVS_(baseModel), inputs, name);

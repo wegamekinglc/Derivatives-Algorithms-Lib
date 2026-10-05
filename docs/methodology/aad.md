@@ -812,6 +812,10 @@ the calibration snapshot, method `NativeAADCalibrationVJP` and unit `decimal-vol
 `dal-public/src/dupirerisk.hpp` connects an existing `ValueByMonteCarloWithRisk`
 result to its calibration snapshot. Select the local-volatility component by
 name and use the snapshot's surface when constructing the Hybrid model:
+`NewDupireModelData(name, calibration, index, currency, factor, maxStep=1/12)`
+provides a detached one-factor model with `equity` and `rate` components,
+preserving the frozen spot and deterministic carry. Python and
+[Excel](../excel/README.md#dupire-quote-risk) expose the same convenience.
 
 ```cpp
 #include <dal-public/src/dupirerisk.hpp>

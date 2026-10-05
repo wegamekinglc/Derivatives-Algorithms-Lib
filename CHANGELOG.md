@@ -28,7 +28,9 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   [AAD methodology](docs/methodology/aad.md#discrete-dupire-calibration-pullback).
   Python exposes the full chain with keyword configuration, custom/Merton IVS,
   detached surfaces and readonly passive results; the public C++ flat-BS
-  convenience preserves deterministic carry.
+  convenience preserves deterministic carry. Excel exposes immutable calibration,
+  seed and result handles with detached getters and complete model/valuation
+  quote pullback; a shared model factory preserves frozen carry in both bindings.
 
 - **Structured script risk across C++, Python and Excel** —
   `ValueByMonteCarloWithRisk` / `MonteCarlo_ValueWithRisk` return passive scalar
