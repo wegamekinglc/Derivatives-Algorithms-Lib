@@ -3,6 +3,7 @@
 #define _Regex_traits _Regex_traits_Excel
 #include "_excel.hpp"
 #include "__excel_test_api.hpp"
+#include "__registrationhelp.hpp"
 #include "_xlcall.hpp"
 #include <algorithm>
 #include <deque>
@@ -1339,7 +1340,7 @@ namespace Dal {
                 const Vector_<String_>& arg_help,
                 bool is_volatile)
             : dllName_(dll_name), cName_(c_name), xlName_(xl_name), help_(help), argTypes_(arg_types),
-              argNames_(arg_names), argHelp_(arg_help), volatile_(is_volatile) {}
+              argNames_(arg_names), argHelp_(Excel::RegistrationHelp(arg_names, arg_help)), volatile_(is_volatile) {}
     };
 
     static Vector_<XLFunc_>& TheFunctions() { RETURN_STATIC(Vector_<XLFunc_>); }

@@ -133,10 +133,12 @@ all prices and risks satisfy rel/abs 1e-10, and every LSM sample is bitwise equa
 The [complete production report](../performance/aad-production-profiling.md)
 records all 65 formal, 44 MC, 25 curve and 44 matched-prefix cases, plus all
 scaling/resource/overhead rows. The nine-target gate passes unchanged. Curve
-confirmation passes 25/25, but full MC confirmation is 43/44 and matched-prefix
-confirmation is 42/44 with different failing cases. Same-binary control passes
-44/44; CPU-4 European isolation passes 7/7. Overall production performance remains
-inconclusive on the shared WSL2 host, so P01 and Stage A stay open.
+confirmation passes 25/25. Earlier MC confirmations are 43/44 and 42/44 with
+different failed cases; all remain retained. The final current-head complete
+confirmation now passes 44/44, with 600 processes, 1,240 unchanged inputs and
+bitwise LSM PV/risk parity. See the
+[final production report](../performance/aad-production-final-confirmation.md).
+P01 local acceptance is complete; final whole-PR checks still remain.
 
 Evidence now persists under the home cache; exact source/baseline checkouts and
 the `/tmp` alias were restored after cleanup. All 1,681 frozen source/helper/binary
@@ -640,7 +642,7 @@ overlapping acceptance work is included once in the integration allowance.
 |-------------------------|-------------------------------------------------------------------------------|---------------------------------------------------------|-----------------------|
 | C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                                 | Accepted exact-head checks                              | 0                     |
 | Scalar D04              | Accepted C++/Python/Excel                                                     | Accepted exact-head checks                              | 0                     |
-| P01                     | Tooling complete; production MC acceptance inconclusive                       | Published tooling; performance verdict open             | 2–5                   |
+| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass                 | Profiling CI accepted; final whole-PR CI remains          | 0                     |
 | F01                     | C++ accepted; Python/Excel interfaces and focused parity verified             | Common own 35 accepted; consolidated final CI/audit open | 0.25–0.5              |
 | F02                     | Multiple outputs and portfolio integration remain                             | Open                                                    | 7–11                  |
 | P02/P03                 | Worker reuse/block selection/extraction remain                                | Open                                                    | 4–7                   |
@@ -649,26 +651,33 @@ overlapping acceptance work is included once in the integration allowance.
 | F04                     | Second-order implementation/estimator validation remain                       | Open                                                    | 12–20                 |
 | Final integration/audit | Cross-platform/binding/docs/performance acceptance remains                    | Open                                                    | 7–11                  |
 
-Remaining total: approximately 53–90 person-days, or 11–18 working weeks,
+Remaining total: approximately 52–85 person-days, or 10–17 working weeks,
 excluding CI queue time. F01 interfaces are implemented and locally verified;
 publication/audit needs roughly 0.25–0.5 person-day. Native algorithms and
 independent mathematical acceptance already exist. This is a rough
 effort estimate, not a guaranteed completion date. Re-estimate when review
 findings change the scope.
 
-The current PR-to-merge boundary has approximately 4.25–9.5 person-days remaining:
-F01 0.25–0.5, production performance 2–5 and whole-PR fixes/merge validation 2–4.
+The current PR-to-merge boundary is roughly several hours to one person-day:
+interfaces and production performance are locally accepted. Whole-PR intake
+finds a Windows registration-help defect affecting all four configurations;
+the focused repair passes portable tests and MSVC syntax. Remaining uncertainty
+is its publication-head CI and final review, rather than new feature development.
 These tasks are already included in the overall estimate; do not add
 the first delivery estimate again. Subsequent stages require new PRs.
 
-PR #480 review intake has started while the remaining interfaces are developed;
-the concentrated whole-PR repair/merge phase still follows complete F01 as the
-user requested. The paginated thread audit has no unresolved threads at
+PR #480 is now in concentrated review/repair. The paginated thread audit has no
+unresolved threads at `7a46b932`; initial accepted common publication is
 `d51df72d4ac4a82c14a612a03088c9bd521725b9`. Its final own-head capture has all
 35 checks successful. The consolidated Python/Excel head needs its own checks.
 This is preparation, not a completed whole-PR code
 review or merge acceptance. Evidence: `aad-pr-fix-review-threads-02.jsonl` and
 `aad-pr-fix-checks-02.jsonl`; initial TLS capture failures are retained separately.
+The latest intake/repair and remaining gates are in the
+[whole-PR review](../reviews/aad-pr-480-final.md). Four `7a46b932` MSVC legs each
+pass their new request behavior but fail the unchanged global registration-help
+count assertion. The repair adds help only for the implicit trailing format
+argument; explicit help and all other malformed registrations remain unchanged.
 
 ### Earlier snapshots retained for acceptance context
 
@@ -1028,15 +1037,16 @@ corrected head passes fresh correctness and all changed-workload comparisons;
 all 46 exact publication-head CI checks subsequently pass at `0ee84e1`.
 Do not reuse the ownership snapshot's acceptance as proof for these new changes.
 
-Next: publish the locally verified automatic Python and common/automatic Excel
-requests together, inspect their exact-head checks asynchronously and complete
-the F01 requirement audit. Common Python and both C++ requests have accepted
-own-head CI. The Excel review retains focused checks and affected legacy costs.
+Next: publish the concentrated registration fix and production acceptance report,
+inspect all exact-head checks and complete F01/whole-PR acceptance. Automatic
+Python and common/automatic Excel are published together at `7a46b932`.
+Common Python and both C++ requests have accepted own-head CI. The Excel review
+retains focused checks and affected legacy costs.
 Use the focused validation amendment above and continue independent PR issue
 intake during interface development.
 After full F01 acceptance, review/fix the entire current PR and reconcile
-P01's unresolved performance with controlled-environment evidence;
-retain every failure and do not replace the threshold or sample until a pass.
+P01's final performance evidence with the measured native inputs;
+retain every earlier failure and the original thresholds and workload.
 Update against master, inspect exact final-head CI and every review thread,
 then merge PR #480 under the user's authorization. Start subsequent F02 and
 other plan stages in new PRs, under their controlling designs.

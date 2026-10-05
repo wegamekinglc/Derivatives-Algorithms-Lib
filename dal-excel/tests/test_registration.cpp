@@ -8,6 +8,7 @@
 
 // Parse DAL's VOID enum before Windows.h defines its VOID macro.
 #include <dal-excel/src/__excel_test_api.hpp>
+#include <dal-excel/src/__registrationhelp.hpp>
 
 namespace {
     std::string CaseSensitive(const Dal::String_& value) { return std::string(value.c_str()); }
@@ -15,6 +16,22 @@ namespace {
 
 TEST(ExcelRegistrationPortableTest, TestCaseSensitiveComparisonRejectsLowercaseExcelName) {
     ASSERT_NE(CaseSensitive(Dal::String_("rateportfolioquoterisk.spill")), "RATEPORTFOLIOQUOTERISK.SPILL");
+}
+
+TEST(ExcelRegistrationPortableTest, TestGeneratedFormatHelpPreservesExplicitMetadata) {
+    const Dal::Vector_<Dal::String_> source{"Source handle"};
+    for (const auto* names : {"settings,format", "request,format", "plan,format"}) {
+        const auto help = Dal::Excel::RegistrationHelp(names, source);
+        ASSERT_EQ(help.size(), 2);
+        ASSERT_EQ(help.front(), source.front());
+        ASSERT_EQ(help.back(), "Desired screen layout of outputs; blank uses the default layout");
+    }
+    ASSERT_EQ(source.size(), 1);
+    const Dal::Vector_<Dal::String_> complete{"Source handle", "Custom format help"};
+    ASSERT_EQ(Dal::Excel::RegistrationHelp("settings,format", complete), complete);
+    ASSERT_EQ(Dal::Excel::RegistrationHelp("settings", source), source);
+    ASSERT_EQ(Dal::Excel::RegistrationHelp("first,second,format", source), source);
+    ASSERT_TRUE(Dal::Excel::RegistrationHelp("", {}).empty());
 }
 
 #ifdef _WIN32

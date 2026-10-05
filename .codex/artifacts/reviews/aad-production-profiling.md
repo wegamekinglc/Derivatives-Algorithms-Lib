@@ -1,10 +1,12 @@
 # Native production profiling review
 
-Verdict: Request Changes pending resolved production performance acceptance.
+Verdict: Comment Only pending final whole-PR checks. The
+[complete current-head confirmation](../performance/aad-production-final-confirmation.md)
+passes all 44 MC cases and resolves the prior performance finding retained below.
 Exact `8886c083` passes all 35 applicable CI checks, including all four MSVC
 configurations and the full sanitizer/TSan matrix. Resource/scaling/overhead
-measurement is complete. P01 remains open for default-OFF affected production
-performance. The overall implementation goal remains active.
+measurement is complete. Default-OFF production performance is locally accepted;
+the final PR head needs its own complete checks. The overall goal remains active.
 
 ## Findings
 
@@ -15,7 +17,9 @@ prefix comparison has a byte-identical GSR European object but passes 42/44:
 vanilla native AAD tree is +6.3848%/+7.7373%, four-node GSR AAD calibration is
 +4.2605%/+5.0575%. The failing identities and timing minima remain unstable
 on this shared WSL2 host. Verdict is inconclusive, and every failure is retained.
-Do not replace the full-suite acceptance with the passing controls or CI.
+Those earlier results remain inconclusive. The new full current-head confirmation
+uses the original workload and two-round/thirty-process policy and passes 44/44;
+it does not replace full acceptance with controls or CI.
 
 The complete [measurement report](../performance/aad-production-profiling.md)
 contains each formal/supplemental case and the 24-profile, 2,496-process
@@ -91,5 +95,7 @@ The unchanged nine-target two-by-ten/4% gate passes for the frozen 5a6382b
 default-OFF binaries: 65 comparable cases and the Sobol ratio rule pass; ten
 new cases remain informational. Those executable/configuration/gate hashes
 match at `8886c083`. Completed resource/scaling and current-head CI do not
-close the unresolved full production performance listed above. Any subsequent
-implementation needs its own verification. No merge is requested or performed.
+establish acceptance for later implementation by themselves. The final complete
+confirmation resolves MC performance with 600 processes and 1,240 unchanged
+inputs. Every LSM PV/risk remains bitwise equal. The user has authorized whole-PR
+fixes and merging after F01/final gates; this profiling review performs no merge.

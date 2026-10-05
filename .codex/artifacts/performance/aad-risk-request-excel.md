@@ -45,18 +45,18 @@ is reconstructed and hash-verified. Do not claim a complete first input package.
 Times are process/round minima in nanoseconds. Final capture is
 `aad-risk-request-excel-cost-paired-04/results.json`.
 
-| Existing entry | R1 old ns | R1 head ns | R1 change | R2 old ns | R2 head ns | R2 change | Verdict |
-|---|---:|---:|---:|---:|---:|---:|---|
-| request-default | 50.94 | 54.61 | +7.21% | 52.38 | 53.72 | +2.56% | PASS |
-| request-selected | 1750.97 | 1796.17 | +2.58% | 1824.35 | 1744.80 | -4.36% | PASS |
-| request-empty | 388.20 | 389.41 | +0.31% | 370.41 | 385.91 | +4.18% | PASS |
-| provenance | 1877.92 | 1809.15 | -3.66% | 1866.41 | 1838.77 | -1.48% | PASS |
-| history | 62.30 | 57.44 | -7.80% | 63.08 | 56.93 | -9.76% | PASS |
-| axis-selected | 330.92 | 292.09 | -11.73% | 311.53 | 285.03 | -8.51% | PASS |
-| axis-complete | 564.16 | 497.50 | -11.82% | 579.11 | 500.34 | -13.60% | PASS |
-| jacobian-raw | 26.87 | 26.21 | -2.47% | 26.48 | 25.81 | -2.54% | PASS |
-| jacobian-reported | 40.27 | 40.03 | -0.60% | 39.55 | 40.73 | +2.96% | PASS |
-| jacobian-empty | 22.93 | 19.74 | -13.90% | 22.25 | 19.68 | -11.55% | PASS |
+| Existing entry    | R1 old ns | R1 head ns | R1 change | R2 old ns | R2 head ns | R2 change | Verdict |
+| ----------------- | --------: | ---------: | --------: | --------: | ---------: | --------: | ------- |
+| request-default   | 50.94     | 54.61      | +7.21%    | 52.38     | 53.72      | +2.56%    | PASS    |
+| request-selected  | 1750.97   | 1796.17    | +2.58%    | 1824.35   | 1744.80    | -4.36%    | PASS    |
+| request-empty     | 388.20    | 389.41     | +0.31%    | 370.41    | 385.91     | +4.18%    | PASS    |
+| provenance        | 1877.92   | 1809.15    | -3.66%    | 1866.41   | 1838.77    | -1.48%    | PASS    |
+| history           | 62.30     | 57.44      | -7.80%    | 63.08     | 56.93      | -9.76%    | PASS    |
+| axis-selected     | 330.92    | 292.09     | -11.73%   | 311.53    | 285.03     | -8.51%    | PASS    |
+| axis-complete     | 564.16    | 497.50     | -11.82%   | 579.11    | 500.34     | -13.60%   | PASS    |
+| jacobian-raw      | 26.87     | 26.21      | -2.47%    | 26.48     | 25.81      | -2.54%    | PASS    |
+| jacobian-reported | 40.27     | 40.03      | -0.60%    | 39.55     | 40.73      | +2.96%    | PASS    |
+| jacobian-empty    | 22.93     | 19.74      | -13.90%   | 22.25     | 19.68      | -11.55%   | PASS    |
 
 ## Evidence and limits
 

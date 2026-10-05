@@ -1,7 +1,7 @@
 # 原生 AAD 生产阶段与资源测量规格
 
-状态：P01 继续实施。D00–D03 已在 `b42f9eb` 完成功能、性能、数值与 CI 验收；
-最新证据提交为 `6161e5a`。完整阶段 A 仍未完成，阶段 B/C/D 的范围保持。
+状态：P01 实现、资源/线程扩展与完整默认生产性能确认通过；最终 PR CI/审查仍需验收。
+D00–D03 已完成功能、性能、数值与 CI 验收；阶段 B/C/D 的后续范围保持。
 
 本规格落实[完整方案](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/de5dd8b20089223e6938dfd8100d463aa6d4a169/.codex/artifacts/plans/aad-improvement-plan.md)
 5.1、附录 C.2 与 D.1 中尚未完成的生产 MC 阶段、资源和线程扩展要求。
@@ -80,13 +80,20 @@ MC 完整两轮各三十次复核为 43/44；GSR 1F bond option 为 +5.0028%／+
 固定 CPU 4 的七项欧式诊断通过，1F bond option 为 +2.0630%／−1.7194%。
 按当前 CI 方法统一源码路径的新构建，两份 GSR 欧式对象完全相同；完整 MC 为 42/44，
 改由 vanilla AAD tree（+6.3848%／+7.7373%）及四节点 GSR AAD fit（+4.2605%／+5.0575%）失败。
-全部样本保留，整体性能结论为 inconclusive，不通过继续重复采样取得通过。
+全部样本保留，该次结论为 inconclusive；不能挑选通过样本或降低阈值。
+
+F01 接口收尾后，按预先固定的完整 44 案例范围，对实际 `7a46b932` 原生构建与
+原始 `b5e3caca` 基线做最终确认。Linux 后台负载较低，仍如实记录共享 WSL2 环境；
+保持 4 个线程、CPU 4/6/8/10、原路径/工作负载、两轮各 30 进程、min 和 4% 规则。
+全部 44/44 案例通过，600 进程及 1,240 冻结输入无漂移；三个 LSM 的 PV/每项风险
+全部逐位一致。原始失败不删除，最终结果与全部最小值见
+[最终生产确认](../performance/aad-production-final-confirmation.md)。
 
 24 个场景的固定路径 1/2/4/8 线程、RSS、tape、实际 CPU、归约及 OFF/ON 开销测量
 完成 2,496 次进程。价格及所有风险均满足 rel/abs `1e-10`；LSM 全部逐位一致。
 该测量包括 64/256/4096 短请求、32×32／64×64 表面、passive 对照及 1/4/16/64 输出。
 完整逐案例数据和方法限制见[当前报告](../performance/aad-production-profiling.md)。
-P01 保持未完成，资源/线程扩展已不再是缺失证据；未解决的是默认生产性能最终验收。
+P01 本地实现/测量验收已完成；整个 PR 的最新 CI 和最终审查仍是合并条件。
 
 证据实际保存于 `/home/wegamekinglc/.cache/dal-aad-evidence-20261004-8886c083/evidence`，
 `/tmp/dal-aad-evidence` 为其别名。清理后的隔离源码／基线按原 SHA 恢复，

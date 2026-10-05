@@ -1,8 +1,10 @@
 # Native AAD production measurement acceptance
 
-Status: **inconclusive overall; P01 remains open**. The unchanged formal nine-target gate passes;
-the current original-baseline full MC confirmation fails one supplemental case.
-Resource/scaling measurements are complete. Exact `8886c083` CI passes all 35 checks.
+Status: production performance now passes the complete current-head confirmation.
+The [final 44-case report](aad-production-final-confirmation.md) resolves the
+earlier inconclusive MC evidence retained below. The original nine-target and
+25-case curve gates, resources/scaling and exact `8886c083` profiling CI pass.
+Whole-PR final-head CI and review remain required.
 
 ## Identities and protocol
 
@@ -387,9 +389,10 @@ Positive/negative short-request differences can include code layout and host noi
   experiments should be measured separately from path-generation kernels.
 - Explicit short-path phase instrumentation costs roughly an order of magnitude; it is an opt-in
   diagnostic and cannot be used as production throughput evidence.
-- R01–R14 implementation/correctness, resources and scaling are supported; R15 exact current CI passes.
-  R16 full supplemental default-OFF acceptance and final R17 reconciliation remain open.
-  No P01/Stage A/full-plan completion is claimed and no PR merge is performed.
+- R01–R14 implementation/correctness, resources and scaling are supported; R15
+  profiling publication CI passes. R16 full default-OFF acceptance and R17 frozen
+  identities now pass in the final current-head report. Final whole-PR checks and
+  merging remain separate; Stage B/C/D implementation still remains.
 
 ## Raw evidence
 

@@ -141,7 +141,10 @@ initial paginated audit finds no unresolved review threads at `d51df72`; all 35
 own-head checks now pass. Whole-PR source review and issue repair remain open.
 F01 interface implementation and local affected-entry validation are complete;
 final publication checks and requirement audit remain, roughly 0.25–0.5
-person-day excluding CI queue time. Unresolved P01 investigation is separate.
+person-day excluding CI queue time. Final MC production confirmation now passes
+44/44 and resolves P01 performance. Windows CI reveals missing help for the
+implicit multi-output format argument; the concentrated repair is locally
+verified. See the [whole-PR review](../reviews/aad-pr-480-final.md).
 
 Complete the above acceptance before closing F01. Then perform the requested
 whole-PR problem review/fixes, resolve P01 production performance, update against
