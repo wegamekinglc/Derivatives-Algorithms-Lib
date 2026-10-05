@@ -2,7 +2,7 @@
 
 Status: Python calibration/pullback is accepted through `95f0706d` with all
 35 CI checks. The [Excel extension](aad-dupire-excel.md), including the shared
-model factory, is locally verified and needs publication-head CI. Common curve
+model factory, is accepted through `533b6602` with all 35 exact-head checks. Common curve
 adaptation remains required. The [binding review](../reviews/aad-dupire-python-bindings.md)
 retains acceptance evidence. This extends the accepted [core/Hybrid API](aad-dupire-pullback.md),
 without changing its frozen-input derivative or estimator.
@@ -78,5 +78,5 @@ comparison. Exact new-head CI is separate from previous accepted checks.
 Excel's [separate API decision](aad-dupire-excel.md) defines immutable
 nonserializable `_New`/`_Get_` handles, split grid configuration, detached
 model/surface getters and separated contributions. It is implemented and
-locally verified; this boundary does not close publication-head CI or common
-curve adaptation.
+accepted for the reviewed Excel increment; common curve adaptation and every
+later publication's exact-head CI remain required.

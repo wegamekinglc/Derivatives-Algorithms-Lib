@@ -1,8 +1,9 @@
 # F01 Excel Dupire boundary review
 
-Verdict: Comment Only. No unresolved local correctness or API findings.
-Exact publication-head CI, especially Windows DLL/registration compilation,
-remains required. This increment does not complete common curve integration,
+Verdict: Approve for the Excel Dupire increment. No unresolved correctness or
+API findings. Corrective publication `533b6602` passes all 35 exact-head CI
+checks, including Windows DLL/registration compilation and runtime tests.
+This increment does not complete common curve integration,
 P01 production acceptance or the full Stage B/C/D plan.
 
 ## Findings and design
@@ -122,7 +123,11 @@ oracle rows bitwise. Rebuilt fully instrumented ASan/UBSan passes 71 relevant
 cases again. Formatting, complete affected-file CCN-eight and documentation
 checks pass. Existing performance binaries, native archive, installed packages
 and measured helpers remain unchanged. The Windows corrective publication
-requires fresh exact-head CI acceptance.
+subsequently passes all 35 exact-head checks at `533b6602`, including the four
+MSVC configurations and wheel builds. Capture is retained in
+`aad-dupire-excel-windows-fix-ci-06.jsonl`; the earlier failed CI and syntax
+logs remain available. This accepts the Excel increment, not later native
+curve record or common-interface changes.
 
 ## Performance and limits
 
@@ -140,5 +145,5 @@ changing workload, threshold or numeric checks.
 
 This measures existing model construction, not total new Excel-wrapper cost or
 production MC throughput. P01's prior inconclusive workload evidence remains
-open. New-head CI acceptance remains separate from the already accepted
-35 checks at `95f0706d`.
+open. Excel's 35 checks at `533b6602` accept only the reviewed increment;
+every later publication still requires its own exact-head audit.

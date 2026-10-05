@@ -20,6 +20,7 @@
 #include <dal/platform/platform.hpp>
 
 #include "jointquoteriskfixtures.hpp"
+#include "quoteriskrecordchecks.hpp"
 
 namespace {
     Dal::JointMultiCurveCalibrationOptions_ InverseOptions(Dal::CurveJacobianMode_ mode = Dal::CurveJacobianMode_::Value_::ANALYTIC) {
@@ -248,6 +249,32 @@ TEST(JointQuoteRiskTest, TestV2ProvenanceKeepsDeclarationCoordinatesAndOwnsItsIn
             calibrated.effJacobianInverse_(0, 0) = 123.0;
             ASSERT_DOUBLE_EQ(provenance.EffectiveInverse()(0, 0), first);
             ASSERT_EQ(Dal::RateQuoteRiskAxisFingerprintScheme(), "dal.quote-risk-axis/1+jcs+sha256");
+        }
+}
+
+TEST(JointQuoteRiskTest, TestCapturedV2RecordRetainsCoupledRoutingAndActualMode) {
+    using namespace JointQuoteRiskFixtures;
+    for (bool layered : {false, true})
+        for (auto mode : {Dal::CurveJacobianMode_::Value_::ANALYTIC, Dal::CurveJacobianMode_::Value_::BUMPED}) {
+            const auto spec = Spec(5, 3, Dal::CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD, layered);
+            const auto options = InverseOptions(mode);
+            const auto calibrated = Dal::CalibrateJointMultiCurve(spec, options);
+            const auto market = Market(spec, calibrated);
+            auto config = Config(3);
+            const auto original = Dal::BuildJointMultiCurveQuoteRiskProvenance(spec, calibrated, options, market, config);
+            config.retainCalibrationRecord_ = true;
+            const auto captured = Dal::BuildJointMultiCurveQuoteRiskProvenance(spec, calibrated, options, market, config);
+            QuoteRiskRecordChecks::AssertMappingUnchanged(original, captured);
+            rapidjson::Document record;
+            QuoteRiskRecordChecks::ReadCapturedRecord(captured, &record);
+            ASSERT_FALSE(HasFatalFailure());
+            ASSERT_TRUE(record.HasMember("jointRouting"));
+            ASSERT_TRUE(record["result"].HasMember("jacobianModeUsed"));
+            ASSERT_EQ(std::string(record["result"]["jacobianModeUsed"].GetString()), std::string(calibrated.jacobianModeUsed_.c_str()));
+            ASSERT_TRUE(record["result"].HasMember("effectiveInverseMapping"));
+            ASSERT_EQ(std::string(record["result"]["effectiveInverseMapping"].GetString()),
+                      std::string(calibrated.effJacobianInverseMapping_.c_str()));
+            QuoteRiskRecordChecks::AssertPortfolioUnchanged(Trades(spec), market, original, captured);
         }
 }
 

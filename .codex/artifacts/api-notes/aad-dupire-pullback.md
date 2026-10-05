@@ -1,8 +1,8 @@
 # F01 calibration boundary API decision
 
-Status: core snapshot/scalar pullback and public Hybrid adapter accepted;
-Python bindings have complete local verification, while Excel, curve integration
-and final acceptance remain open. The
+Status: core snapshot/scalar pullback, public Hybrid adapter and Python/Excel
+bindings accepted through corrective publication `533b6602`. Common curve
+integration and final F01 acceptance remain open. The
 [specification](../specs/aad-dupire-pullback.md) defines the derivative and tests.
 
 Introduce `dal-cpp/dal/model/dupirerisk.hpp` with passive quote/calibration

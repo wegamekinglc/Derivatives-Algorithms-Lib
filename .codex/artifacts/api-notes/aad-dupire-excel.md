@@ -1,16 +1,15 @@
 # F01 Excel quote-risk boundary
 
-Status: implemented with complete local verification; publication-head CI
-remains required. This extends the accepted
+Status: accepted through corrective publication `533b6602` with all 35 exact-head
+CI checks. This extends the accepted
 [core/Hybrid contract](aad-dupire-pullback.md) and [Python boundary](aad-dupire-bindings.md).
-Excel acceptance and the common curve adapter remain separate requirements.
+The common curve adapter remains a separate requirement.
 
-## Audience and current gap
+## Audience and operations
 
-Worksheet users can obtain structured scalar valuation risk, but cannot create
-a Dupire calibration, a matching local-vol model, or a quote pullback. Merely
-exposing a surface is insufficient: the worksheet lacks local-vol component
-factories. Provide the complete calibration/model/valuation/quote-result chain.
+Worksheet users can create a Dupire calibration and matching local-vol model,
+obtain structured scalar valuation risk, and map it to quote contributions.
+The factories provide the complete calibration/model/valuation/quote-result chain.
 
 ## Shared C++ and Python decisions
 

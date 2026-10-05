@@ -503,6 +503,15 @@ The calibration-time provenance freezes:
 - `dal.quote-risk-axis/1+jcs+sha256` and
   `dal.quote-risk-state/1+jcs+sha256` fingerprints.
 
+Native C++ callers can set
+`RateQuoteRiskProvenanceConfig_::retainCalibrationRecord_ = true` to retain
+the complete canonical state bytes through the const `CalibrationRecord()`
+getter. The default is false and the getter then returns an empty string.
+Capture preserves the existing v1/v2 fingerprints, axes, inverse and scaling;
+the record owns its bytes after the calibration inputs are destroyed. It adds
+storage proportional to the canonical record only when requested. The getter
+returns `std::string` so comparison preserves case-sensitive byte identity.
+
 The supported transform domains are exact single-curve calibration, simultaneous
 domestic/foreign/basis XCCY calibration, staged XCCY basis calibration, and
 [generic joint multi-curve calibration](joint-quote-risk.md) with an

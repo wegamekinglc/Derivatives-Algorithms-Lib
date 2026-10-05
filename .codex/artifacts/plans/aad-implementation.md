@@ -324,8 +324,42 @@ Windows-only input test. Full DLL linking/runtime validation remains a CI
 requirement. Rebuilt OFF/combined each pass nine Excel cases with all 84
 published oracle rows bitwise unchanged; rebuilt ASan/UBSan passes 71 relevant
 cases. No enum, SDK macro, generated content, runtime math, tolerance or policy
-changes. Preserve all failed CI/local evidence. New corrective publication
-and exact-head CI remain required before accepting Excel.
+changes. Preserve all failed CI/local evidence. Corrective publication
+`533b6602` passes all 35 exact-head checks, including four complete MSVC
+build/link/runtime configurations and wheel builds. The capture
+`aad-dupire-excel-windows-fix-ci-06.jsonl` accepts the reviewed Excel increment.
+The [Excel review](../reviews/aad-dupire-excel.md) now approves that increment;
+common curve adaptation and full F01 acceptance remain open.
+
+The common boundary now has a controlling
+[specification](../specs/aad-calibration-pullback.md),
+[API decision](../api-notes/aad-calibration-pullback.md) and
+[critique](../critiques/aad-calibration-pullback.md). It requires a shared
+immutable result, complete content identity and explicit curve record capture.
+The initial native capture implementation establishes actual missing-interface
+and three-provider RED before GREEN. Six focused tests pass across all four
+provenance kinds, ANALYTIC/BUMPED and generic joint layered bases. Thirteen
+canonical records independently verify against their published SHA-256 state
+fingerprints. Ownership, case-preserving bytes and an actual inverse-disabled
+calibration pass; original ten record traces remain bitwise unchanged.
+Keep the failed fast JSON test-decoder evidence: full-precision parsing fixes
+its one-ULP read discrepancy without changing production arithmetic or assertions.
+Final OFF/combined full suites pass 2,400/2,414, including 857 Python checks and
+33 regular examples OFF. Fully instrumented ASan/UBSan passes 105 relevant
+cases; all six capture cases also pass with leak detection ON. Actual default
+and captured portfolio aggregation match every price, quote/DV01 bucket and
+metadata field exactly across all kinds, modes, layered graphs and mixed PV
+currencies. Four installed consumer runs pass eight workloads with identical
+state/axis fingerprints, inverse checksums and tolerance. The unchanged
+two-by-ten/4% nine-target gate passes all 75 comparable cases; eight separate
+default factory cost comparisons also pass. Retained opt-in records occupy
+9,115–368,141 bytes in these workloads; all 80 supplementary process numeric
+checks and input hashes pass. The
+[record review](../reviews/aad-calibration-record.md) and
+[performance report](../performance/aad-calibration-record.md) retain the
+protocol, failures and bounds. Exact new-publication CI remains required.
+The common public operation is not yet implemented; this foundation does not
+close F01 or P01 production acceptance.
 
 ### Whole-plan status and remaining effort
 
@@ -333,24 +367,24 @@ This snapshot distinguishes accepted increments from locally implemented work.
 Estimates are remaining single-developer effort, not promises of calendar time;
 overlapping acceptance work is included once in the integration allowance.
 
-| Work item               | Implementation/local verification                          | Publication/CI                                            | Remaining person-days |
-|-------------------------|------------------------------------------------------------|-----------------------------------------------------------|-----------------------|
-| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal              | Accepted exact-head checks                                | 0                     |
-| Scalar D04              | Accepted C++/Python/Excel                                  | Accepted exact-head checks                                | 0                     |
-| P01                     | Tooling complete; production MC acceptance inconclusive    | Published tooling; performance verdict open               | 2–5                   |
-| F01                     | Core/Hybrid/Python accepted; Excel verified; curve open    | Windows correction verified locally; new-head CI pending  | 6–10                  |
-| F02                     | Multiple outputs and portfolio integration remain          | Open                                                      | 7–11                  |
-| P02/P03                 | Worker reuse/block selection/extraction remain             | Open                                                      | 4–7                   |
-| F03                     | Solve, implicit calibration and PDE operators remain       | Open                                                      | 12–20                 |
-| P04/P05                 | Structural sparsity/checkpointing remain                   | Open                                                      | 9–15                  |
-| F04                     | Second-order implementation/estimator validation remain    | Open                                                      | 12–20                 |
-| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains | Open                                                      | 7–11                  |
+| Work item               | Implementation/local verification                          | Publication/CI                                 | Remaining person-days |
+|-------------------------|------------------------------------------------------------|------------------------------------------------|-----------------------|
+| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal              | Accepted exact-head checks                     | 0                     |
+| Scalar D04              | Accepted C++/Python/Excel                                  | Accepted exact-head checks                     | 0                     |
+| P01                     | Tooling complete; production MC acceptance inconclusive    | Published tooling; performance verdict open    | 2–5                   |
+| F01                     | Dupire chain accepted; curve capture locally verified      | Excel 35 checks accepted; common boundary open | 6–10                  |
+| F02                     | Multiple outputs and portfolio integration remain          | Open                                           | 7–11                  |
+| P02/P03                 | Worker reuse/block selection/extraction remain             | Open                                           | 4–7                   |
+| F03                     | Solve, implicit calibration and PDE operators remain       | Open                                           | 12–20                 |
+| P04/P05                 | Structural sparsity/checkpointing remain                   | Open                                           | 9–15                  |
+| F04                     | Second-order implementation/estimator validation remain    | Open                                           | 12–20                 |
+| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains | Open                                           | 7–11                  |
 
 Remaining total: approximately 60–100 person-days, or 12–20 working weeks.
 Allow approximately 15–25 weeks including cross-platform and performance
 investigation buffer. F01's first Hybrid oracle pass does not yet change that
 range materially. F01 now has approximately 6–10 person-days remaining after
-Excel's local verification. Re-estimate at milestones and when acceptance
+Excel acceptance. Re-estimate at milestones and when acceptance
 findings change the scope.
 
 ### Earlier snapshots retained for acceptance context
@@ -711,8 +745,10 @@ corrected head passes fresh correctness and all changed-workload comparisons;
 all 46 exact publication-head CI checks subsequently pass at `0ee84e1`.
 Do not reuse the ownership snapshot's acceptance as proof for these new changes.
 
-Next: publish the Excel Windows include-order correction and inspect its exact-head CI, then implement common
-curve adaptation after the accepted core, Hybrid and Python increments.
+Next: publish the validated native record foundation and inspect exact-head CI,
+then implement the shared calibration operation/result and Python/Excel adapters.
+Retain the full request, payload-budget and market-coordinate integration audit
+before closing F01.
 Continue F02 output seeds under their controlling design.
 Reconcile P01's unresolved performance with controlled-environment evidence;
 retain every failure and do not replace the threshold or sample until a pass.
