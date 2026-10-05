@@ -1,6 +1,8 @@
 # PR #480 concentrated review and repair
 
-Verdict: Request Changes until the registration repair's exact-head CI succeeds.
+Verdict: Ready for merge once the final review repair's exact-head CI succeeds.
+The registration repair at `64bf01a6` passes all 36 checks, including all four
+actual Windows configurations and the unchanged registration assertion.
 No further local correctness or compatibility finding remains from the reviewed
 native, calibration/request, binding, build/export and documentation boundaries.
 
@@ -27,6 +29,12 @@ group must precede DAL includes in `dal-cpp/dal/benchmarks/aad.hpp` and
 groups so clang-format preserves it. Only includes move; no declaration,
 expression, layout, recording or benchmark workload changes. Keep the accepted
 mathematical and performance evidence and require the final publication's own CI.
+
+Resolved locally from the automatic review overview: the native-header fixture
+`tests/native-aad/header/main.cpp` needs the three-line Created-by file header.
+Add that comment without changing its include or executable body. This overview
+nit was not represented by either review thread; both the overview and all
+paginated threads are included in the final review audit.
 
 ## Review scope and F01 requirement reconciliation
 
@@ -58,7 +66,8 @@ belong to later PRs. No full-plan completion is inferred from this PR.
 
 None requiring user input. The user authorized F01-first whole-PR repair and
 merge. Final native/Python/Excel platform checks and policy state must permit
-merge; keep the PR draft until those gates and the review are accepted.
+merge. The PR is ready for review; merge only after its final publication's own
+checks and the repeated completion audits are accepted.
 
 ## Tests
 
