@@ -361,6 +361,21 @@ protocol, failures and bounds. Exact new-publication CI remains required.
 The common public operation is not yet implemented; this foundation does not
 close F01 or P01 production acceptance.
 
+Initial capture publication `28b4e180` fails acceptance: 12 of 35 checks
+succeed, 22 builds fail and Codacy requests const-reference JSON input.
+The new native tests omit their private bundled RapidJSON include path;
+the local `/usr/local` header masks it. The correction declares that path
+only for the native test target and reads the JSON tree by const reference.
+Actual MSVC reproduces both missing-header failures, then passes all six
+production/test OFF/combined syntax checks. Rebuilt full OFF/combined pass
+2,400/2,414; rebuilt ASan/UBSan passes 105 plus six leak-enabled capture cases.
+All thirteen traces remain bitwise unchanged with the bundled parser, and
+fresh installed consumers retain numeric parity. Preserve every failed log.
+Fresh corrected performance passes all 75 gate cases and eight default factory
+cost comparisons under the unchanged two-by-ten/4% policy. All eighty process
+numeric checks and measured input hashes pass. Exact corrective publication
+CI must pass before accepting the foundation.
+
 ### Whole-plan status and remaining effort
 
 This snapshot distinguishes accepted increments from locally implemented work.

@@ -86,5 +86,35 @@ preserve numeric checks and input hashes. Retained record sizes are 9,115–368,
 bytes in these cases. This is a bounded incremental no-regression verdict;
 P01's production MC acceptance remains inconclusive.
 
-The native foundation is locally ready for publication and exact-head CI.
+The native foundation requires corrected publication and exact-head CI.
 Full shared calibration/F01/AAD acceptance remains open.
+
+## Publication correction
+
+Initial publication `28b4e180` completes 35 checks with 12 successes, 22 build
+failures and one Codacy action-required result. It is not accepted. Linux and
+MSVC fail to find `rapidjson/document.h` in the new test helper: the dependency
+was private to the core library but not declared for the native test target.
+The local `/usr/local/include` copy masked that omission. Preserve the complete
+check capture and representative GCC/MSVC failed build logs. Codacy separately
+flags the read-only Json_ argument being passed by value.
+
+Declare bundled RapidJSON privately on `dal_cpp_tests`; keep the installed
+public interface unchanged. Read JSON through a const reference and move only
+the canonical string into retained ownership. The generic joint caller no
+longer moves its JSON tree. Actual local MSVC reproduces both test failures
+under the old include flags; production/single/joint units each pass OFF and
+combined with the declared path. Preserve raw bytes and decoded output because
+this compiler emits localized messages. The first UTF-8-only runner fails to
+decode them; the corrected capture retains raw output and detects its encoding.
+
+Rebuilt OFF/combined full suites pass 2,400/2,414. Rebuilt ASan/UBSan passes
+105 relevant cases; six native capture cases pass with leak detection ON.
+The dependency file confirms tests now use the bundled header. All thirteen
+canonical traces remain bitwise identical, and fresh installed prefixes each
+pass the existing eight-workload consumer. Fresh corrected performance runs
+pass all 75 nine-target cases, eight default factory costs and eighty numeric
+process checks under the original policy. The updated performance report pins
+the corrected native patch and fresh input hashes while retaining initial
+evidence. Exact corrective publication CI remains required; retain every
+original threshold and failed log.

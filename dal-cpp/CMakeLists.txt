@@ -242,7 +242,9 @@ if(DAL_CPP_BUILD_TESTS)
         target_compile_definitions(dal_cpp_tests PRIVATE DAL_TEST_MIXED_SIMD)
     endif()
     target_link_libraries(dal_cpp_tests PRIVATE dal_cpp gtest gtest_main gmock gmock_main)
-    target_include_directories(dal_cpp_tests PRIVATE "${PROJECT_SOURCE_DIR}/test-support")
+    target_include_directories(dal_cpp_tests PRIVATE
+        "${PROJECT_SOURCE_DIR}/test-support"
+        "${PROJECT_SOURCE_DIR}/externals/rapidjson/include")
     dal_apply_platform_options(dal_cpp_tests)
 
     gtest_discover_tests(dal_cpp_tests)

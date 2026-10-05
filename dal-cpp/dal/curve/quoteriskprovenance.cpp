@@ -2183,7 +2183,7 @@ namespace Dal {
     };
 
     namespace {
-        void FreezeStateRecord(Json_ record, bool retain, RateQuoteRiskProvenance_::Data_* data) {
+        void FreezeStateRecord(const Json_& record, bool retain, RateQuoteRiskProvenance_::Data_* data) {
             auto canonical = Jcs(record);
             data->state_.fingerprint_ = FingerprintCanonical(canonical);
             if (retain)
@@ -2275,7 +2275,7 @@ namespace Dal {
                                   GenericJointResultJson(spec, result), data->reason_, specRecord, result.effJacobianInverse_, data->tolerance_);
         state.object_["scheme"] = Json_::String(JOINT_STATE_SCHEME);
         state.object_["jointRouting"] = JointRoutingJson(boundMarket, data->bindings_);
-        FreezeStateRecord(std::move(state), config.retainCalibrationRecord_, data.get());
+        FreezeStateRecord(state, config.retainCalibrationRecord_, data.get());
         return RateQuoteRiskProvenance_(data);
     }
 

@@ -7,8 +7,9 @@ new-publication CI remain open. P01 production MC remains inconclusive.
 ## Inputs and environment
 
 Baseline is the last accepted native publication
-`533b6602f563dba78005fd9a63194b150d588af3`. The measured head is that parent plus native patch
-SHA-256 `bbd83cefc78d8f7ab89ad04d001a45e477548cb781a824a89a5543565b5482f1`. The evidence manifest pins every
+`533b6602f563dba78005fd9a63194b150d588af3`. The measured head is publication `28b4e180` plus its const-reference and
+private-test-dependency correction. Cumulative native patch relative to the
+accepted baseline has SHA-256 `2ac992f0d5368d5602bc953bfb3949b3a117cae4837d3899ccdb775cd9485f3a`. The evidence manifest pins every
 native/header, archive and executable input. Compiler: c++ (Ubuntu 15.2.0-16ubuntu1) 15.2.0.
 Release, native AAD, Eigen ON, native-architecture OFF, lifetime/profiling OFF,
 static core/public; both factory consumers use equivalent CMake Release flags.
@@ -42,81 +43,81 @@ each independent comparison. A single round above 4% is not a two-round failure.
 
 | Case                                                                                 | Base ns     | Head ns     | Round 1 % | Round 2 % | Verdict       |
 |--------------------------------------------------------------------------------------|-------------|-------------|-----------|-----------|---------------|
-| tape_perf: Clear + re-record (100K nodes)                                            | 859601.00   | 856708.00   | -1.0878   | -0.3366   | No regression |
-| tape_perf: PropagateToStart (100K nodes)                                             | 388563.00   | 388171.00   | -0.0229   | -0.1823   | No regression |
-| tape_perf: PropagateToStart multi-mode (100K nodes, 10 results)                      | 484315.00   | 483480.00   | -0.1724   | +0.1737   | No regression |
-| tape_perf: PropagateToStart multi-mode (50K steps, 1 result)                         | 381127.00   | 380254.00   | -0.9737   | +0.6998   | No regression |
-| tape_perf: PropagateToStart multi-mode (50K steps, 16 results)                       | 638976.00   | 631142.00   | -0.7784   | -1.2260   | No regression |
-| tape_perf: PropagateToStart multi-mode (50K steps, 4 results)                        | 380553.00   | 380695.00   | -0.7376   | +0.3784   | No regression |
-| tape_perf: PropagateToStart multi-mode (50K steps, 64 results)                       | 6488000.00  | 6430000.00  | +0.2308   | -0.8940   | No regression |
-| tape_perf: PropagateToStart passive constants (50K steps)                            | 147330.00   | 147471.00   | +0.0957   | +0.0271   | No regression |
-| tape_perf: Rewind + passive-constant recording (50K steps)                           | 236346.00   | 236275.00   | +0.0317   | -0.0300   | No regression |
-| tape_perf: Rewind + re-record (100K nodes)                                           | 566635.00   | 567545.00   | -0.1021   | +0.2903   | No regression |
-| tape_perf: ZeroAdjoints sweep (100K nodes)                                           | 111218.00   | 111326.00   | +0.0971   | -0.0474   | No regression |
-| jacobian_perf: AnalyticJacobian dense harvest (24 x 23)                              | 4709.00     | 4703.00     | +0.1274   | -0.1698   | No regression |
-| jacobian_perf: AnalyticJacobian row-width harvest (24 x 23)                          | 4656.00     | 4667.00     | +0.2576   | +0.2363   | No regression |
-| jacobian_perf: HarvestCurveJacobian dense (23 outputs x 24 parameters)               | 4321.00     | 4326.00     | +0.1157   | +0.3236   | No regression |
-| jacobian_perf: HarvestCurveJacobian dense (95 outputs x 96 parameters)               | 62018.00    | 61993.00    | -0.0645   | +0.0113   | No regression |
-| jacobian_perf: HarvestCurveJacobian proven prefix (23 outputs x 24 parameters)       | 3781.00     | 3777.00     | -0.1058   | +0.0264   | No regression |
-| jacobian_perf: HarvestCurveJacobian proven prefix (95 outputs x 96 parameters)       | 58084.00    | 58115.00    | +0.0534   | -0.0825   | No regression |
-| pde_perf: ThetaScheme rollback (200x200 CN)                                          | 222694.00   | 214748.00   | +0.0238   | -3.6521   | No regression |
-| pde_perf: ThetaScheme rollback (200x200 implicit)                                    | 215161.00   | 214583.00   | +3.5220   | -2.9989   | No regression |
-| pde_perf: ThetaScheme rollback (200x2000 explicit)                                   | 658735.00   | 661185.00   | +0.3901   | +0.3409   | No regression |
-| rng_perf: BrownianBridge FillNormal (100K x 10D)                                     | 6329000.00  | 6318000.00  | -2.6559   | -0.1738   | No regression |
-| rng_perf: IRN SkipNormalTo (100K x 10D)                                              | 7691000.00  | 7691000.00  | -0.1298   | +0.0000   | No regression |
-| rng_perf: MRG32 SkipNormalTo (100K x 10D)                                            | 1292.00     | 1291.00     | -0.3089   | +0.0774   | No regression |
-| rng_perf: MRG32k3a FillNormal (100K x 10D)                                           | 19260000.00 | 19206000.00 | -0.2737   | -0.2804   | No regression |
-| rng_perf: ShuffledIRN FillNormal (100K x 10D)                                        | 10504000.00 | 10503000.00 | +0.0475   | -0.0095   | No regression |
-| rng_perf: Sobol FillNormal fast (100K x 10D)                                         | 3985000.00  | 4004000.00  | -0.3732   | +0.5019   | No regression |
-| rng_perf: Sobol FillNormal precise opt-in (100K x 10D)                               | 37408000.00 | 37227000.00 | +1.2324   | -0.7042   | No regression |
-| rng_perf: Sobol FillUniform (100K x 10D)                                             | 752730.00   | 745317.00   | -0.8725   | -0.9848   | No regression |
-| interp_perf: Cubic interp (50 knots, 10K queries)                                    | 50220.00    | 50196.00    | -0.1869   | -0.0478   | No regression |
-| interp_perf: Inlined linear LV-style (1e5 paths x 200 steps, 200 knots)              | 97553000.00 | 97477000.00 | -0.0051   | -0.1598   | No regression |
-| interp_perf: Linear interp (50 knots, 10K queries)                                   | 42172.00    | 42166.00    | +0.1873   | -0.0877   | No regression |
-| krylov_perf: BCGSolve (500x500 tridiag)                                              | 60983.00    | 60968.00    | +0.0853   | -0.0459   | No regression |
-| krylov_perf: CGSolve (500x500 tridiag)                                               | 51356.00    | 51636.00    | +0.2286   | +0.5452   | No regression |
-| banded_perf: TriDecomp MultiplyLeft (10K)                                            | 4491.00     | 4493.00     | +0.0445   | +0.0445   | No regression |
-| banded_perf: TriDiagonal Decompose (10K)                                             | 76730.00    | 76774.00    | +0.1447   | -0.1028   | No regression |
-| banded_perf: TriDiagonal MultiplyLeft (10K)                                          | 4686.00     | 4685.00     | +0.0000   | -0.0213   | No regression |
-| cholesky_perf: CholeskyDecompose (200x200)                                           | 225524.00   | 225319.00   | -0.0909   | -0.0168   | No regression |
-| cholesky_perf: CholeskyDecompose+Multiply (200x200)                                  | 224987.00   | 224978.00   | -0.0378   | +0.0600   | No regression |
-| rate_risk_perf: Quote risk aggregate (joint XCCY)                                    | 218650.00   | 221998.00   | +1.5312   | +4.4443   | No regression |
-| rate_risk_perf: Quote risk aggregate (single curve)                                  | 8906.00     | 8918.00     | +0.1347   | -0.0324   | No regression |
-| rate_risk_perf: Quote risk aggregate (staged XCCY basis)                             | 60191.00    | 60309.00    | +0.1960   | +2.7502   | No regression |
-| rate_risk_perf: Quote risk generic joint (100 IRS x N=10)                            | 1121000.00  | 1123000.00  | +0.1784   | -2.0725   | No regression |
-| rate_risk_perf: Quote risk generic joint (100 IRS x N=16)                            | 1698000.00  | 1698000.00  | +0.0000   | +0.7441   | No regression |
-| rate_risk_perf: Quote risk generic joint (100 IRS x N=5)                             | 809793.00   | 807934.00   | -0.2296   | -0.8828   | No regression |
-| rate_risk_perf: Quote risk generic joint (1000 IRS x N=10)                           | 10710000.00 | 10640000.00 | -0.6536   | -0.2897   | No regression |
-| rate_risk_perf: Quote risk generic joint (1000 IRS x N=16)                           | 16562000.00 | 16569000.00 | +0.0423   | +0.4961   | No regression |
-| rate_risk_perf: Quote risk generic joint (1000 IRS x N=5)                            | 7706000.00  | 7644000.00  | -0.8046   | +0.8657   | No regression |
-| rate_risk_perf: Quote risk generic joint node reference (100 IRS x N=10)             | 1063000.00  | 1059000.00  | -0.3763   | -3.2520   | No regression |
-| rate_risk_perf: Quote risk generic joint node reference (100 IRS x N=16)             | 1636000.00  | 1635000.00  | -0.0611   | +0.9074   | No regression |
-| rate_risk_perf: Quote risk generic joint node reference (100 IRS x N=5)              | 763213.00   | 759467.00   | -0.4908   | +1.8154   | No regression |
-| rate_risk_perf: Quote risk generic joint node reference (1000 IRS x N=10)            | 10518000.00 | 10541000.00 | +0.2187   | -2.7790   | No regression |
-| rate_risk_perf: Quote risk generic joint node reference (1000 IRS x N=16)            | 16358000.00 | 16410000.00 | +0.3179   | -0.5818   | No regression |
-| rate_risk_perf: Quote risk generic joint node reference (1000 IRS x N=5)             | 7543000.00  | 7501000.00  | -0.5568   | +0.5293   | No regression |
-| rate_risk_perf: Quote risk portfolio joint ANALYTIC (24 XCCY x N=10/block)           | 4405000.00  | 4427000.00  | +0.4994   | +0.2455   | No regression |
-| rate_risk_perf: Quote risk portfolio joint BUMPED (24 XCCY x N=10/block)             | 4429000.00  | 4432000.00  | +0.0677   | +1.1997   | No regression |
-| rate_risk_perf: Quote risk portfolio single ANALYTIC (120 deposits x N=5)            | 121645.00   | 121923.00   | +0.2285   | +2.8951   | No regression |
-| rate_risk_perf: Quote risk portfolio single BUMPED (120 deposits x N=16)             | 168497.00   | 169489.00   | +0.5887   | +0.4883   | No regression |
-| rate_risk_perf: Quote risk portfolio staged ANALYTIC (24 XCCY x N=16)                | 3465000.00  | 3475000.00  | +0.2886   | -0.3619   | No regression |
-| rate_risk_perf: Quote risk portfolio staged BUMPED (24 XCCY x N=5)                   | 1247000.00  | 1247000.00  | +0.0000   | +0.0772   | No regression |
-| rate_risk_perf: Rate AAD 2 components (1024 IRS x 8 nodes, fixed maturities)         | 5018000.00  | 4981000.00  | -0.7373   | +0.4444   | No regression |
-| rate_risk_perf: Rate AAD 2 components (256 IRS x 8 nodes, fixed maturities)          | 1238000.00  | 1235000.00  | -0.2423   | -0.6197   | No regression |
-| rate_risk_perf: Rate AAD 2 components (32 IRS x 8 nodes, fixed maturities)           | 151469.00   | 150861.00   | -0.4014   | -1.7761   | No regression |
-| rate_risk_perf: Rate OIS daily compounding sweep (5Y quarterly x daily)              | 209044.00   | 209457.00   | +0.1976   | -0.0478   | No regression |
-| rate_risk_perf: Rate PV (1024 IRS x 8 nodes, fixed maturities)                       | 2440000.00  | 2419000.00  | -0.8607   | -4.0062   | No regression |
-| rate_risk_perf: Rate PV (256 IRS x 8 nodes, fixed maturities)                        | 604071.00   | 603252.00   | -0.1356   | -0.4348   | No regression |
-| rate_risk_perf: Rate PV (32 IRS x 8 nodes, fixed maturities)                         | 74737.00    | 74417.00    | -0.4282   | -0.7290   | No regression |
-| rate_risk_perf: Rate XCCY batch serial (24 XCCY x 5 components)                      | 766593.00   | 764002.00   | -0.3380   | +0.1807   | No regression |
-| rate_risk_perf: Rate batch serial (120 IRS x 2 components)                           | 1254000.00  | 1240000.00  | -1.1164   | +0.9456   | No regression |
-| rate_risk_perf: Rate prepare geometry (256 IRS x 8 nodes, fixed maturities)          | 542147.00   | 533719.00   | -1.5546   | +0.7579   | No regression |
-| rate_risk_perf: Rate prepare geometry (32 IRS x 8 nodes, fixed maturities)           | 64373.00    | 63986.00    | -0.6012   | -0.1618   | No regression |
-| rate_risk_perf: Rate prepared AAD 2 components (256 IRS x 8 nodes, fixed maturities) | 706410.00   | 703507.00   | -0.4110   | +4.0733   | No regression |
-| rate_risk_perf: Rate prepared AAD 2 components (32 IRS x 8 nodes, fixed maturities)  | 84080.00    | 84313.00    | +0.2771   | +0.3953   | No regression |
-| rate_risk_perf: Rate prepared PV (256 IRS x 8 nodes, fixed maturities)               | 106514.00   | 105582.00   | -1.1747   | +2.4917   | No regression |
-| rate_risk_perf: Rate prepared PV (32 IRS x 8 nodes, fixed maturities)                | 12751.00    | 12428.00    | -2.5331   | -0.8038   | No regression |
-| rate_risk_perf: Rate single-trade sweeps (240 IRS calls)                             | 1957000.00  | 1970000.00  | +0.6643   | +0.1471   | No regression |
+| tape_perf: Clear + re-record (100K nodes)                                            | 848560.00   | 846010.00   | -0.3005   | +0.5067   | No regression |
+| tape_perf: PropagateToStart (100K nodes)                                             | 385551.00   | 385065.00   | -0.2204   | -0.1261   | No regression |
+| tape_perf: PropagateToStart multi-mode (100K nodes, 10 results)                      | 469508.00   | 475638.00   | +1.0109   | +1.3056   | No regression |
+| tape_perf: PropagateToStart multi-mode (50K steps, 1 result)                         | 381512.00   | 380334.00   | +0.3320   | -0.3088   | No regression |
+| tape_perf: PropagateToStart multi-mode (50K steps, 16 results)                       | 599375.00   | 592571.00   | -1.1352   | -0.5326   | No regression |
+| tape_perf: PropagateToStart multi-mode (50K steps, 4 results)                        | 374813.00   | 379579.00   | +0.4278   | +1.5007   | No regression |
+| tape_perf: PropagateToStart multi-mode (50K steps, 64 results)                       | 6166000.00  | 6204000.00  | +0.6476   | +0.6163   | No regression |
+| tape_perf: PropagateToStart passive constants (50K steps)                            | 146906.00   | 146718.00   | +0.0768   | -0.1280   | No regression |
+| tape_perf: Rewind + passive-constant recording (50K steps)                           | 236325.00   | 236269.00   | -0.0761   | -0.0127   | No regression |
+| tape_perf: Rewind + re-record (100K nodes)                                           | 567162.00   | 566943.00   | -0.0386   | -0.0261   | No regression |
+| tape_perf: ZeroAdjoints sweep (100K nodes)                                           | 111198.00   | 111013.00   | -0.2274   | -0.1043   | No regression |
+| jacobian_perf: AnalyticJacobian dense harvest (24 x 23)                              | 4701.00     | 4701.00     | +0.0000   | +0.0000   | No regression |
+| jacobian_perf: AnalyticJacobian row-width harvest (24 x 23)                          | 4660.00     | 4660.00     | +0.0000   | -0.0215   | No regression |
+| jacobian_perf: HarvestCurveJacobian dense (23 outputs x 24 parameters)               | 4328.00     | 4326.00     | -0.0693   | +0.0462   | No regression |
+| jacobian_perf: HarvestCurveJacobian dense (95 outputs x 96 parameters)               | 61876.00    | 61869.00    | +0.0081   | -0.0162   | No regression |
+| jacobian_perf: HarvestCurveJacobian proven prefix (23 outputs x 24 parameters)       | 3775.00     | 3780.00     | +0.1589   | -0.0529   | No regression |
+| jacobian_perf: HarvestCurveJacobian proven prefix (95 outputs x 96 parameters)       | 57934.00    | 57957.00    | +0.0397   | +0.0742   | No regression |
+| pde_perf: ThetaScheme rollback (200x200 CN)                                          | 214150.00   | 214361.00   | +0.0985   | +0.0326   | No regression |
+| pde_perf: ThetaScheme rollback (200x200 implicit)                                    | 214227.00   | 214150.00   | -0.0359   | +0.0853   | No regression |
+| pde_perf: ThetaScheme rollback (200x2000 explicit)                                   | 657668.00   | 659047.00   | +0.3693   | +0.1118   | No regression |
+| rng_perf: BrownianBridge FillNormal (100K x 10D)                                     | 6309000.00  | 6387000.00  | +2.9323   | +0.5985   | No regression |
+| rng_perf: IRN SkipNormalTo (100K x 10D)                                              | 7688000.00  | 7686000.00  | +0.2598   | -0.0260   | No regression |
+| rng_perf: MRG32 SkipNormalTo (100K x 10D)                                            | 1294.00     | 1294.00     | -0.2313   | +0.0000   | No regression |
+| rng_perf: MRG32k3a FillNormal (100K x 10D)                                           | 19393000.00 | 19286000.00 | -0.3670   | -0.5517   | No regression |
+| rng_perf: ShuffledIRN FillNormal (100K x 10D)                                        | 10510000.00 | 10490000.00 | +0.2658   | -0.1903   | No regression |
+| rng_perf: Sobol FillNormal fast (100K x 10D)                                         | 4020000.00  | 4003000.00  | +1.9403   | -2.5085   | No regression |
+| rng_perf: Sobol FillNormal precise opt-in (100K x 10D)                               | 37336000.00 | 37667000.00 | -0.0290   | +0.8865   | No regression |
+| rng_perf: Sobol FillUniform (100K x 10D)                                             | 758970.00   | 778247.00   | +2.5399   | +3.0774   | No regression |
+| interp_perf: Cubic interp (50 knots, 10K queries)                                    | 50276.00    | 50267.00    | +0.0477   | -0.0179   | No regression |
+| interp_perf: Inlined linear LV-style (1e5 paths x 200 steps, 200 knots)              | 97327000.00 | 97355000.00 | +0.7369   | +0.0288   | No regression |
+| interp_perf: Linear interp (50 knots, 10K queries)                                   | 42238.00    | 42210.00    | -0.0663   | +0.1065   | No regression |
+| krylov_perf: BCGSolve (500x500 tridiag)                                              | 60912.00    | 60981.00    | +0.0016   | +0.2380   | No regression |
+| krylov_perf: CGSolve (500x500 tridiag)                                               | 51525.00    | 51721.00    | +0.3804   | +0.4539   | No regression |
+| banded_perf: TriDecomp MultiplyLeft (10K)                                            | 4492.00     | 4491.00     | +0.0223   | -0.0223   | No regression |
+| banded_perf: TriDiagonal Decompose (10K)                                             | 76682.00    | 76602.00    | +0.0248   | -0.1043   | No regression |
+| banded_perf: TriDiagonal MultiplyLeft (10K)                                          | 4685.00     | 4685.00     | +0.0213   | +0.0000   | No regression |
+| cholesky_perf: CholeskyDecompose (200x200)                                           | 225485.00   | 225500.00   | -0.0160   | +0.0067   | No regression |
+| cholesky_perf: CholeskyDecompose+Multiply (200x200)                                  | 225061.00   | 224903.00   | -0.1350   | -0.0338   | No regression |
+| rate_risk_perf: Quote risk aggregate (joint XCCY)                                    | 219598.00   | 220124.00   | -0.3450   | +0.3934   | No regression |
+| rate_risk_perf: Quote risk aggregate (single curve)                                  | 8891.00     | 8863.00     | -0.1798   | -0.3149   | No regression |
+| rate_risk_perf: Quote risk aggregate (staged XCCY basis)                             | 60197.00    | 60175.00    | -0.4615   | +0.0083   | No regression |
+| rate_risk_perf: Quote risk generic joint (100 IRS x N=10)                            | 1120000.00  | 1121000.00  | +0.3571   | -0.1781   | No regression |
+| rate_risk_perf: Quote risk generic joint (100 IRS x N=16)                            | 1687000.00  | 1697000.00  | +0.8892   | +0.0590   | No regression |
+| rate_risk_perf: Quote risk generic joint (100 IRS x N=5)                             | 807005.00   | 809493.00   | +0.6570   | +0.2279   | No regression |
+| rate_risk_perf: Quote risk generic joint (1000 IRS x N=10)                           | 10670000.00 | 10651000.00 | -0.7455   | +0.4686   | No regression |
+| rate_risk_perf: Quote risk generic joint (1000 IRS x N=16)                           | 16459000.00 | 16497000.00 | -0.1755   | +1.4156   | No regression |
+| rate_risk_perf: Quote risk generic joint (1000 IRS x N=5)                            | 7725000.00  | 7675000.00  | -0.9166   | -0.5049   | No regression |
+| rate_risk_perf: Quote risk generic joint node reference (100 IRS x N=10)             | 1064000.00  | 1063000.00  | -0.0939   | -0.0940   | No regression |
+| rate_risk_perf: Quote risk generic joint node reference (100 IRS x N=16)             | 1624000.00  | 1627000.00  | -0.0614   | +0.3079   | No regression |
+| rate_risk_perf: Quote risk generic joint node reference (100 IRS x N=5)              | 760943.00   | 764000.00   | +0.4017   | +0.4094   | No regression |
+| rate_risk_perf: Quote risk generic joint node reference (1000 IRS x N=10)            | 10496000.00 | 10498000.00 | +0.0191   | +0.9425   | No regression |
+| rate_risk_perf: Quote risk generic joint node reference (1000 IRS x N=16)            | 16348000.00 | 16451000.00 | +0.6300   | +0.5301   | No regression |
+| rate_risk_perf: Quote risk generic joint node reference (1000 IRS x N=5)             | 7576000.00  | 7571000.00  | -0.0660   | -0.5386   | No regression |
+| rate_risk_perf: Quote risk portfolio joint ANALYTIC (24 XCCY x N=10/block)           | 4405000.00  | 4402000.00  | -0.0681   | +0.1585   | No regression |
+| rate_risk_perf: Quote risk portfolio joint BUMPED (24 XCCY x N=10/block)             | 4412000.00  | 4423000.00  | +0.2493   | +0.0226   | No regression |
+| rate_risk_perf: Quote risk portfolio single ANALYTIC (120 deposits x N=5)            | 121237.00   | 121772.00   | +0.0025   | +0.4413   | No regression |
+| rate_risk_perf: Quote risk portfolio single BUMPED (120 deposits x N=16)             | 168767.00   | 168632.00   | +0.0503   | -0.0800   | No regression |
+| rate_risk_perf: Quote risk portfolio staged ANALYTIC (24 XCCY x N=16)                | 3457000.00  | 3474000.00  | +0.6075   | -0.1437   | No regression |
+| rate_risk_perf: Quote risk portfolio staged BUMPED (24 XCCY x N=5)                   | 1243000.00  | 1247000.00  | +0.3218   | +0.1603   | No regression |
+| rate_risk_perf: Rate AAD 2 components (1024 IRS x 8 nodes, fixed maturities)         | 4987000.00  | 4977000.00  | +0.4211   | -0.8171   | No regression |
+| rate_risk_perf: Rate AAD 2 components (256 IRS x 8 nodes, fixed maturities)          | 1242000.00  | 1247000.00  | +0.4831   | +0.4026   | No regression |
+| rate_risk_perf: Rate AAD 2 components (32 IRS x 8 nodes, fixed maturities)           | 151186.00   | 150281.00   | -1.0417   | -0.3975   | No regression |
+| rate_risk_perf: Rate OIS daily compounding sweep (5Y quarterly x daily)              | 209119.00   | 209246.00   | +0.0727   | -0.0554   | No regression |
+| rate_risk_perf: Rate PV (1024 IRS x 8 nodes, fixed maturities)                       | 2430000.00  | 2434000.00  | +0.5350   | -0.8958   | No regression |
+| rate_risk_perf: Rate PV (256 IRS x 8 nodes, fixed maturities)                        | 603107.00   | 604245.00   | +0.4943   | -0.7653   | No regression |
+| rate_risk_perf: Rate PV (32 IRS x 8 nodes, fixed maturities)                         | 74540.00    | 74408.00    | -0.0362   | -0.1771   | No regression |
+| rate_risk_perf: Rate XCCY batch serial (24 XCCY x 5 components)                      | 764027.00   | 765250.00   | -0.1571   | +0.1840   | No regression |
+| rate_risk_perf: Rate batch serial (120 IRS x 2 components)                           | 1246000.00  | 1248000.00  | +0.3210   | +0.0000   | No regression |
+| rate_risk_perf: Rate prepare geometry (256 IRS x 8 nodes, fixed maturities)          | 543371.00   | 536050.00   | -1.5175   | -1.1311   | No regression |
+| rate_risk_perf: Rate prepare geometry (32 IRS x 8 nodes, fixed maturities)           | 63871.00    | 64234.00    | +0.2059   | +0.9488   | No regression |
+| rate_risk_perf: Rate prepared AAD 2 components (256 IRS x 8 nodes, fixed maturities) | 702288.00   | 706088.00   | +0.5686   | +0.0575   | No regression |
+| rate_risk_perf: Rate prepared AAD 2 components (32 IRS x 8 nodes, fixed maturities)  | 84200.00    | 84648.00    | -0.4352   | +0.7423   | No regression |
+| rate_risk_perf: Rate prepared PV (256 IRS x 8 nodes, fixed maturities)               | 106515.00   | 105756.00   | -0.7126   | -0.8436   | No regression |
+| rate_risk_perf: Rate prepared PV (32 IRS x 8 nodes, fixed maturities)                | 12652.00    | 12606.00    | -1.2379   | -0.2924   | No regression |
+| rate_risk_perf: Rate single-trade sweeps (240 IRS calls)                             | 1963000.00  | 1966000.00  | +0.3566   | +0.1018   | No regression |
 
 ## Existing factory cost and record size
 
@@ -127,14 +128,14 @@ All eight default cases pass the unchanged two-round 4% criterion.
 
 | Case                                         | Base ns    | Head ns    | Round 1 % | Round 2 % | Capture bytes | Verdict       |
 |----------------------------------------------|------------|------------|-----------|-----------|---------------|---------------|
-| Record provenance single (8 quotes)          | 219469.00  | 221574.00  | +0.9591   | +1.2792   | 9275          | No regression |
-| Record provenance joint (3x8 quotes)         | 2297000.00 | 2322000.00 | +1.0884   | +0.4413   | 115434        | No regression |
-| Record provenance staged (8 quotes)          | 741478.00  | 734263.00  | -0.9731   | +1.5365   | 23665         | No regression |
-| Record provenance single (16 quotes)         | 447761.00  | 442116.00  | -1.2607   | -0.9753   | 22719         | No regression |
-| Record provenance joint (3x16 quotes)        | 5930000.00 | 5940000.00 | +0.1686   | +2.5738   | 368141        | No regression |
-| Record provenance staged (16 quotes)         | 1313000.00 | 1324000.00 | +0.8378   | +0.6107   | 48810         | No regression |
-| Record provenance generic plain (5 quotes)   | 249880.00  | 256648.00  | +2.7085   | -1.1982   | 9115          | No regression |
-| Record provenance generic layered (5 quotes) | 304352.00  | 301437.00  | -0.9578   | -0.1175   | 9872          | No regression |
+| Record provenance single (8 quotes)          | 220292.00  | 221940.00  | +0.7481   | +0.8731   | 9275          | No regression |
+| Record provenance joint (3x8 quotes)         | 2256000.00 | 2244000.00 | -0.5319   | -1.3687   | 115434        | No regression |
+| Record provenance staged (8 quotes)          | 727396.00  | 729074.00  | +0.2307   | +0.1306   | 23665         | No regression |
+| Record provenance single (16 quotes)         | 441501.00  | 442253.00  | +0.1703   | +0.8545   | 22719         | No regression |
+| Record provenance joint (3x16 quotes)        | 5811000.00 | 5758000.00 | -0.9121   | +0.6608   | 368141        | No regression |
+| Record provenance staged (16 quotes)         | 1290000.00 | 1295000.00 | +0.3876   | +0.6197   | 48810         | No regression |
+| Record provenance generic plain (5 quotes)   | 245008.00  | 247323.00  | +0.9449   | -0.1666   | 9115          | No regression |
+| Record provenance generic layered (5 quotes) | 295283.00  | 298403.00  | +1.0566   | +1.0182   | 9872          | No regression |
 
 Capture retains 9,115–368,141 canonical bytes in these cases. It moves the already
 canonicalized state string into immutable ownership; it does not canonicalize
@@ -151,14 +152,14 @@ uses the separate old-versus-head default comparison above.
 
 | Case                                         | Default ns | Captured ns | Round 1 % | Round 2 % |
 |----------------------------------------------|------------|-------------|-----------|-----------|
-| Record provenance single (8 quotes)          | 223008.00  | 221783.00   | -0.5493   | -0.0592   |
-| Record provenance joint (3x8 quotes)         | 2321000.00 | 2266000.00  | -2.3697   | -0.9206   |
-| Record provenance staged (8 quotes)          | 741625.00  | 743765.00   | +0.2886   | +0.2765   |
-| Record provenance single (16 quotes)         | 451192.00  | 445994.00   | -1.1521   | -0.0600   |
-| Record provenance joint (3x16 quotes)        | 5863000.00 | 5919000.00  | +0.9551   | +0.4652   |
-| Record provenance staged (16 quotes)         | 1299000.00 | 1299000.00  | +0.0000   | -0.3831   |
-| Record provenance generic plain (5 quotes)   | 249525.00  | 249013.00   | -0.2052   | -0.4934   |
-| Record provenance generic layered (5 quotes) | 299317.00  | 307922.00   | +2.8749   | -0.5338   |
+| Record provenance single (8 quotes)          | 221473.00  | 221691.00   | +0.0984   | -0.9458   |
+| Record provenance joint (3x8 quotes)         | 2250000.00 | 2255000.00  | +0.2222   | +0.6233   |
+| Record provenance staged (8 quotes)          | 728822.00  | 734363.00   | +0.7603   | +0.2781   |
+| Record provenance single (16 quotes)         | 440520.00  | 439975.00   | -0.1237   | +0.1776   |
+| Record provenance joint (3x16 quotes)        | 5797000.00 | 5789000.00  | -0.1380   | +0.4839   |
+| Record provenance staged (16 quotes)         | 1296000.00 | 1295000.00  | -0.0772   | +0.0773   |
+| Record provenance generic plain (5 quotes)   | 248114.00  | 247026.00   | -0.4385   | +0.6006   |
+| Record provenance generic layered (5 quotes) | 297756.00  | 298044.00   | +0.0967   | -0.9080   |
 
 All 80 factory process runs retain identical state/axis fingerprints, inverse
 checksums and tolerance across old/default/captured modes. Record sizes are zero
@@ -174,14 +175,14 @@ Raw evidence persists under
 `/home/wegamekinglc/.cache/dal-aad-evidence-20261004-8886c083/evidence`:
 
 - `aad-calibration-record-baseline-01.json`,
-  `aad-calibration-record-gate-inputs-01.json` and
-  `aad-calibration-record-relinked-identity-01.json` pin the source/binary inputs.
-- `aad-calibration-record-gate-paired-01/results.json` and `summary.md` retain
+  `aad-calibration-record-publication-gate-inputs-02.json` and
+  `aad-calibration-record-publication-identity-01.json` pin the source/binary inputs.
+- `aad-calibration-record-gate-paired-02/results.json` and `summary.md` retain
   every raw sample, both round deltas and the unchanged executable verdict.
-- `aad-calibration-record-cost-pairs.py`, `aad-calibration-record-cost-source/`
-  and `aad-calibration-record-cost-paired-01/` retain the complete supplementary
+- `aad-calibration-record-cost-pairs-02.py`, `aad-calibration-record-cost-source/`
+  and `aad-calibration-record-cost-paired-02/` retain the complete supplementary
   consumer, protocol, eighty raw outputs and before/after manifests.
-- `aad-calibration-record-installed-parity-01.json` records four consumer runs
+- `aad-calibration-record-publication-installed-parity-01.json` records four consumer runs
   against old, new OFF/default, OFF/captured and combined/captured prefixes.
 
 Verdict: no regression in the measured incremental default workloads under the
@@ -190,3 +191,10 @@ future common-result/binding overhead, or accept the entire F01/AAD plan. Keep
 its original failed production rows and investigation requirements. The
 [common specification](../specs/aad-calibration-pullback.md) still controls the
 remaining implementation and acceptance.
+
+The initial paired evidence remains under the `-01` paths and in the
+`28b4e180` Git snapshot. It did not accept that failed publication. This
+report uses fresh `-02` gate/cost runs and fresh installed prefixes after the
+const-reference correction. Every corrected input retains its measured hash;
+all 75 gate cases, eight default costs and eighty numeric process checks pass
+again. Exact corrective publication CI remains required.
