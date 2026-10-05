@@ -21,6 +21,13 @@ confirmation passes 44/44 original cases. Every earlier failed/inconclusive
 capture remains. See the [complete final rows](../performance/aad-production-final-confirmation.md).
 The accepted curve, nine-target and affected-entry gates remain separate.
 
+Resolved locally after the automatic review at `64bf01a6`: the standard-header
+group must precede DAL includes in `dal-cpp/dal/benchmarks/aad.hpp` and
+`dal-cpp/dal/math/aad/blocklist.hpp`. Restore that ordering with separated
+groups so clang-format preserves it. Only includes move; no declaration,
+expression, layout, recording or benchmark workload changes. Keep the accepted
+mathematical and performance evidence and require the final publication's own CI.
+
 ## Review scope and F01 requirement reconciliation
 
 The PR base is `2fc748efe64bcbf6e8ad822967988a8a1e3bcb7a`; remote master still

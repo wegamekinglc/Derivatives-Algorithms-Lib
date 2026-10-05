@@ -6,9 +6,10 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iostream>
+
 #include <dal/math/aad/statistics.hpp>
 #include <dal/utilities/exceptions.hpp>
-#include <iostream>
 
 namespace Dal::Bench {
     inline void PrintTapeStatistics(const char* name, const AAD::Tape_& tape, size_t parameters, size_t outputs) {

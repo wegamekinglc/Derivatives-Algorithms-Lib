@@ -14,12 +14,13 @@
 
 #include <array>
 #include <cstring>
-#include <dal/math/aad/profilinghooks.hpp>
-#include <dal/utilities/exceptions.hpp>
 #include <iterator>
 #include <limits>
 #include <list>
 #include <type_traits>
+
+#include <dal/math/aad/profilinghooks.hpp>
+#include <dal/utilities/exceptions.hpp>
 
 namespace Dal::AAD {
 
