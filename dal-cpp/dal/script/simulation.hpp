@@ -421,6 +421,73 @@ namespace Dal::Script {
                 return state->path_;
             });
         }
+
+        template <class P_> struct DoubleSimulationState_ {
+            std::unique_ptr<Random_> random_;
+            Vector_<> gauss_;
+            Scenario_<> path_;
+            std::unique_ptr<LocalCheckedPaths_> bsPaths_;
+            Evaluator_<double> evaluator_;
+            EvalState_<double> compiledState_;
+
+            DoubleSimulationState_(const P_& product, const AAD::Model_<double>& model, const String_& rsg, bool useBb)
+                : random_(CreateRNG(rsg, model, useBb)), gauss_(model.SimDim()), evaluator_(product.template BuildEvaluator<double>()),
+                  compiledState_(product.template BuildEvalState<double>()) {
+                if (typeid(model) == typeid(AAD::BlackScholes_<double>))
+                    bsPaths_ = std::make_unique<LocalCheckedPaths_>(static_cast<const AAD::BlackScholes_<double>&>(model));
+                else {
+                    AllocatePath(product.DefLine(), path_);
+                    InitializePath(path_);
+                }
+            }
+        };
+
+        template <class P_> bool RequiresLsmc(const P_& product) {
+            if constexpr (std::is_base_of_v<PreparedScript_, P_>)
+                return product.Product().ContainsExercise();
+            else
+                return false;
+        }
+
+        template <class P_> void InitializeDoubleSimulation(const P_& product, AAD::Model_<double>* model, bool compiled, bool initialized) {
+            if constexpr (std::is_base_of_v<PreparedScript_, P_>)
+                REQUIRE2(!product.Simulation().enableAad_ && compiled == product.Simulation().compiled_.value_or(false),
+                         "UnsupportedExecutionMode: execution differs from preparation", ScriptError_);
+            if (!initialized) {
+                model->Allocate(product.TimeLine(), product.DefLine());
+                model->Init(product.TimeLine(), product.DefLine());
+            }
+        }
+
+        template <class P_> void ValidateAADHistory(const P_& product) {
+            if constexpr (!std::is_base_of_v<PreparedScript_, P_>)
+                REQUIRE2(product.PastEvents().empty() || product.EventDates().empty(),
+                         "UnsupportedExecutionMode: historical AAD replay requires preparation", ScriptError_);
+        }
+
+        template <class P_> void ValidateAADExecution(const P_& product, bool compiled, double eps) {
+            if constexpr (std::is_base_of_v<PreparedScript_, P_>)
+                REQUIRE2(product.Simulation().enableAad_ && eps == product.Simulation().smooth_ &&
+                             compiled == product.Simulation().compiled_.value_or(false),
+                         "UnsupportedExecutionMode: AAD mode, smoothing, or compiled/tree mode differs from preparation", ScriptError_);
+        }
+
+        template <class P_, class O_>
+        typename O_::Result_ RunDoubleLsmc(const P_& product, AAD::Model_<double>* model, size_t nPaths, const String_& rsg, bool useBb) {
+            if constexpr (std::is_base_of_v<PreparedScript_, P_> && std::is_same_v<O_, ScalarSimulationObjective_>) {
+                ASSERT(rsg == product.Simulation().rsg_ && useBb == product.Simulation().useBb_,
+                       "LSMC diversion drops the caller's rsg/useBb; preparation is authoritative");
+                return MCLsmcSimulation(product, model, nPaths);
+            } else
+                THROW2("UnsupportedWeightedRisk: EXERCISE requires a separate weighted estimator", ScriptError_);
+        }
+
+        template <class P_, class O_> typename O_::Result_ RunAADLsmc(const P_& product, const Handle_<ModelData_>& modelData, size_t nPaths) {
+            if constexpr (std::is_base_of_v<PreparedScript_, P_> && std::is_same_v<O_, ScalarSimulationObjective_>)
+                return MCLsmcAadSimulation(product, modelData, nPaths);
+            else
+                THROW2("UnsupportedWeightedRisk: EXERCISE requires a separate weighted estimator", ScriptError_);
+        }
     } // namespace Detail
 
     template <class T_>
@@ -452,30 +519,10 @@ namespace Dal::Script {
         if (product.EventDates().empty())
             return objective.MakeResult(Vector::Join(mdl->ParameterLabels(), product.ConstVarNames()));
 
-        if constexpr (std::is_base_of_v<PreparedScript_, P_>)
-            REQUIRE2(!product.Simulation().enableAad_ && useCompiled == product.Simulation().compiled_.value_or(false),
-                     "UnsupportedExecutionMode: execution differs from preparation", ScriptError_);
-
-        if (!initialized) {
-            mdl->Allocate(product.TimeLine(), product.DefLine());
-            mdl->Init(product.TimeLine(), product.DefLine());
-        }
-
-        //  Early-exercise products divert to the LSMC driver (S12: prepared pipeline
-        //  only), which builds its own recording artifact in compiled mode.  The
-        //  driver reads its RNG settings from preparation (S15 pins rsg to sobol
-        //  for EXERCISE), so the caller's rsg/useBb are dropped on this route;
-        //  pin their redundancy in debug builds
-        if constexpr (std::is_base_of_v<PreparedScript_, P_>) {
-            if (product.Product().ContainsExercise()) {
-                ASSERT(rsg == product.Simulation().rsg_ && useBb == product.Simulation().useBb_,
-                       "LSMC diversion drops the caller's rsg/useBb; preparation is authoritative");
-                prepare.Finish();
-                if constexpr (std::is_same_v<O_, Detail::ScalarSimulationObjective_>)
-                    return MCLsmcSimulation(product, mdl, nPaths);
-                else
-                    THROW2("UnsupportedWeightedRisk: EXERCISE requires a separate weighted estimator", ScriptError_);
-            }
+        Detail::InitializeDoubleSimulation(product, mdl, useCompiled, initialized);
+        if (Detail::RequiresLsmc(product)) {
+            prepare.Finish();
+            return Detail::RunDoubleLsmc<P_, O_>(product, mdl, nPaths, rsg, useBb);
         }
 
         std::optional<ScriptCompiled_> compiledProduct;
@@ -488,25 +535,7 @@ namespace Dal::Script {
         // Each worker constructs and reuses its own writable buffers. Keeping hot
         // evaluator state in adjacent arrays made timing sensitive to allocation layout.
         // Isolate snapshot metadata from another worker's adjacent writable sample.
-        struct ThreadState_ {
-            std::unique_ptr<Random_> random_;
-            Vector_<> gauss_;
-            Scenario_<> path_;
-            std::unique_ptr<Detail::LocalCheckedPaths_> bsPaths_;
-            Evaluator_<double> evaluator_;
-            EvalState_<double> compiledState_;
-
-            ThreadState_(const P_& product, const AAD::Model_<double>& model, const String_& rsg, bool useBb)
-                : random_(CreateRNG(rsg, model, useBb)), gauss_(model.SimDim()), evaluator_(product.template BuildEvaluator<double>()),
-                  compiledState_(product.template BuildEvalState<double>()) {
-                if (typeid(model) == typeid(AAD::BlackScholes_<double>))
-                    bsPaths_ = std::make_unique<Detail::LocalCheckedPaths_>(static_cast<const AAD::BlackScholes_<double>&>(model));
-                else {
-                    AllocatePath(product.DefLine(), path_);
-                    InitializePath(path_);
-                }
-            }
-        };
+        using ThreadState_ = Detail::DoubleSimulationState_<P_>;
         Vector_<std::unique_ptr<ThreadState_>> threadStates(nThreads);
         // Preserve caller-side input validation, including the zero-path case.
         threadStates[0] = std::make_unique<ThreadState_>(product, *mdl, rsg, useBb);
@@ -728,29 +757,16 @@ namespace Dal::Script {
         AAD::ProfilingSpan_ prepare(AAD::AADProfilingPhase_::Value_::PREPARE);
         product.RequireExecutable();
         ValidateRNG(rsg);
-        if constexpr (!std::is_base_of_v<PreparedScript_, P_>)
-            REQUIRE2(product.PastEvents().empty() || product.EventDates().empty(),
-                     "UnsupportedExecutionMode: historical AAD replay requires preparation", ScriptError_);
+        Detail::ValidateAADHistory(product);
         const bool useCompiled = compiled.value_or(false);
 
         const std::unique_ptr<AAD::Model_<double>> metadataModel = CreateModel<double>(modelData);
         if (product.EventDates().empty())
             return objective.MakeResult(Vector::Join(metadataModel->ParameterLabels(), product.ConstVarNames()));
-        if constexpr (std::is_base_of_v<PreparedScript_, P_>)
-            REQUIRE2(product.Simulation().enableAad_ && eps == product.Simulation().smooth_ &&
-                         useCompiled == product.Simulation().compiled_.value_or(false),
-                     "UnsupportedExecutionMode: AAD mode, smoothing, or compiled/tree mode differs from preparation", ScriptError_);
-
-        //  Early-exercise products divert to the fuzzy LSMC driver (S9 recursive
-        //  blending over the frozen policy, N6 adjoint of the replay pass)
-        if constexpr (std::is_base_of_v<PreparedScript_, P_>) {
-            if (product.Product().ContainsExercise()) {
-                prepare.Finish();
-                if constexpr (std::is_same_v<O_, Detail::ScalarSimulationObjective_>)
-                    return MCLsmcAadSimulation(product, modelData, nPaths);
-                else
-                    THROW2("UnsupportedWeightedRisk: EXERCISE requires a separate weighted estimator", ScriptError_);
-            }
+        Detail::ValidateAADExecution(product, useCompiled, eps);
+        if (Detail::RequiresLsmc(product)) {
+            prepare.Finish();
+            return Detail::RunAADLsmc<P_, O_>(product, modelData, nPaths);
         }
 
         std::optional<ScriptCompiled_> compiledProduct;

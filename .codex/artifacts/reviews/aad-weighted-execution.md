@@ -65,6 +65,20 @@ Evidence root: `/home/wegamekinglc/.cache/dal-aad-evidence-20261004-8886c083/evi
 
 ## Acceptance limits
 
+Publication head `84784d73` reports two Codacy complexity findings in the new
+shared drivers (15 and 14, limit eight). Keep
+`aad-weighted-execution-codacy-01.json` as the failed evidence. Extract cohesive
+mode/history/model initialization and LSMC routing helpers; move the unchanged
+double worker-state definition into a reusable detail type. Driver complexity
+falls to eight and seven, with all new helper functions below eight. The
+per-path kernels, state fields, array sizes and numeric reduction order stay
+unchanged. Only the two affected public valuation translation units are rebuilt
+for the repair; `aad-weighted-execution-codacy-green-10.log` passes all seventeen
+related sanitized cases. `aad-weighted-execution-codacy-local-02.json` compares
+function names/complexity with merged master and confirms all 35 new or more
+complex functions remain at most eight. GCC 14 combined warning checks and
+141-file documentation checks pass. Exact repaired-head Codacy remains required.
+
 The shared simulation source is changed, so earlier binary identity/performance
 evidence is not reused as a new verdict. The affected scalar paired comparison
 remains mandatory under the original two-round, ten alternating samples per
