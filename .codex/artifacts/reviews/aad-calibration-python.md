@@ -1,9 +1,10 @@
 # F01 common calibration Python review
 
-Verdict: Comment Only. No unresolved local findings. Full local correctness,
-installed-package parity and incremental performance verification pass. The
-Python publication head still requires its own CI; accepted common C++ head
-`12b3d7d1a9e43ac008c257c24b6365e424b458e5` passes all 35 checks.
+Verdict: Approve Python publication `fb1a116bc8672e2b1698467e2d60b19de44babc3`.
+Full local correctness, installed-package parity and incremental performance
+verification pass. All 35 exact-head CI checks complete successfully in
+`aad-calibration-python-ci-05.jsonl`; accepted common C++ prerequisite
+`12b3d7d1a9e43ac008c257c24b6365e424b458e5` is separately accepted.
 
 ## Findings and design
 
@@ -71,7 +72,7 @@ All filenames below have prefix `aad-calibration-python-`.
 
 ## Remaining acceptance
 
-Exact Python publication-head Linux/MSVC/ARM/wheel/runtime CI remains required;
-earlier C++ CI does not accept changed Python bindings. Excel capture/common
+Exact Python publication-head Linux/MSVC/ARM/wheel/runtime CI has passed;
+acceptance uses this increment's own head. Excel capture/common
 wrappers and F01 request/budget integration remain required. P01's production
 MC verdict and all remaining whole-plan stages stay open. No user decision is needed.

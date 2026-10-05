@@ -10,14 +10,16 @@
 
 namespace Dal::Excel {
 #ifdef _WIN32
-    inline void ValidateDupireTextInput(const OPER_* input, const String_& field) {
+    inline void ValidateNativeTextInput(const OPER_* input, const String_& field, const char* identifier) {
         const auto* scalar = ScriptScalarInput(input);
         if (scalar->xltype != xltypeStr)
             return;
         const auto* begin = scalar->val.str + 1;
         const auto* end = begin + static_cast<size_t>(scalar->val.str[0]);
-        REQUIRE(std::find(begin, end, L'\0') == end, "InvalidDupireInput: " + field + "; embedded NUL is unsupported");
+        REQUIRE(std::find(begin, end, L'\0') == end, String_(identifier) + ": " + field + "; embedded NUL is unsupported");
     }
+
+    inline void ValidateDupireTextInput(const OPER_* input, const String_& field) { ValidateNativeTextInput(input, field, "InvalidDupireInput"); }
 
     inline void ValidateDupireSettingsInput(const OPER_* input) {
         ValidateScriptSettingsRange(input, "MertonIVS_New", "settings");

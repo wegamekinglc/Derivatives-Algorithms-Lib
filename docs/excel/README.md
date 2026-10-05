@@ -220,6 +220,48 @@ DV01 is price per `+1 bp`. Rows remain separated by actual PV currency under
 `UnconvertedByActualPvCcy`, with no FX conversion. A paste-ready worksheet
 recipe is in [dal-excel/examples/008.quote_risk.md](../../dal-excel/examples/008.quote_risk.md).
 
+## Common calibration pullback
+
+`CALIBRATIONPULLBACK.NEW` accepts a frozen Dupire calibration or captured native
+curve provenance. To capture a curve record, pass `TRUE` as the optional final
+argument of `SINGLECURVEQUOTERISKPROVENANCE.NEW`,
+`JOINTMULTICURVEQUOTERISKPROVENANCE.NEW`,
+`JOINTXCCYQUOTERISKPROVENANCE.NEW` or
+`STAGEDXCCYBASISQUOTERISKPROVENANCE.NEW`. Blank and `FALSE` preserve the default
+without retaining the record. The legacy dispatcher accepts the same option and
+keeps its generic-joint exclusion. Capture may rebuild provenance from a retained
+calibration result; it does not rerun calibration.
+
+```text
+=CALIBRATIONPULLBACK.NEW("boundary", captured_provenance_handle)
+=CALIBRATIONPARAMETERADJOINTS.NEW("parameters", boundary_handle, node_adjoints)
+=CALIBRATIONDIRECTQUOTEADJOINTS.NEW("direct", boundary_handle, direct_adjoints)
+=CALIBRATIONQUOTERISK.NEW("risk", boundary_handle, parameters_handle, direct_handle)
+=CALIBRATIONQUOTERISK.GET.ADJOINTS(risk_handle, "total")
+```
+
+The optional direct handle may be blank. Curve seeds use one column in the
+captured global parameter/quote order; Dupire uses its native spot/time and
+strike/maturity layouts. Seeds are finite raw PV derivatives. Numeric ranges
+accept integer and floating-point cells; bool, text, errors, blanks and
+nonfinite values fail with cell locations. The capture option requires a
+Boolean or blank. Complete source checks reject mismatched or uncaptured input.
+
+`CALIBRATIONQUOTERISK.GET.ADJOINTS` copies `calibration`, `direct` or `total`;
+blank selects total. Seed `GET.ADJOINTS` functions also return detached matrices.
+Seed/result `GET.CALIBRATION` functions retain the owning boundary, and
+`CALIBRATIONPULLBACK.GET.SOURCE` returns its typed Dupire or native curve source.
+Boundary/result `GET.PROVENANCE` return method, units, dimensions and source
+identity metadata; the source handle retains the complete record and axes.
+All four common handle types reject archive serialization.
+
+Curve mapping reuses the retained inverse without pricing, recording, history
+lookup or FX conversion. Apply it separately per actual PV currency and multiply
+decimal-quote derivatives by `1e-4` for DV01. Dupire keeps its independent native
+recording and nested-use rejection. Getters read stored passive values. See the
+[common calibration contract](../yield-curves/jacobian-risk.md#common-passive-c-calibration-pullback)
+for source matching and numerical boundaries.
+
 Generated function help under `dal-excel/auto/*.htm` is the argument-level
 catalog used by Excel registration.
 

@@ -30,6 +30,12 @@ incremental implementation turns and PRs; a green first stage does not complete 
 
 ## Delivery rules
 
+- Delivery amendment (2026-10-05): finish all F01 request, budget, market-coordinate
+  and binding acceptance in PR #480. Then review and fix the entire PR, reconcile
+  its base with master and unresolved production performance, and merge only after
+  current-head checks and review gates pass. The user explicitly authorized this
+  merge. F02, P02/P03, F03, P04/P05 and F04 continue in new PRs after that merge;
+  the full implementation goal remains active across these delivery boundaries.
 - Work in isolated writable sources; preserve the original workspace and unrelated changes.
 - Establish a failing independent test before each behavioral change.
 - Remove external AAD implementation, dependency, export, example and CI paths;
@@ -437,9 +443,42 @@ seed construction and numeric getters. Keep the first measurement script's
 path-alias hash-lookup failure; the correction changes only canonical lookup.
 The [Python review](../reviews/aad-calibration-python.md) and
 [performance report](../performance/aad-calibration-python.md) retain every
-old-entry row and the bounded conclusion. Python publication-head CI, Excel
+old-entry row and the bounded conclusion. Exact Python publication
+`fb1a116bc8672e2b1698467e2d60b19de44babc3` passes all 35 checks in
+`aad-calibration-python-ci-05.jsonl`, accepting this increment. Excel
 capture/common wrappers and request/budget/market integration remain required.
 P01 production MC acceptance remains inconclusive.
+
+The Excel capture/common increment passes local acceptance. Four immutable
+common handle types expose 13 worksheet constructors/getters, with detached
+matrices and owning typed sources. Five provenance registrations add a strict
+optional final Boolean/blank capture flag while preserving legacy export prefixes
+and generic dispatcher exclusions. Thirteen portable common cases plus three
+Windows raw-cell cases verify ownership, signed priced joint portfolios across
+both modes/all representations/plain or layered bases, separate actual PV
+currency groups, identity/shape/domain errors, finite overflow, NUL input,
+archive rejection and failed-operation recovery. Final portable suites pass
+99 cases in each OFF/combined configuration. Full regular CTest passes
+2,428/2,442 before the final test-helper fix; final leak-enabled ASan/UBSan
+passes 41 related cases. Actual MSVC compilation passes 12/12 production,
+registration, import and test-support units. All 36 generated files have no drift.
+
+Read-first review identifies distinct XLL/test-executable tape state, confirmed
+by an actual two-module MSVC probe. The repaired lifecycle tests create the
+recording inside the XLL utility and retain node-count, nested-use, output
+preservation and derivative-recovery checks. Keep the failing missing-helper
+build and first probe/fixture/SDK failures. Windows runtime still requires the
+increment's own CI; syntax and portable tests cannot replace it.
+
+The unchanged two-round/ten-process/4% Excel wrapper protocol passes all 48
+old/default comparisons. Forty processes preserve 640 numeric checks and
+1,477 frozen inputs. All 32 new capture/prepared-common costs are retained
+separately. Both measured production objects are identical after the final
+Windows/test-only fix; both native archives and all nine accepted C++ gate
+executables remain identical. The [Excel review](../reviews/aad-calibration-excel.md)
+and [performance report](../performance/aad-calibration-excel.md) retain all
+evidence and bounded conclusions. Excel publication-head CI remains pending.
+Full F01 request/budget/market-coordinate integration remains required.
 
 ### Whole-plan status and remaining effort
 
@@ -452,7 +491,7 @@ overlapping acceptance work is included once in the integration allowance.
 | C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal              | Accepted exact-head checks                  | 0                     |
 | Scalar D04              | Accepted C++/Python/Excel                                  | Accepted exact-head checks                  | 0                     |
 | P01                     | Tooling complete; production MC acceptance inconclusive    | Published tooling; performance verdict open | 2–5                   |
-| F01                     | Dupire/capture/common C++ accepted; common Python full local checks pass | Common C++ 35 checks accepted; Python CI open | 6–10             |
+| F01                     | C++/Python accepted; Excel local correctness/performance pass; request integration remains | C++/Python own 35 accepted; Excel CI pending | 6–10              |
 | F02                     | Multiple outputs and portfolio integration remain          | Open                                        | 7–11                  |
 | P02/P03                 | Worker reuse/block selection/extraction remain             | Open                                        | 4–7                   |
 | F03                     | Solve, implicit calibration and PDE operators remain       | Open                                        | 12–20                 |
@@ -462,10 +501,15 @@ overlapping acceptance work is included once in the integration allowance.
 
 Remaining total: approximately 60–100 person-days, or 12–20 working weeks.
 Allow approximately 15–25 weeks including cross-platform and performance
-investigation buffer. The common Python local milestone does not yet change that
+investigation buffer. The common Python acceptance does not yet change that
 range materially. F01 has approximately 6–10 person-days remaining for
-Python publication/CI, Excel bindings and complete request integration. Re-estimate at
+Excel bindings, their publication/CI and complete request integration. Re-estimate at
 milestones and when acceptance findings change the scope.
+
+The current PR-to-merge boundary has approximately 10–19 person-days remaining:
+F01 6–10, production performance 2–5 and whole-PR fixes/merge validation 2–4.
+These tasks are already included in the overall 60–100 estimate; do not add
+the first delivery estimate again. Subsequent stages require new PRs.
 
 ### Earlier snapshots retained for acceptance context
 
@@ -825,12 +869,14 @@ corrected head passes fresh correctness and all changed-workload comparisons;
 all 46 exact publication-head CI checks subsequently pass at `0ee84e1`.
 Do not reuse the ownership snapshot's acceptance as proof for these new changes.
 
-Next: publish the locally verified shared C++ increment and inspect its exact
-publication-head checks, then implement Python/Excel capture and shared-boundary
-adapters.
+Next: publish the verified Excel capture/shared-boundary increment and inspect
+its own exact-head checks.
 Retain the full request, payload-budget and market-coordinate integration audit
 before closing F01.
-Continue F02 output seeds under their controlling design.
-Reconcile P01's unresolved performance with controlled-environment evidence;
+After full F01 acceptance, review/fix the entire current PR and reconcile
+P01's unresolved performance with controlled-environment evidence;
 retain every failure and do not replace the threshold or sample until a pass.
+Update against master, inspect exact final-head CI and every review thread,
+then merge PR #480 under the user's authorization. Start subsequent F02 and
+other plan stages in new PRs, under their controlling designs.
 Stage A and the full Stage B/C/D goal remain incomplete.

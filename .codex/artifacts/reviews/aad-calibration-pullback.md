@@ -56,7 +56,7 @@ derivative or complete market Greek. Those limits are stated in the guide.
 
 Exact new-head Linux/MSVC/shared-DLL/ARM wheel/sanitizer CI has passed.
 The separate Python increment supplies strict Boolean capture and common
-immutable/copy projections, but needs its own publication-head acceptance. Excel capture
+immutable/copy projections and passes all 35 exact `fb1a116b` CI checks. Excel capture
 options/handles/registrations, serialization errors, numeric budgets and market
 request integration remain required. None of the full F01 boxes is closed here.
 

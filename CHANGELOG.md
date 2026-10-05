@@ -18,12 +18,14 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-05
 
-- **Common C++ and Python calibration pullback** — an owning boundary maps passive
+- **Common C++, Python and Excel calibration pullback** — an owning boundary maps passive
   parameter adjoints from frozen Dupire or captured native curve provenance
   into one immutable result with separate calibration, direct and total quote
   contributions. Complete source checks preserve canonical coordinates and
   existing inverse scaling. Python adds strict optional curve-record capture,
-  owning readonly values, detached matrices and callback-free GIL release. See the
+  owning readonly values, detached matrices and callback-free GIL release.
+  Excel adds optional native record capture, immutable common handles and
+  detached contribution/source getters. See the
   [common calibration interface](docs/yield-curves/jacobian-risk.md#common-passive-c-calibration-pullback).
 
 - **Frozen Dupire calibration quote pullback** — C++ snapshots retain numeric

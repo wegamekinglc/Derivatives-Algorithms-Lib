@@ -2,8 +2,10 @@
 
 Status: active decision. Native opt-in curve record capture is accepted.
 The shared C++ API is accepted with all 35 exact `12b3d7d` CI checks.
-Python capture/common factories pass full local and incremental performance
-verification; their own publication-head CI is required. Excel remains unimplemented.
+Python capture/common factories are accepted with full local verification,
+incremental performance checks and all 35 exact `fb1a116b` CI checks. Excel is
+implemented locally; portable correctness, MSVC syntax, generated integrity and
+changed-wrapper performance pass. Its own publication-head runtime CI is pending.
 The [specification](../specs/aad-calibration-pullback.md) controls correctness,
 identity, failure, resources and acceptance.
 

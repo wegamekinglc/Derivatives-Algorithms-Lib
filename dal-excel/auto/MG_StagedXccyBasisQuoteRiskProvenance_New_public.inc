@@ -1,7 +1,7 @@
 
 
 extern "C" __declspec(dllexport) OPER_* xl_StagedXccyBasisQuoteRiskProvenance_New
-    (const OPER_* xl_result, const OPER_* xl_calibrationId, const OPER_* xl_parameterBlockKeys, const OPER_* xl_componentKeys, const OPER_* xl_market)	
+    (const OPER_* xl_result, const OPER_* xl_calibrationId, const OPER_* xl_parameterBlockKeys, const OPER_* xl_componentKeys, const OPER_* xl_market, const OPER_* xl_retainCalibrationRecord)	
 {
     Excel::InitializeSessionIfNeeded();
 ENV_SEED_TYPE(ObjectAccess_);
@@ -19,9 +19,12 @@ ENV_SEED_TYPE(ObjectAccess_);
         const Vector_<String_> componentKeys = Excel::ToStringVector(xl_componentKeys);
         argName = "market (input #5)";
         const Handle_<StorableRatePricingMarket_> market = Excel::ToHandle<StorableRatePricingMarket_>(_env, xl_market);
+        argName = "retainCalibrationRecord"; xl_retainCalibrationRecord = Excel::ScriptScalarInput(xl_retainCalibrationRecord); Excel::ValidateCalibrationRecordCaptureInput(xl_retainCalibrationRecord);
+        argName = "retainCalibrationRecord (input #6)";
+        const Cell_ retainCalibrationRecord = Excel::ToCell(xl_retainCalibrationRecord, true);
         argName = 0;
 		Handle_<StorableRateQuoteRiskProvenance_> provenance;
-        StagedXccyBasisQuoteRiskProvenance_New(result, calibrationId, parameterBlockKeys, componentKeys, market, &provenance);
+        StagedXccyBasisQuoteRiskProvenance_New(result, calibrationId, parameterBlockKeys, componentKeys, market, retainCalibrationRecord, &provenance);
         Excel::Retval_ retval;
         retval.Load(_env, provenance);
         return retval.ToXloper();
@@ -46,7 +49,8 @@ struct XlRegister_StagedXccyBasisQuoteRiskProvenance_New_
         argHelp.push_back("Staged basis parameter block key");
         argHelp.push_back("Pricing-market basis component key parallel to parameterBlockKeys");
         argHelp.push_back("The exact pricing market bound to the calibrated basis curve");
-        Excel::Register("Base", "xl_StagedXccyBasisQuoteRiskProvenance_New", "STAGEDXCCYBASISQUOTERISKPROVENANCE.NEW", "Freeze quote-risk provenance from one staged XCCY basis calibration result", "QQQQQQ", "result,calibrationId,parameterBlockKeys,componentKeys,market", argHelp, false);
+        argHelp.push_back("TRUE retains the canonical state record; FALSE or blank disables capture");
+        Excel::Register("Base", "xl_StagedXccyBasisQuoteRiskProvenance_New", "STAGEDXCCYBASISQUOTERISKPROVENANCE.NEW", "Freeze quote-risk provenance from one staged XCCY basis calibration result", "QQQQQQQ", "result,calibrationId,parameterBlockKeys,componentKeys,market,[retainCalibrationRecord]", argHelp, false);
     }
 };
 static XlRegister_StagedXccyBasisQuoteRiskProvenance_New_ The_StagedXccyBasisQuoteRiskProvenance_New_XlRegisterer;

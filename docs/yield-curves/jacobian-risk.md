@@ -621,6 +621,16 @@ properties retain owning, readonly projections. Common values support copying,
 but are not pickle/archive objects. Native mapping releases the GIL after copying
 checked inputs; it uses the frozen IVS samples and never calls Python during mapping.
 
+#### Excel common pullback
+
+Excel exposes the same four owning boundary, parameter-seed, direct-seed and
+result factories as immutable handles. Curve provenance constructors accept a
+strict optional Boolean capture flag last; blank preserves the old default.
+Seed matrices retain the native coordinates, and getters copy the three
+contributions and project their typed source. See the
+[worksheet sequence](../excel/README.md#common-calibration-pullback) for function
+names, shape rules, units and source metadata.
+
 ### Why divide by `tolerance_`
 
 The underdetermined solver does not operate on the raw residuals. It scales every

@@ -1,7 +1,8 @@
 # F01 common calibration Python performance
 
-Status: local incremental verification passes; exact Python publication-head CI
-remains required. Complete F01 and P01 production MC acceptance remain open.
+Status: incremental performance and all 35 exact Python publication-head checks
+accepted for `fb1a116b` in `aad-calibration-python-ci-05.jsonl`.
+Complete F01 and P01 production MC acceptance remain open.
 
 ## Inputs and protocol
 
@@ -110,6 +111,6 @@ wrapper-overhead comparison. All six cases retain identical numeric digests.
 | staged_xccy | 1000 | 608.35 | 629.41 |
 | dupire_9x2 | 1000 | 25989.47 | 26446.94 |
 
-This evidence accepts local performance of the Python increment only. Exact
-publication-head CI, Excel common bindings, full request/budget integration,
+This evidence accepts the Python increment's bounded performance; its exact
+publication-head CI has passed. Excel common bindings, full request/budget integration,
 production MC measurement and the remaining AAD stages still require acceptance.
