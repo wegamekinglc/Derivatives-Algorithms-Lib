@@ -1,7 +1,9 @@
 # F01 common calibration API decision
 
-Status: active decision. Native opt-in curve record capture is implemented;
-the shared API and language extensions are not yet callable.
+Status: active decision. Native opt-in curve record capture is accepted.
+The shared C++ API passes full local correctness, installed-consumer and
+incremental performance verification; exact publication-head CI is required.
+Python/Excel extensions remain unimplemented.
 The [specification](../specs/aad-calibration-pullback.md) controls correctness,
 identity, failure, resources and acceptance.
 
@@ -32,15 +34,18 @@ The common curve constructor rejects a provenance without captured content.
 The caller may rebuild provenance from an already retained result with capture
 enabled; this is record construction, not another calibration or inverse.
 
-## Proposed C++ boundary
+## C++ boundary
 
 Add `dal-public/src/calibrationrisk.hpp` and its implementation. Expose:
 
 ```cpp
 class CalibrationPullback_;
 class CalibrationQuoteRisk_;
-struct CalibrationParameterAdjoints_;
-struct CalibrationDirectQuoteAdjoints_;
+struct CalibrationParameterSeedTag_;
+struct CalibrationDirectQuoteSeedTag_;
+template <class T_> class CalibrationAdjoints_;
+using CalibrationParameterAdjoints_ = CalibrationAdjoints_<CalibrationParameterSeedTag_>;
+using CalibrationDirectQuoteAdjoints_ = CalibrationAdjoints_<CalibrationDirectQuoteSeedTag_>;
 
 CalibrationPullback_ NewCalibrationPullback(
     const DupireCalibrationSnapshot_& calibration);
@@ -58,8 +63,7 @@ CalibrationQuoteRisk_ PullbackCalibration(
     const std::optional<CalibrationDirectQuoteAdjoints_>& direct = {});
 ```
 
-Both seed roles use one shared implementation and aliases/tags; the sketch's
-struct spelling describes their public names rather than two duplicated bodies.
+Both seed roles use one shared implementation and aliases/tags.
 Each owns the immutable source and matrix values. Required arguments come first.
 No callback supplied by the caller or per-node polymorphic interface is needed.
 

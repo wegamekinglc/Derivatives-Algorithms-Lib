@@ -1,8 +1,8 @@
 # F01 native curve record foundation review
 
-Verdict: Comment Only. No unresolved local correctness, methodology or API
-findings. Exact new-publication CI remains required. This review covers opt-in
-native record capture, not the unimplemented common pullback or its bindings.
+Verdict: Approve for native record capture at `a3833be9`. No unresolved local
+correctness, methodology or API findings. All 35 exact-head checks pass.
+This review does not accept the subsequent shared operation or its bindings.
 
 ## Findings
 
@@ -33,9 +33,9 @@ entry is added; the common public operation will need its own decision.
 
 ## Open questions and limits
 
-No user decision is needed. Exact new-head cross-platform CI remains required,
-including MSVC, ARM wheels and sanitizer configurations. The accepted 35 checks
-at `533b6602` validate the preceding Excel correction, not this native change.
+No user decision is needed. Exact `a3833be9` passes all 35 checks, including
+MSVC, ARM wheels and sanitizer configurations. The accepted 35 checks at
+`533b6602` cover the preceding Excel correction separately.
 The common operation must still compare complete source content, preserve
 direct-quote identity, reuse mapping without hot-path overhead, and complete
 all three language/request/budget requirements. Every full F01 box remains open.
@@ -86,8 +86,8 @@ preserve numeric checks and input hashes. Retained record sizes are 9,115–368,
 bytes in these cases. This is a bounded incremental no-regression verdict;
 P01's production MC acceptance remains inconclusive.
 
-The native foundation requires corrected publication and exact-head CI.
-Full shared calibration/F01/AAD acceptance remains open.
+The native foundation is accepted at its corrected publication. Full shared
+calibration/F01/AAD acceptance remains open and requires independent evidence.
 
 ## Publication correction
 
@@ -116,5 +116,7 @@ pass the existing eight-workload consumer. Fresh corrected performance runs
 pass all 75 nine-target cases, eight default factory costs and eighty numeric
 process checks under the original policy. The updated performance report pins
 the corrected native patch and fresh input hashes while retaining initial
-evidence. Exact corrective publication CI remains required; retain every
-original threshold and failed log.
+evidence. Exact `a3833be93e64a2e427debbcf787fd99a7ff37c22` passes all 35 checks;
+`aad-calibration-record-correction-ci-11.jsonl` captures every successful check
+for that SHA. Retain every original threshold and failed log. These checks
+do not cover the locally implemented shared public boundary.

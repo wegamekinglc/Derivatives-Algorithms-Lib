@@ -126,6 +126,11 @@ if(DAL_PUBLIC_BUILD_TESTS)
         "${PROJECT_SOURCE_DIR}/tests/*.cpp")
 
     add_executable(dal_public_tests ${TEST_FILES})
+    find_file(DAL_PUBLIC_TEST_QUOTE_RISK_FIXTURE_SOURCE quoteriskbenchfixtures.cpp
+        HINTS "${DAL_WORKSPACE_ROOT}/dal-cpp/benchmarks/rate_risk_perf"
+        DOC "Shared curve quote-risk workloads for dal-public tests"
+        REQUIRED)
+    target_sources(dal_public_tests PRIVATE "${DAL_PUBLIC_TEST_QUOTE_RISK_FIXTURE_SOURCE}")
     if(DAL_PUBLIC_USES_INSTALLED_CPP)
         dal_cpp_apply_msvc_runtime(dal_public_tests)
         if(MSVC)

@@ -357,9 +357,8 @@ default factory cost comparisons also pass. Retained opt-in records occupy
 checks and input hashes pass. The
 [record review](../reviews/aad-calibration-record.md) and
 [performance report](../performance/aad-calibration-record.md) retain the
-protocol, failures and bounds. Exact new-publication CI remains required.
-The common public operation is not yet implemented; this foundation does not
-close F01 or P01 production acceptance.
+protocol, failures and bounds. Exact corrective publication is accepted below.
+This foundation does not close F01 or P01 production acceptance.
 
 Initial capture publication `28b4e180` fails acceptance: 12 of 35 checks
 succeed, 22 builds fail and Codacy requests const-reference JSON input.
@@ -373,8 +372,44 @@ All thirteen traces remain bitwise unchanged with the bundled parser, and
 fresh installed consumers retain numeric parity. Preserve every failed log.
 Fresh corrected performance passes all 75 gate cases and eight default factory
 cost comparisons under the unchanged two-by-ten/4% policy. All eighty process
-numeric checks and measured input hashes pass. Exact corrective publication
-CI must pass before accepting the foundation.
+numeric checks and measured input hashes pass. Exact corrective
+`a3833be93e64a2e427debbcf787fd99a7ff37c22` passes all 35 checks, including
+four MSVC configurations, all wheels and sanitizer jobs. The complete capture
+is `aad-calibration-record-correction-ci-11.jsonl`; this accepts native capture.
+
+The shared C++ operation/result is now implemented locally under the common
+contract. Missing-header RED precedes GREEN. Twelve focused cases pass:
+bitwise typed Dupire parity, independent owned seeds, quote-only direct identity,
+all four curve providers, sixteen native mode/representation/layer combinations,
+mixed curve representations, actual USD/EUR PV currencies, signed portfolios,
+complete source identity, unavailable/missing records, invalid inputs, direct
+terms, overflow recovery and preserved/nested native recordings. All twelve
+predeclared smooth square directional recalibration rows pass; no step or
+tolerance changes. Retain failed test-setup evidence for the initially missing
+FlatIVS test class, incorrectly reused curve direct rule, overwritten XCCY
+fixture route and legitimate nondependent gradient cells. Reference assembly
+now admits only the original structural-zero reason; other failures reject.
+Full OFF/combined suites pass 2,412/2,426, including 857 existing Python checks
+and 33 regular examples OFF. Fully instrumented ASan/UBSan passes 186 relevant
+cases; all twelve common cases also pass with leak detection ON. Two fresh
+installed consumers link only DAL::public and preserve sixteen numeric and
+three metadata rows exactly across OFF/combined. Six actual MSVC syntax checks
+pass for the common, test and legacy units in both configurations; Windows
+runtime publication checks remain required.
+
+The unchanged two-by-ten/4% nine-target gate passes all 75 comparable cases.
+All 677 measured inputs remain unchanged; eight gate executables and the
+provenance-constructor object are byte-identical to accepted native capture.
+Twenty separate informational common-cost processes preserve all twelve numeric
+checks and 408 input hashes. Prepared curve calls cost approximately 0.12–1.42
+microseconds; the two Dupire sizes cost approximately 18/175 microseconds.
+These new-entry costs exclude calibration, record capture and seed construction.
+The [shared C++ review](../reviews/aad-calibration-pullback.md) and
+[performance report](../performance/aad-calibration-pullback.md) retain full
+case rows, independent references, original failures and bounded conclusions.
+The C++ increment awaits exact publication-head CI and is not yet accepted.
+Python/Excel record capture/common bindings and request/budget/market integration
+remain required. P01 production MC acceptance remains inconclusive.
 
 ### Whole-plan status and remaining effort
 
@@ -382,25 +417,25 @@ This snapshot distinguishes accepted increments from locally implemented work.
 Estimates are remaining single-developer effort, not promises of calendar time;
 overlapping acceptance work is included once in the integration allowance.
 
-| Work item               | Implementation/local verification                          | Publication/CI                                 | Remaining person-days |
-|-------------------------|------------------------------------------------------------|------------------------------------------------|-----------------------|
-| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal              | Accepted exact-head checks                     | 0                     |
-| Scalar D04              | Accepted C++/Python/Excel                                  | Accepted exact-head checks                     | 0                     |
-| P01                     | Tooling complete; production MC acceptance inconclusive    | Published tooling; performance verdict open    | 2–5                   |
-| F01                     | Dupire chain accepted; curve capture locally verified      | Excel 35 checks accepted; common boundary open | 6–10                  |
-| F02                     | Multiple outputs and portfolio integration remain          | Open                                           | 7–11                  |
-| P02/P03                 | Worker reuse/block selection/extraction remain             | Open                                           | 4–7                   |
-| F03                     | Solve, implicit calibration and PDE operators remain       | Open                                           | 12–20                 |
-| P04/P05                 | Structural sparsity/checkpointing remain                   | Open                                           | 9–15                  |
-| F04                     | Second-order implementation/estimator validation remain    | Open                                           | 12–20                 |
-| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains | Open                                           | 7–11                  |
+| Work item               | Implementation/local verification                          | Publication/CI                              | Remaining person-days |
+|-------------------------|------------------------------------------------------------|---------------------------------------------|-----------------------|
+| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal              | Accepted exact-head checks                  | 0                     |
+| Scalar D04              | Accepted C++/Python/Excel                                  | Accepted exact-head checks                  | 0                     |
+| P01                     | Tooling complete; production MC acceptance inconclusive    | Published tooling; performance verdict open | 2–5                   |
+| F01                     | Dupire/capture accepted; shared C++ full local checks pass | Capture 35 checks accepted; shared CI open  | 6–10                  |
+| F02                     | Multiple outputs and portfolio integration remain          | Open                                        | 7–11                  |
+| P02/P03                 | Worker reuse/block selection/extraction remain             | Open                                        | 4–7                   |
+| F03                     | Solve, implicit calibration and PDE operators remain       | Open                                        | 12–20                 |
+| P04/P05                 | Structural sparsity/checkpointing remain                   | Open                                        | 9–15                  |
+| F04                     | Second-order implementation/estimator validation remain    | Open                                        | 12–20                 |
+| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains | Open                                        | 7–11                  |
 
 Remaining total: approximately 60–100 person-days, or 12–20 working weeks.
 Allow approximately 15–25 weeks including cross-platform and performance
-investigation buffer. F01's first Hybrid oracle pass does not yet change that
-range materially. F01 now has approximately 6–10 person-days remaining after
-Excel acceptance. Re-estimate at milestones and when acceptance
-findings change the scope.
+investigation buffer. The shared C++ local milestone does not yet change that
+range materially. F01 has approximately 6–10 person-days remaining for shared
+publication, language bindings and complete request integration. Re-estimate at
+milestones and when acceptance findings change the scope.
 
 ### Earlier snapshots retained for acceptance context
 
@@ -760,8 +795,9 @@ corrected head passes fresh correctness and all changed-workload comparisons;
 all 46 exact publication-head CI checks subsequently pass at `0ee84e1`.
 Do not reuse the ownership snapshot's acceptance as proof for these new changes.
 
-Next: publish the validated native record foundation and inspect exact-head CI,
-then implement the shared calibration operation/result and Python/Excel adapters.
+Next: publish the locally verified shared C++ increment and inspect its exact
+publication-head checks, then implement Python/Excel capture and shared-boundary
+adapters.
 Retain the full request, payload-budget and market-coordinate integration audit
 before closing F01.
 Continue F02 output seeds under their controlling design.

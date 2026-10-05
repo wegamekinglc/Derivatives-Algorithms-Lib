@@ -1,14 +1,15 @@
 # F01 native curve record performance acceptance
 
 Status: the incremental nine-target gate and default factory cost checks pass.
-This accepts these measured workloads; common pullback implementation and exact
-new-publication CI remain open. P01 production MC remains inconclusive.
+This accepts these measured workloads; exact native publication `a3833be9`
+passes all 35 checks. Shared pullback acceptance remains open, and P01
+production MC remains inconclusive.
 
 ## Inputs and environment
 
 Baseline is the last accepted native publication
-`533b6602f563dba78005fd9a63194b150d588af3`. The measured head is publication `28b4e180` plus its const-reference and
-private-test-dependency correction. Cumulative native patch relative to the
+`533b6602f563dba78005fd9a63194b150d588af3`. The measured corrected head is
+`a3833be93e64a2e427debbcf787fd99a7ff37c22`. Cumulative native patch relative to the
 accepted baseline has SHA-256 `2ac992f0d5368d5602bc953bfb3949b3a117cae4837d3899ccdb775cd9485f3a`. The evidence manifest pins every
 native/header, archive and executable input. Compiler: c++ (Ubuntu 15.2.0-16ubuntu1) 15.2.0.
 Release, native AAD, Eigen ON, native-architecture OFF, lifetime/profiling OFF,
@@ -197,4 +198,6 @@ The initial paired evidence remains under the `-01` paths and in the
 report uses fresh `-02` gate/cost runs and fresh installed prefixes after the
 const-reference correction. Every corrected input retains its measured hash;
 all 75 gate cases, eight default costs and eighty numeric process checks pass
-again. Exact corrective publication CI remains required.
+again. All 35 exact corrective publication checks pass; the complete capture
+is `aad-calibration-record-correction-ci-11.jsonl`. Subsequent shared-operation
+source requires its own performance and publication checks.

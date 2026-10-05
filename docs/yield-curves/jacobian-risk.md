@@ -541,6 +541,52 @@ D_i = \left(\sum_t g_t\right)^{\mathsf T} E_{:,i}/\tau,
 \qquad \mathrm{DV01}_i = 10^{-4} D_i.
 $$
 
+### Common Passive C++ Calibration Pullback
+
+`dal-public/src/calibrationrisk.hpp` provides an owning calibration boundary
+for captured curve provenance and frozen Dupire snapshots. Both return the
+same `CalibrationQuoteRisk_` type with separate `CalibrationAdjoints()`,
+`DirectAdjoints()` and `TotalAdjoints()` matrices.
+
+For a curve, enable record capture before building provenance. Parameter seeds
+are an `M × 1` column in `Axis().parameters_` global ordinal order; results and
+optional direct quote seeds are `N × 1` columns in `Axis().quotes_` order:
+
+```cpp
+#include <dal-public/src/calibrationrisk.hpp>
+
+const auto boundary = NewCalibrationPullback(provenance);
+const auto parameters = NewCalibrationParameterAdjoints(boundary, parameterAdjoints);
+const auto risk = PullbackCalibration(boundary, parameters);
+const Matrix_<>& decimalQuoteRisk = risk.TotalAdjoints();
+```
+
+Here `parameterAdjoints` contains independently computed PV derivatives in the
+captured curve coordinates. Supply each actual PV currency group separately;
+this operation performs no pricing, FX conversion, path averaging or report
+scaling. Multiply raw decimal-quote sensitivities by `1e-4` to obtain DV01.
+An optional `NewCalibrationDirectQuoteAdjoints(boundary, directAdjoints)` adds
+an already computed direct PV derivative once, after the inverse transform.
+
+Sources, seeds and results own passive data. Curve mapping reuses the existing
+effective inverse and its tolerance scaling, without recording, recalibration
+or live-market lookup. Its method is `RetainedCurveEffectiveInverse`, unit is
+`DECIMAL_QUOTE`, and boundary is `FrozenCalibrationEffectiveInverse`; these
+labels preserve the selected calibration map without claiming a particular
+requested Jacobian mode. `Source()` retains typed access to complete provenance.
+
+Parameter seeds must match the complete captured source, including ID, axes,
+bindings and case-sensitive canonical bytes. Curve direct seeds require the
+same source. Wrong dimensions, nonfinite seeds or outputs, unavailable mappings
+and source mismatches fail explicitly. Missing captured content reports
+`QUOTE_RISK_CALIBRATION_RECORD_NOT_RETAINED`.
+
+For [Dupire](../methodology/aad.md#discrete-dupire-calibration-pullback), pass
+the frozen snapshot to the same boundary factory. Its native matrix layouts,
+method and units remain; direct seeds may use another fixed base with identical
+ordered quote axes and values. Dupire retains its independent native recording
+and nested-use rejection. All getters return stored passive data.
+
 ### Why divide by `tolerance_`
 
 The underdetermined solver does not operate on the raw residuals. It scales every

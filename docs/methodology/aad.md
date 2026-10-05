@@ -807,6 +807,11 @@ separate contributions to `C_quote^T g_surface + g_direct`. No path averaging or
 reporting conversion is applied here. Results own ordinary numeric matrices,
 the calibration snapshot, method `NativeAADCalibrationVJP` and unit `decimal-vol`.
 
+The owning common C++ boundary in `dal-public/src/calibrationrisk.hpp` also
+accepts this snapshot and preserves these layouts, direct-quote identity,
+method and units. It returns the same passive result type as captured curve
+provenance; see the [common calibration interface](../yield-curves/jacobian-risk.md#common-passive-c-calibration-pullback).
+
 ### Hybrid Valuation to Dupire Quotes
 
 `dal-public/src/dupirerisk.hpp` connects an existing `ValueByMonteCarloWithRisk`
