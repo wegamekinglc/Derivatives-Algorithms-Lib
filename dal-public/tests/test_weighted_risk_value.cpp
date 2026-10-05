@@ -6,6 +6,7 @@
 
 #include <limits>
 
+#include <dal-public/src/global.hpp>
 #include <dal-public/src/models.hpp>
 #include <dal-public/src/script.hpp>
 #include <dal-public/src/value.hpp>
@@ -221,6 +222,7 @@ TEST(WeightedRiskValueTest, TestCommonPathComponentPricesGradientAndPassiveWeigh
 }
 
 TEST(WeightedRiskValueTest, TestRequestAndProvenanceOwnSnapshotsBeforeHistoryCallback) {
+    InitGlobalData(1);
     Script::TestSupport::StoreScriptTestFixing("EQ[WEIGHTED_SNAPSHOT]", 80.0, DateTime_(Date_(2025, 1, 1), 0.0));
     auto product = NewScriptProduct("snapshot", {Cell_("SCALE"), Cell_(Date_(2025, 1, 1)), Cell_(Date_(2027, 1, 1))},
                                     {"2", "a = SCALE * FIX(EQ[WEIGHTED_SNAPSHOT])", "pay PAYS a"});
