@@ -167,6 +167,33 @@ TEST(BufferCapacityTest, TestKnownFixedPayloadAndScopeOwnership) {
     ASSERT_EQ(budget.CapacityBytes(), 0);
 }
 
+TEST(BufferCapacityTest, TestOtherThreadBudgetDoesNotConstrainOrdinaryStorage) {
+    BufferCapacityBudget_ budget(8);
+    std::promise<void> ready;
+    std::promise<void> exit;
+    const auto exitGate = exit.get_future().share();
+    auto worker = std::async(std::launch::async, [&] {
+        BufferCapacityScope_ scope(&budget);
+        Vector_<> values(1, 7.0);
+        ready.set_value();
+        exitGate.wait();
+    });
+    const bool admitted = ready.get_future().wait_for(std::chrono::seconds(5)) == std::future_status::ready;
+    bool ordinarySucceeded = false;
+    try {
+        Vector_<> values(32, 4.0);
+        ordinarySucceeded = values.size() == 32 && values.front() == 4.0;
+    } catch (const std::exception&) {
+        ordinarySucceeded = false;
+    }
+    exit.set_value();
+    worker.get();
+    ASSERT_TRUE(admitted);
+    ASSERT_TRUE(ordinarySucceeded);
+    ASSERT_EQ(budget.PeakCapacityBytes(), 8);
+    ASSERT_EQ(budget.CapacityBytes(), 0);
+}
+
 TEST(BufferCapacityTest, TestConcurrentWorkersShareOneLimitAndReleaseAfterDrain) {
     BufferCapacityBudget_ budget(64);
     std::promise<void> exit;

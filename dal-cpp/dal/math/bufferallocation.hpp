@@ -27,7 +27,17 @@ namespace Dal {
 #endif
         BufferCapacityBudget_*& CurrentBufferBudget() noexcept;
 
+#if defined(__GNUC__) || defined(__clang__)
+        __attribute__((malloc, alloc_size(1)))
+#elif defined(_MSC_VER)
+        __declspec(restrict)
+#endif
         void* AllocateBufferStorage(size_t bytes);
+#if defined(__GNUC__) || defined(__clang__)
+        __attribute__((malloc, alloc_size(1)))
+#elif defined(_MSC_VER)
+        __declspec(restrict)
+#endif
         void* AllocateBufferStorage(size_t bytes, std::align_val_t alignment);
         void DeallocateBufferStorage(void* allocation, size_t bytes) noexcept;
         void DeallocateBufferStorage(void* allocation, size_t bytes, std::align_val_t alignment) noexcept;

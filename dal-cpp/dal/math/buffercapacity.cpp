@@ -3,6 +3,7 @@
 //
 
 #include <algorithm>
+#include <atomic>
 #include <limits>
 #include <map>
 #include <mutex>
@@ -16,6 +17,7 @@
 
 namespace Dal {
     namespace {
+        std::atomic<size_t> activeBufferScopes{0};
         thread_local BufferCapacityBudget_* currentBufferBudget = nullptr;
         thread_local const void* currentBufferAttachment = nullptr;
 
@@ -117,6 +119,8 @@ namespace Dal {
             ++budget->impl_->activeScopes_;
         }
         attachment_ = std::move(attachment);
+        // Publish before attaching; retire only after restoring the previous attachment.
+        activeBufferScopes.fetch_add(1, std::memory_order_relaxed);
         Detail::CurrentBufferBudget() = budget;
         currentBufferAttachment = attachment_.get();
     }
@@ -136,21 +140,47 @@ namespace Dal {
         }
         Detail::CurrentBufferBudget() = attachment_->previousBudget_;
         currentBufferAttachment = attachment_->previousAttachment_;
+        activeBufferScopes.fetch_sub(1, std::memory_order_relaxed);
         attachment_.reset();
     }
 
     namespace Detail {
         namespace {
-            template <class A_, class D_> auto AllocateStorage(size_t bytes, A_ allocate, D_ deallocate) {
+            template <class A_, class D_>
+#if defined(__GNUC__) || defined(__clang__)
+            __attribute__((cold, noinline))
+#elif defined(_MSC_VER)
+            __declspec(noinline)
+#endif
+            auto AllocateWithBudgetContext(size_t bytes, A_ allocate, D_ deallocate) {
                 auto* budget = currentBufferBudget;
-                return budget == nullptr || bytes == 0 ? allocate() : AllocateTrackedBuffer(budget, bytes, 1, allocate, deallocate);
+                return budget == nullptr ? allocate() : AllocateTrackedBuffer(budget, bytes, 1, allocate, deallocate);
             }
 
-            template <class D_> void DeallocateStorage(void* allocation, D_ deallocate) noexcept {
+            template <class A_, class D_> auto AllocateStorage(size_t bytes, A_ allocate, D_ deallocate) {
+                return activeBufferScopes.load(std::memory_order_relaxed) == 0 || bytes == 0
+                           ? allocate()
+                           : AllocateWithBudgetContext(bytes, allocate, deallocate);
+            }
+
+            template <class D_>
+#if defined(__GNUC__) || defined(__clang__)
+            __attribute__((cold, noinline))
+#elif defined(_MSC_VER)
+            __declspec(noinline)
+#endif
+            void DeallocateWithBudgetContext(void* allocation, D_ deallocate) noexcept {
                 if (auto* budget = currentBufferBudget)
                     DeallocateTrackedBuffer(budget, allocation, deallocate);
                 else
                     deallocate(allocation);
+            }
+
+            template <class D_> void DeallocateStorage(void* allocation, D_ deallocate) noexcept {
+                if (activeBufferScopes.load(std::memory_order_relaxed) == 0)
+                    deallocate(allocation);
+                else
+                    DeallocateWithBudgetContext(allocation, deallocate);
             }
         } // namespace
 
