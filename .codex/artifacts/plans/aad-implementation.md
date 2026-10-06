@@ -760,14 +760,14 @@ overlapping acceptance work is included once in the integration allowance.
 | P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass    | Merged; final 35/35 checks accepted     | 0                     |
 | F01                     | C++/Python/Excel and complete requirement audit accepted          | Merged; final 35/35 checks accepted     | 0                     |
 | F02 weighted/blocked    | C++/Python/Excel and independent mathematical oracles accepted    | #483/#484 merged; exact-head gates pass | 0                     |
-| F02 portfolio           | Weighted/native blocked results/budgets verified; bindings remain | Open #487; whole delivery pending       | 3–5                   |
+| F02 portfolio           | C++/Python/Excel surfaces and independent oracles implemented     | Open #487; final acceptance pending     | 1–2                   |
 | P02/P03                 | Worker reuse/block selection/extraction remain                    | Open                                    | 4–7                   |
 | F03                     | Solve, implicit calibration and PDE operators remain              | Open                                    | 12–20                 |
 | P04/P05                 | Structural sparsity/checkpointing remain                          | Open                                    | 9–15                  |
 | F04                     | Second-order implementation/estimator validation remain           | Open                                    | 12–20                 |
 | Final integration/audit | Cross-platform/binding/docs/performance acceptance remains        | Open                                    | 7–11                  |
 
-Remaining total: approximately 47–78 person-days, or 10–16 working weeks,
+Remaining total: approximately 45–75 person-days, or 9–15 working weeks,
 excluding CI queue time and including delivery contingency. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
 effort estimate, not a guaranteed completion date. Re-estimate when review
@@ -1298,11 +1298,17 @@ detached data and failed-request recovery. Repository lookup errors retain the
 original trade/physical cell context after a focused RED and repair. Fourteen
 MSVC source/configuration checks and ten strict source/header checks pass.
 Nineteen generated exports await actual Windows runtime acceptance.
+Exact code head `4bea5026` passes all four extended lifetime/profiling runtime
+configurations: 2,643/2,672/2,663/2,692 tests, each including 1,166 Python cases
+and the new portable Excel contracts. Codacy passes with zero annotations.
+The standard complete OFF build and installation also finish successfully.
+The sanitizer selectors now include all 37 core and 41 public portfolio cases
+in the six existing ASan/UBSan/TSan matrices; fresh selected runtime is required.
 
 Next: finish complete-head installed/diagnostic/performance acceptance. Preserve
 original RNG dimensions/path indices, private evaluator state, existing costs
 and independent numerical oracles. Every new publication needs its own exact-head
 checks. Complete portfolio delivery has no comparative performance acceptance yet.
-Remaining portfolio work is estimated at 2–4
-person-days; overall remaining effort is approximately 47–78 person-days.
+Remaining portfolio work is estimated at 1–2
+person-days; overall remaining effort is approximately 45–75 person-days.
 Stage A is accepted; the full Stage B/C/D goal remains incomplete.

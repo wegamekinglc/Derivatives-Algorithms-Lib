@@ -410,6 +410,25 @@ registration contract. All 157 Markdown integrity checks pass. Generated
 Windows runtime, installed and diagnostic consumers, strict unchanged-case
 performance and final-head CI/Codacy/review acceptance remain merge gates.
 
+## Sanitizer coverage and complete configuration runtime
+
+Code head `4bea5026` passes the four extended native runtime configurations:
+2,643 OFF/OFF, 2,672 ON/OFF, 2,663 OFF/ON and 2,692 ON/ON tests, each including
+1,166 Python cases and the four new Excel typed contracts. Job logs and retained
+case evidence are in `aad-portfolio-4bea-extended-runtime-01.json`. Codacy passes
+with zero annotations. A standard complete OFF build and installation finish
+successfully; local final runtime/installed-consumer acceptance follows.
+
+Review identifies that the six sanitizer jobs' selectors omit the new portfolio
+suites. Existing selections are preserved while core selectors add
+`Portfolio*Test.*:ScriptPortfolioTest.*` and public selectors add
+`Portfolio*Test.*`. These select all 37 core and 41 public portfolio cases.
+The initial narrower selector missed five sealed-construction cases; the static
+RED and corrected coverage proof are retained as
+`aad-portfolio-sanitizer-coverage-red-01.json` and
+`aad-portfolio-sanitizer-coverage-green-02.json`. Fresh sanitizer runtime is
+required; this coverage proof is not a substitute for running selected tests.
+
 ## Summary
 
 Existing scalar/weighted/Jacobian drivers retain their default preparation
