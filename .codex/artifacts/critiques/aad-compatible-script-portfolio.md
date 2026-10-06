@@ -50,14 +50,20 @@ The first implementation slice now establishes owning identities, passive axes
 and a deterministic full-equality group planner. Local tests exercise distinct
 and repeated owners, all sample fields and private scalar/vector state over
 reused tree/compiled evaluators. The planner consumes views from one sealed
-registry/path range; the producer establishing that contract is still pending.
-These tests do not prove scenario reuse or cross-group risk accumulation.
+registry/path range. The producer now establishes that provenance through an
+owning prepared portfolio, captures one date and union history after all plans
+and the admission callback, and retains explicit/global source metadata.
+Fourteen new preparation tests verify late-trade rejection before reads, private
+state, mutation isolation and failure recovery. The six exact factory model
+types admit full-contract grouping; their actual shared-path risk oracles still
+must pass. These tests do not prove scenario reuse or cross-group risk accumulation.
 
 Implement weighted groups before blocked attribution; reuse the accepted
 native root/replay primitives. Avoid speculative hashing, persistent caches or
 automatic width selection in this PR. Keep valuation/binding proposals visibly
-marked as unimplemented; current-state documentation covers only sealed C++
-construction and passive coordinate inspection.
+marked as unimplemented; current-state public documentation covers sealed C++
+construction and passive coordinate inspection. Connect actual aggregate budget
+policy before treating the preparation callback as capacity admission acceptance.
 
 ## Author questions
 

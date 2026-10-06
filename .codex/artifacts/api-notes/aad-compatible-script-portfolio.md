@@ -1,7 +1,8 @@
 # Compatible portfolio API decisions
 
 Status: sealed C++ portfolio construction and coordinate inspection exist.
-Valuation and binding surfaces below remain proposals for the active
+Internal whole-request preparation also exists. Valuation and binding surfaces
+below remain proposals for the active
 [portfolio specification](../specs/aad-compatible-script-portfolio.md).
 
 ## Current boundary and audience
@@ -26,7 +27,7 @@ before copying/cloning; numerical equality cannot collapse distinct owners.
 Product/model execution data are frozen at construction. The supported factory
 validates model parameters; exact JSON serialization deep-copies each unique
 owner once and verifies its dynamic type. Unsupported snapshots fail with the
-offending trade ID. Evaluation will separately capture one request date/history.
+offending trade ID. Internal preparation captures one request date/history.
 
 `ScriptPortfolioRiskAxes` in `dal-public/src/portfoliorisk.hpp` returns
 `PortfolioRiskAxes_`, with read-only `InputAxis`, `OutputAxis`,
@@ -34,6 +35,21 @@ offending trade ID. Evaluation will separately capture one request date/history.
 private trade constants. Inspection indexes products without history/date/task
 access; it does not produce valuation or group execution results. See the
 [current C++ example](../../../docs/methodology/aad.md#sealed-script-portfolio-coordinates).
+
+`Script::Detail::PlanScript` returns a move-only plan owning its private product
+and initialized passive model. It reads no history and cannot execute until
+`CompleteScriptPreparation` consumes it with a nonnull frozen snapshot. Explicit
+valuation snapshots cannot be substituted; original global source metadata is
+preserved when completing with the captured global environment.
+
+`Script::Detail::PrepareScriptPortfolio` owns the sealed handle and copies
+settings before invoking callbacks. It plans every trade, invokes one
+whole-request admission callback, captures the union of historical dependencies
+once, completes private trade state and returns an owning `PreparedPortfolio_`
+with the path count and compatible groups. These are internal integration
+surfaces. The callback establishes where budget policy must run; it does not
+enforce aggregate recording/scratch limits. No Monte Carlo portfolio result or
+worker scheduling is exposed by these preparation functions.
 
 ## Proposed valuation surfaces
 

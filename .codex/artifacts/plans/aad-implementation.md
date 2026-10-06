@@ -754,18 +754,18 @@ This snapshot distinguishes accepted increments from locally implemented work.
 Estimates are remaining single-developer effort, not promises of calendar time;
 overlapping acceptance work is included once in the integration allowance.
 
-| Work item               | Implementation/local verification                              | Publication/CI                          | Remaining person-days |
-| ----------------------- | -------------------------------------------------------------- | --------------------------------------- | --------------------- |
-| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                  | Accepted exact-head checks              | 0                     |
-| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass | Merged; final 35/35 checks accepted     | 0                     |
-| F01                     | C++/Python/Excel and complete requirement audit accepted       | Merged; final 35/35 checks accepted     | 0                     |
-| F02 weighted/blocked    | C++/Python/Excel and independent mathematical oracles accepted | #483/#484 merged; exact-head gates pass | 0                     |
-| F02 portfolio           | Sealed owners/axes/groups verified; execution/bindings remain  | Draft #487; code increment under review | 3–5                   |
-| P02/P03                 | Worker reuse/block selection/extraction remain                 | Open                                    | 4–7                   |
-| F03                     | Solve, implicit calibration and PDE operators remain           | Open                                    | 12–20                 |
-| P04/P05                 | Structural sparsity/checkpointing remain                       | Open                                    | 9–15                  |
-| F04                     | Second-order implementation/estimator validation remain        | Open                                    | 12–20                 |
-| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains     | Open                                    | 7–11                  |
+| Work item               | Implementation/local verification                                    | Publication/CI                          | Remaining person-days |
+|-------------------------|----------------------------------------------------------------------|-----------------------------------------|-----------------------|
+| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                        | Accepted exact-head checks              | 0                     |
+| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass       | Merged; final 35/35 checks accepted     | 0                     |
+| F01                     | C++/Python/Excel and complete requirement audit accepted             | Merged; final 35/35 checks accepted     | 0                     |
+| F02 weighted/blocked    | C++/Python/Excel and independent mathematical oracles accepted       | #483/#484 merged; exact-head gates pass | 0                     |
+| F02 portfolio           | Owners/axes/groups and whole preparation verified; execution remains | Draft #487; preparation awaiting CI     | 3–5                   |
+| P02/P03                 | Worker reuse/block selection/extraction remain                       | Open                                    | 4–7                   |
+| F03                     | Solve, implicit calibration and PDE operators remain                 | Open                                    | 12–20                 |
+| P04/P05                 | Structural sparsity/checkpointing remain                             | Open                                    | 9–15                  |
+| F04                     | Second-order implementation/estimator validation remain              | Open                                    | 12–20                 |
+| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains           | Open                                    | 7–11                  |
 
 Remaining total: approximately 47–78 person-days, or 10–16 working weeks,
 excluding CI queue time and including delivery contingency. F01 is merged;
@@ -1152,15 +1152,28 @@ establish owners before exact snapshots; same-named constants remain private.
 Twenty-one new tests and two existing scalar-risk contract tests pass locally,
 including six model families and private historical scalar/vector seeds over
 repeated paths in tree/compiled evaluators. The planner retains incompatible
-groups and compares complete sample/observation/settings contracts. Its future
-producer must establish sealed-owner/path-range provenance and sharing proof.
+groups and compares complete sample/observation/settings contracts. Foundation
+repair head `0fffbf74` passes all 35 CI checks, zero Codacy annotations and zero
+unresolved review threads.
 
-Next: split preparation admission from historical resolution to capture one
-request date/history, then implement shared weighted recordings, cross-group
+Whole-request preparation is now locally implemented. Move-only plans own
+private products/models; all trades plan before admission and before one union
+fixing snapshot is captured. The producer retains original explicit/global
+source metadata and date, completes private trade state and establishes the
+sealed-owner/path-count grouping boundary. Fourteen new cases verify caller and
+global mutation isolation, late-trade rejection before reads, private historical
+state, failure recovery and original meshes. The admission callback is a policy
+boundary; actual aggregate capacity policy is still pending. After refactoring
+the shared completion epilogue, 61 targeted core cases and six public cases pass,
+including old historical replay, startup budgets and LSM prune/reinitialize
+branches. Both production units pass strict OFF/combined ON syntax checks.
+
+Next: implement shared weighted recordings, cross-group
 gradient accumulation, aggregate capacity guards and blocked attribution.
 Portfolio valuation and Python/Excel bindings are not implemented. Preserve
 original RNG dimensions/path indices, private evaluator state, existing costs
-and independent numerical oracles. New code has no platform or comparative
+and independent numerical oracles. New preparation code needs its own
+publication-head checks; portfolio execution has no platform or comparative
 performance acceptance yet. Remaining portfolio work is estimated at 3–5
 person-days; overall remaining effort is approximately 47–78 person-days.
 Stage A is accepted; the full Stage B/C/D goal remains incomplete.

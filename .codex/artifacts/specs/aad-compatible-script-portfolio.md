@@ -1,8 +1,9 @@
 # Compatible native script portfolio risk
 
 Status: active specification. Sealed C++ ownership, passive coordinate catalogs
-and an internal compatibility planner are implemented and locally verified.
-Portfolio valuation, budget admission and bindings remain unimplemented.
+and internal compatibility planning and whole-request preparation are implemented
+and locally verified. Portfolio valuation, actual aggregate budget admission and
+bindings remain unimplemented.
 Delivery starts from merged PR #484, commit `1c9273c9`, in draft PR
 [#487](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/487).
 
@@ -235,16 +236,25 @@ unmergeable until behavior, consumers and these gates are accepted.
    Twenty-one new tests cover original-handle identity, serialization, all six
    model families, every sample field, fixing policies and private scalar/vector
    history over repeated paths in both evaluators. Two existing single-script
-   risk tests also pass. Platform/performance acceptance remains pending.
-2. Implement private evaluators and shared weighted group recordings, result
+   risk tests also pass. The foundation repair head `0fffbf74` passes all 35 CI
+   checks, zero Codacy annotations and zero unresolved review threads. Newer
+   preparation code still requires its own publication-head checks; portfolio
+   execution and comparative performance acceptance remain pending.
+   Internal move-only plans now defer history until every trade is planned and
+   the whole-request admission callback returns. The producer captures one date
+   and one union fixing snapshot, completes private trade state and constructs
+   groups from the original owners/meshes. Fourteen new cases verify ownership,
+   mutation isolation, source provenance, early rejection and failure recovery.
+   This callback is an admission boundary, not an implemented budget policy.
+2. Implement shared weighted group recordings using private evaluators, result
    scatter, budget admission and recovery oracles. About 1–1.5 person-days.
 3. Add blocked attribution and owning C++/Python/Excel surfaces with independent
    common-path and generated-export acceptance. About 1.5–2 person-days.
 4. Review, focused repairs, complete performance/platform gates and current-state
    documentation at a stable head. About 1 person-day.
 
-Remaining estimate is 3–5 person-days, including uncertainty in whole-request
-history freezing, aggregate capacity admission and binding integration. This is
+Remaining estimate is 3–5 person-days, including uncertainty in shared recording,
+aggregate capacity admission and binding integration. This is
 single-developer effort, not a calendar commitment or a merge-acceptance claim.
 
 ## Open implementation decisions
@@ -254,13 +264,14 @@ single-developer effort, not a calendar commitment or a merge-acceptance claim.
   construction must preserve these identities before converting its inputs.
 - The full-equality planner compares every `SampleDef_` field, ordered bindings,
   observation key/value/slot meaning, settings and initialized model dimensions.
-  Its views must originate from one sealed owner registry and absolute path
-  range. The execution producer must establish that provenance and the model
-  family's sharing proof; unproved views remain separate groups by default.
-- Split planning/admission from historical resolution so all trades can admit
-  startup capacity before freezing the union of required history keys once.
-  Preserve the original explicit/global source metadata when using that frozen
-  environment. The existing per-trade admission hook alone cannot supply this.
+  Its views now come from a producer owning one sealed registry and path count.
+  The six exact factory model types admit grouping only after full plan equality;
+  future/unproved types remain separate by default. Actual shared-path risk
+  acceptance still requires the independent model-family execution oracles.
+- Planning and completion are split without changing existing preparation
+  entry points. Whole-request admission precedes one union history capture,
+  retaining original explicit/global provenance. Connect aggregate recording
+  and scratch policy to this boundary, including every private evaluator/seed.
 - Choose lookup acceleration only after measuring preparation cost. Start with
   deterministic full comparisons; a hash is not a compatibility certificate.
 
