@@ -9,6 +9,7 @@
 #include <dal/indice/detail/fixingobserver.hpp>
 #include <dal/model/blackscholes.hpp>
 #include <dal/model/factory.hpp>
+#include <dal/platform/platform.hpp>
 #include <dal/storage/globals.hpp>
 #include <dal/storage/json.hpp>
 
@@ -77,6 +78,7 @@ TEST(PortfolioRiskAxesTest, TestAxesOutlivePortfolioAndGetterCopiesAreDetached) 
 }
 
 TEST(PortfolioRiskAxesTest, TestAxisQueryReadsNoHistoryDateOrWorkerState) {
+    RegisterAll_::Init();
     const Handle_<ModelData_> model(new BSModelData_("same", 100.0, 0.2));
     const Handle_<ScriptProductData_> product(
         new ScriptProductData_("", {Cell_(Date_(2025, 1, 1)), Cell_(Date_(2027, 1, 1))}, {"x = FIX(EQ[PORTFOLIO_UNREAD])", "pay PAYS x"}));

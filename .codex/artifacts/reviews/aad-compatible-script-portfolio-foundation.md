@@ -40,6 +40,12 @@ proof is unavailable. Retain private evaluator/history state for every trade.
 
 ## Tests
 
+- Public CI runs each discovered test with `gtest_main`, which does not register
+  DAL index parsers. Its no-history axis case exposed missing test setup that
+  the earlier combined core runner masked. Reproduced with the actual public
+  entry and added explicit registration before installing the read/task spies;
+  all original assertions and production paths remain unchanged. Recheck the
+  publication head across the failed Linux/Windows jobs after this repair.
 - Twenty-one new tests and two existing single-product risk contract tests pass
   in the static Release build. Historical scalar/vector cases reuse private
   states across `100,120,100` paths in both tree and compiled evaluation.
