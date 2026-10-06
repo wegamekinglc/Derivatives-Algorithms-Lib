@@ -125,6 +125,14 @@ proof is unavailable. Retain private evaluator/history state for every trade.
   mirror, verifies its exact tree and registered submodule status. Windows,
   Linux, wheel, release and benchmark workflows use this shared helper; no gate,
   compiler, sanitizer, dependency version or workload was removed.
+- Publication head `070bf9d1` clears pinned-dependency initialization on all
+  wheel platforms and every Linux/Windows build. Strict warnings and three
+  extended diagnostic/profiling configurations pass. Codacy identifies only
+  complexity 10/limit 8 in the mixed-mesh test. Extracted its independent scalar
+  reference assertions into a file-scope helper; the same eight execution settings,
+  every coordinate assertion, work count and `1e-10` bound remain. This repair
+  needs its own exact publication-head checks; earlier passing jobs are not merge
+  acceptance for it.
 
 Evidence lives under the session evidence root: `aad-portfolio-focused-foundation-green-02.json`,
 `aad-portfolio-warning-clean-01.json` and `aad-portfolio-doc-consumer-01.json`.
@@ -151,6 +159,8 @@ CI fallback evidence is `aad-ci-checkout-dependencies-{red,green}-01.log`,
 `aad-ci-checkout-workflow-regression-02.log`,
 `aad-ci-checkout-release-regression-01.log` and
 `aad-ci-eigen-mirror-integration-01.json`.
+The retained Codacy finding is `aad-487-replay-070b-current-03/summary.json`;
+focused repair evidence is `aad-portfolio-focused-replay-codacy-green-01.json`.
 
 ## Summary
 

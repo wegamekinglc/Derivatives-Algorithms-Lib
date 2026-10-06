@@ -1200,6 +1200,13 @@ existing commit/tree and normal submodule status. All build/wheel/release/benchm
 workflows retain their existing gates and initialize other dependencies recursively.
 New publication-head acceptance must verify the helper on actual CI runners.
 
+At `070bf9d1`, every build and wheel platform completes the new dependency
+checkout; strict warnings and three extended diagnostic/profiling configurations
+pass. The only Codacy annotation is mixed-mesh test complexity 10/limit 8.
+Extracted the independent scalar-reference helper while retaining every execution
+setting, coordinate assertion, count and tolerance. Targeted repair verification
+and fresh publication-head checks remain separate from the earlier snapshot.
+
 Next: implement public weighted requests/results, aggregate capacity guards,
 passive execution and blocked attribution.
 Portfolio valuation and Python/Excel bindings are not implemented. Preserve

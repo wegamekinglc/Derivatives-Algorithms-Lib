@@ -47,6 +47,28 @@ namespace {
         output.id_ = "trade:" + String_(std::to_string(trade)) + ":" + output.id_;
         return {trade, std::move(output), weight};
     }
+
+    void AssertIndependentScalarRisk(const Handle_<ScriptPortfolioData_>& data,
+                                     const PortfolioRiskAxes_& axes,
+                                     const Vector_<size_t>& trades,
+                                     const Vector_<double>& weights,
+                                     const MonteCarloSettings_& simulation,
+                                     const Dal::Detail::PortfolioWeightedReplayResult_& result) {
+        double objective = 0.0;
+        Vector_<double> gradient(axes.InputAxis().size(), 0.0);
+        for (size_t row = 0; row < trades.size(); ++row) {
+            const auto trade = trades[row];
+            const auto reference =
+                ValueByMonteCarloWithRisk(data->Products()[trade], data->Models()[data->ModelOwners()[trade]], 257, {}, Valuation(), simulation);
+            ASSERT_NEAR(result.componentMeans_[row], reference.Values()[0], 1e-10);
+            objective += weights[row] * reference.Values()[0];
+            for (size_t local = 0; local < axes.TradeInputPositions()[trade].size(); ++local)
+                gradient[axes.TradeInputPositions()[trade][local]] += weights[row] * reference.Jacobian()(0, static_cast<int>(local));
+        }
+        ASSERT_NEAR(result.weightedValue_, objective, 1e-10);
+        for (size_t column = 0; column < gradient.size(); ++column)
+            ASSERT_NEAR(result.gradient_[column], gradient[column], 1e-10) << axes.InputAxis()[column].id_;
+    }
 } // namespace
 
 TEST(PortfolioReplayTest, TestSharedOwnershipScatterAndParallelReductionMatchOracle) {
@@ -109,20 +131,7 @@ TEST(PortfolioReplayTest, TestOriginalMeshesAndDistinctOwnersMatchIndependentSca
                 for (size_t row = 0; row < trades.size(); ++row)
                     outputs.push_back(Payoff(prepared, trades[row], weights[row]));
                 const auto result = Dal::Detail::EvaluatePortfolioWeightedReplay(prepared, outputs, inputs);
-                double objective = 0.0;
-                Vector_<double> gradient(inputs.size(), 0.0);
-                for (size_t row = 0; row < trades.size(); ++row) {
-                    const auto trade = trades[row];
-                    const auto reference = ValueByMonteCarloWithRisk(data->Products()[trade], data->Models()[data->ModelOwners()[trade]], 257, {},
-                                                                     Valuation(), simulation);
-                    ASSERT_NEAR(result.componentMeans_[row], reference.Values()[0], 1e-10);
-                    objective += weights[row] * reference.Values()[0];
-                    for (size_t local = 0; local < axes.TradeInputPositions()[trade].size(); ++local)
-                        gradient[axes.TradeInputPositions()[trade][local]] += weights[row] * reference.Jacobian()(0, static_cast<int>(local));
-                }
-                ASSERT_NEAR(result.weightedValue_, objective, 1e-10);
-                for (size_t column = 0; column < inputs.size(); ++column)
-                    ASSERT_NEAR(result.gradient_[column], gradient[column], 1e-10) << axes.InputAxis()[column].id_;
+                ASSERT_NO_FATAL_FAILURE(AssertIndependentScalarRisk(data, axes, trades, weights, simulation, result));
                 for (const auto& group : result.groupCounters_) {
                     ASSERT_EQ(group.generatedScenarios_, 257);
                     ASSERT_EQ(group.suffixReversals_, 257);
