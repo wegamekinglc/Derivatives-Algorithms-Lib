@@ -18,14 +18,16 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-06
 
-- **C++/Python weighted script risk** — ordered scalar output choices and passive
+- **C++/Python/Excel weighted script risk** — ordered scalar output choices and passive
   weights produce one native AAD objective, with owning component means,
   weighted mean/gradient, reporting and preparation provenance. Exact numeric
   payload preflight precedes history and workers; price-only execution is
   explicit. Python supplies strict keyword requests, an output-axis query and
-  detached read-only results while releasing the GIL for native work. See
+  detached read-only results while releasing the GIL for native work. Excel
+  supplies immutable handles and component/gradient/snapshot tables. See
   [weighted script risk](docs/public-api.md#weighted-script-risk) and the
-  [Python entry](docs/python/README.md#weighted-script-risk).
+  [Python entry](docs/python/README.md#weighted-script-risk) and
+  [Excel entry](docs/excel/README.md#weighted-script-risk).
 - **Excel calibration and automatic Dupire requests** — immutable worksheet
   requests and sealed plans expose quote selections, exact retained payload
   budgets, explicit constant/direct dependencies and native AAD results. Passive

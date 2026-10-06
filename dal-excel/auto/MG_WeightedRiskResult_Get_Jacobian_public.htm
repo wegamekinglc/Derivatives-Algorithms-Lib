@@ -1,0 +1,38 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>WeightedRiskResult_Get_Jacobian</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>WeightedRiskResult_Get_Jacobian (in Excel: WEIGHTEDRISKRESULT.GET.JACOBIAN)</h1>
+Extract a copy of the weighted objective gradient
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>result</td><td>handle of type StorableWeightedRiskResult</td><td></td><td>Completed result</td></tr>
+<tr><td>reported</td><td>boolean</td><td>yes (default = false)</td><td>True applies each requested report factor once</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>jacobian</td><td>matrix of cells</td><td>One row and selected input columns; no columns spills one blank cell; use Get_Shape</td></tr>
+</table>
+
+
+
+
+
+

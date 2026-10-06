@@ -31,11 +31,11 @@ namespace Dal::Excel {
                                         ScriptSettingLocation(function, "settings", row + 1, column + 1), "InvalidRiskRequest");
     }
 
-    inline void ValidateRiskRequestPaths(const OPER_* input) {
+    inline void ValidateRiskRequestPaths(const OPER_* input, const char* function = "DupireScriptRiskSettings_New") {
         const auto* scalar = ScriptScalarInput(input);
         REQUIRE(scalar->xltype == xltypeNum || scalar->xltype == xltypeInt,
-                "InvalidPathCount: DupireScriptRiskSettings_New; n_paths; expected numeric integer, excluding bool and text");
-        CheckedMonteCarloPathCount(scalar->xltype == xltypeInt ? double(scalar->val.w) : scalar->val.num, "DupireScriptRiskSettings_New");
+                String_("InvalidPathCount: ") + function + "; n_paths; expected numeric integer, excluding bool and text");
+        CheckedMonteCarloPathCount(scalar->xltype == xltypeInt ? double(scalar->val.w) : scalar->val.num, function);
     }
 
     inline void ValidateRiskRequestBindingRow(const OPER_& ordinal, const OPER_& quote, int row) {

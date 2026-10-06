@@ -810,6 +810,12 @@ the GIL, and the passive result's matrix/container getters return independent
 copies. The [Python reference](../python/README.md#weighted-script-risk) describes
 the keyword-only entry and read-only properties.
 
+Excel uses immutable weighted request/result handles. Output-axis and component
+tables retain IDs/labels/slots and selected weights/means, while raw/reported
+gradients keep one row. Stored snapshot getters share the scalar result's
+conversion rules and perform no valuation. See the
+[worksheet reference](../excel/README.md#weighted-script-risk).
+
 ### Discrete Dupire Calibration Pullback
 
 The C++ functions in `dal/model/dupirerisk.hpp` map numeric local-volatility

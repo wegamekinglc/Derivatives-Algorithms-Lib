@@ -131,13 +131,38 @@ Compare the native model-spot derivative against separately generated passive
 valuations at 99.9 and 100.1 in both evaluator modes. Keep relative and absolute
 tolerances at `1e-10`; no step or tolerance changes after a failed measurement.
 
+## Excel weighted boundary
+
+Use `StorableRiskValue_<T_>` for immutable weighted request/result handles,
+with distinct type tags and the same archive rejection as scalar risk handles.
+`WeightedRiskRequest_New(name, settings)` accepts two-column rows for inputs,
+outputs, weights, report factors and numeric payload budget. Ordered ID/numeric
+lists use the existing semicolon convention; a missing key is omitted, a blank
+list is explicitly empty. Weight entries may be signed or zero but must be
+finite. Preserve the positive report-factor rule and exactly representable
+budget rule. Reuse raw range/text/scalar guards before generated conversions.
+
+`MonteCarlo_ValueWithWeightedRisk` mirrors the existing worksheet scalar entry's
+required product/model/path and optional request/valuation/simulation handles.
+The result retains one objective and one gradient row. Provide a scalar value,
+exact `(1,n)` shape, raw/reported Jacobian, selected/complete inputs and the
+retained provenance/history/product/model views. Component rows have headers
+`id`, `label`, `slot`, `weight`, `mean`; the product output-axis query omits the
+last two fields. Zero-column gradients spill one blank cell while the shape
+getter reports `(1,0)`. Getter calls copy passive data and perform no valuation.
+Factor common result-table helpers so existing scalar results retain identical
+tables without another set of snapshot-conversion loops. Weighted handles have
+no legacy scalar-output projection. Generate/register functions with Machinist;
+verify fresh portable cases and raw Windows guards separately.
+
 ## Alternatives and remaining work
 
 Repeated scalar valuations duplicate forward work. Assigning each selected
 output's seed overwrites aliases and mishandles prefix accumulation. A new vector
 tape layout adds complexity unnecessary for one fixed weighted objective.
 
-Python and the frozen spot finite-difference fixture are implemented. Remaining
-work includes Excel, final own-head gates and affected scalar cost checks.
+Python/Excel and the frozen spot finite-difference fixture are implemented.
+Remaining work includes fresh Windows/raw consumer acceptance, final own-head
+gates and affected scalar cost checks.
 Blocked Jacobians and portfolio
 timelines remain separate F02 work.

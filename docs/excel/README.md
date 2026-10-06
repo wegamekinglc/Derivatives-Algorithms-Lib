@@ -61,6 +61,53 @@ matrix/handle rules, diagnostics, and the executable workbook with PV/AAD oracle
 normal-draw flags as C++ and Python. Pass `TRUE, TRUE` for the precise-CDF Newton
 correction; leaving both optional flags `FALSE` selects the Acklam-only default.
 
+## Weighted script risk
+
+Use `PRODUCT.GET.RISKOUTPUTS(product)` to list scalar output IDs, labels and
+slots without valuation. The receiver is `payoff`; other scalar slots are
+`output:<ordinal>`. Vector storage is excluded.
+
+Create `WEIGHTEDRISKREQUEST.NEW(name, [settings])` from a two-column range:
+
+| Key                           | Example value           |
+|-------------------------------|-------------------------|
+| outputs                       | output:0;payoff          |
+| weights                       | 2;-0.5                  |
+| inputs                        | constant:0;model:1       |
+| report_factors                | 0.5;0.01                |
+| numeric_payload_budget_bytes  | 56                      |
+
+List values are text, including a single ID/number. Missing keys select the
+default payoff, unit weights and all native inputs; a blank list explicitly
+selects none. Signed/zero weights are valid, but every selected component must
+be finite. Empty/repeated/unknown outputs and incompatible weights fail.
+Report factors remain finite and positive. The numeric budget must be an exact
+nonnegative integer and covers `8 * (1 + inputs + 2 * outputs)` bytes; metadata,
+worker/tape storage, snapshots and getter copies are excluded.
+
+```text
+=WEIGHTEDRISKREQUEST.NEW("objective", request_settings)
+=MONTECARLO.VALUEWITHWEIGHTEDRISK(product, modelData, 65536, request, valuation)
+=WEIGHTEDRISKRESULT.GET.WEIGHTEDVALUE(result)
+=WEIGHTEDRISKRESULT.GET.COMPONENTS(result)
+=WEIGHTEDRISKRESULT.GET.JACOBIAN(result, TRUE)
+```
+
+Valuation accepts required product/model/path arguments and optional
+request/valuation/simulation handles. Omitted simulation enables native AAD;
+explicit `enable_aad=FALSE` selects price only. Exercise and fully expired
+products are unsupported. Variables retain their actual script values and the
+payoff retains its existing discounting; weights are held fixed.
+
+The immutable result's component table has headers `id`, `label`, `slot`,
+`weight`, `mean` in requested order. `GET.JACOBIAN` returns the one-row raw
+gradient, or applies report factors when `reported=TRUE`. Zero selected inputs
+spill one blank cell; `GET.SHAPE` reports `(1,0)`. Empty native inputs retain
+AAD smoothing. `GET.INPUTS(result, [complete])`, `GET.PROVENANCE`, `GET.HISTORY`,
+`GET.PRODUCT` and `GET.MODELSNAPSHOT` copy retained passive data without history
+access or valuation. Requests/results do not support archive serialization.
+See the [weighted AAD methodology](../methodology/aad.md#weighted-script-risk-results).
+
 ## Dupire quote risk
 
 The calibration holds the base IVS, deterministic carry and grid choices fixed;

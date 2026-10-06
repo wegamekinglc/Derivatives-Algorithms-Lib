@@ -677,7 +677,14 @@ the new boundary and old scalar/calibration/Dupire request parsers. Standalone
 installed-prefix configuration passes in both modes. See the
 [Python review](../reviews/aad-weighted-python.md), including retained support
 import failures and the explicit initialization repair for isolated CI tests.
-Excel, own-head CI/review and affected paired cost acceptance remain open.
+Excel now supplies immutable weighted handles, ordered component tables,
+gradients/shapes and retained snapshot getters. Ten weighted cases and the old
+scalar/calibration/Dupire consumers pass: 25 relevant tests in each OFF/combined
+mode, with focused ASan/UBSan in combined. Twelve registrations generate 24
+files without drift; numeric/boolean/range guards precede corresponding
+generated conversions. See the [Excel review](../reviews/aad-weighted-excel.md).
+Fresh Windows/raw consumer acceptance, own-head CI/review and affected paired
+cost acceptance remain open.
 No full F02 completion is inferred; blocked Jacobians, recording budgets and
 portfolios also remain.
 
@@ -691,7 +698,7 @@ overlapping acceptance work is included once in the integration allowance.
 | Scalar D04              | Accepted C++/Python/Excel                                      | Accepted exact-head checks           | 0                     |
 | P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass | Merged; final 35/35 checks accepted  | 0                     |
 | F01                     | C++/Python/Excel and complete requirement audit accepted       | Merged; final 35/35 checks accepted  | 0                     |
-| F02                     | Weighted C++/Python and frozen spot differences locally pass | Draft #483; Excel/cost/CI pending   | 6–10                  |
+| F02                     | Weighted C++/Python/Excel and frozen differences locally pass | Draft #483; Windows/cost/CI pending | 6–10                  |
 | P02/P03                 | Worker reuse/block selection/extraction remain                 | Open                                 | 4–7                   |
 | F03                     | Solve, implicit calibration and PDE operators remain           | Open                                 | 12–20                 |
 | P04/P05                 | Structural sparsity/checkpointing remain                       | Open                                 | 9–15                  |

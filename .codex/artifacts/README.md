@@ -20,6 +20,8 @@ after documenting the current-state outcome.
   prepared batches, owning results, independent references and open acceptance.
   [Python review](reviews/aad-weighted-python.md) records strict requests,
   detached results, GIL behavior, fixed differences and the isolated CI repair.
+  [Excel review](reviews/aad-weighted-excel.md) records immutable handles,
+  shared result tables, generated parity and focused sanitizer evidence.
 - [Native lifetime diagnostic contract](specs/aad-native-lifetime-diagnostics.md)
   and [initial acceptance evidence](perf/aad-native-lifetime-diagnostics.md): optional
   active-number checks, ABI propagation, failure recovery and default performance.

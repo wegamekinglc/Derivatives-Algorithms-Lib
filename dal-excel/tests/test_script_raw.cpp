@@ -79,6 +79,41 @@ namespace {
     }
 } // namespace
 
+TEST(ScriptExcelRawTest, TestWeightedRequestGeneratedExportRejectsInvalidPhysicalInputs) {
+    Excel::ScriptTestInitialize(1);
+    RawText_ name(L"weighted_raw"), key(L"weights"), valid(L"-1;0;2");
+    OPER_ cells[]{key.cell_, valid.cell_};
+    auto input = Multi(cells, 1, 2);
+    {
+        Output_ result(Call("xl_WeightedRiskRequest_New", &name.cell_, &input));
+        ASSERT_EQ(result.Text().find("#Error:"), std::string::npos) << result.Text();
+    }
+    for (unsigned long type : {xltypeBool, xltypeNum, xltypeErr}) {
+        cells[1] = {};
+        cells[1].xltype = type;
+        if (type == xltypeBool)
+            cells[1].val.xbool = 1;
+        else if (type == xltypeNum)
+            cells[1].val.num = 1.0;
+        else
+            cells[1].val.err = 15;
+        Output_ result(Call("xl_WeightedRiskRequest_New", &name.cell_, &input));
+        CheckError(result, {"WeightedRiskRequest_New", "settings row=1 column=2"});
+    }
+    RawText_ embedded(std::wstring(L"1\0;2", 4));
+    cells[1] = embedded.cell_;
+    {
+        Output_ result(Call("xl_WeightedRiskRequest_New", &name.cell_, &input));
+        CheckError(result, {"WeightedRiskRequest_New", "settings row=1 column=2", "NUL"});
+    }
+    OPER_ wideCells[]{key.cell_, valid.cell_, valid.cell_};
+    auto wide = Multi(wideCells, 1, 3);
+    {
+        Output_ result(Call("xl_WeightedRiskRequest_New", &name.cell_, &wide));
+        CheckError(result, {"WeightedRiskRequest_New", "settings"});
+    }
+}
+
 TEST(ScriptExcelRawTest, TestPhysicalRangeErrorsAndIntegerBooleans) {
     Excel::ScriptTestInitialize(1);
     RawText_ name(L"raw"), key(L"enable_aad"), empty(L"");

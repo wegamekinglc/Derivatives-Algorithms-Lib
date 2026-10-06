@@ -1,9 +1,9 @@
 # Weighted prepared-script risk: F02 first delivery
 
 Status: active contract for the new F02 PR, based on merged #480 (`079c9d52`).
-The native root, preflight, prepared C++ valuation and Python boundary pass
-focused OFF and combined checks. Excel, cost acceptance and final publication
-CI remain open. This specification covers
+The native root, preflight, prepared C++ valuation and Python/Excel boundaries
+pass focused OFF and combined checks. Fresh Windows/raw consumer checks,
+cost acceptance and final publication CI remain open. This specification covers
 the fixed-weight part of F02; blocked Jacobians, portfolio preparation and the
 complete plan remain separate.
 
