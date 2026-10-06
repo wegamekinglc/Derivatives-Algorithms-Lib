@@ -293,7 +293,46 @@ TEST(PortfolioBatchTest, TestAbsolutePathsAndPrivateVectorHistoryMatchIndependen
                 ASSERT_NEAR(result.constantGradientSums_[1][0] / 257, -2 * second.risks_[4] * 311 / 257, 1e-10);
                 ASSERT_EQ(result.generatedScenarios_, 257);
                 ASSERT_EQ(result.evaluatorCalls_, 514);
+                const BatchPlan_ batches(32785, 4);
+                const auto reusable = Dal::Script::Detail::PrepareScriptPortfolio(data, 32785, valuation, simulation);
+                const Vector_<Dal::Script::Detail::PortfolioBatchOutput_> outputs{Payoff(reusable, 1, -2.0), Payoff(reusable, 0, 3.0)};
+                Vector_<Dal::Script::Detail::PortfolioWeightedBatchResult_> slots;
+                for (size_t index = 0; index < batches.BatchCount(); ++index)
+                    slots.emplace_back(outputs.size());
+                Dal::Script::Detail::EvaluatePortfolioWeightedWorker(reusable, 0, batches, 0, 4, outputs, &slots);
+                for (const size_t index : {0, 4}) {
+                    const auto fresh = Dal::Script::Detail::EvaluatePortfolioWeightedBatch(reusable, 0, batches.BatchAt(index), outputs);
+                    ASSERT_EQ(slots[index].componentSums_, fresh.componentSums_);
+                    ASSERT_DOUBLE_EQ(slots[index].weightedSum_, fresh.weightedSum_);
+                    ASSERT_EQ(slots[index].modelGradientSums_, fresh.modelGradientSums_);
+                    ASSERT_EQ(slots[index].constantGradientSums_, fresh.constantGradientSums_);
+                    ASSERT_EQ(slots[index].generatedScenarios_, batches.BatchAt(index).pathCount_);
+                    ASSERT_EQ(slots[index].prefixReversals_, 1);
+                }
+                ASSERT_EQ(slots[1].generatedScenarios_, 0);
             }
+}
+
+TEST(PortfolioBatchTest, TestWorkerRangeAndSlotValidationPrecedesRecording) {
+    const Handle_<ModelData_> model(new BSModelData_("", 100.0, 0.2));
+    const Handle_<ScriptPortfolioData_> data(new ScriptPortfolioData_("", {{"A", Trade(5.0, "pay PAYS SPOT() + X"), model}}));
+    MonteCarloSettings_ simulation;
+    simulation.enableAad_ = true;
+    const auto portfolio = Dal::Script::Detail::PrepareScriptPortfolio(data, 17, Valuation(), simulation);
+    const BatchPlan_ batches(17, 1);
+    const Vector_<Dal::Script::Detail::PortfolioBatchOutput_> outputs{Payoff(portfolio, 0, 1.0)};
+    Vector_<Dal::Script::Detail::PortfolioWeightedBatchResult_> slots;
+    slots.emplace_back(1);
+    AAD::RecordingScope_ recording;
+    for (const size_t workers : {0, 2})
+        AssertFailure([&] { Dal::Script::Detail::EvaluatePortfolioWeightedWorker(portfolio, 0, batches, 0, workers, outputs, &slots); },
+                      "field=workers");
+    AssertFailure([&] { Dal::Script::Detail::EvaluatePortfolioWeightedWorker(portfolio, 0, batches, 1, 1, outputs, &slots); }, "field=workers");
+    AssertFailure([&] { Dal::Script::Detail::EvaluatePortfolioWeightedWorker(portfolio, 0, batches, 0, 1, outputs, nullptr); }, "field=slots");
+    const BatchPlan_ outside(8193, 1);
+    slots.emplace_back(1);
+    AssertFailure([&] { Dal::Script::Detail::EvaluatePortfolioWeightedWorker(portfolio, 0, outside, 0, 1, outputs, &slots); }, "field=batch");
+    ASSERT_EQ(slots[0].generatedScenarios_, 0);
 }
 
 TEST(PortfolioBatchTest, TestHistoricalPrefixAndDirectConstantAliasesReverseOnce) {

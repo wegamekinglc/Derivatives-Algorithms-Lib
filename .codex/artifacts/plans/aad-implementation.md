@@ -754,8 +754,9 @@ in one/four-worker tree/compiled execution, budget failures/recovery and native
 empty columns. Public axes/provenance, full snapshot/minimum preflight, consumer
 and performance/platform acceptance remain open; see the
 [request replay review](../reviews/aad-blocked-request-replay.md).
-No full F02 completion is inferred; blocked Jacobians, recording budgets and
-portfolios also remain.
+The preceding paragraphs record intermediate F02 acceptance. F02 is now complete:
+blocked Jacobians and recording budgets merged in #484, and portfolios merged
+in #487. Their final acceptance appears in the current status table below.
 
 This snapshot distinguishes accepted increments from locally implemented work.
 Estimates are remaining single-developer effort, not promises of calendar time;
@@ -768,7 +769,7 @@ overlapping acceptance work is included once in the integration allowance.
 | F01                     | C++/Python/Excel and complete requirement audit accepted         | Merged; final 35/35 checks accepted      | 0                     |
 | F02 weighted/blocked    | C++/Python/Excel and independent mathematical oracles accepted   | #483/#484 merged; exact-head gates pass  | 0                     |
 | F02 portfolio           | C++/Python/Excel, installed consumers and timing repair accepted | #487 merged; final 35/35 checks accepted | 0                     |
-| P02/P03                 | Active specification; worker reuse/extraction not implemented    | New branch after #487; PR preparation    | 4–7                   |
+| P02/P03                 | Worker reuse and six-model reset pass focused tests              | #488 open; performance/platform pending  | 4–7                   |
 | F03                     | Solve, implicit calibration and PDE operators remain             | Open                                     | 12–20                 |
 | P04/P05                 | Structural sparsity/checkpointing remain                         | Open                                     | 9–15                  |
 | F04                     | Second-order implementation/estimator validation remain          | Open                                     | 12–20                 |

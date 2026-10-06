@@ -192,14 +192,14 @@ namespace Dal::Detail {
             for (size_t batch = 0; batch < batches.BatchCount(); ++batch)
                 slots.emplace_back(outputs);
             {
-                auto futures =
-                    BufferCapacityScope_::ForWorker(scratch, Script::Detail::ReplayExtentProduct(batches.BatchCount(), sizeof(TaskHandle_)));
+                const auto workers = std::min(ThreadPool_::GetInstance()->NumThreads(), batches.BatchCount());
+                auto futures = BufferCapacityScope_::ForWorker(scratch, Script::Detail::ReplayExtentProduct(workers, sizeof(TaskHandle_)));
                 Dal::Detail::BufferCapacitySuspension_ suspension;
-                Script::SimulationTaskGroup_ tasks(ThreadPool_::GetInstance(), batches.BatchCount());
-                for (size_t batch = 0; batch < batches.BatchCount(); ++batch)
-                    tasks.Spawn([&, batch] {
+                Script::SimulationTaskGroup_ tasks(ThreadPool_::GetInstance(), workers);
+                for (size_t worker = 0; worker < workers; ++worker)
+                    tasks.Spawn([&, worker] {
                         auto capacity = BufferCapacityScope_::ForWorker(scratch);
-                        slots[batch] = run(batches.BatchAt(batch));
+                        run(worker, workers, &slots);
                         return true;
                     });
                 tasks.Complete();
@@ -216,9 +216,10 @@ namespace Dal::Detail {
                       BufferCapacityBudget_* scratch,
                       AAD::TapeCapacityBudget_* tape) {
             try {
-                const auto slots =
-                    RunBatches<PortfolioWeightedBatchResult_>(batches, selection.groupOutputs_[group].size(), scratch, [&](const auto& paths) {
-                        return Script::Detail::EvaluatePortfolioWeightedBatch(portfolio, group, paths, selection.groupOutputs_[group], scratch, tape);
+                const auto slots = RunBatches<PortfolioWeightedBatchResult_>(
+                    batches, selection.groupOutputs_[group].size(), scratch, [&](size_t worker, size_t workers, auto* results) {
+                        Script::Detail::EvaluatePortfolioWeightedWorker(portfolio, group, batches, worker, workers, selection.groupOutputs_[group],
+                                                                        results, scratch, tape);
                     });
                 ReduceGroup(slots, group, axes, selection, result);
             } catch (const std::exception& error) {
@@ -287,9 +288,11 @@ namespace Dal::Detail {
             try {
                 const auto begin = selection.groupOutputs_[group].begin() + static_cast<ptrdiff_t>(block.firstOutput_);
                 const Vector_<PortfolioBatchOutput_> outputs(begin, begin + static_cast<ptrdiff_t>(block.outputs_));
-                const auto slots = RunBatches<PortfolioJacobianBatchResult_>(batches, outputs.size(), scratch, [&](const auto& paths) {
-                    return Script::Detail::EvaluatePortfolioJacobianBatch(portfolio, group, paths, outputs, block.width_, scratch, tape);
-                });
+                const auto slots =
+                    RunBatches<PortfolioJacobianBatchResult_>(batches, outputs.size(), scratch, [&](size_t worker, size_t workers, auto* results) {
+                        Script::Detail::EvaluatePortfolioJacobianWorker(portfolio, group, batches, worker, workers, outputs, block.width_, results,
+                                                                        scratch, tape);
+                    });
                 ReduceJacobianBlock(slots, group, block, axes, selection, result);
             } catch (const std::exception& error) {
                 const auto& output = selection.groupOutputs_[group][block.firstOutput_];
@@ -333,9 +336,10 @@ namespace Dal::Detail {
                 auto outputs = selection.groupOutputs_[group];
                 for (auto& output : outputs)
                     output.weight_ = 0.0;
-                const auto slots = RunBatches<PortfolioWeightedBatchResult_>(batches, outputs.size(), scratch, [&](const auto& paths) {
-                    return Script::Detail::EvaluatePortfolioWeightedBatch(portfolio, group, paths, outputs, scratch);
-                });
+                const auto slots =
+                    RunBatches<PortfolioWeightedBatchResult_>(batches, outputs.size(), scratch, [&](size_t worker, size_t workers, auto* results) {
+                        Script::Detail::EvaluatePortfolioWeightedWorker(portfolio, group, batches, worker, workers, outputs, results, scratch);
+                    });
                 ReduceJacobianBlock(slots, group, {0, outputs.size(), 1}, axes, selection, result);
             } catch (const std::exception& error) {
                 THROW2("PortfolioJacobianReplayFailed: passive; group=" + String_(std::to_string(group)) + "; cause=" + String_(error.what()),
@@ -386,7 +390,7 @@ namespace Dal::Detail {
             const auto representative = group.tradePositions_.front();
             const auto slots = AdmissionSlots<G_>(trades, plans[representative].Model().Parameters().size(), outputs.size(), width,
                                                   batches.BatchCount(), plan.EnableAad());
-            const auto futures = Script::Detail::ReplayExtentProduct(batches.BatchCount(), sizeof(TaskHandle_));
+            const auto futures = Script::Detail::ReplayExtentProduct(workers, sizeof(TaskHandle_));
             auto taskCapacity = BufferCapacityScope_::ForWorker(scratch, futures);
             const auto remaining = scratch->LimitBytes() - scratch->CapacityBytes();
             const auto tapeQuota = limits.tapeBudgetBytes_.value_or(std::numeric_limits<size_t>::max()) / workers;

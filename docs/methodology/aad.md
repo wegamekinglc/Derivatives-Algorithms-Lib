@@ -962,6 +962,15 @@ historical seeds and evaluator state. Groups run sequentially, with parallel
 path batches within a group. Native execution reverses one weighted suffix per
 path and each retained batch prefix once.
 
+Each group or native output block submits at most the admitted worker count.
+A job constructs its model, RNG, Gaussian/scenario buffers and private evaluators
+on its executing thread, then reuses their capacity across its assigned original
+batches. Every native batch starts a fresh recording, re-registers parameters and
+constants, initializes model coefficients and historical seeds, and repositions
+the RNG to the original absolute offset. Batch results retain separate slots and
+reduce in their original order. All worker state is destroyed after tasks drain;
+it does not persist across requests, groups or output blocks.
+
 Default settings use native AAD. Explicit empty native inputs retain the smoothed
 estimator and a `(1, 0)` gradient. Setting `simulation.enableAad_ = false` selects
 sharp price-only execution, permits only omitted/empty inputs and performs no

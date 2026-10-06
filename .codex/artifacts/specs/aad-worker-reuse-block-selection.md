@@ -1,7 +1,10 @@
 # Native AAD worker reuse, block policy and selected extraction
 
-Status: active P02/P03 specification; implementation has not started. Delivery
-uses a new PR after accepted portfolio PR
+Status: P02 worker reuse is implemented locally in
+[#488](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/488).
+Focused numerical/resource tests pass; performance and final-head platform
+acceptance remain open. P03 extraction/block policy follows in a new PR after
+#488 merges. Delivery follows accepted portfolio PR
 [#487](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/487),
 merge `bf52e3868a3e72a5f43b8c023a12aeee095a46cd`. Its tree equals accepted
 head `47c33a12`: all 35 checks and both publication audits pass. Actual Windows
@@ -15,12 +18,14 @@ performance or CI regressions, with later development in new PRs. The
 [implementation ledger](../plans/aad-implementation.md) leaves P02 worker
 capacity reuse and P03 block policy/extraction outstanding.
 
-`dal-public/src/portfolioreplayinternal.cpp` submits one task per path batch and
-repeats scheduling for each output block. Native `RunBatch` in
-`dal-cpp/dal/script/portfoliobatch.cpp` constructs a model, RNG, Gaussian buffer,
-scenario, private evaluators and output storage per batch. It records a prefix,
-restores a path checkpoint, reverses each suffix, reverses the prefix and extracts
-gradients. Existing single-product value-only workers reuse request-local buffers;
+The accepted #487 baseline submits one task per path batch and repeats scheduling
+for each output block. Its native batch runner constructs a model, RNG, Gaussian
+buffer, scenario, private evaluators and output storage per batch. The P02 change
+in `dal-public/src/portfolioreplayinternal.cpp` bounds jobs by worker count; the
+runner in `dal-cpp/dal/script/portfoliobatch.cpp` retains those buffers per job.
+Each original batch still records its prefix, restores each path checkpoint,
+reverses each suffix, reverses the prefix and extracts gradients independently.
+Existing single-product value-only workers reuse request-local buffers;
 see [batching](../../../docs/methodology/script_engine.md#batching-and-thread-pool).
 
 Accepted [portfolio cost evidence](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/47c33a12b142af8aec9532b0c7c1084fd9f064a6/.codex/artifacts/performance/aad-compatible-script-portfolio.md)

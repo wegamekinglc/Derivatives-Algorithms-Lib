@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 
 #include <limits>
+#include <utility>
 
 #include <dal-public/src/models.hpp>
 #include <dal-public/src/portfolioreplayinternal.hpp>
@@ -65,6 +66,36 @@ namespace {
 
     Vector_<size_t> SelectedRiskInputs(const Vector_<size_t>& inputs, const MonteCarloSettings_& simulation) {
         return simulation.enableAad_ ? inputs : Vector_<size_t>{};
+    }
+
+    std::pair<Vector_<Handle_<ModelData_>>, Vector_<String_>> SixModelFamilies() {
+        const Date_ today(2026, 1, 1);
+        HybridSettings_ hybridSettings;
+        hybridSettings.domesticCurrency_ = "USD";
+        hybridSettings.components_ = {NewHybridBSEquityData("A", "EQ[A]", "USD", "FA", 100.0, 0.2, 0.0),
+                                      NewHybridDeterministicRateData("RATE", "USD", 0.03)};
+        hybridSettings.correlation_ = NewHybridConstantCorrelationData("correlation", {"FA"}, Matrix_<>(1, 1, 1.0));
+        const auto curve = NewGSRCurveData("curve", today, "USD", {today, today.AddDays(1095)}, {0.0, -0.09}, {}, Matrix_<>(0, 0));
+        const auto gsr = NewGSRModelData("gsr", curve, NewGSRVolData("vol", {today}, {0.02}, {today}, {1.0}));
+        MultiFactorGSRVolSettings_ multiSettings;
+        multiSettings.factorNames_ = {"level"};
+        multiSettings.gKnotDates_ = multiSettings.hKnotDates_ = {today};
+        multiSettings.gValues_ = Matrix_<>(1, 1, 0.02);
+        multiSettings.hValues_ = multiSettings.correlations_ = Matrix_<>(1, 1, 1.0);
+        const auto multi = NewMultiFactorGSRModelData("multi", curve, NewMultiFactorGSRVolData("vol", multiSettings));
+        GSRSLVSettings_ slvSettings;
+        slvSettings.maxStep_ = 0.25;
+        const auto slv = NewGSRSLVModelData("slv", multi, NewGSRLeverageData("leverage", {-0.02, 0.02}, {0.0}, Matrix_<>(2, 1, 1.0)), slvSettings);
+        const Vector_<Handle_<ModelData_>> families{
+            NewBSModelData("bs", 100.0, 0.2, 0.03, 0.0),
+            NewCorrelatedBSModelData("correlated", {"EQ[A]"}, {100.0}, {0.2}, {0.0}, 0.03, Matrix_<>(1, 1, 1.0)),
+            NewHybridModelData("hybrid", hybridSettings),
+            gsr,
+            multi,
+            slv};
+        const Vector_<String_> observations{
+            "SPOT()", "FIX(EQ[A])", "FIX(EQ[A])", "FIX(IR[USD,DF,2028-01-01])", "FIX(IR[USD,DF,2028-01-01])", "FIX(IR[USD,DF,2028-01-01])"};
+        return {families, observations};
     }
 
     void AssertWeightedWork(const Dal::Detail::PortfolioWeightedReplayResult_& result, size_t workers, const MonteCarloSettings_& simulation) {
@@ -162,6 +193,67 @@ TEST(PortfolioReplayTest, TestSharedOwnershipScatterAndParallelReductionMatchOra
             ASSERT_EQ(result.groupCounters_[0].suffixReversals_, 257);
             ASSERT_EQ(result.groupCounters_[0].prefixReversals_, workers);
         }
+    }
+}
+
+TEST(PortfolioReplayTest, TestMultipleOriginalBatchesUseBoundedWorkersAndIndependentResults) {
+    RegisterAll_::Init();
+    constexpr size_t paths = 32785;
+    const Handle_<ModelData_> model(new BSModelData_("", 100.0, 0.0));
+    const Handle_<ScriptPortfolioData_> data(
+        new ScriptPortfolioData_("", {{"A", Trade(5.0, "pay PAYS 2 * SPOT() + X"), model}, {"B", Trade(7.0, "pay PAYS 3 * SPOT() + X"), model}}));
+    for (const size_t workers : {1, 4}) {
+        const ScopedPortfolioThreads_ threads(workers);
+        const BatchPlan_ batches(paths, workers);
+        ASSERT_GT(batches.BatchCount(), workers);
+        for (const bool compiled : {false, true})
+            for (const bool native : {true, false}) {
+                MonteCarloSettings_ simulation;
+                simulation.enableAad_ = native;
+                simulation.compiled_ = compiled;
+                const auto prepared = Dal::Script::Detail::PrepareScriptPortfolio(data, paths, Valuation(), simulation);
+                Script::TestSupport::SubmissionCounter_ submissions;
+                const Script::Detail::ScopedSimulationObserver_ observer(&submissions);
+                const Vector_<size_t> inputs = native ? Vector_<size_t>{5, 0, 4} : Vector_<size_t>{};
+                const auto result =
+                    Dal::Detail::EvaluatePortfolioWeightedReplay(prepared, {Payoff(prepared, 1, -1.0), Payoff(prepared, 0, 2.0)}, inputs);
+                ASSERT_EQ(submissions.submissions_, workers);
+                ASSERT_DOUBLE_EQ(result.weightedValue_, 103.0);
+                ASSERT_EQ(result.componentMeans_.size(), 2);
+                ASSERT_DOUBLE_EQ(result.componentMeans_[0], 307.0);
+                ASSERT_DOUBLE_EQ(result.componentMeans_[1], 205.0);
+                ASSERT_EQ(result.gradient_.size(), native ? 3 : 0);
+                if (native) {
+                    ASSERT_DOUBLE_EQ(result.gradient_[0], -1.0);
+                    ASSERT_DOUBLE_EQ(result.gradient_[1], 1.0);
+                    ASSERT_DOUBLE_EQ(result.gradient_[2], 2.0);
+                }
+                ASSERT_EQ(result.groupCounters_[0].generatedScenarios_, paths);
+                ASSERT_EQ(result.groupCounters_[0].evaluatorCalls_, paths * 2);
+                ASSERT_EQ(result.groupCounters_[0].suffixReversals_, native ? paths : 0);
+                ASSERT_EQ(result.groupCounters_[0].prefixReversals_, native ? batches.BatchCount() : 0);
+                for (const size_t width : native ? Vector_<size_t>{1, 3} : Vector_<size_t>{1}) {
+                    submissions.submissions_ = 0;
+                    const auto rows =
+                        Dal::Detail::EvaluatePortfolioJacobianReplay(prepared, {Payoff(prepared, 1, 1.0), Payoff(prepared, 0, 1.0)}, inputs, {width});
+                    const size_t blocks = native && width == 1 ? 2 : 1;
+                    ASSERT_EQ(submissions.submissions_, workers * blocks);
+                    ASSERT_EQ(rows.componentMeans_, result.componentMeans_);
+                    ASSERT_EQ(rows.jacobian_.Rows(), 2);
+                    ASSERT_EQ(rows.jacobian_.Cols(), native ? 3 : 0);
+                    if (native) {
+                        ASSERT_DOUBLE_EQ(rows.jacobian_(0, 0), 1.0);
+                        ASSERT_DOUBLE_EQ(rows.jacobian_(0, 1), 3.0);
+                        ASSERT_DOUBLE_EQ(rows.jacobian_(0, 2), 0.0);
+                        ASSERT_DOUBLE_EQ(rows.jacobian_(1, 0), 0.0);
+                        ASSERT_DOUBLE_EQ(rows.jacobian_(1, 1), 2.0);
+                        ASSERT_DOUBLE_EQ(rows.jacobian_(1, 2), 1.0);
+                    }
+                    ASSERT_EQ(rows.groupCounters_[0].generatedScenarios_, paths * blocks);
+                    ASSERT_EQ(rows.groupCounters_[0].evaluatorCalls_, paths * 2);
+                    ASSERT_EQ(rows.groupCounters_[0].prefixReversals_, native ? batches.BatchCount() * blocks : 0);
+                }
+            }
     }
 }
 
@@ -287,7 +379,7 @@ TEST(PortfolioReplayTest, TestPartialSubmissionAndWorkerFailureDrainAndRecover) 
     simulation.enableAad_ = true;
     for (const bool compiled : {false, true}) {
         simulation.compiled_ = compiled;
-        const auto prepared = Dal::Script::Detail::PrepareScriptPortfolio(data, 257, Valuation(), simulation);
+        const auto prepared = Dal::Script::Detail::PrepareScriptPortfolio(data, 32785, Valuation(), simulation);
         const auto output = Payoff(prepared, 0, 1.0);
         const auto prior = Dal::Detail::EvaluatePortfolioWeightedReplay(prepared, {output}, {0, 8});
         const auto priorRows = Dal::Detail::EvaluatePortfolioJacobianReplay(prepared, {output}, {0, 8}, {1, 0});
@@ -353,31 +445,7 @@ TEST(PortfolioReplayTest, TestOnlyRequiredDerivativesAreValidatedAndRecoveryPres
 
 TEST(PortfolioReplayTest, TestSixModelFamiliesShareOriginalPathsAndMatchEveryIndependentRisk) {
     RegisterAll_::Init();
-    const Date_ today(2026, 1, 1);
-    HybridSettings_ hybridSettings;
-    hybridSettings.domesticCurrency_ = "USD";
-    hybridSettings.components_ = {NewHybridBSEquityData("A", "EQ[A]", "USD", "FA", 100.0, 0.2, 0.0),
-                                  NewHybridDeterministicRateData("RATE", "USD", 0.03)};
-    hybridSettings.correlation_ = NewHybridConstantCorrelationData("correlation", {"FA"}, Matrix_<>(1, 1, 1.0));
-    const auto curve = NewGSRCurveData("curve", today, "USD", {today, today.AddDays(1095)}, {0.0, -0.09}, {}, Matrix_<>(0, 0));
-    const auto gsr = NewGSRModelData("gsr", curve, NewGSRVolData("vol", {today}, {0.02}, {today}, {1.0}));
-    MultiFactorGSRVolSettings_ multiSettings;
-    multiSettings.factorNames_ = {"level"};
-    multiSettings.gKnotDates_ = multiSettings.hKnotDates_ = {today};
-    multiSettings.gValues_ = Matrix_<>(1, 1, 0.02);
-    multiSettings.hValues_ = multiSettings.correlations_ = Matrix_<>(1, 1, 1.0);
-    const auto multi = NewMultiFactorGSRModelData("multi", curve, NewMultiFactorGSRVolData("vol", multiSettings));
-    GSRSLVSettings_ slvSettings;
-    slvSettings.maxStep_ = 0.25;
-    const auto slv = NewGSRSLVModelData("slv", multi, NewGSRLeverageData("leverage", {-0.02, 0.02}, {0.0}, Matrix_<>(2, 1, 1.0)), slvSettings);
-    const Vector_<Handle_<ModelData_>> families{NewBSModelData("bs", 100.0, 0.2, 0.03, 0.0),
-                                                NewCorrelatedBSModelData("correlated", {"EQ[A]"}, {100.0}, {0.2}, {0.0}, 0.03, Matrix_<>(1, 1, 1.0)),
-                                                NewHybridModelData("hybrid", hybridSettings),
-                                                gsr,
-                                                multi,
-                                                slv};
-    const Vector_<String_> observations{
-        "SPOT()", "FIX(EQ[A])", "FIX(EQ[A])", "FIX(IR[USD,DF,2028-01-01])", "FIX(IR[USD,DF,2028-01-01])", "FIX(IR[USD,DF,2028-01-01])"};
+    const auto [families, observations] = SixModelFamilies();
     for (size_t family = 0; family < families.size(); ++family) {
         SCOPED_TRACE(families[family]->Type());
         const auto expression = observations[family];
@@ -404,6 +472,61 @@ TEST(PortfolioReplayTest, TestSixModelFamiliesShareOriginalPathsAndMatchEveryInd
     }
 }
 
+TEST(PortfolioReplayTest, TestSixNativeFamiliesResetBetweenOriginalBatches) {
+    RegisterAll_::Init();
+    constexpr size_t paths = 8193;
+    const BatchPlan_ batches(paths, 1);
+    ASSERT_EQ(batches.BatchCount(), 2);
+    const auto [families, observations] = SixModelFamilies();
+    for (size_t family = 0; family < families.size(); ++family) {
+        SCOPED_TRACE(families[family]->Type());
+        const Handle_<ScriptPortfolioData_> data(
+            new ScriptPortfolioData_("", {{"A", Trade(5.0, "v[5] = X pay PAYS MAX(" + observations[family] + " - SUM(v), 0)"), families[family]},
+                                          {"B", Trade(7.0, "alias = X pay PAYS 3 * " + observations[family] + " + alias"), families[family]}}));
+        for (const bool compiled : {false, true}) {
+            auto simulation = DefaultRiskMonteCarloSettings();
+            simulation.compiled_ = compiled;
+            const auto portfolio = Dal::Script::Detail::PrepareScriptPortfolio(data, paths, Valuation(), simulation);
+            const Vector_<Dal::Script::Detail::PortfolioBatchOutput_> outputs{Payoff(portfolio, 1, -1.0), Payoff(portfolio, 0, 2.0)};
+            Vector_<Dal::Script::Detail::PortfolioWeightedBatchResult_> weighted;
+            for (size_t batch = 0; batch < batches.BatchCount(); ++batch)
+                weighted.emplace_back(outputs.size());
+            Dal::Script::Detail::EvaluatePortfolioWeightedWorker(portfolio, 0, batches, 0, 1, outputs, &weighted);
+            for (size_t batch = 0; batch < batches.BatchCount(); ++batch) {
+                const auto fresh = Dal::Script::Detail::EvaluatePortfolioWeightedBatch(portfolio, 0, batches.BatchAt(batch), outputs);
+                ASSERT_EQ(weighted[batch].componentSums_, fresh.componentSums_);
+                ASSERT_DOUBLE_EQ(weighted[batch].weightedSum_, fresh.weightedSum_);
+                ASSERT_EQ(weighted[batch].modelGradientSums_, fresh.modelGradientSums_);
+                ASSERT_EQ(weighted[batch].constantGradientSums_, fresh.constantGradientSums_);
+                ASSERT_EQ(weighted[batch].generatedScenarios_, batches.BatchAt(batch).pathCount_);
+                ASSERT_EQ(weighted[batch].prefixReversals_, 1);
+            }
+            for (const size_t width : {2, 3}) {
+                SCOPED_TRACE(width);
+                Vector_<Dal::Script::Detail::PortfolioJacobianBatchResult_> rows;
+                for (size_t batch = 0; batch < batches.BatchCount(); ++batch)
+                    rows.emplace_back(outputs.size());
+                Dal::Script::Detail::EvaluatePortfolioJacobianWorker(portfolio, 0, batches, 0, 1, outputs, width, &rows);
+                for (size_t batch = 0; batch < batches.BatchCount(); ++batch) {
+                    const auto fresh = Dal::Script::Detail::EvaluatePortfolioJacobianBatch(portfolio, 0, batches.BatchAt(batch), outputs, width);
+                    ASSERT_EQ(rows[batch].componentSums_, fresh.componentSums_);
+                    ASSERT_EQ(rows[batch].tradePositions_, fresh.tradePositions_);
+                    for (size_t lane = 0; lane < width; ++lane) {
+                        for (int column = 0; column < fresh.modelGradientSums_.Cols(); ++column)
+                            ASSERT_DOUBLE_EQ(rows[batch].modelGradientSums_(lane, column), fresh.modelGradientSums_(lane, column));
+                        for (size_t trade = 0; trade < fresh.constantGradientSums_.size(); ++trade)
+                            for (int column = 0; column < fresh.constantGradientSums_[trade].Cols(); ++column)
+                                ASSERT_DOUBLE_EQ(rows[batch].constantGradientSums_[trade](lane, column),
+                                                 fresh.constantGradientSums_[trade](lane, column));
+                    }
+                    ASSERT_EQ(rows[batch].generatedScenarios_, batches.BatchAt(batch).pathCount_);
+                    ASSERT_EQ(rows[batch].prefixReversals_, 1);
+                }
+            }
+        }
+    }
+}
+
 TEST(PortfolioReplayTest, TestFiniteAggregateBudgetsRetainRiskAndReportActualPeaks) {
     RegisterAll_::Init();
     const Handle_<ModelData_> model(new BSModelData_("", 100.0, 0.2));
@@ -415,7 +538,7 @@ TEST(PortfolioReplayTest, TestFiniteAggregateBudgetsRetainRiskAndReportActualPea
             MonteCarloSettings_ simulation;
             simulation.enableAad_ = true;
             simulation.compiled_ = compiled;
-            const auto prepared = Dal::Script::Detail::PrepareScriptPortfolio(data, 257, Valuation(), simulation);
+            const auto prepared = Dal::Script::Detail::PrepareScriptPortfolio(data, 32785, Valuation(), simulation);
             const Vector_<Dal::Script::Detail::PortfolioBatchOutput_> outputs{Payoff(prepared, 1, -1.0), Payoff(prepared, 0, 2.0)};
             const auto prior = Dal::Detail::EvaluatePortfolioWeightedReplay(prepared, outputs, {5, 0, 4});
             ASSERT_GT(prior.peakScratchBytes_, 0);
