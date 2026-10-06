@@ -93,7 +93,11 @@ a prior scheduling-dependent peak; all nine replay cases pass locally. Dedicated
 equivalent-budget narrowing and attribution failure recovery now pass locally.
 The retained late-width RED exposed a submission from an earlier group before
 rejection; all selected group widths now validate first. Bindings and fresh
-complete-head publication/performance gates remain required.
+complete-head publication/performance gates remain required. Python construction,
+typed requests/results and both valuations now pass 49 ownership, strict-input,
+detached-lifetime and independent original-mesh cases. All 126 affected Python
+risk cases pass through the installed extension. Excel and final linked/runtime
+diagnostic acceptance remain open.
 
 Implement weighted groups before blocked attribution; reuse the accepted
 native root/replay primitives. Avoid speculative hashing, persistent caches or

@@ -3,8 +3,9 @@
 Status: sealed C++ portfolio construction and coordinate inspection exist.
 Internal whole-request preparation and shared weighted group batches also exist.
 The replay coordinator, native/passive weighted capacity admission and owning
-public C++ weighted result also exist. Attribution and binding surfaces below
-remain proposals for the active
+public C++ weighted/attribution results also exist. Python construction, immutable
+requests/results and both value functions are implemented and locally verified.
+Excel surfaces below remain proposals for the active
 [portfolio specification](../specs/aad-compatible-script-portfolio.md).
 
 ## Current boundary and audience
@@ -180,7 +181,7 @@ row's trade/output, including when a model input belongs to several trades.
 
 ## Binding projection
 
-Python proposes `ScriptPortfolio_New(trade_ids, products, modelData)` with equal
+Python exposes `ScriptPortfolio_New(trade_ids, products, modelData)` with equal
 nonzero sequence lengths and strict element types. Construction copies/seals all
 execution inputs. A repeated Python model object establishes a repeated owner;
 two different model objects remain separate even when their contents agree.
@@ -195,7 +196,7 @@ store a sealed immutable portfolio. Use the same evaluation names and ordinary
 immutable request/result factories/getters. Include a shape getter for zero risk
 columns, as in the current Jacobian surface. Machinist owns generated exports.
 
-Typical Python use, shown as pseudocode until the bindings exist:
+Typical Python use (with previously constructed products/model/settings):
 
 ```python
 portfolio = ScriptPortfolio_New(["A", "B"], [trade_a, trade_b], [model, model])
@@ -226,7 +227,7 @@ an active model/evaluator handle as the portfolio result.
 ## Remaining implementation decisions
 
 All six accepted families pass snapshot/coordinate and independent native/passive
-weighted common-path tests. Blocked oracles remain. Weighted result metadata is
+weighted and blocked common-path tests. Weighted result metadata is
 additive and adds no fields or runtime work to old results. Validate strict
 Python/Excel construction against analogous risk request parsers. Names may be
 adjusted to fit registration conventions before implementation; mathematical

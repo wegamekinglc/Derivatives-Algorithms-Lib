@@ -330,6 +330,16 @@ estimator. Passive execution retains sharp pricing and `(m, 0)`, evaluates each
 selected group once without native widths/reversals, and ignores recording limits.
 See [portfolio Jacobians](methodology/aad.md#script-portfolio-jacobians).
 
+### Python script portfolios
+
+`ScriptPortfolio_New(trade_ids, products, modelData)` preserves original model
+identity before sealing snapshots. `PortfolioMonteCarlo_ValueWithWeightedRisk`
+and `PortfolioMonteCarlo_ValueWithJacobianRisk` accept their respective immutable
+`PortfolioWeightedRiskRequest_` and `PortfolioJacobianRiskRequest_` objects, with
+keyword-only request/valuation/simulation settings. Results own values, detached
+raw/report matrices, selected/complete axes and trade/group metadata. See the
+[Python portfolio example and strict input rules](python/README.md#compatible-script-portfolios).
+
 ### C++ curve calibration
 
 The public zero-rate factory is:

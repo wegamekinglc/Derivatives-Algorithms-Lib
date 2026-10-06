@@ -1280,7 +1280,14 @@ A retained late-width RED shows earlier tasks were submitted before a later
 invalid width; all selected group widths now validate before any task. All 17
 affected replay/admission cases and strict OFF/combined ON warnings pass.
 
-Next: finish Python/Excel bindings. Preserve
+Python sealed construction and both typed risk surfaces now pass 49 portfolio
+cases, including shared/distinct owners, detached matrices/metadata, strict
+requests/path counts, capacity recovery and independent nonzero-volatility
+original-mesh native/passive oracles. All 126 affected portfolio/weighted/Jacobian
+cases pass through the installed extension; strict OFF/combined ON syntax checks
+pass. The documented Python surface reflects implemented behavior.
+
+Next: finish Excel bindings and final acceptance. Preserve
 original RNG dimensions/path indices, private evaluator state, existing costs
 and independent numerical oracles. Every new publication needs its own exact-head
 checks. Complete portfolio delivery has no comparative performance acceptance yet.

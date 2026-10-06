@@ -14,7 +14,9 @@ Known block-width capacities admit before history, with aggregate runtime guards
 Passive attribution now passes independent sharp-price, zero-column, overflow and
 historical-capacity checks. Equivalent finite-budget narrowing, early all-group
 width validation and attribution submission/worker/selected-derivative recovery
-pass locally. Bindings and final delivery gates remain pending.
+pass locally. Python ownership/strict requests/results and value functions pass
+49 portfolio cases, including original-mesh independent oracles. Excel bindings
+and final delivery gates remain pending.
 Delivery starts from merged PR #484, commit `1c9273c9`, in open PR
 [#487](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/487).
 

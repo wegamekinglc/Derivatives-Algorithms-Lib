@@ -4,7 +4,8 @@ Verdict: **Comment Only**. Implemented increments can be published in open #487;
 the complete portfolio PR is not ready for acceptance or merge. Native/passive
 weighted execution, owning C++ results and startup/runtime budgets are locally
 verified. Native/passive attribution, finite-budget narrowing and failure recovery
-are locally verified; bindings and final delivery gates remain open.
+are locally verified. Python surfaces are locally verified; Excel bindings and
+final delivery gates remain open.
 
 ## Findings
 
@@ -342,6 +343,33 @@ OFF/combined ON replay-unit warnings pass. Evidence:
 `aad-portfolio-focused-jacobian-late-width-red-01.json`,
 `aad-portfolio-focused-jacobian-width-failure-green-01.json` and
 `aad-portfolio-jacobian-width-warning-01.json`.
+
+Python now preserves original handles before native sealing and copies every
+request/settings object before releasing the GIL. Shared binding templates expose
+immutable requests and detached owning results, including complete sampling and
+trade/group metadata. Forty-nine new cases cover owner identity, private columns,
+aliases/zero columns, detached lifetimes, strict path/enum/bool/budget rejection,
+capacity recovery and nonzero-volatility original meshes against independent
+native/passive scalar calls. All 126 affected portfolio/weighted/Jacobian Python
+cases pass through the installed extension, and the changed unit passes strict
+OFF/combined ON syntax warnings. Evidence:
+`aad-portfolio-python-api-red-01.log`,
+`aad-portfolio-python-api-green-02.log`,
+`aad-portfolio-python-mesh-oracle-green-04.log`,
+`aad-portfolio-python-installed-risk-green-05.log` and
+`aad-portfolio-python-warning-01.json`. The actual complete documented Python
+example runs through that installed extension:
+`aad-portfolio-python-doc-consumer-01.py` and its retained log. All 157 Markdown
+checks and changed-source formatting pass.
+The first analytic fixture used decimal spot 100, whose existing BS log/exp path
+does not guarantee Python exact equality to integer prices; spot one now provides
+an exact symbolic fixture, retaining all risk/ownership assertions. Independent
+nonzero-volatility tests retain fixed absolute 1e-10 tolerance. The first mesh
+test used C++ `rsg` instead of the existing Python `method` keyword; corrected
+without changing production settings. The dev root install stopped at its unbuilt
+test executable after installing all core production artifacts; installing the
+public component then provides the valid independent package consumer. Standard
+clean production installation/runtime diagnostics remain final acceptance gates.
 
 ## Summary
 

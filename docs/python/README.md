@@ -256,6 +256,70 @@ explicit passive mode performs one replay with no risk columns. The
 [AAD methodology](../methodology/aad.md#budgeted-script-jacobians) defines
 capacity scopes, exclusions and failure behavior.
 
+## Compatible script portfolios
+
+`ScriptPortfolio_New(trade_ids, products, modelData)` seals equal-length nonempty
+lists or tuples. Repeating the same original model object establishes one owner;
+distinct model objects remain separate even if their values agree. Matching
+original sampling contracts determine which trades share scenarios. Trade IDs
+must be unique, and all product/model elements must be typed handles.
+
+```python
+import dal
+
+date = dal.Date_(2027, 1, 1)
+trade_a = dal.Product_New(["X", date], ["5", "pay PAYS 2 * SPOT() + X"])
+trade_b = dal.Product_New(["X", date], ["7", "pay PAYS 3 * SPOT() + X"])
+model = dal.BSModelData_New(1, 0, 0, 0)
+portfolio = dal.ScriptPortfolio_New(["A", "B"], [trade_a, trade_b], [model, model])
+valuation = dal.ScriptValuationSettings_(evaluation_date=dal.Date_(2026, 1, 1))
+inputs = ["model:0:parameter:0", "trade:0:constant:0", "trade:1:constant:0"]
+weighted = dal.PortfolioMonteCarlo_ValueWithWeightedRisk(
+    portfolio, 17, valuation=valuation,
+    request=dal.PortfolioWeightedRiskRequest_(inputs=inputs, weights=[2, -1]),
+)
+assert weighted.component_means == [7, 10]
+assert weighted.weighted_value == 4
+assert weighted.jacobian.to_rows() == [[1, 2, -1]]
+rows = dal.PortfolioMonteCarlo_ValueWithJacobianRisk(
+    portfolio, 17, valuation=valuation,
+    request=dal.PortfolioJacobianRiskRequest_(
+        inputs=inputs, outputs=["trade:1:payoff", "trade:0:payoff"], max_block_width=2,
+    ),
+)
+assert rows.values == [10, 7]
+assert rows.jacobian.to_rows() == [[3, 0, 1], [2, 1, 0]]
+assert rows.execution.groups[0].generated_scenarios == 17
+```
+
+Both value functions take `portfolio` and `num_path` first; `request`, `valuation`
+and `simulation` are keyword-only. Their default simulation enables native AAD.
+An explicit `MonteCarloSettings_(enable_aad=False)` retains sharp price-only rows
+and zero risk columns; recording limits have no effect in that mode. Native
+explicit empty `inputs=[]` retains native fuzzy prices and zero-column shapes.
+Omitted inputs select all native columns; omitted outputs select each trade's
+payoff in original order. Global IDs and reporting factors follow the
+[C++ portfolio rules](../methodology/aad.md#sealed-script-portfolio-coordinates).
+
+The immutable request types share `inputs`, `outputs`, `report_factors` and the
+three optional byte budgets: `numeric_payload_budget_bytes`,
+`recording_capacity_budget_bytes`, `scratch_capacity_budget_bytes`. Weighted
+requests add `weights`; Jacobian requests add positive bounded `max_block_width`,
+default one. Numeric payloads are respectively `8*(1+n+2*m)` and `8*m*(1+n)`;
+runtime capacities include all admitted workers and native replacement headroom.
+Capacity narrowing preserves requested maximum and estimator.
+
+Owning results expose detached raw/reported matrices, selected/complete axes,
+trade provenance and original group contracts. `provenance.trade_ids`,
+`provenance.model_owners` and `provenance.trades` retain the sealed source mapping.
+`execution.groups` reports actual widths, replay attempts and
+scenario/evaluator/reversal counts; `execution` also reports actual peak
+recording/scratch bytes. Sampling definitions, settings, lists and matrices are
+copied by getters. Results survive destruction of portfolios or source handles;
+getters perform no valuation or history reads. Path counts exclude bool, enums,
+fractions and values beyond `INT_MAX`. Malformed requests fail with field and
+trade/group/coordinate context, leaving prior completed results intact.
+
 ## Dupire quote risk
 
 `DupireCalibration_New(base, inputs, *, name="")` creates a frozen calibration
