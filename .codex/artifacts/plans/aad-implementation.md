@@ -1305,6 +1305,17 @@ The standard complete OFF build and installation also finish successfully.
 The sanitizer selectors now include all 37 core and 41 public portfolio cases
 in the six existing ASan/UBSan/TSan matrices; fresh selected runtime is required.
 
+The final standard OFF suite passes all 2,698 tests; installed C++ and all 126
+affected installed Python cases pass. The expanded TSan jobs find a 257-path
+price/derivative comparison whose four-ULP assertion is invalid for separate
+reductions; repair adds a path-count-scaled machine epsilon bound and an
+independent scalar-risk oracle while retaining exact private risks and all
+capacity/work/history assertions. Fresh sanitizer acceptance remains required.
+The first complete performance run passes 157/160 cases. Three failures and
+same-binary scheduling-noise diagnostics are retained; identical fixed CPU
+affinity is under investigation with the original sampling and 4% policy.
+Performance acceptance and merging remain pending.
+
 Next: finish complete-head installed/diagnostic/performance acceptance. Preserve
 original RNG dimensions/path indices, private evaluator state, existing costs
 and independent numerical oracles. Every new publication needs its own exact-head

@@ -4,6 +4,8 @@
 
 #include <gtest/gtest.h>
 
+#include <limits>
+
 #include <dal-public/src/portfolioplaninternal.hpp>
 #include <dal-public/src/portfolioreplayinternal.hpp>
 #include <dal-public/src/value.hpp>
@@ -264,12 +266,21 @@ TEST(PortfolioAdmissionTest, TestFiniteStartupBudgetCompletesPrivateHistoryAndSh
         ASSERT_EQ(result.componentMeans_.size(), 2);
         ASSERT_EQ(result.componentMeans_[0], result.componentMeans_[1]);
         ASSERT_DOUBLE_EQ(result.weightedValue_, result.componentMeans_[0]);
-        ASSERT_DOUBLE_EQ(result.gradient_[0], (result.componentMeans_[0] - 85.0) / 100.0);
+        const double spotRisk = (result.componentMeans_[0] - 85.0) / 100.0;
+        // The value and derivative use separate 257-path floating-point reductions.
+        const double reductionError = 257 * std::numeric_limits<double>::epsilon() * std::max(1.0, std::abs(spotRisk));
+        ASSERT_NEAR(result.gradient_[0], spotRisk, reductionError);
         ASSERT_DOUBLE_EQ(result.gradient_[1], 2.0);
         ASSERT_DOUBLE_EQ(result.gradient_[2], -1.0);
         ASSERT_EQ(result.groupCounters_[0].generatedScenarios_, 257);
         ASSERT_LE(result.peakScratchBytes_, *limits.scratchBudgetBytes_);
         ASSERT_LE(result.peakTapeBytes_, *limits.tapeBudgetBytes_);
+        RiskRequest_ scalarRequest;
+        scalarRequest.inputs_ = Vector_<String_>{"model:0", "constant:0"};
+        const auto scalar = ValueByMonteCarloWithRisk(data->Products()[0], data->Models()[0], 257, scalarRequest, Valuation(), simulation);
+        ASSERT_NEAR(result.gradient_[0], scalar.Jacobian()(0, 0), reductionError);
+        ASSERT_DOUBLE_EQ(result.gradient_[1], 2.0 * scalar.Jacobian()(0, 1));
+        ASSERT_DOUBLE_EQ(result.gradient_[2], -scalar.Jacobian()(0, 1));
     }
 }
 

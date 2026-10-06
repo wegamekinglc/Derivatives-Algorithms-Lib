@@ -429,6 +429,29 @@ RED and corrected coverage proof are retained as
 `aad-portfolio-sanitizer-coverage-green-02.json`. Fresh sanitizer runtime is
 required; this coverage proof is not a substitute for running selected tests.
 
+## Final acceptance findings
+
+The standard complete OFF suite passes all 2,698 tests, including all 21
+benchmark smoke targets, 34 examples and 1,166 Python cases. The documented
+owning C++ portfolio consumer passes using only the installed public package;
+126 affected Python cases pass through the standard installed extension.
+
+New sanitizer coverage exposes the same test-oracle failure in both TSan jobs:
+the 257-path spot derivative differs from the price-derived expression by about
+1e-15. No data-race report appears. Separate floating-point reductions do not
+have a four-ULP equality contract. The fixture uses a path-count-scaled machine
+epsilon bound and additionally compares all three selected risks with an
+independent frozen scalar result. Exact private risks, one history read,
+shared scenario counts and finite-capacity assertions remain required.
+
+The first complete unchanged-policy performance pass accepts 157 of 160 cases.
+Two one-component scalar cases and passive compiled vanilla MC exceed 4% in
+both rounds. All failed samples are retained. A same-binary diagnostic exhibits
+single-round movements of roughly -10% to +8%; it passes the two-round rule.
+Fixed identical CPU affinity is being investigated without changing workloads,
+sampling counts, thresholds or thread counts. Performance acceptance remains
+open; these observations do not establish absence of a code regression.
+
 ## Summary
 
 Existing scalar/weighted/Jacobian drivers retain their default preparation
