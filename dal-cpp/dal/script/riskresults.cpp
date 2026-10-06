@@ -114,8 +114,11 @@ namespace Dal::Script {
                      "RiskResultBudgetExceeded: numeric values/Jacobian payload exceeds numericPayloadBudgetBytes", ScriptError_);
         }
 
-        Vector_<RiskCoordinate_>
-        SelectedAxis(const SimResults_& source, const Vector_<RiskCoordinate_>& axis, const Vector_<size_t>& indices, const RiskRequest_& request) {
+        Vector_<RiskCoordinate_> SelectedAxis(const SimResults_& source,
+                                              const Vector_<RiskCoordinate_>& axis,
+                                              const Vector_<size_t>& indices,
+                                              const RiskRequest_& request,
+                                              const char* objective) {
             Vector_<RiskCoordinate_> selected;
             selected.reserve(indices.size());
             for (size_t column = 0; column < indices.size(); ++column) {
@@ -125,10 +128,14 @@ namespace Dal::Script {
                 const double risk = source.risks_[indices[column]];
                 REQUIRE2(std::isfinite(coordinate.reportScale_) && coordinate.reportScale_ > 0.0,
                          "InvalidRiskRequest: report factor must be finite and positive; input=" + coordinate.id_, ScriptError_);
-                REQUIRE2(std::isfinite(risk), "InvalidRiskResult: non-finite requested mean risk; output=payoff; input=" + coordinate.id_,
+                REQUIRE2(std::isfinite(risk),
+                         String_("InvalidRiskResult: non-finite requested mean risk; output=") + (objective ? objective : "payoff") +
+                             "; input=" + coordinate.id_,
                          ScriptError_);
                 REQUIRE2(std::isfinite(risk * coordinate.reportScale_),
-                         "InvalidRiskResult: non-finite reported risk; output=payoff; input=" + coordinate.id_, ScriptError_);
+                         String_("InvalidRiskResult: non-finite reported risk; output=") + (objective ? objective : "payoff") +
+                             "; input=" + coordinate.id_,
+                         ScriptError_);
                 selected.push_back(std::move(coordinate));
             }
             return selected;
@@ -186,15 +193,26 @@ namespace Dal::Script {
                                             const Vector_<RiskCoordinate_>& completeAxis,
                                             const RiskRequest_& request,
                                             const RiskResultProvenance_& provenance) {
+        return ProjectMonteCarloObjectiveRiskResult(source, paths, completeAxis, request, provenance, nullptr);
+    }
+
+    RiskResult_ ProjectMonteCarloObjectiveRiskResult(const SimResults_& source,
+                                                     int paths,
+                                                     const Vector_<RiskCoordinate_>& completeAxis,
+                                                     const RiskRequest_& request,
+                                                     const RiskResultProvenance_& provenance,
+                                                     const char* objective) {
         REQUIRE2(paths > 0, "InvalidRiskResult: paths must be a positive integer", ScriptError_);
         ValidateSourceAxis(source, completeAxis);
         ValidateProvenance(provenance);
         ValidateExecutionSnapshot(provenance.execution_, paths);
         const auto indices = SelectedInputs(completeAxis, request);
         ValidateRequest(request, indices.size());
-        auto selected = SelectedAxis(source, completeAxis, indices, request);
+        auto selected = SelectedAxis(source, completeAxis, indices, request, objective);
         const double value = source.aggregated_ / static_cast<double>(paths);
-        REQUIRE2(std::isfinite(source.aggregated_) && std::isfinite(value), "InvalidRiskResult: non-finite payoff sum or mean; output=payoff",
+        REQUIRE2(std::isfinite(source.aggregated_) && std::isfinite(value),
+                 String_("InvalidRiskResult: non-finite ") + (objective ? "objective" : "payoff") +
+                     " sum or mean; output=" + (objective ? objective : "payoff"),
                  ScriptError_);
         Matrix_<> jacobian(1, static_cast<int>(indices.size()));
         for (size_t column = 0; column < indices.size(); ++column)

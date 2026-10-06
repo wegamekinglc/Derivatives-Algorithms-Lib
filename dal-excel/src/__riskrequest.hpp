@@ -20,8 +20,8 @@ namespace Dal {
             REQUIRE(text.find('\0') == String_::npos, "InvalidRiskRequest: " + field + "; embedded NUL is unsupported");
         }
 
-        template <class T_> const T_& CheckedRequestValue(const Handle_<StorableCalibrationValue_<T_>>& handle, const String_& field) {
-            REQUIRE(handle, "InvalidRiskRequest: " + field + "; handle is null");
+        template <class T_> const T_& CheckedRequestValue(const Handle_<StorableCalibrationValue_<T_>>& handle, const char* field) {
+            REQUIRE(handle, String_("InvalidRiskRequest: ") + field + "; handle is null");
             return handle->val_;
         }
     } // namespace Excel

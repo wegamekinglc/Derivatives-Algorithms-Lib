@@ -72,7 +72,7 @@ incremental implementation turns and PRs; a green first stage does not complete 
 - [x] C05: no implicit approximate gradient truncation.
 - [x] D00: remove XAD, CoDiPack and Adept code, gitlinks, configuration, exports,
   examples, scripts and CI; verify fresh native-only builds and migration errors.
-- [ ] P01: correct production-oriented tape/Jacobian/MC benchmarks and explanatory resource metrics.
+- [x] P01: correct production-oriented tape/Jacobian/MC benchmarks and explanatory resource metrics.
 - [x] D01: explicit recording lifecycle, checkpoints, nested-use rejection, and exception recovery.
 - [x] D02: optional owner/slot-lifetime diagnostics without release per-node overhead.
 - [x] D03: thin native operation/capability contracts; remove unpublished external
@@ -83,10 +83,10 @@ incremental implementation turns and PRs; a green first stage does not complete 
 - [x] D04: scalar model/script requests/results with stable axes, methods, units,
   provenance and numeric payload budgets; future quote/output methods remain with F01/F02.
 - [x] D04: compatibility projections for existing `PV` and `d_...` outputs.
-- [ ] F01: deterministic-rate Dupire spread-quote pullback connected to Hybrid valuation gradients.
-- [ ] F01: direct quote dependencies and snapshot/axis mismatch validation.
-- [ ] F01: calibration-only and full bump/recalibrate/common-path oracles.
-- [ ] F01: common calibration pullback integration with existing curve quote-risk semantics.
+- [x] F01: deterministic-rate Dupire spread-quote pullback connected to Hybrid valuation gradients.
+- [x] F01: direct quote dependencies and snapshot/axis mismatch validation.
+- [x] F01: calibration-only and full bump/recalibrate/common-path oracles.
+- [x] F01: common calibration pullback integration with existing curve quote-risk semantics.
 - [ ] F02: fixed-weight VJP for multiple prepared-script outputs, including aliases/constants.
 - [ ] F02: budgeted native blocked Jacobian with explicit rerecording behavior.
 - [ ] F02: compatible portfolio observation/timeline integration.
@@ -634,50 +634,92 @@ open until own-head CI and the requirement audit pass.
 
 ### Whole-plan status and remaining effort
 
+PR #480 is merged at `079c9d520db17dde7017b329aff0ddc4c6a22afb` on
+2026-10-06 (Asia/Shanghai). Final head `38eaceac` passes all 35 checks, including
+Linux/Windows gates, wheels, sanitizers and Codacy (zero issues/annotations).
+Both paginated review threads are resolved; the additional overview file-header
+nit is fixed. Repeated completion audits verify master/base, all check/status
+pages, branch policy and review state. The guarded squash merge is confirmed
+closed/merged, and its tree equals the accepted head tree. GitHub Actions runner
+allocation failures and the lost Windows host remain retained; failed-only
+retries reused successful same-head jobs. No accepted full local suites were
+repeated for these failures.
+
+F02 starts from that merged tree on `feature/aad-weighted-script-risk` under the
+[weighted specification](../specs/aad-weighted-script-risk.md). Its initial native
+root increment does not close weighted valuation, blocked Jacobians or portfolio
+integration. Evidence: `aad-pr-480-completion-head38-{initial,final}-01/validated.json`,
+`aad-pr-480-after-merge-01.json` and `aad-pr-480-merged-tree-01.json`.
+
+F02's additive native preflight now owns selected/full scalar output identities,
+normalized passive weights, input choices, date/method and the exact
+`sizeof(double) * (1+n+2*k)` payload. It reuses scalar input/report checks and
+rechecks prepared axes without changing scalar implementation or tape layout.
+Twenty focused tests (ten new plan and ten existing scalar-result cases) pass
+OFF and combined diagnostic/profiling + ASan/UBSan. The CI's existing GCC 14
+warning policy passes; all four ASan/UBSan filters now select the seventeen new
+weighted/plan tests and the related old scalar-root test. See the
+[preflight review](../reviews/aad-weighted-preflight.md).
+
+Prepared weighted C++ execution and owning results are now implemented in draft
+PR #483. Compile-time objective policies share double/AAD drivers while keeping
+scalar entries free of weighted buffers; one suffix reverse runs per path and
+one prefix reverse per batch. Eight weighted and eight existing risk tests pass
+OFF; seventeen pass with diagnostics/profiling plus ASan/UBSan, including an
+independent sweep-count fixture. Historical aliases, passive result ownership,
+callback mutation, task-drain recovery and common-path component references are
+covered. See the [execution review](../reviews/aad-weighted-execution.md).
+Python now supplies keyword-only weighted requests, an output-axis query,
+read-only owning results and GIL release after copying native inputs. The frozen
+spot difference passes at step 0.1 and `1e-10` tolerances in its first run.
+179 related Python cases pass OFF and combined diagnostics/profiling, covering
+the new boundary and old scalar/calibration/Dupire request parsers. Standalone
+installed-prefix configuration passes in both modes. See the
+[Python review](../reviews/aad-weighted-python.md), including retained support
+import failures and the explicit initialization repair for isolated CI tests.
+Excel now supplies immutable weighted handles, ordered component tables,
+gradients/shapes and retained snapshot getters. Ten weighted cases and the old
+scalar/calibration/Dupire consumers pass: 25 relevant tests in each OFF/combined
+mode, with focused ASan/UBSan in combined. Twelve registrations generate 24
+files without drift; numeric/boolean/range guards precede corresponding
+generated conversions. See the [Excel review](../reviews/aad-weighted-excel.md).
+At `eb2be051`, all four Windows/raw configurations and 35 CI/Codacy checks
+pass, with zero Codacy issues/annotations. All 52 affected scalar performance
+cases pass the unchanged paired policy; 1/4/16/64-output costs and diagnostic
+census are retained separately. Copilot then identifies weighted projection
+identity and integer Excel conversion repairs. New-head regression, CI and
+review acceptance for those repairs remain required; the preceding acceptance
+is complete rather than being counted as open work again.
+No full F02 completion is inferred; blocked Jacobians, recording budgets and
+portfolios also remain.
+
 This snapshot distinguishes accepted increments from locally implemented work.
 Estimates are remaining single-developer effort, not promises of calendar time;
 overlapping acceptance work is included once in the integration allowance.
 
-| Work item               | Implementation/local verification                                             | Publication/CI                                          | Remaining person-days |
-|-------------------------|-------------------------------------------------------------------------------|---------------------------------------------------------|-----------------------|
-| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                                 | Accepted exact-head checks                              | 0                     |
-| Scalar D04              | Accepted C++/Python/Excel                                                     | Accepted exact-head checks                              | 0                     |
-| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass                 | Profiling CI accepted; final whole-PR CI remains          | 0                     |
-| F01                     | C++ accepted; Python/Excel interfaces and focused parity verified             | Common own 35 accepted; consolidated final CI/audit open | 0.25–0.5              |
-| F02                     | Multiple outputs and portfolio integration remain                             | Open                                                    | 7–11                  |
-| P02/P03                 | Worker reuse/block selection/extraction remain                                | Open                                                    | 4–7                   |
-| F03                     | Solve, implicit calibration and PDE operators remain                          | Open                                                    | 12–20                 |
-| P04/P05                 | Structural sparsity/checkpointing remain                                      | Open                                                    | 9–15                  |
-| F04                     | Second-order implementation/estimator validation remain                       | Open                                                    | 12–20                 |
-| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains                    | Open                                                    | 7–11                  |
+| Work item               | Implementation/local verification                                              | Publication/CI                      | Remaining person-days |
+|-------------------------|--------------------------------------------------------------------------------|-------------------------------------|-----------------------|
+| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                                  | Accepted exact-head checks          | 0                     |
+| Scalar D04              | Accepted C++/Python/Excel                                                      | Accepted exact-head checks          | 0                     |
+| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass                 | Merged; final 35/35 checks accepted | 0                     |
+| F01                     | C++/Python/Excel and complete requirement audit accepted                       | Merged; final 35/35 checks accepted | 0                     |
+| F02                     | Weighted subset and prior Windows/cost/CI accepted; review repairs in progress | #483; repair-head CI/review pending | 6–10                  |
+| P02/P03                 | Worker reuse/block selection/extraction remain                                 | Open                                | 4–7                   |
+| F03                     | Solve, implicit calibration and PDE operators remain                           | Open                                | 12–20                 |
+| P04/P05                 | Structural sparsity/checkpointing remain                                       | Open                                | 9–15                  |
+| F04                     | Second-order implementation/estimator validation remain                        | Open                                | 12–20                 |
+| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains                     | Open                                | 7–11                  |
 
-Remaining total: approximately 52–85 person-days, or 10–17 working weeks,
-excluding CI queue time. F01 interfaces are implemented and locally verified;
-publication/audit needs roughly 0.25–0.5 person-day. Native algorithms and
-independent mathematical acceptance already exist. This is a rough
+Remaining total: approximately 50–83 person-days, or 10–17 working weeks,
+excluding CI queue time and including delivery contingency. F01 is merged;
+native algorithms and independent mathematical acceptance already exist. This is a rough
 effort estimate, not a guaranteed completion date. Re-estimate when review
 findings change the scope.
 
-The current PR-to-merge boundary is roughly several hours to one person-day:
-interfaces and production performance are locally accepted. Whole-PR intake
-finds a Windows registration-help defect affecting all four configurations;
-the focused repair passes portable tests and MSVC syntax. Remaining uncertainty
-is its publication-head CI and final review, rather than new feature development.
-These tasks are already included in the overall estimate; do not add
-the first delivery estimate again. Subsequent stages require new PRs.
-
-PR #480 is now in concentrated review/repair. The paginated thread audit has no
-unresolved threads at `7a46b932`; initial accepted common publication is
-`d51df72d4ac4a82c14a612a03088c9bd521725b9`. Its final own-head capture has all
-35 checks successful. The consolidated Python/Excel head needs its own checks.
-This is preparation, not a completed whole-PR code
-review or merge acceptance. Evidence: `aad-pr-fix-review-threads-02.jsonl` and
-`aad-pr-fix-checks-02.jsonl`; initial TLS capture failures are retained separately.
-The latest intake/repair and remaining gates are in the
-[whole-PR review](../reviews/aad-pr-480-final.md). Four `7a46b932` MSVC legs each
-pass their new request behavior but fail the unchanged global registration-help
-count assertion. The repair adds help only for the implicit trailing format
-argument; explicit help and all other malformed registrations remain unchanged.
+The first delivery boundary is complete. Whole-PR review repaired the Windows
+registration-help defect, both include-order findings and the overview file
+header. See the [whole-PR review](../reviews/aad-pr-480-final.md). Subsequent
+stages use new PRs and retain their own publication and acceptance gates.
 
 ### Earlier snapshots retained for acceptance context
 
@@ -1037,17 +1079,7 @@ corrected head passes fresh correctness and all changed-workload comparisons;
 all 46 exact publication-head CI checks subsequently pass at `0ee84e1`.
 Do not reuse the ownership snapshot's acceptance as proof for these new changes.
 
-Next: publish the concentrated registration fix and production acceptance report,
-inspect all exact-head checks and complete F01/whole-PR acceptance. Automatic
-Python and common/automatic Excel are published together at `7a46b932`.
-Common Python and both C++ requests have accepted own-head CI. The Excel review
-retains focused checks and affected legacy costs.
-Use the focused validation amendment above and continue independent PR issue
-intake during interface development.
-After full F01 acceptance, review/fix the entire current PR and reconcile
-P01's final performance evidence with the measured native inputs;
-retain every earlier failure and the original thresholds and workload.
-Update against master, inspect exact final-head CI and every review thread,
-then merge PR #480 under the user's authorization. Start subsequent F02 and
-other plan stages in new PRs, under their controlling designs.
-Stage A and the full Stage B/C/D goal remain incomplete.
+Next: complete the F02 weighted-root and output/preflight increment in its new
+PR, then integrate prepared batches, owning results/provenance and language
+bindings. Preserve affected scalar costs and independent numerical oracles.
+Stage A is accepted; the full Stage B/C/D goal remains incomplete.

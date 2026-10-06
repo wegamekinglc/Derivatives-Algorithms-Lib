@@ -285,6 +285,11 @@ PV: 9.223019
   d_vol: 37.873346
 ```
 
+For selected scalar outputs and passive weights, use
+`WeightedRiskRequest_` and `MonteCarlo_ValueWithWeightedRisk`. The
+[weighted script risk reference](../docs/python/README.md#weighted-script-risk)
+describes output IDs, owning results, strict inputs and numeric budgets.
+
 ### Historical and Future FIX
 
 The complete [FIX settings example](examples/012.fix_settings.py) constructs a

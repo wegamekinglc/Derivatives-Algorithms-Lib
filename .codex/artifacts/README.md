@@ -10,6 +10,20 @@ after documenting the current-state outcome.
 
 - [DAL AAD implementation ledger](plans/aad-implementation.md): full-scope
   delivery and correctness, performance, compatibility, and CI evidence.
+- [Weighted script risk specification](specs/aad-weighted-script-risk.md),
+  [API decisions](api-notes/aad-weighted-script-risk.md) and
+  [critique](critiques/aad-weighted-script-risk.md): active F02 weighted-root,
+  output preflight, batch integration and owning three-language delivery.
+  [Preflight review](reviews/aad-weighted-preflight.md) records the implemented
+  metadata/budget boundary and its remaining execution requirements.
+  [C++ execution review](reviews/aad-weighted-execution.md) records shared
+  prepared batches, owning results, independent references and open acceptance.
+  [Python review](reviews/aad-weighted-python.md) records strict requests,
+  detached results, GIL behavior, fixed differences and the isolated CI repair.
+  [Excel review](reviews/aad-weighted-excel.md) records immutable handles,
+  shared result tables, generated parity and focused sanitizer evidence.
+  [Publication review repairs](reviews/aad-weighted-review-repairs.md) records
+  completed predecessor acceptance and the current four-thread repair gate.
 - [Native lifetime diagnostic contract](specs/aad-native-lifetime-diagnostics.md)
   and [initial acceptance evidence](perf/aad-native-lifetime-diagnostics.md): optional
   active-number checks, ABI propagation, failure recovery and default performance.

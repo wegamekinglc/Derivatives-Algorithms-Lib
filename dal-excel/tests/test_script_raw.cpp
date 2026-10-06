@@ -79,6 +79,66 @@ namespace {
     }
 } // namespace
 
+TEST(ScriptExcelRawTest, TestWeightedRequestGeneratedExportRejectsInvalidPhysicalInputs) {
+    Excel::ScriptTestInitialize(1);
+    RawText_ name(L"weighted_raw"), key(L"weights"), valid(L"-1;0;2");
+    OPER_ cells[]{key.cell_, valid.cell_};
+    auto input = Multi(cells, 1, 2);
+    {
+        Output_ result(Call("xl_WeightedRiskRequest_New", &name.cell_, &input));
+        ASSERT_EQ(result.Text().find("#Error:"), std::string::npos) << result.Text();
+    }
+    for (unsigned long type : {xltypeBool, xltypeNum, xltypeErr}) {
+        cells[1] = {};
+        cells[1].xltype = type;
+        if (type == xltypeBool)
+            cells[1].val.xbool = 1;
+        else if (type == xltypeNum)
+            cells[1].val.num = 1.0;
+        else
+            cells[1].val.err = 15;
+        Output_ result(Call("xl_WeightedRiskRequest_New", &name.cell_, &input));
+        CheckError(result, {"WeightedRiskRequest_New", "settings row=1 column=2"});
+    }
+    RawText_ embedded(std::wstring(L"1\0;2", 4));
+    cells[1] = embedded.cell_;
+    {
+        Output_ result(Call("xl_WeightedRiskRequest_New", &name.cell_, &input));
+        CheckError(result, {"WeightedRiskRequest_New", "settings row=1 column=2", "NUL"});
+    }
+    OPER_ wideCells[]{key.cell_, valid.cell_, valid.cell_};
+    auto wide = Multi(wideCells, 1, 3);
+    {
+        Output_ result(Call("xl_WeightedRiskRequest_New", &name.cell_, &wide));
+        CheckError(result, {"WeightedRiskRequest_New", "settings"});
+    }
+}
+
+TEST(ScriptExcelRawTest, TestWeightedValuationGeneratedExportRetainsIntegerPathCount) {
+    Excel::ScriptTestInitialize(1);
+    RawText_ name(L"weighted_integer"), script(L"pay PAYS 5");
+    auto date = Number(60000.0), spot = Number(100.0), zero = Number(0.0), blank = Blank();
+    Output_ product(Call("xl_Product_New", &name.cell_, &date, &script.cell_));
+    Output_ model(Call("xl_BSModelData_New", &name.cell_, &spot, &zero, &zero, &zero));
+    OPER_ paths{};
+    paths.xltype = xltypeInt;
+    paths.val.w = 17;
+    auto range = Multi(&paths, 1, 1);
+    for (const OPER_* input : {&paths, &range}) {
+        Output_ result(Call("xl_MonteCarlo_ValueWithWeightedRisk", product.Scalar(), model.Scalar(), input, &blank, &blank, &blank));
+        ASSERT_EQ(result.Text().find("#Error:"), std::string::npos) << result.Text();
+        Output_ value(Call("xl_WeightedRiskResult_Get_WeightedValue", result.Scalar()));
+        ASSERT_EQ(value.Scalar()->xltype, xltypeNum);
+        ASSERT_DOUBLE_EQ(value.Scalar()->val.num, 5.0);
+        Output_ provenance(Call("xl_WeightedRiskResult_Get_Provenance", result.Scalar()));
+        ASSERT_GE(provenance.value_->val.array.rows, 7);
+        ASSERT_EQ(provenance.value_->val.array.columns, 2);
+        const auto& retained = provenance.value_->val.array.lparray[13];
+        ASSERT_EQ(retained.xltype, xltypeNum);
+        ASSERT_DOUBLE_EQ(retained.val.num, 17.0);
+    }
+}
+
 TEST(ScriptExcelRawTest, TestPhysicalRangeErrorsAndIntegerBooleans) {
     Excel::ScriptTestInitialize(1);
     RawText_ name(L"raw"), key(L"enable_aad"), empty(L"");

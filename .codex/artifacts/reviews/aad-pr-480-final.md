@@ -1,6 +1,9 @@
 # PR #480 concentrated review and repair
 
-Verdict: Ready for merge once the final review repair's exact-head CI succeeds.
+Verdict: Merged; final review-repair head `38eaceac` passes all 35 checks.
+Repeated exact-head/master/policy/status/review audits pass, including Codacy
+zero issues and annotations and both resolved threads. The guarded squash merge
+is `079c9d520db17dde7017b329aff0ddc4c6a22afb`; its tree equals the accepted head.
 The registration repair at `64bf01a6` passes all 36 checks, including all four
 actual Windows configurations and the unchanged registration assertion.
 No further local correctness or compatibility finding remains from the reviewed
@@ -45,18 +48,18 @@ native/math/lifecycle and public request sources, bindings, native-only
 configuration/export/CI changes and published guides. Preserve independent
 oracles and inspect the exact current publication rather than an unrelated branch.
 
-| Boundary                  | Evidence and remaining gate                                                                                                                                    |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| C01–C05/D00–D03           | Accepted propagation/recording/lifetime/native-only component reviews and exact-head CI; removal/migration/export paths remain native only                     |
-| Scalar D04                | Accepted typed axes, passive ownership/provenance, numeric budgets and C++/Python/Excel compatibility                                                          |
-| Frozen Dupire/Hybrid      | Accepted full snapshot identity, contracted replay, complete node inputs and original common-path/recalibration oracles                                        |
-| Common calibration        | Accepted four native curve providers/both inverse modes, captured coordinates, inverse scaling, actual PV currency groups and native legacy mappings           |
-| Common/automatic requests | C++ plans seal source/configuration and preflight complete payload/mandatory inputs; selections and reporting preserve raw native estimator/contributions      |
-| Direct dependencies       | Explicit typed external or constant bindings are exclusive; source/value/ordinal validation and fixed-surface partial addition remain native and single-use    |
-| Python                    | Strict copied input/GIL boundaries and detached owning outputs; accepted common CI and automatic installed/native parity; final corrected-head CI remains      |
-| Excel                     | 24 functions/48 generated files, strict raw guards and passive owning copies; actual Windows request tests pass; global format-help repair needs final runtime |
-| P01/performance           | Resources/scaling complete, final MC 44/44 and curve 25/25 pass; unchanged-policy affected-entry gates retained                                                |
-| Final delivery            | All paginated threads, checks/status contexts, policy/review state and master/head guards must be recaptured immediately before merge                          |
+| Boundary                  | Evidence and remaining gate                                                                                                                                 |
+|---------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| C01–C05/D00–D03           | Accepted propagation/recording/lifetime/native-only component reviews and exact-head CI; removal/migration/export paths remain native only                  |
+| Scalar D04                | Accepted typed axes, passive ownership/provenance, numeric budgets and C++/Python/Excel compatibility                                                       |
+| Frozen Dupire/Hybrid      | Accepted full snapshot identity, contracted replay, complete node inputs and original common-path/recalibration oracles                                     |
+| Common calibration        | Accepted four native curve providers/both inverse modes, captured coordinates, inverse scaling, actual PV currency groups and native legacy mappings        |
+| Common/automatic requests | C++ plans seal source/configuration and preflight complete payload/mandatory inputs; selections and reporting preserve raw native estimator/contributions   |
+| Direct dependencies       | Explicit typed external or constant bindings are exclusive; source/value/ordinal validation and fixed-surface partial addition remain native and single-use |
+| Python                    | Strict copied input/GIL boundaries and detached owning outputs; common/automatic installed parity and final exact-head CI accepted                          |
+| Excel                     | 24 functions/48 generated files, strict raw guards and passive owning copies; global format-help repair and all four Windows configurations accepted        |
+| P01/performance           | Resources/scaling complete, final MC 44/44 and curve 25/25 pass; unchanged-policy affected-entry gates retained                                             |
+| Final delivery            | Repeated paginated threads/checks/status, policy/review and master/head guards accepted; squash merge and identical tree verified                           |
 
 Methodology remains frozen-calibration scalar AAD; portfolio VJP, blocks,
 workspace reuse, structured operators, sparsity/checkpointing and second order
@@ -64,10 +67,8 @@ belong to later PRs. No full-plan completion is inferred from this PR.
 
 ## Open questions
 
-None requiring user input. The user authorized F01-first whole-PR repair and
-merge. Final native/Python/Excel platform checks and policy state must permit
-merge. The PR is ready for review; merge only after its final publication's own
-checks and the repeated completion audits are accepted.
+None. The authorized F01-first delivery boundary is complete. Later stages
+retain their own specifications, PRs and final acceptance.
 
 ## Tests
 
@@ -97,7 +98,10 @@ Evidence root: `/home/wegamekinglc/.cache/dal-aad-evidence-20261004-8886c083/evi
 
 ## Summary
 
-Feature implementation/local acceptance and production performance are complete
-for this delivery boundary. Publish the concentrated fix, inspect every final
-check/status context and review thread, and merge PR #480 with the exact-head
-guard once clear. Subsequent stages require new PRs; no further permission is needed.
+Feature, platform, production performance and final delivery acceptance are
+complete. `aad-pr-480-completion-head38-{initial,final}-01/validated.json`
+retains repeated checks/review/policy audits. `aad-pr-480-after-merge-01.json`
+and `aad-pr-480-merged-tree-01.json` verify the actual merge and accepted tree.
+GitHub Actions runner acquisition failures and the lost Windows host remain
+retained; failed-only retries preserve successful same-head work. Continue F02
+in a new PR; the full plan remains unfinished.

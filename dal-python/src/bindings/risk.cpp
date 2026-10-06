@@ -97,17 +97,8 @@ void init_bindings_risk(py::module_& m) {
         "MonteCarlo_ValueWithRisk",
         [](const std::shared_ptr<ScriptProductData_>& product, const std::shared_ptr<ModelData_>& model, const py::object& numPath,
            const py::object& request, const py::object& valuation, const py::object& simulation) {
-            const int count = PathCount(numPath, "MonteCarlo_ValueWithRisk");
-            const Handle_<ScriptProductData_> nativeProduct(product);
-            const Handle_<ModelData_> nativeModel(model);
-            const auto requested = SettingsInput<RiskRequest_>(request, "MonteCarlo_ValueWithRisk; request", "RiskRequest_");
-            const auto settings =
-                SettingsInput<ScriptValuationSettings_>(valuation, "MonteCarlo_ValueWithRisk; valuation", "ScriptValuationSettings_");
-            const auto execution =
-                simulation.is_none() ? DefaultRiskMonteCarloSettings()
-                                     : SettingsInput<MonteCarloSettings_>(simulation, "MonteCarlo_ValueWithRisk; simulation", "MonteCarloSettings_");
-            py::gil_scoped_release release;
-            return ValueByMonteCarloWithRisk(nativeProduct, nativeModel, count, requested, settings, execution);
+            return EvaluatePythonRisk<RiskRequest_, &ValueByMonteCarloWithRisk>(product, model, numPath, request, valuation, simulation,
+                                                                                {"MonteCarlo_ValueWithRisk", "RiskRequest_"});
         },
         py::arg("product"), py::arg("modelData"), py::arg("num_path"), py::kw_only(), py::arg("request") = py::none(),
         py::arg("valuation") = py::none(), py::arg("simulation") = py::none());

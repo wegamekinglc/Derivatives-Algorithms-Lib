@@ -1,10 +1,10 @@
 # F01 market-request integration audit
 
-Status: active implementation audit. Common C++/Python/Excel boundaries, common
-C++ quote requests and automatic C++ requests have accepted own-head checks.
-Common and automatic Python/Excel request bindings are locally verified;
-final publication acceptance remains required. This records
-remaining work; it is not implementation acceptance or a replacement for F01.
+Status: F01 accepted and merged in PR #480 at `079c9d52`. Final head `38eaceac`
+passes all 35 checks, including real Windows runtime, with Codacy zero issues
+and all review findings resolved. Repeated completion audits and the guarded
+squash merge confirm acceptance. Retain this map as the requirement boundary
+for subsequent weighted risk; its earlier gaps below have been closed.
 The full [ledger](aad-implementation.md) controls scope, performance policy and
 the user-authorized F01-first merge of PR #480. Later stages require new PRs.
 
@@ -30,8 +30,8 @@ Common Python publication `d51df72` now has all 35 checks accepted. Common quote
 and automatic Excel requests pass focused OFF/combined tests, Windows syntax
 and all ten affected legacy cost rows; see the
 [Excel review](../reviews/aad-risk-request-excel.md). Automatic Python and Excel
-are consolidated for publication. Full F01, P01, whole-PR
-problem fixes, final master reconciliation and guarded merging remain open.
+were consolidated for publication. Full F01 and P01 are accepted; whole-PR
+problem fixes, final master reconciliation and guarded merging are complete.
 
 ## Source and initial findings
 
@@ -146,8 +146,7 @@ person-day excluding CI queue time. Final MC production confirmation now passes
 implicit multi-output format argument; the concentrated repair is locally
 verified. See the [whole-PR review](../reviews/aad-pr-480-final.md).
 
-Complete the above acceptance before closing F01. Then perform the requested
-whole-PR problem review/fixes, resolve P01 production performance, update against
-master and inspect final-head checks/reviews before merging PR #480 with the
-match-head guard. Continue remaining stages in new PRs. No additional user
-permission is required for this authorized sequencing.
+The above F01 acceptance, whole-PR repairs, P01 confirmation and final
+master/check/review audits are complete; PR #480 is merged with the head guard.
+Continue F02 in the new PR under the weighted specification. Remaining stages
+keep their own requirements and acceptance gates.

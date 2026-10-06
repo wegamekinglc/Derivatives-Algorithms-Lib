@@ -652,6 +652,29 @@ activeZero)` applies the existing payoff-root convention when an output is a
 constant, direct input or prefix alias; its second argument must be an active
 zero on the same recording. It does not silently register a new parameter.
 
+For several outputs on one live recording, include
+`<dal/math/aad/weightedroot.hpp>` and call
+`WeightedPayoffRoot(outputs, weights)`. This materializes one scalar weighted
+objective; seed its root once, then reverse the suffix and prefix normally.
+Ordinary expression edges accumulate distinct slots that alias the same node.
+The root remains path-local when components are constants, direct inputs or
+prefix outputs. Weights are passive, finite and ordered like the components.
+Both sequences must be nonempty and equally sized. Nonfinite components are
+rejected even at weight zero, and a nonfinite weighted sum raises an error.
+This is a native recording helper; structured scalar valuation requests still
+select the single default payoff.
+
+Native output preflight is available in `<dal/script/weightedrisk.hpp>`.
+`ScriptRiskOutputAxis` reads an indexed product's scalar slots. The receiver's
+ID is `payoff`; other scalar slots use `output:<ordinal>`, with the actual
+variable label stored separately. Vector storage is excluded.
+`PlanWeightedRiskRequest` resolves ordered choices and finite passive weights,
+reuses input/report checks and enforces the exact retained numeric payload
+`sizeof(double) * (1 + inputs + 2 * components)`. Its owning read-only plan
+captures the valuation date and native/price-only choice. Prepared-axis validation
+checks identity again after preparation. This preflight does not run a valuation
+or resolve historical fixings.
+
 `ValidateAdjointMode(multi, width)` checks a proposed mode without changing
 the tape. Scalar width must be one; vector width must be positive and at most
 `ADJ_SIZE`. Select actual mode with `SetNumResultsForAAD` before scope entry.
@@ -749,6 +772,51 @@ getters. A zero-column Jacobian spills one blank Excel cell; `GET.SHAPE` reports
 the exact `(1, 0)` extent. See the [C++ guide](../public-api.md#structured-script-risk),
 [Python guide](../python/README.md#structured-script-risk) and
 [Excel guide](../excel/script-settings.md#structured-script-risk).
+
+### Weighted Script Risk Results
+
+`ValueByMonteCarloWithWeightedRisk` in `dal-public/src/value.hpp` returns an
+owning passive `Script::WeightedRiskResult_` for one fixed weighted objective.
+Select scalar slots using `request.selection_.outputs_`; omitted outputs select
+`payoff`. Omitted weights are ones. Signed and zero weights are allowed, while
+every selected component must remain finite even at weight zero. Empty, repeated
+or unknown outputs, incompatible weights, exercise and fully expired products
+fail before historical resolution or worker submission.
+
+The driver evaluates the script once per path, gathers the requested slots and
+constructs one weighted native root. Each path reverses its suffix once; each
+batch reverses its prefix once. Constants, direct inputs, historical values and
+aliases use the same recording lifecycle. The scalar objective specialization
+has no weighted buffers or per-path selection branch.
+
+`OutputAxis()`, `Weights()` and `ComponentMeans()` preserve requested order.
+`WeightedValue()` is the objective mean; `Jacobian()` has shape `(1, n)` and
+contains its mean gradient. Native gradients are not divided again during
+projection. `ReportedJacobian()` applies selected input factors to a detached
+copy. The complete input axis and actual preparation provenance are retained.
+The result owns all these passive values and exposes no recording state.
+Nonfinite projection errors identify the weighted objective's ordered component
+IDs and weights; risk errors also identify the selected input coordinate.
+
+The exact retained numeric budget is
+`sizeof(double) * (1 + n + 2 * components)`: objective value, raw gradient,
+component means and weights. Metadata, source snapshots, temporary worker/tape
+storage and detached getter copies are outside this budget. Explicit empty
+native inputs preserve AAD smoothing and the `(1, 0)` shape; disabling AAD
+explicitly selects price-only execution and rejects nonempty risk selection.
+See the [C++ example](../public-api.md#weighted-script-risk).
+
+Python exposes `WeightedRiskRequest_`, `MonteCarlo_ValueWithWeightedRisk` and
+`Product_Get_RiskOutputs`. Typed requests/settings are copied before releasing
+the GIL, and the passive result's matrix/container getters return independent
+copies. The [Python reference](../python/README.md#weighted-script-risk) describes
+the keyword-only entry and read-only properties.
+
+Excel uses immutable weighted request/result handles. Output-axis and component
+tables retain IDs/labels/slots and selected weights/means, while raw/reported
+gradients keep one row. Stored snapshot getters share the scalar result's
+conversion rules and perform no valuation. See the
+[worksheet reference](../excel/README.md#weighted-script-risk).
 
 ### Discrete Dupire Calibration Pullback
 

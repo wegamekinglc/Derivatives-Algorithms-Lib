@@ -2,12 +2,8 @@
 // Created by Codex on 2026/10/5.
 //
 
-#include <array>
-#include <cmath>
-#include <limits>
-
-#include "__platform.hpp"
 #include "__risk.hpp"
+#include "__platform.hpp"
 #include "__riskrequestrows.hpp"
 #include "__script_test_api.hpp"
 #include "__settingskeys.hpp"
@@ -179,17 +175,10 @@ namespace Dal {
         }
 
         const Script::RiskExecutionSnapshot_& Execution(const Handle_<StorableRiskResult_>& result) {
-            const auto& provenance = CheckedResult(result).Provenance();
-            REQUIRE(provenance.execution_, "InvalidRiskResult: execution snapshot is unavailable on a caller-provided conversion result");
-            return *provenance.execution_;
+            return Excel::RiskExecution(CheckedResult(result).Provenance());
         }
 
-        using Excel::FactorList;
-        using Excel::Field;
-        using Excel::ListValue;
         using Excel::NumericCells;
-        using Excel::OptionalCell;
-        using Excel::PayloadBudget;
     } // namespace
 
     void RiskRequest_New(const String_& name, const Matrix_<Cell_>& settings, Handle_<StorableRiskRequest_>* request) {
@@ -198,14 +187,7 @@ namespace Dal {
             settings, "RiskRequest_New", "settings",
             [&](const String_& key, const Cell_& cell, const String_&, const String_& context) {
                 RequireKnownSettingsKey(key, {"inputs", "outputs", "report_factors", "numeric_payload_budget_bytes"});
-                if (key == "inputs")
-                    value.inputs_ = ListValue(cell, context);
-                else if (key == "outputs")
-                    value.outputs_ = ListValue(cell, context);
-                else if (key == "report_factors")
-                    value.reportFactors_ = FactorList(cell, context);
-                else
-                    value.numericPayloadBudgetBytes_ = PayloadBudget(cell, context);
+                Excel::ReadRiskSelectionCell(key, cell, context, &value);
             },
             true);
         request->reset(new StorableRiskRequest_(name, std::move(value)));
@@ -218,11 +200,8 @@ namespace Dal {
                                   const Handle_<StorableScriptValuationSettings_>& valuation,
                                   const Handle_<StorableMonteCarloSettings_>& simulation,
                                   Handle_<StorableRiskResult_>* result) {
-        const int count = Excel::CheckedMonteCarloPathCount(nPaths, "MonteCarlo_ValueWithRisk");
-        const auto requested = request ? request->val_ : Script::RiskRequest_();
-        const auto settings = valuation ? valuation->val_ : ScriptValuationSettings_();
-        const auto execution = simulation ? simulation->val_ : DefaultRiskMonteCarloSettings();
-        auto value = ValueByMonteCarloWithRisk(product, modelData, count, requested, settings, execution);
+        auto value = Excel::EvaluateRiskValuation<&ValueByMonteCarloWithRisk>(product, modelData, nPaths, request, valuation, simulation,
+                                                                              "MonteCarlo_ValueWithRisk");
         result->reset(new StorableRiskResult_(String_(), std::move(value)));
     }
 
@@ -240,11 +219,7 @@ namespace Dal {
     }
 
     void RiskResult_Get_Shape(const Handle_<StorableRiskResult_>& result, Matrix_<Cell_>* shape) {
-        const auto& value = CheckedResult(result).Jacobian();
-        Matrix_<Cell_> cells(1, 2);
-        cells(0, 0) = double(value.Rows());
-        cells(0, 1) = double(value.Cols());
-        *shape = std::move(cells);
+        *shape = Excel::RiskShapeCells(CheckedResult(result).Jacobian());
     }
 
     void RiskResult_Get_Inputs(const Handle_<StorableRiskResult_>& result, bool complete, Matrix_<Cell_>* inputs) {
@@ -258,69 +233,15 @@ namespace Dal {
     }
 
     void RiskResult_Get_Provenance(const Handle_<StorableRiskResult_>& result, Matrix_<Cell_>* provenance) {
-        const auto& source = CheckedResult(result).Provenance();
-        const auto& execution = Execution(result);
-        const auto& simulation = execution.simulation_;
-        const Vector_<std::pair<String_, Cell_>> fields{
-            Field("method", source.method_),
-            Field("engine", source.engine_),
-            Field("normalization", source.normalization_),
-            Field("calibration", source.calibration_),
-            Field("model_type", source.modelType_),
-            Field("evaluation_date", OptionalCell(source.evaluationDate_)),
-            Field("paths_per_replicate", double(execution.pathsPerReplicate_)),
-            Field("pricing_replicates", double(execution.pricingReplicates_)),
-            Field("all_expired", execution.allExpired_),
-            Field("rsg", simulation.rsg_),
-            Field("use_bb", simulation.useBb_),
-            Field("enable_aad", simulation.enableAad_),
-            Field("smooth", simulation.smooth_),
-            Field("compiled", simulation.compiled_.value_or(false)),
-            Field("lsmc_basis_degree", double(simulation.lsmcBasisDegree_)),
-            Field("lsmc_training_paths", OptionalCell(simulation.lsmcTrainingPaths_)),
-            Field("lsmc_validation_paths", OptionalCell(simulation.lsmcValidationPaths_)),
-            Field("lsmc_rqmc_replicates", OptionalCell(simulation.lsmcRqmcReplicates_)),
-            Field("lsmc_training_seed", OptionalCell(simulation.lsmcTrainingSeed_)),
-            Field("lsmc_pricing_seed", OptionalCell(simulation.lsmcPricingSeed_)),
-            Field("lsmc_policy_risk_mode", simulation.lsmcPolicyRiskMode_),
-            Field("lsmc_policy_bump_relative", simulation.lsmcPolicyBumpRelative_),
-            Field("today_fixing_policy", execution.todayFixingPolicy_),
-            Field("fixing_source", execution.fixingSource_),
-            Field("default_index", execution.productSettings_.defaultIndex_),
-            Field("regression_features", String::Accumulate(execution.productSettings_.regressionFeatures_, ";"))};
-        Matrix_<Cell_> cells(static_cast<int>(fields.size()), 2);
-        for (size_t index = 0; index < fields.size(); ++index) {
-            cells(static_cast<int>(index), 0) = fields[index].first;
-            cells(static_cast<int>(index), 1) = fields[index].second;
-        }
-        *provenance = std::move(cells);
+        *provenance = Excel::RiskProvenanceCells(CheckedResult(result).Provenance());
     }
 
     void RiskResult_Get_History(const Handle_<StorableRiskResult_>& result, Matrix_<Cell_>* history) {
-        const auto& observations = Execution(result).observations_;
-        Matrix_<Cell_> cells(static_cast<int>(observations.size()) + 1, 4);
-        constexpr std::array<const char*, 4> HEADERS{"index", "fixing_time", "historical", "value"};
-        for (int column = 0; column < 4; ++column)
-            cells(0, column).val_.emplace<String_>(HEADERS[column]);
-        for (size_t index = 0; index < observations.size(); ++index) {
-            const auto& observation = observations[index];
-            const int row = static_cast<int>(index) + 1;
-            cells(row, 0) = observation.index_;
-            cells(row, 1) = DateTime::ToString(observation.fixingTime_);
-            cells(row, 2) = observation.historical_;
-            cells(row, 3) = OptionalCell(observation.value_);
-        }
-        *history = std::move(cells);
+        *history = Excel::RiskHistoryCells(Execution(result));
     }
 
     void RiskResult_Get_Product(const Handle_<StorableRiskResult_>& result, Matrix_<Cell_>* product) {
-        const auto& execution = Execution(result);
-        Matrix_<Cell_> cells(static_cast<int>(execution.productDates_.size()), 2);
-        for (size_t index = 0; index < execution.productDates_.size(); ++index) {
-            cells(static_cast<int>(index), 0) = execution.productDates_[index];
-            cells(static_cast<int>(index), 1) = execution.productEvents_[index];
-        }
-        *product = std::move(cells);
+        *product = Excel::RiskProductCells(Execution(result));
     }
 
     void RiskResult_Get_ModelSnapshot(const Handle_<StorableRiskResult_>& result, Vector_<String_>* json) {

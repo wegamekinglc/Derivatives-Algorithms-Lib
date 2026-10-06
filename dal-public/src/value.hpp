@@ -23,6 +23,13 @@ namespace Dal {
                                                                 const Script::RiskRequest_& request = {},
                                                                 const ScriptValuationSettings_& valuation = {},
                                                                 const MonteCarloSettings_& simulation = DefaultRiskMonteCarloSettings());
+    [[nodiscard]] Script::WeightedRiskResult_
+    ValueByMonteCarloWithWeightedRisk(const Handle_<ScriptProductData_>& product,
+                                      const Handle_<ModelData_>& modelData,
+                                      int numPath,
+                                      const Script::WeightedRiskRequest_& request = {},
+                                      const ScriptValuationSettings_& valuation = {},
+                                      const MonteCarloSettings_& simulation = DefaultRiskMonteCarloSettings());
 
     String_ ExplainScriptValuation(const Handle_<ScriptProductData_>& product,
                                    const Handle_<ModelData_>& modelData,
