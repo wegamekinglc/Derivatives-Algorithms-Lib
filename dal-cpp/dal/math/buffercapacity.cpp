@@ -16,6 +16,7 @@
 
 namespace Dal {
     namespace {
+        thread_local BufferCapacityBudget_* currentBufferBudget = nullptr;
         thread_local const void* currentBufferAttachment = nullptr;
 
         void RequireBufferCapacity(size_t current, size_t extra, size_t limit) {
@@ -139,6 +140,20 @@ namespace Dal {
     }
 
     namespace Detail {
+        namespace {
+            template <class A_, class D_> auto AllocateStorage(size_t bytes, A_ allocate, D_ deallocate) {
+                auto* budget = currentBufferBudget;
+                return budget == nullptr || bytes == 0 ? allocate() : AllocateTrackedBuffer(budget, bytes, 1, allocate, deallocate);
+            }
+
+            template <class D_> void DeallocateStorage(void* allocation, D_ deallocate) noexcept {
+                if (auto* budget = currentBufferBudget)
+                    DeallocateTrackedBuffer(budget, allocation, deallocate);
+                else
+                    deallocate(allocation);
+            }
+        } // namespace
+
         BufferCapacitySuspension_::BufferCapacitySuspension_() noexcept
             : previousBudget_(CurrentBufferBudget()), previousAttachment_(currentBufferAttachment), owner_(std::this_thread::get_id()) {
             CurrentBufferBudget() = nullptr;
@@ -152,34 +167,31 @@ namespace Dal {
             currentBufferAttachment = previousAttachment_;
         }
 
-        BufferCapacityBudget_*& CurrentBufferBudget() noexcept {
-            static thread_local BufferCapacityBudget_* budget = nullptr;
-            return budget;
-        }
+        BufferCapacityBudget_*& CurrentBufferBudget() noexcept { return currentBufferBudget; }
 
         void* AllocateBufferStorage(size_t bytes) {
-            return AllocateBuffer(bytes, 1, [bytes] { return ::operator new(bytes); }, [](void* allocation) { ::operator delete(allocation); });
+            return AllocateStorage(bytes, [bytes] { return ::operator new(bytes); }, [](void* allocation) { ::operator delete(allocation); });
         }
 
         void* AllocateBufferStorage(size_t bytes, std::align_val_t alignment) {
-            return AllocateBuffer(
-                bytes, 1, [bytes, alignment] { return ::operator new(bytes, alignment); },
+            return AllocateStorage(
+                bytes, [bytes, alignment] { return ::operator new(bytes, alignment); },
                 [alignment](void* allocation) { ::operator delete(allocation, alignment); });
         }
 
         void DeallocateBufferStorage(void* allocation, size_t bytes) noexcept {
 #if defined(__cpp_sized_deallocation)
-            DeallocateBuffer(allocation, [bytes](void* storage) { ::operator delete(storage, bytes); });
+            DeallocateStorage(allocation, [bytes](void* storage) { ::operator delete(storage, bytes); });
 #else
-            DeallocateBuffer(allocation, [](void* storage) { ::operator delete(storage); });
+            DeallocateStorage(allocation, [](void* storage) { ::operator delete(storage); });
 #endif
         }
 
         void DeallocateBufferStorage(void* allocation, size_t bytes, std::align_val_t alignment) noexcept {
 #if defined(__cpp_sized_deallocation)
-            DeallocateBuffer(allocation, [bytes, alignment](void* storage) { ::operator delete(storage, bytes, alignment); });
+            DeallocateStorage(allocation, [bytes, alignment](void* storage) { ::operator delete(storage, bytes, alignment); });
 #else
-            DeallocateBuffer(allocation, [alignment](void* storage) { ::operator delete(storage, alignment); });
+            DeallocateStorage(allocation, [alignment](void* storage) { ::operator delete(storage, alignment); });
 #endif
         }
 

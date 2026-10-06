@@ -129,6 +129,29 @@ Retain the default width of one and the accepted scalar/weighted arithmetic.
 
 ## Verdict
 
+The existing-entry gate at `f1b9e728` fails both confirmation rounds for
+explicit PDE rollback (17–19%), CN/implicit rollback (4–5%) and one analytic
+single-curve quote-risk portfolio (5–7%). Raw samples and the failed verdict
+remain in `aad-jacobian-final-nine-paired-02`.
+
+Numeric storage helpers now read the file-local TLS slot directly while the
+public attachment accessor returns that same slot. This removes an otherwise
+retained public-function call under shared-library compilation. The isolated
+TLS-only diagnostic clears quote-risk and CN/implicit failures; explicit PDE
+still fails by 11% (`aad-jacobian-localtls-diagnostic-paired-01`).
+
+PDE sampling now reuses call-local coordinate/advection capacity and returns
+nine probes in a fixed array. Advection outputs are cleared before each call,
+preserving empty and zero-initialized callback outputs; diffusion outputs
+remain freshly constructed. All three spatial probes and all coefficient
+comparisons still run on every rollback. The combined diagnostic passes all
+three PDE cases, with 2–6% lower minima than baseline in both rounds
+(`aad-jacobian-pde-diagnostic-paired-01`). Sixteen focused PDE cases pass,
+including a partially written custom-coefficient oracle. Canonical GCC 14
+warning checks pass with diagnostics OFF and combined. These diagnostic
+binaries retain their patches; final committed-head performance and platform
+acceptance remain required.
+
 Request Changes for remaining platform/performance acceptance. The four
 published findings are resolved at `a62b0f10`; every subsequent head requires
 fresh paginated review, exact-head CI and Codacy evidence before merge.
