@@ -818,6 +818,67 @@ gradients keep one row. Stored snapshot getters share the scalar result's
 conversion rules and perform no valuation. See the
 [worksheet reference](../excel/README.md#weighted-script-risk).
 
+### Budgeted Script Jacobians
+
+`ValueByMonteCarloWithJacobianRisk` returns the means of ordered scalar script
+outputs and their full selected-input Jacobian. `JacobianRiskRequest_` reuses
+the scalar input/output/report-factor selection, adds `maxBlockWidth_` (default
+one), and accepts optional recording and scratch capacity limits. Omitted
+outputs select `payoff`; explicit empty outputs are invalid. Aliased outputs
+remain distinct rows. Exercise and fully expired products are unsupported.
+
+Rows and columns follow the requested IDs. For `m` outputs and `n` inputs,
+`Values()` has length `m` and `Jacobian()` has shape `(m, n)`, including `(m, 0)`.
+The values and gradients are finite-sample means; no additional discounting or
+normalization is applied. `ReportedJacobian()` returns a separate matrix with
+each column multiplied by its report factor.
+
+The native driver records a fresh fixed-width graph for each output block and
+replays the complete requested path range. Each block uses the same sealed
+product, model, date, resolved history, RNG stream and absolute path indices.
+Path suffixes reverse per path; the retained prefix reverses once per batch.
+Alias, constant, direct-input and prefix roots have independent seeds, and
+unused tail lanes are zero. Width one uses vector mode with one channel.
+`Execution()` records actual widths, replay attempts, executed paths and peak
+admitted recording/scratch capacities during replay. For example, four outputs
+at width three use two width-three blocks and twice the requested forward paths.
+
+The three budgets have different scopes:
+
+- `selection_.numericPayloadBudgetBytes_` bounds retained raw numeric values
+  and risks: `sizeof(double) * m * (1 + n)`. Axes, snapshots, execution metadata
+  and detached getter copies are excluded.
+- `recordingCapacityBudgetBytes_` bounds aggregate tape payload: allocated
+  node, derivative, argument-pointer and vector-adjoint blocks, including
+  unused tails and resident cached blocks. Each concurrent worker also needs
+  protected replacement headroom for cleanup; unused headroom is excluded
+  from the reported payload peak.
+- `scratchCapacityBudgetBytes_` bounds admitted result/batch buffers, roots,
+  numeric model/path/evaluator capacities and fixed worker/task-slot storage
+  across concurrent workers. Growth includes old/new allocation overlap.
+  Immutable preparation/selection metadata, strings, allocator bookkeeping,
+  third-party RNG state, process RSS and detached getter copies are excluded.
+
+Result extents and initial bounds are checked before history or tasks. With a
+capacity limit, model-aware admission constructs guarded startup buffers after
+the observation/timeline plan is known and before reading history. It accounts
+for all concurrent workers, known model initialization, path arrays, scalar
+variable counts, nested fuzzy stores and historical evaluator shapes. When past
+events exist, vector seed admission conservatively uses the parsed vector
+capacity bounds, including current/replacement seed overlap. A smaller width
+is chosen when needed. These probes evaluate no simulated path and read
+no fixing. History-dependent/control-flow growth remains guarded at allocation
+boundaries during replay. Runtime exhaustion drains submitted tasks and returns
+an error identifying the block/output and capacity cause; it publishes no partial
+matrix and does not retry. Earlier completed results remain usable.
+
+Explicit empty native inputs preserve fuzzy AAD prices. Explicit passive mode
+selects no risk inputs, performs one forward replay, reports zero recording
+payload and retains the `(m, 0)` shape. The result, axes, provenance and diagnostic
+containers own passive values. See the [C++](../public-api.md#budgeted-script-jacobians),
+[Python](../python/README.md#budgeted-script-jacobians) and
+[Excel](../excel/README.md#budgeted-script-jacobians) interfaces.
+
 ### Discrete Dupire Calibration Pullback
 
 The C++ functions in `dal/model/dupirerisk.hpp` map numeric local-volatility

@@ -108,6 +108,39 @@ AAD smoothing. `GET.INPUTS(result, [complete])`, `GET.PROVENANCE`, `GET.HISTORY`
 access or valuation. Requests/results do not support archive serialization.
 See the [weighted AAD methodology](../methodology/aad.md#weighted-script-risk-results).
 
+## Budgeted script Jacobians
+
+`JACOBIANRISKREQUEST.NEW(name, settings)` creates an immutable request from a
+two-column settings table. The supported keys are `inputs`, `outputs`,
+`report_factors`, `max_block_width`, `numeric_payload_budget_bytes`,
+`recording_capacity_budget_bytes` and `scratch_capacity_budget_bytes`. IDs and
+factors use semicolon-separated text. Missing keys use defaults; a present
+blank input list explicitly selects no columns. Width defaults to one and must
+be a positive bounded integer. Budgets are nonnegative numeric integers no
+larger than `2^53-1` or `size_t`; booleans, numeric text and fractions are rejected.
+
+`MONTECARLO.VALUEWITHJACOBIANRISK(product, modelData, n_paths, request, valuation,
+simulation)` returns a completed immutable result. Optional blank handles
+select defaults. Paths must be a positive integer at most `INT_MAX`.
+
+| Getter suffix under `JACOBIANRISKRESULT`                            | Returned table                                                      |
+|---------------------------------------------------------------------|---------------------------------------------------------------------|
+| `GET.VALUES`                                                        | ID, label, slot and output mean                                     |
+| `GET.JACOBIAN(result, reported)`                                    | Selected outputs by selected inputs; `reported=true` scales columns |
+| `GET.SHAPE`                                                         | Exact output and input counts                                       |
+| `GET.OUTPUTS(result, complete)`                                     | Selected or complete output coordinates                             |
+| `GET.INPUTS(result, complete)`                                      | Selected or complete input coordinates and reporting scales         |
+| `GET.EXECUTION`                                                     | Actual widths, replay attempts, executed paths and capacity peaks   |
+| `GET.PROVENANCE`, `GET.HISTORY`, `GET.PRODUCT`, `GET.MODELSNAPSHOT` | Frozen preparation data                                             |
+
+Flag inputs must be actual booleans or blank. Matrix/table getters copy stored
+data and perform no valuation. A zero-column Jacobian spills one blank cell;
+`GET.SHAPE` retains `(m, 0)`. Execution widths are semicolon-separated; counts
+above `2^53-1` are text to preserve their exact integer values. Native blocks
+replay the full path range, while passive mode selects no risk columns and
+performs one forward replay. See the
+[AAD capacity contract](../methodology/aad.md#budgeted-script-jacobians).
+
 ## Dupire quote risk
 
 The calibration holds the base IVS, deterministic carry and grid choices fixed;

@@ -80,6 +80,20 @@ namespace Dal::Excel {
         return cells;
     }
 
+    inline Matrix_<Cell_> OutputCoordinateCells(const Vector_<Script::RiskOutputCoordinate_>& axis, int columns = 3) {
+        Matrix_<Cell_> cells(static_cast<int>(axis.size()) + 1, columns);
+        cells(0, 0) = "id";
+        cells(0, 1) = "label";
+        cells(0, 2) = "slot";
+        for (size_t index = 0; index < axis.size(); ++index) {
+            const int row = static_cast<int>(index) + 1;
+            cells(row, 0) = axis[index].id_;
+            cells(row, 1) = axis[index].label_;
+            cells(row, 2) = double(axis[index].slot_);
+        }
+        return cells;
+    }
+
     inline Cell_ RiskCell(int value) { return Cell_(double(value)); }
     template <class T_> Cell_ RiskCell(const T_& value) { return Cell_(value); }
 

@@ -1,7 +1,7 @@
 # Budgeted script Jacobian API decisions
 
-Status: active design based on merged #483 (`d1600a15`); no implementation or
-consumer acceptance is inferred. See the [contract](../specs/aad-blocked-script-risk.md).
+Status: implemented on active PR #484; final consumer, platform and performance
+acceptance remains open. See the [contract](../specs/aad-blocked-script-risk.md).
 
 ## Audience and existing surfaces
 
@@ -49,8 +49,9 @@ const auto result = ValueByMonteCarloWithJacobianRisk(
 // Rows follow the two requested output IDs; columns follow spot and volatility.
 ```
 
-The C++ entry is implemented on the draft branch. Python and Excel consumers
-and complete delivery acceptance remain open.
+The C++/Python/Excel entries are implemented on the active PR branch. Complete
+delivery acceptance remains open, including actual Windows generated exports,
+all diagnostic/platform configurations and frozen existing-entry performance.
 
 ## Errors and compatibility
 
@@ -147,6 +148,25 @@ collector, avoiding an unused weighted objective. Their recording peak is zero
 and their one forward replay is reported separately from native blocks.
 
 Known result, fixed evaluator/root/batch and initial tape bounds precede history.
-Complete model-specific minimum preflight remains open. Python/Excel consumers,
-stable-head platform acceptance and existing-entry paired performance remain
-required before this draft is ready to merge.
+`PrepareScriptWithAdmission` adds a history-free hook after observation/timeline
+planning. Only the Jacobian route uses guarded startup admission for model,
+path and evaluator buffers. Equal per-worker startup quotas cover concurrent
+workers; capacities are reserved before allocation and width decreases strictly
+until known startup fits. Parsed variable counts supply zero-valued admission
+metadata because historical variable values do not yet exist. Model initialization,
+nested fuzzy stores, historical evaluator/seed shapes, correlated log-spots and
+Hybrid state/factor arrays are included. When past events exist, vector seed
+capacity uses conservative parsed bounds, including replacement overlap.
+Probes read no fixing and generate no
+path; unknown historical/control-flow growth remains guarded during replay.
+The original request is retained and runtime execution receives the admitted
+maximum width separately. The old preparation policy compiles to a no-op.
+
+Python exposes read-only `JacobianRiskRequest_`, `JacobianRiskResult_` and
+`JacobianRiskExecution_`, using the shared strict parsers and GIL-release entry.
+All container/matrix getters are detached copies. Excel exposes immutable
+request/result handles, ordered value/axis and matrix tables, exact shape,
+execution diagnostics and existing frozen snapshot conversions. Twelve new
+generated exports accompany the markup; two Windows raw-export cases verify
+physical parsing and integer paths/matrix/empty-column behavior. Typed portable
+acceptance is separate from their still-required actual Windows execution.

@@ -267,6 +267,36 @@ Vectors, exercise and fully expired products are not supported as weighted
 outputs. See [weighted AAD methodology](methodology/aad.md#weighted-script-risk-results)
 for validation, normalization and the native-empty/price-only distinction.
 
+### Budgeted script Jacobians
+
+`ValueByMonteCarloWithJacobianRisk` accepts an owning ordered selection and
+capacity limits. It returns selected scalar output means and the complete raw
+Jacobian, preserving both axis orders:
+
+```cpp
+Dal::Script::JacobianRiskRequest_ request;
+request.selection_.outputs_ = Dal::Vector_<Dal::String_>{"output:0", "payoff"};
+request.selection_.inputs_ = Dal::Vector_<Dal::String_>{"model:0", "model:1"};
+request.maxBlockWidth_ = 2;
+request.scratchCapacityBudgetBytes_ = 8 * 1024 * 1024;
+const auto risk = Dal::ValueByMonteCarloWithJacobianRisk(product, model, 1024, request);
+const auto& means = risk.Values();
+const auto& matrix = risk.Jacobian(); // two output rows, two input columns
+const auto reported = risk.ReportedJacobian();
+const auto& work = risk.Execution();
+```
+
+Width defaults to one and is bounded by the native channel limit. Each native
+output block uses a fresh graph and replays all requested paths over the same
+sealed preparation. The retained result budget is `sizeof(double) * m * (1 + n)`.
+Recording/scratch limits account aggregate worker capacities separately and
+preflight known model/path/evaluator storage before reading history. Execution
+diagnostics disclose actual widths, replay attempts, executed paths and capacity
+peaks. Native empty inputs retain fuzzy prices and `(m, 0)`; passive execution
+selects no risk columns and performs one forward replay. Exercise and fully
+expired products are unsupported. See the
+[capacity and replay contract](methodology/aad.md#budgeted-script-jacobians).
+
 ### C++ curve calibration
 
 The public zero-rate factory is:

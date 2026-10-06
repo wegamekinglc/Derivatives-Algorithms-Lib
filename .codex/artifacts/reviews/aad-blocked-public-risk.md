@@ -1,17 +1,14 @@
 # C++ Jacobian producer and PR repair review
 
-Scope: the active #484 draft, including ordered planning, owning results,
-native/passive C++ valuation and the four Copilot findings on `7c9cfa89`.
+Scope: active #484, including ordered planning, owning C++/Python/Excel results,
+native/passive replay, history-free capacity admission and the four Copilot
+findings on `7c9cfa89`.
 
 ## Findings
 
-- Delivery blocker: `dal-public/src/riskvalue.cpp`, `PreflightRiskValuation`,
-  checks retained results, fixed evaluator/root/batch storage and initial tape
-  blocks. It does not yet establish every model/path/evaluator minimum before
-  history. Finish R10 with history-free model-aware admission and boundary tests.
-- Delivery blocker: Python/Excel Jacobian consumers and their strict parsing,
-  ownership/GIL and actual generated-export acceptance remain open. Existing
-  weighted consumers do not satisfy R13 for this new result.
+- Delivery blocker: actual Windows generated-export acceptance remains open.
+  Implemented typed portable bindings and local parsing tests do not substitute
+  for executing the new raw XLL exports on Windows in all diagnostic modes.
 - Delivery blocker: run current-head platform CI and the frozen old-entry
   performance gates after the delivery implementation stabilizes. Earlier
   successful heads do not accept these allocator and public-producer changes.
@@ -69,15 +66,55 @@ latest wheel job must still confirm the platform repair.
   `aad-jacobian-plan-warnings-02.json`: canonical GCC 14 warning flags, OFF and
   combined diagnostics. Complexity remains within the configured limit of 8.
 
+## Startup admission and bindings
+
+The initial long-timeline test accidentally rejected an unbound SPOT before
+history; its fixture now supplies the required default index and asserts the
+budget error identity. The corrected RED (`aad-jacobian-minimum-red-02.json`)
+reaches the rejecting historical observer. Guarded startup admission now rejects
+the known model/path capacity before any history read or submission.
+
+The exact-width-one scratch budget test initially failed at replay width nine
+(`aad-jacobian-minimum-green-02.json`). Pre-history `VarValues()` is empty, so
+the first probe omitted current scalar/fuzzy storage. Admission now uses parsed
+variable counts and known nesting metadata. The unchanged test succeeds at
+width one and retains the caller's width-sixteen request. Actual allocation
+guards enforce each probe's finite per-worker quota before capacity growth;
+probes do not evaluate historical statements or generate a Monte Carlo path.
+
+Historical-vector RED (`aad-jacobian-vector-red-01.json`) confirms missing seed
+capacity could reach history. Admission now conservatively fills known vector
+capacity bounds when past events exist and includes replacement overlap. Native
+startup rewinds before registration and admits per-path model scratch after the
+temporary historical evaluator is destroyed, matching the execution phases.
+
+`aad-jacobian-admission-final-01.json` captures twelve public Jacobian, 46 core
+and sixteen affected legacy public cases. Finite-budget four-worker oracles
+include BS, correlated BS, Hybrid, GSR, multifactor GSR and GSR-SLV, each in tree
+and compiled modes. The old preparation policy calls an inline empty admission
+overload; it constructs no callback or Jacobian probe state.
+
+`aad-jacobian-python-red-01.log` reproduces the missing Python surface.
+`aad-jacobian-python-green-01.json` records 97 targeted new/scalar/weighted cases
+against a fresh coherent installed core and standalone Python module. New
+requests reject implicit integer conversions and expose only read-only fields;
+container/matrix/result copies remain detached. The native entry uses the
+accepted shared typed-copy/GIL-release helper.
+
+`aad-jacobian-excel-red-01.json` records the missing typed worksheet surface.
+`aad-jacobian-excel-green-01.log` passes nineteen new/scalar/weighted typed cases.
+Shared output-coordinate formatting retains the existing weighted table.
+Twelve generated markup exports accompany two new Windows raw-export cases.
+Those tests still need actual Windows execution, not a portable compile claim.
+
 ## Open questions
 
 No change to width tuning or retry policy is authorized by these repairs.
 Runtime capacity exhaustion still drains and fails without a partial result.
-Resolve the complete known-minimum inventory in the controlling specification;
-retain the default width of one and the accepted scalar/weighted arithmetic.
+Retain the default width of one and the accepted scalar/weighted arithmetic.
 
 ## Verdict
 
-Request Changes for the remaining delivery blockers. The repaired findings must
-be reconciled with the published commits and fresh remote review/CI evidence
-before #484 can be marked ready or merged.
+Request Changes for remaining platform/performance acceptance. The four
+published findings are resolved at `a62b0f10`; every subsequent head requires
+fresh paginated review, exact-head CI and Codacy evidence before merge.
