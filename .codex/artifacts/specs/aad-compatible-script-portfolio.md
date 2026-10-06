@@ -2,11 +2,12 @@
 
 Status: active specification. Sealed C++ ownership, passive coordinate catalogs
 and internal compatibility planning and whole-request preparation are implemented
-and locally verified. Shared weighted group batches are locally verified;
-Internal weighted replay/scatter is also locally verified; public valuation,
-An internal owning weighted request plan validates selection and numeric payload
-before history/tasks. Recording/scratch admission, public valuation and bindings
-remain pending.
+and locally verified. Shared weighted group batches and internal weighted
+replay/scatter are also locally verified. An internal owning weighted request plan
+validates selection and numeric payload before history/tasks. Native weighted
+startup recording/scratch admission and aggregate runtime guards are now locally
+verified. Public valuation/results, passive execution, blocked attribution and
+bindings remain pending.
 Delivery starts from merged PR #484, commit `1c9273c9`, in open PR
 [#487](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/487).
 

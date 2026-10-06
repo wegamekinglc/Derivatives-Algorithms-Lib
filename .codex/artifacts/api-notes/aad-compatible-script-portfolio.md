@@ -2,8 +2,8 @@
 
 Status: sealed C++ portfolio construction and coordinate inspection exist.
 Internal whole-request preparation and shared weighted group batches also exist.
-The internal replay coordinator also exists. Public valuation and binding surfaces
-below remain proposals for the active
+The internal replay coordinator and native weighted capacity admission also exist.
+Public valuation and binding surfaces below remain proposals for the active
 [portfolio specification](../specs/aad-compatible-script-portfolio.md).
 
 ## Current boundary and audience
@@ -48,8 +48,9 @@ settings before invoking callbacks. It plans every trade, invokes one
 whole-request admission callback, captures the union of historical dependencies
 once, completes private trade state and returns an owning `PreparedPortfolio_`
 with the path count and compatible groups. These are internal integration
-surfaces. The callback establishes where budget policy must run; it does not
-enforce aggregate recording/scratch limits. No Monte Carlo portfolio result or
+surfaces. The callback establishes where budget policy runs. Weighted replay
+preparation now uses it for aggregate startup admission; this generic function
+does not itself select a budget policy. No public Monte Carlo portfolio result or
 worker scheduling is exposed by these preparation functions.
 
 `Script::Detail::EvaluatePortfolioWeightedBatch` accepts one compatible group,
@@ -61,7 +62,11 @@ scenario/evaluator/suffix/prefix counters. The model is registered once; private
 constants remain separate leaves. Each batch reverses its retained historical
 prefix once. It validates finite selected values even at zero weight and restores
 recording/mode state after failures. This is an internal execution primitive,
-without aggregate budgets, selected-input projection or whole-portfolio results.
+without whole-request admission, selected-input projection or public results.
+Optional shared scratch/tape budget pointers attach worker allocations and fixed
+private evaluator payloads before construction. Recording capacity retains cleanup
+replacement headroom. The coordinator owns and shares these budgets across groups
+and workers.
 
 `Dal::Detail::EvaluatePortfolioWeightedReplay` validates prepared axes and the
 entire output/input-position selection before submitting tasks. It runs compatible
@@ -70,10 +75,12 @@ model leaves through the global owner mapping and constants through private trad
 positions. It preserves requested output/input order and normalizes all sums once
 by the captured path count. Unselected groups are skipped; empty selected inputs
 retain native pricing. Required derivatives are checked before reduction. Its
-passive internal result owns component/objective means, selected gradients and
-per-group work counters. Existing task-group ownership drains accepted tasks after
-submission/worker failures. This prepared-input coordinator does not implement
-public request preflight before history, budget policy, provenance or bindings.
+passive internal result owns component/objective means, selected gradients,
+per-group work counters and actual recording/scratch peaks. Optional aggregate
+limits guard coordinator, worker and batch/result capacities, including growth
+overlap and task slots. Result replacement stays inside the worker attachment;
+accepted tasks drain after submission/worker/capacity failures. This internal
+coordinator does not expose public results, provenance or bindings.
 
 `Dal::Detail::PlanPortfolioWeightedRequest` is an internal owning request plan
 over a sealed portfolio. It defaults to every trade payoff, resolves ordered
@@ -85,6 +92,17 @@ The plan owns the sealed handle, selections, original axes and input request aft
 caller mutation/destruction. It reuses schema-independent scalar request constraints
 without relaxing legacy ordinal-ID validation. This plan is not a public valuation
 entry or recording/scratch admission policy.
+
+`PreparePortfolioWeightedReplay` owns a copy of this plan and the settings and
+connects its native selections to whole-request preparation. With finite capacity
+limits, it uses prospective full-contract groups over the original planned meshes
+and one pending historical environment. Completed groups still require executable
+state and resolved historical equality. Admission reserves coordinator/result/task
+capacities and divides the remaining capacity across concurrent workers. Guarded
+model initialization and every selected private evaluator/history vector shape run
+before historical reads. Unselected private evaluators are omitted. Placeholder
+history admits known shapes; actual historical arithmetic and later growth remain
+guarded at runtime. Passive admission and blocked-width admission remain pending.
 
 ## Proposed valuation surfaces
 
@@ -166,8 +184,8 @@ an active model/evaluator handle as the portfolio result.
 
 ## Remaining implementation decisions
 
-All six accepted families pass snapshot/coordinate tests; execution acceptance
-still requires their independent common-path risk oracles. Finalize result
+All six accepted families pass snapshot/coordinate and independent native weighted
+common-path risk tests; passive and blocked oracles remain. Finalize result
 metadata layout without adding fields or runtime work to old results. Validate strict
 Python/Excel construction against analogous risk request parsers. Names may be
 adjusted to fit registration conventions before implementation; mathematical

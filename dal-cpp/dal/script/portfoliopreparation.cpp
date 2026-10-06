@@ -78,6 +78,19 @@ namespace Dal::Script::Detail {
         }
     } // namespace
 
+    Vector_<PortfolioScenarioGroup_> PlanPortfolioScenarioGroups(const ScriptPortfolioData_& portfolio, const Vector_<PlannedScript_>& plans) {
+        REQUIRE2(plans.size() == portfolio.TradeIds().size(), "InvalidPortfolioPlanning: trade extent changed", ScriptError_);
+        Vector_<PreparedPortfolioTradeView_> views;
+        views.reserve(plans.size());
+        for (size_t trade = 0; trade < plans.size(); ++trade) {
+            const size_t owner = static_cast<size_t>(portfolio.ModelOwners()[trade]);
+            const auto& model = plans[trade].Model();
+            views.push_back({&plans[trade].View(), owner, model.SimDim(), model.NumFactors(), model.NumeraireIsDeterministic(),
+                             HasFactorySharingProof(*portfolio.Models()[owner])});
+        }
+        return GroupPlannedPortfolio(views);
+    }
+
     PreparedPortfolio_ PrepareScriptPortfolio(const Handle_<ScriptPortfolioData_>& portfolio,
                                               int numPaths,
                                               const ScriptValuationSettings_& valuation,

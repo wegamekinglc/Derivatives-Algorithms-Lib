@@ -760,7 +760,7 @@ overlapping acceptance work is included once in the integration allowance.
 | P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass       | Merged; final 35/35 checks accepted     | 0                     |
 | F01                     | C++/Python/Excel and complete requirement audit accepted             | Merged; final 35/35 checks accepted     | 0                     |
 | F02 weighted/blocked    | C++/Python/Excel and independent mathematical oracles accepted       | #483/#484 merged; exact-head gates pass | 0                     |
-| F02 portfolio           | Native weighted replay/scatter verified; public/budgets remain      | Open #487; CI/whole delivery pending    | 3–5                   |
+| F02 portfolio           | Native weighted replay and aggregate budgets verified; public open | Open #487; whole delivery pending       | 3–5                   |
 | P02/P03                 | Worker reuse/block selection/extraction remain                       | Open                                    | 4–7                   |
 | F03                     | Solve, implicit calibration and PDE operators remain                 | Open                                    | 12–20                 |
 | P04/P05                 | Structural sparsity/checkpointing remain                             | Open                                    | 9–15                  |

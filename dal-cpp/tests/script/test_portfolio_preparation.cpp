@@ -138,6 +138,34 @@ TEST(PortfolioPreparationTest, TestImpossibleStartupAdmissionReadsNoHistory) {
     ASSERT_EQ(tasks.calls_, 0);
 }
 
+TEST(PortfolioPreparationTest, TestProspectiveGroupsMatchCompletedGroupsBeforeAnyHistory) {
+    const DateTime_ fixing(Date_(2026, 1, 1), 0.0);
+    StoreScriptTestFixing("EQ[PORTFOLIO_PLANNED_GROUP]", 80.0, fixing);
+    const Handle_<ModelData_> shared(new BSModelData_("", 100.0, 0.2));
+    const Handle_<ModelData_> distinct(new BSModelData_("", 100.0, 0.2));
+    const auto trade = HistoricalTrade("EQ[PORTFOLIO_PLANNED_GROUP]");
+    const Handle_<ScriptProductData_> later(new ScriptProductData_("", {Cell_(Date_(2026, 1, 1)), Cell_(Date_(2028, 1, 1))},
+                                                                   {"h = FIX(EQ[PORTFOLIO_PLANNED_GROUP])", "pay PAYS h + FIX(EQ[MODEL])"}));
+    const Handle_<ScriptPortfolioData_> portfolio(
+        new ScriptPortfolioData_("", {{"A", trade, shared}, {"B", later, shared}, {"C", trade, shared}, {"D", trade, distinct}}));
+    Vector_<Dal::Script::Detail::PortfolioScenarioGroup_> prospective;
+    const auto prepared = Dal::Script::Detail::PrepareScriptPortfolio(portfolio, 257, Valuation(), {}, [&](const auto& plans) {
+        RejectFixingReads_ reads;
+        const Dal::Detail::ScopedFixingReadObserver_ observer(&reads);
+        prospective = Dal::Script::Detail::PlanPortfolioScenarioGroups(*portfolio, plans);
+        ASSERT_EQ(reads.historyCalls_, 0);
+        ASSERT_EQ(reads.fixingCalls_, 0);
+        ASSERT_EQ(prospective.size(), 3);
+        ASSERT_EQ(prospective[0].tradePositions_, Vector_<size_t>({0, 2}));
+        ASSERT_THROW(static_cast<void>(Dal::Script::Detail::GroupPreparedPortfolio({{&plans[0].View(), 0, 1, 1, true, true}})), ScriptError_);
+    });
+    ASSERT_EQ(prospective.size(), prepared.Groups().size());
+    for (size_t group = 0; group < prospective.size(); ++group) {
+        ASSERT_EQ(prospective[group].modelOwner_, prepared.Groups()[group].modelOwner_);
+        ASSERT_EQ(prospective[group].tradePositions_, prepared.Groups()[group].tradePositions_);
+    }
+}
+
 TEST(PortfolioPreparationTest, TestUnionSnapshotAndDateSurviveMutationDuringResolution) {
     const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 1, 2));
     StoreScriptTestFixing("EQ[PORTFOLIO_A]", 80.0, DateTime_(Date_(2026, 1, 1), 0.0));

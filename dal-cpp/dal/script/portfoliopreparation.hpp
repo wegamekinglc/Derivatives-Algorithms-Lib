@@ -14,6 +14,9 @@ namespace Dal::Script::Detail {
     class PreparedPortfolio_;
     using PortfolioPreparationAdmission_ = std::function<void(const Vector_<PlannedScript_>&)>;
 
+    [[nodiscard]] Vector_<PortfolioScenarioGroup_> PlanPortfolioScenarioGroups(const ScriptPortfolioData_& portfolio,
+                                                                               const Vector_<PlannedScript_>& plans);
+
     [[nodiscard]] PreparedPortfolio_ PrepareScriptPortfolio(const Handle_<ScriptPortfolioData_>& portfolio,
                                                             int numPaths,
                                                             const ScriptValuationSettings_& valuation = {},

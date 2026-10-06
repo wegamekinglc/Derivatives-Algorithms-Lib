@@ -8,6 +8,7 @@
 #include <set>
 
 #include <dal/platform/platform.hpp>
+#include <dal/script/blockedreplay.hpp>
 #include <dal/script/portfoliobatch.hpp>
 #include <dal/script/simulation.hpp>
 
@@ -151,7 +152,11 @@ namespace Dal::Script::Detail {
                                                const Vector_<PortfolioBatchOutput_>& outputs,
                                                const BatchSelection_& selection,
                                                const F_& build,
-                                               const G_& evaluate) {
+                                               const G_& evaluate,
+                                               AAD::TapeCapacityBudget_* tape) {
+            std::optional<AAD::TapeCapacityScope_> capacity;
+            if (tape)
+                capacity.emplace(tape, true);
             auto mode = AAD::SetNumResultsForAAD(false);
             AAD::RecordingScope_ recording;
             auto model = CreateModel<AAD::Number_>(portfolio.Portfolio()->Models()[portfolio.Groups()[group].modelOwner_]);
@@ -196,24 +201,50 @@ namespace Dal::Script::Detail {
         }
     } // namespace
 
+    size_t PortfolioWeightedWorkerFixedBytes(bool compiled, size_t trades) {
+        const auto state = compiled ? sizeof(EvalState_<AAD::Number_>) : sizeof(FuzzyEvaluator_<AAD::Number_>);
+        const auto past = compiled ? sizeof(EvalState_<AAD::Number_>) : sizeof(PastEvaluator_<AAD::Number_>);
+        auto fixed = ReplayExtentSum(ReplayExtentProduct(trades, state), std::max(state, past));
+        fixed = ReplayExtentSum(fixed, sizeof(PortfolioWeightedBatchResult_) + sizeof(BatchSelection_));
+        return ReplayExtentSum(fixed, sizeof(Vector_<AAD::Number_>) + sizeof(Scenario_<AAD::Number_>) + sizeof(Vector_<double>));
+    }
+
     PortfolioWeightedBatchResult_ EvaluatePortfolioWeightedBatch(const PreparedPortfolio_& portfolio,
                                                                  size_t group,
                                                                  const PathBatch_& batch,
-                                                                 const Vector_<PortfolioBatchOutput_>& requestedOutputs) {
+                                                                 const Vector_<PortfolioBatchOutput_>& requestedOutputs,
+                                                                 BufferCapacityBudget_* scratch,
+                                                                 AAD::TapeCapacityBudget_* tape) {
         ValidateBatchRange(portfolio, group, batch);
-        try {
+        const auto execute = [&] {
             const auto outputs = requestedOutputs;
             const auto selection = SelectBatchOutputs(portfolio, portfolio.Groups()[group], outputs);
             const auto& representative = portfolio.Trades()[selection.tradePositions_.front()];
             ValidateRNG(representative.Simulation().rsg_);
-            if (representative.Simulation().compiled_.value_or(false))
+            const auto run = [&] {
+                if (representative.Simulation().compiled_.value_or(false))
+                    return RunBatch(
+                        portfolio, group, batch, outputs, selection, [](const auto& trade) { return trade.template BuildEvalState<AAD::Number_>(); },
+                        [](const auto& trade, const auto& path, auto& state) { trade.CompiledProgram(true).Evaluate(path, state); }, tape);
                 return RunBatch(
-                    portfolio, group, batch, outputs, selection, [](const auto& trade) { return trade.template BuildEvalState<AAD::Number_>(); },
-                    [](const auto& trade, const auto& path, auto& state) { trade.CompiledProgram(true).Evaluate(path, state); });
-            return RunBatch(
-                portfolio, group, batch, outputs, selection,
-                [](const auto& trade) { return trade.template BuildFuzzyEvaluator<AAD::Number_>(0, trade.Simulation().smooth_); },
-                [](const auto& trade, const auto& path, auto& state) { trade.Evaluate(path, state); });
+                    portfolio, group, batch, outputs, selection,
+                    [](const auto& trade) { return trade.template BuildFuzzyEvaluator<AAD::Number_>(0, trade.Simulation().smooth_); },
+                    [](const auto& trade, const auto& path, auto& state) { trade.Evaluate(path, state); }, tape);
+            };
+            if (scratch) {
+                auto fixed =
+                    BufferCapacityScope_::ForWorker(scratch, PortfolioWeightedWorkerFixedBytes(representative.Simulation().compiled_.value_or(false),
+                                                                                               selection.tradePositions_.size()));
+                return run();
+            }
+            return run();
+        };
+        try {
+            if (scratch) {
+                auto capacity = BufferCapacityScope_::ForWorker(scratch);
+                return execute();
+            }
+            return execute();
         } catch (const std::exception& error) {
             THROW2("PortfolioWeightedBatchFailed: group=" + String_(std::to_string(group)) + "; cause=" + String_(error.what()), ScriptError_);
         }

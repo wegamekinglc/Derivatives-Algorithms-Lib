@@ -68,14 +68,21 @@ cross-group accumulation, selected/empty inputs, task failure recovery and all
 six native model families against every independent scalar risk. Original meshes,
 owners, output order and one/four workers are checked. Aggregate capacity,
 passive execution, blocked attribution and complete public request acceptance
-still remain open.
+still remain open for public acceptance. Native weighted execution now implements
+aggregate runtime recording/scratch guards and known-shape startup admission before
+history. Seven new cases verify prospective groups against completed groups,
+finite budgets/peaks, zero-budget rejection, all selected private vectors, omission
+of unselected evaluator state, capacity failure/recovery and sparse native vector
+zero-hole bindings. Passive and blocked admission still require their own tests.
 
 Implement weighted groups before blocked attribution; reuse the accepted
 native root/replay primitives. Avoid speculative hashing, persistent caches or
 automatic width selection in this PR. Keep valuation/binding proposals visibly
 marked as unimplemented; current-state public documentation covers sealed C++
-construction and passive coordinate inspection. Connect actual aggregate budget
-policy before treating the preparation callback as capacity admission acceptance.
+construction and passive coordinate inspection. The callback now has actual native
+weighted aggregate admission. Public request/result integration must retain this
+policy and failure boundary; the generic callback alone is not capacity acceptance
+for another execution mode.
 
 ## Author questions
 

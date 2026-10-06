@@ -320,3 +320,73 @@ TEST(PortfolioReplayTest, TestSixModelFamiliesShareOriginalPathsAndMatchEveryInd
         }
     }
 }
+
+TEST(PortfolioReplayTest, TestFiniteAggregateBudgetsRetainRiskAndReportActualPeaks) {
+    RegisterAll_::Init();
+    const Handle_<ModelData_> model(new BSModelData_("", 100.0, 0.2));
+    const Handle_<ScriptPortfolioData_> data(
+        new ScriptPortfolioData_("", {{"A", Trade(5.0, "pay PAYS SPOT() + X"), model}, {"B", Trade(7.0, "pay PAYS 3 * SPOT() + X"), model}}));
+    for (const size_t workers : {1, 4}) {
+        const ScopedPortfolioThreads_ threads(workers);
+        for (const bool compiled : {false, true}) {
+            MonteCarloSettings_ simulation;
+            simulation.enableAad_ = true;
+            simulation.compiled_ = compiled;
+            const auto prepared = Dal::Script::Detail::PrepareScriptPortfolio(data, 257, Valuation(), simulation);
+            const Vector_<Dal::Script::Detail::PortfolioBatchOutput_> outputs{Payoff(prepared, 1, -1.0), Payoff(prepared, 0, 2.0)};
+            const auto prior = Dal::Detail::EvaluatePortfolioWeightedReplay(prepared, outputs, {5, 0, 4});
+            ASSERT_GT(prior.peakScratchBytes_, 0);
+            ASSERT_GT(prior.peakTapeBytes_, 0);
+            Dal::Script::Detail::PortfolioCapacityLimits_ limits;
+            limits.scratchBudgetBytes_ = prior.peakScratchBytes_ + 2 * 1024 * 1024;
+            limits.tapeBudgetBytes_ = prior.peakTapeBytes_ + 2 * workers * AAD::TapeCleanupCapacityBytes();
+            const auto bounded = Dal::Detail::EvaluatePortfolioWeightedReplay(prepared, outputs, {5, 0, 4}, limits);
+            ASSERT_EQ(bounded.componentMeans_, prior.componentMeans_);
+            ASSERT_EQ(bounded.weightedValue_, prior.weightedValue_);
+            ASSERT_EQ(bounded.gradient_, prior.gradient_);
+            ASSERT_LE(bounded.peakScratchBytes_, *limits.scratchBudgetBytes_);
+            ASSERT_LE(bounded.peakTapeBytes_, *limits.tapeBudgetBytes_);
+        }
+    }
+}
+
+TEST(PortfolioReplayTest, TestBudgetRejectionAndPrivateEvaluatorExhaustionDrainAndRecover) {
+    RegisterAll_::Init();
+    const ScopedPortfolioThreads_ threads(1);
+    const Handle_<ModelData_> model(new BSModelData_("", 100.0, 0.2));
+    const Handle_<ScriptPortfolioData_> data(new ScriptPortfolioData_("", {{"A", Trade(5.0, "pay PAYS SPOT() + X"), model}}));
+    const Handle_<ScriptPortfolioData_> large(new ScriptPortfolioData_(
+        "", {{"A", Trade(5.0, "v[4095] = X pay PAYS SPOT() + SUM(v)"), model}, {"B", Trade(7.0, "v[4095] = X pay PAYS SPOT() + SUM(v)"), model}}));
+    for (const bool compiled : {false, true}) {
+        MonteCarloSettings_ simulation;
+        simulation.enableAad_ = true;
+        simulation.compiled_ = compiled;
+        const auto prepared = Dal::Script::Detail::PrepareScriptPortfolio(data, 257, Valuation(), simulation);
+        const auto big = Dal::Script::Detail::PrepareScriptPortfolio(large, 257, Valuation(), simulation);
+        const auto output = Payoff(prepared, 0, 1.0);
+        const auto prior = Dal::Detail::EvaluatePortfolioWeightedReplay(prepared, {output}, {0, 4});
+        Dal::Script::Detail::PortfolioCapacityLimits_ limits;
+        {
+            Script::TestSupport::RejectSubmissions_ tasks;
+            const Script::Detail::ScopedSimulationObserver_ observer(&tasks);
+            limits.scratchBudgetBytes_ = 0;
+            ASSERT_THROW(static_cast<void>(Dal::Detail::EvaluatePortfolioWeightedReplay(prepared, {output}, {0, 4}, limits)), Exception_);
+            limits.scratchBudgetBytes_.reset();
+            limits.tapeBudgetBytes_ = 0;
+            ASSERT_THROW(static_cast<void>(Dal::Detail::EvaluatePortfolioWeightedReplay(prepared, {output}, {0, 4}, limits)), Exception_);
+            ASSERT_EQ(tasks.calls_, 0);
+        }
+        limits.tapeBudgetBytes_.reset();
+        limits.scratchBudgetBytes_ = prior.peakScratchBytes_ + 32768;
+        try {
+            static_cast<void>(Dal::Detail::EvaluatePortfolioWeightedReplay(big, {Payoff(big, 0, 1.0), Payoff(big, 1, 1.0)}, {0}, limits));
+            FAIL() << "private vector evaluator capacities must be admitted";
+        } catch (const Exception_& error) {
+            ASSERT_NE(String_(error.what()).find("Scratch buffer capacity budget exceeded"), String_::npos);
+            ASSERT_NE(String_(error.what()).find("group=0"), String_::npos);
+        }
+        const auto recovered = Dal::Detail::EvaluatePortfolioWeightedReplay(prepared, {output}, {0, 4});
+        ASSERT_EQ(recovered.weightedValue_, prior.weightedValue_);
+        ASSERT_EQ(recovered.gradient_, prior.gradient_);
+    }
+}

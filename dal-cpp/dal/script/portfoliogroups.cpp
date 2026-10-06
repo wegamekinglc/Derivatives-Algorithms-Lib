@@ -70,12 +70,13 @@ namespace Dal::Script::Detail {
                    SamePreparedContract(*lhs.prepared_, *rhs.prepared_);
         }
 
-        void ValidateView(const PreparedPortfolioTradeView_& trade, size_t position) {
+        void ValidateView(const PreparedPortfolioTradeView_& trade, size_t position, bool executable) {
             const String_ context = "; tradePosition=" + String_(std::to_string(position));
             REQUIRE2(trade.prepared_, "InvalidPortfolioGrouping: prepared trade must not be null" + context, ScriptError_);
             REQUIRE2(!trade.prepared_->AllExpired() && !trade.prepared_->Product().ContainsExercise(),
                      "UnsupportedPortfolioRisk: exercise and fully expired trades are unsupported" + context, ScriptError_);
-            trade.prepared_->RequireExecutable();
+            if (executable)
+                trade.prepared_->RequireExecutable();
         }
     } // namespace
 
@@ -88,20 +89,26 @@ namespace Dal::Script::Detail {
                           [](const auto& a, const auto& b) { return std::tie(a.start_, a.end_, a.curve_) == std::tie(b.start_, b.end_, b.curve_); });
     }
 
-    Vector_<PortfolioScenarioGroup_> GroupPreparedPortfolio(const Vector_<PreparedPortfolioTradeView_>& trades) {
-        REQUIRE2(!trades.empty(), "InvalidPortfolioGrouping: prepared trades must be nonempty", ScriptError_);
-        for (size_t position = 0; position < trades.size(); ++position)
-            ValidateView(trades[position], position);
-        Vector_<PortfolioScenarioGroup_> groups;
-        for (size_t position = 0; position < trades.size(); ++position) {
-            const auto& trade = trades[position];
-            const auto found = std::find_if(groups.begin(), groups.end(),
-                                            [&](const auto& group) { return SameContract(trades[group.tradePositions_.front()], trade); });
-            if (found == groups.end())
-                groups.push_back({trade.modelOwner_, Vector_<size_t>{position}});
-            else
-                found->tradePositions_.push_back(position);
+    namespace {
+        Vector_<PortfolioScenarioGroup_> GroupViews(const Vector_<PreparedPortfolioTradeView_>& trades, bool executable) {
+            REQUIRE2(!trades.empty(), "InvalidPortfolioGrouping: prepared trades must be nonempty", ScriptError_);
+            for (size_t position = 0; position < trades.size(); ++position)
+                ValidateView(trades[position], position, executable);
+            Vector_<PortfolioScenarioGroup_> groups;
+            for (size_t position = 0; position < trades.size(); ++position) {
+                const auto& trade = trades[position];
+                const auto found = std::find_if(groups.begin(), groups.end(),
+                                                [&](const auto& group) { return SameContract(trades[group.tradePositions_.front()], trade); });
+                if (found == groups.end())
+                    groups.push_back({trade.modelOwner_, Vector_<size_t>{position}});
+                else
+                    found->tradePositions_.push_back(position);
+            }
+            return groups;
         }
-        return groups;
-    }
+    } // namespace
+
+    Vector_<PortfolioScenarioGroup_> GroupPreparedPortfolio(const Vector_<PreparedPortfolioTradeView_>& trades) { return GroupViews(trades, true); }
+
+    Vector_<PortfolioScenarioGroup_> GroupPlannedPortfolio(const Vector_<PreparedPortfolioTradeView_>& trades) { return GroupViews(trades, false); }
 } // namespace Dal::Script::Detail

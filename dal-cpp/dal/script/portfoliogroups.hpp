@@ -25,4 +25,7 @@ namespace Dal::Script::Detail {
 
     // Views must come from one sealed owner registry and one absolute path range.
     [[nodiscard]] Vector_<PortfolioScenarioGroup_> GroupPreparedPortfolio(const Vector_<PreparedPortfolioTradeView_>& trades);
+
+    // Planning views share one pending fixing environment; resolved groups are checked again after history.
+    [[nodiscard]] Vector_<PortfolioScenarioGroup_> GroupPlannedPortfolio(const Vector_<PreparedPortfolioTradeView_>& trades);
 } // namespace Dal::Script::Detail

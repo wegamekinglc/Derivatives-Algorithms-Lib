@@ -1,7 +1,9 @@
-# Compatible portfolio ownership, preparation and weighted batch review
+# Compatible portfolio ownership, preparation and weighted execution review
 
 Verdict: **Comment Only**. Implemented increments can be published in open #487;
-the complete portfolio PR is not ready for acceptance or merge.
+the complete portfolio PR is not ready for acceptance or merge. Native weighted
+startup admission and aggregate runtime budgets are now locally verified;
+public results, passive/blocked execution and bindings remain open.
 
 ## Findings
 
@@ -34,16 +36,19 @@ The remaining execution requirements are material acceptance gaps:
   absolute path range. Its owning producer now plans every trade using the
   original registry and meshes, freezes one date/history and constructs the
   passive groups. Six exact factory types admit full-contract grouping; their
-  actual shared-path mathematical acceptance remains pending.
+  actual shared-path native weighted risks pass independent scalar-call oracles.
 - Shared weighted batches now register model leaves once, retain private trade
   leaves/history/evaluators and measure actual scenario/evaluator/reverse calls.
   Internal weighted replay now accumulates cross-group model leaves, projects
   selected inputs and owns task cleanup. Public weighted requests/results,
   passive execution and portfolio Jacobians remain pending.
 - Whole-request date/history freezing and an admission callback are implemented.
-  Actual aggregate startup budget policy and runtime capacity guards remain
-  unimplemented for portfolios. Internal worker/submission failure recovery is
-  locally verified through the existing task-group ownership.
+  Native weighted startup admission reserves known coordinator/result/task and
+  every selected private evaluator/vector capacity before history. Aggregate
+  runtime recording/scratch guards admit actual growth and cleanup replacement.
+  Passive and blocked capacity policy remains pending. Accepted tasks drain on
+  submission, worker and capacity failure; prior results and follow-up requests
+  remain usable.
 - Python/Excel construction and valuation, installed consumers and actual
   Windows generated portfolio exports remain pending.
 
@@ -54,8 +59,8 @@ independent finite-sample and derivative oracles in the active specification.
 
 ## Open Questions
 
-No user decision is needed. Connect aggregate admission and group execution to
-the new planning/completion boundary, retaining explicit/global provenance.
+No user decision is needed. Complete public integration of the native weighted
+admission and execution, retaining explicit/global provenance.
 Keep original meshes and RNG dimensions; retain separate groups when sharing
 proof is unavailable. Retain private evaluator/history state for every trade.
 
@@ -140,8 +145,32 @@ proof is unavailable. Retain private evaluator/history state for every trade.
   delegate reuses the existing factor/shape/budget constraints; no old scalar
   function or ordinal validation is changed. Five plan cases and ten existing
   scalar result cases pass. Strict warnings pass in OFF/combined ON syntax modes.
-  Public valuation integration and actual recording/scratch capacity policy
-  remain pending.
+  Public valuation integration remains pending. Native weighted capacity policy
+  now connects this owning request plan to preparation and replay.
+
+- Seven new cases cover prospective/completed group agreement, finite aggregate
+  limits/peaks, zero-budget rejection, before-history private vector admission,
+  capacity failure/recovery and sparse native vector derivatives. A finite quota
+  fits one selected private vector and rejects both before historical reads;
+  unselected evaluator state is omitted. Final targeted runs pass 17 public
+  request/admission/replay cases, 21 core preparation/grouping/vector cases and
+  nine batch cases. Eight existing vector parity cases also pass.
+- Initial runtime slot replacement freed old buffers outside the worker budget
+  attachment, causing stale ownership on address reuse. Assignment now remains
+  attached, including inline task execution. All independent risk and recovery
+  assertions pass. Finite tape tests explicitly allow retained startup/replacement
+  headroom rather than assuming a prior scheduling-dependent peak is a future quota.
+- Startup integration exposed sparse vector zero holes without tape nodes. An
+  isolated RED rejects adjoint access before unsafe reverse; a retained ASan stack
+  identifies the original crash. Native sparse writes bind only new zero holes;
+  arithmetic scalar writes retain their original compiled branch. Scalar/block
+  reverse and historical portfolio tests pass. Three admission tests also pass
+  with ASan-instrumented new batch/admission units and tests; the remaining library
+  is Release, so this does not replace complete CI sanitizer acceptance.
+- Five changed production units pass strict OFF/combined ON warnings as errors.
+  Latest `05b3741` audit has all 35 checks complete, zero Codacy annotations and
+  zero unresolved threads. This accepts the previous publication's scope;
+  the new capacity/sparse-vector increment requires its own complete audit.
 
 Evidence lives under the session evidence root: `aad-portfolio-focused-foundation-green-02.json`,
 `aad-portfolio-warning-clean-01.json` and `aad-portfolio-doc-consumer-01.json`.
