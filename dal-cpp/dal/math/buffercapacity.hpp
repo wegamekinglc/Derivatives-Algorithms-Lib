@@ -7,11 +7,12 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <thread>
 
 namespace Dal {
     namespace Detail {
         class BufferAllocationTicket_;
-        void ReleaseBufferAllocation(std::uintptr_t) noexcept;
+        class BufferDeallocationTicket_;
     } // namespace Detail
 
     // Buffer addresses differ from tape-list aggregates, so allocation ownership is tracked separately.
@@ -20,12 +21,12 @@ namespace Dal {
         std::unique_ptr<Impl_> impl_;
         friend class BufferCapacityScope_;
         friend class Detail::BufferAllocationTicket_;
-        friend void Detail::ReleaseBufferAllocation(std::uintptr_t) noexcept;
+        friend class Detail::BufferDeallocationTicket_;
 
         void Reserve(size_t bytes);
         void Cancel(size_t bytes) noexcept;
         void Commit(const void* allocation, size_t bytes);
-        void Release(std::uintptr_t allocation) noexcept;
+        size_t Detach(std::uintptr_t allocation) noexcept;
 
     public:
         explicit BufferCapacityBudget_(size_t limitBytes);
@@ -51,4 +52,18 @@ namespace Dal {
         [[nodiscard]] static BufferCapacityScope_ ForWorker(BufferCapacityBudget_* budget, size_t fixedPayloadBytes = 0);
         void Close();
     };
+
+    namespace Detail {
+        class BufferCapacitySuspension_ {
+            BufferCapacityBudget_* previousBudget_;
+            const void* previousAttachment_;
+            std::thread::id owner_;
+
+        public:
+            BufferCapacitySuspension_() noexcept;
+            ~BufferCapacitySuspension_() noexcept;
+            BufferCapacitySuspension_(const BufferCapacitySuspension_&) = delete;
+            BufferCapacitySuspension_& operator=(const BufferCapacitySuspension_&) = delete;
+        };
+    } // namespace Detail
 } // namespace Dal

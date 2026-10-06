@@ -94,6 +94,33 @@ TEST(AADAdjointBlockRootTest, TestPadsUnusedLanesInReusedTerminalRootStorage) {
         ASSERT_DOUBLE_EQ(NativeOperations_::ReadAdjoint(x, lane), 0.0);
 }
 
+TEST(AADAdjointBlockRootTest, TestClearsStaleLiveLanesBeforeSeedingAliases) {
+    for (const size_t width : {2, 3}) {
+        const auto mode = SetNumResultsForAAD(true, width);
+        RecordingScope_ recording;
+        Number_ x, zero;
+        recording.RegisterInput(x, 2.0);
+        recording.RegisterInput(zero, 0.0);
+        recording.StartRecording();
+        const auto checkpoint = recording.MakeCheckpoint();
+        Number_ square = x * x;
+        Vector_<Number_> outputs = {square, x};
+        if (width == 3)
+            outputs.push_back(square);
+        NativeOperations_::SetSeed(square, 17.0, 1);
+        Vector_<Number_> roots;
+        roots.reserve(width);
+        SeedAdjointBlock(outputs, {0, width, width}, zero, &roots);
+        recording.FinishRecording();
+        recording.ReverseSuffix(checkpoint);
+        recording.ReversePrefix(checkpoint);
+        ASSERT_DOUBLE_EQ(NativeOperations_::ReadAdjoint(x, 0), 4.0);
+        ASSERT_DOUBLE_EQ(NativeOperations_::ReadAdjoint(x, 1), 1.0);
+        if (width == 3)
+            ASSERT_DOUBLE_EQ(NativeOperations_::ReadAdjoint(x, 2), 4.0);
+    }
+}
+
 TEST(AADAdjointBlockRootTest, TestRejectsInvalidRequestsBeforeChangingGraph) {
     const auto mode = SetNumResultsForAAD(true, 4);
     RecordingScope_ recording;

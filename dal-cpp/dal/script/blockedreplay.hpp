@@ -156,15 +156,19 @@ namespace Dal::Script::Detail {
             slots.reserve(batches.BatchCount());
             for (size_t batch = 0; batch < batches.BatchCount(); ++batch)
                 slots.emplace_back(block.width_, static_cast<int>(inputs.size()));
-            SimulationTaskGroup_ tasks(ThreadPool_::GetInstance(), batches.BatchCount());
-            for (size_t batch = 0; batch < batches.BatchCount(); ++batch) {
-                const auto paths = batches.BatchAt(batch);
-                tasks.Spawn([&, batch, paths] {
-                    EvaluateAADBlockBatch(product, model, settings, program, paths, block, outputs, inputs, &slots[batch], scratch, tape);
-                    return true;
-                });
+            {
+                auto futureCapacity = BufferCapacityScope_::ForWorker(scratch, ReplayExtentProduct(batches.BatchCount(), sizeof(TaskHandle_)));
+                Dal::Detail::BufferCapacitySuspension_ suspension;
+                SimulationTaskGroup_ tasks(ThreadPool_::GetInstance(), batches.BatchCount());
+                for (size_t batch = 0; batch < batches.BatchCount(); ++batch) {
+                    const auto paths = batches.BatchAt(batch);
+                    tasks.Spawn([&, batch, paths] {
+                        EvaluateAADBlockBatch(product, model, settings, program, paths, block, outputs, inputs, &slots[batch], scratch, tape);
+                        return true;
+                    });
+                }
+                tasks.Complete();
             }
-            tasks.Complete();
             result->executedPaths_ += settings.nPaths_;
             ReduceReplayBlock(slots, block, settings, outputs, inputs, result);
         } catch (const Exception_& error) {
@@ -177,10 +181,19 @@ namespace Dal::Script::Detail {
 
     inline AADBlockReplayResult_ EvaluateAADBlockReplay(const PreparedScript_& product,
                                                         Handle_<ModelData_> model,
-                                                        AADBatchSettings_ settings,
+                                                        AADBatchSettings_ requestedSettings,
                                                         const Vector_<RiskOutputCoordinate_>& requestedOutputs,
                                                         const Vector_<size_t>& requestedInputs,
                                                         AADBlockReplaySettings_ limits = {}) {
+        const String_ method = requestedSettings.rsg_;
+        const AADBatchSettings_ settings{method,
+                                         requestedSettings.useBb_,
+                                         requestedSettings.maxNestedIfs_,
+                                         requestedSettings.eps_,
+                                         requestedSettings.nPaths_,
+                                         requestedSettings.nParams_,
+                                         requestedSettings.nConstVars_,
+                                         requestedSettings.payoffIndex_};
         product.RequireExecutable();
         REQUIRE2(product.Simulation().enableAad_ && !product.AllExpired() && !product.Product().ContainsExercise(),
                  "UnsupportedJacobianReplay: requires prepared native non-exercise live product", ScriptError_);

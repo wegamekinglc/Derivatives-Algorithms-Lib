@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <memory>
 #include <new>
+#include <optional>
 #include <string>
 #include <type_traits>
 
@@ -33,7 +34,16 @@ namespace Dal {
             void Commit(const void* allocation);
         };
 
-        void ReleaseBufferAllocation(std::uintptr_t allocation) noexcept;
+        class BufferDeallocationTicket_ {
+            BufferCapacityBudget_* budget_;
+            size_t bytes_;
+
+        public:
+            BufferDeallocationTicket_(BufferCapacityBudget_* budget, std::uintptr_t allocation) noexcept;
+            ~BufferDeallocationTicket_() noexcept;
+            BufferDeallocationTicket_(const BufferDeallocationTicket_&) = delete;
+            BufferDeallocationTicket_& operator=(const BufferDeallocationTicket_&) = delete;
+        };
 
         template <class A_, class D_> auto AllocateBuffer(size_t count, size_t elementBytes, A_ allocate, D_ deallocate) {
             auto* budget = CurrentBufferBudget();
@@ -51,10 +61,10 @@ namespace Dal {
         }
 
         template <class T_, class D_> void DeallocateBuffer(T_* allocation, D_ deallocate) noexcept {
-            const auto identity = reinterpret_cast<std::uintptr_t>(allocation);
+            std::optional<BufferDeallocationTicket_> ticket;
+            if (auto* budget = CurrentBufferBudget())
+                ticket.emplace(budget, reinterpret_cast<std::uintptr_t>(allocation));
             deallocate(allocation);
-            if (CurrentBufferBudget() != nullptr)
-                ReleaseBufferAllocation(identity);
         }
 
         inline void* AllocateBufferObject(size_t bytes) {

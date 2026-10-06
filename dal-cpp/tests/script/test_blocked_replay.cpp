@@ -45,12 +45,15 @@ namespace {
         Vector_<RiskOutputCoordinate_>* outputs_;
         Vector_<size_t>* inputs_;
         Script::Detail::AADBatchSettings_* settings_;
+        String_* method_ = nullptr;
         MutateReplaySelection_(Vector_<RiskOutputCoordinate_>* outputs, Vector_<size_t>* inputs, Script::Detail::AADBatchSettings_* settings)
             : outputs_(outputs), inputs_(inputs), settings_(settings) {}
         void AfterSubmission() override {
             outputs_->clear();
             inputs_->clear();
             settings_->nPaths_ = 1;
+            if (method_)
+                *method_ = "invalid-after-submission";
         }
     };
 
@@ -143,13 +146,16 @@ TEST(BlockedReplayTest, TestCallerSelectionsAreFrozenBeforeSubmission) {
     const auto product = ReplayProduct(model, "a = SPOT() pay PAYS 2 * a");
     auto outputs = ScriptRiskOutputAxis(product.Product());
     Vector_<size_t> inputs{0};
-    auto settings = ReplayBatchSettings(product);
+    String_ method = "sobol";
+    Script::Detail::AADBatchSettings_ settings{method, true, -1, product.Simulation().smooth_, 17, 4, 0, product.PayOffIdx()};
     MutateReplaySelection_ mutation(&outputs, &inputs, &settings);
+    mutation.method_ = &method;
     Script::Detail::ScopedSimulationObserver_ observer(&mutation);
     const auto result = Script::Detail::EvaluateAADBlockReplay(product, model, settings, outputs, inputs);
     ASSERT_TRUE(outputs.empty());
     ASSERT_TRUE(inputs.empty());
     ASSERT_EQ(settings.nPaths_, 1);
+    ASSERT_EQ(method, "invalid-after-submission");
     ASSERT_EQ(result.values_.size(), 2);
     ASSERT_EQ(result.jacobian_.Cols(), 1);
     ASSERT_DOUBLE_EQ(result.values_[0], 100.0);
@@ -157,6 +163,51 @@ TEST(BlockedReplayTest, TestCallerSelectionsAreFrozenBeforeSubmission) {
     ASSERT_DOUBLE_EQ(result.jacobian_(0, 0), 1.0);
     ASSERT_DOUBLE_EQ(result.jacobian_(1, 0), 2.0);
     ASSERT_EQ(result.executedPaths_, 34);
+}
+
+TEST(BlockedReplayTest, TestActiveWaitIsolatesOtherRequestsAndUnbudgetedTasksDuringDrain) {
+    ScopedThreads_ threads(1);
+    const Handle_<ModelData_> model(new BSModelData_("model", 100.0, 0.0));
+    const auto product = ReplayProduct(model, "a = SPOT() pay PAYS 2 * a", false, Date_(2026, 1, 1));
+    const auto outputs = ScriptRiskOutputAxis(product.Product());
+    const auto settings = ReplayBatchSettings(product);
+    Script::Detail::AADBlockReplaySettings_ limits;
+    limits.scratchBudgetBytes_ = 1024 * 1024;
+    struct FailFirstSubmission_ : Script::Detail::SimulationObserver_ {
+        bool fail_;
+        size_t calls_ = 0;
+        explicit FailFirstSubmission_(bool fail) : fail_(fail) {}
+        void AfterSubmission() override {
+            if (++calls_ == 1 && fail_)
+                THROW("controlled first submission failure");
+        }
+    };
+    for (const bool fail : {false, true}) {
+        std::optional<Script::Detail::AADBlockReplayResult_> otherResult;
+        auto otherRequest = ThreadPool_::GetInstance()->SpawnTask([&] {
+            otherResult.emplace(Script::Detail::EvaluateAADBlockReplay(product, model, settings, outputs, {0}, limits));
+            return true;
+        });
+        auto unbudgeted = ThreadPool_::GetInstance()->SpawnTask([] {
+            Vector_<> values(2 * 1024 * 1024 / sizeof(double), 7.0);
+            return values.front() == 7.0;
+        });
+        FailFirstSubmission_ observer(fail);
+        {
+            const Script::Detail::ScopedSimulationObserver_ observe(&observer);
+            if (fail)
+                ASSERT_THROW(Script::Detail::EvaluateAADBlockReplay(product, model, settings, outputs, {0}, limits), ScriptError_);
+            else {
+                const auto result = Script::Detail::EvaluateAADBlockReplay(product, model, settings, outputs, {0}, limits);
+                ASSERT_EQ(result.values_, Vector_<>({100.0, 200.0}));
+            }
+        }
+        ASSERT_TRUE(otherRequest.get());
+        ASSERT_TRUE(unbudgeted.get());
+        ASSERT_TRUE(otherResult.has_value());
+        ASSERT_EQ(otherResult->values_, Vector_<>({100.0, 200.0}));
+        ASSERT_LE(otherResult->peakScratchBytes_, *limits.scratchBudgetBytes_);
+    }
 }
 
 TEST(BlockedReplayTest, TestKnownBudgetsAndInvalidAxesRejectBeforeSubmission) {

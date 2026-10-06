@@ -87,13 +87,15 @@ namespace Dal {
                 "Scratch buffer allocation: address is already admitted");
     }
 
-    void BufferCapacityBudget_::Release(std::uintptr_t allocation) noexcept {
+    size_t BufferCapacityBudget_::Detach(std::uintptr_t allocation) noexcept {
         const std::lock_guard<std::mutex> lock(impl_->mutex_);
         const auto found = impl_->allocations_.find(allocation);
         if (found != impl_->allocations_.end()) {
-            impl_->capacityBytes_ -= found->second;
+            const auto bytes = found->second;
             impl_->allocations_.erase(found);
+            return bytes;
         }
+        return 0;
     }
 
     BufferCapacityScope_::BufferCapacityScope_(BufferCapacityBudget_* budget, size_t fixedPayloadBytes)
@@ -137,6 +139,19 @@ namespace Dal {
     }
 
     namespace Detail {
+        BufferCapacitySuspension_::BufferCapacitySuspension_() noexcept
+            : previousBudget_(CurrentBufferBudget()), previousAttachment_(currentBufferAttachment), owner_(std::this_thread::get_id()) {
+            CurrentBufferBudget() = nullptr;
+            currentBufferAttachment = nullptr;
+        }
+
+        BufferCapacitySuspension_::~BufferCapacitySuspension_() noexcept {
+            if (owner_ != std::this_thread::get_id() || CurrentBufferBudget() != nullptr || currentBufferAttachment != nullptr)
+                std::terminate();
+            CurrentBufferBudget() = previousBudget_;
+            currentBufferAttachment = previousAttachment_;
+        }
+
         BufferCapacityBudget_*& CurrentBufferBudget() noexcept {
             static thread_local BufferCapacityBudget_* budget = nullptr;
             return budget;
@@ -159,6 +174,9 @@ namespace Dal {
             budget_ = nullptr;
         }
 
-        void ReleaseBufferAllocation(std::uintptr_t allocation) noexcept { CurrentBufferBudget()->Release(allocation); }
+        BufferDeallocationTicket_::BufferDeallocationTicket_(BufferCapacityBudget_* budget, std::uintptr_t allocation) noexcept
+            : budget_(budget), bytes_(budget->Detach(allocation)) {}
+
+        BufferDeallocationTicket_::~BufferDeallocationTicket_() noexcept { budget_->Cancel(bytes_); }
     } // namespace Detail
 } // namespace Dal

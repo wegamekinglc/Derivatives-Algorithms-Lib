@@ -199,3 +199,49 @@ TEST(BufferCapacityTest, TestCallerWorkerSharesCoordinatorBudgetAndClosesInOrder
     coordinator.Close();
     ASSERT_EQ(budget.CapacityBytes(), 0);
 }
+
+TEST(BufferCapacityTest, TestRecycledAddressIsReadmittedBeforeRetiredReservationIsReleased) {
+    BufferCapacityBudget_ budget(2 * sizeof(double));
+    BufferCapacityScope_ scope(&budget);
+    double storage = 0.0;
+    auto allocate = [&] { return Detail::AllocateBuffer(1, sizeof(double), [&] { return &storage; }, [](double*) {}); };
+    auto* first = allocate();
+    double* recycled = nullptr;
+    size_t duringRelease = 0;
+    bool admitted = false;
+    Detail::DeallocateBuffer(first, [&](double*) {
+        // A pool may recycle the freed address before its deallocation callback returns.
+        try {
+            recycled = allocate();
+            admitted = true;
+            duringRelease = budget.CapacityBytes();
+        } catch (const Exception_&) {
+        }
+    });
+    ASSERT_TRUE(admitted);
+    ASSERT_EQ(recycled, first);
+    ASSERT_EQ(duringRelease, 2 * sizeof(double));
+    ASSERT_EQ(budget.CapacityBytes(), sizeof(double));
+    Detail::DeallocateBuffer(recycled, [](double*) {});
+    ASSERT_EQ(budget.CapacityBytes(), 0);
+}
+
+TEST(BufferCapacityTest, TestReservationRemainsChargedUntilPhysicalDeallocationCompletes) {
+    BufferCapacityBudget_ budget(sizeof(double));
+    BufferCapacityScope_ scope(&budget);
+    std::array<double, 2> storage{};
+    auto* first = Detail::AllocateBuffer(1, sizeof(double), [&] { return &storage[0]; }, [](double*) {});
+    bool rejected = false;
+    size_t duringRelease = 0;
+    Detail::DeallocateBuffer(first, [&](double*) {
+        duringRelease = budget.CapacityBytes();
+        try {
+            static_cast<void>(Detail::AllocateBuffer(1, sizeof(double), [&] { return &storage[1]; }, [](double*) {}));
+        } catch (const Exception_&) {
+            rejected = true;
+        }
+    });
+    ASSERT_TRUE(rejected);
+    ASSERT_EQ(duringRelease, sizeof(double));
+    ASSERT_EQ(budget.CapacityBytes(), 0);
+}

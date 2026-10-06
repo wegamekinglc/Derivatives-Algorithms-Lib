@@ -35,12 +35,13 @@ namespace Dal::AAD {
     inline void SeedAdjointBlock(const Vector_<Number_>& outputs, const AdjointBlock_& block, const Number_& activeZero, Vector_<Number_>* roots) {
         Detail::ValidateAdjointBlockSeeds(outputs, block, activeZero, roots);
         roots->Resize(block.width_);
-        for (size_t lane = 0; lane < block.outputs_; ++lane) {
+        for (size_t lane = 0; lane < block.outputs_; ++lane)
             (*roots)[lane] = NativeOperations_::ActiveRoot(outputs[block.firstOutput_ + lane], activeZero);
-            for (size_t padding = block.outputs_; padding < block.width_; ++padding)
-                NativeOperations_::SetSeed((*roots)[lane], 0.0, padding);
+        for (size_t lane = 0; lane < block.outputs_; ++lane)
+            for (size_t channel = 0; channel < block.width_; ++channel)
+                NativeOperations_::SetSeed((*roots)[lane], 0.0, channel);
+        for (size_t lane = 0; lane < block.outputs_; ++lane)
             NativeOperations_::SetSeed((*roots)[lane], 1.0, lane);
-        }
         for (size_t lane = block.outputs_; lane < block.width_; ++lane)
             (*roots)[lane] = Number_();
     }
