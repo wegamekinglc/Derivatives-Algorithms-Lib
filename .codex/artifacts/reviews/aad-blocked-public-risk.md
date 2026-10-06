@@ -6,6 +6,14 @@ findings on `7c9cfa89`.
 
 ## Findings
 
+- Current delivery blockers: `e4fc7e7a` passes 75 nine-target cases, eight
+  scalar workloads, eight weighted workloads and 44 MC/GSR/LSM workloads.
+  The supplemental curve comparison still fails five cases; retain
+  `aad-jacobian-e4-final-curve` and its raw samples. All four sanitizer jobs
+  fail the same single-worker exact-budget fixture because `InitGlobalData(1)`
+  does not restart an already initialized four-thread pool. The Windows jobs,
+  Codacy and resolved review threads pass on that head. Final repair-head
+  platform, performance and paginated review acceptance remain required.
 - Delivery blocker: the first frozen nine-target comparison at `77193fd8`
   fails on tape clear/rewind (about 4–5%) and PDE rollback (about 5–18%).
   `aad-jacobian-final-nine-paired-01/` retains every sample. Capacity tickets
@@ -167,3 +175,31 @@ an independent interval/formula oracle. Both fixed-policy diagnostic rounds
 improve cubic minima by 5.5%; linear cases pass too
 (`aad-jacobian-cubic-diagnostic-paired-02`). Committed-head and production
 workload acceptance remain open.
+
+The canonical four-thread main reproduces the exact-budget fixture failure
+without a sanitizer (`aad-jacobian-capacity-canonical-red-01.json`). The fixture
+now uses the existing scoped thread-count helper to enforce its intended single
+worker and restore the previous pool afterward. Its budget, sixteen outputs,
+path count, exact values/risks, width-one replay and original-request assertions
+remain intact. All thirteen public cases pass with the canonical main, including
+the separate finite-budget four-worker model oracles. The methodology states
+that a measured concurrent peak is not a guaranteed per-worker startup quota.
+
+Fresh-allocation attributes restore compiler alias/extent information on the
+shared numeric allocator. A process-wide active-scope count bypasses TLS access
+when no scratch scope exists; scope publication/retirement follows attachment
+lifetime, while suspension leaves its reservation active. Thirty focused
+capacity/native tests pass, including an unrelated thread's active budget.
+Diagnostic curve comparisons still fail; these changes alone are not accepted
+as a performance repair.
+
+Double log-DF queries at exact knots now retain the one-weight arithmetic
+without allocating weight storage. Non-knot and AAD paths retain the existing
+weight machinery. Zero scratch capacity reproduces the original allocation
+failure (`aad-jacobian-knot-query-red-01.json`); fifteen focused interpolation
+and PWL cases pass after the repair, including all schemes, signed zero,
+selected/unselected NaN nodes, AAD derivatives, cloning and archive restoration.
+The PWL integral handles dates at/before its first knot before binary search,
+using its original expression, and searches the remaining knots otherwise.
+All twelve strict GCC 14 OFF/combined warning checks pass. Committed-head
+performance and CI acceptance remain open.

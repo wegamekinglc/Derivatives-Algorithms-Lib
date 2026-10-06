@@ -5,6 +5,7 @@
 #pragma once
 
 #include <memory>
+#include <type_traits>
 
 #include <dal/curve/logdfscheme.hpp>
 #include <dal/math/interp/interpweights.hpp>
@@ -19,6 +20,7 @@ namespace Dal {
         int mixedCutoffIndex_ = -1;
 
         [[nodiscard]] Interp::InterpWeights_ SecantExtrapolation(double yf) const;
+        [[nodiscard]] double EvaluateDouble(const Vector_<>& values, double yf) const;
 
     public:
         LogDfInterpolation_(const Vector_<>& yf, LogDfScheme_ scheme);
@@ -26,7 +28,10 @@ namespace Dal {
 
         template <class T_> T_ Evaluate(const Vector_<T_>& values, double yf) const {
             REQUIRE(values.size() == yf_.size(), "LogDfInterpolation_: ordinate count must equal year-fraction count");
-            return Interp::ApplyInterpWeights(values, WeightsAt(yf));
+            if constexpr (std::is_same_v<T_, double>)
+                return EvaluateDouble(values, yf);
+            else
+                return Interp::ApplyInterpWeights(values, WeightsAt(yf));
         }
     };
 } // namespace Dal
