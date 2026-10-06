@@ -3,8 +3,8 @@
 Verdict: **Comment Only**. Implemented increments can be published in open #487;
 the complete portfolio PR is not ready for acceptance or merge. Native/passive
 weighted execution, owning C++ results and startup/runtime budgets are locally
-verified. Native blocked attribution and budgets are locally verified; passive
-attribution, complete width-narrowing acceptance and bindings remain open.
+verified. Native/passive attribution and budgets are locally verified; complete
+width-narrowing/failure acceptance and bindings remain open.
 
 ## Findings
 
@@ -303,12 +303,40 @@ Markdown checks and changed-source formatting pass. The first generated consumer
 placed the attribution snippet outside main; its failure is retained separately
 and the generator boundary is corrected without changing documented code.
 
+Passive attribution reuses private double batches with zero internal objective
+weights, retaining separate row sums and no native state/widths/reversals. A RED
+first rejects the missing passive entry. Two new cases then verify finite rows
+whose unused aggregate overflows, exact zero-column payload/shape, zero tape
+limits and known private historical-vector rejection before reads followed by
+valid recovery. Existing independent six-family/mixed-mesh/owner oracles now
+cover attribution in both modes at several requested widths; the sharp/fuzzy test
+also compares native-empty/passive Jacobian row prices. All 26 affected public
+cases pass, with strict OFF/combined ON warnings for the changed replay unit.
+Evidence: `aad-portfolio-focused-jacobian-passive-red-01.json`,
+`aad-portfolio-focused-jacobian-passive-public-green-01.json`,
+`aad-portfolio-focused-jacobian-passive-oracles-green-02.json` and
+`aad-portfolio-jacobian-passive-warning-01.json`.
+
+Exact head `4194be4b` has one real extended OFF/OFF CI failure in the finite
+weighted capacity fixture. The following invocation needed 5505024 tape bytes
+against its 5242880-byte limit. A prior scheduling-dependent peak plus cleanup
+allowance is not a guaranteed future concurrency/replacement quota. The fixture
+now declares finite per-worker scratch/tape allowances, retaining every exact
+numeric comparison, nonzero peak assertion and final peak-within-limit check.
+Runtime quota guards and independent zero-capacity/exhaustion rejection tests are
+unchanged. The exact-head audit, annotations and full job log are retained in
+`aad-487-aad-487-native-jacobian-4194-current-02`,
+`aad-487-4194-extended-off-annotations-01.json` and
+`aad-487-4194-extended-off-job-01.log`. All nine affected replay cases pass in
+`aad-portfolio-focused-jacobian-passive-ci-budget-green-01.json`.
+Fresh repair-head CI acceptance is required.
+
 ## Summary
 
 Existing scalar/weighted/Jacobian drivers retain their default preparation
 entry points and allocate no portfolio state. The
 snapshot registry precedes cloning, the passive catalog preserves owner/private
 constant identity, and full semantic grouping retains incompatible trades.
-The active specification remains the complete acceptance boundary. Passive
-attribution, complete narrowing/failure tests, bindings, installed consumers, final performance/platform
+The active specification remains the complete acceptance boundary. Complete
+narrowing/failure tests, bindings, installed consumers, final performance/platform
 checks and a fresh publication-head review are required before merge.

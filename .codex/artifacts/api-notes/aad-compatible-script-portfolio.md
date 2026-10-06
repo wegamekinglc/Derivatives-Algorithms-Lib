@@ -121,12 +121,17 @@ capacity is divided across workers, including full model/private matrices, root
 lanes and known historical vector shapes. Capacity-only narrowing retains the
 requested maximum and returns admitted group widths. Native replay executes
 original absolute batches for each group block, deterministically scatters rows
-and selected owner/private columns, and normalizes once. Passive attribution and
-dedicated equivalent-budget narrowing acceptance remain pending.
+and selected owner/private columns, and normalizes once. Passive attribution uses
+the existing private double batches with zero internal objective weights, keeping
+independent row sums finite without evaluating an unused aggregate. It runs each
+selected group once, returns zero risk columns, records one attempt/no native
+widths and ignores tape limits. Its known-shape scratch admission uses the actual
+passive worker/slot types. Dedicated equivalent-budget narrowing acceptance remains
+pending.
 
 ## Valuation surfaces
 
-The C++ weighted and native attribution entries exist. Both take
+The C++ weighted and native/passive attribution entries exist. Both take
 the portfolio and path count first, followed by
 request, valuation and simulation settings. Use separate weighted and attribution
 methods rather than a mode flag with incompatible output types:
@@ -139,7 +144,7 @@ PortfolioWeightedRiskResult_ ValuePortfolioByMonteCarloWithWeightedRisk(
     const ScriptValuationSettings_& valuation = {},
     const MonteCarloSettings_& simulation = DefaultRiskMonteCarloSettings());
 
-// Implemented native attribution entry.
+// Implemented native/passive attribution entry.
 PortfolioJacobianRiskResult_ ValuePortfolioByMonteCarloWithJacobianRisk(
     const Handle_<ScriptPortfolioData_>& portfolio, int numPath,
     const PortfolioJacobianRiskRequest_& request = {},

@@ -11,8 +11,9 @@ implemented and locally verified against independent single-script calls for
 all six families. Owning native C++ blocked attribution now passes independent
 model/private risk, historical prefix, original-mesh and failure-recovery checks.
 Known block-width capacities admit before history, with aggregate runtime guards.
-Passive attribution, width-narrowing acceptance, bindings and final delivery gates
-remain pending.
+Passive attribution now passes independent sharp-price, zero-column, overflow and
+historical-capacity checks. Width-narrowing/failure acceptance, bindings and final
+delivery gates remain pending.
 Delivery starts from merged PR #484, commit `1c9273c9`, in open PR
 [#487](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/487).
 

@@ -314,7 +314,7 @@ recording and scratch budgets admit known shapes before history and guard runtim
 growth. See [portfolio construction](methodology/aad.md#sealed-script-portfolio-coordinates)
 and [weighted execution](methodology/aad.md#weighted-script-portfolio-risk).
 
-### C++ native portfolio Jacobians
+### C++ portfolio Jacobians
 
 `ValuePortfolioByMonteCarloWithJacobianRisk` takes a sealed portfolio, positive
 path count and `PortfolioJacobianRiskRequest_`. It owns ordered `Values()`, a
@@ -326,7 +326,9 @@ recording and scratch limits. Groups preserve original meshes and replay the
 original path range per output block. Execution metadata records the requested
 maximum, actual per-group widths and scenario/evaluator/reversal counts. Known
 block capacities admit before history; capacity-only narrowing retains the same
-estimator. See [native portfolio Jacobians](methodology/aad.md#native-script-portfolio-jacobians).
+estimator. Passive execution retains sharp pricing and `(m, 0)`, evaluates each
+selected group once without native widths/reversals, and ignores recording limits.
+See [portfolio Jacobians](methodology/aad.md#script-portfolio-jacobians).
 
 ### C++ curve calibration
 

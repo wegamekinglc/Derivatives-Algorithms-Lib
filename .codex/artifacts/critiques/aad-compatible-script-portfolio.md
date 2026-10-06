@@ -84,8 +84,14 @@ widths. Root/matrix/private historical-vector admission rejects known impossible
 budgets before reads/tasks and finite budgets recover correct prices/risks. The
 review fixes wrong original-row context on report overflow and shares owning
 selection/result metadata without changing old single-product entry points.
-Passive attribution, dedicated equivalent-budget narrowing/failure acceptance,
-bindings and final publication/performance gates remain required.
+Passive attribution now reuses private double batches without native tape or
+an unused overflowing objective. Independent six-family/mixed-mesh row oracles,
+sharp versus native-empty prices, exact zero-column payloads and known private
+historical-vector rejection/recovery pass. The actual extended CI failure in the
+finite weighted fixture is repaired with declared per-worker quotas rather than
+a prior scheduling-dependent peak; all nine replay cases pass locally. Dedicated
+equivalent-budget narrowing/failure acceptance, bindings and fresh complete-head
+publication/performance gates remain required.
 
 Implement weighted groups before blocked attribution; reuse the accepted
 native root/replay primitives. Avoid speculative hashing, persistent caches or

@@ -125,6 +125,45 @@ TEST(PortfolioAdmissionTest, TestJacobianPrivateHistoryShapesRejectBeforeReadsAn
     }
 }
 
+TEST(PortfolioAdmissionTest, TestPassiveJacobianPrivateHistoryAdmissionAndZeroTapeBudget) {
+    RegisterAll_::Init();
+    const SinglePortfolioWorker_ worker;
+    const auto data = HistoricalPortfolio(true);
+    for (const bool compiled : {false, true}) {
+        auto simulation = MonteCarloSettings_();
+        simulation.enableAad_ = false;
+        simulation.compiled_ = compiled;
+        PortfolioJacobianRiskRequest_ request;
+        request.maxBlockWidth_ = 2;
+        request.scratchCapacityBudgetBytes_ = 32768;
+        request.recordingCapacityBudgetBytes_ = 0;
+        {
+            Script::TestSupport::RejectFixingReads_ history;
+            Script::TestSupport::RejectSubmissions_ tasks;
+            const Dal::Detail::ScopedFixingReadObserver_ observeHistory(&history);
+            const Script::Detail::ScopedSimulationObserver_ observeTasks(&tasks);
+            ASSERT_THROW(static_cast<void>(ValuePortfolioByMonteCarloWithJacobianRisk(data, 257, request, Valuation(), simulation)), Exception_);
+            ASSERT_EQ(history.historyCalls_, 0);
+            ASSERT_EQ(history.fixingCalls_, 0);
+            ASSERT_EQ(tasks.calls_, 0);
+        }
+        auto valuation = Valuation();
+        valuation.fixings_ =
+            Handle_<MarketFixingSnapshot_>(new MarketFixingSnapshot_({{"EQ[PORTFOLIO_ADMISSION]", {{DateTime_(Date_(2025, 1, 1), 0.0), 80.0}}}}));
+        request.scratchCapacityBudgetBytes_ = 64 * 1024 * 1024;
+        const auto result = ValuePortfolioByMonteCarloWithJacobianRisk(data, 257, request, valuation, simulation);
+        const auto reference = ValueByMonteCarloWithRisk(data->Products()[0], data->Models()[0], 257, {}, valuation, simulation);
+        ASSERT_EQ(result.Values(), Vector_<double>(2, reference.Values()[0]));
+        ASSERT_EQ(result.Jacobian().Rows(), 2);
+        ASSERT_EQ(result.Jacobian().Cols(), 0);
+        ASSERT_EQ(result.Execution().peakRecordingBytes_, 0);
+        ASSERT_EQ(result.Execution().groups_[0].generatedScenarios_, 257);
+        ASSERT_EQ(result.Execution().groups_[0].evaluatorCalls_, 514);
+        ASSERT_TRUE(result.Execution().groups_[0].actualWidths_.empty());
+        ASSERT_LE(result.Execution().peakScratchBytes_, *request.scratchCapacityBudgetBytes_);
+    }
+}
+
 TEST(PortfolioAdmissionTest, TestPassivePrivateHistoryShapesRejectBeforeReadsAndIgnoreTapeBudget) {
     RegisterAll_::Init();
     const SinglePortfolioWorker_ worker;

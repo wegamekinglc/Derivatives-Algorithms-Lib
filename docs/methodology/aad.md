@@ -986,11 +986,11 @@ historical reads. Runtime growth and overlapping replacements remain guarded.
 Capacity or worker failures drain accepted tasks and publish no partial result.
 Exercise and fully expired trades retain the multi-output rejection boundary.
 
-### Native Script Portfolio Jacobians
+### Script Portfolio Jacobians
 
 `ValuePortfolioByMonteCarloWithJacobianRisk` returns separate output means and
 an owning `(m, n)` risk matrix over the same sealed portfolio and global axes.
-The native entry uses `PortfolioJacobianRiskRequest_`; omitted outputs select
+The entry uses `PortfolioJacobianRiskRequest_`; omitted outputs select
 every trade payoff. `maxBlockWidth_` is an explicit positive maximum bounded by
 the native adjoint capacity, with a default of one.
 
@@ -1009,8 +1009,8 @@ const auto sensitivities = attribution.Jacobian(); // two rows, three columns
 const auto& attributionGroups = attribution.Execution().groups_;
 ```
 
-Native attribution requires native AAD preparation, including explicitly empty
-input selection, which retains the smoothed estimator and an `(m, 0)` matrix.
+Native attribution includes explicitly empty input selection, which retains the
+smoothed estimator and an `(m, 0)` matrix.
 Each compatible group replays its original path range once per output block.
 Model leaves are shared inside each recording; constants, historical state and
 evaluators stay private to the trades needed by that block. Independent roots
@@ -1028,6 +1028,15 @@ the estimator and original paths. `Execution()` retains the requested maximum;
 each group reports its actual widths, replay attempts, scenario/evaluator/reverse
 counts and whole-request capacity peaks. For a group with `m_g` rows and admitted
 width `w_g`, scenario generation totals `numPath * ceil(m_g / w_g)`.
+
+With `simulation.enableAad_ = false`, attribution uses sharp passive pricing and
+permits only omitted/empty risk inputs. It returns `(m, 0)`, evaluates each
+selected group once over its original paths, ignores recording limits and reports
+no actual native widths or reversals. Passive rows accumulate independently, so
+finite output rows remain valid even when their unused aggregate would overflow.
+Known private historical shapes still admit against the whole scratch limit before
+reads, and runtime capacity/nonfinite failures drain tasks and retain trade/output
+context.
 
 ### Discrete Dupire Calibration Pullback
 

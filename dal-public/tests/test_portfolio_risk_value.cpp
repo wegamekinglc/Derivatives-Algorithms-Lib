@@ -241,6 +241,46 @@ TEST(PortfolioRiskValueTest, TestBlockedReportFailureNamesItsOriginalRowAndRecov
     ASSERT_DOUBLE_EQ(recovered.Jacobian()(1, 0), prior.Jacobian()(1, 0));
 }
 
+TEST(PortfolioRiskValueTest, TestPassiveAttributionHasZeroColumnsAndNoUnusedObjectiveOverflow) {
+    RegisterAll_::Init();
+    const Handle_<ModelData_> model(new BSModelData_("", 709.0, 0.0));
+    const Handle_<ScriptProductData_> product(new ScriptProductData_("", {Cell_(Date_(2027, 1, 1))}, {"a = EXP(SPOT()) pay PAYS a"}));
+    const Handle_<ScriptPortfolioData_> data(new ScriptPortfolioData_("", {{"A", product, model}, {"B", product, model}}));
+    for (const bool compiled : {false, true}) {
+        auto simulation = MonteCarloSettings_();
+        simulation.enableAad_ = false;
+        simulation.compiled_ = compiled;
+        PortfolioJacobianRiskRequest_ request;
+        request.selection_.outputs_ = Vector_<String_>{"trade:1:payoff", "trade:0:output:0", "trade:0:payoff"};
+        request.selection_.numericPayloadBudgetBytes_ = 3 * sizeof(double);
+        request.maxBlockWidth_ = 2;
+        request.scratchCapacityBudgetBytes_ = 64 * 1024 * 1024;
+        request.recordingCapacityBudgetBytes_ = 0;
+        const auto reference = ValueByMonteCarloWithRisk(product, model, 1, {}, Valuation(), simulation);
+        const auto result = ValuePortfolioByMonteCarloWithJacobianRisk(data, 1, request, Valuation(), simulation);
+        ASSERT_EQ(result.Values(), Vector_<double>(3, reference.Values()[0]));
+        ASSERT_GT(result.Values()[0], std::numeric_limits<double>::max() / 3);
+        ASSERT_EQ(result.Jacobian().Rows(), 3);
+        ASSERT_EQ(result.Jacobian().Cols(), 0);
+        ASSERT_EQ(result.ReportedJacobian().Rows(), 3);
+        ASSERT_EQ(result.ReportedJacobian().Cols(), 0);
+        ASSERT_TRUE(result.InputAxis().empty());
+        ASSERT_EQ(result.CompleteInputAxis().size(), 4);
+        ASSERT_EQ(result.Provenance().method_, "PriceOnlyJacobianPortfolio");
+        ASSERT_EQ(result.Provenance().trades_[0].engine_, "passive");
+        ASSERT_EQ(result.Execution().peakRecordingBytes_, 0);
+        ASSERT_EQ(result.Execution().requestedMaxBlockWidth_, 2);
+        const auto& group = result.Execution().groups_[0];
+        ASSERT_EQ(group.generatedScenarios_, 1);
+        ASSERT_EQ(group.evaluatorCalls_, 2);
+        ASSERT_EQ(group.suffixReversals_, 0);
+        ASSERT_EQ(group.prefixReversals_, 0);
+        ASSERT_EQ(group.replayAttempts_, 1);
+        ASSERT_TRUE(group.actualWidths_.empty());
+        ASSERT_LE(result.Execution().peakScratchBytes_, *request.scratchCapacityBudgetBytes_);
+    }
+}
+
 TEST(PortfolioRiskValueTest, TestEmptyNativeColumnsAndReportOverflowPreservePriorResults) {
     RegisterAll_::Init();
     const auto data = Portfolio();
@@ -357,12 +397,27 @@ TEST(PortfolioRiskValueTest, TestPassiveSharedPathsMatchSharpScalarPricesAndNati
         simulation.compiled_ = compiled;
         const auto native = ValuePortfolioByMonteCarloWithWeightedRisk(data, 257, request, Valuation(), simulation);
         const auto nativeScalar = ValueByMonteCarloWithRisk(product, model, 257, {Vector_<String_>{}}, Valuation(), simulation);
+        PortfolioJacobianRiskRequest_ attributionRequest;
+        attributionRequest.selection_.inputs_ = Vector_<String_>{};
+        attributionRequest.maxBlockWidth_ = 2;
+        const auto nativeRows = ValuePortfolioByMonteCarloWithJacobianRisk(data, 257, attributionRequest, Valuation(), simulation);
+        ASSERT_EQ(nativeRows.Values(), native.ComponentMeans());
+        ASSERT_EQ(nativeRows.Jacobian().Rows(), 2);
+        ASSERT_EQ(nativeRows.Jacobian().Cols(), 0);
+        ASSERT_EQ(nativeRows.Execution().groups_[0].suffixReversals_, 257);
         ASSERT_DOUBLE_EQ(native.WeightedValue(), nativeScalar.Values()[0]);
         ASSERT_EQ(native.Execution().groups_[0].suffixReversals_, 257);
         simulation.enableAad_ = false;
         request.recordingCapacityBudgetBytes_ = 0;
         const auto passive = ValuePortfolioByMonteCarloWithWeightedRisk(data, 257, request, Valuation(), simulation);
         const auto passiveScalar = ValueByMonteCarloWithRisk(product, model, 257, {}, Valuation(), simulation);
+        attributionRequest.recordingCapacityBudgetBytes_ = 0;
+        const auto passiveRows = ValuePortfolioByMonteCarloWithJacobianRisk(data, 257, attributionRequest, Valuation(), simulation);
+        ASSERT_EQ(passiveRows.Values(), passive.ComponentMeans());
+        ASSERT_EQ(passiveRows.Jacobian().Rows(), 2);
+        ASSERT_EQ(passiveRows.Jacobian().Cols(), 0);
+        ASSERT_EQ(passiveRows.Execution().groups_[0].suffixReversals_, 0);
+        ASSERT_EQ(passiveRows.Execution().peakRecordingBytes_, 0);
         ASSERT_DOUBLE_EQ(passive.WeightedValue(), passiveScalar.Values()[0]);
         ASSERT_DOUBLE_EQ(passive.ComponentMeans()[0], passiveScalar.Values()[0]);
         ASSERT_DOUBLE_EQ(passive.ComponentMeans()[1], passiveScalar.Values()[0]);

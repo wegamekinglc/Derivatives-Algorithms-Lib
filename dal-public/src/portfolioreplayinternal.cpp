@@ -224,7 +224,15 @@ namespace Dal::Detail {
             AddCount(batch.prefixReversals_, &counters->prefixReversals_);
         }
 
-        void ScatterJacobianRow(const PortfolioJacobianBatchResult_& batch,
+        template <class G_> double RowGradient(const G_& gradients, size_t lane, size_t column) {
+            if constexpr (std::is_same_v<G_, Vector_<double>>)
+                return gradients[column];
+            else
+                return gradients(static_cast<int>(lane), static_cast<int>(column));
+        }
+
+        template <class G_>
+        void ScatterJacobianRow(const Script::Detail::PortfolioBatchResult_<G_>& batch,
                                 size_t lane,
                                 size_t row,
                                 const PortfolioRiskAxes_& axes,
@@ -233,12 +241,12 @@ namespace Dal::Detail {
             VisitGradients(batch, axes, [&](const auto& gradients, size_t local, size_t global) {
                 const auto column = selection.inputColumns_[global];
                 if (column >= 0)
-                    AddValue(gradients(static_cast<int>(lane), static_cast<int>(local)), &result->jacobian_(static_cast<int>(row), column),
-                             axes.InputAxis()[global].id_);
+                    AddValue(RowGradient(gradients, lane, local), &result->jacobian_(static_cast<int>(row), column), axes.InputAxis()[global].id_);
             });
         }
 
-        void ReduceJacobianBlock(const Vector_<PortfolioJacobianBatchResult_>& batches,
+        template <class R_>
+        void ReduceJacobianBlock(const Vector_<R_>& batches,
                                  size_t group,
                                  const AAD::AdjointBlock_& block,
                                  const PortfolioRiskAxes_& axes,
@@ -300,6 +308,30 @@ namespace Dal::Detail {
             const auto plan = AAD::PlanAdjointBlocks(selection.groupOutputs_[group].size(), result->jacobian_.Cols(), settings);
             for (size_t block = 0; block < plan.BlockCount(); ++block)
                 RunJacobianBlock(portfolio, group, batches, plan.Block(block), axes, selection, result, scratch, tape);
+        }
+
+        void RunPassiveJacobianGroup(const PreparedPortfolio_& portfolio,
+                                     size_t group,
+                                     const Script::BatchPlan_& batches,
+                                     const PortfolioRiskAxes_& axes,
+                                     const ReplaySelection_& selection,
+                                     PortfolioJacobianReplayResult_* result,
+                                     BufferCapacityBudget_* scratch) {
+            if (selection.groupOutputs_[group].empty())
+                return;
+            AddCount(1, &result->groupCounters_[group].replayAttempts_);
+            try {
+                auto outputs = selection.groupOutputs_[group];
+                for (auto& output : outputs)
+                    output.weight_ = 0.0;
+                const auto slots = RunBatches<PortfolioWeightedBatchResult_>(batches, outputs.size(), scratch, [&](const auto& paths) {
+                    return Script::Detail::EvaluatePortfolioWeightedBatch(portfolio, group, paths, outputs, scratch);
+                });
+                ReduceJacobianBlock(slots, group, {0, outputs.size(), 1}, axes, selection, result);
+            } catch (const std::exception& error) {
+                THROW2("PortfolioJacobianReplayFailed: passive; group=" + String_(std::to_string(group)) + "; cause=" + String_(error.what()),
+                       ScriptError_);
+            }
         }
 
         Vector_<const Script::PreparedScript_*> SelectedPlans(const Vector_<Script::Detail::PlannedScript_>& plans,
@@ -400,6 +432,10 @@ namespace Dal::Detail {
                                 size_t workers,
                                 BufferCapacityBudget_* scratch,
                                 const Script::Detail::PortfolioCapacityLimits_& limits) {
+            if (!plan.EnableAad()) {
+                AdmitGroup<Vector_<double>>(plan, plans, group, outputs, batches, 1, workers, scratch, limits);
+                return;
+            }
             const auto attempts = outputs.size() / width + (outputs.size() % width != 0);
             const Vector_<size_t> reportedWidths(attempts, width);
             for (size_t first = 0; first < outputs.size(); first += width) {
@@ -425,7 +461,7 @@ namespace Dal::Detail {
                                   const Script::Detail::PortfolioCapacityLimits_& limits) {
             if (outputs.empty())
                 return 0;
-            auto width = std::min(plan.MaxBlockWidth(), outputs.size());
+            auto width = plan.EnableAad() ? std::min(plan.MaxBlockWidth(), outputs.size()) : 1;
             if (!HasPortfolioBudget(plan.EnableAad(), limits))
                 return width;
             for (;;) {
@@ -534,11 +570,13 @@ namespace Dal::Detail {
                                                                    const Vector_<size_t>& selectedInputs,
                                                                    const Vector_<size_t>& groupWidths,
                                                                    Script::Detail::PortfolioCapacityLimits_ limits) {
-        REQUIRE2(ValidatePreparedMode(portfolio, selectedInputs), "UnsupportedPortfolioJacobianReplay: native preparation is required", ScriptError_);
+        const bool native = ValidatePreparedMode(portfolio, selectedInputs);
         const auto threads = ThreadPool_::GetInstance()->NumThreads();
         const Script::BatchPlan_ batches(static_cast<size_t>(portfolio.PathCount()), threads);
-        const auto cleanup = Script::Detail::ReplayExtentProduct(std::min(threads, batches.BatchCount()), AAD::TapeCleanupCapacityBytes());
-        Script::Detail::RequireReplayCapacity(limits.tapeBudgetBytes_, cleanup, "Tape");
+        const auto cleanup =
+            native ? Script::Detail::ReplayExtentProduct(std::min(threads, batches.BatchCount()), AAD::TapeCleanupCapacityBytes()) : 0;
+        if (native)
+            Script::Detail::RequireReplayCapacity(limits.tapeBudgetBytes_, cleanup, "Tape");
         BufferCapacityBudget_ scratch(limits.scratchBudgetBytes_.value_or(std::numeric_limits<size_t>::max()));
         AAD::TapeCapacityBudget_ tape(limits.tapeBudgetBytes_.value_or(std::numeric_limits<size_t>::max()));
         BufferCapacityScope_ coordinator(&scratch, sizeof(PortfolioJacobianReplayResult_) + sizeof(ReplaySelection_));
@@ -550,8 +588,12 @@ namespace Dal::Detail {
         ValidatePreparedAxes(portfolio, axes);
         const auto selection = SelectOutputs(portfolio.Groups(), portfolio.Trades().size(), axes, outputs, inputs);
         PortfolioJacobianReplayResult_ result(outputs.size(), inputs.size(), portfolio.Groups().size());
-        for (size_t group = 0; group < portfolio.Groups().size(); ++group)
-            RunJacobianGroup(portfolio, group, widths[group], batches, axes, selection, &result, &scratch, &tape);
+        for (size_t group = 0; group < portfolio.Groups().size(); ++group) {
+            if (native)
+                RunJacobianGroup(portfolio, group, widths[group], batches, axes, selection, &result, &scratch, &tape);
+            else
+                RunPassiveJacobianGroup(portfolio, group, batches, axes, selection, &result, &scratch);
+        }
         const auto paths = static_cast<double>(portfolio.PathCount());
         for (auto& value : result.componentMeans_)
             value /= paths;

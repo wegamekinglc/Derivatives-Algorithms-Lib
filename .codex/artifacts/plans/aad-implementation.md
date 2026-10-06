@@ -1262,7 +1262,17 @@ one/two/three across tree/compiled and one/four workers. Strict OFF/combined ON
 warnings and independent headers pass. Passive attribution, dedicated narrowing
 and failure acceptance, bindings and final delivery gates remain pending.
 
-Next: finish passive portfolio attribution and Python/Excel bindings. Preserve
+Passive attribution now retains independent sharp-price rows with zero risk
+columns, no native widths/reversals and zero tape peaks, including finite rows
+whose unused sum overflows. All 26 affected public cases pass; independent
+six-family/mixed-mesh tests cover both attribution modes, and private historical
+shapes reject before reads with valid recovery. Strict warning checks pass.
+Exact head `4194be4b` exposes a real finite-capacity CI fixture failure caused by
+using a previous scheduling-dependent peak as the following quota. The fixture
+now uses declared finite per-worker allowances and retains its exact risks and
+peak-within-limit assertions. Fresh repair-head checks are required.
+
+Next: finish width/failure acceptance and Python/Excel bindings. Preserve
 original RNG dimensions/path indices, private evaluator state, existing costs
 and independent numerical oracles. Every new publication needs its own exact-head
 checks. Complete portfolio delivery has no comparative performance acceptance yet.
