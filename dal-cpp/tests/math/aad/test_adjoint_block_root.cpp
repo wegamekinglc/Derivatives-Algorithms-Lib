@@ -12,6 +12,15 @@
 using namespace Dal;
 using namespace Dal::AAD;
 
+namespace {
+    void AssertBlockValues(const Vector_<Number_>& roots, const AdjointBlock_& block, const Vector_<double>& expected) {
+        for (size_t lane = 0; lane < block.outputs_; ++lane)
+            ASSERT_DOUBLE_EQ(Value(roots[lane]), expected[block.firstOutput_ + lane]);
+        for (size_t lane = block.outputs_; lane < block.width_; ++lane)
+            ASSERT_DOUBLE_EQ(Value(roots[lane]), 0.0);
+    }
+} // namespace
+
 TEST(AADAdjointBlockRootTest, TestAliasesConstantsDirectAndPrefixOutputsAcrossPaths) {
     Vector_<double> expectedX = {3.0, 4.0, 3.0, 0.0, 1.0, 3.0};
     Vector_<double> expectedY = {2.0, 1.0, 2.0, 0.0, 0.0, 2.0};
@@ -47,10 +56,7 @@ TEST(AADAdjointBlockRootTest, TestAliasesConstantsDirectAndPrefixOutputsAcrossPa
                 for (size_t row = outputs.size(); row < 17; ++row)
                     outputs.push_back(u);
                 SeedAdjointBlock(outputs, block, zero, &roots);
-                for (size_t lane = 0; lane < block.outputs_; ++lane)
-                    ASSERT_DOUBLE_EQ(Value(roots[lane]), expectedValues[block.firstOutput_ + lane]);
-                for (size_t lane = block.outputs_; lane < block.width_; ++lane)
-                    ASSERT_DOUBLE_EQ(Value(roots[lane]), 0.0);
+                ASSERT_NO_FATAL_FAILURE(AssertBlockValues(roots, block, expectedValues));
                 recording.FinishRecording();
                 recording.ReverseSuffix(checkpoint);
             }

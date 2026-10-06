@@ -10,6 +10,9 @@ No unresolved correctness finding in the implemented native increment.
 The tail regression originally propagates an obsolete lane seed into a
 gradient of 68 instead of zero. `SeedAdjointBlock` now clears unused lanes
 explicitly, including when `PayoffRoot` reuses a terminal node.
+Codacy flags complexity 11 in seeding and 10 in its analytic test at `dc399208`.
+Extracted preflight and fatal-propagating value assertions bring every new
+capacity/root function within the unchanged complexity limit of eight.
 
 ## Capacity ownership
 
@@ -60,6 +63,11 @@ Evidence lives in `dal-aad-evidence-20261004-8886c083/evidence`.
 - `aad-blocked-native-build-tsan-01.json` and its log pass all nine new
   capacity/root cases with TSan and combined diagnostics. Fresh affected
   native units are instrumented; unchanged supporting archive code is cached.
+- `aad-blocked-capacity-codacy-annotations-01.json` retains both complexity
+  findings. `aad-blocked-capacity-complexity-02.json` verifies maximum eight.
+  `aad-blocked-codacy-fix-build-01.json` and its three logs pass the same 50/50/9
+  cases after extraction. Only the affected root-test unit is rebuilt in each
+  mode; unchanged native units retain the prior acceptance and instrumentation.
 - Native oracles cover widths 1/2/4/16, 17 ordered rows and tails, three
   suffixes before prefix reverse, aliases, constants, direct and prefix roots,
   finite values and exact inactive-lane zeros. Capacity cases cover all four
