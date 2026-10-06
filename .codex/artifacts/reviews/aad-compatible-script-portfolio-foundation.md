@@ -1,9 +1,9 @@
 # Compatible portfolio ownership, preparation and weighted execution review
 
 Verdict: **Comment Only**. Implemented increments can be published in open #487;
-the complete portfolio PR is not ready for acceptance or merge. Native weighted
-startup admission and aggregate runtime budgets are now locally verified;
-public results, passive/blocked execution and bindings remain open.
+the complete portfolio PR is not ready for acceptance or merge. Native/passive
+weighted execution, owning C++ results and startup/runtime budgets are locally
+verified. Portfolio blocked execution and bindings remain open.
 
 ## Findings
 
@@ -40,13 +40,15 @@ The remaining execution requirements are material acceptance gaps:
 - Shared weighted batches now register model leaves once, retain private trade
   leaves/history/evaluators and measure actual scenario/evaluator/reverse calls.
   Internal weighted replay now accumulates cross-group model leaves, projects
-  selected inputs and owns task cleanup. Public weighted requests/results,
-  passive execution and portfolio Jacobians remain pending.
+  selected inputs and owns task cleanup. Public owning C++ weighted requests/results
+  and passive shared execution are implemented. Portfolio Jacobians remain pending.
 - Whole-request date/history freezing and an admission callback are implemented.
   Native weighted startup admission reserves known coordinator/result/task and
   every selected private evaluator/vector capacity before history. Aggregate
   runtime recording/scratch guards admit actual growth and cleanup replacement.
-  Passive and blocked capacity policy remains pending. Accepted tasks drain on
+  Passive startup capacity is now admitted before history; passive execution
+  ignores recording limits and retains a zero-column gradient. Blocked capacity
+  policy remains pending. Accepted tasks drain on
   submission, worker and capacity failure; prior results and follow-up requests
   remain usable.
 - Python/Excel construction and valuation, installed consumers and actual
@@ -59,8 +61,8 @@ independent finite-sample and derivative oracles in the active specification.
 
 ## Open Questions
 
-No user decision is needed. Complete public integration of the native weighted
-admission and execution, retaining explicit/global provenance.
+No user decision is needed. Complete blocked attribution and binding integration
+while retaining native/passive weighted admission and explicit/global provenance.
 Keep original meshes and RNG dimensions; retain separate groups when sharing
 proof is unavailable. Retain private evaluator/history state for every trade.
 
@@ -168,9 +170,33 @@ proof is unavailable. Retain private evaluator/history state for every trade.
   with ASan-instrumented new batch/admission units and tests; the remaining library
   is Release, so this does not replace complete CI sanitizer acceptance.
 - Five changed production units pass strict OFF/combined ON warnings as errors.
-  Latest `05b3741` audit has all 35 checks complete, zero Codacy annotations and
-  zero unresolved threads. This accepts the previous publication's scope;
-  the new capacity/sparse-vector increment requires its own complete audit.
+  Latest `e90fd8f` audit has all 35 checks complete, zero Codacy annotations and
+  zero unresolved threads. This accepts the capacity/sparse-vector publication;
+  the public weighted/passive increment requires its own complete audit.
+- Seven new public-result cases cover owning values/axes/report matrices, frozen
+  settings/history, native-empty versus passive-sharp prices, numeric/startup
+  rejection, zero-weight nonfinite output context and follow-up recovery.
+  One additional passive admission case checks private historical vector shapes
+  before reads, zero tape limits and independent scalar-call prices. Existing
+  six-family and mixed-owner/mesh oracles now include both native/passive modes,
+  preserving every tree/compiled, RNG/bridge and one/four-worker setting.
+- Read-first result review found inherited native engine labels in passive
+  per-trade snapshots and missing trade/group context on report overflow.
+  Two RED tests retain both defects; the additive result capture/projection fixes
+  preserve old single-script provenance and execution bodies.
+  A third RED exposes lost output/trade context on aggregate weighted overflow;
+  the batch failure boundary now retains the original group members and requested
+  output IDs in both modes. This adds work only to exception construction.
+- Six production units pass strict OFF/combined ON syntax warnings. Three new
+  headers compile independently. Unchanged exact-source warning evidence is
+  reused; only the changed public result unit was rechecked after context fixes.
+  Final weighted batch error-context/formatting changes have their own two-mode
+  warning evidence. The 16-case public-result/batch repair regression passes.
+  Across the increment, 58 distinct affected public/core cases pass, with no
+  repeated full local suite. The actual combined documented C++ construction and
+  weighted example compiles, links and runs, observing 4096 scenarios/8192 trade
+  evaluations and a one-by-three gradient. All 157 Markdown files and changed
+  source formatting pass.
 
 Evidence lives under the session evidence root: `aad-portfolio-focused-foundation-green-02.json`,
 `aad-portfolio-warning-clean-01.json` and `aad-portfolio-doc-consumer-01.json`.
@@ -203,6 +229,18 @@ Weighted preflight evidence is `aad-portfolio-focused-weighted-plan-green-02.jso
 `aad-portfolio-focused-weighted-plan-regression-green-01.json` and
 `aad-portfolio-weighted-plan-warning-clean-01.json`. The interface and legacy-ID
 schema failures remain in `weighted-plan-red-01` and `weighted-plan-green-01`.
+Public result/passive evidence includes `aad-portfolio-focused-public-result-boundary-green-02.json`,
+`aad-portfolio-focused-passive-public-oracles-green-02.json`,
+`aad-portfolio-focused-public-provenance-context-red-01.json`,
+`aad-portfolio-focused-public-weighted-error-context-red-01.json`,
+`aad-portfolio-public-passive-warning-02.json` and
+`aad-portfolio-focused-public-passive-core-green-01.json`.
+The 48-case public/legacy increment regression is
+`aad-portfolio-focused-public-passive-final-regression-green-03.json`.
+Final repair evidence is `aad-portfolio-focused-public-weighted-context-final-green-01.json`,
+`aad-portfolio-public-weighted-context-warning-02.json` and
+`aad-portfolio-public-doc-consumer-01.json`.
+Capacity publication acceptance is `aad-487-aad-487-capacity-e90-current-06/summary.json`.
 
 ## Summary
 
@@ -210,4 +248,6 @@ Existing scalar/weighted/Jacobian drivers retain their default preparation
 entry points and allocate no portfolio state. The
 snapshot registry precedes cloning, the passive catalog preserves owner/private
 constant identity, and full semantic grouping retains incompatible trades.
-The active specification remains the complete acceptance boundary.
+The active specification remains the complete acceptance boundary. Blocked
+attribution, bindings, installed consumers, complete final performance/platform
+checks and a fresh publication-head review are required before merge.

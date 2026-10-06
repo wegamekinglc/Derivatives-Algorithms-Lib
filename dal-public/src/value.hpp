@@ -6,6 +6,7 @@
 
 #include <optional>
 
+#include <dal-public/src/portfoliorisk.hpp>
 #include <dal/script/jacobianrisk.hpp>
 #include <dal/script/riskresults.hpp>
 #include <dal/script/simulation.hpp>
@@ -18,6 +19,12 @@ namespace Dal {
     using Script::ScriptValuationSettings_;
 
     [[nodiscard]] MonteCarloSettings_ DefaultRiskMonteCarloSettings();
+    [[nodiscard]] PortfolioWeightedRiskResult_
+    ValuePortfolioByMonteCarloWithWeightedRisk(const Handle_<Script::ScriptPortfolioData_>& portfolio,
+                                               int numPath,
+                                               const PortfolioWeightedRiskRequest_& request = {},
+                                               const ScriptValuationSettings_& valuation = {},
+                                               const MonteCarloSettings_& simulation = DefaultRiskMonteCarloSettings());
     [[nodiscard]] Script::RiskResult_ ValueByMonteCarloWithRisk(const Handle_<ScriptProductData_>& product,
                                                                 const Handle_<ModelData_>& modelData,
                                                                 int numPath,

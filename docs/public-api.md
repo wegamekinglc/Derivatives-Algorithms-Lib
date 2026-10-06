@@ -297,6 +297,23 @@ selects no risk columns and performs one forward replay. Exercise and fully
 expired products are unsupported. See the
 [capacity and replay contract](methodology/aad.md#budgeted-script-jacobians).
 
+### C++ weighted script portfolios
+
+Construct a `Script::ScriptPortfolioData_` from ordered trade IDs and product/model
+handles, then call `ValuePortfolioByMonteCarloWithWeightedRisk` with a
+`PortfolioWeightedRiskRequest_`. Repeating a model handle establishes a shared
+owner; matching model values alone do not. Select global IDs such as
+`trade:1:payoff`, `model:0:parameter:0` and `trade:0:constant:0`.
+
+The owning result exposes `WeightedValue()`, `ComponentMeans()`, `Weights()`,
+selected/complete axes, detached raw/report gradient matrices and trade/group
+provenance. Its gradient has one row, including explicit zero-column execution.
+Compatible trades share scenarios while retaining private evaluator/history state;
+incompatible trades retain their original sampling plans. Whole-request numeric,
+recording and scratch budgets admit known shapes before history and guard runtime
+growth. See [portfolio construction](methodology/aad.md#sealed-script-portfolio-coordinates)
+and [weighted execution](methodology/aad.md#weighted-script-portfolio-risk).
+
 ### C++ curve calibration
 
 The public zero-rate factory is:

@@ -45,12 +45,17 @@ namespace Dal::Script {
                                                                                    BufferCapacityBudget_* scratch = nullptr,
                                                                                    AAD::TapeCapacityBudget_* tape = nullptr);
 
-        [[nodiscard]] size_t PortfolioWeightedWorkerFixedBytes(bool compiled, size_t trades);
+        [[nodiscard]] size_t PortfolioWeightedWorkerFixedBytes(bool compiled, size_t trades, bool native = true, bool checkedPaths = false);
 
         void AdmitPortfolioWeightedWorker(const Vector_<const PreparedScript_*>& trades,
                                           const Handle_<ModelData_>& model,
                                           const Vector_<PortfolioBatchOutput_>& outputs,
                                           size_t scratchQuota,
                                           size_t tapeQuota);
+
+        void AdmitPortfolioPassiveWorker(const Vector_<const PreparedScript_*>& trades,
+                                         const Handle_<ModelData_>& model,
+                                         const Vector_<PortfolioBatchOutput_>& outputs,
+                                         size_t scratchQuota);
     } // namespace Detail
 } // namespace Dal::Script

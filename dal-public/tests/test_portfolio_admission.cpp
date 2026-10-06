@@ -6,6 +6,7 @@
 
 #include <dal-public/src/portfolioplaninternal.hpp>
 #include <dal-public/src/portfolioreplayinternal.hpp>
+#include <dal-public/src/value.hpp>
 #include <dal/concurrency/threadpool.hpp>
 #include <dal/model/blackscholes.hpp>
 #include <dal/platform/platform.hpp>
@@ -74,6 +75,40 @@ TEST(PortfolioAdmissionTest, TestKnownBudgetsRejectBeforeHistoricalReadsAndTasks
         limits.scratchBudgetBytes_.reset();
         limits.tapeBudgetBytes_ = 0;
         ASSERT_NO_FATAL_FAILURE(AssertCapacityFailureBeforeHistory(plan, simulation, limits, "Tape"));
+    }
+}
+
+TEST(PortfolioAdmissionTest, TestPassivePrivateHistoryShapesRejectBeforeReadsAndIgnoreTapeBudget) {
+    RegisterAll_::Init();
+    const SinglePortfolioWorker_ worker;
+    const auto large = HistoricalPortfolio(true);
+    const auto small = HistoricalPortfolio(false);
+    const auto plan = Dal::Detail::PlanPortfolioWeightedRequest(large, {}, false);
+    Script::TestSupport::StoreScriptTestFixing("EQ[PORTFOLIO_ADMISSION]", 80.0, DateTime_(Date_(2025, 1, 1), 0.0));
+    for (const bool compiled : {false, true}) {
+        MonteCarloSettings_ simulation;
+        simulation.compiled_ = compiled;
+        Dal::Script::Detail::PortfolioCapacityLimits_ limits{32768, 0};
+        ASSERT_NO_FATAL_FAILURE(AssertCapacityFailureBeforeHistory(plan, simulation, limits, "Scratch buffer"));
+        limits.scratchBudgetBytes_ = 64 * 1024 * 1024;
+        const auto prepared = Dal::Detail::PreparePortfolioWeightedReplay(Dal::Detail::PlanPortfolioWeightedRequest(small, {}, false), 257,
+                                                                          Valuation(), simulation, limits);
+        Vector_<Dal::Script::Detail::PortfolioBatchOutput_> outputs;
+        for (size_t trade = 0; trade < prepared.Trades().size(); ++trade) {
+            auto coordinate = ScriptRiskOutputAxis(prepared.Trades()[trade].Product())[prepared.Trades()[trade].PayOffIdx()];
+            coordinate.id_ = "trade:" + String_(std::to_string(trade)) + ":" + coordinate.id_;
+            outputs.push_back({trade, coordinate, 1.0});
+        }
+        const auto result = Dal::Detail::EvaluatePortfolioWeightedReplay(prepared, outputs, {}, limits);
+        ASSERT_EQ(result.gradient_.size(), 0);
+        ASSERT_EQ(result.peakTapeBytes_, 0);
+        ASSERT_LE(result.peakScratchBytes_, *limits.scratchBudgetBytes_);
+        for (size_t trade = 0; trade < 2; ++trade) {
+            const auto scalar = ValueByMonteCarloWithRisk(small->Products()[trade], small->Models()[0], 257, {}, Valuation(), simulation);
+            ASSERT_NEAR(result.componentMeans_[trade], scalar.Values()[0], 1e-10);
+        }
+        ASSERT_EQ(result.groupCounters_[0].generatedScenarios_, 257);
+        ASSERT_EQ(result.groupCounters_[0].evaluatorCalls_, 514);
     }
 }
 

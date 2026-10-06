@@ -925,6 +925,67 @@ Axis inspection parses and indexes the sealed scripts without resolving an
 evaluation date, reading fixings, submitting tasks or performing valuation.
 The catalog retains ordinary numbers and strings after its portfolio is destroyed.
 
+### Weighted Script Portfolio Risk
+
+`ValuePortfolioByMonteCarloWithWeightedRisk` in `dal-public/src/value.hpp` values
+a sealed portfolio using ordered global output/input IDs. Omitted outputs select
+one payoff per trade and omitted weights mean one. Provided weights may be zero
+or negative, must be finite and must match the selected output count. Selected
+values must be finite even at zero weight. The objective is the weighted sum of
+component path means, with no additional discounting or currency conversion.
+
+```cpp
+// Use the sealed portfolio from the preceding example.
+#include <dal-public/src/value.hpp>
+
+PortfolioWeightedRiskRequest_ request;
+request.selection_.outputs_ = Vector_<String_>{"trade:0:payoff", "trade:1:payoff"};
+request.weights_ = Vector_<double>{2.0, -1.0};
+request.selection_.inputs_ = Vector_<String_>{
+    "model:0:parameter:0", "trade:0:constant:0", "trade:1:constant:0"};
+ScriptValuationSettings_ valuation;
+valuation.evaluationDate_ = Date_(2026, 1, 1);
+const auto risk = ValuePortfolioByMonteCarloWithWeightedRisk(
+    portfolio, 4096, request, valuation);
+const double objectiveMean = risk.WeightedValue();
+const auto gradient = risk.Jacobian(); // one row, three selected columns
+const auto reported = risk.ReportedJacobian();
+const auto& groups = risk.Execution().groups_;
+```
+
+The call freezes one evaluation date and one union historical snapshot. Trades
+share a model and scenario only when owner identity and complete original sampling,
+observation, numeraire and simulation contracts agree. Incompatible groups retain
+their own time grids, random dimensions and original absolute path indices;
+there is no union timeline. Selected trades always have private constants,
+historical seeds and evaluator state. Groups run sequentially, with parallel
+path batches within a group. Native execution reverses one weighted suffix per
+path and each retained batch prefix once.
+
+Default settings use native AAD. Explicit empty native inputs retain the smoothed
+estimator and a `(1, 0)` gradient. Setting `simulation.enableAad_ = false` selects
+sharp price-only execution, permits only omitted/empty inputs and performs no
+reverse work. Passive execution ignores the recording-capacity budget. Both
+modes retain the complete unscaled coordinate catalogs and requested component
+order. Report factors must be positive and finite; reported gradient copies scale
+selected columns once. A nonfinite report projection rejects the whole call.
+
+The owning result retains component means/weights, selected/complete axes,
+original trade IDs, model-owner ordinals and per-trade execution snapshots.
+`Execution()` reports group membership, complete original sampling definitions,
+simulation settings, actual scenario/evaluator/reverse counts and capacity peaks.
+Scenario counts measure generated paths; evaluator counts measure selected
+trade evaluations. Matrix getters return detached copies without history reads
+or additional Monte Carlo work.
+
+`selection_.numericPayloadBudgetBytes_` bounds the retained numeric payload at
+`sizeof(double) * (1 + n + 2*m)`. `recordingCapacityBudgetBytes_` and
+`scratchCapacityBudgetBytes_` apply to the whole request. Known startup shapes,
+including all selected private history/vector capacities, are admitted before
+historical reads. Runtime growth and overlapping replacements remain guarded.
+Capacity or worker failures drain accepted tasks and publish no partial result.
+Exercise and fully expired trades retain the multi-output rejection boundary.
+
 ### Discrete Dupire Calibration Pullback
 
 The C++ functions in `dal/model/dupirerisk.hpp` map numeric local-volatility

@@ -32,7 +32,6 @@ namespace Dal::Detail {
         void ValidatePreparedAxes(const PreparedPortfolio_& portfolio, const PortfolioRiskAxes_& axes) {
             for (size_t trade = 0; trade < portfolio.Trades().size(); ++trade) {
                 const auto& prepared = portfolio.Trades()[trade];
-                REQUIRE2(prepared.Simulation().enableAad_, "UnsupportedPortfolioReplay: native AAD preparation is required", ScriptError_);
                 const auto model = CreateModel<double>(portfolio.Portfolio()->Models()[portfolio.Portfolio()->ModelOwners()[trade]]);
                 auto local = ScriptRiskInputAxis(*model, prepared.Product());
                 const auto& positions = axes.TradeInputPositions()[trade];
@@ -116,6 +115,8 @@ namespace Dal::Detail {
                               const PortfolioRiskAxes_& axes,
                               const ReplaySelection_& selection,
                               PortfolioWeightedReplayResult_* result) {
+            if (batch.constantGradientSums_.empty())
+                return;
             const auto modelInputs = batch.modelGradientSums_.size();
             const auto& representative = axes.TradeInputPositions()[batch.tradePositions_.front()];
             for (size_t input = 0; input < modelInputs; ++input)
@@ -208,26 +209,31 @@ namespace Dal::Detail {
             slots.reserve(batches.BatchCount());
             for (size_t batch = 0; batch < batches.BatchCount(); ++batch) {
                 slots.emplace_back(outputs.size());
-                slots.back().modelGradientSums_.Resize(plans[representative].Model().Parameters().size());
                 slots.back().tradePositions_.Resize(trades.size());
-                slots.back().constantGradientSums_.Resize(trades.size());
-                for (size_t trade = 0; trade < trades.size(); ++trade)
-                    slots.back().constantGradientSums_[trade].Resize(trades[trade]->ConstVarNames().size());
+                if (plan.EnableAad()) {
+                    slots.back().modelGradientSums_.Resize(plans[representative].Model().Parameters().size());
+                    slots.back().constantGradientSums_.Resize(trades.size());
+                    for (size_t trade = 0; trade < trades.size(); ++trade)
+                        slots.back().constantGradientSums_[trade].Resize(trades[trade]->ConstVarNames().size());
+                }
             }
             const auto futures = Script::Detail::ReplayExtentProduct(batches.BatchCount(), sizeof(TaskHandle_));
             auto taskCapacity = BufferCapacityScope_::ForWorker(scratch, futures);
             const auto remaining = scratch->LimitBytes() - scratch->CapacityBytes();
             const auto tapeQuota = limits.tapeBudgetBytes_.value_or(std::numeric_limits<size_t>::max()) / workers;
             Dal::Detail::BufferCapacitySuspension_ suspension;
-            Script::Detail::AdmitPortfolioWeightedWorker(trades, plan.Portfolio()->Models()[group.modelOwner_], outputs, remaining / workers,
-                                                         tapeQuota);
+            if (plan.EnableAad())
+                Script::Detail::AdmitPortfolioWeightedWorker(trades, plan.Portfolio()->Models()[group.modelOwner_], outputs, remaining / workers,
+                                                             tapeQuota);
+            else
+                Script::Detail::AdmitPortfolioPassiveWorker(trades, plan.Portfolio()->Models()[group.modelOwner_], outputs, remaining / workers);
         }
 
         void PreflightWeighted(const PortfolioWeightedPlan_& plan,
                                const Vector_<Script::Detail::PlannedScript_>& plans,
                                size_t paths,
                                const Script::Detail::PortfolioCapacityLimits_& limits) {
-            if (!limits.scratchBudgetBytes_ && !limits.tapeBudgetBytes_)
+            if (!limits.scratchBudgetBytes_ && (!plan.EnableAad() || !limits.tapeBudgetBytes_))
                 return;
             const auto groups = Script::Detail::PlanPortfolioScenarioGroups(*plan.Portfolio(), plans);
             const auto threads = ThreadPool_::GetInstance()->NumThreads();
@@ -262,8 +268,7 @@ namespace Dal::Detail {
         const auto plan = requestedPlan;
         const auto execution = simulation;
         const auto settings = valuation;
-        REQUIRE2(plan.EnableAad() && execution.enableAad_, "UnsupportedPortfolioReplay: native AAD request and preparation are required",
-                 ScriptError_);
+        REQUIRE2(plan.EnableAad() == execution.enableAad_, "InvalidPortfolioReplay: request and preparation modes must agree", ScriptError_);
         return Script::Detail::PrepareScriptPortfolio(plan.Portfolio(), paths, settings, execution,
                                                       [&](const auto& plans) { PreflightWeighted(plan, plans, static_cast<size_t>(paths), limits); });
     }
@@ -273,8 +278,13 @@ namespace Dal::Detail {
                                                                    const Vector_<size_t>& selectedInputs,
                                                                    Script::Detail::PortfolioCapacityLimits_ limits) {
         const auto threads = ThreadPool_::GetInstance()->NumThreads();
+        const bool native = portfolio.Trades().front().Simulation().enableAad_;
+        REQUIRE2(native || selectedInputs.empty(), "InvalidPortfolioReplay: passive execution cannot select risk inputs; field=inputs", ScriptError_);
+        for (const auto& trade : portfolio.Trades())
+            REQUIRE2(trade.Simulation().enableAad_ == native, "InvalidPortfolioReplay: inconsistent preparation modes", ScriptError_);
         Script::BatchPlan_ batches(static_cast<size_t>(portfolio.PathCount()), threads);
-        const auto cleanup = Script::Detail::ReplayExtentProduct(std::min(threads, batches.BatchCount()), AAD::TapeCleanupCapacityBytes());
+        const auto cleanup =
+            native ? Script::Detail::ReplayExtentProduct(std::min(threads, batches.BatchCount()), AAD::TapeCleanupCapacityBytes()) : 0;
         Script::Detail::RequireReplayCapacity(limits.tapeBudgetBytes_, cleanup, "Tape");
         BufferCapacityBudget_ scratch(limits.scratchBudgetBytes_.value_or(std::numeric_limits<size_t>::max()));
         AAD::TapeCapacityBudget_ tape(limits.tapeBudgetBytes_.value_or(std::numeric_limits<size_t>::max()));
@@ -287,7 +297,7 @@ namespace Dal::Detail {
         PortfolioWeightedReplayResult_ result(outputs.size(), inputs.size(), portfolio.Groups().size());
         for (size_t group = 0; group < portfolio.Groups().size(); ++group)
             if (!selection.groupOutputs_[group].empty())
-                RunGroup(portfolio, group, batches, axes, selection, &result, &scratch, &tape);
+                RunGroup(portfolio, group, batches, axes, selection, &result, &scratch, native ? &tape : nullptr);
         const auto paths = static_cast<double>(portfolio.PathCount());
         result.weightedValue_ /= paths;
         for (auto& value : result.componentMeans_)

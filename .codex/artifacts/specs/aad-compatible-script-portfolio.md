@@ -6,8 +6,9 @@ and locally verified. Shared weighted group batches and internal weighted
 replay/scatter are also locally verified. An internal owning weighted request plan
 validates selection and numeric payload before history/tasks. Native weighted
 startup recording/scratch admission and aggregate runtime guards are now locally
-verified. Public valuation/results, passive execution, blocked attribution and
-bindings remain pending.
+verified. Owning public C++ weighted results and passive shared execution are
+implemented and locally verified against independent single-script calls for
+all six families. Portfolio blocked attribution and bindings remain pending.
 Delivery starts from merged PR #484, commit `1c9273c9`, in open PR
 [#487](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/487).
 
@@ -268,10 +269,17 @@ unmergeable until behavior, consumers and these gates are accepted.
    and the exact checked retained numeric payload before history or tasks.
    Five new cases cover defaults, caller lifetime, repeated ordinals across
    distinct owners, aliases/zero weights, native-empty/passive shape and early
-   malformed/budget rejection. Actual recording/scratch admission and public
-   request integration remain pending.
+   malformed/budget rejection. Native weighted startup and aggregate runtime
+   recording/scratch budgets are now verified. Public C++ requests/results own
+   selected/complete axes, component/objective means, detached report matrices and
+   resolved trade/group provenance. Native-empty versus passive-sharp execution,
+   caller mutation, report overflow and failure recovery have public tests.
+   Passive shared execution and known private-vector admission also pass
+   independent single-script prices for all six supported families. Weighted
+   failures retain group trades and selected output IDs without changing paths.
    Strict warning categories pass in OFF and combined ON syntax checks; this
-   does not establish linked/runtime ON acceptance. About 1–1.5 person-days.
+   does not establish linked/runtime ON acceptance. The weighted/public C++
+   increment is locally implemented; complete publication acceptance is pending.
 3. Add blocked attribution and owning C++/Python/Excel surfaces with independent
    common-path and generated-export acceptance. About 1.5–2 person-days.
 4. Review, focused repairs, complete performance/platform gates and current-state

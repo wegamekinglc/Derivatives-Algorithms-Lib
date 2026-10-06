@@ -760,7 +760,7 @@ overlapping acceptance work is included once in the integration allowance.
 | P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass       | Merged; final 35/35 checks accepted     | 0                     |
 | F01                     | C++/Python/Excel and complete requirement audit accepted             | Merged; final 35/35 checks accepted     | 0                     |
 | F02 weighted/blocked    | C++/Python/Excel and independent mathematical oracles accepted       | #483/#484 merged; exact-head gates pass | 0                     |
-| F02 portfolio           | Native weighted replay and aggregate budgets verified; public open | Open #487; whole delivery pending       | 3–5                   |
+| F02 portfolio           | C++ native/passive weighted results/budgets verified; blocked open | Open #487; whole delivery pending       | 3–5                   |
 | P02/P03                 | Worker reuse/block selection/extraction remain                       | Open                                    | 4–7                   |
 | F03                     | Solve, implicit calibration and PDE operators remain                 | Open                                    | 12–20                 |
 | P04/P05                 | Structural sparsity/checkpointing remain                             | Open                                    | 9–15                  |
@@ -1216,12 +1216,32 @@ schema-independent request validator reuses old constraints while preserving
 every scalar ordinal-ID check and old function body. Ten existing scalar result
 cases also pass; strict OFF/combined ON syntax checks pass for both production units.
 
-Next: connect public weighted requests/results and recording/scratch guards,
-passive execution and blocked attribution.
-Portfolio valuation and Python/Excel bindings are not implemented. Preserve
+Native weighted startup/runtime budgets and sparse-vector holes are implemented
+and locally verified. Publication `e90fd8f` passes all 35 checks with zero Codacy
+annotations and unresolved review threads. This confirms the capacity increment
+without accepting later unpublished changes.
+
+Public C++ weighted requests/results now own component/objective means, raw and
+reported gradients, selected/complete global axes and original trade/group
+metadata. Report projection rejects overflow before publishing a result. Passive
+execution shares original paths with private sharp evaluator/history state,
+ignores recording limits and retains zero risk columns. Native-empty inputs keep
+fuzzy pricing. Seven public-result cases and one additional passive admission case
+extend the existing independent six-family/mixed-mesh oracles to both modes.
+Known private vector capacities reject before history. No old driver or scalar
+provenance body changes; a small internal helper reuses snapshot capture.
+Local review fixes per-trade passive engine labels, report failure context and
+aggregate weighted overflow context with retained RED tests. Forty-eight public
+increment/legacy and nine core batch cases pass; final context repair receives
+targeted verification: all 16 result/batch cases pass after the final repair.
+Across this increment, 58 distinct affected cases pass. Strict OFF/combined ON
+syntax checks, independent headers, actual documented C++ consumer and all 157
+Markdown checks pass. Complete linked/platform/performance acceptance is pending.
+
+Next: implement portfolio blocked attribution and Python/Excel bindings. Preserve
 original RNG dimensions/path indices, private evaluator state, existing costs
-and independent numerical oracles. New preparation code needs its own
-publication-head checks; portfolio execution has no platform or comparative
-performance acceptance yet. Remaining portfolio work is estimated at 3–5
+and independent numerical oracles. Every new publication needs its own exact-head
+checks. Complete portfolio delivery has no comparative performance acceptance yet.
+Remaining portfolio work is estimated at 3–5
 person-days; overall remaining effort is approximately 47–78 person-days.
 Stage A is accepted; the full Stage B/C/D goal remains incomplete.

@@ -100,7 +100,8 @@ namespace Dal::Script::Detail {
                 const auto found = std::find_if(groups.begin(), groups.end(),
                                                 [&](const auto& group) { return SameContract(trades[group.tradePositions_.front()], trade); });
                 if (found == groups.end())
-                    groups.push_back({trade.modelOwner_, Vector_<size_t>{position}});
+                    groups.push_back(
+                        {trade.modelOwner_, Vector_<size_t>{position}, trade.randomDimension_, trade.factors_, trade.deterministicNumeraire_});
                 else
                     found->tradePositions_.push_back(position);
             }

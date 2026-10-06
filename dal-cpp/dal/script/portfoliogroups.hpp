@@ -19,6 +19,9 @@ namespace Dal::Script::Detail {
     struct PortfolioScenarioGroup_ {
         size_t modelOwner_;
         Vector_<size_t> tradePositions_;
+        size_t randomDimension_ = 0;
+        size_t factors_ = 0;
+        bool deterministicNumeraire_ = false;
     };
 
     [[nodiscard]] bool SamePortfolioSampleDefinition(const AAD::SampleDef_& lhs, const AAD::SampleDef_& rhs);

@@ -10,6 +10,7 @@
 #include <dal/platform/platform.hpp>
 #include <dal/script/blockedreplay.hpp>
 #include <dal/script/portfoliobatch.hpp>
+#include <dal/script/portfoliopassive.hpp>
 #include <dal/script/simulation.hpp>
 
 namespace Dal::Script::Detail {
@@ -20,6 +21,16 @@ namespace Dal::Script::Detail {
             Vector_<double> weights_;
             Vector_<String_> outputContexts_;
         };
+
+        String_ BatchFailureContext(const PreparedPortfolio_& portfolio, size_t group, const Vector_<PortfolioBatchOutput_>& outputs) {
+            String_ context = "; trades=[";
+            for (const auto trade : portfolio.Groups()[group].tradePositions_)
+                context += portfolio.Portfolio()->TradeIds()[trade] + ";";
+            context += "]; outputs=[";
+            for (const auto& output : outputs)
+                context += output.coordinate_.id_ + ";";
+            return context + "]";
+        }
 
         void ValidateBatchRange(const PreparedPortfolio_& portfolio, size_t group, const PathBatch_& batch) {
             REQUIRE2(group < portfolio.Groups().size(), "InvalidPortfolioBatch: group is out of range; field=group", ScriptError_);
@@ -33,9 +44,10 @@ namespace Dal::Script::Detail {
                      "InvalidPortfolioBatch: output trade is outside the group; output=" + output.coordinate_.id_, ScriptError_);
             const auto& trade = portfolio.Trades()[output.tradePosition_];
             trade.RequireExecutable();
-            REQUIRE2(trade.Simulation().enableAad_, "UnsupportedPortfolioBatch: native AAD preparation is required", ScriptError_);
-            ValidateAADHistory(trade);
-            ValidateAADExecution(trade, trade.Simulation().compiled_.value_or(false), trade.Simulation().smooth_);
+            if (trade.Simulation().enableAad_) {
+                ValidateAADHistory(trade);
+                ValidateAADExecution(trade, trade.Simulation().compiled_.value_or(false), trade.Simulation().smooth_);
+            }
             const auto axis = ScriptRiskOutputAxis(trade.Product());
             REQUIRE2(output.coordinate_.slot_ < axis.size(), "InvalidPortfolioBatch: scalar slot is out of range; output=" + output.coordinate_.id_,
                      ScriptError_);
@@ -134,15 +146,77 @@ namespace Dal::Script::Detail {
             }
         }
 
-        template <class E_, class F_>
-        void
-        EvaluateTrade(const PreparedPortfolio_& portfolio, size_t trade, const AAD::Scenario_<AAD::Number_>& path, E_* state, const F_& evaluate) {
+        template <class T_, class E_, class F_>
+        void EvaluateTrade(const PreparedPortfolio_& portfolio, size_t trade, const AAD::Scenario_<T_>& path, E_* state, const F_& evaluate) {
             try {
                 evaluate(portfolio.Trades()[trade], path, *state);
             } catch (const std::exception& error) {
                 THROW2("PortfolioTradeEvaluationFailed: trade=" + portfolio.Portfolio()->TradeIds()[trade] + "; cause=" + String_(error.what()),
                        ScriptError_);
             }
+        }
+
+        template <class E_> class PassiveWeightedCollector_ {
+            const Vector_<PortfolioBatchOutput_>& outputs_;
+            const BatchSelection_& selection_;
+            const Vector_<std::unique_ptr<E_>>& states_;
+            PortfolioWeightedBatchResult_* result_;
+
+        public:
+            PassiveWeightedCollector_(const Vector_<PortfolioBatchOutput_>& outputs,
+                                      const BatchSelection_& selection,
+                                      const Vector_<std::unique_ptr<E_>>& states,
+                                      PortfolioWeightedBatchResult_* result)
+                : outputs_(outputs), selection_(selection), states_(states), result_(result) {}
+
+            double operator()(const Vector_<double>&, size_t, double) const {
+                double weighted = 0.0;
+                for (size_t component = 0; component < outputs_.size(); ++component) {
+                    const auto value = states_[selection_.outputEvaluators_[component]]->VarVals()[outputs_[component].coordinate_.slot_];
+                    const auto& context = selection_.outputContexts_[component];
+                    AddValue(value, &result_->componentSums_[component], context);
+                    AddValue(value * selection_.weights_[component], &weighted, context);
+                }
+                return weighted;
+            }
+
+            [[nodiscard]] AAD::ProfilingArrayStatistics_ WorkspaceArrays() const {
+                auto result = ProfileArrays(result_->componentSums_, selection_.weights_, selection_.outputEvaluators_);
+                for (size_t state = 1; state < states_.size(); ++state)
+                    result = JoinProfileArrays(result, ProfileEvaluatorArrays(*states_[state]));
+                return result;
+            }
+        };
+
+        template <class F_, class G_>
+        PortfolioWeightedBatchResult_ RunPassiveBatch(const PreparedPortfolio_& portfolio,
+                                                      size_t group,
+                                                      const PathBatch_& batch,
+                                                      const Vector_<PortfolioBatchOutput_>& outputs,
+                                                      const BatchSelection_& selection,
+                                                      const F_& build,
+                                                      const G_& evaluate) {
+            const auto& representative = portfolio.Trades()[selection.tradePositions_.front()];
+            auto model = CreateModel<double>(portfolio.Portfolio()->Models()[portfolio.Groups()[group].modelOwner_]);
+            model->Allocate(representative.TimeLine(), representative.DefLine());
+            model->Init(representative.TimeLine(), representative.DefLine());
+            PortfolioPassivePathState_ pathState(representative, *model);
+            auto states = BuildStates(portfolio, selection, build);
+            PortfolioWeightedBatchResult_ result(outputs.size());
+            result.tradePositions_ = selection.tradePositions_;
+            const PassiveWeightedCollector_ collector(outputs, selection, states, &result);
+            result.weightedSum_ = EvaluateDoubleBatch(
+                *model, &pathState, states.front().get(), batch, representative.PayOffIdx(),
+                [&](const auto& path, auto&) {
+                    ++result.generatedScenarios_;
+                    for (size_t state = 0; state < states.size(); ++state) {
+                        EvaluateTrade(portfolio, selection.tradePositions_[state], path, states[state].get(), evaluate);
+                        ++result.evaluatorCalls_;
+                    }
+                },
+                collector);
+            REQUIRE2(std::isfinite(result.weightedSum_), "InvalidPortfolioPayoff: non-finite weighted sum", ScriptError_);
+            return result;
         }
 
         template <class F_, class G_>
@@ -201,7 +275,15 @@ namespace Dal::Script::Detail {
         }
     } // namespace
 
-    size_t PortfolioWeightedWorkerFixedBytes(bool compiled, size_t trades) {
+    size_t PortfolioWeightedWorkerFixedBytes(bool compiled, size_t trades, bool native, bool checkedPaths) {
+        if (!native) {
+            const auto state = compiled ? sizeof(EvalState_<double>) : sizeof(Evaluator_<double>);
+            auto fixed = ReplayExtentProduct(trades, state);
+            fixed = ReplayExtentSum(fixed, sizeof(PortfolioPassivePathState_) + sizeof(Vector_<std::unique_ptr<Evaluator_<double>>>));
+            fixed = ReplayExtentSum(fixed, sizeof(PortfolioWeightedBatchResult_) + sizeof(BatchSelection_) +
+                                               sizeof(PassiveWeightedCollector_<Evaluator_<double>>));
+            return ReplayExtentSum(fixed, checkedPaths ? sizeof(LocalCheckedPaths_) : 0);
+        }
         const auto state = compiled ? sizeof(EvalState_<AAD::Number_>) : sizeof(FuzzyEvaluator_<AAD::Number_>);
         const auto past = compiled ? sizeof(EvalState_<AAD::Number_>) : sizeof(PastEvaluator_<AAD::Number_>);
         auto fixed = ReplayExtentSum(ReplayExtentProduct(trades, state), std::max(state, past));
@@ -222,6 +304,15 @@ namespace Dal::Script::Detail {
             const auto& representative = portfolio.Trades()[selection.tradePositions_.front()];
             ValidateRNG(representative.Simulation().rsg_);
             const auto run = [&] {
+                if (!representative.Simulation().enableAad_) {
+                    if (representative.Simulation().compiled_.value_or(false))
+                        return RunPassiveBatch(
+                            portfolio, group, batch, outputs, selection, [](const auto& trade) { return trade.template BuildEvalState<double>(); },
+                            [](const auto& trade, const auto& path, auto& state) { trade.CompiledProgram(false).Evaluate(path, state); });
+                    return RunPassiveBatch(
+                        portfolio, group, batch, outputs, selection, [](const auto& trade) { return trade.template BuildEvaluator<double>(); },
+                        [](const auto& trade, const auto& path, auto& state) { trade.Evaluate(path, state); });
+                }
                 if (representative.Simulation().compiled_.value_or(false))
                     return RunBatch(
                         portfolio, group, batch, outputs, selection, [](const auto& trade) { return trade.template BuildEvalState<AAD::Number_>(); },
@@ -232,9 +323,11 @@ namespace Dal::Script::Detail {
                     [](const auto& trade, const auto& path, auto& state) { trade.Evaluate(path, state); }, tape);
             };
             if (scratch) {
-                auto fixed =
-                    BufferCapacityScope_::ForWorker(scratch, PortfolioWeightedWorkerFixedBytes(representative.Simulation().compiled_.value_or(false),
-                                                                                               selection.tradePositions_.size()));
+                auto fixed = BufferCapacityScope_::ForWorker(
+                    scratch, PortfolioWeightedWorkerFixedBytes(representative.Simulation().compiled_.value_or(false),
+                                                               selection.tradePositions_.size(), representative.Simulation().enableAad_,
+                                                               typeid(*portfolio.Portfolio()->Models()[portfolio.Groups()[group].modelOwner_]) ==
+                                                                   typeid(BSModelData_)));
                 return run();
             }
             return run();
@@ -246,7 +339,9 @@ namespace Dal::Script::Detail {
             }
             return execute();
         } catch (const std::exception& error) {
-            THROW2("PortfolioWeightedBatchFailed: group=" + String_(std::to_string(group)) + "; cause=" + String_(error.what()), ScriptError_);
+            THROW2("PortfolioWeightedBatchFailed: group=" + String_(std::to_string(group)) + BatchFailureContext(portfolio, group, requestedOutputs) +
+                       "; cause=" + String_(error.what()),
+                   ScriptError_);
         }
     }
 } // namespace Dal::Script::Detail

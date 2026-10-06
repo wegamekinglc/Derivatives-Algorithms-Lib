@@ -67,20 +67,25 @@ reverse per batch. The internal coordinator's seven additional cases now cover
 cross-group accumulation, selected/empty inputs, task failure recovery and all
 six native model families against every independent scalar risk. Original meshes,
 owners, output order and one/four workers are checked. Aggregate capacity,
-passive execution, blocked attribution and complete public request acceptance
-still remain open for public acceptance. Native weighted execution now implements
+blocked attribution and complete binding acceptance still remain open.
+Native/passive public weighted results now own values, axes and original resolved
+trade/group metadata. Passive execution preserves the existing sharp evaluator
+and checked BS paths, while native-empty inputs retain fuzzy prices. All six
+families match independent prices/risks in both modes. Native weighted execution implements
 aggregate runtime recording/scratch guards and known-shape startup admission before
 history. Seven new cases verify prospective groups against completed groups,
 finite budgets/peaks, zero-budget rejection, all selected private vectors, omission
 of unselected evaluator state, capacity failure/recovery and sparse native vector
-zero-hole bindings. Passive and blocked admission still require their own tests.
+zero-hole bindings. Passive known private-vector admission now has an independent
+historical-price oracle and rejects before reads with finite scratch limits,
+ignoring zero tape limits. Blocked admission still requires its own tests.
 
 Implement weighted groups before blocked attribution; reuse the accepted
 native root/replay primitives. Avoid speculative hashing, persistent caches or
 automatic width selection in this PR. Keep valuation/binding proposals visibly
-marked as unimplemented; current-state public documentation covers sealed C++
-construction and passive coordinate inspection. The callback now has actual native
-weighted aggregate admission. Public request/result integration must retain this
+marked as unimplemented; current-state public documentation now covers sealed C++
+construction, coordinates and native/passive weighted valuation. The callback has
+actual native/passive weighted aggregate admission. Blocked request/result integration must retain this
 policy and failure boundary; the generic callback alone is not capacity acceptance
 for another execution mode.
 

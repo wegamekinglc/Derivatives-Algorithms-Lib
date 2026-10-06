@@ -258,6 +258,11 @@ namespace Dal {
         Vector_<Script::RiskCoordinate_> ScriptRiskInputAxis(const AAD::Model_<double>& model, const Script::ScriptProduct_& product) {
             return InputAxis(model, product);
         }
+
+        Script::RiskResultProvenance_
+        CaptureScriptRiskProvenance(const Script::PreparedScript_& prepared, const ScriptProductData_& product, const ModelData_& model, int paths) {
+            return Provenance(prepared, product, model, paths);
+        }
     } // namespace Detail
 
     MonteCarloSettings_ DefaultRiskMonteCarloSettings() {

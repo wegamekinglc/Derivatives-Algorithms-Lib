@@ -48,6 +48,33 @@ namespace {
         return {trade, std::move(output), weight};
     }
 
+    Vector_<MonteCarloSettings_> ExecutionModes(const Vector_<String_>& generators, bool bridge) {
+        Vector_<MonteCarloSettings_> modes;
+        for (const bool compiled : {false, true})
+            for (const bool native : {true, false})
+                for (const auto& generator : generators) {
+                    auto simulation = DefaultRiskMonteCarloSettings();
+                    simulation.compiled_ = compiled;
+                    simulation.enableAad_ = native;
+                    simulation.rsg_ = generator;
+                    simulation.useBb_ = bridge;
+                    modes.push_back(simulation);
+                }
+        return modes;
+    }
+
+    Vector_<size_t> SelectedRiskInputs(const Vector_<size_t>& inputs, const MonteCarloSettings_& simulation) {
+        return simulation.enableAad_ ? inputs : Vector_<size_t>{};
+    }
+
+    void AssertWeightedWork(const Dal::Detail::PortfolioWeightedReplayResult_& result, size_t workers, const MonteCarloSettings_& simulation) {
+        for (const auto& group : result.groupCounters_) {
+            ASSERT_EQ(group.generatedScenarios_, 257);
+            ASSERT_EQ(group.suffixReversals_, simulation.enableAad_ ? 257 : 0);
+            ASSERT_EQ(group.prefixReversals_, simulation.enableAad_ ? workers : 0);
+        }
+    }
+
     void AssertIndependentScalarRisk(const Handle_<ScriptPortfolioData_>& data,
                                      const PortfolioRiskAxes_& axes,
                                      const Vector_<size_t>& trades,
@@ -55,14 +82,14 @@ namespace {
                                      const MonteCarloSettings_& simulation,
                                      const Dal::Detail::PortfolioWeightedReplayResult_& result) {
         double objective = 0.0;
-        Vector_<double> gradient(axes.InputAxis().size(), 0.0);
+        Vector_<double> gradient(simulation.enableAad_ ? axes.InputAxis().size() : 0, 0.0);
         for (size_t row = 0; row < trades.size(); ++row) {
             const auto trade = trades[row];
             const auto reference =
                 ValueByMonteCarloWithRisk(data->Products()[trade], data->Models()[data->ModelOwners()[trade]], 257, {}, Valuation(), simulation);
             ASSERT_NEAR(result.componentMeans_[row], reference.Values()[0], 1e-10);
             objective += weights[row] * reference.Values()[0];
-            for (size_t local = 0; local < axes.TradeInputPositions()[trade].size(); ++local)
+            for (size_t local = 0; local < reference.InputAxis().size(); ++local)
                 gradient[axes.TradeInputPositions()[trade][local]] += weights[row] * reference.Jacobian()(0, static_cast<int>(local));
         }
         ASSERT_NEAR(result.weightedValue_, objective, 1e-10);
@@ -117,30 +144,20 @@ TEST(PortfolioReplayTest, TestOriginalMeshesAndDistinctOwnersMatchIndependentSca
     const Vector_<double> weights{0.5, 2.0, -1.0, 3.0};
     for (const size_t workers : {1, 4}) {
         const ScopedPortfolioThreads_ threads(workers);
-        for (const bool compiled : {false, true})
-            for (const String_& rsg : Vector_<String_>{"sobol", "mrg32"}) {
-                MonteCarloSettings_ simulation;
-                simulation.enableAad_ = true;
-                simulation.compiled_ = compiled;
-                simulation.rsg_ = rsg;
-                simulation.useBb_ = true;
-                const auto prepared = Dal::Script::Detail::PrepareScriptPortfolio(data, 257, Valuation(), simulation);
-                ASSERT_EQ(prepared.Groups().size(), 3);
-                ASSERT_EQ(prepared.Groups()[0].tradePositions_, Vector_<size_t>({0, 2}));
-                Vector_<Dal::Script::Detail::PortfolioBatchOutput_> outputs;
-                for (size_t row = 0; row < trades.size(); ++row)
-                    outputs.push_back(Payoff(prepared, trades[row], weights[row]));
-                const auto result = Dal::Detail::EvaluatePortfolioWeightedReplay(prepared, outputs, inputs);
-                ASSERT_NO_FATAL_FAILURE(AssertIndependentScalarRisk(data, axes, trades, weights, simulation, result));
-                for (const auto& group : result.groupCounters_) {
-                    ASSERT_EQ(group.generatedScenarios_, 257);
-                    ASSERT_EQ(group.suffixReversals_, 257);
-                    ASSERT_EQ(group.prefixReversals_, workers);
-                }
-                ASSERT_EQ(result.groupCounters_[0].evaluatorCalls_, 514);
-                ASSERT_EQ(result.groupCounters_[1].evaluatorCalls_, 257);
-                ASSERT_EQ(result.groupCounters_[2].evaluatorCalls_, 257);
-            }
+        for (const auto& simulation : ExecutionModes({"sobol", "mrg32"}, true)) {
+            const auto prepared = Dal::Script::Detail::PrepareScriptPortfolio(data, 257, Valuation(), simulation);
+            ASSERT_EQ(prepared.Groups().size(), 3);
+            ASSERT_EQ(prepared.Groups()[0].tradePositions_, Vector_<size_t>({0, 2}));
+            Vector_<Dal::Script::Detail::PortfolioBatchOutput_> outputs;
+            for (size_t row = 0; row < trades.size(); ++row)
+                outputs.push_back(Payoff(prepared, trades[row], weights[row]));
+            const auto result = Dal::Detail::EvaluatePortfolioWeightedReplay(prepared, outputs, SelectedRiskInputs(inputs, simulation));
+            ASSERT_NO_FATAL_FAILURE(AssertIndependentScalarRisk(data, axes, trades, weights, simulation, result));
+            ASSERT_NO_FATAL_FAILURE(AssertWeightedWork(result, workers, simulation));
+            ASSERT_EQ(result.groupCounters_[0].evaluatorCalls_, 514);
+            ASSERT_EQ(result.groupCounters_[1].evaluatorCalls_, 257);
+            ASSERT_EQ(result.groupCounters_[2].evaluatorCalls_, 257);
+        }
     }
 }
 
@@ -294,27 +311,13 @@ TEST(PortfolioReplayTest, TestSixModelFamiliesShareOriginalPathsAndMatchEveryInd
             inputs.push_back(input);
         for (const size_t workers : {1, 4}) {
             const ScopedPortfolioThreads_ threads(workers);
-            for (const bool compiled : {false, true}) {
-                MonteCarloSettings_ simulation;
-                simulation.enableAad_ = true;
-                simulation.compiled_ = compiled;
+            for (const auto& simulation : ExecutionModes({"sobol"}, false)) {
                 const auto prepared = Dal::Script::Detail::PrepareScriptPortfolio(data, 257, Valuation(), simulation);
                 ASSERT_EQ(prepared.Groups().size(), 1);
-                const auto result =
-                    Dal::Detail::EvaluatePortfolioWeightedReplay(prepared, {Payoff(prepared, 1, -1.0), Payoff(prepared, 0, 2.0)}, inputs);
-                const auto first = ValueByMonteCarloWithRisk(data->Products()[0], data->Models()[0], 257, {}, Valuation(), simulation);
-                const auto second = ValueByMonteCarloWithRisk(data->Products()[1], data->Models()[0], 257, {}, Valuation(), simulation);
-                ASSERT_NEAR(result.componentMeans_[0], second.Values()[0], 1e-10);
-                ASSERT_NEAR(result.componentMeans_[1], first.Values()[0], 1e-10);
-                ASSERT_NEAR(result.weightedValue_, 2 * first.Values()[0] - second.Values()[0], 1e-10);
-                Vector_<double> gradient(inputs.size(), 0.0);
-                for (size_t input = 0; input < first.InputAxis().size(); ++input)
-                    gradient[axes.TradeInputPositions()[0][input]] += 2 * first.Jacobian()(0, static_cast<int>(input));
-                for (size_t input = 0; input < second.InputAxis().size(); ++input)
-                    gradient[axes.TradeInputPositions()[1][input]] -= second.Jacobian()(0, static_cast<int>(input));
-                for (size_t input = 0; input < inputs.size(); ++input)
-                    ASSERT_NEAR(result.gradient_[input], gradient[input], 1e-10) << axes.InputAxis()[input].id_;
-                ASSERT_EQ(result.groupCounters_[0].generatedScenarios_, 257);
+                const auto result = Dal::Detail::EvaluatePortfolioWeightedReplay(prepared, {Payoff(prepared, 1, -1.0), Payoff(prepared, 0, 2.0)},
+                                                                                 SelectedRiskInputs(inputs, simulation));
+                ASSERT_NO_FATAL_FAILURE(AssertIndependentScalarRisk(data, axes, {1, 0}, {-1.0, 2.0}, simulation, result));
+                ASSERT_NO_FATAL_FAILURE(AssertWeightedWork(result, workers, simulation));
                 ASSERT_EQ(result.groupCounters_[0].evaluatorCalls_, 514);
             }
         }

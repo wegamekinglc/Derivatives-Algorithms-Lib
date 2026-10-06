@@ -2,8 +2,9 @@
 
 Status: sealed C++ portfolio construction and coordinate inspection exist.
 Internal whole-request preparation and shared weighted group batches also exist.
-The internal replay coordinator and native weighted capacity admission also exist.
-Public valuation and binding surfaces below remain proposals for the active
+The replay coordinator, native/passive weighted capacity admission and owning
+public C++ weighted result also exist. Attribution and binding surfaces below
+remain proposals for the active
 [portfolio specification](../specs/aad-compatible-script-portfolio.md).
 
 ## Current boundary and audience
@@ -80,7 +81,11 @@ per-group work counters and actual recording/scratch peaks. Optional aggregate
 limits guard coordinator, worker and batch/result capacities, including growth
 overlap and task slots. Result replacement stays inside the worker attachment;
 accepted tasks drain after submission/worker/capacity failures. This internal
-coordinator does not expose public results, provenance or bindings.
+coordinator feeds the public owning weighted result. Passive execution uses
+the existing checked BS path and double-batch driver with private sharp evaluators,
+never creating native roots or registering tape leaves. Only omitted/empty passive
+inputs are accepted; native-empty inputs retain fuzzy pricing. Scenario and
+evaluator counts remain distinct in both modes.
 
 `Dal::Detail::PlanPortfolioWeightedRequest` is an internal owning request plan
 over a sealed portfolio. It defaults to every trade payoff, resolves ordered
@@ -94,7 +99,7 @@ without relaxing legacy ordinal-ID validation. This plan is not a public valuati
 entry or recording/scratch admission policy.
 
 `PreparePortfolioWeightedReplay` owns a copy of this plan and the settings and
-connects its native selections to whole-request preparation. With finite capacity
+connects its native/passive selections to whole-request preparation. With finite capacity
 limits, it uses prospective full-contract groups over the original planned meshes
 and one pending historical environment. Completed groups still require executable
 state and resolved historical equality. Admission reserves coordinator/result/task
@@ -102,22 +107,26 @@ capacities and divides the remaining capacity across concurrent workers. Guarded
 model initialization and every selected private evaluator/history vector shape run
 before historical reads. Unselected private evaluators are omitted. Placeholder
 history admits known shapes; actual historical arithmetic and later growth remain
-guarded at runtime. Passive admission and blocked-width admission remain pending.
+guarded at runtime. Passive startup admits every selected double evaluator and
+known private vector seed, including the checked BS path. It ignores tape limits.
+Blocked-width admission remains pending.
 
-## Proposed valuation surfaces
+## Valuation surfaces
 
-Proposed C++ entry points take the portfolio and path count first, followed by
+The C++ weighted entry exists; the attribution entry remains proposed. Both take
+the portfolio and path count first, followed by
 request, valuation and simulation settings. Use separate weighted and attribution
 methods rather than a mode flag with incompatible output types:
 
 ```cpp
-// Proposed signatures; declarations are not present in DAL yet.
+// Implemented weighted entry.
 PortfolioWeightedRiskResult_ ValuePortfolioByMonteCarloWithWeightedRisk(
     const Handle_<ScriptPortfolioData_>& portfolio, int numPath,
     const PortfolioWeightedRiskRequest_& request = {},
     const ScriptValuationSettings_& valuation = {},
     const MonteCarloSettings_& simulation = DefaultRiskMonteCarloSettings());
 
+// Proposed attribution entry.
 PortfolioJacobianRiskResult_ ValuePortfolioByMonteCarloWithJacobianRisk(
     const Handle_<ScriptPortfolioData_>& portfolio, int numPath,
     const PortfolioJacobianRiskRequest_& request = {},
@@ -131,11 +140,16 @@ explicit maximum block width, default one. Weighted requests keep passive
 weights. Do not add portfolio fields to the legacy scalar or single-script request
 types. Omitted outputs mean every trade's payoff; explicit empty outputs fail.
 
-New results own numeric data and trade/group metadata. Selected/complete axes
+The weighted result owns numeric data and trade/group metadata. Selected/complete axes
 use the namespaced IDs defined in the specification. Expose trade IDs and
 model-owner ordinals separately from risk labels. Execution metadata contains
 group membership and scenario counts; it must distinguish scenario generation
-from trade evaluator invocations. Getters retain existing detached-copy behavior.
+from trade evaluator invocations. Matrix getters construct detached one-row
+copies from the retained gradient; const axis/metadata accessors borrow from the
+owning result. This preserves the exact weighted retained numeric payload without
+retaining a second gradient. Report projection overflow fails before publication.
+Per-trade provenance uses the shared scalar capture helper without changing legacy
+scalar, weighted or Jacobian execution. The result retains no active state.
 
 ## Binding projection
 
@@ -184,9 +198,9 @@ an active model/evaluator handle as the portfolio result.
 
 ## Remaining implementation decisions
 
-All six accepted families pass snapshot/coordinate and independent native weighted
-common-path risk tests; passive and blocked oracles remain. Finalize result
-metadata layout without adding fields or runtime work to old results. Validate strict
+All six accepted families pass snapshot/coordinate and independent native/passive
+weighted common-path tests. Blocked oracles remain. Weighted result metadata is
+additive and adds no fields or runtime work to old results. Validate strict
 Python/Excel construction against analogous risk request parsers. Names may be
 adjusted to fit registration conventions before implementation; mathematical
 identities and failure semantics remain controlled by the specification.
