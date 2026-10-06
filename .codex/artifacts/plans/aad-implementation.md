@@ -47,6 +47,17 @@ incremental implementation turns and PRs; a green first stage does not complete 
   [API decisions](../api-notes/aad-blocked-script-risk.md) and
   [critique](../critiques/aad-blocked-script-risk.md). Portfolio integration
   remains later F02 work.
+- F02 delivery boundary (2026-10-06): blocked Jacobian PR #484 is merged at
+  `1c9273c9`. Accepted head `1785162c` passes all 35 CI checks, zero Codacy
+  annotations and two complete paginated review audits with no unresolved
+  threads. All 160 existing performance comparisons pass the unchanged paired
+  policy; 78 informational block-width processes pass independent row oracles.
+  Both actual Windows raw-export cases pass in all four configurations.
+  Compatible portfolio integration starts from this merge in a new draft PR,
+  controlled by its [specification](../specs/aad-compatible-script-portfolio.md),
+  [API proposal](../api-notes/aad-compatible-script-portfolio.md) and
+  [critique](../critiques/aad-compatible-script-portfolio.md). This is the next
+  active implementation slice; the full plan remains incomplete.
 - Establish a failing independent test before each behavioral change.
 - Validation amendment (2026-10-05): select tests from the changed behavior and
   dependency paths. A binding-only increment runs its focused tests and affected
@@ -98,7 +109,7 @@ incremental implementation turns and PRs; a green first stage does not complete 
 - [x] F01: calibration-only and full bump/recalibrate/common-path oracles.
 - [x] F01: common calibration pullback integration with existing curve quote-risk semantics.
 - [x] F02: fixed-weight VJP for multiple prepared-script outputs, including aliases/constants.
-- [ ] F02: budgeted native blocked Jacobian with explicit rerecording behavior.
+- [x] F02: budgeted native blocked Jacobian with explicit rerecording behavior.
 - [ ] F02: compatible portfolio observation/timeline integration.
 - [ ] P02: per-worker capacity reuse and safe re-registration/reinitialization.
 - [ ] P03: measured block-width selection and demand-driven result extraction.
@@ -743,20 +754,20 @@ This snapshot distinguishes accepted increments from locally implemented work.
 Estimates are remaining single-developer effort, not promises of calendar time;
 overlapping acceptance work is included once in the integration allowance.
 
-| Work item               | Implementation/local verification                              | Publication/CI                            | Remaining person-days |
-|-------------------------|----------------------------------------------------------------|-------------------------------------------|-----------------------|
-| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                  | Accepted exact-head checks                | 0                     |
-| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass | Merged; final 35/35 checks accepted       | 0                     |
-| F01                     | C++/Python/Excel and complete requirement audit accepted       | Merged; final 35/35 checks accepted       | 0                     |
-| F02 current PR          | Weighted merged; blocked interfaces and perf repair tested     | #484: committed-head performance/CI gates | 0.5–1                 |
-| F02 portfolio           | Compatible portfolio preparation and attribution remain        | Next PR after #484 merges                 | 4–6                   |
-| P02/P03                 | Worker reuse/block selection/extraction remain                 | Open                                      | 4–7                   |
-| F03                     | Solve, implicit calibration and PDE operators remain           | Open                                      | 12–20                 |
-| P04/P05                 | Structural sparsity/checkpointing remain                       | Open                                      | 9–15                  |
-| F04                     | Second-order implementation/estimator validation remain        | Open                                      | 12–20                 |
-| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains     | Open                                      | 7–11                  |
+| Work item               | Implementation/local verification                              | Publication/CI                          | Remaining person-days |
+|-------------------------|----------------------------------------------------------------|-----------------------------------------|-----------------------|
+| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                  | Accepted exact-head checks              | 0                     |
+| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass | Merged; final 35/35 checks accepted     | 0                     |
+| F01                     | C++/Python/Excel and complete requirement audit accepted       | Merged; final 35/35 checks accepted     | 0                     |
+| F02 weighted/blocked    | C++/Python/Excel and independent mathematical oracles accepted | #483/#484 merged; exact-head gates pass | 0                     |
+| F02 portfolio           | Active spec/API/critique; grouping/execution not implemented   | New draft PR from merged #484           | 4–6                   |
+| P02/P03                 | Worker reuse/block selection/extraction remain                 | Open                                    | 4–7                   |
+| F03                     | Solve, implicit calibration and PDE operators remain           | Open                                    | 12–20                 |
+| P04/P05                 | Structural sparsity/checkpointing remain                       | Open                                    | 9–15                  |
+| F04                     | Second-order implementation/estimator validation remain        | Open                                    | 12–20                 |
+| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains     | Open                                    | 7–11                  |
 
-Remaining total: approximately 49–80 person-days, or 10–16 working weeks,
+Remaining total: approximately 48–79 person-days, or 10–16 working weeks,
 excluding CI queue time and including delivery contingency. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
 effort estimate, not a guaranteed completion date. Re-estimate when review
@@ -1125,20 +1136,22 @@ corrected head passes fresh correctness and all changed-workload comparisons;
 all 46 exact publication-head CI checks subsequently pass at `0ee84e1`.
 Do not reuse the ownership snapshot's acceptance as proof for these new changes.
 
-The #484 implementation now has owning C++/Python/Excel blocked Jacobians,
-sealed common-path replay, independent scalar/weighted/difference oracles and
-guarded model/path/evaluator startup admission before history. Known width
-limits narrow execution while preserving the original request. Finite budgets
-cover all six supported model families in tree/compiled four-worker oracles.
-The four published review findings are repaired and resolved. Focused local
-acceptance covers 46 core, 13 Jacobian public, 16 legacy public, 97 Python and
-19 typed Excel cases. Two actual Windows export cases and all twelve generated
-entries remain subject to fresh platform acceptance. See the
-[producer review](../reviews/aad-blocked-public-risk.md).
+PR #484 is merged after full acceptance at `1785162c`: all 35 exact-head checks,
+zero Codacy annotations, zero unresolved review threads, all 160 existing paired
+performance cases, and both actual Windows raw-export cases in all four modes.
+Its 78 informational width processes independently verify every row; they do not
+change the default width or constitute a comparative speedup claim.
+The corrected budget fixture isolates its required single worker, and exact
+double curve-knot queries avoid transient weights without changing AAD or
+non-knot behavior. Existing failed measurements remain retained in delivery
+evidence; no thresholds, work counts or numeric oracles were relaxed.
 
-Next: finish existing-entry paired performance and current-head platform
-CI/Codacy/review repair before merging #484. Complete compatible portfolio
-preparation in the following PR. Weighted C++/Python/Excel
-is accepted in merged #483. Preserve affected scalar/weighted costs and
-independent numerical oracles.
+Next: implement compatible portfolio ownership, axes and deterministic semantic
+grouping under the new active contract, then shared weighted recordings and
+blocked attribution. Keep incompatible supported trades in separate groups;
+preserve original RNG dimensions/path indices and private trade evaluator state.
+The new draft begins with specification/API/critique artifacts, not an implemented
+portfolio API. Preserve affected scalar/weighted/Jacobian costs and independent
+numerical oracles. Remaining portfolio work is estimated at 4–6 person-days;
+the overall remaining estimate excludes the now-completed #484 closeout.
 Stage A is accepted; the full Stage B/C/D goal remains incomplete.
