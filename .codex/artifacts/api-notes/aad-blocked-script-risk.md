@@ -15,7 +15,8 @@ component means. Neither operation implies that a full Jacobian was computed.
 
 Use `JacobianRiskRequest_` with `RiskRequest_ selection_`, positive
 `maxBlockWidth_` (conservative initial default one), and optional recording
-payload/numeric scratch limits. Keep the existing numeric result budget in
+payload/numeric scratch limits named `recordingCapacityBudgetBytes_` and
+`scratchCapacityBudgetBytes_`. Keep the existing numeric result budget in
 `selection_`; avoid a fourth overlapping definition of retained result bytes.
 Define recording/scratch coverage and aggregate-worker semantics before making
 these limit fields public. Width zero is invalid, not an automatic-mode sentinel.
@@ -29,9 +30,12 @@ semantics. Excel exposes `JacobianRiskRequest_New` and
 The owning result exposes output means, raw/reported `(m,n)` matrices, selected
 and complete row/column axes, sealed preparation provenance and actual execution
 width/replay/budget evidence. Reuse compatible passive metadata and table
-formatters. Decide whether the scalar `RiskResult_` can gain an internal generic
-constructor or needs an owning wrapper; preserve its public layout/getters and
-avoid making untyped scalar function pointers ambiguous.
+formatters. Use a separate owning `JacobianRiskResult_` with `Values()`,
+`Jacobian()`, `ReportedJacobian()`, selected/complete output/input axes,
+`Provenance()` and `Execution()` diagnostics. Keep the existing scalar result
+layout/getters and function signatures. Share cold selection/axis/provenance
+validators instead of putting a scalar objective or unused weights inside the
+Jacobian result/plan.
 
 ## Typical request
 
@@ -45,7 +49,8 @@ const auto result = ValueByMonteCarloWithJacobianRisk(
 // Rows follow the two requested output IDs; columns follow spot and volatility.
 ```
 
-This is a proposed example, not a currently available API.
+The C++ entry is implemented on the draft branch. Python and Excel consumers
+and complete delivery acceptance remain open.
 
 ## Errors and compatibility
 
@@ -115,6 +120,15 @@ evaluators. `BufferCapacityScope_::ForWorker` can share an attached coordinator
 budget, requires stack-ordered close and preserves normal nested-scope rejection.
 See the [batch review](../reviews/aad-blocked-batch-execution.md).
 
+Allocation addresses are retired before physical deallocation; their byte
+charge remains until deallocation returns. New replay task groups admit future
+storage explicitly, then suspend caller tracking through submission and draining
+so helping the shared pool cannot inherit a different request's budget. Each
+worker attaches its own request, and suspended coordinator reservations remain
+charged. Native roots are cleared in all channels before diagonal alias seeds;
+the RNG method is copied into request-owned storage. See the
+[public producer and repair review](../reviews/aad-blocked-public-risk.md).
+
 The batch attaches its tape budget before selecting vector mode and enables
 cleanup headroom. `Detail::EvaluateAADBlockReplay` now owns complete path replay,
 ordered batch reduction, task draining, raw numeric matrices and actual width/
@@ -122,6 +136,17 @@ replay/path/capacity evidence. It captures selections/settings before submission
 and returns no partial matrix on failure. The first driver does not retry after
 runtime exhaustion. See the [request replay review](../reviews/aad-blocked-request-replay.md).
 
-Public ordered-ID planning, full model/product/history snapshots, complete known
-model-specific minimum preflight, axes/report factors/provenance and C++/Python/
-Excel consumers remain unimplemented. Public delivery acceptance remains open.
+`JacobianRiskPlan_` now owns ordered selected/complete axes, input positions,
+report factors, date and limits. `JacobianRiskResult_` owns raw numeric results,
+provenance and actual widths/replays/path counts/capacity peaks. Projection checks
+finite values, raw/report risks and execution consistency. The additive C++
+entry deep-copies product data and archives/reads model data before history,
+prepares once and uses the native replay driver. Explicit passive empty-column
+requests use the shared double batch evaluator with an independent output
+collector, avoiding an unused weighted objective. Their recording peak is zero
+and their one forward replay is reported separately from native blocks.
+
+Known result, fixed evaluator/root/batch and initial tape bounds precede history.
+Complete model-specific minimum preflight remains open. Python/Excel consumers,
+stable-head platform acceptance and existing-entry paired performance remain
+required before this draft is ready to merge.

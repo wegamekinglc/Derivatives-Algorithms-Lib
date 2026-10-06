@@ -1125,9 +1125,16 @@ corrected head passes fresh correctness and all changed-workload comparisons;
 all 46 exact publication-head CI checks subsequently pass at `0ee84e1`.
 Do not reuse the ownership snapshot's acceptance as proof for these new changes.
 
-Next: inventory and enforce model/path/evaluator numeric scratch capacities,
-then implement sealed common-path block replay and owning Jacobian consumers
-in #484. Complete compatible portfolio preparation in the following PR. Weighted C++/Python/Excel
+The #484 draft now has sealed common-path replay and the initial owning C++
+Jacobian producer, including explicit passive empty columns and independent
+public scalar/weighted/common-path difference oracles. The four current review
+findings have focused repairs; their latest publication CI acceptance remains
+required. See the [producer review](../reviews/aad-blocked-public-risk.md).
+
+Next: complete the history-free model/path/evaluator minimum inventory, add
+Python/Excel consumers, then finish existing-entry performance and current-head
+CI/Codacy/review repair before merging #484. Complete compatible portfolio
+preparation in the following PR. Weighted C++/Python/Excel
 is accepted in merged #483. Preserve affected scalar/weighted costs and
 independent numerical oracles.
 Stage A is accepted; the full Stage B/C/D goal remains incomplete.

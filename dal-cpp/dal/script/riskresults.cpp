@@ -9,6 +9,7 @@
 #include <utility>
 
 #include <dal/platform/platform.hpp>
+#include <dal/script/riskaxisinternal.hpp>
 #include <dal/script/riskresults.hpp>
 #include <dal/script/simulation.hpp>
 
@@ -141,6 +142,17 @@ namespace Dal::Script {
             return selected;
         }
     } // namespace
+
+    namespace Detail {
+        Vector_<size_t> RiskInputPositions(const Vector_<RiskCoordinate_>& axis, const RiskRequest_& request) {
+            return SelectedInputs(axis, request);
+        }
+
+        void ValidateRiskResultMetadata(const RiskResultProvenance_& provenance, int paths) {
+            ValidateProvenance(provenance);
+            ValidateExecutionSnapshot(provenance.execution_, paths);
+        }
+    } // namespace Detail
 
     size_t RiskResultPayloadBytes(size_t outputs, size_t inputs) {
         const size_t maximum = std::numeric_limits<size_t>::max();

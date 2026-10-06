@@ -12,14 +12,17 @@
 #include <utility>
 
 #include <dal/platform/platform.hpp>
+#include <dal/script/riskaxisinternal.hpp>
 #include <dal/script/weightedrisk.hpp>
 
 namespace Dal::Script {
     namespace {
-        Vector_<RiskOutputCoordinate_> SelectOutputs(const Vector_<RiskOutputCoordinate_>& axis, const std::optional<Vector_<String_>>& requested) {
+        Vector_<RiskOutputCoordinate_> SelectOutputs(const Vector_<RiskOutputCoordinate_>& axis,
+                                                     const std::optional<Vector_<String_>>& requested,
+                                                     const char* kind = "InvalidWeightedRiskRequest") {
             const Vector_<String_> defaults = {"payoff"};
             const auto& ids = requested ? *requested : defaults;
-            REQUIRE2(!ids.empty(), "InvalidWeightedRiskRequest: output selection must be nonempty; field=outputs", ScriptError_);
+            REQUIRE2(!ids.empty(), String_(kind) + ": output selection must be nonempty; field=outputs", ScriptError_);
             std::map<String_, size_t> available;
             for (size_t slot = 0; slot < axis.size(); ++slot)
                 available.emplace(axis[slot].id_, slot);
@@ -27,9 +30,9 @@ namespace Dal::Script {
             Vector_<RiskOutputCoordinate_> outputs;
             outputs.reserve(ids.size());
             for (const auto& id : ids) {
-                REQUIRE2(selected.insert(id).second, "InvalidWeightedRiskRequest: repeated output ID; output=" + id, ScriptError_);
+                REQUIRE2(selected.insert(id).second, String_(kind) + ": repeated output ID; output=" + id, ScriptError_);
                 const auto found = available.find(id);
-                REQUIRE2(found != available.end(), "InvalidWeightedRiskRequest: unknown scalar output ID; output=" + id, ScriptError_);
+                REQUIRE2(found != available.end(), String_(kind) + ": unknown scalar output ID; output=" + id, ScriptError_);
                 outputs.push_back(axis[found->second]);
             }
             return outputs;
@@ -44,33 +47,64 @@ namespace Dal::Script {
                              "InvalidWeightedRiskRequest: weight must be finite; component=" + String_(std::to_string(component)), ScriptError_);
         }
 
-        void ValidateProduct(const ScriptProduct_& product, const Date_& date) {
-            REQUIRE2(date.IsValid(), "InvalidWeightedRiskRequest: valuation date must be valid; field=evaluationDate", ScriptError_);
-            REQUIRE2(!product.ContainsExercise(), "UnsupportedWeightedRisk: EXERCISE requires a separate weighted estimator", ScriptError_);
+        void ValidateProduct(const ScriptProduct_& product,
+                             const Date_& date,
+                             const char* requestKind = "InvalidWeightedRiskRequest",
+                             const char* unsupportedKind = "UnsupportedWeightedRisk",
+                             const char* estimator = "weighted") {
+            REQUIRE2(date.IsValid(), String_(requestKind) + ": valuation date must be valid; field=evaluationDate", ScriptError_);
+            REQUIRE2(!product.ContainsExercise(), String_(unsupportedKind) + ": EXERCISE requires a separate " + estimator + " estimator",
+                     ScriptError_);
             REQUIRE2(std::any_of(product.ParsedEventDates().begin(), product.ParsedEventDates().end(),
                                  [&](const Date_& eventDate) { return eventDate >= date; }),
-                     "UnsupportedWeightedRisk: fully expired products are not supported", ScriptError_);
+                     String_(unsupportedKind) + ": fully expired products are not supported", ScriptError_);
         }
 
-        void ValidateOutputAxis(const Vector_<RiskOutputCoordinate_>& expected, const Vector_<RiskOutputCoordinate_>& prepared) {
-            REQUIRE2(expected.size() == prepared.size(), "InvalidWeightedRiskPlan: prepared output axis extent changed", ScriptError_);
+        void ValidateOutputAxis(const Vector_<RiskOutputCoordinate_>& expected,
+                                const Vector_<RiskOutputCoordinate_>& prepared,
+                                const char* kind = "InvalidWeightedRiskPlan") {
+            REQUIRE2(expected.size() == prepared.size(), String_(kind) + ": prepared output axis extent changed", ScriptError_);
             for (size_t slot = 0; slot < expected.size(); ++slot)
                 REQUIRE2(expected[slot].id_ == prepared[slot].id_ && expected[slot].label_ == prepared[slot].label_ &&
                              expected[slot].slot_ == prepared[slot].slot_,
-                         "InvalidWeightedRiskPlan: prepared output coordinate changed; output=" + expected[slot].id_, ScriptError_);
+                         String_(kind) + ": prepared output coordinate changed; output=" + expected[slot].id_, ScriptError_);
         }
 
-        void ValidateInputAxis(const Vector_<RiskCoordinate_>& expected, const Vector_<RiskCoordinate_>& prepared) {
-            REQUIRE2(expected.size() == prepared.size(), "InvalidWeightedRiskPlan: prepared input axis extent changed", ScriptError_);
+        void ValidateInputAxis(const Vector_<RiskCoordinate_>& expected,
+                               const Vector_<RiskCoordinate_>& prepared,
+                               const char* kind = "InvalidWeightedRiskPlan") {
+            REQUIRE2(expected.size() == prepared.size(), String_(kind) + ": prepared input axis extent changed", ScriptError_);
             const auto identity = [](const RiskCoordinate_& coordinate) {
                 return std::tie(coordinate.id_, coordinate.label_, coordinate.family_, coordinate.ordinal_, coordinate.value_, coordinate.nativeUnit_,
                                 coordinate.physicalUnit_, coordinate.reportScale_);
             };
             for (size_t input = 0; input < expected.size(); ++input)
                 REQUIRE2(identity(expected[input]) == identity(prepared[input]),
-                         "InvalidWeightedRiskPlan: prepared input coordinate changed; input=" + expected[input].id_, ScriptError_);
+                         String_(kind) + ": prepared input coordinate changed; input=" + expected[input].id_, ScriptError_);
         }
     } // namespace
+
+    namespace Detail {
+        Vector_<RiskOutputCoordinate_>
+        SelectRiskOutputs(const Vector_<RiskOutputCoordinate_>& axis, const std::optional<Vector_<String_>>& requested, const char* requestKind) {
+            return SelectOutputs(axis, requested, requestKind);
+        }
+
+        void RequireLiveRiskProduct(
+            const ScriptProduct_& product, const Date_& date, const char* requestKind, const char* unsupportedKind, const char* estimator) {
+            ValidateProduct(product, date, requestKind, unsupportedKind, estimator);
+        }
+
+        void ValidatePreparedRiskOutputs(const Vector_<RiskOutputCoordinate_>& expected,
+                                         const Vector_<RiskOutputCoordinate_>& prepared,
+                                         const char* planKind) {
+            ValidateOutputAxis(expected, prepared, planKind);
+        }
+
+        void ValidatePreparedRiskInputs(const Vector_<RiskCoordinate_>& expected, const Vector_<RiskCoordinate_>& prepared, const char* planKind) {
+            ValidateInputAxis(expected, prepared, planKind);
+        }
+    } // namespace Detail
 
     Vector_<RiskOutputCoordinate_> ScriptRiskOutputAxis(const ScriptProduct_& indexedProduct) {
         const auto& names = indexedProduct.VarNames();

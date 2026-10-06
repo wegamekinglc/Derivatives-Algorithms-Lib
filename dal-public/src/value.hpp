@@ -6,6 +6,7 @@
 
 #include <optional>
 
+#include <dal/script/jacobianrisk.hpp>
 #include <dal/script/riskresults.hpp>
 #include <dal/script/simulation.hpp>
 
@@ -28,6 +29,14 @@ namespace Dal {
                                       const Handle_<ModelData_>& modelData,
                                       int numPath,
                                       const Script::WeightedRiskRequest_& request = {},
+                                      const ScriptValuationSettings_& valuation = {},
+                                      const MonteCarloSettings_& simulation = DefaultRiskMonteCarloSettings());
+
+    [[nodiscard]] Script::JacobianRiskResult_
+    ValueByMonteCarloWithJacobianRisk(const Handle_<ScriptProductData_>& product,
+                                      const Handle_<ModelData_>& modelData,
+                                      int numPath,
+                                      const Script::JacobianRiskRequest_& request = {},
                                       const ScriptValuationSettings_& valuation = {},
                                       const MonteCarloSettings_& simulation = DefaultRiskMonteCarloSettings());
 
