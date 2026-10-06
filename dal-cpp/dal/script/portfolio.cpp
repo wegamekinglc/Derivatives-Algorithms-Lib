@@ -43,16 +43,20 @@ namespace Dal::Script {
             }
         }
 
+        void ValidateArchivedModels(const Vector_<Handle_<ModelData_>>& models) {
+            std::set<const ModelData_*> modelIdentities;
+            for (const auto& model : models)
+                REQUIRE2(model && modelIdentities.insert(model.get()).second,
+                         "InvalidScriptPortfolio: archived owner models must be nonnull and distinct; field=models", ScriptError_);
+        }
+
         Vector_<PortfolioTrade_> ReadTrades(const Vector_<String_>& ids,
                                             const Vector_<Handle_<ScriptProductData_>>& products,
                                             const Vector_<Handle_<ModelData_>>& models,
                                             const Vector_<int>& owners) {
             REQUIRE2(!ids.empty() && ids.size() == products.size() && ids.size() == owners.size(),
                      "InvalidScriptPortfolio: archived trade table extents disagree; field=modelOwners", ScriptError_);
-            std::set<const ModelData_*> modelIdentities;
-            for (const auto& model : models)
-                REQUIRE2(model && modelIdentities.insert(model.get()).second,
-                         "InvalidScriptPortfolio: archived owner models must be nonnull and distinct; field=models", ScriptError_);
+            ValidateArchivedModels(models);
             Vector_<PortfolioTrade_> trades;
             trades.reserve(ids.size());
             size_t nextOwner = 0;

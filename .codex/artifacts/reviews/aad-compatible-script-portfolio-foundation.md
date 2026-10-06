@@ -9,6 +9,11 @@ No unresolved correctness or style finding in the implemented foundation after
 the focused fixes. The no-payoff axis query originally accepted `x = 1`; its
 regression test now requires rejection with the original trade ID. Generated
 archive files were regenerated from Machinist markup, never manually edited.
+Codacy reported `ReadTrades` complexity 9 against limit 8 on the first code
+publication. Extracted archived-model validation preserves every null/distinct
+owner guard; exact-head Codacy acceptance must be recaptured after this repair.
+All eleven snapshot/coordinate cases and both warning modes pass again with the
+refactored archive code; no validation or assertion was removed.
 
 The remaining execution requirements are material acceptance gaps:
 
@@ -50,6 +55,8 @@ proof is unavailable. Retain private evaluator/history state for every trade.
 
 Evidence lives under the session evidence root: `aad-portfolio-focused-foundation-green-02.json`,
 `aad-portfolio-warning-clean-01.json` and `aad-portfolio-doc-consumer-01.json`.
+The focused Codacy repair adds `aad-portfolio-focused-codacy-green-01.json` and
+`aad-portfolio-warning-clean-codacy-01.json`.
 
 ## Summary
 
