@@ -141,6 +141,87 @@ replay the full path range, while passive mode selects no risk columns and
 performs one forward replay. See the
 [AAD capacity contract](../methodology/aad.md#budgeted-script-jacobians).
 
+## Compatible script portfolios
+
+`SCRIPTPORTFOLIO.NEW(name, trades)` seals an ordered physical three-column
+table. Each row contains a unique trade ID, a product handle and a model handle:
+
+| Trade ID | Product handle | Model handle |
+|----------|----------------|--------------|
+| A        | product_a      | shared_model |
+| B        | product_b      | shared_model |
+
+Use the same model handle to establish shared ownership. Distinct model handles
+retain separate owners even when their parameter values agree. Product and model
+execution data are frozen. IDs and handles must be nonempty text cells; numeric,
+boolean, error and blank cells are rejected without coercion. Trades share
+scenarios only when their original sampling contracts agree.
+
+Create `PORTFOLIOWEIGHTEDRISKREQUEST.NEW(name, [settings])` for one weighted
+objective or `PORTFOLIOJACOBIANRISKREQUEST.NEW(name, [settings])` for output
+attribution. Both accept strict two-column tables with `inputs`, `outputs`,
+`report_factors`, `numeric_payload_budget_bytes`,
+`recording_capacity_budget_bytes` and `scratch_capacity_budget_bytes`. Weighted
+requests add `weights`; attribution requests add `max_block_width` (default one).
+IDs and numeric lists are semicolon-separated text. Missing selections use
+defaults; a present blank `inputs` value selects zero risk columns. Weights are
+fixed, may be signed or zero, and default to one per selected output. Budgets
+must be nonnegative numeric integers at most `2^53-1`; width must be in
+`1..32768`. Boolean, numeric-text and fractional budgets/widths are rejected.
+
+For products A=`2*SPOT()+X` with X=5 and B=`3*SPOT()+X` with X=7, use a shared
+BS model with spot one, zero volatility and zero carry. Select their payoffs and
+these three inputs with a settings table:
+
+| Key | Value |
+|-----|-------|
+| inputs | model:0:parameter:0;trade:0:constant:0;trade:1:constant:0 |
+| weights | 2;-1 |
+
+```text
+=PORTFOLIOMONTECARLO.VALUEWITHWEIGHTEDRISK(portfolio, 17, weighted_request, valuation, simulation)
+=PORTFOLIORISKRESULT.GET.OBJECTIVE(weighted_result)
+=PORTFOLIORISKRESULT.GET.JACOBIAN(weighted_result, FALSE)
+```
+
+With an evaluation date before the product dates and native simulation settings,
+the weighted objective is `2*7-10=4`; its raw gradient is `[1,2,-1]`. Replace the
+`weights` row with `max_block_width | 2` to construct an attribution request:
+
+```text
+=PORTFOLIOMONTECARLO.VALUEWITHJACOBIANRISK(portfolio, 17, jacobian_request, valuation, simulation)
+=PORTFOLIORISKRESULT.GET.VALUES(jacobian_result)
+=PORTFOLIORISKRESULT.GET.JACOBIAN(jacobian_result, FALSE)
+```
+
+The values are `[7,10]`, and the raw rows are `[2,1,0]` and `[3,0,1]`. The optional
+request, valuation and simulation handles select fresh defaults when omitted.
+Paths must be numeric positive integers at most `2147483647`. Native simulation
+is the default. Passive simulation accepts omitted or empty inputs, retains
+sharp prices and zero columns, and performs one forward replay per selected
+group. Recording budgets do not apply to passive execution.
+
+Both result kinds use the same checked `PORTFOLIORISKRESULT` getters:
+
+| Getter suffix | Returned data |
+|---------------|---------------|
+| `GET.OBJECTIVE` | Weighted objective; requires a weighted result |
+| `GET.VALUES` | ID, label, slot, mean and weight; attribution weights are blank |
+| `GET.JACOBIAN(result, reported)` | Raw or column-scaled gradient/Jacobian |
+| `GET.SHAPE` | Exact `(1,n)` weighted or `(m,n)` attribution dimensions |
+| `GET.OUTPUTS(result, complete)`, `GET.INPUTS(result, complete)` | Selected or complete coordinates |
+| `GET.EXECUTION` | Group/owner positions, dimensions, work, requested/actual widths, attempts and whole-request peaks |
+| `GET.SAMPLING` | Original group/sample definitions as field/ordinal/subordinal rows |
+| `GET.PROVENANCE`, `GET.TRADES` | Frozen request and original trade/owner metadata |
+| `GET.TRADEPROVENANCE(result, trade)`, `GET.HISTORY(result, trade)`, `GET.PRODUCT(result, trade)`, `GET.MODELSNAPSHOT(result, trade)` | Frozen data for a zero-based original trade ordinal |
+
+Flags require actual booleans or blank cells. Trade ordinals require numeric
+integers; text and booleans are rejected. Getters copy retained data and perform
+no history access or valuation. Zero-column matrices spill one blank cell, while
+`GET.SHAPE` retains their exact dimensions. Execution integer counts above
+`2^53-1` are text to preserve their values. Requests/results do not support
+archive serialization. See [portfolio risk semantics](../methodology/aad.md#script-portfolio-jacobians).
+
 ## Dupire quote risk
 
 The calibration holds the base IVS, deterministic carry and grid choices fixed;

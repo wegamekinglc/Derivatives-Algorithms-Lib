@@ -15,8 +15,12 @@ Passive attribution now passes independent sharp-price, zero-column, overflow an
 historical-capacity checks. Equivalent finite-budget narrowing, early all-group
 width validation and attribution submission/worker/selected-derivative recovery
 pass locally. Python ownership/strict requests/results and value functions pass
-49 portfolio cases, including original-mesh independent oracles. Excel bindings
-and final delivery gates remain pending.
+49 portfolio cases, including original-mesh independent oracles. Excel sealed
+construction, immutable requests/results and shared passive getters pass four
+new cases and all 23 affected risk contracts. Fourteen MSVC unit/configuration
+checks and ten strict OFF/combined ON source/header checks pass. The nineteen
+generated exports still require actual Windows runtime acceptance. Final
+installed-consumer, diagnostic, performance and delivery gates remain pending.
 Delivery starts from merged PR #484, commit `1c9273c9`, in open PR
 [#487](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/487).
 
@@ -293,8 +297,8 @@ unmergeable until behavior, consumers and these gates are accepted.
 4. Review, focused repairs, complete performance/platform gates and current-state
    documentation at a stable head. About 1 person-day.
 
-Remaining estimate is 3–5 person-days, including uncertainty in shared recording,
-aggregate capacity admission and binding integration. This is
+Remaining estimate is 2–4 person-days, including uncertainty in complete-head
+platform, installed-consumer and strict performance acceptance. This is
 single-developer effort, not a calendar commitment or a merge-acceptance claim.
 
 ## Open implementation decisions

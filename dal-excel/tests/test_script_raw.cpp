@@ -252,6 +252,115 @@ TEST(ScriptExcelRawTest, TestPhysicalRangeErrorsAndIntegerBooleans) {
     CheckError(badWidth, {"row=1 column=3", "rows=2", "cols=3", "2 columns"});
 }
 
+TEST(ScriptExcelRawTest, TestPortfolioFactoryPreservesPhysicalCellsAndOriginalOwnerTags) {
+    Excel::ScriptTestInitialize(1);
+    RawText_ name(L"portfolio_raw"), script(L"pay PAYS SPOT()"), a(L"A"), b(L"B");
+    auto date = Number(60000), spot = Number(1), zero = Number(0), paths = Number(17), nil = Blank();
+    Output_ product(Call("xl_Product_New", &name.cell_, &date, &script.cell_));
+    Output_ model(Call("xl_BSModelData_New", &name.cell_, &spot, &zero, &zero, &zero));
+    OPER_ cells[]{a.cell_, *product.Scalar(), *model.Scalar(), b.cell_, *product.Scalar(), *model.Scalar()};
+    auto table = Multi(cells, 2, 3);
+    Output_ portfolio(Call("xl_ScriptPortfolio_New", &name.cell_, &table));
+    ASSERT_EQ(portfolio.Text().find("#Error:"), std::string::npos) << portfolio.Text();
+    Output_ result(Call("xl_PortfolioMonteCarlo_ValueWithJacobianRisk", portfolio.Scalar(), &paths, &nil, &nil, &nil));
+    ASSERT_EQ(result.Text().find("#Error:"), std::string::npos) << result.Text();
+    Output_ trades(Call("xl_PortfolioRiskResult_Get_Trades", result.Scalar()));
+    ASSERT_EQ(trades.value_->val.array.rows, 3);
+    ASSERT_EQ(trades.value_->val.array.columns, 4);
+    ASSERT_DOUBLE_EQ(trades.value_->val.array.lparray[6].val.num, 0.0);
+    ASSERT_DOUBLE_EQ(trades.value_->val.array.lparray[10].val.num, 0.0);
+    auto narrow = Multi(cells, 2, 2);
+    Output_ widthError(Call("xl_ScriptPortfolio_New", &name.cell_, &narrow));
+    CheckError(widthError, {"trades", "three-column"});
+    const auto original = cells[0];
+    for (const int type : {xltypeBool, xltypeNum, xltypeErr, xltypeNil}) {
+        cells[0] = {};
+        cells[0].xltype = type;
+        Output_ error(Call("xl_ScriptPortfolio_New", &name.cell_, &table));
+        CheckError(error, {"trades row=1 column=1", "without coercion"});
+    }
+    RawText_ nul(std::wstring(L"A\0B", 3));
+    cells[0] = nul.cell_;
+    Output_ nulError(Call("xl_ScriptPortfolio_New", &name.cell_, &table));
+    CheckError(nulError, {"column=1", "NUL"});
+    cells[0] = original;
+    cells[1] = *model.Scalar();
+    Output_ wrongType(Call("xl_ScriptPortfolio_New", &name.cell_, &table));
+    CheckError(wrongType, {"trade=A", "column=2", "typed repository handle"});
+}
+
+TEST(ScriptExcelRawTest, TestPortfolioValueExportsKeepStrictPathsRequestsAndZeroColumnShapes) {
+    Excel::ScriptTestInitialize(1);
+    RawText_ nameA(L"portfolio_raw_A"), nameB(L"portfolio_raw_B"), x(L"X"), five(L"5"), seven(L"7"), eventA(L"pay PAYS 2 * SPOT() + X"),
+        eventB(L"pay PAYS 3 * SPOT() + X"), a(L"A"), b(L"B");
+    OPER_ dates[]{x.cell_, Number(60000)}, eventsA[]{five.cell_, eventA.cell_}, eventsB[]{seven.cell_, eventB.cell_};
+    auto dateRange = Multi(dates, 2, 1), rangeA = Multi(eventsA, 2, 1), rangeB = Multi(eventsB, 2, 1);
+    auto spot = Number(1), zero = Number(0), paths = Number(17), nil = Blank();
+    Output_ productA(Call("xl_Product_New", &nameA.cell_, &dateRange, &rangeA));
+    Output_ productB(Call("xl_Product_New", &nameB.cell_, &dateRange, &rangeB));
+    Output_ model(Call("xl_BSModelData_New", &nameA.cell_, &spot, &zero, &zero, &zero));
+    OPER_ tradeCells[]{a.cell_, *productA.Scalar(), *model.Scalar(), b.cell_, *productB.Scalar(), *model.Scalar()};
+    auto table = Multi(tradeCells, 2, 3);
+    Output_ portfolio(Call("xl_ScriptPortfolio_New", &nameA.cell_, &table));
+    RawText_ inputs(L"inputs"), ids(L"model:0:parameter:0;trade:0:constant:0;trade:1:constant:0"), width(L"max_block_width");
+    OPER_ requestCells[]{inputs.cell_, ids.cell_, width.cell_, Number(2)};
+    auto requestRange = Multi(requestCells, 2, 2);
+    Output_ request(Call("xl_PortfolioJacobianRiskRequest_New", &nameA.cell_, &requestRange));
+    ASSERT_EQ(request.Text().find("#Error:"), std::string::npos) << request.Text();
+    Output_ result(Call("xl_PortfolioMonteCarlo_ValueWithJacobianRisk", portfolio.Scalar(), &paths, request.Scalar(), &nil, &nil));
+    ASSERT_EQ(result.Text().find("#Error:"), std::string::npos) << result.Text();
+    Output_ raw(Call("xl_PortfolioRiskResult_Get_Jacobian", result.Scalar(), &nil));
+    ASSERT_EQ(raw.value_->val.array.rows, 2);
+    ASSERT_EQ(raw.value_->val.array.columns, 3);
+    ASSERT_DOUBLE_EQ(raw.value_->val.array.lparray[0].val.num, 2.0);
+    ASSERT_DOUBLE_EQ(raw.value_->val.array.lparray[1].val.num, 1.0);
+    ASSERT_DOUBLE_EQ(raw.value_->val.array.lparray[2].val.num, 0.0);
+    ASSERT_DOUBLE_EQ(raw.value_->val.array.lparray[3].val.num, 3.0);
+    RawText_ weights(L"weights"), signedWeights(L"2;-1");
+    OPER_ weightedCells[]{inputs.cell_, ids.cell_, weights.cell_, signedWeights.cell_};
+    auto weightedRange = Multi(weightedCells, 2, 2);
+    Output_ weightedRequest(Call("xl_PortfolioWeightedRiskRequest_New", &nameB.cell_, &weightedRange));
+    ASSERT_EQ(weightedRequest.Text().find("#Error:"), std::string::npos) << weightedRequest.Text();
+    Output_ weighted(Call("xl_PortfolioMonteCarlo_ValueWithWeightedRisk", portfolio.Scalar(), &paths, weightedRequest.Scalar(), &nil, &nil));
+    ASSERT_EQ(weighted.Text().find("#Error:"), std::string::npos) << weighted.Text();
+    Output_ objective(Call("xl_PortfolioRiskResult_Get_Objective", weighted.Scalar()));
+    ASSERT_DOUBLE_EQ(objective.Scalar()->val.num, 4.0);
+    Output_ gradient(Call("xl_PortfolioRiskResult_Get_Jacobian", weighted.Scalar(), &nil));
+    ASSERT_EQ(gradient.value_->val.array.rows, 1);
+    ASSERT_EQ(gradient.value_->val.array.columns, 3);
+    ASSERT_DOUBLE_EQ(gradient.value_->val.array.lparray[0].val.num, 1.0);
+    ASSERT_DOUBLE_EQ(gradient.value_->val.array.lparray[1].val.num, 2.0);
+    ASSERT_DOUBLE_EQ(gradient.value_->val.array.lparray[2].val.num, -1.0);
+    OPER_ boolean{};
+    boolean.xltype = xltypeBool;
+    boolean.val.xbool = true;
+    requestCells[3] = boolean;
+    Output_ widthType(Call("xl_PortfolioJacobianRiskRequest_New", &nameA.cell_, &requestRange));
+    CheckError(widthType, {"max_block_width", "size_t integer"});
+    requestCells[3] = Number(2);
+    for (const OPER_* invalid : {&boolean, &zero, &ids.cell_}) {
+        Output_ error(Call("xl_PortfolioMonteCarlo_ValueWithJacobianRisk", portfolio.Scalar(), invalid, request.Scalar(), &nil, &nil));
+        CheckError(error, {"InvalidPathCount", "n_paths"});
+    }
+    Output_ reportType(Call("xl_PortfolioRiskResult_Get_Jacobian", result.Scalar(), &spot));
+    CheckError(reportType, {"reported", "boolean"});
+    Output_ tradeType(Call("xl_PortfolioRiskResult_Get_Product", result.Scalar(), &boolean));
+    CheckError(tradeType, {"trade", "excluding bool"});
+    auto fractional = Number(0.5);
+    Output_ tradeFraction(Call("xl_PortfolioRiskResult_Get_Product", result.Scalar(), &fractional));
+    CheckError(tradeFraction, {"trade", "exactly representable"});
+    requestCells[1] = nil;
+    Output_ emptyRequest(Call("xl_PortfolioJacobianRiskRequest_New", &nameB.cell_, &requestRange));
+    Output_ emptyResult(Call("xl_PortfolioMonteCarlo_ValueWithJacobianRisk", portfolio.Scalar(), &paths, emptyRequest.Scalar(), &nil, &nil));
+    ASSERT_EQ(emptyResult.Text().find("#Error:"), std::string::npos) << emptyResult.Text();
+    Output_ shape(Call("xl_PortfolioRiskResult_Get_Shape", emptyResult.Scalar()));
+    ASSERT_DOUBLE_EQ(shape.value_->val.array.lparray[0].val.num, 2.0);
+    ASSERT_DOUBLE_EQ(shape.value_->val.array.lparray[1].val.num, 0.0);
+    Output_ emptyRaw(Call("xl_PortfolioRiskResult_Get_Jacobian", emptyResult.Scalar(), &nil));
+    ASSERT_EQ(emptyRaw.Scalar()->xltype, xltypeStr);
+    ASSERT_EQ(emptyRaw.Scalar()->val.str[0], 0);
+}
+
 TEST(ScriptExcelRawTest, TestNullableInputsAndExplicitEmptySnapshot) {
     Excel::ScriptTestInitialize(1);
     const auto previous = Excel::ScriptTestSetDate(Date_(2026, 9, 12));

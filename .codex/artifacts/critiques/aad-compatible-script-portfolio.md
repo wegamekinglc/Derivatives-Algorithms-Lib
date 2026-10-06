@@ -96,14 +96,19 @@ rejection; all selected group widths now validate first. Bindings and fresh
 complete-head publication/performance gates remain required. Python construction,
 typed requests/results and both valuations now pass 49 ownership, strict-input,
 detached-lifetime and independent original-mesh cases. All 126 affected Python
-risk cases pass through the installed extension. Excel and final linked/runtime
-diagnostic acceptance remain open.
+risk cases pass through the installed extension. Excel's strict physical trade
+table preserves original owner handles, with checked immutable result getters
+and separate generated wrappers. Four new and 19 existing affected portable risk
+cases pass; MSVC OFF/combined syntax and strict source/header checks pass. Actual
+generated Windows runtime and final linked/runtime diagnostic acceptance remain
+open.
 
 Implement weighted groups before blocked attribution; reuse the accepted
 native root/replay primitives. Avoid speculative hashing, persistent caches or
-automatic width selection in this PR. Keep valuation/binding proposals visibly
-marked as unimplemented; current-state public documentation now covers sealed C++
-construction, coordinates and native/passive weighted valuation. The callback has
+automatic width selection in this PR. Current-state public documentation now
+covers the implemented C++/Python/Excel construction, requests, results and
+native/passive valuation. Final platform/performance acceptance remains distinct
+from local implementation. The callback has
 actual native/passive weighted aggregate admission. Blocked request/result integration must retain this
 policy and failure boundary; the generic callback alone is not capacity acceptance
 for another execution mode.

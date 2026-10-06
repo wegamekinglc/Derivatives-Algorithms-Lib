@@ -4,8 +4,8 @@ Verdict: **Comment Only**. Implemented increments can be published in open #487;
 the complete portfolio PR is not ready for acceptance or merge. Native/passive
 weighted execution, owning C++ results and startup/runtime budgets are locally
 verified. Native/passive attribution, finite-budget narrowing and failure recovery
-are locally verified. Python surfaces are locally verified; Excel bindings and
-final delivery gates remain open.
+are locally verified. Python and portable Excel surfaces are locally verified.
+Generated Windows runtime and final delivery gates remain open.
 
 ## Findings
 
@@ -373,6 +373,43 @@ test executable after installing all core production artifacts; installing the
 public component then provides the valid independent package consumer. Standard
 clean production installation/runtime diagnostics remain final acceptance gates.
 
+## Excel owning handles and passive getters
+
+The Excel projection seals a strict physical trade/product/model table, resolving
+all original repository handles before native owner registration. It publishes
+immutable weighted/Jacobian requests and completed results, with shared checked
+getters for selected/complete axes, values, raw/reported matrices, original
+trade provenance and full group sampling/work metadata. Weighted objective
+inspection rejects attribution results. Matrix shape inspection uses retained
+axes without copying the matrix. Large execution integers remain exact text.
+Trade ordinals and raw paths reject boolean/text coercion; failed calls preserve
+the previous completed handle. Windows tests use a test-only XLL-side store
+helper so repository ownership does not cross the DLL boundary accidentally.
+
+The retained missing-handle RED in
+`aad-portfolio-excel-api-context-red-04/run.log` lost trade and physical-cell
+context. Typed table resolution now adds the original trade/row/column before
+propagating the repository failure. Four new and all 23 affected portable
+scalar/weighted/Jacobian risk cases pass. Final affected evidence is
+`aad-portfolio-excel-affected-final-02`, reusing only unchanged support objects.
+Ten strict OFF/combined ON source/header checks pass, with final changed-body
+hashes in `aad-portfolio-excel-warning-02.json`. Fourteen MSVC source/configuration
+checks pass in `aad-portfolio-excel-msvc-syntax-03.json`; changed raw weighted
+and strict-width checks receive separate syntax evidence. These are compilation
+checks, not actual Windows linked/runtime acceptance.
+
+The first new-body MSVC failure loaded Windows macros before native AAD state
+declarations. Keeping the native header in a separate first include group fixes
+the failure and survives clang-format. The standalone probe also now supplies
+the actual XLL target's `NOMINMAX` definition. The failed log is retained as
+`aad-portfolio-excel-msvc-off-body-02.log`.
+
+Nineteen generated exports and their nineteen help pages are regenerated from
+Machinist markup, with required/optional inputs verified by the Windows
+registration contract. All 157 Markdown integrity checks pass. Generated
+Windows runtime, installed and diagnostic consumers, strict unchanged-case
+performance and final-head CI/Codacy/review acceptance remain merge gates.
+
 ## Summary
 
 Existing scalar/weighted/Jacobian drivers retain their default preparation
@@ -380,5 +417,5 @@ entry points and allocate no portfolio state. The
 snapshot registry precedes cloning, the passive catalog preserves owner/private
 constant identity, and full semantic grouping retains incompatible trades.
 The active specification remains the complete acceptance boundary. Complete
-bindings, installed consumers, final performance/platform
+Windows binding runtime, installed consumers, final performance/platform
 checks and a fresh publication-head review are required before merge.

@@ -5,7 +5,9 @@ Internal whole-request preparation and shared weighted group batches also exist.
 The replay coordinator, native/passive weighted capacity admission and owning
 public C++ weighted/attribution results also exist. Python construction, immutable
 requests/results and both value functions are implemented and locally verified.
-Excel surfaces below remain proposals for the active
+Excel construction, typed requests/results and shared checked getters are
+implemented; affected portable contracts and Windows syntax checks pass locally.
+Final generated-export runtime and delivery acceptance remain required by the active
 [portfolio specification](../specs/aad-compatible-script-portfolio.md).
 
 ## Current boundary and audience
@@ -189,12 +191,27 @@ Evaluation uses `PortfolioMonteCarlo_ValueWithWeightedRisk` and
 `PortfolioMonteCarlo_ValueWithJacobianRisk`; request, valuation and simulation
 remain keyword-only. Immutable request/result properties return detached copies.
 
-Excel proposes `ScriptPortfolio_New(name, trades)`, where `trades` is a physical
+Excel exposes `ScriptPortfolio_New(name, trades)`, where `trades` is a physical
 three-column table of trade ID, product handle and model handle. Resolve handles
 before assigning owners, reject malformed/ragged cells without coercion, and
 store a sealed immutable portfolio. Use the same evaluation names and ordinary
 immutable request/result factories/getters. Include a shape getter for zero risk
 columns, as in the current Jacobian surface. Machinist owns generated exports.
+
+The Excel projection uses `PortfolioWeightedRiskRequest_New` and
+`PortfolioJacobianRiskRequest_New` with immutable typed result handles. Shared
+`PortfolioRiskResult_Get_*` getters accept either completed portfolio result kind
+through a checked storable handle. `Get_Objective` requires weighted results.
+`Get_Values` returns id/label/slot/mean/weight; attribution weights are blank.
+`Get_Shape` distinguishes weighted `(1,n)` from attribution `(m,n)`, including
+zero columns. Execution rows retain group/owner positions, dimensions, requested
+and actual widths, work and whole-request peaks. Sampling uses a long-form table
+of group/sample/field/ordinal/subordinal/value; vector lengths and empty nested
+rows remain explicit. Trade-specific provenance/history/product/model snapshot
+getters use strict zero-based original trade ordinals and perform no valuation.
+Raw Windows checks reject malformed physical tables, text/bool ordinals and path
+counts before generated conversion. Typed functions remain portable contracts;
+generated Windows exports and runtime acceptance are separate required gates.
 
 Typical Python use (with previously constructed products/model/settings):
 

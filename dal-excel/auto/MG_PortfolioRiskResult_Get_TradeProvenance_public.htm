@@ -1,0 +1,38 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>PortfolioRiskResult_Get_TradeProvenance</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>PortfolioRiskResult_Get_TradeProvenance (in Excel: PORTFOLIORISKRESULT.GET.TRADEPROVENANCE)</h1>
+Extract one original trade's frozen valuation provenance
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>result</td><td>handle of type Storable</td><td></td><td>Completed weighted or attribution portfolio result</td></tr>
+<tr><td>trade</td><td>number</td><td></td><td>Strict zero-based original trade ordinal</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>provenance</td><td>matrix of cells</td><td>Two columns: field and value; no valuation</td></tr>
+</table>
+
+
+
+
+
+

@@ -25,6 +25,10 @@ namespace Dal {
         inline const char* RiskValueType(const Script::WeightedRiskResult_&) { return "WeightedRiskResult"; }
         inline const char* RiskValueType(const Script::JacobianRiskRequest_&) { return "JacobianRiskRequest"; }
         inline const char* RiskValueType(const Script::JacobianRiskResult_&) { return "JacobianRiskResult"; }
+        inline const char* RiskValueType(const PortfolioWeightedRiskRequest_&) { return "PortfolioWeightedRiskRequest"; }
+        inline const char* RiskValueType(const PortfolioWeightedRiskResult_&) { return "PortfolioWeightedRiskResult"; }
+        inline const char* RiskValueType(const PortfolioJacobianRiskRequest_&) { return "PortfolioJacobianRiskRequest"; }
+        inline const char* RiskValueType(const PortfolioJacobianRiskResult_&) { return "PortfolioJacobianRiskResult"; }
 
         template <class T_> struct StorableRiskValue_ : Storable_ {
             const T_ val_;

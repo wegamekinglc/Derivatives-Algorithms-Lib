@@ -1291,10 +1291,18 @@ The same finite-budget narrowing case now also proves every selected shared-mode
 and private-constant risk against explicit width one and independent scalar risk.
 No production capacity or numerical guard changed.
 
-Next: finish Excel bindings and final acceptance. Preserve
+Excel now seals strict physical trade tables, exposes typed immutable weighted
+and attribution requests/results and shares checked passive getters. Four new
+and all 23 affected portable risk cases pass, including no-work getters,
+detached data and failed-request recovery. Repository lookup errors retain the
+original trade/physical cell context after a focused RED and repair. Fourteen
+MSVC source/configuration checks and ten strict source/header checks pass.
+Nineteen generated exports await actual Windows runtime acceptance.
+
+Next: finish complete-head installed/diagnostic/performance acceptance. Preserve
 original RNG dimensions/path indices, private evaluator state, existing costs
 and independent numerical oracles. Every new publication needs its own exact-head
 checks. Complete portfolio delivery has no comparative performance acceptance yet.
-Remaining portfolio work is estimated at 3–5
+Remaining portfolio work is estimated at 2–4
 person-days; overall remaining effort is approximately 47–78 person-days.
 Stage A is accepted; the full Stage B/C/D goal remains incomplete.

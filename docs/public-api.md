@@ -340,6 +340,16 @@ keyword-only request/valuation/simulation settings. Results own values, detached
 raw/report matrices, selected/complete axes and trade/group metadata. See the
 [Python portfolio example and strict input rules](python/README.md#compatible-script-portfolios).
 
+### Excel script portfolios
+
+`SCRIPTPORTFOLIO.NEW` freezes a strict three-column trade/product/model table and
+preserves repeated original model handles. Typed weighted/Jacobian request
+factories feed `PORTFOLIOMONTECARLO.VALUEWITHWEIGHTEDRISK` and
+`PORTFOLIOMONTECARLO.VALUEWITHJACOBIANRISK`. Shared `PORTFOLIORISKRESULT.GET.*`
+functions return detached values, raw/report matrices, exact zero-column shapes
+and original trade/group/sampling provenance. See the
+[Excel portfolio example and cell contracts](excel/README.md#compatible-script-portfolios).
+
 ### C++ curve calibration
 
 The public zero-rate factory is:
