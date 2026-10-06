@@ -155,3 +155,15 @@ acceptance remain required.
 Request Changes for remaining platform/performance acceptance. The four
 published findings are resolved at `a62b0f10`; every subsequent head requires
 fresh paginated review, exact-head CI and Codacy evidence before merge.
+
+The committed `9988cb9e` gate clears PDE, tape and quote-risk regressions but
+finds a cubic-interpolation failure (+9% in both rounds). Retain
+`aad-jacobian-998-final-nine` and both failed candidate/interpolation samples.
+The accepted candidate searches only interior knots, making its returned
+iterator a valid right endpoint without a separate clamp. Exact endpoints,
+interior knot values, extrapolation, NaN handling and the original spline
+arithmetic remain intact. Five focused interpolation tests pass, including
+an independent interval/formula oracle. Both fixed-policy diagnostic rounds
+improve cubic minima by 5.5%; linear cases pass too
+(`aad-jacobian-cubic-diagnostic-paired-02`). Committed-head and production
+workload acceptance remain open.
