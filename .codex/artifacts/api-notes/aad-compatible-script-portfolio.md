@@ -2,7 +2,7 @@
 
 Status: sealed C++ portfolio construction and coordinate inspection exist.
 Internal whole-request preparation and shared weighted group batches also exist.
-Whole-portfolio valuation and binding surfaces
+The internal replay coordinator also exists. Public valuation and binding surfaces
 below remain proposals for the active
 [portfolio specification](../specs/aad-compatible-script-portfolio.md).
 
@@ -62,6 +62,18 @@ constants remain separate leaves. Each batch reverses its retained historical
 prefix once. It validates finite selected values even at zero weight and restores
 recording/mode state after failures. This is an internal execution primitive,
 without aggregate budgets, selected-input projection or whole-portfolio results.
+
+`Dal::Detail::EvaluatePortfolioWeightedReplay` validates prepared axes and the
+entire output/input-position selection before submitting tasks. It runs compatible
+groups sequentially and original path batches in parallel, then scatters shared
+model leaves through the global owner mapping and constants through private trade
+positions. It preserves requested output/input order and normalizes all sums once
+by the captured path count. Unselected groups are skipped; empty selected inputs
+retain native pricing. Required derivatives are checked before reduction. Its
+passive internal result owns component/objective means, selected gradients and
+per-group work counters. Existing task-group ownership drains accepted tasks after
+submission/worker failures. This prepared-input coordinator does not implement
+public request preflight before history, budget policy, provenance or bindings.
 
 ## Proposed valuation surfaces
 

@@ -760,7 +760,7 @@ overlapping acceptance work is included once in the integration allowance.
 | P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass       | Merged; final 35/35 checks accepted     | 0                     |
 | F01                     | C++/Python/Excel and complete requirement audit accepted             | Merged; final 35/35 checks accepted     | 0                     |
 | F02 weighted/blocked    | C++/Python/Excel and independent mathematical oracles accepted       | #483/#484 merged; exact-head gates pass | 0                     |
-| F02 portfolio           | Preparation and shared weighted batches verified; scatter remains   | Open #487; CI/whole delivery pending    | 3–5                   |
+| F02 portfolio           | Native weighted replay/scatter verified; public/budgets remain      | Open #487; CI/whole delivery pending    | 3–5                   |
 | P02/P03                 | Worker reuse/block selection/extraction remain                       | Open                                    | 4–7                   |
 | F03                     | Solve, implicit calibration and PDE operators remain                 | Open                                    | 12–20                 |
 | P04/P05                 | Structural sparsity/checkpointing remain                             | Open                                    | 9–15                  |
@@ -1184,8 +1184,24 @@ zero unresolved review threads. Windows CI passes. Linux/Mac checkout failures
 remain upstream Eigen download rejection after a failed-only retry; a further
 failed-only retry is running. No passing jobs/full local suites were repeated.
 
-Next: implement cross-group gradient accumulation, parallel batch scheduling,
-selected-input validation, aggregate capacity guards and blocked attribution.
+Internal weighted replay now accumulates shared model inputs across incompatible
+groups and distinct owners, preserving requested output/input order and original
+meshes. Seven public-layer internal tests verify every risk against independent
+existing calls for all six model families in tree/compiled mode and one/four
+workers. Malformed selections submit no tasks; selected derivative overflow,
+submission and worker failures retain context/results and permit valid follow-up.
+Empty inputs retain native pricing and unselected groups generate no scenarios.
+The replay production unit passes strict OFF/combined ON syntax checks.
+
+Persistent upstream Eigen checkout failures now have a CI download fallback at
+the unchanged pinned commit. Seven helper cases, 20 workflow-classification and
+33 release regressions pass. An isolated real fallback fetch matches the exact
+existing commit/tree and normal submodule status. All build/wheel/release/benchmark
+workflows retain their existing gates and initialize other dependencies recursively.
+New publication-head acceptance must verify the helper on actual CI runners.
+
+Next: implement public weighted requests/results, aggregate capacity guards,
+passive execution and blocked attribution.
 Portfolio valuation and Python/Excel bindings are not implemented. Preserve
 original RNG dimensions/path indices, private evaluator state, existing costs
 and independent numerical oracles. New preparation code needs its own

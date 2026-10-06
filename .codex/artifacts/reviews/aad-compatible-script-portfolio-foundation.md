@@ -37,11 +37,13 @@ The remaining execution requirements are material acceptance gaps:
   actual shared-path mathematical acceptance remains pending.
 - Shared weighted batches now register model leaves once, retain private trade
   leaves/history/evaluators and measure actual scenario/evaluator/reverse calls.
-  Whole-portfolio weighted/Jacobian execution, cross-group risk accumulation and
-  selected-input validation remain pending.
+  Internal weighted replay now accumulates cross-group model leaves, projects
+  selected inputs and owns task cleanup. Public weighted requests/results,
+  passive execution and portfolio Jacobians remain pending.
 - Whole-request date/history freezing and an admission callback are implemented.
-  Actual aggregate startup budget policy, runtime capacity guards and worker
-  recovery remain unimplemented for portfolios.
+  Actual aggregate startup budget policy and runtime capacity guards remain
+  unimplemented for portfolios. Internal worker/submission failure recovery is
+  locally verified through the existing task-group ownership.
 - Python/Excel construction and valuation, installed consumers and actual
   Windows generated portfolio exports remain pending.
 
@@ -101,6 +103,28 @@ proof is unavailable. Retain private evaluator/history state for every trade.
 - The new batch unit passes strict OFF and combined lifetime/profiling ON syntax
   checks. Linked/runtime diagnostic and six-family execution acceptance remain
   pending; only BS execution is proved by this increment.
+- Seven internal replay cases pass with the actual public `gtest_main`; a final
+  focused bundle includes all seven plus six existing portfolio axis cases.
+  Native tree/compiled execution matches every independent existing scalar-call
+  risk for all six models with one/four workers. BS mixed-mesh/shared-owner and
+  distinct-owner cases also cover both RNGs and requested coordinate order.
+  Required derivative overflow names its global input/group; empty selected
+  inputs preserve finite native pricing. Unselected groups generate no scenarios.
+  Malformed output/input selections submit no tasks, and submission/worker
+  failures preserve prior results and allow a bitwise-equal follow-up request.
+- The replay unit passes strict OFF/combined ON syntax checks. Final linked
+  diagnostic acceptance is pending. A new analytic spot assertion initially
+  required bitwise equality to mathematical one; the actual BS derivative differs
+  by one ULP because of its existing exp/log arithmetic. It now uses the same
+  `ASSERT_DOUBLE_EQ` rule as the batch oracle, retaining all analytic coordinates;
+  independent nonzero-volatility comparisons keep their unchanged `1e-10` bound.
+- CI dependency recovery retains the Eigen Gitlink and official primary URL,
+  fetching the same commit from a GitHub mirror only after primary failure.
+  Seven helper cases, 20 workflow-classification and 33 release regressions pass.
+  A real forced-primary-failure checkout fetches the unchanged commit from the
+  mirror, verifies its exact tree and registered submodule status. Windows,
+  Linux, wheel, release and benchmark workflows use this shared helper; no gate,
+  compiler, sanitizer, dependency version or workload was removed.
 
 Evidence lives under the session evidence root: `aad-portfolio-focused-foundation-green-02.json`,
 `aad-portfolio-warning-clean-01.json` and `aad-portfolio-doc-consumer-01.json`.
@@ -119,6 +143,14 @@ Batch evidence is `aad-portfolio-focused-batch-behavior-green-04.json` and
 are retained in `aad-portfolio-focused-batch-failure-context-red-01.json` and
 `aad-portfolio-focused-batch-weighted-overflow-red-01.json`. The latest completed
 preparation audit is `aad-487-batch-e993-current-01/summary.json`.
+Replay evidence is `aad-portfolio-focused-replay-regression-green-01.json`,
+`aad-portfolio-focused-replay-families-green-01.json` and
+`aad-portfolio-replay-warning-clean-01.json`. The missing-interface RED and
+analytic fixture failure remain in the corresponding `replay-ownership` files.
+CI fallback evidence is `aad-ci-checkout-dependencies-{red,green}-01.log`,
+`aad-ci-checkout-workflow-regression-02.log`,
+`aad-ci-checkout-release-regression-01.log` and
+`aad-ci-eigen-mirror-integration-01.json`.
 
 ## Summary
 

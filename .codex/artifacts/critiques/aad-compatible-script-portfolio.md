@@ -63,8 +63,12 @@ Nine focused cases cover independent nonzero-volatility batches with original
 absolute paths, private historical vectors and scalar aliases, omitted poisonous
 trades, zero-weight validation, overflow, nested native modes and failure recovery.
 Actual counters verify one scenario and suffix reverse per path and one prefix
-reverse per batch. These BS execution oracles do not close the six-family,
-cross-group scatter, aggregate capacity or worker acceptance gates.
+reverse per batch. The internal coordinator's seven additional cases now cover
+cross-group accumulation, selected/empty inputs, task failure recovery and all
+six native model families against every independent scalar risk. Original meshes,
+owners, output order and one/four workers are checked. Aggregate capacity,
+passive execution, blocked attribution and complete public request acceptance
+still remain open.
 
 Implement weighted groups before blocked attribution; reuse the accepted
 native root/replay primitives. Avoid speculative hashing, persistent caches or
