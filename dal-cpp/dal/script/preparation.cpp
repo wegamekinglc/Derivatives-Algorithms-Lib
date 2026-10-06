@@ -493,6 +493,8 @@ namespace Dal::Script {
 
         static void
         Complete(PreparedScript_* result, ScriptProduct_* writable, AAD::Model_<double>* model, const Handle_<MarketFixingSnapshot_>& snapshot) {
+            if (result->AllExpired())
+                return;
             result->plan_->knownValues_ = ResolveHistory(&result->plan_->requests_, result->Settings(), snapshot);
             if (!model)
                 return;
@@ -534,11 +536,8 @@ namespace Dal::Script {
                      "UnsupportedPortfolioRisk: exercise and fully expired trades are unsupported", ScriptError_);
         }
 
-        template <class F_> static auto ExportPlan(PreparedScript_&& result, ScriptProduct_* product, const F_& admission) {
-            if constexpr (std::is_same_v<F_, DeferredHistory_>)
-                return Detail::PlannedScript_(std::move(result), product, std::move(*admission.model_));
-            else
-                return std::move(result);
+        static Detail::PlannedScript_ ExportPlan(PreparedScript_&& result, ScriptProduct_* product, const DeferredHistory_& admission) {
+            return Detail::PlannedScript_(std::move(result), product, std::move(*admission.model_));
         }
 
         static void AdmitBeforeHistory(PreparedScript_*, ScriptProduct_*, const NoAdmission_&) {}
@@ -550,6 +549,27 @@ namespace Dal::Script {
         template <class F_> static void AdmitBeforeHistory(PreparedScript_* result, ScriptProduct_* product, const F_& beforeHistory) {
             result->maxNestedIfs_ = product->IFProcess();
             beforeHistory(*result);
+        }
+
+        template <class F_>
+        static void PlanBeforeHistory(PreparedScript_* result,
+                                      ScriptProduct_* product,
+                                      AAD::Model_<double>* model,
+                                      const Vector_<DelayedPaymentUse_>& delayed,
+                                      const ScriptProductSettings_& contract,
+                                      const F_& beforeHistory) {
+            if (result->AllExpired())
+                return;
+            REQUIRE2(model || delayed.empty(), "UnsupportedDelayedPayment: PAYS ... ON requires model-aware preparation", ScriptError_);
+            if (model) {
+                ModelPlan(result->plan_.get(), result->Product(), result->EvaluationDate(), *model, contract);
+                BindDelayedPayments(result->plan_.get(), delayed, result->EvaluationDate(), *model);
+                REQUIRE2(result->plan_->RegressionFeatureCount() == 1 || result->Simulation().lsmcBasisDegree_ <= 3,
+                         "InvalidLsmcFeatureBudget: multivariate LSMC basis degree must be in 1..3", ScriptError_);
+                model->Allocate(result->TimeLine(), result->DefLine());
+                model->Init(result->TimeLine(), result->DefLine());
+            }
+            AdmitBeforeHistory(result, product, beforeHistory);
         }
 
         template <class F_>
@@ -598,22 +618,7 @@ namespace Dal::Script {
             PreparedScript_ result(std::move(product), evaluationDate, settings, std::move(plan));
             result.simulation_ = simulation;
             ValidatePlanningCapability(*writable, beforeHistory);
-            if (result.AllExpired()) {
-                if constexpr (std::is_same_v<F_, DeferredHistory_>)
-                    return ExportPlan(std::move(result), writable, beforeHistory);
-                else
-                    return result;
-            }
-            REQUIRE2(model || collector.delayed_.empty(), "UnsupportedDelayedPayment: PAYS ... ON requires model-aware preparation", ScriptError_);
-            if (model) {
-                ModelPlan(result.plan_.get(), result.Product(), evaluationDate, *model, contract);
-                BindDelayedPayments(result.plan_.get(), collector.delayed_, evaluationDate, *model);
-                REQUIRE2(result.plan_->RegressionFeatureCount() == 1 || simulation.lsmcBasisDegree_ <= 3,
-                         "InvalidLsmcFeatureBudget: multivariate LSMC basis degree must be in 1..3", ScriptError_);
-                model->Allocate(result.TimeLine(), result.DefLine());
-                model->Init(result.TimeLine(), result.DefLine());
-            }
-            AdmitBeforeHistory(&result, writable, beforeHistory);
+            PlanBeforeHistory(&result, writable, model, collector.delayed_, contract, beforeHistory);
             if constexpr (std::is_same_v<F_, DeferredHistory_>)
                 return ExportPlan(std::move(result), writable, beforeHistory);
             else {

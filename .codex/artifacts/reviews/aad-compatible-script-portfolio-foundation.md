@@ -15,6 +15,13 @@ owner guard. Repair head `0fffbf74` now passes all 35 exact-head checks, with ze
 Codacy annotations and zero unresolved review threads.
 All eleven snapshot/coordinate cases and both warning modes pass again with the
 refactored archive code; no validation or assertion was removed.
+The preparation publication at `8db78e83` reports `Prepare` complexity 10 against
+limit 8. Extracted the live model/mesh planning and admission phase and removed
+the unused generic export branch. Expired trades still skip model/history/
+admission, legacy results retain return-value optimization, and every delayed
+payment and LSM feature guard remains. Thirty-five affected core cases and six
+public cases pass after this refactor; strict OFF/combined ON syntax checks pass.
+Exact-head Codacy acceptance must be recaptured after publishing this repair.
 
 The remaining execution requirements are material acceptance gaps:
 
@@ -84,6 +91,10 @@ The corrected foundation audit is `aad-487-foundation-0fff-current-02/summary.js
 Preparation evidence is `aad-portfolio-focused-preparation-regression-green-01.json`,
 `aad-portfolio-focused-public-preparation-regression-green-01.json` and
 `aad-portfolio-preparation-warning-clean-01.json`.
+The preparation Codacy repair adds `aad-portfolio-focused-preparation-codacy-green-01.json`,
+`aad-portfolio-focused-public-preparation-codacy-green-01.json` and
+`aad-portfolio-preparation-warning-clean-codacy-01.json`; the original failure is
+retained in `aad-487-preparation-8db-current-02/summary.json`.
 
 ## Summary
 
