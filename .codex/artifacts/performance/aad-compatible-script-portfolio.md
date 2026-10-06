@@ -39,15 +39,15 @@ Acceptance uses two rounds, ten alternating process pairs per side and round,
 minimum reduction, and failure only above 4% in both rounds. Individual samples
 and verdicts remain in each group's `results.json` and raw process logs.
 
-| Coverage | Cases | Accepted evidence |
-|---|---:|---|
-| Nine standard targets | 75 | `aad-portfolio-isolated-nine-01`, identical relinked binaries |
-| Curve calibration and queries | 25 | `aad-portfolio-isolated-curve-01`, identical relinked binary |
-| Existing scalar risk | 8 | `aad-portfolio-inline-candidate-scalar-pairs-01` |
-| Existing weighted risk | 8 | `aad-portfolio-inline-candidate-weighted-pairs-01` |
-| MC, GSR market risk and LSM replay | 42 | Accepted cases in `aad-portfolio-inline-candidate-mc-pairs-01` |
-| Two serial GSR/LSM calculations | 2 | `aad-portfolio-inline-candidate-serial-mc-pairs-01`, fixed caller CPU |
-| Total | 160 | All accepted under the stated workload and affinity scopes |
+| Coverage                           | Cases | Accepted evidence                                                     |
+|------------------------------------|------:|-----------------------------------------------------------------------|
+| Nine standard targets              | 75    | `aad-portfolio-isolated-nine-01`, identical relinked binaries         |
+| Curve calibration and queries      | 25    | `aad-portfolio-isolated-curve-01`, identical relinked binary          |
+| Existing scalar risk               | 8     | `aad-portfolio-inline-candidate-scalar-pairs-01`                      |
+| Existing weighted risk             | 8     | `aad-portfolio-inline-candidate-weighted-pairs-01`                    |
+| MC, GSR market risk and LSM replay | 42    | Accepted cases in `aad-portfolio-inline-candidate-mc-pairs-01`        |
+| Two serial GSR/LSM calculations    | 2     | `aad-portfolio-inline-candidate-serial-mc-pairs-01`, fixed caller CPU |
+| Total                              | 160   | All accepted under the stated workload and affinity scopes            |
 
 The Sobol precise-opt-in/fast ratio is 9.15x, within the unchanged 10x ceiling.
 
@@ -66,15 +66,15 @@ cases. It uses the original timer and frozen ten-pair helper, without extra
 requests or warm-up changes:
 
 | Components | Evaluator | Round 1 | Round 2 | Result |
-|---:|---|---:|---:|---|
-| 1 | tree | +9.25% | -1.79% | pass |
-| 1 | compiled | -8.43% | -4.37% | pass |
-| 4 | tree | -1.02% | +1.04% | pass |
-| 4 | compiled | -5.02% | -1.73% | pass |
-| 16 | tree | +1.00% | -6.11% | pass |
-| 16 | compiled | -2.25% | +2.44% | pass |
-| 64 | tree | +1.45% | -1.30% | pass |
-| 64 | compiled | +3.14% | -4.17% | pass |
+|-----------:|-----------|--------:|--------:|--------|
+| 1          | tree      | +9.25%  | -1.79%  | pass   |
+| 1          | compiled  | -8.43%  | -4.37%  | pass   |
+| 4          | tree      | -1.02%  | +1.04%  | pass   |
+| 4          | compiled  | -5.02%  | -1.73%  | pass   |
+| 16         | tree      | +1.00%  | -6.11%  | pass   |
+| 16         | compiled  | -2.25%  | +2.44%  | pass   |
+| 64         | tree      | +1.45%  | -1.30%  | pass   |
+| 64         | compiled  | +3.14%  | -4.17%  | pass   |
 
 All eight original scalar cases pass. The unchanged MC executables pass 42/44
 cases at four-core affinity. The two failures are serial GSR path generation
@@ -104,18 +104,18 @@ are informational and separate from old-entry acceptance.
 Representative BS cases use 257 paths, compiled evaluation, four workers,
 one trade for `one` and eight otherwise. Attribution uses width three.
 
-| Shape | Result | Independent μs | Portfolio μs | Ratio | Groups | Scenarios | Evaluations |
-|---|---|---:|---:|---:|---:|---:|---:|
-| one | weighted | 108.330 | 268.770 | 2.481 | 1 | 257 | 257 |
-| one | attribution | 165.502 | 655.513 | 3.961 | 1 | 257 | 257 |
-| compatible | weighted | 732.113 | 697.099 | 0.952 | 1 | 257 | 2056 |
-| compatible | attribution | 1113.150 | 915.332 | 0.822 | 1 | 771 | 2056 |
-| mixed meshes | weighted | 618.870 | 797.649 | 1.289 | 2 | 514 | 2056 |
-| mixed meshes | attribution | 1151.113 | 1066.197 | 0.926 | 2 | 1028 | 2056 |
-| distinct owners | weighted | 665.168 | 1501.415 | 2.257 | 8 | 2056 | 2056 |
-| distinct owners | attribution | 1087.880 | 1569.647 | 1.443 | 8 | 2056 | 2056 |
-| private history | weighted | 862.718 | 842.567 | 0.977 | 1 | 257 | 2056 |
-| private history | attribution | 1337.598 | 1126.336 | 0.842 | 1 | 771 | 2056 |
+| Shape           | Result      | Independent μs | Portfolio μs | Ratio | Groups | Scenarios | Evaluations |
+|-----------------|-------------|---------------:|-------------:|------:|-------:|----------:|------------:|
+| one             | weighted    | 108.330        | 268.770      | 2.481 | 1      | 257       | 257         |
+| one             | attribution | 165.502        | 655.513      | 3.961 | 1      | 257       | 257         |
+| compatible      | weighted    | 732.113        | 697.099      | 0.952 | 1      | 257       | 2056        |
+| compatible      | attribution | 1113.150       | 915.332      | 0.822 | 1      | 771       | 2056        |
+| mixed meshes    | weighted    | 618.870        | 797.649      | 1.289 | 2      | 514       | 2056        |
+| mixed meshes    | attribution | 1151.113       | 1066.197     | 0.926 | 2      | 1028      | 2056        |
+| distinct owners | weighted    | 665.168        | 1501.415     | 2.257 | 8      | 2056      | 2056        |
+| distinct owners | attribution | 1087.880       | 1569.647     | 1.443 | 8      | 2056      | 2056        |
+| private history | weighted    | 862.718        | 842.567      | 0.977 | 1      | 257       | 2056        |
+| private history | attribution | 1337.598       | 1126.336     | 0.842 | 1      | 771       | 2056        |
 
 These rows retain at most 7,864,320 recording bytes and 107,300 scratch bytes.
 All 130 ratios range from 0.317 to 5.333. One-trade and distinct-owner requests

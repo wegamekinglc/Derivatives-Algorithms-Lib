@@ -754,18 +754,18 @@ This snapshot distinguishes accepted increments from locally implemented work.
 Estimates are remaining single-developer effort, not promises of calendar time;
 overlapping acceptance work is included once in the integration allowance.
 
-| Work item               | Implementation/local verification                                 | Publication/CI                          | Remaining person-days |
-|-------------------------|-------------------------------------------------------------------|-----------------------------------------|-----------------------|
-| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                     | Accepted exact-head checks              | 0                     |
-| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass    | Merged; final 35/35 checks accepted     | 0                     |
-| F01                     | C++/Python/Excel and complete requirement audit accepted          | Merged; final 35/35 checks accepted     | 0                     |
-| F02 weighted/blocked    | C++/Python/Excel and independent mathematical oracles accepted    | #483/#484 merged; exact-head gates pass | 0                     |
-| F02 portfolio           | C++/Python/Excel, installed consumers and timing repair pass        | Open #487; final CI/review pending       | 0.25–0.5              |
-| P02/P03                 | Worker reuse/block selection/extraction remain                    | Open                                    | 4–7                   |
-| F03                     | Solve, implicit calibration and PDE operators remain              | Open                                    | 12–20                 |
-| P04/P05                 | Structural sparsity/checkpointing remain                          | Open                                    | 9–15                  |
-| F04                     | Second-order implementation/estimator validation remain           | Open                                    | 12–20                 |
-| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains        | Open                                    | 7–11                  |
+| Work item               | Implementation/local verification                              | Publication/CI                          | Remaining person-days |
+|-------------------------|----------------------------------------------------------------|-----------------------------------------|-----------------------|
+| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                  | Accepted exact-head checks              | 0                     |
+| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass | Merged; final 35/35 checks accepted     | 0                     |
+| F01                     | C++/Python/Excel and complete requirement audit accepted       | Merged; final 35/35 checks accepted     | 0                     |
+| F02 weighted/blocked    | C++/Python/Excel and independent mathematical oracles accepted | #483/#484 merged; exact-head gates pass | 0                     |
+| F02 portfolio           | C++/Python/Excel, installed consumers and timing repair pass   | Open #487; final CI/review pending      | 0.25–0.5              |
+| P02/P03                 | Worker reuse/block selection/extraction remain                 | Open                                    | 4–7                   |
+| F03                     | Solve, implicit calibration and PDE operators remain           | Open                                    | 12–20                 |
+| P04/P05                 | Structural sparsity/checkpointing remain                       | Open                                    | 9–15                  |
+| F04                     | Second-order implementation/estimator validation remain        | Open                                    | 12–20                 |
+| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains     | Open                                    | 7–11                  |
 
 Remaining total: approximately 45–74 person-days, or 9–15 working weeks,
 excluding CI queue time and including delivery contingency. F01 is merged;
