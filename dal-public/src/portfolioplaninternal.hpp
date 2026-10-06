@@ -10,7 +10,7 @@
 #include <dal/script/portfoliobatch.hpp>
 
 namespace Dal::Detail {
-    class PortfolioWeightedPlan_ {
+    class PortfolioRiskPlan_ {
         Handle_<Script::ScriptPortfolioData_> portfolio_;
         PortfolioRiskAxes_ axes_;
         Vector_<Script::Detail::PortfolioBatchOutput_> outputs_;
@@ -20,20 +20,17 @@ namespace Dal::Detail {
         size_t numericPayloadBytes_;
         bool enableAad_;
 
-        PortfolioWeightedPlan_(Handle_<Script::ScriptPortfolioData_> portfolio,
-                               PortfolioRiskAxes_ axes,
-                               Vector_<Script::Detail::PortfolioBatchOutput_> outputs,
-                               Vector_<size_t> positions,
-                               Vector_<Script::RiskCoordinate_> inputs,
-                               Script::RiskRequest_ inputRequest,
-                               size_t numericPayload,
-                               bool enableAad)
+    public:
+        PortfolioRiskPlan_(Handle_<Script::ScriptPortfolioData_> portfolio,
+                           PortfolioRiskAxes_ axes,
+                           Vector_<Script::Detail::PortfolioBatchOutput_> outputs,
+                           Vector_<size_t> positions,
+                           Vector_<Script::RiskCoordinate_> inputs,
+                           Script::RiskRequest_ inputRequest,
+                           size_t numericPayload,
+                           bool enableAad)
             : portfolio_(std::move(portfolio)), axes_(std::move(axes)), outputs_(std::move(outputs)), inputPositions_(std::move(positions)),
               inputAxis_(std::move(inputs)), inputRequest_(std::move(inputRequest)), numericPayloadBytes_(numericPayload), enableAad_(enableAad) {}
-        friend PortfolioWeightedPlan_
-        PlanPortfolioWeightedRequest(const Handle_<Script::ScriptPortfolioData_>&, const Script::WeightedRiskRequest_&, bool);
-
-    public:
         [[nodiscard]] const Handle_<Script::ScriptPortfolioData_>& Portfolio() const { return portfolio_; }
         [[nodiscard]] const PortfolioRiskAxes_& Axes() const { return axes_; }
         [[nodiscard]] const Vector_<Script::Detail::PortfolioBatchOutput_>& Outputs() const { return outputs_; }
@@ -44,6 +41,23 @@ namespace Dal::Detail {
         [[nodiscard]] bool EnableAad() const { return enableAad_; }
     };
 
+    class PortfolioWeightedPlan_ : public PortfolioRiskPlan_ {
+    public:
+        explicit PortfolioWeightedPlan_(PortfolioRiskPlan_ plan) : PortfolioRiskPlan_(std::move(plan)) {}
+    };
+
+    class PortfolioJacobianPlan_ : public PortfolioRiskPlan_ {
+        size_t maxBlockWidth_;
+
+    public:
+        PortfolioJacobianPlan_(PortfolioRiskPlan_ plan, size_t width) : PortfolioRiskPlan_(std::move(plan)), maxBlockWidth_(width) {}
+        [[nodiscard]] size_t MaxBlockWidth() const { return maxBlockWidth_; }
+    };
+
     [[nodiscard]] PortfolioWeightedPlan_
     PlanPortfolioWeightedRequest(const Handle_<Script::ScriptPortfolioData_>& portfolio, const Script::WeightedRiskRequest_& request, bool enableAad);
+
+    [[nodiscard]] PortfolioJacobianPlan_ PlanPortfolioJacobianRequest(const Handle_<Script::ScriptPortfolioData_>& portfolio,
+                                                                      const PortfolioJacobianRiskRequest_& request,
+                                                                      bool enableAad);
 } // namespace Dal::Detail

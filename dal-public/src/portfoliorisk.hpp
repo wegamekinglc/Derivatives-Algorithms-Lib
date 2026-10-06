@@ -14,13 +14,23 @@
 
 namespace Dal {
     namespace Detail {
+        class PortfolioRiskPlan_;
         class PortfolioWeightedPlan_;
+        class PortfolioJacobianPlan_;
         struct PortfolioWeightedReplayResult_;
+        struct PortfolioJacobianReplayResult_;
     } // namespace Detail
 
     struct PortfolioWeightedRiskRequest_ {
         Script::RiskRequest_ selection_;
         std::optional<Vector_<double>> weights_;
+        std::optional<size_t> recordingCapacityBudgetBytes_;
+        std::optional<size_t> scratchCapacityBudgetBytes_;
+    };
+
+    struct PortfolioJacobianRiskRequest_ {
+        Script::RiskRequest_ selection_;
+        size_t maxBlockWidth_ = 1;
         std::optional<size_t> recordingCapacityBudgetBytes_;
         std::optional<size_t> scratchCapacityBudgetBytes_;
     };
@@ -50,25 +60,43 @@ namespace Dal {
         size_t evaluatorCalls_ = 0;
         size_t suffixReversals_ = 0;
         size_t prefixReversals_ = 0;
+        Vector_<size_t> actualWidths_;
+        size_t replayAttempts_ = 0;
     };
 
     struct PortfolioRiskExecution_ {
         Vector_<PortfolioGroupExecution_> groups_;
         size_t peakRecordingBytes_ = 0;
         size_t peakScratchBytes_ = 0;
+        size_t requestedMaxBlockWidth_ = 0;
     };
 
-    class PortfolioWeightedRiskResult_ {
-        double weightedValue_;
-        Vector_<double> componentMeans_;
-        Vector_<double> gradient_;
-        Vector_<double> weights_;
+    class PortfolioRiskResultMetadata_ {
         Vector_<Script::RiskOutputCoordinate_> outputAxis_;
         Vector_<Script::RiskOutputCoordinate_> completeOutputAxis_;
         Vector_<Script::RiskCoordinate_> inputAxis_;
         Vector_<Script::RiskCoordinate_> completeInputAxis_;
         PortfolioRiskProvenance_ provenance_;
         PortfolioRiskExecution_ execution_;
+
+    protected:
+        PortfolioRiskResultMetadata_(const Detail::PortfolioRiskPlan_& plan, PortfolioRiskProvenance_ provenance, PortfolioRiskExecution_ execution);
+        ~PortfolioRiskResultMetadata_() = default;
+
+    public:
+        [[nodiscard]] const Vector_<Script::RiskOutputCoordinate_>& OutputAxis() const { return outputAxis_; }
+        [[nodiscard]] const Vector_<Script::RiskOutputCoordinate_>& CompleteOutputAxis() const { return completeOutputAxis_; }
+        [[nodiscard]] const Vector_<Script::RiskCoordinate_>& InputAxis() const { return inputAxis_; }
+        [[nodiscard]] const Vector_<Script::RiskCoordinate_>& CompleteInputAxis() const { return completeInputAxis_; }
+        [[nodiscard]] const PortfolioRiskProvenance_& Provenance() const { return provenance_; }
+        [[nodiscard]] const PortfolioRiskExecution_& Execution() const { return execution_; }
+    };
+
+    class PortfolioWeightedRiskResult_ : public PortfolioRiskResultMetadata_ {
+        double weightedValue_;
+        Vector_<double> componentMeans_;
+        Vector_<double> gradient_;
+        Vector_<double> weights_;
 
         PortfolioWeightedRiskResult_(const Detail::PortfolioWeightedPlan_& plan,
                                      Detail::PortfolioWeightedReplayResult_&& source,
@@ -84,14 +112,28 @@ namespace Dal {
         [[nodiscard]] double WeightedValue() const { return weightedValue_; }
         [[nodiscard]] const Vector_<double>& ComponentMeans() const { return componentMeans_; }
         [[nodiscard]] const Vector_<double>& Weights() const { return weights_; }
-        [[nodiscard]] const Vector_<Script::RiskOutputCoordinate_>& OutputAxis() const { return outputAxis_; }
-        [[nodiscard]] const Vector_<Script::RiskOutputCoordinate_>& CompleteOutputAxis() const { return completeOutputAxis_; }
-        [[nodiscard]] const Vector_<Script::RiskCoordinate_>& InputAxis() const { return inputAxis_; }
-        [[nodiscard]] const Vector_<Script::RiskCoordinate_>& CompleteInputAxis() const { return completeInputAxis_; }
-        [[nodiscard]] const PortfolioRiskProvenance_& Provenance() const { return provenance_; }
-        [[nodiscard]] const PortfolioRiskExecution_& Execution() const { return execution_; }
         [[nodiscard]] Matrix_<> Jacobian() const;
         [[nodiscard]] Matrix_<> ReportedJacobian() const;
+    };
+
+    class PortfolioJacobianRiskResult_ : public PortfolioRiskResultMetadata_ {
+        Vector_<double> values_;
+        Matrix_<double> jacobian_;
+
+        PortfolioJacobianRiskResult_(const Detail::PortfolioJacobianPlan_& plan,
+                                     Detail::PortfolioJacobianReplayResult_&& source,
+                                     PortfolioRiskProvenance_ provenance,
+                                     PortfolioRiskExecution_ execution);
+        friend PortfolioJacobianRiskResult_ ValuePortfolioByMonteCarloWithJacobianRisk(const Handle_<Script::ScriptPortfolioData_>&,
+                                                                                       int,
+                                                                                       const PortfolioJacobianRiskRequest_&,
+                                                                                       const Script::ScriptValuationSettings_&,
+                                                                                       const Script::MonteCarloSettings_&);
+
+    public:
+        [[nodiscard]] const Vector_<double>& Values() const { return values_; }
+        [[nodiscard]] Matrix_<double> Jacobian() const { return jacobian_; }
+        [[nodiscard]] Matrix_<double> ReportedJacobian() const;
     };
 
     class PortfolioRiskAxes_ {

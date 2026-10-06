@@ -754,18 +754,18 @@ This snapshot distinguishes accepted increments from locally implemented work.
 Estimates are remaining single-developer effort, not promises of calendar time;
 overlapping acceptance work is included once in the integration allowance.
 
-| Work item               | Implementation/local verification                                    | Publication/CI                          | Remaining person-days |
-|-------------------------|----------------------------------------------------------------------|-----------------------------------------|-----------------------|
-| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                        | Accepted exact-head checks              | 0                     |
-| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass       | Merged; final 35/35 checks accepted     | 0                     |
-| F01                     | C++/Python/Excel and complete requirement audit accepted             | Merged; final 35/35 checks accepted     | 0                     |
-| F02 weighted/blocked    | C++/Python/Excel and independent mathematical oracles accepted       | #483/#484 merged; exact-head gates pass | 0                     |
-| F02 portfolio           | C++ native/passive weighted results/budgets verified; blocked open | Open #487; whole delivery pending       | 3–5                   |
-| P02/P03                 | Worker reuse/block selection/extraction remain                       | Open                                    | 4–7                   |
-| F03                     | Solve, implicit calibration and PDE operators remain                 | Open                                    | 12–20                 |
-| P04/P05                 | Structural sparsity/checkpointing remain                             | Open                                    | 9–15                  |
-| F04                     | Second-order implementation/estimator validation remain              | Open                                    | 12–20                 |
-| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains           | Open                                    | 7–11                  |
+| Work item               | Implementation/local verification                                 | Publication/CI                          | Remaining person-days |
+|-------------------------|-------------------------------------------------------------------|-----------------------------------------|-----------------------|
+| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                     | Accepted exact-head checks              | 0                     |
+| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass    | Merged; final 35/35 checks accepted     | 0                     |
+| F01                     | C++/Python/Excel and complete requirement audit accepted          | Merged; final 35/35 checks accepted     | 0                     |
+| F02 weighted/blocked    | C++/Python/Excel and independent mathematical oracles accepted    | #483/#484 merged; exact-head gates pass | 0                     |
+| F02 portfolio           | Weighted/native blocked results/budgets verified; bindings remain | Open #487; whole delivery pending       | 3–5                   |
+| P02/P03                 | Worker reuse/block selection/extraction remain                    | Open                                    | 4–7                   |
+| F03                     | Solve, implicit calibration and PDE operators remain              | Open                                    | 12–20                 |
+| P04/P05                 | Structural sparsity/checkpointing remain                          | Open                                    | 9–15                  |
+| F04                     | Second-order implementation/estimator validation remain           | Open                                    | 12–20                 |
+| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains        | Open                                    | 7–11                  |
 
 Remaining total: approximately 47–78 person-days, or 10–16 working weeks,
 excluding CI queue time and including delivery contingency. F01 is merged;
@@ -1252,7 +1252,17 @@ absolute path/RNG/bridge comparisons, zero tail lanes, capacity failures and
 recording-mode recovery. The production unit passes strict OFF/combined ON
 warnings. Public attribution coordination/admission and bindings remain pending.
 
-Next: finish portfolio blocked attribution and Python/Excel bindings. Preserve
+Owning native portfolio Jacobians now use shared request selection/result metadata,
+independent matrix payloads, original-path group blocks and global owner/private
+scatter. Known root/matrix/private history shapes admit before history, with
+capacity-only width narrowing and aggregate runtime guards. The zero-budget RED
+and wrong-report-row RED are repaired. Forty-three distinct affected cases pass,
+including all six native families, original mixed meshes/owners and widths
+one/two/three across tree/compiled and one/four workers. Strict OFF/combined ON
+warnings and independent headers pass. Passive attribution, dedicated narrowing
+and failure acceptance, bindings and final delivery gates remain pending.
+
+Next: finish passive portfolio attribution and Python/Excel bindings. Preserve
 original RNG dimensions/path indices, private evaluator state, existing costs
 and independent numerical oracles. Every new publication needs its own exact-head
 checks. Complete portfolio delivery has no comparative performance acceptance yet.

@@ -78,7 +78,14 @@ finite budgets/peaks, zero-budget rejection, all selected private vectors, omiss
 of unselected evaluator state, capacity failure/recovery and sparse native vector
 zero-hole bindings. Passive known private-vector admission now has an independent
 historical-price oracle and rejects before reads with finite scratch limits,
-ignoring zero tape limits. Blocked admission still requires its own tests.
+ignoring zero tape limits. Owning native blocked attribution now has independent
+all-column oracles across six families, original mixed meshes/owners and several
+widths. Root/matrix/private historical-vector admission rejects known impossible
+budgets before reads/tasks and finite budgets recover correct prices/risks. The
+review fixes wrong original-row context on report overflow and shares owning
+selection/result metadata without changing old single-product entry points.
+Passive attribution, dedicated equivalent-budget narrowing/failure acceptance,
+bindings and final publication/performance gates remain required.
 
 Implement weighted groups before blocked attribution; reuse the accepted
 native root/replay primitives. Avoid speculative hashing, persistent caches or

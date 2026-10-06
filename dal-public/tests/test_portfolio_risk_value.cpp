@@ -135,6 +135,112 @@ TEST(PortfolioRiskValueTest, TestNativeWeightedResultOwnsAxesReportsAndResolvedG
     ASSERT_DOUBLE_EQ(result.Jacobian()(0, 0), -1.0);
 }
 
+TEST(PortfolioRiskValueTest, TestBlockedAttributionOwnsOrderedRowsAndActualGroupWork) {
+    RegisterAll_::Init();
+    for (const bool compiled : {false, true})
+        for (const size_t width : {1, 2, 3, 4}) {
+            auto data = Portfolio();
+            PortfolioJacobianRiskRequest_ request;
+            request.selection_.outputs_ = Vector_<String_>{"trade:1:payoff", "trade:0:output:0", "trade:0:payoff"};
+            request.selection_.inputs_ = Vector_<String_>{"trade:1:constant:0", "model:0:parameter:0", "trade:0:constant:0"};
+            request.selection_.reportFactors_ = Vector_<>{2.0, 0.5, 3.0};
+            request.selection_.numericPayloadBudgetBytes_ = 12 * sizeof(double);
+            request.maxBlockWidth_ = width;
+            request.scratchCapacityBudgetBytes_ = 64 * 1024 * 1024;
+            request.recordingCapacityBudgetBytes_ = 256 * 1024 * 1024;
+            auto simulation = DefaultRiskMonteCarloSettings();
+            simulation.compiled_ = compiled;
+            const auto result = ValuePortfolioByMonteCarloWithJacobianRisk(data, 257, request, Valuation(), simulation);
+            request.selection_.outputs_->clear();
+            (*request.selection_.reportFactors_)[0] = 999;
+            data.reset();
+            ASSERT_EQ(result.Values().size(), 3);
+            ASSERT_DOUBLE_EQ(result.Values()[0], 307.0);
+            ASSERT_DOUBLE_EQ(result.Values()[1], 5.0);
+            ASSERT_DOUBLE_EQ(result.Values()[2], 205.0);
+            const auto raw = result.Jacobian();
+            ASSERT_EQ(raw.Rows(), 3);
+            ASSERT_EQ(raw.Cols(), 3);
+            const double expected[3][3]{{1.0, 3.0, 0.0}, {0.0, 0.0, 1.0}, {0.0, 2.0, 1.0}};
+            const auto reported = result.ReportedJacobian();
+            for (int row = 0; row < 3; ++row)
+                for (int column = 0; column < 3; ++column) {
+                    ASSERT_DOUBLE_EQ(raw(row, column), expected[row][column]);
+                    ASSERT_DOUBLE_EQ(reported(row, column), expected[row][column] * result.InputAxis()[column].reportScale_);
+                }
+            const auto actualWidth = std::min(size_t{3}, width);
+            const auto replays = (3 + actualWidth - 1) / actualWidth;
+            const auto& group = result.Execution().groups_[0];
+            ASSERT_EQ(group.actualWidths_, Vector_<size_t>(replays, actualWidth));
+            ASSERT_EQ(group.replayAttempts_, replays);
+            ASSERT_EQ(group.generatedScenarios_, 257 * replays);
+            ASSERT_EQ(group.evaluatorCalls_, 257 * (actualWidth == 3 ? 2 : 3));
+            ASSERT_EQ(group.suffixReversals_, group.generatedScenarios_);
+            ASSERT_LE(result.Execution().peakScratchBytes_, *request.scratchCapacityBudgetBytes_);
+            ASSERT_LE(result.Execution().peakRecordingBytes_, *request.recordingCapacityBudgetBytes_);
+            ASSERT_EQ(result.Execution().requestedMaxBlockWidth_, width);
+            ASSERT_EQ(result.Provenance().method_, "NativeAADJacobianPortfolio");
+            ASSERT_EQ(result.Provenance().tradeIds_, Vector_<String_>({"A", "B"}));
+            ASSERT_EQ(result.CompleteInputAxis().size(), 6);
+            ASSERT_EQ(result.OutputAxis()[0].id_, "trade:1:payoff");
+            auto detached = result.Jacobian();
+            detached(0, 0) = 999;
+            ASSERT_DOUBLE_EQ(result.Jacobian()(0, 0), 1.0);
+        }
+}
+
+TEST(PortfolioRiskValueTest, TestBlockedKnownCapacityFailsBeforeHistoryAndTasks) {
+    RegisterAll_::Init();
+    const auto data = HistoricalPortfolio();
+    for (const bool compiled : {false, true})
+        for (const bool tape : {false, true}) {
+            Script::TestSupport::RejectFixingReads_ history;
+            Script::TestSupport::RejectSubmissions_ tasks;
+            const Dal::Detail::ScopedFixingReadObserver_ observeHistory(&history);
+            const Script::Detail::ScopedSimulationObserver_ observeTasks(&tasks);
+            PortfolioJacobianRiskRequest_ request;
+            request.maxBlockWidth_ = 2;
+            if (tape)
+                request.recordingCapacityBudgetBytes_ = 0;
+            else
+                request.scratchCapacityBudgetBytes_ = 0;
+            auto simulation = DefaultRiskMonteCarloSettings();
+            simulation.compiled_ = compiled;
+            try {
+                static_cast<void>(ValuePortfolioByMonteCarloWithJacobianRisk(data, 257, request, Valuation(), simulation));
+                FAIL() << "known capacity must fail before history";
+            } catch (const Exception_& error) {
+                const String_ kind = tape ? "Tape" : "Scratch buffer";
+                ASSERT_NE(String_(error.what()).find(kind + " capacity budget exceeded"), String_::npos) << error.what();
+            }
+            ASSERT_EQ(history.historyCalls_, 0);
+            ASSERT_EQ(history.fixingCalls_, 0);
+            ASSERT_EQ(tasks.calls_, 0);
+        }
+}
+
+TEST(PortfolioRiskValueTest, TestBlockedReportFailureNamesItsOriginalRowAndRecovers) {
+    RegisterAll_::Init();
+    const auto data = Portfolio();
+    PortfolioJacobianRiskRequest_ request;
+    request.selection_.outputs_ = Vector_<String_>{"trade:0:output:0", "trade:1:payoff"};
+    request.selection_.inputs_ = Vector_<String_>{"model:0:parameter:0"};
+    const auto prior = ValuePortfolioByMonteCarloWithJacobianRisk(data, 17, request, Valuation());
+    request.selection_.reportFactors_ = Vector_<>{std::numeric_limits<double>::max()};
+    try {
+        static_cast<void>(ValuePortfolioByMonteCarloWithJacobianRisk(data, 17, request, Valuation()));
+        FAIL() << "report overflow must name the original failing row";
+    } catch (const ScriptError_& error) {
+        ASSERT_NE(String_(error.what()).find("output=trade:1:payoff"), String_::npos);
+        ASSERT_NE(String_(error.what()).find("trade=B"), String_::npos) << error.what();
+        ASSERT_NE(String_(error.what()).find("group=0"), String_::npos);
+    }
+    request.selection_.reportFactors_.reset();
+    const auto recovered = ValuePortfolioByMonteCarloWithJacobianRisk(data, 17, request, Valuation());
+    ASSERT_EQ(recovered.Values(), prior.Values());
+    ASSERT_DOUBLE_EQ(recovered.Jacobian()(1, 0), prior.Jacobian()(1, 0));
+}
+
 TEST(PortfolioRiskValueTest, TestEmptyNativeColumnsAndReportOverflowPreservePriorResults) {
     RegisterAll_::Init();
     const auto data = Portfolio();

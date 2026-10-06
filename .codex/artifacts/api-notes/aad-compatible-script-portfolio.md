@@ -113,11 +113,20 @@ known private vector seed, including the checked BS path. It ignores tape limits
 private evaluator lifecycle with fixed-width independent output roots. It owns
 full model/private-constant gradient matrices, leaves tail lanes zero and reports
 actual scenario/evaluation/reversal work. Weights do not scale attribution rows.
-Blocked-width admission and public attribution coordination remain pending.
+`PlanPortfolioJacobianRequest` reuses the owning global selection plan while
+enforcing the distinct checked `sizeof(double) * m * (1+n)` retained payload.
+`PreparePortfolioJacobianReplay` admits prospective original-mesh group blocks
+before history. Result/selection/task capacities stay resident while remaining
+capacity is divided across workers, including full model/private matrices, root
+lanes and known historical vector shapes. Capacity-only narrowing retains the
+requested maximum and returns admitted group widths. Native replay executes
+original absolute batches for each group block, deterministically scatters rows
+and selected owner/private columns, and normalizes once. Passive attribution and
+dedicated equivalent-budget narrowing acceptance remain pending.
 
 ## Valuation surfaces
 
-The C++ weighted entry exists; the attribution entry remains proposed. Both take
+The C++ weighted and native attribution entries exist. Both take
 the portfolio and path count first, followed by
 request, valuation and simulation settings. Use separate weighted and attribution
 methods rather than a mode flag with incompatible output types:
@@ -130,7 +139,7 @@ PortfolioWeightedRiskResult_ ValuePortfolioByMonteCarloWithWeightedRisk(
     const ScriptValuationSettings_& valuation = {},
     const MonteCarloSettings_& simulation = DefaultRiskMonteCarloSettings());
 
-// Proposed attribution entry.
+// Implemented native attribution entry.
 PortfolioJacobianRiskResult_ ValuePortfolioByMonteCarloWithJacobianRisk(
     const Handle_<ScriptPortfolioData_>& portfolio, int numPath,
     const PortfolioJacobianRiskRequest_& request = {},
@@ -154,6 +163,13 @@ owning result. This preserves the exact weighted retained numeric payload withou
 retaining a second gradient. Report projection overflow fails before publication.
 Per-trade provenance uses the shared scalar capture helper without changing legacy
 scalar, weighted or Jacobian execution. The result retains no active state.
+
+The native attribution result owns `Values()` and one retained `(m,n)` matrix,
+with detached raw/reported matrix getters. It shares owning axis/provenance
+storage with the weighted result and retains no weights or duplicate matrix.
+Execution records the requested maximum and per-group actual widths, attempts and
+scenario/evaluation/reversal work. Report overflow identifies the original failing
+row's trade/output, including when a model input belongs to several trades.
 
 ## Binding projection
 

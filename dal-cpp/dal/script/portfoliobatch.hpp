@@ -4,6 +4,9 @@
 
 #pragma once
 
+#include <limits>
+#include <type_traits>
+
 #include <dal/math/aad/tapecapacity.hpp>
 #include <dal/math/buffercapacity.hpp>
 #include <dal/script/portfoliopreparation.hpp>
@@ -41,6 +44,16 @@ namespace Dal::Script {
         using PortfolioWeightedBatchResult_ = PortfolioBatchResult_<Vector_<double>>;
         using PortfolioJacobianBatchResult_ = PortfolioBatchResult_<Matrix_<double>>;
 
+        template <class G_> void ResizePortfolioGradientStorage(G_* gradients, size_t width, size_t inputs) {
+            if constexpr (std::is_same_v<G_, Vector_<double>>)
+                gradients->Resize(inputs);
+            else {
+                REQUIRE2(inputs <= static_cast<size_t>(std::numeric_limits<int>::max()),
+                         "InvalidPortfolioAdmission: input extent exceeds matrix columns", ScriptError_);
+                gradients->Resize(static_cast<int>(width), static_cast<int>(inputs));
+            }
+        }
+
         [[nodiscard]] PortfolioWeightedBatchResult_ EvaluatePortfolioWeightedBatch(const PreparedPortfolio_& portfolio,
                                                                                    size_t group,
                                                                                    const PathBatch_& batch,
@@ -62,6 +75,13 @@ namespace Dal::Script {
         void AdmitPortfolioWeightedWorker(const Vector_<const PreparedScript_*>& trades,
                                           const Handle_<ModelData_>& model,
                                           const Vector_<PortfolioBatchOutput_>& outputs,
+                                          size_t scratchQuota,
+                                          size_t tapeQuota);
+
+        void AdmitPortfolioJacobianWorker(const Vector_<const PreparedScript_*>& trades,
+                                          const Handle_<ModelData_>& model,
+                                          const Vector_<PortfolioBatchOutput_>& outputs,
+                                          size_t width,
                                           size_t scratchQuota,
                                           size_t tapeQuota);
 

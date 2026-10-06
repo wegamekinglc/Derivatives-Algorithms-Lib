@@ -3,7 +3,8 @@
 Verdict: **Comment Only**. Implemented increments can be published in open #487;
 the complete portfolio PR is not ready for acceptance or merge. Native/passive
 weighted execution, owning C++ results and startup/runtime budgets are locally
-verified. Portfolio blocked execution and bindings remain open.
+verified. Native blocked attribution and budgets are locally verified; passive
+attribution, complete width-narrowing acceptance and bindings remain open.
 
 ## Findings
 
@@ -269,12 +270,45 @@ Evidence: `aad-portfolio-focused-blocked-batch-roots-red-01.json`,
 Public attribution/admission and
 final linked/platform/performance acceptance remain required.
 
+Owning native C++ attribution now uses the common sealed selection plan with
+the exact independent matrix payload and shared result metadata. Original group
+blocks reuse task draining, deterministic batch reduction and owner/private
+scatter; each result records requested/actual widths and actual work. Startup
+capacity admission covers each block's selected private states, matrices and root
+lanes before history, with equivalent-capacity narrowing and shared runtime guards.
+The admission RED retained one historical read before zero-budget rejection; the
+callback now rejects without reads/tasks. Local review also retained a RED for
+report overflow naming the wrong related trade; context now comes from the actual
+failing output row. No numerical assertion or tolerance was relaxed.
+Forty-one affected planning/result/replay/admission/batch cases pass. After the
+metadata refactor and row-context repair, all 24 affected public cases pass,
+including the new private historical-vector oracle and independent risk columns
+for every accepted model family, original mixed meshes/owners, tree/compiled,
+one/four workers and widths one/two/three. This is 43 distinct affected cases.
+Four changed production units pass strict OFF/combined ON warnings; the final
+result unit and three independent headers have fresh two-mode evidence.
+Evidence: `aad-portfolio-focused-jacobian-plan-red-01.json`,
+`aad-portfolio-focused-jacobian-plan-green-01.json`,
+`aad-portfolio-focused-jacobian-public-red-01.json`,
+`aad-portfolio-focused-jacobian-public-capacity-red-01.json`,
+`aad-portfolio-focused-jacobian-report-context-red-01.json`,
+`aad-portfolio-focused-jacobian-native-capacity-regression-green-01.json`,
+`aad-portfolio-focused-jacobian-native-families-context-green-01.json`,
+`aad-portfolio-jacobian-native-warning-01.json` and
+`aad-portfolio-jacobian-metadata-warning-01.json`.
+The actual documented construction/weighted/native-attribution consumer compiles,
+links and runs with a two-by-three matrix and 4096 scenarios/8192 evaluations for
+the attribution group (`aad-portfolio-jacobian-doc-consumer-02.json`). All 157
+Markdown checks and changed-source formatting pass. The first generated consumer
+placed the attribution snippet outside main; its failure is retained separately
+and the generator boundary is corrected without changing documented code.
+
 ## Summary
 
 Existing scalar/weighted/Jacobian drivers retain their default preparation
 entry points and allocate no portfolio state. The
 snapshot registry precedes cloning, the passive catalog preserves owner/private
 constant identity, and full semantic grouping retains incompatible trades.
-The active specification remains the complete acceptance boundary. Blocked
-attribution, bindings, installed consumers, complete final performance/platform
+The active specification remains the complete acceptance boundary. Passive
+attribution, complete narrowing/failure tests, bindings, installed consumers, final performance/platform
 checks and a fresh publication-head review are required before merge.

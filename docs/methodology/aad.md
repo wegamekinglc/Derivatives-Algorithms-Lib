@@ -986,6 +986,49 @@ historical reads. Runtime growth and overlapping replacements remain guarded.
 Capacity or worker failures drain accepted tasks and publish no partial result.
 Exercise and fully expired trades retain the multi-output rejection boundary.
 
+### Native Script Portfolio Jacobians
+
+`ValuePortfolioByMonteCarloWithJacobianRisk` returns separate output means and
+an owning `(m, n)` risk matrix over the same sealed portfolio and global axes.
+The native entry uses `PortfolioJacobianRiskRequest_`; omitted outputs select
+every trade payoff. `maxBlockWidth_` is an explicit positive maximum bounded by
+the native adjoint capacity, with a default of one.
+
+```cpp
+// Use the same sealed portfolio and valuation date.
+PortfolioJacobianRiskRequest_ attributionRequest;
+attributionRequest.selection_.outputs_ = Vector_<String_>{
+    "trade:1:payoff", "trade:0:payoff"};
+attributionRequest.selection_.inputs_ = Vector_<String_>{
+    "trade:1:constant:0", "model:0:parameter:0", "trade:0:constant:0"};
+attributionRequest.maxBlockWidth_ = 2;
+const auto attribution = ValuePortfolioByMonteCarloWithJacobianRisk(
+    portfolio, 4096, attributionRequest, valuation);
+const auto outputMeans = attribution.Values();
+const auto sensitivities = attribution.Jacobian(); // two rows, three columns
+const auto& attributionGroups = attribution.Execution().groups_;
+```
+
+Native attribution requires native AAD preparation, including explicitly empty
+input selection, which retains the smoothed estimator and an `(m, 0)` matrix.
+Each compatible group replays its original path range once per output block.
+Model leaves are shared inside each recording; constants, historical state and
+evaluators stay private to the trades needed by that block. Independent roots
+preserve output aliases and unused tail lanes stay zero. Only selected derivative
+columns must be finite. Raw and reported matrix getters return detached copies;
+report factors scale columns once and overflow rejects the entire result with
+the original failing trade/output context.
+
+The retained numeric payload is exactly `sizeof(double) * m * (1+n)`.
+Recording and scratch limits apply across the sequential groups and concurrent
+original path batches. Known result/task buffers, root lanes, full extracted
+model/private matrices and historical vector shapes admit before historical
+reads. Capacity-only admission can narrow the maximum block width while keeping
+the estimator and original paths. `Execution()` retains the requested maximum;
+each group reports its actual widths, replay attempts, scenario/evaluator/reverse
+counts and whole-request capacity peaks. For a group with `m_g` rows and admitted
+width `w_g`, scenario generation totals `numPath * ceil(m_g / w_g)`.
+
 ### Discrete Dupire Calibration Pullback
 
 The C++ functions in `dal/model/dupirerisk.hpp` map numeric local-volatility

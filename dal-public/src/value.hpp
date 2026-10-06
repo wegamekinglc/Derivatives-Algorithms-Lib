@@ -25,6 +25,12 @@ namespace Dal {
                                                const PortfolioWeightedRiskRequest_& request = {},
                                                const ScriptValuationSettings_& valuation = {},
                                                const MonteCarloSettings_& simulation = DefaultRiskMonteCarloSettings());
+    [[nodiscard]] PortfolioJacobianRiskResult_
+    ValuePortfolioByMonteCarloWithJacobianRisk(const Handle_<Script::ScriptPortfolioData_>& portfolio,
+                                               int numPath,
+                                               const PortfolioJacobianRiskRequest_& request = {},
+                                               const ScriptValuationSettings_& valuation = {},
+                                               const MonteCarloSettings_& simulation = DefaultRiskMonteCarloSettings());
     [[nodiscard]] Script::RiskResult_ ValueByMonteCarloWithRisk(const Handle_<ScriptProductData_>& product,
                                                                 const Handle_<ModelData_>& modelData,
                                                                 int numPath,

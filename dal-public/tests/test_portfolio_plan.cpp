@@ -158,3 +158,66 @@ TEST(PortfolioPlanTest, TestMalformedSelectionsAndPayloadRejectBeforeHistoryOrTa
     ASSERT_EQ(history.fixingCalls_, 0);
     ASSERT_EQ(tasks.calls_, 0);
 }
+
+TEST(PortfolioPlanTest, TestJacobianPlanOwnsReorderedAxesAndExactPayload) {
+    RegisterAll_::Init();
+    auto data = Portfolio();
+    PortfolioJacobianRiskRequest_ request;
+    request.selection_.outputs_ = Vector_<String_>{"trade:1:payoff", "trade:0:output:1"};
+    request.selection_.inputs_ = Vector_<String_>{"trade:1:constant:0", "model:0:parameter:0", "trade:0:constant:0"};
+    request.selection_.reportFactors_ = Vector_<>{2.0, 0.5, 3.0};
+    request.maxBlockWidth_ = 3;
+    request.selection_.numericPayloadBudgetBytes_ = 8 * sizeof(double);
+    const auto plan = Dal::Detail::PlanPortfolioJacobianRequest(data, request, true);
+    request.selection_.outputs_->clear();
+    request.selection_.inputs_->clear();
+    (*request.selection_.reportFactors_)[0] = 999;
+    request.maxBlockWidth_ = 1;
+    data.reset();
+    ASSERT_TRUE(plan.Portfolio());
+    ASSERT_EQ(plan.MaxBlockWidth(), 3);
+    ASSERT_EQ(plan.NumericPayloadBytes(), 8 * sizeof(double));
+    ASSERT_EQ(plan.Outputs()[0].coordinate_.id_, "trade:1:payoff");
+    ASSERT_EQ(plan.Outputs()[1].coordinate_.label_, "a");
+    ASSERT_EQ(plan.InputPositions(), Vector_<size_t>({5, 0, 4}));
+    ASSERT_EQ(plan.InputAxis()[0].reportScale_, 2.0);
+    ASSERT_EQ(plan.InputAxis()[1].reportScale_, 0.5);
+    ASSERT_EQ(plan.InputAxis()[2].reportScale_, 3.0);
+}
+
+TEST(PortfolioPlanTest, TestJacobianPayloadAndMalformedWidthRejectWithoutHistoryOrTasks) {
+    RegisterAll_::Init();
+    const auto data = Portfolio();
+    Script::TestSupport::RejectFixingReads_ history;
+    Script::TestSupport::RejectSubmissions_ tasks;
+    const Dal::Detail::ScopedFixingReadObserver_ observeHistory(&history);
+    const Script::Detail::ScopedSimulationObserver_ observeTasks(&tasks);
+    PortfolioJacobianRiskRequest_ request;
+    request.selection_.numericPayloadBudgetBytes_ = 14 * sizeof(double);
+    const auto full = Dal::Detail::PlanPortfolioJacobianRequest(data, request, true);
+    ASSERT_EQ(full.NumericPayloadBytes(), 14 * sizeof(double));
+    --*request.selection_.numericPayloadBudgetBytes_;
+    ASSERT_THROW(static_cast<void>(Dal::Detail::PlanPortfolioJacobianRequest(data, request, true)), ScriptError_);
+    request.selection_.inputs_ = Vector_<String_>{};
+    request.selection_.numericPayloadBudgetBytes_ = 2 * sizeof(double);
+    const auto empty = Dal::Detail::PlanPortfolioJacobianRequest(data, request, true);
+    const auto passive = Dal::Detail::PlanPortfolioJacobianRequest(data, request, false);
+    ASSERT_EQ(empty.NumericPayloadBytes(), 2 * sizeof(double));
+    ASSERT_EQ(passive.NumericPayloadBytes(), 2 * sizeof(double));
+    ASSERT_TRUE(empty.EnableAad());
+    ASSERT_FALSE(passive.EnableAad());
+    ASSERT_TRUE(passive.InputPositions().empty());
+    for (const size_t width : {size_t{0}, AAD::ADJ_SIZE + 1}) {
+        request.maxBlockWidth_ = width;
+        ASSERT_THROW(static_cast<void>(Dal::Detail::PlanPortfolioJacobianRequest(data, request, false)), ScriptError_);
+    }
+    request = {};
+    request.selection_.outputs_ = Vector_<String_>{};
+    ASSERT_THROW(static_cast<void>(Dal::Detail::PlanPortfolioJacobianRequest(data, request, true)), ScriptError_);
+    request.selection_.outputs_.reset();
+    request.selection_.inputs_ = Vector_<String_>{"model:0:parameter:0"};
+    ASSERT_THROW(static_cast<void>(Dal::Detail::PlanPortfolioJacobianRequest(data, request, false)), ScriptError_);
+    ASSERT_EQ(history.historyCalls_, 0);
+    ASSERT_EQ(history.fixingCalls_, 0);
+    ASSERT_EQ(tasks.calls_, 0);
+}

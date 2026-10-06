@@ -96,6 +96,44 @@ namespace {
         for (size_t column = 0; column < gradient.size(); ++column)
             ASSERT_NEAR(result.gradient_[column], gradient[column], 1e-10) << axes.InputAxis()[column].id_;
     }
+
+    void AssertJacobianRows(const PortfolioJacobianRiskResult_& result,
+                            const PortfolioRiskAxes_& axes,
+                            const Vector_<size_t>& trades,
+                            const Vector_<Script::RiskResult_>& references) {
+        const auto matrix = result.Jacobian();
+        ASSERT_EQ(matrix.Rows(), static_cast<int>(trades.size()));
+        ASSERT_EQ(matrix.Cols(), static_cast<int>(axes.InputAxis().size()));
+        for (size_t row = 0; row < trades.size(); ++row) {
+            ASSERT_NEAR(result.Values()[row], references[row].Values()[0], 1e-10);
+            Vector_<double> expected(axes.InputAxis().size(), 0.0);
+            for (size_t local = 0; local < references[row].InputAxis().size(); ++local)
+                expected[axes.TradeInputPositions()[trades[row]][local]] = references[row].Jacobian()(0, static_cast<int>(local));
+            for (size_t column = 0; column < expected.size(); ++column)
+                ASSERT_NEAR(matrix(static_cast<int>(row), static_cast<int>(column)), expected[column], 1e-10) << axes.InputAxis()[column].id_;
+        }
+    }
+
+    void AssertNativeJacobianWidths(const Handle_<ScriptPortfolioData_>& data,
+                                    const PortfolioRiskAxes_& axes,
+                                    const Vector_<size_t>& trades,
+                                    const MonteCarloSettings_& simulation) {
+        if (!simulation.enableAad_)
+            return;
+        PortfolioJacobianRiskRequest_ request;
+        request.selection_.outputs_.emplace();
+        Vector_<Script::RiskResult_> references;
+        for (const auto trade : trades) {
+            request.selection_.outputs_->push_back("trade:" + String_(std::to_string(trade)) + ":payoff");
+            references.push_back(
+                ValueByMonteCarloWithRisk(data->Products()[trade], data->Models()[data->ModelOwners()[trade]], 257, {}, Valuation(), simulation));
+        }
+        for (const size_t width : {1, 2, 3}) {
+            request.maxBlockWidth_ = width;
+            const auto result = ValuePortfolioByMonteCarloWithJacobianRisk(data, 257, request, Valuation(), simulation);
+            ASSERT_NO_FATAL_FAILURE(AssertJacobianRows(result, axes, trades, references));
+        }
+    }
 } // namespace
 
 TEST(PortfolioReplayTest, TestSharedOwnershipScatterAndParallelReductionMatchOracle) {
@@ -153,6 +191,7 @@ TEST(PortfolioReplayTest, TestOriginalMeshesAndDistinctOwnersMatchIndependentSca
                 outputs.push_back(Payoff(prepared, trades[row], weights[row]));
             const auto result = Dal::Detail::EvaluatePortfolioWeightedReplay(prepared, outputs, SelectedRiskInputs(inputs, simulation));
             ASSERT_NO_FATAL_FAILURE(AssertIndependentScalarRisk(data, axes, trades, weights, simulation, result));
+            ASSERT_NO_FATAL_FAILURE(AssertNativeJacobianWidths(data, axes, trades, simulation));
             ASSERT_NO_FATAL_FAILURE(AssertWeightedWork(result, workers, simulation));
             ASSERT_EQ(result.groupCounters_[0].evaluatorCalls_, 514);
             ASSERT_EQ(result.groupCounters_[1].evaluatorCalls_, 257);
@@ -317,6 +356,7 @@ TEST(PortfolioReplayTest, TestSixModelFamiliesShareOriginalPathsAndMatchEveryInd
                 const auto result = Dal::Detail::EvaluatePortfolioWeightedReplay(prepared, {Payoff(prepared, 1, -1.0), Payoff(prepared, 0, 2.0)},
                                                                                  SelectedRiskInputs(inputs, simulation));
                 ASSERT_NO_FATAL_FAILURE(AssertIndependentScalarRisk(data, axes, {1, 0}, {-1.0, 2.0}, simulation, result));
+                ASSERT_NO_FATAL_FAILURE(AssertNativeJacobianWidths(data, axes, {1, 0}, simulation));
                 ASSERT_NO_FATAL_FAILURE(AssertWeightedWork(result, workers, simulation));
                 ASSERT_EQ(result.groupCounters_[0].evaluatorCalls_, 514);
             }

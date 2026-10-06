@@ -6,6 +6,7 @@
 #include <limits>
 #include <map>
 #include <set>
+#include <type_traits>
 
 #include <dal-public/src/portfolioplaninternal.hpp>
 #include <dal-public/src/portfolioreplayinternal.hpp>
@@ -20,6 +21,7 @@
 namespace Dal::Detail {
     namespace {
         using Script::Detail::PortfolioBatchOutput_;
+        using Script::Detail::PortfolioJacobianBatchResult_;
         using Script::Detail::PortfolioWeightedBatchResult_;
         using Script::Detail::PreparedPortfolio_;
 
@@ -119,21 +121,35 @@ namespace Dal::Detail {
                 AddValue(value, &result->gradient_[static_cast<size_t>(column)], axes.InputAxis()[position].id_);
         }
 
+        template <class G_> size_t GradientColumns(const G_& gradients) {
+            if constexpr (std::is_same_v<G_, Vector_<double>>)
+                return gradients.size();
+            else
+                return static_cast<size_t>(gradients.Cols());
+        }
+
+        template <class G_, class F_>
+        void VisitGradients(const Script::Detail::PortfolioBatchResult_<G_>& batch, const PortfolioRiskAxes_& axes, const F_& accept) {
+            if (batch.constantGradientSums_.empty())
+                return;
+            const auto modelInputs = GradientColumns(batch.modelGradientSums_);
+            const auto& representative = axes.TradeInputPositions()[batch.tradePositions_.front()];
+            for (size_t input = 0; input < modelInputs; ++input)
+                accept(batch.modelGradientSums_, input, representative[input]);
+            for (size_t trade = 0; trade < batch.tradePositions_.size(); ++trade) {
+                const auto& positions = axes.TradeInputPositions()[batch.tradePositions_[trade]];
+                for (size_t constant = 0; constant < GradientColumns(batch.constantGradientSums_[trade]); ++constant)
+                    accept(batch.constantGradientSums_[trade], constant, positions[modelInputs + constant]);
+            }
+        }
+
         void ScatterGradients(const PortfolioWeightedBatchResult_& batch,
                               const PortfolioRiskAxes_& axes,
                               const ReplaySelection_& selection,
                               PortfolioWeightedReplayResult_* result) {
-            if (batch.constantGradientSums_.empty())
-                return;
-            const auto modelInputs = batch.modelGradientSums_.size();
-            const auto& representative = axes.TradeInputPositions()[batch.tradePositions_.front()];
-            for (size_t input = 0; input < modelInputs; ++input)
-                AddGradient(batch.modelGradientSums_[input], representative[input], axes, selection, result);
-            for (size_t trade = 0; trade < batch.tradePositions_.size(); ++trade) {
-                const auto& positions = axes.TradeInputPositions()[batch.tradePositions_[trade]];
-                for (size_t constant = 0; constant < batch.constantGradientSums_[trade].size(); ++constant)
-                    AddGradient(batch.constantGradientSums_[trade][constant], positions[modelInputs + constant], axes, selection, result);
-            }
+            VisitGradients(batch, axes, [&](const auto& gradients, size_t local, size_t global) {
+                AddGradient(gradients[local], global, axes, selection, result);
+            });
         }
 
         void AddCount(size_t value, size_t* sum) {
@@ -160,6 +176,28 @@ namespace Dal::Detail {
             }
         }
 
+        template <class R_, class F_>
+        Vector_<R_> RunBatches(const Script::BatchPlan_& batches, size_t outputs, BufferCapacityBudget_* scratch, const F_& run) {
+            Vector_<R_> slots;
+            slots.reserve(batches.BatchCount());
+            for (size_t batch = 0; batch < batches.BatchCount(); ++batch)
+                slots.emplace_back(outputs);
+            {
+                auto futures =
+                    BufferCapacityScope_::ForWorker(scratch, Script::Detail::ReplayExtentProduct(batches.BatchCount(), sizeof(TaskHandle_)));
+                Dal::Detail::BufferCapacitySuspension_ suspension;
+                Script::SimulationTaskGroup_ tasks(ThreadPool_::GetInstance(), batches.BatchCount());
+                for (size_t batch = 0; batch < batches.BatchCount(); ++batch)
+                    tasks.Spawn([&, batch] {
+                        auto capacity = BufferCapacityScope_::ForWorker(scratch);
+                        slots[batch] = run(batches.BatchAt(batch));
+                        return true;
+                    });
+                tasks.Complete();
+            }
+            return slots;
+        }
+
         void RunGroup(const PreparedPortfolio_& portfolio,
                       size_t group,
                       const Script::BatchPlan_& batches,
@@ -169,28 +207,99 @@ namespace Dal::Detail {
                       BufferCapacityBudget_* scratch,
                       AAD::TapeCapacityBudget_* tape) {
             try {
-                Vector_<PortfolioWeightedBatchResult_> slots;
-                slots.reserve(batches.BatchCount());
-                for (size_t batch = 0; batch < batches.BatchCount(); ++batch)
-                    slots.emplace_back(selection.groupOutputs_[group].size());
-                {
-                    auto futures =
-                        BufferCapacityScope_::ForWorker(scratch, Script::Detail::ReplayExtentProduct(batches.BatchCount(), sizeof(TaskHandle_)));
-                    Dal::Detail::BufferCapacitySuspension_ suspension;
-                    Script::SimulationTaskGroup_ tasks(ThreadPool_::GetInstance(), batches.BatchCount());
-                    for (size_t batch = 0; batch < batches.BatchCount(); ++batch)
-                        tasks.Spawn([&, batch] {
-                            auto capacity = BufferCapacityScope_::ForWorker(scratch);
-                            slots[batch] = Script::Detail::EvaluatePortfolioWeightedBatch(portfolio, group, batches.BatchAt(batch),
-                                                                                          selection.groupOutputs_[group], scratch, tape);
-                            return true;
-                        });
-                    tasks.Complete();
-                }
+                const auto slots =
+                    RunBatches<PortfolioWeightedBatchResult_>(batches, selection.groupOutputs_[group].size(), scratch, [&](const auto& paths) {
+                        return Script::Detail::EvaluatePortfolioWeightedBatch(portfolio, group, paths, selection.groupOutputs_[group], scratch, tape);
+                    });
                 ReduceGroup(slots, group, axes, selection, result);
             } catch (const std::exception& error) {
                 THROW2("PortfolioWeightedReplayFailed: group=" + String_(std::to_string(group)) + "; cause=" + String_(error.what()), ScriptError_);
             }
+        }
+
+        template <class R_> void AddCounters(const R_& batch, PortfolioGroupCounters_* counters) {
+            AddCount(batch.generatedScenarios_, &counters->generatedScenarios_);
+            AddCount(batch.evaluatorCalls_, &counters->evaluatorCalls_);
+            AddCount(batch.suffixReversals_, &counters->suffixReversals_);
+            AddCount(batch.prefixReversals_, &counters->prefixReversals_);
+        }
+
+        void ScatterJacobianRow(const PortfolioJacobianBatchResult_& batch,
+                                size_t lane,
+                                size_t row,
+                                const PortfolioRiskAxes_& axes,
+                                const ReplaySelection_& selection,
+                                PortfolioJacobianReplayResult_* result) {
+            VisitGradients(batch, axes, [&](const auto& gradients, size_t local, size_t global) {
+                const auto column = selection.inputColumns_[global];
+                if (column >= 0)
+                    AddValue(gradients(static_cast<int>(lane), static_cast<int>(local)), &result->jacobian_(static_cast<int>(row), column),
+                             axes.InputAxis()[global].id_);
+            });
+        }
+
+        void ReduceJacobianBlock(const Vector_<PortfolioJacobianBatchResult_>& batches,
+                                 size_t group,
+                                 const AAD::AdjointBlock_& block,
+                                 const PortfolioRiskAxes_& axes,
+                                 const ReplaySelection_& selection,
+                                 PortfolioJacobianReplayResult_* result) {
+            for (const auto& batch : batches) {
+                for (size_t lane = 0; lane < block.outputs_; ++lane) {
+                    const auto component = block.firstOutput_ + lane;
+                    const auto row = selection.outputPositions_[group][component];
+                    AddValue(batch.componentSums_[lane], &result->componentMeans_[row], selection.groupOutputs_[group][component].coordinate_.id_);
+                    ScatterJacobianRow(batch, lane, row, axes, selection, result);
+                }
+                AddCounters(batch, &result->groupCounters_[group]);
+            }
+        }
+
+        void RunJacobianBlock(const PreparedPortfolio_& portfolio,
+                              size_t group,
+                              const Script::BatchPlan_& batches,
+                              const AAD::AdjointBlock_& block,
+                              const PortfolioRiskAxes_& axes,
+                              const ReplaySelection_& selection,
+                              PortfolioJacobianReplayResult_* result,
+                              BufferCapacityBudget_* scratch,
+                              AAD::TapeCapacityBudget_* tape) {
+            auto& counters = result->groupCounters_[group];
+            AddCount(1, &counters.replayAttempts_);
+            counters.actualWidths_.push_back(block.width_);
+            try {
+                const auto begin = selection.groupOutputs_[group].begin() + static_cast<ptrdiff_t>(block.firstOutput_);
+                const Vector_<PortfolioBatchOutput_> outputs(begin, begin + static_cast<ptrdiff_t>(block.outputs_));
+                const auto slots = RunBatches<PortfolioJacobianBatchResult_>(batches, outputs.size(), scratch, [&](const auto& paths) {
+                    return Script::Detail::EvaluatePortfolioJacobianBatch(portfolio, group, paths, outputs, block.width_, scratch, tape);
+                });
+                ReduceJacobianBlock(slots, group, block, axes, selection, result);
+            } catch (const std::exception& error) {
+                const auto& output = selection.groupOutputs_[group][block.firstOutput_];
+                THROW2("PortfolioJacobianReplayFailed: group=" + String_(std::to_string(group)) +
+                           "; trade=" + portfolio.Portfolio()->TradeIds()[output.tradePosition_] + "; output=" + output.coordinate_.id_ +
+                           "; width=" + String_(std::to_string(block.width_)) + "; attempt=" + String_(std::to_string(counters.replayAttempts_)) +
+                           "; cause=" + String_(error.what()),
+                       ScriptError_);
+            }
+        }
+
+        void RunJacobianGroup(const PreparedPortfolio_& portfolio,
+                              size_t group,
+                              size_t width,
+                              const Script::BatchPlan_& batches,
+                              const PortfolioRiskAxes_& axes,
+                              const ReplaySelection_& selection,
+                              PortfolioJacobianReplayResult_* result,
+                              BufferCapacityBudget_* scratch,
+                              AAD::TapeCapacityBudget_* tape) {
+            if (selection.groupOutputs_[group].empty())
+                return;
+            AAD::AdjointBlockSettings_ settings;
+            settings.maxWidth_ = width;
+            const auto plan = AAD::PlanAdjointBlocks(selection.groupOutputs_[group].size(), result->jacobian_.Cols(), settings);
+            for (size_t block = 0; block < plan.BlockCount(); ++block)
+                RunJacobianBlock(portfolio, group, batches, plan.Block(block), axes, selection, result, scratch, tape);
         }
 
         Vector_<const Script::PreparedScript_*> SelectedPlans(const Vector_<Script::Detail::PlannedScript_>& plans,
@@ -203,37 +312,52 @@ namespace Dal::Detail {
             return trades;
         }
 
-        void AdmitGroup(const PortfolioWeightedPlan_& plan,
+        template <class G_>
+        Vector_<Script::Detail::PortfolioBatchResult_<G_>> AdmissionSlots(
+            const Vector_<const Script::PreparedScript_*>& trades, size_t modelInputs, size_t outputs, size_t width, size_t count, bool native) {
+            Vector_<Script::Detail::PortfolioBatchResult_<G_>> slots;
+            slots.reserve(count);
+            for (size_t batch = 0; batch < count; ++batch) {
+                slots.emplace_back(outputs);
+                slots.back().tradePositions_.Resize(trades.size());
+                if (native) {
+                    Script::Detail::ResizePortfolioGradientStorage(&slots.back().modelGradientSums_, width, modelInputs);
+                    slots.back().constantGradientSums_.Resize(trades.size());
+                    for (size_t trade = 0; trade < trades.size(); ++trade)
+                        Script::Detail::ResizePortfolioGradientStorage(&slots.back().constantGradientSums_[trade], width,
+                                                                       trades[trade]->ConstVarNames().size());
+                }
+            }
+            return slots;
+        }
+
+        template <class G_>
+        void AdmitGroup(const PortfolioRiskPlan_& plan,
                         const Vector_<Script::Detail::PlannedScript_>& plans,
                         const Script::Detail::PortfolioScenarioGroup_& group,
                         const Vector_<PortfolioBatchOutput_>& outputs,
                         const Script::BatchPlan_& batches,
+                        size_t width,
                         size_t workers,
                         BufferCapacityBudget_* scratch,
                         const Script::Detail::PortfolioCapacityLimits_& limits) {
             const auto trades = SelectedPlans(plans, group, outputs);
             const auto representative = group.tradePositions_.front();
-            Vector_<PortfolioWeightedBatchResult_> slots;
-            slots.reserve(batches.BatchCount());
-            for (size_t batch = 0; batch < batches.BatchCount(); ++batch) {
-                slots.emplace_back(outputs.size());
-                slots.back().tradePositions_.Resize(trades.size());
-                if (plan.EnableAad()) {
-                    slots.back().modelGradientSums_.Resize(plans[representative].Model().Parameters().size());
-                    slots.back().constantGradientSums_.Resize(trades.size());
-                    for (size_t trade = 0; trade < trades.size(); ++trade)
-                        slots.back().constantGradientSums_[trade].Resize(trades[trade]->ConstVarNames().size());
-                }
-            }
+            const auto slots = AdmissionSlots<G_>(trades, plans[representative].Model().Parameters().size(), outputs.size(), width,
+                                                  batches.BatchCount(), plan.EnableAad());
             const auto futures = Script::Detail::ReplayExtentProduct(batches.BatchCount(), sizeof(TaskHandle_));
             auto taskCapacity = BufferCapacityScope_::ForWorker(scratch, futures);
             const auto remaining = scratch->LimitBytes() - scratch->CapacityBytes();
             const auto tapeQuota = limits.tapeBudgetBytes_.value_or(std::numeric_limits<size_t>::max()) / workers;
             Dal::Detail::BufferCapacitySuspension_ suspension;
-            if (plan.EnableAad())
-                Script::Detail::AdmitPortfolioWeightedWorker(trades, plan.Portfolio()->Models()[group.modelOwner_], outputs, remaining / workers,
-                                                             tapeQuota);
-            else
+            if (plan.EnableAad()) {
+                if constexpr (std::is_same_v<G_, Matrix_<double>>)
+                    Script::Detail::AdmitPortfolioJacobianWorker(trades, plan.Portfolio()->Models()[group.modelOwner_], outputs, width,
+                                                                 remaining / workers, tapeQuota);
+                else
+                    Script::Detail::AdmitPortfolioWeightedWorker(trades, plan.Portfolio()->Models()[group.modelOwner_], outputs, remaining / workers,
+                                                                 tapeQuota);
+            } else
                 Script::Detail::AdmitPortfolioPassiveWorker(trades, plan.Portfolio()->Models()[group.modelOwner_], outputs, remaining / workers);
         }
 
@@ -258,13 +382,88 @@ namespace Dal::Detail {
                 if (selection.groupOutputs_[group].empty())
                     continue;
                 try {
-                    AdmitGroup(plan, plans, groups[group], selection.groupOutputs_[group], batches, workers, &scratch, limits);
+                    AdmitGroup<Vector_<double>>(plan, plans, groups[group], selection.groupOutputs_[group], batches, 1, workers, &scratch, limits);
                 } catch (const std::exception& error) {
                     THROW2("PortfolioWeightedPreflightFailed: group=" + String_(std::to_string(group)) +
                                "; trade=" + plan.Portfolio()->TradeIds()[groups[group].tradePositions_.front()] + "; cause=" + String_(error.what()),
                            ScriptError_);
                 }
             }
+        }
+
+        void AdmitJacobianWidth(const PortfolioJacobianPlan_& plan,
+                                const Vector_<Script::Detail::PlannedScript_>& plans,
+                                const Script::Detail::PortfolioScenarioGroup_& group,
+                                const Vector_<PortfolioBatchOutput_>& outputs,
+                                const Script::BatchPlan_& batches,
+                                size_t width,
+                                size_t workers,
+                                BufferCapacityBudget_* scratch,
+                                const Script::Detail::PortfolioCapacityLimits_& limits) {
+            const auto attempts = outputs.size() / width + (outputs.size() % width != 0);
+            const Vector_<size_t> reportedWidths(attempts, width);
+            for (size_t first = 0; first < outputs.size(); first += width) {
+                const auto end = std::min(outputs.size(), first + width);
+                const Vector_<PortfolioBatchOutput_> block(outputs.begin() + static_cast<ptrdiff_t>(first),
+                                                           outputs.begin() + static_cast<ptrdiff_t>(end));
+                AdmitGroup<Matrix_<double>>(plan, plans, group, block, batches, width, workers, scratch, limits);
+            }
+        }
+
+        bool HasPortfolioBudget(bool native, const Script::Detail::PortfolioCapacityLimits_& limits) {
+            return limits.scratchBudgetBytes_.has_value() || (native && limits.tapeBudgetBytes_.has_value());
+        }
+
+        size_t AdmitJacobianGroup(const PortfolioJacobianPlan_& plan,
+                                  const Vector_<Script::Detail::PlannedScript_>& plans,
+                                  const Vector_<Script::Detail::PortfolioScenarioGroup_>& groups,
+                                  size_t group,
+                                  const Vector_<PortfolioBatchOutput_>& outputs,
+                                  const Script::BatchPlan_& batches,
+                                  size_t workers,
+                                  BufferCapacityBudget_* scratch,
+                                  const Script::Detail::PortfolioCapacityLimits_& limits) {
+            if (outputs.empty())
+                return 0;
+            auto width = std::min(plan.MaxBlockWidth(), outputs.size());
+            if (!HasPortfolioBudget(plan.EnableAad(), limits))
+                return width;
+            for (;;) {
+                try {
+                    AdmitJacobianWidth(plan, plans, groups[group], outputs, batches, width, workers, scratch, limits);
+                    return width;
+                } catch (const Exception_& error) {
+                    if (std::string(error.what()).find("capacity budget exceeded") == std::string::npos)
+                        throw;
+                    if (width == 1)
+                        THROW2("PortfolioJacobianPreflightFailed: group=" + String_(std::to_string(group)) +
+                                   "; trade=" + plan.Portfolio()->TradeIds()[outputs.front().tradePosition_] +
+                                   "; output=" + outputs.front().coordinate_.id_ + "; width=1; cause=" + String_(error.what()),
+                               ScriptError_);
+                    --width;
+                }
+            }
+        }
+
+        Vector_<size_t> PreflightJacobian(const PortfolioJacobianPlan_& plan,
+                                          const Vector_<Script::Detail::PlannedScript_>& plans,
+                                          size_t paths,
+                                          const Script::Detail::PortfolioCapacityLimits_& limits) {
+            const auto groups = Script::Detail::PlanPortfolioScenarioGroups(*plan.Portfolio(), plans);
+            const auto threads = ThreadPool_::GetInstance()->NumThreads();
+            const Script::BatchPlan_ batches(paths, threads);
+            const auto workers = std::min(threads, batches.BatchCount());
+            BufferCapacityBudget_ scratch(limits.scratchBudgetBytes_.value_or(std::numeric_limits<size_t>::max()));
+            BufferCapacityScope_ coordinator(&scratch, sizeof(PortfolioJacobianReplayResult_) + sizeof(ReplaySelection_));
+            const auto axes = ScriptPortfolioRiskAxes(plan.Portfolio());
+            const auto outputs = plan.Outputs();
+            const auto inputs = plan.InputPositions();
+            const auto selection = SelectOutputs(groups, plans.size(), axes, outputs, inputs);
+            const PortfolioJacobianReplayResult_ result(outputs.size(), inputs.size(), groups.size());
+            Vector_<size_t> widths(groups.size(), 0);
+            for (size_t group = 0; group < groups.size(); ++group)
+                widths[group] = AdmitJacobianGroup(plan, plans, groups, group, selection.groupOutputs_[group], batches, workers, &scratch, limits);
+            return widths;
         }
     } // namespace
 
@@ -279,6 +478,22 @@ namespace Dal::Detail {
         REQUIRE2(plan.EnableAad() == execution.enableAad_, "InvalidPortfolioReplay: request and preparation modes must agree", ScriptError_);
         return Script::Detail::PrepareScriptPortfolio(plan.Portfolio(), paths, settings, execution,
                                                       [&](const auto& plans) { PreflightWeighted(plan, plans, static_cast<size_t>(paths), limits); });
+    }
+
+    PortfolioJacobianPreparation_ PreparePortfolioJacobianReplay(const PortfolioJacobianPlan_& requestedPlan,
+                                                                 int paths,
+                                                                 const Script::ScriptValuationSettings_& valuation,
+                                                                 const Script::MonteCarloSettings_& simulation,
+                                                                 Script::Detail::PortfolioCapacityLimits_ limits) {
+        const auto plan = requestedPlan;
+        const auto execution = simulation;
+        const auto settings = valuation;
+        REQUIRE2(plan.EnableAad() == execution.enableAad_, "InvalidPortfolioReplay: request and preparation modes must agree", ScriptError_);
+        Vector_<size_t> widths;
+        auto prepared = Script::Detail::PrepareScriptPortfolio(plan.Portfolio(), paths, settings, execution, [&](const auto& plans) {
+            widths = PreflightJacobian(plan, plans, static_cast<size_t>(paths), limits);
+        });
+        return {std::move(prepared), std::move(widths)};
     }
 
     PortfolioWeightedReplayResult_ EvaluatePortfolioWeightedReplay(const PreparedPortfolio_& portfolio,
@@ -309,6 +524,40 @@ namespace Dal::Detail {
             value /= paths;
         for (auto& value : result.gradient_)
             value /= paths;
+        result.peakScratchBytes_ = scratch.PeakCapacityBytes();
+        result.peakTapeBytes_ = tape.PeakCapacityBytes();
+        return result;
+    }
+
+    PortfolioJacobianReplayResult_ EvaluatePortfolioJacobianReplay(const PreparedPortfolio_& portfolio,
+                                                                   const Vector_<PortfolioBatchOutput_>& requestedOutputs,
+                                                                   const Vector_<size_t>& selectedInputs,
+                                                                   const Vector_<size_t>& groupWidths,
+                                                                   Script::Detail::PortfolioCapacityLimits_ limits) {
+        REQUIRE2(ValidatePreparedMode(portfolio, selectedInputs), "UnsupportedPortfolioJacobianReplay: native preparation is required", ScriptError_);
+        const auto threads = ThreadPool_::GetInstance()->NumThreads();
+        const Script::BatchPlan_ batches(static_cast<size_t>(portfolio.PathCount()), threads);
+        const auto cleanup = Script::Detail::ReplayExtentProduct(std::min(threads, batches.BatchCount()), AAD::TapeCleanupCapacityBytes());
+        Script::Detail::RequireReplayCapacity(limits.tapeBudgetBytes_, cleanup, "Tape");
+        BufferCapacityBudget_ scratch(limits.scratchBudgetBytes_.value_or(std::numeric_limits<size_t>::max()));
+        AAD::TapeCapacityBudget_ tape(limits.tapeBudgetBytes_.value_or(std::numeric_limits<size_t>::max()));
+        BufferCapacityScope_ coordinator(&scratch, sizeof(PortfolioJacobianReplayResult_) + sizeof(ReplaySelection_));
+        const auto outputs = requestedOutputs;
+        const auto inputs = selectedInputs;
+        const auto widths = groupWidths;
+        REQUIRE2(widths.size() == portfolio.Groups().size(), "InvalidPortfolioReplay: widths must match groups; field=widths", ScriptError_);
+        const auto axes = ScriptPortfolioRiskAxes(portfolio.Portfolio());
+        ValidatePreparedAxes(portfolio, axes);
+        const auto selection = SelectOutputs(portfolio.Groups(), portfolio.Trades().size(), axes, outputs, inputs);
+        PortfolioJacobianReplayResult_ result(outputs.size(), inputs.size(), portfolio.Groups().size());
+        for (size_t group = 0; group < portfolio.Groups().size(); ++group)
+            RunJacobianGroup(portfolio, group, widths[group], batches, axes, selection, &result, &scratch, &tape);
+        const auto paths = static_cast<double>(portfolio.PathCount());
+        for (auto& value : result.componentMeans_)
+            value /= paths;
+        for (int row = 0; row < result.jacobian_.Rows(); ++row)
+            for (int column = 0; column < result.jacobian_.Cols(); ++column)
+                result.jacobian_(row, column) /= paths;
         result.peakScratchBytes_ = scratch.PeakCapacityBytes();
         result.peakTapeBytes_ = tape.PeakCapacityBytes();
         return result;

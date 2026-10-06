@@ -16,6 +16,19 @@ namespace Dal::Script::Detail {
             Vector_<size_t> positions_;
         };
 
+        template <class G_> struct AdmissionRoots_ {
+            explicit AdmissionRoots_(size_t) {}
+            AAD::Number_* Zero() { return nullptr; }
+        };
+
+        template <> struct AdmissionRoots_<Matrix_<double>> {
+            size_t width_;
+            AAD::Number_ zero_;
+            Vector_<AAD::Number_> roots_;
+            explicit AdmissionRoots_(size_t width) : width_(width) { roots_.reserve(width); }
+            AAD::Number_* Zero() { return &zero_; }
+        };
+
         AdmissionSelection_ AdmitSelection(const Vector_<PortfolioBatchOutput_>& outputs, size_t trades) {
             AdmissionSelection_ selection;
             for (const auto& output : outputs) {
@@ -58,7 +71,8 @@ namespace Dal::Script::Detail {
                          AAD::Model_<AAD::Number_>* model,
                          Scenario_<AAD::Number_>* path,
                          AAD::RecordingScope_* recording,
-                         const F_& build) {
+                         const F_& build,
+                         AAD::Number_* zero) {
             auto states = BuildAdmissionStates(trades, build);
             AAD::Rewind(*AAD::Tape());
             for (auto* parameter : model->Parameters())
@@ -66,6 +80,8 @@ namespace Dal::Script::Detail {
             for (auto& state : states)
                 for (auto& constant : state->ConstVarVals())
                     recording->RegisterInput(constant, Value(constant));
+            if (zero)
+                recording->RegisterInput(*zero, 0.0);
             recording->StartRecording();
             model->Init(trades.front()->TimeLine(), trades.front()->DefLine());
             InitializePath(*path);
@@ -74,42 +90,67 @@ namespace Dal::Script::Detail {
             AdmitKnownPathScratch(*model, path);
             recording->FinishRecording();
         }
+        template <class G_>
+        void AdmitNativePortfolioWorker(const Vector_<const PreparedScript_*>& trades,
+                                        const Handle_<ModelData_>& modelData,
+                                        const Vector_<PortfolioBatchOutput_>& requestedOutputs,
+                                        size_t width,
+                                        size_t scratchQuota,
+                                        size_t tapeQuota) {
+            constexpr bool BLOCKED = std::is_same_v<G_, Matrix_<double>>;
+            REQUIRE2(!trades.empty(), "InvalidPortfolioAdmission: selected trades must not be empty", ScriptError_);
+            const bool compiled = trades.front()->Simulation().compiled_.value_or(false);
+            BufferCapacityBudget_ scratch(scratchQuota);
+            const auto fixed =
+                BLOCKED ? PortfolioJacobianWorkerFixedBytes(compiled, trades.size()) : PortfolioWeightedWorkerFixedBytes(compiled, trades.size());
+            BufferCapacityScope_ buffers(&scratch, fixed);
+            const auto outputs = requestedOutputs;
+            const auto selection = AdmitSelection(outputs, trades.size());
+            AAD::TapeCapacityBudget_ tape(tapeQuota);
+            AAD::TapeCapacityScope_ tapeScope(&tape, true);
+            auto mode = AAD::SetNumResultsForAAD(BLOCKED, width);
+            AdmissionRoots_<G_> roots(width);
+            AAD::RecordingScope_ recording;
+            auto model = CreateModel<AAD::Number_>(modelData);
+            model->Allocate(trades.front()->TimeLine(), trades.front()->DefLine());
+            const auto random = CreateRNG(trades.front()->Simulation().rsg_, *model, trades.front()->Simulation().useBb_);
+            const Vector_<double> gauss(model->SimDim());
+            Scenario_<AAD::Number_> path;
+            AllocatePath(trades.front()->DefLine(), path);
+            const Vector_<AAD::Number_> values(outputs.size());
+            PortfolioBatchResult_<G_> result(outputs.size());
+            ResizePortfolioGradientStorage(&result.modelGradientSums_, width, model->Parameters().size());
+            result.tradePositions_.Resize(trades.size());
+            result.constantGradientSums_.Resize(trades.size());
+            for (size_t trade = 0; trade < trades.size(); ++trade)
+                ResizePortfolioGradientStorage(&result.constantGradientSums_[trade], width, trades[trade]->ConstVarNames().size());
+            if (compiled)
+                AdmitStates(
+                    trades, model.get(), &path, &recording, [](const auto& product) { return product.template BuildEvalState<AAD::Number_>(); },
+                    roots.Zero());
+            else
+                AdmitStates(
+                    trades, model.get(), &path, &recording, [](const auto& product) { return product.template BuildFuzzyEvaluator<AAD::Number_>(); },
+                    roots.Zero());
+            recording.Close();
+        }
     } // namespace
 
     void AdmitPortfolioWeightedWorker(const Vector_<const PreparedScript_*>& trades,
-                                      const Handle_<ModelData_>& modelData,
-                                      const Vector_<PortfolioBatchOutput_>& requestedOutputs,
+                                      const Handle_<ModelData_>& model,
+                                      const Vector_<PortfolioBatchOutput_>& outputs,
                                       size_t scratchQuota,
                                       size_t tapeQuota) {
-        REQUIRE2(!trades.empty(), "InvalidPortfolioAdmission: selected trades must not be empty", ScriptError_);
-        const bool compiled = trades.front()->Simulation().compiled_.value_or(false);
-        BufferCapacityBudget_ scratch(scratchQuota);
-        BufferCapacityScope_ buffers(&scratch, PortfolioWeightedWorkerFixedBytes(compiled, trades.size()));
-        const auto outputs = requestedOutputs;
-        const auto selection = AdmitSelection(outputs, trades.size());
-        AAD::TapeCapacityBudget_ tape(tapeQuota);
-        AAD::TapeCapacityScope_ tapeScope(&tape, true);
-        auto mode = AAD::SetNumResultsForAAD(false);
-        AAD::RecordingScope_ recording;
-        auto model = CreateModel<AAD::Number_>(modelData);
-        model->Allocate(trades.front()->TimeLine(), trades.front()->DefLine());
-        const auto random = CreateRNG(trades.front()->Simulation().rsg_, *model, trades.front()->Simulation().useBb_);
-        const Vector_<double> gauss(model->SimDim());
-        Scenario_<AAD::Number_> path;
-        AllocatePath(trades.front()->DefLine(), path);
-        const Vector_<AAD::Number_> values(outputs.size());
-        PortfolioWeightedBatchResult_ result(outputs.size());
-        result.modelGradientSums_.Resize(model->Parameters().size());
-        result.tradePositions_.Resize(trades.size());
-        result.constantGradientSums_.Resize(trades.size());
-        for (size_t trade = 0; trade < trades.size(); ++trade)
-            result.constantGradientSums_[trade].Resize(trades[trade]->ConstVarNames().size());
-        if (compiled)
-            AdmitStates(trades, model.get(), &path, &recording, [](const auto& product) { return product.template BuildEvalState<AAD::Number_>(); });
-        else
-            AdmitStates(trades, model.get(), &path, &recording,
-                        [](const auto& product) { return product.template BuildFuzzyEvaluator<AAD::Number_>(); });
-        recording.Close();
+        AdmitNativePortfolioWorker<Vector_<double>>(trades, model, outputs, 1, scratchQuota, tapeQuota);
+    }
+
+    void AdmitPortfolioJacobianWorker(const Vector_<const PreparedScript_*>& trades,
+                                      const Handle_<ModelData_>& model,
+                                      const Vector_<PortfolioBatchOutput_>& outputs,
+                                      size_t width,
+                                      size_t scratchQuota,
+                                      size_t tapeQuota) {
+        AdmitNativePortfolioWorker<Matrix_<double>>(trades, model, outputs, width, scratchQuota, tapeQuota);
     }
 
     void AdmitPortfolioPassiveWorker(const Vector_<const PreparedScript_*>& trades,
