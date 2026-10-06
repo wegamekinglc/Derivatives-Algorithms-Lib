@@ -49,8 +49,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          submodules: recursive
+
+      - name: Check out pinned dependencies
+        run: python .github/scripts/checkout_dependencies.py
 
       - name: Build and test wheels
         uses: pypa/cibuildwheel@e090b81e30c4d855ea63bf4b6e59204c09a101ae # v4.2.1

@@ -22,6 +22,7 @@ void init_bindings_value(py::module_& m);
 void init_bindings_risk(py::module_& m);
 void init_bindings_weightedrisk(py::module_& m);
 void init_bindings_jacobianrisk(py::module_& m);
+void init_bindings_portfoliorisk(py::module_& m);
 void init_bindings_dupirerisk(py::module_& m);
 void init_bindings_calibrationrisk(py::module_& m);
 void init_bindings_calibrationriskrequest(py::module_& m);

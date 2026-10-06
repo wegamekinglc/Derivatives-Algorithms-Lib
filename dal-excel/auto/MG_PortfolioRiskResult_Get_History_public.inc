@@ -1,0 +1,44 @@
+
+
+extern "C" __declspec(dllexport) OPER_* xl_PortfolioRiskResult_Get_History
+    (const OPER_* xl_result, const OPER_* xl_trade)	
+{
+    Excel::InitializeSessionIfNeeded();
+ENV_SEED_TYPE(ObjectAccess_);
+    const char* argName = 0;
+    try
+    {	
+        Logging::Write("PortfolioRiskResult_Get_History");        
+        argName = "result (input #1)";
+        const Handle_<Storable_> result = Excel::ToHandle<Storable_>(_env, xl_result);
+        argName = "trade"; Excel::ValidatePortfolioTradeOrdinal(xl_trade, "PortfolioRiskResult_Get_History");
+        argName = "trade (input #2)";
+        const double trade = Excel::ToDouble(xl_trade);
+        argName = 0;
+		Matrix_<Cell_> history;
+        PortfolioRiskResult_Get_History(result, trade, &history);
+        Excel::Retval_ retval;
+        retval.Load(history);
+        return retval.ToXloper();
+    }
+    catch (std::exception& e)
+    {
+        return Excel::Error(e.what(), argName);
+    }
+    catch (...)
+    {
+        return Excel::Error("Unknown error", argName);
+    }
+}
+
+struct XlRegister_PortfolioRiskResult_Get_History_
+{
+    XlRegister_PortfolioRiskResult_Get_History_()
+    {
+        Vector_<String_> argHelp;        
+        argHelp.push_back("Completed weighted or attribution portfolio result");
+        argHelp.push_back("Strict zero-based original trade ordinal");
+        Excel::Register("Base", "xl_PortfolioRiskResult_Get_History", "PORTFOLIORISKRESULT.GET.HISTORY", "Extract one original trade's frozen historical observations", "QQQ", "result,trade", argHelp, false);
+    }
+};
+static XlRegister_PortfolioRiskResult_Get_History_ The_PortfolioRiskResult_Get_History_XlRegisterer;

@@ -47,6 +47,17 @@ incremental implementation turns and PRs; a green first stage does not complete 
   [API decisions](../api-notes/aad-blocked-script-risk.md) and
   [critique](../critiques/aad-blocked-script-risk.md). Portfolio integration
   remains later F02 work.
+- F02 delivery boundary (2026-10-06): blocked Jacobian PR #484 is merged at
+  `1c9273c9`. Accepted head `1785162c` passes all 35 CI checks, zero Codacy
+  annotations and two complete paginated review audits with no unresolved
+  threads. All 160 existing performance comparisons pass the unchanged paired
+  policy; 78 informational block-width processes pass independent row oracles.
+  Both actual Windows raw-export cases pass in all four configurations.
+  Compatible portfolio integration starts from this merge in a new draft PR,
+  controlled by its [specification](../specs/aad-compatible-script-portfolio.md),
+  [API proposal](../api-notes/aad-compatible-script-portfolio.md) and
+  [critique](../critiques/aad-compatible-script-portfolio.md). This is the next
+  active implementation slice; the full plan remains incomplete.
 - Establish a failing independent test before each behavioral change.
 - Validation amendment (2026-10-05): select tests from the changed behavior and
   dependency paths. A binding-only increment runs its focused tests and affected
@@ -98,7 +109,7 @@ incremental implementation turns and PRs; a green first stage does not complete 
 - [x] F01: calibration-only and full bump/recalibrate/common-path oracles.
 - [x] F01: common calibration pullback integration with existing curve quote-risk semantics.
 - [x] F02: fixed-weight VJP for multiple prepared-script outputs, including aliases/constants.
-- [ ] F02: budgeted native blocked Jacobian with explicit rerecording behavior.
+- [x] F02: budgeted native blocked Jacobian with explicit rerecording behavior.
 - [ ] F02: compatible portfolio observation/timeline integration.
 - [ ] P02: per-worker capacity reuse and safe re-registration/reinitialization.
 - [ ] P03: measured block-width selection and demand-driven result extraction.
@@ -743,20 +754,20 @@ This snapshot distinguishes accepted increments from locally implemented work.
 Estimates are remaining single-developer effort, not promises of calendar time;
 overlapping acceptance work is included once in the integration allowance.
 
-| Work item               | Implementation/local verification                              | Publication/CI                            | Remaining person-days |
-|-------------------------|----------------------------------------------------------------|-------------------------------------------|-----------------------|
-| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                  | Accepted exact-head checks                | 0                     |
-| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass | Merged; final 35/35 checks accepted       | 0                     |
-| F01                     | C++/Python/Excel and complete requirement audit accepted       | Merged; final 35/35 checks accepted       | 0                     |
-| F02 current PR          | Weighted merged; blocked interfaces and perf repair tested     | #484: committed-head performance/CI gates | 0.5–1                 |
-| F02 portfolio           | Compatible portfolio preparation and attribution remain        | Next PR after #484 merges                 | 4–6                   |
-| P02/P03                 | Worker reuse/block selection/extraction remain                 | Open                                      | 4–7                   |
-| F03                     | Solve, implicit calibration and PDE operators remain           | Open                                      | 12–20                 |
-| P04/P05                 | Structural sparsity/checkpointing remain                       | Open                                      | 9–15                  |
-| F04                     | Second-order implementation/estimator validation remain        | Open                                      | 12–20                 |
-| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains     | Open                                      | 7–11                  |
+| Work item               | Implementation/local verification                              | Publication/CI                          | Remaining person-days |
+|-------------------------|----------------------------------------------------------------|-----------------------------------------|-----------------------|
+| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                  | Accepted exact-head checks              | 0                     |
+| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass | Merged; final 35/35 checks accepted     | 0                     |
+| F01                     | C++/Python/Excel and complete requirement audit accepted       | Merged; final 35/35 checks accepted     | 0                     |
+| F02 weighted/blocked    | C++/Python/Excel and independent mathematical oracles accepted | #483/#484 merged; exact-head gates pass | 0                     |
+| F02 portfolio           | C++/Python/Excel, installed consumers and timing repair pass   | Open #487; final CI/review pending      | 0.25–0.5              |
+| P02/P03                 | Worker reuse/block selection/extraction remain                 | Open                                    | 4–7                   |
+| F03                     | Solve, implicit calibration and PDE operators remain           | Open                                    | 12–20                 |
+| P04/P05                 | Structural sparsity/checkpointing remain                       | Open                                    | 9–15                  |
+| F04                     | Second-order implementation/estimator validation remain        | Open                                    | 12–20                 |
+| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains     | Open                                    | 7–11                  |
 
-Remaining total: approximately 49–80 person-days, or 10–16 working weeks,
+Remaining total: approximately 45–74 person-days, or 9–15 working weeks,
 excluding CI queue time and including delivery contingency. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
 effort estimate, not a guaranteed completion date. Re-estimate when review
@@ -1125,20 +1136,208 @@ corrected head passes fresh correctness and all changed-workload comparisons;
 all 46 exact publication-head CI checks subsequently pass at `0ee84e1`.
 Do not reuse the ownership snapshot's acceptance as proof for these new changes.
 
-The #484 implementation now has owning C++/Python/Excel blocked Jacobians,
-sealed common-path replay, independent scalar/weighted/difference oracles and
-guarded model/path/evaluator startup admission before history. Known width
-limits narrow execution while preserving the original request. Finite budgets
-cover all six supported model families in tree/compiled four-worker oracles.
-The four published review findings are repaired and resolved. Focused local
-acceptance covers 46 core, 13 Jacobian public, 16 legacy public, 97 Python and
-19 typed Excel cases. Two actual Windows export cases and all twelve generated
-entries remain subject to fresh platform acceptance. See the
-[producer review](../reviews/aad-blocked-public-risk.md).
+PR #484 is merged after full acceptance at `1785162c`: all 35 exact-head checks,
+zero Codacy annotations, zero unresolved review threads, all 160 existing paired
+performance cases, and both actual Windows raw-export cases in all four modes.
+Its 78 informational width processes independently verify every row; they do not
+change the default width or constitute a comparative speedup claim.
+The corrected budget fixture isolates its required single worker, and exact
+double curve-knot queries avoid transient weights without changing AAD or
+non-knot behavior. Existing failed measurements remain retained in delivery
+evidence; no thresholds, work counts or numeric oracles were relaxed.
 
-Next: finish existing-entry paired performance and current-head platform
-CI/Codacy/review repair before merging #484. Complete compatible portfolio
-preparation in the following PR. Weighted C++/Python/Excel
-is accepted in merged #483. Preserve affected scalar/weighted costs and
-independent numerical oracles.
+Open #487 now implements sealed C++ ownership, a passive global coordinate
+catalog and the internal deterministic compatibility planner. Original handles
+establish owners before exact snapshots; same-named constants remain private.
+Twenty-one new tests and two existing scalar-risk contract tests pass locally,
+including six model families and private historical scalar/vector seeds over
+repeated paths in tree/compiled evaluators. The planner retains incompatible
+groups and compares complete sample/observation/settings contracts. Foundation
+repair head `0fffbf74` passes all 35 CI checks, zero Codacy annotations and zero
+unresolved review threads.
+
+Whole-request preparation is now locally implemented. Move-only plans own
+private products/models; all trades plan before admission and before one union
+fixing snapshot is captured. The producer retains original explicit/global
+source metadata and date, completes private trade state and establishes the
+sealed-owner/path-count grouping boundary. Fourteen new cases verify caller and
+global mutation isolation, late-trade rejection before reads, private historical
+state, failure recovery and original meshes. The admission callback is a policy
+boundary; actual aggregate capacity policy is still pending. After refactoring
+the shared completion epilogue, 61 targeted core cases and six public cases pass,
+including old historical replay, startup budgets and LSM prune/reinitialize
+branches. Both production units pass strict OFF/combined ON syntax checks.
+
+Shared weighted group batches are now locally implemented. Nine focused cases
+pass in tree/compiled evaluation, including independent nonzero-volatility
+absolute-path comparisons for Sobol/MRG32 and bridge OFF/ON, private historical
+vectors/direct constant aliases, original-trade error context and failure recovery.
+The model leaves are registered once, private constants remain separate, actual
+counters prove one scenario/suffix reverse per path and one prefix reverse per
+batch, and unselected trades are not evaluated. Strict warning categories pass in
+OFF/combined ON syntax modes; linked/runtime diagnostic acceptance is pending.
+Raw passive batch sums do not constitute whole-portfolio valuation acceptance.
+The user moved #487 out of draft; its open review state is preserved.
+
+Preparation repair head `e9931d3a` passes Codacy with zero annotations and has
+zero unresolved review threads. Windows CI passes. Linux/Mac checkout failures
+remain upstream Eigen download rejection after a failed-only retry; a further
+failed-only retry is running. No passing jobs/full local suites were repeated.
+
+Internal weighted replay now accumulates shared model inputs across incompatible
+groups and distinct owners, preserving requested output/input order and original
+meshes. Seven public-layer internal tests verify every risk against independent
+existing calls for all six model families in tree/compiled mode and one/four
+workers. Malformed selections submit no tasks; selected derivative overflow,
+submission and worker failures retain context/results and permit valid follow-up.
+Empty inputs retain native pricing and unselected groups generate no scenarios.
+The replay production unit passes strict OFF/combined ON syntax checks.
+
+Persistent upstream Eigen checkout failures now have a CI download fallback at
+the unchanged pinned commit. Seven helper cases, 20 workflow-classification and
+33 release regressions pass. An isolated real fallback fetch matches the exact
+existing commit/tree and normal submodule status. All build/wheel/release/benchmark
+workflows retain their existing gates and initialize other dependencies recursively.
+New publication-head acceptance must verify the helper on actual CI runners.
+
+At `070bf9d1`, every build and wheel platform completes the new dependency
+checkout; strict warnings and three extended diagnostic/profiling configurations
+pass. The only Codacy annotation is mixed-mesh test complexity 10/limit 8.
+Extracted the independent scalar-reference helper while retaining every execution
+setting, coordinate assertion, count and tolerance. Targeted repair verification
+and fresh publication-head checks remain separate from the earlier snapshot.
+
+Internal weighted request planning now owns the sealed handle, selected global
+coordinates, weights and report factors, defaulting to one payoff per trade.
+It enforces the exact checked weighted numeric payload before history/tasks.
+Five new cases cover ownership, distinct model ordinals, aliases/zero weights,
+native-empty/passive shape and invalid selection/budget rejection. An additive
+schema-independent request validator reuses old constraints while preserving
+every scalar ordinal-ID check and old function body. Ten existing scalar result
+cases also pass; strict OFF/combined ON syntax checks pass for both production units.
+
+Native weighted startup/runtime budgets and sparse-vector holes are implemented
+and locally verified. Publication `e90fd8f` passes all 35 checks with zero Codacy
+annotations and unresolved review threads. This confirms the capacity increment
+without accepting later unpublished changes.
+
+Public C++ weighted requests/results now own component/objective means, raw and
+reported gradients, selected/complete global axes and original trade/group
+metadata. Report projection rejects overflow before publishing a result. Passive
+execution shares original paths with private sharp evaluator/history state,
+ignores recording limits and retains zero risk columns. Native-empty inputs keep
+fuzzy pricing. Seven public-result cases and one additional passive admission case
+extend the existing independent six-family/mixed-mesh oracles to both modes.
+Known private vector capacities reject before history. No old driver or scalar
+provenance body changes; a small internal helper reuses snapshot capture.
+Local review fixes per-trade passive engine labels, report failure context and
+aggregate weighted overflow context with retained RED tests. Forty-eight public
+increment/legacy and nine core batch cases pass; final context repair receives
+targeted verification: all 16 result/batch cases pass after the final repair.
+Across this increment, 58 distinct affected cases pass. Strict OFF/combined ON
+syntax checks, independent headers, actual documented C++ consumer and all 157
+Markdown checks pass. Complete linked/platform/performance acceptance is pending.
+
+The public weighted/passive increment is published at `2338fc7d`. Its first
+audit reports one Codacy replay-complexity finding (9/limit 8), with no unresolved
+review threads and other platform jobs passing or running. Mode validation is
+now extracted with identical guards and execution order; 20 affected cases and
+strict OFF/combined ON warnings pass. Fresh repair-head gates remain required.
+
+The Codacy repair head `d2de68d` passes Codacy with no unresolved review threads;
+31 of 34 registered checks have passed and three are still running in the latest
+exact-head audit. Native blocked group batches now pass 12 targeted cases,
+including shared-model/private-constant rows, historical prefix aliases,
+absolute path/RNG/bridge comparisons, zero tail lanes, capacity failures and
+recording-mode recovery. The production unit passes strict OFF/combined ON
+warnings. Public attribution coordination/admission and bindings remain pending.
+
+Owning native portfolio Jacobians now use shared request selection/result metadata,
+independent matrix payloads, original-path group blocks and global owner/private
+scatter. Known root/matrix/private history shapes admit before history, with
+capacity-only width narrowing and aggregate runtime guards. The zero-budget RED
+and wrong-report-row RED are repaired. Forty-three distinct affected cases pass,
+including all six native families, original mixed meshes/owners and widths
+one/two/three across tree/compiled and one/four workers. Strict OFF/combined ON
+warnings and independent headers pass. Passive attribution, dedicated narrowing
+and failure acceptance, bindings and final delivery gates remain pending.
+
+Passive attribution now retains independent sharp-price rows with zero risk
+columns, no native widths/reversals and zero tape peaks, including finite rows
+whose unused sum overflows. All 26 affected public cases pass; independent
+six-family/mixed-mesh tests cover both attribution modes, and private historical
+shapes reject before reads with valid recovery. Strict warning checks pass.
+Exact head `4194be4b` exposes a real finite-capacity CI fixture failure caused by
+using a previous scheduling-dependent peak as the following quota. The fixture
+now uses declared finite per-worker allowances and retains its exact risks and
+peak-within-limit assertions. Fresh repair-head checks are required.
+
+Dedicated attribution narrowing now compares requested width two with explicit
+width one under identical finite scratch/tape budgets and an independent price
+oracle. Work, requested/actual widths and actual peaks agree. Submission/worker
+and selected-derivative failures recover; unselected derivatives do not reject.
+A retained late-width RED shows earlier tasks were submitted before a later
+invalid width; all selected group widths now validate before any task. All 17
+affected replay/admission cases and strict OFF/combined ON warnings pass.
+
+Python sealed construction and both typed risk surfaces now pass 49 portfolio
+cases, including shared/distinct owners, detached matrices/metadata, strict
+requests/path counts, capacity recovery and independent nonzero-volatility
+original-mesh native/passive oracles. All 126 affected portfolio/weighted/Jacobian
+cases pass through the installed extension; strict OFF/combined ON syntax checks
+pass. The documented Python surface reflects implemented behavior.
+
+The same finite-budget narrowing case now also proves every selected shared-model
+and private-constant risk against explicit width one and independent scalar risk.
+No production capacity or numerical guard changed.
+
+Excel now seals strict physical trade tables, exposes typed immutable weighted
+and attribution requests/results and shares checked passive getters. Four new
+and all 23 affected portable risk cases pass, including no-work getters,
+detached data and failed-request recovery. Repository lookup errors retain the
+original trade/physical cell context after a focused RED and repair. Fourteen
+MSVC source/configuration checks and ten strict source/header checks pass.
+Nineteen generated exports await actual Windows runtime acceptance.
+Exact code head `4bea5026` passes all four extended lifetime/profiling runtime
+configurations: 2,643/2,672/2,663/2,692 tests, each including 1,166 Python cases
+and the new portable Excel contracts. Codacy passes with zero annotations.
+The standard complete OFF build and installation also finish successfully.
+The sanitizer selectors now include all 37 core and 41 public portfolio cases
+in the six existing ASan/UBSan/TSan matrices; fresh selected runtime is required.
+
+The final standard OFF suite passes all 2,698 tests; installed C++ and all 126
+affected installed Python cases pass. The expanded TSan jobs find a 257-path
+price/derivative comparison whose four-ULP assertion is invalid for separate
+reductions; repair adds a path-count-scaled machine epsilon bound and an
+independent scalar-risk oracle while retaining exact private risks and all
+capacity/work/history assertions. Fresh sanitizer acceptance remains required.
+The first complete performance run passes 157/160 cases; fixed affinity accepts
+159/160. Original failures and contaminated measurements are retained. A
+same-binary weighted calibration demonstrates unreliable short-request timing.
+Predeclared quiet confirmation times 64 identical full requests per process,
+preserving the workload, ten alternating pairs, two rounds and 4% threshold.
+The same-binary control and all eight repeated weighted comparisons pass.
+The final original single-request control passes, but two compiled weighted
+cases fail. Repeated timing alone cannot close this original gate. A preparation
+inlining repair is now applied: both extracted private helpers retain the old
+entry's inlining behavior. All eight original weighted and eight scalar cases
+pass; 100 fresh-relinked gate/curve executables are byte-identical to their
+accepted versions. MC accepts 42 cases at original four-core affinity; two
+unchanged serial calculations pass with fixed caller CPU 0. All 160 cases are
+accepted within those explicit scopes. After the repair, 875 affected C++/Excel
+and 126 Python cases pass, as do strict syntax and refreshed installed consumers.
+At `9cc9fe0a`, all 35 checks pass, with zero Codacy annotations and unresolved
+review threads. All four actual Windows modes pass seven new typed/raw and
+registration cases each; all six sanitizer jobs pass all 78 portfolio cases.
+The [portfolio performance report](../performance/aad-compatible-script-portfolio.md)
+retains limitations and all 130 matched new-entry cost cases, including expensive
+one-trade and distinct-owner shapes. Exact-head CI/review and merging remain open.
+
+Next: publish the measured repair and audit final-head platform/publication acceptance. Preserve
+original RNG dimensions/path indices, private evaluator state, existing costs
+and independent numerical oracles. Every new publication needs its own exact-head
+checks. Publish source and acceptance documentation after the completed matrix,
+then inspect its own exact-head checks before merging. Remaining
+portfolio work is estimated at 0.25–0.5 person-days; overall remaining effort is
+approximately 45–74 person-days. Start P02/P03 in a new PR only after actual merge.
 Stage A is accepted; the full Stage B/C/D goal remains incomplete.

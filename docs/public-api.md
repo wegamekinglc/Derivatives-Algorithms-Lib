@@ -297,6 +297,59 @@ selects no risk columns and performs one forward replay. Exercise and fully
 expired products are unsupported. See the
 [capacity and replay contract](methodology/aad.md#budgeted-script-jacobians).
 
+### C++ weighted script portfolios
+
+Construct a `Script::ScriptPortfolioData_` from ordered trade IDs and product/model
+handles, then call `ValuePortfolioByMonteCarloWithWeightedRisk` with a
+`PortfolioWeightedRiskRequest_`. Repeating a model handle establishes a shared
+owner; matching model values alone do not. Select global IDs such as
+`trade:1:payoff`, `model:0:parameter:0` and `trade:0:constant:0`.
+
+The owning result exposes `WeightedValue()`, `ComponentMeans()`, `Weights()`,
+selected/complete axes, detached raw/report gradient matrices and trade/group
+provenance. Its gradient has one row, including explicit zero-column execution.
+Compatible trades share scenarios while retaining private evaluator/history state;
+incompatible trades retain their original sampling plans. Whole-request numeric,
+recording and scratch budgets admit known shapes before history and guard runtime
+growth. See [portfolio construction](methodology/aad.md#sealed-script-portfolio-coordinates)
+and [weighted execution](methodology/aad.md#weighted-script-portfolio-risk).
+
+### C++ portfolio Jacobians
+
+`ValuePortfolioByMonteCarloWithJacobianRisk` takes a sealed portfolio, positive
+path count and `PortfolioJacobianRiskRequest_`. It owns ordered `Values()`, a
+detached `(m, n)` `Jacobian()`, reported copies and the same trade/owner/global
+axis metadata as the weighted entry. Native empty inputs retain `(m, 0)`.
+
+The request adds `maxBlockWidth_`, default one, and whole-request numeric,
+recording and scratch limits. Groups preserve original meshes and replay the
+original path range per output block. Execution metadata records the requested
+maximum, actual per-group widths and scenario/evaluator/reversal counts. Known
+block capacities admit before history; capacity-only narrowing retains the same
+estimator. Passive execution retains sharp pricing and `(m, 0)`, evaluates each
+selected group once without native widths/reversals, and ignores recording limits.
+See [portfolio Jacobians](methodology/aad.md#script-portfolio-jacobians).
+
+### Python script portfolios
+
+`ScriptPortfolio_New(trade_ids, products, modelData)` preserves original model
+identity before sealing snapshots. `PortfolioMonteCarlo_ValueWithWeightedRisk`
+and `PortfolioMonteCarlo_ValueWithJacobianRisk` accept their respective immutable
+`PortfolioWeightedRiskRequest_` and `PortfolioJacobianRiskRequest_` objects, with
+keyword-only request/valuation/simulation settings. Results own values, detached
+raw/report matrices, selected/complete axes and trade/group metadata. See the
+[Python portfolio example and strict input rules](python/README.md#compatible-script-portfolios).
+
+### Excel script portfolios
+
+`SCRIPTPORTFOLIO.NEW` freezes a strict three-column trade/product/model table and
+preserves repeated original model handles. Typed weighted/Jacobian request
+factories feed `PORTFOLIOMONTECARLO.VALUEWITHWEIGHTEDRISK` and
+`PORTFOLIOMONTECARLO.VALUEWITHJACOBIANRISK`. Shared `PORTFOLIORISKRESULT.GET.*`
+functions return detached values, raw/report matrices, exact zero-column shapes
+and original trade/group/sampling provenance. See the
+[Excel portfolio example and cell contracts](excel/README.md#compatible-script-portfolios).
+
 ### C++ curve calibration
 
 The public zero-rate factory is:

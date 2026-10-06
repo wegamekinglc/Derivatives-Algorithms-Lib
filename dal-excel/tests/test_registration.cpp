@@ -101,6 +101,41 @@ TEST(ExcelRegistrationTest, TestScriptSettingsAndLegacyContracts) {
     }
 }
 
+TEST(ExcelRegistrationTest, TestPortfolioRiskFunctionsRetainTypedArgumentsAndHelp) {
+    const std::pair<const char*, const char*> contracts[]{
+        {"ScriptPortfolio_New", "name,trades"},
+        {"PortfolioWeightedRiskRequest_New", "name,[settings]"},
+        {"PortfolioJacobianRiskRequest_New", "name,[settings]"},
+        {"PortfolioMonteCarlo_ValueWithWeightedRisk", "portfolio,n_paths,[request],[valuation],[simulation]"},
+        {"PortfolioMonteCarlo_ValueWithJacobianRisk", "portfolio,n_paths,[request],[valuation],[simulation]"},
+        {"PortfolioRiskResult_Get_Objective", "result"},
+        {"PortfolioRiskResult_Get_Values", "result"},
+        {"PortfolioRiskResult_Get_Jacobian", "result,[reported]"},
+        {"PortfolioRiskResult_Get_Shape", "result"},
+        {"PortfolioRiskResult_Get_Outputs", "result,[complete]"},
+        {"PortfolioRiskResult_Get_Inputs", "result,[complete]"},
+        {"PortfolioRiskResult_Get_Execution", "result"},
+        {"PortfolioRiskResult_Get_Sampling", "result"},
+        {"PortfolioRiskResult_Get_Provenance", "result"},
+        {"PortfolioRiskResult_Get_Trades", "result"},
+        {"PortfolioRiskResult_Get_TradeProvenance", "result,trade"},
+        {"PortfolioRiskResult_Get_History", "result,trade"},
+        {"PortfolioRiskResult_Get_Product", "result,trade"},
+        {"PortfolioRiskResult_Get_ModelSnapshot", "result,trade"}};
+    const auto registrations = RegisteredFunctionsForTest();
+    for (const auto& contract : contracts) {
+        const auto name = String_("xl_") + contract.first;
+        const auto found = std::find_if(registrations.begin(), registrations.end(), [&](const auto& reg) { return reg.cName_ == name; });
+        ASSERT_NE(found, registrations.end()) << contract.first;
+        ASSERT_EQ(CaseSensitive(found->xlName_), UpperDotted(contract.first));
+        ASSERT_EQ(CaseSensitive(found->argNames_), contract.second);
+        ASSERT_EQ(DeclaredArgCount(*found), NamedArgCount(*found));
+        ASSERT_FALSE(found->volatile_);
+        ASSERT_FALSE(found->help_.empty());
+        ASSERT_LE(found->maxArgHelpLength_, 255);
+    }
+}
+
 TEST(ExcelRegistrationTest, TestQuoteRiskFunctionsRetainLongNamesAndHelpMetadata) {
     const auto registrations = RegisteredFunctionsForTest();
     const Vector_<String_> cNames = {

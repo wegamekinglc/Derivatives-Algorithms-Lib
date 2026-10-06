@@ -23,9 +23,11 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          submodules: recursive
           # The previous master commit is the scheduled comparison baseline.
           fetch-depth: 2
+
+      - name: Check out pinned dependencies
+        run: python .github/scripts/checkout_dependencies.py
 
       - name: Resolve benchmark base SHA
         run: echo "BASE_SHA=$(git rev-parse HEAD^1)" >> "$GITHUB_ENV"
@@ -34,7 +36,9 @@ jobs:
         with:
           ref: ${{ env.BASE_SHA }}
           path: benchmark-base
-          submodules: recursive
+
+      - name: Check out pinned benchmark baseline dependencies
+        run: python .github/scripts/checkout_dependencies.py --worktree benchmark-base
 
       - name: Setup
         run: |
@@ -312,8 +316,10 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          submodules: recursive
           fetch-depth: 2
+
+      - name: Check out pinned dependencies
+        run: python .github/scripts/checkout_dependencies.py
 
       - name: Setup MSVC environment
         shell: pwsh

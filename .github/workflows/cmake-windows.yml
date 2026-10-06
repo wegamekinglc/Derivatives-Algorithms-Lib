@@ -67,8 +67,9 @@ jobs:
     steps:
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          submodules: recursive
+
+      - name: Check out pinned dependencies
+        run: python .github/scripts/checkout_dependencies.py
 
       # Same key rule as cmake-linux.yml: the action adds only a "ccache-"
       # prefix plus timestamp, so the key carries OS and backend itself.
@@ -135,8 +136,7 @@ jobs:
           echo "ADDITIONAL_CMAKE_FLAGS=$FLAGS" >> $GITHUB_ENV
 
       # pybind11 is built from the dal-cpp/externals/pybind11 git submodule
-      # (pinned to v2.11.1). actions/checkout already initialized it via
-      # submodules: recursive — no system package or FetchContent needed.
+      # (pinned to v2.11.1), initialized by the pinned-dependency checkout.
 
       # Python env: uv-managed venv, matching the convention in
       # dal-python/run_tests.sh. The venv must be on PATH *before* the
@@ -262,8 +262,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          submodules: recursive
+
+      - name: Check out pinned dependencies
+        run: python .github/scripts/checkout_dependencies.py
 
       - name: Run build_windows.bat --configure-only
         shell: cmd

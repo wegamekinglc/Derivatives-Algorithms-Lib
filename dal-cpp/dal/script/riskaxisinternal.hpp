@@ -8,6 +8,7 @@
 
 namespace Dal::Script::Detail {
     [[nodiscard]] Vector_<size_t> RiskInputPositions(const Vector_<RiskCoordinate_>& axis, const RiskRequest_& request);
+    void ValidateRiskInputRequest(const RiskRequest_& request, size_t columns);
     void ValidateRiskResultMetadata(const RiskResultProvenance_& provenance, int paths);
     [[nodiscard]] Vector_<RiskOutputCoordinate_>
     SelectRiskOutputs(const Vector_<RiskOutputCoordinate_>& axis, const std::optional<Vector_<String_>>& requested, const char* requestKind);

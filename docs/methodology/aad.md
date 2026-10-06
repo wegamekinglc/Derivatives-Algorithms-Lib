@@ -882,6 +882,162 @@ containers own passive values. See the [C++](../public-api.md#budgeted-script-ja
 [Python](../python/README.md#budgeted-script-jacobians) and
 [Excel](../excel/README.md#budgeted-script-jacobians) interfaces.
 
+### Sealed Script Portfolio Coordinates
+
+`Script::ScriptPortfolioData_` in `dal/script/portfolio.hpp` owns an ordered
+trade table with independent product snapshots and immutable model snapshots.
+Model owners are assigned before cloning: repeating the same original model
+handle shares an owner, while two different handles with equal names and values
+retain distinct owners. Trade IDs must be nonempty and unique under DAL's
+case-insensitive string comparison. JSON serialization preserves the owner table.
+
+`ScriptPortfolioRiskAxes` in `dal-public/src/portfoliorisk.hpp` returns an owning
+passive coordinate catalog. All model parameters come first in owner order,
+followed by each trade's private constants. IDs are `model:<owner>:parameter:<p>`
+and `trade:<t>:constant:<c>`; matching constant labels do not merge columns.
+Scalar outputs retain the original local slots and receive IDs such as
+`trade:<t>:payoff` and `trade:<t>:output:<slot>`.
+
+```cpp
+#include <dal-public/src/portfoliorisk.hpp>
+#include <dal/model/blackscholes.hpp>
+
+using namespace Dal;
+using namespace Dal::Script;
+
+const Handle_<ModelData_> model(new BSModelData_("model", 100.0, 0.2));
+const Vector_<Cell_> dates{Cell_("X"), Cell_(Date_(2027, 1, 1))};
+const Handle_<ScriptProductData_> a(
+    new ScriptProductData_("A", dates, {"5", "pay PAYS 2 * SPOT() + X"}));
+const Handle_<ScriptProductData_> b(
+    new ScriptProductData_("B", dates, {"7", "pay PAYS 3 * SPOT() + X"}));
+const Handle_<ScriptPortfolioData_> portfolio(
+    new ScriptPortfolioData_("portfolio", {{"A", a, model}, {"B", b, model}}));
+const auto axes = ScriptPortfolioRiskAxes(portfolio);
+// Four shared Black-Scholes parameters, followed by A.X and B.X.
+const auto& localToGlobal = axes.TradeInputPositions();
+```
+
+`TradeInputPositions()` maps each trade's local model/constant axis to the global
+input positions. `OutputTrades()` maps each output row to its trade position;
+the original user IDs remain available through `portfolio->TradeIds()`.
+Axis inspection parses and indexes the sealed scripts without resolving an
+evaluation date, reading fixings, submitting tasks or performing valuation.
+The catalog retains ordinary numbers and strings after its portfolio is destroyed.
+
+### Weighted Script Portfolio Risk
+
+`ValuePortfolioByMonteCarloWithWeightedRisk` in `dal-public/src/value.hpp` values
+a sealed portfolio using ordered global output/input IDs. Omitted outputs select
+one payoff per trade and omitted weights mean one. Provided weights may be zero
+or negative, must be finite and must match the selected output count. Selected
+values must be finite even at zero weight. The objective is the weighted sum of
+component path means, with no additional discounting or currency conversion.
+
+```cpp
+// Use the sealed portfolio from the preceding example.
+#include <dal-public/src/value.hpp>
+
+PortfolioWeightedRiskRequest_ request;
+request.selection_.outputs_ = Vector_<String_>{"trade:0:payoff", "trade:1:payoff"};
+request.weights_ = Vector_<double>{2.0, -1.0};
+request.selection_.inputs_ = Vector_<String_>{
+    "model:0:parameter:0", "trade:0:constant:0", "trade:1:constant:0"};
+ScriptValuationSettings_ valuation;
+valuation.evaluationDate_ = Date_(2026, 1, 1);
+const auto risk = ValuePortfolioByMonteCarloWithWeightedRisk(
+    portfolio, 4096, request, valuation);
+const double objectiveMean = risk.WeightedValue();
+const auto gradient = risk.Jacobian(); // one row, three selected columns
+const auto reported = risk.ReportedJacobian();
+const auto& groups = risk.Execution().groups_;
+```
+
+The call freezes one evaluation date and one union historical snapshot. Trades
+share a model and scenario only when owner identity and complete original sampling,
+observation, numeraire and simulation contracts agree. Incompatible groups retain
+their own time grids, random dimensions and original absolute path indices;
+there is no union timeline. Selected trades always have private constants,
+historical seeds and evaluator state. Groups run sequentially, with parallel
+path batches within a group. Native execution reverses one weighted suffix per
+path and each retained batch prefix once.
+
+Default settings use native AAD. Explicit empty native inputs retain the smoothed
+estimator and a `(1, 0)` gradient. Setting `simulation.enableAad_ = false` selects
+sharp price-only execution, permits only omitted/empty inputs and performs no
+reverse work. Passive execution ignores the recording-capacity budget. Both
+modes retain the complete unscaled coordinate catalogs and requested component
+order. Report factors must be positive and finite; reported gradient copies scale
+selected columns once. A nonfinite report projection rejects the whole call.
+
+The owning result retains component means/weights, selected/complete axes,
+original trade IDs, model-owner ordinals and per-trade execution snapshots.
+`Execution()` reports group membership, complete original sampling definitions,
+simulation settings, actual scenario/evaluator/reverse counts and capacity peaks.
+Scenario counts measure generated paths; evaluator counts measure selected
+trade evaluations. Matrix getters return detached copies without history reads
+or additional Monte Carlo work.
+
+`selection_.numericPayloadBudgetBytes_` bounds the retained numeric payload at
+`sizeof(double) * (1 + n + 2*m)`. `recordingCapacityBudgetBytes_` and
+`scratchCapacityBudgetBytes_` apply to the whole request. Known startup shapes,
+including all selected private history/vector capacities, are admitted before
+historical reads. Runtime growth and overlapping replacements remain guarded.
+Capacity or worker failures drain accepted tasks and publish no partial result.
+Exercise and fully expired trades retain the multi-output rejection boundary.
+
+### Script Portfolio Jacobians
+
+`ValuePortfolioByMonteCarloWithJacobianRisk` returns separate output means and
+an owning `(m, n)` risk matrix over the same sealed portfolio and global axes.
+The entry uses `PortfolioJacobianRiskRequest_`; omitted outputs select
+every trade payoff. `maxBlockWidth_` is an explicit positive maximum bounded by
+the native adjoint capacity, with a default of one.
+
+```cpp
+// Use the same sealed portfolio and valuation date.
+PortfolioJacobianRiskRequest_ attributionRequest;
+attributionRequest.selection_.outputs_ = Vector_<String_>{
+    "trade:1:payoff", "trade:0:payoff"};
+attributionRequest.selection_.inputs_ = Vector_<String_>{
+    "trade:1:constant:0", "model:0:parameter:0", "trade:0:constant:0"};
+attributionRequest.maxBlockWidth_ = 2;
+const auto attribution = ValuePortfolioByMonteCarloWithJacobianRisk(
+    portfolio, 4096, attributionRequest, valuation);
+const auto outputMeans = attribution.Values();
+const auto sensitivities = attribution.Jacobian(); // two rows, three columns
+const auto& attributionGroups = attribution.Execution().groups_;
+```
+
+Native attribution includes explicitly empty input selection, which retains the
+smoothed estimator and an `(m, 0)` matrix.
+Each compatible group replays its original path range once per output block.
+Model leaves are shared inside each recording; constants, historical state and
+evaluators stay private to the trades needed by that block. Independent roots
+preserve output aliases and unused tail lanes stay zero. Only selected derivative
+columns must be finite. Raw and reported matrix getters return detached copies;
+report factors scale columns once and overflow rejects the entire result with
+the original failing trade/output context.
+
+The retained numeric payload is exactly `sizeof(double) * m * (1+n)`.
+Recording and scratch limits apply across the sequential groups and concurrent
+original path batches. Known result/task buffers, root lanes, full extracted
+model/private matrices and historical vector shapes admit before historical
+reads. Capacity-only admission can narrow the maximum block width while keeping
+the estimator and original paths. `Execution()` retains the requested maximum;
+each group reports its actual widths, replay attempts, scenario/evaluator/reverse
+counts and whole-request capacity peaks. For a group with `m_g` rows and admitted
+width `w_g`, scenario generation totals `numPath * ceil(m_g / w_g)`.
+
+With `simulation.enableAad_ = false`, attribution uses sharp passive pricing and
+permits only omitted/empty risk inputs. It returns `(m, 0)`, evaluates each
+selected group once over its original paths, ignores recording limits and reports
+no actual native widths or reversals. Passive rows accumulate independently, so
+finite output rows remain valid even when their unused aggregate would overflow.
+Known private historical shapes still admit against the whole scratch limit before
+reads, and runtime capacity/nonfinite failures drain tasks and retain trade/output
+context.
+
 ### Discrete Dupire Calibration Pullback
 
 The C++ functions in `dal/model/dupirerisk.hpp` map numeric local-volatility
