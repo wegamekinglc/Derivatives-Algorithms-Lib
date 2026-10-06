@@ -728,8 +728,14 @@ Cold worker tape construction now admits each initial block before allocation
 and refunds partial construction. Budgeted batches reserve cleanup headroom
 throughout execution, including simultaneous worker replacements. Twenty-three
 capacity/recording cases pass OFF, combined ASan/UBSan and combined TSan;
-11 storage cases pass OFF/combined. Known aggregate minimum preflight and
-request-level failure draining remain producer work.
+11 storage cases pass OFF/combined. The internal request driver now copies
+selections/settings, replays complete common paths, drains failed submissions,
+reduces owning raw matrices and reports widths/work/capacity peaks. Five OFF
+cases verify 1/4/16/64 ordered outputs against scalar rows and weighted `J^T w`
+in one/four-worker tree/compiled execution, budget failures/recovery and native
+empty columns. Public axes/provenance, full snapshot/minimum preflight, consumer
+and performance/platform acceptance remain open; see the
+[request replay review](../reviews/aad-blocked-request-replay.md).
 No full F02 completion is inferred; blocked Jacobians, recording budgets and
 portfolios also remain.
 
@@ -737,18 +743,18 @@ This snapshot distinguishes accepted increments from locally implemented work.
 Estimates are remaining single-developer effort, not promises of calendar time;
 overlapping acceptance work is included once in the integration allowance.
 
-| Work item               | Implementation/local verification                                        | Publication/CI                              | Remaining person-days |
-|-------------------------|--------------------------------------------------------------------------|---------------------------------------------|-----------------------|
-| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                            | Accepted exact-head checks                  | 0                     |
-| Scalar D04              | Accepted C++/Python/Excel                                                | Accepted exact-head checks                  | 0                     |
-| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass           | Merged; final 35/35 checks accepted         | 0                     |
-| F01                     | C++/Python/Excel and complete requirement audit accepted                 | Merged; final 35/35 checks accepted         | 0                     |
-| F02                     | Weighted merged; native tape capacity/roots pass focused ASan/UBSan/TSan | #484 draft; scratch/replay/bindings pending | 6–10                  |
-| P02/P03                 | Worker reuse/block selection/extraction remain                           | Open                                        | 4–7                   |
-| F03                     | Solve, implicit calibration and PDE operators remain                     | Open                                        | 12–20                 |
-| P04/P05                 | Structural sparsity/checkpointing remain                                 | Open                                        | 9–15                  |
-| F04                     | Second-order implementation/estimator validation remain                  | Open                                        | 12–20                 |
-| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains               | Open                                        | 7–11                  |
+| Work item               | Implementation/local verification                              | Publication/CI                             | Remaining person-days |
+|-------------------------|----------------------------------------------------------------|--------------------------------------------|-----------------------|
+| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                  | Accepted exact-head checks                 | 0                     |
+| Scalar D04              | Accepted C++/Python/Excel                                      | Accepted exact-head checks                 | 0                     |
+| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass | Merged; final 35/35 checks accepted        | 0                     |
+| F01                     | C++/Python/Excel and complete requirement audit accepted       | Merged; final 35/35 checks accepted        | 0                     |
+| F02                     | Weighted merged; blocked budgets/replay pass focused checks    | #484 draft; public consumers/gates pending | 6–10                  |
+| P02/P03                 | Worker reuse/block selection/extraction remain                 | Open                                       | 4–7                   |
+| F03                     | Solve, implicit calibration and PDE operators remain           | Open                                       | 12–20                 |
+| P04/P05                 | Structural sparsity/checkpointing remain                       | Open                                       | 9–15                  |
+| F04                     | Second-order implementation/estimator validation remain        | Open                                       | 12–20                 |
+| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains     | Open                                       | 7–11                  |
 
 Remaining total: approximately 50–83 person-days, or 10–17 working weeks,
 excluding CI queue time and including delivery contingency. F01 is merged;

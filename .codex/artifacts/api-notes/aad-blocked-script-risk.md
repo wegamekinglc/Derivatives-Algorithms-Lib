@@ -116,6 +116,12 @@ budget, requires stack-ordered close and preserves normal nested-scope rejection
 See the [batch review](../reviews/aad-blocked-batch-execution.md).
 
 The batch attaches its tape budget before selecting vector mode and enables
-cleanup headroom. The request producer still needs complete aggregate preflight,
-task draining, owning matrix/provenance and result construction. Public request
-fields and the full replay/result/consumer interfaces remain unimplemented.
+cleanup headroom. `Detail::EvaluateAADBlockReplay` now owns complete path replay,
+ordered batch reduction, task draining, raw numeric matrices and actual width/
+replay/path/capacity evidence. It captures selections/settings before submission
+and returns no partial matrix on failure. The first driver does not retry after
+runtime exhaustion. See the [request replay review](../reviews/aad-blocked-request-replay.md).
+
+Public ordered-ID planning, full model/product/history snapshots, complete known
+model-specific minimum preflight, axes/report factors/provenance and C++/Python/
+Excel consumers remain unimplemented. Public delivery acceptance remains open.
