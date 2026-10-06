@@ -157,6 +157,32 @@ namespace Dal {
             return budget;
         }
 
+        void* AllocateBufferStorage(size_t bytes) {
+            return AllocateBuffer(bytes, 1, [bytes] { return ::operator new(bytes); }, [](void* allocation) { ::operator delete(allocation); });
+        }
+
+        void* AllocateBufferStorage(size_t bytes, std::align_val_t alignment) {
+            return AllocateBuffer(
+                bytes, 1, [bytes, alignment] { return ::operator new(bytes, alignment); },
+                [alignment](void* allocation) { ::operator delete(allocation, alignment); });
+        }
+
+        void DeallocateBufferStorage(void* allocation, size_t bytes) noexcept {
+#if defined(__cpp_sized_deallocation)
+            DeallocateBuffer(allocation, [bytes](void* storage) { ::operator delete(storage, bytes); });
+#else
+            DeallocateBuffer(allocation, [](void* storage) { ::operator delete(storage); });
+#endif
+        }
+
+        void DeallocateBufferStorage(void* allocation, size_t bytes, std::align_val_t alignment) noexcept {
+#if defined(__cpp_sized_deallocation)
+            DeallocateBuffer(allocation, [bytes, alignment](void* storage) { ::operator delete(storage, bytes, alignment); });
+#else
+            DeallocateBuffer(allocation, [alignment](void* storage) { ::operator delete(storage, alignment); });
+#endif
+        }
+
         BufferAllocationTicket_::BufferAllocationTicket_(BufferCapacityBudget_* budget, size_t count, size_t elementBytes) : budget_(budget) {
             REQUIRE(elementBytes > 0 && count <= std::numeric_limits<size_t>::max() / elementBytes,
                     "Scratch buffer allocation: payload extent overflow");

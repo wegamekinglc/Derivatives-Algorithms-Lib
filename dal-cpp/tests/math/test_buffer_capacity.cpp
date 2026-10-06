@@ -91,6 +91,27 @@ TEST(BufferCapacityTest, TestCountsNestedMatricesPackedBooleanAndExcludesText) {
     ASSERT_EQ(budget.CapacityBytes(), 0);
 }
 
+TEST(BufferCapacityTest, TestAlignedZeroCountAndOversizedAllocationsPreserveStorageSemantics) {
+    struct alignas(64) AlignedValue_ {
+        double value_ = 3.0;
+    };
+    BufferCapacityBudget_ budget(128);
+    {
+        BufferCapacityScope_ scope(&budget);
+        Detail::BufferAllocator_<double> allocator;
+        auto* empty = allocator.allocate(0);
+        ASSERT_EQ(budget.CapacityBytes(), 0);
+        allocator.deallocate(empty, 0);
+        Vector_<AlignedValue_> values(2);
+        ASSERT_EQ(reinterpret_cast<std::uintptr_t>(values.data()) % alignof(AlignedValue_), 0);
+        ASSERT_EQ(budget.CapacityBytes(), 128);
+        ASSERT_DOUBLE_EQ(values[0].value_, 3.0);
+        ASSERT_THROW(static_cast<void>(allocator.allocate(std::numeric_limits<size_t>::max())), std::bad_alloc);
+        ASSERT_EQ(budget.CapacityBytes(), 128);
+    }
+    ASSERT_EQ(budget.CapacityBytes(), 0);
+}
+
 TEST(BufferCapacityTest, TestAllocationAndElementFailureRefundReservations) {
     BufferCapacityBudget_ budget(72);
     BufferCapacityScope_ scope(&budget);

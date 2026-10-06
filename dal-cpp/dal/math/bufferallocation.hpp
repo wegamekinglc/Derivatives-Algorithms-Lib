@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <new>
 #include <optional>
@@ -25,6 +26,11 @@ namespace Dal {
         __attribute__((const))
 #endif
         BufferCapacityBudget_*& CurrentBufferBudget() noexcept;
+
+        void* AllocateBufferStorage(size_t bytes);
+        void* AllocateBufferStorage(size_t bytes, std::align_val_t alignment);
+        void DeallocateBufferStorage(void* allocation, size_t bytes) noexcept;
+        void DeallocateBufferStorage(void* allocation, size_t bytes, std::align_val_t alignment) noexcept;
 
         class BufferAllocationTicket_ {
             BufferCapacityBudget_* budget_;
@@ -131,14 +137,19 @@ namespace Dal {
             template <class U_> BufferAllocator_(const BufferAllocator_<U_>&) noexcept {}
 
             [[nodiscard]] T_* allocate(size_t count) {
-                std::allocator<T_> allocator;
-                return AllocateBuffer(
-                    count, sizeof(T_), [&allocator, count] { return allocator.allocate(count); },
-                    [&allocator, count](T_* allocation) { allocator.deallocate(allocation, count); });
+                if (count > static_cast<size_t>(std::numeric_limits<std::ptrdiff_t>::max()) / sizeof(T_))
+                    throw std::bad_array_new_length();
+                if constexpr (alignof(T_) > __STDCPP_DEFAULT_NEW_ALIGNMENT__)
+                    return static_cast<T_*>(AllocateBufferStorage(count * sizeof(T_), std::align_val_t(alignof(T_))));
+                else
+                    return static_cast<T_*>(AllocateBufferStorage(count * sizeof(T_)));
             }
 
             void deallocate(T_* allocation, size_t count) noexcept {
-                DeallocateBuffer(allocation, [count](T_* storage) { std::allocator<T_>{}.deallocate(storage, count); });
+                if constexpr (alignof(T_) > __STDCPP_DEFAULT_NEW_ALIGNMENT__)
+                    DeallocateBufferStorage(allocation, count * sizeof(T_), std::align_val_t(alignof(T_)));
+                else
+                    DeallocateBufferStorage(allocation, count * sizeof(T_));
             }
         };
 
