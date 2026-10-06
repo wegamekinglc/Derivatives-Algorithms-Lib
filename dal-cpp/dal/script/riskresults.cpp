@@ -148,6 +148,8 @@ namespace Dal::Script {
             return SelectedInputs(axis, request);
         }
 
+        void ValidateRiskInputRequest(const RiskRequest_& request, size_t columns) { ValidateRequest(request, columns); }
+
         void ValidateRiskResultMetadata(const RiskResultProvenance_& provenance, int paths) {
             ValidateProvenance(provenance);
             ValidateExecutionSnapshot(provenance.execution_, paths);

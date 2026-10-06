@@ -1207,7 +1207,16 @@ Extracted the independent scalar-reference helper while retaining every executio
 setting, coordinate assertion, count and tolerance. Targeted repair verification
 and fresh publication-head checks remain separate from the earlier snapshot.
 
-Next: implement public weighted requests/results, aggregate capacity guards,
+Internal weighted request planning now owns the sealed handle, selected global
+coordinates, weights and report factors, defaulting to one payoff per trade.
+It enforces the exact checked weighted numeric payload before history/tasks.
+Five new cases cover ownership, distinct model ordinals, aliases/zero weights,
+native-empty/passive shape and invalid selection/budget rejection. An additive
+schema-independent request validator reuses old constraints while preserving
+every scalar ordinal-ID check and old function body. Ten existing scalar result
+cases also pass; strict OFF/combined ON syntax checks pass for both production units.
+
+Next: connect public weighted requests/results and recording/scratch guards,
 passive execution and blocked attribution.
 Portfolio valuation and Python/Excel bindings are not implemented. Preserve
 original RNG dimensions/path indices, private evaluator state, existing costs

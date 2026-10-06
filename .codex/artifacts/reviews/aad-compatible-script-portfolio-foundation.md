@@ -133,6 +133,15 @@ proof is unavailable. Retain private evaluator/history state for every trade.
   every coordinate assertion, work count and `1e-10` bound remain. This repair
   needs its own exact publication-head checks; earlier passing jobs are not merge
   acceptance for it.
+- The internal weighted request plan validates namespaced IDs, weights, factors
+  and numeric payload before history/tasks, and owns its portfolio/selections.
+  Existing scalar `ValidateCompleteAxis` deliberately rejects namespaced IDs;
+  the first valid-plan RED proves this boundary. A new internal request-validation
+  delegate reuses the existing factor/shape/budget constraints; no old scalar
+  function or ordinal validation is changed. Five plan cases and ten existing
+  scalar result cases pass. Strict warnings pass in OFF/combined ON syntax modes.
+  Public valuation integration and actual recording/scratch capacity policy
+  remain pending.
 
 Evidence lives under the session evidence root: `aad-portfolio-focused-foundation-green-02.json`,
 `aad-portfolio-warning-clean-01.json` and `aad-portfolio-doc-consumer-01.json`.
@@ -161,6 +170,10 @@ CI fallback evidence is `aad-ci-checkout-dependencies-{red,green}-01.log`,
 `aad-ci-eigen-mirror-integration-01.json`.
 The retained Codacy finding is `aad-487-replay-070b-current-03/summary.json`;
 focused repair evidence is `aad-portfolio-focused-replay-codacy-green-01.json`.
+Weighted preflight evidence is `aad-portfolio-focused-weighted-plan-green-02.json`,
+`aad-portfolio-focused-weighted-plan-regression-green-01.json` and
+`aad-portfolio-weighted-plan-warning-clean-01.json`. The interface and legacy-ID
+schema failures remain in `weighted-plan-red-01` and `weighted-plan-green-01`.
 
 ## Summary
 

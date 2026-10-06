@@ -75,6 +75,17 @@ per-group work counters. Existing task-group ownership drains accepted tasks aft
 submission/worker failures. This prepared-input coordinator does not implement
 public request preflight before history, budget policy, provenance or bindings.
 
+`Dal::Detail::PlanPortfolioWeightedRequest` is an internal owning request plan
+over a sealed portfolio. It defaults to every trade payoff, resolves ordered
+global output/input IDs, finite passive weights and positive reporting factors,
+and enforces the checked `sizeof(double) * (1 + n + 2*m)` numeric payload before
+history or tasks. It keeps native-empty and passive-zero-column selection distinct.
+Complete axes remain unscaled; only selected coordinates receive report factors.
+The plan owns the sealed handle, selections, original axes and input request after
+caller mutation/destruction. It reuses schema-independent scalar request constraints
+without relaxing legacy ordinal-ID validation. This plan is not a public valuation
+entry or recording/scratch admission policy.
+
 ## Proposed valuation surfaces
 
 Proposed C++ entry points take the portfolio and path count first, followed by

@@ -4,7 +4,9 @@ Status: active specification. Sealed C++ ownership, passive coordinate catalogs
 and internal compatibility planning and whole-request preparation are implemented
 and locally verified. Shared weighted group batches are locally verified;
 Internal weighted replay/scatter is also locally verified; public valuation,
-aggregate budget admission and bindings remain pending.
+An internal owning weighted request plan validates selection and numeric payload
+before history/tasks. Recording/scratch admission, public valuation and bindings
+remain pending.
 Delivery starts from merged PR #484, commit `1c9273c9`, in open PR
 [#487](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/487).
 
@@ -261,7 +263,12 @@ unmergeable until behavior, consumers and these gates are accepted.
    columns, skipped groups and submission/worker/derivative failure recovery.
    All six model families match every independent existing scalar-call risk in
    tree/compiled evaluation; BS also covers both original RNGs and mixed meshes.
-   Actual aggregate budgets and public request preflight remain pending.
+   Internal weighted request planning now owns global selection/weights/factors
+   and the exact checked retained numeric payload before history or tasks.
+   Five new cases cover defaults, caller lifetime, repeated ordinals across
+   distinct owners, aliases/zero weights, native-empty/passive shape and early
+   malformed/budget rejection. Actual recording/scratch admission and public
+   request integration remain pending.
    Strict warning categories pass in OFF and combined ON syntax checks; this
    does not establish linked/runtime ON acceptance. About 1–1.5 person-days.
 3. Add blocked attribution and owning C++/Python/Excel surfaces with independent
