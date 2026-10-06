@@ -26,7 +26,7 @@ TEST(AADAdjointBlockTest, TestPartitionsWithoutAllocatingOutputDescriptors) {
     ASSERT_EQ(plan.Block(2).outputs_, 2);
     ASSERT_EQ(plan.Block(2).width_, 4);
     ASSERT_EQ(plan.NumericResultBytes(), 320);
-    ASSERT_THROW(plan.Block(3), Exception_);
+    ASSERT_THROW(static_cast<void>(plan.Block(3)), Exception_);
     ASSERT_EQ(PlanAdjointBlocks(3, 0).BlockCount(), 3);
     ASSERT_EQ(PlanAdjointBlocks(3, 0).NumericResultBytes(), 24);
     settings.maxWidth_ = ADJ_SIZE;
@@ -50,32 +50,32 @@ TEST(AADAdjointBlockTest, TestBudgetsNarrowWidthAndRejectBelowOneLane) {
     ASSERT_EQ(plan.Block(2).outputs_, 1);
     ASSERT_EQ(plan.MinimumScratchBytes(), 2 * laneBytes);
     settings.minimumScratchBudgetBytes_ = laneBytes - 1;
-    ASSERT_THROW(PlanAdjointBlocks(5, 2, settings), Exception_);
+    ASSERT_THROW(static_cast<void>(PlanAdjointBlocks(5, 2, settings)), Exception_);
     settings.minimumScratchBudgetBytes_ = laneBytes;
     ASSERT_EQ(PlanAdjointBlocks(5, 2, settings).Width(), 1);
     settings.numericResultBudgetBytes_ = 119;
-    ASSERT_THROW(PlanAdjointBlocks(5, 2, settings), Exception_);
+    ASSERT_THROW(static_cast<void>(PlanAdjointBlocks(5, 2, settings)), Exception_);
     settings.numericResultBudgetBytes_ = 0;
-    ASSERT_THROW(PlanAdjointBlocks(5, 2, settings), Exception_);
+    ASSERT_THROW(static_cast<void>(PlanAdjointBlocks(5, 2, settings)), Exception_);
     settings.numericResultBudgetBytes_.reset();
     settings.minimumScratchBudgetBytes_ = 0;
-    ASSERT_THROW(PlanAdjointBlocks(5, 2, settings), Exception_);
+    ASSERT_THROW(static_cast<void>(PlanAdjointBlocks(5, 2, settings)), Exception_);
 }
 
 TEST(AADAdjointBlockTest, TestInvalidDimensionsWidthAndWorkerGeometryReject) {
-    ASSERT_THROW(PlanAdjointBlocks(0, 1), Exception_);
-    ASSERT_THROW(PlanAdjointBlocks(static_cast<size_t>(std::numeric_limits<int>::max()) + 1, 1), Exception_);
-    ASSERT_THROW(PlanAdjointBlocks(1, static_cast<size_t>(std::numeric_limits<int>::max()) + 1), Exception_);
+    ASSERT_THROW(static_cast<void>(PlanAdjointBlocks(0, 1)), Exception_);
+    ASSERT_THROW(static_cast<void>(PlanAdjointBlocks(static_cast<size_t>(std::numeric_limits<int>::max()) + 1, 1)), Exception_);
+    ASSERT_THROW(static_cast<void>(PlanAdjointBlocks(1, static_cast<size_t>(std::numeric_limits<int>::max()) + 1)), Exception_);
     AdjointBlockSettings_ settings;
     settings.maxWidth_ = 0;
-    ASSERT_THROW(PlanAdjointBlocks(1, 1, settings), Exception_);
+    ASSERT_THROW(static_cast<void>(PlanAdjointBlocks(1, 1, settings)), Exception_);
     settings.maxWidth_ = ADJ_SIZE + 1;
-    ASSERT_THROW(PlanAdjointBlocks(1, 1, settings), Exception_);
+    ASSERT_THROW(static_cast<void>(PlanAdjointBlocks(1, 1, settings)), Exception_);
     settings.maxWidth_ = 1;
     settings.concurrentWorkers_ = 0;
-    ASSERT_THROW(PlanAdjointBlocks(1, 1, settings), Exception_);
+    ASSERT_THROW(static_cast<void>(PlanAdjointBlocks(1, 1, settings)), Exception_);
     settings.concurrentWorkers_ = 2;
-    ASSERT_THROW(PlanAdjointBlocks(1, 1, settings), Exception_);
+    ASSERT_THROW(static_cast<void>(PlanAdjointBlocks(1, 1, settings)), Exception_);
     settings.batchResultSlots_ = 2;
     ASSERT_EQ(PlanAdjointBlocks(1, 1, settings).Width(), 1);
 }
@@ -90,18 +90,18 @@ TEST(AADAdjointBlockTest, TestOverflowPlanningPreservesLiveRecording) {
     recording.FinishRecording();
     const auto before = MeasureTape(*Tape());
     const auto maximum = static_cast<size_t>(std::numeric_limits<int>::max());
-    ASSERT_THROW(PlanAdjointBlocks(maximum, maximum), Exception_);
+    ASSERT_THROW(static_cast<void>(PlanAdjointBlocks(maximum, maximum)), Exception_);
     AdjointBlockSettings_ settings;
     settings.concurrentWorkers_ = std::numeric_limits<size_t>::max();
     settings.batchResultSlots_ = settings.concurrentWorkers_;
-    ASSERT_THROW(PlanAdjointBlocks(1, 0, settings), Exception_);
+    ASSERT_THROW(static_cast<void>(PlanAdjointBlocks(1, 0, settings)), Exception_);
     settings.concurrentWorkers_ = std::numeric_limits<size_t>::max() / sizeof(Number_);
     settings.batchResultSlots_ = settings.concurrentWorkers_;
-    ASSERT_THROW(PlanAdjointBlocks(1, 0, settings), Exception_);
+    ASSERT_THROW(static_cast<void>(PlanAdjointBlocks(1, 0, settings)), Exception_);
     settings.maxWidth_ = 4;
     settings.concurrentWorkers_ = std::numeric_limits<size_t>::max() / (4 * (sizeof(Number_) + sizeof(double))) + 1;
     settings.batchResultSlots_ = settings.concurrentWorkers_;
-    ASSERT_THROW(PlanAdjointBlocks(4, 0, settings), Exception_);
+    ASSERT_THROW(static_cast<void>(PlanAdjointBlocks(4, 0, settings)), Exception_);
     ASSERT_EQ(PlanAdjointBlocks(9, 1).BlockCount(), 9);
     const auto after = MeasureTape(*Tape());
     ASSERT_EQ(after.nodes_, before.nodes_);

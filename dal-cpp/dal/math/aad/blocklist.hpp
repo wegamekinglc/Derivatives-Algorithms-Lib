@@ -19,6 +19,7 @@
 #include <list>
 #include <type_traits>
 
+#include <dal/math/aad/blockallocation.hpp>
 #include <dal/math/aad/profilinghooks.hpp>
 #include <dal/utilities/exceptions.hpp>
 
@@ -42,10 +43,16 @@ namespace Dal::AAD {
         block_iter markedSpace_;
 
         void NewBlock() {
+            BlockAllocationTicket_ allocation(this, sizeof(std::array<T_, BLOCK_SIZE_>));
             data_.emplace_back();
+            allocation.Commit();
 #if defined(DAL_ENABLE_AAD_PROFILING)
             RecordBlockAllocation(sizeof(std::array<T_, BLOCK_SIZE_>));
 #endif
+            SetCurrentToLastBlock();
+        }
+
+        void SetCurrentToLastBlock() {
             currBlock_ = lastBlock_ = std::prev(data_.end());
             nextSpace_ = currBlock_->begin();
             lastSpace_ = currBlock_->end();
@@ -81,8 +88,18 @@ namespace Dal::AAD {
         }
 
         void Clear() {
-            data_.clear();
-            NewBlock();
+            const size_t releasedBytes = data_.size() * sizeof(std::array<T_, BLOCK_SIZE_>);
+            BlockAllocationTicket_ allocation(this, sizeof(std::array<T_, BLOCK_SIZE_>));
+            decltype(data_) replacement;
+            replacement.emplace_back();
+            allocation.Commit();
+#if defined(DAL_ENABLE_AAD_PROFILING)
+            RecordBlockAllocation(sizeof(std::array<T_, BLOCK_SIZE_>));
+#endif
+            data_.swap(replacement);
+            replacement.clear();
+            ReleaseBlockAllocation(this, releasedBytes);
+            SetCurrentToLastBlock();
             ResetMark();
         }
 

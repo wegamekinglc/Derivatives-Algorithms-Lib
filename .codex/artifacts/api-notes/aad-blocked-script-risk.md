@@ -78,6 +78,19 @@ lower bound. Settings distinguish concurrent root owners from retained batch
 result slots. This is an internal planning building block; full script selection,
 actual capacity admission and the proposed public Jacobian entry remain open.
 
-Choose result construction and reservation ownership after the passive planner
-and allocation-site inventory. Publish budget field names only when their exact
-capacity scope is enforceable in all diagnostic configurations.
+The implemented `TapeCapacityBudget_` owns aggregate synchronized tape-payload
+reservations. `TapeCapacityScope_` admits the owning thread's cached default tape
+and surrounds its recording scope. Allocation tickets reserve before block
+allocation; detached workers remain charged. Replacement during clear includes
+old/new overlap. These helpers enforce tape payload only, excluding allocator
+metadata, and expose admitted current/peak bytes. The producer's known minimum
+must include conservative cleanup replacement capacity.
+
+`SeedAdjointBlock` requires preallocated root vector capacity, fixed vector mode
+(including width one), bounded descriptors and an active zero. It uses existing
+path-local root materialization and explicitly clears padded seed lanes.
+See the [capacity/root review](../reviews/aad-blocked-capacity-roots.md).
+
+Choose result construction and numeric scratch reservation ownership from the
+model/path/evaluator allocation-site inventory. Public request fields and the
+full replay/result/consumer interfaces remain unimplemented.

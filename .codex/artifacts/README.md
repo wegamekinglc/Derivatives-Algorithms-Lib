@@ -30,6 +30,8 @@ after documenting the current-state outcome.
   from merged #483: passive planning, capacity admission, replay and consumers.
   [First planning review](reviews/aad-blocked-planning.md) records passive
   geometry/budget RED/GREEN and its remaining capacity/replay limits.
+  [Capacity/root review](reviews/aad-blocked-capacity-roots.md) records aggregate
+  pre-allocation tape limits, padded vector roots and remaining producer gates.
 - [Native lifetime diagnostic contract](specs/aad-native-lifetime-diagnostics.md)
   and [initial acceptance evidence](perf/aad-native-lifetime-diagnostics.md): optional
   active-number checks, ABI propagation, failure recovery and default performance.
