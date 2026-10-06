@@ -216,7 +216,8 @@ TEST(ScriptExcelRawTest, TestJacobianGeneratedValuationMatrixIntegerPathsAndEmpt
     Output_ result(Call("xl_MonteCarlo_ValueWithJacobianRisk", product.Scalar(), model.Scalar(), &paths, emptyRequest.Scalar(), &blank, &blank));
     ASSERT_EQ(result.Text().find("#Error:"), std::string::npos) << result.Text();
     Output_ jacobian(Call("xl_JacobianRiskResult_Get_Jacobian", result.Scalar(), &blank));
-    ASSERT_EQ(jacobian.Scalar()->xltype, xltypeNil);
+    ASSERT_EQ(jacobian.Scalar()->xltype, xltypeStr);
+    ASSERT_EQ(jacobian.Scalar()->val.str[0], 0);
     Output_ shape(Call("xl_JacobianRiskResult_Get_Shape", result.Scalar()));
     ASSERT_EQ(shape.value_->val.array.columns, 2);
     ASSERT_DOUBLE_EQ(shape.value_->val.array.lparray[0].val.num, 1.0);

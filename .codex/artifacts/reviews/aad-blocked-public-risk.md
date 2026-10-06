@@ -75,6 +75,13 @@ latest wheel job must still confirm the platform repair.
 
 ## Startup admission and bindings
 
+The Windows raw-export failure at `77193fd8` is a fixture error: the shared
+`WriteExcelCell_` marshals `std::monostate` as an empty string. The test now
+requires a one-cell `xltypeStr` with zero length, followed by exact `(1, 0)`
+shape checks. No marshalling behavior or numerical oracle changes. Failure
+evidence is `aad-jacobian-ci-failure-112174264433-01.log`; actual Windows
+rerun acceptance remains required.
+
 The initial long-timeline test accidentally rejected an unbound SPOT before
 history; its fixture now supplies the required default index and asserts the
 budget error identity. The corrected RED (`aad-jacobian-minimum-red-02.json`)
