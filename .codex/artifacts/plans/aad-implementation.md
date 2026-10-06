@@ -4,6 +4,13 @@ Status: active implementation under the native-only AAD scope.
 No stage is complete until its correctness, compatibility,
 performance, and applicable CI evidence has been inspected.
 
+Current boundary (2026-10-07): F02 is complete. Portfolio PR #487 is merged at
+`bf52e386`; accepted head `47c33a12` passes all 35 checks and both complete
+publication audits, with zero Codacy annotations and unresolved review threads.
+P02/P03 now has an active [specification](../specs/aad-worker-reuse-block-selection.md)
+and [critique](../critiques/aad-worker-reuse-block-selection.md) on the new
+`feature/aad-worker-reuse-block-selection` branch. Code implementation is next.
+
 Scope amendment (2026-10-04): the user requires removing XAD, CoDiPack and Adept
 support and keeping only DAL's built-in native AAD. This replaces the earlier
 four-backend compatibility goal. D00 is now a Stage A requirement; D03 is limited
@@ -53,11 +60,11 @@ incremental implementation turns and PRs; a green first stage does not complete 
   threads. All 160 existing performance comparisons pass the unchanged paired
   policy; 78 informational block-width processes pass independent row oracles.
   Both actual Windows raw-export cases pass in all four configurations.
-  Compatible portfolio integration starts from this merge in a new draft PR,
-  controlled by its [specification](../specs/aad-compatible-script-portfolio.md),
-  [API proposal](../api-notes/aad-compatible-script-portfolio.md) and
-  [critique](../critiques/aad-compatible-script-portfolio.md). This is the next
-  active implementation slice; the full plan remains incomplete.
+  Compatible portfolio integration is accepted in PR #487, merged at `bf52e386`.
+  Final head `47c33a12` passes 35/35 checks, both complete paginated publication
+  audits, four actual Windows modes, six sanitizer jobs and all 160 comparative
+  cases. Completed portfolio artifacts remain in Git history. P02/P03 continues
+  under its new specification; the full plan remains incomplete.
 - Establish a failing independent test before each behavioral change.
 - Validation amendment (2026-10-05): select tests from the changed behavior and
   dependency paths. A binding-only increment runs its focused tests and affected
@@ -110,11 +117,11 @@ incremental implementation turns and PRs; a green first stage does not complete 
 - [x] F01: common calibration pullback integration with existing curve quote-risk semantics.
 - [x] F02: fixed-weight VJP for multiple prepared-script outputs, including aliases/constants.
 - [x] F02: budgeted native blocked Jacobian with explicit rerecording behavior.
-- [ ] F02: compatible portfolio observation/timeline integration.
+- [x] F02: compatible portfolio observation/timeline integration.
 - [ ] P02: per-worker capacity reuse and safe re-registration/reinitialization.
 - [ ] P03: measured block-width selection and demand-driven result extraction.
-- [ ] Bindings: scalar D04 C++/Python/Excel is accepted; extend all three surfaces
-  for the remaining market, multi-output and second-order requests.
+- [ ] Bindings: F01/F02 C++/Python/Excel is accepted; extend all three surfaces
+  for the remaining structured-operator and second-order requests.
 
 ## Stage C: structured reverse operators
 
@@ -754,20 +761,20 @@ This snapshot distinguishes accepted increments from locally implemented work.
 Estimates are remaining single-developer effort, not promises of calendar time;
 overlapping acceptance work is included once in the integration allowance.
 
-| Work item               | Implementation/local verification                              | Publication/CI                          | Remaining person-days |
-|-------------------------|----------------------------------------------------------------|-----------------------------------------|-----------------------|
-| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                  | Accepted exact-head checks              | 0                     |
-| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass | Merged; final 35/35 checks accepted     | 0                     |
-| F01                     | C++/Python/Excel and complete requirement audit accepted       | Merged; final 35/35 checks accepted     | 0                     |
-| F02 weighted/blocked    | C++/Python/Excel and independent mathematical oracles accepted | #483/#484 merged; exact-head gates pass | 0                     |
-| F02 portfolio           | C++/Python/Excel, installed consumers and timing repair pass   | Open #487; final CI/review pending      | 0.25–0.5              |
-| P02/P03                 | Worker reuse/block selection/extraction remain                 | Open                                    | 4–7                   |
-| F03                     | Solve, implicit calibration and PDE operators remain           | Open                                    | 12–20                 |
-| P04/P05                 | Structural sparsity/checkpointing remain                       | Open                                    | 9–15                  |
-| F04                     | Second-order implementation/estimator validation remain        | Open                                    | 12–20                 |
-| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains     | Open                                    | 7–11                  |
+| Work item               | Implementation/local verification                                | Publication/CI                           | Remaining person-days |
+|-------------------------|------------------------------------------------------------------|------------------------------------------|-----------------------|
+| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                    | Accepted exact-head checks               | 0                     |
+| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass   | Merged; final 35/35 checks accepted      | 0                     |
+| F01                     | C++/Python/Excel and complete requirement audit accepted         | Merged; final 35/35 checks accepted      | 0                     |
+| F02 weighted/blocked    | C++/Python/Excel and independent mathematical oracles accepted   | #483/#484 merged; exact-head gates pass  | 0                     |
+| F02 portfolio           | C++/Python/Excel, installed consumers and timing repair accepted | #487 merged; final 35/35 checks accepted | 0                     |
+| P02/P03                 | Active specification; worker reuse/extraction not implemented    | New branch after #487; PR preparation    | 4–7                   |
+| F03                     | Solve, implicit calibration and PDE operators remain             | Open                                     | 12–20                 |
+| P04/P05                 | Structural sparsity/checkpointing remain                         | Open                                     | 9–15                  |
+| F04                     | Second-order implementation/estimator validation remain          | Open                                     | 12–20                 |
+| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains       | Open                                     | 7–11                  |
 
-Remaining total: approximately 45–74 person-days, or 9–15 working weeks,
+Remaining total: approximately 44–73 person-days, or 9–15 working weeks,
 excluding CI queue time and including delivery contingency. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
 effort estimate, not a guaranteed completion date. Re-estimate when review
@@ -1329,15 +1336,17 @@ and 126 Python cases pass, as do strict syntax and refreshed installed consumers
 At `9cc9fe0a`, all 35 checks pass, with zero Codacy annotations and unresolved
 review threads. All four actual Windows modes pass seven new typed/raw and
 registration cases each; all six sanitizer jobs pass all 78 portfolio cases.
-The [portfolio performance report](../performance/aad-compatible-script-portfolio.md)
+The archived [portfolio performance report](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/47c33a12b142af8aec9532b0c7c1084fd9f064a6/.codex/artifacts/performance/aad-compatible-script-portfolio.md)
 retains limitations and all 130 matched new-entry cost cases, including expensive
-one-trade and distinct-owner shapes. Exact-head CI/review and merging remain open.
+one-trade and distinct-owner shapes. Final `47c33a12` accepts all 35 CI checks,
+zero Codacy annotations and unresolved threads in both complete audits. Actual
+Windows logs verify all seven new cases in each of four modes and installed
+consumers; all six sanitizer logs verify all 78 portfolio cases. PR #487 is
+confirmed MERGED at `bf52e386`, whose tree equals the accepted source tree.
 
-Next: publish the measured repair and audit final-head platform/publication acceptance. Preserve
-original RNG dimensions/path indices, private evaluator state, existing costs
-and independent numerical oracles. Every new publication needs its own exact-head
-checks. Publish source and acceptance documentation after the completed matrix,
-then inspect its own exact-head checks before merging. Remaining
-portfolio work is estimated at 0.25–0.5 person-days; overall remaining effort is
-approximately 45–74 person-days. Start P02/P03 in a new PR only after actual merge.
+Next: implement P02/P03 in its new branch under the active specification and
+critique. Establish a failing setup/resource test, preserve original batches,
+RNG coordinates, private state, reductions and aggregate admission, then measure
+complete-request costs. Portfolio remaining effort is zero. P02/P03 requires
+approximately 4–7 person-days; overall remaining effort is 44–73 person-days.
 Stage A is accepted; the full Stage B/C/D goal remains incomplete.
