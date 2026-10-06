@@ -139,6 +139,26 @@ TEST(DupireRiskTest, TestReplayWithNonalignedQuoteAxesKeepsScalarCalibration) {
     ASSERT_TRUE(AdjacentQuoteStepsAgree(direction, QuoteDirectionDifferences(ivs, inputs, seeds.adjoints_), "nonaligned-direction"));
 }
 
+TEST(DupireRiskTest, TestNonalignedReplayKeepsIndividualNodeQuoteAdjoints) {
+    const Dal::AAD::FlatIVS_ ivs(100.0, 0.05, 0.02, 0.2);
+    auto inputs = SmallRiskInputs();
+    inputs.quoteStrikes_ = {75.0, 105.0, 135.0};
+    inputs.quoteMaturities_ = {0.4, 1.2};
+    const auto snapshot = CalibrateDupireWithRisk(ivs, inputs);
+    const auto original = snapshot.Surface()->vols_;
+    for (int node : {0, 4, 8})
+        for (int maturity = 0; maturity < original.Cols(); ++maturity) {
+            Dal::DupireParameterAdjoints_ seeds{snapshot, Matrix_<>(original.Rows(), original.Cols(), 0.0)};
+            seeds.adjoints_(node, maturity) = -0.5;
+            const auto result = Dal::PullbackDupireCalibration(snapshot, seeds);
+            for (int row = 0; row < result.TotalAdjoints().Rows(); ++row)
+                for (int column = 0; column < result.TotalAdjoints().Cols(); ++column)
+                    ASSERT_TRUE(AdjacentQuoteStepsAgree(result.TotalAdjoints()(row, column),
+                                                        QuoteBucketDifferences(ivs, inputs, seeds.adjoints_, row, column), "individual-node"));
+        }
+    ASSERT_TRUE(std::equal(original.begin(), original.end(), snapshot.Surface()->vols_.begin()));
+}
+
 TEST(DupireRiskTest, TestRejectsUnrepresentableGridSpacingBeforeSampling) {
     int samples = 0;
     const CallbackIVS_ ivs([&samples](double, double) {

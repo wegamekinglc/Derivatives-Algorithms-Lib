@@ -196,6 +196,12 @@ contain `environment.json` with source SHAs, runner and CPU identity, toolchain,
 thread settings. Linux additionally retains each smoke run's `/usr/bin/time --verbose` resource
 record and the paired gate's raw outputs, `results.json`, and `summary.md`.
 
+The Linux job requires the current head's full Python suite and the same head benchmark
+workload tests on both native builds. The historical baseline's own full Python suite is
+diagnostic: its output and exit status are retained in `python-baseline-tests/`, and a failure
+emits a warning. Historical defects outside the shared workloads do not block measuring a fix;
+head-suite failures and either build's shared-workload failures still stop the comparisons.
+
 ## Threshold And Verdict
 
 The repository's calibrated policy is a strict +4% threshold in every one of two independent
