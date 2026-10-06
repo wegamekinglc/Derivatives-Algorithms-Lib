@@ -39,6 +39,15 @@ namespace Dal::Detail {
             return native;
         }
 
+        void ValidateGroupWidths(const ReplaySelection_& selection, const Vector_<size_t>& widths, bool native) {
+            for (size_t group = 0; group < widths.size(); ++group) {
+                if (selection.groupOutputs_[group].empty())
+                    continue;
+                REQUIRE2(widths[group] > 0 && widths[group] <= AAD::ADJ_SIZE && (native || widths[group] == 1),
+                         "InvalidPortfolioReplay: invalid selected group width; field=widths; group=" + String_(std::to_string(group)), ScriptError_);
+            }
+        }
+
         void ValidatePreparedAxes(const PreparedPortfolio_& portfolio, const PortfolioRiskAxes_& axes) {
             for (size_t trade = 0; trade < portfolio.Trades().size(); ++trade) {
                 const auto& prepared = portfolio.Trades()[trade];
@@ -588,6 +597,7 @@ namespace Dal::Detail {
         ValidatePreparedAxes(portfolio, axes);
         const auto selection = SelectOutputs(portfolio.Groups(), portfolio.Trades().size(), axes, outputs, inputs);
         PortfolioJacobianReplayResult_ result(outputs.size(), inputs.size(), portfolio.Groups().size());
+        ValidateGroupWidths(selection, widths, native);
         for (size_t group = 0; group < portfolio.Groups().size(); ++group) {
             if (native)
                 RunJacobianGroup(portfolio, group, widths[group], batches, axes, selection, &result, &scratch, &tape);

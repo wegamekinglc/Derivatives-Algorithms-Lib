@@ -3,8 +3,8 @@
 Verdict: **Comment Only**. Implemented increments can be published in open #487;
 the complete portfolio PR is not ready for acceptance or merge. Native/passive
 weighted execution, owning C++ results and startup/runtime budgets are locally
-verified. Native/passive attribution and budgets are locally verified; complete
-width-narrowing/failure acceptance and bindings remain open.
+verified. Native/passive attribution, finite-budget narrowing and failure recovery
+are locally verified; bindings and final delivery gates remain open.
 
 ## Findings
 
@@ -331,6 +331,18 @@ unchanged. The exact-head audit, annotations and full job log are retained in
 `aad-portfolio-focused-jacobian-passive-ci-budget-green-01.json`.
 Fresh repair-head CI acceptance is required.
 
+The dedicated finite-budget case proves requested width two narrows to two width
+one blocks, with correct reported maximum/work/peaks and prices exactly equal to
+explicit width one under identical quotas and the independent native-empty
+single-product oracle. Attribution submission/worker failures drain and recover;
+only selected derivatives are validated. A new RED exposes a later group's
+invalid width allowing the first group to submit. All selected group widths now
+validate before any submission. All 17 affected replay/admission cases and strict
+OFF/combined ON replay-unit warnings pass. Evidence:
+`aad-portfolio-focused-jacobian-late-width-red-01.json`,
+`aad-portfolio-focused-jacobian-width-failure-green-01.json` and
+`aad-portfolio-jacobian-width-warning-01.json`.
+
 ## Summary
 
 Existing scalar/weighted/Jacobian drivers retain their default preparation
@@ -338,5 +350,5 @@ entry points and allocate no portfolio state. The
 snapshot registry precedes cloning, the passive catalog preserves owner/private
 constant identity, and full semantic grouping retains incompatible trades.
 The active specification remains the complete acceptance boundary. Complete
-narrowing/failure tests, bindings, installed consumers, final performance/platform
+bindings, installed consumers, final performance/platform
 checks and a fresh publication-head review are required before merge.

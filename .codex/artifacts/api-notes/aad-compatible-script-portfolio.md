@@ -126,8 +126,10 @@ the existing private double batches with zero internal objective weights, keepin
 independent row sums finite without evaluating an unused aggregate. It runs each
 selected group once, returns zero risk columns, records one attempt/no native
 widths and ignores tape limits. Its known-shape scratch admission uses the actual
-passive worker/slot types. Dedicated equivalent-budget narrowing acceptance remains
-pending.
+passive worker/slot types. Dedicated narrowing tests compare requested width two
+with explicit width one under the identical finite budgets and an independent
+single-product oracle. All selected group widths validate before any submission;
+unused groups retain zero width.
 
 ## Valuation surfaces
 

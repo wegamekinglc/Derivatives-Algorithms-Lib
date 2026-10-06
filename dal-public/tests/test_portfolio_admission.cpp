@@ -125,6 +125,39 @@ TEST(PortfolioAdmissionTest, TestJacobianPrivateHistoryShapesRejectBeforeReadsAn
     }
 }
 
+TEST(PortfolioAdmissionTest, TestJacobianNarrowingPreservesResultsUnderTheSameFiniteBudgets) {
+    RegisterAll_::Init();
+    const SinglePortfolioWorker_ worker;
+    const auto data = HistoricalPortfolio(true);
+    auto valuation = Valuation();
+    valuation.fixings_ =
+        Handle_<MarketFixingSnapshot_>(new MarketFixingSnapshot_({{"EQ[PORTFOLIO_ADMISSION]", {{DateTime_(Date_(2025, 1, 1), 0.0), 80.0}}}}));
+    for (const bool compiled : {false, true}) {
+        auto simulation = DefaultRiskMonteCarloSettings();
+        simulation.compiled_ = compiled;
+        PortfolioJacobianRiskRequest_ request;
+        request.maxBlockWidth_ = 2;
+        request.selection_.inputs_ = Vector_<String_>{};
+        request.scratchCapacityBudgetBytes_ = 5 * 4096 * sizeof(AAD::Number_) + 32768;
+        request.recordingCapacityBudgetBytes_ = 16 * 1024 * 1024;
+        const auto narrowed = ValuePortfolioByMonteCarloWithJacobianRisk(data, 257, request, valuation, simulation);
+        ASSERT_EQ(narrowed.Execution().requestedMaxBlockWidth_, 2);
+        ASSERT_EQ(narrowed.Execution().groups_[0].actualWidths_, (Vector_<size_t>{1, 1}));
+        ASSERT_EQ(narrowed.Execution().groups_[0].replayAttempts_, 2);
+        ASSERT_EQ(narrowed.Execution().groups_[0].generatedScenarios_, 514);
+        ASSERT_EQ(narrowed.Execution().groups_[0].evaluatorCalls_, 514);
+        ASSERT_EQ(narrowed.Jacobian().Rows(), 2);
+        ASSERT_EQ(narrowed.Jacobian().Cols(), 0);
+        ASSERT_LE(narrowed.Execution().peakScratchBytes_, *request.scratchCapacityBudgetBytes_);
+        ASSERT_LE(narrowed.Execution().peakRecordingBytes_, *request.recordingCapacityBudgetBytes_);
+        request.maxBlockWidth_ = 1;
+        const auto explicitWidth = ValuePortfolioByMonteCarloWithJacobianRisk(data, 257, request, valuation, simulation);
+        const auto reference = ValueByMonteCarloWithRisk(data->Products()[0], data->Models()[0], 257, {Vector_<String_>{}}, valuation, simulation);
+        ASSERT_EQ(narrowed.Values(), explicitWidth.Values());
+        ASSERT_EQ(narrowed.Values(), Vector_<double>(2, reference.Values()[0]));
+    }
+}
+
 TEST(PortfolioAdmissionTest, TestPassiveJacobianPrivateHistoryAdmissionAndZeroTapeBudget) {
     RegisterAll_::Init();
     const SinglePortfolioWorker_ worker;

@@ -254,6 +254,28 @@ TEST(PortfolioReplayTest, TestUnselectedGroupIsSkippedAndEmptyInputsKeepNativePr
     }
 }
 
+TEST(PortfolioReplayTest, TestInvalidLaterGroupWidthRejectsBeforeAnyTasks) {
+    RegisterAll_::Init();
+    const ScopedPortfolioThreads_ threads(4);
+    const Handle_<ModelData_> model(new BSModelData_("", 100.0, 0.2));
+    const Handle_<ScriptPortfolioData_> data(new ScriptPortfolioData_(
+        "", {{"A", Trade(5.0, "pay PAYS SPOT() + X"), model}, {"B", Trade(7.0, "pay PAYS SPOT() + X", Date_(2027, 6, 3)), model}}));
+    const auto prepared = Dal::Script::Detail::PrepareScriptPortfolio(data, 257, Valuation(), DefaultRiskMonteCarloSettings());
+    const Vector_<Dal::Script::Detail::PortfolioBatchOutput_> outputs{Payoff(prepared, 0, 1.0), Payoff(prepared, 1, 1.0)};
+    for (const size_t width : {size_t{0}, AAD::ADJ_SIZE + 1}) {
+        Script::TestSupport::RejectSubmissions_ tasks;
+        const Script::Detail::ScopedSimulationObserver_ observer(&tasks);
+        try {
+            static_cast<void>(Dal::Detail::EvaluatePortfolioJacobianReplay(prepared, outputs, {}, {1, width}));
+            FAIL() << "invalid later width must reject before any group submits";
+        } catch (const ScriptError_& error) {
+            ASSERT_NE(String_(error.what()).find("field=widths"), String_::npos) << error.what();
+            ASSERT_NE(String_(error.what()).find("group=1"), String_::npos) << error.what();
+        }
+        ASSERT_EQ(tasks.calls_, 0);
+    }
+}
+
 TEST(PortfolioReplayTest, TestPartialSubmissionAndWorkerFailureDrainAndRecover) {
     RegisterAll_::Init();
     const ScopedPortfolioThreads_ threads(4);
@@ -268,18 +290,31 @@ TEST(PortfolioReplayTest, TestPartialSubmissionAndWorkerFailureDrainAndRecover) 
         const auto prepared = Dal::Script::Detail::PrepareScriptPortfolio(data, 257, Valuation(), simulation);
         const auto output = Payoff(prepared, 0, 1.0);
         const auto prior = Dal::Detail::EvaluatePortfolioWeightedReplay(prepared, {output}, {0, 8});
+        const auto priorRows = Dal::Detail::EvaluatePortfolioJacobianReplay(prepared, {output}, {0, 8}, {1, 0});
         {
             Script::TestSupport::RejectSubmissions_ tasks("injected portfolio submission failure");
             const Script::Detail::ScopedSimulationObserver_ observer(&tasks);
             ASSERT_THROW(static_cast<void>(Dal::Detail::EvaluatePortfolioWeightedReplay(prepared, {output}, {0, 8})), ScriptError_);
             ASSERT_EQ(tasks.calls_, 1);
         }
+        {
+            Script::TestSupport::RejectSubmissions_ tasks("injected portfolio attribution submission failure");
+            const Script::Detail::ScopedSimulationObserver_ observer(&tasks);
+            ASSERT_THROW(static_cast<void>(Dal::Detail::EvaluatePortfolioJacobianReplay(prepared, {output}, {0, 8}, {1, 0})), ScriptError_);
+            ASSERT_EQ(tasks.calls_, 1);
+        }
         ASSERT_THROW(static_cast<void>(Dal::Detail::EvaluatePortfolioWeightedReplay(prepared, {output, Payoff(prepared, 1, 0.0)}, {0, 8})),
+                     ScriptError_);
+        ASSERT_THROW(static_cast<void>(Dal::Detail::EvaluatePortfolioJacobianReplay(prepared, {output, Payoff(prepared, 1, 1.0)}, {0, 8}, {1, 1})),
                      ScriptError_);
         const auto recovered = Dal::Detail::EvaluatePortfolioWeightedReplay(prepared, {output}, {0, 8});
         ASSERT_EQ(recovered.weightedValue_, prior.weightedValue_);
         ASSERT_EQ(recovered.componentMeans_, prior.componentMeans_);
         ASSERT_EQ(recovered.gradient_, prior.gradient_);
+        const auto recoveredRows = Dal::Detail::EvaluatePortfolioJacobianReplay(prepared, {output}, {0, 8}, {1, 0});
+        ASSERT_EQ(recoveredRows.componentMeans_, priorRows.componentMeans_);
+        for (int column = 0; column < 2; ++column)
+            ASSERT_DOUBLE_EQ(recoveredRows.jacobian_(0, column), priorRows.jacobian_(0, column));
     }
 }
 
@@ -295,6 +330,9 @@ TEST(PortfolioReplayTest, TestOnlyRequiredDerivativesAreValidatedAndRecoveryPres
         const auto prepared = Dal::Script::Detail::PrepareScriptPortfolio(data, 1, Valuation(), simulation);
         const auto output = Payoff(prepared, 0, 1.0);
         const auto prior = Dal::Detail::EvaluatePortfolioWeightedReplay(prepared, {output}, {});
+        const auto priorRows = Dal::Detail::EvaluatePortfolioJacobianReplay(prepared, {output}, {}, {1});
+        ASSERT_TRUE(std::isfinite(priorRows.componentMeans_[0]));
+        ASSERT_EQ(priorRows.jacobian_.Cols(), 0);
         ASSERT_TRUE(std::isfinite(prior.weightedValue_));
         ASSERT_TRUE(prior.gradient_.empty());
         try {
@@ -305,6 +343,9 @@ TEST(PortfolioReplayTest, TestOnlyRequiredDerivativesAreValidatedAndRecoveryPres
             ASSERT_NE(String_(error.what()).find("model:0:parameter:2"), String_::npos);
         }
         const auto recovered = Dal::Detail::EvaluatePortfolioWeightedReplay(prepared, {output}, {});
+        ASSERT_THROW(static_cast<void>(Dal::Detail::EvaluatePortfolioJacobianReplay(prepared, {output}, {2}, {1})), ScriptError_);
+        const auto recoveredRows = Dal::Detail::EvaluatePortfolioJacobianReplay(prepared, {output}, {}, {1});
+        ASSERT_EQ(recoveredRows.componentMeans_, priorRows.componentMeans_);
         ASSERT_EQ(recovered.weightedValue_, prior.weightedValue_);
         ASSERT_EQ(recovered.componentMeans_, prior.componentMeans_);
     }

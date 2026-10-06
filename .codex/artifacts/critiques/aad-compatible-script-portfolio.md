@@ -90,8 +90,10 @@ sharp versus native-empty prices, exact zero-column payloads and known private
 historical-vector rejection/recovery pass. The actual extended CI failure in the
 finite weighted fixture is repaired with declared per-worker quotas rather than
 a prior scheduling-dependent peak; all nine replay cases pass locally. Dedicated
-equivalent-budget narrowing/failure acceptance, bindings and fresh complete-head
-publication/performance gates remain required.
+equivalent-budget narrowing and attribution failure recovery now pass locally.
+The retained late-width RED exposed a submission from an earlier group before
+rejection; all selected group widths now validate first. Bindings and fresh
+complete-head publication/performance gates remain required.
 
 Implement weighted groups before blocked attribution; reuse the accepted
 native root/replay primitives. Avoid speculative hashing, persistent caches or
