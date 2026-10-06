@@ -55,8 +55,9 @@ This is a single-batch primitive over already sealed preparation, not the public
 owning Jacobian operation. Internal batch slots may contain partial sums after
 runtime failure; the request producer must discard the failed attempt and drain
 all tasks before returning. Request-level fixed/result/cached-tape admission,
-initial tape reservations, guaranteed failure-cleanup headroom and diagnostics
-remain required. Full one/four-worker blocked requests, weighted `J^T w`, frozen
+and diagnostics remain required. Initial tape reservations and protected
+failure-cleanup headroom are implemented in the
+[capacity review](aad-blocked-capacity-roots.md). Full one/four-worker blocked requests, weighted `J^T w`, frozen
 finite differences, passive empty-column handling and public C++/Python/Excel
 results remain open.
 

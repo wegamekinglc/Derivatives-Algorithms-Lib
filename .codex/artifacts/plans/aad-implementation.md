@@ -724,6 +724,12 @@ and early unsupported-product rejection. A fresh matching OFF core/public build
 passes 20 blocked/scalar/weighted integration cases. Request-level scheduling,
 owning result/consumers and full performance/CI acceptance remain open; see the
 [batch review](../reviews/aad-blocked-batch-execution.md).
+Cold worker tape construction now admits each initial block before allocation
+and refunds partial construction. Budgeted batches reserve cleanup headroom
+throughout execution, including simultaneous worker replacements. Twenty-three
+capacity/recording cases pass OFF, combined ASan/UBSan and combined TSan;
+11 storage cases pass OFF/combined. Known aggregate minimum preflight and
+request-level failure draining remain producer work.
 No full F02 completion is inferred; blocked Jacobians, recording budgets and
 portfolios also remain.
 

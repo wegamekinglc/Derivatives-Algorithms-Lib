@@ -89,7 +89,7 @@ namespace Dal::AAD {
 
         void Clear() {
             const size_t releasedBytes = data_.size() * sizeof(std::array<T_, BLOCK_SIZE_>);
-            BlockAllocationTicket_ allocation(this, sizeof(std::array<T_, BLOCK_SIZE_>));
+            BlockAllocationTicket_ allocation(this, sizeof(std::array<T_, BLOCK_SIZE_>), true);
             decltype(data_) replacement;
             replacement.emplace_back();
             allocation.Commit();

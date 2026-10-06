@@ -83,8 +83,14 @@ reservations. `TapeCapacityScope_` admits the owning thread's cached default tap
 and surrounds its recording scope. Allocation tickets reserve before block
 allocation; detached workers remain charged. Replacement during clear includes
 old/new overlap. These helpers enforce tape payload only, excluding allocator
-metadata, and expose admitted current/peak bytes. The producer's known minimum
-must include conservative cleanup replacement capacity.
+metadata, and expose admitted current/peak bytes. Cold worker initialization is
+attached before the default tape is created, so initial blocks are admitted
+before allocation and partial-construction failures refund their reservations.
+The two-argument scope with `reserveCleanup=true` protects the largest single
+replacement payload for each attached worker. Growth cannot consume this
+headroom; replacement can use it, including concurrent worker cleanup. The
+producer's known minimum includes initial payload plus cleanup headroom for
+every worker. Unused headroom is excluded from actual payload high-water bytes.
 
 `SeedAdjointBlock` requires preallocated root vector capacity, fixed vector mode
 (including width one), bounded descriptors and an active zero. It uses existing
@@ -109,6 +115,7 @@ evaluators. `BufferCapacityScope_::ForWorker` can share an attached coordinator
 budget, requires stack-ordered close and preserves normal nested-scope rejection.
 See the [batch review](../reviews/aad-blocked-batch-execution.md).
 
-The request producer still needs aggregate admission, guaranteed failure cleanup,
+The batch attaches its tape budget before selecting vector mode and enables
+cleanup headroom. The request producer still needs complete aggregate preflight,
 task draining, owning matrix/provenance and result construction. Public request
 fields and the full replay/result/consumer interfaces remain unimplemented.

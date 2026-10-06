@@ -10,6 +10,7 @@
 namespace Dal::AAD {
     class BlockAllocationTicket_;
     class TapeCapacityScope_;
+    [[nodiscard]] size_t TapeCleanupCapacityBytes();
 
     class TapeCapacityBudget_ {
         struct Impl_;
@@ -32,14 +33,19 @@ namespace Dal::AAD {
         struct Attachment_;
         std::unique_ptr<Attachment_> attachment_;
 
-        size_t Slot(const void* list) const;
-        void Reserve(size_t slot, size_t bytes);
+        void AdmitTape();
+        void ReserveCleanup(bool reserveCleanup);
+        void CancelAdmission() noexcept;
+        size_t Slot(const void* list);
+        void Reserve(size_t slot, size_t bytes, bool replacement);
         void Release(size_t slot, size_t bytes) noexcept;
         friend class BlockAllocationTicket_;
         friend void ReleaseBlockAllocation(const void*, size_t) noexcept;
 
     public:
         explicit TapeCapacityScope_(TapeCapacityBudget_* budget);
+        // Reserve the largest single replacement payload throughout this worker's execution.
+        TapeCapacityScope_(TapeCapacityBudget_* budget, bool reserveCleanup);
         ~TapeCapacityScope_() noexcept;
         TapeCapacityScope_(const TapeCapacityScope_&) = delete;
         TapeCapacityScope_& operator=(const TapeCapacityScope_&) = delete;

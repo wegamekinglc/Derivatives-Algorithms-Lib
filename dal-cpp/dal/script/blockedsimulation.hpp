@@ -126,10 +126,10 @@ namespace Dal::Script::Detail {
         REQUIRE2(product.Simulation().enableAad_ && !product.AllExpired() && !product.Product().ContainsExercise(),
                  "UnsupportedJacobianBatch: requires prepared native non-exercise live product", ScriptError_);
         const auto run = [&] {
-            auto mode = AAD::SetNumResultsForAAD(true, block.width_);
             std::optional<AAD::TapeCapacityScope_> tapeCapacity;
             if (tapeBudget)
-                tapeCapacity.emplace(tapeBudget);
+                tapeCapacity.emplace(tapeBudget, true);
+            auto mode = AAD::SetNumResultsForAAD(true, block.width_);
             BlockPayoffCollector_ collector(outputs, block, settings, selectedInputs, result);
             SimResults_ scalarBookkeeping({});
             EvaluateAADBatch(product, modelData, settings, compiledProduct, batch, &scalarBookkeeping, std::move(collector));

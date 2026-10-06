@@ -4,6 +4,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <dal/math/aad/blockallocation.hpp>
@@ -13,9 +14,47 @@
 #include <future>
 #include <limits>
 #include <new>
+#include <tuple>
 
 using namespace Dal;
 using namespace Dal::AAD;
+
+TEST(AADTapeCapacityTest, TestColdWorkerReservesBeforeInitialTapeAllocation) {
+    const size_t nodeBytes = sizeof(std::array<TapNode_, BLOCK_SIZE>);
+    const size_t initial =
+        nodeBytes + sizeof(std::array<double, DATA_SIZE>) + sizeof(std::array<double*, DATA_SIZE>) + sizeof(std::array<double, ADJ_SIZE>);
+    auto worker = std::async(std::launch::async, [initial] {
+        TapeCapacityBudget_ insufficient(initial - 1);
+        bool rejected = false;
+        try {
+            TapeCapacityScope_ capacity(&insufficient);
+        } catch (const Exception_&) {
+            rejected = true;
+        }
+        const auto failedCurrent = insufficient.CapacityBytes();
+        const auto failedPeak = insufficient.PeakCapacityBytes();
+        TapeCapacityBudget_ exact(initial);
+        {
+            TapeCapacityScope_ capacity(&exact);
+            RecordingScope_ recording;
+            Number_ input;
+            recording.RegisterInput(input, 3.0);
+            recording.StartRecording();
+            Number_ output = input * input;
+            recording.FinishRecording();
+            Adjoint(output) = 1.0;
+            recording.Reverse();
+            REQUIRE(AdjointValue(input) == 6.0, "Cold worker recovery produced an invalid derivative");
+            recording.Close();
+        }
+        return std::make_tuple(rejected, failedCurrent, failedPeak, exact.CapacityBytes());
+    });
+    const auto result = worker.get();
+    ASSERT_TRUE(std::get<0>(result));
+    ASSERT_EQ(std::get<1>(result), 0);
+    ASSERT_EQ(std::get<2>(result), initial - nodeBytes);
+    ASSERT_EQ(std::get<3>(result), initial);
+}
 
 TEST(AADTapeCapacityTest, TestRejectsBeforeAllocationAndRecovers) {
     Clear(*Tape());
@@ -52,6 +91,99 @@ TEST(AADTapeCapacityTest, TestRejectsBeforeAllocationAndRecovers) {
     Adjoint(output) = 1.0;
     recovered.Reverse();
     ASSERT_DOUBLE_EQ(AdjointValue(input), 6.0);
+}
+
+TEST(AADTapeCapacityTest, TestCleanupReservationSurvivesInputAllocationFailure) {
+    Clear(*Tape());
+    const auto initial = MeasureTape(*Tape()).capacityBytes_;
+    const size_t cleanup = std::max({sizeof(std::array<TapNode_, BLOCK_SIZE>), sizeof(std::array<double, DATA_SIZE>),
+                                     sizeof(std::array<double*, DATA_SIZE>), sizeof(std::array<double, ADJ_SIZE>)});
+    TapeCapacityBudget_ budget(initial + cleanup);
+    TapeCapacityScope_ capacity(&budget, true);
+    {
+        RecordingScope_ recording;
+        Number_ input;
+        for (size_t i = 0; i < BLOCK_SIZE; ++i)
+            recording.RegisterInput(input, 2.0);
+        ASSERT_THROW(recording.RegisterInput(input, 2.0), Exception_);
+        ASSERT_EQ(Tape()->nodes_.AllocatedBlocks(), 1);
+        ASSERT_EQ(budget.CapacityBytes(), initial);
+        recording.Close();
+    }
+    {
+        RecordingScope_ recovered;
+        Number_ input;
+        recovered.RegisterInput(input, 3.0);
+        recovered.StartRecording();
+        Number_ output = input * input;
+        recovered.FinishRecording();
+        Adjoint(output) = 1.0;
+        recovered.Reverse();
+        ASSERT_DOUBLE_EQ(AdjointValue(input), 6.0);
+        recovered.Close();
+    }
+    ASSERT_EQ(budget.CapacityBytes(), initial);
+    ASSERT_EQ(budget.PeakCapacityBytes(), initial + cleanup);
+    capacity.Close();
+    TapeCapacityScope_ readmit(&budget, true);
+    ASSERT_EQ(budget.CapacityBytes(), initial);
+}
+
+TEST(AADTapeCapacityTest, TestGrowthCannotBorrowCleanupSpaceDuringReplacement) {
+    Clear(*Tape());
+    const auto initial = MeasureTape(*Tape()).capacityBytes_;
+    const auto cleanup = TapeCleanupCapacityBytes();
+    TapeCapacityBudget_ budget(initial + cleanup);
+    TapeCapacityScope_ capacity(&budget, true);
+    {
+        BlockAllocationTicket_ replacement(&Tape()->nodes_, cleanup, true);
+        ASSERT_EQ(budget.CapacityBytes(), budget.LimitBytes());
+        ASSERT_THROW(BlockAllocationTicket_ growth(&Tape()->adjointsMulti_, ADJ_SIZE * sizeof(double)), Exception_);
+        ASSERT_EQ(budget.CapacityBytes(), budget.LimitBytes());
+    }
+    ASSERT_EQ(budget.CapacityBytes(), initial);
+    ASSERT_EQ(budget.PeakCapacityBytes(), budget.LimitBytes());
+}
+
+TEST(AADTapeCapacityTest, TestConcurrentCleanupReservationsProtectEveryWorker) {
+    const size_t initial = sizeof(std::array<TapNode_, BLOCK_SIZE>) + sizeof(std::array<double, DATA_SIZE>) + sizeof(std::array<double*, DATA_SIZE>) +
+                           sizeof(std::array<double, ADJ_SIZE>);
+    const auto cleanup = TapeCleanupCapacityBytes();
+    TapeCapacityBudget_ budget(2 * (initial + cleanup));
+    std::promise<void> start, exit;
+    const auto startGate = start.get_future().share();
+    const auto exitGate = exit.get_future().share();
+    std::array<std::promise<void>, 2> admitted, borrowed;
+    std::array<std::future<void>, 2> workers;
+    for (size_t i = 0; i < workers.size(); ++i) {
+        workers[i] = std::async(std::launch::async, [&, i] {
+            TapeCapacityScope_ capacity(&budget, true);
+            admitted[i].set_value();
+            startGate.wait();
+            {
+                BlockAllocationTicket_ replacement(&Tape()->nodes_, cleanup, true);
+                borrowed[i].set_value();
+                exitGate.wait();
+            }
+            Clear(*Tape());
+        });
+    }
+    bool admissionsReady = true;
+    for (auto& ready : admitted)
+        admissionsReady &= ready.get_future().wait_for(std::chrono::seconds(5)) == std::future_status::ready;
+    start.set_value();
+    bool replacementsReady = true;
+    for (auto& ready : borrowed)
+        replacementsReady &= ready.get_future().wait_for(std::chrono::seconds(5)) == std::future_status::ready;
+    const auto overlap = budget.CapacityBytes();
+    exit.set_value();
+    workers[0].get();
+    workers[1].get();
+    ASSERT_TRUE(admissionsReady);
+    ASSERT_TRUE(replacementsReady);
+    ASSERT_EQ(overlap, budget.LimitBytes());
+    ASSERT_EQ(budget.CapacityBytes(), 2 * initial);
+    ASSERT_EQ(budget.PeakCapacityBytes(), budget.LimitBytes());
 }
 
 TEST(AADTapeCapacityTest, TestAccountsAllListsAndSkippedTails) {

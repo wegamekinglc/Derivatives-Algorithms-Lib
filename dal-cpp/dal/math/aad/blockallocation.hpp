@@ -17,6 +17,7 @@ namespace Dal::AAD {
 
     public:
         BlockAllocationTicket_(const void* list, size_t bytes);
+        BlockAllocationTicket_(const void* list, size_t bytes, bool replacement);
         ~BlockAllocationTicket_() noexcept;
         BlockAllocationTicket_(const BlockAllocationTicket_&) = delete;
         BlockAllocationTicket_& operator=(const BlockAllocationTicket_&) = delete;

@@ -30,11 +30,28 @@ not create ledger entries. No budget operation is added per node or edge;
 the existing storage-growth branch calls the cold boundary. Tape/node/number
 member layouts are unchanged.
 
+Cold scope admission installs the allocation guard before calling `Tape()`.
+The initial four list addresses and admitted payload are collected while the
+tape constructs, then transferred into its permanent ledger entry. Constructor
+failure unwinds the partial tape and refunds the temporary payload. Cached
+tapes still undergo complete admission before recording. The block batch
+attaches this guard before selecting vector mode, which also calls `Tape()`.
+
 `BlockList_::Clear` allocates its replacement before discarding old storage,
 so a rejected replacement preserves the list. Admission includes this
 temporary overlap; old payload is released after destruction. Peak reports
 admitted payload reservations, including transient or subsequently refunded
 reservations. Allocator/list/map metadata and process RSS are excluded.
+
+The optional cleanup reservation protects the largest single replacement block
+per worker throughout execution. Ordinary growth excludes all attached workers'
+headroom; replacement uses its owner's headroom and still checks the aggregate
+physical payload limit. Concurrent replacements fit their combined reservations.
+Unused headroom is capacity held for cleanup, not allocated payload in the
+current/peak counters. A newly attached scope can conservatively reject while
+another worker has a replacement in flight. The producer preflights initial
+resident payload plus headroom before scheduling. Existing one-argument scopes
+retain their explicit overlap-only behavior.
 
 ## Native roots
 
@@ -78,6 +95,27 @@ Evidence lives in `dal-aad-evidence-20261004-8886c083/evidence`.
   All six filter extensions preserve prior selections; YAML parses successfully.
   GCC 14's original strict OFF/combined warning profiles pass. Formatting,
   patch checks and documentation integrity pass for 149 Markdown files.
+
+## Cold admission and cleanup increment
+
+- `aad-blocked-buffer-build-cold-red-01.json` reproduces missing cold admission:
+  the failed new-thread initialization reports peak zero instead of admitting
+  its first three initial blocks before rejecting the fourth. The same thread
+  then successfully records and reverses with an exact resident budget.
+- `aad-blocked-buffer-build-cleanup-red-02.json` reproduces growth consuming the
+  space required for cleanup. `aad-blocked-buffer-build-cleanup-overlap-red-01.json`
+  exposes subtraction wraparound when a replacement is already admitted.
+  Both unchanged rejection assertions pass after protected headroom and the
+  overflow-safe capacity guard.
+- `aad-blocked-buffer-build-cold-cleanup-green-02.json` passes 23 capacity and
+  recording cases in OFF, combined ASan/UBSan and combined TSan. This remains
+  focused affected-unit instrumentation over unchanged support archives.
+  Two simultaneous replacement tickets reach the exact aggregate limit;
+  refund, actual clear and detached accounting then recover correctly.
+- All 11 storage cases also pass OFF/combined in the corresponding
+  `aad-blocked-cold-cleanup-storage-*-01.log` files. Six canonical GCC 14
+  OFF/combined syntax checks pass; changed functions remain within complexity
+  eight. Fresh matching OFF core/public libraries provide integration coverage.
   Initial planner check-head `294e0d09` passes all 35 CI/Codacy checks and has
   no review threads. These are separate from this increment's acceptance.
 
