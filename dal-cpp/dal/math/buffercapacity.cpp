@@ -16,6 +16,8 @@
 
 namespace Dal {
     namespace {
+        thread_local const void* currentBufferAttachment = nullptr;
+
         void RequireBufferCapacity(size_t current, size_t extra, size_t limit) {
             if (extra > limit - current) {
                 const auto required =
@@ -40,6 +42,8 @@ namespace Dal {
         BufferCapacityBudget_* budget_;
         const size_t fixedBytes_;
         const std::thread::id owner_ = std::this_thread::get_id();
+        BufferCapacityBudget_* previousBudget_ = Detail::CurrentBufferBudget();
+        const void* previousAttachment_ = currentBufferAttachment;
 
         Attachment_(BufferCapacityBudget_* budget, size_t bytes) : budget_(budget), fixedBytes_(bytes) {}
     };
@@ -92,9 +96,17 @@ namespace Dal {
         }
     }
 
-    BufferCapacityScope_::BufferCapacityScope_(BufferCapacityBudget_* budget, size_t fixedPayloadBytes) {
+    BufferCapacityScope_::BufferCapacityScope_(BufferCapacityBudget_* budget, size_t fixedPayloadBytes)
+        : BufferCapacityScope_(budget, fixedPayloadBytes, false) {}
+
+    BufferCapacityScope_ BufferCapacityScope_::ForWorker(BufferCapacityBudget_* budget, size_t fixedPayloadBytes) {
+        return BufferCapacityScope_(budget, fixedPayloadBytes, true);
+    }
+
+    BufferCapacityScope_::BufferCapacityScope_(BufferCapacityBudget_* budget, size_t fixedPayloadBytes, bool reuseAttachment) {
         REQUIRE(budget != nullptr, "Scratch buffer scope: budget must not be null");
-        REQUIRE(Detail::CurrentBufferBudget() == nullptr, "Scratch buffer scope: nested scope is unsupported");
+        const auto* previous = Detail::CurrentBufferBudget();
+        REQUIRE(previous == nullptr || (reuseAttachment && previous == budget), "Scratch buffer scope: nested scope is unsupported");
         auto attachment = std::make_unique<Attachment_>(budget, fixedPayloadBytes);
         budget->Reserve(fixedPayloadBytes);
         {
@@ -103,6 +115,7 @@ namespace Dal {
         }
         attachment_ = std::move(attachment);
         Detail::CurrentBufferBudget() = budget;
+        currentBufferAttachment = attachment_.get();
     }
 
     BufferCapacityScope_::~BufferCapacityScope_() noexcept { Close(); }
@@ -111,13 +124,15 @@ namespace Dal {
         if (!attachment_)
             return;
         REQUIRE(attachment_->owner_ == std::this_thread::get_id(), "Scratch buffer scope: close must run on the owning thread");
+        REQUIRE(currentBufferAttachment == attachment_.get(), "Scratch buffer scope: close must follow attachment order");
         auto* budget = attachment_->budget_;
         budget->Cancel(attachment_->fixedBytes_);
         {
             const std::lock_guard<std::mutex> lock(budget->impl_->mutex_);
             --budget->impl_->activeScopes_;
         }
-        Detail::CurrentBufferBudget() = nullptr;
+        Detail::CurrentBufferBudget() = attachment_->previousBudget_;
+        currentBufferAttachment = attachment_->previousAttachment_;
         attachment_.reset();
     }
 

@@ -717,6 +717,13 @@ The fresh OFF core/public shared build and all three installed consumers pass;
 the buffer consumer checks caller-scope/library-origin allocation enforcement.
 These are local increment checks, not full producer or performance acceptance;
 see the [scratch review](../reviews/aad-blocked-scratch-capacity.md).
+The native batch collector now executes ordered output lanes through the shared
+prepared-script loop. Four new cases cover 1/4/16/64 common-path scalar row
+oracles, prefix aliases/direct inputs/constants, padding, scratch scope sharing
+and early unsupported-product rejection. A fresh matching OFF core/public build
+passes 20 blocked/scalar/weighted integration cases. Request-level scheduling,
+owning result/consumers and full performance/CI acceptance remain open; see the
+[batch review](../reviews/aad-blocked-batch-execution.md).
 No full F02 completion is inferred; blocked Jacobians, recording budgets and
 portfolios also remain.
 

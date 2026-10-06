@@ -182,3 +182,20 @@ TEST(BufferCapacityTest, TestConcurrentWorkersShareOneLimitAndReleaseAfterDrain)
     ASSERT_EQ(budget.CapacityBytes(), 0);
     ASSERT_EQ(budget.PeakCapacityBytes(), 64);
 }
+
+TEST(BufferCapacityTest, TestCallerWorkerSharesCoordinatorBudgetAndClosesInOrder) {
+    BufferCapacityBudget_ budget(32);
+    BufferCapacityBudget_ foreign(32);
+    BufferCapacityScope_ coordinator(&budget, 24);
+    {
+        auto worker = BufferCapacityScope_::ForWorker(&budget, 8);
+        ASSERT_EQ(budget.CapacityBytes(), 32);
+        ASSERT_THROW(coordinator.Close(), Exception_);
+        ASSERT_THROW(static_cast<void>(BufferCapacityScope_::ForWorker(&foreign, 0)), Exception_);
+        ASSERT_THROW(Vector_<> additional(1), Exception_);
+        worker.Close();
+        ASSERT_EQ(budget.CapacityBytes(), 24);
+    }
+    coordinator.Close();
+    ASSERT_EQ(budget.CapacityBytes(), 0);
+}

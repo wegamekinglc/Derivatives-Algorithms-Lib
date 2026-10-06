@@ -102,6 +102,13 @@ The allocator changes underlying standard-library iterator types, so consumers
 must rebuild and use DAL iterator aliases. See the
 [scratch review](../reviews/aad-blocked-scratch-capacity.md).
 
-The producer still needs result construction, fixed-payload preflight and
-reservation ownership. Public request fields and the full replay/result/consumer
-interfaces remain unimplemented.
+`Detail::EvaluateAADBlockBatch` now reuses the shared native batch loop with
+vector seeds and ordered raw channel harvesting. Its caller owns padded numeric
+batch slots. The worker's fixed admission includes current and historical
+evaluators. `BufferCapacityScope_::ForWorker` can share an attached coordinator
+budget, requires stack-ordered close and preserves normal nested-scope rejection.
+See the [batch review](../reviews/aad-blocked-batch-execution.md).
+
+The request producer still needs aggregate admission, guaranteed failure cleanup,
+task draining, owning matrix/provenance and result construction. Public request
+fields and the full replay/result/consumer interfaces remain unimplemented.

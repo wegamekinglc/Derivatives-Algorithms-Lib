@@ -41,12 +41,14 @@ namespace Dal {
     class BufferCapacityScope_ {
         struct Attachment_;
         std::unique_ptr<Attachment_> attachment_;
+        BufferCapacityScope_(BufferCapacityBudget_* budget, size_t fixedPayloadBytes, bool reuseAttachment);
 
     public:
         explicit BufferCapacityScope_(BufferCapacityBudget_* budget, size_t fixedPayloadBytes = 0);
         ~BufferCapacityScope_() noexcept;
         BufferCapacityScope_(const BufferCapacityScope_&) = delete;
         BufferCapacityScope_& operator=(const BufferCapacityScope_&) = delete;
+        [[nodiscard]] static BufferCapacityScope_ ForWorker(BufferCapacityBudget_* budget, size_t fixedPayloadBytes = 0);
         void Close();
     };
 } // namespace Dal
