@@ -196,25 +196,81 @@ namespace Dal {
             return quotes;
         }
 
-        struct OPScalarCallPrimal_ {
+        struct OPScalarPrimal_ {
             static double Eval(double, double scalarPrice) { return scalarPrice; }
             static double Derivative(double, double, double) { return 1.0; }
         };
 
-        AAD::Number_ ReplayCall(const FrozenIVS_& ivs,
-                                const AAD::RiskView_<AAD::Number_>& activeQuotes,
-                                const AAD::RiskView_<double>& scalarQuotes,
-                                double strike,
-                                double maturity) {
+        AAD::Number_ WithScalarPrimal(const AAD::Number_& active, double scalar) {
+            if (Value(active) == scalar)
+                return active;
+            return AAD::UnaryExpression_<AAD::Number_, OPScalarPrimal_>(active, scalar);
+        }
+
+        struct ReplayedCall_ {
+            AAD::Number_ price_;
+            double roundoff_;
+        };
+
+        ReplayedCall_ ReplayCall(const FrozenIVS_& ivs,
+                                 const AAD::RiskView_<AAD::Number_>& activeQuotes,
+                                 const AAD::RiskView_<double>& scalarQuotes,
+                                 double strike,
+                                 double maturity) {
             const double scalarPrice = ivs.Call(strike, maturity, &scalarQuotes);
             const AAD::Number_ activePrice = ivs.Call(strike, maturity, &activeQuotes);
             const double scale = ivs.Spot() * std::exp(-ivs.DividendYield() * maturity) + strike * std::exp(-ivs.Rate() * maturity);
+            const double roundoff = 8.0 * std::numeric_limits<double>::epsilon() * scale;
             REQUIRE(std::isfinite(scalarPrice) && std::isfinite(Value(activePrice)) && std::isfinite(scale) &&
-                        std::abs(Value(activePrice) - scalarPrice) <= 8.0 * std::numeric_limits<double>::epsilon() * scale,
+                        std::abs(Value(activePrice) - scalarPrice) <= roundoff,
                     "InvalidDupirePullback: stencil call replay disagrees with its scalar price");
-            if (Value(activePrice) == scalarPrice)
-                return activePrice;
-            return AAD::UnaryExpression_<AAD::Number_, OPScalarCallPrimal_>(activePrice, scalarPrice);
+            return {WithScalarPrimal(activePrice, scalarPrice), roundoff};
+        }
+
+        void ValidateReplayVol(double value, double low, double high) {
+            REQUIRE(std::isfinite(value) && value >= low && value <= high, "InvalidDupirePullback: stencil replay exceeds its rounding bound");
+        }
+
+        AAD::Number_ ReplayLocalVol(const FrozenIVS_& ivs,
+                                    const AAD::RiskView_<AAD::Number_>& activeQuotes,
+                                    const AAD::RiskView_<double>& scalarQuotes,
+                                    double strike,
+                                    double maturity,
+                                    double scalarVol) {
+            std::array<double, 5> calls;
+            size_t ordinal = 0;
+            double callError = 0.0;
+            constexpr double EPSILON = std::numeric_limits<double>::epsilon();
+            const auto call = [&](double k, double t) {
+                const auto price = ReplayCall(ivs, activeQuotes, scalarQuotes, k, t);
+                calls[ordinal++] = Value(price.price_);
+                callError = std::max(callError, price.roundoff_);
+                return price.price_;
+            };
+            const auto activeVol = AAD::Detail::DupireLocalVolFromCalls(strike, maturity, ivs.Rate(), ivs.DividendYield(), call);
+            const double dt = 1e-4 * maturity;
+            const double ds = 1e-4 * strike;
+            const double ct = (calls[2] - calls[1]) * 0.5 / dt;
+            const double ck = (calls[4] - calls[3]) * 0.5 / ds;
+            const double curvature = (calls[3] + calls[4] - 2.0 * calls[0]) / ds / ds;
+            const double carry = (ivs.Rate() - ivs.DividendYield()) * strike;
+            const double numerator = ct + ivs.DividendYield() * calls[0] + carry * ck;
+            // Bound call and stencil contraction before restoring the independently recomputed scalar primal.
+            const double ctError = (2.0 * callError + 8.0 * EPSILON * (std::abs(calls[2]) + std::abs(calls[1]))) * 0.5 / dt;
+            const double ckError = (2.0 * callError + 8.0 * EPSILON * (std::abs(calls[4]) + std::abs(calls[3]))) * 0.5 / ds;
+            const double curvatureError =
+                (4.0 * callError + 8.0 * EPSILON * (std::abs(calls[3]) + std::abs(calls[4]) + 2.0 * std::abs(calls[0]))) / ds / ds;
+            const double numeratorError = ctError + std::abs(ivs.DividendYield()) * callError + std::abs(carry) * ckError +
+                                          8.0 * EPSILON * (std::abs(ct) + std::abs(ivs.DividendYield() * calls[0]) + std::abs(carry * ck));
+            REQUIRE(std::isfinite(numeratorError) && std::isfinite(curvatureError) && numerator > numeratorError && curvature > curvatureError,
+                    "InvalidDupirePullback: stencil replay is numerically unresolved");
+            const double low = std::sqrt(2.0 * (numerator - numeratorError) / (curvature + curvatureError)) / strike;
+            const double high = std::sqrt(2.0 * (numerator + numeratorError) / (curvature - curvatureError)) / strike;
+            const double rounding = 16.0 * EPSILON * high;
+            REQUIRE(std::isfinite(low) && std::isfinite(high), "InvalidDupirePullback: stencil replay exceeds its rounding bound");
+            ValidateReplayVol(scalarVol, low - rounding, high + rounding);
+            ValidateReplayVol(Value(activeVol), low - rounding, high + rounding);
+            return WithScalarPrimal(activeVol, scalarVol);
         }
 
         struct ReplayedSurface_ {
@@ -231,12 +287,12 @@ namespace Dal {
                 AAD::DupireCalib(ivs, inputs.inclusionSpots_, inputs.maxSpotSpacing_, inputs.inclusionTimes_, inputs.maxTimeSpacing_, scalarQuotes);
             ReplayedSurface_ result{std::move(scalar.spots_), std::move(scalar.times_), {}};
             result.lVols_.Resize(static_cast<int>(result.spots_.size()), static_cast<int>(result.times_.size()));
-            const auto call = [&](double strike, double maturity) { return ReplayCall(ivs, activeQuotes, scalarQuotes, strike, maturity); };
             for (int column = 0; column < result.lVols_.Cols(); ++column) {
                 const auto band = base.bands_[static_cast<size_t>(column)];
                 for (size_t row = band.first; row < band.second; ++row)
-                    result.lVols_(static_cast<int>(row), column) = AAD::Detail::DupireLocalVolFromCalls(
-                        result.spots_[row], result.times_[static_cast<size_t>(column)], ivs.Rate(), ivs.DividendYield(), call);
+                    result.lVols_(static_cast<int>(row), column) =
+                        ReplayLocalVol(ivs, activeQuotes, scalarQuotes, result.spots_[row], result.times_[static_cast<size_t>(column)],
+                                       scalar.lVols_(static_cast<int>(row), column));
                 for (size_t row = 0; row < result.spots_.size(); ++row) {
                     const auto source = std::clamp(row, band.first, band.second - 1);
                     if (source != row)

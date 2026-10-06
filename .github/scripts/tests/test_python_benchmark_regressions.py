@@ -52,6 +52,49 @@ def report(duration=100):
 
 class PythonBenchmarkRegressionTest(unittest.TestCase):
     @unittest.skipIf(sys.platform == "win32", "Linux workflow requires bash")
+    def test_historical_suite_failure_is_retained_without_bypassing_required_workloads(self):
+        workflow = (SCRIPTS.parent / "workflows/benchmarks.yml").read_text()
+        step = workflow.split(
+            "- name: Verify Python workloads on both native builds", 1
+        )[1].split("      - name:", 1)[0]
+        script = textwrap.dedent(step.split("        run: |\n", 1)[1])
+        python_stub = """
+python3() {
+  local side=head
+  [[ "$PWD" != "$GITHUB_WORKSPACE/benchmark-base/"* ]] || side=base
+  local suite=full
+  [[ "$3" != "$GITHUB_WORKSPACE/dal-python/tests/test_benchmarks.py" ]] || suite=shared
+  printf '%s-%s\\n' "$side" "$suite"
+  [[ "$side-$suite" != "$DAL_TEST_FAILURE" ]] || return 23
+}
+"""
+        for failure in ("base-full", "base-shared", "head-full", "head-shared"):
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory(
+                prefix="dal historical baseline "
+            ) as directory:
+                root = Path(directory).resolve()
+                for package in (
+                    root / "benchmark-base/build/benchmark-base/dal-python",
+                    root / "build/benchmark-head/dal-python",
+                ):
+                    package.mkdir(parents=True)
+                result = subprocess.run(
+                    ["bash", "-e", "-c", python_stub + script],
+                    cwd=root,
+                    env={**os.environ, "GITHUB_WORKSPACE": str(root), "DAL_TEST_FAILURE": failure},
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                expected = 0 if failure == "base-full" else 23
+                self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
+                if failure == "base-full":
+                    self.assertIn("head-shared", result.stdout)
+                    evidence = root / "benchmark-results/python-baseline-tests"
+                    self.assertEqual((evidence / "status.txt").read_text().strip(), "23")
+                    self.assertIn("base-full", (evidence / "output.txt").read_text())
+
+    @unittest.skipIf(sys.platform == "win32", "Linux workflow requires bash")
     def test_workload_verification_matches_regressions_to_each_native_revision(self):
         workflow = (SCRIPTS.parent / "workflows/benchmarks.yml").read_text()
         step = workflow.split(
@@ -82,7 +125,7 @@ python3() {
                 check=False,
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            calls = [line.split("|") for line in result.stdout.splitlines()]
+            calls = [line.split("|") for line in result.stdout.splitlines() if "|" in line]
             shared = root / "dal-python/tests/test_benchmarks.py"
             expected = (
                 (base, root / "benchmark-base/dal-python/tests"),
