@@ -162,9 +162,11 @@ output's seed overwrites aliases and mishandles prefix accumulation. A new vecto
 tape layout adds complexity unnecessary for one fixed weighted objective.
 
 Python/Excel and the frozen spot finite-difference fixture are implemented.
-The `eb2be051` head passes all four Windows/raw configurations, all 52 affected
-scalar cost cases, separate component-cost/census checks and all 35 CI/Codacy
-checks. Copilot subsequently identifies projection identity and Excel integer
-conversion repairs. Their new-head regression/CI and final review gates remain.
+The weighted increment is merged in #483 at `d1600a15`. Repaired head `9e24cc77`
+passes all four Windows/raw configurations, all 35 CI/Codacy checks and both
+paginated review gates. The four Copilot findings are fixed/resolved. All eight
+affected scalar comparisons pass again; executable equality retains the other
+44 cases. Component costs and predecessor diagnostic census remain separate
+informational evidence.
 Blocked Jacobians and portfolio
 timelines remain separate F02 work.
