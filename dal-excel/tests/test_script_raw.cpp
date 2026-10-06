@@ -139,6 +139,91 @@ TEST(ScriptExcelRawTest, TestWeightedValuationGeneratedExportRetainsIntegerPathC
     }
 }
 
+TEST(ScriptExcelRawTest, TestJacobianRequestGeneratedExportRejectsPhysicalCoercion) {
+    Excel::ScriptTestInitialize(1);
+    RawText_ name(L"jacobian_raw"), key(L"max_block_width"), text(L"2");
+    OPER_ cells[]{key.cell_, Number(2.0)};
+    auto input = Multi(cells, 1, 2);
+    {
+        Output_ result(Call("xl_JacobianRiskRequest_New", &name.cell_, &input));
+        ASSERT_EQ(result.Text().find("#Error:"), std::string::npos) << result.Text();
+    }
+    for (const auto& invalid : {Number(0.0), Number(0.5), Number(-1.0), text.cell_}) {
+        cells[1] = invalid;
+        Output_ result(Call("xl_JacobianRiskRequest_New", &name.cell_, &input));
+        CheckError(result, {"JacobianRiskRequest_New", "max_block_width"});
+    }
+    cells[1] = {};
+    cells[1].xltype = xltypeBool;
+    cells[1].val.xbool = 1;
+    {
+        Output_ result(Call("xl_JacobianRiskRequest_New", &name.cell_, &input));
+        CheckError(result, {"JacobianRiskRequest_New", "max_block_width"});
+    }
+    RawText_ outputKey(L"outputs"), nul(std::wstring(L"pay\0off", 7));
+    cells[0] = outputKey.cell_;
+    cells[1] = nul.cell_;
+    {
+        Output_ result(Call("xl_JacobianRiskRequest_New", &name.cell_, &input));
+        CheckError(result, {"JacobianRiskRequest_New", "NUL"});
+    }
+    input.val.array = {cells, 1, 3};
+    {
+        Output_ result(Call("xl_JacobianRiskRequest_New", &name.cell_, &input));
+        CheckError(result, {"JacobianRiskRequest_New", "settings"});
+    }
+}
+
+TEST(ScriptExcelRawTest, TestJacobianGeneratedValuationMatrixIntegerPathsAndEmptyColumns) {
+    Excel::ScriptTestInitialize(1);
+    RawText_ name(L"jacobian_integer"), x(L"X"), y(L"Y"), xValue(L"2"), yValue(L"3"), script(L"a = X * Y b = X + Y pay PAYS 5");
+    OPER_ dates[]{x.cell_, y.cell_, Number(60000.0)};
+    OPER_ events[]{xValue.cell_, yValue.cell_, script.cell_};
+    auto dateRange = Multi(dates, 3, 1), eventRange = Multi(events, 3, 1), spot = Number(100.0), zero = Number(0.0), blank = Blank();
+    Output_ product(Call("xl_Product_New", &name.cell_, &dateRange, &eventRange));
+    Output_ model(Call("xl_BSModelData_New", &name.cell_, &spot, &zero, &zero, &zero));
+    RawText_ outputs(L"outputs"), outputIds(L"output:0;output:1;payoff"), inputs(L"inputs"), inputIds(L"constant:0;constant:1"),
+        width(L"max_block_width");
+    OPER_ cells[]{outputs.cell_, outputIds.cell_, inputs.cell_, inputIds.cell_, width.cell_, Number(2.0)};
+    auto settings = Multi(cells, 3, 2);
+    Output_ request(Call("xl_JacobianRiskRequest_New", &name.cell_, &settings));
+    OPER_ paths{};
+    paths.xltype = xltypeInt;
+    paths.val.w = 17;
+    auto pathRange = Multi(&paths, 1, 1);
+    for (const OPER_* input : {&paths, &pathRange}) {
+        Output_ result(Call("xl_MonteCarlo_ValueWithJacobianRisk", product.Scalar(), model.Scalar(), input, request.Scalar(), &blank, &blank));
+        ASSERT_EQ(result.Text().find("#Error:"), std::string::npos) << result.Text();
+        Output_ jacobian(Call("xl_JacobianRiskResult_Get_Jacobian", result.Scalar(), &blank));
+        ASSERT_EQ(jacobian.value_->val.array.rows, 3);
+        ASSERT_EQ(jacobian.value_->val.array.columns, 2);
+        ASSERT_DOUBLE_EQ(jacobian.value_->val.array.lparray[0].val.num, 3.0);
+        ASSERT_DOUBLE_EQ(jacobian.value_->val.array.lparray[1].val.num, 2.0);
+        ASSERT_DOUBLE_EQ(jacobian.value_->val.array.lparray[4].val.num, 0.0);
+        Output_ values(Call("xl_JacobianRiskResult_Get_Values", result.Scalar()));
+        ASSERT_EQ(values.value_->val.array.rows, 4);
+        ASSERT_EQ(values.value_->val.array.columns, 4);
+        ASSERT_DOUBLE_EQ(values.value_->val.array.lparray[7].val.num, 6.0);
+        Output_ execution(Call("xl_JacobianRiskResult_Get_Execution", result.Scalar()));
+        ASSERT_DOUBLE_EQ(execution.value_->val.array.lparray[5].val.num, 34.0);
+        auto badFlag = Number(1.0);
+        Output_ rejected(Call("xl_JacobianRiskResult_Get_Jacobian", result.Scalar(), &badFlag));
+        CheckError(rejected, {"JacobianRiskResult_Get_Jacobian", "reported"});
+    }
+    OPER_ emptyCells[]{inputs.cell_, blank};
+    auto emptySettings = Multi(emptyCells, 1, 2);
+    Output_ emptyRequest(Call("xl_JacobianRiskRequest_New", &name.cell_, &emptySettings));
+    Output_ result(Call("xl_MonteCarlo_ValueWithJacobianRisk", product.Scalar(), model.Scalar(), &paths, emptyRequest.Scalar(), &blank, &blank));
+    ASSERT_EQ(result.Text().find("#Error:"), std::string::npos) << result.Text();
+    Output_ jacobian(Call("xl_JacobianRiskResult_Get_Jacobian", result.Scalar(), &blank));
+    ASSERT_EQ(jacobian.Scalar()->xltype, xltypeStr);
+    ASSERT_EQ(jacobian.Scalar()->val.str[0], 0);
+    Output_ shape(Call("xl_JacobianRiskResult_Get_Shape", result.Scalar()));
+    ASSERT_EQ(shape.value_->val.array.columns, 2);
+    ASSERT_DOUBLE_EQ(shape.value_->val.array.lparray[0].val.num, 1.0);
+    ASSERT_DOUBLE_EQ(shape.value_->val.array.lparray[1].val.num, 0.0);
+}
+
 TEST(ScriptExcelRawTest, TestPhysicalRangeErrorsAndIntegerBooleans) {
     Excel::ScriptTestInitialize(1);
     RawText_ name(L"raw"), key(L"enable_aad"), empty(L"");

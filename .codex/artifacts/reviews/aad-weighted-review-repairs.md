@@ -1,8 +1,11 @@
 # F02 weighted publication review repairs
 
-Status: four Copilot threads at `eb2be051` are addressed locally. New-head
-Windows, CI/Codacy and repeated final review gates remain required. Earlier
-acceptance is complete at its identified head; these repairs do not complete F02.
+Status: accepted in merged #483 (`d1600a15`). Corrective head `9e24cc77` passes
+all 35 checks with zero Codacy issues/annotations. All four Windows modes run
+thirteen weighted typed/raw cases, including the actual integer export. Both
+initial/final paginated audits are clear; the guarded merge's master tree matches
+the accepted head. All four Copilot threads are fixed, replied to and resolved.
+These repairs do not complete the remaining F02 Jacobian/portfolio scope.
 
 ## Findings and changes
 
@@ -50,8 +53,7 @@ Evidence root: `/home/wegamekinglc/.cache/dal-aad-evidence-20261004-8886c083/evi
   pass twelve weighted typed/raw cases each. Copilot's subsequent review
   succeeds but produces the four threads above. Its sole check annotation is
   a runner-image migration notice, not a source finding.
-- All 52 affected scalar cases pass before these repairs. The new cold
-  projection entry requires another eight-case scalar comparison. Complete
+- All eight affected scalar-entry cases pass again at the repair head. Complete
   MC/GSR/LSM benchmark source is unchanged; relinking against the repaired
   archive produces the identical executable SHA-256
   `4b082f64ad373d5a4e2b26416be41c0df8bf573df5c7e07a05da57051e695689`
@@ -59,5 +61,14 @@ Evidence root: `/home/wegamekinglc/.cache/dal-aad-evidence-20261004-8886c083/evi
   therefore retained without repeating an unchanged workload. Weighted cost measurements
   remain informational and must identify the exact measured source.
 
+All eight repaired scalar comparisons pass in `aad-weighted-review-existing-pairs-02`
+under the unchanged both-round 4% policy. Separate weighted component costs
+pass their numerical checks in `aad-weighted-review-weighted-pairs-02`. Measured
+sources/binaries remain unchanged. Four Windows job logs and
+`aad-weighted-repair-windows-acceptance-01.json` verify actual export execution.
+`aad-weighted-completion-{initial,final}-04-*` capture both successful audits;
+`aad-weighted-merged-verification-01.json` confirms the accepted master tree.
+All remaining CI annotations are runner notices rather than source findings.
+
 No tolerance, workload, threshold, old test or diagnostic/profiling policy is
-relaxed. Keep the final gate pending until the current repair head is accepted.
+relaxed. Retain this evidence to control later compatibility work.

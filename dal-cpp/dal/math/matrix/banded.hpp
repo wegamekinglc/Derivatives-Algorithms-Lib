@@ -16,7 +16,7 @@ namespace Dal {
 
         public:
             explicit TriDiagonal_(int size) : diag_(size, 0.0), above_(size - 1, 0.0), below_(size - 1, 0.0) {}
-            [[nodiscard]] int Size() const override { return diag_.size(); }
+            [[nodiscard]] int Size() const override { return static_cast<int>(diag_.size()); }
             [[nodiscard]] bool IsSymmetric() const override { return above_ == below_; }
 
             double* At(int iRow, int jCol);

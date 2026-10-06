@@ -11,6 +11,7 @@
 #include <utility>
 
 #include <dal/model/gsr.hpp>
+#include <dal/model/gsrslv.hpp>
 #include <dal/model/hybriddata.hpp>
 
 namespace Dal {
@@ -107,6 +108,23 @@ namespace Dal {
     namespace AAD {
         template <class T_> class HybridComponent_ {
         public:
+            static void* operator new(size_t bytes) { return Dal::Detail::AllocateBufferObject(bytes); }
+            static void* operator new(size_t bytes, std::align_val_t alignment) { return Dal::Detail::AllocateBufferObject(bytes, alignment); }
+            static void operator delete(void* storage) noexcept { Dal::Detail::DeallocateBufferObject(storage); }
+            static void operator delete(void* storage, std::align_val_t alignment) noexcept { Dal::Detail::DeallocateBufferObject(storage, alignment); }
+            static void* operator new(size_t bytes, const std::nothrow_t&) noexcept { return Dal::Detail::AllocateBufferObjectNothrow(bytes); }
+            static void* operator new(size_t bytes, std::align_val_t alignment, const std::nothrow_t&) noexcept {
+                return Dal::Detail::AllocateBufferObjectNothrow(bytes, alignment);
+            }
+            static void operator delete(void* storage, const std::nothrow_t&) noexcept { Dal::Detail::DeallocateBufferObject(storage); }
+            static void operator delete(void* storage, std::align_val_t alignment, const std::nothrow_t&) noexcept {
+                Dal::Detail::DeallocateBufferObject(storage, alignment);
+            }
+            static void* operator new(size_t, void* storage) noexcept { return storage; }
+            static void* operator new(size_t, std::align_val_t, void* storage) noexcept { return storage; }
+            static void operator delete(void*, void*) noexcept {}
+            static void operator delete(void*, std::align_val_t, void*) noexcept {}
+
             virtual ~HybridComponent_() = default;
             [[nodiscard]] virtual const String_& Name() const = 0;
             [[nodiscard]] virtual const String_& Currency() const = 0;
@@ -908,6 +926,7 @@ namespace Dal {
             [[nodiscard]] size_t MaxObservedIndices() const override { return std::numeric_limits<size_t>::max(); }
             [[nodiscard]] size_t MaxOutputSlotsPerSample() const override { return std::numeric_limits<size_t>::max(); }
             [[nodiscard]] size_t NumFactors() const override { return totalFactors_; }
+            [[nodiscard]] size_t StateDim() const { return totalState_; }
             [[nodiscard]] bool SupportsBrownianBridge() const override { return true; }
             [[nodiscard]] bool NumeraireIsDeterministic() const override { return components_[rateSlot_]->NumeraireIsDeterministic(); }
             [[nodiscard]] bool SupportsDiscountFactors() const override { return components_[rateSlot_]->ProvidesDiscountFactors(); }

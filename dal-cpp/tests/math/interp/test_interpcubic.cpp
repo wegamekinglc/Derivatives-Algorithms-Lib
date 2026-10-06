@@ -3,11 +3,14 @@
 //
 
 #include <gtest/gtest.h>
+
+#include <cmath>
+#include <limits>
+
 #include <dal/math/interp/interpcubic.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/storage/json.hpp>
 #include <dal/storage/splat.hpp>
-#include <cmath>
 
 using namespace Dal;
 
@@ -16,6 +19,31 @@ TEST(InterpTest, TestCubicArchiveRejectsInvalidData) {
          {R"({"~type":"Cubic1","x":[0,1,2],"f":[],"fpp":[]})", R"({"~type":"Cubic1","x":[0,1,2],"f":[1,2,3],"fpp":[0,0]})",
           R"({"~type":"Cubic1","x":[0,0,2],"f":[1,2,3],"fpp":[0,0,0]})", R"({"~type":"Cubic1","x":[0,1],"f":[1,2],"fpp":[0,0]})"})
         ASSERT_THROW(JSON::ReadString(String_(payload), true), Exception_);
+}
+
+TEST(InterpTest, TestCubicQueryIntervalsKnotsAndExtrapolation) {
+    const auto stored = JSON::ReadString(
+        R"({"~type":"Cubic1","x":[-2,-0.5,1.3,4],"f":[-3,1,0.5,6],"fpp":[0.2,-0.1,0.3,0.4]})", true);
+    const auto cubic = std::dynamic_pointer_cast<const Interp1_>(stored);
+    ASSERT_NE(cubic, nullptr);
+    const Vector_<> knots{-2.0, -0.5, 1.3, 4.0};
+    const Vector_<> values{-3.0, 1.0, 0.5, 6.0};
+    const Vector_<> second{0.2, -0.1, 0.3, 0.4};
+    for (size_t i = 0; i < knots.size(); ++i)
+        ASSERT_DOUBLE_EQ((*cubic)(knots[i]), values[i]);
+    for (double query : {-5.0, -1.9, -1.0, 0.0, 1.2, 1.4, 2.5, 3.9, 6.0}) {
+        size_t right = 1;
+        while (right < knots.size() - 1 && query > knots[right])
+            ++right;
+        const size_t left = right - 1;
+        const double h = knots[right] - knots[left];
+        const double b = (query - knots[left]) / h;
+        const double a = 1.0 - b;
+        const double expected = a * values[left] + b * values[right] -
+                                a * b * ((1.0 + a) * second[left] + (1.0 + b) * second[right]) * (h * h) / 6.0;
+        ASSERT_DOUBLE_EQ((*cubic)(query), expected);
+    }
+    ASSERT_TRUE(std::isnan((*cubic)(std::numeric_limits<double>::quiet_NaN())));
 }
 
 Vector_<> Gaussian(const Vector_<>& x) {

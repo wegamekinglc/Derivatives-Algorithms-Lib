@@ -19,6 +19,7 @@
 #include <list>
 #include <type_traits>
 
+#include <dal/math/aad/blockallocation.hpp>
 #include <dal/math/aad/profilinghooks.hpp>
 #include <dal/utilities/exceptions.hpp>
 
@@ -42,10 +43,34 @@ namespace Dal::AAD {
         block_iter markedSpace_;
 
         void NewBlock() {
+            if (TapeCapacityActive()) {
+                NewBudgetedBlock();
+                return;
+            }
             data_.emplace_back();
+            FinishNewBlock();
+        }
+
+#if defined(__GNUC__) || defined(__clang__)
+        __attribute__((cold, noinline))
+#elif defined(_MSC_VER)
+        __declspec(noinline)
+#endif
+        void NewBudgetedBlock() {
+            BlockAllocationTicket_ allocation(this, sizeof(std::array<T_, BLOCK_SIZE_>));
+            data_.emplace_back();
+            allocation.Commit();
+            FinishNewBlock();
+        }
+
+        void FinishNewBlock() {
 #if defined(DAL_ENABLE_AAD_PROFILING)
             RecordBlockAllocation(sizeof(std::array<T_, BLOCK_SIZE_>));
 #endif
+            SetCurrentToLastBlock();
+        }
+
+        void SetCurrentToLastBlock() {
             currBlock_ = lastBlock_ = std::prev(data_.end());
             nextSpace_ = currBlock_->begin();
             lastSpace_ = currBlock_->end();
@@ -54,6 +79,27 @@ namespace Dal::AAD {
         void ResetMark() {
             markedBlock_ = currBlock_;
             markedSpace_ = nextSpace_;
+        }
+
+#if defined(__GNUC__) || defined(__clang__)
+        __attribute__((cold, noinline))
+#elif defined(_MSC_VER)
+        __declspec(noinline)
+#endif
+        void ClearBudgeted() {
+            const size_t releasedBytes = data_.size() * sizeof(std::array<T_, BLOCK_SIZE_>);
+            BlockAllocationTicket_ allocation(this, sizeof(std::array<T_, BLOCK_SIZE_>), true);
+            decltype(data_) replacement;
+            replacement.emplace_back();
+            allocation.Commit();
+#if defined(DAL_ENABLE_AAD_PROFILING)
+            RecordBlockAllocation(sizeof(std::array<T_, BLOCK_SIZE_>));
+#endif
+            data_.swap(replacement);
+            replacement.clear();
+            ReleaseBlockAllocation(this, releasedBytes);
+            SetCurrentToLastBlock();
+            ResetMark();
         }
 
         void NextBlock() {
@@ -72,7 +118,7 @@ namespace Dal::AAD {
             block_iter nextSpace_;
 
             BlockPosition_() = default;
-            BlockPosition_(iterator curr_block, block_iter next_space): currBlock_(curr_block), nextSpace_(next_space) {}
+            BlockPosition_(iterator curr_block, block_iter next_space) : currBlock_(curr_block), nextSpace_(next_space) {}
         };
 
         BlockList_() {
@@ -81,6 +127,10 @@ namespace Dal::AAD {
         }
 
         void Clear() {
+            if (TapeCapacityActive()) {
+                ClearBudgeted();
+                return;
+            }
             data_.clear();
             NewBlock();
             ResetMark();
@@ -292,4 +342,4 @@ namespace Dal::AAD {
             lastSpace_ = currBlock_->end();
         }
     };
-} // namespace Dal
+} // namespace Dal::AAD

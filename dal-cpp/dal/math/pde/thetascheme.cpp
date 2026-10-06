@@ -2,6 +2,9 @@
 // Created by dal-implementer on 2026/7/8.
 //
 
+#include <algorithm>
+#include <array>
+
 #include <dal/math/pde/pdegrid.hpp>
 #include <dal/math/pde/pdeoperators.hpp>
 #include <dal/math/pde/thetascheme.hpp>
@@ -37,22 +40,28 @@ namespace Dal::PDE {
             return true;
         }
 
+        struct CoefficientScratch_ {
+            Vector_<> where_{0.0};
+            Vector_<> muValue_;
+        };
+
         void SampleAt(const ScalarCoeff_& discounting,
                       const VectorCoeff_& advection,
                       const MatrixCoeff_& diffusion,
                       double x,
+                      CoefficientScratch_* scratch,
                       double* r,
                       double* mu,
                       double* var) {
-            const Vector_<> where{x};
-            Vector_<> muValue;
+            scratch->where_[0] = x;
+            scratch->muValue_.clear();
             SquareMatrix_<> varValue;
-            discounting.Value(where, r);
-            advection.Value(where, &muValue);
-            diffusion.Value(where, &varValue);
-            REQUIRE(muValue.size() == 1 && varValue.Rows() == 1 && varValue.Cols() == 1,
+            discounting.Value(scratch->where_, r);
+            advection.Value(scratch->where_, &scratch->muValue_);
+            diffusion.Value(scratch->where_, &varValue);
+            REQUIRE(scratch->muValue_.size() == 1 && varValue.Rows() == 1 && varValue.Cols() == 1,
                     "advection/diffusion shape must match one spatial dimension");
-            *mu = muValue[0];
+            *mu = scratch->muValue_[0];
             *var = varValue(0, 0);
         }
 
@@ -71,8 +80,9 @@ namespace Dal::PDE {
             double r0 = 0.0;
             double mu0 = 0.0;
             double var0 = 0.0;
+            CoefficientScratch_ scratch;
             if (ScalarIndependent(discounting) && VectorIndependent(advection) && MatrixIndependent(diffusion)) {
-                SampleAt(discounting, advection, diffusion, x[0], &r0, &mu0, &var0);
+                SampleAt(discounting, advection, diffusion, x[0], &scratch, &r0, &mu0, &var0);
                 r->Fill(r0);
                 mu->Fill(mu0);
                 var->Fill(var0);
@@ -80,23 +90,17 @@ namespace Dal::PDE {
             }
 
             for (int i = 0; i < n; ++i)
-                SampleAt(discounting, advection, diffusion, x[i], &(*r)[i], &(*mu)[i], &(*var)[i]);
+                SampleAt(discounting, advection, diffusion, x[i], &scratch, &(*r)[i], &(*mu)[i], &(*var)[i]);
         }
 
-        Vector_<> ProbeSamples(const Vector_<>& x, const ScalarCoeff_& discounting, const VectorCoeff_& advection, const MatrixCoeff_& diffusion) {
+        std::array<double, 9>
+        ProbeSamples(const Vector_<>& x, const ScalarCoeff_& discounting, const VectorCoeff_& advection, const MatrixCoeff_& diffusion) {
             const int n = static_cast<int>(x.size());
             const int probes[3] = {0, n / 2, n - 1};
-            Vector_<> samples;
-            samples.reserve(9);
-            for (int probe : probes) {
-                double r = 0.0;
-                double mu = 0.0;
-                double var = 0.0;
-                SampleAt(discounting, advection, diffusion, x[probe], &r, &mu, &var);
-                samples.push_back(r);
-                samples.push_back(mu);
-                samples.push_back(var);
-            }
+            std::array<double, 9> samples{};
+            CoefficientScratch_ scratch;
+            for (int i = 0; i < 3; ++i)
+                SampleAt(discounting, advection, diffusion, x[probes[i]], &scratch, &samples[3 * i], &samples[3 * i + 1], &samples[3 * i + 2]);
             return samples;
         }
 
@@ -148,7 +152,8 @@ namespace Dal::PDE {
         Vector_<> mu;
         Vector_<> var;
         SampleCoefficients(x_, discounting, advection, diffusion, &r, &mu, &var);
-        probeSamples_ = ProbeSamples(x_, discounting, advection, diffusion);
+        const auto samples = ProbeSamples(x_, discounting, advection, diffusion);
+        probeSamples_ = Vector_<>(samples.begin(), samples.end());
 
         std::unique_ptr<Sparse::TriDiagonal_> dx(NewDx(x_));
         std::unique_ptr<Sparse::TriDiagonal_> dxx(NewDxx(x_));
@@ -194,7 +199,8 @@ namespace Dal::PDE {
         REQUIRE(SameGrid(xPoints[0], points_), "grid differs from the prepared grid - call Prepare again");
         REQUIRE(&discounting == discounting_ && &advection == advection_ && &diffusion == diffusion_,
                 "coefficients differ from those prepared - call Prepare again");
-        REQUIRE(ProbeSamples(x_, discounting, advection, diffusion) == probeSamples_,
+        const auto samples = ProbeSamples(x_, discounting, advection, diffusion);
+        REQUIRE(std::equal(samples.begin(), samples.end(), probeSamples_.begin(), probeSamples_.end()),
                 "coefficient values differ from those prepared - call Prepare again");
         REQUIRE(!oldVals.empty(), "old_vals must contain at least one value layer");
         REQUIRE(newVals != nullptr, "new_vals must be non-null");

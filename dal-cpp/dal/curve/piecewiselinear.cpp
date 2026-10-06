@@ -22,9 +22,9 @@ namespace Dal {
 
     double PiecewiseLinearInternal::IntegralTo(
         const Vector_<Date_>& knots, const Vector_<>& left, const Vector_<>& right, const Vector_<>& sofar, const Date_& date) {
-        const auto iGE = LowerBound(knots, date) - knots.begin();
-        if (iGE <= 0)
+        if (date <= knots.front())
             return -left.front() * (knots.front() - date);
+        const auto iGE = std::lower_bound(knots.begin() + 1, knots.end(), date) - knots.begin();
         if (iGE == knots.size())
             return sofar.back() + right.back() * (date - knots.back()); // extrapolate flat
         if (knots[iGE] == date)

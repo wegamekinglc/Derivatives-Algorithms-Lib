@@ -217,6 +217,45 @@ raw gradient, component means and weights. Metadata, worker/tape storage,
 source snapshots and detached getter copies are excluded. See the
 [weighted AAD methodology](../methodology/aad.md#weighted-script-risk-results).
 
+## Budgeted script Jacobians
+
+`MonteCarlo_ValueWithJacobianRisk` returns owning output means and a complete
+selected-output by selected-input matrix. Choices after product, model and
+path count are keyword-only:
+
+```python
+request = dal.JacobianRiskRequest_(
+    outputs=["output:0", "payoff"], inputs=["model:0", "model:1"],
+    max_block_width=2, scratch_capacity_budget_bytes=8 * 1024 * 1024,
+)
+risk = dal.MonteCarlo_ValueWithJacobianRisk(
+    product, model, 1024, request=request, valuation=valuation,
+)
+means = risk.values
+raw = risk.jacobian.to_numpy()                 # shape (2, 2)
+reported = risk.reported_jacobian.to_numpy()
+work = risk.execution.executed_paths
+```
+
+Request fields are read-only: `inputs`, `outputs`, `report_factors`,
+`max_block_width`, `numeric_payload_budget_bytes`,
+`recording_capacity_budget_bytes` and `scratch_capacity_budget_bytes`.
+Width defaults to one and must fit the native channel limit. Budgets accept
+nonnegative `size_t` integers or `None`; booleans, enums, fractions and strings
+are rejected. ID/factor containers accept lists or tuples. Omitted output
+selection means payoff; an empty output list is invalid.
+
+Result properties are `values`, `jacobian`, `reported_jacobian`, selected and
+complete `output_axis`/`input_axis`, `provenance` and `execution`. Getters return
+detached containers/matrices. Single rows remain two-dimensional and empty
+inputs retain `(m, 0)`. Execution properties are `actual_widths`,
+`replay_attempts`, `executed_paths`, `peak_recording_bytes` and
+`peak_scratch_bytes`. Native work releases the GIL after copying typed request
+and settings inputs. Each native output block replays all requested paths;
+explicit passive mode performs one replay with no risk columns. The
+[AAD methodology](../methodology/aad.md#budgeted-script-jacobians) defines
+capacity scopes, exclusions and failure behavior.
+
 ## Dupire quote risk
 
 `DupireCalibration_New(base, inputs, *, name="")` creates a frozen calibration

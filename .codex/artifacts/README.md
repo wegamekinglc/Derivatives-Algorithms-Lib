@@ -23,7 +23,15 @@ after documenting the current-state outcome.
   [Excel review](reviews/aad-weighted-excel.md) records immutable handles,
   shared result tables, generated parity and focused sanitizer evidence.
   [Publication review repairs](reviews/aad-weighted-review-repairs.md) records
-  completed predecessor acceptance and the current four-thread repair gate.
+  accepted repair-head checks and the verified #483 merge.
+- [Budgeted script Jacobian specification](specs/aad-blocked-script-risk.md),
+  [API decisions](api-notes/aad-blocked-script-risk.md) and
+  [critique](critiques/aad-blocked-script-risk.md) control the next F02 increment
+  from merged #483: passive planning, capacity admission, replay and consumers.
+  [First planning review](reviews/aad-blocked-planning.md) records passive
+  geometry/budget RED/GREEN and its remaining capacity/replay limits.
+  [Capacity/root review](reviews/aad-blocked-capacity-roots.md) records aggregate
+  pre-allocation tape limits, padded vector roots and remaining producer gates.
 - [Native lifetime diagnostic contract](specs/aad-native-lifetime-diagnostics.md)
   and [initial acceptance evidence](perf/aad-native-lifetime-diagnostics.md): optional
   active-number checks, ABI propagation, failure recovery and default performance.

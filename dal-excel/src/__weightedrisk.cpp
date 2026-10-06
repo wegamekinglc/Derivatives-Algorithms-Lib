@@ -187,20 +187,6 @@ namespace Dal {
         const Script::RiskExecutionSnapshot_& WeightedExecution(const Handle_<StorableWeightedRiskResult_>& result) {
             return Excel::RiskExecution(CheckedWeightedResult(result).Provenance());
         }
-
-        Matrix_<Cell_> OutputCoordinateCells(const Vector_<Script::RiskOutputCoordinate_>& axis, int columns = 3) {
-            Matrix_<Cell_> cells(static_cast<int>(axis.size()) + 1, columns);
-            cells(0, 0) = "id";
-            cells(0, 1) = "label";
-            cells(0, 2) = "slot";
-            for (size_t index = 0; index < axis.size(); ++index) {
-                const int row = static_cast<int>(index) + 1;
-                cells(row, 0) = axis[index].id_;
-                cells(row, 1) = axis[index].label_;
-                cells(row, 2) = double(axis[index].slot_);
-            }
-            return cells;
-        }
     } // namespace
 
     void WeightedRiskRequest_New(const String_& name, const Matrix_<Cell_>& settings, Handle_<StorableWeightedRiskRequest_>* request) {
@@ -235,7 +221,7 @@ namespace Dal {
         REQUIRE(product, "InvalidWeightedRiskRequest: product=null; expected a product handle");
         auto indexed = product->Product();
         indexed.IndexVariables();
-        *outputs = OutputCoordinateCells(Script::ScriptRiskOutputAxis(indexed));
+        *outputs = Excel::OutputCoordinateCells(Script::ScriptRiskOutputAxis(indexed));
     }
 
     void WeightedRiskResult_Get_WeightedValue(const Handle_<StorableWeightedRiskResult_>& result, double* value) {
@@ -244,7 +230,7 @@ namespace Dal {
 
     void WeightedRiskResult_Get_Components(const Handle_<StorableWeightedRiskResult_>& result, Matrix_<Cell_>* components) {
         const auto& value = CheckedWeightedResult(result);
-        auto cells = OutputCoordinateCells(value.OutputAxis(), 5);
+        auto cells = Excel::OutputCoordinateCells(value.OutputAxis(), 5);
         cells(0, 3) = "weight";
         cells(0, 4) = "mean";
         for (size_t index = 0; index < value.Weights().size(); ++index) {

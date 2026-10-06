@@ -37,6 +37,16 @@ incremental implementation turns and PRs; a green first stage does not complete 
   merge. F02, P02/P03, F03, P04/P05 and F04 continue in new PRs after that merge;
   the full implementation goal remains active across these delivery boundaries.
 - Work in isolated writable sources; preserve the original workspace and unrelated changes.
+- F02 delivery boundary (2026-10-06): weighted C++/Python/Excel PR #483 is
+  merged at `d1600a15`. Accepted head `9e24cc77` passes all 35 checks, zero
+  Codacy issues/annotations and both paginated review audits. All four Windows
+  modes run thirteen weighted typed/raw cases. Eight repaired scalar-entry
+  comparisons pass; identical MC/GSR/LSM executables retain the other 44 cases.
+  Continue budgeted blocked Jacobians in a separate PR under the
+  [new contract](../specs/aad-blocked-script-risk.md),
+  [API decisions](../api-notes/aad-blocked-script-risk.md) and
+  [critique](../critiques/aad-blocked-script-risk.md). Portfolio integration
+  remains later F02 work.
 - Establish a failing independent test before each behavioral change.
 - Validation amendment (2026-10-05): select tests from the changed behavior and
   dependency paths. A binding-only increment runs its focused tests and affected
@@ -87,7 +97,7 @@ incremental implementation turns and PRs; a green first stage does not complete 
 - [x] F01: direct quote dependencies and snapshot/axis mismatch validation.
 - [x] F01: calibration-only and full bump/recalibrate/common-path oracles.
 - [x] F01: common calibration pullback integration with existing curve quote-risk semantics.
-- [ ] F02: fixed-weight VJP for multiple prepared-script outputs, including aliases/constants.
+- [x] F02: fixed-weight VJP for multiple prepared-script outputs, including aliases/constants.
 - [ ] F02: budgeted native blocked Jacobian with explicit rerecording behavior.
 - [ ] F02: compatible portfolio observation/timeline integration.
 - [ ] P02: per-worker capacity reuse and safe re-registration/reinitialization.
@@ -687,9 +697,45 @@ At `eb2be051`, all four Windows/raw configurations and 35 CI/Codacy checks
 pass, with zero Codacy issues/annotations. All 52 affected scalar performance
 cases pass the unchanged paired policy; 1/4/16/64-output costs and diagnostic
 census are retained separately. Copilot then identifies weighted projection
-identity and integer Excel conversion repairs. New-head regression, CI and
-review acceptance for those repairs remain required; the preceding acceptance
-is complete rather than being counted as open work again.
+identity and integer Excel conversion repairs. Corrective head `9e24cc77`
+passes all 35 CI/Codacy checks, all four Windows integer-export regressions,
+both repeated paginated review audits and the affected eight-case scalar gate.
+Relinked production MC/GSR/LSM executable equality preserves its 44-case result.
+All four Copilot threads are fixed/resolved; #483 is merged at `d1600a15`, with
+the accepted tree verified against master. The new blocked-Jacobian branch
+starts from that merge, with passive block planning as its first increment.
+The next native increment adds aggregate cached-tape admission and block
+allocation tickets, transactional clear with overlap accounting, and bounded
+vector roots with explicit tail seed clearing. Fifty focused cases pass per
+OFF/combined ASan/UBSan configuration; nine new capacity/root cases also pass
+combined-diagnostic TSan. The full producer and its performance/consumer gates
+remain open; see the [capacity/root review](../reviews/aad-blocked-capacity-roots.md).
+Scratch allocation now admits actual vector/matrix/nested/packed-boolean capacity
+and heap model/component payload before allocation, including old/new overlap.
+Ninety-four focused cases pass in OFF, combined ASan/UBSan and combined TSan.
+The fresh OFF core/public shared build and all three installed consumers pass;
+the buffer consumer checks caller-scope/library-origin allocation enforcement.
+These are local increment checks, not full producer or performance acceptance;
+see the [scratch review](../reviews/aad-blocked-scratch-capacity.md).
+The native batch collector now executes ordered output lanes through the shared
+prepared-script loop. Four new cases cover 1/4/16/64 common-path scalar row
+oracles, prefix aliases/direct inputs/constants, padding, scratch scope sharing
+and early unsupported-product rejection. A fresh matching OFF core/public build
+passes 20 blocked/scalar/weighted integration cases. Request-level scheduling,
+owning result/consumers and full performance/CI acceptance remain open; see the
+[batch review](../reviews/aad-blocked-batch-execution.md).
+Cold worker tape construction now admits each initial block before allocation
+and refunds partial construction. Budgeted batches reserve cleanup headroom
+throughout execution, including simultaneous worker replacements. Twenty-three
+capacity/recording cases pass OFF, combined ASan/UBSan and combined TSan;
+11 storage cases pass OFF/combined. The internal request driver now copies
+selections/settings, replays complete common paths, drains failed submissions,
+reduces owning raw matrices and reports widths/work/capacity peaks. Five OFF
+cases verify 1/4/16/64 ordered outputs against scalar rows and weighted `J^T w`
+in one/four-worker tree/compiled execution, budget failures/recovery and native
+empty columns. Public axes/provenance, full snapshot/minimum preflight, consumer
+and performance/platform acceptance remain open; see the
+[request replay review](../reviews/aad-blocked-request-replay.md).
 No full F02 completion is inferred; blocked Jacobians, recording budgets and
 portfolios also remain.
 
@@ -697,20 +743,20 @@ This snapshot distinguishes accepted increments from locally implemented work.
 Estimates are remaining single-developer effort, not promises of calendar time;
 overlapping acceptance work is included once in the integration allowance.
 
-| Work item               | Implementation/local verification                                              | Publication/CI                      | Remaining person-days |
-|-------------------------|--------------------------------------------------------------------------------|-------------------------------------|-----------------------|
-| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                                  | Accepted exact-head checks          | 0                     |
-| Scalar D04              | Accepted C++/Python/Excel                                                      | Accepted exact-head checks          | 0                     |
-| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass                 | Merged; final 35/35 checks accepted | 0                     |
-| F01                     | C++/Python/Excel and complete requirement audit accepted                       | Merged; final 35/35 checks accepted | 0                     |
-| F02                     | Weighted subset and prior Windows/cost/CI accepted; review repairs in progress | #483; repair-head CI/review pending | 6–10                  |
-| P02/P03                 | Worker reuse/block selection/extraction remain                                 | Open                                | 4–7                   |
-| F03                     | Solve, implicit calibration and PDE operators remain                           | Open                                | 12–20                 |
-| P04/P05                 | Structural sparsity/checkpointing remain                                       | Open                                | 9–15                  |
-| F04                     | Second-order implementation/estimator validation remain                        | Open                                | 12–20                 |
-| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains                     | Open                                | 7–11                  |
+| Work item               | Implementation/local verification                              | Publication/CI                            | Remaining person-days |
+|-------------------------|----------------------------------------------------------------|-------------------------------------------|-----------------------|
+| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                  | Accepted exact-head checks                | 0                     |
+| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass | Merged; final 35/35 checks accepted       | 0                     |
+| F01                     | C++/Python/Excel and complete requirement audit accepted       | Merged; final 35/35 checks accepted       | 0                     |
+| F02 current PR          | Weighted merged; blocked interfaces and perf repair tested     | #484: committed-head performance/CI gates | 0.5–1                 |
+| F02 portfolio           | Compatible portfolio preparation and attribution remain        | Next PR after #484 merges                 | 4–6                   |
+| P02/P03                 | Worker reuse/block selection/extraction remain                 | Open                                      | 4–7                   |
+| F03                     | Solve, implicit calibration and PDE operators remain           | Open                                      | 12–20                 |
+| P04/P05                 | Structural sparsity/checkpointing remain                       | Open                                      | 9–15                  |
+| F04                     | Second-order implementation/estimator validation remain        | Open                                      | 12–20                 |
+| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains     | Open                                      | 7–11                  |
 
-Remaining total: approximately 50–83 person-days, or 10–17 working weeks,
+Remaining total: approximately 49–80 person-days, or 10–16 working weeks,
 excluding CI queue time and including delivery contingency. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
 effort estimate, not a guaranteed completion date. Re-estimate when review
@@ -737,7 +783,7 @@ LSM price/every-risk bit comparisons. Fresh full OFF/ON builds pass 2,332/2,346
 CTest cases, each with 793 passing Python tests, and both installed consumers pass
 in both configurations. Regeneration has zero drift after staging the three new
 generated outputs with their markup; the initial untracked-output rejection is
-retained. Default Release has no allocation/tape/span/clock/collector hook symbols
+retained. Default Release has no profiling allocation/tape/span/clock/collector hook symbols
 or references. Number/node/tape/recording sizes remain 16/40/368/72 bytes; the
 task-group size remains 48 bytes OFF and is 56 bytes ON. This supports layout and
 instrumentation exclusion, not a throughput claim. The combined lifetime/profiling
@@ -1079,7 +1125,20 @@ corrected head passes fresh correctness and all changed-workload comparisons;
 all 46 exact publication-head CI checks subsequently pass at `0ee84e1`.
 Do not reuse the ownership snapshot's acceptance as proof for these new changes.
 
-Next: complete the F02 weighted-root and output/preflight increment in its new
-PR, then integrate prepared batches, owning results/provenance and language
-bindings. Preserve affected scalar costs and independent numerical oracles.
+The #484 implementation now has owning C++/Python/Excel blocked Jacobians,
+sealed common-path replay, independent scalar/weighted/difference oracles and
+guarded model/path/evaluator startup admission before history. Known width
+limits narrow execution while preserving the original request. Finite budgets
+cover all six supported model families in tree/compiled four-worker oracles.
+The four published review findings are repaired and resolved. Focused local
+acceptance covers 46 core, 13 Jacobian public, 16 legacy public, 97 Python and
+19 typed Excel cases. Two actual Windows export cases and all twelve generated
+entries remain subject to fresh platform acceptance. See the
+[producer review](../reviews/aad-blocked-public-risk.md).
+
+Next: finish existing-entry paired performance and current-head platform
+CI/Codacy/review repair before merging #484. Complete compatible portfolio
+preparation in the following PR. Weighted C++/Python/Excel
+is accepted in merged #483. Preserve affected scalar/weighted costs and
+independent numerical oracles.
 Stage A is accepted; the full Stage B/C/D goal remains incomplete.

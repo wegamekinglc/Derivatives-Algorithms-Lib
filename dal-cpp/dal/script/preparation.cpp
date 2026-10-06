@@ -109,8 +109,8 @@ namespace Dal::Script {
                     if (pays->paymentDate_) {
                         const Date_ paymentDate = *pays->paymentDate_;
                         REQUIRE2(paymentDate >= date,
-                                 "InvalidPaymentDate: payment " + Date::ToString(paymentDate) + " precedes its event " + Date::ToString(date) +
-                                     "; " + pays->source_.Describe(),
+                                 "InvalidPaymentDate: payment " + Date::ToString(paymentDate) + " precedes its event " + Date::ToString(date) + "; " +
+                                     pays->source_.Describe(),
                                  ScriptError_);
                         if (paymentDate == date) {
                             pays->paymentDate_.reset();
@@ -466,12 +466,14 @@ namespace Dal::Script {
         //  Bind every live delayed payment to its event sample's discount-factor slot: the
         //  payment date itself adds no sample (the DF is observed on the paying event), and
         //  maturity requests are deduplicated per sample in first-use order.
-        static void
-        BindDelayedPayments(ObservationPlan_* plan, const Vector_<DelayedPaymentUse_>& uses, const Date_& evaluationDate, const AAD::Model_<double>& model) {
+        static void BindDelayedPayments(ObservationPlan_* plan,
+                                        const Vector_<DelayedPaymentUse_>& uses,
+                                        const Date_& evaluationDate,
+                                        const AAD::Model_<double>& model) {
             if (uses.empty())
                 return;
-            REQUIRE2(model.SupportsDiscountFactors(),
-                     "UnsupportedDelayedPayment: the model does not provide discount factors for PAYS ... ON", ScriptError_);
+            REQUIRE2(model.SupportsDiscountFactors(), "UnsupportedDelayedPayment: the model does not provide discount factors for PAYS ... ON",
+                     ScriptError_);
             const auto sampleId = [&](const Date_& date) {
                 return static_cast<size_t>(std::lower_bound(plan->sampleDates_.begin(), plan->sampleDates_.end(), date) - plan->sampleDates_.begin());
             };
@@ -489,19 +491,30 @@ namespace Dal::Script {
         }
 
     public:
+        struct NoAdmission_ {};
+
+        static void AdmitBeforeHistory(PreparedScript_*, ScriptProduct_*, const NoAdmission_&) {}
+
+        template <class F_> static void AdmitBeforeHistory(PreparedScript_* result, ScriptProduct_* product, const F_& beforeHistory) {
+            result->maxNestedIfs_ = product->IFProcess();
+            beforeHistory(*result);
+        }
+
+        template <class F_>
         static PreparedScript_ Prepare(const ScriptProductData_& data,
                                        const ScriptValuationSettings_& valuation,
                                        const Handle_<MarketFixingSnapshot_>& snapshot,
                                        AAD::Model_<double>* model,
                                        const MonteCarloSettings_& requestedSimulation,
-                                       const ScriptProductSettings_& legacyContract) {
+                                       const ScriptProductSettings_& legacyContract,
+                                       const F_& beforeHistory) {
             //  Snapshot: observer callbacks during history resolution can mutate the caller's settings object
             const auto simulation = requestedSimulation;
             const auto settings = ResolveValuationSettings(valuation, snapshot);
             const Date_ evaluationDate = *settings.evaluationDate_;
             if (model && model->EvaluationDate())
-                REQUIRE2(*model->EvaluationDate() == evaluationDate,
-                         "InvalidModelEvaluationDate: model curve date must match script valuation date", ScriptError_);
+                REQUIRE2(*model->EvaluationDate() == evaluationDate, "InvalidModelEvaluationDate: model curve date must match script valuation date",
+                         ScriptError_);
             const auto contract = ResolveContract(data.Settings(), legacyContract);
             auto product = std::make_unique<ScriptProduct_>(data.Product());
             REQUIRE2(!product->Events().empty(), "InvalidScriptStructure: script has no dated events", ScriptError_);
@@ -543,6 +556,7 @@ namespace Dal::Script {
                 model->Allocate(result.TimeLine(), result.DefLine());
                 model->Init(result.TimeLine(), result.DefLine());
             }
+            AdmitBeforeHistory(&result, writable, beforeHistory);
             result.plan_->knownValues_ = ResolveHistory(&result.plan_->requests_, settings, settings.fixings_);
             if (model) {
                 writable->InitializePastObservations(result.Plan());
@@ -575,7 +589,7 @@ namespace Dal::Script {
 
     PreparedScript_
     PrepareScript(const ScriptProductData_& data, const ScriptValuationSettings_& settings, const Handle_<MarketFixingSnapshot_>& snapshot) {
-        return PreparedScriptBuilder_::Prepare(data, settings, snapshot, nullptr, {}, {});
+        return PreparedScriptBuilder_::Prepare(data, settings, snapshot, nullptr, {}, {}, PreparedScriptBuilder_::NoAdmission_{});
     }
 
     PreparedScript_ PrepareScript(const ScriptProductData_& data,
@@ -585,6 +599,17 @@ namespace Dal::Script {
                                   const Handle_<MarketFixingSnapshot_>& snapshot,
                                   const ScriptProductSettings_& contract) {
         REQUIRE2(model, "InvalidModel: preparation requires a model", ScriptError_);
-        return PreparedScriptBuilder_::Prepare(data, settings, snapshot, model, simulation, contract);
+        return PreparedScriptBuilder_::Prepare(data, settings, snapshot, model, simulation, contract, PreparedScriptBuilder_::NoAdmission_{});
     }
+
+    namespace Detail {
+        PreparedScript_ PrepareScriptWithAdmission(const ScriptProductData_& data,
+                                                   AAD::Model_<double>* model,
+                                                   const ScriptValuationSettings_& settings,
+                                                   const MonteCarloSettings_& simulation,
+                                                   const std::function<void(const PreparedScript_&)>& beforeHistory) {
+            REQUIRE2(model && beforeHistory, "InvalidPreparationAdmission: model and admission callback are required", ScriptError_);
+            return PreparedScriptBuilder_::Prepare(data, settings, {}, model, simulation, {}, beforeHistory);
+        }
+    } // namespace Detail
 } // namespace Dal::Script

@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <functional>
+
 #include <dal/indice/fixingsnapshot.hpp>
 #include <dal/model/base.hpp>
 #include <dal/script/event.hpp>
@@ -39,6 +41,7 @@ namespace Dal::Script {
         [[nodiscard]] std::shared_ptr<const ObservationPlan_> PlanHandle() const { return plan_; }
         [[nodiscard]] bool AllExpired() const { return product_->EventDates().empty(); }
         [[nodiscard]] const MonteCarloSettings_& Simulation() const { return simulation_; }
+        [[nodiscard]] size_t MaxNestedIfs() const { return maxNestedIfs_; }
         [[nodiscard]] const Vector_<Date_>& EventDates() const { return product_->EventDates(); }
         [[nodiscard]] const Vector_<String_>& ConstVarNames() const { return product_->ConstVarNames(); }
         [[nodiscard]] const Vector_<>& TimeLine() const { return plan_->TimeLine(); }
@@ -106,4 +109,12 @@ namespace Dal::Script {
                                   const MonteCarloSettings_& simulation,
                                   const Handle_<MarketFixingSnapshot_>& snapshot = {},
                                   const ScriptProductSettings_& contract = {});
+
+    namespace Detail {
+        PreparedScript_ PrepareScriptWithAdmission(const ScriptProductData_& product,
+                                                   AAD::Model_<double>* model,
+                                                   const ScriptValuationSettings_& settings,
+                                                   const MonteCarloSettings_& simulation,
+                                                   const std::function<void(const PreparedScript_&)>& beforeHistory);
+    } // namespace Detail
 } // namespace Dal::Script

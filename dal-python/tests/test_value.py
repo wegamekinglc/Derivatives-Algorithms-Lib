@@ -130,6 +130,8 @@ def test_mc_value_and_date_setter_complete_without_gil_lock_inversion():
             while dal._dal._EvaluationDateBarrier_AvailableForTesting():
                 if valuation.done() or time.monotonic() >= deadline:
                     pytest.fail("valuation did not hold the evaluation-date barrier")
+                # Let the pricing thread enter C++ instead of competing with a busy probe.
+                time.sleep(0.001)
 
             setter = executor.submit(set_date)
             assert setter_started.wait(timeout=5.0)  # nosec B101

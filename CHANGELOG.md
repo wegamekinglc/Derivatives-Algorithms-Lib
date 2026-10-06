@@ -18,6 +18,16 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-06
 
+- **Budgeted C++/Python/Excel script Jacobians** — ordered output blocks replay a
+  single frozen preparation and return owning raw/report matrices, axes and
+  execution diagnostics. Result payload, aggregate native tape and numeric
+  scratch budgets admit known startup capacity before history and guard growth
+  during execution. Python adds read-only requests/results; Excel adds immutable
+  handles and spill tables. See [script Jacobians](docs/public-api.md#budgeted-script-jacobians).
+- **Tracked DAL numeric allocation** — native scratch budgets use a stateless
+  allocator across shared-library boundaries. This changes underlying standard
+  iterator types; C++ consumers must rebuild and use DAL iterator aliases. See
+  [capacity semantics](docs/methodology/aad.md#budgeted-script-jacobians).
 - **C++/Python/Excel weighted script risk** — ordered scalar output choices and passive
   weights produce one native AAD objective, with owning component means,
   weighted mean/gradient, reporting and preparation provenance. Exact numeric

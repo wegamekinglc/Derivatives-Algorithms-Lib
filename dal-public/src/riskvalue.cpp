@@ -5,6 +5,8 @@
 #include <array>
 
 #include <dal/platform/platform.hpp>
+#include <dal/script/blockedreplay.hpp>
+#include <dal/script/replayadmission.hpp>
 #include <dal/storage/globals.hpp>
 #include <dal/storage/json.hpp>
 
@@ -104,6 +106,57 @@ namespace Dal {
             return Script::PlanWeightedRiskRequest(product, axis, date, request, enableAad);
         }
 
+        Script::JacobianRiskPlan_ PlanRiskValuation(const Script::ScriptProduct_& product,
+                                                    const Vector_<Script::RiskCoordinate_>& axis,
+                                                    ScriptValuationSettings_* valuation,
+                                                    const Script::JacobianRiskRequest_& request,
+                                                    bool enableAad) {
+            const auto date = valuation->evaluationDate_ ? *valuation->evaluationDate_ : Script::CaptureScriptEvaluationDate();
+            valuation->evaluationDate_ = date;
+            return Script::PlanJacobianRiskRequest(product, axis, date, request, enableAad);
+        }
+
+        Script::Detail::AADBlockReplaySettings_ ReplayLimits(const Script::JacobianRiskRequest_& request) {
+            return {request.maxBlockWidth_, request.selection_.numericPayloadBudgetBytes_, request.scratchCapacityBudgetBytes_,
+                    request.recordingCapacityBudgetBytes_};
+        }
+
+        template <class P_> void PreflightRiskValuation(const P_&, int, const MonteCarloSettings_&, const AAD::Model_<double>&) {}
+
+        void PreflightRiskValuation(const Script::JacobianRiskPlan_& plan,
+                                    int paths,
+                                    const MonteCarloSettings_& simulation,
+                                    const AAD::Model_<double>& model) {
+            const auto threads = ThreadPool_::GetInstance()->NumThreads();
+            const Script::BatchPlan_ batches(static_cast<size_t>(paths), threads);
+            if (plan.EnableAad())
+                static_cast<void>(Script::Detail::PlanAADBlockReplay(plan.OutputAxis().size(), plan.InputAxis().size(),
+                                                                     plan.CompleteInputAxis().size(), batches, threads,
+                                                                     simulation.compiled_.value_or(false), ReplayLimits(plan.Request())));
+            else
+                Script::Detail::PreflightPassiveReplay(plan.OutputAxis().size(), batches, threads,
+                                                       typeid(model) == typeid(AAD::BlackScholes_<double>), ReplayLimits(plan.Request()));
+        }
+
+        template <class R_> Handle_<ScriptProductData_> SnapshotRiskProduct(const Handle_<ScriptProductData_>& product, const R_&) { return product; }
+
+        Handle_<ScriptProductData_> SnapshotRiskProduct(const Handle_<ScriptProductData_>& product, const Script::JacobianRiskRequest_&) {
+            REQUIRE2(product, "InvalidJacobianRiskRequest: product must not be null; field=product", ScriptError_);
+            return Handle_<ScriptProductData_>(new ScriptProductData_(product->Name(), product->Dates(), product->EventTexts(), product->Settings()));
+        }
+
+        template <class R_> Handle_<ModelData_> SnapshotRiskModel(const Handle_<ModelData_>& model, const R_&) { return model; }
+
+        Handle_<ModelData_> SnapshotRiskModel(const Handle_<ModelData_>& model, const Script::JacobianRiskRequest_&) {
+            REQUIRE2(model, "InvalidJacobianRiskRequest: model must not be null; field=model", ScriptError_);
+            const auto snapshot = JSON::WriteString(*model);
+            JSONReadOptions_ options;
+            options.maxInputBytes_ = snapshot.size();
+            const auto copy = handle_cast<ModelData_>(JSON::ReadString(snapshot.data(), snapshot.size(), options));
+            REQUIRE2(copy && typeid(*copy) == typeid(*model), "UnsupportedJacobianRisk: model snapshot type changed; field=model", ScriptError_);
+            return copy;
+        }
+
         void ValidatePreparedRiskPlan(const Script::RiskRequest_&,
                                       const Vector_<Script::RiskCoordinate_>& axis,
                                       const Script::PreparedScript_& prepared,
@@ -116,6 +169,57 @@ namespace Dal {
                                       const Script::PreparedScript_& prepared,
                                       const AAD::Model_<double>& model) {
             Script::ValidateWeightedRiskPreparedAxes(plan, prepared.Product(), InputAxis(model, prepared.Product()));
+        }
+
+        void ValidatePreparedRiskPlan(const Script::JacobianRiskPlan_& plan,
+                                      const Vector_<Script::RiskCoordinate_>&,
+                                      const Script::PreparedScript_& prepared,
+                                      const AAD::Model_<double>& model) {
+            Script::ValidateJacobianRiskPreparedAxes(plan, prepared.Product(), InputAxis(model, prepared.Product()));
+        }
+
+        template <class P_>
+        Script::PreparedScript_ PrepareRiskValuation(const ScriptProductData_& product,
+                                                     AAD::Model_<double>* model,
+                                                     const Handle_<ModelData_>&,
+                                                     const ScriptValuationSettings_& valuation,
+                                                     const MonteCarloSettings_& simulation,
+                                                     int,
+                                                     const P_&,
+                                                     size_t*) {
+            return Script::PrepareScript(product, model, valuation, simulation);
+        }
+
+        Script::PreparedScript_ PrepareRiskValuation(const ScriptProductData_& product,
+                                                     AAD::Model_<double>* model,
+                                                     const Handle_<ModelData_>& modelData,
+                                                     const ScriptValuationSettings_& valuation,
+                                                     const MonteCarloSettings_& simulation,
+                                                     int paths,
+                                                     const Script::JacobianRiskPlan_& plan,
+                                                     size_t* admittedWidth) {
+            return Script::Detail::PrepareScriptWithAdmission(product, model, valuation, simulation, [&](const auto& prepared) {
+                *admittedWidth =
+                    Script::Detail::PreflightPreparedReplay(prepared, modelData, static_cast<size_t>(paths), plan.OutputAxis(), plan.InputPositions(),
+                                                            model->Parameters().size(), ReplayLimits(plan.Request()));
+            });
+        }
+
+        Script::Detail::AADBlockReplayResult_ EvaluateJacobianRiskSource(const Script::PreparedScript_& prepared,
+                                                                         const AAD::Model_<double>& model,
+                                                                         const Handle_<ModelData_>& modelData,
+                                                                         const MonteCarloSettings_& simulation,
+                                                                         size_t paths,
+                                                                         const Script::JacobianRiskPlan_& plan,
+                                                                         size_t admittedWidth) {
+            if (!simulation.enableAad_)
+                return Script::Detail::EvaluatePassiveOutputReplay(prepared, modelData, paths, plan.OutputAxis(), ReplayLimits(plan.Request()));
+            const Script::Detail::AADBatchSettings_ settings{
+                simulation.rsg_,     simulation.useBb_, -1, simulation.smooth_, paths, model.Parameters().size(), prepared.ConstVarNames().size(),
+                prepared.PayOffIdx()};
+            auto limits = ReplayLimits(plan.Request());
+            limits.maxWidth_ = admittedWidth;
+            return Script::Detail::EvaluateAADBlockReplay(prepared, modelData, settings, plan.OutputAxis(), plan.InputPositions(), limits);
         }
 
         template <class R_, class F_>
@@ -131,8 +235,8 @@ namespace Dal {
             const auto execution = simulation;
             const auto requested = request;
             auto valuationCopy = valuation;
-            const auto productCopy = product;
-            const auto modelCopy = modelData;
+            const auto productCopy = SnapshotRiskProduct(product, requested);
+            const auto modelCopy = SnapshotRiskModel(modelData, requested);
             Detail::CheckScriptValuationInputs(productCopy, modelCopy);
             Script::ValidateSimulationSettings(execution);
             auto model = CreateModel<double>(modelCopy);
@@ -140,11 +244,13 @@ namespace Dal {
             parsed.IndexVariables();
             const auto axis = InputAxis(*model, parsed);
             const auto planned = PlanRiskValuation(parsed, axis, &valuationCopy, requested, execution.enableAad_);
+            PreflightRiskValuation(planned, numPath, execution, *model);
             const auto settings = Script::ResolveValuationSettings(valuationCopy);
-            const auto prepared = Script::PrepareScript(*productCopy, model.get(), settings, execution);
+            size_t admittedWidth = 0;
+            const auto prepared = PrepareRiskValuation(*productCopy, model.get(), modelCopy, settings, execution, numPath, planned, &admittedWidth);
             ValidatePreparedRiskPlan(planned, axis, prepared, *model);
             const auto provenance = Provenance(prepared, *productCopy, *modelCopy, numPath);
-            return evaluate(prepared, model.get(), modelCopy, execution, axis, planned, provenance);
+            return evaluate(prepared, model.get(), modelCopy, execution, axis, planned, provenance, admittedWidth);
         }
     } // namespace
 
@@ -168,7 +274,7 @@ namespace Dal {
                                                   const MonteCarloSettings_& simulation) {
         return EvaluateScriptRisk(product, modelData, numPath, request, valuation, simulation,
                                   [&](const auto& prepared, auto* model, const auto& modelCopy, const auto& execution, const auto& axis,
-                                      const auto& planned, const auto& provenance) {
+                                      const auto& planned, const auto& provenance, size_t) {
                                       const size_t paths = static_cast<size_t>(numPath);
                                       const auto source =
                                           execution.enableAad_
@@ -188,7 +294,7 @@ namespace Dal {
                                                                   const MonteCarloSettings_& simulation) {
         return EvaluateScriptRisk(product, modelData, numPath, request, valuation, simulation,
                                   [&](const auto& prepared, auto* model, const auto& modelCopy, const auto& execution, const auto&,
-                                      const auto& planned, const auto& provenance) {
+                                      const auto& planned, const auto& provenance, size_t) {
                                       const size_t paths = static_cast<size_t>(numPath);
                                       const Script::Detail::WeightedSimulationObjective_ objective(planned);
                                       const auto source =
@@ -198,6 +304,21 @@ namespace Dal {
                                               : Script::MCDoubleSimulationWithObjective(prepared, model, paths, execution.rsg_, execution.useBb_,
                                                                                         execution.compiled_, true, objective);
                                       return Script::ProjectWeightedMonteCarloRiskResult(source, source.componentSums_, numPath, planned, provenance);
+                                  });
+    }
+
+    Script::JacobianRiskResult_ ValueByMonteCarloWithJacobianRisk(const Handle_<ScriptProductData_>& product,
+                                                                  const Handle_<ModelData_>& modelData,
+                                                                  int numPath,
+                                                                  const Script::JacobianRiskRequest_& request,
+                                                                  const ScriptValuationSettings_& valuation,
+                                                                  const MonteCarloSettings_& simulation) {
+        return EvaluateScriptRisk(product, modelData, numPath, request, valuation, simulation,
+                                  [&](const auto& prepared, auto* model, const auto& modelCopy, const auto& execution, const auto&, const auto& plan,
+                                      const auto& provenance, size_t admittedWidth) {
+                                      auto source = EvaluateJacobianRiskSource(prepared, *model, modelCopy, execution, static_cast<size_t>(numPath),
+                                                                               plan, admittedWidth);
+                                      return Script::ProjectJacobianRiskResult(std::move(source), numPath, plan, provenance);
                                   });
     }
 } // namespace Dal

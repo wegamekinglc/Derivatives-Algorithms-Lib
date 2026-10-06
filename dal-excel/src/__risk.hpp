@@ -23,6 +23,8 @@ namespace Dal {
         inline const char* RiskValueType(const Script::RiskResult_&) { return "RiskResult"; }
         inline const char* RiskValueType(const Script::WeightedRiskRequest_&) { return "WeightedRiskRequest"; }
         inline const char* RiskValueType(const Script::WeightedRiskResult_&) { return "WeightedRiskResult"; }
+        inline const char* RiskValueType(const Script::JacobianRiskRequest_&) { return "JacobianRiskRequest"; }
+        inline const char* RiskValueType(const Script::JacobianRiskResult_&) { return "JacobianRiskResult"; }
 
         template <class T_> struct StorableRiskValue_ : Storable_ {
             const T_ val_;
@@ -50,6 +52,27 @@ namespace Dal {
     using StorableRiskResult_ = Excel::StorableRiskValue_<Script::RiskResult_>;
     using StorableWeightedRiskRequest_ = Excel::StorableRiskValue_<Script::WeightedRiskRequest_>;
     using StorableWeightedRiskResult_ = Excel::StorableRiskValue_<Script::WeightedRiskResult_>;
+    using StorableJacobianRiskRequest_ = Excel::StorableRiskValue_<Script::JacobianRiskRequest_>;
+    using StorableJacobianRiskResult_ = Excel::StorableRiskValue_<Script::JacobianRiskResult_>;
+
+    DAL_RISK_API void JacobianRiskRequest_New(const String_&, const Matrix_<Cell_>&, Handle_<StorableJacobianRiskRequest_>*);
+    DAL_RISK_API void MonteCarlo_ValueWithJacobianRisk(const Handle_<ScriptProductData_>&,
+                                                       const Handle_<ModelData_>&,
+                                                       double,
+                                                       const Handle_<StorableJacobianRiskRequest_>&,
+                                                       const Handle_<StorableScriptValuationSettings_>&,
+                                                       const Handle_<StorableMonteCarloSettings_>&,
+                                                       Handle_<StorableJacobianRiskResult_>*);
+    DAL_RISK_API void JacobianRiskResult_Get_Values(const Handle_<StorableJacobianRiskResult_>&, Matrix_<Cell_>*);
+    DAL_RISK_API void JacobianRiskResult_Get_Jacobian(const Handle_<StorableJacobianRiskResult_>&, bool, Matrix_<Cell_>*);
+    DAL_RISK_API void JacobianRiskResult_Get_Shape(const Handle_<StorableJacobianRiskResult_>&, Matrix_<Cell_>*);
+    DAL_RISK_API void JacobianRiskResult_Get_Outputs(const Handle_<StorableJacobianRiskResult_>&, bool, Matrix_<Cell_>*);
+    DAL_RISK_API void JacobianRiskResult_Get_Inputs(const Handle_<StorableJacobianRiskResult_>&, bool, Matrix_<Cell_>*);
+    DAL_RISK_API void JacobianRiskResult_Get_Execution(const Handle_<StorableJacobianRiskResult_>&, Matrix_<Cell_>*);
+    DAL_RISK_API void JacobianRiskResult_Get_Provenance(const Handle_<StorableJacobianRiskResult_>&, Matrix_<Cell_>*);
+    DAL_RISK_API void JacobianRiskResult_Get_History(const Handle_<StorableJacobianRiskResult_>&, Matrix_<Cell_>*);
+    DAL_RISK_API void JacobianRiskResult_Get_Product(const Handle_<StorableJacobianRiskResult_>&, Matrix_<Cell_>*);
+    DAL_RISK_API void JacobianRiskResult_Get_ModelSnapshot(const Handle_<StorableJacobianRiskResult_>&, Vector_<String_>*);
 
     DAL_RISK_API void WeightedRiskRequest_New(const String_&, const Matrix_<Cell_>&, Handle_<StorableWeightedRiskRequest_>*);
     DAL_RISK_API void MonteCarlo_ValueWithWeightedRisk(const Handle_<ScriptProductData_>&,

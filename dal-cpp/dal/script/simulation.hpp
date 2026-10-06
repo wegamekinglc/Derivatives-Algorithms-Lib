@@ -68,10 +68,14 @@ namespace Dal::Script {
                 else
                     return values[payoffIndex];
             }
+            void Seed(AAD::Number_* root) const { Adjoint(*root) = 1.0; }
+            void AccumulateInput(SimResults_* result, size_t position, const AAD::Number_& input, size_t paths) const {
+                result->risks_[position] += Adjoint(input) / static_cast<double>(paths);
+            }
             [[nodiscard]] AAD::ProfilingArrayStatistics_ WorkspaceArrays() const { return {}; }
         };
 
-        template <class T_> class WeightedPayoffCollector_ {
+        template <class T_> class WeightedPayoffCollector_ : public ScalarPayoffCollector_ {
             const WeightedRiskPlan_& plan_;
             Vector_<double>* componentSums_;
             Vector_<T_> outputs_;
@@ -693,7 +697,7 @@ namespace Dal::Script {
                         });
 #endif
                         AAD::ProfilingSpan_ reverse(AAD::AADProfilingPhase_::Value_::REVERSE_SUFFIX);
-                        Adjoint(res) = 1.0;
+                        objective.Seed(&res);
                         recording.ReverseSuffix(checkpoint);
                         sumValue += Value(res);
                     }
@@ -702,7 +706,7 @@ namespace Dal::Script {
 
             auto accumulateConstVarRisks = [&](const auto& constVarVals) {
                 for (size_t j = 0; j < settings.nConstVars_; ++j)
-                    results->risks_[j + settings.nParams_] += Adjoint(constVarVals[j]) / static_cast<double>(settings.nPaths_);
+                    objective.AccumulateInput(results, j + settings.nParams_, constVarVals[j], settings.nPaths_);
             };
 
             const auto reversePrefix = [&] {
@@ -724,7 +728,7 @@ namespace Dal::Script {
             }
 
             for (size_t j = 0; j < settings.nParams_; ++j)
-                results->risks_[j] += Adjoint(*model->Parameters()[j]) / static_cast<double>(settings.nPaths_);
+                objective.AccumulateInput(results, j, *model->Parameters()[j], settings.nPaths_);
 
             results->aggregated_ += sumValue;
             recording.Close();
