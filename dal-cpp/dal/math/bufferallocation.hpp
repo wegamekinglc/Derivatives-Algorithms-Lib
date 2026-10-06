@@ -86,6 +86,8 @@ namespace Dal {
         template <class T_> class BufferAllocator_ {
         public:
             using value_type = T_;
+            using size_type = size_t;
+            using difference_type = std::ptrdiff_t;
             using is_always_equal = std::true_type;
             using propagate_on_container_move_assignment = std::true_type;
             template <class U_> struct rebind {
