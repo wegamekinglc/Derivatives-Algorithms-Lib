@@ -11,6 +11,11 @@ an old F02 status passage contradicting the accepted ledger. That passage now
 explicitly identifies intermediate acceptance and the completed #484/#487 work.
 Remote thread resolution and re-audit remain publication gates.
 
+Codacy flagged complexity in the two new public test bodies at `323cd4be`.
+Common numerical, work-count and fresh-batch gradient assertions are now focused
+helpers; neither production code nor coverage is changed. Both affected cases
+pass after the refactor. Remote Codacy acceptance remains pending the next head.
+
 ## Design and verification
 
 The coordinator keeps one owning result slot per original batch, submits at most

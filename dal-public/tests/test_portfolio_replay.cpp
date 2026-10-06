@@ -68,6 +68,77 @@ namespace {
         return simulation.enableAad_ ? inputs : Vector_<size_t>{};
     }
 
+    void AssertLinearWeightedWorker(const Dal::Detail::PortfolioWeightedReplayResult_& result, bool native, size_t paths, size_t batches) {
+        ASSERT_DOUBLE_EQ(result.weightedValue_, 103.0);
+        ASSERT_EQ(result.componentMeans_.size(), 2);
+        ASSERT_DOUBLE_EQ(result.componentMeans_[0], 307.0);
+        ASSERT_DOUBLE_EQ(result.componentMeans_[1], 205.0);
+        ASSERT_EQ(result.gradient_.size(), native ? 3 : 0);
+        if (native) {
+            ASSERT_DOUBLE_EQ(result.gradient_[0], -1.0);
+            ASSERT_DOUBLE_EQ(result.gradient_[1], 1.0);
+            ASSERT_DOUBLE_EQ(result.gradient_[2], 2.0);
+        }
+        ASSERT_EQ(result.groupCounters_[0].generatedScenarios_, paths);
+        ASSERT_EQ(result.groupCounters_[0].evaluatorCalls_, paths * 2);
+        ASSERT_EQ(result.groupCounters_[0].suffixReversals_, native ? paths : 0);
+        ASSERT_EQ(result.groupCounters_[0].prefixReversals_, native ? batches : 0);
+    }
+
+    void AssertLinearJacobian(const Dal::Detail::PortfolioJacobianReplayResult_& result, bool native) {
+        ASSERT_EQ(result.jacobian_.Rows(), 2);
+        ASSERT_EQ(result.jacobian_.Cols(), native ? 3 : 0);
+        if (native) {
+            ASSERT_DOUBLE_EQ(result.jacobian_(0, 0), 1.0);
+            ASSERT_DOUBLE_EQ(result.jacobian_(0, 1), 3.0);
+            ASSERT_DOUBLE_EQ(result.jacobian_(0, 2), 0.0);
+            ASSERT_DOUBLE_EQ(result.jacobian_(1, 0), 0.0);
+            ASSERT_DOUBLE_EQ(result.jacobian_(1, 1), 2.0);
+            ASSERT_DOUBLE_EQ(result.jacobian_(1, 2), 1.0);
+        }
+    }
+
+    void AssertJacobianWorkerCounts(const Dal::Detail::PortfolioJacobianReplayResult_& result,
+                                    size_t submissions,
+                                    bool native,
+                                    size_t paths,
+                                    size_t workers,
+                                    size_t batches,
+                                    size_t width) {
+        const size_t blocks = native && width == 1 ? 2 : 1;
+        ASSERT_EQ(submissions, workers * blocks);
+        ASSERT_EQ(result.groupCounters_[0].generatedScenarios_, paths * blocks);
+        ASSERT_EQ(result.groupCounters_[0].evaluatorCalls_, paths * 2);
+        ASSERT_EQ(result.groupCounters_[0].prefixReversals_, native ? batches * blocks : 0);
+    }
+
+    void AssertSameGradient(const Vector_<double>& actual, const Vector_<double>& expected) { ASSERT_EQ(actual, expected); }
+
+    void AssertSameGradient(const Matrix_<double>& actual, const Matrix_<double>& expected) {
+        ASSERT_EQ(actual.Rows(), expected.Rows());
+        ASSERT_EQ(actual.Cols(), expected.Cols());
+        for (int row = 0; row < expected.Rows(); ++row)
+            for (int column = 0; column < expected.Cols(); ++column)
+                ASSERT_DOUBLE_EQ(actual(row, column), expected(row, column));
+    }
+
+    template <class G_>
+    void AssertFreshBatch(const Dal::Script::Detail::PortfolioBatchResult_<G_>& actual,
+                          const Dal::Script::Detail::PortfolioBatchResult_<G_>& expected,
+                          size_t paths) {
+        ASSERT_EQ(actual.componentSums_, expected.componentSums_);
+        ASSERT_DOUBLE_EQ(actual.weightedSum_, expected.weightedSum_);
+        ASSERT_EQ(actual.tradePositions_, expected.tradePositions_);
+        ASSERT_NO_FATAL_FAILURE(AssertSameGradient(actual.modelGradientSums_, expected.modelGradientSums_));
+        ASSERT_EQ(actual.constantGradientSums_.size(), expected.constantGradientSums_.size());
+        for (size_t trade = 0; trade < expected.constantGradientSums_.size(); ++trade)
+            ASSERT_NO_FATAL_FAILURE(AssertSameGradient(actual.constantGradientSums_[trade], expected.constantGradientSums_[trade]));
+        ASSERT_EQ(actual.generatedScenarios_, paths);
+        ASSERT_EQ(actual.evaluatorCalls_, expected.evaluatorCalls_);
+        ASSERT_EQ(actual.suffixReversals_, paths);
+        ASSERT_EQ(actual.prefixReversals_, 1);
+    }
+
     std::pair<Vector_<Handle_<ModelData_>>, Vector_<String_>> SixModelFamilies() {
         const Date_ today(2026, 1, 1);
         HybridSettings_ hybridSettings;
@@ -218,40 +289,15 @@ TEST(PortfolioReplayTest, TestMultipleOriginalBatchesUseBoundedWorkersAndIndepen
                 const auto result =
                     Dal::Detail::EvaluatePortfolioWeightedReplay(prepared, {Payoff(prepared, 1, -1.0), Payoff(prepared, 0, 2.0)}, inputs);
                 ASSERT_EQ(submissions.submissions_, workers);
-                ASSERT_DOUBLE_EQ(result.weightedValue_, 103.0);
-                ASSERT_EQ(result.componentMeans_.size(), 2);
-                ASSERT_DOUBLE_EQ(result.componentMeans_[0], 307.0);
-                ASSERT_DOUBLE_EQ(result.componentMeans_[1], 205.0);
-                ASSERT_EQ(result.gradient_.size(), native ? 3 : 0);
-                if (native) {
-                    ASSERT_DOUBLE_EQ(result.gradient_[0], -1.0);
-                    ASSERT_DOUBLE_EQ(result.gradient_[1], 1.0);
-                    ASSERT_DOUBLE_EQ(result.gradient_[2], 2.0);
-                }
-                ASSERT_EQ(result.groupCounters_[0].generatedScenarios_, paths);
-                ASSERT_EQ(result.groupCounters_[0].evaluatorCalls_, paths * 2);
-                ASSERT_EQ(result.groupCounters_[0].suffixReversals_, native ? paths : 0);
-                ASSERT_EQ(result.groupCounters_[0].prefixReversals_, native ? batches.BatchCount() : 0);
+                ASSERT_NO_FATAL_FAILURE(AssertLinearWeightedWorker(result, native, paths, batches.BatchCount()));
                 for (const size_t width : native ? Vector_<size_t>{1, 3} : Vector_<size_t>{1}) {
                     submissions.submissions_ = 0;
                     const auto rows =
                         Dal::Detail::EvaluatePortfolioJacobianReplay(prepared, {Payoff(prepared, 1, 1.0), Payoff(prepared, 0, 1.0)}, inputs, {width});
-                    const size_t blocks = native && width == 1 ? 2 : 1;
-                    ASSERT_EQ(submissions.submissions_, workers * blocks);
                     ASSERT_EQ(rows.componentMeans_, result.componentMeans_);
-                    ASSERT_EQ(rows.jacobian_.Rows(), 2);
-                    ASSERT_EQ(rows.jacobian_.Cols(), native ? 3 : 0);
-                    if (native) {
-                        ASSERT_DOUBLE_EQ(rows.jacobian_(0, 0), 1.0);
-                        ASSERT_DOUBLE_EQ(rows.jacobian_(0, 1), 3.0);
-                        ASSERT_DOUBLE_EQ(rows.jacobian_(0, 2), 0.0);
-                        ASSERT_DOUBLE_EQ(rows.jacobian_(1, 0), 0.0);
-                        ASSERT_DOUBLE_EQ(rows.jacobian_(1, 1), 2.0);
-                        ASSERT_DOUBLE_EQ(rows.jacobian_(1, 2), 1.0);
-                    }
-                    ASSERT_EQ(rows.groupCounters_[0].generatedScenarios_, paths * blocks);
-                    ASSERT_EQ(rows.groupCounters_[0].evaluatorCalls_, paths * 2);
-                    ASSERT_EQ(rows.groupCounters_[0].prefixReversals_, native ? batches.BatchCount() * blocks : 0);
+                    ASSERT_NO_FATAL_FAILURE(AssertLinearJacobian(rows, native));
+                    ASSERT_NO_FATAL_FAILURE(
+                        AssertJacobianWorkerCounts(rows, submissions.submissions_, native, paths, workers, batches.BatchCount(), width));
                 }
             }
     }
@@ -494,12 +540,7 @@ TEST(PortfolioReplayTest, TestSixNativeFamiliesResetBetweenOriginalBatches) {
             Dal::Script::Detail::EvaluatePortfolioWeightedWorker(portfolio, 0, batches, 0, 1, outputs, &weighted);
             for (size_t batch = 0; batch < batches.BatchCount(); ++batch) {
                 const auto fresh = Dal::Script::Detail::EvaluatePortfolioWeightedBatch(portfolio, 0, batches.BatchAt(batch), outputs);
-                ASSERT_EQ(weighted[batch].componentSums_, fresh.componentSums_);
-                ASSERT_DOUBLE_EQ(weighted[batch].weightedSum_, fresh.weightedSum_);
-                ASSERT_EQ(weighted[batch].modelGradientSums_, fresh.modelGradientSums_);
-                ASSERT_EQ(weighted[batch].constantGradientSums_, fresh.constantGradientSums_);
-                ASSERT_EQ(weighted[batch].generatedScenarios_, batches.BatchAt(batch).pathCount_);
-                ASSERT_EQ(weighted[batch].prefixReversals_, 1);
+                ASSERT_NO_FATAL_FAILURE(AssertFreshBatch(weighted[batch], fresh, batches.BatchAt(batch).pathCount_));
             }
             for (const size_t width : {2, 3}) {
                 SCOPED_TRACE(width);
@@ -509,18 +550,7 @@ TEST(PortfolioReplayTest, TestSixNativeFamiliesResetBetweenOriginalBatches) {
                 Dal::Script::Detail::EvaluatePortfolioJacobianWorker(portfolio, 0, batches, 0, 1, outputs, width, &rows);
                 for (size_t batch = 0; batch < batches.BatchCount(); ++batch) {
                     const auto fresh = Dal::Script::Detail::EvaluatePortfolioJacobianBatch(portfolio, 0, batches.BatchAt(batch), outputs, width);
-                    ASSERT_EQ(rows[batch].componentSums_, fresh.componentSums_);
-                    ASSERT_EQ(rows[batch].tradePositions_, fresh.tradePositions_);
-                    for (size_t lane = 0; lane < width; ++lane) {
-                        for (int column = 0; column < fresh.modelGradientSums_.Cols(); ++column)
-                            ASSERT_DOUBLE_EQ(rows[batch].modelGradientSums_(lane, column), fresh.modelGradientSums_(lane, column));
-                        for (size_t trade = 0; trade < fresh.constantGradientSums_.size(); ++trade)
-                            for (int column = 0; column < fresh.constantGradientSums_[trade].Cols(); ++column)
-                                ASSERT_DOUBLE_EQ(rows[batch].constantGradientSums_[trade](lane, column),
-                                                 fresh.constantGradientSums_[trade](lane, column));
-                    }
-                    ASSERT_EQ(rows[batch].generatedScenarios_, batches.BatchAt(batch).pathCount_);
-                    ASSERT_EQ(rows[batch].prefixReversals_, 1);
+                    ASSERT_NO_FATAL_FAILURE(AssertFreshBatch(rows[batch], fresh, batches.BatchAt(batch).pathCount_));
                 }
             }
         }
