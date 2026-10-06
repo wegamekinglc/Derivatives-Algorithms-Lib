@@ -103,8 +103,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          submodules: recursive
+
+      - name: Check out pinned dependencies
+        run: python .github/scripts/checkout_dependencies.py
 
       # The action's key gets only a "ccache-" prefix and a trailing
       # timestamp, so the key itself must carry every matrix dimension
@@ -229,8 +230,9 @@ jobs:
       CMAKE_CXX_COMPILER_LAUNCHER: ccache
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          submodules: recursive
+
+      - name: Check out pinned dependencies
+        run: python .github/scripts/checkout_dependencies.py
 
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@f09c25b45002a07be2955cbe52e8cee55643f89d # @v1.2.24
@@ -338,6 +340,7 @@ jobs:
       - name: Check links, anchors, tables, metadata, and commands
         run: |
           python3 .github/scripts/check_docs.py
+          python3 -m unittest discover -s .github/scripts/tests -p test_checkout_dependencies.py
 
   warning-clean:
     name: Warning-clean GCC build
@@ -350,8 +353,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          submodules: recursive
+
+      - name: Check out pinned dependencies
+        run: python .github/scripts/checkout_dependencies.py
 
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@f09c25b45002a07be2955cbe52e8cee55643f89d # @v1.2.24
@@ -443,8 +447,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          submodules: recursive
+
+      - name: Check out pinned dependencies
+        run: python .github/scripts/checkout_dependencies.py
 
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@f09c25b45002a07be2955cbe52e8cee55643f89d # @v1.2.24
