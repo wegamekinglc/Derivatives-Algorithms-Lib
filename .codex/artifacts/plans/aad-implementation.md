@@ -745,16 +745,17 @@ overlapping acceptance work is included once in the integration allowance.
 
 | Work item               | Implementation/local verification                              | Publication/CI                             | Remaining person-days |
 |-------------------------|----------------------------------------------------------------|--------------------------------------------|-----------------------|
-| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                  | Accepted exact-head checks                 | 0                     |
-| Scalar D04              | Accepted C++/Python/Excel                                      | Accepted exact-head checks                 | 0                     |
-| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass | Merged; final 35/35 checks accepted        | 0                     |
-| F01                     | C++/Python/Excel and complete requirement audit accepted       | Merged; final 35/35 checks accepted        | 0                     |
-| F02                     | Weighted merged; blocked budgets/replay pass focused checks    | #484 draft; public consumers/gates pending | 6–10                  |
-| P02/P03                 | Worker reuse/block selection/extraction remain                 | Open                                       | 4–7                   |
-| F03                     | Solve, implicit calibration and PDE operators remain           | Open                                       | 12–20                 |
-| P04/P05                 | Structural sparsity/checkpointing remain                       | Open                                       | 9–15                  |
-| F04                     | Second-order implementation/estimator validation remain        | Open                                       | 12–20                 |
-| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains     | Open                                       | 7–11                  |
+| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                  | Accepted exact-head checks               | 0     |
+|-------------------------|----------------------------------------------------------------|------------------------------------------|-------|
+| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass | Merged; final 35/35 checks accepted      | 0     |
+| F01                     | C++/Python/Excel and complete requirement audit accepted       | Merged; final 35/35 checks accepted      | 0     |
+| F02 current PR          | Weighted merged; blocked C++/Python/Excel implemented          | #484: performance repair and final gates | 2–4   |
+| F02 portfolio           | Compatible portfolio preparation and attribution remain        | Next PR after #484 merges                | 4–6   |
+| P02/P03                 | Worker reuse/block selection/extraction remain                 | Open                                     | 4–7   |
+| F03                     | Solve, implicit calibration and PDE operators remain           | Open                                     | 12–20 |
+| P04/P05                 | Structural sparsity/checkpointing remain                       | Open                                     | 9–15  |
+| F04                     | Second-order implementation/estimator validation remain        | Open                                     | 12–20 |
+| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains     | Open                                     | 7–11  |
 
 Remaining total: approximately 50–83 person-days, or 10–17 working weeks,
 excluding CI queue time and including delivery contingency. F01 is merged;

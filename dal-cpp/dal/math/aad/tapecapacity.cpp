@@ -228,6 +228,8 @@ namespace Dal::AAD {
             scope_->Release(slot_, bytes_);
     }
 
+    bool TapeCapacityActive() noexcept { return activeScope != nullptr; }
+
     void ReleaseBlockAllocation(const void* list, size_t bytes) noexcept {
         if (activeScope != nullptr) {
             const auto slot = activeScope->Slot(list);

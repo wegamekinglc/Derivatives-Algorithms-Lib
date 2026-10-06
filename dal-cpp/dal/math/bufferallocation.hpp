@@ -20,6 +20,10 @@ namespace Dal {
     } // namespace exception
 
     namespace Detail {
+        // The slot address is stable for the calling thread.
+#if defined(__GNUC__) || defined(__clang__)
+        __attribute__((const))
+#endif
         BufferCapacityBudget_*& CurrentBufferBudget() noexcept;
 
         class BufferAllocationTicket_ {
@@ -45,10 +49,13 @@ namespace Dal {
             BufferDeallocationTicket_& operator=(const BufferDeallocationTicket_&) = delete;
         };
 
-        template <class A_, class D_> auto AllocateBuffer(size_t count, size_t elementBytes, A_ allocate, D_ deallocate) {
-            auto* budget = CurrentBufferBudget();
-            if (budget == nullptr || count == 0)
-                return allocate();
+        template <class A_, class D_>
+#if defined(__GNUC__) || defined(__clang__)
+        __attribute__((cold, noinline))
+#elif defined(_MSC_VER)
+        __declspec(noinline)
+#endif
+        auto AllocateTrackedBuffer(BufferCapacityBudget_* budget, size_t count, size_t elementBytes, A_ allocate, D_ deallocate) {
             BufferAllocationTicket_ ticket(budget, count, elementBytes);
             auto* allocation = allocate();
             try {
@@ -60,11 +67,27 @@ namespace Dal {
             return allocation;
         }
 
-        template <class T_, class D_> void DeallocateBuffer(T_* allocation, D_ deallocate) noexcept {
-            std::optional<BufferDeallocationTicket_> ticket;
-            if (auto* budget = CurrentBufferBudget())
-                ticket.emplace(budget, reinterpret_cast<std::uintptr_t>(allocation));
+        template <class A_, class D_> auto AllocateBuffer(size_t count, size_t elementBytes, A_ allocate, D_ deallocate) {
+            auto* budget = CurrentBufferBudget();
+            return budget == nullptr || count == 0 ? allocate() : AllocateTrackedBuffer(budget, count, elementBytes, allocate, deallocate);
+        }
+
+        template <class T_, class D_>
+#if defined(__GNUC__) || defined(__clang__)
+        __attribute__((cold, noinline))
+#elif defined(_MSC_VER)
+        __declspec(noinline)
+#endif
+        void DeallocateTrackedBuffer(BufferCapacityBudget_* budget, T_* allocation, D_ deallocate) noexcept {
+            const BufferDeallocationTicket_ ticket(budget, reinterpret_cast<std::uintptr_t>(allocation));
             deallocate(allocation);
+        }
+
+        template <class T_, class D_> void DeallocateBuffer(T_* allocation, D_ deallocate) noexcept {
+            if (auto* budget = CurrentBufferBudget())
+                DeallocateTrackedBuffer(budget, allocation, deallocate);
+            else
+                deallocate(allocation);
         }
 
         inline void* AllocateBufferObject(size_t bytes) {

@@ -37,7 +37,7 @@ failure unwinds the partial tape and refunds the temporary payload. Cached
 tapes still undergo complete admission before recording. The block batch
 attaches this guard before selecting vector mode, which also calls `Tape()`.
 
-`BlockList_::Clear` allocates its replacement before discarding old storage,
+Budgeted `BlockList_::Clear` allocates its replacement before discarding old storage,
 so a rejected replacement preserves the list. Admission includes this
 temporary overlap; old payload is released after destruction. Peak reports
 admitted payload reservations, including transient or subsequently refunded

@@ -6,6 +6,13 @@ findings on `7c9cfa89`.
 
 ## Findings
 
+- Delivery blocker: the first frozen nine-target comparison at `77193fd8`
+  fails on tape clear/rewind (about 4–5%) and PDE rollback (about 5–18%).
+  `aad-jacobian-final-nine-paired-01/` retains every sample. Capacity tickets
+  now use cold helpers; ordinary tape clear retains its original allocation
+  order. The stable TLS-slot accessor permits address reuse without caching
+  the changing budget value. Focused correctness passes; matched static
+  performance and new-head CI remain required.
 - Delivery blocker: actual Windows generated-export acceptance remains open.
   Implemented typed portable bindings and local parsing tests do not substitute
   for executing the new raw XLL exports on Windows in all diagnostic modes.

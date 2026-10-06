@@ -25,4 +25,5 @@ namespace Dal::AAD {
     };
 
     void ReleaseBlockAllocation(const void* list, size_t bytes) noexcept;
+    [[nodiscard]] bool TapeCapacityActive() noexcept;
 } // namespace Dal::AAD
