@@ -8,6 +8,7 @@
 #include <dal-public/src/models.hpp>
 #include <dal-public/src/script.hpp>
 #include <dal-public/src/value.hpp>
+#include <dal/script/blockedreplay.hpp>
 #include <dal/script/jacobianrisk.hpp>
 
 #include <script_test_observers.hpp>
@@ -141,6 +142,99 @@ TEST(JacobianRiskValueTest, TestInvalidRequestsAndKnownLimitsReadNoHistoryAndSub
     ASSERT_EQ(history.historyCalls_, 0);
     ASSERT_EQ(history.fixingCalls_, 0);
     ASSERT_EQ(workers.calls_, 0);
+}
+
+TEST(JacobianRiskValueTest, TestKnownModelAndPathCapacityRejectsBeforeHistoryAndWorkers) {
+    InitGlobalData(1);
+    Vector_<Cell_> dates{Cell_(Date_(2025, 1, 1))};
+    Vector_<String_> events{"a = FIX(EQ[JACOBIAN_MODEL_MINIMUM])"};
+    for (size_t day = 0; day < 1024; ++day) {
+        dates.emplace_back(Date_(2027, 1, 1).AddDays(static_cast<int>(day)));
+        events.push_back("pay PAYS a + SPOT()");
+    }
+    ScriptProductSettings_ productSettings;
+    productSettings.defaultIndex_ = "EQ[JACOBIAN_MODEL_MINIMUM]";
+    const auto product = NewScriptProduct("minimum", dates, events, productSettings);
+    const auto model = NewBSModelData("model", 100.0, 0.2, 0.0, 0.0);
+    Script::JacobianRiskRequest_ request;
+    request.scratchCapacityBudgetBytes_ = Script::Detail::AADBlockBatchFixedPayloadBytes(false) + 65536;
+    for (const bool native : {true, false}) {
+        auto simulation = DefaultRiskMonteCarloSettings();
+        simulation.enableAad_ = native;
+        request.selection_.inputs_ = native ? std::optional<Vector_<String_>>() : std::optional<Vector_<String_>>(Vector_<String_>{});
+        Script::TestSupport::RejectFixingReads_ history;
+        Script::TestSupport::RejectSubmissions_ workers;
+        const Detail::ScopedFixingReadObserver_ observeHistory(&history);
+        const Script::Detail::ScopedSimulationObserver_ observeWorkers(&workers);
+        try {
+            static_cast<void>(ValueByMonteCarloWithJacobianRisk(product, model, 17, request, JacobianValuation(), simulation));
+            FAIL() << "known model/path capacity must fail before history";
+        } catch (const ScriptError_& error) {
+            ASSERT_NE(std::string(error.what()).find("Scratch buffer capacity budget exceeded"), std::string::npos) << error.what();
+        }
+        ASSERT_EQ(history.historyCalls_, 0);
+        ASSERT_EQ(history.fixingCalls_, 0);
+        ASSERT_EQ(workers.calls_, 0);
+    }
+}
+
+TEST(JacobianRiskValueTest, TestHistoricalVectorCapacityRejectsBeforeHistoryAndWorkers) {
+    InitGlobalData(1);
+    const auto product = NewScriptProduct("vector minimum", {Cell_(Date_(2025, 1, 1)), Cell_(Date_(2027, 1, 1))},
+                                          {"v[1023] = 1 a = FIX(EQ[JACOBIAN_VECTOR_MINIMUM])", "pay PAYS SUM(v) + a"});
+    const auto model = NewBSModelData("model", 100.0, 0.2, 0.0, 0.0);
+    Script::JacobianRiskRequest_ request;
+    request.scratchCapacityBudgetBytes_ = Script::Detail::AADBlockBatchFixedPayloadBytes(false) + 40960;
+    for (const bool compiled : {false, true}) {
+        auto simulation = DefaultRiskMonteCarloSettings();
+        simulation.compiled_ = compiled;
+        Script::TestSupport::RejectFixingReads_ history;
+        Script::TestSupport::RejectSubmissions_ workers;
+        const Detail::ScopedFixingReadObserver_ observeHistory(&history);
+        const Script::Detail::ScopedSimulationObserver_ observeWorkers(&workers);
+        try {
+            static_cast<void>(ValueByMonteCarloWithJacobianRisk(product, model, 17, request, JacobianValuation(), simulation));
+            FAIL() << "known historical vector capacity must fail before history";
+        } catch (const ScriptError_& error) {
+            ASSERT_NE(std::string(error.what()).find("Scratch buffer capacity budget exceeded"), std::string::npos) << error.what();
+        }
+        ASSERT_EQ(history.historyCalls_, 0);
+        ASSERT_EQ(history.fixingCalls_, 0);
+        ASSERT_EQ(workers.calls_, 0);
+    }
+}
+
+TEST(JacobianRiskValueTest, TestKnownCapacityNarrowsWidthAndKeepsOriginalRequest) {
+    InitGlobalData(1);
+    String_ event;
+    for (size_t row = 0; row < 15; ++row)
+        event += "o" + String_(std::to_string(row)) + " = " + String_(std::to_string(row + 1)) + " * SPOT() ";
+    event += "pay PAYS 16 * SPOT()";
+    const auto product = NewScriptProduct("narrow", {Cell_(Date_(2026, 1, 1))}, {event});
+    const auto model = NewBSModelData("model", 100.0, 0.0, 0.0, 0.0);
+    Script::JacobianRiskRequest_ request;
+    request.selection_.outputs_.emplace();
+    for (size_t row = 0; row < 15; ++row)
+        request.selection_.outputs_->push_back("output:" + String_(std::to_string(row)));
+    request.selection_.outputs_->push_back("payoff");
+    request.selection_.inputs_ = Vector_<String_>{"model:0"};
+    for (const bool compiled : {false, true}) {
+        auto simulation = DefaultRiskMonteCarloSettings();
+        simulation.compiled_ = compiled;
+        request.maxBlockWidth_ = 1;
+        request.scratchCapacityBudgetBytes_.reset();
+        const auto reference = ValueByMonteCarloWithJacobianRisk(product, model, 17, request, JacobianValuation(), simulation);
+        request.maxBlockWidth_ = 16;
+        request.scratchCapacityBudgetBytes_ = reference.Execution().peakScratchBytes_;
+        const auto narrowed = ValueByMonteCarloWithJacobianRisk(product, model, 17, request, JacobianValuation(), simulation);
+        ASSERT_EQ(narrowed.Values(), reference.Values());
+        for (int row = 0; row < 16; ++row)
+            ASSERT_DOUBLE_EQ(narrowed.Jacobian()(row, 0), reference.Jacobian()(row, 0));
+        ASSERT_EQ(narrowed.Execution().actualWidths_, Vector_<size_t>(16, 1));
+        ASSERT_EQ(narrowed.Execution().replayAttempts_, 16);
+        ASSERT_LE(narrowed.Execution().peakScratchBytes_, *request.scratchCapacityBudgetBytes_);
+        ASSERT_EQ(request.maxBlockWidth_, 16);
+    }
 }
 
 TEST(JacobianRiskValueTest, TestModelDataAndRequestAreSealedBeforeHistory) {
@@ -347,12 +441,27 @@ TEST(JacobianRiskValueTest, TestNestedHybridAndGsrSnapshotsMatchIndependentScala
     const Date_ today(2026, 1, 1);
     const auto curve = NewGSRCurveData("curve", today, "USD", {today, today.AddDays(1095)}, {0.0, -0.09}, {}, Matrix_<>(0, 0));
     const auto gsr = NewGSRModelData("gsr", curve, NewGSRVolData("vol", {today}, {0.02}, {today}, {1.0}));
-    const Vector_<Handle_<ModelData_>> models{hybrid, gsr};
-    const Vector_<String_> observations{"FIX(EQ[A])", "FIX(IR[USD,DF,2028-01-01])"};
+    MultiFactorGSRVolSettings_ multiSettings;
+    multiSettings.factorNames_ = {"level"};
+    multiSettings.gKnotDates_ = multiSettings.hKnotDates_ = {today};
+    multiSettings.gValues_ = Matrix_<>(1, 1, 0.02);
+    multiSettings.hValues_ = multiSettings.correlations_ = Matrix_<>(1, 1, 1.0);
+    const auto multi = NewMultiFactorGSRModelData("multi", curve, NewMultiFactorGSRVolData("vol", multiSettings));
+    const auto leverage = NewGSRLeverageData("leverage", {-0.02, 0.02}, {0.0}, Matrix_<>(2, 1, 1.0));
+    GSRSLVSettings_ slvSettings;
+    slvSettings.maxStep_ = 0.25;
+    const auto slv = NewGSRSLVModelData("slv", multi, leverage, slvSettings);
+    const auto correlated = NewCorrelatedBSModelData("correlated", {"EQ[A]"}, {100.0}, {0.2}, {0.0}, 0.0, Matrix_<>(1, 1, 1.0));
+    const auto bs = NewBSModelData("bs", 100.0, 0.2, 0.0, 0.0);
+    const Vector_<Handle_<ModelData_>> models{hybrid, gsr, multi, slv, correlated, bs};
+    const Vector_<String_> observations{
+        "FIX(EQ[A])", "FIX(IR[USD,DF,2028-01-01])", "FIX(IR[USD,DF,2028-01-01])", "FIX(IR[USD,DF,2028-01-01])", "FIX(EQ[A])", "FIX(EQ[A])"};
     Script::JacobianRiskRequest_ request;
     request.selection_.outputs_ = Vector_<String_>{"payoff", "output:0"};
     request.selection_.inputs_ = Vector_<String_>{"model:0"};
     request.maxBlockWidth_ = 2;
+    request.scratchCapacityBudgetBytes_ = 1048576;
+    request.recordingCapacityBudgetBytes_ = 4 * Script::Detail::ReplayMinimumTapeBytes(4);
     for (size_t index = 0; index < models.size(); ++index) {
         const auto product = NewScriptProduct("nested", {Cell_(Date_(2027, 1, 1))}, {"a = " + observations[index] + " pay PAYS a"});
         for (const bool compiled : {false, true}) {

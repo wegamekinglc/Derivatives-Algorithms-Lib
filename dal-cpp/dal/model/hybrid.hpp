@@ -926,6 +926,7 @@ namespace Dal {
             [[nodiscard]] size_t MaxObservedIndices() const override { return std::numeric_limits<size_t>::max(); }
             [[nodiscard]] size_t MaxOutputSlotsPerSample() const override { return std::numeric_limits<size_t>::max(); }
             [[nodiscard]] size_t NumFactors() const override { return totalFactors_; }
+            [[nodiscard]] size_t StateDim() const { return totalState_; }
             [[nodiscard]] bool SupportsBrownianBridge() const override { return true; }
             [[nodiscard]] bool NumeraireIsDeterministic() const override { return components_[rateSlot_]->NumeraireIsDeterministic(); }
             [[nodiscard]] bool SupportsDiscountFactors() const override { return components_[rateSlot_]->ProvidesDiscountFactors(); }
