@@ -861,9 +861,15 @@ including copied boundary aliases. The seed's complete calibration identity
 must match; dimensions and display names alone cannot establish compatibility.
 When ordinary active replay fails the primal check, a checked replay uses scalar
 call prices with the original active-expression derivatives after checking
-call-level rounding disagreement. This prevents contracted floating arithmetic
-from amplifying call rounding through the second-difference stencil; the final
-surface check remains relative/absolute `1e-12`.
+call-level rounding disagreement. It propagates the discounted Black-leg
+rounding bounds through the maturity difference, strike slope, curvature and
+carry numerator to bound the local volatility. Both the active value and a
+fresh scalar calibration must lie inside this interval before the scalar
+local-volatility value becomes the replay primal, with derivative one along
+the active expression. This covers contraction across call prices and stencil
+operations while preserving the numeric calibration. Unresolved intervals and
+larger disagreements fail explicitly; the final surface check remains
+relative/absolute `1e-12` before reverse propagation.
 Zero and negative seeds are supported. Nonfinite quotes/seeds, invalid grid
 spacing, unresolved or nonpositive call curvature and nonpositive local
 variance fail explicitly. Independent nested recordings remain unsupported.

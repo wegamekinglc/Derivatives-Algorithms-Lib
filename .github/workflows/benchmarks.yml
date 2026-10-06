@@ -130,8 +130,24 @@ jobs:
             local build_root="$2"
             (
               cd "$build_root/dal-python"
-              # A new bug regression can intentionally fail on the base revision.
-              PYTHONPATH="$build_root/dal-python" python3 -m pytest "$source_root/dal-python/tests" -q
+              if [ "$source_root" = "$GITHUB_WORKSPACE/benchmark-base" ]; then
+                # Historical suite failures are diagnostic; shared benchmark correctness still gates both builds.
+                local evidence="$GITHUB_WORKSPACE/benchmark-results/python-baseline-tests"
+                local status
+                mkdir -p "$evidence"
+                if PYTHONPATH="$build_root/dal-python" python3 -m pytest "$source_root/dal-python/tests" -q > "$evidence/output.txt" 2>&1; then
+                  status=0
+                else
+                  status=$?
+                fi
+                echo "$status" > "$evidence/status.txt"
+                cat "$evidence/output.txt"
+                if [ "$status" -ne 0 ]; then
+                  echo "::warning::Historical baseline Python suite failed (exit $status); see retained evidence. Shared benchmark tests remain required."
+                fi
+              else
+                PYTHONPATH="$build_root/dal-python" python3 -m pytest "$source_root/dal-python/tests" -q
+              fi
               # Both native revisions must still satisfy the same head workloads.
               PYTHONPATH="$build_root/dal-python" python3 -m pytest "$GITHUB_WORKSPACE/dal-python/tests/test_benchmarks.py" -q
             )

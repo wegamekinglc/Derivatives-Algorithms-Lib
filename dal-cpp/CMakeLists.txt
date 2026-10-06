@@ -249,7 +249,7 @@ if(DAL_CPP_BUILD_TESTS)
 
     gtest_discover_tests(dal_cpp_tests)
 
-    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT MSVC AND NOT CMAKE_CROSSCOMPILING)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU" AND NOT MSVC AND NOT CMAKE_CROSSCOMPILING)
         if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$")
             set(DAL_DUPIRE_REPLAY_FMA_SUPPORTED TRUE)
         elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64|i.86)$")
@@ -259,13 +259,16 @@ if(DAL_CPP_BUILD_TESTS)
                 DAL_DUPIRE_REPLAY_FMA_SUPPORTED)
         endif()
         if(DAL_DUPIRE_REPLAY_FMA_SUPPORTED)
+            # Exact legacy snapshot comparisons stay in the uniform-ISA core target.
             # Reproduce scalar/active contraction differences without changing library flags.
             add_executable(dal_cpp_dupire_replay_rounding_tests
                 "${PROJECT_SOURCE_DIR}/dal/model/dupirerisk.cpp"
                 "${PROJECT_SOURCE_DIR}/tests/model/test_dupire_risk.cpp")
             target_link_libraries(dal_cpp_dupire_replay_rounding_tests PRIVATE dal_cpp gtest_main)
             dal_apply_platform_options(dal_cpp_dupire_replay_rounding_tests)
-            target_compile_options(dal_cpp_dupire_replay_rounding_tests PRIVATE -ffp-contract=on)
+            if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+                target_compile_options(dal_cpp_dupire_replay_rounding_tests PRIVATE -ffp-contract=on)
+            endif()
             if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64|i.86)$")
                 target_compile_options(dal_cpp_dupire_replay_rounding_tests PRIVATE -mfma)
             endif()
