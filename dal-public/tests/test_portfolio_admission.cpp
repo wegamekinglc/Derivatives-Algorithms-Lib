@@ -137,7 +137,7 @@ TEST(PortfolioAdmissionTest, TestJacobianNarrowingPreservesResultsUnderTheSameFi
         simulation.compiled_ = compiled;
         PortfolioJacobianRiskRequest_ request;
         request.maxBlockWidth_ = 2;
-        request.selection_.inputs_ = Vector_<String_>{};
+        request.selection_.inputs_ = Vector_<String_>{"model:0:parameter:0", "trade:0:constant:0", "trade:1:constant:0"};
         request.scratchCapacityBudgetBytes_ = 5 * 4096 * sizeof(AAD::Number_) + 32768;
         request.recordingCapacityBudgetBytes_ = 16 * 1024 * 1024;
         const auto narrowed = ValuePortfolioByMonteCarloWithJacobianRisk(data, 257, request, valuation, simulation);
@@ -147,14 +147,23 @@ TEST(PortfolioAdmissionTest, TestJacobianNarrowingPreservesResultsUnderTheSameFi
         ASSERT_EQ(narrowed.Execution().groups_[0].generatedScenarios_, 514);
         ASSERT_EQ(narrowed.Execution().groups_[0].evaluatorCalls_, 514);
         ASSERT_EQ(narrowed.Jacobian().Rows(), 2);
-        ASSERT_EQ(narrowed.Jacobian().Cols(), 0);
+        ASSERT_EQ(narrowed.Jacobian().Cols(), 3);
         ASSERT_LE(narrowed.Execution().peakScratchBytes_, *request.scratchCapacityBudgetBytes_);
         ASSERT_LE(narrowed.Execution().peakRecordingBytes_, *request.recordingCapacityBudgetBytes_);
         request.maxBlockWidth_ = 1;
         const auto explicitWidth = ValuePortfolioByMonteCarloWithJacobianRisk(data, 257, request, valuation, simulation);
-        const auto reference = ValueByMonteCarloWithRisk(data->Products()[0], data->Models()[0], 257, {Vector_<String_>{}}, valuation, simulation);
+        const auto reference = ValueByMonteCarloWithRisk(data->Products()[0], data->Models()[0], 257, {}, valuation, simulation);
         ASSERT_EQ(narrowed.Values(), explicitWidth.Values());
         ASSERT_EQ(narrowed.Values(), Vector_<double>(2, reference.Values()[0]));
+        const auto matrix = narrowed.Jacobian();
+        const auto explicitMatrix = explicitWidth.Jacobian();
+        for (int row = 0; row < 2; ++row) {
+            ASSERT_NEAR(matrix(row, 0), reference.Jacobian()(0, 0), 1e-10);
+            ASSERT_DOUBLE_EQ(matrix(row, 1 + row), reference.Jacobian()(0, 4));
+            ASSERT_DOUBLE_EQ(matrix(row, 2 - row), 0.0);
+            for (int column = 0; column < 3; ++column)
+                ASSERT_DOUBLE_EQ(matrix(row, column), explicitMatrix(row, column));
+        }
     }
 }
 

@@ -1287,6 +1287,10 @@ original-mesh native/passive oracles. All 126 affected portfolio/weighted/Jacobi
 cases pass through the installed extension; strict OFF/combined ON syntax checks
 pass. The documented Python surface reflects implemented behavior.
 
+The same finite-budget narrowing case now also proves every selected shared-model
+and private-constant risk against explicit width one and independent scalar risk.
+No production capacity or numerical guard changed.
+
 Next: finish Excel bindings and final acceptance. Preserve
 original RNG dimensions/path indices, private evaluator state, existing costs
 and independent numerical oracles. Every new publication needs its own exact-head

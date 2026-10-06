@@ -334,8 +334,10 @@ Fresh repair-head CI acceptance is required.
 
 The dedicated finite-budget case proves requested width two narrows to two width
 one blocks, with correct reported maximum/work/peaks and prices exactly equal to
-explicit width one under identical quotas and the independent native-empty
-single-product oracle. Attribution submission/worker failures drain and recover;
+explicit width one under identical quotas. The strengthened case also compares
+all selected shared-model/private columns with explicit width one and independent
+single-product risk (`aad-portfolio-focused-jacobian-narrow-selected-risks-green-02.json`).
+Attribution submission/worker failures drain and recover;
 only selected derivatives are validated. A new RED exposes a later group's
 invalid width allowing the first group to submit. All selected group widths now
 validate before any submission. All 17 affected replay/admission cases and strict
