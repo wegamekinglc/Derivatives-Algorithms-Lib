@@ -1244,7 +1244,15 @@ review threads and other platform jobs passing or running. Mode validation is
 now extracted with identical guards and execution order; 20 affected cases and
 strict OFF/combined ON warnings pass. Fresh repair-head gates remain required.
 
-Next: implement portfolio blocked attribution and Python/Excel bindings. Preserve
+The Codacy repair head `d2de68d` passes Codacy with no unresolved review threads;
+31 of 34 registered checks have passed and three are still running in the latest
+exact-head audit. Native blocked group batches now pass 12 targeted cases,
+including shared-model/private-constant rows, historical prefix aliases,
+absolute path/RNG/bridge comparisons, zero tail lanes, capacity failures and
+recording-mode recovery. The production unit passes strict OFF/combined ON
+warnings. Public attribution coordination/admission and bindings remain pending.
+
+Next: finish portfolio blocked attribution and Python/Excel bindings. Preserve
 original RNG dimensions/path indices, private evaluator state, existing costs
 and independent numerical oracles. Every new publication needs its own exact-head
 checks. Complete portfolio delivery has no comparative performance acceptance yet.

@@ -252,6 +252,23 @@ The public increment's retained Codacy finding is
 `aad-portfolio-focused-public-codacy-regression-green-01.json` and
 `aad-portfolio-public-codacy-warning-01.json`.
 
+Native blocked group batches reuse the existing private evaluator/recording
+lifecycle and return independent matrix rows. Three new cases and nine existing
+weighted cases pass, including every model column against independent scalar
+batches across tree/compiled, both RNGs and bridge settings. Historical prefix
+and direct aliases, tail zeros, invalid widths, finite capacity recovery and
+outer recording-mode restoration are covered. The production unit passes strict
+OFF/combined ON warnings. The first mixed core/public harness used a public main
+without core parser registration; its two historical core cases failed before
+valuation. The corrected core-main regression passes all 32 affected core/public
+cases; neither a production behavior nor a numerical oracle was changed.
+Evidence: `aad-portfolio-focused-blocked-batch-roots-red-01.json`,
+`aad-portfolio-focused-blocked-batch-boundary-green-04.json` and
+`aad-portfolio-blocked-batch-warning-01.json` and
+`aad-portfolio-focused-blocked-batch-shared-driver-regression-green-02.json`.
+Public attribution/admission and
+final linked/platform/performance acceptance remain required.
+
 ## Summary
 
 Existing scalar/weighted/Jacobian drivers retain their default preparation

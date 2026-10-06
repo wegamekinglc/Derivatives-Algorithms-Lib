@@ -109,7 +109,11 @@ before historical reads. Unselected private evaluators are omitted. Placeholder
 history admits known shapes; actual historical arithmetic and later growth remain
 guarded at runtime. Passive startup admits every selected double evaluator and
 known private vector seed, including the checked BS path. It ignores tape limits.
-Blocked-width admission remains pending.
+`EvaluatePortfolioJacobianBatch` now reuses the weighted group recording and
+private evaluator lifecycle with fixed-width independent output roots. It owns
+full model/private-constant gradient matrices, leaves tail lanes zero and reports
+actual scenario/evaluation/reversal work. Weights do not scale attribution rows.
+Blocked-width admission and public attribution coordination remain pending.
 
 ## Valuation surfaces
 

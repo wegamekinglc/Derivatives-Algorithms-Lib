@@ -8,7 +8,9 @@ validates selection and numeric payload before history/tasks. Native weighted
 startup recording/scratch admission and aggregate runtime guards are now locally
 verified. Owning public C++ weighted results and passive shared execution are
 implemented and locally verified against independent single-script calls for
-all six families. Portfolio blocked attribution and bindings remain pending.
+all six families. Native blocked group batches now pass independent model/private
+risk, historical prefix, tail-lane and failure-recovery checks. Public attribution
+coordination, blocked-width admission and bindings remain pending.
 Delivery starts from merged PR #484, commit `1c9273c9`, in open PR
 [#487](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/487).
 

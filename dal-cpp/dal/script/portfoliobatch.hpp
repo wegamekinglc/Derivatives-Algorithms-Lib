@@ -24,19 +24,22 @@ namespace Dal::Script {
             double weight_;
         };
 
-        struct PortfolioWeightedBatchResult_ {
+        template <class G_> struct PortfolioBatchResult_ {
             double weightedSum_ = 0.0;
             Vector_<double> componentSums_;
-            Vector_<double> modelGradientSums_;
+            G_ modelGradientSums_;
             Vector_<size_t> tradePositions_;
-            Vector_<Vector_<double>> constantGradientSums_;
+            Vector_<G_> constantGradientSums_;
             size_t generatedScenarios_ = 0;
             size_t evaluatorCalls_ = 0;
             size_t suffixReversals_ = 0;
             size_t prefixReversals_ = 0;
 
-            explicit PortfolioWeightedBatchResult_(size_t components) : componentSums_(components, 0.0) {}
+            explicit PortfolioBatchResult_(size_t components) : componentSums_(components, 0.0) {}
         };
+
+        using PortfolioWeightedBatchResult_ = PortfolioBatchResult_<Vector_<double>>;
+        using PortfolioJacobianBatchResult_ = PortfolioBatchResult_<Matrix_<double>>;
 
         [[nodiscard]] PortfolioWeightedBatchResult_ EvaluatePortfolioWeightedBatch(const PreparedPortfolio_& portfolio,
                                                                                    size_t group,
@@ -45,7 +48,16 @@ namespace Dal::Script {
                                                                                    BufferCapacityBudget_* scratch = nullptr,
                                                                                    AAD::TapeCapacityBudget_* tape = nullptr);
 
+        [[nodiscard]] PortfolioJacobianBatchResult_ EvaluatePortfolioJacobianBatch(const PreparedPortfolio_& portfolio,
+                                                                                   size_t group,
+                                                                                   const PathBatch_& batch,
+                                                                                   const Vector_<PortfolioBatchOutput_>& outputs,
+                                                                                   size_t width,
+                                                                                   BufferCapacityBudget_* scratch = nullptr,
+                                                                                   AAD::TapeCapacityBudget_* tape = nullptr);
+
         [[nodiscard]] size_t PortfolioWeightedWorkerFixedBytes(bool compiled, size_t trades, bool native = true, bool checkedPaths = false);
+        [[nodiscard]] size_t PortfolioJacobianWorkerFixedBytes(bool compiled, size_t trades);
 
         void AdmitPortfolioWeightedWorker(const Vector_<const PreparedScript_*>& trades,
                                           const Handle_<ModelData_>& model,

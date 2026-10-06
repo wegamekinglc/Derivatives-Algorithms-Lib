@@ -107,6 +107,126 @@ TEST(PortfolioBatchTest, TestSharedModelAndPrivateConstantsMatchOwnershipOracle)
     }
 }
 
+TEST(PortfolioBatchTest, TestBlockedRootsPreservePrivateAliasesSharedInputsAndZeroTailLanes) {
+    const Handle_<ModelData_> model(new BSModelData_("", 100.0, 0.0));
+    const Handle_<ScriptPortfolioData_> data(new ScriptPortfolioData_(
+        "", {{"A", Trade(5.0, "a = X pay PAYS 2 * SPOT() + X"), model}, {"B", Trade(7.0, "a = X pay PAYS 3 * SPOT() + X"), model}}));
+    for (const bool compiled : {false, true}) {
+        auto simulation = MonteCarloSettings_();
+        simulation.enableAad_ = true;
+        simulation.compiled_ = compiled;
+        const auto portfolio = Dal::Script::Detail::PrepareScriptPortfolio(data, 17, Valuation(), simulation);
+        const Vector_<Dal::Script::Detail::PortfolioBatchOutput_> outputs{Payoff(portfolio, 1, 1.0), NamedOutput(portfolio, 0, "a", 1.0),
+                                                                          Payoff(portfolio, 0, 1.0)};
+        for (const size_t width : {3, 4}) {
+            const auto result = Dal::Script::Detail::EvaluatePortfolioJacobianBatch(portfolio, 0, {0, 17}, outputs, width);
+            const auto first = IndependentBatch(portfolio, 0, {0, 17});
+            const auto second = IndependentBatch(portfolio, 1, {0, 17});
+            ASSERT_EQ(result.componentSums_, Vector_<double>({second.aggregated_, 5.0 * 17, first.aggregated_}));
+            ASSERT_DOUBLE_EQ(result.componentSums_[0] / 17, 307.0);
+            ASSERT_DOUBLE_EQ(result.componentSums_[2] / 17, 205.0);
+            ASSERT_EQ(result.tradePositions_, Vector_<size_t>({0, 1}));
+            ASSERT_EQ(result.modelGradientSums_.Rows(), static_cast<int>(width));
+            ASSERT_EQ(result.modelGradientSums_.Cols(), 4);
+            ASSERT_EQ(result.constantGradientSums_.size(), 2);
+            ASSERT_DOUBLE_EQ(result.modelGradientSums_(0, 0), 3.0 * 17);
+            ASSERT_DOUBLE_EQ(result.modelGradientSums_(1, 0), 0.0);
+            ASSERT_DOUBLE_EQ(result.modelGradientSums_(2, 0), 2.0 * 17);
+            ASSERT_DOUBLE_EQ(result.constantGradientSums_[0](0, 0), 0.0);
+            ASSERT_DOUBLE_EQ(result.constantGradientSums_[0](1, 0), 17.0);
+            ASSERT_DOUBLE_EQ(result.constantGradientSums_[0](2, 0), 17.0);
+            ASSERT_DOUBLE_EQ(result.constantGradientSums_[1](0, 0), 17.0);
+            ASSERT_DOUBLE_EQ(result.constantGradientSums_[1](1, 0), 0.0);
+            ASSERT_DOUBLE_EQ(result.constantGradientSums_[1](2, 0), 0.0);
+            if (width == 4) {
+                for (int column = 0; column < 4; ++column)
+                    ASSERT_DOUBLE_EQ(result.modelGradientSums_(3, column), 0.0);
+                ASSERT_DOUBLE_EQ(result.constantGradientSums_[0](3, 0), 0.0);
+                ASSERT_DOUBLE_EQ(result.constantGradientSums_[1](3, 0), 0.0);
+            }
+            ASSERT_EQ(result.generatedScenarios_, 17);
+            ASSERT_EQ(result.evaluatorCalls_, 34);
+            ASSERT_EQ(result.suffixReversals_, 17);
+            ASSERT_EQ(result.prefixReversals_, 1);
+        }
+    }
+}
+
+TEST(PortfolioBatchTest, TestBlockedAbsolutePathsMatchEveryIndependentModelAndPrivateRisk) {
+    const Handle_<ModelData_> model(new BSModelData_("", 100.0, 0.23, 0.02, 0.01));
+    const Handle_<ScriptPortfolioData_> data(new ScriptPortfolioData_(
+        "", {{"A", Trade(5.0, "pay PAYS MAX(SPOT() - 20 * X, 0)"), model}, {"B", Trade(7.0, "pay PAYS SPOT() * X"), model}}));
+    for (const bool compiled : {false, true})
+        for (const String_& rsg : Vector_<String_>{"sobol", "mrg32"})
+            for (const bool bridge : {false, true}) {
+                auto simulation = MonteCarloSettings_();
+                simulation.enableAad_ = true;
+                simulation.compiled_ = compiled;
+                simulation.rsg_ = rsg;
+                simulation.useBb_ = bridge;
+                const auto portfolio = Dal::Script::Detail::PrepareScriptPortfolio(data, 257, Valuation(), simulation);
+                const auto first = IndependentBatch(portfolio, 0, {13, 37});
+                const auto second = IndependentBatch(portfolio, 1, {13, 37});
+                const auto result = Dal::Script::Detail::EvaluatePortfolioJacobianBatch(portfolio, 0, {13, 37},
+                                                                                        {Payoff(portfolio, 0, 1.0), Payoff(portfolio, 1, 1.0)}, 3);
+                ASSERT_EQ(result.componentSums_, Vector_<double>({first.aggregated_, second.aggregated_}));
+                for (int column = 0; column < 4; ++column) {
+                    ASSERT_NEAR(result.modelGradientSums_(0, column) / 257, first.risks_[column], 1e-10);
+                    ASSERT_NEAR(result.modelGradientSums_(1, column) / 257, second.risks_[column], 1e-10);
+                    ASSERT_DOUBLE_EQ(result.modelGradientSums_(2, column), 0.0);
+                }
+                ASSERT_NEAR(result.constantGradientSums_[0](0, 0) / 257, first.risks_[4], 1e-10);
+                ASSERT_DOUBLE_EQ(result.constantGradientSums_[0](1, 0), 0.0);
+                ASSERT_NEAR(result.constantGradientSums_[1](1, 0) / 257, second.risks_[4], 1e-10);
+                ASSERT_DOUBLE_EQ(result.constantGradientSums_[1](0, 0), 0.0);
+                ASSERT_EQ(result.generatedScenarios_, 37);
+                ASSERT_EQ(result.evaluatorCalls_, 74);
+            }
+}
+
+TEST(PortfolioBatchTest, TestBlockedFailureAndCapacitiesRestoreModesAndPriorResults) {
+    const Handle_<ModelData_> model(new BSModelData_("", 1000.0, 0.0));
+    const Handle_<ScriptPortfolioData_> data(
+        new ScriptPortfolioData_("", {{"Good", Trade(5.0, "pay PAYS SPOT() + X"), model}, {"Bad", Trade(7.0, "pay PAYS EXP(SPOT())"), model}}));
+    for (const bool compiled : {false, true}) {
+        auto simulation = MonteCarloSettings_();
+        simulation.enableAad_ = true;
+        simulation.compiled_ = compiled;
+        const auto portfolio = Dal::Script::Detail::PrepareScriptPortfolio(data, 17, Valuation(), simulation);
+        auto mode = AAD::SetNumResultsForAAD(true, 3);
+        const auto good = Payoff(portfolio, 0, 1.0);
+        const auto bad = Payoff(portfolio, 1, 0.0);
+        const auto prior = Dal::Script::Detail::EvaluatePortfolioJacobianBatch(portfolio, 0, {0, 17}, {good}, 1);
+        for (const size_t width : {size_t{0}, AAD::ADJ_SIZE + 1})
+            AssertFailure([&] { static_cast<void>(Dal::Script::Detail::EvaluatePortfolioJacobianBatch(portfolio, 0, {0, 17}, {good}, width)); },
+                          "field=width");
+        AssertFailure([&] { static_cast<void>(Dal::Script::Detail::EvaluatePortfolioJacobianBatch(portfolio, 0, {0, 17}, {good, bad}, 1)); },
+                      "field=width");
+        AssertFailure([&] { static_cast<void>(Dal::Script::Detail::EvaluatePortfolioJacobianBatch(portfolio, 0, {0, 17}, {good, bad}, 2)); },
+                      "trade=Bad");
+        AAD::TapeCapacityBudget_ tapeZero(0);
+        AssertFailure(
+            [&] { static_cast<void>(Dal::Script::Detail::EvaluatePortfolioJacobianBatch(portfolio, 0, {0, 17}, {good}, 2, nullptr, &tapeZero)); },
+            "Tape capacity budget exceeded");
+        BufferCapacityBudget_ scratchZero(0);
+        AssertFailure([&] { static_cast<void>(Dal::Script::Detail::EvaluatePortfolioJacobianBatch(portfolio, 0, {0, 17}, {good}, 2, &scratchZero)); },
+                      "Scratch buffer capacity budget exceeded");
+        ASSERT_TRUE(AAD::Tape()->multi_);
+        ASSERT_EQ(AAD::Tape()->numAdj_, 3);
+        BufferCapacityBudget_ scratch(64 * 1024 * 1024);
+        AAD::TapeCapacityBudget_ tape(256 * 1024 * 1024);
+        const auto recovered = Dal::Script::Detail::EvaluatePortfolioJacobianBatch(portfolio, 0, {0, 17}, {good}, 2, &scratch, &tape);
+        ASSERT_EQ(recovered.componentSums_, prior.componentSums_);
+        ASSERT_DOUBLE_EQ(recovered.modelGradientSums_(0, 0), prior.modelGradientSums_(0, 0));
+        ASSERT_DOUBLE_EQ(recovered.constantGradientSums_[0](0, 0), 17.0);
+        ASSERT_DOUBLE_EQ(recovered.modelGradientSums_(1, 0), 0.0);
+        ASSERT_LE(scratch.PeakCapacityBytes(), scratch.LimitBytes());
+        ASSERT_LE(tape.PeakCapacityBytes(), tape.LimitBytes());
+        ASSERT_TRUE(AAD::Tape()->multi_);
+        ASSERT_EQ(AAD::Tape()->numAdj_, 3);
+    }
+}
+
 TEST(PortfolioBatchTest, TestZeroWeightNonfiniteOutputNamesTradeAndRecordingRecovers) {
     const Handle_<ModelData_> model(new BSModelData_("", 1000.0, 0.0));
     const Handle_<ScriptPortfolioData_> data(new ScriptPortfolioData_(
@@ -209,6 +329,23 @@ TEST(PortfolioBatchTest, TestHistoricalPrefixAndDirectConstantAliasesReverseOnce
         ASSERT_EQ(result.constantGradientSums_[1], Vector_<>({19 * -80.0}));
         ASSERT_EQ(result.suffixReversals_, 19);
         ASSERT_EQ(result.prefixReversals_, 1);
+        const auto block =
+            Dal::Script::Detail::EvaluatePortfolioJacobianBatch(portfolio, 0, {0, 19},
+                                                                {Payoff(portfolio, 1, -1.0), NamedOutput(portfolio, 0, "alias2", 1.0),
+                                                                 NamedOutput(portfolio, 0, "prefix", 1.0), NamedOutput(portfolio, 0, "alias", 1.0)},
+                                                                4);
+        ASSERT_EQ(block.componentSums_, result.componentSums_);
+        ASSERT_DOUBLE_EQ(block.modelGradientSums_(0, 0) / 19, 1.0);
+        ASSERT_DOUBLE_EQ(block.modelGradientSums_(1, 0), 0.0);
+        ASSERT_DOUBLE_EQ(block.modelGradientSums_(2, 0), 0.0);
+        ASSERT_DOUBLE_EQ(block.modelGradientSums_(3, 0), 0.0);
+        ASSERT_DOUBLE_EQ(block.constantGradientSums_[0](0, 0), 0.0);
+        ASSERT_DOUBLE_EQ(block.constantGradientSums_[0](1, 0), 19.0);
+        ASSERT_DOUBLE_EQ(block.constantGradientSums_[0](2, 0), 19 * 80.0);
+        ASSERT_DOUBLE_EQ(block.constantGradientSums_[0](3, 0), 19.0);
+        ASSERT_DOUBLE_EQ(block.constantGradientSums_[1](0, 0), 19 * 80.0);
+        ASSERT_EQ(block.suffixReversals_, 19);
+        ASSERT_EQ(block.prefixReversals_, 1);
     }
 }
 
