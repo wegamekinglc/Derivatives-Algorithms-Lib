@@ -17,11 +17,12 @@ endif()
 
 add_executable(dal_installed_consumer main.cpp)
 add_executable(dal_installed_aad_consumer native.cpp)
+add_executable(dal_installed_buffer_consumer buffers.cpp)
 target_compile_definitions(dal_installed_aad_consumer PRIVATE
     EXPECT_DIAGNOSTICS=$<BOOL:${DAL_CPP_AAD_LIFETIME_DIAGNOSTICS}>
     EXPECT_PROFILING=$<BOOL:${DAL_CPP_AAD_PROFILING}>)
 
-foreach(consumer IN ITEMS dal_installed_consumer dal_installed_aad_consumer)
+foreach(consumer IN ITEMS dal_installed_consumer dal_installed_aad_consumer dal_installed_buffer_consumer)
     dal_cpp_apply_msvc_runtime(${consumer})
     target_link_libraries(${consumer} PRIVATE DAL::public)
     if(MSVC)
@@ -36,3 +37,4 @@ endforeach()
 enable_testing()
 add_test(NAME dal_installed_consumer COMMAND dal_installed_consumer)
 add_test(NAME dal_installed_aad_consumer COMMAND dal_installed_aad_consumer)
+add_test(NAME dal_installed_buffer_consumer COMMAND dal_installed_buffer_consumer)

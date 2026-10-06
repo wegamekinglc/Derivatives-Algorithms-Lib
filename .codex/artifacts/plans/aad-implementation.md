@@ -710,6 +710,13 @@ vector roots with explicit tail seed clearing. Fifty focused cases pass per
 OFF/combined ASan/UBSan configuration; nine new capacity/root cases also pass
 combined-diagnostic TSan. The full producer and its performance/consumer gates
 remain open; see the [capacity/root review](../reviews/aad-blocked-capacity-roots.md).
+Scratch allocation now admits actual vector/matrix/nested/packed-boolean capacity
+and heap model/component payload before allocation, including old/new overlap.
+Ninety-four focused cases pass in OFF, combined ASan/UBSan and combined TSan.
+The fresh OFF core/public shared build and all three installed consumers pass;
+the buffer consumer checks caller-scope/library-origin allocation enforcement.
+These are local increment checks, not full producer or performance acceptance;
+see the [scratch review](../reviews/aad-blocked-scratch-capacity.md).
 No full F02 completion is inferred; blocked Jacobians, recording budgets and
 portfolios also remain.
 

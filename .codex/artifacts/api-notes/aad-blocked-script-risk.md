@@ -91,6 +91,17 @@ must include conservative cleanup replacement capacity.
 path-local root materialization and explicitly clears padded seed lanes.
 See the [capacity/root review](../reviews/aad-blocked-capacity-roots.md).
 
-Choose result construction and numeric scratch reservation ownership from the
-model/path/evaluator allocation-site inventory. Public request fields and the
-full replay/result/consumer interfaces remain unimplemented.
+`BufferCapacityBudget_` and `BufferCapacityScope_` admit actual tracked `Vector_`
+capacity and model/component heap objects before allocation, with synchronized
+worker/coordinator accounting and transient growth overlap. Fixed evaluator
+payload is reserved before construction. Text and exception bookkeeping are
+excluded. Fresh request buffers must be destroyed while their budget is attached;
+cross-request cached-buffer admission remains deferred. The installed consumer
+checks allocations originating inside the shared library under a caller scope.
+The allocator changes underlying standard-library iterator types, so consumers
+must rebuild and use DAL iterator aliases. See the
+[scratch review](../reviews/aad-blocked-scratch-capacity.md).
+
+The producer still needs result construction, fixed-payload preflight and
+reservation ownership. Public request fields and the full replay/result/consumer
+interfaces remain unimplemented.
