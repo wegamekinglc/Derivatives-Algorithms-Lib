@@ -1,7 +1,8 @@
 # Compatible portfolio API decisions
 
 Status: sealed C++ portfolio construction and coordinate inspection exist.
-Internal whole-request preparation also exists. Valuation and binding surfaces
+Internal whole-request preparation and shared weighted group batches also exist.
+Whole-portfolio valuation and binding surfaces
 below remain proposals for the active
 [portfolio specification](../specs/aad-compatible-script-portfolio.md).
 
@@ -50,6 +51,17 @@ with the path count and compatible groups. These are internal integration
 surfaces. The callback establishes where budget policy must run; it does not
 enforce aggregate recording/scratch limits. No Monte Carlo portfolio result or
 worker scheduling is exposed by these preparation functions.
+
+`Script::Detail::EvaluatePortfolioWeightedBatch` accepts one compatible group,
+an original absolute path range and validated global output coordinates with
+passive weights. It generates one scenario per path, evaluates only selected
+trades with private state and reverses one weighted root. Its owning passive
+result contains raw component/objective/model/private-constant sums and actual
+scenario/evaluator/suffix/prefix counters. The model is registered once; private
+constants remain separate leaves. Each batch reverses its retained historical
+prefix once. It validates finite selected values even at zero weight and restores
+recording/mode state after failures. This is an internal execution primitive,
+without aggregate budgets, selected-input projection or whole-portfolio results.
 
 ## Proposed valuation surfaces
 

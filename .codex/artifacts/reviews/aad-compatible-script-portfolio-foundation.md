@@ -1,6 +1,6 @@
-# Compatible portfolio foundation and preparation review
+# Compatible portfolio ownership, preparation and weighted batch review
 
-Verdict: **Comment Only**. The foundation can be published in draft #487;
+Verdict: **Comment Only**. Implemented increments can be published in open #487;
 the complete portfolio PR is not ready for acceptance or merge.
 
 ## Findings
@@ -21,7 +21,12 @@ the unused generic export branch. Expired trades still skip model/history/
 admission, legacy results retain return-value optimization, and every delayed
 payment and LSM feature guard remains. Thirty-five affected core cases and six
 public cases pass after this refactor; strict OFF/combined ON syntax checks pass.
-Exact-head Codacy acceptance must be recaptured after publishing this repair.
+Repair head `e9931d3a` passes Codacy with zero annotations and has no unresolved
+review threads. Windows CI passes. After one failed-job retry, three Linux builds
+and the Mac x86 wheel still fail during Eigen checkout before compilation;
+aggregate gates consequently fail/skip. The retained exact-head audit distinguishes
+these upstream download failures from source acceptance. Another failed-only retry
+is running; no passing jobs or full local suite were repeated for this outage.
 
 The remaining execution requirements are material acceptance gaps:
 
@@ -30,16 +35,19 @@ The remaining execution requirements are material acceptance gaps:
   original registry and meshes, freezes one date/history and constructs the
   passive groups. Six exact factory types admit full-contract grouping; their
   actual shared-path mathematical acceptance remains pending.
-- Portfolio weighted/Jacobian execution, shared model leaves, cross-group risk
-  accumulation and real scenario/evaluator counters remain unimplemented.
+- Shared weighted batches now register model leaves once, retain private trade
+  leaves/history/evaluators and measure actual scenario/evaluator/reverse calls.
+  Whole-portfolio weighted/Jacobian execution, cross-group risk accumulation and
+  selected-input validation remain pending.
 - Whole-request date/history freezing and an admission callback are implemented.
   Actual aggregate startup budget policy, runtime capacity guards and worker
   recovery remain unimplemented for portfolios.
 - Python/Excel construction and valuation, installed consumers and actual
   Windows generated portfolio exports remain pending.
 
-These gaps must be closed before changing the PR from draft or claiming F02
-portfolio completion. Passing metadata/group tests cannot substitute for the
+The user moved #487 out of draft on 2026-10-06; preserve that state. These gaps
+must be closed before merge or claiming F02 portfolio completion.
+Passing metadata/group tests cannot substitute for the
 independent finite-sample and derivative oracles in the active specification.
 
 ## Open Questions
@@ -82,6 +90,17 @@ proof is unavailable. Retain private evaluator/history state for every trade.
 - Broader local suites and the unchanged 160-case paired performance gate are
   reserved for the stable delivery head. Exact publication-head CI/Codacy and
   paginated review acceptance must be recaptured for each new publication head.
+- Nine new weighted batch cases pass, covering both evaluators, Sobol/MRG32 and
+  Brownian bridge OFF/ON with nonzero volatility and exact independent component
+  sums on absolute paths. The ownership oracle verifies shared spot and private
+  constants; aliases/private vectors and unselected poisonous trades retain
+  independent state. Zero-weight nonfinite outputs, weighted overflow and private
+  evaluation errors preserve context; valid follow-up native/legacy batches pass.
+  Validation precedes recording entry and scalar execution restores an enclosing
+  multi-adjoint mode. Two production error-context RED traces precede their fixes.
+- The new batch unit passes strict OFF and combined lifetime/profiling ON syntax
+  checks. Linked/runtime diagnostic and six-family execution acceptance remain
+  pending; only BS execution is proved by this increment.
 
 Evidence lives under the session evidence root: `aad-portfolio-focused-foundation-green-02.json`,
 `aad-portfolio-warning-clean-01.json` and `aad-portfolio-doc-consumer-01.json`.
@@ -95,6 +114,11 @@ The preparation Codacy repair adds `aad-portfolio-focused-preparation-codacy-gre
 `aad-portfolio-focused-public-preparation-codacy-green-01.json` and
 `aad-portfolio-preparation-warning-clean-codacy-01.json`; the original failure is
 retained in `aad-487-preparation-8db-current-02/summary.json`.
+Batch evidence is `aad-portfolio-focused-batch-behavior-green-04.json` and
+`aad-portfolio-batch-warning-clean-01.json`. The expected error-context failures
+are retained in `aad-portfolio-focused-batch-failure-context-red-01.json` and
+`aad-portfolio-focused-batch-weighted-overflow-red-01.json`. The latest completed
+preparation audit is `aad-487-batch-e993-current-01/summary.json`.
 
 ## Summary
 

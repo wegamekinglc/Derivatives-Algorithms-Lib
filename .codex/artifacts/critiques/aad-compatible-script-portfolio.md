@@ -58,6 +58,14 @@ state, mutation isolation and failure recovery. The six exact factory model
 types admit full-contract grouping; their actual shared-path risk oracles still
 must pass. These tests do not prove scenario reuse or cross-group risk accumulation.
 
+The shared weighted batch increment now proves scenario reuse within a group.
+Nine focused cases cover independent nonzero-volatility batches with original
+absolute paths, private historical vectors and scalar aliases, omitted poisonous
+trades, zero-weight validation, overflow, nested native modes and failure recovery.
+Actual counters verify one scenario and suffix reverse per path and one prefix
+reverse per batch. These BS execution oracles do not close the six-family,
+cross-group scatter, aggregate capacity or worker acceptance gates.
+
 Implement weighted groups before blocked attribution; reuse the accepted
 native root/replay primitives. Avoid speculative hashing, persistent caches or
 automatic width selection in this PR. Keep valuation/binding proposals visibly

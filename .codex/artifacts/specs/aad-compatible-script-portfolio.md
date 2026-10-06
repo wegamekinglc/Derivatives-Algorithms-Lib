@@ -2,9 +2,9 @@
 
 Status: active specification. Sealed C++ ownership, passive coordinate catalogs
 and internal compatibility planning and whole-request preparation are implemented
-and locally verified. Portfolio valuation, actual aggregate budget admission and
-bindings remain unimplemented.
-Delivery starts from merged PR #484, commit `1c9273c9`, in draft PR
+and locally verified. Shared weighted group batches are locally verified;
+whole-portfolio valuation, aggregate budget admission and bindings remain pending.
+Delivery starts from merged PR #484, commit `1c9273c9`, in open PR
 [#487](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/487).
 
 ## Source and problem
@@ -227,7 +227,7 @@ two rounds, ten alternating process samples per side per round, best-of-N and
 4% policy, retaining raw failures and source/binary provenance. Focused tests run
 after each behavior change; broad matrices run once at the delivery boundary or
 when a new failure/coverage gap justifies them. Require exact-head CI, Codacy
-annotations, paginated review audit and a guarded merge. This draft remains
+annotations, paginated review audit and a guarded merge. This PR remains
 unmergeable until behavior, consumers and these gates are accepted.
 
 ## Implementation slices and remaining estimate
@@ -246,8 +246,17 @@ unmergeable until behavior, consumers and these gates are accepted.
    groups from the original owners/meshes. Fourteen new cases verify ownership,
    mutation isolation, source provenance, early rejection and failure recovery.
    This callback is an admission boundary, not an implemented budget policy.
-2. Implement shared weighted group recordings using private evaluators, result
-   scatter, budget admission and recovery oracles. About 1–1.5 person-days.
+2. Shared weighted group recordings now register each model leaf once, retain
+   private constants/history/evaluators and reverse one suffix per path and one
+   prefix per batch. Nine focused cases pass in both evaluators, including the
+   analytic ownership oracle, nonzero-volatility independent absolute-path
+   batches with both RNGs/bridge settings, reordered aliases, private vectors,
+   zero-weight nonfinite outputs, weighted overflow and failure recovery.
+   Actual scenario/evaluator/reverse counters are observed inside their loops.
+   These internal batches return raw passive sums; cross-group scatter, selected
+   input validation, worker scheduling and aggregate budgets remain pending.
+   Strict warning categories pass in OFF and combined ON syntax checks; this
+   does not establish linked/runtime ON acceptance. About 1–1.5 person-days.
 3. Add blocked attribution and owning C++/Python/Excel surfaces with independent
    common-path and generated-export acceptance. About 1.5–2 person-days.
 4. Review, focused repairs, complete performance/platform gates and current-state

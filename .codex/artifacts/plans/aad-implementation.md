@@ -760,7 +760,7 @@ overlapping acceptance work is included once in the integration allowance.
 | P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass       | Merged; final 35/35 checks accepted     | 0                     |
 | F01                     | C++/Python/Excel and complete requirement audit accepted             | Merged; final 35/35 checks accepted     | 0                     |
 | F02 weighted/blocked    | C++/Python/Excel and independent mathematical oracles accepted       | #483/#484 merged; exact-head gates pass | 0                     |
-| F02 portfolio           | Owners/axes/groups and whole preparation verified; execution remains | Draft #487; preparation awaiting CI     | 3–5                   |
+| F02 portfolio           | Preparation and shared weighted batches verified; scatter remains   | Open #487; CI/whole delivery pending    | 3–5                   |
 | P02/P03                 | Worker reuse/block selection/extraction remain                       | Open                                    | 4–7                   |
 | F03                     | Solve, implicit calibration and PDE operators remain                 | Open                                    | 12–20                 |
 | P04/P05                 | Structural sparsity/checkpointing remain                             | Open                                    | 9–15                  |
@@ -1146,7 +1146,7 @@ double curve-knot queries avoid transient weights without changing AAD or
 non-knot behavior. Existing failed measurements remain retained in delivery
 evidence; no thresholds, work counts or numeric oracles were relaxed.
 
-Draft #487 now implements sealed C++ ownership, a passive global coordinate
+Open #487 now implements sealed C++ ownership, a passive global coordinate
 catalog and the internal deterministic compatibility planner. Original handles
 establish owners before exact snapshots; same-named constants remain private.
 Twenty-one new tests and two existing scalar-risk contract tests pass locally,
@@ -1168,8 +1168,24 @@ the shared completion epilogue, 61 targeted core cases and six public cases pass
 including old historical replay, startup budgets and LSM prune/reinitialize
 branches. Both production units pass strict OFF/combined ON syntax checks.
 
-Next: implement shared weighted recordings, cross-group
-gradient accumulation, aggregate capacity guards and blocked attribution.
+Shared weighted group batches are now locally implemented. Nine focused cases
+pass in tree/compiled evaluation, including independent nonzero-volatility
+absolute-path comparisons for Sobol/MRG32 and bridge OFF/ON, private historical
+vectors/direct constant aliases, original-trade error context and failure recovery.
+The model leaves are registered once, private constants remain separate, actual
+counters prove one scenario/suffix reverse per path and one prefix reverse per
+batch, and unselected trades are not evaluated. Strict warning categories pass in
+OFF/combined ON syntax modes; linked/runtime diagnostic acceptance is pending.
+Raw passive batch sums do not constitute whole-portfolio valuation acceptance.
+The user moved #487 out of draft; its open review state is preserved.
+
+Preparation repair head `e9931d3a` passes Codacy with zero annotations and has
+zero unresolved review threads. Windows CI passes. Linux/Mac checkout failures
+remain upstream Eigen download rejection after a failed-only retry; a further
+failed-only retry is running. No passing jobs/full local suites were repeated.
+
+Next: implement cross-group gradient accumulation, parallel batch scheduling,
+selected-input validation, aggregate capacity guards and blocked attribution.
 Portfolio valuation and Python/Excel bindings are not implemented. Preserve
 original RNG dimensions/path indices, private evaluator state, existing costs
 and independent numerical oracles. New preparation code needs its own
