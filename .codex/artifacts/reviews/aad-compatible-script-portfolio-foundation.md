@@ -1,11 +1,12 @@
 # Compatible portfolio ownership, preparation and weighted execution review
 
-Verdict: **Comment Only**. Implemented increments can be published in open #487;
-the complete portfolio PR is not ready for acceptance or merge. Native/passive
+Verdict: **Comment Only**, pending final publication-head checks. Implementation,
+installed consumers and comparative performance are locally accepted. Native/passive
 weighted execution, owning C++ results and startup/runtime budgets are locally
 verified. Native/passive attribution, finite-budget narrowing and failure recovery
 are locally verified. Python and portable Excel surfaces are locally verified.
-Generated Windows runtime and final delivery gates remain open.
+Four actual Windows modes and six expanded sanitizer jobs pass at `9cc9fe0a`.
+The final inlining-repair commit needs fresh delivery gates before merge.
 
 ## Findings
 
@@ -448,9 +449,25 @@ The first complete unchanged-policy performance pass accepts 157 of 160 cases.
 Two one-component scalar cases and passive compiled vanilla MC exceed 4% in
 both rounds. All failed samples are retained. A same-binary diagnostic exhibits
 single-round movements of roughly -10% to +8%; it passes the two-round rule.
-Fixed identical CPU affinity is being investigated without changing workloads,
-sampling counts, thresholds or thread counts. Performance acceptance remains
-open; these observations do not establish absence of a code regression.
+Fixed identical CPU affinity accepts 159/160 original comparisons. A short
+weighted timer also fails identical-binary calibration. One predeclared quiet
+control and one baseline/head confirmation using 64 identical full requests per
+process pass all eight weighted cases, preserving ten alternating process pairs,
+two rounds, four workers and the 4% threshold. Original single-request
+confirmation still fails two compiled weighted cases despite a passing
+same-binary control. Repeated timing alone cannot close this gate. Restoring
+inlining of the two extracted private preparation helpers repairs both failures:
+all eight original weighted and eight scalar cases pass. Fresh relinking proves
+100 accepted gate/curve binaries unchanged. MC accepts 42 cases at four-core
+affinity; two serial calculations pass unchanged workloads with fixed caller
+CPU 0. All 160 cases are accepted within those documented scopes. The repair
+also passes 875 affected C++/Excel and 126 Python cases, strict syntax and
+refreshed installed consumers. Four Windows and six sanitizer runtime matrices
+pass at `9cc9fe0a`; final repair-head acceptance remains required.
+Contaminated repeated-request samples are retained separately, together
+with the unrelated workload's process observations. See the
+[complete performance report](../performance/aad-compatible-script-portfolio.md)
+for all verdicts, retained failures and 130 matched new-entry cost cases.
 
 ## Summary
 
@@ -459,5 +476,6 @@ entry points and allocate no portfolio state. The
 snapshot registry precedes cloning, the passive catalog preserves owner/private
 constant identity, and full semantic grouping retains incompatible trades.
 The active specification remains the complete acceptance boundary. Complete
-Windows binding runtime, installed consumers, final performance/platform
-checks and a fresh publication-head review are required before merge.
+publication-head Windows/sanitizer/platform checks and a fresh review are
+required before merge. Installed consumers and original single-request
+performance acceptance pass; retained failed runs remain available.

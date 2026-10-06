@@ -7,7 +7,12 @@ public C++ weighted/attribution results also exist. Python construction, immutab
 requests/results and both value functions are implemented and locally verified.
 Excel construction, typed requests/results and shared checked getters are
 implemented; affected portable contracts and Windows syntax checks pass locally.
-Final generated-export runtime and delivery acceptance remain required by the active
+The standard installed C++ consumer and 126 affected installed Python cases
+pass. The full OFF suite, all four extended diagnostic configurations, four
+actual Windows modes and six expanded sanitizer jobs pass at `9cc9fe0a`.
+The preparation-inlining repair passes affected functionality and all 160
+comparative cases; its final publication commit needs fresh delivery acceptance
+under the active
 [portfolio specification](../specs/aad-compatible-script-portfolio.md).
 
 ## Current boundary and audience

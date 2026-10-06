@@ -760,14 +760,14 @@ overlapping acceptance work is included once in the integration allowance.
 | P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass    | Merged; final 35/35 checks accepted     | 0                     |
 | F01                     | C++/Python/Excel and complete requirement audit accepted          | Merged; final 35/35 checks accepted     | 0                     |
 | F02 weighted/blocked    | C++/Python/Excel and independent mathematical oracles accepted    | #483/#484 merged; exact-head gates pass | 0                     |
-| F02 portfolio           | C++/Python/Excel surfaces and independent oracles implemented     | Open #487; final acceptance pending     | 1–2                   |
+| F02 portfolio           | C++/Python/Excel, installed consumers and timing repair pass        | Open #487; final CI/review pending       | 0.25–0.5              |
 | P02/P03                 | Worker reuse/block selection/extraction remain                    | Open                                    | 4–7                   |
 | F03                     | Solve, implicit calibration and PDE operators remain              | Open                                    | 12–20                 |
 | P04/P05                 | Structural sparsity/checkpointing remain                          | Open                                    | 9–15                  |
 | F04                     | Second-order implementation/estimator validation remain           | Open                                    | 12–20                 |
 | Final integration/audit | Cross-platform/binding/docs/performance acceptance remains        | Open                                    | 7–11                  |
 
-Remaining total: approximately 45–75 person-days, or 9–15 working weeks,
+Remaining total: approximately 45–74 person-days, or 9–15 working weeks,
 excluding CI queue time and including delivery contingency. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
 effort estimate, not a guaranteed completion date. Re-estimate when review
@@ -1311,15 +1311,33 @@ price/derivative comparison whose four-ULP assertion is invalid for separate
 reductions; repair adds a path-count-scaled machine epsilon bound and an
 independent scalar-risk oracle while retaining exact private risks and all
 capacity/work/history assertions. Fresh sanitizer acceptance remains required.
-The first complete performance run passes 157/160 cases. Three failures and
-same-binary scheduling-noise diagnostics are retained; identical fixed CPU
-affinity is under investigation with the original sampling and 4% policy.
-Performance acceptance and merging remain pending.
+The first complete performance run passes 157/160 cases; fixed affinity accepts
+159/160. Original failures and contaminated measurements are retained. A
+same-binary weighted calibration demonstrates unreliable short-request timing.
+Predeclared quiet confirmation times 64 identical full requests per process,
+preserving the workload, ten alternating pairs, two rounds and 4% threshold.
+The same-binary control and all eight repeated weighted comparisons pass.
+The final original single-request control passes, but two compiled weighted
+cases fail. Repeated timing alone cannot close this original gate. A preparation
+inlining repair is now applied: both extracted private helpers retain the old
+entry's inlining behavior. All eight original weighted and eight scalar cases
+pass; 100 fresh-relinked gate/curve executables are byte-identical to their
+accepted versions. MC accepts 42 cases at original four-core affinity; two
+unchanged serial calculations pass with fixed caller CPU 0. All 160 cases are
+accepted within those explicit scopes. After the repair, 875 affected C++/Excel
+and 126 Python cases pass, as do strict syntax and refreshed installed consumers.
+At `9cc9fe0a`, all 35 checks pass, with zero Codacy annotations and unresolved
+review threads. All four actual Windows modes pass seven new typed/raw and
+registration cases each; all six sanitizer jobs pass all 78 portfolio cases.
+The [portfolio performance report](../performance/aad-compatible-script-portfolio.md)
+retains limitations and all 130 matched new-entry cost cases, including expensive
+one-trade and distinct-owner shapes. Exact-head CI/review and merging remain open.
 
-Next: finish complete-head installed/diagnostic/performance acceptance. Preserve
+Next: publish the measured repair and audit final-head platform/publication acceptance. Preserve
 original RNG dimensions/path indices, private evaluator state, existing costs
 and independent numerical oracles. Every new publication needs its own exact-head
-checks. Complete portfolio delivery has no comparative performance acceptance yet.
-Remaining portfolio work is estimated at 1–2
-person-days; overall remaining effort is approximately 45–75 person-days.
+checks. Publish source and acceptance documentation after the completed matrix,
+then inspect its own exact-head checks before merging. Remaining
+portfolio work is estimated at 0.25–0.5 person-days; overall remaining effort is
+approximately 45–74 person-days. Start P02/P03 in a new PR only after actual merge.
 Stage A is accepted; the full Stage B/C/D goal remains incomplete.

@@ -16,6 +16,16 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-10-07
+
+- **Compatible C++/Python/Excel script portfolio risk** — sealed trade and model
+  ownership preserves shared model and private constant coordinates. Compatible
+  trades share scenarios; incompatible meshes and distinct owners retain separate
+  execution. Weighted objectives and blocked Jacobians return owning risk,
+  capacity and provenance results, with native-empty and passive zero-column
+  execution. See [portfolio APIs](docs/public-api.md#c-weighted-script-portfolios)
+  and [portfolio methodology](docs/methodology/aad.md#sealed-script-portfolio-coordinates).
+
 ## 2026-10-06
 
 - **Budgeted C++/Python/Excel script Jacobians** — ordered output blocks replay a

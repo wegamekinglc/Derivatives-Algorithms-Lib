@@ -100,8 +100,16 @@ risk cases pass through the installed extension. Excel's strict physical trade
 table preserves original owner handles, with checked immutable result getters
 and separate generated wrappers. Four new and 19 existing affected portable risk
 cases pass; MSVC OFF/combined syntax and strict source/header checks pass. Actual
-generated Windows runtime and final linked/runtime diagnostic acceptance remain
-open.
+generated Windows runtime and all six expanded sanitizer jobs pass at
+`9cc9fe0a`. The
+complete OFF suite and all four extended linked/runtime diagnostic modes pass.
+Installed consumers pass. The measured two-helper preparation-inlining repair
+passes original single-request weighted timing and all 160 comparative cases,
+with fixed caller CPU confirmation limited to two serial MC metrics. The
+[performance report](../performance/aad-compatible-script-portfolio.md) retains
+failed/noisy measurements, original-workload repair confirmation and
+130 independent new-entry cost cases. One-trade and distinct-owner overhead
+remains explicit future optimization work; sharing is not a general speed claim.
 
 Implement weighted groups before blocked attribution; reuse the accepted
 native root/replay primitives. Avoid speculative hashing, persistent caches or

@@ -491,7 +491,7 @@ namespace Dal::Script {
             }
         }
 
-        static void
+        static FORCE_INLINE void
         Complete(PreparedScript_* result, ScriptProduct_* writable, AAD::Model_<double>* model, const Handle_<MarketFixingSnapshot_>& snapshot) {
             if (result->AllExpired())
                 return;
@@ -552,12 +552,12 @@ namespace Dal::Script {
         }
 
         template <class F_>
-        static void PlanBeforeHistory(PreparedScript_* result,
-                                      ScriptProduct_* product,
-                                      AAD::Model_<double>* model,
-                                      const Vector_<DelayedPaymentUse_>& delayed,
-                                      const ScriptProductSettings_& contract,
-                                      const F_& beforeHistory) {
+        static FORCE_INLINE void PlanBeforeHistory(PreparedScript_* result,
+                                                   ScriptProduct_* product,
+                                                   AAD::Model_<double>* model,
+                                                   const Vector_<DelayedPaymentUse_>& delayed,
+                                                   const ScriptProductSettings_& contract,
+                                                   const F_& beforeHistory) {
             if (result->AllExpired())
                 return;
             REQUIRE2(model || delayed.empty(), "UnsupportedDelayedPayment: PAYS ... ON requires model-aware preparation", ScriptError_);

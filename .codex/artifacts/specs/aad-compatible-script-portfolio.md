@@ -19,8 +19,16 @@ pass locally. Python ownership/strict requests/results and value functions pass
 construction, immutable requests/results and shared passive getters pass four
 new cases and all 23 affected risk contracts. Fourteen MSVC unit/configuration
 checks and ten strict OFF/combined ON source/header checks pass. The nineteen
-generated exports still require actual Windows runtime acceptance. Final
-installed-consumer, diagnostic, performance and delivery gates remain pending.
+generated exports pass all seven typed/raw/registration cases in all four actual
+Windows modes at `9cc9fe0a`. The complete
+OFF suite passes 2,698 tests; installed C++ and all 126 affected installed Python
+cases pass. All four extended lifetime/profiling configurations pass on the
+published sources. All six expanded sanitizer jobs pass all 78 portfolio cases.
+The private preparation-helper inlining repair passes 875 affected C++/Excel
+cases, 126 Python cases and all 160 comparative cases, including original
+single-request weighted timing. Two serial MC metrics use fixed caller CPU
+confirmation, documented in the performance report. Final-head delivery gates
+remain required.
 Delivery starts from merged PR #484, commit `1c9273c9`, in open PR
 [#487](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/487).
 
@@ -292,13 +300,18 @@ unmergeable until behavior, consumers and these gates are accepted.
    Strict warning categories pass in OFF and combined ON syntax checks; this
    does not establish linked/runtime ON acceptance. The weighted/public C++
    increment is locally implemented; complete publication acceptance is pending.
-3. Add blocked attribution and owning C++/Python/Excel surfaces with independent
-   common-path and generated-export acceptance. About 1.5–2 person-days.
-4. Review, focused repairs, complete performance/platform gates and current-state
-   documentation at a stable head. About 1 person-day.
+3. Blocked attribution and owning C++/Python/Excel surfaces are implemented and
+   independently verified. Installed consumers and complete OFF/extended
+   diagnostic runtime pass. Fourteen MSVC syntax checks and generated wrapper
+   checks and actual four-mode Windows runtime pass at `9cc9fe0a`.
+4. Publish the measured preparation-inlining repair and final documentation,
+   then audit its own exact-head CI/Codacy/review and actual platform runtime
+   before merging. Expanded sanitizer and comparative performance acceptance
+   are complete for the stated source/configuration scopes. Approximately
+   0.25–0.5 person-days, subject to CI queue and any new failures.
 
-Remaining estimate is 2–4 person-days, including uncertainty in complete-head
-platform, installed-consumer and strict performance acceptance. This is
+Remaining estimate is 0.25–0.5 person-days, including uncertainty in final-head
+platform and publication acceptance. This is
 single-developer effort, not a calendar commitment or a merge-acceptance claim.
 
 ## Open implementation decisions
