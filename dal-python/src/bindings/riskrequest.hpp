@@ -45,7 +45,7 @@ namespace Dal::Python {
         return ids;
     }
 
-    inline std::optional<Vector_<>> RequestFactors(const py::handle& value, const RiskRequestContext_& context) {
+    inline std::optional<Vector_<>> RequestNumbers(const py::handle& value, const RiskRequestContext_& context, const char* field) {
         if (value.is_none())
             return std::nullopt;
         Vector_<> factors;
@@ -55,11 +55,41 @@ namespace Dal::Python {
             const double factor = PyFloat_AsDouble(item.ptr());
             if (PyErr_Occurred()) {
                 PyErr_Clear();
-                THROW2(String_(std::string(context.identifier_) + ": report_factors; expected representable floating-point values"), ScriptError_);
+                THROW2(String_(std::string(context.identifier_) + ": " + field + "; expected representable floating-point values"), ScriptError_);
             }
             factors.push_back(factor);
         }
         return factors;
+    }
+
+    inline std::optional<Vector_<>> RequestFactors(const py::handle& value, const RiskRequestContext_& context) {
+        return RequestNumbers(value, context, "report_factors");
+    }
+
+    struct RiskValuationContext_ {
+        const char* function_;
+        const char* requestType_;
+    };
+
+    template <class R_, auto VALUE_>
+    auto EvaluatePythonRisk(const std::shared_ptr<ScriptProductData_>& product,
+                            const std::shared_ptr<ModelData_>& model,
+                            const py::object& numPath,
+                            const py::object& request,
+                            const py::object& valuation,
+                            const py::object& simulation,
+                            const RiskValuationContext_& context) {
+        const int count = PathCount(numPath, context.function_);
+        const Handle_<ScriptProductData_> nativeProduct(product);
+        const Handle_<ModelData_> nativeModel(model);
+        const std::string function(context.function_);
+        const auto requested = SettingsInput<R_>(request, function + "; request", context.requestType_);
+        const auto settings = SettingsInput<ScriptValuationSettings_>(valuation, function + "; valuation", "ScriptValuationSettings_");
+        const auto execution = simulation.is_none()
+                                   ? DefaultRiskMonteCarloSettings()
+                                   : SettingsInput<MonteCarloSettings_>(simulation, function + "; simulation", "MonteCarloSettings_");
+        py::gil_scoped_release release;
+        return VALUE_(nativeProduct, nativeModel, count, requested, settings, execution);
     }
 
     inline size_t RequestUnsigned(const py::handle& value,

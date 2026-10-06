@@ -669,9 +669,17 @@ OFF; seventeen pass with diagnostics/profiling plus ASan/UBSan, including an
 independent sweep-count fixture. Historical aliases, passive result ownership,
 callback mutation, task-drain recovery and common-path component references are
 covered. See the [execution review](../reviews/aad-weighted-execution.md).
-Fixed finite differences, Python/Excel, own-head CI/review and affected paired
-cost acceptance remain open. No full F02 completion is inferred from this C++
-increment; blocked Jacobians, recording budgets and portfolios also remain.
+Python now supplies keyword-only weighted requests, an output-axis query,
+read-only owning results and GIL release after copying native inputs. The frozen
+spot difference passes at step 0.1 and `1e-10` tolerances in its first run.
+179 related Python cases pass OFF and combined diagnostics/profiling, covering
+the new boundary and old scalar/calibration/Dupire request parsers. Standalone
+installed-prefix configuration passes in both modes. See the
+[Python review](../reviews/aad-weighted-python.md), including retained support
+import failures and the explicit initialization repair for isolated CI tests.
+Excel, own-head CI/review and affected paired cost acceptance remain open.
+No full F02 completion is inferred; blocked Jacobians, recording budgets and
+portfolios also remain.
 
 This snapshot distinguishes accepted increments from locally implemented work.
 Estimates are remaining single-developer effort, not promises of calendar time;
@@ -683,7 +691,7 @@ overlapping acceptance work is included once in the integration allowance.
 | Scalar D04              | Accepted C++/Python/Excel                                      | Accepted exact-head checks           | 0                     |
 | P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass | Merged; final 35/35 checks accepted  | 0                     |
 | F01                     | C++/Python/Excel and complete requirement audit accepted       | Merged; final 35/35 checks accepted  | 0                     |
-| F02                     | Weighted C++ root/preflight/batches/results locally verified   | Draft #483; bindings/cost/CI pending | 6–10                  |
+| F02                     | Weighted C++/Python and frozen spot differences locally pass | Draft #483; Excel/cost/CI pending   | 6–10                  |
 | P02/P03                 | Worker reuse/block selection/extraction remain                 | Open                                 | 4–7                   |
 | F03                     | Solve, implicit calibration and PDE operators remain           | Open                                 | 12–20                 |
 | P04/P05                 | Structural sparsity/checkpointing remain                       | Open                                 | 9–15                  |

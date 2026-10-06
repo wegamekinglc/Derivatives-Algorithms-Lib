@@ -1,9 +1,9 @@
 # Weighted prepared-script risk: F02 first delivery
 
 Status: active contract for the new F02 PR, based on merged #480 (`079c9d52`).
-The native weighted root and output/input preflight pass focused OFF and combined
-sanitizer checks; publication CI remains pending. Public weighted valuation and
-three-language delivery are not yet implemented. This specification covers
+The native root, preflight, prepared C++ valuation and Python boundary pass
+focused OFF and combined checks. Excel, cost acceptance and final publication
+CI remain open. This specification covers
 the fixed-weight part of F02; blocked Jacobians, portfolio preparation and the
 complete plan remain separate.
 
@@ -27,7 +27,7 @@ Current source boundaries:
 - `dal-public/src/riskvalue.cpp` validates scalar requests before history/workers,
   checks prepared axes and records actual execution provenance.
 
-Current structured requests reject outputs other than `payoff`. Repeating a
+Scalar structured requests reject outputs other than `payoff`. Repeating a
 valuation for each output and summing gradients repeats forward work. A fixed
 weight vector permits one scalar objective and one reverse per path.
 

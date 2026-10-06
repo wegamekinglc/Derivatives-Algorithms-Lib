@@ -175,6 +175,48 @@ physical units can be unknown. The raw legacy view rejects display collisions.
 The [AAD methodology](../methodology/aad.md#structured-scalar-risk-results)
 describes the retained product/model/history settings and mixed LSM policy risk.
 
+## Weighted script risk
+
+`Product_Get_RiskOutputs(product)` returns detached read-only scalar coordinates
+with `id`, `label` and `slot`. The payoff receiver has ID `payoff`; other scalar
+slots use `output:<ordinal>`. Labels are display text. Vector storage is excluded.
+
+```python
+request = dal.WeightedRiskRequest_(
+    outputs=["output:0", "payoff"], weights=[2.0, -0.5],
+    inputs=["model:0", "model:1"], report_factors=[1.0, 0.01],
+)
+risk = dal.MonteCarlo_ValueWithWeightedRisk(
+    product, model, 2**16, request=request,
+)
+objective = risk.weighted_value
+components = risk.component_means
+gradient = risk.jacobian.to_rows()  # one row in requested input order
+```
+
+`WeightedRiskRequest_` fields are keyword-only: `inputs`, `outputs`, `weights`,
+`report_factors` and `numeric_payload_budget_bytes`. `None` selects the default
+payoff, unit weights and native input set. ID/numeric sequences accept lists or
+tuples; numeric entries require int/float and exclude bool, enum and text.
+Native preflight rejects nonfinite/mismatched weights, empty/repeated/unknown
+outputs, unsupported exercise and fully expired products before history/workers.
+Signed/zero weights are valid; every selected component must remain finite.
+
+The valuation has the scalar entry's keyword-only `request`, `valuation` and
+`simulation` settings and defaults to native AAD. Explicit price-only execution
+uses `MonteCarloSettings_(enable_aad=False)`. Empty native inputs preserve AAD
+smoothing and a `(1, 0)` matrix. Requests/settings are copied before the GIL is
+released for native work.
+
+`weighted_value`, `component_means`, `weights`, `output_axis`, `jacobian`,
+`reported_jacobian`, `input_axis`, `complete_input_axis` and `provenance` are
+read-only owning result properties. Container/matrix getters return independent
+copies, and copy/deepcopy retain the passive result after caller objects die.
+The numeric budget covers `8 * (1 + inputs + 2 * outputs)` bytes: objective,
+raw gradient, component means and weights. Metadata, worker/tape storage,
+source snapshots and detached getter copies are excluded. See the
+[weighted AAD methodology](../methodology/aad.md#weighted-script-risk-results).
+
 ## Dupire quote risk
 
 `DupireCalibration_New(base, inputs, *, name="")` creates a frozen calibration

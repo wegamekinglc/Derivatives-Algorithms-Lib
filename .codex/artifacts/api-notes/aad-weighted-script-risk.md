@@ -37,7 +37,7 @@ Empty/mismatched dimensions, nonfinite weights/components and weighted overflow
 raise `Exception_`. Component failures identify their ordinal. Request-level
 selection/budget errors later use `ScriptError_` with stable output IDs.
 
-## Planned owning boundary
+## Native preflight boundary
 
 The preflight increment fixes these native names in
 `dal/script/weightedrisk.hpp`:
@@ -102,12 +102,42 @@ means and objective value divide accumulated sums by paths exactly once; native
 gradients are copied without another division. No active numbers or checkpoints
 cross this boundary.
 
+## Python weighted boundary
+
+Expose keyword-only `WeightedRiskRequest_(inputs=None, outputs=None, weights=None,
+report_factors=None, numeric_payload_budget_bytes=None)` and
+`MonteCarlo_ValueWithWeightedRisk(product, modelData, num_path, *, request=None,
+valuation=None, simulation=None)`. Use the same native defaults and settings
+parsers as scalar risk. `Product_Get_RiskOutputs(product)` indexes a passive
+product copy and returns detached read-only ID/label/slot coordinates.
+
+The weighted result has `weighted_value`, `component_means`, `weights`,
+`output_axis`, raw/reported two-dimensional Jacobians, selected/complete input
+axes and provenance. All container/matrix getters copy; the result exposes no
+scalar legacy projection. Copy typed inputs before GIL release and call the
+accepted C++ entry once. Shared numeric-list parsing preserves scalar report
+errors and rejects implicit boolean/enum/text conversion for weights. Weight
+dimensions/finiteness and selections are validated by native preflight before
+history or submission. Add an independent analytic fixture, strict parser/error
+matrix, owner-detachment checks and a real Python heartbeat during valuation.
+
+## Frozen Python finite-difference fixture
+
+Before its first measurement, fix the independent spot central-difference
+fixture at spot 100, step 0.1, volatility 0.2, zero rate/dividend, 4096 paths,
+evaluation 2026-01-01 and payment 2027-01-01. Select `a = SPOT()`,
+`b = a * a / 100` and `pay PAYS a + b`, with weights `(2,-1,0.5)`.
+Compare the native model-spot derivative against separately generated passive
+valuations at 99.9 and 100.1 in both evaluator modes. Keep relative and absolute
+tolerances at `1e-10`; no step or tolerance changes after a failed measurement.
+
 ## Alternatives and remaining work
 
 Repeated scalar valuations duplicate forward work. Assigning each selected
 output's seed overwrites aliases and mishandles prefix accumulation. A new vector
 tape layout adds complexity unnecessary for one fixed weighted objective.
 
-Remaining work includes the fixed finite-difference oracle, three-language
-boundaries and affected scalar cost checks. Blocked Jacobians and portfolio
+Python and the frozen spot finite-difference fixture are implemented. Remaining
+work includes Excel, final own-head gates and affected scalar cost checks.
+Blocked Jacobians and portfolio
 timelines remain separate F02 work.

@@ -18,6 +18,8 @@ after documenting the current-state outcome.
   metadata/budget boundary and its remaining execution requirements.
   [C++ execution review](reviews/aad-weighted-execution.md) records shared
   prepared batches, owning results, independent references and open acceptance.
+  [Python review](reviews/aad-weighted-python.md) records strict requests,
+  detached results, GIL behavior, fixed differences and the isolated CI repair.
 - [Native lifetime diagnostic contract](specs/aad-native-lifetime-diagnostics.md)
   and [initial acceptance evidence](perf/aad-native-lifetime-diagnostics.md): optional
   active-number checks, ABI propagation, failure recovery and default performance.

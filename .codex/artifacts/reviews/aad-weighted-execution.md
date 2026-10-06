@@ -77,7 +77,10 @@ for the repair; `aad-weighted-execution-codacy-green-10.log` passes all seventee
 related sanitized cases. `aad-weighted-execution-codacy-local-02.json` compares
 function names/complexity with merged master and confirms all 35 new or more
 complex functions remain at most eight. GCC 14 combined warning checks and
-141-file documentation checks pass. Exact repaired-head Codacy remains required.
+141-file documentation checks pass. Head `e0d1a845` subsequently receives
+successful Codacy with zero issues and annotations. Fresh Linux/MSVC CTest finds
+missing explicit index-parser initialization in the snapshot fixture; see the
+[Python increment review](aad-weighted-python.md) for its independent-test repair.
 
 The shared simulation source is changed, so earlier binary identity/performance
 evidence is not reused as a new verdict. The affected scalar paired comparison
@@ -85,6 +88,7 @@ remains mandatory under the original two-round, ten alternating samples per
 side, minimum-reduction and four-percent policy. New 1/4/16/64-output costs are
 separate from that old-entry gate. No unrelated full local suites are repeated.
 
-Python/Excel boundaries, generated registration, fixed finite differences,
+Excel boundaries, generated registration,
 final own-head CI/Codacy/review and cost acceptance remain open. F02 also retains
 blocked Jacobians, recording-budget work and portfolio integration.
+Python ownership/GIL checks and frozen spot differences now pass in both modes.

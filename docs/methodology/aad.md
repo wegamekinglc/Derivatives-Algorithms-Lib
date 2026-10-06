@@ -804,6 +804,12 @@ native inputs preserve AAD smoothing and the `(1, 0)` shape; disabling AAD
 explicitly selects price-only execution and rejects nonempty risk selection.
 See the [C++ example](../public-api.md#weighted-script-risk).
 
+Python exposes `WeightedRiskRequest_`, `MonteCarlo_ValueWithWeightedRisk` and
+`Product_Get_RiskOutputs`. Typed requests/settings are copied before releasing
+the GIL, and the passive result's matrix/container getters return independent
+copies. The [Python reference](../python/README.md#weighted-script-risk) describes
+the keyword-only entry and read-only properties.
+
 ### Discrete Dupire Calibration Pullback
 
 The C++ functions in `dal/model/dupirerisk.hpp` map numeric local-volatility
