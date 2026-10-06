@@ -867,7 +867,10 @@ variable counts, nested fuzzy stores and historical evaluator shapes. When past
 events exist, vector seed admission conservatively uses the parsed vector
 capacity bounds, including current/replacement seed overlap. A smaller width
 is chosen when needed. These probes evaluate no simulated path and read
-no fixing. History-dependent/control-flow growth remains guarded at allocation
+no fixing. Startup admission divides the remaining scratch budget equally among
+concurrent workers. A previous execution's measured peak depends on scheduling
+and does not guarantee sufficient startup quota for each worker on a later call.
+History-dependent/control-flow growth remains guarded at allocation
 boundaries during replay. Runtime exhaustion drains submitted tasks and returns
 an error identifying the block/output and capacity cause; it publishes no partial
 matrix and does not retry. Earlier completed results remain usable.

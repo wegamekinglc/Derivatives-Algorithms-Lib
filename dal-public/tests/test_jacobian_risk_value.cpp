@@ -206,6 +206,7 @@ TEST(JacobianRiskValueTest, TestHistoricalVectorCapacityRejectsBeforeHistoryAndW
 
 TEST(JacobianRiskValueTest, TestKnownCapacityNarrowsWidthAndKeepsOriginalRequest) {
     InitGlobalData(1);
+    const ScopedJacobianThreads_ threads(1);
     String_ event;
     for (size_t row = 0; row < 15; ++row)
         event += "o" + String_(std::to_string(row)) + " = " + String_(std::to_string(row + 1)) + " * SPOT() ";
