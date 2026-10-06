@@ -7,6 +7,12 @@ verified. Portfolio blocked execution and bindings remain open.
 
 ## Findings
 
+Publication `2338fc7d` reports one Codacy issue: weighted replay complexity
+9 against limit 8. Extracted preparation-mode validation without changing its
+guards, order, tape/passive choice or normalized reductions. Twenty affected
+public result/replay/admission cases and strict OFF/combined ON warnings pass.
+The failed-head audit is retained; fresh repair-head checks are required.
+
 No unresolved correctness or style finding in the implemented foundation after
 the focused fixes. The no-payoff axis query originally accepted `x = 1`; its
 regression test now requires rejection with the original trade ID. Generated
@@ -241,6 +247,10 @@ Final repair evidence is `aad-portfolio-focused-public-weighted-context-final-gr
 `aad-portfolio-public-weighted-context-warning-02.json` and
 `aad-portfolio-public-doc-consumer-01.json`.
 Capacity publication acceptance is `aad-487-aad-487-capacity-e90-current-06/summary.json`.
+The public increment's retained Codacy finding is
+`aad-487-aad-487-public-2338-current-02/summary.json`. Repair evidence is
+`aad-portfolio-focused-public-codacy-regression-green-01.json` and
+`aad-portfolio-public-codacy-warning-01.json`.
 
 ## Summary
 

@@ -1238,6 +1238,12 @@ Across this increment, 58 distinct affected cases pass. Strict OFF/combined ON
 syntax checks, independent headers, actual documented C++ consumer and all 157
 Markdown checks pass. Complete linked/platform/performance acceptance is pending.
 
+The public weighted/passive increment is published at `2338fc7d`. Its first
+audit reports one Codacy replay-complexity finding (9/limit 8), with no unresolved
+review threads and other platform jobs passing or running. Mode validation is
+now extracted with identical guards and execution order; 20 affected cases and
+strict OFF/combined ON warnings pass. Fresh repair-head gates remain required.
+
 Next: implement portfolio blocked attribution and Python/Excel bindings. Preserve
 original RNG dimensions/path indices, private evaluator state, existing costs
 and independent numerical oracles. Every new publication needs its own exact-head

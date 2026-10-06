@@ -29,6 +29,14 @@ namespace Dal::Detail {
             Vector_<int> inputColumns_;
         };
 
+        bool ValidatePreparedMode(const PreparedPortfolio_& portfolio, const Vector_<size_t>& inputs) {
+            const bool native = portfolio.Trades().front().Simulation().enableAad_;
+            REQUIRE2(native || inputs.empty(), "InvalidPortfolioReplay: passive execution cannot select risk inputs; field=inputs", ScriptError_);
+            for (const auto& trade : portfolio.Trades())
+                REQUIRE2(trade.Simulation().enableAad_ == native, "InvalidPortfolioReplay: inconsistent preparation modes", ScriptError_);
+            return native;
+        }
+
         void ValidatePreparedAxes(const PreparedPortfolio_& portfolio, const PortfolioRiskAxes_& axes) {
             for (size_t trade = 0; trade < portfolio.Trades().size(); ++trade) {
                 const auto& prepared = portfolio.Trades()[trade];
@@ -278,10 +286,7 @@ namespace Dal::Detail {
                                                                    const Vector_<size_t>& selectedInputs,
                                                                    Script::Detail::PortfolioCapacityLimits_ limits) {
         const auto threads = ThreadPool_::GetInstance()->NumThreads();
-        const bool native = portfolio.Trades().front().Simulation().enableAad_;
-        REQUIRE2(native || selectedInputs.empty(), "InvalidPortfolioReplay: passive execution cannot select risk inputs; field=inputs", ScriptError_);
-        for (const auto& trade : portfolio.Trades())
-            REQUIRE2(trade.Simulation().enableAad_ == native, "InvalidPortfolioReplay: inconsistent preparation modes", ScriptError_);
+        const bool native = ValidatePreparedMode(portfolio, selectedInputs);
         Script::BatchPlan_ batches(static_cast<size_t>(portfolio.PathCount()), threads);
         const auto cleanup =
             native ? Script::Detail::ReplayExtentProduct(std::min(threads, batches.BatchCount()), AAD::TapeCleanupCapacityBytes()) : 0;
