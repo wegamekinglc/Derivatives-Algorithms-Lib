@@ -1,7 +1,10 @@
 # Compatible native script portfolio risk
 
-Status: active specification; the portfolio behavior below is not implemented.
-Delivery starts from merged PR #484, commit `1c9273c9`, in a separate draft PR.
+Status: active specification. Sealed C++ ownership, passive coordinate catalogs
+and an internal compatibility planner are implemented and locally verified.
+Portfolio valuation, budget admission and bindings remain unimplemented.
+Delivery starts from merged PR #484, commit `1c9273c9`, in draft PR
+[#487](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/487).
 
 ## Source and problem
 
@@ -228,8 +231,11 @@ unmergeable until behavior, consumers and these gates are accepted.
 
 ## Implementation slices and remaining estimate
 
-1. Seal portfolio ownership/axes and passive compatibility groups; establish
-   failing grouping/identity tests. About 0.5–1 person-day.
+1. Sealed ownership/axes and passive compatibility groups are locally complete.
+   Twenty-one new tests cover original-handle identity, serialization, all six
+   model families, every sample field, fixing policies and private scalar/vector
+   history over repeated paths in both evaluators. Two existing single-script
+   risk tests also pass. Platform/performance acceptance remains pending.
 2. Implement private evaluators and shared weighted group recordings, result
    scatter, budget admission and recovery oracles. About 1–1.5 person-days.
 3. Add blocked attribution and owning C++/Python/Excel surfaces with independent
@@ -237,18 +243,24 @@ unmergeable until behavior, consumers and these gates are accepted.
 4. Review, focused repairs, complete performance/platform gates and current-state
    documentation at a stable head. About 1 person-day.
 
-Total estimate remains 4–6 person-days, with uncertainty in model snapshot
-identity and exact sample-definition equivalence. These slices describe work,
-not completed implementation or a calendar commitment.
+Remaining estimate is 3–5 person-days, including uncertainty in whole-request
+history freezing, aggregate capacity admission and binding integration. This is
+single-developer effort, not a calendar commitment or a merge-acceptance claim.
 
 ## Open implementation decisions
 
-- Determine the smallest reusable immutable model snapshot boundary before
-  implementing the owner registry; bindings must not merge distinct original
-  handles after cloning or lose sharing of a repeated handle.
-- Establish grouping equality over every `SampleDef_` field, including ordered
-  index names, discount maturities, Libor definitions and forward maturities;
-  retain conservative separate groups until a field's semantics are proved.
+- Sealing now uses the supported factory's parameter validation and exact JSON
+  round-trip snapshots, with original-handle registration before cloning. Binding
+  construction must preserve these identities before converting its inputs.
+- The full-equality planner compares every `SampleDef_` field, ordered bindings,
+  observation key/value/slot meaning, settings and initialized model dimensions.
+  Its views must originate from one sealed owner registry and absolute path
+  range. The execution producer must establish that provenance and the model
+  family's sharing proof; unproved views remain separate groups by default.
+- Split planning/admission from historical resolution so all trades can admit
+  startup capacity before freezing the union of required history keys once.
+  Preserve the original explicit/global source metadata when using that frozen
+  environment. The existing per-trade admission hook alone cannot supply this.
 - Choose lookup acceleration only after measuring preparation cost. Start with
   deterministic full comparisons; a hash is not a compatibility certificate.
 

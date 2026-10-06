@@ -46,11 +46,18 @@ requirement would reopen a blocker under the approved F02 plan.
 
 ## Minor notes and smaller useful scope
 
-Start with owning identities and a deterministic full-equality group planner.
-Then implement weighted groups before blocked attribution; reuse the accepted
+The first implementation slice now establishes owning identities, passive axes
+and a deterministic full-equality group planner. Local tests exercise distinct
+and repeated owners, all sample fields and private scalar/vector state over
+reused tree/compiled evaluators. The planner consumes views from one sealed
+registry/path range; the producer establishing that contract is still pending.
+These tests do not prove scenario reuse or cross-group risk accumulation.
+
+Implement weighted groups before blocked attribution; reuse the accepted
 native root/replay primitives. Avoid speculative hashing, persistent caches or
-automatic width selection in this PR. Keep all proposed examples visibly marked
-as unimplemented and publish current-state guides only after behavior exists.
+automatic width selection in this PR. Keep valuation/binding proposals visibly
+marked as unimplemented; current-state documentation covers only sealed C++
+construction and passive coordinate inspection.
 
 ## Author questions
 

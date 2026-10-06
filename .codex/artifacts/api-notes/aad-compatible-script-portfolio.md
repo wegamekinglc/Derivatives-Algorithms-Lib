@@ -1,8 +1,8 @@
 # Compatible portfolio API decisions
 
-Status: proposed surfaces for the active
+Status: sealed C++ portfolio construction and coordinate inspection exist.
+Valuation and binding surfaces below remain proposals for the active
 [portfolio specification](../specs/aad-compatible-script-portfolio.md).
-Names and examples below are not callable DAL APIs yet.
 
 ## Current boundary and audience
 
@@ -17,15 +17,25 @@ attribution with shared model inputs. Portfolio callers must be able to inspect
 which trades share scenarios and which execute separately, and match returned
 coordinates to the original trades without relying on display labels.
 
-## Proposed owning surfaces
+## Implemented ownership and coordinates
 
-Use a `ScriptPortfolioData_` storable containing ordered trade IDs, product
+`Script::ScriptPortfolioData_` is a storable containing ordered trade IDs, product
 snapshots, model snapshots and a model-owner registry. An entry repeats an
 explicit model owner when its original model handle repeats. Assign owners
 before copying/cloning; numerical equality cannot collapse distinct owners.
-Freeze product/model execution data when constructing the portfolio. Evaluation
-captures the date and required fixing snapshot independently for each request.
-Reject objects that cannot be frozen using the supported model-data boundary.
+Product/model execution data are frozen at construction. The supported factory
+validates model parameters; exact JSON serialization deep-copies each unique
+owner once and verifies its dynamic type. Unsupported snapshots fail with the
+offending trade ID. Evaluation will separately capture one request date/history.
+
+`ScriptPortfolioRiskAxes` in `dal-public/src/portfoliorisk.hpp` returns
+`PortfolioRiskAxes_`, with read-only `InputAxis`, `OutputAxis`,
+`TradeInputPositions` and `OutputTrades` accessors. Shared model columns precede
+private trade constants. Inspection indexes products without history/date/task
+access; it does not produce valuation or group execution results. See the
+[current C++ example](../../../docs/methodology/aad.md#sealed-script-portfolio-coordinates).
+
+## Proposed valuation surfaces
 
 Proposed C++ entry points take the portfolio and path count first, followed by
 request, valuation and simulation settings. Use separate weighted and attribution
@@ -103,11 +113,11 @@ Do not identify inputs by model/constant label alone. Do not choose a union
 timeline or silently substitute a RNG dimension to improve sharing. Do not expose
 an active model/evaluator handle as the portfolio result.
 
-## Decisions required before implementation
+## Remaining implementation decisions
 
-Confirm the existing model-data snapshot/factory code can deep-freeze every
-accepted family and preserve original-handle ownership. Finalize result metadata
-layout without adding fields or runtime work to old results. Validate strict
+All six accepted families pass snapshot/coordinate tests; execution acceptance
+still requires their independent common-path risk oracles. Finalize result
+metadata layout without adding fields or runtime work to old results. Validate strict
 Python/Excel construction against analogous risk request parsers. Names may be
 adjusted to fit registration conventions before implementation; mathematical
 identities and failure semantics remain controlled by the specification.

@@ -882,6 +882,49 @@ containers own passive values. See the [C++](../public-api.md#budgeted-script-ja
 [Python](../python/README.md#budgeted-script-jacobians) and
 [Excel](../excel/README.md#budgeted-script-jacobians) interfaces.
 
+### Sealed Script Portfolio Coordinates
+
+`Script::ScriptPortfolioData_` in `dal/script/portfolio.hpp` owns an ordered
+trade table with independent product snapshots and immutable model snapshots.
+Model owners are assigned before cloning: repeating the same original model
+handle shares an owner, while two different handles with equal names and values
+retain distinct owners. Trade IDs must be nonempty and unique under DAL's
+case-insensitive string comparison. JSON serialization preserves the owner table.
+
+`ScriptPortfolioRiskAxes` in `dal-public/src/portfoliorisk.hpp` returns an owning
+passive coordinate catalog. All model parameters come first in owner order,
+followed by each trade's private constants. IDs are `model:<owner>:parameter:<p>`
+and `trade:<t>:constant:<c>`; matching constant labels do not merge columns.
+Scalar outputs retain the original local slots and receive IDs such as
+`trade:<t>:payoff` and `trade:<t>:output:<slot>`.
+
+```cpp
+#include <dal-public/src/portfoliorisk.hpp>
+#include <dal/model/blackscholes.hpp>
+
+using namespace Dal;
+using namespace Dal::Script;
+
+const Handle_<ModelData_> model(new BSModelData_("model", 100.0, 0.2));
+const Vector_<Cell_> dates{Cell_("X"), Cell_(Date_(2027, 1, 1))};
+const Handle_<ScriptProductData_> a(
+    new ScriptProductData_("A", dates, {"5", "pay PAYS 2 * SPOT() + X"}));
+const Handle_<ScriptProductData_> b(
+    new ScriptProductData_("B", dates, {"7", "pay PAYS 3 * SPOT() + X"}));
+const Handle_<ScriptPortfolioData_> portfolio(
+    new ScriptPortfolioData_("portfolio", {{"A", a, model}, {"B", b, model}}));
+const auto axes = ScriptPortfolioRiskAxes(portfolio);
+// Four shared Black-Scholes parameters, followed by A.X and B.X.
+const auto& localToGlobal = axes.TradeInputPositions();
+```
+
+`TradeInputPositions()` maps each trade's local model/constant axis to the global
+input positions. `OutputTrades()` maps each output row to its trade position;
+the original user IDs remain available through `portfolio->TradeIds()`.
+Axis inspection parses and indexes the sealed scripts without resolving an
+evaluation date, reading fixings, submitting tasks or performing valuation.
+The catalog retains ordinary numbers and strings after its portfolio is destroyed.
+
 ### Discrete Dupire Calibration Pullback
 
 The C++ functions in `dal/model/dupirerisk.hpp` map numeric local-volatility
