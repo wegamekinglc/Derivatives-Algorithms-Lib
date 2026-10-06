@@ -114,6 +114,31 @@ TEST(ScriptExcelRawTest, TestWeightedRequestGeneratedExportRejectsInvalidPhysica
     }
 }
 
+TEST(ScriptExcelRawTest, TestWeightedValuationGeneratedExportRetainsIntegerPathCount) {
+    Excel::ScriptTestInitialize(1);
+    RawText_ name(L"weighted_integer"), script(L"pay PAYS 5");
+    auto date = Number(60000.0), spot = Number(100.0), zero = Number(0.0), blank = Blank();
+    Output_ product(Call("xl_Product_New", &name.cell_, &date, &script.cell_));
+    Output_ model(Call("xl_BSModelData_New", &name.cell_, &spot, &zero, &zero, &zero));
+    OPER_ paths{};
+    paths.xltype = xltypeInt;
+    paths.val.w = 17;
+    auto range = Multi(&paths, 1, 1);
+    for (const OPER_* input : {&paths, &range}) {
+        Output_ result(Call("xl_MonteCarlo_ValueWithWeightedRisk", product.Scalar(), model.Scalar(), input, &blank, &blank, &blank));
+        ASSERT_EQ(result.Text().find("#Error:"), std::string::npos) << result.Text();
+        Output_ value(Call("xl_WeightedRiskResult_Get_WeightedValue", result.Scalar()));
+        ASSERT_EQ(value.Scalar()->xltype, xltypeNum);
+        ASSERT_DOUBLE_EQ(value.Scalar()->val.num, 5.0);
+        Output_ provenance(Call("xl_WeightedRiskResult_Get_Provenance", result.Scalar()));
+        ASSERT_GE(provenance.value_->val.array.rows, 7);
+        ASSERT_EQ(provenance.value_->val.array.columns, 2);
+        const auto& retained = provenance.value_->val.array.lparray[13];
+        ASSERT_EQ(retained.xltype, xltypeNum);
+        ASSERT_DOUBLE_EQ(retained.val.num, 17.0);
+    }
+}
+
 TEST(ScriptExcelRawTest, TestPhysicalRangeErrorsAndIntegerBooleans) {
     Excel::ScriptTestInitialize(1);
     RawText_ name(L"raw"), key(L"enable_aad"), empty(L"");

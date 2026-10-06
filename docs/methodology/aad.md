@@ -795,6 +795,8 @@ contains its mean gradient. Native gradients are not divided again during
 projection. `ReportedJacobian()` applies selected input factors to a detached
 copy. The complete input axis and actual preparation provenance are retained.
 The result owns all these passive values and exposes no recording state.
+Nonfinite projection errors identify the weighted objective's ordered component
+IDs and weights; risk errors also identify the selected input coordinate.
 
 The exact retained numeric budget is
 `sizeof(double) * (1 + n + 2 * components)`: objective value, raw gradient,

@@ -683,8 +683,13 @@ scalar/calibration/Dupire consumers pass: 25 relevant tests in each OFF/combined
 mode, with focused ASan/UBSan in combined. Twelve registrations generate 24
 files without drift; numeric/boolean/range guards precede corresponding
 generated conversions. See the [Excel review](../reviews/aad-weighted-excel.md).
-Fresh Windows/raw consumer acceptance, own-head CI/review and affected paired
-cost acceptance remain open.
+At `eb2be051`, all four Windows/raw configurations and 35 CI/Codacy checks
+pass, with zero Codacy issues/annotations. All 52 affected scalar performance
+cases pass the unchanged paired policy; 1/4/16/64-output costs and diagnostic
+census are retained separately. Copilot then identifies weighted projection
+identity and integer Excel conversion repairs. New-head regression, CI and
+review acceptance for those repairs remain required; the preceding acceptance
+is complete rather than being counted as open work again.
 No full F02 completion is inferred; blocked Jacobians, recording budgets and
 portfolios also remain.
 
@@ -692,18 +697,18 @@ This snapshot distinguishes accepted increments from locally implemented work.
 Estimates are remaining single-developer effort, not promises of calendar time;
 overlapping acceptance work is included once in the integration allowance.
 
-| Work item               | Implementation/local verification                              | Publication/CI                       | Remaining person-days |
-|-------------------------|----------------------------------------------------------------|--------------------------------------|-----------------------|
-| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                  | Accepted exact-head checks           | 0                     |
-| Scalar D04              | Accepted C++/Python/Excel                                      | Accepted exact-head checks           | 0                     |
-| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass | Merged; final 35/35 checks accepted  | 0                     |
-| F01                     | C++/Python/Excel and complete requirement audit accepted       | Merged; final 35/35 checks accepted  | 0                     |
-| F02                     | Weighted C++/Python/Excel and frozen differences locally pass | Draft #483; Windows/cost/CI pending | 6–10                  |
-| P02/P03                 | Worker reuse/block selection/extraction remain                 | Open                                 | 4–7                   |
-| F03                     | Solve, implicit calibration and PDE operators remain           | Open                                 | 12–20                 |
-| P04/P05                 | Structural sparsity/checkpointing remain                       | Open                                 | 9–15                  |
-| F04                     | Second-order implementation/estimator validation remain        | Open                                 | 12–20                 |
-| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains     | Open                                 | 7–11                  |
+| Work item               | Implementation/local verification                                              | Publication/CI                      | Remaining person-days |
+|-------------------------|--------------------------------------------------------------------------------|-------------------------------------|-----------------------|
+| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                                  | Accepted exact-head checks          | 0                     |
+| Scalar D04              | Accepted C++/Python/Excel                                                      | Accepted exact-head checks          | 0                     |
+| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass                 | Merged; final 35/35 checks accepted | 0                     |
+| F01                     | C++/Python/Excel and complete requirement audit accepted                       | Merged; final 35/35 checks accepted | 0                     |
+| F02                     | Weighted subset and prior Windows/cost/CI accepted; review repairs in progress | #483; repair-head CI/review pending | 6–10                  |
+| P02/P03                 | Worker reuse/block selection/extraction remain                                 | Open                                | 4–7                   |
+| F03                     | Solve, implicit calibration and PDE operators remain                           | Open                                | 12–20                 |
+| P04/P05                 | Structural sparsity/checkpointing remain                                       | Open                                | 9–15                  |
+| F04                     | Second-order implementation/estimator validation remain                        | Open                                | 12–20                 |
+| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains                     | Open                                | 7–11                  |
 
 Remaining total: approximately 50–83 person-days, or 10–17 working weeks,
 excluding CI queue time and including delivery contingency. F01 is merged;

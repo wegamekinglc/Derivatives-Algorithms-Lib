@@ -80,6 +80,8 @@ namespace Dal::Script {
                     const RiskResultProvenance_& provenance);
         friend RiskResult_
         ProjectMonteCarloRiskResult(const SimResults_&, int, const Vector_<RiskCoordinate_>&, const RiskRequest_&, const RiskResultProvenance_&);
+        friend RiskResult_ ProjectMonteCarloObjectiveRiskResult(
+            const SimResults_&, int, const Vector_<RiskCoordinate_>&, const RiskRequest_&, const RiskResultProvenance_&, const char*);
 
     public:
         [[nodiscard]] const Vector_<String_>& OutputIds() const { return outputIds_; }
@@ -99,4 +101,10 @@ namespace Dal::Script {
                                                           const Vector_<RiskCoordinate_>& completeAxis,
                                                           const RiskRequest_& request,
                                                           const RiskResultProvenance_& provenance);
+    [[nodiscard]] RiskResult_ ProjectMonteCarloObjectiveRiskResult(const SimResults_& source,
+                                                                   int paths,
+                                                                   const Vector_<RiskCoordinate_>& completeAxis,
+                                                                   const RiskRequest_& request,
+                                                                   const RiskResultProvenance_& provenance,
+                                                                   const char* objective);
 } // namespace Dal::Script

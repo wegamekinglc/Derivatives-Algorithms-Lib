@@ -1,7 +1,9 @@
 # F02 weighted Python boundary
 
-Verdict: ready for draft publication. Excel, affected scalar paired costs,
-1/4/16/64-component measurements and final exact-head gates remain open.
+Verdict: stage evidence accepted at `eb2be051`, including Excel, affected scalar
+paired costs and 1/4/16/64-component measurements. Current
+[publication review repairs](aad-weighted-review-repairs.md) supersede this
+stage's remaining-acceptance notes.
 This increment does not complete F02.
 
 ## Behavior and design

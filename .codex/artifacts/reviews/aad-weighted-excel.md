@@ -1,8 +1,9 @@
 # F02 weighted Excel boundary
 
-Verdict: ready for draft publication. Fresh Windows/raw consumer acceptance,
-affected scalar paired performance, component-cost measurements and final
-exact-head gates remain required. Weighted VJP does not complete F02.
+Verdict: stage evidence accepted at `eb2be051`, including Windows/raw,
+affected scalar paired performance and component-cost measurements. Current
+[publication review repairs](aad-weighted-review-repairs.md) supersede this
+stage's remaining-acceptance notes. Weighted VJP does not complete F02.
 
 ## Behavior and design
 

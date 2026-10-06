@@ -22,6 +22,8 @@ after documenting the current-state outcome.
   detached results, GIL behavior, fixed differences and the isolated CI repair.
   [Excel review](reviews/aad-weighted-excel.md) records immutable handles,
   shared result tables, generated parity and focused sanitizer evidence.
+  [Publication review repairs](reviews/aad-weighted-review-repairs.md) records
+  completed predecessor acceptance and the current four-thread repair gate.
 - [Native lifetime diagnostic contract](specs/aad-native-lifetime-diagnostics.md)
   and [initial acceptance evidence](perf/aad-native-lifetime-diagnostics.md): optional
   active-number checks, ABI propagation, failure recovery and default performance.

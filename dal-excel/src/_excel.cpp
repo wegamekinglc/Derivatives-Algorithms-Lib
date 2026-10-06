@@ -729,6 +729,7 @@ namespace Dal {
     double Excel::ToDouble(const OPER_* src) {
         switch (src->xltype) {
         case xltypeInt:
+            return static_cast<double>(src->val.w);
         case xltypeNum:
             return src->val.num;
         case xltypeMulti:

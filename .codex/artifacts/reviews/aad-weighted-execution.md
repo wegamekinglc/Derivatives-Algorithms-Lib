@@ -1,7 +1,9 @@
 # F02 prepared weighted C++ valuation
 
-Verdict: Ready for draft publication. Binding, finite-difference, performance and
-exact-head CI acceptance remain open; this does not complete F02.
+Verdict: stage evidence accepted at `eb2be051`, including bindings, fixed
+differences and performance. Current
+[publication review repairs](aad-weighted-review-repairs.md) supersede this
+stage's remaining-acceptance notes; this does not complete F02.
 
 `ValueByMonteCarloWithWeightedRisk` copies caller inputs before any history
 callback, validates output/input choices and the full weighted numeric budget,

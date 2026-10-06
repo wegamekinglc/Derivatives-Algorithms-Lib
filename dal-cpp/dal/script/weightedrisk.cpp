@@ -7,6 +7,7 @@
 #include <limits>
 #include <map>
 #include <set>
+#include <sstream>
 #include <tuple>
 #include <utility>
 
@@ -143,7 +144,18 @@ namespace Dal::Script {
                  ScriptError_);
         REQUIRE2(provenance.method_ == (plan.EnableAad() ? "NativeAAD" : "PriceOnly"),
                  "InvalidWeightedRiskResult: execution method differs from plan", ScriptError_);
-        auto objective = ProjectMonteCarloRiskResult(source, paths, plan.CompleteInputAxis(), plan.InputRequest(), provenance);
+        std::ostringstream identity;
+        identity.precision(std::numeric_limits<double>::max_digits10);
+        identity << "weighted[";
+        for (size_t component = 0; component < plan.OutputAxis().size(); ++component) {
+            if (component)
+                identity << ';';
+            identity << plan.OutputAxis()[component].id_ << '=' << plan.Weights()[component];
+        }
+        identity << ']';
+        const auto context = identity.str();
+        auto objective =
+            ProjectMonteCarloObjectiveRiskResult(source, paths, plan.CompleteInputAxis(), plan.InputRequest(), provenance, context.c_str());
         Vector_<double> means(componentSums.size());
         for (size_t component = 0; component < componentSums.size(); ++component) {
             means[component] = componentSums[component] / static_cast<double>(paths);

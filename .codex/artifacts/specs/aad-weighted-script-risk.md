@@ -2,8 +2,11 @@
 
 Status: active contract for the new F02 PR, based on merged #480 (`079c9d52`).
 The native root, preflight, prepared C++ valuation and Python/Excel boundaries
-pass focused OFF and combined checks. Fresh Windows/raw consumer checks,
-cost acceptance and final publication CI remain open. This specification covers
+pass focused OFF and combined checks. At `eb2be051`, all four Windows/raw
+configurations, all 52 affected scalar cost cases and all 35 CI/Codacy checks
+pass. Subsequent Copilot review identifies projection identity and Excel integer
+conversion repairs; their new-head regression checks and final review/CI gate
+remain required. This specification covers
 the fixed-weight part of F02; blocked Jacobians, portfolio preparation and the
 complete plan remain separate.
 

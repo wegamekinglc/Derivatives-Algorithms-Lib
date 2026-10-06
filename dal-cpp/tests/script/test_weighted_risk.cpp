@@ -6,6 +6,7 @@
 
 #include <limits>
 
+#include <dal/script/simulation.hpp>
 #include <dal/script/weightedrisk.hpp>
 
 using namespace Dal;
@@ -24,6 +25,36 @@ namespace {
                 {"constant:0", "strike", "constant", 0, 3.0, "script-number", std::nullopt, 1.0}};
     }
 } // namespace
+
+TEST(WeightedRiskPlanTest, TestProjectionErrorsRetainObjectiveComponentsWeightsAndInput) {
+    WeightedRiskRequest_ request;
+    request.selection_.outputs_ = Vector_<String_>{"output:0", "output:2"};
+    request.selection_.inputs_ = Vector_<String_>{"model:0"};
+    request.selection_.reportFactors_ = Vector_<>{2.0};
+    request.weights_ = Vector_<>{2.0, -1.0};
+    const auto plan = PlanWeightedRiskRequest(WeightedProduct(), WeightedInputs(), Date_(2026, 1, 1), request, true);
+    RiskResultProvenance_ provenance;
+    provenance.method_ = "NativeAAD";
+    provenance.modelType_ = "BS";
+    for (int failure = 0; failure < 3; ++failure) {
+        SimResults_ source({"spot", "vol", "strike"});
+        source.aggregated_ = failure == 0 ? std::numeric_limits<double>::infinity() : 0.0;
+        source.risks_[0] = failure == 1 ? std::numeric_limits<double>::infinity() : std::numeric_limits<double>::max();
+        if (failure == 0)
+            source.risks_[0] = 1.0;
+        try {
+            static_cast<void>(ProjectWeightedMonteCarloRiskResult(source, {17.0, 34.0}, 17, plan, provenance));
+            FAIL() << "expected a non-finite projection error";
+        } catch (const ScriptError_& error) {
+            const std::string message(error.what());
+            ASSERT_NE(message.find("output=weighted[output:0=2;output:2=-1]"), std::string::npos) << message;
+            ASSERT_EQ(message.find("output=payoff"), std::string::npos) << message;
+            ASSERT_EQ(message.find("payoff sum"), std::string::npos) << message;
+            if (failure != 0)
+                ASSERT_NE(message.find("input=model:0"), std::string::npos) << message;
+        }
+    }
+}
 
 TEST(WeightedRiskPlanTest, TestOutputIdentitySelectionAndExactBudget) {
     const auto product = WeightedProduct();
