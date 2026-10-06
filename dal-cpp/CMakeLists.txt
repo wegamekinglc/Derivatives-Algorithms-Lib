@@ -259,6 +259,7 @@ if(DAL_CPP_BUILD_TESTS)
                 DAL_DUPIRE_REPLAY_FMA_SUPPORTED)
         endif()
         if(DAL_DUPIRE_REPLAY_FMA_SUPPORTED)
+            # Exact legacy snapshot comparisons stay in the uniform-ISA core target.
             # Reproduce scalar/active contraction differences without changing library flags.
             add_executable(dal_cpp_dupire_replay_rounding_tests
                 "${PROJECT_SOURCE_DIR}/dal/model/dupirerisk.cpp"
