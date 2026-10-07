@@ -3,6 +3,10 @@
 //
 
 #include <gtest/gtest.h>
+
+#include <utility>
+#include <vector>
+
 #include <dal/platform/platform.hpp>
 #include <dal/math/aad/blocklist.hpp>
 
@@ -110,4 +114,38 @@ TEST(AADTest, TestBlockListStorageIncludesPaddingAndRetainsCapacityAfterRewind) 
     blocks.Clear();
     ASSERT_EQ(blocks.OccupiedSlots(), 0);
     ASSERT_EQ(blocks.AllocatedBlocks(), 1);
+}
+
+TEST(AADTest, TestBlockListLiveRangesExcludeUnoccupiedAndRewoundStorage) {
+    BlockList_<double, 4> blocks;
+    std::vector<std::pair<const double*, const double*>> ranges;
+    const auto collect = [&] {
+        ranges.clear();
+        blocks.ForEachLiveRange([&](const double* first, const double* last) { ranges.emplace_back(first, last); });
+    };
+    collect();
+    ASSERT_TRUE(ranges.empty());
+    const auto* first = blocks.EmplaceBackMulti(4);
+    collect();
+    ASSERT_EQ(ranges.size(), 1);
+    ASSERT_EQ(ranges[0].first, first);
+    ASSERT_EQ(ranges[0].second, first + 4);
+    blocks.SetMark();
+    const auto* second = blocks.EmplaceBackMulti(2);
+    collect();
+    ASSERT_EQ(ranges.size(), 2);
+    ASSERT_EQ(ranges[1].first, second);
+    ASSERT_EQ(ranges[1].second, second + 2);
+    blocks.RewindToMark();
+    collect();
+    ASSERT_EQ(ranges.size(), 1);
+    ASSERT_EQ(ranges[0].second, first + 4);
+    ASSERT_EQ(blocks.AllocatedBlocks(), 2);
+    blocks.Rewind();
+    collect();
+    ASSERT_TRUE(ranges.empty());
+    blocks.EmplaceBack();
+    collect();
+    ASSERT_EQ(ranges.size(), 1);
+    ASSERT_EQ(ranges[0].second, first + 1);
 }

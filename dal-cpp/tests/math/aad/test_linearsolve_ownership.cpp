@@ -8,7 +8,9 @@
 
 #include <dal/math/aad/linearsolve.hpp>
 #include <dal/math/aad/native.hpp>
+#include <dal/math/aad/reverseevent.hpp>
 #include <dal/math/aad/statistics.hpp>
+#include <dal/math/aad/tapecapacity.hpp>
 
 using namespace Dal;
 using namespace Dal::AAD;
@@ -79,5 +81,54 @@ TEST(AADLinearSolveTest, TestForeignLiveInputRejectsWithoutPublishingOutputs) {
     ASSERT_EQ(MeasureTape(*Tape()).reverseEventCapacityBytes_, 0);
     ASSERT_THROW(static_cast<void>(NativeOperations_::ReadAdjoint(input)), Exception_);
     scope.Close();
+    Clear(*Tape());
+}
+
+TEST(AADLinearSolveTest, TestCapturedInputIndexCoversLiveBlocksAndRefundsTemporaryCapacity) {
+    Clear(*Tape());
+    const Number_ first(1.0);
+    Mark(*Tape());
+    Number_ middle, last;
+    for (size_t index = 1; index < 2 * BLOCK_SIZE + 3; ++index) {
+        Number_ input(static_cast<double>(index));
+        if (index == BLOCK_SIZE)
+            middle = input;
+        if (index == 2 * BLOCK_SIZE + 2)
+            last = input;
+    }
+    ASSERT_EQ(Tape()->nodes_.AllocatedBlocks(), 3);
+    const auto initial = MeasureTape(*Tape()).capacityBytes_;
+    TapeCapacityBudget_ budget(initial + TapeCleanupCapacityBytes() + 1024);
+    {
+        TapeCapacityScope_ capacity(&budget, true);
+        const auto before = budget.CapacityBytes();
+        {
+            const NativeInputSlots_ slots(Tape());
+            NativeRecordedOperation_::ValidateInput(slots, first);
+            NativeRecordedOperation_::ValidateInput(slots, middle);
+            NativeRecordedOperation_::ValidateInput(slots, last);
+            ASSERT_GT(budget.CapacityBytes(), before);
+            ASSERT_EQ(budget.CapacityBytes(), MeasureTape(*Tape()).capacityBytes_);
+            ASSERT_THROW(NativeRecordedOperation_::ValidateInput(slots, Number_()), Exception_);
+        }
+        ASSERT_EQ(budget.CapacityBytes(), before);
+        ASSERT_EQ(MeasureTape(*Tape()).reverseEventCapacityBytes_, 0);
+        RewindToMark(*Tape());
+        {
+            const NativeInputSlots_ slots(Tape());
+            NativeRecordedOperation_::ValidateInput(slots, first);
+            ASSERT_THROW(NativeRecordedOperation_::ValidateInput(slots, middle), Exception_);
+            ASSERT_THROW(NativeRecordedOperation_::ValidateInput(slots, last), Exception_);
+        }
+        ASSERT_EQ(budget.CapacityBytes(), before);
+        ASSERT_EQ(MeasureTape(*Tape()).reverseEventCapacityBytes_, 0);
+    }
+    TapeCapacityBudget_ shortBudget(initial + 2 * sizeof(const TapNode_*) - 1);
+    {
+        TapeCapacityScope_ capacity(&shortBudget);
+        ASSERT_THROW(static_cast<void>(NativeInputSlots_(Tape())), Exception_);
+        ASSERT_EQ(shortBudget.CapacityBytes(), initial);
+        ASSERT_EQ(MeasureTape(*Tape()).reverseEventCapacityBytes_, 0);
+    }
     Clear(*Tape());
 }

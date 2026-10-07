@@ -1,7 +1,7 @@
 # Native recorded solve implementation review
 
 Verdict: Request Changes before acceptance; the current increment may remain in
-draft PR #491 while the following required work is completed.
+open PR #491 while the following required work is completed.
 
 Reviewed the local implementation against the controlling
 [specification](../specs/aad-linear-solve-recording.md),
@@ -46,6 +46,14 @@ guard experiment remains above threshold and is reverted. Checked bulk seed
 clearing now passes 36 focused tests and -12.79%/-13.43% single-case confirmation.
 It retains mode/node/failure checks, clears every live root channel, and preserves
 other nodes. Final affected caller/boundary and platform evidence remains required.
+
+Copilot identifies a repeated block-list scan for every active input in
+`dal-cpp/dal/math/aad/reverseevent.cpp`. Capture now builds one sorted live-block
+index and checks each input with binary search, preserving null/foreign/lifetime
+rejection. Index allocation is admitted and refunded through the event allocator,
+before output publication. Local verification passes 63 directly affected cases
+and four combined lifetime/profiling syntax checks; the missing live-range API
+RED is retained. Final capture-cost and platform evidence remain open.
 
 The resource finding is resolved locally: finite tape scopes now admit exact
 descriptor/owner/table/cache and transient storage before allocation. Failed

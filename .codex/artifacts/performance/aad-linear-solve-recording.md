@@ -184,3 +184,40 @@ and block-root cases pass, including a new scalar/vector isolation test and adde
 width-3/8 alias/path coverage. Shape-matched head noise controls pass; the single
 failed case now passes -12.79%/-13.43% in `aad-recorded-solve-portfolio-pairs-06/`.
 Final affected caller/boundary and exact-head platform acceptance remain open.
+
+## Bulk clearing and capture-review confirmation
+
+Frozen bulk-clearing binaries are in
+`aad-recorded-solve-perf-build-proof-05/provenance.json`. Tape/Jacobian pass all
+17 selected rows. The first rate sweep aborts in an unchanged baseline-only
+generic-joint overhead guard; retain that incomplete pair and reuse only complete
+pairs. The resumed sweep passes 36 of 37 rate rows but fails the 32-IRS AAD row
+at +8.47%/+5.72% in `aad-recorded-solve-scoped-native-03/`.
+
+Isolate the canonical unchanged timed fixture; same-binary controls and 30-pair
+confirmation pass at +0.65%/+0.41% in `aad-recorded-solve-rate32-pairs-01/`.
+This different executable alone does not close the original finding. Confirm
+only that row in the original frozen rate executable: both same-binary controls
+pass, and two 30-pair rounds pass at +0.58%/+0.10% in
+`aad-recorded-solve-rate32-entry-confirm-01/`. Retain every original raw output
+and process failure; do not remeasure already accepted Tape/Jacobian rows.
+
+Review then identifies repeated block scans during solve input capture. A sorted
+live-block index is built once per capture; with B live blocks and N inputs,
+validation costs O(B log B + N log B), instead of O(N B). Its transient vector
+capacity is admitted/refunded through the event allocator. Existing recording,
+allocation and propagation paths gain no state or work. Sixty-three directly
+affected tests pass in `aad-recorded-solve-input-index-focused-01/`; four changed
+translation units pass combined diagnostic syntax checks. The missing live-range
+API RED and all prior performance candidates remain retained. Confirm the
+review-specific deep-tape/multiple-RHS capture case and the remaining selected
+caller, boundary, informational cost and exact-head platform gates.
+
+The review-specific one-by-32768 RHS capture after 64 tape blocks validates all
+values and endpoint derivatives. Its ten-pair baseline A/A control is unstable
+(-5.86%/+3.11%); increasing only this fixture to thirty pairs still yields an
+unstable control (-4.49%/+5.11%). Both attempts stop before A/B sampling. This
+additional informational cost observation is inconclusive; do not claim a
+measured improvement, weaken noise limits or expand unrelated cases. The lookup
+complexity and correctness repair are independently established by source and
+the focused tests. Existing affected-path regression gates remain required.

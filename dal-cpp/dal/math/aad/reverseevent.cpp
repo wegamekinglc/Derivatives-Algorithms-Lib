@@ -9,6 +9,7 @@
 #include <dal/math/aad/reverseevent.hpp>
 
 #include <algorithm>
+#include <functional>
 #include <limits>
 
 namespace Dal::AAD {
@@ -54,11 +55,22 @@ namespace Dal::AAD {
         return tape;
     }
 
-    void NativeRecordedOperation_::ValidateInput(Tape_* tape, const Number_& input) {
+    NativeInputSlots_::NativeInputSlots_(Tape_* tape) : tape_(tape), ranges_(ReverseEventAllocator_<Range_>(tape)) {
+        tape->nodes_.ForEachLiveRange([&](const TapNode_* first, const TapNode_* last) { ranges_.emplace_back(first, last); });
+        std::sort(ranges_.begin(), ranges_.end(),
+                  [](const Range_& left, const Range_& right) { return std::less<const TapNode_*>()(left.first, right.first); });
+    }
+
+    void NativeRecordedOperation_::ValidateInput(const NativeInputSlots_& slots, const Number_& input) {
 #if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
-        input.ValidateOperands(tape, "LinearSolve.Input");
+        input.ValidateOperands(slots.tape_, "LinearSolve.Input");
 #endif
-        REQUIRE(input.node_ != nullptr && tape->nodes_.Contains(input.node_), "LinearSolve.Input: requires a live slot on the recording tape");
+        REQUIRE(input.node_ != nullptr, "LinearSolve.Input: requires a live slot on the recording tape");
+        const auto range = std::upper_bound(
+            slots.ranges_.begin(), slots.ranges_.end(), input.node_,
+            [](const TapNode_* node, const NativeInputSlots_::Range_& candidate) { return std::less<const TapNode_*>()(node, candidate.first); });
+        REQUIRE(range != slots.ranges_.begin() && std::less<const TapNode_*>()(input.node_, std::prev(range)->second),
+                "LinearSolve.Input: requires a live slot on the recording tape");
     }
 
     void NativeRecordedOperation_::Prepare(Tape_* tape) { tape->PrepareReverseEvent(); }

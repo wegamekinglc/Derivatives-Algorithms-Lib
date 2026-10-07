@@ -17,11 +17,11 @@
 
 namespace Dal::AAD {
     namespace {
-        template <class T_, class E_> void CopyValues(Tape_* tape, const Matrix_<E_>& source, T_* destination) {
+        template <class T_, class E_> void CopyValues(const NativeInputSlots_& slots, const Matrix_<E_>& source, T_* destination) {
             for (int row = 0; row < source.Rows(); ++row)
                 for (int column = 0; column < source.Cols(); ++column) {
                     if constexpr (std::is_same_v<E_, Number_>) {
-                        NativeRecordedOperation_::ValidateInput(tape, source(row, column));
+                        NativeRecordedOperation_::ValidateInput(slots, source(row, column));
                         (*destination)(row, column) = Value(source(row, column));
                     } else
                         (*destination)(row, column) = source(row, column);
@@ -40,15 +40,15 @@ namespace Dal::AAD {
                     AddContribution(&(*inputs)(row, column), contributions(row, column), channel);
         }
 
-        template <class E_> SquareMatrix_<> Snapshot(Tape_* tape, const SquareMatrix_<E_>& source) {
+        template <class E_> SquareMatrix_<> Snapshot(const NativeInputSlots_& slots, const SquareMatrix_<E_>& source) {
             SquareMatrix_<> result(source.Rows());
-            CopyValues(tape, static_cast<const Matrix_<E_>&>(source), &result);
+            CopyValues(slots, static_cast<const Matrix_<E_>&>(source), &result);
             return result;
         }
 
-        template <class E_> Matrix_<> Snapshot(Tape_* tape, const Matrix_<E_>& source) {
+        template <class E_> Matrix_<> Snapshot(const NativeInputSlots_& slots, const Matrix_<E_>& source) {
             Matrix_<> result(source.Rows(), source.Cols());
-            CopyValues(tape, source, &result);
+            CopyValues(slots, source, &result);
             return result;
         }
 
@@ -132,8 +132,8 @@ namespace Dal::AAD {
 
         public:
             template <class M_, class R_>
-            LinearSolvePayload_(Tape_* tape, const SquareMatrix_<M_>& matrix, const Matrix_<R_>& rhs, double tolerance)
-                : solve_(Snapshot(tape, matrix), Snapshot(tape, rhs), tolerance), outputs_(rhs.Rows(), rhs.Cols()) {
+            LinearSolvePayload_(const NativeInputSlots_& slots, const SquareMatrix_<M_>& matrix, const Matrix_<R_>& rhs, double tolerance)
+                : solve_(Snapshot(slots, matrix), Snapshot(slots, rhs), tolerance), outputs_(rhs.Rows(), rhs.Cols()) {
                 if constexpr (std::is_same_v<M_, Number_>)
                     matrix_ = matrix;
                 if constexpr (std::is_same_v<R_, Number_>)
@@ -165,7 +165,10 @@ namespace Dal::AAD {
         public:
             template <class M_, class R_>
             LinearSolveEvent_(Tape_* tape, const SquareMatrix_<M_>& matrix, const Matrix_<R_>& rhs, double tolerance) : account_(tape) {
-                WithOwnedPayload(&account_, [&] { payload_.emplace(tape, matrix, rhs, tolerance); });
+                WithOwnedPayload(&account_, [&] {
+                    const NativeInputSlots_ slots(tape);
+                    payload_.emplace(slots, matrix, rhs, tolerance);
+                });
             }
             ~LinearSolveEvent_() noexcept override {
                 WithOwnedPayload(&account_, [this] { payload_.reset(); });

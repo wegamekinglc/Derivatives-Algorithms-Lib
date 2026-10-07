@@ -42,7 +42,7 @@ acceptance remain open. Structured coordinates, precision/conditioning
 diagnostics, implicit calibration, PDE and subsequent stages remain required.
 
 Recording progress: the analytic/interface, passive/RHS-only, reset-mutation,
-resource and capability RED logs remain in session evidence. Forty-six new
+resource and capability RED logs remain in session evidence. Forty-eight new
 cases now pass across three overloads, independent scalar/finite-difference
 oracles, vector widths 1/2/3/4/8, aliases, shared/serial solves, repeated reverse,
 checkpoints, raw windows, block boundaries, ownership and failure recovery.
@@ -66,13 +66,21 @@ and six GSR rows pass, with the formerly failing case at +3.13%/+3.95% after
 borderline confirmation. See the [performance report](../performance/aad-linear-solve-recording.md).
 Under the project-wide performance scope amendment, the unstarted 81-case matrix
 is cancelled. Final affected caller/boundary measurements, installed consumers
-and exact-head OFF/ON runtime CI remain open. The 46 new cases comprise 44
-recording/resource cases, one RHS-only numeric pullback case and one native
-seed-clear case; the existing capability-contract test is separate.
+and exact-head OFF/ON runtime CI remain open. The 48 new cases comprise 45
+recording/resource cases, one RHS-only numeric pullback case, one native
+seed-clear case and one live-block range case; the existing capability-contract
+test is separate.
 Scoped acceptance finds a sustained large width-8 portfolio regression. Bulk
 root seed clearing preserves validation and alias semantics; 36 focused cases
 pass and the repaired single-case confirmation is -12.79%/-13.43%. Final
 affected callers/boundaries and exact-head CI remain open.
+Review identifies repeated live-block scans during input capture. A temporary
+budgeted sorted index removes that repetition; 63 directly affected tests and
+four combined diagnostic syntax checks pass before final publication. The
+original rate-risk executable's failing row passes shape-matched A/A controls
+and 30-pair confirmation at +0.58%/+0.10%; the earlier failure remains recorded.
+The macOS Python scheduling assertion is repaired, with deterministic RED/GREEN
+and three focused Python tests. Final platform and remaining scope gates stay open.
 Accepted #490 baseline libraries, headers and tests are frozen in
 `aad-recorded-solve-baseline-01/provenance.json`; the published prototype is
 frozen separately in `aad-recorded-solve-increment-01/provenance.json`.
@@ -849,7 +857,7 @@ overlapping acceptance work is included once in the integration allowance.
 | F02 portfolio           | C++/Python/Excel, installed consumers and timing repair accepted      | #487 merged; final 35/35 checks accepted | 0                     |
 | P02                     | Worker reuse: 82 tests and 37 full-request cost cases accepted        | #488 merged; final 35/35 checks accepted | 0                     |
 | P03                     | 89 tests; 81 unique complete-request timing comparisons accepted      | #489 merged; final 35/35 checks accepted | 0                     |
-| F03                     | Numeric accepted; 132 affected tests and six GSR rows pass locally    | #490 merged; #491 draft; final CI open   | 12–19                 |
+| F03                     | Numeric accepted; recorded solves and capture repairs pass locally   | #490 merged; #491 open; final CI open    | 12–19                 |
 | P04/P05                 | Structural sparsity/checkpointing remain                              | Open                                     | 9–15                  |
 | F04                     | Second-order implementation/estimator validation remain               | Open                                     | 12–20                 |
 | Final integration/audit | Cross-platform/binding/docs/performance acceptance remains            | Open                                     | 7–11                  |
@@ -867,7 +875,7 @@ above; the current PR is included within F03 rather than added again.
 
 | Order | Delivery task                    | Required result                                                          | Remaining hours |
 |-------|----------------------------------|--------------------------------------------------------------------------|-----------------|
-| 1     | Current recorded-solve PR #491    | Accept affected paths/platforms; fix review and merge                     | 6–16            |
+| 1     | Current recorded-solve PR #491    | Accept affected paths/platforms; fix review and merge                     | 4.5–12.5        |
 | 2     | F03 coordinates and diagnostics  | Symmetric/banded coordinate pullbacks; residual, singular/condition checks | 24–40           |
 | 3     | F03 implicit calibration         | Equation pullbacks, decomposition reuse and independent gradient oracles  | 32–56           |
 | 4     | F03 PDE operators                | Discrete solver, boundary and parameter sensitivity acceptance            | 32–40           |
@@ -876,7 +884,7 @@ above; the current PR is included within F03 rather than added again.
 | 7     | F04 second-order risk            | Gamma, cross-Gamma, HVP, recalibration and estimator validation             | 64–96           |
 | 8     | F04 native mixed-mode prototype  | Smooth-kernel prototype, independent correctness and capability limits     | 32–64           |
 | 9     | Bindings and complete acceptance | C++/Python/Excel, documentation, platform and performance gates            | 56–88           |
-| Total | Full remaining implementation    | All remaining plan requirements                                          | 318–520         |
+| Total | Full remaining implementation    | All remaining plan requirements                                          | 316.5–516.5     |
 
 The first delivery boundary is complete. Whole-PR review repaired the Windows
 registration-help defect, both include-order findings and the overview file

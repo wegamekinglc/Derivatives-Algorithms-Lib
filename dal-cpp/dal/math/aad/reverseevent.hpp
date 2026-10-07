@@ -9,11 +9,14 @@
 #include <memory>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 namespace Dal::AAD {
     class Number_;
     class Tape_;
     class RecordingScope_;
+    class NativeInputSlots_;
+    class TapNode_;
 
     class EventStorageTicket_ {
         Tape_* tape_;
@@ -43,7 +46,7 @@ namespace Dal::AAD {
 
     struct NativeRecordedOperation_ {
         [[nodiscard]] static Tape_* Begin(RecordingScope_* recording);
-        static void ValidateInput(Tape_* tape, const Number_& input);
+        static void ValidateInput(const NativeInputSlots_& slots, const Number_& input);
         static void Prepare(Tape_* tape);
         static void Commit(RecordingScope_* recording, ReverseEventHandle_ event);
         static void Fail(RecordingScope_* recording);
@@ -82,5 +85,18 @@ namespace Dal::AAD {
         }
         template <class U_> bool operator==(const ReverseEventAllocator_<U_>& other) const noexcept { return tape_ == other.tape_; }
         template <class U_> bool operator!=(const ReverseEventAllocator_<U_>& other) const noexcept { return !(*this == other); }
+    };
+
+    // Capture-only index: finish input validation before allocating output slots.
+    class NativeInputSlots_ {
+        friend struct NativeRecordedOperation_;
+        using Range_ = std::pair<const TapNode_*, const TapNode_*>;
+        Tape_* tape_;
+        std::vector<Range_, ReverseEventAllocator_<Range_>> ranges_;
+
+    public:
+        explicit NativeInputSlots_(Tape_* tape);
+        NativeInputSlots_(const NativeInputSlots_&) = delete;
+        NativeInputSlots_& operator=(const NativeInputSlots_&) = delete;
     };
 } // namespace Dal::AAD
