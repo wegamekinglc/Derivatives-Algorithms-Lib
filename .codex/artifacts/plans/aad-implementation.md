@@ -51,8 +51,13 @@ Four informational size/RHS cases complete the scoped diagnostic cost study.
 The current increment adds owning native diagnostic results under the
 [recorded diagnostic specification](../specs/aad-linear-solve-diagnostics.md).
 Ordinary recording includes, numeric caches and native layouts remain unchanged.
-Initial analytic composition/repeated-seed acceptance is green; resource,
-lifecycle, affected performance and exact-head CI acceptance are in progress.
+Thirteen new cases cover analytic composition, three activity combinations in
+scalar and width-1/4/8 modes, independent Cramer/difference references,
+checkpoints, detached ownership, exact budgets, range failure and concurrency.
+The affected local batch passes 72/72; the installed CMake consumer passes.
+Six scoped ordinary comparisons pass the two-round 4% rule and all 166 unchanged
+objects match baseline bytes. Local acceptance is complete; exact-head platform,
+Codacy and review gates remain open before publication is accepted.
 Structured coordinates, implicit calibration, PDE and subsequent stages remain
 required. The following recording notes are historical repair evidence; they
 are not outstanding #491 gates.
