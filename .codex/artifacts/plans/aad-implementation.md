@@ -4,23 +4,17 @@ Status: active implementation under the native-only AAD scope.
 No stage is complete until its correctness, compatibility,
 performance, and applicable CI evidence has been inspected.
 
-Current boundary (2026-10-07): F02 and P02 are complete. Worker reuse PR
-[#488](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/488) is merged
-at `b7e69342`; its tree equals accepted head `4a322999`. All 35 checks and both
-publication audits pass, with zero Codacy annotations and unresolved threads.
-P03 has an active [specification](../specs/aad-selected-extraction-block-policy.md)
-and [critique](../critiques/aad-selected-extraction-block-policy.md) in draft
-[#489](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/489).
-Selected core extraction, ordered scatter and matching admission are implemented
-locally under the [ownership design](../designs/aad-selected-extraction.md).
-Resource RED against merged #488 becomes GREEN; 41 core and 48 public affected
-contracts pass. Published CI repairs at `e425e52d` pass all 35 checks, with zero
-Codacy annotations and unresolved threads. Complete sparse timing exposed two
-regressions; rejected experiments remain recorded. An independent compact-subset
-quota RED becomes GREEN with a deterministic extraction fallback. Its full timing
-passes 37 default and 50 selected/empty/width cases (81 unique comparisons) under
-predefined calibrated sampling. The local review approves; final-head
-publication/platform acceptance remains.
+Current boundary (2026-10-07): F02, P02 and P03 are complete. Selected
+extraction PR [#489](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/489)
+is merged at `97567d6e`; its tree equals accepted head `027a15b5`. Both complete
+publication audits verify all 35 checks, zero Codacy annotations and zero unresolved
+review threads. Actual platform logs and the complete performance report are
+linked in the accepted P03 evidence below. Completed P03 artifacts are retired;
+their immutable Git history retains all accepted and rejected evidence.
+F03 starts in a new PR with the independent numeric
+[linear-solve specification](../specs/aad-linear-solve-pullback.md) and
+[scope critique](../critiques/aad-linear-solve-pullback.md). Recording events,
+structured coordinates, implicit calibration and PDE integration remain open.
 
 Scope amendment (2026-10-04): the user requires removing XAD, CoDiPack and Adept
 support and keeping only DAL's built-in native AAD. This replaces the earlier
@@ -131,7 +125,7 @@ incremental implementation turns and PRs; a green first stage does not complete 
 - [x] F02: budgeted native blocked Jacobian with explicit rerecording behavior.
 - [x] F02: compatible portfolio observation/timeline integration.
 - [x] P02: per-worker capacity reuse and safe re-registration/reinitialization.
-- [ ] P03: measured block-width selection and demand-driven result extraction.
+- [x] P03: measured block-width policy and demand-driven result extraction; default maximum one retained.
 - [ ] Bindings: F01/F02 C++/Python/Excel is accepted; extend all three surfaces
   for the remaining structured-operator and second-order requests.
 
@@ -774,21 +768,21 @@ This snapshot distinguishes accepted increments from locally implemented work.
 Estimates are remaining single-developer effort, not promises of calendar time;
 overlapping acceptance work is included once in the integration allowance.
 
-| Work item               | Implementation/local verification                                | Publication/CI                           | Remaining person-days |
-|-------------------------|------------------------------------------------------------------|------------------------------------------|-----------------------|
-| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                    | Accepted exact-head checks               | 0                     |
-| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass   | Merged; final 35/35 checks accepted      | 0                     |
-| F01                     | C++/Python/Excel and complete requirement audit accepted         | Merged; final 35/35 checks accepted      | 0                     |
-| F02 weighted/blocked    | C++/Python/Excel and independent mathematical oracles accepted   | #483/#484 merged; exact-head gates pass  | 0                     |
-| F02 portfolio           | C++/Python/Excel, installed consumers and timing repair accepted | #487 merged; final 35/35 checks accepted | 0                     |
-| P02                     | Worker reuse: 82 tests and 37 full-request cost cases accepted   | #488 merged; final 35/35 checks accepted | 0                     |
-| P03                     | 89 tests; 37 default/50 selected timing cases pass                | Final-head CI/merge pending              | 0.5–1                 |
-| F03                     | Solve, implicit calibration and PDE operators remain             | Open                                     | 12–20                 |
-| P04/P05                 | Structural sparsity/checkpointing remain                         | Open                                     | 9–15                  |
-| F04                     | Second-order implementation/estimator validation remain          | Open                                     | 12–20                 |
-| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains       | Open                                     | 7–11                  |
+| Work item               | Implementation/local verification                                     | Publication/CI                           | Remaining person-days |
+|-------------------------|-----------------------------------------------------------------------|------------------------------------------|-----------------------|
+| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                         | Accepted exact-head checks               | 0                     |
+| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass        | Merged; final 35/35 checks accepted      | 0                     |
+| F01                     | C++/Python/Excel and complete requirement audit accepted              | Merged; final 35/35 checks accepted      | 0                     |
+| F02 weighted/blocked    | C++/Python/Excel and independent mathematical oracles accepted        | #483/#484 merged; exact-head gates pass  | 0                     |
+| F02 portfolio           | C++/Python/Excel, installed consumers and timing repair accepted      | #487 merged; final 35/35 checks accepted | 0                     |
+| P02                     | Worker reuse: 82 tests and 37 full-request cost cases accepted        | #488 merged; final 35/35 checks accepted | 0                     |
+| P03                     | 89 tests; 81 unique complete-request timing comparisons accepted      | #489 merged; final 35/35 checks accepted | 0                     |
+| F03                     | Independent dense solve specification/critique; implementation starts | New PR; later operators remain open      | 12–20                 |
+| P04/P05                 | Structural sparsity/checkpointing remain                              | Open                                     | 9–15                  |
+| F04                     | Second-order implementation/estimator validation remain               | Open                                     | 12–20                 |
+| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains            | Open                                     | 7–11                  |
 
-Remaining total: approximately 40.5–67 person-days, or 8–14 working weeks,
+Remaining total: approximately 40–66 person-days, or 8–14 working weeks,
 excluding CI queue time and including delivery contingency. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
 effort estimate, not a guaranteed completion date. Re-estimate when review
@@ -1369,23 +1363,30 @@ retain their measured hashes. The archived
 and [performance acceptance](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/4a3229996fcafddd58fafc84f751d2e24bd1e166/.codex/artifacts/performance/aad-worker-reuse.md)
 retain the accepted source, limitations and all failed/intermediate evidence.
 
-P03 has selected extraction, original-ordinal scatter and matching resource
-admission implemented locally in #489. Independent wide full-gradient capacity
-bounds, native empty-row shapes, source-extent rejection/recovery and six-family
-scalar references pass. CI repair head `e425e52d` passes all 35 checks and has zero
-Codacy annotations and unresolved threads. Its default-route 37 timing cases pass;
-two sparse cases fail. Outlining and reservation experiments are rejected and
-retained. Compact nonempty sources now choose full extraction when the discarded
-scalar bytes do not exceed mapping-entry payload, while wide/empty sources pack.
-An independent full-request quota test is RED on `e425e52d` and GREEN locally;
-all 47 public cases pass. Final calibrated thirty-pair timing accepts 37 default
-and 50 selected/empty/width cases, with six overlaps measured once. The
-[performance report](../performance/aad-selected-extraction.md) gives every round
-minimum, source hash, width/capacity measurement and retained failure path.
-Copilot's six-family packed-path coverage finding is fixed with independent
-packed/compact oracles and explicit opposite cost inequalities. Both targeted
-cases pass; total public coverage is 48. Production/performance hashes are unchanged.
-The local review approves. Final-head CI/Codacy/review gates and guarded merge
-remain. Portfolio and P02 remaining effort is zero. P03 requires approximately
-0.5–1 person-day; overall remaining effort is 40.5–67.
+P03 is accepted in merged #489 at `97567d6e`, with the exact tree of final
+`027a15b5`. The source includes original-ordinal scatter, matched admission/replay
+budgets and a deterministic compact fallback. Both paginated publication audits
+verify 35/35 checks, zero Codacy annotations and zero unresolved review threads.
+Final actual logs verify 89 affected cases in each of six sanitizer configurations,
+96 relevant cases and installed consumers (3/3) in each of four Windows modes,
+and 93 relevant C++ plus 1,166 Python cases in each of four extended modes.
+Copilot's packed six-family coverage finding is repaired with distinct
+packed/compact fixtures and independent scalar references. The final test-only
+correction preserves production/archive/measured-binary hashes.
+
+The archived
+[performance report](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/97567d6e7fc395fb3c7b383050edcd7416f68a4e/.codex/artifacts/performance/aad-selected-extraction.md)
+accepts 37 default and 50 selected/empty/width cases (81 unique) under the frozen
+calibrated sampling contract, plus thirteen unchanged fresh-linked legacy
+executables retaining 162 accepted comparisons. It records every round minimum,
+width/capacity measurement and source hash. All failed/intermediate experiments
+remain in the archived
+[ownership design](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/97567d6e7fc395fb3c7b383050edcd7416f68a4e/.codex/artifacts/designs/aad-selected-extraction.md).
+The default maximum remains one; measured width choices are explicit upper bounds
+with capacity-only narrowing, not a universal widening or speedup claim.
+Merge verification and both audits are retained in session evidence
+`aad-selected-extraction-merged-01.json`; the merge used the accepted-head SHA guard.
+P03 remaining effort is zero. F03 begins with an owning normalized-LU numeric
+pullback; no scalar tape/event integration is claimed by that first increment.
+Overall remaining effort is approximately 40–66 person-days.
 Stage A is accepted; the full Stage B/C/D goal remains incomplete.
