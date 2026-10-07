@@ -159,7 +159,9 @@ const auto contributions = solve.Reverse(solutionSeeds);
 For p parameters and m RHS columns, the parameter contraction costs $O(pm)$
 and reverse allocates $O(p+nm)$ output storage, without a dense matrix adjoint.
 Transpose substitution still costs $O(n^2m)$; factorization and retained storage
-remain dense. This numeric surface does not record native tape events.
+remain dense. This numeric surface does not record native tape events. The
+[native coordinate overloads](aad.md#recorded-solve-coordinates) compose the same
+layouts and owning cache with ordinary active expressions in a recording scope.
 
 ### Optional Solve Diagnostics
 
