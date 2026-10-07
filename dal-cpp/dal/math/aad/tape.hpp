@@ -37,6 +37,14 @@ namespace Dal::AAD {
 
     namespace NativeThread {
         inline thread_local bool eventValidationRequired = false;
+#if defined(__GNUC__) || defined(__clang__)
+        __attribute__((const))
+#endif
+        bool& EventValidationRequired() noexcept;
+#if defined(__GNUC__) || defined(__clang__)
+        __attribute__((cold))
+#endif
+        void RequireEventState();
     } // namespace NativeThread
 
     class Tape_ {

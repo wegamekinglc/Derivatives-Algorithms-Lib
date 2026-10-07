@@ -12,6 +12,9 @@
 
 namespace Dal::AAD {
 
+    bool& NativeThread::EventValidationRequired() noexcept { return eventValidationRequired; }
+    void NativeThread::RequireEventState() { Tape()->RequireReverseEventState("Number.Adjoint"); }
+
     struct Tape_::ReverseEvents_ {
         struct Entry_ {
             Iterator_ end_;

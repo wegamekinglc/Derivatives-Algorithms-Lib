@@ -610,8 +610,8 @@ namespace Dal::AAD {
 
     FORCE_INLINE double Value(const Number_& num) { return num.value_; }
     FORCE_INLINE double& Adjoint(const Number_& num) {
-        if (NativeThread::eventValidationRequired)
-            Tape()->RequireReverseEventState("Number.Adjoint");
+        if (NativeThread::EventValidationRequired())
+            NativeThread::RequireEventState();
 #if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
         num.ValidateOperands(Tape(), "Number.Adjoint");
 #endif
