@@ -71,7 +71,13 @@ under the [coordinate specification](../specs/aad-solve-coordinates.md),
 [critique](../critiques/aad-solve-coordinates.md). Sixteen new tests pass locally,
 including independent differences/directions, indefinite systems, exhaustive
 small layouts, wide metadata, snapshot ownership, const concurrency and exact
-construction/reverse budgets. Native coordinate recording follows in a separate
+construction/reverse budgets. The affected batch passes 27/27 and the installed
+consumer passes. A scoped cost finding is repaired with hoisted row ends and
+inline contraction; the final 16 affected cases pass without repeating old
+suites. All 167 existing library members and a fresh ordinary executable match
+accepted bytes. Six informational cost rows retain small/full-band overhead
+and a narrow-band benefit; see the [report](../performance/aad-solve-coordinates.md).
+Exact-head publication gates remain open. Native coordinate recording follows in a separate
 PR after numeric acceptance. Structured coordinates, implicit calibration, PDE
 and subsequent stages remain required. The following recording notes are
 historical repair evidence, not outstanding #491 gates.
@@ -915,7 +921,7 @@ numeric/native diagnostics are not counted again.
 | Order | Delivery task                     | Required result                                                                | Remaining hours |
 |-------|-----------------------------------|--------------------------------------------------------------------------------|-----------------|
 | 1     | Accepted solve PRs #490/#491/#493/#494 | Merged; mathematical, resource, platform and scoped performance gates accepted | 0               |
-| 2     | F03 numeric coordinates           | Owning symmetric/banded pullbacks, independent oracles and scoped acceptance   | 2–4             |
+| 2     | F03 numeric coordinates           | Local acceptance complete; exact-head CI/Codacy/review and merge remain        | 1–3             |
 | 3     | F03 native coordinates            | Parameter-only tape bindings, aliases, modes, checkpoints and exact budgets    | 5–9             |
 | 4     | F03 implicit calibration          | Equation pullbacks, decomposition reuse and independent gradient oracles       | 32–56           |
 | 5     | F03 PDE operators                 | Discrete solver, boundary and parameter sensitivity acceptance                 | 32–40           |
@@ -924,7 +930,7 @@ numeric/native diagnostics are not counted again.
 | 8     | F04 second-order risk             | Gamma, cross-Gamma, HVP, recalibration and estimator validation                | 64–96           |
 | 9     | F04 native mixed-mode prototype   | Smooth-kernel prototype, independent correctness and capability limits         | 32–64           |
 | 10    | Bindings and complete acceptance  | C++/Python/Excel, documentation, platform and performance gates                | 56–88           |
-| Total | Full remaining implementation     | All remaining plan requirements                                                | 295–477         |
+| Total | Full remaining implementation     | All remaining plan requirements                                                | 294–476         |
 
 The first delivery boundary is complete. Whole-PR review repaired the Windows
 registration-help defect, both include-order findings and the overview file

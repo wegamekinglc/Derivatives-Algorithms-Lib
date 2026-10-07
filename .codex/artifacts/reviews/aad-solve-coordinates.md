@@ -1,6 +1,6 @@
 # Solve-coordinate implementation review
 
-Verdict: Comment Only (local correctness accepted; cost/publication gates open).
+Verdict: Approve (local code and scoped acceptance; remote publication gates open).
 
 ## Findings
 
@@ -33,11 +33,15 @@ separate delivery requirements; F03 is incomplete.
 - Installed CMake consumer passes 1/1. All changed C++ complexity is at most 8;
   formatting, patch and documentation checks pass.
 - All 167 existing library members and a fresh ordinary boundary executable
-  match accepted immutable baseline bytes; new-API cost observations are pending.
+  match accepted immutable baseline bytes. Six new-API cost rows are observed
+  in 40 alternating processes. The full-band helper-call overhead is reduced
+  after inspecting assembly; all 16 affected cases and a fresh installed
+  consumer pass after that repair. Small/full-band costs remain explicit in the
+  [performance report](../performance/aad-solve-coordinates.md).
 
 ## Summary
 
 The API is additive and explicit about packing, passive ownership and dense LU.
-Residual risk is the pending new-API cost study and exact-head platform,
-sanitizer, Codacy and review acceptance. Inspect actual new-case execution before
+Residual risk is pending exact-head platform, sanitizer, Codacy and review
+acceptance. Inspect actual new-case execution before
 merge; local checks do not establish remote acceptance.
