@@ -56,6 +56,8 @@ namespace Dal::AAD {
 
         static FORCE_INLINE double& Channel(const Number_& number, size_t channel, const char* operation) {
             auto* tape = Tape();
+            if (tape->HasReverseEventState())
+                tape->RequireReverseEventState(operation);
 #if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
             number.ValidateOperands(tape, operation);
 #endif

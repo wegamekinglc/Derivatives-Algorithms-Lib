@@ -30,6 +30,7 @@ namespace Dal {
                              double relativePivotTolerance = 64.0 * std::numeric_limits<double>::epsilon());
         [[nodiscard]] const Matrix_<>& Solution() const { return solution_; }
         [[nodiscard]] double ScaledMinimumPivot() const { return scaledMinimumPivot_; }
+        [[nodiscard]] Matrix_<> ReverseRhs(const Matrix_<>& solutionAdjoints) const;
         [[nodiscard]] LinearSolveAdjoints_ Reverse(const Matrix_<>& solutionAdjoints) const;
     };
 } // namespace Dal

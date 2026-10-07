@@ -12,6 +12,8 @@
 
 #pragma once
 
+#include <memory>
+
 #if defined(DAL_USE_XAD_AAD) || defined(DAL_USE_CODIPACK_AAD) || defined(DAL_USE_ADEPT_AAD)
 #error External AAD backend macros are no longer supported; rebuild DAL and consumers with native AAD
 #endif
@@ -26,20 +28,20 @@
 
 namespace Dal::AAD {
     class Number_;
+    class ReverseEvent_;
+    struct NativeRecordedOperation_;
     constexpr size_t BLOCK_SIZE = 16384;
     constexpr size_t ADJ_SIZE = 32768;
     constexpr size_t DATA_SIZE = 65536;
 
     class Tape_ {
     public:
-        explicit Tape_(bool = true) : multi_(false), numAdj_(1), pad_{} {}
-
-#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+        explicit Tape_(bool = true);
+        ~Tape_() noexcept;
         Tape_(const Tape_&) = delete;
         Tape_& operator=(const Tape_&) = delete;
         Tape_(Tape_&&) = delete;
         Tape_& operator=(Tape_&&) = delete;
-#endif
 
         using Iterator_ = BlockList_<TapNode_, BLOCK_SIZE>::Iterator_;
 
@@ -65,7 +67,19 @@ namespace Dal::AAD {
 
         template <size_t N_> TapNode_* RecordNode() { return AllocateNode<N_>(); }
 
+        [[nodiscard]] bool HasReverseEventState() const { return reverseFailed_ || reverseEvents_ != nullptr; }
+        void RequireReverseEventState(const char* operation) const;
+
     private:
+        struct ReverseEvents_;
+        std::unique_ptr<ReverseEvents_> reverseEvents_;
+        bool reverseFailed_ = false;
+        friend struct NativeRecordedOperation_;
+
+        void RequireReverseEventMutation(const char* operation) const;
+        void AppendReverseEvent(std::unique_ptr<ReverseEvent_> event);
+        void PropagateEventWindow(Iterator_ end, Iterator_ begin, bool fromMark, bool toMark, void (*propagate)(Tape_&, Iterator_, Iterator_));
+
 #if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
         struct NodeBinding_ {
             std::uint64_t owner_ = 0;
@@ -130,7 +144,6 @@ namespace Dal::AAD {
             }
 #endif
         }
-
     };
 
     // Keep three-input allocation out of model loops without duplicating the allocator.

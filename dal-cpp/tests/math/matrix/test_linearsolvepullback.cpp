@@ -16,6 +16,23 @@
 
 using namespace Dal;
 
+TEST(LinearSolvePullbackTest, TestRhsOnlyPullbackAvoidsUnusedMatrixOverflow) {
+    SquareMatrix_<> matrix(1);
+    matrix(0, 0) = 1e-150;
+    Matrix_<> rhs(1, 1), seed(1, 1);
+    rhs(0, 0) = 1e150;
+    seed(0, 0) = 1.0;
+    const LinearSolvePullback_ solve(matrix, rhs);
+    ASSERT_THROW(static_cast<void>(solve.Reverse(seed)), Exception_);
+    const auto contribution = solve.ReverseRhs(seed);
+    ASSERT_EQ(contribution.Rows(), 1);
+    ASSERT_EQ(contribution.Cols(), 1);
+    ASSERT_NEAR(contribution(0, 0), 1e150, 1e138);
+    ASSERT_THROW(static_cast<void>(solve.ReverseRhs(Matrix_<>(2, 1))), Exception_);
+    seed(0, 0) = std::numeric_limits<double>::infinity();
+    ASSERT_THROW(static_cast<void>(solve.ReverseRhs(seed)), Exception_);
+}
+
 namespace {
     SquareMatrix_<> PermutedMatrix() {
         SquareMatrix_<> a(3);

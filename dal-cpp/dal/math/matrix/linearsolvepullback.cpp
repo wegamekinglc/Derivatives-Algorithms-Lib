@@ -123,12 +123,17 @@ namespace Dal {
         return result;
     }
 
-    LinearSolveAdjoints_ LinearSolvePullback_::Reverse(const Matrix_<>& solutionAdjoints) const {
+    Matrix_<> LinearSolvePullback_::ReverseRhs(const Matrix_<>& solutionAdjoints) const {
         REQUIRE(solutionAdjoints.Rows() == solution_.Rows() && solutionAdjoints.Cols() == solution_.Cols(),
                 "Linear solve seed shape must match the solution shape");
         ValidateFinite(solutionAdjoints, "Linear solve seed entries must be finite");
+        return Solve(solutionAdjoints, true);
+    }
+
+    LinearSolveAdjoints_ LinearSolvePullback_::Reverse(const Matrix_<>& solutionAdjoints) const {
+        auto rhs = ReverseRhs(solutionAdjoints);
         const int n = factors_.Rows();
-        LinearSolveAdjoints_ result{SquareMatrix_<>(n), Solve(solutionAdjoints, true)};
+        LinearSolveAdjoints_ result{SquareMatrix_<>(n), std::move(rhs)};
         for (int row = 0; row < n; ++row)
             for (int col = 0; col < n; ++col) {
                 double value = 0.0;

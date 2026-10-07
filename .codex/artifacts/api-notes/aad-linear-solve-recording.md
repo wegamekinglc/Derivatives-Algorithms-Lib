@@ -1,6 +1,11 @@
 # Native recorded solve API decisions
 
-Status: active F03 recording increment; no new API is implemented yet.
+Status: active F03 recording increment. All three overloads and a numeric
+RHS-only contribution are implemented locally. Twenty-four new cases pass,
+covering analytic/reference gradients, aliases, multiple RHS, vector channels,
+serial/shared solves, checkpoint/reset ownership and failure invalidation.
+Capacity admission, performance and final CI acceptance remain open. This note
+specifies the complete required surface.
 Controlling [specification](../specs/aad-linear-solve-recording.md).
 
 ## Audience and surface
