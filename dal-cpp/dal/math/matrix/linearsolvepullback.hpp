@@ -15,6 +15,7 @@ namespace Dal {
     };
 
     class LinearSolvePullback_ {
+        friend class DiagnosedLinearSolve_;
         SquareMatrix_<> factors_;
         Vector_<int> swaps_;
         double scale_ = 0.0;

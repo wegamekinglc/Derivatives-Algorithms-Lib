@@ -112,6 +112,62 @@ Construction costs $O(n^3+n^2m)$ for n rows and m RHS columns. Each reverse cost
 $O(n^2m)$, with no inverse or repeated factorization; retained storage is
 $O(n^2+nm)$.
 
+### Optional Solve Diagnostics
+
+`DiagnosedLinearSolve_` in `dal/math/matrix/linearsolvediagnostics.hpp`
+owns a numeric pullback and its passive diagnostics. It reuses the same LU to
+solve normalized inverse columns and reports
+`reciprocalConditionInfinity_`, the floating-point value of
+$1/(\lVert A\rVert_\infty\lVert A^{-1}\rVert_\infty)$.
+Norm scaling avoids overflowing the product or constructing the physical
+inverse of a uniformly tiny matrix. This diagnostic is independent of the
+minimum pivot; an accepted system can still be ill-conditioned. A small
+reciprocal signals sensitivity, and a value below representable range is zero.
+No additional condition threshold changes the pivot policy.
+
+`componentwiseBackwardErrors_` contains one value per RHS column:
+
+$$
+\mathrm{berr}_j = \max_i
+\frac{|(AX-B)_{ij}|}{\sum_k |A_{ik}X_{kj}|+|B_{ij}|}.
+$$
+
+A zero denominator denotes an exact zero equation and contributes zero.
+`LinearSolveBackwardErrors(A, B, X)` also evaluates this metric independently
+for any finite candidate X, including a solution from another solver. Binary
+exponent scaling prevents intermediate product overflow/underflow; explicit
+FMA product compensation and compensated summation retain small residuals
+through cancellation. A binary64 mantissa of scaling headroom preserves
+representable subnormal ratios, including sums of individually tiny products,
+while keeping sums safe for int-sized matrix rows.
+Rounding below the final representable ratio can still
+produce zero. A small backward error alone does not guarantee a small forward
+error for an ill-conditioned matrix.
+
+```cpp
+#include <dal/math/matrix/linearsolvediagnostics.hpp>
+
+Dal::DiagnosedLinearSolve_ result(matrix, rhs);
+const auto& diagnostics = result.Diagnostics();
+const auto& values = result.Solve().Solution();
+const auto contributions = result.Solve().Reverse(solutionSeeds);
+```
+
+Diagnostics add $O(n^3+n^2m)$ work, $O(n^2)$ temporary scratch and $O(m)$
+retained error values. They perform no second factorization and retain no
+inverse. All numeric allocations obey the active buffer budget and refund
+failed construction. Opt-in construction rejects unsupported diagnostic
+inverse range even if the supplied RHS alone is solvable. Ordinary
+`LinearSolvePullback_` and native recorded solves keep their existing work,
+layout and caches. Native recording diagnostic results require separate API
+support.
+
+The reciprocal definition and componentwise metric correspond to the
+[LAPACK condition interface](https://www.netlib.org/lapack/explore-html/d4/daf/group__gecon_ga4f9b830e19e12c7f082ddb497a57af18.html)
+and [backward-error interface](https://www.netlib.org/lapack/explore-html/d5/da4/group__gerfs_gaf9908a6db85a278e5756cbded5f49819.html).
+The diagnostic computes inverse columns directly; it supplies neither a norm
+estimator nor iterative refinement or certified forward-error bounds.
+
 ## Numerical-Recipes Band Storage
 
 Band-diagonal matrices are stored in the compact form used throughout the

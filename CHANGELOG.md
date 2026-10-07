@@ -16,6 +16,14 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-10-08
+
+- **Opt-in linear-solve diagnostics** — numeric solves reuse their LU to report
+  infinity-norm reciprocal conditioning and per-RHS componentwise backward
+  errors, with scaled compensated residuals and tracked scratch. Ordinary
+  numeric and native recorded solves retain their existing caches and work.
+  See [solve diagnostics](docs/methodology/matrix.md#optional-solve-diagnostics).
+
 ## 2026-10-07
 
 - **Native recorded dense solves** — dense solves compose with scalar/vector
