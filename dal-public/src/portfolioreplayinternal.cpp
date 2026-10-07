@@ -29,6 +29,10 @@ namespace Dal::Detail {
             Vector_<Vector_<PortfolioBatchOutput_>> groupOutputs_;
             Vector_<Vector_<size_t>> outputPositions_;
             Vector_<int> inputColumns_;
+            const Script::ScriptPortfolioData_* portfolio_ = nullptr;
+            std::optional<Script::Detail::PortfolioGradientSelection_> gradients_;
+
+            [[nodiscard]] const Script::Detail::PortfolioGradientSelection_* Gradients() const { return gradients_ ? &*gradients_ : nullptr; }
         };
 
         bool ValidatePreparedMode(const PreparedPortfolio_& portfolio, const Vector_<size_t>& inputs) {
@@ -76,6 +80,47 @@ namespace Dal::Detail {
             return columns;
         }
 
+        size_t FullModelInputCount(const PortfolioRiskAxes_& axes, size_t trade) {
+            const auto& positions = axes.TradeInputPositions()[trade];
+            size_t inputs = 0;
+            while (inputs < positions.size() && axes.InputAxis()[positions[inputs]].family_ == "model")
+                ++inputs;
+            return inputs;
+        }
+
+        Script::Detail::PortfolioInputColumns_
+        SelectGradientColumns(const Vector_<size_t>& positions, size_t first, size_t count, const Vector_<int>& columns) {
+            size_t selectedCount = 0;
+            for (size_t ordinal = 0; ordinal < count; ++ordinal)
+                selectedCount += columns[positions[first + ordinal]] >= 0;
+            if (selectedCount == count)
+                return Script::Detail::PortfolioInputColumns_(count);
+            Vector_<size_t> selected;
+            selected.reserve(selectedCount);
+            for (size_t ordinal = 0; ordinal < count; ++ordinal)
+                if (columns[positions[first + ordinal]] >= 0)
+                    selected.push_back(ordinal);
+            return Script::Detail::PortfolioInputColumns_(count, std::move(selected));
+        }
+
+        Script::Detail::PortfolioGradientSelection_
+        SelectGradientInputs(const Script::ScriptPortfolioData_& portfolio, const PortfolioRiskAxes_& axes, const Vector_<int>& columns) {
+            Script::Detail::PortfolioGradientSelection_ selection;
+            selection.models_.reserve(portfolio.Models().size());
+            for (size_t owner = 0; owner < portfolio.Models().size(); ++owner) {
+                const auto first = std::find(portfolio.ModelOwners().begin(), portfolio.ModelOwners().end(), static_cast<int>(owner));
+                const auto trade = static_cast<size_t>(first - portfolio.ModelOwners().begin());
+                selection.models_.push_back(SelectGradientColumns(axes.TradeInputPositions()[trade], 0, FullModelInputCount(axes, trade), columns));
+            }
+            selection.constants_.reserve(portfolio.TradeIds().size());
+            for (size_t trade = 0; trade < portfolio.TradeIds().size(); ++trade) {
+                const auto& positions = axes.TradeInputPositions()[trade];
+                const auto modelInputs = FullModelInputCount(axes, trade);
+                selection.constants_.push_back(SelectGradientColumns(positions, modelInputs, positions.size() - modelInputs, columns));
+            }
+            return selection;
+        }
+
         size_t ValidateOutput(const PortfolioRiskAxes_& axes, const std::map<String_, size_t>& available, const PortfolioBatchOutput_& output) {
             const auto found = available.find(output.coordinate_.id_);
             REQUIRE2(found != available.end(), "InvalidPortfolioReplay: unknown output; output=" + output.coordinate_.id_, ScriptError_);
@@ -88,14 +133,20 @@ namespace Dal::Detail {
         }
 
         ReplaySelection_ SelectOutputs(const Vector_<Script::Detail::PortfolioScenarioGroup_>& groups,
-                                       size_t trades,
+                                       const Handle_<Script::ScriptPortfolioData_>& portfolio,
                                        const PortfolioRiskAxes_& axes,
                                        const Vector_<PortfolioBatchOutput_>& outputs,
-                                       const Vector_<size_t>& inputs) {
+                                       const Vector_<size_t>& inputs,
+                                       bool native) {
             REQUIRE2(!outputs.empty(), "InvalidPortfolioReplay: outputs must not be empty; field=outputs", ScriptError_);
-            ReplaySelection_ selection{Vector_<Vector_<PortfolioBatchOutput_>>(groups.size()), Vector_<Vector_<size_t>>(groups.size()),
-                                       SelectInputColumns(axes, inputs)};
-            Vector_<size_t> tradeGroups(trades);
+            ReplaySelection_ selection{Vector_<Vector_<PortfolioBatchOutput_>>(groups.size()),
+                                       Vector_<Vector_<size_t>>(groups.size()),
+                                       SelectInputColumns(axes, inputs),
+                                       portfolio.get(),
+                                       {}};
+            if (native && inputs.size() != axes.InputAxis().size())
+                selection.gradients_.emplace(SelectGradientInputs(*portfolio, axes, selection.inputColumns_));
+            Vector_<size_t> tradeGroups(portfolio->TradeIds().size());
             for (size_t group = 0; group < groups.size(); ++group)
                 for (const auto trade : groups[group].tradePositions_)
                     tradeGroups[trade] = group;
@@ -138,17 +189,25 @@ namespace Dal::Detail {
         }
 
         template <class G_, class F_>
-        void VisitGradients(const Script::Detail::PortfolioBatchResult_<G_>& batch, const PortfolioRiskAxes_& axes, const F_& accept) {
+        void VisitGradients(const Script::Detail::PortfolioBatchResult_<G_>& batch,
+                            const PortfolioRiskAxes_& axes,
+                            const ReplaySelection_& selection,
+                            const F_& accept) {
             if (batch.constantGradientSums_.empty())
                 return;
-            const auto modelInputs = GradientColumns(batch.modelGradientSums_);
+            const auto* modelColumns =
+                selection.gradients_
+                    ? &selection.gradients_->Model(static_cast<size_t>(selection.portfolio_->ModelOwners()[batch.tradePositions_.front()]))
+                    : nullptr;
+            const auto modelInputs = modelColumns ? modelColumns->SourceExtent() : GradientColumns(batch.modelGradientSums_);
             const auto& representative = axes.TradeInputPositions()[batch.tradePositions_.front()];
-            for (size_t input = 0; input < modelInputs; ++input)
-                accept(batch.modelGradientSums_, input, representative[input]);
+            for (size_t input = 0; input < GradientColumns(batch.modelGradientSums_); ++input)
+                accept(batch.modelGradientSums_, input, representative[modelColumns ? modelColumns->Original(input) : input]);
             for (size_t trade = 0; trade < batch.tradePositions_.size(); ++trade) {
                 const auto& positions = axes.TradeInputPositions()[batch.tradePositions_[trade]];
+                const auto* columns = selection.gradients_ ? &selection.gradients_->Constants(batch.tradePositions_[trade]) : nullptr;
                 for (size_t constant = 0; constant < GradientColumns(batch.constantGradientSums_[trade]); ++constant)
-                    accept(batch.constantGradientSums_[trade], constant, positions[modelInputs + constant]);
+                    accept(batch.constantGradientSums_[trade], constant, positions[modelInputs + (columns ? columns->Original(constant) : constant)]);
             }
         }
 
@@ -156,7 +215,7 @@ namespace Dal::Detail {
                               const PortfolioRiskAxes_& axes,
                               const ReplaySelection_& selection,
                               PortfolioWeightedReplayResult_* result) {
-            VisitGradients(batch, axes, [&](const auto& gradients, size_t local, size_t global) {
+            VisitGradients(batch, axes, selection, [&](const auto& gradients, size_t local, size_t global) {
                 AddGradient(gradients[local], global, axes, selection, result);
             });
         }
@@ -223,10 +282,11 @@ namespace Dal::Detail {
                     batches, selection.groupOutputs_[group].size(), scratch,
                     [&](size_t worker, size_t workers, auto* results) {
                         Script::Detail::EvaluatePortfolioWeightedWorker(portfolio, group, batches, worker, workers, selection.groupOutputs_[group],
-                                                                        results, scratch, tape);
+                                                                        results, {scratch, tape, selection.Gradients()});
                     },
                     [&](const auto& paths) {
-                        return Script::Detail::EvaluatePortfolioWeightedBatch(portfolio, group, paths, selection.groupOutputs_[group], scratch, tape);
+                        return Script::Detail::EvaluatePortfolioWeightedBatch(portfolio, group, paths, selection.groupOutputs_[group],
+                                                                              {scratch, tape, selection.Gradients()});
                     });
                 ReduceGroup(slots, group, axes, selection, result);
             } catch (const std::exception& error) {
@@ -255,7 +315,7 @@ namespace Dal::Detail {
                                 const PortfolioRiskAxes_& axes,
                                 const ReplaySelection_& selection,
                                 PortfolioJacobianReplayResult_* result) {
-            VisitGradients(batch, axes, [&](const auto& gradients, size_t local, size_t global) {
+            VisitGradients(batch, axes, selection, [&](const auto& gradients, size_t local, size_t global) {
                 const auto column = selection.inputColumns_[global];
                 if (column >= 0)
                     AddValue(RowGradient(gradients, lane, local), &result->jacobian_(static_cast<int>(row), column), axes.InputAxis()[global].id_);
@@ -299,10 +359,11 @@ namespace Dal::Detail {
                     batches, outputs.size(), scratch,
                     [&](size_t worker, size_t workers, auto* results) {
                         Script::Detail::EvaluatePortfolioJacobianWorker(portfolio, group, batches, worker, workers, outputs, block.width_, results,
-                                                                        scratch, tape);
+                                                                        {scratch, tape, selection.Gradients()});
                     },
                     [&](const auto& paths) {
-                        return Script::Detail::EvaluatePortfolioJacobianBatch(portfolio, group, paths, outputs, block.width_, scratch, tape);
+                        return Script::Detail::EvaluatePortfolioJacobianBatch(portfolio, group, paths, outputs, block.width_,
+                                                                              {scratch, tape, selection.Gradients()});
                     });
                 ReduceJacobianBlock(slots, group, block, axes, selection, result);
             } catch (const std::exception& error) {
@@ -350,9 +411,9 @@ namespace Dal::Detail {
                 const auto slots = RunBatches<PortfolioWeightedBatchResult_>(
                     batches, outputs.size(), scratch,
                     [&](size_t worker, size_t workers, auto* results) {
-                        Script::Detail::EvaluatePortfolioWeightedWorker(portfolio, group, batches, worker, workers, outputs, results, scratch);
+                        Script::Detail::EvaluatePortfolioWeightedWorker(portfolio, group, batches, worker, workers, outputs, results, {scratch});
                     },
-                    [&](const auto& paths) { return Script::Detail::EvaluatePortfolioWeightedBatch(portfolio, group, paths, outputs, scratch); });
+                    [&](const auto& paths) { return Script::Detail::EvaluatePortfolioWeightedBatch(portfolio, group, paths, outputs, {scratch}); });
                 ReduceJacobianBlock(slots, group, {0, outputs.size(), 1}, axes, selection, result);
             } catch (const std::exception& error) {
                 THROW2("PortfolioJacobianReplayFailed: passive; group=" + String_(std::to_string(group)) + "; cause=" + String_(error.what()),
@@ -360,30 +421,54 @@ namespace Dal::Detail {
             }
         }
 
-        Vector_<const Script::PreparedScript_*> SelectedPlans(const Vector_<Script::Detail::PlannedScript_>& plans,
-                                                              const Script::Detail::PortfolioScenarioGroup_& group,
-                                                              const Vector_<PortfolioBatchOutput_>& outputs) {
-            Vector_<const Script::PreparedScript_*> trades;
+        struct AdmissionTrades_ {
+            Vector_<const Script::PreparedScript_*> plans_;
+            Vector_<size_t> positions_;
+        };
+
+        AdmissionTrades_ SelectedPlans(const Vector_<Script::Detail::PlannedScript_>& plans,
+                                       const Script::Detail::PortfolioScenarioGroup_& group,
+                                       const Vector_<PortfolioBatchOutput_>& outputs,
+                                       bool selectedInputs) {
+            AdmissionTrades_ trades;
             for (const auto trade : group.tradePositions_)
-                if (std::any_of(outputs.begin(), outputs.end(), [&](const auto& output) { return output.tradePosition_ == trade; }))
-                    trades.push_back(&plans[trade].View());
+                if (std::any_of(outputs.begin(), outputs.end(), [&](const auto& output) { return output.tradePosition_ == trade; })) {
+                    trades.plans_.push_back(&plans[trade].View());
+                    if (selectedInputs)
+                        trades.positions_.push_back(trade);
+                }
             return trades;
         }
 
         template <class G_>
-        Vector_<Script::Detail::PortfolioBatchResult_<G_>> AdmissionSlots(
-            const Vector_<const Script::PreparedScript_*>& trades, size_t modelInputs, size_t outputs, size_t width, size_t count, bool native) {
+        Vector_<Script::Detail::PortfolioBatchResult_<G_>> AdmissionSlots(const AdmissionTrades_& trades,
+                                                                          size_t modelInputs,
+                                                                          size_t outputs,
+                                                                          size_t count,
+                                                                          bool native,
+                                                                          const Script::Detail::PortfolioAdmissionSettings_& settings) {
+            if (settings.gradients_) {
+                const auto& columns = settings.gradients_->Model(settings.modelOwner_);
+                columns.ValidateExtent(modelInputs);
+                modelInputs = columns.Size();
+            }
             Vector_<Script::Detail::PortfolioBatchResult_<G_>> slots;
             slots.reserve(count);
             for (size_t batch = 0; batch < count; ++batch) {
                 slots.emplace_back(outputs);
-                slots.back().tradePositions_.Resize(trades.size());
+                slots.back().tradePositions_.Resize(trades.plans_.size());
                 if (native) {
-                    Script::Detail::ResizePortfolioGradientStorage(&slots.back().modelGradientSums_, width, modelInputs);
-                    slots.back().constantGradientSums_.Resize(trades.size());
-                    for (size_t trade = 0; trade < trades.size(); ++trade)
-                        Script::Detail::ResizePortfolioGradientStorage(&slots.back().constantGradientSums_[trade], width,
-                                                                       trades[trade]->ConstVarNames().size());
+                    Script::Detail::ResizePortfolioGradientStorage(&slots.back().modelGradientSums_, settings.width_, modelInputs);
+                    slots.back().constantGradientSums_.Resize(trades.plans_.size());
+                    for (size_t trade = 0; trade < trades.plans_.size(); ++trade) {
+                        auto inputs = trades.plans_[trade]->ConstVarNames().size();
+                        if (settings.gradients_) {
+                            const auto& columns = settings.gradients_->Constants(trades.positions_[trade]);
+                            columns.ValidateExtent(inputs);
+                            inputs = columns.Size();
+                        }
+                        Script::Detail::ResizePortfolioGradientStorage(&slots.back().constantGradientSums_[trade], settings.width_, inputs);
+                    }
                 }
             }
             return slots;
@@ -395,28 +480,29 @@ namespace Dal::Detail {
                         const Script::Detail::PortfolioScenarioGroup_& group,
                         const Vector_<PortfolioBatchOutput_>& outputs,
                         const Script::BatchPlan_& batches,
-                        size_t width,
+                        Script::Detail::PortfolioAdmissionSettings_ settings,
                         size_t workers,
                         BufferCapacityBudget_* scratch,
                         const Script::Detail::PortfolioCapacityLimits_& limits) {
-            const auto trades = SelectedPlans(plans, group, outputs);
+            const auto trades = SelectedPlans(plans, group, outputs, settings.gradients_ != nullptr);
             const auto representative = group.tradePositions_.front();
-            const auto slots = AdmissionSlots<G_>(trades, plans[representative].Model().Parameters().size(), outputs.size(), width,
-                                                  batches.BatchCount(), plan.EnableAad());
+            settings.modelOwner_ = group.modelOwner_;
+            settings.tradePositions_ = &trades.positions_;
+            const auto slots = AdmissionSlots<G_>(trades, plans[representative].Model().Parameters().size(), outputs.size(), batches.BatchCount(),
+                                                  plan.EnableAad(), settings);
             const auto futures = Script::Detail::ReplayExtentProduct(workers, sizeof(TaskHandle_));
             auto taskCapacity = BufferCapacityScope_::ForWorker(scratch, futures);
-            const auto remaining = scratch->LimitBytes() - scratch->CapacityBytes();
-            const auto tapeQuota = limits.tapeBudgetBytes_.value_or(std::numeric_limits<size_t>::max()) / workers;
+            settings.scratchQuota_ = (scratch->LimitBytes() - scratch->CapacityBytes()) / workers;
+            settings.tapeQuota_ = limits.tapeBudgetBytes_.value_or(std::numeric_limits<size_t>::max()) / workers;
             Dal::Detail::BufferCapacitySuspension_ suspension;
             if (plan.EnableAad()) {
                 if constexpr (std::is_same_v<G_, Matrix_<double>>)
-                    Script::Detail::AdmitPortfolioJacobianWorker(trades, plan.Portfolio()->Models()[group.modelOwner_], outputs, width,
-                                                                 remaining / workers, tapeQuota);
+                    Script::Detail::AdmitPortfolioJacobianWorker(trades.plans_, plan.Portfolio()->Models()[group.modelOwner_], outputs, settings);
                 else
-                    Script::Detail::AdmitPortfolioWeightedWorker(trades, plan.Portfolio()->Models()[group.modelOwner_], outputs, remaining / workers,
-                                                                 tapeQuota);
+                    Script::Detail::AdmitPortfolioWeightedWorker(trades.plans_, plan.Portfolio()->Models()[group.modelOwner_], outputs, settings);
             } else
-                Script::Detail::AdmitPortfolioPassiveWorker(trades, plan.Portfolio()->Models()[group.modelOwner_], outputs, remaining / workers);
+                Script::Detail::AdmitPortfolioPassiveWorker(trades.plans_, plan.Portfolio()->Models()[group.modelOwner_], outputs,
+                                                            settings.scratchQuota_);
         }
 
         void PreflightWeighted(const PortfolioWeightedPlan_& plan,
@@ -434,13 +520,14 @@ namespace Dal::Detail {
             const auto axes = ScriptPortfolioRiskAxes(plan.Portfolio());
             const auto outputs = plan.Outputs();
             const auto inputs = plan.InputPositions();
-            const auto selection = SelectOutputs(groups, plans.size(), axes, outputs, inputs);
+            const auto selection = SelectOutputs(groups, plan.Portfolio(), axes, outputs, inputs, plan.EnableAad());
             const PortfolioWeightedReplayResult_ result(outputs.size(), inputs.size(), groups.size());
             for (size_t group = 0; group < groups.size(); ++group) {
                 if (selection.groupOutputs_[group].empty())
                     continue;
                 try {
-                    AdmitGroup<Vector_<double>>(plan, plans, groups[group], selection.groupOutputs_[group], batches, 1, workers, &scratch, limits);
+                    AdmitGroup<Vector_<double>>(plan, plans, groups[group], selection.groupOutputs_[group], batches, {1, 0, 0, selection.Gradients()},
+                                                workers, &scratch, limits);
                 } catch (const std::exception& error) {
                     THROW2("PortfolioWeightedPreflightFailed: group=" + String_(std::to_string(group)) +
                                "; trade=" + plan.Portfolio()->TradeIds()[groups[group].tradePositions_.front()] + "; cause=" + String_(error.what()),
@@ -454,21 +541,22 @@ namespace Dal::Detail {
                                 const Script::Detail::PortfolioScenarioGroup_& group,
                                 const Vector_<PortfolioBatchOutput_>& outputs,
                                 const Script::BatchPlan_& batches,
-                                size_t width,
+                                const Script::Detail::PortfolioAdmissionSettings_& settings,
                                 size_t workers,
                                 BufferCapacityBudget_* scratch,
                                 const Script::Detail::PortfolioCapacityLimits_& limits) {
             if (!plan.EnableAad()) {
-                AdmitGroup<Vector_<double>>(plan, plans, group, outputs, batches, 1, workers, scratch, limits);
+                AdmitGroup<Vector_<double>>(plan, plans, group, outputs, batches, settings, workers, scratch, limits);
                 return;
             }
+            const auto width = settings.width_;
             const auto attempts = outputs.size() / width + (outputs.size() % width != 0);
             const Vector_<size_t> reportedWidths(attempts, width);
             for (size_t first = 0; first < outputs.size(); first += width) {
                 const auto end = std::min(outputs.size(), first + width);
                 const Vector_<PortfolioBatchOutput_> block(outputs.begin() + static_cast<ptrdiff_t>(first),
                                                            outputs.begin() + static_cast<ptrdiff_t>(end));
-                AdmitGroup<Matrix_<double>>(plan, plans, group, block, batches, width, workers, scratch, limits);
+                AdmitGroup<Matrix_<double>>(plan, plans, group, block, batches, settings, workers, scratch, limits);
             }
         }
 
@@ -480,11 +568,12 @@ namespace Dal::Detail {
                                   const Vector_<Script::Detail::PlannedScript_>& plans,
                                   const Vector_<Script::Detail::PortfolioScenarioGroup_>& groups,
                                   size_t group,
-                                  const Vector_<PortfolioBatchOutput_>& outputs,
+                                  const ReplaySelection_& selection,
                                   const Script::BatchPlan_& batches,
                                   size_t workers,
                                   BufferCapacityBudget_* scratch,
                                   const Script::Detail::PortfolioCapacityLimits_& limits) {
+            const auto& outputs = selection.groupOutputs_[group];
             if (outputs.empty())
                 return 0;
             auto width = plan.EnableAad() ? std::min(plan.MaxBlockWidth(), outputs.size()) : 1;
@@ -492,7 +581,7 @@ namespace Dal::Detail {
                 return width;
             for (;;) {
                 try {
-                    AdmitJacobianWidth(plan, plans, groups[group], outputs, batches, width, workers, scratch, limits);
+                    AdmitJacobianWidth(plan, plans, groups[group], outputs, batches, {width, 0, 0, selection.Gradients()}, workers, scratch, limits);
                     return width;
                 } catch (const Exception_& error) {
                     if (std::string(error.what()).find("capacity budget exceeded") == std::string::npos)
@@ -520,11 +609,11 @@ namespace Dal::Detail {
             const auto axes = ScriptPortfolioRiskAxes(plan.Portfolio());
             const auto outputs = plan.Outputs();
             const auto inputs = plan.InputPositions();
-            const auto selection = SelectOutputs(groups, plans.size(), axes, outputs, inputs);
+            const auto selection = SelectOutputs(groups, plan.Portfolio(), axes, outputs, inputs, plan.EnableAad());
             const PortfolioJacobianReplayResult_ result(outputs.size(), inputs.size(), groups.size());
             Vector_<size_t> widths(groups.size(), 0);
             for (size_t group = 0; group < groups.size(); ++group)
-                widths[group] = AdmitJacobianGroup(plan, plans, groups, group, selection.groupOutputs_[group], batches, workers, &scratch, limits);
+                widths[group] = AdmitJacobianGroup(plan, plans, groups, group, selection, batches, workers, &scratch, limits);
             return widths;
         }
     } // namespace
@@ -575,7 +664,7 @@ namespace Dal::Detail {
         const auto inputs = selectedInputs;
         const auto axes = ScriptPortfolioRiskAxes(portfolio.Portfolio());
         ValidatePreparedAxes(portfolio, axes);
-        const auto selection = SelectOutputs(portfolio.Groups(), portfolio.Trades().size(), axes, outputs, inputs);
+        const auto selection = SelectOutputs(portfolio.Groups(), portfolio.Portfolio(), axes, outputs, inputs, native);
         PortfolioWeightedReplayResult_ result(outputs.size(), inputs.size(), portfolio.Groups().size());
         for (size_t group = 0; group < portfolio.Groups().size(); ++group)
             if (!selection.groupOutputs_[group].empty())
@@ -612,7 +701,7 @@ namespace Dal::Detail {
         REQUIRE2(widths.size() == portfolio.Groups().size(), "InvalidPortfolioReplay: widths must match groups; field=widths", ScriptError_);
         const auto axes = ScriptPortfolioRiskAxes(portfolio.Portfolio());
         ValidatePreparedAxes(portfolio, axes);
-        const auto selection = SelectOutputs(portfolio.Groups(), portfolio.Trades().size(), axes, outputs, inputs);
+        const auto selection = SelectOutputs(portfolio.Groups(), portfolio.Portfolio(), axes, outputs, inputs, native);
         PortfolioJacobianReplayResult_ result(outputs.size(), inputs.size(), portfolio.Groups().size());
         ValidateGroupWidths(selection, widths, native);
         for (size_t group = 0; group < portfolio.Groups().size(); ++group) {

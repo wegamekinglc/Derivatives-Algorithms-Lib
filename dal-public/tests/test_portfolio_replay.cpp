@@ -235,7 +235,88 @@ namespace {
             ASSERT_NO_FATAL_FAILURE(AssertJacobianRows(result, axes, trades, references));
         }
     }
+    Matrix_<double> SelectedScalarColumns(const PortfolioRiskAxes_& axes,
+                                          const Vector_<size_t>& trades,
+                                          const Vector_<size_t>& inputs,
+                                          const Vector_<Script::RiskResult_>& references) {
+        Matrix_<double> result(static_cast<int>(trades.size()), static_cast<int>(inputs.size()), 0.0);
+        for (size_t row = 0; row < trades.size(); ++row) {
+            const auto& positions = axes.TradeInputPositions()[trades[row]];
+            for (size_t column = 0; column < inputs.size(); ++column) {
+                const auto found = std::find(positions.begin(), positions.end(), inputs[column]);
+                if (found != positions.end())
+                    result(static_cast<int>(row), static_cast<int>(column)) =
+                        references[row].Jacobian()(0, static_cast<int>(found - positions.begin()));
+            }
+        }
+        return result;
+    }
+
+    void AssertSelectedFamilyRows(const PortfolioJacobianRiskResult_& result,
+                                  const Vector_<Script::RiskResult_>& references,
+                                  const Matrix_<double>& expected) {
+        const auto matrix = result.Jacobian();
+        ASSERT_EQ(matrix.Rows(), expected.Rows());
+        ASSERT_EQ(matrix.Cols(), expected.Cols());
+        for (int row = 0; row < expected.Rows(); ++row) {
+            ASSERT_NEAR(result.Values()[row], references[row].Values()[0], 1e-10);
+            for (int column = 0; column < expected.Cols(); ++column)
+                ASSERT_NEAR(matrix(row, column), expected(row, column), 1e-10);
+        }
+    }
+
+    void AssertSelectedFamilyRisk(const Handle_<ScriptPortfolioData_>& data, int paths, const MonteCarloSettings_& simulation) {
+        const auto axes = ScriptPortfolioRiskAxes(data);
+        const size_t modelInputs = axes.TradeInputPositions()[0].size() - 1;
+        ASSERT_GT(modelInputs, 1);
+        const Vector_<size_t> inputs{axes.TradeInputPositions()[1].back(), 0, modelInputs - 1, axes.TradeInputPositions()[0].back()};
+        Vector_<Script::RiskResult_> references;
+        for (const size_t trade : {1, 0})
+            references.push_back(ValueByMonteCarloWithRisk(data->Products()[trade], data->Models()[0], paths, {}, Valuation(), simulation));
+        const auto expected = SelectedScalarColumns(axes, {1, 0}, inputs, references);
+        PortfolioWeightedRiskRequest_ weightedRequest;
+        weightedRequest.weights_ = Vector_<double>{-1.0, 2.0};
+        weightedRequest.selection_.outputs_ = Vector_<String_>{"trade:1:payoff", "trade:0:payoff"};
+        weightedRequest.selection_.inputs_.emplace();
+        for (const auto input : inputs)
+            weightedRequest.selection_.inputs_->push_back(axes.InputAxis()[input].id_);
+        weightedRequest.scratchCapacityBudgetBytes_ = 64 * 1024 * 1024;
+        weightedRequest.recordingCapacityBudgetBytes_ = 256 * 1024 * 1024;
+        const auto weighted = ValuePortfolioByMonteCarloWithWeightedRisk(data, paths, weightedRequest, Valuation(), simulation);
+        ASSERT_NEAR(weighted.WeightedValue(), -references[0].Values()[0] + 2 * references[1].Values()[0], 1e-10);
+        for (int column = 0; column < expected.Cols(); ++column)
+            ASSERT_NEAR(weighted.Jacobian()(0, column), -expected(0, column) + 2 * expected(1, column), 1e-10);
+        PortfolioJacobianRiskRequest_ request;
+        request.selection_ = weightedRequest.selection_;
+        request.scratchCapacityBudgetBytes_ = weightedRequest.scratchCapacityBudgetBytes_;
+        request.recordingCapacityBudgetBytes_ = weightedRequest.recordingCapacityBudgetBytes_;
+        for (const size_t width : {1, 2, 3}) {
+            request.maxBlockWidth_ = width;
+            const auto result = ValuePortfolioByMonteCarloWithJacobianRisk(data, paths, request, Valuation(), simulation);
+            ASSERT_NO_FATAL_FAILURE(AssertSelectedFamilyRows(result, references, expected));
+            ASSERT_EQ(result.Execution().groups_[0].generatedScenarios_, static_cast<size_t>(paths) * (width == 1 ? 2 : 1));
+        }
+    }
 } // namespace
+
+TEST(PortfolioReplayTest, TestSixNativeFamiliesSelectedColumnsMatchIndependentScalarRisksAcrossBatches) {
+    RegisterAll_::Init();
+    const auto [families, observations] = SixModelFamilies();
+    for (size_t family = 0; family < families.size(); ++family) {
+        SCOPED_TRACE(families[family]->Type());
+        const Handle_<ScriptPortfolioData_> data(
+            new ScriptPortfolioData_("", {{"A", Trade(5.0, "v[5] = X pay PAYS MAX(" + observations[family] + " - SUM(v), 0)"), families[family]},
+                                          {"B", Trade(7.0, "alias = X pay PAYS 3 * " + observations[family] + " + alias"), families[family]}}));
+        for (const size_t workers : {1, 4}) {
+            const ScopedPortfolioThreads_ threads(workers);
+            for (const bool compiled : {false, true}) {
+                auto simulation = DefaultRiskMonteCarloSettings();
+                simulation.compiled_ = compiled;
+                ASSERT_NO_FATAL_FAILURE(AssertSelectedFamilyRisk(data, 8193, simulation));
+            }
+        }
+    }
+}
 
 TEST(PortfolioReplayTest, TestSharedOwnershipScatterAndParallelReductionMatchOracle) {
     RegisterAll_::Init();

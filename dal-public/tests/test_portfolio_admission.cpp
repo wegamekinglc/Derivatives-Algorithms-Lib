@@ -12,6 +12,7 @@
 #include <dal/concurrency/threadpool.hpp>
 #include <dal/model/blackscholes.hpp>
 #include <dal/platform/platform.hpp>
+#include <dal/script/simulation.hpp>
 
 #include <script_test_observers.hpp>
 
@@ -41,6 +42,25 @@ namespace {
         return settings;
     }
 
+    Handle_<ScriptPortfolioData_> WidePrivateInputPortfolio() {
+        Vector_<Cell_> dates;
+        Vector_<String_> events;
+        String_ history = "h = 0";
+        for (size_t input = 0; input < 1024; ++input) {
+            const auto name = "C" + String_(std::to_string(input));
+            dates.push_back(Cell_(name));
+            events.push_back("1");
+            history += " + " + name;
+        }
+        dates.push_back(Cell_(Date_(2025, 1, 1)));
+        events.push_back(history);
+        dates.push_back(Cell_(Date_(2027, 1, 1)));
+        events.push_back("pay PAYS SPOT() + h");
+        const Handle_<ScriptProductData_> product(new ScriptProductData_("", dates, events));
+        const Handle_<ModelData_> model(new BSModelData_("", 100.0, 0.0));
+        return Handle_<ScriptPortfolioData_>(new ScriptPortfolioData_("", {{"A", product, model}, {"B", product, model}}));
+    }
+
     void AssertCapacityFailureBeforeHistory(const Dal::Detail::PortfolioWeightedPlan_& plan,
                                             const MonteCarloSettings_& simulation,
                                             const Dal::Script::Detail::PortfolioCapacityLimits_& limits,
@@ -60,6 +80,80 @@ namespace {
         ASSERT_EQ(tasks.calls_, 0);
     }
 } // namespace
+
+TEST(PortfolioAdmissionTest, TestSelectedPrivateGradientSlotsFitBelowFullExtractionCapacity) {
+    RegisterAll_::Init();
+    const SinglePortfolioWorker_ worker;
+    const auto data = WidePrivateInputPortfolio();
+    constexpr int PATHS = 1048577;
+    const Script::BatchPlan_ batches(PATHS, 1);
+    for (const bool compiled : {false, true}) {
+        auto simulation = DefaultRiskMonteCarloSettings();
+        simulation.compiled_ = compiled;
+        PortfolioWeightedRiskRequest_ request;
+        request.weights_ = Vector_<double>{2.0, -1.0};
+        const auto full = ValuePortfolioByMonteCarloWithWeightedRisk(data, PATHS, request, Valuation(), simulation);
+        ASSERT_EQ(full.CompleteInputAxis().size(), 2052);
+        request.selection_.inputs_ = Vector_<String_>{"trade:1:constant:1023", "model:0:parameter:0", "trade:0:constant:0"};
+        const size_t discardedSlots = batches.BatchCount() * (full.CompleteInputAxis().size() - request.selection_.inputs_->size()) * sizeof(double);
+        ASSERT_GT(full.Execution().peakScratchBytes_, discardedSlots);
+        request.scratchCapacityBudgetBytes_ = full.Execution().peakScratchBytes_ - discardedSlots / 2;
+        request.recordingCapacityBudgetBytes_ = 64 * 1024 * 1024;
+        const auto selected = ValuePortfolioByMonteCarloWithWeightedRisk(data, PATHS, request, Valuation(), simulation);
+        ASSERT_EQ(selected.ComponentMeans(), full.ComponentMeans());
+        ASSERT_DOUBLE_EQ(selected.WeightedValue(), full.WeightedValue());
+        ASSERT_EQ(selected.Jacobian().Cols(), 3);
+        ASSERT_DOUBLE_EQ(selected.Jacobian()(0, 0), -1.0);
+        ASSERT_DOUBLE_EQ(selected.Jacobian()(0, 1), 1.0);
+        ASSERT_DOUBLE_EQ(selected.Jacobian()(0, 2), 2.0);
+        ASSERT_LE(selected.Execution().peakScratchBytes_, *request.scratchCapacityBudgetBytes_);
+        ASSERT_EQ(selected.Execution().groups_[0].generatedScenarios_, PATHS);
+        ASSERT_EQ(selected.Execution().groups_[0].evaluatorCalls_, 2 * PATHS);
+        ASSERT_EQ(selected.Execution().groups_[0].suffixReversals_, PATHS);
+        ASSERT_EQ(selected.Execution().groups_[0].prefixReversals_, batches.BatchCount());
+    }
+}
+
+TEST(PortfolioAdmissionTest, TestSelectedJacobianGradientSlotsFitWithoutCapacityNarrowing) {
+    RegisterAll_::Init();
+    const SinglePortfolioWorker_ worker;
+    const auto data = WidePrivateInputPortfolio();
+    constexpr int PATHS = 1048577;
+    const Script::BatchPlan_ batches(PATHS, 1);
+    for (const bool compiled : {false, true}) {
+        auto simulation = DefaultRiskMonteCarloSettings();
+        simulation.compiled_ = compiled;
+        PortfolioJacobianRiskRequest_ request;
+        request.maxBlockWidth_ = 2;
+        request.selection_.outputs_ = Vector_<String_>{"trade:1:payoff", "trade:0:output:0", "trade:0:payoff"};
+        const auto full = ValuePortfolioByMonteCarloWithJacobianRisk(data, PATHS, request, Valuation(), simulation);
+        request.selection_.inputs_ = Vector_<String_>{"trade:1:constant:1023", "model:0:parameter:0", "trade:0:constant:0"};
+        const size_t discardedSlots =
+            2 * batches.BatchCount() * (full.CompleteInputAxis().size() - request.selection_.inputs_->size()) * sizeof(double);
+        ASSERT_GT(full.Execution().peakScratchBytes_, discardedSlots);
+        request.scratchCapacityBudgetBytes_ = full.Execution().peakScratchBytes_ - discardedSlots / 2;
+        request.recordingCapacityBudgetBytes_ = 256 * 1024 * 1024;
+        const auto selected = ValuePortfolioByMonteCarloWithJacobianRisk(data, PATHS, request, Valuation(), simulation);
+        ASSERT_EQ(selected.Values(), full.Values());
+        ASSERT_EQ(selected.Execution().groups_[0].actualWidths_, (Vector_<size_t>{2, 2}));
+        ASSERT_EQ(selected.Execution().groups_[0].actualWidths_, full.Execution().groups_[0].actualWidths_);
+        ASSERT_EQ(selected.Jacobian().Rows(), 3);
+        ASSERT_EQ(selected.Jacobian().Cols(), 3);
+        ASSERT_DOUBLE_EQ(selected.Jacobian()(0, 0), 1.0);
+        ASSERT_DOUBLE_EQ(selected.Jacobian()(0, 1), 1.0);
+        ASSERT_DOUBLE_EQ(selected.Jacobian()(0, 2), 0.0);
+        ASSERT_DOUBLE_EQ(selected.Jacobian()(1, 0), 0.0);
+        ASSERT_DOUBLE_EQ(selected.Jacobian()(1, 1), 0.0);
+        ASSERT_DOUBLE_EQ(selected.Jacobian()(1, 2), 1.0);
+        ASSERT_DOUBLE_EQ(selected.Jacobian()(2, 0), 0.0);
+        ASSERT_DOUBLE_EQ(selected.Jacobian()(2, 1), 1.0);
+        ASSERT_DOUBLE_EQ(selected.Jacobian()(2, 2), 1.0);
+        ASSERT_LE(selected.Execution().peakScratchBytes_, *request.scratchCapacityBudgetBytes_);
+        ASSERT_EQ(selected.Execution().groups_[0].generatedScenarios_, 2 * PATHS);
+        ASSERT_EQ(selected.Execution().groups_[0].evaluatorCalls_, 3 * PATHS);
+        ASSERT_EQ(selected.Execution().groups_[0].prefixReversals_, 2 * batches.BatchCount());
+    }
+}
 
 TEST(PortfolioAdmissionTest, TestKnownBudgetsRejectBeforeHistoricalReadsAndTasks) {
     RegisterAll_::Init();

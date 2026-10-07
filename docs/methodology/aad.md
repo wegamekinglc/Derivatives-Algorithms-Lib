@@ -993,6 +993,10 @@ or additional Monte Carlo work.
 `scratchCapacityBudgetBytes_` apply to the whole request. Known startup shapes,
 including all selected private history/vector capacities, are admitted before
 historical reads. Runtime growth and overlapping replacements remain guarded.
+Batch gradient buffers retain only requested model and private input columns.
+Their original ordinals and complete model-input prefix preserve global coordinate
+identity and requested order. All recorded inputs remain registered, so selecting
+fewer returned risks reduces numeric buffer storage while retaining full tape work.
 Capacity or worker failures drain accepted tasks and publish no partial result.
 Exercise and fully expired trades retain the multi-output rejection boundary.
 

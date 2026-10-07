@@ -1,6 +1,7 @@
 # Selected portfolio gradient extraction and measured block policy
 
-Status: active P03 specification; implementation has not started.
+Status: selected extraction implemented locally; 87 affected cases pass.
+Measured widths, complete performance and exact-head platform acceptance remain.
 Branch: `feature/aad-selected-extraction`, based on merged
 [P02 #488](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/488),
 `b7e69342d618b539ffc5d3964ed0d6ac2fd15934`. Its tree equals accepted
@@ -14,13 +15,13 @@ or CI regressions, and requires separate PRs after accepted increments.
 P02 is complete; the [implementation ledger](../plans/aad-implementation.md)
 leaves selected extraction and measured width decisions in P03.
 
-`ExtractGradients` in `dal-cpp/dal/script/portfoliobatch.cpp` currently reads every
+Baseline `ExtractGradients` in `dal-cpp/dal/script/portfoliobatch.cpp` reads every
 model and private input into owning batch vectors/matrices. `VisitGradients` and
 `AddGradient` in `dal-public/src/portfolioreplayinternal.cpp` discard unwanted
 columns afterward. `AdmissionSlots` also reserves full gradients. A request for
 one risk therefore retains numeric storage for many risks it never returns.
 
-The current scatter infers the private-input axis offset from the model gradient's
+The baseline scatter infers the private-input axis offset from the model gradient's
 column count. Packed selected gradients make that inference incorrect: selecting
 one of four model inputs must not move the first private input from offset four
 to offset one. Explicit original ordinals and packed positions must remain distinct.
