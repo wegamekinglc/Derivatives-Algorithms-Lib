@@ -693,6 +693,11 @@ returns a passive double. The optional channel defaults to zero. In vector
 mode these operations access the vector array, including channel zero;
 the legacy `Adjoint` scalar field is separate.
 
+`ClearSeeds(number)` clears all channels of that number under the current mode.
+It validates the number once and preserves other nodes' adjoints. Blocked output
+seeding uses this operation to clear reused or aliased roots before setting the
+diagonal seeds.
+
 For example, $u=xy$, $v=x^2+y$ at $(x,y)=(2,3)$ has Jacobian rows $(3,2)$
 and $(4,1)$. Seeds $(2,-1)$ compute the weighted gradient $(2,3)$:
 

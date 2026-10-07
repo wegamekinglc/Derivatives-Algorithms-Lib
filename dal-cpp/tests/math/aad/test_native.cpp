@@ -218,9 +218,37 @@ TEST(AADNativeTest, TestNativeUnboundNumberRejectsChannelAccess) {
     Number_ unbound;
     ASSERT_THROW(NativeOperations_::SetSeed(unbound, 1.0), Exception_);
     ASSERT_THROW(NativeOperations_::AddSeed(unbound, 1.0), Exception_);
+    ASSERT_THROW(NativeOperations_::ClearSeeds(unbound), Exception_);
     ASSERT_THROW(static_cast<void>(NativeOperations_::ReadAdjoint(unbound)), Exception_);
     ASSERT_DOUBLE_EQ(Value(unbound), 0.0);
     Clear(*Tape());
+}
+
+TEST(AADNativeTest, TestClearSeedsPreservesOtherNumbersAcrossScalarAndVectorWidths) {
+    for (const bool multi : {false, true}) {
+        for (const size_t width : {1U, 2U, 3U, 4U, 8U}) {
+            if (!multi && width != 1)
+                continue;
+            SCOPED_TRACE(multi);
+            SCOPED_TRACE(width);
+            const auto mode = Dal::AAD::SetNumResultsForAAD(multi, width);
+            RecordingScope_ scope;
+            Number_ x, y;
+            scope.RegisterInput(x, 2.0);
+            scope.RegisterInput(y, 3.0);
+            scope.StartRecording();
+            scope.FinishRecording();
+            for (size_t channel = 0; channel < width; ++channel) {
+                NativeOperations_::SetSeed(x, 11.0 + channel, channel);
+                NativeOperations_::SetSeed(y, 23.0 + channel, channel);
+            }
+            NativeOperations_::ClearSeeds(x);
+            for (size_t channel = 0; channel < width; ++channel) {
+                ASSERT_DOUBLE_EQ(NativeOperations_::ReadAdjoint(x, channel), 0.0);
+                ASSERT_DOUBLE_EQ(NativeOperations_::ReadAdjoint(y, channel), 23.0 + channel);
+            }
+        }
+    }
 }
 
 TEST(AADNativeTest, TestNativeScalarNodeRejectsMissingVectorStorageAndGraphRecovers) {
@@ -231,6 +259,7 @@ TEST(AADNativeTest, TestNativeScalarNodeRejectsMissingVectorStorageAndGraphRecov
         auto mode = Dal::AAD::SetNumResultsForAAD(true, 3);
         ASSERT_THROW(NativeOperations_::SetSeed(output, 1.0), Exception_);
         ASSERT_THROW(NativeOperations_::AddSeed(output, 1.0), Exception_);
+        ASSERT_THROW(NativeOperations_::ClearSeeds(output), Exception_);
         ASSERT_THROW(static_cast<void>(NativeOperations_::ReadAdjoint(output)), Exception_);
     }
     ASSERT_DOUBLE_EQ(Value(output), 9.0);

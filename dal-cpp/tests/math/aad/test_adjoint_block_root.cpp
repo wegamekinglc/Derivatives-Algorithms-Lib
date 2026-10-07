@@ -30,7 +30,7 @@ TEST(AADAdjointBlockRootTest, TestAliasesConstantsDirectAndPrefixOutputsAcrossPa
         expectedY.push_back(2.0);
         expectedValues.push_back(6.0);
     }
-    for (const size_t width : {1, 2, 4, 16}) {
+    for (const size_t width : {1, 2, 3, 4, 8, 16}) {
         AdjointBlockSettings_ settings;
         settings.maxWidth_ = width;
         const auto plan = PlanAdjointBlocks(17, 2, settings);

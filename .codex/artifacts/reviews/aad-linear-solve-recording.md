@@ -40,6 +40,13 @@ borderline failure and verify final binary identity before reusing this evidence
 All eleven affected translation units pass combined lifetime/profiling ON syntax
 checks for this final repair. Required actual platform execution remains open.
 
+Scoped portfolio acceptance at `2cf5c97e` then finds a sustained large width-8
+Jacobian regression, confirmed with shape-matched noise controls. The channel
+guard experiment remains above threshold and is reverted. Checked bulk seed
+clearing now passes 36 focused tests and -12.79%/-13.43% single-case confirmation.
+It retains mode/node/failure checks, clears every live root channel, and preserves
+other nodes. Final affected caller/boundary and platform evidence remains required.
+
 The resource finding is resolved locally: finite tape scopes now admit exact
 descriptor/owner/table/cache and transient storage before allocation. Failed
 allocations refund, replacement capacity overlaps, suffix/close release matches

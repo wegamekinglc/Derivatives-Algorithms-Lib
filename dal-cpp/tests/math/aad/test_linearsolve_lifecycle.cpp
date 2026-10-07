@@ -116,6 +116,7 @@ TEST(AADLinearSolveTest, TestMissingInputInvalidatesBeforeOutputPublication) {
     ASSERT_THROW(static_cast<void>(LinearSolve(&scope, matrix, rhs)), Exception_);
     ASSERT_EQ(Tape()->nodes_.OccupiedSlots(), nodesBefore);
     ASSERT_THROW(static_cast<void>(NativeOperations_::ReadAdjoint(input)), Exception_);
+    ASSERT_THROW(NativeOperations_::ClearSeeds(input), Exception_);
     ASSERT_THROW(scope.FinishRecording(), Exception_);
     scope.Close();
     Clear(*Tape());

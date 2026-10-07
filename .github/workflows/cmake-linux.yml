@@ -427,7 +427,7 @@ jobs:
             sanitizers: address;undefined
             flags: -O2 -g -fno-sanitize-recover=all
             profiling: "ON"
-            core-filter: AADProfilingTest.*:SimulationTest.TestExplicit*:SimulationTest.TestProfilingTaskFailure*:ScriptExerciseLSMCTest.TestExplicitAadProfiling*:RiskResultTest.*:DupireRiskTest.*:ModelTest.TestRiskViewMutableIterationPreservesStrikeMajorLayout:AADWeightedRootTest.*:WeightedRiskPlanTest.*:AADTest.TestPayoffRootReusesTerminalPathNode:AADAdjointBlockTest.*:AADTapeCapacityTest.*:AADAdjointBlockRootTest.*:Buffer*CapacityTest.*:BlockedSimulationTest.*:BlockedReplayTest.*:JacobianRisk*Test.*:Portfolio*Test.*:ScriptPortfolioTest.*:LinearSolvePullbackTest.*:AADLinearSolveTest.*:AADReverseEventTest.*:OwnedBufferTest.*
+            core-filter: AADNativeTest.*:AADProfilingTest.*:SimulationTest.TestExplicit*:SimulationTest.TestProfilingTaskFailure*:ScriptExerciseLSMCTest.TestExplicitAadProfiling*:RiskResultTest.*:DupireRiskTest.*:ModelTest.TestRiskViewMutableIterationPreservesStrikeMajorLayout:AADWeightedRootTest.*:WeightedRiskPlanTest.*:AADTest.TestPayoffRootReusesTerminalPathNode:AADAdjointBlockTest.*:AADTapeCapacityTest.*:AADAdjointBlockRootTest.*:Buffer*CapacityTest.*:BlockedSimulationTest.*:BlockedReplayTest.*:JacobianRisk*Test.*:Portfolio*Test.*:ScriptPortfolioTest.*:LinearSolvePullbackTest.*:AADLinearSolveTest.*:AADReverseEventTest.*:OwnedBufferTest.*
             public-filter: PublicApiTest.TestMonteCarlo*:RiskValueTest.*:DupireScriptRiskTest.*:WeightedRiskValueTest.*:JacobianRiskValueTest.*:Portfolio*Test.*
           - label: ASan + UBSan combined AAD diagnostics
             slug: aad-combined
@@ -435,7 +435,7 @@ jobs:
             flags: -O2 -g -fno-sanitize-recover=all
             lifetime_diagnostics: "ON"
             profiling: "ON"
-            core-filter: AADProfilingTest.*:AADLifetimeTest.*:AADRecordingTest.*:SimulationTest.TestExplicit*:SimulationTest.TestProfilingTaskFailure*:ScriptExerciseLSMCTest.TestExplicitAadProfiling*:RiskResultTest.*:DupireRiskTest.*:ModelTest.TestRiskViewMutableIterationPreservesStrikeMajorLayout:AADWeightedRootTest.*:WeightedRiskPlanTest.*:AADTest.TestPayoffRootReusesTerminalPathNode:AADAdjointBlockTest.*:AADTapeCapacityTest.*:AADAdjointBlockRootTest.*:Buffer*CapacityTest.*:BlockedSimulationTest.*:BlockedReplayTest.*:JacobianRisk*Test.*:Portfolio*Test.*:ScriptPortfolioTest.*:LinearSolvePullbackTest.*:AADLinearSolveTest.*:AADReverseEventTest.*:OwnedBufferTest.*
+            core-filter: AADNativeTest.*:AADProfilingTest.*:AADLifetimeTest.*:AADRecordingTest.*:SimulationTest.TestExplicit*:SimulationTest.TestProfilingTaskFailure*:ScriptExerciseLSMCTest.TestExplicitAadProfiling*:RiskResultTest.*:DupireRiskTest.*:ModelTest.TestRiskViewMutableIterationPreservesStrikeMajorLayout:AADWeightedRootTest.*:WeightedRiskPlanTest.*:AADTest.TestPayoffRootReusesTerminalPathNode:AADAdjointBlockTest.*:AADTapeCapacityTest.*:AADAdjointBlockRootTest.*:Buffer*CapacityTest.*:BlockedSimulationTest.*:BlockedReplayTest.*:JacobianRisk*Test.*:Portfolio*Test.*:ScriptPortfolioTest.*:LinearSolvePullbackTest.*:AADLinearSolveTest.*:AADReverseEventTest.*:OwnedBufferTest.*
             public-filter: PublicApiTest.TestMonteCarlo*:RiskValueTest.*:DupireScriptRiskTest.*:WeightedRiskValueTest.*:JacobianRiskValueTest.*:Portfolio*Test.*
           - label: TSan AAD profiling tasks
             slug: tsan-profiling

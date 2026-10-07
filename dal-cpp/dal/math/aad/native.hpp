@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cstddef>
 #include <dal/math/aad/aad.hpp>
 #include <dal/utilities/exceptions.hpp>
@@ -40,6 +41,11 @@ namespace Dal::AAD {
         static void ValidateAdjointMode(bool multi, size_t width) { RequireMode(multi, width, "NativeAAD.ValidateAdjointMode"); }
         static FORCE_INLINE void SetSeed(Number_& number, double seed, size_t channel = 0) { Channel(number, channel, "NativeAAD.SetSeed") = seed; }
         static FORCE_INLINE void AddSeed(Number_& number, double seed, size_t channel = 0) { Channel(number, channel, "NativeAAD.AddSeed") += seed; }
+        static FORCE_INLINE void ClearSeeds(Number_& number) {
+            auto* adjoints = &Channel(number, 0, "NativeAAD.ClearSeeds");
+            const auto* tape = Tape();
+            std::fill_n(adjoints, tape->multi_ ? tape->numAdj_ : 1, 0.0);
+        }
         [[nodiscard]] static FORCE_INLINE double ReadAdjoint(const Number_& number, size_t channel = 0) {
             return Channel(number, channel, "NativeAAD.ReadAdjoint");
         }

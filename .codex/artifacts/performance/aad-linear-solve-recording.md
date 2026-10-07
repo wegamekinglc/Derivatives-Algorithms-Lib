@@ -153,3 +153,34 @@ close to its boundary. The final affected build passes 132/132 tests in
 remaining affected-path/platform acceptance remain open.
 All eleven affected translation units also pass final combined lifetime/profiling
 ON syntax checks in `aad-recorded-solve-cold-combined-syntax-01.log`.
+
+## Scoped acceptance at `2cf5c97e`
+
+The selected native targets pass 54/54 rows: eleven Tape, six Jacobian and 37
+rate-risk cases. Scalar and weighted entry helpers pass eight rows each. Ordinary
+MC and compiled BS/local-vol replay pass, with replay values/risks agreeing at
+relative/absolute tolerance 1e-10. Frozen final binaries match accepted GSR06,
+so its six rows are reused with verified source/binary provenance.
+
+Portfolio noise controls pass. Compact weighted/all and large weighted/sparse
+requests pass, but the large sparse width-8 Jacobian fails +7.06%/+7.44% in
+`aad-recorded-solve-portfolio-pairs-03/`. Stop after this third selected case;
+do not measure the remaining boundaries or cost rows on a known failing head.
+Shape-matched same-binary controls then pass for both sides, and confirmation of
+only that case still fails +7.01%/+7.42% in `aad-recorded-solve-portfolio-pairs-04/`.
+
+The first local channel-guard candidate passes 31 focused tests and seven combined
+ON syntax checks but still fails +6.28%/+6.55% in
+`aad-recorded-solve-portfolio-pairs-05/`; it is reverted. The width-8 propagation
+kernel has identical instruction bytes in baseline/head objects. Repeated seed
+clearing validates every root/channel pair even though the mode is fixed during
+that loop.
+
+The next repair adds checked native `ClearSeeds` and validates once per root before
+clearing its contiguous channels. Root preparation uses it before diagonal seeds;
+alias and stale-lane clearing remain required. The missing-interface RED is retained
+in `aad-recorded-solve-clear-seeds-red-01.log`. Thirty-six focused native/recorded
+and block-root cases pass, including a new scalar/vector isolation test and added
+width-3/8 alias/path coverage. Shape-matched head noise controls pass; the single
+failed case now passes -12.79%/-13.43% in `aad-recorded-solve-portfolio-pairs-06/`.
+Final affected caller/boundary and exact-head platform acceptance remain open.

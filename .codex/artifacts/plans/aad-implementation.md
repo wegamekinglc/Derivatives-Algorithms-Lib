@@ -42,7 +42,7 @@ acceptance remain open. Structured coordinates, precision/conditioning
 diagnostics, implicit calibration, PDE and subsequent stages remain required.
 
 Recording progress: the analytic/interface, passive/RHS-only, reset-mutation,
-resource and capability RED logs remain in session evidence. Forty-five new
+resource and capability RED logs remain in session evidence. Forty-six new
 cases now pass across three overloads, independent scalar/finite-difference
 oracles, vector widths 1/2/3/4/8, aliases, shared/serial solves, repeated reverse,
 checkpoints, raw windows, block boundaries, ownership and failure recovery.
@@ -66,8 +66,13 @@ and six GSR rows pass, with the formerly failing case at +3.13%/+3.95% after
 borderline confirmation. See the [performance report](../performance/aad-linear-solve-recording.md).
 Under the project-wide performance scope amendment, the unstarted 81-case matrix
 is cancelled. Final affected caller/boundary measurements, installed consumers
-and exact-head OFF/ON runtime CI remain open. The 45 new cases comprise 44 recording/resource cases and one
-RHS-only numeric pullback case; the existing capability-contract test is separate.
+and exact-head OFF/ON runtime CI remain open. The 46 new cases comprise 44
+recording/resource cases, one RHS-only numeric pullback case and one native
+seed-clear case; the existing capability-contract test is separate.
+Scoped acceptance finds a sustained large width-8 portfolio regression. Bulk
+root seed clearing preserves validation and alias semantics; 36 focused cases
+pass and the repaired single-case confirmation is -12.79%/-13.43%. Final
+affected callers/boundaries and exact-head CI remain open.
 Accepted #490 baseline libraries, headers and tests are frozen in
 `aad-recorded-solve-baseline-01/provenance.json`; the published prototype is
 frozen separately in `aad-recorded-solve-increment-01/provenance.json`.
