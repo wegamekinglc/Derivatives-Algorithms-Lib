@@ -13,7 +13,7 @@
 
 namespace Dal {
     namespace {
-        double EntryContribution(const Matrix_<>& rhsAdjoints, const Matrix_<>& solution, int row, int column) {
+        FORCE_INLINE double EntryContribution(const Matrix_<>& rhsAdjoints, const Matrix_<>& solution, int row, int column) {
             double value = 0.0;
             for (int rhs = 0; rhs < solution.Cols(); ++rhs) {
                 value -= rhsAdjoints(row, rhs) * solution(column, rhs);
@@ -78,14 +78,16 @@ namespace Dal {
         REQUIRE(parameters.size() == count_, "Linear solve coordinate parameter count does not match the layout");
         SquareMatrix_<> result(size_);
         size_t index = 0;
-        for (int row = 0; row < size_; ++row)
-            for (int column = RowBegin(row); column < RowEnd(row); ++column) {
+        for (int row = 0; row < size_; ++row) {
+            const int end = RowEnd(row);
+            for (int column = RowBegin(row); column < end; ++column) {
                 const double value = parameters[index++];
                 REQUIRE(std::isfinite(value), "Linear solve coordinate parameters must be finite");
                 result(row, column) = value;
                 if (symmetric_)
                     result(column, row) = value;
             }
+        }
         return result;
     }
 
@@ -101,14 +103,16 @@ namespace Dal {
         auto rhs = ReverseRhs(solutionAdjoints);
         CoordinateLinearSolveAdjoints_ result{Vector_<>(coordinates_.Count()), std::move(rhs)};
         size_t index = 0;
-        for (int row = 0; row < coordinates_.Size(); ++row)
-            for (int column = coordinates_.RowBegin(row); column < coordinates_.RowEnd(row); ++column) {
+        for (int row = 0; row < coordinates_.Size(); ++row) {
+            const int end = coordinates_.RowEnd(row);
+            for (int column = coordinates_.RowBegin(row); column < end; ++column) {
                 double value = EntryContribution(result.rhs_, Solution(), row, column);
                 if (coordinates_.IsSymmetric() && row != column)
                     value += EntryContribution(result.rhs_, Solution(), column, row);
                 REQUIRE(std::isfinite(value), "Linear solve paired coordinate adjoint accumulation overflow");
                 result.coordinates_[index++] = value;
             }
+        }
         return result;
     }
 } // namespace Dal
