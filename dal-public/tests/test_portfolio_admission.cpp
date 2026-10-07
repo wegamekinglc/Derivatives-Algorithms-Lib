@@ -42,18 +42,23 @@ namespace {
         return settings;
     }
 
+    String_ SumPrivateInputs(size_t first, size_t count) {
+        if (count == 1)
+            return "C" + String_(std::to_string(first));
+        const auto left = count / 2;
+        return "(" + SumPrivateInputs(first, left) + " + " + SumPrivateInputs(first + left, count - left) + ")";
+    }
+
     Handle_<ScriptPortfolioData_> WidePrivateInputPortfolio() {
         Vector_<Cell_> dates;
         Vector_<String_> events;
-        String_ history = "h = 0";
         for (size_t input = 0; input < 1024; ++input) {
             const auto name = "C" + String_(std::to_string(input));
             dates.push_back(Cell_(name));
             events.push_back("1");
-            history += " + " + name;
         }
         dates.push_back(Cell_(Date_(2025, 1, 1)));
-        events.push_back(history);
+        events.push_back("h = " + SumPrivateInputs(0, 1024));
         dates.push_back(Cell_(Date_(2027, 1, 1)));
         events.push_back("pay PAYS SPOT() + h");
         const Handle_<ScriptProductData_> product(new ScriptProductData_("", dates, events));

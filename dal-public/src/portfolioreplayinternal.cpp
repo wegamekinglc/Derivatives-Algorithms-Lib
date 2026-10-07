@@ -188,6 +188,10 @@ namespace Dal::Detail {
                 return static_cast<size_t>(gradients.Cols());
         }
 
+        size_t OriginalInputOrdinal(const Script::Detail::PortfolioInputColumns_* columns, size_t packed) {
+            return columns ? columns->Original(packed) : packed;
+        }
+
         template <class G_, class F_>
         void VisitGradients(const Script::Detail::PortfolioBatchResult_<G_>& batch,
                             const PortfolioRiskAxes_& axes,
@@ -202,12 +206,12 @@ namespace Dal::Detail {
             const auto modelInputs = modelColumns ? modelColumns->SourceExtent() : GradientColumns(batch.modelGradientSums_);
             const auto& representative = axes.TradeInputPositions()[batch.tradePositions_.front()];
             for (size_t input = 0; input < GradientColumns(batch.modelGradientSums_); ++input)
-                accept(batch.modelGradientSums_, input, representative[modelColumns ? modelColumns->Original(input) : input]);
+                accept(batch.modelGradientSums_, input, representative[OriginalInputOrdinal(modelColumns, input)]);
             for (size_t trade = 0; trade < batch.tradePositions_.size(); ++trade) {
                 const auto& positions = axes.TradeInputPositions()[batch.tradePositions_[trade]];
                 const auto* columns = selection.gradients_ ? &selection.gradients_->Constants(batch.tradePositions_[trade]) : nullptr;
                 for (size_t constant = 0; constant < GradientColumns(batch.constantGradientSums_[trade]); ++constant)
-                    accept(batch.constantGradientSums_[trade], constant, positions[modelInputs + (columns ? columns->Original(constant) : constant)]);
+                    accept(batch.constantGradientSums_[trade], constant, positions[modelInputs + OriginalInputOrdinal(columns, constant)]);
             }
         }
 
