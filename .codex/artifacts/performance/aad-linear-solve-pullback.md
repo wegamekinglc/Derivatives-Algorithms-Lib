@@ -1,18 +1,18 @@
 # F03 dense solve cost and regression coverage
 
-Status: initial study retained; adaptive-scaling correction needs a fresh study.
-Measured source: `6fc3a3c4fc6118415bf023d9d0c03485c8fd0b33`, based on merged
+Status: corrected study complete; platform/publication gates remain open.
+Measured source: `b88e435619d7b28752ab7ba447673a3ee3053fad`, based on merged
 P03 `97567d6e7fc395fb3c7b383050edcd7416f68a4e`.
-Copilot subsequently found silent early RHS underflow. The correction preserves
-representable subnormal values by scaling per RHS after substitution where needed.
-The measurements below remain historical evidence and do not accept the corrected
-operator's current cost. They will be supplemented with fresh comparisons.
+Copilot's early-RHS underflow finding is repaired with per-RHS adaptive late
+scaling. Fresh study 02 measures that correction. Initial study 01, measured at
+`6fc3a3c4`, remains retained as superseded evidence; it does not accept the current
+numeric kernel's cost.
 
 ## Verdict and limits
 
 All sixteen informational numeric/scalar comparisons reduce in both rounds.
-Complete construction plus reverse reduces 52.96–96.59%; cached reverse reduces
-25.26–95.68%. The reference is independently recorded native scalar Gauss-Jordan,
+Complete construction plus reverse reduces 51.74–96.63%; cached reverse reduces
+14.92–95.47%. The reference is independently recorded native scalar Gauss-Jordan,
 not an optimal existing general LU or integrated calibration/PDE workload.
 No default route changes or whole-library speedup claim follow from this study.
 
@@ -30,9 +30,10 @@ GCC 15.2, C++17 Release, portable architecture; helper flags
 `-O3 -DNDEBUG -std=c++17 -fPIE`, linked core flags
 `-O3 -DNDEBUG -std=c++17 -fPIC -ffp-contract=fast -O3`.
 WSL2, Intel Core i9-13900HX; affinity 0/2/4/6 and DAL_NUM_THREADS=4.
-Exact environment is retained with the results.
+Both kernels execute serially on the caller; this thread environment does not
+make the study a parallel workload. Exact environment is retained with the results.
 
-`aad-linear-solve-cost-protocol-01.md` was frozen before sampling:
+`aad-linear-solve-cost-protocol-02.md` was frozen before sampling:
 n = 2/8/16/32, RHS = 1/4, complete/cached, two rounds of ten alternating
 numeric/scalar process pairs per case, minimum reduction. Each observation times
 128 calls and divides the window by 128. Both sides create owning values and
@@ -63,22 +64,22 @@ numeric/scalar minus one.
 
 | Path     | n  | RHS | Scalar R1 us | Numeric R1 us | R1 delta | Scalar R2 us | Numeric R2 us | R2 delta |
 |----------|----|-----|--------------|---------------|----------|--------------|---------------|----------|
-| complete | 2  | 1   | 0.415031     | 0.190836      | -54.02%  | 0.390641     | 0.183766      | -52.96%  |
-| complete | 2  | 4   | 0.739836     | 0.222375      | -69.94%  | 0.748492     | 0.228523      | -69.47%  |
-| complete | 8  | 1   | 7.754281     | 0.830281      | -89.29%  | 7.618781     | 0.791734      | -89.61%  |
-| complete | 8  | 4   | 12.787102    | 1.283125      | -89.97%  | 12.098484    | 1.191555      | -90.15%  |
-| complete | 16 | 1   | 55.659773    | 3.050844      | -94.52%  | 51.265813    | 2.869922      | -94.40%  |
-| complete | 16 | 4   | 72.836641    | 4.393875      | -93.97%  | 69.050258    | 4.256391      | -93.84%  |
-| complete | 32 | 1   | 397.547586   | 13.542586     | -96.59%  | 374.991117   | 12.790211     | -96.59%  |
-| complete | 32 | 4   | 472.775609   | 18.459102     | -96.10%  | 434.392117   | 17.019938     | -96.08%  |
-| cached   | 2  | 1   | 0.122992     | 0.091930      | -25.26%  | 0.114391     | 0.083023      | -27.42%  |
-| cached   | 2  | 4   | 0.220203     | 0.107703      | -51.09%  | 0.208719     | 0.103484      | -50.42%  |
-| cached   | 8  | 1   | 2.333305     | 0.445234      | -80.92%  | 2.110727     | 0.388219      | -81.61%  |
-| cached   | 8  | 4   | 3.672078     | 0.637188      | -82.65%  | 3.674906     | 0.613773      | -83.30%  |
-| cached   | 16 | 1   | 16.620117    | 1.488852      | -91.04%  | 15.430312    | 1.391977      | -90.98%  |
-| cached   | 16 | 4   | 23.518812    | 2.195414      | -90.67%  | 20.209609    | 1.991852      | -90.14%  |
-| cached   | 32 | 1   | 126.861414   | 5.961898      | -95.30%  | 118.673773   | 5.125164      | -95.68%  |
-| cached   | 32 | 4   | 146.108398   | 8.146758      | -94.42%  | 143.090188   | 7.326305      | -94.88%  |
+| complete | 2  | 1   | 0.377578     | 0.164703      | -56.38%  | 0.377422     | 0.170148      | -54.92%  |
+| complete | 2  | 4   | 0.695680     | 0.335742      | -51.74%  | 0.696562     | 0.334977      | -51.91%  |
+| complete | 8  | 1   | 7.214148     | 0.761602      | -89.44%  | 7.178094     | 0.753820      | -89.50%  |
+| complete | 8  | 4   | 11.439195    | 1.332398      | -88.35%  | 11.333109    | 1.311398      | -88.43%  |
+| complete | 16 | 1   | 50.851328    | 2.771492      | -94.55%  | 50.053453    | 2.734000      | -94.54%  |
+| complete | 16 | 4   | 68.001578    | 4.286211      | -93.70%  | 64.359602    | 4.073516      | -93.67%  |
+| complete | 32 | 1   | 361.356367   | 12.165086     | -96.63%  | 353.219367   | 11.901164     | -96.63%  |
+| complete | 32 | 4   | 418.191789   | 16.576789     | -96.04%  | 415.684242   | 16.441523     | -96.04%  |
+| cached   | 2  | 1   | 0.111570     | 0.081062      | -27.34%  | 0.111023     | 0.081883      | -26.25%  |
+| cached   | 2  | 4   | 0.198195     | 0.168617      | -14.92%  | 0.200742     | 0.164367      | -18.12%  |
+| cached   | 8  | 1   | 2.029273     | 0.375008      | -81.52%  | 2.015383     | 0.390617      | -80.62%  |
+| cached   | 8  | 4   | 3.266805     | 0.674398      | -79.36%  | 3.311250     | 0.680023      | -79.46%  |
+| cached   | 16 | 1   | 14.529969    | 1.338680      | -90.79%  | 14.595445    | 1.309836      | -91.03%  |
+| cached   | 16 | 4   | 20.681438    | 2.082492      | -89.93%  | 20.353898    | 2.014664      | -90.10%  |
+| cached   | 32 | 1   | 112.764922   | 5.168227      | -95.42%  | 114.199133   | 5.177273      | -95.47%  |
+| cached   | 32 | 4   | 133.955406   | 7.046383      | -94.74%  | 134.233039   | 7.073930      | -94.73%  |
 
 ## Storage accounting
 
@@ -108,28 +109,27 @@ the same numeric gradient payload. Capacity includes unused cached blocks.
 
 ## Legacy identities and retained evidence
 
-`aad-linear-solve-legacy-link-proof-02/provenance.json` records all fourteen
+`aad-linear-solve-legacy-link-proof-03/provenance.json` records all fourteen
 fresh commands and matching accepted SHA-256 hashes. `fresh-0/1` are scalar and
 weighted helpers; `fresh-2` through `fresh-10` are the nine formal targets;
 `fresh-11/12` are MC/curve-calibration targets; `fresh-13` is the accepted complete
 portfolio helper. Production source/archive identities are recorded separately.
 
 Raw process logs, all samples, results, environment and driver/protocol hashes
-remain in `aad-linear-solve-cost-pairs-01`. Exact helper build commands and
+remain in `aad-linear-solve-cost-pairs-02`. Exact helper build commands and
 source/reference/archive/executable hashes are in
-`aad-linear-solve-cost-build-proof-01.json`. Source is
+`aad-linear-solve-cost-build-proof-02.json`. Source is
 `aad-linear-solve-cost-01.cpp`, with the committed test's independent Augment,
 ReduceColumn and GaussJordan extracted into
 `aad-linear-solve-scalar-reference-01.inc`. Four preliminary smoke runs are
 retained separately and do not count as samples.
 
-The follow-up seed-combination test changes no production or measured executable.
-Its final publication proof must verify source/archive/executable identities;
-accepted timing does not need repeating. The new translation unit also compiles
-without Eigen macros/include paths to a byte-identical object, and all nine
+Final publication must verify these frozen source/archive/executable identities;
+documentation-only changes do not require repeating accepted timing. The new translation unit also compiles
+without Eigen macros/include paths to a byte-identical object, and all ten
 focused tests linked to that object pass, under
-`aad-linear-solve-eigen-off-01/provenance.json`. Unrelated core dependencies reuse
+`aad-linear-solve-eigen-off-02/provenance.json`. Unrelated core dependencies reuse
 the accepted build; this does not claim a new full Eigen-OFF workspace rebuild.
 
-Final Windows, six sanitizer and four extended logs must contain all nine affected
+Final Windows, six sanitizer and four extended logs must contain all ten affected
 cases. Exact final-head CI/Codacy/review gates and a guarded merge remain required.

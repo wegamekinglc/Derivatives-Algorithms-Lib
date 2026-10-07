@@ -29,8 +29,11 @@ The distinct seed-combination follow-up passes the one changed case. Copilot's
 early-normalization underflow finding is reproduced: a representable 5e-315
 solution becomes zero. Per-RHS adaptive late scaling repairs the forward and
 transpose paths, with independent direct-division and mixed-column references.
-The initial cost study is retained but superseded for current operator acceptance.
-Fresh cost/platform acceptance remains open and the first F03 checkbox stays unchecked.
+The initial cost study is retained but superseded. Corrected study 02 accepts
+all sixteen comparisons and 81,920 results; fresh legacy proof 03 preserves all
+fourteen accepted hashes, and Eigen-free correction passes 10/10. Local review
+approves. Final platform/review publication remains open and the first F03
+checkbox stays unchecked.
 
 Scope amendment (2026-10-04): the user requires removing XAD, CoDiPack and Adept
 support and keeping only DAL's built-in native AAD. This replaces the earlier
