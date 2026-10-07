@@ -2,8 +2,10 @@
 
 Status: P02 worker reuse is implemented locally in
 [#488](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/488).
-Focused numerical/resource tests pass; performance and final-head platform
-acceptance remain open. P03 extraction/block policy follows in a new PR after
+All 82 focused numerical/resource cases and 37 complete-request performance cases
+pass. Thirteen freshly relinked legacy executables retain their accepted hashes;
+see [performance acceptance](../performance/aad-worker-reuse.md).
+Final-head platform acceptance remains open. P03 extraction/block policy follows in a new PR after
 #488 merges. Delivery follows accepted portfolio PR
 [#487](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/487),
 merge `bf52e3868a3e72a5f43b8c023a12aeee095a46cd`. Its tree equals accepted
@@ -25,6 +27,10 @@ in `dal-public/src/portfolioreplayinternal.cpp` bounds jobs by worker count; the
 runner in `dal-cpp/dal/script/portfoliobatch.cpp` retains those buffers per job.
 Each original batch still records its prefix, restores each path checkpoint,
 reverses each suffix, reverses the prefix and extracts gradients independently.
+Jobs assigned only one batch use the direct batch entry. Width-one native
+Jacobian blocks use the scalar adjoint channel while retaining matrix results,
+original root semantics and conservative preflight admission. These repairs do
+not add a public width policy or selected extraction.
 Existing single-product value-only workers reuse request-local buffers;
 see [batching](../../../docs/methodology/script_engine.md#batching-and-thread-pool).
 

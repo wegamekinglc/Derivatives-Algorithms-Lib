@@ -769,7 +769,7 @@ overlapping acceptance work is included once in the integration allowance.
 | F01                     | C++/Python/Excel and complete requirement audit accepted         | Merged; final 35/35 checks accepted      | 0                     |
 | F02 weighted/blocked    | C++/Python/Excel and independent mathematical oracles accepted   | #483/#484 merged; exact-head gates pass  | 0                     |
 | F02 portfolio           | C++/Python/Excel, installed consumers and timing repair accepted | #487 merged; final 35/35 checks accepted | 0                     |
-| P02/P03                 | Worker reuse and six-model reset pass focused tests              | #488 open; performance/platform pending  | 4–7                   |
+| P02/P03                 | Worker reuse: 82 tests and 37 full-request cost cases pass        | #488 open; final-head platform pending   | 4–7                   |
 | F03                     | Solve, implicit calibration and PDE operators remain             | Open                                     | 12–20                 |
 | P04/P05                 | Structural sparsity/checkpointing remain                         | Open                                     | 9–15                  |
 | F04                     | Second-order implementation/estimator validation remain          | Open                                     | 12–20                 |

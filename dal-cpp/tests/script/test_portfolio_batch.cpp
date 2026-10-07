@@ -388,6 +388,43 @@ TEST(PortfolioBatchTest, TestHistoricalPrefixAndDirectConstantAliasesReverseOnce
     }
 }
 
+TEST(PortfolioBatchTest, TestSingleChannelWorkersMatchVectorRecordingsForPrefixAliasesAndPayoffs) {
+    const Handle_<ModelData_> model(new BSModelData_("", 100.0, 0.23, 0.02, 0.01));
+    const Vector_<Cell_> dates{Cell_("X"), Cell_(Date_(2025, 12, 30)), Cell_(Date_(2027, 1, 1))};
+    const Vector_<String_> events{"5", "state = X * FIX(EQ[PORTFOLIO_BATCH_PAST])", "alias = X prefix = state pay PAYS state + SPOT()"};
+    const Handle_<ScriptProductData_> trade(new ScriptProductData_("", dates, events, ScriptProductSettings_{"EQ[MODEL]", {}}));
+    const Handle_<ScriptPortfolioData_> data(new ScriptPortfolioData_("", {{"A", trade, model}}));
+    auto valuation = Valuation();
+    valuation.fixings_ =
+        Handle_<MarketFixingSnapshot_>(new MarketFixingSnapshot_({{"EQ[PORTFOLIO_BATCH_PAST]", {{DateTime_(Date_(2025, 12, 30), 0.0), 80.0}}}}));
+    const BatchPlan_ batches(8193, 1);
+    for (const bool compiled : {false, true}) {
+        MonteCarloSettings_ simulation;
+        simulation.enableAad_ = true;
+        simulation.compiled_ = compiled;
+        const auto portfolio = Dal::Script::Detail::PrepareScriptPortfolio(data, 8193, valuation, simulation);
+        for (const auto& output : {Payoff(portfolio, 0, -2.0), NamedOutput(portfolio, 0, "alias", 0.0), NamedOutput(portfolio, 0, "prefix", 1.0)}) {
+            SCOPED_TRACE(output.coordinate_.id_);
+            Vector_<Dal::Script::Detail::PortfolioJacobianBatchResult_> scalar;
+            for (size_t batch = 0; batch < batches.BatchCount(); ++batch)
+                scalar.emplace_back(1);
+            Dal::Script::Detail::EvaluatePortfolioJacobianWorker(portfolio, 0, batches, 0, 1, {output}, 1, &scalar);
+            for (size_t batch = 0; batch < batches.BatchCount(); ++batch) {
+                const auto reference = Dal::Script::Detail::EvaluatePortfolioJacobianBatch(portfolio, 0, batches.BatchAt(batch), {output}, 2);
+                ASSERT_EQ(scalar[batch].componentSums_, reference.componentSums_);
+                ASSERT_EQ(scalar[batch].modelGradientSums_.Rows(), 1);
+                for (int column = 0; column < reference.modelGradientSums_.Cols(); ++column)
+                    ASSERT_DOUBLE_EQ(scalar[batch].modelGradientSums_(0, column), reference.modelGradientSums_(0, column));
+                ASSERT_EQ(scalar[batch].constantGradientSums_.size(), 1);
+                ASSERT_DOUBLE_EQ(scalar[batch].constantGradientSums_[0](0, 0), reference.constantGradientSums_[0](0, 0));
+                ASSERT_EQ(scalar[batch].generatedScenarios_, batches.BatchAt(batch).pathCount_);
+                ASSERT_EQ(scalar[batch].suffixReversals_, batches.BatchAt(batch).pathCount_);
+                ASSERT_EQ(scalar[batch].prefixReversals_, 1);
+            }
+        }
+    }
+}
+
 TEST(PortfolioBatchTest, TestOutputOrderAndUnselectedTradeKeepIndependentState) {
     const Handle_<ModelData_> model(new BSModelData_("", 1000.0, 0.0));
     const Handle_<ScriptPortfolioData_> data(new ScriptPortfolioData_("", {{"A", Trade(5.0, "pay PAYS SPOT() + X"), model},

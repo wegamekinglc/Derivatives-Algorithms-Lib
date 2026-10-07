@@ -970,6 +970,7 @@ constants, initializes model coefficients and historical seeds, and repositions
 the RNG to the original absolute offset. Batch results retain separate slots and
 reduce in their original order. All worker state is destroyed after tasks drain;
 it does not persist across requests, groups or output blocks.
+Requests with only one batch per worker use the direct batch entry.
 
 Default settings use native AAD. Explicit empty native inputs retain the smoothed
 estimator and a `(1, 0)` gradient. Setting `simulation.enableAad_ = false` selects
@@ -1027,6 +1028,11 @@ preserve output aliases and unused tail lanes stay zero. Only selected derivativ
 columns must be finite. Raw and reported matrix getters return detached copies;
 report factors scale columns once and overflow rejects the entire result with
 the original failing trade/output context.
+
+A width-one block uses the native scalar adjoint channel and retains its one-row
+Jacobian shape. Wider blocks use vector channels, including zero tail lanes.
+Requested maxima, admitted widths and per-batch reversal counts keep the same
+meaning. Startup admission remains conservative for a width-one recording.
 
 The retained numeric payload is exactly `sizeof(double) * m * (1+n)`.
 Recording and scratch limits apply across the sequential groups and concurrent
