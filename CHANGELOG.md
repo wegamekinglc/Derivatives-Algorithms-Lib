@@ -20,7 +20,7 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 - **Independent dense linear-solve pullback** — a core C++ numeric operator owns
   normalized pivoted LU factors, supports multiple RHS and repeated concurrent
-  reverse calls, and returns dense matrix/RHS contributions with explicit pivot
+  reverse calls with adaptive RHS scaling, and returns dense matrix/RHS contributions with explicit pivot
   and non-finite arithmetic rejection. See
   [linear-solve methodology](docs/methodology/matrix.md#dense-linear-solve-pullback).
 - **Compatible C++/Python/Excel script portfolio risk** — sealed trade and model

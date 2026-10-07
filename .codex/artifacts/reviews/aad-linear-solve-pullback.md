@@ -1,11 +1,11 @@
 # F03 numeric solve implementation review
 
-Verdict: Approve.
+Verdict: Comment Only.
 
 ## Findings
 
 No remaining local correctness or style finding in the independent numeric scope.
-This approves the local implementation; final platform/publication gates remain.
+The adaptive-scaling correction needs fresh cost and final platform acceptance.
 
 Read scope: the complete new header, source and nine-test file, the controlling
 [specification](../specs/aad-linear-solve-pullback.md),
@@ -47,11 +47,19 @@ native node overhead and checkpoint cache ownership are outside this PR.
 - The [cost report](../performance/aad-linear-solve-pullback.md) retains all
   sixteen two-round comparisons, 640 processes and 81,920 checked owning results.
   Fourteen fresh legacy/portfolio links preserve accepted executable hashes.
+  This initial cost study predates the adaptive-scaling correction and no longer
+  establishes current operator cost; it is retained rather than overwritten.
+- Copilot thread `PRRT_kwDOBtahP86px--Z` exposes early scaling loss: the direct
+  reference is about 5e-315 while the old solve returns zero. The runtime RED is
+  `aad-linear-solve-scaling-red-01.log`. An independent late-scaling path per RHS
+  becomes GREEN in `aad-linear-solve-scaling-green-01.log` (10/10). Final mixed-RHS,
+  subnormal precision, unrepresentable final scaling and recovery coverage are
+  expanded in `aad-linear-solve-scaling-green-02.log` (10/10).
 - Documentation integrity: 157 Markdown files; new C++ follows `.clang-format`.
 
 Residual risk: required final-head platform/sanitizer CI remains pending.
-Complete cost/storage evidence is accepted within its stated reference/workload
-limits. The new test suite runs in ordinary core CI through the existing
+Fresh cost/storage evidence for the corrected production source remains required.
+The new test suite runs in ordinary core CI through the existing
 source/test globs and is added to all six focused sanitizer filters. Actual final
-logs must contain all nine cases in each configuration. No CI skip, tolerance
+logs must contain all ten cases in each configuration. No CI skip, tolerance
 increase or legacy hot-path change is used.

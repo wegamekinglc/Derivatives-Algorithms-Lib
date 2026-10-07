@@ -21,7 +21,7 @@ namespace Dal {
         double scaledMinimumPivot_ = std::numeric_limits<double>::max();
         Matrix_<> solution_;
 
-        void TriangularSolve(bool transpose, bool unitDiagonal, Matrix_<>* result, const char* message) const;
+        void TriangularSolve(bool transpose, bool unitDiagonal, int rhsColumn, Matrix_<>* result, const char* message) const;
         [[nodiscard]] Matrix_<> Solve(const Matrix_<>& rhs, bool transpose) const;
 
     public:

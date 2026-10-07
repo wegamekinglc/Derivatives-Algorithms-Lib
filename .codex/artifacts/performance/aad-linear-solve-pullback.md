@@ -1,8 +1,12 @@
 # F03 dense solve cost and regression coverage
 
-Status: study complete; platform/publication gates remain open.
+Status: initial study retained; adaptive-scaling correction needs a fresh study.
 Measured source: `6fc3a3c4fc6118415bf023d9d0c03485c8fd0b33`, based on merged
 P03 `97567d6e7fc395fb3c7b383050edcd7416f68a4e`.
+Copilot subsequently found silent early RHS underflow. The correction preserves
+representable subnormal values by scaling per RHS after substitution where needed.
+The measurements below remain historical evidence and do not accept the corrected
+operator's current cost. They will be supplemented with fresh comparisons.
 
 ## Verdict and limits
 

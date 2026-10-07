@@ -16,7 +16,7 @@ F03 starts in draft [#490](https://github.com/wegamekinglc/Derivatives-Algorithm
 [scope critique](../critiques/aad-linear-solve-pullback.md). Recording events,
 structured coordinates, implicit calibration and PDE integration remain open.
 
-The independent dense operator is implemented locally. Nine focused tests pass:
+The independent dense operator is implemented locally. Ten focused tests cover:
 analytic gradients, nonsymmetric row permutations, multiple RHS, native scalar
 AAD/three-step finite differences, directional identity, scaling, ownership,
 invalid inputs, overflow recovery and concurrent const reverse. Factor and solve
@@ -25,9 +25,12 @@ helpers are refactored under these tests. The new
 two-round numeric/scalar comparisons, with 640 processes and 81,920 owning result
 checks. Fourteen fresh legacy/portfolio links preserve prior measured hashes;
 the Eigen-free new translation unit matches the original object and passes 9/9.
-The distinct seed-combination follow-up passes the one changed case. Local review
-approves; final-head publication acceptance remains open and the first F03
-checkbox stays unchecked.
+The distinct seed-combination follow-up passes the one changed case. Copilot's
+early-normalization underflow finding is reproduced: a representable 5e-315
+solution becomes zero. Per-RHS adaptive late scaling repairs the forward and
+transpose paths, with independent direct-division and mixed-column references.
+The initial cost study is retained but superseded for current operator acceptance.
+Fresh cost/platform acceptance remains open and the first F03 checkbox stays unchecked.
 
 Scope amendment (2026-10-04): the user requires removing XAD, CoDiPack and Adept
 support and keeping only DAL's built-in native AAD. This replaces the earlier

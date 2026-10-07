@@ -389,6 +389,9 @@ TEST(LinearSolvePullbackTest, TestReverseFailureAndOverflowRecovery) {
     const LinearSolvePullback_ large(SquareMatrix_<>(1, 1.0), Matrix_<>(1, 1, 1e308));
     ASSERT_THROW((void)large.Reverse(Matrix_<>(1, 1, 2.0)), Exception_);
     ASSERT_NEAR(large.Reverse(Matrix_<>(1, 1, 1e-308)).matrix_(0, 0), -1.0, 1e-10);
+    const LinearSolvePullback_ unrepresentable(SquareMatrix_<>(1, 1e308), Matrix_<>(1, 1, 1e308));
+    ASSERT_THROW((void)unrepresentable.Reverse(Matrix_<>(1, 1, 1e-20)), Exception_);
+    ASSERT_DOUBLE_EQ(unrepresentable.Reverse(Matrix_<>(1, 1, 1e308)).rhs_(0, 0), 1.0);
 }
 
 TEST(LinearSolvePullbackTest, TestConcurrentConstReverse) {
@@ -404,4 +407,33 @@ TEST(LinearSolvePullbackTest, TestConcurrentConstReverse) {
         AssertMatrixNear(result.matrix_, expected.matrix_);
         AssertMatrixNear(result.rhs_, expected.rhs_);
     }
+}
+
+TEST(LinearSolvePullbackTest, TestRepresentableSubnormalSolveAndTransposeAvoidEarlyScalingLoss) {
+    SquareMatrix_<> a(2);
+    a(0, 0) = 1e308;
+    a(1, 1) = 2e294;
+    Matrix_<> b(2, 2), seed(2, 2);
+    b(0, 0) = 1e308;
+    b(1, 0) = 1e-20;
+    b(1, 1) = 1e308;
+    seed(1, 0) = 1e-20;
+    seed(1, 1) = 1e308;
+    const LinearSolvePullback_ solve(a, b);
+    ASSERT_DOUBLE_EQ(solve.Solution()(0, 0), 1.0);
+    const double expected = b(1, 0) / a(1, 1);
+    ASSERT_GT(expected, 0.0);
+    ASSERT_DOUBLE_EQ(solve.Solution()(1, 0), expected);
+    ASSERT_NEAR(solve.Solution()(1, 1) / (b(1, 1) / a(1, 1)), 1.0, 1e-10);
+    const auto adjoints = solve.Reverse(seed);
+    ASSERT_DOUBLE_EQ(adjoints.rhs_(1, 0), expected);
+    ASSERT_NEAR(adjoints.rhs_(1, 1) / (seed(1, 1) / a(1, 1)), 1.0, 1e-10);
+    ASSERT_DOUBLE_EQ(adjoints.matrix_(1, 0), -expected);
+    b(1, 0) = 1e-15;
+    seed(1, 0) = 1e-15;
+    const LinearSolvePullback_ rounded(a, b);
+    const double normalReference = b(1, 0) / a(1, 1);
+    ASSERT_GT(normalReference, 0.0);
+    ASSERT_NEAR(rounded.Solution()(1, 0) / normalReference, 1.0, 1e-10);
+    ASSERT_NEAR(rounded.Reverse(seed).rhs_(1, 0) / normalReference, 1.0, 1e-10);
 }

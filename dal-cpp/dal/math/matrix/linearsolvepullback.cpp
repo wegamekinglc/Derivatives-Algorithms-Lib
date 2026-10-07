@@ -37,12 +37,26 @@ namespace Dal {
             return best;
         }
 
-        void ApplySwaps(const Vector_<int>& swaps, bool reverse, Matrix_<>* result) {
+        void ApplySwaps(const Vector_<int>& swaps, bool reverse, int rhsColumn, Matrix_<>* result) {
             for (int step = 0; step < swaps.size(); ++step) {
                 const int row = reverse ? swaps.size() - 1 - step : step;
                 if (row != swaps[row])
-                    for (int col = 0; col < result->Cols(); ++col)
-                        std::swap((*result)(row, col), (*result)(swaps[row], col));
+                    std::swap((*result)(row, rhsColumn), (*result)(swaps[row], rhsColumn));
+            }
+        }
+
+        bool NeedsLateScaling(const Matrix_<>::ConstCol_& rhs, double scale) {
+            const double threshold = scale * std::numeric_limits<double>::min();
+            return std::any_of(rhs.begin(), rhs.end(), [threshold](double value) { return value != 0.0 && std::abs(value) < threshold; });
+        }
+
+        void ScaleColumn(int column, double scale, Matrix_<>* result, const char* message) {
+            for (int row = 0; row < result->Rows(); ++row) {
+                const double value = (*result)(row, column);
+                const double scaled = value / scale;
+                REQUIRE(std::isfinite(scaled), message);
+                REQUIRE(scaled != 0.0 || value == 0.0, message);
+                (*result)(row, column) = scaled;
             }
         }
     } // namespace
@@ -69,42 +83,43 @@ namespace Dal {
         solution_ = Solve(rhs, false);
     }
 
-    void LinearSolvePullback_::TriangularSolve(bool transpose, bool unitDiagonal, Matrix_<>* result, const char* message) const {
+    void LinearSolvePullback_::TriangularSolve(bool transpose, bool unitDiagonal, int rhsColumn, Matrix_<>* result, const char* message) const {
         const int n = factors_.Rows();
         const bool ascending = unitDiagonal != transpose;
         for (int step = 0; step < n; ++step) {
             const int row = ascending ? step : n - 1 - step;
-            for (int rhs = 0; rhs < result->Cols(); ++rhs) {
-                double value = (*result)(row, rhs);
-                for (int colStep = 0; colStep < step; ++colStep) {
-                    const int col = ascending ? colStep : n - 1 - colStep;
-                    const double coefficient = transpose ? factors_(col, row) : factors_(row, col);
-                    value -= coefficient * (*result)(col, rhs);
-                    REQUIRE(std::isfinite(value), message);
-                }
-                if (!unitDiagonal)
-                    value /= factors_(row, row);
+            double value = (*result)(row, rhsColumn);
+            for (int colStep = 0; colStep < step; ++colStep) {
+                const int col = ascending ? colStep : n - 1 - colStep;
+                const double coefficient = transpose ? factors_(col, row) : factors_(row, col);
+                value -= coefficient * (*result)(col, rhsColumn);
                 REQUIRE(std::isfinite(value), message);
-                (*result)(row, rhs) = value;
             }
+            if (!unitDiagonal)
+                value /= factors_(row, row);
+            REQUIRE(std::isfinite(value), message);
+            (*result)(row, rhsColumn) = value;
         }
     }
 
     Matrix_<> LinearSolvePullback_::Solve(const Matrix_<>& rhs, bool transpose) const {
         Matrix_<> result(rhs);
-        for (int row = 0; row < result.Rows(); ++row)
-            for (int col = 0; col < result.Cols(); ++col) {
-                result(row, col) /= scale_;
-                REQUIRE(std::isfinite(result(row, col)),
-                        transpose ? "Linear solve transpose RHS scaling overflow" : "Linear solve forward RHS scaling overflow");
-            }
-        if (!transpose)
-            ApplySwaps(swaps_, false, &result);
         const char* message = transpose ? "Linear solve transpose substitution/result overflow" : "Linear solve forward substitution/result overflow";
-        TriangularSolve(transpose, !transpose, &result, message);
-        TriangularSolve(transpose, transpose, &result, message);
-        if (transpose)
-            ApplySwaps(swaps_, true, &result);
+        const char* scaleMessage =
+            transpose ? "Linear solve transpose scaling loses numerical range" : "Linear solve forward scaling loses numerical range";
+        for (int column = 0; column < rhs.Cols(); ++column) {
+            const bool lateScaling = NeedsLateScaling(rhs.Col(column), scale_);
+            if (!lateScaling)
+                ScaleColumn(column, scale_, &result, scaleMessage);
+            if (!transpose)
+                ApplySwaps(swaps_, false, column, &result);
+            TriangularSolve(transpose, !transpose, column, &result, message);
+            TriangularSolve(transpose, transpose, column, &result, message);
+            if (transpose)
+                ApplySwaps(swaps_, true, column, &result);
+            if (lateScaling)
+                ScaleColumn(column, scale_, &result, scaleMessage);
+        }
         return result;
     }
 

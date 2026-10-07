@@ -67,8 +67,12 @@ No Python or Excel function is added for this internal first increment.
    during reverse. Complexity is O(n cubed + n squared times m) forward and
    O(n squared times m) reverse; retained numeric storage is O(n squared + n m).
 5. Solve every RHS column; preserve column order. Validate finite forward solve
-   intermediates and X. Extreme finite inputs may be rejected when normalized
-   solves overflow; no finite-gradient result is promised for such cases.
+   intermediates and X. Choose scaling independently per RHS: normalize before
+   substitution for ordinary columns, but normalize afterward when early scaling
+   would produce subnormal/zero nonzero entries. Preserve representable subnormal
+   solves and transpose adjoints. Extreme finite inputs may be rejected if
+   substitution overflows or a solved nonzero component cannot survive final
+   scaling; do not silently publish a scaling-truncated gradient.
 6. Reverse accepts exactly X's shape, validates finite seeds and applies the
    transpose permutation correctly for a nonsymmetric matrix with row swaps.
 7. Reverse returns finite new matrices. Sum matrix contributions over every RHS
@@ -105,6 +109,10 @@ No Python or Excel function is added for this internal first increment.
   inputs/seeds, incompatible shapes, arithmetic overflow and failure recovery.
 - Verify ownership by changing original matrices and preserving old returned
   gradients. A concurrent read-only reverse test runs under TSan in final CI.
+- Compare extreme-scale diagonal solves and transpose adjoints against direct
+  component-wise division. A mixed-RHS request must preserve tiny representable
+  values while another column uses early scaling to avoid substitution overflow.
+  Reject final nonzero-to-zero scaling and verify the next valid reverse succeeds.
 - Run only affected local tests as behavior grows. At a stable implementation
   head, inspect all applicable CI, Codacy annotations and review threads; fix
   failures, repeat publication audits and use a SHA-guarded merge.

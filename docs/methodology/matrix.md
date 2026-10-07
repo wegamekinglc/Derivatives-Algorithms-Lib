@@ -94,6 +94,13 @@ The solve does not regularize or truncate rank. Non-finite arithmetic, including
 overflow in a reverse contribution, raises a DAL exception; a failed reverse
 leaves the operator usable for a subsequent valid seed.
 
+RHS columns whose early normalization would become subnormal use the original
+RHS during substitution and divide the solved column by the matrix scale
+afterward. This preserves representable tiny solutions and adjoints; each RHS
+chooses its scaling order independently. A nonzero solved component that becomes
+zero at final scaling raises an exception instead of publishing a truncated
+contribution. Finite inputs may still be rejected if substitution overflows.
+
 ```cpp
 Dal::LinearSolvePullback_ solve(matrix, rhs);
 const auto& values = solve.Solution();
