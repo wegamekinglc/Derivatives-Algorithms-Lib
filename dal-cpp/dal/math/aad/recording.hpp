@@ -93,6 +93,7 @@ namespace Dal::AAD {
         RecordingScope_(Tape_* tape, Reset_ rewind, Reset_ clear);
         friend struct RecordingScopeTestAccess_;
         friend struct RecordingStateTestAccess_;
+        friend struct NativeRecordedOperation_;
         friend std::exception_ptr LastRecordingCleanupFailure();
         friend void RequireRecordingModeChangeAllowed();
 

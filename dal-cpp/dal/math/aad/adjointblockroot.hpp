@@ -38,8 +38,7 @@ namespace Dal::AAD {
         for (size_t lane = 0; lane < block.outputs_; ++lane)
             (*roots)[lane] = NativeOperations_::ActiveRoot(outputs[block.firstOutput_ + lane], activeZero);
         for (size_t lane = 0; lane < block.outputs_; ++lane)
-            for (size_t channel = 0; channel < block.width_; ++channel)
-                NativeOperations_::SetSeed((*roots)[lane], 0.0, channel);
+            NativeOperations_::ClearSeeds((*roots)[lane]);
         for (size_t lane = 0; lane < block.outputs_; ++lane)
             NativeOperations_::SetSeed((*roots)[lane], 1.0, lane);
         for (size_t lane = block.outputs_; lane < block.width_; ++lane)

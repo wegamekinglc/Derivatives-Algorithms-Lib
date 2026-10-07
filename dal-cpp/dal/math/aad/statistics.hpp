@@ -14,9 +14,12 @@ namespace Dal::AAD {
         size_t liveBytes_ = 0;
         size_t occupiedBytes_ = 0;
         size_t capacityBytes_ = 0;
+        size_t reverseEvents_ = 0;
+        size_t reverseEventCapacityBytes_ = 0;
+        size_t reverseScratchPeakBytes_ = 0;
     };
 
-    // Explicit diagnostic scan; no counters are maintained during recording or propagation.
+    // Explicit scalar scan; owned event storage is measured at allocation boundaries.
     inline TapeStatistics_ MeasureTape(const Tape_& tape) {
         TapeStatistics_ result;
         result.nodes_ = tape.nodes_.OccupiedSlots();
@@ -37,6 +40,10 @@ namespace Dal::AAD {
         result.capacityBytes_ =
             tape.nodes_.AllocatedBlocks() * BLOCK_SIZE * sizeof(TapNode_) + tape.ders_.AllocatedBlocks() * DATA_SIZE * sizeof(double) +
             tape.argPtrs_.AllocatedBlocks() * DATA_SIZE * sizeof(double*) + tape.adjointsMulti_.AllocatedBlocks() * ADJ_SIZE * sizeof(double);
+        result.reverseEvents_ = tape.ReverseEventCount();
+        result.reverseEventCapacityBytes_ = tape.ReverseEventCapacityBytes();
+        result.reverseScratchPeakBytes_ = tape.ReverseScratchPeakBytes();
+        result.capacityBytes_ += result.reverseEventCapacityBytes_;
         return result;
     }
 } // namespace Dal::AAD

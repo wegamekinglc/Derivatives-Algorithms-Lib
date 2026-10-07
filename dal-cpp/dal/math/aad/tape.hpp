@@ -12,6 +12,8 @@
 
 #pragma once
 
+#include <memory>
+
 #if defined(DAL_USE_XAD_AAD) || defined(DAL_USE_CODIPACK_AAD) || defined(DAL_USE_ADEPT_AAD)
 #error External AAD backend macros are no longer supported; rebuild DAL and consumers with native AAD
 #endif
@@ -23,23 +25,36 @@
 
 #include <dal/math/aad/blocklist.hpp>
 #include <dal/math/aad/node.hpp>
+#include <dal/math/aad/reverseevent.hpp>
 
 namespace Dal::AAD {
     class Number_;
+    class ReverseEvent_;
+    struct NativeRecordedOperation_;
     constexpr size_t BLOCK_SIZE = 16384;
     constexpr size_t ADJ_SIZE = 32768;
     constexpr size_t DATA_SIZE = 65536;
 
+    namespace NativeThread {
+        inline thread_local bool eventValidationRequired = false;
+#if defined(__GNUC__) || defined(__clang__)
+        __attribute__((const))
+#endif
+        bool& EventValidationRequired() noexcept;
+#if defined(__GNUC__) || defined(__clang__)
+        __attribute__((cold))
+#endif
+        void RequireEventState();
+    } // namespace NativeThread
+
     class Tape_ {
     public:
-        explicit Tape_(bool = true) : multi_(false), numAdj_(1), pad_{} {}
-
-#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+        explicit Tape_(bool = true) : multi_(false), numAdj_(1), pad_{}, reverseEvents_(nullptr, ReverseEventsDeleter_{this}) {}
+        ~Tape_() noexcept;
         Tape_(const Tape_&) = delete;
         Tape_& operator=(const Tape_&) = delete;
         Tape_(Tape_&&) = delete;
         Tape_& operator=(Tape_&&) = delete;
-#endif
 
         using Iterator_ = BlockList_<TapNode_, BLOCK_SIZE>::Iterator_;
 
@@ -49,7 +64,8 @@ namespace Dal::AAD {
         BlockList_<double, DATA_SIZE> ders_;
         BlockList_<double*, DATA_SIZE> argPtrs_;
         BlockList_<TapNode_, BLOCK_SIZE> nodes_;
-        char pad_[64];
+        // Cold event ownership occupies the remainder of the original padding.
+        char pad_[64 - 6 * sizeof(void*)];
 
         friend auto SetNumResultsForAAD(bool, size_t);
         friend struct NumResultsResetterForAAD_;
@@ -65,7 +81,37 @@ namespace Dal::AAD {
 
         template <size_t N_> TapNode_* RecordNode() { return AllocateNode<N_>(); }
 
+        [[nodiscard]] bool HasReverseEventState() const { return reverseFailed_ || reverseEvents_ != nullptr; }
+        void RequireReverseEventState(const char* operation) const;
+        [[nodiscard]] size_t ReverseEventCount() const;
+        [[nodiscard]] size_t ReverseEventCapacityBytes() const { return eventCapacityBytes_; }
+        [[nodiscard]] size_t ReverseScratchPeakBytes() const { return eventScratchPeakBytes_; }
+
     private:
+        struct ThreadDefault_ {};
+        explicit Tape_(ThreadDefault_) : Tape_() { threadDefault_ = true; }
+        friend Tape_* Tape();
+        struct ReverseEvents_;
+        struct ReverseEventsDeleter_ {
+            Tape_* tape_;
+            void operator()(ReverseEvents_* events) const noexcept;
+        };
+        std::unique_ptr<ReverseEvents_, ReverseEventsDeleter_> reverseEvents_;
+        bool reverseFailed_ = false;
+        size_t eventCapacityBytes_ = 0;
+        size_t eventScratchPeakBytes_ = 0;
+        bool threadDefault_ = false; // GCC spills recording values when these constructor flags are adjacent.
+        friend struct NativeRecordedOperation_;
+
+        void UpdateThreadEventValidation() const noexcept {
+            if (threadDefault_)
+                NativeThread::eventValidationRequired = HasReverseEventState();
+        }
+        void RequireReverseEventMutation(const char* operation) const;
+        void PrepareReverseEvent();
+        void AppendReverseEvent(ReverseEventHandle_ event);
+        void PropagateEventWindow(Iterator_ end, Iterator_ begin, bool fromMark, bool toMark, void (*propagate)(Tape_&, Iterator_, Iterator_));
+
 #if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
         struct NodeBinding_ {
             std::uint64_t owner_ = 0;
@@ -130,7 +176,6 @@ namespace Dal::AAD {
             }
 #endif
         }
-
     };
 
     // Keep three-input allocation out of model loops without duplicating the allocator.

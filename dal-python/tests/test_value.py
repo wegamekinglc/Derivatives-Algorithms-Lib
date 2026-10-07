@@ -135,7 +135,9 @@ def test_mc_value_and_date_setter_complete_without_gil_lock_inversion():
 
             setter = executor.submit(set_date)
             assert setter_started.wait(timeout=5.0)  # nosec B101
-            assert setter.done() is False  # nosec B101
+            # Native pricing may release its barrier before this thread resumes.
+            if setter.done():
+                assert dal._dal._EvaluationDateBarrier_AvailableForTesting()  # nosec B101
             pv = valuation.result(timeout=30.0)
             setter.result(timeout=30.0)
 

@@ -2,14 +2,112 @@
 // Created by wegam on 2023/2/18.
 //
 
-#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
 #include <string>
-#endif
+#include <thread>
+#include <vector>
 
 #include <dal/math/aad/expr.hpp>
+#include <dal/math/aad/reverseevent.hpp>
 #include <dal/math/aad/tape.hpp>
 
 namespace Dal::AAD {
+
+    bool& NativeThread::EventValidationRequired() noexcept { return eventValidationRequired; }
+    void NativeThread::RequireEventState() { Tape()->RequireReverseEventState("Number.Adjoint"); }
+
+    struct Tape_::ReverseEvents_ {
+        struct Entry_ {
+            Iterator_ end_;
+            size_t ordinal_;
+            ReverseEventHandle_ event_;
+        };
+        std::vector<Entry_, ReverseEventAllocator_<Entry_>> entries_;
+        size_t marked_ = 0;
+        std::thread::id owner_ = std::this_thread::get_id();
+        bool multi_;
+        size_t width_;
+        bool reversing_ = false;
+
+        explicit ReverseEvents_(Tape_* tape) : entries_(ReverseEventAllocator_<Entry_>(tape)), multi_(tape->multi_), width_(tape->numAdj_) {}
+    };
+
+    Tape_::~Tape_() noexcept {
+        reverseEvents_.reset();
+        if (threadDefault_)
+            NativeThread::eventValidationRequired = false;
+    }
+
+    void Tape_::ReverseEventsDeleter_::operator()(ReverseEvents_* events) const noexcept {
+        delete events;
+        NativeRecordedOperation_::ReleaseStorage(tape_, sizeof(ReverseEvents_));
+    }
+
+    size_t Tape_::ReverseEventCount() const { return reverseEvents_ == nullptr ? 0 : reverseEvents_->entries_.size(); }
+
+    void Tape_::RequireReverseEventState(const char* operation) const {
+        REQUIRE(!reverseFailed_, String_(operation) + ": failed structured recording requires reset");
+        if (reverseEvents_ != nullptr) {
+            REQUIRE(reverseEvents_->owner_ == std::this_thread::get_id(), String_(operation) + ": requires the event owner's thread");
+            REQUIRE(reverseEvents_->multi_ == multi_ && reverseEvents_->width_ == numAdj_, String_(operation) + ": event mode or width changed");
+        }
+    }
+
+    void Tape_::RequireReverseEventMutation(const char* operation) const {
+        if (reverseEvents_ != nullptr) {
+            REQUIRE(reverseEvents_->owner_ == std::this_thread::get_id(), String_(operation) + ": requires the event owner's thread");
+            REQUIRE(!reverseEvents_->reversing_, String_(operation) + ": cannot mutate a graph during event reverse");
+        }
+    }
+
+    void Tape_::PrepareReverseEvent() {
+        RequireReverseEventState("Tape.RecordEvent");
+        RequireReverseEventMutation("Tape.RecordEvent");
+        if (reverseEvents_ == nullptr) {
+            EventStorageTicket_ storage(this, sizeof(ReverseEvents_));
+            reverseEvents_.reset(new ReverseEvents_(this));
+            storage.Commit();
+            UpdateThreadEventValidation();
+        }
+        const auto& entries = reverseEvents_->entries_;
+        if (entries.size() == entries.capacity())
+            reverseEvents_->entries_.reserve(entries.empty() ? 1 : 2 * entries.size());
+    }
+
+    void Tape_::AppendReverseEvent(ReverseEventHandle_ event) {
+        REQUIRE(event != nullptr, "Tape.RecordEvent: event must not be null");
+        PrepareReverseEvent();
+        const auto boundary = nodes_.GetPosition();
+        reverseEvents_->entries_.push_back({boundary, nodes_.OccupiedSlots(), std::move(event)});
+    }
+
+    void Tape_::PropagateEventWindow(Iterator_ end, Iterator_ begin, bool fromMark, bool toMark, void (*propagate)(Tape_&, Iterator_, Iterator_)) {
+        RequireReverseEventState("Tape.ReverseEvents");
+        auto& events = *reverseEvents_;
+        REQUIRE(!events.reversing_, "Tape.ReverseEvents: recursive reverse is unsupported");
+        const auto first = toMark ? events.marked_ : 0;
+        const auto last = fromMark ? events.marked_ : events.entries_.size();
+        const auto nodeCount = nodes_.OccupiedSlots();
+        events.reversing_ = true;
+        try {
+            auto cursor = end;
+            for (size_t index = last; index > first; --index) {
+                auto& entry = events.entries_[index - 1];
+                REQUIRE(entry.ordinal_ <= nodeCount, "Tape.ReverseEvents: output boundary is no longer live");
+                propagate(*this, cursor, entry.end_);
+                entry.event_->Reverse(multi_, numAdj_);
+                RequireReverseEventState("Tape.ReverseEvents");
+                REQUIRE(nodes_.OccupiedSlots() == nodeCount, "Tape.ReverseEvents: callback changed node storage");
+                cursor = entry.end_;
+            }
+            propagate(*this, cursor, begin);
+            events.reversing_ = false;
+        } catch (...) {
+            events.reversing_ = false;
+            reverseFailed_ = true;
+            UpdateThreadEventValidation();
+            throw;
+        }
+    }
 
 #if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
     std::uint64_t Tape_::ClaimLifetimeIdentity(std::atomic<std::uint64_t>* nextIdentity) {
@@ -155,44 +253,70 @@ namespace Dal::AAD {
 #if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
         tape.RequireLiveGraph("Tape.PropagateMarkToStart");
 #endif
-        PropagateWindow(tape, MarkIt(tape), Begin(tape));
+        if (tape.HasReverseEventState())
+            tape.PropagateEventWindow(MarkIt(tape), Begin(tape), true, false, &PropagateWindow);
+        else
+            PropagateWindow(tape, MarkIt(tape), Begin(tape));
     }
 
     void PropagateToStart(Tape_& tape) {
 #if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
         tape.RequireLiveGraph("Tape.PropagateToStart");
 #endif
-        PropagateWindow(tape, End(tape), Begin(tape));
+        if (tape.HasReverseEventState())
+            tape.PropagateEventWindow(End(tape), Begin(tape), false, false, &PropagateWindow);
+        else
+            PropagateWindow(tape, End(tape), Begin(tape));
     }
 
     void PropagateToMark(Tape_& tape) {
 #if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
         tape.RequireLiveGraph("Tape.PropagateToMark");
 #endif
-        PropagateWindow(tape, End(tape), MarkIt(tape));
+        if (tape.HasReverseEventState())
+            tape.PropagateEventWindow(End(tape), MarkIt(tape), false, true, &PropagateWindow);
+        else
+            PropagateWindow(tape, End(tape), MarkIt(tape));
     }
 
     void Clear(Tape_& tape) {
+        tape.RequireReverseEventMutation("Tape.Clear");
 #if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
         tape.BeginLifetimeReset();
 #endif
+        if (tape.HasReverseEventState())
+            tape.reverseFailed_ = true;
+        tape.reverseEvents_.reset();
+        tape.eventScratchPeakBytes_ = 0;
         ForEachBlockAll(tape, [](auto& block) { block.Clear(); });
+        tape.reverseFailed_ = false;
+        tape.UpdateThreadEventValidation();
 #if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
         tape.lifetimeFailed_ = false;
 #endif
     }
 
     void Mark(Tape_& tape) {
+        tape.RequireReverseEventMutation("Tape.Mark");
+        if (tape.HasReverseEventState())
+            tape.RequireReverseEventState("Tape.Mark");
 #if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
         tape.RequireLiveGraph("Tape.Mark");
 #endif
         ForEachBlock(tape, [](auto& block) { block.SetMark(); });
+        if (tape.reverseEvents_ != nullptr)
+            tape.reverseEvents_->marked_ = tape.reverseEvents_->entries_.size();
 #if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
         tape.markedNodes_ = tape.liveNodes_;
 #endif
     }
 
     void Rewind(Tape_& tape) {
+        tape.RequireReverseEventMutation("Tape.Rewind");
+        if (tape.HasReverseEventState())
+            tape.reverseFailed_ = true;
+        tape.reverseEvents_.reset();
+        tape.eventScratchPeakBytes_ = 0;
 #if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
         tape.BeginLifetimeReset();
         ForEachBlockAll(tape, [](auto& block) {
@@ -203,9 +327,16 @@ namespace Dal::AAD {
 #else
         ForEachBlock(tape, [](auto& block) { block.Rewind(); });
 #endif
+        tape.reverseFailed_ = false;
+        tape.UpdateThreadEventValidation();
     }
 
     void RewindToMark(Tape_& tape) {
+        tape.RequireReverseEventMutation("Tape.RewindToMark");
+        if (tape.HasReverseEventState())
+            tape.RequireReverseEventState("Tape.RewindToMark");
+        if (tape.reverseEvents_ != nullptr)
+            tape.reverseEvents_->entries_.resize(tape.reverseEvents_->marked_);
 #if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
         tape.RequireLiveGraph("Tape.RewindToMark");
         tape.liveNodes_ = tape.markedNodes_;

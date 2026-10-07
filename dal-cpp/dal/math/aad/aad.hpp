@@ -50,6 +50,10 @@ namespace Dal::AAD {
     FORCE_INLINE void RegisterIndependent(Number_& n, double v) { n = v; }
 
     FORCE_INLINE void ZeroAdjoints(Tape_& tape) {
+        if (tape.HasReverseEventState()) {
+            tape.RequireReverseEventMutation("Tape.ZeroAdjoints");
+            tape.RequireReverseEventState("Tape.ZeroAdjoints");
+        }
 #if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
         tape.RequireLiveGraph("Tape.ZeroAdjoints");
 #endif

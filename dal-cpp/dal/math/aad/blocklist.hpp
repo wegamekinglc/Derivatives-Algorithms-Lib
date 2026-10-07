@@ -14,6 +14,7 @@
 
 #include <array>
 #include <cstring>
+#include <functional>
 #include <iterator>
 #include <limits>
 #include <list>
@@ -149,6 +150,31 @@ namespace Dal::AAD {
         }
 
         [[nodiscard]] size_t AllocatedBlocks() const { return data_.size(); }
+
+        [[nodiscard]] bool Contains(const T_* element) const {
+            const auto less = std::less<const T_*>();
+            for (auto block = data_.cbegin();; ++block) {
+                const bool current = block == const_iterator(currBlock_);
+                const T_* first = block->data();
+                const T_* last = current ? first + std::distance(currBlock_->begin(), nextSpace_) : first + BLOCK_SIZE_;
+                if (!less(element, first) && less(element, last))
+                    return true;
+                if (current)
+                    return false;
+            }
+        }
+
+        template <class F_> void ForEachLiveRange(const F_& visit) const {
+            for (auto block = data_.cbegin();; ++block) {
+                const bool current = block == const_iterator(currBlock_);
+                const T_* first = block->data();
+                const T_* last = current ? first + std::distance(currBlock_->begin(), nextSpace_) : first + BLOCK_SIZE_;
+                if (first != last)
+                    visit(first, last);
+                if (current)
+                    return;
+            }
+        }
 
         // Includes unused tails skipped when a contiguous allocation moves to the next block.
         [[nodiscard]] size_t OccupiedSlots() const {

@@ -279,14 +279,24 @@ native recording for its node and edge counts. It reports three storage measures
   vector-adjoint slots for the current uniform recording mode.
 - `occupiedBytes_`: storage through each block-list cursor, including skipped
   block tails and any retained cursor in an inactive storage stream.
-- `capacityBytes_`: all currently allocated block arrays, including capacity
-  retained after rewind. List bookkeeping and allocator overhead are excluded.
+- `capacityBytes_`: currently allocated block arrays and owned reverse-event
+  storage, including capacity retained after rewind. Event storage includes
+  descriptors, the lazy owner, event-table capacity and numeric caches. Scalar
+  list bookkeeping and allocator overhead are excluded.
+
+`reverseEvents_` counts recorded operators and `reverseEventCapacityBytes_`
+reports their currently owned storage separately. `reverseScratchPeakBytes_`
+records the largest simultaneous numeric scratch reservation above a retained
+event cache during reverse, including admitted allocations that subsequently
+fail. It resets on complete clear/rewind. The scalar
+`liveBytes_`, `occupiedBytes_` and `blocks_` measures exclude event storage;
+the scratch high-water value is not another retained-capacity contribution.
 
 `blocks_` counts current blocks, rather than cumulative allocations. In a window
 that only grows storage, the block-count increase measures new block allocations;
 it does not count allocations elsewhere in a valuation. Empty tapes retain one
 block per storage stream. A snapshot is neither a high-water counter nor process
-RSS. Capture it at the relevant graph boundary to observe a peak, and measure RSS
+RSS. Capture it at the relevant graph boundary to observe current capacity, and measure RSS
 separately. Call the scan on the owning thread while recording and reverse work
 are stopped. It maintains no per-node counters in normal execution.
 
@@ -299,6 +309,65 @@ count describes the actual fused graph, including active constants.
 Jacobian cases retain the synthetic full-clearing reference and additionally
 call `HarvestCurveJacobian` for 23-by-24 and 95-by-96 Jacobians. Proven-prefix
 harvesting uses a dependency range established by the fixture itself.
+
+### Recorded Dense Linear Solves
+
+`Dal::AAD::LinearSolve` in `dal/math/aad/linearsolve.hpp` composes a dense
+`AX = B` solve with ordinary native expressions in an explicit recording scope.
+The three overloads accept active A/active B, passive A/active B or active
+A/passive B. A fully passive solve uses the numeric
+[linear-solve operator](matrix.md#dense-linear-solve-pullback).
+
+```cpp
+#include <dal/math/aad/linearsolve.hpp>
+#include <dal/math/aad/native.hpp>
+
+AAD::RecordingScope_ scope;
+AAD::Number_ input;
+scope.RegisterInput(input, 3.0);
+scope.StartRecording();
+SquareMatrix_<> a(1);
+a(0, 0) = 2.0;
+Matrix_<AAD::Number_> b(1, 1);
+b(0, 0) = input;
+auto x = AAD::LinearSolve(&scope, a, b);
+AAD::Number_ objective = x(0, 0) * x(0, 0);
+scope.FinishRecording();
+scope.ClearAdjoints();
+AAD::NativeOperations_::SetSeed(objective, 1.0);
+scope.Reverse();
+const double gradient = AAD::NativeOperations_::ReadAdjoint(input); // 1.5
+scope.Close();
+```
+
+The recording owns factors, the solution and slot bindings independently of
+caller matrices. A solve records zero-edge output slots and one reverse event.
+Each scalar/vector channel solves `A^T Lambda = W` and accumulates
+`bar-B += Lambda`, `bar-A += -Lambda X^T` into active entries. Aliases add their
+contributions. Passive A omits the matrix contribution. Output seeds are
+consumed; input accumulation and immutable caches survive repeated sweeps.
+The existing full, suffix and prefix reverse methods preserve operator ordering.
+Suffix restoration releases discarded caches before rewinding slots; closing
+the scope releases all event storage. Tape copying and moving are unsupported.
+
+Finite tape budgets admit event descriptors, table capacity, caches and reverse
+scratch before allocation and refund failed allocations. Table growth includes
+the old and new storage while both exist. The budget peak includes admitted
+reservations even if a later allocation fails. Returned X container storage
+belongs to the caller's buffer context; its slots belong to the tape. Retained
+caches suspend request-buffer accounting, while reverse scratch can obey both
+the tape and request-buffer ceilings. Those scratch measurements overlap and
+must not be added as separate RSS contributions.
+
+The call requires the scope's owner thread and RECORDING state, compatible
+dimensions, live active inputs, finite values and valid pivot tolerance.
+Numerical policies match the numeric operator. Construction/reverse failure
+invalidates the graph and rejects adjoint reads until reset; a subsequent
+independent scope can recover. Optional lifetime diagnostics additionally reject
+stale source epochs/generations. Default builds retain the existing raw Number
+lifetime contract. This API provides first-order dense-entry derivatives;
+structured coordinates, condition estimates, higher order and public user
+callbacks require separate support.
 
 ### Native Production Profiling
 
@@ -614,7 +683,8 @@ inheritance, selector, virtual dispatch or per-node capability lookup.
 | Scoped lifecycle validation             | Yes                                |
 | Vector adjoint channels                 | Up to `ADJ_SIZE`                   |
 | Active-number lifetime diagnostics      | Available; default OFF             |
-| Independent nesting/reverse events      | Not implemented                    |
+| Recorded reverse events                 | Dense solves, scalar/vector sweeps |
+| Independent nesting                     | Not implemented                    |
 | Higher-order active mode                | Not implemented                    |
 
 `SetSeed(number, seed, channel)` replaces a seed; `AddSeed` accumulates it,
@@ -622,6 +692,11 @@ including multiple weights for the same output reference. `ReadAdjoint`
 returns a passive double. The optional channel defaults to zero. In vector
 mode these operations access the vector array, including channel zero;
 the legacy `Adjoint` scalar field is separate.
+
+`ClearSeeds(number)` clears all channels of that number under the current mode.
+It validates the number once and preserves other nodes' adjoints. Blocked output
+seeding uses this operation to clear reused or aliased roots before setting the
+diagonal seeds.
 
 For example, $u=xy$, $v=x^2+y$ at $(x,y)=(2,3)$ has Jacobian rows $(3,2)$
 and $(4,1)$. Seeds $(2,-1)$ compute the weighted gradient $(2,3)$:

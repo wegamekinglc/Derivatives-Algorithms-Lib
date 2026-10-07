@@ -4,36 +4,86 @@ Status: active implementation under the native-only AAD scope.
 No stage is complete until its correctness, compatibility,
 performance, and applicable CI evidence has been inspected.
 
-Current boundary (2026-10-07): F02, P02 and P03 are complete. Selected
-extraction PR [#489](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/489)
-is merged at `97567d6e`; its tree equals accepted head `027a15b5`. Both complete
-publication audits verify all 35 checks, zero Codacy annotations and zero unresolved
-review threads. Actual platform logs and the complete performance report are
-linked in the accepted P03 evidence below. Completed P03 artifacts are retired;
-their immutable Git history retains all accepted and rejected evidence.
-F03 starts in draft [#490](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/490) with the independent numeric
-[linear-solve specification](../specs/aad-linear-solve-pullback.md) and
-[scope critique](../critiques/aad-linear-solve-pullback.md). Recording events,
-structured coordinates, implicit calibration and PDE integration remain open.
+Current boundary (2026-10-07): F02, P02 and P03 are complete. The first F03
+numeric operator is accepted in merged
+[#490](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/490),
+at `a08d20e0`, with the exact tree of final `11a6a20b`. Both complete
+paginated publication audits verify 35/35 checks, zero Codacy annotations and
+zero unresolved review threads. Actual logs confirm all ten new cases in four
+Windows, six sanitizer and four extended configurations. All Windows installed
+consumers pass 3/3; every extended Python run passes 1,166 cases.
 
-The independent dense operator is implemented locally. Ten focused tests cover:
-analytic gradients, nonsymmetric row permutations, multiple RHS, native scalar
-AAD/three-step finite differences, directional identity, scaling, ownership,
-invalid inputs, overflow recovery and concurrent const reverse. Factor and solve
-helpers are refactored under these tests. The new
-[cost report](../performance/aad-linear-solve-pullback.md) accepts all sixteen
-two-round numeric/scalar comparisons, with 640 processes and 81,920 owning result
-checks. Fourteen fresh legacy/portfolio links preserve prior measured hashes;
-the Eigen-free new translation unit matches the original object and passes 9/9.
-The distinct seed-combination follow-up passes the one changed case. Copilot's
-early-normalization underflow finding is reproduced: a representable 5e-315
-solution becomes zero. Per-RHS adaptive late scaling repairs the forward and
-transpose paths, with independent direct-division and mixed-column references.
-The initial cost study is retained but superseded. Corrected study 02 accepts
-all sixteen comparisons and 81,920 results; fresh legacy proof 03 preserves all
-fourteen accepted hashes, and Eigen-free correction passes 10/10. Local review
-approves. Final platform/review publication remains open and the first F03
-checkbox stays unchecked.
+The accepted numeric operator reuses an owning normalized LU for forward and
+transpose solves. Independent analytic, scalar-AAD, finite-difference and
+directional oracles cover dense coordinates, multiple RHS, permutations, seed
+linearity, ownership, recovery and concurrent const reverse. The review finding
+for early RHS scaling is reproduced and repaired with per-column late scaling;
+direct-division references retain representable subnormal solutions/adjoints.
+The corrected sixteen-case cost study accepts 640 processes and 81,920 results.
+Fourteen fresh legacy/portfolio links retain accepted hashes; the Eigen-free
+translation unit passes 10/10. Earlier failed/superseded evidence remains retained.
+
+Completed numeric artifacts are retired; immutable history retains their
+[specification](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/a08d20e02396ef89629df3edb869f81bca0033f9/.codex/artifacts/specs/aad-linear-solve-pullback.md),
+[critique](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/a08d20e02396ef89629df3edb869f81bca0033f9/.codex/artifacts/critiques/aad-linear-solve-pullback.md),
+[review](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/a08d20e02396ef89629df3edb869f81bca0033f9/.codex/artifacts/reviews/aad-linear-solve-pullback.md)
+and [cost report](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/a08d20e02396ef89629df3edb869f81bca0033f9/.codex/artifacts/performance/aad-linear-solve-pullback.md).
+Merge and actual-log verification are retained in session evidence
+`aad-linear-solve-pullback-merged-01.json` and
+`aad-linear-solve-final-runtime-acceptance-01.json`.
+
+The next F03 increment runs in draft
+[#491](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/491),
+on `feature/aad-linear-solve-recording`, under the
+[recording specification](../specs/aad-linear-solve-recording.md),
+[API decisions](../api-notes/aad-linear-solve-recording.md) and
+[critique](../critiques/aad-linear-solve-recording.md). Its implementation and
+acceptance remain open. Structured coordinates, precision/conditioning
+diagnostics, implicit calibration, PDE and subsequent stages remain required.
+
+Recording progress: the analytic/interface, passive/RHS-only, reset-mutation,
+resource and capability RED logs remain in session evidence. Forty-eight new
+cases now pass across three overloads, independent scalar/finite-difference
+oracles, vector widths 1/2/3/4/8, aliases, shared/serial solves, repeated reverse,
+checkpoints, raw windows, block boundaries, ownership and failure recovery.
+The resource implementation admits exact owned descriptor/owner/table/cache
+capacity and numeric scratch before allocation, refunds failures and releases
+before scalar reuse. Parent buffer ceilings overlap reverse scratch while
+retained cache construction/destruction suspends parent accounting. Exact peak,
+one-byte-short, allocation/copy failures, suffix release, detached readmission,
+foreign live inputs, wrong-thread use and table growth have focused evidence.
+The production resource batch passes 113 affected cases; subsequent edge and
+integration batches pass 8/8, 4/4 and 3/3 without repeating broad suites.
+
+The resource implementation `25f347c7` passes 35/35 exact-head checks, with zero
+Codacy annotations and unresolved threads; its six sustained tape/Jacobian
+regressions are repaired in published `64cdbfa6`. That head passes 75 legacy
+comparisons using fresh affected measurements and verified identical binaries,
+but fails the GSR AAD price Jacobian. The current local repair uses a thread-stable
+validation-flag address and a cold validation helper while retaining failure/mode
+checks. Final affected functionality passes 132/132. Same-binary noise controls
+and six GSR rows pass, with the formerly failing case at +3.13%/+3.95% after
+borderline confirmation. See the [performance report](../performance/aad-linear-solve-recording.md).
+Under the project-wide performance scope amendment, the unstarted 81-case matrix
+is cancelled. Final affected caller/boundary measurements, installed consumers
+and exact-head OFF/ON runtime CI remain open. The 48 new cases comprise 45
+recording/resource cases, one RHS-only numeric pullback case, one native
+seed-clear case and one live-block range case; the existing capability-contract
+test is separate.
+Scoped acceptance finds a sustained large width-8 portfolio regression. Bulk
+root seed clearing preserves validation and alias semantics; 36 focused cases
+pass and the repaired single-case confirmation is -12.79%/-13.43%. Final
+affected callers/boundaries and exact-head CI remain open.
+Review identifies repeated live-block scans during input capture. A temporary
+budgeted sorted index removes that repetition; 63 directly affected tests and
+four combined diagnostic syntax checks pass before final publication. The
+original rate-risk executable's failing row passes shape-matched A/A controls
+and 30-pair confirmation at +0.58%/+0.10%; the earlier failure remains recorded.
+The macOS Python scheduling assertion is repaired, with deterministic RED/GREEN
+and three focused Python tests. Final platform and remaining scope gates stay open.
+Accepted #490 baseline libraries, headers and tests are frozen in
+`aad-recorded-solve-baseline-01/provenance.json`; the published prototype is
+frozen separately in `aad-recorded-solve-increment-01/provenance.json`.
 
 Scope amendment (2026-10-04): the user requires removing XAD, CoDiPack and Adept
 support and keeping only DAL's built-in native AAD. This replaces the earlier
@@ -105,9 +155,16 @@ incremental implementation turns and PRs; a green first stage does not complete 
   validate native diagnostic OFF/ON and their actual operation contracts.
 - Preserve legacy single-output APIs, units, paths, normalization, and LSM policy semantics.
 - Compare isolated Release baseline/head binaries with matching dependency SHAs and configuration.
-- Use the existing paired regression policy: ten interleaved process samples per side in each
-  of two confirmation rounds, best-of-N minima, and a 4% threshold. Keep all nine existing targets.
-- Extend production-workload evidence without weakening or bypassing existing CI/gates.
+- Performance scope amendment (2026-10-07): for all project development, select
+  the smallest set covering changed paths, callers and meaningful boundaries.
+  Do not run all nine targets or a full parameter matrix at each edit/PR/merge.
+  Repeat affected cases during repair; expand only for a documented failure,
+  dependency change or coverage gap. Reuse evidence with immutable provenance
+  and verified executable identity. See `AGENTS.md` and the benchmark reference.
+- Use the existing paired regression policy for selected cases: ten interleaved
+  process samples per side in each of two confirmation rounds, best-of-N minima,
+  and a 4% threshold. Borderline results may require additional samples.
+- Cover affected production workloads while retaining required exact-head CI.
 - Performance failures require investigation and correction. Noisy evidence is inconclusive.
 - Keep each change reviewable. Publish current-state documentation only after behavior exists.
 - Do not mark the overall goal complete until every applicable requirement below is verified.
@@ -115,6 +172,10 @@ incremental implementation turns and PRs; a green first stage does not complete 
   estimates at the end of every active development turn, at milestones, and when
   findings change the estimate. Distinguish implementation, local verification,
   exact-head CI acceptance and publication rather than combining them into one status.
+- Reporting amendment (2026-10-07): during active development, provide a complete
+  progress table every 15 minutes, including next development tasks and remaining
+  effort. Report material failures promptly. Separate development effort from
+  CI queues and shared-environment waits; do not count overlapping work twice.
 
 ## Stage A: trustworthy differentiation and measurement
 
@@ -150,7 +211,7 @@ incremental implementation turns and PRs; a green first stage does not complete 
 
 ## Stage C: structured reverse operators
 
-- [ ] F03: independent linear-solve pullback with decomposition reuse and directional adjoint oracle.
+- [x] F03: independent linear-solve pullback with decomposition reuse and directional adjoint oracle.
 - [ ] F03: recording integration, aliases, multiple seeds, repeated reverse, cache ownership, and failures.
 - [ ] F03: structured matrix coordinates and singular/ill-conditioned solver diagnostics.
 - [ ] F03: implicit calibration and PDE pullbacks derived and verified separately.
@@ -172,7 +233,7 @@ incremental implementation turns and PRs; a green first stage does not complete 
 - [ ] Fresh native-only OFF/ON, no external dependency/export/selection paths,
   explicit old-config migration errors and exact implementation-head CI checks.
 - [ ] Python and Excel parity, generated-source integrity, and documentation integrity.
-- [ ] Existing nine-target performance gate plus changed production-workload coverage.
+- [ ] Change-scoped performance acceptance with caller/boundary coverage and retained raw evidence.
 - [ ] Current-state method docs, examples, and necessary changelog entries.
 - [ ] Local read-first review with no unresolved correctness or compatibility findings.
 - [ ] Requirement-by-requirement audit of the actual final state.
@@ -796,16 +857,34 @@ overlapping acceptance work is included once in the integration allowance.
 | F02 portfolio           | C++/Python/Excel, installed consumers and timing repair accepted      | #487 merged; final 35/35 checks accepted | 0                     |
 | P02                     | Worker reuse: 82 tests and 37 full-request cost cases accepted        | #488 merged; final 35/35 checks accepted | 0                     |
 | P03                     | 89 tests; 81 unique complete-request timing comparisons accepted      | #489 merged; final 35/35 checks accepted | 0                     |
-| F03                     | Independent dense solve specification/critique; implementation starts | New PR; later operators remain open      | 12–20                 |
+| F03                     | Numeric accepted; recorded solves and capture repairs pass locally   | #490 merged; #491 open; final CI open    | 12–19                 |
 | P04/P05                 | Structural sparsity/checkpointing remain                              | Open                                     | 9–15                  |
 | F04                     | Second-order implementation/estimator validation remain               | Open                                     | 12–20                 |
 | Final integration/audit | Cross-platform/binding/docs/performance acceptance remains            | Open                                     | 7–11                  |
 
-Remaining total: approximately 40–66 person-days, or 8–14 working weeks,
+Remaining total: approximately 40–65 person-days, or 8–13 working weeks,
 excluding CI queue time and including delivery contingency. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
 effort estimate, not a guaranteed completion date. Re-estimate when review
 findings change the scope.
+
+### Next delivery tasks and effort
+
+One person-day means eight hours. The following detail subdivides the total
+above; the current PR is included within F03 rather than added again.
+
+| Order | Delivery task                    | Required result                                                          | Remaining hours |
+|-------|----------------------------------|--------------------------------------------------------------------------|-----------------|
+| 1     | Current recorded-solve PR #491    | Accept affected paths/platforms; fix review and merge                     | 4.5–12.5        |
+| 2     | F03 coordinates and diagnostics  | Symmetric/banded coordinate pullbacks; residual, singular/condition checks | 24–40           |
+| 3     | F03 implicit calibration         | Equation pullbacks, decomposition reuse and independent gradient oracles  | 32–56           |
+| 4     | F03 PDE operators                | Discrete solver, boundary and parameter sensitivity acceptance            | 32–40           |
+| 5     | P04 structural sparsity          | Dependency proof, compressed seeds, invalidation and mode evidence         | 32–56           |
+| 6     | P05 long-path checkpointing      | Complete state/RNG restoration, recomputation and memory/performance proof | 40–64           |
+| 7     | F04 second-order risk            | Gamma, cross-Gamma, HVP, recalibration and estimator validation             | 64–96           |
+| 8     | F04 native mixed-mode prototype  | Smooth-kernel prototype, independent correctness and capability limits     | 32–64           |
+| 9     | Bindings and complete acceptance | C++/Python/Excel, documentation, platform and performance gates            | 56–88           |
+| Total | Full remaining implementation    | All remaining plan requirements                                          | 316.5–516.5     |
 
 The first delivery boundary is complete. Whole-PR review repaired the Windows
 registration-help defect, both include-order findings and the overview file
@@ -1405,7 +1484,8 @@ The default maximum remains one; measured width choices are explicit upper bound
 with capacity-only narrowing, not a universal widening or speedup claim.
 Merge verification and both audits are retained in session evidence
 `aad-selected-extraction-merged-01.json`; the merge used the accepted-head SHA guard.
-P03 remaining effort is zero. F03 begins with an owning normalized-LU numeric
-pullback; no scalar tape/event integration is claimed by that first increment.
+P03 remaining effort is zero. The owning normalized-LU numeric pullback is
+accepted in merged #490. Recording/event integration is the next F03 increment;
+the independent numeric acceptance does not prove that integration.
 Overall remaining effort is approximately 40–66 person-days.
 Stage A is accepted; the full Stage B/C/D goal remains incomplete.

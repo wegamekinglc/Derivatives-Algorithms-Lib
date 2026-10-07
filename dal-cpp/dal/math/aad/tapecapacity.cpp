@@ -17,7 +17,7 @@
 
 namespace Dal::AAD {
     namespace {
-        constexpr size_t TAPE_LISTS = 4;
+        constexpr size_t TAPE_LISTS = 5;
         thread_local TapeCapacityScope_* activeScope = nullptr;
 
         size_t PayloadBytes(size_t blocks, size_t blockBytes) {
@@ -38,7 +38,7 @@ namespace Dal::AAD {
             return {PayloadBytes(tape.nodes_.AllocatedBlocks(), sizeof(std::array<TapNode_, BLOCK_SIZE>)),
                     PayloadBytes(tape.ders_.AllocatedBlocks(), sizeof(std::array<double, DATA_SIZE>)),
                     PayloadBytes(tape.argPtrs_.AllocatedBlocks(), sizeof(std::array<double*, DATA_SIZE>)),
-                    PayloadBytes(tape.adjointsMulti_.AllocatedBlocks(), sizeof(std::array<double, ADJ_SIZE>))};
+                    PayloadBytes(tape.adjointsMulti_.AllocatedBlocks(), sizeof(std::array<double, ADJ_SIZE>)), tape.ReverseEventCapacityBytes()};
         }
 
         void RequireCapacity(size_t current, size_t extra, size_t limit) {
@@ -140,7 +140,7 @@ namespace Dal::AAD {
             auto& entry = ledger.tapes_[tape];
             entry = sizes;
             attachment_->sizes_ = &entry;
-            attachment_->lists_ = {&tape->nodes_, &tape->ders_, &tape->argPtrs_, &tape->adjointsMulti_};
+            attachment_->lists_ = {&tape->nodes_, &tape->ders_, &tape->argPtrs_, &tape->adjointsMulti_, tape};
             ledger.capacityBytes_ = otherTapes + capacity;
             ledger.peakBytes_ = std::max(ledger.peakBytes_, ledger.capacityBytes_);
             ++ledger.activeScopes_;

@@ -14,7 +14,7 @@
 namespace Dal::AAD {
 
     FORCE_INLINE Tape_* Tape() {
-        thread_local Tape_ tape;
+        thread_local Tape_ tape(Tape_::ThreadDefault_{});
         return &tape;
     }
 
@@ -550,6 +550,7 @@ namespace Dal::AAD {
         friend double Value(const Number_&);
         friend double& Adjoint(const Number_&);
         friend struct NativeOperations_;
+        friend struct NativeRecordedOperation_;
 
         template <class E_>
         FORCE_INLINE Number_& operator+=(const Expression_<E_>& e) {
@@ -609,6 +610,8 @@ namespace Dal::AAD {
 
     FORCE_INLINE double Value(const Number_& num) { return num.value_; }
     FORCE_INLINE double& Adjoint(const Number_& num) {
+        if (NativeThread::EventValidationRequired())
+            NativeThread::RequireEventState();
 #if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
         num.ValidateOperands(Tape(), "Number.Adjoint");
 #endif

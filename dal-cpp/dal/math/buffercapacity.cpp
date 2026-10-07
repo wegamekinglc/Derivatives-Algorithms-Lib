@@ -20,6 +20,25 @@ namespace Dal {
         std::atomic<size_t> activeBufferScopes{0};
         thread_local BufferCapacityBudget_* currentBufferBudget = nullptr;
         thread_local const void* currentBufferAttachment = nullptr;
+        thread_local Detail::OwnedBufferAccount_* currentOwnedAccount = nullptr;
+
+        class OwnedAllocationTicket_ {
+            Detail::OwnedBufferAccount_* account_;
+            size_t bytes_;
+
+        public:
+            explicit OwnedAllocationTicket_(size_t bytes) : account_(currentOwnedAccount), bytes_(bytes) {
+                if (account_ != nullptr)
+                    account_->Reserve(bytes_);
+            }
+            OwnedAllocationTicket_(const OwnedAllocationTicket_&) = delete;
+            OwnedAllocationTicket_& operator=(const OwnedAllocationTicket_&) = delete;
+            ~OwnedAllocationTicket_() noexcept {
+                if (account_ != nullptr)
+                    account_->Release(bytes_);
+            }
+            void Commit() noexcept { account_ = nullptr; }
+        };
 
         void RequireBufferCapacity(size_t current, size_t extra, size_t limit) {
             if (extra > limit - current) {
@@ -145,6 +164,20 @@ namespace Dal {
     }
 
     namespace Detail {
+        OwnedBufferScope_::OwnedBufferScope_(OwnedBufferAccount_* account) : account_(account) {
+            REQUIRE(account_ != nullptr, "Owned buffer scope: account must not be null");
+            REQUIRE(currentOwnedAccount == nullptr, "Owned buffer scope: nested ownership is unsupported");
+            activeBufferScopes.fetch_add(1, std::memory_order_relaxed);
+            currentOwnedAccount = account_;
+        }
+
+        OwnedBufferScope_::~OwnedBufferScope_() noexcept {
+            if (currentOwnedAccount != account_)
+                std::terminate();
+            currentOwnedAccount = nullptr;
+            activeBufferScopes.fetch_sub(1, std::memory_order_relaxed);
+        }
+
         namespace {
             template <class A_, class D_>
 #if defined(__GNUC__) || defined(__clang__)
@@ -153,14 +186,16 @@ namespace Dal {
             __declspec(noinline)
 #endif
             auto AllocateWithBudgetContext(size_t bytes, A_ allocate, D_ deallocate) {
+                OwnedAllocationTicket_ owned(bytes);
                 auto* budget = currentBufferBudget;
-                return budget == nullptr ? allocate() : AllocateTrackedBuffer(budget, bytes, 1, allocate, deallocate);
+                auto* result = budget == nullptr ? allocate() : AllocateTrackedBuffer(budget, bytes, 1, allocate, deallocate);
+                owned.Commit();
+                return result;
             }
 
             template <class A_, class D_> auto AllocateStorage(size_t bytes, A_ allocate, D_ deallocate) {
-                return activeBufferScopes.load(std::memory_order_relaxed) == 0 || bytes == 0
-                           ? allocate()
-                           : AllocateWithBudgetContext(bytes, allocate, deallocate);
+                return activeBufferScopes.load(std::memory_order_relaxed) == 0 || bytes == 0 ? allocate()
+                                                                                             : AllocateWithBudgetContext(bytes, allocate, deallocate);
             }
 
             template <class D_>
@@ -169,18 +204,20 @@ namespace Dal {
 #elif defined(_MSC_VER)
             __declspec(noinline)
 #endif
-            void DeallocateWithBudgetContext(void* allocation, D_ deallocate) noexcept {
+            void DeallocateWithBudgetContext(void* allocation, size_t bytes, D_ deallocate) noexcept {
                 if (auto* budget = currentBufferBudget)
                     DeallocateTrackedBuffer(budget, allocation, deallocate);
                 else
                     deallocate(allocation);
+                if (currentOwnedAccount != nullptr)
+                    currentOwnedAccount->Release(bytes);
             }
 
-            template <class D_> void DeallocateStorage(void* allocation, D_ deallocate) noexcept {
+            template <class D_> void DeallocateStorage(void* allocation, size_t bytes, D_ deallocate) noexcept {
                 if (activeBufferScopes.load(std::memory_order_relaxed) == 0)
                     deallocate(allocation);
                 else
-                    DeallocateWithBudgetContext(allocation, deallocate);
+                    DeallocateWithBudgetContext(allocation, bytes, deallocate);
             }
         } // namespace
 
@@ -211,17 +248,17 @@ namespace Dal {
 
         void DeallocateBufferStorage(void* allocation, size_t bytes) noexcept {
 #if defined(__cpp_sized_deallocation)
-            DeallocateStorage(allocation, [bytes](void* storage) { ::operator delete(storage, bytes); });
+            DeallocateStorage(allocation, bytes, [bytes](void* storage) { ::operator delete(storage, bytes); });
 #else
-            DeallocateStorage(allocation, [](void* storage) { ::operator delete(storage); });
+            DeallocateStorage(allocation, bytes, [](void* storage) { ::operator delete(storage); });
 #endif
         }
 
         void DeallocateBufferStorage(void* allocation, size_t bytes, std::align_val_t alignment) noexcept {
 #if defined(__cpp_sized_deallocation)
-            DeallocateStorage(allocation, [bytes, alignment](void* storage) { ::operator delete(storage, bytes, alignment); });
+            DeallocateStorage(allocation, bytes, [bytes, alignment](void* storage) { ::operator delete(storage, bytes, alignment); });
 #else
-            DeallocateStorage(allocation, [alignment](void* storage) { ::operator delete(storage, alignment); });
+            DeallocateStorage(allocation, bytes, [alignment](void* storage) { ::operator delete(storage, alignment); });
 #endif
         }
 
