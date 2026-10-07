@@ -112,6 +112,55 @@ Construction costs $O(n^3+n^2m)$ for n rows and m RHS columns. Each reverse cost
 $O(n^2m)$, with no inverse or repeated factorization; retained storage is
 $O(n^2+nm)$.
 
+### Symmetric and Banded Solve Coordinates
+
+`LinearSolveCoordinates_` and `CoordinateLinearSolvePullback_` in
+`dal/math/matrix/linearsolvecoordinates.hpp` describe independent matrix
+parameters explicitly. `Symmetric(n)` packs the lower triangle by row:
+$(0,0),(1,0),(1,1),\ldots$. Each off-diagonal parameter sets both symmetric
+entries. Symmetry does not require positive definiteness; the solve uses the
+same general pivoted LU and numerical policy as the dense operator.
+
+`Banded(n, below, above)` packs actual entries by row, then increasing column,
+with columns from $\max(0,i-\mathrm{below})$ through
+$\min(n-1,i+\mathrm{above})$. Outside entries are fixed zero and boundary
+padding has no parameter. For example, `Banded(3, 1, 0)` uses
+$(0,0),(1,0),(1,1),(2,1),(2,2)$, rather than a padded rectangular band array.
+`Count()` reports the number of parameters; `Location(k)` returns the
+representative physical entry for parameter k. Layouts own constant-size
+metadata and validate dimensions, widths and representable dense storage.
+
+For $A(p)X=B$, reverse reuses the LU to solve $A^{\mathsf T}\Lambda=W$ and
+contracts each independent parameter with $-\Lambda X^{\mathsf T}$. In the
+symmetric layout,
+
+$$
+\bar p_{ii}=-\sum_r\Lambda_{ir}X_{ir},\qquad
+\bar p_{ij}=-\sum_r(\Lambda_{ir}X_{jr}+\Lambda_{jr}X_{ir}),\quad i>j.
+$$
+
+The off-diagonal contribution is a sum, without averaging. Banded parameters
+receive only their physical entry's contribution. `Reverse(W)` returns owning
+`coordinates_` in packing order and dense `rhs_`; `ReverseRhs(W)` computes
+only the RHS contribution. Source mutation, repeated const calls and concurrent
+readers do not alter the cache. Non-finite contributions raise an exception and
+leave it usable for a later valid seed. All buffers obey the active budget.
+
+```cpp
+#include <dal/math/matrix/linearsolvecoordinates.hpp>
+
+const auto layout = Dal::LinearSolveCoordinates_::Symmetric(2);
+const Dal::Vector_<> parameters = {2.0, 1.0, 3.0};
+Dal::CoordinateLinearSolvePullback_ solve(layout, parameters, rhs);
+const auto contributions = solve.Reverse(solutionSeeds);
+// coordinates_[1] combines the A(1,0) and A(0,1) contributions.
+```
+
+For p parameters and m RHS columns, the parameter contraction costs $O(pm)$
+and reverse allocates $O(p+nm)$ output storage, without a dense matrix adjoint.
+Transpose substitution still costs $O(n^2m)$; factorization and retained storage
+remain dense. This numeric surface does not record native tape events.
+
 ### Optional Solve Diagnostics
 
 `DiagnosedLinearSolve_` in `dal/math/matrix/linearsolvediagnostics.hpp`

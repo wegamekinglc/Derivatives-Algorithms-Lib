@@ -18,6 +18,11 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-08
 
+- **Explicit solve coordinates** — numeric linear-solve pullbacks accept packed
+  symmetric and variable-row band parameters, sum coupled symmetric gradients
+  and compute parameter contributions directly without a dense matrix adjoint.
+  Owning caches retain the existing pivoted LU and numerical checks. See
+  [coordinate pullbacks](docs/methodology/matrix.md#symmetric-and-banded-solve-coordinates).
 - **Native solve diagnostic results** — `LinearSolveWithDiagnostics` returns
   differentiable outputs and an owning passive diagnostic report, reusing one
   LU across forward, diagnostics and reverse. Cached and returned reports obey
