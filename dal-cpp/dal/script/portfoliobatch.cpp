@@ -45,14 +45,22 @@ namespace Dal::Script::Detail {
         public:
             using Result_ = PortfolioJacobianBatchResult_;
             static constexpr bool BLOCKED = true;
-            explicit BlockObjective_(size_t width) : width_(width) { roots_.reserve(width); }
+            explicit BlockObjective_(size_t width) : width_(width) {
+                if (width > 1)
+                    roots_.reserve(width);
+            }
             [[nodiscard]] size_t Width() const { return width_; }
             void RegisterZero(AAD::RecordingScope_* recording) { recording->RegisterInput(zero_, 0.0); }
             [[nodiscard]] AAD::Number_ Root(const Vector_<AAD::Number_>& values, const Vector_<double>&) {
+                if (width_ == 1)
+                    return AAD::PayoffRoot(values.front(), zero_);
                 AAD::SeedAdjointBlock(values, {0, values.size(), width_}, zero_, &roots_);
                 return roots_[0];
             }
-            void Seed(AAD::Number_*) const {}
+            void Seed(AAD::Number_* root) const {
+                if (width_ == 1)
+                    Adjoint(*root) = 1.0;
+            }
         };
 
         String_ BatchFailureContext(const PreparedPortfolio_& portfolio, size_t group, const Vector_<PortfolioBatchOutput_>& outputs) {
@@ -123,6 +131,46 @@ namespace Dal::Script::Detail {
                 states.push_back(std::unique_ptr<E_>(new E_(build(portfolio.Trades()[trade]))));
             return states;
         }
+
+        template <class T_>
+        std::unique_ptr<AAD::Model_<T_>> BuildBatchModel(const PreparedPortfolio_& portfolio, size_t group, const PreparedScript_& trade) {
+            auto model = CreateModel<T_>(portfolio.Portfolio()->Models()[portfolio.Groups()[group].modelOwner_]);
+            model->Allocate(trade.TimeLine(), trade.DefLine());
+            if constexpr (std::is_same_v<T_, double>)
+                model->Init(trade.TimeLine(), trade.DefLine());
+            return model;
+        }
+
+        template <class E_> struct NativeBatchBuffers_ {
+            std::unique_ptr<AAD::Model_<AAD::Number_>> model_;
+            std::unique_ptr<Random_> random_;
+            Vector_<double> gauss_;
+            AAD::Scenario_<AAD::Number_> path_;
+            Vector_<std::unique_ptr<E_>> states_;
+            Vector_<AAD::Number_> values_;
+
+            template <class F_>
+            NativeBatchBuffers_(const PreparedPortfolio_& portfolio, size_t group, const BatchSelection_& selection, size_t outputs, const F_& build)
+                : model_(BuildBatchModel<AAD::Number_>(portfolio, group, portfolio.Trades()[selection.tradePositions_.front()])),
+                  random_(CreateRNG(portfolio.Trades()[selection.tradePositions_.front()].Simulation().rsg_,
+                                    *model_,
+                                    portfolio.Trades()[selection.tradePositions_.front()].Simulation().useBb_)),
+                  gauss_(model_->SimDim()), states_(BuildStates(portfolio, selection, build)), values_(outputs) {
+                AAD::AllocatePath(portfolio.Trades()[selection.tradePositions_.front()].DefLine(), path_);
+            }
+        };
+
+        // Passive BS paths use checked views; native paths retain active scenario slots.
+        template <class E_> struct PassiveBatchBuffers_ {
+            std::unique_ptr<AAD::Model_<double>> model_;
+            PortfolioPassivePathState_ path_;
+            Vector_<std::unique_ptr<E_>> states_;
+
+            template <class F_>
+            PassiveBatchBuffers_(const PreparedPortfolio_& portfolio, size_t group, const BatchSelection_& selection, const F_& build)
+                : model_(BuildBatchModel<double>(portfolio, group, portfolio.Trades()[selection.tradePositions_.front()])),
+                  path_(portfolio.Trades()[selection.tradePositions_.front()], *model_), states_(BuildStates(portfolio, selection, build)) {}
+        };
 
         template <class E_, class O_>
         AAD::Checkpoint_ InitializeRecording(const PreparedPortfolio_& portfolio,
@@ -239,71 +287,63 @@ namespace Dal::Script::Detail {
             }
         };
 
-        template <class F_, class G_>
-        PortfolioWeightedBatchResult_ RunPassiveBatch(const PreparedPortfolio_& portfolio,
-                                                      size_t group,
-                                                      const PathBatch_& batch,
-                                                      const Vector_<PortfolioBatchOutput_>& outputs,
-                                                      const BatchSelection_& selection,
-                                                      const F_& build,
-                                                      const G_& evaluate) {
+        template <class F_, class G_, class C_>
+        auto RunPassiveBatches(const PreparedPortfolio_& portfolio,
+                               size_t group,
+                               const Vector_<PortfolioBatchOutput_>& outputs,
+                               const BatchSelection_& selection,
+                               const F_& build,
+                               const G_& evaluate,
+                               const C_& consume) {
             const auto& representative = portfolio.Trades()[selection.tradePositions_.front()];
-            auto model = CreateModel<double>(portfolio.Portfolio()->Models()[portfolio.Groups()[group].modelOwner_]);
-            model->Allocate(representative.TimeLine(), representative.DefLine());
-            model->Init(representative.TimeLine(), representative.DefLine());
-            PortfolioPassivePathState_ pathState(representative, *model);
-            auto states = BuildStates(portfolio, selection, build);
-            PortfolioWeightedBatchResult_ result(outputs.size());
-            result.tradePositions_ = selection.tradePositions_;
-            const PassiveWeightedCollector_ collector(outputs, selection, states, &result);
-            result.weightedSum_ = EvaluateDoubleBatch(
-                *model, &pathState, states.front().get(), batch, representative.PayOffIdx(),
-                [&](const auto& path, auto&) {
-                    ++result.generatedScenarios_;
-                    for (size_t state = 0; state < states.size(); ++state) {
-                        EvaluateTrade(portfolio, selection.tradePositions_[state], path, states[state].get(), evaluate);
-                        ++result.evaluatorCalls_;
-                    }
-                },
-                collector);
-            REQUIRE2(std::isfinite(result.weightedSum_), "InvalidPortfolioPayoff: non-finite weighted sum", ScriptError_);
-            return result;
+            using E_ = decltype(build(representative));
+            PassiveBatchBuffers_<E_> buffers(portfolio, group, selection, build);
+            auto& model = buffers.model_;
+            auto& pathState = buffers.path_;
+            auto& states = buffers.states_;
+            return consume([&](const PathBatch_& batch) {
+                PortfolioWeightedBatchResult_ result(outputs.size());
+                result.tradePositions_ = selection.tradePositions_;
+                const PassiveWeightedCollector_ collector(outputs, selection, states, &result);
+                result.weightedSum_ = EvaluateDoubleBatch(
+                    *model, &pathState, states.front().get(), batch, representative.PayOffIdx(),
+                    [&](const auto& path, auto&) {
+                        ++result.generatedScenarios_;
+                        for (size_t state = 0; state < states.size(); ++state) {
+                            EvaluateTrade(portfolio, selection.tradePositions_[state], path, states[state].get(), evaluate);
+                            ++result.evaluatorCalls_;
+                        }
+                    },
+                    collector);
+                REQUIRE2(std::isfinite(result.weightedSum_), "InvalidPortfolioPayoff: non-finite weighted sum", ScriptError_);
+                return result;
+            });
         }
 
-        template <class O_, class F_, class G_>
-        typename O_::Result_ RunBatch(const PreparedPortfolio_& portfolio,
-                                      size_t group,
-                                      const PathBatch_& batch,
-                                      const Vector_<PortfolioBatchOutput_>& outputs,
-                                      const BatchSelection_& selection,
-                                      const F_& build,
-                                      const G_& evaluate,
-                                      AAD::TapeCapacityBudget_* tape,
-                                      size_t width) {
-            std::optional<AAD::TapeCapacityScope_> capacity;
-            if (tape)
-                capacity.emplace(tape, true);
-            auto mode = AAD::SetNumResultsForAAD(O_::BLOCKED, width);
-            O_ objective(width);
-            AAD::RecordingScope_ recording;
-            auto model = CreateModel<AAD::Number_>(portfolio.Portfolio()->Models()[portfolio.Groups()[group].modelOwner_]);
-            const auto& representative = portfolio.Trades()[selection.tradePositions_.front()];
-            model->Allocate(representative.TimeLine(), representative.DefLine());
-            auto random = CreateRNG(representative.Simulation().rsg_, *model, representative.Simulation().useBb_);
-            Vector_<double> gauss(model->SimDim());
-            AAD::Scenario_<AAD::Number_> path;
-            AAD::AllocatePath(representative.DefLine(), path);
-            auto states = BuildStates(portfolio, selection, build);
-            Vector_<AAD::Number_> values(outputs.size());
+        template <class O_, class E_, class G_>
+        typename O_::Result_ RunNativeBatch(const PreparedPortfolio_& portfolio,
+                                            const PathBatch_& batch,
+                                            const Vector_<PortfolioBatchOutput_>& outputs,
+                                            const BatchSelection_& selection,
+                                            NativeBatchBuffers_<E_>* buffers,
+                                            AAD::RecordingScope_* recording,
+                                            O_* objective,
+                                            const G_& evaluate) {
+            auto& model = buffers->model_;
+            auto& random = buffers->random_;
+            auto& gauss = buffers->gauss_;
+            auto& path = buffers->path_;
+            auto& states = buffers->states_;
+            auto& values = buffers->values_;
             typename O_::Result_ result(outputs.size());
             result.tradePositions_ = selection.tradePositions_;
             if (random)
                 random->SkipNormalTo(batch.firstPath_);
-            const auto checkpoint = InitializeRecording(portfolio, selection, model.get(), &path, &states, &recording, &objective);
-            recording.FinishRecording();
+            const auto checkpoint = InitializeRecording(portfolio, selection, model.get(), &path, &states, recording, objective);
+            recording->FinishRecording();
             WithPathGenerator(*model, [&](const auto& generate) {
                 for (size_t i = 0; i < batch.pathCount_; ++i) {
-                    recording.Restore(checkpoint);
+                    recording->Restore(checkpoint);
                     if (random)
                         random->FillNormal(&gauss);
                     generate(gauss, &path);
@@ -313,86 +353,122 @@ namespace Dal::Script::Detail {
                         ++result.evaluatorCalls_;
                     }
                     CollectOutputs(outputs, selection, states, &values, &result);
-                    auto root = objective.Root(values, selection.weights_);
+                    auto root = objective->Root(values, selection.weights_);
                     if constexpr (!O_::BLOCKED)
                         AddValue(Value(root), &result.weightedSum_, "weighted");
-                    recording.FinishRecording();
-                    objective.Seed(&root);
-                    recording.ReverseSuffix(checkpoint);
+                    recording->FinishRecording();
+                    objective->Seed(&root);
+                    recording->ReverseSuffix(checkpoint);
                     ++result.suffixReversals_;
                 }
             });
-            recording.ReversePrefix(checkpoint);
+            recording->ReversePrefix(checkpoint);
             ++result.prefixReversals_;
-            ExtractGradients(*model, states, objective.Width(), &result);
-            recording.Close();
+            ExtractGradients(*model, states, objective->Width(), &result);
+            recording->Close();
             return result;
         }
 
-        template <class O_>
-        typename O_::Result_ RunSelectedNative(const PreparedPortfolio_& portfolio,
-                                               size_t group,
-                                               const PathBatch_& batch,
-                                               const Vector_<PortfolioBatchOutput_>& outputs,
-                                               const BatchSelection_& selection,
-                                               AAD::TapeCapacityBudget_* tape,
-                                               size_t width) {
+        template <class O_, class F_, class G_, class C_>
+        auto RunNativeBatches(const PreparedPortfolio_& portfolio,
+                              size_t group,
+                              const Vector_<PortfolioBatchOutput_>& outputs,
+                              const BatchSelection_& selection,
+                              const F_& build,
+                              const G_& evaluate,
+                              AAD::TapeCapacityBudget_* tape,
+                              size_t width,
+                              const C_& consume) {
+            std::optional<AAD::TapeCapacityScope_> capacity;
+            if (tape)
+                capacity.emplace(tape, true);
+            auto mode = AAD::SetNumResultsForAAD(O_::BLOCKED && width > 1, width);
+            O_ objective(width);
+            const auto& representative = portfolio.Trades()[selection.tradePositions_.front()];
+            using E_ = decltype(build(representative));
+            std::optional<NativeBatchBuffers_<E_>> buffers;
+            return consume([&](const PathBatch_& batch) {
+                AAD::RecordingScope_ recording;
+                if (!buffers)
+                    buffers.emplace(portfolio, group, selection, outputs.size(), build);
+                return RunNativeBatch<O_>(portfolio, batch, outputs, selection, &*buffers, &recording, &objective, evaluate);
+            });
+        }
+
+        template <class T_> constexpr auto BuildCompiledState() {
+            return [](const auto& trade) { return trade.template BuildEvalState<T_>(); };
+        }
+        template <class T_> constexpr auto BuildTreeState() {
+            return [](const auto& trade) {
+                if constexpr (std::is_same_v<T_, AAD::Number_>)
+                    return trade.template BuildFuzzyEvaluator<T_>(0, trade.Simulation().smooth_);
+                else
+                    return trade.template BuildEvaluator<T_>();
+            };
+        }
+        template <class T_> constexpr auto EvaluateCompiled() {
+            return [](const auto& trade, const auto& path, auto& state) {
+                trade.CompiledProgram(std::is_same_v<T_, AAD::Number_>).Evaluate(path, state);
+            };
+        }
+        constexpr auto EVALUATE_TREE = [](const auto& trade, const auto& path, auto& state) { trade.Evaluate(path, state); };
+
+        template <class O_, class C_>
+        auto RunSelectedNative(const PreparedPortfolio_& portfolio,
+                               size_t group,
+                               const Vector_<PortfolioBatchOutput_>& outputs,
+                               const BatchSelection_& selection,
+                               AAD::TapeCapacityBudget_* tape,
+                               size_t width,
+                               const C_& consume) {
             const auto& representative = portfolio.Trades()[selection.tradePositions_.front()];
             REQUIRE2(representative.Simulation().enableAad_, "UnsupportedPortfolioJacobianBatch: native preparation is required", ScriptError_);
             if (representative.Simulation().compiled_.value_or(false))
-                return RunBatch<O_>(
-                    portfolio, group, batch, outputs, selection, [](const auto& trade) { return trade.template BuildEvalState<AAD::Number_>(); },
-                    [](const auto& trade, const auto& path, auto& state) { trade.CompiledProgram(true).Evaluate(path, state); }, tape, width);
-            return RunBatch<O_>(
-                portfolio, group, batch, outputs, selection,
-                [](const auto& trade) { return trade.template BuildFuzzyEvaluator<AAD::Number_>(0, trade.Simulation().smooth_); },
-                [](const auto& trade, const auto& path, auto& state) { trade.Evaluate(path, state); }, tape, width);
+                return RunNativeBatches<O_>(portfolio, group, outputs, selection, BuildCompiledState<AAD::Number_>(),
+                                            EvaluateCompiled<AAD::Number_>(), tape, width, consume);
+            return RunNativeBatches<O_>(portfolio, group, outputs, selection, BuildTreeState<AAD::Number_>(), EVALUATE_TREE, tape, width, consume);
         }
 
-        PortfolioWeightedBatchResult_ RunSelectedPassive(const PreparedPortfolio_& portfolio,
-                                                         size_t group,
-                                                         const PathBatch_& batch,
-                                                         const Vector_<PortfolioBatchOutput_>& outputs,
-                                                         const BatchSelection_& selection) {
+        template <class C_>
+        auto RunSelectedPassive(const PreparedPortfolio_& portfolio,
+                                size_t group,
+                                const Vector_<PortfolioBatchOutput_>& outputs,
+                                const BatchSelection_& selection,
+                                const C_& consume) {
             const auto& representative = portfolio.Trades()[selection.tradePositions_.front()];
             if (representative.Simulation().compiled_.value_or(false))
-                return RunPassiveBatch(
-                    portfolio, group, batch, outputs, selection, [](const auto& trade) { return trade.template BuildEvalState<double>(); },
-                    [](const auto& trade, const auto& path, auto& state) { trade.CompiledProgram(false).Evaluate(path, state); });
-            return RunPassiveBatch(
-                portfolio, group, batch, outputs, selection, [](const auto& trade) { return trade.template BuildEvaluator<double>(); },
-                [](const auto& trade, const auto& path, auto& state) { trade.Evaluate(path, state); });
+                return RunPassiveBatches(portfolio, group, outputs, selection, BuildCompiledState<double>(), EvaluateCompiled<double>(), consume);
+            return RunPassiveBatches(portfolio, group, outputs, selection, BuildTreeState<double>(), EVALUATE_TREE, consume);
         }
 
-        template <class O_>
-        typename O_::Result_ RunSelectedBatch(const PreparedPortfolio_& portfolio,
-                                              size_t group,
-                                              const PathBatch_& batch,
-                                              const Vector_<PortfolioBatchOutput_>& outputs,
-                                              const BatchSelection_& selection,
-                                              AAD::TapeCapacityBudget_* tape,
-                                              size_t width) {
+        template <class O_, class C_>
+        auto RunSelectedBatches(const PreparedPortfolio_& portfolio,
+                                size_t group,
+                                const Vector_<PortfolioBatchOutput_>& outputs,
+                                const BatchSelection_& selection,
+                                AAD::TapeCapacityBudget_* tape,
+                                size_t width,
+                                const C_& consume) {
             if constexpr (!O_::BLOCKED)
                 if (!portfolio.Trades()[selection.tradePositions_.front()].Simulation().enableAad_)
-                    return RunSelectedPassive(portfolio, group, batch, outputs, selection);
-            return RunSelectedNative<O_>(portfolio, group, batch, outputs, selection, tape, width);
+                    return RunSelectedPassive(portfolio, group, outputs, selection, consume);
+            return RunSelectedNative<O_>(portfolio, group, outputs, selection, tape, width, consume);
         }
 
-        template <class O_>
-        typename O_::Result_ ExecuteBatch(const PreparedPortfolio_& portfolio,
-                                          size_t group,
-                                          const PathBatch_& batch,
-                                          const Vector_<PortfolioBatchOutput_>& requestedOutputs,
-                                          size_t width,
-                                          BufferCapacityBudget_* scratch,
-                                          AAD::TapeCapacityBudget_* tape) {
-            ValidateBatchRange(portfolio, group, batch);
+        template <class O_, class C_>
+        auto ExecuteBatches(const PreparedPortfolio_& portfolio,
+                            size_t group,
+                            const Vector_<PortfolioBatchOutput_>& requestedOutputs,
+                            size_t width,
+                            BufferCapacityBudget_* scratch,
+                            AAD::TapeCapacityBudget_* tape,
+                            const C_& consume) {
             const auto execute = [&] {
                 const auto outputs = requestedOutputs;
                 const auto selection = SelectBatchOutputs(portfolio, portfolio.Groups()[group], outputs);
                 const auto& representative = portfolio.Trades()[selection.tradePositions_.front()];
                 ValidateRNG(representative.Simulation().rsg_);
-                const auto run = [&] { return RunSelectedBatch<O_>(portfolio, group, batch, outputs, selection, tape, width); };
+                const auto run = [&] { return RunSelectedBatches<O_>(portfolio, group, outputs, selection, tape, width, consume); };
                 if (scratch) {
                     const auto fixed =
                         O_::BLOCKED ? PortfolioJacobianWorkerFixedBytes(representative.Simulation().compiled_.value_or(false),
@@ -419,13 +495,55 @@ namespace Dal::Script::Detail {
                        ScriptError_);
             }
         }
+        void ValidateBlockWidth(size_t width, size_t outputs) {
+            REQUIRE2(width > 0 && width <= AAD::ADJ_SIZE && outputs > 0 && outputs <= width,
+                     "InvalidPortfolioJacobianBatch: positive live outputs must fit the bounded width; field=width", ScriptError_);
+        }
+
+        template <class F_> void VisitWorkerBatches(const BatchPlan_& batches, size_t worker, size_t workers, const F_& visit) {
+            for (size_t batch = worker; batch < batches.BatchCount();) {
+                visit(batch, batches.BatchAt(batch));
+                if (workers >= batches.BatchCount() - batch)
+                    break;
+                batch += workers;
+            }
+        }
+
+        template <class O_>
+        void ExecuteWorker(const PreparedPortfolio_& portfolio,
+                           size_t group,
+                           const BatchPlan_& batches,
+                           size_t worker,
+                           size_t workers,
+                           const Vector_<PortfolioBatchOutput_>& outputs,
+                           size_t width,
+                           Vector_<typename O_::Result_>* slots,
+                           BufferCapacityBudget_* scratch,
+                           AAD::TapeCapacityBudget_* tape) {
+            REQUIRE2(workers > 0 && workers <= batches.BatchCount() && worker < workers,
+                     "InvalidPortfolioWorker: worker range is outside the batch plan; field=workers", ScriptError_);
+            REQUIRE2(slots && slots->size() == batches.BatchCount(), "InvalidPortfolioWorker: result slots must match batches; field=slots",
+                     ScriptError_);
+            if (workers >= batches.BatchCount() - worker) {
+                const auto batch = batches.BatchAt(worker);
+                if constexpr (O_::BLOCKED)
+                    (*slots)[worker] = EvaluatePortfolioJacobianBatch(portfolio, group, batch, outputs, width, scratch, tape);
+                else
+                    (*slots)[worker] = EvaluatePortfolioWeightedBatch(portfolio, group, batch, outputs, scratch, tape);
+                return;
+            }
+            VisitWorkerBatches(batches, worker, workers, [&](size_t, const auto& batch) { ValidateBatchRange(portfolio, group, batch); });
+            ExecuteBatches<O_>(portfolio, group, outputs, width, scratch, tape, [&](const auto& run) {
+                VisitWorkerBatches(batches, worker, workers, [&](size_t index, const auto& batch) { (*slots)[index] = run(batch); });
+            });
+        }
     } // namespace
 
     size_t PortfolioWeightedWorkerFixedBytes(bool compiled, size_t trades, bool native, bool checkedPaths) {
         if (!native) {
             const auto state = compiled ? sizeof(EvalState_<double>) : sizeof(Evaluator_<double>);
             auto fixed = ReplayExtentProduct(trades, state);
-            fixed = ReplayExtentSum(fixed, sizeof(PortfolioPassivePathState_) + sizeof(Vector_<std::unique_ptr<Evaluator_<double>>>));
+            fixed = ReplayExtentSum(fixed, sizeof(PassiveBatchBuffers_<Evaluator_<double>>));
             fixed = ReplayExtentSum(fixed, sizeof(PortfolioWeightedBatchResult_) + sizeof(BatchSelection_) +
                                                sizeof(PassiveWeightedCollector_<Evaluator_<double>>));
             return ReplayExtentSum(fixed, checkedPaths ? sizeof(LocalCheckedPaths_) : 0);
@@ -434,7 +552,7 @@ namespace Dal::Script::Detail {
         const auto past = compiled ? sizeof(EvalState_<AAD::Number_>) : sizeof(PastEvaluator_<AAD::Number_>);
         auto fixed = ReplayExtentSum(ReplayExtentProduct(trades, state), std::max(state, past));
         fixed = ReplayExtentSum(fixed, sizeof(PortfolioWeightedBatchResult_) + sizeof(BatchSelection_));
-        return ReplayExtentSum(fixed, sizeof(Vector_<AAD::Number_>) + sizeof(Scenario_<AAD::Number_>) + sizeof(Vector_<double>));
+        return ReplayExtentSum(fixed, sizeof(std::optional<NativeBatchBuffers_<FuzzyEvaluator_<AAD::Number_>>>));
     }
 
     size_t PortfolioJacobianWorkerFixedBytes(bool compiled, size_t trades) {
@@ -448,7 +566,8 @@ namespace Dal::Script::Detail {
                                                                  const Vector_<PortfolioBatchOutput_>& requestedOutputs,
                                                                  BufferCapacityBudget_* scratch,
                                                                  AAD::TapeCapacityBudget_* tape) {
-        return ExecuteBatch<WeightedObjective_>(portfolio, group, batch, requestedOutputs, 1, scratch, tape);
+        ValidateBatchRange(portfolio, group, batch);
+        return ExecuteBatches<WeightedObjective_>(portfolio, group, requestedOutputs, 1, scratch, tape, [&](const auto& run) { return run(batch); });
     }
 
     PortfolioJacobianBatchResult_ EvaluatePortfolioJacobianBatch(const PreparedPortfolio_& portfolio,
@@ -458,8 +577,34 @@ namespace Dal::Script::Detail {
                                                                  size_t width,
                                                                  BufferCapacityBudget_* scratch,
                                                                  AAD::TapeCapacityBudget_* tape) {
-        REQUIRE2(width > 0 && width <= AAD::ADJ_SIZE && !outputs.empty() && outputs.size() <= width,
-                 "InvalidPortfolioJacobianBatch: positive live outputs must fit the bounded width; field=width", ScriptError_);
-        return ExecuteBatch<BlockObjective_>(portfolio, group, batch, outputs, width, scratch, tape);
+        ValidateBlockWidth(width, outputs.size());
+        ValidateBatchRange(portfolio, group, batch);
+        return ExecuteBatches<BlockObjective_>(portfolio, group, outputs, width, scratch, tape, [&](const auto& run) { return run(batch); });
+    }
+
+    void EvaluatePortfolioWeightedWorker(const PreparedPortfolio_& portfolio,
+                                         size_t group,
+                                         const BatchPlan_& batches,
+                                         size_t worker,
+                                         size_t workers,
+                                         const Vector_<PortfolioBatchOutput_>& outputs,
+                                         Vector_<PortfolioWeightedBatchResult_>* slots,
+                                         BufferCapacityBudget_* scratch,
+                                         AAD::TapeCapacityBudget_* tape) {
+        ExecuteWorker<WeightedObjective_>(portfolio, group, batches, worker, workers, outputs, 1, slots, scratch, tape);
+    }
+
+    void EvaluatePortfolioJacobianWorker(const PreparedPortfolio_& portfolio,
+                                         size_t group,
+                                         const BatchPlan_& batches,
+                                         size_t worker,
+                                         size_t workers,
+                                         const Vector_<PortfolioBatchOutput_>& outputs,
+                                         size_t width,
+                                         Vector_<PortfolioJacobianBatchResult_>* slots,
+                                         BufferCapacityBudget_* scratch,
+                                         AAD::TapeCapacityBudget_* tape) {
+        ValidateBlockWidth(width, outputs.size());
+        ExecuteWorker<BlockObjective_>(portfolio, group, batches, worker, workers, outputs, width, slots, scratch, tape);
     }
 } // namespace Dal::Script::Detail

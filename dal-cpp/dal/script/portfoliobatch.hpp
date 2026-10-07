@@ -14,6 +14,7 @@
 
 namespace Dal::Script {
     struct PathBatch_;
+    class BatchPlan_;
 
     namespace Detail {
         struct PortfolioCapacityLimits_ {
@@ -70,6 +71,27 @@ namespace Dal::Script {
                                                                                    AAD::TapeCapacityBudget_* tape = nullptr);
 
         [[nodiscard]] size_t PortfolioWeightedWorkerFixedBytes(bool compiled, size_t trades, bool native = true, bool checkedPaths = false);
+
+        void EvaluatePortfolioWeightedWorker(const PreparedPortfolio_& portfolio,
+                                             size_t group,
+                                             const BatchPlan_& batches,
+                                             size_t worker,
+                                             size_t workers,
+                                             const Vector_<PortfolioBatchOutput_>& outputs,
+                                             Vector_<PortfolioWeightedBatchResult_>* slots,
+                                             BufferCapacityBudget_* scratch = nullptr,
+                                             AAD::TapeCapacityBudget_* tape = nullptr);
+
+        void EvaluatePortfolioJacobianWorker(const PreparedPortfolio_& portfolio,
+                                             size_t group,
+                                             const BatchPlan_& batches,
+                                             size_t worker,
+                                             size_t workers,
+                                             const Vector_<PortfolioBatchOutput_>& outputs,
+                                             size_t width,
+                                             Vector_<PortfolioJacobianBatchResult_>* slots,
+                                             BufferCapacityBudget_* scratch = nullptr,
+                                             AAD::TapeCapacityBudget_* tape = nullptr);
         [[nodiscard]] size_t PortfolioJacobianWorkerFixedBytes(bool compiled, size_t trades);
 
         void AdmitPortfolioWeightedWorker(const Vector_<const PreparedScript_*>& trades,
