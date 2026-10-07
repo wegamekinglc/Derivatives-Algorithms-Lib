@@ -11,10 +11,17 @@ publication audits verify all 35 checks, zero Codacy annotations and zero unreso
 review threads. Actual platform logs and the complete performance report are
 linked in the accepted P03 evidence below. Completed P03 artifacts are retired;
 their immutable Git history retains all accepted and rejected evidence.
-F03 starts in a new PR with the independent numeric
+F03 starts in draft [#490](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/490) with the independent numeric
 [linear-solve specification](../specs/aad-linear-solve-pullback.md) and
 [scope critique](../critiques/aad-linear-solve-pullback.md). Recording events,
 structured coordinates, implicit calibration and PDE integration remain open.
+
+The independent dense operator is implemented locally. Nine focused tests pass:
+analytic gradients, nonsymmetric row permutations, multiple RHS, native scalar
+AAD/three-step finite differences, directional identity, scaling, ownership,
+invalid inputs, overflow recovery and concurrent const reverse. Factor and solve
+helpers are refactored under these tests. Performance and final-head publication
+acceptance remain open; the first F03 checkbox stays unchecked.
 
 Scope amendment (2026-10-04): the user requires removing XAD, CoDiPack and Adept
 support and keeping only DAL's built-in native AAD. This replaces the earlier
