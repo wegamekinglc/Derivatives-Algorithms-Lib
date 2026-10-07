@@ -67,6 +67,51 @@ Dense matrix-matrix products use zero-copy Eigen views by default, with Eigen's
 internal parallelism disabled. `DAL_USE_EIGEN=OFF` selects the built-in SIMD
 kernel. Both paths preserve output aliasing and empty-shape behavior.
 
+## Dense Linear-Solve Pullback
+
+`LinearSolvePullback_` in `dal-cpp/dal/math/matrix/linearsolvepullback.hpp`
+solves $AX=B$ with one or more right-hand-side columns and retains its normalized,
+row-pivoted LU factors and solution. `Reverse(W)` reuses those factors to return
+fresh dense matrix and RHS contributions:
+
+$$
+A^{\mathsf T}\Lambda=W,\qquad
+\bar B=\Lambda,\qquad \bar A=-\Lambda X^{\mathsf T}.
+$$
+
+The matrix result sums over all RHS columns. Its coordinates are independent
+dense entries; symmetric or shared coordinates require callers to combine the
+corresponding entries. The operator owns its numeric state, accepts repeated
+const reverse calls, and can be shared across concurrent readers. It does not
+record native tape events or accumulate into caller adjoints.
+
+Inputs must have positive compatible dimensions and finite values. A is scaled
+by its largest absolute entry before partial pivoting. The relative pivot
+tolerance defaults to 64 times double machine epsilon and must lie strictly
+between zero and one; pivots at or below it are rejected. `ScaledMinimumPivot()`
+reports the smallest accepted normalized pivot, which is not a condition number.
+The solve does not regularize or truncate rank. Non-finite arithmetic, including
+overflow in a reverse contribution, raises a DAL exception; a failed reverse
+leaves the operator usable for a subsequent valid seed.
+
+RHS columns whose early normalization would become subnormal use the original
+RHS during substitution and divide the solved column by the matrix scale
+afterward. This preserves representable tiny solutions and adjoints; each RHS
+chooses its scaling order independently. A nonzero solved component that becomes
+zero at final scaling raises an exception instead of publishing a truncated
+contribution. Finite inputs may still be rejected if substitution overflows.
+
+```cpp
+Dal::LinearSolvePullback_ solve(matrix, rhs);
+const auto& values = solve.Solution();
+const auto contributions = solve.Reverse(solutionSeeds);
+// contributions.matrix_ and contributions.rhs_ own their dense numeric values.
+```
+
+Construction costs $O(n^3+n^2m)$ for n rows and m RHS columns. Each reverse costs
+$O(n^2m)$, with no inverse or repeated factorization; retained storage is
+$O(n^2+nm)$.
+
 ## Numerical-Recipes Band Storage
 
 Band-diagonal matrices are stored in the compact form used throughout the
