@@ -21,6 +21,12 @@ case additionally passes scalar and width-1/4/8 combinations. Installed CMake
 consumption passes, and its runtime object matches the final compiled object.
 Formatting, patch and documentation checks pass.
 
+Codacy found the combined activity/difference test above its complexity limit.
+The test-only repair extracts sample setup, seeding and independent coordinate
+checks, preserving all activity/width/step combinations. Local Lizard checks
+all changed C++ functions at complexity eight or below; the repaired oracle
+filter passes. Production source is unchanged and scoped timing remains valid.
+
 Numeric tests correctly allow rounding residuals from normalized LU rather than
 assuming exact zero. Resource tests separately retain exact healthy-graph peak
 admission and one-byte-short rejection, while allowing the existing reserved

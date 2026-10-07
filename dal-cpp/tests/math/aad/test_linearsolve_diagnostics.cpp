@@ -4,6 +4,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <future>
 #include <limits>
 #include <utility>
@@ -45,6 +46,91 @@ namespace {
                 result += seeds(variable, column) * Determinant(replaced) / determinant;
             }
         return result;
+    }
+
+    struct SolveSample_ {
+        SquareMatrix_<> matrix_{3};
+        Matrix_<> rhs_{3, 2}, seeds_{3, 2};
+
+        SolveSample_() {
+            const double entries[3][3] = {{0.0, 2.0, 1.0}, {1.0, 0.0, 3.0}, {4.0, 1.0, 0.0}};
+            const double right[3][2] = {{1.0, 4.0}, {2.0, -1.0}, {3.0, 2.0}};
+            const double weights[3][2] = {{0.5, -2.0}, {3.0, 0.25}, {-1.0, 2.0}};
+            for (int row = 0; row < 3; ++row) {
+                for (int column = 0; column < 3; ++column)
+                    matrix_(row, column) = entries[row][column];
+                for (int column = 0; column < 2; ++column) {
+                    rhs_(row, column) = right[row][column];
+                    seeds_(row, column) = weights[row][column];
+                }
+            }
+        }
+    };
+
+    struct NativeSolveSample_ {
+        SquareMatrix_<Number_> matrix_{3};
+        Matrix_<Number_> rhs_{3, 2};
+
+        NativeSolveSample_(RecordingScope_* scope, const SolveSample_& sample) {
+            for (int row = 0; row < 3; ++row) {
+                for (int column = 0; column < 3; ++column)
+                    scope->RegisterInput(matrix_(row, column), sample.matrix_(row, column));
+                for (int column = 0; column < 2; ++column)
+                    scope->RegisterInput(rhs_(row, column), sample.rhs_(row, column));
+            }
+        }
+    };
+
+    Dal::AAD::DiagnosedLinearSolveResult_
+    SolveSample(RecordingScope_* scope, const SolveSample_& sample, const NativeSolveSample_& inputs, int activity) {
+        return activity == 1   ? LinearSolveWithDiagnostics(scope, inputs.matrix_, sample.rhs_)
+               : activity == 2 ? LinearSolveWithDiagnostics(scope, sample.matrix_, inputs.rhs_)
+                               : LinearSolveWithDiagnostics(scope, inputs.matrix_, inputs.rhs_);
+    }
+
+    double ChannelWeight(size_t channel) { return channel % 3 == 0 ? 1.0 : channel % 3 == 1 ? -2.0 : 0.0; }
+
+    void CheckAndSeed(Dal::AAD::DiagnosedLinearSolveResult_* result,
+                      const SolveSample_& sample,
+                      const Dal::DiagnosedLinearSolve_& numeric,
+                      size_t channels) {
+        ASSERT_NEAR(result->diagnostics_.reciprocalConditionInfinity_, 5.0 / 17.0, 1e-10);
+        ASSERT_EQ(result->diagnostics_.componentwiseBackwardErrors_.size(), 2);
+        for (int column = 0; column < 2; ++column) {
+            ASSERT_DOUBLE_EQ(result->diagnostics_.componentwiseBackwardErrors_[column], numeric.Diagnostics().componentwiseBackwardErrors_[column]);
+            for (int row = 0; row < 3; ++row) {
+                ASSERT_DOUBLE_EQ(Value(result->solution_(row, column)), numeric.Solve().Solution()(row, column));
+                for (size_t channel = 0; channel < channels; ++channel)
+                    NativeOperations_::SetSeed(result->solution_(row, column), ChannelWeight(channel) * sample.seeds_(row, column), channel);
+            }
+        }
+    }
+
+    template <class C_, class F_> double CoordinateDifference(const C_& values, int row, int column, double step, const F_& objective) {
+        auto above = values, below = values;
+        above(row, column) += step;
+        below(row, column) -= step;
+        return (objective(above) - objective(below)) / (2.0 * step);
+    }
+
+    void CheckAdjointChannels(const Number_& input, double expected, size_t channels) {
+        for (size_t channel = 0; channel < channels; ++channel)
+            ASSERT_NEAR(NativeOperations_::ReadAdjoint(input, channel), ChannelWeight(channel) * expected, 2e-8);
+    }
+
+    void CheckSampleDifferences(const SolveSample_& sample, const NativeSolveSample_& inputs, int activity, double step, size_t channels) {
+        const auto matrixObjective = [&](const SquareMatrix_<>& matrix) { return ReferenceObjective(matrix, sample.rhs_, sample.seeds_); };
+        const auto rhsObjective = [&](const Matrix_<>& rhs) { return ReferenceObjective(sample.matrix_, rhs, sample.seeds_); };
+        for (int row = 0; row < 3; ++row) {
+            for (int column = 0; column < 3; ++column) {
+                const double expected = activity == 2 ? 0.0 : CoordinateDifference(sample.matrix_, row, column, step, matrixObjective);
+                ASSERT_NO_FATAL_FAILURE(CheckAdjointChannels(inputs.matrix_(row, column), expected, channels));
+            }
+            for (int column = 0; column < 2; ++column) {
+                const double expected = activity == 1 ? 0.0 : CoordinateDifference(sample.rhs_, row, column, step, rhsObjective);
+                ASSERT_NO_FATAL_FAILURE(CheckAdjointChannels(inputs.rhs_(row, column), expected, channels));
+            }
+        }
     }
 
     size_t DiagnosedTapePeak(size_t extraLimit) {
@@ -106,82 +192,24 @@ TEST(AADLinearSolveTest, TestDiagnosticsComposeAndReportSurvivesClose) {
 }
 
 TEST(AADLinearSolveTest, TestDiagnosticsThreeActivityCombinationsAndIndependentDifferences) {
-    SquareMatrix_<> matrix(3);
-    Matrix_<> rhs(3, 2), seeds(3, 2);
-    const double entries[3][3] = {{0.0, 2.0, 1.0}, {1.0, 0.0, 3.0}, {4.0, 1.0, 0.0}};
-    const double right[3][2] = {{1.0, 4.0}, {2.0, -1.0}, {3.0, 2.0}};
-    const double weights[3][2] = {{0.5, -2.0}, {3.0, 0.25}, {-1.0, 2.0}};
-    for (int row = 0; row < 3; ++row) {
-        for (int column = 0; column < 3; ++column)
-            matrix(row, column) = entries[row][column];
-        for (int column = 0; column < 2; ++column) {
-            rhs(row, column) = right[row][column];
-            seeds(row, column) = weights[row][column];
-        }
-    }
-    const Dal::DiagnosedLinearSolve_ numeric(matrix, rhs);
+    const SolveSample_ sample;
+    const Dal::DiagnosedLinearSolve_ numeric(sample.matrix_, sample.rhs_);
     for (size_t width : {0U, 1U, 4U, 8U}) {
         SCOPED_TRACE(width);
         for (int activity : {1, 2, 3}) {
             SCOPED_TRACE(activity);
             Clear(*Tape());
             auto mode = Dal::AAD::SetNumResultsForAAD(width != 0, width == 0 ? 1 : width);
-            const size_t channels = width == 0 ? 1 : width;
+            const size_t channels = std::max(size_t(1), width);
             RecordingScope_ scope;
-            SquareMatrix_<Number_> activeMatrix(3);
-            Matrix_<Number_> activeRhs(3, 2);
-            for (int row = 0; row < 3; ++row) {
-                for (int column = 0; column < 3; ++column)
-                    scope.RegisterInput(activeMatrix(row, column), matrix(row, column));
-                for (int column = 0; column < 2; ++column)
-                    scope.RegisterInput(activeRhs(row, column), rhs(row, column));
-            }
+            const NativeSolveSample_ inputs(&scope, sample);
             scope.StartRecording();
-            auto result = activity == 1   ? LinearSolveWithDiagnostics(&scope, activeMatrix, rhs)
-                          : activity == 2 ? LinearSolveWithDiagnostics(&scope, matrix, activeRhs)
-                                          : LinearSolveWithDiagnostics(&scope, activeMatrix, activeRhs);
+            auto result = SolveSample(&scope, sample, inputs, activity);
             scope.FinishRecording();
-            ASSERT_NEAR(result.diagnostics_.reciprocalConditionInfinity_, 5.0 / 17.0, 1e-10);
-            ASSERT_EQ(result.diagnostics_.componentwiseBackwardErrors_.size(), 2);
-            for (int column = 0; column < 2; ++column) {
-                ASSERT_DOUBLE_EQ(result.diagnostics_.componentwiseBackwardErrors_[column],
-                                 numeric.Diagnostics().componentwiseBackwardErrors_[column]);
-                for (int row = 0; row < 3; ++row) {
-                    ASSERT_DOUBLE_EQ(Value(result.solution_(row, column)), numeric.Solve().Solution()(row, column));
-                    for (size_t channel = 0; channel < channels; ++channel) {
-                        const double multiplier = channel % 3 == 0 ? 1.0 : channel % 3 == 1 ? -2.0 : 0.0;
-                        NativeOperations_::SetSeed(result.solution_(row, column), multiplier * seeds(row, column), channel);
-                    }
-                }
-            }
+            ASSERT_NO_FATAL_FAILURE(CheckAndSeed(&result, sample, numeric, channels));
             scope.Reverse();
-            for (double step : {1e-5, 5e-6, 2e-5}) {
-                for (int row = 0; row < 3; ++row) {
-                    for (int column = 0; column < 3; ++column) {
-                        auto above = matrix, below = matrix;
-                        above(row, column) += step;
-                        below(row, column) -= step;
-                        const double expected =
-                            activity == 2 ? 0.0 : (ReferenceObjective(above, rhs, seeds) - ReferenceObjective(below, rhs, seeds)) / (2.0 * step);
-                        for (size_t channel = 0; channel < channels; ++channel) {
-                            const double multiplier = channel % 3 == 0 ? 1.0 : channel % 3 == 1 ? -2.0 : 0.0;
-                            ASSERT_NEAR(NativeOperations_::ReadAdjoint(activeMatrix(row, column), channel), multiplier * expected, 2e-8);
-                        }
-                    }
-                    for (int column = 0; column < 2; ++column) {
-                        auto above = rhs, below = rhs;
-                        above(row, column) += step;
-                        below(row, column) -= step;
-                        const double expected =
-                            activity == 1 ? 0.0
-                                          : (ReferenceObjective(matrix, above, seeds) - ReferenceObjective(matrix, below, seeds)) / (2.0 * step);
-                        for (size_t channel = 0; channel < channels; ++channel) {
-                            const double multiplier = channel % 3 == 0 ? 1.0 : channel % 3 == 1 ? -2.0 : 0.0;
-                            ASSERT_NEAR(NativeOperations_::ReadAdjoint(activeRhs(row, column), channel), multiplier * expected, 2e-8);
-                        }
-                    }
-                }
-            }
+            for (double step : {1e-5, 5e-6, 2e-5})
+                ASSERT_NO_FATAL_FAILURE(CheckSampleDifferences(sample, inputs, activity, step, channels));
             scope.Close();
             Clear(*Tape());
         }
