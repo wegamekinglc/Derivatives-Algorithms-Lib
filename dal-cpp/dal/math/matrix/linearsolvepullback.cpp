@@ -69,10 +69,9 @@ namespace Dal {
         solution_ = Solve(rhs, false);
     }
 
-    void LinearSolvePullback_::TriangularSolve(bool transpose, bool unitDiagonal, Matrix_<>* result) const {
+    void LinearSolvePullback_::TriangularSolve(bool transpose, bool unitDiagonal, Matrix_<>* result, const char* message) const {
         const int n = factors_.Rows();
         const bool ascending = unitDiagonal != transpose;
-        const char* message = transpose ? "Linear solve transpose substitution/result overflow" : "Linear solve forward substitution/result overflow";
         for (int step = 0; step < n; ++step) {
             const int row = ascending ? step : n - 1 - step;
             for (int rhs = 0; rhs < result->Cols(); ++rhs) {
@@ -101,8 +100,9 @@ namespace Dal {
             }
         if (!transpose)
             ApplySwaps(swaps_, false, &result);
-        TriangularSolve(transpose, !transpose, &result);
-        TriangularSolve(transpose, transpose, &result);
+        const char* message = transpose ? "Linear solve transpose substitution/result overflow" : "Linear solve forward substitution/result overflow";
+        TriangularSolve(transpose, !transpose, &result, message);
+        TriangularSolve(transpose, transpose, &result, message);
         if (transpose)
             ApplySwaps(swaps_, true, &result);
         return result;

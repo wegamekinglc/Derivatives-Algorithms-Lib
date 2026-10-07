@@ -35,9 +35,15 @@ native node overhead and checkpoint cache ownership are outside this PR.
 - Expanded independent oracles: `aad-linear-solve-oracles-01.log` (9/9, exit 0).
 - Refactored helpers: `aad-linear-solve-refactor-01.log` (9/9, exit 0).
 - Final split helpers: `aad-linear-solve-final-local-01.log` (9/9, exit 0);
-  local Lizard reports maximum complexity 9 in production and reference tests.
+  local Lizard initially reported maximum complexity 9. Codacy's actual limit
+  is 8, and its two annotations at `b2235eaa` are retained in
+  `aad-linear-solve-codacy-b2235-01.json`. Split the operation message and native
+  oracle assertions; current production and reference-test complexity is at most 8.
+- Codacy repair GREEN: `aad-linear-solve-codacy-green-01.log` (9/9, exit 0).
 - Documentation integrity: 156 Markdown files; new C++ follows `.clang-format`.
 
 Residual risk: required platform/sanitizer CI and complete cost/storage evidence
-are pending. The new test suite will run in ordinary core CI through the existing
-source/test globs; no CI skip, tolerance increase or legacy hot-path change is used.
+are pending. The new test suite runs in ordinary core CI through the existing
+source/test globs and is added to all six focused sanitizer filters. Actual final
+logs must contain all nine cases in each configuration. No CI skip, tolerance
+increase or legacy hot-path change is used.

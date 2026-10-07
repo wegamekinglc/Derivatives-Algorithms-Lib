@@ -133,6 +133,16 @@ namespace {
             }
         }
     }
+
+    void
+    AssertNativeAdjoints(const SquareMatrix_<AAD::Number_>& activeA, const Matrix_<AAD::Number_>& activeB, const LinearSolveAdjoints_& expected) {
+        for (int row = 0; row < activeA.Rows(); ++row) {
+            for (int col = 0; col < activeA.Rows(); ++col)
+                ASSERT_NEAR(AAD::AdjointValue(activeA(row, col)), expected.matrix_(row, col), 1e-10);
+            for (int col = 0; col < activeB.Cols(); ++col)
+                ASSERT_NEAR(AAD::AdjointValue(activeB(row, col)), expected.rhs_(row, col), 1e-10);
+        }
+    }
 } // namespace
 
 TEST(LinearSolvePullbackTest, TestAnalyticDenseGradient) {
@@ -214,12 +224,7 @@ TEST(LinearSolvePullbackTest, TestNativeScalarAndFiniteDifferenceOracles) {
     scope.ClearAdjoints();
     Adjoint(objective) = 1.0;
     scope.Reverse();
-    for (int row = 0; row < a.Rows(); ++row) {
-        for (int col = 0; col < a.Rows(); ++col)
-            ASSERT_NEAR(AdjointValue(activeA(row, col)), adjoints.matrix_(row, col), 1e-10);
-        for (int col = 0; col < b.Cols(); ++col)
-            ASSERT_NEAR(AdjointValue(activeB(row, col)), adjoints.rhs_(row, col), 1e-10);
-    }
+    AssertNativeAdjoints(activeA, activeB, adjoints);
     scope.Close();
     AssertFiniteDifferences(a, b, seed, adjoints);
 }
