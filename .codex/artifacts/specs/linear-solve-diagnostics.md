@@ -31,7 +31,9 @@ or higher-order differentiation.
    `max_i |(AX-B)_ij| / (sum_k |A_ik X_kj| + |B_ij|)`.
    A zero denominator corresponds to an exact zero equation and reports zero.
 5. Scale products using binary exponents before multiplication. Preserve product
-   roundoff with explicit FMA and cancellation with compensated summation; avoid
+   roundoff with explicit FMA and cancellation with compensated summation. Leave
+   mantissa headroom so individually tiny terms can contribute to representable
+   subnormal error ratios; avoid
    depending on extended-range `long double` or platform FP contraction.
 6. Reject invalid shapes and non-finite inputs with DAL exceptions. Preserve the
    ordinary singular/pivot/range policy. Diagnostic inverse range failures may

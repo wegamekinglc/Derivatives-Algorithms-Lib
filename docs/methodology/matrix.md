@@ -137,7 +137,10 @@ A zero denominator denotes an exact zero equation and contributes zero.
 for any finite candidate X, including a solution from another solver. Binary
 exponent scaling prevents intermediate product overflow/underflow; explicit
 FMA product compensation and compensated summation retain small residuals
-through cancellation. Rounding below the final representable ratio can still
+through cancellation. A binary64 mantissa of scaling headroom preserves
+representable subnormal ratios, including sums of individually tiny products,
+while keeping sums safe for int-sized matrix rows.
+Rounding below the final representable ratio can still
 produce zero. A small backward error alone does not guarantee a small forward
 error for an ill-conditioned matrix.
 

@@ -157,6 +157,27 @@ TEST(LinearSolveDiagnosticsTest, TestBackwardErrorRetainsSmallTermsAfterCancella
     ASSERT_DOUBLE_EQ(Dal::LinearSolveBackwardErrors(matrix, rhs, solution)[0], 0.0);
 }
 
+TEST(LinearSolveDiagnosticsTest, TestRepresentableMinimumBackwardErrorSurvivesScaling) {
+    SquareMatrix_<> matrix(3);
+    matrix(0, 0) = std::ldexp(1.0, 1023);
+    matrix(0, 1) = std::ldexp(1.0, -49);
+    matrix(0, 2) = -matrix(0, 0);
+    Matrix_<> rhs(3, 1), solution(3, 1, 1.0);
+    solution(0, 0) = solution(2, 0) = 2.0;
+    ASSERT_EQ(Dal::LinearSolveBackwardErrors(matrix, rhs, solution)[0], std::numeric_limits<double>::denorm_min());
+}
+
+TEST(LinearSolveDiagnosticsTest, TestIndividuallyUnderflowingTermsAccumulateIntoRepresentableError) {
+    SquareMatrix_<> matrix(6);
+    matrix(0, 0) = std::ldexp(1.0, 1023);
+    matrix(0, 5) = -matrix(0, 0);
+    for (int column = 1; column < 5; ++column)
+        matrix(0, column) = std::ldexp(1.0, -51);
+    Matrix_<> rhs(6, 1), solution(6, 1, 1.0);
+    solution(0, 0) = solution(5, 0) = 2.0;
+    ASSERT_EQ(Dal::LinearSolveBackwardErrors(matrix, rhs, solution)[0], std::numeric_limits<double>::denorm_min());
+}
+
 TEST(LinearSolveDiagnosticsTest, TestRejectInvalidShapesAndNonfiniteWitnesses) {
     SquareMatrix_<> matrix(2, 1.0);
     Matrix_<> rhs(2, 1), solution(2, 1);

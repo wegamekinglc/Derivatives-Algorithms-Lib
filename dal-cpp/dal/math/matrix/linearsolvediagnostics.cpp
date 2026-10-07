@@ -59,6 +59,8 @@ namespace Dal {
                 exponent = std::max(exponent, ScaledProduct_(matrix(row, entry), solution(entry, column)).exponent_);
             if (exponent == std::numeric_limits<int>::lowest())
                 return 0.0;
+            // Headroom preserves representable tiny ratios through accumulation and final division.
+            exponent -= std::numeric_limits<double>::digits;
             const double b = rightHandSide.AtExponent(exponent);
             CompensatedSum_ residual;
             residual.Add(-b);
