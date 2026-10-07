@@ -22,6 +22,8 @@ namespace Dal::Script::Detail {
             Vector_<size_t> outputEvaluators_;
             Vector_<double> weights_;
             Vector_<String_> outputContexts_;
+            const PortfolioInputColumns_* modelInputs_ = nullptr;
+            const PortfolioGradientSelection_* gradients_ = nullptr;
         };
 
         class WeightedObjective_ {
@@ -123,6 +125,16 @@ namespace Dal::Script::Detail {
             return result;
         }
 
+        void
+        SelectBatchInputs(const PreparedPortfolio_& portfolio, size_t group, const PortfolioGradientSelection_* inputs, BatchSelection_* selection) {
+            if (!inputs)
+                return;
+            selection->modelInputs_ = &inputs->Model(portfolio.Groups()[group].modelOwner_);
+            selection->gradients_ = inputs;
+            for (const auto trade : selection->tradePositions_)
+                inputs->Constants(trade).ValidateExtent(portfolio.Trades()[trade].ConstVarNames().size());
+        }
+
         template <class F_> auto BuildStates(const PreparedPortfolio_& portfolio, const BatchSelection_& selection, const F_& build) {
             using E_ = decltype(build(portfolio.Trades()[selection.tradePositions_.front()]));
             Vector_<std::unique_ptr<E_>> states;
@@ -156,6 +168,8 @@ namespace Dal::Script::Detail {
                                     *model_,
                                     portfolio.Trades()[selection.tradePositions_.front()].Simulation().useBb_)),
                   gauss_(model_->SimDim()), states_(BuildStates(portfolio, selection, build)), values_(outputs) {
+                if (selection.modelInputs_)
+                    selection.modelInputs_->ValidateExtent(model_->Parameters().size());
                 AAD::AllocatePath(portfolio.Trades()[selection.tradePositions_.front()].DefLine(), path_);
             }
         };
@@ -214,19 +228,21 @@ namespace Dal::Script::Detail {
             }
         }
 
-        template <class G_, class F_> G_ ExtractInputs(size_t width, size_t count, const F_& input) {
+        template <class G_, class F_> G_ ExtractInputs(size_t width, size_t sourceCount, const PortfolioInputColumns_* columns, const F_& input) {
             G_ result;
+            const auto count = columns ? columns->Size() : sourceCount;
             if constexpr (std::is_same_v<G_, Vector_<double>>) {
                 result.reserve(count);
                 for (size_t column = 0; column < count; ++column)
-                    result.push_back(Adjoint(input(column)));
+                    result.push_back(Adjoint(input(columns ? columns->Original(column) : column)));
             } else {
                 REQUIRE2(count <= static_cast<size_t>(std::numeric_limits<int>::max()), "InvalidPortfolioBatch: input extent exceeds matrix columns",
                          ScriptError_);
                 result = Matrix_<double>(static_cast<int>(width), static_cast<int>(count));
                 for (size_t column = 0; column < count; ++column)
                     for (size_t lane = 0; lane < width; ++lane)
-                        result(static_cast<int>(lane), static_cast<int>(column)) = AAD::NativeOperations_::ReadAdjoint(input(column), lane);
+                        result(static_cast<int>(lane), static_cast<int>(column)) =
+                            AAD::NativeOperations_::ReadAdjoint(input(columns ? columns->Original(column) : column), lane);
             }
             return result;
         }
@@ -234,14 +250,17 @@ namespace Dal::Script::Detail {
         template <class E_, class G_>
         void ExtractGradients(const AAD::Model_<AAD::Number_>& model,
                               const Vector_<std::unique_ptr<E_>>& states,
+                              const BatchSelection_& selection,
                               size_t width,
                               PortfolioBatchResult_<G_>* result) {
             const auto& parameters = model.Parameters();
-            result->modelGradientSums_ =
-                ExtractInputs<G_>(width, parameters.size(), [&](size_t column) -> const auto& { return *parameters[column]; });
-            for (const auto& state : states) {
+            result->modelGradientSums_ = ExtractInputs<G_>(width, parameters.size(), selection.modelInputs_,
+                                                           [&](size_t column) -> const auto& { return *parameters[column]; });
+            for (size_t trade = 0; trade < states.size(); ++trade) {
+                const auto& state = states[trade];
+                const auto* columns = selection.gradients_ ? &selection.gradients_->Constants(selection.tradePositions_[trade]) : nullptr;
                 result->constantGradientSums_.push_back(ExtractInputs<G_>(
-                    width, state->ConstVarVals().size(), [&](size_t column) -> const auto& { return state->ConstVarVals()[column]; }));
+                    width, state->ConstVarVals().size(), columns, [&](size_t column) -> const auto& { return state->ConstVarVals()[column]; }));
             }
         }
 
@@ -364,7 +383,7 @@ namespace Dal::Script::Detail {
             });
             recording->ReversePrefix(checkpoint);
             ++result.prefixReversals_;
-            ExtractGradients(*model, states, objective->Width(), &result);
+            ExtractGradients(*model, states, selection, objective->Width(), &result);
             recording->Close();
             return result;
         }
@@ -460,12 +479,14 @@ namespace Dal::Script::Detail {
                             size_t group,
                             const Vector_<PortfolioBatchOutput_>& requestedOutputs,
                             size_t width,
-                            BufferCapacityBudget_* scratch,
-                            AAD::TapeCapacityBudget_* tape,
+                            const PortfolioBatchSettings_& settings,
                             const C_& consume) {
+            auto* scratch = settings.scratch_;
+            auto* tape = settings.tape_;
             const auto execute = [&] {
                 const auto outputs = requestedOutputs;
-                const auto selection = SelectBatchOutputs(portfolio, portfolio.Groups()[group], outputs);
+                auto selection = SelectBatchOutputs(portfolio, portfolio.Groups()[group], outputs);
+                SelectBatchInputs(portfolio, group, settings.gradients_, &selection);
                 const auto& representative = portfolio.Trades()[selection.tradePositions_.front()];
                 ValidateRNG(representative.Simulation().rsg_);
                 const auto run = [&] { return RunSelectedBatches<O_>(portfolio, group, outputs, selection, tape, width, consume); };
@@ -518,8 +539,7 @@ namespace Dal::Script::Detail {
                            const Vector_<PortfolioBatchOutput_>& outputs,
                            size_t width,
                            Vector_<typename O_::Result_>* slots,
-                           BufferCapacityBudget_* scratch,
-                           AAD::TapeCapacityBudget_* tape) {
+                           const PortfolioBatchSettings_& settings) {
             REQUIRE2(workers > 0 && workers <= batches.BatchCount() && worker < workers,
                      "InvalidPortfolioWorker: worker range is outside the batch plan; field=workers", ScriptError_);
             REQUIRE2(slots && slots->size() == batches.BatchCount(), "InvalidPortfolioWorker: result slots must match batches; field=slots",
@@ -527,13 +547,13 @@ namespace Dal::Script::Detail {
             if (workers >= batches.BatchCount() - worker) {
                 const auto batch = batches.BatchAt(worker);
                 if constexpr (O_::BLOCKED)
-                    (*slots)[worker] = EvaluatePortfolioJacobianBatch(portfolio, group, batch, outputs, width, scratch, tape);
+                    (*slots)[worker] = EvaluatePortfolioJacobianBatch(portfolio, group, batch, outputs, width, settings);
                 else
-                    (*slots)[worker] = EvaluatePortfolioWeightedBatch(portfolio, group, batch, outputs, scratch, tape);
+                    (*slots)[worker] = EvaluatePortfolioWeightedBatch(portfolio, group, batch, outputs, settings);
                 return;
             }
             VisitWorkerBatches(batches, worker, workers, [&](size_t, const auto& batch) { ValidateBatchRange(portfolio, group, batch); });
-            ExecuteBatches<O_>(portfolio, group, outputs, width, scratch, tape, [&](const auto& run) {
+            ExecuteBatches<O_>(portfolio, group, outputs, width, settings, [&](const auto& run) {
                 VisitWorkerBatches(batches, worker, workers, [&](size_t index, const auto& batch) { (*slots)[index] = run(batch); });
             });
         }
@@ -564,10 +584,9 @@ namespace Dal::Script::Detail {
                                                                  size_t group,
                                                                  const PathBatch_& batch,
                                                                  const Vector_<PortfolioBatchOutput_>& requestedOutputs,
-                                                                 BufferCapacityBudget_* scratch,
-                                                                 AAD::TapeCapacityBudget_* tape) {
+                                                                 const PortfolioBatchSettings_& settings) {
         ValidateBatchRange(portfolio, group, batch);
-        return ExecuteBatches<WeightedObjective_>(portfolio, group, requestedOutputs, 1, scratch, tape, [&](const auto& run) { return run(batch); });
+        return ExecuteBatches<WeightedObjective_>(portfolio, group, requestedOutputs, 1, settings, [&](const auto& run) { return run(batch); });
     }
 
     PortfolioJacobianBatchResult_ EvaluatePortfolioJacobianBatch(const PreparedPortfolio_& portfolio,
@@ -575,11 +594,10 @@ namespace Dal::Script::Detail {
                                                                  const PathBatch_& batch,
                                                                  const Vector_<PortfolioBatchOutput_>& outputs,
                                                                  size_t width,
-                                                                 BufferCapacityBudget_* scratch,
-                                                                 AAD::TapeCapacityBudget_* tape) {
+                                                                 const PortfolioBatchSettings_& settings) {
         ValidateBlockWidth(width, outputs.size());
         ValidateBatchRange(portfolio, group, batch);
-        return ExecuteBatches<BlockObjective_>(portfolio, group, outputs, width, scratch, tape, [&](const auto& run) { return run(batch); });
+        return ExecuteBatches<BlockObjective_>(portfolio, group, outputs, width, settings, [&](const auto& run) { return run(batch); });
     }
 
     void EvaluatePortfolioWeightedWorker(const PreparedPortfolio_& portfolio,
@@ -589,9 +607,8 @@ namespace Dal::Script::Detail {
                                          size_t workers,
                                          const Vector_<PortfolioBatchOutput_>& outputs,
                                          Vector_<PortfolioWeightedBatchResult_>* slots,
-                                         BufferCapacityBudget_* scratch,
-                                         AAD::TapeCapacityBudget_* tape) {
-        ExecuteWorker<WeightedObjective_>(portfolio, group, batches, worker, workers, outputs, 1, slots, scratch, tape);
+                                         const PortfolioBatchSettings_& settings) {
+        ExecuteWorker<WeightedObjective_>(portfolio, group, batches, worker, workers, outputs, 1, slots, settings);
     }
 
     void EvaluatePortfolioJacobianWorker(const PreparedPortfolio_& portfolio,
@@ -602,9 +619,8 @@ namespace Dal::Script::Detail {
                                          const Vector_<PortfolioBatchOutput_>& outputs,
                                          size_t width,
                                          Vector_<PortfolioJacobianBatchResult_>* slots,
-                                         BufferCapacityBudget_* scratch,
-                                         AAD::TapeCapacityBudget_* tape) {
+                                         const PortfolioBatchSettings_& settings) {
         ValidateBlockWidth(width, outputs.size());
-        ExecuteWorker<BlockObjective_>(portfolio, group, batches, worker, workers, outputs, width, slots, scratch, tape);
+        ExecuteWorker<BlockObjective_>(portfolio, group, batches, worker, workers, outputs, width, slots, settings);
     }
 } // namespace Dal::Script::Detail

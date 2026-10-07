@@ -94,19 +94,18 @@ namespace Dal::Script::Detail {
         void AdmitNativePortfolioWorker(const Vector_<const PreparedScript_*>& trades,
                                         const Handle_<ModelData_>& modelData,
                                         const Vector_<PortfolioBatchOutput_>& requestedOutputs,
-                                        size_t width,
-                                        size_t scratchQuota,
-                                        size_t tapeQuota) {
+                                        const PortfolioAdmissionSettings_& settings) {
             constexpr bool BLOCKED = std::is_same_v<G_, Matrix_<double>>;
             REQUIRE2(!trades.empty(), "InvalidPortfolioAdmission: selected trades must not be empty", ScriptError_);
             const bool compiled = trades.front()->Simulation().compiled_.value_or(false);
-            BufferCapacityBudget_ scratch(scratchQuota);
+            const auto width = settings.width_;
+            BufferCapacityBudget_ scratch(settings.scratchQuota_);
             const auto fixed =
                 BLOCKED ? PortfolioJacobianWorkerFixedBytes(compiled, trades.size()) : PortfolioWeightedWorkerFixedBytes(compiled, trades.size());
             BufferCapacityScope_ buffers(&scratch, fixed);
             const auto outputs = requestedOutputs;
             const auto selection = AdmitSelection(outputs, trades.size());
-            AAD::TapeCapacityBudget_ tape(tapeQuota);
+            AAD::TapeCapacityBudget_ tape(settings.tapeQuota_);
             AAD::TapeCapacityScope_ tapeScope(&tape, true);
             auto mode = AAD::SetNumResultsForAAD(BLOCKED, width);
             AdmissionRoots_<G_> roots(width);
@@ -119,11 +118,26 @@ namespace Dal::Script::Detail {
             AllocatePath(trades.front()->DefLine(), path);
             const Vector_<AAD::Number_> values(outputs.size());
             PortfolioBatchResult_<G_> result(outputs.size());
-            ResizePortfolioGradientStorage(&result.modelGradientSums_, width, model->Parameters().size());
+            auto modelInputs = model->Parameters().size();
+            if (settings.gradients_) {
+                const auto& columns = settings.gradients_->Model(settings.modelOwner_);
+                columns.ValidateExtent(modelInputs);
+                modelInputs = columns.Size();
+                REQUIRE2(settings.tradePositions_ && settings.tradePositions_->size() == trades.size(),
+                         "InvalidPortfolioAdmission: original trade positions must match live trades", ScriptError_);
+            }
+            ResizePortfolioGradientStorage(&result.modelGradientSums_, width, modelInputs);
             result.tradePositions_.Resize(trades.size());
             result.constantGradientSums_.Resize(trades.size());
-            for (size_t trade = 0; trade < trades.size(); ++trade)
-                ResizePortfolioGradientStorage(&result.constantGradientSums_[trade], width, trades[trade]->ConstVarNames().size());
+            for (size_t trade = 0; trade < trades.size(); ++trade) {
+                auto inputs = trades[trade]->ConstVarNames().size();
+                if (settings.gradients_) {
+                    const auto& columns = settings.gradients_->Constants((*settings.tradePositions_)[trade]);
+                    columns.ValidateExtent(inputs);
+                    inputs = columns.Size();
+                }
+                ResizePortfolioGradientStorage(&result.constantGradientSums_[trade], width, inputs);
+            }
             if (compiled)
                 AdmitStates(
                     trades, model.get(), &path, &recording, [](const auto& product) { return product.template BuildEvalState<AAD::Number_>(); },
@@ -139,18 +153,15 @@ namespace Dal::Script::Detail {
     void AdmitPortfolioWeightedWorker(const Vector_<const PreparedScript_*>& trades,
                                       const Handle_<ModelData_>& model,
                                       const Vector_<PortfolioBatchOutput_>& outputs,
-                                      size_t scratchQuota,
-                                      size_t tapeQuota) {
-        AdmitNativePortfolioWorker<Vector_<double>>(trades, model, outputs, 1, scratchQuota, tapeQuota);
+                                      const PortfolioAdmissionSettings_& settings) {
+        AdmitNativePortfolioWorker<Vector_<double>>(trades, model, outputs, settings);
     }
 
     void AdmitPortfolioJacobianWorker(const Vector_<const PreparedScript_*>& trades,
                                       const Handle_<ModelData_>& model,
                                       const Vector_<PortfolioBatchOutput_>& outputs,
-                                      size_t width,
-                                      size_t scratchQuota,
-                                      size_t tapeQuota) {
-        AdmitNativePortfolioWorker<Matrix_<double>>(trades, model, outputs, width, scratchQuota, tapeQuota);
+                                      const PortfolioAdmissionSettings_& settings) {
+        AdmitNativePortfolioWorker<Matrix_<double>>(trades, model, outputs, settings);
     }
 
     void AdmitPortfolioPassiveWorker(const Vector_<const PreparedScript_*>& trades,

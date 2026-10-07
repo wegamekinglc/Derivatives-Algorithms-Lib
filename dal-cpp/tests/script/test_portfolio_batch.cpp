@@ -77,6 +77,82 @@ namespace {
     }
 } // namespace
 
+TEST(PortfolioBatchTest, TestSelectedGradientStorageKeepsOriginalOrdinalsAndNativeEmptyRows) {
+    const Handle_<ModelData_> model(new BSModelData_("", 100.0, 0.2));
+    const Handle_<ScriptProductData_> product(new ScriptProductData_("", {Cell_("X"), Cell_("Y"), Cell_("Z"), Cell_(Date_(2027, 1, 1))},
+                                                                     {"5", "7", "11", "pay PAYS 2 * SPOT() + X + 2 * Y + 3 * Z"}));
+    const Handle_<ScriptPortfolioData_> data(new ScriptPortfolioData_("", {{"A", product, model}, {"B", product, model}}));
+    const Dal::Script::Detail::PortfolioGradientSelection_ selected{
+        {Dal::Script::Detail::PortfolioInputColumns_(4, {0})},
+        {Dal::Script::Detail::PortfolioInputColumns_(3, {2}), Dal::Script::Detail::PortfolioInputColumns_(3, {})}};
+    const Dal::Script::Detail::PortfolioGradientSelection_ empty{
+        {Dal::Script::Detail::PortfolioInputColumns_(4, {})},
+        {Dal::Script::Detail::PortfolioInputColumns_(3, {}), Dal::Script::Detail::PortfolioInputColumns_(3, {})}};
+    for (const bool compiled : {false, true}) {
+        MonteCarloSettings_ simulation;
+        simulation.enableAad_ = true;
+        simulation.compiled_ = compiled;
+        const auto portfolio = Dal::Script::Detail::PrepareScriptPortfolio(data, 17, Valuation(), simulation);
+        const Vector_<Dal::Script::Detail::PortfolioBatchOutput_> outputs{Payoff(portfolio, 0, 2.0), Payoff(portfolio, 1, -1.0)};
+        const auto reference = Dal::Script::Detail::EvaluatePortfolioWeightedBatch(portfolio, 0, {0, 17}, outputs);
+        const auto weighted = Dal::Script::Detail::EvaluatePortfolioWeightedBatch(portfolio, 0, {0, 17}, outputs, {nullptr, nullptr, &selected});
+        ASSERT_EQ(weighted.modelGradientSums_.size(), 1);
+        ASSERT_DOUBLE_EQ(weighted.modelGradientSums_[0], reference.modelGradientSums_[0]);
+        ASSERT_EQ(weighted.constantGradientSums_[0].size(), 1);
+        ASSERT_DOUBLE_EQ(weighted.constantGradientSums_[0][0], reference.constantGradientSums_[0][2]);
+        ASSERT_TRUE(weighted.constantGradientSums_[1].empty());
+        ASSERT_EQ(weighted.componentSums_, reference.componentSums_);
+        for (const size_t width : {1, 2, 3}) {
+            const Vector_<Dal::Script::Detail::PortfolioBatchOutput_> block(outputs.begin(), outputs.begin() + std::min(width, outputs.size()));
+            const auto full = Dal::Script::Detail::EvaluatePortfolioJacobianBatch(portfolio, 0, {0, 17}, block, width);
+            const auto packed =
+                Dal::Script::Detail::EvaluatePortfolioJacobianBatch(portfolio, 0, {0, 17}, block, width, {nullptr, nullptr, &selected});
+            const auto zero = Dal::Script::Detail::EvaluatePortfolioJacobianBatch(portfolio, 0, {0, 17}, block, width, {nullptr, nullptr, &empty});
+            ASSERT_EQ(packed.modelGradientSums_.Cols(), 1);
+            ASSERT_EQ(packed.constantGradientSums_[0].Cols(), 1);
+            ASSERT_EQ(zero.modelGradientSums_.Rows(), width);
+            ASSERT_EQ(zero.modelGradientSums_.Cols(), 0);
+            ASSERT_EQ(zero.constantGradientSums_[0].Rows(), width);
+            ASSERT_EQ(zero.constantGradientSums_[0].Cols(), 0);
+            ASSERT_EQ(zero.componentSums_, full.componentSums_);
+            ASSERT_EQ(zero.suffixReversals_, 17);
+            ASSERT_EQ(zero.prefixReversals_, 1);
+            for (size_t lane = 0; lane < width; ++lane) {
+                ASSERT_DOUBLE_EQ(packed.modelGradientSums_(static_cast<int>(lane), 0), full.modelGradientSums_(static_cast<int>(lane), 0));
+                ASSERT_DOUBLE_EQ(packed.constantGradientSums_[0](static_cast<int>(lane), 0),
+                                 full.constantGradientSums_[0](static_cast<int>(lane), 2));
+            }
+        }
+    }
+}
+
+TEST(PortfolioBatchTest, TestInputOrdinalsAndSourceExtentsRejectBeforeRecordingAndRecover) {
+    using Dal::Script::Detail::PortfolioGradientSelection_;
+    using Dal::Script::Detail::PortfolioInputColumns_;
+    ASSERT_THROW(static_cast<void>(PortfolioInputColumns_(4, {4})), ScriptError_);
+    ASSERT_THROW(static_cast<void>(PortfolioInputColumns_(4, {1, 1})), ScriptError_);
+    ASSERT_THROW(static_cast<void>(PortfolioInputColumns_(4, {2, 1})), ScriptError_);
+    const Handle_<ModelData_> model(new BSModelData_("", 100.0, 0.2));
+    const Handle_<ScriptPortfolioData_> data(new ScriptPortfolioData_("", {{"A", Trade(5.0, "pay PAYS SPOT() + X"), model}}));
+    MonteCarloSettings_ simulation;
+    simulation.enableAad_ = true;
+    const auto portfolio = Dal::Script::Detail::PrepareScriptPortfolio(data, 17, Valuation(), simulation);
+    const Vector_<Dal::Script::Detail::PortfolioBatchOutput_> outputs{Payoff(portfolio, 0, 1.0)};
+    const auto prior = Dal::Script::Detail::EvaluatePortfolioWeightedBatch(portfolio, 0, {0, 17}, outputs);
+    const PortfolioGradientSelection_ invalidModel{{PortfolioInputColumns_(5, {0})}, {PortfolioInputColumns_(1)}};
+    const PortfolioGradientSelection_ invalidPrivate{{PortfolioInputColumns_(4)}, {PortfolioInputColumns_(2)}};
+    for (const auto* invalid : {&invalidModel, &invalidPrivate})
+        AssertFailure(
+            [&] {
+                static_cast<void>(Dal::Script::Detail::EvaluatePortfolioWeightedBatch(portfolio, 0, {0, 17}, outputs, {nullptr, nullptr, invalid}));
+            },
+            "source extent changed");
+    const auto recovered = Dal::Script::Detail::EvaluatePortfolioWeightedBatch(portfolio, 0, {0, 17}, outputs);
+    ASSERT_EQ(recovered.componentSums_, prior.componentSums_);
+    ASSERT_EQ(recovered.modelGradientSums_, prior.modelGradientSums_);
+    ASSERT_EQ(recovered.constantGradientSums_, prior.constantGradientSums_);
+}
+
 TEST(PortfolioBatchTest, TestSharedModelAndPrivateConstantsMatchOwnershipOracle) {
     const Handle_<ModelData_> model(new BSModelData_("", 100.0, 0.0));
     const Handle_<ScriptPortfolioData_> data(
@@ -206,16 +282,17 @@ TEST(PortfolioBatchTest, TestBlockedFailureAndCapacitiesRestoreModesAndPriorResu
                       "trade=Bad");
         AAD::TapeCapacityBudget_ tapeZero(0);
         AssertFailure(
-            [&] { static_cast<void>(Dal::Script::Detail::EvaluatePortfolioJacobianBatch(portfolio, 0, {0, 17}, {good}, 2, nullptr, &tapeZero)); },
+            [&] { static_cast<void>(Dal::Script::Detail::EvaluatePortfolioJacobianBatch(portfolio, 0, {0, 17}, {good}, 2, {nullptr, &tapeZero})); },
             "Tape capacity budget exceeded");
         BufferCapacityBudget_ scratchZero(0);
-        AssertFailure([&] { static_cast<void>(Dal::Script::Detail::EvaluatePortfolioJacobianBatch(portfolio, 0, {0, 17}, {good}, 2, &scratchZero)); },
-                      "Scratch buffer capacity budget exceeded");
+        AssertFailure(
+            [&] { static_cast<void>(Dal::Script::Detail::EvaluatePortfolioJacobianBatch(portfolio, 0, {0, 17}, {good}, 2, {&scratchZero})); },
+            "Scratch buffer capacity budget exceeded");
         ASSERT_TRUE(AAD::Tape()->multi_);
         ASSERT_EQ(AAD::Tape()->numAdj_, 3);
         BufferCapacityBudget_ scratch(64 * 1024 * 1024);
         AAD::TapeCapacityBudget_ tape(256 * 1024 * 1024);
-        const auto recovered = Dal::Script::Detail::EvaluatePortfolioJacobianBatch(portfolio, 0, {0, 17}, {good}, 2, &scratch, &tape);
+        const auto recovered = Dal::Script::Detail::EvaluatePortfolioJacobianBatch(portfolio, 0, {0, 17}, {good}, 2, {&scratch, &tape});
         ASSERT_EQ(recovered.componentSums_, prior.componentSums_);
         ASSERT_DOUBLE_EQ(recovered.modelGradientSums_(0, 0), prior.modelGradientSums_(0, 0));
         ASSERT_DOUBLE_EQ(recovered.constantGradientSums_[0](0, 0), 17.0);
