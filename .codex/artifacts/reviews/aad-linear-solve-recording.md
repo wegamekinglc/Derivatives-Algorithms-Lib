@@ -12,7 +12,7 @@ increment and does not represent a final-head publication audit.
 
 ## Findings
 
-1. Final platform and complete performance evidence remains open for
+1. Final platform and change-scoped performance evidence remains open for
    `dal-cpp/dal/math/aad/tape.cpp:45`, `expr.hpp:612`, `native.hpp:59`
    and `aad.hpp:53`.
    Empty-event dispatch, reset and adjoint-read guards change shared paths.
@@ -27,12 +27,23 @@ hashes. Passive recording is +0.97%/+0.98%, and all six original failing cases
 pass. Failure/mode checks remain active; caller-owned tape reset cannot expose
 adjoints from a failed default graph. See the controlling
 [performance evidence](../performance/aad-linear-solve-recording.md).
-Full request/portfolio and exact-head platform evidence remains the open gate.
+Affected request boundaries and exact-head platform evidence remain the open gate.
+The unstarted 81-case portfolio matrix is removed under the user's project-wide
+2026-10-07 performance-scope instruction.
+
+The GSR regression at `64cdbfa6` is repaired locally by a stable-address getter
+and cold validation helper, with the original GSR implementation restored.
+Final affected functionality passes 132/132. Same-binary noise controls pass;
+30-pair confirmation passes all six GSR rows, with the 48-node AAD case at
++3.13%/+3.95%. This is close to the unchanged 4% boundary. Preserve the earlier
+borderline failure and verify final binary identity before reusing this evidence.
+All eleven affected translation units pass combined lifetime/profiling ON syntax
+checks for this final repair. Required actual platform execution remains open.
 
 The resource finding is resolved locally: finite tape scopes now admit exact
 descriptor/owner/table/cache and transient storage before allocation. Failed
 allocations refund, replacement capacity overlaps, suffix/close release matches
-actual capacity, and reverse scratch obeys parent buffer ceilings. Forty-four
+actual capacity, and reverse scratch obeys parent buffer ceilings. Forty-five
 new tests pass; the production resource batch additionally passes 113 affected
 tests. Parent-budget, event-table growth and ownership increments pass 4/4 and
 3/3. Final platform acceptance must use this source increment, not `c79bcc58`.

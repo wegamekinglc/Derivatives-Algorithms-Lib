@@ -7,6 +7,7 @@ substitute for correctness review.
 ## Contents
 
 - [Project benchmark context](#project-benchmark-context)
+- [Change-scoped acceptance](#change-scoped-acceptance)
 - [Regression gate and module map](#regression-gate-and-module-map)
 - [Baseline and isolation](#baseline-and-isolation)
 - [Release builds](#release-builds)
@@ -37,9 +38,34 @@ Read current shared build options in `CLAUDE.md`, the benchmark target inventory
 `.github/scripts/check_benchmark_regressions.py`. These are current repository files; no legacy
 Claude artifact is required.
 
+## Change-Scoped Acceptance
+
+For every development task, select cases by the changed paths and their callers before
+building or sampling. The default is the smallest defensible set, including affected
+algorithms, public entry points, and relevant size/mode boundaries. A shared-header edit
+requires dependency and caller analysis; it does not automatically require all targets or
+every Cartesian product of parameters. Record the mapping and exclusions in the PR or
+active performance report.
+
+During a repair, rerun affected cases only. Broaden the selection for a concrete new
+failure, changed dependency/configuration, or coverage gap, and record that reason first.
+Do not require full-matrix acceptance at every PR or merge. Keep each selected case's
+calibrated sample counts, interleaving, noise controls and threshold unchanged. Increase
+samples only for a borderline or noisy result.
+
+Reuse prior evidence when immutable baseline/dependency/configuration provenance and
+executable hashes establish that it still applies. Rebuild affected binaries, verify their
+identity, and retain the original raw evidence. A changed binary needs measurement of its
+affected paths; a documentation-only change needs no new timing. Record excluded cases
+as outside this change's scope, never as newly measured passes.
+
+The scheduled full-suite workflow remains a repository monitoring tool. Required
+exact-head CI remains required; local development acceptance uses the scoped selection.
+
 ## Regression Gate And Module Map
 
-The regression gate is exactly these nine executables:
+The scheduled regression gate allows these nine executables. For development acceptance,
+select the affected subset with `--benchmarks`:
 
 - `tape_perf`: native AAD tape clear, rewind, zero-adjoint, and propagation operations.
 - `jacobian_perf`: curve-calibration Jacobian sweeps and dense/row-width harvesting.
@@ -105,8 +131,8 @@ visible so there is no ambiguity about which source produced which binary:
 cmake --preset=Release-linux -S "$head_source" -B "$head_build" -DDAL_CPP_BUILD_BENCHMARKS=ON
 cmake --preset=Release-linux -S "$baseline_source" -B "$baseline_build" -DDAL_CPP_BUILD_BENCHMARKS=ON
 
-cmake --build "$head_build" --parallel "$(nproc)"
-cmake --build "$baseline_build" --parallel "$(nproc)"
+cmake --build "$head_build" --target tape_perf jacobian_perf --parallel "$(nproc)"
+cmake --build "$baseline_build" --target tape_perf jacobian_perf --parallel "$(nproc)"
 ```
 
 Build both sides on the same machine without changing compiler, CPU governor, native-architecture
@@ -139,7 +165,7 @@ Do not use `bin/<benchmark>`, `build/stage/.../bin/<benchmark>`, or a path from 
 
 Single process runs are diagnostic only. Never issue a regression verdict from one run.
 
-For every gated executable:
+For every selected executable or case:
 
 1. Run the branch and baseline on the same otherwise-idle machine.
 2. Collect at least ten process-level samples per side.
@@ -165,13 +191,16 @@ Asia/Shanghai each day. It compares the latest default-branch commit with its
 first parent. Two rounds of ten means twenty interleaved process samples per
 case and side. The workflow can also be dispatched manually.
 
-Reproduce it against the isolated build roots:
+Reproduce the scheduled full gate against isolated build roots when diagnosing that
+workflow. For development acceptance, pass the affected target subset explicitly; for
+example, a tape/adjoint change can start with:
 
 ```bash
 python3 "$head_source/.github/scripts/check_benchmark_regressions.py" \
   --base-root "$baseline_build" \
   --head-root "$head_build" \
   --output-dir "$perf_root/paired-results" \
+  --benchmarks tape_perf jacobian_perf \
   --samples 10 \
   --confirmation-rounds 2 \
   --threshold-percent 4
@@ -230,7 +259,8 @@ The report must contain:
 - Release configuration, benchmark enablement, compiler, CPU, AAD backend, thread count, and
   whether the machine was quiet;
 - sample count per side, interleaving order, reduction (`min`), round count, and threshold;
-- for every gated benchmark and case: baseline minimum, branch minimum, percentage delta, both
+- changed paths, selected cases, excluded coverage and any reason for expanding the selection;
+- for every selected benchmark and case: baseline minimum, branch minimum, percentage delta, both
   confirmation-round deltas, and verdict;
 - paths to retained raw outputs, `results.json`, and `summary.md`;
 - any informational benchmark results outside the nine-target gate;

@@ -42,7 +42,7 @@ acceptance remain open. Structured coordinates, precision/conditioning
 diagnostics, implicit calibration, PDE and subsequent stages remain required.
 
 Recording progress: the analytic/interface, passive/RHS-only, reset-mutation,
-resource and capability RED logs remain in session evidence. Forty-four new
+resource and capability RED logs remain in session evidence. Forty-five new
 cases now pass across three overloads, independent scalar/finite-difference
 oracles, vector widths 1/2/3/4/8, aliases, shared/serial solves, repeated reverse,
 checkpoints, raw windows, block boundaries, ownership and failure recovery.
@@ -55,18 +55,19 @@ foreign live inputs, wrong-thread use and table growth have focused evidence.
 The production resource batch passes 113 affected cases; subsequent edge and
 integration batches pass 8/8, 4/4 and 3/3 without repeating broad suites.
 
-The published resource implementation is `25f347c7` in draft #491. Its complete
-exact-head audit verifies 35/35 successful checks, zero Codacy annotations and
-zero unresolved threads. The full nine-target measurement finds six sustained
-ordinary tape/Jacobian regressions, so that head remains unaccepted.
-The local repair restores inline default-tape construction and uses a cold
-thread-local event-validation flag while retaining failure/mode checks. Final
-affected functionality passes 128/128. Fresh tape/Jacobian binaries match the
-accepted repair hashes, retaining its 17/17 two-round performance cases without
-another run. See the [performance report](../performance/aad-linear-solve-recording.md).
-The scalar/vector/lifecycle/resource capability contract is updated under TDD;
-full request/portfolio timing, installed consumers and final OFF/ON runtime CI
-remain open. The 44 new cases exclude the existing capability-contract test.
+The resource implementation `25f347c7` passes 35/35 exact-head checks, with zero
+Codacy annotations and unresolved threads; its six sustained tape/Jacobian
+regressions are repaired in published `64cdbfa6`. That head passes 75 legacy
+comparisons using fresh affected measurements and verified identical binaries,
+but fails the GSR AAD price Jacobian. The current local repair uses a thread-stable
+validation-flag address and a cold validation helper while retaining failure/mode
+checks. Final affected functionality passes 132/132. Same-binary noise controls
+and six GSR rows pass, with the formerly failing case at +3.13%/+3.95% after
+borderline confirmation. See the [performance report](../performance/aad-linear-solve-recording.md).
+Under the project-wide performance scope amendment, the unstarted 81-case matrix
+is cancelled. Final affected caller/boundary measurements, installed consumers
+and exact-head OFF/ON runtime CI remain open. The 45 new cases comprise 44 recording/resource cases and one
+RHS-only numeric pullback case; the existing capability-contract test is separate.
 Accepted #490 baseline libraries, headers and tests are frozen in
 `aad-recorded-solve-baseline-01/provenance.json`; the published prototype is
 frozen separately in `aad-recorded-solve-increment-01/provenance.json`.
@@ -141,9 +142,16 @@ incremental implementation turns and PRs; a green first stage does not complete 
   validate native diagnostic OFF/ON and their actual operation contracts.
 - Preserve legacy single-output APIs, units, paths, normalization, and LSM policy semantics.
 - Compare isolated Release baseline/head binaries with matching dependency SHAs and configuration.
-- Use the existing paired regression policy: ten interleaved process samples per side in each
-  of two confirmation rounds, best-of-N minima, and a 4% threshold. Keep all nine existing targets.
-- Extend production-workload evidence without weakening or bypassing existing CI/gates.
+- Performance scope amendment (2026-10-07): for all project development, select
+  the smallest set covering changed paths, callers and meaningful boundaries.
+  Do not run all nine targets or a full parameter matrix at each edit/PR/merge.
+  Repeat affected cases during repair; expand only for a documented failure,
+  dependency change or coverage gap. Reuse evidence with immutable provenance
+  and verified executable identity. See `AGENTS.md` and the benchmark reference.
+- Use the existing paired regression policy for selected cases: ten interleaved
+  process samples per side in each of two confirmation rounds, best-of-N minima,
+  and a 4% threshold. Borderline results may require additional samples.
+- Cover affected production workloads while retaining required exact-head CI.
 - Performance failures require investigation and correction. Noisy evidence is inconclusive.
 - Keep each change reviewable. Publish current-state documentation only after behavior exists.
 - Do not mark the overall goal complete until every applicable requirement below is verified.
@@ -151,6 +159,10 @@ incremental implementation turns and PRs; a green first stage does not complete 
   estimates at the end of every active development turn, at milestones, and when
   findings change the estimate. Distinguish implementation, local verification,
   exact-head CI acceptance and publication rather than combining them into one status.
+- Reporting amendment (2026-10-07): during active development, provide a complete
+  progress table every 15 minutes, including next development tasks and remaining
+  effort. Report material failures promptly. Separate development effort from
+  CI queues and shared-environment waits; do not count overlapping work twice.
 
 ## Stage A: trustworthy differentiation and measurement
 
@@ -208,7 +220,7 @@ incremental implementation turns and PRs; a green first stage does not complete 
 - [ ] Fresh native-only OFF/ON, no external dependency/export/selection paths,
   explicit old-config migration errors and exact implementation-head CI checks.
 - [ ] Python and Excel parity, generated-source integrity, and documentation integrity.
-- [ ] Existing nine-target performance gate plus changed production-workload coverage.
+- [ ] Change-scoped performance acceptance with caller/boundary coverage and retained raw evidence.
 - [ ] Current-state method docs, examples, and necessary changelog entries.
 - [ ] Local read-first review with no unresolved correctness or compatibility findings.
 - [ ] Requirement-by-requirement audit of the actual final state.
@@ -832,16 +844,34 @@ overlapping acceptance work is included once in the integration allowance.
 | F02 portfolio           | C++/Python/Excel, installed consumers and timing repair accepted      | #487 merged; final 35/35 checks accepted | 0                     |
 | P02                     | Worker reuse: 82 tests and 37 full-request cost cases accepted        | #488 merged; final 35/35 checks accepted | 0                     |
 | P03                     | 89 tests; 81 unique complete-request timing comparisons accepted      | #489 merged; final 35/35 checks accepted | 0                     |
-| F03                     | Numeric accepted; recording/resource tests 42/42; final timing open   | #490 merged; #491 draft; final CI open   | 12–20                 |
+| F03                     | Numeric accepted; 132 affected tests and six GSR rows pass locally    | #490 merged; #491 draft; final CI open   | 12–19                 |
 | P04/P05                 | Structural sparsity/checkpointing remain                              | Open                                     | 9–15                  |
 | F04                     | Second-order implementation/estimator validation remain               | Open                                     | 12–20                 |
 | Final integration/audit | Cross-platform/binding/docs/performance acceptance remains            | Open                                     | 7–11                  |
 
-Remaining total: approximately 40–66 person-days, or 8–14 working weeks,
+Remaining total: approximately 40–65 person-days, or 8–13 working weeks,
 excluding CI queue time and including delivery contingency. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
 effort estimate, not a guaranteed completion date. Re-estimate when review
 findings change the scope.
+
+### Next delivery tasks and effort
+
+One person-day means eight hours. The following detail subdivides the total
+above; the current PR is included within F03 rather than added again.
+
+| Order | Delivery task                    | Required result                                                          | Remaining hours |
+|-------|----------------------------------|--------------------------------------------------------------------------|-----------------|
+| 1     | Current recorded-solve PR #491    | Accept affected paths/platforms; fix review and merge                     | 6–16            |
+| 2     | F03 coordinates and diagnostics  | Symmetric/banded coordinate pullbacks; residual, singular/condition checks | 24–40           |
+| 3     | F03 implicit calibration         | Equation pullbacks, decomposition reuse and independent gradient oracles  | 32–56           |
+| 4     | F03 PDE operators                | Discrete solver, boundary and parameter sensitivity acceptance            | 32–40           |
+| 5     | P04 structural sparsity          | Dependency proof, compressed seeds, invalidation and mode evidence         | 32–56           |
+| 6     | P05 long-path checkpointing      | Complete state/RNG restoration, recomputation and memory/performance proof | 40–64           |
+| 7     | F04 second-order risk            | Gamma, cross-Gamma, HVP, recalibration and estimator validation             | 64–96           |
+| 8     | F04 native mixed-mode prototype  | Smooth-kernel prototype, independent correctness and capability limits     | 32–64           |
+| 9     | Bindings and complete acceptance | C++/Python/Excel, documentation, platform and performance gates            | 56–88           |
+| Total | Full remaining implementation    | All remaining plan requirements                                          | 318–520         |
 
 The first delivery boundary is complete. Whole-PR review repaired the Windows
 registration-help defect, both include-order findings and the overview file

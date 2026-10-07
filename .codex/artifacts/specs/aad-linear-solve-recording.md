@@ -125,8 +125,11 @@ API. No external AAD, implicit activation or nested independent scope is added.
   inspect actual OFF/ON/vector/profiling Windows and sanitizer logs, all applicable
   CI/Codacy/review, two complete audits and SHA-guarded publication.
 - Compare against accepted #490 for existing complete-request/native workloads
-  under the unchanged two-round paired 4% policy. Shared tape changes require
-  fresh affected performance rather than the earlier unchanged-binary shortcut.
+  under the unchanged two-round paired 4% policy. Select the smallest affected
+  caller/boundary set under the project-wide 2026-10-07 scope rule; a shared tape
+  change does not require every target or parameter combination. Fresh affected
+  binaries need measurements; reuse accepted evidence only after verifying
+  immutable provenance and executable identity.
   Measure complete active solves and repeated reverse, owning result extraction,
   cache cleanup and peak storage against the scalar reference. Retain failures
   and noise; a noisy run does not prove acceptance.

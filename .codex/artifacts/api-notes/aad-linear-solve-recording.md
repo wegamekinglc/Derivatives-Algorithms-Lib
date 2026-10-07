@@ -1,7 +1,7 @@
 # Native recorded solve API decisions
 
 Status: active F03 recording increment. All three overloads and a numeric
-RHS-only contribution are implemented locally. Forty-four new cases pass,
+RHS-only contribution are implemented locally. Forty-five new cases pass,
 covering analytic/reference gradients, aliases, multiple RHS, vector channels,
 serial/shared solves, checkpoint/reset ownership and failure invalidation.
 Exact storage admission and release pass locally; performance and final CI
