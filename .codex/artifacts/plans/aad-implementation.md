@@ -4,12 +4,14 @@ Status: active implementation under the native-only AAD scope.
 No stage is complete until its correctness, compatibility,
 performance, and applicable CI evidence has been inspected.
 
-Current boundary (2026-10-07): F02 is complete. Portfolio PR #487 is merged at
-`bf52e386`; accepted head `47c33a12` passes all 35 checks and both complete
-publication audits, with zero Codacy annotations and unresolved review threads.
-P02/P03 now has an active [specification](../specs/aad-worker-reuse-block-selection.md)
-and [critique](../critiques/aad-worker-reuse-block-selection.md) on the new
-`feature/aad-worker-reuse-block-selection` branch. Code implementation is next.
+Current boundary (2026-10-07): F02 and P02 are complete. Worker reuse PR
+[#488](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/488) is merged
+at `b7e69342`; its tree equals accepted head `4a322999`. All 35 checks and both
+publication audits pass, with zero Codacy annotations and unresolved threads.
+P03 has an active [specification](../specs/aad-selected-extraction-block-policy.md)
+and [critique](../critiques/aad-selected-extraction-block-policy.md) on
+`feature/aad-selected-extraction`. The first implementation task is the resource
+RED fixture and original-ordinal extraction mapping.
 
 Scope amendment (2026-10-04): the user requires removing XAD, CoDiPack and Adept
 support and keeping only DAL's built-in native AAD. This replaces the earlier
@@ -63,8 +65,9 @@ incremental implementation turns and PRs; a green first stage does not complete 
   Compatible portfolio integration is accepted in PR #487, merged at `bf52e386`.
   Final head `47c33a12` passes 35/35 checks, both complete paginated publication
   audits, four actual Windows modes, six sanitizer jobs and all 160 comparative
-  cases. Completed portfolio artifacts remain in Git history. P02/P03 continues
-  under its new specification; the full plan remains incomplete.
+  cases. Completed portfolio artifacts remain in Git history. P02 worker reuse
+  is accepted in merged #488; P03 selected extraction continues under its new
+  specification. The full plan remains incomplete.
 - Establish a failing independent test before each behavioral change.
 - Validation amendment (2026-10-05): select tests from the changed behavior and
   dependency paths. A binding-only increment runs its focused tests and affected
@@ -118,7 +121,7 @@ incremental implementation turns and PRs; a green first stage does not complete 
 - [x] F02: fixed-weight VJP for multiple prepared-script outputs, including aliases/constants.
 - [x] F02: budgeted native blocked Jacobian with explicit rerecording behavior.
 - [x] F02: compatible portfolio observation/timeline integration.
-- [ ] P02: per-worker capacity reuse and safe re-registration/reinitialization.
+- [x] P02: per-worker capacity reuse and safe re-registration/reinitialization.
 - [ ] P03: measured block-width selection and demand-driven result extraction.
 - [ ] Bindings: F01/F02 C++/Python/Excel is accepted; extend all three surfaces
   for the remaining structured-operator and second-order requests.
@@ -769,13 +772,14 @@ overlapping acceptance work is included once in the integration allowance.
 | F01                     | C++/Python/Excel and complete requirement audit accepted         | Merged; final 35/35 checks accepted      | 0                     |
 | F02 weighted/blocked    | C++/Python/Excel and independent mathematical oracles accepted   | #483/#484 merged; exact-head gates pass  | 0                     |
 | F02 portfolio           | C++/Python/Excel, installed consumers and timing repair accepted | #487 merged; final 35/35 checks accepted | 0                     |
-| P02/P03                 | Worker reuse: 82 tests and 37 full-request cost cases pass        | #488 open; final-head platform pending   | 4–7                   |
+| P02                     | Worker reuse: 82 tests and 37 full-request cost cases accepted   | #488 merged; final 35/35 checks accepted | 0                     |
+| P03                     | Selected-extraction specification and critique active            | New branch; implementation remains       | 3–5                   |
 | F03                     | Solve, implicit calibration and PDE operators remain             | Open                                     | 12–20                 |
 | P04/P05                 | Structural sparsity/checkpointing remain                         | Open                                     | 9–15                  |
 | F04                     | Second-order implementation/estimator validation remain          | Open                                     | 12–20                 |
 | Final integration/audit | Cross-platform/binding/docs/performance acceptance remains       | Open                                     | 7–11                  |
 
-Remaining total: approximately 44–73 person-days, or 9–15 working weeks,
+Remaining total: approximately 43–71 person-days, or 9–15 working weeks,
 excluding CI queue time and including delivery contingency. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
 effort estimate, not a guaranteed completion date. Re-estimate when review
@@ -1345,9 +1349,20 @@ Windows logs verify all seven new cases in each of four modes and installed
 consumers; all six sanitizer logs verify all 78 portfolio cases. PR #487 is
 confirmed MERGED at `bf52e386`, whose tree equals the accepted source tree.
 
-Next: implement P02/P03 in its new branch under the active specification and
-critique. Establish a failing setup/resource test, preserve original batches,
-RNG coordinates, private state, reductions and aggregate admission, then measure
-complete-request costs. Portfolio remaining effort is zero. P02/P03 requires
-approximately 4–7 person-days; overall remaining effort is 44–73 person-days.
+P02 is accepted in merged #488 at `b7e69342`, with a tree identical to final
+`4a322999`. Both publication audits verify all 35 checks, zero Codacy annotations
+and zero unresolved threads. Actual logs verify 82 affected cases in each of six
+sanitizer jobs, 11 key cases and installed consumers (3/3) in each of four Windows
+modes, and 1,166 Python cases in each of four extended modes. Complete-request
+timing accepts all 37 portfolio cases; thirteen freshly linked legacy executables
+retain their measured hashes. The archived
+[review](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/4a3229996fcafddd58fafc84f751d2e24bd1e166/.codex/artifacts/reviews/aad-worker-reuse.md)
+and [performance acceptance](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/4a3229996fcafddd58fafc84f751d2e24bd1e166/.codex/artifacts/performance/aad-worker-reuse.md)
+retain the accepted source, limitations and all failed/intermediate evidence.
+
+Next: implement P03 in its separate branch under the active specification and
+critique. Establish an independent selected-storage resource RED, keep original
+ordinals distinct from packed columns, then integrate extraction, scatter and
+admission before measuring widths. Portfolio and P02 remaining effort is zero.
+P03 requires approximately 3–5 person-days; overall remaining effort is 43–71.
 Stage A is accepted; the full Stage B/C/D goal remains incomplete.
