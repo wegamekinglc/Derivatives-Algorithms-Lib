@@ -128,7 +128,7 @@ No additional condition threshold changes the pivot policy.
 `componentwiseBackwardErrors_` contains one value per RHS column:
 
 $$
-\operatorname{berr}_j = \max_i
+\mathrm{berr}_j = \max_i
 \frac{|(AX-B)_{ij}|}{\sum_k |A_{ik}X_{kj}|+|B_{ij}|}.
 $$
 

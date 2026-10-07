@@ -40,8 +40,8 @@ cases in each of 14 sanitizer, extended and MSVC configurations. Scoped
 performance acceptance covers the affected callers and boundaries in 9.6
 minutes; the unstarted 81-case portfolio matrix was replaced by six cases.
 
-The current increment adds opt-in numeric solver diagnostics on
-`feature/linear-solve-diagnostics`, under the
+The current increment adds opt-in numeric solver diagnostics in
+[#493](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/493), under the
 [diagnostic specification](../specs/linear-solve-diagnostics.md). Ordinary
 numeric/recorded solve runtime state remains unchanged. Native diagnostic
 results, structured coordinates, implicit calibration, PDE and subsequent
@@ -864,7 +864,7 @@ overlapping acceptance work is included once in the integration allowance.
 | F02 portfolio           | C++/Python/Excel, installed consumers and timing repair accepted  | #487 merged; final 35/35 checks accepted | 0                     |
 | P02                     | Worker reuse: 82 tests and 37 full-request cost cases accepted    | #488 merged; final 35/35 checks accepted | 0                     |
 | P03                     | 89 tests; 81 unique complete-request timing comparisons accepted  | #489 merged; final 35/35 checks accepted | 0                     |
-| F03                     | Numeric/recorded solves accepted; numeric diagnostics in progress | #490/#491 merged; diagnostics PR pending | 11–17                 |
+| F03                     | Numeric/recorded solves accepted; numeric diagnostics in progress | #490/#491 merged; #493 acceptance open   | 11–17                 |
 | P04/P05                 | Structural sparsity/checkpointing remain                          | Open                                     | 9–15                  |
 | F04                     | Second-order implementation/estimator validation remain           | Open                                     | 12–20                 |
 | Final integration/audit | Cross-platform/binding/docs/performance acceptance remains        | Open                                     | 7–11                  |

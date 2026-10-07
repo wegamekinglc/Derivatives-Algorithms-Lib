@@ -5,7 +5,10 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <future>
 #include <limits>
+#include <utility>
+#include <vector>
 
 #include <dal/math/buffercapacity.hpp>
 #include <dal/math/matrix/linearsolvediagnostics.hpp>
@@ -227,5 +230,27 @@ TEST(LinearSolveDiagnosticsTest, TestTrackedScratchRefundsAfterCapacityFailure) 
         } else
             ASSERT_THROW(static_cast<void>(DiagnosedLinearSolve_(matrix, rhs)), Dal::Exception_);
         ASSERT_EQ(budget.CapacityBytes(), 0);
+    }
+}
+
+TEST(LinearSolveDiagnosticsTest, TestConcurrentConstDiagnosticsAndReverse) {
+    SquareMatrix_<> matrix(2);
+    matrix(0, 0) = 2.0;
+    matrix(0, 1) = matrix(1, 0) = 1.0;
+    matrix(1, 1) = 3.0;
+    Matrix_<> rhs(2, 1), seed(2, 1);
+    rhs(0, 0) = seed(0, 0) = 1.0;
+    rhs(1, 0) = 2.0;
+    const DiagnosedLinearSolve_ result(matrix, rhs);
+    std::vector<std::future<std::pair<double, Dal::LinearSolveAdjoints_>>> tasks;
+    for (int worker = 0; worker < 4; ++worker)
+        tasks.emplace_back(std::async(
+            std::launch::async, [&] { return std::make_pair(result.Diagnostics().reciprocalConditionInfinity_, result.Solve().Reverse(seed)); }));
+    for (auto& task : tasks) {
+        const auto values = task.get();
+        ASSERT_NEAR(values.first, 0.3125, 1e-10);
+        ASSERT_NEAR(values.second.rhs_(0, 0), 0.6, 1e-10);
+        ASSERT_NEAR(values.second.rhs_(1, 0), -0.2, 1e-10);
+        ASSERT_NEAR(values.second.matrix_(0, 0), -0.12, 1e-10);
     }
 }
