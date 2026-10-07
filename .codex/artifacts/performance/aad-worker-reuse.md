@@ -28,8 +28,7 @@ eleven benchmark executables and both standalone API workloads were freshly
 linked. All thirteen executable hashes match the originally measured candidates,
 so their accepted timings remain applicable without repeating the measurements.
 
-The relink records are `aad-worker-reuse-final-public-binary-reuse-01.json` and
-`aad-worker-reuse-final-api-binary-reuse-01.json`; original gate commands and exit
+The relink records are `aad-worker-reuse-portable-final-binary-reuse-01.json`; original gate commands and exit
 statuses are in `aad-worker-reuse-performance-results-01.json`.
 
 ## Complete portfolio requests
@@ -48,17 +47,17 @@ percentages indicate a faster candidate; these are case-specific observations.
 
 | Case                                | Paths  | Workers | Round 1 | Round 2 |
 |-------------------------------------|--------|---------|---------|---------|
-| Compatible native weighted          | 257    | 4       | -13.41% | -7.77%  |
-| Historical native weighted          | 257    | 4       | +2.83%  | +9.49%  |
-| One-trade native weighted           | 131072 | 1       | -5.92%  | -5.16%  |
-| Compatible native Jacobian, width 1 | 131072 | 4       | -16.20% | -8.46%  |
-| Compatible native Jacobian, width 3 | 131072 | 4       | -1.58%  | -4.07%  |
-| Compatible native Jacobian, width 8 | 131072 | 4       | -4.90%  | -6.42%  |
-| Compatible passive weighted         | 131072 | 4       | -8.59%  | -4.16%  |
+| Compatible native weighted          | 257    | 4       | -6.60%  | +6.46%  |
+| Historical native weighted          | 257    | 4       | +4.87%  | -0.06%  |
+| One-trade native weighted           | 131072 | 1       | -5.18%  | -5.74%  |
+| Compatible native Jacobian, width 1 | 131072 | 4       | -15.49% | -13.00% |
+| Compatible native Jacobian, width 3 | 131072 | 4       | +1.72%  | +0.84%  |
+| Compatible native Jacobian, width 8 | 131072 | 4       | -4.09%  | -6.18%  |
+| Compatible passive weighted         | 131072 | 4       | -11.70% | -6.90%  |
 
 Raw pairs and results are retained under
-`aad-worker-reuse-small-request-portfolio-all-01/results.json`, with the measured
-working patch and source hash in `aad-worker-reuse-small-request-all-environment-01.json`.
+`aad-worker-reuse-portable-final-portfolio-all-01/results.json`, with the measured
+working patch and source hash in `aad-worker-reuse-portable-final-all-environment-01.json`.
 Evidence resides in the persistent local `dal-aad-evidence` directory; source and
 acceptance records are linked to the final published commit before merging.
 
@@ -71,7 +70,14 @@ shares the native numerical kernel and evaluator policies between entry routes,
 uses fresh batch entry for jobs assigned one batch, dispatches small requests
 directly in the coordinator, and uses the existing scalar adjoint channel for
 width-one Jacobians. Matrix shape, root semantics, original batch reductions and
-conservative preflight capacity are preserved.
+conservative preflight capacity are preserved. Width one avoids allocating the
+unused vector root buffer.
+
+MSVC C3376 in four Windows configurations and the Windows wheel build required
+replacing generic-lambda variable templates with constexpr lambda factories.
+Additional dispatch/passive-kernel extractions did not pass measurement and were
+removed; all failed/intermediate results remain retained. The portable final
+candidate passes the complete 37-case matrix after all local compilation ends.
 
 All 39 affected core and 43 public cases pass, including scalar/vector agreement
 for payoffs, direct aliases and historical prefix aliases across reused batches.

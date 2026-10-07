@@ -17,6 +17,17 @@ helpers; neither production code nor coverage is changed. Both affected cases
 pass after the refactor. Codacy accepted `a1c196f5` with zero annotations;
 the final performance-repair head must be checked again.
 
+MSVC rejected the generic-lambda variable templates at `4b560eeb` with C3376
+in all four Windows configurations and the Windows wheel build. The three shared policies now use
+constexpr function templates returning the same stateless lambda types for each
+scalar type. The common native kernel and numerical operations remain shared.
+Width one also avoids allocating its unused vector root buffer. Additional
+dispatch/passive-kernel extractions failed performance acceptance and were removed;
+their failed/intermediate evidence is retained. All 82 affected cases and the
+complete 37-case matrix pass on the portable final candidate. All thirteen legacy
+executables match accepted hashes after fresh final linking. Final-head Windows
+compilation and runtime acceptance remains required.
+
 ## Design and verification
 
 The coordinator keeps one owning result slot per original batch, submits at most

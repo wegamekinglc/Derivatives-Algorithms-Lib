@@ -45,7 +45,10 @@ namespace Dal::Script::Detail {
         public:
             using Result_ = PortfolioJacobianBatchResult_;
             static constexpr bool BLOCKED = true;
-            explicit BlockObjective_(size_t width) : width_(width) { roots_.reserve(width); }
+            explicit BlockObjective_(size_t width) : width_(width) {
+                if (width > 1)
+                    roots_.reserve(width);
+            }
             [[nodiscard]] size_t Width() const { return width_; }
             void RegisterZero(AAD::RecordingScope_* recording) { recording->RegisterInput(zero_, 0.0); }
             [[nodiscard]] AAD::Number_ Root(const Vector_<AAD::Number_>& values, const Vector_<double>&) {
@@ -392,17 +395,22 @@ namespace Dal::Script::Detail {
             });
         }
 
-        template <class T_> constexpr auto BUILD_COMPILED_STATE = [](const auto& trade) { return trade.template BuildEvalState<T_>(); };
-        template <class T_>
-        constexpr auto BUILD_TREE_STATE = [](const auto& trade) {
-            if constexpr (std::is_same_v<T_, AAD::Number_>)
-                return trade.template BuildFuzzyEvaluator<T_>(0, trade.Simulation().smooth_);
-            else
-                return trade.template BuildEvaluator<T_>();
-        };
-        template <class T_>
-        constexpr auto EVALUATE_COMPILED =
-            [](const auto& trade, const auto& path, auto& state) { trade.CompiledProgram(std::is_same_v<T_, AAD::Number_>).Evaluate(path, state); };
+        template <class T_> constexpr auto BuildCompiledState() {
+            return [](const auto& trade) { return trade.template BuildEvalState<T_>(); };
+        }
+        template <class T_> constexpr auto BuildTreeState() {
+            return [](const auto& trade) {
+                if constexpr (std::is_same_v<T_, AAD::Number_>)
+                    return trade.template BuildFuzzyEvaluator<T_>(0, trade.Simulation().smooth_);
+                else
+                    return trade.template BuildEvaluator<T_>();
+            };
+        }
+        template <class T_> constexpr auto EvaluateCompiled() {
+            return [](const auto& trade, const auto& path, auto& state) {
+                trade.CompiledProgram(std::is_same_v<T_, AAD::Number_>).Evaluate(path, state);
+            };
+        }
         constexpr auto EVALUATE_TREE = [](const auto& trade, const auto& path, auto& state) { trade.Evaluate(path, state); };
 
         template <class O_, class C_>
@@ -416,9 +424,9 @@ namespace Dal::Script::Detail {
             const auto& representative = portfolio.Trades()[selection.tradePositions_.front()];
             REQUIRE2(representative.Simulation().enableAad_, "UnsupportedPortfolioJacobianBatch: native preparation is required", ScriptError_);
             if (representative.Simulation().compiled_.value_or(false))
-                return RunNativeBatches<O_>(portfolio, group, outputs, selection, BUILD_COMPILED_STATE<AAD::Number_>, EVALUATE_COMPILED<AAD::Number_>,
-                                            tape, width, consume);
-            return RunNativeBatches<O_>(portfolio, group, outputs, selection, BUILD_TREE_STATE<AAD::Number_>, EVALUATE_TREE, tape, width, consume);
+                return RunNativeBatches<O_>(portfolio, group, outputs, selection, BuildCompiledState<AAD::Number_>(),
+                                            EvaluateCompiled<AAD::Number_>(), tape, width, consume);
+            return RunNativeBatches<O_>(portfolio, group, outputs, selection, BuildTreeState<AAD::Number_>(), EVALUATE_TREE, tape, width, consume);
         }
 
         template <class C_>
@@ -429,8 +437,8 @@ namespace Dal::Script::Detail {
                                 const C_& consume) {
             const auto& representative = portfolio.Trades()[selection.tradePositions_.front()];
             if (representative.Simulation().compiled_.value_or(false))
-                return RunPassiveBatches(portfolio, group, outputs, selection, BUILD_COMPILED_STATE<double>, EVALUATE_COMPILED<double>, consume);
-            return RunPassiveBatches(portfolio, group, outputs, selection, BUILD_TREE_STATE<double>, EVALUATE_TREE, consume);
+                return RunPassiveBatches(portfolio, group, outputs, selection, BuildCompiledState<double>(), EvaluateCompiled<double>(), consume);
+            return RunPassiveBatches(portfolio, group, outputs, selection, BuildTreeState<double>(), EVALUATE_TREE, consume);
         }
 
         template <class O_, class C_>
