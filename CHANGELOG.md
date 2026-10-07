@@ -18,6 +18,11 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-08
 
+- **Explicit solve accuracy** — an optional owning numeric solver checks declared
+  forward and transpose backward-error limits, returns independent reverse
+  reports and preserves large finite equation risks. Physical transpose
+  snapshots and report buffers obey capacity budgets. See
+  [accuracy policies](docs/methodology/matrix.md#explicit-forward-and-transpose-accuracy).
 - **Recorded solve coordinates** — native AAD composes packed symmetric and
   banded parameters with ordinary expressions, aliases and scalar/vector
   reverse sweeps. One owning event retains packed bindings without a dense

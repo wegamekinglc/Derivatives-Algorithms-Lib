@@ -220,6 +220,57 @@ and [backward-error interface](https://www.netlib.org/lapack/explore-html/d5/da4
 The diagnostic computes inverse columns directly; it supplies neither a norm
 estimator nor iterative refinement or certified forward-error bounds.
 
+### Explicit Forward and Transpose Accuracy
+
+`CheckedLinearSolve_` in `dal/math/matrix/linearsolveaccuracy.hpp` owns the
+diagnosed solve, a physical transpose snapshot and an explicit
+`LinearSolveAccuracyPolicy_`. Its required policy specifies maximum forward
+and transpose componentwise backward errors. Limits must be finite in [0,1];
+equality passes. The separate relative pivot tolerance retains its existing
+meaning and default. Construction checks each forward RHS error before
+exposing the solution and diagnostics.
+
+`Reverse(W)` and `ReverseRhs(W)` perform one cached transpose solve, then
+evaluate the same compensated metric for $A^{\mathsf T}\Lambda=W$ against
+the captured physical entries. They return owning `CheckedLinearSolveAdjoints_`
+with `adjoints_` and one `transposeBackwardErrors_` value per RHS column.
+Full reverse supplies dense A/B contributions; RHS-only leaves
+`adjoints_.matrix_` empty and omits its storage, work and overflow checks.
+Later changes to source A/B do not change the solve or its residual checks.
+Repeated and concurrent const reverse calls have separate reports.
+
+```cpp
+#include <dal/math/matrix/linearsolveaccuracy.hpp>
+
+Dal::SquareMatrix_<> matrix(2);
+matrix(0, 0) = 2.0;
+matrix(0, 1) = 1.0;
+matrix(1, 1) = 4.0;
+Dal::Matrix_<> rhs(2, 1), seeds(2, 1);
+rhs(0, 0) = 5.0;
+rhs(1, 0) = 8.0;
+seeds(0, 0) = 3.0;
+seeds(1, 0) = -1.0;
+Dal::CheckedLinearSolve_ solve(matrix, rhs, {1e-14, 1e-14});
+const auto risk = solve.ReverseRhs(seeds);
+// risk.adjoints_.rhs_ is [1.5, -0.625]; both error reports are zero.
+const auto& forwardErrors = solve.Diagnostics().componentwiseBackwardErrors_;
+const auto& transposeErrors = risk.transposeBackwardErrors_;
+```
+
+An unmet policy or invalid numeric contribution throws without returning a
+partial result; a later valid reverse can reuse the cache. Limits govern a
+floating-point diagnostic, not a certified error enclosure. A zero limit
+demands zero reported error and does not prove exact arithmetic. Conditioning
+remains separate: an accepted ill-conditioned equation can have large finite
+risks, which are preserved. Entry contributions differentiate the supplied
+matrix; external parameter mappings require their own chain rule.
+
+Checking retains an additional $n^2$ doubles for the physical transpose and
+allocates m error values per returned reverse. Residual work costs $O(n^2m)$,
+with no new factorization or reverse inverse. Buffers obey the active capacity
+budget. Ordinary solve interfaces retain their existing caches and work.
+
 ## Numerical-Recipes Band Storage
 
 Band-diagonal matrices are stored in the compact form used throughout the
