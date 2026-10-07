@@ -13,9 +13,14 @@ and [critique](../critiques/aad-selected-extraction-block-policy.md) in draft
 [#489](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/489).
 Selected core extraction, ordered scatter and matching admission are implemented
 locally under the [ownership design](../designs/aad-selected-extraction.md).
-Resource RED against merged #488 becomes GREEN; affected local contracts and
-four initial default-route paired checks pass. Width measurements, complete
-performance and exact-head platform acceptance remain.
+Resource RED against merged #488 becomes GREEN; 41 core and 47 public affected
+contracts pass. Published CI repairs at `e425e52d` pass all 35 checks, with zero
+Codacy annotations and unresolved threads. Complete sparse timing exposed two
+regressions; rejected experiments remain recorded. An independent compact-subset
+quota RED becomes GREEN with a deterministic extraction fallback. Its full timing
+passes 37 default and 50 selected/empty/width cases (81 unique comparisons) under
+predefined calibrated sampling. The local review approves; final-head
+publication/platform acceptance remains.
 
 Scope amendment (2026-10-04): the user requires removing XAD, CoDiPack and Adept
 support and keeping only DAL's built-in native AAD. This replaces the earlier
@@ -777,13 +782,13 @@ overlapping acceptance work is included once in the integration allowance.
 | F02 weighted/blocked    | C++/Python/Excel and independent mathematical oracles accepted   | #483/#484 merged; exact-head gates pass  | 0                     |
 | F02 portfolio           | C++/Python/Excel, installed consumers and timing repair accepted | #487 merged; final 35/35 checks accepted | 0                     |
 | P02                     | Worker reuse: 82 tests and 37 full-request cost cases accepted   | #488 merged; final 35/35 checks accepted | 0                     |
-| P03                     | Selected extraction/scatter/admission implemented locally        | #489 draft; performance/platform pending | 2–4                   |
+| P03                     | 88 tests; 37 default/50 selected timing cases pass                | Final-head CI/merge pending              | 0.5–1                 |
 | F03                     | Solve, implicit calibration and PDE operators remain             | Open                                     | 12–20                 |
 | P04/P05                 | Structural sparsity/checkpointing remain                         | Open                                     | 9–15                  |
 | F04                     | Second-order implementation/estimator validation remain          | Open                                     | 12–20                 |
 | Final integration/audit | Cross-platform/binding/docs/performance acceptance remains       | Open                                     | 7–11                  |
 
-Remaining total: approximately 42–70 person-days, or 9–14 working weeks,
+Remaining total: approximately 40.5–67 person-days, or 8–14 working weeks,
 excluding CI queue time and including delivery contingency. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
 effort estimate, not a guaranteed completion date. Re-estimate when review
@@ -1365,13 +1370,19 @@ and [performance acceptance](https://github.com/wegamekinglc/Derivatives-Algorit
 retain the accepted source, limitations and all failed/intermediate evidence.
 
 P03 has selected extraction, original-ordinal scatter and matching resource
-admission implemented locally in #489. Independent full-gradient capacity bounds,
-native empty-row shapes, source-extent rejection/recovery and six-family scalar
-references pass. The first four paired default-route checks retain one failed
-candidate; complete-axis requests then avoid subset/admission mapping allocations,
-and a fresh candidate passes the same four-case policy. Timing variability remains
-visible in the active design and session evidence. Next: width measurements,
-complete regression and final-head CI/Codacy/review acceptance. Portfolio and P02
-remaining effort is zero. P03 requires approximately 2–4 person-days; overall
-remaining effort is 42–70.
+admission implemented locally in #489. Independent wide full-gradient capacity
+bounds, native empty-row shapes, source-extent rejection/recovery and six-family
+scalar references pass. CI repair head `e425e52d` passes all 35 checks and has zero
+Codacy annotations and unresolved threads. Its default-route 37 timing cases pass;
+two sparse cases fail. Outlining and reservation experiments are rejected and
+retained. Compact nonempty sources now choose full extraction when the discarded
+scalar bytes do not exceed mapping-entry payload, while wide/empty sources pack.
+An independent full-request quota test is RED on `e425e52d` and GREEN locally;
+all 47 public cases pass. Final calibrated thirty-pair timing accepts 37 default
+and 50 selected/empty/width cases, with six overlaps measured once. The
+[performance report](../performance/aad-selected-extraction.md) gives every round
+minimum, source hash, width/capacity measurement and retained failure path.
+The local review approves. Final-head CI/Codacy/review gates and guarded merge
+remain. Portfolio and P02 remaining effort is zero. P03 requires approximately
+0.5–1 person-day; overall remaining effort is 40.5–67.
 Stage A is accepted; the full Stage B/C/D goal remains incomplete.

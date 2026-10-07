@@ -88,6 +88,15 @@ namespace Dal::Detail {
             return inputs;
         }
 
+        bool UsePackedGradients(const Script::ScriptPortfolioData_& portfolio, const PortfolioRiskAxes_& axes, size_t selectedInputs) {
+            if (selectedInputs == 0)
+                return true;
+            const auto discarded = Script::Detail::ReplayExtentProduct(axes.InputAxis().size() - selectedInputs, sizeof(double));
+            const auto maps = Script::Detail::ReplayExtentSum(portfolio.Models().size(), portfolio.TradeIds().size());
+            const auto metadata = Script::Detail::ReplayExtentProduct(maps, sizeof(Script::Detail::PortfolioInputColumns_));
+            return discarded > metadata;
+        }
+
         Script::Detail::PortfolioInputColumns_
         SelectGradientColumns(const Vector_<size_t>& positions, size_t first, size_t count, const Vector_<int>& columns) {
             size_t selectedCount = 0;
@@ -145,7 +154,8 @@ namespace Dal::Detail {
                                        portfolio.get(),
                                        {}};
             if (native && inputs.size() != axes.InputAxis().size())
-                selection.gradients_.emplace(SelectGradientInputs(*portfolio, axes, selection.inputColumns_));
+                if (UsePackedGradients(*portfolio, axes, inputs.size()))
+                    selection.gradients_.emplace(SelectGradientInputs(*portfolio, axes, selection.inputColumns_));
             Vector_<size_t> tradeGroups(portfolio->TradeIds().size());
             for (size_t group = 0; group < groups.size(); ++group)
                 for (const auto trade : groups[group].tradePositions_)

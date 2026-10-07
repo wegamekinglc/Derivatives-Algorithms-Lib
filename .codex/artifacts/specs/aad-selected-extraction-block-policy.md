@@ -1,7 +1,8 @@
 # Selected portfolio gradient extraction and measured block policy
 
-Status: selected extraction implemented locally; 87 affected cases pass.
-Measured widths, complete performance and exact-head platform acceptance remain.
+Status: implementation, 88 affected cases and calibrated paired performance pass.
+Measured widths retain existing defaults/upper bounds; exact-head platform
+acceptance and guarded publication remain.
 Branch: `feature/aad-selected-extraction`, based on merged
 [P02 #488](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/488),
 `b7e69342d618b539ffc5d3964ed0d6ac2fd15934`. Its tree equals accepted
@@ -28,8 +29,13 @@ to offset one. Explicit original ordinals and packed positions must remain disti
 
 ## Goals and boundaries
 
-Read and retain only requested numeric gradients while preserving complete axes,
+Pack requested numeric gradients while preserving complete axes,
 caller order, shared-owner contributions, private identities and owning results.
+Keep full extraction for compact nonempty selections when the discarded scalar
+gradient bytes do not exceed the fixed model/trade mapping-entry payload. Native
+empty selection always packs zero columns. This deterministic pre-valuation cost
+proxy protects the existing compact route; it does not promise minimum possible
+scratch capacity for every selection or path count.
 Begin with private implementation surfaces. Retain existing public C++/Python/Excel
 requests and defaults. Register the full inputs required by the recorded model and
 trades; this work does not prune the differentiation graph or change estimators.
@@ -49,12 +55,17 @@ Native-empty and passive zero-column results retain their distinct semantics.
 
 ## Requirements
 
-R01. Build an immutable mapping from complete axes to group-local model/private
-ordinals once per request. Reuse it through blocks and batches. All-input selection
+R01. Build immutable mappings from complete axes to group-local model/private
+ordinals outside block and batch loops. Admission and replay each admit their own
+mapping under their respective capacity scopes; replay shares its mapping through
+all blocks and batches. All-input selection
 must have a compact identity route; explicit empty selection means zero numeric
 columns. Neither may be inferred from an ambiguous empty index vector.
+Compact nonempty selection may use the full-gradient reference route under the
+documented discarded-byte/mapping-payload rule; public scatter remains selective.
 
 R02. Extract each requested model/private column once per applicable batch/lane.
+When packing is selected, do not materialize unrequested numeric columns.
 Preserve every live trade's private state. Selecting a private risk of a trade that
 does not contribute an output must produce zero without adding valuation/history.
 
@@ -114,8 +125,22 @@ Demonstrate fewer numeric gradient bytes/read operations, not just fewer returne
 columns. Preserve owning zero-column shapes and original work counters.
 
 A05. Measure startup, full/default and sparse selections against merged #488,
-including 257/8193/32785/131072 paths. Use two rounds of ten alternating pairs,
-minimum duration and failure only above 4% in both rounds. Retain every failed run.
+including 257/8193/32785/131072 paths. Use two rounds of thirty alternating pairs,
+minimum process observation and failure only above 4% in both rounds. Each process
+warms one request, then separately times 256 complete public requests for compact
+workloads with at most 1,024 paths; wide and larger workloads time one request.
+The process observation is average duration per complete request, reduced with
+minimum across processes. Both sides use one identical helper object. Every
+request still prepares, admits capacity, initializes history, replays and builds
+owning results; only the immutable sealed input is shared. Retain all constituent
+request durations, failed runs and numerical/work checks.
+
+The larger count and observation window are predefined before sampling because
+the original ten/thirty-pair single-request and 32-request controls expose excessive
+noise. Keep those original samples and controls in the evidence and ownership
+design; do not rerun an unchanged candidate until it happens to pass. Both baseline
+and head A/A absolute round deltas must stay within 4% before A/B acceptance starts.
+If calibration fails, stop local sampling and use an independent environment.
 Legacy timing reuse requires fresh-link and exact executable-hash proof.
 
 A06. Run affected tests per increment and consolidate required compilers,
