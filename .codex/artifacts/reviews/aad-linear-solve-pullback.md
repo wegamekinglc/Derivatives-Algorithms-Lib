@@ -1,11 +1,11 @@
 # F03 numeric solve implementation review
 
-Verdict: Comment Only.
+Verdict: Approve.
 
 ## Findings
 
 No remaining local correctness or style finding in the independent numeric scope.
-This is not a publication approval: full performance and platform acceptance remain.
+This approves the local implementation; final platform/publication gates remain.
 
 Read scope: the complete new header, source and nine-test file, the controlling
 [specification](../specs/aad-linear-solve-pullback.md),
@@ -40,10 +40,18 @@ native node overhead and checkpoint cache ownership are outside this PR.
   `aad-linear-solve-codacy-b2235-01.json`. Split the operation message and native
   oracle assertions; current production and reference-test complexity is at most 8.
 - Codacy repair GREEN: `aad-linear-solve-codacy-green-01.log` (9/9, exit 0).
-- Documentation integrity: 156 Markdown files; new C++ follows `.clang-format`.
+- Distinct seed addition: `aad-linear-solve-linearity-green-01.log` reruns only
+  the changed ownership/linearity case; it passes at unchanged 1e-10 tolerance.
+- The new translation unit without Eigen macros/includes produces the same
+  object; all nine focused cases linked to it pass in `aad-linear-solve-eigen-off-01`.
+- The [cost report](../performance/aad-linear-solve-pullback.md) retains all
+  sixteen two-round comparisons, 640 processes and 81,920 checked owning results.
+  Fourteen fresh legacy/portfolio links preserve accepted executable hashes.
+- Documentation integrity: 157 Markdown files; new C++ follows `.clang-format`.
 
-Residual risk: required platform/sanitizer CI and complete cost/storage evidence
-are pending. The new test suite runs in ordinary core CI through the existing
+Residual risk: required final-head platform/sanitizer CI remains pending.
+Complete cost/storage evidence is accepted within its stated reference/workload
+limits. The new test suite runs in ordinary core CI through the existing
 source/test globs and is added to all six focused sanitizer filters. Actual final
 logs must contain all nine cases in each configuration. No CI skip, tolerance
 increase or legacy hot-path change is used.

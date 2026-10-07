@@ -275,14 +275,23 @@ TEST(LinearSolvePullbackTest, TestSeedLinearityOwnershipAndRepeatedReverse) {
             scaled(row, col) *= -2.5;
     const auto opposite = solve.Reverse(scaled);
     const auto zero = solve.Reverse(Matrix_<>(seed.Rows(), seed.Cols()));
+    const auto otherSeed = KnownSolution();
+    const auto other = solve.Reverse(otherSeed);
+    auto combination = seed;
+    for (int row = 0; row < seed.Rows(); ++row)
+        for (int col = 0; col < seed.Cols(); ++col)
+            combination(row, col) = 2.0 * seed(row, col) - 3.0 * otherSeed(row, col);
+    const auto combined = solve.Reverse(combination);
     for (int row = 0; row < seed.Rows(); ++row) {
         for (int col = 0; col < seed.Rows(); ++col) {
             ASSERT_NEAR(opposite.matrix_(row, col), -2.5 * first.matrix_(row, col), 1e-10);
             ASSERT_DOUBLE_EQ(zero.matrix_(row, col), 0.0);
+            ASSERT_NEAR(combined.matrix_(row, col), 2.0 * first.matrix_(row, col) - 3.0 * other.matrix_(row, col), 1e-10);
         }
         for (int col = 0; col < seed.Cols(); ++col) {
             ASSERT_NEAR(opposite.rhs_(row, col), -2.5 * first.rhs_(row, col), 1e-10);
             ASSERT_DOUBLE_EQ(zero.rhs_(row, col), 0.0);
+            ASSERT_NEAR(combined.rhs_(row, col), 2.0 * first.rhs_(row, col) - 3.0 * other.rhs_(row, col), 1e-10);
             ASSERT_DOUBLE_EQ(seed(row, col), Seeds()(row, col));
         }
     }

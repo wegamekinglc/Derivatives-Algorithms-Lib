@@ -20,8 +20,14 @@ The independent dense operator is implemented locally. Nine focused tests pass:
 analytic gradients, nonsymmetric row permutations, multiple RHS, native scalar
 AAD/three-step finite differences, directional identity, scaling, ownership,
 invalid inputs, overflow recovery and concurrent const reverse. Factor and solve
-helpers are refactored under these tests. Performance and final-head publication
-acceptance remain open; the first F03 checkbox stays unchecked.
+helpers are refactored under these tests. The new
+[cost report](../performance/aad-linear-solve-pullback.md) accepts all sixteen
+two-round numeric/scalar comparisons, with 640 processes and 81,920 owning result
+checks. Fourteen fresh legacy/portfolio links preserve prior measured hashes;
+the Eigen-free new translation unit matches the original object and passes 9/9.
+The distinct seed-combination follow-up passes the one changed case. Local review
+approves; final-head publication acceptance remains open and the first F03
+checkbox stays unchecked.
 
 Scope amendment (2026-10-04): the user requires removing XAD, CoDiPack and Adept
 support and keeping only DAL's built-in native AAD. This replaces the earlier
