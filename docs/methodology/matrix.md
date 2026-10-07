@@ -159,8 +159,9 @@ inverse. All numeric allocations obey the active buffer budget and refund
 failed construction. Opt-in construction rejects unsupported diagnostic
 inverse range even if the supplied RHS alone is solvable. Ordinary
 `LinearSolvePullback_` and native recorded solves keep their existing work,
-layout and caches. Native recording diagnostic results require separate API
-support.
+layout and caches. The optional native `LinearSolveWithDiagnostics` returns
+the same passive diagnostics alongside recorded outputs; see
+[recorded dense solves](aad.md#recorded-dense-linear-solves).
 
 The reciprocal definition and componentwise metric correspond to the
 [LAPACK condition interface](https://www.netlib.org/lapack/explore-html/d4/daf/group__gecon_ga4f9b830e19e12c7f082ddb497a57af18.html)

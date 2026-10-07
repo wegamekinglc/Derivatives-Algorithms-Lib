@@ -18,6 +18,11 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-08
 
+- **Native solve diagnostic results** — `LinearSolveWithDiagnostics` returns
+  differentiable outputs and an owning passive diagnostic report, reusing one
+  LU across forward, diagnostics and reverse. Cached and returned reports obey
+  tape and caller budgets respectively; the report survives restore and close.
+  See [recorded solves](docs/methodology/aad.md#recorded-dense-linear-solves).
 - **Opt-in linear-solve diagnostics** — numeric solves reuse their LU to report
   infinity-norm reciprocal conditioning and per-RHS componentwise backward
   errors, with scaled compensated residuals and tracked scratch. Ordinary
