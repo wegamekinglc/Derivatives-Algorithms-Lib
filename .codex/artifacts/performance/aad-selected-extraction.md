@@ -205,7 +205,11 @@ when numeric slots shrink. Independent resource contracts use 2,052 inputs and
 selected Jacobians keep width two, padding and history aliases.
 The compact contract derives its quota only from known-fit full requests:
 published production is RED (43,692 required / 43,684 allowed), fallback GREEN.
-All 41 core and 47 public affected cases pass.
+Local evidence covers 41 core and 48 public contracts. After Copilot review, only
+the two affected six-family tests are rerun: packed and compact fixtures assert
+opposite cost inequalities before independent scalar comparisons. Production
+sources/archives and measured executables retain the hashes above; no timing
+rerun is needed for this test-only correction.
 
 ## Legacy executable identity and coverage
 

@@ -13,7 +13,7 @@ and [critique](../critiques/aad-selected-extraction-block-policy.md) in draft
 [#489](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/489).
 Selected core extraction, ordered scatter and matching admission are implemented
 locally under the [ownership design](../designs/aad-selected-extraction.md).
-Resource RED against merged #488 becomes GREEN; 41 core and 47 public affected
+Resource RED against merged #488 becomes GREEN; 41 core and 48 public affected
 contracts pass. Published CI repairs at `e425e52d` pass all 35 checks, with zero
 Codacy annotations and unresolved threads. Complete sparse timing exposed two
 regressions; rejected experiments remain recorded. An independent compact-subset
@@ -782,7 +782,7 @@ overlapping acceptance work is included once in the integration allowance.
 | F02 weighted/blocked    | C++/Python/Excel and independent mathematical oracles accepted   | #483/#484 merged; exact-head gates pass  | 0                     |
 | F02 portfolio           | C++/Python/Excel, installed consumers and timing repair accepted | #487 merged; final 35/35 checks accepted | 0                     |
 | P02                     | Worker reuse: 82 tests and 37 full-request cost cases accepted   | #488 merged; final 35/35 checks accepted | 0                     |
-| P03                     | 88 tests; 37 default/50 selected timing cases pass                | Final-head CI/merge pending              | 0.5–1                 |
+| P03                     | 89 tests; 37 default/50 selected timing cases pass                | Final-head CI/merge pending              | 0.5–1                 |
 | F03                     | Solve, implicit calibration and PDE operators remain             | Open                                     | 12–20                 |
 | P04/P05                 | Structural sparsity/checkpointing remain                         | Open                                     | 9–15                  |
 | F04                     | Second-order implementation/estimator validation remain          | Open                                     | 12–20                 |
@@ -1382,6 +1382,9 @@ all 47 public cases pass. Final calibrated thirty-pair timing accepts 37 default
 and 50 selected/empty/width cases, with six overlaps measured once. The
 [performance report](../performance/aad-selected-extraction.md) gives every round
 minimum, source hash, width/capacity measurement and retained failure path.
+Copilot's six-family packed-path coverage finding is fixed with independent
+packed/compact oracles and explicit opposite cost inequalities. Both targeted
+cases pass; total public coverage is 48. Production/performance hashes are unchanged.
 The local review approves. Final-head CI/Codacy/review gates and guarded merge
 remain. Portfolio and P02 remaining effort is zero. P03 requires approximately
 0.5–1 person-day; overall remaining effort is 40.5–67.

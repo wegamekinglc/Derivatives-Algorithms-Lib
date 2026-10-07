@@ -12,6 +12,7 @@
 #include <dal-public/src/portfoliorisk.hpp>
 #include <dal-public/src/value.hpp>
 #include <dal/model/blackscholes.hpp>
+#include <dal/model/factory.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/script/simulation.hpp>
 
@@ -265,11 +266,17 @@ namespace {
         }
     }
 
-    void AssertSelectedFamilyRisk(const Handle_<ScriptPortfolioData_>& data, int paths, const MonteCarloSettings_& simulation) {
+    void AssertSelectedFamilyRisk(const Handle_<ScriptPortfolioData_>& data, int paths, const MonteCarloSettings_& simulation, bool packed) {
         const auto axes = ScriptPortfolioRiskAxes(data);
-        const size_t modelInputs = axes.TradeInputPositions()[0].size() - 1;
+        const size_t modelInputs = CreateModel<double>(data->Models()[0])->NumParams();
         ASSERT_GT(modelInputs, 1);
         const Vector_<size_t> inputs{axes.TradeInputPositions()[1].back(), 0, modelInputs - 1, axes.TradeInputPositions()[0].back()};
+        const auto discarded = (axes.InputAxis().size() - inputs.size()) * sizeof(double);
+        const auto metadata = (data->Models().size() + data->TradeIds().size()) * sizeof(Dal::Script::Detail::PortfolioInputColumns_);
+        if (packed)
+            ASSERT_GT(discarded, metadata);
+        else
+            ASSERT_LE(discarded, metadata);
         Vector_<Script::RiskResult_> references;
         for (const size_t trade : {1, 0})
             references.push_back(ValueByMonteCarloWithRisk(data->Products()[trade], data->Models()[0], paths, {}, Valuation(), simulation));
@@ -297,25 +304,53 @@ namespace {
             ASSERT_EQ(result.Execution().groups_[0].generatedScenarios_, static_cast<size_t>(paths) * (width == 1 ? 2 : 1));
         }
     }
+    Handle_<ScriptProductData_> SelectedFamilyTrade(double constant, const String_& event, size_t extraInputs) {
+        Vector_<Cell_> dates{Cell_("X")};
+        Vector_<String_> events{String_(std::to_string(constant))};
+        String_ sum = "0";
+        for (size_t input = 0; input < extraInputs; ++input) {
+            const auto name = "C" + String_(std::to_string(input));
+            dates.push_back(Cell_(name));
+            events.push_back("1");
+            sum += " + " + name;
+        }
+        if (extraInputs > 0) {
+            dates.push_back(Cell_(Date_(2025, 1, 1)));
+            events.push_back("extra = " + sum);
+        }
+        dates.push_back(Cell_(Date_(2027, 1, 1)));
+        events.push_back(event + (extraInputs > 0 ? " + extra" : ""));
+        return Handle_<ScriptProductData_>(new ScriptProductData_("", dates, events));
+    }
+
+    void AssertSelectedFamilies(size_t extraInputs, bool packed) {
+        const auto [families, observations] = SixModelFamilies();
+        for (size_t family = 0; family < families.size(); ++family) {
+            SCOPED_TRACE(families[family]->Type());
+            const Handle_<ScriptPortfolioData_> data(new ScriptPortfolioData_(
+                "",
+                {{"A", SelectedFamilyTrade(5.0, "v[5] = X pay PAYS MAX(" + observations[family] + " - SUM(v), 0)", extraInputs), families[family]},
+                 {"B", SelectedFamilyTrade(7.0, "alias = X pay PAYS 3 * " + observations[family] + " + alias", extraInputs), families[family]}}));
+            for (const size_t workers : {1, 4}) {
+                const ScopedPortfolioThreads_ threads(workers);
+                for (const bool compiled : {false, true}) {
+                    auto simulation = DefaultRiskMonteCarloSettings();
+                    simulation.compiled_ = compiled;
+                    ASSERT_NO_FATAL_FAILURE(AssertSelectedFamilyRisk(data, 8193, simulation, packed));
+                }
+            }
+        }
+    }
 } // namespace
 
 TEST(PortfolioReplayTest, TestSixNativeFamiliesSelectedColumnsMatchIndependentScalarRisksAcrossBatches) {
     RegisterAll_::Init();
-    const auto [families, observations] = SixModelFamilies();
-    for (size_t family = 0; family < families.size(); ++family) {
-        SCOPED_TRACE(families[family]->Type());
-        const Handle_<ScriptPortfolioData_> data(
-            new ScriptPortfolioData_("", {{"A", Trade(5.0, "v[5] = X pay PAYS MAX(" + observations[family] + " - SUM(v), 0)"), families[family]},
-                                          {"B", Trade(7.0, "alias = X pay PAYS 3 * " + observations[family] + " + alias"), families[family]}}));
-        for (const size_t workers : {1, 4}) {
-            const ScopedPortfolioThreads_ threads(workers);
-            for (const bool compiled : {false, true}) {
-                auto simulation = DefaultRiskMonteCarloSettings();
-                simulation.compiled_ = compiled;
-                ASSERT_NO_FATAL_FAILURE(AssertSelectedFamilyRisk(data, 8193, simulation));
-            }
-        }
-    }
+    ASSERT_NO_FATAL_FAILURE(AssertSelectedFamilies(32, true));
+}
+
+TEST(PortfolioReplayTest, TestSixNativeFamiliesCompactSelectionMatchesIndependentScalarRisksAcrossBatches) {
+    RegisterAll_::Init();
+    ASSERT_NO_FATAL_FAILURE(AssertSelectedFamilies(0, false));
 }
 
 TEST(PortfolioReplayTest, TestSharedOwnershipScatterAndParallelReductionMatchOracle) {

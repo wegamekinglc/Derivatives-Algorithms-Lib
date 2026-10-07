@@ -12,9 +12,16 @@ No open code findings. The compact fallback and subset-only outer guard pass
 sampling. The [performance report](../performance/aad-selected-extraction.md)
 retains all earlier failures and the observation-window amendment.
 
-Final code is not yet published. `e425e52d` passes all 35 checks, has zero Codacy
-annotations and zero unresolved threads, but lacks the final compact fallback
-and quota test. Require exact-head checks and two complete audits after publication.
+Copilot identified that the original six-family fixture now takes the compact
+fallback, leaving packed non-BS extraction untested. The correction adds 32 live
+private inputs per trade, derives the full model prefix independently and asserts
+the packing inequality before weighted/Jacobian oracles. The compact route retains
+its own six-family oracle with the opposite inequality. Both pass locally in
+tree/compiled, one/four-worker, 8,193-path and multiple-width requests.
+
+This test-only correction follows production publication `e5fa6915`; the four
+production hashes, libraries and accepted performance executables are unchanged.
+Require final-head CI and two complete publication audits after the fixture fix.
 
 ## Correctness and methodology
 
@@ -32,7 +39,8 @@ this boundary explicitly. Public C++/Python/Excel requests and defaults are unch
 
 ## Tests and residual risk
 
-Local evidence covers 41 unchanged core and 47 public cases. The new quota contract
+Local evidence covers 41 unchanged core and 48 public cases; only the two affected
+six-family oracles are rerun for this test-only correction. The quota contract
 is RED against frozen published production (43,692 required versus 43,684 allowed)
 and GREEN locally; its quota is found only from complete requests. Wide weighted
 and Jacobian bounds remain GREEN, including width two, padding and history aliases.

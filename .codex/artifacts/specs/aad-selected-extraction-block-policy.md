@@ -1,6 +1,6 @@
 # Selected portfolio gradient extraction and measured block policy
 
-Status: implementation, 88 affected cases and calibrated paired performance pass.
+Status: implementation, 89 affected cases and calibrated paired performance pass.
 Measured widths retain existing defaults/upper bounds; exact-head platform
 acceptance and guarded publication remain.
 Branch: `feature/aad-selected-extraction`, based on merged
@@ -114,6 +114,8 @@ Do not calibrate the assertion to the new implementation's own measured peak.
 A02. Compare selected values/risks with independent complete-gradient/frozen
 single-script references for all six native families, tree/compiled, one/four
 workers, multiple original batches, widths 1/2/3 and padded tails.
+Six-family packed and compact oracles must assert opposite extraction-cost
+inequalities so a fallback cannot silently remove packed-path coverage.
 
 A03. Cover a partial model prefix with private inputs from different trades,
 shared/distinct owners, model-only/private-only/empty selections, aliases,

@@ -210,3 +210,19 @@ default maximum width one, caller upper bounds and capacity-only narrowing;
 the wide-input measurements do not support a universal automatic increase.
 Final production hashes match link proof `-10`, and all thirteen legacy links
 remain byte-identical. Local review approves; final publication/CI gates remain.
+
+Copilot review exposes a coverage gap after the compact fallback: the original
+six-family scalar fixtures no longer pack. An added packing precondition is RED
+(16 discarded bytes versus 120 mapping bytes in the first BS fixture). The
+corrected fixture adds 32 live historical private constants per trade, making
+discarded storage exceed mapping payload in every family; the full model prefix
+comes from the independent passive model's parameter count. Reordered weighted
+and Jacobian results still match independent single-script references across
+8,193 paths, one/four workers and tree/compiled execution. A separate compact
+six-family case preserves the original fixture and asserts the opposite inequality.
+Both targeted cases pass in 1.377 seconds. RED/GREEN source/object/binary/log proof
+uses `aad-selected-extraction-packed-family-*` in the evidence directory.
+No production source/archive or measured executable changes; the accepted
+performance matrix is reused by exact hash proof. Local coverage now comprises
+41 core and 48 public cases. Final-head platform acceptance must include the
+additional compact-family case; completed earlier-head logs cannot substitute.
