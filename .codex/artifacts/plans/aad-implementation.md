@@ -4,7 +4,7 @@ Status: active implementation under the native-only AAD scope.
 No stage is complete until its correctness, compatibility,
 performance, and applicable CI evidence has been inspected.
 
-Current boundary (2026-10-07): F02, P02 and P03 are complete. The first F03
+Current boundary (2026-10-08): F02, P02 and P03 are complete. The first F03
 numeric operator is accepted in merged
 [#490](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/490),
 at `a08d20e0`, with the exact tree of final `11a6a20b`. Both complete
@@ -40,13 +40,27 @@ cases in each of 14 sanitizer, extended and MSVC configurations. Scoped
 performance acceptance covers the affected callers and boundaries in 9.6
 minutes; the unstarted 81-case portfolio matrix was replaced by six cases.
 
-The current increment adds opt-in numeric solver diagnostics in
-[#493](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/493), under the
-[diagnostic specification](../specs/linear-solve-diagnostics.md). Ordinary
-numeric/recorded solve runtime state remains unchanged. Native diagnostic
-results, structured coordinates, implicit calibration, PDE and subsequent
-stages remain required. The following recording notes are historical repair
-evidence; they are not outstanding #491 gates.
+Opt-in numeric diagnostics are accepted in merged
+[#493](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/493), at
+`c3f93930`: 35/35 exact-head checks, zero Codacy annotations and zero unresolved
+threads. Actual logs confirm all 17 diagnostic cases in each of 14 platform,
+extended and sanitizer configurations. Independent rational residual references
+pass 32/32; ordinary runtime objects match the accepted baseline byte for byte.
+Four informational size/RHS cases complete the scoped diagnostic cost study.
+
+The current increment adds owning native diagnostic results under the
+[recorded diagnostic specification](../specs/aad-linear-solve-diagnostics.md).
+Ordinary recording includes, numeric caches and native layouts remain unchanged.
+Thirteen new cases cover analytic composition, three activity combinations in
+scalar and width-1/4/8 modes, independent Cramer/difference references,
+checkpoints, detached ownership, exact budgets, range failure and concurrency.
+The affected local batch passes 72/72; the installed CMake consumer passes.
+Six scoped ordinary comparisons pass the two-round 4% rule and all 166 unchanged
+objects match baseline bytes. Local acceptance is complete; exact-head platform,
+Codacy and review gates remain open before publication is accepted.
+Structured coordinates, implicit calibration, PDE and subsequent stages remain
+required. The following recording notes are historical repair evidence; they
+are not outstanding #491 gates.
 
 Recording progress: the analytic/interface, passive/RHS-only, reset-mutation,
 resource and capability RED logs remain in session evidence. Forty-eight new
@@ -220,6 +234,8 @@ incremental implementation turns and PRs; a green first stage does not complete 
 
 - [x] F03: independent linear-solve pullback with decomposition reuse and directional adjoint oracle.
 - [x] F03: recording integration, aliases, multiple seeds, repeated reverse, cache ownership, and failures.
+- [x] F03: optional numeric condition and componentwise residual diagnostics, including range/resource acceptance.
+- [ ] F03: owning native diagnostic results with unchanged ordinary-path behavior and resource accounting.
 - [ ] F03: structured matrix coordinates and singular/ill-conditioned solver diagnostics.
 - [ ] F03: implicit calibration and PDE pullbacks derived and verified separately.
 - [ ] P04: proven structural sparsity, safe invalidation, compressed seeds, and mode selection evidence.
@@ -855,21 +871,21 @@ This snapshot distinguishes accepted increments from locally implemented work.
 Estimates are remaining single-developer effort, not promises of calendar time;
 overlapping acceptance work is included once in the integration allowance.
 
-| Work item               | Implementation/local verification                                 | Publication/CI                           | Remaining person-days |
-|-------------------------|-------------------------------------------------------------------|------------------------------------------|-----------------------|
-| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                     | Accepted exact-head checks               | 0                     |
-| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass    | Merged; final 35/35 checks accepted      | 0                     |
-| F01                     | C++/Python/Excel and complete requirement audit accepted          | Merged; final 35/35 checks accepted      | 0                     |
-| F02 weighted/blocked    | C++/Python/Excel and independent mathematical oracles accepted    | #483/#484 merged; exact-head gates pass  | 0                     |
-| F02 portfolio           | C++/Python/Excel, installed consumers and timing repair accepted  | #487 merged; final 35/35 checks accepted | 0                     |
-| P02                     | Worker reuse: 82 tests and 37 full-request cost cases accepted    | #488 merged; final 35/35 checks accepted | 0                     |
-| P03                     | 89 tests; 81 unique complete-request timing comparisons accepted  | #489 merged; final 35/35 checks accepted | 0                     |
-| F03                     | Numeric/recorded solves accepted; numeric diagnostics in progress | #490/#491 merged; #493 acceptance open   | 11–17                 |
-| P04/P05                 | Structural sparsity/checkpointing remain                          | Open                                     | 9–15                  |
-| F04                     | Second-order implementation/estimator validation remain           | Open                                     | 12–20                 |
-| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains        | Open                                     | 7–11                  |
+| Work item               | Implementation/local verification                                       | Publication/CI                                  | Remaining person-days |
+|-------------------------|-------------------------------------------------------------------------|-------------------------------------------------|-----------------------|
+| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                           | Accepted exact-head checks                      | 0                     |
+| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass          | Merged; final 35/35 checks accepted             | 0                     |
+| F01                     | C++/Python/Excel and complete requirement audit accepted                | Merged; final 35/35 checks accepted             | 0                     |
+| F02 weighted/blocked    | C++/Python/Excel and independent mathematical oracles accepted          | #483/#484 merged; exact-head gates pass         | 0                     |
+| F02 portfolio           | C++/Python/Excel, installed consumers and timing repair accepted        | #487 merged; final 35/35 checks accepted        | 0                     |
+| P02                     | Worker reuse: 82 tests and 37 full-request cost cases accepted          | #488 merged; final 35/35 checks accepted        | 0                     |
+| P03                     | 89 tests; 81 unique complete-request timing comparisons accepted        | #489 merged; final 35/35 checks accepted        | 0                     |
+| F03                     | Solves/numeric diagnostics accepted; native reports implemented locally | #490/#491/#493 merged; native report gates open | 10–15                 |
+| P04/P05                 | Structural sparsity/checkpointing remain                                | Open                                            | 9–15                  |
+| F04                     | Second-order implementation/estimator validation remain                 | Open                                            | 12–20                 |
+| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains              | Open                                            | 7–11                  |
 
-Remaining total after #491: approximately 39–63 person-days,
+Remaining total after #493 and local native-report implementation: approximately 38–61 person-days,
 excluding CI queue time and including delivery contingency. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
 effort estimate, not a guaranteed completion date. Re-estimate when review
@@ -878,22 +894,23 @@ findings change the scope.
 ### Next delivery tasks and effort
 
 One person-day means eight hours. The following detail subdivides the total
-above. The accepted #491 delivery contributes zero remaining hours. Numeric
-diagnostics and their later native integration stay within the F03 combined
-coordinate/diagnostic allowance rather than being counted twice.
+above. The accepted #490/#491/#493 deliveries contribute zero remaining hours.
+Native diagnostic results and structured coordinates have separate remaining
+estimates; completed numeric diagnostics are not counted again.
 
-| Order | Delivery task                    | Required result                                                            | Remaining hours |
-|-------|----------------------------------|----------------------------------------------------------------------------|-----------------|
-| 1     | Accepted recorded-solve PR #491  | Merged; required platform, review and scoped performance gates accepted    | 0               |
-| 2     | F03 coordinates and diagnostics  | Symmetric/banded coordinate pullbacks; residual, singular/condition checks | 24–40           |
-| 3     | F03 implicit calibration         | Equation pullbacks, decomposition reuse and independent gradient oracles   | 32–56           |
-| 4     | F03 PDE operators                | Discrete solver, boundary and parameter sensitivity acceptance             | 32–40           |
-| 5     | P04 structural sparsity          | Dependency proof, compressed seeds, invalidation and mode evidence         | 32–56           |
-| 6     | P05 long-path checkpointing      | Complete state/RNG restoration, recomputation and memory/performance proof | 40–64           |
-| 7     | F04 second-order risk            | Gamma, cross-Gamma, HVP, recalibration and estimator validation            | 64–96           |
-| 8     | F04 native mixed-mode prototype  | Smooth-kernel prototype, independent correctness and capability limits     | 32–64           |
-| 9     | Bindings and complete acceptance | C++/Python/Excel, documentation, platform and performance gates            | 56–88           |
-| Total | Full remaining implementation    | All remaining plan requirements                                            | 312–504         |
+| Order | Delivery task                     | Required result                                                                | Remaining hours |
+|-------|-----------------------------------|--------------------------------------------------------------------------------|-----------------|
+| 1     | Accepted solve PRs #490/#491/#493 | Merged; mathematical, resource, platform and scoped performance gates accepted | 0               |
+| 2     | F03 native diagnostic results     | Owning report, shared LU/reverse, resource and ordinary-path acceptance        | 4–8             |
+| 3     | F03 structured coordinates        | Symmetric/banded coordinate pullbacks and independent gradient oracles         | 8–14            |
+| 4     | F03 implicit calibration          | Equation pullbacks, decomposition reuse and independent gradient oracles       | 32–56           |
+| 5     | F03 PDE operators                 | Discrete solver, boundary and parameter sensitivity acceptance                 | 32–40           |
+| 6     | P04 structural sparsity           | Dependency proof, compressed seeds, invalidation and mode evidence             | 32–56           |
+| 7     | P05 long-path checkpointing       | Complete state/RNG restoration, recomputation and memory/performance proof     | 40–64           |
+| 8     | F04 second-order risk             | Gamma, cross-Gamma, HVP, recalibration and estimator validation                | 64–96           |
+| 9     | F04 native mixed-mode prototype   | Smooth-kernel prototype, independent correctness and capability limits         | 32–64           |
+| 10    | Bindings and complete acceptance  | C++/Python/Excel, documentation, platform and performance gates                | 56–88           |
+| Total | Full remaining implementation     | All remaining plan requirements                                                | 300–486         |
 
 The first delivery boundary is complete. Whole-PR review repaired the Windows
 registration-help defect, both include-order findings and the overview file

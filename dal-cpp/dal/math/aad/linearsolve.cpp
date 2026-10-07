@@ -10,6 +10,7 @@
 #include <type_traits>
 
 #include <dal/math/aad/linearsolve.hpp>
+#include <dal/math/aad/linearsolvediagnostics.hpp>
 #include <dal/math/aad/native.hpp>
 #include <dal/math/aad/reverseevent.hpp>
 #include <dal/math/buffercapacity.hpp>
@@ -95,11 +96,18 @@ namespace Dal::AAD {
             operation();
         }
 
-        class LinearSolvePayload_ {
-            LinearSolvePullback_ solve_;
+        template <class C_> class LinearSolvePayload_ {
+            C_ solve_;
             SquareMatrix_<Number_> matrix_;
             Matrix_<Number_> rhs_;
             Matrix_<Number_> outputs_;
+
+            [[nodiscard]] const LinearSolvePullback_& NumericSolve() const {
+                if constexpr (std::is_same_v<C_, LinearSolvePullback_>)
+                    return solve_;
+                else
+                    return solve_.Solve();
+            }
 
             Matrix_<> CollectSeeds(size_t channel) const {
                 Matrix_<> seeds(outputs_.Rows(), outputs_.Cols());
@@ -119,10 +127,10 @@ namespace Dal::AAD {
                 const auto seeds = CollectSeeds(channel);
                 if (!std::all_of(seeds.begin(), seeds.end(), [](double value) { return value == 0.0; })) {
                     if (matrix_.Rows() == 0) {
-                        const auto contribution = solve_.ReverseRhs(seeds);
+                        const auto contribution = NumericSolve().ReverseRhs(seeds);
                         Scatter(&rhs_, contribution, channel);
                     } else {
-                        const auto contributions = solve_.Reverse(seeds);
+                        const auto contributions = NumericSolve().Reverse(seeds);
                         Scatter(&matrix_, contributions.matrix_, channel);
                         Scatter(&rhs_, contributions.rhs_, channel);
                     }
@@ -141,7 +149,7 @@ namespace Dal::AAD {
             }
 
             [[nodiscard]] Matrix_<Number_> MakeOutputs() {
-                const auto& values = solve_.Solution();
+                const auto& values = NumericSolve().Solution();
                 Matrix_<Number_> result(values.Rows(), values.Cols());
                 for (int row = 0; row < values.Rows(); ++row)
                     for (int column = 0; column < values.Cols(); ++column) {
@@ -151,6 +159,8 @@ namespace Dal::AAD {
                 return result;
             }
 
+            [[nodiscard]] const LinearSolveDiagnostics_& Diagnostics() const { return solve_.Diagnostics(); }
+
             void Reverse(bool multi, size_t width) {
                 const auto channels = multi ? width : 1;
                 for (size_t channel = 0; channel < channels; ++channel)
@@ -158,9 +168,9 @@ namespace Dal::AAD {
             }
         };
 
-        class LinearSolveEvent_ final : public ReverseEvent_ {
+        template <class C_> class LinearSolveEvent_ final : public ReverseEvent_ {
             EventBufferAccount_ account_;
-            std::optional<LinearSolvePayload_> payload_;
+            std::optional<LinearSolvePayload_<C_>> payload_;
 
         public:
             template <class M_, class R_>
@@ -174,22 +184,33 @@ namespace Dal::AAD {
                 WithOwnedPayload(&account_, [this] { payload_.reset(); });
             }
             [[nodiscard]] Matrix_<Number_> MakeOutputs() { return payload_->MakeOutputs(); }
+            [[nodiscard]] const LinearSolveDiagnostics_& Diagnostics() const { return payload_->Diagnostics(); }
             void Reverse(bool multi, size_t width) override {
                 ScratchMeasurement_ measurement(&account_);
                 Detail::OwnedBufferScope_ scratch(&account_);
                 payload_->Reverse(multi, width);
             }
         };
-        template <class M_, class R_>
-        Matrix_<Number_> RecordSolve(RecordingScope_* recording, const SquareMatrix_<M_>& matrix, const Matrix_<R_>& rhs, double tolerance) {
+
+        template <class C_, class M_, class R_>
+        auto RecordSolve(RecordingScope_* recording, const SquareMatrix_<M_>& matrix, const Matrix_<R_>& rhs, double tolerance) {
             auto* tape = NativeRecordedOperation_::Begin(recording);
             try {
                 REQUIRE(matrix.Rows() > 0 && rhs.Rows() == matrix.Rows() && rhs.Cols() > 0, "LinearSolve: requires a nonempty square system and RHS");
-                auto event = NativeRecordedOperation_::MakeEvent<LinearSolveEvent_>(tape, tape, matrix, rhs, tolerance);
+                auto event = NativeRecordedOperation_::MakeEvent<LinearSolveEvent_<C_>>(tape, tape, matrix, rhs, tolerance);
+                auto diagnostics = [&] {
+                    if constexpr (std::is_same_v<C_, DiagnosedLinearSolve_>)
+                        return event->Diagnostics();
+                    else
+                        return std::nullopt;
+                }();
                 NativeRecordedOperation_::Prepare(tape);
                 auto result = event->MakeOutputs();
                 NativeRecordedOperation_::Commit(recording, std::move(event));
-                return result;
+                if constexpr (std::is_same_v<C_, DiagnosedLinearSolve_>)
+                    return DiagnosedLinearSolveResult_{std::move(result), std::move(diagnostics)};
+                else
+                    return result;
             } catch (...) {
                 NativeRecordedOperation_::Fail(recording);
                 throw;
@@ -199,16 +220,37 @@ namespace Dal::AAD {
 
     Matrix_<Number_>
     LinearSolve(RecordingScope_* recording, const SquareMatrix_<Number_>& matrix, const Matrix_<Number_>& rhs, double relativePivotTolerance) {
-        return RecordSolve(recording, matrix, rhs, relativePivotTolerance);
+        return RecordSolve<LinearSolvePullback_>(recording, matrix, rhs, relativePivotTolerance);
     }
 
     Matrix_<Number_>
     LinearSolve(RecordingScope_* recording, const SquareMatrix_<>& matrix, const Matrix_<Number_>& rhs, double relativePivotTolerance) {
-        return RecordSolve(recording, matrix, rhs, relativePivotTolerance);
+        return RecordSolve<LinearSolvePullback_>(recording, matrix, rhs, relativePivotTolerance);
     }
 
     Matrix_<Number_>
     LinearSolve(RecordingScope_* recording, const SquareMatrix_<Number_>& matrix, const Matrix_<>& rhs, double relativePivotTolerance) {
-        return RecordSolve(recording, matrix, rhs, relativePivotTolerance);
+        return RecordSolve<LinearSolvePullback_>(recording, matrix, rhs, relativePivotTolerance);
+    }
+
+    DiagnosedLinearSolveResult_ LinearSolveWithDiagnostics(RecordingScope_* recording,
+                                                           const SquareMatrix_<Number_>& matrix,
+                                                           const Matrix_<Number_>& rhs,
+                                                           double relativePivotTolerance) {
+        return RecordSolve<DiagnosedLinearSolve_>(recording, matrix, rhs, relativePivotTolerance);
+    }
+
+    DiagnosedLinearSolveResult_ LinearSolveWithDiagnostics(RecordingScope_* recording,
+                                                           const SquareMatrix_<>& matrix,
+                                                           const Matrix_<Number_>& rhs,
+                                                           double relativePivotTolerance) {
+        return RecordSolve<DiagnosedLinearSolve_>(recording, matrix, rhs, relativePivotTolerance);
+    }
+
+    DiagnosedLinearSolveResult_ LinearSolveWithDiagnostics(RecordingScope_* recording,
+                                                           const SquareMatrix_<Number_>& matrix,
+                                                           const Matrix_<>& rhs,
+                                                           double relativePivotTolerance) {
+        return RecordSolve<DiagnosedLinearSolve_>(recording, matrix, rhs, relativePivotTolerance);
     }
 } // namespace Dal::AAD

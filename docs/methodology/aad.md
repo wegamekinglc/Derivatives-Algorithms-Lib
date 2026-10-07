@@ -366,8 +366,32 @@ invalidates the graph and rejects adjoint reads until reset; a subsequent
 independent scope can recover. Optional lifetime diagnostics additionally reject
 stale source epochs/generations. Default builds retain the existing raw Number
 lifetime contract. This API provides first-order dense-entry derivatives;
-structured coordinates, condition estimates, higher order and public user
+structured coordinates, higher order and public user
 callbacks require separate support.
+
+`LinearSolveWithDiagnostics` in `dal/math/aad/linearsolvediagnostics.hpp`
+accepts the same three activity combinations and pivot tolerance. Its
+`DiagnosedLinearSolveResult_` owns `solution_` and passive `diagnostics_` with
+the [numeric diagnostic definitions](matrix.md#optional-solve-diagnostics).
+It reuses one factorization for the solution, diagnostics and repeated reverse;
+diagnostic values create no native nodes and are not differentiated.
+
+```cpp
+#include <dal/math/aad/linearsolvediagnostics.hpp>
+
+auto result = AAD::LinearSolveWithDiagnostics(&scope, a, b);
+AAD::Number_ objective = result.solution_(0, 0) * result.solution_(0, 0);
+const double reciprocal = result.diagnostics_.reciprocalConditionInfinity_;
+```
+
+The detached report remains readable after input-container mutation, checkpoint
+restoration or recording close. Its output Numbers follow the ordinary tape
+lifetime contract. Cached diagnostic values and construction scratch belong to
+the tape account; the returned report is copied into caller-budget storage
+before output publication. Allocation or diagnostic inverse-range failure
+invalidates the graph and refunds uncommitted storage. The ordinary `LinearSolve`
+retains its existing cache and work. Diagnostic computation adds the numeric
+diagnostic cost and one caller-owned vector of per-RHS errors.
 
 ### Native Production Profiling
 
