@@ -28,8 +28,11 @@ namespace Dal::AAD {
         explicit ReverseEvents_(Tape_* tape) : entries_(ReverseEventAllocator_<Entry_>(tape)), multi_(tape->multi_), width_(tape->numAdj_) {}
     };
 
-    Tape_::Tape_(bool) : multi_(false), numAdj_(1), pad_{}, reverseEvents_(nullptr, ReverseEventsDeleter_{this}) {}
-    Tape_::~Tape_() noexcept { reverseEvents_.reset(); }
+    Tape_::~Tape_() noexcept {
+        reverseEvents_.reset();
+        if (threadDefault_)
+            NativeThread::eventValidationRequired = false;
+    }
 
     void Tape_::ReverseEventsDeleter_::operator()(ReverseEvents_* events) const noexcept {
         delete events;
@@ -60,6 +63,7 @@ namespace Dal::AAD {
             EventStorageTicket_ storage(this, sizeof(ReverseEvents_));
             reverseEvents_.reset(new ReverseEvents_(this));
             storage.Commit();
+            UpdateThreadEventValidation();
         }
         const auto& entries = reverseEvents_->entries_;
         if (entries.size() == entries.capacity())
@@ -97,6 +101,7 @@ namespace Dal::AAD {
         } catch (...) {
             events.reversing_ = false;
             reverseFailed_ = true;
+            UpdateThreadEventValidation();
             throw;
         }
     }
@@ -282,6 +287,7 @@ namespace Dal::AAD {
         tape.eventScratchPeakBytes_ = 0;
         ForEachBlockAll(tape, [](auto& block) { block.Clear(); });
         tape.reverseFailed_ = false;
+        tape.UpdateThreadEventValidation();
 #if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
         tape.lifetimeFailed_ = false;
 #endif
@@ -319,6 +325,7 @@ namespace Dal::AAD {
         ForEachBlock(tape, [](auto& block) { block.Rewind(); });
 #endif
         tape.reverseFailed_ = false;
+        tape.UpdateThreadEventValidation();
     }
 
     void RewindToMark(Tape_& tape) {

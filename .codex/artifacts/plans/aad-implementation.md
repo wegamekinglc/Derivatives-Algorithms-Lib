@@ -42,7 +42,7 @@ acceptance remain open. Structured coordinates, precision/conditioning
 diagnostics, implicit calibration, PDE and subsequent stages remain required.
 
 Recording progress: the analytic/interface, passive/RHS-only, reset-mutation,
-resource and capability RED logs remain in session evidence. Forty-three new
+resource and capability RED logs remain in session evidence. Forty-four new
 cases now pass across three overloads, independent scalar/finite-difference
 oracles, vector widths 1/2/3/4/8, aliases, shared/serial solves, repeated reverse,
 checkpoints, raw windows, block boundaries, ownership and failure recovery.
@@ -55,11 +55,18 @@ foreign live inputs, wrong-thread use and table growth have focused evidence.
 The production resource batch passes 113 affected cases; subsequent edge and
 integration batches pass 8/8, 4/4 and 3/3 without repeating broad suites.
 
-The published prototype is `c79bcc58` in draft #491. A complete exact-head audit
-now verifies 35/35 successful checks, zero Codacy annotations and zero unresolved
-threads for that prototype. These checks do not accept the local resource batch.
+The published resource implementation is `25f347c7` in draft #491. Its complete
+exact-head audit verifies 35/35 successful checks, zero Codacy annotations and
+zero unresolved threads. The full nine-target measurement finds six sustained
+ordinary tape/Jacobian regressions, so that head remains unaccepted.
+The local repair restores inline default-tape construction and uses a cold
+thread-local event-validation flag while retaining failure/mode checks. Final
+affected functionality passes 128/128. Fresh tape/Jacobian binaries match the
+accepted repair hashes, retaining its 17/17 two-round performance cases without
+another run. See the [performance report](../performance/aad-linear-solve-recording.md).
 The scalar/vector/lifecycle/resource capability contract is updated under TDD;
-final native-path timing, installed consumers and OFF/ON runtime CI remain open.
+full request/portfolio timing, installed consumers and final OFF/ON runtime CI
+remain open. The 44 new cases exclude the existing capability-contract test.
 Accepted #490 baseline libraries, headers and tests are frozen in
 `aad-recorded-solve-baseline-01/provenance.json`; the published prototype is
 frozen separately in `aad-recorded-solve-increment-01/provenance.json`.

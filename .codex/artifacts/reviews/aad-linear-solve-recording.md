@@ -12,7 +12,7 @@ increment and does not represent a final-head publication audit.
 
 ## Findings
 
-1. Final platform and performance evidence remains open for
+1. Final platform and complete performance evidence remains open for
    `dal-cpp/dal/math/aad/tape.cpp:45`, `expr.hpp:612`, `native.hpp:59`
    and `aad.hpp:53`.
    Empty-event dispatch, reset and adjoint-read guards change shared paths.
@@ -21,10 +21,18 @@ increment and does not represent a final-head publication audit.
    stable head, and inspect actual installed-consumer, Windows and sanitizer
    execution before merge.
 
+The measured resource-head regressions are repaired locally: the final build
+passes 128 affected cases and matches both accepted 17-case tape/Jacobian binary
+hashes. Passive recording is +0.97%/+0.98%, and all six original failing cases
+pass. Failure/mode checks remain active; caller-owned tape reset cannot expose
+adjoints from a failed default graph. See the controlling
+[performance evidence](../performance/aad-linear-solve-recording.md).
+Full request/portfolio and exact-head platform evidence remains the open gate.
+
 The resource finding is resolved locally: finite tape scopes now admit exact
 descriptor/owner/table/cache and transient storage before allocation. Failed
 allocations refund, replacement capacity overlaps, suffix/close release matches
-actual capacity, and reverse scratch obeys parent buffer ceilings. Forty-two
+actual capacity, and reverse scratch obeys parent buffer ceilings. Forty-four
 new tests pass; the production resource batch additionally passes 113 affected
 tests. Parent-budget, event-table growth and ownership increments pass 4/4 and
 3/3. Final platform acceptance must use this source increment, not `c79bcc58`.
@@ -55,6 +63,10 @@ scratch-budget and release cases now have focused local coverage.
   windows and exact checkpoint/reset event releases pass.
 - Fourteen fresh translation units pass combined lifetime-diagnostic/profiling
   syntax checks; actual ON runtime remains a final platform gate.
+- The final repair passes all 11 affected combined diagnostic/profiling ON
+  translation units in `aad-recorded-solve-repaired-combined-syntax-01.log`.
+  Final OFF functionality passes 128/128; binary identity retains the accepted
+  17 tape/Jacobian performance cases.
 - Documentation integrity passes for 157 Markdown files including this review;
   patch integrity passes. This is a draft increment, not full acceptance.
 

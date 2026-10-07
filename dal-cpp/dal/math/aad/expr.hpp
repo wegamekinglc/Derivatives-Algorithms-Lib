@@ -14,7 +14,7 @@
 namespace Dal::AAD {
 
     FORCE_INLINE Tape_* Tape() {
-        thread_local Tape_ tape;
+        thread_local Tape_ tape(Tape_::ThreadDefault_{});
         return &tape;
     }
 
@@ -610,8 +610,8 @@ namespace Dal::AAD {
 
     FORCE_INLINE double Value(const Number_& num) { return num.value_; }
     FORCE_INLINE double& Adjoint(const Number_& num) {
-        if (auto* tape = Tape(); tape->HasReverseEventState())
-            tape->RequireReverseEventState("Number.Adjoint");
+        if (NativeThread::eventValidationRequired)
+            Tape()->RequireReverseEventState("Number.Adjoint");
 #if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
         num.ValidateOperands(Tape(), "Number.Adjoint");
 #endif

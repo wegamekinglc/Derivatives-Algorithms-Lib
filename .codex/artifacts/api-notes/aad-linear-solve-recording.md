@@ -1,7 +1,7 @@
 # Native recorded solve API decisions
 
 Status: active F03 recording increment. All three overloads and a numeric
-RHS-only contribution are implemented locally. Forty-two new cases pass,
+RHS-only contribution are implemented locally. Forty-four new cases pass,
 covering analytic/reference gradients, aliases, multiple RHS, vector channels,
 serial/shared solves, checkpoint/reset ownership and failure invalidation.
 Exact storage admission and release pass locally; performance and final CI
@@ -68,11 +68,13 @@ revision without weakening this surface or its lifecycle/resource contract.
 
 ## Active resource implementation
 
-The prototype is pushed at `c79bcc58`, whose 35 checks pass. The subsequent
-local resource implementation admits finite budgets before owned allocation.
+The resource implementation is pushed at `25f347c7`, whose 35 checks pass.
+It admits finite budgets before owned allocation. The subsequent hot-path
+repair passes 128 affected cases and 17 tape/Jacobian performance cases locally.
 MeasureTape and tape-budget admission now include a fifth domain for reverse
 events, with exact descriptor/table/cache capacity and reverse scratch peaks.
-Current head CI does not validate this unpublished source increment.
+Published CI does not validate the unpublished hot-path repair; full final
+performance and actual platform runtime acceptance remain required.
 
 For n rows and m RHS columns, the retained variable payload consists of LU
 `n*n*sizeof(double)`, swaps `n*sizeof(int)`, X `n*m*sizeof(double)`, active A

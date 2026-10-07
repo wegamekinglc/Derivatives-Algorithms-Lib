@@ -35,9 +35,13 @@ namespace Dal::AAD {
     constexpr size_t ADJ_SIZE = 32768;
     constexpr size_t DATA_SIZE = 65536;
 
+    namespace NativeThread {
+        inline thread_local bool eventValidationRequired = false;
+    } // namespace NativeThread
+
     class Tape_ {
     public:
-        explicit Tape_(bool = true);
+        explicit Tape_(bool = true) : multi_(false), numAdj_(1), pad_{}, reverseEvents_(nullptr, ReverseEventsDeleter_{this}) {}
         ~Tape_() noexcept;
         Tape_(const Tape_&) = delete;
         Tape_& operator=(const Tape_&) = delete;
@@ -52,7 +56,8 @@ namespace Dal::AAD {
         BlockList_<double, DATA_SIZE> ders_;
         BlockList_<double*, DATA_SIZE> argPtrs_;
         BlockList_<TapNode_, BLOCK_SIZE> nodes_;
-        char pad_[64];
+        // Cold event ownership occupies the remainder of the original padding.
+        char pad_[64 - 6 * sizeof(void*)];
 
         friend auto SetNumResultsForAAD(bool, size_t);
         friend struct NumResultsResetterForAAD_;
@@ -75,6 +80,9 @@ namespace Dal::AAD {
         [[nodiscard]] size_t ReverseScratchPeakBytes() const { return eventScratchPeakBytes_; }
 
     private:
+        struct ThreadDefault_ {};
+        explicit Tape_(ThreadDefault_) : Tape_() { threadDefault_ = true; }
+        friend Tape_* Tape();
         struct ReverseEvents_;
         struct ReverseEventsDeleter_ {
             Tape_* tape_;
@@ -84,8 +92,13 @@ namespace Dal::AAD {
         bool reverseFailed_ = false;
         size_t eventCapacityBytes_ = 0;
         size_t eventScratchPeakBytes_ = 0;
+        bool threadDefault_ = false; // GCC spills recording values when these constructor flags are adjacent.
         friend struct NativeRecordedOperation_;
 
+        void UpdateThreadEventValidation() const noexcept {
+            if (threadDefault_)
+                NativeThread::eventValidationRequired = HasReverseEventState();
+        }
         void RequireReverseEventMutation(const char* operation) const;
         void PrepareReverseEvent();
         void AppendReverseEvent(ReverseEventHandle_ event);

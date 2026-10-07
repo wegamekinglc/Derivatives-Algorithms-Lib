@@ -190,3 +190,50 @@ TEST(AADLinearSolveTest, TestTinyNonzeroSeedIsNotDiscarded) {
     scope.Close();
     Clear(*Tape());
 }
+
+TEST(AADLinearSolveTest, TestOtherTapeResetDoesNotExposeFailedDefaultGraphAdjoints) {
+    Clear(*Tape());
+    RecordingScope_ scope;
+    Number_ input;
+    scope.RegisterInput(input, 2.0);
+    scope.StartRecording();
+    SquareMatrix_<Number_> matrix(1);
+    Matrix_<Number_> rhs(1, 1);
+    matrix(0, 0) = input;
+    ASSERT_THROW(static_cast<void>(LinearSolve(&scope, matrix, rhs)), Exception_);
+    Tape_ other;
+    Clear(other);
+    Rewind(other);
+    ASSERT_THROW(static_cast<void>(Adjoint(input)), Exception_);
+    scope.Close();
+    Number_ recovered(3.0);
+    Number_ objective = recovered * recovered;
+    Adjoint(objective) = 1.0;
+    PropagateToStart(*Tape());
+    ASSERT_DOUBLE_EQ(Adjoint(recovered), 6.0);
+    Clear(*Tape());
+}
+
+TEST(AADLinearSolveTest, TestRawAdjointRetainsEventModeValidation) {
+    Clear(*Tape());
+    RecordingScope_ scope;
+    Number_ input;
+    scope.RegisterInput(input, 3.0);
+    scope.StartRecording();
+    SquareMatrix_<> matrix(1);
+    matrix(0, 0) = 2.0;
+    Matrix_<Number_> rhs(1, 1);
+    rhs(0, 0) = input;
+    auto solution = LinearSolve(&scope, matrix, rhs);
+    scope.FinishRecording();
+    const auto width = Tape()->numAdj_;
+    Tape()->numAdj_ = 2;
+    ASSERT_THROW(static_cast<void>(Adjoint(solution(0, 0))), Exception_);
+    Tape()->numAdj_ = width;
+    scope.ClearAdjoints();
+    Adjoint(solution(0, 0)) = 1.0;
+    scope.Reverse();
+    ASSERT_DOUBLE_EQ(Adjoint(input), 0.5);
+    scope.Close();
+    Clear(*Tape());
+}

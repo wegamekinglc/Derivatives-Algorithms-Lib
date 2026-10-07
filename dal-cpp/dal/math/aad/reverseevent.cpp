@@ -69,6 +69,7 @@ namespace Dal::AAD {
 
     void NativeRecordedOperation_::Fail(RecordingScope_* recording) {
         recording->tape_->reverseFailed_ = true;
+        recording->tape_->UpdateThreadEventValidation();
         recording->RetainFailure();
     }
 } // namespace Dal::AAD

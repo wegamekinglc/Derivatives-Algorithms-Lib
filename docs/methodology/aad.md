@@ -286,8 +286,9 @@ native recording for its node and edge counts. It reports three storage measures
 
 `reverseEvents_` counts recorded operators and `reverseEventCapacityBytes_`
 reports their currently owned storage separately. `reverseScratchPeakBytes_`
-records the largest simultaneous numeric scratch payload above a retained event
-cache during reverse. It resets on complete clear/rewind. The scalar
+records the largest simultaneous numeric scratch reservation above a retained
+event cache during reverse, including admitted allocations that subsequently
+fail. It resets on complete clear/rewind. The scalar
 `liveBytes_`, `occupiedBytes_` and `blocks_` measures exclude event storage;
 the scratch high-water value is not another retained-capacity contribution.
 
