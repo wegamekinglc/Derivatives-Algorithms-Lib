@@ -365,8 +365,9 @@ Numerical policies match the numeric operator. Construction/reverse failure
 invalidates the graph and rejects adjoint reads until reset; a subsequent
 independent scope can recover. Optional lifetime diagnostics additionally reject
 stale source epochs/generations. Default builds retain the existing raw Number
-lifetime contract. This API provides first-order dense-entry derivatives;
-structured coordinates, higher order and public user
+lifetime contract. This overload family provides first-order dense-entry
+derivatives. Packed symmetric and banded parameters use the
+[coordinate overloads](#recorded-solve-coordinates). Higher order and public user
 callbacks require separate support.
 
 `LinearSolveWithDiagnostics` in `dal/math/aad/linearsolvediagnostics.hpp`
@@ -392,6 +393,63 @@ before output publication. Allocation or diagnostic inverse-range failure
 invalidates the graph and refunds uncommitted storage. The ordinary `LinearSolve`
 retains its existing cache and work. Diagnostic computation adds the numeric
 diagnostic cost and one caller-owned vector of per-RHS errors.
+
+### Recorded Solve Coordinates
+
+`dal/math/aad/linearsolvecoordinates.hpp` adds `AAD::LinearSolve` overloads
+for a `LinearSolveCoordinates_` layout, packed parameters and a dense RHS.
+The [numeric layout](matrix.md#symmetric-and-banded-solve-coordinates) defines
+parameter order: lower-triangle row order for symmetric matrices, or the actual
+in-band entries in row order, excluding boundary padding. The three activity
+combinations are active parameters/active RHS, passive parameters/active RHS
+and active parameters/passive RHS. Fully passive calls use
+`CoordinateLinearSolvePullback_` directly.
+
+```cpp
+#include <dal/math/aad/linearsolvecoordinates.hpp>
+#include <dal/math/aad/native.hpp>
+
+using namespace Dal;
+
+AAD::RecordingScope_ scope;
+AAD::Number_ coupling;
+scope.RegisterInput(coupling, 1.0);
+scope.StartRecording();
+const auto layout = LinearSolveCoordinates_::Symmetric(2);
+const Vector_<AAD::Number_> parameters = {3.0, coupling, 2.0};
+Matrix_<> rhs(2, 1);
+rhs(0, 0) = 1.0;
+rhs(1, 0) = 2.0;
+auto x = AAD::LinearSolve(&scope, layout, parameters, rhs);
+AAD::Number_ objective = 3.0 * x(0, 0) - x(1, 0);
+scope.FinishRecording();
+scope.ClearAdjoints();
+AAD::NativeOperations_::SetSeed(objective, 1.0);
+scope.Reverse();
+const double gradient = AAD::NativeOperations_::ReadAdjoint(coupling); // -1.4
+scope.Close();
+```
+
+One event owns the numeric cache and the packed active bindings. It publishes
+one zero-edge slot per solution entry, without expanding parameters to a dense
+active matrix or recording fixed out-of-band zeros. Symmetric off-diagonal
+gradients add both physical-entry contributions; they are not averaged.
+Repeated parameters and aliases shared with the RHS or surrounding expressions
+accumulate into their original slots. An active parameter whose value is zero
+still receives its derivative.
+
+Scalar and vector sweeps, output-seed consumption, checkpoints, thread ownership,
+failure invalidation and tape/caller budgets follow the recorded dense-solve
+contract. Source containers may change after capture; retained factors, solution
+and bindings remain owned by the event. Passive parameters omit parameter
+contraction, including its unused overflow checks. Only exact-zero seed channels
+skip reverse work; requested nonfinite contributions invalidate the recording.
+
+For p parameters and m RHS columns, the event retains O(p) parameter bindings
+and contracts gradients in O(pm), with O(p+nm) reverse outputs. LU factors remain
+dense, so factorization costs O(n^3) and transpose substitution costs O(n^2m).
+These coordinate overloads provide first-order derivatives; they do not return
+the optional diagnostic result of the dense overload family.
 
 ### Native Production Profiling
 
@@ -700,16 +758,16 @@ seed/channel access and a passive capability description. Recording services
 call the established native tape functions directly; there is no backend
 inheritance, selector, virtual dispatch or per-node capability lookup.
 
-| Contract                                | Native support                     |
-|-----------------------------------------|------------------------------------|
-| Scalar and repeated fixed-graph reverse | Yes, while the graph remains valid |
-| Interval reverse/prefix accumulation    | Yes                                |
-| Scoped lifecycle validation             | Yes                                |
-| Vector adjoint channels                 | Up to `ADJ_SIZE`                   |
-| Active-number lifetime diagnostics      | Available; default OFF             |
-| Recorded reverse events                 | Dense solves, scalar/vector sweeps |
-| Independent nesting                     | Not implemented                    |
-| Higher-order active mode                | Not implemented                    |
+| Contract                                | Native support                                |
+|-----------------------------------------|-----------------------------------------------|
+| Scalar and repeated fixed-graph reverse | Yes, while the graph remains valid            |
+| Interval reverse/prefix accumulation    | Yes                                           |
+| Scoped lifecycle validation             | Yes                                           |
+| Vector adjoint channels                 | Up to `ADJ_SIZE`                              |
+| Active-number lifetime diagnostics      | Available; default OFF                        |
+| Recorded reverse events                 | Dense/coordinate solves, scalar/vector sweeps |
+| Independent nesting                     | Not implemented                               |
+| Higher-order active mode                | Not implemented                               |
 
 `SetSeed(number, seed, channel)` replaces a seed; `AddSeed` accumulates it,
 including multiple weights for the same output reference. `ReadAdjoint`

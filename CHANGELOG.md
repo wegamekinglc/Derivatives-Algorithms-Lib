@@ -18,6 +18,11 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-08
 
+- **Recorded solve coordinates** — native AAD composes packed symmetric and
+  banded parameters with ordinary expressions, aliases and scalar/vector
+  reverse sweeps. One owning event retains packed bindings without a dense
+  active expansion, with the existing checkpoint and capacity contracts. See
+  [recorded coordinates](docs/methodology/aad.md#recorded-solve-coordinates).
 - **Explicit solve coordinates** — numeric linear-solve pullbacks accept packed
   symmetric and variable-row band parameters, sum coupled symmetric gradients
   and compute parameter contributions directly without a dense matrix adjoint.
