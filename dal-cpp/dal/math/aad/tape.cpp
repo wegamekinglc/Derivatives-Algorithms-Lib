@@ -16,20 +16,27 @@ namespace Dal::AAD {
         struct Entry_ {
             Iterator_ end_;
             size_t ordinal_;
-            std::unique_ptr<ReverseEvent_> event_;
+            ReverseEventHandle_ event_;
         };
-        std::vector<Entry_> entries_;
+        std::vector<Entry_, ReverseEventAllocator_<Entry_>> entries_;
         size_t marked_ = 0;
         std::thread::id owner_ = std::this_thread::get_id();
         bool multi_;
         size_t width_;
         bool reversing_ = false;
 
-        explicit ReverseEvents_(const Tape_& tape) : multi_(tape.multi_), width_(tape.numAdj_) {}
+        explicit ReverseEvents_(Tape_* tape) : entries_(ReverseEventAllocator_<Entry_>(tape)), multi_(tape->multi_), width_(tape->numAdj_) {}
     };
 
-    Tape_::Tape_(bool) : multi_(false), numAdj_(1), pad_{} {}
-    Tape_::~Tape_() noexcept = default;
+    Tape_::Tape_(bool) : multi_(false), numAdj_(1), pad_{}, reverseEvents_(nullptr, ReverseEventsDeleter_{this}) {}
+    Tape_::~Tape_() noexcept { reverseEvents_.reset(); }
+
+    void Tape_::ReverseEventsDeleter_::operator()(ReverseEvents_* events) const noexcept {
+        delete events;
+        NativeRecordedOperation_::ReleaseStorage(tape_, sizeof(ReverseEvents_));
+    }
+
+    size_t Tape_::ReverseEventCount() const { return reverseEvents_ == nullptr ? 0 : reverseEvents_->entries_.size(); }
 
     void Tape_::RequireReverseEventState(const char* operation) const {
         REQUIRE(!reverseFailed_, String_(operation) + ": failed structured recording requires reset");
@@ -46,12 +53,22 @@ namespace Dal::AAD {
         }
     }
 
-    void Tape_::AppendReverseEvent(std::unique_ptr<ReverseEvent_> event) {
+    void Tape_::PrepareReverseEvent() {
         RequireReverseEventState("Tape.RecordEvent");
         RequireReverseEventMutation("Tape.RecordEvent");
+        if (reverseEvents_ == nullptr) {
+            EventStorageTicket_ storage(this, sizeof(ReverseEvents_));
+            reverseEvents_.reset(new ReverseEvents_(this));
+            storage.Commit();
+        }
+        const auto& entries = reverseEvents_->entries_;
+        if (entries.size() == entries.capacity())
+            reverseEvents_->entries_.reserve(entries.empty() ? 1 : 2 * entries.size());
+    }
+
+    void Tape_::AppendReverseEvent(ReverseEventHandle_ event) {
         REQUIRE(event != nullptr, "Tape.RecordEvent: event must not be null");
-        if (reverseEvents_ == nullptr)
-            reverseEvents_ = std::make_unique<ReverseEvents_>(*this);
+        PrepareReverseEvent();
         const auto boundary = nodes_.GetPosition();
         reverseEvents_->entries_.push_back({boundary, nodes_.OccupiedSlots(), std::move(event)});
     }
@@ -262,6 +279,7 @@ namespace Dal::AAD {
         if (tape.HasReverseEventState())
             tape.reverseFailed_ = true;
         tape.reverseEvents_.reset();
+        tape.eventScratchPeakBytes_ = 0;
         ForEachBlockAll(tape, [](auto& block) { block.Clear(); });
         tape.reverseFailed_ = false;
 #if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
@@ -289,6 +307,7 @@ namespace Dal::AAD {
         if (tape.HasReverseEventState())
             tape.reverseFailed_ = true;
         tape.reverseEvents_.reset();
+        tape.eventScratchPeakBytes_ = 0;
 #if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
         tape.BeginLifetimeReset();
         ForEachBlockAll(tape, [](auto& block) {

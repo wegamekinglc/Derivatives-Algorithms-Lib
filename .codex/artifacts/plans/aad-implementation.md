@@ -41,30 +41,28 @@ on `feature/aad-linear-solve-recording`, under the
 acceptance remain open. Structured coordinates, precision/conditioning
 diagnostics, implicit calibration, PDE and subsequent stages remain required.
 
-Initial recording progress: the analytic missing-interface RED is retained in
-`aad-recorded-solve-analytic-red-01.log`. An all-active prototype now owns solve
-caches/events, dispatches scalar segments, consumes output channels and connects
-checkpoint/reset/failure paths. Four affected translation units pass syntax
-checking; initial matrix-wrapper compile errors remain in build logs 01/02 and
-are repaired with shared helpers and indexed writable access. Build 03 succeeds,
-and six focused runtime cases pass: analytic repeated negative seeds, multiple
-RHS, matrix/RHS aliases, vector widths 1/2/3/4/8, repeated prefix/suffix solves,
-and failure invalidation/recovery. An internal callback reset test exposes a
-missing reverse-mutation guard; retained RED and GREEN prove the repair. The
-passive-overload and RHS-only numeric RED/GREEN additionally prove that passive
-A omits an overflowing unused matrix contribution. Independent 3x3 scalar AAD
-and three-step central differences cover every coordinate; ownership, exact
-block boundaries, multiple output blocks and event release counters pass.
-Twenty new cases plus affected existing contracts pass 71/71; two subsequent
-composition/mutation cases pass 2/2. The final focused increment passes 24/24,
-adding insufficient-capacity output rejection and an untruncated `1e-40` seed.
-Finite-capacity use currently rejects before cache allocation; admission and
-resource measurement remain required. Fresh final-head performance and CI are
-pending; the reverse-event capability remains false until full acceptance.
-Fourteen fresh translation units also pass combined lifetime-diagnostic/profiling
-syntax checks; actual ON runtime evidence remains a final CI requirement.
-Accepted #490 baseline libraries, test executable, headers and compile settings
-are frozen in `aad-recorded-solve-baseline-01/provenance.json` before rebuilding.
+Recording progress: the analytic/interface, passive/RHS-only, reset-mutation,
+resource and capability RED logs remain in session evidence. Forty-three new
+cases now pass across three overloads, independent scalar/finite-difference
+oracles, vector widths 1/2/3/4/8, aliases, shared/serial solves, repeated reverse,
+checkpoints, raw windows, block boundaries, ownership and failure recovery.
+The resource implementation admits exact owned descriptor/owner/table/cache
+capacity and numeric scratch before allocation, refunds failures and releases
+before scalar reuse. Parent buffer ceilings overlap reverse scratch while
+retained cache construction/destruction suspends parent accounting. Exact peak,
+one-byte-short, allocation/copy failures, suffix release, detached readmission,
+foreign live inputs, wrong-thread use and table growth have focused evidence.
+The production resource batch passes 113 affected cases; subsequent edge and
+integration batches pass 8/8, 4/4 and 3/3 without repeating broad suites.
+
+The published prototype is `c79bcc58` in draft #491. A complete exact-head audit
+now verifies 35/35 successful checks, zero Codacy annotations and zero unresolved
+threads for that prototype. These checks do not accept the local resource batch.
+The scalar/vector/lifecycle/resource capability contract is updated under TDD;
+final native-path timing, installed consumers and OFF/ON runtime CI remain open.
+Accepted #490 baseline libraries, headers and tests are frozen in
+`aad-recorded-solve-baseline-01/provenance.json`; the published prototype is
+frozen separately in `aad-recorded-solve-increment-01/provenance.json`.
 
 Scope amendment (2026-10-04): the user requires removing XAD, CoDiPack and Adept
 support and keeping only DAL's built-in native AAD. This replaces the earlier
@@ -827,7 +825,7 @@ overlapping acceptance work is included once in the integration allowance.
 | F02 portfolio           | C++/Python/Excel, installed consumers and timing repair accepted      | #487 merged; final 35/35 checks accepted | 0                     |
 | P02                     | Worker reuse: 82 tests and 37 full-request cost cases accepted        | #488 merged; final 35/35 checks accepted | 0                     |
 | P03                     | 89 tests; 81 unique complete-request timing comparisons accepted      | #489 merged; final 35/35 checks accepted | 0                     |
-| F03                     | Numeric accepted; recording prototype 24/24; resource gate open        | #490 merged; #491 draft, CI pending      | 12–20                 |
+| F03                     | Numeric accepted; recording/resource tests 42/42; final timing open   | #490 merged; #491 draft; final CI open   | 12–20                 |
 | P04/P05                 | Structural sparsity/checkpointing remain                              | Open                                     | 9–15                  |
 | F04                     | Second-order implementation/estimator validation remain               | Open                                     | 12–20                 |
 | Final integration/audit | Cross-platform/binding/docs/performance acceptance remains            | Open                                     | 7–11                  |

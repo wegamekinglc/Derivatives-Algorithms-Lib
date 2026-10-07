@@ -18,6 +18,11 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-07
 
+- **Native recorded dense solves** — dense solves compose with scalar/vector
+  native recordings, aliases, repeated reverse and checkpoint reuse, with
+  owned caches and preallocation tape-budget admission. Tape copying/moving
+  is uniformly disabled to preserve graph ownership. See
+  [recorded solves](docs/methodology/aad.md#recorded-dense-linear-solves).
 - **Independent dense linear-solve pullback** — a core C++ numeric operator owns
   normalized pivoted LU factors, supports multiple RHS and repeated concurrent
   reverse calls with adaptive RHS scaling, and returns dense matrix/RHS contributions with explicit pivot

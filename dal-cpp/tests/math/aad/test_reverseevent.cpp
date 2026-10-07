@@ -38,7 +38,7 @@ TEST(AADReverseEventTest, TestAdjointResetDuringReverseInvalidatesGraph) {
     scope.RegisterInput(input, 2.0);
     scope.StartRecording();
     Number_ output = input * input;
-    NativeRecordedOperation_::Commit(&scope, std::make_unique<ResetAdjointsEvent_>());
+    NativeRecordedOperation_::Commit(&scope, NativeRecordedOperation_::MakeEvent<ResetAdjointsEvent_>(Tape()));
     scope.FinishRecording();
     scope.ClearAdjoints();
     NativeOperations_::SetSeed(output, 1.0);
@@ -57,7 +57,7 @@ TEST(AADReverseEventTest, TestRecordResetAndRecursiveReverseInvalidateGraph) {
         scope.RegisterInput(input, 2.0);
         scope.StartRecording();
         Number_ output = input * input;
-        NativeRecordedOperation_::Commit(&scope, std::make_unique<ActionEvent_>(action));
+        NativeRecordedOperation_::Commit(&scope, NativeRecordedOperation_::MakeEvent<ActionEvent_>(Tape(), action));
         scope.FinishRecording();
         scope.ClearAdjoints();
         NativeOperations_::SetSeed(output, 1.0);

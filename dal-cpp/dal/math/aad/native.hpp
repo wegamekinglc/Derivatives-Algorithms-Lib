@@ -20,7 +20,7 @@ namespace Dal::AAD {
         bool numberLifetimeDiagnosticsAvailable_ = true;
         bool numberLifetimeDiagnosticsEnabled_ = false;
         bool independentNesting_ = false;
-        bool reverseEvents_ = false;
+        bool reverseEvents_ = true;
         bool higherOrder_ = false;
     };
 

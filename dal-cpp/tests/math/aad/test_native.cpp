@@ -26,7 +26,7 @@ TEST(AADNativeTest, TestCapabilitiesDescribeCompiledFirstOrderIntegration) {
     ASSERT_TRUE(capabilities.prefixAccumulation_);
     ASSERT_TRUE(capabilities.scopedLifecycleValidation_);
     ASSERT_FALSE(capabilities.independentNesting_);
-    ASSERT_FALSE(capabilities.reverseEvents_);
+    ASSERT_TRUE(capabilities.reverseEvents_);
     ASSERT_FALSE(capabilities.higherOrder_);
     ASSERT_TRUE(capabilities.vectorAdjoints_);
     ASSERT_EQ(capabilities.maxAdjointWidth_, Dal::AAD::ADJ_SIZE);

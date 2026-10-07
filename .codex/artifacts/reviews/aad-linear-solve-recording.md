@@ -12,13 +12,7 @@ increment and does not represent a final-head publication audit.
 
 ## Findings
 
-1. Required resource admission remains incomplete at
-   `dal-cpp/dal/math/aad/linearsolve.cpp:105`, `RecordSolve`: a finite tape-capacity
-   scope rejects before allocating solve caches. This prevents a silent bypass,
-   but accepted finite-budget execution needs cache/descriptor/event-table
-   admission and explicit retained/scratch capacity measurements. Preserve the
-   original resource requirement; no acceptance or capability promotion yet.
-2. Final platform and performance evidence remains open for
+1. Final platform and performance evidence remains open for
    `dal-cpp/dal/math/aad/tape.cpp:45`, `expr.hpp:612`, `native.hpp:59`
    and `aad.hpp:53`.
    Empty-event dispatch, reset and adjoint-read guards change shared paths.
@@ -26,6 +20,14 @@ increment and does not represent a final-head publication audit.
    performance. Compare fresh existing and recorded-solve workloads at the
    stable head, and inspect actual installed-consumer, Windows and sanitizer
    execution before merge.
+
+The resource finding is resolved locally: finite tape scopes now admit exact
+descriptor/owner/table/cache and transient storage before allocation. Failed
+allocations refund, replacement capacity overlaps, suffix/close release matches
+actual capacity, and reverse scratch obeys parent buffer ceilings. Forty-two
+new tests pass; the production resource batch additionally passes 113 affected
+tests. Parent-budget, event-table growth and ownership increments pass 4/4 and
+3/3. Final platform acceptance must use this source increment, not `c79bcc58`.
 
 The initial missing reset guard in `aad.hpp`, `ZeroAdjoints`, is repaired:
 the internal callback RED erased gradients without throwing; GREEN now rejects
@@ -35,8 +37,8 @@ is identified within the locally exercised prototype behavior.
 ## Open questions
 
 No user decision is pending. Resource representation remains an implementation
-task under the existing contract. Additional foreign-thread/input, admission
-failure, scratch-budget and release measurement cases remain required.
+task under the existing contract. Foreign-thread/live-input, admission failure,
+scratch-budget and release cases now have focused local coverage.
 
 ## Tests
 

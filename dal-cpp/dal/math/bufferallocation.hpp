@@ -21,6 +21,23 @@ namespace Dal {
     } // namespace exception
 
     namespace Detail {
+        class OwnedBufferAccount_ {
+        public:
+            virtual ~OwnedBufferAccount_() noexcept = default;
+            virtual void Reserve(size_t bytes) = 0;
+            virtual void Release(size_t bytes) noexcept = 0;
+        };
+
+        class OwnedBufferScope_ {
+            OwnedBufferAccount_* account_;
+
+        public:
+            explicit OwnedBufferScope_(OwnedBufferAccount_* account);
+            ~OwnedBufferScope_() noexcept;
+            OwnedBufferScope_(const OwnedBufferScope_&) = delete;
+            OwnedBufferScope_& operator=(const OwnedBufferScope_&) = delete;
+        };
+
         // The slot address is stable for the calling thread.
 #if defined(__GNUC__) || defined(__clang__)
         __attribute__((const))

@@ -25,6 +25,7 @@
 
 #include <dal/math/aad/blocklist.hpp>
 #include <dal/math/aad/node.hpp>
+#include <dal/math/aad/reverseevent.hpp>
 
 namespace Dal::AAD {
     class Number_;
@@ -69,15 +70,25 @@ namespace Dal::AAD {
 
         [[nodiscard]] bool HasReverseEventState() const { return reverseFailed_ || reverseEvents_ != nullptr; }
         void RequireReverseEventState(const char* operation) const;
+        [[nodiscard]] size_t ReverseEventCount() const;
+        [[nodiscard]] size_t ReverseEventCapacityBytes() const { return eventCapacityBytes_; }
+        [[nodiscard]] size_t ReverseScratchPeakBytes() const { return eventScratchPeakBytes_; }
 
     private:
         struct ReverseEvents_;
-        std::unique_ptr<ReverseEvents_> reverseEvents_;
+        struct ReverseEventsDeleter_ {
+            Tape_* tape_;
+            void operator()(ReverseEvents_* events) const noexcept;
+        };
+        std::unique_ptr<ReverseEvents_, ReverseEventsDeleter_> reverseEvents_;
         bool reverseFailed_ = false;
+        size_t eventCapacityBytes_ = 0;
+        size_t eventScratchPeakBytes_ = 0;
         friend struct NativeRecordedOperation_;
 
         void RequireReverseEventMutation(const char* operation) const;
-        void AppendReverseEvent(std::unique_ptr<ReverseEvent_> event);
+        void PrepareReverseEvent();
+        void AppendReverseEvent(ReverseEventHandle_ event);
         void PropagateEventWindow(Iterator_ end, Iterator_ begin, bool fromMark, bool toMark, void (*propagate)(Tape_&, Iterator_, Iterator_));
 
 #if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)

@@ -28,7 +28,7 @@ namespace {
 
     void RecordCountedEvent(RecordingScope_* scope, EventCounts_* counts) {
         Number_ boundary(1.0);
-        NativeRecordedOperation_::Commit(scope, std::make_unique<CountedEvent_>(counts));
+        NativeRecordedOperation_::Commit(scope, NativeRecordedOperation_::MakeEvent<CountedEvent_>(Tape(), counts));
     }
 } // namespace
 

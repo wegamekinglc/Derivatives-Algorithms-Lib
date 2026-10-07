@@ -6,11 +6,13 @@
 
 #include <algorithm>
 #include <cmath>
+#include <optional>
 #include <type_traits>
 
 #include <dal/math/aad/linearsolve.hpp>
 #include <dal/math/aad/native.hpp>
 #include <dal/math/aad/reverseevent.hpp>
+#include <dal/math/buffercapacity.hpp>
 #include <dal/math/matrix/linearsolvepullback.hpp>
 
 namespace Dal::AAD {
@@ -38,7 +40,62 @@ namespace Dal::AAD {
                     AddContribution(&(*inputs)(row, column), contributions(row, column), channel);
         }
 
-        class LinearSolveEvent_ final : public ReverseEvent_ {
+        template <class E_> SquareMatrix_<> Snapshot(Tape_* tape, const SquareMatrix_<E_>& source) {
+            SquareMatrix_<> result(source.Rows());
+            CopyValues(tape, static_cast<const Matrix_<E_>&>(source), &result);
+            return result;
+        }
+
+        template <class E_> Matrix_<> Snapshot(Tape_* tape, const Matrix_<E_>& source) {
+            Matrix_<> result(source.Rows(), source.Cols());
+            CopyValues(tape, source, &result);
+            return result;
+        }
+
+        class EventBufferAccount_ final : public Detail::OwnedBufferAccount_ {
+            Tape_* tape_;
+            size_t current_ = 0;
+            size_t scratchBase_ = 0;
+            bool scratching_ = false;
+
+        public:
+            explicit EventBufferAccount_(Tape_* tape) : tape_(tape) {}
+            void Reserve(size_t bytes) override {
+                NativeRecordedOperation_::ReserveStorage(tape_, bytes);
+                current_ += bytes;
+                if (scratching_)
+                    NativeRecordedOperation_::ObserveScratch(tape_, current_ - scratchBase_);
+            }
+            void Release(size_t bytes) noexcept override {
+                if (bytes > current_)
+                    std::terminate();
+                NativeRecordedOperation_::ReleaseStorage(tape_, bytes);
+                current_ -= bytes;
+            }
+            void StartScratch() noexcept {
+                scratchBase_ = current_;
+                scratching_ = true;
+            }
+            void FinishScratch() noexcept { scratching_ = false; }
+        };
+
+        class ScratchMeasurement_ {
+            EventBufferAccount_* account_;
+
+        public:
+            explicit ScratchMeasurement_(EventBufferAccount_* account) : account_(account) { account_->StartScratch(); }
+            ~ScratchMeasurement_() noexcept { account_->FinishScratch(); }
+            ScratchMeasurement_(const ScratchMeasurement_&) = delete;
+            ScratchMeasurement_& operator=(const ScratchMeasurement_&) = delete;
+        };
+
+        template <class F_> void WithOwnedPayload(EventBufferAccount_* account, const F_& operation) {
+            Detail::BufferCapacitySuspension_ suspended;
+            Detail::OwnedBufferScope_ owned(account);
+            operation();
+        }
+
+        class LinearSolvePayload_ {
             LinearSolvePullback_ solve_;
             SquareMatrix_<Number_> matrix_;
             Matrix_<Number_> rhs_;
@@ -75,7 +132,8 @@ namespace Dal::AAD {
 
         public:
             template <class M_, class R_>
-            LinearSolveEvent_(const SquareMatrix_<M_>& matrix, const Matrix_<R_>& rhs, LinearSolvePullback_ solve) : solve_(std::move(solve)) {
+            LinearSolvePayload_(Tape_* tape, const SquareMatrix_<M_>& matrix, const Matrix_<R_>& rhs, double tolerance)
+                : solve_(Snapshot(tape, matrix), Snapshot(tape, rhs), tolerance), outputs_(rhs.Rows(), rhs.Cols()) {
                 if constexpr (std::is_same_v<M_, Number_>)
                     matrix_ = matrix;
                 if constexpr (std::is_same_v<R_, Number_>)
@@ -86,29 +144,46 @@ namespace Dal::AAD {
                 const auto& values = solve_.Solution();
                 Matrix_<Number_> result(values.Rows(), values.Cols());
                 for (int row = 0; row < values.Rows(); ++row)
-                    for (int column = 0; column < values.Cols(); ++column)
+                    for (int column = 0; column < values.Cols(); ++column) {
                         result(row, column) = values(row, column);
-                outputs_ = result;
+                        outputs_(row, column) = result(row, column);
+                    }
                 return result;
             }
 
-            void Reverse(bool multi, size_t width) override {
+            void Reverse(bool multi, size_t width) {
                 const auto channels = multi ? width : 1;
                 for (size_t channel = 0; channel < channels; ++channel)
                     ReverseChannel(channel);
+            }
+        };
+
+        class LinearSolveEvent_ final : public ReverseEvent_ {
+            EventBufferAccount_ account_;
+            std::optional<LinearSolvePayload_> payload_;
+
+        public:
+            template <class M_, class R_>
+            LinearSolveEvent_(Tape_* tape, const SquareMatrix_<M_>& matrix, const Matrix_<R_>& rhs, double tolerance) : account_(tape) {
+                WithOwnedPayload(&account_, [&] { payload_.emplace(tape, matrix, rhs, tolerance); });
+            }
+            ~LinearSolveEvent_() noexcept override {
+                WithOwnedPayload(&account_, [this] { payload_.reset(); });
+            }
+            [[nodiscard]] Matrix_<Number_> MakeOutputs() { return payload_->MakeOutputs(); }
+            void Reverse(bool multi, size_t width) override {
+                ScratchMeasurement_ measurement(&account_);
+                Detail::OwnedBufferScope_ scratch(&account_);
+                payload_->Reverse(multi, width);
             }
         };
         template <class M_, class R_>
         Matrix_<Number_> RecordSolve(RecordingScope_* recording, const SquareMatrix_<M_>& matrix, const Matrix_<R_>& rhs, double tolerance) {
             auto* tape = NativeRecordedOperation_::Begin(recording);
             try {
-                REQUIRE(!TapeCapacityActive(), "LinearSolve: event cache capacity admission is not yet available");
                 REQUIRE(matrix.Rows() > 0 && rhs.Rows() == matrix.Rows() && rhs.Cols() > 0, "LinearSolve: requires a nonempty square system and RHS");
-                SquareMatrix_<> matrixValues(matrix.Rows());
-                Matrix_<> rhsValues(rhs.Rows(), rhs.Cols());
-                CopyValues(tape, static_cast<const Matrix_<M_>&>(matrix), &matrixValues);
-                CopyValues(tape, rhs, &rhsValues);
-                auto event = std::make_unique<LinearSolveEvent_>(matrix, rhs, LinearSolvePullback_(matrixValues, rhsValues, tolerance));
+                auto event = NativeRecordedOperation_::MakeEvent<LinearSolveEvent_>(tape, tape, matrix, rhs, tolerance);
+                NativeRecordedOperation_::Prepare(tape);
                 auto result = event->MakeOutputs();
                 NativeRecordedOperation_::Commit(recording, std::move(event));
                 return result;

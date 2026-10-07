@@ -1,10 +1,11 @@
 # Native recorded solve API decisions
 
 Status: active F03 recording increment. All three overloads and a numeric
-RHS-only contribution are implemented locally. Twenty-four new cases pass,
+RHS-only contribution are implemented locally. Forty-two new cases pass,
 covering analytic/reference gradients, aliases, multiple RHS, vector channels,
 serial/shared solves, checkpoint/reset ownership and failure invalidation.
-Capacity admission, performance and final CI acceptance remain open. This note
+Exact storage admission and release pass locally; performance and final CI
+acceptance remain open. This note
 specifies the complete required surface.
 Controlling [specification](../specs/aad-linear-solve-recording.md).
 
@@ -64,3 +65,48 @@ only after full first-order event acceptance; nesting/higher order stay false.
 
 No user decision is pending. Review/performance can require an internal storage
 revision without weakening this surface or its lifecycle/resource contract.
+
+## Active resource implementation
+
+The prototype is pushed at `c79bcc58`, whose 35 checks pass. The subsequent
+local resource implementation admits finite budgets before owned allocation.
+MeasureTape and tape-budget admission now include a fifth domain for reverse
+events, with exact descriptor/table/cache capacity and reverse scratch peaks.
+Current head CI does not validate this unpublished source increment.
+
+For n rows and m RHS columns, the retained variable payload consists of LU
+`n*n*sizeof(double)`, swaps `n*sizeof(int)`, X `n*m*sizeof(double)`, active A
+bindings `n*n*sizeof(Number_)` when present, active B bindings
+`n*m*sizeof(Number_)` when present, and output bindings
+`n*m*sizeof(Number_)`. Add the actual event descriptor, lazy owner and event-table
+capacities. Measure allocated vector capacities, including replacement overlap,
+rather than assuming logical extents describe every allocation.
+
+Per-channel reverse scratch includes collected seeds and transpose/RHS
+contributions, each `n*m*sizeof(double)`, and a matrix contribution
+`n*n*sizeof(double)` only for active A. Forward snapshots and intermediate
+construction copies also affect peak capacity. These formulas identify required
+storage; actual allocation measurements establish admission and peak evidence.
+Returned X container storage belongs to the caller; its scalar output slots
+already belong to the tape. Distinguish that caller buffer from retained event
+output bindings in the resource report.
+
+Admission runs before owned allocation and refunds unsuccessful allocations.
+An event-specific cold allocation context may reuse existing buffer accounting;
+ordinary node recording/propagation needs no added resource hook. Resource
+ownership must survive adjoint clear and prefix reuse, follow suffix destruction,
+and release before scalar reset. Existing request buffer scopes and worker tape
+readmission must remain compatible; no silent uncharged cache or escaped budget
+reference is acceptable.
+
+The controlling resource RED is
+`AADLinearSolveTest.TestFiniteCapacityIncludesCacheAndResetReturnsToBaseline`.
+Its original admission-guard failure is retained; GREEN now shows cache-inclusive
+MeasureTape/budget equality, retained cache after clear/reverse and exact release
+on scope close. Tests additionally cover exact peak/one-byte-short budgets,
+passive binding and scratch omission, replacement overlap, constructor/copy/
+buffer allocation failures, suffix release, detached readmission, parent scratch
+rejection and recovery, aligned/zero allocations and finite vector widths.
+Cross-thread and foreign-live-slot rejection precede output publication. The
+reverse-event capability contract is updated under its own RED/GREEN; actual
+final-head platform/performance acceptance is still required before merge.
