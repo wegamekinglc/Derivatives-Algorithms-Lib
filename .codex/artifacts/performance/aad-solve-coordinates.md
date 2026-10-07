@@ -20,11 +20,11 @@ The new numeric API has no previous implementation. Informational comparisons
 against the dense numeric API select three useful boundaries, each in complete
 and cached-reverse phases:
 
-| Case | Why selected |
-|------|--------------|
-| Symmetric n=2, m=1 | Small fixed overhead and coupled off-diagonal coordinates |
-| Band n=64, below=1, above=2, m=4 | Narrow asymmetric band and multiple RHS |
-| Full band n=16, m=2 | Endpoint with p=n*n and no parameter-count reduction |
+| Case                             | Why selected                                              |
+|----------------------------------|-----------------------------------------------------------|
+| Symmetric n=2, m=1               | Small fixed overhead and coupled off-diagonal coordinates |
+| Band n=64, below=1, above=2, m=4 | Narrow asymmetric band and multiple RHS                   |
+| Full band n=16, m=2              | Endpoint with p=n*n and no parameter-count reduction      |
 
 Complete includes construction, reverse, output reading and destruction. Cached
 includes reverse/output reading/destruction but excludes cache construction.
@@ -42,8 +42,8 @@ Checksums must agree across all observations.
 
 Session evidence retained outside /tmp:
 `/home/wegamekinglc/.cache/dal-aad-evidence-20261008/` contains
-`coordinates-baseline/provenance.json`, `coordinates-archive-identity.json`,
-the cost source/sampler and the forthcoming `coordinates-cost/` raw outputs,
+`coordinates-baseline/provenance.json`, `coordinates-archive-identity-02.json`,
+the cost source/sampler and retained `coordinates-cost/` raw outputs,
 commands, hashes, sample and result JSON. Final observations and provenance are
 in `coordinates-cost-02/`; initial observations remain in `coordinates-cost/`.
 The accepted earlier raw observations
@@ -55,11 +55,11 @@ Final runtime `5587958c` retains all 167 existing members; the new object's SHA2
 is `e4e70066f2d8fb5609d2ea14ae82fb631fd72e4be46f1d0c9ae1c086cfa055a9`.
 Each study contains 40 processes and 240 case observations. All checksums agree.
 
-| Case | Coordinate/dense complete, rounds 1/2 | Coordinate/dense cached, rounds 1/2 |
-|------|--------------------------------------|------------------------------------|
-| Symmetric n=2, m=1 | 1.223 / 1.242 | 1.074 / 1.083 |
-| Band n=64, below=1, above=2, m=4 | 0.907 / 0.899 | 0.605 / 0.603 |
-| Full band n=16, m=2 | 1.407 / 1.421 | 1.238 / 1.339 |
+| Case                             | Coordinate/dense complete, rounds 1/2 | Coordinate/dense cached, rounds 1/2 |
+|----------------------------------|---------------------------------------|-------------------------------------|
+| Symmetric n=2, m=1               | 1.223 / 1.242                         | 1.074 / 1.083                       |
+| Band n=64, below=1, above=2, m=4 | 0.907 / 0.899                         | 0.605 / 0.603                       |
+| Full band n=16, m=2              | 1.407 / 1.421                         | 1.238 / 1.339                       |
 
 The initial full-band cached ratio was 2.077/2.025. Assembly showed repeated
 row-boundary and contraction-helper calls. Hoisting validated row ends and
