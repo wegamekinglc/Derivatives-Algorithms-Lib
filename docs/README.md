@@ -25,6 +25,9 @@ the dedicated Python and Excel chapters, examples use C++ by default.
 The [fixed-grid European PDE example](methodology/pde/aad.md) covers complete
 call/put native adjoints and separate derivative/grid-convergence acceptance.
 
+The [structural Jacobian guide](methodology/aad-sparsity.md) describes conservative
+row supports, compressed direction recovery and numeric payload admission.
+
 ## Component Guides
 
 - [Core C++](../dal-cpp/README.md) and [public C++ facade](../dal-public/README.md).
