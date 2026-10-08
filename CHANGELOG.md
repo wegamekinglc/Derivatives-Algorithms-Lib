@@ -18,6 +18,11 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-08
 
+- **Sampled PDE theta-step pullback** — an owning numeric operator returns
+  discrete state, boundary, rate, drift, variance, time-step and theta risks
+  using a cached adjacent-pivot tridiagonal solve with physical forward/transpose
+  accuracy checks and linear buffer capacity. See
+  [sampled PDE steps](docs/methodology/aad.md#owning-sampled-pde-theta-steps).
 - **Recorded implicit roots** — native AAD composes owning equation
   linearizations with ordinary expressions and serial root events, preserving
   declared residual/transpose limits, shared invocation reports and capacity

@@ -551,8 +551,9 @@ budgets. Retained cache/bindings and reverse scratch obey tape budgets; report
 allocation precedes scratch so the caller peak includes their overlap. A failed
 capture publishes no outputs. A failed reverse returns no partial collection
 and invalidates adjoint reads, while earlier successful reports stay readable.
-The interface provides first-order physical-system derivatives. Implicit roots,
-PDE discretization sensitivities and binding wrappers require their own contracts.
+The interface provides first-order physical-system derivatives. Equation roots
+and sampled PDE steps use the owning operators below; bindings have separate
+interfaces.
 
 ### Owning Implicit-Root Linearization
 
@@ -681,6 +682,90 @@ These overlapping measurements describe the same allocation. Failed capture
 publishes no root outputs. Failed reverse, unsupported numerical range or
 nonfinite accumulated input risk invalidates the recording and returns no
 partial collection. The interface provides first-order C++ equation derivatives.
+
+### Owning Sampled PDE Theta Steps
+
+`PDE::SampledThetaStepPullback_` in `dal/math/pde/sampledthetastep.hpp`
+differentiates one discrete theta step on a fixed physical grid. Its
+`SampledThetaStepInputs_` contains finite increasing locations `x_`, interior
+`rates_`, `drifts_` and nonnegative `variances_`, positive `dt_`, `theta_` in
+$[0,1]$, and an $n\times m$ `oldValues_` matrix with $n\geq3$ and $m>0$ layers.
+Each coefficient vector has $n-2$ entries. Rates and drifts may be signed.
+The grid must fit the library's integer matrix dimensions.
+
+The nonuniform three-point stencil forms
+
+$$
+L=\mu D_x+\tfrac12 vD_{xx}-rI,\qquad
+A=I-\Delta t\,\theta L,\qquad E=I+\Delta t\,(1-\theta)L.
+$$
+
+Interior equations solve $Au=Eu_{old}$. Boundary rows of $A$ are identity;
+`externalBoundaries_` explicitly selects each endpoint's RHS from the old
+endpoint or its row in `externalValues_`. External values have shape
+$2\times m$ when either endpoint is external. An all-old request may omit
+them; every supplied nonempty external matrix must have that shape and finite
+entries, including its unused side. The default boundary flags are both false
+and the default theta is $1/2$; `dt_` must be supplied.
+
+```cpp
+#include <dal/math/pde/sampledthetastep.hpp>
+
+Dal::PDE::SampledThetaStepInputs_ inputs;
+inputs.x_ = {0.0, 1.0, 2.0};
+inputs.rates_ = {0.1};
+inputs.drifts_ = {0.2};
+inputs.variances_ = {0.4};
+inputs.dt_ = 0.2;
+inputs.oldValues_ = Dal::Matrix_<>(3, 1, 1.0);
+const Dal::PDE::SampledThetaStepPullback_ step(
+    inputs, Dal::LinearSolveAccuracyPolicy_{1e-14, 1e-14});
+Dal::Matrix_<> seeds(3, 1);
+seeds(1, 0) = 1.0;
+const auto risk = step.Reverse(seeds);
+// step.Solution()(1, 0) is 103/105; risk.rates_ has one interior entry.
+```
+
+One $n\times m$ seed matrix defines one objective summed over all output
+layers. Reverse solves $A^T\lambda=w$ using the same adjacent-pivot
+tridiagonal LU, including second-upper fill from row swaps. Let $P$ remove
+endpoint rows. Old-state risk is $E^TP\lambda$, plus each old-derived
+endpoint's $\lambda$; external endpoint risk is its $\lambda$ and unused
+external risks are zero. Generator contributions are
+$\Delta t\lambda_i[\theta u_j+(1-\theta)u_{old,j}]$, summed over layers.
+They map directly to interior rate, drift and variance coordinates; `dt_`
+and `theta_` return scalar aggregate risks. Chain steps by passing each
+`oldValues_` risk to the preceding reverse and summing shared coefficient risks.
+At theta zero the solver retains no factors, while theta risk can remain nonzero.
+
+`Solution()`, `ForwardBackwardErrors()` and `Policy()` belong to the owning
+cache. Each reverse returns detached `SampledThetaStepAdjoints_` containing
+old/external matrices, the three coefficient vectors, scalar time/theta risks
+and one actual `transposeBackwardErrors_` entry per layer. The caller buffers
+may be changed or destroyed after capture. Copies own independent buffers;
+copy assignment first captures a complete temporary cache, so allocation or
+capacity failure leaves the destination unchanged. The temporary uses the same
+owned-buffer capacity as a copied cache; self-assignment allocates nothing.
+moves preserve the destination and leave the source assignable/destructible.
+Concurrent const reverse requests own independent results and scratch.
+
+Both accuracy limits must be finite in $[0,1]$ and are inclusive. Physical
+componentwise errors use the [solve residual definition](matrix.md#optional-solve-diagnostics)
+with at most three entries per row, including the actual transposed edges.
+The optional normalized pivot tolerance defaults to 64 machine epsilons and
+must lie strictly between zero and one, including for theta zero. Singular
+or rejected pivots, failed accuracy, nonfinite arithmetic and nonzero products
+or quotients rounded to zero reject unsupported numerical range. Representable
+subnormal results remain supported. A failed reverse leaves the cache reusable.
+Accuracy and pivot admission do not certify condition, discretization or
+sensitivity error.
+
+Factor work/storage are $O(n)$; capture and each reverse are $O(nm+n)$ with
+linear retained/result/scratch buffers. Caller capacity budgets count actual
+buffers and their overlap and refund failed requests. This C++ numeric operator
+holds the mesh and sampled coefficient-provider mapping fixed. Variance risk
+maps to volatility risk by the upstream $2\sigma$ factor. It exposes no native
+tape event or Python/Excel binding.
 
 ### Native Production Profiling
 
