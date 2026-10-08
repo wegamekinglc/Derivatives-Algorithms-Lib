@@ -103,3 +103,17 @@ Review 4216089377 catches an overly broad estimate text substitution that change
 an unrelated historical VJP range. The ledger restores the report's exact
 18.216–179.557 microseconds. Changed tables follow the compact separator/column
 width contract. These repairs change no numerical assertions or performance gate.
+
+## Shared diagnostics and fixture review correction
+
+Review 5453211682's body identifies three additional actionable notes despite
+zero inline threads: misleading LinearSolve prefixes, a mutable evaluation
+counter and mutable callback scratch. The shared recording/input/accumulation
+errors now identify RecordedOperation. Both fixture states are caller-managed.
+Three focused RED cases reproduce the diagnostic defect; all 25 native cases
+and 115 affected existing solve cases pass after the correction. Twelve affected
+source checks pass in OFF and combined diagnostics, and the installed consumer
+passes. The shared native objects change, so all 22 affected legacy performance
+rows and four optional costs are freshly sampled under the unchanged gate;
+all existing rows pass. The numeric root and other 169 baseline members retain
+identity. Final-head CI/Codacy/re-review and guarded merge remain required.

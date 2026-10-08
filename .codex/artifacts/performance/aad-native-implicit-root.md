@@ -13,8 +13,8 @@ The accepted isolated baseline archive and source hashes are frozen before chang
 Head archive is copied from the scoped build after correctness passed; no source edits during compilation or timing.
 Fresh baseline caller links match five previously accepted executable hashes.
 
-Archive member comparison uses (name, SHA256) multiplicities: 170 unchanged of 172 baseline members;
-two native solve objects replaced and one native root object added. Duplicate implicitroot.cpp.o basenames
+Archive member comparison uses (name, SHA256) multiplicities: 169 unchanged of 172 baseline members;
+three native solve/event objects replaced and one native root object added. Duplicate implicitroot.cpp.o basenames
 are distinct numeric/native objects. The numeric root member retains accepted bytes.
 Changes to generic return deduction and the narrow collector bridge select ordinary (6),
 diagnosed (2), dense checked (6), coordinate (4) and checked coordinate (4) caller rows.
@@ -31,28 +31,28 @@ Twenty-two rows retain 200 raw process outputs / 880 observations; four optional
 
 | Caller             | Case                                  | Base min ns | Head min ns | Round 1 % | Round 2 % | Verdict |
 |--------------------|---------------------------------------|-------------|-------------|-----------|-----------|---------|
-| checked            | medium-n32-rhs4-width4-full-cached    | 76030.675   | 76610.480   | +0.763    | +1.074    | Pass    |
-| checked            | medium-n32-rhs4-width4-full-complete  | 132246.212  | 133827.535  | +1.196    | +1.012    | Pass    |
-| checked            | small-n2-rhs1-scalar-full-cached      | 284.158     | 288.153     | +1.266    | +1.876    | Pass    |
-| checked            | small-n2-rhs1-scalar-full-complete    | 921.082     | 928.372     | -0.083    | +1.627    | Pass    |
-| checked            | tiny-n1-rhs1-scalar-rhs-only-cached   | 177.837     | 177.712     | -0.070    | +0.077    | Pass    |
-| checked            | tiny-n1-rhs1-scalar-rhs-only-complete | 662.075     | 662.811     | -4.400    | +2.409    | Pass    |
-| ordinary           | n2-rhs1-width0-activity0-cached       | 188.832     | 189.286     | -0.978    | +0.817    | Pass    |
-| ordinary           | n2-rhs1-width0-activity0-complete     | 612.274     | 608.361     | -1.044    | -0.639    | Pass    |
-| ordinary           | n2-rhs4-width8-activity2-cached       | 2677.039    | 2709.844    | +1.453    | -0.417    | Pass    |
-| ordinary           | n2-rhs4-width8-activity2-complete     | 3288.444    | 3277.779    | -0.324    | -0.238    | Pass    |
-| ordinary           | n32-rhs4-width4-activity1-cached      | 22488.747   | 22469.008   | +2.521    | -0.809    | Pass    |
-| ordinary           | n32-rhs4-width4-activity1-complete    | 35380.924   | 35622.088   | -0.320    | +2.340    | Pass    |
-| diagnosed          | n2-rhs1-width0-activity0-cached       | 188.695     | 189.696     | +0.042    | +0.532    | Pass    |
-| diagnosed          | n2-rhs1-width0-activity0-complete     | 819.678     | 820.489     | -0.029    | +0.394    | Pass    |
-| coordinate         | band-n64-rhs4-width4-cached           | 59662.115   | 59297.950   | -1.414    | +0.808    | Pass    |
-| coordinate         | band-n64-rhs4-width4-complete         | 126432.530  | 125848.240  | +0.387    | -1.374    | Pass    |
-| coordinate         | symmetric-n2-rhs1-scalar-cached       | 181.082     | 180.308     | +0.194    | -0.495    | Pass    |
-| coordinate         | symmetric-n2-rhs1-scalar-complete     | 622.098     | 621.698     | -0.031    | -0.064    | Pass    |
-| checked-coordinate | band-n64-rhs4-width4-cached           | 197124.595  | 194256.200  | -1.455    | -1.387    | Pass    |
-| checked-coordinate | band-n64-rhs4-width4-complete         | 479973.430  | 480959.255  | +0.205    | +0.483    | Pass    |
-| checked-coordinate | symmetric-n2-rhs1-scalar-cached       | 297.488     | 295.288     | -0.582    | -0.740    | Pass    |
-| checked-coordinate | symmetric-n2-rhs1-scalar-complete     | 964.550     | 969.719     | +1.288    | +0.536    | Pass    |
+| checked            | medium-n32-rhs4-width4-full-cached    | 79195.592   | 76604.458   | -0.869    | -3.272    | Pass    |
+| checked            | medium-n32-rhs4-width4-full-complete  | 135590.517  | 136034.383  | +0.360    | -1.119    | Pass    |
+| checked            | small-n2-rhs1-scalar-full-cached      | 283.946     | 285.032     | +0.382    | -0.166    | Pass    |
+| checked            | small-n2-rhs1-scalar-full-complete    | 924.788     | 931.238     | +0.697    | +0.452    | Pass    |
+| checked            | tiny-n1-rhs1-scalar-rhs-only-cached   | 177.999     | 178.081     | +3.260    | -5.073    | Pass    |
+| checked            | tiny-n1-rhs1-scalar-rhs-only-complete | 662.262     | 687.898     | +4.125    | -0.724    | Pass    |
+| ordinary           | n2-rhs1-width0-activity0-cached       | 189.625     | 189.686     | +0.294    | -0.044    | Pass    |
+| ordinary           | n2-rhs1-width0-activity0-complete     | 614.698     | 612.976     | -1.120    | +1.210    | Pass    |
+| ordinary           | n2-rhs4-width8-activity2-cached       | 2713.628    | 2723.058    | -0.236    | +1.792    | Pass    |
+| ordinary           | n2-rhs4-width8-activity2-complete     | 3304.911    | 3248.838    | -2.774    | +1.882    | Pass    |
+| ordinary           | n32-rhs4-width4-activity1-cached      | 22659.211   | 22297.850   | -1.595    | +1.789    | Pass    |
+| ordinary           | n32-rhs4-width4-activity1-complete    | 36341.633   | 35997.742   | -0.914    | -0.946    | Pass    |
+| diagnosed          | n2-rhs1-width0-activity0-cached       | 189.009     | 190.210     | +0.636    | -0.393    | Pass    |
+| diagnosed          | n2-rhs1-width0-activity0-complete     | 817.773     | 819.769     | +0.582    | +0.172    | Pass    |
+| coordinate         | band-n64-rhs4-width4-cached           | 58849.430   | 58113.385   | -1.251    | -1.019    | Pass    |
+| coordinate         | band-n64-rhs4-width4-complete         | 128331.410  | 128553.550  | +1.202    | -0.188    | Pass    |
+| coordinate         | symmetric-n2-rhs1-scalar-cached       | 180.805     | 182.144     | +1.351    | -0.090    | Pass    |
+| coordinate         | symmetric-n2-rhs1-scalar-complete     | 626.903     | 624.908     | +0.602    | -1.416    | Pass    |
+| checked-coordinate | band-n64-rhs4-width4-cached           | 196912.680  | 196038.980  | -1.244    | -0.444    | Pass    |
+| checked-coordinate | band-n64-rhs4-width4-complete         | 484303.130  | 483292.660  | +0.792    | -0.940    | Pass    |
+| checked-coordinate | symmetric-n2-rhs1-scalar-cached       | 294.344     | 301.148     | +2.312    | +2.484    | Pass    |
+| checked-coordinate | symmetric-n2-rhs1-scalar-complete     | 976.348     | 976.322     | -0.223    | +0.004    | Pass    |
 
 No sustained excess occurs. Small movements inside the calibrated gate support no regression,
 not a speedup claim. Measurements are from the shared development host with fixed affinity.
@@ -67,13 +67,13 @@ These are different amounts of work, so their ratio is not an existing-caller re
 
 | New case                        | Numeric min ns | Native min ns | Native nodes/events | Retained bytes | Scratch bytes | Caller retained/peak bytes |
 |---------------------------------|----------------|---------------|---------------------|----------------|---------------|----------------------------|
-| coupled-n2-k2-width4-cached     | 446.183        | 985.709       | 4/1                 | 880            | 80            | 168/352                    |
-| coupled-n2-k2-width4-complete   | 693.994        | 38336.800     | 4/1                 | 880            | 80            | 168/352                    |
-| quadratic-n1-k1-scalar-cached   | 89.778         | 265.966       | 2/1                 | 732            | 48            | 112/160                    |
-| quadratic-n1-k1-scalar-complete | 275.161        | 37396.641     | 2/1                 | 732            | 48            | 112/160                    |
+| coupled-n2-k2-width4-cached     | 453.661        | 987.097       | 4/1                 | 880            | 80            | 168/352                    |
+| coupled-n2-k2-width4-complete   | 699.912        | 38160.573     | 4/1                 | 880            | 80            | 168/352                    |
+| quadratic-n1-k1-scalar-cached   | 90.033         | 264.410       | 2/1                 | 732            | 48            | 112/160                    |
+| quadratic-n1-k1-scalar-complete | 276.263        | 37354.518     | 2/1                 | 732            | 48            | 112/160                    |
 
 The full tiny native request costs about 37–39 microseconds on this host;
-cached reverse is about 266–267 ns scalar and 986–991 ns for width4.
+cached reverse minima are about 264 ns scalar and 987 ns for width4.
 No universal speedup, sparse factorization or nonlinear convergence claim is made.
 
 ## Resource and failure proof
@@ -131,15 +131,33 @@ OFF remains at 352. Actual tape/caller budgets, resource thresholds and all
 production/archive/binary timing hashes are unchanged; no timing is repeated.
 The two affected OFF resource tests and strict OFF/combined checks pass.
 
+## Final shared-error review correction
+
+The final review body identified misleading LinearSolve prefixes and two mutable
+fixture members. Three focused RED cases reproduced null/wrong-phase, stale-input
+and alias-overflow diagnostics. Shared error labels are now RecordedOperation;
+the success-path algorithms and admission rules are unchanged. Test state is
+caller-managed. All 25 native and 115 existing solve cases pass, with 12 affected
+OFF/combined strict checks and a refreshed installed consumer.
+
+This changes shared native objects, so the final 22 affected legacy rows and four
+optional rows are freshly measured under the original paired protocol. No other
+performance families are sampled. All 22 legacy rows pass: the tiny complete
+row moves +4.125% in round one and -0.724% in round two, so it does not violate
+the predeclared sustained-both-rounds gate. Failed/intermediate evidence remains
+in native-implicit-root-pre-neutral-performance and the earlier retained folders.
+The tables above and hashes below describe this final shared-error correction.
+
 ## Final production hashes
 
 - dal-cpp/dal/math/aad/implicitroot.cpp: c77cfdf5126b3a52e699405f9c87d59d266c21472a634bcede7aa9eec35bd477
 - dal-cpp/dal/math/aad/implicitroot.hpp: c445bbc105b7744a60ac7c60824a6c626af72ba736f670efc637eaec92a9efbd
-- dal-cpp/dal/math/aad/linearsolveinternal.hpp: b88d26f4c8e4fbb0290ec3636b0b171969c38f1520ccb23bff4c6b2da0f58c45
+- dal-cpp/dal/math/aad/linearsolveinternal.hpp: 0e6721ae129cd91970a3fceab7f4d0e2aa6619bebf8f3b720b4334b25bdcb8a1
 - dal-cpp/dal/math/aad/linearsolveaccuracy.cpp: e4dad3818bfb1eaab35564c4f99f6abdcf38905d54974ed67d109dafc883b005
+- dal-cpp/dal/math/aad/reverseevent.cpp: be5d191b9c34800cdd55d12f39408edf501efc0e9486f3f91b4d80ef75029424
 - dal-cpp/dal/math/aad/linearsolveaccuracyinternal.hpp: 33dd76da500cfd71f2a72b1299ddcc7506607e6e0f4d8cce84b9f77c4503d984
 
 Baseline archive SHA256: 9a2a9abff81127422dcf31901503be543c8dabf5127fb778f3e4ecc6f417b398
-Head archive SHA256: 7d3227a0290f73efca8bfcda1e9bf55a924fd4526363150b0f328ba4a072e4b9
+Head archive SHA256: 6580f30848995016b407c88b062bc923594b7edabf8b293afbfc5865e5919305
 
 Publication and final exact-head acceptance must be inspected before merge.
