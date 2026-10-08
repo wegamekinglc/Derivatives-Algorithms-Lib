@@ -74,7 +74,10 @@ namespace Dal {
         double InputAdjoint(const Matrix_<>& jacobian, const Matrix_<>& lambda, int input) {
             double value = 0.0;
             for (int row = 0; row < jacobian.Rows(); ++row) {
-                value -= jacobian(row, input) * lambda(row, 0);
+                const double coefficient = jacobian(row, input), multiplier = lambda(row, 0);
+                const double product = coefficient * multiplier;
+                REQUIRE(product != 0.0 || coefficient == 0.0 || multiplier == 0.0, "ImplicitRoot.Reverse: nonzero input adjoint product underflow");
+                value -= product;
                 REQUIRE(std::isfinite(value), "ImplicitRoot.Reverse: input adjoint accumulation overflow");
             }
             return value;

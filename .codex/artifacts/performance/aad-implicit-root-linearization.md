@@ -8,13 +8,17 @@ retain their accepted executable hashes. Reuse the accepted coordinate/checked
 solve timing; no new old-caller measurement is justified by this source change.
 Four new root rows disclose optional cost and resource usage separately.
 
-Correctness precedes timing. Twenty-one distinct root cases pass, including
+Correctness precedes timing. Twenty-two distinct root cases pass, including
 independently converged three-step root/stationarity differences, non-symmetric
 pivots, complete stationarity derivatives, owning/concurrent reads, inclusive
 accuracy, range/recovery and exact/one-byte-short capture/reverse capacities.
 An erroneous scalar inverse-range test is preserved and corrected with genuine
 normalized inverse overflow; uniformly tiny scalar J remains well conditioned.
 No production numerical guard or asserted tolerance is weakened.
+The review repair rejects a nonzero contraction product that rounds to zero;
+exact minimum subnormal output and subsequent successful requests remain
+supported. Its regression has retained RED/GREEN evidence, and only the 18
+affected contraction cases are rerun; four unchanged cases reuse prior passes.
 
 ## Frozen impact mapping
 
@@ -56,7 +60,11 @@ source tree `e29024b96df36bdf3291cba00d590ce7a51eeeaf`.
 | Direct cost executable  | 25bfe4df8b628c07d4d0b5b55254c10f44b8d464b323dccf7128dd8f22556ecd |
 | Checked cost executable | 9095fdefc5a7c03c02005b0f320c54fdd289862e86523f8eef5867b90138b600 |
 
-## New optional costs
+## Initial new optional costs
+
+The following paired direct/checked measurements describe the initial published
+head f8ee503f59ddf8f5093c967791db91084b6701e7. The review repair is measured
+separately below; do not combine independent rounds into new direct ratios.
 
 | Case                        | Direct ns, R1/R2 | Checked ns, R1/R2 | Checked/direct, R1/R2 | Retained/capture peak bytes | Result/reverse peak bytes |
 |-----------------------------|------------------|-------------------|-----------------------|-----------------------------|---------------------------|
@@ -102,3 +110,38 @@ provenance before and after timing. No full benchmark matrix is run.
 Platform CI, Codacy and final review remain separate exact-head gates before
 merge. Native recording, PDE, sparsity/checkpoints, higher orders and bindings
 remain open in the [whole plan](../plans/aad-implementation.md).
+
+## Contraction-underflow review repair
+
+Only implicitroot.cpp.o changes. All 171 legacy members remain byte-identical;
+the workload, compiler flags, sampling and regression threshold are unchanged.
+Compare the published initial root implementation with the repaired root in
+two alternating best-of-ten paired rounds, forty raw outputs and 160 rows.
+All four rows pass the existing rule that rejects a regression exceeding +4%
+in both rounds. Negative changes are observations, not claimed speedups.
+Risks, report checks and retained/peak/output capacity remain identical.
+
+| Case                        | Base ns, R1/R2      | Fixed ns, R1/R2     | Change %, R1/R2 |
+|-----------------------------|---------------------|---------------------|-----------------|
+| coupled-n2-k2-m3-cached     | 336.514 / 336.177   | 330.712 / 329.488   | -1.72 / -1.99  |
+| coupled-n2-k2-m3-complete   | 579.564 / 579.656   | 578.356 / 579.129   | -0.21 / -0.09  |
+| quadratic-n1-k1-m1-cached   | 95.202 / 94.457     | 89.850 / 90.607     | -5.62 / -4.08  |
+| quadratic-n1-k1-m1-complete | 281.393 / 278.432   | 281.851 / 276.484   | +0.16 / -0.70  |
+
+| Repaired artifact      | SHA-256                                                          |
+|------------------------|------------------------------------------------------------------|
+| Production source      | a9f63f9c774f1b251308d8de2e41a63953cfecc50ed807621f9a2d04aa9f0072 |
+| implicitroot.cpp.o     | 6ad61722ac27794d5de2a8e77ac66f74c1b519e85b0f30d32ebd4d7a39af4a77 |
+| Archive                | 9a2a9abff81127422dcf31901503be543c8dabf5127fb778f3e4ecc6f417b398 |
+| Checked cost executable | 81d80ee76787b892ff594cbeba657817b37cd2544f1be3f1ea1cb606b5528118 |
+
+Retain `implicit-root-underflow-performance/provenance.json`, `results.json`,
+`samples.json`, `sampling.log` and all forty raw JSONL files. The associated
+RED, first GREEN and 18-case affected GREEN are retained separately. Strict
+compilation of the two changed units in OFF/combined diagnostics and the
+reinstalled consumer pass; unchanged units and direct-header bytes reuse their
+initial acceptance. No legacy timing or full benchmark matrix is repeated.
+Earlier successful repair samples remain in
+`implicit-root-underflow-pre-format-performance/`. Final formatting changes
+the source/object hashes, so only the four affected rows are refreshed against
+the final formatted source and archive. The table above uses that final sample.

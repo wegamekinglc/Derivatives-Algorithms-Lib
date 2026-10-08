@@ -34,10 +34,14 @@ residual rejection, singular J or unsupported normalized inverse range during
 condition measurement reject construction. Uniform scalar scaling preserves
 the condition number; reject
 an unrepresentable requested transpose solution during reverse.
-Invalid seed shape/value, transpose rejection, requested contribution overflow
+Invalid seed shape/value, transpose rejection, requested contribution overflow,
+or a nonzero contraction product that rounds to zero
 or capacity failure expose no partial reverse result. Const cache remains usable
 after a rejected reverse. Source destruction, copied results and concurrent
 const readers follow owning numeric contracts; no native graph is mutated.
+Representable subnormal products remain supported. The intermediate-product
+range rule can reject a request whose exact final sum would be representable;
+the transpose backward-error report does not bound contraction rounding.
 
 Rejected alternatives: treating finite nonlinear iterations as a root map,
 reusing weighted underdetermined inverse semantics, hidden convergence scaling,

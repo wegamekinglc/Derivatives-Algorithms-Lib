@@ -41,6 +41,14 @@ semantics and relative pivot policy are preserved.
   caller of the generalized diagonal fixture: 2/2 in
   `implicit-root-range-fixture-correction.log`. Across first/edge/correction,
   all 21 distinct cases pass; unrelated passed cases are not repeated.
+- Copilot comment 4214815450 identified lost nonzero contraction products.
+  The added regression first fails with no exception, then passes after a
+  nonzero-product underflow guard. The exact-sum risk is representable but its
+  individual products are outside the supported range; documented rejection
+  preserves ordinary recovery, zero seeds and exact minimum subnormal output.
+  There are now 22 distinct cases. The affected 18 contraction callers pass in
+  `implicit-root-underflow-affected-green.log`; four unchanged capture/k=0
+  cases retain their earlier passing evidence.
 - Independent three-step converged coupled/non-symmetric/pivot/stationarity
   references, complete residual Hessian, multiple/zero seed columns, k=0,
   point/source/equation destruction, one evaluation and concurrent const reads.
@@ -57,6 +65,11 @@ semantics and relative pivot policy are preserved.
 - Fresh installed `find_package(dal-cpp)` / `DAL::cpp` consumer passes 1/1,
   including source destruction, detached risks/reports and exact caller budget:
   `implicit-root-installed-consumer.log`.
+- Repair refresh: the changed production/contract units pass strict OFF and
+  combined diagnostics compilation; the corrected installed archive relinks
+  and passes the same consumer, 1/1. Evidence is retained in
+  `implicit-root-underflow-strict.log` and
+  `implicit-root-underflow-installed-consumer.log`.
 
 ## Performance and compatibility
 
@@ -78,8 +91,8 @@ No blocking numeric design question. This increment does not deliver native
 root events or bindings; they remain in the [whole plan](../plans/aad-implementation.md).
 Dense factorization/condition work still costs O(n^3); four small cost rows
 do not prove large-system scaling. Add only ImplicitRootTest.* to the existing
-six sanitizer filters, require all 21 cases actually execute in each applicable
-exact-head profile, inspect all paginated reviews/threads/checks/Codacy and
+six sanitizer filters and require all 22 cases actually execute in each applicable
+exact-head profile. Inspect all paginated reviews/threads/checks/Codacy and
 repeat the final audit before guarded merge. Remote acceptance is pending.
 
 Evidence root: `/home/wegamekinglc/.cache/dal-aad-evidence-20261008/`.

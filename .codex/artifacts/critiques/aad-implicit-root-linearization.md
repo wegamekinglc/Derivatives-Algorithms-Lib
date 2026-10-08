@@ -12,6 +12,7 @@ Preimplementation review: no blocking design findings. Runtime acceptance remain
 | Extra cache/inverse or dense matrix gradient is hidden  | Exact retained/capture/reverse capacities and one-byte-short refunds                                 |
 | Zero input axes skip requested accuracy checks          | k=0 keeps m report columns and still validates all seeds/transpose solves                            |
 | Failed request poisons immutable numeric cache          | Transpose/overflow/capacity failures followed by valid zero/nonzero requests                         |
+| Finite zero risk hides nonzero product underflow        | Reject nonzero operands whose product rounds to zero; exact subnormal and recovery fixtures          |
 | Sanitizer green status hides absent new cases           | Add ImplicitRootTest to existing six filters and verify every actual case in fourteen configurations |
 | New optional cost is called a legacy regression         | Existing archive/caller identity; four separate new root cost rows                                   |
 

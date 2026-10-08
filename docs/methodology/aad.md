@@ -608,8 +608,11 @@ declared finite limit in $[0,1]$. Zero input rows retain the seed/report column
 axis and still perform the requested accuracy checks. Invalid shape/range,
 singular Jacobians, unsupported normalized inverse range in condition
 measurement, failed accuracy or overflowing requested risks reject the request.
-A rejected reverse leaves the owning cache
-usable for subsequent supported requests.
+Nonzero contraction operands whose product rounds to zero also reject, even
+when the exact final sum would be representable. Representable subnormal
+products remain supported. The transpose report does not certify contraction
+rounding. A rejected reverse leaves the owning cache usable for subsequent
+supported requests.
 
 Capture uses dense factorization and condition work, with retained storage
 $O(n^2+nk+n+k)$. Reverse costs $O(m(n^2+nk))$ and returns $O(km+m)$ storage,

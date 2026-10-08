@@ -193,12 +193,17 @@ its [specification](../specs/aad-implicit-root-linearization.md),
 One evaluation captures the candidate, residuals, complete J/K and explicit
 accuracy policy. One checked J cache serves independent transpose seed columns,
 contracting input risks without a dense matrix gradient. First missing-header
-RED and analytic GREEN precede twenty edge/reference cases. Twenty-one distinct
+RED and analytic GREEN precede twenty edge/reference cases. Twenty-two distinct
 cases pass, including independent three-step complete root/stationarity solves,
 non-symmetric pivots, ownership/concurrency, exact limits and capacity refunds.
 An incorrect scalar inverse-range fixture is retained in failure evidence and
 replaced by genuine normalized inverse overflow; uniformly tiny scalar J is
 admitted, with unrepresentable requested reverse rejected and then recovered.
+A review regression rejects lost nonzero contraction products, preserves the
+minimum representable subnormal risk and verifies subsequent cache recovery.
+The 18 affected contraction cases pass; four unchanged capture/k=0 cases reuse
+their earlier evidence. The four affected cost rows pass the existing paired
+regression gate, with identical resource counts.
 All 171 old archive objects and two fresh old caller links retain accepted bytes.
 Four new cost rows disclose optional root work and exact resources; see the
 [performance report](../performance/aad-implicit-root-linearization.md).
@@ -1030,12 +1035,12 @@ overlapping acceptance work is included once in the integration allowance.
 | F02 portfolio           | C++/Python/Excel, installed consumers and timing repair accepted | #487 merged; final 35/35 checks accepted                 | 0                     |
 | P02                     | Worker reuse: 82 tests and 37 full-request cost cases accepted   | #488 merged; final 35/35 checks accepted                 | 0                     |
 | P03                     | 89 tests; 81 unique complete-request timing comparisons accepted | #489 merged; final 35/35 checks accepted                 | 0                     |
-| F03                     | Numeric implicit-root tests pass; acceptance in progress         | #490/#491/#493/#494/#495/#496/#497/#498/#499/#500 merged | 6–8.75                |
+| F03                     | Numeric implicit-root review fix passes; acceptance in progress | #490/#491/#493/#494/#495/#496/#497/#498/#499/#500 merged | 5.75–8.5              |
 | P04/P05                 | Structural sparsity/checkpointing remain                         | Open                                                     | 9–15                  |
 | F04                     | Second-order implementation/estimator validation remain          | Open                                                     | 12–20                 |
 | Final integration/audit | Cross-platform/binding/docs/performance acceptance remains       | Open                                                     | 7–11                  |
 
-Remaining total during numeric implicit-root acceptance: approximately 34–54.75 person-days,
+Remaining total during numeric implicit-root acceptance: approximately 33.75–54.5 person-days,
 excluding CI queue time and including delivery contingency. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
 effort estimate, not a guaranteed completion date. Re-estimate when review
@@ -1054,14 +1059,14 @@ numeric/native diagnostics are not counted again.
 | 2     | F03 numeric coordinates          | Accepted in merged #495; immutable accepted evidence retained                  | 0               |
 | 3     | F03 native coordinates           | Accepted in merged #496; immutable accepted evidence retained                  | 0               |
 | 4     | F03 native coordinate accuracy   | Accepted in merged #500; exact-head CI/review and guarded merge pass           | 0               |
-| 4a    | F03 implicit calibration         | Numeric kernel/tests pass; complete acceptance then native recording           | 16–30           |
+| 4a    | F03 implicit calibration         | Numeric review fix passes; complete acceptance then native recording           | 14–28           |
 | 5     | F03 PDE operators                | Discrete solver, boundary and parameter sensitivity acceptance                 | 32–40           |
 | 6     | P04 structural sparsity          | Dependency proof, compressed seeds, invalidation and mode evidence             | 32–56           |
 | 7     | P05 long-path checkpointing      | Complete state/RNG restoration, recomputation and memory/performance proof     | 40–64           |
 | 8     | F04 second-order risk            | Gamma, cross-Gamma, HVP, recalibration and estimator validation                | 64–96           |
 | 9     | F04 native mixed-mode prototype  | Smooth-kernel prototype, independent correctness and capability limits         | 32–64           |
 | 10    | Bindings and complete acceptance | C++/Python/Excel, documentation, platform and performance gates                | 56–88           |
-| Total | Full remaining implementation    | All remaining plan requirements                                                | 272–438         |
+| Total | Full remaining implementation    | All remaining plan requirements                                                | 270–436         |
 
 The first delivery boundary is complete. Whole-PR review repaired the Windows
 registration-help defect, both include-order findings and the overview file

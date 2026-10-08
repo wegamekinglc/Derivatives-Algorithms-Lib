@@ -53,6 +53,9 @@ Build J with a one-column zero RHS and use checked RHS-only reverse for each
 seed column through the same cache. Never conflate the root residual policy
 with transpose componentwise backward error or pivot tolerance. Every returned
 risk is finite; unsupported intermediate range rejects rather than clipping.
+Reject a product of two nonzero input-contraction operands that rounds to zero,
+even if the exact sum would be representable. Representable subnormal products
+remain supported. Transpose backward error does not certify this contraction.
 A failed reverse exposes no partial result and leaves the immutable cache
 usable for a subsequent supported request.
 
@@ -79,6 +82,10 @@ failure refund admitted storage. Do not add native tape mutation in this PR.
    and nextafter-below rejection. Explicit small legal pivots preserve huge
    finite risks. Converged singular J, nonfinite evaluations/seeds and finite
    overflowing requested contractions reject without corrupting the cache.
+6. J=I, K=(2^-1022,2^-1022)^T and seeds (2^-53,2^-53)^T must reject:
+   each nonzero product rounds to zero although their exact sum is 2^-1074.
+   A subsequent ordinary seed succeeds; a single product of magnitude 2^-1074
+   and zero seeds remain supported, with exact equality assertions.
 
 First missing-header RED and analytic GREEN precede edge import. Cover owning
 copies, original source/equation destruction, repeated/concurrent reverse,

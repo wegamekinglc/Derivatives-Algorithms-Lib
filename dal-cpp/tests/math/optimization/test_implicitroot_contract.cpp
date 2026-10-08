@@ -4,6 +4,8 @@
 
 #include <gtest/gtest.h>
 
+#include <cmath>
+#include <limits>
 #include <memory>
 
 #include <dal/math/buffercapacity.hpp>
@@ -11,6 +13,18 @@
 #include <dal/platform/platform.hpp>
 
 namespace {
+    class TinyInputEquation_ final : public Dal::ImplicitRootEquation_ {
+    public:
+        [[nodiscard]] Dal::ImplicitRootEvaluation_ Evaluate(const Dal::Vector_<>& parameters, const Dal::Vector_<>& inputs) const override {
+            const double coefficient = std::numeric_limits<double>::min();
+            Dal::ImplicitRootEvaluation_ result{Dal::Vector_<>{parameters[0] + coefficient * inputs[0], parameters[1] + coefficient * inputs[0]},
+                                                Dal::SquareMatrix_<>(2), Dal::Matrix_<>(2, 1, coefficient)};
+            result.parameterJacobian_(0, 0) = 1.0;
+            result.parameterJacobian_(1, 1) = 1.0;
+            return result;
+        }
+    };
+
     class IdentityEquation_ final : public Dal::ImplicitRootEquation_ {
         std::shared_ptr<int> calls_;
 
@@ -29,6 +43,21 @@ namespace {
         }
     };
 } // namespace
+
+TEST(ImplicitRootTest, TestNonzeroContractionUnderflowRejectsAndCacheRecovers) {
+    const TinyInputEquation_ equation;
+    const Dal::ImplicitRootLinearization_ root(equation, Dal::Vector_<>{0.0, 0.0}, Dal::Vector_<>{0.0},
+                                               Dal::ImplicitRootAccuracyPolicy_{Dal::Vector_<>{0.0, 0.0}, 0.0});
+    const Dal::Matrix_<> underflowingSeeds(2, 1, std::ldexp(1.0, -53));
+    ASSERT_THROW(static_cast<void>(root.Reverse(underflowingSeeds)), Dal::Exception_);
+    const auto supported = root.Reverse(Dal::Matrix_<>(2, 1, 1.0));
+    ASSERT_DOUBLE_EQ(supported.inputs_(0, 0), -2.0 * std::numeric_limits<double>::min());
+    ASSERT_DOUBLE_EQ(supported.transposeBackwardErrors_[0], 0.0);
+    Dal::Matrix_<> representableSeeds(2, 1, 0.0);
+    representableSeeds(0, 0) = std::ldexp(1.0, -52);
+    ASSERT_EQ(root.Reverse(representableSeeds).inputs_(0, 0), -std::numeric_limits<double>::denorm_min());
+    ASSERT_EQ(root.Reverse(Dal::Matrix_<>(2, 1, 0.0)).inputs_(0, 0), 0.0);
+}
 
 TEST(ImplicitRootTest, TestValidateBeforeOneEvaluationAndNoReverseCallbacks) {
     const auto calls = std::make_shared<int>(0);
