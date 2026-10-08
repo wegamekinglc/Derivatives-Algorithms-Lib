@@ -746,7 +746,7 @@ may be changed or destroyed after capture. Copies own independent buffers;
 copy assignment first captures a complete temporary cache, so allocation or
 capacity failure leaves the destination unchanged. The temporary uses the same
 owned-buffer capacity as a copied cache; self-assignment allocates nothing.
-moves preserve the destination and leave the source assignable/destructible.
+Moves preserve the destination and leave the source assignable/destructible.
 Concurrent const reverse requests own independent results and scratch.
 
 Both accuracy limits must be finite in $[0,1]$ and are inclusive. Physical
@@ -764,8 +764,91 @@ Factor work/storage are $O(n)$; capture and each reverse are $O(nm+n)$ with
 linear retained/result/scratch buffers. Caller capacity budgets count actual
 buffers and their overlap and refund failed requests. This C++ numeric operator
 holds the mesh and sampled coefficient-provider mapping fixed. Variance risk
-maps to volatility risk by the upstream $2\sigma$ factor. It exposes no native
-tape event or Python/Excel binding.
+maps to volatility risk by the upstream $2\sigma$ factor. Native recording uses
+the interface below; Python/Excel bindings are separate capabilities.
+
+### Recorded Sampled PDE Theta Steps
+
+`AAD::SampledThetaStepWithAccuracy` in `dal/math/aad/sampledthetastep.hpp`
+records an owning theta-step event in a live `RecordingScope_`. The numeric
+configuration supplies the passive grid, boundary-source flags and field values.
+`SampledThetaStepBindings_` selects complete active replacements: Number vectors
+`rates_`, `drifts_`, `variances_`; Number matrices `oldValues_`, `externalValues_`;
+and optional Number scalars `dt_`, `theta_`. Empty containers or absent scalars
+use the corresponding numeric value. Active replacements supply their own
+primals, so the overwritten passive field can be empty or otherwise unused.
+An active old-state matrix defines the layer count. Resulting coefficients and
+external matrices must match that count and the numeric shape contract above.
+The native call requires at least one active field; fully passive steps use
+the numeric operator.
+
+```cpp
+#include <dal/math/aad/native.hpp>
+#include <dal/math/aad/sampledthetastep.hpp>
+
+Dal::AAD::Clear(*Dal::AAD::Tape());
+auto mode = Dal::AAD::SetNumResultsForAAD(false, 1);
+Dal::PDE::SampledThetaStepInputs_ inputs;
+inputs.x_ = {0.0, 1.0, 2.0};
+inputs.drifts_ = {0.2};
+inputs.variances_ = {0.4};
+inputs.dt_ = 0.2;
+inputs.oldValues_ = Dal::Matrix_<>(3, 1);
+for (int row = 0; row < 3; ++row)
+    inputs.oldValues_(row, 0) = row + 1.0;
+inputs.externalBoundaries_ = {true, true};
+inputs.externalValues_ = Dal::Matrix_<>(2, 1);
+inputs.externalValues_(0, 0) = 4.0;
+inputs.externalValues_(1, 0) = 5.0;
+Dal::AAD::RecordingScope_ scope;
+Dal::AAD::Number_ rate;
+scope.RegisterInput(rate, 0.1);
+scope.StartRecording();
+Dal::AAD::SampledThetaStepBindings_ active;
+active.rates_ = {rate};
+auto step = Dal::AAD::SampledThetaStepWithAccuracy(
+    &scope, inputs, active, Dal::LinearSolveAccuracyPolicy_{1e-14, 1e-14});
+Dal::AAD::Number_ objective = 2.0 * step.solution_(1, 0) + rate;
+scope.FinishRecording();
+scope.ClearAdjoints();
+Dal::AAD::NativeOperations_::SetSeed(objective, 1.0);
+const auto reports = Dal::AAD::ReverseWithSolveAccuracy(&scope);
+const double risk = Dal::AAD::NativeOperations_::ReadAdjoint(rate); // 163/735
+const auto& errors = reports.Report(step.event_).transposeBackwardErrors_;
+scope.Close();
+Dal::AAD::Clear(*Dal::AAD::Tape());
+```
+
+The result owns an $n\times m$ Number matrix, passive `diagnostics_` with one
+forward backward error per layer and the policy, and an opaque `event_` token.
+Each reverse channel seeds the whole output matrix for one objective; coefficient
+and scalar risks sum its layers. Actual transpose reports have $m$ rows and the
+scalar/vector channel width columns. Ordinary `scope.Reverse()` enforces the
+same limits without returning reports. Full, checkpoint suffix/prefix and raw
+mark windows use the existing event ordering. Independent output nodes include
+the copied endpoints; passing outputs as the next active `oldValues_` composes
+serial rollback. Shared aliases sum every formal contribution. Upstream
+`variance = sigma * sigma` carries the volatility chain factor.
+
+The event captures its bindings and numeric cache once; source mutation or
+destruction cannot change the calculation. All declared active slots must belong
+to the recording, including unused external sides, whose risks remain zero.
+The reverse computes the complete numeric coordinate risks before scattering
+active slots: unsupported range in an inactive coordinate still rejects.
+Exact-zero channels skip that numerical work and retain zero physical reports.
+The mesh and sampled coefficient-provider mapping remain passive. Accuracy limits
+do not bound discretization or sensitivity error; no condition estimate is given.
+
+Tape capacity includes the owned cache, declared bindings, output bindings and
+reverse scratch. Caller capacity includes staged capture, returned outputs,
+diagnostics and owning reports. Reverse scratch also counts against an active
+caller budget; these measurements overlap. Storage is linear in grid size and
+layers, with per-channel scratch reused. Checkpoint restoration releases discarded
+payloads while the tape may retain its descriptor-table capacity. Close releases
+the event storage. Passive diagnostics and successful historical reports survive
+restore and close; Numbers follow the normal tape lifetime contract. Capture or
+reverse failure invalidates the recording, refunds buffers and returns no partial
+result or report collection. Independent workers use separate recordings.
 
 ### Native Production Profiling
 
