@@ -439,8 +439,8 @@ reads remain rejected until cleanup.
 Returned diagnostics, report matrices and entry storage obey caller buffer
 budgets. Event caches and reverse scratch obey tape budgets; scratch can also
 overlap the caller ceiling. The optional interface adds physical residual checks
-and report storage. It supplies first-order dense derivatives; coordinate solves
-use their separate interface.
+and report storage. It supplies first-order dense derivatives; packed parameters
+use the [checked coordinate interface](#recorded-coordinate-accuracy).
 
 ### Recorded Solve Coordinates
 
@@ -496,8 +496,63 @@ skip reverse work; requested nonfinite contributions invalidate the recording.
 For p parameters and m RHS columns, the event retains O(p) parameter bindings
 and contracts gradients in O(pm), with O(p+nm) reverse outputs. LU factors remain
 dense, so factorization costs O(n^3) and transpose substitution costs O(n^2m).
-These coordinate overloads provide first-order derivatives; they do not return
-the optional diagnostic result of the dense overload family.
+These ordinary coordinate overloads provide first-order derivatives. Physical
+accuracy checks and owning reports use the optional interface below.
+
+### Recorded Coordinate Accuracy
+
+`dal/math/aad/linearsolvecoordinateaccuracy.hpp` adds
+`AAD::LinearSolveWithAccuracy` for a layout, packed parameters, dense RHS and
+explicit accuracy policy. Parameters and RHS can both be active, or either can
+be passive. It returns the same `CheckedLinearSolveResult_` as dense checked
+solves, so full, suffix and prefix collection can include both event families.
+
+```cpp
+#include <dal/math/aad/linearsolvecoordinateaccuracy.hpp>
+
+AAD::RecordingScope_ scope;
+AAD::Number_ offDiagonal;
+scope.RegisterInput(offDiagonal, 1.0);
+scope.StartRecording();
+Vector_<AAD::Number_> parameters{AAD::Number_(3.0), offDiagonal, AAD::Number_(2.0)};
+Matrix_<> rhs(2, 1);
+rhs(0, 0) = 1.0;
+rhs(1, 0) = 2.0;
+auto checked = AAD::LinearSolveWithAccuracy(
+    &scope, LinearSolveCoordinates_::Symmetric(2), parameters, rhs,
+    LinearSolveAccuracyPolicy_{0.0, 0.0});
+AAD::Number_ objective = 2.0 * checked.solution_(0, 0) - checked.solution_(1, 0);
+scope.FinishRecording();
+scope.ClearAdjoints();
+AAD::NativeOperations_::SetSeed(objective, 1.0);
+const auto reports = AAD::ReverseWithSolveAccuracy(&scope);
+const auto& errors = reports.Report(checked.event_).transposeBackwardErrors_;
+// offDiagonal's adjoint is -1.0; errors(0, 0) is zero.
+scope.Close();
+```
+
+The event owns one [checked physical coordinate cache](matrix.md#checked-coordinate-accuracy),
+captured policy and O(p) active parameter bindings. Symmetric off-diagonal
+gradients sum both physical contributions; zero-valued parameters retain risk.
+Reverse contracts directly into p parameter contributions without a dense
+matrix gradient. Passive parameters omit unused parameter work and overflow.
+The physical factorization, condition estimate, transpose and residual work
+remain dense. Packing does not provide a sparse or tridiagonal solver.
+
+Forward limits apply before output publication. Transpose limits apply to the
+actual seeds accumulated through expressions and later events, including
+ordinary `scope.Reverse()`. Per-invocation report axes, identities, historical
+ownership and failure behavior follow [recorded solve accuracy](#recorded-solve-accuracy).
+The report covers m RHS columns by actual AAD channels, including zeros.
+No derivative clipping, automatic regularization or relaxed pivot policy occurs.
+
+Returned diagnostics, solution containers and reports obey caller buffer
+budgets. Retained cache/bindings and reverse scratch obey tape budgets; report
+allocation precedes scratch so the caller peak includes their overlap. A failed
+capture publishes no outputs. A failed reverse returns no partial collection
+and invalidates adjoint reads, while earlier successful reports stay readable.
+The interface provides first-order physical-system derivatives. Implicit roots,
+PDE discretization sensitivities and binding wrappers require their own contracts.
 
 ### Native Production Profiling
 

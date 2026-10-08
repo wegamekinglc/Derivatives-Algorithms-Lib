@@ -31,7 +31,7 @@ namespace Dal::AAD {
                 }
         }
 
-        void AddContribution(Number_* input, double contribution, size_t channel) {
+        FORCE_INLINE void AddContribution(Number_* input, double contribution, size_t channel) {
             const double total = NativeOperations_::ReadAdjoint(*input, channel) + contribution;
             REQUIRE(std::isfinite(total), "LinearSolve.Reverse: input adjoint accumulation overflow");
             NativeOperations_::SetSeed(*input, total, channel);

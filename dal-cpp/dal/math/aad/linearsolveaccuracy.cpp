@@ -8,8 +8,9 @@
 #include <atomic>
 #include <limits>
 
-#include <dal/math/aad/linearsolveaccuracy.hpp>
+#include <dal/math/aad/linearsolvecoordinateaccuracy.hpp>
 #include <dal/math/aad/linearsolveinternal.hpp>
+#include <dal/math/matrix/linearsolvecoordinateaccuracy.hpp>
 
 namespace Dal::AAD {
     namespace {
@@ -91,9 +92,21 @@ namespace Dal::AAD {
                     report->transposeBackwardErrors_(row, static_cast<int>(channel)) = errors[static_cast<size_t>(row)];
         }
 
-        class CheckedLinearSolvePayload_ {
-            CheckedLinearSolve_ solve_;
-            SquareMatrix_<Number_> matrix_;
+        FORCE_INLINE bool ActiveParameters(const SquareMatrix_<Number_>& parameters) { return parameters.Rows() != 0; }
+
+        FORCE_INLINE bool ActiveParameters(const Vector_<Number_>& parameters) { return !parameters.empty(); }
+
+        FORCE_INLINE const SquareMatrix_<>& ParameterAdjoints(const CheckedLinearSolveAdjoints_& contributions) {
+            return contributions.adjoints_.matrix_;
+        }
+
+        FORCE_INLINE const Vector_<>& ParameterAdjoints(const CheckedCoordinateLinearSolveAdjoints_& contributions) {
+            return contributions.adjoints_.coordinates_;
+        }
+
+        template <class C_, class P_> class CheckedLinearSolvePayload_ {
+            C_ solve_;
+            P_ parameters_;
             Matrix_<Number_> rhs_;
             Matrix_<Number_> outputs_;
             SolveAccuracyEvent_ event_;
@@ -101,9 +114,9 @@ namespace Dal::AAD {
             void ReverseChannel(size_t channel, SolveAccuracyReport_* report) {
                 const auto seeds = CollectSeeds(outputs_, channel);
                 if (!std::all_of(seeds.begin(), seeds.end(), [](double value) { return value == 0.0; })) {
-                    const auto contributions = matrix_.Rows() == 0 ? solve_.ReverseRhs(seeds) : solve_.Reverse(seeds);
+                    const auto contributions = ActiveParameters(parameters_) ? solve_.Reverse(seeds) : solve_.ReverseRhs(seeds);
                     CopyErrors(contributions.transposeBackwardErrors_, report, channel);
-                    Scatter(&matrix_, contributions.adjoints_.matrix_, channel);
+                    Scatter(&parameters_, ParameterAdjoints(contributions), channel);
                     Scatter(&rhs_, contributions.adjoints_.rhs_, channel);
                 }
                 ClearOutputs(&outputs_, channel);
@@ -119,7 +132,22 @@ namespace Dal::AAD {
                                        const SolveAccuracyEvent_& event)
                 : solve_(Snapshot(slots, matrix), Snapshot(slots, rhs), policy, tolerance), outputs_(rhs.Rows(), rhs.Cols()), event_(event) {
                 if constexpr (std::is_same_v<M_, Number_>)
-                    matrix_ = matrix;
+                    parameters_ = matrix;
+                if constexpr (std::is_same_v<R_, Number_>)
+                    rhs_ = rhs;
+            }
+            template <class M_, class R_>
+            CheckedLinearSolvePayload_(const NativeInputSlots_& slots,
+                                       const LinearSolveCoordinates_& coordinates,
+                                       const Vector_<M_>& parameters,
+                                       const Matrix_<R_>& rhs,
+                                       const LinearSolveAccuracyPolicy_& policy,
+                                       double tolerance,
+                                       const SolveAccuracyEvent_& event)
+                : solve_(coordinates, Snapshot(slots, parameters), Snapshot(slots, rhs), policy, tolerance), outputs_(rhs.Rows(), rhs.Cols()),
+                  event_(event) {
+                if constexpr (std::is_same_v<M_, Number_>)
+                    parameters_ = parameters;
                 if constexpr (std::is_same_v<R_, Number_>)
                     rhs_ = rhs;
             }
@@ -134,6 +162,16 @@ namespace Dal::AAD {
             }
         };
 
+        template <class P_, class... A_>
+        CheckedLinearSolveResult_ RecordCheckedEvent(RecordingScope_* recording, Tape_* tape, const A_&... arguments) {
+            const auto identity = NativeRecordedOperation_::AccuracyRecording(recording, false);
+            const auto token = SolveAccuracyAccess_::Event(identity.recording_);
+            auto event = NativeRecordedOperation_::MakeEvent<LinearSolveEvent_<P_, true>>(tape, tape, arguments..., token);
+            auto diagnostics = event->Diagnostics();
+            auto solution = PublishSolve(recording, tape, std::move(event));
+            return CheckedLinearSolveResult_{std::move(solution), std::move(diagnostics), token};
+        }
+
         template <class M_, class R_>
         CheckedLinearSolveResult_ RecordCheckedSolve(RecordingScope_* recording,
                                                      const SquareMatrix_<M_>& matrix,
@@ -143,13 +181,24 @@ namespace Dal::AAD {
             return WithRecordingFailure(recording, [&](Tape_* tape) {
                 REQUIRE(matrix.Rows() > 0 && rhs.Rows() == matrix.Rows() && rhs.Cols() > 0,
                         "LinearSolveWithAccuracy: requires a nonempty square system and RHS");
-                const auto identity = NativeRecordedOperation_::AccuracyRecording(recording, false);
-                const auto token = SolveAccuracyAccess_::Event(identity.recording_);
-                auto event = NativeRecordedOperation_::MakeEvent<LinearSolveEvent_<CheckedLinearSolvePayload_, true>>(tape, tape, matrix, rhs, policy,
-                                                                                                                      tolerance, token);
-                auto diagnostics = event->Diagnostics();
-                auto solution = PublishSolve(recording, tape, std::move(event));
-                return CheckedLinearSolveResult_{std::move(solution), std::move(diagnostics), token};
+                using Payload_ = CheckedLinearSolvePayload_<CheckedLinearSolve_, SquareMatrix_<Number_>>;
+                return RecordCheckedEvent<Payload_>(recording, tape, matrix, rhs, policy, tolerance);
+            });
+        }
+
+        template <class P_, class R_>
+        CheckedLinearSolveResult_ RecordCheckedCoordinateSolve(RecordingScope_* recording,
+                                                               const LinearSolveCoordinates_& coordinates,
+                                                               const Vector_<P_>& parameters,
+                                                               const Matrix_<R_>& rhs,
+                                                               const LinearSolveAccuracyPolicy_& policy,
+                                                               double tolerance) {
+            return WithRecordingFailure(recording, [&](Tape_* tape) {
+                REQUIRE(parameters.size() == coordinates.Count(), "LinearSolveWithAccuracy: coordinate parameter count does not match the layout");
+                REQUIRE(rhs.Rows() == coordinates.Size() && rhs.Cols() > 0,
+                        "LinearSolveWithAccuracy: coordinate RHS requires compatible nonempty dimensions");
+                using Payload_ = CheckedLinearSolvePayload_<CheckedCoordinateLinearSolve_, Vector_<Number_>>;
+                return RecordCheckedEvent<Payload_>(recording, tape, coordinates, parameters, rhs, policy, tolerance);
             });
         }
 
@@ -183,6 +232,31 @@ namespace Dal::AAD {
                                                       const LinearSolveAccuracyPolicy_& policy,
                                                       double tolerance) {
         return RecordCheckedSolve(recording, matrix, rhs, policy, tolerance);
+    }
+
+    CheckedLinearSolveResult_ LinearSolveWithAccuracy(RecordingScope_* recording,
+                                                      const LinearSolveCoordinates_& coordinates,
+                                                      const Vector_<Number_>& parameters,
+                                                      const Matrix_<Number_>& rhs,
+                                                      const LinearSolveAccuracyPolicy_& policy,
+                                                      double tolerance) {
+        return RecordCheckedCoordinateSolve(recording, coordinates, parameters, rhs, policy, tolerance);
+    }
+    CheckedLinearSolveResult_ LinearSolveWithAccuracy(RecordingScope_* recording,
+                                                      const LinearSolveCoordinates_& coordinates,
+                                                      const Vector_<>& parameters,
+                                                      const Matrix_<Number_>& rhs,
+                                                      const LinearSolveAccuracyPolicy_& policy,
+                                                      double tolerance) {
+        return RecordCheckedCoordinateSolve(recording, coordinates, parameters, rhs, policy, tolerance);
+    }
+    CheckedLinearSolveResult_ LinearSolveWithAccuracy(RecordingScope_* recording,
+                                                      const LinearSolveCoordinates_& coordinates,
+                                                      const Vector_<Number_>& parameters,
+                                                      const Matrix_<>& rhs,
+                                                      const LinearSolveAccuracyPolicy_& policy,
+                                                      double tolerance) {
+        return RecordCheckedCoordinateSolve(recording, coordinates, parameters, rhs, policy, tolerance);
     }
 
     SolveAccuracyReports_ ReverseWithSolveAccuracy(RecordingScope_* recording) {

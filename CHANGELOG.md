@@ -18,6 +18,10 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-08
 
+- **Recorded coordinate accuracy** — native AAD checks packed symmetric/banded
+  solves under explicit forward/transpose limits, shares owning invocation
+  reports with dense solves and contracts risk into packed inputs. See
+  [recorded coordinate accuracy](docs/methodology/aad.md#recorded-coordinate-accuracy).
 - **Checked coordinate accuracy** — an optional owning numeric solver enforces
   physical forward/transpose accuracy for packed symmetric and banded inputs,
   returning parameter risks directly without a dense matrix gradient or a
