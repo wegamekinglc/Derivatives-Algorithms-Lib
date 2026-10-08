@@ -16,6 +16,13 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-10-09
+
+- **Structural Jacobian plans** — owning conservative row supports and
+  deterministic greedy colors recover complete matrices from supplied compressed
+  gradients, with exact numeric payload admission. Supports require caller proof.
+  See [structural plans](docs/methodology/aad-sparsity.md).
+
 ## 2026-10-08
 
 - **Recorded sampled PDE steps** — native AAD composes sampled theta steps with

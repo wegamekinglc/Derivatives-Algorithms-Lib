@@ -142,6 +142,10 @@ Seeding the $j$-th output adjoint to $1$ (others $0$) and propagating recovers t
 $j$-th row of the Jacobian; doing all $m$ together in one sweep recovers the whole
 Jacobian at the cost of one reverse pass with vector arithmetic.
 
+An owning [structural Jacobian plan](aad-sparsity.md) colors caller-proven
+conservative row supports and recovers the full matrix from supplied compressed
+directions. Numerical zeros do not establish structural independence.
+
 ## Memory: Checkpointing via Mark / RewindToMark
 
 The tape grows with the number of operations, so long simulations would exhaust
