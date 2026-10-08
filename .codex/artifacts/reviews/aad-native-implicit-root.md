@@ -22,8 +22,9 @@ native-implicit-root-red.log and native-implicit-root-first-green.log.
 Subsequent focused batches run only newly added cases: 12 reference/lifecycle
 cases, three capacity cases, then six additional boundaries and callback cases.
 All 26 have passing local evidence through the focused batches and scoped reuse.
-Existing methods are tested once after the shared changes: all 115 cases in
-the compiled AADLinearSolveTest suite pass in native-implicit-root-legacy-tests.log.
+All 115 existing cases in the compiled AADLinearSolveTest suite pass after the
+shared changes and shared-error repair. Later native-only changes reuse this
+unchanged caller evidence; no full repository test suite is repeated.
 
 Independent elementary and Cramer oracles cover positive/negative branches,
 nonsymmetric/pivot systems, independent channels and direct terms. Complete
@@ -47,9 +48,10 @@ peak and mistook tape cleanup headroom for measured occupancy; those failed
 logs are retained. Correct expectations follow existing budget contracts;
 no production budget logic or threshold changed.
 
-All 22 strict C++17 -Wall -Wextra -Wpedantic -Werror source/direct-header checks
-pass in OFF and combined lifetime/profiling ON. Formatting passes for all
-affected source/header/test files; 120 functions have maximum CCN six.
+All 24 strict C++17 -Wall -Wextra -Wpedantic -Werror source/direct-header checks
+have applicable passing evidence in OFF and combined lifetime/profiling ON;
+repairs rerun affected units and reuse unchanged units/header checks. Formatting
+passes for all affected files; 135 functions have maximum CCN six.
 The fresh installed find_package(dal-cpp)/DAL::cpp consumer passes composition,
 actual accuracy reports, caller ownership and detached observations.
 
@@ -121,7 +123,7 @@ identity. Final-head CI/Codacy/re-review and guarded merge remain required.
 
 ## Callback phase boundary correction
 
-The final lifecycle audit reproduces a callback finishing recording while
+The lifecycle audit reproduces a callback finishing recording while
 ImplicitRootWithAccuracy still publishes parameters. One new RED case verifies
 the missing rejection. AccuracyRecording now runs after CaptureRoot, so its
 existing phase/mode validation precedes event identity and publication without
