@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -31,6 +32,7 @@ BENCHMARKS = (
 FAST_SOBOL_CASE = "Sobol FillNormal fast (100K x 10D)"
 OLD_PRECISE_SOBOL_CASE = "Sobol FillNormal precise (100K x 10D)"
 PRECISE_SOBOL_CASE = "Sobol FillNormal precise opt-in (100K x 10D)"
+GENERIC_JOINT_OVERHEAD_LIMIT_PERCENT = 20.0
 UNIT_TO_NS = {"ns": 1.0, "us": 1_000.0, "ms": 1_000_000.0, "s": 1_000_000_000.0}
 NUMBER = r"[0-9]+(?:\.[0-9]+)?"
 ROW = re.compile(
@@ -213,6 +215,58 @@ def round_deltas(
     return deltas
 
 
+def invalid_overhead_samples(
+    head: dict[str, list[float]], cases: tuple[str, str], expected_count: int
+) -> list[str]:
+    return [
+        case for case in cases
+        if len(head.get(case, [])) != expected_count
+        or any(not math.isfinite(value) or value <= 0 for value in head.get(case, []))
+    ]
+
+
+def generic_joint_overhead_row(
+    case: str, aggregate: list[float], reference: list[float], round_size: int, round_count: int
+) -> dict[str, object]:
+    deltas = round_deltas(reference, aggregate, round_size, round_count)
+    return {
+        "case": case,
+        "aggregate_ns": min(aggregate),
+        "reference_ns": min(reference),
+        "round_overhead_percent": deltas,
+        "limit_percent": GENERIC_JOINT_OVERHEAD_LIMIT_PERCENT,
+        "passed": not all(delta > GENERIC_JOINT_OVERHEAD_LIMIT_PERCENT for delta in deltas),
+    }
+
+
+def generic_joint_overhead_checks(
+    head: dict[str, list[float]], round_size: int, round_count: int
+) -> tuple[list[dict[str, object]], list[str]]:
+    rows = []
+    failures = []
+    expected_count = round_size * round_count
+    for width in (5, 10, 16):
+        for trades in (100, 1000):
+            suffix = f" ({trades} IRS x N={width})"
+            aggregate_case = "Quote risk generic joint" + suffix
+            reference_case = "Quote risk generic joint node reference" + suffix
+            invalid = invalid_overhead_samples(head, (aggregate_case, reference_case), expected_count)
+            if invalid:
+                failures.append(f"rate_risk_perf: missing, incomplete or invalid overhead samples: {', '.join(invalid)}")
+                continue
+            row = generic_joint_overhead_row(
+                aggregate_case, head[aggregate_case], head[reference_case], round_size, round_count
+            )
+            rows.append(row)
+            if not row["passed"]:
+                formatted = ", ".join(f"{delta:+.2f}%" for delta in row["round_overhead_percent"])
+                failures.append(
+                    f"rate_risk_perf / {aggregate_case}: head overhead exceeds "
+                    f"{GENERIC_JOINT_OVERHEAD_LIMIT_PERCENT:.2f}% in every confirmation round ({formatted})"
+                )
+    return rows, failures
+
+
 def comparison_row(
     case: str,
     base: list[float],
@@ -266,12 +320,17 @@ def compare_benchmark(
 ) -> tuple[list[dict[str, object]], list[str]]:
     base = min_samples(samples["base"])
     head = min_samples(samples["head"])
+    overhead_failures = (
+        generic_joint_overhead_checks(samples["head"], round_size, round_count)[1]
+        if benchmark == "rate_risk_perf" else []
+    )
     if not base:
         # An empty base side means the gated binary itself was absent on the base side (a present
         # binary always parses at least one case row): every head case is unguarded. Report the
         # state distinctly from case-level new coverage so an ungated green run stays visible.
-        return ([not_gated_no_base_row(case, value) for case, value in sorted(head.items())], [])
+        return ([not_gated_no_base_row(case, value) for case, value in sorted(head.items())], overhead_failures)
     migration_permitted, failures, new_coverage = benchmark_case_differences(benchmark, base, head)
+    failures.extend(overhead_failures)
     rows = []
     if migration_permitted:
         rows.append(semantic_migration_row(base, head))
@@ -380,6 +439,7 @@ def markdown_report(
     threshold_percent: float,
     precise_ratio: float | None,
     precise_slowdown_limit: float,
+    overhead_checks: list[dict[str, object]] | None = None,
 ) -> str:
     lines = [
         "## Paired benchmark regression gate",
@@ -391,6 +451,24 @@ def markdown_report(
         "|---|---|---:|---:|---:|---:|:---:|",
     ]
     lines.extend(markdown_comparison_rows(comparisons))
+    if overhead_checks:
+        lines.extend([
+            "",
+            "### Head generic joint overhead",
+            "",
+            f"Compare head aggregation with the same head's native node reference plus dense transform; "
+            f"failure requires overhead above {GENERIC_JOINT_OVERHEAD_LIMIT_PERCENT:.2f}% in every best-of-N round.",
+            "",
+            "| Case | Head node reference | Head aggregate | Round overhead | Result |",
+            "|---|---:|---:|---|:---:|",
+        ])
+        for row in overhead_checks:
+            changes = ", ".join(f"{delta:+.2f}%" for delta in row["round_overhead_percent"])
+            label = "pass" if row["passed"] else "fail"
+            lines.append(
+                f"| {row['case']} | {row['reference_ns'] / 1_000_000.0:.6f} ms | "
+                f"{row['aggregate_ns'] / 1_000_000.0:.6f} ms | {changes} | {label} |"
+            )
     if precise_ratio is not None:
         lines.extend(
             [
@@ -422,7 +500,8 @@ def markdown_report(
             [
                 "",
                 f"Rows marked (not gated: no base binary) belong to benchmarks whose base build "
-                f"lacked the gated binary ({', '.join(ungated)}); nothing was gated for them. "
+                f"lacked the gated binary ({', '.join(ungated)}); no base/head regression comparison was possible. "
+                f"Head-only absolute cost checks still apply. "
                 f"Add a base build containing the benchmark, or confirm the target is new to the gate.",
             ]
         )
@@ -466,6 +545,10 @@ def main() -> int:
     )
     rng_head = min_samples(collected["rng_perf"]["head"]) if "rng_perf" in collected else {}
     precise_ratio = precise_sobol_ratio(rng_head)
+    overhead_checks = (
+        generic_joint_overhead_checks(collected["rate_risk_perf"]["head"], args.samples, args.confirmation_rounds)[0]
+        if "rate_risk_perf" in collected else []
+    )
     report = markdown_report(
         comparisons,
         failures,
@@ -474,10 +557,14 @@ def main() -> int:
         args.threshold_percent,
         precise_ratio,
         args.precise_slowdown_limit,
+        overhead_checks,
     )
     (args.output_dir / "summary.md").write_text(report, encoding="utf-8")
     (args.output_dir / "results.json").write_text(
-        json.dumps({"samples": collected, "comparisons": comparisons, "failures": failures}, indent=2) + "\n",
+        json.dumps({
+            "samples": collected, "comparisons": comparisons,
+            "generic_joint_overhead": overhead_checks, "failures": failures,
+        }, indent=2) + "\n",
         encoding="utf-8",
     )
     if args.summary_file:
@@ -487,7 +574,7 @@ def main() -> int:
     if ungated:
         print(
             "::warning::Benchmark regression gate ran without base binaries for: "
-            f"{', '.join(ungated)}. Nothing was gated for those benchmarks; see the "
+            f"{', '.join(ungated)}. No base/head comparison was possible; head-only absolute cost checks still apply. See the "
             "(not gated: no base binary) rows in the summary.",
             flush=True,
         )

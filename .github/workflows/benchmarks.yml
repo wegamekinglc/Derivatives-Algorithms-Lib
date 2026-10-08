@@ -76,6 +76,12 @@ jobs:
         run: |
           python3 -m unittest discover -s .github/scripts/tests -v
 
+      - name: Prepare historical benchmark timing check
+        run: |
+          python3 .github/scripts/prepare_benchmark_baseline.py \
+            --source-root benchmark-base \
+            --evidence-dir benchmark-results/baseline-timing-adjustment
+
       - name: Build head benchmarks
         env:
           CC: gcc-14

@@ -206,7 +206,10 @@ thresholds, axes and identities. The CI validator checks the complete coordinate
 manifest and recomputes every numerical gate; it writes a source-SHA and file
 digest manifest. `rate_risk_perf` measures 100/1,000 trades at each width against
 equivalent joint node risk plus a dense transform, with a ≤20% steady-state
-overhead target and passive operation counters. Set
+overhead target and passive operation counters. The paired Linux gate checks this
+ceiling against the same head build's node reference, failing only when both
+best-of-ten process rounds exceed 20%. Standalone runs report timing and enforce
+numerical and operation-counter checks. Set
 `DAL_JOINT_QUOTE_RISK_BENCHMARK_FILE` to retain all interleaved samples.
 The existing nine-executable paired regression gate retains its two rounds of
 ten samples and 4% confirmation rule; new cases become comparable when a
