@@ -6,7 +6,9 @@
 
 #include <atomic>
 #include <limits>
+
 #include <dal/math/aad/recording.hpp>
+#include <dal/math/aad/reverseevent.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/utilities/exceptions.hpp>
 
@@ -25,6 +27,14 @@ namespace Dal::AAD {
             THROW("RecordingScope.MakeCheckpoint: recording identities exhausted");
         }
     } // namespace
+
+    NativeRecordingIdentity_ NativeRecordedOperation_::AccuracyRecording(RecordingScope_* recording, bool reverse) {
+        REQUIRE(recording != nullptr, "SolveAccuracy: recording scope must not be null");
+        recording->RequireState(reverse ? AADRecordingState_::Value_::READY : AADRecordingState_::Value_::RECORDING, "SolveAccuracy");
+        if (recording->identity_ == 0)
+            recording->identity_ = NewRecordingIdentity();
+        return {recording->identity_, recording->multi_, recording->width_};
+    }
 
     struct RecordingScope_::Context_ {
         bool active_ = false;
