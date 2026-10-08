@@ -10,6 +10,12 @@ Assertion macro branches in activity/alias fixtures now have explicit braces;
 numerical values, tolerances and scenarios are preserved. No existing production
 source or shared event helper changes.
 
+Initial-head Codacy flags the test's local projection functor named `read` as a
+buffer-read API. Rename it `valueOf` to express its scalar Number projection;
+the same checked matrix indexing, bounds, numerical assertions and fixtures are
+preserved. Reverify only the two native reference cases and this source's two
+strict modes. Production objects and existing performance evidence are unchanged.
+
 ## Scope and evidence
 
 The owning native payload wraps the accepted numeric cache, using the generic

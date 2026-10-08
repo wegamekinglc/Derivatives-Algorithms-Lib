@@ -298,6 +298,12 @@ Twenty-four strict OFF/combined ON source/header checks pass. Exact-head
 publication/CI acceptance remains open.
 No shared helper or existing production source has changed.
 
+The initial native PR #505 head 0293c04a reports one Codacy test finding: a local
+scalar projection functor named read is mistaken for a buffer-reading API.
+The focused repair names it valueOf while preserving bounds, reference data and
+assertions. Only its two native reference cases and strict modes need new local
+evidence; the unchanged production/performance proof remains applicable.
+
 The following recording notes are
 historical repair evidence, not outstanding #491 gates.
 

@@ -14,11 +14,11 @@ using namespace Dal::AAD;
 using namespace DalTest::SampledPDEReference;
 
 namespace {
-    template <class F_> Matrix_<> ReadMatrix(const Matrix_<Number_>& values, const F_& read) {
+    template <class F_> Matrix_<> ReadMatrix(const Matrix_<Number_>& values, const F_& valueOf) {
         Matrix_<> result(values.Rows(), values.Cols());
         for (int row = 0; row < result.Rows(); ++row)
             for (int column = 0; column < result.Cols(); ++column)
-                result(row, column) = read(values(row, column));
+                result(row, column) = valueOf(values(row, column));
         return result;
     }
 
