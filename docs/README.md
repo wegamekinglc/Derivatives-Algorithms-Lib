@@ -26,7 +26,8 @@ The [fixed-grid European PDE example](methodology/pde/aad.md) covers complete
 call/put native adjoints and separate derivative/grid-convergence acceptance.
 
 The [structural Jacobian guide](methodology/aad-sparsity.md) describes conservative
-row supports, compressed direction recovery and numeric payload admission.
+row supports, compressed direction recovery, numeric payload admission and
+rate-trade dependency capture with complete structural identity.
 
 ## Component Guides
 

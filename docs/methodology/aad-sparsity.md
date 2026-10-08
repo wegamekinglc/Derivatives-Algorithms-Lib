@@ -141,6 +141,74 @@ use their own scopes. The numeric payload budget above excludes binding
 metadata and tape capacity. Native execution is explicit and does not select a
 default risk strategy.
 
+## Rate-trade dependency provider
+
+[`dal/curve/ratestructuraljacobian.hpp`](../../dal-cpp/dal/curve/ratestructuraljacobian.hpp)
+provides `CaptureRateStructuralJacobian`, `PlanRateStructuralJacobian` and
+`SameRateStructuralJacobianStructure` for the closed deposit, FRA, future, OIS,
+IRS, basis-swap and XCCY trade families. Capture takes ordered trades, the
+current `RatePricingMarket_` and an explicit ordered input axis. A
+`RateCurveParameterCoordinate_` contains a market component key and its
+zero-based free-parameter ordinal, using the same layout as
+`DescribeCurveFreeParameters`. LogDF anchors are pinned; PWLF left/right
+parameters are distinct coordinates.
+
+The provider resolves the same consumed curve roots as pricing and follows their
+complete exact-family base closure. Each row conservatively includes every
+requested coordinate belonging to a consumed curve or reachable base. It uses
+full component blocks, including a forecast with a currently zero contribution.
+Interleaving component coordinates preserves their actual input column positions.
+For example, with axis `[C, D, A, E, B]`, bases `C -> B` and `E -> A`, an IRS
+using forecast C/discount A has support `[0, 2, 4]`; a deposit discounted on D
+has `[1]`; an FRA using forecast E/discount A has `[2, 3]`. These rows need two
+greedy colors.
+
+```cpp
+#include <dal/curve/ratestructuraljacobian.hpp>
+
+const Dal::Vector_<Dal::RateCurveParameterCoordinate_> axis = {
+    {"C", 0}, {"D", 0}, {"A", 0}, {"E", 0}, {"B", 0}
+};
+const auto descriptor = Dal::CaptureRateStructuralJacobian(trades, market, axis);
+const auto plan = Dal::PlanRateStructuralJacobian(descriptor);
+```
+
+Here `trades` and `market` are the caller's current immutable request snapshots.
+Check `Available()` and `Reason()` before constructing a numeric plan when
+unavailable proof is an expected outcome. Unknown or derived curve classes,
+missing consumed curves, incomplete base graphs, unresolved XCCY routing,
+unregistered XCCY consumed roots and unrepresentable parameter layouts report
+unavailable proof. `RowSupport` and plan construction reject it. Missing input
+keys, duplicate physical independent coordinates and out-of-range represented
+parameter ordinals are invalid requests and throw, including later malformed
+coordinates following an unsupported curve. Referenced alias keys are allowed
+when each physical independent input appears only once on the axis.
+
+The immutable descriptor owns `InputAxis`, `OutputAxis`, supports and complete
+structural records. Copies share this payload; reassign moved-from descriptors
+before use. It retains no curve, convention, market handle, Number, tape or raw
+pointer. Metadata survives source cleanup and permits concurrent const use.
+Empty input/output axes keep their requested shape. Availability proves
+dependence; it does not guarantee that current pricing succeeds, for example
+when a required historical fixing is missing.
+
+Before reuse, capture the current request again and compare its descriptor with
+`plan.Descriptor()` using `SameRateStructuralJacobianStructure`. Equality checks
+ordered identities, curve definitions/free-parameter layouts, base and alias
+topology, resolved routes, trade/convention fields, actual generated payment,
+accrual and observation geometry, valuation time and fixing availability. A
+fixing exactly at valuation is included even when the historical-request list
+is empty. Curve numerical values may change under matching structure; trade or
+fixing scalar changes may conservatively invalidate reuse. Shape, names,
+addresses and hash equality alone are insufficient.
+
+Capture does not color a second plan merely to validate a cache hit. Only cold
+or invalidated requests construct numeric color/recovery metadata. These rate
+entry points provide dependency metadata and numeric plans; they do not record
+or execute trades, automatically fall back to dense risk, or select a default
+strategy. Financial recording still needs current-point active inputs and the
+native binding/execution contract above.
+
 ## Reuse and risk semantics
 
 Before reusing a plan, establish that its ordered axes and conservative supports

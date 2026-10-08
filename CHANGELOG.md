@@ -18,6 +18,10 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-09
 
+- **Rate-trade structural dependencies** — owning curve-coordinate supports and
+  complete structural identity cover the closed pricing families and layered
+  bases, admitting fresh numerical points while rejecting unavailable proof.
+  See [rate-trade dependency capture](docs/methodology/aad-sparsity.md#rate-trade-dependency-provider).
 - **Native structural Jacobians** — scope-bound input identity and fixed-width
   compressed reverse blocks reconstruct complete owning matrices from proven
   supports, including aliases and recorded solver composition. See
