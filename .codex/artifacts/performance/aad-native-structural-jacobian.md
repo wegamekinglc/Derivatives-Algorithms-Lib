@@ -37,11 +37,11 @@ GCC 15 Release, `-O3 -DNDEBUG -ffp-contract=fast`, diagnostics OFF, CPU 0,
 and 1,024 requests per observation. Two rounds of ten processes produce eighty
 observations in 1.5524 seconds. Round minima in milliseconds per full request:
 
-| Mode | Plan | Round 1 | Round 2 |
-|------|------|---------|---------|
-| Scalar | Cold | 0.0232722 | 0.0229012 |
-| Scalar | Reused, fresh graph | 0.0113935 | 0.0112434 |
-| Vector width 4 | Cold | 0.0225173 | 0.0225057 |
+| Mode           | Plan                | Round 1   | Round 2   |
+|----------------|---------------------|-----------|-----------|
+| Scalar         | Cold                | 0.0232722 | 0.0229012 |
+| Scalar         | Reused, fresh graph | 0.0113935 | 0.0112434 |
+| Vector width 4 | Cold                | 0.0225173 | 0.0225057 |
 | Vector width 4 | Reused, fresh graph | 0.0120374 | 0.0119380 |
 
 These are informational costs of the new entry. Three versus one reverse sweeps
