@@ -1,6 +1,8 @@
 """Tests for the paired DAL benchmark regression gate."""
 
 import importlib.util
+import io
+import json
 import os
 from pathlib import Path
 import tempfile
@@ -73,6 +75,113 @@ Case in nanoseconds      120.000 ns  100.000 ns  130.000 ns    10
         self.assertAlmostEqual(rows[0]["head_ns"], 100.0)
         self.assertEqual(rows[0]["round_delta_percent"], [0.0, 0.0])
         self.assertEqual(failures, [])
+
+    @staticmethod
+    def _generic_joint_samples():
+        samples = {}
+        for width in (5, 10, 16):
+            for trades in (100, 1000):
+                suffix = f" ({trades} IRS x N={width})"
+                samples["Quote risk generic joint" + suffix] = [110.0] * 20
+                samples["Quote risk generic joint node reference" + suffix] = [100.0] * 20
+        return samples
+
+    def test_generic_joint_overhead_does_not_fail_on_one_noisy_process(self):
+        head = self._generic_joint_samples()
+        head["Quote risk generic joint (100 IRS x N=5)"][12] = 120.978
+
+        rows, failures = BENCHMARKS.generic_joint_overhead_checks(head, 10, 2)
+
+        self.assertEqual(len(rows), 6)
+        self.assertEqual(failures, [])
+        self.assertTrue(all(row["passed"] for row in rows))
+
+    def test_generic_joint_overhead_rejects_sustained_excess_in_both_rounds(self):
+        head = self._generic_joint_samples()
+        case = "Quote risk generic joint (100 IRS x N=5)"
+        head[case] = [121.0] * 20
+
+        rows, failures = BENCHMARKS.generic_joint_overhead_checks(head, 10, 2)
+
+        self.assertEqual(len(failures), 1)
+        self.assertIn(case, failures[0])
+        self.assertIn("20", failures[0])
+        self.assertEqual(sum(not row["passed"] for row in rows), 1)
+
+    def test_generic_joint_overhead_requires_both_rounds_and_accepts_boundary(self):
+        head = self._generic_joint_samples()
+        head["Quote risk generic joint (100 IRS x N=5)"] = [121.0] * 10 + [119.0] * 10
+        head["Quote risk generic joint (1000 IRS x N=5)"] = [120.0] * 20
+
+        _, failures = BENCHMARKS.generic_joint_overhead_checks(head, 10, 2)
+
+        self.assertEqual(failures, [])
+
+    def test_generic_joint_overhead_rejects_missing_reference_and_incomplete_samples(self):
+        for damage in ("missing", "partial", "zero", "negative", "nan", "infinity"):
+            with self.subTest(damage=damage):
+                head = self._generic_joint_samples()
+                reference = "Quote risk generic joint node reference (100 IRS x N=5)"
+                if damage == "missing":
+                    del head[reference]
+                elif damage == "partial":
+                    head[reference].pop()
+                elif damage == "zero":
+                    head[reference][0] = 0.0
+                elif damage == "negative":
+                    head[reference][0] = -1.0
+                else:
+                    head[reference][0] = float("nan" if damage == "nan" else "inf")
+
+                _, failures = BENCHMARKS.generic_joint_overhead_checks(head, 10, 2)
+
+                self.assertEqual(len(failures), 1)
+                self.assertIn(reference, failures[0])
+
+    def test_generic_joint_overhead_gates_new_cases_without_a_base_binary(self):
+        head = self._generic_joint_samples()
+        head["Quote risk generic joint (100 IRS x N=5)"] = [121.0] * 20
+
+        _, failures = BENCHMARKS.compare_benchmark(
+            "rate_risk_perf", {"base": {}, "head": head}, 4.0, 10.0, 10, 2
+        )
+
+        self.assertEqual(len(failures), 1)
+
+    def test_generic_joint_overhead_report_identifies_same_head_reference(self):
+        rows, _ = BENCHMARKS.generic_joint_overhead_checks(self._generic_joint_samples(), 10, 2)
+
+        report = BENCHMARKS.markdown_report({}, [], 10, 2, 4.0, None, 10.0, rows)
+
+        self.assertIn("Head generic joint overhead", report)
+        self.assertIn("Head node reference", report)
+        self.assertIn("20.00%", report)
+
+    def test_generic_joint_overhead_failure_reaches_cli_status_and_saved_evidence(self):
+        head = self._generic_joint_samples()
+        head["Quote risk generic joint (100 IRS x N=5)"] = [121.0] * 20
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            args = mock.Mock(
+                output_dir=root / "results", samples=10, confirmation_rounds=2,
+                threshold_percent=4.0, precise_slowdown_limit=10.0,
+                base_root=root / "base", head_root=root / "head",
+                benchmarks=["rate_risk_perf"], summary_file=root / "step-summary.md",
+            )
+            with mock.patch.object(BENCHMARKS, "parse_args", return_value=args), \
+                    mock.patch.object(BENCHMARKS, "collect_samples", return_value={
+                        "rate_risk_perf": {"base": head, "head": head},
+                    }), mock.patch("sys.stdout", new_callable=io.StringIO):
+                status = BENCHMARKS.main()
+
+            self.assertEqual(status, 1)
+            results = json.loads((args.output_dir / "results.json").read_text(encoding="utf-8"))
+            self.assertEqual(len(results["generic_joint_overhead"]), 6)
+            self.assertEqual(len(results["failures"]), 1)
+            self.assertEqual(results["samples"]["rate_risk_perf"]["head"], head)
+            report = (args.output_dir / "summary.md").read_text(encoding="utf-8")
+            self.assertIn("+21.00%, +21.00%", report)
+            self.assertEqual(args.summary_file.read_text(encoding="utf-8"), report)
 
     def test_validate_sample_counts_rejects_partial_case(self):
         sides = {

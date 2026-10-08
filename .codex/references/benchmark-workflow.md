@@ -124,6 +124,20 @@ builds.
 
 ## Release Builds
 
+For a historical baseline containing the generic joint single-process timing assertion,
+prepare that isolated checkout before configuring it:
+
+```bash
+python3 "$head_source/.github/scripts/prepare_benchmark_baseline.py" \
+  --source-root "$baseline_source" \
+  --evidence-dir "$perf_root/baseline-timing-adjustment"
+```
+
+The preparation removes only the recognized timing assertion from the benchmark driver.
+It preserves native library code, workloads, numerical checks and operation counters, and
+retains the exact patch and before/after source hashes. An unfamiliar assertion fails
+preparation. An already prepared source needs no adjustment.
+
 Configure both sides as Release builds with benchmarks explicitly enabled. Keep `-S` and `-B`
 visible so there is no ambiguity about which source produced which binary:
 
@@ -214,6 +228,8 @@ The script:
 - fails a comparable case only when every confirmation round exceeds +4%;
 - treats base-only case removal/renaming as a hard coverage failure;
 - reports head-only cases as new informational coverage;
+- checks the head's six generic joint aggregation/reference pairs against the 20% overhead
+  ceiling using the same best-of-ten confirmation rounds, even without a comparable baseline;
 - applies the current Sobol precise-opt-in/fast ratio ceiling; and
 - writes raw command outputs, `results.json`, and `summary.md` under the output directory.
 
@@ -224,6 +240,9 @@ The Linux and Windows benchmark jobs upload `benchmark-results/` for 30 days. Bo
 contain `environment.json` with source SHAs, runner and CPU identity, toolchain, AAD backend, and
 thread settings. Linux additionally retains each smoke run's `/usr/bin/time --verbose` resource
 record and the paired gate's raw outputs, `results.json`, and `summary.md`.
+Linux also retains any historical timing-assertion adjustment in
+`baseline-timing-adjustment/`. Smoke runs retain numerical and operation-counter checks;
+the generic joint timing ceiling is enforced by the paired Linux gate.
 
 The Linux job requires the current head's full Python suite and the same head benchmark
 workload tests on both native builds. The historical baseline's own full Python suite is
