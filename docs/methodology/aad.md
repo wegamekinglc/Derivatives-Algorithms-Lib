@@ -743,6 +743,9 @@ cache. Each reverse returns detached `SampledThetaStepAdjoints_` containing
 old/external matrices, the three coefficient vectors, scalar time/theta risks
 and one actual `transposeBackwardErrors_` entry per layer. The caller buffers
 may be changed or destroyed after capture. Copies own independent buffers;
+copy assignment first captures a complete temporary cache, so allocation or
+capacity failure leaves the destination unchanged. The temporary uses the same
+owned-buffer capacity as a copied cache; self-assignment allocates nothing.
 moves preserve the destination and leave the source assignable/destructible.
 Concurrent const reverse requests own independent results and scratch.
 

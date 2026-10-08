@@ -49,6 +49,10 @@ namespace Dal::PDE {
         SampledThetaStepPullback_(const SampledThetaStepInputs_& inputs,
                                   const LinearSolveAccuracyPolicy_& policy,
                                   double relativePivotTolerance = 64.0 * std::numeric_limits<double>::epsilon());
+        SampledThetaStepPullback_(const SampledThetaStepPullback_&) = default;
+        SampledThetaStepPullback_(SampledThetaStepPullback_&&) noexcept = default;
+        SampledThetaStepPullback_& operator=(const SampledThetaStepPullback_& source);
+        SampledThetaStepPullback_& operator=(SampledThetaStepPullback_&&) noexcept = default;
         [[nodiscard]] const Matrix_<>& Solution() const { return solution_; }
         [[nodiscard]] const Vector_<>& ForwardBackwardErrors() const { return forwardBackwardErrors_; }
         [[nodiscard]] const LinearSolveAccuracyPolicy_& Policy() const { return policy_; }

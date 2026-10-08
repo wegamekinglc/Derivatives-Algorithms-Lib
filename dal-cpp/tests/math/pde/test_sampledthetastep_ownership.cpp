@@ -114,6 +114,39 @@ TEST(SampledThetaStepTest, TestCopiesAndMovesOwnIndependentBuffers) {
     CheckRiskScale(original.Reverse(seeds), expected);
 }
 
+TEST(SampledThetaStepTest, TestFailedCopyAssignmentPreservesOriginalSolutionAndRisks) {
+    for (double theta : {0.0, 0.5}) {
+        SCOPED_TRACE(theta);
+        auto inputs = OwnershipInputs();
+        inputs.theta_ = theta;
+        SampledThetaStepPullback_ destination(inputs, LinearSolveAccuracyPolicy_{1e-14, 1e-14});
+        const Matrix_<> solution(destination.Solution());
+        const auto seeds = OwnershipSeeds();
+        const auto expected = destination.Reverse(seeds);
+        inputs.rates_ = {0.4, 0.5, 0.6};
+        inputs.oldValues_ = Matrix_<>(5, 3, 1.9);
+        inputs.externalValues_ = Matrix_<>(2, 3, 1.6);
+        const SampledThetaStepPullback_ source(inputs, LinearSolveAccuracyPolicy_{1e-14, 1e-14});
+        const size_t copyBytes = 60 * sizeof(double) + (theta == 0.0 ? 0 : 16 * sizeof(double) + 4 * sizeof(int));
+        for (size_t limit : {size_t(0), copyBytes - 1}) {
+            SCOPED_TRACE(limit);
+            Dal::BufferCapacityBudget_ budget(limit);
+            Dal::BufferCapacityScope_ scope(&budget);
+            ASSERT_NO_THROW(destination = destination);
+            ASSERT_THROW(destination = source, Dal::Exception_);
+            ASSERT_EQ(budget.CapacityBytes(), 0);
+        }
+        ASSERT_EQ(destination.Solution().Rows(), solution.Rows());
+        ASSERT_EQ(destination.Solution().Cols(), solution.Cols());
+        for (int row = 0; row < solution.Rows(); ++row)
+            for (int layer = 0; layer < solution.Cols(); ++layer)
+                ASSERT_EQ(destination.Solution()(row, layer), solution(row, layer));
+        const auto recovered = destination.Reverse(seeds);
+        ASSERT_EQ(recovered.dt_, expected.dt_);
+        ASSERT_NO_FATAL_FAILURE(CheckRiskScale(recovered, expected));
+    }
+}
+
 TEST(SampledThetaStepTest, TestRepeatedSeedsAreLinearAndZeroSeedsAreExact) {
     const SampledThetaStepPullback_ step(OwnershipInputs(), LinearSolveAccuracyPolicy_{1e-14, 1e-14});
     const auto expected = step.Reverse(OwnershipSeeds());

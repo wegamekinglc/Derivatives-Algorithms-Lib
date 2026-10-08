@@ -125,3 +125,33 @@ a future native-step increment should add only its actual recording/sweep costs.
 The test-only review repair strengthens subnormal/exact-zero assertions. It
 changes no production or workload bytes; the recorded archive/executable and
 dependency identities preserve this acceptance without repeating measurements.
+
+The subsequent transactional copy-assignment repair changes the new PDE object
+and header. Freshly linking every previously selected legacy caller and passive
+PDE caller produces byte-identical executables, so zero legacy timing rows are
+repeated. Only the twelve optional PDE rows are sampled again: twenty processes,
+240 observations and 1.91 seconds of timing. Primal/risk/error/resource checksums
+remain identical. The original table above records the initial optional binary;
+the repaired binary's minimum costs are listed below. Cache construction and
+reverse capacities stay unchanged. Copy assignment separately stages one entire
+copied cache before replacement, and self-assignment allocates nothing.
+
+| Repaired PDE case              | Minimum ns |
+|--------------------------------|------------|
+| n3-layers1-theta0-cached       | 184.47     |
+| n3-layers1-theta0-complete     | 292.42     |
+| n3-layers1-theta0.5-cached     | 223.23     |
+| n3-layers1-theta0.5-complete   | 575.03     |
+| n65-layers2-theta0-cached      | 8833.36    |
+| n65-layers2-theta0-complete    | 11354.40   |
+| n65-layers2-theta0.5-cached    | 13189.11   |
+| n65-layers2-theta0.5-complete  | 26924.46   |
+| n513-layers2-theta0-cached     | 76802.57   |
+| n513-layers2-theta0-complete   | 94894.24   |
+| n513-layers2-theta0.5-cached   | 111176.58  |
+| n513-layers2-theta0.5-complete | 209543.66  |
+
+Evidence: `pde-copy-assignment-{red,green,edges}.log` and
+`pde-sampled-step-performance/copy-assignment-repair/` retain the original
+archive/binary/provenance, fresh-link commands, six strict checks and all repaired
+optional samples. Final platform execution requires all 28 suite cases.

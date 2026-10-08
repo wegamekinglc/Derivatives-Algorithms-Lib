@@ -15,6 +15,14 @@ strict ASSERT_EQ rejects it. Both preservation tests and exact zero-seed risks
 now use strict equality, with all three affected tests passing. Production
 and measured workload bytes stay unchanged, so accepted timing is reused.
 
+A subsequent external review reproduces partial member updates on failed cache
+copy assignment. The new cross-layer RED changes the original time-step risk
+from -0.27997520337955117 to -2.9555752033795506 after a rejected assignment.
+Transactional copy-then-move repairs it. Six directly affected ownership/capacity
+cases pass; zero-budget and one-byte-short failures preserve both explicit and
+implicit cache solutions/risks, refund all temporary buffers, and permit zero-cost
+self-assignment. This repair adds one case, bringing the suite to 28.
+
 ## Correctness and design
 
 The generator/stencils match fixed nonuniform finite differences. Endpoint RHS
@@ -40,6 +48,8 @@ quadratic condition estimator is introduced.
 - Missing public header RED, then independent n=3 analytic GREEN.
 - 27 new tests pass in the final focused run; seven frozen 80-digit step references
   cover 121 coordinates independently checked at three full-solve differences.
+- The subsequent transactional-assignment test passes for theta zero and 0.5;
+  the six affected ownership/capacity cases pass after this production repair.
 - Complete three-step n=5/two-layer rollback covers 33 shared/state/time/boundary
   coordinates independently checked by 99 complete-rollback differences.
 - Seven private matrices/28 forward-transpose requests and seven exact-binary

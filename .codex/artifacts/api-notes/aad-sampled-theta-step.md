@@ -97,6 +97,9 @@ Final decisions: share only a private compensated physical row kernel, preserve
 dense evaluation order and bound tridiagonal row visitation to three entries.
 Expose no reciprocal-condition diagnostic in this first increment; use explicit
 accuracy and normalized pivot admission. Copies own independent cache buffers;
+copy assignment is transactional, allocating a complete temporary cache before
+replacement. Failed capacity admission preserves the destination solution,
+policy, errors and reverse risks; self-assignment requires no allocation.
 moves preserve the destination and leave the source destructible/assignable.
 The [specification](../specs/aad-sampled-theta-step.md) controls acceptance.
 

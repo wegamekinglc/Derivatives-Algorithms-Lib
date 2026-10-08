@@ -264,6 +264,12 @@ remain pending. Native event integration follows numeric merge in a separate PR.
 The minimum-subnormal assertion review findings are reproduced with an isolated
 dropped-value probe and repaired with strict equality. Three affected cases pass;
 unchanged production/workload identities retain the 38-second timing acceptance.
+The subsequent copy-assignment finding is reproduced and repaired with a
+transactional temporary. Six affected ownership/capacity tests pass; the new
+cross-layer case covers zero/one-byte-short failures and self-assignment for
+theta zero and 0.5, bringing the suite to 28 cases. Assignment failure preserves
+the original cache and refunds temporary capacity. Final publication acceptance
+uses the repaired head; unchanged existing caller evidence remains reusable.
 
 The following recording notes are
 historical repair evidence, not outstanding #491 gates.

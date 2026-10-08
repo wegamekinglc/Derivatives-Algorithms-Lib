@@ -11,6 +11,14 @@
 #include <dal/math/pde/sampledthetastep.hpp>
 
 namespace Dal::PDE {
+    SampledThetaStepPullback_& SampledThetaStepPullback_::operator=(const SampledThetaStepPullback_& source) {
+        if (this != &source) {
+            SampledThetaStepPullback_ captured(source);
+            *this = std::move(captured);
+        }
+        return *this;
+    }
+
     namespace {
         using SampledThetaDetail::Product;
         using SampledThetaDetail::Quotient;

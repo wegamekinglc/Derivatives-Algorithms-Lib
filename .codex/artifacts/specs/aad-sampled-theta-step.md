@@ -120,6 +120,10 @@ continuum PDE or sensitivity-error certificate.
     exact binary inputs and 2000-digit arithmetic, including FMA error 2^-55,
     representable tiny ratios, overflowing products and subnormal products.
 15. Add ownership, copy/move as supported, repeated/concurrent const reverse,
+    transactional copy assignment, failed cross-layer assignment with unchanged
+    original solution/risks, and zero-cost self-assignment. Copy assignment
+    stages one complete cache before replacement and refunds it on failure.
+    Also cover
     zero seeds, shape/range rejection, actual transpose-limit rejection and
     one-byte capacity cases. The prepared complete three-step rollback covers
     33 shared-coefficient, initial-state, time/theta and boundary coordinates
