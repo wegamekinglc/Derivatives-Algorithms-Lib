@@ -554,6 +554,70 @@ and invalidates adjoint reads, while earlier successful reports stay readable.
 The interface provides first-order physical-system derivatives. Implicit roots,
 PDE discretization sensitivities and binding wrappers require their own contracts.
 
+### Owning Implicit-Root Linearization
+
+`ImplicitRootLinearization_` in `dal/math/optimization/implicitroot.hpp` maps
+adjoints of a supplied root candidate to its equation inputs. For the square
+equation $R(\theta,q)=0$, capture the residual, complete parameter Jacobian
+$J=R_\theta$ and input Jacobian $K=R_q$ together at the supplied point. Then
+solve $J^T\lambda=w$ and return $\bar q=-K^T\lambda$. Add any direct objective
+dependence on $q$ separately.
+
+The caller supplies the candidate and local root branch. The operator does
+not run a nonlinear solver or differentiate a finite number of its iterations.
+For a stationarity equation, supply its complete derivative, including
+residual-Hessian terms. A Gauss–Newton approximation defines a different map.
+
+The equation is evaluated once at owning copies of the candidate and inputs.
+The captured result owns its point, residuals, accuracy policy, input Jacobian
+and one checked parameter-Jacobian cache. The equation object and original
+containers may be destroyed afterward. Repeated and concurrent const reverse
+requests use independent results and scratch.
+
+```cpp
+#include <dal/math/optimization/implicitroot.hpp>
+
+class QuadraticEquation_ final : public Dal::ImplicitRootEquation_ {
+public:
+    Dal::ImplicitRootEvaluation_ Evaluate(const Dal::Vector_<>& theta,
+                                          const Dal::Vector_<>& q) const override {
+        return {Dal::Vector_<>{theta[0] * theta[0] - q[0]},
+                Dal::SquareMatrix_<>(1, 2.0 * theta[0]), Dal::Matrix_<>(1, 1, -1.0)};
+    }
+};
+
+const QuadraticEquation_ equation;
+const Dal::ImplicitRootAccuracyPolicy_ accuracy{Dal::Vector_<>{1e-12}, 1e-12};
+const Dal::ImplicitRootLinearization_ root(equation, Dal::Vector_<>{2.0},
+                                          Dal::Vector_<>{4.0}, accuracy);
+const auto risk = root.Reverse(Dal::Matrix_<>(1, 1, 1.0));
+// risk.inputs_(0, 0) is 1/4; the candidate -2 gives -1/4.
+```
+
+Each finite nonnegative `residualAbsoluteLimits_` entry is an inclusive limit
+in that equation's units. `Residuals()` and `Policy()` retain the observations
+and limits. Admitting a nonzero residual gives a linearization at that candidate;
+it does not certify root or sensitivity error. A zero limit requires the
+observed residual to be exactly zero. Physical Jacobian condition is reported
+separately by `ReciprocalJacobianConditionInfinity()`.
+
+With $n>0$ parameters, $k\geq0$ inputs and $m>0$ independent root-seed columns,
+`Reverse` accepts an $n\times m$ matrix and returns $k\times m$ `inputs_` plus
+$m$ actual `transposeBackwardErrors_`. Each transpose solve must meet the
+declared finite limit in $[0,1]$. Zero input rows retain the seed/report column
+axis and still perform the requested accuracy checks. Invalid shape/range,
+singular Jacobians, unsupported normalized inverse range in condition
+measurement, failed accuracy or overflowing requested risks reject the request.
+A rejected reverse leaves the owning cache
+usable for subsequent supported requests.
+
+Capture uses dense factorization and condition work, with retained storage
+$O(n^2+nk+n+k)$. Reverse costs $O(m(n^2+nk))$ and returns $O(km+m)$ storage,
+with $O(n)$ local transpose scratch. It reuses the factorization and contracts
+input risks directly. Caller buffer budgets include actual retained capacity
+and overlapping scratch. This interface uses owning double-valued points and
+results.
+
 ### Native Production Profiling
 
 `DAL_ENABLE_AAD_PROFILING=ON` enables the C++ diagnostics in

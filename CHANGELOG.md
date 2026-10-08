@@ -18,6 +18,11 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-08
 
+- **Implicit-root linearization** — an owning numeric operator maps supplied
+  root-candidate adjoints through complete equation Jacobians, enforcing
+  per-equation residual and transpose accuracy limits with independent seed
+  columns and tracked buffers. See
+  [implicit roots](docs/methodology/aad.md#owning-implicit-root-linearization).
 - **Recorded coordinate accuracy** — native AAD checks packed symmetric/banded
   solves under explicit forward/transpose limits, shares owning invocation
   reports with dense solves and contracts risk into packed inputs. See
