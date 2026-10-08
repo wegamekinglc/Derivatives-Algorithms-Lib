@@ -216,10 +216,10 @@ feature/native-implicit-root-accuracy, controlled by its
 [specification](../specs/aad-native-implicit-root.md),
 [API](../api-notes/aad-native-implicit-root.md) and
 [critique](../critiques/aad-native-implicit-root.md).
-All 25 native root cases pass locally, including composition, independent
+All 26 native root cases have passing local evidence, including composition, independent
 channels, aliases, stationarity, windows, ownership, numerical failures and
-exact resource admission. Twenty-two strict OFF/combined checks pass; all 115
-affected existing native solve cases pass. Two changed shared native objects
+exact resource admission and post-callback phase rejection. Affected strict
+OFF/combined checks pass; all 115 existing native solve cases pass. Three changed shared native objects
 justify only 22 legacy caller timing rows; each passes the unchanged paired
 gate. Four optional root costs have their own checksum/resource validation.
 The installed consumer also passes; exact-head platform/review acceptance
@@ -230,6 +230,10 @@ context, then deep-copy into event ownership. Three callback cases and exact
 132/352-byte staged caller capture accounting pass; side effects stay caller-owned.
 Five fresh legacy links match accepted timing bytes, so only four new costs
 are resampled. Corrected exact-head CI and re-review remain outstanding.
+The final callback phase audit also reproduces publication after FinishRecording;
+creating the accuracy identity after evaluation rejects before publication.
+One new case and six affected cases pass, with four affected strict checks.
+Fresh legacy links preserve the final shared-error timing evidence.
 Merge this native increment before PDE implementation.
 
 The following recording notes are

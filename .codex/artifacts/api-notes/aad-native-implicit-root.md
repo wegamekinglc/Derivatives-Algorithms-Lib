@@ -52,6 +52,8 @@ outside event ownership so callback-managed buffers retain caller accounting,
 then deep-copy into tape-owned event storage without a second factorization.
 Staged numeric/binding/value buffers count toward caller peak along with
 publication overlap and reverse reports/scratch. Revalidate captured slots.
+Create the accuracy identity after evaluation validates the recording phase
+and mode; a callback that ends recording publishes no root outputs.
 Callback side effects are not rolled back on failure. Verify exact/one-byte-short
 limits through actual census. Public API does not expose private LU, private
 collector state or new event-account types.

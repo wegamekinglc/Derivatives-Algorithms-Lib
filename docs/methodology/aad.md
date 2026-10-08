@@ -656,6 +656,8 @@ sum their contributions. Direct objective input dependence composes through
 ordinary expressions. Zero equation inputs remain supported. One event owns
 the numeric cache and input/output bindings. It evaluates the equation once
 at owning doubles and retains no callback or nonlinear iteration graph.
+The recording must still be active when evaluation returns; a callback that
+ends recording causes capture to fail before any root output is published.
 
 Forward `diagnostics_` owns `residuals_`, `policy_` and
 `reciprocalConditionInfinity_`. The captured-point interpretation and complete

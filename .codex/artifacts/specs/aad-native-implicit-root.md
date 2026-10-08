@@ -33,6 +33,9 @@ differentiate its finite iterations. Callback-managed allocations/releases
 run outside event ownership accounting, including exceptions. Staged numeric,
 binding and value buffers obey caller admission; event copies obey tape
 admission. Never move foreign allocations into an owned account.
+Revalidate recording phase/mode after equation evaluation and before creating
+the accuracy event identity or publishing outputs. A callback that finishes
+recording must reject, invalidate the invocation and refund staged ownership.
 
 Return owning residuals_, explicit policy_ and reciprocalConditionInfinity_
 as ImplicitRootDiagnostics_. These observations use the equation's residual

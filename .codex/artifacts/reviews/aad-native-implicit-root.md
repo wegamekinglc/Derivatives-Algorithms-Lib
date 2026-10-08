@@ -20,7 +20,8 @@ their matrix return types.
 The missing-header RED and minimum composed-root GREEN are retained in
 native-implicit-root-red.log and native-implicit-root-first-green.log.
 Subsequent focused batches run only newly added cases: 12 reference/lifecycle
-cases, three capacity cases, then six additional boundaries. All 25 pass.
+cases, three capacity cases, then six additional boundaries and callback cases.
+All 26 have passing local evidence through the focused batches and scoped reuse.
 Existing methods are tested once after the shared changes: all 115 cases in
 the compiled AADLinearSolveTest suite pass in native-implicit-root-legacy-tests.log.
 
@@ -69,7 +70,7 @@ recordings keep owner-thread semantics. Default builds retain raw Number
 lifetimes; optional diagnostics add generation/epoch checks.
 
 All six existing sanitizer filters already select AADLinearSolveTest.
-Publication must prove actual execution of each of the 25 new cases in four
+Publication must prove actual execution of each of the 26 new cases in four
 MSVC, six sanitizer and four extended profiles, not only green job labels.
 Exact-head paginated checks/comments/threads/Codacy and review evidence,
 repeated final audits and guarded merge/tree verification remain outstanding.
@@ -117,3 +118,16 @@ passes. The shared native objects change, so all 22 affected legacy performance
 rows and four optional costs are freshly sampled under the unchanged gate;
 all existing rows pass. The numeric root and other 169 baseline members retain
 identity. Final-head CI/Codacy/re-review and guarded merge remain required.
+
+## Callback phase boundary correction
+
+The final lifecycle audit reproduces a callback finishing recording while
+ImplicitRootWithAccuracy still publishes parameters. One new RED case verifies
+the missing rejection. AccuracyRecording now runs after CaptureRoot, so its
+existing phase/mode validation precedes event identity and publication without
+an extra success-path validation call. The new case passes; no nodes/event
+storage are published, callback buffers stay caller-owned and staged storage
+refunds. Six affected callback/binding/capacity cases and four strict checks
+pass. Five fresh legacy caller links remain byte-identical, preserving their
+22 rows; only four optional root costs are resampled. Final-head CI must prove
+all 26 cases in fourteen profiles before guarded merge.

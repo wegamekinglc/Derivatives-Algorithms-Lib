@@ -17,7 +17,7 @@ Local design/correctness acceptance passes with no blocking findings. Numeric
 | Resource peaks omit overlap                       | Actual tape/caller census, exact/one-byte-short/refund tests; caller scratch overlaps report/output storage            |
 | Changed helper prompts full performance matrix    | Object multiplicities select only 22 old caller rows; paired gate passes; unchanged numeric bytes reuse evidence       |
 
-All 25 runtime cases pass locally, including independent elementary/Cramer,
+All 26 runtime cases have passing local evidence, including independent elementary/Cramer,
 negative/approximate branches, complete stationarity, k=0, serial roots,
 actual inclusive errors, stale slots, numerical/alias failures and exact
 resource boundaries. All 115 affected old solve cases pass. Twenty-two strict

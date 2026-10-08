@@ -17,11 +17,15 @@ namespace {
     class CallbackBufferRootEquation_ final : public ImplicitRootEquation_ {
         Vector_<>* scratch_;
         bool reject_;
+        RecordingScope_* finish_;
 
     public:
-        explicit CallbackBufferRootEquation_(Vector_<>* scratch, bool reject = false) : scratch_(scratch), reject_(reject) {}
+        explicit CallbackBufferRootEquation_(Vector_<>* scratch, bool reject = false, RecordingScope_* finish = nullptr)
+            : scratch_(scratch), reject_(reject), finish_(finish) {}
         [[nodiscard]] ImplicitRootEvaluation_ Evaluate(const Vector_<>& theta, const Vector_<>& inputs) const override {
             *scratch_ = Vector_<>(8, 3.0);
+            if (finish_ != nullptr)
+                finish_->FinishRecording();
             REQUIRE(!reject_, "Controlled callback failure");
             return {Vector_<>{theta[0] - inputs[0]}, SquareMatrix_<>(1, 1.0), Matrix_<>(1, 1, -1.0)};
         }
@@ -48,6 +52,32 @@ TEST(AADLinearSolveTest, TestRecordedImplicitRootCallbackBufferRemainsCallerOwne
     scratch = Vector_<>();
     ASSERT_EQ(budget.CapacityBytes(), sizeof(Number_) + 2 * sizeof(double));
     ASSERT_DOUBLE_EQ(root.diagnostics_.residuals_[0], 0.0);
+    Clear(*Tape());
+}
+
+TEST(AADLinearSolveTest, TestRecordedImplicitRootCallbackFinishesRecordingBeforePublication) {
+    Clear(*Tape());
+    auto mode = SetNumResultsForAAD(false, 1);
+    RecordingScope_ scope;
+    Number_ input;
+    scope.RegisterInput(input, 2.0);
+    scope.StartRecording();
+    Vector_<> scratch;
+    const CallbackBufferRootEquation_ equation(&scratch, false, &scope);
+    BufferCapacityBudget_ budget(4096);
+    BufferCapacityScope_ caller(&budget);
+    const auto before = MeasureTape(*Tape());
+    ASSERT_THROW(static_cast<void>(ImplicitRootWithAccuracy(&scope, equation, Vector_<>{2.0}, Vector_<Number_>{input},
+                                                            ImplicitRootAccuracyPolicy_{Vector_<>{0.0}, 0.0})),
+                 Exception_);
+    ASSERT_EQ(MeasureTape(*Tape()).nodes_, before.nodes_);
+    ASSERT_EQ(MeasureTape(*Tape()).reverseEventCapacityBytes_, 0);
+    ASSERT_EQ(budget.CapacityBytes(), 8 * sizeof(double));
+    ASSERT_THROW(scope.Reverse(), Exception_);
+    ASSERT_THROW(static_cast<void>(NativeOperations_::ReadAdjoint(input)), Exception_);
+    scope.Close();
+    scratch = Vector_<>();
+    ASSERT_EQ(budget.CapacityBytes(), 0);
     Clear(*Tape());
 }
 

@@ -67,18 +67,18 @@ These are different amounts of work, so their ratio is not an existing-caller re
 
 | New case                        | Numeric min ns | Native min ns | Native nodes/events | Retained bytes | Scratch bytes | Caller retained/peak bytes |
 |---------------------------------|----------------|---------------|---------------------|----------------|---------------|----------------------------|
-| coupled-n2-k2-width4-cached     | 453.661        | 987.097       | 4/1                 | 880            | 80            | 168/352                    |
-| coupled-n2-k2-width4-complete   | 699.912        | 38160.573     | 4/1                 | 880            | 80            | 168/352                    |
-| quadratic-n1-k1-scalar-cached   | 90.033         | 264.410       | 2/1                 | 732            | 48            | 112/160                    |
-| quadratic-n1-k1-scalar-complete | 276.263        | 37354.518     | 2/1                 | 732            | 48            | 112/160                    |
+| coupled-n2-k2-width4-cached     | 471.341        | 1017.722      | 4/1                 | 880            | 80            | 168/352                    |
+| coupled-n2-k2-width4-complete   | 761.887        | 40683.668     | 4/1                 | 880            | 80            | 168/352                    |
+| quadratic-n1-k1-scalar-cached   | 92.607         | 279.999       | 2/1                 | 732            | 48            | 112/160                    |
+| quadratic-n1-k1-scalar-complete | 281.960        | 39902.995     | 2/1                 | 732            | 48            | 112/160                    |
 
-The full tiny native request costs about 37–39 microseconds on this host;
-cached reverse minima are about 264 ns scalar and 987 ns for width4.
+The full tiny native request minima are about 40–41 microseconds on this host;
+cached reverse minima are about 280 ns scalar and 1018 ns for width4.
 No universal speedup, sparse factorization or nonlinear convergence claim is made.
 
 ## Resource and failure proof
 
-All 25 native root cases pass locally; all 115 affected legacy solve cases pass.
+All 26 native root cases have passing local evidence; all 115 affected legacy solve cases pass.
 Widths scalar/1/4/8 share owned storage and per-channel scratch. For n=1/k=1 and n=2/k=2,
 retained differences equal 116+2*sizeof(Number_); reverse scratch is 48/80 bytes.
 Only n output nodes are published. Caller peak includes the same physical scratch also
@@ -148,9 +148,22 @@ the predeclared sustained-both-rounds gate. Failed/intermediate evidence remains
 in native-implicit-root-pre-neutral-performance and the earlier retained folders.
 The tables above and hashes below describe this final shared-error correction.
 
+## Post-callback phase correction and final scoped reuse
+
+A focused RED reproduces root publication after the equation calls FinishRecording.
+Moving AccuracyRecording after CaptureRoot preserves one phase/mode check while
+rejecting before event identity/publication. The new case and six affected cases
+pass, plus four affected OFF/combined strict checks. No existing numeric/shared
+object changes in this repair. Five fresh legacy links retain the final neutral-error
+hashes, so their 22 raw rows are reused. Only four optional costs are resampled;
+new process count is 40. The prior full evidence remains in
+native-implicit-root-pre-phase-performance; caller identity is retained in
+native-implicit-root-callback-phase-caller-identity.json. The new optional table
+and final hashes describe this correction. No unmeasured family is claimed as a pass.
+
 ## Final production hashes
 
-- dal-cpp/dal/math/aad/implicitroot.cpp: c77cfdf5126b3a52e699405f9c87d59d266c21472a634bcede7aa9eec35bd477
+- dal-cpp/dal/math/aad/implicitroot.cpp: 32692ad92dcd9384e819749b7d70a674d28e55f0e2508f35e71f6b5be0c0f5ac
 - dal-cpp/dal/math/aad/implicitroot.hpp: c445bbc105b7744a60ac7c60824a6c626af72ba736f670efc637eaec92a9efbd
 - dal-cpp/dal/math/aad/linearsolveinternal.hpp: 0e6721ae129cd91970a3fceab7f4d0e2aa6619bebf8f3b720b4334b25bdcb8a1
 - dal-cpp/dal/math/aad/linearsolveaccuracy.cpp: e4dad3818bfb1eaab35564c4f99f6abdcf38905d54974ed67d109dafc883b005
@@ -158,6 +171,6 @@ The tables above and hashes below describe this final shared-error correction.
 - dal-cpp/dal/math/aad/linearsolveaccuracyinternal.hpp: 33dd76da500cfd71f2a72b1299ddcc7506607e6e0f4d8cce84b9f77c4503d984
 
 Baseline archive SHA256: 9a2a9abff81127422dcf31901503be543c8dabf5127fb778f3e4ecc6f417b398
-Head archive SHA256: 6580f30848995016b407c88b062bc923594b7edabf8b293afbfc5865e5919305
+Head archive SHA256: 02f6a3538170358ab7654d8bfa71ed1e06ce6717ca8d9d11f0fdf972e5064fb2
 
 Publication and final exact-head acceptance must be inspected before merge.

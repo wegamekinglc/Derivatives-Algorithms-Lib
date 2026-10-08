@@ -80,10 +80,10 @@ namespace Dal::AAD {
                                                         const ImplicitRootAccuracyPolicy_& policy,
                                                         double tolerance) {
         return WithRecordingFailure(recording, [&](Tape_* tape) {
-            const auto identity = NativeRecordedOperation_::AccuracyRecording(recording, false);
-            const auto token = NewSolveAccuracyEvent(identity.recording_);
             const Vector_<Number_> bindings(inputs);
             const auto captured = CaptureRoot(tape, equation, candidate, bindings, policy, tolerance);
+            const auto identity = NativeRecordedOperation_::AccuracyRecording(recording, false);
+            const auto token = NewSolveAccuracyEvent(identity.recording_);
             auto event = NativeRecordedOperation_::MakeEvent<LinearSolveEvent_<ImplicitRootPayload_, true>>(tape, tape, bindings, captured, token);
             auto diagnostics = event->Diagnostics();
             auto parameters = PublishSolve(recording, tape, std::move(event));
