@@ -19,22 +19,38 @@ timing rows repeated. Completed financial controls remain in immutable
 [review](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/8493c3c11e75d68dfc8f12eaf4c30a981a3014ce/.codex/artifacts/reviews/aad-pde-financial-acceptance.md)
 and [cost report](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/8493c3c11e75d68dfc8f12eaf4c30a981a3014ce/.codex/artifacts/performance/aad-pde-financial-acceptance.md).
 
-P04 starts with an owning numeric support/color/recovery plan under the active
-[specification](../specs/aad-structural-jacobian-plan.md),
-[API note](../api-notes/aad-structural-jacobian-plan.md) and
-[critique](../critiques/aad-structural-jacobian-plan.md).
-Missing-interface RED is retained; ten focused named cases pass, including all
-512 three-by-three support patterns, zero-to-nonzero dependencies, empty/wide
-axes, canonical ownership, exact budgets, invalid gradients and concurrency.
-Six strict source/header checks and the installed-only consumer pass. All 176
-old objects and seven freshly linked accepted callers retain their bytes; only
-two new numeric costs are sampled (forty observations in 0.3613 seconds).
-The [local review](../reviews/aad-structural-jacobian-plan.md) and
-[cost report](../performance/aad-structural-jacobian-plan.md) retain scope and
-limitations. Exact-head CI/Codacy, current review and merge gates remain open.
-Native execution, financial dependency proof/identity, safe invalidation and
-measured strategy selection remain subsequent P04 boundaries; this first plan
-does not complete P04.
+The first P04 numeric plan is accepted in merged
+[#507](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/507),
+at `c11ebd81`, after two complete 37/37 exact-head audits, zero Codacy annotations
+and unresolved threads, and an inspected current-head review body. The date
+concern is resolved with the workspace's Asia/Shanghai timezone and re-review.
+All ten cases execute in fourteen profiles; tested and merged tree are identical
+at `8cabc791b300c25ec9852b5b5f502c25c6595427`. Local acceptance includes 512
+small support patterns, six strict checks and installed consumption. All 176 old
+objects/seven fresh accepted callers retain bytes; two new numeric costs complete
+forty observations in 0.3613 seconds with zero old timing rows repeated.
+Completed numeric controls remain in immutable
+[specification](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/c34b5950ebf3eb166cf3f7dd8966cfb3825084ba/.codex/artifacts/specs/aad-structural-jacobian-plan.md),
+[review](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/c34b5950ebf3eb166cf3f7dd8966cfb3825084ba/.codex/artifacts/reviews/aad-structural-jacobian-plan.md)
+and [cost report](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/c34b5950ebf3eb166cf3f7dd8966cfb3825084ba/.codex/artifacts/performance/aad-structural-jacobian-plan.md).
+
+Native execution now follows the active
+[specification](../specs/aad-native-structural-jacobian.md),
+[API note](../api-notes/aad-native-structural-jacobian.md) and
+[critique](../critiques/aad-native-structural-jacobian.md).
+The new cold adapter reuses existing scope identity/live-slot validation, binds
+inputs before graph computation, and executes scalar/bounded vector color blocks.
+All thirteen affected native cases, six strict OFF/combined checks and an
+installed-package consumer pass. All 177 existing objects and seven freshly
+linked accepted callers retain their bytes. Four complete-request costs cover
+scalar/vector execution and cold/reused plans with fresh graphs; eighty
+observations complete in 1.55 seconds, with zero old timing rows repeated.
+Local review and cost controls are retained in the active
+[review](../reviews/aad-native-structural-jacobian.md) and
+[performance report](../performance/aad-native-structural-jacobian.md).
+Publication CI, full review-body disposition and guarded merge remain pending.
+Financial proof/identity, safe invalidation and measured strategy selection remain
+subsequent P04 boundaries; P04 stays open.
 
 Native PDE recording is accepted in merged
 [#505](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/505),
@@ -1171,19 +1187,19 @@ This snapshot distinguishes accepted increments from locally implemented work.
 Estimates are remaining single-developer effort, not promises of calendar time;
 overlapping acceptance work is included once in the integration allowance.
 
-| Work item               | Implementation/local verification                                           | Publication/CI                           | Remaining person-days |
-|-------------------------|-----------------------------------------------------------------------------|------------------------------------------|-----------------------|
-| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                               | Accepted exact-head checks               | 0                     |
-| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass              | Merged; final 35/35 checks accepted      | 0                     |
-| F01                     | C++/Python/Excel and complete requirement audit accepted                    | Merged; final 35/35 checks accepted      | 0                     |
-| F02 weighted/blocked    | C++/Python/Excel and independent mathematical oracles accepted              | #483/#484 merged; exact-head gates pass  | 0                     |
-| F02 portfolio           | C++/Python/Excel, installed consumers and timing repair accepted            | #487 merged; final 35/35 checks accepted | 0                     |
-| P02                     | Worker reuse: 82 tests and 37 full-request cost cases accepted              | #488 merged; final 35/35 checks accepted | 0                     |
-| P03                     | 89 tests; 81 unique complete-request timing comparisons accepted            | #489 merged; final 35/35 checks accepted | 0                     |
-| F03                     | Solve/root/PDE operators and financial/grid acceptance complete             | #506 merged; final 36/36 gates accepted  | 0                     |
-| P04/P05                 | Numeric structural plan local tests pass; native/provider/checkpoint remain | Open                                     | 9–15                  |
-| F04                     | Second-order implementation/estimator validation remain                     | Open                                     | 12–20                 |
-| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains                  | Open                                     | 7–11                  |
+| Work item               | Implementation/local verification                                        | Publication/CI                           | Remaining person-days |
+|-------------------------|--------------------------------------------------------------------------|------------------------------------------|-----------------------|
+| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                            | Accepted exact-head checks               | 0                     |
+| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass           | Merged; final 35/35 checks accepted      | 0                     |
+| F01                     | C++/Python/Excel and complete requirement audit accepted                 | Merged; final 35/35 checks accepted      | 0                     |
+| F02 weighted/blocked    | C++/Python/Excel and independent mathematical oracles accepted           | #483/#484 merged; exact-head gates pass  | 0                     |
+| F02 portfolio           | C++/Python/Excel, installed consumers and timing repair accepted         | #487 merged; final 35/35 checks accepted | 0                     |
+| P02                     | Worker reuse: 82 tests and 37 full-request cost cases accepted           | #488 merged; final 35/35 checks accepted | 0                     |
+| P03                     | 89 tests; 81 unique complete-request timing comparisons accepted         | #489 merged; final 35/35 checks accepted | 0                     |
+| F03                     | Solve/root/PDE operators and financial/grid acceptance complete          | #506 merged; final 36/36 gates accepted  | 0                     |
+| P04/P05                 | Numeric plan merged; native local gates pass; provider/checkpoint remain | Open                                     | 9–15                  |
+| F04                     | Second-order implementation/estimator validation remain                  | Open                                     | 12–20                 |
+| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains               | Open                                     | 7–11                  |
 
 Remaining total during P04 implementation: approximately 28–46 person-days,
 excluding CI queue time and including delivery contingency. F01 is merged;
@@ -1198,20 +1214,20 @@ above. The accepted #490/#491/#493/#494/#495/#496/#497/#498/#499/#500 deliveries
 hours. Structured coordinates are split into numeric and native PRs; completed
 numeric/native diagnostics are not counted again.
 
-| Order | Delivery task                        | Required result                                                                | Remaining hours |
-|-------|--------------------------------------|--------------------------------------------------------------------------------|-----------------|
-| 1     | Accepted solve/root PRs through #501 | Merged; mathematical, resource, platform and scoped performance gates accepted | 0               |
-| 2     | F03 numeric coordinates              | Accepted in merged #495; immutable accepted evidence retained                  | 0               |
-| 3     | F03 native coordinates               | Accepted in merged #496; immutable accepted evidence retained                  | 0               |
-| 4     | F03 native coordinate accuracy       | Accepted in merged #500; exact-head CI/review and guarded merge pass           | 0               |
-| 4a    | F03 implicit calibration             | Numeric #501 and native #502 merged; all final gates accepted                  | 0               |
-| 5     | F03 PDE operators                    | #504/#505/#506 merged; financial/grid and all publication gates accepted       | 0               |
-| 6     | P04 structural sparsity              | Numeric plan tests pass; native/provider/invalidation/mode acceptance remains  | 32–56           |
-| 7     | P05 long-path checkpointing          | Complete state/RNG restoration, recomputation and memory/performance proof     | 40–64           |
-| 8     | F04 second-order risk                | Gamma, cross-Gamma, HVP, recalibration and estimator validation                | 64–96           |
-| 9     | F04 native mixed-mode prototype      | Smooth-kernel prototype, independent correctness and capability limits         | 32–64           |
-| 10    | Bindings and complete acceptance     | C++/Python/Excel, documentation, platform and performance gates                | 56–88           |
-| Total | Full remaining implementation        | All remaining plan requirements                                                | 224–368         |
+| Order | Delivery task                        | Required result                                                                 | Remaining hours |
+|-------|--------------------------------------|---------------------------------------------------------------------------------|-----------------|
+| 1     | Accepted solve/root PRs through #501 | Merged; mathematical, resource, platform and scoped performance gates accepted  | 0               |
+| 2     | F03 numeric coordinates              | Accepted in merged #495; immutable accepted evidence retained                   | 0               |
+| 3     | F03 native coordinates               | Accepted in merged #496; immutable accepted evidence retained                   | 0               |
+| 4     | F03 native coordinate accuracy       | Accepted in merged #500; exact-head CI/review and guarded merge pass            | 0               |
+| 4a    | F03 implicit calibration             | Numeric #501 and native #502 merged; all final gates accepted                   | 0               |
+| 5     | F03 PDE operators                    | #504/#505/#506 merged; financial/grid and all publication gates accepted        | 0               |
+| 6     | P04 structural sparsity              | Numeric plan merged; native local gates pass; provider/identity/strategy remain | 31–54           |
+| 7     | P05 long-path checkpointing          | Complete state/RNG restoration, recomputation and memory/performance proof      | 40–64           |
+| 8     | F04 second-order risk                | Gamma, cross-Gamma, HVP, recalibration and estimator validation                 | 64–96           |
+| 9     | F04 native mixed-mode prototype      | Smooth-kernel prototype, independent correctness and capability limits          | 32–64           |
+| 10    | Bindings and complete acceptance     | C++/Python/Excel, documentation, platform and performance gates                 | 56–88           |
+| Total | Full remaining implementation        | All remaining plan requirements                                                 | 223–366         |
 
 
 The first delivery boundary is complete. Whole-PR review repaired the Windows

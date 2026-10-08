@@ -18,6 +18,10 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-09
 
+- **Native structural Jacobians** — scope-bound input identity and fixed-width
+  compressed reverse blocks reconstruct complete owning matrices from proven
+  supports, including aliases and recorded solver composition. See
+  [native execution](docs/methodology/aad-sparsity.md#native-aad-execution).
 - **Structural Jacobian plans** — owning conservative row supports and
   deterministic greedy colors recover complete matrices from supplied compressed
   gradients, with exact numeric payload admission. Supports require caller proof.
