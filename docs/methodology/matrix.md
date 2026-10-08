@@ -271,6 +271,40 @@ allocates m error values per returned reverse. Residual work costs $O(n^2m)$,
 with no new factorization or reverse inverse. Buffers obey the active capacity
 budget. Ordinary solve interfaces retain their existing caches and work.
 
+### Checked Coordinate Accuracy
+
+`CheckedCoordinateLinearSolve_` in
+`dal/math/matrix/linearsolvecoordinateaccuracy.hpp` applies the
+[same accuracy policy](#explicit-forward-and-transpose-accuracy) to a packed
+symmetric or banded layout. It expands the physical entries once for capture,
+retains one checked LU cache and exposes `Coordinates`, `Solution`, `Diagnostics`
+and `Policy` as immutable views. Source parameters, RHS and policy can change
+after construction without changing the capture.
+
+`Reverse(W)` returns owning `CheckedCoordinateLinearSolveAdjoints_`: packed
+parameter contributions in `adjoints_.coordinates_`, RHS contributions in
+`adjoints_.rhs_`, and one `transposeBackwardErrors_` value per RHS column.
+Symmetric off-diagonal contributions add both physical entry risks, including
+zero-valued parameters. `ReverseRhs(W)` leaves the packed vector empty and omits
+its work and overflow checks. Failed reverse refunds unpublished outputs and
+leaves the numeric cache usable for a later valid seed.
+
+```cpp
+#include <dal/math/matrix/linearsolvecoordinateaccuracy.hpp>
+
+const auto layout = Dal::LinearSolveCoordinates_::Symmetric(2);
+const Dal::Vector_<> parameters{3.0, 1.0, 2.0};
+const Dal::CheckedCoordinateLinearSolve_ solve(layout, parameters, rhs, {1e-14, 1e-14});
+const auto risk = solve.Reverse(solutionSeeds);
+const auto rhsOnly = solve.ReverseRhs(solutionSeeds);
+```
+
+Reverse contracts directly into p packed risks and allocates $O(p+nm+m)$ result
+storage, without a dense matrix gradient. Factorization, condition diagnostics,
+physical transpose storage and residual evaluation remain dense. All buffers
+obey the active capacity budget. This is a numeric interface; native recorded
+coordinate overloads retain their existing contract.
+
 ## Numerical-Recipes Band Storage
 
 Band-diagonal matrices are stored in the compact form used throughout the

@@ -9,20 +9,10 @@
 #include <limits>
 
 #include <dal/math/matrix/linearsolvecoordinates.hpp>
+#include <dal/math/matrix/linearsolvecoordinatesinternal.hpp>
 #include <dal/utilities/exceptions.hpp>
 
 namespace Dal {
-    namespace {
-        FORCE_INLINE double EntryContribution(const Matrix_<>& rhsAdjoints, const Matrix_<>& solution, int row, int column) {
-            double value = 0.0;
-            for (int rhs = 0; rhs < solution.Cols(); ++rhs) {
-                value -= rhsAdjoints(row, rhs) * solution(column, rhs);
-                REQUIRE(std::isfinite(value), "Linear solve coordinate adjoint accumulation overflow");
-            }
-            return value;
-        }
-    } // namespace
-
     LinearSolveCoordinates_::LinearSolveCoordinates_(int size, int below, int above, bool symmetric)
         : size_(size), below_(below), above_(above), symmetric_(symmetric), count_(0) {
         REQUIRE(size > 0, "Linear solve coordinates require positive matrix size");
@@ -101,18 +91,7 @@ namespace Dal {
 
     CoordinateLinearSolveAdjoints_ CoordinateLinearSolvePullback_::Reverse(const Matrix_<>& solutionAdjoints) const {
         auto rhs = ReverseRhs(solutionAdjoints);
-        CoordinateLinearSolveAdjoints_ result{Vector_<>(coordinates_.Count()), std::move(rhs)};
-        size_t index = 0;
-        for (int row = 0; row < coordinates_.Size(); ++row) {
-            const int end = coordinates_.RowEnd(row);
-            for (int column = coordinates_.RowBegin(row); column < end; ++column) {
-                double value = EntryContribution(result.rhs_, Solution(), row, column);
-                if (coordinates_.IsSymmetric() && row != column)
-                    value += EntryContribution(result.rhs_, Solution(), column, row);
-                REQUIRE(std::isfinite(value), "Linear solve paired coordinate adjoint accumulation overflow");
-                result.coordinates_[index++] = value;
-            }
-        }
-        return result;
+        auto coordinates = Detail::LinearSolveCoordinateAdjoints(coordinates_, Solution(), rhs);
+        return {std::move(coordinates), std::move(rhs)};
     }
 } // namespace Dal
