@@ -621,6 +621,67 @@ input risks directly. Caller buffer budgets include actual retained capacity
 and overlapping scratch. This interface uses owning double-valued points and
 results.
 
+### Recorded Implicit Roots
+
+`AAD::ImplicitRootWithAccuracy` in `dal/math/aad/implicitroot.hpp` records the
+same complete equation linearization in an explicit native scope. It accepts
+a passive candidate, `Vector_<AAD::Number_>` equation inputs and the explicit
+accuracy policy. Its `CheckedImplicitRootResult_` owns a vector of output
+Numbers, passive forward diagnostics and a shared `SolveAccuracyEvent_` token.
+
+Using the quadratic equation above:
+
+```cpp
+#include <dal/math/aad/implicitroot.hpp>
+#include <dal/math/aad/native.hpp>
+
+Dal::AAD::RecordingScope_ scope;
+Dal::AAD::Number_ q;
+scope.RegisterInput(q, 4.0);
+scope.StartRecording();
+auto root = Dal::AAD::ImplicitRootWithAccuracy(
+    &scope, equation, Dal::Vector_<>{2.0}, Dal::Vector_<Dal::AAD::Number_>{q}, accuracy);
+Dal::AAD::Number_ objective = 3.0 * root.parameters_[0] + q;
+scope.FinishRecording();
+scope.ClearAdjoints();
+Dal::AAD::NativeOperations_::SetSeed(objective, 1.0);
+const auto reports = Dal::AAD::ReverseWithSolveAccuracy(&scope);
+const double risk = Dal::AAD::NativeOperations_::ReadAdjoint(q); // 7/4
+scope.Close();
+```
+
+The candidate selects the local branch and supplies the exact forward values.
+Each Number input declares a differentiable equation slot; repeated aliases
+sum their contributions. Direct objective input dependence composes through
+ordinary expressions. Zero equation inputs remain supported. One event owns
+the numeric cache and input/output bindings. It evaluates the equation once
+at owning doubles and retains no callback or nonlinear iteration graph.
+The recording must still be active when evaluation returns; a callback that
+ends recording causes capture to fail before any root output is published.
+
+Forward `diagnostics_` owns `residuals_`, `policy_` and
+`reciprocalConditionInfinity_`. The captured-point interpretation and complete
+stationarity Jacobian requirements above also apply here. For each AAD channel,
+reverse solves one transpose RHS formed from all parameter seeds. Its actual
+error report is therefore **1-by-channel-width**, including exact-zero channels.
+Root, dense and coordinate events share full, suffix and prefix report collection,
+checkpoint ordering and invocation identities. Ordinary `scope.Reverse()` also
+enforces the declared transpose limit. Historical reports and diagnostics remain
+readable after restoration or close; output Numbers follow the tape lifetime.
+
+Returned vectors, diagnostics and invocation reports obey caller budgets.
+Capture first constructs the validated numeric linearization in the caller
+context, then deep-copies it into the event without another factorization.
+This keeps callback-managed buffers outside event ownership; their side effects
+remain caller-owned if the callback throws. Caller peak includes staged bindings,
+numeric construction and the overlap with returned outputs/diagnostics.
+Retained cache/bindings and reverse scratch obey tape budgets; with a caller
+budget active, the same scratch also counts toward its peak alongside reports.
+These overlapping measurements describe the same allocation. Failed capture
+publishes no root outputs. Failed reverse, unsupported numerical range or
+nonfinite accumulated input risk invalidates the recording and returns no
+partial collection. The interface provides first-order C++ equation derivatives.
+
 ### Native Production Profiling
 
 `DAL_ENABLE_AAD_PROFILING=ON` enables the C++ diagnostics in

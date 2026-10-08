@@ -8,6 +8,7 @@
 #include <atomic>
 #include <limits>
 
+#include <dal/math/aad/linearsolveaccuracyinternal.hpp>
 #include <dal/math/aad/linearsolvecoordinateaccuracy.hpp>
 #include <dal/math/aad/linearsolveinternal.hpp>
 #include <dal/math/matrix/linearsolvecoordinateaccuracy.hpp>
@@ -268,4 +269,12 @@ namespace Dal::AAD {
     SolveAccuracyReports_ ReversePrefixWithSolveAccuracy(RecordingScope_* recording, const Checkpoint_& checkpoint) {
         return CollectReports(recording, [&] { recording->ReversePrefix(checkpoint); });
     }
+
+    SolveAccuracyEvent_ NewSolveAccuracyEvent(std::uint64_t recording) { return SolveAccuracyAccess_::Event(recording); }
+
+    SolveAccuracyReport_* PrepareSolveAccuracyReport(const SolveAccuracyEvent_& event, int rhsColumns, bool multi, size_t width) {
+        return PrepareReport(event, rhsColumns, multi, width);
+    }
+
+    void CopySolveAccuracyErrors(const Vector_<>& errors, SolveAccuracyReport_* report, size_t channel) { CopyErrors(errors, report, channel); }
 } // namespace Dal::AAD
