@@ -121,17 +121,30 @@ def test_mc_value_and_date_setter_complete_without_gil_lock_inversion():
         setter_started.set()
         dal.EvaluationDate_Set(next_date)
 
+    old_switch_interval = sys.getswitchinterval()
+    sys.setswitchinterval(100.0)
     try:
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-            valuation = executor.submit(price)
-            assert valuation_started.wait(timeout=5.0)  # nosec B101
+            # A descheduled observer may miss a completed valuation's lock window.
+            for _ in range(3):
+                valuation_started.clear()
+                valuation = executor.submit(price)
+                assert valuation_started.wait(timeout=5.0)  # nosec B101
 
-            deadline = time.monotonic() + 5.0
-            while dal._dal._EvaluationDateBarrier_AvailableForTesting():
-                if valuation.done() or time.monotonic() >= deadline:
-                    pytest.fail("valuation did not hold the evaluation-date barrier")
-                # Let the pricing thread enter C++ instead of competing with a busy probe.
-                time.sleep(0.001)
+                deadline = time.monotonic() + 5.0
+                while dal._dal._EvaluationDateBarrier_AvailableForTesting():
+                    if valuation.done():
+                        assert math.isfinite(valuation.result(timeout=30.0))  # nosec B101
+                        break
+                    if time.monotonic() >= deadline:
+                        pytest.fail(
+                            "valuation did not hold the evaluation-date barrier"
+                        )
+                    time.sleep(0.001)
+                else:
+                    break
+            else:
+                pytest.fail("valuation did not hold the evaluation-date barrier")
 
             setter = executor.submit(set_date)
             assert setter_started.wait(timeout=5.0)  # nosec B101
@@ -144,6 +157,7 @@ def test_mc_value_and_date_setter_complete_without_gil_lock_inversion():
         assert math.isfinite(pv)  # nosec B101 - pytest assertions are intentional
         assert dal.EvaluationDate_Get() == next_date  # nosec B101
     finally:
+        sys.setswitchinterval(old_switch_interval)
         dal.EvaluationDate_Set(original_date)
 
 
