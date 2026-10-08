@@ -22,6 +22,9 @@ the dedicated Python and Excel chapters, examples use C++ by default.
 | [CCY curves](ccy-curves/README.md)     | Cross-currency pricing, fixing snapshots, staged and joint calibration                |
 | [Methodology](methodology/README.md)   | Monte Carlo, PDE, AAD, script evaluation, numerical routines, and market conventions  |
 
+The [fixed-grid European PDE example](methodology/pde/aad.md) covers complete
+call/put native adjoints and separate derivative/grid-convergence acceptance.
+
 ## Component Guides
 
 - [Core C++](../dal-cpp/README.md) and [public C++ facade](../dal-public/README.md).

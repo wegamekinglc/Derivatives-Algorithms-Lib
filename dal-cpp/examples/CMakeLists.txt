@@ -14,6 +14,7 @@ add_subdirectory(average_option_script)
 add_subdirectory(basket_mc)
 add_subdirectory(european_mc)
 add_subdirectory(european_fd)
+add_subdirectory(european_aad_fd)
 add_subdirectory(fix_mc)
 add_subdirectory(gsr_swap_swaption)
 if(DAL_BUILD_PUBLIC)
@@ -81,6 +82,7 @@ set(DAL_EXAMPLE_TARGETS
     basket_mc
     european_mc
     european_fd
+    european_aad_fd
     fix_mc
     gsr_swap_swaption
     dal_hybrid_script_example
