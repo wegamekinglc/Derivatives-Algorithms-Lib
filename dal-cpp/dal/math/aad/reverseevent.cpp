@@ -46,12 +46,12 @@ namespace Dal::AAD {
     }
 
     Tape_* NativeRecordedOperation_::Begin(RecordingScope_* recording) {
-        REQUIRE(recording != nullptr, "LinearSolve: recording scope must not be null");
-        recording->RequireState(AADRecordingState_::Value_::RECORDING, "LinearSolve");
+        REQUIRE(recording != nullptr, "RecordedOperation: recording scope must not be null");
+        recording->RequireState(AADRecordingState_::Value_::RECORDING, "RecordedOperation");
         auto* tape = recording->tape_;
         NativeOperations_::ValidateAdjointMode(tape->multi_, tape->numAdj_);
         if (tape->HasReverseEventState())
-            tape->RequireReverseEventState("LinearSolve");
+            tape->RequireReverseEventState("RecordedOperation");
         return tape;
     }
 
@@ -63,14 +63,14 @@ namespace Dal::AAD {
 
     void NativeRecordedOperation_::ValidateInput(const NativeInputSlots_& slots, const Number_& input) {
 #if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
-        input.ValidateOperands(slots.tape_, "LinearSolve.Input");
+        input.ValidateOperands(slots.tape_, "RecordedOperation.Input");
 #endif
-        REQUIRE(input.node_ != nullptr, "LinearSolve.Input: requires a live slot on the recording tape");
+        REQUIRE(input.node_ != nullptr, "RecordedOperation.Input: requires a live slot on the recording tape");
         const auto range = std::upper_bound(
             slots.ranges_.begin(), slots.ranges_.end(), input.node_,
             [](const TapNode_* node, const NativeInputSlots_::Range_& candidate) { return std::less<const TapNode_*>()(node, candidate.first); });
         REQUIRE(range != slots.ranges_.begin() && std::less<const TapNode_*>()(input.node_, std::prev(range)->second),
-                "LinearSolve.Input: requires a live slot on the recording tape");
+                "RecordedOperation.Input: requires a live slot on the recording tape");
     }
 
     void NativeRecordedOperation_::Prepare(Tape_* tape) { tape->PrepareReverseEvent(); }

@@ -18,6 +18,10 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-08
 
+- **Recorded implicit roots** — native AAD composes owning equation
+  linearizations with ordinary expressions and serial root events, preserving
+  declared residual/transpose limits, shared invocation reports and capacity
+  budgets. See [recorded implicit roots](docs/methodology/aad.md#recorded-implicit-roots).
 - **Implicit-root linearization** — an owning numeric operator maps supplied
   root-candidate adjoints through complete equation Jacobians, enforcing
   per-equation residual and transpose accuracy limits with independent seed
