@@ -215,6 +215,30 @@ def round_deltas(
     return deltas
 
 
+def invalid_overhead_samples(
+    head: dict[str, list[float]], cases: tuple[str, str], expected_count: int
+) -> list[str]:
+    return [
+        case for case in cases
+        if len(head.get(case, [])) != expected_count
+        or any(not math.isfinite(value) or value <= 0 for value in head.get(case, []))
+    ]
+
+
+def generic_joint_overhead_row(
+    case: str, aggregate: list[float], reference: list[float], round_size: int, round_count: int
+) -> dict[str, object]:
+    deltas = round_deltas(reference, aggregate, round_size, round_count)
+    return {
+        "case": case,
+        "aggregate_ns": min(aggregate),
+        "reference_ns": min(reference),
+        "round_overhead_percent": deltas,
+        "limit_percent": GENERIC_JOINT_OVERHEAD_LIMIT_PERCENT,
+        "passed": not all(delta > GENERIC_JOINT_OVERHEAD_LIMIT_PERCENT for delta in deltas),
+    }
+
+
 def generic_joint_overhead_checks(
     head: dict[str, list[float]], round_size: int, round_count: int
 ) -> tuple[list[dict[str, object]], list[str]]:
@@ -226,28 +250,16 @@ def generic_joint_overhead_checks(
             suffix = f" ({trades} IRS x N={width})"
             aggregate_case = "Quote risk generic joint" + suffix
             reference_case = "Quote risk generic joint node reference" + suffix
-            invalid = [
-                case for case in (aggregate_case, reference_case)
-                if len(head.get(case, [])) != expected_count
-                or any(not math.isfinite(value) or value <= 0 for value in head.get(case, []))
-            ]
+            invalid = invalid_overhead_samples(head, (aggregate_case, reference_case), expected_count)
             if invalid:
                 failures.append(f"rate_risk_perf: missing, incomplete or invalid overhead samples: {', '.join(invalid)}")
                 continue
-            aggregate = head[aggregate_case]
-            reference = head[reference_case]
-            deltas = round_deltas(reference, aggregate, round_size, round_count)
-            passed = not all(delta > GENERIC_JOINT_OVERHEAD_LIMIT_PERCENT for delta in deltas)
-            rows.append({
-                "case": aggregate_case,
-                "aggregate_ns": min(aggregate),
-                "reference_ns": min(reference),
-                "round_overhead_percent": deltas,
-                "limit_percent": GENERIC_JOINT_OVERHEAD_LIMIT_PERCENT,
-                "passed": passed,
-            })
-            if not passed:
-                formatted = ", ".join(f"{delta:+.2f}%" for delta in deltas)
+            row = generic_joint_overhead_row(
+                aggregate_case, head[aggregate_case], head[reference_case], round_size, round_count
+            )
+            rows.append(row)
+            if not row["passed"]:
+                formatted = ", ".join(f"{delta:+.2f}%" for delta in row["round_overhead_percent"])
                 failures.append(
                     f"rate_risk_perf / {aggregate_case}: head overhead exceeds "
                     f"{GENERIC_JOINT_OVERHEAD_LIMIT_PERCENT:.2f}% in every confirmation round ({formatted})"
