@@ -37,7 +37,9 @@ namespace {
 
     size_t CallerCapturePeak(size_t n) {
         const size_t numeric = (6 * n * n + 6 * n + 1) * sizeof(double) + n * sizeof(int);
-        return numeric + n * (sizeof(Number_) + sizeof(double));
+        const size_t retained = (3 * n * n + 5 * n + 1) * sizeof(double) + n * sizeof(int);
+        const size_t publication = retained + 2 * n * (sizeof(Number_) + sizeof(double));
+        return std::max(numeric + n * (sizeof(Number_) + sizeof(double)), publication);
     }
 
     void SeedResourceRoots(Vector_<Number_>* outputs, size_t channels) {

@@ -29,30 +29,30 @@ Only >+4% in both rounds rejects; no thresholds, repetitions, shapes or gates ar
 Twenty-two rows retain 200 raw process outputs / 880 observations; four optional rows retain
 40 final process outputs / 160 observations. All risk checksums and per-side resources are stable.
 
-| Caller             | Case                                  | Base min ns   | Head min ns   | Round 1 %   | Round 2 %   | Verdict   |
-| ------------------ | ------------------------------------- | ------------- | ------------- | ----------- | ----------- | --------- |
-| checked            | medium-n32-rhs4-width4-full-cached    | 76030.675     | 76610.480     | +0.763      | +1.074      | Pass      |
-| checked            | medium-n32-rhs4-width4-full-complete  | 132246.212    | 133827.535    | +1.196      | +1.012      | Pass      |
-| checked            | small-n2-rhs1-scalar-full-cached      | 284.158       | 288.153       | +1.266      | +1.876      | Pass      |
-| checked            | small-n2-rhs1-scalar-full-complete    | 921.082       | 928.372       | -0.083      | +1.627      | Pass      |
-| checked            | tiny-n1-rhs1-scalar-rhs-only-cached   | 177.837       | 177.712       | -0.070      | +0.077      | Pass      |
-| checked            | tiny-n1-rhs1-scalar-rhs-only-complete | 662.075       | 662.811       | -4.400      | +2.409      | Pass      |
-| ordinary           | n2-rhs1-width0-activity0-cached       | 188.832       | 189.286       | -0.978      | +0.817      | Pass      |
-| ordinary           | n2-rhs1-width0-activity0-complete     | 612.274       | 608.361       | -1.044      | -0.639      | Pass      |
-| ordinary           | n2-rhs4-width8-activity2-cached       | 2677.039      | 2709.844      | +1.453      | -0.417      | Pass      |
-| ordinary           | n2-rhs4-width8-activity2-complete     | 3288.444      | 3277.779      | -0.324      | -0.238      | Pass      |
-| ordinary           | n32-rhs4-width4-activity1-cached      | 22488.747     | 22469.008     | +2.521      | -0.809      | Pass      |
-| ordinary           | n32-rhs4-width4-activity1-complete    | 35380.924     | 35622.088     | -0.320      | +2.340      | Pass      |
-| diagnosed          | n2-rhs1-width0-activity0-cached       | 188.695       | 189.696       | +0.042      | +0.532      | Pass      |
-| diagnosed          | n2-rhs1-width0-activity0-complete     | 819.678       | 820.489       | -0.029      | +0.394      | Pass      |
-| coordinate         | band-n64-rhs4-width4-cached           | 59662.115     | 59297.950     | -1.414      | +0.808      | Pass      |
-| coordinate         | band-n64-rhs4-width4-complete         | 126432.530    | 125848.240    | +0.387      | -1.374      | Pass      |
-| coordinate         | symmetric-n2-rhs1-scalar-cached       | 181.082       | 180.308       | +0.194      | -0.495      | Pass      |
-| coordinate         | symmetric-n2-rhs1-scalar-complete     | 622.098       | 621.698       | -0.031      | -0.064      | Pass      |
-| checked-coordinate | band-n64-rhs4-width4-cached           | 197124.595    | 194256.200    | -1.455      | -1.387      | Pass      |
-| checked-coordinate | band-n64-rhs4-width4-complete         | 479973.430    | 480959.255    | +0.205      | +0.483      | Pass      |
-| checked-coordinate | symmetric-n2-rhs1-scalar-cached       | 297.488       | 295.288       | -0.582      | -0.740      | Pass      |
-| checked-coordinate | symmetric-n2-rhs1-scalar-complete     | 964.550       | 969.719       | +1.288      | +0.536      | Pass      |
+| Caller             | Case                                  | Base min ns | Head min ns | Round 1 % | Round 2 % | Verdict |
+|--------------------|---------------------------------------|-------------|-------------|-----------|-----------|---------|
+| checked            | medium-n32-rhs4-width4-full-cached    | 76030.675   | 76610.480   | +0.763    | +1.074    | Pass    |
+| checked            | medium-n32-rhs4-width4-full-complete  | 132246.212  | 133827.535  | +1.196    | +1.012    | Pass    |
+| checked            | small-n2-rhs1-scalar-full-cached      | 284.158     | 288.153     | +1.266    | +1.876    | Pass    |
+| checked            | small-n2-rhs1-scalar-full-complete    | 921.082     | 928.372     | -0.083    | +1.627    | Pass    |
+| checked            | tiny-n1-rhs1-scalar-rhs-only-cached   | 177.837     | 177.712     | -0.070    | +0.077    | Pass    |
+| checked            | tiny-n1-rhs1-scalar-rhs-only-complete | 662.075     | 662.811     | -4.400    | +2.409    | Pass    |
+| ordinary           | n2-rhs1-width0-activity0-cached       | 188.832     | 189.286     | -0.978    | +0.817    | Pass    |
+| ordinary           | n2-rhs1-width0-activity0-complete     | 612.274     | 608.361     | -1.044    | -0.639    | Pass    |
+| ordinary           | n2-rhs4-width8-activity2-cached       | 2677.039    | 2709.844    | +1.453    | -0.417    | Pass    |
+| ordinary           | n2-rhs4-width8-activity2-complete     | 3288.444    | 3277.779    | -0.324    | -0.238    | Pass    |
+| ordinary           | n32-rhs4-width4-activity1-cached      | 22488.747   | 22469.008   | +2.521    | -0.809    | Pass    |
+| ordinary           | n32-rhs4-width4-activity1-complete    | 35380.924   | 35622.088   | -0.320    | +2.340    | Pass    |
+| diagnosed          | n2-rhs1-width0-activity0-cached       | 188.695     | 189.696     | +0.042    | +0.532    | Pass    |
+| diagnosed          | n2-rhs1-width0-activity0-complete     | 819.678     | 820.489     | -0.029    | +0.394    | Pass    |
+| coordinate         | band-n64-rhs4-width4-cached           | 59662.115   | 59297.950   | -1.414    | +0.808    | Pass    |
+| coordinate         | band-n64-rhs4-width4-complete         | 126432.530  | 125848.240  | +0.387    | -1.374    | Pass    |
+| coordinate         | symmetric-n2-rhs1-scalar-cached       | 181.082     | 180.308     | +0.194    | -0.495    | Pass    |
+| coordinate         | symmetric-n2-rhs1-scalar-complete     | 622.098     | 621.698     | -0.031    | -0.064    | Pass    |
+| checked-coordinate | band-n64-rhs4-width4-cached           | 197124.595  | 194256.200  | -1.455    | -1.387    | Pass    |
+| checked-coordinate | band-n64-rhs4-width4-complete         | 479973.430  | 480959.255  | +0.205    | +0.483    | Pass    |
+| checked-coordinate | symmetric-n2-rhs1-scalar-cached       | 297.488     | 295.288     | -0.582    | -0.740    | Pass    |
+| checked-coordinate | symmetric-n2-rhs1-scalar-complete     | 964.550     | 969.719     | +1.288    | +0.536    | Pass    |
 
 No sustained excess occurs. Small movements inside the calibrated gate support no regression,
 not a speedup claim. Measurements are from the shared development host with fixed affinity.
@@ -65,12 +65,12 @@ nodes, clears/seeds the recording, traverses reverse events and returns invocati
 Complete native timing includes scope close and full tape clear; cached timing reuses one event.
 These are different amounts of work, so their ratio is not an existing-caller regression verdict.
 
-| New case                        | Numeric min ns   | Native min ns   | Native nodes/events   | Retained bytes   | Scratch bytes   | Caller retained/peak bytes   |
-| ------------------------------- | ---------------- | --------------- | --------------------- | ---------------- | --------------- | ---------------------------- |
-| coupled-n2-k2-width4-cached     | 446.183          | 985.709         | 4/1                   | 880              | 80              | 168/352                      |
-| coupled-n2-k2-width4-complete   | 693.994          | 38336.800       | 4/1                   | 880              | 80              | 168/352                      |
-| quadratic-n1-k1-scalar-cached   | 89.778           | 265.966         | 2/1                   | 732              | 48              | 112/160                      |
-| quadratic-n1-k1-scalar-complete | 275.161          | 37396.641       | 2/1                   | 732              | 48              | 112/160                      |
+| New case                        | Numeric min ns | Native min ns | Native nodes/events | Retained bytes | Scratch bytes | Caller retained/peak bytes |
+|---------------------------------|----------------|---------------|---------------------|----------------|---------------|----------------------------|
+| coupled-n2-k2-width4-cached     | 446.183        | 985.709       | 4/1                 | 880            | 80            | 168/352                    |
+| coupled-n2-k2-width4-complete   | 693.994        | 38336.800     | 4/1                 | 880            | 80            | 168/352                    |
+| quadratic-n1-k1-scalar-cached   | 89.778         | 265.966       | 2/1                 | 732            | 48            | 112/160                    |
+| quadratic-n1-k1-scalar-complete | 275.161        | 37396.641     | 2/1                 | 732            | 48            | 112/160                    |
 
 The full tiny native request costs about 37–39 microseconds on this host;
 cached reverse is about 266–267 ns scalar and 986–991 ns for width4.
@@ -123,6 +123,13 @@ native-implicit-root-pre-callback-performance retains the previous complete
 measurement/provenance, and native-implicit-root-callback-caller-identity.json
 records fresh identity. New raw optional rows and final hashes are under
 native-implicit-root-performance. No generic buffer-accounting change occurs.
+
+The later diagnostic-layout CI resource test correction changes tests/docs
+only. It includes the staging/publication phase, whose coupled peak is 480
+bytes with larger diagnostic Number handles versus 448 for construction.
+OFF remains at 352. Actual tape/caller budgets, resource thresholds and all
+production/archive/binary timing hashes are unchanged; no timing is repeated.
+The two affected OFF resource tests and strict OFF/combined checks pass.
 
 ## Final production hashes
 

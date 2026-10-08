@@ -4,7 +4,7 @@ Local design/correctness acceptance passes with no blocking findings. Numeric
 #501 is merged and tree-verified; native publication remains pending.
 
 | Risk                                              | Implemented control and evidence                                                                                       |
-| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+|---------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|
 | Callback redirects captured input                 | Own Number bindings before snapshot/evaluation; source mutation leaves original risk 1/4 and replacement risk zero     |
 | Residual is confused with zero-RHS convergence    | Separate owning equation residual/policy/physical-condition diagnostics                                                |
 | Report rows equal parameter count                 | One transpose RHS per channel; scalar and width 1/4/8 require 1-by-width errors                                        |
@@ -55,3 +55,11 @@ peak 352 bytes replaces the previous reverse-only peak, with exact/one-byte-shor
 and refund checks. All 22 strict checks and the refreshed installed consumer pass.
 Five unchanged fresh caller binaries preserve the 22 accepted legacy timing rows;
 only the four optional costs are resampled. Final-head CI/re-review remain required.
+
+Diagnostic-layout CI shows that caller publication overlap can dominate initial
+construction: the coupled larger-handle layout peaks at 480 bytes rather than
+448. Resource tests now include that independently derived phase alongside
+construction and reverse, keeping exact/one-byte-short rejection. Production
+accounting and all measured binaries remain unchanged. Final-head runtime in
+all fourteen profiles remains required. Historical cost text and table formatting
+are repaired against the frozen report and repository style contract.

@@ -87,3 +87,19 @@ peak 352 bytes replaces the previous reverse-only peak, with exact/one-byte-shor
 and refund checks. All 22 strict checks and the refreshed installed consumer pass.
 Five unchanged fresh caller binaries preserve the 22 accepted legacy timing rows;
 only the four optional costs are resampled. Final-head CI/re-review remain required.
+
+## Diagnostic-layout resource correction
+
+Combined exact-head CI job 113195380314 exposes the publication overlap:
+with larger Number handles, the staged numeric cache and bindings remain live
+while returned Numbers/diagnostics are allocated. The coupled caller peak is
+480 bytes, exceeding its 448-byte construction peak. The test formula now takes
+the maximum of construction, staging/publication and reverse overlap, preserving
+exact and one-byte-short rejection/refund checks. Both affected OFF cases and
+their strict OFF/combined checks pass; final diagnostic runtime is still required.
+Production/source/archive/binary timing hashes remain unchanged.
+
+Review 4216089377 catches an overly broad estimate text substitution that changed
+an unrelated historical VJP range. The ledger restores the report's exact
+18.216–179.557 microseconds. Changed tables follow the compact separator/column
+width contract. These repairs change no numerical assertions or performance gate.
