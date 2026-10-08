@@ -851,6 +851,12 @@ restore and close; Numbers follow the normal tape lifetime contract. Capture or
 reverse failure invalidates the recording, refunds buffers and returns no partial
 result or report collection. Independent workers use separate recordings.
 
+For a complete financial chain, see
+[fixed-grid European PDE prices and adjoints](pde/aad.md). The example records
+terminal payoffs, discounted external boundaries and volatility-square
+coefficients, then validates discrete risks and continuum grid convergence
+separately.
+
 ### Native Production Profiling
 
 `DAL_ENABLE_AAD_PROFILING=ON` enables the C++ diagnostics in

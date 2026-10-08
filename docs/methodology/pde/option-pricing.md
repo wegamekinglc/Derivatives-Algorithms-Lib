@@ -4,6 +4,8 @@ The public C++ PDE module is a one-dimensional `double` rollback framework.
 The runnable [European call example](../../../dal-cpp/examples/european_fd/european_fd.cpp)
 constructs a Black-Scholes operator and compares explicit, Crank–Nicolson,
 and fully implicit theta schemes with the Black closed form.
+The [European AAD example](aad.md) records sampled theta steps for complete
+call/put rate, volatility and strike risks on a declared fixed grid.
 
 ## Equation and Scheme
 
