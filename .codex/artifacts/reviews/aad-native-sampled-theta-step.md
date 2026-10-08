@@ -16,6 +16,12 @@ the same checked matrix indexing, bounds, numerical assertions and fixtures are
 preserved. Reverify only the two native reference cases and this source's two
 strict modes. Production objects and existing performance evidence are unchanged.
 
+Repair-head review identifies two specification spacing issues and ambiguous
+public dimension wording. Explicitly state coefficient vectors have n-2 entries
+independent of layers, whereas external matrices have two rows and m columns.
+Formula spacing is corrected throughout the new controls. These documentation
+changes reuse all applicable numerical, installed and performance evidence.
+
 ## Scope and evidence
 
 The owning native payload wraps the accepted numeric cache, using the generic
@@ -27,7 +33,7 @@ retain zero reports; failure suppresses partial report/adjoint publication.
 
 Thirty-one new cases pass through focused batches, including independent rational
 and frozen high-precision oracles, seven activity groups and full activity at
-scalar/width1/4/8, aliases, serial rollback and volatility chain composition;
+scalar/width 1/4/8, aliases, serial rollback and volatility chain composition;
 ownership, threads/stale slots, mixed reports/checkpoints/raw windows; inclusive
 accuracy, subnormal preservation, range/nonfinite/accumulation/late-channel
 failures; exact and one-byte-short tape/caller quotas with 32 resource scenarios.
@@ -37,13 +43,13 @@ The initial missing-header RED and repaired test-fixture failures are retained.
 Twenty-four source/header strict checks pass in OFF and combined diagnostic ON
 modes. The fresh installed CMake consumer passes 1/1, including the documented
 independent scalar risk and actual report. Clang-format and complexity checks
-accept changed C++ sources; function complexity stays within limit8.
+accept changed C++ sources; function complexity stays within limit 8.
 
 Performance scope/proofs/results are in the active
-[cost report](../performance/aad-native-sampled-theta-step.md). All175 existing
+[cost report](../performance/aad-native-sampled-theta-step.md). All 175 existing
 object name/hash multiplicities and seven fresh caller binaries match accepted
 bytes; no old timing row repeats. Twelve new native cost boundaries produce
-240 valid observations in2.46s. Existing-path regression acceptance reuses
+240 valid observations in 2.46s. Existing-path regression acceptance reuses
 immutable accepted evidence plus fresh identity.
 
 Session root: /home/wegamekinglc/.cache/dal-aad-evidence-20261008. Named-case

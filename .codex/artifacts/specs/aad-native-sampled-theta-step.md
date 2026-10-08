@@ -12,7 +12,7 @@ current published behavior; this contract controls the new recording wrapper.
    containers and absent scalars select the corresponding passive numeric field.
    Nonempty fields are complete active replacements; activity and endpoint
    provenance are explicit, never inferred by equality, pointer or aliases.
-   Active oldValues_ determines the resulting layer count; overwritten passive
+   Active `oldValues_` determines the resulting layer count; overwritten passive
    field dimensions/values are unused. Resulting coefficients must contain n-2
    entries and any declared external matrix must be two-by-resulting-layers.
 2. `SampledThetaStepWithAccuracy(scope, numericInputs, activeBindings, policy,
@@ -51,7 +51,8 @@ current published behavior; this contract controls the new recording wrapper.
    compose in event order. Serial state outputs may be active overrides of the
    next step. Shared coefficients accumulate across steps/layers/channels.
    Theta endpoints inherit complete one-sided admissible discrete derivatives;
-   variances map to volatility through upstream2*sigma, with passive mesh/provider.
+   variances map to volatility through the upstream `2 * sigma` chain factor,
+   with passive mesh/provider.
 9. Returned diagnostics/reports survive copies, source mutation, checkpoints
    and recording close. Output Numbers retain the existing tape lifetime/mode
    contract. Each independent worker owns a scope; no shared mutable tape/cache.
@@ -81,18 +82,18 @@ current published behavior; this contract controls the new recording wrapper.
 
 14. After numeric #504 merge, publish controlling SPEC/API/critique and establish
     missing-interface RED with the prepared independent scalar rate fixture.
-    First GREEN has total risk163/735 for2*solution(1,0)+rate and actual1x1
-    transpose report, with independent primal73/35.
+    First GREEN has total risk `163/735` for `2 * result.solution_(1, 0) + rate`
+    and an actual 1-by-1 transpose report, with independent primal `73/35`.
 15. Cover each activity field, all-active and partial active overrides, legal
-    scalar/vector widths1/4/8, n3 and nonuniform n5/two layers, old/mixed/external
+    scalar/vector widths 1/4/8, n=3 and nonuniform n=5/two layers, old/mixed/external
     endpoints, shared aliases and serial rollback. Reuse accepted numeric high-
     precision references and add independent full-step/native-expression oracles
     at the actual composition boundary. Zero outputs/unused lanes remain strict.
     The prepared exact-symbolic n=3/two-layer fixture has left-external and
-    right-old provenance, objective257/280, interior values71/35 and41/70, and
+    right-old provenance, objective `257/280`, interior values `71/35` and `41/70`, and
     fifteen rational input risks including direct rate/dt/theta terms. Its two
     unused external slots have exactly zero risk. Compare selected activity
-    and full activity in scalar/width1/4/8 modes against those frozen values.
+    and full activity in scalar/width 1/4/8 modes against those frozen values.
 16. Test source destruction, repeated seeds and concurrent independent recordings;
     mixed event reports, checkpoints/raw windows; wrong-thread/mode/lifetime,
     invalid values/range/accuracy, failed capture/reverse and successful recovery.
@@ -102,6 +103,6 @@ current published behavior; this contract controls the new recording wrapper.
     solve/root/PDE callers retain accepted evidence. No full benchmark matrix.
     Preserve two rounds/best-of-ten/+4% for any actually changed legacy path.
 18. Include the named AADSampledThetaStepTest suite in the six sanitizer filters;
-    inspect actual final-head tests in14 profiles, all required CI/Codacy/review,
+    inspect actual final-head tests in 14 profiles, all required CI/Codacy/review,
     installed consumption and guarded merge/tree verification. Native capability
     is current-state documented only after it exists; bindings remain separate.

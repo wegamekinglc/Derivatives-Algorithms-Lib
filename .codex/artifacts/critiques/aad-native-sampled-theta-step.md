@@ -37,8 +37,8 @@ acceptance before publication.
    callback or mesh derivative is implied. Only actually changed helper callers
    need remeasurement; ordinary same-byte layouts preserve evidence.
 
-The first scalar rate test has independent expected total risk163/735 and a1x1
+The first scalar rate test has independent expected total risk 163/735 and a 1-by-1
 actual transpose report. Later cases include field activities, direct expression
-risk, aliases, serial steps, checkpoints and width1/4/8, source destruction,
+risk, aliases, serial steps, checkpoints and widths 1/4/8, source destruction,
 nonfinite/range/lifetime failures and concurrent independent recordings. Complex
 failure/resource cases get focused RED/GREEN evidence before production repairs.

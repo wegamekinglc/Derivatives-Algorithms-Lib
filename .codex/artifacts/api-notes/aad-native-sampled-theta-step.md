@@ -71,12 +71,12 @@ coordinate and root payload layout/hot paths.
 First independent n=3 analytic numeric fixture wrapped in scalar native recording:
 active rate r=0.1, passive old (1,2,3), external (4,5), mu=.2, variance=.4,
 dt=.2,theta=.5, explicit policy1e-14. Objective2*solution(1,0)+r.
-Numeric rate seed2 gives -572/735; total native rate risk is 163/735.
-Physical report is1-by1. Register r before StartRecording, extract before Close.
+Numeric rate seed 2 gives -572/735; total native rate risk is 163/735.
+Physical report is 1-by-1. Register r before StartRecording, extract before Close.
 A missing public header/interface establishes RED before writing the wrapper.
 
 Expand only affected boundaries: all field activities, active override primals,
-unused boundaries, scalar/width1/4/8, two layers and serial rollback, independent
+unused boundaries, scalar/width 1/4/8, two layers and serial rollback, independent
 expression/complete-solve differences, aliases, repeated seeds, zero/NaN/range,
 source mutation/destruction, checkpoints/windows, invalid lifetime/thread/mode,
 exact caller/tape peaks and one-byte-short recovery. New cases belong to a named

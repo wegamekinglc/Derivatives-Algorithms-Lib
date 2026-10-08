@@ -777,8 +777,9 @@ configuration supplies the passive grid, boundary-source flags and field values.
 and optional Number scalars `dt_`, `theta_`. Empty containers or absent scalars
 use the corresponding numeric value. Active replacements supply their own
 primals, so the overwritten passive field can be empty or otherwise unused.
-An active old-state matrix defines the layer count. Resulting coefficients and
-external matrices must match that count and the numeric shape contract above.
+An active old-state matrix defines the layer count $m$. Each resulting
+coefficient vector contains $n-2$ entries, independent of the layer count.
+Any declared external matrix has two rows and $m$ columns, including unused sides.
 The native call requires at least one active field; fully passive steps use
 the numeric operator.
 
