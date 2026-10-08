@@ -3,8 +3,8 @@
 `AAD::PlanStructuralJacobian` in
 [`dal/math/aad/structuraljacobian.hpp`](../../dal-cpp/dal/math/aad/structuraljacobian.hpp)
 owns conservative row supports and colors for reconstructing a full Jacobian
-from supplied compressed direction gradients. It builds numeric metadata and
-recovers matrices; the caller provides the actual VJP execution.
+from compressed direction gradients. The numeric API accepts supplied gradients;
+the native adapter below binds live inputs and executes the required VJPs.
 
 ## Supports and compressed directions
 
@@ -75,6 +75,71 @@ simultaneous numeric payload. The example needs 96 result bytes and 64 direction
 bytes, so budget 160 admits it and budget 159 rejects it. Budget zero is valid
 for an empty payload. Plan metadata, allocation overhead, tape storage and other
 caller data are outside this budget.
+
+## Native AAD execution
+
+[`dal/math/aad/structuraljacobiannative.hpp`](../../dal-cpp/dal/math/aad/structuraljacobiannative.hpp)
+provides `BindStructuralJacobianInputs` and `ExecuteStructuralJacobian`. Choose
+the recording mode before registering inputs, then bind immediately after
+`StartRecording`, before constructing dependent expressions or reverse events.
+Binding requires distinct live inputs, exclusively independent root nodes in the
+current graph, and no reverse events. The following example reconstructs the
+same complete 3-by-4 matrix:
+
+```cpp
+#include <dal/math/aad/structuraljacobiannative.hpp>
+
+using namespace Dal;
+using namespace Dal::AAD;
+const auto plan = PlanStructuralJacobian(4, {{0, 1}, {2}, {1, 3}}, {160});
+const auto mode = SetNumResultsForAAD(true, 2);
+RecordingScope_ recording;
+Vector_<Number_> inputs(4);
+for (size_t column = 0; column < inputs.size(); ++column)
+    recording.RegisterInput(inputs[column], static_cast<double>(column + 1));
+recording.StartRecording();
+const auto bindings = BindStructuralJacobianInputs(&recording, inputs);
+const Vector_<Number_> outputs = {
+    2.0 * inputs[0] + 3.0 * inputs[1],
+    4.0 * inputs[2],
+    5.0 * inputs[1] + 6.0 * inputs[3]
+};
+recording.FinishRecording();
+const auto jacobian = ExecuteStructuralJacobian(
+    &recording, bindings, plan, inputs, outputs);
+```
+
+Execution checks READY state, recording identity, fixed mode/width, counts,
+input order and live slots, and finite input/output values before clearing
+seeds. Every output must have a live slot: a materialized constant such as
+`Number_(5.0)` is valid; a default-constructed Number without a slot is rejected.
+Direct inputs, intermediate nodes, aliased outputs and recorded solver outputs
+are supported. Unit seeds accumulate for aliases.
+
+The scalar mode executes one color per reverse. Vector mode executes up to the
+existing width per reverse, clearing all graph adjoints before each block.
+Unused lanes in the final block stay zero; execution does not resize the width
+or add graph nodes. An empty-color plan validates the complete request and
+returns the exact zero shape without reversing or clearing existing adjoints.
+Validation errors preserve existing seeds. A backend reverse failure follows
+the recording's FAILED semantics; non-finite harvested gradients publish no
+partial result.
+
+`NativeStructuralInputs_` owns binding metadata and exposes `Inputs`,
+`VectorAdjoints` and `Width`. It owns no Numbers, scope or tape. Copies own their
+metadata; reassign moved-from tokens before use. Execution belongs to the
+recording's owner thread and requires live Numbers under the ordinary Number
+lifetime contract; diagnostic builds additionally check generations. A token
+cannot execute after scope cleanup or on another recording, even if storage
+addresses are reused. The returned matrix owns its data after cleanup.
+
+Binding identity establishes which live slots are used; the caller still proves
+mathematical supports for the ordered axes. Reuse a numeric plan at another
+parameter point only when its support proof remains valid, and re-record with
+fresh live inputs and bindings. Independent threads may share a const plan and
+use their own scopes. The numeric payload budget above excludes binding
+metadata and tape capacity. Native execution is explicit and does not select a
+default risk strategy.
 
 ## Reuse and risk semantics
 
