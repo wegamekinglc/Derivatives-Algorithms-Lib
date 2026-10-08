@@ -9,6 +9,11 @@ No open local correctness or style findings. Initial strict warnings for signed
 sizes, macro dangling-else and temporary pair diagnostics are repaired without
 relaxing warnings. The initial recovery fixture used an incorrect rational value;
 its correct independent equation gives 103/105, with focused repair evidence.
+External review identifies that ASSERT_DOUBLE_EQ tolerates zero versus the
+minimum subnormal. An isolated dropped-value probe reproduces that loophole;
+strict ASSERT_EQ rejects it. Both preservation tests and exact zero-seed risks
+now use strict equality, with all three affected tests passing. Production
+and measured workload bytes stay unchanged, so accepted timing is reused.
 
 ## Correctness and design
 

@@ -122,14 +122,14 @@ TEST(SampledThetaStepTest, TestRepeatedSeedsAreLinearAndZeroSeedsAreExact) {
     CheckRiskScale(step.Reverse(OwnershipSeeds()), expected);
     const auto zero = step.Reverse(Matrix_<>(5, 2));
     for (double value : zero.oldValues_)
-        ASSERT_DOUBLE_EQ(value, 0.0);
+        ASSERT_EQ(value, 0.0);
     for (double value : zero.externalValues_)
-        ASSERT_DOUBLE_EQ(value, 0.0);
+        ASSERT_EQ(value, 0.0);
     for (const auto* values : {&zero.rates_, &zero.drifts_, &zero.variances_, &zero.transposeBackwardErrors_})
         for (double value : *values)
-            ASSERT_DOUBLE_EQ(value, 0.0);
-    ASSERT_DOUBLE_EQ(zero.dt_, 0.0);
-    ASSERT_DOUBLE_EQ(zero.theta_, 0.0);
+            ASSERT_EQ(value, 0.0);
+    ASSERT_EQ(zero.dt_, 0.0);
+    ASSERT_EQ(zero.theta_, 0.0);
 }
 
 TEST(SampledThetaStepTest, TestConcurrentConstReverseUsesIndependentRequests) {
@@ -170,7 +170,7 @@ TEST(SampledThetaStepTest, TestTridiagonalLateScalingPreservesMinimumRhs) {
     rhs(0, 0) = std::numeric_limits<double>::denorm_min();
     for (bool transpose : {false, true}) {
         const auto solution = factors.Solve(rhs, transpose);
-        ASSERT_DOUBLE_EQ(solution(0, 0), std::numeric_limits<double>::denorm_min());
-        ASSERT_DOUBLE_EQ(solution(1, 0), 0.0);
+        ASSERT_EQ(solution(0, 0), std::numeric_limits<double>::denorm_min());
+        ASSERT_EQ(solution(1, 0), 0.0);
     }
 }

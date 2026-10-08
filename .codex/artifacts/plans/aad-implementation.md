@@ -261,6 +261,9 @@ bytes. Twenty actually affected dense/coordinate/root caller rows pass the
 unchanged two-round +4% policy in a 38-second scoped sample; three optional PDE
 shapes disclose costs and linear capacities. Publication/platform acceptance
 remain pending. Native event integration follows numeric merge in a separate PR.
+The minimum-subnormal assertion review findings are reproduced with an isolated
+dropped-value probe and repaired with strict equality. Three affected cases pass;
+unchanged production/workload identities retain the 38-second timing acceptance.
 
 The following recording notes are
 historical repair evidence, not outstanding #491 gates.

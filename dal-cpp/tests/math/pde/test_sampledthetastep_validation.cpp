@@ -234,9 +234,9 @@ TEST(SampledThetaStepTest, TestMinimumSubnormalRiskIsPreserved) {
     inputs.dt_ = std::numeric_limits<double>::denorm_min();
     const SampledThetaStepPullback_ step(inputs, LinearSolveAccuracyPolicy_{0.0, 0.0});
     const auto risk = step.Reverse(InteriorSeed());
-    ASSERT_DOUBLE_EQ(risk.rates_[0], -std::numeric_limits<double>::denorm_min());
-    ASSERT_DOUBLE_EQ(risk.drifts_[0], 0.0);
-    ASSERT_DOUBLE_EQ(risk.variances_[0], 0.0);
+    ASSERT_EQ(risk.rates_[0], -std::numeric_limits<double>::denorm_min());
+    ASSERT_EQ(risk.drifts_[0], 0.0);
+    ASSERT_EQ(risk.variances_[0], 0.0);
 }
 
 TEST(SampledThetaStepTest, TestSingularCaptureRefundsAndRecovers) {

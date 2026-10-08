@@ -122,3 +122,6 @@ the unchanged sustained +4% policy; all twelve optional rows have consistent
 primal/risk/error/resource observations. This does not certify unrelated paths
 or all continuum PDE sensitivities. Existing `pde_perf` covers passive rollback;
 a future native-step increment should add only its actual recording/sweep costs.
+The test-only review repair strengthens subnormal/exact-zero assertions. It
+changes no production or workload bytes; the recorded archive/executable and
+dependency identities preserve this acceptance without repeating measurements.
