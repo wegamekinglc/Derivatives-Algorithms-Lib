@@ -365,8 +365,9 @@ Numerical policies match the numeric operator. Construction/reverse failure
 invalidates the graph and rejects adjoint reads until reset; a subsequent
 independent scope can recover. Optional lifetime diagnostics additionally reject
 stale source epochs/generations. Default builds retain the existing raw Number
-lifetime contract. This API provides first-order dense-entry derivatives;
-structured coordinates, higher order and public user
+lifetime contract. This overload family provides first-order dense-entry
+derivatives. Packed symmetric and banded parameters use the
+[coordinate overloads](#recorded-solve-coordinates). Higher order and public user
 callbacks require separate support.
 
 `LinearSolveWithDiagnostics` in `dal/math/aad/linearsolvediagnostics.hpp`
@@ -392,6 +393,233 @@ before output publication. Allocation or diagnostic inverse-range failure
 invalidates the graph and refunds uncommitted storage. The ordinary `LinearSolve`
 retains its existing cache and work. Diagnostic computation adds the numeric
 diagnostic cost and one caller-owned vector of per-RHS errors.
+
+### Recorded Solve Accuracy
+
+`LinearSolveWithAccuracy` in `dal/math/aad/linearsolveaccuracy.hpp` records a
+dense solve with an explicit [accuracy policy](matrix.md#explicit-forward-and-transpose-accuracy).
+It supports the same three activity combinations as the ordinary dense solve.
+The returned `CheckedLinearSolveResult_` owns `solution_`, forward `diagnostics_`
+and an opaque `event_` identity. The event retains one checked numeric cache;
+its physical transpose and declared limits remain fixed across reverse sweeps.
+
+```cpp
+#include <dal/math/aad/linearsolveaccuracy.hpp>
+
+const LinearSolveAccuracyPolicy_ policy{1e-12, 1e-12};
+auto result = AAD::LinearSolveWithAccuracy(&scope, a, b, policy);
+AAD::Number_ objective = result.solution_(0, 0) * result.solution_(0, 0);
+scope.FinishRecording();
+scope.ClearAdjoints();
+AAD::NativeOperations_::SetSeed(objective, 1.0);
+const auto reports = AAD::ReverseWithSolveAccuracy(&scope);
+const auto& errors = reports.Report(result.event_).transposeBackwardErrors_;
+```
+
+The transpose check uses the actual seeds accumulated from ordinary expressions
+and later events. Report rows identify RHS columns; report columns identify AAD
+channels, including zero channels. Scalar mode and vector width one are distinct.
+Each owning entry retains its event/recording identity, unique reverse invocation
+identity and mode. Entries follow execution order. Repeated reverse returns a
+new invocation; earlier reports remain detached historical values.
+
+`ReverseSuffixWithSolveAccuracy` and `ReversePrefixWithSolveAccuracy` take the
+scope and checkpoint explicitly. They report only events executed in that
+window. Looking up an absent or discarded event throws. Restoring a suffix never
+reuses its event identity. Reports remain readable after source destruction,
+restore and scope close; their active solution Numbers retain the tape lifetime
+contract.
+
+The ordinary `scope.Reverse()` also enforces checked-event limits, without
+collecting reports. A policy, numerical, contribution or allocation failure
+invalidates the graph and returns no collection, including reports prepared by
+earlier events in the same sweep. Existing native adjoints are not rolled back;
+reads remain rejected until cleanup.
+
+Returned diagnostics, report matrices and entry storage obey caller buffer
+budgets. Event caches and reverse scratch obey tape budgets; scratch can also
+overlap the caller ceiling. The optional interface adds physical residual checks
+and report storage. It supplies first-order dense derivatives; packed parameters
+use the [checked coordinate interface](#recorded-coordinate-accuracy).
+
+### Recorded Solve Coordinates
+
+`dal/math/aad/linearsolvecoordinates.hpp` adds `AAD::LinearSolve` overloads
+for a `LinearSolveCoordinates_` layout, packed parameters and a dense RHS.
+The [numeric layout](matrix.md#symmetric-and-banded-solve-coordinates) defines
+parameter order: lower-triangle row order for symmetric matrices, or the actual
+in-band entries in row order, excluding boundary padding. The three activity
+combinations are active parameters/active RHS, passive parameters/active RHS
+and active parameters/passive RHS. Fully passive calls use
+`CoordinateLinearSolvePullback_` directly.
+
+```cpp
+#include <dal/math/aad/linearsolvecoordinates.hpp>
+#include <dal/math/aad/native.hpp>
+
+using namespace Dal;
+
+AAD::RecordingScope_ scope;
+AAD::Number_ coupling;
+scope.RegisterInput(coupling, 1.0);
+scope.StartRecording();
+const auto layout = LinearSolveCoordinates_::Symmetric(2);
+const Vector_<AAD::Number_> parameters = {3.0, coupling, 2.0};
+Matrix_<> rhs(2, 1);
+rhs(0, 0) = 1.0;
+rhs(1, 0) = 2.0;
+auto x = AAD::LinearSolve(&scope, layout, parameters, rhs);
+AAD::Number_ objective = 3.0 * x(0, 0) - x(1, 0);
+scope.FinishRecording();
+scope.ClearAdjoints();
+AAD::NativeOperations_::SetSeed(objective, 1.0);
+scope.Reverse();
+const double gradient = AAD::NativeOperations_::ReadAdjoint(coupling); // -1.4
+scope.Close();
+```
+
+One event owns the numeric cache and the packed active bindings. It publishes
+one zero-edge slot per solution entry, without expanding parameters to a dense
+active matrix or recording fixed out-of-band zeros. Symmetric off-diagonal
+gradients add both physical-entry contributions; they are not averaged.
+Repeated parameters and aliases shared with the RHS or surrounding expressions
+accumulate into their original slots. An active parameter whose value is zero
+still receives its derivative.
+
+Scalar and vector sweeps, output-seed consumption, checkpoints, thread ownership,
+failure invalidation and tape/caller budgets follow the recorded dense-solve
+contract. Source containers may change after capture; retained factors, solution
+and bindings remain owned by the event. Passive parameters omit parameter
+contraction, including its unused overflow checks. Only exact-zero seed channels
+skip reverse work; requested nonfinite contributions invalidate the recording.
+
+For p parameters and m RHS columns, the event retains O(p) parameter bindings
+and contracts gradients in O(pm), with O(p+nm) reverse outputs. LU factors remain
+dense, so factorization costs O(n^3) and transpose substitution costs O(n^2m).
+These ordinary coordinate overloads provide first-order derivatives. Physical
+accuracy checks and owning reports use the optional interface below.
+
+### Recorded Coordinate Accuracy
+
+`dal/math/aad/linearsolvecoordinateaccuracy.hpp` adds
+`AAD::LinearSolveWithAccuracy` for a layout, packed parameters, dense RHS and
+explicit accuracy policy. Parameters and RHS can both be active, or either can
+be passive. It returns the same `CheckedLinearSolveResult_` as dense checked
+solves, so full, suffix and prefix collection can include both event families.
+
+```cpp
+#include <dal/math/aad/linearsolvecoordinateaccuracy.hpp>
+
+AAD::RecordingScope_ scope;
+AAD::Number_ offDiagonal;
+scope.RegisterInput(offDiagonal, 1.0);
+scope.StartRecording();
+Vector_<AAD::Number_> parameters{AAD::Number_(3.0), offDiagonal, AAD::Number_(2.0)};
+Matrix_<> rhs(2, 1);
+rhs(0, 0) = 1.0;
+rhs(1, 0) = 2.0;
+auto checked = AAD::LinearSolveWithAccuracy(
+    &scope, LinearSolveCoordinates_::Symmetric(2), parameters, rhs,
+    LinearSolveAccuracyPolicy_{0.0, 0.0});
+AAD::Number_ objective = 2.0 * checked.solution_(0, 0) - checked.solution_(1, 0);
+scope.FinishRecording();
+scope.ClearAdjoints();
+AAD::NativeOperations_::SetSeed(objective, 1.0);
+const auto reports = AAD::ReverseWithSolveAccuracy(&scope);
+const auto& errors = reports.Report(checked.event_).transposeBackwardErrors_;
+// offDiagonal's adjoint is -1.0; errors(0, 0) is zero.
+scope.Close();
+```
+
+The event owns one [checked physical coordinate cache](matrix.md#checked-coordinate-accuracy),
+captured policy and O(p) active parameter bindings. Symmetric off-diagonal
+gradients sum both physical contributions; zero-valued parameters retain risk.
+Reverse contracts directly into p parameter contributions without a dense
+matrix gradient. Passive parameters omit unused parameter work and overflow.
+The physical factorization, condition estimate, transpose and residual work
+remain dense. Packing does not provide a sparse or tridiagonal solver.
+
+Forward limits apply before output publication. Transpose limits apply to the
+actual seeds accumulated through expressions and later events, including
+ordinary `scope.Reverse()`. Per-invocation report axes, identities, historical
+ownership and failure behavior follow [recorded solve accuracy](#recorded-solve-accuracy).
+The report covers m RHS columns by actual AAD channels, including zeros.
+No derivative clipping, automatic regularization or relaxed pivot policy occurs.
+
+Returned diagnostics, solution containers and reports obey caller buffer
+budgets. Retained cache/bindings and reverse scratch obey tape budgets; report
+allocation precedes scratch so the caller peak includes their overlap. A failed
+capture publishes no outputs. A failed reverse returns no partial collection
+and invalidates adjoint reads, while earlier successful reports stay readable.
+The interface provides first-order physical-system derivatives. Implicit roots,
+PDE discretization sensitivities and binding wrappers require their own contracts.
+
+### Owning Implicit-Root Linearization
+
+`ImplicitRootLinearization_` in `dal/math/optimization/implicitroot.hpp` maps
+adjoints of a supplied root candidate to its equation inputs. For the square
+equation $R(\theta,q)=0$, capture the residual, complete parameter Jacobian
+$J=R_\theta$ and input Jacobian $K=R_q$ together at the supplied point. Then
+solve $J^T\lambda=w$ and return $\bar q=-K^T\lambda$. Add any direct objective
+dependence on $q$ separately.
+
+The caller supplies the candidate and local root branch. The operator does
+not run a nonlinear solver or differentiate a finite number of its iterations.
+For a stationarity equation, supply its complete derivative, including
+residual-Hessian terms. A Gauss–Newton approximation defines a different map.
+
+The equation is evaluated once at owning copies of the candidate and inputs.
+The captured result owns its point, residuals, accuracy policy, input Jacobian
+and one checked parameter-Jacobian cache. The equation object and original
+containers may be destroyed afterward. Repeated and concurrent const reverse
+requests use independent results and scratch.
+
+```cpp
+#include <dal/math/optimization/implicitroot.hpp>
+
+class QuadraticEquation_ final : public Dal::ImplicitRootEquation_ {
+public:
+    Dal::ImplicitRootEvaluation_ Evaluate(const Dal::Vector_<>& theta,
+                                          const Dal::Vector_<>& q) const override {
+        return {Dal::Vector_<>{theta[0] * theta[0] - q[0]},
+                Dal::SquareMatrix_<>(1, 2.0 * theta[0]), Dal::Matrix_<>(1, 1, -1.0)};
+    }
+};
+
+const QuadraticEquation_ equation;
+const Dal::ImplicitRootAccuracyPolicy_ accuracy{Dal::Vector_<>{1e-12}, 1e-12};
+const Dal::ImplicitRootLinearization_ root(equation, Dal::Vector_<>{2.0},
+                                          Dal::Vector_<>{4.0}, accuracy);
+const auto risk = root.Reverse(Dal::Matrix_<>(1, 1, 1.0));
+// risk.inputs_(0, 0) is 1/4; the candidate -2 gives -1/4.
+```
+
+Each finite nonnegative `residualAbsoluteLimits_` entry is an inclusive limit
+in that equation's units. `Residuals()` and `Policy()` retain the observations
+and limits. Admitting a nonzero residual gives a linearization at that candidate;
+it does not certify root or sensitivity error. A zero limit requires the
+observed residual to be exactly zero. Physical Jacobian condition is reported
+separately by `ReciprocalJacobianConditionInfinity()`.
+
+With $n>0$ parameters, $k\geq0$ inputs and $m>0$ independent root-seed columns,
+`Reverse` accepts an $n\times m$ matrix and returns $k\times m$ `inputs_` plus
+$m$ actual `transposeBackwardErrors_`. Each transpose solve must meet the
+declared finite limit in $[0,1]$. Zero input rows retain the seed/report column
+axis and still perform the requested accuracy checks. Invalid shape/range,
+singular Jacobians, unsupported normalized inverse range in condition
+measurement, failed accuracy or overflowing requested risks reject the request.
+Nonzero contraction operands whose product rounds to zero also reject, even
+when the exact final sum would be representable. Representable subnormal
+products remain supported. The transpose report does not certify contraction
+rounding. A rejected reverse leaves the owning cache usable for subsequent
+supported requests.
+
+Capture uses dense factorization and condition work, with retained storage
+$O(n^2+nk+n+k)$. Reverse costs $O(m(n^2+nk))$ and returns $O(km+m)$ storage,
+with $O(n)$ local transpose scratch. It reuses the factorization and contracts
+input risks directly. Caller buffer budgets include actual retained capacity
+and overlapping scratch. This interface uses owning double-valued points and
+results.
 
 ### Native Production Profiling
 
@@ -700,16 +928,16 @@ seed/channel access and a passive capability description. Recording services
 call the established native tape functions directly; there is no backend
 inheritance, selector, virtual dispatch or per-node capability lookup.
 
-| Contract                                | Native support                     |
-|-----------------------------------------|------------------------------------|
-| Scalar and repeated fixed-graph reverse | Yes, while the graph remains valid |
-| Interval reverse/prefix accumulation    | Yes                                |
-| Scoped lifecycle validation             | Yes                                |
-| Vector adjoint channels                 | Up to `ADJ_SIZE`                   |
-| Active-number lifetime diagnostics      | Available; default OFF             |
-| Recorded reverse events                 | Dense solves, scalar/vector sweeps |
-| Independent nesting                     | Not implemented                    |
-| Higher-order active mode                | Not implemented                    |
+| Contract                                | Native support                                |
+|-----------------------------------------|-----------------------------------------------|
+| Scalar and repeated fixed-graph reverse | Yes, while the graph remains valid            |
+| Interval reverse/prefix accumulation    | Yes                                           |
+| Scoped lifecycle validation             | Yes                                           |
+| Vector adjoint channels                 | Up to `ADJ_SIZE`                              |
+| Active-number lifetime diagnostics      | Available; default OFF                        |
+| Recorded reverse events                 | Dense/coordinate solves, scalar/vector sweeps |
+| Independent nesting                     | Not implemented                               |
+| Higher-order active mode                | Not implemented                               |
 
 `SetSeed(number, seed, channel)` replaces a seed; `AddSeed` accumulates it,
 including multiple weights for the same output reference. `ReadAdjoint`

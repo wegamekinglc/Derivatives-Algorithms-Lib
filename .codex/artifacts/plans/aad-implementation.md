@@ -65,10 +65,11 @@ The Codacy oracle-complexity finding is repaired without dropping scenarios.
 Immutable evidence is retained in `pr-494-merged.json` and
 `native-runtime-01/verification.json`; completed diagnostic artifacts are retired.
 
-The current increment implements numeric symmetric/banded coordinate pullbacks
-under the [coordinate specification](../specs/aad-solve-coordinates.md),
-[API decisions](../api-notes/aad-solve-coordinates.md) and
-[critique](../critiques/aad-solve-coordinates.md). Sixteen new tests pass locally,
+Numeric symmetric/banded coordinate pullbacks are accepted in merged
+[#495](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/495), at
+`0ed5a908`, under the completed
+[coordinate specification](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/0ed5a908d81ca02fcb8a1d5b80885868237fa6b6/.codex/artifacts/specs/aad-solve-coordinates.md).
+Sixteen new tests pass locally,
 including independent differences/directions, indefinite systems, exhaustive
 small layouts, wide metadata, snapshot ownership, const concurrency and exact
 construction/reverse budgets. The affected batch passes 27/27 and the installed
@@ -76,10 +77,142 @@ consumer passes. A scoped cost finding is repaired with hoisted row ends and
 inline contraction; the final 16 affected cases pass without repeating old
 suites. All 167 existing library members and a fresh ordinary executable match
 accepted bytes. Six informational cost rows retain small/full-band overhead
-and a narrow-band benefit; see the [report](../performance/aad-solve-coordinates.md).
-Exact-head publication gates remain open. Native coordinate recording follows in a separate
-PR after numeric acceptance. Structured coordinates, implicit calibration, PDE
-and subsequent stages remain required. The following recording notes are
+and a narrow-band benefit; see the accepted
+[report](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/0ed5a908d81ca02fcb8a1d5b80885868237fa6b6/.codex/artifacts/performance/aad-solve-coordinates.md).
+Both complete exact-head audits accept 35/35 checks, zero Codacy annotations
+and zero unresolved review threads. Actual logs verify all 16 new cases in each
+of 14 MSVC, extended and sanitizer configurations. Merge verification is retained
+in `pr-495-merged.json`; completed numeric artifacts are retired.
+
+Native coordinate recording is accepted in merged
+[#496](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/496), at
+`3d597db8`, with the exact tree of accepted head `40f8fb7f`. Twenty-eight new cases
+cover independent Cramer/native-expression and multi-step difference references,
+three activity combinations, scalar/width-1/4/8 sweeps, aliases, repeated seeds,
+checkpoints, ownership, exact resources, failure recovery and concurrency.
+All 72 distinct affected cases pass under combined original and failed-only
+repair evidence; fixture failures and the initial missing-header RED are retained.
+The private event wrapper is shared between dense and coordinate payloads;
+ordinary payload fields and Number/node/tape layouts stay unchanged. Native
+coordinate recording passes installed CMake consumer and strict OFF/combined ON
+warning checks. Eight existing-caller comparisons pass the scoped two-round 4%
+policy, including diagnosed-cache borderline confirmation. All 167 other archive
+members match accepted bytes; three new-interface cost boundaries retain both
+benefits and full-band metadata overhead. See the accepted
+[performance report](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/40f8fb7fb3bc2168cb24dd5194ca86576aff0d66/.codex/artifacts/performance/aad-native-solve-coordinates.md).
+Both complete paginated audits accept 36/36 exact-head checks, zero Codacy
+annotations and zero unresolved review threads. Actual logs verify all 28 new
+cases in each of 14 MSVC, extended and sanitizer configurations. The overview's
+date-only review observation is assessed against the supplied Asia/Shanghai
+date. Merge verification is retained in `pr-496-merged.json`; completed native
+coordinate artifacts are retired into Git history.
+
+Numeric forward/transpose accuracy checks are accepted in merged
+[#497](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/497), at
+`0c5b5918`, with the exact tree of accepted head `a0144f51`.
+All 36 exact-head checks pass, with zero Codacy annotations and unresolved
+review threads. Actual logs verify all twelve new cases in each of fourteen
+sanitizer, extended and MSVC configurations. Installed consumption passes.
+All 168 previous archive members and both fresh legacy callers retain accepted
+bytes after checking their 31 dependency headers; accepted timing is reused.
+The archived
+[performance report](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/a0144f51ab873975b600911084ecf38652c97b5a/.codex/artifacts/performance/aad-solve-accuracy.md)
+discloses the three optional-checking cost boundaries. Merge verification is
+retained in `pr-497-merged.json` and `pr-497-tree-verification.json`.
+Completed numeric accuracy artifacts are retired into Git history.
+
+Native per-invocation accuracy reports are accepted in merged
+[#498](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/498), at
+`e30858c8`, with the exact tree of accepted head `45ba16db`.
+Local acceptance covers
+25 new and 78 related existing cases, actual reverse-window/channel provenance,
+independent rational/Cramer references, owning copies, failure cleanup and exact
+tape/caller resources. A focused empty-width RED is repaired through native
+mode validation; eight affected cases pass without repeating old suites.
+Installed consumption, strict OFF/combined ON and complexity checks pass.
+The accepted
+[performance report](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/45ba16db3bfbcf2170005fe3cdfe20fc783aa222/.codex/artifacts/performance/aad-native-solve-accuracy.md) accepts
+twelve existing caller rows and discloses six new optional-cost rows. Only the
+optional accuracy object changes in the review repair; fresh existing caller
+binaries retain their measured hashes. Repeated complete paginated audits
+accept 36/36 exact-head checks, zero unresolved review threads and zero Codacy
+annotations. Actual logs verify all 25 new cases in each of fourteen sanitizer,
+extended and MSVC configurations. Guarded merge and tree verification are
+retained in `native-accuracy-after-merge.json` and
+`native-accuracy-merged-tree.json`; completed artifacts are retired into history.
+
+Checked numeric coordinate accuracy is accepted in merged
+[#499](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/499),
+at head `991ca6a45043509f7596f082e046d457b3d30faa`. Its
+[specification](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/991ca6a45043509f7596f082e046d457b3d30faa/.codex/artifacts/specs/aad-coordinate-solve-accuracy.md)
+defines one checked
+physical cache and contracts packed parameters directly without a dense matrix
+gradient. First-case RED confirms the missing public interface. Its frozen
+performance scope selects four actual existing symmetric/banded native caller
+rows, with optional new costs reported separately. Local acceptance now covers
+13 new and 44 affected existing cases, strict OFF/combined ON compilation and
+fresh installed usage. All four existing caller rows pass the declared
+two-round sustained-regression rule; four optional cost rows expose added
+condition/residual work and exact storage. See the
+[local review](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/991ca6a45043509f7596f082e046d457b3d30faa/.codex/artifacts/reviews/aad-coordinate-solve-accuracy.md) and
+[performance report](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/991ca6a45043509f7596f082e046d457b3d30faa/.codex/artifacts/performance/aad-coordinate-solve-accuracy.md).
+All 36 exact-head checks pass; actual logs confirm all 13 new cases in fourteen
+sanitizer, extended and MSVC configurations. Final review has zero unresolved
+threads and Codacy zero new findings. Guarded merge
+`4bf66b4fa7b356cb34a6594626c33826940085cc` has the accepted tree. Evidence is
+retained in `coordinate-accuracy-runtime/verification.json`, final paginated
+audits and `coordinate-accuracy-merged-tree.json`; completed artifacts are
+retired into history.
+
+Checked native coordinate accuracy is accepted in merged
+[#500](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/500),
+at head `2dc6d6eb06da060cdc07d11b61a5d82795465cd3` and merge
+`f98ef99d6037a1922ef7223d8d23f005292ab53c`; accepted and merged trees match.
+Its [specification](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/2dc6d6eb06da060cdc07d11b61a5d82795465cd3/.codex/artifacts/specs/aad-native-coordinate-solve-accuracy.md),
+[API](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/2dc6d6eb06da060cdc07d11b61a5d82795465cd3/.codex/artifacts/api-notes/aad-native-coordinate-solve-accuracy.md),
+[critique](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/2dc6d6eb06da060cdc07d11b61a5d82795465cd3/.codex/artifacts/critiques/aad-native-coordinate-solve-accuracy.md),
+[review](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/2dc6d6eb06da060cdc07d11b61a5d82795465cd3/.codex/artifacts/reviews/aad-native-coordinate-solve-accuracy.md) and
+[performance report](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/2dc6d6eb06da060cdc07d11b61a5d82795465cd3/.codex/artifacts/performance/aad-native-coordinate-solve-accuracy.md)
+retain the shared dense collector, one checked physical cache and O(p) bindings.
+Fifty-one distinct local solve boundaries pass. The sustained
++4.86%/+6.08% first dense cached gate is preserved; the private inline repair
+restores it to -0.65%/-1.36%, with all eighteen actual caller rows passing the
+unchanged two-round +4% rule. Four optional cost rows disclose added physical
+checks/report work. Strict OFF/combined ON and installed usage pass.
+Repeated complete paginated audits accept all 36 exact-head checks, zero
+unresolved threads and zero Codacy annotations/new issues. Actual logs verify
+all eighteen new cases in fourteen sanitizer, extended and MSVC profiles.
+Completed artifacts are retired into immutable history. Final evidence includes
+`native-coordinate-accuracy-audit-final`, `native-coordinate-accuracy-runtime`
+and `native-coordinate-accuracy-merged-tree.json`.
+
+Numeric implicit-root linearization is the active F03 increment, controlled by
+its [specification](../specs/aad-implicit-root-linearization.md),
+[API](../api-notes/aad-implicit-root-linearization.md) and
+[critique](../critiques/aad-implicit-root-linearization.md).
+One evaluation captures the candidate, residuals, complete J/K and explicit
+accuracy policy. One checked J cache serves independent transpose seed columns,
+contracting input risks without a dense matrix gradient. First missing-header
+RED and analytic GREEN precede twenty edge/reference cases. Twenty-two distinct
+cases pass, including independent three-step complete root/stationarity solves,
+non-symmetric pivots, ownership/concurrency, exact limits and capacity refunds.
+An incorrect scalar inverse-range fixture is retained in failure evidence and
+replaced by genuine normalized inverse overflow; uniformly tiny scalar J is
+admitted, with unrepresentable requested reverse rejected and then recovered.
+A review regression rejects lost nonzero contraction products, preserves the
+minimum representable subnormal risk and verifies subsequent cache recovery.
+The 18 affected contraction cases pass; four unchanged capture/k=0 cases reuse
+their earlier evidence. The four affected cost rows pass the existing paired
+regression gate, with identical resource counts.
+All 171 old archive objects and two fresh old caller links retain accepted bytes.
+Four new cost rows disclose optional root work and exact resources; see the
+[performance report](../performance/aad-implicit-root-linearization.md).
+Strict OFF/combined ON units/direct header and fresh installed usage pass; see
+the [local review](../reviews/aad-implicit-root-linearization.md).
+Exact-head platform/review acceptance precedes merge; native recording follows
+in its own increment.
+
+The following recording notes are
 historical repair evidence, not outstanding #491 gates.
 
 Recording progress: the analytic/interface, passive/RHS-only, reset-mutation,
@@ -254,9 +387,11 @@ incremental implementation turns and PRs; a green first stage does not complete 
 
 - [x] F03: independent linear-solve pullback with decomposition reuse and directional adjoint oracle.
 - [x] F03: recording integration, aliases, multiple seeds, repeated reverse, cache ownership, and failures.
-- [x] F03: optional numeric condition and componentwise residual diagnostics, including range/resource acceptance.
+- [x] F03: optional numeric condition and forward componentwise residual diagnostics, including range/resource acceptance.
 - [x] F03: owning native diagnostic results with unchanged ordinary-path behavior and resource accounting.
-- [ ] F03: structured matrix coordinates and singular/ill-conditioned solver diagnostics.
+- [x] F03: numeric symmetric/banded independent coordinates with singular/ill-conditioned rejection and exact resources.
+- [x] F03: native coordinate recording with aliases, modes, checkpoints and exact binding/scratch resources.
+- [ ] F03: owning transpose residual reports and declared forward/reverse accuracy policy.
 - [ ] F03: implicit calibration and PDE pullbacks derived and verified separately.
 - [ ] P04: proven structural sparsity, safe invalidation, compressed seeds, and mode selection evidence.
 - [ ] P05: measured long-path checkpoint with complete state/RNG restoration and recomputation.
@@ -891,21 +1026,21 @@ This snapshot distinguishes accepted increments from locally implemented work.
 Estimates are remaining single-developer effort, not promises of calendar time;
 overlapping acceptance work is included once in the integration allowance.
 
-| Work item               | Implementation/local verification                                       | Publication/CI                                    | Remaining person-days |
-|-------------------------|-------------------------------------------------------------------------|---------------------------------------------------|-----------------------|
-| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                           | Accepted exact-head checks                        | 0                     |
-| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass          | Merged; final 35/35 checks accepted               | 0                     |
-| F01                     | C++/Python/Excel and complete requirement audit accepted                | Merged; final 35/35 checks accepted               | 0                     |
-| F02 weighted/blocked    | C++/Python/Excel and independent mathematical oracles accepted          | #483/#484 merged; exact-head gates pass           | 0                     |
-| F02 portfolio           | C++/Python/Excel, installed consumers and timing repair accepted        | #487 merged; final 35/35 checks accepted          | 0                     |
-| P02                     | Worker reuse: 82 tests and 37 full-request cost cases accepted          | #488 merged; final 35/35 checks accepted          | 0                     |
-| P03                     | 89 tests; 81 unique complete-request timing comparisons accepted        | #489 merged; final 35/35 checks accepted          | 0                     |
-| F03                     | Solves and numeric/native diagnostics accepted; coordinates in progress | #490/#491/#493/#494 merged; coordinate gates open | 9–14                  |
-| P04/P05                 | Structural sparsity/checkpointing remain                                | Open                                              | 9–15                  |
-| F04                     | Second-order implementation/estimator validation remain                 | Open                                              | 12–20                 |
-| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains              | Open                                              | 7–11                  |
+| Work item               | Implementation/local verification                                | Publication/CI                                           | Remaining person-days |
+|-------------------------|------------------------------------------------------------------|----------------------------------------------------------|-----------------------|
+| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                    | Accepted exact-head checks                               | 0                     |
+| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass   | Merged; final 35/35 checks accepted                      | 0                     |
+| F01                     | C++/Python/Excel and complete requirement audit accepted         | Merged; final 35/35 checks accepted                      | 0                     |
+| F02 weighted/blocked    | C++/Python/Excel and independent mathematical oracles accepted   | #483/#484 merged; exact-head gates pass                  | 0                     |
+| F02 portfolio           | C++/Python/Excel, installed consumers and timing repair accepted | #487 merged; final 35/35 checks accepted                 | 0                     |
+| P02                     | Worker reuse: 82 tests and 37 full-request cost cases accepted   | #488 merged; final 35/35 checks accepted                 | 0                     |
+| P03                     | 89 tests; 81 unique complete-request timing comparisons accepted | #489 merged; final 35/35 checks accepted                 | 0                     |
+| F03                     | Numeric implicit-root review fix passes; acceptance in progress | #490/#491/#493/#494/#495/#496/#497/#498/#499/#500 merged | 5.75–8.5              |
+| P04/P05                 | Structural sparsity/checkpointing remain                         | Open                                                     | 9–15                  |
+| F04                     | Second-order implementation/estimator validation remain          | Open                                                     | 12–20                 |
+| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains       | Open                                                     | 7–11                  |
 
-Remaining total after #494: approximately 37–60 person-days,
+Remaining total during numeric implicit-root acceptance: approximately 33.75–54.5 person-days,
 excluding CI queue time and including delivery contingency. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
 effort estimate, not a guaranteed completion date. Re-estimate when review
@@ -914,23 +1049,24 @@ findings change the scope.
 ### Next delivery tasks and effort
 
 One person-day means eight hours. The following detail subdivides the total
-above. The accepted #490/#491/#493/#494 deliveries contribute zero remaining
+above. The accepted #490/#491/#493/#494/#495/#496/#497/#498/#499/#500 deliveries contribute zero remaining
 hours. Structured coordinates are split into numeric and native PRs; completed
 numeric/native diagnostics are not counted again.
 
-| Order | Delivery task                          | Required result                                                                | Remaining hours |
-|-------|----------------------------------------|--------------------------------------------------------------------------------|-----------------|
-| 1     | Accepted solve PRs #490/#491/#493/#494 | Merged; mathematical, resource, platform and scoped performance gates accepted | 0               |
-| 2     | F03 numeric coordinates                | Local acceptance complete; exact-head CI/Codacy/review and merge remain        | 1–3             |
-| 3     | F03 native coordinates                 | Parameter-only tape bindings, aliases, modes, checkpoints and exact budgets    | 5–9             |
-| 4     | F03 implicit calibration               | Equation pullbacks, decomposition reuse and independent gradient oracles       | 32–56           |
-| 5     | F03 PDE operators                      | Discrete solver, boundary and parameter sensitivity acceptance                 | 32–40           |
-| 6     | P04 structural sparsity                | Dependency proof, compressed seeds, invalidation and mode evidence             | 32–56           |
-| 7     | P05 long-path checkpointing            | Complete state/RNG restoration, recomputation and memory/performance proof     | 40–64           |
-| 8     | F04 second-order risk                  | Gamma, cross-Gamma, HVP, recalibration and estimator validation                | 64–96           |
-| 9     | F04 native mixed-mode prototype        | Smooth-kernel prototype, independent correctness and capability limits         | 32–64           |
-| 10    | Bindings and complete acceptance       | C++/Python/Excel, documentation, platform and performance gates                | 56–88           |
-| Total | Full remaining implementation          | All remaining plan requirements                                                | 294–476         |
+| Order | Delivery task                    | Required result                                                                | Remaining hours |
+|-------|----------------------------------|--------------------------------------------------------------------------------|-----------------|
+| 1     | Accepted solve PRs through #500  | Merged; mathematical, resource, platform and scoped performance gates accepted | 0               |
+| 2     | F03 numeric coordinates          | Accepted in merged #495; immutable accepted evidence retained                  | 0               |
+| 3     | F03 native coordinates           | Accepted in merged #496; immutable accepted evidence retained                  | 0               |
+| 4     | F03 native coordinate accuracy   | Accepted in merged #500; exact-head CI/review and guarded merge pass           | 0               |
+| 4a    | F03 implicit calibration         | Numeric review fix passes; complete acceptance then native recording           | 14–28           |
+| 5     | F03 PDE operators                | Discrete solver, boundary and parameter sensitivity acceptance                 | 32–40           |
+| 6     | P04 structural sparsity          | Dependency proof, compressed seeds, invalidation and mode evidence             | 32–56           |
+| 7     | P05 long-path checkpointing      | Complete state/RNG restoration, recomputation and memory/performance proof     | 40–64           |
+| 8     | F04 second-order risk            | Gamma, cross-Gamma, HVP, recalibration and estimator validation                | 64–96           |
+| 9     | F04 native mixed-mode prototype  | Smooth-kernel prototype, independent correctness and capability limits         | 32–64           |
+| 10    | Bindings and complete acceptance | C++/Python/Excel, documentation, platform and performance gates                | 56–88           |
+| Total | Full remaining implementation    | All remaining plan requirements                                                | 270–436         |
 
 The first delivery boundary is complete. Whole-PR review repaired the Windows
 registration-help defect, both include-order findings and the overview file

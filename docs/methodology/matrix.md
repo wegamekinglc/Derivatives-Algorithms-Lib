@@ -159,7 +159,9 @@ const auto contributions = solve.Reverse(solutionSeeds);
 For p parameters and m RHS columns, the parameter contraction costs $O(pm)$
 and reverse allocates $O(p+nm)$ output storage, without a dense matrix adjoint.
 Transpose substitution still costs $O(n^2m)$; factorization and retained storage
-remain dense. This numeric surface does not record native tape events.
+remain dense. This numeric surface does not record native tape events. The
+[native coordinate overloads](aad.md#recorded-solve-coordinates) compose the same
+layouts and owning cache with ordinary active expressions in a recording scope.
 
 ### Optional Solve Diagnostics
 
@@ -217,6 +219,91 @@ The reciprocal definition and componentwise metric correspond to the
 and [backward-error interface](https://www.netlib.org/lapack/explore-html/d5/da4/group__gerfs_gaf9908a6db85a278e5756cbded5f49819.html).
 The diagnostic computes inverse columns directly; it supplies neither a norm
 estimator nor iterative refinement or certified forward-error bounds.
+
+### Explicit Forward and Transpose Accuracy
+
+`CheckedLinearSolve_` in `dal/math/matrix/linearsolveaccuracy.hpp` owns the
+diagnosed solve, a physical transpose snapshot and an explicit
+`LinearSolveAccuracyPolicy_`. Its required policy specifies maximum forward
+and transpose componentwise backward errors. Limits must be finite in [0,1];
+equality passes. The separate relative pivot tolerance retains its existing
+meaning and default. Construction checks each forward RHS error before
+exposing the solution and diagnostics.
+
+`Reverse(W)` and `ReverseRhs(W)` perform one cached transpose solve, then
+evaluate the same compensated metric for $A^{\mathsf T}\Lambda=W$ against
+the captured physical entries. They return owning `CheckedLinearSolveAdjoints_`
+with `adjoints_` and one `transposeBackwardErrors_` value per RHS column.
+Full reverse supplies dense A/B contributions; RHS-only leaves
+`adjoints_.matrix_` empty and omits its storage, work and overflow checks.
+Later changes to source A/B do not change the solve or its residual checks.
+Repeated and concurrent const reverse calls have separate reports.
+
+```cpp
+#include <dal/math/matrix/linearsolveaccuracy.hpp>
+
+Dal::SquareMatrix_<> matrix(2);
+matrix(0, 0) = 2.0;
+matrix(0, 1) = 1.0;
+matrix(1, 1) = 4.0;
+Dal::Matrix_<> rhs(2, 1), seeds(2, 1);
+rhs(0, 0) = 5.0;
+rhs(1, 0) = 8.0;
+seeds(0, 0) = 3.0;
+seeds(1, 0) = -1.0;
+Dal::CheckedLinearSolve_ solve(matrix, rhs, {1e-14, 1e-14});
+const auto risk = solve.ReverseRhs(seeds);
+// risk.adjoints_.rhs_ is [1.5, -0.625]; both error reports are zero.
+const auto& forwardErrors = solve.Diagnostics().componentwiseBackwardErrors_;
+const auto& transposeErrors = risk.transposeBackwardErrors_;
+```
+
+An unmet policy or invalid numeric contribution throws without returning a
+partial result; a later valid reverse can reuse the cache. Limits govern a
+floating-point diagnostic, not a certified error enclosure. A zero limit
+demands zero reported error and does not prove exact arithmetic. Conditioning
+remains separate: an accepted ill-conditioned equation can have large finite
+risks, which are preserved. Entry contributions differentiate the supplied
+matrix; external parameter mappings require their own chain rule.
+
+Checking retains an additional $n^2$ doubles for the physical transpose and
+allocates m error values per returned reverse. Residual work costs $O(n^2m)$,
+with no new factorization or reverse inverse. Buffers obey the active capacity
+budget. Ordinary solve interfaces retain their existing caches and work.
+
+### Checked Coordinate Accuracy
+
+`CheckedCoordinateLinearSolve_` in
+`dal/math/matrix/linearsolvecoordinateaccuracy.hpp` applies the
+[same accuracy policy](#explicit-forward-and-transpose-accuracy) to a packed
+symmetric or banded layout. It expands the physical entries once for capture,
+retains one checked LU cache and exposes `Coordinates`, `Solution`, `Diagnostics`
+and `Policy` as immutable views. Source parameters, RHS and policy can change
+after construction without changing the capture.
+
+`Reverse(W)` returns owning `CheckedCoordinateLinearSolveAdjoints_`: packed
+parameter contributions in `adjoints_.coordinates_`, RHS contributions in
+`adjoints_.rhs_`, and one `transposeBackwardErrors_` value per RHS column.
+Symmetric off-diagonal contributions add both physical entry risks, including
+zero-valued parameters. `ReverseRhs(W)` leaves the packed vector empty and omits
+its work and overflow checks. Failed reverse refunds unpublished outputs and
+leaves the numeric cache usable for a later valid seed.
+
+```cpp
+#include <dal/math/matrix/linearsolvecoordinateaccuracy.hpp>
+
+const auto layout = Dal::LinearSolveCoordinates_::Symmetric(2);
+const Dal::Vector_<> parameters{3.0, 1.0, 2.0};
+const Dal::CheckedCoordinateLinearSolve_ solve(layout, parameters, rhs, {1e-14, 1e-14});
+const auto risk = solve.Reverse(solutionSeeds);
+const auto rhsOnly = solve.ReverseRhs(solutionSeeds);
+```
+
+Reverse contracts directly into p packed risks and allocates $O(p+nm+m)$ result
+storage, without a dense matrix gradient. Factorization, condition diagnostics,
+physical transpose storage and residual evaluation remain dense. All buffers
+obey the active capacity budget. This is a numeric interface; native recorded
+coordinate overloads retain their existing contract.
 
 ## Numerical-Recipes Band Storage
 

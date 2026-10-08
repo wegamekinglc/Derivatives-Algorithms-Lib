@@ -18,6 +18,35 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-08
 
+- **Implicit-root linearization** — an owning numeric operator maps supplied
+  root-candidate adjoints through complete equation Jacobians, enforcing
+  per-equation residual and transpose accuracy limits with independent seed
+  columns and tracked buffers. See
+  [implicit roots](docs/methodology/aad.md#owning-implicit-root-linearization).
+- **Recorded coordinate accuracy** — native AAD checks packed symmetric/banded
+  solves under explicit forward/transpose limits, shares owning invocation
+  reports with dense solves and contracts risk into packed inputs. See
+  [recorded coordinate accuracy](docs/methodology/aad.md#recorded-coordinate-accuracy).
+- **Checked coordinate accuracy** — an optional owning numeric solver enforces
+  physical forward/transpose accuracy for packed symmetric and banded inputs,
+  returning parameter risks directly without a dense matrix gradient or a
+  second factorization. See
+  [checked coordinate accuracy](docs/methodology/matrix.md#checked-coordinate-accuracy).
+- **Recorded solve accuracy** — native dense solve events enforce explicit
+  forward/transpose limits and return owning reports from successful full,
+  suffix or prefix reverse invocations. Reports identify actual event/channel
+  execution and survive checkpoint restoration and recording close. See
+  [recorded accuracy](docs/methodology/aad.md#recorded-solve-accuracy).
+- **Explicit solve accuracy** — an optional owning numeric solver checks declared
+  forward and transpose backward-error limits, returns independent reverse
+  reports and preserves large finite equation risks. Physical transpose
+  snapshots and report buffers obey capacity budgets. See
+  [accuracy policies](docs/methodology/matrix.md#explicit-forward-and-transpose-accuracy).
+- **Recorded solve coordinates** — native AAD composes packed symmetric and
+  banded parameters with ordinary expressions, aliases and scalar/vector
+  reverse sweeps. One owning event retains packed bindings without a dense
+  active expansion, with the existing checkpoint and capacity contracts. See
+  [recorded coordinates](docs/methodology/aad.md#recorded-solve-coordinates).
 - **Explicit solve coordinates** — numeric linear-solve pullbacks accept packed
   symmetric and variable-row band parameters, sum coupled symmetric gradients
   and compute parameter contributions directly without a dense matrix adjoint.

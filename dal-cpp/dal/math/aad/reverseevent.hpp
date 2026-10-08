@@ -5,6 +5,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <memory>
 #include <type_traits>
@@ -44,6 +45,12 @@ namespace Dal::AAD {
 
     using ReverseEventHandle_ = std::unique_ptr<ReverseEvent_, ReverseEventDeleter_>;
 
+    struct NativeRecordingIdentity_ {
+        std::uint64_t recording_;
+        bool multi_;
+        size_t width_;
+    };
+
     struct NativeRecordedOperation_ {
         [[nodiscard]] static Tape_* Begin(RecordingScope_* recording);
         static void ValidateInput(const NativeInputSlots_& slots, const Number_& input);
@@ -53,6 +60,7 @@ namespace Dal::AAD {
         static void ReserveStorage(Tape_* tape, size_t bytes);
         static void ReleaseStorage(Tape_* tape, size_t bytes) noexcept;
         static void ObserveScratch(Tape_* tape, size_t bytes) noexcept;
+        [[nodiscard]] static NativeRecordingIdentity_ AccuracyRecording(RecordingScope_* recording, bool reverse);
 
         template <class E_, class... A_> static std::unique_ptr<E_, ReverseEventDeleter_> MakeEvent(Tape_* tape, A_&&... arguments) {
             EventStorageTicket_ ticket(tape, sizeof(E_));
