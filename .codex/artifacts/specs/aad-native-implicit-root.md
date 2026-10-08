@@ -22,11 +22,17 @@ the supplied candidate; equation evaluation/accuracy guards remain numeric.
 Its complete J/K contract and captured-point approximation interpretation are
 unchanged. Direct objective input dependence composes through ordinary nodes.
 
-Retain exactly one numeric ImplicitRootLinearization_ cache. Copy input Number_
-bindings before invoking the equation, snapshot their values through the live
-NativeInputSlots_ index and evaluate once at owning doubles. This ordering
-preserves the captured dependency if the callback changes original input
-objects. Never retain the callback or differentiate its finite iterations.
+Retain exactly one numeric ImplicitRootLinearization_ cache in the event.
+Copy input Number_ bindings before invoking the equation, snapshot their values
+through the live NativeInputSlots_ index and construct the validated numeric
+linearization in the caller context. Deep-copy it and the captured bindings
+into event-owned storage, revalidating live slots before publication. This
+ordering preserves the captured dependency if the callback changes original
+input objects. Evaluate once at owning doubles; never retain the callback or
+differentiate its finite iterations. Callback-managed allocations/releases
+run outside event ownership accounting, including exceptions. Staged numeric,
+binding and value buffers obey caller admission; event copies obey tape
+admission. Never move foreign allocations into an owned account.
 
 Return owning residuals_, explicit policy_ and reciprocalConditionInfinity_
 as ImplicitRootDiagnostics_. These observations use the equation's residual
@@ -74,21 +80,28 @@ and checkpoint restore. Ordinary recording Reverse still enforces the policy.
 Allocate a returned invocation report before measured owned scratch, so caller
 capacity includes overlap. Numeric cache, input/output bindings and event
 ownership use tape admission; returned parameter vectors, diagnostics and
-reports use caller admission. Include the capture input-value temporary and
+reports use caller admission. Include the staged numeric cache/input bindings,
+capture input-value temporary and
 input/output Node_ bindings in exact resource proofs. Failed admission refunds
 all staged ownership and publishes no root output or partial collection.
 
 Resource hypotheses to test independently: numeric retained storage plus
 (n+k)*sizeof(Number_) for owned input/output bindings and a fixed event object;
 public outputs/diagnostics retain n*(sizeof(Number_)+2*sizeof(double)). The
-numeric temporary capture, k-double value snapshot and live-node range index
-must all contribute to tape peak admission. The index is temporary and depends
+numeric temporary capture, k-double value snapshot and k-Number binding copy
+contribute to caller peak admission. The live-node range index uses tape
+admission. The index is temporary and depends
 on occupied node blocks, so do not hide it in a shape-only constant. For a
 nonzero reverse channel, reuse the accepted numeric peak and add the n-double
 collected seed, giving (k+3*n+2)*sizeof(double) owned scratch. With a caller
 budget active, the same physical reverse scratch is also admitted to that
 budget; its peak includes returned outputs/diagnostics, invocation reports and
-this scratch overlap. Reports remain caller-owned. Tape cleanup is reserved
+this scratch overlap, staged numeric construction and the staging/publication
+overlap. For n=k=1/2, staged capture peaks are numeric 108/304 bytes plus
+n*(sizeof(Number_)+sizeof(double)); on this host these are 132/352 bytes.
+Caller peak is the maximum of capture, staging/publication and reverse overlap.
+Reports remain caller-owned. Callback-owned persistent buffers stay caller
+owned even if callback execution throws. Tape cleanup is reserved
 admission headroom and is excluded from reported occupied/peak capacity.
 Verify n=1/k=1 and n=2/k=2 storage differences, all widths and zero channels,
 then exact/one-byte-short boundaries; refine any hypothesis contradicted by

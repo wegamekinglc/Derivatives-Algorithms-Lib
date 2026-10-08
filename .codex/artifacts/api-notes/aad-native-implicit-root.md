@@ -47,7 +47,12 @@ preserve detached historical reports on every failed path.
 
 One numeric cache and existing generic owned-event RAII retain method data and
 bindings under tape admission; returned outputs, forward diagnostics and
-invocation reports use caller admission. Verify overlap and exact/one-byte-short
+invocation reports use caller admission. Construct the numeric linearization
+outside event ownership so callback-managed buffers retain caller accounting,
+then deep-copy into tape-owned event storage without a second factorization.
+Staged numeric/binding/value buffers count toward caller peak along with
+publication overlap and reverse reports/scratch. Revalidate captured slots.
+Callback side effects are not rolled back on failure. Verify exact/one-byte-short
 limits through actual census. Public API does not expose private LU, private
 collector state or new event-account types.
 

@@ -35,6 +35,11 @@ namespace {
         size_t retained_, scratch_, tapePeak_, caller_, callerPeak_, publishedNodes_;
     };
 
+    size_t CallerCapturePeak(size_t n) {
+        const size_t numeric = (6 * n * n + 6 * n + 1) * sizeof(double) + n * sizeof(int);
+        return numeric + n * (sizeof(Number_) + sizeof(double));
+    }
+
     void SeedResourceRoots(Vector_<Number_>* outputs, size_t channels) {
         for (auto& output : *outputs)
             for (size_t channel = 0; channel < channels; ++channel)
@@ -102,7 +107,7 @@ TEST(AADLinearSolveTest, TestRecordedImplicitRootResourceAxesAndStorageDifferenc
         ASSERT_EQ(multi.retained_, coupled.retained_);
         ASSERT_EQ(multi.scratch_, coupled.scratch_);
         ASSERT_EQ(multi.caller_, 2 * (sizeof(Number_) + 2 * sizeof(double)) + sizeof(SolveAccuracyReport_) + width * sizeof(double));
-        ASSERT_EQ(multi.callerPeak_, multi.caller_ + multi.scratch_);
+        ASSERT_EQ(multi.callerPeak_, std::max(multi.caller_ + multi.scratch_, CallerCapturePeak(2)));
         ASSERT_EQ(multi.publishedNodes_, 2);
     }
     ASSERT_EQ(MeasureTape(*Tape()).reverseEventCapacityBytes_, 0);
@@ -110,18 +115,20 @@ TEST(AADLinearSolveTest, TestRecordedImplicitRootResourceAxesAndStorageDifferenc
 }
 
 TEST(AADLinearSolveTest, TestRecordedImplicitRootExactCallerCapacityAndOneByteShortRefund) {
-    const size_t retained = sizeof(Number_) + 2 * sizeof(double) + sizeof(SolveAccuracyReport_) + 4 * sizeof(double);
-    const size_t expected = retained + 6 * sizeof(double);
-    BufferCapacityBudget_ exact(expected);
-    const auto accepted = RunRootResources(1, 4, 1024 * 1024, &exact);
-    ASSERT_EQ(accepted.caller_, retained);
-    ASSERT_EQ(exact.CapacityBytes(), 0);
-    ASSERT_EQ(exact.PeakCapacityBytes(), expected);
-    BufferCapacityBudget_ shortBudget(expected - 1);
-    ASSERT_THROW(static_cast<void>(RunRootResources(1, 4, 1024 * 1024, &shortBudget)), Exception_);
-    ASSERT_EQ(shortBudget.CapacityBytes(), 0);
-    ASSERT_EQ(MeasureTape(*Tape()).reverseEventCapacityBytes_, 0);
-    ASSERT_NO_THROW(static_cast<void>(RunRootResources(1, 4)));
+    for (size_t n : {1U, 2U}) {
+        const size_t retained = n * (sizeof(Number_) + 2 * sizeof(double)) + sizeof(SolveAccuracyReport_) + 4 * sizeof(double);
+        const size_t expected = std::max(retained + (4 * n + 2) * sizeof(double), CallerCapturePeak(n));
+        BufferCapacityBudget_ exact(expected);
+        const auto accepted = RunRootResources(static_cast<int>(n), 4, 1024 * 1024, &exact);
+        ASSERT_EQ(accepted.caller_, retained);
+        ASSERT_EQ(exact.CapacityBytes(), 0);
+        ASSERT_EQ(exact.PeakCapacityBytes(), expected);
+        BufferCapacityBudget_ shortBudget(expected - 1);
+        ASSERT_THROW(static_cast<void>(RunRootResources(static_cast<int>(n), 4, 1024 * 1024, &shortBudget)), Exception_);
+        ASSERT_EQ(shortBudget.CapacityBytes(), 0);
+        ASSERT_EQ(MeasureTape(*Tape()).reverseEventCapacityBytes_, 0);
+        ASSERT_NO_THROW(static_cast<void>(RunRootResources(static_cast<int>(n), 4)));
+    }
     Clear(*Tape());
 }
 

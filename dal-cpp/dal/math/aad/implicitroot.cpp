@@ -13,6 +13,16 @@
 
 namespace Dal::AAD {
     namespace {
+        ImplicitRootLinearization_ CaptureRoot(Tape_* tape,
+                                               const ImplicitRootEquation_& equation,
+                                               const Vector_<>& candidate,
+                                               const Vector_<Number_>& inputs,
+                                               const ImplicitRootAccuracyPolicy_& policy,
+                                               double tolerance) {
+            const NativeInputSlots_ slots(tape);
+            return ImplicitRootLinearization_(equation, candidate, Snapshot(slots, inputs), policy, tolerance);
+        }
+
         class ImplicitRootPayload_ {
             Vector_<Number_> inputs_;
             ImplicitRootLinearization_ root_;
@@ -32,14 +42,13 @@ namespace Dal::AAD {
 
         public:
             ImplicitRootPayload_(const NativeInputSlots_& slots,
-                                 const ImplicitRootEquation_& equation,
-                                 const Vector_<>& candidate,
                                  const Vector_<Number_>& inputs,
-                                 const ImplicitRootAccuracyPolicy_& policy,
-                                 double tolerance,
+                                 const ImplicitRootLinearization_& captured,
                                  const SolveAccuracyEvent_& event)
-                : inputs_(inputs), root_(equation, candidate, Snapshot(slots, inputs_), policy, tolerance),
-                  outputs_(static_cast<int>(root_.Parameters().size()), 1), event_(event) {}
+                : inputs_(inputs), root_(captured), outputs_(static_cast<int>(root_.Parameters().size()), 1), event_(event) {
+                for (const auto& input : inputs_)
+                    NativeRecordedOperation_::ValidateInput(slots, input);
+            }
 
             [[nodiscard]] Vector_<Number_> MakeOutputs() {
                 Vector_<Number_> result(root_.Parameters().size());
@@ -73,8 +82,9 @@ namespace Dal::AAD {
         return WithRecordingFailure(recording, [&](Tape_* tape) {
             const auto identity = NativeRecordedOperation_::AccuracyRecording(recording, false);
             const auto token = NewSolveAccuracyEvent(identity.recording_);
-            auto event = NativeRecordedOperation_::MakeEvent<LinearSolveEvent_<ImplicitRootPayload_, true>>(tape, tape, equation, candidate, inputs,
-                                                                                                            policy, tolerance, token);
+            const Vector_<Number_> bindings(inputs);
+            const auto captured = CaptureRoot(tape, equation, candidate, bindings, policy, tolerance);
+            auto event = NativeRecordedOperation_::MakeEvent<LinearSolveEvent_<ImplicitRootPayload_, true>>(tape, tape, bindings, captured, token);
             auto diagnostics = event->Diagnostics();
             auto parameters = PublishSolve(recording, tape, std::move(event));
             return CheckedImplicitRootResult_{std::move(parameters), std::move(diagnostics), token};

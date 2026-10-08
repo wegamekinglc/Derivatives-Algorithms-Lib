@@ -67,18 +67,18 @@ These are different amounts of work, so their ratio is not an existing-caller re
 
 | New case                        | Numeric min ns   | Native min ns   | Native nodes/events   | Retained bytes   | Scratch bytes   | Caller retained/peak bytes   |
 | ------------------------------- | ---------------- | --------------- | --------------------- | ---------------- | --------------- | ---------------------------- |
-| coupled-n2-k2-width4-cached     | 448.863          | 989.311         | 4/1                   | 880              | 80              | 168/248                      |
-| coupled-n2-k2-width4-complete   | 694.158          | 37679.729       | 4/1                   | 880              | 80              | 168/248                      |
-| quadratic-n1-k1-scalar-cached   | 90.008           | 262.432         | 2/1                   | 732              | 48              | 112/160                      |
-| quadratic-n1-k1-scalar-complete | 276.525          | 37446.551       | 2/1                   | 732              | 48              | 112/160                      |
+| coupled-n2-k2-width4-cached     | 446.183          | 985.709         | 4/1                   | 880              | 80              | 168/352                      |
+| coupled-n2-k2-width4-complete   | 693.994          | 38336.800       | 4/1                   | 880              | 80              | 168/352                      |
+| quadratic-n1-k1-scalar-cached   | 89.778           | 265.966         | 2/1                   | 732              | 48              | 112/160                      |
+| quadratic-n1-k1-scalar-complete | 275.161          | 37396.641       | 2/1                   | 732              | 48              | 112/160                      |
 
 The full tiny native request costs about 37–39 microseconds on this host;
-cached reverse is about 262–266 ns scalar and 989–993 ns for width4.
+cached reverse is about 266–267 ns scalar and 986–991 ns for width4.
 No universal speedup, sparse factorization or nonlinear convergence claim is made.
 
 ## Resource and failure proof
 
-All 22 native root cases pass locally; all 115 affected legacy solve cases pass.
+All 25 native root cases pass locally; all 115 affected legacy solve cases pass.
 Widths scalar/1/4/8 share owned storage and per-channel scratch. For n=1/k=1 and n=2/k=2,
 retained differences equal 116+2*sizeof(Number_); reverse scratch is 48/80 bytes.
 Only n output nodes are published. Caller peak includes the same physical scratch also
@@ -99,15 +99,40 @@ The original capacity fixture failures are retained: caller peak omitted scratch
 peak incorrectly included reserved cleanup headroom. Corrected tests follow established accounting;
 production behavior was unchanged.
 
+## Review correction and scoped reuse
+
+Review 4215890681 identified caller callbacks executing inside event ownership.
+A focused RED retains 64 foreign bytes after recording close. The correction
+constructs the validated numeric cache and captured bindings in caller context,
+then deep-copies into event-owned storage without another factorization.
+Three cases verify retained callback buffers, release of a preexisting 4096-double
+buffer and throwing callbacks; callback side effects retain caller ownership.
+Captured bindings still precede callback evaluation and are revalidated.
+
+The native-only root object changes. Five fresh legacy caller links retain the
+exact measured hashes, so all 22 raw legacy rows/gate results are reused, not
+resampled. Only four optional root rows are resampled under the same protocol.
+Retained tape and per-channel scratch stay 732/880 and 48/80 bytes. Caller capture
+peak includes the staged numeric/binding/value storage: 132/352 bytes for n=k=1/2.
+The coupled caller peak is now 352 rather than 248. Exact/one-byte-short tests
+cover both scalar reverse overlap and coupled capture admission, with refunds.
+The original now-stale caller-peak assertion failure is retained and replaced
+with the explicit maximum of staged capture and actual reverse overlap.
+
+native-implicit-root-pre-callback-performance retains the previous complete
+measurement/provenance, and native-implicit-root-callback-caller-identity.json
+records fresh identity. New raw optional rows and final hashes are under
+native-implicit-root-performance. No generic buffer-accounting change occurs.
+
 ## Final production hashes
 
-- dal-cpp/dal/math/aad/implicitroot.cpp: 42c5c13a68dfa8c430eb98c0cfb940d3ad51106b14234dbc739ea6e09ddb9a9f
+- dal-cpp/dal/math/aad/implicitroot.cpp: c77cfdf5126b3a52e699405f9c87d59d266c21472a634bcede7aa9eec35bd477
 - dal-cpp/dal/math/aad/implicitroot.hpp: c445bbc105b7744a60ac7c60824a6c626af72ba736f670efc637eaec92a9efbd
 - dal-cpp/dal/math/aad/linearsolveinternal.hpp: b88d26f4c8e4fbb0290ec3636b0b171969c38f1520ccb23bff4c6b2da0f58c45
 - dal-cpp/dal/math/aad/linearsolveaccuracy.cpp: e4dad3818bfb1eaab35564c4f99f6abdcf38905d54974ed67d109dafc883b005
 - dal-cpp/dal/math/aad/linearsolveaccuracyinternal.hpp: 33dd76da500cfd71f2a72b1299ddcc7506607e6e0f4d8cce84b9f77c4503d984
 
 Baseline archive SHA256: 9a2a9abff81127422dcf31901503be543c8dabf5127fb778f3e4ecc6f417b398
-Head archive SHA256: 19b42982970f98b9b0b96caee45b6a31b540825e2c1ae08b0ddd91eeac6d8930
+Head archive SHA256: 7d3227a0290f73efca8bfcda1e9bf55a924fd4526363150b0f328ba4a072e4b9
 
 Publication and final exact-head acceptance must be inspected before merge.

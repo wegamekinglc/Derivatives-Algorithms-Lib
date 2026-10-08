@@ -20,7 +20,7 @@ their matrix return types.
 The missing-header RED and minimum composed-root GREEN are retained in
 native-implicit-root-red.log and native-implicit-root-first-green.log.
 Subsequent focused batches run only newly added cases: 12 reference/lifecycle
-cases, three capacity cases, then six additional boundaries. All 22 pass.
+cases, three capacity cases, then six additional boundaries. All 25 pass.
 Existing methods are tested once after the shared changes: all 115 cases in
 the compiled AADLinearSolveTest suite pass in native-implicit-root-legacy-tests.log.
 
@@ -46,9 +46,9 @@ peak and mistook tape cleanup headroom for measured occupancy; those failed
 logs are retained. Correct expectations follow existing budget contracts;
 no production budget logic or threshold changed.
 
-All 20 strict C++17 -Wall -Wextra -Wpedantic -Werror source/direct-header checks
+All 22 strict C++17 -Wall -Wextra -Wpedantic -Werror source/direct-header checks
 pass in OFF and combined lifetime/profiling ON. Formatting passes for all
-affected source/header/test files; 114 functions have maximum CCN six.
+affected source/header/test files; 120 functions have maximum CCN six.
 The fresh installed find_package(dal-cpp)/DAL::cpp consumer passes composition,
 actual accuracy reports, caller ownership and detached observations.
 
@@ -69,7 +69,21 @@ recordings keep owner-thread semantics. Default builds retain raw Number
 lifetimes; optional diagnostics add generation/epoch checks.
 
 All six existing sanitizer filters already select AADLinearSolveTest.
-Publication must prove actual execution of each of the 22 new cases in four
+Publication must prove actual execution of each of the 25 new cases in four
 MSVC, six sanitizer and four extended profiles, not only green job labels.
 Exact-head paginated checks/comments/threads/Codacy and review evidence,
 repeated final audits and guarded merge/tree verification remain outstanding.
+
+## Accepted local review correction
+
+Finding 4215890681 is reproduced in native-implicit-root-callback-red.log:
+callback-owned allocation remains as 64 tape bytes after close. Evaluation now
+runs in caller context before a deep owned copy; no repeated factorization or
+foreign-buffer move occurs. Bindings are captured before evaluation and validated
+again before publication. Three callback tests cover retained buffers, releasing
+large preexisting storage and exceptions. These plus the affected root tests
+pass (25 cases); failed initial evidence is retained. Explicit coupled capture
+peak 352 bytes replaces the previous reverse-only peak, with exact/one-byte-short
+and refund checks. All 22 strict checks and the refreshed installed consumer pass.
+Five unchanged fresh caller binaries preserve the 22 accepted legacy timing rows;
+only the four optional costs are resampled. Final-head CI/re-review remain required.

@@ -668,6 +668,11 @@ enforces the declared transpose limit. Historical reports and diagnostics remain
 readable after restoration or close; output Numbers follow the tape lifetime.
 
 Returned vectors, diagnostics and invocation reports obey caller budgets.
+Capture first constructs the validated numeric linearization in the caller
+context, then deep-copies it into the event without another factorization.
+This keeps callback-managed buffers outside event ownership; their side effects
+remain caller-owned if the callback throws. Caller peak includes staged bindings,
+numeric construction and the overlap with returned outputs/diagnostics.
 Retained cache/bindings and reverse scratch obey tape budgets; with a caller
 budget active, the same scratch also counts toward its peak alongside reports.
 These overlapping measurements describe the same allocation. Failed capture

@@ -216,15 +216,20 @@ feature/native-implicit-root-accuracy, controlled by its
 [specification](../specs/aad-native-implicit-root.md),
 [API](../api-notes/aad-native-implicit-root.md) and
 [critique](../critiques/aad-native-implicit-root.md).
-All 22 native root cases pass locally, including composition, independent
+All 25 native root cases pass locally, including composition, independent
 channels, aliases, stationarity, windows, ownership, numerical failures and
-exact resource admission. Twenty strict OFF/combined checks pass; all 115
+exact resource admission. Twenty-two strict OFF/combined checks pass; all 115
 affected existing native solve cases pass. Two changed shared native objects
 justify only 22 legacy caller timing rows; each passes the unchanged paired
 gate. Four optional root costs have their own checksum/resource validation.
 The installed consumer also passes; exact-head platform/review acceptance
 remains pending. Active [review](../reviews/aad-native-implicit-root.md) and
 [performance](../performance/aad-native-implicit-root.md) retain acceptance.
+Review 4215890681 is reproduced and repaired: evaluate the equation in caller
+context, then deep-copy into event ownership. Three callback cases and exact
+132/352-byte staged caller capture accounting pass; side effects stay caller-owned.
+Five fresh legacy links match accepted timing bytes, so only four new costs
+are resampled. Corrected exact-head CI and re-review remain outstanding.
 Merge this native increment before PDE implementation.
 
 The following recording notes are
@@ -511,7 +516,7 @@ checked-entry precision guard. Final OFF/combined non-benchmark CTest passes
 cases, and two installed consumers pass each configuration. All nine old gate
 executables remain SHA-256 identical. The [core cost report](../performance/aad-dupire-entry-cost.md)
 retains 240 processes, complete hashes and numeric identity: warm frozen-snapshot
-costs are about 18–1,020 microseconds and independent VJPs about 18–180 microseconds
+costs are about 18–1,020 microseconds and independent VJPs about 16–140 microseconds
 over its four informational cases. These are extra capability costs, not a
 production no-regression verdict. The [core review](../reviews/aad-dupire-pullback.md)
 has no unresolved local correctness findings; exact-head CI and full
@@ -1050,12 +1055,12 @@ overlapping acceptance work is included once in the integration allowance.
 | F02 portfolio             | C++/Python/Excel, installed consumers and timing repair accepted   | #487 merged; final 35/35 checks accepted                   | 0                       |
 | P02                       | Worker reuse: 82 tests and 37 full-request cost cases accepted     | #488 merged; final 35/35 checks accepted                   | 0                       |
 | P03                       | 89 tests; 81 unique complete-request timing comparisons accepted   | #489 merged; final 35/35 checks accepted                   | 0                       |
-| F03                       | Numeric root #501 merged; native root local acceptance passes      | Native root publication and PDE implementation remain      | 5–7.25                  |
+| F03                       | Numeric root #501 merged; native root local acceptance passes      | Native root publication and PDE implementation remain      | 4.75–6.75               |
 | P04/P05                   | Structural sparsity/checkpointing remain                           | Open                                                       | 9–15                    |
 | F04                       | Second-order implementation/estimator validation remain            | Open                                                       | 12–20                   |
 | Final integration/audit   | Cross-platform/binding/docs/performance acceptance remains         | Open                                                       | 7–11                    |
 
-Remaining total during native implicit-root implementation: approximately 33–53.25 person-days,
+Remaining total during native implicit-root implementation: approximately 32.75–52.75 person-days,
 excluding CI queue time and including delivery contingency. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
 effort estimate, not a guaranteed completion date. Re-estimate when review
@@ -1074,14 +1079,14 @@ numeric/native diagnostics are not counted again.
 | 2       | F03 numeric coordinates              | Accepted in merged #495; immutable accepted evidence retained                    | 0                 |
 | 3       | F03 native coordinates               | Accepted in merged #496; immutable accepted evidence retained                    | 0                 |
 | 4       | F03 native coordinate accuracy       | Accepted in merged #500; exact-head CI/review and guarded merge pass             | 0                 |
-| 4a      | F03 implicit calibration             | Numeric #501 merged; native root local checks pass; finish publication           | 8–18              |
+| 4a      | F03 implicit calibration             | Numeric #501 merged; native root callback repair passes; finish publication      | 6–14              |
 | 5       | F03 PDE operators                    | Discrete solver, boundary and parameter sensitivity acceptance                   | 32–40             |
 | 6       | P04 structural sparsity              | Dependency proof, compressed seeds, invalidation and mode evidence               | 32–56             |
 | 7       | P05 long-path checkpointing          | Complete state/RNG restoration, recomputation and memory/performance proof       | 40–64             |
 | 8       | F04 second-order risk                | Gamma, cross-Gamma, HVP, recalibration and estimator validation                  | 64–96             |
 | 9       | F04 native mixed-mode prototype      | Smooth-kernel prototype, independent correctness and capability limits           | 32–64             |
 | 10      | Bindings and complete acceptance     | C++/Python/Excel, documentation, platform and performance gates                  | 56–88             |
-| Total   | Full remaining implementation        | All remaining plan requirements                                                  | 264–426           |
+| Total   | Full remaining implementation        | All remaining plan requirements                                                  | 262–422           |
 
 The first delivery boundary is complete. Whole-PR review repaired the Windows
 registration-help defect, both include-order findings and the overview file
