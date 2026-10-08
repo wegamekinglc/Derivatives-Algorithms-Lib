@@ -107,22 +107,37 @@ date-only review observation is assessed against the supplied Asia/Shanghai
 date. Merge verification is retained in `pr-496-merged.json`; completed native
 coordinate artifacts are retired into Git history.
 
-Forward componentwise residual and conditioning reports are accepted; owning
-transpose residual reports and their declared accuracy policy are the next
-F03 requirement from sections 4.3.3/4.3.5 of the controlling plan. The optional
-numeric checked interface has twelve passing focused cases: analytic risks,
-independent rational rounding limits, owning/concurrent reports, large finite
-risks, unused entry-overflow avoidance and exact capacity/failure recovery.
-Its [specification](../specs/aad-solve-accuracy.md),
-[API decisions](../api-notes/aad-solve-accuracy.md) and
-[critique](../critiques/aad-solve-accuracy.md) control this separate increment.
-All 168 previous archive members and both fresh legacy caller binaries are
-identical after validating their 31 dependency headers; old timing is reused.
-Three new-interface cost boundaries disclose the additional checking work in
-the [performance report](../performance/aad-solve-accuracy.md). Installed
-DAL::cpp consumption and [local review](../reviews/aad-solve-accuracy.md) pass;
-publication gates remain open. Native report harvesting requires its own interface decision.
-Implicit calibration, PDE and subsequent stages remain required. The following recording notes are
+Numeric forward/transpose accuracy checks are accepted in merged
+[#497](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/497), at
+`0c5b5918`, with the exact tree of accepted head `a0144f51`.
+All 36 exact-head checks pass, with zero Codacy annotations and unresolved
+review threads. Actual logs verify all twelve new cases in each of fourteen
+sanitizer, extended and MSVC configurations. Installed consumption passes.
+All 168 previous archive members and both fresh legacy callers retain accepted
+bytes after checking their 31 dependency headers; accepted timing is reused.
+The archived
+[performance report](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/a0144f51ab873975b600911084ecf38652c97b5a/.codex/artifacts/performance/aad-solve-accuracy.md)
+discloses the three optional-checking cost boundaries. Merge verification is
+retained in `pr-497-merged.json` and `pr-497-tree-verification.json`.
+Completed numeric accuracy artifacts are retired into Git history.
+
+Native per-invocation accuracy reports are the active F03 increment, controlled
+by the [specification](../specs/aad-native-solve-accuracy.md),
+[API](../api-notes/aad-native-solve-accuracy.md) and
+[critique](../critiques/aad-native-solve-accuracy.md). Local acceptance covers
+25 new and 78 related existing cases, actual reverse-window/channel provenance,
+independent rational/Cramer references, owning copies, failure cleanup and exact
+tape/caller resources. A focused empty-width RED is repaired through native
+mode validation; eight affected cases pass without repeating old suites.
+Installed consumption, strict OFF/combined ON and complexity checks pass.
+The [performance report](../performance/aad-native-solve-accuracy.md) accepts
+twelve existing caller rows and discloses six new optional-cost rows. Only the
+optional accuracy object changes in the review repair; fresh existing caller
+binaries retain their measured hashes. [Local review](../reviews/aad-native-solve-accuracy.md)
+has no remaining findings. Exact-head remote gates and actual fourteen-mode
+runtime acceptance remain open. Checked coordinate APIs,
+implicit calibration, PDE and subsequent stages remain required.
+The following recording notes are
 historical repair evidence, not outstanding #491 gates.
 
 Recording progress: the analytic/interface, passive/RHS-only, reset-mutation,

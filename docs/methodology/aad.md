@@ -394,6 +394,54 @@ invalidates the graph and refunds uncommitted storage. The ordinary `LinearSolve
 retains its existing cache and work. Diagnostic computation adds the numeric
 diagnostic cost and one caller-owned vector of per-RHS errors.
 
+### Recorded Solve Accuracy
+
+`LinearSolveWithAccuracy` in `dal/math/aad/linearsolveaccuracy.hpp` records a
+dense solve with an explicit [accuracy policy](matrix.md#explicit-forward-and-transpose-accuracy).
+It supports the same three activity combinations as the ordinary dense solve.
+The returned `CheckedLinearSolveResult_` owns `solution_`, forward `diagnostics_`
+and an opaque `event_` identity. The event retains one checked numeric cache;
+its physical transpose and declared limits remain fixed across reverse sweeps.
+
+```cpp
+#include <dal/math/aad/linearsolveaccuracy.hpp>
+
+const LinearSolveAccuracyPolicy_ policy{1e-12, 1e-12};
+auto result = AAD::LinearSolveWithAccuracy(&scope, a, b, policy);
+AAD::Number_ objective = result.solution_(0, 0) * result.solution_(0, 0);
+scope.FinishRecording();
+scope.ClearAdjoints();
+AAD::NativeOperations_::SetSeed(objective, 1.0);
+const auto reports = AAD::ReverseWithSolveAccuracy(&scope);
+const auto& errors = reports.Report(result.event_).transposeBackwardErrors_;
+```
+
+The transpose check uses the actual seeds accumulated from ordinary expressions
+and later events. Report rows identify RHS columns; report columns identify AAD
+channels, including zero channels. Scalar mode and vector width one are distinct.
+Each owning entry retains its event/recording identity, unique reverse invocation
+identity and mode. Entries follow execution order. Repeated reverse returns a
+new invocation; earlier reports remain detached historical values.
+
+`ReverseSuffixWithSolveAccuracy` and `ReversePrefixWithSolveAccuracy` take the
+scope and checkpoint explicitly. They report only events executed in that
+window. Looking up an absent or discarded event throws. Restoring a suffix never
+reuses its event identity. Reports remain readable after source destruction,
+restore and scope close; their active solution Numbers retain the tape lifetime
+contract.
+
+The ordinary `scope.Reverse()` also enforces checked-event limits, without
+collecting reports. A policy, numerical, contribution or allocation failure
+invalidates the graph and returns no collection, including reports prepared by
+earlier events in the same sweep. Existing native adjoints are not rolled back;
+reads remain rejected until cleanup.
+
+Returned diagnostics, report matrices and entry storage obey caller buffer
+budgets. Event caches and reverse scratch obey tape budgets; scratch can also
+overlap the caller ceiling. The optional interface adds physical residual checks
+and report storage. It supplies first-order dense derivatives; coordinate solves
+use their separate interface.
+
 ### Recorded Solve Coordinates
 
 `dal/math/aad/linearsolvecoordinates.hpp` adds `AAD::LinearSolve` overloads

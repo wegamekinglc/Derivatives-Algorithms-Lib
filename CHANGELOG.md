@@ -18,6 +18,11 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-08
 
+- **Recorded solve accuracy** — native dense solve events enforce explicit
+  forward/transpose limits and return owning reports from successful full,
+  suffix or prefix reverse invocations. Reports identify actual event/channel
+  execution and survive checkpoint restoration and recording close. See
+  [recorded accuracy](docs/methodology/aad.md#recorded-solve-accuracy).
 - **Explicit solve accuracy** — an optional owning numeric solver checks declared
   forward and transpose backward-error limits, returns independent reverse
   reports and preserves large finite equation risks. Physical transpose
