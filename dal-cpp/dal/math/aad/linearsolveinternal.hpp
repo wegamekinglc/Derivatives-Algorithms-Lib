@@ -86,7 +86,7 @@ namespace Dal::AAD {
                     NativeOperations_::SetSeed((*outputs)(row, column), 0.0, channel);
         }
 
-        Matrix_<Number_> MakeOutputs(const Matrix_<>& values, Matrix_<Number_>* bindings) {
+        [[maybe_unused]] Matrix_<Number_> MakeOutputs(const Matrix_<>& values, Matrix_<Number_>* bindings) {
             Matrix_<Number_> result(values.Rows(), values.Cols());
             for (int row = 0; row < values.Rows(); ++row)
                 for (int column = 0; column < values.Cols(); ++column) {
@@ -153,8 +153,8 @@ namespace Dal::AAD {
             ~LinearSolveEvent_() noexcept override {
                 WithOwnedPayload(&account_, [this] { payload_.reset(); });
             }
-            [[nodiscard]] Matrix_<Number_> MakeOutputs() { return payload_->MakeOutputs(); }
-            [[nodiscard]] const LinearSolveDiagnostics_& Diagnostics() const { return payload_->Diagnostics(); }
+            [[nodiscard]] auto MakeOutputs() { return payload_->MakeOutputs(); }
+            [[nodiscard]] decltype(auto) Diagnostics() const { return payload_->Diagnostics(); }
             void Reverse(bool multi, size_t width) override {
                 if constexpr (Checked_)
                     payload_->ReverseWithScratch(multi, width, &account_);
@@ -176,7 +176,7 @@ namespace Dal::AAD {
             }
         }
 
-        template <class E_> Matrix_<Number_> PublishSolve(RecordingScope_* recording, Tape_* tape, std::unique_ptr<E_, ReverseEventDeleter_> event) {
+        template <class E_> auto PublishSolve(RecordingScope_* recording, Tape_* tape, std::unique_ptr<E_, ReverseEventDeleter_> event) {
             NativeRecordedOperation_::Prepare(tape);
             auto result = event->MakeOutputs();
             NativeRecordedOperation_::Commit(recording, std::move(event));
