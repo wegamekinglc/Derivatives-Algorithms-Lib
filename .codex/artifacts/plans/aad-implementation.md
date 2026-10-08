@@ -1118,19 +1118,19 @@ This snapshot distinguishes accepted increments from locally implemented work.
 Estimates are remaining single-developer effort, not promises of calendar time;
 overlapping acceptance work is included once in the integration allowance.
 
-| Work item               | Implementation/local verification                                | Publication/CI                                      | Remaining person-days |
-|-------------------------|------------------------------------------------------------------|-----------------------------------------------------|-----------------------|
-| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                    | Accepted exact-head checks                          | 0                     |
-| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass   | Merged; final 35/35 checks accepted                 | 0                     |
-| F01                     | C++/Python/Excel and complete requirement audit accepted         | Merged; final 35/35 checks accepted                 | 0                     |
-| F02 weighted/blocked    | C++/Python/Excel and independent mathematical oracles accepted   | #483/#484 merged; exact-head gates pass             | 0                     |
-| F02 portfolio           | C++/Python/Excel, installed consumers and timing repair accepted | #487 merged; final 35/35 checks accepted            | 0                     |
-| P02                     | Worker reuse: 82 tests and 37 full-request cost cases accepted   | #488 merged; final 35/35 checks accepted            | 0                     |
-| P03                     | 89 tests; 81 unique complete-request timing comparisons accepted | #489 merged; final 35/35 checks accepted            | 0                     |
-| F03                     | Roots #501/#502 and numeric PDE #504 merged; native PDE started | Native event/composition/resources remain           | 4–5                   |
-| P04/P05                 | Structural sparsity/checkpointing remain                         | Open                                                | 9–15                  |
-| F04                     | Second-order implementation/estimator validation remain          | Open                                                | 12–20                 |
-| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains       | Open                                                | 7–11                  |
+| Work item               | Implementation/local verification                                | Publication/CI                            | Remaining person-days |
+|-------------------------|------------------------------------------------------------------|-------------------------------------------|-----------------------|
+| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                    | Accepted exact-head checks                | 0                     |
+| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass   | Merged; final 35/35 checks accepted       | 0                     |
+| F01                     | C++/Python/Excel and complete requirement audit accepted         | Merged; final 35/35 checks accepted       | 0                     |
+| F02 weighted/blocked    | C++/Python/Excel and independent mathematical oracles accepted   | #483/#484 merged; exact-head gates pass   | 0                     |
+| F02 portfolio           | C++/Python/Excel, installed consumers and timing repair accepted | #487 merged; final 35/35 checks accepted  | 0                     |
+| P02                     | Worker reuse: 82 tests and 37 full-request cost cases accepted   | #488 merged; final 35/35 checks accepted  | 0                     |
+| P03                     | 89 tests; 81 unique complete-request timing comparisons accepted | #489 merged; final 35/35 checks accepted  | 0                     |
+| F03                     | Roots #501/#502 and numeric PDE #504 merged; native PDE started  | Native event/composition/resources remain | 4–5                   |
+| P04/P05                 | Structural sparsity/checkpointing remain                         | Open                                      | 9–15                  |
+| F04                     | Second-order implementation/estimator validation remain          | Open                                      | 12–20                 |
+| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains       | Open                                      | 7–11                  |
 
 Remaining total during sampled PDE implementation: approximately 32–51 person-days,
 excluding CI queue time and including delivery contingency. F01 is merged;
