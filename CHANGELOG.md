@@ -18,6 +18,11 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-08
 
+- **Recorded sampled PDE steps** — native AAD composes sampled theta steps with
+  ordinary expressions and serial rollback, accumulating declared state,
+  coefficient, boundary and time/theta risks with owning accuracy reports and
+  capacity budgets. See
+  [recorded PDE steps](docs/methodology/aad.md#recorded-sampled-pde-theta-steps).
 - **Sampled PDE theta-step pullback** — an owning numeric operator returns
   discrete state, boundary, rate, drift, variance, time-step and theta risks
   using a cached adjacent-pivot tridiagonal solve with physical forward/transpose

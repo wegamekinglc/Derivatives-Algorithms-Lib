@@ -239,37 +239,70 @@ Completed controls are retired. Session evidence includes
 native-implicit-root-audit-final, native-implicit-root-runtime and
 native-implicit-root-merged-tree.json.
 
-The active F03 increment is the owning numeric sampled theta-step on
-feature/sampled-theta-step-pullback, controlled by its
-[specification](../specs/aad-sampled-theta-step.md),
-[API](../api-notes/aad-sampled-theta-step.md) and
-[critique](../critiques/aad-sampled-theta-step.md),
-[local review](../reviews/aad-sampled-theta-step.md) and
-[scoped performance](../performance/aad-sampled-theta-step.md). Its scope includes discrete
-old-state, boundary, rate, drift, variance, dt and theta pullbacks, a cached
-adjacent-pivot tridiagonal transpose and explicit physical accuracy limits.
-Seven independent step references cover 121 coordinates and 363 differences;
-the strong-diffusion public fixture triggers two consecutive adjacent pivots.
-The missing-interface RED and analytic GREEN are complete. All 27 new cases
-and 42 direct existing dense diagnostic/accuracy cases pass. Complete three-step
-rollback agrees with 33 independently checked coordinates (99 differences).
-Twenty-two strict OFF/combined syntax checks and installed consumption pass.
-Exact cache/result peaks, one-byte-short refunds, copies/moves, concurrent
-const requests, accuracy limits and range admission are covered. All 172
-unaffected legacy objects and a fresh passive PDE executable retain accepted
-bytes. Twenty actually affected dense/coordinate/root caller rows pass the
-unchanged two-round +4% policy in a 38-second scoped sample; three optional PDE
-shapes disclose costs and linear capacities. Publication/platform acceptance
-remain pending. Native event integration follows numeric merge in a separate PR.
-The minimum-subnormal assertion review findings are reproduced with an isolated
-dropped-value probe and repaired with strict equality. Three affected cases pass;
-unchanged production/workload identities retain the 38-second timing acceptance.
-The subsequent copy-assignment finding is reproduced and repaired with a
-transactional temporary. Six affected ownership/capacity tests pass; the new
-cross-layer case covers zero/one-byte-short failures and self-assignment for
-theta zero and 0.5, bringing the suite to 28 cases. Assignment failure preserves
-the original cache and refunds temporary capacity. Final publication acceptance
-uses the repaired head; unchanged existing caller evidence remains reusable.
+The owning numeric sampled theta-step is accepted in merged
+[#504](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/504),
+at head `3b4aad18e3a51a8888ae3af732959f416de43fe8` and merge
+`94799f9e3f349bf89b3a2c58a16bde322d90c9f6`. Both complete paginated
+audits accept 36/36 checks, zero Codacy annotations and zero unresolved threads.
+Actual logs verify all 28 cases in each of fourteen sanitizer, extended and
+MSVC profiles. Guarded squash merge matches the tested preview tree
+`c5e0f586c25da5e63ecd4eadb214d41153b09dbe`.
+Seven independent step references cover 121 coordinates/363 differences;
+complete three-step rollback covers 33 coordinates/99 differences. Forty-two
+existing dense accuracy cases, installed consumption and strict checks pass.
+The subnormal assertion loophole and failed copy-assignment corruption are
+reproduced and repaired. Transactional assignment preserves the original cache
+under zero/one-byte-short failure. Twenty affected legacy caller rows pass
+scoped two-round +4% acceptance in 38 seconds. After assignment repair, all
+legacy/passive caller executables remain byte-identical; zero legacy rows are
+remeasured and twelve optional PDE rows take another 1.91 seconds.
+
+Completed controls are retired into immutable history:
+[specification](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/3b4aad18e3a51a8888ae3af732959f416de43fe8/.codex/artifacts/specs/aad-sampled-theta-step.md),
+[API](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/3b4aad18e3a51a8888ae3af732959f416de43fe8/.codex/artifacts/api-notes/aad-sampled-theta-step.md),
+[critique](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/3b4aad18e3a51a8888ae3af732959f416de43fe8/.codex/artifacts/critiques/aad-sampled-theta-step.md),
+[review](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/3b4aad18e3a51a8888ae3af732959f416de43fe8/.codex/artifacts/reviews/aad-sampled-theta-step.md)
+and [performance report](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/3b4aad18e3a51a8888ae3af732959f416de43fe8/.codex/artifacts/performance/aad-sampled-theta-step.md).
+Session evidence includes pde-sampled-step-audit-final,
+pde-sampled-step-runtime and pde-sampled-step-merged-tree.json.
+
+The active increment is native sampled PDE recording on
+feature/recorded-sampled-theta-step, controlled by its
+[specification](../specs/aad-native-sampled-theta-step.md),
+[API](../api-notes/aad-native-sampled-theta-step.md) and
+[critique](../critiques/aad-native-sampled-theta-step.md).
+The missing-header RED and first independent scalar-rate GREEN pass.
+One owning event reuses the accepted numeric cache and generic checked event
+wrapper. Seven selected activity fields and full activity pass in scalar and
+width-1/4/8 modes against fifteen exact-symbolic risks with direct objective
+terms: 32 sub-scenarios within one named test. Active fields override their
+primal values and shape; unused passive fields need no populated values.
+Layer and channel axes, independent output slots and exact unused/zero-lane
+risks are verified. Thirty-one new cases pass in focused batches: exact-symbolic
+aliases, repeated seeds, serial rollback and upstream volatility; seven frozen
+high-precision fixtures including consecutive adjacent pivots; ownership,
+independent workers, wrong/stale/foreign inputs, checkpoints and raw windows;
+inclusive accuracy, nonfinite/range/late-channel failures and recovery; exact
+caller/tape limits with one-byte-short refunds and 32 capacity sub-scenarios.
+The seven numeric reference fixtures share unchanged golden data between numeric
+and native tests; both affected existing numeric cases still pass.
+Strict compilation repairs add braces around test assertion macros without
+changing their numerical assertions. Installed native CMake consumption passes.
+All 175 accepted existing archive members match as a name/hash multiset, including
+the reindexed numeric sampled-step basename. Seven fresh existing caller links
+retain accepted hashes; zero existing timing rows are repeated. The three new
+native size boundaries pass twenty process samples/240 observations in 2.46s,
+with all numerical/resource checks; see the active
+[cost report](../performance/aad-native-sampled-theta-step.md).
+Twenty-four strict OFF/combined ON source/header checks pass. Exact-head
+publication/CI acceptance remains open.
+No shared helper or existing production source has changed.
+
+The initial native PR #505 head 0293c04a reports one Codacy test finding: a local
+scalar projection functor named read is mistaken for a buffer-reading API.
+The focused repair names it valueOf while preserving bounds, reference data and
+assertions. Only its two native reference cases and strict modes need new local
+evidence; the unchanged production/performance proof remains applicable.
 
 The following recording notes are
 historical repair evidence, not outstanding #491 gates.
@@ -1085,19 +1118,19 @@ This snapshot distinguishes accepted increments from locally implemented work.
 Estimates are remaining single-developer effort, not promises of calendar time;
 overlapping acceptance work is included once in the integration allowance.
 
-| Work item               | Implementation/local verification                                | Publication/CI                                      | Remaining person-days |
-|-------------------------|------------------------------------------------------------------|-----------------------------------------------------|-----------------------|
-| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                    | Accepted exact-head checks                          | 0                     |
-| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass   | Merged; final 35/35 checks accepted                 | 0                     |
-| F01                     | C++/Python/Excel and complete requirement audit accepted         | Merged; final 35/35 checks accepted                 | 0                     |
-| F02 weighted/blocked    | C++/Python/Excel and independent mathematical oracles accepted   | #483/#484 merged; exact-head gates pass             | 0                     |
-| F02 portfolio           | C++/Python/Excel, installed consumers and timing repair accepted | #487 merged; final 35/35 checks accepted            | 0                     |
-| P02                     | Worker reuse: 82 tests and 37 full-request cost cases accepted   | #488 merged; final 35/35 checks accepted            | 0                     |
-| P03                     | 89 tests; 81 unique complete-request timing comparisons accepted | #489 merged; final 35/35 checks accepted            | 0                     |
-| F03                     | Roots #501/#502 merged; numeric PDE local acceptance passed      | Numeric PDE publication, then native implementation | 4–5                   |
-| P04/P05                 | Structural sparsity/checkpointing remain                         | Open                                                | 9–15                  |
-| F04                     | Second-order implementation/estimator validation remain          | Open                                                | 12–20                 |
-| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains       | Open                                                | 7–11                  |
+| Work item               | Implementation/local verification                                | Publication/CI                            | Remaining person-days |
+|-------------------------|------------------------------------------------------------------|-------------------------------------------|-----------------------|
+| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                    | Accepted exact-head checks                | 0                     |
+| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass   | Merged; final 35/35 checks accepted       | 0                     |
+| F01                     | C++/Python/Excel and complete requirement audit accepted         | Merged; final 35/35 checks accepted       | 0                     |
+| F02 weighted/blocked    | C++/Python/Excel and independent mathematical oracles accepted   | #483/#484 merged; exact-head gates pass   | 0                     |
+| F02 portfolio           | C++/Python/Excel, installed consumers and timing repair accepted | #487 merged; final 35/35 checks accepted  | 0                     |
+| P02                     | Worker reuse: 82 tests and 37 full-request cost cases accepted   | #488 merged; final 35/35 checks accepted  | 0                     |
+| P03                     | 89 tests; 81 unique complete-request timing comparisons accepted | #489 merged; final 35/35 checks accepted  | 0                     |
+| F03                     | Roots #501/#502 and numeric PDE #504 merged; native PDE started  | Native event/composition/resources remain | 4–5                   |
+| P04/P05                 | Structural sparsity/checkpointing remain                         | Open                                      | 9–15                  |
+| F04                     | Second-order implementation/estimator validation remain          | Open                                      | 12–20                 |
+| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains       | Open                                      | 7–11                  |
 
 Remaining total during sampled PDE implementation: approximately 32–51 person-days,
 excluding CI queue time and including delivery contingency. F01 is merged;
@@ -1119,13 +1152,13 @@ numeric/native diagnostics are not counted again.
 | 3     | F03 native coordinates               | Accepted in merged #496; immutable accepted evidence retained                  | 0               |
 | 4     | F03 native coordinate accuracy       | Accepted in merged #500; exact-head CI/review and guarded merge pass           | 0               |
 | 4a    | F03 implicit calibration             | Numeric #501 and native #502 merged; all final gates accepted                  | 0               |
-| 5     | F03 PDE operators                    | Numeric publication, then native events and discrete boundary/parameter risks  | 30–38           |
+| 5     | F03 PDE operators                    | Numeric #504 merged; native events, discrete risks and composition acceptance  | 28–36           |
 | 6     | P04 structural sparsity              | Dependency proof, compressed seeds, invalidation and mode evidence             | 32–56           |
 | 7     | P05 long-path checkpointing          | Complete state/RNG restoration, recomputation and memory/performance proof     | 40–64           |
 | 8     | F04 second-order risk                | Gamma, cross-Gamma, HVP, recalibration and estimator validation                | 64–96           |
 | 9     | F04 native mixed-mode prototype      | Smooth-kernel prototype, independent correctness and capability limits         | 32–64           |
 | 10    | Bindings and complete acceptance     | C++/Python/Excel, documentation, platform and performance gates                | 56–88           |
-| Total | Full remaining implementation        | All remaining plan requirements                                                | 254–406         |
+| Total | Full remaining implementation        | All remaining plan requirements                                                | 252–404         |
 
 
 The first delivery boundary is complete. Whole-PR review repaired the Windows
