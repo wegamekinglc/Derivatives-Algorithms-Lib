@@ -85,6 +85,7 @@ namespace {
         Vector_<> gaussian(times.size());
         const double time = times.back();
         const double payTime = static_cast<double>(Date_(2028, 1, 1) - prepared.EvaluationDate()) / 365.0;
+        const Vector_<> logHessianDiagonal{-2.0 / (point[0] * point[0]), -2.0 * time, 0.0, 0.0};
         PolynomialReference_ result;
         for (size_t path = 0; path < paths; ++path) {
             random->FillNormal(&gaussian);
@@ -102,7 +103,7 @@ namespace {
                 result.hessian_(i, 4) += unit * logGradient[i] / static_cast<double>(paths);
                 result.hessian_(4, i) = result.hessian_(i, 4);
                 for (int j = 0; j < 4; ++j) {
-                    const double curvature = i == j ? (i == 0 ? -2.0 / (point[0] * point[0]) : (i == 1 ? -2.0 * time : 0.0)) : 0.0;
+                    const double curvature = i == j ? logHessianDiagonal[i] : 0.0;
                     result.hessian_(i, j) += value * (logGradient[i] * logGradient[j] + curvature) / static_cast<double>(paths);
                 }
             }

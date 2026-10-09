@@ -34,6 +34,14 @@ probes pass in ordinary/combined diagnostic-profiling profiles, including the
 manual financial benchmark harness. An assertion-macro dangling-else warning
 is repaired and only its two affected strict probes repeat.
 
+Publication Codacy reports one reference-helper complexity issue (9, limit 8).
+An explicit log-Hessian diagonal removes the nested conditional while retaining
+the independent formula. Its mathematical case and two strict profiles pass;
+production/archive/benchmark bytes do not change, so no timing repeats. The
+six existing sanitizer filters now select the eleven new financial cases and
+the new allocation suite; YAML and exact selection checks pass. Remote runtime
+logs must confirm execution, not just successful job status.
+
 The accepted archive retains 179 original member occurrences exactly, replaces
 the generic-driver and affected MC objects, and adds one financial object
 (182 total). The MC rebuild changes only two exception-path line immediates;

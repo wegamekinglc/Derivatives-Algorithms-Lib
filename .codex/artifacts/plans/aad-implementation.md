@@ -208,6 +208,12 @@ injection cases also pass. Strict-warning probes pass in ordinary and combined
 diagnostic/profiling configurations; installed consumption passes 1/1. The three selected cost cases complete 120
 observations in 2.110 seconds; both existing-caller +4% rounds pass. Current-head
 publication acceptance remains before merge.
+The financial increment is published in
+[#519](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/519).
+Its first Codacy reference-complexity finding is repaired with scoped mathematical
+and strict verification. Existing sanitizer filters explicitly admit all new
+financial and allocation cases; complete current-head checks and review closure
+remain required.
 Quote recalibration curvature, policy/nested-step semantics and native mixed
 mode remain separate required F04 deliveries.
 
