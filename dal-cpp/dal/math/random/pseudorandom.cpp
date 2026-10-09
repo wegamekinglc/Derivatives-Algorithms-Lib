@@ -2,6 +2,7 @@
 // Created by wegam on 2020/12/19.
 //
 
+#include <array>
 #include <cstdint>
 #include <limits>
 
@@ -59,7 +60,9 @@ namespace Dal {
             static_assert(M_ > 0 && L_ >= 0 && L_ < M_, "IRN lag must lie within the ring");
             static const int DE_NOM = 1 << 30;
 
-            Vector_<unsigned> irn_, shuffle_;
+            // Clones write their engine state independently on different workers.
+            alignas(64) std::array<unsigned, M_> irn_{};
+            alignas(64) std::array<unsigned, S_> shuffle_{};
             int irl_;
             const int seed_;
             size_t nDraws_ = 0;
@@ -95,7 +98,7 @@ namespace Dal {
             }
 
             explicit ShuffledIRN_(int seed, size_t nDim = 1, bool precise = false)
-                : PseudoRandom_(nDim, precise), seed_(seed), irn_(M_), shuffle_(S_), irl_(0) {
+                : PseudoRandom_(nDim, precise), seed_(seed), irl_(0) {
                 Reset();
             }
 
