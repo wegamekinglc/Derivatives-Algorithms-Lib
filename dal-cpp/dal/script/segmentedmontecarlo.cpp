@@ -111,6 +111,7 @@ namespace Dal::Script {
             result.rsg_ = settings.rsg_;
             result.useBb_ = settings.useBb_;
             result.scrambleKey_ = settings.scrambleKey_;
+            result.normalPrecision_ = settings.normalPrecision_;
             return result;
         }
     } // namespace
@@ -123,7 +124,7 @@ namespace Dal::Script {
         kernel.ValidateRequest(parameters, settings.path_);
         const SegmentedMonteCarloSettings_ request = settings;
         ValidateRange(pathCount, kernel.SimDim(), request);
-        auto prototype = CreateRNG(request.rsg_, kernel.SimDim(), request.useBb_, request.scrambleKey_);
+        auto prototype = CreateRNG(request.rsg_, kernel.SimDim(), request.useBb_, request.scrambleKey_, request.normalPrecision_);
         const Vector_<> inputs = parameters;
         auto execution = Execution(pathCount, request);
         ThreadPool_* pool = ThreadPool_::GetInstance();

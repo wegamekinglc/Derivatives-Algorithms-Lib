@@ -14,7 +14,8 @@ namespace Dal::Script::Detail {
         std::unique_ptr<LocalCheckedPaths_> bsPaths_;
 
         PortfolioPassivePathState_(const PreparedScript_& trade, const AAD::Model_<double>& model)
-            : random_(CreateRNG(trade.Simulation().rsg_, model, trade.Simulation().useBb_)), gauss_(model.SimDim()) {
+            : random_(CreateRNG(trade.Simulation().rsg_, model, trade.Simulation().useBb_, std::nullopt, trade.Simulation().normalPrecision_)),
+              gauss_(model.SimDim()) {
             if (typeid(model) == typeid(AAD::BlackScholes_<double>))
                 bsPaths_ = std::make_unique<LocalCheckedPaths_>(static_cast<const AAD::BlackScholes_<double>&>(model));
             else {

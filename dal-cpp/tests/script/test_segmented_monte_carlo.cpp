@@ -116,6 +116,7 @@ namespace {
         void AfterSubmission() override {
             *parameters_ = {1.0};
             settings_->rsg_ = "invalid-after-submission";
+            settings_->normalPrecision_ = "invalid-after-submission";
             settings_->firstPath_ = std::numeric_limits<size_t>::max();
             settings_->path_.segmentSteps_ = 0;
         }
@@ -185,6 +186,55 @@ TEST(SegmentedMonteCarloTest, TestAllGeneratorsAndBridgeAgainstCompleteNativeBat
             ASSERT_EQ(result.Execution().useBb_, bridge);
         }
     }
+}
+
+TEST(SegmentedMonteCarloTest, TestNormalPrecisionMatchesFixedPathPriceAndEveryRisk) {
+    const auto prepared = PrepareMonteCarlo();
+    const Script::BlackScholesSegmentedPath_ kernel(prepared);
+    const Vector_<> parameters{100.0, 0.2, 0.03, 0.01, 2.0};
+    for (const Dal::String_ method : {"sobol", "mrg32", "irn"}) {
+        for (bool bridge : {false, true}) {
+            Script::SegmentedMonteCarloSettings_ settings;
+            settings.rsg_ = method;
+            settings.useBb_ = bridge;
+            settings.firstPath_ = 7;
+            settings.path_.segmentSteps_ = 2;
+            std::optional<Script::SegmentedMonteCarloResult_> fast;
+            for (const Dal::String_ precision : {"Default", "Fast", "Precise"}) {
+                settings.normalPrecision_ = precision;
+                auto random = Script::CreateRNG(method, kernel.SimDim(), bridge, std::nullopt, precision);
+                random->SkipNormalTo(settings.firstPath_);
+                Vector_<> gaussian(kernel.SimDim());
+                random->FillNormal(&gaussian);
+                const auto expected = kernel.Evaluate(parameters, gaussian, settings.path_);
+                const auto result = Script::EvaluateBlackScholesSegmentedMonteCarlo(kernel, parameters, 1, settings);
+                ASSERT_EQ(result.MeanValue(), expected.Value());
+                ASSERT_EQ(result.MeanGradient(), expected.Gradient());
+                ASSERT_EQ(result.Execution().normalPrecision_, precision);
+                if (!fast)
+                    fast = result;
+                else if (precision == "Fast") {
+                    ASSERT_EQ(result.MeanValue(), fast->MeanValue());
+                    ASSERT_EQ(result.MeanGradient(), fast->MeanGradient());
+                } else
+                    ASSERT_NE(result.MeanValue(), fast->MeanValue());
+            }
+        }
+    }
+}
+
+TEST(SegmentedMonteCarloTest, TestInvalidNormalPrecisionWithoutDriversHasNoSubmissions) {
+    const auto prepared = PrepareMonteCarloProduct(Script::ScriptProductData_("", {Cell_(Date_(2026, 10, 1))}, {"pay PAYS FIX(EQ[DAL196_TEST])"}));
+    const Script::BlackScholesSegmentedPath_ kernel(prepared);
+    ASSERT_EQ(kernel.SimDim(), 0);
+    Script::SegmentedMonteCarloSettings_ settings;
+    Script::TestSupport::SubmissionCounter_ submissions;
+    const Script::Detail::ScopedSimulationObserver_ observer(&submissions);
+    for (const Dal::String_ precision : {"fast", "precise", "", "invalid"}) {
+        settings.normalPrecision_ = precision;
+        ASSERT_THROW((void)Script::EvaluateBlackScholesSegmentedMonteCarlo(kernel, {100.0, 0.2, 0.03, 0.01}, 1, settings), Dal::Exception_);
+    }
+    ASSERT_EQ(submissions.submissions_, 0);
 }
 
 TEST(SegmentedMonteCarloTest, TestTaskSubmissionAndWorkerCountInvariantReduction) {
@@ -398,6 +448,7 @@ TEST(SegmentedMonteCarloTest, TestCallerInputMutationCannotChangeAdmittedRequest
     ASSERT_EQ(result.MeanGradient(), expected.MeanGradient());
     ASSERT_EQ(result.Execution().firstPath_, 7);
     ASSERT_EQ(result.Execution().rsg_, "sobol");
+    ASSERT_EQ(result.Execution().normalPrecision_, "Default");
 }
 
 TEST(SegmentedMonteCarloTest, TestConcurrentCallersAndDetachedResults) {

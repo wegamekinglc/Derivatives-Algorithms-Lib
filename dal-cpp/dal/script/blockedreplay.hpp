@@ -193,7 +193,8 @@ namespace Dal::Script::Detail {
                                          requestedSettings.nPaths_,
                                          requestedSettings.nParams_,
                                          requestedSettings.nConstVars_,
-                                         requestedSettings.payoffIndex_};
+                                         requestedSettings.payoffIndex_,
+                                         requestedSettings.normalPrecision_};
         product.RequireExecutable();
         REQUIRE2(product.Simulation().enableAad_ && !product.AllExpired() && !product.Product().ContainsExercise(),
                  "UnsupportedJacobianReplay: requires prepared native non-exercise live product", ScriptError_);
@@ -203,6 +204,7 @@ namespace Dal::Script::Detail {
         ValidateReplayOutputs(product, outputs);
         ValidateReplayInputs(settings, inputs);
         ValidateRNG(settings.rsg_);
+        ValidateNormalPrecision(settings.normalPrecision_);
         ValidateAADHistory(product);
         const bool compiled = product.Simulation().compiled_.value_or(false);
         ValidateAADExecution(product, compiled, settings.eps_);

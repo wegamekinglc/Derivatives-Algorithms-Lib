@@ -8,6 +8,8 @@
 #include <dal/math/vectors.hpp>
 #include <dal/benchmarks/bench.hpp>
 
+#include "productionrng.hpp"
+
 using namespace Dal;
 
 namespace {
@@ -120,5 +122,6 @@ int main() {
         Bench::DoNotOptimize(&sink);
     }
 
+    RunProductionRngCases(kRepeats);
     return 0;
 }

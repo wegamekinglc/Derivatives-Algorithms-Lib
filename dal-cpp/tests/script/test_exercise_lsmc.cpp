@@ -588,39 +588,41 @@ TEST(ScriptExerciseLSMCTest, TestPricingUsesPathsAfterTrainingBlock) {
     const auto product = ExerciseOnlyProduct({Date_(2027, 9, 20)});
     for (const auto trainingPaths : {std::optional<int>(), std::optional<int>(73), std::optional<int>(16391)}) {
         SCOPED_TRACE(trainingPaths.value_or(static_cast<int>(N_PATHS)));
-        for (const bool bridge : {false, true}) {
-            MonteCarloSettings_ settings;
-            settings.lsmcTrainingPaths_ = trainingPaths;
-            settings.useBb_ = bridge;
-            auto model = CreateModel<double>(StandardModel());
-            const auto prepared = PrepareScript(product, model.get(), {}, settings);
-            auto rng = CreateRNG(settings.rsg_, model->SimDim(), bridge);
-            rng->SkipTo(static_cast<size_t>(trainingPaths.value_or(static_cast<int>(N_PATHS))));
-            Vector_<> gauss(model->SimDim());
-            Scenario_<> path;
-            AllocatePath(prepared.DefLine(), path);
-            InitializePath(path);
-            double expected = 0.0;
-            double expectedDelta = 0.0;
-            for (size_t i = 0; i < N_PATHS; ++i) {
-                rng->FillNormal(&gauss);
-                model->GeneratePath(gauss, &path);
-                expected += std::max(STRIKE - path.back().spot_, 0.0) / path.back().numeraire_;
-                if (path.back().spot_ < STRIKE)
-                    expectedDelta -= path.back().spot_ / SPOT / path.back().numeraire_;
+        for (const auto* precision : {"Default", "Precise"})
+            for (const bool bridge : {false, true}) {
+                MonteCarloSettings_ settings;
+                settings.normalPrecision_ = precision;
+                settings.lsmcTrainingPaths_ = trainingPaths;
+                settings.useBb_ = bridge;
+                auto model = CreateModel<double>(StandardModel());
+                const auto prepared = PrepareScript(product, model.get(), {}, settings);
+                auto rng = CreateRNG(settings.rsg_, model->SimDim(), bridge, std::nullopt, settings.normalPrecision_);
+                rng->SkipTo(static_cast<size_t>(trainingPaths.value_or(static_cast<int>(N_PATHS))));
+                Vector_<> gauss(model->SimDim());
+                Scenario_<> path;
+                AllocatePath(prepared.DefLine(), path);
+                InitializePath(path);
+                double expected = 0.0;
+                double expectedDelta = 0.0;
+                for (size_t i = 0; i < N_PATHS; ++i) {
+                    rng->FillNormal(&gauss);
+                    model->GeneratePath(gauss, &path);
+                    expected += std::max(STRIKE - path.back().spot_, 0.0) / path.back().numeraire_;
+                    if (path.back().spot_ < STRIKE)
+                        expectedDelta -= path.back().spot_ / SPOT / path.back().numeraire_;
+                }
+                for (const bool compiled : {false, true}) {
+                    settings.compiled_ = compiled;
+                    const auto hard = MCSimulation<double>(product, StandardModel(), N_PATHS, {}, settings);
+                    ASSERT_NEAR(hard.aggregated_ / N_PATHS, expected / N_PATHS, 1e-10);
+                    settings.enableAad_ = true;
+                    settings.smooth_ = 1e-10;
+                    const auto fuzzy = MCSimulation<AAD::Number_>(product, StandardModel(), N_PATHS, {}, settings);
+                    ASSERT_NEAR(fuzzy.aggregated_ / N_PATHS, expected / N_PATHS, 1e-10);
+                    ASSERT_NEAR(fuzzy["spot"], expectedDelta / N_PATHS, 1e-10);
+                    settings.enableAad_ = false;
+                }
             }
-            for (const bool compiled : {false, true}) {
-                settings.compiled_ = compiled;
-                const auto hard = MCSimulation<double>(product, StandardModel(), N_PATHS, {}, settings);
-                ASSERT_NEAR(hard.aggregated_ / N_PATHS, expected / N_PATHS, 1e-10);
-                settings.enableAad_ = true;
-                settings.smooth_ = 1e-10;
-                const auto fuzzy = MCSimulation<AAD::Number_>(product, StandardModel(), N_PATHS, {}, settings);
-                ASSERT_NEAR(fuzzy.aggregated_ / N_PATHS, expected / N_PATHS, 1e-10);
-                ASSERT_NEAR(fuzzy["spot"], expectedDelta / N_PATHS, 1e-10);
-                settings.enableAad_ = false;
-            }
-        }
     }
 }
 
@@ -1185,35 +1187,38 @@ namespace {
 TEST(ScriptExerciseLSMCTest, TestRqmcThreadInvarianceBitwise) {
     const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
     PoolRestore_ pool;
-    const auto product = ExerciseOnlyProduct({Date_(2027, 9, 20), Date_(2028, 3, 20)});
-    MonteCarloSettings_ settings;
-    settings.lsmcTrainingPaths_ = 1024;
-    settings.lsmcRqmcReplicates_ = 4;
-    settings.lsmcTrainingSeed_ = 17;
-    settings.lsmcPricingSeed_ = 29;
-    auto run = [&]() {
-        auto model = CreateModel<double>(StandardModel());
-        const auto prepared = PrepareScript(product, model.get(), {}, settings);
-        LsmcRun_ result{0.0, {}};
-        result.pv_ = MCLsmcSimulation(prepared, model.get(), 257, &result.diagnostics_).aggregated_ / 257.0;
-        return result;
-    };
-    pool.pool_->Start(1, true);
-    const auto one = run();
-    pool.pool_->Start(4, true);
-    const auto four = run();
-    AssertBitwiseEqual(one, four);
-    ASSERT_EQ(one.diagnostics_.replicateMeans_, four.diagnostics_.replicateMeans_);
-    ASSERT_EQ(one.diagnostics_.ReplicateMeanStandardError(), four.diagnostics_.ReplicateMeanStandardError());
+    for (const auto* precision : {"Default", "Precise"}) {
+        const auto product = ExerciseOnlyProduct({Date_(2027, 9, 20), Date_(2028, 3, 20)});
+        MonteCarloSettings_ settings;
+        settings.normalPrecision_ = precision;
+        settings.lsmcTrainingPaths_ = 1024;
+        settings.lsmcRqmcReplicates_ = 4;
+        settings.lsmcTrainingSeed_ = 17;
+        settings.lsmcPricingSeed_ = 29;
+        auto run = [&]() {
+            auto model = CreateModel<double>(StandardModel());
+            const auto prepared = PrepareScript(product, model.get(), {}, settings);
+            LsmcRun_ result{0.0, {}};
+            result.pv_ = MCLsmcSimulation(prepared, model.get(), 257, &result.diagnostics_).aggregated_ / 257.0;
+            return result;
+        };
+        pool.pool_->Start(1, true);
+        const auto one = run();
+        pool.pool_->Start(4, true);
+        const auto four = run();
+        AssertBitwiseEqual(one, four);
+        ASSERT_EQ(one.diagnostics_.replicateMeans_, four.diagnostics_.replicateMeans_);
+        ASSERT_EQ(one.diagnostics_.ReplicateMeanStandardError(), four.diagnostics_.ReplicateMeanStandardError());
 
-    settings.enableAad_ = true;
-    pool.pool_->Start(1, true);
-    const auto aadOne = MCSimulation<AAD::Number_>(product, StandardModel(), 257, {}, settings);
-    pool.pool_->Start(4, true);
-    const auto aadFour = MCSimulation<AAD::Number_>(product, StandardModel(), 257, {}, settings);
-    ASSERT_EQ(BitsOf(aadOne.aggregated_), BitsOf(aadFour.aggregated_));
-    for (size_t i = 0; i < aadOne.risks_.size(); ++i)
-        ASSERT_EQ(BitsOf(aadOne.risks_[i]), BitsOf(aadFour.risks_[i]));
+        settings.enableAad_ = true;
+        pool.pool_->Start(1, true);
+        const auto aadOne = MCSimulation<AAD::Number_>(product, StandardModel(), 257, {}, settings);
+        pool.pool_->Start(4, true);
+        const auto aadFour = MCSimulation<AAD::Number_>(product, StandardModel(), 257, {}, settings);
+        ASSERT_EQ(BitsOf(aadOne.aggregated_), BitsOf(aadFour.aggregated_));
+        for (size_t i = 0; i < aadOne.risks_.size(); ++i)
+            ASSERT_EQ(BitsOf(aadOne.risks_[i]), BitsOf(aadFour.risks_[i]));
+    }
 }
 
 TEST(ScriptExerciseLSMCTest, TestConcurrentPoolValuationsShareHelpersBitwise) {
