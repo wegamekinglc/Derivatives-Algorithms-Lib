@@ -100,6 +100,24 @@ namespace {
         return 100.0 * discount(spec.today_, end) * (1.0 / projection(start, end) - 1.0 - 0.02) + 0.3 * quotes[0] * quotes[3];
     }
 
+    double PassivePaymentCurvature(const Dal::JointMultiCurveCalibrationSpec_& spec,
+                                   const Dal::Vector_<>& quotes,
+                                   const Dal::AAD::BumpOverAADRequest_& request,
+                                   int column) {
+        const double step = request.steps_[0];
+        double prices[2][2];
+        for (int outer = 0; outer < 2; ++outer) {
+            for (int inner = 0; inner < 2; ++inner) {
+                auto point = quotes;
+                for (int index = 0; index < 4; ++index)
+                    point[index] += (outer == 0 ? step : -step) * request.directions_(0, index);
+                point[column] += inner == 0 ? 1.0e-4 : -1.0e-4;
+                prices[outer][inner] = PassiveForwardPayment(spec, point);
+            }
+        }
+        return ((prices[0][0] - prices[0][1]) - (prices[1][0] - prices[1][1])) / (4.0 * step * 1.0e-4);
+    }
+
     class CustomDeposit_ : public Dal::Deposit_ {
         int* calls_;
 
@@ -170,17 +188,7 @@ TEST(RateQuoteCurvatureTest, TestJointIndependentPaymentCurvatureAndOrdering) {
             const auto result = Dal::EvaluateRateQuoteCurvature(objective, calibration, request);
             ASSERT_NEAR(result.Value(), PassiveForwardPayment(spec, calibration.Point()), 1.0e-9);
             for (int column = 0; column < 4; ++column) {
-                double prices[2][2];
-                for (int outer = 0; outer < 2; ++outer) {
-                    for (int inner = 0; inner < 2; ++inner) {
-                        auto point = calibration.Point();
-                        for (int index = 0; index < 4; ++index)
-                            point[index] += (outer == 0 ? step : -step) * request.directions_(0, index);
-                        point[column] += inner == 0 ? 1.0e-4 : -1.0e-4;
-                        prices[outer][inner] = PassiveForwardPayment(spec, point);
-                    }
-                }
-                const double reference = ((prices[0][0] - prices[0][1]) - (prices[1][0] - prices[1][1])) / (4.0 * step * 1.0e-4);
+                const double reference = PassivePaymentCurvature(spec, calibration.Point(), request, column);
                 ASSERT_NEAR(result.HessianProducts()(0, column), reference, 2.0e-3)
                     << "layered=" << layered << "; step=" << step << "; column=" << column;
             }

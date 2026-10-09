@@ -150,9 +150,13 @@ namespace Dal {
             return sealed;
         }
 
+        void ValidateInverseShape(const Matrix_<>& matrix, int count) {
+            REQUIRE(matrix.Rows() == count && matrix.Cols() == count, "RateCalibration: native analytic Jacobian and inverse must be available");
+        }
+
         void ValidateInverse(const Matrix_<>& jacobian, const Matrix_<>& inverse, double tolerance, int count) {
-            REQUIRE(jacobian.Rows() == count && jacobian.Cols() == count && inverse.Rows() == count && inverse.Cols() == count,
-                    "RateCalibration: native analytic Jacobian and inverse must be available");
+            ValidateInverseShape(jacobian, count);
+            ValidateInverseShape(inverse, count);
             REQUIRE(std::isfinite(tolerance) && tolerance > 0.0, "RateCalibration: invalid residual tolerance");
             const double allowance = 256.0 * std::numeric_limits<double>::epsilon() * count;
             for (int row = 0; row < count; ++row) {
