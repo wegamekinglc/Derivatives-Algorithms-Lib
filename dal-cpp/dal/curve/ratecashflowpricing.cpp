@@ -23,12 +23,14 @@
 #include <dal/curve/quoteriskprovenance_internal.hpp>
 #include <dal/curve/ratecashflowpricing.hpp>
 #include <dal/curve/ratecashflowpricing_internal.hpp>
+#include <dal/curve/rateparameterjacobian.hpp>
 #include <dal/curve/ratestructuraljacobian_internal.hpp>
 #include <dal/curve/xccypricing.hpp>
 #include <dal/curve/ycconst.hpp>
 #include <dal/curve/yclogdf.hpp>
 #include <dal/curve/ycpwlf.hpp>
 #include <dal/curve/yczerorate.hpp>
+#include <dal/math/aad/structuraljacobiannative.hpp>
 #include <dal/math/matrix/matrixarithmetic.hpp>
 #include <dal/time/dateincrement.hpp>
 
@@ -1709,6 +1711,193 @@ namespace Dal {
             if (!CaptureRateStructuralRow(trades[row], market, inputs, row, data.get(), &capture))
                 break;
         return RateStructuralJacobianDescriptor_(std::move(data));
+    }
+
+    namespace {
+        struct RateJacobianPreparation_ {
+            Vector_<const DiscountCurve_*> inputs_;
+            std::map<const DiscountCurve_*, CurveParameterState_> curves_;
+            std::map<const DiscountCurve_*, Vector_<std::pair<size_t, size_t>>> selected_;
+        };
+
+        void AddRateJacobianCurve(const DiscountCurve_* curve, const RatePricingMarket_& market, RateJacobianPreparation_* preparation) {
+            if (preparation->curves_.count(curve))
+                return;
+            REQUIRE(curve && IsExactJointCurve(*curve), "RateJacobian: active curve representation is unsupported");
+            auto state = InspectCurveParameters(*curve, market.valuationTime_.Date());
+            REQUIRE(std::all_of(state.passiveParameters_.begin(), state.passiveParameters_.end(), [](double x) { return std::isfinite(x); }),
+                    "RateJacobian: curve parameters must be finite: " + curve->Name());
+            preparation->curves_.emplace(curve, std::move(state));
+        }
+
+        RateJacobianPreparation_ PrepareRateJacobian(const Vector_<RateTradeDefinition_>& trades,
+                                                     const RatePricingMarket_& market,
+                                                     const Vector_<RateCurveParameterCoordinate_>& axis) {
+            RateJacobianPreparation_ result;
+            Vector_<const DiscountCurve_*> roots;
+            std::set<std::pair<const DiscountCurve_*, size_t>> distinct;
+            for (size_t column = 0; column < axis.size(); ++column) {
+                const auto& coordinate = axis[column];
+                const auto found = market.curveComponents_.find(coordinate.componentKey_);
+                REQUIRE(found != market.curveComponents_.end() && found->second,
+                        "RateJacobian: input component is unavailable: " + coordinate.componentKey_);
+                const auto* curve = found->second.get();
+                REQUIRE(distinct.emplace(curve, coordinate.parameterOrdinal_).second,
+                        "RateJacobian: duplicate physical input coordinate: " + coordinate.componentKey_);
+                AddRateJacobianCurve(curve, market, &result);
+                REQUIRE(coordinate.parameterOrdinal_ < static_cast<size_t>(result.curves_.at(curve).expectedParameterCount_),
+                        "RateJacobian: input parameter ordinal is outside component: " + coordinate.componentKey_);
+                result.inputs_.push_back(curve);
+                result.selected_[curve].emplace_back(coordinate.parameterOrdinal_, column);
+                AddUniqueCurve(curve, &roots);
+            }
+            for (const auto& trade : trades) {
+                REQUIRE(TermsMatchFamily(trade), "RateJacobian: instrument family and terms disagree: " + trade.instrumentId_);
+                const auto consumed = RateStructuralRoots(trade, market);
+                REQUIRE(consumed && RateStructuralRootsRegistered(*consumed, market),
+                        "RateJacobian: consumed curve routing is unavailable: " + trade.instrumentId_);
+                for (const auto* curve : *consumed)
+                    AddUniqueCurve(curve, &roots);
+            }
+            const auto closure = BuildJointCurveClosure(roots);
+            REQUIRE(closure.complete_, "RateJacobian: active curve graph is incomplete or cyclic");
+            for (const auto& [curve, base] : closure.bases_)
+                AddRateJacobianCurve(curve, market, &result);
+            return result;
+        }
+
+        void BuildRateJacobianActiveCurve(const DiscountCurve_* curve,
+                                          const RateJacobianPreparation_& preparation,
+                                          const Vector_<AAD::Number_>& inputs,
+                                          ActiveCurveMap_* active) {
+            if (active->count(curve))
+                return;
+            const auto& state = preparation.curves_.at(curve);
+            auto parameters = ConstantActiveParameters(state.passiveParameters_);
+            const auto selected = preparation.selected_.find(curve);
+            if (selected != preparation.selected_.end())
+                for (const auto& [ordinal, column] : selected->second)
+                    parameters[ordinal] = inputs[column];
+            if (const auto* base = state.passiveBase_.get()) {
+                BuildRateJacobianActiveCurve(base, preparation, inputs, active);
+                const Handle_<Tape::DiscountCurve_<AAD::Number_>> activeBase(active->at(base));
+                active->emplace(curve,
+                                BuildDiscountCurveT<AAD::Number_, Tape::DiscountCurve_<AAD::Number_>>(state.definition_, parameters, activeBase));
+            } else {
+                active->emplace(curve, BuildDiscountCurveT<AAD::Number_>(state.definition_, parameters, state.passiveBase_));
+            }
+        }
+
+        Vector_<AAD::Number_> RegisterRateJacobianInputs(AAD::RecordingScope_* recording,
+                                                         const RateJacobianPreparation_& preparation,
+                                                         const Vector_<RateCurveParameterCoordinate_>& axis) {
+            Vector_<AAD::Number_> inputs(axis.size());
+            for (size_t column = 0; column < axis.size(); ++column)
+                recording->RegisterInput(inputs[column],
+                                         preparation.curves_.at(preparation.inputs_[column]).passiveParameters_[axis[column].parameterOrdinal_]);
+            return inputs;
+        }
+
+        Vector_<RatePricingTradeResult_> ValidateRateJacobianPrices(const Vector_<RateTradeDefinition_>& trades,
+                                                                    const RatePricingMarket_& market,
+                                                                    Vector_<RequestCashflows_>* cashflows) {
+            Vector_<RatePricingTradeResult_> prices;
+            prices.reserve(trades.size());
+            for (size_t row = 0; row < trades.size(); ++row) {
+                auto price = PriceRateTradePrepared(trades[row], market, &(*cashflows)[row]);
+                REQUIRE(price.succeeded_,
+                        "RateJacobian: trade[" + String_(std::to_string(row)) + "] " + trades[row].instrumentId_ + ": " + price.error_);
+                prices.push_back(std::move(price));
+            }
+            return prices;
+        }
+
+        AAD::Number_ PriceRateJacobianOutput(const RateTradeDefinition_& trade,
+                                             const RatePricingMarket_& market,
+                                             const ActiveCurveMap_& active,
+                                             RequestCashflows_* cashflows) {
+            if (const auto* terms = std::get_if<XccyTradeTerms_>(&trade.terms_)) {
+                XccyNodeSensitivityHoist_ hoist;
+                hoist.expired_ = trade.maturityDate_ < market.valuationTime_.Date();
+                hoist.plan_ = BuildXccyCashflowPlan(trade.startDate_, trade.maturityDate_, terms->config_);
+                return PriceJointActive(trade, market, active, &hoist, nullptr);
+            }
+            return PriceJointActive(trade, market, active, nullptr, cashflows);
+        }
+
+        AAD::StructuralJacobianPlan_ DenseRateJacobianPlan(size_t inputs, size_t outputs, const RateJacobianExecutionSettings_& settings) {
+            const auto maximum = static_cast<size_t>(std::numeric_limits<int>::max());
+            REQUIRE(inputs <= maximum && outputs <= maximum, "RateJacobian: matrix axes exceed int index range");
+            Vector_<size_t> columns;
+            columns.reserve(inputs);
+            for (size_t column = 0; column < inputs; ++column)
+                columns.push_back(column);
+            return AAD::PlanStructuralJacobian(inputs, Vector_<Vector_<size_t>>(outputs, columns), {settings.numericPayloadBudgetBytes_});
+        }
+
+        void ValidateRateJacobianSettings(const AAD::StructuralJacobianPlan_& numeric, const RateJacobianExecutionSettings_& settings) {
+            REQUIRE(settings.vectorAdjoints_ || settings.adjointWidth_ == 1, "RateJacobian: scalar adjoint width must be one");
+            REQUIRE(settings.adjointWidth_ > 0 && settings.adjointWidth_ <= AAD::ADJ_SIZE, "RateJacobian: adjoint width is outside native range");
+            REQUIRE(!settings.numericPayloadBudgetBytes_ || numeric.NumericPayloadBytes() <= *settings.numericPayloadBudgetBytes_,
+                    "RateJacobian: numeric payload exceeds numericPayloadBudgetBytes");
+        }
+
+        RateTradeParameterJacobianResult_ RunRateJacobian(const Vector_<RateTradeDefinition_>& trades,
+                                                          const RatePricingMarket_& market,
+                                                          const Vector_<RateCurveParameterCoordinate_>& axis,
+                                                          const AAD::StructuralJacobianPlan_& numeric,
+                                                          const RateJacobianExecutionSettings_& settings) {
+            ValidateRateJacobianSettings(numeric, settings);
+            const auto mode = AAD::SetNumResultsForAAD(settings.vectorAdjoints_, settings.adjointWidth_);
+            const auto preparation = PrepareRateJacobian(trades, market, axis);
+            Vector_<RequestCashflows_> cashflows(trades.size());
+            RateTradeParameterJacobianResult_ result;
+            result.prices_ = ValidateRateJacobianPrices(trades, market, &cashflows);
+            result.inputAxis_ = axis;
+            for (const auto& trade : trades)
+                result.outputAxis_.push_back(trade.instrumentId_);
+            AAD::RecordingScope_ recording;
+            const auto inputs = RegisterRateJacobianInputs(&recording, preparation, axis);
+            recording.StartRecording();
+            const auto bindings = AAD::BindStructuralJacobianInputs(&recording, inputs);
+            ActiveCurveMap_ active;
+            for (const auto& [curve, state] : preparation.curves_)
+                BuildRateJacobianActiveCurve(curve, preparation, inputs, &active);
+            Vector_<AAD::Number_> outputs;
+            outputs.reserve(trades.size());
+            for (size_t row = 0; row < trades.size(); ++row) {
+                outputs.push_back(PriceRateJacobianOutput(trades[row], market, active, &cashflows[row]));
+                result.prices_[row].pv_ = AAD::Value(outputs.back());
+            }
+            recording.FinishRecording();
+            result.jacobian_ = AAD::ExecuteStructuralJacobian(&recording, bindings, numeric, inputs, outputs);
+            for (int row = 0; row < result.jacobian_.Rows(); ++row)
+                for (int column = 0; column < result.jacobian_.Cols(); ++column)
+                    REQUIRE(std::isfinite(result.jacobian_(row, column)), "RateJacobian: returned derivative must be finite");
+            result.reverseDirections_ = numeric.ColorCount();
+            result.reverseSweeps_ = (numeric.ColorCount() + settings.adjointWidth_ - 1) / settings.adjointWidth_;
+            return result;
+        }
+    } // namespace
+
+    RateTradeParameterJacobianResult_ RateTradeParameterJacobian(const Vector_<RateTradeDefinition_>& trades,
+                                                                 const RatePricingMarket_& market,
+                                                                 const Vector_<RateCurveParameterCoordinate_>& inputAxis,
+                                                                 const RateJacobianExecutionSettings_& settings) {
+        const auto numeric = DenseRateJacobianPlan(inputAxis.size(), trades.size(), settings);
+        return RunRateJacobian(trades, market, inputAxis, numeric, settings);
+    }
+
+    RateTradeParameterJacobianResult_ ExecuteRateStructuralJacobian(const Vector_<RateTradeDefinition_>& trades,
+                                                                    const RatePricingMarket_& market,
+                                                                    const RateStructuralJacobianPlan_& plan,
+                                                                    const RateJacobianExecutionSettings_& settings) {
+        ValidateRateJacobianSettings(plan.NumericPlan(), settings);
+        const auto& axis = plan.Descriptor().InputAxis();
+        const auto current = CaptureRateStructuralJacobian(trades, market, axis);
+        REQUIRE(current.Available(), "RateJacobian: compressed dependency proof is unavailable: " + current.Reason());
+        REQUIRE(SameRateStructuralJacobianStructure(plan.Descriptor(), current), "RateJacobian: compressed structural plan is stale");
+        return RunRateJacobian(trades, market, axis, plan.NumericPlan(), settings);
     }
 
     RatePricingTradeResult_ PriceRateTrade(const RateTradeDefinition_& trade, const RatePricingMarket_& market) {
