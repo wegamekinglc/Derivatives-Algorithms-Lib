@@ -1,7 +1,7 @@
 # Segmented Monte Carlo local review
 
-Verdict: Comment Only — local implementation checks pass; complete MC cost and
-current-head publication gates remain open.
+Verdict: Approve the local implementation — correctness, installed use and scoped
+cost acceptance pass. Current-head CI/review/publication gates remain open.
 
 ## Findings
 
@@ -27,7 +27,7 @@ timing but must be included in separate whole-request memory accounting.
 ## Open questions and residual risk
 
 No design question requires user input. Native segmentation stays explicit;
-latency and aggregate heap tradeoffs require measurement. IRN seeking cost depends
+measured latency and aggregate heap tradeoffs are documented. IRN seeking cost depends
 on lane count. Bitwise numerical consistency assumes the same executable/platform
 and floating-point environment; resource maxima depend on retained tape capacity.
 Sanitizer/MSVC runtime, complete bot review and Codacy results remain unverified.
@@ -45,5 +45,7 @@ An installed-only CMake consumer passes mean value and all five risk columns.
 
 ## Summary
 
-Core correctness and ownership look ready for scoped cost acceptance. No whole
-suite or unrelated benchmark matrix is required for this additive request.
+Four selected ordinary-caller gates pass; long requests save about 9.5–21.5% warm
+payload at about 7.3–8.1x latency. Cold short worker scheduling can increase memory.
+Retain the explicit choice and shared-host measurement caveat. No whole suite or
+unrelated benchmark matrix is required for this additive request.

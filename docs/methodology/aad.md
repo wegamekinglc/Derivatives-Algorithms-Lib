@@ -2009,6 +2009,17 @@ do not establish MC memory savings. The focused command
 measures complete MC requests; `full` selects the ordinary native MC comparison.
 Segmentation remains explicitly selected.
 
+For 128 Sobol paths over 2048 daily fixings at h=64, focused Release measurements
+on an i9-13900HX show warm C++ allocation payload peaks of 7,119,391/6,440,755 bytes
+(ordinary/segmented, one thread) and 16,896,567/13,258,387 bytes (four threads).
+The approximately 9.5%/21.5% reduction costs about 8.1x/7.3x complete-request warm
+latency. Short 16-step requests show negligible warm memory improvement and
+about 3.4–8.6x latency. Cold short four-thread probes can use more memory as
+different workers create retained tapes. These observations include preparation,
+adapter, request storage, tapes and consumed results; they exclude allocator
+metadata, direct C allocations, stacks, common runtime infrastructure and RSS.
+Shared-host paired sampling and per-worker retained capacity limit generalization.
+
 ## Examples
 
 The runnable [AAD Black example](../../dal-cpp/examples/aad) compares passive
