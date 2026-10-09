@@ -60,6 +60,8 @@ neither is a total process-memory limit. No partial result survives failure.
 The callback rebuilds from each supplied active point, keeps external state fixed,
 and must not retain active numbers. Snapshotting does not deep-copy reference
 captures. Independent recording nesting remains unsupported.
+The mode-restoration guard is established on the stack before selecting scalar
+adjoints, so allocation failure cannot leave the caller in the temporary mode.
 The supplied scope pointer permits existing `LinearSolve`/`ImplicitRoot` and
 other recorded operators. The driver owns its lifecycle: callbacks must not
 finish, close, checkpoint, rewind or change modes. Validate recording state again

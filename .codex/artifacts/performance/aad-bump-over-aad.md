@@ -99,3 +99,14 @@ The unchanged ordinary library/tape/pricing/calibration/RNG/PDE/LSM bodies retai
 accepted evidence; no unrelated target or parameter matrix is rerun. The existing
 `tape_perf` target now covers the new request path directly. Financial estimator,
 recalibration and policy costs require their later focused implementations.
+
+## Allocation-recovery repair selection
+
+The allocation-failure audit found an entry-mode leak and replaces only the new
+driver's heap guard with the existing stack resetter. The shared native headers,
+180 old library members and all benchmark bodies remain unchanged. The private
+test-probe seam is not linked into benchmark or installed library targets.
+Repeat the same two new request shapes and one linked old-caller control for the
+repaired binary, retaining the original baseline executable and raw study above.
+Keep two best-of-ten interleaved rounds and the +4% old-caller threshold. No other
+target or parameter shape is added. Repaired-head measurement is pending.

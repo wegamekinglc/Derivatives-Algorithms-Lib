@@ -479,7 +479,7 @@ jobs:
             -DDAL_CPP_BUILD_BENCHMARKS=OFF \
             -DDAL_PUBLIC_BUILD_TESTS=ON \
             -DDAL_BUILD_PYTHON=OFF
-          targets=(dal_cpp_tests dal_cpp_schedule_allocation_tests)
+          targets=(dal_cpp_tests dal_cpp_schedule_allocation_tests dal_cpp_bump_over_aad_allocation_tests)
           if [ -n '${{ matrix.public-filter }}' ]; then
             targets+=(dal_public_tests)
           fi
@@ -497,6 +497,9 @@ jobs:
             --gtest_filter='${{ matrix.core-filter }}'
           "$SANITIZER_BUILD_DIR/dal-cpp/dal_cpp_schedule_allocation_tests" \
             --gtest_filter='SchedulesTest.TestContextAllocationCountDoesNotGrowPerPeriod' \
+            --gtest_fail_if_no_test_selected
+          "$SANITIZER_BUILD_DIR/dal-cpp/dal_cpp_bump_over_aad_allocation_tests" \
+            --gtest_filter='AADBumpOverAADAllocationTest.*' \
             --gtest_fail_if_no_test_selected
 
       - name: Run focused public tests

@@ -7,6 +7,7 @@
 #include <cmath>
 #include <future>
 #include <limits>
+#include <new>
 #include <string>
 
 #include <dal/math/aad/bumpoveraad.hpp>
@@ -236,6 +237,10 @@ TEST(AADBumpOverAADTest, TestEmptyRequestsAliasesConstantsAndCallerModes) {
 TEST(AADBumpOverAADTest, TestEveryCallbackPhaseFailureAndPrematureClosureRecover) {
     const auto mode = SetNumResultsForAAD(true, 4);
     const auto request = Direction({1.0}, 0.1);
+    ASSERT_THROW((void)EvaluateBumpOverAAD([](RecordingScope_*, const Vector_<Number_>&) -> Number_ { throw std::bad_alloc(); }, {2.0}, request),
+                 std::bad_alloc);
+    ASSERT_TRUE(Tape()->multi_);
+    ASSERT_EQ(Tape()->numAdj_, 4);
     for (int failAt : {1, 2, 3}) {
         int calls = 0;
         try {

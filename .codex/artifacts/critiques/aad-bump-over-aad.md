@@ -25,6 +25,9 @@ complete preflight and independent-recording lifetime part of the contract.
   fixed external state and distinguish that contract from numeric input snapshots.
 - Per-recording scope cleanup must precede capacity/mode restoration on all
   exits. Test failures at base, plus and minus, nested calls and later recovery.
+- A heap-allocated mode guard can fail after changing mode. Establish the
+  existing resetter on the stack before mutation; isolate one-shot allocation
+  injection from ordinary tests and verify every measured request allocation.
 - Existing recorded solve/root operators require an explicit recording scope.
   A numbers-only callback cannot compose them. Supply the owned scope pointer,
   forbid callback lifecycle changes, and revalidate state before reading its root.

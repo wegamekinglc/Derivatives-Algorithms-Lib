@@ -129,7 +129,11 @@ namespace Dal::AAD {
         execution.numericPayloadBytes_ = Validate(fixedFunction, fixedPoint, fixedRequest);
         execution.gradientEvaluations_ = Sum(1, Product(2, fixedRequest.steps_.size()));
         execution.reverseSweeps_ = execution.gradientEvaluations_;
-        const auto mode = SetNumResultsForAAD(false, 1);
+        RequireRecordingModeChangeAllowed();
+        auto* tape = Tape();
+        const NumResultsResetterForAAD_ mode(tape, tape->multi_, tape->numAdj_);
+        tape->multi_ = false;
+        tape->numAdj_ = 1;
         TapeCapacityBudget_ budget(fixedRequest.recordingCapacityBudgetBytes_.value_or(std::numeric_limits<size_t>::max()));
         TapeCapacityScope_ capacity(&budget, true);
         auto base = EvaluateGradient(fixedFunction, fixedPoint, "base");

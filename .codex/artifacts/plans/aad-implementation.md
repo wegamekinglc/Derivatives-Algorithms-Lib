@@ -194,6 +194,13 @@ probes and installed-only recorded-solve composition. Three selected comparisons
 complete 120 observations in 1.844 seconds. The old dispatch caller passes;
 new-entry admission/range-protection overhead is 13–17% versus manual secants.
 Exact-head CI, all inline findings and guarded publication/merge remain open.
+The increment is published in
+[#517](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/517).
+Both initial external reviews have no findings and Codacy has zero issues. A
+subsequent local allocation-failure audit reproduces entry-mode leakage; the
+stack-guard repair has isolated RED/GREEN, three affected core cases, four
+private-probe caller cases and ten strict checks. Repaired-head costs and all
+current-head publication gates remain required before merge.
 
 Native PDE recording is accepted in merged
 [#505](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/505),

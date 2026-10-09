@@ -13,6 +13,20 @@ The first tape-budget test incorrectly omitted the documented cleanup reserve;
 the corrected test admits peak plus reserve and rejects one byte less. Production
 budget semantics were already consistent with the existing capacity contract.
 
+A subsequent allocation-failure audit reproduces a mode leak at allocation index
+6: the old entry selected scalar mode before allocating its restoration guard.
+The isolated regression test fails on that exact allocation. The driver now
+establishes the existing resetter on the stack before switching mode, preserving
+both lifecycle checks and allocation-free restoration. The regression GREEN
+injects failure at every measured request allocation and verifies recovery. The
+private shared allocation probe adds a disabled-by-default, thread-local one-shot
+failure seam; its existing callers require focused count checks. No shared native
+header or existing library hot body changes.
+The isolated regression, three affected mode/failure/nesting cases and four
+existing private-probe caller cases pass. Ten affected strict OFF/combined checks
+pass. The remaining original cases retain unchanged bodies and arithmetic;
+repaired-head installed consumption and the same selected costs remain pending.
+
 ## Tests
 
 - Missing-header RED, independent quadratic GREEN and recorded-composition RED/GREEN.

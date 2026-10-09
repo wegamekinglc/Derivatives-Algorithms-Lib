@@ -78,6 +78,10 @@ state again after callback return before using the returned active root.
   independent concurrent callers and floating-point extreme quotients.
 - A focused CMake target, strict C++17 OFF/combined probes and installed-only
   consumer pass. CI must actually execute the new suite in diagnostic/MSVC profiles.
+- An isolated allocation-probe executable injects failure at each measured
+  request allocation, checks caller-mode restoration and verifies a subsequent
+  request. Keep global allocation replacement outside the ordinary test binary;
+  execute the probe alongside the twelve core cases in all fourteen profiles.
 - Measure only two selected request shapes (4 inputs/1 direction and 32 inputs/
   3 directions), reporting full-request cost, work counts, payload and limits.
   Existing caller bodies remain unchanged; retain source/binary provenance.
