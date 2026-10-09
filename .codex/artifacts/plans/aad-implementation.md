@@ -205,8 +205,9 @@ all perturbed model domains. The missing-entry mathematical RED is confirmed. El
 sixteen affected core/MC cases pass, including independent GBM Hessian, call
 Gamma, step refinement, snapshot ownership and failure recovery. Both allocation
 injection cases also pass. Strict-warning probes pass in ordinary and combined
-diagnostic/profiling configurations; installed consumption, scoped costs and
-current-head publication acceptance are in progress.
+diagnostic/profiling configurations; installed consumption passes 1/1. The three selected cost cases complete 120
+observations in 2.110 seconds; both existing-caller +4% rounds pass. Current-head
+publication acceptance remains before merge.
 Quote recalibration curvature, policy/nested-step semantics and native mixed
 mode remain separate required F04 deliveries.
 
@@ -724,14 +725,14 @@ incremental implementation turns and PRs; a green first stage does not complete 
 - [ ] F04: estimator validation for applicable simulation/calibration cases before general promotion.
 
 F04 uses separate focused PRs in the following order. These estimates subdivide
-the 48–76 hours for second-order requests; they do not add to the mixed-mode or
+the 34–58 hours for second-order requests; they do not add to the mixed-mode or
 final-integration estimates. Each PR requires independent mathematical RED/GREEN,
 affected-boundary tests, scoped costs and complete current-head CI/review acceptance.
 
 | Increment                   | Required result                                                                                | Remaining hours |
 |-----------------------------|------------------------------------------------------------------------------------------------|-----------------|
 | Native driver               | #517 merged; explicit requests, mathematical/lifecycle and exact-head acceptance complete      | 0               |
-| Financial MC                | Sealed common paths, smoothing semantics, model/constant axes and independent Gamma references | 16–24           |
+| Financial MC                | Sealed common paths, smoothing semantics, model/constant axes and independent Gamma references | 2–6             |
 | Quote curvature             | Full recalibration at each perturbed quote point and rebuilt first-order maps                  | 20–28           |
 | Policy/estimator validation | Frozen/RetrainedBump meaning, inner/outer steps and applicable convergence/error evidence      | 12–24           |
 
@@ -1369,11 +1370,11 @@ overlapping acceptance work is included once in the integration allowance.
 | F03                     | Solve/root/PDE operators and financial/grid acceptance complete  | #506 merged; final 36/36 gates accepted  | 0                     |
 | P04                     | Structural compression, safe fallback and selection accepted     | #511 merged; final 36/36 gates accepted  | 0                     |
 | P05                     | Core, fixed-path and Monte Carlo adapters accepted               | #512/#513/#515 merged; 36/36 gates       | 0                     |
-| F04                     | Second-order implementation/estimator validation remain          | Open                                     | 10–17.5               |
+| F04                     | Second-order implementation/estimator validation remain          | Open                                     | 8.25–15.25            |
 | Final integration/audit | Cross-platform/binding/docs/performance acceptance remains       | Open                                     | 7–11                  |
 
-Remaining total during F04 development: 136–228 hours, approximately
-17–28.5 eight-hour person-days, excluding CI queue time. Delivery contingency
+Remaining total during F04 development: 122–210 hours, approximately
+15.25–26.25 eight-hour person-days, excluding CI queue time. Delivery contingency
 is included in those same hour ranges; there is no extra undisclosed allowance. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
 effort estimate, not a guaranteed completion date. Re-estimate when review
@@ -1398,10 +1399,10 @@ numeric/native diagnostics are not counted again.
 | 7a    | P05 segmentation core                | #512 merged; actual runtime, exact-head CI/review and guarded merge accepted   | 0               |
 | 7b    | P05 financial adapter                | #513 merged; exact-head CI, review, costs, actual runtime and merge accepted   | 0               |
 | 7c    | P05 Monte Carlo acceptance           | #515 merged; 36/36 gates, fourteen actual runtime profiles and merge proof     | 0               |
-| 8     | F04 second-order risk                | Gamma, cross-Gamma, HVP, recalibration and estimator validation                | 48–76           |
+| 8     | F04 second-order risk                | Gamma, cross-Gamma, HVP, recalibration and estimator validation                | 34–58           |
 | 9     | F04 native mixed-mode prototype      | Smooth-kernel prototype, independent correctness and capability limits         | 32–64           |
 | 10    | Bindings and complete acceptance     | C++/Python/Excel, documentation, platform and performance gates                | 56–88           |
-| Total | Full remaining implementation        | All remaining plan requirements                                                | 136–228         |
+| Total | Full remaining implementation        | All remaining plan requirements                                                | 122–210         |
 
 
 The first delivery boundary is complete. Whole-PR review repaired the Windows

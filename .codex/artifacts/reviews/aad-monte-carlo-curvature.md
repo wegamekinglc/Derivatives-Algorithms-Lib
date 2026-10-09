@@ -34,16 +34,20 @@ probes pass in ordinary/combined diagnostic-profiling profiles, including the
 manual financial benchmark harness. An assertion-macro dangling-else warning
 is repaired and only its two affected strict probes repeat.
 
-The accepted archive retains 180 original member occurrences exactly, replaces
-the generic-driver object and adds one financial object (182 total). Repeated
+The accepted archive retains 179 original member occurrences exactly, replaces
+the generic-driver and affected MC objects, and adds one financial object
+(182 total). The MC rebuild changes only two exception-path line immediates;
+all other object bytes remain identical after source-path canonicalization. Repeated
 member names are verified by occurrence, not collapsed into a dictionary.
 Unchanged native/MC boundaries outside this increment reuse accepted evidence.
 
 ## Summary
 
-Installed-only consumption, the preselected three-case cost study and complete
-current-head remote CI/Codacy/inline/body-review acceptance remain to be sealed.
+Installed-only consumption passes 1/1. The preselected three-case study completes
+120 observations in 2.110 seconds; both existing-caller +4% rounds pass. Financial
+entry costs remain informational on the shared host. Complete current-head
+remote CI/Codacy/inline/body-review acceptance remains required before merge.
 Published docs and changelog reflect the new bounded capability. Completed #517
 controls are retired after replacing links with immutable publication links.
 
-Verdict: Comment Only.
+Verdict: Approve (local code review; remote publication gates remain pending).
