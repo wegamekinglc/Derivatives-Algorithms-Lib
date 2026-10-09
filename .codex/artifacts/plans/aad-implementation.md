@@ -181,12 +181,19 @@ and [cost report](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blo
 The active F04 increment follows the
 [bump-over-AAD specification](../specs/aad-bump-over-aad.md),
 [API decisions](../api-notes/aad-bump-over-aad.md) and
-[critique](../critiques/aad-bump-over-aad.md). It introduces explicit central
+[critique](../critiques/aad-bump-over-aad.md),
+[local review](../reviews/aad-bump-over-aad.md) and
+[scoped costs](../performance/aad-bump-over-aad.md). It introduces explicit central
 differences of fresh native gradients, selected Gamma/cross-Gamma columns and
 HVPs, owning request/result provenance, complete bump admission and separate
 numeric/tape budgets. Smooth-kernel mathematical validation comes first.
 Financial common paths/smoothing, recalibration curvature and policy/nested-step
 semantics remain required later F04 deliveries. Native mixed mode remains separate.
+The frozen implementation `62baa9e3` validates twelve final cases, eleven strict
+probes and installed-only recorded-solve composition. Three selected comparisons
+complete 120 observations in 1.844 seconds. The old dispatch caller passes;
+new-entry admission/range-protection overhead is 13–17% versus manual secants.
+Exact-head CI, all inline findings and guarded publication/merge remain open.
 
 Native PDE recording is accepted in merged
 [#505](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/505),

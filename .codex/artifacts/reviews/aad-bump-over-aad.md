@@ -22,7 +22,9 @@ budget semantics were already consistent with the existing capacity contract.
   translation units under OFF/combined modes, plus the baseline-only harness.
 - Formatting passes. Production/benchmark cyclomatic complexity is at most 6/7.
 - Documentation integrity passes for 166 Markdown files.
-- Installed-only consumption and three selected cost comparisons are pending.
+- Installed-only recorded-solve consumption passes 1/1 with independent rational HVP checks.
+- Three selected comparisons finish 120 observations in 1.844 seconds. The old
+  caller passes both +4% rounds; new capability overhead is disclosed separately.
 
 Local evidence root: `/home/wegamekinglc/.cache/dal-aad-evidence-20261008`, with
 `bump-over-aad-first/` RED/GREEN records and `bump-over-aad-strict.json`.
@@ -36,7 +38,7 @@ copying a function object cannot deep-freeze them.
 
 ## Summary and verdict
 
-Comment Only until installed consumption, selected costs and publication gates
-complete. Residual risks are platform/sanitizer runtime and external findings;
+Approve for publication; current-head CI and external review remain merge gates.
+Residual risks are platform/sanitizer runtime and external findings;
 exact-head CI must actually execute this suite before merge. No stochastic or
 exact higher-order guarantee is inferred from smooth-kernel tests.

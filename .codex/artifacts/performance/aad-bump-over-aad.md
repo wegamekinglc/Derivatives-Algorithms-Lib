@@ -30,6 +30,72 @@ the documented owning doubles. Neither bounds allocator overhead, stacks or RSS.
 Exclude RNG/PDE/curve/LSM, a dense Hessian matrix sweep, alternative worker counts
 and unchanged heap matrices. Expand only for a concrete failed selected case.
 
-## Acceptance state
+## Frozen builds and environment
 
-Measurement is pending. No performance pass or regression claim is made yet.
+Baseline is the merge base `faccea0b0d3a4112329436ede84cd7ec90ebf83d`;
+implementation is `62baa9e3f05a7772a9da70a140486ca4daa88a37`.
+Evidence root is `/home/wegamekinglc/.cache/dal-aad-evidence-20261008/`;
+all paths below are relative to `bump-over-aad-performance/` under that root.
+Sources are isolated `base-source/` and `head-source/`; builds are independent
+`base-build/` and `head-build/`. Both Release CMake caches explicitly enable
+`DAL_CPP_BUILD_BENCHMARKS=ON`. GCC 15.2, CMake 4.2.3, `-O3 -DNDEBUG`, native AAD,
+Eigen and `-ffp-contract=fast` match. No native-architecture flag is enabled.
+The host is WSL2 on an i9-13900HX, pinned to CPU 1 with `DAL_NUM_THREADS=1`.
+It is a shared host; the process snapshot shows no competing build or benchmark.
+
+The head archive adds one object to the accepted 180-member native archive;
+every old member occurrence remains byte-identical. Three unchanged benchmark
+runner objects are reused with recorded hashes. New main and curvature benchmark
+objects are compiled for both isolated builds. The baseline overlay contains only
+the new public result types and common benchmark harness/dispatch, with its
+reference-gradient implementation selected by `DAL_BUMP_OVER_AAD_BASELINE`.
+It does not compile or call the new production driver. Old-caller control uses
+the actual frozen pre-change binary, not the overlaid dispatch executable.
+Its native implementation is identical to the merge-base implementation.
+
+`environment.json` records source/dependency/build commands and archive/object/
+executable hashes. Curvature binary SHA-256 values are
+`182273a38a5699e0c33f540323d9711edf7668d11bc06401cc129a1011a2b745` (base) and
+`4a644f1f739941ee34db99d9e8c739e50482e0110a58e9d35f2cee34e61ca842` (head).
+Each process invocation verifies its executable hash before timing.
+
+## Results
+
+There are 120 process samples: two independent rounds of ten per side for each
+of three selected comparisons. Sides alternate first position and minima are
+reduced within each round. Sampling takes 1.844 seconds. Every new-capability
+process independently checks analytic values, gradients and Hessian products;
+the paired collector also checks numerical agreement and work/payload counts.
+
+- Four inputs/one direction: round minima are 738/845 ns and 783/897 ns
+  (base/head), giving +14.50% and +14.56%. Three gradient evaluations retain
+  144 owning numeric bytes. This measures new-entry overhead against manual
+  native secants, not regression of an existing curvature API.
+- 32 inputs/three directions: 10,472/12,250 ns and 10,434/11,784 ns,
+  giving +16.98% and +12.94%. Seven gradient evaluations retain 2,080 numeric
+  bytes. This is also informational new-entry overhead.
+- Existing short segmented MC control, 128 paths/16 steps/one worker:
+  1,079,026/1,098,729 ns and 1,133,337/1,134,592 ns, giving +1.83% and +0.11%.
+  Both rounds pass the calibrated +4% gate: no regression.
+
+Both curvature shapes report 1,966,080 peak tape bytes plus 655,360 cleanup
+reserve, equal on both sides. These are reusable backend block capacities;
+they exclude the result's numeric payload, allocator overhead, stacks and RSS.
+No general memory saving or speedup is claimed for the new API. The reference
+omits complete bump admission and exponent-scaled quotient protection, so its
+cost difference includes those deliberate protections.
+
+Raw commands/stdout/stderr remain in `raw/`; parsed observations in `samples.json`,
+the complete reduction in `results.json` and the build identity in `environment.json`.
+The independent installed-only recorded-solve consumer passes 1/1; its build
+uses only the installed `DAL::cpp` target and no source-tree include path.
+Installation/build/test logs remain beside the sampling evidence.
+
+## Verdict and coverage
+
+Overall: **no regression** for the affected comparable old caller. New capability
+overhead is disclosed separately, with no old curvature-API gate implied.
+The unchanged ordinary library/tape/pricing/calibration/RNG/PDE/LSM bodies retain
+accepted evidence; no unrelated target or parameter matrix is rerun. The existing
+`tape_perf` target now covers the new request path directly. Financial estimator,
+recalibration and policy costs require their later focused implementations.
