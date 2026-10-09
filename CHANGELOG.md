@@ -18,6 +18,11 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-10
 
+- **Recalibrated rate quote curvature** — owning single-curve and same-currency
+  joint snapshots rebuild exact square calibrations and their native analytic
+  quote mappings for Gamma, cross-Gamma and HVP estimates, including direct
+  objective quote dependence. See
+  [rate quote curvature](docs/methodology/aad.md#recalibrated-rate-quote-curvature).
 - **Monte Carlo Dupire quote curvature** — C++ financial requests estimate
   Gamma, cross-Gamma and HVPs through full quote recalibration and rebuilt
   model/direct dependencies on common paths, with frozen historical fixings

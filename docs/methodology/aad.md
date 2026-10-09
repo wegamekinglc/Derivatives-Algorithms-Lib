@@ -2190,6 +2190,58 @@ calibration node; such requests reject. Smaller steps do not guarantee better
 accuracy. This entry does not provide Monte Carlo quote curvature, exercise
 policy responses or native mixed-mode differentiation; `higherOrder_` is false.
 
+### Recalibrated rate quote curvature
+
+`dal-public/src/ratecurvature.hpp` provides `NewRateCalibration(spec)` for
+single-curve and same-currency joint calibration definitions. The owning
+`RateCalibrationSnapshot_` retains copied native instruments, deep-copied fixed
+native curve bases, raw quotes, solved free parameters and calibration
+provenance. Instrument order is normalized and frozen inside each declaration;
+duplicate curve names retain distinct joint declaration keys. Recalibration
+uses these sealed inputs rather than later changes to caller handles.
+
+`EvaluateRateQuoteCurvature(objective, snapshot, request)` accepts a deterministic
+native scalar objective over the concatenation of free curve parameters and
+complete raw decimal quotes, in `snapshot.Provenance().Axis()` order. At every
+base and perturbed point, it solves the calibration again, recomputes the native
+analytic residual Jacobian and effective inverse, differentiates the objective
+and applies the common calibration pullback. Direct quote derivatives enter once.
+The returned gradient therefore differentiates the whole scalar function; its
+central gradient secants include the changing calibration map. The ordinary
+first-order `FrozenCalibrationEffectiveInverse` boundary alone does not provide
+that curvature.
+
+Only EXACT square calibration systems are accepted. Every solve must return an
+available analytic Jacobian/inverse whose solver-scaled product satisfies the
+identity check. Rectangular systems can depend on a moving solver chart, and
+approximate systems require their own optimality-condition derivatives; neither
+is admitted by this entry. Unsupported custom instrument or fixed-curve
+subclasses reject before their virtual behavior runs. This entry accepts native
+scalar objectives on single-curve and same-currency joint definitions.
+
+`RecalibrateRateWithRisk(snapshot, completeQuotes)` exposes the same passive
+rebuild and preserves the complete parameter/quote axis. Curvature results own
+`Value()`, `Point()`, `Gradient()`, `Directions()`, `Steps()`,
+`HessianProducts()`, `BaseCalibration()` and `Execution()`. With M directions,
+there are exactly 1+2M fresh calibrations and objective reverse sweeps; zero
+directions request the base only. A basis direction gives Gamma and cross-Gamma
+coordinates without constructing a dense Hessian.
+
+The numeric budget uses `AAD::BumpOverAADPayloadBytes(Q, M)` for the owning
+quote bump/result payload. It excludes calibration definitions, solver matrices,
+objective temporaries, allocator overhead and RSS. The recording limit applies
+separately to caller-thread analytic recalibration and objective recording,
+including retained tape capacity and cleanup reserve. All numeric bumps are
+admitted before the objective. Solver feasibility is checked point by point;
+errors name base/direction/sign and the failing stage. Active outer recordings
+reject, and caller adjoint mode is restored after success or failure.
+
+These are finite-step smooth-function estimates. Choose steps using independent
+price differences and a convergence sweep, rather than assuming smaller is
+better. Captured objective data must remain fixed, and the callback cannot run
+parallel simulations or open another independent recording. Native
+`higherOrder_` remains false.
+
 ### Common-path C++ Monte Carlo quote curvature
 
 `dal-public/src/dupirecurvature.hpp` provides a financial plan that evaluates
