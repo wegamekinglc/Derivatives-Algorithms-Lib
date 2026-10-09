@@ -27,6 +27,7 @@ explicit subsequent work. This estimator does not claim native higher-order AD.
   `0.15 + 0.02 * abs(reference)`. Nested double-stencil cancellation required
   extended-precision reference calls, not a tolerance or step change. The
   checked-in regeneration tool reproduces all thirty-six saved values exactly.
+  Maximum absolute difference is 0.002105, below 0.003844 of the fixed allowance.
 - Analytic direct Gamma, a deliberately frozen calibration-map control,
   history snapshot, projections, budgets, caller mutation/destruction,
   base/plus/minus worker failure, wide-mode recovery, nested recording,
@@ -34,6 +35,10 @@ explicit subsequent work. This estimator does not claim native higher-order AD.
 - Ten strict OFF/combined diagnostic compilation probes and one installed
   `DAL::public` consumer pass. Core archive identity is unchanged; twenty-three
   facade members are retained, one replaced and one added.
+- Three selected cost comparisons pass the scoped policy: two informational
+  new paths and the existing first-order control, two rounds of ten paired
+  samples per side. All 120 numerical checksums agree; timed work totals 0.7812
+  seconds. See the [cost report](../performance/aad-mc-quote-curvature.md).
 
 Evidence root:
 `/home/wegamekinglc/.cache/dal-aad-evidence-20261010/mc-quote-curvature`.

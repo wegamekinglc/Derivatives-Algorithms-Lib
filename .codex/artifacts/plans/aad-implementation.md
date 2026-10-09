@@ -234,8 +234,9 @@ The active financial MC quote adapter follows its
 [critique](../critiques/aad-mc-quote-curvature.md),
 [local review](../reviews/aad-mc-quote-curvature.md) and
 [scoped cost acceptance](../performance/aad-mc-quote-curvature.md).
-Fifty distinct affected cases, ten strict probes and installed consumption pass;
-performance and publication acceptance remain. Full MC quote integration
+Fifty distinct affected cases, ten strict probes, installed consumption and
+three scoped cost comparisons pass; 120 samples contain 0.7812 seconds of
+timed work. Publication acceptance remains. Full MC quote integration
 (2–4 hours) and rate-provider rebuilding (8–12) subdivide the remaining 10–16
 quote allowance. Policy/estimator semantics and native mixed mode remain
 separate required F04 deliveries.

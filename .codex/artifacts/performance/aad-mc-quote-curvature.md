@@ -1,6 +1,7 @@
 # Monte Carlo quote curvature scoped cost acceptance
 
-Status: selected before measurement; results pending.
+Status: local scoped acceptance complete; no regression found in the selected
+existing-path control. New-path comparisons are informational.
 
 ## Scope
 
@@ -48,6 +49,41 @@ all raw samples and reduced results are retained under
 `/home/wegamekinglc/.cache/dal-aad-evidence-20261010/mc-quote-curvature/performance`.
 The shared host is recorded as potentially noisy; unstable minima produce an
 inconclusive result and never an invented pass.
+
+## Results and reproduction
+
+Measured implementation: `b1427b3ee4306ca63927f18f1db4b49f395422ae`.
+GCC 15.2.0, CMake Release, native AAD, diagnostic/native-architecture switches
+OFF, `-O3 -DNDEBUG -ffp-contract=fast`, one worker, Intel i9-13900HX under WSL.
+Both isolated caches explicitly enable benchmarks. The host also ran an
+unrelated compiler; no exclusive-window claim is made. Load averages before
+and after sampling were 1.40 and 1.69 on 32 logical CPUs. Alternation and
+two-round minima remain required despite the small workload.
+
+| Selected case        | Reference min, ms | Candidate min, ms | Combined delta | Round 1 | Round 2 | Verdict               |
+|----------------------|-------------------|-------------------|----------------|---------|---------|-----------------------|
+| Flat curvature       | 1.608252          | 1.591666          | −1.03%         | +1.97%  | −1.78%  | Informational new path |
+| Merton curvature     | 1.650338          | 1.660695          | +0.63%         | +0.89%  | −0.15%  | Informational new path |
+| Existing first order | 0.271806          | 0.271501          | −0.11%         | −0.11%  | +1.09%  | No regression         |
+
+All 120 paired samples are complete and numerical checksums agree. Five timed
+requests per sample consume 0.7812 seconds in total, excluding process startup,
+warmup, configuration and compilation. No size/thread matrix was repeated.
+These numbers establish small-request orchestration cost, not production
+throughput or a speedup claim. No nine-target gate was run for unchanged kernels.
+
+`performance/environment.json` retains all compiler/link/configure commands,
+immutable source paths, binary/archive hashes and host settings;
+`performance/results.json` retains every duration/checksum and round minimum;
+`performance/*-round*-*.log` retains every raw process output. The selected tool
+was compiled separately in modes 0/1/2, with mode 2's identical object linked
+against both archive snapshots. Reproduction on this host is recorded in
+`performance.py` at the evidence root; use a fresh evidence directory because
+the recorded detached worktrees already exist.
+
+Overall scoped verdict: **no regression**. Coverage outside the selected
+existing public path is explicitly excluded; new functionality has no older
+equivalent public entry point.
 
 ## Coverage advisory
 
