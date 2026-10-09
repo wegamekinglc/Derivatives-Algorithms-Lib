@@ -6,11 +6,41 @@
 
 #include "bindings.h"
 
+#include <cstring>
+
 #include <dal-public/src/global.hpp>
 
 using namespace Dal;
 
 PYBIND11_MODULE(_dal, m) {
+    //  pybind11's default translator decodes what() as strict UTF-8; a lone non-ASCII
+    //  byte would surface as UnicodeDecodeError and hide the DAL error type. Handle only
+    //  undecodable messages and rethrow the rest so pybind11's own type mappings hold.
+    py::register_exception_translator([](std::exception_ptr exception) {
+        try {
+            if (exception)
+                std::rethrow_exception(exception);
+        } catch (const py::builtin_exception&) {
+            throw;
+        } catch (const std::exception& error) {
+            const size_t length = std::strlen(error.what());
+            PyObject* strict = PyUnicode_DecodeUTF8(error.what(), length, nullptr);
+            if (strict) {
+                Py_DECREF(strict);
+                throw;
+            }
+            PyErr_Clear();
+            PyObject* message = PyUnicode_DecodeUTF8(error.what(), length, "backslashreplace");
+            if (!message) {
+                PyErr_Clear();
+                PyErr_SetString(PyExc_RuntimeError, "DAL error with an undecodable message");
+                return;
+            }
+            PyErr_SetObject(PyExc_RuntimeError, message);
+            Py_DECREF(message);
+        }
+    });
+
     // Initialize DAL runtime (calendars, currency conventions, index parsers)
     Dal::InitGlobalData();
 
