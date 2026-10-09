@@ -203,11 +203,66 @@ fixing scalar changes may conservatively invalidate reuse. Shape, names,
 addresses and hash equality alone are insufficient.
 
 Capture does not color a second plan merely to validate a cache hit. Only cold
-or invalidated requests construct numeric color/recovery metadata. These rate
-entry points provide dependency metadata and numeric plans; they do not record
-or execute trades, automatically fall back to dense risk, or select a default
-strategy. Financial recording still needs current-point active inputs and the
-native binding/execution contract above.
+or invalidated requests construct numeric color/recovery metadata. Capture and
+planning provide passive metadata; the execution functions below record current
+pricing and return its derivatives.
+
+## Complete rate-trade Jacobians
+
+[`dal/curve/rateparameterjacobian.hpp`](../../dal-cpp/dal/curve/rateparameterjacobian.hpp)
+provides explicit dense and compressed execution:
+
+```cpp
+#include <dal/curve/rateparameterjacobian.hpp>
+
+const auto dense = Dal::RateTradeParameterJacobian(trades, market, axis);
+const auto descriptor = Dal::CaptureRateStructuralJacobian(trades, market, axis);
+const auto plan = Dal::PlanRateStructuralJacobian(descriptor);
+Dal::RateJacobianExecutionSettings_ settings;
+settings.vectorAdjoints_ = true;
+settings.adjointWidth_ = 2;
+const auto compressed = Dal::ExecuteRateStructuralJacobian(
+    trades, market, plan, settings);
+```
+
+Both results own `prices_`, `jacobian_`, `inputAxis_` and `outputAxis_`. The matrix
+has one row per positional trade and one column per requested free parameter;
+empty dimensions and repeated trade rows retain their shape. Prices keep each
+trade's actual PV currency. Derivatives use native curve parameter units and
+that row's PV currency; the operation performs no quote mapping, FX spot delta
+or currency conversion.
+
+The seven closed deposit, FRA, future, OIS, IRS, basis-swap and XCCY swap families
+use the existing pricing formulas, schedules, fixings and routing. Curves must use the
+four exact native representations: piecewise-constant forwards, piecewise-linear
+forwards, log-discount nodes or zero-rate nodes. Every transitive base is rebuilt
+actively, preserving shared curves. Selected free parameters are independent;
+an unselected curve still transmits risk from a selected base.
+
+Dense execution records full row supports. Compressed execution recaptures the
+current complete structure and requires equality with the supplied plan before
+binding or seeding. Matching numeric curve changes re-record current derivatives;
+changed trade terms, geometry, fixings, layouts or routing require a fresh plan.
+Unavailable proof or stale identity raises an exception. Choose dense execution
+explicitly when appropriate; neither function selects an AUTO strategy.
+
+The default is scalar adjoints with width one. Vector adjoints use the requested
+native width and report actual `reverseDirections_` and `reverseSweeps_`.
+Proven zero rows need no reverse. Each call owns its recording scope and restores
+the caller's mode, including on failure. Independent threads may share a const
+plan and use separate calls; nesting inside an active recording is rejected.
+
+`numericPayloadBudgetBytes_` caps the result and direction matrices together,
+including reused plans. It excludes tape storage, price/axis metadata and RSS.
+Dense requests check their full numeric extent before constructing row supports.
+Invalid or duplicate physical coordinates, failed pricing, non-finite PVs or
+derivatives, and insufficient budgets raise exceptions without publishing a
+partial matrix.
+
+Compare complete request costs when choosing between the two functions: include
+capture for cold plans, current identity validation for reused plans, preparation,
+recording, all reverse blocks, recovery, result storage and cleanup. Fewer reverse
+directions alone do not establish a speed advantage.
 
 ## Reuse and risk semantics
 

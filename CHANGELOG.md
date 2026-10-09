@@ -18,6 +18,10 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-09
 
+- **Rate-trade parameter Jacobians** — dense and verified compressed native AAD
+  execution return complete owning price/parameter matrices across layered curves
+  and the closed pricing families. See
+  [complete rate-trade Jacobians](docs/methodology/aad-sparsity.md#complete-rate-trade-jacobians).
 - **Rate-trade structural dependencies** — owning curve-coordinate supports and
   complete structural identity cover the closed pricing families and layered
   bases, admitting fresh numerical points while rejecting unavailable proof.

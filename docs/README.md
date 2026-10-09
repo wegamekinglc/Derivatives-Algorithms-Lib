@@ -27,7 +27,8 @@ call/put native adjoints and separate derivative/grid-convergence acceptance.
 
 The [structural Jacobian guide](methodology/aad-sparsity.md) describes conservative
 row supports, compressed direction recovery, numeric payload admission and
-rate-trade dependency capture with complete structural identity.
+rate-trade dependency capture with complete structural identity, and
+[complete rate-trade Jacobian execution](methodology/aad-sparsity.md#complete-rate-trade-jacobians).
 
 ## Component Guides
 
