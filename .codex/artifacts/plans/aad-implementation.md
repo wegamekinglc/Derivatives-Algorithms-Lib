@@ -90,10 +90,18 @@ immutable [specification](https://github.com/wegamekinglc/Derivatives-Algorithms
 and [cost report](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/7bbeb259062b5338f5ff5db0812e7abb2ad28189/.codex/artifacts/performance/aad-rate-parameter-jacobian.md).
 Merge proof is retained in `rate-parameter-merged-tree.json`.
 
-Measured strategy work now follows the active
-[specification](../specs/aad-rate-jacobian-strategy.md),
-[API note](../api-notes/aad-rate-jacobian-strategy.md) and
-[critique](../critiques/aad-rate-jacobian-strategy.md).
+Measured strategy work is accepted in merged
+[#511](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/511),
+at `ddea35911`. Two complete final audits accept 36/36 exact-head checks,
+zero unresolved review threads and zero Codacy annotations. Actual logs verify
+all seven new cases in fourteen sanitizer, extended and MSVC profiles. The
+tested and merged trees equal `5b3feec8a99a339a35712f26dcc1559a0aaa66a6`.
+Completed controls remain in immutable
+[specification](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/c9d06fa8ecde507e7ba0deea0c2b9c1a3cd22d30/.codex/artifacts/specs/aad-rate-jacobian-strategy.md),
+[API note](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/c9d06fa8ecde507e7ba0deea0c2b9c1a3cd22d30/.codex/artifacts/api-notes/aad-rate-jacobian-strategy.md),
+[critique](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/c9d06fa8ecde507e7ba0deea0c2b9c1a3cd22d30/.codex/artifacts/critiques/aad-rate-jacobian-strategy.md),
+[review](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/c9d06fa8ecde507e7ba0deea0c2b9c1a3cd22d30/.codex/artifacts/reviews/aad-rate-jacobian-strategy.md)
+and [cost report](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/c9d06fa8ecde507e7ba0deea0c2b9c1a3cd22d30/.codex/artifacts/performance/aad-rate-jacobian-strategy.md).
 Direct dense planning removes generic conflict construction. The explicit cached
 plan request checks current identity once and falls back to the requested dense
 matrix on mismatch. Local acceptance covers 40 distinct cases, eight strict
@@ -107,8 +115,21 @@ labels and dense rate request context are preserved.
 All declared lightweight shapes lose with compression, including cached reuse.
 Keep the dense default and explicit caller selection, with no universal AUTO
 cutoff or hidden trial pricing. Native forward is unavailable for this closed
-financial path. P04's local selection requirements are closed; publication,
-review and exact-head runtime gates remain open.
+financial path. P04's implementation and publication requirements are closed.
+The operation-context and Markdown alignment findings were repaired before merge.
+
+P05 now follows the active [core specification](../specs/aad-path-segmentation.md),
+[API note](../api-notes/aad-path-segmentation.md) and
+[critique](../critiques/aad-path-segmentation.md). Twelve focused cases pass,
+including independent three-step and multistate/cashflow oracles, exact budgets,
+full trace mismatch, failure recovery, mode preservation, empty shapes,
+concurrency and bounded long-path tape. Eight strict OFF/combined checks and
+one installed-only consumer pass. Eight scoped regime/strategy pairs finish
+320 observations in 1.592 seconds, with approximately 60% smaller long-path tape
+plus checkpoints and 40–52% greater reusable-tape time cost. Keep segmentation
+explicit; short paths have no capacity benefit. Publication gates remain open.
+Complete financial state/liveness, model/evaluator integration and acceptance
+remain open; standalone core correctness alone does not complete P05.
 
 Native PDE recording is accepted in merged
 [#505](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/505),
@@ -612,7 +633,7 @@ incremental implementation turns and PRs; a green first stage does not complete 
 - [x] F03: native coordinate recording with aliases, modes, checkpoints and exact binding/scratch resources.
 - [x] F03: owning transpose residual reports and declared forward/reverse accuracy policy.
 - [x] F03: implicit calibration and PDE pullbacks derived and verified separately.
-- [ ] P04: proven structural sparsity, safe invalidation, compressed seeds, and mode selection evidence.
+- [x] P04: proven structural sparsity, safe invalidation, compressed seeds, and mode selection evidence.
 - [ ] P05: measured long-path checkpoint with complete state/RNG restoration and recomputation.
 
 ## Stage D: second-order risk
@@ -1245,21 +1266,22 @@ This snapshot distinguishes accepted increments from locally implemented work.
 Estimates are remaining single-developer effort, not promises of calendar time;
 overlapping acceptance work is included once in the integration allowance.
 
-| Work item               | Implementation/local verification                                  | Publication/CI                           | Remaining person-days |
-|-------------------------|--------------------------------------------------------------------|------------------------------------------|-----------------------|
-| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                      | Accepted exact-head checks               | 0                     |
-| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass     | Merged; final 35/35 checks accepted      | 0                     |
-| F01                     | C++/Python/Excel and complete requirement audit accepted           | Merged; final 35/35 checks accepted      | 0                     |
-| F02 weighted/blocked    | C++/Python/Excel and independent mathematical oracles accepted     | #483/#484 merged; exact-head gates pass  | 0                     |
-| F02 portfolio           | C++/Python/Excel, installed consumers and timing repair accepted   | #487 merged; final 35/35 checks accepted | 0                     |
-| P02                     | Worker reuse: 82 tests and 37 full-request cost cases accepted     | #488 merged; final 35/35 checks accepted | 0                     |
-| P03                     | 89 tests; 81 unique complete-request timing comparisons accepted   | #489 merged; final 35/35 checks accepted | 0                     |
-| F03                     | Solve/root/PDE operators and financial/grid acceptance complete    | #506 merged; final 36/36 gates accepted  | 0                     |
-| P04/P05                 | Strategy locally verified; checkpoint implementation remains       | P04 publication open                     | 5–9                   |
-| F04                     | Second-order implementation/estimator validation remain            | Open                                     | 12–20                 |
-| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains         | Open                                     | 7–11                  |
+| Work item               | Implementation/local verification                                | Publication/CI                           | Remaining person-days |
+|-------------------------|------------------------------------------------------------------|------------------------------------------|-----------------------|
+| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                    | Accepted exact-head checks               | 0                     |
+| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass   | Merged; final 35/35 checks accepted      | 0                     |
+| F01                     | C++/Python/Excel and complete requirement audit accepted         | Merged; final 35/35 checks accepted      | 0                     |
+| F02 weighted/blocked    | C++/Python/Excel and independent mathematical oracles accepted   | #483/#484 merged; exact-head gates pass  | 0                     |
+| F02 portfolio           | C++/Python/Excel, installed consumers and timing repair accepted | #487 merged; final 35/35 checks accepted | 0                     |
+| P02                     | Worker reuse: 82 tests and 37 full-request cost cases accepted   | #488 merged; final 35/35 checks accepted | 0                     |
+| P03                     | 89 tests; 81 unique complete-request timing comparisons accepted | #489 merged; final 35/35 checks accepted | 0                     |
+| F03                     | Solve/root/PDE operators and financial/grid acceptance complete  | #506 merged; final 36/36 gates accepted  | 0                     |
+| P04                     | Structural compression, safe fallback and selection accepted     | #511 merged; final 36/36 gates accepted  | 0                     |
+| P05                     | Core correctness/cost accepted locally; financial work remains   | Core publication open                    | 4.5–7.5               |
+| F04                     | Second-order implementation/estimator validation remain          | Open                                     | 12–20                 |
+| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains       | Open                                     | 7–11                  |
 
-Remaining total during P04 publication: approximately 24–40 person-days,
+Remaining total during P05 development: approximately 23.5–38.5 person-days,
 excluding CI queue time and including delivery contingency. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
 effort estimate, not a guaranteed completion date. Re-estimate when review
@@ -1272,20 +1294,22 @@ above. The accepted #490/#491/#493/#494/#495/#496/#497/#498/#499/#500 deliveries
 hours. Structured coordinates are split into numeric and native PRs; completed
 numeric/native diagnostics are not counted again.
 
-| Order | Delivery task                        | Required result                                                                 | Remaining hours |
-|-------|--------------------------------------|---------------------------------------------------------------------------------|-----------------|
-| 1     | Accepted solve/root PRs through #501 | Merged; mathematical, resource, platform and scoped performance gates accepted  | 0               |
-| 2     | F03 numeric coordinates              | Accepted in merged #495; immutable accepted evidence retained                   | 0               |
-| 3     | F03 native coordinates               | Accepted in merged #496; immutable accepted evidence retained                   | 0               |
-| 4     | F03 native coordinate accuracy       | Accepted in merged #500; exact-head CI/review and guarded merge pass            | 0               |
-| 4a    | F03 implicit calibration             | Numeric #501 and native #502 merged; all final gates accepted                   | 0               |
-| 5     | F03 PDE operators                    | #504/#505/#506 merged; financial/grid and all publication gates accepted        | 0               |
-| 6     | P04 structural sparsity              | Direct dense/fallback/selection locally verified; publication gates remain      | 2–4             |
-| 7     | P05 long-path checkpointing          | Complete state/RNG restoration, recomputation and memory/performance proof      | 40–64           |
-| 8     | F04 second-order risk                | Gamma, cross-Gamma, HVP, recalibration and estimator validation                 | 64–96           |
-| 9     | F04 native mixed-mode prototype      | Smooth-kernel prototype, independent correctness and capability limits          | 32–64           |
-| 10    | Bindings and complete acceptance     | C++/Python/Excel, documentation, platform and performance gates                 | 56–88           |
-| Total | Full remaining implementation        | All remaining plan requirements                                                 | 194–316         |
+| Order | Delivery task                        | Required result                                                                | Remaining hours |
+|-------|--------------------------------------|--------------------------------------------------------------------------------|-----------------|
+| 1     | Accepted solve/root PRs through #501 | Merged; mathematical, resource, platform and scoped performance gates accepted | 0               |
+| 2     | F03 numeric coordinates              | Accepted in merged #495; immutable accepted evidence retained                  | 0               |
+| 3     | F03 native coordinates               | Accepted in merged #496; immutable accepted evidence retained                  | 0               |
+| 4     | F03 native coordinate accuracy       | Accepted in merged #500; exact-head CI/review and guarded merge pass           | 0               |
+| 4a    | F03 implicit calibration             | Numeric #501 and native #502 merged; all final gates accepted                  | 0               |
+| 5     | F03 PDE operators                    | #504/#505/#506 merged; financial/grid and all publication gates accepted       | 0               |
+| 6     | P04 structural sparsity              | #507–#511 merged; implementation, scoped cost and publication gates accepted   | 0               |
+| 7a    | P05 segmentation core                | Local correctness/cost pass; CI, review repair and guarded merge remain        | 4–8             |
+| 7b    | P05 financial adapter                | Complete model/evaluator state, live observations and exact passive drivers    | 20–32           |
+| 7c    | P05 financial acceptance             | Complete financial correctness, memory/performance and publication proof       | 12–20           |
+| 8     | F04 second-order risk                | Gamma, cross-Gamma, HVP, recalibration and estimator validation                | 64–96           |
+| 9     | F04 native mixed-mode prototype      | Smooth-kernel prototype, independent correctness and capability limits         | 32–64           |
+| 10    | Bindings and complete acceptance     | C++/Python/Excel, documentation, platform and performance gates                | 56–88           |
+| Total | Full remaining implementation        | All remaining plan requirements                                                | 188–308         |
 
 
 The first delivery boundary is complete. Whole-PR review repaired the Windows

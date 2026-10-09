@@ -10,6 +10,8 @@
 #include <dal/math/aad/aad.hpp>
 #include <dal/platform/platform.hpp>
 
+#include "segmentedpathperf.hpp"
+
 using namespace Dal;
 using namespace Dal::AAD;
 
@@ -89,6 +91,8 @@ namespace {
 } // namespace
 
 int main(int argc, char** argv) {
+    if (argc > 1 && std::string(argv[1]) == "--segmented-path")
+        return RunSegmentedPathBenchmarks(argc - 1, argv + 1);
     const bool diagnostics = argc == 2 && std::string(argv[1]) == "--diagnostics";
     if (argc > 1 && !diagnostics)
         return 2;
@@ -172,5 +176,5 @@ int main(int argc, char** argv) {
     RunVectorCase(64, "PropagateToStart multi-mode (50K steps, 64 results)", kRepeats, diagnostics);
     Clear(*Tape());
 
-    return 0;
+    return RunSegmentedPathBenchmarks(1, argv);
 }
