@@ -178,32 +178,37 @@ Completed controls remain in immutable
 [review](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/08769ee02a46315c402ddcac9f6928c7b5191864/.codex/artifacts/reviews/aad-segmented-monte-carlo.md)
 and [cost report](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/08769ee02a46315c402ddcac9f6928c7b5191864/.codex/artifacts/performance/aad-segmented-monte-carlo.md).
 
-The active F04 increment follows the
-[bump-over-AAD specification](../specs/aad-bump-over-aad.md),
-[API decisions](../api-notes/aad-bump-over-aad.md) and
-[critique](../critiques/aad-bump-over-aad.md),
-[local review](../reviews/aad-bump-over-aad.md) and
-[scoped costs](../performance/aad-bump-over-aad.md). It introduces explicit central
-differences of fresh native gradients, selected Gamma/cross-Gamma columns and
-HVPs, owning request/result provenance, complete bump admission and separate
-numeric/tape budgets. Smooth-kernel mathematical validation comes first.
-Financial common paths/smoothing, recalibration curvature and policy/nested-step
-semantics remain required later F04 deliveries. Native mixed mode remains separate.
-The increment is published in
-[#517](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/517).
-An allocation-failure audit reproduces entry-mode leakage; the stack-guard repair
-has isolated RED/GREEN, three affected core cases and four private-probe callers.
-Upstream #516 integration rebuilds nineteen selected library units and validates
-all fourteen new cases and installed-only recorded-solve consumption. Twenty-one
-current strict probes are covered by original and affected repair evidence.
-Review finding `4230078427` corrects a baseline-only heap allocation. Subsequent
-finding `4230306027` adds zero-checkpoint validation before callback
-root access, with isolated RED/GREEN and three existing operator boundary checks.
-The final three-case study finishes 160 observations in 2.447 seconds, with +13–16%
-informational new-entry overhead and both old-caller +4% rounds passing. Shared
-host noise remains disclosed; earlier overhead numbers are superseded. No
-unrelated local full matrix is repeated. Current-head CI, Codacy, complete
-inline/body review acceptance and guarded merge remain required.
+The F04 native bump-over-AAD driver is accepted in merged
+[#517](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/517),
+at `6d5fde3e06d09d51924a74dc7c19f8f8f84c0c85`, with the identical tested
+merge-preview tree `0310f352f9d422fdfde8b901e1fbea03a5f3cac9`.
+Two complete paginated audits pass 36/36 checks; Codacy has zero annotations
+and all inline and review-body findings are closed. Actual logs confirm all
+fourteen new cases in each of fourteen runtime profiles. Scoped costs finish
+160 observations in 2.447 seconds; both old-caller +4% rounds pass. Allocation
+failure and callback checkpoint/restore repairs have isolated RED/GREEN and
+related boundary acceptance. Completed controls remain in immutable
+[specification](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/074b8345abfcc56e521260a936b004b5ca425db3/.codex/artifacts/specs/aad-bump-over-aad.md),
+[API](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/074b8345abfcc56e521260a936b004b5ca425db3/.codex/artifacts/api-notes/aad-bump-over-aad.md),
+[critique](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/074b8345abfcc56e521260a936b004b5ca425db3/.codex/artifacts/critiques/aad-bump-over-aad.md),
+[review](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/074b8345abfcc56e521260a936b004b5ca425db3/.codex/artifacts/reviews/aad-bump-over-aad.md)
+and [cost report](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/074b8345abfcc56e521260a936b004b5ca425db3/.codex/artifacts/performance/aad-bump-over-aad.md).
+
+The active F04 financial increment follows the
+[common-path MC specification](../specs/aad-monte-carlo-curvature.md),
+[API decisions](../api-notes/aad-monte-carlo-curvature.md),
+[critique](../critiques/aad-monte-carlo-curvature.md) and
+[scoped cost selection](../performance/aad-monte-carlo-curvature.md).
+It composes fresh segmented MC gradients over a sealed common-path request,
+retains model/script axes and preparation/smoothing provenance, and preflights
+all perturbed model domains. The missing-entry mathematical RED is confirmed. Eleven financial cases and
+sixteen affected core/MC cases pass, including independent GBM Hessian, call
+Gamma, step refinement, snapshot ownership and failure recovery. Both allocation
+injection cases also pass. Strict-warning probes pass in ordinary and combined
+diagnostic/profiling configurations; installed consumption, scoped costs and
+current-head publication acceptance are in progress.
+Quote recalibration curvature, policy/nested-step semantics and native mixed
+mode remain separate required F04 deliveries.
 
 Native PDE recording is accepted in merged
 [#505](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/505),
@@ -719,16 +724,16 @@ incremental implementation turns and PRs; a green first stage does not complete 
 - [ ] F04: estimator validation for applicable simulation/calibration cases before general promotion.
 
 F04 uses separate focused PRs in the following order. These estimates subdivide
-the 52.5–82 hours for second-order requests; they do not add to the mixed-mode or
+the 48–76 hours for second-order requests; they do not add to the mixed-mode or
 final-integration estimates. Each PR requires independent mathematical RED/GREEN,
 affected-boundary tests, scoped costs and complete current-head CI/review acceptance.
 
-| Increment                   | Required result                                                                                    | Remaining hours |
-|-----------------------------|----------------------------------------------------------------------------------------------------|-----------------|
-| Native driver               | Explicit steps/directions, Gamma/cross-Gamma/HVP, owning results, admission and recording recovery | 0.5–2           |
-| Financial MC                | Sealed common paths, smoothing semantics, model/constant axes and independent Gamma references     | 20–28           |
-| Quote curvature             | Full recalibration at each perturbed quote point and rebuilt first-order maps                      | 20–28           |
-| Policy/estimator validation | Frozen/RetrainedBump meaning, inner/outer steps and applicable convergence/error evidence          | 12–24           |
+| Increment                   | Required result                                                                                | Remaining hours |
+|-----------------------------|------------------------------------------------------------------------------------------------|-----------------|
+| Native driver               | #517 merged; explicit requests, mathematical/lifecycle and exact-head acceptance complete      | 0               |
+| Financial MC                | Sealed common paths, smoothing semantics, model/constant axes and independent Gamma references | 16–24           |
+| Quote curvature             | Full recalibration at each perturbed quote point and rebuilt first-order maps                  | 20–28           |
+| Policy/estimator validation | Frozen/RetrainedBump meaning, inner/outer steps and applicable convergence/error evidence      | 12–24           |
 
 ## Completion evidence
 
@@ -1364,11 +1369,11 @@ overlapping acceptance work is included once in the integration allowance.
 | F03                     | Solve/root/PDE operators and financial/grid acceptance complete  | #506 merged; final 36/36 gates accepted  | 0                     |
 | P04                     | Structural compression, safe fallback and selection accepted     | #511 merged; final 36/36 gates accepted  | 0                     |
 | P05                     | Core, fixed-path and Monte Carlo adapters accepted               | #512/#513/#515 merged; 36/36 gates       | 0                     |
-| F04                     | Second-order implementation/estimator validation remain          | Open                                     | 10.56–18.25           |
+| F04                     | Second-order implementation/estimator validation remain          | Open                                     | 10–17.5               |
 | Final integration/audit | Cross-platform/binding/docs/performance acceptance remains       | Open                                     | 7–11                  |
 
-Remaining total during F04 development: 140.5–234 hours, approximately
-17.56–29.25 eight-hour person-days, excluding CI queue time. Delivery contingency
+Remaining total during F04 development: 136–228 hours, approximately
+17–28.5 eight-hour person-days, excluding CI queue time. Delivery contingency
 is included in those same hour ranges; there is no extra undisclosed allowance. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
 effort estimate, not a guaranteed completion date. Re-estimate when review
@@ -1393,10 +1398,10 @@ numeric/native diagnostics are not counted again.
 | 7a    | P05 segmentation core                | #512 merged; actual runtime, exact-head CI/review and guarded merge accepted   | 0               |
 | 7b    | P05 financial adapter                | #513 merged; exact-head CI, review, costs, actual runtime and merge accepted   | 0               |
 | 7c    | P05 Monte Carlo acceptance           | #515 merged; 36/36 gates, fourteen actual runtime profiles and merge proof     | 0               |
-| 8     | F04 second-order risk                | Gamma, cross-Gamma, HVP, recalibration and estimator validation                | 52.5–82         |
+| 8     | F04 second-order risk                | Gamma, cross-Gamma, HVP, recalibration and estimator validation                | 48–76           |
 | 9     | F04 native mixed-mode prototype      | Smooth-kernel prototype, independent correctness and capability limits         | 32–64           |
 | 10    | Bindings and complete acceptance     | C++/Python/Excel, documentation, platform and performance gates                | 56–88           |
-| Total | Full remaining implementation        | All remaining plan requirements                                                | 140.5–234       |
+| Total | Full remaining implementation        | All remaining plan requirements                                                | 136–228         |
 
 
 The first delivery boundary is complete. Whole-PR review repaired the Windows

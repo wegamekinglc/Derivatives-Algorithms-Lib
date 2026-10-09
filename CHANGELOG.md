@@ -18,6 +18,11 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-09
 
+- **Common-path Monte Carlo curvature** — selected Gamma, cross-Gamma and HVP
+  estimates difference segmented native mean gradients over sealed common paths,
+  with complete bump-domain admission, owning preparation/smoothing provenance
+  and intersected per-path recording budgets. See
+  [Monte Carlo curvature](docs/methodology/aad.md#common-path-segmented-monte-carlo-curvature).
 - **Native directional curvature** — explicit bump-over-AAD requests return
   owning base gradients and Gamma/cross-Gamma/Hessian-vector estimates from
   fresh native recordings, with complete bump admission and separate numeric
