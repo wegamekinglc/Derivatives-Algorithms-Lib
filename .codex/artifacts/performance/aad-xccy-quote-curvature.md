@@ -5,11 +5,11 @@ Correctness, eight strict OFF/combined probes and the installed consumer pass.
 
 ## Scope selected from callers
 
-| Changed path / actual caller | Selected case | Boundary and reason |
-| --- | --- | --- |
-| `ratecurvature.cpp`: staged sealing, replay, refined inverse, provenance | Two-quote staged XCCY curvature, public driver versus explicit rebuild-gradient composition | Fixed currency blocks; one mixed direction; three fresh calibrations per request |
-| `ratecurvature.cpp`: joint declarations, routes, replay, refined inverse | Ten-quote joint XCCY curvature, public driver versus explicit rebuild-gradient composition | Five parameter blocks, two quotes each; mixed direction spans domestic, foreign and basis |
-| Shared capture, source variant and inverse-product helpers; existing single-curve entry | Existing two-quote single-curve public curvature, accepted #523 versus candidate | Executes the affected shared code and the complete existing curvature entry |
+| Changed path / actual caller                                                            | Selected case                                                                               | Boundary and reason                                                                       |
+|-----------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------|
+| `dal-public/src/ratecurvature.cpp`: staged sealing, replay, refined inverse, provenance | Two-quote staged XCCY curvature, public driver versus explicit rebuild-gradient composition | Fixed currency blocks; one mixed direction; three fresh calibrations per request          |
+| `dal-public/src/ratecurvature.cpp`: joint declarations, routes, replay, refined inverse | Ten-quote joint XCCY curvature, public driver versus explicit rebuild-gradient composition  | Five parameter blocks, two quotes each; mixed direction spans domestic, foreign and basis |
+| Shared capture, source variant and inverse-product helpers; existing single-curve entry | Existing two-quote single-curve public curvature, accepted #523 versus candidate            | Executes the affected shared code and the complete existing curvature entry               |
 
 The first two cases measure public-driver overhead against the same new replay
 provider, including fresh inverse refinement on both sides. They do not claim
@@ -57,11 +57,11 @@ Candidate implementation: `fc42400f38e9210d57959f6f69bb05382101fedc`.
 Values below are milliseconds for five complete requests; deltas use unrounded
 process timings. Each comparison retains 40 samples across its two rounds.
 
-| Case | Reference best (ms) | Candidate best (ms) | Overall delta | Round 1 / 2 delta | Verdict |
-| --- | ---: | ---: | ---: | --- | --- |
-| Staged XCCY, explicit composition / public driver | 6.0279 | 6.0294 | +0.02% | +0.02% / -0.39% | Informational new coverage |
-| Joint XCCY, explicit composition / public driver | 13.6402 | 13.5338 | -0.78% | -0.78% / +0.93% | Informational new coverage |
-| Existing single-curve public curvature, #523 / candidate | 1.6672 | 1.6858 | +1.11% | +2.43% / +0.38% | No regression |
+| Case                                                     | Reference best (ms) | Candidate best (ms) | Overall delta | Round 1 / 2 delta | Verdict                    |
+|----------------------------------------------------------|--------------------:|--------------------:|--------------:|-------------------|----------------------------|
+| Staged XCCY, explicit composition / public driver        | 6.0279              | 6.0294              | +0.02%        | +0.02% / -0.39%   | Informational new coverage |
+| Joint XCCY, explicit composition / public driver         | 13.6402             | 13.5338             | -0.78%        | -0.78% / +0.93%   | Informational new coverage |
+| Existing single-curve public curvature, #523 / candidate | 1.6672              | 1.6858              | +1.11%        | +2.43% / +0.38%   | No regression              |
 
 Overall: no regression in the selected existing entry; neither round reaches
 the 4% threshold. New-entry driver overhead is within shared-host noise. Every

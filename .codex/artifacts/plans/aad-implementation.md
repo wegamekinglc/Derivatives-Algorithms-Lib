@@ -801,7 +801,7 @@ affected-boundary tests, scoped costs and complete current-head CI/review accept
 |-----------------------------|-------------------------------------------------------------------------------------------|-----------------|
 | Native driver               | #517 merged; explicit requests, mathematical/lifecycle and exact-head acceptance complete | 0               |
 | Financial MC                | #519 merged; common-path requests and exact-head acceptance complete                      | 0               |
-| Quote curvature             | #520/#522/#523 merged; cross-currency rebuilding and trading integration remain             | 6–10            |
+| Quote curvature             | #520/#522/#523 merged; cross-currency rebuilding and trading integration remain           | 6–10            |
 | Policy/estimator validation | Frozen/RetrainedBump meaning, inner/outer steps and applicable convergence/error evidence | 12–24           |
 
 ## Completion evidence
@@ -1467,7 +1467,7 @@ numeric/native diagnostics are not counted again.
 | 7a    | P05 segmentation core                | #512 merged; actual runtime, exact-head CI/review and guarded merge accepted   | 0               |
 | 7b    | P05 financial adapter                | #513 merged; exact-head CI, review, costs, actual runtime and merge accepted   | 0               |
 | 7c    | P05 Monte Carlo acceptance           | #515 merged; 36/36 gates, fourteen actual runtime profiles and merge proof     | 0               |
-| 8     | F04 second-order risk                | Cross-currency/trading quote curvature and policy/estimator validation remain   | 18–34           |
+| 8     | F04 second-order risk                | Cross-currency/trading quote curvature and policy/estimator validation remain  | 18–34           |
 | 9     | F04 native mixed-mode prototype      | Smooth-kernel prototype, independent correctness and capability limits         | 32–64           |
 | 10    | Bindings and complete acceptance     | C++/Python/Excel, documentation, platform and performance gates                | 56–88           |
 | Total | Full remaining implementation        | All remaining plan requirements                                                | 106–186         |
