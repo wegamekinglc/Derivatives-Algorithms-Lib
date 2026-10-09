@@ -70,10 +70,10 @@ namespace Dal {
             const int seed_;
             size_t nDraws_ = 0;
 
-            unsigned IRN() {
+            unsigned IRN(int& ringPosition) {
                 auto& irn = state_[0].irn_;
-                const int position = irl_ == 0 ? M_ - 1 : irl_ - 1;
-                irl_ = position;
+                const int position = ringPosition == 0 ? M_ - 1 : ringPosition - 1;
+                ringPosition = position;
                 int pLoc = position + L_;
                 if (pLoc >= M_)
                     pLoc -= M_;
@@ -81,15 +81,17 @@ namespace Dal {
                 irn[position] = value;
                 return value;
             }
-            double DrawUniform() {
+            double DrawUniform(int& ringPosition) {
                 static const double MUL = 0.5 / DE_NOM;
-                const unsigned irn = IRN();
+                const unsigned irn = IRN(ringPosition);
                 const int sLoc = irn % S_;
                 auto& shuffle = state_[0].shuffle_;
                 int ret_val = shuffle[sLoc];
                 shuffle[sLoc] = irn;
                 return MUL * (2 * ret_val + 1); // avoid 0.0 and 1.0
             }
+
+            double DrawUniform() { return DrawUniform(irl_); }
 
             double NextUniform() override {
                 ++nDraws_;
@@ -117,7 +119,7 @@ namespace Dal {
                 for (int ii = 1; ii < M_; ++ii)
                     irn[ii] = ((MUL * irn[ii - 1]) % DE_NOM) ^ MASK;
                 for (int ii = 0; ii < S_; ++ii)
-                    state_[0].shuffle_[ii] = IRN();
+                    state_[0].shuffle_[ii] = IRN(irl_);
             }
 
             [[nodiscard]] std::unique_ptr<PseudoRandom_> Branch(int iChild) const override {
@@ -129,8 +131,10 @@ namespace Dal {
             void SkipUniformDraws(size_t nDraws) override {
                 if (nDraws < nDraws_)
                     Reset();
+                int position = irl_;
                 for (size_t draw = nDraws_; draw < nDraws; ++draw)
-                    DrawUniform();
+                    DrawUniform(position);
+                irl_ = position;
                 nDraws_ = nDraws;
             }
         };
