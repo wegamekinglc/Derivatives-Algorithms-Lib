@@ -1330,11 +1330,11 @@ overlapping acceptance work is included once in the integration allowance.
 | P03                     | 89 tests; 81 unique complete-request timing comparisons accepted | #489 merged; final 35/35 checks accepted | 0                     |
 | F03                     | Solve/root/PDE operators and financial/grid acceptance complete  | #506 merged; final 36/36 gates accepted  | 0                     |
 | P04                     | Structural compression, safe fallback and selection accepted     | #511 merged; final 36/36 gates accepted  | 0                     |
-| P05                     | Core and financial fixed-path adapter accepted in #512/#513      | MC publication acceptance remains        | 0.75–1.5              |
+| P05                     | Core and financial fixed-path adapter accepted in #512/#513      | MC final range repair/CI/merge remains   | 0.125–0.375           |
 | F04                     | Second-order implementation/estimator validation remain          | Open                                     | 12–20                 |
 | Final integration/audit | Cross-platform/binding/docs/performance acceptance remains       | Open                                     | 7–11                  |
 
-Remaining total during P05 development: approximately 19.75–32.5 person-days,
+Remaining total during P05 development: approximately 19–31.5 person-days,
 excluding CI queue time and including delivery contingency. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
 effort estimate, not a guaranteed completion date. Re-estimate when review
@@ -1358,11 +1358,11 @@ numeric/native diagnostics are not counted again.
 | 6     | P04 structural sparsity              | #507–#511 merged; implementation, scoped cost and publication gates accepted   | 0               |
 | 7a    | P05 segmentation core                | #512 merged; actual runtime, exact-head CI/review and guarded merge accepted   | 0               |
 | 7b    | P05 financial adapter                | #513 merged; exact-head CI, review, costs, actual runtime and merge accepted   | 0               |
-| 7c    | P05 Monte Carlo acceptance           | Local correctness/cost pass; CI, review repair and publication proof           | 6–12            |
+| 7c    | P05 Monte Carlo acceptance           | Local range repair/cost pass; current-head CI/review and guarded merge          | 1–3             |
 | 8     | F04 second-order risk                | Gamma, cross-Gamma, HVP, recalibration and estimator validation                | 64–96           |
 | 9     | F04 native mixed-mode prototype      | Smooth-kernel prototype, independent correctness and capability limits         | 32–64           |
 | 10    | Bindings and complete acceptance     | C++/Python/Excel, documentation, platform and performance gates                | 56–88           |
-| Total | Full remaining implementation        | All remaining plan requirements                                                | 158–260         |
+| Total | Full remaining implementation        | All remaining plan requirements                                                | 153–251         |
 
 
 The first delivery boundary is complete. Whole-PR review repaired the Windows

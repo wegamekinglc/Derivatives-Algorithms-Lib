@@ -5,7 +5,14 @@ cost acceptance pass. Current-head CI/review/publication gates remain open.
 
 ## Findings
 
-No open actionable correctness or style findings in the reviewed implementation.
+The final remote-thread audit exposed one remaining zero-driver boundary finding:
+the sole path at SIZE_MAX was incorrectly rejected by exclusive-end admission.
+The focused time-zero/history case reproduces the rejection before the fix. The
+repair admits the inclusive final index only without drivers; nonzero-driver
+RNG admission is unchanged. Three related cases, four affected strict probes and
+installed use pass. One short-request canary passes two best-of-ten rounds at
++2.95%/-0.87%, retaining all prior matrix and allocation evidence unchanged.
+Final remote review/thread closure remains required on the repaired head.
 Copilot's two findings are repaired in `288a0b07`: zero-driver requests retain
 only size_t range admission, and the benchmark catches std::exception. The large
 offset time-zero/historical case fails before the repair and passes for all three

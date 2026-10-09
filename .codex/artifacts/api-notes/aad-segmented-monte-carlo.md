@@ -11,6 +11,8 @@ and Execution(); its data is owned. Execution names maximum per-path resources,
 count/offset, fixed batching and generator settings. Errors identify the offending
 input/constraint. A positive count is required because an empty mean is undefined.
 Without drivers, offsets obey size_t range admission without RNG-specific limits.
+The inclusive last index must fit, so one path at SIZE_MAX is admitted. With
+drivers, the RNG's exclusive-end and direction/draw limits still apply.
 
 The immutable financial kernel exposes const request admission, sharing its
 parameter checks and the core's checked checkpoint plan. This does not execute a

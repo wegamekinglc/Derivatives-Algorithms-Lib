@@ -38,8 +38,9 @@ namespace Dal::Script {
         void ValidateRange(size_t paths, size_t dimension, const SegmentedMonteCarloSettings_& settings) {
             REQUIRE2(paths > 0, "SegmentedMonteCarlo: pathCount must be positive", ScriptError_);
             constexpr size_t MAX_SIZE = std::numeric_limits<size_t>::max();
-            REQUIRE2(settings.firstPath_ <= MAX_SIZE - paths, "SegmentedMonteCarlo: firstPath + pathCount overflows size_t", ScriptError_);
-            const size_t end = settings.firstPath_ + paths;
+            const size_t offset = dimension == 0 ? paths - 1 : paths;
+            REQUIRE2(settings.firstPath_ <= MAX_SIZE - offset, "SegmentedMonteCarlo: absolute path range overflows size_t", ScriptError_);
+            const size_t end = settings.firstPath_ + offset;
             if (settings.rsg_ == "sobol" && dimension != 0) {
                 REQUIRE2(end <= std::numeric_limits<std::uint32_t>::max(), "SegmentedMonteCarlo: Sobol path range exceeds 32-bit directions",
                          ScriptError_);

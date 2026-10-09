@@ -184,3 +184,15 @@ the other 179 integrated archive members. The installed consumer passes against
 that archive. The injected standard-allocation failure now returns benchmark
 status 2 with `std::bad_alloc` output instead of aborting; its RED/GREEN JSON is
 retained separately. No full timing/resource matrix repeats for the repair.
+
+The final inline-review audit identifies one additional zero-driver admission
+boundary: a single path at SIZE_MAX must use its representable inclusive index.
+The range repair changes only that admission expression, preserving all 179 other
+archive members and all four benchmark objects. Three affected tests, four strict
+probes and the installed consumer pass. The same single short-request canary
+compares the preceding repaired binary with the new range repair: 1.102519/1.135031
+ms (+2.95%) and 1.110436/1.100779 ms (-0.87%). Forty process samples take 0.67
+seconds, with matching prices and gradients and no sustained regression. The
+`segmented-mc-range-repair` evidence directory retains raw samples, source/object/
+archive/executable hashes, XML, strict checks and installed-use logs. No whole
+matrix or unchanged heap workload is repeated.

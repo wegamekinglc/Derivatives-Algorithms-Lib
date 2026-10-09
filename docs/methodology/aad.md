@@ -1982,7 +1982,9 @@ with `SkipNormalTo`; there is no additional 2048 Sobol offset. Each path draws
 its transformed Gaussian vector once and retains it through replay. Time-zero
 samples consume no Gaussian; zero-dimensional and historical-only products
 allocate no RNG; their offsets obey size_t range admission without a Sobol
-direction limit. Historical constant dependence, vectors, old fixing observations
+direction limit. Their inclusive last path index must fit, so a single path at
+SIZE_MAX is valid; requests with drivers retain RNG exclusive-end limits.
+Historical constant dependence, vectors, old fixing observations
 and readable cumulative/delayed payments follow the compiled fixed-path semantics.
 
 Fixed 32-path batches accumulate in path order; individual batch sums are reduced
