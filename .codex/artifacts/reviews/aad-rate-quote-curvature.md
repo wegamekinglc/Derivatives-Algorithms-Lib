@@ -4,8 +4,8 @@
 
 No unresolved local production correctness or style findings. Full changed
 source, tests, installed consumer, controlling specification/API/critique,
-workflow filters and published documentation were reviewed. Publication checks,
-external reviews and scoped paired costs remain required before merge.
+workflow filters and published documentation were reviewed. Publication checks
+and external reviews remain required before merge.
 
 The review/testing repaired a real wide-adjoint-mode entry defect: passive
 calibration now uses one shared scalar-mode boundary for both factories and
@@ -34,12 +34,16 @@ Only smooth exact square-system native objective curvature is delivered here.
 - Six strict OFF/combined diagnostic probes pass; installed `DAL::public`
   consumer passes 1/1. All 25 previous facade objects remain identical; one
   object is added. Core archive is unchanged.
+- Three scoped cost comparisons retain 120 paired process samples and 1.3504
+  seconds of timed work. The existing control's executables are byte-identical,
+  both round deltas remain below 4%, and new-path overhead is informational.
+  See the [cost report](../performance/aad-rate-quote-curvature.md).
 
 Evidence root:
 `/home/wegamekinglc/.cache/dal-aad-evidence-20261010/rate-quote-curvature`.
 
 ## Summary
 
-Local implementation verdict: Approve, subject to scoped cost acceptance and
-complete publication gates. Residual risks are cross-platform floating-point
+Local implementation verdict: Approve, subject to complete publication gates.
+Residual risks are cross-platform floating-point
 behavior and finite-step estimator conditioning; both are explicit boundaries.
