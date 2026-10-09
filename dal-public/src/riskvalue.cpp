@@ -214,9 +214,15 @@ namespace Dal {
                                                                          size_t admittedWidth) {
             if (!simulation.enableAad_)
                 return Script::Detail::EvaluatePassiveOutputReplay(prepared, modelData, paths, plan.OutputAxis(), ReplayLimits(plan.Request()));
-            const Script::Detail::AADBatchSettings_ settings{
-                simulation.rsg_,     simulation.useBb_, -1, simulation.smooth_, paths, model.Parameters().size(), prepared.ConstVarNames().size(),
-                prepared.PayOffIdx()};
+            const Script::Detail::AADBatchSettings_ settings{simulation.rsg_,
+                                                             simulation.useBb_,
+                                                             -1,
+                                                             simulation.smooth_,
+                                                             paths,
+                                                             model.Parameters().size(),
+                                                             prepared.ConstVarNames().size(),
+                                                             prepared.PayOffIdx(),
+                                                             simulation.normalPrecision_};
             auto limits = ReplayLimits(plan.Request());
             limits.maxWidth_ = admittedWidth;
             return Script::Detail::EvaluateAADBlockReplay(prepared, modelData, settings, plan.OutputAxis(), plan.InputPositions(), limits);

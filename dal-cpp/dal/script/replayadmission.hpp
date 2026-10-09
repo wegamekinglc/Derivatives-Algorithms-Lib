@@ -100,12 +100,13 @@ namespace Dal::Script::Detail {
         auto mode = AAD::SetNumResultsForAAD(true, width);
         const auto& simulation = product.Simulation();
         const AADBatchSettings_ settings{
-            simulation.rsg_, simulation.useBb_, -1, simulation.smooth_, 1, completeModelInputs, product.ConstVarNames().size(), product.PayOffIdx()};
+            simulation.rsg_,     simulation.useBb_,          -1, simulation.smooth_, 1, completeModelInputs, product.ConstVarNames().size(),
+            product.PayOffIdx(), simulation.normalPrecision_};
         const BlockPayoffCollector_ collector(outputs, {0, width, width}, settings, inputs, nullptr);
         AAD::RecordingScope_ recording;
         auto model = CreateModel<AAD::Number_>(modelData);
         model->Allocate(product.TimeLine(), product.DefLine());
-        const auto random = CreateRNG(simulation.rsg_, *model, simulation.useBb_);
+        const auto random = CreateRNG(simulation.rsg_, *model, simulation.useBb_, std::nullopt, simulation.normalPrecision_);
         const Vector_<> gauss(model->SimDim());
         Scenario_<AAD::Number_> path;
         AllocatePath(product.DefLine(), path);
@@ -130,7 +131,8 @@ namespace Dal::Script::Detail {
         model->Allocate(product.TimeLine(), product.DefLine());
         model->Init(product.TimeLine(), product.DefLine());
         const auto& simulation = product.Simulation();
-        DoubleSimulationState_<ReplayAdmissionProduct_> state(admissionProduct, *model, simulation.rsg_, simulation.useBb_);
+        DoubleSimulationState_<ReplayAdmissionProduct_> state(admissionProduct, *model, simulation.rsg_, simulation.useBb_,
+                                                              simulation.normalPrecision_);
         if (!state.bsPaths_)
             AdmitKnownPathScratch(*model, &state.path_);
     }

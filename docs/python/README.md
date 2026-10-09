@@ -77,7 +77,11 @@ provide `default_index` and `regression_features`; valuation settings provide `e
 `method`, `use_bb`, `enable_aad`, `smooth`, `compiled`, `lsmc_basis_degree`,
 `lsmc_training_paths`, `lsmc_validation_paths`, `lsmc_rqmc_replicates`,
 `lsmc_training_seed`, `lsmc_pricing_seed`, `lsmc_policy_risk_mode`, and
-`lsmc_policy_bump_relative`. `Frozen` is the default AAD sensitivity mode;
+`lsmc_policy_bump_relative`, and `normal_precision`. The latter accepts exact
+`Default`, `Fast`, or `Precise` strings. `Default` uses fast conversion for all
+three generators; use `MonteCarloSettings_(method="mrg32", normal_precision="Precise")`
+to use CDF-polished MRG32 normals. See [normal precision](../methodology/monte-carlo/sampling.md#monte-carlo-normal-precision)
+for the numerical tradeoff. `Frozen` is the default AAD sensitivity mode;
 `RetrainedBump` adds a common-path policy-retraining secant to model-parameter
 and script-constant risks. RQMC pricing uses one fitted
 policy and reports conditional replicate-mean uncertainty through

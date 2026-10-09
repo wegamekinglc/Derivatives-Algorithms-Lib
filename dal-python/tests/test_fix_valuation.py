@@ -280,6 +280,7 @@ def test_diagnostics_keep_actual_ids_and_legacy_schema_boundary():
     assert explanation["event_to_sample"] == [1]
     assert explanation["simulation"] == {
         "rsg": "sobol",
+        "normal_precision": "Default",
         "use_bb": False,
         "enable_aad": False,
         "smooth": 0.01,

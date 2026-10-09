@@ -18,6 +18,12 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-09
 
+- **Monte Carlo normal precision** — C++, Python and Excel settings explicitly
+  select fast or precise inverse-normal conversion across valuation and risk
+  replay. MRG32 and IRN now default to fast conversion, changing normal draws,
+  prices and Greeks; select `Precise` to retain their previous conversion.
+  MRG32 uses exact 64-bit recurrence arithmetic and direct batch filling with
+  the same uniform stream. See [sampling](docs/methodology/monte-carlo/sampling.md#monte-carlo-normal-precision).
 - **Segmented Black–Scholes Monte Carlo** — explicit native mean prices and
   gradients use common-path RNG/bridge integration, bounded exclusive lanes,
   ordered fixed-batch reduction and drained failure recovery. See

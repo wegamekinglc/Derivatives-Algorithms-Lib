@@ -648,10 +648,11 @@ TEST(ScriptApiTest, TestSimulationEchoFieldSetMatchesAcrossSchemas) {
     ASSERT_STREQ(simulation["schema"].GetString(), "dal.script-simulation/1");
     for (const auto* json : {&valuation, &simulation}) {
         const auto& echo = (*json)["simulation"];
-        ASSERT_EQ(echo.MemberCount(), 11u);
-        for (const auto* field : {"rsg", "use_bb", "enable_aad", "smooth", "compiled", "lsmc_basis_degree", "lsmc_training_paths",
+        ASSERT_EQ(echo.MemberCount(), 12u);
+        for (const auto* field : {"rsg", "normal_precision", "use_bb", "enable_aad", "smooth", "compiled", "lsmc_basis_degree", "lsmc_training_paths",
                                   "lsmc_validation_paths", "lsmc_rqmc_replicates", "lsmc_training_seed", "lsmc_pricing_seed"})
             ASSERT_TRUE(echo.HasMember(field)) << field;
+        ASSERT_STREQ(echo["normal_precision"].GetString(), "Default");
         ASSERT_TRUE(echo["lsmc_training_paths"].IsNull());
         ASSERT_TRUE(echo["lsmc_validation_paths"].IsNull());
         ASSERT_TRUE(echo["lsmc_rqmc_replicates"].IsNull());

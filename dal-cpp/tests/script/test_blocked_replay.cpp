@@ -38,7 +38,8 @@ namespace {
     }
 
     Script::Detail::AADBatchSettings_ ReplayBatchSettings(const PreparedScript_& product) {
-        return {product.Simulation().rsg_, product.Simulation().useBb_, -1, product.Simulation().smooth_, 17, 4, 0, product.PayOffIdx()};
+        return {product.Simulation().rsg_, product.Simulation().useBb_,          -1, product.Simulation().smooth_, 17, 4, 0,
+                product.PayOffIdx(),       product.Simulation().normalPrecision_};
     }
 
     struct MutateReplaySelection_ : Script::Detail::SimulationObserver_ {
@@ -122,21 +123,25 @@ TEST(BlockedReplayTest, TestCompleteCommonPathsAndOrderedRowsForOneAndFourWorker
     valuation.evaluationDate_ = Date_(2026, 1, 1);
     for (const size_t workers : {1, 4}) {
         ScopedThreads_ threads(workers);
-        for (const bool compiled : {false, true}) {
-            MonteCarloSettings_ simulation;
-            simulation.enableAad_ = true;
-            simulation.compiled_ = compiled;
-            auto metadata = CreateModel<double>(model);
-            const auto prepared = PrepareScript(data, metadata.get(), valuation, simulation);
-            const auto axis = ScriptRiskOutputAxis(prepared.Product());
-            const Script::Detail::AADBatchSettings_ settings{simulation.rsg_,     simulation.useBb_, -1, simulation.smooth_, 17, 4, 0,
-                                                             prepared.PayOffIdx()};
-            for (const size_t count : {1, 4, 16, 64}) {
-                Vector_<RiskOutputCoordinate_> outputs(axis.begin(), axis.begin() + count);
-                std::reverse(outputs.begin(), outputs.end());
-                ASSERT_NO_FATAL_FAILURE(AssertReplayRows(prepared, model, settings, outputs));
-            }
-        }
+        for (const auto* method : {"sobol", "mrg32"})
+            for (const auto* precision : {"Default", "Fast"})
+                for (const bool compiled : {false, true}) {
+                    MonteCarloSettings_ simulation;
+                    simulation.rsg_ = method;
+                    simulation.normalPrecision_ = precision;
+                    simulation.enableAad_ = true;
+                    simulation.compiled_ = compiled;
+                    auto metadata = CreateModel<double>(model);
+                    const auto prepared = PrepareScript(data, metadata.get(), valuation, simulation);
+                    const auto axis = ScriptRiskOutputAxis(prepared.Product());
+                    const Script::Detail::AADBatchSettings_ settings{
+                        simulation.rsg_, simulation.useBb_, -1, simulation.smooth_, 17, 4, 0, prepared.PayOffIdx(), simulation.normalPrecision_};
+                    for (const size_t count : {1, 4, 16, 64}) {
+                        Vector_<RiskOutputCoordinate_> outputs(axis.begin(), axis.begin() + count);
+                        std::reverse(outputs.begin(), outputs.end());
+                        ASSERT_NO_FATAL_FAILURE(AssertReplayRows(prepared, model, settings, outputs));
+                    }
+                }
     }
 }
 

@@ -73,9 +73,12 @@ Native-only PWL query microbenchmarks additionally isolate integral reuse at
 
 `Product_New` only stores events; the timed `Product_DebugJson` call is needed to
 execute the native preprocessor/parser. Its indexing and serialization cost is
-also included. Python's MRG32 constructor fixes `precise=true`, while the native
-RNG benchmark selects `precise=false`; this policy difference is recorded rather
-than treated as equivalent timing. Sobol precision/polish flags match the native cases.
+also included. Python's MRG32 constructor fixes `precise=true`, while the legacy
+native MRG32 normal case selects `precise=false`; this policy difference is
+recorded rather than treated as equivalent timing. Production-factory
+`Default`/`Precise` and 52-dimensional cases are native-only. Monte Carlo settings
+have their own [normal precision policy](../../docs/methodology/monte-carlo/sampling.md#monte-carlo-normal-precision).
+Sobol precision/polish flags match the native cases.
 
 Native-only scale cases in `rate_risk_perf` cover PV and two-component AAD at
 32/256/1,024 IRS with fixed maturity distributions and eight-node curves.

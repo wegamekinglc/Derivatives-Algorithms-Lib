@@ -1978,7 +1978,10 @@ raw price sum and normalized-risk convention.
 
 Settings select sobol, mrg32 or irn, optional Brownian bridge and an optional
 Sobol-only `scrambleKey_`. `firstPath_` is an absolute zero-based offset applied
-with `SkipNormalTo`; there is no additional 2048 Sobol offset. Each path draws
+with `SkipNormalTo`. `normalPrecision_` accepts `Default`, `Fast` or `Precise`;
+`Default` uses Fast for every generator. Select `Precise` to retain the previous
+MRG32/IRN normal conversion; see [normal precision](monte-carlo/sampling.md#monte-carlo-normal-precision).
+There is no additional 2048 Sobol offset. Each path draws
 its transformed Gaussian vector once and retains it through replay. Time-zero
 samples consume no Gaussian; zero-dimensional and historical-only products
 allocate no RNG; their offsets obey size_t range admission without a Sobol
@@ -2002,7 +2005,7 @@ thread. Submission or worker failure drains all accepted tasks before propagatin
 the error. Double-precision batch/aggregate sums must be finite; an ideal
 higher-precision mean can exist even when this sum contract rejects it.
 
-`Execution()` records count/offset, generator/bridge/shift settings, batch/segment
+`Execution()` records count/offset, generator/bridge/shift/precision settings, batch/segment
 sizes, admitted lane count and maximum per-path tape/checkpoint/cleanup payload.
 Those maxima can depend on earlier retained tape capacity and are not process
 limits or simultaneous aggregate peaks. Complete MC memory also includes

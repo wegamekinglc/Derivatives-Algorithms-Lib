@@ -66,9 +66,14 @@ namespace Dal {
 
         void ValidateSmoothing(double smooth) {
             REQUIRE2(std::isfinite(smooth) && smooth > 0.0,
-                     "InvalidSetting: InvalidSmoothing; simulation.smooth_=" + String_(std::to_string(smooth)) +
-                         "; expected a finite positive width",
+                     "InvalidSetting: InvalidSmoothing; simulation.smooth_=" + String_(std::to_string(smooth)) + "; expected a finite positive width",
                      ScriptError_);
+        }
+
+        void ValidateNormalPrecision(const String_& precision) {
+            const std::string exact(precision.data(), precision.size());
+            REQUIRE2(exact == "Default" || exact == "Fast" || exact == "Precise",
+                     "InvalidSetting: simulation.normalPrecision_=" + precision + "; expected Default, Fast or Precise", ScriptError_);
         }
 
         void ValidateLsmcBasisDegree(int degree) {
@@ -120,6 +125,7 @@ namespace Dal {
 
         void ValidateSimulationSettings(const MonteCarloSettings_& settings) {
             ValidateRNG(settings.rsg_);
+            ValidateNormalPrecision(settings.normalPrecision_);
             ValidateSmoothing(settings.smooth_);
             ValidateLsmcBasisDegree(settings.lsmcBasisDegree_);
             ValidateLsmcPolicyRiskMode(settings.lsmcPolicyRiskMode_);

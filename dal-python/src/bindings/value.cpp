@@ -68,6 +68,12 @@ namespace {
         return result;
     }
 
+    String_ NormalPrecision(const py::handle& value) {
+        const auto result = SettingStringInput(value, "MonteCarloSettings_; normal_precision / simulation.normalPrecision_");
+        Script::ValidateNormalPrecision(result);
+        return result;
+    }
+
     String_ LsmcPolicyRiskMode(const py::handle& value) {
         const auto context = "InvalidSetting: InvalidLsmcPolicyRiskMode; MonteCarloSettings_; lsmc_policy_risk_mode / simulation.lsmcPolicyRiskMode_";
         const auto result = SettingStringInput(value, context, "InvalidSetting: InvalidLsmcPolicyRiskMode");
@@ -253,7 +259,8 @@ void init_bindings_value(py::module_& m) {
         .def(py::init([](const py::object& method, const py::object& useBb, const py::object& enableAad, const py::object& smooth,
                          const py::object& compiled, const py::object& lsmcBasisDegree, const py::object& lsmcTrainingPaths,
                          const py::object& lsmcValidationPaths, const py::object& lsmcRqmcReplicates, const py::object& lsmcTrainingSeed,
-                         const py::object& lsmcPricingSeed, const py::object& lsmcPolicyRiskMode, const py::object& lsmcPolicyBumpRelative) {
+                         const py::object& lsmcPricingSeed, const py::object& lsmcPolicyRiskMode, const py::object& lsmcPolicyBumpRelative,
+                         const py::object& normalPrecision) {
                  return MonteCarloSettings_{Method(method),
                                             Boolean(useBb, "use_bb / simulation.useBb_"),
                                             Boolean(enableAad, "enable_aad / simulation.enableAad_"),
@@ -266,14 +273,18 @@ void init_bindings_value(py::module_& m) {
                                             RqmcSeed(lsmcTrainingSeed, "lsmc_training_seed", "lsmcTrainingSeed_"),
                                             RqmcSeed(lsmcPricingSeed, "lsmc_pricing_seed", "lsmcPricingSeed_"),
                                             LsmcPolicyRiskMode(lsmcPolicyRiskMode),
-                                            LsmcPolicyBumpRelative(lsmcPolicyBumpRelative)};
+                                            LsmcPolicyBumpRelative(lsmcPolicyBumpRelative),
+                                            NormalPrecision(normalPrecision)};
              }),
              py::kw_only(), py::arg("method") = "sobol", py::arg("use_bb") = false, py::arg("enable_aad") = false,
              py::arg("smooth") = Script::DEFAULT_SMOOTH, py::arg("compiled") = py::none(),
              py::arg("lsmc_basis_degree") = Script::DEFAULT_LSMC_BASIS_DEGREE, py::arg("lsmc_training_paths") = py::none(),
              py::arg("lsmc_validation_paths") = py::none(), py::arg("lsmc_rqmc_replicates") = py::none(), py::arg("lsmc_training_seed") = py::none(),
              py::arg("lsmc_pricing_seed") = py::none(), py::arg("lsmc_policy_risk_mode") = "Frozen",
-             py::arg("lsmc_policy_bump_relative") = Script::DEFAULT_LSMC_POLICY_BUMP_RELATIVE)
+             py::arg("lsmc_policy_bump_relative") = Script::DEFAULT_LSMC_POLICY_BUMP_RELATIVE, py::arg("normal_precision") = "Default")
+        .def_property(
+            "normal_precision", [](const MonteCarloSettings_& settings) { return Text(settings.normalPrecision_); },
+            [](MonteCarloSettings_* settings, const py::object& value) { settings->normalPrecision_ = NormalPrecision(value); })
         .def_property(
             "method", [](const MonteCarloSettings_& settings) { return Text(settings.rsg_); },
             [](MonteCarloSettings_* settings, const py::object& value) { settings->rsg_ = Method(value); })

@@ -759,7 +759,11 @@ namespace Dal::Script {
         };
 
         ThreadState_::ThreadState_(const LsmcContext_& ctx)
-            : random_(CreateRNG(ctx.prepared_.Simulation().rsg_, *ctx.model_, ctx.prepared_.Simulation().useBb_, ctx.scrambleKey_)),
+            : random_(CreateRNG(ctx.prepared_.Simulation().rsg_,
+                                *ctx.model_,
+                                ctx.prepared_.Simulation().useBb_,
+                                ctx.scrambleKey_,
+                                ctx.prepared_.Simulation().normalPrecision_)),
               gauss_(ctx.model_->SimDim()), evaluator_(ctx.Product().VarValues(), ctx.Product().ConstVarValues(), ctx.Product().VectorCapacities()) {
             evaluator_.SetHistoricalVectorSeed(TypedVectorValues<double>(ctx.Product().VectorValues()));
             if (typeid(*ctx.model_) == typeid(AAD::BlackScholes_<double>))
@@ -936,7 +940,7 @@ namespace Dal::Script {
         Vector_<> SampleGridNumeraires(const LsmcContext_& ctx) {
             const auto& simulation = ctx.prepared_.Simulation();
             const auto& events = ctx.Product().Events();
-            auto probe = CreateRNG(simulation.rsg_, *ctx.model_, simulation.useBb_);
+            auto probe = CreateRNG(simulation.rsg_, *ctx.model_, simulation.useBb_, std::nullopt, simulation.normalPrecision_);
             Vector_<> gauss(ctx.model_->SimDim());
             Scenario_<> path;
             AllocatePath(ctx.Plan().DefLine(), path);
@@ -1545,7 +1549,7 @@ namespace Dal::Script {
             ws.model_->Allocate(prepared.TimeLine(), prepared.DefLine());
             if constexpr (std::is_same_v<T_, double>)
                 ws.model_->Init(prepared.TimeLine(), prepared.DefLine());
-            ws.random_ = CreateRNG(simulation.rsg_, *ws.model_, simulation.useBb_, scrambleKey);
+            ws.random_ = CreateRNG(simulation.rsg_, *ws.model_, simulation.useBb_, scrambleKey, simulation.normalPrecision_);
             ws.gauss_.Resize(ws.model_->SimDim());
             AllocatePath(prepared.DefLine(), ws.path_);
             InitializePath(ws.path_);

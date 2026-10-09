@@ -395,6 +395,7 @@ Use an explicitly typed `ScriptValuationSettings_` for the fourth argument;
 | `MonteCarloSettings_`      | `enableAad_`              | `false`                             | Enable parameter risks, hard historical replay, and fuzzy future evaluation.                                          |
 | `MonteCarloSettings_`      | `smooth_`                 | `0.01`                              | Finite and strictly positive, including when AAD is disabled or the product is expired.                               |
 | `MonteCarloSettings_`      | `compiled_`               | `std::nullopt`                      | Unset means `false` (tree); `true` selects compiled execution.                                                        |
+| `MonteCarloSettings_`      | `normalPrecision_`        | `"Default"`                         | Exact `Default`, `Fast`, or `Precise`; [inverse-normal policy](monte-carlo/sampling.md#monte-carlo-normal-precision). |
 | `MonteCarloSettings_`      | `lsmcBasisDegree_`        | `3`                                 | Integer 1..8: polynomial degree of the LSMC regression basis for `EXERCISE` valuation.                                |
 | `MonteCarloSettings_`      | `lsmcTrainingPaths_`      | `std::nullopt`                      | Positive `int`: training paths for `EXERCISE`; unset uses the pricing count. Ignored for products without `EXERCISE`. |
 | `MonteCarloSettings_`      | `lsmcValidationPaths_`    | `std::nullopt`                      | Positive `int`: held-out paths for degree selection; unset retains the fixed-degree fast path.                        |
@@ -1623,7 +1624,7 @@ rejected with `UnsupportedExecutionMode` (the diagnostic runs the double
 valuation path only).
 
 The JSON reports `evaluation_date`, the effective `simulation` echo
-(`rsg`, `use_bb`, `enable_aad`, `smooth`, `compiled`, `lsmc_basis_degree`,
+(`rsg`, `normal_precision`, `use_bb`, `enable_aad`, `smooth`, `compiled`, `lsmc_basis_degree`,
 `lsmc_training_paths`, `lsmc_validation_paths`, `lsmc_rqmc_replicates`,
 `lsmc_training_seed`, `lsmc_pricing_seed`), the explicit per-replicate
 `n_paths`, `uncertainty`, and `exercise_events`. Products without `EXERCISE`

@@ -13,10 +13,10 @@ namespace Dal::Script::Detail {
         bool SameSimulation(const MonteCarloSettings_& lhs, const MonteCarloSettings_& rhs) {
             return std::tie(lhs.rsg_, lhs.useBb_, lhs.enableAad_, lhs.smooth_, lhs.compiled_, lhs.lsmcBasisDegree_, lhs.lsmcTrainingPaths_,
                             lhs.lsmcValidationPaths_, lhs.lsmcRqmcReplicates_, lhs.lsmcTrainingSeed_, lhs.lsmcPricingSeed_, lhs.lsmcPolicyRiskMode_,
-                            lhs.lsmcPolicyBumpRelative_) == std::tie(rhs.rsg_, rhs.useBb_, rhs.enableAad_, rhs.smooth_, rhs.compiled_,
-                                                                     rhs.lsmcBasisDegree_, rhs.lsmcTrainingPaths_, rhs.lsmcValidationPaths_,
-                                                                     rhs.lsmcRqmcReplicates_, rhs.lsmcTrainingSeed_, rhs.lsmcPricingSeed_,
-                                                                     rhs.lsmcPolicyRiskMode_, rhs.lsmcPolicyBumpRelative_);
+                            lhs.lsmcPolicyBumpRelative_, lhs.normalPrecision_) ==
+                   std::tie(rhs.rsg_, rhs.useBb_, rhs.enableAad_, rhs.smooth_, rhs.compiled_, rhs.lsmcBasisDegree_, rhs.lsmcTrainingPaths_,
+                            rhs.lsmcValidationPaths_, rhs.lsmcRqmcReplicates_, rhs.lsmcTrainingSeed_, rhs.lsmcPricingSeed_, rhs.lsmcPolicyRiskMode_,
+                            rhs.lsmcPolicyBumpRelative_, rhs.normalPrecision_);
         }
 
         bool SameSlot(const std::optional<ModelObservation_>& lhs, const std::optional<ModelObservation_>& rhs) {

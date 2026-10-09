@@ -54,7 +54,7 @@ namespace Dal::Script::Detail {
         auto model = CreateModel<double>(modelData);
         model->Allocate(product.TimeLine(), product.DefLine());
         model->Init(product.TimeLine(), product.DefLine());
-        DoubleSimulationState_<PreparedScript_> state(product, *model, simulation.rsg_, simulation.useBb_);
+        DoubleSimulationState_<PreparedScript_> state(product, *model, simulation.rsg_, simulation.useBb_, simulation.normalPrecision_);
         PassiveOutputCollector_ collector(outputs, sums);
         auto run = [&](auto* evaluator, const auto& evaluate) {
             static_cast<void>(EvaluateDoubleBatch(*model, &state, evaluator, batch, product.PayOffIdx(), evaluate, collector));
