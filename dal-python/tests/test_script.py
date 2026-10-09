@@ -199,3 +199,11 @@ def test_non_ascii_event_raises_invalid_script_error():
     product = dal.Product_New([dal.Date_(2024, 1, 2)], ["x = é"])
     with pytest.raises(RuntimeError, match="InvalidScript: unexpected character 'é'"):
         dal.Product_Describe(product)
+
+
+def test_undecodable_error_message_stays_runtime_error():
+    """Invalid UTF-8 inside what() is backslash-escaped, never surfaced as UnicodeDecodeError."""
+    from dal import _dal
+
+    with pytest.raises(RuntimeError, match=r"undecodable byte: '\\xc3'"):
+        _dal._test_throw_undecodable_error()

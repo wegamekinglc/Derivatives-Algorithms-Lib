@@ -12,6 +12,28 @@
 
 using namespace Dal;
 
+namespace {
+    bool DecodesAsUtf8(const char* message) {
+        try {
+            static_cast<void>(py::str(message)); //  strict probe: raises on invalid UTF-8
+            return true;
+        } catch (const py::error_already_set&) {
+            return false;
+        }
+    }
+
+    void SetLenientRuntimeError(const std::exception& error) {
+        const py::object message =
+            py::reinterpret_steal<py::object>(PyUnicode_DecodeUTF8(error.what(), std::strlen(error.what()), "backslashreplace"));
+        if (message) {
+            PyErr_SetObject(PyExc_RuntimeError, message.ptr());
+        } else {
+            PyErr_Clear();
+            PyErr_SetString(PyExc_RuntimeError, "DAL error with an undecodable message");
+        }
+    }
+} // namespace
+
 PYBIND11_MODULE(_dal, m) {
     //  pybind11's default translator decodes what() as strict UTF-8; a lone non-ASCII
     //  byte would surface as UnicodeDecodeError and hide the DAL error type. Handle only
@@ -23,21 +45,9 @@ PYBIND11_MODULE(_dal, m) {
         } catch (const py::builtin_exception&) {
             throw;
         } catch (const std::exception& error) {
-            const size_t length = std::strlen(error.what());
-            PyObject* strict = PyUnicode_DecodeUTF8(error.what(), length, nullptr);
-            if (strict) {
-                Py_DECREF(strict);
+            if (DecodesAsUtf8(error.what()))
                 throw;
-            }
-            PyErr_Clear();
-            PyObject* message = PyUnicode_DecodeUTF8(error.what(), length, "backslashreplace");
-            if (!message) {
-                PyErr_Clear();
-                PyErr_SetString(PyExc_RuntimeError, "DAL error with an undecodable message");
-                return;
-            }
-            PyErr_SetObject(PyExc_RuntimeError, message);
-            Py_DECREF(message);
+            SetLenientRuntimeError(error);
         }
     });
 
@@ -45,6 +55,15 @@ PYBIND11_MODULE(_dal, m) {
     Dal::InitGlobalData();
 
     m.doc() = "DAL quantitative finance library -- Python bindings (pybind11)";
+
+    //  Underscore-prefixed, so star imports keep it out of the public dal namespace
+    m.def(
+        "_test_throw_undecodable_error",
+        []() {
+            //  0xC3 alone is invalid UTF-8; pins the lenient translator above
+            throw std::runtime_error(std::string("undecodable byte: '") + static_cast<char>(0xC3) + "'");
+        },
+        "Test hook: raise a std::exception whose message is not valid UTF-8.");
 
     init_bindings_calendar(m);
 
@@ -60,6 +79,7 @@ PYBIND11_MODULE(_dal, m) {
     init_bindings_curve(m);
 
     init_bindings_models(m);
+
     init_bindings_gsr(m);
 
     init_bindings_random(m);
@@ -67,12 +87,20 @@ PYBIND11_MODULE(_dal, m) {
     init_bindings_script(m);
 
     init_bindings_value(m);
+
     init_bindings_risk(m);
+
     init_bindings_weightedrisk(m);
+
     init_bindings_jacobianrisk(m);
+
     init_bindings_portfoliorisk(m);
+
     init_bindings_dupirerisk(m);
+
     init_bindings_calibrationrisk(m);
+
     init_bindings_calibrationriskrequest(m);
+
     init_bindings_dupireriskrequest(m);
 }
