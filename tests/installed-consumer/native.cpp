@@ -9,6 +9,8 @@
 #include <dal/math/aad/native.hpp>
 #include <dal/math/aad/profiling.hpp>
 #include <dal/math/aad/recording.hpp>
+#include <dal/model/dupire.hpp>
+#include <dal/model/dupirecurvature.hpp>
 
 #if EXPECT_DIAGNOSTICS && !defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
 #error Installed diagnostic definition was not propagated
@@ -118,6 +120,19 @@ namespace {
         Clear(*Tape());
         return 0;
     }
+
+    int CheckDupireQuoteCurvature() {
+        const MertonIVS_ base(100.0, 0.2, 0.08, -0.1, 0.15);
+        const Dal::DupireRiskInputs_ inputs{{75.0, 105.0, 135.0}, {0.4, 1.2}, Dal::Matrix_<>(3, 2, 0.0), {60.0, 100.0, 140.0}, 10.0, {0.5, 1.0}, 0.5};
+        const auto calibration = Dal::CalibrateDupireWithRisk(base, inputs);
+        BumpOverAADRequest_ request;
+        request.directions_ = Dal::Matrix_<>(1, 6, 0.0);
+        request.directions_(0, 0) = 1.0;
+        request.steps_ = {5e-5};
+        const auto result = Dal::EvaluateDupireQuoteCurvature(
+            [](RecordingScope_*, const Dal::Vector_<Number_>& x) { return x[x.size() - 6] * x[x.size() - 6]; }, calibration, request);
+        return std::abs(result.HessianProducts()(0, 0) - 2.0) <= 1e-10 && result.Calibration().Matches(calibration) ? 0 : 6;
+    }
 } // namespace
 
 int main() {
@@ -133,5 +148,8 @@ int main() {
     const int vector = CheckVector();
     if (vector != 0)
         return vector;
+    const int curvature = CheckDupireQuoteCurvature();
+    if (curvature != 0)
+        return curvature;
     std::cout << "Installed native scalar/vector gradients and diagnostic/profiling ABI: PASS\n";
 }

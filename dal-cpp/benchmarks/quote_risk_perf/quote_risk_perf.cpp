@@ -14,6 +14,7 @@
 #include <dal/platform/platform.hpp>
 
 #include "../rate_risk_perf/quoteriskbenchfixtures.hpp"
+#include "dupirecurvatureperf.hpp"
 
 using namespace Dal;
 
@@ -52,7 +53,9 @@ namespace {
     }
 } // namespace
 
-int main() {
+int main(int argc, char** argv) {
+    if (argc > 1)
+        return RunDupireQuoteCurvatureBenchmarks(argc, argv);
     const auto analytic = CurveJacobianMode_(CurveJacobianMode_::Value_::ANALYTIC);
     const auto single8 = RateRiskPerf::MakeSingleCurveProvenanceMaterials(8, analytic);
     const auto single16 = RateRiskPerf::MakeSingleCurveProvenanceMaterials(16, analytic);

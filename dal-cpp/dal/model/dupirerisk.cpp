@@ -428,4 +428,26 @@ namespace Dal {
         recording.Close();
         return DupireQuoteRisk_(snapshot, std::move(calibration), std::move(direct), std::move(total));
     }
+
+    void ValidateDupireQuoteRecalibration(const DupireCalibrationSnapshot_& snapshot, const Matrix_<>& quoteSpreads) {
+        auto inputs = snapshot.Inputs();
+        inputs.quoteSpreads_ = quoteSpreads;
+        ValidateInputs(inputs);
+        const auto quotes = NumericQuotes(inputs);
+        ValidateDomains(snapshot.data_->base_, snapshot.Surface()->spots_, snapshot.Surface()->times_, quotes);
+    }
+
+    DupireCalibrationSnapshot_ RecalibrateDupireWithRisk(const DupireCalibrationSnapshot_& snapshot, const Matrix_<>& quoteSpreads) {
+        ValidateDupireQuoteRecalibration(snapshot, quoteSpreads);
+        auto data = std::make_shared<DupireCalibrationSnapshot_::Data_>(*snapshot.data_);
+        data->inputs_.quoteSpreads_ = quoteSpreads;
+        const auto& inputs = data->inputs_;
+        const FrozenIVS_ frozen(data->base_);
+        const auto quotes = NumericQuotes(inputs);
+        const auto calibrated =
+            AAD::DupireCalib(frozen, inputs.inclusionSpots_, inputs.maxSpotSpacing_, inputs.inclusionTimes_, inputs.maxTimeSpacing_, quotes);
+        data->surface_ = Handle_<LocalVolSurfaceData_>(
+            new LocalVolSurfaceData_(snapshot.Surface()->Name(), calibrated.spots_, calibrated.times_, calibrated.lVols_));
+        return DupireCalibrationSnapshot_(std::move(data));
+    }
 } // namespace Dal

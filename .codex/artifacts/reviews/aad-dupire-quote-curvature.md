@@ -1,0 +1,62 @@
+# Native Dupire quote-curvature review
+
+Verdict: Comment Only; local implementation accepted, cost/publication pending.
+
+## Findings
+
+No open implementation finding after read-through of the changed API, passive
+calibration, complete gradient composition, independent tests and controls.
+The strict-warning test-macro dangling-else finding is corrected with explicit
+braces; only affected strict probes repeat. No production behavior changed.
+
+## Mathematical and lifecycle evidence
+
+Missing recalibration and curvature entries each produce the expected RED.
+Twenty-two selected tests pass: ten new quote cases and twelve existing Dupire
+snapshot/pullback cases. One separate exhaustive allocation-injection case
+passes. It fails each allocation of a complete three-gradient request, checks
+width-four mode restoration and immediately verifies a valid recovery.
+
+Direct quote Gamma/cross and signed products match exact polynomial derivatives.
+A nonflat surface/quote objective matches independent fresh-calibration value
+differences at all six coordinates for all three predeclared outer steps.
+The reference uses a fixed `2e-4` coordinate step and tolerance
+`0.08 + 0.02 * abs(reference)`, reflecting numerical call-stencil noise rather
+than an analytic Hessian precision claim. Observed maximum disagreement is
+about `0.00329`. A linear surface objective has nonzero quote curvature and
+therefore rejects a frozen-Jacobian implementation.
+
+The initial aligned-knot reference fixture rejects a perturbed convexity domain;
+the existing nonaligned quote axes provide the admitted smooth comparison.
+Steps and tolerances are unchanged. Invalid-domain requests retain independent
+early-admission coverage. Ownership, original-IVS destruction, direct terms,
+all-bump preflight, exact numeric/tape budgets, nested recording preservation,
+callback phase failures, width-four recovery and concurrent callers pass.
+
+## Integration
+
+Fifteen strict probes pass in ordinary and combined diagnostic/profiling
+configurations, including the manual cost reference. The installed-only
+`DAL::cpp` CMake consumer passes. The accepted 182-member archive replaces one
+Dupire object and adds one curvature object; the other 181 members retain their
+bytes. Fresh base/head MC test links are identical, retaining accepted MC and
+generic correctness applicability without another runtime matrix.
+
+Six sanitizer filters include the new core suite, and the isolated allocation
+target/filter includes its failure-injection suite. Actual execution in all
+fourteen CI runtime profiles, every current-head check, Codacy annotation,
+complete review body and inline thread must still be inspected before merge.
+
+## Open questions and limits
+
+No user clarification is needed. This delivery accepts smooth sequential native
+objectives on raw quote coordinates. Complete MC quote adaptation, rate-provider
+rebuilding, report/binding projection, estimator policy and native mixed mode
+remain visible planned work. Public docs and changelog state this boundary.
+
+## Evidence
+
+Session directory: `dal-aad-evidence-20261010/dupire-quote-curvature`.
+Retain `library.json`, `correctness.xml`, `allocation-final.xml`, `strict.json`,
+installed consumer logs and raw mathematical comparisons. Cost evidence and
+exact-head runtime/review/merge proof remain required publication gates.

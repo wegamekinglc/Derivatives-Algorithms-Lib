@@ -16,6 +16,14 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-10-10
+
+- **Recalibrated Dupire quote curvature** — explicit native scalar objectives
+  produce quote Gamma, cross-Gamma and HVP estimates with a complete calibration,
+  objective gradient and native calibration pullback at every quote point.
+  Sealed base samples and fixed grids preserve the numerical calibration boundary.
+  See [Dupire quote curvature](docs/methodology/aad.md#recalibrated-dupire-quote-curvature).
+
 ## 2026-10-09
 
 - **Common-path Monte Carlo curvature** — selected Gamma, cross-Gamma and HVP
