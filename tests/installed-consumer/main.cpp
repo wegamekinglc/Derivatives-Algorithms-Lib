@@ -1,3 +1,7 @@
+//
+// Created by Codex on 2026/10/10.
+//
+
 #include <cmath>
 #include <numeric>
 
@@ -7,6 +11,7 @@
 #include <dal-public/src/global.hpp>
 #include <dal-public/src/interp.hpp>
 #include <dal-public/src/models.hpp>
+#include <dal-public/src/ratecurvature.hpp>
 #include <dal-public/src/script.hpp>
 #include <dal-public/src/storage.hpp>
 #include <dal-public/src/value.hpp>
@@ -71,6 +76,23 @@ namespace {
         return result.InputAxis().size() == 4 && result.Execution().quoteGradientEvaluations_ == 3 &&
                std::abs(result.HessianProducts()(0, 0) - 2.0) < 1e-10;
     }
+
+    bool CheckRateCurvature() {
+        Dal::CurveCalibrationSpec_ spec;
+        spec.today_ = Dal::Date_(2025, 1, 2);
+        spec.ccy_ = "USD";
+        spec.parameterization_ = Dal::CurveParameterization_::Value_::LOG_DISCOUNT;
+        spec.knotDates_ = {spec.today_, Dal::Date::AddMonths(spec.today_, 12)};
+        spec.instruments_ = {
+            Dal::Handle_<Dal::YCInstrument_>(new Dal::Deposit_(spec.today_, spec.knotDates_.back(), 0.03, Dal::DayBasis::Act365F()))};
+        const auto calibration = Dal::NewRateCalibration(spec);
+        Dal::AAD::BumpOverAADRequest_ request;
+        request.directions_ = Dal::Matrix_<>(1, 1, 1.0);
+        request.steps_ = {1e-4};
+        const auto result =
+            Dal::EvaluateRateQuoteCurvature([](auto*, const auto& x) -> Dal::AAD::Number_ { return x[1] * x[1]; }, calibration, request);
+        return result.Point().size() == 1 && result.Execution().calibrations_ == 3 && std::abs(result.HessianProducts()(0, 0) - 2.0) < 1e-10;
+    }
 } // namespace
 
 int main() {
@@ -103,6 +125,8 @@ int main() {
         return 9;
     if (!CheckQuoteCurvature(calibration))
         return 11;
+    if (!CheckRateCurvature())
+        return 12;
     const auto merton = Dal::NewMertonIVS(100.0, 0.2, 0.08, -0.1, 0.15);
     const Dal::AAD::MertonIVS_ mertonReference(100.0, 0.2, 0.08, -0.1, 0.15);
     if (merton.ImpliedVol(105.0, 0.4) != mertonReference.ImpliedVol(105.0, 0.4))
