@@ -31,6 +31,8 @@ complete preflight and independent-recording lifetime part of the contract.
 - Existing recorded solve/root operators require an explicit recording scope.
   A numbers-only callback cannot compose them. Supply the owned scope pointer,
   forbid callback lifecycle changes, and revalidate state before reading its root.
+  State alone does not detect checkpoint/restore. Reject nonzero checkpoint
+  generation on the fresh scope before reading or extending the returned node.
 
 ## Minor notes
 

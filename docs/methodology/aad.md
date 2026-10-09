@@ -2062,7 +2062,9 @@ const auto result = AAD::EvaluateBumpOverAAD(
 The callback receives the owned recording scope for composing existing recorded
 operators. It must rebuild its graph from the supplied inputs, keep captured
 external state fixed and leave recording lifecycle, checkpoints and adjoint mode
-to the driver. Retaining active numbers across calls is invalid. The driver
+to the driver. The driver rejects callback checkpoint creation before reading
+the returned node, including callbacks that restore the checkpoint. Retaining
+active numbers across calls is invalid. The driver
 snapshots the callback and numeric request, uses scalar adjoints and restores the
 caller's mode on success or failure. Nested independent recordings are rejected.
 

@@ -65,7 +65,8 @@ adjoints, so allocation failure cannot leave the caller in the temporary mode.
 The supplied scope pointer permits existing `LinearSolve`/`ImplicitRoot` and
 other recorded operators. The driver owns its lifecycle: callbacks must not
 finish, close, checkpoint, rewind or change modes. Validate recording state again
-after callback return, before inspecting or extending the returned root.
+after callback return and reject any checkpoint creation, before inspecting or
+extending the returned root.
 
 ## Alternatives and compatibility
 

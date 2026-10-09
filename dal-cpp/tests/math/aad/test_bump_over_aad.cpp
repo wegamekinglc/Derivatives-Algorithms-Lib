@@ -280,6 +280,39 @@ TEST(AADBumpOverAADTest, TestEveryCallbackPhaseFailureAndPrematureClosureRecover
     ASSERT_EQ(Tape()->numAdj_, 4);
 }
 
+TEST(AADBumpOverAADTest, TestCallbackCheckpointAndRewindRejectBeforeRootAccess) {
+    const auto mode = SetNumResultsForAAD(true, 4);
+    const auto request = Direction({1.0}, 0.1);
+    for (bool rewind : {true, false}) {
+        for (int failAt : {1, 2, 3}) {
+            int calls = 0;
+            try {
+                (void)EvaluateBumpOverAAD(
+                    [&](RecordingScope_* recording, const Vector_<Number_>& x) -> Number_ {
+                        if (++calls != failAt)
+                            return x[0] * x[0];
+                        const auto checkpoint = recording->MakeCheckpoint();
+                        Number_ result = x[0] * x[0];
+                        if (rewind)
+                            recording->Restore(checkpoint);
+                        return result;
+                    },
+                    {2.0}, request);
+                FAIL() << "Expected callback checkpoint rejection";
+            } catch (const Exception_& error) {
+                const std::string message = error.what();
+                const std::string phase = failAt == 1 ? "base" : failAt == 2 ? "plus" : "minus";
+                ASSERT_NE(message.find(phase), std::string::npos);
+                ASSERT_NE(message.find("checkpoint"), std::string::npos);
+            }
+            ASSERT_EQ(calls, failAt);
+            ASSERT_TRUE(Tape()->multi_);
+            ASSERT_EQ(Tape()->numAdj_, 4);
+            ASSERT_NEAR(EvaluateBumpOverAAD(SquaredKernel, {3.0}, request).HessianProducts()(0, 0), 2.0, 1e-10);
+        }
+    }
+}
+
 TEST(AADBumpOverAADTest, TestNestedRejectionPreservesOuterGraph) {
     const auto mode = SetNumResultsForAAD(false, 1);
     RecordingScope_ recording;

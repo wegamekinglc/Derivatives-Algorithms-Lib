@@ -20,7 +20,9 @@ recalibration, LSM policy choices, bindings and mixed mode have later deliveries
 No stochastic or nonsmooth estimator guarantee follows from the generic API.
 The callback receives the driver's scope pointer for existing recorded operators;
 it must leave lifecycle/checkpoint/mode ownership with the driver. Check scope
-state again after callback return before using the returned active root.
+state and reject any checkpoint creation after callback return before using the
+returned active root. Each fresh scope starts with zero checkpoint generation;
+every valid restore requires a checkpoint created in that same scope.
 
 ## Requirements
 
@@ -81,7 +83,9 @@ state again after callback return before using the returned active root.
 - An isolated allocation-probe executable injects failure at each measured
   request allocation, checks caller-mode restoration and verifies a subsequent
   request. Keep global allocation replacement outside the ordinary test binary;
-  execute the probe alongside the twelve core cases in all fourteen profiles.
+  execute the probe alongside the thirteen core cases in all fourteen profiles.
+- Reject callback checkpoint creation and checkpoint/restore at base, plus and
+  minus phases before inspecting its output; verify mode restoration and recovery.
 - Measure only two selected request shapes (4 inputs/1 direction and 32 inputs/
   3 directions), reporting full-request cost, work counts, payload and limits.
   Existing caller bodies remain unchanged; retain source/binary provenance.

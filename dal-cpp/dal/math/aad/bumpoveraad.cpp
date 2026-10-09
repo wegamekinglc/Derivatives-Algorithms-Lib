@@ -77,7 +77,7 @@ namespace Dal::AAD {
                 recording.RegisterInput(zero, 0.0);
                 recording.StartRecording();
                 const auto output = function(&recording, inputs);
-                (void)NativeRecordedOperation_::Begin(&recording);
+                NativeRecordedOperation_::RequireUnsegmented(&recording);
                 REQUIRE(std::isfinite(Value(output)), "BumpOverAAD: scalar value must be finite");
                 auto root = NativeOperations_::ActiveRoot(output, zero);
                 recording.FinishRecording();

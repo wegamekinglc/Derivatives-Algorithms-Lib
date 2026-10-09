@@ -211,3 +211,21 @@ speedup or stable equality claim. The calibrated gate reports **no regression**;
 new API overhead is informational. Earlier overhead figures use the heap-guard
 reference and are superseded by these corrected comparisons. No further local
 full suite or performance matrix is required by this benchmark-only repair.
+
+## Callback checkpoint repair selection
+
+Review finding `4230306027` reproduces a rewound callback output with lifecycle
+state still recording. Add one internal `RequireUnsegmented` validation that
+retains `Begin` state/mode/event checks and rejects a nonzero checkpoint generation
+before output access. Fresh scopes start at zero; a valid restore requires a
+checkpoint from that scope. The helper allocates no state and changes no layout.
+Existing `Begin` and checkpoint/operator behavior remain unchanged.
+
+Rebuild only the curvature and reverse-event objects against the integrated
+upstream library, retaining the other 179 archive member occurrences. Validate
+the new regression, the affected curvature suite, allocation recovery and three
+existing recorded-event/solve boundary cases. Repeat the same three selected
+performance comparisons because the shared reverse-event object now changes;
+use the corrected frozen manual baseline, two interleaved rounds, ten samples
+per side for new requests and twenty for the already noisy short control. Keep
+the minimum reduction and +4% old-caller threshold. No other target is selected.
