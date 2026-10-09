@@ -11,6 +11,11 @@ The review/testing repaired a real wide-adjoint-mode entry defect: passive
 calibration now uses one shared scalar-mode boundary for both factories and
 replay, restoring the caller mode on return or exception. Its RED and focused
 GREEN are retained. Capacity tests distinguish peak payload from cleanup reserve.
+Codacy's two complexity findings are repaired by extracting matrix-shape
+admission and the independent four-price stencil, preserving every original
+check, bump, tolerance and assertion. Twelve affected cases and four changed
+strict probes pass again; unchanged common-risk cases and consumer probes retain
+their source/dependency/object proof. Installed consumption is refreshed.
 
 ## Open questions
 
@@ -34,10 +39,12 @@ Only smooth exact square-system native objective curvature is delivered here.
 - Six strict OFF/combined diagnostic probes pass; installed `DAL::public`
   consumer passes 1/1. All 25 previous facade objects remain identical; one
   object is added. Core archive is unchanged.
-- Three scoped cost comparisons retain 120 paired process samples and 1.3504
+- Three scoped cost comparisons retain 120 paired process samples and 1.3698
   seconds of timed work. The existing control's executables are byte-identical,
   both round deltas remain below 4%, and new-path overhead is informational.
   See the [cost report](../performance/aad-rate-quote-curvature.md).
+  Only two affected new entries were resampled after the Codacy refactor;
+  the unchanged old control's 40 samples were reused with exact executable proof.
 
 Evidence root:
 `/home/wegamekinglc/.cache/dal-aad-evidence-20261010/rate-quote-curvature`.

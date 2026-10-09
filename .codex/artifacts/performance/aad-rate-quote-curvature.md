@@ -45,9 +45,13 @@ throughput from these small cases.
 
 ## Results
 
-Measured commit: `471dcb24acd3e8534c023cf073cc0177e10bed7d`.
+Measured implementation: `b04b4fc98cabbf44ca638269dcec6481fca1fe03`.
+The original comparison at `471dcb24acd3e8534c023cf073cc0177e10bed7d` is retained.
+After Codacy's shape/stencil refactor, only the two affected new entries are
+resampled (80 process samples); 40 old-control samples are reused after both
+rebuilt old-control executable hashes exactly match the accepted binaries.
 GCC 15.2.0, `-O3 -DNDEBUG -ffp-contract=fast`, Intel i9-13900HX under WSL,
-one worker, diagnostics/native architecture OFF. Load averages remain 0.32 on
+one worker, diagnostics/native architecture OFF. Load averages remain 0.31 on
 32 logical CPUs; this is a shared host without an exclusive-window claim.
 Snapshot construction occurs once before new-path warmup; the timed entry is
 the complete `EvaluateRateQuoteCurvature` call. The old control includes its
@@ -55,12 +59,12 @@ calibration and retained-provenance construction on both sides.
 
 | Selected case        | Reference min, ms | Candidate min, ms | Combined delta | Round 1 | Round 2 | Verdict               |
 |----------------------|-------------------|-------------------|----------------|---------|---------|-----------------------|
-| Single curvature     | 1.660145          | 1.670641          | +0.63%         | −0.89%  | +0.63%  | Informational new path |
-| Layered joint        | 4.166149          | 4.165898          | −0.01%         | −0.60%  | +0.52%  | Informational new path |
+| Single curvature     | 1.696242          | 1.667612          | −1.69%         | +0.16%  | −2.50%  | Informational new path |
+| Layered joint        | 4.155623          | 4.160269          | +0.11%         | +2.77%  | −2.80%  | Informational new path |
 | Existing first order | 0.609514          | 0.623810          | +2.35%         | +1.78%  | +3.59%  | No regression         |
 
 All 120 process samples are retained; all paired numerical checksums agree.
-Five timed requests per sample total 1.3504 seconds of work, excluding startup,
+Five timed requests per accepted sample total 1.3698 seconds of work, excluding startup,
 warmup, configure and compile time. Both old-control executables have identical
 SHA-256 `d810f2efb25f57db1d39b7ddf0b80f46792abaeadbda3ddf4f6c7a7c41e3dcaa`;
 the measured movement is shared-host noise within the calibrated threshold.
@@ -73,10 +77,12 @@ two-quote LOG_DISCOUNT fixture is identifiable and satisfies that rule; sampling
 and thresholds were unchanged. This was a harness input repair, not a library
 change or a weakened numerical check.
 
-Reproduction: `performance.py` in the evidence root records isolated builds and
-all commands. `performance/environment.json` contains source/toolchain/host and
-binary/archive identities; `performance/results.json` contains every duration,
-checksum and round minimum; individual process logs retain raw output.
+Reproduction: `performance.py` and `performance-repair.py` in the evidence root
+record the original and repair builds. `performance-codacy-repair/environment.json`
+contains final source/toolchain/host and binary/archive identities;
+`performance-codacy-repair/results.json` contains every accepted duration,
+checksum and round minimum, including paths to the retained 40 original control
+logs. Individual process logs retain raw output in both directories.
 
 Overall verdict: no regression in the scoped existing-path control; new-path
 costs are informational. The existing `rate_risk_perf` workload is the natural
