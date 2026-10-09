@@ -159,3 +159,16 @@ no invalid-script path; Python translation is outside this C++ request. Reuse th
 accepted timings rather than repeating unrelated cases. Integrated focused tests
 and installed-only consumption establish linkage against the updated dependency.
 `segmented-mc-library/integration-verification.json` retains the replacement proof.
+
+## Review repair selection
+
+Review identifies a zero-driver Sobol admission defect and uncaught standard
+exceptions in the benchmark runner. Both have focused RED evidence. The repair
+changes only the no-driver direction limit and the outer error handler; existing
+normal-driver replay, lanes, allocation sizes and reduction bodies are unchanged.
+Retain the complete MC timing/resource evidence. Select only the 16-step,
+one-thread segmented request as a whole-request canary for the added admission
+condition and changed runner, comparing frozen old/new executables with identical
+affinity and two best-of-ten rounds at +4%. This shortest request is most sensitive
+to admission overhead. Do not repeat the four-shape matrix, RNG/solver matrices
+or heap probes for unchanged allocation paths.

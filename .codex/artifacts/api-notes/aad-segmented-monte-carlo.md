@@ -10,6 +10,7 @@ SegmentedMonteCarloResult_ exposes MeanValue(), MeanGradient(), ParameterLabels(
 and Execution(); its data is owned. Execution names maximum per-path resources,
 count/offset, fixed batching and generator settings. Errors identify the offending
 input/constraint. A positive count is required because an empty mean is undefined.
+Without drivers, offsets obey size_t range admission without RNG-specific limits.
 
 The immutable financial kernel exposes const request admission, sharing its
 parameter checks and the core's checked checkpoint plan. This does not execute a

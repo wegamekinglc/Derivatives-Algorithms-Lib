@@ -2,6 +2,7 @@
 // Created by Codex on 2026/10/09.
 //
 
+#include <exception>
 #include <iomanip>
 #include <iostream>
 #include <memory>
@@ -135,7 +136,7 @@ int RunSegmentedMonteCarloBenchmarks(int argc, char** argv) {
         Dal::RegisterAll_::Init();
         Run(ParseOptions(argc, argv));
         return 0;
-    } catch (const Dal::Exception_& error) {
+    } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
         return 2;
     }

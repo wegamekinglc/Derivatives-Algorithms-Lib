@@ -276,6 +276,19 @@ TEST(SegmentedMonteCarloTest, TestTimeZeroAndHistoricalOnlyWithoutDrivers) {
     const auto past = Script::EvaluateBlackScholesSegmentedMonteCarlo(historyKernel, {100.0, 0.2, 0.03, 0.01, -3.0}, 35, settings);
     ASSERT_EQ(past.MeanValue(), -240.0);
     ASSERT_EQ(past.MeanGradient(), (Vector_<>{0.0, 0.0, 0.0, 0.0, 80.0}));
+    if constexpr (std::numeric_limits<size_t>::max() > std::numeric_limits<std::uint32_t>::max()) {
+        settings.firstPath_ = std::numeric_limits<std::uint32_t>::max();
+        for (const Dal::String_ method : {"sobol", "mrg32", "irn"}) {
+            settings.rsg_ = method;
+            const auto distantNow = Script::EvaluateBlackScholesSegmentedMonteCarlo(todayKernel, {100.0, 0.2, 0.03, 0.01}, 35, settings);
+            const auto distantPast = Script::EvaluateBlackScholesSegmentedMonteCarlo(historyKernel, {100.0, 0.2, 0.03, 0.01, -3.0}, 35, settings);
+            ASSERT_EQ(distantNow.MeanValue(), now.MeanValue());
+            ASSERT_EQ(distantNow.MeanGradient(), now.MeanGradient());
+            ASSERT_EQ(distantPast.MeanValue(), past.MeanValue());
+            ASSERT_EQ(distantPast.MeanGradient(), past.MeanGradient());
+            ASSERT_EQ(distantPast.Execution().firstPath_, settings.firstPath_);
+        }
+    }
 }
 
 TEST(SegmentedMonteCarloTest, TestInvalidAdmissionHasNoSubmissionsAndPreservesOuterRecording) {

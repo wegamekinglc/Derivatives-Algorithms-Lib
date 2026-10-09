@@ -16,7 +16,8 @@ implementation plan and its P05 complete-state/RNG acceptance requirement.
    SkipNormalTo(firstPath) establishes the absolute zero-based path offset;
    do not add the factory's initial Sobol 2048 offset. FillNormal once per path,
    retain its transformed Gaussian vector through reverse replay, and never draw
-   during replay. Zero-dimensional requests allocate no RNG.
+   during replay. Zero-dimensional requests allocate no RNG and impose only the
+   size_t path-range check, not generator-specific direction/draw limits.
 4. Use fixed 32-path batches and ordered individual batch reduction. A request
    owns at most min(pool thread count, 64, batch count) exclusive lanes. Each lane
    retains its RNG/Gaussian vector across drained waves and seeks monotonically.

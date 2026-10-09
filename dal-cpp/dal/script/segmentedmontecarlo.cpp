@@ -40,7 +40,7 @@ namespace Dal::Script {
             constexpr size_t MAX_SIZE = std::numeric_limits<size_t>::max();
             REQUIRE2(settings.firstPath_ <= MAX_SIZE - paths, "SegmentedMonteCarlo: firstPath + pathCount overflows size_t", ScriptError_);
             const size_t end = settings.firstPath_ + paths;
-            if (settings.rsg_ == "sobol") {
+            if (settings.rsg_ == "sobol" && dimension != 0) {
                 REQUIRE2(end <= std::numeric_limits<std::uint32_t>::max(), "SegmentedMonteCarlo: Sobol path range exceeds 32-bit directions",
                          ScriptError_);
             } else {
