@@ -106,19 +106,21 @@ namespace {
                 "Segmented path benchmark second derivative differs from independent oracle");
     }
 
-    void Run(const Case_& request, bool segmented) {
+    void Run(const Case_& request, bool segmented, bool cold = true) {
         const Path_ path(request);
         const Vector_<> parameters = {2.0, 1.0};
         const Vector_<> drivers(request.steps_, 1.0 / request.steps_);
         SegmentedPathSettings_ settings;
         settings.segmentSteps_ = request.segmentSteps_;
         auto result = SegmentedPathResult_(0.0, {}, {});
-        const std::string mode = segmented ? "segmented" : "full";
+        const std::string mode = std::string(segmented ? "segmented" : "full") + (cold ? "" : "-warm");
+        Clear(*Tape());
         const auto timing = Bench::Run(
             request.name_ + std::string(" ") + mode,
             [&] {
-                // Cold requests prevent a previous full graph from inflating the segmented tape.
-                Clear(*Tape());
+                // Each strategy warms its own tape; cold requests include its reset cost.
+                if (cold)
+                    Clear(*Tape());
                 result = segmented ? ExecuteSegmentedPath(path, parameters, drivers, settings) : FullPath(path, parameters, drivers);
                 Bench::DoNotOptimize(&result);
             },
@@ -132,10 +134,10 @@ namespace {
         Clear(*Tape());
     }
 
-    int RunSelected(const std::string& name, bool segmented) {
+    int RunSelected(const std::string& name, bool segmented, bool cold) {
         for (const auto& request : CASES) {
             if (request.name_ == name) {
-                Run(request, segmented);
+                Run(request, segmented, cold);
                 return 0;
             }
         }
@@ -145,10 +147,18 @@ namespace {
     int CommandLine(int argc, char** argv) {
         if (argc != 5 || std::string(argv[1]) != "--case" || std::string(argv[3]) != "--mode")
             return 2;
-        const std::string mode(argv[4]);
-        if (mode != "full" && mode != "segmented")
-            return 2;
-        return RunSelected(argv[2], mode == "segmented");
+        struct Mode_ {
+            const char* name_;
+            bool segmented_;
+            bool cold_;
+        };
+        const std::array<Mode_, 4> modes = {
+            {{"full", false, true}, {"segmented", true, true}, {"full-warm", false, false}, {"segmented-warm", true, false}}};
+        for (const auto& mode : modes) {
+            if (mode.name_ == std::string(argv[4]))
+                return RunSelected(argv[2], mode.segmented_, mode.cold_);
+        }
+        return 2;
     }
 } // namespace
 
@@ -159,6 +169,8 @@ int RunSegmentedPathBenchmarks(int argc, char** argv) {
             for (const auto& request : CASES) {
                 Run(request, false);
                 Run(request, true);
+                Run(request, false, false);
+                Run(request, true, false);
             }
             return 0;
         }

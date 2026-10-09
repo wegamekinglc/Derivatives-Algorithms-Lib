@@ -1870,7 +1870,8 @@ Segmentation trades a passive prepass, snapshots and recomputation for a smaller
 local tape. Segment length controls that tradeoff; a small path can cost more
 without reducing allocated tape blocks. The focused `tape_perf --segmented-path`
 benchmark checks short/long paths and direct contributions against independent
-price/gradient oracles and reports complete cold-request cost and capacities.
+price/gradient oracles and reports complete cold and reused-tape request costs
+and capacities.
 No automatic strategy is selected.
 
 The complete boundary state is the caller's responsibility. A financial kernel

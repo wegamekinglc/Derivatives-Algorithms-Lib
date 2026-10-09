@@ -24,18 +24,22 @@ It does not claim financial Monte Carlo or script integration acceptance.
 - `long256`: the same long path with segment length 256.
 - `cashflows`: 16,384 steps, segment length 128, direct contributions at every step.
 
-Collect two independent rounds of ten interleaved process samples per mode and
-case, alternating which mode starts. Retain raw outputs and reduce each round
+Measure cold reset and steady-state tape reuse separately for each of the four
+cases: eight comparison pairs, with no unrelated targets. This addition follows
+the smoke probe's different full-graph allocation costs after sustained reuse;
+cold-only evidence would not support an ordinary reusable-tape cost claim.
+Collect two independent rounds of ten interleaved process samples per strategy,
+regime and case, alternating which strategy starts. Retain raw outputs and reduce each round
 with its minimum; keep the existing sustained 4% rule when describing cost
 differences. Each process also checks its complete returned value and gradient.
 
-The timed body includes cold tape reset, copies, initialization, all forward
+The timed body includes copies, initialization, all forward
 work, checkpoint storage, recomputation, fresh recording, reverse, reduction,
 result ownership and recording cleanup. The segmented prepass is included.
-Common fixture construction is outside both timings. Final tape release is
-outside both timings; cold reset cost is included in the next timed request.
-This controls retained capacity rather than comparing a small recording on a
-tape left large by the full-graph side.
+Common fixture construction is outside both timings. Cold samples include tape
+reset inside every timed request; warm samples retain each strategy's own tape
+after its warmup. Final tape release is outside both timings. An initial reset
+outside both regimes prevents a full-graph case from inflating the segmented tape.
 
 Report peak allocated tape payload, retained checkpoint capacity and separate
 cleanup reservation. Request input copies, result storage, transient kernel
