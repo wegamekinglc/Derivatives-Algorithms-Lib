@@ -20,20 +20,23 @@ namespace {
         }
     }
 
+    //  Re-throw with the escaped text: pybind11's built-in translator then maps it to
+    //  RuntimeError on every supported pybind11 version, without raw CPython calls
     void SetLenientRuntimeError(const std::exception& error) {
         try {
             const py::object message = py::module_::import("codecs").attr("decode")(py::bytes(error.what()), "utf-8", "backslashreplace");
-            py::set_error(PyExc_RuntimeError, message);
+            throw std::runtime_error(message.cast<std::string>());
         } catch (const py::error_already_set&) {
-            py::set_error(PyExc_RuntimeError, "DAL error with an undecodable message");
+            throw std::runtime_error("DAL error with an undecodable message");
         }
     }
 } // namespace
 
 PYBIND11_MODULE(_dal, m) {
     //  pybind11's default translator decodes what() as strict UTF-8; a lone non-ASCII
-    //  byte would surface as UnicodeDecodeError and hide the DAL error type. Handle only
-    //  undecodable messages and rethrow the rest so pybind11's own type mappings hold.
+    //  byte would surface as UnicodeDecodeError and hide the DAL error type. Rethrow
+    //  decodable messages untouched so pybind11's own type mappings hold, and rethrow
+    //  undecodable ones with backslash-escaped text as a plain runtime_error.
     py::register_exception_translator([](std::exception_ptr exception) {
         try {
             if (exception)
