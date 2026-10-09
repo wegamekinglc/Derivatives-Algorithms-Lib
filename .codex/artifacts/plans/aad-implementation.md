@@ -1358,7 +1358,7 @@ numeric/native diagnostics are not counted again.
 | 6     | P04 structural sparsity              | #507–#511 merged; implementation, scoped cost and publication gates accepted   | 0               |
 | 7a    | P05 segmentation core                | #512 merged; actual runtime, exact-head CI/review and guarded merge accepted   | 0               |
 | 7b    | P05 financial adapter                | #513 merged; exact-head CI, review, costs, actual runtime and merge accepted   | 0               |
-| 7c    | P05 Monte Carlo acceptance           | Local range repair/cost pass; current-head CI/review and guarded merge          | 1–3             |
+| 7c    | P05 Monte Carlo acceptance           | Local range repair/cost pass; current-head CI/review and guarded merge         | 1–3             |
 | 8     | F04 second-order risk                | Gamma, cross-Gamma, HVP, recalibration and estimator validation                | 64–96           |
 | 9     | F04 native mixed-mode prototype      | Smooth-kernel prototype, independent correctness and capability limits         | 32–64           |
 | 10    | Bindings and complete acceptance     | C++/Python/Excel, documentation, platform and performance gates                | 56–88           |
