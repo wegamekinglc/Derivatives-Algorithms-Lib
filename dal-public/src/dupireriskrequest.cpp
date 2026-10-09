@@ -3,13 +3,18 @@
 //
 
 #include <algorithm>
+#include <iomanip>
 #include <limits>
+#include <locale>
 #include <set>
+#include <sstream>
 #include <typeinfo>
 #include <utility>
 
+#include <dal/math/cellutils.hpp>
 #include <dal/model/factory.hpp>
 #include <dal/platform/platform.hpp>
+#include <dal/script/plannedpreparation.hpp>
 #include <dal/storage/globals.hpp>
 #include <dal/storage/json.hpp>
 
@@ -61,9 +66,10 @@ namespace Dal {
                 REQUIRE(type == typeid(HybridBSEquityData_) || type == typeid(HybridLocalVolEquityData_) ||
                             type == typeid(HybridDeterministicRateData_),
                         "InvalidDupireRiskRequest: unsupported Hybrid component type; component=" + item->Name());
-                if (const auto* local = dynamic_cast<const HybridLocalVolEquityData_*>(item.get()))
+                if (const auto* local = dynamic_cast<const HybridLocalVolEquityData_*>(item.get())) {
                     REQUIRE(local->surface_ && typeid(*local->surface_) == typeid(LocalVolSurfaceData_),
                             "InvalidDupireRiskRequest: unsupported Hybrid surface type; component=" + item->Name());
+                }
             }
         }
 
@@ -172,6 +178,71 @@ namespace Dal {
             }
             return NewCalibrationDirectQuoteAdjoints(calibration, seeds);
         }
+
+        Handle_<ModelData_> RebuiltModel(const Handle_<ModelData_>& source, const DupireCalibrationSnapshot_& calibration, const String_& component) {
+            const auto hybrid = handle_cast<HybridModelData_>(source);
+            auto components = hybrid->components_;
+            for (auto& item : components) {
+                if (item->Name() != component)
+                    continue;
+                const auto local = handle_cast<HybridLocalVolEquityData_>(item);
+                item =
+                    Handle_<HybridComponentData_>(new HybridLocalVolEquityData_(local->Name(), local->index_, local->currency_, local->factor_,
+                                                                                local->spot_, local->div_, calibration.Surface(), local->maxStep_));
+            }
+            return Handle_<ModelData_>(new HybridModelData_(hybrid->Name(), hybrid->domesticCurrency_, components, hybrid->correlation_));
+        }
+
+        String_ RoundTripNumber(double value) {
+            std::ostringstream out;
+            out.imbue(std::locale::classic());
+            out << std::setprecision(std::numeric_limits<double>::max_digits10) << value;
+            return String_(out.str());
+        }
+
+        Handle_<ScriptProductData_> ReboundProduct(const ScriptProductData_& source,
+                                                   const CalibrationRiskPlan_& quotes,
+                                                   const Vector_<DupireQuoteBinding_>& bindings,
+                                                   const Matrix_<>& spreads) {
+            auto parsed = source.Product();
+            parsed.IndexVariables();
+            auto events = source.EventTexts();
+            for (const auto& binding : bindings) {
+                const auto& name = parsed.ConstVarNames()[binding.constantOrdinal_];
+                const auto& quote = DirectQuote(quotes, binding.quoteId_);
+                const auto row = std::find_if(source.Dates().begin(), source.Dates().end(),
+                                              [&](const Cell_& date) { return !Cell::IsDate(date) && Cell::ToString(date) == name; });
+                REQUIRE(row != source.Dates().end(), "RecalibrateDupireScriptRisk: direct binding requires a scalar definition; constant=" + name);
+                events[static_cast<size_t>(row - source.Dates().begin())] = RoundTripNumber(spreads(quote.row_, quote.column_));
+            }
+            return Handle_<ScriptProductData_>(new ScriptProductData_(source.Name(), source.Dates(), events, source.Settings()));
+        }
+
+        ScriptValuationSettings_ FrozenValuation(const ScriptProductData_& product,
+                                                 const Handle_<ModelData_>& model,
+                                                 const ScriptValuationSettings_& valuation,
+                                                 const MonteCarloSettings_& simulation) {
+            const auto parsed = product.Product();
+            REQUIRE(!parsed.ContainsExercise(), "RecalibrateDupireScriptRisk: exercise-policy curvature is unsupported");
+            auto resolved = Script::ResolveValuationSettings(valuation);
+            const auto& dates = parsed.ParsedEventDates();
+            if (std::all_of(dates.begin(), dates.end(), [&](const Date_& date) { return date < *resolved.evaluationDate_; })) {
+                if (!resolved.fixings_)
+                    resolved.fixings_ = Handle_<MarketFixingSnapshot_>(new MarketFixingSnapshot_());
+                return resolved;
+            }
+            const auto planned = Script::Detail::PlanScript(product, CreateModel<double>(model), valuation, simulation);
+            auto result = planned.View().Settings();
+            if (!result.fixings_) {
+                Vector_<FixingRequest_> historical;
+                for (const auto& observation : planned.View().Plan().Requests()) {
+                    if (observation.historical_)
+                        historical.push_back({observation.key_.canonicalIndex_, observation.key_.fixingTime_});
+                }
+                result.fixings_ = SnapshotGlobalFixings(historical);
+            }
+            return result;
+        }
     } // namespace
 
     namespace Detail {
@@ -259,6 +330,29 @@ namespace Dal {
             copied.valuation_.evaluationDate_ = Script::CaptureScriptEvaluationDate();
         return DupireScriptRiskPlan_(std::make_shared<const DupireScriptRiskPlan_::Data_>(
             frozenProduct, frozenModel, std::move(quotePlan), component, std::move(complete), std::move(required), std::move(copied), bytes));
+    }
+
+    DupireScriptRiskPlan_ RecalibrateDupireScriptRisk(const DupireScriptRiskPlan_& plan, const Matrix_<>& quoteSpreads) {
+        XGLOBAL::ValuationMutationGuard_ guard;
+        const auto& data = *plan.data_;
+        REQUIRE(!data.direct_, "RecalibrateDupireScriptRisk: external first-order direct seeds cannot be recalibrated");
+        const auto& original = std::get<DupireCalibrationSnapshot_>(data.quotePlan_.Calibration().Source());
+        const auto calibration = RecalibrateDupireWithRisk(original, quoteSpreads);
+        const auto product = ReboundProduct(*data.product_, data.quotePlan_, data.directBindings_, quoteSpreads);
+        const auto model = RebuiltModel(data.model_, calibration, data.component_);
+        DupireScriptRiskRequest_ request;
+        request.numPaths_ = data.numPaths_;
+        request.directBindings_ = data.directBindings_;
+        request.valuation_ = FrozenValuation(*data.product_, data.model_, data.valuation_, data.simulation_);
+        request.simulation_ = data.simulation_;
+        request.quotes_.inputs_ = Vector_<String_>();
+        request.quotes_.reportFactors_ = Vector_<>();
+        request.quotes_.numericPayloadBudgetBytes_ = data.numericPayloadBytes_;
+        for (const auto& quote : data.quotePlan_.InputAxis()) {
+            request.quotes_.inputs_->push_back(quote.id_);
+            request.quotes_.reportFactors_->push_back(quote.reportScale_);
+        }
+        return PlanDupireScriptRisk(product, model, calibration, data.component_, request);
     }
 
     DupireScriptRiskResult_::DupireScriptRiskResult_(Script::RiskResult_&& valuation,

@@ -35,6 +35,7 @@ namespace Dal {
                                                           const String_&,
                                                           const DupireScriptRiskRequest_&);
         friend DupireScriptRiskResult_ ValueByMonteCarloWithDupireRisk(const DupireScriptRiskPlan_&);
+        friend DupireScriptRiskPlan_ RecalibrateDupireScriptRisk(const DupireScriptRiskPlan_&, const Matrix_<>&);
 
     public:
         [[nodiscard]] const String_& Component() const;
@@ -53,6 +54,8 @@ namespace Dal {
                                                              const DupireCalibrationSnapshot_& calibration,
                                                              const String_& component,
                                                              const DupireScriptRiskRequest_& request);
+
+    [[nodiscard]] DupireScriptRiskPlan_ RecalibrateDupireScriptRisk(const DupireScriptRiskPlan_& plan, const Matrix_<>& quoteSpreads);
 
     class DupireScriptRiskResult_ {
         Script::RiskResult_ valuation_;

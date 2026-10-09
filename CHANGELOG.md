@@ -18,6 +18,11 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-10
 
+- **Monte Carlo Dupire quote curvature** — C++ financial requests estimate
+  Gamma, cross-Gamma and HVPs through full quote recalibration and rebuilt
+  model/direct dependencies on common paths, with frozen historical fixings
+  and owning raw-coordinate results. See
+  [MC quote curvature](docs/methodology/aad.md#common-path-c-monte-carlo-quote-curvature).
 - **Recalibrated Dupire quote curvature** — explicit native scalar objectives
   produce quote Gamma, cross-Gamma and HVP estimates with a complete calibration,
   objective gradient and native calibration pullback at every quote point.

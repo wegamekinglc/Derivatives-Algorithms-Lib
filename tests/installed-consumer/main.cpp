@@ -2,6 +2,7 @@
 #include <numeric>
 
 #include <dal-public/src/calendar.hpp>
+#include <dal-public/src/dupirecurvature.hpp>
 #include <dal-public/src/dupirerisk.hpp>
 #include <dal-public/src/global.hpp>
 #include <dal-public/src/interp.hpp>
@@ -53,6 +54,23 @@ namespace {
         const auto expected = Dal::CalibrateDupireWithRisk(ConsumerIVS_(model.rate_, model.div_), inputs);
         return actual.Matches(expected) && actual.Rate() == 0.05 && actual.DividendYield() == 0.02;
     }
+
+    bool CheckQuoteCurvature(const Dal::DupireCalibrationSnapshot_& calibration) {
+        const auto model = Dal::NewDupireModelData("installed-curvature", calibration, "EQ[INSTALLED]", "USD", "W_EQ", 0.25);
+        const auto product =
+            Dal::NewScriptProduct("installed-direct", {Dal::Cell_("QUOTE"), Dal::Cell_(Dal::Date_(2027, 9, 12))}, {"0", "pay PAYS QUOTE * QUOTE"});
+        Dal::DupireScriptCurvatureRequest_ request;
+        request.risk_.numPaths_ = 17;
+        request.risk_.directBindings_ = {{0, "quote:0"}};
+        request.risk_.valuation_.evaluationDate_ = Dal::Date_(2026, 9, 12);
+        request.risk_.simulation_.compiled_ = true;
+        request.bumps_.directions_ = Dal::Matrix_<>(1, 4, 0.0);
+        request.bumps_.directions_(0, 0) = 1.0;
+        request.bumps_.steps_ = {1e-4};
+        const auto result = Dal::ValueByMonteCarloWithDupireCurvature(Dal::PlanDupireScriptCurvature(product, model, calibration, "equity", request));
+        return result.InputAxis().size() == 4 && result.Execution().quoteGradientEvaluations_ == 3 &&
+               std::abs(result.HessianProducts()(0, 0) - 2.0) < 1e-10;
+    }
 } // namespace
 
 int main() {
@@ -83,6 +101,8 @@ int main() {
         return 8;
     if (!CheckFlatConvenience(inputs))
         return 9;
+    if (!CheckQuoteCurvature(calibration))
+        return 11;
     const auto merton = Dal::NewMertonIVS(100.0, 0.2, 0.08, -0.1, 0.15);
     const Dal::AAD::MertonIVS_ mertonReference(100.0, 0.2, 0.08, -0.1, 0.15);
     if (merton.ImpliedVol(105.0, 0.4) != mertonReference.ImpliedVol(105.0, 0.4))
