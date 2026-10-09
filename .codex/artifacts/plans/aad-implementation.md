@@ -157,32 +157,36 @@ Completed controls remain in immutable
 [review](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/19c23ad620788b9bbbab0bdedd89f44abdd5153f/.codex/artifacts/reviews/aad-black-scholes-segmentation.md)
 and [cost report](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/19c23ad620788b9bbbab0bdedd89f44abdd5153f/.codex/artifacts/performance/aad-black-scholes-segmentation.md).
 
-The active increment follows the
-[segmented Monte Carlo specification](../specs/aad-segmented-monte-carlo.md),
-[API decisions](../api-notes/aad-segmented-monte-carlo.md) and
-[critique](../critiques/aad-segmented-monte-carlo.md). It adds explicit mean
-aggregation, common-path RNG/bridge integration, bounded exclusive lanes and
-ordered fixed-batch reduction. The missing-entry and serial-scheduling RED logs
-precede eleven focused GREEN cases. Eleven strict checks and an installed-only
-consumer checking all five risk columns pass. The old 179 archive members remain
-byte-identical; only the new MC object is added. The
-[local review](../reviews/aad-segmented-monte-carlo.md) records ownership and
-failure audits. The [scoped cost plan](../performance/aad-segmented-monte-carlo.md)
-accepts four short/long, one/four-thread shapes, with all ordinary-caller controls
-passing two best-of-ten rounds. Long MC requests save about 9.5%/21.5% warm payload
-at about 8.1x/7.3x latency; short cold scheduling can increase retained tape memory.
-Noise diagnostics are retained; only affected shapes repeat. Local implementation
-and cost acceptance pass. Publication remains open, so whole P05 remains open.
+P05's Monte Carlo adapter is accepted in merged
+[#515](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/515),
+at `faccea0b`. Two final audits accept 36/36 checks on `08769ee0`, zero Codacy
+annotations and zero unresolved threads. All eleven new tests actually execute
+and pass in each of fourteen sanitizer, extended and MSVC profiles. The tested
+and merged trees equal `1401f9100a22449a3814e7a2d015b56fb4ef1896`.
+All four inline findings are repaired, including the final representable
+zero-driver path and the plan-table alignment. Scoped correctness/strict probes,
+installed consumption, bounded lanes, ordered reduction and failure recovery pass.
+Four selected ordinary-caller gates pass. Long MC requests save about 9.5%/21.5%
+warm payload at about 8.1x/7.3x latency; short cold scheduling can retain more tape
+memory. Segmentation remains explicit. Review repairs use only one short-request
+canary each, retaining the matrix/resource evidence. Upstream #514 error-path
+integration preserves every unrelated accepted archive member. Whole P05 is closed.
+Completed controls remain in immutable
+[specification](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/08769ee02a46315c402ddcac9f6928c7b5191864/.codex/artifacts/specs/aad-segmented-monte-carlo.md),
+[API](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/08769ee02a46315c402ddcac9f6928c7b5191864/.codex/artifacts/api-notes/aad-segmented-monte-carlo.md),
+[critique](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/08769ee02a46315c402ddcac9f6928c7b5191864/.codex/artifacts/critiques/aad-segmented-monte-carlo.md),
+[review](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/08769ee02a46315c402ddcac9f6928c7b5191864/.codex/artifacts/reviews/aad-segmented-monte-carlo.md)
+and [cost report](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/08769ee02a46315c402ddcac9f6928c7b5191864/.codex/artifacts/performance/aad-segmented-monte-carlo.md).
 
-The active Monte Carlo increment is published in
-[#515](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/515).
-Upstream #514's UTF-8 lexer/Python error handling is integrated. It changes error
-construction outside prepared valid MC workloads; retain the frozen cost evidence
-with dependency/body provenance and verify the integrated focused consumer.
-Two Copilot findings have focused RED/GREEN repairs in `288a0b07` (zero-driver
-range admission and standard benchmark exceptions). Seven affected strict probes,
-installed use and a single short-request cost canary pass; its forty samples take
-1.42 seconds with +2.32%/-0.57% round deltas. Remote acceptance remains open.
+The active F04 increment follows the
+[bump-over-AAD specification](../specs/aad-bump-over-aad.md),
+[API decisions](../api-notes/aad-bump-over-aad.md) and
+[critique](../critiques/aad-bump-over-aad.md). It introduces explicit central
+differences of fresh native gradients, selected Gamma/cross-Gamma columns and
+HVPs, owning request/result provenance, complete bump admission and separate
+numeric/tape budgets. Smooth-kernel mathematical validation comes first.
+Financial common paths/smoothing, recalibration curvature and policy/nested-step
+semantics remain required later F04 deliveries. Native mixed mode remains separate.
 
 Native PDE recording is accepted in merged
 [#505](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/505),
@@ -687,7 +691,7 @@ incremental implementation turns and PRs; a green first stage does not complete 
 - [x] F03: owning transpose residual reports and declared forward/reverse accuracy policy.
 - [x] F03: implicit calibration and PDE pullbacks derived and verified separately.
 - [x] P04: proven structural sparsity, safe invalidation, compressed seeds, and mode selection evidence.
-- [ ] P05: measured long-path checkpoint with complete state/RNG restoration and recomputation.
+- [x] P05: measured long-path checkpoint with complete state/RNG restoration and recomputation.
 
 ## Stage D: second-order risk
 
@@ -696,6 +700,18 @@ incremental implementation turns and PRs; a green first stage does not complete 
 - [ ] F04: common-path, smoothing, Frozen/RetrainedBump, and nested-step semantics.
 - [ ] F04: native mixed-mode prototype on smooth kernels and actual capability validation.
 - [ ] F04: estimator validation for applicable simulation/calibration cases before general promotion.
+
+F04 uses separate focused PRs in the following order. These estimates subdivide
+the 62–94 hours for second-order requests; they do not add to the mixed-mode or
+final-integration estimates. Each PR requires independent mathematical RED/GREEN,
+affected-boundary tests, scoped costs and complete current-head CI/review acceptance.
+
+| Increment                   | Required result                                                                                    | Remaining hours |
+|-----------------------------|----------------------------------------------------------------------------------------------------|-----------------|
+| Native driver               | Explicit steps/directions, Gamma/cross-Gamma/HVP, owning results, admission and recording recovery | 10–14           |
+| Financial MC                | Sealed common paths, smoothing semantics, model/constant axes and independent Gamma references     | 20–28           |
+| Quote curvature             | Full recalibration at each perturbed quote point and rebuilt first-order maps                      | 20–28           |
+| Policy/estimator validation | Frozen/RetrainedBump meaning, inner/outer steps and applicable convergence/error evidence          | 12–24           |
 
 ## Completion evidence
 
@@ -1330,11 +1346,11 @@ overlapping acceptance work is included once in the integration allowance.
 | P03                     | 89 tests; 81 unique complete-request timing comparisons accepted | #489 merged; final 35/35 checks accepted | 0                     |
 | F03                     | Solve/root/PDE operators and financial/grid acceptance complete  | #506 merged; final 36/36 gates accepted  | 0                     |
 | P04                     | Structural compression, safe fallback and selection accepted     | #511 merged; final 36/36 gates accepted  | 0                     |
-| P05                     | Core and financial fixed-path adapter accepted in #512/#513      | MC final range repair/CI/merge remains   | 0.125–0.375           |
+| P05                     | Core, fixed-path and Monte Carlo adapters accepted               | #512/#513/#515 merged; 36/36 gates       | 0                     |
 | F04                     | Second-order implementation/estimator validation remain          | Open                                     | 12–20                 |
 | Final integration/audit | Cross-platform/binding/docs/performance acceptance remains       | Open                                     | 7–11                  |
 
-Remaining total during P05 development: approximately 19–31.5 person-days,
+Remaining total during F04 development: approximately 19–31 person-days,
 excluding CI queue time and including delivery contingency. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
 effort estimate, not a guaranteed completion date. Re-estimate when review
@@ -1358,11 +1374,11 @@ numeric/native diagnostics are not counted again.
 | 6     | P04 structural sparsity              | #507–#511 merged; implementation, scoped cost and publication gates accepted   | 0               |
 | 7a    | P05 segmentation core                | #512 merged; actual runtime, exact-head CI/review and guarded merge accepted   | 0               |
 | 7b    | P05 financial adapter                | #513 merged; exact-head CI, review, costs, actual runtime and merge accepted   | 0               |
-| 7c    | P05 Monte Carlo acceptance           | Local range repair/cost pass; current-head CI/review and guarded merge         | 1–3             |
-| 8     | F04 second-order risk                | Gamma, cross-Gamma, HVP, recalibration and estimator validation                | 64–96           |
+| 7c    | P05 Monte Carlo acceptance           | #515 merged; 36/36 gates, fourteen actual runtime profiles and merge proof     | 0               |
+| 8     | F04 second-order risk                | Gamma, cross-Gamma, HVP, recalibration and estimator validation                | 62–94           |
 | 9     | F04 native mixed-mode prototype      | Smooth-kernel prototype, independent correctness and capability limits         | 32–64           |
 | 10    | Bindings and complete acceptance     | C++/Python/Excel, documentation, platform and performance gates                | 56–88           |
-| Total | Full remaining implementation        | All remaining plan requirements                                                | 153–251         |
+| Total | Full remaining implementation        | All remaining plan requirements                                                | 150–246         |
 
 
 The first delivery boundary is complete. Whole-PR review repaired the Windows

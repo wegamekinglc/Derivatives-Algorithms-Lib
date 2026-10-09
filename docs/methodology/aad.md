@@ -2023,6 +2023,64 @@ adapter, request storage, tapes and consumed results; they exclude allocator
 metadata, direct C allocations, stacks, common runtime infrastructure and RSS.
 Shared-host paired sampling and per-worker retained capacity limit generalization.
 
+## Directional curvature with bump-over-AAD
+
+`AAD::EvaluateBumpOverAAD` in `dal/math/aad/bumpoveraad.hpp` takes a scalar native
+callback, a numeric point and a `BumpOverAADRequest_`. Direction rows and positive
+steps are explicit. The result owns the base value and gradient, the point,
+directions, steps and an M-by-N matrix whose row k estimates
+
+$$
+H(x)v_k \approx \frac{g(x+h_kv_k)-g(x-h_kv_k)}{2h_k}.
+$$
+
+A unit direction selects one Hessian column: its diagonal entry is Gamma and
+the other entries are cross-Gammas. Arbitrary signed, unnormalized directions
+produce HVPs without allocating a dense Hessian. The driver performs exactly
+1+2M fresh recordings and reverse sweeps, including the base gradient. Empty
+directions request only that base value and gradient.
+
+```cpp
+#include <dal/math/aad/bumpoveraad.hpp>
+
+using namespace Dal;
+AAD::BumpOverAADRequest_ request;
+request.directions_ = Matrix_<>(1, 2, 0.0);
+request.directions_(0, 0) = 1.0;
+request.steps_ = {1e-3};
+const auto result = AAD::EvaluateBumpOverAAD(
+    [](AAD::RecordingScope_*, const Vector_<AAD::Number_>& x) -> AAD::Number_ {
+        return 3.0 * x[0] * x[0] + 2.0 * x[0] * x[1] + 5.0 * x[1] * x[1];
+    },
+    {2.0, -1.0}, request);
+// HessianProducts()(0, 0) is 6; HessianProducts()(0, 1) is 2.
+```
+
+The callback receives the owned recording scope for composing existing recorded
+operators. It must rebuild its graph from the supplied inputs, keep captured
+external state fixed and leave recording lifecycle, checkpoints and adjoint mode
+to the driver. Retaining active numbers across calls is invalid. The driver
+snapshots the callback and numeric request, uses scalar adjoints and restores the
+caller's mode on success or failure. Nested independent recordings are rejected.
+
+All directions are checked before any callback: finite nonzero rows, finite
+positive steps and finite plus/minus bumps that change every nonzero coordinate.
+Nonfinite values, gradients and products are rejected. Scaled central division
+avoids overflow caused solely by the numerator or `2h`, and rejects nonzero
+quotients outside the representable nonzero finite range.
+
+`numericPayloadBudgetBytes_` admits exactly `sizeof(double) * (1+2N+2MN+M)`
+owning numeric bytes. Headers, metadata and temporaries are excluded. The separate
+`recordingCapacityBudgetBytes_` covers retained tape capacity plus cleanup reserve;
+execution reports peak tape bytes and the reserve separately, excluding RSS.
+
+This is a central finite-difference estimator of native first derivatives. On
+smooth kernels its truncation error is O(h²); rounding and callback errors grow
+as steps shrink. There is no automatic step, h/2 refinement, normalization or
+symmetry correction. `higherOrder_` remains false. Stochastic common paths,
+nonsmooth payoffs, calibration curvature and policy responses require explicit
+caller methodology; the generic driver does not certify those estimators.
+
 ## Examples
 
 The runnable [AAD Black example](../../dal-cpp/examples/aad) compares passive

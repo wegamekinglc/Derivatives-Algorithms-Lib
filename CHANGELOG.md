@@ -18,6 +18,10 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-09
 
+- **Native directional curvature** — explicit bump-over-AAD requests return
+  owning base gradients and Gamma/cross-Gamma/Hessian-vector estimates from
+  fresh native recordings, with complete bump admission and separate numeric
+  and tape budgets. See [directional curvature](docs/methodology/aad.md#directional-curvature-with-bump-over-aad).
 - **Segmented Black–Scholes Monte Carlo** — explicit native mean prices and
   gradients use common-path RNG/bridge integration, bounded exclusive lanes,
   ordered fixed-batch reduction and drained failure recovery. See
