@@ -62,6 +62,28 @@ namespace Dal::AAD {
             Supports_ colors_;
         };
 
+        Coloring_ DenseColoring(size_t inputs, size_t outputs) {
+            Coloring_ result{Vector_<std::optional<size_t>>(outputs), {}};
+            if (inputs != 0) {
+                result.colors_.reserve(outputs);
+                for (size_t row = 0; row < outputs; ++row) {
+                    result.rows_[row] = row;
+                    result.colors_.push_back({row});
+                }
+            }
+            return result;
+        }
+
+        Vector_<size_t> DenseColumns(size_t inputs, size_t outputs) {
+            Vector_<size_t> columns;
+            if (outputs != 0) {
+                columns.reserve(inputs);
+                for (size_t column = 0; column < inputs; ++column)
+                    columns.push_back(column);
+            }
+            return columns;
+        }
+
         Coloring_ ColorSupports(const Supports_& supports) {
             Coloring_ result{Vector_<std::optional<size_t>>(supports.size()), {}};
             ColumnColors_ columnColors;
@@ -120,6 +142,17 @@ namespace Dal::AAD {
                 "PlanStructuralJacobian: combined numeric payload byte extent overflow");
         RequireBudget(resultBytes + directionBytes, settings);
         return {inputs, std::move(supports), std::move(coloring.rows_), std::move(coloring.colors_), resultBytes, directionBytes};
+    }
+
+    StructuralJacobianPlan_ PlanDenseJacobian(size_t inputs, size_t outputs, const StructuralJacobianSettings_& settings) {
+        const auto maximum = static_cast<size_t>(std::numeric_limits<int>::max());
+        REQUIRE(inputs <= maximum && outputs <= maximum, "PlanDenseJacobian: matrix axes exceed int index range");
+        const size_t resultBytes = PayloadBytes(outputs, inputs);
+        REQUIRE(resultBytes <= std::numeric_limits<size_t>::max() - resultBytes, "PlanDenseJacobian: combined numeric payload byte extent overflow");
+        RequireBudget(resultBytes + resultBytes, settings);
+        Supports_ supports(outputs, DenseColumns(inputs, outputs));
+        auto coloring = DenseColoring(inputs, outputs);
+        return {inputs, std::move(supports), std::move(coloring.rows_), std::move(coloring.colors_), resultBytes, resultBytes};
     }
 
     Matrix_<> RecoverStructuralJacobian(const StructuralJacobianPlan_& plan, const Matrix_<>& colorGradients) {

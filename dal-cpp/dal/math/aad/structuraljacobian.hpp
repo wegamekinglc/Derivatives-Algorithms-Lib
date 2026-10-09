@@ -32,6 +32,7 @@ namespace Dal::AAD {
             : inputs_(inputs), supports_(std::move(supports)), rowColors_(std::move(rowColors)), colorRows_(std::move(colorRows)),
               resultBytes_(resultBytes), directionBytes_(directionBytes) {}
         friend StructuralJacobianPlan_ PlanStructuralJacobian(size_t, const Vector_<Vector_<size_t>>&, const StructuralJacobianSettings_&);
+        friend StructuralJacobianPlan_ PlanDenseJacobian(size_t, size_t, const StructuralJacobianSettings_&);
 
     public:
         [[nodiscard]] size_t Inputs() const { return inputs_; }
@@ -47,5 +48,6 @@ namespace Dal::AAD {
 
     [[nodiscard]] StructuralJacobianPlan_
     PlanStructuralJacobian(size_t inputs, const Vector_<Vector_<size_t>>& rowSupports, const StructuralJacobianSettings_& settings = {});
+    [[nodiscard]] StructuralJacobianPlan_ PlanDenseJacobian(size_t inputs, size_t outputs, const StructuralJacobianSettings_& settings = {});
     [[nodiscard]] Matrix_<> RecoverStructuralJacobian(const StructuralJacobianPlan_& plan, const Matrix_<>& colorGradients);
 } // namespace Dal::AAD

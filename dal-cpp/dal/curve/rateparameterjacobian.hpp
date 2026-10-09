@@ -28,6 +28,11 @@ namespace Dal {
                                                                                const RatePricingMarket_& market,
                                                                                const Vector_<RateCurveParameterCoordinate_>& inputAxis,
                                                                                const RateJacobianExecutionSettings_& settings = {});
+    [[nodiscard]] RateTradeParameterJacobianResult_ RateTradeParameterJacobian(const Vector_<RateTradeDefinition_>& trades,
+                                                                               const RatePricingMarket_& market,
+                                                                               const Vector_<RateCurveParameterCoordinate_>& inputAxis,
+                                                                               const RateStructuralJacobianPlan_& cachedPlan,
+                                                                               const RateJacobianExecutionSettings_& settings = {});
     [[nodiscard]] RateTradeParameterJacobianResult_ ExecuteRateStructuralJacobian(const Vector_<RateTradeDefinition_>& trades,
                                                                                   const RatePricingMarket_& market,
                                                                                   const RateStructuralJacobianPlan_& plan,

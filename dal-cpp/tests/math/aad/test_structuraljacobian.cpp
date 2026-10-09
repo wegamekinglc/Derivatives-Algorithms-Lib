@@ -18,6 +18,34 @@ using Dal::AAD::PlanStructuralJacobian;
 using Dal::AAD::RecoverStructuralJacobian;
 
 namespace {
+    void CheckDensePlan(size_t inputs, size_t outputs) {
+        SCOPED_TRACE(inputs);
+        SCOPED_TRACE(outputs);
+        Vector_<size_t> columns;
+        for (size_t column = 0; column < inputs; ++column)
+            columns.push_back(column);
+        const auto generic = PlanStructuralJacobian(inputs, Vector_<Vector_<size_t>>(outputs, columns));
+        const auto dense = Dal::AAD::PlanDenseJacobian(inputs, outputs, {generic.NumericPayloadBytes()});
+        ASSERT_EQ(dense.Inputs(), generic.Inputs());
+        ASSERT_EQ(dense.Outputs(), generic.Outputs());
+        ASSERT_EQ(dense.ColorCount(), generic.ColorCount());
+        ASSERT_EQ(dense.ResultBytes(), generic.ResultBytes());
+        ASSERT_EQ(dense.DirectionBytes(), generic.DirectionBytes());
+        Matrix_<> directions(static_cast<int>(dense.ColorCount()), static_cast<int>(inputs));
+        for (int row = 0; row < directions.Rows(); ++row)
+            for (int column = 0; column < directions.Cols(); ++column)
+                directions(row, column) = 11.0 * row + column + 1.0;
+        const auto recovered = RecoverStructuralJacobian(dense, directions);
+        for (size_t row = 0; row < outputs; ++row) {
+            ASSERT_EQ(dense.RowSupport(row), generic.RowSupport(row));
+            ASSERT_EQ(dense.RowColor(row), generic.RowColor(row));
+            if (inputs != 0) {
+                ASSERT_EQ(dense.ColorRows(row), generic.ColorRows(row));
+                for (size_t column = 0; column < inputs; ++column)
+                    ASSERT_DOUBLE_EQ(recovered(static_cast<int>(row), static_cast<int>(column)), 11.0 * row + column + 1.0);
+            }
+        }
+    }
     void CheckMatrix(const Matrix_<>& actual, const Matrix_<>& expected) {
         ASSERT_EQ(actual.Rows(), expected.Rows());
         ASSERT_EQ(actual.Cols(), expected.Cols());
@@ -66,6 +94,26 @@ namespace {
         return directions;
     }
 } // namespace
+
+TEST(StructuralJacobianTest, TestDensePlannerMatchesGenericMetadataAndRecovery) {
+    for (const size_t inputs : {size_t{0}, size_t{1}, size_t{4}})
+        for (const size_t outputs : {size_t{0}, size_t{1}, size_t{5}})
+            ASSERT_NO_FATAL_FAILURE(CheckDensePlan(inputs, outputs));
+}
+
+TEST(StructuralJacobianTest, TestDensePlannerRejectsBudgetAndExtentBeforeMetadataAllocation) {
+    ASSERT_THROW(static_cast<void>(Dal::AAD::PlanDenseJacobian(4, 5, {319})), Dal::Exception_);
+    ASSERT_EQ(Dal::AAD::PlanDenseJacobian(4, 5, {320}).NumericPayloadBytes(), 320);
+    ASSERT_THROW(static_cast<void>(Dal::AAD::PlanDenseJacobian(8192, 8192, {0})), Dal::Exception_);
+    const auto maximum = static_cast<size_t>(std::numeric_limits<int>::max());
+    ASSERT_THROW(static_cast<void>(Dal::AAD::PlanDenseJacobian(maximum + 1, 0)), Dal::Exception_);
+    ASSERT_THROW(static_cast<void>(Dal::AAD::PlanDenseJacobian(0, maximum + 1)), Dal::Exception_);
+    ASSERT_THROW(static_cast<void>(Dal::AAD::PlanDenseJacobian(maximum, maximum)), Dal::Exception_);
+    const auto empty = Dal::AAD::PlanDenseJacobian(maximum, 0, {0});
+    ASSERT_EQ(empty.Inputs(), maximum);
+    ASSERT_EQ(empty.Outputs(), 0);
+    ASSERT_EQ(empty.NumericPayloadBytes(), 0);
+}
 
 TEST(StructuralJacobianTest, TestTwoDirectionsRecoverIndependentNonPrefixMatrix) {
     const auto plan = PlanStructuralJacobian(4, {{0, 1}, {2}, {1, 3}});

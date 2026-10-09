@@ -4,6 +4,7 @@
 
 #include <gtest/gtest.h>
 
+#include <cmath>
 #include <future>
 #include <utility>
 
@@ -18,6 +19,141 @@
 
 using namespace Dal;
 using namespace RateJacobianFixtures;
+
+namespace {
+    struct GroupedDeposits_ {
+        RatePricingMarket_ market_;
+        Vector_<RateCurveParameterCoordinate_> axis_;
+        Vector_<RateTradeDefinition_> trades_;
+    };
+
+    GroupedDeposits_ GroupedDeposits(size_t curves) {
+        GroupedDeposits_ result;
+        result.market_.valuationTime_ = DateTime_(Date_(2026, 10, 12));
+        result.market_.resultCurrency_ = Ccy_("USD");
+        for (size_t column = 0; column < curves; ++column) {
+            const size_t curve = (3 * column) % curves;
+            const String_ key = "K" + String_(std::to_string(curve));
+            result.market_.curveComponents_[key] = FlatCurve(key, 0.01 + 0.002 * curve);
+            result.axis_.push_back({key, 0});
+        }
+        for (size_t row = 0; row < 64; ++row) {
+            auto trade = Deposit("deposit-" + String_(std::to_string(row)), "K" + String_(std::to_string(row % curves)));
+            auto& terms = std::get<DepositTradeTerms_>(trade.terms_);
+            terms.notional_ = 100000.0 * (1.0 + row % 7);
+            terms.contractRate_ = 0.025 + 0.0001 * (row % 5);
+            terms.lend_ = row % 2 == 0;
+            result.trades_.push_back(std::move(trade));
+        }
+        return result;
+    }
+
+    void CheckGroupedDeposits(const RateTradeParameterJacobianResult_& result, size_t curves) {
+        ASSERT_EQ(result.prices_.size(), 64);
+        ASSERT_EQ(result.jacobian_.Rows(), 64);
+        ASSERT_EQ(result.jacobian_.Cols(), static_cast<int>(curves));
+        for (size_t row = 0; row < 64; ++row) {
+            SCOPED_TRACE(row);
+            const double rate = 0.01 + 0.002 * (row % curves);
+            const double signedNotional = (row % 2 == 0 ? 1.0 : -1.0) * 100000.0 * (1.0 + row % 7);
+            const double start = std::exp(-rate / 365.0);
+            const double maturity = (1.025 + 0.0001 * (row % 5)) * std::exp(-rate * 366.0 / 365.0);
+            const double derivative = signedNotional * (start / 365.0 - maturity * 366.0 / 365.0);
+            ASSERT_NEAR(result.prices_[row].pv_, signedNotional * (maturity - start), 1e-8);
+            for (size_t column = 0; column < curves; ++column) {
+                const double expected = row % curves == (3 * column) % curves ? derivative : 0.0;
+                ASSERT_NEAR(result.jacobian_(static_cast<int>(row), static_cast<int>(column)), expected, 1e-8);
+            }
+        }
+    }
+
+    void CheckEquivalentMatrices(const RateTradeParameterJacobianResult_& actual, const RateTradeParameterJacobianResult_& expected) {
+        ASSERT_EQ(actual.outputAxis_, expected.outputAxis_);
+        ASSERT_EQ(actual.prices_.size(), expected.prices_.size());
+        ASSERT_EQ(actual.inputAxis_.size(), expected.inputAxis_.size());
+        ASSERT_EQ(actual.jacobian_.Rows(), expected.jacobian_.Rows());
+        ASSERT_EQ(actual.jacobian_.Cols(), expected.jacobian_.Cols());
+        for (size_t column = 0; column < actual.inputAxis_.size(); ++column) {
+            ASSERT_EQ(actual.inputAxis_[column].componentKey_, expected.inputAxis_[column].componentKey_);
+            ASSERT_EQ(actual.inputAxis_[column].parameterOrdinal_, expected.inputAxis_[column].parameterOrdinal_);
+        }
+        for (size_t row = 0; row < actual.prices_.size(); ++row) {
+            ASSERT_EQ(actual.prices_[row].currency_, expected.prices_[row].currency_);
+            ASSERT_TRUE(actual.prices_[row].succeeded_);
+            ASSERT_NEAR(actual.prices_[row].pv_, expected.prices_[row].pv_, 1e-8);
+            for (int column = 0; column < actual.jacobian_.Cols(); ++column)
+                ASSERT_NEAR(actual.jacobian_(static_cast<int>(row), column), expected.jacobian_(static_cast<int>(row), column), 1e-8);
+        }
+    }
+} // namespace
+
+TEST(RateParameterJacobianTest, TestCachedPlanUsesFreshRecordingAndFallsBackForChangedRowsAxesAndTerms) {
+    const auto points = ReferencePoints();
+    const auto market = MarketAt(points[2].parameters_);
+    const Vector_<RateTradeDefinition_> trades = {Irs(0.0), Deposit("deposit-D", "D"), Fra()};
+    const Vector_<RateCurveParameterCoordinate_> axis = {{"C", 0}, {"D", 0}, {"A", 0}, {"E", 0}, {"B", 0}};
+    const auto plan = PlanRateStructuralJacobian(CaptureRateStructuralJacobian(trades, MarketAt(points[1].parameters_), axis));
+    const auto dense = RateTradeParameterJacobian(trades, market, axis);
+    for (const auto [multi, width] : {std::pair{false, size_t{1}}, std::pair{true, size_t{2}}}) {
+        const auto reused = RateTradeParameterJacobian(trades, market, axis, plan, {multi, width, {}});
+        ASSERT_EQ(reused.reverseDirections_, 2);
+        ASSERT_EQ(reused.reverseSweeps_, 2 / width);
+        ASSERT_NO_FATAL_FAILURE(CheckEquivalentMatrices(reused, dense));
+    }
+    auto changed = trades;
+    std::get<IrsTradeTerms_>(changed[0].terms_).value_.floatLeg_.paymentLag_ = 3;
+    auto duplicated = trades;
+    duplicated.push_back(trades[0]);
+    for (const auto& currentTrades : {changed, duplicated}) {
+        const auto fallback = RateTradeParameterJacobian(currentTrades, market, axis, plan);
+        ASSERT_EQ(fallback.reverseDirections_, currentTrades.size());
+        ASSERT_EQ(fallback.reverseSweeps_, currentTrades.size());
+        ASSERT_NO_FATAL_FAILURE(CheckEquivalentMatrices(fallback, RateTradeParameterJacobian(currentTrades, market, axis)));
+    }
+    const Vector_<RateCurveParameterCoordinate_> reordered = {axis[4], axis[3], axis[2], axis[1], axis[0]};
+    const auto reorderedResult = RateTradeParameterJacobian(trades, market, reordered, plan);
+    ASSERT_EQ(reorderedResult.reverseDirections_, 3);
+    ASSERT_NO_FATAL_FAILURE(CheckEquivalentMatrices(reorderedResult, RateTradeParameterJacobian(trades, market, reordered)));
+}
+
+TEST(RateParameterJacobianTest, TestCachedPlanBudgetAppliesToActualStrategyAndFailureDoesNotPoisonReuse) {
+    const auto market = ComponentMarket();
+    const Vector_<RateTradeDefinition_> trades = {Irs(0.0), Deposit("deposit-D", "D"), Fra()};
+    const Vector_<RateCurveParameterCoordinate_> axis = {{"C", 0}, {"D", 0}, {"A", 0}, {"E", 0}, {"B", 0}};
+    const auto plan = PlanRateStructuralJacobian(CaptureRateStructuralJacobian(trades, market, axis));
+    const RateJacobianExecutionSettings_ settings{true, 2, 200};
+    const auto compressed = RateTradeParameterJacobian(trades, market, axis, plan, settings);
+    ASSERT_EQ(compressed.reverseDirections_, 2);
+    auto changed = trades;
+    std::get<IrsTradeTerms_>(changed[0].terms_).value_.floatLeg_.paymentLag_ = 3;
+    ASSERT_THROW(static_cast<void>(RateTradeParameterJacobian(changed, market, axis, plan, settings)), Exception_);
+    ASSERT_THROW(static_cast<void>(RateTradeParameterJacobian(trades, market, {{"missing", 0}}, plan)), Exception_);
+    ASSERT_THROW(static_cast<void>(RateTradeParameterJacobian(trades, market, axis, plan, {false, 2, {}})), Exception_);
+    ASSERT_NO_FATAL_FAILURE(CheckEquivalentMatrices(RateTradeParameterJacobian(trades, market, axis, plan, settings), compressed));
+    const auto fallback = RateTradeParameterJacobian(changed, market, axis, plan, {true, 2, 240});
+    ASSERT_EQ(fallback.reverseDirections_, 3);
+    ASSERT_EQ(fallback.reverseSweeps_, 2);
+    ASSERT_NO_FATAL_FAILURE(CheckEquivalentMatrices(fallback, RateTradeParameterJacobian(changed, market, axis)));
+}
+
+TEST(RateParameterJacobianTest, TestGroupedOutputRichDepositsAgainstIndependentCashflowDerivatives) {
+    for (const size_t curves : {size_t{2}, size_t{8}}) {
+        const auto fixture = GroupedDeposits(curves);
+        const auto plan = PlanRateStructuralJacobian(CaptureRateStructuralJacobian(fixture.trades_, fixture.market_, fixture.axis_));
+        ASSERT_EQ(plan.NumericPlan().ColorCount(), 64 / curves);
+        for (const auto [multi, width] : {std::pair{false, size_t{1}}, std::pair{true, size_t{4}}}) {
+            const RateJacobianExecutionSettings_ settings{multi, width, {}};
+            const auto dense = RateTradeParameterJacobian(fixture.trades_, fixture.market_, fixture.axis_, settings);
+            const auto compressed = ExecuteRateStructuralJacobian(fixture.trades_, fixture.market_, plan, settings);
+            ASSERT_EQ(dense.reverseDirections_, 64);
+            ASSERT_EQ(dense.reverseSweeps_, 64 / width);
+            ASSERT_EQ(compressed.reverseDirections_, 64 / curves);
+            ASSERT_EQ(compressed.reverseSweeps_, (64 / curves) / width);
+            ASSERT_NO_FATAL_FAILURE(CheckGroupedDeposits(dense, curves));
+            ASSERT_NO_FATAL_FAILURE(CheckGroupedDeposits(compressed, curves));
+        }
+    }
+}
 
 TEST(RateParameterJacobianTest, TestLayeredCompleteMatricesAgainstFrozenReferenceAcrossNativeWidths) {
     const Vector_<RateCurveParameterCoordinate_> axis = {{"C", 0}, {"D", 0}, {"A", 0}, {"E", 0}, {"B", 0}};

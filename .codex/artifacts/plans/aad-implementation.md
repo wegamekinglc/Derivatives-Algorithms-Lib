@@ -66,10 +66,12 @@ Completed controls remain in immutable
 [review](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/90ec2da3c48e50bd85d76dac54acabe42c7070ab/.codex/artifacts/reviews/aad-rate-structural-jacobian.md)
 and [cost report](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/90ec2da3c48e50bd85d76dac54acabe42c7070ab/.codex/artifacts/performance/aad-rate-structural-jacobian.md).
 
-Complete financial execution follows the active
-[specification](../specs/aad-rate-parameter-jacobian.md),
-[API](../api-notes/aad-rate-parameter-jacobian.md) and
-[critique](../critiques/aad-rate-parameter-jacobian.md).
+Complete financial execution is accepted in merged
+[#510](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/510),
+at `d18ebe4e`. Two complete final audits accept 36/36 exact-head checks,
+zero Codacy annotations and unresolved review threads. Actual logs verify all
+ten new cases in fourteen sanitizer, extended and MSVC profiles; the tested
+and merged trees both equal `2a847eced1b483f20ef711433a83264aca2ed7e8`.
 Ten execution cases and twenty-two affected existing cases pass, including
 complete analytic/native matrices, seven pricing and four curve families,
 two-step passive differences with rebuilt bases, fresh numeric reuse, invalid
@@ -80,8 +82,31 @@ The two affected old paths pass the sustained 4% gate; all 178 other objects
 retain accepted bytes. Small-portfolio compressed costs exceed dense costs,
 including with reuse; no AUTO speedup is claimed. External review exposed currency
 label and dense admission ordering defects; both have RED/GREEN repair evidence,
-including a memory-capped early-rejection probe. Publication gates remain pending.
-Measured strategy selection follows in a separate increment; P04 stays open.
+including a memory-capped early-rejection probe. Completed controls remain in
+immutable [specification](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/7bbeb259062b5338f5ff5db0812e7abb2ad28189/.codex/artifacts/specs/aad-rate-parameter-jacobian.md),
+[API](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/7bbeb259062b5338f5ff5db0812e7abb2ad28189/.codex/artifacts/api-notes/aad-rate-parameter-jacobian.md),
+[critique](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/7bbeb259062b5338f5ff5db0812e7abb2ad28189/.codex/artifacts/critiques/aad-rate-parameter-jacobian.md),
+[review](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/7bbeb259062b5338f5ff5db0812e7abb2ad28189/.codex/artifacts/reviews/aad-rate-parameter-jacobian.md)
+and [cost report](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/7bbeb259062b5338f5ff5db0812e7abb2ad28189/.codex/artifacts/performance/aad-rate-parameter-jacobian.md).
+Merge proof is retained in `rate-parameter-merged-tree.json`.
+
+Measured strategy work now follows the active
+[specification](../specs/aad-rate-jacobian-strategy.md),
+[API note](../api-notes/aad-rate-jacobian-strategy.md) and
+[critique](../critiques/aad-rate-jacobian-strategy.md).
+Direct dense planning removes generic conflict construction. The explicit cached
+plan request checks current identity once and falls back to the requested dense
+matrix on mismatch. Local acceptance covers 38 distinct cases, eight strict
+checks and installed-only consumption. The final scoped cost study completes
+760 observations in 8.95 seconds without a sustained regression; 177 unchanged
+archive objects reuse accepted evidence. The 64-by-8 dense financial request
+improves approximately 28–30% in both scalar and width-four cases.
+
+All declared lightweight shapes lose with compression, including cached reuse.
+Keep the dense default and explicit caller selection, with no universal AUTO
+cutoff or hidden trial pricing. Native forward is unavailable for this closed
+financial path. P04's local selection requirements are closed; publication,
+review and exact-head runtime gates remain open.
 
 Native PDE recording is accepted in merged
 [#505](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/505),
@@ -1228,11 +1253,11 @@ overlapping acceptance work is included once in the integration allowance.
 | P02                     | Worker reuse: 82 tests and 37 full-request cost cases accepted     | #488 merged; final 35/35 checks accepted | 0                     |
 | P03                     | 89 tests; 81 unique complete-request timing comparisons accepted   | #489 merged; final 35/35 checks accepted | 0                     |
 | F03                     | Solve/root/PDE operators and financial/grid acceptance complete    | #506 merged; final 36/36 gates accepted  | 0                     |
-| P04/P05                 | Numeric/native/provider merged; execution/strategy/checkpoint open | Open                                     | 8–14                  |
+| P04/P05                 | Strategy locally verified; checkpoint implementation remains      | P04 publication open                     | 5–9                   |
 | F04                     | Second-order implementation/estimator validation remain            | Open                                     | 12–20                 |
 | Final integration/audit | Cross-platform/binding/docs/performance acceptance remains         | Open                                     | 7–11                  |
 
-Remaining total during P04 implementation: approximately 27–45 person-days,
+Remaining total during P04 publication: approximately 24–40 person-days,
 excluding CI queue time and including delivery contingency. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
 effort estimate, not a guaranteed completion date. Re-estimate when review
@@ -1253,12 +1278,12 @@ numeric/native diagnostics are not counted again.
 | 4     | F03 native coordinate accuracy       | Accepted in merged #500; exact-head CI/review and guarded merge pass            | 0               |
 | 4a    | F03 implicit calibration             | Numeric #501 and native #502 merged; all final gates accepted                   | 0               |
 | 5     | F03 PDE operators                    | #504/#505/#506 merged; financial/grid and all publication gates accepted        | 0               |
-| 6     | P04 structural sparsity              | Provider merged; explicit execution locally verified; measured strategy remains | 24–44           |
+| 6     | P04 structural sparsity              | Direct dense/fallback/selection locally verified; publication gates remain      | 2–4             |
 | 7     | P05 long-path checkpointing          | Complete state/RNG restoration, recomputation and memory/performance proof      | 40–64           |
 | 8     | F04 second-order risk                | Gamma, cross-Gamma, HVP, recalibration and estimator validation                 | 64–96           |
 | 9     | F04 native mixed-mode prototype      | Smooth-kernel prototype, independent correctness and capability limits          | 32–64           |
 | 10    | Bindings and complete acceptance     | C++/Python/Excel, documentation, platform and performance gates                 | 56–88           |
-| Total | Full remaining implementation        | All remaining plan requirements                                                 | 216–356         |
+| Total | Full remaining implementation        | All remaining plan requirements                                                 | 194–316         |
 
 
 The first delivery boundary is complete. Whole-PR review repaired the Windows
