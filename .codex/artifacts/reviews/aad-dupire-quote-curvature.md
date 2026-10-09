@@ -1,6 +1,6 @@
 # Native Dupire quote-curvature review
 
-Verdict: Comment Only; local implementation accepted, cost/publication pending.
+Verdict: Comment Only; local implementation/costs accepted, publication pending.
 
 ## Findings
 
@@ -35,7 +35,7 @@ callback phase failures, width-four recovery and concurrent callers pass.
 
 ## Integration
 
-Fifteen strict probes pass in ordinary and combined diagnostic/profiling
+Seventeen strict probes pass in ordinary and combined diagnostic/profiling
 configurations, including the manual cost reference. The installed-only
 `DAL::cpp` CMake consumer passes. The accepted 182-member archive replaces one
 Dupire object and adds one curvature object; the other 181 members retain their
@@ -59,4 +59,6 @@ remain visible planned work. Public docs and changelog state this boundary.
 Session directory: `dal-aad-evidence-20261010/dupire-quote-curvature`.
 Retain `library.json`, `correctness.xml`, `allocation-final.xml`, `strict.json`,
 installed consumer logs and raw mathematical comparisons. Cost evidence and
-exact-head runtime/review/merge proof remain required publication gates.
+raw samples establish two informational complete-request cases and one passing
+existing Dupire pullback control: 120 processes in 0.2875 seconds. Exact-head
+runtime/review/merge proof remains required before publication acceptance.

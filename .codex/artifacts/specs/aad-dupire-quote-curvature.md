@@ -1,6 +1,6 @@
 # Native Dupire quote curvature
 
-Status: implementation and scoped correctness accepted; cost/publication gates pending.
+Status: implementation, scoped correctness and costs accepted; publication pending.
 
 ## Source and delivery boundary
 

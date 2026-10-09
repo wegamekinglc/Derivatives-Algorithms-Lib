@@ -216,8 +216,10 @@ The active F04 quote increment follows the
 [API decisions](../api-notes/aad-dupire-quote-curvature.md) and
 [critique](../critiques/aad-dupire-quote-curvature.md). It rebuilds calibration,
 objective seeds and native calibration pullback at every bumped quote point.
-Missing-entry RED and initial mathematical/lifecycle GREEN are confirmed;
-publication gates remain. Native smooth-objective acceptance (4–6 remaining hours),
+Missing-entry RED, twenty-three scoped cases, seventeen strict probes,
+installed consumption and three selected cost comparisons pass. Sampling takes
+0.2875 seconds for 120 processes; publication gates remain.
+Native smooth-objective acceptance (4–6 remaining hours),
 complete MC quote integration (6–8) and rate-provider rebuilding (8–12) subdivide
 the remaining 18–26 quote allowance. Policy/estimator semantics and native mixed
 mode remain separate required F04 deliveries.
