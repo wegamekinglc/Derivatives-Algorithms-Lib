@@ -110,6 +110,13 @@ namespace {
         size_t NDim() const override { return inner_->NDim(); }
     };
 
+    void ConfigurePositioningFailure(const String_& source, PositioningAudit_* audit) {
+        if (source == "seek")
+            audit->failSeek_ = Script::BATCH_SIZE;
+        if (source == "clone")
+            audit->failClone_ = 1;
+    }
+
     template <class Real_> void AssertIntMaxBatchBoundary() {
         const size_t nPaths = static_cast<size_t>(std::numeric_limits<int>::max());
         const Script::BatchPlan_ plan(nPaths, 1);
@@ -225,10 +232,7 @@ TEST(ScriptTest, TestPositionedBatchesCancelDrainAndRecoverAfterEveryFailureSour
         for (const String_ source : {"seek", "clone", "submission", "worker"}) {
             SCOPED_TRACE(::testing::Message() << "threads=" << threads << " source=" << source);
             PositioningAudit_ audit;
-            if (source == "seek")
-                audit.failSeek_ = Script::BATCH_SIZE;
-            if (source == "clone")
-                audit.failClone_ = 1;
+            ConfigurePositioningFailure(source, &audit);
             bool caught = false;
             try {
                 Script::TestSupport::RejectSubmissions_ observer("injected submission failure");
