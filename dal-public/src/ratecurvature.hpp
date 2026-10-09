@@ -20,6 +20,8 @@ namespace Dal {
         explicit RateCalibrationSnapshot_(std::shared_ptr<const Data_> data) : data_(std::move(data)) {}
         friend RateCalibrationSnapshot_ NewRateCalibration(const CurveCalibrationSpec_&);
         friend RateCalibrationSnapshot_ NewRateCalibration(const JointMultiCurveCalibrationSpec_&);
+        friend RateCalibrationSnapshot_ NewRateCalibration(const CrossCurrencyCalibrationSpec_&);
+        friend RateCalibrationSnapshot_ NewRateCalibration(const JointXccyCalibrationSpec_&);
         friend RateCalibrationSnapshot_ RecalibrateRateWithRisk(const RateCalibrationSnapshot_&, const Vector_<>&);
 
     public:
@@ -30,6 +32,8 @@ namespace Dal {
 
     [[nodiscard]] RateCalibrationSnapshot_ NewRateCalibration(const CurveCalibrationSpec_& spec);
     [[nodiscard]] RateCalibrationSnapshot_ NewRateCalibration(const JointMultiCurveCalibrationSpec_& spec);
+    [[nodiscard]] RateCalibrationSnapshot_ NewRateCalibration(const CrossCurrencyCalibrationSpec_& spec);
+    [[nodiscard]] RateCalibrationSnapshot_ NewRateCalibration(const JointXccyCalibrationSpec_& spec);
     [[nodiscard]] RateCalibrationSnapshot_ RecalibrateRateWithRisk(const RateCalibrationSnapshot_& calibration, const Vector_<>& quotes);
 
     struct RateQuoteCurvatureExecution_ {

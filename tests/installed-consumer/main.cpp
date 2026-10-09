@@ -93,6 +93,21 @@ namespace {
             Dal::EvaluateRateQuoteCurvature([](auto*, const auto& x) -> Dal::AAD::Number_ { return x[1] * x[1]; }, calibration, request);
         return result.Point().size() == 1 && result.Execution().calibrations_ == 3 && std::abs(result.HessianProducts()(0, 0) - 2.0) < 1e-10;
     }
+
+    bool CheckXccyFactoryExports() {
+        bool staged = false, joint = false;
+        try {
+            (void)Dal::NewRateCalibration(Dal::CrossCurrencyCalibrationSpec_());
+        } catch (const Dal::Exception_&) {
+            staged = true;
+        }
+        try {
+            (void)Dal::NewRateCalibration(Dal::JointXccyCalibrationSpec_());
+        } catch (const Dal::Exception_&) {
+            joint = true;
+        }
+        return staged && joint;
+    }
 } // namespace
 
 int main() {
@@ -127,6 +142,8 @@ int main() {
         return 11;
     if (!CheckRateCurvature())
         return 12;
+    if (!CheckXccyFactoryExports())
+        return 13;
     const auto merton = Dal::NewMertonIVS(100.0, 0.2, 0.08, -0.1, 0.15);
     const Dal::AAD::MertonIVS_ mertonReference(100.0, 0.2, 0.08, -0.1, 0.15);
     if (merton.ImpliedVol(105.0, 0.4) != mertonReference.ImpliedVol(105.0, 0.4))

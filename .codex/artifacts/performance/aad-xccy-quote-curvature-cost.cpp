@@ -16,12 +16,14 @@
 #include <dal/math/aad/native.hpp>
 #include <dal/math/aad/tapecapacity.hpp>
 
+#include <dal-cpp/benchmarks/rate_risk_perf/quoteriskbenchfixtures.hpp>
+
 #include "jointquoteriskfixtures.hpp"
 
 namespace {
     namespace Bumps = Dal::AAD::GradientBumpsDetail;
 
-    Dal::CurveCalibrationSpec_ SingleSpec() {
+    [[maybe_unused]] Dal::CurveCalibrationSpec_ SingleSpec() {
         const auto joint = JointQuoteRiskFixtures::Spec(2, 1);
         Dal::CurveCalibrationSpec_ result;
         result.today_ = joint.today_;
@@ -93,48 +95,32 @@ namespace {
                 std::move(result.products_), result.base_.calibration_, execution};
     }
 
-    [[maybe_unused]] double FirstOrder() {
-        const auto spec = SingleSpec();
-        const Dal::CurveCalibrationOptions_ options;
-        const auto result = Dal::CalibrateYieldCurve(spec, options);
-        Dal::RatePricingMarket_ market;
-        market.valuationTime_ = Dal::DateTime_(spec.today_);
-        market.resultCurrency_ = Dal::Ccy_(spec.ccy_);
-        market.curveComponents_["cost"] =
-            Dal::Handle_<Dal::DiscountCurve_>(std::shared_ptr<const Dal::DiscountCurve_>(std::shared_ptr<void>(), result.curve_.get()));
-        const auto provenance = Dal::BuildSingleCurveQuoteRiskProvenance(spec, result, options, market, {"cost", {{"cost", "cost"}}, true});
-        const auto pullback = Dal::NewCalibrationPullback(provenance);
-        const auto risk = Dal::PullbackCalibration(pullback, Dal::NewCalibrationParameterAdjoints(pullback, Dal::Matrix_<>(2, 1, 1.0)));
-        return std::accumulate(risk.TotalAdjoints().begin(), risk.TotalAdjoints().end(), 0.0);
-    }
 } // namespace
 
 int main(int argc, char** argv) {
     Dal::InitGlobalData(1);
+#if DAL_CURVATURE_COST_MODE == 2
+    (void)argc;
+    (void)argv;
+    const auto calibration = Dal::NewRateCalibration(SingleSpec());
+#else
     const bool joint = argc > 1 && std::string(argv[1]) == "joint";
-#if DAL_CURVATURE_COST_MODE != 2
     const auto calibration =
-        joint ? Dal::NewRateCalibration(JointQuoteRiskFixtures::Spec(4, 2, Dal::CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD, true))
-              : Dal::NewRateCalibration(SingleSpec());
+        joint ? Dal::NewRateCalibration(Dal::RateRiskPerf::MakeJointXccyProvenanceMaterials(2, Dal::CurveJacobianMode_::Value_::ANALYTIC).spec_)
+              : Dal::NewRateCalibration(Dal::RateRiskPerf::MakeStagedXccyProvenanceMaterials(2, Dal::CurveJacobianMode_::Value_::ANALYTIC).spec_);
+#endif
     Dal::AAD::BumpOverAADRequest_ request;
     request.directions_ = Dal::Matrix_<>(1, static_cast<int>(calibration.Point().size()), 0.6);
     request.directions_(0, 0) = -0.8;
     request.steps_ = {2.0e-4};
-#else
-    (void)joint;
-#endif
     const auto evaluate = [&] {
-#if DAL_CURVATURE_COST_MODE == 0
-        const auto result = Dal::EvaluateRateQuoteCurvature(Objective, calibration, request);
-#elif DAL_CURVATURE_COST_MODE == 1
+#if DAL_CURVATURE_COST_MODE == 1
         const auto result = Manual(calibration, request);
 #else
-        return FirstOrder();
+        const auto result = Dal::EvaluateRateQuoteCurvature(Objective, calibration, request);
 #endif
-#if DAL_CURVATURE_COST_MODE != 2
         return result.Value() + std::accumulate(result.Gradient().begin(), result.Gradient().end(), 0.0) +
                std::accumulate(result.HessianProducts().begin(), result.HessianProducts().end(), 0.0);
-#endif
     };
     (void)evaluate();
     const auto start = std::chrono::steady_clock::now();
