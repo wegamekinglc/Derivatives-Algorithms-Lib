@@ -54,7 +54,8 @@ The optional numeric payload cap covers only the plan's result matrix plus color
 direction matrix, consistently with `StructuralJacobianSettings_`. It excludes
 PV metadata, curve/plan metadata, tape nodes and retained capacities. Enforce it
 before allocating those numeric matrices, including on a reused plan. Do not
-advertise a total process-memory budget. Validate matrix index limits and byte
+materialize dense Cartesian supports before checking the full dense numeric extent
+or advertise a total process-memory budget. Validate matrix index limits and byte
 extent arithmetic before casting sizes or beginning active recording.
 
 Compressed execution owns its returned axes from the stored plan only after

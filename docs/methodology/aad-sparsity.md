@@ -254,6 +254,7 @@ plan and use separate calls; nesting inside an active recording is rejected.
 
 `numericPayloadBudgetBytes_` caps the result and direction matrices together,
 including reused plans. It excludes tape storage, price/axis metadata and RSS.
+Dense requests check their full numeric extent before constructing row supports.
 Invalid or duplicate physical coordinates, failed pricing, non-finite PVs or
 derivatives, and insufficient budgets raise exceptions without publishing a
 partial matrix.

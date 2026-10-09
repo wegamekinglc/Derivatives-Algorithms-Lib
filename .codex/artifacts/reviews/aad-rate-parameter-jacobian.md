@@ -6,8 +6,8 @@ Verdict: Approve local implementation; publication acceptance remains open.
 
 No outstanding local findings. Review covers the public interface, additive
 pricing bridge, shared fixtures, complete execution tests, CI filters and active
-controls. Existing pricing function bodies remain unchanged. All eleven new
-production functions have cyclomatic complexity at most seven; the nine test
+controls. Existing pricing function bodies remain unchanged. All twelve new
+production functions have cyclomatic complexity at most seven; the ten test
 bodies have complexity at most seven and ten shared fixture helpers at most one.
 
 Simultaneously selected bases and dependent coordinates use one independent slot
@@ -22,6 +22,13 @@ restoration, nested rejection, thread-local requests, finite output checks and
 cleanup failures are exercised. Expired trades retain conservative provider
 supports and may still require directions: numerical zeros do not prune them.
 
+External Copilot/Codex review exposed two local review omissions: passthrough
+currency labels and dense support allocation before budget admission. The fixes
+use `ActualPvCurrency` and checked full dense extent before support construction.
+USD/EUR/XCCY rows in a JPY reporting market preserve PVs and derivatives with
+correct denominations. A memory-capped 8192-by-8192 request fails with bad_alloc
+before the fix and rejects its zero budget with a DAL exception afterward.
+
 ## Open questions
 
 No blocking API choice. P04 remains open for measured strategy selection. The
@@ -31,14 +38,14 @@ Python/Excel projection follows the controlling binding stage.
 
 ## Tests
 
-Nine new and twenty-two existing affected cases pass under combined evidence
-from the incremental batches, totaling 31 distinct cases. Independent acceptance
+Ten new and twenty-two existing affected cases pass under combined evidence
+from the incremental batches, totaling 32 distinct cases. Independent acceptance
 includes all 45 frozen layered matrix entries at three points, seven trade and
 four curve families, native scalar/vector widths and two-step passive differences
 with rebuilt base/dependent/XCCY graphs.
 
 Eight current-source strict checks cover OFF and combined diagnostics; only the
-changed test translation unit repeats its two checks after the boundary addition.
+changed production/test translation units repeat their four checks after repair.
 Installed-only consumption passes 1/1 with an independent deposit PV/derivative.
 The eight-row cost acceptance passes, retaining 178 unchanged object hashes and
 avoiding unrelated test/performance repeats. Failed intermediate assertions and

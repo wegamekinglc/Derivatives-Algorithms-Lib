@@ -70,17 +70,18 @@ Complete financial execution follows the active
 [specification](../specs/aad-rate-parameter-jacobian.md),
 [API](../api-notes/aad-rate-parameter-jacobian.md) and
 [critique](../critiques/aad-rate-parameter-jacobian.md).
-Nine execution cases and twenty-two affected existing cases pass, including
+Ten execution cases and twenty-two affected existing cases pass, including
 complete analytic/native matrices, seven pricing and four curve families,
 two-step passive differences with rebuilt bases, fresh numeric reuse, invalid
-requests, mode restoration and concurrency. Eight strict checks pass; eleven
+requests, mode restoration and concurrency. Eight strict checks pass; twelve
 new production functions have complexity at most seven. Installed consumption
-passes 1/1; eight scoped cost rows finish 200 observations in 0.5058 seconds.
+passes 1/1; eight final scoped cost rows finish 200 observations in 0.5103 seconds.
 The two affected old paths pass the sustained 4% gate; all 178 other objects
 retain accepted bytes. Small-portfolio compressed costs exceed dense costs,
-including with reuse; no AUTO speedup is claimed. Publication gates remain pending.
-Measured strategy
-selection follows in a separate increment; P04 stays open.
+including with reuse; no AUTO speedup is claimed. External review exposed currency
+label and dense admission ordering defects; both have RED/GREEN repair evidence,
+including a memory-capped early-rejection probe. Publication gates remain pending.
+Measured strategy selection follows in a separate increment; P04 stays open.
 
 Native PDE recording is accepted in merged
 [#505](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/505),

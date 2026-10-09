@@ -1807,6 +1807,7 @@ namespace Dal {
                 auto price = PriceRateTradePrepared(trades[row], market, &(*cashflows)[row]);
                 REQUIRE(price.succeeded_,
                         "RateJacobian: trade[" + String_(std::to_string(row)) + "] " + trades[row].instrumentId_ + ": " + price.error_);
+                price.currency_ = ActualPvCurrency(trades[row]);
                 prices.push_back(std::move(price));
             }
             return prices;
@@ -1825,9 +1826,20 @@ namespace Dal {
             return PriceJointActive(trade, market, active, nullptr, cashflows);
         }
 
-        AAD::StructuralJacobianPlan_ DenseRateJacobianPlan(size_t inputs, size_t outputs, const RateJacobianExecutionSettings_& settings) {
+        void ValidateDenseRateJacobianExtent(size_t inputs, size_t outputs, const RateJacobianExecutionSettings_& settings) {
             const auto maximum = static_cast<size_t>(std::numeric_limits<int>::max());
             REQUIRE(inputs <= maximum && outputs <= maximum, "RateJacobian: matrix axes exceed int index range");
+            const auto byteMaximum = std::numeric_limits<size_t>::max();
+            REQUIRE(inputs == 0 || outputs <= byteMaximum / inputs, "RateJacobian: dense numeric payload byte extent overflow");
+            const size_t entries = inputs * outputs;
+            REQUIRE(entries <= byteMaximum / (2 * sizeof(double)), "RateJacobian: dense numeric payload byte extent overflow");
+            const size_t bytes = entries * (2 * sizeof(double));
+            REQUIRE(!settings.numericPayloadBudgetBytes_ || bytes <= *settings.numericPayloadBudgetBytes_,
+                    "RateJacobian: numeric payload exceeds numericPayloadBudgetBytes");
+        }
+
+        AAD::StructuralJacobianPlan_ DenseRateJacobianPlan(size_t inputs, size_t outputs, const RateJacobianExecutionSettings_& settings) {
+            ValidateDenseRateJacobianExtent(inputs, outputs, settings);
             Vector_<size_t> columns;
             columns.reserve(inputs);
             for (size_t column = 0; column < inputs; ++column)

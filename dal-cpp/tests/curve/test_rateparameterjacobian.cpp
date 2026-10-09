@@ -96,6 +96,28 @@ TEST(RateParameterJacobianTest, TestSevenFamiliesAgainstExistingJointNativeMatri
     }
 }
 
+TEST(RateParameterJacobianTest, TestActualPvCurrenciesDifferFromReportingLabelWithoutConversion) {
+    auto market = XccyMarket();
+    auto eur = Deposit("eur", "F");
+    eur.currencyOrPair_ = Ccy_("EUR");
+    const Vector_<RateTradeDefinition_> trades = {Deposit("usd", "A"), eur, Xccy()};
+    const Vector_<RateCurveParameterCoordinate_> axis = {{"A", 0}, {"F", 0}};
+    const Vector_<Ccy_> currencies = {Ccy_("USD"), Ccy_("EUR"), Ccy_("USD")};
+    const auto reference = RateTradeParameterJacobian(trades, market, axis);
+    market.resultCurrency_ = Ccy_("JPY");
+    const auto plan = PlanRateStructuralJacobian(CaptureRateStructuralJacobian(trades, market, axis));
+    const auto dense = RateTradeParameterJacobian(trades, market, axis);
+    const auto compressed = ExecuteRateStructuralJacobian(trades, market, plan);
+    for (const auto* result : {&dense, &compressed})
+        for (int row = 0; row < 3; ++row) {
+            SCOPED_TRACE(row);
+            ASSERT_EQ(result->prices_[row].currency_, currencies[row]);
+            ASSERT_NEAR(result->prices_[row].pv_, reference.prices_[row].pv_, 1e-8);
+            for (int column = 0; column < 2; ++column)
+                ASSERT_NEAR(result->jacobian_(row, column), reference.jacobian_(row, column), 1e-8);
+        }
+}
+
 TEST(RateParameterJacobianTest, TestFreshNumericPointReusesFullPlanAndRejectsChangedTerms) {
     const auto points = ReferencePoints();
     auto deposit = Deposit("deposit-D", "D");
