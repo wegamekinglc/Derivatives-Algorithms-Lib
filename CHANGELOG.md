@@ -18,6 +18,10 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-09
 
+- **Rate-trade Jacobian strategies** — direct dense planning avoids conflict
+  construction; an explicit cached-plan request verifies current structure and
+  falls back to the current dense matrix when reuse is unavailable. See
+  [strategy selection](docs/methodology/aad-sparsity.md#choosing-a-strategy).
 - **Rate-trade parameter Jacobians** — dense and verified compressed native AAD
   execution return complete owning price/parameter matrices across layered curves
   and the closed pricing families. See

@@ -1826,25 +1826,12 @@ namespace Dal {
             return PriceJointActive(trade, market, active, nullptr, cashflows);
         }
 
-        void ValidateDenseRateJacobianExtent(size_t inputs, size_t outputs, const RateJacobianExecutionSettings_& settings) {
-            const auto maximum = static_cast<size_t>(std::numeric_limits<int>::max());
-            REQUIRE(inputs <= maximum && outputs <= maximum, "RateJacobian: matrix axes exceed int index range");
-            const auto byteMaximum = std::numeric_limits<size_t>::max();
-            REQUIRE(inputs == 0 || outputs <= byteMaximum / inputs, "RateJacobian: dense numeric payload byte extent overflow");
-            const size_t entries = inputs * outputs;
-            REQUIRE(entries <= byteMaximum / (2 * sizeof(double)), "RateJacobian: dense numeric payload byte extent overflow");
-            const size_t bytes = entries * (2 * sizeof(double));
-            REQUIRE(!settings.numericPayloadBudgetBytes_ || bytes <= *settings.numericPayloadBudgetBytes_,
-                    "RateJacobian: numeric payload exceeds numericPayloadBudgetBytes");
-        }
-
         AAD::StructuralJacobianPlan_ DenseRateJacobianPlan(size_t inputs, size_t outputs, const RateJacobianExecutionSettings_& settings) {
-            ValidateDenseRateJacobianExtent(inputs, outputs, settings);
-            Vector_<size_t> columns;
-            columns.reserve(inputs);
-            for (size_t column = 0; column < inputs; ++column)
-                columns.push_back(column);
-            return AAD::PlanStructuralJacobian(inputs, Vector_<Vector_<size_t>>(outputs, columns), {settings.numericPayloadBudgetBytes_});
+            try {
+                return AAD::PlanDenseJacobian(inputs, outputs, {settings.numericPayloadBudgetBytes_});
+            } catch (const Exception_& error) {
+                THROW(String_("RateJacobian: ") + String_(error.what()));
+            }
         }
 
         void ValidateRateJacobianSettings(const AAD::StructuralJacobianPlan_& numeric, const RateJacobianExecutionSettings_& settings) {
@@ -1898,6 +1885,17 @@ namespace Dal {
                                                                  const RateJacobianExecutionSettings_& settings) {
         const auto numeric = DenseRateJacobianPlan(inputAxis.size(), trades.size(), settings);
         return RunRateJacobian(trades, market, inputAxis, numeric, settings);
+    }
+
+    RateTradeParameterJacobianResult_ RateTradeParameterJacobian(const Vector_<RateTradeDefinition_>& trades,
+                                                                 const RatePricingMarket_& market,
+                                                                 const Vector_<RateCurveParameterCoordinate_>& inputAxis,
+                                                                 const RateStructuralJacobianPlan_& cachedPlan,
+                                                                 const RateJacobianExecutionSettings_& settings) {
+        const auto current = CaptureRateStructuralJacobian(trades, market, inputAxis);
+        if (!current.Available() || !SameRateStructuralJacobianStructure(cachedPlan.Descriptor(), current))
+            return RateTradeParameterJacobian(trades, market, inputAxis, settings);
+        return RunRateJacobian(trades, market, inputAxis, cachedPlan.NumericPlan(), settings);
     }
 
     RateTradeParameterJacobianResult_ ExecuteRateStructuralJacobian(const Vector_<RateTradeDefinition_>& trades,

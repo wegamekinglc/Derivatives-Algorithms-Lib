@@ -50,6 +50,14 @@ In an AAD caller, clear the previous seeds/adjoints and execute each correspondi
 VJP under the recording's existing mode/width contract. `ColorRows(color)` gives
 the seed rows; the numeric API itself does not seed or reverse a tape.
 
+For a fully connected matrix, use `AAD::PlanDenseJacobian(inputs, outputs,
+settings)`. It produces the same metadata and recovery semantics as full row
+supports: one color per output when inputs are nonempty, and no colors when
+the input axis is empty. It constructs these known groups directly, with linear
+work in the support/result dimensions, and checks the combined numeric extent
+and budget before allocating Cartesian support metadata. A zero-output request
+does not allocate a column list for its unused input axis.
+
 ## Shape, ownership and admission
 
 `Inputs`, `Outputs`, `RowSupport`, `RowColor`, `ColorCount` and `ColorRows` expose
@@ -239,12 +247,29 @@ forwards, log-discount nodes or zero-rate nodes. Every transitive base is rebuil
 actively, preserving shared curves. Selected free parameters are independent;
 an unselected curve still transmits risk from a selected base.
 
-Dense execution records full row supports. Compressed execution recaptures the
+Dense execution uses the direct full-support planner. Strict compressed execution recaptures the
 current complete structure and requires equality with the supplied plan before
 binding or seeding. Matching numeric curve changes re-record current derivatives;
 changed trade terms, geometry, fixings, layouts or routing require a fresh plan.
 Unavailable proof or stale identity raises an exception. Choose dense execution
-explicitly when appropriate; neither function selects an AUTO strategy.
+explicitly when appropriate.
+
+The explicit cached-plan overload provides dense fallback for the current request:
+
+```cpp
+const auto result = Dal::RateTradeParameterJacobian(
+    trades, market, axis, plan, settings);
+```
+
+It captures current structure once. A matching proven descriptor reuses the
+coloring on a fresh recording; an unavailable or mismatched descriptor executes
+densely with the current trades and requested axis. Row additions, changed terms
+and reordered inputs therefore retain the current complete matrix. The supplied
+plan stays unchanged. Invalid inputs, failed pricing or insufficient budgets
+still raise exceptions. In particular, a compressed request can fit its budget
+while the larger dense fallback does not. Direction/sweep counts describe the
+strategy that actually executed. The strict compressed function above retains
+stale-plan rejection.
 
 The default is scalar adjoints with width one. Vector adjoints use the requested
 native width and report actual `reverseDirections_` and `reverseSweeps_`.
@@ -263,6 +288,25 @@ Compare complete request costs when choosing between the two functions: include
 capture for cold plans, current identity validation for reused plans, preparation,
 recording, all reverse blocks, recovery, result storage and cleanup. Fewer reverse
 directions alone do not establish a speed advantage.
+
+## Choosing a strategy
+
+Use ordinary dense execution for an unmeasured workload. It performs no
+structural capture, trial requests or timing-based tuning. Compression and the
+cached-plan overload are explicit choices after measuring the caller's complete
+workload. Include initial plan construction and invalidation frequency when
+deciding whether a cache can pay for itself.
+
+Short cashflow portfolios can cost more with compression, including after plan
+reuse: complete identity validation and recovery can exceed the saved reverse
+work. Fewer colors or fewer vector blocks alone do not select a faster strategy.
+Compare equivalent complete matrices, scalar/vector settings and cold/reused
+requests rather than multiplying axis counts by an isolated reverse time.
+
+The native active type provides scalar and fixed-width vector reverse execution.
+There is no executable forward adapter for this closed financial path; an
+input-poor/output-rich shape cannot select a theoretical forward implementation.
+Weighted risk still uses its direct VJP rather than building a full matrix.
 
 ## Reuse and risk semantics
 
