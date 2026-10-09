@@ -28,6 +28,8 @@ The point, bumps, MC settings and kernel are snapshotted before submission.
 The result retains preparation even after its kernel and inputs are destroyed.
 Only const views are exposed. Numeric-budget scope excludes retained prepared
 data and metadata, just as the accepted numeric driver excludes metadata.
+The public result constructor rejects a null prepared owner before an instance
+can expose `Prepared()`.
 
 Rejected alternatives: wrapping MC inside a scalar native callback would nest
 independent recordings; a fresh full-path tape would lose the segmented memory

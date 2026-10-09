@@ -50,6 +50,7 @@ tapes and Python/Excel exposure remain separately estimated deliveries.
    directions/steps, requested MC settings and the immutable prepared script.
    Preparation includes valuation date, timeline, historical seed, compiled
    contract and smoothing. Input destruction or mutation cannot change it.
+   Public result construction rejects null prepared ownership.
 7. Report method `BumpOverSegmentedNativeAAD`, gradient-request count and
    numeric payload bytes. Report maximum per-path tape, checkpoint and cleanup
    reserve across all requests. These maxima are not aggregate process memory.

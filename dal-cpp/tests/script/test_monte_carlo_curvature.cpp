@@ -162,6 +162,11 @@ TEST(MonteCarloCurvatureTest, TestTimeZeroGammaCrossAndSignedHessianProducts) {
     ASSERT_EQ(result.Prepared().Simulation().smooth_, 0.25);
 }
 
+TEST(MonteCarloCurvatureTest, TestResultConstructorRejectsNullPreparation) {
+    const Script::SegmentedMonteCarloResult_ base(0.0, Vector_<>(4, 0.0), {"spot", "vol", "rate", "div"}, {});
+    ASSERT_THROW((void)Script::MonteCarloCurvatureResult_(base, {100.0, 0.2, 0.03, 0.01}, {}, {}, nullptr, {}, {}), Dal::Exception_);
+}
+
 TEST(MonteCarloCurvatureTest, TestCommonPathsAgainstIndependentGBMPolynomialHessian) {
     const ScopedThreads_ threads(2);
     const auto preparation = FutureQuadraticPreparation();

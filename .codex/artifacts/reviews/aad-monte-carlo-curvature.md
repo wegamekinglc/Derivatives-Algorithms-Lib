@@ -2,7 +2,7 @@
 
 ## Findings
 
-No unresolved correctness findings in the current implementation. The review
+No unresolved correctness findings after the repairs below. The review
 reads the complete new source/header, extracted numerical helper, generic
 driver diff, kernel accessor, test/benchmark sources and controlling artifacts.
 
@@ -19,6 +19,14 @@ describes piecewise smoothing, hard extrema and finite-path/step limitations.
 Native higher-order capability is unchanged. No binding or calibration
 curvature claim is made by this increment.
 
+Review finding `4231529962` identifies nullable public result ownership. A
+focused RED confirms that null construction previously succeeded. Constructor
+validation now rejects it; all twelve financial cases and eleven affected strict
+probes pass. Allocation recovery, installed consumption and the two affected
+financial cost cases are rechecked before publication. The generic helper and
+its recorded caller are unchanged; their accepted correctness/cost evidence is
+reused.
+
 ## Open questions
 
 None block the bounded implementation. Quote recalibration, policy responses,
@@ -27,7 +35,7 @@ work, not implied capabilities of this result.
 
 ## Tests
 
-Missing-entry mathematical RED is captured. Eleven new financial cases and
+Missing-entry mathematical RED is captured. Twelve new financial cases and
 sixteen affected generic/MC cases pass; the separate allocation target passes
 the existing native and new financial failure-injection cases. Fifteen strict
 probes pass in ordinary/combined diagnostic-profiling profiles, including the
@@ -38,7 +46,7 @@ Publication Codacy reports one reference-helper complexity issue (9, limit 8).
 An explicit log-Hessian diagonal removes the nested conditional while retaining
 the independent formula. Its mathematical case and two strict profiles pass;
 production/archive/benchmark bytes do not change, so no timing repeats. The
-six existing sanitizer filters now select the eleven new financial cases and
+six existing sanitizer filters now select the twelve new financial cases and
 the new allocation suite; YAML and exact selection checks pass. Remote runtime
 logs must confirm execution, not just successful job status.
 

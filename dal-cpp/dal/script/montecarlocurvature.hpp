@@ -40,7 +40,9 @@ namespace Dal::Script {
                                    Matrix_<> products,
                                    MonteCarloCurvatureExecution_ execution)
             : base_(std::move(base)), point_(std::move(point)), bumps_(std::move(bumps)), settings_(std::move(settings)),
-              prepared_(std::move(prepared)), products_(std::move(products)), execution_(std::move(execution)) {}
+              prepared_(std::move(prepared)), products_(std::move(products)), execution_(std::move(execution)) {
+            REQUIRE2(prepared_, "MonteCarloCurvatureResult: prepared script must be present", ScriptError_);
+        }
         [[nodiscard]] const SegmentedMonteCarloResult_& Base() const { return base_; }
         [[nodiscard]] const Vector_<>& Point() const { return point_; }
         [[nodiscard]] const Matrix_<>& Directions() const { return bumps_.directions_; }

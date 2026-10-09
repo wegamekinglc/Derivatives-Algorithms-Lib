@@ -201,7 +201,7 @@ The active F04 financial increment follows the
 [scoped cost selection](../performance/aad-monte-carlo-curvature.md).
 It composes fresh segmented MC gradients over a sealed common-path request,
 retains model/script axes and preparation/smoothing provenance, and preflights
-all perturbed model domains. The missing-entry mathematical RED is confirmed. Eleven financial cases and
+all perturbed model domains. The missing-entry mathematical RED is confirmed. Twelve financial cases and
 sixteen affected core/MC cases pass, including independent GBM Hessian, call
 Gamma, step refinement, snapshot ownership and failure recovery. Both allocation
 injection cases also pass. Strict-warning probes pass in ordinary and combined
