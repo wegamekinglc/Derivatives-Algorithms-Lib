@@ -17,6 +17,7 @@ namespace Dal::Script {
         size_t firstPath_ = 0;
         std::optional<std::uint64_t> scrambleKey_;
         AAD::SegmentedPathSettings_ path_;
+        String_ normalPrecision_ = "Default";
     };
 
     struct SegmentedMonteCarloExecution_ {
@@ -32,6 +33,7 @@ namespace Dal::Script {
         size_t maxPathTapeBytes_ = 0;
         size_t maxPathCheckpointBytes_ = 0;
         size_t maxPathCleanupReserveBytes_ = 0;
+        String_ normalPrecision_;
     };
 
     class SegmentedMonteCarloResult_ {
