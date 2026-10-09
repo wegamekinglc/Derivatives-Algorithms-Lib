@@ -48,9 +48,10 @@ separate deliveries; this PR makes no capability claim for them.
   unchanged probes retained); installed consumer passes 1/1. The public archive
   replaces only `ratecurvature.cpp.o`, retaining 25 identical members; core is unchanged.
 - [Scoped performance acceptance](../performance/aad-xccy-quote-curvature.md)
-  passes before the repair; repeat the same three small comparisons after
-  replacing the public object and checking executable identity. Current-head
-  remote CI/Codacy/full review remain pending.
+  passes after repair: the same three comparisons retain 120 fresh samples and
+  0.8805 seconds of measured work; changed candidate executable identities prevent
+  reuse of earlier pair timings. Existing-entry round deltas +2.83%/+0.69% remain
+  below the 4% gate. Current-head remote CI/Codacy/full review remain pending.
 
 ## Summary
 

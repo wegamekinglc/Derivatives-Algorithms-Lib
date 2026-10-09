@@ -51,7 +51,7 @@ Scheduled full-suite monitoring and required exact-head CI remain applicable.
 - During repair, rerun only affected cases. Documentation-only follow-up retains
   measurements when source/object/archive/executable hashes establish applicability.
 
-## Results
+## Initial implementation results
 
 Candidate implementation: `fc42400f38e9210d57959f6f69bb05382101fedc`.
 Values below are milliseconds for five complete requests; deltas use unrounded
@@ -91,3 +91,21 @@ where byte identity does not establish applicability, repeat that selected pair
 with the original sampling/noise/threshold protocol. Keep the set at these same
 three small comparisons; do not expand to unrelated benchmark targets. Retain
 the original raw results above separately from repaired-head measurements.
+
+Repair implementation: `13e8a36c041a8d38d46e4d7a52edb6833f50422d`.
+All three selected pairs contain a rebuilt executable with changed byte identity;
+repeat those pairs to preserve interleaving. The control baseline binary is
+identical, but its candidate changed. No benchmark case was added.
+
+| Case                                                     | Reference best (ms) | Candidate best (ms) | Overall delta | Round 1 / 2 delta | Verdict                    |
+|----------------------------------------------------------|--------------------:|--------------------:|--------------:|-------------------|----------------------------|
+| Staged XCCY, explicit composition / public driver        | 5.9999              | 5.9891              | -0.18%        | -0.51% / -0.18%   | Informational new coverage |
+| Joint XCCY, explicit composition / public driver         | 13.6161             | 13.5579             | -0.43%        | -1.35% / -0.43%   | Informational new coverage |
+| Existing single-curve public curvature, #523 / candidate | 1.6551              | 1.6799              | +1.50%        | +2.83% / +0.69%   | No regression              |
+
+The repaired head retains 120 samples containing 0.880549685 seconds of measured
+work. All paired checksums match; existing-entry deltas remain below 4% in both
+rounds. Raw evidence is in the sibling `performance-review-repair/` directory,
+including `repeat-reason.json` with before/after executable hashes. The new public
+archive is `6fded19062cb4cec8986d5eaccff7ff397d1d86301ae779fd600491f679b2b55`;
+core, harness contents, fixture object and configuration are unchanged.

@@ -272,8 +272,8 @@ The active cross-currency increment follows its
 Both factories and 24 affected rate cases now pass locally, including 90
 independent financial curvature references and 30 gradient coordinates;
 eight strict probes and the installed consumer pass. Three scoped performance
-comparisons pass with 120 samples and 0.8898 seconds of measured work; existing
-single-curve round deltas are +2.43%/+0.38%, below the 4% gate. Exact-head remote
+comparisons pass after repair with 120 samples and 0.8805 seconds of measured work;
+existing single-curve round deltas are +2.83%/+0.69%, below the 4% gate. Exact-head remote
 acceptance remains pending. Review found repeated joint declaration names
 colliding in native provenance ranges; stable sealed ordinal prefixes repair
 the issue, with eight affected cases rerun and sixteen unchanged cases retained.
