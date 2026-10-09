@@ -163,6 +163,11 @@ namespace {
 
 int RunDupireQuoteCurvatureBenchmarks(int argc, char** argv) {
     try {
+        if (argc == 1) {
+            Run("flat");
+            Run("mixed");
+            return 0;
+        }
         REQUIRE(argc == 3 && std::string(argv[1]) == "--dupire-curvature", "Dupire curvature benchmark expects --dupire-curvature flat|mixed");
         const std::string name = argv[2];
         REQUIRE(name == "flat" || name == "mixed", "Dupire curvature case must be flat or mixed");

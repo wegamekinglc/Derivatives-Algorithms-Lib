@@ -70,3 +70,9 @@ informational. No broader regression sweep is claimed or needed for this scope.
 Evidence directory: `dal-aad-evidence-20261010/dupire-quote-curvature`.
 Keep `cost-samples.json`, `cost-results.json`, `cost-environment.json`,
 `isolated-cost-builds.json`, all 120 `cost-raw` logs and `library.json`.
+
+The scheduled-registration review repair changes benchmark entry dispatch only.
+The complete timed `Run` source region and production archive are identical to
+the measured version. Default and both selected entry smokes, generated CTest
+name/executable contract and five affected strict probes pass. Paired samples
+remain applicable; `benchmark-repair.json` records the retained identities.

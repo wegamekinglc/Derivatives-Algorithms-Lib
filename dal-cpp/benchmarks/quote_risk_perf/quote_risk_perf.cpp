@@ -90,5 +90,5 @@ int main(int argc, char** argv) {
     for (int i = 0; i < 5; ++i)
         jointComponents.push_back("joint-quote-bench-" + String::FromInt(i));
     RunProbeCase("Quote risk state probe joint (5 components x 16 quotes)", joint16, jointComponents);
-    return 0;
+    return RunDupireQuoteCurvatureBenchmarks(argc, argv);
 }

@@ -45,6 +45,36 @@ namespace {
     constexpr std::array<double, 3> CURVATURE_STEPS{4e-4, 2e-4, 1e-4};
     constexpr double COORDINATE_STEP = 2e-4;
 
+    Vector_<> IndependentProducts(const Dal::AAD::IVS_& base, const Dal::DupireRiskInputs_& inputs, const Vector_<>& direction) {
+        Vector_<> reference(6);
+        for (int quote = 0; quote < 6; ++quote) {
+            double values[2][2];
+            for (int outer = 0; outer < 2; ++outer)
+                for (int inner = 0; inner < 2; ++inner) {
+                    auto bumped = inputs;
+                    for (int column = 0; column < 6; ++column)
+                        bumped.quoteSpreads_(column / 2, column % 2) += (outer == 0 ? 1.0 : -1.0) * COORDINATE_STEP * direction[column];
+                    bumped.quoteSpreads_(quote / 2, quote % 2) += (inner == 0 ? 1.0 : -1.0) * COORDINATE_STEP;
+                    values[outer][inner] = FreshObjective(base, bumped);
+                }
+            reference[quote] = (values[0][0] - values[0][1] - values[1][0] + values[1][1]) / (4.0 * COORDINATE_STEP * COORDINATE_STEP);
+        }
+        return reference;
+    }
+
+    bool MatchesValueDifferences(const Dal::DupireQuoteCurvatureResult_& actual, const Vector_<>& reference, double step) {
+        bool passes = true;
+        for (int quote = 0; quote < 6; ++quote) {
+            const double estimate = actual.HessianProducts()(0, quote);
+            const double tolerance = 0.08 + 0.02 * std::abs(reference[quote]);
+            const bool pass = std::abs(estimate - reference[quote]) <= tolerance;
+            std::cout << std::setprecision(17) << "DupireCurvature quote=" << quote << " step=" << step << " aad=" << estimate
+                      << " valueDifference=" << reference[quote] << " tolerance=" << tolerance << " pass=" << pass << '\n';
+            passes = passes && pass;
+        }
+        return passes;
+    }
+
     Dal::AAD::Number_ QuoteSquare(Dal::AAD::RecordingScope_*, const Vector_<Dal::AAD::Number_>& x) { return x[x.size() - 6] * x[x.size() - 6]; }
 
     class CallbackIVS_ final : public Dal::AAD::IVS_ {
@@ -110,32 +140,12 @@ TEST(DupireQuoteCurvatureTest, TestNonlinearCalibrationAndMixedQuoteTermsMatchIn
     const auto objective = [](Dal::AAD::RecordingScope_*, const Vector_<Dal::AAD::Number_>& x) {
         return x[8] + 0.7 * x[9] * x[9] + 2.0 * x[8] * x[20];
     };
-    Vector_<> reference(6);
-    for (int quote = 0; quote < 6; ++quote) {
-        double values[2][2];
-        for (int outer = 0; outer < 2; ++outer)
-            for (int inner = 0; inner < 2; ++inner) {
-                auto bumped = inputs;
-                for (int column = 0; column < 6; ++column)
-                    bumped.quoteSpreads_(column / 2, column % 2) += (outer == 0 ? 1.0 : -1.0) * COORDINATE_STEP * direction[column];
-                bumped.quoteSpreads_(quote / 2, quote % 2) += (inner == 0 ? 1.0 : -1.0) * COORDINATE_STEP;
-                values[outer][inner] = FreshObjective(base, bumped);
-            }
-        reference[quote] = (values[0][0] - values[0][1] - values[1][0] + values[1][1]) / (4.0 * COORDINATE_STEP * COORDINATE_STEP);
-    }
+    const auto reference = IndependentProducts(base, inputs, direction);
     std::array<bool, 3> passes{};
     for (size_t step = 0; step < CURVATURE_STEPS.size(); ++step) {
         const auto actual = Dal::EvaluateDupireQuoteCurvature(objective, snapshot, Direction(direction, CURVATURE_STEPS[step]));
         ASSERT_NEAR(actual.Value(), FreshObjective(base, inputs), 1e-10);
-        passes[step] = true;
-        for (int quote = 0; quote < 6; ++quote) {
-            const double estimate = actual.HessianProducts()(0, quote);
-            const double tolerance = 0.08 + 0.02 * std::abs(reference[quote]);
-            const bool pass = std::abs(estimate - reference[quote]) <= tolerance;
-            std::cout << std::setprecision(17) << "DupireCurvature quote=" << quote << " step=" << CURVATURE_STEPS[step] << " aad=" << estimate
-                      << " valueDifference=" << reference[quote] << " tolerance=" << tolerance << " pass=" << pass << '\n';
-            passes[step] = passes[step] && pass;
-        }
+        passes[step] = MatchesValueDifferences(actual, reference, CURVATURE_STEPS[step]);
     }
     ASSERT_TRUE((passes[0] && passes[1]) || (passes[1] && passes[2]));
 

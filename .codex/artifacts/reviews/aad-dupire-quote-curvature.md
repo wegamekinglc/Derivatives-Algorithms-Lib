@@ -8,6 +8,24 @@ No open implementation finding after read-through of the changed API, passive
 calibration, complete gradient composition, independent tests and controls.
 The strict-warning test-macro dangling-else finding is corrected with explicit
 braces; only affected strict probes repeat. No production behavior changed.
+PR #520's initial Codacy finding reports mathematical-test cyclomatic complexity
+14 against a limit of eight. Extracting the independent value-difference
+reference and comparison keeps every assertion, step and tolerance unchanged;
+the affected mathematical case and its two strict profiles pass again.
+Production objects, installed consumption and accepted costs are retained.
+Codex inline `4232923168` identifies two benchmark-labelled aliases that the
+scheduled Linux/Windows jobs incorrectly treat as executable names. A focused
+registration check reproduces both missing-name contracts. The repaired
+`quote_risk_perf` default entry runs the new flat/mixed cases; explicit selection
+remains available and only the real executable retains a benchmark CTest label.
+Reconfiguration, the name contract, default/flat/mixed executable smoke and five
+affected strict profiles pass. The timed request body and production archive
+retain their identities, so accepted paired samples are reused.
+Copilot full review `5473438407` has zero inline findings but recommends changing
+October 10 headers/changelog based on October 9 UTC. The user workspace is
+Asia/Shanghai, with supplied date October 10; Git records publication at
+`2026-10-10T01:38:50+08:00`. The dates are correct and this body-only finding is
+dispositioned with timezone evidence rather than a source/date change.
 
 ## Mathematical and lifecycle evidence
 

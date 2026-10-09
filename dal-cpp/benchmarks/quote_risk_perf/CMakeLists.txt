@@ -15,6 +15,3 @@ install(TARGETS quote_risk_perf
 
 add_test(NAME quote_risk_perf COMMAND quote_risk_perf)
 set_tests_properties(quote_risk_perf PROPERTIES LABELS "benchmark")
-add_test(NAME quote_risk_dupire_flat COMMAND quote_risk_perf --dupire-curvature flat)
-add_test(NAME quote_risk_dupire_mixed COMMAND quote_risk_perf --dupire-curvature mixed)
-set_tests_properties(quote_risk_dupire_flat quote_risk_dupire_mixed PROPERTIES LABELS "benchmark")
