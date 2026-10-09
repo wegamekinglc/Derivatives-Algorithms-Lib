@@ -1,4 +1,4 @@
-add_executable(quote_risk_perf quote_risk_perf.cpp ../rate_risk_perf/quoteriskbenchfixtures.cpp)
+add_executable(quote_risk_perf quote_risk_perf.cpp dupirecurvatureperf.cpp ../rate_risk_perf/quoteriskbenchfixtures.cpp)
 
 target_link_libraries(quote_risk_perf dal_library)
 

@@ -280,6 +280,7 @@ if(DAL_CPP_BUILD_TESTS)
     add_executable(dal_cpp_bump_over_aad_allocation_tests
         "${PROJECT_SOURCE_DIR}/test-support/test_bump_over_aad_allocations.cpp"
         "${PROJECT_SOURCE_DIR}/test-support/test_monte_carlo_curvature_allocations.cpp"
+        "${PROJECT_SOURCE_DIR}/test-support/test_dupire_quote_curvature_allocations.cpp"
         "${PROJECT_SOURCE_DIR}/test-support/bcg_allocation_probe.cpp"
         "${PROJECT_SOURCE_DIR}/tests/test_main.cpp")
     target_link_libraries(dal_cpp_bump_over_aad_allocation_tests PRIVATE dal_cpp gtest)

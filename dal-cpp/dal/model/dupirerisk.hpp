@@ -34,6 +34,8 @@ namespace Dal {
 
         explicit DupireCalibrationSnapshot_(std::shared_ptr<const Data_> data);
         friend DupireCalibrationSnapshot_ CalibrateDupireWithRisk(const AAD::IVS_&, const DupireRiskInputs_&, const String_&);
+        friend void ValidateDupireQuoteRecalibration(const DupireCalibrationSnapshot_&, const Matrix_<>&);
+        friend DupireCalibrationSnapshot_ RecalibrateDupireWithRisk(const DupireCalibrationSnapshot_&, const Matrix_<>&);
         friend DupireQuoteRisk_ PullbackDupireCalibration(const DupireCalibrationSnapshot_&,
                                                           const DupireParameterAdjoints_&,
                                                           const std::optional<DupireDirectQuoteAdjoints_>&);
@@ -50,6 +52,8 @@ namespace Dal {
     };
 
     DupireCalibrationSnapshot_ CalibrateDupireWithRisk(const AAD::IVS_& baseIvs, const DupireRiskInputs_& inputs, const String_& name = {});
+    void ValidateDupireQuoteRecalibration(const DupireCalibrationSnapshot_& snapshot, const Matrix_<>& quoteSpreads);
+    [[nodiscard]] DupireCalibrationSnapshot_ RecalibrateDupireWithRisk(const DupireCalibrationSnapshot_& snapshot, const Matrix_<>& quoteSpreads);
 
     struct DupireParameterAdjoints_ {
         DupireCalibrationSnapshot_ calibration_;

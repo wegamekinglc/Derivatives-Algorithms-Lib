@@ -2141,6 +2141,55 @@ remain distinct. Smooth polynomial convergence does not establish convergence
 order for nonsmooth products, unbiased Gamma, calibration curvature or exercise
 policy responses. Native `higherOrder_` remains false.
 
+### Recalibrated Dupire quote curvature
+
+`EvaluateDupireQuoteCurvature` in `dal/model/dupirecurvature.hpp` estimates
+Gamma, cross-Gamma and HVPs in the complete decimal-vol spread coordinates of
+a `DupireCalibrationSnapshot_`. It accepts a native scalar objective, the
+snapshot and an explicit `AAD::BumpOverAADRequest_`. Objective inputs contain
+local-volatility nodes in strike-major order, followed by all quote spreads in
+strike-major order. An objective can therefore depend on both the calibrated
+surface and the quotes directly.
+
+At every base and perturbed quote point, the driver rebuilds the numerical
+calibration, differentiates the objective and runs a fresh calibration pullback:
+
+$$
+g(q)=Dc(q)^T\partial_c\phi(c(q),q)+\partial_q\phi(c(q),q).
+$$
+
+Product rows difference these complete quote gradients using the submitted
+directions and steps. Rebuilding the calibration and its pullback includes
+calibration curvature; holding the original Jacobian fixed would omit it.
+`RecalibrateDupireWithRisk(snapshot, spreads)` also exposes the passive rebuild.
+It retains sealed base-IVS samples, carry, quote axes, grids and fixed bands,
+preserves the surface name and leaves the original snapshot valid. Neither
+recalibration nor `ValidateDupireQuoteRecalibration` resamples an external IVS.
+
+The result owns the base `Value()`, complete quote `Gradient()`, `Point()`,
+`Directions()`, `Steps()`, `HessianProducts()` and recalibrated `Calibration()`.
+`Execution()` counts one calibration, objective reverse and calibration reverse
+per quote-gradient evaluation: exactly 1+2M, including the base. Empty direction
+sets request the base only. Output columns use raw quote units; report-scale
+Hessians require both coordinate conversion factors.
+
+All plus/minus numeric and stencil domains are admitted before the first
+objective. The numeric budget uses the same owning-double formula as the generic
+driver with N equal to the quote count; retained snapshots and temporary arrays
+are separate. The recording cap applies independently to each sequential
+objective recording and calibration pullback. Reported peak tape capacity and
+cleanup reserve exclude RSS. Nested driver entry is rejected and caller adjoint
+mode is restored after success or failure.
+
+The callback follows the sequential native scalar contract and keeps captured
+data fixed. It cannot contain parallel simulation or another independent
+recording. These are finite-step estimates of the implemented fixed-band Dupire
+method, whose numerical call stencils introduce rounding error. Quote
+interpolation folds can invalidate a bumped stencil when they coincide with a
+calibration node; such requests reject. Smaller steps do not guarantee better
+accuracy. This entry does not provide Monte Carlo quote curvature, exercise
+policy responses or native mixed-mode differentiation; `higherOrder_` is false.
+
 ## Examples
 
 The runnable [AAD Black example](../../dal-cpp/examples/aad) compares passive
