@@ -100,7 +100,11 @@ namespace {
         const auto fixedFunction = function;
         Vector_<> fixedPoint = point;
         BumpOverAADRequest_ fixedRequest = request;
-        const auto mode = SetNumResultsForAAD(false, 1);
+        RequireRecordingModeChangeAllowed();
+        auto* tape = Tape();
+        const NumResultsResetterForAAD_ mode(tape, tape->multi_, tape->numAdj_);
+        tape->multi_ = false;
+        tape->numAdj_ = 1;
         TapeCapacityBudget_ budget(std::numeric_limits<size_t>::max());
         TapeCapacityScope_ capacity(&budget, true);
         auto base = ReferenceGradient(fixedFunction, fixedPoint);

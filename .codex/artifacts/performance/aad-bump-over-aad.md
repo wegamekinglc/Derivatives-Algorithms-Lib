@@ -135,3 +135,40 @@ pass. Numeric payload and tape/reserve metrics match the initial study.
 The repaired installed-only recorded-solve consumer passes 1/1 in the separate
 `bump-over-aad-allocation-install/` prefix. Overall: **no regression** for the
 affected old caller; new capability overhead remains informational.
+
+## Upstream integration selection
+
+Master #516 (`97ab613c`) changes normal precision and RNG implementation. The
+integration at `75d3f2b9` preserves both CHANGELOG entries; the curvature driver,
+tests, private allocation seam and diagnostic coverage retain their repaired
+bytes. Dependency analysis selects nineteen upstream library units. Rebuild
+those in an isolated upstream source; retain the other 161 pre-upstream archive
+members exactly. The implementation then adds the accepted native curvature
+object, preserving all 180 upstream baseline members. Rebuild benchmark callers
+against the new settings layout and use the actual upstream three-command main
+for the old-caller control, with a separate manual-secant overlay for new costs.
+
+The same three-case, 120-observation study takes 3.693 seconds. The existing
+control rounds move +7.93%/-0.60%; this is not a sustained gate failure, but the
+cross-round spread requires noise confirmation. Select only this existing short
+control for another two interleaved best-of-ten rounds with the unchanged +4%
+threshold. Retain the full first study; repeat no other target or shape.
+
+The 40-observation control confirmation takes 1.422 seconds and moves
+-0.95%/+4.95%. The two-round failure condition is absent, but the host remains
+noisy. Preserve these measurements rather than claiming stable equality.
+
+## Baseline fairness repair selection
+
+Review finding `4230078427` identifies the manual-secant baseline's remaining
+heap-allocated mode guard. Match the production stack guard and lifecycle check
+in the baseline-only benchmark branch; production, tests and head timing bodies
+are unchanged. Recompile that baseline object and relink only its executable.
+Repeat the two affected new-capability comparisons with the original two rounds
+of ten paired samples. Report their overhead against this corrected reference;
+earlier overhead numbers are superseded. Retain all prior raw studies.
+
+For the already selected noisy old short control, increase only its sample count
+to twenty per side in each of two interleaved rounds. Keep workload, executables,
+minimum reduction and +4% threshold unchanged. If minima remain unstable, report
+the control as inconclusive. No unrelated matrix or correctness suite is added.
