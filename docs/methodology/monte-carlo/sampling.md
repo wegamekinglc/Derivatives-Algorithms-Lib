@@ -296,9 +296,21 @@ correlations that plain lagged generators exhibit. The output is the shuffled
 value mapped to $(0,1)$ as `(2 * ret_val + 1) / 2^31`, which keeps both
 endpoints excluded. Seeking advances from the current engine position when
 possible and replays from the seed for backwards seeks. Its cost is linear in
-the number of engine draws replayed; AAD batches create fresh generators, so
-many batches can incur substantial replay overhead. Prefer MRG32 or Sobol
-for large batched valuations requiring efficient seeking.
+the number of engine draws replayed. Ordinary multi-threaded double Monte Carlo
+and ordinary AAD Monte Carlo use one sequential positioner that clones the
+engine at each batch start while workers consume earlier batches. Positioning
+replays the stream once, without inverse-normal conversion, and preserves each
+path's sequential normal draws, precision and Brownian bridge. Single-threaded
+double simulation reuses its contiguous engine directly.
+
+The positioner limits outstanding tasks to twice the pool's thread count;
+workers own their clones exclusively. Capacity waits can execute queued work,
+including with a one-thread pool. Positioning, submission or worker failures
+cancel further positioned work and drain accepted tasks before returning an
+error. Existing batch boundaries and reductions remain in use: AAD reduction
+can still differ in its last bits with worker scheduling. Separate drivers,
+including segmented Monte Carlo, retain their own positioning schedules.
+MRG32 and Sobol support efficient independent seeking when that is required.
 
 ### `MRG32` — Combined Multiple Recursive
 
@@ -365,8 +377,8 @@ simulation.normalPrecision_ = "Precise";
   estimators where low-discrepancy bias is undesirable. Between the two
   engines, `MRG32` has the stronger theoretical recurrence and efficient
   matrix-based seeking; `IRN` is a Knuth-style alternative with linear replay.
-  Ordinary Monte Carlo uses `SkipNormalTo` to give each batch its sequential
-  normal substream for either engine.
+  Ordinary Monte Carlo gives each batch its sequential normal stream, using
+  `SkipNormalTo` directly for MRG32 and bounded sequential positioning for IRN.
 - **Script `EXERCISE` products** accept only `sobol` (`UnsupportedRsgForExercise`
   otherwise): their LSMC driver seeks each batch's first path with `SkipTo` —
   in the recording pass and, for AAD risks, in the on-tape replay of the
@@ -401,8 +413,10 @@ Additional `CreateRNG` cases use the production factory with `Default` and
 `script_mc_perf --rng-policy double mrg32 Fast 1048576` measures the
 single-thread BS weekly-barrier valuation. Replace `double` with `aad` to
 report the price and every named risk. Optional arguments select the global
-smoothing width, `tree|compiled` evaluator, and barrier smoothing width (default
-`0.1`). For example,
+smoothing width, `tree|compiled` evaluator, barrier smoothing width (default
+`0.1`), and thread count (default `1`). For example,
+`--rng-policy aad irn Fast 1048576 0.01 tree 0.1 32` measures a 32-thread
+valuation; the output reports the actual pool size. The command
 `--rng-policy aad mrg32 Precise 131072 0.000001 compiled 0.000001`
 narrows both payoff and barrier smoothing.
 
