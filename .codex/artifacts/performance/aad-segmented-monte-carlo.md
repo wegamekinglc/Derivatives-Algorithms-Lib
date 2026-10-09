@@ -146,3 +146,16 @@ records. Initial/unpinned and superseded single-shape samples remain diagnostic:
 240 accepted process samples plus 540 retained noise diagnostics, about 165 seconds
 total sampling. No unrelated matrix ran. Documentation-only publication changes
 reuse these immutable bodies, archives and executable identities without new timing.
+
+## Upstream integration applicability
+
+During publication, upstream #514 (`c538e61e`) updates lexer error construction and
+Python exception translation. The new native helpers are reached only through
+the lazy REQUIRE2 failure message; valid ASCII preparation and all already-prepared
+timed MC bodies are unchanged. Integrate that lexer object into a separate archive,
+preserve the original frozen 179/180-member archives, and prove the other 178 old
+members and new MC object unchanged. The accepted numerical/resource workload has
+no invalid-script path; Python translation is outside this C++ request. Reuse the
+accepted timings rather than repeating unrelated cases. Integrated focused tests
+and installed-only consumption establish linkage against the updated dependency.
+`segmented-mc-library/integration-verification.json` retains the replacement proof.

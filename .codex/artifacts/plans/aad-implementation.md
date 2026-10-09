@@ -174,6 +174,12 @@ at about 8.1x/7.3x latency; short cold scheduling can increase retained tape mem
 Noise diagnostics are retained; only affected shapes repeat. Local implementation
 and cost acceptance pass. Publication remains open, so whole P05 remains open.
 
+The active Monte Carlo increment is published in
+[#515](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/515).
+Upstream #514's UTF-8 lexer/Python error handling is integrated. It changes error
+construction outside prepared valid MC workloads; retain the frozen cost evidence
+with dependency/body provenance and verify the integrated focused consumer.
+
 Native PDE recording is accepted in merged
 [#505](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/505),
 at `72cac784`, after two complete 36/36 exact-head audits, zero Codacy
