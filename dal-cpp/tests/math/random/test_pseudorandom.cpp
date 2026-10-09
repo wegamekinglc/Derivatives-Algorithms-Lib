@@ -9,6 +9,7 @@
 #include <limits>
 #include <utility>
 
+#include <dal/math/buffercapacity.hpp>
 #include <dal/math/operators.hpp>
 #include <dal/math/random/pseudorandom.hpp>
 #include <dal/math/specialfunctions.hpp>
@@ -76,6 +77,29 @@ namespace {
         void (Random_::*seek_)(size_t);
     };
 } // namespace
+
+TEST(PseudoRandomTest, TestIRNClonedStateHonorsBufferCapacityBudget) {
+    constexpr size_t minimumBytes = (55 + 128) * sizeof(unsigned) + 52 * sizeof(double);
+    BufferCapacityBudget_ budget(4 * minimumBytes);
+    {
+        BufferCapacityScope_ scope(&budget);
+        auto generator = New(RNGType_("IRN"), 1024, 52, false);
+        const auto stateBytes = budget.CapacityBytes();
+        ASSERT_GE(stateBytes, minimumBytes);
+        {
+            auto clone = generator->Clone();
+            ASSERT_EQ(budget.CapacityBytes(), 2 * stateBytes);
+        }
+        ASSERT_EQ(budget.CapacityBytes(), stateBytes);
+    }
+    ASSERT_EQ(budget.CapacityBytes(), 0);
+    BufferCapacityBudget_ limited((55 + 128) * sizeof(unsigned));
+    {
+        BufferCapacityScope_ scope(&limited);
+        ASSERT_THROW(static_cast<void>(New(RNGType_("IRN"), 1024, 52, false)), Exception_);
+        ASSERT_EQ(limited.CapacityBytes(), 0);
+    }
+}
 
 TEST(PseudoRandomTest, TestIRNUniformStreamMatchesLegacyAcrossSeeds) {
     for (const int seed : {0, 1, 1024, 12345, -1, std::numeric_limits<int>::min(), std::numeric_limits<int>::max()}) {

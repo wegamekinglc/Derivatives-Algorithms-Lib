@@ -60,29 +60,34 @@ namespace Dal {
             static_assert(M_ > 0 && L_ >= 0 && L_ < M_, "IRN lag must lie within the ring");
             static const int DE_NOM = 1 << 30;
 
-            // Clones write their engine state independently on different workers.
-            alignas(64) std::array<unsigned, M_> irn_{};
-            alignas(64) std::array<unsigned, S_> shuffle_{};
+            // Keep worker states on separate cache lines and charge their buffer capacity.
+            struct alignas(64) EngineState_ {
+                std::array<unsigned, M_> irn_{};
+                alignas(64) std::array<unsigned, S_> shuffle_{};
+            };
+            Vector_<EngineState_> state_;
             int irl_;
             const int seed_;
             size_t nDraws_ = 0;
 
             unsigned IRN() {
+                auto& irn = state_[0].irn_;
                 if (--irl_ < 0)
                     irl_ = M_ - 1;
                 int pLoc = irl_ + L_;
                 if (pLoc >= M_)
                     pLoc -= M_;
-                irn_[irl_] += irn_[pLoc];
-                irn_[irl_] %= DE_NOM;
-                return irn_[irl_];
+                irn[irl_] += irn[pLoc];
+                irn[irl_] %= DE_NOM;
+                return irn[irl_];
             }
             double DrawUniform() {
                 static const double MUL = 0.5 / DE_NOM;
                 const unsigned irn = IRN();
                 const int sLoc = irn % S_;
-                int ret_val = shuffle_[sLoc];
-                shuffle_[sLoc] = irn;
+                auto& shuffle = state_[0].shuffle_;
+                int ret_val = shuffle[sLoc];
+                shuffle[sLoc] = irn;
                 return MUL * (2 * ret_val + 1); // avoid 0.0 and 1.0
             }
 
@@ -98,24 +103,25 @@ namespace Dal {
             }
 
             explicit ShuffledIRN_(int seed, size_t nDim = 1, bool precise = false)
-                : PseudoRandom_(nDim, precise), seed_(seed), irl_(0) {
+                : PseudoRandom_(nDim, precise), state_(1), seed_(seed), irl_(0) {
                 Reset();
             }
 
             void Reset() {
+                auto& irn = state_[0].irn_;
                 irl_ = 0;
                 nDraws_ = 0;
                 const unsigned MASK = 0x1F2E3D4C;
                 const unsigned MUL = 17;
-                irn_[0] = seed_;
+                irn[0] = seed_;
                 for (int ii = 1; ii < M_; ++ii)
-                    irn_[ii] = ((MUL * irn_[ii - 1]) % DE_NOM) ^ MASK;
+                    irn[ii] = ((MUL * irn[ii - 1]) % DE_NOM) ^ MASK;
                 for (int ii = 0; ii < S_; ++ii)
-                    shuffle_[ii] = IRN();
+                    state_[0].shuffle_[ii] = IRN();
             }
 
             [[nodiscard]] std::unique_ptr<PseudoRandom_> Branch(int iChild) const override {
-                return std::make_unique<ShuffledIRN_<M_, L_, S_>>(irn_[0] ^ irn_[1]);
+                return std::make_unique<ShuffledIRN_<M_, L_, S_>>(state_[0].irn_[0] ^ state_[0].irn_[1]);
             }
 
             [[nodiscard]] std::unique_ptr<Random_> Clone() const override { return std::make_unique<ShuffledIRN_>(*this); }
