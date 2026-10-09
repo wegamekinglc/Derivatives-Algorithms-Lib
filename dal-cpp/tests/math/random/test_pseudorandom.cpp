@@ -4,8 +4,10 @@
 
 #include <gtest/gtest.h>
 
+#include <array>
 #include <cstdint>
 #include <limits>
+#include <utility>
 
 #include <dal/math/operators.hpp>
 #include <dal/math/random/pseudorandom.hpp>
@@ -16,6 +18,33 @@
 using namespace Dal;
 
 namespace {
+    struct LegacyIRN_ {
+        std::array<unsigned, 55> ring_{};
+        std::array<unsigned, 128> shuffle_{};
+        int position_ = 0;
+
+        unsigned Advance() {
+            position_ = (position_ + 54) % 55;
+            auto& value = ring_[position_];
+            value = (value + ring_[(position_ + 31) % 55]) % (1U << 30);
+            return value;
+        }
+
+        explicit LegacyIRN_(int seed) {
+            ring_[0] = seed;
+            for (size_t i = 1; i < ring_.size(); ++i)
+                ring_[i] = ((17U * ring_[i - 1]) % (1U << 30)) ^ 0x1F2E3D4CU;
+            for (auto& value : shuffle_)
+                value = Advance();
+        }
+
+        double Next() {
+            const unsigned value = Advance();
+            const unsigned previous = std::exchange(shuffle_[value % shuffle_.size()], value);
+            return (2.0 * previous + 1.0) / 2147483648.0;
+        }
+    };
+
     // Pins the pre-optimization floating recurrence independently of the production engine.
     struct LegacyMRG_ {
         double x_, x1_, x2_, y_, y1_, y2_;
@@ -47,6 +76,15 @@ namespace {
         void (Random_::*seek_)(size_t);
     };
 } // namespace
+
+TEST(PseudoRandomTest, TestIRNUniformStreamMatchesLegacyAcrossSeeds) {
+    for (const int seed : {0, 1, 1024, 12345, -1, std::numeric_limits<int>::min(), std::numeric_limits<int>::max()}) {
+        auto generator = New(RNGType_("IRN"), seed, 1, false);
+        LegacyIRN_ reference(seed);
+        for (size_t draw = 0; draw < 2000000; ++draw)
+            ASSERT_EQ(generator->NextUniform(), reference.Next()) << "seed=" << seed << "; draw=" << draw;
+    }
+}
 
 TEST(PseudoRandomTest, TestMRGUniformStreamMatchesLegacyAcrossSeeds) {
     for (const int seed : {0, 1, 1024, 12345, -1, std::numeric_limits<int>::min(), std::numeric_limits<int>::max()}) {

@@ -56,6 +56,7 @@ namespace Dal {
     namespace {
         // Generators similar to Knuth's IRN55, with shuffling
         template <int M_, int L_, int S_> struct ShuffledIRN_ : public PseudoRandom_ {
+            static_assert(M_ > 0 && L_ >= 0 && L_ < M_, "IRN lag must lie within the ring");
             static const int DE_NOM = 1 << 30;
 
             Vector_<unsigned> irn_, shuffle_;
@@ -66,7 +67,9 @@ namespace Dal {
             unsigned IRN() {
                 if (--irl_ < 0)
                     irl_ = M_ - 1;
-                const int pLoc = (irl_ + L_) % M_;
+                int pLoc = irl_ + L_;
+                if (pLoc >= M_)
+                    pLoc -= M_;
                 irn_[irl_] += irn_[pLoc];
                 irn_[irl_] %= DE_NOM;
                 return irn_[irl_];
