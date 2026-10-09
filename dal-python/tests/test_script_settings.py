@@ -122,6 +122,52 @@ class IntChoice(enum.IntEnum):
     ONE = 1
 
 
+@pytest.mark.parametrize("precision", ["Default", "Fast", "Precise"])
+def test_normal_precision_settings_and_copy(precision):
+    settings = dal.MonteCarloSettings_(normal_precision=precision)
+    assert settings.normal_precision == precision
+    for copier in (copy.copy, copy.deepcopy):
+        assert copier(settings).normal_precision == precision
+    settings.normal_precision = "Fast"
+    assert settings.normal_precision == "Fast"
+    assert dal.MonteCarloSettings_().normal_precision == "Default"
+
+
+@pytest.mark.parametrize("value", ["fast", "precise", "unknown", "", None, True, 1])
+def test_normal_precision_rejects_invalid_values(value):
+    with pytest.raises((ValueError, TypeError, RuntimeError), match="normal[Pp]recision|normal_precision"):
+        dal.MonteCarloSettings_(normal_precision=value)
+    settings = dal.MonteCarloSettings_(normal_precision="Precise")
+    with pytest.raises((ValueError, TypeError, RuntimeError), match="normal[Pp]recision|normal_precision"):
+        settings.normal_precision = value
+    assert settings.normal_precision == "Precise"
+
+
+@pytest.mark.parametrize("method", ["sobol", "mrg32", "irn"])
+def test_normal_precision_reaches_valuation_and_diagnostics(method):
+    valuation = dal.ScriptValuationSettings_(evaluation_date=dal.Date_(2024, 1, 1))
+    product = dal.Product_New(
+        events_dates=[dal.Cell_(dal.Date_(2025, 1, 1))],
+        events=["pay PAYS SPOT()"],
+    )
+    model = dal.BSModelData_New(100.0, 0.2, 0.05, 0.02)
+    results = {}
+    for precision in ("Default", "Fast", "Precise"):
+        simulation = dal.MonteCarloSettings_(
+            method=method, normal_precision=precision, enable_aad=True
+        )
+        results[precision] = dal.MonteCarlo_ValueWithSettings(
+            product, model, 257, valuation=valuation, simulation=simulation
+        )
+        simulation.enable_aad = False
+        explanation = dal.ScriptSimulation_Explain(
+            product, model, 257, valuation=valuation, simulation=simulation
+        )
+        assert explanation["simulation"]["normal_precision"] == precision
+    assert results["Default"] == pytest.approx(results["Fast"], rel=0, abs=1e-12)
+    assert results["Fast"]["PV"] != results["Precise"]["PV"]
+
+
 class ForeignSetting(str, enum.Enum):
     MODEL = "Model"
     HISTORY = "RequireHistorical"

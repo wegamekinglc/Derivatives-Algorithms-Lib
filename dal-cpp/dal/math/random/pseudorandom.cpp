@@ -2,6 +2,7 @@
 // Created by wegam on 2020/12/19.
 //
 
+#include <cstdint>
 #include <limits>
 
 #include <dal/math/random/pseudorandom.hpp>
@@ -33,15 +34,7 @@ namespace Dal {
     }
 
     void PseudoRandom_::FillUniform(Vector_<>* devs) {
-        if (anti_) {
-            for (size_t i = 0; i < devs->size(); ++i)
-                (*devs)[i] = (1.0 - cache_[i]);
-            anti_ = false;
-        } else {
-            for (size_t i = 0; i < devs->size(); ++i)
-                (*devs)[i] = cache_[i] = NextUniform();
-            anti_ = true;
-        }
+        FillUniformWith([this]() { return NextUniform(); }, devs);
     }
 
     namespace {
@@ -54,7 +47,7 @@ namespace Dal {
                 }
             }
         } // namespace RWT
-    }     // namespace
+    } // namespace
 
     void PseudoRandom_::FillNormal(Vector_<>* deviates) {
         RWT::Fill([this]() { return NextUniform(); }, precise_, deviates->begin(), deviates->end());
@@ -129,17 +122,17 @@ namespace Dal {
             }
         };
 
-        constexpr const double m1_ = 4294967087;
-        constexpr const double m2_ = 4294944443;
-        constexpr const double a12_ = 1403580;
-        constexpr const double a13_ = 810728;
-        constexpr const double a21_ = 527612;
-        constexpr const double a23_ = 1370589;
-        constexpr const double m1p1_ = 4294967088;
+        constexpr int64_t m1_ = 4294967087;
+        constexpr int64_t m2_ = 4294944443;
+        constexpr int64_t a12_ = 1403580;
+        constexpr int64_t a13_ = 810728;
+        constexpr int64_t a21_ = 527612;
+        constexpr int64_t a23_ = 1370589;
+        constexpr double m1p1_ = 4294967088.0;
 
         struct MRG32k32a_ : public PseudoRandom_ {
-            const double a_, b_;
-            double xn_, xn1_, xn2_, yn_, yn1_, yn2_;
+            const int64_t a_, b_;
+            int64_t xn_, xn1_, xn2_, yn_, yn1_, yn2_;
 
             explicit MRG32k32a_(const unsigned& a = 12345, const unsigned& b = 12346, size_t nDim = 1, bool precise = false)
                 : PseudoRandom_(nDim, precise), a_(a), b_(b) {
@@ -151,25 +144,34 @@ namespace Dal {
                 yn_ = yn1_ = yn2_ = b_;
             }
 
-            double NextUniform() override {
-                double x = a12_ * xn1_ - a13_ * xn2_;
-                x -= long(x / m1_) * m1_;
+            double DrawUniform() {
+                // Products fit in 53 bits, preserving the old exact-integer double stream.
+                int64_t x = (a12_ * xn1_ - a13_ * xn2_) % m1_;
                 if (x < 0)
                     x += m1_;
                 xn2_ = xn1_;
                 xn1_ = xn_;
                 xn_ = x;
 
-                double y = a21_ * yn_ - a23_ * yn2_;
-                y -= long(y / m2_) * m2_;
+                int64_t y = (a21_ * yn_ - a23_ * yn2_) % m2_;
                 if (y < 0)
                     y += m2_;
                 yn2_ = yn1_;
                 yn1_ = yn_;
                 yn_ = y;
 
-                const double u = x > y ? (x - y) / m1p1_ : (x - y + m1_) / m1p1_;
+                const double u = static_cast<double>(x > y ? x - y : x - y + m1_) / m1p1_;
                 return u;
+            }
+
+            double NextUniform() override { return DrawUniform(); }
+
+            void FillUniform(Vector_<>* deviates) override {
+                FillUniformWith([this]() { return DrawUniform(); }, deviates);
+            }
+
+            void FillNormal(Vector_<>* deviates) override {
+                RWT::Fill([this]() { return DrawUniform(); }, precise_, deviates->begin(), deviates->end());
             }
 
             [[nodiscard]] std::unique_ptr<PseudoRandom_> Branch(int iChild) const override { return std::make_unique<MRG32k32a_>(); }
@@ -179,15 +181,13 @@ namespace Dal {
             void SkipUniformDraws(size_t nPoints) override {
                 Reset();
 
-                static constexpr size_t m1l = static_cast<size_t>(m1_);
-                static constexpr size_t m2l = static_cast<size_t>(m2_);
+                static constexpr uint64_t m1l = m1_;
+                static constexpr uint64_t m2l = m2_;
 
-                size_t ab[3][3] = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
-                size_t bb[3][3] = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
-                size_t ai[3][3] = {
-                    {0, static_cast<size_t>(a12_), static_cast<size_t>(m1_ - a13_)}, {1, 0, 0}, {0, 1, 0}};
-                size_t bi[3][3] = {
-                    {static_cast<size_t>(a21_), 0, static_cast<size_t>(m2_ - a23_)}, {1, 0, 0}, {0, 1, 0}};
+                uint64_t ab[3][3] = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
+                uint64_t bb[3][3] = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
+                uint64_t ai[3][3] = {{0, a12_, m1_ - a13_}, {1, 0, 0}, {0, 1, 0}};
+                uint64_t bi[3][3] = {{a21_, 0, m2_ - a23_}, {1, 0, 0}, {0, 1, 0}};
 
                 while (nPoints > 0) {
                     if (nPoints & 1) {
@@ -200,32 +200,32 @@ namespace Dal {
                     nPoints >>= 1;
                 }
 
-                size_t x0[3] = {static_cast<size_t>(xn_), static_cast<size_t>(xn1_), static_cast<size_t>(xn2_)};
-                size_t y0[3] = {static_cast<size_t>(yn_), static_cast<size_t>(yn1_), static_cast<size_t>(yn2_)};
+                uint64_t x0[3] = {static_cast<uint64_t>(xn_), static_cast<uint64_t>(xn1_), static_cast<uint64_t>(xn2_)};
+                uint64_t y0[3] = {static_cast<uint64_t>(yn_), static_cast<uint64_t>(yn1_), static_cast<uint64_t>(yn2_)};
 
-                size_t temp[3];
+                uint64_t temp[3];
                 VPrd(ab, x0, m1l, temp);
 
-                xn_ = static_cast<double>(temp[0]);
-                xn1_ = static_cast<double>(temp[1]);
-                xn2_ = static_cast<double>(temp[2]);
+                xn_ = static_cast<int64_t>(temp[0]);
+                xn1_ = static_cast<int64_t>(temp[1]);
+                xn2_ = static_cast<int64_t>(temp[2]);
 
                 VPrd(bb, y0, m2l, temp);
 
-                yn_ = static_cast<double>(temp[0]);
-                yn1_ = static_cast<double>(temp[1]);
-                yn2_ = static_cast<double>(temp[2]);
+                yn_ = static_cast<int64_t>(temp[0]);
+                yn1_ = static_cast<int64_t>(temp[1]);
+                yn2_ = static_cast<int64_t>(temp[2]);
             }
 
         private:
-            static void MPrd(const size_t lhs[3][3], const size_t rhs[3][3], const size_t& mod, size_t result[3][3]) {
-                size_t temp[3][3];
+            static void MPrd(const uint64_t lhs[3][3], const uint64_t rhs[3][3], uint64_t mod, uint64_t result[3][3]) {
+                uint64_t temp[3][3];
 
                 for (size_t j = 0; j < 3; j++) {
                     for (size_t k = 0; k < 3; k++) {
-                        size_t s = 0;
+                        uint64_t s = 0;
                         for (size_t l = 0; l < 3; l++) {
-                            size_t tmpNum = lhs[j][l] * rhs[l][k];
+                            uint64_t tmpNum = lhs[j][l] * rhs[l][k];
                             tmpNum %= mod;
                             s += tmpNum;
                             s %= mod;
@@ -241,11 +241,11 @@ namespace Dal {
                 }
             }
 
-            static void VPrd(const size_t lhs[3][3], const size_t rhs[3], const size_t& mod, size_t result[3]) {
+            static void VPrd(const uint64_t lhs[3][3], const uint64_t rhs[3], uint64_t mod, uint64_t result[3]) {
                 for (size_t j = 0; j < 3; j++) {
-                    size_t s = 0;
+                    uint64_t s = 0;
                     for (size_t l = 0; l < 3; l++) {
-                        size_t tmpNum = lhs[j][l] * rhs[l];
+                        uint64_t tmpNum = lhs[j][l] * rhs[l];
                         tmpNum %= mod;
                         s += tmpNum;
                         s %= mod;
@@ -269,7 +269,5 @@ namespace Dal {
 #include <dal/auto/MG_PseudoRSG_v1_Read.inc>
 #include <dal/auto/MG_PseudoRSG_v1_Write.inc>
 
-    void PseudoRSG_::Write(Archive::Store_& dst) const {
-        PseudoRSG_v1::XWrite(dst, name_, seed_, ndim_, precise_);
-    }
+    void PseudoRSG_::Write(Archive::Store_& dst) const { PseudoRSG_v1::XWrite(dst, name_, seed_, ndim_, precise_); }
 } // namespace Dal

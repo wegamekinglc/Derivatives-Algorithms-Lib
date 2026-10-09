@@ -112,7 +112,8 @@ namespace Dal::Script::Detail {
             AAD::RecordingScope_ recording;
             auto model = CreateModel<AAD::Number_>(modelData);
             model->Allocate(trades.front()->TimeLine(), trades.front()->DefLine());
-            const auto random = CreateRNG(trades.front()->Simulation().rsg_, *model, trades.front()->Simulation().useBb_);
+            const auto random = CreateRNG(trades.front()->Simulation().rsg_, *model, trades.front()->Simulation().useBb_, std::nullopt,
+                                          trades.front()->Simulation().normalPrecision_);
             const Vector_<double> gauss(model->SimDim());
             Scenario_<AAD::Number_> path;
             AllocatePath(trades.front()->DefLine(), path);

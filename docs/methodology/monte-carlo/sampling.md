@@ -281,7 +281,7 @@ enum, whose alternatives are `IRN` and `MRG32`.
 `PseudoRandom_` adds antithetic variates on top of the underlying engine:
 `FillUniform` alternates between drawing $u_i$ and emitting the antithetic
 $1 - u_i$ from its cache, halving the number of engine calls when antithetic
-sampling is in use. `FillNormal`, however, consumes a fresh `NextUniform()` per
+sampling is in use. `FillNormal`, however, consumes a fresh engine draw per
 component and bypasses that cache. The `precise_` flag selects a higher-accuracy
 inverse-normal-CDF inside `FillNormal`.
 
@@ -324,6 +324,34 @@ over $n\,\text{NDim}$ draws and clears the antithetic toggle. Both operations
 reproduce their respective sequential streams, including when seeking backwards.
 The matrix jump takes logarithmic time in the number of skipped draws.
 
+MRG32 uses exact signed 64-bit recurrence arithmetic and direct batch fill
+loops. Jump products use unsigned 64-bit arithmetic. Both filling and seeking
+preserve the uniform stream, including the equality case above.
+
+## Monte Carlo Normal Precision
+
+`MonteCarloSettings_::normalPrecision_` selects the inverse-normal conversion.
+Python and Excel expose the same setting as `normal_precision`:
+
+- `Default` uses fast normal conversion for Sobol, MRG32 and IRN.
+- `Fast` uses `InverseNCDF(u, false, false)`, the Acklam approximation.
+- `Precise` uses `InverseNCDF(u, true, true)`, including the CDF correction.
+
+These values are case-sensitive. The policy applies before the Brownian bridge,
+including factor-aware bridges, and is retained throughout ordinary simulation,
+portfolio valuation, risk replay and LSMC training/pricing/replay. Changing it
+preserves the underlying uniform sequence but changes normal draws, prices and
+Greeks. Small draw errors can be amplified near smoothing boundaries; compare
+all relevant risks when choosing a policy for a product. Select `Precise` when
+the CDF correction is required. Simulation diagnostics include
+`normal_precision`.
+
+```cpp
+Dal::Script::MonteCarloSettings_ simulation;
+simulation.rsg_ = "mrg32";
+simulation.normalPrecision_ = "Precise";
+```
+
 ## Selection Guidance
 
 - **Quasi-random + Brownian bridge** can improve path-dependent Monte Carlo
@@ -365,6 +393,18 @@ and linear replay costs, but do not measure whole multi-batch valuations.
   isolating their generator-specific overhead against the Sobol fast baseline
   rather than re-measuring the common inverse-CDF cost already covered by the
   Sobol fast/precise pair.
+
+Additional `CreateRNG` cases use the production factory with `Default` and
+`Precise` policies for MRG32/IRN, at 100K paths × 10 dimensions and 8192 paths ×
+52 dimensions. An MRG32 uniform case isolates engine throughput.
+
+`script_mc_perf --rng-policy double mrg32 Fast 1048576` measures the
+single-thread BS weekly-barrier valuation. Replace `double` with `aad` to
+report the price and every named risk. Optional arguments select the global
+smoothing width, `tree|compiled` evaluator, and barrier smoothing width (default
+`0.1`). For example,
+`--rng-policy aad mrg32 Precise 131072 0.000001 compiled 0.000001`
+narrows both payoff and barrier smoothing.
 
 ## Examples
 

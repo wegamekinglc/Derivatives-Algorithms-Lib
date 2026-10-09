@@ -61,7 +61,7 @@ namespace {
                                                               static_cast<size_t>(portfolio.PathCount()),
                                                               model->NumParams(),
                                                               product.ConstVarNames().size(),
-                                                              product.PayOffIdx()};
+                                                              product.PayOffIdx(), simulation.normalPrecision_};
         const auto program = simulation.compiled_.value_or(false) ? std::optional<ScriptCompiled_>(product.Compile(true)) : std::nullopt;
         Dal::Script::Detail::EvaluateAADBatch(product, data, settings, program, batch, &result);
         return result;
@@ -234,30 +234,32 @@ TEST(PortfolioBatchTest, TestBlockedAbsolutePathsMatchEveryIndependentModelAndPr
         "", {{"A", Trade(5.0, "pay PAYS MAX(SPOT() - 20 * X, 0)"), model}, {"B", Trade(7.0, "pay PAYS SPOT() * X"), model}}));
     for (const bool compiled : {false, true})
         for (const String_& rsg : Vector_<String_>{"sobol", "mrg32"})
-            for (const bool bridge : {false, true}) {
-                auto simulation = MonteCarloSettings_();
-                simulation.enableAad_ = true;
-                simulation.compiled_ = compiled;
-                simulation.rsg_ = rsg;
-                simulation.useBb_ = bridge;
-                const auto portfolio = Dal::Script::Detail::PrepareScriptPortfolio(data, 257, Valuation(), simulation);
-                const auto first = IndependentBatch(portfolio, 0, {13, 37});
-                const auto second = IndependentBatch(portfolio, 1, {13, 37});
-                const auto result = Dal::Script::Detail::EvaluatePortfolioJacobianBatch(portfolio, 0, {13, 37},
-                                                                                        {Payoff(portfolio, 0, 1.0), Payoff(portfolio, 1, 1.0)}, 3);
-                ASSERT_EQ(result.componentSums_, Vector_<double>({first.aggregated_, second.aggregated_}));
-                for (int column = 0; column < 4; ++column) {
-                    ASSERT_NEAR(result.modelGradientSums_(0, column) / 257, first.risks_[column], 1e-10);
-                    ASSERT_NEAR(result.modelGradientSums_(1, column) / 257, second.risks_[column], 1e-10);
-                    ASSERT_DOUBLE_EQ(result.modelGradientSums_(2, column), 0.0);
+            for (const auto* precision : {"Default", "Fast", "Precise"})
+                for (const bool bridge : {false, true}) {
+                    auto simulation = MonteCarloSettings_();
+                    simulation.enableAad_ = true;
+                    simulation.compiled_ = compiled;
+                    simulation.rsg_ = rsg;
+                    simulation.normalPrecision_ = precision;
+                    simulation.useBb_ = bridge;
+                    const auto portfolio = Dal::Script::Detail::PrepareScriptPortfolio(data, 257, Valuation(), simulation);
+                    const auto first = IndependentBatch(portfolio, 0, {13, 37});
+                    const auto second = IndependentBatch(portfolio, 1, {13, 37});
+                    const auto result = Dal::Script::Detail::EvaluatePortfolioJacobianBatch(
+                        portfolio, 0, {13, 37}, {Payoff(portfolio, 0, 1.0), Payoff(portfolio, 1, 1.0)}, 3);
+                    ASSERT_EQ(result.componentSums_, Vector_<double>({first.aggregated_, second.aggregated_}));
+                    for (int column = 0; column < 4; ++column) {
+                        ASSERT_NEAR(result.modelGradientSums_(0, column) / 257, first.risks_[column], 1e-10);
+                        ASSERT_NEAR(result.modelGradientSums_(1, column) / 257, second.risks_[column], 1e-10);
+                        ASSERT_DOUBLE_EQ(result.modelGradientSums_(2, column), 0.0);
+                    }
+                    ASSERT_NEAR(result.constantGradientSums_[0](0, 0) / 257, first.risks_[4], 1e-10);
+                    ASSERT_DOUBLE_EQ(result.constantGradientSums_[0](1, 0), 0.0);
+                    ASSERT_NEAR(result.constantGradientSums_[1](1, 0) / 257, second.risks_[4], 1e-10);
+                    ASSERT_DOUBLE_EQ(result.constantGradientSums_[1](0, 0), 0.0);
+                    ASSERT_EQ(result.generatedScenarios_, 37);
+                    ASSERT_EQ(result.evaluatorCalls_, 74);
                 }
-                ASSERT_NEAR(result.constantGradientSums_[0](0, 0) / 257, first.risks_[4], 1e-10);
-                ASSERT_DOUBLE_EQ(result.constantGradientSums_[0](1, 0), 0.0);
-                ASSERT_NEAR(result.constantGradientSums_[1](1, 0) / 257, second.risks_[4], 1e-10);
-                ASSERT_DOUBLE_EQ(result.constantGradientSums_[1](0, 0), 0.0);
-                ASSERT_EQ(result.generatedScenarios_, 37);
-                ASSERT_EQ(result.evaluatorCalls_, 74);
-            }
 }
 
 TEST(PortfolioBatchTest, TestBlockedFailureAndCapacitiesRestoreModesAndPriorResults) {

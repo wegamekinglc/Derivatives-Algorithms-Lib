@@ -317,18 +317,32 @@ namespace Dal::Script {
         return recording.MakeCheckpoint();
     }
 
-    std::unique_ptr<Random_> CreateRNG(const String_& method, size_t nDim, bool useBb, std::optional<uint64_t> scrambleKey = std::nullopt);
+    std::unique_ptr<Random_> CreateRNG(const String_& method,
+                                       size_t nDim,
+                                       bool useBb,
+                                       std::optional<uint64_t> scrambleKey = std::nullopt,
+                                       const String_& normalPrecision = "Default");
 
     template <class T_>
-    std::unique_ptr<Random_>
-    CreateRNG(const String_& method, const AAD::Model_<T_>& model, bool useBb, std::optional<uint64_t> scrambleKey = std::nullopt) {
+    std::unique_ptr<Random_> CreateRNG(const String_& method,
+                                       const AAD::Model_<T_>& model,
+                                       bool useBb,
+                                       std::optional<uint64_t> scrambleKey = std::nullopt,
+                                       const String_& normalPrecision = "Default") {
         REQUIRE2(!useBb || model.SupportsBrownianBridge(), "UnsupportedBrownianBridge: model does not support a factor-aware bridge", ScriptError_);
         if (useBb && model.NumFactors() > 1 && model.SimDim() > 0)
-            return std::make_unique<FactorBrownianBridge_>(CreateRNG(method, model.SimDim(), false, scrambleKey), model.NumFactors());
-        return CreateRNG(method, model.SimDim(), useBb, scrambleKey);
+            return std::make_unique<FactorBrownianBridge_>(CreateRNG(method, model.SimDim(), false, scrambleKey, normalPrecision),
+                                                           model.NumFactors());
+        return CreateRNG(method, model.SimDim(), useBb, scrambleKey, normalPrecision);
     }
 
     namespace Detail {
+        template <class P_> String_ NormalPrecision(const P_& product) {
+            if constexpr (std::is_base_of_v<PreparedScript_, P_>)
+                return product.Simulation().normalPrecision_;
+            return "Default";
+        }
+
         template <class T_> void DiagnoseInvalidSimulationPath(const Scenario_<T_>& path) {
             for (const auto& sample : path) {
                 REQUIRE2(std::isfinite(Value(sample.spot_)), "InvalidModelPath: non-finite spot", ScriptError_);
@@ -434,9 +448,10 @@ namespace Dal::Script {
             Evaluator_<double> evaluator_;
             EvalState_<double> compiledState_;
 
-            DoubleSimulationState_(const P_& product, const AAD::Model_<double>& model, const String_& rsg, bool useBb)
-                : random_(CreateRNG(rsg, model, useBb)), gauss_(model.SimDim()), evaluator_(product.template BuildEvaluator<double>()),
-                  compiledState_(product.template BuildEvalState<double>()) {
+            DoubleSimulationState_(
+                const P_& product, const AAD::Model_<double>& model, const String_& rsg, bool useBb, const String_& normalPrecision = "Default")
+                : random_(CreateRNG(rsg, model, useBb, std::nullopt, normalPrecision)), gauss_(model.SimDim()),
+                  evaluator_(product.template BuildEvaluator<double>()), compiledState_(product.template BuildEvalState<double>()) {
                 if (typeid(model) == typeid(AAD::BlackScholes_<double>))
                     bsPaths_ = std::make_unique<LocalCheckedPaths_>(static_cast<const AAD::BlackScholes_<double>&>(model));
                 else {
@@ -542,7 +557,7 @@ namespace Dal::Script {
         using ThreadState_ = Detail::DoubleSimulationState_<P_>;
         Vector_<std::unique_ptr<ThreadState_>> threadStates(nThreads);
         // Preserve caller-side input validation, including the zero-path case.
-        threadStates[0] = std::make_unique<ThreadState_>(product, *mdl, rsg, useBb);
+        threadStates[0] = std::make_unique<ThreadState_>(product, *mdl, rsg, useBb, Detail::NormalPrecision(product));
 
         auto results = objective.MakeResult(Vector::Join(mdl->ParameterLabels(), product.ConstVarNames()));
 
@@ -563,7 +578,7 @@ namespace Dal::Script {
                 const size_t threadNum = ThreadPool_::ThreadNum();
                 auto& state = threadStates[threadNum];
                 if (!state)
-                    state = std::make_unique<ThreadState_>(product, *mdl, rsg, useBb);
+                    state = std::make_unique<ThreadState_>(product, *mdl, rsg, useBb, Detail::NormalPrecision(product));
                 initialize.Finish();
                 auto collector = objective.DoubleCollector(&simResults[batchIndex]);
                 auto runPaths = [&](auto& evaluator, const auto& evaluate) {
@@ -629,6 +644,7 @@ namespace Dal::Script {
             size_t nParams_;
             size_t nConstVars_;
             size_t payoffIndex_;
+            String_ normalPrecision_ = "Default";
         };
 
         template <class P_, class O_ = ScalarPayoffCollector_>
@@ -644,7 +660,7 @@ namespace Dal::Script {
             std::unique_ptr<AAD::Model_<AAD::Number_>> model = CreateModel<AAD::Number_>(modelData);
             model->Allocate(product.TimeLine(), product.DefLine());
 
-            std::unique_ptr<Random_> random = CreateRNG(settings.rsg_, *model, settings.useBb_);
+            std::unique_ptr<Random_> random = CreateRNG(settings.rsg_, *model, settings.useBb_, std::nullopt, settings.normalPrecision_);
             Vector_<> gVec(model->SimDim());
 
             Scenario_<AAD::Number_> path;
@@ -791,7 +807,8 @@ namespace Dal::Script {
 
         auto values = objective.MakeResult(Vector::Join(metadataModel->ParameterLabels(), product.ConstVarNames()));
         Vector_<typename O_::Result_> simResults(nThreads, values);
-        const Detail::AADBatchSettings_ settings{rsg, useBb, maxNestedIfs, eps, nPaths, nParams, nConstVars, payoffIndex};
+        const Detail::AADBatchSettings_ settings{
+            rsg, useBb, maxNestedIfs, eps, nPaths, nParams, nConstVars, payoffIndex, Detail::NormalPrecision(product)};
         // Keep this after every task-captured local so it drains first on unwind.
         SimulationTaskGroup_ tasks(pool, batchPlan.BatchCount());
         prepare.Finish();

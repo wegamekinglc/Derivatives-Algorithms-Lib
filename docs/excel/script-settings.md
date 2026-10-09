@@ -174,6 +174,7 @@ a supported equity or rate model output.
 | Valuation       | `evaluation_date`           | Capture global date at each Value/Explain entry | Valid integral Excel date serial                                             |
 | Valuation       | `today_fixing`              | `Model`                                         | Exact text `Model` or `RequireHistorical`                                    |
 | Simulation      | `method`                    | `sobol`                                         | Text `sobol`, `mrg32`, or `irn`                                              |
+| Simulation      | `normal_precision`          | `Default`                                       | Exact text `Default`, `Fast`, or `Precise`                                    |
 | Simulation      | `use_bb`                    | `FALSE`                                         | Excel boolean or numeric 0/1                                                 |
 | Simulation      | `enable_aad`                | `FALSE`                                         | Excel boolean or numeric 0/1                                                 |
 | Simulation      | `smooth`                    | `0.01`                                          | Finite, strictly positive number; not boolean                                |
@@ -192,6 +193,11 @@ comparison, with no whitespace trimming. Today-policy values are case-sensitive:
 `MODEL`, `model`, and `UseIfAvailable` are invalid. Boolean fields reject text
 `"TRUE"`, `"FALSE"`, and `"1"`, as well as numbers other than 0 and 1.
 Smoothing must be valid even with AAD disabled.
+`normal_precision=Default` uses fast conversion for Sobol, MRG32 and IRN.
+Select `Precise` to include the CDF correction for any generator.
+An explicit `Fast` or `Precise` policy applies to every simulation stage;
+see [normal precision](../methodology/monte-carlo/sampling.md#monte-carlo-normal-precision)
+before choosing fast conversion for sensitive payoffs or Greeks.
 `lsmc_training_paths` sets the regression count for exercise products;
 `n_paths` still sets the pricing count. Training and pricing use disjoint Sobol blocks.
 Omit the training key to use the pricing count. Products without `EXERCISE`
@@ -366,7 +372,7 @@ it explicitly runs the full double valuation with `n_paths` pricing paths and
 `lsmc_validation_paths` held-out paths on exercise
 products — path generation plus workers plus the exercise regressions — and
 reports the
-simulation echo (including `lsmc_basis_degree`, `lsmc_training_paths`,
+simulation echo (including `normal_precision`, `lsmc_basis_degree`, `lsmc_training_paths`,
 `lsmc_validation_paths`, `lsmc_rqmc_replicates`, `lsmc_training_seed`, and
 `lsmc_pricing_seed`, null when unset), the explicit per-replicate `n_paths`,
 an `uncertainty` object with budgets, seeds, replicate means and error, and

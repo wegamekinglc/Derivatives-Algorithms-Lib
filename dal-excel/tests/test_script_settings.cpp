@@ -153,6 +153,19 @@ TEST(ScriptExcelContractTest, TestSimulationSettingsLsmcBasisDegree) {
                 {"row=1 column=2", "lsmc_basis_degree", "non-empty"});
 }
 
+TEST(ScriptExcelContractTest, TestSimulationNormalPrecision) {
+    Handle_<StorableMonteCarloSettings_> settings;
+    MonteCarloSettings_New("defaults", {}, &settings);
+    ASSERT_EQ(settings->val_.normalPrecision_, "Default");
+    for (const auto* precision : {"Default", "Fast", "Precise"}) {
+        MonteCarloSettings_New("precision", Rows({{Cell_("NORMAL_PRECISION"), Cell_(precision)}}), &settings);
+        ASSERT_EQ(settings->val_.normalPrecision_, precision);
+    }
+    for (const auto& value : {Cell_("fast"), Cell_("unknown"), Cell_(true), Cell_(1.0)})
+        AssertError([&] { MonteCarloSettings_New("bad", Rows({{Cell_("normal_precision"), value}}), &settings); },
+                    {"normal_precision", "row=1 column=2"});
+}
+
 TEST(ScriptExcelContractTest, TestSimulationRejectsInvalidScalarsAndDuplicateKeys) {
     Handle_<StorableMonteCarloSettings_> settings;
     for (const auto* key : {"use_bb", "enable_aad", "compiled"})

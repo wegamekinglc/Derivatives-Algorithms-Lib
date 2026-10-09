@@ -166,7 +166,9 @@ namespace Dal::Script::Detail {
                 : model_(BuildBatchModel<AAD::Number_>(portfolio, group, portfolio.Trades()[selection.tradePositions_.front()])),
                   random_(CreateRNG(portfolio.Trades()[selection.tradePositions_.front()].Simulation().rsg_,
                                     *model_,
-                                    portfolio.Trades()[selection.tradePositions_.front()].Simulation().useBb_)),
+                                    portfolio.Trades()[selection.tradePositions_.front()].Simulation().useBb_,
+                                    std::nullopt,
+                                    portfolio.Trades()[selection.tradePositions_.front()].Simulation().normalPrecision_)),
                   gauss_(model_->SimDim()), states_(BuildStates(portfolio, selection, build)), values_(outputs) {
                 if (selection.modelInputs_)
                     selection.modelInputs_->ValidateExtent(model_->Parameters().size());

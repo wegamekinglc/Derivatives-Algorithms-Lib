@@ -60,7 +60,7 @@ name is string
 &optional
 settings is cell[][]+
     Two columns: method, use_bb, enable_aad, smooth, compiled, lsmc_basis_degree, lsmc_training_paths, lsmc_validation_paths,
-    lsmc_rqmc_replicates, lsmc_training_seed, lsmc_pricing_seed, lsmc_policy_risk_mode, lsmc_policy_bump_relative.
+    lsmc_rqmc_replicates, lsmc_training_seed, lsmc_pricing_seed, lsmc_policy_risk_mode, lsmc_policy_bump_relative, normal_precision.
 &outputs
 simulation is handle StorableMonteCarloSettings
     Immutable Monte Carlo settings
@@ -271,6 +271,13 @@ namespace Dal {
                  [&](const String_& key, const Cell_& cell, const String_& keyContext, const String_& valueContext) {
                      if (key == "method") {
                          value.rsg_ = MethodValue(cell, valueContext);
+                     } else if (key == "normal_precision") {
+                         value.normalPrecision_ = TextValue(cell, valueContext);
+                         try {
+                             Script::ValidateNormalPrecision(value.normalPrecision_);
+                         } catch (const Exception_& error) {
+                             THROW(valueContext + error.what());
+                         }
                      } else if (key == "smooth") {
                          value.smooth_ = SmoothingValue(cell, valueContext);
                      } else if (ApplyLsmcSetting(key, cell, valueContext, &value)) {
@@ -280,7 +287,7 @@ namespace Dal {
                              THROW(keyContext + "unknown key " + key +
                                    "; expected method, use_bb, enable_aad, smooth, compiled, lsmc_basis_degree, lsmc_training_paths, "
                                    "lsmc_validation_paths, lsmc_rqmc_replicates, lsmc_training_seed, lsmc_pricing_seed, "
-                                   "lsmc_policy_risk_mode or lsmc_policy_bump_relative");
+                                   "lsmc_policy_risk_mode, lsmc_policy_bump_relative or normal_precision");
                          const auto flag = BooleanValue(cell, valueContext);
                          if (key == "use_bb")
                              value.useBb_ = flag;
