@@ -53,6 +53,7 @@ namespace Dal::AAD {
 
     struct NativeRecordedOperation_ {
         [[nodiscard]] static Tape_* Begin(RecordingScope_* recording);
+        static void RequireUnsegmented(RecordingScope_* recording);
         static void ValidateInput(const NativeInputSlots_& slots, const Number_& input);
         static void Prepare(Tape_* tape);
         static void Commit(RecordingScope_* recording, ReverseEventHandle_ event);

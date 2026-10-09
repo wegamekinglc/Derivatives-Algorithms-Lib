@@ -55,6 +55,11 @@ namespace Dal::AAD {
         return tape;
     }
 
+    void NativeRecordedOperation_::RequireUnsegmented(RecordingScope_* recording) {
+        (void)Begin(recording);
+        REQUIRE(recording->checkpointGeneration_ == 0, "RecordedOperation: callback must not create checkpoints or restore recording");
+    }
+
     NativeInputSlots_::NativeInputSlots_(Tape_* tape) : tape_(tape), ranges_(ReverseEventAllocator_<Range_>(tape)) {
         tape->nodes_.ForEachLiveRange([&](const TapNode_* first, const TapNode_* last) { ranges_.emplace_back(first, last); });
         std::sort(ranges_.begin(), ranges_.end(),
