@@ -1793,6 +1793,92 @@ Native recording is unconditional. Code that needs a value-only pass (e.g. a bas
 without differentiation) should use a plain `double` evaluation rather than
 relying on tape passivity.
 
+## Segmented path recomputation
+
+The opt-in C++ header `dal/math/aad/segmentedpath.hpp` supplies
+`ExecuteSegmentedPath` for a fixed-size state transition. It computes a scalar
+objective and its parameter gradient while keeping a tape for one segment at a
+time. Ordinary Monte Carlo and script entry points retain their full-path
+execution. The kernel interface is a C++ surface.
+
+A `SegmentedPathKernel_` declares its step count, state width and number of
+branch-trace slots per step. Its passive-double and native-number overloads
+provide initialization, a state transition with a direct objective contribution,
+and a terminal objective. Both overloads must evaluate the same formulas,
+smoothing and branch decisions. Sharing a typed formula helper keeps that
+contract explicit. Active callbacks use supplied fresh active inputs and passive
+immutable data; active constants must be materialized from doubles.
+
+For parameters $p$, retained passive drivers $u_k$, complete state $s_k$ and
+direct contributions $c_k$, the objective is
+
+$$
+s_0 = I(p),\qquad s_{k+1}=F_k(s_k,p,u_k),\qquad
+V=G(s_L,p)+\sum_{k=0}^{L-1}c_k(s_k,p,u_k).
+$$
+
+The request copies parameters and the complete driver vector once. It performs
+a passive prepass, saving state at each segment boundary, segment contribution
+sums and exact branch decisions. Reverse execution first records the terminal
+objective using fresh terminal state and parameter inputs. It then visits
+segments backwards, freshly records their local transitions and propagates
+incoming state adjoints. Each segment's direct contribution receives seed one;
+each segment's parameter adjoints are added to the same detached gradient.
+Finally, a fresh initialization recording propagates the first state adjoints
+to the parameters once. Aliased state outputs accumulate their seeds.
+
+Recomputation verifies the complete end state and segment contribution with a
+fixed relative/absolute tolerance of $10^{-12}$, and compares branch-trace
+entries exactly, before seeding that segment. Numeric equality alone is not a
+branch proof. Each trace slot represents a declared decision; unused slots use
+a stable sentinel. Drivers are read from the retained vector, including all
+bridge-transformed inputs. Callbacks must not redraw randomness or retain
+active numbers between independent recordings.
+
+For example, a kernel with $s_0=b$, $s_{k+1}=a s_k+u_k$ and $G=s_3^2$ at
+$(a,b)=(2,1)$ and $u=(1,-1,3)$ returns value 169 and gradient $(390,208)$
+for segment lengths 1, 2, 3 or greater than the path. The call takes immutable
+settings and returns an owning passive result:
+
+```cpp
+AAD::SegmentedPathSettings_ settings;
+settings.segmentSteps_ = 2;
+const auto result = AAD::ExecuteSegmentedPath(kernel, {2.0, 1.0}, {1.0, -1.0, 3.0}, settings);
+const double value = result.Value();
+const auto& gradient = result.Gradient();
+```
+
+The caller's kernel must validate its parameter and driver schema before using
+indexed inputs. The engine validates declared state/trace shapes and finite
+values. Zero steps, empty state and empty parameters are defined; segment length
+must be positive. Unsupported independent nesting is rejected before changing
+an outer recording. Success and failure restore the caller's adjoint mode.
+
+`checkpointCapacityBudgetBytes_` admits retained boundary vectors, their vector
+headers, contribution sums and branch traces before evaluation. Actual vector
+capacity is checked after allocation. `recordingCapacityBudgetBytes_` includes
+the existing tape's retained allocation and the native cleanup reservation.
+`Execution()` reports passive/recomputed steps, segments, reverse sweeps,
+`checkpointBytes_`, `peakTapeBytes_` and separate `cleanupReserveBytes_`.
+Peak payload alone is insufficient for admission: ordinary tape allocation must
+also leave room for the cleanup reserve. Warm tape capacity remains charged.
+These component counts exclude driver/parameter copies, returned results,
+temporary kernel vectors, arbitrary kernel data and allocator overhead; they
+are not a process memory limit.
+
+Segmentation trades a passive prepass, snapshots and recomputation for a smaller
+local tape. Segment length controls that tradeoff; a small path can cost more
+without reducing allocated tape blocks. The focused `tape_perf --segmented-path`
+benchmark checks short/long paths and direct contributions against independent
+price/gradient oracles and reports complete cold-request cost and capacities.
+No automatic strategy is selected.
+
+The complete boundary state is the caller's responsibility. A financial kernel
+must include all model/evaluator variables, cashflow/vector state, historical
+initialization dependencies and observations still needed by later events.
+Saving a model factor alone does not satisfy that contract. The generic core
+does not provide a financial adapter or an early-exercise/LSM checkpoint driver.
+
 ## Examples
 
 The runnable [AAD Black example](../../dal-cpp/examples/aad) compares passive

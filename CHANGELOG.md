@@ -18,6 +18,10 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-09
 
+- **Segmented native path gradients** — an opt-in fixed-state C++ kernel driver
+  recomputes fresh local recordings, checks branch/state replay and accumulates
+  initialization, terminal and along-path parameter contributions with capacity
+  budgets. See [segmented path recomputation](docs/methodology/aad.md#segmented-path-recomputation).
 - **Rate-trade Jacobian strategies** — direct dense planning avoids conflict
   construction; an explicit cached-plan request verifies current structure and
   falls back to the current dense matrix when reuse is unavailable. See
