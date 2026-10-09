@@ -18,6 +18,10 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-09
 
+- **Segmented Black–Scholes Monte Carlo** — explicit native mean prices and
+  gradients use common-path RNG/bridge integration, bounded exclusive lanes,
+  ordered fixed-batch reduction and drained failure recovery. See
+  [segmented Monte Carlo](docs/methodology/aad.md#segmented-blackscholes-monte-carlo).
 - **Compiled Black–Scholes segmentation** — explicit native fixed-path gradients
   retain complete script/vector/fixing state, rebuild historical constant risks
   and check exact replay decisions while recording one segment at a time. See
