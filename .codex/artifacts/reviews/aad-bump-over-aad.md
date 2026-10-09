@@ -56,15 +56,17 @@ coverage totals 21 applicable probes, retaining unaffected evidence.
 ## Tests
 
 - Missing-header RED, independent quadratic GREEN and recorded-composition RED/GREEN.
-- Eleven unchanged edge cases pass in `edges.xml`; the corrected budget case
-  passes in `budget-green.xml`. Together they validate all twelve final test cases.
-- Eleven strict C++17 probes pass: header, production, tests and two benchmark
-  translation units under OFF/combined modes, plus the baseline-only harness.
+- Current thirteen core cases pass in `green-core.xml`; the isolated allocation
+  regression passes in `green-allocation.xml`. Checkpoint rejection has RED/GREEN
+  evidence; three existing event/solve and four private-probe callers pass.
+- Twenty-one applicable strict C++17 source/profile probes pass, including the
+  affected checkpoint helper, production, tests and corrected baseline harness.
 - Formatting passes. Production/benchmark cyclomatic complexity is at most 6/7.
 - Documentation integrity passes for 167 Markdown files.
 - Installed-only recorded-solve consumption passes 1/1 with independent rational HVP checks.
-- Three selected comparisons finish 120 observations in 1.844 seconds. The old
-  caller passes both +4% rounds; new capability overhead is disclosed separately.
+- Three selected comparisons finish 160 observations in 2.447 seconds. The old
+  caller passes both +4% rounds (+2.84%/-1.26%); new capability overhead is +13–16%,
+  informational. Shared-host timing noise remains disclosed.
 
 Local evidence root: `/home/wegamekinglc/.cache/dal-aad-evidence-20261008`, with
 `bump-over-aad-first/` RED/GREEN records and `bump-over-aad-strict.json`.

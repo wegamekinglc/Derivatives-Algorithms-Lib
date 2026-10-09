@@ -196,8 +196,8 @@ has isolated RED/GREEN, three affected core cases and four private-probe callers
 Upstream #516 integration rebuilds nineteen selected library units and validates
 all fourteen new cases and installed-only recorded-solve consumption. Twenty-one
 current strict probes are covered by original and affected repair evidence.
-Review finding `4230078427` corrects a baseline-only heap allocation. The final
-subsequent finding `4230306027` adds zero-checkpoint validation before callback
+Review finding `4230078427` corrects a baseline-only heap allocation. Subsequent
+finding `4230306027` adds zero-checkpoint validation before callback
 root access, with isolated RED/GREEN and three existing operator boundary checks.
 The final three-case study finishes 160 observations in 2.447 seconds, with +13–16%
 informational new-entry overhead and both old-caller +4% rounds passing. Shared
@@ -1364,11 +1364,12 @@ overlapping acceptance work is included once in the integration allowance.
 | F03                     | Solve/root/PDE operators and financial/grid acceptance complete  | #506 merged; final 36/36 gates accepted  | 0                     |
 | P04                     | Structural compression, safe fallback and selection accepted     | #511 merged; final 36/36 gates accepted  | 0                     |
 | P05                     | Core, fixed-path and Monte Carlo adapters accepted               | #512/#513/#515 merged; 36/36 gates       | 0                     |
-| F04                     | Second-order implementation/estimator validation remain          | Open                                     | 12–20                 |
+| F04                     | Second-order implementation/estimator validation remain          | Open                                     | 10.56–18.25           |
 | Final integration/audit | Cross-platform/binding/docs/performance acceptance remains       | Open                                     | 7–11                  |
 
-Remaining total during F04 development: approximately 19–31 person-days,
-excluding CI queue time and including delivery contingency. F01 is merged;
+Remaining total during F04 development: 140.5–234 hours, approximately
+17.56–29.25 eight-hour person-days, excluding CI queue time. Delivery contingency
+is included in those same hour ranges; there is no extra undisclosed allowance. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
 effort estimate, not a guaranteed completion date. Re-estimate when review
 findings change the scope.
