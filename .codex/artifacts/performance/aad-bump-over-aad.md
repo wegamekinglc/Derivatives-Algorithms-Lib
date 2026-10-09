@@ -172,3 +172,42 @@ For the already selected noisy old short control, increase only its sample count
 to twenty per side in each of two interleaved rounds. Keep workload, executables,
 minimum reduction and +4% threshold unchanged. If minima remain unstable, report
 the control as inconclusive. No unrelated matrix or correctness suite is added.
+
+## Integrated acceptance
+
+The integration baseline is `97ab613cc57a477c734aea28c44260f3a9596cf7`;
+production integration is `75d3f2b924a34a432d6c92e4692ae4ff6c399fcb` and the
+baseline fairness repair is `c96317b093915bffc9051954ab7ece8e1b420a28`.
+`bump-over-aad-upstream/library.json` records all nineteen rebuilt upstream
+units, source/object hashes and the 161 retained pre-upstream member occurrences.
+Both sides use this same 180-member upstream library; head adds only the
+accepted curvature object. Integrated native tests pass 12/12, the isolated
+allocation test passes 1/1 and installed-only consumption passes 1/1.
+
+`bump-over-aad-fair-reference/` retains the corrected baseline source, three
+affected strict compile checks, independent Release build, `environment.json`,
+`raw/`, `samples.json` and `results.json`. The baseline-only branch changes;
+the head benchmark body and executable remain unchanged. Corrected baseline
+executable SHA-256 is
+`f8f7143711304a8ac8d1e92dc9e29673a445f3e79ec98151365e8524c6d17b43`;
+head executable SHA-256 is
+`42bf3b338d42b1ac535b816bddf8b262180c6b470259ef2f140655991d3fe997`.
+Compiler, flags, CPU affinity and one-thread settings match the original study.
+
+The 160 scoped observations finish in 4.910 seconds:
+
+- Four inputs/one direction: 1,464/1,693 ns and 1,172/1,347 ns (base/head),
+  giving +15.64%/+14.93% informational new-entry overhead.
+- 32 inputs/three directions: 20,844/23,145 ns and 16,464/18,801 ns,
+  giving +11.04%/+14.19% informational new-entry overhead.
+- Existing short control, twenty samples per side per round: 2,178,220/2,051,824 ns
+  and 1,892,978/1,960,052 ns, giving -5.80%/+3.54%. Both +4% rounds pass.
+
+Every process verifies executable identity and numerical agreement. New requests
+also verify analytic Hessian products, gradient work counts and payloads. Tape
+peak/reserve and numeric payload metrics match the prior studies. The host remains
+noisy: absolute timings and cross-round differences do not support a precise
+speedup or stable equality claim. The calibrated gate reports **no regression**;
+new API overhead is informational. Earlier overhead figures use the heap-guard
+reference and are superseded by these corrected comparisons. No further local
+full suite or performance matrix is required by this benchmark-only repair.

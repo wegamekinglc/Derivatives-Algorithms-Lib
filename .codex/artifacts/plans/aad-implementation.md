@@ -189,19 +189,19 @@ HVPs, owning request/result provenance, complete bump admission and separate
 numeric/tape budgets. Smooth-kernel mathematical validation comes first.
 Financial common paths/smoothing, recalibration curvature and policy/nested-step
 semantics remain required later F04 deliveries. Native mixed mode remains separate.
-The frozen implementation `62baa9e3` validates twelve final cases, eleven strict
-probes and installed-only recorded-solve composition. Three selected comparisons
-complete 120 observations in 1.844 seconds. The old dispatch caller passes;
-new-entry admission/range-protection overhead is 13–17% versus manual secants.
-Exact-head CI, all inline findings and guarded publication/merge remain open.
 The increment is published in
 [#517](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/517).
-Both initial external reviews have no findings and Codacy has zero issues. A
-subsequent local allocation-failure audit reproduces entry-mode leakage; the
-stack-guard repair has isolated RED/GREEN, three affected core cases, four
-private-probe caller cases and ten strict checks. Repaired-head installed use
-passes; the same selected costs complete 120 observations in 2.180 seconds with
-no old-caller regression. All current-head publication gates remain required.
+An allocation-failure audit reproduces entry-mode leakage; the stack-guard repair
+has isolated RED/GREEN, three affected core cases and four private-probe callers.
+Upstream #516 integration rebuilds nineteen selected library units and validates
+all thirteen new cases and installed-only recorded-solve consumption. Seventeen
+current strict probes are covered by original and affected repair evidence.
+Review finding `4230078427` corrects a baseline-only heap allocation. The final
+three-case study finishes 160 observations in 4.910 seconds, with +11–16%
+informational new-entry overhead and both old-caller +4% rounds passing. Shared
+host noise remains disclosed; earlier overhead numbers are superseded. No
+unrelated local full matrix is repeated. Current-head CI, Codacy, complete
+inline/body review acceptance and guarded merge remain required.
 
 Native PDE recording is accepted in merged
 [#505](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/505),

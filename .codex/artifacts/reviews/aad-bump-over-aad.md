@@ -28,6 +28,17 @@ pass. The remaining original cases retain unchanged bodies and arithmetic;
 repaired-head installed consumption passes 1/1. The same three selected costs
 complete 120 observations in 2.180 seconds; both old-caller rounds pass.
 
+Upstream #516 integration rebuilds nineteen dependency-selected library units,
+preserves the other 161 accepted member occurrences and validates all thirteen
+new cases plus installed consumption. Review finding `4230078427` is valid:
+the manual-secant benchmark retained a heap guard after production moved to the
+stack resetter. The baseline-only branch now uses the same stack guard and
+lifecycle check. Three affected strict probes and both analytic benchmark smoke
+cases pass; the head timing body is unchanged. Corrected new-entry costs are
++11–16% informational overhead. The existing short control passes both +4%
+rounds with twenty samples per side, while shared-host noise remains disclosed.
+No unrelated local full suite or cost matrix is repeated.
+
 ## Tests
 
 - Missing-header RED, independent quadratic GREEN and recorded-composition RED/GREEN.
@@ -36,7 +47,7 @@ complete 120 observations in 2.180 seconds; both old-caller rounds pass.
 - Eleven strict C++17 probes pass: header, production, tests and two benchmark
   translation units under OFF/combined modes, plus the baseline-only harness.
 - Formatting passes. Production/benchmark cyclomatic complexity is at most 6/7.
-- Documentation integrity passes for 166 Markdown files.
+- Documentation integrity passes for 167 Markdown files.
 - Installed-only recorded-solve consumption passes 1/1 with independent rational HVP checks.
 - Three selected comparisons finish 120 observations in 1.844 seconds. The old
   caller passes both +4% rounds; new capability overhead is disclosed separately.
