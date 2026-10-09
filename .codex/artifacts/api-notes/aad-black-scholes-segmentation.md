@@ -34,7 +34,7 @@ public family of financial formulas.
 ## Financial adapter contract
 
 `Script::BlackScholesSegmentedPath_` shares a
-`std::shared_ptr<const PreparedScript_>` and implements the core kernel. It exposes
+`std::shared_ptr<const BlackScholesSegmentedPreparation_>` and implements the core kernel. It exposes
 `SimDim()`, `ParameterLabels()`, `Dimensions()` and
 `Evaluate(parameters, gaussian, settings = {})`. The result is the core's owning
 `AAD::SegmentedPathResult_`; its gradient columns correspond to the immutable
@@ -45,11 +45,13 @@ columns. One settings structure holds optional segment length/capacity budgets.
 contract = {}, smoothing = DEFAULT_SMOOTH)` prepares native compiled AAD explicitly.
 Its opt-in preparation path resolves and compiles historical-only statements;
 ordinary preparation's expired-product shortcut is retained. The resulting
-prepared object can be moved into a shared const owner. A compatible existing
-nonexpired native compiled preparation also works directly.
-The kernel's name explicitly selects one-factor Black–Scholes dynamics, and its
-step plan validates prepared sample definitions against that model. The prepared
-object is a script/observation plan, not an owning model or its parameter values.
+`BlackScholesSegmentedPreparation_` can be moved into a shared const owner. Its
+constructor is private to this factory; generic preparations cannot construct or
+replace it. The wrapper owns the exact one-factor Black–Scholes preparation and
+exposes only a const `Prepared()` view for independent ordinary-model evaluation.
+The kernel shares the wrapper's lifetime and validates the sample definitions.
+Model parameter values remain fresh request inputs. A generic `PreparedScript_`
+does not establish model provenance and is not accepted by the kernel.
 
 MC integration retains existing path numbering, random transform selection and
 normalization. Results identify the explicitly selected segmented strategy and

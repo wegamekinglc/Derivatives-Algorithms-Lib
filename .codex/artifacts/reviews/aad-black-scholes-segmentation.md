@@ -27,6 +27,14 @@ Verdict: local implementation accepted; CI and external review remain open.
    Compact separators preserve aligned widths. Final exact-head re-review remains
    required; the initial Codex body reports no major issues.
 
+6. Copilot identifies the model-provenance gap in accepting generic prepared
+   scripts. A two-asset/one-observation fixture produces a compile-time RED under
+   the old interface. A private-factory, move-only preparation wrapper now blocks
+   generic construction and assignment and exposes only a const ordinary view.
+   All ten financial path cases pass, including the new provenance case; six
+   affected strict checks and the installed consumer pass. Shared library objects
+   and timed request bodies are unchanged, so accepted latency evidence is reused.
+
 ## Reviewed boundaries
 
 The immutable model plan shares financial formulas with ordinary Black–Scholes,
@@ -41,8 +49,9 @@ extrema ties and individual vector selections without probabilistic hashes.
 
 The explicit kernel owns its prepared script, rejects unsupported exercise and
 incompatible compiled preparation, and returns the core's detached result. The
-prepared script is not a model identity certificate; the kernel name selects
-Black–Scholes dynamics and its step plan validates compatible sample definitions.
+generic prepared script is not a model identity certificate. The kernel accepts
+only the owning wrapper constructed by its exact Black–Scholes factory; the
+sample-definition checks are an additional validation boundary.
 Nested graphs, modes, budgets, invalid inputs, recovery and shared-plan concurrency
 are covered. No existing valuation strategy is automatically changed.
 
@@ -54,6 +63,7 @@ consumer 1/1, and [scoped performance acceptance](../performance/aad-black-schol
 The measured long-path total C++ heap reduction is about 6.2%, with warm latency
 about 2.6–2.7 times full graph. Short paths have no total-memory advantage.
 
+The provenance repair adds one case, bringing new financial coverage to 29.
 Publication still requires complete current-head review bodies, paginated thread
 and Codacy inspection, all required CI, actual new-case runtime in the fourteen
 sanitizer/extended/MSVC profiles, repeated final audits and guarded merge.

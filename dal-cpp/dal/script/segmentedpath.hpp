@@ -16,17 +16,30 @@
 #include <dal/script/preparation.hpp>
 
 namespace Dal::Script {
-    [[nodiscard]] inline PreparedScript_ PrepareBlackScholesSegmentedScript(const ScriptProductData_& product,
-                                                                            const ScriptValuationSettings_& settings,
-                                                                            const Handle_<MarketFixingSnapshot_>& snapshot = {},
-                                                                            const ScriptProductSettings_& contract = {},
-                                                                            double smoothing = DEFAULT_SMOOTH) {
+    class BlackScholesSegmentedPreparation_ {
+        PreparedScript_ prepared_;
+
+        explicit BlackScholesSegmentedPreparation_(PreparedScript_ prepared) : prepared_(std::move(prepared)) {}
+        friend BlackScholesSegmentedPreparation_ PrepareBlackScholesSegmentedScript(
+            const ScriptProductData_&, const ScriptValuationSettings_&, const Handle_<MarketFixingSnapshot_>&, const ScriptProductSettings_&, double);
+
+    public:
+        BlackScholesSegmentedPreparation_(BlackScholesSegmentedPreparation_&&) = default;
+        BlackScholesSegmentedPreparation_& operator=(BlackScholesSegmentedPreparation_&&) = default;
+        [[nodiscard]] const PreparedScript_& Prepared() const { return prepared_; }
+    };
+
+    [[nodiscard]] inline BlackScholesSegmentedPreparation_ PrepareBlackScholesSegmentedScript(const ScriptProductData_& product,
+                                                                                              const ScriptValuationSettings_& settings,
+                                                                                              const Handle_<MarketFixingSnapshot_>& snapshot = {},
+                                                                                              const ScriptProductSettings_& contract = {},
+                                                                                              double smoothing = DEFAULT_SMOOTH) {
         MonteCarloSettings_ simulation;
         simulation.enableAad_ = true;
         simulation.compiled_ = true;
         simulation.smooth_ = smoothing;
         AAD::BlackScholes_<> model(1.0, 0.0);
-        return Detail::PrepareScriptForSegmentation(product, &model, settings, simulation, snapshot, contract);
+        return BlackScholesSegmentedPreparation_(Detail::PrepareScriptForSegmentation(product, &model, settings, simulation, snapshot, contract));
     }
 
     class BlackScholesSegmentedPath_ final : public AAD::SegmentedPathKernel_ {
@@ -37,8 +50,9 @@ namespace Dal::Script {
         Detail::SegmentedTracePlan_ trace_;
         Vector_<String_> labels_;
 
-        [[nodiscard]] static std::shared_ptr<const PreparedScript_> Validate(std::shared_ptr<const PreparedScript_> prepared) {
-            REQUIRE2(prepared, "BlackScholesSegmentedPath: prepared script must be present", ScriptError_);
+        [[nodiscard]] static std::shared_ptr<const PreparedScript_> Validate(std::shared_ptr<const BlackScholesSegmentedPreparation_> preparation) {
+            REQUIRE2(preparation, "BlackScholesSegmentedPath: prepared script must be present", ScriptError_);
+            const std::shared_ptr<const PreparedScript_> prepared(preparation, &preparation->Prepared());
             prepared->RequireExecutable();
             REQUIRE2(prepared->Simulation().enableAad_ && prepared->Simulation().compiled_,
                      "BlackScholesSegmentedPath: native compiled AAD preparation is required", ScriptError_);
@@ -111,7 +125,7 @@ namespace Dal::Script {
         }
 
     public:
-        explicit BlackScholesSegmentedPath_(std::shared_ptr<const PreparedScript_> prepared)
+        explicit BlackScholesSegmentedPath_(std::shared_ptr<const BlackScholesSegmentedPreparation_> prepared)
             : prepared_(Validate(std::move(prepared))), model_(Model(*prepared_)), observations_(prepared_->PlanHandle()),
               layout_(prepared_->Product(), observations_.Slots()),
               trace_(prepared_->CompiledProgram(true), layout_.VectorBounds(), prepared_->Plan().EventToSample(), prepared_->TimeLine().size()),

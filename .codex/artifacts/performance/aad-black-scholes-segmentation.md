@@ -6,7 +6,11 @@ Status: local acceptance complete; publication gates remain open.
 
 Base commit: `235a5c114e311cc589b8fa27a033c4a748911cbe`.
 Measured head tree: `9d910cee935a7b51a828f3d9a618ca3adba4579d`.
-Subsequent edits cover CI selectors and documentation only.
+The later model-provenance repair changes preparation and constructor admission
+outside timed requests. Exact source-region hashes prove that all timed kernel
+methods, the full-request body, shared compiled dispatch and native core remain
+unchanged. Accepted latency binaries and raw observations are retained and reused;
+the repaired preparation's heap accounting is separately revalidated.
 
 Both executables use the same financial harness, Release C++17, GCC 15.2.0,
 `-O3 -ffp-contract=fast`, four declared threads and CPU affinity 0–3 on x86-64
@@ -134,6 +138,22 @@ The 160 warm processes take 5.017 seconds. The first hard calibration has a nois
 the stable confirmation above. `lsmc-scope.md`, build commands, all cold/warm raw
 logs, `lsmc-results.json`, `lsmc-warm-results.json` and
 `lsmc-hard-calibration-confirmation.json` retain the complete audit trail.
+
+## Model-provenance repair scope
+
+The kernel now accepts a private-factory `BlackScholesSegmentedPreparation_`
+instead of a generic prepared owner. Passive preparation and kernel construction
+are outside the timing boundaries above. All 179 existing archive members retain
+their preceding accepted bytes. `financial-path-provenance-cost-reuse.json`
+records exact unchanged timed source regions and related source identities.
+Ten affected path cases, six affected strict checks and installed consumption
+verify the new admission surface. Unchanged model/state/LSMC checks are reused.
+The untimed probe alone is rebuilt for the owning wrapper and const-view adapter.
+All twelve repaired heap rows equal the preceding measured counts exactly.
+`financial-path-provenance-resources/` retains frozen tree
+`a93ed569e093489926be635f3c05396ce6742446`, probe source/build command, all raw
+heap logs and `heap-results.json`. No latency row repeats for this admission-only
+repair.
 
 ## Evidence and limits
 

@@ -14,8 +14,11 @@ vector and output identity remain fixed during a request.
 The first financial kernel is exact one-factor Black–Scholes with no EXERCISE.
 It is explicitly selected. Ordinary full-graph execution stays the default;
 unsupported observation/sample definitions, exercise products and settings fail
-before recording. The explicitly named kernel selects one-factor Black–Scholes
-dynamics; it does not retain a preparation model object.
+before recording. Only the dedicated Black–Scholes factory can construct the
+move-only preparation wrapper accepted by the kernel. A generic prepared script
+cannot establish model provenance from its sample-definition shape, even when
+it references just one asset of a multi-asset model. The wrapper exposes a const
+ordinary preparation view and retains no active model or parameter values.
 The integration must use owning detached results and the existing numeric risk
 chain for any subsequent calibration pullback.
 

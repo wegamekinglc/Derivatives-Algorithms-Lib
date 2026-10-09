@@ -154,6 +154,16 @@ explicit tradeoff and repaired historical preparation/trace/CI-selection issues.
 Publication gates remain open. Monte Carlo/RNG integration and whole-P05
 acceptance remain open after this fixed-path increment.
 
+External review additionally closes a model-provenance gap: the financial kernel
+now accepts only the private-factory, move-only Black–Scholes preparation wrapper.
+A two-asset/one-observation fixture has retained compile-time RED/GREEN evidence.
+All ten affected path cases and six affected strict checks pass, bringing new
+financial coverage to 29 cases; installed consumption passes. All 179 existing
+archive members and all timed request bodies remain unchanged from the preceding
+accepted local snapshot. Twelve repaired heap rows retain identical counts, so
+latency evidence is reused without additional sampling. Final publication-head
+CI and complete external re-review remain required.
+
 Native PDE recording is accepted in merged
 [#505](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/505),
 at `72cac784`, after two complete 36/36 exact-head audits, zero Codacy

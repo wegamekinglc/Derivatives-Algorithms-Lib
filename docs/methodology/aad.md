@@ -1897,7 +1897,7 @@ valuation.evaluationDate_ = Date_(2026, 10, 1);
 const Script::ScriptProductData_ product(
     "", {Cell_("SCALE"), Cell_(Date_(2027, 1, 7))},
     {"2", "pay PAYS SCALE * FIX(EQ[DAL196_TEST])"});
-auto prepared = std::make_shared<const Script::PreparedScript_>(
+auto prepared = std::make_shared<const Script::BlackScholesSegmentedPreparation_>(
     Script::PrepareBlackScholesSegmentedScript(product, valuation));
 const Script::BlackScholesSegmentedPath_ path(prepared);
 AAD::SegmentedPathSettings_ settings;
@@ -1931,8 +1931,11 @@ policy with tracing disabled.
 valuation settings, an optional fixing snapshot, optional product settings and
 optional smoothing. It also resolves and compiles historical-only products,
 which have zero future transitions but can retain script-constant dependence.
-A compatible nonexpired `PrepareScript` result can be shared directly instead.
-The kernel rejects incompatible preparation and EXERCISE, validates model/script
+The factory returns a move-only `BlackScholesSegmentedPreparation_` with a private
+constructor. Only this preparation type enters the kernel. `Prepared()` exposes
+a const ordinary-script view for independent comparison; generic `PrepareScript`
+results cannot establish the model's provenance and cannot be passed directly.
+The kernel rejects EXERCISE, validates model/script
 parameter and driver shapes, and shares only immutable data across requests.
 Its owning value/gradient result survives tape cleanup. Budgets and mode/nesting
 rules follow `ExecuteSegmentedPath` above.

@@ -34,7 +34,21 @@ namespace {
 
     constexpr std::array<FinancialCase_, 3> CASES{{{"short", 16, false}, {"running", 2048, false}, {"live", 2048, true}}};
 
-    std::shared_ptr<const Script::PreparedScript_> Prepare(const FinancialCase_& request) {
+#ifdef DAL_SEGMENTED_BS_BASELINE
+    using FinancialPreparation_ = Script::PreparedScript_;
+#else
+    using FinancialPreparation_ = Script::BlackScholesSegmentedPreparation_;
+#endif
+
+    const Script::PreparedScript_& PreparedScriptView(const FinancialPreparation_& preparation) {
+#ifdef DAL_SEGMENTED_BS_BASELINE
+        return preparation;
+#else
+        return preparation.Prepared();
+#endif
+    }
+
+    std::shared_ptr<const FinancialPreparation_> Prepare(const FinancialCase_& request) {
         Vector_<Cell_> dates;
         Vector_<String_> events;
         for (size_t i = 0; i < request.steps_; ++i) {
@@ -48,12 +62,17 @@ namespace {
         }
         Script::ScriptValuationSettings_ valuation;
         valuation.evaluationDate_ = Date_(2026, 10, 1);
+#ifdef DAL_SEGMENTED_BS_BASELINE
         Script::MonteCarloSettings_ simulation;
         simulation.enableAad_ = true;
         simulation.compiled_ = true;
         BlackScholes_<> model(1.0, 0.0);
         return std::make_shared<const Script::PreparedScript_>(
             Script::PrepareScript(Script::ScriptProductData_("", dates, events), &model, valuation, simulation));
+#else
+        return std::make_shared<const FinancialPreparation_>(
+            Script::PrepareBlackScholesSegmentedScript(Script::ScriptProductData_("", dates, events), valuation));
+#endif
     }
 
     SegmentedPathResult_ FullPath(const Script::PreparedScript_& prepared, const Vector_<>& parameters, const Vector_<>& gaussian) {
@@ -104,16 +123,18 @@ namespace {
         const auto prepared = Prepare(request);
         const Vector_<> parameters{100.0, 0.2, 0.03, 0.01};
         const Vector_<> gaussian(request.steps_, 0.01);
-        auto expected = FullPath(*prepared, parameters, gaussian);
+        auto expected = FullPath(PreparedScriptView(*prepared), parameters, gaussian);
         Clear(*Tape());
 #ifndef DAL_SEGMENTED_BS_BASELINE
         const Script::BlackScholesSegmentedPath_ kernel(prepared);
         SegmentedPathSettings_ settings;
         settings.segmentSteps_ = 64;
-        auto evaluate = [&] { return segmented ? kernel.Evaluate(parameters, gaussian, settings) : FullPath(*prepared, parameters, gaussian); };
+        auto evaluate = [&] {
+            return segmented ? kernel.Evaluate(parameters, gaussian, settings) : FullPath(PreparedScriptView(*prepared), parameters, gaussian);
+        };
 #else
         REQUIRE(!segmented, "segmented execution is unavailable on the baseline");
-        auto evaluate = [&] { return FullPath(*prepared, parameters, gaussian); };
+        auto evaluate = [&] { return FullPath(PreparedScriptView(*prepared), parameters, gaussian); };
 #endif
         auto result = evaluate();
         Verify(result, expected);

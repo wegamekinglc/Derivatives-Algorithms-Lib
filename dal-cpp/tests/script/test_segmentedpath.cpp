@@ -8,10 +8,12 @@
 #include <future>
 #include <limits>
 #include <memory>
+#include <type_traits>
 
 #include <dal/math/aad/recording.hpp>
 #include <dal/math/aad/statistics.hpp>
 #include <dal/model/blackscholes.hpp>
+#include <dal/model/correlatedblackscholes.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/script/segmentedpath.hpp>
 
@@ -22,11 +24,12 @@ namespace AAD = Dal::AAD;
 namespace Script = Dal::Script;
 
 namespace {
-    std::shared_ptr<const Script::PreparedScript_> PreparePath(const Script::ScriptProductData_& product,
-                                                               const Dal::Handle_<Dal::MarketFixingSnapshot_>& history = {}) {
+    std::shared_ptr<const Script::BlackScholesSegmentedPreparation_> PreparePath(const Script::ScriptProductData_& product,
+                                                                                 const Dal::Handle_<Dal::MarketFixingSnapshot_>& history = {}) {
         Script::ScriptValuationSettings_ valuation;
         valuation.evaluationDate_ = Date_(2026, 10, 1);
-        return std::make_shared<const Script::PreparedScript_>(Script::PrepareBlackScholesSegmentedScript(product, valuation, history));
+        return std::make_shared<const Script::BlackScholesSegmentedPreparation_>(
+            Script::PrepareBlackScholesSegmentedScript(product, valuation, history));
     }
 
     struct PathRisk_ {
@@ -93,18 +96,18 @@ TEST(BlackScholesSegmentedPathTest, TestCompletePaymentAndAllParameterRisksAgain
     ASSERT_EQ(kernel.ParameterLabels(), expectedLabels);
     for (const Vector_<>& parameters :
          Vector_<Vector_<>>{{100.0, 0.2, 0.03, 0.01, 2.0}, {120.0, 0.0, -0.02, 0.03, 3.0}, {85.0, 0.35, 0.08, -0.01, -1.5}}) {
-        const double time = prepared->TimeLine().back();
-        const double maturity = static_cast<double>(Date_(2027, 4, 1) - prepared->EvaluationDate()) / 365.0;
+        const double time = prepared->Prepared().TimeLine().back();
+        const double maturity = static_cast<double>(Date_(2027, 4, 1) - prepared->Prepared().EvaluationDate()) / 365.0;
         double brownian = 0.0;
         for (size_t i = 0; i < gaussian.size(); ++i) {
-            const double previous = i == 0 ? 0.0 : prepared->TimeLine()[i - 1];
-            brownian += std::sqrt(prepared->TimeLine()[i] - previous) * gaussian[i];
+            const double previous = i == 0 ? 0.0 : prepared->Prepared().TimeLine()[i - 1];
+            brownian += std::sqrt(prepared->Prepared().TimeLine()[i] - previous) * gaussian[i];
         }
         const double unit = parameters[0] * std::exp(-parameters[3] * time - 0.5 * parameters[1] * parameters[1] * time + parameters[1] * brownian +
                                                      parameters[2] * (time - maturity));
         const double value = parameters[4] * unit;
         const Vector_<> expected{value / parameters[0], value * (brownian - parameters[1] * time), value * (time - maturity), -time * value, unit};
-        const auto full = FullPathRisk(*prepared, parameters, gaussian);
+        const auto full = FullPathRisk(prepared->Prepared(), parameters, gaussian);
         ASSERT_NEAR(full.value_, value, 1e-10);
         for (size_t length : {1, 2, 8}) {
             AAD::SegmentedPathSettings_ settings;
@@ -117,8 +120,8 @@ TEST(BlackScholesSegmentedPathTest, TestCompletePaymentAndAllParameterRisksAgain
                 ASSERT_NEAR(result.Gradient()[i], expected[i], 1e-9);
                 ASSERT_NEAR(result.Gradient()[i], full.gradient_[i], 1e-9);
             }
-            ASSERT_EQ(result.Execution().passiveSteps_, prepared->TimeLine().size());
-            ASSERT_EQ(result.Execution().recomputedSteps_, prepared->TimeLine().size());
+            ASSERT_EQ(result.Execution().passiveSteps_, prepared->Prepared().TimeLine().size());
+            ASSERT_EQ(result.Execution().recomputedSteps_, prepared->Prepared().TimeLine().size());
         }
     }
 }
@@ -133,16 +136,16 @@ TEST(BlackScholesSegmentedPathTest, TestHistoricalVectorOldFixingAndLaterPayment
     const Script::BlackScholesSegmentedPath_ kernel(prepared);
     const Vector_<> gaussian{0.3, -0.6, 0.9};
     for (const Vector_<>& parameters : Vector_<Vector_<>>{{100.0, 0.2, 0.03, 0.01, 2.0}, {90.0, 0.4, -0.05, 0.02, 3.0}}) {
-        const double firstTime = prepared->TimeLine().front();
-        const double finalTime = prepared->TimeLine().back();
-        const double maturity = static_cast<double>(Date_(2026, 12, 1) - prepared->EvaluationDate()) / 365.0;
+        const double firstTime = prepared->Prepared().TimeLine().front();
+        const double finalTime = prepared->Prepared().TimeLine().back();
+        const double maturity = static_cast<double>(Date_(2026, 12, 1) - prepared->Prepared().EvaluationDate()) / 365.0;
         const double fixing = parameters[0] * std::exp((parameters[2] - parameters[3] - 0.5 * parameters[1] * parameters[1]) * firstTime +
                                                        parameters[1] * std::sqrt(firstTime) * gaussian[0]);
         const double historical = 80.0 * parameters[4];
         const double firstPayment = historical * std::exp(-parameters[2] * maturity);
         const double discount = std::exp(-parameters[2] * finalTime);
         const double expected = firstPayment + discount * (historical + 3.0 * fixing + firstPayment);
-        const auto full = FullPathRisk(*prepared, parameters, gaussian);
+        const auto full = FullPathRisk(prepared->Prepared(), parameters, gaussian);
         ASSERT_NEAR(full.value_, expected, 1e-10);
         for (size_t length : {1, 2, 8}) {
             AAD::SegmentedPathSettings_ settings;
@@ -166,7 +169,7 @@ TEST(BlackScholesSegmentedPathTest, TestFuzzyVectorBranchesTiesAndFreshConstantP
     ASSERT_EQ(kernel.ParameterLabels()[4], "K");
     for (double strike : {98.0, 99.5, 100.0, 100.5, 102.0}) {
         const Vector_<> parameters{100.0, 0.0, 0.0, 0.0, strike, 2.0};
-        const auto full = FullPathRisk(*prepared, parameters, gaussian);
+        const auto full = FullPathRisk(prepared->Prepared(), parameters, gaussian);
         AAD::SegmentedPathSettings_ settings;
         settings.segmentSteps_ = 1;
         const auto result = kernel.Evaluate(parameters, gaussian, settings);
@@ -178,9 +181,10 @@ TEST(BlackScholesSegmentedPathTest, TestFuzzyVectorBranchesTiesAndFreshConstantP
             auto plus = differentiable;
             minus[4] -= 1e-5;
             plus[4] += 1e-5;
-            const double derivative = (FullPathRisk(*prepared, plus, gaussian).value_ - FullPathRisk(*prepared, minus, gaussian).value_) / 2e-5;
+            const double derivative =
+                (FullPathRisk(prepared->Prepared(), plus, gaussian).value_ - FullPathRisk(prepared->Prepared(), minus, gaussian).value_) / 2e-5;
             const auto risk = kernel.Evaluate(differentiable, gaussian, settings);
-            AssertRisks(risk, FullPathRisk(*prepared, differentiable, gaussian));
+            AssertRisks(risk, FullPathRisk(prepared->Prepared(), differentiable, gaussian));
             ASSERT_NEAR(risk.Gradient()[4], derivative, 1e-7);
         }
     }
@@ -210,7 +214,7 @@ TEST(BlackScholesSegmentedPathTest, TestHistoricalOnlyReturnsFreshConstantRiskWi
     for (double scale : {2.0, -3.0}) {
         const Vector_<> parameters{100.0, 0.2, 0.03, 0.01, scale};
         const auto result = kernel.Evaluate(parameters, {});
-        AssertRisks(result, FullPathRisk(*prepared, parameters, {}));
+        AssertRisks(result, FullPathRisk(prepared->Prepared(), parameters, {}));
         ASSERT_DOUBLE_EQ(result.Value(), 80.0 * scale);
         ASSERT_DOUBLE_EQ(result.Gradient()[4], 80.0);
         for (size_t i = 0; i < 4; ++i)
@@ -275,17 +279,40 @@ TEST(BlackScholesSegmentedPathTest, TestPreparationAdmissionAndHistoricalFixingF
     AAD::BlackScholes_<> model(100.0, 0.2);
     Script::MonteCarloSettings_ simulation;
     const auto plain = std::make_shared<const Script::PreparedScript_>(Script::PrepareScript(product, &model, valuation, simulation));
-    ASSERT_THROW((void)Script::BlackScholesSegmentedPath_(plain), Dal::Exception_);
+    ASSERT_FALSE(plain->Simulation().enableAad_);
+    static_assert(!std::is_constructible_v<Script::BlackScholesSegmentedPath_, decltype(plain)>);
     ASSERT_THROW((void)Script::PrepareBlackScholesSegmentedScript(product, valuation, {}, {}, 0.0), Dal::Exception_);
     const Script::ScriptProductData_ historical("", {Cell_(Date_(2026, 9, 30))}, {"pay PAYS FIX(EQ[DAL196_TEST])"});
     const Dal::Handle_<Dal::MarketFixingSnapshot_> empty(new Dal::MarketFixingSnapshot_({}));
     ASSERT_THROW((void)Script::PrepareBlackScholesSegmentedScript(historical, valuation, empty), Dal::Exception_);
     const auto accepted = Script::PrepareBlackScholesSegmentedScript(historical, valuation, PathHistory());
-    ASSERT_TRUE(accepted.AllExpired());
-    ASSERT_EQ(accepted.Plan().KnownValues(), (Vector_<>{80.0}));
+    ASSERT_TRUE(accepted.Prepared().AllExpired());
+    ASSERT_EQ(accepted.Prepared().Plan().KnownValues(), (Vector_<>{80.0}));
     const Script::ScriptProductData_ exercise("", {Cell_(Date_(2026, 10, 2))}, {"EXERCISE MAX(100 - FIX(EQ[DAL196_TEST]), 0)"});
-    const auto unsupported = std::make_shared<const Script::PreparedScript_>(Script::PrepareBlackScholesSegmentedScript(exercise, valuation));
+    const auto unsupported =
+        std::make_shared<const Script::BlackScholesSegmentedPreparation_>(Script::PrepareBlackScholesSegmentedScript(exercise, valuation));
     ASSERT_THROW((void)Script::BlackScholesSegmentedPath_(unsupported), Dal::Exception_);
+}
+
+TEST(BlackScholesSegmentedPathTest, TestGenericSingleObservationMultiAssetPreparationCannotEnterKernel) {
+    Dal::Matrix_<> correlations(2, 2, 0.25);
+    correlations(0, 0) = correlations(1, 1) = 1.0;
+    AAD::CorrelatedBlackScholes_<> model({"EQ[DAL196_TEST]", "EQ[OTHER]"}, {100.0, 90.0}, {0.2, 0.3}, {0.01, 0.02}, 0.03, correlations);
+    const Script::ScriptProductData_ product("", {Cell_(Date_(2026, 10, 2))}, {"pay PAYS FIX(EQ[DAL196_TEST])"});
+    Script::ScriptValuationSettings_ valuation;
+    valuation.evaluationDate_ = Date_(2026, 10, 1);
+    Script::MonteCarloSettings_ simulation;
+    simulation.enableAad_ = true;
+    simulation.compiled_ = true;
+    const auto untrusted = Script::PrepareScript(product, &model, valuation, simulation);
+    ASSERT_EQ(untrusted.DefLine().front().indexNames_.size(), 1);
+    ASSERT_NO_THROW((void)AAD::BlackScholesStepPlan_(untrusted.TimeLine(), untrusted.DefLine()));
+    static_assert(!std::is_constructible_v<Script::BlackScholesSegmentedPath_, std::shared_ptr<const Script::PreparedScript_>>,
+                  "generic preparation must not enter the Black-Scholes kernel");
+    static_assert(!std::is_constructible_v<Script::BlackScholesSegmentedPreparation_, Script::PreparedScript_>);
+    static_assert(!std::is_assignable_v<Script::BlackScholesSegmentedPreparation_&, Script::PreparedScript_>);
+    static_assert(
+        std::is_same_v<decltype(std::declval<const Script::BlackScholesSegmentedPreparation_&>().Prepared()), const Script::PreparedScript_&>);
 }
 
 TEST(BlackScholesSegmentedPathTest, TestConcurrentRequestsShareOnlyImmutablePlansAndOwnResults) {
@@ -295,8 +322,8 @@ TEST(BlackScholesSegmentedPathTest, TestConcurrentRequestsShareOnlyImmutablePlan
     const Vector_<> first{100.0, 0.2, 0.03, 0.01};
     const Vector_<> second{90.0, 0.35, -0.02, 0.03};
     const Vector_<> gaussian{0.3, -0.6};
-    const auto expectedFirst = FullPathRisk(*prepared, first, gaussian);
-    const auto expectedSecond = FullPathRisk(*prepared, second, gaussian);
+    const auto expectedFirst = FullPathRisk(prepared->Prepared(), first, gaussian);
+    const auto expectedSecond = FullPathRisk(prepared->Prepared(), second, gaussian);
     prepared.reset();
     auto a = std::async(std::launch::async, [&] { return kernel.Evaluate(first, gaussian); });
     auto b = std::async(std::launch::async, [&] { return kernel.Evaluate(second, gaussian); });
@@ -321,7 +348,7 @@ TEST(BlackScholesSegmentedPathTest, TestLongRunningObservationUsesBoundedSegment
     const Vector_<> parameters{100.0, 0.2, 0.03, 0.01};
     const Vector_<> gaussian(steps, 0.01);
     AAD::Clear(*AAD::Tape());
-    const auto full = FullPathRisk(*prepared, parameters, gaussian);
+    const auto full = FullPathRisk(prepared->Prepared(), parameters, gaussian);
     AAD::Clear(*AAD::Tape());
     AAD::SegmentedPathSettings_ settings;
     settings.segmentSteps_ = 64;
