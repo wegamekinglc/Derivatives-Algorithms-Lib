@@ -172,3 +172,15 @@ condition and changed runner, comparing frozen old/new executables with identica
 affinity and two best-of-ten rounds at +4%. This shortest request is most sensitive
 to admission overhead. Do not repeat the four-shape matrix, RNG/solver matrices
 or heap probes for unchanged allocation paths.
+
+Repair `288a0b076998a8abd765f6d0f8502922bab02b0d` passes the selected canary:
+round minima are 1.929170/1.973850 ms (+2.32%) and 1.905458/1.894688 ms (-0.57%),
+old/repaired. No sustained regression. Forty paired process samples take 1.42
+seconds; all prices/gradients match. `segmented-mc-review-repair/results.json`,
+`raw/` and `environment.json` retain the output, compiler/configuration, executable
+hashes and reused-object identities. The isolated repair build compiles the new
+benchmark and native MC object, retaining three unchanged benchmark objects and
+the other 179 integrated archive members. The installed consumer passes against
+that archive. The injected standard-allocation failure now returns benchmark
+status 2 with `std::bad_alloc` output instead of aborting; its RED/GREEN JSON is
+retained separately. No full timing/resource matrix repeats for the repair.

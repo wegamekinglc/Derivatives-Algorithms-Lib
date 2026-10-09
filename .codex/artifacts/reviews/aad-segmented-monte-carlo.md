@@ -6,6 +6,15 @@ cost acceptance pass. Current-head CI/review/publication gates remain open.
 ## Findings
 
 No open actionable correctness or style findings in the reviewed implementation.
+Copilot's two findings are repaired in `288a0b07`: zero-driver requests retain
+only size_t range admission, and the benchmark catches std::exception. The large
+offset time-zero/historical case fails before the repair and passes for all three
+generators afterward; two related RNG/admission cases also pass. An injected
+bad_alloc aborts before the benchmark repair and returns status 2 afterward.
+All seven affected strict probes pass, with the other four retained. Installed
+use passes again. One short-request canary passes two best-of-ten rounds at
++2.32%/-0.57%; unchanged replay/resource evidence is reused. Current-head remote
+review/thread closure still requires acceptance.
 Read the new API, coordinator, tests, benchmark, changed fixed-path admission and
 command dispatch, active spec/API/critique, methodology, changelog and workflow
 filter changes. All six sanitizer filters include the new suite; four extended
