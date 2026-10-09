@@ -6,8 +6,6 @@
 
 #include "bindings.h"
 
-#include <cstring>
-
 #include <dal-public/src/global.hpp>
 
 using namespace Dal;
@@ -23,13 +21,11 @@ namespace {
     }
 
     void SetLenientRuntimeError(const std::exception& error) {
-        const py::object message =
-            py::reinterpret_steal<py::object>(PyUnicode_DecodeUTF8(error.what(), std::strlen(error.what()), "backslashreplace"));
-        if (message) {
-            PyErr_SetObject(PyExc_RuntimeError, message.ptr());
-        } else {
-            PyErr_Clear();
-            PyErr_SetString(PyExc_RuntimeError, "DAL error with an undecodable message");
+        try {
+            const py::object message = py::module_::import("codecs").attr("decode")(py::bytes(error.what()), "utf-8", "backslashreplace");
+            py::set_error(PyExc_RuntimeError, message);
+        } catch (const py::error_already_set&) {
+            py::set_error(PyExc_RuntimeError, "DAL error with an undecodable message");
         }
     }
 } // namespace
