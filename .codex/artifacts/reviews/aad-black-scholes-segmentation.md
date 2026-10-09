@@ -1,0 +1,52 @@
+# P05 Black–Scholes fixed-path implementation review
+
+Verdict: local implementation accepted; CI and external review remain open.
+
+## Findings and dispositions
+
+1. Ordinary expired-product preparation returns before compiling history. The
+   opt-in segmented preparation now resolves historical fixings and compiles
+   historical-only products. A retained failing test becomes green and proves
+   fresh constant risk with zero future model steps. Ordinary preparation keeps
+   its existing shortcut; its affected regression tests pass.
+2. Trace instrumentation raised complexity in shared compiled dispatch. Small
+   inline compile-time helpers now contain the trace-only choices. Default
+   execution discards them at compile time. Extrema/comparison dispatch complexity
+   falls to five/seven; fuzzy branch complexity remains at the original nine.
+   All seventy new production functions and six new benchmark functions have
+   complexity at most eight. Final affected tests and scoped costs pass.
+3. The sanitizer selection initially omitted the new suites. All six existing
+   sanitizer profiles now include the 28 new model/state/path cases. Actual
+   current-head runtime logs must prove execution before accepting publication.
+
+## Reviewed boundaries
+
+The immutable model plan shares financial formulas with ordinary Black–Scholes,
+uses fresh typed inputs, emits complete samples and preserves raw time-zero spot.
+Observation slots retain values through their last consuming sample. The packed
+boundary contains all scalar/vector/payment state with proved vector bounds;
+restore validates every length before mutation. History is rebuilt once from
+fresh script constants. A named policy borrows state only inside one step, and
+recursive dispatch retains its exact trace identity and compact observations.
+Bounded integer trace slots distinguish smoothing intervals, skipped instructions,
+extrema ties and individual vector selections without probabilistic hashes.
+
+The explicit kernel owns its prepared script, rejects unsupported exercise and
+incompatible compiled preparation, and returns the core's detached result. The
+prepared script is not a model identity certificate; the kernel name selects
+Black–Scholes dynamics and its step plan validates compatible sample definitions.
+Nested graphs, modes, budgets, invalid inputs, recovery and shared-plan concurrency
+are covered. No existing valuation strategy is automatically changed.
+
+## Validation and unresolved gates
+
+Local evidence: 120 distinct affected tests before the trace-helper refactor,
+53 compiler/state/path cases afterward, ten strict warning checks, installed
+consumer 1/1, and [scoped performance acceptance](../performance/aad-black-scholes-segmentation.md).
+The measured long-path total C++ heap reduction is about 6.2%, with warm latency
+about 2.6 times full graph. Short paths have no total-memory advantage.
+
+Publication still requires complete current-head review bodies, paginated thread
+and Codacy inspection, all required CI, actual new-case runtime in the fourteen
+sanitizer/extended/MSVC profiles, repeated final audits and guarded merge.
+Monte Carlo/RNG acceptance and later whole-plan work remain separate open tasks.

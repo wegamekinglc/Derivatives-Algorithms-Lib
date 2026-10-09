@@ -6,6 +6,7 @@
 
 #include <dal/math/operators.hpp>
 #include <dal/model/base.hpp>
+#include <dal/model/detail/blackscholesstep.hpp>
 #include <dal/storage/archive.hpp>
 #include <dal/utilities/algorithms.hpp>
 
@@ -54,12 +55,7 @@ namespace Dal {
             Vector_<T_*> parameters_;
             Vector_<String_> parameterLabels_;
 
-            void ValidateParameters() const {
-                REQUIRE(std::isfinite(Value(spot_)) && Value(spot_) > 0.0, "InvalidModelParameter: spot must be finite and positive");
-                REQUIRE(std::isfinite(Value(vol_)) && Value(vol_) >= 0.0, "InvalidModelParameter: vol must be finite and nonnegative");
-                REQUIRE(std::isfinite(Value(rate_)), "InvalidModelParameter: rate must be finite");
-                REQUIRE(std::isfinite(Value(div_)), "InvalidModelParameter: div must be finite");
-            }
+            void ValidateParameters() const { Detail::ValidateBlackScholesParameters(spot_, vol_, rate_, div_); }
 
             void SetParamPointers() {
                 parameters_[0] = &spot_;
@@ -215,24 +211,17 @@ namespace Dal {
 
                 for (size_t i = 0; i < n; ++i) {
                     const double dt = timeLine_[i + 1] - timeLine_[i];
-                    stds_[i] = vol_ * Dal::sqrt(dt);
-
-                    drifts_[i] = (mu - 0.5 * vol_ * vol_) * dt;
-                    REQUIRE(std::isfinite(Value(stds_[i])) && std::isfinite(Value(drifts_[i])), "InvalidModelParameter: non-finite BS step");
+                    const auto coefficients = Detail::BlackScholesCoefficients(vol_, mu, dt);
+                    stds_[i] = coefficients.std_;
+                    drifts_[i] = coefficients.drift_;
                 }
 
                 const size_t m = productTimeline.size();
                 for (size_t i = 0; i < m; ++i) {
-                    if (defLine[i].numeraire_) {
-                        numeraires_[i] = Dal::exp(rate_ * productTimeline[i]);
-                        REQUIRE(std::isfinite(Value(numeraires_[i])) && Value(numeraires_[i]) > 0.0,
-                                "InvalidModelParameter: non-finite or zero BS numeraire");
-                    }
-                    for (size_t k = 0; k < defLine[i].discountMats_.size(); ++k) {
-                        discounts_[i][k] = Dal::exp(-rate_ * (defLine[i].discountMats_[k] - productTimeline[i]));
-                        REQUIRE(std::isfinite(Value(discounts_[i][k])) && Value(discounts_[i][k]) > 0.0,
-                                "InvalidModelParameter: non-finite or zero BS discount factor");
-                    }
+                    if (defLine[i].numeraire_)
+                        numeraires_[i] = Detail::BlackScholesNumeraire(rate_, productTimeline[i]);
+                    for (size_t k = 0; k < defLine[i].discountMats_.size(); ++k)
+                        discounts_[i][k] = Detail::BlackScholesDiscount(rate_, productTimeline[i], defLine[i].discountMats_[k]);
                 }
             }
 
