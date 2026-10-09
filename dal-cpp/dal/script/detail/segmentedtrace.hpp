@@ -180,7 +180,7 @@ namespace Dal::Script::Detail {
     public:
         static constexpr bool trace_ = true;
 
-        SegmentedCompiledPolicy_(const SegmentedObservationPlan_* observations, const Vector_<T_>& values, SegmentedTraceView_ trace)
+        SegmentedCompiledPolicy_(const SegmentedObservationPlan_* observations, const Vector_<T_>& values, const SegmentedTraceView_& trace)
             : observations_(observations), values_(values), traceView_(trace) {}
 
         [[nodiscard]] T_ Read(size_t request, const EvalState_<T_>&) const {

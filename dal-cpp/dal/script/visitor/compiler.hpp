@@ -1062,6 +1062,16 @@ namespace Dal::Script {
                 event.policy_.FuzzyBranch(pc, degree);
         }
 
+        template <class T_, class P_>
+        FORCE_INLINE void
+        BlendCompiledFuzzyScalars(const CompiledEventView_<T_, P_>& event, size_t pc, const T_& degree, EvalState_<T_>* statePtr, size_t level) {
+            const auto& stream = event.nodeStream_;
+            for (int k = 0; k < stream[pc + 3]; ++k) {
+                const size_t index = stream[pc + 4 + k];
+                statePtr->variables_[index] = degree * statePtr->varStore1_[level][index] + (1.0 - degree) * statePtr->variables_[index];
+            }
+        }
+
         template <bool Prepared_, bool Lsmc_, class T_, class P_>
         FORCE_INLINE size_t EvalCompiledFuzzyBranch(const CompiledEventView_<T_, P_>& event, size_t i, EvalState_<T_>* statePtr) {
             auto& state = *statePtr;
@@ -1107,10 +1117,7 @@ namespace Dal::Script {
                 if (state.lsmcFuzzySinks_)
                     state.lsmcFuzzySinks_->CaptureBranchPayment(lvl);
                 EvalCompiledRange<Prepared_, Lsmc_>(nodeStream, constStream, scenario, state, lastTrue, lastFalse, false, event.policy_);
-                for (int k = 0; k < nAff; ++k) {
-                    const size_t idx = nodeStream[firstAff + k];
-                    state.variables_[idx] = t * state.varStore1_[lvl][idx] + (1.0 - t) * state.variables_[idx];
-                }
+                BlendCompiledFuzzyScalars(event, i, t, statePtr, lvl);
                 BlendFuzzyVectors(&state.vectors_, state.vectorStore1_[lvl], t, vectorFirst, vectorLast);
                 if (state.lsmcFuzzySinks_)
                     state.lsmcFuzzySinks_->BlendBranchPayment(lvl, t);
@@ -1212,6 +1219,56 @@ namespace Dal::Script {
         //  recording tail, called or not, perturbs the inlined LoadObservation
         //  path that every prepared product executes.
         template <class T_, class P_>
+        FORCE_INLINE size_t EvalCompiledFuzzyLsmcOp(const CompiledEventView_<T_, P_>& event, size_t i, EvalState_<T_>* statePtr) {
+            auto& state = *statePtr;
+            auto& dStack = state.dStack_;
+            auto& nodeStream = event.nodeStream_;
+            auto& constStream = event.constStream_;
+            const int op = event.nodeStream_[i];
+            if (op == LsmcFuzzyPays) {
+                const size_t idx = nodeStream[++i];
+                const T_ payment = dStack.TopAndPop();
+                RecordLsmcFuzzyPayment(statePtr, idx, payment);
+                state.variables_[idx] += payment / event.scenario_.numeraire_;
+                return i + 1;
+            }
+            if (op == LsmcFuzzyPaysConst) {
+                const double val = constStream[nodeStream[++i]];
+                const size_t idx = nodeStream[++i];
+                RecordLsmcFuzzyPayment(statePtr, idx, T_(val));
+                state.variables_[idx] += T_(val) / event.scenario_.numeraire_;
+                return i + 1;
+            }
+            if (op == LsmcFuzzyPaysOn) {
+                const size_t slot = nodeStream[++i];
+                const size_t idx = nodeStream[++i];
+                const T_ payment = dStack.TopAndPop() * event.scenario_.discounts_[slot];
+                RecordLsmcFuzzyPayment(statePtr, idx, payment);
+                state.variables_[idx] += payment / event.scenario_.numeraire_;
+                return i + 1;
+            }
+            if (op == LsmcFuzzyPaysOnConst) {
+                const double val = constStream[nodeStream[++i]];
+                const size_t slot = nodeStream[++i];
+                const size_t idx = nodeStream[++i];
+                const T_ payment = T_(val) * event.scenario_.discounts_[slot];
+                RecordLsmcFuzzyPayment(statePtr, idx, payment);
+                state.variables_[idx] += payment / event.scenario_.numeraire_;
+                return i + 1;
+            }
+            if (op == LsmcFuzzyExercise) {
+                const bool hasCond = nodeStream[++i] != 0;
+                T_ cond(1.0);
+                if (hasCond)
+                    cond = dStack.TopAndPop();
+                const T_ value = dStack.TopAndPop();
+                RecordLsmcFuzzyExercise(statePtr, value, cond);
+                return i + 1;
+            }
+            ThrowUnknownCompiledOpcode(op);
+        }
+
+        template <class T_, class P_>
         FORCE_INLINE size_t EvalCompiledLsmcOp(const CompiledEventView_<T_, P_>& event, size_t i, EvalState_<T_>* statePtr) {
             auto& state = *statePtr;
             auto& dStack = state.dStack_;
@@ -1259,47 +1316,7 @@ namespace Dal::Script {
                 RecordLsmcExercise(statePtr, Value(value), cond, Value(event.scenario_.spot_));
                 return i + 1;
             }
-            if (op == LsmcFuzzyPays) {
-                const size_t idx = nodeStream[++i];
-                const T_ payment = dStack.TopAndPop();
-                RecordLsmcFuzzyPayment(statePtr, idx, payment);
-                state.variables_[idx] += payment / event.scenario_.numeraire_;
-                return i + 1;
-            }
-            if (op == LsmcFuzzyPaysConst) {
-                const double val = constStream[nodeStream[++i]];
-                const size_t idx = nodeStream[++i];
-                RecordLsmcFuzzyPayment(statePtr, idx, T_(val));
-                state.variables_[idx] += T_(val) / event.scenario_.numeraire_;
-                return i + 1;
-            }
-            if (op == LsmcFuzzyPaysOn) {
-                const size_t slot = nodeStream[++i];
-                const size_t idx = nodeStream[++i];
-                const T_ payment = dStack.TopAndPop() * event.scenario_.discounts_[slot];
-                RecordLsmcFuzzyPayment(statePtr, idx, payment);
-                state.variables_[idx] += payment / event.scenario_.numeraire_;
-                return i + 1;
-            }
-            if (op == LsmcFuzzyPaysOnConst) {
-                const double val = constStream[nodeStream[++i]];
-                const size_t slot = nodeStream[++i];
-                const size_t idx = nodeStream[++i];
-                const T_ payment = T_(val) * event.scenario_.discounts_[slot];
-                RecordLsmcFuzzyPayment(statePtr, idx, payment);
-                state.variables_[idx] += payment / event.scenario_.numeraire_;
-                return i + 1;
-            }
-            if (op == LsmcFuzzyExercise) {
-                const bool hasCond = nodeStream[++i] != 0;
-                T_ cond(1.0);
-                if (hasCond)
-                    cond = dStack.TopAndPop();
-                const T_ value = dStack.TopAndPop();
-                RecordLsmcFuzzyExercise(statePtr, value, cond);
-                return i + 1;
-            }
-            ThrowUnknownCompiledOpcode(op);
+            return EvalCompiledFuzzyLsmcOp(event, i, statePtr);
         }
 
         //  Lsmc_ instantiates the recording tier for the LSMC driver's streams; the
@@ -1369,6 +1386,19 @@ namespace Dal::Script {
         }
 
         template <bool Prepared_, bool Lsmc_, class T_, class P_>
+        FORCE_INLINE size_t EvalCompiledTail(const CompiledEventView_<T_, P_>& event, size_t i, EvalState_<T_>* statePtr) {
+            const int op = event.nodeStream_[i];
+            // Keep vector dispatch off the hot path for scalar-only scripts.
+            if (op >= VectorRead && op <= VectorReduce)
+                return EvalCompiledVector(event, i, statePtr);
+            if constexpr (Prepared_) {
+                if (op > FuzzyIf)
+                    return EvalCompiledPrepared<Lsmc_>(event, i, statePtr);
+            }
+            return EvalCompiledFuzzyControl<Prepared_, Lsmc_>(event, i, statePtr);
+        }
+
+        template <bool Prepared_, bool Lsmc_, class T_, class P_>
         FORCE_INLINE size_t EvalCompiledInstruction(const CompiledEventView_<T_, P_>& event, size_t i, EvalState_<T_>* statePtr) {
             const int op = event.nodeStream_[i];
             if (op <= Min2Const)
@@ -1381,14 +1411,7 @@ namespace Dal::Script {
                 return EvalCompiledScalar(event, i, statePtr);
             if (op <= FuzzyCompDiscrete)
                 return EvalCompiledFuzzyComparison(event, i, statePtr);
-            // Keep vector dispatch off the hot path for scalar-only scripts.
-            if (op >= VectorRead && op <= VectorReduce)
-                return EvalCompiledVector(event, i, statePtr);
-            if constexpr (Prepared_) {
-                if (op > FuzzyIf)
-                    return EvalCompiledPrepared<Lsmc_>(event, i, statePtr);
-            }
-            return EvalCompiledFuzzyControl<Prepared_, Lsmc_>(event, i, statePtr);
+            return EvalCompiledTail<Prepared_, Lsmc_>(event, i, statePtr);
         }
 
         template <bool Prepared_ = true, bool Lsmc_ = false, class T_, class E_>

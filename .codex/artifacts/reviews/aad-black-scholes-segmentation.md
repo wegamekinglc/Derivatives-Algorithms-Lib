@@ -12,12 +12,20 @@ Verdict: local implementation accepted; CI and external review remain open.
 2. Trace instrumentation raised complexity in shared compiled dispatch. Small
    inline compile-time helpers now contain the trace-only choices. Default
    execution discards them at compile time. Extrema/comparison dispatch complexity
-   falls to five/seven; fuzzy branch complexity remains at the original nine.
-   All seventy new production functions and six new benchmark functions have
+   falls to five/seven; fuzzy branch complexity falls to eight.
+   All new production functions and six new benchmark functions have
    complexity at most eight. Final affected tests and scoped costs pass.
 3. The sanitizer selection initially omitted the new suites. All six existing
    sanitizer profiles now include the 28 new model/state/path cases. Actual
    current-head runtime logs must prove execution before accepting publication.
+
+4. Codacy additionally identifies by-value trace-view passing, legacy LSMC/tail
+   dispatch complexity and model-test helper complexity. Const-reference copying
+   and inline helper splits repair all five annotations. Targeted tests, strict
+   checks, installed consumption and two additional existing LSMC cost gates pass.
+5. Copilot identifies padded Markdown separators in the two active reports.
+   Compact separators preserve aligned widths. Final exact-head re-review remains
+   required; the initial Codex body reports no major issues.
 
 ## Reviewed boundaries
 
@@ -41,10 +49,10 @@ are covered. No existing valuation strategy is automatically changed.
 ## Validation and unresolved gates
 
 Local evidence: 120 distinct affected tests before the trace-helper refactor,
-53 compiler/state/path cases afterward, ten strict warning checks, installed
+63 compiler/state/path/model/LSMC cases after Codacy repair, ten strict warning checks, installed
 consumer 1/1, and [scoped performance acceptance](../performance/aad-black-scholes-segmentation.md).
 The measured long-path total C++ heap reduction is about 6.2%, with warm latency
-about 2.6 times full graph. Short paths have no total-memory advantage.
+about 2.6–2.7 times full graph. Short paths have no total-memory advantage.
 
 Publication still requires complete current-head review bodies, paginated thread
 and Codacy inspection, all required CI, actual new-case runtime in the fourteen

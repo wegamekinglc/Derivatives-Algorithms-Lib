@@ -1949,7 +1949,7 @@ live-fixing/payment paths in cold and reused-tape regimes.
 For the 2,048-sample reference cases at segment length 64, tape plus checkpoints
 uses about 25% less capacity. An independent C++ heap probe finds about 38% lower
 request peaks and about 6.2% lower totals after including immutable preparation,
-adapter storage and caller inputs. Warm requests take about 2.6 times the full
+adapter storage and caller inputs. Warm requests take about 2.6–2.7 times the full
 graph time. The 16-sample case has no total-memory advantage. These measurements
 describe an explicit memory/latency tradeoff, not a strategy-selection rule.
 

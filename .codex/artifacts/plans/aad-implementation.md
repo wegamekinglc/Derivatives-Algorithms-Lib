@@ -143,12 +143,12 @@ fixed-path kernel retains model/scalar/vector/live-fixing state, rebuilds histor
 once and records exact decision traces. First local acceptance passes 120 affected
 tests, including independent analytic/full-native risks, fresh points, history,
 delayed payments, fuzzy/vector semantics, budgets, recovery and concurrency.
-After the trace-helper refactor, 53 affected cases and ten strict checks pass;
+After Codacy repair, 63 affected cases and ten strict checks pass;
 sixteen affected script objects are freshly compiled, while 172 of 179 archive
 members retain accepted bytes. Installed consumption passes 1/1. The
 [cost report](../performance/aad-black-scholes-segmentation.md) accepts 400 scoped
-samples in 7.855 seconds, both affected ordinary caller gates, and approximately
-6.2% lower complete long-path C++ heap totals at about 2.6 times warm latency.
+samples in 6.883 seconds, both affected ordinary caller gates, and approximately
+6.2% lower complete long-path C++ heap totals at about 2.6–2.7 times warm latency.
 The [local review](../reviews/aad-black-scholes-segmentation.md) records the
 explicit tradeoff and repaired historical preparation/trace/CI-selection issues.
 Publication gates remain open. Monte Carlo/RNG integration and whole-P05
@@ -1290,7 +1290,7 @@ Estimates are remaining single-developer effort, not promises of calendar time;
 overlapping acceptance work is included once in the integration allowance.
 
 | Work item               | Implementation/local verification                                | Publication/CI                           | Remaining person-days |
-| ----------------------- | ---------------------------------------------------------------- | ---------------------------------------- | --------------------- |
+|-------------------------|------------------------------------------------------------------|------------------------------------------|-----------------------|
 | C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                    | Accepted exact-head checks               | 0                     |
 | P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass   | Merged; final 35/35 checks accepted      | 0                     |
 | F01                     | C++/Python/Excel and complete requirement audit accepted         | Merged; final 35/35 checks accepted      | 0                     |
@@ -1300,11 +1300,11 @@ overlapping acceptance work is included once in the integration allowance.
 | P03                     | 89 tests; 81 unique complete-request timing comparisons accepted | #489 merged; final 35/35 checks accepted | 0                     |
 | F03                     | Solve/root/PDE operators and financial/grid acceptance complete  | #506 merged; final 36/36 gates accepted  | 0                     |
 | P04                     | Structural compression, safe fallback and selection accepted     | #511 merged; final 36/36 gates accepted  | 0                     |
-| P05                     | Core merged; fixed-path tests, install and scoped costs pass     | Financial publication/MC acceptance open | 2.5–4.5               |
+| P05                     | Core merged; fixed-path tests, install and scoped costs pass     | Financial publication/MC acceptance open | 2–3.5                 |
 | F04                     | Second-order implementation/estimator validation remain          | Open                                     | 12–20                 |
 | Final integration/audit | Cross-platform/binding/docs/performance acceptance remains       | Open                                     | 7–11                  |
 
-Remaining total during P05 development: approximately 21.5–35.5 person-days,
+Remaining total during P05 development: approximately 21–34.5 person-days,
 excluding CI queue time and including delivery contingency. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
 effort estimate, not a guaranteed completion date. Re-estimate when review
@@ -1318,7 +1318,7 @@ hours. Structured coordinates are split into numeric and native PRs; completed
 numeric/native diagnostics are not counted again.
 
 | Order | Delivery task                        | Required result                                                                | Remaining hours |
-| ----- | ------------------------------------ | ------------------------------------------------------------------------------ | --------------- |
+|-------|--------------------------------------|--------------------------------------------------------------------------------|-----------------|
 | 1     | Accepted solve/root PRs through #501 | Merged; mathematical, resource, platform and scoped performance gates accepted | 0               |
 | 2     | F03 numeric coordinates              | Accepted in merged #495; immutable accepted evidence retained                  | 0               |
 | 3     | F03 native coordinates               | Accepted in merged #496; immutable accepted evidence retained                  | 0               |
@@ -1327,12 +1327,12 @@ numeric/native diagnostics are not counted again.
 | 5     | F03 PDE operators                    | #504/#505/#506 merged; financial/grid and all publication gates accepted       | 0               |
 | 6     | P04 structural sparsity              | #507–#511 merged; implementation, scoped cost and publication gates accepted   | 0               |
 | 7a    | P05 segmentation core                | #512 merged; actual runtime, exact-head CI/review and guarded merge accepted   | 0               |
-| 7b    | P05 financial adapter                | Local implementation, costs and install pass; publication gates remain         | 8–16            |
+| 7b    | P05 financial adapter                | Local implementation, costs and install pass; publication gates remain         | 4–8             |
 | 7c    | P05 financial acceptance             | Complete financial correctness, memory/performance and publication proof       | 12–20           |
 | 8     | F04 second-order risk                | Gamma, cross-Gamma, HVP, recalibration and estimator validation                | 64–96           |
 | 9     | F04 native mixed-mode prototype      | Smooth-kernel prototype, independent correctness and capability limits         | 32–64           |
 | 10    | Bindings and complete acceptance     | C++/Python/Excel, documentation, platform and performance gates                | 56–88           |
-| Total | Full remaining implementation        | All remaining plan requirements                                                | 172–284         |
+| Total | Full remaining implementation        | All remaining plan requirements                                                | 168–276         |
 
 
 The first delivery boundary is complete. Whole-PR review repaired the Windows

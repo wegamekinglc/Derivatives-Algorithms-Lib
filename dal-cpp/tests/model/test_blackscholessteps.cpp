@@ -23,6 +23,23 @@ namespace {
         double stateRisk_;
     };
 
+    AAD::Number_ SegmentedPayment(const Vector_<>& timeline,
+                                  const Vector_<AAD::SampleDef_>& definitions,
+                                  const Vector_<AAD::Number_>& parameters,
+                                  const Vector_<>& gaussian,
+                                  const AAD::Number_& initial,
+                                  const std::optional<std::pair<size_t, double>>& boundary) {
+        const AAD::BlackScholesStepPlan_ plan(timeline, definitions);
+        AAD::Number_ logSpot = boundary ? initial : plan.InitialLogSpot(parameters);
+        AAD::Sample_<AAD::Number_> sample;
+        for (size_t i = boundary ? boundary->first : 0; i < timeline.size(); ++i) {
+            auto step = plan.Advance(i, logSpot, parameters, gaussian);
+            logSpot = std::move(step.logSpot_);
+            sample = std::move(step.sample_);
+        }
+        return sample.spot_ * sample.discounts_[0] / sample.numeraire_;
+    }
+
     StepRisk_ StepPaymentRisk(const Vector_<>& timeline,
                               const Vector_<AAD::SampleDef_>& definitions,
                               const Vector_<>& values,
@@ -49,15 +66,7 @@ namespace {
             model.GeneratePath(gaussian, &path);
             root = path.back().spot_ * path.back().discounts_[0] / path.back().numeraire_;
         } else {
-            const AAD::BlackScholesStepPlan_ plan(timeline, definitions);
-            AAD::Number_ logSpot = boundary ? initial : plan.InitialLogSpot(parameters);
-            AAD::Sample_<AAD::Number_> sample;
-            for (size_t i = boundary ? boundary->first : 0; i < timeline.size(); ++i) {
-                auto step = plan.Advance(i, logSpot, parameters, gaussian);
-                logSpot = std::move(step.logSpot_);
-                sample = std::move(step.sample_);
-            }
-            root = sample.spot_ * sample.discounts_[0] / sample.numeraire_;
+            root = SegmentedPayment(timeline, definitions, parameters, gaussian, initial, boundary);
         }
         recording.FinishRecording();
         AAD::NativeOperations_::AddSeed(root, 1.0);
