@@ -1,5 +1,7 @@
 """Tests for script product creation and debug."""
 
+import pytest
+
 import dal
 
 
@@ -190,3 +192,10 @@ def test_product_debug_tree_ascii_and_width():
     assert "`-- (1) call <=" in narrow  # nosec B101
     assert "`-- max" in narrow  # nosec B101
     assert "`-- 0" in narrow  # nosec B101
+
+
+def test_non_ascii_event_raises_invalid_script_error():
+    """Non-ASCII script characters surface as DAL's RuntimeError, not UnicodeDecodeError."""
+    product = dal.Product_New([dal.Date_(2024, 1, 2)], ["x = é"])
+    with pytest.raises(RuntimeError, match="InvalidScript: unexpected character 'é'"):
+        dal.Product_Describe(product)

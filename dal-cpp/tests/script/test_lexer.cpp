@@ -87,3 +87,28 @@ TEST(ScriptLexerTest, TestNonAsciiBytesAreNotWordCharacters) {
         }
     }
 }
+
+namespace {
+    void AssertUnexpectedCharacterMessage(const std::string& text, const std::string& expectedCharacter) {
+        try {
+            static_cast<void>(Tokenize(String_(text)));
+            FAIL() << "the script must be rejected";
+        } catch (const ScriptError_& error) {
+            const std::string expected("InvalidScript: unexpected character '" + expectedCharacter + "'");
+            ASSERT_NE(std::string(error.what()).find(expected), std::string::npos) << error.what();
+        }
+    }
+} // namespace
+
+TEST(ScriptLexerTest, TestNonAsciiUnexpectedCharacterQuotesFullUtf8Sequence) {
+    //  what() must stay valid UTF-8 so binding layers can decode it (issue #492)
+    AssertUnexpectedCharacterMessage("x = \xC3\xA9", "\xC3\xA9");         //  e-acute
+    AssertUnexpectedCharacterMessage("x = \xE4\xB8\xAD", "\xE4\xB8\xAD"); //  CJK ideograph
+    AssertUnexpectedCharacterMessage("x = \xC2\xA9", "\xC2\xA9");         //  copyright sign
+}
+
+TEST(ScriptLexerTest, TestNonAsciiUnexpectedCharacterEscapesMalformedSequence) {
+    //  A truncated or lone byte cannot form valid UTF-8: escape it as ASCII \xNN
+    AssertUnexpectedCharacterMessage("x = \xC3", "\\xC3"); //  2-byte lead without continuation
+    AssertUnexpectedCharacterMessage("x = \xA9", "\\xA9"); //  continuation byte without a lead
+}
