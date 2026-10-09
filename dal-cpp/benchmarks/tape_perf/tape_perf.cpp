@@ -10,6 +10,7 @@
 #include <dal/math/aad/aad.hpp>
 #include <dal/platform/platform.hpp>
 
+#include "blackscholessegmentedperf.hpp"
 #include "segmentedpathperf.hpp"
 
 using namespace Dal;
@@ -91,6 +92,8 @@ namespace {
 } // namespace
 
 int main(int argc, char** argv) {
+    if (argc > 1 && std::string(argv[1]) == "--financial-segmented-path")
+        return RunBlackScholesSegmentedBenchmarks(argc - 1, argv + 1);
     if (argc > 1 && std::string(argv[1]) == "--segmented-path")
         return RunSegmentedPathBenchmarks(argc - 1, argv + 1);
     const bool diagnostics = argc == 2 && std::string(argv[1]) == "--diagnostics";

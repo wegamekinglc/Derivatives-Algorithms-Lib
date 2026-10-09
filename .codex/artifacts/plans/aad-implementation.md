@@ -118,18 +118,51 @@ cutoff or hidden trial pricing. Native forward is unavailable for this closed
 financial path. P04's implementation and publication requirements are closed.
 The operation-context and Markdown alignment findings were repaired before merge.
 
-P05 now follows the active [core specification](../specs/aad-path-segmentation.md),
-[API note](../api-notes/aad-path-segmentation.md) and
-[critique](../critiques/aad-path-segmentation.md). Twelve focused cases pass,
-including independent three-step and multistate/cashflow oracles, exact budgets,
-full trace mismatch, failure recovery, mode preservation, empty shapes,
-concurrency and bounded long-path tape. Eight strict OFF/combined checks and
-one installed-only consumer pass. Eight scoped regime/strategy pairs finish
-320 observations in 1.592 seconds, with approximately 60% smaller long-path tape
-plus checkpoints and 40–52% greater reusable-tape time cost. Keep segmentation
-explicit; short paths have no capacity benefit. Publication gates remain open.
-Complete financial state/liveness, model/evaluator integration and acceptance
-remain open; standalone core correctness alone does not complete P05.
+P05's generic core is accepted in merged
+[#512](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/512),
+at `235a5c11`. Two complete final audits accept 36/36 exact-head checks,
+zero unresolved threads and zero Codacy annotations. Actual logs verify all
+twelve cases in fourteen sanitizer, extended and MSVC profiles. The tested and
+merged trees equal `f49459b03ef36a2e2c658d9ab7f26c3ee3e4dece`. Eight strict
+OFF/combined checks and installed-only consumption pass. Eight scoped
+regime/strategy pairs finish 320 observations in 1.592 seconds, with approximately
+60% smaller long-path tape plus checkpoints and 40–52% greater reusable-tape time
+cost. Keep segmentation explicit; short paths have no capacity benefit.
+Completed core controls remain in immutable
+[specification](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/a5d0022e54c5e07c5751b75fc9c8f19e2ce3ecea/.codex/artifacts/specs/aad-path-segmentation.md),
+[API](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/a5d0022e54c5e07c5751b75fc9c8f19e2ce3ecea/.codex/artifacts/api-notes/aad-path-segmentation.md),
+[critique](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/a5d0022e54c5e07c5751b75fc9c8f19e2ce3ecea/.codex/artifacts/critiques/aad-path-segmentation.md),
+[review](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/a5d0022e54c5e07c5751b75fc9c8f19e2ce3ecea/.codex/artifacts/reviews/aad-path-segmentation.md)
+and [cost report](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/a5d0022e54c5e07c5751b75fc9c8f19e2ce3ecea/.codex/artifacts/performance/aad-path-segmentation.md).
+
+The active financial increment follows the
+[Black–Scholes specification](../specs/aad-black-scholes-segmentation.md),
+[API](../api-notes/aad-black-scholes-segmentation.md) and
+[critique](../critiques/aad-black-scholes-segmentation.md). Its complete compiled
+fixed-path kernel retains model/scalar/vector/live-fixing state, rebuilds history
+once and records exact decision traces. First local acceptance passes 120 affected
+tests, including independent analytic/full-native risks, fresh points, history,
+delayed payments, fuzzy/vector semantics, budgets, recovery and concurrency.
+After Codacy repair, 63 affected cases and ten strict checks pass;
+sixteen affected script objects are freshly compiled, while 172 of 179 archive
+members retain accepted bytes. Installed consumption passes 1/1. The
+[cost report](../performance/aad-black-scholes-segmentation.md) accepts 400 scoped
+samples in 6.883 seconds, both affected ordinary caller gates, and approximately
+6.2% lower complete long-path C++ heap totals at about 2.6–2.7 times warm latency.
+The [local review](../reviews/aad-black-scholes-segmentation.md) records the
+explicit tradeoff and repaired historical preparation/trace/CI-selection issues.
+Publication gates remain open. Monte Carlo/RNG integration and whole-P05
+acceptance remain open after this fixed-path increment.
+
+External review additionally closes a model-provenance gap: the financial kernel
+now accepts only the private-factory, move-only Black–Scholes preparation wrapper.
+A two-asset/one-observation fixture has retained compile-time RED/GREEN evidence.
+All ten affected path cases and six affected strict checks pass, bringing new
+financial coverage to 29 cases; installed consumption passes. All 179 existing
+archive members and all timed request bodies remain unchanged from the preceding
+accepted local snapshot. Twelve repaired heap rows retain identical counts, so
+latency evidence is reused without additional sampling. Final publication-head
+CI and complete external re-review remain required.
 
 Native PDE recording is accepted in merged
 [#505](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/505),
@@ -1277,11 +1310,11 @@ overlapping acceptance work is included once in the integration allowance.
 | P03                     | 89 tests; 81 unique complete-request timing comparisons accepted | #489 merged; final 35/35 checks accepted | 0                     |
 | F03                     | Solve/root/PDE operators and financial/grid acceptance complete  | #506 merged; final 36/36 gates accepted  | 0                     |
 | P04                     | Structural compression, safe fallback and selection accepted     | #511 merged; final 36/36 gates accepted  | 0                     |
-| P05                     | Core correctness/cost accepted locally; financial work remains   | Core publication open                    | 4.5–7.5               |
+| P05                     | Core merged; fixed-path tests, install and scoped costs pass     | Financial publication/MC acceptance open | 2–3.5                 |
 | F04                     | Second-order implementation/estimator validation remain          | Open                                     | 12–20                 |
 | Final integration/audit | Cross-platform/binding/docs/performance acceptance remains       | Open                                     | 7–11                  |
 
-Remaining total during P05 development: approximately 23.5–38.5 person-days,
+Remaining total during P05 development: approximately 21–34.5 person-days,
 excluding CI queue time and including delivery contingency. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
 effort estimate, not a guaranteed completion date. Re-estimate when review
@@ -1303,13 +1336,13 @@ numeric/native diagnostics are not counted again.
 | 4a    | F03 implicit calibration             | Numeric #501 and native #502 merged; all final gates accepted                  | 0               |
 | 5     | F03 PDE operators                    | #504/#505/#506 merged; financial/grid and all publication gates accepted       | 0               |
 | 6     | P04 structural sparsity              | #507–#511 merged; implementation, scoped cost and publication gates accepted   | 0               |
-| 7a    | P05 segmentation core                | Local correctness/cost pass; CI, review repair and guarded merge remain        | 4–8             |
-| 7b    | P05 financial adapter                | Complete model/evaluator state, live observations and exact passive drivers    | 20–32           |
+| 7a    | P05 segmentation core                | #512 merged; actual runtime, exact-head CI/review and guarded merge accepted   | 0               |
+| 7b    | P05 financial adapter                | Local implementation, costs and install pass; publication gates remain         | 4–8             |
 | 7c    | P05 financial acceptance             | Complete financial correctness, memory/performance and publication proof       | 12–20           |
 | 8     | F04 second-order risk                | Gamma, cross-Gamma, HVP, recalibration and estimator validation                | 64–96           |
 | 9     | F04 native mixed-mode prototype      | Smooth-kernel prototype, independent correctness and capability limits         | 32–64           |
 | 10    | Bindings and complete acceptance     | C++/Python/Excel, documentation, platform and performance gates                | 56–88           |
-| Total | Full remaining implementation        | All remaining plan requirements                                                | 188–308         |
+| Total | Full remaining implementation        | All remaining plan requirements                                                | 168–276         |
 
 
 The first delivery boundary is complete. Whole-PR review repaired the Windows

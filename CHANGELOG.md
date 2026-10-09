@@ -18,6 +18,10 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-09
 
+- **Compiled Black–Scholes segmentation** — explicit native fixed-path gradients
+  retain complete script/vector/fixing state, rebuild historical constant risks
+  and check exact replay decisions while recording one segment at a time. See
+  [compiled Black–Scholes paths](docs/methodology/aad.md#compiled-blackscholes-paths).
 - **Segmented native path gradients** — an opt-in fixed-state C++ kernel driver
   recomputes fresh local recordings, checks branch/state replay and accumulates
   initialization, terminal and along-path parameter contributions with capacity

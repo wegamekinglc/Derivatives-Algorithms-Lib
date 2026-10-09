@@ -111,6 +111,13 @@ namespace Dal::Script {
                                   const ScriptProductSettings_& contract = {});
 
     namespace Detail {
+        PreparedScript_ PrepareScriptForSegmentation(const ScriptProductData_& product,
+                                                     AAD::Model_<double>* model,
+                                                     const ScriptValuationSettings_& settings,
+                                                     const MonteCarloSettings_& simulation,
+                                                     const Handle_<MarketFixingSnapshot_>& snapshot = {},
+                                                     const ScriptProductSettings_& contract = {});
+
         PreparedScript_ PrepareScriptWithAdmission(const ScriptProductData_& product,
                                                    AAD::Model_<double>* model,
                                                    const ScriptValuationSettings_& settings,

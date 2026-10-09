@@ -1877,8 +1877,84 @@ No automatic strategy is selected.
 The complete boundary state is the caller's responsibility. A financial kernel
 must include all model/evaluator variables, cashflow/vector state, historical
 initialization dependencies and observations still needed by later events.
-Saving a model factor alone does not satisfy that contract. The generic core
-does not provide a financial adapter or an early-exercise/LSM checkpoint driver.
+Saving a model factor alone does not satisfy that contract. The Black–Scholes
+adapter below supplies that state for compiled scripts. Early-exercise/LSM
+checkpoint execution is unsupported.
+
+### Compiled Black–Scholes paths
+
+Include `dal/script/segmentedpath.hpp` to explicitly prepare and evaluate one
+fixed Gaussian path with `Script::BlackScholesSegmentedPath_`. Preparation fixes
+the timeline, observation identities, historical fixing snapshot, compiled
+program and smoothing. Parameters are fresh numerical inputs in the existing
+Black–Scholes order, `spot, vol, rate, div`, followed by `ConstVarNames()`.
+`ParameterLabels()` names that complete gradient axis. The returned value is
+the prepared payoff variable selected by `PayOffIdx()`.
+
+```cpp
+Script::ScriptValuationSettings_ valuation;
+valuation.evaluationDate_ = Date_(2026, 10, 1);
+const Script::ScriptProductData_ product(
+    "", {Cell_("SCALE"), Cell_(Date_(2027, 1, 7))},
+    {"2", "pay PAYS SCALE * FIX(EQ[DAL196_TEST])"});
+auto prepared = std::make_shared<const Script::BlackScholesSegmentedPreparation_>(
+    Script::PrepareBlackScholesSegmentedScript(product, valuation));
+const Script::BlackScholesSegmentedPath_ path(prepared);
+AAD::SegmentedPathSettings_ settings;
+settings.segmentSteps_ = 64;
+const auto result = path.Evaluate({100.0, 0.2, 0.03, 0.01, 2.0}, {0.3}, settings);
+```
+
+The caller supplies exactly `SimDim()` finite Gaussian entries after any random
+transform or Brownian bridge. The request retains that vector and never draws
+during replay. A time-zero sample emits the original spot exactly and consumes
+no draw. `Dimensions().steps_` counts samples, which can include time zero.
+The immutable `AAD::BlackScholesStepPlan_` also exposes these resumable model
+samples independently through `Advance(sampleId, logSpot, parameters, gaussian)`.
+
+Every boundary retains log spot, persistent script scalars, vector lengths and
+entries, and observations whose last consuming event has not finished. Vector
+bounds are proved from the prepared acyclic statements, including history and
+both branches. Historical constant dependence is freshly recorded once in
+initialization. Cumulative payment variables remain readable by later events;
+delayed payments use the prepared discount maturities. Each step computes only
+its own typed model coefficients and sample, without retaining a full active
+model initialization or scenario.
+
+Passive and active passes use the same prepared fuzzy bytecode. Exact trace
+slots record hard decisions, smoothing intervals, fuzzy branch regimes, extrema
+choices including ties, and vector reduction lengths/choices. Skipped instructions
+retain zero sentinels. Ordinary compiled execution uses a separate compile-time
+policy with tracing disabled.
+
+`PrepareBlackScholesSegmentedScript` enables compiled native AAD and accepts
+valuation settings, an optional fixing snapshot, optional product settings and
+optional smoothing. It also resolves and compiles historical-only products,
+which have zero future transitions but can retain script-constant dependence.
+The factory returns a move-only `BlackScholesSegmentedPreparation_` with a private
+constructor. Only this preparation type enters the kernel. `Prepared()` exposes
+a const ordinary-script view for independent comparison; generic `PrepareScript`
+results cannot establish the model's provenance and cannot be passed directly.
+The kernel rejects EXERCISE, validates model/script
+parameter and driver shapes, and shares only immutable data across requests.
+Its owning value/gradient result survives tape cleanup. Budgets and mode/nesting
+rules follow `ExecuteSegmentedPath` above.
+
+The fixed-path C++ adapter does not select a Monte Carlo strategy or change
+ordinary script valuation. Capacity statistics cover the declared tape and
+checkpoint components; immutable preparation, drivers, results and kernel
+scratch require separate accounting. Growing vector state or wide exact traces
+can erase a capacity advantage. The explicit
+`tape_perf --financial-segmented-path --case running --mode segmented-warm`
+benchmark compares complete requests for short, running-observation and
+live-fixing/payment paths in cold and reused-tape regimes.
+
+For the 2,048-sample reference cases at segment length 64, tape plus checkpoints
+uses about 25% less capacity. An independent C++ heap probe finds about 38% lower
+request peaks and about 6.2% lower totals after including immutable preparation,
+adapter storage and caller inputs. Warm requests take about 2.6–2.7 times the full
+graph time. The 16-sample case has no total-memory advantage. These measurements
+describe an explicit memory/latency tradeoff, not a strategy-selection rule.
 
 ## Examples
 

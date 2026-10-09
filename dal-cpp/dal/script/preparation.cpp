@@ -491,9 +491,12 @@ namespace Dal::Script {
             }
         }
 
-        static FORCE_INLINE void
-        Complete(PreparedScript_* result, ScriptProduct_* writable, AAD::Model_<double>* model, const Handle_<MarketFixingSnapshot_>& snapshot) {
-            if (result->AllExpired())
+        static FORCE_INLINE void Complete(PreparedScript_* result,
+                                          ScriptProduct_* writable,
+                                          AAD::Model_<double>* model,
+                                          const Handle_<MarketFixingSnapshot_>& snapshot,
+                                          bool compileExpiredHistory = false) {
+            if (result->AllExpired() && !compileExpiredHistory)
                 return;
             result->plan_->knownValues_ = ResolveHistory(&result->plan_->requests_, result->Settings(), snapshot);
             if (!model)
@@ -525,6 +528,9 @@ namespace Dal::Script {
 
     public:
         struct NoAdmission_ {};
+        struct CompiledHistory_ {
+            void operator()(const PreparedScript_&) const {}
+        };
         struct DeferredHistory_ {
             std::unique_ptr<AAD::Model_<double>>* model_;
         };
@@ -622,7 +628,7 @@ namespace Dal::Script {
             if constexpr (std::is_same_v<F_, DeferredHistory_>)
                 return ExportPlan(std::move(result), writable, beforeHistory);
             else {
-                Complete(&result, writable, model, settings.fixings_);
+                Complete(&result, writable, model, settings.fixings_, std::is_same_v<F_, CompiledHistory_>);
                 return result;
             }
         }
@@ -662,6 +668,18 @@ namespace Dal::Script {
     }
 
     namespace Detail {
+        PreparedScript_ PrepareScriptForSegmentation(const ScriptProductData_& data,
+                                                     AAD::Model_<double>* model,
+                                                     const ScriptValuationSettings_& settings,
+                                                     const MonteCarloSettings_& simulation,
+                                                     const Handle_<MarketFixingSnapshot_>& snapshot,
+                                                     const ScriptProductSettings_& contract) {
+            REQUIRE2(model, "InvalidModel: segmentation preparation requires a model", ScriptError_);
+            REQUIRE2(simulation.enableAad_ && simulation.compiled_.value_or(false),
+                     "UnsupportedExecutionMode: segmentation preparation requires native compiled AAD", ScriptError_);
+            return PreparedScriptBuilder_::Prepare(data, settings, snapshot, model, simulation, contract, PreparedScriptBuilder_::CompiledHistory_{});
+        }
+
         PlannedScript_ PlanScript(const ScriptProductData_& product,
                                   std::unique_ptr<AAD::Model_<double>> model,
                                   const ScriptValuationSettings_& valuation,
