@@ -24,12 +24,13 @@ namespace {
         return width;
     }
 
-    size_t ParsePaths(const char* text) {
+    size_t ParsePositiveInteger(const char* text, const char* name) {
         const std::string input = text;
-        size_t paths = 0;
-        const auto parsed = std::from_chars(input.data(), input.data() + input.size(), paths);
-        REQUIRE(parsed.ec == std::errc() && parsed.ptr == input.data() + input.size() && paths > 0, "PATHS must be a positive integer");
-        return paths;
+        size_t value = 0;
+        const auto parsed = std::from_chars(input.data(), input.data() + input.size(), value);
+        REQUIRE(parsed.ec == std::errc() && parsed.ptr == input.data() + input.size() && value > 0,
+                Dal::String_(name) + " must be a positive integer");
+        return value;
     }
 
     Dal::Script::MonteCarloSettings_ ParseSettings(int argc, char** argv) {
@@ -61,12 +62,12 @@ int RunRngPolicyProfile(int argc, char** argv, Dal::Script::ScriptProductData_ (
         return 2;
     }
     const auto settings = ParseSettings(argc, argv);
-    const size_t paths = ParsePaths(argv[5]);
+    const size_t paths = ParsePositiveInteger(argv[5], "PATHS");
     const std::string mode = argv[2];
     const String_ method = settings.rsg_, precision = settings.normalPrecision_;
     const String_ barrierWidth = argc >= 9 ? argv[8] : "0.1";
     static_cast<void>(ParseWidth(barrierWidth.c_str()));
-    ThreadPool_::GetInstance()->Start(argc == 10 ? ParsePaths(argv[9]) : 1, true);
+    ThreadPool_::GetInstance()->Start(argc == 10 ? ParsePositiveInteger(argv[9], "THREADS") : 1, true);
     const auto data = factory(barrierWidth);
     const Handle_<ModelData_> modelData(new BSModelData_("bs", 100.0, 0.20, 0.05, 0.02));
     SimResults_ values({});

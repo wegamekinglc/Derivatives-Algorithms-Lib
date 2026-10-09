@@ -16,6 +16,7 @@
 #include <tuple>
 
 #include <dal/curve/tapeguard.hpp>
+#include <dal/math/buffercapacity.hpp>
 #include <dal/model/blackscholes.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/script/simulation.hpp>
@@ -269,6 +270,47 @@ TEST(ScriptTest, TestPositionedBatchesDoNotSeekOrCloneForZeroPaths) {
                                          [&](size_t, const Script::PathBatch_&, std::unique_ptr<Random_>) { ++audit.runs_; });
     ASSERT_EQ(audit.clones_.load(), 0u);
     ASSERT_EQ(audit.runs_.load(), 0u);
+}
+
+TEST(ScriptTest, TestPositionedClonesDestroyedByWorkersDoNotRetainCallerCapacity) {
+    PoolRestore_ restore;
+    restore.pool_->Start(2, true);
+    if (restore.pool_->NumThreads() < 2)
+        GTEST_SKIP() << "requires a pool worker";
+    for (const bool fail : {false, true}) {
+        BufferCapacityBudget_ budget(65536);
+        std::atomic<size_t> worker{0};
+        {
+            BufferCapacityScope_ scope(&budget);
+            PositioningAudit_ audit;
+            std::promise<void> destroyed;
+            auto finished = destroyed.get_future();
+            audit.beforeSeek_ = [&](size_t path) {
+                if (path == Script::BATCH_SIZE)
+                    REQUIRE(finished.wait_for(std::chrono::seconds(5)) == std::future_status::ready, "clone did not reach a worker");
+            };
+            const auto run = [&] {
+                Script::Detail::RunSimulationBatches(restore.pool_, Script::BatchPlan_(8 * Script::BATCH_SIZE, 2),
+                                                     std::make_unique<AuditedIRN_>(&audit),
+                                                     [&](size_t i, const Script::PathBatch_&, std::unique_ptr<Random_> random) {
+                                                         if (i == 0) {
+                                                             worker = ThreadPool_::ThreadNum();
+                                                             random.reset();
+                                                             destroyed.set_value();
+                                                             REQUIRE(!fail, "injected worker failure");
+                                                         }
+                                                     });
+            };
+            if (fail) {
+                ASSERT_THROW(run(), Exception_);
+            } else {
+                ASSERT_NO_THROW(run());
+            }
+            ASSERT_EQ(audit.live_.load(), 0u);
+        }
+        ASSERT_NE(worker.load(), 0u);
+        ASSERT_EQ(budget.CapacityBytes(), 0u);
+    }
 }
 
 TEST(ScriptTest, TestIRNPreparedParallelPriceAndAllRisksPreservePrecisionAndBridge) {

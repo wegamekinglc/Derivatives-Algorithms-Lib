@@ -16,6 +16,7 @@
 #include <dal/math/aad/profiling.hpp>
 #include <dal/math/aad/recording.hpp>
 #include <dal/math/aad/weightedroot.hpp>
+#include <dal/math/buffercapacity.hpp>
 #include <dal/math/random/brownianbridge.hpp>
 #include <dal/math/random/pseudorandom.hpp>
 #include <dal/math/random/sobol.hpp>
@@ -320,7 +321,11 @@ namespace Dal::Script {
                         if (cancelled.load(std::memory_order_acquire))
                             break;
                         positioner->SkipNormalTo(batch.firstPath_);
-                        random = positioner->Clone();
+                        {
+                            // Workers do not inherit the caller's request-buffer accounting.
+                            Dal::Detail::BufferCapacitySuspension_ suspension;
+                            random = positioner->Clone();
+                        }
                     }
                     tasks.Spawn([&, index, batch, random = std::move(random)]() mutable {
                         if (positioned && cancelled.load(std::memory_order_acquire))
