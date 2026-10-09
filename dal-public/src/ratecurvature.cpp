@@ -15,6 +15,7 @@
 #include <dal/curve/calibration_internal.hpp>
 #include <dal/curve/curveparameterization.hpp>
 #include <dal/curve/ratecashflowpricing.hpp>
+#include <dal/curve/xccypricing.hpp>
 #include <dal/curve/ycconst.hpp>
 #include <dal/curve/yclogdf.hpp>
 #include <dal/curve/ycpwlf.hpp>
@@ -27,7 +28,8 @@
 namespace Dal {
     namespace {
         namespace Bumps = AAD::GradientBumpsDetail;
-        using Source_ = std::variant<CurveCalibrationSpec_, JointMultiCurveCalibrationSpec_>;
+        using Source_ =
+            std::variant<CurveCalibrationSpec_, JointMultiCurveCalibrationSpec_, CrossCurrencyCalibrationSpec_, JointXccyCalibrationSpec_>;
 
         template <class T_> Handle_<YCInstrument_> RequoteIndexed(const YCInstrument_& instrument, double quote) {
             const auto& typed = static_cast<const T_&>(instrument);
@@ -82,6 +84,22 @@ namespace Dal {
             return OrderInstruments(sealed);
         }
 
+        Handle_<CrossCurrencySwap_> Requote(const Handle_<CrossCurrencySwap_>& instrument, double quote) {
+            REQUIRE(instrument, "RateCalibration: empty cross-currency instrument");
+            REQUIRE(std::isfinite(quote), "RateCalibration: quotes must be finite");
+            const auto span = instrument->TimeSpan();
+            return Handle_<CrossCurrencySwap_>(new CrossCurrencySwap_(instrument->TradeDate(), span.first, span.second, quote, instrument->Config()));
+        }
+
+        Vector_<Handle_<CrossCurrencySwap_>> SealInstruments(const Vector_<Handle_<CrossCurrencySwap_>>& instruments) {
+            Vector_<Handle_<CrossCurrencySwap_>> sealed;
+            for (const auto& instrument : instruments) {
+                REQUIRE(instrument, "RateCalibration: empty cross-currency instrument");
+                sealed.push_back(Requote(instrument, instrument->MarketRate()));
+            }
+            return sealed;
+        }
+
         class CurveSealer_ {
             Date_ today_;
             std::map<const DiscountCurve_*, Handle_<DiscountCurve_>> copies_;
@@ -92,25 +110,61 @@ namespace Dal {
             Handle_<DiscountCurve_> Seal(const Handle_<DiscountCurve_>& curve) {
                 if (!curve)
                     return {};
-                const auto found = copies_.find(curve.get());
+                return Seal(*curve);
+            }
+            Handle_<DiscountCurve_> Seal(const DiscountCurve_& curve) {
+                const auto found = copies_.find(&curve);
                 if (found != copies_.end())
                     return found->second;
-                const auto& type = typeid(*curve);
+                const auto& type = typeid(curve);
                 REQUIRE(type == typeid(Tape::DiscountPWC_<double>) || type == typeid(Tape::DiscountPWLF_<double>) ||
                             type == typeid(Tape::DiscountLogDF_<double>) || type == typeid(Tape::DiscountZeroRate_<double>),
                         "RateCalibration: unsupported native fixed curve type");
-                REQUIRE(active_.insert(curve.get()).second, "RateCalibration: cyclic fixed curve base");
-                const auto state = InspectCurveParameters(*curve, today_);
+                REQUIRE(active_.insert(&curve).second, "RateCalibration: cyclic fixed curve base");
+                const auto state = InspectCurveParameters(curve, today_);
                 const auto copy =
                     Handle_<DiscountCurve_>(BuildDiscountCurveT<double>(state.definition_, state.passiveParameters_, Seal(state.passiveBase_)));
-                active_.erase(curve.get());
-                copies_.emplace(curve.get(), copy);
+                active_.erase(&curve);
+                copies_.emplace(&curve, copy);
                 return copy;
             }
         };
 
+        Handle_<CurveBlock_> SealBlock(const Handle_<CurveBlock_>& block, CurveSealer_* curves) {
+            REQUIRE(block, "RateCalibration: empty fixed curve block");
+            REQUIRE(typeid(*block) == typeid(CurveBlock_), "RateCalibration: unsupported native fixed curve block type");
+            if (block->DiscountCurves().empty())
+                return Handle_<CurveBlock_>(
+                    new CurveBlock_(curves->Seal(block->Discount(CollateralType_(CollateralType_::Value_::OIS))), block->LiborBasis()));
+            auto discounts = block->DiscountCurves();
+            auto forwards = block->ForwardCurves();
+            for (auto& entry : discounts)
+                entry.second = curves->Seal(entry.second);
+            for (auto& entry : forwards)
+                entry.second = curves->Seal(entry.second);
+            return Handle_<CurveBlock_>(new CurveBlock_(block->Name(), block->ccy_.String(), discounts, forwards, block->LiborBasis()));
+        }
+
+        Handle_<MarketFixingSnapshot_> SealFixings(const Handle_<MarketFixingSnapshot_>& fixings,
+                                                   const Vector_<Handle_<CrossCurrencySwap_>>& instruments,
+                                                   const DateTime_& valuationTime) {
+            if (fixings)
+                return fixings;
+            Vector_<FixingRequest_> requests;
+            for (const auto& instrument : instruments) {
+                const auto span = instrument->TimeSpan();
+                const auto plan = BuildXccyCashflowPlan(span.first, span.second, instrument->Config());
+                requests.Append(RequiredHistoricalFixings(plan, valuationTime));
+            }
+            return SnapshotGlobalFixings(requests);
+        }
+
         void RequireExact(CurveSolveMode_ mode) {
             REQUIRE(mode == CurveSolveMode_::Value_::EXACT, "RateCalibration: curvature requires EXACT calibration");
+        }
+
+        void RequireCurrency(const Ccy_& currency) {
+            REQUIRE(currency.Switch() != Ccy_::Value_::_NOT_SET, "RateCalibration: currencies must be specified");
         }
 
         void RequireSquare(size_t parameters, size_t quotes) {
@@ -135,18 +189,86 @@ namespace Dal {
             return sealed;
         }
 
+        struct SealedDeclarations_ {
+            Vector_<JointCurveDeclaration_> curves_;
+            size_t parameters_ = 0;
+            size_t quotes_ = 0;
+        };
+
+        SealedDeclarations_ SealDeclarations(Vector_<JointCurveDeclaration_> curves, const Date_& today, const String_& ccy, DayBasis_ basis) {
+            SealedDeclarations_ result;
+            for (auto& curve : curves) {
+                curve.instruments_ = SealInstruments(curve.instruments_);
+                const auto definition =
+                    MakeCurveDefinition(curve.curveName_, ccy, curve.parameterization_, curve.logDfScheme_, curve.knotDates_, today, basis);
+                result.parameters_ = Bumps::Sum(result.parameters_, BuildCurveParameterLayout(definition).parameterCount_);
+                result.quotes_ = Bumps::Sum(result.quotes_, curve.instruments_.size());
+            }
+            result.curves_ = std::move(curves);
+            return result;
+        }
+
         JointMultiCurveCalibrationSpec_ Seal(const JointMultiCurveCalibrationSpec_& spec) {
             RequireExact(spec.solveMode_);
             auto sealed = spec;
-            size_t parameters = 0, quotes = 0;
-            for (auto& curve : sealed.curves_) {
-                curve.instruments_ = SealInstruments(curve.instruments_);
-                const auto definition = MakeCurveDefinition(curve.curveName_, spec.ccy_, curve.parameterization_, curve.logDfScheme_,
-                                                            curve.knotDates_, spec.today_, DayBasis::Act365F());
-                parameters = Bumps::Sum(parameters, BuildCurveParameterLayout(definition).parameterCount_);
-                quotes = Bumps::Sum(quotes, curve.instruments_.size());
+            auto declarations = SealDeclarations(spec.curves_, spec.today_, spec.ccy_, spec.liborBasis_);
+            RequireSquare(declarations.parameters_, declarations.quotes_);
+            sealed.curves_ = std::move(declarations.curves_);
+            return sealed;
+        }
+
+        SealedDeclarations_ SealXccyDeclarations(const JointCurrencyCurveSpec_& currency, const Date_& today) {
+            auto result = SealDeclarations(currency.curves_, today, currency.ccy_.String(), currency.liborBasis_);
+            for (size_t index = 0; index < result.curves_.size(); ++index) {
+                auto& name = result.curves_[index].curveName_;
+                REQUIRE(!name.empty(), "RateCalibration: joint curve declarations require names");
+                name = String_(std::to_string(index)) + ":" + name;
             }
-            RequireSquare(parameters, quotes);
+            return result;
+        }
+
+        CrossCurrencyCalibrationSpec_ Seal(const CrossCurrencyCalibrationSpec_& spec) {
+            RequireExact(spec.solveMode_);
+            RequireCurrency(spec.basisPair_.domestic_);
+            RequireCurrency(spec.basisPair_.foreign_);
+            auto sealed = spec;
+            if (spec.valuationTime_.IsValid()) {
+                REQUIRE(!spec.today_.IsValid() || spec.today_ == spec.valuationTime_.Date(),
+                        "RateCalibration: today must match the explicit valuation date");
+                sealed.today_ = spec.valuationTime_.Date();
+            } else {
+                REQUIRE(spec.today_.IsValid(), "RateCalibration: today or an explicit valuation time required");
+                sealed.valuationTime_ = DateTime_(spec.today_);
+            }
+            if (sealed.collateralCurrency_.Switch() == Ccy_::Value_::_NOT_SET)
+                sealed.collateralCurrency_ = spec.basisPair_.domestic_;
+            sealed.instruments_ = SealInstruments(spec.instruments_);
+            RequireSquare(sealed.knotDates_.size(), sealed.instruments_.size());
+            CurveSealer_ curves(sealed.today_);
+            sealed.domesticCurveBlock_ = SealBlock(spec.domesticCurveBlock_, &curves);
+            sealed.foreignCurveBlock_ = SealBlock(spec.foreignCurveBlock_, &curves);
+            sealed.fixings_ = SealFixings(spec.fixings_, sealed.instruments_, sealed.valuationTime_);
+            return sealed;
+        }
+
+        JointXccyCalibrationSpec_ Seal(const JointXccyCalibrationSpec_& spec) {
+            RequireExact(spec.solveMode_);
+            REQUIRE(spec.valuationTime_.IsValid(), "RateCalibration: a valid valuation time required");
+            for (const auto& currency :
+                 {spec.pair_.domestic_, spec.pair_.foreign_, spec.domestic_.ccy_, spec.foreign_.ccy_, spec.collateralCurrency_})
+                RequireCurrency(currency);
+            auto sealed = spec;
+            const auto today = spec.valuationTime_.Date();
+            auto domestic = SealXccyDeclarations(spec.domestic_, today);
+            auto foreign = SealXccyDeclarations(spec.foreign_, today);
+            const auto basis = MakeCurveDefinition(spec.basis_.curveName_, spec.pair_.domestic_.String(), spec.basis_.parameterization_,
+                                                   spec.basis_.logDfScheme_, spec.basis_.knotDates_, today, DayBasis::Act365F());
+            RequireSquare(Bumps::Sum(Bumps::Sum(domestic.parameters_, foreign.parameters_), BuildCurveParameterLayout(basis).parameterCount_),
+                          Bumps::Sum(Bumps::Sum(domestic.quotes_, foreign.quotes_), spec.basis_.instruments_.size()));
+            sealed.domestic_.curves_ = std::move(domestic.curves_);
+            sealed.foreign_.curves_ = std::move(foreign.curves_);
+            sealed.basis_.instruments_ = SealInstruments(spec.basis_.instruments_);
+            sealed.fixings_ = SealFixings(spec.fixings_, sealed.basis_.instruments_, spec.valuationTime_);
             return sealed;
         }
 
@@ -154,55 +276,101 @@ namespace Dal {
             REQUIRE(matrix.Rows() == count && matrix.Cols() == count, "RateCalibration: native analytic Jacobian and inverse must be available");
         }
 
-        void ValidateInverse(const Matrix_<>& jacobian, const Matrix_<>& inverse, double tolerance, int count) {
+        void ValidateInverseInputs(const Matrix_<>& jacobian, const Matrix_<>& inverse, double tolerance, int count) {
             ValidateInverseShape(jacobian, count);
             ValidateInverseShape(inverse, count);
             REQUIRE(std::isfinite(tolerance) && tolerance > 0.0, "RateCalibration: invalid residual tolerance");
+        }
+
+        double InverseProduct(const Matrix_<>& jacobian, const Matrix_<>& inverse, double tolerance, int row, int column) {
+            double value = 0.0;
+            for (int inner = 0; inner < jacobian.Cols(); ++inner)
+                value = std::fma(jacobian(row, inner), inverse(inner, column) / tolerance, value);
+            return value;
+        }
+
+        void ValidateInverse(const Matrix_<>& jacobian, const Matrix_<>& inverse, double tolerance, int count) {
+            ValidateInverseInputs(jacobian, inverse, tolerance, count);
             const double allowance = 256.0 * std::numeric_limits<double>::epsilon() * count;
             for (int row = 0; row < count; ++row) {
                 for (int column = 0; column < count; ++column) {
-                    double value = 0.0;
-                    for (int inner = 0; inner < count; ++inner)
-                        value = std::fma(jacobian(row, inner), inverse(inner, column) / tolerance, value);
+                    const double value = InverseProduct(jacobian, inverse, tolerance, row, column);
                     REQUIRE(std::isfinite(value) && std::abs(value - (row == column ? 1.0 : 0.0)) <= allowance,
                             "RateCalibration: at-solution Jacobian inverse identity failed; locally singular or ill-conditioned system");
                 }
             }
         }
 
-        Vector_<> Quotes(const CurveCalibrationSpec_& spec) {
+        Matrix_<> RefineInverse(const Matrix_<>& jacobian, const Matrix_<>& inverse, double tolerance, int count) {
+            ValidateInverseInputs(jacobian, inverse, tolerance, count);
+            Matrix_<> residual(count, count);
+            for (int row = 0; row < count; ++row)
+                for (int column = 0; column < count; ++column)
+                    residual(row, column) = (row == column ? 1.0 : 0.0) - InverseProduct(jacobian, inverse, tolerance, row, column);
+            auto refined = inverse;
+            for (int row = 0; row < count; ++row)
+                for (int column = 0; column < count; ++column)
+                    for (int inner = 0; inner < count; ++inner)
+                        refined(row, column) = std::fma(inverse(row, inner), residual(inner, column), refined(row, column));
+            return refined;
+        }
+
+        template <class T_> Vector_<> InstrumentQuotes(const Vector_<Handle_<T_>>& instruments) {
             Vector_<> quotes;
-            for (const auto& instrument : spec.instruments_)
+            for (const auto& instrument : instruments)
                 quotes.push_back(instrument->MarketRate());
             return quotes;
         }
 
-        Vector_<> Quotes(const JointMultiCurveCalibrationSpec_& spec) {
+        template <class T_> Vector_<> Quotes(const T_& spec) { return InstrumentQuotes(spec.instruments_); }
+
+        template <class T_> Vector_<> CurveQuotes(const T_& spec) {
             Vector_<> quotes;
             for (const auto& curve : spec.curves_)
-                for (const auto& instrument : curve.instruments_)
-                    quotes.push_back(instrument->MarketRate());
+                quotes.Append(InstrumentQuotes(curve.instruments_));
             return quotes;
         }
 
-        Vector_<Handle_<YCInstrument_>>
-        RequoteInstruments(const Vector_<Handle_<YCInstrument_>>& instruments, const Vector_<>& quotes, size_t* offset) {
-            Vector_<Handle_<YCInstrument_>> result;
+        Vector_<> Quotes(const JointMultiCurveCalibrationSpec_& spec) { return CurveQuotes(spec); }
+
+        Vector_<> Quotes(const JointXccyCalibrationSpec_& spec) {
+            auto quotes = CurveQuotes(spec.domestic_);
+            quotes.Append(CurveQuotes(spec.foreign_));
+            quotes.Append(InstrumentQuotes(spec.basis_.instruments_));
+            return quotes;
+        }
+
+        template <class T_>
+        Vector_<Handle_<T_>> RequoteInstruments(const Vector_<Handle_<T_>>& instruments, const Vector_<>& quotes, size_t* offset) {
+            Vector_<Handle_<T_>> result;
             for (const auto& instrument : instruments)
                 result.push_back(Requote(instrument, quotes[(*offset)++]));
             return result;
         }
 
-        CurveCalibrationSpec_ WithQuotes(CurveCalibrationSpec_ spec, const Vector_<>& quotes) {
+        template <class T_> T_ WithQuotes(T_ spec, const Vector_<>& quotes) {
             size_t offset = 0;
             spec.instruments_ = RequoteInstruments(spec.instruments_, quotes, &offset);
             return spec;
         }
 
+        Vector_<JointCurveDeclaration_> RequoteCurves(Vector_<JointCurveDeclaration_> curves, const Vector_<>& quotes, size_t* offset) {
+            for (auto& curve : curves)
+                curve.instruments_ = RequoteInstruments(curve.instruments_, quotes, offset);
+            return curves;
+        }
+
         JointMultiCurveCalibrationSpec_ WithQuotes(JointMultiCurveCalibrationSpec_ spec, const Vector_<>& quotes) {
             size_t offset = 0;
-            for (auto& curve : spec.curves_)
-                curve.instruments_ = RequoteInstruments(curve.instruments_, quotes, &offset);
+            spec.curves_ = RequoteCurves(std::move(spec.curves_), quotes, &offset);
+            return spec;
+        }
+
+        JointXccyCalibrationSpec_ WithQuotes(JointXccyCalibrationSpec_ spec, const Vector_<>& quotes) {
+            size_t offset = 0;
+            spec.domestic_.curves_ = RequoteCurves(std::move(spec.domestic_.curves_), quotes, &offset);
+            spec.foreign_.curves_ = RequoteCurves(std::move(spec.foreign_.curves_), quotes, &offset);
+            spec.basis_.instruments_ = RequoteInstruments(spec.basis_.instruments_, quotes, &offset);
             return spec;
         }
     } // namespace
@@ -263,6 +431,79 @@ namespace Dal {
                 RateCalibrationSnapshot_::Data_{source, point, parameters, std::move(provenance)});
         }
 
+        std::shared_ptr<const RateCalibrationSnapshot_::Data_> Calibrate(const std::shared_ptr<const Source_>& source,
+                                                                         const CrossCurrencyCalibrationSpec_& spec) {
+            const CrossCurrencyCalibrationOptions_ options;
+            auto result = CalibrateCrossCurrencyMarket(spec, options);
+            const auto point = Quotes(spec);
+            result.diagnostics_.effJacobianInverse_ = RefineInverse(result.diagnostics_.jacobian_, result.diagnostics_.effJacobianInverse_,
+                                                                    spec.tolerance_, static_cast<int>(point.size()));
+            ValidateInverse(result.diagnostics_.jacobian_, result.diagnostics_.effJacobianInverse_, spec.tolerance_, static_cast<int>(point.size()));
+            const auto& basis = result.basisCurves_.at(spec.basisPair_);
+            const auto parameters = InspectCurveParameters(*basis, spec.today_).passiveParameters_;
+            const String_ key = String_("basis:xccy_basis_") + spec.basisPair_.domestic_.String();
+            RatePricingMarket_ market;
+            market.valuationTime_ = spec.valuationTime_;
+            market.resultCurrency_ = spec.basisPair_.domestic_;
+            market.curveComponents_[key] = basis;
+            market.fixings_ = result.market_.Fixings();
+            market.xccyMarket_ = std::make_shared<CrossCurrencyMarket_>(result.market_);
+            RateQuoteRiskProvenanceConfig_ config{"rate-quote-curvature", {{key, key}}, true};
+            auto provenance = BuildStagedXccyBasisQuoteRiskProvenance(spec, result, options, market, config);
+            REQUIRE(provenance.Available(), "RateCalibration: " + provenance.Reason());
+            return std::make_shared<const RateCalibrationSnapshot_::Data_>(
+                RateCalibrationSnapshot_::Data_{source, point, parameters, std::move(provenance)});
+        }
+
+        Vector_<> BindCurrency(const JointCurrencyCurveSpec_& currency,
+                               const Handle_<CurveBlock_>& block,
+                               const String_& group,
+                               RatePricingMarket_* market,
+                               RateQuoteRiskProvenanceConfig_* config) {
+            Vector_<> parameters;
+            for (const auto& declaration : currency.curves_) {
+                const auto& curve = declaration.calibrateDiscountCurve_ ? block->Discount(declaration.targetCollateral_)
+                                                                        : block->Forward(declaration.targetTenor_, declaration.targetCollateral_);
+                const String_ key = group + ":" + declaration.curveName_;
+                market->curveComponents_[key] = Handle_<DiscountCurve_>(std::shared_ptr<const DiscountCurve_>(block, &curve));
+                config->componentKeyByParameterBlock_[key] = key;
+                parameters.Append(InspectCurveParameters(curve, market->valuationTime_.Date()).passiveParameters_);
+            }
+            return parameters;
+        }
+
+        std::shared_ptr<const RateCalibrationSnapshot_::Data_> Calibrate(const std::shared_ptr<const Source_>& source,
+                                                                         const JointXccyCalibrationSpec_& spec) {
+            const JointXccyCalibrationOptions_ options;
+            auto result = CalibrateJointXccyMarket(spec, options);
+            const auto point = Quotes(spec);
+            // The native weighted solve can leave roundoff in its square inverse.
+            result.effJacobianInverse_ =
+                RefineInverse(result.jacobianAtSolution_, result.effJacobianInverse_, spec.tolerance_, static_cast<int>(point.size()));
+            ValidateInverse(result.jacobianAtSolution_, result.effJacobianInverse_, spec.tolerance_, static_cast<int>(point.size()));
+            RatePricingMarket_ market;
+            market.valuationTime_ = spec.valuationTime_;
+            market.resultCurrency_ = spec.pair_.domestic_;
+            market.fixings_ = result.fixings_;
+            auto xccy = std::make_shared<CrossCurrencyMarket_>(result.domesticCurveBlock_, result.foreignCurveBlock_, spec.fxSpot_,
+                                                               spec.valuationTime_, spec.collateralCurrency_, result.fixings_);
+            xccy->SetBasisCurve(result.basisCurve_);
+            market.xccyMarket_ = xccy;
+            RateQuoteRiskProvenanceConfig_ config;
+            config.calibrationId_ = "rate-quote-curvature";
+            config.retainCalibrationRecord_ = true;
+            auto parameters = BindCurrency(spec.domestic_, result.domesticCurveBlock_, "domestic", &market, &config);
+            parameters.Append(BindCurrency(spec.foreign_, result.foreignCurveBlock_, "foreign", &market, &config));
+            const String_ key = String_("basis:") + spec.basis_.curveName_;
+            market.curveComponents_[key] = result.basisCurve_;
+            config.componentKeyByParameterBlock_[key] = key;
+            parameters.Append(InspectCurveParameters(*result.basisCurve_, spec.valuationTime_.Date()).passiveParameters_);
+            auto provenance = BuildJointXccyQuoteRiskProvenance(spec, result, options, market, config);
+            REQUIRE(provenance.Available(), "RateCalibration: " + provenance.Reason());
+            return std::make_shared<const RateCalibrationSnapshot_::Data_>(
+                RateCalibrationSnapshot_::Data_{source, point, parameters, std::move(provenance)});
+        }
+
         std::shared_ptr<const RateCalibrationSnapshot_::Data_> CalibrateSource(const std::shared_ptr<const Source_>& source,
                                                                                const Source_& pointSpec) {
             auto* tape = AAD::Tape();
@@ -270,6 +511,12 @@ namespace Dal {
             tape->multi_ = false;
             tape->numAdj_ = 1;
             return std::visit([&](const auto& spec) { return Calibrate(source, spec); }, pointSpec);
+        }
+
+        template <class T_> std::shared_ptr<const RateCalibrationSnapshot_::Data_> CaptureCalibration(const T_& spec) {
+            AAD::RequireRecordingModeChangeAllowed();
+            auto source = std::make_shared<const Source_>(Seal(spec));
+            return CalibrateSource(source, *source);
         }
 
         struct Gradient_ {
@@ -324,17 +571,17 @@ namespace Dal {
     const Vector_<>& RateCalibrationSnapshot_::Parameters() const { return data_->parameters_; }
     const RateQuoteRiskProvenance_& RateCalibrationSnapshot_::Provenance() const { return data_->provenance_; }
 
-    RateCalibrationSnapshot_ NewRateCalibration(const CurveCalibrationSpec_& spec) {
-        AAD::RequireRecordingModeChangeAllowed();
-        auto source = std::make_shared<const Source_>(Seal(spec));
-        return RateCalibrationSnapshot_(CalibrateSource(source, *source));
-    }
+    RateCalibrationSnapshot_ NewRateCalibration(const CurveCalibrationSpec_& spec) { return RateCalibrationSnapshot_(CaptureCalibration(spec)); }
 
     RateCalibrationSnapshot_ NewRateCalibration(const JointMultiCurveCalibrationSpec_& spec) {
-        AAD::RequireRecordingModeChangeAllowed();
-        auto source = std::make_shared<const Source_>(Seal(spec));
-        return RateCalibrationSnapshot_(CalibrateSource(source, *source));
+        return RateCalibrationSnapshot_(CaptureCalibration(spec));
     }
+
+    RateCalibrationSnapshot_ NewRateCalibration(const CrossCurrencyCalibrationSpec_& spec) {
+        return RateCalibrationSnapshot_(CaptureCalibration(spec));
+    }
+
+    RateCalibrationSnapshot_ NewRateCalibration(const JointXccyCalibrationSpec_& spec) { return RateCalibrationSnapshot_(CaptureCalibration(spec)); }
 
     RateCalibrationSnapshot_ RecalibrateRateWithRisk(const RateCalibrationSnapshot_& calibration, const Vector_<>& quotes) {
         AAD::RequireRecordingModeChangeAllowed();
