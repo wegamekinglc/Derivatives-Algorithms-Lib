@@ -14,6 +14,10 @@ No blocking design issue after the following constraints were made explicit:
   Preserve its OIS/collateral/tenor fallback while deep copying its curve graph.
 - Native YC solver order and XCCY declaration order differ. Normalize only the
   YC groups and preserve full axis fingerprints at every bumped point.
+- Native joint XCCY accepts duplicate curve names in distinct collateral/tenor
+  slots, while name-only provenance ranges collide. Prefix names in the sealed
+  currency declarations with stable ordinals, consistently for native ranges
+  and component bindings; preserve empty-name admission and caller definitions.
 - Square shape alone is inadequate. Reuse fresh inverse/scaling validation;
   retain explicit rejection of rectangular/approximate semantics.
 - A regular joint fixture exposes native weighted-inverse identity error around

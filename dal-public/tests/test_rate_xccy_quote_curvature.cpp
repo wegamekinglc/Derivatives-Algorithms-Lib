@@ -504,8 +504,8 @@ TEST(RateQuoteCurvatureTest, TestJointXccySnapshotFactoryAndAxis) {
     ASSERT_EQ(snapshot.Point(), plain.marketRates_);
     ASSERT_EQ(snapshot.Parameters().size(), 8U);
     ASSERT_EQ(snapshot.Provenance().Axis().parameterRanges_.size(), 5U);
-    ASSERT_EQ(snapshot.Provenance().Axis().parameterRanges_[0].blockKey_, "domestic:discount");
-    ASSERT_EQ(snapshot.Provenance().Axis().parameterRanges_[3].blockKey_, "foreign:projection");
+    ASSERT_EQ(snapshot.Provenance().Axis().parameterRanges_[0].blockKey_, "domestic:0:discount");
+    ASSERT_EQ(snapshot.Provenance().Axis().parameterRanges_[3].blockKey_, "foreign:1:projection");
     ASSERT_EQ(snapshot.Provenance().Axis().residualRanges_.back().blockKey_, "xccy:xccy_basis");
     auto point = snapshot.Point();
     point[0] += 1.0e-4;
@@ -530,6 +530,31 @@ TEST(RateQuoteCurvatureTest, TestJointXccyIndependentContractCurvature) {
         const auto snapshot = Dal::NewRateCalibration(spec);
         AssertPriceCurvature(snapshot, ContractObjective(spec), [spec](const Dal::Vector_<>& quotes) { return PassivePrice(spec, quotes); });
     }
+}
+
+TEST(RateQuoteCurvatureTest, TestJointXccyDuplicateDeclarationNames) {
+    auto spec = JointSpec();
+    for (auto* currency : {&spec.domestic_, &spec.foreign_})
+        for (auto& curve : currency->curves_)
+            curve.curveName_ = "shared";
+    const auto plain = Dal::CalibrateJointXccyMarket(spec);
+    const auto snapshot = Dal::NewRateCalibration(spec);
+    ASSERT_EQ(snapshot.Point(), plain.marketRates_);
+    ASSERT_EQ(snapshot.Provenance().ComponentKeyByParameterBlock().size(), 5U);
+    const auto& ranges = snapshot.Provenance().Axis().parameterRanges_;
+    ASSERT_EQ(ranges[0].blockKey_, "domestic:0:shared");
+    ASSERT_EQ(ranges[1].blockKey_, "domestic:1:shared");
+    ASSERT_EQ(ranges[2].blockKey_, "foreign:0:shared");
+    ASSERT_EQ(ranges[3].blockKey_, "foreign:1:shared");
+    ASSERT_EQ(spec.domestic_.curves_[0].curveName_, "shared");
+    ASSERT_EQ(spec.foreign_.curves_[1].curveName_, "shared");
+    auto point = snapshot.Point();
+    point.front() += 1.0e-4;
+    point.back() -= 1.0e-4;
+    const auto replay = Dal::RecalibrateRateWithRisk(snapshot, point);
+    ASSERT_EQ(replay.Point(), point);
+    ASSERT_EQ(replay.Provenance().Axis().fingerprint_, snapshot.Provenance().Axis().fingerprint_);
+    AssertPriceCurvature(snapshot, ContractObjective(spec), [spec](const Dal::Vector_<>& quotes) { return PassivePrice(spec, quotes); });
 }
 
 TEST(RateQuoteCurvatureTest, TestStagedXccyOwnsFixedCurveGraph) {
@@ -683,6 +708,9 @@ TEST(RateQuoteCurvatureTest, TestXccyDefaultAndMalformedHeaderAdmission) {
     ASSERT_THROW((void)Dal::NewRateCalibration(Dal::JointXccyCalibrationSpec_()), Dal::Exception_);
     auto joint = JointSpec();
     joint.domestic_.ccy_ = Dal::Ccy_();
+    ASSERT_THROW((void)Dal::NewRateCalibration(joint), Dal::Exception_);
+    joint = JointSpec();
+    joint.domestic_.curves_[0].curveName_.clear();
     ASSERT_THROW((void)Dal::NewRateCalibration(joint), Dal::Exception_);
     auto staged = StagedSpec();
     staged.basisPair_.domestic_ = Dal::Ccy_();

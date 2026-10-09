@@ -12,6 +12,13 @@ Review covers admission before virtual behavior, native quote/parameter order,
 owning aliases, frozen historical dependencies, solver scaling, residual inverse
 refinement, direct quote pullback and tape mode restoration.
 
+Remote review found name-only joint bindings colliding for repeated declaration
+names in distinct native slots. The regression test first fails with duplicate
+provenance ranges while the original native calibrator succeeds. Stable ordinal
+prefixes on the sealed declarations fix both native ranges and bindings without
+changing core code or the caller's definitions. Empty original names still reject.
+The regression also checks replay and independent financial price curvature.
+
 The installed consumer exposed a default joint header reaching currency string
 construction before validation. Explicit date/currency admission now rejects with
 `Dal::Exception_`; a scoped malformed-header regression test covers both factories.
@@ -27,9 +34,11 @@ separate deliveries; this PR makes no capability claim for them.
 ## Tests
 
 - RED/GREEN factory overloads, default-header admission and inverse refinement.
-- 23 affected rate cases pass: 12 accepted single/same-currency cases plus 11
+- 24 affected rate cases pass: 12 accepted single/same-currency cases plus 12
   new XCCY cases. Independent references use original passive calibrators:
-  66 curvature comparisons across three outer steps and 22 gradient coordinates.
+  90 curvature comparisons across three outer steps and 30 gradient coordinates.
+  The name repair reruns only three joint and five shared XCCY cases, retaining
+  sixteen unaffected single/same-currency/staged cases with unchanged caller paths.
 - Staged fixed/resettable/mark-to-market notionals, layered/unlayered joint curves,
   asymmetric quote counts, non-default projection tenors, curve graph ownership,
   historical rate/FX fixings and legacy native single-curve route fallback pass.
@@ -39,9 +48,9 @@ separate deliveries; this PR makes no capability claim for them.
   unchanged probes retained); installed consumer passes 1/1. The public archive
   replaces only `ratecurvature.cpp.o`, retaining 25 identical members; core is unchanged.
 - [Scoped performance acceptance](../performance/aad-xccy-quote-curvature.md)
-  passes: three comparisons, 120 samples, 0.8898 seconds of measured work.
-  Existing-entry round deltas are +2.43%/+0.38%, below the unchanged 4% gate.
-  Current-head remote CI/Codacy/full review remain pending.
+  passes before the repair; repeat the same three small comparisons after
+  replacing the public object and checking executable identity. Current-head
+  remote CI/Codacy/full review remain pending.
 
 ## Summary
 

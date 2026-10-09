@@ -2206,7 +2206,11 @@ the domestic/foreign curve blocks remain fixed dependencies. Joint cross-currenc
 snapshots expose domestic curve, foreign curve and basis blocks in the native
 residual/parameter order. Projection routes follow each declaration's actual
 tenor and collateral. YC instrument groups are normalized into solver order;
-XCCY instruments retain declaration order. FX spot remains fixed outside the
+XCCY instruments retain declaration order. Joint currency keys are
+`domestic:<ordinal>:<name>` and `foreign:<ordinal>:<name>`, with zero-based
+declaration ordinals preventing collisions from repeated names. Prefixes apply
+only to the sealed copy; basis keys remain `basis:<name>`.
+FX spot remains fixed outside the
 quote axis. Fixed native curve graphs and legacy single-curve block fallback
 are preserved by deep copies. Missing fixing snapshots are resolved once from
 required historical dependencies and retained for every replay, including

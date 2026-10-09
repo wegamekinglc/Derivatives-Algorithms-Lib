@@ -21,7 +21,7 @@ every timed request still recalibrates base, plus and minus points.
 The [harness](aad-xccy-quote-curvature-cost.cpp) reuses the unchanged native
 `rate_risk_perf` XCCY materials. Its single-curve control is square LOGDF, avoiding
 the rectangular single-curve benchmark fixture. Independent financial correctness
-is established separately by 66 multi-step curvature references and 22 gradient
+is established separately by 90 multi-step curvature references and 30 gradient
 coordinates from the original passive solvers, not by timing checksums.
 
 Exclude unrelated MC/PDE/Dupire, tape/RNG/linear-algebra benchmarks and the full
@@ -80,3 +80,14 @@ Only `ratecurvature.cpp.o` is replaced among 26 public members. Dependency hashe
 prove the retained fixture object and unchanged core apply to both worktrees.
 Documentation-only follow-up can retain these results with unchanged compiled
 source/dependency/archive/harness/executable identity.
+
+## Review repair selection
+
+The repeated-name repair changes only joint XCCY declaration sealing. Local
+correctness reruns three joint and five shared XCCY cases; sixteen unaffected
+cases retain accepted evidence. The shared public translation-unit object must
+be replaced. Rebuild the selected harness links and check executable hashes;
+where byte identity does not establish applicability, repeat that selected pair
+with the original sampling/noise/threshold protocol. Keep the set at these same
+three small comparisons; do not expand to unrelated benchmark targets. Retain
+the original raw results above separately from repaired-head measurements.

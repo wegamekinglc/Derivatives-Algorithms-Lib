@@ -217,6 +217,16 @@ namespace Dal {
             return sealed;
         }
 
+        SealedDeclarations_ SealXccyDeclarations(const JointCurrencyCurveSpec_& currency, const Date_& today) {
+            auto result = SealDeclarations(currency.curves_, today, currency.ccy_.String(), currency.liborBasis_);
+            for (size_t index = 0; index < result.curves_.size(); ++index) {
+                auto& name = result.curves_[index].curveName_;
+                REQUIRE(!name.empty(), "RateCalibration: joint curve declarations require names");
+                name = String_(std::to_string(index)) + ":" + name;
+            }
+            return result;
+        }
+
         CrossCurrencyCalibrationSpec_ Seal(const CrossCurrencyCalibrationSpec_& spec) {
             RequireExact(spec.solveMode_);
             RequireCurrency(spec.basisPair_.domestic_);
@@ -249,8 +259,8 @@ namespace Dal {
                 RequireCurrency(currency);
             auto sealed = spec;
             const auto today = spec.valuationTime_.Date();
-            auto domestic = SealDeclarations(spec.domestic_.curves_, today, spec.domestic_.ccy_.String(), spec.domestic_.liborBasis_);
-            auto foreign = SealDeclarations(spec.foreign_.curves_, today, spec.foreign_.ccy_.String(), spec.foreign_.liborBasis_);
+            auto domestic = SealXccyDeclarations(spec.domestic_, today);
+            auto foreign = SealXccyDeclarations(spec.foreign_, today);
             const auto basis = MakeCurveDefinition(spec.basis_.curveName_, spec.pair_.domestic_.String(), spec.basis_.parameterization_,
                                                    spec.basis_.logDfScheme_, spec.basis_.knotDates_, today, DayBasis::Act365F());
             RequireSquare(Bumps::Sum(Bumps::Sum(domestic.parameters_, foreign.parameters_), BuildCurveParameterLayout(basis).parameterCount_),

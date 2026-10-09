@@ -262,19 +262,22 @@ immutable:
 [review](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/c81367ae13dd63629171cde3cb8ba4db2e829eb7/.codex/artifacts/reviews/aad-rate-quote-curvature.md),
 [cost report and harness](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/c81367ae13dd63629171cde3cb8ba4db2e829eb7/.codex/artifacts/performance/aad-rate-quote-curvature.md).
 
-Rate-provider cross-currency replay and trading integration remain 6–10 hours.
+Rate-provider cross-currency acceptance and trading integration remain 4–8 hours.
 The active cross-currency increment follows its
 [specification](../specs/aad-xccy-quote-curvature.md),
 [API](../api-notes/aad-xccy-quote-curvature.md),
 [critique](../critiques/aad-xccy-quote-curvature.md),
 [review](../reviews/aad-xccy-quote-curvature.md) and
 [scoped performance acceptance](../performance/aad-xccy-quote-curvature.md).
-Both factories and 23 affected rate cases now pass locally, including 66
-independent financial curvature references and 22 gradient coordinates;
+Both factories and 24 affected rate cases now pass locally, including 90
+independent financial curvature references and 30 gradient coordinates;
 eight strict probes and the installed consumer pass. Three scoped performance
 comparisons pass with 120 samples and 0.8898 seconds of measured work; existing
 single-curve round deltas are +2.43%/+0.38%, below the 4% gate. Exact-head remote
-acceptance remains pending. Explicit trading adapters,
+acceptance remains pending. Review found repeated joint declaration names
+colliding in native provenance ranges; stable sealed ordinal prefixes repair
+the issue, with eight affected cases rerun and sixteen unchanged cases retained.
+Explicit trading adapters,
 rectangular/approximate calibration semantics, policy/estimator validation and
 native mixed mode remain required subsequent deliveries; they are not claimed
 complete by the smooth square-system native objective primitive.
@@ -801,7 +804,7 @@ affected-boundary tests, scoped costs and complete current-head CI/review accept
 |-----------------------------|-------------------------------------------------------------------------------------------|-----------------|
 | Native driver               | #517 merged; explicit requests, mathematical/lifecycle and exact-head acceptance complete | 0               |
 | Financial MC                | #519 merged; common-path requests and exact-head acceptance complete                      | 0               |
-| Quote curvature             | #520/#522/#523 merged; cross-currency rebuilding and trading integration remain           | 6–10            |
+| Quote curvature             | #520/#522/#523 merged; cross-currency rebuilding and trading integration remain           | 4–8             |
 | Policy/estimator validation | Frozen/RetrainedBump meaning, inner/outer steps and applicable convergence/error evidence | 12–24           |
 
 ## Completion evidence
@@ -1438,11 +1441,11 @@ overlapping acceptance work is included once in the integration allowance.
 | F03                     | Solve/root/PDE operators and financial/grid acceptance complete  | #506 merged; final 36/36 gates accepted  | 0                     |
 | P04                     | Structural compression, safe fallback and selection accepted     | #511 merged; final 36/36 gates accepted  | 0                     |
 | P05                     | Core, fixed-path and Monte Carlo adapters accepted               | #512/#513/#515 merged; 36/36 gates       | 0                     |
-| F04                     | Second-order implementation/estimator validation remain          | Open                                     | 6.25–12.25            |
+| F04                     | Second-order implementation/estimator validation remain          | Open                                     | 6–12                  |
 | Final integration/audit | Cross-platform/binding/docs/performance acceptance remains       | Open                                     | 7–11                  |
 
-Remaining total during F04 development: 106–186 hours, approximately
-13.25–23.25 eight-hour person-days, excluding CI queue time. Delivery contingency
+Remaining total during F04 development: 104–184 hours, approximately
+13–23 eight-hour person-days, excluding CI queue time. Delivery contingency
 is included in those same hour ranges; there is no extra undisclosed allowance. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
 effort estimate, not a guaranteed completion date. Re-estimate when review
@@ -1467,10 +1470,10 @@ numeric/native diagnostics are not counted again.
 | 7a    | P05 segmentation core                | #512 merged; actual runtime, exact-head CI/review and guarded merge accepted   | 0               |
 | 7b    | P05 financial adapter                | #513 merged; exact-head CI, review, costs, actual runtime and merge accepted   | 0               |
 | 7c    | P05 Monte Carlo acceptance           | #515 merged; 36/36 gates, fourteen actual runtime profiles and merge proof     | 0               |
-| 8     | F04 second-order risk                | Cross-currency/trading quote curvature and policy/estimator validation remain  | 18–34           |
+| 8     | F04 second-order risk                | Cross-currency/trading quote curvature and policy/estimator validation remain  | 16–32           |
 | 9     | F04 native mixed-mode prototype      | Smooth-kernel prototype, independent correctness and capability limits         | 32–64           |
 | 10    | Bindings and complete acceptance     | C++/Python/Excel, documentation, platform and performance gates                | 56–88           |
-| Total | Full remaining implementation        | All remaining plan requirements                                                | 106–186         |
+| Total | Full remaining implementation        | All remaining plan requirements                                                | 104–184         |
 
 
 The first delivery boundary is complete. Whole-PR review repaired the Windows

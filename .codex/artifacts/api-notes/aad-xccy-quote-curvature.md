@@ -17,7 +17,12 @@ identity instead of inferring counts or assuming a 3M projection tenor.
 For staged snapshots, `Point()` contains basis quotes only. For joint snapshots,
 it concatenates domestic YC quotes, foreign YC quotes and XCCY basis quotes.
 YC groups are sorted once into native solver order; XCCY groups preserve input
-order. FX spot and resolved fixing data are fixed dependencies. Caller mutation
+order. Joint currency block keys use `domestic:<ordinal>:<name>` and
+`foreign:<ordinal>:<name>` with a zero-based declaration ordinal in that currency;
+basis keys remain `basis:<name>`. The ordinal prefix is applied only to the sealed
+copy and preserves repeated user names without binding/range collisions. Empty
+original declaration names still reject. FX spot and resolved fixing data are
+fixed dependencies. Caller mutation
 does not change replay. Objective inputs concatenate parameters and raw quotes.
 Cross-currency snapshots retain a fresh native inverse after one residual refinement
 against the at-solution analytic Jacobian; the unchanged strict identity check

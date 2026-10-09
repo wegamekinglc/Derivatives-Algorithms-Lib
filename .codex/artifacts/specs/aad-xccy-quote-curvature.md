@@ -33,6 +33,11 @@ mode remain separate required deliveries.
    layering, collateral and projection routes. Normalize YC instruments once;
    retain native XCCY instrument order. Full quote/parameter axis fingerprints
    must remain identical across replay.
+   Joint currency declarations receive stable per-currency ordinal prefixes in
+   the sealed copy, so repeated user curve names cannot collide in native ranges
+   or component bindings. Keys are `domestic:<ordinal>:<name>` and
+   `foreign:<ordinal>:<name>`; preserve rejection of empty original names and
+   leave the caller's original definition unchanged.
 5. Seal fixed curve blocks with deep native graph copies, preserving shared
    aliases, route fallback and library day basis. Reject custom curve/block
    subclasses before invoking their virtual behavior. Existing legacy native
