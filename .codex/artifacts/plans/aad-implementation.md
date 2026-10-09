@@ -1255,7 +1255,7 @@ overlapping acceptance work is included once in the integration allowance.
 | P02                     | Worker reuse: 82 tests and 37 full-request cost cases accepted     | #488 merged; final 35/35 checks accepted | 0                     |
 | P03                     | 89 tests; 81 unique complete-request timing comparisons accepted   | #489 merged; final 35/35 checks accepted | 0                     |
 | F03                     | Solve/root/PDE operators and financial/grid acceptance complete    | #506 merged; final 36/36 gates accepted  | 0                     |
-| P04/P05                 | Strategy locally verified; checkpoint implementation remains      | P04 publication open                     | 5–9                   |
+| P04/P05                 | Strategy locally verified; checkpoint implementation remains       | P04 publication open                     | 5–9                   |
 | F04                     | Second-order implementation/estimator validation remain            | Open                                     | 12–20                 |
 | Final integration/audit | Cross-platform/binding/docs/performance acceptance remains         | Open                                     | 7–11                  |
 
