@@ -22,8 +22,10 @@ curvature claim is made by this increment.
 Review finding `4231529962` identifies nullable public result ownership. A
 focused RED confirms that null construction previously succeeded. Constructor
 validation now rejects it; all twelve financial cases and eleven affected strict
-probes pass. Allocation recovery, installed consumption and the two affected
-financial cost cases are rechecked before publication. The generic helper and
+probes pass. Allocation recovery and installed consumption pass again. Only the two
+affected financial cost cases repeat (80 observations, 3.949 seconds); their
+mixed-case relative overhead is inconclusive under shared-host noise and is
+not used to claim a speedup. The generic helper and
 its recorded caller are unchanged; their accepted correctness/cost evidence is
 reused.
 
@@ -60,8 +62,10 @@ Unchanged native/MC boundaries outside this increment reuse accepted evidence.
 ## Summary
 
 Installed-only consumption passes 1/1. The preselected three-case study completes
-120 observations in 2.110 seconds; both existing-caller +4% rounds pass. Financial
-entry costs remain informational on the shared host. Complete current-head
+120 observations in 2.110 seconds; both existing-caller +4% rounds pass. The review repair adds 80 financial observations in 3.949 seconds; the
+unchanged generic control reuses its accepted executable/object evidence.
+Financial entry costs remain informational; mixed-case relative overhead is
+inconclusive on the shared host. Complete current-head
 remote CI/Codacy/inline/body-review acceptance remains required before merge.
 Published docs and changelog reflect the new bounded capability. Completed #517
 controls are retired after replacing links with immutable publication links.
