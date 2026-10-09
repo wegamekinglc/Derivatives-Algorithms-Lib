@@ -194,10 +194,12 @@ The increment is published in
 An allocation-failure audit reproduces entry-mode leakage; the stack-guard repair
 has isolated RED/GREEN, three affected core cases and four private-probe callers.
 Upstream #516 integration rebuilds nineteen selected library units and validates
-all thirteen new cases and installed-only recorded-solve consumption. Seventeen
+all fourteen new cases and installed-only recorded-solve consumption. Twenty-one
 current strict probes are covered by original and affected repair evidence.
 Review finding `4230078427` corrects a baseline-only heap allocation. The final
-three-case study finishes 160 observations in 4.910 seconds, with +11–16%
+subsequent finding `4230306027` adds zero-checkpoint validation before callback
+root access, with isolated RED/GREEN and three existing operator boundary checks.
+The final three-case study finishes 160 observations in 2.447 seconds, with +13–16%
 informational new-entry overhead and both old-caller +4% rounds passing. Shared
 host noise remains disclosed; earlier overhead numbers are superseded. No
 unrelated local full matrix is repeated. Current-head CI, Codacy, complete

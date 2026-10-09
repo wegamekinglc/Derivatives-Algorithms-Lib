@@ -3,7 +3,7 @@
 ## Findings
 
 No open local correctness or style findings. Review includes the complete new
-driver, public header, twelve tests, benchmark harness/dispatch, diagnostic CI
+driver, public header, thirteen core tests, benchmark harness/dispatch, diagnostic CI
 filters, active controls and methodology. All ordinary library bodies are unchanged.
 
 The numbers-only initial callback could not compose recorded operators. A focused
@@ -38,6 +38,20 @@ cases pass; the head timing body is unchanged. Corrected new-entry costs are
 +11–16% informational overhead. The existing short control passes both +4%
 rounds with twenty samples per side, while shared-host noise remains disclosed.
 No unrelated local full suite or cost matrix is repeated.
+
+Review finding `4230306027` is valid: a callback can checkpoint, build an output
+and restore while the scope remains recording. A focused regression against the
+previous archive fails because no rejection occurs. The new internal helper
+retains `Begin` validation and rejects nonzero checkpoint generation before
+output access. Each new scope starts at zero; a valid restore requires a checkpoint
+from that scope. There is no new allocation, scope/tape layout or mode mutation.
+The thirteen core cases and isolated fault case pass; the new case covers
+checkpoint-only and restore behavior at base/plus/minus with mode restoration
+and recovery. Three existing event/solve checkpoint/state cases and eight
+affected strict probes pass; installed consumption passes 1/1. The same three
+cost comparisons finish 160 observations in 2.447 seconds; both old-caller
+rounds pass and new-entry overhead is +13–16%, informational. Current strict
+coverage totals 21 applicable probes, retaining unaffected evidence.
 
 ## Tests
 

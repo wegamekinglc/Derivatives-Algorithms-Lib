@@ -229,3 +229,32 @@ performance comparisons because the shared reverse-event object now changes;
 use the corrected frozen manual baseline, two interleaved rounds, ten samples
 per side for new requests and twenty for the already noisy short control. Keep
 the minimum reduction and +4% old-caller threshold. No other target is selected.
+
+The missing rejection is reproduced in `bump-over-aad-checkpoint-repair/red.xml`.
+Repaired functional head is `9cf5756565d87eb1eea104769122ea2664136d48`.
+The same evidence directory retains `green-core.xml` (13/13),
+`green-allocation.xml` (1/1), `callers.xml` (3/3), eight affected strict checks,
+installed-only consumption (1/1), archive/object provenance, detached source,
+independent head build and complete raw cost samples. Existing caller checks
+cover checkpoint event ownership, recorded-solve checkpoint boundaries and
+rejection of an incorrect scope state. Their checkpoint functionality is retained.
+
+Head archive changes only the two selected objects; its other 179 occurrences
+match the integrated accepted archive. The corrected baseline executable remains
+`f8f7143711304a8ac8d1e92dc9e29673a445f3e79ec98151365e8524c6d17b43`.
+The repaired head executable SHA-256 is
+`61c8a9423ccf8d7b91253e8051c6521f94a595ea2c4cdfc01fd1083068b19f7b`.
+The same environment and numerical/work/payload checks apply.
+
+Final 160 observations finish in 2.447 seconds:
+
+- Four inputs/one direction: 889/1,006 ns and 870/1,003 ns (base/head),
+  giving +13.16%/+15.29% informational new-entry overhead.
+- 32 inputs/three directions: 10,914/12,497 ns and 10,827/12,244 ns,
+  giving +14.50%/+13.09% informational new-entry overhead.
+- Existing short control: 1,203,803/1,238,048 ns and 1,280,167/1,264,074 ns,
+  giving +2.84%/-1.26%. Both +4% rounds pass.
+
+Overall: **no regression** under the calibrated old-caller gate. New capability
+overhead remains informational, at +13–16%. Shared-host absolute timing noise
+remains a limitation; prior raw studies are retained without a speedup claim.
