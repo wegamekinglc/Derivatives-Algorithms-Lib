@@ -5,18 +5,37 @@
 // Baselines the per-MC-batch tape-management cost so future optimizations
 // (e.g. tape reuse, lazy clear) can be measured against the current native backend.
 
+#include <array>
+#include <utility>
+
 #include <dal/benchmarks/aad.hpp>
 #include <dal/benchmarks/bench.hpp>
 #include <dal/math/aad/aad.hpp>
 #include <dal/platform/platform.hpp>
 
 #include "blackscholessegmentedperf.hpp"
+#include "segmentedmontecarloperf.hpp"
 #include "segmentedpathperf.hpp"
 
 using namespace Dal;
 using namespace Dal::AAD;
 
 namespace {
+    using BenchmarkRunner_ = int (*)(int, char**);
+    BenchmarkRunner_ SelectedBenchmark(int argc, char** argv) {
+        if (argc < 2)
+            return nullptr;
+        constexpr std::array<std::pair<const char*, BenchmarkRunner_>, 3> COMMANDS{{
+            {"--financial-segmented-mc", RunSegmentedMonteCarloBenchmarks},
+            {"--financial-segmented-path", RunBlackScholesSegmentedBenchmarks},
+            {"--segmented-path", RunSegmentedPathBenchmarks},
+        }};
+        for (const auto& command : COMMANDS)
+            if (std::string(argv[1]) == command.first)
+                return command.second;
+        return nullptr;
+    }
+
     // Historical case labels are retained; actual counts include active constants and expression fusion.
     constexpr int kChainSteps = 50000;
 
@@ -92,10 +111,8 @@ namespace {
 } // namespace
 
 int main(int argc, char** argv) {
-    if (argc > 1 && std::string(argv[1]) == "--financial-segmented-path")
-        return RunBlackScholesSegmentedBenchmarks(argc - 1, argv + 1);
-    if (argc > 1 && std::string(argv[1]) == "--segmented-path")
-        return RunSegmentedPathBenchmarks(argc - 1, argv + 1);
+    if (const auto run = SelectedBenchmark(argc, argv))
+        return run(argc - 1, argv + 1);
     const bool diagnostics = argc == 2 && std::string(argv[1]) == "--diagnostics";
     if (argc > 1 && !diagnostics)
         return 2;

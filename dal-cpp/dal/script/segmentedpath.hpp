@@ -139,6 +139,14 @@ namespace Dal::Script {
             return {prepared_->TimeLine().size(), layout_.Size(), trace_.MaxWords()};
         }
 
+        void ValidateRequest(const Vector_<>& parameters, const AAD::SegmentedPathSettings_& settings = {}) const {
+            ValidateParameters(parameters);
+            REQUIRE2(settings.segmentSteps_ > 0, "BlackScholesSegmentedPath: segment length must be positive", ScriptError_);
+            const auto dimensions = Dimensions();
+            const size_t segments = dimensions.steps_ / settings.segmentSteps_ + static_cast<size_t>(dimensions.steps_ % settings.segmentSteps_ != 0);
+            (void)AAD::SegmentedPathDetail::Plan(segments, dimensions, settings);
+        }
+
         [[nodiscard]] AAD::SegmentedPathResult_
         Evaluate(const Vector_<>& parameters, const Vector_<>& gaussian, const AAD::SegmentedPathSettings_& settings = {}) const {
             ValidateParameters(parameters);
