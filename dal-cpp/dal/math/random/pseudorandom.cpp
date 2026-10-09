@@ -72,14 +72,14 @@ namespace Dal {
 
             unsigned IRN() {
                 auto& irn = state_[0].irn_;
-                if (--irl_ < 0)
-                    irl_ = M_ - 1;
-                int pLoc = irl_ + L_;
+                const int position = irl_ == 0 ? M_ - 1 : irl_ - 1;
+                irl_ = position;
+                int pLoc = position + L_;
                 if (pLoc >= M_)
                     pLoc -= M_;
-                irn[irl_] += irn[pLoc];
-                irn[irl_] %= DE_NOM;
-                return irn[irl_];
+                const unsigned value = (irn[position] + irn[pLoc]) % DE_NOM;
+                irn[position] = value;
+                return value;
             }
             double DrawUniform() {
                 static const double MUL = 0.5 / DE_NOM;
