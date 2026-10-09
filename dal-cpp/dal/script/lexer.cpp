@@ -70,31 +70,60 @@ namespace Dal::Script {
             }
         }
 
-        //  Messages must stay valid UTF-8 so binding layers can decode what(): quote a complete
-        //  sequence for a valid lead byte, escape any other byte as \xNN
+        //  UTF-8 sequence length by lead byte (RFC 3629): 0 returns for bytes that can
+        //  never start a valid sequence (continuation bytes, C0/C1 overlong leads, F5..FF)
+        size_t Utf8Length(unsigned char lead) {
+            if (lead < 0x80)
+                return 1;
+            if (lead >= 0xC2 && lead <= 0xDF)
+                return 2;
+            if (lead >= 0xE0 && lead <= 0xEF)
+                return 3;
+            if (lead >= 0xF0 && lead <= 0xF4)
+                return 4;
+            return 0;
+        }
+
+        //  The second byte carries code-point boundaries that plain 80..BF checks miss
+        bool SecondByteInRange(unsigned char lead, unsigned char second) {
+            unsigned char lowest = 0x80;
+            unsigned char highest = 0xBF;
+            if (lead == 0xE0)
+                lowest = 0xA0; //  reject overlong 3-byte sequences
+            else if (lead == 0xED)
+                highest = 0x9F; //  reject UTF-16 surrogates
+            else if (lead == 0xF0)
+                lowest = 0x90; //  reject overlong 4-byte sequences
+            else if (lead == 0xF4)
+                highest = 0x8F; //  reject code points above U+10FFFF
+            return second >= lowest && second <= highest;
+        }
+
+        bool HasContinuationBytes(const String_& str, size_t start, size_t end) {
+            for (size_t i = start; i < end; ++i) {
+                const auto byte = static_cast<unsigned char>(str[i]);
+                if (byte < 0x80 || byte > 0xBF)
+                    return false;
+            }
+            return true;
+        }
+
+        bool IsValidUtf8Sequence(const String_& str, size_t pos, size_t length) {
+            if (pos + length > str.size())
+                return false;
+            const auto lead = static_cast<unsigned char>(str[pos]);
+            return SecondByteInRange(lead, static_cast<unsigned char>(str[pos + 1])) && HasContinuationBytes(str, pos + 2, pos + length);
+        }
+
+        //  Messages must stay valid UTF-8 so binding layers can decode what(): quote a
+        //  complete sequence when RFC 3629 accepts it, escape the lead byte as \xNN otherwise
         String_ QuotedCharacter(const String_& str, size_t pos) {
             const auto lead = static_cast<unsigned char>(str[pos]);
-            if (lead < 0x80)
+            const size_t length = Utf8Length(lead);
+            if (length == 1)
                 return String_(1, str[pos]);
-            size_t length = 0;
-            if (lead >= 0xC2 && lead <= 0xDF)
-                length = 2;
-            else if (lead >= 0xE0 && lead <= 0xEF)
-                length = 3;
-            else if (lead >= 0xF0 && lead <= 0xF4)
-                length = 4;
-            if (length != 0 && pos + length <= str.size()) {
-                bool complete = true;
-                for (size_t i = pos + 1; i < pos + length; ++i) {
-                    const auto byte = static_cast<unsigned char>(str[i]);
-                    if (byte < 0x80 || byte > 0xBF) {
-                        complete = false;
-                        break;
-                    }
-                }
-                if (complete)
-                    return str.substr(pos, length);
-            }
+            if (length != 0 && IsValidUtf8Sequence(str, pos, length))
+                return str.substr(pos, length);
             static const char* hexDigits = "0123456789ABCDEF";
             return String_("\\x") + hexDigits[lead >> 4] + hexDigits[lead & 0x0F];
         }
