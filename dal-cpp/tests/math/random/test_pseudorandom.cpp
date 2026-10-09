@@ -145,6 +145,37 @@ TEST(PseudoRandomTest, TestSeekingMatchesReplayForEveryOffsetAndMode) {
     }
 }
 
+TEST(PseudoRandomTest, TestIRNReplayPreservesMixedDrawCountsAndPrecisionAtBatchBoundaries) {
+    for (const int seed : {0, 1024, -1})
+        for (const bool precise : {false, true}) {
+            auto sought = New(RNGType_("IRN"), seed, 52, precise);
+            Vector_<> actual(52), expected(52);
+            for (const size_t offset : {8192, 8193, 3, 0, 1}) {
+                auto replay = New(RNGType_("IRN"), seed, 52, precise);
+                for (size_t path = 0; path < offset; ++path)
+                    for (size_t dim = 0; dim < expected.size(); ++dim)
+                        replay->NextUniform();
+                sought->SkipNormalTo(offset);
+                ASSERT_EQ(sought->NextUniform(), replay->NextUniform());
+                sought->FillNormal(&actual);
+                replay->FillNormal(&expected);
+                ASSERT_EQ(actual, expected);
+                auto clone = sought->Clone();
+                sought->FillUniform(&actual);
+                clone->FillUniform(&expected);
+                ASSERT_EQ(actual, expected);
+                sought->SkipTo(offset);
+                replay->SkipTo(offset);
+                sought->FillUniform(&actual);
+                replay->FillUniform(&expected);
+                ASSERT_EQ(actual, expected);
+                sought->FillNormal(&actual);
+                replay->FillNormal(&expected);
+                ASSERT_EQ(actual, expected);
+            }
+        }
+}
+
 TEST(PseudoRandomTest, TestClonePreservesStateAndPrecision) {
     for (const auto* name : {"IRN", "MRG32"}) {
         for (const bool precise : {false, true}) {

@@ -67,6 +67,32 @@ TEST(WeightedRiskValueTest, TestAnalyticObjectiveOwnsComponentsAndMeanGradient) 
     }
 }
 
+TEST(WeightedRiskValueTest, TestIRNPositionedBatchesPreserveWeightedComponentsAndAllInputs) {
+    const ScopedThreads_ restore(1);
+    const auto product = NewScriptProduct("irn", {Cell_(Date_(2027, 1, 1))}, {"a = SPOT() b = 2 * a pay PAYS 3 * a"});
+    const auto model = NewBSModelData("model", 100.0, 0.2, 0.03, 0.01);
+    Script::WeightedRiskRequest_ request;
+    request.selection_.outputs_ = Vector_<String_>{"output:0", "output:1", "payoff"};
+    request.weights_ = Vector_<>{2.0, -1.0, 0.5};
+    for (const bool aad : {false, true}) {
+        auto simulation = DefaultRiskMonteCarloSettings();
+        simulation.rsg_ = "irn";
+        simulation.compiled_ = true;
+        simulation.enableAad_ = aad;
+        const auto serial = ValueByMonteCarloWithWeightedRisk(product, model, 65553, request, WeightedValuation(), simulation);
+        restore.pool_->Start(4, true);
+        const auto parallel = ValueByMonteCarloWithWeightedRisk(product, model, 65553, request, WeightedValuation(), simulation);
+        ASSERT_NEAR(serial.WeightedValue(), parallel.WeightedValue(), 1e-10);
+        ASSERT_EQ(serial.ComponentMeans().size(), parallel.ComponentMeans().size());
+        for (size_t i = 0; i < serial.ComponentMeans().size(); ++i)
+            ASSERT_NEAR(serial.ComponentMeans()[i], parallel.ComponentMeans()[i], 1e-10);
+        ASSERT_EQ(serial.Jacobian().Cols(), parallel.Jacobian().Cols());
+        for (int i = 0; i < serial.Jacobian().Cols(); ++i)
+            ASSERT_NEAR(serial.Jacobian()(0, i), parallel.Jacobian()(0, i), 1e-10);
+        restore.pool_->Start(1, true);
+    }
+}
+
 TEST(WeightedRiskValueTest, TestHistoricalAliasesDirectInputsAndConsecutiveWeights) {
     const auto product = NewScriptProduct("prefix", {Cell_("X"), Cell_("Y"), Cell_(Date_(2025, 1, 1)), Cell_(Date_(2027, 1, 1))},
                                           {"2", "3", "a = X * Y b = a direct = X literal = 5", "pay PAYS 0"});

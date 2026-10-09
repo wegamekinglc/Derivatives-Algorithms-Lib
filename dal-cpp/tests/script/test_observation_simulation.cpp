@@ -1124,10 +1124,7 @@ TEST(ScriptObservationSimulationTest, TestNamedAndLegacyFixedPathParityAcrossAda
     legacy.PreProcess(false, true);
     for (const auto& model : ParityModels())
         for (const String_ rng : {"sobol", "mrg32", "irn"}) {
-            // IRN SkipTo is a no-op: independent runs share samples only with one worker.
-            // Multi-worker IRN parity is checked on shared paths in the following test.
-            const Vector_<size_t> independentThreads = rng == "irn" ? Vector_<size_t>{1} : Vector_<size_t>{1, 4};
-            for (const size_t threads : independentThreads) {
+            for (const size_t threads : {1, 4}) {
                 restorePool.pool_->Start(threads, true);
                 for (const bool bb : {false, true}) {
                     MonteCarloSettings_ simulation;

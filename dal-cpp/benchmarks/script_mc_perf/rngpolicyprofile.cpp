@@ -55,18 +55,18 @@ namespace {
 int RunRngPolicyProfile(int argc, char** argv, Dal::Script::ScriptProductData_ (*factory)(const Dal::String_&)) {
     using namespace Dal;
     using namespace Dal::Script;
-    if (argc < 6 || argc > 9) {
-        std::cerr
-            << "usage: script_mc_perf --rng-policy double|aad sobol|mrg32|irn Default|Fast|Precise PATHS [SMOOTH] [tree|compiled] [BARRIER_SMOOTH]\n";
+    if (argc < 6 || argc > 10) {
+        std::cerr << "usage: script_mc_perf --rng-policy double|aad sobol|mrg32|irn Default|Fast|Precise PATHS [SMOOTH] [tree|compiled] "
+                     "[BARRIER_SMOOTH] [THREADS]\n";
         return 2;
     }
     const auto settings = ParseSettings(argc, argv);
     const size_t paths = ParsePaths(argv[5]);
     const std::string mode = argv[2];
     const String_ method = settings.rsg_, precision = settings.normalPrecision_;
-    const String_ barrierWidth = argc == 9 ? argv[8] : "0.1";
+    const String_ barrierWidth = argc >= 9 ? argv[8] : "0.1";
     static_cast<void>(ParseWidth(barrierWidth.c_str()));
-    ThreadPool_::GetInstance()->Start(1, true);
+    ThreadPool_::GetInstance()->Start(argc == 10 ? ParsePaths(argv[9]) : 1, true);
     const auto data = factory(barrierWidth);
     const Handle_<ModelData_> modelData(new BSModelData_("bs", 100.0, 0.20, 0.05, 0.02));
     SimResults_ values({});
@@ -84,7 +84,8 @@ int RunRngPolicyProfile(int argc, char** argv, Dal::Script::ScriptProductData_ (
         1, 3);
     Bench::PrintHeader();
     Bench::Print(timing);
-    std::cout << std::setprecision(17) << "NUMERICS paths=" << paths << " PV=" << values.aggregated_ / paths;
+    std::cout << std::setprecision(17) << "NUMERICS paths=" << paths << " threads=" << ThreadPool_::GetInstance()->NumThreads()
+              << " PV=" << values.aggregated_ / paths;
     if (settings.enableAad_)
         for (size_t i = 0; i < values.risks_.size(); ++i)
             std::cout << " " << values.names_[i] << "=" << values.risks_[i];

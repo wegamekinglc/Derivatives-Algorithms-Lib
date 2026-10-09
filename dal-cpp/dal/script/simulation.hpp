@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <exception>
 #include <optional>
@@ -194,6 +195,7 @@ namespace Dal::Script {
         ThreadPool_* pool_;
         size_t taskCount_;
         Vector_<TaskHandle_> futures_;
+        size_t consumed_ = 0;
         bool completed_ = false;
 #if defined(DAL_ENABLE_AAD_PROFILING)
         AAD::ProfilingTaskSet_ profiles_;
@@ -280,6 +282,18 @@ namespace Dal::Script {
                 observer->AfterSubmission();
         }
 
+        void WaitForCapacity(size_t maxPending) {
+            REQUIRE(maxPending > 0, "simulation task capacity must be positive");
+            if (futures_.size() - consumed_ < maxPending)
+                return;
+            std::exception_ptr failure;
+            auto& future = futures_[consumed_++];
+            WaitUntilReady(future, &failure);
+            ConsumeResult(future, &failure);
+            if (failure)
+                std::rethrow_exception(failure);
+        }
+
         void Complete() {
             if (completed_)
                 return;
@@ -288,6 +302,45 @@ namespace Dal::Script {
                 std::rethrow_exception(firstFailure);
         }
     };
+
+    namespace Detail {
+        template <class F_>
+        void RunSimulationBatches(ThreadPool_* pool, const BatchPlan_& plan, std::unique_ptr<Random_> positioner, const F_& work) {
+            const bool positioned = static_cast<bool>(positioner);
+            const size_t capacity = 2 * pool->NumThreads();
+            std::atomic<bool> cancelled{false};
+            // Drain before destroying work, the positioner or cancellation state.
+            SimulationTaskGroup_ tasks(pool, plan.BatchCount());
+            try {
+                for (size_t index = 0; index < plan.BatchCount(); ++index) {
+                    const auto batch = plan.BatchAt(index);
+                    std::unique_ptr<Random_> random;
+                    if (positioned) {
+                        tasks.WaitForCapacity(capacity);
+                        if (cancelled.load(std::memory_order_acquire))
+                            break;
+                        positioner->SkipNormalTo(batch.firstPath_);
+                        random = positioner->Clone();
+                    }
+                    tasks.Spawn([&, index, batch, random = std::move(random)]() mutable {
+                        if (positioned && cancelled.load(std::memory_order_acquire))
+                            return true;
+                        try {
+                            work(index, batch, std::move(random));
+                        } catch (...) {
+                            cancelled.store(true, std::memory_order_release);
+                            throw;
+                        }
+                        return true;
+                    });
+                }
+                tasks.Complete();
+            } catch (...) {
+                cancelled.store(true, std::memory_order_release);
+                throw;
+            }
+        }
+    } // namespace Detail
 
     template <class P_, class E_>
     AAD::Checkpoint_ InitModel4ParallelAAD(const P_& prd,
@@ -564,21 +617,22 @@ namespace Dal::Script {
         const BatchPlan_ batchPlan(nPaths, nThreads);
         Vector_<typename O_::DoubleBatch_> simResults;
         simResults.reserve(batchPlan.BatchCount());
+        for (size_t i = 0; i < batchPlan.BatchCount(); ++i)
+            simResults.emplace_back(objective.MakeDoubleBatch());
 
         auto payoffIndex = product.PayOffIdx();
-        // Keep this after every task-captured local so it drains first on unwind.
-        SimulationTaskGroup_ tasks(pool, batchPlan.BatchCount());
+        auto positioner = rsg == "irn" && nThreads > 1 && threadStates[0]->random_ ? threadStates[0]->random_->Clone() : nullptr;
         prepare.Finish();
 
-        for (size_t batchIndex = 0; batchIndex < batchPlan.BatchCount(); ++batchIndex) {
-            const PathBatch_ batch = batchPlan.BatchAt(batchIndex);
-            simResults.emplace_back(objective.MakeDoubleBatch());
-            tasks.Spawn([&, batchIndex, batch]() {
+        Detail::RunSimulationBatches(
+            pool, batchPlan, std::move(positioner), [&](size_t batchIndex, const PathBatch_& batch, std::unique_ptr<Random_> random) {
                 AAD::ProfilingSpan_ initialize(AAD::AADProfilingPhase_::Value_::WORKER_INIT);
                 const size_t threadNum = ThreadPool_::ThreadNum();
                 auto& state = threadStates[threadNum];
                 if (!state)
                     state = std::make_unique<ThreadState_>(product, *mdl, rsg, useBb, Detail::NormalPrecision(product));
+                if (random)
+                    state->random_ = std::move(random);
                 initialize.Finish();
                 auto collector = objective.DoubleCollector(&simResults[batchIndex]);
                 auto runPaths = [&](auto& evaluator, const auto& evaluate) {
@@ -590,11 +644,7 @@ namespace Dal::Script {
                 else
                     objective.SetDoubleValue(&simResults[batchIndex],
                                              runPaths(state->evaluator_, [&](const auto& p, auto& e) { product.Evaluate(p, e); }));
-                return true;
             });
-        }
-
-        tasks.Complete();
 
         AAD::ProfilingSpan_ reduce(AAD::AADProfilingPhase_::Value_::REDUCE);
 #if defined(DAL_ENABLE_AAD_PROFILING)
@@ -654,13 +704,15 @@ namespace Dal::Script {
                               const std::optional<ScriptCompiled_>& compiledProduct,
                               const PathBatch_& batch,
                               SimResults_* results,
-                              O_ objective = {}) {
+                              O_ objective = {},
+                              std::unique_ptr<Random_> random = nullptr) {
             AAD::ProfilingSpan_ initialize(AAD::AADProfilingPhase_::Value_::WORKER_INIT);
             AAD::RecordingScope_ recording;
             std::unique_ptr<AAD::Model_<AAD::Number_>> model = CreateModel<AAD::Number_>(modelData);
             model->Allocate(product.TimeLine(), product.DefLine());
 
-            std::unique_ptr<Random_> random = CreateRNG(settings.rsg_, *model, settings.useBb_, std::nullopt, settings.normalPrecision_);
+            if (!random)
+                random = CreateRNG(settings.rsg_, *model, settings.useBb_, std::nullopt, settings.normalPrecision_);
             Vector_<> gVec(model->SimDim());
 
             Scenario_<AAD::Number_> path;
@@ -809,21 +861,14 @@ namespace Dal::Script {
         Vector_<typename O_::Result_> simResults(nThreads, values);
         const Detail::AADBatchSettings_ settings{
             rsg, useBb, maxNestedIfs, eps, nPaths, nParams, nConstVars, payoffIndex, Detail::NormalPrecision(product)};
-        // Keep this after every task-captured local so it drains first on unwind.
-        SimulationTaskGroup_ tasks(pool, batchPlan.BatchCount());
+        auto positioner = rsg == "irn" ? CreateRNG(rsg, *metadataModel, useBb, std::nullopt, settings.normalPrecision_) : nullptr;
         prepare.Finish();
 
-        for (size_t batchIndex = 0; batchIndex < batchPlan.BatchCount(); ++batchIndex) {
-            const PathBatch_ batch = batchPlan.BatchAt(batchIndex);
-            tasks.Spawn([&, batch]() {
-                const size_t threadNum = ThreadPool_::ThreadNum();
-                Detail::EvaluateAADBatch(product, modelData, settings, compiledProduct, batch, &simResults(threadNum),
-                                         objective.AADCollector(&simResults(threadNum)));
-                return true;
-            });
-        }
-
-        tasks.Complete();
+        Detail::RunSimulationBatches(pool, batchPlan, std::move(positioner), [&](size_t, const PathBatch_& batch, std::unique_ptr<Random_> random) {
+            const size_t threadNum = ThreadPool_::ThreadNum();
+            Detail::EvaluateAADBatch(product, modelData, settings, compiledProduct, batch, &simResults(threadNum),
+                                     objective.AADCollector(&simResults(threadNum)), std::move(random));
+        });
 
         AAD::ProfilingSpan_ reduce(AAD::AADProfilingPhase_::Value_::REDUCE);
 #if defined(DAL_ENABLE_AAD_PROFILING)

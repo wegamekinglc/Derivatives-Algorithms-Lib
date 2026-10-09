@@ -117,8 +117,9 @@ namespace Dal {
             void SkipUniformDraws(size_t nDraws) override {
                 if (nDraws < nDraws_)
                     Reset();
-                while (nDraws_ < nDraws)
-                    NextUniform();
+                for (size_t draw = nDraws_; draw < nDraws; ++draw)
+                    DrawUniform();
+                nDraws_ = nDraws;
             }
         };
 
