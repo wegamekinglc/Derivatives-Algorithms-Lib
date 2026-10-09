@@ -28,8 +28,10 @@ namespace {
         result.ccy_ = joint.ccy_;
         result.curveName_ = "cost";
         result.instruments_ = joint.curves_[0].instruments_;
-        result.knotDates_ = joint.curves_[0].knotDates_;
-        result.parameterization_ = joint.curves_[0].parameterization_;
+        result.knotDates_ = {joint.today_};
+        for (const auto& instrument : result.instruments_)
+            result.knotDates_.push_back(instrument->TimeSpan().second);
+        result.parameterization_ = Dal::CurveParameterization_::Value_::LOG_DISCOUNT;
         result.tolerance_ = joint.tolerance_;
         result.initialGuess_ = joint.initialGuess_;
         return result;
