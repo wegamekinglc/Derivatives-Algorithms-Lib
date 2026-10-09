@@ -1,0 +1,198 @@
+# Segmented Monte Carlo scoped cost acceptance
+
+Verdict: no regression in the four selected ordinary MC callers. Segmented MC is
+an explicit memory/latency tradeoff, with no automatic promotion. Correctness precedes timing:
+eleven new cases pass, all eleven strict checks pass, and an installed-only
+consumer checks mean value and every gradient column.
+
+## Selection and exclusions
+
+The changed hot path is the new explicit segmented MC request: RNG lane creation
+and seeking, one fixed-path replay per draw, bounded task waves, ordered reduction
+and cleanup. Extend the existing `tape_perf` executable with its explicit
+`--financial-segmented-mc` command. Keep 128 common Sobol paths, no bridge, offset
+zero, h=64 and the same prepared running-sum product and model point on each side.
+Select 16 and 2048 daily fixing steps, each with one and four pool threads: four
+complete-request shapes, not a generator/size Cartesian matrix.
+
+Compare ordinary full MC on the immutable parent with ordinary full MC on the
+branch for those four caller controls. Reuse the branch full-MC samples as the
+reference for four explicit segmented/full strategy comparisons. Old ordinary
+MC templates and all 179 existing archive members are unchanged; this focused
+control covers the rebuilt executable and public caller without repeating prior
+fixed-path, tape, RNG, LSMC, calibration, PDE or solver matrices. Prior #513 cost
+evidence remains accepted through byte-for-byte provenance, not newly measured.
+
+## Frozen protocol
+
+Baseline: merge parent `201339fd305e677d455e127e74bd6a5dbd65ba63`.
+Capture the implementation commit before creating detached baseline/head sources
+and separate Release builds. Reuse the verified old 179-member archive on the
+baseline; the head archive preserves those bytes and adds the new MC object.
+Compile benchmark sources against their corresponding isolated headers and
+archives. The identical new command harness is overlaid on the baseline with
+`DAL_SEGMENTED_MC_BASELINE`, which only excludes the unavailable new entry point.
+Retain all hashes, commands, compiler/CPU/configuration and overlay identity.
+Explicitly enable benchmarks; do not use installed timing binaries.
+
+Each process performs one warmup and three timed complete requests, including RNG,
+replay, reduction, result materialization and cleanup. Use two rounds of ten
+interleaved process samples per build/strategy/shape, rotate first position, and
+reduce each round to its minimum. Ordinary caller regression requires more than
++4% in both rounds. New strategy ratios describe a memory/latency tradeoff, not
+an automatic-selection recommendation. Numerical preflight checks mean value and
+all four model gradients on every selected shape. Timing is read-only.
+
+Separate untimed ordinary/aligned C++ allocation probes measure simultaneous
+process payload peaks and retained payload, in separate full/segmented processes
+with the same initial caller-tape floor. Include preparation, the segmented
+adapter when present, model/inputs, all RNG lanes and coordinator storage, retained
+worker/caller tapes and the consumed final result. Record cold and warm requests;
+do not sum unrelated high-water marks or mistake per-path metadata for aggregate
+memory. Exclude allocator metadata, direct C allocations, stacks and RSS, and name
+those limits in the result. Fixed-path savings do not establish MC savings.
+
+## Evidence and verdict
+
+Evidence root: `/home/wegamekinglc/.cache/dal-aad-evidence-20261008`.
+`segmented-mc-library/verification.json` proves 179 unchanged members and the
+unchanged legacy fixed-path request body. Focused RED/GREEN, strict compilation
+and installed-consumer logs use the `segmented-mc-` prefix. Record paired raw
+outputs, numerical preflight, resource rows and final verdict here after sampling.
+Implementation and local cost acceptance pass; current-head publication remains open.
+
+The first 240-sample pass is retained but inconclusive: concurrent Rust build
+load changed during sampling, and second-round minima improved by roughly 2–3x.
+Do not accept those unstable ratios. Repeat only the same four selected shapes
+after the competing load subsides, with the same frozen executables, two rounds,
+ten samples and reduction/threshold. Keep the initial raw records separately;
+do not expand to an unrelated target or parameter matrix.
+
+An unpinned confirmation still shows 8–15% ordinary-caller minima drift, and
+another multi-core Rust compiler is active. Preserve it as inconclusive. Mitigate
+CPU migration/competition by pinning both sides identically: CPU 1 for one-thread
+requests and CPUs 1,4,22,28 (four distinct physical cores) for four-thread requests.
+Repeat the same four shapes and unchanged sampling policy; retain CPU topology,
+affinity and the shared-host caveat. No universal quiet-host claim is justified.
+
+Affinity confirmation stabilizes paired ordinary-caller deltas for short one/four
+threads and long four threads. Long one-thread remains noisy (+6.0%/-5.8% across
+rounds). Repeat only that one shape, preserving the same executable, affinity and
+two-by-ten protocol; reuse the other three rows and all resource/numerical evidence.
+
+## Accepted results
+
+Frozen implementation: `bb7492ba2d9959903e3e33a5d7b30f21ba19be3b`.
+GCC 15.2.0, CMake 4.2.3, Intel Core i9-13900HX, native AAD, Release/O3/NDEBUG,
+ffp-contract=fast, PIC library archive, Eigen enabled without Eigen parallelism,
+native arch off.
+Separate detached `base-source`/`head-source` and build roots are under
+`segmented-mc-performance/`. The focused CMake driver explicitly enables benchmarks
+and imports the verified archives instead of rebuilding unchanged objects.
+Archive SHA-256s are `4637807865a8c9b49601b84abb78e9bde74afa4779b2b6a033a7117e52e60205`
+(base) and `08d7a68b83caafb86db7370d8bbd3cc9084bb21713e93385c5bab9612845b9be`
+(head); executable, overlay and probe identities are in `environment.json`.
+
+Each row retains twenty samples per side in two best-of-ten rounds. All four
+ordinary caller controls pass the sustained +4% gate. Paired short-case deltas
+stabilize despite common absolute drift; the final long/one-thread repeat has
+about 1–2% minima drift. Shared WSL/background compilation remains a limitation
+on generalizing absolute times. Do not claim a universally quiet machine.
+
+| Shape      | Threads | Parent full ms | Head full ms | Combined delta | Round 1 delta | Round 2 delta |
+|------------|---------|----------------|--------------|----------------|---------------|---------------|
+| 16 steps   | 1       | 0.1600         | 0.1526       | -4.66%         | -4.66%        | -4.26%        |
+| 16 steps   | 4       | 0.1176         | 0.1116       | -5.09%         | -5.09%        | -4.77%        |
+| 2048 steps | 1       | 16.0574        | 16.0796      | +0.14%         | +1.23%        | -1.26%        |
+| 2048 steps | 4       | 5.5142         | 5.7198       | +3.73%         | +0.99%        | +3.73%        |
+
+The new strategy comparisons are informational; they share the accepted head
+full samples above and use the same numerical outputs and consumer payload.
+
+| Shape      | Threads | Full ms | Segmented ms | Combined ratio | Round 1 ratio | Round 2 ratio |
+|------------|---------|---------|--------------|----------------|---------------|---------------|
+| 16 steps   | 1       | 0.1526  | 1.3161       | 8.63x          | 8.63x         | 8.11x         |
+| 16 steps   | 4       | 0.1116  | 0.3829       | 3.43x          | 3.43x         | 3.34x         |
+| 2048 steps | 1       | 16.0796 | 130.5103     | 8.12x          | 8.05x         | 8.12x         |
+| 2048 steps | 4       | 5.7198  | 41.8571      | 7.32x          | 7.48x         | 7.32x         |
+
+Warm simultaneous C++ allocation payload peaks, including the initial 1,966,144
+byte caller-tape floor, complete passive preparation, adapter, request owners,
+RNG lanes, task storage, worker tapes and consumed result:
+
+| Shape      | Threads | Full bytes | Segmented bytes | Change  |
+|------------|---------|------------|-----------------|---------|
+| 16 steps   | 1       | 2,005,807  | 2,004,947       | -0.04%  |
+| 16 steps   | 4       | 2,007,943  | 2,012,795       | +0.24%  |
+| 2048 steps | 1       | 7,119,391  | 6,440,755       | -9.53%  |
+| 2048 steps | 4       | 16,896,567 | 13,258,387      | -21.53% |
+
+These are observed peaks, not process bounds. Worker scheduling changes retained
+tape allocations: cold four-thread short probes show 2,007,911 full bytes versus
+3,979,971 segmented bytes (+98.2%), while the warm rows above are nearly equal.
+Cold long four-thread peaks are 17,568,359/13,258,355 bytes. Keep cold/warm records,
+not only favorable long-path rows. The probe excludes allocator metadata, direct
+C allocations, stacks, common registration/thread-pool infrastructure and RSS.
+It includes all request-owned payload and actual retained tapes simultaneously;
+the initial caller tape is added explicitly. Metadata remains per-path only.
+
+`accepted-results.json` merges the three accepted affinity rows with the final
+long/one-thread row. Its SHA-256 is
+`f65cfff767177d5984285dc0e086cc77fd2945d0e04cb2668c1fa59a2f748e92`.
+Raw accepted outputs are in `affinity-confirmation/raw/` and
+`running-one-confirmation/raw/`; those directories contain per-round results and
+numerical preflight. `heap-results.json` and sixteen `heap-*.json` retain resource
+records. Initial/unpinned and superseded single-shape samples remain diagnostic:
+240 accepted process samples plus 540 retained noise diagnostics, about 165 seconds
+total sampling. No unrelated matrix ran. Documentation-only publication changes
+reuse these immutable bodies, archives and executable identities without new timing.
+
+## Upstream integration applicability
+
+During publication, upstream #514 (`c538e61e`) updates lexer error construction and
+Python exception translation. The new native helpers are reached only through
+the lazy REQUIRE2 failure message; valid ASCII preparation and all already-prepared
+timed MC bodies are unchanged. Integrate that lexer object into a separate archive,
+preserve the original frozen 179/180-member archives, and prove the other 178 old
+members and new MC object unchanged. The accepted numerical/resource workload has
+no invalid-script path; Python translation is outside this C++ request. Reuse the
+accepted timings rather than repeating unrelated cases. Integrated focused tests
+and installed-only consumption establish linkage against the updated dependency.
+`segmented-mc-library/integration-verification.json` retains the replacement proof.
+
+## Review repair selection
+
+Review identifies a zero-driver Sobol admission defect and uncaught standard
+exceptions in the benchmark runner. Both have focused RED evidence. The repair
+changes only the no-driver direction limit and the outer error handler; existing
+normal-driver replay, lanes, allocation sizes and reduction bodies are unchanged.
+Retain the complete MC timing/resource evidence. Select only the 16-step,
+one-thread segmented request as a whole-request canary for the added admission
+condition and changed runner, comparing frozen old/new executables with identical
+affinity and two best-of-ten rounds at +4%. This shortest request is most sensitive
+to admission overhead. Do not repeat the four-shape matrix, RNG/solver matrices
+or heap probes for unchanged allocation paths.
+
+Repair `288a0b076998a8abd765f6d0f8502922bab02b0d` passes the selected canary:
+round minima are 1.929170/1.973850 ms (+2.32%) and 1.905458/1.894688 ms (-0.57%),
+old/repaired. No sustained regression. Forty paired process samples take 1.42
+seconds; all prices/gradients match. `segmented-mc-review-repair/results.json`,
+`raw/` and `environment.json` retain the output, compiler/configuration, executable
+hashes and reused-object identities. The isolated repair build compiles the new
+benchmark and native MC object, retaining three unchanged benchmark objects and
+the other 179 integrated archive members. The installed consumer passes against
+that archive. The injected standard-allocation failure now returns benchmark
+status 2 with `std::bad_alloc` output instead of aborting; its RED/GREEN JSON is
+retained separately. No full timing/resource matrix repeats for the repair.
+
+The final inline-review audit identifies one additional zero-driver admission
+boundary: a single path at SIZE_MAX must use its representable inclusive index.
+The range repair changes only that admission expression, preserving all 179 other
+archive members and all four benchmark objects. Three affected tests, four strict
+probes and the installed consumer pass. The same single short-request canary
+compares the preceding repaired binary with the new range repair: 1.102519/1.135031
+ms (+2.95%) and 1.110436/1.100779 ms (-0.87%). Forty process samples take 0.67
+seconds, with matching prices and gradients and no sustained regression. The
+`segmented-mc-range-repair` evidence directory retains raw samples, source/object/
+archive/executable hashes, XML, strict checks and installed-use logs. No whole
+matrix or unchanged heap workload is repeated.

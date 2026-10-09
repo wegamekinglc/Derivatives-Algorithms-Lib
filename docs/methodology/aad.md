@@ -1956,6 +1956,73 @@ adapter storage and caller inputs. Warm requests take about 2.6–2.7 times the 
 graph time. The 16-sample case has no total-memory advantage. These measurements
 describe an explicit memory/latency tradeoff, not a strategy-selection rule.
 
+### Segmented Black–Scholes Monte Carlo
+
+Include `dal/script/segmentedmontecarlo.hpp` for the explicit
+`Script::EvaluateBlackScholesSegmentedMonteCarlo` request. With the immutable
+path prepared above:
+
+```cpp
+Script::SegmentedMonteCarloSettings_ mc;
+mc.firstPath_ = 7;
+mc.useBb_ = true;
+mc.path_.segmentSteps_ = 64;
+const auto mean = Script::EvaluateBlackScholesSegmentedMonteCarlo(
+    path, {100.0, 0.2, 0.03, 0.01, 2.0}, 128, mc);
+```
+
+`MeanValue()` and `MeanGradient()` are normalized by the positive path count.
+`ParameterLabels()` names the fixed-path model/script axis. All result data is
+owned after task draining and tape cleanup. Ordinary `MCSimulation` retains its
+raw price sum and normalized-risk convention.
+
+Settings select sobol, mrg32 or irn, optional Brownian bridge and an optional
+Sobol-only `scrambleKey_`. `firstPath_` is an absolute zero-based offset applied
+with `SkipNormalTo`; there is no additional 2048 Sobol offset. Each path draws
+its transformed Gaussian vector once and retains it through replay. Time-zero
+samples consume no Gaussian; zero-dimensional and historical-only products
+allocate no RNG; their offsets obey size_t range admission without a Sobol
+direction limit. Their inclusive last path index must fit, so a single path at
+SIZE_MAX is valid; requests with drivers retain RNG exclusive-end limits.
+Historical constant dependence, vectors, old fixing observations
+and readable cumulative/delayed payments follow the compiled fixed-path semantics.
+
+Fixed 32-path batches accumulate in path order; individual batch sums are reduced
+in batch order and normalized once. Numerical results are bitwise reproducible
+across worker counts for the same build, platform and floating-point environment.
+At most `min(pool threads, 64, batch count)` exclusive request-local lanes execute
+in a wave. Their RNG/Gaussian storage survives drained waves, so IRN seeking moves
+forward instead of restarting from its seed per batch. IRN skip work still depends
+on lane count. Inputs/settings are snapshotted before submission; concurrent
+callers do not share lane storage.
+
+Invalid inputs, settings, ranges, nesting and checkpoint plans are rejected before
+task/result allocation. Recording-capacity admission occurs on each executing
+thread. Submission or worker failure drains all accepted tasks before propagating
+the error. Double-precision batch/aggregate sums must be finite; an ideal
+higher-precision mean can exist even when this sum contract rejects it.
+
+`Execution()` records count/offset, generator/bridge/shift settings, batch/segment
+sizes, admitted lane count and maximum per-path tape/checkpoint/cleanup payload.
+Those maxima can depend on earlier retained tape capacity and are not process
+limits or simultaneous aggregate peaks. Complete MC memory also includes
+preparation, adapter, lanes, coordinator and results. Fixed-path measurements above
+do not establish MC memory savings. The focused command
+`tape_perf --financial-segmented-mc --case running --mode segmented --threads 4`
+measures complete MC requests; `full` selects the ordinary native MC comparison.
+Segmentation remains explicitly selected.
+
+For 128 Sobol paths over 2048 daily fixings at h=64, focused Release measurements
+on an i9-13900HX show warm C++ allocation payload peaks of 7,119,391/6,440,755 bytes
+(ordinary/segmented, one thread) and 16,896,567/13,258,387 bytes (four threads).
+The approximately 9.5%/21.5% reduction costs about 8.1x/7.3x complete-request warm
+latency. Short 16-step requests show negligible warm memory improvement and
+about 3.4–8.6x latency. Cold short four-thread probes can use more memory as
+different workers create retained tapes. These observations include preparation,
+adapter, request storage, tapes and consumed results; they exclude allocator
+metadata, direct C allocations, stacks, common runtime infrastructure and RSS.
+Shared-host paired sampling and per-worker retained capacity limit generalization.
+
 ## Examples
 
 The runnable [AAD Black example](../../dal-cpp/examples/aad) compares passive
