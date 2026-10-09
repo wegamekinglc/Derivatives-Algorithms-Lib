@@ -211,18 +211,35 @@ Completed controls remain in immutable
 [review](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/ae418029b5ee933bde0194d76b35104821540cac/.codex/artifacts/reviews/aad-monte-carlo-curvature.md),
 [cost report](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/ae418029b5ee933bde0194d76b35104821540cac/.codex/artifacts/performance/aad-monte-carlo-curvature.md).
 
-The active F04 quote increment follows the
-[native Dupire specification](../specs/aad-dupire-quote-curvature.md),
-[API decisions](../api-notes/aad-dupire-quote-curvature.md) and
-[critique](../critiques/aad-dupire-quote-curvature.md). It rebuilds calibration,
-objective seeds and native calibration pullback at every bumped quote point.
-Missing-entry RED, twenty-three scoped cases, seventeen strict probes,
-installed consumption and three selected cost comparisons pass. Sampling takes
-0.2875 seconds for 120 processes; publication gates remain.
-Native smooth-objective acceptance (4–6 remaining hours),
-complete MC quote integration (6–8) and rate-provider rebuilding (8–12) subdivide
-the remaining 18–26 quote allowance. Policy/estimator semantics and native mixed
-mode remain separate required F04 deliveries.
+The native Dupire quote increment is accepted in merged
+[#520](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/520),
+at `262492d79d701a3b81acc9e12e4354649aa8054c`. Two final audits accept 35/35
+checks, zero Codacy annotations and unresolved threads. All eleven new cases
+pass in fourteen runtime profiles. Tested and merged trees both equal
+`617760c1319102dcbd3c2e430bd5165cc60a1654`. The current-head Copilot rerun
+hit its account quota; prior complete Copilot findings are dispositioned and
+current-head Codex review is clear. Copilot is not a branch-required check.
+Twenty-three scoped local cases, seventeen strict probes, installed consumption
+and three cost comparisons pass; 120 samples take 0.2875 seconds. Completed
+controls remain in immutable
+[specification](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/3ec38b69f0f29c086c6a62c349c1ba58458d63b7/.codex/artifacts/specs/aad-dupire-quote-curvature.md),
+[API](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/3ec38b69f0f29c086c6a62c349c1ba58458d63b7/.codex/artifacts/api-notes/aad-dupire-quote-curvature.md),
+[critique](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/3ec38b69f0f29c086c6a62c349c1ba58458d63b7/.codex/artifacts/critiques/aad-dupire-quote-curvature.md),
+[review](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/3ec38b69f0f29c086c6a62c349c1ba58458d63b7/.codex/artifacts/reviews/aad-dupire-quote-curvature.md) and
+[cost report](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/3ec38b69f0f29c086c6a62c349c1ba58458d63b7/.codex/artifacts/performance/aad-dupire-quote-curvature.md).
+
+The active financial MC quote adapter follows its
+[specification](../specs/aad-mc-quote-curvature.md),
+[API decisions](../api-notes/aad-mc-quote-curvature.md) and
+[critique](../critiques/aad-mc-quote-curvature.md),
+[local review](../reviews/aad-mc-quote-curvature.md) and
+[scoped cost acceptance](../performance/aad-mc-quote-curvature.md).
+Fifty distinct affected cases, ten strict probes, installed consumption and
+three scoped cost comparisons pass; 120 samples contain 0.7812 seconds of
+timed work. Publication acceptance remains. Full MC quote integration
+(2–4 hours) and rate-provider rebuilding (8–12) subdivide the remaining 10–16
+quote allowance. Policy/estimator semantics and native mixed mode remain
+separate required F04 deliveries.
 
 Native PDE recording is accepted in merged
 [#505](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/505),
@@ -746,7 +763,7 @@ affected-boundary tests, scoped costs and complete current-head CI/review accept
 |-----------------------------|-------------------------------------------------------------------------------------------|-----------------|
 | Native driver               | #517 merged; explicit requests, mathematical/lifecycle and exact-head acceptance complete | 0               |
 | Financial MC                | #519 merged; common-path requests and exact-head acceptance complete                      | 0               |
-| Quote curvature             | Full recalibration at each perturbed quote point and rebuilt first-order maps             | 18–26           |
+| Quote curvature             | #520 merged; MC performance/publication and rate-provider rebuilding remain               | 10–16           |
 | Policy/estimator validation | Frozen/RetrainedBump meaning, inner/outer steps and applicable convergence/error evidence | 12–24           |
 
 ## Completion evidence
@@ -1383,11 +1400,11 @@ overlapping acceptance work is included once in the integration allowance.
 | F03                     | Solve/root/PDE operators and financial/grid acceptance complete  | #506 merged; final 36/36 gates accepted  | 0                     |
 | P04                     | Structural compression, safe fallback and selection accepted     | #511 merged; final 36/36 gates accepted  | 0                     |
 | P05                     | Core, fixed-path and Monte Carlo adapters accepted               | #512/#513/#515 merged; 36/36 gates       | 0                     |
-| F04                     | Second-order implementation/estimator validation remain          | Open                                     | 7.75–14.25            |
+| F04                     | Second-order implementation/estimator validation remain          | Open                                     | 6.75–13               |
 | Final integration/audit | Cross-platform/binding/docs/performance acceptance remains       | Open                                     | 7–11                  |
 
-Remaining total during F04 development: 118–202 hours, approximately
-14.75–25.25 eight-hour person-days, excluding CI queue time. Delivery contingency
+Remaining total during F04 development: 110–192 hours, approximately
+13.75–24 eight-hour person-days, excluding CI queue time. Delivery contingency
 is included in those same hour ranges; there is no extra undisclosed allowance. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
 effort estimate, not a guaranteed completion date. Re-estimate when review
@@ -1412,10 +1429,10 @@ numeric/native diagnostics are not counted again.
 | 7a    | P05 segmentation core                | #512 merged; actual runtime, exact-head CI/review and guarded merge accepted   | 0               |
 | 7b    | P05 financial adapter                | #513 merged; exact-head CI, review, costs, actual runtime and merge accepted   | 0               |
 | 7c    | P05 Monte Carlo acceptance           | #515 merged; 36/36 gates, fourteen actual runtime profiles and merge proof     | 0               |
-| 8     | F04 second-order risk                | Gamma, cross-Gamma, HVP, recalibration and estimator validation                | 30–50           |
+| 8     | F04 second-order risk                | MC/rate quote curvature and policy/estimator validation remain                 | 22–40           |
 | 9     | F04 native mixed-mode prototype      | Smooth-kernel prototype, independent correctness and capability limits         | 32–64           |
 | 10    | Bindings and complete acceptance     | C++/Python/Excel, documentation, platform and performance gates                | 56–88           |
-| Total | Full remaining implementation        | All remaining plan requirements                                                | 118–202         |
+| Total | Full remaining implementation        | All remaining plan requirements                                                | 110–192         |
 
 
 The first delivery boundary is complete. Whole-PR review repaired the Windows

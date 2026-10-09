@@ -2190,6 +2190,65 @@ calibration node; such requests reject. Smaller steps do not guarantee better
 accuracy. This entry does not provide Monte Carlo quote curvature, exercise
 policy responses or native mixed-mode differentiation; `higherOrder_` is false.
 
+### Common-path C++ Monte Carlo quote curvature
+
+`dal-public/src/dupirecurvature.hpp` provides a financial plan that evaluates
+the complete native MC-to-Dupire quote gradient at every perturbed quote point.
+It composes the existing first-order financial chain outside native scalar
+callbacks, allowing parallel valuation with fresh calibration pullbacks.
+
+```cpp
+#include <dal-public/src/dupirecurvature.hpp>
+
+DupireScriptCurvatureRequest_ request;
+request.risk_.numPaths_ = 257;
+request.risk_.valuation_.evaluationDate_ = Date_(2026, 9, 12);
+request.bumps_.directions_ = Matrix_<>(1, 6, 0.0);
+request.bumps_.directions_(0, 3) = 1.0;
+request.bumps_.steps_ = {2e-4};
+const auto plan = PlanDupireScriptCurvature(product, model, calibration,
+                                           "equity", request);
+const auto result = ValueByMonteCarloWithDupireCurvature(plan);
+const double quoteGamma = result.HessianProducts()(0, 3);
+```
+
+Directions use the full raw strike-major decimal-vol spread axis. Unit rows
+select Gamma and cross-Gamma columns; signed rows select HVPs. First-order quote
+selection and report factors affect `Base().QuoteRisk()` projections, while
+`Gradient()` and `HessianProducts()` retain all raw quote coordinates. The result
+owns its base financial result, input axis, point, directions, steps and products.
+`Execution()` reports the method, `1+2M` quote-gradient evaluations, paths per
+evaluation and admitted numeric payload. Empty directions evaluate the base only.
+
+`RecalibrateDupireScriptRisk(plan, spreads)` also exposes the owning first-order
+rebuild. It retains the sealed IVS samples, grids, carry, other Hybrid components
+and correlation, replacing the named component's local-vol surface. Explicit
+direct quote bindings update their original scalar definition rows with
+round-trip double values; each new valuation differentiates those constants.
+The calibration VJP and direct partial are recomputed and combined once.
+
+Curvature planning checks every perturbation before simulation and freezes the
+evaluation date and historical fixing snapshot. Repeated evaluation and all
+base/plus/minus gradients use the same path count, RNG, bridge, normal precision,
+compilation and smoothing settings. Fully expired European contracts return
+zero without historical reads or worker submission. Caller adjoint mode is
+restored after success or failure; active outer recordings reject entry.
+
+The bump numeric budget admits the generic owning-double payload plus the base
+financial result's declared payload. With Q quotes, M directions, S mandatory
+surface derivatives and B bound constants, this conservative accounting rule
+is `sizeof(double) * (2 + S + B + 5Q + 2MQ + M)`. Snapshots, metadata, temporary
+plans, worker tapes and allocator overhead are excluded. The independent
+first-order quote budget remains in `request.risk_.quotes_`.
+
+This adapter accepts European native Hybrid requests and rebuildable scalar
+direct bindings. External first-order direct seeds, EXERCISE policies and bump
+recording-cap requests reject explicitly. A caller-thread tape cap cannot bound
+parallel worker tapes. The estimator retains the first-order smoothing semantics
+and fixed-band calibration stencils; smaller steps can amplify rounding or
+sampling error. It provides finite-step curvature estimates, with native
+`higherOrder_` still false.
+
 ## Examples
 
 The runnable [AAD Black example](../../dal-cpp/examples/aad) compares passive
