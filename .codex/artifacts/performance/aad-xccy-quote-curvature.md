@@ -1,8 +1,7 @@
 # Cross-currency quote curvature performance acceptance
 
-Status: active; selection recorded before measurement. Correctness, eight strict
-OFF/combined probes and the installed consumer have passed. Results follow after
-the implementation commit provides an immutable candidate.
+Status: active; local acceptance complete. Selection was recorded before measurement.
+Correctness, eight strict OFF/combined probes and the installed consumer pass.
 
 ## Scope selected from callers
 
@@ -54,4 +53,30 @@ Scheduled full-suite monitoring and required exact-head CI remain applicable.
 
 ## Results
 
-Pending immutable implementation commit and the selected measurements.
+Candidate implementation: `fc42400f38e9210d57959f6f69bb05382101fedc`.
+Values below are milliseconds for five complete requests; deltas use unrounded
+process timings. Each comparison retains 40 samples across its two rounds.
+
+| Case | Reference best (ms) | Candidate best (ms) | Overall delta | Round 1 / 2 delta | Verdict |
+| --- | ---: | ---: | ---: | --- | --- |
+| Staged XCCY, explicit composition / public driver | 6.0279 | 6.0294 | +0.02% | +0.02% / -0.39% | Informational new coverage |
+| Joint XCCY, explicit composition / public driver | 13.6402 | 13.5338 | -0.78% | -0.78% / +0.93% | Informational new coverage |
+| Existing single-curve public curvature, #523 / candidate | 1.6672 | 1.6858 | +1.11% | +2.43% / +0.38% | No regression |
+
+Overall: no regression in the selected existing entry; neither round reaches
+the 4% threshold. New-entry driver overhead is within shared-host noise. Every
+paired checksum matches. The 120 samples contain 0.889764397 seconds of measured
+work, excluding fixture construction, warmup, process startup and compilation.
+Host load before/after is approximately 0.36/0.20/0.19.
+
+Raw evidence lives under
+`~/.cache/dal-aad-evidence-20261010/xccy-quote-curvature/performance/`:
+`environment.json`, `results.json`, `retained-fixture.json`, configuration/link
+logs and one raw log per process. The candidate public archive SHA-256 is
+`85e0e5c7b3e1e40b3ac45dc7e9f56f5a6bf4707164d80c19f1169e4d10faf85f`;
+the unchanged core is
+`3940e48fbf00b041567f434cc7f8a4ce0976c0bc3a1dbe7a43b14157c2c9719d`.
+Only `ratecurvature.cpp.o` is replaced among 26 public members. Dependency hashes
+prove the retained fixture object and unchanged core apply to both worktrees.
+Documentation-only follow-up can retain these results with unchanged compiled
+source/dependency/archive/harness/executable identity.

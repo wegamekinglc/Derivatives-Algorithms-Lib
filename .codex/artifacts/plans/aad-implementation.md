@@ -271,8 +271,10 @@ The active cross-currency increment follows its
 [scoped performance acceptance](../performance/aad-xccy-quote-curvature.md).
 Both factories and 23 affected rate cases now pass locally, including 66
 independent financial curvature references and 22 gradient coordinates;
-eight strict probes and the installed consumer pass. Performance and exact-head
-remote acceptance remain pending. Explicit trading adapters,
+eight strict probes and the installed consumer pass. Three scoped performance
+comparisons pass with 120 samples and 0.8898 seconds of measured work; existing
+single-curve round deltas are +2.43%/+0.38%, below the 4% gate. Exact-head remote
+acceptance remains pending. Explicit trading adapters,
 rectangular/approximate calibration semantics, policy/estimator validation and
 native mixed mode remain required subsequent deliveries; they are not claimed
 complete by the smooth square-system native objective primitive.

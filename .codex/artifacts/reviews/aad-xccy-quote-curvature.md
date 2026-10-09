@@ -1,7 +1,8 @@
 # Cross-currency quote curvature review
 
-Status: active; local implementation review complete, performance and remote
-exact-head acceptance pending. Verdict: Comment Only until those gates finish.
+Status: active; local implementation review and scoped performance acceptance
+complete, remote exact-head acceptance pending. Verdict: Comment Only until
+those gates finish.
 
 ## Findings
 
@@ -37,8 +38,10 @@ separate deliveries; this PR makes no capability claim for them.
 - Eight strict OFF/combined probes pass (four fresh after repair, four applicable
   unchanged probes retained); installed consumer passes 1/1. The public archive
   replaces only `ratecurvature.cpp.o`, retaining 25 identical members; core is unchanged.
-- [Scoped performance acceptance](../performance/aad-xccy-quote-curvature.md) and
-  current-head remote CI/Codacy/full review are pending.
+- [Scoped performance acceptance](../performance/aad-xccy-quote-curvature.md)
+  passes: three comparisons, 120 samples, 0.8898 seconds of measured work.
+  Existing-entry round deltas are +2.43%/+0.38%, below the unchanged 4% gate.
+  Current-head remote CI/Codacy/full review remain pending.
 
 ## Summary
 
