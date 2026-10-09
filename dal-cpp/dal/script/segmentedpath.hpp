@@ -134,6 +134,7 @@ namespace Dal::Script {
         }
 
         [[nodiscard]] size_t SimDim() const { return model_ ? model_->SimDim() : 0; }
+        [[nodiscard]] std::shared_ptr<const PreparedScript_> PreparedHandle() const { return prepared_; }
         [[nodiscard]] const Vector_<String_>& ParameterLabels() const { return labels_; }
         [[nodiscard]] AAD::SegmentedPathDimensions_ Dimensions() const override {
             return {prepared_->TimeLine().size(), layout_.Size(), trace_.MaxWords()};

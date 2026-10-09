@@ -2086,6 +2086,61 @@ symmetry correction. `higherOrder_` remains false. Stochastic common paths,
 nonsmooth payoffs, calibration curvature and policy responses require explicit
 caller methodology; the generic driver does not certify those estimators.
 
+### Common-path segmented Monte Carlo curvature
+
+`Script::EvaluateBlackScholesMonteCarloCurvature` in
+`dal/script/montecarlocurvature.hpp` composes complete segmented native AAD
+Monte Carlo gradients with the same explicit direction/step request. It takes
+a sealed `BlackScholesSegmentedPath_`, the full parameter point, positive path
+count, `BumpOverAADRequest_` and optional `SegmentedMonteCarloSettings_`.
+Columns follow `ParameterLabels()`: spot, volatility, continuously compounded
+rate, dividend yield, then prepared script constants. No coordinate scaling,
+direction normalization or Hessian symmetry correction is applied.
+
+```cpp
+#include <dal/script/montecarlocurvature.hpp>
+
+AAD::BumpOverAADRequest_ bumps;
+bumps.directions_ = Matrix_<>(1, static_cast<int>(parameters.size()), 0.0);
+bumps.directions_(0, 0) = 1.0;
+bumps.steps_ = {0.25};
+const auto risk = Script::EvaluateBlackScholesMonteCarloCurvature(
+    kernel, parameters, 8192, bumps, settings);
+const double spotGamma = risk.HessianProducts()(0, 0);
+```
+
+Each row differences the mean first-order gradient over exactly the same
+absolute path interval, generator, scramble key, bridge and normal precision.
+The kernel, point, bumps and MC settings are snapshotted before submission;
+all plus/minus model domains are checked before any MC task. Each first-order
+request retains the segmented path's bounded recording and fixed-batch ordered
+reduction. The execution count `1+2M` is a count of gradient requests, not
+reverse sweeps: every path can run multiple segment reverses.
+
+The result owns `Base()` (mean value, gradient, labels and MC execution),
+`Point()`, `Directions()`, `Steps()`, requested `Settings()` and the curvature
+matrix. `Prepared()` retains immutable contract, valuation date, historical
+seed, timeline, compiled program and smoothing after the original inputs and
+kernel are destroyed. These fields identify the exact declared estimator.
+
+`numericPayloadBudgetBytes_` has the same owning-double formula as the generic
+driver. It excludes retained preparation, labels, metadata, temporary gradients,
+tasks and random buffers. The minimum of the bump request and MC path recording
+caps applies to every executing path; the checkpoint cap remains per path.
+`Execution()` records the effective recording cap and maximum per-path tape,
+checkpoint and cleanup reserve across all gradient requests. These maxima do
+not measure concurrent aggregate capacity or RSS. Nested independent recording
+entry is rejected; the caller's adjoint mode is restored after success/failure.
+
+These outputs are finite-step secants of the compiled first-order estimator.
+Fuzzy condition kernels are piecewise linear/triangular, while extrema can
+remain hard; a positive smoothing width does not imply a globally C2 payoff.
+For a hard vanilla call, the common-path spot secant estimates the change in
+pathwise delta across the strike interval. Step bias and finite-path error
+remain distinct. Smooth polynomial convergence does not establish convergence
+order for nonsmooth products, unbiased Gamma, calibration curvature or exercise
+policy responses. Native `higherOrder_` remains false.
+
 ## Examples
 
 The runnable [AAD Black example](../../dal-cpp/examples/aad) compares passive

@@ -15,6 +15,7 @@
 
 #include "blackscholessegmentedperf.hpp"
 #include "bumpoveraadperf.hpp"
+#include "montecarlocurvatureperf.hpp"
 #include "segmentedmontecarloperf.hpp"
 #include "segmentedpathperf.hpp"
 
@@ -26,8 +27,9 @@ namespace {
     BenchmarkRunner_ SelectedBenchmark(int argc, char** argv) {
         if (argc < 2)
             return nullptr;
-        constexpr std::array<std::pair<const char*, BenchmarkRunner_>, 4> COMMANDS{{
+        constexpr std::array<std::pair<const char*, BenchmarkRunner_>, 5> COMMANDS{{
             {"--bump-over-aad", RunBumpOverAADBenchmarks},
+            {"--financial-mc-curvature", RunMonteCarloCurvatureBenchmarks},
             {"--financial-segmented-mc", RunSegmentedMonteCarloBenchmarks},
             {"--financial-segmented-path", RunBlackScholesSegmentedBenchmarks},
             {"--segmented-path", RunSegmentedPathBenchmarks},
