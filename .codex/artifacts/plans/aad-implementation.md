@@ -124,7 +124,10 @@ P05 now follows the active [core specification](../specs/aad-path-segmentation.m
 including independent three-step and multistate/cashflow oracles, exact budgets,
 full trace mismatch, failure recovery, mode preservation, empty shapes,
 concurrency and bounded long-path tape. Eight strict OFF/combined checks and
-one installed-only consumer pass. Scoped cost and publication acceptance remain open.
+one installed-only consumer pass. Eight scoped regime/strategy pairs finish
+320 observations in 1.592 seconds, with approximately 60% smaller long-path tape
+plus checkpoints and 40–52% greater reusable-tape time cost. Keep segmentation
+explicit; short paths have no capacity benefit. Publication gates remain open.
 Complete financial state/liveness, model/evaluator integration and acceptance
 remain open; standalone core correctness alone does not complete P05.
 
@@ -1274,11 +1277,11 @@ overlapping acceptance work is included once in the integration allowance.
 | P03                     | 89 tests; 81 unique complete-request timing comparisons accepted | #489 merged; final 35/35 checks accepted | 0                     |
 | F03                     | Solve/root/PDE operators and financial/grid acceptance complete  | #506 merged; final 36/36 gates accepted  | 0                     |
 | P04                     | Structural compression, safe fallback and selection accepted     | #511 merged; final 36/36 gates accepted  | 0                     |
-| P05                     | Core three-step oracle passes; financial integration remains     | Open                                     | 5–8                   |
+| P05                     | Core correctness/cost accepted locally; financial work remains   | Core publication open                    | 4.5–7.5               |
 | F04                     | Second-order implementation/estimator validation remain          | Open                                     | 12–20                 |
 | Final integration/audit | Cross-platform/binding/docs/performance acceptance remains       | Open                                     | 7–11                  |
 
-Remaining total during P05 development: approximately 24–39 person-days,
+Remaining total during P05 development: approximately 23.5–38.5 person-days,
 excluding CI queue time and including delivery contingency. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
 effort estimate, not a guaranteed completion date. Re-estimate when review
@@ -1300,13 +1303,13 @@ numeric/native diagnostics are not counted again.
 | 4a    | F03 implicit calibration             | Numeric #501 and native #502 merged; all final gates accepted                  | 0               |
 | 5     | F03 PDE operators                    | #504/#505/#506 merged; financial/grid and all publication gates accepted       | 0               |
 | 6     | P04 structural sparsity              | #507–#511 merged; implementation, scoped cost and publication gates accepted   | 0               |
-| 7a    | P05 segmentation core                | Fixed-state recomputation, independent gradients, budgets and scoped cost      | 8–12            |
+| 7a    | P05 segmentation core                | Local correctness/cost pass; CI, review repair and guarded merge remain        | 4–8             |
 | 7b    | P05 financial adapter                | Complete model/evaluator state, live observations and exact passive drivers    | 20–32           |
 | 7c    | P05 financial acceptance             | Complete financial correctness, memory/performance and publication proof       | 12–20           |
 | 8     | F04 second-order risk                | Gamma, cross-Gamma, HVP, recalibration and estimator validation                | 64–96           |
 | 9     | F04 native mixed-mode prototype      | Smooth-kernel prototype, independent correctness and capability limits         | 32–64           |
 | 10    | Bindings and complete acceptance     | C++/Python/Excel, documentation, platform and performance gates                | 56–88           |
-| Total | Full remaining implementation        | All remaining plan requirements                                                | 192–312         |
+| Total | Full remaining implementation        | All remaining plan requirements                                                | 188–308         |
 
 
 The first delivery boundary is complete. Whole-PR review repaired the Windows

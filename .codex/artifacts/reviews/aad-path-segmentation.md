@@ -5,7 +5,7 @@ Verdict: Comment Only.
 ## Findings
 
 No unresolved local correctness or style findings. Publication acceptance is
-pending the scoped cost study, complete external review and exact-head CI.
+pending complete external review and exact-head CI.
 The financial adapter and whole-plan P05 acceptance remain open independently.
 
 ## Tests
@@ -24,6 +24,12 @@ the shape constraint. Eight strict OFF/combined syntax checks and installed-only
 consumption pass. Default and selected benchmark entry points pass their independent
 price/gradient oracles. New core functions have complexity at most four; changed
 benchmark functions have complexity at most seven. Documentation checks pass.
+
+The [scoped cost report](../performance/aad-path-segmentation.md) accepts eight
+new comparison pairs with 320 observations in 1.592 seconds. Long-path tape plus
+checkpoint capacity improves approximately 60%; reusable-tape time costs rise
+40–52%, with no storage gain on the short case. The ordinary full-graph default
+and explicit-only segmented request preserve that measured tradeoff.
 
 ## Scope and residual risk
 
