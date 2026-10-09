@@ -21,15 +21,17 @@ and `ratecashflowpricing.cpp.o` differ. The other 177 members retain accepted by
 Archive SHA-256 values are:
 
 - baseline: `300f22e9af384b28feafad5994bd47aba2a22ad98a0d3b96818b04ca5c677597`;
-- head: `8799a707be4c5623478b466a0ba99b5d44ba312a78c44b7968e6c2d552be631c`.
+- repaired head: `e7030e040b5d99c1b8e05aae62023c1505b9d7600273b97abb14ca2253b95840`.
 
 Session evidence lives under
-`/home/wegamekinglc/.cache/dal-aad-evidence-20261008/rate-strategy-performance-final/`:
+`/home/wegamekinglc/.cache/dal-aad-evidence-20261008/rate-strategy-performance-review-repair/`:
 `identity-proof.json`, `selection.json`, `results.json`, both build logs and every
 raw stdout/stderr. Selection binds sources, independent references, fixtures,
 binaries and archives with before/after hashes. The initial 720-observation
 pre-fallback study remains under `rate-strategy-performance/`, with its fixture
-reconstructed and verified against the original frozen digest.
+reconstructed and verified against the original frozen digest. The initial
+760-observation post-fallback study remains under `rate-strategy-performance-final/`.
+This final repair addresses operation labels and preserves every original sample.
 
 Both standalone cost binaries use C++17, `-O3 -DNDEBUG -ffp-contract=fast`, native
 AAD and diagnostics OFF. Sampling uses CPU affinity 0, `DAL_NUM_THREADS=4`, no
@@ -39,7 +41,7 @@ The machine is an i9-13900HX under Microsoft virtualization; the calibrated
 paired policy accounts for this environment's timing noise.
 Reduction is best of ten, with the existing sustained +4% rule. Compilation,
 tests and source edits are stopped during sampling. Final sampling completes
-760 observations in **8.95 seconds**, with **zero sustained regressions**.
+760 observations in **9.86 seconds**, with **zero sustained regressions**.
 
 ## Comparable complete request results
 
@@ -47,15 +49,15 @@ Values are round-one/round-two minimum microseconds per complete request.
 
 | Request                  | Baseline microseconds | Head microseconds | Head / baseline |
 |--------------------------|-----------------------|-------------------|-----------------|
-| Existing passive         | 1.728 / 1.729         | 1.715 / 1.738     | 0.993 / 1.005   |
-| Existing joint native    | 7.426 / 7.185         | 7.247 / 7.130     | 0.976 / 0.992   |
-| Layered 3-by-5 dense     | 5.753 / 5.780         | 5.472 / 5.455     | 0.951 / 0.944   |
-| 64-by-8 dense scalar     | 104.661 / 106.076     | 75.581 / 74.651   | 0.722 / 0.704   |
-| 64-by-8 dense width four | 112.367 / 113.390     | 80.284 / 79.969   | 0.714 / 0.705   |
-| 64-by-2 dense scalar     | 77.857 / 75.987       | 65.195 / 66.326   | 0.837 / 0.873   |
+| Existing passive         | 1.833 / 1.918         | 1.835 / 1.816     | 1.001 / 0.947   |
+| Existing joint native    | 7.464 / 7.954         | 7.796 / 7.773     | 1.045 / 0.977   |
+| Layered 3-by-5 dense     | 6.169 / 6.537         | 5.859 / 5.751     | 0.950 / 0.880   |
+| 64-by-8 dense scalar     | 112.654 / 114.319     | 76.528 / 82.881   | 0.679 / 0.725   |
+| 64-by-8 dense width four | 124.604 / 119.067     | 89.285 / 83.776   | 0.717 / 0.704   |
+| 64-by-2 dense scalar     | 80.168 / 81.346       | 69.559 / 72.983   | 0.868 / 0.897   |
 
 The direct dense planner removes general full-support conflict construction.
-The larger 64-by-8 complete request improves approximately 28–30%; the smaller
+The larger 64-by-8 complete request improves approximately 28–32%; the smaller
 boundaries also improve. All eighteen baseline-comparable rows pass the sustained
 gate, including the compressed and build-cost controls in the raw result.
 
@@ -77,19 +79,19 @@ current identity is still recaptured inside every reused request.
 
 | Shape / mode             | Plan build microseconds | Dense microseconds | Cold microseconds | Reused microseconds |
 |--------------------------|-------------------------|--------------------|-------------------|---------------------|
-| Layered 3-by-5 scalar    | 12.131 / 12.515         | 5.472 / 5.455      | 31.142 / 30.338   | 17.463 / 17.797     |
-| Deposits 64-by-8 scalar  | 84.618 / 83.613         | 75.581 / 74.651    | 202.852 / 201.300 | 115.753 / 112.367   |
-| Deposits 64-by-8 width 4 | 82.974 / 84.457         | 80.284 / 79.969    | 207.185 / 201.549 | 116.689 / 117.632   |
-| Deposits 64-by-2 scalar  | 76.048 / 76.454         | 65.195 / 66.326    | 196.468 / 196.174 | 111.470 / 113.855   |
+| Layered 3-by-5 scalar    | 13.196 / 13.203         | 5.859 / 5.751      | 32.778 / 32.465   | 18.376 / 18.693     |
+| Deposits 64-by-8 scalar  | 89.017 / 89.467         | 76.528 / 82.881    | 218.690 / 216.000 | 124.505 / 122.687   |
+| Deposits 64-by-8 width 4 | 89.418 / 87.657         | 89.285 / 83.776    | 227.435 / 223.648 | 129.526 / 128.831   |
+| Deposits 64-by-2 scalar  | 79.506 / 82.349         | 69.559 / 72.983    | 205.435 / 212.729 | 124.495 / 120.843   |
 
 Compression reduces scalar directions from 3 to 2, from 64 to 8 and from 64 to
-32, but complete reused requests still cost 3.19–3.26, 1.51–1.53 and 1.71–1.72
-times dense respectively. Width-four reuse also loses at 1.45–1.47 times dense.
+32, but complete reused requests still cost 3.14–3.25, 1.48–1.63 and 1.66–1.79
+times dense respectively. Width-four reuse also loses at 1.45–1.54 times dense.
 Because reused compression is already slower, no positive repetition count can
 amortize the initial plan into a speedup on these shapes.
 
-The new explicit matching cached request costs 17.853 / 17.236 microseconds;
-the stale-plan dense fallback costs 17.506 / 17.859. These are informational new
+The new explicit matching cached request costs 18.454 / 19.005 microseconds;
+the stale-plan dense fallback costs 19.347 / 19.215. These are informational new
 paths without a historical baseline. Both validate current identity once and
 return the correct complete matrix; their overhead is disclosed.
 

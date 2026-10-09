@@ -56,6 +56,11 @@ adapter is a separate capability: it must be verified before being selectable.
    densely. Never reuse the stored output/input mapping after a mismatch. Price,
    input or numeric-budget errors still fail the request rather than publishing
    a partial result. The strict compressed entry point retains stale rejection.
+10. Dense overflow and budget failures identify `PlanDenseJacobian`; structural
+    planning retains `PlanStructuralJacobian`. A rate dense request additionally
+    preserves `RateJacobian` context, including a cached-plan dense fallback.
+    Only planner DAL exceptions are wrapped at that financial boundary; input,
+    pricing and reverse failures retain their existing behavior.
 
 ## Acceptance
 

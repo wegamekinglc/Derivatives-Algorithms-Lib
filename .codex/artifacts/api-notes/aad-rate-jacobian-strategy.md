@@ -16,6 +16,9 @@ The planner rejects dimensions outside the matrix int range, overflowing numeric
 extents, or insufficient combined payload before metadata allocation. Empty
 axes remain valid. No Python/Excel function or generated enum is added by the
 dense numeric planner; eventual financial binding work remains in the full plan.
+Budget/overflow diagnostics identify the selected planning operation. Financial
+dense admission adds `RateJacobian` request context around `PlanDenseJacobian`;
+structural planning preserves its existing diagnostic label.
 
 Add the explicit overload
 `RateTradeParameterJacobian(trades, market, inputAxis, cachedPlan, settings = {})`.

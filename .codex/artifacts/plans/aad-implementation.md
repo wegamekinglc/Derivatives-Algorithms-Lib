@@ -96,11 +96,13 @@ Measured strategy work now follows the active
 [critique](../critiques/aad-rate-jacobian-strategy.md).
 Direct dense planning removes generic conflict construction. The explicit cached
 plan request checks current identity once and falls back to the requested dense
-matrix on mismatch. Local acceptance covers 38 distinct cases, eight strict
+matrix on mismatch. Local acceptance covers 40 distinct cases, eight strict
 checks and installed-only consumption. The final scoped cost study completes
-760 observations in 8.95 seconds without a sustained regression; 177 unchanged
+760 observations in 9.86 seconds without a sustained regression; 177 unchanged
 archive objects reuse accepted evidence. The 64-by-8 dense financial request
-improves approximately 28–30% in both scalar and width-four cases.
+improves approximately 28–32% across scalar and width-four cases. The external
+operation-label finding has focused RED/GREEN repair evidence; structural error
+labels and dense rate request context are preserved.
 
 All declared lightweight shapes lose with compression, including cached reuse.
 Keep the dense default and explicit caller selection, with no universal AUTO

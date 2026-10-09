@@ -7,6 +7,7 @@
 #include <array>
 #include <future>
 #include <limits>
+#include <string>
 
 #include <dal/math/aad/structuraljacobian.hpp>
 #include <dal/platform/platform.hpp>
@@ -18,6 +19,16 @@ using Dal::AAD::PlanStructuralJacobian;
 using Dal::AAD::RecoverStructuralJacobian;
 
 namespace {
+    template <class F_> void CheckPlannerErrorContext(const F_& request, const char* operation) {
+        try {
+            request();
+            FAIL() << "Planner must reject this request";
+        } catch (const Dal::Exception_& error) {
+            const std::string message(error.what());
+            ASSERT_NE(message.find(operation), std::string::npos) << message;
+        }
+    }
+
     void CheckDensePlan(size_t inputs, size_t outputs) {
         SCOPED_TRACE(inputs);
         SCOPED_TRACE(outputs);
@@ -113,6 +124,17 @@ TEST(StructuralJacobianTest, TestDensePlannerRejectsBudgetAndExtentBeforeMetadat
     ASSERT_EQ(empty.Inputs(), maximum);
     ASSERT_EQ(empty.Outputs(), 0);
     ASSERT_EQ(empty.NumericPayloadBytes(), 0);
+}
+
+TEST(StructuralJacobianTest, TestDenseAndStructuralPlannerErrorsIdentifyTheirOperation) {
+    const auto maximum = static_cast<size_t>(std::numeric_limits<int>::max());
+    ASSERT_NO_FATAL_FAILURE(CheckPlannerErrorContext([] { static_cast<void>(Dal::AAD::PlanDenseJacobian(4, 5, {319})); }, "PlanDenseJacobian:"));
+    ASSERT_NO_FATAL_FAILURE(
+        CheckPlannerErrorContext([&] { static_cast<void>(Dal::AAD::PlanDenseJacobian(maximum, maximum)); }, "PlanDenseJacobian:"));
+    ASSERT_NO_FATAL_FAILURE(
+        CheckPlannerErrorContext([&] { static_cast<void>(Dal::AAD::PlanDenseJacobian(maximum, maximum / 2 + 1)); }, "PlanDenseJacobian:"));
+    ASSERT_NO_FATAL_FAILURE(
+        CheckPlannerErrorContext([] { static_cast<void>(PlanStructuralJacobian(4, {{0}, {1}}, {0})); }, "PlanStructuralJacobian:"));
 }
 
 TEST(StructuralJacobianTest, TestTwoDirectionsRecoverIndependentNonPrefixMatrix) {

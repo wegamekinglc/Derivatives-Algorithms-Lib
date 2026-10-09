@@ -1826,6 +1826,14 @@ namespace Dal {
             return PriceJointActive(trade, market, active, nullptr, cashflows);
         }
 
+        AAD::StructuralJacobianPlan_ DenseRateJacobianPlan(size_t inputs, size_t outputs, const RateJacobianExecutionSettings_& settings) {
+            try {
+                return AAD::PlanDenseJacobian(inputs, outputs, {settings.numericPayloadBudgetBytes_});
+            } catch (const Exception_& error) {
+                THROW(String_("RateJacobian: ") + String_(error.what()));
+            }
+        }
+
         void ValidateRateJacobianSettings(const AAD::StructuralJacobianPlan_& numeric, const RateJacobianExecutionSettings_& settings) {
             REQUIRE(settings.vectorAdjoints_ || settings.adjointWidth_ == 1, "RateJacobian: scalar adjoint width must be one");
             REQUIRE(settings.adjointWidth_ > 0 && settings.adjointWidth_ <= AAD::ADJ_SIZE, "RateJacobian: adjoint width is outside native range");
@@ -1875,7 +1883,7 @@ namespace Dal {
                                                                  const RatePricingMarket_& market,
                                                                  const Vector_<RateCurveParameterCoordinate_>& inputAxis,
                                                                  const RateJacobianExecutionSettings_& settings) {
-        const auto numeric = AAD::PlanDenseJacobian(inputAxis.size(), trades.size(), {settings.numericPayloadBudgetBytes_});
+        const auto numeric = DenseRateJacobianPlan(inputAxis.size(), trades.size(), settings);
         return RunRateJacobian(trades, market, inputAxis, numeric, settings);
     }
 

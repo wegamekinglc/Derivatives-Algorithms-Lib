@@ -6,6 +6,7 @@
 
 #include <cmath>
 #include <future>
+#include <string>
 #include <utility>
 
 #include <dal/curve/ratecashflowpricing_internal.hpp>
@@ -21,6 +22,17 @@ using namespace Dal;
 using namespace RateJacobianFixtures;
 
 namespace {
+    template <class F_> void CheckRatePlannerErrorContext(const F_& request) {
+        try {
+            request();
+            FAIL() << "Rate request must reject its numeric budget";
+        } catch (const Exception_& error) {
+            const std::string message(error.what());
+            ASSERT_NE(message.find("RateJacobian:"), std::string::npos) << message;
+            ASSERT_NE(message.find("PlanDenseJacobian:"), std::string::npos) << message;
+        }
+    }
+
     struct GroupedDeposits_ {
         RatePricingMarket_ market_;
         Vector_<RateCurveParameterCoordinate_> axis_;
@@ -134,6 +146,18 @@ TEST(RateParameterJacobianTest, TestCachedPlanBudgetAppliesToActualStrategyAndFa
     ASSERT_EQ(fallback.reverseDirections_, 3);
     ASSERT_EQ(fallback.reverseSweeps_, 2);
     ASSERT_NO_FATAL_FAILURE(CheckEquivalentMatrices(fallback, RateTradeParameterJacobian(changed, market, axis)));
+}
+
+TEST(RateParameterJacobianTest, TestDenseBudgetErrorsKeepRateRequestContext) {
+    const auto market = ComponentMarket();
+    const auto trade = Deposit("deposit-A", "A");
+    const Vector_<RateCurveParameterCoordinate_> axis = {{"A", 0}};
+    const auto plan = PlanRateStructuralJacobian(CaptureRateStructuralJacobian({trade}, market, axis));
+    ASSERT_NO_FATAL_FAILURE(
+        CheckRatePlannerErrorContext([&] { static_cast<void>(RateTradeParameterJacobian({trade}, market, axis, {false, 1, 15})); }));
+    ASSERT_NO_FATAL_FAILURE(
+        CheckRatePlannerErrorContext([&] { static_cast<void>(RateTradeParameterJacobian({trade, trade}, market, axis, plan, {false, 1, 31})); }));
+    ASSERT_NO_THROW(static_cast<void>(RateTradeParameterJacobian({trade}, market, axis, plan)));
 }
 
 TEST(RateParameterJacobianTest, TestGroupedOutputRichDepositsAgainstIndependentCashflowDerivatives) {
