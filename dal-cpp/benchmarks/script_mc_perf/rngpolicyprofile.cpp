@@ -23,7 +23,35 @@ namespace {
         Dal::Script::ValidateSmoothing(width);
         return width;
     }
+
+    size_t ParsePaths(const char* text) {
+        const std::string input = text;
+        size_t paths = 0;
+        const auto parsed = std::from_chars(input.data(), input.data() + input.size(), paths);
+        REQUIRE(parsed.ec == std::errc() && parsed.ptr == input.data() + input.size() && paths > 0, "PATHS must be a positive integer");
+        return paths;
+    }
+
+    Dal::Script::MonteCarloSettings_ ParseSettings(int argc, char** argv) {
+        using namespace Dal::Script;
+        const std::string mode = argv[2];
+        REQUIRE(mode == "double" || mode == "aad", "MODE must be double or aad");
+        MonteCarloSettings_ settings;
+        settings.rsg_ = argv[3];
+        settings.normalPrecision_ = argv[4];
+        settings.enableAad_ = mode == "aad";
+        if (argc >= 7)
+            settings.smooth_ = ParseWidth(argv[6]);
+        if (argc >= 8) {
+            const std::string evaluator = argv[7];
+            REQUIRE(evaluator == "tree" || evaluator == "compiled", "evaluator must be tree or compiled");
+            settings.compiled_ = evaluator == "compiled";
+        }
+        ValidateSimulationSettings(settings);
+        return settings;
+    }
 } // namespace
+
 int RunRngPolicyProfile(int argc, char** argv, Dal::Script::ScriptProductData_ (*factory)(const Dal::String_&)) {
     using namespace Dal;
     using namespace Dal::Script;
@@ -32,27 +60,12 @@ int RunRngPolicyProfile(int argc, char** argv, Dal::Script::ScriptProductData_ (
             << "usage: script_mc_perf --rng-policy double|aad sobol|mrg32|irn Default|Fast|Precise PATHS [SMOOTH] [tree|compiled] [BARRIER_SMOOTH]\n";
         return 2;
     }
+    const auto settings = ParseSettings(argc, argv);
+    const size_t paths = ParsePaths(argv[5]);
     const std::string mode = argv[2];
-    const String_ method = argv[3], precision = argv[4];
-    const std::string pathText = argv[5];
-    size_t paths = 0;
-    const auto parsed = std::from_chars(pathText.data(), pathText.data() + pathText.size(), paths);
-    REQUIRE(parsed.ec == std::errc() && parsed.ptr == pathText.data() + pathText.size() && paths > 0, "PATHS must be a positive integer");
-    REQUIRE(mode == "double" || mode == "aad", "MODE must be double or aad");
-    MonteCarloSettings_ settings;
-    settings.rsg_ = method;
-    settings.normalPrecision_ = precision;
-    settings.enableAad_ = mode == "aad";
-    if (argc >= 7)
-        settings.smooth_ = ParseWidth(argv[6]);
-    if (argc >= 8) {
-        const std::string evaluator = argv[7];
-        REQUIRE(evaluator == "tree" || evaluator == "compiled", "evaluator must be tree or compiled");
-        settings.compiled_ = evaluator == "compiled";
-    }
+    const String_ method = settings.rsg_, precision = settings.normalPrecision_;
     const String_ barrierWidth = argc == 9 ? argv[8] : "0.1";
     static_cast<void>(ParseWidth(barrierWidth.c_str()));
-    ValidateSimulationSettings(settings);
     ThreadPool_::GetInstance()->Start(1, true);
     const auto data = factory(barrierWidth);
     const Handle_<ModelData_> modelData(new BSModelData_("bs", 100.0, 0.20, 0.05, 0.02));
