@@ -52,20 +52,31 @@ six existing sanitizer filters now select the twelve new financial cases and
 the new allocation suite; YAML and exact selection checks pass. Remote runtime
 logs must confirm execution, not just successful job status.
 
-The accepted archive retains 179 original member occurrences exactly, replaces
+The feature-only archive before upstream integration retains 179 original member occurrences exactly, replaces
 the generic-driver and affected MC objects, and adds one financial object
 (182 total). The MC rebuild changes only two exception-path line immediates;
 all other object bytes remain identical after source-path canonicalization. Repeated
 member names are verified by occurrence, not collapsed into a dictionary.
 Unchanged native/MC boundaries outside this increment reuse accepted evidence.
 
+Upstream #518 is integrated at `71634ab0` over master `65b1e81b`.
+Dependency metadata selects nine affected library objects; the combined archive
+retains the other 173 member occurrences. Eighteen selected core/MC/IRN cases
+and the financial allocation sweep pass, including all twelve financial cases,
+four MC admission/recovery/RNG boundaries and two IRN compatibility references.
+The fourteen unaffected native-driver/allocation cases reuse accepted evidence:
+33 distinct cases are covered in total. Only the two financial-test strict
+profiles repeat, and installed-only consumption passes 1/1. Only the two
+financial cost rows repeat: 80 observations in 1.193 seconds. Generic control
+evidence remains unchanged. No unrelated local matrix is repeated.
+
 ## Summary
 
 Installed-only consumption passes 1/1. The preselected three-case study completes
 120 observations in 2.110 seconds; both existing-caller +4% rounds pass. The review repair adds 80 financial observations in 3.949 seconds; the
 unchanged generic control reuses its accepted executable/object evidence.
-Financial entry costs remain informational; mixed-case relative overhead is
-inconclusive on the shared host. Complete current-head
+The integrated financial costs supersede earlier financial observations and
+remain informational on the shared host. Complete current-head
 remote CI/Codacy/inline/body-review acceptance remains required before merge.
 Published docs and changelog reflect the new bounded capability. Completed #517
 controls are retired after replacing links with immutable publication links.

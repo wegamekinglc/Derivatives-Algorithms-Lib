@@ -214,6 +214,11 @@ Its first Codacy reference-complexity finding is repaired with scoped mathematic
 and strict verification. Existing sanitizer filters explicitly admit all new
 financial and allocation cases; complete current-head checks and review closure
 remain required.
+Upstream #518 is integrated over `65b1e81b`: nine library consumers rebuild,
+nineteen selected integration cases pass, two affected strict profiles repeat
+and installed consumption passes 1/1. Only the two financial cost rows repeat,
+collecting eighty observations in 1.193 seconds; unaffected generic evidence is
+retained. Current-head publication gates cover this combined version.
 Quote recalibration curvature, policy/nested-step semantics and native mixed
 mode remain separate required F04 deliveries.
 
@@ -731,16 +736,16 @@ incremental implementation turns and PRs; a green first stage does not complete 
 - [ ] F04: estimator validation for applicable simulation/calibration cases before general promotion.
 
 F04 uses separate focused PRs in the following order. These estimates subdivide
-the 34–58 hours for second-order requests; they do not add to the mixed-mode or
+the 32.5–54 hours for second-order requests; they do not add to the mixed-mode or
 final-integration estimates. Each PR requires independent mathematical RED/GREEN,
 affected-boundary tests, scoped costs and complete current-head CI/review acceptance.
 
-| Increment                   | Required result                                                                                | Remaining hours |
-|-----------------------------|------------------------------------------------------------------------------------------------|-----------------|
-| Native driver               | #517 merged; explicit requests, mathematical/lifecycle and exact-head acceptance complete      | 0               |
-| Financial MC                | Sealed common paths, smoothing semantics, model/constant axes and independent Gamma references | 2–6             |
-| Quote curvature             | Full recalibration at each perturbed quote point and rebuilt first-order maps                  | 20–28           |
-| Policy/estimator validation | Frozen/RetrainedBump meaning, inner/outer steps and applicable convergence/error evidence      | 12–24           |
+| Increment                   | Required result                                                                           | Remaining hours |
+|-----------------------------|-------------------------------------------------------------------------------------------|-----------------|
+| Native driver               | #517 merged; explicit requests, mathematical/lifecycle and exact-head acceptance complete | 0               |
+| Financial MC                | #519 implemented and integrated; current-head CI, review and guarded merge remain         | 0.5–2           |
+| Quote curvature             | Full recalibration at each perturbed quote point and rebuilt first-order maps             | 20–28           |
+| Policy/estimator validation | Frozen/RetrainedBump meaning, inner/outer steps and applicable convergence/error evidence | 12–24           |
 
 ## Completion evidence
 
@@ -1376,11 +1381,11 @@ overlapping acceptance work is included once in the integration allowance.
 | F03                     | Solve/root/PDE operators and financial/grid acceptance complete  | #506 merged; final 36/36 gates accepted  | 0                     |
 | P04                     | Structural compression, safe fallback and selection accepted     | #511 merged; final 36/36 gates accepted  | 0                     |
 | P05                     | Core, fixed-path and Monte Carlo adapters accepted               | #512/#513/#515 merged; 36/36 gates       | 0                     |
-| F04                     | Second-order implementation/estimator validation remain          | Open                                     | 8.25–15.25            |
+| F04                     | Second-order implementation/estimator validation remain          | Open                                     | 8.0625–14.75          |
 | Final integration/audit | Cross-platform/binding/docs/performance acceptance remains       | Open                                     | 7–11                  |
 
-Remaining total during F04 development: 122–210 hours, approximately
-15.25–26.25 eight-hour person-days, excluding CI queue time. Delivery contingency
+Remaining total during F04 development: 120.5–206 hours, approximately
+15.06–25.75 eight-hour person-days, excluding CI queue time. Delivery contingency
 is included in those same hour ranges; there is no extra undisclosed allowance. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
 effort estimate, not a guaranteed completion date. Re-estimate when review
@@ -1405,10 +1410,10 @@ numeric/native diagnostics are not counted again.
 | 7a    | P05 segmentation core                | #512 merged; actual runtime, exact-head CI/review and guarded merge accepted   | 0               |
 | 7b    | P05 financial adapter                | #513 merged; exact-head CI, review, costs, actual runtime and merge accepted   | 0               |
 | 7c    | P05 Monte Carlo acceptance           | #515 merged; 36/36 gates, fourteen actual runtime profiles and merge proof     | 0               |
-| 8     | F04 second-order risk                | Gamma, cross-Gamma, HVP, recalibration and estimator validation                | 34–58           |
+| 8     | F04 second-order risk                | Gamma, cross-Gamma, HVP, recalibration and estimator validation                | 32.5–54         |
 | 9     | F04 native mixed-mode prototype      | Smooth-kernel prototype, independent correctness and capability limits         | 32–64           |
 | 10    | Bindings and complete acceptance     | C++/Python/Excel, documentation, platform and performance gates                | 56–88           |
-| Total | Full remaining implementation        | All remaining plan requirements                                                | 122–210         |
+| Total | Full remaining implementation        | All remaining plan requirements                                                | 120.5–206       |
 
 
 The first delivery boundary is complete. Whole-PR review repaired the Windows
