@@ -71,9 +71,13 @@ generators, see [sampling](sampling.md).
 ## Batches, Compiled Scripts, and AAD
 
 Ordinary paths use batches of size `min(8192, ceil(nPaths / nThreads))`.
-In value-only `double` evaluation, worker-owned RNG, Gaussian vector, scenario,
-and evaluator are reused across batches in one valuation. Each batch calls
-`SkipNormalTo(firstPath)` before generating its assigned normal substream.
+In value-only `double` evaluation, each worker reuses its Gaussian vector,
+scenario and evaluator across batches in one valuation. Sobol, MRG32 and
+single-threaded IRN also reuse the worker RNG. Multi-threaded IRN replaces it
+with an exclusive positioned clone for each batch. Each batch calls
+`SkipNormalTo(firstPath)` before generating its assigned normal substream;
+an IRN clone already starts at that position. Ordinary IRN AAD uses the same
+sequential positioner and bounded clone dispatch.
 Value-only evaluation can walk the AST or
 execute a compiled per-event opcode stream. `compiled_` defaults to tree mode;
 compiled mode is an opt-in execution choice and must preserve the same
