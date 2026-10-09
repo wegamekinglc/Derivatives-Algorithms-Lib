@@ -25,7 +25,8 @@ header or existing library hot body changes.
 The isolated regression, three affected mode/failure/nesting cases and four
 existing private-probe caller cases pass. Ten affected strict OFF/combined checks
 pass. The remaining original cases retain unchanged bodies and arithmetic;
-repaired-head installed consumption and the same selected costs remain pending.
+repaired-head installed consumption passes 1/1. The same three selected costs
+complete 120 observations in 2.180 seconds; both old-caller rounds pass.
 
 ## Tests
 

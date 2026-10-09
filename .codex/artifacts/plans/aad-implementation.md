@@ -199,8 +199,9 @@ The increment is published in
 Both initial external reviews have no findings and Codacy has zero issues. A
 subsequent local allocation-failure audit reproduces entry-mode leakage; the
 stack-guard repair has isolated RED/GREEN, three affected core cases, four
-private-probe caller cases and ten strict checks. Repaired-head costs and all
-current-head publication gates remain required before merge.
+private-probe caller cases and ten strict checks. Repaired-head installed use
+passes; the same selected costs complete 120 observations in 2.180 seconds with
+no old-caller regression. All current-head publication gates remain required.
 
 Native PDE recording is accepted in merged
 [#505](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/505),
@@ -716,13 +717,13 @@ incremental implementation turns and PRs; a green first stage does not complete 
 - [ ] F04: estimator validation for applicable simulation/calibration cases before general promotion.
 
 F04 uses separate focused PRs in the following order. These estimates subdivide
-the 62–94 hours for second-order requests; they do not add to the mixed-mode or
+the 52.5–82 hours for second-order requests; they do not add to the mixed-mode or
 final-integration estimates. Each PR requires independent mathematical RED/GREEN,
 affected-boundary tests, scoped costs and complete current-head CI/review acceptance.
 
 | Increment                   | Required result                                                                                    | Remaining hours |
 |-----------------------------|----------------------------------------------------------------------------------------------------|-----------------|
-| Native driver               | Explicit steps/directions, Gamma/cross-Gamma/HVP, owning results, admission and recording recovery | 10–14           |
+| Native driver               | Explicit steps/directions, Gamma/cross-Gamma/HVP, owning results, admission and recording recovery | 0.5–2           |
 | Financial MC                | Sealed common paths, smoothing semantics, model/constant axes and independent Gamma references     | 20–28           |
 | Quote curvature             | Full recalibration at each perturbed quote point and rebuilt first-order maps                      | 20–28           |
 | Policy/estimator validation | Frozen/RetrainedBump meaning, inner/outer steps and applicable convergence/error evidence          | 12–24           |
@@ -1389,10 +1390,10 @@ numeric/native diagnostics are not counted again.
 | 7a    | P05 segmentation core                | #512 merged; actual runtime, exact-head CI/review and guarded merge accepted   | 0               |
 | 7b    | P05 financial adapter                | #513 merged; exact-head CI, review, costs, actual runtime and merge accepted   | 0               |
 | 7c    | P05 Monte Carlo acceptance           | #515 merged; 36/36 gates, fourteen actual runtime profiles and merge proof     | 0               |
-| 8     | F04 second-order risk                | Gamma, cross-Gamma, HVP, recalibration and estimator validation                | 62–94           |
+| 8     | F04 second-order risk                | Gamma, cross-Gamma, HVP, recalibration and estimator validation                | 52.5–82         |
 | 9     | F04 native mixed-mode prototype      | Smooth-kernel prototype, independent correctness and capability limits         | 32–64           |
 | 10    | Bindings and complete acceptance     | C++/Python/Excel, documentation, platform and performance gates                | 56–88           |
-| Total | Full remaining implementation        | All remaining plan requirements                                                | 150–246         |
+| Total | Full remaining implementation        | All remaining plan requirements                                                | 140.5–234       |
 
 
 The first delivery boundary is complete. Whole-PR review repaired the Windows

@@ -109,4 +109,29 @@ test-probe seam is not linked into benchmark or installed library targets.
 Repeat the same two new request shapes and one linked old-caller control for the
 repaired binary, retaining the original baseline executable and raw study above.
 Keep two best-of-ten interleaved rounds and the +4% old-caller threshold. No other
-target or parameter shape is added. Repaired-head measurement is pending.
+target or parameter shape is added.
+
+Repaired functional head is `b92b5b265e521f9f21fd2137c31b489e3580db27`.
+Its evidence is in sibling `bump-over-aad-allocation-costs/`, with a detached
+`head-source/`, independent `head-build/`, `environment.json`, `raw/`,
+`samples.json` and `results.json`. Baseline build/source identities are reused
+from the original frozen study. All five benchmark objects retain their bytes;
+only the new native object is rebuilt and the head executable is relinked.
+The 180 old archive members still match individually. Head executable SHA-256
+is `5dd3ed90f9dc973f3821c7d3a9d81d026e81f951d13fa4f89b8db4ccea89e9c7`.
+Compiler, Release flags, affinity, backend and one-thread environment match.
+
+The same 120 observations finish in 2.180 seconds:
+
+- Four inputs/one direction: 872/963 ns and 890/1,033 ns (base/head),
+  giving +10.44%/+16.07% informational new-entry overhead.
+- 32 inputs/three directions: 11,627/13,228 ns and 11,723/13,312 ns,
+  giving +13.77%/+13.55% informational new-entry overhead.
+- Existing short segmented MC control: 1,132,506/1,104,775 ns and
+  1,147,847/1,138,188 ns, giving -2.45%/-0.84%. Both +4% rounds pass.
+
+Analytic checks, paired numeric/work/payload checks and executable hash checks
+pass. Numeric payload and tape/reserve metrics match the initial study.
+The repaired installed-only recorded-solve consumer passes 1/1 in the separate
+`bump-over-aad-allocation-install/` prefix. Overall: **no regression** for the
+affected old caller; new capability overhead remains informational.
