@@ -64,7 +64,7 @@ and handle admission, integer normalization, empty shapes, explicit empty
 history and separate zero caps. A registration test checks exact names, argument
 order/types and help. Actual Windows execution is not yet accepted locally.
 Two selected complete rate requests retain 80 calibrated process observations
-in 8.458444867 measured seconds, with a shortest batch of 95.489899 ms.
+in 7.658490101 measured seconds, with a shortest batch of 76.381149 ms.
 Independent analytical checks pass before/after each batch; all object,
 dependency and executable hashes are retained. Unequal owning costs remain
 informational. Exact-head CI/Codacy/review bodies and both final audits remain

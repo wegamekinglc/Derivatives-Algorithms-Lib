@@ -26,9 +26,14 @@ for comparable contracts. Exclude unchanged native tape, PDE, RNG, Dupire,
 MC/LSMC and Python timing matrices. Required exact-head CI remains applicable.
 Any expanded selection needs a recorded new failure or caller coverage gap.
 
+Review's Windows trade-gap admission repair changes the source/dependency
+provenance and the freshly compiled object identity. Repeat only these same
+two selected requests for the repair head; preserve the initial observations
+outside the checkout. No additional numerical or timing matrix is selected.
+
 ## Results and provenance
 
-Timed head: `b6f9d94db75d68af8f51bdeccd48421470a738c8`. Both isolated
+Timed repair head: `8b77dda7`. Both isolated
 worktrees use identical accepted public/core archives, Release `-O3 -DNDEBUG
 -fPIC`, diagnostics/profiling OFF and one DAL worker. The core SHA-256 remains
 `967f5e721f0ba67354b66f8eb14d8be9c4f7e422463bc8c412864491ee06997c`.
@@ -40,16 +45,17 @@ the common Excel helper remain unchanged.
 
 | Quotes/trades | Repetitions, C++ / Excel | Round 1 minima, microseconds C++ / Excel | Round 2 minima, microseconds C++ / Excel | Relative cost, rounds 1 / 2 |
 |---------------|--------------------------|------------------------------------------|------------------------------------------|-----------------------------|
-| 1             | 106 / 105                | 922.06 / 909.43                          | 914.92 / 916.79                          | -1.37% / +0.20%             |
-| 8             | 36 / 35                  | 2829.70 / 2816.43                        | 2854.39 / 2838.59                        | -0.47% / -0.55%             |
+| 1             | 113 / 88                 | 859.79 / 868.22                          | 867.47 / 867.97                          | +0.98% / +0.06%             |
+| 8             | 36 / 39                  | 2676.94 / 2686.59                        | 2678.88 / 2693.18                        | +0.36% / +0.53%             |
 
 All 80 observations pass independent analytical PV, complete quote gradient,
 signed finite-step products, replayed points and work/payload counter checks
-before and after each timed batch. Batches total 8.458444867 seconds; the
-shortest is 95.489899 ms. Processes are pinned to CPU 0; the shared-host final
-load is 1.41/1.81/1.72. These deltas are informational costs of unequal owning
+before and after each timed batch. Batches total 7.658490101 seconds; the
+shortest is 76.381149 ms. Processes are pinned to CPU 0; the shared-host final
+load is 0.68/0.72/1.13. These deltas are informational costs of unequal owning
 interfaces, not a comparable-contract +4% regression verdict or an Excel-host,
-COM, UI or raw-export measurement. Zero old timing rows were repeated.
+COM, UI or raw-export measurement. The original two selected cases alone were
+repeated for this repair; zero unrelated native/Python/Dupire cases were repeated.
 
 Later documentation/evidence commits may reuse these costs only after source,
 dependency, archive, object and executable identity checks. Inspect actual

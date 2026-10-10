@@ -15,7 +15,8 @@ native calibration/closed-trade evaluators and the common Excel bump request.
 Twelve typed financial/interface cases, ten strict OFF/combined probes, the
 actual CMake binding boundary and 19 wrapper/help drift checks pass locally.
 Two selected complete rate costs retain 80 calibrated observations in
-8.458444867 measured seconds; unequal owning contracts are informational.
+7.658490101 measured seconds after the raw-admission repair; unequal owning
+contracts are informational. Only the original two selected cases were repeated.
 Four raw Windows cases and one registration case are authored; actual Windows
 runtime, exact-head CI/Codacy/reviews and publication remain pending. The active
 [review](../reviews/aad-excel-rate-curvature.md) controls those gates.
