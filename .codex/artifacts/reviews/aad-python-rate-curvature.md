@@ -4,6 +4,13 @@ Verdict: Approve locally; exact-head publication gates remain required.
 
 ## Findings
 
+The integration documentation audit found a stale statement that the native
+rate-trade entry had no Python projection. The methodology now links the new
+Python entry while accurately keeping Excel unavailable. The implementation
+ledger also reconciles accepted native estimator validation and subdivides the
+remaining interface effort. These documentation corrections reuse unchanged
+native/binding/test/cost identities.
+
 No blocking correctness or design findings in the complete binding, registration,
 build integration, tests and active controls. Native numerical implementations,
 public headers, shared bump conversion and capability flags are unchanged.

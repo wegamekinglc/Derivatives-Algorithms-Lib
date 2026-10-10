@@ -870,7 +870,7 @@ incremental implementation turns and PRs; a green first stage does not complete 
 - [x] F04: quote-risk second order includes calibration curvature through full recalibration.
 - [x] F04: common-path, smoothing, Frozen/RetrainedBump, and nested-step semantics.
 - [x] F04: native mixed-mode prototype on smooth kernels and actual capability validation.
-- [ ] F04: estimator validation for applicable simulation/calibration cases before general promotion.
+- [x] F04: native policy/estimator validation accepted in #527; general higher-order capability remains disabled.
 
 F04 uses separate focused PRs in the following order. The table gives the rolling
 remaining estimates for second-order requests; they do not add to the mixed-mode or
@@ -1519,10 +1519,10 @@ overlapping acceptance work is included once in the integration allowance.
 | P04                     | Structural compression, safe fallback and selection accepted          | #511 merged; final 36/36 gates accepted  | 0                     |
 | P05                     | Core, fixed-path and Monte Carlo adapters accepted                    | #512/#513/#515 merged; 36/36 gates       | 0                     |
 | F04                     | Finite-step and opt-in smooth prototype accepted                     | #517–#528 merged                         | 0                     |
-| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains            | Open                                     | 6.6–10.4              |
+| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains            | Open                                     | 6.1–9.6               |
 
-Remaining total during Python rate-curvature publication: 52–80 hours, approximately
-7–11 eight-hour person-days, excluding CI queue time. Delivery contingency
+Remaining total during Python rate-curvature publication: 49–77 hours, approximately
+6–10 eight-hour person-days, excluding CI queue time. Delivery contingency
 is included in those same hour ranges; there is no extra undisclosed allowance. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
 effort estimate, not a guaranteed completion date. Re-estimate when review
@@ -1550,11 +1550,13 @@ numeric/native diagnostics are not counted again.
 | 8     | F04 second-order risk                | #517–#527 increments merged; finite-step mathematical and publication gates pass       | 0               |
 | 9     | F04 native mixed-mode prototype      | #528 merged; analytic/capability/cost and exact-head publication acceptance complete   | 0               |
 | 10    | Python Dupire curvature              | #529 merged; exact-head CI/reviews, scoped costs and merge proof accepted              | 0               |
-| 11a   | Python rate-trade curvature           | Installed implementation and scoped tests/costs pass; publication remains              | 4–6             |
-| 11b   | Remaining C++/Python interfaces       | Remaining structured-operator and second-order projections                            | 16–26           |
+| 11a   | Python rate-trade curvature           | PR #530: installed tests/costs pass; inspect exact-head CI/reviews and merge            | 1–3             |
+| 11b   | C++/Python segmented MC curvature     | Owning financial preparation, explicit segmentation and passive gradient/HVP surface  | 8–12            |
+| 11c   | C++/Python LSMC policy curvature      | Owning financial request and frozen/retrained policy estimator projection              | 6–10            |
+| 11d   | Structured-operator interface audit   | Close applicable passive financial projections; keep active recording C++-owned       | 2–4             |
 | 12    | Excel interfaces and exports         | Typed requests/results and actual Windows export acceptance                           | 16–24           |
 | 13    | Final integration and documentation  | Installed consumers, current docs and targeted cross-platform/performance acceptance   | 16–24           |
-| Total | Full remaining implementation        | All remaining plan requirements                                                        | 52–80           |
+| Total | Full remaining implementation        | All remaining plan requirements                                                        | 49–77           |
 
 
 The first delivery boundary is complete. Whole-PR review repaired the Windows

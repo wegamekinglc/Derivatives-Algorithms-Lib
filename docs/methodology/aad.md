@@ -2406,8 +2406,11 @@ global fixing reads. With M directions, the adapter performs exactly 1+2M
 calibrations and objective reverse sweeps. Raw quote units and the owning bump
 payload budget retain their existing meanings; the payload budget excludes
 portfolio preparation and solver storage. These are finite-step estimates
-through full recalibration, and native `higherOrder_` remains false. This entry
-is available in C++; Python and Excel bindings are not provided.
+through full recalibration, and native `higherOrder_` remains false. Python
+projects this financial entry through `RateCalibration_New` and
+`RateTradeQuoteCurvature`; see the
+[Python interface](../python/README.md#rate-quote-gamma-and-hessian-products).
+Excel bindings are not provided.
 
 ### Common-path C++ Monte Carlo quote curvature
 
