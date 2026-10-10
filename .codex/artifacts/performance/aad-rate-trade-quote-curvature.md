@@ -107,7 +107,7 @@ count nor the sampling gates were expanded.
 
 ## Expired-XCCY review repair
 
-The objective now validates XCCY position/market terms and finite contract spread
+The objective now validates XCCY position/market terms and finite spread/notionals
 before an expired trade can take its zero-PV path. Native live-price validation
 is extracted for reuse while standalone expiry behavior is preserved. This
 replaces the core pricing object; rebuild the selected head binaries and compare

@@ -1939,6 +1939,13 @@ namespace Dal {
             return weights.empty() ? Vector_<>(trades, 1.0) : weights;
         }
 
+        void ValidateRateObjectiveXccy(const XccyTradeTerms_& terms, const RatePricingMarket_& market) {
+            ValidateXccyPosition(terms);
+            (void)ValidateXccyTradeMarket(terms, market);
+            REQUIRE(std::isfinite(terms.contractSpread_), "XCCY contract spread must be finite");
+            REQUIRE(std::isfinite(terms.config_.domesticNotional_) && std::isfinite(terms.config_.foreignNotional_), "XCCY notionals must be finite");
+        }
+
         void PrepareRateObjectiveGeometry(RateTradeObjectiveData_* data) {
             data->cashflows_.reserve(data->trades_.size());
             for (size_t row = 0; row < data->trades_.size(); ++row) {
@@ -1946,9 +1953,7 @@ namespace Dal {
                 try {
                     data->cashflows_.emplace_back(trade);
                     if (const auto* terms = std::get_if<XccyTradeTerms_>(&trade.terms_)) {
-                        ValidateXccyPosition(*terms);
-                        (void)ValidateXccyTradeMarket(*terms, data->market_);
-                        REQUIRE(std::isfinite(terms->contractSpread_), "XCCY contract spread must be finite");
+                        ValidateRateObjectiveXccy(*terms, data->market_);
                         XccyNodeSensitivityHoist_ hoist;
                         hoist.expired_ = trade.maturityDate_ < data->market_.valuationTime_.Date();
                         hoist.plan_ = BuildXccyCashflowPlan(trade.startDate_, trade.maturityDate_, terms->config_);

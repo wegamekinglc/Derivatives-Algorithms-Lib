@@ -567,7 +567,10 @@ TEST(RateQuoteCurvatureTest, TestTradeExpiredXccyTermsValidateBeforeZeroPv) {
     for (double product : valid.Curvature().HessianProducts())
         ASSERT_EQ(product, 0.0);
     const std::vector<std::function<void(Dal::XccyTradeTerms_&)>> mutations = {
-        [](auto& terms) { terms.positionCount_ = 0.0; }, [](auto& terms) { terms.contractSpread_ = std::numeric_limits<double>::quiet_NaN(); },
+        [](auto& terms) { terms.positionCount_ = 0.0; },
+        [](auto& terms) { terms.contractSpread_ = std::numeric_limits<double>::quiet_NaN(); },
+        [](auto& terms) { terms.config_.domesticNotional_ = std::numeric_limits<double>::quiet_NaN(); },
+        [](auto& terms) { terms.config_.foreignNotional_ = std::numeric_limits<double>::infinity(); },
         [](auto& terms) { terms.spreadOnForeignLeg_ = !terms.config_.convention_.spreadOnForeignLeg_; },
         [](auto& terms) { terms.config_.pair_ = Dal::CurrencyPair_(Dal::Ccy_("USD"), Dal::Ccy_("GBP")); }};
     for (double weight : {0.0, 1.0}) {

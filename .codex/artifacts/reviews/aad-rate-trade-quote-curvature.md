@@ -49,10 +49,10 @@ consumer executable are rebuilt.
 
 The first remote Codex review identified expired XCCY rows skipping spread and
 market admission before the zero-PV path. A failing regression now covers invalid
-position count, non-finite spread, spread-leg disagreement and market currency
+position count, non-finite spread/notionals, spread-leg disagreement and market currency
 mismatch for both zero/unit weights, including duplicate IDs and row context.
 The objective capture unconditionally calls extracted native position/market
-validators and admits the contract spread before preparing geometry. Existing
+validators and admits finite contract spread/notionals before preparing geometry. Existing
 standalone pricing keeps its original expiry behavior. Valid expired rows still
 return zero value, gradient and Hessian products without requiring paid history.
 The 34 affected public/core cases and four affected strict probes pass; the 24
