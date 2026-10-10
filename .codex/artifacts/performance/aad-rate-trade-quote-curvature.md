@@ -41,11 +41,11 @@ excluded or identity-inapplicable evidence as a new pass.
 
 ## Measured evidence
 
-Implementation head: `aa09e4792a4f63cef78a250ce29e917e8888a848`.
+Implementation head: `98bdbb7ae178eebd072ba05a91177199459e9283`.
 The following documentation-only acceptance commit does not change any timed
 source or dependency. Baseline is the merge-base recorded above. Isolated
 sources/builds are under
-`/home/wegamekinglc/.cache/dal-aad-evidence-20261010/rate-trade-quote-curvature/performance/{base,head}-{source,build}`.
+`/home/wegamekinglc/.cache/dal-aad-evidence-20261010/rate-trade-quote-curvature/performance-codacy-repair/{base,head}-{source,build}`.
 Both configure with benchmarks explicitly ON. GCC 15.2.0, C++17, Release
 `-O3 -DNDEBUG -ffp-contract=fast`, native AAD, native architecture OFF,
 diagnostics OFF and one thread are identical on an i9-13900HX shared host.
@@ -55,15 +55,15 @@ Each row uses two rounds of ten interleaved process pairs, alternating first
 side. Each process warms up once and times five complete calls. Round and
 combined reductions use minima; old callers retain the sustained +4% gate.
 All 200 outputs and checksums are retained. The sum of actual timed intervals
-is **1.078831179 seconds**, without multiplying by the five calls again.
+is **1.085133673 seconds**, without multiplying by the five calls again.
 
 | Case                        | Reference min (ms / 5 calls) | Head min (ms / 5 calls) | Combined delta | Round 1 | Round 2 | Verdict       |
 |-----------------------------|------------------------------|-------------------------|----------------|---------|---------|---------------|
-| Six-family weighted request | 2.868891                     | 2.865982                | -0.10%         | -0.10%  | -1.74%  | Informational |
-| Staged XCCY request         | 5.651953                     | 5.659694                | +0.14%         | -0.28%  | +0.14%  | Informational |
-| Layered joint XCCY request  | 15.137781                    | 15.122638               | -0.10%         | -0.27%  | +0.36%  | Informational |
-| Existing generic curvature  | 1.741674                     | 1.732747                | -0.51%         | +1.38%  | -1.50%  | No regression |
-| Existing 32-trade Jacobian  | 0.275930                     | 0.276776                | +0.31%         | -0.13%  | +3.53%  | No regression |
+| Six-family weighted request | 2.867218                     | 2.878100                | +0.38%         | +0.05%  | +1.08%  | Informational |
+| Staged XCCY request         | 5.675299                     | 5.721689                | +0.82%         | +0.79%  | +0.86%  | Informational |
+| Layered joint XCCY request  | 14.957258                    | 15.057133               | +0.67%         | +1.26%  | +0.67%  | Informational |
+| Existing generic curvature  | 1.730382                     | 1.761690                | +1.81%         | +1.81%  | +0.33%  | No regression |
+| Existing 32-trade Jacobian  | 0.274631                     | 0.276275                | +0.60%         | -0.28%  | +0.66%  | No regression |
 
 The first three references are explicit native objective capture plus the
 existing recalibrated curvature driver, linked to the same head libraries.
@@ -97,7 +97,10 @@ dispatcher. Preparation now uses a shared typed visitor with small family
 overloads, and the dispatcher delegates to focused financial/generic/Jacobian
 runners. This changes test/harness preparation only; production archives remain
 identical. The 16 affected public tests and two affected strict probes pass.
-Before publication, rebuild all selected harness modes, compare executable
-identities against the original evidence and repeat only comparisons whose
-identities changed. Retain both evidence directories and record the selection
-before any repeat samples; the five-case scope and sampling gates stay fixed.
+All selected modes were rebuilt. Both binaries in each of the five comparisons
+changed identity, so all five originally selected comparisons were repeated.
+`repeat-scope.json` records that decision before sampling. All 200 new outputs
+pass; production archive hashes remain identical. The first evidence set remains
+under `performance/` (1.078831179 measured seconds); accepted repaired evidence
+is under `performance-codacy-repair/` (1.085133673 seconds). Neither the case
+count nor the sampling gates were expanded.

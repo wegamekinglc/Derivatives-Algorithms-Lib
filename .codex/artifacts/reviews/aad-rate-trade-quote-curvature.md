@@ -52,7 +52,9 @@ findings. Shared preparation now uses typed family overloads; the performance
 dispatcher uses focused runners. Local Lizard finds no function over the
 configured limit of eight in the three affected files. Sixteen affected public
 tests and their two strict probes pass; production archive identities are
-unchanged. Fresh cost-binary identity analysis precedes scoped repeat sampling.
+unchanged. Fresh identity analysis selected all five original cost comparisons;
+200 new observations pass in 1.0851 seconds of measured work. No extra
+performance cases or unrelated functional suites were added.
 
 Five scoped cost comparisons pass with 200 observations and matching checksums;
 existing-call round deltas satisfy the sustained 4% gate. Inspect every full remote review
