@@ -41,11 +41,11 @@ excluded or identity-inapplicable evidence as a new pass.
 
 ## Measured evidence
 
-Implementation head: `98bdbb7ae178eebd072ba05a91177199459e9283`.
+Implementation head: `56b613094fafa8a9c9ba88c2ff6173dfc3f7e275`.
 The following documentation-only acceptance commit does not change any timed
 source or dependency. Baseline is the merge-base recorded above. Isolated
 sources/builds are under
-`/home/wegamekinglc/.cache/dal-aad-evidence-20261010/rate-trade-quote-curvature/performance-codacy-repair/{base,head}-{source,build}`.
+`/home/wegamekinglc/.cache/dal-aad-evidence-20261010/rate-trade-quote-curvature/performance-review-repair/{base,head}-{source,build}`.
 Both configure with benchmarks explicitly ON. GCC 15.2.0, C++17, Release
 `-O3 -DNDEBUG -ffp-contract=fast`, native AAD, native architecture OFF,
 diagnostics OFF and one thread are identical on an i9-13900HX shared host.
@@ -55,15 +55,15 @@ Each row uses two rounds of ten interleaved process pairs, alternating first
 side. Each process warms up once and times five complete calls. Round and
 combined reductions use minima; old callers retain the sustained +4% gate.
 All 200 outputs and checksums are retained. The sum of actual timed intervals
-is **1.085133673 seconds**, without multiplying by the five calls again.
+is **1.121030294 seconds**, without multiplying by the five calls again.
 
 | Case                        | Reference min (ms / 5 calls) | Head min (ms / 5 calls) | Combined delta | Round 1 | Round 2 | Verdict       |
 |-----------------------------|------------------------------|-------------------------|----------------|---------|---------|---------------|
-| Six-family weighted request | 2.867218                     | 2.878100                | +0.38%         | +0.05%  | +1.08%  | Informational |
-| Staged XCCY request         | 5.675299                     | 5.721689                | +0.82%         | +0.79%  | +0.86%  | Informational |
-| Layered joint XCCY request  | 14.957258                    | 15.057133               | +0.67%         | +1.26%  | +0.67%  | Informational |
-| Existing generic curvature  | 1.730382                     | 1.761690                | +1.81%         | +1.81%  | +0.33%  | No regression |
-| Existing 32-trade Jacobian  | 0.274631                     | 0.276275                | +0.60%         | -0.28%  | +0.66%  | No regression |
+| Six-family weighted request | 2.914803                     | 2.893404                | -0.73%         | -1.03%  | -0.73%  | Informational |
+| Staged XCCY request         | 5.738569                     | 5.865266                | +2.21%         | +2.80%  | -0.55%  | Informational |
+| Layered joint XCCY request  | 16.252575                    | 16.013508               | -1.47%         | -0.25%  | -1.60%  | Informational |
+| Existing generic curvature  | 1.786222                     | 1.816999                | +1.72%         | +1.72%  | +2.27%  | No regression |
+| Existing 32-trade Jacobian  | 0.275211                     | 0.276402                | +0.43%         | +0.43%  | -2.67%  | No regression |
 
 The first three references are explicit native objective capture plus the
 existing recalibrated curvature driver, linked to the same head libraries.
@@ -115,3 +115,5 @@ their identities before repeating affected comparisons. Retain unchanged
 baseline executables with source/configuration/library and binary-hash proof.
 The five selected callers remain the complete acceptance scope; no full benchmark
 matrix is added for this review repair.
+
+Repaired implementation `56b613094fafa8a9c9ba88c2ff6173dfc3f7e275` passes all five original comparisons with 200 fresh observations and 1.121030294 seconds of measured work. Accepted baseline binaries are retained byte-for-byte with complete object/dependency proof; all affected head binaries are rebuilt. The final consumer passes 1/1. Raw outputs and the pre-sampling identity decision remain in `performance-review-repair/`.

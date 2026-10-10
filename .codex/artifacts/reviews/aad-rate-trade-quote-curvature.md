@@ -57,8 +57,10 @@ standalone pricing keeps its original expiry behavior. Valid expired rows still
 return zero value, gradient and Hessian products without requiring paid history.
 The 34 affected public/core cases and four affected strict probes pass; the 24
 generic quote-objective cases use unchanged calibration/driver paths and retain
-accepted evidence. Rebuild the installed consumer and selected cost binaries
-before current-head publication.
+accepted evidence. The rebuilt installed consumer passes 1/1; five selected
+cost comparisons pass with 200 fresh observations and 1.1210 measured seconds.
+Accepted baseline binaries retain complete dependency and executable identity
+proof. No additional performance cases were introduced.
 
 The initial remote Codacy report identified three test/harness complexity
 findings. Shared preparation now uses typed family overloads; the performance
