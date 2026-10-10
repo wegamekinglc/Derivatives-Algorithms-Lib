@@ -13,6 +13,7 @@ Python bindings for the Derivatives Algorithms Library (DAL) — a high-performa
 - **Rate cashflow pricing** — typed planning, batch PV, and AAD node sensitivities for deposit, FRA, future, OIS, IRS, basis-swap, and cross-currency trades
 - **Rate quote curvature** — immutable calibration snapshots and weighted native portfolios with recalibrated quote gradients and finite-step Hessian products; see [the interface](../docs/python/README.md#rate-quote-gamma-and-hessian-products)
 - **Segmented Black–Scholes risk** — owning script preparation, explicit path/checkpoint budgets and common-path mean gradients/Hessian products; see [the interface](../docs/python/README.md#segmented-blackscholes-monte-carlo-risk)
+- **LSMC policy curvature** — owning preparation and retained policy metadata distinguish frozen-policy HVPs from differences of the retrained gradient estimator; see [the interface](../docs/python/README.md#native-lsmc-policy-curvature)
 - **Type-safe wrappers** for `Date_`, `Matrix_`, `Cell_`, and vector types
 
 ## Prerequisites

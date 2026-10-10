@@ -2,10 +2,12 @@
 // Created by Codex on 2026/9/15.
 //
 
+#include <cmath>
 #include <iostream>
 #include <type_traits>
 
 #include <dal-public/src/global.hpp>
+#include <dal-public/src/lsmccurvature.hpp>
 #include <dal-public/src/models.hpp>
 #include <dal-public/src/montecarlocurvature.hpp>
 #include <dal-public/src/script.hpp>
@@ -109,5 +111,14 @@ int main() {
     REQUIRE(curvature.Curvature().HessianProducts()(0, 0) == 0, "installed segmented curvature failed");
     REQUIRE(curvature.Plan().Valuation().evaluationDate_ == valuation.evaluationDate_, "installed preparation ownership failed");
     REQUIRE(dates->reads_ == 0 && dates->writes_ == 0, "segmented explicit valuation accessed the global date");
-    std::cout << "Old and typed calls, segmented mean/curvature and immutable preparation pass; date-read contracts retained\n";
+    auto lsmcSettings = DefaultRiskMonteCarloSettings();
+    lsmcSettings.lsmcTrainingPaths_ = 32;
+    const auto exercise = NewScriptProduct("lsmc", {Cell_(Date_(2027, 4, 10))}, {"EXERCISE 100"});
+    const auto lsmc = ValueByBlackScholesLsmcWithCurvature(PlanBlackScholesLsmc(exercise, lsmcSettings, valuation), {100, 0.2, 0, 0}, 3, bumps);
+    REQUIRE(std::abs(lsmc.Curvature().Value() - 100) < 1e-10, "installed LSMC price failed");
+    REQUIRE(lsmc.Curvature().Gradient()[0] == 0 && lsmc.Curvature().HessianProducts()(0, 0) == 0,
+            "installed LSMC constant payoff derivatives failed");
+    REQUIRE(lsmc.Plan().Contract().Name() == "lsmc", "installed LSMC preparation ownership failed");
+    REQUIRE(dates->reads_ == 0 && dates->writes_ == 0, "LSMC explicit valuation accessed the global date");
+    std::cout << "Old and typed calls, segmented and LSMC curvature and immutable preparation pass; date-read contracts retained\n";
 }
