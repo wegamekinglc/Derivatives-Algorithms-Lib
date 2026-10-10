@@ -2299,6 +2299,6 @@ Merge verification and both audits are retained in session evidence
 `aad-selected-extraction-merged-01.json`; the merge used the accepted-head SHA guard.
 P03 remaining effort is zero. The owning normalized-LU numeric pullback in #490
 and subsequent F03 recording/event integration are accepted. Current remaining
-work is Excel and final integration: 28–42 developer-hours, as detailed in
+work is Excel and final integration: 16–26 developer-hours, as detailed in
 the current status table. The closed financial PDE projection is accepted in #534.
 Native algorithms are accepted; full interface/integration delivery is incomplete.
