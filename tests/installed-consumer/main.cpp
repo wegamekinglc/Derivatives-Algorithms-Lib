@@ -9,6 +9,7 @@
 #include <dal-public/src/calendar.hpp>
 #include <dal-public/src/dupirecurvature.hpp>
 #include <dal-public/src/dupirerisk.hpp>
+#include <dal-public/src/europeanpderisk.hpp>
 #include <dal-public/src/global.hpp>
 #include <dal-public/src/interp.hpp>
 #include <dal-public/src/lsmccurvature.hpp>
@@ -26,6 +27,17 @@
 #include <dal/utilities/numerics.hpp>
 
 namespace {
+    bool CheckOwningEuropeanPdeBoundary() {
+        Dal::EuropeanPdeRiskRequest_ request;
+        request.settings_.gridPoints_ = 9;
+        request.settings_.ordinarySteps_ = 8;
+        request.numericPayloadBudgetBytes_ = 688;
+        const auto result = Dal::EvaluateEuropeanPdeRisk(request);
+        return std::abs(result.prices_[0] - 4.153690693968586) < 1e-10 && std::abs(result.jacobian_(1, 2) - 0.8605082862555484) < 1e-9 &&
+               result.transposeBackwardErrors_.Rows() == 10 && result.execution_.numericPayloadBytes_ == 688 &&
+               result.method_ == "NativeAADFixedGridEuropeanTheta";
+    }
+
     bool CheckOwningLsmcBoundary() {
         Dal::Script::ScriptValuationSettings_ valuation;
         valuation.evaluationDate_ = Dal::Date_(2026, 10, 10);
@@ -215,6 +227,8 @@ namespace {
 } // namespace
 
 int main() {
+    if (!CheckOwningEuropeanPdeBoundary())
+        return 17;
     if (!CheckSmoothCurvature())
         return 1;
     Dal::InitGlobalData(1);

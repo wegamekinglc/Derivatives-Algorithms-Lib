@@ -75,6 +75,11 @@ calibration provenance, verifies bound component fingerprints, and aggregates
 portfolio price-per-decimal quote sensitivities plus DV01 without recalibration.
 See the [quote-space DV01 contract](../docs/public-api.md#c-quote-space-dv01).
 
+`dal-public/src/europeanpderisk.hpp` exposes the closed owning European PDE
+price/rate/volatility/strike-risk request. It shares the full native financial
+program with the example and reports detached per-step solve diagnostics.
+See [the financial contract](../docs/methodology/pde/aad.md#owning-financial-request).
+
 ## Build and Test
 
 The standard core profile builds and tests this component:

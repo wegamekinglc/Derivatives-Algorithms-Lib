@@ -18,6 +18,12 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-10
 
+- **European PDE financial interfaces** — public C++ and Python expose owning
+  fixed-grid call/put prices and rate/volatility/strike adjoints, sharing the
+  full terminal/coefficient/boundary chain with the native example and reporting
+  actual per-step solve accuracy and separate payload/recording budgets. See
+  [the financial interface](docs/methodology/pde/aad.md#owning-financial-request).
+
 - **LSMC financial interfaces** — public C++ and Python own closed Black–Scholes
   EXERCISE preparation and expose frozen/retrained policy curvature with complete
   passive policy metadata and separate inner/outer steps. See
