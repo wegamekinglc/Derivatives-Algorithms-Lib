@@ -25,6 +25,13 @@ measured time is 14.075691852 seconds. The passive/tree minima remain noisy:
 initial -8.55/+5.73%, then +6.39/+2.96%; this supports no sustained slowdown under
 the stated rule, without claiming a speedup or exact performance equivalence.
 
+Codacy's duplicate local cost-function name is resolved by renaming only the
+weighted closure/reference. Whole-file AST equality after normalizing those two
+names proves all operations and oracles unchanged. Only weighted/compiled repeats
+forty paired samples (0.980116822 measured seconds, +7.78/-1.46% round minima).
+Original samples remain; the full record contains 400 observations and
+15.055808674 measured seconds. All native/header/module identities are retained.
+
 The earlier binding-only review has no correctness, ownership or compatibility
 findings from accepted #528 (`2f1f6f9008b6a0d9e800e718b5eaca5a2d9d4019`).
 The full new binding, module/CMake registration, new tests, active specification,

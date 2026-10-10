@@ -152,3 +152,16 @@ The fresh installed module SHA-256 is
 Its 402 installed headers match source; the only changed header is simulation.
 Native acceptance passes 1,000 cancellation repetitions and all 15 batch cases;
 ten affected installed Python cases and six strict OFF/combined probes pass.
+
+Codacy identifies the two local cost-driver functions named `run` as a duplicate
+definition. Rename only the weighted closure and its returned reference. The
+timed main loop, numerical checks, operations, tolerances and binary identity are
+unchanged; normalized whole-file AST equality verifies the two-name substitution.
+Refresh only weighted/compiled with the same calibrated repeats and two ten-pair
+rounds. Keep all other observations with their original source identities.
+
+The weighted-only refresh completes forty observations in 0.980116822 measured
+seconds; round minima are +7.78/-1.46%, without a sustained +4% slowdown. Shared
+runner drift remains visible and does not support a speedup claim. The full
+repair record now retains 400 observations and 15.055808674 measured seconds.
+No native/binding build or correctness suite repeats for this name-only repair.

@@ -37,13 +37,13 @@ def operation(case):
             inputs=["constant:0", "constant:1"], report_factors=[0.5, 2],
         )
 
-        def run():
+        def run_weighted():
             result = dal.MonteCarlo_ValueWithWeightedRisk(
                 product, model, PATHS, request=request, valuation=valuation, simulation=simulation,
             )
             return [result.weighted_value, *result.jacobian.to_rows()[0]]
 
-        return run, [9.5, 5, 3]
+        return run_weighted, [9.5, 5, 3]
 
     def run():
         result = dal.MonteCarlo_ValueWithSettings(product, model, PATHS, valuation=valuation, simulation=simulation)
