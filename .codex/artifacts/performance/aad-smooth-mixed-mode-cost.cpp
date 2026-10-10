@@ -2,11 +2,13 @@
 // Created by Codex on 2026/10/10.
 //
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <iomanip>
 #include <iostream>
 #include <string>
+#include <utility>
 
 #if DAL_SMOOTH_COST_MODE
 #include <dal/math/aad/forwardoverreverse.hpp>

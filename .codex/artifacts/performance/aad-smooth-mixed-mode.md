@@ -93,3 +93,14 @@ are unchanged. Refreshed measured time is 2.970270252 seconds.
 Analytic error, actual work and capacity counts are unchanged. These refreshed
 observations supersede the initial cost summary for publication; the same
 informational interpretation and scope exclusions apply.
+
+## Review repair scope
+
+Copilot requests direct standard headers in the cost driver and new test. Its
+review body also identifies missing direction context when callback scalar
+values differ. Add the direct headers (including the native implementation's
+algorithm/exception uses) and a focused RED/GREEN assertion for direction one.
+Only the new module, its tests, installed consumer and the same two consuming
+cost cases are affected. Refresh those builds and paired cases with unchanged
+sampling; preserve both earlier measurement sets. No old native archive member
+or unrelated benchmark workload changes.

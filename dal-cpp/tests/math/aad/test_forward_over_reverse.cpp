@@ -5,10 +5,12 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <functional>
 #include <future>
 #include <limits>
 #include <new>
 #include <string>
+#include <utility>
 
 #include <dal/math/aad/bumpoveraad.hpp>
 #include <dal/math/aad/forwardoverreverse.hpp>
@@ -449,8 +451,12 @@ TEST(AADForwardOverReverseTest, TestChangedCallbackValueRejectsAndRecovers) {
     auto request = Direction({1.0});
     request.directions_ = Matrix_<>(2, 1, 1.0);
     int calls = 0;
-    ASSERT_THROW((void)EvaluateForwardOverReverse([&](RecordingScope_*, const auto& x) { return x[0] * x[0] + double(++calls); }, {2.0}, request),
-                 Exception_);
+    try {
+        (void)EvaluateForwardOverReverse([&](RecordingScope_*, const auto& x) { return x[0] * x[0] + double(++calls); }, {2.0}, request);
+        FAIL() << "Expected changed callback value rejection";
+    } catch (const Exception_& error) {
+        ASSERT_NE(std::string(error.what()).find("direction=1"), std::string::npos);
+    }
     ASSERT_EQ(calls, 2);
     ASSERT_DOUBLE_EQ(EvaluateForwardOverReverse(Squared, {3.0}, request).HessianProducts()(1, 0), 2.0);
 }

@@ -2,7 +2,9 @@
 // Created by Codex on 2026/10/10.
 //
 
+#include <algorithm>
 #include <cmath>
+#include <exception>
 #include <limits>
 #include <new>
 #include <string>
@@ -253,7 +255,8 @@ namespace Dal::AAD {
         Matrix_<> products(fixedRequest.directions_.Rows(), fixedRequest.directions_.Cols());
         for (int row = 0; row < fixedRequest.directions_.Rows(); ++row) {
             auto direction = row == 0 ? std::move(first) : EvaluateDirection(fixedFunction, fixedPoint, fixedRequest.directions_, row);
-            REQUIRE(direction.value_ == value, "ForwardOverReverse: callback value changed between directional recordings");
+            REQUIRE(direction.value_ == value,
+                    "ForwardOverReverse: direction=" + String_(std::to_string(row)) + "; callback value changed between directional recordings");
             directionalDerivatives[row] = direction.directionalDerivative_;
             for (int column = 0; column < products.Cols(); ++column)
                 products(row, column) = direction.product_[column];
