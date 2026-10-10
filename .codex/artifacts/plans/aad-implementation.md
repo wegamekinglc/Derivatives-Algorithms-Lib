@@ -338,7 +338,7 @@ All 61 new cases and 174 selected installed-package cases pass, with four strict
 OFF/combined checks and independent analytic/recalibration references. Two scoped
 Python entry costs retain eighty final observations (3.568148566 measured seconds)
 after repairing three Codacy cost-driver assertions; original samples remain.
-they are informational and expose admission overhead, with no speedup claim.
+They are informational and expose admission overhead, with no speedup claim.
 Current-head CI/Codacy, actual Python platform logs and final review remain.
 
 Native PDE recording is accepted in merged

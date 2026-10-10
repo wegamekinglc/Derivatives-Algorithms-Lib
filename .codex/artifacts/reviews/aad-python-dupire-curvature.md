@@ -51,6 +51,13 @@ eighty refreshed observations (3.568148566 measured seconds); original evidence
 is retained. Native and binding objects/tests are unchanged, so no correctness
 suite repeats. Maximum cost-function complexity remains six.
 
+Windows previously hid successful Python case output behind one CTest summary.
+Exclude `dal_python_pytest` from the ordinary CTest selector and execute that
+same test once with verbose output and a no-tests error. The selected test set
+is unchanged and the two selectors are disjoint; no test is added or repeated.
+Linux extended jobs already enable verbose CTest output. The explicit case-log
+gap justifies this narrow CI change, with fresh publication-head checks required.
+
 The original non-PIC static archive cannot link a Python shared extension; its
 failed link is retained. Fresh official PIC core/public builds and standalone
 extension installation resolve the configuration boundary. That necessary
