@@ -67,7 +67,7 @@ The [shared financial program](../../../dal-cpp/dal/math/aad/europeantheta.hpp) 
 the financial expressions while the example owns input registration, channel
 selection, reverse seeds and report extraction. It copies doubles before
 closing the scope. The repository support header preserves the example namespace
-through aliases. Public C++ and Python use the same production financial program
+through aliases. Public C++, Python and Excel use the same production financial program
 through the owning request below.
 
 ## Owning Financial Request
@@ -114,7 +114,8 @@ scope or nonempty legacy graph before changing its mode or adjoints. It owns a
 two-channel recording and restores the prior mode on success or failure.
 Mesh, spot node, expiry and dividend remain passive; these outputs do not
 provide Delta or Gamma. See the
-[Python interface](../../python/README.md#fixed-grid-european-pde-risk).
+[Python interface](../../python/README.md#fixed-grid-european-pde-risk) and
+[Excel worksheet handles and spills](../../excel/README.md#european-pde-risk).
 
 ## Derivative and Model Acceptance
 

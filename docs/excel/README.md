@@ -8,6 +8,67 @@ workflow, and [FIX settings](script-settings.md) for complete worksheet
 matrices and the executable workbook. The numerical methods have C++ examples
 in the [method chapters](../README.md#quantitative-methods).
 
+## European PDE risk
+
+Use immutable settings, request and result handles for a fixed-grid European
+call/put calculation. Place `grid_points`/9 and `ordinary_steps`/8 in the two
+columns of A1:B2, without a header:
+
+```text
+D1 = EUROPEANPDERISKSETTINGS.NEW("small", A1:B2)
+D2 = EUROPEANPDERISKREQUEST.NEW("request", 0.05, 0.20, 110, D1)
+D3 = EUROPEANPDERISKRESULT.NEW("risk", D2)
+F1 = EUROPEANPDERISKRESULT.GET.PRICES(D3)
+I1 = EUROPEANPDERISKRESULT.GET.JACOBIAN(D3)
+```
+
+Omitting settings selects 61 nodes, 120 ordinary time intervals, upper spot
+400, expiry 1 and decimal dividend yield 0.02. Optional `spot_index` is
+zero-based; when omitted, the upper/4 spot must be a mesh node. The rate and
+volatility arguments use decimal units. The strike must lie strictly inside
+the grid and away from a node, where its payoff derivative is not unique.
+The method uses four implicit half-steps followed by Crank–Nicolson; actual
+step count is `ordinary_steps + 2`. See the
+[financial PDE contract](../methodology/pde/aad.md#owning-financial-request).
+
+Settings keys match case-insensitively and may also specify `upper`,
+`spot_index`, `expiry`, `dividend_yield`, `forward_backward_error_limit`,
+`transpose_backward_error_limit`, `numeric_payload_budget_bytes` and
+`recording_capacity_budget_bytes`. Both error limits default to 1e-12 and must
+be finite in [0,1]. Numeric inputs reject text, booleans and Excel errors;
+integer fields require exact nonnegative integers. Unknown/repeated keys and
+malformed ranges fail. Blank optional index/budget cells mean unset; explicit
+zero is a limit. Blank required numeric settings fail. Settings and requests
+are passive; point-domain and budget admission occur when creating the result.
+The worksheet row ceiling reserves a header: at most 1,048,575 grid nodes and
+1,048,573 ordinary intervals.
+
+`EUROPEANPDERISKSETTINGS.GET.CONFIGURATION(settings)` returns all ten key/value
+rows. `EUROPEANPDERISKREQUEST.GET.SETTINGS(request)` and `GET.POINT(request)`
+copy the settings and three parameters. Result `GET.REQUEST` returns the
+actually resolved request. All result getters take only the result handle:
+
+| Getter              | Spill                                                 |
+|---------------------|-------------------------------------------------------|
+| GET.PRICES          | Payoff/Price header and Call/Put rows                 |
+| GET.JACOBIAN        | Six Payoff/Parameter/Unit/Derivative rows plus header |
+| GET.GRID            | NodeIndex/Spot header and zero-based nodes            |
+| GET.FORWARDERRORS   | Step/Call/Put header and chronological actual steps   |
+| GET.TRANSPOSEERRORS | Step plus four exact layer/seed labels                |
+| GET.EXECUTION       | Method and five native execution/resource counters    |
+
+Step ordinals are one-based. Derivatives are raw price per decimal rate,
+decimal volatility or strike-price unit; there is no per-bp scaling, Delta,
+Gamma or higher-order claim. Getters return detached copies without pricing.
+Handles do not support serialization. Result execution requires the XLL's
+native caller tape to be empty and free of an independent recording scope.
+
+The retained numeric payload is `8*(17+N+6*(ordinary_steps+2))` bytes.
+Its optional cap is separate from actual recording capacity. Neither cap
+counts worksheet cells, labels, handles or additional getter copies. Budget
+cells must be exact nonnegative integers at most 2^53-1 and representable as
+size_t; these limits do not bound the complete Excel heap.
+
 ## Script valuation
 
 ```text
