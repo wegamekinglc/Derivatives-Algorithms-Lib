@@ -1,0 +1,65 @@
+# LSMC curvature scoped cost acceptance
+
+Status: local correctness, strict compilation and installed consumption pass;
+paired cost measurement and publication acceptance pending.
+
+Baseline: merged #525, `f30c7bf4b74d183b071bedc0f51aea3e9864dea8`.
+
+## Changed callers and selected cases
+
+- `dal-cpp/dal/script/lsmc.cpp`: one existing complete Frozen native LSMC request
+  and one existing complete RetrainedBump request cover the modified replay and
+  optional-constant plumbing. These are baseline/head regression controls.
+- `dal-cpp/dal/script/lsmccurvature.hpp` and its LSMC composition: one complete
+  new Frozen curvature request and one new RetrainedBump request cover policy
+  lifetime and nested training. Report complete latency and checksums; neither
+  is a speedup claim over a previously existing adapter.
+
+Use one small two-exercise-date case with a script constant and one explicit
+spot direction. Four cases suffice: functional tests cover tree/compiled,
+training/validation/RQMC, path/domain and resource boundaries. No Cartesian
+matrix of path counts, seeds, model families or diagnostics is needed.
+
+## Sampling and exclusions
+
+Two rounds of ten interleaved process pairs per case, alternating first side,
+warmup, fixed thread/configuration, checksum agreement and sustained +4% old
+caller gate remain unchanged. Record immutable source, dependency, archive and
+executable identities and every raw sample. Retain unchanged accepted evidence;
+refresh only executable-identity-applicable pairs after repair.
+
+Rate curves, Dupire, PDE, solve, RNG primitive, tape primitive and segmented
+European MC implementations are unchanged. Their matrices are excluded. Required
+exact-head CI remains applicable. No measurement is claimed complete here.
+
+## Selected finite-estimator study
+
+The two-date signed put uses smoothing width 2, 256 training paths and a spot
+unit direction. Frozen products agree with independent passive Gaussian-path
+price differences at the same declared steps. Retrained products also agree
+with independently priced inner policy secants plus passive fixed-policy
+partials. Canonical fitted regressions are reused by these price references;
+the references do not read native gradients or differentiate the native kernel.
+
+| Policy        | Pricing paths | Outer step | Inner relative step | Replicates | Spot product |
+|---------------|---------------|------------|---------------------|------------|--------------|
+| Frozen        | 128           | 0.20       | 0.001               | 1          | 0.01595036   |
+| Frozen        | 128           | 0.10       | 0.001               | 1          | -0.01094456  |
+| Frozen        | 128           | 0.05       | 0.001               | 1          | 0.00427000   |
+| Frozen        | 512           | 0.10       | 0.001               | 1          | 0.02682045   |
+| RetrainedBump | 128           | 0.10       | 0.001               | 1          | -0.00355374  |
+| RetrainedBump | 128           | 0.10       | 0.0005              | 1          | -0.10302571  |
+| Frozen        | 512           | 0.10       | 0.001               | 2          | 0.00249757   |
+| Frozen        | 512           | 0.10       | 0.001               | 4          | 0.01665673   |
+
+For randomized rows, training seed is 17 and pricing seed is 29. The first
+three rows vary only the outer interval on fixed paths; the fourth varies
+sample count. The two retrained rows expose inner-policy-secant sensitivity.
+The final rows vary randomized replicate count with a common training policy.
+They are sensitivity observations, not an estimated confidence interval or
+proof of convergence. At these deliberately small sample sizes products even
+change sign. This rejects any blanket quadratic convergence or stable-Gamma
+claim for this piecewise-smoothed finite-path exercise estimator. Production
+users must select steps and sample sizes against their own error requirement.
+Expanding this diagnostic into a full parameter matrix would not strengthen
+the implementation's finite-estimator identity check.

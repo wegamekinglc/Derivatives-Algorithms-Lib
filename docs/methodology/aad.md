@@ -2141,6 +2141,52 @@ remain distinct. Smooth polynomial convergence does not establish convergence
 order for nonsmooth products, unbiased Gamma, calibration curvature or exercise
 policy responses. Native `higherOrder_` remains false.
 
+### Native LSMC policy curvature
+
+`Script::EvaluateBlackScholesLsmcCurvature` in `dal/script/lsmccurvature.hpp`
+takes an owning `shared_ptr<const PreparedScript_>`, a complete numeric point,
+positive pricing path count and explicit `AAD::BumpOverAADRequest_`. The point
+contains spot, volatility, rate and dividend yield, then the prepared script
+constants. The preparation must contain live EXERCISE events and enable native
+AAD. Tree and compiled programs use the preparation's smoothing and sampling.
+
+`Frozen` trains one baseline policy and retains its coefficients, basis,
+normalization and selected degrees for all outer points. Path states and script
+constants remain active, including continuation predictions and historical
+initialization. This is curvature conditional on that fitted policy. Repeating
+ordinary Frozen valuations at bumped points instead trains new policies and
+therefore estimates a different quantity.
+
+`RetrainedBump` trains at each outer point. Its first-order estimator combines
+the native partial derivative with the existing policy-only price secant. The
+inner step is `lsmcPolicyBumpRelative_ * max(1, abs(coordinate))` at that point;
+model lower-domain boundaries use the existing one-sided fallback and script
+constants use central inner bumps. The outer product differences that complete
+gradient estimator. Its method is `BumpOverRetrainedNativeLsmcPolicySecant`;
+Frozen uses `BumpOverFrozenNativeLsmcAAD`.
+
+All evaluations share absolute training, validation and pricing blocks, RNG,
+bridge, normal precision and RQMC seeds/replicate keys. Constants replay the
+sealed historical program before training and pricing. The result owns the
+base mean `Value()`, full `Gradient()`, `Point()`, `Directions()`, `Steps()`,
+`HessianProducts()`, immutable `Prepared()` and `BasePolicy()`. Execution records
+`1+2M` gradient requests and the training/validation/pricing/replicate counts.
+
+Numeric output budgets follow the generic owning-double formula and exclude
+retained preparation, policy, metadata and temporary work. Recording caps apply
+independently to each replay batch. Maximum batch tape and cleanup reserve are
+capacity measures, not aggregate concurrent memory or RSS. Nested recording is
+rejected; caller and worker adjoint modes are restored on every exit. Every
+outer model domain and inner policy-bump representation is checked before
+training. Failures identify the base or direction/sign.
+
+These are finite-step products of a finite-path estimator. Piecewise smoothing
+and hard policy fitting do not guarantee a globally C2 function, symmetric
+Hessian, unbiased Gamma or quadratic step convergence. Outer-step bias, inner
+policy-secant error and sampling dispersion must be assessed separately.
+Native `higherOrder_` remains false. Language bindings and other model families
+are outside this C++ entry.
+
 ### Recalibrated Dupire quote curvature
 
 `EvaluateDupireQuoteCurvature` in `dal/model/dupirecurvature.hpp` estimates

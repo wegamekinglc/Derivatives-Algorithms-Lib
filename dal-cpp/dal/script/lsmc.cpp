@@ -20,9 +20,13 @@
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 
+#include <dal/math/aad/detail/gradientbumps.hpp>
+#include <dal/math/aad/native.hpp>
+#include <dal/math/aad/tapecapacity.hpp>
 #include <dal/math/matrix/cholesky.hpp>
 #include <dal/math/matrix/squarematrix.hpp>
 #include <dal/script/lsmc.hpp>
+#include <dal/script/lsmccurvature.hpp>
 #include <dal/script/regressionqr.hpp>
 #include <dal/script/simulation.hpp>
 #include <dal/script/visitor/compiler.hpp>
@@ -1507,6 +1511,13 @@ namespace Dal::Script {
         struct AadReplayOutcome_ {
             double sum_ = 0.0;
             Vector_<> risks_;
+            size_t tapeBytes_ = 0;
+            size_t cleanupBytes_ = 0;
+        };
+
+        struct CurvatureReplay_ {
+            const Vector_<>& constants_;
+            size_t capacityLimit_;
         };
 
         //  Per-worker replay state: active model, regenerated paths, and the per-path
@@ -1663,8 +1674,21 @@ namespace Dal::Script {
                                  const ScriptCompiled_* fuzzyCompiled,
                                  const PathBatch_& batch,
                                  std::optional<uint64_t> scrambleKey,
-                                 AadReplayOutcome_* outcome) {
+                                 AadReplayOutcome_* outcome,
+                                 const CurvatureReplay_* curvature = nullptr) {
             AAD::ProfilingSpan_ initialize(AAD::AADProfilingPhase_::Value_::WORKER_INIT);
+            std::optional<AAD::NumResultsResetterForAAD_> mode;
+            std::optional<AAD::TapeCapacityBudget_> budget;
+            std::optional<AAD::TapeCapacityScope_> capacity;
+            if (curvature) {
+                AAD::RequireRecordingModeChangeAllowed();
+                auto* tape = AAD::Tape();
+                mode.emplace(tape, tape->multi_, tape->numAdj_);
+                tape->multi_ = false;
+                tape->numAdj_ = 1;
+                budget.emplace(curvature->capacityLimit_);
+                capacity.emplace(&*budget, true);
+            }
             AAD::RecordingScope_ recording;
             FuzzyReplayWorkspace_<AAD::Number_> ws = MakeFuzzyReplayWorkspace<AAD::Number_>(prepared, modelData, scan, batch, scrambleKey);
             //  Bind after the return-by-value, without relying on optional NRVO.
@@ -1674,6 +1698,9 @@ namespace Dal::Script {
             ws.sinks_.features_ = &ws.features_;
             if (fuzzyCompiled) {
                 EvalState_<AAD::Number_> state = prepared.BuildEvalState<AAD::Number_>(0, prepared.Simulation().smooth_);
+                if (curvature)
+                    for (size_t j = 0; j < curvature->constants_.size(); ++j)
+                        state.ConstVarVals()[j] = curvature->constants_[j];
                 initialize.Finish();
                 FuzzyReplayPaths(
                     prepared, scan, regressions, batch, ws, recording, state,
@@ -1683,10 +1710,18 @@ namespace Dal::Script {
                     outcome);
             } else {
                 FuzzyEvaluator_<AAD::Number_> evaluator = prepared.BuildFuzzyEvaluator<AAD::Number_>(0, prepared.Simulation().smooth_);
+                if (curvature)
+                    for (size_t j = 0; j < curvature->constants_.size(); ++j)
+                        evaluator.ConstVarVals()[j] = curvature->constants_[j];
                 initialize.Finish();
                 FuzzyReplayPaths(prepared, scan, regressions, batch, ws, recording, evaluator, TreeEvaluateFuzzyPath<AAD::Number_>, outcome);
             }
             recording.Close();
+            if (capacity) {
+                outcome->tapeBytes_ = budget->PeakCapacityBytes();
+                outcome->cleanupBytes_ = AAD::TapeCleanupCapacityBytes();
+                capacity->Close();
+            }
         }
 
         template <class E_, class F_>
@@ -1717,13 +1752,25 @@ namespace Dal::Script {
             return sum;
         }
 
+        template <class E_> void InitializeValueConstants(const PreparedScript_& prepared, E_* evaluator, const Vector_<>* constants) {
+            if (!constants)
+                return;
+            evaluator->ConstVarVals() = *constants;
+            PastEvaluator_<double> past(Vector_<>(prepared.Product().VarNames().size(), 0.0), *constants, prepared.Product().VectorCapacities());
+            past.SetObservations(&prepared.Plan());
+            prepared.Product().Visit(past, true, false);
+            evaluator->SetHistoricalSeed(past.VarVals());
+            evaluator->SetHistoricalVectorSeed(past.VectorVals());
+        }
+
         double RunValueFuzzyReplayBatch(const PreparedScript_& prepared,
                                         const Handle_<ModelData_>& modelData,
                                         const LsmcPlan_& scan,
                                         const Vector_<ExerciseRegression_>& regressions,
                                         const ScriptCompiled_* fuzzyCompiled,
                                         const PathBatch_& batch,
-                                        std::optional<uint64_t> scrambleKey) {
+                                        std::optional<uint64_t> scrambleKey,
+                                        const Vector_<>* constants = nullptr) {
             AAD::ProfilingSpan_ initialize(AAD::AADProfilingPhase_::Value_::WORKER_INIT);
             auto ws = MakeFuzzyReplayWorkspace<double>(prepared, modelData, scan, batch, scrambleKey);
             ws.sinks_.pays_ = &ws.pays_;
@@ -1732,6 +1779,7 @@ namespace Dal::Script {
             ws.sinks_.features_ = &ws.features_;
             if (fuzzyCompiled) {
                 auto state = prepared.BuildEvalState<double>(0, prepared.Simulation().smooth_);
+                InitializeValueConstants(prepared, &state, constants);
                 initialize.Finish();
                 return ValueFuzzyReplayPaths(prepared, scan, regressions, batch, ws, state,
                                              [fuzzyCompiled](FuzzyReplayWorkspace_<double>& w, const PreparedScript_& p, EvalState_<double>& s) {
@@ -1739,6 +1787,7 @@ namespace Dal::Script {
                                              });
             }
             auto evaluator = prepared.BuildFuzzyEvaluator<double>(0, prepared.Simulation().smooth_);
+            InitializeValueConstants(prepared, &evaluator, constants);
             initialize.Finish();
             return ValueFuzzyReplayPaths(prepared, scan, regressions, batch, ws, evaluator, TreeEvaluateFuzzyPath<double>);
         }
@@ -1750,7 +1799,8 @@ namespace Dal::Script {
                                 const ScriptCompiled_* fuzzyCompiled,
                                 const BatchPlan_& batchPlan,
                                 const PathCounts_& counts,
-                                size_t nPaths) {
+                                size_t nPaths,
+                                const Vector_<>* constants = nullptr) {
             AAD::ProfilingSpan_ replay(AAD::AADProfilingPhase_::Value_::LSM_REPLAY);
             double sum = 0.0;
             for (size_t replicate = 0; replicate < counts.replicates_; ++replicate) {
@@ -1765,7 +1815,7 @@ namespace Dal::Script {
                     tasks.Spawn([&, batch, batchIndex]() {
                         const PathBatch_ pricingBatch{counts.pricingOffset_ + replicate * nPaths + batch.firstPath_, batch.pathCount_};
                         batchSums[batchIndex] =
-                            RunValueFuzzyReplayBatch(prepared, modelData, scan, regressions, fuzzyCompiled, pricingBatch, pricingKey);
+                            RunValueFuzzyReplayBatch(prepared, modelData, scan, regressions, fuzzyCompiled, pricingBatch, pricingKey, constants);
                         return true;
                     });
                 }
@@ -1783,12 +1833,13 @@ namespace Dal::Script {
                                                        const PathCounts_& counts,
                                                        std::optional<uint64_t> trainingKey,
                                                        size_t parameter,
-                                                       double bump) {
+                                                       double bump,
+                                                       const Vector_<>* constants = nullptr) {
             auto model = baseModel.Clone();
             *model->Parameters()[parameter] += bump;
             model->Init(prepared.TimeLine(), prepared.DefLine());
             auto storage = MakeStorage(scan, counts.training_, prepared.Plan().RegressionFeatureCount(), !model->NumeraireIsDeterministic());
-            LsmcContext_ ctx{prepared, model.get(), scan, storage, hardCompiled, nullptr, trainingKey};
+            LsmcContext_ ctx{prepared, model.get(), scan, storage, hardCompiled, nullptr, trainingKey, constants};
             return TrainFrozenPolicy(ctx, counts).regressions_;
         }
 
@@ -1799,8 +1850,9 @@ namespace Dal::Script {
                                                                const PathCounts_& counts,
                                                                std::optional<uint64_t> trainingKey,
                                                                size_t constant,
-                                                               double bump) {
-            auto constants = prepared.Product().ConstVarValues();
+                                                               double bump,
+                                                               const Vector_<>* baseConstants = nullptr) {
+            auto constants = baseConstants ? *baseConstants : prepared.Product().ConstVarValues();
             constants[constant] += bump;
             auto storage = MakeStorage(scan, counts.training_, prepared.Plan().RegressionFeatureCount(), !model->NumeraireIsDeterministic());
             LsmcContext_ ctx{prepared, model, scan, storage, hardCompiled, nullptr, trainingKey, &constants};
@@ -1827,7 +1879,8 @@ namespace Dal::Script {
                                      const PathCounts_& counts,
                                      std::optional<uint64_t> trainingKey,
                                      size_t nPaths,
-                                     SimResults_* results) {
+                                     SimResults_* results,
+                                     const Vector_<>* baseConstants = nullptr) {
             std::optional<double> basePolicyValue;
             const double relative = prepared.Simulation().lsmcPolicyBumpRelative_;
             for (size_t j = 0; j < baseModel.NumParams(); ++j) {
@@ -1836,29 +1889,32 @@ namespace Dal::Script {
                 REQUIRE2(ValidModelPolicyBump(parameter, step), "InvalidLsmcPolicyBump: model parameter cannot be bumped", ScriptError_);
                 REQUIRE2(baseModel.ValidParameterValue(j, parameter + step), "InvalidLsmcPolicyBump: upper model parameter violates its constraint",
                          ScriptError_);
-                const auto upPolicy = TrainBumpedPolicy(prepared, baseModel, scan, hardCompiled, counts, trainingKey, j, step);
-                const double up = ValueFuzzyPolicy(prepared, modelData, scan, upPolicy, fuzzyCompiled, batchPlan, counts, nPaths);
+                const auto upPolicy = TrainBumpedPolicy(prepared, baseModel, scan, hardCompiled, counts, trainingKey, j, step, baseConstants);
+                const double up = ValueFuzzyPolicy(prepared, modelData, scan, upPolicy, fuzzyCompiled, batchPlan, counts, nPaths, baseConstants);
                 double down;
                 double denominator = 2.0 * step;
                 if (!baseModel.ValidParameterValue(j, parameter - step)) {
                     if (!basePolicyValue)
-                        basePolicyValue = ValueFuzzyPolicy(prepared, modelData, scan, basePolicy, fuzzyCompiled, batchPlan, counts, nPaths);
+                        basePolicyValue =
+                            ValueFuzzyPolicy(prepared, modelData, scan, basePolicy, fuzzyCompiled, batchPlan, counts, nPaths, baseConstants);
                     down = *basePolicyValue;
                     denominator = step;
                 } else {
-                    const auto downPolicy = TrainBumpedPolicy(prepared, baseModel, scan, hardCompiled, counts, trainingKey, j, -step);
-                    down = ValueFuzzyPolicy(prepared, modelData, scan, downPolicy, fuzzyCompiled, batchPlan, counts, nPaths);
+                    const auto downPolicy = TrainBumpedPolicy(prepared, baseModel, scan, hardCompiled, counts, trainingKey, j, -step, baseConstants);
+                    down = ValueFuzzyPolicy(prepared, modelData, scan, downPolicy, fuzzyCompiled, batchPlan, counts, nPaths, baseConstants);
                 }
                 results->risks_[j] += (up - down) / denominator;
             }
-            const auto& constants = prepared.Product().ConstVarValues();
+            const auto& constants = baseConstants ? *baseConstants : prepared.Product().ConstVarValues();
             for (size_t k = 0; k < constants.size(); ++k) {
                 const double step = relative * std::max(1.0, std::abs(constants[k]));
                 REQUIRE2(ValidConstantPolicyBump(constants[k], step), "InvalidLsmcPolicyBump: script constant cannot be bumped", ScriptError_);
-                const auto upPolicy = TrainBumpedConstantPolicy(prepared, &baseModel, scan, hardCompiled, counts, trainingKey, k, step);
-                const auto downPolicy = TrainBumpedConstantPolicy(prepared, &baseModel, scan, hardCompiled, counts, trainingKey, k, -step);
-                const double up = ValueFuzzyPolicy(prepared, modelData, scan, upPolicy, fuzzyCompiled, batchPlan, counts, nPaths);
-                const double down = ValueFuzzyPolicy(prepared, modelData, scan, downPolicy, fuzzyCompiled, batchPlan, counts, nPaths);
+                const auto upPolicy =
+                    TrainBumpedConstantPolicy(prepared, &baseModel, scan, hardCompiled, counts, trainingKey, k, step, baseConstants);
+                const auto downPolicy =
+                    TrainBumpedConstantPolicy(prepared, &baseModel, scan, hardCompiled, counts, trainingKey, k, -step, baseConstants);
+                const double up = ValueFuzzyPolicy(prepared, modelData, scan, upPolicy, fuzzyCompiled, batchPlan, counts, nPaths, baseConstants);
+                const double down = ValueFuzzyPolicy(prepared, modelData, scan, downPolicy, fuzzyCompiled, batchPlan, counts, nPaths, baseConstants);
                 results->risks_[baseModel.NumParams() + k] += (up - down) / (2.0 * step);
             }
         }
@@ -1872,7 +1928,9 @@ namespace Dal::Script {
                                       size_t pricingOffset,
                                       std::optional<uint64_t> pricingKey,
                                       SimResults_* results,
-                                      Vector_<>* riskTotals) {
+                                      Vector_<>* riskTotals,
+                                      const CurvatureReplay_* curvature = nullptr,
+                                      LsmcCurvatureExecution_* execution = nullptr) {
             AAD::ProfilingSpan_ replay(AAD::AADProfilingPhase_::Value_::LSM_REPLAY);
             Vector_<AadReplayOutcome_> outcomes(batchPlan.BatchCount());
             for (auto& outcome : outcomes)
@@ -1883,7 +1941,8 @@ namespace Dal::Script {
                 const PathBatch_ batch = batchPlan.BatchAt(batchIndex);
                 tasks.Spawn([&, batch, batchIndex]() {
                     const PathBatch_ pricingBatch{pricingOffset + batch.firstPath_, batch.pathCount_};
-                    RunFuzzyReplayBatch(prepared, modelData, scan, regressions, fuzzyCompiled, pricingBatch, pricingKey, &outcomes[batchIndex]);
+                    RunFuzzyReplayBatch(prepared, modelData, scan, regressions, fuzzyCompiled, pricingBatch, pricingKey, &outcomes[batchIndex],
+                                        curvature);
                     return true;
                 });
             }
@@ -1898,8 +1957,13 @@ namespace Dal::Script {
                 return AAD::ProfilingMemoryStatistics_{{}, {}, resultArrays, {}};
             });
 #endif
-            for (const auto& outcome : outcomes)
+            for (const auto& outcome : outcomes) {
                 results->aggregated_ += outcome.sum_;
+                if (execution) {
+                    execution->maxBatchTapeBytes_ = std::max(execution->maxBatchTapeBytes_, outcome.tapeBytes_);
+                    execution->maxBatchCleanupReserveBytes_ = std::max(execution->maxBatchCleanupReserveBytes_, outcome.cleanupBytes_);
+                }
+            }
             for (size_t j = 0; j < results->risks_.size(); ++j)
                 for (const auto& outcome : outcomes)
                     (*riskTotals)[j] += outcome.risks_[j];
@@ -2005,5 +2069,145 @@ namespace Dal::Script {
             AddRetrainedPolicyRisks(prepared, modelData, *doubleModel, scan, trained.regressions_, hardCompiled ? &*hardCompiled : nullptr,
                                     fuzzyCompiled, batchPlan, counts, trainingKey, nPaths, &results);
         return results;
+    }
+    BlackScholesLsmcCurvatureResult_ EvaluateBlackScholesLsmcCurvature(std::shared_ptr<const PreparedScript_> prepared,
+                                                                       const Vector_<>& parameters,
+                                                                       size_t pathCount,
+                                                                       const AAD::BumpOverAADRequest_& bumps) {
+        namespace Bumps = AAD::GradientBumpsDetail;
+        AAD::RequireRecordingModeChangeAllowed();
+        REQUIRE2(prepared, "LsmcCurvature: prepared script must be present", ScriptError_);
+        REQUIRE2(!prepared->AllExpired() && prepared->Product().ContainsExercise(), "LsmcCurvature: live EXERCISE preparation required",
+                 ScriptError_);
+        prepared->RequireExecutable();
+        const auto& simulation = prepared->Simulation();
+        ValidateSimulationSettings(simulation);
+        REQUIRE2(simulation.enableAad_, "LsmcCurvature: native AAD preparation required", ScriptError_);
+        REQUIRE2(pathCount > 0, "LsmcCurvature: positive pricing path count required", ScriptError_);
+        Vector_<> fixedPoint = parameters;
+        AAD::BumpOverAADRequest_ fixedBumps = bumps;
+        REQUIRE2(fixedPoint.size() == 4 + prepared->Product().ConstVarValues().size(),
+                 "LsmcCurvature: expected spot/vol/rate/div followed by script constants", ScriptError_);
+        LsmcCurvatureExecution_ execution;
+        execution.numericPayloadBytes_ = Bumps::Validate(fixedPoint, fixedBumps);
+        execution.gradientEvaluations_ = Bumps::Sum(1, Bumps::Product(2, fixedBumps.steps_.size()));
+        execution.recordingCapacityBudgetBytes_ = fixedBumps.recordingCapacityBudgetBytes_;
+        const bool retrained = simulation.lsmcPolicyRiskMode_ == "RetrainedBump";
+        execution.method_ = retrained ? "BumpOverRetrainedNativeLsmcPolicySecant" : "BumpOverFrozenNativeLsmcAAD";
+        const auto makeModel = [&](const Vector_<>& point) {
+            auto model = std::make_unique<AAD::BlackScholes_<double>>(point[0], point[1], point[2], point[3]);
+            model->Allocate(prepared->TimeLine(), prepared->DefLine());
+            model->Init(prepared->TimeLine(), prepared->DefLine());
+            return model;
+        };
+        const auto validate = [&](const Vector_<>& point, const String_& context) {
+            try {
+                const auto model = makeModel(point);
+                if (retrained) {
+                    for (size_t j = 0; j < point.size(); ++j) {
+                        const double step = simulation.lsmcPolicyBumpRelative_ * std::max(1.0, std::abs(point[j]));
+                        REQUIRE2(j < 4 ? ValidModelPolicyBump(point[j], step) : ValidConstantPolicyBump(point[j], step),
+                                 "InvalidLsmcPolicyBump: coordinate cannot be bumped", ScriptError_);
+                        if (j < 4) {
+                            REQUIRE2(model->ValidParameterValue(j, point[j] + step), "InvalidLsmcPolicyBump: upper model domain", ScriptError_);
+                            for (double sign : {-1.0, 1.0}) {
+                                const double bumped = point[j] + sign * step;
+                                if (!model->ValidParameterValue(j, bumped))
+                                    continue;
+                                REQUIRE2(bumped != point[j], "InvalidLsmcPolicyBump: inner model step does not change coordinate", ScriptError_);
+                                auto inner = model->Clone();
+                                *inner->Parameters()[j] = bumped;
+                                inner->Init(prepared->TimeLine(), prepared->DefLine());
+                            }
+                        }
+                    }
+                }
+            } catch (const Exception_& error) {
+                THROW("LsmcCurvature: " + context + "; " + error.what());
+            }
+        };
+        validate(fixedPoint, "base");
+        for (int row = 0; row < fixedBumps.directions_.Rows(); ++row) {
+            const String_ context = Bumps::DirectionContext(row);
+            validate(Bumps::BumpedPoint(fixedPoint, fixedBumps, row, 1.0), context + "; plus");
+            validate(Bumps::BumpedPoint(fixedPoint, fixedBumps, row, -1.0), context + "; minus");
+        }
+        const auto scan = ScanEvents(prepared->Product().Events(), simulation.smooth_);
+        const auto counts = LsmcPathCounts(simulation, pathCount);
+        std::optional<ScriptCompiled_> hardCompiled;
+        if (simulation.compiled_.value_or(false))
+            hardCompiled.emplace(ScriptCompiled_::Build(prepared->Product().Events(), false, prepared->PlanHandle(), false, true));
+        const std::optional<uint64_t> trainingKey =
+            counts.replicates_ > 1 ? std::optional<uint64_t>(LsmcScrambleKey(false, simulation.lsmcTrainingSeed_.value_or(0))) : std::nullopt;
+        const auto train = [&](AAD::Model_<double>* model, const Vector_<>& constants, const String_& position) {
+            try {
+                auto storage = MakeStorage(scan, counts.training_, prepared->Plan().RegressionFeatureCount(), false);
+                LsmcContext_ context{*prepared, model, scan, storage, hardCompiled ? &*hardCompiled : nullptr, nullptr, trainingKey, &constants};
+                return TrainFrozenPolicy(context, counts).regressions_;
+            } catch (const Exception_& error) {
+                THROW("LsmcCurvature: " + position + "; " + error.what());
+            }
+        };
+        auto model = makeModel(fixedPoint);
+        const Vector_<> baseConstants(fixedPoint.begin() + 4, fixedPoint.end());
+        auto policy = train(model.get(), baseConstants, "base");
+        const BatchPlan_ batchPlan(pathCount, 1);
+        const ScriptCompiled_* fuzzyCompiled = simulation.compiled_.value_or(false) ? &prepared->CompiledProgram(true) : nullptr;
+        execution.trainingPaths_ = counts.training_;
+        execution.validationPaths_ = counts.validation_;
+        execution.pathsPerReplicate_ = pathCount;
+        execution.pricingReplicates_ = counts.replicates_;
+        auto* tape = AAD::Tape();
+        const AAD::NumResultsResetterForAAD_ mode(tape, tape->multi_, tape->numAdj_);
+        tape->multi_ = false;
+        tape->numAdj_ = 1;
+        struct Gradient_ {
+            SimResults_ result_;
+            [[nodiscard]] const Vector_<>& Gradient() const { return result_.risks_; }
+        };
+        auto evaluated = Bumps::Evaluate(
+            [&](const Vector_<>& point, const String_& context) {
+                try {
+                    const Handle_<ModelData_> data(new BSModelData_("", point[0], point[1], point[2], point[3]));
+                    auto currentModel = makeModel(point);
+                    const Vector_<> constants(point.begin() + 4, point.end());
+                    std::optional<Vector_<ExerciseRegression_>> retrainedPolicy;
+                    if (retrained && context != "base")
+                        retrainedPolicy.emplace(train(currentModel.get(), constants, context));
+                    const auto& currentPolicy = retrainedPolicy ? *retrainedPolicy : policy;
+                    const CurvatureReplay_ replay{constants, fixedBumps.recordingCapacityBudgetBytes_.value_or(std::numeric_limits<size_t>::max())};
+                    SimResults_ result(Vector::Join(model->ParameterLabels(), prepared->ConstVarNames()));
+                    Vector_<> totals(result.risks_.size(), 0.0);
+                    for (size_t replicate = 0; replicate < counts.replicates_; ++replicate) {
+                        const std::optional<uint64_t> key =
+                            counts.replicates_ > 1
+                                ? std::optional<uint64_t>(LsmcScrambleKey(true, simulation.lsmcPricingSeed_.value_or(0), replicate))
+                                : std::nullopt;
+                        AccumulateFuzzyReplicate(*prepared, data, scan, currentPolicy, fuzzyCompiled, batchPlan,
+                                                 counts.pricingOffset_ + replicate * pathCount, key, &result, &totals, &replay, &execution);
+                    }
+                    result.aggregated_ /= static_cast<double>(counts.replicates_);
+                    for (size_t j = 0; j < totals.size(); ++j)
+                        result.risks_[j] = totals[j] / static_cast<double>(counts.replicates_ * pathCount);
+                    if (retrained)
+                        AddRetrainedPolicyRisks(*prepared, data, *currentModel, scan, currentPolicy, hardCompiled ? &*hardCompiled : nullptr,
+                                                fuzzyCompiled, batchPlan, counts, trainingKey, pathCount, &result, &constants);
+                    REQUIRE2(std::isfinite(result.aggregated_), "LsmcCurvature: non-finite value", ScriptError_);
+                    for (double risk : result.risks_)
+                        REQUIRE2(std::isfinite(risk), "LsmcCurvature: non-finite gradient", ScriptError_);
+                    return Gradient_{std::move(result)};
+                } catch (const Exception_& error) {
+                    THROW("LsmcCurvature: " + context + "; " + error.what());
+                }
+            },
+            fixedPoint, fixedBumps);
+        return {evaluated.base_.result_.aggregated_ / pathCount,
+                std::move(evaluated.base_.result_.risks_),
+                std::move(fixedPoint),
+                std::move(fixedBumps),
+                std::move(evaluated.products_),
+                std::move(prepared),
+                std::move(policy),
+                execution};
     }
 } // namespace Dal::Script
