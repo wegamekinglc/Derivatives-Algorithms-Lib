@@ -314,19 +314,26 @@ entering the Black-Scholes adapter. Immutable controls remain available in the
 [review](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/138846cf8d8960548af8da96cf321a1a1badeccd/.codex/artifacts/reviews/aad-lsmc-curvature.md)
 and [complete cost evidence](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/138846cf8d8960548af8da96cf321a1a1badeccd/.codex/artifacts/performance/aad-lsmc-curvature-results.json).
 
-Native smooth mixed mode is the active increment, under its
-[specification](../specs/aad-smooth-mixed-mode.md),
-[API](../api-notes/aad-smooth-mixed-mode.md) and
-[critique](../critiques/aad-smooth-mixed-mode.md).
-It composes native forward directional arithmetic with scalar reverse, without
-an outer finite-difference step. Ordinary native higher-order and independent
-nesting remain disabled. Rectangular/approximate calibration semantics remain
-outside the accepted smooth square-system quote-curvature scope.
-The prototype now passes 21 new and three selected legacy tests, six strict
-OFF/combined probes, six capability compile probes and installed C++ consumption.
-Two scoped paired cost cases retain 80 final observations and 3.402351403 measured
-seconds in the [complete cost report](../performance/aad-smooth-mixed-mode.md).
-Publication remains; estimated effort is 6–12 developer-hours excluding CI wait.
+Native smooth mixed mode is accepted in merged
+[#528](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/528),
+at `2f1f6f90`. Two complete audits accept 35/35 exact-head checks, zero Codacy
+annotations and unresolved threads. All 21 new cases actually pass in fourteen
+diagnostic/platform profiles, with installed consumption in all four Windows
+modes. Tested and merged trees equal `1a24e0e7e2eb9597eed396bfd9aa7d7596bc87d6`.
+All raised Copilot findings are repaired; its subsequent review was refused for
+quota, so no current-head Copilot pass is claimed. Current-head Codex and local
+reviews are clear. The prototype has no outer difference step; ordinary native
+higher-order/nesting flags remain false. Immutable controls remain available in
+the [accepted specification](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/29c715bbf5a07d2c8e7ba0054f1f92fcb0ba9a70/.codex/artifacts/specs/aad-smooth-mixed-mode.md),
+[review](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/29c715bbf5a07d2c8e7ba0054f1f92fcb0ba9a70/.codex/artifacts/reviews/aad-smooth-mixed-mode.md)
+and [complete cost evidence](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/29c715bbf5a07d2c8e7ba0054f1f92fcb0ba9a70/.codex/artifacts/performance/aad-smooth-mixed-mode-results.json).
+
+Python Dupire quote curvature is the active binding increment, under its
+[specification](../specs/aad-python-dupire-curvature.md),
+[API](../api-notes/aad-python-dupire-curvature.md) and
+[critique](../critiques/aad-python-dupire-curvature.md).
+It projects the accepted financial finite-step C++ adapter. Native arithmetic,
+calibration, worker execution and the smooth prototype are unchanged.
 
 Native PDE recording is accepted in merged
 [#505](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/505),
@@ -838,7 +845,7 @@ incremental implementation turns and PRs; a green first stage does not complete 
 - [x] F04: specified Gamma, cross-Gamma, and Hessian-vector requests using bump-over-AAD.
 - [x] F04: quote-risk second order includes calibration curvature through full recalibration.
 - [x] F04: common-path, smoothing, Frozen/RetrainedBump, and nested-step semantics.
-- [ ] F04: native mixed-mode prototype on smooth kernels and actual capability validation.
+- [x] F04: native mixed-mode prototype on smooth kernels and actual capability validation.
 - [ ] F04: estimator validation for applicable simulation/calibration cases before general promotion.
 
 F04 uses separate focused PRs in the following order. The table gives the rolling
@@ -1487,11 +1494,11 @@ overlapping acceptance work is included once in the integration allowance.
 | F03                     | Solve/root/PDE operators and financial/grid acceptance complete       | #506 merged; final 36/36 gates accepted  | 0                     |
 | P04                     | Structural compression, safe fallback and selection accepted          | #511 merged; final 36/36 gates accepted  | 0                     |
 | P05                     | Core, fixed-path and Monte Carlo adapters accepted                    | #512/#513/#515 merged; 36/36 gates       | 0                     |
-| F04                     | Finite-step accepted; smooth prototype passes local correctness/costs | Publication remains                      | 0.75–1.5              |
+| F04                     | Finite-step and opt-in smooth prototype accepted                     | #517–#528 merged                         | 0                     |
 | Final integration/audit | Cross-platform/binding/docs/performance acceptance remains            | Open                                     | 7–11                  |
 
-Remaining total during F04 publication: 62–100 hours, approximately
-8–13 eight-hour person-days, excluding CI queue time. Delivery contingency
+Remaining total after #528: 56–88 hours, approximately
+7–11 eight-hour person-days, excluding CI queue time. Delivery contingency
 is included in those same hour ranges; there is no extra undisclosed allowance. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
 effort estimate, not a guaranteed completion date. Re-estimate when review
@@ -1517,9 +1524,9 @@ numeric/native diagnostics are not counted again.
 | 7b    | P05 financial adapter                | #513 merged; exact-head CI, review, costs, actual runtime and merge accepted           | 0               |
 | 7c    | P05 Monte Carlo acceptance           | #515 merged; 36/36 gates, fourteen actual runtime profiles and merge proof             | 0               |
 | 8     | F04 second-order risk                | #517–#527 increments merged; finite-step mathematical and publication gates pass       | 0               |
-| 9     | F04 native mixed-mode prototype      | Local implementation/analytic/capability/cost acceptance complete; publication remains | 6–12            |
+| 9     | F04 native mixed-mode prototype      | #528 merged; analytic/capability/cost and exact-head publication acceptance complete   | 0               |
 | 10    | Bindings and complete acceptance     | C++/Python/Excel, documentation, platform and performance gates                        | 56–88           |
-| Total | Full remaining implementation        | All remaining plan requirements                                                        | 62–100          |
+| Total | Full remaining implementation        | All remaining plan requirements                                                        | 56–88           |
 
 
 The first delivery boundary is complete. Whole-PR review repaired the Windows

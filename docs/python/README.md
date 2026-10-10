@@ -472,6 +472,56 @@ are read-only and detached. Copy/deepcopy retain owning passive values. Planning
 and execution release the GIL after copying typed inputs. See the
 [native automatic request boundaries](../methodology/aad.md#automatic-c-dupire-risk-requests).
 
+## Dupire quote Gamma and Hessian products
+
+`DupireScriptCurvaturePlan_New` plans finite-step differences of complete native
+quote gradients, recalibrating the surface at every perturbed quote point.
+`DupireScriptCurvatureResult_New(plan)` executes the sealed plan on common paths.
+Use an existing `DupireScriptRiskRequest_` to specify paths, valuation, simulation
+and any direct script-constant quote bindings:
+
+```python
+directions = dal.DoubleMatrix_(1, 6, 0.0)
+directions[0, 3] = 1.0
+bumps = dal.BumpOverAADRequest_(directions=directions, steps=[0.0002])
+request = dal.DupireScriptCurvatureRequest_(risk=risk_request, bumps=bumps)
+plan = dal.DupireScriptCurvaturePlan_New(
+    product, hybrid, calibration, "Z_LOCAL", request,
+)
+result = dal.DupireScriptCurvatureResult_New(plan)
+gamma = result.hessian_products[0, 3]
+gradient = result.gradient
+```
+
+Direction columns follow the complete raw strike-major decimal-vol spread axis,
+available as `result.input_axis`. Unit rows select Gamma/cross-Gamma; signed rows
+select Hessian-vector products. First-order input subsets and report factors
+affect `result.base.quote_risk` only; `gradient` and `hessian_products` retain
+the complete raw axis. Steps are finite, positive and explicit, one per direction
+row. All-zero direction rows reject. A `DoubleMatrix_(0, quote_count)` with
+`steps=[]` requests the base gradient without curvature rows.
+
+The bump constructor is keyword-only and copies a native `DoubleMatrix_` and a
+list/tuple of real steps. It excludes bool/enums and implicit matrix conversion.
+Optional `numeric_payload_budget_bytes` and `recording_capacity_budget_bytes`
+accept nonnegative size_t integers or `None`; zero remains an explicit cap.
+The Dupire planner rejects recording-cap requests because a caller-thread tape
+cap cannot constrain parallel worker tapes. The numeric cap covers the combined
+bump/base result payload described in the
+[native financial contract](../methodology/aad.md#common-path-c-monte-carlo-quote-curvature).
+External first-order direct seeds and exercise policies also reject.
+
+Requests, plans and results support copy/deepcopy. All container, matrix and
+nested getters return detached values. Plans expose `base_plan`, `point`,
+`directions`, `steps` and `numeric_payload_bytes`; results add `base`, `gradient`,
+`input_axis`, `hessian_products` and `execution`. Execution reports `method`,
+`quote_gradient_evaluations` (`1+2*direction_count`), `paths_per_evaluation` and
+`numeric_payload_bytes`. Planning freezes the evaluation date and fixing snapshot;
+native planning/execution release the GIL after owning typed Python inputs.
+The method is a finite-step estimator, with the native first-order smoothing and
+calibration stencil constraints. This entry does not select the smooth C++
+forward-over-reverse prototype.
+
 ## Matrix and local-volatility surface input
 
 `DoubleMatrix_` supports all of the following:
