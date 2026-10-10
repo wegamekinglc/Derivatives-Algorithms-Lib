@@ -6,6 +6,7 @@
 
 #include <algorithm>
 
+#include <dal/curve/calibration_internal.hpp>
 #include <dal/curve/curveparameterization.hpp>
 #include <dal/curve/xccyjointcalibration.hpp>
 #include <dal/curve/ycconst.hpp>
