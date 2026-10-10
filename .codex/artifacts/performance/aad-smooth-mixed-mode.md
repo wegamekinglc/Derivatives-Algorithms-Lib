@@ -78,3 +78,18 @@ Rebuild both consuming cost executables and refresh only the same two cases
 under the unchanged calibrated paired-sampling contract. Preserve the initial
 raw measurements and identities. Core/test/installed executables are unchanged;
 their accepted evidence remains applicable and no full matrix is justified.
+
+The repaired driver at `158af75a` is freshly compiled in both isolated builds.
+The `complexity_repair` section of the raw evidence retains all 80 refreshed
+samples, alongside the original 80. Calibration remains 65,536/16,384 repeats;
+sampling, warmup, fixed affinity, independent checks and two best-of-ten rounds
+are unchanged. Refreshed measured time is 2.970270252 seconds.
+
+| Case                 | Bump request, round 1/2 (microseconds) | Smooth AD request, round 1/2 (microseconds) | Delta, round 1/2  |
+|----------------------|----------------------------------------|---------------------------------------------|-------------------|
+| Quartic, N=1/M=1     | 0.5793 / 0.5862                        | 0.4388 / 0.4106                             | -24.25% / -29.96% |
+| European BS, N=2/M=3 | 2.1107 / 2.0704                        | 1.9749 / 1.9003                             | -6.43% / -8.22%   |
+
+Analytic error, actual work and capacity counts are unchanged. These refreshed
+observations supersede the initial cost summary for publication; the same
+informational interpretation and scope exclusions apply.

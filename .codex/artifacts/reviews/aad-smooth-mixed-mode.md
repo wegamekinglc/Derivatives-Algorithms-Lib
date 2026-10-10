@@ -38,6 +38,9 @@ nonsmooth differentiation, opaque operators or financial/binding integration.
 Repeated scalar equality does not establish callback purity. Floating-point
 range failures remain explicit. The two scoped paired cost cases pass analytic
 checks, retain all 80 samples and leave ordinary library members unchanged.
+Codacy's cost-main complexity finding is repaired by extracting request
+construction. Both consuming executables and the same two paired cases are
+refreshed, with all original and replacement samples retained.
 
 ## Verdict
 
