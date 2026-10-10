@@ -18,6 +18,10 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-10
 
+- **Segmented Monte Carlo financial interfaces** — public C++ and Python own
+  frozen Black–Scholes script preparation and expose segmented mean gradients
+  and common-path finite-step Hessian products with explicit sampling and memory
+  budgets. See [the Python interface](docs/python/README.md#segmented-blackscholes-monte-carlo-risk).
 - **Python rate quote curvature** — immutable four-family calibration snapshots
   and weighted native rate portfolios expose recalibrated raw quote gradients,
   Gamma/cross-Gamma and Hessian products with explicit steps and budgets. See

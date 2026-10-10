@@ -348,16 +348,25 @@ Completed controls remain in immutable
 [review](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/334447e10121ec73163592bbade86825c76867c5/.codex/artifacts/reviews/aad-python-dupire-curvature.md)
 and [cost report](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/334447e10121ec73163592bbade86825c76867c5/.codex/artifacts/performance/aad-python-dupire-curvature.md).
 
-Python rate-trade quote curvature is the active, separate binding increment,
-under its [specification](../specs/aad-python-rate-curvature.md),
-[API](../api-notes/aad-python-rate-curvature.md) and
-[critique](../critiques/aad-python-rate-curvature.md). The first installed run
-passes 55 new and nine affected existing cases, plus four strict OFF/combined
-checks. Native libraries/headers and all 18 old binding implementation objects
-retain accepted hashes; the registration object is rebuilt. Two selected
-complete boundary costs retain 80 observations in 3.203935253 measured seconds.
-These compare different admission/ownership contracts and remain informational.
-Fresh exact-head CI/Codacy, complete reviews and guarded merge remain required.
+Owning C++/Python segmented Black–Scholes Monte Carlo risk is the active,
+separate increment, under its
+[specification](../specs/aad-python-monte-carlo-curvature.md),
+[API](../api-notes/aad-python-monte-carlo-curvature.md) and
+[critique](../critiques/aad-python-monte-carlo-curvature.md). Focused C++ and
+Python baseline tests first fail for the missing public header/factory. The
+new boundary delegates to the accepted native core and retains sealed contract
+and observation ownership. Current local runs pass six new C++ cases, 54 new
+and six affected existing Python cases, fourteen strict probes, the public
+script API consumer and all three installed consumers. CI exposes missing
+parser registration hidden by the original local launcher; explicit per-case
+registration passes all six tests in independent fresh processes. Codacy's
+driver-complexity repair extracts the unchanged timed loop and repeats only
+the two affected boundary costs: the final run retains 80 samples in
+10.225689881 measured seconds. The prior shared-metadata run retains 80 samples
+in 7.151321984 seconds as earlier evidence; the initial 80-sample run takes
+7.322207429 seconds. All three runs total 240 samples in 24.699219294 measured
+seconds. Native algorithms and old public objects remain unchanged. Exact-head
+CI/Codacy, complete reviews and guarded merge remain required.
 
 Native PDE recording is accepted in merged
 [#505](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/505),
@@ -1528,6 +1537,25 @@ native algorithms and independent mathematical acceptance already exist. This is
 effort estimate, not a guaranteed completion date. Re-estimate when review
 findings change the scope.
 
+Python rate-trade quote curvature is accepted in merged
+[#530](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/530),
+at `1aaa711e1d1b3477b3c21c9c4a13d1cbc8f5e271`. Both final audits accept
+35/35 exact-head checks, zero Codacy annotations and unresolved threads. Each
+of eight extended/MSVC profiles actually passes all 55 new Python cases; all
+four Windows installed consumers pass 3/3. The accepted head `5548a88c` and
+squash merge share tree `f6764c5fe4cc5c772425b809773f8dc2f5faea8b`.
+Local validation passes 55 new and nine affected existing Python cases, four
+strict probes and source/header/archive identity checks. Two new informational
+cost cases retain 80 observations in 3.203935253 measured seconds. Unequal
+manual/native ownership contracts preclude a speedup or regression claim.
+Current-head Codex and local reviews are clear; no current-head Copilot pass
+is claimed. Completed controls remain in immutable
+[specification](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/5548a88cc0a42c23c1bb1706b9b13fcce8cbe8bd/.codex/artifacts/specs/aad-python-rate-curvature.md),
+[API](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/5548a88cc0a42c23c1bb1706b9b13fcce8cbe8bd/.codex/artifacts/api-notes/aad-python-rate-curvature.md),
+[critique](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/5548a88cc0a42c23c1bb1706b9b13fcce8cbe8bd/.codex/artifacts/critiques/aad-python-rate-curvature.md),
+[review](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/5548a88cc0a42c23c1bb1706b9b13fcce8cbe8bd/.codex/artifacts/reviews/aad-python-rate-curvature.md)
+and [complete cost evidence](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/5548a88cc0a42c23c1bb1706b9b13fcce8cbe8bd/.codex/artifacts/performance/aad-python-rate-curvature-results.json).
+
 ### Next delivery tasks and effort
 
 One person-day means eight hours. The following detail subdivides the total
@@ -1535,28 +1563,28 @@ above. The accepted #490/#491/#493/#494/#495/#496/#497/#498/#499/#500 deliveries
 hours. Structured coordinates are split into numeric and native PRs; completed
 numeric/native diagnostics are not counted again.
 
-| Order | Delivery task                        | Required result                                                                        | Remaining hours |
-|-------|--------------------------------------|----------------------------------------------------------------------------------------|-----------------|
-| 1     | Accepted solve/root PRs through #501 | Merged; mathematical, resource, platform and scoped performance gates accepted         | 0               |
-| 2     | F03 numeric coordinates              | Accepted in merged #495; immutable accepted evidence retained                          | 0               |
-| 3     | F03 native coordinates               | Accepted in merged #496; immutable accepted evidence retained                          | 0               |
-| 4     | F03 native coordinate accuracy       | Accepted in merged #500; exact-head CI/review and guarded merge pass                   | 0               |
-| 4a    | F03 implicit calibration             | Numeric #501 and native #502 merged; all final gates accepted                          | 0               |
-| 5     | F03 PDE operators                    | #504/#505/#506 merged; financial/grid and all publication gates accepted               | 0               |
-| 6     | P04 structural sparsity              | #507–#511 merged; implementation, scoped cost and publication gates accepted           | 0               |
-| 7a    | P05 segmentation core                | #512 merged; actual runtime, exact-head CI/review and guarded merge accepted           | 0               |
-| 7b    | P05 financial adapter                | #513 merged; exact-head CI, review, costs, actual runtime and merge accepted           | 0               |
-| 7c    | P05 Monte Carlo acceptance           | #515 merged; 36/36 gates, fourteen actual runtime profiles and merge proof             | 0               |
-| 8     | F04 second-order risk                | #517–#527 increments merged; finite-step mathematical and publication gates pass       | 0               |
-| 9     | F04 native mixed-mode prototype      | #528 merged; analytic/capability/cost and exact-head publication acceptance complete   | 0               |
-| 10    | Python Dupire curvature              | #529 merged; exact-head CI/reviews, scoped costs and merge proof accepted              | 0               |
-| 11a   | Python rate-trade curvature           | PR #530: installed tests/costs pass; inspect exact-head CI/reviews and merge            | 1–3             |
-| 11b   | C++/Python segmented MC curvature     | Owning financial preparation, explicit segmentation and passive gradient/HVP surface  | 8–12            |
-| 11c   | C++/Python LSMC policy curvature      | Owning financial request and frozen/retrained policy estimator projection              | 6–10            |
-| 11d   | Structured-operator interface audit   | Close applicable passive financial projections; keep active recording C++-owned       | 2–4             |
+| Order | Delivery task                        | Required result                                                                       | Remaining hours |
+|-------|--------------------------------------|---------------------------------------------------------------------------------------|-----------------|
+| 1     | Accepted solve/root PRs through #501 | Merged; mathematical, resource, platform and scoped performance gates accepted        | 0               |
+| 2     | F03 numeric coordinates              | Accepted in merged #495; immutable accepted evidence retained                         | 0               |
+| 3     | F03 native coordinates               | Accepted in merged #496; immutable accepted evidence retained                         | 0               |
+| 4     | F03 native coordinate accuracy       | Accepted in merged #500; exact-head CI/review and guarded merge pass                  | 0               |
+| 4a    | F03 implicit calibration             | Numeric #501 and native #502 merged; all final gates accepted                         | 0               |
+| 5     | F03 PDE operators                    | #504/#505/#506 merged; financial/grid and all publication gates accepted              | 0               |
+| 6     | P04 structural sparsity              | #507–#511 merged; implementation, scoped cost and publication gates accepted          | 0               |
+| 7a    | P05 segmentation core                | #512 merged; actual runtime, exact-head CI/review and guarded merge accepted          | 0               |
+| 7b    | P05 financial adapter                | #513 merged; exact-head CI, review, costs, actual runtime and merge accepted          | 0               |
+| 7c    | P05 Monte Carlo acceptance           | #515 merged; 36/36 gates, fourteen actual runtime profiles and merge proof            | 0               |
+| 8     | F04 second-order risk                | #517–#527 increments merged; finite-step mathematical and publication gates pass      | 0               |
+| 9     | F04 native mixed-mode prototype      | #528 merged; analytic/capability/cost and exact-head publication acceptance complete  | 0               |
+| 10    | Python Dupire curvature              | #529 merged; exact-head CI/reviews, scoped costs and merge proof accepted             | 0               |
+| 11a   | Python rate-trade curvature          | #530 merged; 35/35 gates, actual Python runtime and merge proof accepted              | 0               |
+| 11b   | C++/Python segmented MC curvature    | Local implementation, scoped tests/costs and installed consumption pass; publish next | 1–2             |
+| 11c   | C++/Python LSMC policy curvature     | Owning financial request and frozen/retrained policy estimator projection             | 6–10            |
+| 11d   | Structured-operator interface audit  | Close applicable passive financial projections; keep active recording C++-owned       | 2–4             |
 | 12    | Excel interfaces and exports         | Typed requests/results and actual Windows export acceptance                           | 16–24           |
-| 13    | Final integration and documentation  | Installed consumers, current docs and targeted cross-platform/performance acceptance   | 16–24           |
-| Total | Full remaining implementation        | All remaining plan requirements                                                        | 49–77           |
+| 13    | Final integration and documentation  | Installed consumers, current docs and targeted cross-platform/performance acceptance  | 16–24           |
+| Total | Full remaining implementation        | All remaining plan requirements                                                       | 41–64           |
 
 
 The first delivery boundary is complete. Whole-PR review repaired the Windows

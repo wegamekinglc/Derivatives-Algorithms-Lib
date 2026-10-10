@@ -29,3 +29,4 @@ void init_bindings_calibrationriskrequest(py::module_& m);
 void init_bindings_dupireriskrequest(py::module_& m);
 void init_bindings_dupirecurvature(py::module_& m);
 void init_bindings_ratecurvature(py::module_& m);
+void init_bindings_montecarlocurvature(py::module_& m);
