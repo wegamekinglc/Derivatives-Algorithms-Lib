@@ -11,6 +11,7 @@ Python bindings for the Derivatives Algorithms Library (DAL) — a high-performa
 - **Named FIX valuation** — explicit dates, immutable history snapshots, and contract/valuation diagnostics
 - **Curve calibration** — single-curve, multi-curve, staged XCCY, and joint domestic/foreign/basis calibration with resettable and MTM instruments plus AAD analytic Jacobians
 - **Rate cashflow pricing** — typed planning, batch PV, and AAD node sensitivities for deposit, FRA, future, OIS, IRS, basis-swap, and cross-currency trades
+- **Rate quote curvature** — immutable calibration snapshots and weighted native portfolios with recalibrated quote gradients and finite-step Hessian products; see [the interface](../docs/python/README.md#rate-quote-gamma-and-hessian-products)
 - **Type-safe wrappers** for `Date_`, `Matrix_`, `Cell_`, and vector types
 
 ## Prerequisites
