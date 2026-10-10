@@ -15,6 +15,7 @@
 #include <dal/curve/calibration_internal.hpp>
 #include <dal/curve/curveparameterization.hpp>
 #include <dal/curve/ratecashflowpricing.hpp>
+#include <dal/curve/ratetradeobjective_internal.hpp>
 #include <dal/curve/xccypricing.hpp>
 #include <dal/curve/ycconst.hpp>
 #include <dal/curve/yclogdf.hpp>
@@ -380,6 +381,7 @@ namespace Dal {
         Vector_<> point_;
         Vector_<> parameters_;
         RateQuoteRiskProvenance_ provenance_;
+        RatePricingMarket_ market_;
     };
 
     namespace {
@@ -398,8 +400,9 @@ namespace Dal {
             RateQuoteRiskProvenanceConfig_ config{"rate-quote-curvature", {{spec.curveName_, spec.curveName_}}, true};
             auto provenance = BuildSingleCurveQuoteRiskProvenance(spec, result, options, market, config);
             REQUIRE(provenance.Available(), "RateCalibration: " + provenance.Reason());
+            market.curveComponents_[spec.curveName_] = Handle_<DiscountCurve_>(std::move(result.curve_));
             return std::make_shared<const RateCalibrationSnapshot_::Data_>(
-                RateCalibrationSnapshot_::Data_{source, point, parameters, std::move(provenance)});
+                RateCalibrationSnapshot_::Data_{source, point, parameters, std::move(provenance), std::move(market)});
         }
 
         std::shared_ptr<const RateCalibrationSnapshot_::Data_> Calibrate(const std::shared_ptr<const Source_>& source,
@@ -428,7 +431,26 @@ namespace Dal {
             auto provenance = BuildJointMultiCurveQuoteRiskProvenance(spec, result, options, market, config);
             REQUIRE(provenance.Available(), "RateCalibration: " + provenance.Reason());
             return std::make_shared<const RateCalibrationSnapshot_::Data_>(
-                RateCalibrationSnapshot_::Data_{source, point, parameters, std::move(provenance)});
+                RateCalibrationSnapshot_::Data_{source, point, parameters, std::move(provenance), std::move(market)});
+        }
+
+        void BindFixedXccyRoots(RatePricingMarket_* market) {
+            const auto owner = market->xccyMarket_;
+            const auto bind = [&](const DiscountCurve_& curve) {
+                if (std::any_of(market->curveComponents_.begin(), market->curveComponents_.end(),
+                                [&](const auto& entry) { return entry.second.get() == &curve; }))
+                    return;
+                const String_ key = "fixed:xccy:" + String_(std::to_string(market->curveComponents_.size()));
+                market->curveComponents_[key] = Handle_<DiscountCurve_>(std::shared_ptr<const DiscountCurve_>(owner, &curve));
+            };
+            for (const auto* block : {&owner->DomesticBlock(), &owner->ForeignBlock()}) {
+                for (const auto& [collateral, curve] : block->DiscountCurves())
+                    bind(*curve);
+                for (const auto& [tenor, curve] : block->ForwardCurves())
+                    bind(*curve);
+                if (block->DiscountCurves().empty())
+                    bind(block->Discount(CollateralType_(CollateralType_::Value_::OIS)));
+            }
         }
 
         std::shared_ptr<const RateCalibrationSnapshot_::Data_> Calibrate(const std::shared_ptr<const Source_>& source,
@@ -451,8 +473,9 @@ namespace Dal {
             RateQuoteRiskProvenanceConfig_ config{"rate-quote-curvature", {{key, key}}, true};
             auto provenance = BuildStagedXccyBasisQuoteRiskProvenance(spec, result, options, market, config);
             REQUIRE(provenance.Available(), "RateCalibration: " + provenance.Reason());
+            BindFixedXccyRoots(&market);
             return std::make_shared<const RateCalibrationSnapshot_::Data_>(
-                RateCalibrationSnapshot_::Data_{source, point, parameters, std::move(provenance)});
+                RateCalibrationSnapshot_::Data_{source, point, parameters, std::move(provenance), std::move(market)});
         }
 
         Vector_<> BindCurrency(const JointCurrencyCurveSpec_& currency,
@@ -501,7 +524,7 @@ namespace Dal {
             auto provenance = BuildJointXccyQuoteRiskProvenance(spec, result, options, market, config);
             REQUIRE(provenance.Available(), "RateCalibration: " + provenance.Reason());
             return std::make_shared<const RateCalibrationSnapshot_::Data_>(
-                RateCalibrationSnapshot_::Data_{source, point, parameters, std::move(provenance)});
+                RateCalibrationSnapshot_::Data_{source, point, parameters, std::move(provenance), std::move(market)});
         }
 
         std::shared_ptr<const RateCalibrationSnapshot_::Data_> CalibrateSource(const std::shared_ptr<const Source_>& source,
@@ -621,5 +644,25 @@ namespace Dal {
             point, fixedRequest);
         return {result.base_.value_,         std::move(result.base_.gradient_),    std::move(point),    std::move(fixedRequest),
                 std::move(result.products_), std::move(result.base_.calibration_), std::move(execution)};
+    }
+    RateTradeQuoteCurvatureResult_ EvaluateRateTradeQuoteCurvature(const Vector_<RateTradeDefinition_>& trades,
+                                                                   const RateCalibrationSnapshot_& calibration,
+                                                                   const AAD::BumpOverAADRequest_& request,
+                                                                   const RateTradeQuoteCurvatureSettings_& settings) {
+        AAD::RequireRecordingModeChangeAllowed();
+        (void)Bumps::Validate(calibration.Point(), request);
+        Vector_<RateCurveParameterCoordinate_> axis;
+        const auto& provenance = calibration.Provenance();
+        for (const auto& coordinate : provenance.Axis().parameters_)
+            axis.push_back({provenance.ComponentKeyByParameterBlock().at(coordinate.blockKey_), static_cast<size_t>(coordinate.blockOrdinal_)});
+        const auto objective = [&] {
+            try {
+                return RateCashflowPricingInternal::NewRateTradeObjective(trades, calibration.data_->market_, axis,
+                                                                          {settings.weights_, settings.fixings_, calibration.Point().size()});
+            } catch (const std::exception& error) {
+                THROW(String_("RateTradeQuoteCurvature: capture; ") + String_(error.what()));
+            }
+        }();
+        return {objective.currency_, EvaluateRateQuoteCurvature(objective.objective_, calibration, request)};
     }
 } // namespace Dal

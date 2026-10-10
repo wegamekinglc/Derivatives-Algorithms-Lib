@@ -4,7 +4,7 @@ Status: active implementation under the native-only AAD scope.
 No stage is complete until its correctness, compatibility,
 performance, and applicable CI evidence has been inspected.
 
-Current boundary (2026-10-09): F02, P02, P03 and F03 are complete.
+Current boundary (2026-10-10): F02, P02, P03 and F03 are complete.
 Financial PDE acceptance is merged in
 [#506](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/506),
 at `bef4d87a`, after two complete 36/36 exact-head audits, zero Codacy
@@ -262,21 +262,39 @@ immutable:
 [review](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/c81367ae13dd63629171cde3cb8ba4db2e829eb7/.codex/artifacts/reviews/aad-rate-quote-curvature.md),
 [cost report and harness](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/c81367ae13dd63629171cde3cb8ba4db2e829eb7/.codex/artifacts/performance/aad-rate-quote-curvature.md).
 
-Rate-provider cross-currency acceptance and trading integration remain 4–8 hours.
-The active cross-currency increment follows its
-[specification](../specs/aad-xccy-quote-curvature.md),
-[API](../api-notes/aad-xccy-quote-curvature.md),
-[critique](../critiques/aad-xccy-quote-curvature.md),
-[review](../reviews/aad-xccy-quote-curvature.md) and
-[scoped performance acceptance](../performance/aad-xccy-quote-curvature.md).
-Both factories and 24 affected rate cases now pass locally, including 90
-independent financial curvature references and 30 gradient coordinates;
-eight strict probes and the installed consumer pass. Three scoped performance
-comparisons pass after repair with 120 samples and 0.8805 seconds of measured work;
-existing single-curve round deltas are +2.83%/+0.69%, below the 4% gate. Exact-head remote
-acceptance remains pending. Review found repeated joint declaration names
-colliding in native provenance ranges; stable sealed ordinal prefixes repair
-the issue, with eight affected cases rerun and sixteen unchanged cases retained.
+Rate-provider cross-currency acceptance is merged in
+[#524](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/524),
+at `b5b17a0f362daa444deb27406245583d6523cf10`. Both complete publication
+audits pass 35/35 checks with zero Codacy annotations, unresolved threads or open
+actionable review findings. All 24 affected rate cases actually pass in each of
+fourteen runtime profiles. Tested merge preview `fb575fb95aae841fd410cb88201f567194ce7fc0`
+and final squash merge have identical tree `5ffca22fc5c0b76f561e59bb6772f8ac6734d30c`.
+Current-head Codex review is clear; Copilot could not execute because its account
+quota was exhausted and it is not a branch-required check.
+Local acceptance includes 90 independent financial curvature references, 30
+gradient coordinates, eight strict probes and installed consumption. Three scoped
+cost comparisons pass with 120 samples and 0.8805 seconds of measured work;
+existing single-curve round deltas are +2.83%/+0.69%, below the sustained 4% gate.
+The repeated-declaration-name review repair has RED/GREEN evidence, eight affected
+cases rerun and sixteen unchanged cases retained. Completed controls are immutable:
+[specification](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/04e9dd0cc109b78cb3e17fb0779387e54eecf29d/.codex/artifacts/specs/aad-xccy-quote-curvature.md),
+[API](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/04e9dd0cc109b78cb3e17fb0779387e54eecf29d/.codex/artifacts/api-notes/aad-xccy-quote-curvature.md),
+[critique](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/04e9dd0cc109b78cb3e17fb0779387e54eecf29d/.codex/artifacts/critiques/aad-xccy-quote-curvature.md),
+[review](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/04e9dd0cc109b78cb3e17fb0779387e54eecf29d/.codex/artifacts/reviews/aad-xccy-quote-curvature.md),
+[cost report](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/04e9dd0cc109b78cb3e17fb0779387e54eecf29d/.codex/artifacts/performance/aad-xccy-quote-curvature.md)
+and [harness](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/04e9dd0cc109b78cb3e17fb0779387e54eecf29d/.codex/artifacts/performance/aad-xccy-quote-curvature-cost.cpp).
+
+The separate active financial trading increment follows its
+[specification](../specs/aad-rate-trade-quote-curvature.md),
+[API](../api-notes/aad-rate-trade-quote-curvature.md),
+[critique](../critiques/aad-rate-trade-quote-curvature.md),
+[review](../reviews/aad-rate-trade-quote-curvature.md) and
+[scoped cost acceptance](../performance/aad-rate-trade-quote-curvature.md).
+Local implementation covers 58 scoped functional tests, ten strict compilation
+probes, installed consumption and five cost comparisons (200 observations;
+1.0866 seconds of measured work). Remote review/CI acceptance remains.
+Its remaining estimate is 1–3 developer-hours,
+excluding required CI wait.
 Explicit trading adapters,
 rectangular/approximate calibration semantics, policy/estimator validation and
 native mixed mode remain required subsequent deliveries; they are not claimed
@@ -804,7 +822,7 @@ affected-boundary tests, scoped costs and complete current-head CI/review accept
 |-----------------------------|-------------------------------------------------------------------------------------------|-----------------|
 | Native driver               | #517 merged; explicit requests, mathematical/lifecycle and exact-head acceptance complete | 0               |
 | Financial MC                | #519 merged; common-path requests and exact-head acceptance complete                      | 0               |
-| Quote curvature             | #520/#522/#523 merged; cross-currency rebuilding and trading integration remain           | 4–8             |
+| Quote curvature             | #520/#522/#523/#524 merged; financial trading integration passes local acceptance         | 1–3             |
 | Policy/estimator validation | Frozen/RetrainedBump meaning, inner/outer steps and applicable convergence/error evidence | 12–24           |
 
 ## Completion evidence
@@ -1444,7 +1462,7 @@ overlapping acceptance work is included once in the integration allowance.
 | F04                     | Second-order implementation/estimator validation remain          | Open                                     | 6–12                  |
 | Final integration/audit | Cross-platform/binding/docs/performance acceptance remains       | Open                                     | 7–11                  |
 
-Remaining total during F04 development: 104–184 hours, approximately
+Remaining total during F04 development: 101–179 hours, approximately
 13–23 eight-hour person-days, excluding CI queue time. Delivery contingency
 is included in those same hour ranges; there is no extra undisclosed allowance. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
@@ -1470,10 +1488,10 @@ numeric/native diagnostics are not counted again.
 | 7a    | P05 segmentation core                | #512 merged; actual runtime, exact-head CI/review and guarded merge accepted   | 0               |
 | 7b    | P05 financial adapter                | #513 merged; exact-head CI, review, costs, actual runtime and merge accepted   | 0               |
 | 7c    | P05 Monte Carlo acceptance           | #515 merged; 36/36 gates, fourteen actual runtime profiles and merge proof     | 0               |
-| 8     | F04 second-order risk                | Cross-currency/trading quote curvature and policy/estimator validation remain  | 16–32           |
+| 8     | F04 second-order risk                | Financial trading quote curvature and policy/estimator validation remain       | 13–27           |
 | 9     | F04 native mixed-mode prototype      | Smooth-kernel prototype, independent correctness and capability limits         | 32–64           |
 | 10    | Bindings and complete acceptance     | C++/Python/Excel, documentation, platform and performance gates                | 56–88           |
-| Total | Full remaining implementation        | All remaining plan requirements                                                | 104–184         |
+| Total | Full remaining implementation        | All remaining plan requirements                                                | 101–179         |
 
 
 The first delivery boundary is complete. Whole-PR review repaired the Windows

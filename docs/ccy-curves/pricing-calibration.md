@@ -222,6 +222,9 @@ valid residual system without the analytic eligibility requirement.
 - **Core/public C++:** staged XCCY has full options and both matrices on
   `CrossCurrencyCalibrationDiagnostics_`; joint XCCY has full options and both
   top-level matrices. The public facade has read-only helpers for each.
+  Exact square calibration snapshots also support
+  [native portfolio quote curvature](../methodology/aad.md#native-rate-trade-quote-curvature)
+  through full recalibration in C++.
 - **Python:** staged XCCY has both overloads, options, matrices, axes, scaling,
   and availability metadata under `result.diagnostics`, with
   trailing-underscore and snake-case aliases. Joint XCCY has options, named
