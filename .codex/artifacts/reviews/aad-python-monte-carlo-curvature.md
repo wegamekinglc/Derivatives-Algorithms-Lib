@@ -10,6 +10,14 @@ containers. A pre-existing partial aggregate initializer in the touched public
 consumer also failed the strict probe; default construction preserves its
 MODEL default and clears that warning.
 
+Remote CI exposed missing explicit parser registration in the new C++ tests:
+their original local launcher initialized DAL globally, whereas CTest starts
+each case in its own process. An uninitialized standard Google Test launcher
+reproduces `UnknownIndex`; every case now registers DAL itself. Verify all six
+in separate fresh processes. This changes only test initialization. Codacy's
+driver complexity finding is repaired by extracting the unchanged timed loop,
+with only its two selected costs repeated.
+
 ## Open questions
 
 None for the financial projection. LSMC and Excel remain separate deliveries.
@@ -36,7 +44,7 @@ CI/platform execution and current-head remote review are pending publication.
 - Changed public/Python targets are rebuilt. Accepted core identities and all
   26 old public objects match; old binding computation identity is retained,
   with diagnostic-path-only differences disclosed in the cost report.
-- The shared-metadata refactor repeats only the two affected costs; final 80
+- The shared-metadata and driver repairs repeat only the two affected costs; final 80
   samples cover both new complete Python boundaries. Unequal native bridge
   contracts keep them informational, with every sample independently checked.
 

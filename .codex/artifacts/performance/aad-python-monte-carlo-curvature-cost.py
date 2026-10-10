@@ -89,6 +89,24 @@ def validate(actual, expected):
             raise RuntimeError(f"independent analytic oracle failed at {i}: {value} versus {reference_value}")
 
 
+def sample(operation, args):
+    trials = []
+    count = args.iterations or 1
+    while True:
+        checksum = 0.0
+        start = time.perf_counter_ns()
+        for _ in range(count):
+            checksum += operation()[0]
+        seconds = (time.perf_counter_ns() - start) * 1e-9
+        trials.append(dict(iterations=count, seconds=seconds))
+        if args.iterations or seconds >= args.minimum_seconds:
+            break
+        count *= 2
+    return dict(side=args.side, directions=args.directions, iterations=count,
+                seconds=seconds, seconds_per_call=seconds / count, checksum=checksum,
+                oracle_passed=True, calibration_trials=trials if not args.iterations else [])
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--side", choices=["baseline", "head"], required=True)
@@ -100,24 +118,11 @@ def main():
     operation, cleanup = (head_operation(args.directions) if args.side == "head"
                           else baseline_operation(args.directions, args.bridge))
     expected = reference(args.directions)
-    trials = []
     try:
         validate(operation(), expected)
-        count = args.iterations or 1
-        while True:
-            checksum = 0.0
-            start = time.perf_counter_ns()
-            for _ in range(count):
-                checksum += operation()[0]
-            seconds = (time.perf_counter_ns() - start) * 1e-9
-            trials.append(dict(iterations=count, seconds=seconds))
-            if args.iterations or seconds >= args.minimum_seconds:
-                break
-            count *= 2
+        result = sample(operation, args)
         validate(operation(), expected)
-        print(json.dumps(dict(side=args.side, directions=args.directions, iterations=count,
-                              seconds=seconds, seconds_per_call=seconds / count, checksum=checksum,
-                              oracle_passed=True, calibration_trials=trials if not args.iterations else [])))
+        print(json.dumps(result))
     finally:
         cleanup()
 

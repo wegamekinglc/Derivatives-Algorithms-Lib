@@ -7,7 +7,7 @@
     "threads": 1,
     "compiler": "c++ (Ubuntu 15.2.0-16ubuntu1) 15.2.0"
   },
-  "driver_sha256": "e60e042032b20a6d94b6c595b9c77d4778ad578dfabeb2d3601aa2d37996abe4",
+  "driver_sha256": "a722e344a1a73e4635c7ea7229a12a38108341a241c5e136835aaf830994c180",
   "bridge_sha256": "5196fd648754d3e264be4fbb7721de947359db65bbdf7038e97a984ed0461b14",
   "head_module_sha256": "7a656aef14fdcfa94ec0cbd3fc64655d0188403702a3e1d0c6b230a721af8351",
   "baseline_module_sha256": "0b1a3200fbd953fd972bbb233e7033043d950dcedb7b9d99833b3a7f73cb8ffe",
@@ -19,8 +19,8 @@
       "side": "baseline",
       "directions": 0,
       "iterations": 1024,
-      "seconds": 0.089614681,
-      "seconds_per_call": 8.75143369140625e-05,
+      "seconds": 0.09012858400000001,
+      "seconds_per_call": 8.801619531250001e-05,
       "checksum": 21864941.20088995,
       "oracle_passed": true,
       "calibration_trials": [],
@@ -39,11 +39,11 @@
         "--iterations",
         "1024"
       ],
-      "started_unix": 1791634300.6601942,
+      "started_unix": 1791634984.7899287,
       "load_average": [
-        2.5400390625,
-        4.44189453125,
-        3.5576171875
+        1.3447265625,
+        2.95068359375,
+        3.60595703125
       ],
       "label": "m0-r0-p0-baseline",
       "round": 0,
@@ -53,8 +53,8 @@
       "side": "head",
       "directions": 0,
       "iterations": 1024,
-      "seconds": 0.09676809700000001,
-      "seconds_per_call": 9.450009472656251e-05,
+      "seconds": 0.09775333900000001,
+      "seconds_per_call": 9.546224511718751e-05,
       "checksum": 21864941.20088995,
       "oracle_passed": true,
       "calibration_trials": [],
@@ -73,11 +73,11 @@
         "--iterations",
         "1024"
       ],
-      "started_unix": 1791634300.793112,
+      "started_unix": 1791634984.9233103,
       "load_average": [
-        2.5400390625,
-        4.44189453125,
-        3.5576171875
+        1.3447265625,
+        2.95068359375,
+        3.60595703125
       ],
       "label": "m0-r0-p0-head",
       "round": 0,
@@ -87,8 +87,8 @@
       "side": "head",
       "directions": 0,
       "iterations": 1024,
-      "seconds": 0.10054327900000001,
-      "seconds_per_call": 9.818679589843751e-05,
+      "seconds": 0.10457144500000001,
+      "seconds_per_call": 0.00010212055175781251,
       "checksum": 21864941.20088995,
       "oracle_passed": true,
       "calibration_trials": [],
@@ -107,11 +107,11 @@
         "--iterations",
         "1024"
       ],
-      "started_unix": 1791634300.9332082,
+      "started_unix": 1791634985.0663917,
       "load_average": [
-        2.5400390625,
-        4.44189453125,
-        3.5576171875
+        1.3447265625,
+        2.95068359375,
+        3.60595703125
       ],
       "label": "m0-r0-p1-head",
       "round": 0,
@@ -121,8 +121,8 @@
       "side": "baseline",
       "directions": 0,
       "iterations": 1024,
-      "seconds": 0.09076476900000001,
-      "seconds_per_call": 8.863746972656251e-05,
+      "seconds": 0.08894729600000001,
+      "seconds_per_call": 8.686259375000001e-05,
       "checksum": 21864941.20088995,
       "oracle_passed": true,
       "calibration_trials": [],
@@ -141,11 +141,11 @@
         "--iterations",
         "1024"
       ],
-      "started_unix": 1791634301.0778346,
+      "started_unix": 1791634985.2174926,
       "load_average": [
-        2.5400390625,
-        4.44189453125,
-        3.5576171875
+        1.3447265625,
+        2.95068359375,
+        3.60595703125
       ],
       "label": "m0-r0-p1-baseline",
       "round": 0,
@@ -155,8 +155,8 @@
       "side": "baseline",
       "directions": 0,
       "iterations": 1024,
-      "seconds": 0.091415149,
-      "seconds_per_call": 8.92726064453125e-05,
+      "seconds": 0.08629091700000001,
+      "seconds_per_call": 8.426847363281251e-05,
       "checksum": 21864941.20088995,
       "oracle_passed": true,
       "calibration_trials": [],
@@ -175,11 +175,11 @@
         "--iterations",
         "1024"
       ],
-      "started_unix": 1791634301.2113688,
+      "started_unix": 1791634985.3520904,
       "load_average": [
-        2.5400390625,
-        4.44189453125,
-        3.5576171875
+        1.3447265625,
+        2.95068359375,
+        3.60595703125
       ],
       "label": "m0-r0-p2-baseline",
       "round": 0,
@@ -189,8 +189,8 @@
       "side": "head",
       "directions": 0,
       "iterations": 1024,
-      "seconds": 0.094145241,
-      "seconds_per_call": 9.19387119140625e-05,
+      "seconds": 0.087703283,
+      "seconds_per_call": 8.56477373046875e-05,
       "checksum": 21864941.20088995,
       "oracle_passed": true,
       "calibration_trials": [],
@@ -209,11 +209,11 @@
         "--iterations",
         "1024"
       ],
-      "started_unix": 1791634301.3466246,
+      "started_unix": 1791634985.4784374,
       "load_average": [
-        2.5400390625,
-        4.44189453125,
-        3.5576171875
+        1.3447265625,
+        2.95068359375,
+        3.60595703125
       ],
       "label": "m0-r0-p2-head",
       "round": 0,
@@ -223,8 +223,8 @@
       "side": "head",
       "directions": 0,
       "iterations": 1024,
-      "seconds": 0.09460636900000001,
-      "seconds_per_call": 9.238903222656251e-05,
+      "seconds": 0.099736003,
+      "seconds_per_call": 9.73984404296875e-05,
       "checksum": 21864941.20088995,
       "oracle_passed": true,
       "calibration_trials": [],
@@ -243,11 +243,11 @@
         "--iterations",
         "1024"
       ],
-      "started_unix": 1791634301.4854453,
+      "started_unix": 1791634985.6091022,
       "load_average": [
-        2.49658203125,
-        4.40087890625,
-        3.548828125
+        1.3447265625,
+        2.95068359375,
+        3.60595703125
       ],
       "label": "m0-r0-p3-head",
       "round": 0,
@@ -257,8 +257,8 @@
       "side": "baseline",
       "directions": 0,
       "iterations": 1024,
-      "seconds": 0.08914846400000001,
-      "seconds_per_call": 8.705904687500001e-05,
+      "seconds": 0.08651984900000001,
+      "seconds_per_call": 8.449204003906251e-05,
       "checksum": 21864941.20088995,
       "oracle_passed": true,
       "calibration_trials": [],
@@ -277,11 +277,11 @@
         "--iterations",
         "1024"
       ],
-      "started_unix": 1791634301.6211243,
+      "started_unix": 1791634985.7546318,
       "load_average": [
-        2.49658203125,
-        4.40087890625,
-        3.548828125
+        1.3447265625,
+        2.95068359375,
+        3.60595703125
       ],
       "label": "m0-r0-p3-baseline",
       "round": 0,
@@ -291,8 +291,8 @@
       "side": "baseline",
       "directions": 0,
       "iterations": 1024,
-      "seconds": 0.08664732300000001,
-      "seconds_per_call": 8.461652636718751e-05,
+      "seconds": 0.091645851,
+      "seconds_per_call": 8.94979013671875e-05,
       "checksum": 21864941.20088995,
       "oracle_passed": true,
       "calibration_trials": [],
@@ -311,11 +311,11 @@
         "--iterations",
         "1024"
       ],
-      "started_unix": 1791634301.7520916,
+      "started_unix": 1791634985.8867812,
       "load_average": [
-        2.49658203125,
-        4.40087890625,
-        3.548828125
+        1.3447265625,
+        2.95068359375,
+        3.60595703125
       ],
       "label": "m0-r0-p4-baseline",
       "round": 0,
@@ -325,8 +325,8 @@
       "side": "head",
       "directions": 0,
       "iterations": 1024,
-      "seconds": 0.11227761100000001,
-      "seconds_per_call": 0.00010964610449218751,
+      "seconds": 0.10299778200000001,
+      "seconds_per_call": 0.00010058377148437501,
       "checksum": 21864941.20088995,
       "oracle_passed": true,
       "calibration_trials": [],
@@ -345,11 +345,11 @@
         "--iterations",
         "1024"
       ],
-      "started_unix": 1791634301.8820705,
+      "started_unix": 1791634986.0214403,
       "load_average": [
-        2.49658203125,
-        4.40087890625,
-        3.548828125
+        1.3447265625,
+        2.95068359375,
+        3.60595703125
       ],
       "label": "m0-r0-p4-head",
       "round": 0,
@@ -359,8 +359,8 @@
       "side": "head",
       "directions": 0,
       "iterations": 1024,
-      "seconds": 0.100369185,
-      "seconds_per_call": 9.80167822265625e-05,
+      "seconds": 0.11253474100000001,
+      "seconds_per_call": 0.00010989720800781251,
       "checksum": 21864941.20088995,
       "oracle_passed": true,
       "calibration_trials": [],
@@ -379,11 +379,11 @@
         "--iterations",
         "1024"
       ],
-      "started_unix": 1791634302.04202,
+      "started_unix": 1791634986.1724584,
       "load_average": [
-        2.49658203125,
-        4.40087890625,
-        3.548828125
+        1.3447265625,
+        2.95068359375,
+        3.60595703125
       ],
       "label": "m0-r0-p5-head",
       "round": 0,
@@ -393,8 +393,8 @@
       "side": "baseline",
       "directions": 0,
       "iterations": 1024,
-      "seconds": 0.089633509,
-      "seconds_per_call": 8.75327236328125e-05,
+      "seconds": 0.089576154,
+      "seconds_per_call": 8.7476712890625e-05,
       "checksum": 21864941.20088995,
       "oracle_passed": true,
       "calibration_trials": [],
@@ -413,11 +413,11 @@
         "--iterations",
         "1024"
       ],
-      "started_unix": 1791634302.1913996,
+      "started_unix": 1791634986.3333695,
       "load_average": [
-        2.49658203125,
-        4.40087890625,
-        3.548828125
+        1.3447265625,
+        2.95068359375,
+        3.60595703125
       ],
       "label": "m0-r0-p5-baseline",
       "round": 0,
@@ -427,8 +427,8 @@
       "side": "baseline",
       "directions": 0,
       "iterations": 1024,
-      "seconds": 0.090889409,
-      "seconds_per_call": 8.87591884765625e-05,
+      "seconds": 0.095670188,
+      "seconds_per_call": 9.342791796875e-05,
       "checksum": 21864941.20088995,
       "oracle_passed": true,
       "calibration_trials": [],
@@ -447,11 +447,11 @@
         "--iterations",
         "1024"
       ],
-      "started_unix": 1791634302.3271956,
+      "started_unix": 1791634986.4698765,
       "load_average": [
-        2.49658203125,
-        4.40087890625,
-        3.548828125
+        1.3447265625,
+        2.95068359375,
+        3.60595703125
       ],
       "label": "m0-r0-p6-baseline",
       "round": 0,
@@ -461,8 +461,8 @@
       "side": "head",
       "directions": 0,
       "iterations": 1024,
-      "seconds": 0.09722322000000001,
-      "seconds_per_call": 9.494455078125001e-05,
+      "seconds": 0.10678129600000001,
+      "seconds_per_call": 0.00010427860937500001,
       "checksum": 21864941.20088995,
       "oracle_passed": true,
       "calibration_trials": [],
@@ -481,11 +481,11 @@
         "--iterations",
         "1024"
       ],
-      "started_unix": 1791634302.4626007,
+      "started_unix": 1791634986.6132672,
       "load_average": [
-        2.49658203125,
-        4.40087890625,
-        3.548828125
+        1.3447265625,
+        2.95068359375,
+        3.60595703125
       ],
       "label": "m0-r0-p6-head",
       "round": 0,
@@ -495,8 +495,8 @@
       "side": "head",
       "directions": 0,
       "iterations": 1024,
-      "seconds": 0.095208081,
-      "seconds_per_call": 9.29766416015625e-05,
+      "seconds": 0.10125629800000001,
+      "seconds_per_call": 9.888310351562501e-05,
       "checksum": 21864941.20088995,
       "oracle_passed": true,
       "calibration_trials": [],
@@ -515,11 +515,11 @@
         "--iterations",
         "1024"
       ],
-      "started_unix": 1791634302.6048737,
+      "started_unix": 1791634986.7700758,
       "load_average": [
-        2.49658203125,
-        4.40087890625,
-        3.548828125
+        1.3447265625,
+        2.95068359375,
+        3.60595703125
       ],
       "label": "m0-r0-p7-head",
       "round": 0,
@@ -529,8 +529,8 @@
       "side": "baseline",
       "directions": 0,
       "iterations": 1024,
-      "seconds": 0.09225132600000001,
-      "seconds_per_call": 9.008918554687501e-05,
+      "seconds": 0.090023326,
+      "seconds_per_call": 8.7913404296875e-05,
       "checksum": 21864941.20088995,
       "oracle_passed": true,
       "calibration_trials": [],
@@ -549,11 +549,11 @@
         "--iterations",
         "1024"
       ],
-      "started_unix": 1791634302.7442315,
+      "started_unix": 1791634986.9263597,
       "load_average": [
-        2.49658203125,
-        4.40087890625,
-        3.548828125
+        1.3447265625,
+        2.95068359375,
+        3.60595703125
       ],
       "label": "m0-r0-p7-baseline",
       "round": 0,
@@ -563,8 +563,8 @@
       "side": "baseline",
       "directions": 0,
       "iterations": 1024,
-      "seconds": 0.089126932,
-      "seconds_per_call": 8.703801953125e-05,
+      "seconds": 0.088173465,
+      "seconds_per_call": 8.61068994140625e-05,
       "checksum": 21864941.20088995,
       "oracle_passed": true,
       "calibration_trials": [],
@@ -583,11 +583,11 @@
         "--iterations",
         "1024"
       ],
-      "started_unix": 1791634302.8787997,
+      "started_unix": 1791634987.0618355,
       "load_average": [
-        2.49658203125,
-        4.40087890625,
-        3.548828125
+        1.3447265625,
+        2.95068359375,
+        3.60595703125
       ],
       "label": "m0-r0-p8-baseline",
       "round": 0,
@@ -597,8 +597,8 @@
       "side": "head",
       "directions": 0,
       "iterations": 1024,
-      "seconds": 0.09661369600000001,
-      "seconds_per_call": 9.434931250000001e-05,
+      "seconds": 0.096358419,
+      "seconds_per_call": 9.41000185546875e-05,
       "checksum": 21864941.20088995,
       "oracle_passed": true,
       "calibration_trials": [],
@@ -617,11 +617,11 @@
         "--iterations",
         "1024"
       ],
-      "started_unix": 1791634303.0111895,
+      "started_unix": 1791634987.1937523,
       "load_average": [
-        2.49658203125,
-        4.40087890625,
-        3.548828125
+        1.3447265625,
+        2.95068359375,
+        3.60595703125
       ],
       "label": "m0-r0-p8-head",
       "round": 0,
@@ -631,8 +631,8 @@
       "side": "head",
       "directions": 0,
       "iterations": 1024,
-      "seconds": 0.112891347,
-      "seconds_per_call": 0.0001102454560546875,
+      "seconds": 0.088189442,
+      "seconds_per_call": 8.6122501953125e-05,
       "checksum": 21864941.20088995,
       "oracle_passed": true,
       "calibration_trials": [],
@@ -651,11 +651,11 @@
         "--iterations",
         "1024"
       ],
-      "started_unix": 1791634303.1525548,
+      "started_unix": 1791634987.3330228,
       "load_average": [
-        2.49658203125,
-        4.40087890625,
-        3.548828125
+        1.3447265625,
+        2.95068359375,
+        3.60595703125
       ],
       "label": "m0-r0-p9-head",
       "round": 0,
@@ -665,8 +665,8 @@
       "side": "baseline",
       "directions": 0,
       "iterations": 1024,
-      "seconds": 0.091401625,
-      "seconds_per_call": 8.92593994140625e-05,
+      "seconds": 0.08956889200000001,
+      "seconds_per_call": 8.746962109375001e-05,
       "checksum": 21864941.20088995,
       "oracle_passed": true,
       "calibration_trials": [],
@@ -685,11 +685,11 @@
         "--iterations",
         "1024"
       ],
-      "started_unix": 1791634303.308869,
+      "started_unix": 1791634987.463553,
       "load_average": [
-        2.49658203125,
-        4.40087890625,
-        3.548828125
+        1.3447265625,
+        2.95068359375,
+        3.60595703125
       ],
       "label": "m0-r0-p9-baseline",
       "round": 0,
@@ -699,8 +699,8 @@
       "side": "baseline",
       "directions": 0,
       "iterations": 1024,
-      "seconds": 0.09596785000000001,
-      "seconds_per_call": 9.371860351562501e-05,
+      "seconds": 0.08345561,
+      "seconds_per_call": 8.1499619140625e-05,
       "checksum": 21864941.20088995,
       "oracle_passed": true,
       "calibration_trials": [],
@@ -719,11 +719,11 @@
         "--iterations",
         "1024"
       ],
-      "started_unix": 1791634303.4442835,
+      "started_unix": 1791634987.5952296,
       "load_average": [
-        2.49658203125,
-        4.40087890625,
-        3.548828125
+        1.3447265625,
+        2.95068359375,
+        3.60595703125
       ],
       "label": "m0-r1-p0-baseline",
       "round": 1,
@@ -733,8 +733,8 @@
       "side": "head",
       "directions": 0,
       "iterations": 1024,
-      "seconds": 0.10304776600000001,
-      "seconds_per_call": 0.00010063258398437501,
+      "seconds": 0.08871930500000001,
+      "seconds_per_call": 8.663994628906251e-05,
       "checksum": 21864941.20088995,
       "oracle_passed": true,
       "calibration_trials": [],
@@ -753,11 +753,11 @@
         "--iterations",
         "1024"
       ],
-      "started_unix": 1791634303.5933986,
+      "started_unix": 1791634987.7233713,
       "load_average": [
-        2.49658203125,
-        4.40087890625,
-        3.548828125
+        1.3447265625,
+        2.95068359375,
+        3.60595703125
       ],
       "label": "m0-r1-p0-head",
       "round": 1,
@@ -767,8 +767,8 @@
       "side": "head",
       "directions": 0,
       "iterations": 1024,
-      "seconds": 0.111433584,
-      "seconds_per_call": 0.000108821859375,
+      "seconds": 0.090496529,
+      "seconds_per_call": 8.83755166015625e-05,
       "checksum": 21864941.20088995,
       "oracle_passed": true,
       "calibration_trials": [],
@@ -787,11 +787,11 @@
         "--iterations",
         "1024"
       ],
-      "started_unix": 1791634303.7426696,
+      "started_unix": 1791634987.855255,
       "load_average": [
-        2.49658203125,
-        4.40087890625,
-        3.548828125
+        1.31689453125,
+        2.91796875,
+        3.591796875
       ],
       "label": "m0-r1-p1-head",
       "round": 1,
@@ -801,8 +801,8 @@
       "side": "baseline",
       "directions": 0,
       "iterations": 1024,
-      "seconds": 0.10099942,
-      "seconds_per_call": 9.863224609375e-05,
+      "seconds": 0.08402772500000001,
+      "seconds_per_call": 8.205832519531251e-05,
       "checksum": 21864941.20088995,
       "oracle_passed": true,
       "calibration_trials": [],
@@ -821,11 +821,11 @@
         "--iterations",
         "1024"
       ],
-      "started_unix": 1791634303.899446,
+      "started_unix": 1791634987.9887786,
       "load_average": [
-        2.49658203125,
-        4.40087890625,
-        3.548828125
+        1.31689453125,
+        2.91796875,
+        3.591796875
       ],
       "label": "m0-r1-p1-baseline",
       "round": 1,
@@ -835,8 +835,8 @@
       "side": "baseline",
       "directions": 0,
       "iterations": 1024,
-      "seconds": 0.09436364800000001,
-      "seconds_per_call": 9.215200000000001e-05,
+      "seconds": 0.085549449,
+      "seconds_per_call": 8.35443837890625e-05,
       "checksum": 21864941.20088995,
       "oracle_passed": true,
       "calibration_trials": [],
@@ -855,11 +855,11 @@
         "--iterations",
         "1024"
       ],
-      "started_unix": 1791634304.0441957,
+      "started_unix": 1791634988.1125093,
       "load_average": [
-        2.49658203125,
-        4.40087890625,
-        3.548828125
+        1.31689453125,
+        2.91796875,
+        3.591796875
       ],
       "label": "m0-r1-p2-baseline",
       "round": 1,
@@ -869,8 +869,8 @@
       "side": "head",
       "directions": 0,
       "iterations": 1024,
-      "seconds": 0.096910625,
-      "seconds_per_call": 9.46392822265625e-05,
+      "seconds": 0.09252244700000001,
+      "seconds_per_call": 9.035395214843751e-05,
       "checksum": 21864941.20088995,
       "oracle_passed": true,
       "calibration_trials": [],
@@ -889,11 +889,11 @@
         "--iterations",
         "1024"
       ],
-      "started_unix": 1791634304.1844094,
+      "started_unix": 1791634988.237819,
       "load_average": [
-        2.49658203125,
-        4.40087890625,
-        3.548828125
+        1.31689453125,
+        2.91796875,
+        3.591796875
       ],
       "label": "m0-r1-p2-head",
       "round": 1,
@@ -903,8 +903,8 @@
       "side": "head",
       "directions": 0,
       "iterations": 1024,
-      "seconds": 0.09980839600000001,
-      "seconds_per_call": 9.746913671875001e-05,
+      "seconds": 0.093208518,
+      "seconds_per_call": 9.1023943359375e-05,
       "checksum": 21864941.20088995,
       "oracle_passed": true,
       "calibration_trials": [],
@@ -923,11 +923,11 @@
         "--iterations",
         "1024"
       ],
-      "started_unix": 1791634304.3248448,
+      "started_unix": 1791634988.3701472,
       "load_average": [
-        2.49658203125,
-        4.40087890625,
-        3.548828125
+        1.31689453125,
+        2.91796875,
+        3.591796875
       ],
       "label": "m0-r1-p3-head",
       "round": 1,
@@ -937,8 +937,8 @@
       "side": "baseline",
       "directions": 0,
       "iterations": 1024,
-      "seconds": 0.09678080900000001,
-      "seconds_per_call": 9.451250878906251e-05,
+      "seconds": 0.085540367,
+      "seconds_per_call": 8.35355146484375e-05,
       "checksum": 21864941.20088995,
       "oracle_passed": true,
       "calibration_trials": [],
@@ -957,11 +957,11 @@
         "--iterations",
         "1024"
       ],
-      "started_unix": 1791634304.4793022,
+      "started_unix": 1791634988.5125396,
       "load_average": [
-        2.49658203125,
-        4.40087890625,
-        3.548828125
+        1.31689453125,
+        2.91796875,
+        3.591796875
       ],
       "label": "m0-r1-p3-baseline",
       "round": 1,
@@ -971,8 +971,8 @@
       "side": "baseline",
       "directions": 0,
       "iterations": 1024,
-      "seconds": 0.09279009,
-      "seconds_per_call": 9.0615322265625e-05,
+      "seconds": 0.086071017,
+      "seconds_per_call": 8.40537275390625e-05,
       "checksum": 21864941.20088995,
       "oracle_passed": true,
       "calibration_trials": [],
@@ -991,11 +991,11 @@
         "--iterations",
         "1024"
       ],
-      "started_unix": 1791634304.6205635,
+      "started_unix": 1791634988.639775,
       "load_average": [
-        2.49658203125,
-        4.40087890625,
-        3.548828125
+        1.31689453125,
+        2.91796875,
+        3.591796875
       ],
       "label": "m0-r1-p4-baseline",
       "round": 1,
@@ -1005,8 +1005,8 @@
       "side": "head",
       "directions": 0,
       "iterations": 1024,
-      "seconds": 0.09909261000000001,
-      "seconds_per_call": 9.677012695312501e-05,
+      "seconds": 0.08848886900000001,
+      "seconds_per_call": 8.641491113281251e-05,
       "checksum": 21864941.20088995,
       "oracle_passed": true,
       "calibration_trials": [],
@@ -1025,11 +1025,11 @@
         "--iterations",
         "1024"
       ],
-      "started_unix": 1791634304.7664013,
+      "started_unix": 1791634988.7688062,
       "load_average": [
-        2.49658203125,
-        4.40087890625,
-        3.548828125
+        1.31689453125,
+        2.91796875,
+        3.591796875
       ],
       "label": "m0-r1-p4-head",
       "round": 1,
@@ -1039,8 +1039,8 @@
       "side": "head",
       "directions": 0,
       "iterations": 1024,
-      "seconds": 0.09708119300000001,
-      "seconds_per_call": 9.480585253906251e-05,
+      "seconds": 0.09049749900000001,
+      "seconds_per_call": 8.837646386718751e-05,
       "checksum": 21864941.20088995,
       "oracle_passed": true,
       "calibration_trials": [],
@@ -1059,11 +1059,11 @@
         "--iterations",
         "1024"
       ],
-      "started_unix": 1791634304.9108882,
+      "started_unix": 1791634988.8979461,
       "load_average": [
-        2.49658203125,
-        4.40087890625,
-        3.548828125
+        1.31689453125,
+        2.91796875,
+        3.591796875
       ],
       "label": "m0-r1-p5-head",
       "round": 1,
@@ -1073,8 +1073,8 @@
       "side": "baseline",
       "directions": 0,
       "iterations": 1024,
-      "seconds": 0.089552251,
-      "seconds_per_call": 8.74533701171875e-05,
+      "seconds": 0.08410830100000001,
+      "seconds_per_call": 8.213701269531251e-05,
       "checksum": 21864941.20088995,
       "oracle_passed": true,
       "calibration_trials": [],
@@ -1093,11 +1093,11 @@
         "--iterations",
         "1024"
       ],
-      "started_unix": 1791634305.0543,
+      "started_unix": 1791634989.0293257,
       "load_average": [
-        2.49658203125,
-        4.40087890625,
-        3.548828125
+        1.31689453125,
+        2.91796875,
+        3.591796875
       ],
       "label": "m0-r1-p5-baseline",
       "round": 1,
@@ -1107,8 +1107,8 @@
       "side": "baseline",
       "directions": 0,
       "iterations": 1024,
-      "seconds": 0.091296466,
-      "seconds_per_call": 8.9156705078125e-05,
+      "seconds": 0.09051819500000001,
+      "seconds_per_call": 8.839667480468751e-05,
       "checksum": 21864941.20088995,
       "oracle_passed": true,
       "calibration_trials": [],
@@ -1127,11 +1127,11 @@
         "--iterations",
         "1024"
       ],
-      "started_unix": 1791634305.1886854,
+      "started_unix": 1791634989.154979,
       "load_average": [
-        2.49658203125,
-        4.40087890625,
-        3.548828125
+        1.31689453125,
+        2.91796875,
+        3.591796875
       ],
       "label": "m0-r1-p6-baseline",
       "round": 1,
@@ -1141,8 +1141,8 @@
       "side": "head",
       "directions": 0,
       "iterations": 1024,
-      "seconds": 0.09658944900000001,
-      "seconds_per_call": 9.432563378906251e-05,
+      "seconds": 0.099640086,
+      "seconds_per_call": 9.7304771484375e-05,
       "checksum": 21864941.20088995,
       "oracle_passed": true,
       "calibration_trials": [],
@@ -1161,11 +1161,11 @@
         "--iterations",
         "1024"
       ],
-      "started_unix": 1791634305.3244238,
+      "started_unix": 1791634989.2895749,
       "load_average": [
-        2.49658203125,
-        4.40087890625,
-        3.548828125
+        1.31689453125,
+        2.91796875,
+        3.591796875
       ],
       "label": "m0-r1-p6-head",
       "round": 1,
@@ -1175,8 +1175,8 @@
       "side": "head",
       "directions": 0,
       "iterations": 1024,
-      "seconds": 0.099320979,
-      "seconds_per_call": 9.69931435546875e-05,
+      "seconds": 0.093864711,
+      "seconds_per_call": 9.16647568359375e-05,
       "checksum": 21864941.20088995,
       "oracle_passed": true,
       "calibration_trials": [],
@@ -1195,11 +1195,11 @@
         "--iterations",
         "1024"
       ],
-      "started_unix": 1791634305.4680793,
+      "started_unix": 1791634989.4320295,
       "load_average": [
-        2.49658203125,
-        4.40087890625,
-        3.548828125
+        1.31689453125,
+        2.91796875,
+        3.591796875
       ],
       "label": "m0-r1-p7-head",
       "round": 1,
@@ -1209,8 +1209,8 @@
       "side": "baseline",
       "directions": 0,
       "iterations": 1024,
-      "seconds": 0.09027966200000001,
-      "seconds_per_call": 8.816373242187501e-05,
+      "seconds": 0.099589143,
+      "seconds_per_call": 9.72550224609375e-05,
       "checksum": 21864941.20088995,
       "oracle_passed": true,
       "calibration_trials": [],
@@ -1229,11 +1229,11 @@
         "--iterations",
         "1024"
       ],
-      "started_unix": 1791634305.6132553,
+      "started_unix": 1791634989.569438,
       "load_average": [
-        2.49658203125,
-        4.40087890625,
-        3.548828125
+        1.31689453125,
+        2.91796875,
+        3.591796875
       ],
       "label": "m0-r1-p7-baseline",
       "round": 1,
@@ -1243,8 +1243,8 @@
       "side": "baseline",
       "directions": 0,
       "iterations": 1024,
-      "seconds": 0.091690251,
-      "seconds_per_call": 8.95412607421875e-05,
+      "seconds": 0.082942131,
+      "seconds_per_call": 8.09981748046875e-05,
       "checksum": 21864941.20088995,
       "oracle_passed": true,
       "calibration_trials": [],
@@ -1263,11 +1263,11 @@
         "--iterations",
         "1024"
       ],
-      "started_unix": 1791634305.7491307,
+      "started_unix": 1791634989.7117229,
       "load_average": [
-        2.49658203125,
-        4.40087890625,
-        3.548828125
+        1.31689453125,
+        2.91796875,
+        3.591796875
       ],
       "label": "m0-r1-p8-baseline",
       "round": 1,
@@ -1277,8 +1277,8 @@
       "side": "head",
       "directions": 0,
       "iterations": 1024,
-      "seconds": 0.095604242,
-      "seconds_per_call": 9.3363517578125e-05,
+      "seconds": 0.09520415800000001,
+      "seconds_per_call": 9.297281054687501e-05,
       "checksum": 21864941.20088995,
       "oracle_passed": true,
       "calibration_trials": [],
@@ -1297,11 +1297,11 @@
         "--iterations",
         "1024"
       ],
-      "started_unix": 1791634305.8857162,
+      "started_unix": 1791634989.8404808,
       "load_average": [
-        2.49658203125,
-        4.40087890625,
-        3.548828125
+        1.31689453125,
+        2.91796875,
+        3.591796875
       ],
       "label": "m0-r1-p8-head",
       "round": 1,
@@ -1311,8 +1311,8 @@
       "side": "head",
       "directions": 0,
       "iterations": 1024,
-      "seconds": 0.09816347,
-      "seconds_per_call": 9.5862763671875e-05,
+      "seconds": 0.09335312700000001,
+      "seconds_per_call": 9.116516308593751e-05,
       "checksum": 21864941.20088995,
       "oracle_passed": true,
       "calibration_trials": [],
@@ -1331,11 +1331,11 @@
         "--iterations",
         "1024"
       ],
-      "started_unix": 1791634306.0245533,
+      "started_unix": 1791634989.980327,
       "load_average": [
-        2.49658203125,
-        4.40087890625,
-        3.548828125
+        1.31689453125,
+        2.91796875,
+        3.591796875
       ],
       "label": "m0-r1-p9-head",
       "round": 1,
@@ -1345,8 +1345,8 @@
       "side": "baseline",
       "directions": 0,
       "iterations": 1024,
-      "seconds": 0.09064862,
-      "seconds_per_call": 8.852404296875e-05,
+      "seconds": 0.097761424,
+      "seconds_per_call": 9.5470140625e-05,
       "checksum": 21864941.20088995,
       "oracle_passed": true,
       "calibration_trials": [],
@@ -1365,11 +1365,11 @@
         "--iterations",
         "1024"
       ],
-      "started_unix": 1791634306.1671073,
+      "started_unix": 1791634990.118966,
       "load_average": [
-        2.49658203125,
-        4.40087890625,
-        3.548828125
+        1.31689453125,
+        2.91796875,
+        3.591796875
       ],
       "label": "m0-r1-p9-baseline",
       "round": 1,
@@ -1378,10 +1378,10 @@
     {
       "side": "baseline",
       "directions": 3,
-      "iterations": 128,
-      "seconds": 0.07981061,
-      "seconds_per_call": 0.000623520390625,
-      "checksum": 2733117.650111312,
+      "iterations": 256,
+      "seconds": 0.15312266900000002,
+      "seconds_per_call": 0.0005981354257812501,
+      "checksum": 5466235.30022263,
       "oracle_passed": true,
       "calibration_trials": [],
       "command": [
@@ -1397,13 +1397,13 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
         "--iterations",
-        "128"
+        "256"
       ],
-      "started_unix": 1791634306.5575845,
+      "started_unix": 1791634990.673286,
       "load_average": [
-        2.6171875,
-        4.39404296875,
-        3.55126953125
+        1.31689453125,
+        2.91796875,
+        3.591796875
       ],
       "label": "m3-r0-p0-baseline",
       "round": 0,
@@ -1412,10 +1412,10 @@
     {
       "side": "head",
       "directions": 3,
-      "iterations": 128,
-      "seconds": 0.08639260400000001,
-      "seconds_per_call": 0.0006749422187500001,
-      "checksum": 2733117.650111312,
+      "iterations": 256,
+      "seconds": 0.155934596,
+      "seconds_per_call": 0.000609119515625,
+      "checksum": 5466235.30022263,
       "oracle_passed": true,
       "calibration_trials": [],
       "command": [
@@ -1431,13 +1431,13 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
         "--iterations",
-        "128"
+        "256"
       ],
-      "started_unix": 1791634306.6842968,
+      "started_unix": 1791634990.8766956,
       "load_average": [
-        2.6171875,
-        4.39404296875,
-        3.55126953125
+        1.31689453125,
+        2.91796875,
+        3.591796875
       ],
       "label": "m3-r0-p0-head",
       "round": 0,
@@ -1446,10 +1446,10 @@
     {
       "side": "head",
       "directions": 3,
-      "iterations": 128,
-      "seconds": 0.087173393,
-      "seconds_per_call": 0.0006810421328125,
-      "checksum": 2733117.650111312,
+      "iterations": 256,
+      "seconds": 0.16296824000000001,
+      "seconds_per_call": 0.0006365946875000001,
+      "checksum": 5466235.30022263,
       "oracle_passed": true,
       "calibration_trials": [],
       "command": [
@@ -1465,13 +1465,13 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
         "--iterations",
-        "128"
+        "256"
       ],
-      "started_unix": 1791634306.819402,
+      "started_unix": 1791634991.079393,
       "load_average": [
-        2.6171875,
-        4.39404296875,
-        3.55126953125
+        1.31689453125,
+        2.91796875,
+        3.591796875
       ],
       "label": "m3-r0-p1-head",
       "round": 0,
@@ -1480,10 +1480,10 @@
     {
       "side": "baseline",
       "directions": 3,
-      "iterations": 128,
-      "seconds": 0.089415058,
-      "seconds_per_call": 0.000698555140625,
-      "checksum": 2733117.650111312,
+      "iterations": 256,
+      "seconds": 0.15744438700000002,
+      "seconds_per_call": 0.0006150171367187501,
+      "checksum": 5466235.30022263,
       "oracle_passed": true,
       "calibration_trials": [],
       "command": [
@@ -1499,13 +1499,13 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
         "--iterations",
-        "128"
+        "256"
       ],
-      "started_unix": 1791634306.9511924,
+      "started_unix": 1791634991.291722,
       "load_average": [
-        2.6171875,
-        4.39404296875,
-        3.55126953125
+        1.31689453125,
+        2.91796875,
+        3.591796875
       ],
       "label": "m3-r0-p1-baseline",
       "round": 0,
@@ -1514,10 +1514,10 @@
     {
       "side": "baseline",
       "directions": 3,
-      "iterations": 128,
-      "seconds": 0.07802647500000001,
-      "seconds_per_call": 0.0006095818359375001,
-      "checksum": 2733117.650111312,
+      "iterations": 256,
+      "seconds": 0.14881745500000002,
+      "seconds_per_call": 0.0005813181835937501,
+      "checksum": 5466235.30022263,
       "oracle_passed": true,
       "calibration_trials": [],
       "command": [
@@ -1533,13 +1533,13 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
         "--iterations",
-        "128"
+        "256"
       ],
-      "started_unix": 1791634307.092109,
+      "started_unix": 1791634991.5006418,
       "load_average": [
-        2.6171875,
-        4.39404296875,
-        3.55126953125
+        1.31689453125,
+        2.91796875,
+        3.591796875
       ],
       "label": "m3-r0-p2-baseline",
       "round": 0,
@@ -1548,10 +1548,10 @@
     {
       "side": "head",
       "directions": 3,
-      "iterations": 128,
-      "seconds": 0.082549354,
-      "seconds_per_call": 0.000644916828125,
-      "checksum": 2733117.650111312,
+      "iterations": 256,
+      "seconds": 0.174752084,
+      "seconds_per_call": 0.000682625328125,
+      "checksum": 5466235.30022263,
       "oracle_passed": true,
       "calibration_trials": [],
       "command": [
@@ -1567,13 +1567,13 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
         "--iterations",
-        "128"
+        "256"
       ],
-      "started_unix": 1791634307.21772,
+      "started_unix": 1791634991.694079,
       "load_average": [
-        2.6171875,
-        4.39404296875,
-        3.55126953125
+        1.31689453125,
+        2.91796875,
+        3.591796875
       ],
       "label": "m3-r0-p2-head",
       "round": 0,
@@ -1582,10 +1582,10 @@
     {
       "side": "head",
       "directions": 3,
-      "iterations": 128,
-      "seconds": 0.09418554300000001,
-      "seconds_per_call": 0.0007358245546875001,
-      "checksum": 2733117.650111312,
+      "iterations": 256,
+      "seconds": 0.15446683800000002,
+      "seconds_per_call": 0.0006033860859375001,
+      "checksum": 5466235.30022263,
       "oracle_passed": true,
       "calibration_trials": [],
       "command": [
@@ -1601,13 +1601,13 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
         "--iterations",
-        "128"
+        "256"
       ],
-      "started_unix": 1791634307.3480487,
+      "started_unix": 1791634991.9168751,
       "load_average": [
-        2.6171875,
-        4.39404296875,
-        3.55126953125
+        1.31689453125,
+        2.91796875,
+        3.591796875
       ],
       "label": "m3-r0-p3-head",
       "round": 0,
@@ -1616,10 +1616,10 @@
     {
       "side": "baseline",
       "directions": 3,
-      "iterations": 128,
-      "seconds": 0.07873954500000001,
-      "seconds_per_call": 0.0006151526953125001,
-      "checksum": 2733117.650111312,
+      "iterations": 256,
+      "seconds": 0.15849153300000002,
+      "seconds_per_call": 0.0006191075507812501,
+      "checksum": 5466235.30022263,
       "oracle_passed": true,
       "calibration_trials": [],
       "command": [
@@ -1635,13 +1635,13 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
         "--iterations",
-        "128"
+        "256"
       ],
-      "started_unix": 1791634307.4904373,
+      "started_unix": 1791634992.1168504,
       "load_average": [
-        2.6171875,
-        4.39404296875,
-        3.55126953125
+        1.31689453125,
+        2.91796875,
+        3.591796875
       ],
       "label": "m3-r0-p3-baseline",
       "round": 0,
@@ -1650,10 +1650,10 @@
     {
       "side": "baseline",
       "directions": 3,
-      "iterations": 128,
-      "seconds": 0.081856841,
-      "seconds_per_call": 0.0006395065703125,
-      "checksum": 2733117.650111312,
+      "iterations": 256,
+      "seconds": 0.15818579600000002,
+      "seconds_per_call": 0.0006179132656250001,
+      "checksum": 5466235.30022263,
       "oracle_passed": true,
       "calibration_trials": [],
       "command": [
@@ -1669,13 +1669,13 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
         "--iterations",
-        "128"
+        "256"
       ],
-      "started_unix": 1791634307.6152651,
+      "started_unix": 1791634992.3244593,
       "load_average": [
-        2.6171875,
-        4.39404296875,
-        3.55126953125
+        1.31689453125,
+        2.91796875,
+        3.591796875
       ],
       "label": "m3-r0-p4-baseline",
       "round": 0,
@@ -1684,10 +1684,10 @@
     {
       "side": "head",
       "directions": 3,
-      "iterations": 128,
-      "seconds": 0.085889646,
-      "seconds_per_call": 0.000671012859375,
-      "checksum": 2733117.650111312,
+      "iterations": 256,
+      "seconds": 0.164600251,
+      "seconds_per_call": 0.00064296973046875,
+      "checksum": 5466235.30022263,
       "oracle_passed": true,
       "calibration_trials": [],
       "command": [
@@ -1703,13 +1703,13 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
         "--iterations",
-        "128"
+        "256"
       ],
-      "started_unix": 1791634307.7439651,
+      "started_unix": 1791634992.5390716,
       "load_average": [
-        2.6171875,
-        4.39404296875,
-        3.55126953125
+        1.31689453125,
+        2.91796875,
+        3.591796875
       ],
       "label": "m3-r0-p4-head",
       "round": 0,
@@ -1718,10 +1718,10 @@
     {
       "side": "head",
       "directions": 3,
-      "iterations": 128,
-      "seconds": 0.08002521600000001,
-      "seconds_per_call": 0.0006251970000000001,
-      "checksum": 2733117.650111312,
+      "iterations": 256,
+      "seconds": 0.158899872,
+      "seconds_per_call": 0.000620702625,
+      "checksum": 5466235.30022263,
       "oracle_passed": true,
       "calibration_trials": [],
       "command": [
@@ -1737,13 +1737,13 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
         "--iterations",
-        "128"
+        "256"
       ],
-      "started_unix": 1791634307.8756168,
+      "started_unix": 1791634992.7525668,
       "load_average": [
-        2.6171875,
-        4.39404296875,
-        3.55126953125
+        1.29150390625,
+        2.8857421875,
+        3.57763671875
       ],
       "label": "m3-r0-p5-head",
       "round": 0,
@@ -1752,10 +1752,10 @@
     {
       "side": "baseline",
       "directions": 3,
-      "iterations": 128,
-      "seconds": 0.079617464,
-      "seconds_per_call": 0.0006220114375,
-      "checksum": 2733117.650111312,
+      "iterations": 256,
+      "seconds": 0.15084540000000002,
+      "seconds_per_call": 0.0005892398437500001,
+      "checksum": 5466235.30022263,
       "oracle_passed": true,
       "calibration_trials": [],
       "command": [
@@ -1771,13 +1771,13 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
         "--iterations",
-        "128"
+        "256"
       ],
-      "started_unix": 1791634308.0114784,
+      "started_unix": 1791634992.9576592,
       "load_average": [
-        2.6171875,
-        4.39404296875,
-        3.55126953125
+        1.29150390625,
+        2.8857421875,
+        3.57763671875
       ],
       "label": "m3-r0-p5-baseline",
       "round": 0,
@@ -1786,10 +1786,10 @@
     {
       "side": "baseline",
       "directions": 3,
-      "iterations": 128,
-      "seconds": 0.07968554300000001,
-      "seconds_per_call": 0.0006225433046875001,
-      "checksum": 2733117.650111312,
+      "iterations": 256,
+      "seconds": 0.143639036,
+      "seconds_per_call": 0.000561089984375,
+      "checksum": 5466235.30022263,
       "oracle_passed": true,
       "calibration_trials": [],
       "command": [
@@ -1805,13 +1805,13 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
         "--iterations",
-        "128"
+        "256"
       ],
-      "started_unix": 1791634308.1373053,
+      "started_unix": 1791634993.1536891,
       "load_average": [
-        2.6171875,
-        4.39404296875,
-        3.55126953125
+        1.29150390625,
+        2.8857421875,
+        3.57763671875
       ],
       "label": "m3-r0-p6-baseline",
       "round": 0,
@@ -1820,10 +1820,10 @@
     {
       "side": "head",
       "directions": 3,
-      "iterations": 128,
-      "seconds": 0.083352085,
-      "seconds_per_call": 0.0006511881640625,
-      "checksum": 2733117.650111312,
+      "iterations": 256,
+      "seconds": 0.16342737000000002,
+      "seconds_per_call": 0.0006383881640625001,
+      "checksum": 5466235.30022263,
       "oracle_passed": true,
       "calibration_trials": [],
       "command": [
@@ -1839,13 +1839,13 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
         "--iterations",
-        "128"
+        "256"
       ],
-      "started_unix": 1791634308.2613473,
+      "started_unix": 1791634993.3445578,
       "load_average": [
-        2.6171875,
-        4.39404296875,
-        3.55126953125
+        1.29150390625,
+        2.8857421875,
+        3.57763671875
       ],
       "label": "m3-r0-p6-head",
       "round": 0,
@@ -1854,10 +1854,10 @@
     {
       "side": "head",
       "directions": 3,
-      "iterations": 128,
-      "seconds": 0.07964544500000001,
-      "seconds_per_call": 0.0006222300390625001,
-      "checksum": 2733117.650111312,
+      "iterations": 256,
+      "seconds": 0.168778418,
+      "seconds_per_call": 0.0006592906953125,
+      "checksum": 5466235.30022263,
       "oracle_passed": true,
       "calibration_trials": [],
       "command": [
@@ -1873,13 +1873,13 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
         "--iterations",
-        "128"
+        "256"
       ],
-      "started_unix": 1791634308.389021,
+      "started_unix": 1791634993.5525045,
       "load_average": [
-        2.6171875,
-        4.39404296875,
-        3.55126953125
+        1.29150390625,
+        2.8857421875,
+        3.57763671875
       ],
       "label": "m3-r0-p7-head",
       "round": 0,
@@ -1888,10 +1888,10 @@
     {
       "side": "baseline",
       "directions": 3,
-      "iterations": 128,
-      "seconds": 0.077770541,
-      "seconds_per_call": 0.0006075823515625,
-      "checksum": 2733117.650111312,
+      "iterations": 256,
+      "seconds": 0.167452429,
+      "seconds_per_call": 0.00065411105078125,
+      "checksum": 5466235.30022263,
       "oracle_passed": true,
       "calibration_trials": [],
       "command": [
@@ -1907,13 +1907,13 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
         "--iterations",
-        "128"
+        "256"
       ],
-      "started_unix": 1791634308.5124683,
+      "started_unix": 1791634993.7689283,
       "load_average": [
-        2.6171875,
-        4.39404296875,
-        3.55126953125
+        1.29150390625,
+        2.8857421875,
+        3.57763671875
       ],
       "label": "m3-r0-p7-baseline",
       "round": 0,
@@ -1922,10 +1922,10 @@
     {
       "side": "baseline",
       "directions": 3,
-      "iterations": 128,
-      "seconds": 0.077467455,
-      "seconds_per_call": 0.0006052144921875,
-      "checksum": 2733117.650111312,
+      "iterations": 256,
+      "seconds": 0.161954452,
+      "seconds_per_call": 0.000632634578125,
+      "checksum": 5466235.30022263,
       "oracle_passed": true,
       "calibration_trials": [],
       "command": [
@@ -1941,13 +1941,13 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
         "--iterations",
-        "128"
+        "256"
       ],
-      "started_unix": 1791634308.6348948,
+      "started_unix": 1791634993.9870179,
       "load_average": [
-        2.6171875,
-        4.39404296875,
-        3.55126953125
+        1.29150390625,
+        2.8857421875,
+        3.57763671875
       ],
       "label": "m3-r0-p8-baseline",
       "round": 0,
@@ -1956,10 +1956,10 @@
     {
       "side": "head",
       "directions": 3,
-      "iterations": 128,
-      "seconds": 0.08066497,
-      "seconds_per_call": 0.000630195078125,
-      "checksum": 2733117.650111312,
+      "iterations": 256,
+      "seconds": 0.162004258,
+      "seconds_per_call": 0.0006328291328125,
+      "checksum": 5466235.30022263,
       "oracle_passed": true,
       "calibration_trials": [],
       "command": [
@@ -1975,13 +1975,13 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
         "--iterations",
-        "128"
+        "256"
       ],
-      "started_unix": 1791634308.7593095,
+      "started_unix": 1791634994.1953628,
       "load_average": [
-        2.6171875,
-        4.39404296875,
-        3.55126953125
+        1.29150390625,
+        2.8857421875,
+        3.57763671875
       ],
       "label": "m3-r0-p8-head",
       "round": 0,
@@ -1990,10 +1990,10 @@
     {
       "side": "head",
       "directions": 3,
-      "iterations": 128,
-      "seconds": 0.08331157900000001,
-      "seconds_per_call": 0.0006508717109375001,
-      "checksum": 2733117.650111312,
+      "iterations": 256,
+      "seconds": 0.149634069,
+      "seconds_per_call": 0.00058450808203125,
+      "checksum": 5466235.30022263,
       "oracle_passed": true,
       "calibration_trials": [],
       "command": [
@@ -2009,13 +2009,13 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
         "--iterations",
-        "128"
+        "256"
       ],
-      "started_unix": 1791634308.8840117,
+      "started_unix": 1791634994.4035497,
       "load_average": [
-        2.6171875,
-        4.39404296875,
-        3.55126953125
+        1.29150390625,
+        2.8857421875,
+        3.57763671875
       ],
       "label": "m3-r0-p9-head",
       "round": 0,
@@ -2024,10 +2024,10 @@
     {
       "side": "baseline",
       "directions": 3,
-      "iterations": 128,
-      "seconds": 0.077656757,
-      "seconds_per_call": 0.0006066934140625,
-      "checksum": 2733117.650111312,
+      "iterations": 256,
+      "seconds": 0.151271956,
+      "seconds_per_call": 0.000590906078125,
+      "checksum": 5466235.30022263,
       "oracle_passed": true,
       "calibration_trials": [],
       "command": [
@@ -2043,13 +2043,13 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
         "--iterations",
-        "128"
+        "256"
       ],
-      "started_unix": 1791634309.0142038,
+      "started_unix": 1791634994.5979025,
       "load_average": [
-        2.6171875,
-        4.39404296875,
-        3.55126953125
+        1.29150390625,
+        2.8857421875,
+        3.57763671875
       ],
       "label": "m3-r0-p9-baseline",
       "round": 0,
@@ -2058,10 +2058,10 @@
     {
       "side": "baseline",
       "directions": 3,
-      "iterations": 128,
-      "seconds": 0.08371569300000001,
-      "seconds_per_call": 0.0006540288515625001,
-      "checksum": 2733117.650111312,
+      "iterations": 256,
+      "seconds": 0.14773297000000002,
+      "seconds_per_call": 0.0005770819140625001,
+      "checksum": 5466235.30022263,
       "oracle_passed": true,
       "calibration_trials": [],
       "command": [
@@ -2077,13 +2077,13 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
         "--iterations",
-        "128"
+        "256"
       ],
-      "started_unix": 1791634309.1372983,
+      "started_unix": 1791634994.7935028,
       "load_average": [
-        2.6171875,
-        4.39404296875,
-        3.55126953125
+        1.29150390625,
+        2.8857421875,
+        3.57763671875
       ],
       "label": "m3-r1-p0-baseline",
       "round": 1,
@@ -2092,10 +2092,10 @@
     {
       "side": "head",
       "directions": 3,
-      "iterations": 128,
-      "seconds": 0.08230209000000001,
-      "seconds_per_call": 0.0006429850781250001,
-      "checksum": 2733117.650111312,
+      "iterations": 256,
+      "seconds": 0.15946405200000002,
+      "seconds_per_call": 0.0006229064531250001,
+      "checksum": 5466235.30022263,
       "oracle_passed": true,
       "calibration_trials": [],
       "command": [
@@ -2111,13 +2111,13 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
         "--iterations",
-        "128"
+        "256"
       ],
-      "started_unix": 1791634309.2646751,
+      "started_unix": 1791634994.9855976,
       "load_average": [
-        2.6171875,
-        4.39404296875,
-        3.55126953125
+        1.29150390625,
+        2.8857421875,
+        3.57763671875
       ],
       "label": "m3-r1-p0-head",
       "round": 1,
@@ -2126,10 +2126,10 @@
     {
       "side": "head",
       "directions": 3,
-      "iterations": 128,
-      "seconds": 0.08355129800000001,
-      "seconds_per_call": 0.0006527445156250001,
-      "checksum": 2733117.650111312,
+      "iterations": 256,
+      "seconds": 0.172311607,
+      "seconds_per_call": 0.00067309221484375,
+      "checksum": 5466235.30022263,
       "oracle_passed": true,
       "calibration_trials": [],
       "command": [
@@ -2145,13 +2145,13 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
         "--iterations",
-        "128"
+        "256"
       ],
-      "started_unix": 1791634309.3912635,
+      "started_unix": 1791634995.1926546,
       "load_average": [
-        2.6171875,
-        4.39404296875,
-        3.55126953125
+        1.29150390625,
+        2.8857421875,
+        3.57763671875
       ],
       "label": "m3-r1-p1-head",
       "round": 1,
@@ -2160,10 +2160,10 @@
     {
       "side": "baseline",
       "directions": 3,
-      "iterations": 128,
-      "seconds": 0.078473157,
-      "seconds_per_call": 0.0006130715390625,
-      "checksum": 2733117.650111312,
+      "iterations": 256,
+      "seconds": 0.176131912,
+      "seconds_per_call": 0.00068801528125,
+      "checksum": 5466235.30022263,
       "oracle_passed": true,
       "calibration_trials": [],
       "command": [
@@ -2179,13 +2179,13 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
         "--iterations",
-        "128"
+        "256"
       ],
-      "started_unix": 1791634309.5200756,
+      "started_unix": 1791634995.4179897,
       "load_average": [
-        2.6171875,
-        4.39404296875,
-        3.55126953125
+        1.29150390625,
+        2.8857421875,
+        3.57763671875
       ],
       "label": "m3-r1-p1-baseline",
       "round": 1,
@@ -2194,10 +2194,10 @@
     {
       "side": "baseline",
       "directions": 3,
-      "iterations": 128,
-      "seconds": 0.081262259,
-      "seconds_per_call": 0.0006348613984375,
-      "checksum": 2733117.650111312,
+      "iterations": 256,
+      "seconds": 0.161968788,
+      "seconds_per_call": 0.000632690578125,
+      "checksum": 5466235.30022263,
       "oracle_passed": true,
       "calibration_trials": [],
       "command": [
@@ -2213,13 +2213,13 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
         "--iterations",
-        "128"
+        "256"
       ],
-      "started_unix": 1791634309.643623,
+      "started_unix": 1791634995.645217,
       "load_average": [
-        2.6171875,
-        4.39404296875,
-        3.55126953125
+        1.29150390625,
+        2.8857421875,
+        3.57763671875
       ],
       "label": "m3-r1-p2-baseline",
       "round": 1,
@@ -2228,10 +2228,10 @@
     {
       "side": "head",
       "directions": 3,
-      "iterations": 128,
-      "seconds": 0.083551651,
-      "seconds_per_call": 0.0006527472734375,
-      "checksum": 2733117.650111312,
+      "iterations": 256,
+      "seconds": 0.167544296,
+      "seconds_per_call": 0.00065446990625,
+      "checksum": 5466235.30022263,
       "oracle_passed": true,
       "calibration_trials": [],
       "command": [
@@ -2247,13 +2247,13 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
         "--iterations",
-        "128"
+        "256"
       ],
-      "started_unix": 1791634309.7709458,
+      "started_unix": 1791634995.8555768,
       "load_average": [
-        2.6171875,
-        4.39404296875,
-        3.55126953125
+        1.29150390625,
+        2.8857421875,
+        3.57763671875
       ],
       "label": "m3-r1-p2-head",
       "round": 1,
@@ -2262,10 +2262,10 @@
     {
       "side": "head",
       "directions": 3,
-      "iterations": 128,
-      "seconds": 0.083583316,
-      "seconds_per_call": 0.00065299465625,
-      "checksum": 2733117.650111312,
+      "iterations": 256,
+      "seconds": 0.188975162,
+      "seconds_per_call": 0.0007381842265625,
+      "checksum": 5466235.30022263,
       "oracle_passed": true,
       "calibration_trials": [],
       "command": [
@@ -2281,13 +2281,13 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
         "--iterations",
-        "128"
+        "256"
       ],
-      "started_unix": 1791634309.898782,
+      "started_unix": 1791634996.0681496,
       "load_average": [
-        2.6171875,
-        4.39404296875,
-        3.55126953125
+        1.29150390625,
+        2.8857421875,
+        3.57763671875
       ],
       "label": "m3-r1-p3-head",
       "round": 1,
@@ -2296,10 +2296,10 @@
     {
       "side": "baseline",
       "directions": 3,
-      "iterations": 128,
-      "seconds": 0.077497382,
-      "seconds_per_call": 0.000605448296875,
-      "checksum": 2733117.650111312,
+      "iterations": 256,
+      "seconds": 0.180842565,
+      "seconds_per_call": 0.00070641626953125,
+      "checksum": 5466235.30022263,
       "oracle_passed": true,
       "calibration_trials": [],
       "command": [
@@ -2315,13 +2315,13 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
         "--iterations",
-        "128"
+        "256"
       ],
-      "started_unix": 1791634310.0283475,
+      "started_unix": 1791634996.3154256,
       "load_average": [
-        2.6171875,
-        4.39404296875,
-        3.55126953125
+        1.29150390625,
+        2.8857421875,
+        3.57763671875
       ],
       "label": "m3-r1-p3-baseline",
       "round": 1,
@@ -2330,10 +2330,10 @@
     {
       "side": "baseline",
       "directions": 3,
-      "iterations": 128,
-      "seconds": 0.077165115,
-      "seconds_per_call": 0.0006028524609375,
-      "checksum": 2733117.650111312,
+      "iterations": 256,
+      "seconds": 0.16253362500000001,
+      "seconds_per_call": 0.0006348969726562501,
+      "checksum": 5466235.30022263,
       "oracle_passed": true,
       "calibration_trials": [],
       "command": [
@@ -2349,13 +2349,13 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
         "--iterations",
-        "128"
+        "256"
       ],
-      "started_unix": 1791634310.151743,
+      "started_unix": 1791634996.5601227,
       "load_average": [
-        2.6171875,
-        4.39404296875,
-        3.55126953125
+        1.29150390625,
+        2.8857421875,
+        3.57763671875
       ],
       "label": "m3-r1-p4-baseline",
       "round": 1,
@@ -2364,10 +2364,10 @@
     {
       "side": "head",
       "directions": 3,
-      "iterations": 128,
-      "seconds": 0.08910772600000001,
-      "seconds_per_call": 0.0006961541093750001,
-      "checksum": 2733117.650111312,
+      "iterations": 256,
+      "seconds": 0.161772608,
+      "seconds_per_call": 0.00063192425,
+      "checksum": 5466235.30022263,
       "oracle_passed": true,
       "calibration_trials": [],
       "command": [
@@ -2383,13 +2383,13 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
         "--iterations",
-        "128"
+        "256"
       ],
-      "started_unix": 1791634310.2744343,
+      "started_unix": 1791634996.7776716,
       "load_average": [
-        2.6171875,
-        4.39404296875,
-        3.55126953125
+        1.29150390625,
+        2.8857421875,
+        3.57763671875
       ],
       "label": "m3-r1-p4-head",
       "round": 1,
@@ -2398,10 +2398,10 @@
     {
       "side": "head",
       "directions": 3,
-      "iterations": 128,
-      "seconds": 0.088181401,
-      "seconds_per_call": 0.0006889171953125,
-      "checksum": 2733117.650111312,
+      "iterations": 256,
+      "seconds": 0.16894171100000002,
+      "seconds_per_call": 0.0006599285585937501,
+      "checksum": 5466235.30022263,
       "oracle_passed": true,
       "calibration_trials": [],
       "command": [
@@ -2417,13 +2417,13 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
         "--iterations",
-        "128"
+        "256"
       ],
-      "started_unix": 1791634310.4092343,
+      "started_unix": 1791634996.993655,
       "load_average": [
-        2.6171875,
-        4.39404296875,
-        3.55126953125
+        1.29150390625,
+        2.8857421875,
+        3.57763671875
       ],
       "label": "m3-r1-p5-head",
       "round": 1,
@@ -2432,10 +2432,10 @@
     {
       "side": "baseline",
       "directions": 3,
-      "iterations": 128,
-      "seconds": 0.083467912,
-      "seconds_per_call": 0.0006520930625,
-      "checksum": 2733117.650111312,
+      "iterations": 256,
+      "seconds": 0.169885465,
+      "seconds_per_call": 0.00066361509765625,
+      "checksum": 5466235.30022263,
       "oracle_passed": true,
       "calibration_trials": [],
       "command": [
@@ -2451,13 +2451,13 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
         "--iterations",
-        "128"
+        "256"
       ],
-      "started_unix": 1791634310.5449739,
+      "started_unix": 1791634997.2098694,
       "load_average": [
-        2.6171875,
-        4.39404296875,
-        3.55126953125
+        1.29150390625,
+        2.8857421875,
+        3.57763671875
       ],
       "label": "m3-r1-p5-baseline",
       "round": 1,
@@ -2466,10 +2466,10 @@
     {
       "side": "baseline",
       "directions": 3,
-      "iterations": 128,
-      "seconds": 0.08403972100000001,
-      "seconds_per_call": 0.0006565603203125001,
-      "checksum": 2733117.650111312,
+      "iterations": 256,
+      "seconds": 0.16590458900000002,
+      "seconds_per_call": 0.0006480648007812501,
+      "checksum": 5466235.30022263,
       "oracle_passed": true,
       "calibration_trials": [],
       "command": [
@@ -2485,13 +2485,13 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
         "--iterations",
-        "128"
+        "256"
       ],
-      "started_unix": 1791634310.6752424,
+      "started_unix": 1791634997.4316652,
       "load_average": [
-        2.6171875,
-        4.39404296875,
-        3.55126953125
+        1.29150390625,
+        2.8857421875,
+        3.57763671875
       ],
       "label": "m3-r1-p6-baseline",
       "round": 1,
@@ -2500,10 +2500,10 @@
     {
       "side": "head",
       "directions": 3,
-      "iterations": 128,
-      "seconds": 0.083718768,
-      "seconds_per_call": 0.000654052875,
-      "checksum": 2733117.650111312,
+      "iterations": 256,
+      "seconds": 0.167080202,
+      "seconds_per_call": 0.0006526570390625,
+      "checksum": 5466235.30022263,
       "oracle_passed": true,
       "calibration_trials": [],
       "command": [
@@ -2519,13 +2519,13 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
         "--iterations",
-        "128"
+        "256"
       ],
-      "started_unix": 1791634310.818771,
+      "started_unix": 1791634997.6459901,
       "load_average": [
-        2.6171875,
-        4.39404296875,
-        3.55126953125
+        1.29150390625,
+        2.8857421875,
+        3.57763671875
       ],
       "label": "m3-r1-p6-head",
       "round": 1,
@@ -2534,10 +2534,10 @@
     {
       "side": "head",
       "directions": 3,
-      "iterations": 128,
-      "seconds": 0.08360112700000001,
-      "seconds_per_call": 0.0006531338046875001,
-      "checksum": 2733117.650111312,
+      "iterations": 256,
+      "seconds": 0.190452998,
+      "seconds_per_call": 0.0007439570234375,
+      "checksum": 5466235.30022263,
       "oracle_passed": true,
       "calibration_trials": [],
       "command": [
@@ -2553,13 +2553,13 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
         "--iterations",
-        "128"
+        "256"
       ],
-      "started_unix": 1791634310.9564085,
+      "started_unix": 1791634997.862541,
       "load_average": [
-        2.6171875,
-        4.39404296875,
-        3.55126953125
+        1.3486328125,
+        2.87060546875,
+        3.56884765625
       ],
       "label": "m3-r1-p7-head",
       "round": 1,
@@ -2568,10 +2568,10 @@
     {
       "side": "baseline",
       "directions": 3,
-      "iterations": 128,
-      "seconds": 0.087910738,
-      "seconds_per_call": 0.000686802640625,
-      "checksum": 2733117.650111312,
+      "iterations": 256,
+      "seconds": 0.162289323,
+      "seconds_per_call": 0.00063394266796875,
+      "checksum": 5466235.30022263,
       "oracle_passed": true,
       "calibration_trials": [],
       "command": [
@@ -2587,13 +2587,13 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
         "--iterations",
-        "128"
+        "256"
       ],
-      "started_unix": 1791634311.0869071,
+      "started_unix": 1791634998.101953,
       "load_average": [
-        2.6171875,
-        4.39404296875,
-        3.55126953125
+        1.3486328125,
+        2.87060546875,
+        3.56884765625
       ],
       "label": "m3-r1-p7-baseline",
       "round": 1,
@@ -2602,10 +2602,10 @@
     {
       "side": "baseline",
       "directions": 3,
-      "iterations": 128,
-      "seconds": 0.08087314000000001,
-      "seconds_per_call": 0.0006318214062500001,
-      "checksum": 2733117.650111312,
+      "iterations": 256,
+      "seconds": 0.168521674,
+      "seconds_per_call": 0.0006582877890625,
+      "checksum": 5466235.30022263,
       "oracle_passed": true,
       "calibration_trials": [],
       "command": [
@@ -2621,13 +2621,13 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
         "--iterations",
-        "128"
+        "256"
       ],
-      "started_unix": 1791634311.2212512,
+      "started_unix": 1791634998.3128564,
       "load_average": [
-        2.6171875,
-        4.39404296875,
-        3.55126953125
+        1.3486328125,
+        2.87060546875,
+        3.56884765625
       ],
       "label": "m3-r1-p8-baseline",
       "round": 1,
@@ -2636,10 +2636,10 @@
     {
       "side": "head",
       "directions": 3,
-      "iterations": 128,
-      "seconds": 0.089882581,
-      "seconds_per_call": 0.0007022076640625,
-      "checksum": 2733117.650111312,
+      "iterations": 256,
+      "seconds": 0.15815889100000002,
+      "seconds_per_call": 0.0006178081679687501,
+      "checksum": 5466235.30022263,
       "oracle_passed": true,
       "calibration_trials": [],
       "command": [
@@ -2655,13 +2655,13 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
         "--iterations",
-        "128"
+        "256"
       ],
-      "started_unix": 1791634311.349021,
+      "started_unix": 1791634998.5282617,
       "load_average": [
-        2.6171875,
-        4.39404296875,
-        3.55126953125
+        1.3486328125,
+        2.87060546875,
+        3.56884765625
       ],
       "label": "m3-r1-p8-head",
       "round": 1,
@@ -2670,10 +2670,10 @@
     {
       "side": "head",
       "directions": 3,
-      "iterations": 128,
-      "seconds": 0.09387901600000001,
-      "seconds_per_call": 0.0007334298125000001,
-      "checksum": 2733117.650111312,
+      "iterations": 256,
+      "seconds": 0.160085522,
+      "seconds_per_call": 0.0006253340703125,
+      "checksum": 5466235.30022263,
       "oracle_passed": true,
       "calibration_trials": [],
       "command": [
@@ -2689,13 +2689,13 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
         "--iterations",
-        "128"
+        "256"
       ],
-      "started_unix": 1791634311.5063126,
+      "started_unix": 1791634998.7318,
       "load_average": [
-        2.72802734375,
-        4.38720703125,
-        3.5537109375
+        1.3486328125,
+        2.87060546875,
+        3.56884765625
       ],
       "label": "m3-r1-p9-head",
       "round": 1,
@@ -2704,10 +2704,10 @@
     {
       "side": "baseline",
       "directions": 3,
-      "iterations": 128,
-      "seconds": 0.079361075,
-      "seconds_per_call": 0.0006200083984375,
-      "checksum": 2733117.650111312,
+      "iterations": 256,
+      "seconds": 0.168415631,
+      "seconds_per_call": 0.00065787355859375,
+      "checksum": 5466235.30022263,
       "oracle_passed": true,
       "calibration_trials": [],
       "command": [
@@ -2723,13 +2723,13 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
         "--iterations",
-        "128"
+        "256"
       ],
-      "started_unix": 1791634311.6481018,
+      "started_unix": 1791634998.9398427,
       "load_average": [
-        2.72802734375,
-        4.38720703125,
-        3.5537109375
+        1.3486328125,
+        2.87060546875,
+        3.56884765625
       ],
       "label": "m3-r1-p9-baseline",
       "round": 1,
@@ -2741,50 +2741,50 @@
       "side": "baseline",
       "directions": 0,
       "iterations": 512,
-      "seconds": 0.047964410000000006,
-      "seconds_per_call": 9.368048828125001e-05,
+      "seconds": 0.044113976000000006,
+      "seconds_per_call": 8.616010937500001e-05,
       "checksum": 10932470.600445153,
       "oracle_passed": true,
       "calibration_trials": [
         {
           "iterations": 1,
-          "seconds": 8.4869e-05
+          "seconds": 0.000101723
         },
         {
           "iterations": 2,
-          "seconds": 0.00015680200000000002
+          "seconds": 0.00017821000000000002
         },
         {
           "iterations": 4,
-          "seconds": 0.00034025
+          "seconds": 0.00035282600000000004
         },
         {
           "iterations": 8,
-          "seconds": 0.000638785
+          "seconds": 0.000724756
         },
         {
           "iterations": 16,
-          "seconds": 0.0012563700000000001
+          "seconds": 0.001500494
         },
         {
           "iterations": 32,
-          "seconds": 0.0025708790000000003
+          "seconds": 0.0028537650000000003
         },
         {
           "iterations": 64,
-          "seconds": 0.005061142
+          "seconds": 0.005537158
         },
         {
           "iterations": 128,
-          "seconds": 0.014781268
+          "seconds": 0.011158656000000001
         },
         {
           "iterations": 256,
-          "seconds": 0.022604586000000003
+          "seconds": 0.022209926
         },
         {
           "iterations": 512,
-          "seconds": 0.047964410000000006
+          "seconds": 0.044113976000000006
         }
       ],
       "command": [
@@ -2800,11 +2800,11 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so"
       ],
-      "started_unix": 1791634300.3757987,
+      "started_unix": 1791634984.4573245,
       "load_average": [
-        2.5400390625,
-        4.44189453125,
-        3.5576171875
+        1.3447265625,
+        2.95068359375,
+        3.60595703125
       ],
       "label": "calibration-0-baseline"
     },
@@ -2812,50 +2812,50 @@
       "side": "head",
       "directions": 0,
       "iterations": 512,
-      "seconds": 0.050218388,
-      "seconds_per_call": 9.80827890625e-05,
+      "seconds": 0.04696442,
+      "seconds_per_call": 9.17273828125e-05,
       "checksum": 10932470.600445153,
       "oracle_passed": true,
       "calibration_trials": [
         {
           "iterations": 1,
-          "seconds": 0.00010230200000000001
+          "seconds": 0.000117529
         },
         {
           "iterations": 2,
-          "seconds": 0.00018013
+          "seconds": 0.000191041
         },
         {
           "iterations": 4,
-          "seconds": 0.00035437800000000003
+          "seconds": 0.000376009
         },
         {
           "iterations": 8,
-          "seconds": 0.000740685
+          "seconds": 0.0007680180000000001
         },
         {
           "iterations": 16,
-          "seconds": 0.0014505210000000002
+          "seconds": 0.001524863
         },
         {
           "iterations": 32,
-          "seconds": 0.0029144460000000002
+          "seconds": 0.0029725850000000002
         },
         {
           "iterations": 64,
-          "seconds": 0.006021787000000001
+          "seconds": 0.005906985
         },
         {
           "iterations": 128,
-          "seconds": 0.011831488000000001
+          "seconds": 0.011533351
         },
         {
           "iterations": 256,
-          "seconds": 0.023696935000000002
+          "seconds": 0.022491331
         },
         {
           "iterations": 512,
-          "seconds": 0.050218388
+          "seconds": 0.04696442
         }
       ],
       "command": [
@@ -2871,50 +2871,54 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so"
       ],
-      "started_unix": 1791634300.5195372,
+      "started_unix": 1791634984.643137,
       "load_average": [
-        2.5400390625,
-        4.44189453125,
-        3.5576171875
+        1.3447265625,
+        2.95068359375,
+        3.60595703125
       ],
       "label": "calibration-0-head"
     },
     {
       "side": "baseline",
       "directions": 3,
-      "iterations": 64,
-      "seconds": 0.040089142,
-      "seconds_per_call": 0.00062639284375,
-      "checksum": 1366558.8250556532,
+      "iterations": 128,
+      "seconds": 0.07280346900000001,
+      "seconds_per_call": 0.0005687771015625001,
+      "checksum": 2733117.650111312,
       "oracle_passed": true,
       "calibration_trials": [
         {
           "iterations": 1,
-          "seconds": 0.000585714
+          "seconds": 0.000584231
         },
         {
           "iterations": 2,
-          "seconds": 0.0013052250000000001
+          "seconds": 0.001167492
         },
         {
           "iterations": 4,
-          "seconds": 0.0024341410000000003
+          "seconds": 0.002342533
         },
         {
           "iterations": 8,
-          "seconds": 0.004796109000000001
+          "seconds": 0.004763801000000001
         },
         {
           "iterations": 16,
-          "seconds": 0.009665902
+          "seconds": 0.010218083000000001
         },
         {
           "iterations": 32,
-          "seconds": 0.019438489
+          "seconds": 0.019563934
         },
         {
           "iterations": 64,
-          "seconds": 0.040089142
+          "seconds": 0.036646645000000005
+        },
+        {
+          "iterations": 128,
+          "seconds": 0.07280346900000001
         }
       ],
       "command": [
@@ -2930,50 +2934,54 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so"
       ],
-      "started_unix": 1791634306.3023458,
+      "started_unix": 1791634990.2609751,
       "load_average": [
-        2.49658203125,
-        4.40087890625,
-        3.548828125
+        1.31689453125,
+        2.91796875,
+        3.591796875
       ],
       "label": "calibration-3-baseline"
     },
     {
       "side": "head",
       "directions": 3,
-      "iterations": 64,
-      "seconds": 0.041375164000000006,
-      "seconds_per_call": 0.0006464869375000001,
-      "checksum": 1366558.8250556532,
+      "iterations": 128,
+      "seconds": 0.08857121500000001,
+      "seconds_per_call": 0.0006919626171875001,
+      "checksum": 2733117.650111312,
       "oracle_passed": true,
       "calibration_trials": [
         {
           "iterations": 1,
-          "seconds": 0.0006974090000000001
+          "seconds": 0.0007322810000000001
         },
         {
           "iterations": 2,
-          "seconds": 0.001299176
+          "seconds": 0.001266369
         },
         {
           "iterations": 4,
-          "seconds": 0.0025352490000000003
+          "seconds": 0.0026396090000000002
         },
         {
           "iterations": 8,
-          "seconds": 0.005185915
+          "seconds": 0.005196462000000001
         },
         {
           "iterations": 16,
-          "seconds": 0.010582515
+          "seconds": 0.009870481
         },
         {
           "iterations": 32,
-          "seconds": 0.020181979000000003
+          "seconds": 0.020864444000000003
         },
         {
           "iterations": 64,
-          "seconds": 0.041375164000000006
+          "seconds": 0.037958496
+        },
+        {
+          "iterations": 128,
+          "seconds": 0.08857121500000001
         }
       ],
       "command": [
@@ -2989,11 +2997,11 @@
         "--bridge",
         "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so"
       ],
-      "started_unix": 1791634306.4269192,
+      "started_unix": 1791634990.458982,
       "load_average": [
-        2.49658203125,
-        4.40087890625,
-        3.548828125
+        1.31689453125,
+        2.91796875,
+        3.591796875
       ],
       "label": "calibration-3-head"
     }
@@ -3004,15 +3012,15 @@
       "rounds": [
         {
           "round": 0,
-          "baseline": 8.461652636718751e-05,
-          "head": 9.19387119140625e-05,
-          "delta_percent": 8.653375246226581
+          "baseline": 8.426847363281251e-05,
+          "head": 8.56477373046875e-05,
+          "delta_percent": 1.6367493232225083
         },
         {
           "round": 1,
-          "baseline": 8.74533701171875e-05,
-          "head": 9.3363517578125e-05,
-          "delta_percent": 6.758055696444765
+          "baseline": 8.09981748046875e-05,
+          "head": 8.641491113281251e-05,
+          "delta_percent": 6.687479490971859
         }
       ],
       "verdict": "informational: unequal boundary ownership contracts"
@@ -3022,20 +3030,20 @@
       "rounds": [
         {
           "round": 0,
-          "baseline": 0.0006052144921875,
-          "head": 0.0006222300390625001,
-          "delta_percent": 2.811490321968124
+          "baseline": 0.000561089984375,
+          "head": 0.00058450808203125,
+          "delta_percent": 4.173679500327476
         },
         {
           "round": 1,
-          "baseline": 0.0006028524609375,
-          "head": 0.0006429850781250001,
-          "delta_percent": 6.65712090236632
+          "baseline": 0.0005770819140625001,
+          "head": 0.0006178081679687501,
+          "delta_percent": 7.057274351148557
         }
       ],
       "verdict": "informational: unequal boundary ownership contracts"
     }
   ],
   "sample_count": 80,
-  "measured_seconds": 7.151321984000001
+  "measured_seconds": 10.225689881000001
 }

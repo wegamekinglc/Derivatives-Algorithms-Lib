@@ -7,6 +7,8 @@
 #include <cmath>
 #include <limits>
 
+#include <dal/platform/initall.hpp>
+
 #include <dal-public/src/montecarlocurvature.hpp>
 #include <dal-public/src/script.hpp>
 
@@ -51,6 +53,7 @@ namespace {
 } // namespace
 
 TEST(BlackScholesMonteCarloBoundaryTest, TestOwningPreparationAndExplicitPoint) {
+    Dal::RegisterAll_::Init();
     const auto product = Dal::NewScriptProduct("segmented", {Dal::Cell_("SCALE"), Dal::Cell_(Dal::Date_(2027, 1, 2))},
                                                {"2", "pay PAYS SCALE * FIX(EQ[SEGMENTED_PUBLIC])"});
     Dal::Script::ScriptValuationSettings_ valuation;
@@ -66,6 +69,7 @@ TEST(BlackScholesMonteCarloBoundaryTest, TestOwningPreparationAndExplicitPoint) 
 }
 
 TEST(BlackScholesMonteCarloBoundaryTest, TestTimeZeroMixedCurvatureAndMetadata) {
+    Dal::RegisterAll_::Init();
     const auto plan = TodayPlan();
     const Dal::Vector_<> point{10.0, 0.2, 0.03, 0.01, 2.0};
     Dal::Script::SegmentedMonteCarloSettings_ settings;
@@ -89,6 +93,7 @@ TEST(BlackScholesMonteCarloBoundaryTest, TestTimeZeroMixedCurvatureAndMetadata) 
 }
 
 TEST(BlackScholesMonteCarloBoundaryTest, TestHistoricalConstantReplayWithoutHistoryReads) {
+    Dal::RegisterAll_::Init();
     auto valuation = Valuation();
     valuation.fixings_ = Dal::Handle_<Dal::MarketFixingSnapshot_>(
         new Dal::MarketFixingSnapshot_({{"EQ[SEGMENTED_PUBLIC_HISTORY]", {{Dal::DateTime_(Dal::Date_(2025, 1, 2), 0.0), 80.0}}}}));
@@ -109,6 +114,7 @@ TEST(BlackScholesMonteCarloBoundaryTest, TestHistoricalConstantReplayWithoutHist
 }
 
 TEST(BlackScholesMonteCarloBoundaryTest, TestInvalidRequestsAdmittedBeforeWorkersAndRecover) {
+    Dal::RegisterAll_::Init();
     const auto plan = TodayPlan();
     const Dal::Vector_<> point{10, 0.2, 0.03, 0.01, 2};
     {
@@ -129,6 +135,7 @@ TEST(BlackScholesMonteCarloBoundaryTest, TestInvalidRequestsAdmittedBeforeWorker
 }
 
 TEST(BlackScholesMonteCarloBoundaryTest, TestEmptyDirectionsExactPayloadAndClosedPreparation) {
+    Dal::RegisterAll_::Init();
     const auto plan = TodayPlan();
     Dal::AAD::BumpOverAADRequest_ request;
     request.directions_ = Dal::Matrix_<>(0, 5);
@@ -146,6 +153,7 @@ TEST(BlackScholesMonteCarloBoundaryTest, TestEmptyDirectionsExactPayloadAndClose
 }
 
 TEST(BlackScholesMonteCarloBoundaryTest, TestInputMutationAfterSubmissionCannotChangeStoredEstimator) {
+    Dal::RegisterAll_::Init();
     auto plan = Dal::PlanBlackScholesMonteCarlo(Dal::NewScriptProduct("original", {Dal::Cell_("SCALE"), Dal::Cell_(Dal::Date_(2027, 1, 2))},
                                                                       {"2", "pay PAYS SCALE * FIX(EQ[SEGMENTED_PUBLIC])"}),
                                                 Valuation());

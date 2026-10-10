@@ -50,27 +50,34 @@ constant-size. Rebuild affected public/binding/consumer objects and repeat only
 these same two affected cases; retain the first run separately. This does not
 change the native algorithms or justify adding unrelated performance cases.
 
+Codacy subsequently flags `main` complexity in the driver. Extract its unchanged
+timed loop into `sample`, retaining clock calls, calibration, loop and oracle
+placement. Repeat only the two affected driver callers to bind final evidence
+to the repaired script identity. Production sources and binaries are unchanged;
+reuse their accepted correctness evidence. Retain both prior raw runs.
+
 ## Final results
 
 GCC 15.2.0 Release/PIC, Python 3.13.9, i9-13900HX, CPU zero affinity, one DAL
-and OMP thread. Shared one-minute load ranges from 2.50 to 2.73. Each side runs
+and OMP thread. Shared one-minute load ranges from 1.29 to 1.35. Each side runs
 in a fresh process. Four calibrations determine fixed loop counts; all 80 final
-samples exceed 25 ms (minimum 77.17 ms). The two rounds each retain ten
+samples exceed 25 ms (minimum 82.94 ms). The two rounds each retain ten
 alternating interleaved process pairs. Values below are per-call round minima
 in microseconds. Different ownership contracts keep every row informational.
 
 | Case | Baseline R1 | Head R1 | Delta R1 | Baseline R2 | Head R2 | Delta R2 |
 |------|-------------|---------|----------|-------------|---------|----------|
-| Mean | 84.62       | 91.94   | +8.65%   | 87.45       | 93.36   | +6.76%   |
-| M=3  | 605.21      | 622.23  | +2.81%   | 602.85      | 642.99  | +6.66%   |
+| Mean | 84.27       | 85.65   | +1.64%   | 81.00       | 86.41   | +6.69%   |
+| M=3  | 561.09      | 584.51  | +4.17%   | 577.08      | 617.81  | +7.06%   |
 
-Final samples total 7.151321984 measured seconds. Both sides validate independent
+Final samples total 10.225689881 measured seconds. Both sides validate independent
 finite-path analytic prices, every gradient and actual-step gradient secants
 before and after their timed loop. Complete final samples, calibration trials,
 commands, load averages, executable and input identities are in
-[the raw evidence](aad-python-monte-carlo-curvature-results.json). Initial and
-final runs together retain 160 samples in 14.473529413 measured seconds; the
-initial raw outputs remain in the external evidence directory.
+[the raw evidence](aad-python-monte-carlo-curvature-results.json). The initial,
+shared-metadata and driver-repair runs together retain 240 samples in
+24.699219294 measured seconds; prior raw outputs remain in the external
+evidence directory.
 
 The final installed extension hash is
 `7a656aef14fdcfa94ec0cbd3fc64655d0188403702a3e1d0c6b230a721af8351`.
