@@ -55,6 +55,21 @@ namespace {
         return {spot * delta - 100.0 * std::exp(-0.051) * 0.5 * std::erfc(-d2 / std::sqrt(2.0)), {delta, vega}, std::move(hessian)};
     }
 
+    Request MakeRequest(bool polynomial) {
+        Request request;
+        request.directions_ = Matrix_<>(polynomial ? 1 : 3, polynomial ? 1 : 2, 0.0);
+        request.directions_(0, 0) = 1.0;
+        if (!polynomial) {
+            request.directions_(1, 1) = 1.0;
+            request.directions_(2, 0) = -2.0;
+            request.directions_(2, 1) = 0.5;
+        }
+#if !DAL_SMOOTH_COST_MODE
+        request.steps_ = polynomial ? Vector_<>{0.01} : Vector_<>{1e-4, 1e-4, 1e-4};
+#endif
+        return request;
+    }
+
     template <class R_> double Consume(const R_& result) {
         double sum = result.Value();
         for (double value : result.Gradient())
@@ -99,17 +114,7 @@ int main(int argc, char** argv) {
     const std::string name = argv[1];
     REQUIRE(name == "polynomial" || name == "blackscholes", "unknown smooth cost case");
     const bool polynomial = name == "polynomial";
-    Request request;
-    request.directions_ = Matrix_<>(polynomial ? 1 : 3, polynomial ? 1 : 2, 0.0);
-    request.directions_(0, 0) = 1.0;
-    if (!polynomial) {
-        request.directions_(1, 1) = 1.0;
-        request.directions_(2, 0) = -2.0;
-        request.directions_(2, 1) = 0.5;
-    }
-#if !DAL_SMOOTH_COST_MODE
-    request.steps_ = polynomial ? Vector_<>{0.01} : Vector_<>{1e-4, 1e-4, 1e-4};
-#endif
+    const auto request = MakeRequest(polynomial);
     const Vector_<> point = polynomial ? Vector_<>{2.0} : Vector_<>{103.0, 0.24};
     const auto function = polynomial ? Polynomial : BlackScholes;
     const auto evaluate = [&] {

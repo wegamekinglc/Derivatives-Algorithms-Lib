@@ -69,3 +69,12 @@ speedup claim. Methods have different approximation semantics, so their deltas
 are informational rather than a same-algorithm +4% regression verdict. The
 ordinary-caller sustained +4% two-round policy is unchanged; excluded cases
 are not claimed as newly measured passes.
+
+## Codacy harness repair scope
+
+Codacy reports cost-driver main complexity 12, above limit 8. Extract request
+construction without changing workloads, output consumption or the timed loop.
+Rebuild both consuming cost executables and refresh only the same two cases
+under the unchanged calibrated paired-sampling contract. Preserve the initial
+raw measurements and identities. Core/test/installed executables are unchanged;
+their accepted evidence remains applicable and no full matrix is justified.
