@@ -71,15 +71,20 @@ def native(source, request):
     return result.gradient, result.hessian_products.to_rows()
 
 
+def require(condition, message):
+    if not condition:
+        raise RuntimeError(message)
+
+
 def validate(result, count):
     gradient_values, products = result
     expected = 2 * math.exp(-0.05)
-    assert len(gradient_values) == 6 and len(products) == count
-    assert abs(gradient_values[3] - 0.001 * expected) < 1e-12
+    require(len(gradient_values) == 6 and len(products) == count, "Unexpected gradient/product shape")
+    require(abs(gradient_values[3] - 0.001 * expected) < 1e-12, "Analytic gradient mismatch")
     for row, multiplier in zip(products, [1, -2, 0]):
         for column, value in enumerate(row):
             reference = multiplier * expected if column == 3 else 0
-            assert abs(value - reference) < 1e-9
+            require(abs(value - reference) < 1e-9, "Analytic Hessian product mismatch")
 
 
 def main():

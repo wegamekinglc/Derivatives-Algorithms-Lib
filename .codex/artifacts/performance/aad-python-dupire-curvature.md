@@ -69,3 +69,12 @@ parser rejected it. The original output is retained, and the orchestration parse
 now reads the single JSON result line while retaining full stdout/stderr. No
 production, cost-driver or sampling contract changed; the complete paired run
 then succeeds. No old native benchmark cases were repeated or claimed as new passes.
+
+## Codacy repair scope
+
+Codacy flags three `assert` statements in the Python cost driver's validation.
+Replace them with explicit failure checks so optimization cannot remove numeric
+oracles. The request operations, timing interval and tolerances remain unchanged.
+Repeat only these same two affected entry-cost cases with fresh driver provenance;
+retain all original observations. Binding code, native libraries and the selected
+test executable are unchanged, so no correctness suite or old timing repeats.
