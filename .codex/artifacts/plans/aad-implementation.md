@@ -10,10 +10,12 @@ Current controls are the [specification](../specs/aad-excel-segmented-mc.md),
 [API](../api-notes/aad-excel-segmented-mc.md),
 [critique](../critiques/aad-excel-segmented-mc.md) and scoped
 [cost selection](../performance/aad-excel-segmented-mc.md).
-The first missing-interface RED and independent time-zero mixed-product GREEN
-are retained. Immutable settings/plans/results delegate to the accepted public
-native evaluators; broader interface, Windows and publication acceptance remain
-open. LSMC follows in its own PR after this increment merges.
+The missing-interface RED and eleven scoped typed GREEN cases are retained.
+Twenty-seven generated wrapper/help pairs, strict OFF/combined probes, the
+public binding boundary and two selected costs (80 observations, 6.198 seconds)
+pass locally. Immutable settings/plans/results delegate to accepted public
+native evaluators; actual Windows and publication acceptance remain open.
+LSMC follows in its own PR after this increment merges.
 Remaining developer effort is approximately 11–19 hours: MC 4–6, LSMC 3–5
 and final-only work 4–8; remote CI waiting is separate.
 

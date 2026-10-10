@@ -1,7 +1,7 @@
 # Excel segmented Monte Carlo local review
 
-Verdict: Comment Only — local numerical/binding checks pass; cost and remote
-Windows/publication acceptance remain pending.
+Verdict: Comment Only — local numerical/binding/cost checks pass; remote
+Windows/publication acceptance remains pending.
 
 ## Findings
 
@@ -29,8 +29,10 @@ increment does not change the simulator, tape, Python or existing financial APIs
   pairs; existing generated files have no drift.
 - Changed/covered functions have CCN at most seven. No full local correctness
   or performance matrix is justified by the adapter's caller analysis.
-- Two selected full-request costs remain pending, including independent
-  finite-path values, all gradients and actual-step secants before/after batches.
+- Two selected full-request costs pass 80 calibrated fresh-process observations,
+  including independent finite-path values, all gradients and actual-step secants
+  before/after batches. Actual measurement totals 6.198 seconds; the shortest
+  observation is 43.625 ms. Unequal ownership costs remain informational.
 
 ## Remaining merge gates
 
