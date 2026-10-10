@@ -1,7 +1,7 @@
 # LSMC curvature scoped cost acceptance
 
-Status: initial and complexity-repair local acceptance passed. Model-provenance
-repair verification and refreshed costs are in progress; publication remains open.
+Status: initial, complexity-repair and model-provenance local acceptance pass;
+publication remains open.
 
 Baseline: merged #525, `f30c7bf4b74d183b071bedc0f51aea3e9864dea8`.
 
@@ -90,6 +90,27 @@ agrees. Shared-host load changed between the initial run and refresh; neither
 cross-run latency differences nor negative round deltas establish a speedup.
 Later documentation-only commits reuse this evidence only while source,
 dependency, configuration, archive and executable identities remain applicable.
+
+## Accepted model-provenance repair refresh
+
+Implementation `94f14726c304a427a8c92108b7c8facf60a10d60` passes 26 selected
+tests (17 new, 6 legacy LSMC and 3 preparation), eight OFF/combined strict probes
+and fresh installed consumption. All 16 library consumers of the changed
+preparation header are rebuilt (13 core, 3 public); the baseline archives retain
+the #525 identities. The same four timing cases retain calibrated repetition
+counts, with 160 observations and 1.831268117 seconds of measured work.
+
+| Case               | Round 1 delta | Round 2 delta | Verdict                   |
+|--------------------|---------------|---------------|---------------------------|
+| Existing Frozen    | -12.57%       | -10.03%       | No regression             |
+| Existing Retrained | -3.73%        | -3.29%        | No regression             |
+| New Frozen         | Informational | Informational | Complete-request coverage |
+| New Retrained      | Informational | Informational | Complete-request coverage |
+
+All paired checksums agree and both existing callers pass the sustained +4%
+gate. Complete samples and rebuilt core/public object provenance are retained
+under `model-provenance` in the raw evidence. Shared-host sampling and setup
+exclusions remain as declared above; these negative deltas are not speedup claims.
 
 ## Selected finite-estimator study
 

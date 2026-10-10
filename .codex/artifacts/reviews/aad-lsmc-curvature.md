@@ -12,7 +12,10 @@ Black–Scholes type before training. Twenty-six selected tests pass with the
 fresh affected objects; the Hybrid regression is rejected before any submission.
 Eight OFF/combined strict probes pass, including preparation itself. Two
 pre-existing conditional-macro warnings in that source are repaired with braces.
-Installed consumption, refreshed paired costs and publication remain open.
+Fresh installed consumption and the same four refreshed paired cost cases pass
+(160 observations, 1.831268117 measured seconds). Complete model-provenance raw
+evidence includes rebuilt core/public objects and executable identities.
+Current-head publication acceptance remains open.
 
 The first numerical RED distinguished repeated legacy policy training from
 curvature conditional on a single baseline policy. Additional RED/GREEN covers
