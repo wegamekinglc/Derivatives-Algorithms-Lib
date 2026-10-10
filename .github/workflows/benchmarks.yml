@@ -19,6 +19,9 @@ jobs:
     runs-on: ubuntu-latest
     # No ccache here: this job builds with -march=native, and cached objects
     # restored on a different runner CPU generation crash with SIGILL.
+    env:
+      # Bare Make -j is unbounded; keep compiler memory within hosted-runner limits.
+      CMAKE_BUILD_PARALLEL_LEVEL: 2
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -102,7 +105,7 @@ jobs:
             -DPython3_EXECUTABLE="$(command -v python3)" \
             -DCMAKE_CXX_FLAGS=-ffile-prefix-map=$PWD/benchmark-base=$PWD \
             -DDAL_ENABLE_NATIVE_ARCH=ON
-          cmake --build build/benchmark-head --parallel
+          cmake --build build/benchmark-head --parallel "$CMAKE_BUILD_PARALLEL_LEVEL"
 
       - name: Build base benchmarks
         env:
@@ -128,7 +131,7 @@ jobs:
             -DPython3_EXECUTABLE="$(command -v python3)" \
             -DCMAKE_CXX_FLAGS=-ffile-prefix-map=$PWD/benchmark-base=$PWD \
             -DDAL_ENABLE_NATIVE_ARCH=ON
-          cmake --build benchmark-base/build/benchmark-base --parallel
+          cmake --build benchmark-base/build/benchmark-base --parallel "$CMAKE_BUILD_PARALLEL_LEVEL"
 
       - name: Verify Python workloads on both native builds
         id: python-workloads
