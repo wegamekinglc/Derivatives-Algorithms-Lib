@@ -286,7 +286,8 @@ TEST(ScriptExcelRawTest, TestRateCurvatureEmptyDirectionsExplicitEmptyHistoryAnd
     Output_ emptyResult(Call("xl_RateTradeQuoteCurvatureResult_New", name, fixture.trade_.Scalar(), snapshot, emptyBumps.Scalar(), &blank));
     ASSERT_EQ(emptyResult.Text().find("#Error:"), std::string::npos) << emptyResult.Text();
     Output_ products(Call("xl_RateTradeQuoteCurvatureResult_Get_HessianProducts", emptyResult.Scalar()));
-    ASSERT_EQ(products.Scalar()->xltype, xltypeNil);
+    ASSERT_EQ(products.Scalar()->xltype, xltypeStr);
+    ASSERT_EQ(products.Scalar()->val.str[0], 0);
     Output_ shape(Call("xl_RateTradeQuoteCurvatureResult_Get_Shape", emptyResult.Scalar()));
     ASSERT_DOUBLE_EQ(shape.value_->val.array.lparray[0].val.num, 0.0);
     ASSERT_DOUBLE_EQ(shape.value_->val.array.lparray[1].val.num, 1.0);

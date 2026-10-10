@@ -18,6 +18,12 @@ blank/missing/empty-text row/column cases with trade ordinal context. This local
 probe uses minimal OPER primitives and does not claim actual Windows runtime.
 The new raw regression also checks complete duplicate rows remain valid.
 
+Windows profiling runtime exposed an incorrect test expectation for empty
+products: the existing XLL Cell writer emits empty text, not xltypeNil. The
+test now asserts text type and zero length, matching the existing Dupire raw
+contract, while retaining authoritative shape/counter checks. No production
+or timed source changed, so the accepted two-case costs remain applicable.
+
 ## Reviewed contract
 
 Nineteen worksheet functions reuse native sealed snapshots, the closed native
