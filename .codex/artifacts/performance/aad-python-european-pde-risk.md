@@ -61,9 +61,9 @@ expansion. Required exact-head CI remains independent of this local selection.
 
 ## Outcome
 
-Both sizes complete two rounds of ten alternating pairs for each comparison:
-160 observations, 9.925843438 measured seconds, minimum loop 41.304792ms.
-Correctness passes 12 affected C++ tests and 32 new Python cases, with strict
+Both grid sizes and the long-schedule repair complete two rounds of ten alternating pairs:
+200 observations, 14.197663285 measured seconds, minimum loop 55.186179ms.
+Correctness passes 13 affected C++ tests and 34 new Python cases, with strict
 OFF/combined compilation and installed consumer acceptance. Every measured
 loop verifies both prices, all six risks and actual solve errors before/after.
 Machine: WSL/Linux, GCC 15.2.0, O3/Release, native AAD, one DAL thread, CPU 0
@@ -71,10 +71,11 @@ affinity. The machine is shared; a single noisy round is not a sustained verdict
 
 | Comparison                        | Grid / ordinary intervals | Round 1 minima us, left/right | Round 1 delta | Round 2 minima us, left/right | Round 2 delta | Interpretation                                    |
 |-----------------------------------|---------------------------|-------------------------------|---------------|-------------------------------|---------------|---------------------------------------------------|
-| Accepted/extracted native helper  | 9 / 8                     | 123.631 / 124.098             | +0.38%        | 97.957 / 97.854               | -0.11%        | Comparable gate passes                            |
-| Accepted/extracted native helper  | 61 / 120                  | 6930.446 / 6941.550           | +0.16%        | 6702.562 / 7052.877           | +5.23%        | Comparable gate passes; only one round exceeds 4% |
-| Owning C++ ctypes / owning Python | 9 / 8                     | 104.305 / 110.450             | +5.89%        | 105.155 / 108.838             | +3.50%        | Unequal boundary contracts; informational         |
-| Owning C++ ctypes / owning Python | 61 / 120                  | 7092.543 / 7182.633           | +1.27%        | 6954.216 / 7223.455           | +3.87%        | Unequal boundary contracts; informational         |
+| Accepted/extracted native helper  | 9 / 8                     | 99.323 / 98.017               | -1.31%        | 99.789 / 100.603              | +0.82%        | Comparable gate passes                            |
+| Accepted/extracted native helper  | 61 / 120                  | 7251.267 / 7049.331           | -2.78%        | 7168.199 / 7575.041           | +5.68%        | Comparable gate passes; only one round exceeds 4% |
+| Owning C++ ctypes / owning Python | 9 / 8                     | 108.315 / 112.089             | +3.48%        | 105.924 / 111.201             | +4.98%        | Unequal boundary contracts; informational         |
+| Owning C++ ctypes / owning Python | 61 / 120                  | 7117.471 / 7546.238           | +6.02%        | 7178.238 / 7278.308           | +1.39%        | Unequal boundary contracts; informational         |
+| Original/repaired owning C++      | 9 / 4096                  | 49037.957 / 44721.229         | -8.80%        | 48437.905 / 46215.855         | -4.59%        | Comparable repair gate passes                     |
 
 The scoped verdict is no sustained regression under the declared two-round
 4% rule. The second medium-grid round is reported rather than hidden; no
@@ -82,22 +83,29 @@ universal speedup, ordinary PDE benchmark pass or full-suite pass is claimed.
 Per-request result ownership/resource accounting is included in the owning rows.
 
 Immutable measured implementation:
-`ca421c0756c402437b0c326c8d0e411bfef5f296`.
+`35354546a5fb6f7a0301a8b441bb702158132264`.
+The long-schedule repair baseline is the original PR head
+`a8750ae1e396b3c2bd9e8b79827b3e9f723e557d`; its timed production and bridge
+match `ca421c0756c402437b0c326c8d0e411bfef5f296`. Original/repaired owning
+contracts are identical. A separate dense complete 4096-interval program
+matches both prices within 1e-9 and all six centered derivatives within 2e-6
+before freezing the timing reference. The repaired publication uses one
+checked reverse-entry pass, avoiding quadratic event lookup. These two measured
+improvements are limited to this workload on the shared host.
 Baseline/head bridges are separate detached source/build trees; their core
 archive hash is unchanged at
 `967f5e721f0ba67354b66f8eb14d8be9c4f7e422463bc8c412864491ee06997c`.
 The fresh installed Python module hash is
-`cf41c66c3006c1fd47fc8d06b56680143b0f8d405b7cc946aaecbc85ed4a5e6c`.
+`3b5977055e3235f891096ca9b38286dbf13b281abec8c09766a47927f99ba628`.
 Fresh build dependency evidence covers all 52 public/binding translation units.
 All 402 existing native headers match; one new production helper is installed.
 
-The collector initially parsed Python initialization logs as JSON. Its repair
-changes only the external collector, not either timed caller/driver. The
-completed small native case's 40 structured raw numerical/timing records were
-retained; only the remaining three uncompleted comparisons proceeded. Those
-120 records additionally retain complete process stdout/stderr. No completed
-timing case, numerical test or full benchmark matrix was repeated for this
-collector repair.
+All 200 repaired-source observations retain complete process stdout/stderr and
+structured results. The original 160 observations and their collector-repair
+limitations remain historical evidence in
+[the original committed report](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/a8750ae1e396b3c2bd9e8b79827b3e9f723e557d/.codex/artifacts/performance/aad-python-european-pde-risk.md).
+They are not acceptance of the repaired module. No unrelated timing matrix
+or full local numerical suite was run during the review repair.
 
 Portable structured observations and per-round summaries are in
 [the raw result](aad-python-european-pde-risk-results.json). Full commands,

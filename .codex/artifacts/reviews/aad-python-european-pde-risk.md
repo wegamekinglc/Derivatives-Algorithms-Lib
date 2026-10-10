@@ -2,7 +2,7 @@
 
 ## Findings
 
-No open correctness or API finding in the complete local diff. Read-first
+No open correctness or API finding in the repaired complete local diff. Read-first
 review covers shared financial extraction, request admission, ownership,
 chronological reports, mode/graph protection, resource accounting, Python
 strict inputs/GIL, installed consumers and current-state documentation.
@@ -13,6 +13,14 @@ They preserve financial calculations and checks. Subsequent affected numerical,
 strict and installed acceptance passes; all production/retained cost functions
 have complexity at most eight.
 
+Current-head Codex review found two P2 issues: error limits above one passed
+preflight, and repeated event-report searches made publication quadratic.
+Both are repaired in 35354546. C++ and Python RED cases reproduce invalid-limit
+admission; GREEN checks verify [0,1] endpoints, rejection before zero budgets,
+and unchanged caller mode. Publication now checks report counts and identities
+while traversing the owned reverse chain once. The 4096-interval regression
+compares every chronological diagnostic with its native event/seed report.
+
 ## Open questions
 
 None blocking the bounded financial interface. Generic recording/equation
@@ -21,17 +29,22 @@ work and is not accepted by this review.
 
 ## Tests
 
-- Six new public C++ and six affected existing financial cases pass, including
+- Seven new public C++ and six affected existing financial cases pass, including
   exact fresh-thread capacity, caller graph preservation and report ordering.
-- 32 Python cases pass: independent complete dense programs/three bump sizes,
+- 34 Python cases pass: independent complete dense programs/three bump sizes,
   nondefault/negative-rate points, boundary/terminal risks, strict/range/error
   admission, ownership, GIL synchronization and concurrent callers.
 - 16 strict OFF/combined probes and installed consumers 3/3 pass; accepted
   native core/402-header identity and all 52 fresh production dependencies
   are checked. The example is rebuilt as an affected caller.
-- Scoped cost evidence retains 160 observations over two grid sizes; both
+- Seven selected existing public operations followed by the new PDE request
+  pass in one Python thread/process; calibration, pricing, Dupire and MC/LSMC
+  callers leave a usable tape for the owning request.
+- Scoped cost evidence retains 200 observations across five comparisons; all
   comparable caller rows pass the sustained 4% rule. The one medium-grid
   round above 4% and unequal owning-boundary costs are explicitly reported.
+  The long-schedule identical owning contract improves by 8.80%/4.59% in the
+  two rounds; this is workload-specific evidence, not a universal speedup.
 
 ## Summary
 
