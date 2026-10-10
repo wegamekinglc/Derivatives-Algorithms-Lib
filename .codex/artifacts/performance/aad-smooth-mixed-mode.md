@@ -38,6 +38,10 @@ compiler, CMake, archive, object and executable identities, calibration outputs,
 all 80 raw samples and commands are committed in
 [the complete evidence](aad-smooth-mixed-mode-results.json). Documentation-only
 publication changes do not alter those measured dependencies or binaries.
+The final namespace-comment correction has a fresh rebuild proof under
+`identity_reuse`: the module, consuming harness object, archives and measured
+executable retain their exact hashes, with refreshed dependency identities.
+No repeated timing is needed for that identical executable.
 
 Both sides use one thread and a fixed caller CPU on the same shared host, with
 O3, NDEBUG, fast FP contraction and diagnostics/native architecture flags OFF.
