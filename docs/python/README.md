@@ -577,6 +577,64 @@ settings and results support copy/deepcopy. Factories release the GIL after
 copying typed inputs. See the
 [native financial contract](../methodology/aad.md#native-rate-trade-quote-curvature).
 
+## Segmented Black–Scholes Monte Carlo risk
+
+Prepare a closed native Black–Scholes script once, then reuse its frozen contract
+and historical observations for explicit parameter points:
+
+```python
+valuation = dal.ScriptValuationSettings_(evaluation_date=dal.Date_(2026, 1, 2))
+product = dal.Product_New(
+    ["SCALE", dal.Date_(2027, 1, 2)],
+    ["2", "pay PAYS SCALE * FIX(EQ[UNDERLYING]) ^ 2"],
+)
+plan = dal.BlackScholesMonteCarloPlan_New(product, valuation=valuation)
+point = [100.0, 0.2, 0.03, 0.01, *plan.script_constants]
+settings = dal.SegmentedMonteCarloSettings_(first_path=7, segment_steps=64)
+mean = dal.BlackScholesMonteCarlo_Get_Risk(plan, point, 129, settings=settings)
+bumps = dal.BumpOverAADRequest_(
+    directions=dal.DoubleMatrix_([[1.0, 0.0, 0.0, 0.0, 0.0]]), steps=[0.25]
+)
+risk = dal.BlackScholesMonteCarlo_Get_Curvature(
+    plan, point, 129, bumps, settings=settings
+)
+spot_gamma = risk.hessian_products[0, 0]
+```
+
+Columns follow `plan.parameter_labels`: spot, volatility, continuously compounded
+rate, dividend yield, then script constants. Points must be lists or tuples of
+finite real numbers; no coordinate scaling is applied. The path count follows
+the positive integer contract above. Plan creation resolves history; subsequent
+evaluations replay the sealed observations and do not read global history again.
+`valuation`, `smoothing`, `contract_dates`, `contract_events`, `contract_settings`
+and `observations` identify the preparation. An optional `smoothing` factory
+argument selects the compiled native first-order smoothing width. EXERCISE
+requires the separate policy estimator and is rejected by this preparation.
+
+Keyword-only settings expose `rsg` (sobol/mrg32/irn), `use_bb`, absolute
+`first_path`, optional Sobol-only uint64 `scramble_key`, `normal_precision`
+(Default/Fast/Precise), positive `segment_steps` and optional
+`checkpoint_capacity_budget_bytes` / `recording_capacity_budget_bytes`.
+Explicit zero caps remain zero. Fixed 32-path batches preserve native reduction
+order. Defaults select Sobol, offset zero, no bridge and 64-step segments.
+
+Mean results expose `value`, `gradient`, `point`, `parameter_labels`, `settings`,
+`execution` and the owning `plan`. Curvature exposes `base` with the mean and
+gradient, plus point, directions, actual steps, products, settings, execution
+and plan. Containers/settings are detached copies; copy/deepcopy may safely
+share immutable native preparation. Numerical calls release the Python GIL.
+
+The curvature method is `BumpOverSegmentedNativeAAD`: each row differences
+complete native mean gradients on the same absolute paths. Its `1+2M`
+`gradient_evaluations` count is distinct from segment reverse sweeps. Empty
+directions retain the base gradient and a `0 x N` product. Numeric payload uses
+the shared bump request's owning-double formula and excludes preparation,
+tasks and random buffers. The smaller path/bump recording limit applies;
+execution reports that effective limit and per-path tape/checkpoint/cleanup
+maxima, excluding aggregate memory and RSS. These are finite-step secants;
+nonsmooth payoffs have separate step and sampling errors. See the
+[native methodology](../methodology/aad.md#common-path-segmented-monte-carlo-curvature).
+
 ## Matrix and local-volatility surface input
 
 `DoubleMatrix_` supports all of the following:

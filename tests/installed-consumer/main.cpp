@@ -12,6 +12,7 @@
 #include <dal-public/src/global.hpp>
 #include <dal-public/src/interp.hpp>
 #include <dal-public/src/models.hpp>
+#include <dal-public/src/montecarlocurvature.hpp>
 #include <dal-public/src/ratecurvature.hpp>
 #include <dal-public/src/script.hpp>
 #include <dal-public/src/storage.hpp>
@@ -24,6 +25,24 @@
 #include <dal/utilities/numerics.hpp>
 
 namespace {
+    bool CheckSegmentedMonteCarloBoundary() {
+        Dal::Script::ScriptValuationSettings_ valuation;
+        valuation.evaluationDate_ = Dal::Date_(2026, 1, 2);
+        const auto product = Dal::NewScriptProduct("installed-segmented", {Dal::Cell_("SCALE"), Dal::Cell_(Dal::Date_(2026, 1, 2))},
+                                                   {"2", "pay PAYS SCALE * FIX(EQ[INSTALLED]) ^ 2"});
+        const auto plan = Dal::PlanBlackScholesMonteCarlo(product, valuation);
+        const Dal::Vector_<> point{10, 0.2, 0.03, 0.01, 2};
+        const auto mean = Dal::ValueByBlackScholesSegmentedMonteCarlo(plan, point, 1);
+        Dal::AAD::BumpOverAADRequest_ bumps;
+        bumps.directions_ = Dal::Matrix_<>(1, 5, 0.0);
+        bumps.directions_(0, 0) = 1.0;
+        bumps.steps_ = {0.25};
+        const auto result = Dal::ValueByBlackScholesMonteCarloWithCurvature(plan, point, 1, bumps);
+        return std::abs(mean.Mean().MeanValue() - 200) < 1e-10 && std::abs(mean.Mean().MeanGradient()[0] - 40) < 1e-10 &&
+               std::abs(result.Curvature().HessianProducts()(0, 0) - 4) < 1e-9 &&
+               result.Plan().Valuation().evaluationDate_ == valuation.evaluationDate_;
+    }
+
     bool CheckSmoothCurvature() {
         Dal::AAD::ForwardOverReverseRequest_ request;
         request.directions_ = Dal::Matrix_<>(1, 1, 1.0);
@@ -214,6 +233,8 @@ int main() {
         return 13;
     if (!CheckLsmcCurvature())
         return 14;
+    if (!CheckSegmentedMonteCarloBoundary())
+        return 15;
     const auto merton = Dal::NewMertonIVS(100.0, 0.2, 0.08, -0.1, 0.15);
     const Dal::AAD::MertonIVS_ mertonReference(100.0, 0.2, 0.08, -0.1, 0.15);
     if (merton.ImpliedVol(105.0, 0.4) != mertonReference.ImpliedVol(105.0, 0.4))

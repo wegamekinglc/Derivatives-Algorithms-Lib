@@ -1,0 +1,3041 @@
+{
+  "base": "1aaa711e1d1b3477b3c21c9c4a13d1cbc8f5e271",
+  "environment": {
+    "platform": "Linux-5.15.167.4-microsoft-standard-WSL2-x86_64-with-glibc2.43",
+    "python": "3.13.9",
+    "cpu_affinity": 0,
+    "threads": 1,
+    "compiler": "c++ (Ubuntu 15.2.0-16ubuntu1) 15.2.0"
+  },
+  "driver_sha256": "e60e042032b20a6d94b6c595b9c77d4778ad578dfabeb2d3601aa2d37996abe4",
+  "bridge_sha256": "5196fd648754d3e264be4fbb7721de947359db65bbdf7038e97a984ed0461b14",
+  "head_module_sha256": "7a656aef14fdcfa94ec0cbd3fc64655d0188403702a3e1d0c6b230a721af8351",
+  "baseline_module_sha256": "0b1a3200fbd953fd972bbb233e7033043d950dcedb7b9d99833b3a7f73cb8ffe",
+  "baseline_core_sha256": "967f5e721f0ba67354b66f8eb14d8be9c4f7e422463bc8c412864491ee06997c",
+  "baseline_public_sha256": "23f4382c22536887a5d463c2e003f2c5d55dd73b77bde5e4376bd7e933977d4d",
+  "head_public_sha256": "f9751df2f2b654d25cc6412b5a6f1d663d0d5a0568427a465ebe27f3a26c101a",
+  "samples": [
+    {
+      "side": "baseline",
+      "directions": 0,
+      "iterations": 1024,
+      "seconds": 0.089614681,
+      "seconds_per_call": 8.75143369140625e-05,
+      "checksum": 21864941.20088995,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--directions",
+        "0",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791634300.6601942,
+      "load_average": [
+        2.5400390625,
+        4.44189453125,
+        3.5576171875
+      ],
+      "label": "m0-r0-p0-baseline",
+      "round": 0,
+      "pair": 0
+    },
+    {
+      "side": "head",
+      "directions": 0,
+      "iterations": 1024,
+      "seconds": 0.09676809700000001,
+      "seconds_per_call": 9.450009472656251e-05,
+      "checksum": 21864941.20088995,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "head",
+        "--directions",
+        "0",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791634300.793112,
+      "load_average": [
+        2.5400390625,
+        4.44189453125,
+        3.5576171875
+      ],
+      "label": "m0-r0-p0-head",
+      "round": 0,
+      "pair": 0
+    },
+    {
+      "side": "head",
+      "directions": 0,
+      "iterations": 1024,
+      "seconds": 0.10054327900000001,
+      "seconds_per_call": 9.818679589843751e-05,
+      "checksum": 21864941.20088995,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "head",
+        "--directions",
+        "0",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791634300.9332082,
+      "load_average": [
+        2.5400390625,
+        4.44189453125,
+        3.5576171875
+      ],
+      "label": "m0-r0-p1-head",
+      "round": 0,
+      "pair": 1
+    },
+    {
+      "side": "baseline",
+      "directions": 0,
+      "iterations": 1024,
+      "seconds": 0.09076476900000001,
+      "seconds_per_call": 8.863746972656251e-05,
+      "checksum": 21864941.20088995,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--directions",
+        "0",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791634301.0778346,
+      "load_average": [
+        2.5400390625,
+        4.44189453125,
+        3.5576171875
+      ],
+      "label": "m0-r0-p1-baseline",
+      "round": 0,
+      "pair": 1
+    },
+    {
+      "side": "baseline",
+      "directions": 0,
+      "iterations": 1024,
+      "seconds": 0.091415149,
+      "seconds_per_call": 8.92726064453125e-05,
+      "checksum": 21864941.20088995,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--directions",
+        "0",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791634301.2113688,
+      "load_average": [
+        2.5400390625,
+        4.44189453125,
+        3.5576171875
+      ],
+      "label": "m0-r0-p2-baseline",
+      "round": 0,
+      "pair": 2
+    },
+    {
+      "side": "head",
+      "directions": 0,
+      "iterations": 1024,
+      "seconds": 0.094145241,
+      "seconds_per_call": 9.19387119140625e-05,
+      "checksum": 21864941.20088995,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "head",
+        "--directions",
+        "0",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791634301.3466246,
+      "load_average": [
+        2.5400390625,
+        4.44189453125,
+        3.5576171875
+      ],
+      "label": "m0-r0-p2-head",
+      "round": 0,
+      "pair": 2
+    },
+    {
+      "side": "head",
+      "directions": 0,
+      "iterations": 1024,
+      "seconds": 0.09460636900000001,
+      "seconds_per_call": 9.238903222656251e-05,
+      "checksum": 21864941.20088995,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "head",
+        "--directions",
+        "0",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791634301.4854453,
+      "load_average": [
+        2.49658203125,
+        4.40087890625,
+        3.548828125
+      ],
+      "label": "m0-r0-p3-head",
+      "round": 0,
+      "pair": 3
+    },
+    {
+      "side": "baseline",
+      "directions": 0,
+      "iterations": 1024,
+      "seconds": 0.08914846400000001,
+      "seconds_per_call": 8.705904687500001e-05,
+      "checksum": 21864941.20088995,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--directions",
+        "0",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791634301.6211243,
+      "load_average": [
+        2.49658203125,
+        4.40087890625,
+        3.548828125
+      ],
+      "label": "m0-r0-p3-baseline",
+      "round": 0,
+      "pair": 3
+    },
+    {
+      "side": "baseline",
+      "directions": 0,
+      "iterations": 1024,
+      "seconds": 0.08664732300000001,
+      "seconds_per_call": 8.461652636718751e-05,
+      "checksum": 21864941.20088995,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--directions",
+        "0",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791634301.7520916,
+      "load_average": [
+        2.49658203125,
+        4.40087890625,
+        3.548828125
+      ],
+      "label": "m0-r0-p4-baseline",
+      "round": 0,
+      "pair": 4
+    },
+    {
+      "side": "head",
+      "directions": 0,
+      "iterations": 1024,
+      "seconds": 0.11227761100000001,
+      "seconds_per_call": 0.00010964610449218751,
+      "checksum": 21864941.20088995,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "head",
+        "--directions",
+        "0",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791634301.8820705,
+      "load_average": [
+        2.49658203125,
+        4.40087890625,
+        3.548828125
+      ],
+      "label": "m0-r0-p4-head",
+      "round": 0,
+      "pair": 4
+    },
+    {
+      "side": "head",
+      "directions": 0,
+      "iterations": 1024,
+      "seconds": 0.100369185,
+      "seconds_per_call": 9.80167822265625e-05,
+      "checksum": 21864941.20088995,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "head",
+        "--directions",
+        "0",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791634302.04202,
+      "load_average": [
+        2.49658203125,
+        4.40087890625,
+        3.548828125
+      ],
+      "label": "m0-r0-p5-head",
+      "round": 0,
+      "pair": 5
+    },
+    {
+      "side": "baseline",
+      "directions": 0,
+      "iterations": 1024,
+      "seconds": 0.089633509,
+      "seconds_per_call": 8.75327236328125e-05,
+      "checksum": 21864941.20088995,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--directions",
+        "0",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791634302.1913996,
+      "load_average": [
+        2.49658203125,
+        4.40087890625,
+        3.548828125
+      ],
+      "label": "m0-r0-p5-baseline",
+      "round": 0,
+      "pair": 5
+    },
+    {
+      "side": "baseline",
+      "directions": 0,
+      "iterations": 1024,
+      "seconds": 0.090889409,
+      "seconds_per_call": 8.87591884765625e-05,
+      "checksum": 21864941.20088995,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--directions",
+        "0",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791634302.3271956,
+      "load_average": [
+        2.49658203125,
+        4.40087890625,
+        3.548828125
+      ],
+      "label": "m0-r0-p6-baseline",
+      "round": 0,
+      "pair": 6
+    },
+    {
+      "side": "head",
+      "directions": 0,
+      "iterations": 1024,
+      "seconds": 0.09722322000000001,
+      "seconds_per_call": 9.494455078125001e-05,
+      "checksum": 21864941.20088995,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "head",
+        "--directions",
+        "0",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791634302.4626007,
+      "load_average": [
+        2.49658203125,
+        4.40087890625,
+        3.548828125
+      ],
+      "label": "m0-r0-p6-head",
+      "round": 0,
+      "pair": 6
+    },
+    {
+      "side": "head",
+      "directions": 0,
+      "iterations": 1024,
+      "seconds": 0.095208081,
+      "seconds_per_call": 9.29766416015625e-05,
+      "checksum": 21864941.20088995,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "head",
+        "--directions",
+        "0",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791634302.6048737,
+      "load_average": [
+        2.49658203125,
+        4.40087890625,
+        3.548828125
+      ],
+      "label": "m0-r0-p7-head",
+      "round": 0,
+      "pair": 7
+    },
+    {
+      "side": "baseline",
+      "directions": 0,
+      "iterations": 1024,
+      "seconds": 0.09225132600000001,
+      "seconds_per_call": 9.008918554687501e-05,
+      "checksum": 21864941.20088995,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--directions",
+        "0",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791634302.7442315,
+      "load_average": [
+        2.49658203125,
+        4.40087890625,
+        3.548828125
+      ],
+      "label": "m0-r0-p7-baseline",
+      "round": 0,
+      "pair": 7
+    },
+    {
+      "side": "baseline",
+      "directions": 0,
+      "iterations": 1024,
+      "seconds": 0.089126932,
+      "seconds_per_call": 8.703801953125e-05,
+      "checksum": 21864941.20088995,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--directions",
+        "0",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791634302.8787997,
+      "load_average": [
+        2.49658203125,
+        4.40087890625,
+        3.548828125
+      ],
+      "label": "m0-r0-p8-baseline",
+      "round": 0,
+      "pair": 8
+    },
+    {
+      "side": "head",
+      "directions": 0,
+      "iterations": 1024,
+      "seconds": 0.09661369600000001,
+      "seconds_per_call": 9.434931250000001e-05,
+      "checksum": 21864941.20088995,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "head",
+        "--directions",
+        "0",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791634303.0111895,
+      "load_average": [
+        2.49658203125,
+        4.40087890625,
+        3.548828125
+      ],
+      "label": "m0-r0-p8-head",
+      "round": 0,
+      "pair": 8
+    },
+    {
+      "side": "head",
+      "directions": 0,
+      "iterations": 1024,
+      "seconds": 0.112891347,
+      "seconds_per_call": 0.0001102454560546875,
+      "checksum": 21864941.20088995,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "head",
+        "--directions",
+        "0",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791634303.1525548,
+      "load_average": [
+        2.49658203125,
+        4.40087890625,
+        3.548828125
+      ],
+      "label": "m0-r0-p9-head",
+      "round": 0,
+      "pair": 9
+    },
+    {
+      "side": "baseline",
+      "directions": 0,
+      "iterations": 1024,
+      "seconds": 0.091401625,
+      "seconds_per_call": 8.92593994140625e-05,
+      "checksum": 21864941.20088995,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--directions",
+        "0",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791634303.308869,
+      "load_average": [
+        2.49658203125,
+        4.40087890625,
+        3.548828125
+      ],
+      "label": "m0-r0-p9-baseline",
+      "round": 0,
+      "pair": 9
+    },
+    {
+      "side": "baseline",
+      "directions": 0,
+      "iterations": 1024,
+      "seconds": 0.09596785000000001,
+      "seconds_per_call": 9.371860351562501e-05,
+      "checksum": 21864941.20088995,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--directions",
+        "0",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791634303.4442835,
+      "load_average": [
+        2.49658203125,
+        4.40087890625,
+        3.548828125
+      ],
+      "label": "m0-r1-p0-baseline",
+      "round": 1,
+      "pair": 0
+    },
+    {
+      "side": "head",
+      "directions": 0,
+      "iterations": 1024,
+      "seconds": 0.10304776600000001,
+      "seconds_per_call": 0.00010063258398437501,
+      "checksum": 21864941.20088995,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "head",
+        "--directions",
+        "0",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791634303.5933986,
+      "load_average": [
+        2.49658203125,
+        4.40087890625,
+        3.548828125
+      ],
+      "label": "m0-r1-p0-head",
+      "round": 1,
+      "pair": 0
+    },
+    {
+      "side": "head",
+      "directions": 0,
+      "iterations": 1024,
+      "seconds": 0.111433584,
+      "seconds_per_call": 0.000108821859375,
+      "checksum": 21864941.20088995,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "head",
+        "--directions",
+        "0",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791634303.7426696,
+      "load_average": [
+        2.49658203125,
+        4.40087890625,
+        3.548828125
+      ],
+      "label": "m0-r1-p1-head",
+      "round": 1,
+      "pair": 1
+    },
+    {
+      "side": "baseline",
+      "directions": 0,
+      "iterations": 1024,
+      "seconds": 0.10099942,
+      "seconds_per_call": 9.863224609375e-05,
+      "checksum": 21864941.20088995,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--directions",
+        "0",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791634303.899446,
+      "load_average": [
+        2.49658203125,
+        4.40087890625,
+        3.548828125
+      ],
+      "label": "m0-r1-p1-baseline",
+      "round": 1,
+      "pair": 1
+    },
+    {
+      "side": "baseline",
+      "directions": 0,
+      "iterations": 1024,
+      "seconds": 0.09436364800000001,
+      "seconds_per_call": 9.215200000000001e-05,
+      "checksum": 21864941.20088995,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--directions",
+        "0",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791634304.0441957,
+      "load_average": [
+        2.49658203125,
+        4.40087890625,
+        3.548828125
+      ],
+      "label": "m0-r1-p2-baseline",
+      "round": 1,
+      "pair": 2
+    },
+    {
+      "side": "head",
+      "directions": 0,
+      "iterations": 1024,
+      "seconds": 0.096910625,
+      "seconds_per_call": 9.46392822265625e-05,
+      "checksum": 21864941.20088995,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "head",
+        "--directions",
+        "0",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791634304.1844094,
+      "load_average": [
+        2.49658203125,
+        4.40087890625,
+        3.548828125
+      ],
+      "label": "m0-r1-p2-head",
+      "round": 1,
+      "pair": 2
+    },
+    {
+      "side": "head",
+      "directions": 0,
+      "iterations": 1024,
+      "seconds": 0.09980839600000001,
+      "seconds_per_call": 9.746913671875001e-05,
+      "checksum": 21864941.20088995,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "head",
+        "--directions",
+        "0",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791634304.3248448,
+      "load_average": [
+        2.49658203125,
+        4.40087890625,
+        3.548828125
+      ],
+      "label": "m0-r1-p3-head",
+      "round": 1,
+      "pair": 3
+    },
+    {
+      "side": "baseline",
+      "directions": 0,
+      "iterations": 1024,
+      "seconds": 0.09678080900000001,
+      "seconds_per_call": 9.451250878906251e-05,
+      "checksum": 21864941.20088995,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--directions",
+        "0",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791634304.4793022,
+      "load_average": [
+        2.49658203125,
+        4.40087890625,
+        3.548828125
+      ],
+      "label": "m0-r1-p3-baseline",
+      "round": 1,
+      "pair": 3
+    },
+    {
+      "side": "baseline",
+      "directions": 0,
+      "iterations": 1024,
+      "seconds": 0.09279009,
+      "seconds_per_call": 9.0615322265625e-05,
+      "checksum": 21864941.20088995,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--directions",
+        "0",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791634304.6205635,
+      "load_average": [
+        2.49658203125,
+        4.40087890625,
+        3.548828125
+      ],
+      "label": "m0-r1-p4-baseline",
+      "round": 1,
+      "pair": 4
+    },
+    {
+      "side": "head",
+      "directions": 0,
+      "iterations": 1024,
+      "seconds": 0.09909261000000001,
+      "seconds_per_call": 9.677012695312501e-05,
+      "checksum": 21864941.20088995,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "head",
+        "--directions",
+        "0",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791634304.7664013,
+      "load_average": [
+        2.49658203125,
+        4.40087890625,
+        3.548828125
+      ],
+      "label": "m0-r1-p4-head",
+      "round": 1,
+      "pair": 4
+    },
+    {
+      "side": "head",
+      "directions": 0,
+      "iterations": 1024,
+      "seconds": 0.09708119300000001,
+      "seconds_per_call": 9.480585253906251e-05,
+      "checksum": 21864941.20088995,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "head",
+        "--directions",
+        "0",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791634304.9108882,
+      "load_average": [
+        2.49658203125,
+        4.40087890625,
+        3.548828125
+      ],
+      "label": "m0-r1-p5-head",
+      "round": 1,
+      "pair": 5
+    },
+    {
+      "side": "baseline",
+      "directions": 0,
+      "iterations": 1024,
+      "seconds": 0.089552251,
+      "seconds_per_call": 8.74533701171875e-05,
+      "checksum": 21864941.20088995,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--directions",
+        "0",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791634305.0543,
+      "load_average": [
+        2.49658203125,
+        4.40087890625,
+        3.548828125
+      ],
+      "label": "m0-r1-p5-baseline",
+      "round": 1,
+      "pair": 5
+    },
+    {
+      "side": "baseline",
+      "directions": 0,
+      "iterations": 1024,
+      "seconds": 0.091296466,
+      "seconds_per_call": 8.9156705078125e-05,
+      "checksum": 21864941.20088995,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--directions",
+        "0",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791634305.1886854,
+      "load_average": [
+        2.49658203125,
+        4.40087890625,
+        3.548828125
+      ],
+      "label": "m0-r1-p6-baseline",
+      "round": 1,
+      "pair": 6
+    },
+    {
+      "side": "head",
+      "directions": 0,
+      "iterations": 1024,
+      "seconds": 0.09658944900000001,
+      "seconds_per_call": 9.432563378906251e-05,
+      "checksum": 21864941.20088995,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "head",
+        "--directions",
+        "0",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791634305.3244238,
+      "load_average": [
+        2.49658203125,
+        4.40087890625,
+        3.548828125
+      ],
+      "label": "m0-r1-p6-head",
+      "round": 1,
+      "pair": 6
+    },
+    {
+      "side": "head",
+      "directions": 0,
+      "iterations": 1024,
+      "seconds": 0.099320979,
+      "seconds_per_call": 9.69931435546875e-05,
+      "checksum": 21864941.20088995,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "head",
+        "--directions",
+        "0",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791634305.4680793,
+      "load_average": [
+        2.49658203125,
+        4.40087890625,
+        3.548828125
+      ],
+      "label": "m0-r1-p7-head",
+      "round": 1,
+      "pair": 7
+    },
+    {
+      "side": "baseline",
+      "directions": 0,
+      "iterations": 1024,
+      "seconds": 0.09027966200000001,
+      "seconds_per_call": 8.816373242187501e-05,
+      "checksum": 21864941.20088995,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--directions",
+        "0",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791634305.6132553,
+      "load_average": [
+        2.49658203125,
+        4.40087890625,
+        3.548828125
+      ],
+      "label": "m0-r1-p7-baseline",
+      "round": 1,
+      "pair": 7
+    },
+    {
+      "side": "baseline",
+      "directions": 0,
+      "iterations": 1024,
+      "seconds": 0.091690251,
+      "seconds_per_call": 8.95412607421875e-05,
+      "checksum": 21864941.20088995,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--directions",
+        "0",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791634305.7491307,
+      "load_average": [
+        2.49658203125,
+        4.40087890625,
+        3.548828125
+      ],
+      "label": "m0-r1-p8-baseline",
+      "round": 1,
+      "pair": 8
+    },
+    {
+      "side": "head",
+      "directions": 0,
+      "iterations": 1024,
+      "seconds": 0.095604242,
+      "seconds_per_call": 9.3363517578125e-05,
+      "checksum": 21864941.20088995,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "head",
+        "--directions",
+        "0",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791634305.8857162,
+      "load_average": [
+        2.49658203125,
+        4.40087890625,
+        3.548828125
+      ],
+      "label": "m0-r1-p8-head",
+      "round": 1,
+      "pair": 8
+    },
+    {
+      "side": "head",
+      "directions": 0,
+      "iterations": 1024,
+      "seconds": 0.09816347,
+      "seconds_per_call": 9.5862763671875e-05,
+      "checksum": 21864941.20088995,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "head",
+        "--directions",
+        "0",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791634306.0245533,
+      "load_average": [
+        2.49658203125,
+        4.40087890625,
+        3.548828125
+      ],
+      "label": "m0-r1-p9-head",
+      "round": 1,
+      "pair": 9
+    },
+    {
+      "side": "baseline",
+      "directions": 0,
+      "iterations": 1024,
+      "seconds": 0.09064862,
+      "seconds_per_call": 8.852404296875e-05,
+      "checksum": 21864941.20088995,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--directions",
+        "0",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791634306.1671073,
+      "load_average": [
+        2.49658203125,
+        4.40087890625,
+        3.548828125
+      ],
+      "label": "m0-r1-p9-baseline",
+      "round": 1,
+      "pair": 9
+    },
+    {
+      "side": "baseline",
+      "directions": 3,
+      "iterations": 128,
+      "seconds": 0.07981061,
+      "seconds_per_call": 0.000623520390625,
+      "checksum": 2733117.650111312,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--directions",
+        "3",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791634306.5575845,
+      "load_average": [
+        2.6171875,
+        4.39404296875,
+        3.55126953125
+      ],
+      "label": "m3-r0-p0-baseline",
+      "round": 0,
+      "pair": 0
+    },
+    {
+      "side": "head",
+      "directions": 3,
+      "iterations": 128,
+      "seconds": 0.08639260400000001,
+      "seconds_per_call": 0.0006749422187500001,
+      "checksum": 2733117.650111312,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "head",
+        "--directions",
+        "3",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791634306.6842968,
+      "load_average": [
+        2.6171875,
+        4.39404296875,
+        3.55126953125
+      ],
+      "label": "m3-r0-p0-head",
+      "round": 0,
+      "pair": 0
+    },
+    {
+      "side": "head",
+      "directions": 3,
+      "iterations": 128,
+      "seconds": 0.087173393,
+      "seconds_per_call": 0.0006810421328125,
+      "checksum": 2733117.650111312,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "head",
+        "--directions",
+        "3",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791634306.819402,
+      "load_average": [
+        2.6171875,
+        4.39404296875,
+        3.55126953125
+      ],
+      "label": "m3-r0-p1-head",
+      "round": 0,
+      "pair": 1
+    },
+    {
+      "side": "baseline",
+      "directions": 3,
+      "iterations": 128,
+      "seconds": 0.089415058,
+      "seconds_per_call": 0.000698555140625,
+      "checksum": 2733117.650111312,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--directions",
+        "3",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791634306.9511924,
+      "load_average": [
+        2.6171875,
+        4.39404296875,
+        3.55126953125
+      ],
+      "label": "m3-r0-p1-baseline",
+      "round": 0,
+      "pair": 1
+    },
+    {
+      "side": "baseline",
+      "directions": 3,
+      "iterations": 128,
+      "seconds": 0.07802647500000001,
+      "seconds_per_call": 0.0006095818359375001,
+      "checksum": 2733117.650111312,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--directions",
+        "3",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791634307.092109,
+      "load_average": [
+        2.6171875,
+        4.39404296875,
+        3.55126953125
+      ],
+      "label": "m3-r0-p2-baseline",
+      "round": 0,
+      "pair": 2
+    },
+    {
+      "side": "head",
+      "directions": 3,
+      "iterations": 128,
+      "seconds": 0.082549354,
+      "seconds_per_call": 0.000644916828125,
+      "checksum": 2733117.650111312,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "head",
+        "--directions",
+        "3",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791634307.21772,
+      "load_average": [
+        2.6171875,
+        4.39404296875,
+        3.55126953125
+      ],
+      "label": "m3-r0-p2-head",
+      "round": 0,
+      "pair": 2
+    },
+    {
+      "side": "head",
+      "directions": 3,
+      "iterations": 128,
+      "seconds": 0.09418554300000001,
+      "seconds_per_call": 0.0007358245546875001,
+      "checksum": 2733117.650111312,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "head",
+        "--directions",
+        "3",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791634307.3480487,
+      "load_average": [
+        2.6171875,
+        4.39404296875,
+        3.55126953125
+      ],
+      "label": "m3-r0-p3-head",
+      "round": 0,
+      "pair": 3
+    },
+    {
+      "side": "baseline",
+      "directions": 3,
+      "iterations": 128,
+      "seconds": 0.07873954500000001,
+      "seconds_per_call": 0.0006151526953125001,
+      "checksum": 2733117.650111312,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--directions",
+        "3",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791634307.4904373,
+      "load_average": [
+        2.6171875,
+        4.39404296875,
+        3.55126953125
+      ],
+      "label": "m3-r0-p3-baseline",
+      "round": 0,
+      "pair": 3
+    },
+    {
+      "side": "baseline",
+      "directions": 3,
+      "iterations": 128,
+      "seconds": 0.081856841,
+      "seconds_per_call": 0.0006395065703125,
+      "checksum": 2733117.650111312,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--directions",
+        "3",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791634307.6152651,
+      "load_average": [
+        2.6171875,
+        4.39404296875,
+        3.55126953125
+      ],
+      "label": "m3-r0-p4-baseline",
+      "round": 0,
+      "pair": 4
+    },
+    {
+      "side": "head",
+      "directions": 3,
+      "iterations": 128,
+      "seconds": 0.085889646,
+      "seconds_per_call": 0.000671012859375,
+      "checksum": 2733117.650111312,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "head",
+        "--directions",
+        "3",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791634307.7439651,
+      "load_average": [
+        2.6171875,
+        4.39404296875,
+        3.55126953125
+      ],
+      "label": "m3-r0-p4-head",
+      "round": 0,
+      "pair": 4
+    },
+    {
+      "side": "head",
+      "directions": 3,
+      "iterations": 128,
+      "seconds": 0.08002521600000001,
+      "seconds_per_call": 0.0006251970000000001,
+      "checksum": 2733117.650111312,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "head",
+        "--directions",
+        "3",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791634307.8756168,
+      "load_average": [
+        2.6171875,
+        4.39404296875,
+        3.55126953125
+      ],
+      "label": "m3-r0-p5-head",
+      "round": 0,
+      "pair": 5
+    },
+    {
+      "side": "baseline",
+      "directions": 3,
+      "iterations": 128,
+      "seconds": 0.079617464,
+      "seconds_per_call": 0.0006220114375,
+      "checksum": 2733117.650111312,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--directions",
+        "3",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791634308.0114784,
+      "load_average": [
+        2.6171875,
+        4.39404296875,
+        3.55126953125
+      ],
+      "label": "m3-r0-p5-baseline",
+      "round": 0,
+      "pair": 5
+    },
+    {
+      "side": "baseline",
+      "directions": 3,
+      "iterations": 128,
+      "seconds": 0.07968554300000001,
+      "seconds_per_call": 0.0006225433046875001,
+      "checksum": 2733117.650111312,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--directions",
+        "3",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791634308.1373053,
+      "load_average": [
+        2.6171875,
+        4.39404296875,
+        3.55126953125
+      ],
+      "label": "m3-r0-p6-baseline",
+      "round": 0,
+      "pair": 6
+    },
+    {
+      "side": "head",
+      "directions": 3,
+      "iterations": 128,
+      "seconds": 0.083352085,
+      "seconds_per_call": 0.0006511881640625,
+      "checksum": 2733117.650111312,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "head",
+        "--directions",
+        "3",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791634308.2613473,
+      "load_average": [
+        2.6171875,
+        4.39404296875,
+        3.55126953125
+      ],
+      "label": "m3-r0-p6-head",
+      "round": 0,
+      "pair": 6
+    },
+    {
+      "side": "head",
+      "directions": 3,
+      "iterations": 128,
+      "seconds": 0.07964544500000001,
+      "seconds_per_call": 0.0006222300390625001,
+      "checksum": 2733117.650111312,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "head",
+        "--directions",
+        "3",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791634308.389021,
+      "load_average": [
+        2.6171875,
+        4.39404296875,
+        3.55126953125
+      ],
+      "label": "m3-r0-p7-head",
+      "round": 0,
+      "pair": 7
+    },
+    {
+      "side": "baseline",
+      "directions": 3,
+      "iterations": 128,
+      "seconds": 0.077770541,
+      "seconds_per_call": 0.0006075823515625,
+      "checksum": 2733117.650111312,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--directions",
+        "3",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791634308.5124683,
+      "load_average": [
+        2.6171875,
+        4.39404296875,
+        3.55126953125
+      ],
+      "label": "m3-r0-p7-baseline",
+      "round": 0,
+      "pair": 7
+    },
+    {
+      "side": "baseline",
+      "directions": 3,
+      "iterations": 128,
+      "seconds": 0.077467455,
+      "seconds_per_call": 0.0006052144921875,
+      "checksum": 2733117.650111312,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--directions",
+        "3",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791634308.6348948,
+      "load_average": [
+        2.6171875,
+        4.39404296875,
+        3.55126953125
+      ],
+      "label": "m3-r0-p8-baseline",
+      "round": 0,
+      "pair": 8
+    },
+    {
+      "side": "head",
+      "directions": 3,
+      "iterations": 128,
+      "seconds": 0.08066497,
+      "seconds_per_call": 0.000630195078125,
+      "checksum": 2733117.650111312,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "head",
+        "--directions",
+        "3",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791634308.7593095,
+      "load_average": [
+        2.6171875,
+        4.39404296875,
+        3.55126953125
+      ],
+      "label": "m3-r0-p8-head",
+      "round": 0,
+      "pair": 8
+    },
+    {
+      "side": "head",
+      "directions": 3,
+      "iterations": 128,
+      "seconds": 0.08331157900000001,
+      "seconds_per_call": 0.0006508717109375001,
+      "checksum": 2733117.650111312,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "head",
+        "--directions",
+        "3",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791634308.8840117,
+      "load_average": [
+        2.6171875,
+        4.39404296875,
+        3.55126953125
+      ],
+      "label": "m3-r0-p9-head",
+      "round": 0,
+      "pair": 9
+    },
+    {
+      "side": "baseline",
+      "directions": 3,
+      "iterations": 128,
+      "seconds": 0.077656757,
+      "seconds_per_call": 0.0006066934140625,
+      "checksum": 2733117.650111312,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--directions",
+        "3",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791634309.0142038,
+      "load_average": [
+        2.6171875,
+        4.39404296875,
+        3.55126953125
+      ],
+      "label": "m3-r0-p9-baseline",
+      "round": 0,
+      "pair": 9
+    },
+    {
+      "side": "baseline",
+      "directions": 3,
+      "iterations": 128,
+      "seconds": 0.08371569300000001,
+      "seconds_per_call": 0.0006540288515625001,
+      "checksum": 2733117.650111312,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--directions",
+        "3",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791634309.1372983,
+      "load_average": [
+        2.6171875,
+        4.39404296875,
+        3.55126953125
+      ],
+      "label": "m3-r1-p0-baseline",
+      "round": 1,
+      "pair": 0
+    },
+    {
+      "side": "head",
+      "directions": 3,
+      "iterations": 128,
+      "seconds": 0.08230209000000001,
+      "seconds_per_call": 0.0006429850781250001,
+      "checksum": 2733117.650111312,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "head",
+        "--directions",
+        "3",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791634309.2646751,
+      "load_average": [
+        2.6171875,
+        4.39404296875,
+        3.55126953125
+      ],
+      "label": "m3-r1-p0-head",
+      "round": 1,
+      "pair": 0
+    },
+    {
+      "side": "head",
+      "directions": 3,
+      "iterations": 128,
+      "seconds": 0.08355129800000001,
+      "seconds_per_call": 0.0006527445156250001,
+      "checksum": 2733117.650111312,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "head",
+        "--directions",
+        "3",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791634309.3912635,
+      "load_average": [
+        2.6171875,
+        4.39404296875,
+        3.55126953125
+      ],
+      "label": "m3-r1-p1-head",
+      "round": 1,
+      "pair": 1
+    },
+    {
+      "side": "baseline",
+      "directions": 3,
+      "iterations": 128,
+      "seconds": 0.078473157,
+      "seconds_per_call": 0.0006130715390625,
+      "checksum": 2733117.650111312,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--directions",
+        "3",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791634309.5200756,
+      "load_average": [
+        2.6171875,
+        4.39404296875,
+        3.55126953125
+      ],
+      "label": "m3-r1-p1-baseline",
+      "round": 1,
+      "pair": 1
+    },
+    {
+      "side": "baseline",
+      "directions": 3,
+      "iterations": 128,
+      "seconds": 0.081262259,
+      "seconds_per_call": 0.0006348613984375,
+      "checksum": 2733117.650111312,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--directions",
+        "3",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791634309.643623,
+      "load_average": [
+        2.6171875,
+        4.39404296875,
+        3.55126953125
+      ],
+      "label": "m3-r1-p2-baseline",
+      "round": 1,
+      "pair": 2
+    },
+    {
+      "side": "head",
+      "directions": 3,
+      "iterations": 128,
+      "seconds": 0.083551651,
+      "seconds_per_call": 0.0006527472734375,
+      "checksum": 2733117.650111312,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "head",
+        "--directions",
+        "3",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791634309.7709458,
+      "load_average": [
+        2.6171875,
+        4.39404296875,
+        3.55126953125
+      ],
+      "label": "m3-r1-p2-head",
+      "round": 1,
+      "pair": 2
+    },
+    {
+      "side": "head",
+      "directions": 3,
+      "iterations": 128,
+      "seconds": 0.083583316,
+      "seconds_per_call": 0.00065299465625,
+      "checksum": 2733117.650111312,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "head",
+        "--directions",
+        "3",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791634309.898782,
+      "load_average": [
+        2.6171875,
+        4.39404296875,
+        3.55126953125
+      ],
+      "label": "m3-r1-p3-head",
+      "round": 1,
+      "pair": 3
+    },
+    {
+      "side": "baseline",
+      "directions": 3,
+      "iterations": 128,
+      "seconds": 0.077497382,
+      "seconds_per_call": 0.000605448296875,
+      "checksum": 2733117.650111312,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--directions",
+        "3",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791634310.0283475,
+      "load_average": [
+        2.6171875,
+        4.39404296875,
+        3.55126953125
+      ],
+      "label": "m3-r1-p3-baseline",
+      "round": 1,
+      "pair": 3
+    },
+    {
+      "side": "baseline",
+      "directions": 3,
+      "iterations": 128,
+      "seconds": 0.077165115,
+      "seconds_per_call": 0.0006028524609375,
+      "checksum": 2733117.650111312,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--directions",
+        "3",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791634310.151743,
+      "load_average": [
+        2.6171875,
+        4.39404296875,
+        3.55126953125
+      ],
+      "label": "m3-r1-p4-baseline",
+      "round": 1,
+      "pair": 4
+    },
+    {
+      "side": "head",
+      "directions": 3,
+      "iterations": 128,
+      "seconds": 0.08910772600000001,
+      "seconds_per_call": 0.0006961541093750001,
+      "checksum": 2733117.650111312,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "head",
+        "--directions",
+        "3",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791634310.2744343,
+      "load_average": [
+        2.6171875,
+        4.39404296875,
+        3.55126953125
+      ],
+      "label": "m3-r1-p4-head",
+      "round": 1,
+      "pair": 4
+    },
+    {
+      "side": "head",
+      "directions": 3,
+      "iterations": 128,
+      "seconds": 0.088181401,
+      "seconds_per_call": 0.0006889171953125,
+      "checksum": 2733117.650111312,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "head",
+        "--directions",
+        "3",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791634310.4092343,
+      "load_average": [
+        2.6171875,
+        4.39404296875,
+        3.55126953125
+      ],
+      "label": "m3-r1-p5-head",
+      "round": 1,
+      "pair": 5
+    },
+    {
+      "side": "baseline",
+      "directions": 3,
+      "iterations": 128,
+      "seconds": 0.083467912,
+      "seconds_per_call": 0.0006520930625,
+      "checksum": 2733117.650111312,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--directions",
+        "3",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791634310.5449739,
+      "load_average": [
+        2.6171875,
+        4.39404296875,
+        3.55126953125
+      ],
+      "label": "m3-r1-p5-baseline",
+      "round": 1,
+      "pair": 5
+    },
+    {
+      "side": "baseline",
+      "directions": 3,
+      "iterations": 128,
+      "seconds": 0.08403972100000001,
+      "seconds_per_call": 0.0006565603203125001,
+      "checksum": 2733117.650111312,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--directions",
+        "3",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791634310.6752424,
+      "load_average": [
+        2.6171875,
+        4.39404296875,
+        3.55126953125
+      ],
+      "label": "m3-r1-p6-baseline",
+      "round": 1,
+      "pair": 6
+    },
+    {
+      "side": "head",
+      "directions": 3,
+      "iterations": 128,
+      "seconds": 0.083718768,
+      "seconds_per_call": 0.000654052875,
+      "checksum": 2733117.650111312,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "head",
+        "--directions",
+        "3",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791634310.818771,
+      "load_average": [
+        2.6171875,
+        4.39404296875,
+        3.55126953125
+      ],
+      "label": "m3-r1-p6-head",
+      "round": 1,
+      "pair": 6
+    },
+    {
+      "side": "head",
+      "directions": 3,
+      "iterations": 128,
+      "seconds": 0.08360112700000001,
+      "seconds_per_call": 0.0006531338046875001,
+      "checksum": 2733117.650111312,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "head",
+        "--directions",
+        "3",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791634310.9564085,
+      "load_average": [
+        2.6171875,
+        4.39404296875,
+        3.55126953125
+      ],
+      "label": "m3-r1-p7-head",
+      "round": 1,
+      "pair": 7
+    },
+    {
+      "side": "baseline",
+      "directions": 3,
+      "iterations": 128,
+      "seconds": 0.087910738,
+      "seconds_per_call": 0.000686802640625,
+      "checksum": 2733117.650111312,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--directions",
+        "3",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791634311.0869071,
+      "load_average": [
+        2.6171875,
+        4.39404296875,
+        3.55126953125
+      ],
+      "label": "m3-r1-p7-baseline",
+      "round": 1,
+      "pair": 7
+    },
+    {
+      "side": "baseline",
+      "directions": 3,
+      "iterations": 128,
+      "seconds": 0.08087314000000001,
+      "seconds_per_call": 0.0006318214062500001,
+      "checksum": 2733117.650111312,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--directions",
+        "3",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791634311.2212512,
+      "load_average": [
+        2.6171875,
+        4.39404296875,
+        3.55126953125
+      ],
+      "label": "m3-r1-p8-baseline",
+      "round": 1,
+      "pair": 8
+    },
+    {
+      "side": "head",
+      "directions": 3,
+      "iterations": 128,
+      "seconds": 0.089882581,
+      "seconds_per_call": 0.0007022076640625,
+      "checksum": 2733117.650111312,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "head",
+        "--directions",
+        "3",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791634311.349021,
+      "load_average": [
+        2.6171875,
+        4.39404296875,
+        3.55126953125
+      ],
+      "label": "m3-r1-p8-head",
+      "round": 1,
+      "pair": 8
+    },
+    {
+      "side": "head",
+      "directions": 3,
+      "iterations": 128,
+      "seconds": 0.09387901600000001,
+      "seconds_per_call": 0.0007334298125000001,
+      "checksum": 2733117.650111312,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "head",
+        "--directions",
+        "3",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791634311.5063126,
+      "load_average": [
+        2.72802734375,
+        4.38720703125,
+        3.5537109375
+      ],
+      "label": "m3-r1-p9-head",
+      "round": 1,
+      "pair": 9
+    },
+    {
+      "side": "baseline",
+      "directions": 3,
+      "iterations": 128,
+      "seconds": 0.079361075,
+      "seconds_per_call": 0.0006200083984375,
+      "checksum": 2733117.650111312,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--directions",
+        "3",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791634311.6481018,
+      "load_average": [
+        2.72802734375,
+        4.38720703125,
+        3.5537109375
+      ],
+      "label": "m3-r1-p9-baseline",
+      "round": 1,
+      "pair": 9
+    }
+  ],
+  "calibrations": [
+    {
+      "side": "baseline",
+      "directions": 0,
+      "iterations": 512,
+      "seconds": 0.047964410000000006,
+      "seconds_per_call": 9.368048828125001e-05,
+      "checksum": 10932470.600445153,
+      "oracle_passed": true,
+      "calibration_trials": [
+        {
+          "iterations": 1,
+          "seconds": 8.4869e-05
+        },
+        {
+          "iterations": 2,
+          "seconds": 0.00015680200000000002
+        },
+        {
+          "iterations": 4,
+          "seconds": 0.00034025
+        },
+        {
+          "iterations": 8,
+          "seconds": 0.000638785
+        },
+        {
+          "iterations": 16,
+          "seconds": 0.0012563700000000001
+        },
+        {
+          "iterations": 32,
+          "seconds": 0.0025708790000000003
+        },
+        {
+          "iterations": 64,
+          "seconds": 0.005061142
+        },
+        {
+          "iterations": 128,
+          "seconds": 0.014781268
+        },
+        {
+          "iterations": 256,
+          "seconds": 0.022604586000000003
+        },
+        {
+          "iterations": 512,
+          "seconds": 0.047964410000000006
+        }
+      ],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--directions",
+        "0",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so"
+      ],
+      "started_unix": 1791634300.3757987,
+      "load_average": [
+        2.5400390625,
+        4.44189453125,
+        3.5576171875
+      ],
+      "label": "calibration-0-baseline"
+    },
+    {
+      "side": "head",
+      "directions": 0,
+      "iterations": 512,
+      "seconds": 0.050218388,
+      "seconds_per_call": 9.80827890625e-05,
+      "checksum": 10932470.600445153,
+      "oracle_passed": true,
+      "calibration_trials": [
+        {
+          "iterations": 1,
+          "seconds": 0.00010230200000000001
+        },
+        {
+          "iterations": 2,
+          "seconds": 0.00018013
+        },
+        {
+          "iterations": 4,
+          "seconds": 0.00035437800000000003
+        },
+        {
+          "iterations": 8,
+          "seconds": 0.000740685
+        },
+        {
+          "iterations": 16,
+          "seconds": 0.0014505210000000002
+        },
+        {
+          "iterations": 32,
+          "seconds": 0.0029144460000000002
+        },
+        {
+          "iterations": 64,
+          "seconds": 0.006021787000000001
+        },
+        {
+          "iterations": 128,
+          "seconds": 0.011831488000000001
+        },
+        {
+          "iterations": 256,
+          "seconds": 0.023696935000000002
+        },
+        {
+          "iterations": 512,
+          "seconds": 0.050218388
+        }
+      ],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "head",
+        "--directions",
+        "0",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so"
+      ],
+      "started_unix": 1791634300.5195372,
+      "load_average": [
+        2.5400390625,
+        4.44189453125,
+        3.5576171875
+      ],
+      "label": "calibration-0-head"
+    },
+    {
+      "side": "baseline",
+      "directions": 3,
+      "iterations": 64,
+      "seconds": 0.040089142,
+      "seconds_per_call": 0.00062639284375,
+      "checksum": 1366558.8250556532,
+      "oracle_passed": true,
+      "calibration_trials": [
+        {
+          "iterations": 1,
+          "seconds": 0.000585714
+        },
+        {
+          "iterations": 2,
+          "seconds": 0.0013052250000000001
+        },
+        {
+          "iterations": 4,
+          "seconds": 0.0024341410000000003
+        },
+        {
+          "iterations": 8,
+          "seconds": 0.004796109000000001
+        },
+        {
+          "iterations": 16,
+          "seconds": 0.009665902
+        },
+        {
+          "iterations": 32,
+          "seconds": 0.019438489
+        },
+        {
+          "iterations": 64,
+          "seconds": 0.040089142
+        }
+      ],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--directions",
+        "3",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so"
+      ],
+      "started_unix": 1791634306.3023458,
+      "load_average": [
+        2.49658203125,
+        4.40087890625,
+        3.548828125
+      ],
+      "label": "calibration-3-baseline"
+    },
+    {
+      "side": "head",
+      "directions": 3,
+      "iterations": 64,
+      "seconds": 0.041375164000000006,
+      "seconds_per_call": 0.0006464869375000001,
+      "checksum": 1366558.8250556532,
+      "oracle_passed": true,
+      "calibration_trials": [
+        {
+          "iterations": 1,
+          "seconds": 0.0006974090000000001
+        },
+        {
+          "iterations": 2,
+          "seconds": 0.001299176
+        },
+        {
+          "iterations": 4,
+          "seconds": 0.0025352490000000003
+        },
+        {
+          "iterations": 8,
+          "seconds": 0.005185915
+        },
+        {
+          "iterations": 16,
+          "seconds": 0.010582515
+        },
+        {
+          "iterations": 32,
+          "seconds": 0.020181979000000003
+        },
+        {
+          "iterations": 64,
+          "seconds": 0.041375164000000006
+        }
+      ],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-monte-carlo-curvature-cost.py",
+        "--side",
+        "head",
+        "--directions",
+        "3",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-monte-carlo-curvature/baseline.so"
+      ],
+      "started_unix": 1791634306.4269192,
+      "load_average": [
+        2.49658203125,
+        4.40087890625,
+        3.548828125
+      ],
+      "label": "calibration-3-head"
+    }
+  ],
+  "summary": [
+    {
+      "directions": 0,
+      "rounds": [
+        {
+          "round": 0,
+          "baseline": 8.461652636718751e-05,
+          "head": 9.19387119140625e-05,
+          "delta_percent": 8.653375246226581
+        },
+        {
+          "round": 1,
+          "baseline": 8.74533701171875e-05,
+          "head": 9.3363517578125e-05,
+          "delta_percent": 6.758055696444765
+        }
+      ],
+      "verdict": "informational: unequal boundary ownership contracts"
+    },
+    {
+      "directions": 3,
+      "rounds": [
+        {
+          "round": 0,
+          "baseline": 0.0006052144921875,
+          "head": 0.0006222300390625001,
+          "delta_percent": 2.811490321968124
+        },
+        {
+          "round": 1,
+          "baseline": 0.0006028524609375,
+          "head": 0.0006429850781250001,
+          "delta_percent": 6.65712090236632
+        }
+      ],
+      "verdict": "informational: unequal boundary ownership contracts"
+    }
+  ],
+  "sample_count": 80,
+  "measured_seconds": 7.151321984000001
+}

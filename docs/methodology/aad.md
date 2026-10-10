@@ -2139,6 +2139,14 @@ caller methodology; the generic driver does not certify those estimators.
 
 ### Common-path segmented Monte Carlo curvature
 
+The owning C++ financial boundary is in `dal-public/src/montecarlocurvature.hpp`.
+`PlanBlackScholesMonteCarlo` seals a copied contract and valuation history;
+`ValueByBlackScholesSegmentedMonteCarlo` and
+`ValueByBlackScholesMonteCarloWithCurvature` evaluate explicit full parameter
+points and retain that plan in their results. Python exposes the same
+[segmented risk interface](../python/README.md#segmented-blackscholes-monte-carlo-risk)
+with immutable settings and detached passive results.
+
 `Script::EvaluateBlackScholesMonteCarloCurvature` in
 `dal/script/montecarlocurvature.hpp` composes complete segmented native AAD
 Monte Carlo gradients with the same explicit direction/step request. It takes

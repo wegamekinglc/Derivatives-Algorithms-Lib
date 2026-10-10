@@ -7,6 +7,7 @@
 
 #include <dal-public/src/global.hpp>
 #include <dal-public/src/models.hpp>
+#include <dal-public/src/montecarlocurvature.hpp>
 #include <dal-public/src/script.hpp>
 #include <dal-public/src/value.hpp>
 #include <dal/storage/globals.hpp>
@@ -62,7 +63,7 @@ int main() {
     check(ValueByMonteCarlo(product, model, 1, "sobol", true, true, 0.02, true));
     static_assert(std::is_same_v<ScriptValuationSettings_, Script::ScriptValuationSettings_>);
     static_assert(std::is_const_v<std::remove_reference_t<decltype(*ScriptValuationSettings_().fixings_)>>);
-    ScriptValuationSettings_ valuation{TodayFixingPolicy_::Value_::MODEL, {}};
+    ScriptValuationSettings_ valuation;
     valuation.evaluationDate_ = Date_(2026, 9, 12);
     REQUIRE(ValueByMonteCarlo(product, model, 1, valuation).at("PV") == 100.0, "typed valuation failed");
     REQUIRE(dates->reads_ == 0 && dates->writes_ == 0, "explicit valuation must not access the global date");
@@ -96,5 +97,17 @@ int main() {
     } catch (const ScriptError_&) {
     }
     REQUIRE(dates->reads_ == 0 && dates->writes_ == 0, "invalid risk request accessed the date store");
-    std::cout << "Old 3-8 argument calls and typed settings pass; default date reads=1, explicit/Describe reads=0, writes=0\n";
+    const auto segmented = PlanBlackScholesMonteCarlo(product, valuation);
+    const Vector_<> point{100, 0.2, 0.03, 0.01};
+    const auto mean = ValueByBlackScholesSegmentedMonteCarlo(segmented, point, 1);
+    REQUIRE(mean.Mean().MeanValue() == 100 && mean.Mean().MeanGradient()[0] == 1, "installed segmented mean failed");
+    AAD::BumpOverAADRequest_ bumps;
+    bumps.directions_ = Matrix_<>(1, 4, 0.0);
+    bumps.directions_(0, 0) = 1.0;
+    bumps.steps_ = {0.25};
+    const auto curvature = ValueByBlackScholesMonteCarloWithCurvature(segmented, point, 1, bumps);
+    REQUIRE(curvature.Curvature().HessianProducts()(0, 0) == 0, "installed segmented curvature failed");
+    REQUIRE(curvature.Plan().Valuation().evaluationDate_ == valuation.evaluationDate_, "installed preparation ownership failed");
+    REQUIRE(dates->reads_ == 0 && dates->writes_ == 0, "segmented explicit valuation accessed the global date");
+    std::cout << "Old and typed calls, segmented mean/curvature and immutable preparation pass; date-read contracts retained\n";
 }
