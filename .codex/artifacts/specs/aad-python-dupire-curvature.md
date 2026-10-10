@@ -55,7 +55,9 @@ prototype's existence does not change this adapter's finite-step method label.
   paths and exact payload. Reject an all-zero direction row.
 - Independently rebuild plus/minus first-order quote gradients using existing
   Python calibration/planning entries on common paths and compare every HVP
-  coordinate. This verifies column order and recalibration without a new core.
+  coordinate. Use one native worker for this tight numerical oracle to avoid
+  amplification of independent reduction-order noise; retain separate parallel
+  execution tests. This verifies column order and recalibration without a new core.
 - Check selected/reported base versus full raw axes, copied inputs/getters,
   copy/deepcopy, garbage collection, repeated evaluation and thread/GIL behavior.
 - Test wrong types, budget overflow/zero/exact/one-byte-short, nonfinite values,

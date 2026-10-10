@@ -58,6 +58,23 @@ is unchanged and the two selectors are disjoint; no test is added or repeated.
 Linux extended jobs already enable verbose CTest output. The explicit case-log
 gap justifies this narrow CI change, with fresh publication-head checks required.
 
+Remote extended jobs and wheel jobs expose two test-only portability findings.
+The tight independently recalibrated HVP comparison amplifies native multi-worker
+reduction-order noise. Run that oracle in the existing one-worker subprocess
+helper, retaining its original `rel=1e-10, abs=1e-8` bounds, points and paths.
+Extend the helper with an optional module path; existing callers keep their default.
+Separately, repeated/selected/concurrent results use row-wise `rel=1e-12,
+abs=1e-10` HVP comparisons and `abs=1e-12` gradient comparisons rather than exact
+floating-point equality. Detached-copy assertions remain exact. Analytic Gamma
+bounds, GIL release and independent calling-thread execution remain covered.
+
+Repair acceptance repeats only the six affected new cases and four existing
+helper callers: 10/10 pass in 1.21 seconds with four native workers in the parent.
+The initial 174-case installed run remains historical evidence; it is not claimed
+as a fresh run of the repaired test sources. Production sources, installed module,
+native libraries and timing driver are unchanged, so no rebuild or timing repeat
+is needed. Fresh remote checks must establish cross-platform acceptance.
+
 The original non-PIC static archive cannot link a Python shared extension; its
 failed link is retained. Fresh official PIC core/public builds and standalone
 extension installation resolve the configuration boundary. That necessary

@@ -339,7 +339,14 @@ OFF/combined checks and independent analytic/recalibration references. Two scope
 Python entry costs retain eighty final observations (3.568148566 measured seconds)
 after repairing three Codacy cost-driver assertions; original samples remain.
 They are informational and expose admission overhead, with no speedup claim.
-Current-head CI/Codacy, actual Python platform logs and final review remain.
+Remote jobs expose reduction-order noise in the independently recalibrated oracle
+and exact floating-point comparisons between separate executions. The oracle
+uses the existing one-worker subprocess with unchanged bounds; repeated and
+concurrent results retain tight analytic-scale tolerances. Only six affected new
+cases plus four existing helper callers repeat: 10/10 pass with a four-worker
+parent. The initial 174-case run is retained, not relabeled as a fresh repaired
+run. Native/binding binaries and timing are unchanged. Current-head CI/Codacy,
+actual Python platform logs and final review remain.
 
 Native PDE recording is accepted in merged
 [#505](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/505),

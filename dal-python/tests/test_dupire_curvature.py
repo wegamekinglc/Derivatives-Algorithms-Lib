@@ -10,6 +10,7 @@ import dal
 import pytest
 
 from test_dupire_risk import hybrid_model, inputs
+from test_dupire_risk_request import run_one_worker
 from test_quote_risk import _run_with_quote_risk_gil_heartbeat
 
 
@@ -65,6 +66,13 @@ def plan_for(*, source=None, request=None, mixed=False, **risk_options):
     )
 
 
+def assert_same_products(actual, expected):
+    assert actual.Rows() == expected.Rows()
+    assert actual.Cols() == expected.Cols()
+    for row, reference in zip(actual.to_rows(), expected.to_rows()):
+        assert row == pytest.approx(reference, rel=1e-12, abs=1e-10)
+
+
 def test_public_bump_request_owns_required_inputs():
     matrix = directions()
     steps = [2e-4, 1e-4, 2e-4]
@@ -106,11 +114,10 @@ def test_direct_quadratic_has_raw_signed_analytic_gamma_and_exact_work(compiled)
     assert result.execution.numeric_payload_bytes == plan.numeric_payload_bytes
     assert plan.numeric_payload_bytes == 8 * (2 + 18 + 1 + 5 * 6 + 2 * 3 * 6 + 3)
     assert plan.base_plan.simulation_settings.compiled == compiled
-    assert dal.DupireScriptCurvatureResult_New(plan).hessian_products.to_rows() == result.hessian_products.to_rows()
+    assert_same_products(dal.DupireScriptCurvatureResult_New(plan).hessian_products, result.hessian_products)
 
 
-@pytest.mark.parametrize("compiled", [False, True])
-def test_mixed_surface_products_match_independently_recalibrated_gradients(compiled):
+def _check_mixed_surface_products(compiled):
     vector = [0.3, -0.2, 1.0, 0.4, -0.1, 0.2]
     step = 2e-4
     requested = dal.DupireScriptCurvatureRequest_(
@@ -133,12 +140,17 @@ def test_mixed_surface_products_match_independently_recalibrated_gradients(compi
     assert max(map(abs, expected)) > 1.0
 
 
+@pytest.mark.parametrize("compiled", [False, True])
+def test_mixed_surface_products_match_independently_recalibrated_gradients(compiled):
+    run_one_worker("_check_mixed_surface_products", compiled, module=__file__)
+
+
 def test_reported_selected_base_keeps_full_raw_products_and_detached_results():
     full = dal.DupireScriptCurvatureResult_New(plan_for())
     quotes = dal.CalibrationRiskRequest_(inputs=["quote:3", "quote:0"], report_factors=[0.01, 0.5])
     plan = plan_for(quotes=quotes)
     result = dal.DupireScriptCurvatureResult_New(plan)
-    assert result.hessian_products.to_rows() == full.hessian_products.to_rows()
+    assert_same_products(result.hessian_products, full.hessian_products)
     assert len(result.input_axis) == 6
     assert [axis.id for axis in result.base.quote_risk.plan.input_axis] == ["quote:3", "quote:0"]
     assert result.base.quote_risk.reported_jacobian[0, 0] == 0.01 * result.gradient[3]
@@ -155,7 +167,7 @@ def test_reported_selected_base_keeps_full_raw_products_and_detached_results():
     assert result.hessian_products.to_rows() == retained
     assert result.directions[0, 3] == 1.0
     assert result.point[3] == plan.point[3] == 0.001
-    assert result.gradient == full.gradient
+    assert result.gradient == pytest.approx(full.gradient, rel=1e-12, abs=1e-12)
     for value in (plan, result, result.execution):
         assert type(copy.copy(value)) is type(value)
         assert type(copy.deepcopy(value)) is type(value)
@@ -343,4 +355,4 @@ def test_execution_releases_gil_and_supports_independent_calling_threads():
     small = plan_for()
     with ThreadPoolExecutor(max_workers=2) as pool:
         results = list(pool.map(lambda _: dal.DupireScriptCurvatureResult_New(small), range(2)))
-    assert results[0].hessian_products.to_rows() == results[1].hessian_products.to_rows()
+    assert_same_products(results[0].hessian_products, results[1].hessian_products)

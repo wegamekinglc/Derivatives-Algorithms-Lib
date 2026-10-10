@@ -228,13 +228,13 @@ def _check_automatic_native_chain(base_kind, compiled):
         assert result.quote_risk.reported_jacobian.to_rows() == [[value * factor for value, factor in zip(raw, factors)]]
 
 
-def run_one_worker(function, *arguments):
+def run_one_worker(function, *arguments, module=None):
     probe = (
         "import json, runpy, sys; sys.path[:] = json.loads(sys.argv[1]); "
         "runpy.run_path(sys.argv[2])[sys.argv[3]](*json.loads(sys.argv[4]))"
     )
     completed = subprocess.run(
-        [sys.executable, "-S", "-c", probe, json.dumps(sys.path), str(Path(__file__).resolve()), function, json.dumps(arguments)],
+        [sys.executable, "-S", "-c", probe, json.dumps(sys.path), str(Path(module or __file__).resolve()), function, json.dumps(arguments)],
         env={**os.environ, "DAL_NUM_THREADS": "1"}, capture_output=True, text=True, timeout=60, check=False,
     )
     assert completed.returncode == 0, completed.stdout + completed.stderr

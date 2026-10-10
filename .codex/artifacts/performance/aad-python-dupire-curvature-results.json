@@ -6378,5 +6378,25 @@
       }
     ],
     "measured_seconds": 3.568148566
+  },
+  "test_repair": {
+    "prior_head": "bc20953329a6d4384217739739d67ff070d1fa18",
+    "source_sha256": {
+      "dal-python/tests/test_dupire_curvature.py": "414c3a528713668175d7f762873dc8114bb5caf6e017335888382615b99ef653",
+      "dal-python/tests/test_dupire_risk_request.py": "fdce791bfca692b8b1024b8a20de9463584f3eded017d72b7f8d90e0aaf8d939"
+    },
+    "focused_tests": 10,
+    "affected_new_cases": 6,
+    "existing_helper_cases": 4,
+    "parent_native_workers": 4,
+    "independent_oracle_workers": 1,
+    "independent_oracle_body_unchanged": true,
+    "junit_sha256": "fef4f79dd3188e89e2cd76433960bef13a4b4cb8d7daaca27a2d2f9de9dd372d",
+    "log_sha256": "646198622c900d7da190f436f7bedfe02d30ac04f0a1f79dcfc3f5f7010a9160",
+    "initial_selected_tests": 174,
+    "initial_selected_run_is_fresh_for_repaired_tests": false,
+    "production_and_timed_sources_unchanged": true,
+    "performance_evidence_reused": "codacy_repair",
+    "scope": "One-worker tight mixed oracle; tolerant repeated/selected/concurrent floating results; detached-copy assertions remain exact"
   }
 }
