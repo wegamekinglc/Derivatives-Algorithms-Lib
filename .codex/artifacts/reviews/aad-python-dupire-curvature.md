@@ -1,6 +1,6 @@
 # Python Dupire curvature local review
 
-Verdict: Comment Only. Local correctness is clear; scoped costs and current-head
+Verdict: Approve. Local correctness and scoped costs are accepted; current-head
 publication gates remain required before merge.
 
 ## Findings
@@ -37,6 +37,13 @@ seconds, including analytic signed Gamma, independently recalibrated mixed
 surface/direct products, exact and failing budgets, copied values, frozen history
 and dates, repeated calls, GIL release and two calling threads. Four strict
 OFF/combined module/binding checks pass. Documentation checks pass for 166 files.
+
+Two scoped entry-cost cases complete eighty paired observations in 3.465331108
+measured seconds. Both modes pass analytic checks and preserve fixed-affinity,
+one-worker, two-round/ten-pair sampling. Native complete admission is more
+expensive than manual first-order composition; this informational comparison
+does not establish a regression or speedup. Source/module/library/header hashes
+are retained, with no unrelated native timing repeated.
 
 The original non-PIC static archive cannot link a Python shared extension; its
 failed link is retained. Fresh official PIC core/public builds and standalone

@@ -334,6 +334,11 @@ Python Dupire quote curvature is the active binding increment, under its
 [critique](../critiques/aad-python-dupire-curvature.md).
 It projects the accepted financial finite-step C++ adapter. Native arithmetic,
 calibration, worker execution and the smooth prototype are unchanged.
+All 61 new cases and 174 selected installed-package cases pass, with four strict
+OFF/combined checks and independent analytic/recalibration references. Two scoped
+Python entry costs retain eighty observations (3.465331108 measured seconds);
+they are informational and expose admission overhead, with no speedup claim.
+Current-head CI/Codacy, actual Python platform logs and final review remain.
 
 Native PDE recording is accepted in merged
 [#505](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/505),
