@@ -104,3 +104,19 @@ Only the new module, its tests, installed consumer and the same two consuming
 cost cases are affected. Refresh those builds and paired cases with unchanged
 sampling; preserve both earlier measurement sets. No old native archive member
 or unrelated benchmark workload changes.
+
+The final code at `c336a75f` passes all 24 selected tests, refreshed strict
+OFF/combined compilation and fresh installed consumption. Both cost consumers
+are rebuilt against that code. `review_repair` retains 80 fresh observations,
+3.402351403 measured seconds, complete native-module build provenance and the
+same 65,536/16,384 calibration. Earlier sets remain as historical evidence and
+are superseded for final publication. Existing 183 core members and the public
+archive remain byte-identical; only the new module changes.
+
+| Case                 | Bump request, round 1/2 (microseconds) | Smooth AD request, round 1/2 (microseconds) | Delta, round 1/2  |
+|----------------------|----------------------------------------|---------------------------------------------|-------------------|
+| Quartic, N=1/M=1     | 0.6847 / 0.6995                        | 0.5052 / 0.5226                             | -26.21% / -25.29% |
+| European BS, N=2/M=3 | 2.4354 / 2.5262                        | 2.1574 / 2.3511                             | -11.42% / -6.93%  |
+
+Independent numerical errors, counts, capacities, sampling and scope verdict
+are unchanged. No unrelated coverage or extra local full suite was added.

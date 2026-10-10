@@ -41,6 +41,11 @@ checks, retain all 80 samples and leave ordinary library members unchanged.
 Codacy's cost-main complexity finding is repaired by extracting request
 construction. Both consuming executables and the same two paired cases are
 refreshed, with all original and replacement samples retained.
+Both direct-header findings are repaired, including the implementation's own
+standard facilities. The review body's callback-value diagnostic finding has
+a focused failing direction-one assertion, now green. All 24 selected cases,
+strict compilation, installed consumption and both scoped paired costs pass
+against `c336a75f`, with earlier cost sets retained.
 
 ## Verdict
 

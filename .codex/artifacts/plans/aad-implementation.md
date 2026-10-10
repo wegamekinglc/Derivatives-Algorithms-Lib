@@ -324,7 +324,7 @@ nesting remain disabled. Rectangular/approximate calibration semantics remain
 outside the accepted smooth square-system quote-curvature scope.
 The prototype now passes 21 new and three selected legacy tests, six strict
 OFF/combined probes, six capability compile probes and installed C++ consumption.
-Two scoped paired cost cases retain 80 refreshed observations and 2.970270252 measured
+Two scoped paired cost cases retain 80 final observations and 3.402351403 measured
 seconds in the [complete cost report](../performance/aad-smooth-mixed-mode.md).
 Publication remains; estimated effort is 6–12 developer-hours excluding CI wait.
 
