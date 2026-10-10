@@ -104,4 +104,5 @@ PYBIND11_MODULE(_dal, m) {
     init_bindings_dupireriskrequest(m);
 
     init_bindings_dupirecurvature(m);
+    init_bindings_ratecurvature(m);
 }

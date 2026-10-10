@@ -522,6 +522,61 @@ The method is a finite-step estimator, with the native first-order smoothing and
 calibration stencil constraints. This entry does not select the smooth C++
 forward-over-reverse prototype.
 
+## Rate quote Gamma and Hessian products
+
+`RateCalibration_New(spec)` captures an owning immutable calibration snapshot.
+It accepts native single-curve, joint multi-curve, staged XCCY and joint XCCY
+specifications, restricted to supported exact square systems. `point` contains
+raw decimal quotes in `provenance.axis.quotes` order; `parameters` contains the
+solved free coordinates. Staged XCCY exposes basis quotes only; its other curves
+remain fixed. `RateCalibration_Recalibrate(calibration, quotes)` returns a new
+snapshot from a copied list/tuple of finite real quotes with the same axis.
+
+Use existing `RateTradeDefinition_` values and the shared bump request:
+
+```python
+calibration = dal.RateCalibration_New(spec)
+directions = dal.DoubleMatrix_(1, len(calibration.point), 0.0)
+directions[0, 0] = 1.0
+bumps = dal.BumpOverAADRequest_(directions=directions, steps=[0.0002])
+settings = dal.RateTradeQuoteCurvatureSettings_(weights=[1.0, -0.5])
+result = dal.RateTradeQuoteCurvature([trade_a, trade_b], calibration, bumps, settings=settings)
+value = result.curvature.value
+gradient = result.curvature.gradient
+gamma = result.curvature.hessian_products[0, 0]
+```
+
+Trades support the native deposit, FRA, future, IRS, basis-swap, OIS and XCCY
+families. Use curve component keys from calibration provenance for free curves;
+joint declarations retain distinct keys even when display names repeat. All
+trades must have the same actual PV currency, returned as `result.currency`.
+This entry performs no currency conversion. Missing or empty weights mean unit
+weights; supplied finite weights must match the trade count. Negative and zero
+weights are allowed, and every trade is validated even at zero weight.
+
+`RateTradeQuoteCurvatureSettings_(*, weights=None, fixings=None)` optionally
+retains an immutable `MarketFixingSnapshot_` for additional trade history.
+It must agree with saved calibration observations. Without an explicit snapshot,
+missing required history is captured once from global fixings. Calibration
+sources, valuation inputs and historical observations stay fixed during bumps.
+
+The finite-step method `BumpOverRecalibratedNativeRateAAD` recalibrates and
+recomputes the full quote gradient at every point. With M directions, execution
+reports `1+2*M` calibrations, quote gradients and objective reverse sweeps.
+`DoubleMatrix_(0, quote_count)` and `steps=[]` request the base gradient only.
+Products retain raw quote units and signs; choose explicit positive steps using
+convergence checks. These estimates do not enable general native higher order.
+
+The numeric budget covers `8*(1+2*N+2*N*M+M)` bytes for N quotes and M directions,
+excluding solver/source storage, getter copies and allocator overhead. The
+separate recording cap constrains caller-thread recalibration and objective
+tapes, including cleanup reserve. Both optional caps preserve zero. Execution
+also reports `numeric_payload_bytes`, `peak_tape_bytes` and `cleanup_reserve_bytes`.
+Vectors, matrices, nested results and provenance getters are detached; snapshots,
+settings and results support copy/deepcopy. Factories release the GIL after
+copying typed inputs. See the
+[native financial contract](../methodology/aad.md#native-rate-trade-quote-curvature).
+
 ## Matrix and local-volatility surface input
 
 `DoubleMatrix_` supports all of the following:

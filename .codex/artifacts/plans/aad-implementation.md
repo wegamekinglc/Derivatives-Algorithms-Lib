@@ -328,38 +328,36 @@ the [accepted specification](https://github.com/wegamekinglc/Derivatives-Algorit
 [review](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/29c715bbf5a07d2c8e7ba0054f1f92fcb0ba9a70/.codex/artifacts/reviews/aad-smooth-mixed-mode.md)
 and [complete cost evidence](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/29c715bbf5a07d2c8e7ba0054f1f92fcb0ba9a70/.codex/artifacts/performance/aad-smooth-mixed-mode-results.json).
 
-Python Dupire quote curvature is the active binding increment, under its
-[specification](../specs/aad-python-dupire-curvature.md),
-[API](../api-notes/aad-python-dupire-curvature.md) and
-[critique](../critiques/aad-python-dupire-curvature.md).
-It projects the accepted financial finite-step C++ adapter. Native arithmetic,
-calibration and the smooth prototype are unchanged; the cancellation-lifetime
-repair below strengthens worker cleanup without changing successful valuation.
-The initial binding-only snapshot passes all 61 new and 174 selected installed-package cases, with four strict
-OFF/combined checks and independent analytic/recalibration references. Two scoped
-Python entry costs retain eighty observations (3.568148566 measured seconds)
-after repairing three Codacy cost-driver assertions; original samples remain.
-They are informational and expose admission overhead, with no speedup claim.
-Remote jobs expose reduction-order noise in the independently recalibrated oracle
-and exact floating-point comparisons between separate executions. The oracle
-uses the existing one-worker subprocess with unchanged bounds; repeated and
-concurrent results retain tight analytic-scale tolerances. Only six affected new
-cases plus four existing helper callers repeat: 10/10 pass with a four-worker
-parent. The initial 174-case run is retained, not relabeled as a fresh repaired
-run. That test-only repair preserves native/binding binaries and timing.
+Python Dupire quote curvature is accepted in merged
+[#529](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/529),
+at `4df4a0b3266b0b5c510cc72b5611aee7b4bf868e`. Two complete final audits
+accept 35/35 exact-head checks, zero Codacy annotations and unresolved threads.
+All 61 new Python cases actually pass in each of eight extended/MSVC profiles;
+all four Windows installed consumers pass 3/3. The accepted head `334447e1`
+and squash merge share tree `549271368f602fcb4986e9bab9c9fde7f597f058`.
+The cancellation repair releases RNG ownership before publishing a cancelled
+task's completion; its unchanged assertion passes 1,000 repetitions and all
+15 batch tests. Six affected old callers and two new informational boundaries,
+with focused noise/Codacy confirmations, retain 400 samples in 15.055808674
+measured seconds. No comparable caller exceeds +4% in both rounds. Current-head
+Codex and local reviews are clear; no current-head Copilot pass is claimed.
+Completed controls remain in immutable
+[specification](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/334447e10121ec73163592bbade86825c76867c5/.codex/artifacts/specs/aad-python-dupire-curvature.md),
+[API](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/334447e10121ec73163592bbade86825c76867c5/.codex/artifacts/api-notes/aad-python-dupire-curvature.md),
+[critique](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/334447e10121ec73163592bbade86825c76867c5/.codex/artifacts/critiques/aad-python-dupire-curvature.md),
+[review](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/334447e10121ec73163592bbade86825c76867c5/.codex/artifacts/reviews/aad-python-dupire-curvature.md)
+and [cost report](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/334447e10121ec73163592bbade86825c76867c5/.codex/artifacts/performance/aad-python-dupire-curvature.md).
 
-The repaired Python head completes 35/35 checks and all eight Python profiles.
-After synchronizing master's scheduled-build-only #526, GCC 13 exposes a prior
-positioned-batch cancellation lifetime race. A cancelled closure can publish
-completion before releasing its RNG. Local repetition reproduces the unchanged
-zero-live-clones assertion on iteration 29. The minimal cancellation-path repair
-releases that capture before returning. The unchanged assertion passes 1,000
-repetitions and all 15 batch tests pass. Official dependent PIC libraries and the
-installed extension are rebuilt; ten affected Python tests and six OFF/combined
-strict probes pass. Six old-caller cases and two refreshed new Dupire costs retain
-320 observations, with 40 further samples only for a noisy passive/tree case.
-No comparable caller exceeds +4% in both rounds; 14.075691852 measured seconds.
-Fresh current-head CI/Codacy, full reviews and guarded merge remain required.
+Python rate-trade quote curvature is the active, separate binding increment,
+under its [specification](../specs/aad-python-rate-curvature.md),
+[API](../api-notes/aad-python-rate-curvature.md) and
+[critique](../critiques/aad-python-rate-curvature.md). The first installed run
+passes 55 new and nine affected existing cases, plus four strict OFF/combined
+checks. Native libraries/headers and all 18 old binding implementation objects
+retain accepted hashes; the registration object is rebuilt. Two selected
+complete boundary costs retain 80 observations in 3.203935253 measured seconds.
+These compare different admission/ownership contracts and remain informational.
+Fresh exact-head CI/Codacy, complete reviews and guarded merge remain required.
 
 Native PDE recording is accepted in merged
 [#505](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/505),
@@ -872,7 +870,7 @@ incremental implementation turns and PRs; a green first stage does not complete 
 - [x] F04: quote-risk second order includes calibration curvature through full recalibration.
 - [x] F04: common-path, smoothing, Frozen/RetrainedBump, and nested-step semantics.
 - [x] F04: native mixed-mode prototype on smooth kernels and actual capability validation.
-- [ ] F04: estimator validation for applicable simulation/calibration cases before general promotion.
+- [x] F04: native policy/estimator validation accepted in #527; general higher-order capability remains disabled.
 
 F04 uses separate focused PRs in the following order. The table gives the rolling
 remaining estimates for second-order requests; they do not add to the mixed-mode or
@@ -1521,10 +1519,10 @@ overlapping acceptance work is included once in the integration allowance.
 | P04                     | Structural compression, safe fallback and selection accepted          | #511 merged; final 36/36 gates accepted  | 0                     |
 | P05                     | Core, fixed-path and Monte Carlo adapters accepted                    | #512/#513/#515 merged; 36/36 gates       | 0                     |
 | F04                     | Finite-step and opt-in smooth prototype accepted                     | #517–#528 merged                         | 0                     |
-| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains            | Open                                     | 6.6–10.4              |
+| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains            | Open                                     | 6.1–9.6               |
 
-Remaining total during Python curvature publication: 53–82 hours, approximately
-7–11 eight-hour person-days, excluding CI queue time. Delivery contingency
+Remaining total during Python rate-curvature publication: 49–77 hours, approximately
+6–10 eight-hour person-days, excluding CI queue time. Delivery contingency
 is included in those same hour ranges; there is no extra undisclosed allowance. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
 effort estimate, not a guaranteed completion date. Re-estimate when review
@@ -1551,11 +1549,14 @@ numeric/native diagnostics are not counted again.
 | 7c    | P05 Monte Carlo acceptance           | #515 merged; 36/36 gates, fourteen actual runtime profiles and merge proof             | 0               |
 | 8     | F04 second-order risk                | #517–#527 increments merged; finite-step mathematical and publication gates pass       | 0               |
 | 9     | F04 native mixed-mode prototype      | #528 merged; analytic/capability/cost and exact-head publication acceptance complete   | 0               |
-| 10    | Python Dupire curvature              | Interface/cancellation repair accepted locally; exact-head gates and merge remain     | 1–2             |
-| 11    | Remaining C++/Python interfaces       | Remaining structured-operator and second-order projections                            | 20–32           |
+| 10    | Python Dupire curvature              | #529 merged; exact-head CI/reviews, scoped costs and merge proof accepted              | 0               |
+| 11a   | Python rate-trade curvature           | PR #530: installed tests/costs pass; inspect exact-head CI/reviews and merge            | 1–3             |
+| 11b   | C++/Python segmented MC curvature     | Owning financial preparation, explicit segmentation and passive gradient/HVP surface  | 8–12            |
+| 11c   | C++/Python LSMC policy curvature      | Owning financial request and frozen/retrained policy estimator projection              | 6–10            |
+| 11d   | Structured-operator interface audit   | Close applicable passive financial projections; keep active recording C++-owned       | 2–4             |
 | 12    | Excel interfaces and exports         | Typed requests/results and actual Windows export acceptance                           | 16–24           |
 | 13    | Final integration and documentation  | Installed consumers, current docs and targeted cross-platform/performance acceptance   | 16–24           |
-| Total | Full remaining implementation        | All remaining plan requirements                                                        | 53–82           |
+| Total | Full remaining implementation        | All remaining plan requirements                                                        | 49–77           |
 
 
 The first delivery boundary is complete. Whole-PR review repaired the Windows

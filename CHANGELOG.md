@@ -18,6 +18,10 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-10
 
+- **Python rate quote curvature** — immutable four-family calibration snapshots
+  and weighted native rate portfolios expose recalibrated raw quote gradients,
+  Gamma/cross-Gamma and Hessian products with explicit steps and budgets. See
+  [the Python interface](docs/python/README.md#rate-quote-gamma-and-hessian-products).
 - **Python Dupire quote curvature** — typed owning requests, plans and results
   expose recalibrated common-path Gamma, cross-Gamma and Hessian-vector estimates,
   with raw quote axes, explicit steps and numeric budgets. See
