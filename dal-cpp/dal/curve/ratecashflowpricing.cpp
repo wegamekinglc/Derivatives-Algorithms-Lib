@@ -25,6 +25,7 @@
 #include <dal/curve/ratecashflowpricing_internal.hpp>
 #include <dal/curve/rateparameterjacobian.hpp>
 #include <dal/curve/ratestructuraljacobian_internal.hpp>
+#include <dal/curve/ratetradeobjective_internal.hpp>
 #include <dal/curve/xccypricing.hpp>
 #include <dal/curve/ycconst.hpp>
 #include <dal/curve/yclogdf.hpp>
@@ -1732,7 +1733,8 @@ namespace Dal {
 
         RateJacobianPreparation_ PrepareRateJacobian(const Vector_<RateTradeDefinition_>& trades,
                                                      const RatePricingMarket_& market,
-                                                     const Vector_<RateCurveParameterCoordinate_>& axis) {
+                                                     const Vector_<RateCurveParameterCoordinate_>& axis,
+                                                     const String_& operation = "RateJacobian") {
             RateJacobianPreparation_ result;
             Vector_<const DiscountCurve_*> roots;
             std::set<std::pair<const DiscountCurve_*, size_t>> distinct;
@@ -1751,11 +1753,17 @@ namespace Dal {
                 result.selected_[curve].emplace_back(coordinate.parameterOrdinal_, column);
                 AddUniqueCurve(curve, &roots);
             }
-            for (const auto& trade : trades) {
-                REQUIRE(TermsMatchFamily(trade), "RateJacobian: instrument family and terms disagree: " + trade.instrumentId_);
+            for (size_t row = 0; row < trades.size(); ++row) {
+                const auto& trade = trades[row];
+                const auto context = [&] {
+                    if (operation == "RateJacobian")
+                        return trade.instrumentId_;
+                    return String_("trade[" + String_(std::to_string(row)) + "] " + trade.instrumentId_);
+                };
+                REQUIRE(TermsMatchFamily(trade), operation + ": instrument family and terms disagree: " + context());
                 const auto consumed = RateStructuralRoots(trade, market);
                 REQUIRE(consumed && RateStructuralRootsRegistered(*consumed, market),
-                        "RateJacobian: consumed curve routing is unavailable: " + trade.instrumentId_);
+                        operation + ": consumed curve routing is unavailable: " + context());
                 for (const auto* curve : *consumed)
                     AddUniqueCurve(curve, &roots);
             }
@@ -1878,6 +1886,157 @@ namespace Dal {
             return result;
         }
     } // namespace
+
+    namespace {
+        String_ RateObjectiveTradeContext(const RateTradeDefinition_& trade, size_t row) {
+            return "RateTradeObjective: trade[" + String_(std::to_string(row)) + "] " + trade.instrumentId_ + ": ";
+        }
+
+        struct RateTradeObjectiveData_ {
+            Vector_<RateTradeDefinition_> trades_;
+            RatePricingMarket_ market_;
+            RateJacobianPreparation_ preparation_;
+            Vector_<PreparedCashflows_> cashflows_;
+            std::map<size_t, XccyNodeSensitivityHoist_> xccy_;
+            Vector_<> weights_;
+            Ccy_ currency_;
+            size_t inputs_ = 0;
+
+            AAD::Number_ Evaluate(const Vector_<AAD::Number_>& inputs) const {
+                REQUIRE(inputs.size() == inputs_, "RateTradeObjective: objective input count must match the captured axis and tail");
+                ActiveCurveMap_ active;
+                for (const auto& [curve, state] : preparation_.curves_)
+                    BuildRateJacobianActiveCurve(curve, preparation_, inputs, &active);
+                AAD::Number_ value(0.0);
+                for (size_t row = 0; row < trades_.size(); ++row) {
+                    try {
+                        RequestCashflows_ cashflows(&cashflows_[row]);
+                        const auto xccy = xccy_.find(row);
+                        const auto price = PriceJointActive(trades_[row], market_, active, xccy == xccy_.end() ? nullptr : &xccy->second, &cashflows);
+                        REQUIRE(std::isfinite(AAD::Value(price)), "trade PV must be finite");
+                        value += weights_[row] * price;
+                    } catch (const std::exception& error) {
+                        THROW(RateObjectiveTradeContext(trades_[row], row) + String_(error.what()));
+                    }
+                }
+                return value;
+            }
+        };
+
+        Vector_<> RateObjectiveWeights(const Vector_<>& weights, size_t trades) {
+            REQUIRE(weights.empty() || weights.size() == trades, "RateTradeObjective: weights must match trade count");
+            REQUIRE(std::all_of(weights.begin(), weights.end(), [](double weight) { return std::isfinite(weight); }),
+                    "RateTradeObjective: weights must be finite");
+            return weights.empty() ? Vector_<>(trades, 1.0) : weights;
+        }
+
+        void PrepareRateObjectiveGeometry(RateTradeObjectiveData_* data) {
+            data->cashflows_.reserve(data->trades_.size());
+            for (size_t row = 0; row < data->trades_.size(); ++row) {
+                const auto& trade = data->trades_[row];
+                try {
+                    data->cashflows_.emplace_back(trade);
+                    if (const auto* terms = std::get_if<XccyTradeTerms_>(&trade.terms_)) {
+                        XccyNodeSensitivityHoist_ hoist;
+                        hoist.expired_ = trade.maturityDate_ < data->market_.valuationTime_.Date();
+                        hoist.plan_ = BuildXccyCashflowPlan(trade.startDate_, trade.maturityDate_, terms->config_);
+                        data->xccy_.emplace(row, std::move(hoist));
+                    }
+                } catch (const std::exception& error) {
+                    THROW(RateObjectiveTradeContext(trade, row) + String_(error.what()));
+                }
+            }
+        }
+
+        Handle_<MarketFixingSnapshot_> MergeRateObjectiveFixings(const Handle_<MarketFixingSnapshot_>& saved,
+                                                                 const MarketFixingSnapshot_& supplement) {
+            auto values = saved ? saved->Values() : MarketFixingSnapshot_::values_t{};
+            for (const auto& [name, history] : supplement.Values())
+                for (const auto& [time, value] : history) {
+                    const auto [found, inserted] = values[name].emplace(time, value);
+                    REQUIRE(inserted || found->second == value,
+                            "RateTradeObjective: fixing conflicts with saved calibration observation: " + name + " at " + DateTime::ToString(time));
+                }
+            return Handle_<MarketFixingSnapshot_>(new MarketFixingSnapshot_(values));
+        }
+
+        Vector_<FixingRequest_> MissingRateObjectiveFixings(const RateTradeObjectiveData_& data, const Handle_<MarketFixingSnapshot_>& saved) {
+            Vector_<FixingRequest_> missing;
+            for (size_t row = 0; row < data.trades_.size(); ++row) {
+                try {
+                    RequestCashflows_ scratch(&data.cashflows_[row]);
+                    const auto plan = BuildRateCashflowPlanPrepared(data.trades_[row], data.market_, &scratch);
+                    for (const auto& request : plan.requiredHistoricalFixings_)
+                        if (!saved || !saved->Find(request.indexName_, request.fixingTime_))
+                            AddUnique(request, &missing);
+                } catch (const std::exception& error) {
+                    THROW(RateObjectiveTradeContext(data.trades_[row], row) + String_(error.what()));
+                }
+            }
+            return missing;
+        }
+
+        Handle_<MarketFixingSnapshot_> CaptureRateObjectiveFixings(const RateTradeObjectiveData_& data,
+                                                                   const Handle_<MarketFixingSnapshot_>& supplied) {
+            auto saved = data.market_.fixings_;
+            if (!saved && data.market_.xccyMarket_)
+                saved = data.market_.xccyMarket_->Fixings();
+            const auto supplement = supplied ? supplied : SnapshotGlobalFixings(MissingRateObjectiveFixings(data, saved));
+            return MergeRateObjectiveFixings(saved, *supplement);
+        }
+
+        void
+        ValidateRateObjectiveCurveCurrency(const RateTradeDefinition_& trade, const RatePricingMarket_& market, const Ccy_& currency, size_t row) {
+            if (std::holds_alternative<XccyTradeTerms_>(trade.terms_))
+                return;
+            const auto roots = RateStructuralRoots(trade, market);
+            REQUIRE(roots, "RateTradeObjective: consumed curve routing must be available");
+            for (const auto* root : *roots)
+                for (const auto* curve = root; curve; curve = RateCashflowPricingInternal::NodeSensitivityBase(*curve))
+                    REQUIRE(curve->ccy_ == currency, "RateTradeObjective: trade[" + String_(std::to_string(row)) + "] " + trade.instrumentId_ +
+                                                         ": consumed curve currency must match actual PV currency");
+        }
+
+        Ccy_ RateObjectiveCurrency(const RateTradeObjectiveData_& data) {
+            Vector_<RequestCashflows_> cashflows;
+            for (const auto& prepared : data.cashflows_)
+                cashflows.emplace_back(&prepared);
+            const auto prices = ValidateRateJacobianPrices(data.trades_, data.market_, &cashflows);
+            const auto currency = prices.front().currency_;
+            REQUIRE(currency.Switch() != Ccy_::Value_::_NOT_SET, "RateTradeObjective: actual PV currency must be specified");
+            for (size_t row = 0; row < prices.size(); ++row) {
+                REQUIRE(prices[row].currency_ == currency, "RateTradeObjective: trade[" + String_(std::to_string(row)) + "] " +
+                                                               data.trades_[row].instrumentId_ + ": actual PV currencies must match");
+                ValidateRateObjectiveCurveCurrency(data.trades_[row], data.market_, currency, row);
+            }
+            return currency;
+        }
+    } // namespace
+
+    RateCashflowPricingInternal::RateTradeObjective_
+    RateCashflowPricingInternal::NewRateTradeObjective(const Vector_<RateTradeDefinition_>& trades,
+                                                       const RatePricingMarket_& market,
+                                                       const Vector_<RateCurveParameterCoordinate_>& inputAxis,
+                                                       const RateTradeObjectiveSettings_& settings) {
+        AAD::RequireRecordingModeChangeAllowed();
+        REQUIRE(!trades.empty(), "RateTradeObjective: portfolio must not be empty");
+        REQUIRE(inputAxis.size() <= static_cast<size_t>(std::numeric_limits<int>::max()) &&
+                    settings.trailingInputs_ <= static_cast<size_t>(std::numeric_limits<int>::max()) - inputAxis.size(),
+                "RateTradeObjective: objective input count exceeds integer range");
+        auto data = std::make_shared<RateTradeObjectiveData_>();
+        data->trades_ = trades;
+        data->market_ = market;
+        if (market.xccyMarket_)
+            data->market_.xccyMarket_ = std::make_shared<CrossCurrencyMarket_>(*market.xccyMarket_);
+        data->weights_ = RateObjectiveWeights(settings.weights_, trades.size());
+        data->inputs_ = inputAxis.size() + settings.trailingInputs_;
+        data->preparation_ = PrepareRateJacobian(data->trades_, data->market_, inputAxis, "RateTradeObjective");
+        PrepareRateObjectiveGeometry(data.get());
+        data->market_.fixings_ = CaptureRateObjectiveFixings(*data, settings.fixings_);
+        data->currency_ = RateObjectiveCurrency(*data);
+        const std::shared_ptr<const RateTradeObjectiveData_> fixed = data;
+        return {data->currency_, [fixed](AAD::RecordingScope_*, const Vector_<AAD::Number_>& inputs) { return fixed->Evaluate(inputs); }};
+    }
 
     RateTradeParameterJacobianResult_ RateTradeParameterJacobian(const Vector_<RateTradeDefinition_>& trades,
                                                                  const RatePricingMarket_& market,
@@ -2138,7 +2297,7 @@ namespace Dal {
                 const auto& provenance = provenances[index];
                 ++RateCashflowPricingInternal::g_quoteRiskProvenancePreparationCount;
                 REQUIRE(calibrationIds.insert(provenance.CalibrationId()).second, "QUOTE_RISK_DUPLICATE_CALIBRATION_ID");
-                PreparedQuoteRiskProvenance_ entry{index, &provenance};
+                PreparedQuoteRiskProvenance_ entry{index, &provenance, false, {}, 0};
                 if (!provenance.Available()) {
                     AppendProvenanceFailure(provenance, provenance.Reason(), String_(), String_(), String_(), result);
                     prepared.push_back(entry);

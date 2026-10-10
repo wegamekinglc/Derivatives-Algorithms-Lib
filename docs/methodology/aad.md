@@ -2262,6 +2262,48 @@ better. Captured objective data must remain fixed, and the callback cannot run
 parallel simulations or open another independent recording. Native
 `higherOrder_` remains false.
 
+### Native rate-trade quote curvature
+
+`EvaluateRateTradeQuoteCurvature(trades, snapshot, request, settings)` in
+`dal-public/src/ratecurvature.hpp` prices a native portfolio and applies the
+recalibrated quote-curvature chain above. It supports deposits, FRAs, futures,
+IRS, basis swaps, OIS and XCCY swaps with all four exact square calibration
+families. It returns `Currency()` and a nested `Curvature()` result with the
+value, quote gradient, directional Hessian products, base calibration and
+execution evidence.
+
+The scalar objective is the weighted sum of native trade PVs. Empty
+`settings.weights_` means unit weights; supplied weights must be finite and match
+the trade count. Negative and zero weights are allowed. Every row is validated,
+including zero-weight rows, and repeated instrument IDs remain separate rows.
+All trades must have the same actual PV currency. XCCY uses its configured
+domestic currency; this entry performs no portfolio currency conversion.
+Non-XCCY consumed curves and their bases must match the PV currency.
+
+The snapshot privately owns the solved native market. The adapter copies the
+trades and captures immutable cashflow geometry, curve constants and fixing
+observations before differentiating. Free coordinates follow the sealed
+calibration provenance, including distinct joint declaration keys. Staged XCCY
+fixed roots are available for pricing but remain outside the free risk axis.
+Each objective recording reconstructs the complete active curve graph and sums
+the PVs before one reverse sweep; it does not construct a trade Jacobian.
+
+`settings.fixings_` supplements the snapshot's saved calibration fixings.
+Conflicting observations reject, including inconsistent reciprocal FX values.
+An explicit snapshot provides all additional trade history without global
+fallback. If absent, only missing required historical observations are captured
+from global fixings once. Later caller or global-fixing changes cannot alter
+the captured objective. Native same-time fixing rules still apply.
+
+The generic numeric and recording admission rules apply. Invalid numeric
+requests and active outer recordings reject before objective preparation or
+global fixing reads. With M directions, the adapter performs exactly 1+2M
+calibrations and objective reverse sweeps. Raw quote units and the owning bump
+payload budget retain their existing meanings; the payload budget excludes
+portfolio preparation and solver storage. These are finite-step estimates
+through full recalibration, and native `higherOrder_` remains false. This entry
+is available in C++; Python and Excel bindings are not provided.
+
 ### Common-path C++ Monte Carlo quote curvature
 
 `dal-public/src/dupirecurvature.hpp` provides a financial plan that evaluates
