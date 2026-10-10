@@ -8,6 +8,12 @@ Add `EvaluateBlackScholesLsmcCurvature(prepared, parameters, pathCount, bumps)` 
 The four required arguments mirror the existing financial curvature entry and
 make every outer direction and step explicit.
 
+`PreparedModelType()` retains the dynamic type used by executable preparation,
+without retaining its model state. This entry requires the concrete native
+`AAD::BlackScholes_<double>` type. Hybrid and custom-derived preparations fail
+before training even if all their observations are Black–Scholes-compatible.
+The numeric point supplies replacement parameters within that same model family.
+
 `BlackScholesLsmcCurvatureResult_` exposes `Value()`, `Gradient()`, `Point()`,
 `Directions()`, `Steps()`, `HessianProducts()`, `Prepared()`, `BasePolicy()` and
 `Execution()`. Numeric input order is spot/vol/rate/div followed by prepared

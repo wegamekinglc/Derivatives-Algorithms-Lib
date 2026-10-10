@@ -4,7 +4,15 @@ Verdict: Comment Only; publication gates pending.
 
 ## Findings
 
-No unresolved correctness finding in the current local implementation.
+Copilot identified missing model provenance: a Hybrid preparation with a single
+equity observation was accepted under Black–Scholes dynamics. An independent
+regression test reproduced that acceptance. Preparation now retains its original
+dynamic model type, and the curvature entry requires the concrete native
+Black–Scholes type before training. Twenty-six selected tests pass with the
+fresh affected objects; the Hybrid regression is rejected before any submission.
+Eight OFF/combined strict probes pass, including preparation itself. Two
+pre-existing conditional-macro warnings in that source are repaired with braces.
+Installed consumption, refreshed paired costs and publication remain open.
 
 The first numerical RED distinguished repeated legacy policy training from
 curvature conditional on a single baseline policy. Additional RED/GREEN covers

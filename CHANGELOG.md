@@ -21,7 +21,8 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 - **Native LSMC policy curvature** — Black–Scholes C++ requests distinguish
   curvature conditional on one frozen policy from differences of retrained
   policy-secanted gradients, with common paths, active historical constants
-  and explicit inner/outer steps. See
+  and explicit inner/outer steps. Model provenance rejects Hybrid and custom
+  preparations before training. See
   [LSMC policy curvature](docs/methodology/aad.md#native-lsmc-policy-curvature).
 - **Native rate-trade quote curvature** — weighted native rate and XCCY
   portfolios expose full recalibrated quote gradients and Hessian products,

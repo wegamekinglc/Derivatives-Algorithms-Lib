@@ -2014,6 +2014,8 @@ namespace Dal::Script {
             REQUIRE2(!prepared.AllExpired() && prepared.Product().ContainsExercise(), "LsmcCurvature: live EXERCISE preparation required",
                      ScriptError_);
             prepared.RequireExecutable();
+            REQUIRE2(prepared.PreparedModelType() == typeid(AAD::BlackScholes_<double>),
+                     "LsmcCurvature: preparation must originate from native BlackScholes", ScriptError_);
             ValidateSimulationSettings(prepared.Simulation());
             REQUIRE2(prepared.Simulation().enableAad_, "LsmcCurvature: native AAD preparation required", ScriptError_);
             REQUIRE2(pathCount > 0, "LsmcCurvature: positive pricing path count required", ScriptError_);

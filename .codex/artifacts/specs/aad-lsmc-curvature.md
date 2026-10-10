@@ -30,7 +30,9 @@ preparations are rejected explicitly by this live-LSMC entry.
 1. Snapshot the numeric point and bump request, retain immutable owning preparation,
    and reject nested recording before training or worker submission.
 2. Validate dimensions, finite/representable bumps, numeric-output budget, positive paths,
-   simulation settings, Black–Scholes domains and every outer point before training.
+   simulation settings, original concrete native Black–Scholes model provenance,
+   Black–Scholes domains and every outer point before training. Observation
+   compatibility does not authorize substituting another model family.
    Retrained mode also preflights all inner policy-bump domains/representability.
 3. Frozen trains exactly the base policy and uses its coefficients, basis,
    normalization and selected degrees for base/plus/minus native gradients.

@@ -1,7 +1,7 @@
 # LSMC curvature scoped cost acceptance
 
-Status: local correctness, strict compilation, installed consumption and
-refreshed paired costs pass; publication acceptance pending.
+Status: initial and complexity-repair local acceptance passed. Model-provenance
+repair verification and refreshed costs are in progress; publication remains open.
 
 Baseline: merged #525, `f30c7bf4b74d183b071bedc0f51aea3e9864dea8`.
 
@@ -14,6 +14,14 @@ Baseline: merged #525, `f30c7bf4b74d183b071bedc0f51aea3e9864dea8`.
   new Frozen curvature request and one new RetrainedBump request cover policy
   lifetime and nested training. Report complete latency and checksums; neither
   is a speedup claim over a previously existing adapter.
+- `dal-cpp/dal/script/preparation.hpp/.cpp`: retain original dynamic model type
+  and reject incompatible preparations at new-entry admission. Dependency
+  analysis selects 16 library translation units (13 core, 3 public) for fresh
+  recompilation. Three existing preparation cases cover captured evaluation
+  date, expired execution and history-only rejection. These add functional
+  coverage without adding a timing matrix: the four existing selected request
+  cases cover the affected LSMC consumers. Preparation occurs outside those
+  latency windows; its single RTTI-tag assignment has no measured speedup claim.
 
 Use one small two-exercise-date case with a script constant and one explicit
 spot direction. Four cases suffice: functional tests cover tree/compiled,

@@ -2147,8 +2147,13 @@ policy responses. Native `higherOrder_` remains false.
 takes an owning `shared_ptr<const PreparedScript_>`, a complete numeric point,
 positive pricing path count and explicit `AAD::BumpOverAADRequest_`. The point
 contains spot, volatility, rate and dividend yield, then the prepared script
-constants. The preparation must contain live EXERCISE events and enable native
-AAD. Tree and compiled programs use the preparation's smoothing and sampling.
+constants. The preparation must originate from the concrete native
+`AAD::BlackScholes_<double>` model, contain live EXERCISE events and enable native
+AAD. Preparation retains the original model's dynamic type without retaining its
+state. Hybrid models and custom subclasses are rejected before training even
+when their observations are compatible; the supplied point replaces only the
+four Black–Scholes parameter values. Tree and compiled programs use the
+preparation's smoothing and sampling.
 
 `Frozen` trains one baseline policy and retains its coefficients, basis,
 normalization and selected degrees for all outer points. Path states and script

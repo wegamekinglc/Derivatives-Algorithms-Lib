@@ -485,3 +485,22 @@ TEST(ScriptExerciseLSMCTest, TestCurvatureRejectsForeignModelObservationPlan) {
     ASSERT_THROW((void)Script::EvaluateBlackScholesLsmcCurvature(prepared, {100.0, 0.2, 0.05, 0.0}, 128, SpotDirection()), Dal::Exception_);
     ASSERT_EQ(observer.submissions_, 0);
 }
+
+TEST(ScriptExerciseLSMCTest, TestCurvatureRejectsHybridPreparationWithCompatibleEquityObservations) {
+    const auto data =
+        Dal::MakeFlatRateLocalVolHybridModelData("hybrid", "EQ[DAL527_TEST]", 100.0, 0.05, 0.0, {50.0, 150.0}, {0.0, 2.0}, Dal::Matrix_<>(2, 2, 0.2));
+    auto model = Dal::CreateModel<double>(data);
+    const Script::ScriptProductData_ product("", {Cell_(Date_(2027, 4, 10)), Cell_(Date_(2027, 10, 10))},
+                                             {"EXERCISE 100 - spot()", "EXERCISE 100 - spot()"});
+    Script::MonteCarloSettings_ simulation;
+    simulation.enableAad_ = true;
+    simulation.smooth_ = 2.0;
+    simulation.lsmcTrainingPaths_ = 128;
+    Script::ScriptValuationSettings_ valuation;
+    valuation.evaluationDate_ = Date_(2026, 10, 10);
+    const auto prepared = std::make_shared<const Script::PreparedScript_>(Script::PrepareScript(product, model.get(), valuation, simulation));
+    Script::TestSupport::SubmissionCounter_ observer;
+    const Script::Detail::ScopedSimulationObserver_ scope(&observer);
+    ASSERT_THROW((void)Script::EvaluateBlackScholesLsmcCurvature(prepared, {100.0, 0.2, 0.05, 0.0}, 128, SpotDirection()), Dal::Exception_);
+    ASSERT_EQ(observer.submissions_, 0);
+}
