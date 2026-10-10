@@ -290,7 +290,7 @@ The separate active financial trading increment follows its
 [critique](../critiques/aad-rate-trade-quote-curvature.md),
 [review](../reviews/aad-rate-trade-quote-curvature.md) and
 [scoped cost acceptance](../performance/aad-rate-trade-quote-curvature.md).
-Local implementation passes 57 scoped functional tests, ten strict compilation
+Local implementation covers 58 scoped functional tests, ten strict compilation
 probes, installed consumption and five cost comparisons (200 observations;
 1.0851 seconds of measured work). Remote review/CI acceptance remains.
 Its remaining estimate is 1–3 developer-hours,

@@ -446,13 +446,11 @@ namespace Dal {
             }
         }
 
-        double PriceXccy(const RateTradeDefinition_& trade,
-                         const XccyTradeTerms_& terms,
-                         const RatePricingMarket_& market,
-                         RatePricingTradeResult_* result) {
+        void ValidateXccyPosition(const XccyTradeTerms_& terms) {
             REQUIRE(std::isfinite(terms.positionCount_) && terms.positionCount_ > 0.0, "XCCY position count must be positive and finite");
-            if (trade.maturityDate_ < market.valuationTime_.Date())
-                return 0.0;
+        }
+
+        const CrossCurrencyMarket_& ValidateXccyTradeMarket(const XccyTradeTerms_& terms, const RatePricingMarket_& market) {
             REQUIRE(terms.spreadOnForeignLeg_ == terms.config_.convention_.spreadOnForeignLeg_,
                     "XCCY spread-leg pricing terms must match the cashflow convention");
             REQUIRE(market.xccyMarket_, "XCCY pricing requires an immutable cross-currency market");
@@ -460,6 +458,17 @@ namespace Dal {
             REQUIRE(nativeMarket.ValuationTime() == market.valuationTime_, "XCCY market valuation time does not match the pricing request");
             REQUIRE(nativeMarket.DomesticCcy() == terms.config_.pair_.domestic_ && nativeMarket.ForeignCcy() == terms.config_.pair_.foreign_,
                     "XCCY market currencies do not match the trade");
+            return nativeMarket;
+        }
+
+        double PriceXccy(const RateTradeDefinition_& trade,
+                         const XccyTradeTerms_& terms,
+                         const RatePricingMarket_& market,
+                         RatePricingTradeResult_* result) {
+            ValidateXccyPosition(terms);
+            if (trade.maturityDate_ < market.valuationTime_.Date())
+                return 0.0;
+            const auto& nativeMarket = ValidateXccyTradeMarket(terms, market);
             const auto domestic = JointBlock(nativeMarket.DomesticBlock());
             const auto foreign = JointBlock(nativeMarket.ForeignBlock());
             XccyMarketView_<double> view;
@@ -1937,6 +1946,9 @@ namespace Dal {
                 try {
                     data->cashflows_.emplace_back(trade);
                     if (const auto* terms = std::get_if<XccyTradeTerms_>(&trade.terms_)) {
+                        ValidateXccyPosition(*terms);
+                        (void)ValidateXccyTradeMarket(*terms, data->market_);
+                        REQUIRE(std::isfinite(terms->contractSpread_), "XCCY contract spread must be finite");
                         XccyNodeSensitivityHoist_ hoist;
                         hoist.expired_ = trade.maturityDate_ < data->market_.valuationTime_.Date();
                         hoist.plan_ = BuildXccyCashflowPlan(trade.startDate_, trade.maturityDate_, terms->config_);

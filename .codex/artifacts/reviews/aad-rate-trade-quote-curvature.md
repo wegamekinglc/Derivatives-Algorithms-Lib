@@ -29,7 +29,7 @@ this changes no initialized values.
 
 ## Tests
 
-The focused executable passes 57/57 tests: 19 new public/core tests, 24 existing
+The focused acceptance covers 58 tests: 20 new public/core tests, 24 existing
 public quote-curvature tests and 14 existing core parameter-Jacobian tests.
 Independent price references use the original passive native calibrators and
 `PriceRateTrades`, with two directional patterns, three outer steps and two
@@ -46,6 +46,19 @@ reused only with archive, object and dependency hashes; changed objects and the
 consumer executable are rebuilt.
 
 ## Remaining acceptance and risk
+
+The first remote Codex review identified expired XCCY rows skipping spread and
+market admission before the zero-PV path. A failing regression now covers invalid
+position count, non-finite spread, spread-leg disagreement and market currency
+mismatch for both zero/unit weights, including duplicate IDs and row context.
+The objective capture unconditionally calls extracted native position/market
+validators and admits the contract spread before preparing geometry. Existing
+standalone pricing keeps its original expiry behavior. Valid expired rows still
+return zero value, gradient and Hessian products without requiring paid history.
+The 34 affected public/core cases and four affected strict probes pass; the 24
+generic quote-objective cases use unchanged calibration/driver paths and retain
+accepted evidence. Rebuild the installed consumer and selected cost binaries
+before current-head publication.
 
 The initial remote Codacy report identified three test/harness complexity
 findings. Shared preparation now uses typed family overloads; the performance

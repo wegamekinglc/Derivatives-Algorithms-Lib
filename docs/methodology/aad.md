@@ -2275,7 +2275,8 @@ execution evidence.
 The scalar objective is the weighted sum of native trade PVs. Empty
 `settings.weights_` means unit weights; supplied weights must be finite and match
 the trade count. Negative and zero weights are allowed. Every row is validated,
-including zero-weight rows, and repeated instrument IDs remain separate rows.
+including zero-weight and expired XCCY rows, and repeated instrument IDs remain
+separate rows. Expired XCCY rows retain term/market admission before zero PV.
 All trades must have the same actual PV currency. XCCY uses its configured
 domestic currency; this entry performs no portfolio currency conversion.
 Non-XCCY consumed curves and their bases must match the PV currency.

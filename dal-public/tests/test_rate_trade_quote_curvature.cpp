@@ -550,3 +550,40 @@ TEST(RateQuoteCurvatureTest, TestTradeAdditionalHistoricalFxAndRateFixings) {
     const auto result = Dal::EvaluateRateTradeQuoteCurvature({trade}, snapshot, TradeDirection(2), settings);
     ASSERT_EQ(result.Curvature().BaseCalibration().Provenance().State().fingerprint_, snapshot.Provenance().State().fingerprint_);
 }
+
+TEST(RateQuoteCurvatureTest, TestTradeExpiredXccyTermsValidateBeforeZeroPv) {
+    const auto spec = RateXccyCurvatureFixtures::StagedSpec();
+    auto expired = XccyTrade(spec);
+    expired.startDate_ = Dal::Date::AddMonths(spec.today_, -24);
+    expired.tradeDate_ = expired.startDate_;
+    expired.maturityDate_ = Dal::Date::AddMonths(spec.today_, -1);
+    const auto snapshot = Dal::NewRateCalibration(spec);
+    const auto request = TradeDirection(2);
+    const auto valid = Dal::EvaluateRateTradeQuoteCurvature({expired}, snapshot, request);
+    ASSERT_EQ(valid.Currency(), Dal::Ccy_("USD"));
+    ASSERT_EQ(valid.Curvature().Value(), 0.0);
+    for (double derivative : valid.Curvature().Gradient())
+        ASSERT_EQ(derivative, 0.0);
+    for (double product : valid.Curvature().HessianProducts())
+        ASSERT_EQ(product, 0.0);
+    const std::vector<std::function<void(Dal::XccyTradeTerms_&)>> mutations = {
+        [](auto& terms) { terms.positionCount_ = 0.0; }, [](auto& terms) { terms.contractSpread_ = std::numeric_limits<double>::quiet_NaN(); },
+        [](auto& terms) { terms.spreadOnForeignLeg_ = !terms.config_.convention_.spreadOnForeignLeg_; },
+        [](auto& terms) { terms.config_.pair_ = Dal::CurrencyPair_(Dal::Ccy_("USD"), Dal::Ccy_("GBP")); }};
+    for (double weight : {0.0, 1.0}) {
+        Dal::RateTradeQuoteCurvatureSettings_ settings;
+        settings.weights_ = {1.0, weight};
+        for (const auto& mutate : mutations) {
+            auto invalid = expired;
+            mutate(std::get<Dal::XccyTradeTerms_>(invalid.terms_));
+            try {
+                (void)Dal::EvaluateRateTradeQuoteCurvature({expired, invalid}, snapshot, request, settings);
+                FAIL() << "Expected invalid expired XCCY row";
+            } catch (const Dal::Exception_& error) {
+                const std::string text(error.what());
+                ASSERT_NE(text.find("trade[1]"), std::string::npos) << text;
+                ASSERT_NE(text.find(expired.instrumentId_.c_str()), std::string::npos) << text;
+            }
+        }
+    }
+}

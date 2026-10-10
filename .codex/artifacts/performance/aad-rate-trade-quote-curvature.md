@@ -104,3 +104,14 @@ pass; production archive hashes remain identical. The first evidence set remains
 under `performance/` (1.078831179 measured seconds); accepted repaired evidence
 is under `performance-codacy-repair/` (1.085133673 seconds). Neither the case
 count nor the sampling gates were expanded.
+
+## Expired-XCCY review repair
+
+The objective now validates XCCY position/market terms and finite contract spread
+before an expired trade can take its zero-PV path. Native live-price validation
+is extracted for reuse while standalone expiry behavior is preserved. This
+replaces the core pricing object; rebuild the selected head binaries and compare
+their identities before repeating affected comparisons. Retain unchanged
+baseline executables with source/configuration/library and binary-hash proof.
+The five selected callers remain the complete acceptance scope; no full benchmark
+matrix is added for this review repair.
