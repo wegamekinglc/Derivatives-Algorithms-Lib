@@ -306,8 +306,8 @@ The active policy/estimator increment follows its
 [critique](../critiques/aad-lsmc-curvature.md) and
 [scoped cost plan](../performance/aad-lsmc-curvature.md).
 Local correctness, independent passive-price references, strict OFF/combined
-compilation and installed consumption pass. Scoped paired costs and remote
-acceptance remain. Its remaining estimate is 8–16 developer-hours, excluding
+compilation, installed consumption and four scoped paired cost cases pass.
+Remote acceptance remains. Its remaining estimate is 4–8 developer-hours, excluding
 required CI wait.
 Policy/estimator validation and native mixed mode remain required subsequent
 deliveries. Rectangular/approximate calibration semantics are outside the
@@ -836,7 +836,7 @@ affected-boundary tests, scoped costs and complete current-head CI/review accept
 | Native driver               | #517 merged; explicit requests, mathematical/lifecycle and exact-head acceptance complete | 0               |
 | Financial MC                | #519 merged; common-path requests and exact-head acceptance complete                      | 0               |
 | Quote curvature             | #520/#522/#523/#524/#525 merged; financial trading integration and publication accepted   | 0               |
-| Policy/estimator validation | Native Frozen/RetrainedBump and local estimator checks pass; publication remains          | 8–16            |
+| Policy/estimator validation | Native Frozen/RetrainedBump and local estimator checks pass; publication remains          | 4–8             |
 
 ## Completion evidence
 
@@ -1475,8 +1475,8 @@ overlapping acceptance work is included once in the integration allowance.
 | F04                     | Policy curvature passes locally; publication and mixed mode remain | Open                                     | 5–10                  |
 | Final integration/audit | Cross-platform/binding/docs/performance acceptance remains         | Open                                     | 7–11                  |
 
-Remaining total during F04 development: 96–168 hours, approximately
-12–21 eight-hour person-days, excluding CI queue time. Delivery contingency
+Remaining total during F04 development: 92–160 hours, approximately
+12–20 eight-hour person-days, excluding CI queue time. Delivery contingency
 is included in those same hour ranges; there is no extra undisclosed allowance. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
 effort estimate, not a guaranteed completion date. Re-estimate when review
@@ -1501,10 +1501,10 @@ numeric/native diagnostics are not counted again.
 | 7a    | P05 segmentation core                | #512 merged; actual runtime, exact-head CI/review and guarded merge accepted   | 0               |
 | 7b    | P05 financial adapter                | #513 merged; exact-head CI, review, costs, actual runtime and merge accepted   | 0               |
 | 7c    | P05 Monte Carlo acceptance           | #515 merged; 36/36 gates, fourteen actual runtime profiles and merge proof     | 0               |
-| 8     | F04 second-order risk                | Native policy curvature passes locally; costs and publication remain           | 8–16            |
+| 8     | F04 second-order risk                | Native policy curvature and scoped costs pass; publication remains             | 4–8             |
 | 9     | F04 native mixed-mode prototype      | Smooth-kernel prototype, independent correctness and capability limits         | 32–64           |
 | 10    | Bindings and complete acceptance     | C++/Python/Excel, documentation, platform and performance gates                | 56–88           |
-| Total | Full remaining implementation        | All remaining plan requirements                                                | 96–168          |
+| Total | Full remaining implementation        | All remaining plan requirements                                                | 92–160          |
 
 
 The first delivery boundary is complete. Whole-PR review repaired the Windows

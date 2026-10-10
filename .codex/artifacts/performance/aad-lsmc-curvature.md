@@ -1,7 +1,7 @@
 # LSMC curvature scoped cost acceptance
 
-Status: initial local correctness, strict compilation, installed consumption
-and paired costs pass; complexity-repair refresh and publication acceptance pending.
+Status: local correctness, strict compilation, installed consumption and
+refreshed paired costs pass; publication acceptance pending.
 
 Baseline: merged #525, `f30c7bf4b74d183b071bedc0f51aea3e9864dea8`.
 
@@ -56,10 +56,32 @@ match across baseline and head. Baseline core/public archives are the immutable
 #525 accepted artifacts. Only the affected LSMC object is rebuilt in the head
 core archive; public code and all other core members retain accepted provenance.
 
-Codacy requests a smaller entry-point complexity. Its refactor changes the core
-archive and affected executable identities, so refresh these same four cases
-after repair using the retained calibrated repetition counts. No case or
-parameter matrix is added. The initial evidence remains retained separately.
+Codacy's complexity repair changes the core archive and affected executable
+identities. The same four cases are therefore refreshed with the retained
+calibrated repetition counts; no case or parameter matrix is added.
+
+## Accepted complexity-repair refresh
+
+Implementation head `fa16f7bc` passes 22 selected tests, six strict probes and
+fresh installed consumption. Entry-point complexity is 7, and every new helper
+is at most 7, below the Codacy limit 8. The refreshed paired run contains 160
+observations and 2.423908800 seconds of measured work. Its complete raw evidence
+and fresh build/executable identities appear under `complexity-repair` in
+[the committed evidence](aad-lsmc-curvature-results.json); initial evidence is
+retained separately. The baseline remains merged #525.
+
+| Case               | Round 1 delta | Round 2 delta | Verdict                   |
+|--------------------|---------------|---------------|---------------------------|
+| Existing Frozen    | -14.47%       | -15.37%       | No regression             |
+| Existing Retrained | -3.41%        | +2.45%        | No regression             |
+| New Frozen         | Informational | Informational | Complete-request coverage |
+| New Retrained      | Informational | Informational | Complete-request coverage |
+
+Both existing cases satisfy the sustained +4% gate, and every paired checksum
+agrees. Shared-host load changed between the initial run and refresh; neither
+cross-run latency differences nor negative round deltas establish a speedup.
+Later documentation-only commits reuse this evidence only while source,
+dependency, configuration, archive and executable identities remain applicable.
 
 ## Selected finite-estimator study
 

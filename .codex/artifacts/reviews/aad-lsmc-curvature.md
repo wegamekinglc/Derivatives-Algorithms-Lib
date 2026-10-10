@@ -26,7 +26,7 @@ policy and working storage are outside the numeric-output budget.
 
 ## Validation
 
-Twenty-one local selected tests cover tree/compiled constants and history, common RQMC
+Twenty-two local selected tests cover tree/compiled constants and history, common RQMC
 blocks and adaptive fitting, signed/empty directions, model-domain and inner
 step preflight before submission, caller mode/nested recording, deterministic
 multi-batch reduction and drained submission failure. Existing retrained model
@@ -37,5 +37,13 @@ guard rejects foreign future observations before submission. Initial paired
 costs pass with 160 observations; raw evidence is committed. Codacy's complexity
 repair splits validation, policy training and gradient accumulation into private
 helpers, with local Lizard complexity at most 7 (limit 8). Its selected numerical
-tests pass. Refreshed costs and complete current-head CI/Codacy/review/runtime
-logs remain acceptance gates before merge.
+tests pass. Refreshed paired costs also pass with 160 observations and retained
+calibrated counts; raw evidence includes initial and repaired identities.
+Complete current-head CI/Codacy/review/runtime logs remain acceptance gates
+before merge.
+
+Caller analysis also finds that the modified optional-constant policy helpers
+serve legacy local-volatility LSMC. Its existing parameter-index/zero-volatility
+boundary test passes as an additional selected functional control. This is one additional
+existing test, with the already rebuilt binary; it does not expand performance
+coverage because the generic default-argument algorithm is unchanged.

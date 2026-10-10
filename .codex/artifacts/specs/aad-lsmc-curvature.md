@@ -1,7 +1,7 @@
 # Native LSMC policy curvature
 
-Status: implemented with local mathematical/lifecycle acceptance;
-scoped costs and publication acceptance pending.
+Status: implemented with local mathematical/lifecycle, strict/installed and
+scoped cost acceptance; publication acceptance pending.
 
 ## Source and problem
 
