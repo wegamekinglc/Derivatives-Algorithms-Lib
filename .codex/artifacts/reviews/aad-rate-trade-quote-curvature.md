@@ -58,7 +58,7 @@ return zero value, gradient and Hessian products without requiring paid history.
 The 34 affected public/core cases and four affected strict probes pass; the 24
 generic quote-objective cases use unchanged calibration/driver paths and retain
 accepted evidence. The rebuilt installed consumer passes 1/1; five selected
-cost comparisons pass with 200 fresh observations and 1.1210 measured seconds.
+cost comparisons pass with 200 fresh observations and 1.1455 measured seconds.
 Accepted baseline binaries retain complete dependency and executable identity
 proof. No additional performance cases were introduced.
 

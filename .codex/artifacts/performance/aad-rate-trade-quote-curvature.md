@@ -41,11 +41,11 @@ excluded or identity-inapplicable evidence as a new pass.
 
 ## Measured evidence
 
-Implementation head: `56b613094fafa8a9c9ba88c2ff6173dfc3f7e275`.
+Implementation head: `a54f6af2abe2f6d17da36f24e7e6c3e20d8b0d32`.
 The following documentation-only acceptance commit does not change any timed
 source or dependency. Baseline is the merge-base recorded above. Isolated
 sources/builds are under
-`/home/wegamekinglc/.cache/dal-aad-evidence-20261010/rate-trade-quote-curvature/performance-review-repair/{base,head}-{source,build}`.
+`/home/wegamekinglc/.cache/dal-aad-evidence-20261010/rate-trade-quote-curvature/performance-notional-repair/{base,head}-{source,build}`.
 Both configure with benchmarks explicitly ON. GCC 15.2.0, C++17, Release
 `-O3 -DNDEBUG -ffp-contract=fast`, native AAD, native architecture OFF,
 diagnostics OFF and one thread are identical on an i9-13900HX shared host.
@@ -55,15 +55,15 @@ Each row uses two rounds of ten interleaved process pairs, alternating first
 side. Each process warms up once and times five complete calls. Round and
 combined reductions use minima; old callers retain the sustained +4% gate.
 All 200 outputs and checksums are retained. The sum of actual timed intervals
-is **1.121030294 seconds**, without multiplying by the five calls again.
+is **1.145458171 seconds**, without multiplying by the five calls again.
 
 | Case                        | Reference min (ms / 5 calls) | Head min (ms / 5 calls) | Combined delta | Round 1 | Round 2 | Verdict       |
 |-----------------------------|------------------------------|-------------------------|----------------|---------|---------|---------------|
-| Six-family weighted request | 2.914803                     | 2.893404                | -0.73%         | -1.03%  | -0.73%  | Informational |
-| Staged XCCY request         | 5.738569                     | 5.865266                | +2.21%         | +2.80%  | -0.55%  | Informational |
-| Layered joint XCCY request  | 16.252575                    | 16.013508               | -1.47%         | -0.25%  | -1.60%  | Informational |
-| Existing generic curvature  | 1.786222                     | 1.816999                | +1.72%         | +1.72%  | +2.27%  | No regression |
-| Existing 32-trade Jacobian  | 0.275211                     | 0.276402                | +0.43%         | +0.43%  | -2.67%  | No regression |
+| Six-family weighted request | 2.873296                     | 2.926852                | +1.86%         | +2.26%  | -2.90%  | Informational |
+| Staged XCCY request         | 5.743206                     | 5.888603                | +2.53%         | +1.67%  | +2.53%  | Informational |
+| Layered joint XCCY request  | 15.905491                    | 16.095137               | +1.19%         | +1.29%  | +0.25%  | Informational |
+| Existing generic curvature  | 1.814063                     | 1.840716                | +1.47%         | +1.47%  | -0.84%  | No regression |
+| Existing 32-trade Jacobian  | 0.281968                     | 0.281320                | -0.23%         | -0.23%  | -0.48%  | No regression |
 
 The first three references are explicit native objective capture plus the
 existing recalibrated curvature driver, linked to the same head libraries.
@@ -117,3 +117,5 @@ The five selected callers remain the complete acceptance scope; no full benchmar
 matrix is added for this review repair.
 
 Repaired implementation `56b613094fafa8a9c9ba88c2ff6173dfc3f7e275` passes all five original comparisons with 200 fresh observations and 1.121030294 seconds of measured work. Accepted baseline binaries are retained byte-for-byte with complete object/dependency proof; all affected head binaries are rebuilt. The final consumer passes 1/1. Raw outputs and the pre-sampling identity decision remain in `performance-review-repair/`.
+
+Completing finite-notional admission has its own RED/GREEN evidence. Implementation `a54f6af2abe2f6d17da36f24e7e6c3e20d8b0d32` passes the same five selected comparisons with 200 observations in 1.145458171 measured seconds. Baseline binaries remain byte-identical and accepted. Final head binaries, installed consumer and 34 affected functional cases are rebuilt or rerun. Accepted final raw evidence is under `performance-notional-repair/`; previous evidence remains retained separately.
