@@ -45,6 +45,12 @@ expensive than manual first-order composition; this informational comparison
 does not establish a regression or speedup. Source/module/library/header hashes
 are retained, with no unrelated native timing repeated.
 
+Codacy's three cost-driver assertion findings are repaired with explicit checks
+that remain active under optimized Python. The same two affected costs have
+eighty refreshed observations (3.568148566 measured seconds); original evidence
+is retained. Native and binding objects/tests are unchanged, so no correctness
+suite repeats. Maximum cost-function complexity remains six.
+
 The original non-PIC static archive cannot link a Python shared extension; its
 failed link is retained. Fresh official PIC core/public builds and standalone
 extension installation resolve the configuration boundary. That necessary

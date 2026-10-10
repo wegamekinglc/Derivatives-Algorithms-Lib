@@ -336,7 +336,8 @@ It projects the accepted financial finite-step C++ adapter. Native arithmetic,
 calibration, worker execution and the smooth prototype are unchanged.
 All 61 new cases and 174 selected installed-package cases pass, with four strict
 OFF/combined checks and independent analytic/recalibration references. Two scoped
-Python entry costs retain eighty observations (3.465331108 measured seconds);
+Python entry costs retain eighty final observations (3.568148566 measured seconds)
+after repairing three Codacy cost-driver assertions; original samples remain.
 they are informational and expose admission overhead, with no speedup claim.
 Current-head CI/Codacy, actual Python platform logs and final review remain.
 
@@ -1500,9 +1501,9 @@ overlapping acceptance work is included once in the integration allowance.
 | P04                     | Structural compression, safe fallback and selection accepted          | #511 merged; final 36/36 gates accepted  | 0                     |
 | P05                     | Core, fixed-path and Monte Carlo adapters accepted                    | #512/#513/#515 merged; 36/36 gates       | 0                     |
 | F04                     | Finite-step and opt-in smooth prototype accepted                     | #517–#528 merged                         | 0                     |
-| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains            | Open                                     | 7–11                  |
+| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains            | Open                                     | 6.6–10.4              |
 
-Remaining total after #528: 56–88 hours, approximately
+Remaining total during Python curvature publication: 53–83 hours, approximately
 7–11 eight-hour person-days, excluding CI queue time. Delivery contingency
 is included in those same hour ranges; there is no extra undisclosed allowance. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
@@ -1530,8 +1531,11 @@ numeric/native diagnostics are not counted again.
 | 7c    | P05 Monte Carlo acceptance           | #515 merged; 36/36 gates, fourteen actual runtime profiles and merge proof             | 0               |
 | 8     | F04 second-order risk                | #517–#527 increments merged; finite-step mathematical and publication gates pass       | 0               |
 | 9     | F04 native mixed-mode prototype      | #528 merged; analytic/capability/cost and exact-head publication acceptance complete   | 0               |
-| 10    | Bindings and complete acceptance     | C++/Python/Excel, documentation, platform and performance gates                        | 56–88           |
-| Total | Full remaining implementation        | All remaining plan requirements                                                        | 56–88           |
+| 10    | Python Dupire curvature              | Local implementation, installed tests and scoped costs accepted; publication remains  | 1–3             |
+| 11    | Remaining C++/Python interfaces       | Remaining structured-operator and second-order projections                            | 20–32           |
+| 12    | Excel interfaces and exports         | Typed requests/results and actual Windows export acceptance                           | 16–24           |
+| 13    | Final integration and documentation  | Installed consumers, current docs and targeted cross-platform/performance acceptance   | 16–24           |
+| Total | Full remaining implementation        | All remaining plan requirements                                                        | 53–83           |
 
 
 The first delivery boundary is complete. Whole-PR review repaired the Windows

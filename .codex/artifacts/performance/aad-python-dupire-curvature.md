@@ -78,3 +78,12 @@ oracles. The request operations, timing interval and tolerances remain unchanged
 Repeat only these same two affected entry-cost cases with fresh driver provenance;
 retain all original observations. Binding code, native libraries and the selected
 test executable are unchanged, so no correctness suite or old timing repeats.
+
+The repaired driver at `a2dd66d0870098de2210e718279ef41701b178ae` completes eighty
+fresh observations in 3.568148566 measured seconds, with the same repeats,
+sampling, analytic bounds and extension identity. Both original and repaired
+sets remain in the raw evidence; `codacy_repair` is the applicable final set.
+Base-only native minima are 0.4644/0.4571 ms, versus 0.2174/0.2250 ms composition.
+Three-direction native minima are 2.6296/2.7457 ms, versus 2.0853/2.0928 ms.
+The informational admission-overhead conclusion is unchanged. Optimized Python
+execution also rejects an incorrect analytic gradient with an explicit error.
