@@ -22,7 +22,7 @@ name is string
 settings is cell[][]+
     Two key/value columns; blank defaults; budgets exclude worksheet cells and labels
 &outputs
-settings is handle StorableEuropeanPdeRiskSettings
+configuration is handle StorableEuropeanPdeRiskSettings
     Passive physical settings and optional native budgets
 -IF-------------------------------------------------------------------------*/
 

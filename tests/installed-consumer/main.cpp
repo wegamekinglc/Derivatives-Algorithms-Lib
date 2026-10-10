@@ -32,6 +32,9 @@ namespace {
         request.settings_.gridPoints_ = 9;
         request.settings_.ordinarySteps_ = 8;
         request.numericPayloadBudgetBytes_ = 688;
+        const auto resolved = Dal::ResolveEuropeanPdeSettings(request.settings_);
+        if (resolved.spotIndex_ != 2 || request.settings_.spotIndex_)
+            return false;
         const auto result = Dal::EvaluateEuropeanPdeRisk(request);
         return std::abs(result.prices_[0] - 4.153690693968586) < 1e-10 && std::abs(result.jacobian_(1, 2) - 0.8605082862555484) < 1e-9 &&
                result.transposeBackwardErrors_.Rows() == 10 && result.execution_.numericPayloadBytes_ == 688 &&

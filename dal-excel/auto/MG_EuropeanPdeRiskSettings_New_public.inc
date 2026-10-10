@@ -15,10 +15,10 @@ ENV_SEED_TYPE(ObjectAccess_);
         argName = "settings (input #2)";
         const Matrix_<Cell_> settings = Excel::ToCellMatrix(xl_settings, true, true);
         argName = 0;
-		Handle_<StorableEuropeanPdeRiskSettings_> settings;
-        EuropeanPdeRiskSettings_New(name, settings, &settings);
+		Handle_<StorableEuropeanPdeRiskSettings_> configuration;
+        EuropeanPdeRiskSettings_New(name, settings, &configuration);
         Excel::Retval_ retval;
-        retval.Load(_env, settings);
+        retval.Load(_env, configuration);
         return retval.ToXloper();
     }
     catch (std::exception& e)

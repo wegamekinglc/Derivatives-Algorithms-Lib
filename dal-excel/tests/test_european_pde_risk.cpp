@@ -318,13 +318,12 @@ TEST(ExcelEuropeanPdeRiskTest, TestCopiedConfigurationPointAndResolvedRequest) {
     ASSERT_DOUBLE_EQ(Cell::ToDouble(point(0, 1)), 0.05);
 }
 
-TEST(ExcelEuropeanPdeRiskTest, TestEveryDiagnosticAndExecutionFieldIsDetachedAndLabeled) {
+TEST(ExcelEuropeanPdeRiskTest, TestEveryDiagnosticFieldIsDetachedAndLabeled) {
     const auto result = SmallResult();
-    Matrix_<Cell_> grid, forward, transpose, execution;
+    Matrix_<Cell_> grid, forward, transpose;
     EuropeanPdeRiskResult_Get_Grid(result, &grid);
     EuropeanPdeRiskResult_Get_ForwardErrors(result, &forward);
     EuropeanPdeRiskResult_Get_TransposeErrors(result, &transpose);
-    EuropeanPdeRiskResult_Get_Execution(result, &execution);
     ASSERT_EQ(grid.Rows(), 10);
     ASSERT_EQ(grid.Cols(), 2);
     ASSERT_EQ(Cell::ToString(grid(0, 0)), "NodeIndex");
@@ -351,6 +350,21 @@ TEST(ExcelEuropeanPdeRiskTest, TestEveryDiagnosticAndExecutionFieldIsDetachedAnd
         for (int channel = 0; channel < 4; ++channel)
             ASSERT_DOUBLE_EQ(Cell::ToDouble(transpose(step + 1, channel + 1)), result->val_.transposeBackwardErrors_(step, channel));
     }
+    grid(1, 1) = -99.0;
+    forward(1, 1) = -99.0;
+    transpose(1, 1) = -99.0;
+    EuropeanPdeRiskResult_Get_Grid(result, &grid);
+    EuropeanPdeRiskResult_Get_ForwardErrors(result, &forward);
+    EuropeanPdeRiskResult_Get_TransposeErrors(result, &transpose);
+    ASSERT_DOUBLE_EQ(Cell::ToDouble(grid(1, 1)), 0.0);
+    ASSERT_DOUBLE_EQ(Cell::ToDouble(forward(1, 1)), result->val_.forwardBackwardErrors_(0, 0));
+    ASSERT_DOUBLE_EQ(Cell::ToDouble(transpose(1, 1)), result->val_.transposeBackwardErrors_(0, 0));
+}
+
+TEST(ExcelEuropeanPdeRiskTest, TestExecutionFieldsAreDetachedAndLabeled) {
+    const auto result = SmallResult();
+    Matrix_<Cell_> execution;
+    EuropeanPdeRiskResult_Get_Execution(result, &execution);
     ASSERT_EQ(execution.Rows(), 6);
     ASSERT_EQ(execution.Cols(), 2);
     const std::array<const char*, 6> keys = {"method",          "actual_steps",          "numeric_payload_bytes",
@@ -363,16 +377,7 @@ TEST(ExcelEuropeanPdeRiskTest, TestEveryDiagnosticAndExecutionFieldIsDetachedAnd
                                           double(counts.cleanupReserveBytes_), double(counts.reverseScratchPeakBytes_)};
     for (int index = 0; index < 5; ++index)
         ASSERT_DOUBLE_EQ(Cell::ToDouble(execution(index + 1, 1)), values[index]);
-    grid(1, 1) = -99.0;
-    forward(1, 1) = -99.0;
-    transpose(1, 1) = -99.0;
     execution(1, 1) = -99.0;
-    EuropeanPdeRiskResult_Get_Grid(result, &grid);
-    EuropeanPdeRiskResult_Get_ForwardErrors(result, &forward);
-    EuropeanPdeRiskResult_Get_TransposeErrors(result, &transpose);
     EuropeanPdeRiskResult_Get_Execution(result, &execution);
-    ASSERT_DOUBLE_EQ(Cell::ToDouble(grid(1, 1)), 0.0);
-    ASSERT_DOUBLE_EQ(Cell::ToDouble(forward(1, 1)), result->val_.forwardBackwardErrors_(0, 0));
-    ASSERT_DOUBLE_EQ(Cell::ToDouble(transpose(1, 1)), result->val_.transposeBackwardErrors_(0, 0));
     ASSERT_DOUBLE_EQ(Cell::ToDouble(execution(1, 1)), 10.0);
 }

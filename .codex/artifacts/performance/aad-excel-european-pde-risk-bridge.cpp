@@ -38,11 +38,15 @@ namespace {
         }
     }
 #endif
-} // namespace
+    template <class P_, class J_> void CopyFinancialRows(P_ price, J_ derivative, double* output) {
+        for (int layer = 0; layer < 2; ++layer) {
+            output[layer] = price(layer);
+            for (int coordinate = 0; coordinate < 3; ++coordinate)
+                output[2 + 3 * layer + coordinate] = derivative(layer, coordinate);
+        }
+    }
 
-extern "C" int DalEuropeanWorksheetRisk(int nodes, int intervals, double* output) {
-    try {
-        using namespace Dal;
+    void CopyFinancialRisk(int nodes, int intervals, double* output) {
 #ifdef DAL_EXCEL_PDE_BOUNDARY
         Matrix_<Cell_> rows(2, 2);
         rows(0, 0) = "grid_points";
@@ -69,11 +73,8 @@ extern "C" int DalEuropeanWorksheetRisk(int nodes, int intervals, double* output
         EuropeanPdeRiskResult_Get_TransposeErrors(result, &transpose);
         EuropeanPdeRiskResult_Get_Execution(result, &execution);
         REQUIRE(grid.Rows() == nodes + 1 && configuration.Rows() == 10 && point.Rows() == 3 && execution.Rows() == 6, "invalid passive spill");
-        for (int layer = 0; layer < 2; ++layer) {
-            output[layer] = Cell::ToDouble(prices(layer + 1, 1));
-            for (int coordinate = 0; coordinate < 3; ++coordinate)
-                output[2 + 3 * layer + coordinate] = Cell::ToDouble(risks(1 + 3 * layer + coordinate, 3));
-        }
+        CopyFinancialRows([&](int layer) { return Cell::ToDouble(prices(layer + 1, 1)); },
+                          [&](int layer, int coordinate) { return Cell::ToDouble(risks(1 + 3 * layer + coordinate, 3)); }, output);
         CopyWorksheetErrors(forward, intervals + 2, 2, output + 8);
         CopyWorksheetErrors(transpose, intervals + 2, 4, output + 9);
 #else
@@ -81,14 +82,17 @@ extern "C" int DalEuropeanWorksheetRisk(int nodes, int intervals, double* output
         request.settings_.gridPoints_ = nodes;
         request.settings_.ordinarySteps_ = intervals;
         const auto result = EvaluateEuropeanPdeRisk(request);
-        for (int layer = 0; layer < 2; ++layer) {
-            output[layer] = result.prices_[layer];
-            for (int coordinate = 0; coordinate < 3; ++coordinate)
-                output[2 + 3 * layer + coordinate] = result.jacobian_(layer, coordinate);
-        }
+        CopyFinancialRows([&](int layer) { return result.prices_[layer]; },
+                          [&](int layer, int coordinate) { return result.jacobian_(layer, coordinate); }, output);
         CopyErrors(result.forwardBackwardErrors_, output + 8);
         CopyErrors(result.transposeBackwardErrors_, output + 9);
 #endif
+    }
+} // namespace
+
+extern "C" int DalEuropeanWorksheetRisk(int nodes, int intervals, double* output) {
+    try {
+        CopyFinancialRisk(nodes, intervals, output);
         return 0;
     } catch (const std::exception&) {
         return 1;

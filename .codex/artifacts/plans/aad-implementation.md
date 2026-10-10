@@ -9,7 +9,8 @@ following merged [#534](https://github.com/wegamekinglc/Derivatives-Algorithms-L
 Current controls are the [specification](../specs/aad-excel-european-pde-risk.md),
 [API](../api-notes/aad-excel-european-pde-risk.md) and
 [critique](../critiques/aad-excel-european-pde-risk.md).
-The Excel increment reuses the accepted public financial evaluator and existing
+The Excel increment is published as [#535](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/535).
+It reuses the accepted public financial evaluator and existing
 risk storable template. Registration, actual Windows exports, scoped costs,
 review, CI and guarded merge remain gates for this new delivery.
 
@@ -1589,10 +1590,10 @@ overlapping acceptance work is included once in the integration allowance.
 | P04                     | Structural compression, safe fallback and selection accepted     | #511 merged; final 36/36 gates accepted  | 0                     |
 | P05                     | Core, fixed-path and Monte Carlo adapters accepted               | #512/#513/#515 merged; 36/36 gates       | 0                     |
 | F04                     | Finite-step and opt-in smooth prototype accepted                 | #517–#528 merged                         | 0                     |
-| Final integration/audit | Excel and final integration remain                               | Open                                     | 4–6                   |
+| Final integration/audit | Excel and final integration remain                               | Open                                     | 3.9–5.9               |
 
-Remaining total after PDE publication: 32–48 hours,
-approximately 4–6 eight-hour person-days, excluding CI queue time. The closed
+Remaining total during Excel PDE acceptance: 31–47 hours,
+approximately 3.9–5.9 eight-hour person-days, excluding CI queue time. The closed
 financial PDE projection is now accepted and contributes zero hours. Delivery contingency
 is included in those same hour ranges; there is no extra undisclosed allowance. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
@@ -1645,9 +1646,11 @@ numeric/native diagnostics are not counted again.
 | 11c   | C++/Python LSMC policy curvature     | #532 merged; 35/35 checks, actual runtime, both audits and identical merged tree accepted              | 0               |
 | 11d   | Structured-operator interface audit  | #533 merged; required gates, full review, two final audits and identical tree accepted                 | 0               |
 | 11e   | Closed financial PDE projection      | #534 merged; 35/35 checks, review repairs, actual runtime, scoped costs and both final audits accepted | 0               |
-| 12    | Excel interfaces and exports         | Typed requests/results and actual Windows export acceptance                                            | 16–24           |
+| 12a   | Excel European PDE                   | #535: typed interfaces implemented; Windows/Codacy repairs and final publication acceptance            | 2–4             |
+| 12b   | Excel Dupire and rate curvature      | Typed owning quote-curvature handles, scoped acceptance and publication                                | 6–8             |
+| 12c   | Excel MC and LSMC curvature          | Typed requests/plans/results, scoped acceptance and publication                                        | 7–11            |
 | 13    | Final integration and documentation  | Installed consumers, current docs and targeted cross-platform/performance acceptance                   | 16–24           |
-| Total | Full remaining implementation        | All remaining plan requirements                                                                        | 32–48           |
+| Total | Full remaining implementation        | All remaining plan requirements                                                                        | 31–47           |
 
 
 The first delivery boundary is complete. Whole-PR review repaired the Windows
@@ -2250,6 +2253,6 @@ Merge verification and both audits are retained in session evidence
 `aad-selected-extraction-merged-01.json`; the merge used the accepted-head SHA guard.
 P03 remaining effort is zero. The owning normalized-LU numeric pullback in #490
 and subsequent F03 recording/event integration are accepted. Current remaining
-work is Excel and final integration: 32–48 developer-hours, as detailed in
+work is Excel and final integration: 31–47 developer-hours, as detailed in
 the current status table. The closed financial PDE projection is accepted in #534.
 Native algorithms are accepted; full interface/integration delivery is incomplete.
