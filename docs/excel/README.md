@@ -340,6 +340,83 @@ missing selected surface risks fail explicitly. See the
 [discrete calibration method](../methodology/aad.md#discrete-dupire-calibration-pullback)
 for identity, units, rounding and estimator boundaries.
 
+## Dupire quote Gamma and Hessian products
+
+Create a common finite-step request, combine it with the first-order Dupire
+request, freeze a plan and evaluate it. The calibration and model handles use
+the construction above. `directions` has one row per direction and one column
+per **complete raw quote**, in strike-major order; `steps` contains one positive
+number per row, as either a row or column vector.
+
+```text
+=DUPIRESCRIPTRISKSETTINGS.NEW("execution", 17, valuation_handle, simulation_handle)
+=DUPIRESCRIPTRISKREQUEST.NEW("first", execution_handle, , bindings, )
+=BUMPOVERAADREQUEST.NEW("bumps", directions, steps, )
+=DUPIRESCRIPTCURVATUREREQUEST.NEW("request", first_handle, bumps_handle)
+=DUPIRESCRIPTCURVATUREPLAN.NEW("plan", product_handle, model_handle, calibration_handle, "equity", request_handle)
+=DUPIRESCRIPTCURVATURERESULT.NEW("result", plan_handle)
+=DUPIRESCRIPTCURVATURERESULT.GET.GRADIENT(result_handle)
+=DUPIRESCRIPTCURVATURERESULT.GET.HESSIANPRODUCTS(result_handle)
+```
+
+Bindings are optional two-column rows containing a zero-based scalar constant
+ordinal and a quote ID, for example `0 | quote:3`. Each perturbed quote point
+rebuilds the bound scalar, recalibrates the complete surface, and evaluates its
+native AAD gradient using common paths. For the script `QUOTE=0.001` followed
+by `pay PAYS QUOTE * QUOTE`, bind constant zero to `quote:3`. At rate 0.05 and
+expiry one year, the raw quote-3 gradient is `0.002*exp(-0.05)`; a unit quote-3
+direction gives Gamma `2*exp(-0.05)`. A direction of minus two gives
+`-4*exp(-0.05)`. Other raw coordinates are zero for this payoff.
+
+The gradient is a full quote column. Hessian products have direction rows and
+full quote columns. They estimate `H*v` with explicit central step sizes in
+decimal-volatility quote units. Selection and report factors in the first-order
+request affect only the retained base report; they never shrink or scale the
+raw gradient and products. This finite-step calculation does not enable general
+higher-order AD. EXERCISE products and external direct-adjoint seeds reject.
+
+| Handle prefix                  | Getter suffixes                                                                                                                              | Returned data                                                                        |
+|--------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------|
+| `BUMPOVERAADREQUEST`           | `GET.DIRECTIONS`, `GET.STEPS`, `GET.SETTINGS`, `GET.SHAPE`                                                                                   | Copied common request and logical dimensions                                         |
+| `DUPIRESCRIPTCURVATUREREQUEST` | `GET.RISK`, `GET.BUMPS`                                                                                                                      | Detached first-order and bump requests                                               |
+| `DUPIRESCRIPTCURVATUREPLAN`    | `GET.BASEPLAN`, `GET.POINT`, `GET.DIRECTIONS`, `GET.STEPS`, `GET.SHAPE`, `GET.PAYLOAD`                                                       | Frozen first-order plan, raw point, directions, steps, dimensions and admitted bytes |
+| `DUPIRESCRIPTCURVATURERESULT`  | `GET.BASE`, `GET.QUOTEPLAN`, `GET.POINT`, `GET.GRADIENT`, `GET.DIRECTIONS`, `GET.STEPS`, `GET.HESSIANPRODUCTS`, `GET.SHAPE`, `GET.EXECUTION` | Owning base result, quote plan, raw numeric copies and work counters                 |
+
+All getters take just their owning handle. To obtain quote IDs, coordinates,
+units and scales, pass `GET.QUOTEPLAN(result)` into
+`CALIBRATIONRISKPLAN.GET.INPUTS(quote_plan, TRUE)`. This returns the complete
+twelve-column quote metadata, including quotes omitted from the base report.
+Execution returns four key/value rows: `method`, `quote_gradient_evaluations`,
+`paths_per_evaluation`, and `numeric_payload_bytes`. M directions require
+exactly `1+2*M` quote-gradient evaluations.
+
+Blank direction/step ranges mean zero directions. Supply `input_count | Q` in
+the bump settings to retain a logical zero-by-Q shape. Planning requires Q to
+match the complete calibration axis. Zero directions perform one base
+evaluation. Empty numeric spills contain one blank cell; `GET.SHAPE` always
+returns one row containing the actual direction and quote counts. Input count
+must be in `0..1048575`, reserving a metadata header row; nonempty direction
+matrices must fit the worksheet's row and column limits.
+
+Common bump settings also accept `numeric_payload_budget_bytes` and
+`recording_capacity_budget_bytes`. Blank means unset; zero is an actual limit.
+Both caps require exactly represented nonnegative numeric integers no larger
+than 2^53-1 and size_t. Dupire rejects every supplied bump recording cap,
+including zero, because this interface does not enforce worker tape limits.
+Its combined native numeric cap covers `8*(2+S+B+5*Q+2*M*Q+M)` bytes, where S
+counts mandatory surface derivatives and B bound scalar constants. The existing
+first-order quote budget remains separate. These caps exclude worksheet cells,
+labels, handles, getter copies, calibration/model snapshots and worker memory.
+
+Names and settings keys reject embedded NUL; numeric cells reject bool, text,
+errors and nonfinite values. Steps must be positive and match the number
+of direction rows. Financial planning checks nonzero directions, representable
+perturbations and valid calibration points. Constructors copy passive inputs;
+queries do no simulation or history access. Plans retain their date, history,
+grids, carry and execution settings. Financial planning and execution reject
+active outer recording scopes. All new handles reject archive serialization.
+See [the curvature method](../methodology/aad.md#common-path-c-monte-carlo-quote-curvature).
+
 ## Curve workflows
 
 Primary worksheet families are:

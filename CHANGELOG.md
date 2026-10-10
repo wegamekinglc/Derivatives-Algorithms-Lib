@@ -18,6 +18,11 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-11
 
+- **Excel Dupire quote curvature** — immutable worksheet requests, plans and
+  results expose full recalibrated quote gradients, signed finite-step Hessian
+  products, complete quote metadata and separate native numeric budgets. See
+  [the worksheet interface](docs/excel/README.md#dupire-quote-gamma-and-hessian-products).
+
 - **Excel European PDE risk** — immutable worksheet settings, requests and
   results expose native fixed-grid call/put prices, all six first derivatives,
   chronological solve diagnostics and separate native memory budgets. See
