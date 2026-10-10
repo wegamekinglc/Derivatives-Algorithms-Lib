@@ -1,7 +1,7 @@
 # Rate-trade curvature review
 
-Status: local code review complete; cost measurement and remote acceptance pending.
-Verdict: Comment Only until the remaining publication evidence is available.
+Status: local code and scoped cost acceptance complete; remote acceptance pending.
+Verdict: Approve local implementation; merge remains gated on remote evidence.
 
 Before publication, inspect financial methodology and units, all four snapshot
 ownership paths, parameter-coordinate binding, layered/fixed graph reconstruction,
@@ -47,7 +47,8 @@ consumer executable are rebuilt.
 
 ## Remaining acceptance and risk
 
-Complete the five selected cost comparisons; inspect every full remote review
+Five scoped cost comparisons pass with 200 observations and matching checksums;
+existing-call round deltas satisfy the sustained 4% gate. Inspect every full remote review
 body, issue comment, inline thread and Codacy annotation. Merge only after
 current-head CI, actual runtime-profile logs and tested-tree proof pass. Required
 sanitizer/Windows profiles have not yet run for this increment. Rectangular or

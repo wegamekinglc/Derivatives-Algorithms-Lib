@@ -291,8 +291,9 @@ The separate active financial trading increment follows its
 [review](../reviews/aad-rate-trade-quote-curvature.md) and
 [scoped cost acceptance](../performance/aad-rate-trade-quote-curvature.md).
 Local implementation passes 57 scoped functional tests, ten strict compilation
-probes and installed consumption. Five selected cost comparisons and remote
-review/CI acceptance remain. Its remaining estimate is 1–3 developer-hours,
+probes, installed consumption and five cost comparisons (200 observations;
+1.0788 seconds of measured work). Remote review/CI acceptance remains.
+Its remaining estimate is 1–3 developer-hours,
 excluding required CI wait.
 Explicit trading adapters,
 rectangular/approximate calibration semantics, policy/estimator validation and
@@ -821,7 +822,7 @@ affected-boundary tests, scoped costs and complete current-head CI/review accept
 |-----------------------------|-------------------------------------------------------------------------------------------|-----------------|
 | Native driver               | #517 merged; explicit requests, mathematical/lifecycle and exact-head acceptance complete | 0               |
 | Financial MC                | #519 merged; common-path requests and exact-head acceptance complete                      | 0               |
-| Quote curvature             | #520/#522/#523/#524 merged; financial trading integration remains                         | 3–5             |
+| Quote curvature             | #520/#522/#523/#524 merged; financial trading integration passes local acceptance         | 1–3             |
 | Policy/estimator validation | Frozen/RetrainedBump meaning, inner/outer steps and applicable convergence/error evidence | 12–24           |
 
 ## Completion evidence
@@ -1461,7 +1462,7 @@ overlapping acceptance work is included once in the integration allowance.
 | F04                     | Second-order implementation/estimator validation remain          | Open                                     | 6–12                  |
 | Final integration/audit | Cross-platform/binding/docs/performance acceptance remains       | Open                                     | 7–11                  |
 
-Remaining total during F04 development: 103–181 hours, approximately
+Remaining total during F04 development: 101–179 hours, approximately
 13–23 eight-hour person-days, excluding CI queue time. Delivery contingency
 is included in those same hour ranges; there is no extra undisclosed allowance. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
@@ -1487,10 +1488,10 @@ numeric/native diagnostics are not counted again.
 | 7a    | P05 segmentation core                | #512 merged; actual runtime, exact-head CI/review and guarded merge accepted   | 0               |
 | 7b    | P05 financial adapter                | #513 merged; exact-head CI, review, costs, actual runtime and merge accepted   | 0               |
 | 7c    | P05 Monte Carlo acceptance           | #515 merged; 36/36 gates, fourteen actual runtime profiles and merge proof     | 0               |
-| 8     | F04 second-order risk                | Financial trading quote curvature and policy/estimator validation remain       | 15–29           |
+| 8     | F04 second-order risk                | Financial trading quote curvature and policy/estimator validation remain       | 13–27           |
 | 9     | F04 native mixed-mode prototype      | Smooth-kernel prototype, independent correctness and capability limits         | 32–64           |
 | 10    | Bindings and complete acceptance     | C++/Python/Excel, documentation, platform and performance gates                | 56–88           |
-| Total | Full remaining implementation        | All remaining plan requirements                                                | 103–181         |
+| Total | Full remaining implementation        | All remaining plan requirements                                                | 101–179         |
 
 
 The first delivery boundary is complete. Whole-PR review repaired the Windows
