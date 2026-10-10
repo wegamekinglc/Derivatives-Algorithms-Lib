@@ -99,6 +99,49 @@ TEST(ExcelRegistrationTest, TestEuropeanPdeFunctionsRetainTypedArgumentsAndHelp)
     }
 }
 
+TEST(ExcelRegistrationTest, TestSegmentedMonteCarloFunctionsRetainTypedArgumentsAndHelp) {
+    const std::pair<const char*, const char*> contracts[] = {{"SegmentedMonteCarloSettings_New", "name,[settings]"},
+                                                             {"SegmentedMonteCarloSettings_Get_Configuration", "settings"},
+                                                             {"BlackScholesMonteCarloPlan_New", "name,product,[valuation],[smoothing]"},
+                                                             {"BlackScholesMonteCarloPlan_Get_Product", "plan"},
+                                                             {"BlackScholesMonteCarloPlan_Get_Valuation", "plan"},
+                                                             {"BlackScholesMonteCarloPlan_Get_Smoothing", "plan"},
+                                                             {"BlackScholesMonteCarloPlan_Get_ParameterLabels", "plan"},
+                                                             {"BlackScholesMonteCarloPlan_Get_ScriptConstants", "plan"},
+                                                             {"BlackScholesMonteCarloPlan_Get_Observations", "plan"},
+                                                             {"BlackScholesMonteCarloResult_New", "name,plan,point,paths,[settings]"},
+                                                             {"BlackScholesMonteCarloResult_Get_Value", "result"},
+                                                             {"BlackScholesMonteCarloResult_Get_Gradient", "result"},
+                                                             {"BlackScholesMonteCarloResult_Get_ParameterLabels", "result"},
+                                                             {"BlackScholesMonteCarloResult_Get_Execution", "result"},
+                                                             {"BlackScholesMonteCarloResult_Get_Plan", "result"},
+                                                             {"BlackScholesMonteCarloResult_Get_Point", "result"},
+                                                             {"BlackScholesMonteCarloResult_Get_Settings", "result"},
+                                                             {"BlackScholesMonteCarloCurvatureResult_New", "name,plan,point,paths,bumps,[settings]"},
+                                                             {"BlackScholesMonteCarloCurvatureResult_Get_Point", "result"},
+                                                             {"BlackScholesMonteCarloCurvatureResult_Get_Directions", "result"},
+                                                             {"BlackScholesMonteCarloCurvatureResult_Get_Steps", "result"},
+                                                             {"BlackScholesMonteCarloCurvatureResult_Get_HessianProducts", "result"},
+                                                             {"BlackScholesMonteCarloCurvatureResult_Get_Shape", "result"},
+                                                             {"BlackScholesMonteCarloCurvatureResult_Get_Execution", "result"},
+                                                             {"BlackScholesMonteCarloCurvatureResult_Get_Base", "result"},
+                                                             {"BlackScholesMonteCarloCurvatureResult_Get_Plan", "result"},
+                                                             {"BlackScholesMonteCarloCurvatureResult_Get_Settings", "result"}};
+    const auto registrations = RegisteredFunctionsForTest();
+    for (const auto& contract : contracts) {
+        const auto name = String_("xl_") + contract.first;
+        const auto found = std::find_if(registrations.begin(), registrations.end(), [&](const auto& reg) { return reg.cName_ == name; });
+        ASSERT_NE(found, registrations.end()) << contract.first;
+        ASSERT_EQ(CaseSensitive(found->xlName_), UpperDotted(contract.first));
+        ASSERT_EQ(CaseSensitive(found->argNames_), contract.second);
+        ASSERT_EQ(CaseSensitive(found->argTypes_), std::string(static_cast<size_t>(NamedArgCount(*found)) + 1, 'Q'));
+        ASSERT_FALSE(found->volatile_);
+        ASSERT_FALSE(found->help_.empty());
+        ASSERT_EQ(found->argHelpCount_, NamedArgCount(*found));
+        ASSERT_LE(found->maxArgHelpLength_, 255);
+    }
+}
+
 TEST(ExcelRegistrationTest, TestRateCurvatureFunctionsRetainTypedArgumentsAndHelp) {
     const std::pair<const char*, const char*> contracts[] = {
         {"RateCalibration_New", "name,source"},

@@ -875,7 +875,8 @@ Python or Excel active graph API. The current financial surfaces are:
 | Calibration quote pullback                          | Owning typed financial API                                      | Typed passive snapshots/seeds/results         | Immutable handles and passive getters                                                             |
 | Dupire finite-step quote curvature                  | Owning typed financial API                                      | Closed typed requests/results                 | [Typed requests, plans and results](../excel/README.md#dupire-quote-gamma-and-hessian-products)   |
 | Rate finite-step quote curvature                    | Owning typed financial API                                      | Closed typed requests/results                 | [Typed snapshots, settings and results](../excel/README.md#rate-quote-gamma-and-hessian-products) |
-| Segmented MC/LSMC finite-step curvature             | Owning typed financial API                                      | Closed plans and passive results              | Corresponding curvature handles unavailable                                                       |
+| Segmented MC finite-step curvature                  | Owning typed financial API                                      | Closed plans and passive results              | Owning segmented settings, plans, mean and curvature handles                                       |
+| LSMC finite-step policy curvature                   | Owning typed financial API                                      | Closed plans and passive results              | Corresponding curvature handles unavailable                                                       |
 
 The PDE example holds its mesh, evaluation spot, expiry and dividend passive;
 its r/volatility/strike adjoints describe that discrete program. Calibration
@@ -2170,6 +2171,11 @@ The owning C++ financial boundary is in `dal-public/src/montecarlocurvature.hpp`
 points and retain that plan in their results. Python exposes the same
 [segmented risk interface](../python/README.md#segmented-blackscholes-monte-carlo-risk)
 with immutable settings and detached passive results.
+
+The [Excel projection](../excel/README.md#segmented-blackscholes-monte-carlo-risk)
+provides owning segmented settings, sealed plans, mean/gradient and curvature
+handles. Its stored base getter returns the completed mean without another
+evaluation; full-width scramble keys spill as decimal text.
 
 `Script::EvaluateBlackScholesMonteCarloCurvature` in
 `dal/script/montecarlocurvature.hpp` composes complete segmented native AAD

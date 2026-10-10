@@ -122,6 +122,94 @@ matrix/handle rules, diagnostics, and the executable workbook with PV/AAD oracle
 normal-draw flags as C++ and Python. Pass `TRUE, TRUE` for the precise-CDF Newton
 correction; leaving both optional flags `FALSE` selects the Acklam-only default.
 
+## Segmented Black–Scholes Monte Carlo risk
+
+Create a sealed script plan, then evaluate an owning mean/gradient or finite-step
+curvature result. This interface uses compiled native AAD and segmented paths:
+
+```text
+=SEGMENTEDMONTECARLOSETTINGS.NEW("mc", settings_range)
+=BLACKSCHOLESMONTECARLOPLAN.NEW("plan", product_handle, valuation_handle, 0.01)
+=BLACKSCHOLESMONTECARLORESULT.NEW("mean", plan_handle, point_range, 33, mc_handle)
+=BLACKSCHOLESMONTECARLOCURVATURERESULT.NEW("curvature", plan_handle, point_range, 33, bumps_handle, mc_handle)
+```
+
+The point is a complete numeric row or column: spot, decimal volatility,
+continuously compounded decimal rate, decimal dividend yield, then every script
+constant in plan-label order. Every blank gap, text, Boolean or nonfinite numeric
+cell rejects with its physical location. Numeric integer cells are accepted.
+Paths must be positive exact integers, representable as size_t and at most
+2^53-1. This segmented interface has its own path admission.
+
+The optional two-column settings table accepts the following keys. Keys match
+case-insensitively; unknown/repeated keys and embedded NUL reject.
+
+| Key                              | Value                                                              |
+|----------------------------------|--------------------------------------------------------------------|
+| rsg                              | Native RNG name; default sobol                                     |
+| use_bb                           | Boolean; native default false                                      |
+| first_path                       | Exact nonnegative absolute zero-based path offset; default 0       |
+| scramble_key                     | Blank unset; exact numeric through 2^53-1 or canonical uint64 text |
+| normal_precision                 | Default, Fast or Precise                                           |
+| segment_steps                    | Positive exact integer; native default 64                          |
+| checkpoint_capacity_budget_bytes | Blank unset; exact nonnegative per-path capacity limit             |
+| recording_capacity_budget_bytes  | Blank unset; exact nonnegative per-path recording limit            |
+
+All numeric counts and caps must also fit size_t and be at most 2^53-1.
+Explicit zero caps are actual limits. Text scramble keys contain only decimal
+digits, without signs, spaces or leading zeros except "0", through
+"18446744073709551615". A present key always spills as text to preserve all bits.
+Generator/key/precision combinations are admitted by the native evaluation.
+`SEGMENTEDMONTECARLOSETTINGS.GET.CONFIGURATION` returns all eight requested fields.
+Omitted MC settings select native defaults.
+
+Plan getters `GET.PRODUCT`, `GET.VALUATION`, `GET.SMOOTHING`,
+`GET.PARAMETERLABELS`, `GET.SCRIPTCONSTANTS` and `GET.OBSERVATIONS` take the
+plan handle. Product/valuation/smoothing are sealed copies; omitted valuation
+captures native defaults and omitted smoothing selects 0.01.
+`PRODUCT.DESCRIBE` exposes the copied contract's dates, events and settings.
+Observations spill a header followed by index, fixing time, historical flag
+and optional captured value, preserving the distinction between absent and zero.
+
+Mean-result getters take the mean handle:
+
+| Getter              | Output                                              |
+|---------------------|-----------------------------------------------------|
+| GET.VALUE           | Sample mean PV                                      |
+| GET.GRADIENT        | Complete raw mean gradient in parameter-label order |
+| GET.PARAMETERLABELS | Complete parameter order                            |
+| GET.EXECUTION       | Thirteen native execution fields                    |
+| GET.PLAN            | Copied sealed plan                                  |
+| GET.POINT           | Copied complete point column                        |
+| GET.SETTINGS        | Copied requested segmented settings                 |
+
+Execution fields are path_count, first_path, batch_size, batches, lanes,
+segment_steps, rsg, use_bb, scramble_key, max_path_tape_bytes,
+max_path_checkpoint_bytes, max_path_cleanup_reserve_bytes and normal_precision.
+
+Curvature uses the shared `BUMPOVERAADREQUEST.NEW` direction/step handle.
+Result getters `GET.POINT`, `GET.DIRECTIONS`, `GET.STEPS`,
+`GET.HESSIANPRODUCTS`, `GET.SHAPE`, `GET.EXECUTION`, `GET.PLAN` and
+`GET.SETTINGS` take the curvature handle. `GET.BASE` returns the completed
+mean-result handle; use the mean getters above without a second evaluation.
+Shape is a row containing direction count and full parameter count. Zero
+directions preserve logical 0-by-N, spill one empty text cell for numeric arrays,
+and require one base evaluation.
+
+Curvature execution reports method BumpOverSegmentedNativeAAD,
+gradient_evaluations (1+2M), numeric_payload_bytes, the three per-path resource
+maxima above and the effective recording_capacity_budget_bytes. The effective
+recording cap is the minimum of the requested path and bump caps; requested
+settings retain the original path cap. Native numeric payload excludes worksheet
+cells, handles and preparation. Neither capacity limit measures aggregate heap.
+
+All getters return detached copies without simulation or history reads. New risk
+handles reject serialization; evaluation rejects entry from an independent
+recording scope. Curvature is an actual-step secant of common-path first-order
+gradients, with separate step bias and sampling error; it does not grant general
+higher-order differentiation. EXERCISE uses the LSMC interface. See the
+[numerical contract](../methodology/aad.md#common-path-segmented-monte-carlo-curvature).
+
 ## Weighted script risk
 
 Use `PRODUCT.GET.RISKOUTPUTS(product)` to list scalar output IDs, labels and
