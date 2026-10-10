@@ -95,7 +95,9 @@ The forward error matrix has one chronological row per actual time step and
 columns [Call,Put]. The transpose matrix has four columns ordered by option
 layer then reverse seed: Call/Call, Call/Put, Put/Call, Put/Put.
 The actual step count is `ordinarySteps_+2`; default forward and transpose
-backward-error limits are both 1e-12.
+backward-error limits are both 1e-12. Limits must be finite and in [0,1],
+checked before allocation or recording. Detaching chronological reports takes
+linear time in the number of steps and verifies each native event identity.
 
 The optional numeric payload budget covers exactly
 `sizeof(double)*(17+gridPoints_+6*(ordinarySteps_+2))` retained doubles:

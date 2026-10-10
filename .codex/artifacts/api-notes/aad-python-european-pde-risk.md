@@ -23,6 +23,8 @@ spot_index=None, expiry=1.0, dividend_yield=0.02,
 forward_backward_error_limit=1e-12, transpose_backward_error_limit=1e-12.
 An omitted index resolves the quarter-grid node; an explicit index is an
 interior node. Result settings expose the resolved index.
+Both solve-error limits must be finite and in [0,1]; invalid limits fail at
+settings admission before output allocation or budget checks.
 
 Result properties: point, settings, grid, spot, prices, jacobian, payoff_labels,
 parameter_labels, parameter_units, method, forward_backward_errors,

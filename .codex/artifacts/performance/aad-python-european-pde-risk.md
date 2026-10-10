@@ -32,6 +32,16 @@ are correctness checks, not additional timing cases.
 
 ## Evidence requirements
 
+Current-head Codex repair scope: reject error limits above one in the shared
+validator and remove repeated linear report lookups from public publication.
+Rebuild affected callers and repeat the four selected comparisons. The
+reported quadratic-lookup finding identifies one additional size boundary:
+compare the original owning C++ request with the repaired identical request at
+9 nodes/4096 intervals, using the same calibrated two-round paired sampling
+and 4% rule. This fifth comparison is limited to long-schedule publication;
+it does not expand into a grid/parameter matrix. Preserve original evidence
+as historical evidence, not acceptance of the repaired binary.
+
 Use separate baseline/head source and bridge/build paths, Release/O3,
 matching compiler/native core/configuration, one DAL thread and pinned CPU.
 Keep accepted prefixes immutable and rebuild each affected caller. Record

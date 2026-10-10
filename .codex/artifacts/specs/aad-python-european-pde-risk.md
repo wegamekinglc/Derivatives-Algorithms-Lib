@@ -31,6 +31,8 @@ uses the same owning result in the subsequent interface increment.
    dividend yield and explicit forward/transpose backward-error limits.
    Defaults preserve #506: 61 nodes, 120 intervals, upper 400, expiry 1,
    dividend 0.02, both error limits 1e-12.
+   Each error limit must be finite and in [0,1], validated before output
+   allocation, budget admission or recording changes.
 2. An omitted spot index resolves to the quarter-grid node and requires
    `(nodes-1)%4 == 0`; an explicit index may select any interior node.
    Return the resolved index, physical spot and full passive grid.
@@ -63,6 +65,10 @@ uses the same owning result in the subsequent interface increment.
    call layer/put seed, put layer/call seed, put layer/put seed), with explicit
    labels. Resolve report event IDs to chronological steps before detaching;
    do not return live tape handles or recording IDs.
+   Publication must take linear time in the number of steps. For this owned
+   linear chain, reverse the report-entry traversal and check every event
+   against the corresponding chronological step; reject missing/mismatched
+   entries rather than silently publishing a different order.
 9. Reject active independent recordings and nonempty legacy graphs before any
    mode, graph or adjoint mutation. Own the native two-channel mode and restore
    the caller's prior mode on success and failure. After a request's recording

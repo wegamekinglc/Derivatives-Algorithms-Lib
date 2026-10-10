@@ -38,8 +38,14 @@ namespace Dal {
         }
 
         void CopyTransposeErrors(const AAD::EuropeanThetaRecording_& recorded, const AAD::SolveAccuracyReports_& reports, Matrix_<>* errors) {
+            const auto& entries = reports.Entries();
+            REQUIRE(entries.size() == recorded.events_.size() && entries.size() == static_cast<size_t>(errors->Rows()),
+                    "EuropeanPdeRisk: unexpected transpose diagnostic count");
+            // The owned chain executes every step once, in reverse chronological order.
             for (int step = 0; step < errors->Rows(); ++step) {
-                const auto& source = reports.Report(recorded.events_[step]).transposeBackwardErrors_;
+                const auto& report = entries[entries.size() - 1 - static_cast<size_t>(step)];
+                REQUIRE(report.event_ == recorded.events_[step], "EuropeanPdeRisk: transpose diagnostic event does not match its chronological step");
+                const auto& source = report.transposeBackwardErrors_;
                 REQUIRE(source.Rows() == 2 && source.Cols() == 2, "EuropeanPdeRisk: unexpected transpose diagnostic shape");
                 for (int layer = 0; layer < 2; ++layer)
                     for (int channel = 0; channel < 2; ++channel)

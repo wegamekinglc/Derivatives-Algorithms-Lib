@@ -174,6 +174,8 @@ def test_invalid_parameter_values_reject_and_recover(coordinate, bad, field):
     (dict(expiry=0.0), "expiry"), (dict(dividend_yield=math.nan), "dividend"),
     (dict(forward_backward_error_limit=-1.0), "forward"),
     (dict(transpose_backward_error_limit=math.inf), "transpose"),
+    (dict(forward_backward_error_limit=2.0), "forward"),
+    (dict(transpose_backward_error_limit=2.0), "transpose"),
 ])
 def test_settings_admission(configuration, field):
     with pytest.raises(RuntimeError, match=field):

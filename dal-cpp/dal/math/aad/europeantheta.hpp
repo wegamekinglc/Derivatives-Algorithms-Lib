@@ -33,6 +33,10 @@ namespace Dal::AAD {
     };
 
     namespace EuropeanThetaDetail {
+        inline void ValidateErrorLimit(double limit, const char* constraint) {
+            REQUIRE(std::isfinite(limit) && limit >= 0.0 && limit <= 1.0, constraint);
+        }
+
         inline void ValidatePhysicalSettings(const EuropeanThetaSettings_& settings) {
             REQUIRE(std::isfinite(settings.upper_) && settings.upper_ > 0.0, "EuropeanPdeRisk: upper must be positive and finite");
             const double spacing = settings.upper_ / (settings.gridPoints_ - 1);
@@ -41,10 +45,8 @@ namespace Dal::AAD {
             REQUIRE(std::isfinite(settings.expiry_) && settings.expiry_ > 0.0, "EuropeanPdeRisk: expiry must be positive and finite");
             REQUIRE(0.5 * (settings.expiry_ / settings.ordinarySteps_) > 0.0, "EuropeanPdeRisk: half time step must be representably positive");
             REQUIRE(std::isfinite(settings.dividendYield_), "EuropeanPdeRisk: dividend_yield must be finite");
-            REQUIRE(std::isfinite(settings.accuracy_.forwardBackwardErrorLimit_) && settings.accuracy_.forwardBackwardErrorLimit_ >= 0.0,
-                    "EuropeanPdeRisk: forward_backward_error_limit must be finite and nonnegative");
-            REQUIRE(std::isfinite(settings.accuracy_.transposeBackwardErrorLimit_) && settings.accuracy_.transposeBackwardErrorLimit_ >= 0.0,
-                    "EuropeanPdeRisk: transpose_backward_error_limit must be finite and nonnegative");
+            ValidateErrorLimit(settings.accuracy_.forwardBackwardErrorLimit_, "EuropeanPdeRisk: forward_backward_error_limit must be in [0,1]");
+            ValidateErrorLimit(settings.accuracy_.transposeBackwardErrorLimit_, "EuropeanPdeRisk: transpose_backward_error_limit must be in [0,1]");
         }
     } // namespace EuropeanThetaDetail
 

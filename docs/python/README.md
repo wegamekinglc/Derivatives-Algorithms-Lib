@@ -832,6 +832,7 @@ Optional settings and `numeric_payload_budget_bytes` /
 `recording_capacity_budget_bytes` are keyword-only. Settings are immutable:
 node/ordinary-interval defaults are 61/120, upper boundary 400, expiry 1,
 dividend yield 0.02 and both solve-error limits 1e-12.
+Both error limits must be finite and in [0,1].
 `spot_index=None` resolves the quarter-grid node; otherwise supply an interior
 node index. Strike must be positive, below the upper boundary and away from
 grid nodes. Volatility and expiry must be positive. Bool, enums and implicit

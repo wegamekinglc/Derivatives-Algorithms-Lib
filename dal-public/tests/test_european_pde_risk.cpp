@@ -7,6 +7,7 @@
 #include <array>
 #include <future>
 #include <limits>
+#include <string>
 
 #include <dal-public/src/europeanpderisk.hpp>
 
@@ -71,29 +72,32 @@ TEST(EuropeanPdeRiskTest, TestExactNumericPayloadAndZeroShortBudgetsRecover) {
 
 TEST(EuropeanPdeRiskTest, TestChronologicalDiagnosticsMatchTheirNativeStepAndSeed) {
     using namespace AAD;
-    const auto request = SmallRequest();
-    const auto result = EvaluateEuropeanPdeRisk(request);
-    auto mode = SetNumResultsForAAD(true, 2);
-    RecordingScope_ recording;
-    std::array<Number_, 3> parameters;
-    for (int coordinate = 0; coordinate < 3; ++coordinate)
-        recording.RegisterInput(parameters[coordinate], request.point_[coordinate]);
-    recording.StartRecording();
-    auto native = RecordEuropeanOptions(&recording, request.settings_, parameters, true);
-    recording.FinishRecording();
-    recording.ClearAdjoints();
-    for (size_t layer = 0; layer < 2; ++layer)
-        NativeOperations_::SetSeed(native.prices_[layer], 1.0, layer);
-    const auto reports = ReverseWithSolveAccuracy(&recording);
-    for (int step = 0; step < 10; ++step) {
-        const auto& errors = reports.Report(native.events_[step]).transposeBackwardErrors_;
-        for (int layer = 0; layer < 2; ++layer) {
-            ASSERT_DOUBLE_EQ(result.forwardBackwardErrors_(step, layer), native.forwardBackwardErrors_(step, layer));
-            for (int channel = 0; channel < 2; ++channel)
-                ASSERT_DOUBLE_EQ(result.transposeBackwardErrors_(step, 2 * layer + channel), errors(layer, channel));
+    for (int intervals : {8, 4096}) {
+        auto request = SmallRequest();
+        request.settings_.ordinarySteps_ = intervals;
+        const auto result = EvaluateEuropeanPdeRisk(request);
+        auto mode = SetNumResultsForAAD(true, 2);
+        RecordingScope_ recording;
+        std::array<Number_, 3> parameters;
+        for (int coordinate = 0; coordinate < 3; ++coordinate)
+            recording.RegisterInput(parameters[coordinate], request.point_[coordinate]);
+        recording.StartRecording();
+        auto native = RecordEuropeanOptions(&recording, request.settings_, parameters, true);
+        recording.FinishRecording();
+        recording.ClearAdjoints();
+        for (size_t layer = 0; layer < 2; ++layer)
+            NativeOperations_::SetSeed(native.prices_[layer], 1.0, layer);
+        const auto reports = ReverseWithSolveAccuracy(&recording);
+        for (int step = 0; step < intervals + 2; ++step) {
+            const auto& errors = reports.Report(native.events_[step]).transposeBackwardErrors_;
+            for (int layer = 0; layer < 2; ++layer) {
+                ASSERT_DOUBLE_EQ(result.forwardBackwardErrors_(step, layer), native.forwardBackwardErrors_(step, layer));
+                for (int channel = 0; channel < 2; ++channel)
+                    ASSERT_DOUBLE_EQ(result.transposeBackwardErrors_(step, 2 * layer + channel), errors(layer, channel));
+            }
         }
+        recording.Close();
     }
-    recording.Close();
 }
 
 TEST(EuropeanPdeRiskTest, TestActualFreshThreadRecordingPeakExactAndOneByteShort) {
@@ -175,4 +179,31 @@ TEST(EuropeanPdeRiskTest, TestInputAndPostRecordingFailuresRestoreModeAndRecover
     ASSERT_NO_THROW(static_cast<void>(EvaluateEuropeanPdeRisk(valid)));
     ASSERT_FALSE(Tape()->multi_);
     ASSERT_EQ(Tape()->numAdj_, 1);
+}
+
+TEST(EuropeanPdeRiskTest, TestErrorLimitsRejectBeforeBudgetsAndPreserveMode) {
+    using namespace AAD;
+    Clear(*Tape());
+    auto mode = SetNumResultsForAAD(false, 1);
+    for (bool forward : {true, false}) {
+        auto request = SmallRequest();
+        auto& limit = forward ? request.settings_.accuracy_.forwardBackwardErrorLimit_ : request.settings_.accuracy_.transposeBackwardErrorLimit_;
+        for (double boundary : {0.0, 1.0}) {
+            limit = boundary;
+            ASSERT_NO_THROW(static_cast<void>(ResolveEuropeanThetaSettings(request.settings_)));
+        }
+        limit = 2.0;
+        ASSERT_THROW(static_cast<void>(ResolveEuropeanThetaSettings(request.settings_)), Exception_);
+        request.numericPayloadBudgetBytes_ = 0;
+        request.recordingCapacityBudgetBytes_ = 0;
+        try {
+            static_cast<void>(EvaluateEuropeanPdeRisk(request));
+            FAIL() << "Invalid solve-error limit was accepted";
+        } catch (const Exception_& error) {
+            ASSERT_NE(std::string(error.what()).find(forward ? "forward_backward_error_limit" : "transpose_backward_error_limit"), std::string::npos);
+        }
+        ASSERT_FALSE(Tape()->multi_);
+        ASSERT_EQ(Tape()->numAdj_, 1);
+        ASSERT_EQ(Tape()->nodes_.OccupiedSlots(), 0);
+    }
 }
