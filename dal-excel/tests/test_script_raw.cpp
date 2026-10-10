@@ -96,6 +96,44 @@ namespace {
         }
     };
 
+    OPER_* CalibrateRawRate(const OPER_* instrument, const OPER_* today, const OPER_* maturity, const OPER_* currency, const OPER_* name) {
+        RawText_ nameKey(L"curveName"), kindKey(L"parameterization"), kind(L"LOG_DISCOUNT"), toleranceKey(L"tolerance");
+        OPER_ settingCells[]{nameKey.cell_, *name, kindKey.cell_, kind.cell_, toleranceKey.cell_, Number(1.0e-14)};
+        OPER_ dates[]{*today, *maturity};
+        auto settings = Multi(settingCells, 3, 2), knots = Multi(dates, 2, 1), blank = Blank();
+        return Call("xl_Calibrate_SingleCurve", today, currency, instrument, &knots, &settings, &blank, &blank);
+    }
+
+    struct RawRateFixture_ {
+        CurvatureRuntime_ runtime_;
+        RawText_ name_{L"raw-rate"}, tenor_{L"3M"}, basis_{L"ACT_365F"}, collateral_{L"OIS"}, currency_{L"USD"};
+        OPER_ blank_ = Blank(), today_ = Number(Date::ToExcel(Date_(2026, 1, 15))), maturity_ = Number(Date::ToExcel(Date_(2027, 1, 15))),
+              quote_ = Number(0.025), notional_ = Number(1.0), contract_ = Number(0.028);
+        OPER_ lend_ = [] {
+            OPER_ value{};
+            value.xltype = xltypeBool;
+            value.val.xbool = 1;
+            return value;
+        }();
+        Output_ index_{Call("xl_RateIndexConvention_New", &tenor_.cell_, &basis_.cell_, &collateral_.cell_, &blank_)};
+        Output_ instrument_{Call("xl_Deposit_New", &today_, &today_, &maturity_, &quote_, index_.Scalar())};
+        Output_ calibration_{CalibrateRawRate(instrument_.Scalar(), &today_, &maturity_, &currency_.cell_, &name_.cell_)};
+        Output_ snapshot_{Call("xl_RateCalibration_New", &name_.cell_, calibration_.Scalar())};
+        Output_ header_{Call("xl_RateTradeHeader_New", &name_.cell_, &today_, &today_, &maturity_, &currency_.cell_)};
+        Output_ trade_{Call("xl_RateDepositTrade_New", header_.Scalar(), &notional_, &contract_, &lend_, index_.Scalar(), &name_.cell_)};
+    };
+
+    void CheckRateFinancialSpills(const Output_& value, const Output_& gradient, const Output_& products) {
+        const double payment = 1.028, discount = 1.025;
+        ASSERT_NEAR(value.Scalar()->val.num, -2.0 * (payment / discount - 1.0), 1.0e-10);
+        ASSERT_NEAR(gradient.Scalar()->val.num, 2.0 * payment / (discount * discount), 1.0e-10);
+        ASSERT_EQ(products.value_->val.array.rows, 2);
+        ASSERT_EQ(products.value_->val.array.columns, 1);
+        const auto* cells = products.value_->val.array.lparray;
+        ASSERT_NEAR(cells[0].val.num, -4.0 * payment / std::pow(discount, 3), 4.0e-7);
+        ASSERT_NEAR(cells[1].val.num, 8.0 * payment / std::pow(discount, 3), 1.0e-6);
+    }
+
     void CheckCurvatureFinancialSpills(const Output_& gradient, const Output_& products) {
         ASSERT_EQ(gradient.value_->val.array.rows, 6);
         ASSERT_EQ(gradient.value_->val.array.columns, 1);
@@ -111,6 +149,169 @@ namespace {
         }
     }
 } // namespace
+
+TEST(ScriptExcelRawTest, TestRateCurvatureAllGeneratedExportsAndSignedAnalyticSpills) {
+    RawRateFixture_ fixture;
+    const auto* name = &fixture.name_.cell_;
+    const auto* snapshot = fixture.snapshot_.Scalar();
+    auto blank = Blank();
+    ASSERT_EQ(fixture.snapshot_.Text().find("#Error:"), std::string::npos) << fixture.snapshot_.Text();
+    Output_ point(Call("xl_RateCalibration_Get_Point", snapshot));
+    ASSERT_DOUBLE_EQ(point.Scalar()->val.num, 0.025);
+    Output_ parameters(Call("xl_RateCalibration_Get_Parameters", snapshot));
+    ASSERT_NEAR(parameters.Scalar()->val.num, -std::log(1.025), 1.0e-10);
+    Output_ quotePlan(Call("xl_RateCalibration_Get_QuotePlan", snapshot));
+    OPER_ complete{};
+    complete.xltype = xltypeBool;
+    complete.val.xbool = 1;
+    Output_ axis(Call("xl_CalibrationRiskPlan_Get_Inputs", quotePlan.Scalar(), &complete));
+    ASSERT_EQ(axis.value_->val.array.rows, 2);
+    ASSERT_EQ(axis.value_->val.array.columns, 12);
+    auto changed = Number(0.03);
+    Output_ replay(Call("xl_RateCalibration_Recalibrate", name, snapshot, &changed));
+    Output_ replayPoint(Call("xl_RateCalibration_Get_Point", replay.Scalar()));
+    ASSERT_DOUBLE_EQ(replayPoint.Scalar()->val.num, 0.03);
+    OPER_ weight{};
+    weight.xltype = xltypeInt;
+    weight.val.w = -2;
+    Output_ settings(Call("xl_RateTradeQuoteCurvatureSettings_New", name, &weight, &blank));
+    Output_ weights(Call("xl_RateTradeQuoteCurvatureSettings_Get_Weights", settings.Scalar()));
+    ASSERT_DOUBLE_EQ(weights.Scalar()->val.num, -2.0);
+    Output_ fixings(Call("xl_RateTradeQuoteCurvatureSettings_Get_Fixings", settings.Scalar()));
+    ASSERT_EQ(fixings.value_->val.array.columns, 3);
+    ASSERT_EQ(fixings.value_->val.array.lparray[1].xltype, xltypeBool);
+    ASSERT_EQ(fixings.value_->val.array.lparray[1].val.xbool, 0);
+    OPER_ directionCells[]{Number(1.0), weight}, stepCells[]{Number(0.0001), Number(0.0001)};
+    auto directions = Multi(directionCells, 2, 1), steps = Multi(stepCells, 2, 1);
+    Output_ bumps(Call("xl_BumpOverAADRequest_New", name, &directions, &steps, &blank));
+    Output_ result(Call("xl_RateTradeQuoteCurvatureResult_New", name, fixture.trade_.Scalar(), snapshot, bumps.Scalar(), settings.Scalar()));
+    ASSERT_EQ(result.Text().find("#Error:"), std::string::npos) << result.Text();
+    Output_ value(Call("xl_RateTradeQuoteCurvatureResult_Get_Value", result.Scalar()));
+    Output_ currency(Call("xl_RateTradeQuoteCurvatureResult_Get_Currency", result.Scalar()));
+    ASSERT_EQ(currency.Text(), "USD");
+    Output_ gradient(Call("xl_RateTradeQuoteCurvatureResult_Get_Gradient", result.Scalar()));
+    Output_ products(Call("xl_RateTradeQuoteCurvatureResult_Get_HessianProducts", result.Scalar()));
+    CheckRateFinancialSpills(value, gradient, products);
+    for (const auto* function : {"xl_RateTradeQuoteCurvatureResult_Get_Point", "xl_RateTradeQuoteCurvatureResult_Get_Directions",
+                                 "xl_RateTradeQuoteCurvatureResult_Get_Steps", "xl_RateTradeQuoteCurvatureResult_Get_Shape"}) {
+        Output_ copied(Call(function, result.Scalar()));
+        ASSERT_NE(copied.value_->val.array.lparray[0].xltype, xltypeStr);
+        copied.value_->val.array.lparray[0].val.num = 77.0;
+    }
+    Output_ retained(Call("xl_RateTradeQuoteCurvatureResult_Get_Point", result.Scalar()));
+    ASSERT_DOUBLE_EQ(retained.Scalar()->val.num, 0.025);
+    Output_ execution(Call("xl_RateTradeQuoteCurvatureResult_Get_Execution", result.Scalar()));
+    ASSERT_EQ(execution.value_->val.array.rows, 7);
+    ASSERT_DOUBLE_EQ(execution.value_->val.array.lparray[3].val.num, 5.0);
+    ASSERT_DOUBLE_EQ(execution.value_->val.array.lparray[9].val.num, 72.0);
+    Output_ base(Call("xl_RateTradeQuoteCurvatureResult_Get_BaseCalibration", result.Scalar()));
+    Output_ basePoint(Call("xl_RateCalibration_Get_Point", base.Scalar()));
+    ASSERT_DOUBLE_EQ(basePoint.Scalar()->val.num, 0.025);
+}
+
+TEST(ScriptExcelRawTest, TestRateCurvatureTradeRangesRejectBlankGapsAndRetainDuplicates) {
+    RawRateFixture_ fixture;
+    const auto* name = &fixture.name_.cell_;
+    auto blank = Blank(), one = Number(1.0), step = Number(0.0001);
+    Output_ bumps(Call("xl_BumpOverAADRequest_New", name, &one, &step, &blank));
+    RawText_ empty(L"");
+    OPER_ missing{};
+    missing.xltype = xltypeMissing;
+    for (const auto& gap : {blank, missing, empty.cell_})
+        for (int position = 0; position < 3; ++position)
+            for (const bool column : {false, true}) {
+                OPER_ cells[]{*fixture.trade_.Scalar(), *fixture.trade_.Scalar(), *fixture.trade_.Scalar()};
+                cells[position] = gap;
+                auto trades = Multi(cells, column ? 3 : 1, column ? 1 : 3);
+                Output_ rejected(Call("xl_RateTradeQuoteCurvatureResult_New", name, &trades, fixture.snapshot_.Scalar(), bumps.Scalar(), &blank));
+                const auto row = "trade_row=" + std::to_string(position + 1);
+                CheckError(rejected, {"trades", row.c_str()});
+            }
+    OPER_ duplicates[]{*fixture.trade_.Scalar(), *fixture.trade_.Scalar()};
+    auto trades = Multi(duplicates, 2, 1);
+    Output_ result(Call("xl_RateTradeQuoteCurvatureResult_New", name, &trades, fixture.snapshot_.Scalar(), bumps.Scalar(), &blank));
+    ASSERT_EQ(result.Text().find("#Error:"), std::string::npos) << result.Text();
+    Output_ value(Call("xl_RateTradeQuoteCurvatureResult_Get_Value", result.Scalar()));
+    ASSERT_NEAR(value.Scalar()->val.num, 2.0 * (1.028 / 1.025 - 1.0), 1.0e-10);
+}
+
+TEST(ScriptExcelRawTest, TestRateCurvatureRawKindsNulAndWrongHandlesReject) {
+    RawRateFixture_ fixture;
+    const auto* name = &fixture.name_.cell_;
+    const auto* snapshot = fixture.snapshot_.Scalar();
+    auto blank = Blank();
+    RawText_ text(L"2"), nul(std::wstring(L"bad\0name", 8));
+    OPER_ boolean{}, error{};
+    boolean.xltype = xltypeBool;
+    boolean.val.xbool = 1;
+    error.xltype = xltypeErr;
+    error.val.err = 15;
+    OPER_ values[]{Number(1.0), Number(1.0)};
+    auto vector = Multi(values, 1, 2);
+    for (const auto& invalid :
+         {blank, boolean, error, text.cell_, Number(std::numeric_limits<double>::infinity()), Number(std::numeric_limits<double>::quiet_NaN())}) {
+        values[1] = invalid;
+        Output_ rejected(Call("xl_RateTradeQuoteCurvatureSettings_New", name, &vector, &blank));
+        CheckError(rejected, {"weights", "row=1", "column=2"});
+        Output_ badQuotes(Call("xl_RateCalibration_Recalibrate", name, snapshot, &vector));
+        CheckError(badQuotes, {"quotes", "row=1", "column=2"});
+    }
+    Output_ badName(Call("xl_RateCalibration_New", &nul.cell_, fixture.calibration_.Scalar()));
+    CheckError(badName, {"name", "NUL"});
+    Output_ badSettingsName(Call("xl_RateTradeQuoteCurvatureSettings_New", &nul.cell_, &blank, &blank));
+    CheckError(badSettingsName, {"name", "NUL"});
+    Output_ wrongSource(Call("xl_RateCalibration_New", name, snapshot));
+    CheckError(wrongSource, {"source"});
+    Output_ wrongSnapshot(Call("xl_RateCalibration_Get_Point", fixture.trade_.Scalar()));
+    CheckError(wrongSnapshot, {"calibration"});
+    Output_ wrongResult(Call("xl_RateTradeQuoteCurvatureResult_Get_Gradient", snapshot));
+    CheckError(wrongResult, {"result"});
+    auto one = Number(1.0), step = Number(0.0001);
+    Output_ bumps(Call("xl_BumpOverAADRequest_New", name, &one, &step, &blank));
+    Output_ wrongTrade(Call("xl_RateTradeQuoteCurvatureResult_New", name, snapshot, snapshot, bumps.Scalar(), &blank));
+    CheckError(wrongTrade, {"trades", "row=1"});
+    Output_ missing(Call("xl_RateTradeQuoteCurvatureResult_New", name, fixture.trade_.Scalar(), snapshot, &blank, &blank));
+    CheckError(missing, {"bumps"});
+}
+
+TEST(ScriptExcelRawTest, TestRateCurvatureEmptyDirectionsExplicitEmptyHistoryAndSeparateCaps) {
+    RawRateFixture_ fixture;
+    const auto* name = &fixture.name_.cell_;
+    const auto* snapshot = fixture.snapshot_.Scalar();
+    auto blank = Blank(), one = Number(1.0), step = Number(0.0001);
+    RawText_ inputKey(L"input_count"), numericKey(L"numeric_payload_budget_bytes"), recordingKey(L"recording_capacity_budget_bytes");
+    OPER_ emptyCells[]{inputKey.cell_, one};
+    auto emptySettings = Multi(emptyCells, 1, 2);
+    Output_ emptyBumps(Call("xl_BumpOverAADRequest_New", name, &blank, &blank, &emptySettings));
+    Output_ emptyResult(Call("xl_RateTradeQuoteCurvatureResult_New", name, fixture.trade_.Scalar(), snapshot, emptyBumps.Scalar(), &blank));
+    ASSERT_EQ(emptyResult.Text().find("#Error:"), std::string::npos) << emptyResult.Text();
+    Output_ products(Call("xl_RateTradeQuoteCurvatureResult_Get_HessianProducts", emptyResult.Scalar()));
+    ASSERT_EQ(products.Scalar()->xltype, xltypeStr);
+    ASSERT_EQ(products.Scalar()->val.str[0], 0);
+    Output_ shape(Call("xl_RateTradeQuoteCurvatureResult_Get_Shape", emptyResult.Scalar()));
+    ASSERT_DOUBLE_EQ(shape.value_->val.array.lparray[0].val.num, 0.0);
+    ASSERT_DOUBLE_EQ(shape.value_->val.array.lparray[1].val.num, 1.0);
+    Output_ execution(Call("xl_RateTradeQuoteCurvatureResult_Get_Execution", emptyResult.Scalar()));
+    ASSERT_DOUBLE_EQ(execution.value_->val.array.lparray[3].val.num, 1.0);
+    Output_ history(Call("xl_MarketFixingSnapshot_New", &blank, &blank, &blank));
+    Output_ settings(Call("xl_RateTradeQuoteCurvatureSettings_New", name, &blank, history.Scalar()));
+    Output_ saved(Call("xl_RateTradeQuoteCurvatureSettings_Get_Fixings", settings.Scalar()));
+    ASSERT_EQ(saved.value_->val.array.rows, 1);
+    ASSERT_EQ(saved.value_->val.array.lparray[1].val.xbool, 1);
+    OPER_ integer{};
+    integer.xltype = xltypeInt;
+    integer.val.w = 1;
+    Output_ replay(Call("xl_RateCalibration_Recalibrate", name, snapshot, &integer));
+    Output_ point(Call("xl_RateCalibration_Get_Point", replay.Scalar()));
+    ASSERT_DOUBLE_EQ(point.Scalar()->val.num, 1.0);
+    for (const auto* key : {&numericKey.cell_, &recordingKey.cell_}) {
+        OPER_ capCells[]{*key, Number(0.0)};
+        auto capSettings = Multi(capCells, 1, 2);
+        Output_ limited(Call("xl_BumpOverAADRequest_New", name, &one, &step, &capSettings));
+        Output_ rejected(Call("xl_RateTradeQuoteCurvatureResult_New", name, fixture.trade_.Scalar(), snapshot, limited.Scalar(), &blank));
+        CheckError(rejected, {});
+    }
+}
 
 TEST(ScriptExcelRawTest, TestDupireCurvatureAllGeneratedExportsAndCompleteQuoteMetadata) {
     const CurvatureRuntime_ runtime;

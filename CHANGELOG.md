@@ -18,6 +18,11 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-11
 
+- **Excel rate quote curvature** — owning native calibration snapshots,
+  portfolio settings and results expose full recalibrated rate quote gradients,
+  signed finite-step Hessian products and separate numeric/recording limits.
+  See [the worksheet interface](docs/excel/README.md#rate-quote-gamma-and-hessian-products).
+
 - **Excel Dupire quote curvature** — immutable worksheet requests, plans and
   results expose full recalibrated quote gradients, signed finite-step Hessian
   products, complete quote metadata and separate native numeric budgets. See

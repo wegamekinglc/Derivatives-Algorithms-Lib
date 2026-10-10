@@ -867,15 +867,15 @@ Native structured operators own C++ recording scopes, Numbers, reverse events
 and accuracy reports. Their numerical/recording acceptance does not provide a
 Python or Excel active graph API. The current financial surfaces are:
 
-| Capability                                          | C++                                                             | Python                                        | Excel                                                                                           |
-|-----------------------------------------------------|-----------------------------------------------------------------|-----------------------------------------------|-------------------------------------------------------------------------------------------------|
-| Dense/coordinate solve and implicit-root recording  | Installed native APIs                                           | Active recording/equation API unavailable     | Active recording/equation handles unavailable                                                   |
-| Sampled theta-step recording                        | Installed native API                                            | Sampled-step API unavailable                  | Sampled-step handles unavailable                                                                |
-| Fixed-grid European PDE prices/rho/vega/strike risk | [Owning financial request](pde/aad.md#owning-financial-request) | Closed owning request and passive diagnostics | [Typed handles and labeled spills](../excel/README.md#european-pde-risk)                        |
-| Calibration quote pullback                          | Owning typed financial API                                      | Typed passive snapshots/seeds/results         | Immutable handles and passive getters                                                           |
-| Dupire finite-step quote curvature                  | Owning typed financial API                                      | Closed typed requests/results                 | [Typed requests, plans and results](../excel/README.md#dupire-quote-gamma-and-hessian-products) |
-| Rate finite-step quote curvature                    | Owning typed financial API                                      | Closed typed requests/results                 | Curvature request/result handles unavailable                                                    |
-| Segmented MC/LSMC finite-step curvature             | Owning typed financial API                                      | Closed plans and passive results              | Corresponding curvature handles unavailable                                                     |
+| Capability                                          | C++                                                             | Python                                        | Excel                                                                                             |
+|-----------------------------------------------------|-----------------------------------------------------------------|-----------------------------------------------|---------------------------------------------------------------------------------------------------|
+| Dense/coordinate solve and implicit-root recording  | Installed native APIs                                           | Active recording/equation API unavailable     | Active recording/equation handles unavailable                                                     |
+| Sampled theta-step recording                        | Installed native API                                            | Sampled-step API unavailable                  | Sampled-step handles unavailable                                                                  |
+| Fixed-grid European PDE prices/rho/vega/strike risk | [Owning financial request](pde/aad.md#owning-financial-request) | Closed owning request and passive diagnostics | [Typed handles and labeled spills](../excel/README.md#european-pde-risk)                          |
+| Calibration quote pullback                          | Owning typed financial API                                      | Typed passive snapshots/seeds/results         | Immutable handles and passive getters                                                             |
+| Dupire finite-step quote curvature                  | Owning typed financial API                                      | Closed typed requests/results                 | [Typed requests, plans and results](../excel/README.md#dupire-quote-gamma-and-hessian-products)   |
+| Rate finite-step quote curvature                    | Owning typed financial API                                      | Closed typed requests/results                 | [Typed snapshots, settings and results](../excel/README.md#rate-quote-gamma-and-hessian-products) |
+| Segmented MC/LSMC finite-step curvature             | Owning typed financial API                                      | Closed plans and passive results              | Corresponding curvature handles unavailable                                                       |
 
 The PDE example holds its mesh, evaluation spot, expiry and dividend passive;
 its r/volatility/strike adjoints describe that discrete program. Calibration
@@ -2447,7 +2447,11 @@ through full recalibration, and native `higherOrder_` remains false. Python
 projects this financial entry through `RateCalibration_New` and
 `RateTradeQuoteCurvature`; see the
 [Python interface](../python/README.md#rate-quote-gamma-and-hessian-products).
-Excel bindings are not provided.
+Excel projects the same closed financial entry through typed snapshots,
+portfolio settings and passive result queries; see the
+[worksheet interface](../excel/README.md#rate-quote-gamma-and-hessian-products).
+The worksheet snapshot factory consumes retained calibration result
+specifications and performs a new native solve with default options.
 
 ### Common-path C++ Monte Carlo quote curvature
 

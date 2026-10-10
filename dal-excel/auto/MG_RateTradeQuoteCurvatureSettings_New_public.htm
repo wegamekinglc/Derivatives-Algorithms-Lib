@@ -1,0 +1,39 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>RateTradeQuoteCurvatureSettings_New</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>RateTradeQuoteCurvatureSettings_New (in Excel: RATETRADEQUOTECURVATURESETTINGS.NEW)</h1>
+Copy native rate portfolio weights and optional fixing observations
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>name</td><td>string</td><td></td><td>Object name</td></tr>
+<tr><td>weights</td><td>matrix of cells</td><td>yes</td><td>Finite row or column weights; blank means unit weights; signed and zero weights allowed</td></tr>
+<tr><td>fixings</td><td>handle of type StorableMarketFixingSnapshot</td><td>yes</td><td>Explicit historical observations; blank permits native capture of missing trade history</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>settings</td><td>handle of type StorableRateTradeQuoteCurvatureSettings</td><td>Owning copied weights and optional historical observations</td></tr>
+</table>
+
+
+
+
+
+

@@ -417,6 +417,74 @@ grids, carry and execution settings. Financial planning and execution reject
 active outer recording scopes. All new handles reject archive serialization.
 See [the curvature method](../methodology/aad.md#common-path-c-monte-carlo-quote-curvature).
 
+## Rate quote Gamma and Hessian products
+
+The rate curvature worksheet interface uses existing calibration result and
+native rate-trade handles. It solves the calibration again at the base and
+every perturbed quote point, then takes central secants of native quote
+gradients. These are finite-step estimates; native higher-order differentiation
+remains unavailable.
+
+```text
+A1: =RATECALIBRATION.NEW("snapshot", calibration_result)
+B1: =RATECALIBRATION.GET.POINT(A1)
+C1: =RATECALIBRATION.GET.QUOTEPLAN(A1)
+D1: =CALIBRATIONRISKPLAN.GET.INPUTS(C1, TRUE)
+E1: =BUMPOVERAADREQUEST.NEW("bumps", direction_rows, positive_steps)
+F1: =RATETRADEQUOTECURVATURESETTINGS.NEW("portfolio", signed_weights, fixing_snapshot)
+G1: =RATETRADEQUOTECURVATURERESULT.NEW("gamma", trade_handles, A1, E1, F1)
+H1: =RATETRADEQUOTECURVATURERESULT.GET.GRADIENT(G1)
+I1: =RATETRADEQUOTECURVATURERESULT.GET.HESSIANPRODUCTS(G1)
+J1: =RATETRADEQUOTECURVATURERESULT.GET.EXECUTION(G1)
+```
+
+The source may be a single-curve, generic joint multi-curve, staged-XCCY or
+joint-XCCY result. The factory seals its retained final specification and
+performs a new solve with native default options; it does not reuse the old
+parameters or solver-option overrides. Only native EXACT square systems are
+supported. Legacy staged multi-curve results without a retained full
+specification and arbitrary handles reject. `RATECALIBRATION.RECALIBRATE`
+takes name, snapshot and a complete finite raw quote row/column and returns a
+new snapshot. `GET.PARAMETERS` copies solved free parameters. Quote metadata
+uses the existing twelve-column formatter; its rate value column remains
+blank, with actual quote values available separately from `GET.POINT`.
+
+Blank weights or a blank settings handle mean unit weights. Supplied weights
+must be finite and match the trade count; signed and zero weights are allowed.
+Every trade is validated, including zero-weight rows, and duplicate rows remain
+distinct. Trade ranges reject leading, interrupted and trailing blank cells
+before conversion, with trade ordinal and worksheet position. Actual PV
+currencies must agree; there is no portfolio FX conversion.
+An explicit fixing snapshot supplies all additional historical observations,
+with native conflict checks against calibration history. If absent, the native
+adapter captures missing required trade history once. Settings getters copy
+weights and fixing records. `GET.FIXINGS` returns three columns: the first row
+is `explicit_snapshot`, a presence Boolean and blank; subsequent rows contain
+index, fixing time and value. This distinguishes absent and explicit empty
+history.
+
+Result getters copy value, currency, point, raw gradient, directions, steps,
+Hessian products, shape, execution evidence and the base calibration snapshot.
+Products have one row per direction and one column per full raw decimal quote,
+without DV01/report scaling. Zero directions retain logical 0-by-Q shape and
+perform one base calibration; empty numeric outputs spill one blank cell.
+`GET.SHAPE` returns direction count then quote count. With M directions there
+are exactly 1+2M calibrations, gradient evaluations and objective reverses.
+
+Common request settings accept separate numeric and recording capacity limits.
+The numeric budget is `8*(1+2Q+2MQ+M)` bytes and excludes solver/preparation
+storage, handles and worksheet cells. Rate recording caps apply to caller-thread
+recalibration and objective recording, including retained capacity and cleanup
+reserve. Blank caps are unset; zero is an actual limit. Execution reports peak
+tape capacity and cleanup reserve separately, without an RSS claim.
+
+Numeric quote/weight ranges reject bool, text, date, blank, error and nonfinite
+elements before coercion; integers are normalized. Names reject embedded NUL.
+Constructors and getters copy passive data; financial entries reject active
+outer recordings. Failed financial calls preserve prior output handles and
+caller adjoint mode. New handles reject archive serialization. See the
+[native rate curvature contract](../methodology/aad.md#native-rate-trade-quote-curvature).
+
 ## Curve workflows
 
 Primary worksheet families are:
