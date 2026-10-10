@@ -2193,12 +2193,28 @@ policy responses or native mixed-mode differentiation; `higherOrder_` is false.
 ### Recalibrated rate quote curvature
 
 `dal-public/src/ratecurvature.hpp` provides `NewRateCalibration(spec)` for
-single-curve and same-currency joint calibration definitions. The owning
+single-curve, same-currency joint, staged cross-currency basis and joint
+cross-currency calibration definitions. The owning
 `RateCalibrationSnapshot_` retains copied native instruments, deep-copied fixed
 native curve bases, raw quotes, solved free parameters and calibration
-provenance. Instrument order is normalized and frozen inside each declaration;
+provenance. YC instrument order is normalized and frozen inside each declaration;
 duplicate curve names retain distinct joint declaration keys. Recalibration
 uses these sealed inputs rather than later changes to caller handles.
+
+Staged cross-currency snapshots expose basis quotes and basis parameters only;
+the domestic/foreign curve blocks remain fixed dependencies. Joint cross-currency
+snapshots expose domestic curve, foreign curve and basis blocks in the native
+residual/parameter order. Projection routes follow each declaration's actual
+tenor and collateral. YC instrument groups are normalized into solver order;
+XCCY instruments retain declaration order. Joint currency keys are
+`domestic:<ordinal>:<name>` and `foreign:<ordinal>:<name>`, with zero-based
+declaration ordinals preventing collisions from repeated names. Prefixes apply
+only to the sealed copy; basis keys remain `basis:<name>`.
+FX spot remains fixed outside the
+quote axis. Fixed native curve graphs and legacy single-curve block fallback
+are preserved by deep copies. Missing fixing snapshots are resolved once from
+required historical dependencies and retained for every replay, including
+historical floating-rate and FX-reset fixings.
 
 `EvaluateRateQuoteCurvature(objective, snapshot, request)` accepts a deterministic
 native scalar objective over the concatenation of free curve parameters and
@@ -2213,11 +2229,15 @@ that curvature.
 
 Only EXACT square calibration systems are accepted. Every solve must return an
 available analytic Jacobian/inverse whose solver-scaled product satisfies the
-identity check. Rectangular systems can depend on a moving solver chart, and
+identity check. Cross-currency snapshots apply one residual refinement to the
+fresh native effective inverse before checking it and retaining it in provenance:
+$E \leftarrow E + E(I-JE/\mathrm{tolerance})$.
+The strict identity bound is unchanged; unavailable or inaccurate inverses reject.
+Rectangular systems can depend on a moving solver chart, and
 approximate systems require their own optimality-condition derivatives; neither
 is admitted by this entry. Unsupported custom instrument or fixed-curve
-subclasses reject before their virtual behavior runs. This entry accepts native
-scalar objectives on single-curve and same-currency joint definitions.
+subclasses reject before their virtual behavior runs. Unsupported fixed curve
+block subclasses also reject before their virtual behavior runs.
 
 `RecalibrateRateWithRisk(snapshot, completeQuotes)` exposes the same passive
 rebuild and preserves the complete parameter/quote axis. Curvature results own
@@ -2241,6 +2261,51 @@ price differences and a convergence sweep, rather than assuming smaller is
 better. Captured objective data must remain fixed, and the callback cannot run
 parallel simulations or open another independent recording. Native
 `higherOrder_` remains false.
+
+### Native rate-trade quote curvature
+
+`EvaluateRateTradeQuoteCurvature(trades, snapshot, request, settings)` in
+`dal-public/src/ratecurvature.hpp` prices a native portfolio and applies the
+recalibrated quote-curvature chain above. It supports deposits, FRAs, futures,
+IRS, basis swaps, OIS and XCCY swaps with all four exact square calibration
+families. It returns `Currency()` and a nested `Curvature()` result with the
+value, quote gradient, directional Hessian products, base calibration and
+execution evidence.
+
+The scalar objective is the weighted sum of native trade PVs. Empty
+`settings.weights_` means unit weights; supplied weights must be finite and match
+the trade count. Negative and zero weights are allowed. Every row is validated,
+including zero-weight and expired XCCY rows, and repeated instrument IDs remain
+separate rows. Expired XCCY rows retain term/market admission, including finite
+spread and positive notionals, before zero PV. Configuration admission uses
+the same native swap constructor as calibration instruments.
+All trades must have the same actual PV currency. XCCY uses its configured
+domestic currency; this entry performs no portfolio currency conversion.
+Non-XCCY consumed curves and their bases must match the PV currency.
+
+The snapshot privately owns the solved native market. The adapter copies the
+trades and captures immutable cashflow geometry, curve constants and fixing
+observations before differentiating. Free coordinates follow the sealed
+calibration provenance, including distinct joint declaration keys. Staged XCCY
+fixed roots are available for pricing but remain outside the free risk axis.
+Each objective recording reconstructs the complete active curve graph and sums
+the PVs before one reverse sweep; it does not construct a trade Jacobian.
+
+`settings.fixings_` supplements the snapshot's saved calibration fixings.
+Conflicting observations reject, including inconsistent reciprocal FX values.
+An explicit snapshot provides all additional trade history without global
+fallback. If absent, only missing required historical observations are captured
+from global fixings once. Later caller or global-fixing changes cannot alter
+the captured objective. Native same-time fixing rules still apply.
+
+The generic numeric and recording admission rules apply. Invalid numeric
+requests and active outer recordings reject before objective preparation or
+global fixing reads. With M directions, the adapter performs exactly 1+2M
+calibrations and objective reverse sweeps. Raw quote units and the owning bump
+payload budget retain their existing meanings; the payload budget excludes
+portfolio preparation and solver storage. These are finite-step estimates
+through full recalibration, and native `higherOrder_` remains false. This entry
+is available in C++; Python and Excel bindings are not provided.
 
 ### Common-path C++ Monte Carlo quote curvature
 

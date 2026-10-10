@@ -8,9 +8,13 @@
 #include <utility>
 
 #include <dal/curve/quoteriskprovenance.hpp>
+#include <dal/curve/ratecashflowpricing.hpp>
 #include <dal/math/aad/bumpoveraad.hpp>
 
 namespace Dal {
+    struct RateTradeQuoteCurvatureSettings_;
+    class RateTradeQuoteCurvatureResult_;
+
     class RateCalibrationSnapshot_ {
     public:
         struct Data_;
@@ -20,7 +24,13 @@ namespace Dal {
         explicit RateCalibrationSnapshot_(std::shared_ptr<const Data_> data) : data_(std::move(data)) {}
         friend RateCalibrationSnapshot_ NewRateCalibration(const CurveCalibrationSpec_&);
         friend RateCalibrationSnapshot_ NewRateCalibration(const JointMultiCurveCalibrationSpec_&);
+        friend RateCalibrationSnapshot_ NewRateCalibration(const CrossCurrencyCalibrationSpec_&);
+        friend RateCalibrationSnapshot_ NewRateCalibration(const JointXccyCalibrationSpec_&);
         friend RateCalibrationSnapshot_ RecalibrateRateWithRisk(const RateCalibrationSnapshot_&, const Vector_<>&);
+        friend RateTradeQuoteCurvatureResult_ EvaluateRateTradeQuoteCurvature(const Vector_<RateTradeDefinition_>&,
+                                                                              const RateCalibrationSnapshot_&,
+                                                                              const AAD::BumpOverAADRequest_&,
+                                                                              const RateTradeQuoteCurvatureSettings_&);
 
     public:
         [[nodiscard]] const Vector_<>& Point() const;
@@ -30,6 +40,8 @@ namespace Dal {
 
     [[nodiscard]] RateCalibrationSnapshot_ NewRateCalibration(const CurveCalibrationSpec_& spec);
     [[nodiscard]] RateCalibrationSnapshot_ NewRateCalibration(const JointMultiCurveCalibrationSpec_& spec);
+    [[nodiscard]] RateCalibrationSnapshot_ NewRateCalibration(const CrossCurrencyCalibrationSpec_& spec);
+    [[nodiscard]] RateCalibrationSnapshot_ NewRateCalibration(const JointXccyCalibrationSpec_& spec);
     [[nodiscard]] RateCalibrationSnapshot_ RecalibrateRateWithRisk(const RateCalibrationSnapshot_& calibration, const Vector_<>& quotes);
 
     struct RateQuoteCurvatureExecution_ {
@@ -74,4 +86,25 @@ namespace Dal {
     [[nodiscard]] RateQuoteCurvatureResult_ EvaluateRateQuoteCurvature(const AAD::NativeScalarFunction_& objective,
                                                                        const RateCalibrationSnapshot_& calibration,
                                                                        const AAD::BumpOverAADRequest_& request);
+
+    struct RateTradeQuoteCurvatureSettings_ {
+        Vector_<> weights_;
+        Handle_<MarketFixingSnapshot_> fixings_;
+    };
+
+    class RateTradeQuoteCurvatureResult_ {
+        Ccy_ currency_;
+        RateQuoteCurvatureResult_ curvature_;
+
+    public:
+        RateTradeQuoteCurvatureResult_(Ccy_ currency, RateQuoteCurvatureResult_ curvature)
+            : currency_(std::move(currency)), curvature_(std::move(curvature)) {}
+        [[nodiscard]] const Ccy_& Currency() const { return currency_; }
+        [[nodiscard]] const RateQuoteCurvatureResult_& Curvature() const { return curvature_; }
+    };
+
+    [[nodiscard]] RateTradeQuoteCurvatureResult_ EvaluateRateTradeQuoteCurvature(const Vector_<RateTradeDefinition_>& trades,
+                                                                                 const RateCalibrationSnapshot_& calibration,
+                                                                                 const AAD::BumpOverAADRequest_& request,
+                                                                                 const RateTradeQuoteCurvatureSettings_& settings = {});
 } // namespace Dal

@@ -3,6 +3,7 @@
 //
 
 #include <cmath>
+#include <iostream>
 #include <numeric>
 
 #include <dal-public/src/calendar.hpp>
@@ -81,6 +82,8 @@ namespace {
         Dal::CurveCalibrationSpec_ spec;
         spec.today_ = Dal::Date_(2025, 1, 2);
         spec.ccy_ = "USD";
+        spec.curveName_ = "installed-rate";
+        spec.tolerance_ = 1e-14;
         spec.parameterization_ = Dal::CurveParameterization_::Value_::LOG_DISCOUNT;
         spec.knotDates_ = {spec.today_, Dal::Date::AddMonths(spec.today_, 12)};
         spec.instruments_ = {
@@ -91,7 +94,48 @@ namespace {
         request.steps_ = {1e-4};
         const auto result =
             Dal::EvaluateRateQuoteCurvature([](auto*, const auto& x) -> Dal::AAD::Number_ { return x[1] * x[1]; }, calibration, request);
-        return result.Point().size() == 1 && result.Execution().calibrations_ == 3 && std::abs(result.HessianProducts()(0, 0) - 2.0) < 1e-10;
+        if (result.Point().size() != 1 || result.Execution().calibrations_ != 3 || std::abs(result.HessianProducts()(0, 0) - 2.0) >= 1e-10)
+            return false;
+        Dal::RateTradeDefinition_ trade;
+        trade.instrumentId_ = "installed-deposit";
+        trade.instrumentType_ = Dal::RateInstrumentType_::Value_::DEPOSIT;
+        trade.tradeDate_ = spec.today_;
+        trade.startDate_ = spec.today_;
+        trade.maturityDate_ = spec.knotDates_.back();
+        trade.currencyOrPair_ = Dal::Ccy_(spec.ccy_);
+        Dal::DepositTradeTerms_ terms;
+        terms.notional_ = 1.0;
+        terms.contractRate_ = 0.02;
+        terms.discountComponentKey_ = spec.curveName_;
+        terms.index_ = static_cast<const Dal::Deposit_&>(*spec.instruments_.front()).FloatConvention();
+        trade.terms_ = terms;
+        const auto portfolio = Dal::EvaluateRateTradeQuoteCurvature({trade}, calibration, request);
+        const double accrual = terms.index_.dayBasis_(trade.startDate_, trade.maturityDate_, nullptr);
+        const double payoff = 1.0 + terms.contractRate_ * accrual, denominator = 1.0 + 0.03 * accrual;
+        const auto& curvature = portfolio.Curvature();
+        const bool accepted = portfolio.Currency() == Dal::Ccy_("USD") && curvature.Execution().objectiveReverseSweeps_ == 3 &&
+                              std::abs(curvature.Value() - (payoff / denominator - 1.0)) < 1e-10 &&
+                              std::abs(curvature.Gradient()[0] + payoff * accrual / (denominator * denominator)) < 1e-9 &&
+                              std::abs(curvature.HessianProducts()(0, 0) - 2.0 * payoff * accrual * accrual / std::pow(denominator, 3)) < 1e-7;
+        if (!accepted)
+            std::cerr << "Installed rate-trade curvature: " << curvature.Value() << ", " << curvature.Gradient()[0] << ", "
+                      << curvature.HessianProducts()(0, 0) << "; accrual=" << accrual << '\n';
+        return accepted;
+    }
+
+    bool CheckXccyFactoryExports() {
+        bool staged = false, joint = false;
+        try {
+            (void)Dal::NewRateCalibration(Dal::CrossCurrencyCalibrationSpec_());
+        } catch (const Dal::Exception_&) {
+            staged = true;
+        }
+        try {
+            (void)Dal::NewRateCalibration(Dal::JointXccyCalibrationSpec_());
+        } catch (const Dal::Exception_&) {
+            joint = true;
+        }
+        return staged && joint;
     }
 } // namespace
 
@@ -127,6 +171,8 @@ int main() {
         return 11;
     if (!CheckRateCurvature())
         return 12;
+    if (!CheckXccyFactoryExports())
+        return 13;
     const auto merton = Dal::NewMertonIVS(100.0, 0.2, 0.08, -0.1, 0.15);
     const Dal::AAD::MertonIVS_ mertonReference(100.0, 0.2, 0.08, -0.1, 0.15);
     if (merton.ImpliedVol(105.0, 0.4) != mertonReference.ImpliedVol(105.0, 0.4))

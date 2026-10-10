@@ -18,6 +18,15 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-10
 
+- **Native rate-trade quote curvature** — weighted native rate and XCCY
+  portfolios expose full recalibrated quote gradients and Hessian products,
+  with an owning market, fixed historical observations and explicit PV currency.
+  See [rate-trade quote curvature](docs/methodology/aad.md#native-rate-trade-quote-curvature).
+- **Cross-currency quote curvature** — staged basis and joint cross-currency
+  snapshots support full recalibration for native Gamma, cross-Gamma and HVP
+  estimates, with sealed fixed curve blocks and historical rate/FX fixings.
+  Fresh square inverse refinement retains the strict numerical admission check.
+  See [rate quote curvature](docs/methodology/aad.md#recalibrated-rate-quote-curvature).
 - **Recalibrated rate quote curvature** — owning single-curve and same-currency
   joint snapshots rebuild exact square calibrations and their native analytic
   quote mappings for Gamma, cross-Gamma and HVP estimates, including direct
