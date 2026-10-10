@@ -1,0 +1,3041 @@
+{
+  "base": "b047d0b37be388b83b173720acfbfdef7cf533f2",
+  "environment": {
+    "platform": "Linux-5.15.167.4-microsoft-standard-WSL2-x86_64-with-glibc2.43",
+    "python": "3.13.9",
+    "cpu_affinity": 0,
+    "threads": 1,
+    "compiler": "c++ (Ubuntu 15.2.0-16ubuntu1) 15.2.0"
+  },
+  "driver_sha256": "159282aa850e3be49506fbfddb0426de3dec6545c2e0f7b6fd8dad302588000d",
+  "bridge_sha256": "839786eb3298154a11e3c7a2219b0447c25d0da9e6311c2278ef28ec03c19f57",
+  "head_module_sha256": "700762bc8509071d5e330ce70874bb322e3bb88191e1eca94b589cf5d29d3252",
+  "untimed_reference_module_sha256": "700762bc8509071d5e330ce70874bb322e3bb88191e1eca94b589cf5d29d3252",
+  "baseline_core_sha256": "967f5e721f0ba67354b66f8eb14d8be9c4f7e422463bc8c412864491ee06997c",
+  "baseline_public_sha256": "f9751df2f2b654d25cc6412b5a6f1d663d0d5a0568427a465ebe27f3a26c101a",
+  "head_public_sha256": "236fe9d9833210b2ea8b8dcd6fc0272ca5e54e0fab775e6159f8eede07e22d62",
+  "samples": [
+    {
+      "side": "baseline",
+      "mode": "Frozen",
+      "iterations": 1024,
+      "seconds": 0.107278788,
+      "seconds_per_call": 0.00010476444140625,
+      "checksum": 5448.49232031154,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--mode",
+        "Frozen",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791639573.5920718,
+      "load_average": [
+        0.23681640625,
+        1.56689453125,
+        3.67333984375
+      ],
+      "label": "mFrozen-r0-p0-baseline",
+      "round": 0,
+      "pair": 0
+    },
+    {
+      "side": "head",
+      "mode": "Frozen",
+      "iterations": 1024,
+      "seconds": 0.11221596700000001,
+      "seconds_per_call": 0.00010958590527343751,
+      "checksum": 5448.49232031154,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "head",
+        "--mode",
+        "Frozen",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791639573.7456603,
+      "load_average": [
+        0.23681640625,
+        1.56689453125,
+        3.67333984375
+      ],
+      "label": "mFrozen-r0-p0-head",
+      "round": 0,
+      "pair": 0
+    },
+    {
+      "side": "head",
+      "mode": "Frozen",
+      "iterations": 1024,
+      "seconds": 0.11312620300000001,
+      "seconds_per_call": 0.00011047480761718751,
+      "checksum": 5448.49232031154,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "head",
+        "--mode",
+        "Frozen",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791639573.901153,
+      "load_average": [
+        0.23681640625,
+        1.56689453125,
+        3.67333984375
+      ],
+      "label": "mFrozen-r0-p1-head",
+      "round": 0,
+      "pair": 1
+    },
+    {
+      "side": "baseline",
+      "mode": "Frozen",
+      "iterations": 1024,
+      "seconds": 0.103751007,
+      "seconds_per_call": 0.0001013193427734375,
+      "checksum": 5448.49232031154,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--mode",
+        "Frozen",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791639574.0570948,
+      "load_average": [
+        0.23681640625,
+        1.56689453125,
+        3.67333984375
+      ],
+      "label": "mFrozen-r0-p1-baseline",
+      "round": 0,
+      "pair": 1
+    },
+    {
+      "side": "baseline",
+      "mode": "Frozen",
+      "iterations": 1024,
+      "seconds": 0.10577825,
+      "seconds_per_call": 0.000103299072265625,
+      "checksum": 5448.49232031154,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--mode",
+        "Frozen",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791639574.20661,
+      "load_average": [
+        0.23681640625,
+        1.56689453125,
+        3.67333984375
+      ],
+      "label": "mFrozen-r0-p2-baseline",
+      "round": 0,
+      "pair": 2
+    },
+    {
+      "side": "head",
+      "mode": "Frozen",
+      "iterations": 1024,
+      "seconds": 0.11836711300000001,
+      "seconds_per_call": 0.00011559288378906251,
+      "checksum": 5448.49232031154,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "head",
+        "--mode",
+        "Frozen",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791639574.3582745,
+      "load_average": [
+        0.23681640625,
+        1.56689453125,
+        3.67333984375
+      ],
+      "label": "mFrozen-r0-p2-head",
+      "round": 0,
+      "pair": 2
+    },
+    {
+      "side": "head",
+      "mode": "Frozen",
+      "iterations": 1024,
+      "seconds": 0.11855551,
+      "seconds_per_call": 0.000115776865234375,
+      "checksum": 5448.49232031154,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "head",
+        "--mode",
+        "Frozen",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791639574.5248744,
+      "load_average": [
+        0.23681640625,
+        1.56689453125,
+        3.67333984375
+      ],
+      "label": "mFrozen-r0-p3-head",
+      "round": 0,
+      "pair": 3
+    },
+    {
+      "side": "baseline",
+      "mode": "Frozen",
+      "iterations": 1024,
+      "seconds": 0.109765604,
+      "seconds_per_call": 0.00010719297265625,
+      "checksum": 5448.49232031154,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--mode",
+        "Frozen",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791639574.6900342,
+      "load_average": [
+        0.23681640625,
+        1.56689453125,
+        3.67333984375
+      ],
+      "label": "mFrozen-r0-p3-baseline",
+      "round": 0,
+      "pair": 3
+    },
+    {
+      "side": "baseline",
+      "mode": "Frozen",
+      "iterations": 1024,
+      "seconds": 0.11068623300000001,
+      "seconds_per_call": 0.00010809202441406251,
+      "checksum": 5448.49232031154,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--mode",
+        "Frozen",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791639574.8473992,
+      "load_average": [
+        0.23681640625,
+        1.56689453125,
+        3.67333984375
+      ],
+      "label": "mFrozen-r0-p4-baseline",
+      "round": 0,
+      "pair": 4
+    },
+    {
+      "side": "head",
+      "mode": "Frozen",
+      "iterations": 1024,
+      "seconds": 0.116778534,
+      "seconds_per_call": 0.000114041537109375,
+      "checksum": 5448.49232031154,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "head",
+        "--mode",
+        "Frozen",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791639575.0046437,
+      "load_average": [
+        0.23681640625,
+        1.56689453125,
+        3.67333984375
+      ],
+      "label": "mFrozen-r0-p4-head",
+      "round": 0,
+      "pair": 4
+    },
+    {
+      "side": "head",
+      "mode": "Frozen",
+      "iterations": 1024,
+      "seconds": 0.121840294,
+      "seconds_per_call": 0.000118984662109375,
+      "checksum": 5448.49232031154,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "head",
+        "--mode",
+        "Frozen",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791639575.1673744,
+      "load_average": [
+        0.23681640625,
+        1.56689453125,
+        3.67333984375
+      ],
+      "label": "mFrozen-r0-p5-head",
+      "round": 0,
+      "pair": 5
+    },
+    {
+      "side": "baseline",
+      "mode": "Frozen",
+      "iterations": 1024,
+      "seconds": 0.11176516600000001,
+      "seconds_per_call": 0.00010914566992187501,
+      "checksum": 5448.49232031154,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--mode",
+        "Frozen",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791639575.335565,
+      "load_average": [
+        0.23681640625,
+        1.56689453125,
+        3.67333984375
+      ],
+      "label": "mFrozen-r0-p5-baseline",
+      "round": 0,
+      "pair": 5
+    },
+    {
+      "side": "baseline",
+      "mode": "Frozen",
+      "iterations": 1024,
+      "seconds": 0.11692292700000001,
+      "seconds_per_call": 0.00011418254589843751,
+      "checksum": 5448.49232031154,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--mode",
+        "Frozen",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791639575.4963741,
+      "load_average": [
+        0.23681640625,
+        1.56689453125,
+        3.67333984375
+      ],
+      "label": "mFrozen-r0-p6-baseline",
+      "round": 0,
+      "pair": 6
+    },
+    {
+      "side": "head",
+      "mode": "Frozen",
+      "iterations": 1024,
+      "seconds": 0.11931575000000001,
+      "seconds_per_call": 0.00011651928710937501,
+      "checksum": 5448.49232031154,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "head",
+        "--mode",
+        "Frozen",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791639575.662647,
+      "load_average": [
+        0.23681640625,
+        1.56689453125,
+        3.67333984375
+      ],
+      "label": "mFrozen-r0-p6-head",
+      "round": 0,
+      "pair": 6
+    },
+    {
+      "side": "head",
+      "mode": "Frozen",
+      "iterations": 1024,
+      "seconds": 0.11784330400000001,
+      "seconds_per_call": 0.00011508135156250001,
+      "checksum": 5448.49232031154,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "head",
+        "--mode",
+        "Frozen",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791639575.8304846,
+      "load_average": [
+        0.23681640625,
+        1.56689453125,
+        3.67333984375
+      ],
+      "label": "mFrozen-r0-p7-head",
+      "round": 0,
+      "pair": 7
+    },
+    {
+      "side": "baseline",
+      "mode": "Frozen",
+      "iterations": 1024,
+      "seconds": 0.11112740400000001,
+      "seconds_per_call": 0.00010852285546875001,
+      "checksum": 5448.49232031154,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--mode",
+        "Frozen",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791639575.995426,
+      "load_average": [
+        0.23681640625,
+        1.56689453125,
+        3.67333984375
+      ],
+      "label": "mFrozen-r0-p7-baseline",
+      "round": 0,
+      "pair": 7
+    },
+    {
+      "side": "baseline",
+      "mode": "Frozen",
+      "iterations": 1024,
+      "seconds": 0.10928156200000001,
+      "seconds_per_call": 0.00010672027539062501,
+      "checksum": 5448.49232031154,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--mode",
+        "Frozen",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791639576.1555228,
+      "load_average": [
+        0.23681640625,
+        1.56689453125,
+        3.67333984375
+      ],
+      "label": "mFrozen-r0-p8-baseline",
+      "round": 0,
+      "pair": 8
+    },
+    {
+      "side": "head",
+      "mode": "Frozen",
+      "iterations": 1024,
+      "seconds": 0.11741353,
+      "seconds_per_call": 0.000114661650390625,
+      "checksum": 5448.49232031154,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "head",
+        "--mode",
+        "Frozen",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791639576.3170547,
+      "load_average": [
+        0.23681640625,
+        1.56689453125,
+        3.67333984375
+      ],
+      "label": "mFrozen-r0-p8-head",
+      "round": 0,
+      "pair": 8
+    },
+    {
+      "side": "head",
+      "mode": "Frozen",
+      "iterations": 1024,
+      "seconds": 0.114301756,
+      "seconds_per_call": 0.00011162280859375,
+      "checksum": 5448.49232031154,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "head",
+        "--mode",
+        "Frozen",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791639576.479368,
+      "load_average": [
+        0.23681640625,
+        1.56689453125,
+        3.67333984375
+      ],
+      "label": "mFrozen-r0-p9-head",
+      "round": 0,
+      "pair": 9
+    },
+    {
+      "side": "baseline",
+      "mode": "Frozen",
+      "iterations": 1024,
+      "seconds": 0.105402489,
+      "seconds_per_call": 0.0001029321181640625,
+      "checksum": 5448.49232031154,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--mode",
+        "Frozen",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791639576.6386461,
+      "load_average": [
+        0.37841796875,
+        1.57421875,
+        3.6640625
+      ],
+      "label": "mFrozen-r0-p9-baseline",
+      "round": 0,
+      "pair": 9
+    },
+    {
+      "side": "baseline",
+      "mode": "Frozen",
+      "iterations": 1024,
+      "seconds": 0.107336991,
+      "seconds_per_call": 0.0001048212802734375,
+      "checksum": 5448.49232031154,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--mode",
+        "Frozen",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791639576.7907639,
+      "load_average": [
+        0.37841796875,
+        1.57421875,
+        3.6640625
+      ],
+      "label": "mFrozen-r1-p0-baseline",
+      "round": 1,
+      "pair": 0
+    },
+    {
+      "side": "head",
+      "mode": "Frozen",
+      "iterations": 1024,
+      "seconds": 0.11677330000000001,
+      "seconds_per_call": 0.00011403642578125001,
+      "checksum": 5448.49232031154,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "head",
+        "--mode",
+        "Frozen",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791639576.9454362,
+      "load_average": [
+        0.37841796875,
+        1.57421875,
+        3.6640625
+      ],
+      "label": "mFrozen-r1-p0-head",
+      "round": 1,
+      "pair": 0
+    },
+    {
+      "side": "head",
+      "mode": "Frozen",
+      "iterations": 1024,
+      "seconds": 0.114828939,
+      "seconds_per_call": 0.0001121376357421875,
+      "checksum": 5448.49232031154,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "head",
+        "--mode",
+        "Frozen",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791639577.1069298,
+      "load_average": [
+        0.37841796875,
+        1.57421875,
+        3.6640625
+      ],
+      "label": "mFrozen-r1-p1-head",
+      "round": 1,
+      "pair": 1
+    },
+    {
+      "side": "baseline",
+      "mode": "Frozen",
+      "iterations": 1024,
+      "seconds": 0.105815536,
+      "seconds_per_call": 0.000103335484375,
+      "checksum": 5448.49232031154,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--mode",
+        "Frozen",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791639577.2657535,
+      "load_average": [
+        0.37841796875,
+        1.57421875,
+        3.6640625
+      ],
+      "label": "mFrozen-r1-p1-baseline",
+      "round": 1,
+      "pair": 1
+    },
+    {
+      "side": "baseline",
+      "mode": "Frozen",
+      "iterations": 1024,
+      "seconds": 0.106400271,
+      "seconds_per_call": 0.0001039065146484375,
+      "checksum": 5448.49232031154,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--mode",
+        "Frozen",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791639577.417681,
+      "load_average": [
+        0.37841796875,
+        1.57421875,
+        3.6640625
+      ],
+      "label": "mFrozen-r1-p2-baseline",
+      "round": 1,
+      "pair": 2
+    },
+    {
+      "side": "head",
+      "mode": "Frozen",
+      "iterations": 1024,
+      "seconds": 0.11527672300000001,
+      "seconds_per_call": 0.00011257492480468751,
+      "checksum": 5448.49232031154,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "head",
+        "--mode",
+        "Frozen",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791639577.570463,
+      "load_average": [
+        0.37841796875,
+        1.57421875,
+        3.6640625
+      ],
+      "label": "mFrozen-r1-p2-head",
+      "round": 1,
+      "pair": 2
+    },
+    {
+      "side": "head",
+      "mode": "Frozen",
+      "iterations": 1024,
+      "seconds": 0.11348144600000001,
+      "seconds_per_call": 0.00011082172460937501,
+      "checksum": 5448.49232031154,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "head",
+        "--mode",
+        "Frozen",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791639577.7297442,
+      "load_average": [
+        0.37841796875,
+        1.57421875,
+        3.6640625
+      ],
+      "label": "mFrozen-r1-p3-head",
+      "round": 1,
+      "pair": 3
+    },
+    {
+      "side": "baseline",
+      "mode": "Frozen",
+      "iterations": 1024,
+      "seconds": 0.10580061900000001,
+      "seconds_per_call": 0.00010332091699218751,
+      "checksum": 5448.49232031154,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--mode",
+        "Frozen",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791639577.888759,
+      "load_average": [
+        0.37841796875,
+        1.57421875,
+        3.6640625
+      ],
+      "label": "mFrozen-r1-p3-baseline",
+      "round": 1,
+      "pair": 3
+    },
+    {
+      "side": "baseline",
+      "mode": "Frozen",
+      "iterations": 1024,
+      "seconds": 0.10409383100000001,
+      "seconds_per_call": 0.00010165413183593751,
+      "checksum": 5448.49232031154,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--mode",
+        "Frozen",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791639578.0398524,
+      "load_average": [
+        0.37841796875,
+        1.57421875,
+        3.6640625
+      ],
+      "label": "mFrozen-r1-p4-baseline",
+      "round": 1,
+      "pair": 4
+    },
+    {
+      "side": "head",
+      "mode": "Frozen",
+      "iterations": 1024,
+      "seconds": 0.11358218900000001,
+      "seconds_per_call": 0.00011092010644531251,
+      "checksum": 5448.49232031154,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "head",
+        "--mode",
+        "Frozen",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791639578.1888626,
+      "load_average": [
+        0.37841796875,
+        1.57421875,
+        3.6640625
+      ],
+      "label": "mFrozen-r1-p4-head",
+      "round": 1,
+      "pair": 4
+    },
+    {
+      "side": "head",
+      "mode": "Frozen",
+      "iterations": 1024,
+      "seconds": 0.120369898,
+      "seconds_per_call": 0.000117548728515625,
+      "checksum": 5448.49232031154,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "head",
+        "--mode",
+        "Frozen",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791639578.3452725,
+      "load_average": [
+        0.37841796875,
+        1.57421875,
+        3.6640625
+      ],
+      "label": "mFrozen-r1-p5-head",
+      "round": 1,
+      "pair": 5
+    },
+    {
+      "side": "baseline",
+      "mode": "Frozen",
+      "iterations": 1024,
+      "seconds": 0.108769135,
+      "seconds_per_call": 0.0001062198583984375,
+      "checksum": 5448.49232031154,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--mode",
+        "Frozen",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791639578.5129404,
+      "load_average": [
+        0.37841796875,
+        1.57421875,
+        3.6640625
+      ],
+      "label": "mFrozen-r1-p5-baseline",
+      "round": 1,
+      "pair": 5
+    },
+    {
+      "side": "baseline",
+      "mode": "Frozen",
+      "iterations": 1024,
+      "seconds": 0.10661451200000001,
+      "seconds_per_call": 0.00010411573437500001,
+      "checksum": 5448.49232031154,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--mode",
+        "Frozen",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791639578.6700723,
+      "load_average": [
+        0.37841796875,
+        1.57421875,
+        3.6640625
+      ],
+      "label": "mFrozen-r1-p6-baseline",
+      "round": 1,
+      "pair": 6
+    },
+    {
+      "side": "head",
+      "mode": "Frozen",
+      "iterations": 1024,
+      "seconds": 0.115258568,
+      "seconds_per_call": 0.0001125571953125,
+      "checksum": 5448.49232031154,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "head",
+        "--mode",
+        "Frozen",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791639578.8225257,
+      "load_average": [
+        0.37841796875,
+        1.57421875,
+        3.6640625
+      ],
+      "label": "mFrozen-r1-p6-head",
+      "round": 1,
+      "pair": 6
+    },
+    {
+      "side": "head",
+      "mode": "Frozen",
+      "iterations": 1024,
+      "seconds": 0.115090774,
+      "seconds_per_call": 0.000112393333984375,
+      "checksum": 5448.49232031154,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "head",
+        "--mode",
+        "Frozen",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791639578.9815197,
+      "load_average": [
+        0.37841796875,
+        1.57421875,
+        3.6640625
+      ],
+      "label": "mFrozen-r1-p7-head",
+      "round": 1,
+      "pair": 7
+    },
+    {
+      "side": "baseline",
+      "mode": "Frozen",
+      "iterations": 1024,
+      "seconds": 0.104870183,
+      "seconds_per_call": 0.0001024122880859375,
+      "checksum": 5448.49232031154,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--mode",
+        "Frozen",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791639579.1405907,
+      "load_average": [
+        0.37841796875,
+        1.57421875,
+        3.6640625
+      ],
+      "label": "mFrozen-r1-p7-baseline",
+      "round": 1,
+      "pair": 7
+    },
+    {
+      "side": "baseline",
+      "mode": "Frozen",
+      "iterations": 1024,
+      "seconds": 0.10916545200000001,
+      "seconds_per_call": 0.00010660688671875001,
+      "checksum": 5448.49232031154,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--mode",
+        "Frozen",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791639579.2912312,
+      "load_average": [
+        0.37841796875,
+        1.57421875,
+        3.6640625
+      ],
+      "label": "mFrozen-r1-p8-baseline",
+      "round": 1,
+      "pair": 8
+    },
+    {
+      "side": "head",
+      "mode": "Frozen",
+      "iterations": 1024,
+      "seconds": 0.11335657800000001,
+      "seconds_per_call": 0.00011069978320312501,
+      "checksum": 5448.49232031154,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "head",
+        "--mode",
+        "Frozen",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791639579.4470446,
+      "load_average": [
+        0.37841796875,
+        1.57421875,
+        3.6640625
+      ],
+      "label": "mFrozen-r1-p8-head",
+      "round": 1,
+      "pair": 8
+    },
+    {
+      "side": "head",
+      "mode": "Frozen",
+      "iterations": 1024,
+      "seconds": 0.11316002800000001,
+      "seconds_per_call": 0.00011050783984375001,
+      "checksum": 5448.49232031154,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "head",
+        "--mode",
+        "Frozen",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791639579.6052604,
+      "load_average": [
+        0.37841796875,
+        1.57421875,
+        3.6640625
+      ],
+      "label": "mFrozen-r1-p9-head",
+      "round": 1,
+      "pair": 9
+    },
+    {
+      "side": "baseline",
+      "mode": "Frozen",
+      "iterations": 1024,
+      "seconds": 0.10602816200000001,
+      "seconds_per_call": 0.00010354312695312501,
+      "checksum": 5448.49232031154,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--mode",
+        "Frozen",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "1024"
+      ],
+      "started_unix": 1791639579.7620769,
+      "load_average": [
+        0.37841796875,
+        1.57421875,
+        3.6640625
+      ],
+      "label": "mFrozen-r1-p9-baseline",
+      "round": 1,
+      "pair": 9
+    },
+    {
+      "side": "baseline",
+      "mode": "RetrainedBump",
+      "iterations": 128,
+      "seconds": 0.091842849,
+      "seconds_per_call": 0.0007175222578125,
+      "checksum": 681.0615400389505,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--mode",
+        "RetrainedBump",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791639580.181976,
+      "load_average": [
+        0.37841796875,
+        1.57421875,
+        3.6640625
+      ],
+      "label": "mRetrainedBump-r0-p0-baseline",
+      "round": 0,
+      "pair": 0
+    },
+    {
+      "side": "head",
+      "mode": "RetrainedBump",
+      "iterations": 128,
+      "seconds": 0.093902412,
+      "seconds_per_call": 0.00073361259375,
+      "checksum": 681.0615400389505,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "head",
+        "--mode",
+        "RetrainedBump",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791639580.3186483,
+      "load_average": [
+        0.37841796875,
+        1.57421875,
+        3.6640625
+      ],
+      "label": "mRetrainedBump-r0-p0-head",
+      "round": 0,
+      "pair": 0
+    },
+    {
+      "side": "head",
+      "mode": "RetrainedBump",
+      "iterations": 128,
+      "seconds": 0.094359366,
+      "seconds_per_call": 0.000737182546875,
+      "checksum": 681.0615400389505,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "head",
+        "--mode",
+        "RetrainedBump",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791639580.45677,
+      "load_average": [
+        0.37841796875,
+        1.57421875,
+        3.6640625
+      ],
+      "label": "mRetrainedBump-r0-p1-head",
+      "round": 0,
+      "pair": 1
+    },
+    {
+      "side": "baseline",
+      "mode": "RetrainedBump",
+      "iterations": 128,
+      "seconds": 0.090112485,
+      "seconds_per_call": 0.0007040037890625,
+      "checksum": 681.0615400389505,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--mode",
+        "RetrainedBump",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791639580.596571,
+      "load_average": [
+        0.37841796875,
+        1.57421875,
+        3.6640625
+      ],
+      "label": "mRetrainedBump-r0-p1-baseline",
+      "round": 0,
+      "pair": 1
+    },
+    {
+      "side": "baseline",
+      "mode": "RetrainedBump",
+      "iterations": 128,
+      "seconds": 0.091808053,
+      "seconds_per_call": 0.0007172504140625,
+      "checksum": 681.0615400389505,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--mode",
+        "RetrainedBump",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791639580.730174,
+      "load_average": [
+        0.37841796875,
+        1.57421875,
+        3.6640625
+      ],
+      "label": "mRetrainedBump-r0-p2-baseline",
+      "round": 0,
+      "pair": 2
+    },
+    {
+      "side": "head",
+      "mode": "RetrainedBump",
+      "iterations": 128,
+      "seconds": 0.091432711,
+      "seconds_per_call": 0.0007143180546875,
+      "checksum": 681.0615400389505,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "head",
+        "--mode",
+        "RetrainedBump",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791639580.8672981,
+      "load_average": [
+        0.37841796875,
+        1.57421875,
+        3.6640625
+      ],
+      "label": "mRetrainedBump-r0-p2-head",
+      "round": 0,
+      "pair": 2
+    },
+    {
+      "side": "head",
+      "mode": "RetrainedBump",
+      "iterations": 128,
+      "seconds": 0.092740443,
+      "seconds_per_call": 0.0007245347109375,
+      "checksum": 681.0615400389505,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "head",
+        "--mode",
+        "RetrainedBump",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791639581.0020227,
+      "load_average": [
+        0.37841796875,
+        1.57421875,
+        3.6640625
+      ],
+      "label": "mRetrainedBump-r0-p3-head",
+      "round": 0,
+      "pair": 3
+    },
+    {
+      "side": "baseline",
+      "mode": "RetrainedBump",
+      "iterations": 128,
+      "seconds": 0.09148824700000001,
+      "seconds_per_call": 0.0007147519296875001,
+      "checksum": 681.0615400389505,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--mode",
+        "RetrainedBump",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791639581.1366599,
+      "load_average": [
+        0.37841796875,
+        1.57421875,
+        3.6640625
+      ],
+      "label": "mRetrainedBump-r0-p3-baseline",
+      "round": 0,
+      "pair": 3
+    },
+    {
+      "side": "baseline",
+      "mode": "RetrainedBump",
+      "iterations": 128,
+      "seconds": 0.089701189,
+      "seconds_per_call": 0.0007007905390625,
+      "checksum": 681.0615400389505,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--mode",
+        "RetrainedBump",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791639581.2737722,
+      "load_average": [
+        0.37841796875,
+        1.57421875,
+        3.6640625
+      ],
+      "label": "mRetrainedBump-r0-p4-baseline",
+      "round": 0,
+      "pair": 4
+    },
+    {
+      "side": "head",
+      "mode": "RetrainedBump",
+      "iterations": 128,
+      "seconds": 0.09605242100000001,
+      "seconds_per_call": 0.0007504095390625001,
+      "checksum": 681.0615400389505,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "head",
+        "--mode",
+        "RetrainedBump",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791639581.4088297,
+      "load_average": [
+        0.37841796875,
+        1.57421875,
+        3.6640625
+      ],
+      "label": "mRetrainedBump-r0-p4-head",
+      "round": 0,
+      "pair": 4
+    },
+    {
+      "side": "head",
+      "mode": "RetrainedBump",
+      "iterations": 128,
+      "seconds": 0.095852326,
+      "seconds_per_call": 0.000748846296875,
+      "checksum": 681.0615400389505,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "head",
+        "--mode",
+        "RetrainedBump",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791639581.5482154,
+      "load_average": [
+        0.37841796875,
+        1.57421875,
+        3.6640625
+      ],
+      "label": "mRetrainedBump-r0-p5-head",
+      "round": 0,
+      "pair": 5
+    },
+    {
+      "side": "baseline",
+      "mode": "RetrainedBump",
+      "iterations": 128,
+      "seconds": 0.09238715,
+      "seconds_per_call": 0.000721774609375,
+      "checksum": 681.0615400389505,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--mode",
+        "RetrainedBump",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791639581.6866148,
+      "load_average": [
+        0.42822265625,
+        1.564453125,
+        3.6494140625
+      ],
+      "label": "mRetrainedBump-r0-p5-baseline",
+      "round": 0,
+      "pair": 5
+    },
+    {
+      "side": "baseline",
+      "mode": "RetrainedBump",
+      "iterations": 128,
+      "seconds": 0.093048319,
+      "seconds_per_call": 0.0007269399921875,
+      "checksum": 681.0615400389505,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--mode",
+        "RetrainedBump",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791639581.823772,
+      "load_average": [
+        0.42822265625,
+        1.564453125,
+        3.6494140625
+      ],
+      "label": "mRetrainedBump-r0-p6-baseline",
+      "round": 0,
+      "pair": 6
+    },
+    {
+      "side": "head",
+      "mode": "RetrainedBump",
+      "iterations": 128,
+      "seconds": 0.094834399,
+      "seconds_per_call": 0.0007408937421875,
+      "checksum": 681.0615400389505,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "head",
+        "--mode",
+        "RetrainedBump",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791639581.964063,
+      "load_average": [
+        0.42822265625,
+        1.564453125,
+        3.6494140625
+      ],
+      "label": "mRetrainedBump-r0-p6-head",
+      "round": 0,
+      "pair": 6
+    },
+    {
+      "side": "head",
+      "mode": "RetrainedBump",
+      "iterations": 128,
+      "seconds": 0.092097356,
+      "seconds_per_call": 0.00071951059375,
+      "checksum": 681.0615400389505,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "head",
+        "--mode",
+        "RetrainedBump",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791639582.1037812,
+      "load_average": [
+        0.42822265625,
+        1.564453125,
+        3.6494140625
+      ],
+      "label": "mRetrainedBump-r0-p7-head",
+      "round": 0,
+      "pair": 7
+    },
+    {
+      "side": "baseline",
+      "mode": "RetrainedBump",
+      "iterations": 128,
+      "seconds": 0.092390468,
+      "seconds_per_call": 0.00072180053125,
+      "checksum": 681.0615400389505,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--mode",
+        "RetrainedBump",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791639582.2376034,
+      "load_average": [
+        0.42822265625,
+        1.564453125,
+        3.6494140625
+      ],
+      "label": "mRetrainedBump-r0-p7-baseline",
+      "round": 0,
+      "pair": 7
+    },
+    {
+      "side": "baseline",
+      "mode": "RetrainedBump",
+      "iterations": 128,
+      "seconds": 0.09490326900000001,
+      "seconds_per_call": 0.0007414317890625001,
+      "checksum": 681.0615400389505,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--mode",
+        "RetrainedBump",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791639582.3759248,
+      "load_average": [
+        0.42822265625,
+        1.564453125,
+        3.6494140625
+      ],
+      "label": "mRetrainedBump-r0-p8-baseline",
+      "round": 0,
+      "pair": 8
+    },
+    {
+      "side": "head",
+      "mode": "RetrainedBump",
+      "iterations": 128,
+      "seconds": 0.094552114,
+      "seconds_per_call": 0.000738688390625,
+      "checksum": 681.0615400389505,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "head",
+        "--mode",
+        "RetrainedBump",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791639582.51501,
+      "load_average": [
+        0.42822265625,
+        1.564453125,
+        3.6494140625
+      ],
+      "label": "mRetrainedBump-r0-p8-head",
+      "round": 0,
+      "pair": 8
+    },
+    {
+      "side": "head",
+      "mode": "RetrainedBump",
+      "iterations": 128,
+      "seconds": 0.09048985400000001,
+      "seconds_per_call": 0.0007069519843750001,
+      "checksum": 681.0615400389505,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "head",
+        "--mode",
+        "RetrainedBump",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791639582.6535454,
+      "load_average": [
+        0.42822265625,
+        1.564453125,
+        3.6494140625
+      ],
+      "label": "mRetrainedBump-r0-p9-head",
+      "round": 0,
+      "pair": 9
+    },
+    {
+      "side": "baseline",
+      "mode": "RetrainedBump",
+      "iterations": 128,
+      "seconds": 0.088781788,
+      "seconds_per_call": 0.00069360771875,
+      "checksum": 681.0615400389505,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--mode",
+        "RetrainedBump",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791639582.788113,
+      "load_average": [
+        0.42822265625,
+        1.564453125,
+        3.6494140625
+      ],
+      "label": "mRetrainedBump-r0-p9-baseline",
+      "round": 0,
+      "pair": 9
+    },
+    {
+      "side": "baseline",
+      "mode": "RetrainedBump",
+      "iterations": 128,
+      "seconds": 0.09077215300000001,
+      "seconds_per_call": 0.0007091574453125001,
+      "checksum": 681.0615400389505,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--mode",
+        "RetrainedBump",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791639582.9221141,
+      "load_average": [
+        0.42822265625,
+        1.564453125,
+        3.6494140625
+      ],
+      "label": "mRetrainedBump-r1-p0-baseline",
+      "round": 1,
+      "pair": 0
+    },
+    {
+      "side": "head",
+      "mode": "RetrainedBump",
+      "iterations": 128,
+      "seconds": 0.094138866,
+      "seconds_per_call": 0.000735459890625,
+      "checksum": 681.0615400389505,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "head",
+        "--mode",
+        "RetrainedBump",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791639583.0577843,
+      "load_average": [
+        0.42822265625,
+        1.564453125,
+        3.6494140625
+      ],
+      "label": "mRetrainedBump-r1-p0-head",
+      "round": 1,
+      "pair": 0
+    },
+    {
+      "side": "head",
+      "mode": "RetrainedBump",
+      "iterations": 128,
+      "seconds": 0.09506384100000001,
+      "seconds_per_call": 0.0007426862578125001,
+      "checksum": 681.0615400389505,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "head",
+        "--mode",
+        "RetrainedBump",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791639583.194327,
+      "load_average": [
+        0.42822265625,
+        1.564453125,
+        3.6494140625
+      ],
+      "label": "mRetrainedBump-r1-p1-head",
+      "round": 1,
+      "pair": 1
+    },
+    {
+      "side": "baseline",
+      "mode": "RetrainedBump",
+      "iterations": 128,
+      "seconds": 0.09060352,
+      "seconds_per_call": 0.00070784,
+      "checksum": 681.0615400389505,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--mode",
+        "RetrainedBump",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791639583.335692,
+      "load_average": [
+        0.42822265625,
+        1.564453125,
+        3.6494140625
+      ],
+      "label": "mRetrainedBump-r1-p1-baseline",
+      "round": 1,
+      "pair": 1
+    },
+    {
+      "side": "baseline",
+      "mode": "RetrainedBump",
+      "iterations": 128,
+      "seconds": 0.089830015,
+      "seconds_per_call": 0.0007017969921875,
+      "checksum": 681.0615400389505,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--mode",
+        "RetrainedBump",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791639583.4700675,
+      "load_average": [
+        0.42822265625,
+        1.564453125,
+        3.6494140625
+      ],
+      "label": "mRetrainedBump-r1-p2-baseline",
+      "round": 1,
+      "pair": 2
+    },
+    {
+      "side": "head",
+      "mode": "RetrainedBump",
+      "iterations": 128,
+      "seconds": 0.091570391,
+      "seconds_per_call": 0.0007153936796875,
+      "checksum": 681.0615400389505,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "head",
+        "--mode",
+        "RetrainedBump",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791639583.6038291,
+      "load_average": [
+        0.42822265625,
+        1.564453125,
+        3.6494140625
+      ],
+      "label": "mRetrainedBump-r1-p2-head",
+      "round": 1,
+      "pair": 2
+    },
+    {
+      "side": "head",
+      "mode": "RetrainedBump",
+      "iterations": 128,
+      "seconds": 0.09698419000000001,
+      "seconds_per_call": 0.0007576889843750001,
+      "checksum": 681.0615400389505,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "head",
+        "--mode",
+        "RetrainedBump",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791639583.737581,
+      "load_average": [
+        0.42822265625,
+        1.564453125,
+        3.6494140625
+      ],
+      "label": "mRetrainedBump-r1-p3-head",
+      "round": 1,
+      "pair": 3
+    },
+    {
+      "side": "baseline",
+      "mode": "RetrainedBump",
+      "iterations": 128,
+      "seconds": 0.092873889,
+      "seconds_per_call": 0.0007255772578125,
+      "checksum": 681.0615400389505,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--mode",
+        "RetrainedBump",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791639583.8759696,
+      "load_average": [
+        0.42822265625,
+        1.564453125,
+        3.6494140625
+      ],
+      "label": "mRetrainedBump-r1-p3-baseline",
+      "round": 1,
+      "pair": 3
+    },
+    {
+      "side": "baseline",
+      "mode": "RetrainedBump",
+      "iterations": 128,
+      "seconds": 0.089319783,
+      "seconds_per_call": 0.0006978108046875,
+      "checksum": 681.0615400389505,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--mode",
+        "RetrainedBump",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791639584.014261,
+      "load_average": [
+        0.42822265625,
+        1.564453125,
+        3.6494140625
+      ],
+      "label": "mRetrainedBump-r1-p4-baseline",
+      "round": 1,
+      "pair": 4
+    },
+    {
+      "side": "head",
+      "mode": "RetrainedBump",
+      "iterations": 128,
+      "seconds": 0.091008876,
+      "seconds_per_call": 0.00071100684375,
+      "checksum": 681.0615400389505,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "head",
+        "--mode",
+        "RetrainedBump",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791639584.147813,
+      "load_average": [
+        0.42822265625,
+        1.564453125,
+        3.6494140625
+      ],
+      "label": "mRetrainedBump-r1-p4-head",
+      "round": 1,
+      "pair": 4
+    },
+    {
+      "side": "head",
+      "mode": "RetrainedBump",
+      "iterations": 128,
+      "seconds": 0.092202239,
+      "seconds_per_call": 0.0007203299921875,
+      "checksum": 681.0615400389505,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "head",
+        "--mode",
+        "RetrainedBump",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791639584.2800386,
+      "load_average": [
+        0.42822265625,
+        1.564453125,
+        3.6494140625
+      ],
+      "label": "mRetrainedBump-r1-p5-head",
+      "round": 1,
+      "pair": 5
+    },
+    {
+      "side": "baseline",
+      "mode": "RetrainedBump",
+      "iterations": 128,
+      "seconds": 0.091951688,
+      "seconds_per_call": 0.0007183725625,
+      "checksum": 681.0615400389505,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--mode",
+        "RetrainedBump",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791639584.4163246,
+      "load_average": [
+        0.42822265625,
+        1.564453125,
+        3.6494140625
+      ],
+      "label": "mRetrainedBump-r1-p5-baseline",
+      "round": 1,
+      "pair": 5
+    },
+    {
+      "side": "baseline",
+      "mode": "RetrainedBump",
+      "iterations": 128,
+      "seconds": 0.09616640200000001,
+      "seconds_per_call": 0.0007513000156250001,
+      "checksum": 681.0615400389505,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--mode",
+        "RetrainedBump",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791639584.5522988,
+      "load_average": [
+        0.42822265625,
+        1.564453125,
+        3.6494140625
+      ],
+      "label": "mRetrainedBump-r1-p6-baseline",
+      "round": 1,
+      "pair": 6
+    },
+    {
+      "side": "head",
+      "mode": "RetrainedBump",
+      "iterations": 128,
+      "seconds": 0.092694385,
+      "seconds_per_call": 0.0007241748828125,
+      "checksum": 681.0615400389505,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "head",
+        "--mode",
+        "RetrainedBump",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791639584.6935031,
+      "load_average": [
+        0.42822265625,
+        1.564453125,
+        3.6494140625
+      ],
+      "label": "mRetrainedBump-r1-p6-head",
+      "round": 1,
+      "pair": 6
+    },
+    {
+      "side": "head",
+      "mode": "RetrainedBump",
+      "iterations": 128,
+      "seconds": 0.091793572,
+      "seconds_per_call": 0.00071713728125,
+      "checksum": 681.0615400389505,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "head",
+        "--mode",
+        "RetrainedBump",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791639584.828628,
+      "load_average": [
+        0.42822265625,
+        1.564453125,
+        3.6494140625
+      ],
+      "label": "mRetrainedBump-r1-p7-head",
+      "round": 1,
+      "pair": 7
+    },
+    {
+      "side": "baseline",
+      "mode": "RetrainedBump",
+      "iterations": 128,
+      "seconds": 0.092783141,
+      "seconds_per_call": 0.0007248682890625,
+      "checksum": 681.0615400389505,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--mode",
+        "RetrainedBump",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791639584.9629264,
+      "load_average": [
+        0.42822265625,
+        1.564453125,
+        3.6494140625
+      ],
+      "label": "mRetrainedBump-r1-p7-baseline",
+      "round": 1,
+      "pair": 7
+    },
+    {
+      "side": "baseline",
+      "mode": "RetrainedBump",
+      "iterations": 128,
+      "seconds": 0.088849464,
+      "seconds_per_call": 0.0006941364375,
+      "checksum": 681.0615400389505,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--mode",
+        "RetrainedBump",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791639585.1018052,
+      "load_average": [
+        0.42822265625,
+        1.564453125,
+        3.6494140625
+      ],
+      "label": "mRetrainedBump-r1-p8-baseline",
+      "round": 1,
+      "pair": 8
+    },
+    {
+      "side": "head",
+      "mode": "RetrainedBump",
+      "iterations": 128,
+      "seconds": 0.09746468100000001,
+      "seconds_per_call": 0.0007614428203125001,
+      "checksum": 681.0615400389505,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "head",
+        "--mode",
+        "RetrainedBump",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791639585.23662,
+      "load_average": [
+        0.42822265625,
+        1.564453125,
+        3.6494140625
+      ],
+      "label": "mRetrainedBump-r1-p8-head",
+      "round": 1,
+      "pair": 8
+    },
+    {
+      "side": "head",
+      "mode": "RetrainedBump",
+      "iterations": 128,
+      "seconds": 0.09173792800000001,
+      "seconds_per_call": 0.0007167025625000001,
+      "checksum": 681.0615400389505,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "head",
+        "--mode",
+        "RetrainedBump",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791639585.37669,
+      "load_average": [
+        0.42822265625,
+        1.564453125,
+        3.6494140625
+      ],
+      "label": "mRetrainedBump-r1-p9-head",
+      "round": 1,
+      "pair": 9
+    },
+    {
+      "side": "baseline",
+      "mode": "RetrainedBump",
+      "iterations": 128,
+      "seconds": 0.091753241,
+      "seconds_per_call": 0.0007168221953125,
+      "checksum": 681.0615400389505,
+      "oracle_passed": true,
+      "calibration_trials": [],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--mode",
+        "RetrainedBump",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so",
+        "--iterations",
+        "128"
+      ],
+      "started_unix": 1791639585.5124774,
+      "load_average": [
+        0.42822265625,
+        1.564453125,
+        3.6494140625
+      ],
+      "label": "mRetrainedBump-r1-p9-baseline",
+      "round": 1,
+      "pair": 9
+    }
+  ],
+  "calibrations": [
+    {
+      "side": "baseline",
+      "mode": "Frozen",
+      "iterations": 512,
+      "seconds": 0.052117326000000005,
+      "seconds_per_call": 0.00010179165234375001,
+      "checksum": 2724.246160155795,
+      "oracle_passed": true,
+      "calibration_trials": [
+        {
+          "iterations": 1,
+          "seconds": 0.00011425500000000001
+        },
+        {
+          "iterations": 2,
+          "seconds": 0.00019128300000000002
+        },
+        {
+          "iterations": 4,
+          "seconds": 0.00039541
+        },
+        {
+          "iterations": 8,
+          "seconds": 0.000819368
+        },
+        {
+          "iterations": 16,
+          "seconds": 0.00157168
+        },
+        {
+          "iterations": 32,
+          "seconds": 0.003234905
+        },
+        {
+          "iterations": 64,
+          "seconds": 0.006581291
+        },
+        {
+          "iterations": 128,
+          "seconds": 0.012977737000000001
+        },
+        {
+          "iterations": 256,
+          "seconds": 0.026042619000000003
+        },
+        {
+          "iterations": 512,
+          "seconds": 0.052117326000000005
+        }
+      ],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--mode",
+        "Frozen",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so"
+      ],
+      "started_unix": 1791639573.2777731,
+      "load_average": [
+        0.23681640625,
+        1.56689453125,
+        3.67333984375
+      ],
+      "label": "calibration-Frozen-baseline"
+    },
+    {
+      "side": "head",
+      "mode": "Frozen",
+      "iterations": 512,
+      "seconds": 0.056278492000000006,
+      "seconds_per_call": 0.00010991892968750001,
+      "checksum": 2724.246160155795,
+      "oracle_passed": true,
+      "calibration_trials": [
+        {
+          "iterations": 1,
+          "seconds": 0.00011170300000000001
+        },
+        {
+          "iterations": 2,
+          "seconds": 0.00021621000000000002
+        },
+        {
+          "iterations": 4,
+          "seconds": 0.00042887800000000005
+        },
+        {
+          "iterations": 8,
+          "seconds": 0.0009021900000000001
+        },
+        {
+          "iterations": 16,
+          "seconds": 0.001723001
+        },
+        {
+          "iterations": 32,
+          "seconds": 0.0035654560000000003
+        },
+        {
+          "iterations": 64,
+          "seconds": 0.006893298000000001
+        },
+        {
+          "iterations": 128,
+          "seconds": 0.014224435
+        },
+        {
+          "iterations": 256,
+          "seconds": 0.02800876
+        },
+        {
+          "iterations": 512,
+          "seconds": 0.056278492000000006
+        }
+      ],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "head",
+        "--mode",
+        "Frozen",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so"
+      ],
+      "started_unix": 1791639573.4363735,
+      "load_average": [
+        0.23681640625,
+        1.56689453125,
+        3.67333984375
+      ],
+      "label": "calibration-Frozen-head"
+    },
+    {
+      "side": "baseline",
+      "mode": "RetrainedBump",
+      "iterations": 64,
+      "seconds": 0.045824146,
+      "seconds_per_call": 0.00071600228125,
+      "checksum": 340.53077001947526,
+      "oracle_passed": true,
+      "calibration_trials": [
+        {
+          "iterations": 1,
+          "seconds": 0.0006636420000000001
+        },
+        {
+          "iterations": 2,
+          "seconds": 0.0012590630000000002
+        },
+        {
+          "iterations": 4,
+          "seconds": 0.002558205
+        },
+        {
+          "iterations": 8,
+          "seconds": 0.0056535610000000005
+        },
+        {
+          "iterations": 16,
+          "seconds": 0.011471691000000001
+        },
+        {
+          "iterations": 32,
+          "seconds": 0.022624846
+        },
+        {
+          "iterations": 64,
+          "seconds": 0.045824146
+        }
+      ],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "baseline",
+        "--mode",
+        "RetrainedBump",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so"
+      ],
+      "started_unix": 1791639579.9137294,
+      "load_average": [
+        0.37841796875,
+        1.57421875,
+        3.6640625
+      ],
+      "label": "calibration-RetrainedBump-baseline"
+    },
+    {
+      "side": "head",
+      "mode": "RetrainedBump",
+      "iterations": 64,
+      "seconds": 0.046378271000000006,
+      "seconds_per_call": 0.0007246604843750001,
+      "checksum": 340.53077001947526,
+      "oracle_passed": true,
+      "calibration_trials": [
+        {
+          "iterations": 1,
+          "seconds": 0.000643503
+        },
+        {
+          "iterations": 2,
+          "seconds": 0.0013040220000000002
+        },
+        {
+          "iterations": 4,
+          "seconds": 0.0026627530000000003
+        },
+        {
+          "iterations": 8,
+          "seconds": 0.005399842
+        },
+        {
+          "iterations": 16,
+          "seconds": 0.012217963
+        },
+        {
+          "iterations": 32,
+          "seconds": 0.023085088
+        },
+        {
+          "iterations": 64,
+          "seconds": 0.046378271000000006
+        }
+      ],
+      "command": [
+        "taskset",
+        "-c",
+        "0",
+        "python",
+        "/home/wegamekinglc/.cache/dal-aad-workspaces-20261004/portfolio-source/.codex/artifacts/performance/aad-python-lsmc-curvature-cost.py",
+        "--side",
+        "head",
+        "--mode",
+        "RetrainedBump",
+        "--bridge",
+        "/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-lsmc-curvature/baseline.so"
+      ],
+      "started_unix": 1791639580.0483515,
+      "load_average": [
+        0.37841796875,
+        1.57421875,
+        3.6640625
+      ],
+      "label": "calibration-RetrainedBump-head"
+    }
+  ],
+  "summary": [
+    {
+      "mode": "Frozen",
+      "rounds": [
+        {
+          "round": 0,
+          "baseline": 0.0001013193427734375,
+          "head": 0.00010958590527343751,
+          "delta_percent": 8.158918399702863
+        },
+        {
+          "round": 1,
+          "baseline": 0.00010165413183593751,
+          "head": 0.00011050783984375001,
+          "delta_percent": 8.709639094750955
+        }
+      ],
+      "verdict": "informational: unequal boundary ownership contracts"
+    },
+    {
+      "mode": "RetrainedBump",
+      "rounds": [
+        {
+          "round": 0,
+          "baseline": 0.00069360771875,
+          "head": 0.0007069519843750001,
+          "delta_percent": 1.9238923189967894
+        },
+        {
+          "round": 1,
+          "baseline": 0.0006941364375,
+          "head": 0.00071100684375,
+          "delta_percent": 2.4304164626136604
+        }
+      ],
+      "verdict": "informational: unequal boundary ownership contracts"
+    }
+  ],
+  "sample_count": 80,
+  "measured_seconds": 8.17993001
+}

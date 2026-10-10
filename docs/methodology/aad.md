@@ -2248,8 +2248,13 @@ These are finite-step products of a finite-path estimator. Piecewise smoothing
 and hard policy fitting do not guarantee a globally C2 function, symmetric
 Hessian, unbiased Gamma or quadratic step convergence. Outer-step bias, inner
 policy-secant error and sampling dispersion must be assessed separately.
-Native `higherOrder_` remains false. Language bindings and other model families
-are outside this C++ entry.
+Native `higherOrder_` remains false. Public C++ consumers use
+`PlanBlackScholesLsmc` / `ValueByBlackScholesLsmcWithCurvature` from
+`dal-public/src/lsmccurvature.hpp` for a closed owning financial preparation and
+result. The [Python projection](../python/README.md#native-lsmc-policy-curvature)
+retains the same policy, simulation, steps and resource metadata; it exposes
+passive values and no active scalar/model callback. Other model families are
+outside this entry.
 
 ### Recalibrated Dupire quote curvature
 

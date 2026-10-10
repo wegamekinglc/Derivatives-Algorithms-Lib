@@ -635,6 +635,69 @@ maxima, excluding aggregate memory and RSS. These are finite-step secants;
 nonsmooth payoffs have separate step and sampling errors. See the
 [native methodology](../methodology/aad.md#common-path-segmented-monte-carlo-curvature).
 
+## Native LSMC policy curvature
+
+Prepare a closed Black–Scholes EXERCISE contract and seal its valuation,
+historical observations and simulation settings before requesting curvature:
+
+```python
+product = dal.Product_New(
+    ["K", dal.Date_(2027, 4, 10), dal.Date_(2027, 10, 10)],
+    ["50", "EXERCISE 2 * K - spot()", "EXERCISE 2 * K - spot()"],
+)
+simulation = dal.MonteCarloSettings_(
+    enable_aad=True, compiled=True, smooth=2.0,
+    lsmc_training_paths=256, lsmc_policy_risk_mode="Frozen",
+)
+plan = dal.BlackScholesLsmcPlan_New(
+    product, simulation=simulation,
+    valuation=dal.ScriptValuationSettings_(evaluation_date=dal.Date_(2026, 10, 10)),
+)
+point = [100.0, 0.2, 0.05, 0.0, *plan.script_constants]
+bumps = dal.BumpOverAADRequest_(
+    directions=dal.DoubleMatrix_([[1.0, 0.0, 0.0, 0.0, 0.0]]), steps=[0.1],
+)
+risk = dal.BlackScholesLsmc_Get_Curvature(plan, point, 129, bumps)
+spot_gamma = risk.hessian_products[0, 0]
+base_policy = risk.base_policy
+```
+
+The point uses raw spot, volatility, rate, dividend yield, then script constants
+in `plan.parameter_labels` order. Planning copies the contract and resolves
+history once; evaluation replays those sealed observations with the supplied
+constant values. `simulation=None` uses native-risk defaults with AAD enabled.
+An explicitly disabled AAD setting, expired exercise or a contract without live
+EXERCISE is rejected. Settings and numeric arguments are copied before GIL
+release; no active Python scalar, objective or model callback is accepted.
+
+`Frozen` fits one base policy and uses that same policy for all outer points;
+its method is `BumpOverFrozenNativeLsmcAAD`. Repeating ordinary Frozen pricing
+at bumped points fits different policies and estimates a different quantity.
+`RetrainedBump` fits a policy at every outer point and differences the existing
+complete gradient estimator, including its inner policy-only price secant.
+It reports `BumpOverRetrainedNativeLsmcPolicySecant`. The retained
+`simulation.lsmc_policy_bump_relative` controls the inner step independently
+from `risk.steps`; training, validation and pricing streams remain common.
+
+Results own `plan`, `value`, `gradient`, `parameter_labels`, `point`,
+`directions`, `steps`, `hessian_products`, `base_policy`, `simulation` and
+`execution`. Passive `LsmcExercisePolicy_` elements retain coefficients, scalar
+and multivariate normalization, basis powers/degree, degeneracy, effective rank,
+solver/fallback and validation error in live EXERCISE order. Plan getters include
+valuation, simulation, original contract dates/events/settings, live event dates,
+time line and observation snapshots. Nested containers/settings are detached;
+copy/deepcopy may share immutable preparation.
+
+Execution records `1+2M` gradient requests, paths per replicate,
+training/validation/replicate counts, numeric payload, recording cap and maximum
+batch tape/cleanup reserve. Empty directions retain the full base gradient.
+Numeric payload excludes policy, preparation and temporary work. Recording caps
+apply to individual fuzzy replay batches and can fail after policy training;
+resource maxima exclude aggregate process memory. Explicit zero limits remain
+zero. These finite-path, finite-step estimators do not imply an analytic,
+symmetric Hessian or unbiased optimal-stopping Gamma. See
+[the estimator contract](../methodology/aad.md#native-lsmc-policy-curvature).
+
 ## Matrix and local-volatility surface input
 
 `DoubleMatrix_` supports all of the following:

@@ -18,6 +18,10 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-10
 
+- **LSMC financial interfaces** — public C++ and Python own closed Black–Scholes
+  EXERCISE preparation and expose frozen/retrained policy curvature with complete
+  passive policy metadata and separate inner/outer steps. See
+  [the Python interface](docs/python/README.md#native-lsmc-policy-curvature).
 - **Segmented Monte Carlo financial interfaces** — public C++ and Python own
   frozen Black–Scholes script preparation and expose segmented mean gradients
   and common-path finite-step Hessian products with explicit sampling and memory
