@@ -107,4 +107,5 @@ PYBIND11_MODULE(_dal, m) {
     init_bindings_ratecurvature(m);
     init_bindings_montecarlocurvature(m);
     init_bindings_lsmccurvature(m);
+    init_bindings_europeanpderisk(m);
 }

@@ -63,11 +63,58 @@ rho by $10^{-4}$ for a one-basis-point sensitivity and vega by $0.01$ for one
 volatility point. The example also prints the largest actual physical forward
 and transpose backward errors under the declared $10^{-12}$ limits.
 
-The [shared caller](../../../dal-cpp/test-support/europeanaadfd.hpp) supplies
+The [shared financial program](../../../dal-cpp/dal/math/aad/europeantheta.hpp) supplies
 the financial expressions while the example owns input registration, channel
 selection, reverse seeds and report extraction. It copies doubles before
-closing the scope. This support header is repository example/test code; reusable
-library interfaces remain the native sampled-step headers linked above.
+closing the scope. The repository support header preserves the example namespace
+through aliases. Public C++ and Python use the same production financial program
+through the owning request below.
+
+## Owning Financial Request
+
+`EuropeanPdeRiskRequest_` and `EvaluateEuropeanPdeRisk` in
+`dal-public/src/europeanpderisk.hpp` own the three parameter values, passive
+settings and optional budgets. `EuropeanPdeSettings_` retains the example's
+defaults and permits a different positive upper boundary, expiry and finite
+dividend yield. An explicit interior `spotIndex_` selects the evaluation node;
+an omitted index uses the quarter-grid node, requiring `(gridPoints_-1)%4==0`.
+Strike must lie strictly inside the domain and away from grid nodes, where the
+terminal payoff is nondifferentiable. Volatility must be positive.
+
+```cpp
+Dal::EuropeanPdeRiskRequest_ request;
+request.point_ = {0.05, 0.20, 110.0};
+const auto risk = Dal::EvaluateEuropeanPdeRisk(request);
+const double callVegaPerVolPoint = 0.01 * risk.jacobian_(0, 1);
+```
+
+The result owns call/put prices, the 2-by-3 rate/volatility/strike Jacobian,
+parameter and unit labels, resolved settings, grid and physical spot. Its method
+is `NativeAADFixedGridEuropeanTheta`. It owns no active numbers or tape handles.
+The forward error matrix has one chronological row per actual time step and
+columns [Call,Put]. The transpose matrix has four columns ordered by option
+layer then reverse seed: Call/Call, Call/Put, Put/Call, Put/Put.
+The actual step count is `ordinarySteps_+2`; default forward and transpose
+backward-error limits are both 1e-12. Limits must be finite and in [0,1],
+checked before allocation or recording. Detaching chronological reports takes
+linear time in the number of steps and verifies each native event identity.
+
+The optional numeric payload budget covers exactly
+`sizeof(double)*(17+gridPoints_+6*(ordinarySteps_+2))` retained doubles:
+point, physical settings and error limits, prices, Jacobian, spot, grid and
+per-step errors. It excludes integers, labels, container/allocator overhead,
+temporary copies and peak process memory. A zero budget is a real limit.
+The separate recording-capacity limit charges retained native blocks, owned
+events and event scratch; unused thread-local block capacities also count.
+Execution reports the actual peak tape charge, cleanup reserve and reverse
+scratch peak separately. Capacity admission may fail during recording or reverse.
+
+The request requires an empty caller tape and rejects an active independent
+scope or nonempty legacy graph before changing its mode or adjoints. It owns a
+two-channel recording and restores the prior mode on success or failure.
+Mesh, spot node, expiry and dividend remain passive; these outputs do not
+provide Delta or Gamma. See the
+[Python interface](../../python/README.md#fixed-grid-european-pde-risk).
 
 ## Derivative and Model Acceptance
 

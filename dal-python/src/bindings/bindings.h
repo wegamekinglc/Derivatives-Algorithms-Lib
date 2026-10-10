@@ -31,3 +31,4 @@ void init_bindings_dupirecurvature(py::module_& m);
 void init_bindings_ratecurvature(py::module_& m);
 void init_bindings_montecarlocurvature(py::module_& m);
 void init_bindings_lsmccurvature(py::module_& m);
+void init_bindings_europeanpderisk(py::module_& m);

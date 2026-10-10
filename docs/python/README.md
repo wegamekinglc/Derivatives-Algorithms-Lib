@@ -817,4 +817,38 @@ compatibility with the standalone web application. `_StorableToJson`,
 `_StorableFromJson`, `_BagNew`, and `_BagContents` are private integration
 helpers rather than supported general serialization functions.
 
+## Fixed-grid European PDE risk
+
+```python
+settings = dal.EuropeanPdeSettings_(grid_points=61, ordinary_steps=120)
+risk = dal.EuropeanPdeRiskResult_New(0.05, 0.20, 110.0, settings=settings)
+call_price, put_price = risk.prices
+call_rho_per_bp = 1e-4 * risk.jacobian[0, 0]
+call_vega_per_point = 0.01 * risk.jacobian[0, 1]
+```
+
+The three required parameters are absolute decimal rate, volatility and strike.
+Optional settings and `numeric_payload_budget_bytes` /
+`recording_capacity_budget_bytes` are keyword-only. Settings are immutable:
+node/ordinary-interval defaults are 61/120, upper boundary 400, expiry 1,
+dividend yield 0.02 and both solve-error limits 1e-12.
+Both error limits must be finite and in [0,1].
+`spot_index=None` resolves the quarter-grid node; otherwise supply an interior
+node index. Strike must be positive, below the upper boundary and away from
+grid nodes. Volatility and expiry must be positive. Bool, enums and implicit
+numeric coercions are rejected.
+
+The owning result exposes copied `point`, `settings`, `grid`, `prices`,
+`jacobian`, axes/units, `spot`, `method`, actual chronological forward/
+transpose error matrices and `execution` resource observations. Its arrays and
+matrices remain valid after GC or subsequent calls. Native work releases the
+GIL. The mesh, spot node, dividend and expiry are passive; the Jacobian contains
+rate/volatility/strike first derivatives only.
+
+The numeric budget covers `8*(17+nodes+6*(ordinary_steps+2))` retained doubles,
+excluding labels, containers and temporary copies. The recording limit uses
+actual retained tape/event capacity with a cleanup reservation; it is not a
+process heap quota. Zero limits reject nonempty requests. See
+[the financial program and budget details](../methodology/pde/aad.md#owning-financial-request).
+
 See [dal-python/README.md](../../dal-python/README.md) for package-focused examples.
