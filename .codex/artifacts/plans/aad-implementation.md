@@ -284,21 +284,34 @@ cases rerun and sixteen unchanged cases retained. Completed controls are immutab
 [cost report](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/04e9dd0cc109b78cb3e17fb0779387e54eecf29d/.codex/artifacts/performance/aad-xccy-quote-curvature.md)
 and [harness](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/04e9dd0cc109b78cb3e17fb0779387e54eecf29d/.codex/artifacts/performance/aad-xccy-quote-curvature-cost.cpp).
 
-The separate active financial trading increment follows its
-[specification](../specs/aad-rate-trade-quote-curvature.md),
-[API](../api-notes/aad-rate-trade-quote-curvature.md),
-[critique](../critiques/aad-rate-trade-quote-curvature.md),
-[review](../reviews/aad-rate-trade-quote-curvature.md) and
-[scoped cost acceptance](../performance/aad-rate-trade-quote-curvature.md).
-Local implementation covers 58 scoped functional tests, ten strict compilation
-probes, installed consumption and five cost comparisons (200 observations;
-1.0866 seconds of measured work). Remote review/CI acceptance remains.
-Its remaining estimate is 1–3 developer-hours,
-excluding required CI wait.
-Explicit trading adapters,
-rectangular/approximate calibration semantics, policy/estimator validation and
-native mixed mode remain required subsequent deliveries; they are not claimed
-complete by the smooth square-system native objective primitive.
+Financial trading quote curvature is accepted in merged
+[#525](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/525),
+at `f30c7bf4`, after two complete 35/35 audits, zero Codacy annotations and
+unresolved review threads, and clear current-head Codex review. All 58 selected
+cases execute in fourteen runtime profiles. The tested merge preview and final
+squash merge share tree `3acc1ced75eed4b980b50d2e6e2785eaf3571bb3`.
+Local acceptance includes ten strict probes, installed consumption and five
+cost comparisons (200 observations; 1.0866 seconds of measured work).
+Completed controls remain immutable:
+[specification](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/c26e198d882cbaae91fe1a5683b9cb5ea2742c86/.codex/artifacts/specs/aad-rate-trade-quote-curvature.md),
+[API](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/c26e198d882cbaae91fe1a5683b9cb5ea2742c86/.codex/artifacts/api-notes/aad-rate-trade-quote-curvature.md),
+[critique](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/c26e198d882cbaae91fe1a5683b9cb5ea2742c86/.codex/artifacts/critiques/aad-rate-trade-quote-curvature.md),
+[review](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/c26e198d882cbaae91fe1a5683b9cb5ea2742c86/.codex/artifacts/reviews/aad-rate-trade-quote-curvature.md),
+[cost report](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/c26e198d882cbaae91fe1a5683b9cb5ea2742c86/.codex/artifacts/performance/aad-rate-trade-quote-curvature.md)
+and [harness](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/c26e198d882cbaae91fe1a5683b9cb5ea2742c86/.codex/artifacts/performance/aad-rate-trade-quote-curvature-cost.cpp).
+
+The active policy/estimator increment follows its
+[specification](../specs/aad-lsmc-curvature.md),
+[API](../api-notes/aad-lsmc-curvature.md),
+[critique](../critiques/aad-lsmc-curvature.md) and
+[scoped cost plan](../performance/aad-lsmc-curvature.md).
+Local correctness, independent passive-price references, strict OFF/combined
+compilation, installed consumption and four scoped paired cost cases pass.
+Remote acceptance remains. Its remaining estimate is 4–8 developer-hours, excluding
+required CI wait.
+Policy/estimator validation and native mixed mode remain required subsequent
+deliveries. Rectangular/approximate calibration semantics are outside the
+accepted smooth square-system quote-curvature scope.
 
 Native PDE recording is accepted in merged
 [#505](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/505),
@@ -822,8 +835,8 @@ affected-boundary tests, scoped costs and complete current-head CI/review accept
 |-----------------------------|-------------------------------------------------------------------------------------------|-----------------|
 | Native driver               | #517 merged; explicit requests, mathematical/lifecycle and exact-head acceptance complete | 0               |
 | Financial MC                | #519 merged; common-path requests and exact-head acceptance complete                      | 0               |
-| Quote curvature             | #520/#522/#523/#524 merged; financial trading integration passes local acceptance         | 1–3             |
-| Policy/estimator validation | Frozen/RetrainedBump meaning, inner/outer steps and applicable convergence/error evidence | 12–24           |
+| Quote curvature             | #520/#522/#523/#524/#525 merged; financial trading integration and publication accepted   | 0               |
+| Policy/estimator validation | Native Frozen/RetrainedBump and local estimator checks pass; publication remains          | 4–8             |
 
 ## Completion evidence
 
@@ -1447,23 +1460,23 @@ This snapshot distinguishes accepted increments from locally implemented work.
 Estimates are remaining single-developer effort, not promises of calendar time;
 overlapping acceptance work is included once in the integration allowance.
 
-| Work item               | Implementation/local verification                                | Publication/CI                           | Remaining person-days |
-|-------------------------|------------------------------------------------------------------|------------------------------------------|-----------------------|
-| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                    | Accepted exact-head checks               | 0                     |
-| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass   | Merged; final 35/35 checks accepted      | 0                     |
-| F01                     | C++/Python/Excel and complete requirement audit accepted         | Merged; final 35/35 checks accepted      | 0                     |
-| F02 weighted/blocked    | C++/Python/Excel and independent mathematical oracles accepted   | #483/#484 merged; exact-head gates pass  | 0                     |
-| F02 portfolio           | C++/Python/Excel, installed consumers and timing repair accepted | #487 merged; final 35/35 checks accepted | 0                     |
-| P02                     | Worker reuse: 82 tests and 37 full-request cost cases accepted   | #488 merged; final 35/35 checks accepted | 0                     |
-| P03                     | 89 tests; 81 unique complete-request timing comparisons accepted | #489 merged; final 35/35 checks accepted | 0                     |
-| F03                     | Solve/root/PDE operators and financial/grid acceptance complete  | #506 merged; final 36/36 gates accepted  | 0                     |
-| P04                     | Structural compression, safe fallback and selection accepted     | #511 merged; final 36/36 gates accepted  | 0                     |
-| P05                     | Core, fixed-path and Monte Carlo adapters accepted               | #512/#513/#515 merged; 36/36 gates       | 0                     |
-| F04                     | Second-order implementation/estimator validation remain          | Open                                     | 6–12                  |
-| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains       | Open                                     | 7–11                  |
+| Work item               | Implementation/local verification                                  | Publication/CI                           | Remaining person-days |
+|-------------------------|--------------------------------------------------------------------|------------------------------------------|-----------------------|
+| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                      | Accepted exact-head checks               | 0                     |
+| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass     | Merged; final 35/35 checks accepted      | 0                     |
+| F01                     | C++/Python/Excel and complete requirement audit accepted           | Merged; final 35/35 checks accepted      | 0                     |
+| F02 weighted/blocked    | C++/Python/Excel and independent mathematical oracles accepted     | #483/#484 merged; exact-head gates pass  | 0                     |
+| F02 portfolio           | C++/Python/Excel, installed consumers and timing repair accepted   | #487 merged; final 35/35 checks accepted | 0                     |
+| P02                     | Worker reuse: 82 tests and 37 full-request cost cases accepted     | #488 merged; final 35/35 checks accepted | 0                     |
+| P03                     | 89 tests; 81 unique complete-request timing comparisons accepted   | #489 merged; final 35/35 checks accepted | 0                     |
+| F03                     | Solve/root/PDE operators and financial/grid acceptance complete    | #506 merged; final 36/36 gates accepted  | 0                     |
+| P04                     | Structural compression, safe fallback and selection accepted       | #511 merged; final 36/36 gates accepted  | 0                     |
+| P05                     | Core, fixed-path and Monte Carlo adapters accepted                 | #512/#513/#515 merged; 36/36 gates       | 0                     |
+| F04                     | Policy curvature passes locally; publication and mixed mode remain | Open                                     | 5–10                  |
+| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains         | Open                                     | 7–11                  |
 
-Remaining total during F04 development: 101–179 hours, approximately
-13–23 eight-hour person-days, excluding CI queue time. Delivery contingency
+Remaining total during F04 development: 92–160 hours, approximately
+12–20 eight-hour person-days, excluding CI queue time. Delivery contingency
 is included in those same hour ranges; there is no extra undisclosed allowance. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
 effort estimate, not a guaranteed completion date. Re-estimate when review
@@ -1488,10 +1501,10 @@ numeric/native diagnostics are not counted again.
 | 7a    | P05 segmentation core                | #512 merged; actual runtime, exact-head CI/review and guarded merge accepted   | 0               |
 | 7b    | P05 financial adapter                | #513 merged; exact-head CI, review, costs, actual runtime and merge accepted   | 0               |
 | 7c    | P05 Monte Carlo acceptance           | #515 merged; 36/36 gates, fourteen actual runtime profiles and merge proof     | 0               |
-| 8     | F04 second-order risk                | Financial trading quote curvature and policy/estimator validation remain       | 13–27           |
+| 8     | F04 second-order risk                | Native policy curvature and scoped costs pass; publication remains             | 4–8             |
 | 9     | F04 native mixed-mode prototype      | Smooth-kernel prototype, independent correctness and capability limits         | 32–64           |
 | 10    | Bindings and complete acceptance     | C++/Python/Excel, documentation, platform and performance gates                | 56–88           |
-| Total | Full remaining implementation        | All remaining plan requirements                                                | 101–179         |
+| Total | Full remaining implementation        | All remaining plan requirements                                                | 92–160          |
 
 
 The first delivery boundary is complete. Whole-PR review repaired the Windows

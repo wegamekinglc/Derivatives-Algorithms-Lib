@@ -201,8 +201,9 @@ namespace Dal::Script {
                        ScriptError_);
             }
             REQUIRE2(std::isfinite(value), "InvalidFixing: expected a finite fixing" + Context(request), ScriptError_);
-            if (dynamic_cast<const Index::Fx_*>(request.index_.get()))
+            if (dynamic_cast<const Index::Fx_*>(request.index_.get())) {
                 REQUIRE2(value > 0.0, "InvalidFixing: expected a positive FX fixing" + Context(request), ScriptError_);
+            }
             return value;
         }
 
@@ -523,6 +524,7 @@ namespace Dal::Script {
                 result->compiled_ =
                     ScriptCompiled_::Build(writable->Events(), result->Simulation().enableAad_, result->plan_, false, writable->ContainsExercise());
             }
+            result->modelType_ = typeid(*model);
             result->executable_ = true;
         }
 
@@ -590,9 +592,10 @@ namespace Dal::Script {
             const auto simulation = requestedSimulation;
             const auto settings = ResolveValuationSettings(valuation, snapshot);
             const Date_ evaluationDate = *settings.evaluationDate_;
-            if (model && model->EvaluationDate())
+            if (model && model->EvaluationDate()) {
                 REQUIRE2(*model->EvaluationDate() == evaluationDate, "InvalidModelEvaluationDate: model curve date must match script valuation date",
                          ScriptError_);
+            }
             const auto contract = ResolveContract(data.Settings(), legacyContract);
             auto product = std::make_unique<ScriptProduct_>(data.Product());
             REQUIRE2(!product->Events().empty(), "InvalidScriptStructure: script has no dated events", ScriptError_);

@@ -18,9 +18,35 @@
 #include <dal-public/src/value.hpp>
 #include <dal/model/dupirerisk.hpp>
 #include <dal/model/ivs.hpp>
+#include <dal/script/lsmccurvature.hpp>
+#include <dal/script/simulation.hpp>
 #include <dal/utilities/numerics.hpp>
 
 namespace {
+    bool CheckLsmcCurvature() {
+        Dal::Script::MonteCarloSettings_ simulation;
+        simulation.enableAad_ = true;
+        simulation.compiled_ = true;
+        simulation.smooth_ = 2.0;
+        simulation.lsmcTrainingPaths_ = 128;
+        Dal::Script::ScriptValuationSettings_ valuation;
+        valuation.evaluationDate_ = Dal::Date_(2026, 10, 10);
+        const Dal::Script::ScriptProductData_ product("", {Dal::Cell_(Dal::Date_(2027, 4, 10)), Dal::Cell_(Dal::Date_(2027, 10, 10))},
+                                                      {"EXERCISE 100 - spot()", "EXERCISE 100 - spot()"});
+        Dal::AAD::BlackScholes_<> model(100.0, 0.2, 0.05, 0.0);
+        const auto prepared =
+            std::make_shared<const Dal::Script::PreparedScript_>(Dal::Script::PrepareScript(product, &model, valuation, simulation));
+        Dal::AAD::BumpOverAADRequest_ bumps;
+        bumps.directions_ = Dal::Matrix_<>(2, 4, 0.0);
+        bumps.directions_(0, 0) = 1.0;
+        bumps.directions_(1, 0) = -1.0;
+        bumps.steps_ = {0.1, 0.1};
+        const auto result = Dal::Script::EvaluateBlackScholesLsmcCurvature(prepared, {100.0, 0.2, 0.05, 0.0}, 128, bumps);
+        return result.BasePolicy().size() == 2 && result.Gradient().size() == 4 && result.Execution().gradientEvaluations_ == 5 &&
+               std::isfinite(result.HessianProducts()(0, 0)) && result.HessianProducts()(0, 0) == -result.HessianProducts()(1, 0) &&
+               result.Execution().method_ == "BumpOverFrozenNativeLsmcAAD";
+    }
+
     class ConsumerIVS_ final : public Dal::AAD::IVS_ {
     public:
         explicit ConsumerIVS_(double rate = 0.0, double dividend = 0.0) : IVS_(100.0, rate, dividend) {}
@@ -173,6 +199,8 @@ int main() {
         return 12;
     if (!CheckXccyFactoryExports())
         return 13;
+    if (!CheckLsmcCurvature())
+        return 14;
     const auto merton = Dal::NewMertonIVS(100.0, 0.2, 0.08, -0.1, 0.15);
     const Dal::AAD::MertonIVS_ mertonReference(100.0, 0.2, 0.08, -0.1, 0.15);
     if (merton.ImpliedVol(105.0, 0.4) != mertonReference.ImpliedVol(105.0, 0.4))

@@ -494,7 +494,7 @@ jobs:
           DAL_NUM_THREADS: 4
         run: |
           "$SANITIZER_BUILD_DIR/dal-cpp/dal_cpp_tests" \
-            --gtest_filter='${{ matrix.core-filter }}:ScriptTest.TestPositioned*:ScriptTest.TestIRNPrepared*'
+            --gtest_filter='${{ matrix.core-filter }}:ScriptTest.TestPositioned*:ScriptTest.TestIRNPrepared*:ScriptExerciseLSMCTest.TestCurvature*'
           "$SANITIZER_BUILD_DIR/dal-cpp/dal_cpp_schedule_allocation_tests" \
             --gtest_filter='SchedulesTest.TestContextAllocationCountDoesNotGrowPerPeriod' \
             --gtest_fail_if_no_test_selected
