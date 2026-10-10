@@ -10,6 +10,14 @@ tests, new raw/registration cases and controlling spec/API/critique.
 Review caught and corrected a raw fixture's missing payoff assignment before
 publication. This was test preparation, not a native numerical behavior change.
 
+The first actual Windows run found two further test preparation errors: typed
+fixtures initialized the executable's registry but omitted the XLL's registry,
+and a raw capacity assertion expected wording absent from the native message.
+Initialize both runtimes before typed preparation and assert the actual tape
+capacity/zero-limit rejection. All eleven scoped typed cases and affected strict
+probes pass again. Production, generated code and every timing dependency are
+unchanged, so no performance observation is repeated for this test-only repair.
+
 ## Open questions
 
 None. Native public mean/curvature entries control numerical behavior. This

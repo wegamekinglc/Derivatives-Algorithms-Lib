@@ -334,7 +334,7 @@ TEST(ScriptExcelRawTest, TestSegmentedMonteCarloRawZeroDirectionsAndSeparateReco
     Output_ capped(Call("xl_SegmentedMonteCarloSettings_New", &fixture.name_.cell_, &capSettings));
     Output_ rejected(Call("xl_BlackScholesMonteCarloCurvatureResult_New", &fixture.name_.cell_, fixture.plan_.Scalar(), &fixture.point_,
                           &fixture.paths_, fixture.bumps_.Scalar(), capped.Scalar()));
-    CheckError(rejected, {"recording"});
+    CheckError(rejected, {"Tape capacity budget exceeded", "limit=0"});
     Output_ recovered(fixture.Curvature(&fixture.point_, &fixture.paths_, fixture.bumps_.Scalar()));
     ASSERT_EQ(recovered.Text().find("#Error:"), std::string::npos) << recovered.Text();
 }

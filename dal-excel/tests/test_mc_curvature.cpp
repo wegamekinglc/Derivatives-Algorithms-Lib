@@ -21,6 +21,13 @@
 using namespace Dal;
 
 namespace {
+    void InitializeRuntime() {
+        RegisterAll_::Init();
+#ifdef _WIN32
+        Excel::ScriptTestInitialize(1);
+#endif
+    }
+
     Matrix_<Cell_> Cells(std::initializer_list<std::pair<String_, Cell_>> fields) {
         Matrix_<Cell_> cells(static_cast<int>(fields.size()), 2);
         int row = 0;
@@ -45,7 +52,7 @@ namespace {
     }
 
     auto Plan(bool today = true) {
-        RegisterAll_::Init();
+        InitializeRuntime();
         const auto product =
             NewScriptProduct("sealed", {Cell_("SCALE"), Cell_(Date_(today ? 2026 : 2027, 1, 2))},
                              {"2", today ? "pay PAYS SCALE * FIX(EQ[EXCEL_SEGMENTED]) ^ 2" : "pay PAYS SCALE * FIX(EQ[EXCEL_SEGMENTED])"});
@@ -115,7 +122,7 @@ namespace {
 } // namespace
 
 TEST(ExcelMonteCarloCurvatureTest, TestIndependentTimeZeroMixedProductsAndStoredBase) {
-    RegisterAll_::Init();
+    InitializeRuntime();
     const auto product =
         NewScriptProduct("today", {Cell_("SCALE"), Cell_(Date_(2026, 1, 2))}, {"2", "pay PAYS SCALE * FIX(EQ[EXCEL_SEGMENTED]) ^ 2"});
     Script::ScriptValuationSettings_ value;
@@ -328,7 +335,7 @@ TEST(ExcelMonteCarloCurvatureTest, TestZeroDirectionsAndSeparateExactNativeBudge
 }
 
 TEST(ExcelMonteCarloCurvatureTest, TestHistoricalPreparationSealsObservationsWithoutRereads) {
-    RegisterAll_::Init();
+    InitializeRuntime();
     auto valuation = Valuation();
     valuation.fixings_ =
         Handle_<MarketFixingSnapshot_>(new MarketFixingSnapshot_({{"EQ[EXCEL_SEGMENTED_HISTORY]", {{DateTime_(Date_(2025, 1, 2), 0.0), 80.0}}}}));
