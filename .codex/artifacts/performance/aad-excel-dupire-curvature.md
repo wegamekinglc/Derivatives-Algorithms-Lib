@@ -1,6 +1,7 @@
 # Excel Dupire curvature scoped acceptance
 
-Status: correctness accepted locally; paired boundary measurement pending.
+Status: local correctness and scoped paired boundary costs accepted;
+Windows runtime and publication gates pending.
 Baseline: merged Excel PDE commit `c1068d991c1547c6b7d35bf490b49a61de574003`.
 
 ## Selection before measurement
@@ -43,8 +44,28 @@ These are unequal ownership/spill contracts. Cost differences are informational;
 the calibrated +4% regression rule remains applicable only to comparable
 contracts. Do not present typed Linux timing as Excel-host, COM or raw-XLL costs.
 
-## Pending acceptance
+## Results
 
-Record source/executable/dependency hashes, calibrated counts and raw minima
-before publication. Inspect completed Windows export/registration runtime and
-all current-head checks/reviews before either final audit or merge.
+The timed head is `187ee426`; baseline/head use the same accepted installed
+core/public archives. The core SHA-256 is
+`967f5e721f0ba67354b66f8eb14d8be9c4f7e422463bc8c412864491ee06997c`.
+All changed Excel and bridge objects are rebuilt in isolated worktrees with
+`-O3 -DNDEBUG -fPIC`, diagnostics/profiling OFF and one worker. Raw
+[results and provenance](aad-excel-dupire-curvature-results.json) retain both
+commits, compiler/configuration, every object dependency and executable hash,
+all process outputs and the four calibration captures.
+
+| Paths | Repetitions, C++ / Excel | Round 1 minima, microseconds C++ / Excel | Round 2 minima, microseconds C++ / Excel | Relative cost, rounds 1 / 2 |
+|-------|--------------------------|------------------------------------------|------------------------------------------|-----------------------------|
+| 17    | 40 / 41                  | 2297.79 / 2324.64                        | 2320.66 / 2317.10                        | +1.17% / -0.15%             |
+| 257   | 28 / 28                  | 3778.99 / 3790.56                        | 3701.90 / 3746.46                        | +0.31% / +1.20%             |
+
+All 80 fresh-process observations pass the financial/count checks. Their timed
+batches total 8.215 seconds; the shortest is 91.912 ms. Measurements use CPU 0
+on the shared host, with recorded final load 0.63/1.23/1.28. The deltas are
+informational boundary costs, not a comparable-contract regression verdict.
+Zero unrelated previously accepted timing rows were repeated.
+
+Inspect completed Windows export/registration runtime and all current-head
+checks/reviews before either final audit or merge. A documentation-only final
+commit may reuse these costs after verifying unchanged source/dependency hashes.

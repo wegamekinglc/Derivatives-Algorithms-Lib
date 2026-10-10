@@ -13,9 +13,13 @@ Current controls are the [specification](../specs/aad-excel-dupire-curvature.md)
 All 25 worksheet functions are implemented and generated. Local acceptance
 currently has eight common-request and twelve financial-interface cases,
 including independent signed quadratic and recalibrated mixed-payoff checks,
-zero directions, budget boundaries and failure/caller-state recovery. Twelve
-OFF/combined strict translation-unit checks pass. Windows raw/registration
-runtime, two scoped cost cases and publication gates remain pending.
+zero directions, budget boundaries and failure/caller-state recovery. Fourteen
+OFF/combined strict translation-unit checks pass, and 50 wrapper/help files
+regenerate without drift. Two scoped complete financial requests retain 80
+calibrated observations in 8.215 timed seconds; unequal interface costs are
+informational. Windows raw/registration runtime and publication gates remain
+pending. The active [review](../reviews/aad-excel-dupire-curvature.md) and
+[cost report](../performance/aad-excel-dupire-curvature.md) control those gates.
 The new increment reuses accepted public numerical evaluators and existing
 storable templates. It will have a separate PR; rate curvature starts only after
 this increment merges.
@@ -1617,10 +1621,10 @@ overlapping acceptance work is included once in the integration allowance.
 | P04                     | Structural compression, safe fallback and selection accepted     | #511 merged; final 36/36 gates accepted  | 0                     |
 | P05                     | Core, fixed-path and Monte Carlo adapters accepted               | #512/#513/#515 merged; 36/36 gates       | 0                     |
 | F04                     | Finite-step and opt-in smooth prototype accepted                 | #517–#528 merged                         | 0                     |
-| Final integration/audit | Excel curvature and final integration remain                     | Open                                     | 3.6–5.4               |
+| Final integration/audit | Excel curvature and final integration remain                     | Open                                     | 3.5–5.3               |
 
-Remaining total after Excel PDE acceptance: 29–43 hours,
-approximately 3.6–5.4 eight-hour person-days, excluding CI queue time. Both
+Remaining total after local Excel Dupire acceptance: 28–42 hours,
+approximately 3.5–5.3 eight-hour person-days, excluding CI queue time. Both
 financial PDE projections are accepted and contribute zero hours. Delivery contingency
 is included in those same hour ranges; there is no extra undisclosed allowance. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
@@ -1674,11 +1678,11 @@ numeric/native diagnostics are not counted again.
 | 11d   | Structured-operator interface audit  | #533 merged; required gates, full review, two final audits and identical tree accepted                 | 0               |
 | 11e   | Closed financial PDE projection      | #534 merged; 35/35 checks, review repairs, actual runtime, scoped costs and both final audits accepted | 0               |
 | 12a   | Excel European PDE                   | #535 merged; 35/35 checks, fourteen actual runtime profiles, both audits and identical tree accepted   | 0               |
-| 12b1  | Excel Dupire curvature               | Common request and owning Dupire interfaces, scoped acceptance and separate publication                | 3–4             |
+| 12b1  | Excel Dupire curvature               | 25 functions and local scoped acceptance complete; Windows/runtime and publication remain              | 2–3             |
 | 12b2  | Excel rate curvature                 | Native calibration snapshots and trade quote-curvature interfaces, separate acceptance and publication | 3–4             |
 | 12c   | Excel MC and LSMC curvature          | Typed requests/plans/results, scoped acceptance and publication                                        | 7–11            |
 | 13    | Final integration and documentation  | Installed consumers, current docs and targeted cross-platform/performance acceptance                   | 16–24           |
-| Total | Full remaining implementation        | All remaining plan requirements                                                                        | 29–43           |
+| Total | Full remaining implementation        | All remaining plan requirements                                                                        | 28–42           |
 
 
 The first delivery boundary is complete. Whole-PR review repaired the Windows
@@ -2281,6 +2285,6 @@ Merge verification and both audits are retained in session evidence
 `aad-selected-extraction-merged-01.json`; the merge used the accepted-head SHA guard.
 P03 remaining effort is zero. The owning normalized-LU numeric pullback in #490
 and subsequent F03 recording/event integration are accepted. Current remaining
-work is Excel and final integration: 29–43 developer-hours, as detailed in
+work is Excel and final integration: 28–42 developer-hours, as detailed in
 the current status table. The closed financial PDE projection is accepted in #534.
 Native algorithms are accepted; full interface/integration delivery is incomplete.

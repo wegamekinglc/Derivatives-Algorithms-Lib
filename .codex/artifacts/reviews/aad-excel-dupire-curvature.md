@@ -1,6 +1,7 @@
 # Excel Dupire curvature implementation review
 
-Verdict: Comment Only; local correctness is green, publication gates pending.
+Verdict: Comment Only; local correctness and scoped costs are accepted,
+Windows runtime and publication gates pending.
 
 ## Findings
 
@@ -42,6 +43,9 @@ the complete name, argument types/order, nonvolatile flag and help contract.
 
 ## Open questions and residual risk
 
-None in the API contract. Real Windows execution, generated-file drift,
-paired scoped cost observations, Codacy, full external review and both final
-exact-head audits remain publication gates. Do not merge from this local review.
+None in the API contract. Generated-file drift checks pass. Real Windows
+execution, Codacy, full external review and both final exact-head audits remain
+publication gates. Do not merge from this local review.
+The two paired financial cost cases retain all 80 calibrated observations,
+unchanged native/public archives and all rebuilt object dependencies; unequal
+worksheet ownership/spill differences are informational.
