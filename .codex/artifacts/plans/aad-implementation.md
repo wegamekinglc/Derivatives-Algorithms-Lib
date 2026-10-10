@@ -300,18 +300,28 @@ Completed controls remain immutable:
 [cost report](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/c26e198d882cbaae91fe1a5683b9cb5ea2742c86/.codex/artifacts/performance/aad-rate-trade-quote-curvature.md)
 and [harness](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/c26e198d882cbaae91fe1a5683b9cb5ea2742c86/.codex/artifacts/performance/aad-rate-trade-quote-curvature-cost.cpp).
 
-The active policy/estimator increment follows its
-[specification](../specs/aad-lsmc-curvature.md),
-[API](../api-notes/aad-lsmc-curvature.md),
-[critique](../critiques/aad-lsmc-curvature.md) and
-[scoped cost plan](../performance/aad-lsmc-curvature.md).
-Local correctness, independent passive-price references, strict OFF/combined
-compilation, installed consumption and four scoped paired cost cases pass.
-Remote acceptance remains. Its remaining estimate is 4–8 developer-hours, excluding
-required CI wait.
-Policy/estimator validation and native mixed mode remain required subsequent
-deliveries. Rectangular/approximate calibration semantics are outside the
-accepted smooth square-system quote-curvature scope.
+Policy curvature is accepted in merged
+[#527](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/527),
+at `19a34172`, after two complete 36/36 audits, zero Codacy annotations and
+unresolved threads, and clear current-head Codex/Copilot reviews. All 17 new
+cases actually execute in fourteen runtime profiles. The tested merge preview
+and squash share tree `793da2e70c5b92f47431f9221e38b05eb1548949`.
+Local acceptance includes 26 selected tests, eight strict probes, installed
+consumption and four paired cost cases (160 observations; 1.831268117 measured
+seconds). Model provenance prevents incompatible Hybrid preparations from
+entering the Black-Scholes adapter. Immutable controls remain available in the
+[accepted specification](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/138846cf8d8960548af8da96cf321a1a1badeccd/.codex/artifacts/specs/aad-lsmc-curvature.md),
+[review](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/138846cf8d8960548af8da96cf321a1a1badeccd/.codex/artifacts/reviews/aad-lsmc-curvature.md)
+and [complete cost evidence](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/138846cf8d8960548af8da96cf321a1a1badeccd/.codex/artifacts/performance/aad-lsmc-curvature-results.json).
+
+Native smooth mixed mode is the active increment, under its
+[specification](../specs/aad-smooth-mixed-mode.md),
+[API](../api-notes/aad-smooth-mixed-mode.md) and
+[critique](../critiques/aad-smooth-mixed-mode.md).
+It composes native forward directional arithmetic with scalar reverse, without
+an outer finite-difference step. Ordinary native higher-order and independent
+nesting remain disabled. Rectangular/approximate calibration semantics remain
+outside the accepted smooth square-system quote-curvature scope.
 
 Native PDE recording is accepted in merged
 [#505](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/505),
@@ -820,9 +830,9 @@ incremental implementation turns and PRs; a green first stage does not complete 
 
 ## Stage D: second-order risk
 
-- [ ] F04: specified Gamma, cross-Gamma, and Hessian-vector requests using bump-over-AAD.
-- [ ] F04: quote-risk second order includes calibration curvature through full recalibration.
-- [ ] F04: common-path, smoothing, Frozen/RetrainedBump, and nested-step semantics.
+- [x] F04: specified Gamma, cross-Gamma, and Hessian-vector requests using bump-over-AAD.
+- [x] F04: quote-risk second order includes calibration curvature through full recalibration.
+- [x] F04: common-path, smoothing, Frozen/RetrainedBump, and nested-step semantics.
 - [ ] F04: native mixed-mode prototype on smooth kernels and actual capability validation.
 - [ ] F04: estimator validation for applicable simulation/calibration cases before general promotion.
 
@@ -836,7 +846,7 @@ affected-boundary tests, scoped costs and complete current-head CI/review accept
 | Native driver               | #517 merged; explicit requests, mathematical/lifecycle and exact-head acceptance complete | 0               |
 | Financial MC                | #519 merged; common-path requests and exact-head acceptance complete                      | 0               |
 | Quote curvature             | #520/#522/#523/#524/#525 merged; financial trading integration and publication accepted   | 0               |
-| Policy/estimator validation | Native Frozen/RetrainedBump and local estimator checks pass; publication remains          | 4–8             |
+| Policy/estimator validation | #527 merged; native policy semantics, numerical checks and publication accepted         | 0               |
 
 ## Completion evidence
 
@@ -1472,11 +1482,11 @@ overlapping acceptance work is included once in the integration allowance.
 | F03                     | Solve/root/PDE operators and financial/grid acceptance complete    | #506 merged; final 36/36 gates accepted  | 0                     |
 | P04                     | Structural compression, safe fallback and selection accepted       | #511 merged; final 36/36 gates accepted  | 0                     |
 | P05                     | Core, fixed-path and Monte Carlo adapters accepted                 | #512/#513/#515 merged; 36/36 gates       | 0                     |
-| F04                     | Policy curvature passes locally; publication and mixed mode remain | Open                                     | 5–10                  |
+| F04                     | Finite-step requests accepted; smooth mixed-mode prototype active | Open                                     | 4–8                   |
 | Final integration/audit | Cross-platform/binding/docs/performance acceptance remains         | Open                                     | 7–11                  |
 
-Remaining total during F04 development: 92–160 hours, approximately
-12–20 eight-hour person-days, excluding CI queue time. Delivery contingency
+Remaining total during F04 development: 88–152 hours, approximately
+11–19 eight-hour person-days, excluding CI queue time. Delivery contingency
 is included in those same hour ranges; there is no extra undisclosed allowance. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
 effort estimate, not a guaranteed completion date. Re-estimate when review
@@ -1501,10 +1511,10 @@ numeric/native diagnostics are not counted again.
 | 7a    | P05 segmentation core                | #512 merged; actual runtime, exact-head CI/review and guarded merge accepted   | 0               |
 | 7b    | P05 financial adapter                | #513 merged; exact-head CI, review, costs, actual runtime and merge accepted   | 0               |
 | 7c    | P05 Monte Carlo acceptance           | #515 merged; 36/36 gates, fourteen actual runtime profiles and merge proof     | 0               |
-| 8     | F04 second-order risk                | Native policy curvature and scoped costs pass; publication remains             | 4–8             |
+| 8     | F04 second-order risk                | #517–#527 increments merged; finite-step mathematical and publication gates pass | 0              |
 | 9     | F04 native mixed-mode prototype      | Smooth-kernel prototype, independent correctness and capability limits         | 32–64           |
 | 10    | Bindings and complete acceptance     | C++/Python/Excel, documentation, platform and performance gates                | 56–88           |
-| Total | Full remaining implementation        | All remaining plan requirements                                                | 92–160          |
+| Total | Full remaining implementation        | All remaining plan requirements                                                | 88–152          |
 
 
 The first delivery boundary is complete. Whole-PR review repaired the Windows

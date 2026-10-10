@@ -18,6 +18,11 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-10
 
+- **Smooth native second derivatives** — an opt-in C++ forward-over-reverse
+  number and request driver compute smooth directional Hessian products without
+  an outer finite-difference step, with scoped recording budgets and explicit
+  capability limits. See
+  [the prototype contract](docs/methodology/aad.md#smooth-native-forward-over-reverse-prototype).
 - **Native LSMC policy curvature** — Black–Scholes C++ requests distinguish
   curvature conditional on one frozen policy from differences of retrained
   policy-secanted gradients, with common paths, active historical constants
