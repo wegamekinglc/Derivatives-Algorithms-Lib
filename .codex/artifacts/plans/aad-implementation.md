@@ -357,10 +357,16 @@ Python baseline tests first fail for the missing public header/factory. The
 new boundary delegates to the accepted native core and retains sealed contract
 and observation ownership. Current local runs pass six new C++ cases, 54 new
 and six affected existing Python cases, fourteen strict probes, the public
-script API consumer and all three installed consumers. Two final boundary
-costs retain 80 samples in 7.151321984 measured seconds; native algorithms and
-old public objects remain unchanged. Exact-head CI/Codacy, complete reviews
-and guarded merge remain required.
+script API consumer and all three installed consumers. CI exposes missing
+parser registration hidden by the original local launcher; explicit per-case
+registration passes all six tests in independent fresh processes. Codacy's
+driver-complexity repair extracts the unchanged timed loop and repeats only
+the two affected boundary costs: the final run retains 80 samples in
+10.225689881 measured seconds. The prior shared-metadata run retains 80 samples
+in 7.151321984 seconds as earlier evidence; the initial 80-sample run takes
+7.322207429 seconds. All three runs total 240 samples in 24.699219294 measured
+seconds. Native algorithms and old public objects remain unchanged. Exact-head
+CI/Codacy, complete reviews and guarded merge remain required.
 
 Native PDE recording is accepted in merged
 [#505](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/505),
