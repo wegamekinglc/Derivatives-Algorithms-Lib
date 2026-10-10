@@ -1,6 +1,6 @@
 # Excel rate curvature implementation review
 
-Verdict: Comment Only; scoped local correctness accepted, paired costs and
+Verdict: Comment Only; scoped local correctness and paired costs accepted,
 Windows runtime/publication gates pending.
 
 ## Findings
@@ -55,5 +55,9 @@ signed analytical spills, existing worksheet construction, strict numeric/NUL
 and handle admission, integer normalization, empty shapes, explicit empty
 history and separate zero caps. A registration test checks exact names, argument
 order/types and help. Actual Windows execution is not yet accepted locally.
-Complete paired cost evidence, exact-head CI/Codacy/review bodies and both final
-audits remain required before guarded merge and tree verification.
+Two selected complete rate requests retain 80 calibrated process observations
+in 8.458444867 measured seconds, with a shortest batch of 95.489899 ms.
+Independent analytical checks pass before/after each batch; all object,
+dependency and executable hashes are retained. Unequal owning costs remain
+informational. Exact-head CI/Codacy/review bodies and both final audits remain
+required before guarded merge and tree verification.

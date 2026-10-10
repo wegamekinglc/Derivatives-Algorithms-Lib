@@ -10,9 +10,15 @@ Current controls are the [specification](../specs/aad-excel-rate-curvature.md),
 [API](../api-notes/aad-excel-rate-curvature.md),
 [critique](../critiques/aad-excel-rate-curvature.md) and scoped
 [cost selection](../performance/aad-excel-rate-curvature.md).
-The 19-function design reuses accepted native calibration/closed-trade evaluators
-and the common Excel bump request. Snapshot factory RED/GREEN is in progress;
-there is no accepted rate worksheet runtime or performance evidence yet.
+All 19 worksheet functions are implemented and generated, reusing accepted
+native calibration/closed-trade evaluators and the common Excel bump request.
+Twelve typed financial/interface cases, ten strict OFF/combined probes, the
+actual CMake binding boundary and 19 wrapper/help drift checks pass locally.
+Two selected complete rate costs retain 80 calibrated observations in
+8.458444867 measured seconds; unequal owning contracts are informational.
+Three raw Windows cases and one registration case are authored; actual Windows
+runtime, exact-head CI/Codacy/reviews and publication remain pending. The active
+[review](../reviews/aad-excel-rate-curvature.md) controls those gates.
 Following rate, Excel segmented MC/LSMC and final requirement/documentation
 reconciliation remain. Developer effort is approximately 14–23 hours:
 rate 3–4, MC/LSMC 7–11 and final-only work 4–8; remote CI waiting is separate.
