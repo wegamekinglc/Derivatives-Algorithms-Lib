@@ -4,6 +4,7 @@
 
 #include <gtest/gtest.h>
 
+#include <cmath>
 #include <limits>
 
 #ifdef _WIN32
@@ -80,7 +81,216 @@ namespace {
         for (const auto* field : fields)
             ASSERT_NE(text.find(field), std::string::npos) << text;
     }
+
+    struct CurvatureRuntime_ {
+        std::pair<size_t, bool> workers_;
+        Date_ date_;
+        CurvatureRuntime_() {
+            Excel::ScriptTestInitialize(1);
+            workers_ = Excel::ScriptTestStartWorkers(1);
+            date_ = Excel::ScriptTestSetDate(Date_(2026, 9, 12));
+        }
+        ~CurvatureRuntime_() {
+            Excel::ScriptTestSetDate(date_);
+            Excel::ScriptTestRestoreWorkers(workers_);
+        }
+    };
 } // namespace
+
+TEST(ScriptExcelRawTest, TestDupireCurvatureAllGeneratedExportsAndCompleteQuoteMetadata) {
+    const CurvatureRuntime_ runtime;
+    RawText_ name(L"curvature_raw"), index(L"EQ[LOCAL]"), currency(L"USD"), factor(L"F_LOCAL"), component(L"equity"), quote(L"QUOTE"),
+        quoteId(L"quote:3"), constant(L"0.001"), script(L"pay PAYS QUOTE * QUOTE");
+    auto blank = Blank(), spot = Number(100.0), vol = Number(0.2), rate = Number(0.05), div = Number(0.02), spacing = Number(10.0),
+         timeSpacing = Number(0.5), maxStep = Number(0.25), paths = Number(17.0);
+    Output_ base(Call("xl_BSModelData_New", &name.cell_, &spot, &vol, &rate, &div));
+    ASSERT_EQ(base.Text().find("#Error:"), std::string::npos) << base.Text();
+    OPER_ spots[]{Number(60.0), Number(100.0), Number(140.0)}, times[]{Number(0.5), Number(1.0)};
+    auto spotRange = Multi(spots, 3, 1), timeRange = Multi(times, 2, 1);
+    Output_ grid(Call("xl_DupireGrid_New", &name.cell_, &spotRange, &spacing, &timeRange, &timeSpacing));
+    OPER_ strikes[]{Number(75.0), Number(105.0), Number(135.0)}, maturities[]{Number(0.4), Number(1.2)};
+    OPER_ spreads[]{Number(0.001), Number(0.001), Number(0.001), Number(0.001), Number(0.001), Number(0.001)};
+    auto strikeRange = Multi(strikes, 3, 1), maturityRange = Multi(maturities, 2, 1), spreadRange = Multi(spreads, 3, 2);
+    Output_ inputs(Call("xl_DupireRiskInputs_New", &name.cell_, &strikeRange, &maturityRange, &spreadRange, grid.Scalar()));
+    Output_ calibration(Call("xl_DupireCalibration_New", &name.cell_, base.Scalar(), inputs.Scalar()));
+    Output_ model(Call("xl_DupireModelData_New", &name.cell_, calibration.Scalar(), &index.cell_, &currency.cell_, &factor.cell_, &maxStep));
+    OPER_ dates[]{quote.cell_, Number(Date::ToExcel(Date_(2027, 9, 12)))}, events[]{constant.cell_, script.cell_};
+    auto dateRange = Multi(dates, 2, 1), eventRange = Multi(events, 2, 1);
+    Output_ product(Call("xl_Product_New", &name.cell_, &dateRange, &eventRange));
+    Output_ executionSettings(Call("xl_DupireScriptRiskSettings_New", &name.cell_, &paths, &blank, &blank));
+    OPER_ bindings[]{Number(0.0), quoteId.cell_};
+    auto bindingRange = Multi(bindings, 1, 2);
+    Output_ risk(Call("xl_DupireScriptRiskRequest_New", &name.cell_, executionSettings.Scalar(), &blank, &bindingRange, &blank));
+    OPER_ directionCells[18];
+    for (auto& cell : directionCells)
+        cell = Number(0.0);
+    directionCells[3] = Number(1.0);
+    directionCells[9].xltype = xltypeInt;
+    directionCells[9].val.w = -2;
+    directionCells[12] = Number(1.0);
+    OPER_ stepCells[]{Number(0.0002), Number(0.0001), Number(0.0002)};
+    auto directions = Multi(directionCells, 3, 6), steps = Multi(stepCells, 1, 3);
+    Output_ bumps(Call("xl_BumpOverAADRequest_New", &name.cell_, &directions, &steps, &blank));
+    ASSERT_EQ(bumps.Text().find("#Error:"), std::string::npos) << bumps.Text();
+    Output_ bumpDirections(Call("xl_BumpOverAADRequest_Get_Directions", bumps.Scalar()));
+    ASSERT_EQ(bumpDirections.value_->val.array.rows, 3);
+    ASSERT_EQ(bumpDirections.value_->val.array.columns, 6);
+    ASSERT_DOUBLE_EQ(bumpDirections.value_->val.array.lparray[9].val.num, -2.0);
+    Output_ bumpSteps(Call("xl_BumpOverAADRequest_Get_Steps", bumps.Scalar()));
+    ASSERT_EQ(bumpSteps.value_->val.array.rows, 3);
+    ASSERT_EQ(bumpSteps.value_->val.array.columns, 1);
+    Output_ bumpSettings(Call("xl_BumpOverAADRequest_Get_Settings", bumps.Scalar()));
+    ASSERT_EQ(bumpSettings.value_->val.array.rows, 3);
+    ASSERT_DOUBLE_EQ(bumpSettings.value_->val.array.lparray[1].val.num, 6.0);
+    Output_ bumpShape(Call("xl_BumpOverAADRequest_Get_Shape", bumps.Scalar()));
+    ASSERT_DOUBLE_EQ(bumpShape.value_->val.array.lparray[0].val.num, 3.0);
+    ASSERT_DOUBLE_EQ(bumpShape.value_->val.array.lparray[1].val.num, 6.0);
+    Output_ request(Call("xl_DupireScriptCurvatureRequest_New", &name.cell_, risk.Scalar(), bumps.Scalar()));
+    ASSERT_EQ(request.Text().find("#Error:"), std::string::npos) << request.Text();
+    Output_ retainedRisk(Call("xl_DupireScriptCurvatureRequest_Get_Risk", request.Scalar()));
+    Output_ retainedBumps(Call("xl_DupireScriptCurvatureRequest_Get_Bumps", request.Scalar()));
+    ASSERT_EQ(retainedRisk.Text().find("#Error:"), std::string::npos) << retainedRisk.Text();
+    ASSERT_EQ(retainedBumps.Text().find("#Error:"), std::string::npos) << retainedBumps.Text();
+    Output_ plan(Call("xl_DupireScriptCurvaturePlan_New", &name.cell_, product.Scalar(), model.Scalar(), calibration.Scalar(), &component.cell_,
+                      request.Scalar()));
+    ASSERT_EQ(plan.Text().find("#Error:"), std::string::npos) << plan.Text();
+    Output_ basePlan(Call("xl_DupireScriptCurvaturePlan_Get_BasePlan", plan.Scalar()));
+    ASSERT_EQ(basePlan.Text().find("#Error:"), std::string::npos) << basePlan.Text();
+    for (const auto* exportName : {"xl_DupireScriptCurvaturePlan_Get_Point", "xl_DupireScriptCurvaturePlan_Get_Directions",
+                                   "xl_DupireScriptCurvaturePlan_Get_Steps", "xl_DupireScriptCurvaturePlan_Get_Shape"}) {
+        Output_ spill(Call(exportName, plan.Scalar()));
+        ASSERT_EQ(spill.value_->xltype & xltypeMulti, xltypeMulti) << exportName;
+        ASSERT_GT(spill.value_->val.array.rows, 0);
+    }
+    Output_ payload(Call("xl_DupireScriptCurvaturePlan_Get_Payload", plan.Scalar()));
+    ASSERT_DOUBLE_EQ(payload.Scalar()->val.num, 720.0);
+    Output_ result(Call("xl_DupireScriptCurvatureResult_New", &name.cell_, plan.Scalar()));
+    ASSERT_EQ(result.Text().find("#Error:"), std::string::npos) << result.Text();
+    Output_ retainedBase(Call("xl_DupireScriptCurvatureResult_Get_Base", result.Scalar()));
+    ASSERT_EQ(retainedBase.Text().find("#Error:"), std::string::npos) << retainedBase.Text();
+    Output_ quotePlan(Call("xl_DupireScriptCurvatureResult_Get_QuotePlan", result.Scalar()));
+    OPER_ complete{};
+    complete.xltype = xltypeBool;
+    complete.val.xbool = 1;
+    Output_ axis(Call("xl_CalibrationRiskPlan_Get_Inputs", quotePlan.Scalar(), &complete));
+    ASSERT_EQ(axis.value_->val.array.rows, 7);
+    ASSERT_EQ(axis.value_->val.array.columns, 12);
+    Output_ point(Call("xl_DupireScriptCurvatureResult_Get_Point", result.Scalar()));
+    ASSERT_EQ(point.value_->val.array.rows, 6);
+    ASSERT_DOUBLE_EQ(point.value_->val.array.lparray[3].val.num, 0.001);
+    Output_ gradient(Call("xl_DupireScriptCurvatureResult_Get_Gradient", result.Scalar()));
+    ASSERT_EQ(gradient.value_->val.array.rows, 6);
+    ASSERT_EQ(gradient.value_->val.array.columns, 1);
+    Output_ products(Call("xl_DupireScriptCurvatureResult_Get_HessianProducts", result.Scalar()));
+    ASSERT_EQ(products.value_->val.array.rows, 3);
+    ASSERT_EQ(products.value_->val.array.columns, 6);
+    for (int quoteIndex = 0; quoteIndex < 6; ++quoteIndex) {
+        ASSERT_NEAR(gradient.value_->val.array.lparray[quoteIndex].val.num, quoteIndex == 3 ? 0.002 * std::exp(-0.05) : 0.0, 1e-12);
+        for (int row = 0; row < 3; ++row) {
+            const double multiplier = row == 0 ? 1.0 : row == 1 ? -2.0 : 0.0;
+            ASSERT_NEAR(products.value_->val.array.lparray[row * 6 + quoteIndex].val.num, quoteIndex == 3 ? multiplier * 2.0 * std::exp(-0.05) : 0.0,
+                        1e-10);
+        }
+    }
+    for (const auto* exportName :
+         {"xl_DupireScriptCurvatureResult_Get_Directions", "xl_DupireScriptCurvatureResult_Get_Steps", "xl_DupireScriptCurvatureResult_Get_Shape"}) {
+        Output_ spill(Call(exportName, result.Scalar()));
+        ASSERT_EQ(spill.value_->xltype & xltypeMulti, xltypeMulti) << exportName;
+        ASSERT_GT(spill.value_->val.array.rows, 0);
+    }
+    Output_ counts(Call("xl_DupireScriptCurvatureResult_Get_Execution", result.Scalar()));
+    ASSERT_EQ(counts.value_->val.array.rows, 4);
+    ASSERT_EQ(counts.value_->val.array.columns, 2);
+    ASSERT_DOUBLE_EQ(counts.value_->val.array.lparray[3].val.num, 7.0);
+    ASSERT_DOUBLE_EQ(counts.value_->val.array.lparray[5].val.num, 17.0);
+    ASSERT_DOUBLE_EQ(counts.value_->val.array.lparray[7].val.num, 720.0);
+    products.value_->val.array.lparray[3].val.num = 99.0;
+    Output_ fresh(Call("xl_DupireScriptCurvatureResult_Get_HessianProducts", result.Scalar()));
+    ASSERT_NEAR(fresh.value_->val.array.lparray[3].val.num, 2.0 * std::exp(-0.05), 1e-10);
+
+    RawText_ inputCount(L"input_count"), numericCap(L"numeric_payload_budget_bytes"), recordingCap(L"recording_capacity_budget_bytes");
+    OPER_ emptySettingsCells[]{inputCount.cell_, Number(6.0)};
+    auto emptySettings = Multi(emptySettingsCells, 1, 2);
+    Output_ emptyBumps(Call("xl_BumpOverAADRequest_New", &name.cell_, &blank, &blank, &emptySettings));
+    Output_ emptyRequest(Call("xl_DupireScriptCurvatureRequest_New", &name.cell_, risk.Scalar(), emptyBumps.Scalar()));
+    Output_ emptyPlan(Call("xl_DupireScriptCurvaturePlan_New", &name.cell_, product.Scalar(), model.Scalar(), calibration.Scalar(), &component.cell_,
+                           emptyRequest.Scalar()));
+    Output_ emptyResult(Call("xl_DupireScriptCurvatureResult_New", &name.cell_, emptyPlan.Scalar()));
+    ASSERT_EQ(emptyResult.Text().find("#Error:"), std::string::npos) << emptyResult.Text();
+    Output_ emptyShape(Call("xl_DupireScriptCurvatureResult_Get_Shape", emptyResult.Scalar()));
+    ASSERT_DOUBLE_EQ(emptyShape.value_->val.array.lparray[0].val.num, 0.0);
+    ASSERT_DOUBLE_EQ(emptyShape.value_->val.array.lparray[1].val.num, 6.0);
+    Output_ emptyProducts(Call("xl_DupireScriptCurvatureResult_Get_HessianProducts", emptyResult.Scalar()));
+    ASSERT_EQ(emptyProducts.Scalar()->xltype, xltypeStr);
+    ASSERT_EQ(emptyProducts.Scalar()->val.str[0], 0);
+    Output_ emptyCounts(Call("xl_DupireScriptCurvatureResult_Get_Execution", emptyResult.Scalar()));
+    ASSERT_DOUBLE_EQ(emptyCounts.value_->val.array.lparray[3].val.num, 1.0);
+    ASSERT_DOUBLE_EQ(emptyCounts.value_->val.array.lparray[7].val.num, 408.0);
+    for (const auto& key : {numericCap.cell_, recordingCap.cell_}) {
+        OPER_ cappedCells[]{key, Number(0.0)};
+        auto cappedSettings = Multi(cappedCells, 1, 2);
+        Output_ cappedBumps(Call("xl_BumpOverAADRequest_New", &name.cell_, &directions, &steps, &cappedSettings));
+        Output_ cappedRequest(Call("xl_DupireScriptCurvatureRequest_New", &name.cell_, risk.Scalar(), cappedBumps.Scalar()));
+        Output_ rejected(Call("xl_DupireScriptCurvaturePlan_New", &name.cell_, product.Scalar(), model.Scalar(), calibration.Scalar(),
+                              &component.cell_, cappedRequest.Scalar()));
+        CheckError(rejected, {key.val.str == numericCap.cell_.val.str ? "budget" : "worker recording capacity"});
+    }
+}
+
+TEST(ScriptExcelRawTest, TestCurvatureRawKindsIntegerNormalizationNulAndWrongHandles) {
+    const CurvatureRuntime_ runtime;
+    RawText_ name(L"curvature_kinds"), text(L"2"), countKey(L"input_count"), capKey(L"numeric_payload_budget_bytes");
+    auto blank = Blank(), step = Number(0.0001);
+    OPER_ integer{};
+    integer.xltype = xltypeInt;
+    integer.val.w = 1;
+    auto scalarRange = Multi(&integer, 1, 1);
+    OPER_ settingsCells[]{countKey.cell_, integer, capKey.cell_, Number(0.0)};
+    auto settings = Multi(settingsCells, 2, 2);
+    for (const OPER_* direction : {&integer, &scalarRange}) {
+        Output_ accepted(Call("xl_BumpOverAADRequest_New", &name.cell_, direction, &step, &settings));
+        ASSERT_EQ(accepted.Text().find("#Error:"), std::string::npos) << accepted.Text();
+        Output_ copied(Call("xl_BumpOverAADRequest_Get_Directions", accepted.Scalar()));
+        ASSERT_EQ(copied.Scalar()->xltype, xltypeNum);
+        ASSERT_DOUBLE_EQ(copied.Scalar()->val.num, 1.0);
+        Output_ retained(Call("xl_BumpOverAADRequest_Get_Settings", accepted.Scalar()));
+        ASSERT_DOUBLE_EQ(retained.value_->val.array.lparray[1].val.num, 1.0);
+        ASSERT_DOUBLE_EQ(retained.value_->val.array.lparray[3].val.num, 0.0);
+    }
+    OPER_ boolean{}, error{};
+    boolean.xltype = xltypeBool;
+    boolean.val.xbool = 1;
+    error.xltype = xltypeErr;
+    error.val.err = 15;
+    for (const auto& invalid :
+         {boolean, error, blank, text.cell_, Number(std::numeric_limits<double>::infinity()), Number(std::numeric_limits<double>::quiet_NaN())}) {
+        OPER_ directionCells[]{Number(1.0), invalid};
+        auto directionRange = Multi(directionCells, 1, 2);
+        Output_ badDirection(Call("xl_BumpOverAADRequest_New", &name.cell_, &directionRange, &step, &blank));
+        CheckError(badDirection, {"BumpOverAADRequest_New", "directions", "row=1 column=2"});
+        Output_ badStep(Call("xl_BumpOverAADRequest_New", &name.cell_, &integer, &invalid, &blank));
+        CheckError(badStep, {"BumpOverAADRequest_New", "steps"});
+        settingsCells[3] = invalid;
+        if (invalid.xltype != xltypeNil) {
+            Output_ badCap(Call("xl_BumpOverAADRequest_New", &name.cell_, &integer, &step, &settings));
+            CheckError(badCap, {"BumpOverAADRequest_New", "row=2 column=2"});
+        }
+    }
+    RawText_ nulKey(std::wstring(L"input\0_count", 12)), nulName(std::wstring(L"bad\0name", 8));
+    settingsCells[0] = nulKey.cell_;
+    settingsCells[3] = blank;
+    Output_ badKey(Call("xl_BumpOverAADRequest_New", &name.cell_, &integer, &step, &settings));
+    CheckError(badKey, {"BumpOverAADRequest_New", "row=1 column=1", "NUL"});
+    Output_ badName(Call("xl_BumpOverAADRequest_New", &nulName.cell_, &integer, &step, &blank));
+    CheckError(badName, {"BumpOverAADRequest_New", "name", "NUL"});
+    Output_ bumps(Call("xl_BumpOverAADRequest_New", &name.cell_, &integer, &step, &blank));
+    Output_ wrongRequest(Call("xl_DupireScriptCurvatureRequest_New", &name.cell_, bumps.Scalar(), bumps.Scalar()));
+    CheckError(wrongRequest, {"risk"});
+    Output_ wrongResult(Call("xl_DupireScriptCurvatureResult_Get_Gradient", bumps.Scalar()));
+    CheckError(wrongResult, {"result"});
+    Output_ missing(Call("xl_DupireScriptCurvaturePlan_Get_Point", &blank));
+    CheckError(missing, {"plan"});
+}
 
 TEST(ScriptExcelRawTest, TestEuropeanPdeAllGeneratedExportsAndOwningSpills) {
     Excel::ScriptTestInitialize(1);

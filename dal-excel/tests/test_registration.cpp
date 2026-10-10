@@ -99,6 +99,48 @@ TEST(ExcelRegistrationTest, TestEuropeanPdeFunctionsRetainTypedArgumentsAndHelp)
     }
 }
 
+TEST(ExcelRegistrationTest, TestDupireCurvatureFunctionsRetainTypedArgumentsAndHelp) {
+    const std::pair<const char*, const char*> contracts[] = {
+        {"BumpOverAADRequest_New", "name,[directions],[steps],[settings]"},
+        {"BumpOverAADRequest_Get_Directions", "request"},
+        {"BumpOverAADRequest_Get_Steps", "request"},
+        {"BumpOverAADRequest_Get_Settings", "request"},
+        {"BumpOverAADRequest_Get_Shape", "request"},
+        {"DupireScriptCurvatureRequest_New", "name,risk,bumps"},
+        {"DupireScriptCurvatureRequest_Get_Risk", "request"},
+        {"DupireScriptCurvatureRequest_Get_Bumps", "request"},
+        {"DupireScriptCurvaturePlan_New", "name,product,modelData,calibration,component,request"},
+        {"DupireScriptCurvaturePlan_Get_BasePlan", "plan"},
+        {"DupireScriptCurvaturePlan_Get_Point", "plan"},
+        {"DupireScriptCurvaturePlan_Get_Directions", "plan"},
+        {"DupireScriptCurvaturePlan_Get_Steps", "plan"},
+        {"DupireScriptCurvaturePlan_Get_Shape", "plan"},
+        {"DupireScriptCurvaturePlan_Get_Payload", "plan"},
+        {"DupireScriptCurvatureResult_New", "name,plan"},
+        {"DupireScriptCurvatureResult_Get_Base", "result"},
+        {"DupireScriptCurvatureResult_Get_QuotePlan", "result"},
+        {"DupireScriptCurvatureResult_Get_Point", "result"},
+        {"DupireScriptCurvatureResult_Get_Gradient", "result"},
+        {"DupireScriptCurvatureResult_Get_Directions", "result"},
+        {"DupireScriptCurvatureResult_Get_Steps", "result"},
+        {"DupireScriptCurvatureResult_Get_HessianProducts", "result"},
+        {"DupireScriptCurvatureResult_Get_Shape", "result"},
+        {"DupireScriptCurvatureResult_Get_Execution", "result"}};
+    const auto registrations = RegisteredFunctionsForTest();
+    for (const auto& contract : contracts) {
+        const auto name = String_("xl_") + contract.first;
+        const auto found = std::find_if(registrations.begin(), registrations.end(), [&](const auto& reg) { return reg.cName_ == name; });
+        ASSERT_NE(found, registrations.end()) << contract.first;
+        ASSERT_EQ(CaseSensitive(found->xlName_), UpperDotted(contract.first));
+        ASSERT_EQ(CaseSensitive(found->argNames_), contract.second);
+        ASSERT_EQ(CaseSensitive(found->argTypes_), std::string(static_cast<size_t>(NamedArgCount(*found)) + 1, 'Q'));
+        ASSERT_FALSE(found->volatile_);
+        ASSERT_FALSE(found->help_.empty());
+        ASSERT_EQ(found->argHelpCount_, NamedArgCount(*found));
+        ASSERT_LE(found->maxArgHelpLength_, 255);
+    }
+}
+
 TEST(ExcelRegistrationTest, TestScriptSettingsAndLegacyContracts) {
     struct Contract_ {
         const char* name_;
