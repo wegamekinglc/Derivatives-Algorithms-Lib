@@ -861,6 +861,29 @@ terminal payoffs, discounted external boundaries and volatility-square
 coefficients, then validates discrete risks and continuum grid convergence
 separately.
 
+### Language Boundaries of Structured Operators
+
+Native structured operators own C++ recording scopes, Numbers, reverse events
+and accuracy reports. Their numerical/recording acceptance does not provide a
+Python or Excel active graph API. The current financial surfaces are:
+
+| Capability                                          | C++                            | Python                                    | Excel                                         |
+|-----------------------------------------------------|--------------------------------|-------------------------------------------|-----------------------------------------------|
+| Dense/coordinate solve and implicit-root recording  | Installed native APIs          | Active recording/equation API unavailable | Active recording/equation handles unavailable |
+| Sampled theta-step recording                        | Installed native API           | Sampled-step API unavailable              | Sampled-step handles unavailable              |
+| Fixed-grid European PDE prices/rho/vega/strike risk | [Runnable example](pde/aad.md) | Financial PDE request unavailable         | Financial PDE request unavailable             |
+| Calibration quote pullback                          | Owning typed financial API     | Typed passive snapshots/seeds/results     | Immutable handles and passive getters         |
+| Dupire/rate finite-step quote curvature             | Owning typed financial API     | Closed typed requests/results             | Curvature request/result handles unavailable  |
+| Segmented MC/LSMC finite-step curvature             | Owning typed financial API     | Closed plans and passive results          | Corresponding curvature handles unavailable   |
+
+The PDE example holds its mesh, evaluation spot, expiry and dividend passive;
+its r/volatility/strike adjoints describe that discrete program. Calibration
+pullbacks retain their declared native-Dupire or retained-effective-inverse
+method and boundary; they do not certify generic exact stationary-fit risk.
+Existing passive Python IVS calibration overrides are a separate supported
+surface. General native `higherOrder_` remains false; the opt-in C++ smooth
+mixed-mode prototype does not grant general Python/Excel higher-order support.
+
 ### Native Production Profiling
 
 `DAL_ENABLE_AAD_PROFILING=ON` enables the C++ diagnostics in
