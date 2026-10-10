@@ -5,7 +5,12 @@ Windows runtime and publication gates pending.
 
 ## Findings
 
-No open local correctness finding. The common settings NUL-key error was exposed
+CI exposed an include-boundary violation and two complexity findings. Repair
+the common include through a thin public forwarding header and extract the
+two checks without changing their assertions. The actual CMake boundary has
+focused RED/GREEN evidence; the installed forwarding header is checked separately.
+
+The common settings NUL-key error was exposed
 by a focused RED case and repaired before accepting the eight request cases.
 Legacy calibration headers are consumed through the project include path; no
 legacy template or shared numerical implementation is changed.

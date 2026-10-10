@@ -12,7 +12,9 @@ base/plus/minus quote point and computes common-path quote gradients. Worksheet
 users cannot construct its direction request or access its owning results.
 Expose that accepted financial chain through typed Excel handles. Add the common
 bump request once for later rate, MC and LSMC consumers. Keep native algorithms,
-public C++/Python APIs, existing risk templates and legacy functions unchanged.
+public C++/Python behavior, existing risk templates and legacy functions unchanged.
+Expose the existing bump request through a thin public header so Excel includes
+the contract through dal-public and passes the enforced binding boundary.
 
 This is a finite-step estimate of quote Gamma, cross-Gamma and Hessian products.
 It does not enable general higher-order AD, generic worksheet callbacks, archive

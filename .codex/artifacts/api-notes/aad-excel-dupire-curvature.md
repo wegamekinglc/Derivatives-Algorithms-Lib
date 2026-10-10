@@ -9,7 +9,9 @@ Use immutable `Excel::StorableRiskValue_` aliases for the common native bump
 request and public Dupire request/plan/result. Associate binding metadata
 overloads with their value namespaces so include order does not require editing
 the existing storable template. Raw numeric guards stay in a small input header;
-shared passive cell-copy/shape helpers serve the new modules only.
+shared passive cell-copy/shape helpers serve the new modules only. The common
+request includes `dal-public/src/bumpoveraad.hpp`, a thin forwarding header for
+the existing native request; production bindings never include core directly.
 
 The five common functions are `BumpOverAADRequest_New(name, directions, steps,
 settings=blank)`, and `Get_Directions`, `Get_Steps`, `Get_Settings`, `Get_Shape`.
@@ -82,6 +84,6 @@ An inferred input count from a blank range would lose the zero-by-Q contract;
 the explicit optional setting avoids that ambiguity. A duplicated quote-axis
 table or a refactor of legacy calibration formatters would widen this increment;
 returning the existing quote-plan handle preserves its accepted contract.
-No C++/Python surface or numerical algorithm change is required.
+No C++/Python behavior or numerical algorithm change is required.
 
 Open questions: none.

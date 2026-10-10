@@ -95,6 +95,21 @@ namespace {
             Excel::ScriptTestRestoreWorkers(workers_);
         }
     };
+
+    void CheckCurvatureFinancialSpills(const Output_& gradient, const Output_& products) {
+        ASSERT_EQ(gradient.value_->val.array.rows, 6);
+        ASSERT_EQ(gradient.value_->val.array.columns, 1);
+        ASSERT_EQ(products.value_->val.array.rows, 3);
+        ASSERT_EQ(products.value_->val.array.columns, 6);
+        for (int quote = 0; quote < 6; ++quote) {
+            ASSERT_NEAR(gradient.value_->val.array.lparray[quote].val.num, quote == 3 ? 0.002 * std::exp(-0.05) : 0.0, 1e-12);
+            for (int row = 0; row < 3; ++row) {
+                const double multiplier = row == 0 ? 1.0 : row == 1 ? -2.0 : 0.0;
+                ASSERT_NEAR(products.value_->val.array.lparray[row * 6 + quote].val.num, quote == 3 ? multiplier * 2.0 * std::exp(-0.05) : 0.0,
+                            1e-10);
+            }
+        }
+    }
 } // namespace
 
 TEST(ScriptExcelRawTest, TestDupireCurvatureAllGeneratedExportsAndCompleteQuoteMetadata) {
@@ -179,19 +194,8 @@ TEST(ScriptExcelRawTest, TestDupireCurvatureAllGeneratedExportsAndCompleteQuoteM
     ASSERT_EQ(point.value_->val.array.rows, 6);
     ASSERT_DOUBLE_EQ(point.value_->val.array.lparray[3].val.num, 0.001);
     Output_ gradient(Call("xl_DupireScriptCurvatureResult_Get_Gradient", result.Scalar()));
-    ASSERT_EQ(gradient.value_->val.array.rows, 6);
-    ASSERT_EQ(gradient.value_->val.array.columns, 1);
     Output_ products(Call("xl_DupireScriptCurvatureResult_Get_HessianProducts", result.Scalar()));
-    ASSERT_EQ(products.value_->val.array.rows, 3);
-    ASSERT_EQ(products.value_->val.array.columns, 6);
-    for (int quoteIndex = 0; quoteIndex < 6; ++quoteIndex) {
-        ASSERT_NEAR(gradient.value_->val.array.lparray[quoteIndex].val.num, quoteIndex == 3 ? 0.002 * std::exp(-0.05) : 0.0, 1e-12);
-        for (int row = 0; row < 3; ++row) {
-            const double multiplier = row == 0 ? 1.0 : row == 1 ? -2.0 : 0.0;
-            ASSERT_NEAR(products.value_->val.array.lparray[row * 6 + quoteIndex].val.num, quoteIndex == 3 ? multiplier * 2.0 * std::exp(-0.05) : 0.0,
-                        1e-10);
-        }
-    }
+    ASSERT_NO_FATAL_FAILURE(CheckCurvatureFinancialSpills(gradient, products));
     for (const auto* exportName :
          {"xl_DupireScriptCurvatureResult_Get_Directions", "xl_DupireScriptCurvatureResult_Get_Steps", "xl_DupireScriptCurvatureResult_Get_Shape"}) {
         Output_ spill(Call(exportName, result.Scalar()));

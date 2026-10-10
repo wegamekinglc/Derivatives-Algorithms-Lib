@@ -14,8 +14,9 @@ Baseline: merged Excel PDE commit `c1068d991c1547c6b7d35bf490b49a61de574003`.
 | `dal-excel/src/__dupirecurvature.cpp`  | Request, plan, execution and owning result projection at 17 and 257 paths, three signed directions and six full quotes |
 
 The new headers have only the two new source modules and their tests as direct
-production callers. Native/public/Python sources and existing Excel headers are
-unchanged. Reuse the accepted installed core/public archives only after matching
+production callers. The added public bump header forwards the existing native
+contract without changing any pre-existing public/native/Python source or
+Excel header. Reuse accepted installed core/public archives only after matching
 their hashes and source provenance; rebuild all affected Excel objects.
 
 Exclude tape, PDE, RNG, interpolation, rate and unrelated Python timing matrices:
@@ -43,6 +44,16 @@ The machine is shared, so record host noise.
 These are unequal ownership/spill contracts. Cost differences are informational;
 the calibrated +4% regression rule remains applicable only to comparable
 contracts. Do not present typed Linux timing as Excel-host, COM or raw-XLL costs.
+
+## CI repair scope
+
+The first CI configure exposed a direct-core include in the common binding.
+Add a thin installed public forwarding header, then reproduce RED/GREEN with
+the repository's actual CMake boundary function. Codacy also requires extracting
+the raw Windows analytic check and the Python observation validator. These
+repairs do not change native algorithms. Rebuild affected interface binaries and
+repeat only the same two selected requests; retain the initial observations
+separately and do not expand the performance case set.
 
 ## Results
 

@@ -9,17 +9,25 @@ from pathlib import Path
 import time
 
 
-def check(values, paths):
+def check_finite(values):
     if len(values) != 28 or not all(math.isfinite(value) for value in values):
         raise AssertionError("invalid financial observation")
+
+
+def expected_values(paths):
     discount = math.exp(-0.05)
     expected = [1e-6 * discount]
     expected.extend(0.002 * discount if quote == 3 else 0.0 for quote in range(6))
     for multiplier in (1.0, -2.0, 0.0):
         expected.extend(2.0 * multiplier * discount if quote == 3 else 0.0 for quote in range(6))
     expected.extend((7.0, float(paths), 720.0))
-    for index, (actual, reference) in enumerate(zip(values, expected)):
-        tolerance = 1e-14 if index == 0 else 1e-12 if index < 7 else 1e-10
+    return expected
+
+
+def check(values, paths):
+    check_finite(values)
+    tolerances = [1e-14] + [1e-12] * 6 + [1e-10] * 21
+    for index, (actual, reference, tolerance) in enumerate(zip(values, expected_values(paths), tolerances)):
         if abs(actual - reference) > tolerance:
             raise AssertionError(f"financial mismatch at {index}: {actual} versus {reference}")
 
