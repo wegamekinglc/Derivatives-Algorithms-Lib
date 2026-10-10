@@ -57,7 +57,7 @@ separately and do not expand the performance case set.
 
 ## Results
 
-The timed head is `187ee426`; baseline/head use the same accepted installed
+The timed repaired head is `30e9d9f0`; baseline/head use the same accepted installed
 core/public archives. The core SHA-256 is
 `967f5e721f0ba67354b66f8eb14d8be9c4f7e422463bc8c412864491ee06997c`.
 All changed Excel and bridge objects are rebuilt in isolated worktrees with
@@ -68,12 +68,12 @@ all process outputs and the four calibration captures.
 
 | Paths | Repetitions, C++ / Excel | Round 1 minima, microseconds C++ / Excel | Round 2 minima, microseconds C++ / Excel | Relative cost, rounds 1 / 2 |
 |-------|--------------------------|------------------------------------------|------------------------------------------|-----------------------------|
-| 17    | 40 / 41                  | 2297.79 / 2324.64                        | 2320.66 / 2317.10                        | +1.17% / -0.15%             |
-| 257   | 28 / 28                  | 3778.99 / 3790.56                        | 3701.90 / 3746.46                        | +0.31% / +1.20%             |
+| 17    | 43 / 41                  | 2479.64 / 2560.36                        | 2441.42 / 2475.30                        | +3.26% / +1.39%             |
+| 257   | 26 / 26                  | 4004.58 / 4023.19                        | 4006.63 / 3995.96                        | +0.46% / -0.27%             |
 
 All 80 fresh-process observations pass the financial/count checks. Their timed
-batches total 8.215 seconds; the shortest is 91.912 ms. Measurements use CPU 0
-on the shared host, with recorded final load 0.63/1.23/1.28. The deltas are
+batches total 8.766 seconds; the shortest is 101.487 ms. Measurements use CPU 0
+on the shared host, with recorded final load 2.62/1.97/1.54. The deltas are
 informational boundary costs, not a comparable-contract regression verdict.
 Zero unrelated previously accepted timing rows were repeated.
 

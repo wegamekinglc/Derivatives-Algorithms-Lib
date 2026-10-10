@@ -16,10 +16,13 @@ including independent signed quadratic and recalibrated mixed-payoff checks,
 zero directions, budget boundaries and failure/caller-state recovery. Fourteen
 OFF/combined strict translation-unit checks pass, and 50 wrapper/help files
 regenerate without drift. Two scoped complete financial requests retain 80
-calibrated observations in 8.215 timed seconds; unequal interface costs are
+calibrated observations in 8.766 timed seconds after the CI include-boundary
+and check-complexity repairs; unequal interface costs are
 informational. Windows raw/registration runtime and publication gates remain
 pending. The active [review](../reviews/aad-excel-dupire-curvature.md) and
 [cost report](../performance/aad-excel-dupire-curvature.md) control those gates.
+The actual CMake binding boundary and an independently installed public bump
+header consumer also pass. Original native/public archives remain unchanged.
 The new increment reuses accepted public numerical evaluators and existing
 storable templates. It will have a separate PR; rate curvature starts only after
 this increment merges.
