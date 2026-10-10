@@ -8,7 +8,6 @@
 #include <functional>
 #include <limits>
 #include <string>
-#include <type_traits>
 
 #include <dal-public/src/ratecurvature.hpp>
 #include <dal/curve/curveparameterization.hpp>
@@ -20,6 +19,7 @@
 
 #include "jointquoteriskfixtures.hpp"
 #include "ratejacobianfixtures.hpp"
+#include "ratetradecurvaturefixtures.hpp"
 #include "ratexccycurvaturefixtures.hpp"
 
 namespace {
@@ -106,43 +106,7 @@ namespace {
         request.steps_ = {2.0e-4};
         return request;
     }
-    Dal::Vector_<Dal::RateTradeDefinition_> SingleFamilyTrades(const Dal::CurveCalibrationSpec_& spec) {
-        auto trades = RateJacobianFixtures::ClosedFamilyTrades();
-        trades.pop_back();
-        for (auto& trade : trades) {
-            trade.tradeDate_ = spec.today_;
-            trade.startDate_ = Dal::Date::AddMonths(spec.today_, 6);
-            trade.maturityDate_ = Dal::Date::AddMonths(spec.today_, 18);
-            std::visit(
-                [&](auto& terms) {
-                    using T_ = std::decay_t<decltype(terms)>;
-                    if constexpr (std::is_same_v<T_, Dal::DepositTradeTerms_> || std::is_same_v<T_, Dal::FraTradeTerms_> ||
-                                  std::is_same_v<T_, Dal::BasisTradeTerms_>)
-                        terms.notional_ = 1.0;
-                    if constexpr (std::is_same_v<T_, Dal::DepositTradeTerms_>) {
-                        terms.discountComponentKey_ = spec.curveName_;
-                    } else if constexpr (std::is_same_v<T_, Dal::FraTradeTerms_> || std::is_same_v<T_, Dal::FutureTradeTerms_>) {
-                        terms.forecastComponentKey_ = spec.curveName_;
-                        if constexpr (std::is_same_v<T_, Dal::FraTradeTerms_>)
-                            terms.discountComponentKey_ = spec.curveName_;
-                        else {
-                            terms.contractCount_ = 1.0;
-                            terms.contractValuePerPricePoint_ = 0.01;
-                        }
-                    } else if constexpr (std::is_same_v<T_, Dal::IrsTradeTerms_> || std::is_same_v<T_, Dal::OisTradeTerms_>) {
-                        terms.value_.notional_ = 1.0;
-                        terms.value_.discountComponentKey_ = spec.curveName_;
-                        terms.value_.forecastComponentKey_ = spec.curveName_;
-                    } else if constexpr (std::is_same_v<T_, Dal::BasisTradeTerms_>) {
-                        terms.discountComponentKey_ = spec.curveName_;
-                        terms.referenceForecastComponentKey_ = spec.curveName_;
-                        terms.spreadForecastComponentKey_ = spec.curveName_;
-                    }
-                },
-                trade.terms_);
-        }
-        return trades;
-    }
+    using RateTradeCurvatureFixtures::SingleFamilyTrades;
 
     using PassivePrice_ = std::function<double(const Dal::Vector_<>&)>;
 

@@ -47,6 +47,13 @@ consumer executable are rebuilt.
 
 ## Remaining acceptance and risk
 
+The initial remote Codacy report identified three test/harness complexity
+findings. Shared preparation now uses typed family overloads; the performance
+dispatcher uses focused runners. Local Lizard finds no function over the
+configured limit of eight in the three affected files. Sixteen affected public
+tests and their two strict probes pass; production archive identities are
+unchanged. Fresh cost-binary identity analysis precedes scoped repeat sampling.
+
 Five scoped cost comparisons pass with 200 observations and matching checksums;
 existing-call round deltas satisfy the sustained 4% gate. Inspect every full remote review
 body, issue comment, inline thread and Codacy annotation. Merge only after

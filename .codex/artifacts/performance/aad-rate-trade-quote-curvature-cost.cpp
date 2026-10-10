@@ -7,7 +7,6 @@
 #include <iostream>
 #include <numeric>
 #include <string>
-#include <type_traits>
 
 #include <dal-public/src/global.hpp>
 #include <dal-public/src/ratecurvature.hpp>
@@ -16,6 +15,7 @@
 #include <dal/curve/ycconst.hpp>
 
 #include "ratejacobianfixtures.hpp"
+#include "ratetradecurvaturefixtures.hpp"
 #include "ratexccycurvaturefixtures.hpp"
 
 #if DAL_TRADE_CURVATURE_COST_MODE < 2
@@ -60,44 +60,6 @@ namespace {
         RateTradeQuoteCurvatureSettings_ settings_;
     };
 
-    Vector_<RateTradeDefinition_> SingleTrades(const CurveCalibrationSpec_& spec) {
-        auto trades = RateJacobianFixtures::ClosedFamilyTrades();
-        trades.pop_back();
-        for (auto& trade : trades) {
-            trade.tradeDate_ = spec.today_;
-            trade.startDate_ = Date::AddMonths(spec.today_, 6);
-            trade.maturityDate_ = Date::AddMonths(spec.today_, 18);
-            std::visit(
-                [&](auto& terms) {
-                    using T_ = std::decay_t<decltype(terms)>;
-                    if constexpr (std::is_same_v<T_, DepositTradeTerms_> || std::is_same_v<T_, FraTradeTerms_> ||
-                                  std::is_same_v<T_, BasisTradeTerms_>)
-                        terms.notional_ = 1.0;
-                    if constexpr (std::is_same_v<T_, DepositTradeTerms_>)
-                        terms.discountComponentKey_ = spec.curveName_;
-                    else if constexpr (std::is_same_v<T_, FraTradeTerms_> || std::is_same_v<T_, FutureTradeTerms_>) {
-                        terms.forecastComponentKey_ = spec.curveName_;
-                        if constexpr (std::is_same_v<T_, FraTradeTerms_>)
-                            terms.discountComponentKey_ = spec.curveName_;
-                        else {
-                            terms.contractCount_ = 1.0;
-                            terms.contractValuePerPricePoint_ = 0.01;
-                        }
-                    } else if constexpr (std::is_same_v<T_, IrsTradeTerms_> || std::is_same_v<T_, OisTradeTerms_>) {
-                        terms.value_.notional_ = 1.0;
-                        terms.value_.discountComponentKey_ = spec.curveName_;
-                        terms.value_.forecastComponentKey_ = spec.curveName_;
-                    } else if constexpr (std::is_same_v<T_, BasisTradeTerms_>) {
-                        terms.discountComponentKey_ = spec.curveName_;
-                        terms.referenceForecastComponentKey_ = spec.curveName_;
-                        terms.spreadForecastComponentKey_ = spec.curveName_;
-                    }
-                },
-                trade.terms_);
-        }
-        return trades;
-    }
-
     Materials_ SingleMaterials() {
         const auto spec = SingleSpec();
         auto solved = CalibrateYieldCurve(spec, CurveCalibrationOptions_{});
@@ -105,7 +67,10 @@ namespace {
         market.valuationTime_ = DateTime_(spec.today_);
         market.resultCurrency_ = Ccy_(spec.ccy_);
         market.curveComponents_[spec.curveName_] = Handle_<DiscountCurve_>(std::move(solved.curve_));
-        return {NewRateCalibration(spec), std::move(market), SingleTrades(spec), {{1.0, -0.3, 0.2, 0.4, -0.5, 0.7}, {}}};
+        return {NewRateCalibration(spec),
+                std::move(market),
+                RateTradeCurvatureFixtures::SingleFamilyTrades(spec),
+                {{1.0, -0.3, 0.2, 0.4, -0.5, 0.7}, {}}};
     }
 
     RateTradeDefinition_ XccyTrade(const CrossCurrencyCalibrationSpec_& spec) {
@@ -180,58 +145,77 @@ namespace {
     }
 } // namespace
 
+namespace {
+#if DAL_TRADE_CURVATURE_COST_MODE == 3
+    void RunParameterJacobian() {
+        const auto market = RateJacobianFixtures::ComponentMarket();
+        const Dal::Vector_<Dal::RateCurveParameterCoordinate_> axis = {{"C", 0}, {"D", 0}, {"A", 0}, {"E", 0}, {"B", 0}};
+        Dal::Vector_<Dal::RateTradeDefinition_> trades;
+        const Dal::Vector_<Dal::RateTradeDefinition_> templates = {RateJacobianFixtures::Irs(), RateJacobianFixtures::Deposit("deposit", "D"),
+                                                                   RateJacobianFixtures::Fra()};
+        for (size_t i = 0; i < 32; ++i)
+            trades.push_back(templates[i % templates.size()]);
+        Measure([&] {
+            const auto result = Dal::RateTradeParameterJacobian(trades, market, axis);
+            return std::accumulate(result.jacobian_.begin(), result.jacobian_.end(), 0.0);
+        });
+    }
+#else
+    Dal::AAD::BumpOverAADRequest_ CurvatureRequest(const Dal::RateCalibrationSnapshot_& calibration) {
+        Dal::AAD::BumpOverAADRequest_ request;
+        request.directions_ = Dal::Matrix_<>(1, static_cast<int>(calibration.Point().size()), 0.6);
+        request.directions_(0, 0) = -0.8;
+        request.steps_ = {2e-4};
+        return request;
+    }
+#if DAL_TRADE_CURVATURE_COST_MODE == 2
+    void RunGenericCurvature() {
+        const auto calibration = Dal::NewRateCalibration(SingleSpec());
+        const auto request = CurvatureRequest(calibration);
+        Measure([&] {
+            return Checksum(Dal::EvaluateRateQuoteCurvature(
+                [](auto*, const auto& inputs) -> Dal::AAD::Number_ {
+                    Dal::AAD::Number_ value(0.0);
+                    for (const auto& input : inputs)
+                        value += input * input;
+                    return value;
+                },
+                calibration, request));
+        });
+    }
+#else
+    void RunFinancialCurvature(const std::string& kind) {
+        const auto materials = kind == "staged" ? StagedMaterials() : kind == "joint" ? JointMaterials() : SingleMaterials();
+        const auto& calibration = materials.calibration_;
+        const auto request = CurvatureRequest(calibration);
+        Dal::Vector_<Dal::RateCurveParameterCoordinate_> axis;
+        for (const auto& coordinate : calibration.Provenance().Axis().parameters_)
+            axis.push_back(
+                {calibration.Provenance().ComponentKeyByParameterBlock().at(coordinate.blockKey_), static_cast<size_t>(coordinate.blockOrdinal_)});
+        Measure([&] {
+#if DAL_TRADE_CURVATURE_COST_MODE == 0
+            return Checksum(Dal::EvaluateRateTradeQuoteCurvature(materials.trades_, calibration, request, materials.settings_).Curvature());
+#else
+            const auto captured = Dal::RateCashflowPricingInternal::NewRateTradeObjective(
+                materials.trades_, materials.market_, axis, {materials.settings_.weights_, materials.settings_.fixings_, calibration.Point().size()});
+            return Checksum(Dal::EvaluateRateQuoteCurvature(captured.objective_, calibration, request));
+#endif
+        });
+    }
+#endif
+#endif
+} // namespace
+
 int main(int argc, char** argv) {
     Dal::InitGlobalData(1);
     (void)argc;
     (void)argv;
 #if DAL_TRADE_CURVATURE_COST_MODE == 3
-    const auto market = RateJacobianFixtures::ComponentMarket();
-    const Dal::Vector_<Dal::RateCurveParameterCoordinate_> axis = {{"C", 0}, {"D", 0}, {"A", 0}, {"E", 0}, {"B", 0}};
-    Dal::Vector_<Dal::RateTradeDefinition_> trades;
-    const Dal::Vector_<Dal::RateTradeDefinition_> templates = {RateJacobianFixtures::Irs(), RateJacobianFixtures::Deposit("deposit", "D"),
-                                                               RateJacobianFixtures::Fra()};
-    for (size_t i = 0; i < 32; ++i)
-        trades.push_back(templates[i % templates.size()]);
-    Measure([&] {
-        const auto result = Dal::RateTradeParameterJacobian(trades, market, axis);
-        return std::accumulate(result.jacobian_.begin(), result.jacobian_.end(), 0.0);
-    });
+    RunParameterJacobian();
+#elif DAL_TRADE_CURVATURE_COST_MODE == 2
+    RunGenericCurvature();
 #else
-#if DAL_TRADE_CURVATURE_COST_MODE == 2
-    const auto calibration = Dal::NewRateCalibration(SingleSpec());
-#else
-    const std::string kind = argc > 1 ? argv[1] : "single";
-    const auto materials = kind == "staged" ? StagedMaterials() : kind == "joint" ? JointMaterials() : SingleMaterials();
-    const auto& calibration = materials.calibration_;
-#endif
-    Dal::AAD::BumpOverAADRequest_ request;
-    request.directions_ = Dal::Matrix_<>(1, static_cast<int>(calibration.Point().size()), 0.6);
-    request.directions_(0, 0) = -0.8;
-    request.steps_ = {2e-4};
-#if DAL_TRADE_CURVATURE_COST_MODE < 2
-    Dal::Vector_<Dal::RateCurveParameterCoordinate_> axis;
-    for (const auto& coordinate : calibration.Provenance().Axis().parameters_)
-        axis.push_back(
-            {calibration.Provenance().ComponentKeyByParameterBlock().at(coordinate.blockKey_), static_cast<size_t>(coordinate.blockOrdinal_)});
-#endif
-    Measure([&] {
-#if DAL_TRADE_CURVATURE_COST_MODE == 0
-        return Checksum(Dal::EvaluateRateTradeQuoteCurvature(materials.trades_, calibration, request, materials.settings_).Curvature());
-#elif DAL_TRADE_CURVATURE_COST_MODE == 1
-        const auto captured = Dal::RateCashflowPricingInternal::NewRateTradeObjective(
-            materials.trades_, materials.market_, axis, {materials.settings_.weights_, materials.settings_.fixings_, calibration.Point().size()});
-        return Checksum(Dal::EvaluateRateQuoteCurvature(captured.objective_, calibration, request));
-#else
-        return Checksum(Dal::EvaluateRateQuoteCurvature(
-            [](auto*, const auto& inputs) -> Dal::AAD::Number_ {
-                Dal::AAD::Number_ value(0.0);
-                for (const auto& input : inputs)
-                    value += input * input;
-                return value;
-            },
-            calibration, request));
-#endif
-    });
+    RunFinancialCurvature(argc > 1 ? argv[1] : "single");
 #endif
     return 0;
 }

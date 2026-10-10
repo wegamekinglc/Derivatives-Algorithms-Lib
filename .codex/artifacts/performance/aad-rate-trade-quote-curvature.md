@@ -89,3 +89,15 @@ manifests remain in the evidence directory above. The active
 Existing rate-risk benchmarks cover native trade-Jacobian callers; a future
 scheduled workload may incorporate these financial curvature cases. That
 coverage advice does not expand this PR's five-case acceptance.
+
+## Codacy preparation refactor
+
+Codacy identified complexity in the shared six-family preparation and harness
+dispatcher. Preparation now uses a shared typed visitor with small family
+overloads, and the dispatcher delegates to focused financial/generic/Jacobian
+runners. This changes test/harness preparation only; production archives remain
+identical. The 16 affected public tests and two affected strict probes pass.
+Before publication, rebuild all selected harness modes, compare executable
+identities against the original evidence and repeat only comparisons whose
+identities changed. Retain both evidence directories and record the selection
+before any repeat samples; the five-case scope and sampling gates stay fixed.
