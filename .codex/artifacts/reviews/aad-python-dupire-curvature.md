@@ -1,15 +1,35 @@
 # Python Dupire curvature local review
 
-Verdict: Approve. Local correctness and scoped costs are accepted; current-head
-publication gates remain required before merge.
+Verdict: Approve locally. Fresh exact-head remote publication gates remain.
 
 ## Findings
 
-No unresolved correctness, ownership or compatibility findings in the reviewed
-working-tree change from accepted #528 (`2f1f6f9008b6a0d9e800e718b5eaca5a2d9d4019`).
+Resolved P1 at `dal-cpp/dal/script/simulation.hpp:331`: the cancelled branch of
+`RunSimulationBatches` retained its RNG capture until
+the packaged task is destroyed, after its future can become ready. The existing
+GCC 13 cancellation test observes one live clone after return; local repetition
+fails on iteration 29 with the same seek/four-thread trace. Release that capture
+before returning from the cancelled branch, retaining the zero-live assertion.
+The repair resets the capture before returning. The original assertion passes
+1,000 repetitions, and all 15 tests in the batch source pass. Dependent official
+PIC libraries and the installed Python module are rebuilt; ten affected Python
+tests and six OFF/combined strict probes pass. Source/header/object/module hashes
+tie the fresh executable evidence to the sole native-header change.
+
+No remaining actionable findings. Six successful-call cases cover both helper
+call sites, tree/compiled and the separate weighted objective, with 32,785 paths,
+four workers and a Sobol control. Two new Dupire costs also refresh. All 320
+observations pass numeric checks. A further 40 observations confirm only the
+noisy passive/tree case; no comparable case exceeds +4% in both rounds. Total
+measured time is 14.075691852 seconds. The passive/tree minima remain noisy:
+initial -8.55/+5.73%, then +6.39/+2.96%; this supports no sustained slowdown under
+the stated rule, without claiming a speedup or exact performance equivalence.
+
+The earlier binding-only review has no correctness, ownership or compatibility
+findings from accepted #528 (`2f1f6f9008b6a0d9e800e718b5eaca5a2d9d4019`).
 The full new binding, module/CMake registration, new tests, active specification,
 API/critique, documentation and ledger changes were read. Both native libraries
-and existing binding function bodies remain unchanged.
+remain unchanged in that earlier binding-only snapshot.
 
 The constructor requires copied native matrices and strict numeric sequences;
 budgets preserve optional zero. Native planning retains quote-dependent dimension,
@@ -72,8 +92,9 @@ Repair acceptance repeats only the six affected new cases and four existing
 helper callers: 10/10 pass in 1.21 seconds with four native workers in the parent.
 The initial 174-case installed run remains historical evidence; it is not claimed
 as a fresh run of the repaired test sources. Production sources, installed module,
-native libraries and timing driver are unchanged, so no rebuild or timing repeat
-is needed. Fresh remote checks must establish cross-platform acceptance.
+native libraries and timing driver were unchanged for that test-only repair.
+The later cancellation repair refreshes their affected paths as recorded above.
+Fresh remote checks must establish cross-platform acceptance.
 
 The original non-PIC static archive cannot link a Python shared extension; its
 failed link is retained. Fresh official PIC core/public builds and standalone

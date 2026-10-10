@@ -328,8 +328,11 @@ namespace Dal::Script {
                         }
                     }
                     tasks.Spawn([&, index, batch, random = std::move(random)]() mutable {
-                        if (positioned && cancelled.load(std::memory_order_acquire))
+                        if (positioned && cancelled.load(std::memory_order_acquire)) {
+                            // Release owned state before the task future becomes ready.
+                            random.reset();
                             return true;
+                        }
                         try {
                             work(index, batch, std::move(random));
                         } catch (...) {

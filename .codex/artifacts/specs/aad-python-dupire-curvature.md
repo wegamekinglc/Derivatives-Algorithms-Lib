@@ -45,7 +45,22 @@ prototype's existence does not change this adapter's finite-step method label.
    seeds, EXERCISE and worker recording-cap requests. Do not silently drop caps.
 7. Python errors identify the function/type and offending field. Native dimension,
    perturbation, calibration and payload errors retain their existing context.
-8. Existing entry points, numerical libraries and capabilities stay unchanged.
+8. Preserve existing entry signatures, numerical algorithms and capability flags.
+   The CI repair below strengthens cancellation lifetime guarantees.
+
+## Native cancellation repair discovered during CI
+
+The GCC 13 run of the existing batch cancellation/recovery test observes one live
+RNG clone after a seek failure returns. Local repetition reproduces the same
+failure on iteration 29. A cancelled task returns without consuming its captured
+RNG; the packaged task can publish readiness before destroying that capture.
+
+Release the owned RNG inside the cancellation branch before returning. Keep
+the normal work path, random sequence, failure identity and drain semantics.
+Retain the original zero-live-clones assertion. Validate the failure case under
+repetition, the directly affected batch tests and selected financial callers.
+Rebuild dependent installed libraries/bindings and refresh only affected timing;
+the earlier binding-only executable evidence remains historical, not final.
 
 ## Acceptance and performance boundary
 

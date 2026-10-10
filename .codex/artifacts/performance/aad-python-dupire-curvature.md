@@ -87,3 +87,68 @@ Base-only native minima are 0.4644/0.4571 ms, versus 0.2174/0.2250 ms compositio
 Three-direction native minima are 2.6296/2.7457 ms, versus 2.0853/2.0928 ms.
 The informational admission-overhead conclusion is unchanged. Optimized Python
 execution also rejects an incorrect analytic gradient with an explicit error.
+
+## Cancellation repair scope
+
+Synchronized-head GCC 13 CI and a focused local repetition expose a prior RNG
+lifetime race in `dal-cpp/dal/script/simulation.hpp`: cancelled closures retain
+their RNG past future readiness. The repair releases that capture in the cancelled
+branch. It changes no valuation, random stream or normal work operation, but
+dependent objects must be rebuilt and compiler/layout effects need scoped checks.
+
+Dependency files identify eight core, six public and twelve binding translation
+units that include the shared header. Rebuild those dependencies; compare object
+identities to exclude units with no generated-code change. The helper has only two
+production call sites: passive and AAD Monte Carlo batching. Select successful
+IRN/tree/compiled financial cases covering both call sites, plus a non-positioned
+Sobol control. Add weighted/blocked/portfolio entry cases only where the rebuilt
+object/caller analysis establishes changed generated code. Cover multi-batch and
+tail work with four workers; the focused correctness tests retain one/four-worker,
+empty-run, cancellation-source, bridge and precision boundaries.
+
+The two new Dupire curvature entry-cost cases also receive fresh installed-module
+evidence. Preserve both prior result sets. Use the same two rounds of ten
+alternating interleaved process pairs, calibrated loops and unchanged sustained
++4% gate for comparable old callers. Unchanged tape, curve calibration, solve,
+PDE, rate and full parameter matrices remain excluded. Final selection and object
+identity findings are recorded before sampling; no omitted case is a fresh pass.
+
+The completed incremental rebuild changes four core objects (LSMC, diagnostics,
+portfolio admission and portfolio batches), five public objects (scalar/weighted
+risk, value, Dupire risk/curvature and portfolio replay), and eleven bindings.
+The core scalar simulation, blocked Jacobian and segmented replay objects remain
+byte-identical. Inclusion and line-number/layout changes alone do not establish
+execution of the modified helper: portfolio replay uses its own `RunBatches`,
+and blocked/segmented Jacobian replay uses a separate dispatcher. These are
+excluded from repair timing, together with unchanged LSMC policy operations.
+
+The final six comparable successful-call cases are IRN passive/tree,
+passive/compiled, AAD/tree, AAD/compiled, weighted-AAD/compiled, and a passive
+compiled Sobol control. Scalar cases enter through `MonteCarlo_ValueWithSettings`;
+weighted replay covers the separate objective instantiation in `riskvalue.cpp`.
+Each runs 32,785 paths (four full 8,192-path batches and a tail), four workers,
+and checks an analytic value/gradient before and after timing. The baseline is
+the preserved pre-repair installed module at `70d5285d4b`; native sources match
+the merge base `27afc72e5b` there. Both sides use the same driver and configuration.
+This is scoped caller evidence, separate from the scheduled nine-target gate.
+The existing M=0/M=3 Dupire driver additionally runs against the rebuilt module,
+with its original one-worker inputs and informational composition comparison.
+
+The first repair run completes 320 observations in 12.139067637 measured seconds.
+No comparable caller exceeds +4% in both rounds. The passive/tree case has
+discordant -8.55% and +5.73% minima, so repeat only that case with two further
+ten-pair rounds to distinguish drift from a repeatable change. Retain the initial
+observations and all other accepted cases; do not repeat the eight-case set.
+
+The focused confirmation adds forty observations in 1.936624215 measured seconds,
+with +6.39/+2.96% round minima: no sustained +4% slowdown under the same rule.
+All six comparable cases pass that scoped rule, with visible passive/tree noise
+and no acceleration claim. The two refreshed informational Dupire cases retain
+the admission-overhead finding (M=0: +111/+117%; M=3: +28/+28%). Total current
+repair evidence is 360 observations and 14.075691852 measured seconds, stored in
+`cancellation_repair`; the original and Codacy/test repair records remain intact.
+The fresh installed module SHA-256 is
+`430083a2d77c4fdebda54b66ddf70eb9a38c5593270477571305a300e297b5b8`.
+Its 402 installed headers match source; the only changed header is simulation.
+Native acceptance passes 1,000 cancellation repetitions and all 15 batch cases;
+ten affected installed Python cases and six strict OFF/combined probes pass.
