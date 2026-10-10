@@ -16,6 +16,7 @@
 #include <dal-public/src/script.hpp>
 #include <dal-public/src/storage.hpp>
 #include <dal-public/src/value.hpp>
+#include <dal/math/aad/forwardoverreverse.hpp>
 #include <dal/model/dupirerisk.hpp>
 #include <dal/model/ivs.hpp>
 #include <dal/script/lsmccurvature.hpp>
@@ -23,6 +24,16 @@
 #include <dal/utilities/numerics.hpp>
 
 namespace {
+    bool CheckSmoothCurvature() {
+        Dal::AAD::ForwardOverReverseRequest_ request;
+        request.directions_ = Dal::Matrix_<>(1, 1, 1.0);
+        const auto result = Dal::AAD::EvaluateForwardOverReverse(
+            [](Dal::AAD::RecordingScope_*, const Dal::Vector_<Dal::AAD::ForwardOverReverseNumber_>& x) { return x[0] * x[0] * x[0] * x[0]; }, {2.0},
+            request);
+        return result.Value() == 16.0 && result.Gradient()[0] == 32.0 && result.HessianProducts()(0, 0) == 48.0 &&
+               result.DirectionalDerivatives()[0] == 32.0 && result.Execution().reverseSweeps_ == 2;
+    }
+
     bool CheckLsmcCurvature() {
         Dal::Script::MonteCarloSettings_ simulation;
         simulation.enableAad_ = true;
@@ -166,6 +177,8 @@ namespace {
 } // namespace
 
 int main() {
+    if (!CheckSmoothCurvature())
+        return 1;
     Dal::InitGlobalData(1);
     const auto product = Dal::NewScriptProduct("installed-risk", {Dal::Cell_(Dal::Date_(2026, 9, 22))}, {"pay PAYS SPOT()"});
     const auto model = Dal::NewBSModelData("installed-model", 100.0, 0.0, 0.0, 0.0);
