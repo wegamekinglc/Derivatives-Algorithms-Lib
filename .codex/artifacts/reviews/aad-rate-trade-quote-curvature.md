@@ -59,7 +59,7 @@ return zero value, gradient and Hessian products without requiring paid history.
 The 34 affected public/core cases and four affected strict probes pass; the 24
 generic quote-objective cases use unchanged calibration/driver paths and retain
 accepted evidence. The rebuilt installed consumer passes 1/1; five selected
-cost comparisons pass with 200 fresh observations and 1.1455 measured seconds.
+cost comparisons pass with 200 fresh observations and 1.0866 measured seconds.
 Accepted baseline binaries retain complete dependency and executable identity
 proof. No additional performance cases were introduced.
 
@@ -79,7 +79,10 @@ validator, including valid dates, finite spread, positive finite notionals,
 distinct currencies, supported notional mode and reset timing. This removes
 duplicated partial predicates. The expired-row regression adds zero/negative
 notionals on both legs and invalid mode for zero/unit weights; RED/GREEN and
-34 affected cases pass. Rebuild installed/cost binaries before publishing.
+34 affected cases pass. The installed consumer and selected cost executables
+are freshly linked against the rebuilt core archive; installed consumption and
+all five selected comparisons pass. Unchanged harness objects retain complete
+source, dependency and configuration identity proof.
 
 Five scoped cost comparisons pass with 200 observations and matching checksums;
 existing-call round deltas satisfy the sustained 4% gate. Inspect every full remote review
