@@ -13,7 +13,8 @@ the settings input range and output handle. Rename the markup output and
 regenerate both files. Codacy identifies complexity in the cost bridge, driver
 and one test; factor shared row copies, commit only the observation driver and
 split diagnostic/execution assertions without removing coverage. Lizard's
-limit-eight scan is clear. Repaired bridge timing remains pending at this snapshot.
+limit-eight scan is clear. Repaired bridge timing accepts the same two-case
+scope with 80 observations; initial observations remain historical evidence.
 
 ## Open questions
 
@@ -40,8 +41,8 @@ publication evidence are pending, so the current verdict is Comment Only.
   export, with scalar/integer/range/type/NUL/budget checks. Actual remote runtime
   is a publication gate, not a local pass claimed by these source tests.
 - Performance selection accepts two affected financial requests, with 80
-  observations, calibrated two-round alternating pairs and 7.738596508 measured
-  seconds. Every loop exceeds 78ms. Unequal public/Excel boundary costs are
+  observations, calibrated two-round alternating pairs and 8.167774303 measured
+  seconds. Every loop exceeds 80ms. Unequal public/Excel boundary costs are
   disclosed; no algorithm speedup or comparable-contract regression claim is made.
 - Full remote CI/Codacy/reviews and actual Windows runtime remain pending at
   this local acceptance snapshot.

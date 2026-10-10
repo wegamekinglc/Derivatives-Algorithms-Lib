@@ -1,6 +1,6 @@
 # Excel PDE scoped cost acceptance
 
-Status: initial scoped costs retained; repaired bridge timing pending. Baseline is merged #534,
+Status: repaired scoped informational boundary costs accepted. Baseline is merged #534,
 1ee4b6c19f74b99aeea9ac66d815b550edc3829d.
 
 ## Changed paths and selected callers
@@ -54,7 +54,7 @@ complete reviews/Codacy and guarded publication remain independent gates.
 
 ## Outcome
 
-Initial timed head is `2d12c670f678ac263648a450d7c8f60bed14364f` from isolated
+Final timed head is `fd54fdca9db86d64e3f405cad44f5e541484d9aa` from isolated
 detached source trees. GCC 15.2.0 Release/O3 runs on a shared WSL2 host,
 CPU 0 pinned, one DAL thread, with no competing local C++ build/test.
 The accepted public/core archives remain byte-identical. Both actual
@@ -62,8 +62,8 @@ production dependents of the added public inline facade are freshly rebuilt
 with accepted flags and have identical objects, preserving previous numerical
 and compatibility evidence without repeating old timing families.
 
-Two cases retain 80 full observations in 7.738596508 measured seconds.
-Every observed loop is at least 78.468167ms; each round contains ten
+Two cases retain 80 full observations in 8.167774303 measured seconds.
+Every observed loop is at least 80.721953ms; each round contains ten
 alternating interleaved pairs. Every call checks all solve errors and each
 observation verifies accepted prices and all six adjoints before/after timing.
 Complete process captures, raw samples, compiler commands, source/dependency
@@ -72,21 +72,23 @@ hashes and binary identities remain in
 
 | Nodes / ordinary intervals | Round | Public C++ minimum (us) | Typed Excel minimum (us) | Delta      |
 |----------------------------|-------|-------------------------|--------------------------|------------|
-| 9 / 8                      | 1     | 97.614604               | 100.729354               | +3.190865% |
-| 9 / 8                      | 2     | 97.994788               | 102.230529               | +4.322414% |
-| 61 / 120                   | 1     | 6541.222800             | 6565.256875              | +0.367425% |
-| 61 / 120                   | 2     | 6565.146400             | 6709.285438              | +2.195519% |
+| 9 / 8                      | 1     | 113.283483              | 112.073622               | -1.067994% |
+| 9 / 8                      | 2     | 100.776471              | 105.370229               | +4.558364% |
+| 61 / 120                   | 1     | 6765.861733             | 6816.950933              | +0.755103% |
+| 61 / 120                   | 2     | 6736.979000             | 6809.084133              | +1.070289% |
 
 These are unequal contracts: Excel additionally creates settings/request/result
 handles, copied request/settings handles and all eight labeled cell spills.
 The deltas measure that extra boundary work and are informational; the +4%
-comparable-contract regression threshold is not applied. No native algorithm
+comparable-contract regression threshold is not applied. The small baseline's
+round minima also vary by about 12%; this shared-host noise and unequal work
+prevent a speedup claim from its negative first-round delta. No native algorithm
 change or speedup is claimed. This measures portable typed function calls,
 not the XLL exports, Excel host recalculation, COM or UI. Actual Windows export
 correctness remains a separate required publication gate.
 
-Base bridge SHA256: `2a0bd37f5658f989497e93a9706dd0e28c7ead1fcf695792dc5110023af65d8c`.
-Head bridge SHA256: `ada4493ece54887d3f06ac1fc510c53978807dc01432f7a89fbdcbca495af763`.
+Base bridge SHA256: `21187e86078aa09c3fcff373499739e9b5f96bc02250eca8e24fc8ceb779e196`.
+Head bridge SHA256: `a6954b6d636b6eb374bfdcf0b361c4003de32f090779b523b5d1c1d18f7b1fb0`.
 The shared risk storable template, legacy risk headers, all native core sources
 and old algorithms are unchanged. Their prior accepted timings are reused with
 source/dependency/binary proof, not counted as new measured passes. No full
