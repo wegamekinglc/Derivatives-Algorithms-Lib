@@ -17,14 +17,14 @@
 namespace {
     using namespace Dal;
 
-    Handle_<ScriptProductData_> Product(int selected) {
+    Handle_<Script::ScriptProductData_> Product(int selected) {
         Vector_<Cell_> dates{Cell_("SCALE"), Cell_(Date_(2027, 1, 2))};
         Vector_<String_> events{"2", "pay PAYS SCALE * FIX(EQ[EXCEL_MC_COST]) ^ 2"};
         if (selected == 1) {
             dates.push_back(Cell_(Date_(2028, 1, 2)));
             events = {"2", "APPEND(v, SCALE * FIX(EQ[EXCEL_MC_COST]) ^ 2)", "APPEND(v, SCALE * FIX(EQ[EXCEL_MC_COST]) ^ 2) pay PAYS SUM(v)"};
         }
-        return Handle_<ScriptProductData_>(new ScriptProductData_("cost", dates, events));
+        return Handle_<Script::ScriptProductData_>(new Script::ScriptProductData_("cost", dates, events));
     }
 
     Script::ScriptValuationSettings_ Valuation() {
