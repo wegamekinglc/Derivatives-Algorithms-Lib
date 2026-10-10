@@ -18,11 +18,14 @@ remain immutable. Current PDE controls are the
 [specification](../specs/aad-python-european-pde-risk.md),
 [API](../api-notes/aad-python-european-pde-risk.md) and
 [critique](../critiques/aad-python-european-pde-risk.md).
-Local acceptance passes six new C++ tests, six affected financial tests and
-32 new Python tests. Fresh public/Python packages preserve the accepted native
-core archive; strict/installed revalidation after the scoped validation refactor,
-cost and publication acceptance remain open. No new phase starts until this
-implementation PR merges.
+Local acceptance passes six new C++ tests, six affected financial tests,
+32 new Python tests, 16 strict probes, rebuilt example and installed consumers
+3/3. Fresh public/Python packages preserve the accepted native core archive and
+402 old headers; all 52 fresh production dependencies are checked.
+Two-grid cost acceptance retains 160 observations in 9.925843438 measured
+seconds; comparable caller gates pass and unequal boundary costs are disclosed.
+Full remote CI/reviews, both final audits and merge remain open. No new phase
+starts until this implementation PR merges.
 
 Current boundary (2026-10-10): F02, P02, P03 and F03 are complete.
 Financial PDE acceptance is merged in
@@ -1578,10 +1581,10 @@ overlapping acceptance work is included once in the integration allowance.
 | P04                     | Structural compression, safe fallback and selection accepted     | #511 merged; final 36/36 gates accepted  | 0                     |
 | P05                     | Core, fixed-path and Monte Carlo adapters accepted               | #512/#513/#515 merged; 36/36 gates       | 0                     |
 | F04                     | Finite-step and opt-in smooth prototype accepted                 | #517–#528 merged                         | 0                     |
-| Final integration/audit | Financial PDE, Excel and final integration remain                | Open                                     | 4.8–7.4               |
+| Final integration/audit | Financial PDE, Excel and final integration remain                | Open                                     | 4.4–6.6               |
 
-Remaining total during PDE implementation: 37–57 hours,
-approximately 4.6–7.1 eight-hour person-days, excluding CI queue time. The audit
+Remaining total during PDE publication: 35–53 hours,
+approximately 4.4–6.6 eight-hour person-days, excluding CI queue time. The audit
 adds the previously unlisted 6–10 hour closed financial PDE projection. Delivery contingency
 is included in those same hour ranges; there is no extra undisclosed allowance. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
@@ -1614,29 +1617,29 @@ above. The accepted #490/#491/#493/#494/#495/#496/#497/#498/#499/#500 deliveries
 hours. Structured coordinates are split into numeric and native PRs; completed
 numeric/native diagnostics are not counted again.
 
-| Order | Delivery task                        | Required result                                                                                       | Remaining hours |
-|-------|--------------------------------------|-------------------------------------------------------------------------------------------------------|-----------------|
-| 1     | Accepted solve/root PRs through #501 | Merged; mathematical, resource, platform and scoped performance gates accepted                        | 0               |
-| 2     | F03 numeric coordinates              | Accepted in merged #495; immutable accepted evidence retained                                         | 0               |
-| 3     | F03 native coordinates               | Accepted in merged #496; immutable accepted evidence retained                                         | 0               |
-| 4     | F03 native coordinate accuracy       | Accepted in merged #500; exact-head CI/review and guarded merge pass                                  | 0               |
-| 4a    | F03 implicit calibration             | Numeric #501 and native #502 merged; all final gates accepted                                         | 0               |
-| 5     | F03 PDE operators                    | #504/#505/#506 merged; financial/grid and all publication gates accepted                              | 0               |
-| 6     | P04 structural sparsity              | #507–#511 merged; implementation, scoped cost and publication gates accepted                          | 0               |
-| 7a    | P05 segmentation core                | #512 merged; actual runtime, exact-head CI/review and guarded merge accepted                          | 0               |
-| 7b    | P05 financial adapter                | #513 merged; exact-head CI, review, costs, actual runtime and merge accepted                          | 0               |
-| 7c    | P05 Monte Carlo acceptance           | #515 merged; 36/36 gates, fourteen actual runtime profiles and merge proof                            | 0               |
-| 8     | F04 second-order risk                | #517–#527 increments merged; finite-step mathematical and publication gates pass                      | 0               |
-| 9     | F04 native mixed-mode prototype      | #528 merged; analytic/capability/cost and exact-head publication acceptance complete                  | 0               |
-| 10    | Python Dupire curvature              | #529 merged; exact-head CI/reviews, scoped costs and merge proof accepted                             | 0               |
-| 11a   | Python rate-trade curvature          | #530 merged; 35/35 gates, actual Python runtime and merge proof accepted                              | 0               |
-| 11b   | C++/Python segmented MC curvature    | #531 merged; 35/35 gates, actual runtime and identical merged-tree proof accepted                     | 0               |
-| 11c   | C++/Python LSMC policy curvature     | #532 merged; 35/35 checks, actual runtime, both audits and identical merged tree accepted             | 0               |
-| 11d   | Structured-operator interface audit  | #533 merged; required gates, full review, two final audits and identical tree accepted                | 0               |
-| 11e   | Closed financial PDE projection      | Shared financial chain/C++ tests pass; Python/package, strict, installed, cost and PR acceptance open | 5–9             |
-| 12    | Excel interfaces and exports         | Typed requests/results and actual Windows export acceptance                                           | 16–24           |
-| 13    | Final integration and documentation  | Installed consumers, current docs and targeted cross-platform/performance acceptance                  | 16–24           |
-| Total | Full remaining implementation        | All remaining plan requirements                                                                       | 37–57           |
+| Order | Delivery task                        | Required result                                                                                        | Remaining hours |
+|-------|--------------------------------------|--------------------------------------------------------------------------------------------------------|-----------------|
+| 1     | Accepted solve/root PRs through #501 | Merged; mathematical, resource, platform and scoped performance gates accepted                         | 0               |
+| 2     | F03 numeric coordinates              | Accepted in merged #495; immutable accepted evidence retained                                          | 0               |
+| 3     | F03 native coordinates               | Accepted in merged #496; immutable accepted evidence retained                                          | 0               |
+| 4     | F03 native coordinate accuracy       | Accepted in merged #500; exact-head CI/review and guarded merge pass                                   | 0               |
+| 4a    | F03 implicit calibration             | Numeric #501 and native #502 merged; all final gates accepted                                          | 0               |
+| 5     | F03 PDE operators                    | #504/#505/#506 merged; financial/grid and all publication gates accepted                               | 0               |
+| 6     | P04 structural sparsity              | #507–#511 merged; implementation, scoped cost and publication gates accepted                           | 0               |
+| 7a    | P05 segmentation core                | #512 merged; actual runtime, exact-head CI/review and guarded merge accepted                           | 0               |
+| 7b    | P05 financial adapter                | #513 merged; exact-head CI, review, costs, actual runtime and merge accepted                           | 0               |
+| 7c    | P05 Monte Carlo acceptance           | #515 merged; 36/36 gates, fourteen actual runtime profiles and merge proof                             | 0               |
+| 8     | F04 second-order risk                | #517–#527 increments merged; finite-step mathematical and publication gates pass                       | 0               |
+| 9     | F04 native mixed-mode prototype      | #528 merged; analytic/capability/cost and exact-head publication acceptance complete                   | 0               |
+| 10    | Python Dupire curvature              | #529 merged; exact-head CI/reviews, scoped costs and merge proof accepted                              | 0               |
+| 11a   | Python rate-trade curvature          | #530 merged; 35/35 gates, actual Python runtime and merge proof accepted                               | 0               |
+| 11b   | C++/Python segmented MC curvature    | #531 merged; 35/35 gates, actual runtime and identical merged-tree proof accepted                      | 0               |
+| 11c   | C++/Python LSMC policy curvature     | #532 merged; 35/35 checks, actual runtime, both audits and identical merged tree accepted              | 0               |
+| 11d   | Structured-operator interface audit  | #533 merged; required gates, full review, two final audits and identical tree accepted                 | 0               |
+| 11e   | Closed financial PDE projection      | Local C++/Python, strict, installed, shared example and scoped cost pass; CI/reviews/audits/merge open | 3–5             |
+| 12    | Excel interfaces and exports         | Typed requests/results and actual Windows export acceptance                                            | 16–24           |
+| 13    | Final integration and documentation  | Installed consumers, current docs and targeted cross-platform/performance acceptance                   | 16–24           |
+| Total | Full remaining implementation        | All remaining plan requirements                                                                        | 35–53           |
 
 
 The first delivery boundary is complete. Whole-PR review repaired the Windows
@@ -2240,5 +2243,5 @@ Merge verification and both audits are retained in session evidence
 P03 remaining effort is zero. The owning normalized-LU numeric pullback in #490
 and subsequent F03 recording/event integration are accepted. Current remaining
 work is the closed financial PDE projection, Excel and final
-integration: 37–57 developer-hours, as detailed in the current status table.
+integration: 35–53 developer-hours, as detailed in the current status table.
 Native algorithms are accepted; full interface/integration delivery is incomplete.

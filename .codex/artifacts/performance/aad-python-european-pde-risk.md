@@ -1,6 +1,7 @@
 # European PDE change-scoped cost acceptance
 
-Status: scope selected before measurement; no timing acceptance claimed.
+Status: selected scope measured; comparable caller gate passes. This is local
+caller evidence, not execution of the scheduled nine-target benchmark gate.
 Baseline is merged #533, `c4c77a3718e2acf5f4f5b647eb680e913375e8aa`.
 Correctness must pass before any timing starts.
 
@@ -48,7 +49,48 @@ thread/affinity observations and reject inadequate sampling or changed sources.
 Repeat only an affected case after a code repair; record the reason before any
 expansion. Required exact-head CI remains independent of this local selection.
 
-## Pending outcome
+## Outcome
 
-Raw data, per-round minima/deltas, total measured loop time, numerical and
-provenance acceptance, and a scoped verdict will be added after correctness.
+Both sizes complete two rounds of ten alternating pairs for each comparison:
+160 observations, 9.925843438 measured seconds, minimum loop 41.304792ms.
+Correctness passes 12 affected C++ tests and 32 new Python cases, with strict
+OFF/combined compilation and installed consumer acceptance. Every measured
+loop verifies both prices, all six risks and actual solve errors before/after.
+Machine: WSL/Linux, GCC 15.2.0, O3/Release, native AAD, one DAL thread, CPU 0
+affinity. The machine is shared; a single noisy round is not a sustained verdict.
+
+| Comparison                        | Grid / ordinary intervals | Round 1 minima us, left/right | Round 1 delta | Round 2 minima us, left/right | Round 2 delta | Interpretation                                    |
+|-----------------------------------|---------------------------|-------------------------------|---------------|-------------------------------|---------------|---------------------------------------------------|
+| Accepted/extracted native helper  | 9 / 8                     | 123.631 / 124.098             | +0.38%        | 97.957 / 97.854               | -0.11%        | Comparable gate passes                            |
+| Accepted/extracted native helper  | 61 / 120                  | 6930.446 / 6941.550           | +0.16%        | 6702.562 / 7052.877           | +5.23%        | Comparable gate passes; only one round exceeds 4% |
+| Owning C++ ctypes / owning Python | 9 / 8                     | 104.305 / 110.450             | +5.89%        | 105.155 / 108.838             | +3.50%        | Unequal boundary contracts; informational         |
+| Owning C++ ctypes / owning Python | 61 / 120                  | 7092.543 / 7182.633           | +1.27%        | 6954.216 / 7223.455           | +3.87%        | Unequal boundary contracts; informational         |
+
+The scoped verdict is no sustained regression under the declared two-round
+4% rule. The second medium-grid round is reported rather than hidden; no
+universal speedup, ordinary PDE benchmark pass or full-suite pass is claimed.
+Per-request result ownership/resource accounting is included in the owning rows.
+
+Immutable measured implementation:
+`ca421c0756c402437b0c326c8d0e411bfef5f296`.
+Baseline/head bridges are separate detached source/build trees; their core
+archive hash is unchanged at
+`967f5e721f0ba67354b66f8eb14d8be9c4f7e422463bc8c412864491ee06997c`.
+The fresh installed Python module hash is
+`cf41c66c3006c1fd47fc8d06b56680143b0f8d405b7cc946aaecbc85ed4a5e6c`.
+Fresh build dependency evidence covers all 52 public/binding translation units.
+All 402 existing native headers match; one new production helper is installed.
+
+The collector initially parsed Python initialization logs as JSON. Its repair
+changes only the external collector, not either timed caller/driver. The
+completed small native case's 40 structured raw numerical/timing records were
+retained; only the remaining three uncompleted comparisons proceeded. Those
+120 records additionally retain complete process stdout/stderr. No completed
+timing case, numerical test or full benchmark matrix was repeated for this
+collector repair.
+
+Portable structured observations and per-round summaries are in
+[the raw result](aad-python-european-pde-risk-results.json). Full commands,
+dependency/binary hashes, compiler/CPU observations and process captures remain
+under the active evidence root
+`/home/wegamekinglc/.cache/dal-aad-evidence-20261010/python-european-pde-risk`.
