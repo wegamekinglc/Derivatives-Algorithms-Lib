@@ -99,6 +99,43 @@ TEST(ExcelRegistrationTest, TestEuropeanPdeFunctionsRetainTypedArgumentsAndHelp)
     }
 }
 
+TEST(ExcelRegistrationTest, TestRateCurvatureFunctionsRetainTypedArgumentsAndHelp) {
+    const std::pair<const char*, const char*> contracts[] = {
+        {"RateCalibration_New", "name,source"},
+        {"RateCalibration_Recalibrate", "name,calibration,quotes"},
+        {"RateCalibration_Get_Point", "calibration"},
+        {"RateCalibration_Get_Parameters", "calibration"},
+        {"RateCalibration_Get_QuotePlan", "calibration"},
+        {"RateTradeQuoteCurvatureSettings_New", "name,[weights],[fixings]"},
+        {"RateTradeQuoteCurvatureSettings_Get_Weights", "settings"},
+        {"RateTradeQuoteCurvatureSettings_Get_Fixings", "settings"},
+        {"RateTradeQuoteCurvatureResult_New", "name,trades,calibration,bumps,[settings]"},
+        {"RateTradeQuoteCurvatureResult_Get_Value", "result"},
+        {"RateTradeQuoteCurvatureResult_Get_Currency", "result"},
+        {"RateTradeQuoteCurvatureResult_Get_Point", "result"},
+        {"RateTradeQuoteCurvatureResult_Get_Gradient", "result"},
+        {"RateTradeQuoteCurvatureResult_Get_Directions", "result"},
+        {"RateTradeQuoteCurvatureResult_Get_Steps", "result"},
+        {"RateTradeQuoteCurvatureResult_Get_HessianProducts", "result"},
+        {"RateTradeQuoteCurvatureResult_Get_Shape", "result"},
+        {"RateTradeQuoteCurvatureResult_Get_Execution", "result"},
+        {"RateTradeQuoteCurvatureResult_Get_BaseCalibration", "result"},
+    };
+    const auto registrations = RegisteredFunctionsForTest();
+    for (const auto& contract : contracts) {
+        const auto name = String_("xl_") + contract.first;
+        const auto found = std::find_if(registrations.begin(), registrations.end(), [&](const auto& reg) { return reg.cName_ == name; });
+        ASSERT_NE(found, registrations.end()) << contract.first;
+        ASSERT_EQ(CaseSensitive(found->xlName_), UpperDotted(contract.first));
+        ASSERT_EQ(CaseSensitive(found->argNames_), contract.second);
+        ASSERT_EQ(CaseSensitive(found->argTypes_), std::string(static_cast<size_t>(NamedArgCount(*found)) + 1, 'Q'));
+        ASSERT_FALSE(found->volatile_);
+        ASSERT_FALSE(found->help_.empty());
+        ASSERT_EQ(found->argHelpCount_, NamedArgCount(*found));
+        ASSERT_LE(found->maxArgHelpLength_, 255);
+    }
+}
+
 TEST(ExcelRegistrationTest, TestDupireCurvatureFunctionsRetainTypedArgumentsAndHelp) {
     const std::pair<const char*, const char*> contracts[] = {
         {"BumpOverAADRequest_New", "name,[directions],[steps],[settings]"},
