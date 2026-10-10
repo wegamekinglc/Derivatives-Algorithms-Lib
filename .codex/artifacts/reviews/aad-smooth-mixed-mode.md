@@ -36,8 +36,10 @@ No user decision is required. The surface is an opt-in C++ smooth-kernel
 prototype. It does not provide arbitrary native higher-order/nested arithmetic,
 nonsmooth differentiation, opaque operators or financial/binding integration.
 Repeated scalar equality does not establish callback purity. Floating-point
-range failures remain explicit. Scoped paired costs are pending.
+range failures remain explicit. The two scoped paired cost cases pass analytic
+checks, retain all 80 samples and leave ordinary library members unchanged.
 
 ## Verdict
 
-Comment Only pending complete cost and publication acceptance.
+Approve the scoped local implementation. Merge remains gated on complete
+current-head CI/Codacy/reviews and actual platform/diagnostic runtime evidence.

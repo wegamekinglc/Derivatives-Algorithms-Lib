@@ -322,6 +322,11 @@ It composes native forward directional arithmetic with scalar reverse, without
 an outer finite-difference step. Ordinary native higher-order and independent
 nesting remain disabled. Rectangular/approximate calibration semantics remain
 outside the accepted smooth square-system quote-curvature scope.
+The prototype now passes 21 new and three selected legacy tests, six strict
+OFF/combined probes, six capability compile probes and installed C++ consumption.
+Two scoped paired cost cases retain 80 observations and 3.202635571 measured
+seconds in the [complete cost report](../performance/aad-smooth-mixed-mode.md).
+Publication remains; estimated effort is 6–12 developer-hours excluding CI wait.
 
 Native PDE recording is accepted in merged
 [#505](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/505),
@@ -846,7 +851,7 @@ affected-boundary tests, scoped costs and complete current-head CI/review accept
 | Native driver               | #517 merged; explicit requests, mathematical/lifecycle and exact-head acceptance complete | 0               |
 | Financial MC                | #519 merged; common-path requests and exact-head acceptance complete                      | 0               |
 | Quote curvature             | #520/#522/#523/#524/#525 merged; financial trading integration and publication accepted   | 0               |
-| Policy/estimator validation | #527 merged; native policy semantics, numerical checks and publication accepted         | 0               |
+| Policy/estimator validation | #527 merged; native policy semantics, numerical checks and publication accepted           | 0               |
 
 ## Completion evidence
 
@@ -1470,23 +1475,23 @@ This snapshot distinguishes accepted increments from locally implemented work.
 Estimates are remaining single-developer effort, not promises of calendar time;
 overlapping acceptance work is included once in the integration allowance.
 
-| Work item               | Implementation/local verification                                  | Publication/CI                           | Remaining person-days |
-|-------------------------|--------------------------------------------------------------------|------------------------------------------|-----------------------|
-| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                      | Accepted exact-head checks               | 0                     |
-| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass     | Merged; final 35/35 checks accepted      | 0                     |
-| F01                     | C++/Python/Excel and complete requirement audit accepted           | Merged; final 35/35 checks accepted      | 0                     |
-| F02 weighted/blocked    | C++/Python/Excel and independent mathematical oracles accepted     | #483/#484 merged; exact-head gates pass  | 0                     |
-| F02 portfolio           | C++/Python/Excel, installed consumers and timing repair accepted   | #487 merged; final 35/35 checks accepted | 0                     |
-| P02                     | Worker reuse: 82 tests and 37 full-request cost cases accepted     | #488 merged; final 35/35 checks accepted | 0                     |
-| P03                     | 89 tests; 81 unique complete-request timing comparisons accepted   | #489 merged; final 35/35 checks accepted | 0                     |
-| F03                     | Solve/root/PDE operators and financial/grid acceptance complete    | #506 merged; final 36/36 gates accepted  | 0                     |
-| P04                     | Structural compression, safe fallback and selection accepted       | #511 merged; final 36/36 gates accepted  | 0                     |
-| P05                     | Core, fixed-path and Monte Carlo adapters accepted                 | #512/#513/#515 merged; 36/36 gates       | 0                     |
-| F04                     | Finite-step requests accepted; smooth mixed-mode prototype active | Open                                     | 4–8                   |
-| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains         | Open                                     | 7–11                  |
+| Work item               | Implementation/local verification                                     | Publication/CI                           | Remaining person-days |
+|-------------------------|-----------------------------------------------------------------------|------------------------------------------|-----------------------|
+| C01–C05, D00–D03        | Accepted native correctness/lifecycle/removal                         | Accepted exact-head checks               | 0                     |
+| P01                     | Tooling/resources/scaling and final 44/44 MC confirmation pass        | Merged; final 35/35 checks accepted      | 0                     |
+| F01                     | C++/Python/Excel and complete requirement audit accepted              | Merged; final 35/35 checks accepted      | 0                     |
+| F02 weighted/blocked    | C++/Python/Excel and independent mathematical oracles accepted        | #483/#484 merged; exact-head gates pass  | 0                     |
+| F02 portfolio           | C++/Python/Excel, installed consumers and timing repair accepted      | #487 merged; final 35/35 checks accepted | 0                     |
+| P02                     | Worker reuse: 82 tests and 37 full-request cost cases accepted        | #488 merged; final 35/35 checks accepted | 0                     |
+| P03                     | 89 tests; 81 unique complete-request timing comparisons accepted      | #489 merged; final 35/35 checks accepted | 0                     |
+| F03                     | Solve/root/PDE operators and financial/grid acceptance complete       | #506 merged; final 36/36 gates accepted  | 0                     |
+| P04                     | Structural compression, safe fallback and selection accepted          | #511 merged; final 36/36 gates accepted  | 0                     |
+| P05                     | Core, fixed-path and Monte Carlo adapters accepted                    | #512/#513/#515 merged; 36/36 gates       | 0                     |
+| F04                     | Finite-step accepted; smooth prototype passes local correctness/costs | Publication remains                      | 0.75–1.5              |
+| Final integration/audit | Cross-platform/binding/docs/performance acceptance remains            | Open                                     | 7–11                  |
 
-Remaining total during F04 development: 88–152 hours, approximately
-11–19 eight-hour person-days, excluding CI queue time. Delivery contingency
+Remaining total during F04 publication: 62–100 hours, approximately
+8–13 eight-hour person-days, excluding CI queue time. Delivery contingency
 is included in those same hour ranges; there is no extra undisclosed allowance. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
 effort estimate, not a guaranteed completion date. Re-estimate when review
@@ -1499,22 +1504,22 @@ above. The accepted #490/#491/#493/#494/#495/#496/#497/#498/#499/#500 deliveries
 hours. Structured coordinates are split into numeric and native PRs; completed
 numeric/native diagnostics are not counted again.
 
-| Order | Delivery task                        | Required result                                                                | Remaining hours |
-|-------|--------------------------------------|--------------------------------------------------------------------------------|-----------------|
-| 1     | Accepted solve/root PRs through #501 | Merged; mathematical, resource, platform and scoped performance gates accepted | 0               |
-| 2     | F03 numeric coordinates              | Accepted in merged #495; immutable accepted evidence retained                  | 0               |
-| 3     | F03 native coordinates               | Accepted in merged #496; immutable accepted evidence retained                  | 0               |
-| 4     | F03 native coordinate accuracy       | Accepted in merged #500; exact-head CI/review and guarded merge pass           | 0               |
-| 4a    | F03 implicit calibration             | Numeric #501 and native #502 merged; all final gates accepted                  | 0               |
-| 5     | F03 PDE operators                    | #504/#505/#506 merged; financial/grid and all publication gates accepted       | 0               |
-| 6     | P04 structural sparsity              | #507–#511 merged; implementation, scoped cost and publication gates accepted   | 0               |
-| 7a    | P05 segmentation core                | #512 merged; actual runtime, exact-head CI/review and guarded merge accepted   | 0               |
-| 7b    | P05 financial adapter                | #513 merged; exact-head CI, review, costs, actual runtime and merge accepted   | 0               |
-| 7c    | P05 Monte Carlo acceptance           | #515 merged; 36/36 gates, fourteen actual runtime profiles and merge proof     | 0               |
-| 8     | F04 second-order risk                | #517–#527 increments merged; finite-step mathematical and publication gates pass | 0              |
-| 9     | F04 native mixed-mode prototype      | Smooth-kernel prototype, independent correctness and capability limits         | 32–64           |
-| 10    | Bindings and complete acceptance     | C++/Python/Excel, documentation, platform and performance gates                | 56–88           |
-| Total | Full remaining implementation        | All remaining plan requirements                                                | 88–152          |
+| Order | Delivery task                        | Required result                                                                        | Remaining hours |
+|-------|--------------------------------------|----------------------------------------------------------------------------------------|-----------------|
+| 1     | Accepted solve/root PRs through #501 | Merged; mathematical, resource, platform and scoped performance gates accepted         | 0               |
+| 2     | F03 numeric coordinates              | Accepted in merged #495; immutable accepted evidence retained                          | 0               |
+| 3     | F03 native coordinates               | Accepted in merged #496; immutable accepted evidence retained                          | 0               |
+| 4     | F03 native coordinate accuracy       | Accepted in merged #500; exact-head CI/review and guarded merge pass                   | 0               |
+| 4a    | F03 implicit calibration             | Numeric #501 and native #502 merged; all final gates accepted                          | 0               |
+| 5     | F03 PDE operators                    | #504/#505/#506 merged; financial/grid and all publication gates accepted               | 0               |
+| 6     | P04 structural sparsity              | #507–#511 merged; implementation, scoped cost and publication gates accepted           | 0               |
+| 7a    | P05 segmentation core                | #512 merged; actual runtime, exact-head CI/review and guarded merge accepted           | 0               |
+| 7b    | P05 financial adapter                | #513 merged; exact-head CI, review, costs, actual runtime and merge accepted           | 0               |
+| 7c    | P05 Monte Carlo acceptance           | #515 merged; 36/36 gates, fourteen actual runtime profiles and merge proof             | 0               |
+| 8     | F04 second-order risk                | #517–#527 increments merged; finite-step mathematical and publication gates pass       | 0               |
+| 9     | F04 native mixed-mode prototype      | Local implementation/analytic/capability/cost acceptance complete; publication remains | 6–12            |
+| 10    | Bindings and complete acceptance     | C++/Python/Excel, documentation, platform and performance gates                        | 56–88           |
+| Total | Full remaining implementation        | All remaining plan requirements                                                        | 62–100          |
 
 
 The first delivery boundary is complete. Whole-PR review repaired the Windows

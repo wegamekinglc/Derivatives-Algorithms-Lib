@@ -14,7 +14,7 @@
 namespace Dal::AAD {
     namespace ForwardOverReverseDetail {
         struct NumberAccess_;
-    }
+    } // namespace ForwardOverReverseDetail
 
     class ForwardOverReverseNumber_ {
         Number_ primal_;

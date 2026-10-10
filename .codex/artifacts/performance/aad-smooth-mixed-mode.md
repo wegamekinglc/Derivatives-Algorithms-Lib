@@ -1,6 +1,6 @@
 # Smooth mixed-mode scoped performance plan
 
-Status: measurement pending; implementation and analytic acceptance first.
+Status: scoped local acceptance complete; current-head publication gates remain.
 
 Baseline is merged #527, `19a34172a23dd85041d7bfcfd694b63bf6529c6d`.
 Its accepted native/public archives and complete build provenance may be reused
@@ -26,3 +26,42 @@ Unchanged tape kernels, market calibration, PDE, LSMC, portfolios and complete
 parameter matrices are excluded. Expand only for a concrete failure or newly
 identified caller gap, recorded before execution. Required current-head CI
 and actual diagnostic/platform test logs remain merge gates.
+
+## Evidence and measurements
+
+Implementation `047fab26` is compared with the immutable merged #527 baseline.
+Separate detached source worktrees and Release configurations explicitly enable
+benchmarks. Accepted baseline archives are reused with verified identities;
+all 183 existing native archive members and the entire public archive are
+byte-identical. The new native module is the only added member. Source, dependency,
+compiler, CMake, archive, object and executable identities, calibration outputs,
+all 80 raw samples and commands are committed in
+[the complete evidence](aad-smooth-mixed-mode-results.json). Documentation-only
+publication changes do not alter those measured dependencies or binaries.
+
+Both sides use one thread and a fixed caller CPU on the same shared host, with
+O3, NDEBUG, fast FP contraction and diagnostics/native architecture flags OFF.
+Each process warms up and consumes complete request outputs. Calibrate both
+sides to at least 25 ms, then take two rounds of ten alternating interleaved
+pairs per case, reducing each side to its best-of-ten minimum. Calibrated repeats
+are 65,536 for the polynomial and 16,384 for Black-Scholes. Total measured time
+is 3.202635571 seconds; process startup and calibration are separate.
+
+| Case                 | Bump request, round 1/2 (microseconds) | Smooth AD request, round 1/2 (microseconds) | Delta, round 1/2  |
+|----------------------|----------------------------------------|---------------------------------------------|-------------------|
+| Quartic, N=1/M=1     | 0.7330 / 0.6648                        | 0.5229 / 0.4857                             | -28.67% / -26.94% |
+| European BS, N=2/M=3 | 2.1775 / 2.1344                        | 2.0112 / 1.9901                             | -7.64% / -6.76%   |
+
+Both workloads satisfy independent price/gradient/Hessian references. The
+polynomial's maximum product error is 0.000399999999388 for bump and zero for
+smooth AD. The European product errors are 2.9026784e-6 and 6.6613381e-16.
+Actual recording/sweep counts are 3/3 versus 1/2 and 7/7 versus 3/4. Each case
+reports 1,966,080 bytes peak tape capacity and 655,360 bytes cleanup reserve
+on both sides. Block capacities do not imply equal occupied node counts or RSS.
+
+Overall: no changed legacy regression path; scoped new-feature characterization
+is accepted. These two cases show lower prototype latency, without a generic
+speedup claim. Methods have different approximation semantics, so their deltas
+are informational rather than a same-algorithm +4% regression verdict. The
+ordinary-caller sustained +4% two-round policy is unchanged; excluded cases
+are not claimed as newly measured passes.
