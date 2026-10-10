@@ -4,8 +4,11 @@
 
 #include <gtest/gtest.h>
 
+#include <limits>
+
 #ifdef _WIN32
 #define NOMINMAX
+#include <dal-excel/src/__europeanpderisk.hpp>
 #include <dal-excel/src/__script_test_api.hpp>
 #include <dal-excel/src/_excel.hpp>
 #include <dal-excel/src/_xlcall.hpp>
@@ -78,6 +81,138 @@ namespace {
             ASSERT_NE(text.find(field), std::string::npos) << text;
     }
 } // namespace
+
+TEST(ScriptExcelRawTest, TestEuropeanPdeAllGeneratedExportsAndOwningSpills) {
+    Excel::ScriptTestInitialize(1);
+    RawText_ name(L"pde_raw"), gridKey(L"grid_points"), stepKey(L"ordinary_steps");
+    OPER_ gridCount{};
+    gridCount.xltype = xltypeInt;
+    gridCount.val.w = 9;
+    OPER_ cells[]{gridKey.cell_, gridCount, stepKey.cell_, Number(8.0)};
+    auto rows = Multi(cells, 2, 2), rate = Number(0.05), volatility = Number(0.20), strike = Number(110.0);
+    Output_ settings(Call("xl_EuropeanPdeRiskSettings_New", &name.cell_, &rows));
+    ASSERT_EQ(settings.Text().find("#Error:"), std::string::npos) << settings.Text();
+    Output_ config(Call("xl_EuropeanPdeRiskSettings_Get_Configuration", settings.Scalar()));
+    ASSERT_EQ(config.value_->val.array.rows, 10);
+    ASSERT_DOUBLE_EQ(config.value_->val.array.lparray[1].val.num, 9.0);
+    Output_ request(Call("xl_EuropeanPdeRiskRequest_New", &name.cell_, &rate, &volatility, &strike, settings.Scalar()));
+    ASSERT_EQ(request.Text().find("#Error:"), std::string::npos) << request.Text();
+    Output_ requestSettings(Call("xl_EuropeanPdeRiskRequest_Get_Settings", request.Scalar()));
+    ASSERT_EQ(requestSettings.Text().find("#Error:"), std::string::npos) << requestSettings.Text();
+    Output_ point(Call("xl_EuropeanPdeRiskRequest_Get_Point", request.Scalar()));
+    ASSERT_EQ(point.value_->val.array.rows, 3);
+    ASSERT_DOUBLE_EQ(point.value_->val.array.lparray[1].val.num, 0.05);
+    ASSERT_DOUBLE_EQ(point.value_->val.array.lparray[3].val.num, 0.20);
+    ASSERT_DOUBLE_EQ(point.value_->val.array.lparray[5].val.num, 110.0);
+    Output_ result(Call("xl_EuropeanPdeRiskResult_New", &name.cell_, request.Scalar()));
+    ASSERT_EQ(result.Text().find("#Error:"), std::string::npos) << result.Text();
+    Output_ retained(Call("xl_EuropeanPdeRiskResult_Get_Request", result.Scalar()));
+    ASSERT_EQ(retained.Text().find("#Error:"), std::string::npos) << retained.Text();
+    Output_ resolvedSettings(Call("xl_EuropeanPdeRiskRequest_Get_Settings", retained.Scalar()));
+    Output_ resolved(Call("xl_EuropeanPdeRiskSettings_Get_Configuration", resolvedSettings.Scalar()));
+    ASSERT_DOUBLE_EQ(resolved.value_->val.array.lparray[7].val.num, 2.0);
+    Output_ prices(Call("xl_EuropeanPdeRiskResult_Get_Prices", result.Scalar()));
+    ASSERT_EQ(prices.value_->val.array.rows, 3);
+    ASSERT_EQ(prices.value_->val.array.columns, 2);
+    ASSERT_NEAR(prices.value_->val.array.lparray[3].val.num, 4.153690693968586, 1e-10);
+    ASSERT_NEAR(prices.value_->val.array.lparray[5].val.num, 10.770781220697858, 1e-10);
+    Output_ risks(Call("xl_EuropeanPdeRiskResult_Get_Jacobian", result.Scalar()));
+    ASSERT_EQ(risks.value_->val.array.rows, 7);
+    ASSERT_EQ(risks.value_->val.array.columns, 4);
+    const double expected[] = {40.40684028445804, 27.8766807705311, -0.0907395605282994, -64.1496803210784, 27.87666960963085, 0.8605082862555484};
+    for (int index = 0; index < 6; ++index)
+        ASSERT_NEAR(risks.value_->val.array.lparray[4 * (index + 1) + 3].val.num, expected[index], 1e-9);
+    Output_ grid(Call("xl_EuropeanPdeRiskResult_Get_Grid", result.Scalar()));
+    ASSERT_EQ(grid.value_->val.array.rows, 10);
+    ASSERT_DOUBLE_EQ(grid.value_->val.array.lparray[6].val.num, 2.0);
+    ASSERT_DOUBLE_EQ(grid.value_->val.array.lparray[7].val.num, 100.0);
+    for (const auto* exportName : {"xl_EuropeanPdeRiskResult_Get_ForwardErrors", "xl_EuropeanPdeRiskResult_Get_TransposeErrors"}) {
+        Output_ diagnostics(Call(exportName, result.Scalar()));
+        ASSERT_EQ(diagnostics.value_->val.array.rows, 11);
+        const int columns = diagnostics.value_->val.array.columns;
+        ASSERT_EQ(columns, std::string(exportName).find("Forward") != std::string::npos ? 3 : 5);
+        for (int step = 0; step < 10; ++step) {
+            ASSERT_DOUBLE_EQ(diagnostics.value_->val.array.lparray[columns * (step + 1)].val.num, step + 1);
+            for (int column = 1; column < columns; ++column) {
+                const auto& cell = diagnostics.value_->val.array.lparray[columns * (step + 1) + column];
+                ASSERT_EQ(cell.xltype, xltypeNum);
+                ASSERT_GE(cell.val.num, 0.0);
+                ASSERT_LE(cell.val.num, 1e-12);
+            }
+        }
+    }
+    Output_ execution(Call("xl_EuropeanPdeRiskResult_Get_Execution", result.Scalar()));
+    ASSERT_EQ(execution.value_->val.array.rows, 6);
+    ASSERT_DOUBLE_EQ(execution.value_->val.array.lparray[3].val.num, 10.0);
+    ASSERT_DOUBLE_EQ(execution.value_->val.array.lparray[5].val.num, 688.0);
+    prices.value_->val.array.lparray[3].val.num = -99.0;
+    Output_ fresh(Call("xl_EuropeanPdeRiskResult_Get_Prices", result.Scalar()));
+    ASSERT_NEAR(fresh.value_->val.array.lparray[3].val.num, 4.153690693968586, 1e-10);
+}
+
+TEST(ScriptExcelRawTest, TestEuropeanPdeRawScalarAdmissionAndIntegerNormalization) {
+    Excel::ScriptTestInitialize(1);
+    RawText_ name(L"pde_types"), text(L"0.05");
+    auto blank = Blank(), rate = Number(0.05), volatility = Number(0.20), strike = Number(110.0);
+    OPER_ boolean{}, error{}, integer{};
+    boolean.xltype = xltypeBool;
+    boolean.val.xbool = 1;
+    error.xltype = xltypeErr;
+    error.val.err = 15;
+    integer.xltype = xltypeInt;
+    integer.val.w = 110;
+    auto integerRange = Multi(&integer, 1, 1);
+    for (const OPER_* input : {&integer, &integerRange}) {
+        Output_ request(Call("xl_EuropeanPdeRiskRequest_New", &name.cell_, &rate, &volatility, input, &blank));
+        ASSERT_EQ(request.Text().find("#Error:"), std::string::npos) << request.Text();
+        Output_ point(Call("xl_EuropeanPdeRiskRequest_Get_Point", request.Scalar()));
+        ASSERT_DOUBLE_EQ(point.value_->val.array.lparray[5].val.num, 110.0);
+    }
+    const char* fields[] = {"rate", "volatility", "strike"};
+    for (int coordinate = 0; coordinate < 3; ++coordinate)
+        for (const auto& invalid : {blank, boolean, error, text.cell_, Number(std::numeric_limits<double>::infinity())}) {
+            const OPER_* parameters[] = {&rate, &volatility, &strike};
+            parameters[coordinate] = &invalid;
+            Output_ rejected(Call("xl_EuropeanPdeRiskRequest_New", &name.cell_, parameters[0], parameters[1], parameters[2], &blank));
+            CheckError(rejected, {"EuropeanPdeRiskRequest_New", fields[coordinate]});
+        }
+    Output_ defaults(Call("xl_EuropeanPdeRiskSettings_New", &name.cell_, &blank));
+    Output_ wrong(Call("xl_EuropeanPdeRiskResult_Get_Prices", defaults.Scalar()));
+    CheckError(wrong, {"result"});
+    Output_ missing(Call("xl_EuropeanPdeRiskResult_Get_Prices", &blank));
+    CheckError(missing, {"result"});
+}
+
+TEST(ScriptExcelRawTest, TestEuropeanPdeSettingsPhysicalErrorsNulAndBudgetFailure) {
+    Excel::ScriptTestInitialize(1);
+    RawText_ name(L"pde_settings"), key(L"grid_points"), text(L"9"), gridKey(L"grid_points"), stepKey(L"ordinary_steps"),
+        budgetKey(L"numeric_payload_budget_bytes");
+    OPER_ cells[]{key.cell_, Number(9.0)};
+    auto rows = Multi(cells, 1, 2);
+    OPER_ boolean{}, error{};
+    boolean.xltype = xltypeBool;
+    boolean.val.xbool = 1;
+    error.xltype = xltypeErr;
+    error.val.err = 15;
+    for (const auto& invalid : {Blank(), boolean, error, text.cell_, Number(0.5)}) {
+        cells[1] = invalid;
+        Output_ rejected(Call("xl_EuropeanPdeRiskSettings_New", &name.cell_, &rows));
+        CheckError(rejected, {"EuropeanPdeRiskSettings_New", "row=1 column=2"});
+    }
+    RawText_ nul(std::wstring(L"grid\0_points", 12));
+    cells[0] = nul.cell_;
+    cells[1] = Number(9.0);
+    Output_ embedded(Call("xl_EuropeanPdeRiskSettings_New", &name.cell_, &rows));
+    CheckError(embedded, {"EuropeanPdeRiskSettings_New", "row=1 column=1", "NUL"});
+    OPER_ budgetCells[]{gridKey.cell_, Number(9.0), stepKey.cell_, Number(8.0), budgetKey.cell_, Number(0.0)};
+    auto budgetRows = Multi(budgetCells, 3, 2), rate = Number(0.05), volatility = Number(0.20), strike = Number(110.0);
+    Output_ settings(Call("xl_EuropeanPdeRiskSettings_New", &name.cell_, &budgetRows));
+    ASSERT_EQ(settings.Text().find("#Error:"), std::string::npos) << settings.Text();
+    Output_ request(Call("xl_EuropeanPdeRiskRequest_New", &name.cell_, &rate, &volatility, &strike, settings.Scalar()));
+    ASSERT_EQ(request.Text().find("#Error:"), std::string::npos) << request.Text();
+    Output_ rejected(Call("xl_EuropeanPdeRiskResult_New", &name.cell_, request.Scalar()));
+    CheckError(rejected, {"numeric_payload_budget_bytes"});
+}
 
 TEST(ScriptExcelRawTest, TestWeightedRequestGeneratedExportRejectsInvalidPhysicalInputs) {
     Excel::ScriptTestInitialize(1);

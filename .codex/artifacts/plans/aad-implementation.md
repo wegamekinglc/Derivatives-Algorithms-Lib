@@ -4,28 +4,37 @@ Status: active implementation under the native-only AAD scope.
 No stage is complete until its correctness, compatibility,
 performance, and applicable CI evidence has been inspected.
 
-Active delivery: closed European PDE C++/Python financial risk, following
-merged structured-interface audit
-[#533](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/533).
-That audit accepts 6 successful and 7 expected documentation-policy skipped
-checks, both required Linux/Windows gates, zero Codacy annotations/unresolved
-threads and clear current-head Codex review. Two final audits and guarded merge
-produce commit `c4c77a3718e2acf5f4f5b647eb680e913375e8aa` with accepted tree
-`68894dfca6a73ba5abac9429c6b5351a43c22fb4`.
-Its completed [inventory/handoff](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/d69757baa8b53b176d81fa479ea0f88af620e5e3/.codex/artifacts/api-notes/aad-structured-interface-audit.md)
-and [review](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/d69757baa8b53b176d81fa479ea0f88af620e5e3/.codex/artifacts/reviews/aad-structured-interface-audit.md)
-remain immutable. Current PDE controls are the
-[specification](../specs/aad-python-european-pde-risk.md),
-[API](../api-notes/aad-python-european-pde-risk.md) and
-[critique](../critiques/aad-python-european-pde-risk.md).
-Local acceptance passes six new C++ tests, six affected financial tests,
-32 new Python tests, 16 strict probes, rebuilt example and installed consumers
-3/3. Fresh public/Python packages preserve the accepted native core archive and
-402 old headers; all 52 fresh production dependencies are checked.
-Two-grid cost acceptance retains 160 observations in 9.925843438 measured
-seconds; comparable caller gates pass and unequal boundary costs are disclosed.
-Full remote CI/reviews, both final audits and merge remain open. No new phase
-starts until this implementation PR merges.
+Active delivery: Excel European PDE settings, requests and passive risk spills,
+following merged [#534](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/534).
+Current controls are the [specification](../specs/aad-excel-european-pde-risk.md),
+[API](../api-notes/aad-excel-european-pde-risk.md) and
+[critique](../critiques/aad-excel-european-pde-risk.md).
+The Excel increment is published as [#535](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/535).
+It reuses the accepted public financial evaluator and existing
+risk storable template. Registration, actual Windows exports, scoped costs,
+review, CI and guarded merge remain gates for this new delivery.
+
+The C++/Python PDE projection is accepted in #534 at merge
+`1ee4b6c19f74b99aeea9ac66d815b550edc3829d`, with the exact accepted tree
+`28e8203df7a02020c265ed5e0d98bf4547342e8d` of final head `7cbd581a`.
+All 35 exact-head checks pass; Codacy annotations and unresolved review threads
+are zero, and the full current-head Codex review is clear. Both final audits
+and the guarded merge pass. Actual runtime accepts 14 C++ build profiles with
+13 affected cases, eight Python profiles with 34 cases, six sanitizer profiles
+with six native financial cases and all four Windows installed consumers 3/3.
+The seven new public cases are not selected by the focused sanitizer filters.
+Both review findings are repaired: solve-error policy admission and linear
+chronological diagnostic copying. The final cost evidence retains 200
+observations in 14.197663285 measured seconds; comparable gates pass, including
+the disclosed noisy +5.68% single round, while unequal owning boundaries are
+informational. Completed controls remain immutable in the accepted
+[specification](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/7cbd581aa9b8f356c9059a04ac8cd3b573870c12/.codex/artifacts/specs/aad-python-european-pde-risk.md),
+[API](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/7cbd581aa9b8f356c9059a04ac8cd3b573870c12/.codex/artifacts/api-notes/aad-python-european-pde-risk.md),
+[critique](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/7cbd581aa9b8f356c9059a04ac8cd3b573870c12/.codex/artifacts/critiques/aad-python-european-pde-risk.md),
+[review](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/7cbd581aa9b8f356c9059a04ac8cd3b573870c12/.codex/artifacts/reviews/aad-python-european-pde-risk.md)
+and [cost report](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/7cbd581aa9b8f356c9059a04ac8cd3b573870c12/.codex/artifacts/performance/aad-python-european-pde-risk.md).
+The three executable/raw cost artifacts remain active for the Excel comparison.
+No next implementation phase starts until its preceding PR merges.
 
 Current boundary (2026-10-10): F02, P02, P03 and F03 are complete.
 Financial PDE acceptance is merged in
@@ -1581,11 +1590,11 @@ overlapping acceptance work is included once in the integration allowance.
 | P04                     | Structural compression, safe fallback and selection accepted     | #511 merged; final 36/36 gates accepted  | 0                     |
 | P05                     | Core, fixed-path and Monte Carlo adapters accepted               | #512/#513/#515 merged; 36/36 gates       | 0                     |
 | F04                     | Finite-step and opt-in smooth prototype accepted                 | #517–#528 merged                         | 0                     |
-| Final integration/audit | Financial PDE publication, Excel and final integration remain    | Open                                     | 4.1–6.3               |
+| Final integration/audit | Excel and final integration remain                               | Open                                     | 3.9–5.9               |
 
-Remaining total during PDE publication: 33–50 hours,
-approximately 4.1–6.3 eight-hour person-days, excluding CI queue time. The audit
-adds the previously unlisted 6–10 hour closed financial PDE projection. Delivery contingency
+Remaining total during Excel PDE acceptance: 31–47 hours,
+approximately 3.9–5.9 eight-hour person-days, excluding CI queue time. The closed
+financial PDE projection is now accepted and contributes zero hours. Delivery contingency
 is included in those same hour ranges; there is no extra undisclosed allowance. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
 effort estimate, not a guaranteed completion date. Re-estimate when review
@@ -1636,10 +1645,12 @@ numeric/native diagnostics are not counted again.
 | 11b   | C++/Python segmented MC curvature    | #531 merged; 35/35 gates, actual runtime and identical merged-tree proof accepted                      | 0               |
 | 11c   | C++/Python LSMC policy curvature     | #532 merged; 35/35 checks, actual runtime, both audits and identical merged tree accepted              | 0               |
 | 11d   | Structured-operator interface audit  | #533 merged; required gates, full review, two final audits and identical tree accepted                 | 0               |
-| 11e   | Closed financial PDE projection      | Two Codex findings repaired; 13 C++/34 Python, strict, installed and scoped cost pass; final CI/review/merge open | 1–2             |
-| 12    | Excel interfaces and exports         | Typed requests/results and actual Windows export acceptance                                            | 16–24           |
+| 11e   | Closed financial PDE projection      | #534 merged; 35/35 checks, review repairs, actual runtime, scoped costs and both final audits accepted | 0               |
+| 12a   | Excel European PDE                   | #535: typed interfaces implemented; Windows/Codacy repairs and final publication acceptance            | 2–4             |
+| 12b   | Excel Dupire and rate curvature      | Typed owning quote-curvature handles, scoped acceptance and publication                                | 6–8             |
+| 12c   | Excel MC and LSMC curvature          | Typed requests/plans/results, scoped acceptance and publication                                        | 7–11            |
 | 13    | Final integration and documentation  | Installed consumers, current docs and targeted cross-platform/performance acceptance                   | 16–24           |
-| Total | Full remaining implementation        | All remaining plan requirements                                                                        | 33–50           |
+| Total | Full remaining implementation        | All remaining plan requirements                                                                        | 31–47           |
 
 
 The first delivery boundary is complete. Whole-PR review repaired the Windows
@@ -2242,6 +2253,6 @@ Merge verification and both audits are retained in session evidence
 `aad-selected-extraction-merged-01.json`; the merge used the accepted-head SHA guard.
 P03 remaining effort is zero. The owning normalized-LU numeric pullback in #490
 and subsequent F03 recording/event integration are accepted. Current remaining
-work is the closed financial PDE projection, Excel and final
-integration: 33–50 developer-hours, as detailed in the current status table.
+work is Excel and final integration: 31–47 developer-hours, as detailed in
+the current status table. The closed financial PDE projection is accepted in #534.
 Native algorithms are accepted; full interface/integration delivery is incomplete.

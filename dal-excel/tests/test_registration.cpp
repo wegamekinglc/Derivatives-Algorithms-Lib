@@ -70,6 +70,35 @@ namespace {
 
 TEST(ExcelRegistrationTest, TestRegistrationTableIsPopulated) { ASSERT_GE(RegisteredFunctionsForTest().size(), 67); }
 
+TEST(ExcelRegistrationTest, TestEuropeanPdeFunctionsRetainTypedArgumentsAndHelp) {
+    const std::pair<const char*, const char*> contracts[] = {{"EuropeanPdeRiskSettings_New", "name,[settings]"},
+                                                             {"EuropeanPdeRiskSettings_Get_Configuration", "settings"},
+                                                             {"EuropeanPdeRiskRequest_New", "name,rate,volatility,strike,[settings]"},
+                                                             {"EuropeanPdeRiskRequest_Get_Settings", "request"},
+                                                             {"EuropeanPdeRiskRequest_Get_Point", "request"},
+                                                             {"EuropeanPdeRiskResult_New", "name,request"},
+                                                             {"EuropeanPdeRiskResult_Get_Request", "result"},
+                                                             {"EuropeanPdeRiskResult_Get_Prices", "result"},
+                                                             {"EuropeanPdeRiskResult_Get_Jacobian", "result"},
+                                                             {"EuropeanPdeRiskResult_Get_Grid", "result"},
+                                                             {"EuropeanPdeRiskResult_Get_ForwardErrors", "result"},
+                                                             {"EuropeanPdeRiskResult_Get_TransposeErrors", "result"},
+                                                             {"EuropeanPdeRiskResult_Get_Execution", "result"}};
+    const auto registrations = RegisteredFunctionsForTest();
+    for (const auto& contract : contracts) {
+        const auto name = String_("xl_") + contract.first;
+        const auto found = std::find_if(registrations.begin(), registrations.end(), [&](const auto& reg) { return reg.cName_ == name; });
+        ASSERT_NE(found, registrations.end()) << contract.first;
+        ASSERT_EQ(CaseSensitive(found->xlName_), UpperDotted(contract.first));
+        ASSERT_EQ(CaseSensitive(found->argNames_), contract.second);
+        ASSERT_EQ(CaseSensitive(found->argTypes_), std::string(static_cast<size_t>(NamedArgCount(*found)) + 1, 'Q'));
+        ASSERT_FALSE(found->volatile_);
+        ASSERT_FALSE(found->help_.empty());
+        ASSERT_EQ(found->argHelpCount_, NamedArgCount(*found));
+        ASSERT_LE(found->maxArgHelpLength_, 255);
+    }
+}
+
 TEST(ExcelRegistrationTest, TestScriptSettingsAndLegacyContracts) {
     struct Contract_ {
         const char* name_;

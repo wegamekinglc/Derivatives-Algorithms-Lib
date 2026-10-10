@@ -12,6 +12,10 @@
 namespace Dal {
     using EuropeanPdeSettings_ = AAD::EuropeanThetaSettings_;
 
+    [[nodiscard]] inline EuropeanPdeSettings_ ResolveEuropeanPdeSettings(const EuropeanPdeSettings_& settings) {
+        return AAD::ResolveEuropeanThetaSettings(settings);
+    }
+
     struct EuropeanPdeRiskRequest_ {
         std::array<double, 3> point_ = {0.05, 0.20, 110.0};
         EuropeanPdeSettings_ settings_;

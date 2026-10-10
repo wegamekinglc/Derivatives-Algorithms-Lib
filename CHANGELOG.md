@@ -16,6 +16,13 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-10-11
+
+- **Excel European PDE risk** — immutable worksheet settings, requests and
+  results expose native fixed-grid call/put prices, all six first derivatives,
+  chronological solve diagnostics and separate native memory budgets. See
+  [the worksheet interface](docs/excel/README.md#european-pde-risk).
+
 ## 2026-10-10
 
 - **European PDE financial interfaces** — public C++ and Python expose owning
