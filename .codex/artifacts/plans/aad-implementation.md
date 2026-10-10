@@ -24,8 +24,9 @@ pending. The active [review](../reviews/aad-excel-dupire-curvature.md) and
 The actual CMake binding boundary and an independently installed public bump
 header consumer also pass. Original native/public archives remain unchanged.
 The new increment reuses accepted public numerical evaluators and existing
-storable templates. It will have a separate PR; rate curvature starts only after
-this increment merges.
+storable templates in
+[#536](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/536);
+rate curvature starts only after this increment merges.
 
 Excel European PDE is accepted in #535 at merge
 `c1068d991c1547c6b7d35bf490b49a61de574003`, with accepted and merged tree
@@ -1624,15 +1625,25 @@ overlapping acceptance work is included once in the integration allowance.
 | P04                     | Structural compression, safe fallback and selection accepted     | #511 merged; final 36/36 gates accepted  | 0                     |
 | P05                     | Core, fixed-path and Monte Carlo adapters accepted               | #512/#513/#515 merged; 36/36 gates       | 0                     |
 | F04                     | Finite-step and opt-in smooth prototype accepted                 | #517–#528 merged                         | 0                     |
-| Final integration/audit | Excel curvature and final integration remain                     | Open                                     | 3.5–5.3               |
+| Final integration/audit | Excel curvature and final requirement audit remain               | Open                                     | 2.0–3.3               |
 
-Remaining total after local Excel Dupire acceptance: 28–42 hours,
-approximately 3.5–5.3 eight-hour person-days, excluding CI queue time. Both
+Remaining total after local Excel Dupire acceptance: 16–26 hours,
+approximately 2.0–3.3 eight-hour person-days, excluding CI queue time. Both
 financial PDE projections are accepted and contribute zero hours. Delivery contingency
 is included in those same hour ranges; there is no extra undisclosed allowance. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
 effort estimate, not a guaranteed completion date. Re-estimate when review
 findings change the scope.
+
+The final-only allowance is now 4–8 hours after a requirement/scope audit.
+The remaining completion checkboxes consolidate accepted mathematical,
+platform, consumer and performance evidence; they do not require repeating
+unrelated full local campaigns. Final work maps requirements to current APIs,
+tests and immutable delivery proofs, checks source/dependency applicability,
+repairs concrete documentation or behavior gaps, retires completed active
+controls, and inspects the required final exact-head CI/reviews. Excel rate,
+MC and LSMC implementation remains separately estimated below. A newly
+discovered behavior gap receives its own scope and estimate.
 
 Python rate-trade quote curvature is accepted in merged
 [#530](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/530),
@@ -1684,8 +1695,8 @@ numeric/native diagnostics are not counted again.
 | 12b1  | Excel Dupire curvature               | 25 functions and local scoped acceptance complete; Windows/runtime and publication remain              | 2–3             |
 | 12b2  | Excel rate curvature                 | Native calibration snapshots and trade quote-curvature interfaces, separate acceptance and publication | 3–4             |
 | 12c   | Excel MC and LSMC curvature          | Typed requests/plans/results, scoped acceptance and publication                                        | 7–11            |
-| 13    | Final integration and documentation  | Installed consumers, current docs and targeted cross-platform/performance acceptance                   | 16–24           |
-| Total | Full remaining implementation        | All remaining plan requirements                                                                        | 28–42           |
+| 13    | Final integration and documentation  | Requirement/evidence audit, current docs, concrete gap repairs and final publication gates               | 4–8             |
+| Total | Full remaining implementation        | All remaining plan requirements                                                                        | 16–26           |
 
 
 The first delivery boundary is complete. Whole-PR review repaired the Windows

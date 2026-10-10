@@ -10,6 +10,11 @@ the common include through a thin public forwarding header and extract the
 two checks without changing their assertions. The actual CMake boundary has
 focused RED/GREEN evidence; the installed forwarding header is checked separately.
 
+The methodology language-support table now distinguishes the implemented Excel
+Dupire curvature handles from the still-unavailable rate handles. This final
+documentation repair leaves all source, generated wrappers and cost binaries
+unchanged; preserve their accepted evidence by verified identity.
+
 The common settings NUL-key error was exposed
 by a focused RED case and repaired before accepting the eight request cases.
 Legacy calibration headers are consumed through the project include path; no
