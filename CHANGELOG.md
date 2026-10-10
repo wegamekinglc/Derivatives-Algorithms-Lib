@@ -18,6 +18,10 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-10
 
+- **Python Dupire quote curvature** — typed owning requests, plans and results
+  expose recalibrated common-path Gamma, cross-Gamma and Hessian-vector estimates,
+  with raw quote axes, explicit steps and numeric budgets. See
+  [the Python interface](docs/python/README.md#dupire-quote-gamma-and-hessian-products).
 - **Smooth native second derivatives** — an opt-in C++ forward-over-reverse
   number and request driver compute smooth directional Hessian products without
   an outer finite-difference step, with scoped recording budgets and explicit
