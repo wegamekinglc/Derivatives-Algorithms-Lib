@@ -1969,6 +1969,140 @@ namespace Dal::Script {
                     (*riskTotals)[j] += outcome.risks_[j];
         }
 
+        std::unique_ptr<AAD::BlackScholes_<double>> MakeLsmcCurvatureModel(const PreparedScript_& prepared, const Vector_<>& point) {
+            auto model = std::make_unique<AAD::BlackScholes_<double>>(point[0], point[1], point[2], point[3]);
+            model->Allocate(prepared.TimeLine(), prepared.DefLine());
+            model->Init(prepared.TimeLine(), prepared.DefLine());
+            return model;
+        }
+
+        void ValidateLsmcCurvatureInnerModel(
+            const PreparedScript_& prepared, const AAD::Model_<double>& model, size_t parameter, double value, double step) {
+            REQUIRE2(model.ValidParameterValue(parameter, value + step), "InvalidLsmcPolicyBump: upper model domain", ScriptError_);
+            for (double sign : {-1.0, 1.0}) {
+                const double bumped = value + sign * step;
+                if (!model.ValidParameterValue(parameter, bumped))
+                    continue;
+                REQUIRE2(bumped != value, "InvalidLsmcPolicyBump: inner model step does not change coordinate", ScriptError_);
+                auto inner = model.Clone();
+                *inner->Parameters()[parameter] = bumped;
+                inner->Init(prepared.TimeLine(), prepared.DefLine());
+            }
+        }
+
+        void ValidateLsmcCurvatureInnerSteps(const PreparedScript_& prepared, const AAD::Model_<double>& model, const Vector_<>& point) {
+            for (size_t j = 0; j < point.size(); ++j) {
+                const double step = prepared.Simulation().lsmcPolicyBumpRelative_ * std::max(1.0, std::abs(point[j]));
+                const bool representable = j < 4 ? ValidModelPolicyBump(point[j], step) : ValidConstantPolicyBump(point[j], step);
+                REQUIRE2(representable, "InvalidLsmcPolicyBump: coordinate cannot be bumped", ScriptError_);
+                if (j < 4)
+                    ValidateLsmcCurvatureInnerModel(prepared, model, j, point[j], step);
+            }
+        }
+
+        void ValidateLsmcCurvaturePoint(const PreparedScript_& prepared, const Vector_<>& point, const String_& context) {
+            try {
+                const auto model = MakeLsmcCurvatureModel(prepared, point);
+                if (prepared.Simulation().lsmcPolicyRiskMode_ == "RetrainedBump")
+                    ValidateLsmcCurvatureInnerSteps(prepared, *model, point);
+            } catch (const Exception_& error) {
+                THROW("LsmcCurvature: " + context + "; " + error.what());
+            }
+        }
+
+        void ValidateLsmcCurvatureInputs(const PreparedScript_& prepared, const Vector_<>& point, size_t pathCount) {
+            REQUIRE2(!prepared.AllExpired() && prepared.Product().ContainsExercise(), "LsmcCurvature: live EXERCISE preparation required",
+                     ScriptError_);
+            prepared.RequireExecutable();
+            ValidateSimulationSettings(prepared.Simulation());
+            REQUIRE2(prepared.Simulation().enableAad_, "LsmcCurvature: native AAD preparation required", ScriptError_);
+            REQUIRE2(pathCount > 0, "LsmcCurvature: positive pricing path count required", ScriptError_);
+            REQUIRE2(point.size() == 4 + prepared.Product().ConstVarValues().size(),
+                     "LsmcCurvature: expected spot/vol/rate/div followed by script constants", ScriptError_);
+        }
+
+        struct LsmcCurvatureContext_ {
+            const PreparedScript_& prepared_;
+            const LsmcPlan_& scan_;
+            const PathCounts_& counts_;
+            const BatchPlan_& batches_;
+            const ScriptCompiled_* hardCompiled_;
+            const ScriptCompiled_* fuzzyCompiled_;
+            std::optional<uint64_t> trainingKey_;
+            size_t pathCount_;
+            size_t capacityLimit_;
+        };
+
+        Vector_<ExerciseRegression_>
+        TrainLsmcCurvaturePolicy(const LsmcCurvatureContext_& ctx, AAD::Model_<double>* model, const Vector_<>& constants, const String_& position) {
+            try {
+                auto storage = MakeStorage(ctx.scan_, ctx.counts_.training_, ctx.prepared_.Plan().RegressionFeatureCount(), false);
+                LsmcContext_ training{ctx.prepared_, model, ctx.scan_, storage, ctx.hardCompiled_, nullptr, ctx.trainingKey_, &constants};
+                return TrainFrozenPolicy(training, ctx.counts_).regressions_;
+            } catch (const Exception_& error) {
+                THROW("LsmcCurvature: " + position + "; " + error.what());
+            }
+        }
+
+        SimResults_ AccumulateLsmcCurvaturePolicy(const LsmcCurvatureContext_& ctx,
+                                                  const Handle_<ModelData_>& data,
+                                                  const Vector_<ExerciseRegression_>& policy,
+                                                  const Vector_<String_>& labels,
+                                                  const Vector_<>& constants,
+                                                  LsmcCurvatureExecution_* execution) {
+            const CurvatureReplay_ replay{constants, ctx.capacityLimit_};
+            SimResults_ result(Vector::Join(labels, ctx.prepared_.ConstVarNames()));
+            Vector_<> totals(result.risks_.size(), 0.0);
+            for (size_t replicate = 0; replicate < ctx.counts_.replicates_; ++replicate) {
+                const std::optional<uint64_t> key =
+                    ctx.counts_.replicates_ > 1
+                        ? std::optional<uint64_t>(LsmcScrambleKey(true, ctx.prepared_.Simulation().lsmcPricingSeed_.value_or(0), replicate))
+                        : std::nullopt;
+                AccumulateFuzzyReplicate(ctx.prepared_, data, ctx.scan_, policy, ctx.fuzzyCompiled_, ctx.batches_,
+                                         ctx.counts_.pricingOffset_ + replicate * ctx.pathCount_, key, &result, &totals, &replay, execution);
+            }
+            result.aggregated_ /= static_cast<double>(ctx.counts_.replicates_);
+            for (size_t j = 0; j < totals.size(); ++j)
+                result.risks_[j] = totals[j] / static_cast<double>(ctx.counts_.replicates_ * ctx.pathCount_);
+            return result;
+        }
+
+        void ValidateLsmcCurvatureGradient(const SimResults_& result) {
+            REQUIRE2(std::isfinite(result.aggregated_), "LsmcCurvature: non-finite value", ScriptError_);
+            for (double risk : result.risks_)
+                REQUIRE2(std::isfinite(risk), "LsmcCurvature: non-finite gradient", ScriptError_);
+        }
+
+        struct LsmcCurvatureGradient_ {
+            SimResults_ result_;
+            [[nodiscard]] const Vector_<>& Gradient() const { return result_.risks_; }
+        };
+
+        LsmcCurvatureGradient_ EvaluateLsmcCurvatureGradient(const LsmcCurvatureContext_& ctx,
+                                                             const Vector_<>& point,
+                                                             const Vector_<ExerciseRegression_>& basePolicy,
+                                                             const String_& position,
+                                                             LsmcCurvatureExecution_* execution) {
+            try {
+                const Handle_<ModelData_> data(new BSModelData_("", point[0], point[1], point[2], point[3]));
+                auto model = MakeLsmcCurvatureModel(ctx.prepared_, point);
+                const Vector_<> constants(point.begin() + 4, point.end());
+                const bool retrained = ctx.prepared_.Simulation().lsmcPolicyRiskMode_ == "RetrainedBump";
+                std::optional<Vector_<ExerciseRegression_>> retrainedPolicy;
+                if (retrained && position != "base")
+                    retrainedPolicy.emplace(TrainLsmcCurvaturePolicy(ctx, model.get(), constants, position));
+                const auto& policy = retrainedPolicy ? *retrainedPolicy : basePolicy;
+                auto result = AccumulateLsmcCurvaturePolicy(ctx, data, policy, model->ParameterLabels(), constants, execution);
+                if (retrained)
+                    AddRetrainedPolicyRisks(ctx.prepared_, data, *model, ctx.scan_, policy, ctx.hardCompiled_, ctx.fuzzyCompiled_, ctx.batches_,
+                                            ctx.counts_, ctx.trainingKey_, ctx.pathCount_, &result, &constants);
+                ValidateLsmcCurvatureGradient(result);
+                return {std::move(result)};
+            } catch (const Exception_& error) {
+                THROW("LsmcCurvature: " + position + "; " + error.what());
+            }
+        }
+
     } // namespace
 
     ExerciseRegression_ SolveExerciseRegression(const Vector_<>& x, const Vector_<>& targets, const Vector_<char>& included, int degree) {
@@ -2077,82 +2211,41 @@ namespace Dal::Script {
         namespace Bumps = AAD::GradientBumpsDetail;
         AAD::RequireRecordingModeChangeAllowed();
         REQUIRE2(prepared, "LsmcCurvature: prepared script must be present", ScriptError_);
-        REQUIRE2(!prepared->AllExpired() && prepared->Product().ContainsExercise(), "LsmcCurvature: live EXERCISE preparation required",
-                 ScriptError_);
-        prepared->RequireExecutable();
-        const auto& simulation = prepared->Simulation();
-        ValidateSimulationSettings(simulation);
-        REQUIRE2(simulation.enableAad_, "LsmcCurvature: native AAD preparation required", ScriptError_);
-        REQUIRE2(pathCount > 0, "LsmcCurvature: positive pricing path count required", ScriptError_);
         Vector_<> fixedPoint = parameters;
         AAD::BumpOverAADRequest_ fixedBumps = bumps;
-        REQUIRE2(fixedPoint.size() == 4 + prepared->Product().ConstVarValues().size(),
-                 "LsmcCurvature: expected spot/vol/rate/div followed by script constants", ScriptError_);
+        ValidateLsmcCurvatureInputs(*prepared, fixedPoint, pathCount);
+        const auto& simulation = prepared->Simulation();
         LsmcCurvatureExecution_ execution;
         execution.numericPayloadBytes_ = Bumps::Validate(fixedPoint, fixedBumps);
         execution.gradientEvaluations_ = Bumps::Sum(1, Bumps::Product(2, fixedBumps.steps_.size()));
         execution.recordingCapacityBudgetBytes_ = fixedBumps.recordingCapacityBudgetBytes_;
-        const bool retrained = simulation.lsmcPolicyRiskMode_ == "RetrainedBump";
-        execution.method_ = retrained ? "BumpOverRetrainedNativeLsmcPolicySecant" : "BumpOverFrozenNativeLsmcAAD";
-        const auto makeModel = [&](const Vector_<>& point) {
-            auto model = std::make_unique<AAD::BlackScholes_<double>>(point[0], point[1], point[2], point[3]);
-            model->Allocate(prepared->TimeLine(), prepared->DefLine());
-            model->Init(prepared->TimeLine(), prepared->DefLine());
-            return model;
-        };
-        const auto validate = [&](const Vector_<>& point, const String_& context) {
-            try {
-                const auto model = makeModel(point);
-                if (retrained) {
-                    for (size_t j = 0; j < point.size(); ++j) {
-                        const double step = simulation.lsmcPolicyBumpRelative_ * std::max(1.0, std::abs(point[j]));
-                        REQUIRE2(j < 4 ? ValidModelPolicyBump(point[j], step) : ValidConstantPolicyBump(point[j], step),
-                                 "InvalidLsmcPolicyBump: coordinate cannot be bumped", ScriptError_);
-                        if (j < 4) {
-                            REQUIRE2(model->ValidParameterValue(j, point[j] + step), "InvalidLsmcPolicyBump: upper model domain", ScriptError_);
-                            for (double sign : {-1.0, 1.0}) {
-                                const double bumped = point[j] + sign * step;
-                                if (!model->ValidParameterValue(j, bumped))
-                                    continue;
-                                REQUIRE2(bumped != point[j], "InvalidLsmcPolicyBump: inner model step does not change coordinate", ScriptError_);
-                                auto inner = model->Clone();
-                                *inner->Parameters()[j] = bumped;
-                                inner->Init(prepared->TimeLine(), prepared->DefLine());
-                            }
-                        }
-                    }
-                }
-            } catch (const Exception_& error) {
-                THROW("LsmcCurvature: " + context + "; " + error.what());
-            }
-        };
-        validate(fixedPoint, "base");
+        execution.method_ =
+            simulation.lsmcPolicyRiskMode_ == "RetrainedBump" ? "BumpOverRetrainedNativeLsmcPolicySecant" : "BumpOverFrozenNativeLsmcAAD";
+        ValidateLsmcCurvaturePoint(*prepared, fixedPoint, "base");
         for (int row = 0; row < fixedBumps.directions_.Rows(); ++row) {
             const String_ context = Bumps::DirectionContext(row);
-            validate(Bumps::BumpedPoint(fixedPoint, fixedBumps, row, 1.0), context + "; plus");
-            validate(Bumps::BumpedPoint(fixedPoint, fixedBumps, row, -1.0), context + "; minus");
+            ValidateLsmcCurvaturePoint(*prepared, Bumps::BumpedPoint(fixedPoint, fixedBumps, row, 1.0), context + "; plus");
+            ValidateLsmcCurvaturePoint(*prepared, Bumps::BumpedPoint(fixedPoint, fixedBumps, row, -1.0), context + "; minus");
         }
         const auto scan = ScanEvents(prepared->Product().Events(), simulation.smooth_);
         const auto counts = LsmcPathCounts(simulation, pathCount);
+        const BatchPlan_ batches(pathCount, 1);
         std::optional<ScriptCompiled_> hardCompiled;
         if (simulation.compiled_.value_or(false))
             hardCompiled.emplace(ScriptCompiled_::Build(prepared->Product().Events(), false, prepared->PlanHandle(), false, true));
-        const std::optional<uint64_t> trainingKey =
-            counts.replicates_ > 1 ? std::optional<uint64_t>(LsmcScrambleKey(false, simulation.lsmcTrainingSeed_.value_or(0))) : std::nullopt;
-        const auto train = [&](AAD::Model_<double>* model, const Vector_<>& constants, const String_& position) {
-            try {
-                auto storage = MakeStorage(scan, counts.training_, prepared->Plan().RegressionFeatureCount(), false);
-                LsmcContext_ context{*prepared, model, scan, storage, hardCompiled ? &*hardCompiled : nullptr, nullptr, trainingKey, &constants};
-                return TrainFrozenPolicy(context, counts).regressions_;
-            } catch (const Exception_& error) {
-                THROW("LsmcCurvature: " + position + "; " + error.what());
-            }
-        };
-        auto model = makeModel(fixedPoint);
+        const LsmcCurvatureContext_ ctx{
+            *prepared,
+            scan,
+            counts,
+            batches,
+            hardCompiled ? &*hardCompiled : nullptr,
+            simulation.compiled_.value_or(false) ? &prepared->CompiledProgram(true) : nullptr,
+            counts.replicates_ > 1 ? std::optional<uint64_t>(LsmcScrambleKey(false, simulation.lsmcTrainingSeed_.value_or(0))) : std::nullopt,
+            pathCount,
+            fixedBumps.recordingCapacityBudgetBytes_.value_or(std::numeric_limits<size_t>::max())};
+        auto model = MakeLsmcCurvatureModel(*prepared, fixedPoint);
         const Vector_<> baseConstants(fixedPoint.begin() + 4, fixedPoint.end());
-        auto policy = train(model.get(), baseConstants, "base");
-        const BatchPlan_ batchPlan(pathCount, 1);
-        const ScriptCompiled_* fuzzyCompiled = simulation.compiled_.value_or(false) ? &prepared->CompiledProgram(true) : nullptr;
+        auto policy = TrainLsmcCurvaturePolicy(ctx, model.get(), baseConstants, "base");
         execution.trainingPaths_ = counts.training_;
         execution.validationPaths_ = counts.validation_;
         execution.pathsPerReplicate_ = pathCount;
@@ -2161,45 +2254,8 @@ namespace Dal::Script {
         const AAD::NumResultsResetterForAAD_ mode(tape, tape->multi_, tape->numAdj_);
         tape->multi_ = false;
         tape->numAdj_ = 1;
-        struct Gradient_ {
-            SimResults_ result_;
-            [[nodiscard]] const Vector_<>& Gradient() const { return result_.risks_; }
-        };
         auto evaluated = Bumps::Evaluate(
-            [&](const Vector_<>& point, const String_& context) {
-                try {
-                    const Handle_<ModelData_> data(new BSModelData_("", point[0], point[1], point[2], point[3]));
-                    auto currentModel = makeModel(point);
-                    const Vector_<> constants(point.begin() + 4, point.end());
-                    std::optional<Vector_<ExerciseRegression_>> retrainedPolicy;
-                    if (retrained && context != "base")
-                        retrainedPolicy.emplace(train(currentModel.get(), constants, context));
-                    const auto& currentPolicy = retrainedPolicy ? *retrainedPolicy : policy;
-                    const CurvatureReplay_ replay{constants, fixedBumps.recordingCapacityBudgetBytes_.value_or(std::numeric_limits<size_t>::max())};
-                    SimResults_ result(Vector::Join(model->ParameterLabels(), prepared->ConstVarNames()));
-                    Vector_<> totals(result.risks_.size(), 0.0);
-                    for (size_t replicate = 0; replicate < counts.replicates_; ++replicate) {
-                        const std::optional<uint64_t> key =
-                            counts.replicates_ > 1
-                                ? std::optional<uint64_t>(LsmcScrambleKey(true, simulation.lsmcPricingSeed_.value_or(0), replicate))
-                                : std::nullopt;
-                        AccumulateFuzzyReplicate(*prepared, data, scan, currentPolicy, fuzzyCompiled, batchPlan,
-                                                 counts.pricingOffset_ + replicate * pathCount, key, &result, &totals, &replay, &execution);
-                    }
-                    result.aggregated_ /= static_cast<double>(counts.replicates_);
-                    for (size_t j = 0; j < totals.size(); ++j)
-                        result.risks_[j] = totals[j] / static_cast<double>(counts.replicates_ * pathCount);
-                    if (retrained)
-                        AddRetrainedPolicyRisks(*prepared, data, *currentModel, scan, currentPolicy, hardCompiled ? &*hardCompiled : nullptr,
-                                                fuzzyCompiled, batchPlan, counts, trainingKey, pathCount, &result, &constants);
-                    REQUIRE2(std::isfinite(result.aggregated_), "LsmcCurvature: non-finite value", ScriptError_);
-                    for (double risk : result.risks_)
-                        REQUIRE2(std::isfinite(risk), "LsmcCurvature: non-finite gradient", ScriptError_);
-                    return Gradient_{std::move(result)};
-                } catch (const Exception_& error) {
-                    THROW("LsmcCurvature: " + context + "; " + error.what());
-                }
-            },
+            [&](const Vector_<>& point, const String_& context) { return EvaluateLsmcCurvatureGradient(ctx, point, policy, context, &execution); },
             fixedPoint, fixedBumps);
         return {evaluated.base_.result_.aggregated_ / pathCount,
                 std::move(evaluated.base_.result_.risks_),

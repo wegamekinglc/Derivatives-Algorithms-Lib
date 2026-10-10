@@ -465,3 +465,23 @@ TEST(ScriptExerciseLSMCTest, TestCurvatureWorkerAdjointModeRestoredAfterCapacity
     ASSERT_TRUE(checkMode.get());
     ASSERT_TRUE(std::isfinite(result.HessianProducts()(0, 0)));
 }
+
+TEST(ScriptExerciseLSMCTest, TestCurvatureRejectsForeignModelObservationPlan) {
+    class ForeignObservationModel_ final : public AAD::BlackScholes_<> {
+    public:
+        ForeignObservationModel_() : BlackScholes_(100.0, 0.2, 0.05, 0.0) {}
+        [[nodiscard]] bool SupportsIndex(const Dal::Index_&) const override { return true; }
+    } model;
+    const Script::ScriptProductData_ product("", {Cell_(Date_(2027, 4, 10)), Cell_(Date_(2027, 10, 10))},
+                                             {"EXERCISE 100 - FIX(FX[EUR/USD])", "EXERCISE 100 - FIX(FX[EUR/USD])"});
+    Script::MonteCarloSettings_ simulation;
+    simulation.enableAad_ = true;
+    simulation.lsmcTrainingPaths_ = 128;
+    Script::ScriptValuationSettings_ valuation;
+    valuation.evaluationDate_ = Date_(2026, 10, 10);
+    const auto prepared = std::make_shared<const Script::PreparedScript_>(Script::PrepareScript(product, &model, valuation, simulation));
+    Script::TestSupport::SubmissionCounter_ observer;
+    const Script::Detail::ScopedSimulationObserver_ scope(&observer);
+    ASSERT_THROW((void)Script::EvaluateBlackScholesLsmcCurvature(prepared, {100.0, 0.2, 0.05, 0.0}, 128, SpotDirection()), Dal::Exception_);
+    ASSERT_EQ(observer.submissions_, 0);
+}

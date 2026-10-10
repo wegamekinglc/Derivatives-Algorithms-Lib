@@ -1,7 +1,7 @@
 # LSMC curvature scoped cost acceptance
 
-Status: local correctness, strict compilation and installed consumption pass;
-paired cost measurement and publication acceptance pending.
+Status: initial local correctness, strict compilation, installed consumption
+and paired costs pass; complexity-repair refresh and publication acceptance pending.
 
 Baseline: merged #525, `f30c7bf4b74d183b071bedc0f51aea3e9864dea8`.
 
@@ -30,7 +30,36 @@ refresh only executable-identity-applicable pairs after repair.
 
 Rate curves, Dupire, PDE, solve, RNG primitive, tape primitive and segmented
 European MC implementations are unchanged. Their matrices are excluded. Required
-exact-head CI remains applicable. No measurement is claimed complete here.
+exact-head CI remains applicable.
+
+## Initial accepted paired measurement
+
+Head `831e196b9b9d9a560f4a7fcf40e3de6190f32a84` completes all four selected cases:
+160 observations and 5.063510592 seconds of measured work. The committed
+[raw evidence](aad-lsmc-curvature-results.json) contains every sample/checksum,
+source and dependency hashes, compiler/CMake/CPU/configuration identity, archive
+hashes, executable hashes and exact commands. Every process warms up once;
+calibration chooses 128/16/64/8 repetitions respectively for the four cases,
+then both sides use identical repetition counts in two interleaved ten-pair rounds.
+
+| Case               | Round 1 delta | Round 2 delta | Verdict                   |
+|--------------------|---------------|---------------|---------------------------|
+| Existing Frozen    | -16.73%       | -19.10%       | No regression             |
+| Existing Retrained | -6.34%        | -14.93%       | No regression             |
+| New Frozen         | Informational | Informational | Complete-request coverage |
+| New Retrained      | Informational | Informational | Complete-request coverage |
+
+The shared host is noisy; negative deltas are not promoted to speedup claims.
+New-case sides execute the same head binary to expose repeatability and complete
+latency without inventing an older comparable adapter. Existing-caller checksums
+match across baseline and head. Baseline core/public archives are the immutable
+#525 accepted artifacts. Only the affected LSMC object is rebuilt in the head
+core archive; public code and all other core members retain accepted provenance.
+
+Codacy requests a smaller entry-point complexity. Its refactor changes the core
+archive and affected executable identities, so refresh these same four cases
+after repair using the retained calibrated repetition counts. No case or
+parameter matrix is added. The initial evidence remains retained separately.
 
 ## Selected finite-estimator study
 
