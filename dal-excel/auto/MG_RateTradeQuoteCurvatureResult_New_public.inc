@@ -11,7 +11,7 @@ ENV_SEED_TYPE(ObjectAccess_);
         Logging::Write("RateTradeQuoteCurvatureResult_New");        
         argName = "name (input #1)";
         const String_ name = Excel::ToString(xl_name);
-        argName = "name"; Excel::ValidateRiskRequestText(xl_name, "RateTradeQuoteCurvatureResult_New; name");
+        argName = "name"; Excel::ValidateRiskRequestText(xl_name, "RateTradeQuoteCurvatureResult_New; name"); argName = "trades"; Excel::ValidateRateTradeHandles(xl_trades);
         argName = "trades (input #2)";
         const Vector_<Handle_<Storable_>> trades = Excel::ToHandleBaseVector(_env, xl_trades);
         argName = "calibration (input #3)";

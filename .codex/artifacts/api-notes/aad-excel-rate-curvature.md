@@ -61,5 +61,9 @@ stage. Keep absent caps distinct from zero. Getter copies are detached and
 allowed during caller recording; financial calls retain native nested-entry
 rejection. Serialization remains explicitly unsupported.
 
+Raw trade ranges reject blank/missing/empty-text gaps before generic handle
+vector conversion, including trailing blanks. Errors retain the trade ordinal
+and worksheet row/column; complete duplicate trade rows remain valid.
+
 Compatibility: no change to existing functions, solver options or first-order
 quote-risk boundaries. Open questions: none.

@@ -10,6 +10,14 @@ identified null Excel output handles and the existing rate axis's absent value
 field. The fixing getter now returns records with explicit snapshot presence;
 quote values come from Point rather than an invented metadata field.
 
+External review found that generic raw handle-vector conversion truncates at
+the first blank. The rate entry now validates the entire trade range before
+that conversion. An extracted actual-converter probe reproduces the original
+three-to-one truncation, then rejects all 18 leading/interrupted/trailing
+blank/missing/empty-text row/column cases with trade ordinal context. This local
+probe uses minimal OPER primitives and does not claim actual Windows runtime.
+The new raw regression also checks complete duplicate rows remain valid.
+
 ## Reviewed contract
 
 Nineteen worksheet functions reuse native sealed snapshots, the closed native
@@ -50,7 +58,7 @@ documentation/link and patch checks pass.
 
 ## Open questions and residual risk
 
-No API question remains. Three authored Windows raw tests cover all 19 exports,
+No API question remains. Four authored Windows raw tests cover all 19 exports,
 signed analytical spills, existing worksheet construction, strict numeric/NUL
 and handle admission, integer normalization, empty shapes, explicit empty
 history and separate zero caps. A registration test checks exact names, argument

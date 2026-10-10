@@ -452,7 +452,9 @@ blank, with actual quote values available separately from `GET.POINT`.
 Blank weights or a blank settings handle mean unit weights. Supplied weights
 must be finite and match the trade count; signed and zero weights are allowed.
 Every trade is validated, including zero-weight rows, and duplicate rows remain
-distinct. Actual PV currencies must agree; there is no portfolio FX conversion.
+distinct. Trade ranges reject leading, interrupted and trailing blank cells
+before conversion, with trade ordinal and worksheet position. Actual PV
+currencies must agree; there is no portfolio FX conversion.
 An explicit fixing snapshot supplies all additional historical observations,
 with native conflict checks against calibration history. If absent, the native
 adapter captures missing required trade history once. Settings getters copy

@@ -209,6 +209,32 @@ TEST(ScriptExcelRawTest, TestRateCurvatureAllGeneratedExportsAndSignedAnalyticSp
     ASSERT_DOUBLE_EQ(basePoint.Scalar()->val.num, 0.025);
 }
 
+TEST(ScriptExcelRawTest, TestRateCurvatureTradeRangesRejectBlankGapsAndRetainDuplicates) {
+    RawRateFixture_ fixture;
+    const auto* name = &fixture.name_.cell_;
+    auto blank = Blank(), one = Number(1.0), step = Number(0.0001);
+    Output_ bumps(Call("xl_BumpOverAADRequest_New", name, &one, &step, &blank));
+    RawText_ empty(L"");
+    OPER_ missing{};
+    missing.xltype = xltypeMissing;
+    for (const auto& gap : {blank, missing, empty.cell_})
+        for (int position = 0; position < 3; ++position)
+            for (const bool column : {false, true}) {
+                OPER_ cells[]{*fixture.trade_.Scalar(), *fixture.trade_.Scalar(), *fixture.trade_.Scalar()};
+                cells[position] = gap;
+                auto trades = Multi(cells, column ? 3 : 1, column ? 1 : 3);
+                Output_ rejected(Call("xl_RateTradeQuoteCurvatureResult_New", name, &trades, fixture.snapshot_.Scalar(), bumps.Scalar(), &blank));
+                const auto row = "trade_row=" + std::to_string(position + 1);
+                CheckError(rejected, {"trades", row.c_str()});
+            }
+    OPER_ duplicates[]{*fixture.trade_.Scalar(), *fixture.trade_.Scalar()};
+    auto trades = Multi(duplicates, 2, 1);
+    Output_ result(Call("xl_RateTradeQuoteCurvatureResult_New", name, &trades, fixture.snapshot_.Scalar(), bumps.Scalar(), &blank));
+    ASSERT_EQ(result.Text().find("#Error:"), std::string::npos) << result.Text();
+    Output_ value(Call("xl_RateTradeQuoteCurvatureResult_Get_Value", result.Scalar()));
+    ASSERT_NEAR(value.Scalar()->val.num, 2.0 * (1.028 / 1.025 - 1.0), 1.0e-10);
+}
+
 TEST(ScriptExcelRawTest, TestRateCurvatureRawKindsNulAndWrongHandlesReject) {
     RawRateFixture_ fixture;
     const auto* name = &fixture.name_.cell_;

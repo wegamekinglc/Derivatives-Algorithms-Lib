@@ -6,8 +6,8 @@
 
 #include <string>
 
-#include "__curvatureinput.hpp"
 #include "__curvaturerows.hpp"
+#include "__ratecurvatureinput.hpp"
 
 // clang-format off
 /*IF--------------------------------------------------------------------------
@@ -123,6 +123,7 @@ public RateTradeQuoteCurvatureResult_New
 name is string
     Object name
 +argName = "name"; Excel::ValidateRiskRequestText(xl_name, "RateTradeQuoteCurvatureResult_New; name");
++argName = "trades"; Excel::ValidateRateTradeHandles(xl_trades);
 trades is handle[]
     Native rate trade rows; every row is validated including zero-weight rows
 calibration is handle StorableRateCalibrationSnapshot

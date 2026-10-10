@@ -38,6 +38,9 @@ native `higherOrder_` remains false.
    Reject null/wrong trade rows with their one-based row. Evaluate exactly once
    through `EvaluateRateTradeQuoteCurvature`; validate every trade even at zero
    weight. Preserve duplicate rows and signed portfolio weights.
+   Raw trade ranges reject every blank/missing/empty-text cell before the
+   generic vector converter can truncate them, with trade ordinal and worksheet
+   position. Leading, interrupted and trailing blanks all reject.
 5. Results expose value, actual PV currency, point, full raw gradient,
    directions, steps, Hessian products, logical shape, base snapshot and all
    seven native execution fields. Metadata is available from the base snapshot.

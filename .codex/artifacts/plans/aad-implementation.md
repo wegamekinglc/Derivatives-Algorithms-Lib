@@ -16,9 +16,13 @@ Twelve typed financial/interface cases, ten strict OFF/combined probes, the
 actual CMake binding boundary and 19 wrapper/help drift checks pass locally.
 Two selected complete rate costs retain 80 calibrated observations in
 8.458444867 measured seconds; unequal owning contracts are informational.
-Three raw Windows cases and one registration case are authored; actual Windows
+Four raw Windows cases and one registration case are authored; actual Windows
 runtime, exact-head CI/Codacy/reviews and publication remain pending. The active
 [review](../reviews/aad-excel-rate-curvature.md) controls those gates.
+External review's raw trade-range truncation finding is repaired by complete
+pre-conversion admission; the actual-converter RED/GREEN probe covers all 18
+blank-gap boundaries and retained duplicate rows. Actual Windows runtime and
+new-head publication acceptance remain required.
 Following rate, Excel segmented MC/LSMC and final requirement/documentation
 reconciliation remain. Developer effort is approximately 14–23 hours:
 rate 3–4, MC/LSMC 7–11 and final-only work 4–8; remote CI waiting is separate.
@@ -970,7 +974,8 @@ incremental implementation turns and PRs; a green first stage does not complete 
 - [x] P02: per-worker capacity reuse and safe re-registration/reinitialization.
 - [x] P03: measured block-width policy and demand-driven result extraction; default maximum one retained.
 - [ ] Bindings: F01/F02 C++/Python/Excel and F04 C++/Python are accepted;
-  complete the closed financial PDE projection and remaining Excel interfaces.
+  closed financial PDE and Excel Dupire projections are accepted; complete
+  the remaining Excel rate/MC/LSMC interfaces.
   Native recording scopes/events and generic equation callbacks stay C++-owned.
 
 ## Stage C: structured reverse operators
