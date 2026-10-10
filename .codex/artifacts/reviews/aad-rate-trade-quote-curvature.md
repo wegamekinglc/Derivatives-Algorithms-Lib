@@ -52,7 +52,8 @@ market admission before the zero-PV path. A failing regression now covers invali
 position count, non-finite spread/notionals, spread-leg disagreement and market currency
 mismatch for both zero/unit weights, including duplicate IDs and row context.
 The objective capture unconditionally calls extracted native position/market
-validators and admits finite contract spread/notionals before preparing geometry. Existing
+validators and invokes the native `CrossCurrencySwap_` constructor for complete
+configuration admission before preparing geometry. Existing
 standalone pricing keeps its original expiry behavior. Valid expired rows still
 return zero value, gradient and Hessian products without requiring paid history.
 The 34 affected public/core cases and four affected strict probes pass; the 24
@@ -70,6 +71,15 @@ tests and their two strict probes pass; production archive identities are
 unchanged. Fresh identity analysis selected all five original cost comparisons;
 200 new observations pass in 1.0851 seconds of measured work. No extra
 performance cases or unrelated functional suites were added.
+
+The subsequent review required positive, finite notionals. The earlier finite
+predicate was incomplete against the canonical native instrument contract.
+Capture now constructs a temporary native swap to reuse its full configuration
+validator, including valid dates, finite spread, positive finite notionals,
+distinct currencies, supported notional mode and reset timing. This removes
+duplicated partial predicates. The expired-row regression adds zero/negative
+notionals on both legs and invalid mode for zero/unit weights; RED/GREEN and
+34 affected cases pass. Rebuild installed/cost binaries before publishing.
 
 Five scoped cost comparisons pass with 200 observations and matching checksums;
 existing-call round deltas satisfy the sustained 4% gate. Inspect every full remote review

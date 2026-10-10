@@ -26,6 +26,7 @@
 #include <dal/curve/rateparameterjacobian.hpp>
 #include <dal/curve/ratestructuraljacobian_internal.hpp>
 #include <dal/curve/ratetradeobjective_internal.hpp>
+#include <dal/curve/xccyinstrument.hpp>
 #include <dal/curve/xccypricing.hpp>
 #include <dal/curve/ycconst.hpp>
 #include <dal/curve/yclogdf.hpp>
@@ -1939,11 +1940,10 @@ namespace Dal {
             return weights.empty() ? Vector_<>(trades, 1.0) : weights;
         }
 
-        void ValidateRateObjectiveXccy(const XccyTradeTerms_& terms, const RatePricingMarket_& market) {
+        void ValidateRateObjectiveXccy(const RateTradeDefinition_& trade, const XccyTradeTerms_& terms, const RatePricingMarket_& market) {
             ValidateXccyPosition(terms);
             (void)ValidateXccyTradeMarket(terms, market);
-            REQUIRE(std::isfinite(terms.contractSpread_), "XCCY contract spread must be finite");
-            REQUIRE(std::isfinite(terms.config_.domesticNotional_) && std::isfinite(terms.config_.foreignNotional_), "XCCY notionals must be finite");
+            (void)CrossCurrencySwap_(trade.tradeDate_, trade.startDate_, trade.maturityDate_, terms.contractSpread_, terms.config_);
         }
 
         void PrepareRateObjectiveGeometry(RateTradeObjectiveData_* data) {
@@ -1953,7 +1953,7 @@ namespace Dal {
                 try {
                     data->cashflows_.emplace_back(trade);
                     if (const auto* terms = std::get_if<XccyTradeTerms_>(&trade.terms_)) {
-                        ValidateRateObjectiveXccy(*terms, data->market_);
+                        ValidateRateObjectiveXccy(trade, *terms, data->market_);
                         XccyNodeSensitivityHoist_ hoist;
                         hoist.expired_ = trade.maturityDate_ < data->market_.valuationTime_.Date();
                         hoist.plan_ = BuildXccyCashflowPlan(trade.startDate_, trade.maturityDate_, terms->config_);

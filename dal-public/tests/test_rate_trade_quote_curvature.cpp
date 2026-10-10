@@ -571,6 +571,11 @@ TEST(RateQuoteCurvatureTest, TestTradeExpiredXccyTermsValidateBeforeZeroPv) {
         [](auto& terms) { terms.contractSpread_ = std::numeric_limits<double>::quiet_NaN(); },
         [](auto& terms) { terms.config_.domesticNotional_ = std::numeric_limits<double>::quiet_NaN(); },
         [](auto& terms) { terms.config_.foreignNotional_ = std::numeric_limits<double>::infinity(); },
+        [](auto& terms) { terms.config_.domesticNotional_ = 0.0; },
+        [](auto& terms) { terms.config_.domesticNotional_ = -1.0; },
+        [](auto& terms) { terms.config_.foreignNotional_ = 0.0; },
+        [](auto& terms) { terms.config_.foreignNotional_ = -1.0; },
+        [](auto& terms) { terms.config_.notionalMode_ = Dal::XccyNotionalMode_::Value_::_NOT_SET; },
         [](auto& terms) { terms.spreadOnForeignLeg_ = !terms.config_.convention_.spreadOnForeignLeg_; },
         [](auto& terms) { terms.config_.pair_ = Dal::CurrencyPair_(Dal::Ccy_("USD"), Dal::Ccy_("GBP")); }};
     for (double weight : {0.0, 1.0}) {

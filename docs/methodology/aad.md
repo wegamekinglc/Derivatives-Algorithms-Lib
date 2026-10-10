@@ -2277,7 +2277,8 @@ The scalar objective is the weighted sum of native trade PVs. Empty
 the trade count. Negative and zero weights are allowed. Every row is validated,
 including zero-weight and expired XCCY rows, and repeated instrument IDs remain
 separate rows. Expired XCCY rows retain term/market admission, including finite
-spread and notionals, before zero PV.
+spread and positive notionals, before zero PV. Configuration admission uses
+the same native swap constructor as calibration instruments.
 All trades must have the same actual PV currency. XCCY uses its configured
 domestic currency; this entry performs no portfolio currency conversion.
 Non-XCCY consumed curves and their bases must match the PV currency.
