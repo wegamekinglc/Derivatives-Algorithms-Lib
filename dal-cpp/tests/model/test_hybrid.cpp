@@ -1221,6 +1221,65 @@ TEST(ModelTest, TestHybridGSRSLVRateMatchesStandalonePath) {
     }
 }
 
+TEST(ModelTest, TestHybridGSRSLVRateRefreshesAnchorsBeforeEachRecording) {
+    const TapeGuard_ guard(AAD::Tape());
+    const auto data = HybridData(SLVRateSettings(0.3));
+    auto model = CreateModel<AAD::Number_>(data);
+    auto reference = CreateModel<double>(data);
+    const Vector_<> timeline{0.0, 1.0, 2.0};
+    Vector_<AAD::SampleDef_> definitions(timeline.size());
+    for (auto& definition : definitions) {
+        definition.numeraire_ = true;
+        definition.indexNames_ = {"EQ[AAA]", "IR[USD,SWAP,5Y]"};
+    }
+    model->Allocate(timeline, definitions);
+    reference->Allocate(timeline, definitions);
+    reference->Init(timeline, definitions);
+    const Vector_<> gaussian(model->SimDim(), 0.3);
+    AAD::Scenario_<AAD::Number_> path;
+    AAD::Scenario_<> referencePath;
+    AAD::AllocatePath(definitions, path);
+    AAD::AllocatePath(definitions, referencePath);
+    reference->GeneratePath(gaussian, &referencePath);
+    const auto value = [&](size_t parameter, double shift) {
+        auto bumped = CreateModel<double>(data);
+        bumped->Allocate(timeline, definitions);
+        *bumped->Parameters()[parameter] += shift;
+        bumped->Init(timeline, definitions);
+        AAD::Scenario_<> bumpedPath;
+        AAD::AllocatePath(definitions, bumpedPath);
+        bumped->GeneratePath(gaussian, &bumpedPath);
+        return bumpedPath.back().spot_ * bumpedPath.back().observations_[1] / bumpedPath.back().numeraire_;
+    };
+    const auto difference = [&](size_t parameter, double step) { return (value(parameter, step) - value(parameter, -step)) / (2.0 * step); };
+    Vector_<> firstRisks;
+    for (int recording = 0; recording < 2; ++recording) {
+        AAD::Rewind(*AAD::Tape());
+        for (auto* parameter : model->Parameters())
+            AAD::PutOnTape(*parameter);
+        AAD::NewRecording(*AAD::Tape());
+        model->Init(timeline, definitions);
+        model->GeneratePath(gaussian, &path);
+        ASSERT_NO_FATAL_FAILURE(CompareHybridBondPaths(path, referencePath));
+        AAD::Number_ payoff = path.back().spot_ * path.back().observations_[1] / path.back().numeraire_;
+        AAD::Adjoint(payoff) = 1.0;
+        AAD::PropagateToStart(*AAD::Tape());
+        Vector_<> risks;
+        for (const auto* parameter : model->Parameters()) {
+            risks.push_back(AAD::Adjoint(*parameter));
+            ASSERT_TRUE(std::isfinite(risks.back()));
+        }
+        for (size_t i = 0; i < risks.size(); ++i) {
+            const double expected = (4.0 * difference(i, 5e-4) - difference(i, 1e-3)) / 3.0;
+            ASSERT_NEAR(risks[i], expected, 1e-7 * std::max(1.0, std::abs(expected))) << model->ParameterLabels()[i];
+        }
+        if (recording == 0)
+            firstRisks = risks;
+        else
+            ASSERT_EQ(risks, firstRisks);
+    }
+}
+
 TEST(ModelTest, TestHybridGSRSLVRateRequiresMatchingDriverCorrelations) {
     auto hybrid = CreateModel<double>(HybridData(SLVRateSettings(0.0)));
     const Vector_<> timeline{1.0, 2.0};

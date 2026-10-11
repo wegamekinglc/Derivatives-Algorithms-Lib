@@ -579,6 +579,7 @@ namespace Dal {
             [[nodiscard]] bool SupportsIndex(const Index_& index) const override { return model_->SupportsIndex(index); }
             [[nodiscard]] double MaxStep() const override { return model_->MaxStep(); }
             [[nodiscard]] Vector_<> TimelineKnots() const override { return timelineKnots_; }
+            void BeginInit() override { model_->ResetAnchorsForRecording(); }
             [[nodiscard]] T_ LogDiscount(double time) const override { return model_->InitialLogDiscount(time); }
             [[nodiscard]] T_ PathLogNumeraire(double, const Vector_<T_>& state, size_t offset) const override {
                 return model_->HybridLogNumeraire(state, offset);

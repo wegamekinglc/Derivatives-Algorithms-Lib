@@ -302,6 +302,7 @@ namespace Dal::AAD {
         }
         [[nodiscard]] std::unique_ptr<Model_<T_>> Clone() const override { return std::make_unique<GSRSLV_<T_>>(*this); }
         [[nodiscard]] std::unique_ptr<GSRSLV_<T_>> CloneSLVKernel() const { return std::make_unique<GSRSLV_<T_>>(*this); }
+        void ResetAnchorsForRecording() { rates_->ResetAnchorsForRecording(); }
         [[nodiscard]] T_ InitialLogDiscount(double time) const { return rates_->InitialLogDiscount(time); }
         [[nodiscard]] double MaxStep() const { return maxStep_; }
         [[nodiscard]] size_t HybridStateDim() const {
