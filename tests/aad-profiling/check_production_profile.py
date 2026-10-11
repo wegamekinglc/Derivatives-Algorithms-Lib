@@ -89,7 +89,8 @@ class ProductionProfileTest(unittest.TestCase):
             "long": (0, 0), "local-vol": (2, 0), "hybrid-bs": (0, 0), "hybrid-gsr": (0, 0),
             "gsr-swap-1f": (0, 0), "gsr-swap-3f": (0, 0), "gsr-bond-1f": (0, 0),
             "hybrid-gsr-swap": (0, 0), "hybrid-gsr-swap-3f": (0, 0), "hybrid-gsr-bond-1f": (0, 0),
-            "slv-swap-1f": (0, 0), "hybrid-slv-swap-1f": (0, 0),
+            "slv-swap-1f": (0, 0), "slv-swap-3f": (0, 0), "slv-bond-1f": (0, 0),
+            "hybrid-slv-swap-1f": (0, 0), "hybrid-slv-swap-3f": (0, 0), "hybrid-slv-bond-1f": (0, 0),
             "lsmc-bs": (0, 64), "lsmc-local-vol": (2, 64),
         }
         for scenario, (grid, training) in scenarios.items():
@@ -109,6 +110,14 @@ class ProductionProfileTest(unittest.TestCase):
         self.assertEqual(request["active_parameters"], 0)
         self.assertEqual(result["risk_names"], [])
         self.assertEqual(result["risks"], [])
+
+    def test_three_factor_slv_validation_paths(self):
+        for scenario in ("slv-swap-3f", "hybrid-slv-swap-3f"):
+            for mode, engine in (("double", "tree"), ("aad", "compiled")):
+                rows = self.run_cli([scenario, "256", mode, engine, "warm", "1", "0", "0", "1"])
+                request = self.records(rows, "request")[0]
+                self.assertEqual(request["paths_per_output"], 256)
+                self.check_finite(self.records(rows, "result"))
 
     def test_sixty_four_outputs(self):
         for engine in ("tree", "compiled"):

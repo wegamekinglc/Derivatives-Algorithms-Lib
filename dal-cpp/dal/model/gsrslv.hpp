@@ -202,8 +202,10 @@ namespace Dal::AAD {
             output.numeraire_ = Dal::exp(state.logNumeraire_);
             REQUIRE(std::isfinite(Value(output.numeraire_)) && Value(output.numeraire_) > 0.0,
                     "InvalidGSRSLVPath: bank account overflow or underflow");
+            const bool batched = rates_->FillHJMObservations(sample, state.x_, state.y_, &output);
             for (size_t slot = 0; slot < output.observations_.size(); ++slot) {
-                output.observations_[slot] = rates_->ObserveHJM(sample, slot, state.x_, state.y_);
+                if (!batched)
+                    output.observations_[slot] = rates_->ObserveHJM(sample, slot, state.x_, state.y_);
                 REQUIRE(std::isfinite(Value(output.observations_[slot])), "InvalidGSRSLVPath: nonfinite rate observation");
             }
         }
@@ -338,6 +340,15 @@ namespace Dal::AAD {
         [[nodiscard]] T_ ObserveHybrid(size_t sample, size_t slot, const Vector_<T_>& state, size_t offset) const {
             const size_t n = rates_->NumFactors();
             return rates_->ObserveHJMFlat(sample, slot, &state[offset], &state[offset + n]);
+        }
+        [[nodiscard]] bool UsesHybridObservationBatch(size_t sample) const { return rates_->UsesHybridObservationBatch(sample); }
+        bool FillHybridObservationBatch(size_t sample,
+                                        const Vector_<std::pair<size_t, size_t>>& slots,
+                                        const Vector_<T_>& state,
+                                        size_t offset,
+                                        Sample_<T_>* output,
+                                        size_t scratchPrefix) const {
+            return rates_->FillHybridHJMObservationBatch(sample, slots, state, offset, output, scratchPrefix);
         }
         [[nodiscard]] T_ HybridLogNumeraire(const Vector_<T_>& state, size_t offset) const {
             const size_t n = rates_->NumFactors();

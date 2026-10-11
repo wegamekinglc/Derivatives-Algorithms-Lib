@@ -1174,7 +1174,184 @@ namespace {
         settings.correlation_ = Handle_<HybridCorrelationData_>(new HybridConstantCorrelationData_("corr", names, correlations));
         return settings;
     }
+
+    HybridSettings_ SLVBatchSettings(size_t factors) {
+        auto settings = HybridBondSettings(factors);
+        const auto* rate = dynamic_cast<const HybridGSRRateData_*>(settings.components_[0].get());
+        REQUIRE(rate, "Missing Gaussian test component");
+        const Handle_<MultiFactorGSRModelData_> gaussian(new MultiFactorGSRModelData_("gaussian", rate->curve_, rate->multiVol_));
+        Matrix_<> values(2, 2);
+        values(0, 0) = 0.8;
+        values(0, 1) = 1.0;
+        values(1, 0) = 1.2;
+        values(1, 1) = 1.1;
+        const Handle_<GSRLeverageData_> leverage(new GSRLeverageData_("grid", {-0.05, 0.05}, {0.0, 240.0 / DAYS_PER_YEAR}, values));
+        GSRSLVSettings_ slvSettings;
+        slvSettings.maxStep_ = 0.25;
+        slvSettings.varianceCorrelations_ = Vector_<>(factors, -0.1);
+        const Handle_<GSRSLVModelData_> slv(new GSRSLVModelData_("smile", gaussian, leverage, slvSettings));
+        settings.components_[0] = Handle_<HybridComponentData_>(new HybridGSRSLVRateData_("rate", "variance", "bridge", slv));
+        settings.correlation_ = AssembleHybridCorrelation("corr", settings.components_, {{"EQ", "factor0", -0.25}});
+        return settings;
+    }
+
+    Vector_<AAD::SampleDef_> SLVBatchDefinitions(size_t samples) {
+        auto definitions = HybridBondDefinitions(samples);
+        for (auto& definition : definitions)
+            definition.discountMats_.clear();
+        return definitions;
+    }
+
+    template <class T_> T_ HybridSLVBatchPayoff(const AAD::Scenario_<T_>& path) {
+        T_ total(0.0);
+        for (const auto& sample : path) {
+            T_ cash = 0.01 * sample.spot_;
+            for (size_t slot = 0; slot < sample.observations_.size(); ++slot)
+                cash += (slot + 1) * sample.observations_[slot];
+            total += cash / sample.numeraire_;
+        }
+        return total;
+    }
+
+    AAD::Scenario_<> HybridSLVBatchPath(size_t factors,
+                                        const Vector_<>& timeline,
+                                        const Vector_<AAD::SampleDef_>& definitions,
+                                        const Vector_<>& gaussian,
+                                        size_t parameter = 0,
+                                        double shift = 0.0) {
+        auto model = CreateModel<double>(HybridData(SLVBatchSettings(factors)));
+        model->Allocate(timeline, definitions);
+        *model->Parameters()[parameter] += shift;
+        model->Init(timeline, definitions);
+        AAD::Scenario_<> path;
+        AAD::AllocatePath(definitions, path);
+        model->GeneratePath(gaussian, &path);
+        return path;
+    }
 } // namespace
+
+TEST(ModelTest, TestHybridSlvBatchFitsNodeBudget) {
+    for (const size_t factors : {size_t{1}, size_t{3}}) {
+        const TapeGuard_ guard(AAD::Tape());
+        auto model = CreateModel<AAD::Number_>(HybridData(SLVBatchSettings(factors)));
+        Vector_<> timeline;
+        for (int quarter = 0; quarter <= 16; ++quarter)
+            timeline.push_back(quarter * 91.0 / DAYS_PER_YEAR);
+        Vector_<AAD::SampleDef_> definitions(timeline.size());
+        for (auto& definition : definitions)
+            definition.indexNames_ = {"IR[USD,SWAP,5Y]"};
+        model->Allocate(timeline, definitions);
+        AAD::Scenario_<AAD::Number_> path;
+        AAD::AllocatePath(definitions, path);
+        AAD::Rewind(*AAD::Tape());
+        for (auto* parameter : model->Parameters())
+            AAD::PutOnTape(*parameter);
+        AAD::NewRecording(*AAD::Tape());
+        model->Init(timeline, definitions);
+        const auto prefixNodes = AAD::Tape()->nodes_.OccupiedSlots();
+        model->GeneratePath(Vector_<>(model->SimDim(), 0.2), &path);
+        ASSERT_LE(AAD::Tape()->nodes_.OccupiedSlots() - prefixNodes, factors == 1 ? 4000U : 8000U);
+    }
+}
+
+TEST(ModelTest, TestHybridSlvBatchPreservesEveryRiskAndReplay) {
+    for (const size_t factors : {size_t{1}, size_t{3}}) {
+        const TapeGuard_ guard(AAD::Tape());
+        auto model = CreateModel<AAD::Number_>(HybridData(SLVBatchSettings(factors)));
+        const Vector_<> timeline{0.0, 146.0 / DAYS_PER_YEAR, 292.0 / DAYS_PER_YEAR};
+        const auto definitions = SLVBatchDefinitions(timeline.size());
+        model->Allocate(timeline, definitions);
+        AAD::Scenario_<AAD::Number_> path;
+        AAD::AllocatePath(definitions, path);
+        for (int recording = 0; recording < 2; ++recording) {
+            AAD::Rewind(*AAD::Tape());
+            for (auto* parameter : model->Parameters())
+                AAD::PutOnTape(*parameter);
+            AAD::NewRecording(*AAD::Tape());
+            model->Init(timeline, definitions);
+            AAD::Mark(*AAD::Tape());
+            for (const double normal : {0.2, -0.4}) {
+                const Vector_<> gaussian(model->SimDim(), normal);
+                AAD::RewindToMark(*AAD::Tape());
+                AAD::ZeroAdjoints(*AAD::Tape());
+                model->GeneratePath(gaussian, &path);
+                ASSERT_NO_FATAL_FAILURE(CompareHybridBondPaths(path, HybridSLVBatchPath(factors, timeline, definitions, gaussian)));
+                const AAD::Number_ payoff = HybridSLVBatchPayoff(path);
+                AAD::Adjoint(payoff) = 1.0;
+                AAD::PropagateToStart(*AAD::Tape());
+                for (size_t parameter = 0; parameter < model->Parameters().size(); ++parameter) {
+                    const auto difference = [&](double step) {
+                        return (HybridSLVBatchPayoff(HybridSLVBatchPath(factors, timeline, definitions, gaussian, parameter, step)) -
+                                HybridSLVBatchPayoff(HybridSLVBatchPath(factors, timeline, definitions, gaussian, parameter, -step))) /
+                               (2.0 * step);
+                    };
+                    const double expected = (4.0 * difference(5e-4) - difference(1e-3)) / 3.0;
+                    ASSERT_NEAR(AAD::Adjoint(*model->Parameters()[parameter]), expected, 1e-7 * std::max(1.0, std::abs(expected)))
+                        << model->ParameterLabels()[parameter];
+                }
+            }
+        }
+    }
+}
+
+TEST(ModelTest, TestHybridSlvBatchKeepsLegacyStateVectorSize) {
+    const auto settings = SLVBatchSettings(1);
+    const auto* rate = dynamic_cast<const HybridGSRSLVRateData_*>(settings.components_[0].get());
+    ASSERT_NE(rate, nullptr);
+    Vector_<std::unique_ptr<AAD::HybridComponent_<double>>> components;
+    components.push_back(std::make_unique<LegacyHybridComponent_>(6));
+    components.push_back(std::make_unique<AAD::HybridGSRSLVRate_<double>>(*rate));
+    Matrix_<> correlations(4, 4, 0.0);
+    for (int i = 0; i < 4; ++i)
+        correlations(i, i) = 1.0;
+    correlations(1, 2) = correlations(2, 1) = -0.1;
+    const HybridConstantCorrelationData_ correlation("corr", {"W", "factor0", "variance", "bridge"}, correlations);
+    AAD::HybridModel_<> model("USD", std::move(components), correlation);
+    const Vector_<> timeline{0.0, 146.0 / DAYS_PER_YEAR};
+    Vector_<AAD::SampleDef_> definitions(2);
+    for (auto& definition : definitions)
+        definition.indexNames_ = {"IR[USD,SWAP,5Y]", "EQ[LEGACY]"};
+    model.Allocate(timeline, definitions);
+    model.Init(timeline, definitions);
+    AAD::Scenario_<> path;
+    AAD::AllocatePath(definitions, path);
+    model.GeneratePath(Vector_<>(model.SimDim(), 0.2), &path);
+    ASSERT_DOUBLE_EQ(path[0].spot_, 1.0);
+    for (const auto& sample : path)
+        ASSERT_DOUBLE_EQ(sample.spot_, sample.observations_[1]);
+}
+
+TEST(ModelTest, TestHybridSlvBatchReallocationCloneAndSharedModelPaths) {
+    const size_t factors = 3;
+    auto model = CreateModel<double>(HybridData(SLVBatchSettings(factors)));
+    const Vector_<> timeline{146.0 / DAYS_PER_YEAR, 292.0 / DAYS_PER_YEAR};
+    auto definitions = SLVBatchDefinitions(timeline.size());
+    model->Allocate(timeline, definitions);
+    model->Init(timeline, definitions);
+    auto clone = model->Clone();
+    for (auto& definition : definitions)
+        std::reverse(definition.indexNames_.begin(), definition.indexNames_.end());
+    clone->Allocate(timeline, definitions);
+    clone->Init(timeline, definitions);
+    AAD::Scenario_<> cloned;
+    AAD::AllocatePath(definitions, cloned);
+    clone->GeneratePath(Vector_<>(clone->SimDim(), 0.2), &cloned);
+    ASSERT_NO_FATAL_FAILURE(CompareHybridBondPaths(cloned, HybridSLVBatchPath(factors, timeline, definitions, Vector_<>(clone->SimDim(), 0.2))));
+    definitions = SLVBatchDefinitions(timeline.size());
+    const auto evaluate = [&](double normal) {
+        AAD::Scenario_<> path;
+        AAD::AllocatePath(definitions, path);
+        for (int replay = 0; replay < 20; ++replay)
+            model->GeneratePath(Vector_<>(model->SimDim(), normal), &path);
+        return path;
+    };
+    const auto positive = evaluate(0.3), negative = evaluate(-0.4);
+    ASSERT_GT(std::abs(HybridSLVBatchPayoff(positive) - HybridSLVBatchPayoff(negative)), 0.01);
+    auto first = std::async(std::launch::async, evaluate, 0.3);
+    auto second = std::async(std::launch::async, evaluate, -0.4);
+    ASSERT_NO_FATAL_FAILURE(CompareHybridBondPaths(first.get(), positive));
+    ASSERT_NO_FATAL_FAILURE(CompareHybridBondPaths(second.get(), negative));
+}
 
 TEST(ModelTest, TestHybridRejectsSubDayMaximumStep) {
     auto settings = SLVRateSettings(0.3);
