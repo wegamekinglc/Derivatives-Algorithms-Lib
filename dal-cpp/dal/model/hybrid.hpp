@@ -279,7 +279,7 @@ namespace Dal {
             Vector_<String_> observables_;
             T_ spot_;
             T_ div_;
-            T_ logSpot_;
+            T_ logSpot_{};
             LocalVolSurface_<T_> surface_;
             double maxStep_;
             Vector_<> timeline_;
