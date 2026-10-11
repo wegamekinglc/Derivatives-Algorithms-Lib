@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository. Keep this as operational guidance for agents; keep public project orientation in [README.md](README.md), and put method-level explanations under `docs/methodology/`.
 
-This file is the agent-facing source of truth for build/test commands, workspace CMake options, and the architecture map. Sibling agent guides — [AGENTS.md](AGENTS.md) (Codex), [.github/copilot-instructions.md](.github/copilot-instructions.md) (GitHub Copilot), and [.codex/skills/dal-agent-team/references/shared-rules.md](.codex/skills/dal-agent-team/references/shared-rules.md) (Codex skill reference) — keep per-audience specifics and link back here rather than duplicating. Coding and test conventions live in [.claude/rules/](.claude/rules/) (linked below); published setup and architecture docs live in [docs/](docs/).
+This file is the agent-facing source of truth for build/test commands, workspace CMake options, and the architecture map. Sibling agent guides — [AGENTS.md](AGENTS.md) (Codex), [.github/copilot-instructions.md](.github/copilot-instructions.md) (GitHub Copilot) — keep per-audience specifics and link back here rather than duplicating. Coding and test conventions live in [.claude/rules/](.claude/rules/) (linked below); published setup and architecture docs live in [docs/](docs/).
 
 ## Build Commands
 
@@ -32,7 +32,7 @@ The top-level `CMakeLists.txt` is a thin workspace that selects sub-projects via
 - `DAL_PUBLIC_BUILD_TESTS` (default `ON`) — build the `dal-public` test suite
 - `DAL_CPP_BUILD_BENCHMARKS` (CMake option default `ON`, but the `base` preset in `CMakePresets.json` overrides it to `off`, so preset-driven builds — including `build_linux.sh` without `--benchmarks`/`--full` — disable benchmarks) — build the `dal-cpp` benchmark programs
 - `DAL_BUILD_PYTHON` (default `OFF`) — build `dal-python` (pybind11 + Python package)
-- `DAL_USE_ADEPT_AAD` / `DAL_USE_XAD_AAD` / `DAL_USE_CODIPACK_AAD` — pick the AAD backend (source default: all three OFF, i.e. the native backend; CMake presets also override all three to OFF unless explicitly enabled)
+- AAD uses the built-in native implementation only. Removed `DAL_USE_ADEPT_AAD`, `DAL_USE_XAD_AAD`, and `DAL_USE_CODIPACK_AAD` options reject when enabled; see [native AAD configuration](docs/installation.md#native-aad-configuration).
 - `DAL_ENABLE_SANITIZERS` (default empty, i.e. instrumentation off) — semicolon-separated sanitizer list (e.g. `"address;undefined"` or `"thread"`); GCC/Clang only, applies `-fsanitize=<list>` to the compile and link of every target in the workspace, plus compile-only `-fno-omit-frame-pointer`
 
 The full workspace option table (sub-project, example, native-arch, and MSVC-runtime toggles) lives in [docs/installation.md](docs/installation.md#common-cmake-options).
@@ -122,7 +122,7 @@ The dependency graph is `dal-cpp ← dal-public ← {dal-python, dal-excel}`. Ea
 - `dal-cpp/test-support/` — test-only helpers shared across suites
 - `dal-cpp/examples/` — standalone example programs (AAD, Monte Carlo vanillas and exotics, finite difference, curve and cross-currency calibration, yield-curve Jacobian and quote risk, interpolation, scripting, concurrency, Sobol, Excel export, underdetermined optimization)
 - `dal-cpp/benchmarks/` — standalone performance benchmark programs, one executable per target (21 total: matrix, script, tape, jacobian, pde, rng, interp, krylov, banded, cholesky, specialfunctions, black, iv_brent, script_mc, curve_calibration, xccy, ycinstrument, threadpool, stacks, rate_risk, quote_risk); each registers as a CTest test under the `benchmark` label (CI discovers them with `ctest -N -L benchmark`), and `build_linux.sh` never runs them in its ctest pass (`-LE benchmark`); a 9-target subset is gated by the paired regression script. `script_mc_perf` compares tree-walk and compiled script evaluation
-- `dal-cpp/externals/` — git submodules for AAD frameworks, gtest, rapidjson, machinist
+- `dal-cpp/externals/` — git submodules for Google Test, RapidJSON, Machinist, pybind11, and Eigen
 - `dal-cpp/config/` — Machinist input (`dal.ifc`, `dal.mgl`)
 - `dal-cpp/cmake/` — `Platform.cmake` and helpers
 
@@ -146,13 +146,11 @@ The dependency graph is `dal-cpp ← dal-public ← {dal-python, dal-excel}`. Ea
 - once with `-d ./dal-excel` to produce Excel public-function stubs under `dal-excel/auto/`
 
 **External dependencies** (`dal-cpp/externals/`, git submodules):
-- `xad/` — XAD AAD framework for automatic differentiation
-- `adept/` — Adept AAD framework for automatic differentiation
 - `googletest/` — Google Test framework
 - `rapidjson/` — JSON parsing
 - `machinist/` — code generation tool
-- `CodiPack/` — CoDiPack AD framework
-- `pybind11/` — Python bindings (v2.11.1, used by dal-python)
+- `pybind11/` — Python bindings (used by dal-python)
+- `eigen/` — linear algebra
 
 ## Methodology
 

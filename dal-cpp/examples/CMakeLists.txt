@@ -1,4 +1,5 @@
 add_subdirectory(aad)
+add_subdirectory(aad_operators)
 add_subdirectory(digital)
 add_subdirectory(concurrency)
 add_subdirectory(curve_calibration)
@@ -18,6 +19,7 @@ add_subdirectory(european_aad_fd)
 add_subdirectory(fix_mc)
 add_subdirectory(gsr_swap_swaption)
 if(DAL_BUILD_PUBLIC)
+    add_subdirectory(aad_financial)
     add_subdirectory(gsr_slv_calibration)
 endif()
 add_subdirectory(hybrid_script)
@@ -67,6 +69,7 @@ endif()
 # (see dal_apply_platform_options in cmake/Platform.cmake).
 set(DAL_EXAMPLE_TARGETS
     aad
+    aad_operators
     digital
     concurrency
     curve_calibration
@@ -101,6 +104,7 @@ if(DAL_HAS_EXCEL)
 endif()
 
 if(DAL_BUILD_PUBLIC)
+    list(APPEND DAL_EXAMPLE_TARGETS aad_financial)
     list(APPEND DAL_EXAMPLE_TARGETS gsr_slv_calibration)
 endif()
 
