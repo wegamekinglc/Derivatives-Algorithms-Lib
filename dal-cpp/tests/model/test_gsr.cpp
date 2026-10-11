@@ -145,6 +145,13 @@ namespace {
         return model.FillHJMObservations(1, state, covariance, output);
     }
 
+    void RegisterObservationInputs(Dal::AAD::GSR_<Dal::AAD::Number_>* model, Dal::Vector_<Dal::AAD::Number_>* state) {
+        for (auto* parameter : model->Parameters())
+            Dal::AAD::PutOnTape(*parameter);
+        for (auto& value : *state)
+            Dal::AAD::PutOnTape(value);
+    }
+
     void CheckHJMObservationBatch(size_t factors, bool hybrid) {
         using namespace Dal;
         const TapeGuard_ guard(AAD::Tape());
@@ -163,10 +170,7 @@ namespace {
         for (size_t i = 0; i < prefix; ++i)
             flat.push_back(0.03 * (i + 1));
         AAD::Rewind(*AAD::Tape());
-        for (auto* parameter : model.Parameters())
-            AAD::PutOnTape(*parameter);
-        for (auto& value : flat)
-            AAD::PutOnTape(value);
+        RegisterObservationInputs(&model, &flat);
         AAD::NewRecording(*AAD::Tape());
         model.InitHJM(timeline, definitions);
         const Vector_<std::pair<size_t, size_t>> slots = hybrid ? Vector_<std::pair<size_t, size_t>>{{2, 0}, {0, 3}, {1, 2}, {3, 1}}

@@ -419,6 +419,13 @@ namespace Dal::AAD {
                         "InvalidGSRObservation: batch observation slot is outside its prepared or output range");
         }
 
+        template <bool HJM_> [[nodiscard]] T_ BatchBond(const Bond_& bond, const T_* factors) const {
+            if constexpr (HJM_)
+                return BondHJM(bond, factors, factors + NumFactors());
+            else
+                return Bond(bond, factors);
+        }
+
         template <bool HJM_>
         bool FillHybridObservationBatchImpl(size_t sample,
                                             const Vector_<std::pair<size_t, size_t>>& slots,
@@ -439,12 +446,8 @@ namespace Dal::AAD {
             prices.reserve(scratchPrefix + bonds_[sample].size());
             // Reserve before obtaining the state pointer: the first Hybrid sample shares this vector.
             const T_* factors = &state[stateOffset];
-            for (const auto& bond : bonds_[sample]) {
-                if constexpr (HJM_)
-                    prices.push_back(BondHJM(bond, factors, factors + NumFactors()));
-                else
-                    prices.push_back(Bond(bond, factors));
-            }
+            for (const auto& bond : bonds_[sample])
+                prices.push_back(BatchBond<HJM_>(bond, factors));
             const auto price = [&](const Bond_& bond) -> const T_& { return prices[scratchPrefix + bond.index_]; };
             for (const auto& slot : slots)
                 output->observations_[slot.second] = Observe(observations_[sample][slot.first], price);

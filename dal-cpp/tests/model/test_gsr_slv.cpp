@@ -24,13 +24,17 @@ using Dal::Vector_;
 namespace {
     const Date_ TODAY(2026, 10, 2);
 
-    Handle_<Dal::MultiFactorGSRModelData_> Gaussian(int n = 1, bool knots = false, bool projectionCurve = false) {
+    Handle_<Dal::GSRCurveData_> SLVCurve(bool projectionCurve) {
         Matrix_<> projection(projectionCurve ? 1 : 0, projectionCurve ? 2 : 0, 0.0);
         if (projectionCurve)
             projection(0, 1) = -0.3;
-        const Handle_<Dal::GSRCurveData_> curve(new Dal::GSRCurveData_("curve", TODAY, "USD", {TODAY, TODAY.AddDays(3650)}, {0.0, -0.3},
-                                                                       projectionCurve ? Vector_<Dal::String_>{"3M"} : Vector_<Dal::String_>{},
-                                                                       projection));
+        return Handle_<Dal::GSRCurveData_>(new Dal::GSRCurveData_("curve", TODAY, "USD", {TODAY, TODAY.AddDays(3650)}, {0.0, -0.3},
+                                                                  projectionCurve ? Vector_<Dal::String_>{"3M"} : Vector_<Dal::String_>{},
+                                                                  projection));
+    }
+
+    Handle_<Dal::MultiFactorGSRModelData_> Gaussian(int n = 1, bool knots = false, bool projectionCurve = false) {
+        const auto curve = SLVCurve(projectionCurve);
         Dal::MultiFactorGSRVolSettings_ vol;
         vol.gKnotDates_ = vol.hKnotDates_ = {TODAY};
         if (knots) {
