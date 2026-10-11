@@ -297,12 +297,14 @@ namespace {
         const auto& inputs = model->Parameters();
         const bool columns = inputs.size() <= 8;
         const size_t directions = columns ? inputs.size() : 2;
+        // Smaller bumps keep SLV's piecewise variance paths in the local derivative regime.
+        const double initialStep = options.Slv() ? 2e-6 : 1e-5;
         for (size_t axis = 0; axis < directions; ++axis) {
             const auto direction = ParameterDirection(inputs, columns, axis);
             for (size_t output = 0; output < aad.size(); ++output) {
                 REQUIRE(aad[output].risks_.size() >= direction.size(), "AAD direction axes differ");
                 const double expected = std::inner_product(direction.begin(), direction.end(), aad[output].risks_.begin(), 0.0);
-                for (const double step : {1e-5, 5e-6}) {
+                for (const double step : {initialStep, initialStep * 0.5}) {
                     const double actual = (BumpedPrice(passive.prepared_[output], passive.data_, options, direction, step) -
                                            BumpedPrice(passive.prepared_[output], passive.data_, options, direction, -step)) /
                                           (2.0 * step);

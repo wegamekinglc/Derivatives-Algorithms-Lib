@@ -989,7 +989,9 @@ All modes run validation before timing, so cold is not process-first startup.
 The short BS fixture validates each output's price and four risks against
 analytic fixed-path formulas. Long/local-vol fixtures use common-path finite
 differences at two steps, as do the hybrid and rate fixtures; LSM uses tree/compiled
-fixed-path comparisons.
+fixed-path comparisons. SLV uses steps of `2e-6` and `1e-6` to resolve local
+derivatives of its piecewise variance paths; other directional fixtures use
+`1e-5` and `5e-6`. The scaled derivative tolerance remains `1e-6`.
 Independent checks use up to 256 pricing paths. Each timed result also matches
 an untimed request at the full path count, with every requested risk checked.
 Startup messages go to stderr; request/result/scope/phase records go to stdout.

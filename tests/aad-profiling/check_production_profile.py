@@ -111,6 +111,14 @@ class ProductionProfileTest(unittest.TestCase):
         self.assertEqual(result["risk_names"], [])
         self.assertEqual(result["risks"], [])
 
+    def test_three_factor_slv_validation_paths(self):
+        for scenario in ("slv-swap-3f", "hybrid-slv-swap-3f"):
+            for mode, engine in (("double", "tree"), ("aad", "compiled")):
+                rows = self.run_cli([scenario, "256", mode, engine, "warm", "1", "0", "0", "1"])
+                request = self.records(rows, "request")[0]
+                self.assertEqual(request["paths_per_output"], 256)
+                self.check_finite(self.records(rows, "result"))
+
     def test_sixty_four_outputs(self):
         for engine in ("tree", "compiled"):
             rows = self.run_cli(["short", "64", "aad", engine, "cold", "64", "0", "0", "1"])
