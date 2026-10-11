@@ -54,6 +54,35 @@ namespace {
         }
     };
 
+    std::pair<double, Vector_<>> HybridEquityPathResult(const HybridComponentData_& input, bool withoutAdjustment) {
+        AAD::Rewind(*AAD::Tape());
+        auto component = AAD::CreateHybridComponent<AAD::Number_>(input);
+        Vector_<AAD::Number_> carry{0.015, 0.025};
+        for (auto* parameter : component->Parameters())
+            AAD::PutOnTape(*parameter);
+        for (auto& increment : carry)
+            AAD::PutOnTape(increment);
+        AAD::NewRecording(*AAD::Tape());
+        component->Prepare({0.0, 0.4, 1.0}, carry);
+        Vector_<AAD::Number_> state(component->StateDim());
+        component->ResetState(&state, 0);
+        for (size_t step = 0; step < 2; ++step) {
+            if (withoutAdjustment)
+                component->EvolveWithoutCarry(step, {0.35 - 0.7 * step}, {0}, &state, 0);
+            else
+                component->Evolve(step, {0.35 - 0.7 * step}, {0}, AAD::Number_(0.0), &state, 0);
+        }
+        const AAD::Number_ payoff = component->Observe(2, 0, state, 0, false);
+        AAD::Adjoint(payoff) = 1.0;
+        AAD::PropagateToStart(*AAD::Tape());
+        Vector_<> risks;
+        for (const auto* parameter : component->Parameters())
+            risks.push_back(AAD::Adjoint(*parameter));
+        for (const auto& increment : carry)
+            risks.push_back(AAD::Adjoint(increment));
+        return std::make_pair(AAD::Value(payoff), risks);
+    }
+
     Matrix_<> HybridCorrelation(double rho = 0.35) {
         Matrix_<> correlations(2, 2, rho);
         correlations(0, 0) = correlations(1, 1) = 1.0;
@@ -179,37 +208,9 @@ TEST(ModelTest, TestHybridCarryFreeEquitiesMatchZeroAdjustmentAndAllRisks) {
         Handle_<HybridComponentData_>(new HybridBSEquityData_("eq", "EQ[A]", "USD", "W", 100.0, 0.2, 0.01)),
         Handle_<HybridComponentData_>(new HybridLocalVolEquityData_("eq", "EQ[A]", "USD", "W", 100.0, 0.01, surface))};
     const TapeGuard_ guard(AAD::Tape());
-    const auto evaluate = [](const HybridComponentData_& input, bool withoutAdjustment) {
-        AAD::Rewind(*AAD::Tape());
-        auto component = AAD::CreateHybridComponent<AAD::Number_>(input);
-        Vector_<AAD::Number_> carry{0.015, 0.025};
-        for (auto* parameter : component->Parameters())
-            AAD::PutOnTape(*parameter);
-        for (auto& increment : carry)
-            AAD::PutOnTape(increment);
-        AAD::NewRecording(*AAD::Tape());
-        component->Prepare({0.0, 0.4, 1.0}, carry);
-        Vector_<AAD::Number_> state(component->StateDim());
-        component->ResetState(&state, 0);
-        for (size_t step = 0; step < 2; ++step) {
-            if (withoutAdjustment)
-                component->EvolveWithoutCarry(step, {0.35 - 0.7 * step}, {0}, &state, 0);
-            else
-                component->Evolve(step, {0.35 - 0.7 * step}, {0}, AAD::Number_(0.0), &state, 0);
-        }
-        const AAD::Number_ payoff = component->Observe(2, 0, state, 0, false);
-        AAD::Adjoint(payoff) = 1.0;
-        AAD::PropagateToStart(*AAD::Tape());
-        Vector_<> risks;
-        for (const auto* parameter : component->Parameters())
-            risks.push_back(AAD::Adjoint(*parameter));
-        for (const auto& increment : carry)
-            risks.push_back(AAD::Adjoint(increment));
-        return std::make_pair(AAD::Value(payoff), risks);
-    };
     for (const auto& input : data) {
-        const auto reference = evaluate(*input, false);
-        const auto actual = evaluate(*input, true);
+        const auto reference = HybridEquityPathResult(*input, false);
+        const auto actual = HybridEquityPathResult(*input, true);
         ASSERT_NEAR(actual.first, reference.first, 1e-12);
         ASSERT_EQ(actual.second.size(), reference.second.size());
         for (size_t parameter = 0; parameter < actual.second.size(); ++parameter)
