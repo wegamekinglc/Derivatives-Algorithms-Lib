@@ -276,6 +276,12 @@ than the Gaussian endpoint shortcut. With unit leverage and zero vol-of-vol, bon
 states match GSR; averaging over the integrated-rate bridge recovers the Gaussian
 conditional discount.
 
+Repeated bond maturities within a sample share one path-owned price in both
+standalone SLV and its Hybrid component. HJM pricing uses the current path's x
+and Y; prices are rebuilt for every path and continuation state. Projection
+basis factors remain separate active quantities, including when their current
+values equal the discount curve.
+
 In dal-public, call `NewGSRLeverageData` and `NewGSRSLVModelData`; Python and Excel
 expose `GSRLeverageData_New` and `GSRSLVModelData_New`. For an existing multi-factor
 Gaussian model:

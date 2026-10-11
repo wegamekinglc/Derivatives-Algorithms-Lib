@@ -145,6 +145,8 @@ The Gaussian GSR component batches rate observations and delayed-payment
 discounts when they share prepared OIS bonds. Each path prices a distinct bond
 once per sample. Prices use caller-owned scratch, preserving the first sample's
 state prefix; its temporary price tail is removed before other component calls.
+The SLV rate component uses the same batching contract for repeated bonds,
+with HJM prices computed from the path's current factor state and covariance.
 Custom components may implement `HybridComponent_::UsesObservationBatch` and
 `FillObservationBatch`. After component preparation, Hybrid records each sample's
 eligibility; the default eligibility is false, avoiding batch calls on direct paths.

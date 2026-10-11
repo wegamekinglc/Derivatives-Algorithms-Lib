@@ -372,6 +372,17 @@ namespace Dal::AAD {
                     state[i] += step.lower_(static_cast<int>(i), static_cast<int>(j)) * gaussian[j];
         }
 
+        [[nodiscard]] T_ BondHJM(const Bond_& bond, const T_* state, const T_* covariance) const {
+            T_ exponent = bond.intercept_;
+            for (size_t i = 0; i < bond.loading_.size(); ++i)
+                exponent -= bond.loading_[i] * state[i];
+            const size_t n = NumFactors();
+            for (size_t i = 0; i < n; ++i)
+                for (size_t j = 0; j < n; ++j)
+                    exponent -= 0.5 * covariance[i * n + j] * bond.loading_[i] * bond.loading_[j];
+            return Dal::exp(exponent);
+        }
+
         template <class F_> [[nodiscard]] static T_ Observe(const Observation_& request, const F_& price) {
             return std::visit(
                 [&](const auto& observation) -> T_ {
@@ -406,6 +417,40 @@ namespace Dal::AAD {
             for (const auto& slot : slots)
                 REQUIRE(slot.first < observations_[sample].size() && slot.second < output->observations_.size(),
                         "InvalidGSRObservation: batch observation slot is outside its prepared or output range");
+        }
+
+        template <bool HJM>
+        bool FillHybridObservationBatchImpl(size_t sample,
+                                            const Vector_<std::pair<size_t, size_t>>& slots,
+                                            const Vector_<T_>& state,
+                                            size_t stateOffset,
+                                            Sample_<T_>* output,
+                                            size_t scratchPrefix) const {
+            if (!UsesHybridObservationBatch(sample))
+                return false;
+            ValidateHybridBatchOutputs(sample, slots, output);
+            const size_t dimension = HJM ? NumFactors() * (NumFactors() + 1) : NumFactors();
+            REQUIRE(stateOffset <= state.size() && dimension <= state.size() - stateOffset,
+                    "InvalidGSRObservation: batch rate state exceeds its vector");
+            auto& prices = output->modelScratch_;
+            REQUIRE(scratchPrefix <= prices.size(), "InvalidGSRObservation: scratch prefix exceeds its vector");
+            REQUIRE(&prices != &state || scratchPrefix >= stateOffset + dimension, "InvalidGSRObservation: scratch prefix overlaps the rate state");
+            prices.erase(prices.begin() + scratchPrefix, prices.end());
+            prices.reserve(scratchPrefix + bonds_[sample].size());
+            // Reserve before obtaining the state pointer: the first Hybrid sample shares this vector.
+            const T_* factors = &state[stateOffset];
+            for (const auto& bond : bonds_[sample]) {
+                if constexpr (HJM)
+                    prices.push_back(BondHJM(bond, factors, factors + NumFactors()));
+                else
+                    prices.push_back(Bond(bond, factors));
+            }
+            const auto price = [&](const Bond_& bond) -> const T_& { return prices[scratchPrefix + bond.index_]; };
+            for (const auto& slot : slots)
+                output->observations_[slot.second] = Observe(observations_[sample][slot.first], price);
+            for (size_t slot = 0; slot < discountBonds_[sample].size(); ++slot)
+                output->discounts_[slot] = price(discountBonds_[sample][slot]);
+            return true;
         }
 
         void GeneratePathWithState(const Vector_<>& gaussian, Scenario_<T_>* path, T_* state) const {
@@ -546,16 +591,25 @@ namespace Dal::AAD {
         [[nodiscard]] T_ ObserveHJMFlat(size_t sample, size_t slot, const T_* state, const T_* covariance) const {
             REQUIRE(sample < observations_.size() && slot < observations_[sample].size(),
                     "InvalidGSRObservation: HJM sample, state or covariance dimensions do not match");
-            const size_t n = NumFactors();
-            return Observe(observations_[sample][slot], [&](const Bond_& bond) -> T_ {
-                T_ exponent = bond.intercept_;
-                for (size_t i = 0; i < bond.loading_.size(); ++i)
-                    exponent -= bond.loading_[i] * state[i];
-                for (size_t i = 0; i < n; ++i)
-                    for (size_t j = 0; j < n; ++j)
-                        exponent -= 0.5 * covariance[i * n + j] * bond.loading_[i] * bond.loading_[j];
-                return Dal::exp(exponent);
-            });
+            return Observe(observations_[sample][slot], [&](const Bond_& bond) { return BondHJM(bond, state, covariance); });
+        }
+        bool FillHJMObservations(size_t sample, const Vector_<T_>& state, const Matrix_<T_>& covariance, Sample_<T_>* output) const {
+            if (!UsesHybridObservationBatch(sample))
+                return false;
+            REQUIRE(state.size() == NumFactors() && covariance.Rows() == static_cast<int>(NumFactors()) &&
+                        covariance.Cols() == static_cast<int>(NumFactors()),
+                    "InvalidGSRObservation: HJM state or covariance dimensions do not match");
+            REQUIRE(output && output->observations_.size() == observations_[sample].size() &&
+                        output->discounts_.size() == discountBonds_[sample].size(),
+                    "InvalidGSRObservation: HJM output dimensions do not match");
+            auto& prices = output->modelScratch_;
+            REQUIRE(&prices != &state, "InvalidGSRObservation: standalone HJM scratch aliases the factor state");
+            prices.clear();
+            prices.reserve(bonds_[sample].size());
+            for (const auto& bond : bonds_[sample])
+                prices.push_back(BondHJM(bond, &state[0], &covariance(0, 0)));
+            WriteObservations(sample, [&](const Bond_& bond) -> const T_& { return prices[bond.index_]; }, output);
+            return true;
         }
         void ResetAnchorsForRecording() {
             if constexpr (!std::is_same_v<T_, double>) {
@@ -613,27 +667,16 @@ namespace Dal::AAD {
                                         size_t stateOffset,
                                         Sample_<T_>* output,
                                         size_t scratchPrefix) const {
-            if (!UsesHybridObservationBatch(sample))
-                return false;
-            ValidateHybridBatchOutputs(sample, slots, output);
-            REQUIRE(stateOffset <= state.size() && NumFactors() <= state.size() - stateOffset,
-                    "InvalidGSRObservation: batch rate state exceeds its vector");
-            auto& prices = output->modelScratch_;
-            REQUIRE(scratchPrefix <= prices.size(), "InvalidGSRObservation: scratch prefix exceeds its vector");
-            REQUIRE(&prices != &state || scratchPrefix >= stateOffset + NumFactors(),
-                    "InvalidGSRObservation: scratch prefix overlaps the rate state");
-            prices.erase(prices.begin() + scratchPrefix, prices.end());
-            prices.reserve(scratchPrefix + bonds_[sample].size());
-            // Reserve before obtaining the state pointer: the first Hybrid sample shares this vector.
-            const T_* factors = &state[stateOffset];
-            for (const auto& bond : bonds_[sample])
-                prices.push_back(Bond(bond, factors));
-            const auto price = [&](const Bond_& bond) -> const T_& { return prices[scratchPrefix + bond.index_]; };
-            for (const auto& slot : slots)
-                output->observations_[slot.second] = Observe(observations_[sample][slot.first], price);
-            for (size_t slot = 0; slot < discountBonds_[sample].size(); ++slot)
-                output->discounts_[slot] = price(discountBonds_[sample][slot]);
-            return true;
+            return FillHybridObservationBatchImpl<false>(sample, slots, state, stateOffset, output, scratchPrefix);
+        }
+
+        bool FillHybridHJMObservationBatch(size_t sample,
+                                           const Vector_<std::pair<size_t, size_t>>& slots,
+                                           const Vector_<T_>& state,
+                                           size_t stateOffset,
+                                           Sample_<T_>* output,
+                                           size_t scratchPrefix) const {
+            return FillHybridObservationBatchImpl<true>(sample, slots, state, stateOffset, output, scratchPrefix);
         }
 
         [[nodiscard]] size_t NumAssets() const override { return 0; }

@@ -35,8 +35,8 @@ namespace {
         size_t paths_ = 0, outputs_ = 0, grid_ = 0, training_ = 0, repeats_ = 0;
         [[nodiscard]] bool Exercise() const { return scenario_ == "lsmc-bs" || scenario_ == "lsmc-local-vol"; }
         [[nodiscard]] bool LocalVol() const { return scenario_ == "local-vol" || scenario_ == "lsmc-local-vol"; }
-        [[nodiscard]] bool HybridRates() const { return scenario_.find("hybrid-gsr-") == 0 || scenario_ == "hybrid-slv-swap-1f"; }
-        [[nodiscard]] bool Slv() const { return scenario_ == "slv-swap-1f" || scenario_ == "hybrid-slv-swap-1f"; }
+        [[nodiscard]] bool HybridRates() const { return scenario_.find("hybrid-gsr-") == 0 || scenario_.find("hybrid-slv-") == 0; }
+        [[nodiscard]] bool Slv() const { return scenario_.find("slv-") == 0 || scenario_.find("hybrid-slv-") == 0; }
         [[nodiscard]] bool Rates() const { return scenario_.find("gsr-") == 0 || HybridRates() || Slv(); }
         [[nodiscard]] bool Aad() const { return mode_ == "aad"; }
     };
@@ -52,9 +52,9 @@ namespace {
     }
 
     bool ValidNames(const Options_& options) {
-        return Choice(options.scenario_,
-                      {"short", "long", "local-vol", "hybrid-bs", "hybrid-gsr", "gsr-swap-1f", "gsr-swap-3f", "gsr-bond-1f", "hybrid-gsr-swap",
-                       "hybrid-gsr-swap-3f", "hybrid-gsr-bond-1f", "slv-swap-1f", "hybrid-slv-swap-1f", "lsmc-bs", "lsmc-local-vol"}) &&
+        return Choice(options.scenario_, {"short", "long", "local-vol", "hybrid-bs", "hybrid-gsr", "gsr-swap-1f", "gsr-swap-3f", "gsr-bond-1f",
+                                          "hybrid-gsr-swap", "hybrid-gsr-swap-3f", "hybrid-gsr-bond-1f", "slv-swap-1f", "slv-swap-3f", "slv-bond-1f",
+                                          "hybrid-slv-swap-1f", "hybrid-slv-swap-3f", "hybrid-slv-bond-1f", "lsmc-bs", "lsmc-local-vol"}) &&
                Choice(options.mode_, {"double", "aad"}) && Choice(options.engine_, {"tree", "compiled"}) &&
                Choice(options.measurement_, {"cold", "warm", "phases"});
     }
@@ -126,7 +126,7 @@ namespace {
     }
 
     Handle_<ModelData_> RateData(const Options_& options) {
-        const auto gaussian = GaussianRateData(options.scenario_ == "gsr-swap-3f" || options.scenario_ == "hybrid-gsr-swap-3f" ? 3 : 1);
+        const auto gaussian = GaussianRateData(options.scenario_.find("-3f") != std::string::npos ? 3 : 1);
         Handle_<GSRSLVModelData_> slv;
         if (options.Slv()) {
             Matrix_<> values(2, 1);
@@ -135,7 +135,7 @@ namespace {
             const Handle_<GSRLeverageData_> leverage(new GSRLeverageData_("leverage", {-0.05, 0.05}, {0.0}, values));
             GSRSLVSettings_ settings;
             settings.maxStep_ = 0.25;
-            settings.varianceCorrelations_ = {-0.2};
+            settings.varianceCorrelations_ = Vector_<>(gaussian->vol_->factorNames_.size(), -0.2);
             slv = Handle_<GSRSLVModelData_>(new GSRSLVModelData_("production-slv", gaussian, leverage, settings));
         }
         if (options.HybridRates()) {
@@ -162,7 +162,7 @@ namespace {
         const Date_ today(2024, 1, 1);
         Vector_<Cell_> dates;
         Vector_<String_> events;
-        const bool bond = options.scenario_ == "gsr-bond-1f" || options.scenario_ == "hybrid-gsr-bond-1f";
+        const bool bond = options.scenario_.find("-bond-") != std::string::npos;
         const String_ observed =
             bond ? "FIX(IR[USD,DF,2033-01-01])" : "FIX(IR[USD,SWAP,5Y]) + FIX(IR[USD,LIBOR_3M_LCH]) + FIX(IR[USD,DF,2033-01-01])";
         for (int quarter = 0; quarter <= 16; ++quarter) {
@@ -508,7 +508,7 @@ int RunProductionProfile(int argc, char** argv, ExerciseProductFactory_ exercise
     if (!Parse(argc, argv, &options)) {
         std::cerr << "usage: script_mc_perf --production-profile "
                      "short|long|local-vol|hybrid-bs|hybrid-gsr|gsr-swap-1f|gsr-swap-3f|gsr-bond-1f|hybrid-gsr-swap|hybrid-gsr-swap-3f|hybrid-gsr-"
-                     "bond-1f|slv-swap-1f|hybrid-slv-swap-1f|lsmc-bs|lsmc-local-vol "
+                     "bond-1f|slv-swap-1f|slv-swap-3f|slv-bond-1f|hybrid-slv-swap-1f|hybrid-slv-swap-3f|hybrid-slv-bond-1f|lsmc-bs|lsmc-local-vol "
                      "PATHS double|aad "
                      "tree|compiled "
                      "cold|warm|phases OUTPUTS GRID TRAINING REPEATS\n";

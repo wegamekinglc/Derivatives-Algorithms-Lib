@@ -116,6 +116,77 @@ namespace {
         return values;
     }
 
+    void AssertObservationBatchRisks(const Dal::AAD::GSR_<Dal::AAD::Number_>& model,
+                                     const Dal::Vector_<Dal::AAD::Number_>& state,
+                                     size_t prefix,
+                                     const Dal::AAD::Number_& directPayoff,
+                                     const Dal::AAD::Number_& batchPayoff) {
+        Dal::AAD::Adjoint(directPayoff) = 1.0;
+        Dal::AAD::PropagateToStart(*Dal::AAD::Tape());
+        const auto directRisks = HybridObservationRisks(model, state, prefix);
+        Dal::AAD::ZeroAdjoints(*Dal::AAD::Tape());
+        Dal::AAD::Adjoint(batchPayoff) = 1.0;
+        Dal::AAD::PropagateToStart(*Dal::AAD::Tape());
+        const auto batchRisks = HybridObservationRisks(model, state, prefix);
+        ASSERT_EQ(batchRisks.size(), directRisks.size());
+        for (size_t i = 0; i < batchRisks.size(); ++i)
+            ASSERT_NEAR(batchRisks[i], directRisks[i], 1e-12 * std::max(1.0, std::abs(directRisks[i])));
+    }
+
+    bool FillStandaloneHJMFromFlat(const Dal::AAD::GSR_<Dal::AAD::Number_>& model,
+                                   const Dal::Vector_<Dal::AAD::Number_>& flat,
+                                   Dal::AAD::Sample_<Dal::AAD::Number_>* output) {
+        const size_t factors = model.NumFactors();
+        Dal::Vector_<Dal::AAD::Number_> state(flat.begin() + 1, flat.begin() + 1 + factors);
+        Dal::Matrix_<Dal::AAD::Number_> covariance(factors, factors);
+        for (size_t i = 0; i < factors; ++i)
+            for (size_t j = 0; j < factors; ++j)
+                covariance(i, j) = flat[1 + factors + i * factors + j];
+        return model.FillHJMObservations(1, state, covariance, output);
+    }
+
+    void CheckHJMObservationBatch(size_t factors, bool hybrid) {
+        using namespace Dal;
+        const TapeGuard_ guard(AAD::Tape());
+        const auto data = ObservationModelData(factors, true);
+        const auto* rates = dynamic_cast<const MultiFactorGSRModelData_*>(data.get());
+        ASSERT_NE(rates, nullptr);
+        AAD::GSR_<AAD::Number_> model(*rates);
+        const Vector_<> timeline{0.0, 146.0 / DAYS_PER_YEAR};
+        const Vector_<AAD::SampleDef_> definitions(timeline.size(), RepeatedObservations()[0]);
+        model.Allocate(timeline, definitions);
+        AAD::Sample_<AAD::Number_> output;
+        output.Allocate(definitions[1]);
+        Vector_<AAD::Number_> inputs;
+        auto& flat = hybrid ? output.modelScratch_ : inputs;
+        const size_t prefix = factors + factors * factors + 2;
+        for (size_t i = 0; i < prefix; ++i)
+            flat.push_back(0.03 * (i + 1));
+        AAD::Rewind(*AAD::Tape());
+        for (auto* parameter : model.Parameters())
+            AAD::PutOnTape(*parameter);
+        for (auto& value : flat)
+            AAD::PutOnTape(value);
+        AAD::NewRecording(*AAD::Tape());
+        model.InitHJM(timeline, definitions);
+        const Vector_<std::pair<size_t, size_t>> slots = hybrid ? Vector_<std::pair<size_t, size_t>>{{2, 0}, {0, 3}, {1, 2}, {3, 1}}
+                                                                : Vector_<std::pair<size_t, size_t>>{{0, 0}, {1, 1}, {2, 2}, {3, 3}};
+        Vector_<AAD::Number_> direct(output.observations_.size()), discounts(output.discounts_.size());
+        for (const auto& slot : slots)
+            direct[slot.second] = model.ObserveHJMFlat(1, slot.first, &flat[1], &flat[1 + factors]);
+        for (auto& discount : discounts)
+            discount = model.ObserveHJMFlat(1, 2, &flat[1], &flat[1 + factors]);
+        AAD::Number_ directPayoff = HybridObservationPayoff(direct, discounts);
+        if (hybrid) {
+            ASSERT_TRUE(model.FillHybridHJMObservationBatch(1, slots, flat, 1, &output, prefix));
+        } else {
+            ASSERT_TRUE(FillStandaloneHJMFromFlat(model, flat, &output));
+        }
+        ASSERT_NO_FATAL_FAILURE(AssertHybridObservationValues(output, direct, discounts, hybrid ? prefix : 0));
+        AAD::Number_ batchPayoff = HybridObservationPayoff(output.observations_, output.discounts_);
+        ASSERT_NO_FATAL_FAILURE(AssertObservationBatchRisks(model, flat, prefix, directPayoff, batchPayoff));
+    }
+
     Dal::String_ CashSettledSwaptionExercise(const Dal::Date_& exercise, double strike) {
         const Dal::Ccy_ currency("USD");
         const Dal::Index::Swap_ swap(currency, "5Y");
@@ -292,6 +363,70 @@ TEST(ModelTest, TestGsrHybridBatchLeavesSingleUseObservationsToDirectCalls) {
     ASSERT_FALSE(model.UsesHybridObservationBatch(0));
     ASSERT_THROW(static_cast<void>(model.UsesHybridObservationBatch(timeline.size())), Exception_);
     ASSERT_FALSE(model.FillHybridObservationBatch(0, {{0, 0}}, {0.02}, 0, &output, 0));
+    ASSERT_DOUBLE_EQ(output.observations_[0], 0.0);
+    ASSERT_EQ(output.modelScratch_.size(), 1U);
+    ASSERT_DOUBLE_EQ(output.modelScratch_[0], 99.0);
+}
+
+TEST(ModelTest, TestGsrHjmBatchMatchesDirectObservationsAndAllInputRisks) {
+    for (const size_t factors : {size_t{1}, size_t{3}})
+        ASSERT_NO_FATAL_FAILURE(CheckHJMObservationBatch(factors, false));
+}
+
+TEST(ModelTest, TestGsrHybridHjmBatchPreservesAliasedStateAndAllInputRisks) {
+    for (const size_t factors : {size_t{1}, size_t{3}})
+        ASSERT_NO_FATAL_FAILURE(CheckHJMObservationBatch(factors, true));
+}
+
+TEST(ModelTest, TestGsrHjmBatchRejectsMalformedStateAndOutput) {
+    const auto data = ObservationModelData(3, true);
+    const auto* rates = dynamic_cast<const MultiFactorGSRModelData_*>(data.get());
+    ASSERT_NE(rates, nullptr);
+    AAD::GSR_<> model(*rates);
+    const Vector_<> timeline{0.0};
+    const Vector_<AAD::SampleDef_> definitions(1, RepeatedObservations()[0]);
+    model.Allocate(timeline, definitions);
+    model.InitHJM(timeline, definitions);
+    AAD::Sample_<> output;
+    output.Allocate(definitions[0]);
+    output.modelScratch_ = Vector_<>(15, 0.03);
+    const Matrix_<> covariance(3, 3, 0.001);
+    ASSERT_THROW(model.FillHJMObservations(1, {0.02, 0.01, 0.03}, covariance, &output), Exception_);
+    ASSERT_THROW(model.FillHJMObservations(0, {0.02}, covariance, &output), Exception_);
+    ASSERT_THROW(model.FillHJMObservations(0, {0.02, 0.01, 0.03}, Matrix_<>(2, 2), &output), Exception_);
+    ASSERT_THROW(model.FillHJMObservations(0, {0.02, 0.01, 0.03}, covariance, nullptr), Exception_);
+    ASSERT_THROW(model.FillHybridHJMObservationBatch(0, {{0, 0}}, {0.02}, 0, &output, 0), Exception_);
+    ASSERT_THROW(model.FillHybridHJMObservationBatch(0, {{0, 0}}, output.modelScratch_, 1, &output, 4), Exception_);
+    ASSERT_THROW(model.FillHybridHJMObservationBatch(0, {{0, 0}}, output.modelScratch_, 1, &output, 16), Exception_);
+    ASSERT_THROW(model.FillHybridHJMObservationBatch(0, {{4, 0}}, output.modelScratch_, 1, &output, 15), Exception_);
+    ASSERT_THROW(model.FillHybridHJMObservationBatch(0, {{0, 4}}, output.modelScratch_, 1, &output, 15), Exception_);
+    output.discounts_.clear();
+    ASSERT_THROW(model.FillHybridHJMObservationBatch(0, {{0, 0}}, output.modelScratch_, 1, &output, 15), Exception_);
+    ASSERT_THROW(model.FillHJMObservations(0, {0.02, 0.01, 0.03}, covariance, &output), Exception_);
+    output.discounts_.Resize(definitions[0].discountMats_.size());
+    output.observations_.pop_back();
+    ASSERT_THROW(model.FillHJMObservations(0, {0.02, 0.01, 0.03}, covariance, &output), Exception_);
+    output.observations_.Resize(definitions[0].indexNames_.size());
+    output.modelScratch_ = {0.02, 0.01, 0.03};
+    ASSERT_THROW(model.FillHJMObservations(0, output.modelScratch_, covariance, &output), Exception_);
+}
+
+TEST(ModelTest, TestGsrHjmBatchLeavesSingleUseOutputsUntouched) {
+    const auto data = ObservationModelData(1, true);
+    const auto* rates = dynamic_cast<const MultiFactorGSRModelData_*>(data.get());
+    ASSERT_NE(rates, nullptr);
+    AAD::GSR_<> model(*rates);
+    const Vector_<> timeline{0.0};
+    Vector_<AAD::SampleDef_> definitions(1);
+    definitions[0].indexNames_ = {"IR[USD,LIBOR_3M_LCH]"};
+    model.Allocate(timeline, definitions);
+    model.InitHJM(timeline, definitions);
+    AAD::Sample_<> output;
+    output.Allocate(definitions[0]);
+    output.Initialize();
+    output.modelScratch_ = {99.0};
+    ASSERT_FALSE(model.FillHJMObservations(0, {0.02}, Matrix_<>(1, 1, 0.001), &output));
+    ASSERT_FALSE(model.FillHybridHJMObservationBatch(0, {{0, 0}}, {0.02, 0.001}, 0, &output, 0));
     ASSERT_DOUBLE_EQ(output.observations_[0], 0.0);
     ASSERT_EQ(output.modelScratch_.size(), 1U);
     ASSERT_DOUBLE_EQ(output.modelScratch_[0], 99.0);

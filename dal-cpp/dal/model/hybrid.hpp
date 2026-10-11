@@ -620,6 +620,15 @@ namespace Dal {
             [[nodiscard]] T_ Observe(size_t sample, size_t slot, const Vector_<T_>& state, size_t stateOffset, bool) const override {
                 return model_->ObserveHybrid(sample, slot, state, stateOffset);
             }
+            [[nodiscard]] bool UsesObservationBatch(size_t sample) const override { return model_->UsesHybridObservationBatch(sample); }
+            bool FillObservationBatch(size_t sample,
+                                      const Vector_<std::pair<size_t, size_t>>& slots,
+                                      const Vector_<T_>& state,
+                                      size_t stateOffset,
+                                      Sample_<T_>* output,
+                                      size_t scratchPrefix) const override {
+                return model_->FillHybridObservationBatch(sample, slots, state, stateOffset, output, scratchPrefix);
+            }
             [[nodiscard]] std::unique_ptr<HybridComponent_<T_>> Clone() const override { return std::make_unique<HybridGSRSLVRate_<T_>>(*this); }
         };
 
