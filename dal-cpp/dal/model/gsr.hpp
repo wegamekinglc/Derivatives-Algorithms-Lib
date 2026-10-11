@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <map>
 #include <memory>
 #include <type_traits>
 #include <variant>
@@ -37,9 +38,11 @@ namespace Dal::AAD {
             T_ hybridBridgeVol_ = T_(0.0);
         };
 
+        // Inline coefficients avoid table indirection in direct observation calls.
         struct Bond_ {
             Vector_<T_> loading_;
             T_ intercept_;
+            size_t index_ = 0;
         };
         struct DiscountObservation_ {
             Bond_ start_, end_;
@@ -85,9 +88,9 @@ namespace Dal::AAD {
         Vector_<> productTimeLine_;
         Vector_<Step_> steps_;
         Vector_<Vector_<Observation_>> observations_;
-        //  Discount bonds P(t, maturity) prepared per sample from SampleDef_::discountMats_
-        //  (delayed PAYS ... ON payments)
+        Vector_<Vector_<Bond_>> bonds_;
         Vector_<Vector_<Bond_>> discountBonds_;
+        Vector_<bool> reuseBonds_;
 
         [[nodiscard]] double Time(const Date_& date) const {
             REQUIRE(date >= evaluationDate_, "InvalidGSRDate: date precedes evaluation date");
@@ -242,38 +245,31 @@ namespace Dal::AAD {
             return Dal::exp(exponent);
         }
 
-        [[nodiscard]] LiborObservation_ PrepareLibor(double time,
-                                                     const Date_& start,
-                                                     const Date_& maturity,
-                                                     const String_& tenor,
-                                                     const DayBasis_& basis,
-                                                     const Matrix_<T_>& variance,
-                                                     const Vector_<T_>& mean) const {
+        template <class F_>
+        [[nodiscard]] LiborObservation_
+        PrepareLibor(const Date_& start, const Date_& maturity, const String_& tenor, const DayBasis_& basis, const F_& prepareBond) const {
             const double accrual = basis(start, maturity, nullptr);
             REQUIRE(accrual > 0.0 && start < maturity, "InvalidGSRObservation: invalid Libor accrual");
             const auto& projection = Projection(tenor);
             const T_ scale = Dal::exp(LogDF(Time(start), projection) - LogDF(Time(maturity), projection) - LogDF(start) + LogDF(maturity));
-            return {PrepareBond(time, start, variance, mean), PrepareBond(time, maturity, variance, mean), scale, accrual};
+            return {prepareBond(start), prepareBond(maturity), scale, accrual};
         }
 
         template <class F_> [[nodiscard]] static T_ Libor(const LiborObservation_& request, const F_& price) {
             return (request.scale_ * price(request.start_) / price(request.end_) - 1.0) / request.accrual_;
         }
 
-        [[nodiscard]] Observation_
-        PrepareObservation(const String_& name, const Date_& sampleDate, const Matrix_<T_>& variance, const Vector_<T_>& mean) const {
+        template <class F_> [[nodiscard]] Observation_ PrepareObservation(const String_& name, const Date_& sampleDate, const F_& prepareBond) const {
             const Handle_<Index_> index(Index::Parse(name));
             const DateTime_ eventTime(sampleDate, 0.0);
-            const double time = Time(sampleDate);
             if (const auto* df = dynamic_cast<const Index::DF_*>(index.get())) {
                 const Date_ start = df->StartDate(eventTime), maturity = df->Maturity(eventTime);
                 REQUIRE(start >= sampleDate && maturity > start, "InvalidGSRObservation: invalid discount interval");
-                return DiscountObservation_{PrepareBond(time, start, variance, mean), PrepareBond(time, maturity, variance, mean)};
+                return DiscountObservation_{prepareBond(start), prepareBond(maturity)};
             } else if (const auto* libor = dynamic_cast<const Index::Libor_*>(index.get())) {
                 const Date_ start = libor->StartDate(eventTime);
                 const Date_ maturity = Date::NominalMaturity(start, libor->tenor_.Period(), libor->ccy_);
-                return PrepareLibor(time, start, maturity, libor->tenor_.Period().String(), Ccy::Conventions::LiborDayBasis()(libor->ccy_), variance,
-                                    mean);
+                return PrepareLibor(start, maturity, libor->tenor_.Period().String(), Ccy::Conventions::LiborDayBasis()(libor->ccy_), prepareBond);
             } else if (const auto* swap = dynamic_cast<const Index::Swap_*>(index.get())) {
                 const Date_ start = swap->StartDate(eventTime);
                 const Date_ maturity = Date::ParseIncrement(swap->tenor_)->FwdFrom(start);
@@ -290,12 +286,12 @@ namespace Dal::AAD {
                                         floatLeg.paymentConvention_, floatLeg.endOfMonth_);
                 SwapObservation_ result;
                 for (const auto& period : fixedPeriods)
-                    result.fixed_.push_back({PrepareBond(time, period.paymentDate_, variance, mean),
+                    result.fixed_.push_back({prepareBond(period.paymentDate_),
                                              fixedLeg.dayBasis_(period.accrualStart_, period.accrualEnd_, period.dayCountContext_.get())});
                 for (const auto& period : floatPeriods)
-                    result.floating_.push_back({PrepareLibor(time, period.accrualStart_, period.accrualEnd_, floatIndex.Period().String(),
-                                                             Ccy::Conventions::LiborDayBasis()(swap->ccy_), variance, mean),
-                                                PrepareBond(time, period.paymentDate_, variance, mean),
+                    result.floating_.push_back({PrepareLibor(period.accrualStart_, period.accrualEnd_, floatIndex.Period().String(),
+                                                             Ccy::Conventions::LiborDayBasis()(swap->ccy_), prepareBond),
+                                                prepareBond(period.paymentDate_),
                                                 floatLeg.dayBasis_(period.accrualStart_, period.accrualEnd_, period.dayCountContext_.get())});
                 return result;
             } else
@@ -396,6 +392,13 @@ namespace Dal::AAD {
                 request);
         }
 
+        template <class F_> void WriteObservations(size_t sample, const F_& price, Sample_<T_>* output) const {
+            for (size_t slot = 0; slot < observations_[sample].size(); ++slot)
+                output->observations_[slot] = Observe(observations_[sample][slot], price);
+            for (size_t slot = 0; slot < discountBonds_[sample].size(); ++slot)
+                output->discounts_[slot] = price(discountBonds_[sample][slot]);
+        }
+
         void GeneratePathWithState(const Vector_<>& gaussian, Scenario_<T_>* path, T_* state) const {
             T_ logNumeraire(0.0);
             size_t gaussianSlot = 0;
@@ -408,10 +411,15 @@ namespace Dal::AAD {
                 auto& sample = (*path)[i];
                 sample.spot_ = T_(0.0);
                 sample.numeraire_ = Dal::exp(logNumeraire);
-                for (size_t j = 0; j < observations_[i].size(); ++j)
-                    sample.observations_[j] = Observe(observations_[i][j], [&](const Bond_& bond) { return Bond(bond, state); });
-                for (size_t k = 0; k < discountBonds_[i].size(); ++k)
-                    sample.discounts_[k] = Bond(discountBonds_[i][k], state);
+                if (reuseBonds_[i]) {
+                    auto& prices = sample.modelScratch_;
+                    prices.clear();
+                    prices.reserve(bonds_[i].size());
+                    for (const auto& bond : bonds_[i])
+                        prices.push_back(Bond(bond, state));
+                    WriteObservations(i, [&](const Bond_& bond) -> const T_& { return prices[bond.index_]; }, &sample);
+                } else
+                    WriteObservations(i, [&](const Bond_& bond) { return Bond(bond, state); }, &sample);
             }
         }
 
@@ -477,7 +485,9 @@ namespace Dal::AAD {
                 productTimeLine_ = other.productTimeLine_;
                 steps_ = other.steps_;
                 observations_ = other.observations_;
+                bonds_ = other.bonds_;
                 discountBonds_ = other.discountBonds_;
+                reuseBonds_ = other.reuseBonds_;
                 SetParameterPointers();
             }
             return *this;
@@ -623,12 +633,40 @@ namespace Dal::AAD {
             productTimeLine_ = timeline;
             steps_.Resize(timeline.size());
             observations_.Resize(timeline.size());
+            bonds_.Resize(timeline.size());
             discountBonds_.Resize(timeline.size());
+            reuseBonds_.Resize(timeline.size());
         }
         void Init(const Vector_<>& timeline, const Vector_<SampleDef_>& definitions) override { InitObservations(timeline, definitions, true); }
         void InitHJM(const Vector_<>& timeline, const Vector_<SampleDef_>& definitions) { InitObservations(timeline, definitions, false); }
 
     private:
+        void PrepareSampleObservations(
+            size_t sample, const Date_& sampleDate, const SampleDef_& definition, const Matrix_<T_>& variance, const Vector_<T_>& mean) {
+            const double current = productTimeLine_[sample];
+            observations_[sample].clear();
+            bonds_[sample].clear();
+            reuseBonds_[sample] = false;
+            std::map<Date_, size_t> bondIndices;
+            // All bonds in a sample use the discount curve; projection basis stays in Libor's scale.
+            const auto prepareBond = [&](const Date_& maturity) {
+                const auto [entry, inserted] = bondIndices.try_emplace(maturity, bonds_[sample].size());
+                if (inserted) {
+                    bonds_[sample].push_back(PrepareBond(current, maturity, variance, mean));
+                    bonds_[sample].back().index_ = entry->second;
+                } else
+                    reuseBonds_[sample] = true;
+                return bonds_[sample][entry->second];
+            };
+            for (const auto& name : definition.indexNames_)
+                observations_[sample].push_back(PrepareObservation(name, sampleDate, prepareBond));
+            discountBonds_[sample].clear();
+            for (const double maturity : definition.discountMats_) {
+                REQUIRE(maturity >= current, "InvalidGSRDiscount: discount maturity precedes its sample");
+                discountBonds_[sample].push_back(prepareBond(DateAt(maturity)));
+            }
+        }
+
         void InitObservations(const Vector_<>& timeline, const Vector_<SampleDef_>& definitions, bool gaussian) {
             REQUIRE(timeline == productTimeLine_, "InvalidGSRTimeline: Allocate and Init timelines differ");
             this->ValidateTimeline(timeline, definitions);
@@ -643,16 +681,9 @@ namespace Dal::AAD {
                     ComputeStep(previous, current, &steps_[i]);
                 else
                     steps_[i] = Step_();
-                observations_[i].clear();
                 const auto variance = gaussian ? StateVariance(0.0, current) : Matrix_<T_>(NumFactors(), NumFactors(), T_(0.0));
                 const auto mean = gaussian ? DiscountedStateMean(current) : Vector_<T_>(NumFactors(), T_(0.0));
-                for (const auto& name : definitions[i].indexNames_)
-                    observations_[i].push_back(PrepareObservation(name, sampleDate, variance, mean));
-                discountBonds_[i].clear();
-                for (const double maturity : definitions[i].discountMats_) {
-                    REQUIRE(maturity >= current, "InvalidGSRDiscount: discount maturity precedes its sample");
-                    discountBonds_[i].push_back(PrepareBond(current, DateAt(maturity), variance, mean));
-                }
+                PrepareSampleObservations(i, sampleDate, definitions[i], variance, mean);
                 previous = current;
             }
         }

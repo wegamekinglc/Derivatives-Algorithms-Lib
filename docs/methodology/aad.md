@@ -964,11 +964,16 @@ script_mc_perf --production-profile lsmc-bs 8192 aad tree warm 1 0 512 3
 
 Arguments are scenario, pricing paths, `double|aad`, `tree|compiled`,
 `cold|warm|phases`, outputs, surface grid, training paths and repetitions.
-Scenarios are `short`, `long`, `local-vol`, `hybrid-bs`, `hybrid-gsr`, `lsmc-bs`
-and `lsmc-local-vol`. The hybrid cases observe one BS equity daily under a
+Equity scenarios are `short`, `long`, `local-vol`, `hybrid-bs`, `hybrid-gsr`,
+`lsmc-bs` and `lsmc-local-vol`. The hybrid equity cases observe one BS equity daily under a
 constant 5% rate or one-factor GSR rates (2% Gaussian volatility, unit loading,
 and equity/rate correlation -0.25), respectively. They use a zero surface grid.
-Ordinary cases accept 1/4/16/64 different strike outputs; they execute
+Rate scenarios `gsr-swap-1f`, `gsr-swap-3f`, `hybrid-gsr-swap` and `slv-swap-1f`
+observe a 5Y swap, 3M Libor and dated OIS bond at 17 quarterly dates; `gsr-bond-1f`
+observes only the bond. They use separate OIS/3M curves, piecewise g/H inputs and
+a zero surface grid. GSR and hybrid cases include a delayed payment; SLV pays
+at the final event. Ordinary cases accept 1/4/16/64 outputs with different strikes
+for equities or payoff scales for rates; they execute
 sequential single-output requests with the same model inputs and Sobol paths.
 AAD channel width remains one. Passive requests report zero active parameters
 and no risks. LSM cases accept one output and keep the Frozen policy; the
@@ -980,7 +985,7 @@ worker/model initialization. Phases use the cold boundary and explicit scopes.
 All modes run validation before timing, so cold is not process-first startup.
 The short BS fixture validates each output's price and four risks against
 analytic fixed-path formulas. Long/local-vol fixtures use common-path finite
-differences at two steps, as do the hybrid fixtures; LSM uses tree/compiled
+differences at two steps, as do the hybrid and rate fixtures; LSM uses tree/compiled
 fixed-path comparisons.
 Independent checks use up to 256 pricing paths. Each timed result also matches
 an untimed request at the full path count, with every requested risk checked.

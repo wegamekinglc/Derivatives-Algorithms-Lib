@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <future>
 
 #include <dal/platform/platform.hpp>
 
@@ -19,6 +20,72 @@
 #include <dal/time/schedules.hpp>
 
 namespace {
+    Dal::Handle_<Dal::ModelData_> ObservationModelData(size_t factors, bool projectionCurve = false) {
+        const Dal::Date_ today(2026, 10, 2);
+        const Dal::Vector_<Dal::Date_> dates{today, today.AddDays(365), today.AddDays(3650)};
+        Dal::Matrix_<> projection(projectionCurve ? 1 : 0, projectionCurve ? 3 : 0, 0.0);
+        if (projectionCurve) {
+            projection(0, 1) = -0.03;
+            projection(0, 2) = -0.3;
+        }
+        const Dal::Handle_<Dal::GSRCurveData_> curve(
+            new Dal::GSRCurveData_("curve", today, "USD", dates, {0.0, -0.03, -0.3},
+                                   projectionCurve ? Dal::Vector_<Dal::String_>{"3M"} : Dal::Vector_<Dal::String_>{}, projection));
+        Dal::MultiFactorGSRVolSettings_ settings;
+        settings.gKnotDates_ = {today, today.AddDays(120), today.AddDays(240)};
+        settings.hKnotDates_ = {today, today.AddDays(180)};
+        settings.gValues_ = Dal::Matrix_<>(static_cast<int>(factors), 3);
+        settings.hValues_ = Dal::Matrix_<>(static_cast<int>(factors), 2);
+        settings.correlations_ = Dal::Matrix_<>(static_cast<int>(factors), static_cast<int>(factors), 0.3);
+        for (size_t factor = 0; factor < factors; ++factor) {
+            settings.factorNames_.push_back("factor" + Dal::String::FromInt(static_cast<int>(factor)));
+            settings.correlations_(static_cast<int>(factor), static_cast<int>(factor)) = 1.0;
+            for (int knot = 0; knot < 3; ++knot)
+                settings.gValues_(static_cast<int>(factor), knot) = Dal::Vector_<>{0.02, 0.015, 0.025}[knot] / (factor + 1);
+            for (int knot = 0; knot < 2; ++knot)
+                settings.hValues_(static_cast<int>(factor), knot) = Dal::Vector_<>{1.0, 0.8}[knot] * (1.0 - factor * 0.3);
+        }
+        return Dal::Handle_<Dal::ModelData_>(new Dal::MultiFactorGSRModelData_(
+            "rates", curve, Dal::Handle_<Dal::MultiFactorGSRVolData_>(new Dal::MultiFactorGSRVolData_("vol", settings))));
+    }
+
+    Dal::Vector_<Dal::AAD::SampleDef_> RepeatedObservations() {
+        Dal::Vector_<Dal::AAD::SampleDef_> definitions(3);
+        const Dal::Date_ today(2026, 10, 2), payment(2031, 10, 2);
+        for (auto& definition : definitions) {
+            definition.indexNames_ = {"IR[USD,SWAP,5Y]", "IR[USD,LIBOR_3M_LCH]", "IR[USD,DF,2031-10-02]", "IR[USD,LIBOR_6M_LCH]"};
+            definition.discountMats_ = {(payment - today) / Dal::DAYS_PER_YEAR, (payment - today) / Dal::DAYS_PER_YEAR};
+        }
+        return definitions;
+    }
+
+    template <class T_> T_ ObservationPayoff(const Dal::AAD::Scenario_<T_>& path) {
+        T_ total = path[0].observations_[0];
+        for (const auto& sample : path) {
+            for (size_t slot = 0; slot < sample.observations_.size(); ++slot)
+                total += (slot + 1) * sample.observations_[slot];
+            total += 0.2 * sample.discounts_[0] + 0.3 * sample.discounts_[1];
+        }
+        return total / path.back().numeraire_;
+    }
+
+    double ObservationValue(size_t factors, size_t parameter, double shift, const Dal::Vector_<>& gaussian) {
+        auto model = Dal::CreateModel<double>(ObservationModelData(factors, true));
+        const Dal::Vector_<> timeline{0.0, 146.0 / Dal::DAYS_PER_YEAR, 292.0 / Dal::DAYS_PER_YEAR};
+        const auto definitions = RepeatedObservations();
+        model->Allocate(timeline, definitions);
+        *model->Parameters()[parameter] += shift;
+        model->Init(timeline, definitions);
+        Dal::AAD::Scenario_<> path;
+        Dal::AAD::AllocatePath(definitions, path);
+        model->GeneratePath(gaussian, &path);
+        return ObservationPayoff(path);
+    }
+
+    double ObservationDifference(size_t factors, size_t parameter, double step, const Dal::Vector_<>& gaussian) {
+        return (ObservationValue(factors, parameter, step, gaussian) - ObservationValue(factors, parameter, -step, gaussian)) / (2.0 * step);
+    }
+
     Dal::String_ CashSettledSwaptionExercise(const Dal::Date_& exercise, double strike) {
         const Dal::Ccy_ currency("USD");
         const Dal::Index::Swap_ swap(currency, "5Y");
@@ -40,6 +107,153 @@ namespace {
 } // namespace
 
 using namespace Dal;
+
+TEST(ModelTest, TestGsrSwapObservationsFitNodeBudget) {
+    for (const size_t factors : {size_t{1}, size_t{3}}) {
+        const TapeGuard_ guard(AAD::Tape());
+        auto model = CreateModel<AAD::Number_>(ObservationModelData(factors));
+        Vector_<> timeline;
+        for (int quarter = 0; quarter <= 16; ++quarter)
+            timeline.push_back(quarter * 91.0 / DAYS_PER_YEAR);
+        Vector_<AAD::SampleDef_> definitions(timeline.size());
+        for (auto& definition : definitions)
+            definition.indexNames_ = {"IR[USD,SWAP,5Y]"};
+        model->Allocate(timeline, definitions);
+        AAD::Scenario_<AAD::Number_> path;
+        AAD::AllocatePath(definitions, path);
+        AAD::Rewind(*AAD::Tape());
+        for (auto* parameter : model->Parameters())
+            AAD::PutOnTape(*parameter);
+        AAD::NewRecording(*AAD::Tape());
+        model->Init(timeline, definitions);
+        const auto prefixNodes = AAD::Tape()->nodes_.OccupiedSlots();
+        model->GeneratePath(Vector_<>(model->SimDim(), 0.2), &path);
+        ASSERT_LE(AAD::Tape()->nodes_.OccupiedSlots() - prefixNodes, factors == 1 ? 1900U : 3000U);
+    }
+}
+
+TEST(ModelTest, TestGsrSharedBondsPreserveAllRisksAndRecordingReplay) {
+    for (const size_t factors : {size_t{1}, size_t{3}}) {
+        const TapeGuard_ guard(AAD::Tape());
+        auto model = CreateModel<AAD::Number_>(ObservationModelData(factors, true));
+        const Vector_<> timeline{0.0, 146.0 / DAYS_PER_YEAR, 292.0 / DAYS_PER_YEAR};
+        const auto definitions = RepeatedObservations();
+        model->Allocate(timeline, definitions);
+        const Vector_<> gaussian(model->SimDim(), 0.2);
+        AAD::Scenario_<AAD::Number_> path;
+        AAD::AllocatePath(definitions, path);
+        for (int recording = 0; recording < 2; ++recording) {
+            AAD::Rewind(*AAD::Tape());
+            for (auto* parameter : model->Parameters())
+                AAD::PutOnTape(*parameter);
+            AAD::NewRecording(*AAD::Tape());
+            model->Init(timeline, definitions);
+            AAD::Mark(*AAD::Tape());
+            for (int replay = 0; replay < 2; ++replay) {
+                AAD::RewindToMark(*AAD::Tape());
+                AAD::ZeroAdjoints(*AAD::Tape());
+                model->GeneratePath(gaussian, &path);
+                const AAD::Number_ payoff = ObservationPayoff(path);
+                AAD::Adjoint(payoff) = 1.0;
+                AAD::PropagateToStart(*AAD::Tape());
+                ASSERT_NEAR(AAD::Value(payoff), ObservationValue(factors, 0, 0.0, gaussian), 1e-10);
+                for (size_t parameter = 0; parameter < model->Parameters().size(); ++parameter) {
+                    SCOPED_TRACE(model->ParameterLabels()[parameter].c_str());
+                    const double risk = AAD::Adjoint(*model->Parameters()[parameter]);
+                    const double coarse = ObservationDifference(factors, parameter, 1e-5, gaussian);
+                    const double fine = ObservationDifference(factors, parameter, 5e-6, gaussian);
+                    const double difference = (4.0 * fine - coarse) / 3.0;
+                    ASSERT_NEAR(risk, difference, 1e-7 * std::max(1.0, std::abs(risk)));
+                }
+                ASSERT_GT(std::abs(AAD::Adjoint(*model->Parameters()[2])), 0.1);
+                ASSERT_DOUBLE_EQ(AAD::Value(path.back().discounts_[0]), AAD::Value(path.back().discounts_[1]));
+                ASSERT_DOUBLE_EQ(AAD::Value(path.back().discounts_[0]), AAD::Value(path.back().observations_[2]));
+            }
+        }
+    }
+}
+
+TEST(ModelTest, TestGsrSharedModelKeepsBondPricesInEachPath) {
+    auto model = CreateModel<double>(ObservationModelData(3, true));
+    const Vector_<> timeline{0.0, 146.0 / DAYS_PER_YEAR, 292.0 / DAYS_PER_YEAR};
+    const auto definitions = RepeatedObservations();
+    model->Allocate(timeline, definitions);
+    model->Init(timeline, definitions);
+    const auto evaluate = [&](double normal) {
+        AAD::Scenario_<> path;
+        AAD::AllocatePath(definitions, path);
+        for (int iteration = 0; iteration < 50; ++iteration)
+            model->GeneratePath(Vector_<>(model->SimDim(), normal), &path);
+        return ObservationPayoff(path);
+    };
+    const double positive = evaluate(0.3), negative = evaluate(-0.4);
+    ASSERT_GT(std::abs(positive - negative), 0.01);
+    auto first = std::async(std::launch::async, evaluate, 0.3);
+    auto second = std::async(std::launch::async, evaluate, -0.4);
+    ASSERT_DOUBLE_EQ(first.get(), positive);
+    ASSERT_DOUBLE_EQ(second.get(), negative);
+}
+
+TEST(ModelTest, TestGsrEqualBondValuesKeepDistinctMaturityRisks) {
+    const Date_ today(2026, 10, 2);
+    const Date_ first = today.AddDays(730), second = today.AddDays(1095);
+    const Handle_<GSRCurveData_> curve(new GSRCurveData_("curve", today, "USD", {today, second}, {0.0, 0.0}, {}, Matrix_<>(0, 0)));
+    const Handle_<MultiFactorGSRVolData_> vol(
+        new MultiFactorGSRVolData_("vol", {"factor"}, {today}, Matrix_<>(1, 1, 0.02), {today}, Matrix_<>(1, 1, 0.0), Matrix_<>(1, 1, 1.0)));
+    const TapeGuard_ guard(AAD::Tape());
+    auto model = CreateModel<AAD::Number_>(Handle_<ModelData_>(new MultiFactorGSRModelData_("rates", curve, vol)));
+    const Vector_<> timeline{1.0};
+    Vector_<AAD::SampleDef_> definitions(1);
+    definitions[0].indexNames_ = {"IR[USD,DF," + Date::ToString(first) + "]", "IR[USD,DF," + Date::ToString(second) + "]"};
+    model->Allocate(timeline, definitions);
+    AAD::Scenario_<AAD::Number_> path;
+    AAD::AllocatePath(definitions, path);
+    AAD::Rewind(*AAD::Tape());
+    for (auto* parameter : model->Parameters())
+        AAD::PutOnTape(*parameter);
+    AAD::NewRecording(*AAD::Tape());
+    model->Init(timeline, definitions);
+    model->GeneratePath({0.7}, &path);
+    ASSERT_DOUBLE_EQ(AAD::Value(path[0].observations_[0]), 1.0);
+    ASSERT_DOUBLE_EQ(AAD::Value(path[0].observations_[1]), 1.0);
+    const AAD::Number_ payoff = path[0].observations_[0] + 2.0 * path[0].observations_[1];
+    AAD::Adjoint(payoff) = 1.0;
+    AAD::PropagateToStart(*AAD::Tape());
+    ASSERT_NEAR(AAD::Adjoint(*model->Parameters().back()), -0.02 * 0.7 * 5.0, 1e-10);
+}
+
+TEST(ModelTest, TestGsrReallocationAndCloneReplacePreparedBondReferences) {
+    const auto data = ObservationModelData(3, true);
+    auto model = CreateModel<double>(data);
+    const auto originalDefinitions = RepeatedObservations();
+    const Vector_<> originalTimeline{0.0, 146.0 / DAYS_PER_YEAR, 292.0 / DAYS_PER_YEAR};
+    model->Allocate(originalTimeline, originalDefinitions);
+    model->Init(originalTimeline, originalDefinitions);
+    AAD::Scenario_<> path;
+    AAD::AllocatePath(originalDefinitions, path);
+    model->GeneratePath(Vector_<>(model->SimDim(), 0.2), &path);
+    const Vector_<> timeline{182.0 / DAYS_PER_YEAR};
+    Vector_<AAD::SampleDef_> definitions(1);
+    definitions[0].indexNames_ = {"IR[USD,DF,2034-10-02]"};
+    definitions[0].discountMats_ = {(Date_(2033, 10, 2) - Date_(2026, 10, 2)) / DAYS_PER_YEAR};
+    model->Allocate(timeline, definitions);
+    model->Init(timeline, definitions);
+    AAD::AllocatePath(definitions, path);
+    const Vector_<> gaussian(model->SimDim(), -0.3);
+    model->GeneratePath(gaussian, &path);
+    auto fresh = CreateModel<double>(data);
+    fresh->Allocate(timeline, definitions);
+    fresh->Init(timeline, definitions);
+    AAD::Scenario_<> reference;
+    AAD::AllocatePath(definitions, reference);
+    fresh->GeneratePath(gaussian, &reference);
+    ASSERT_DOUBLE_EQ(path[0].observations_[0], reference[0].observations_[0]);
+    ASSERT_DOUBLE_EQ(path[0].discounts_[0], reference[0].discounts_[0]);
+    auto clone = model->Clone();
+    clone->GeneratePath(gaussian, &reference);
+    ASSERT_DOUBLE_EQ(path[0].observations_[0], reference[0].observations_[0]);
+    ASSERT_DOUBLE_EQ(path[0].discounts_[0], reference[0].discounts_[0]);
+}
 
 TEST(ModelTest, TestGsrCopiesOwnTheirParameters) {
     const Date_ today(2026, 10, 3);

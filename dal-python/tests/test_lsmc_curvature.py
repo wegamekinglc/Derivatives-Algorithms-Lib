@@ -5,12 +5,11 @@ from concurrent.futures import ThreadPoolExecutor
 from enum import IntEnum
 import gc
 import math
+import threading
+import time
 
 import dal
 import pytest
-
-from test_quote_risk import _run_with_quote_risk_gil_heartbeat
-
 
 POINT = [100.0, 0.2, 0.05, 0.0, 50.0]
 ROWS = [[1.0, 0.01, 0.002, -0.003, 0.2], [-2.0, -0.02, -0.004, 0.006, -0.4]]
@@ -268,8 +267,30 @@ def test_gil_release_and_independent_calling_threads():
     prepared = plan()
     request = bumps()
     operation = lambda: dal.BlackScholesLsmc_Get_Curvature(prepared, POINT, 35, request)
-    _run_with_quote_risk_gil_heartbeat(operation, barrier=lambda _: None)
-    expected = operation().hessian_products.to_rows()
+    released = threading.Event()
+    errors = []
+
+    def release():
+        try:
+            deadline = time.monotonic() + 5.0
+            while not dal._dal._LsmcCurvatureGilBarrier_ReleaseForTesting():
+                if time.monotonic() >= deadline:
+                    raise AssertionError("native LSMC wrapper did not allow Python barrier release")
+                time.sleep(0)
+            released.set()
+        except BaseException as error:
+            errors.append(error)
+
+    dal._dal._LsmcCurvatureGilBarrier_ArmForTesting()
+    worker = threading.Thread(target=release)
+    worker.start()
+    try:
+        expected = operation().hessian_products.to_rows()
+    finally:
+        worker.join(timeout=6.0)
+    assert not worker.is_alive()
+    assert not errors
+    assert released.is_set()
     with ThreadPoolExecutor(max_workers=2) as pool:
         results = list(pool.map(lambda _: operation(), range(2)))
     for result in results:
