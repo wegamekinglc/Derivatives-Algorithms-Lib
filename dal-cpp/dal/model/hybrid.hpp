@@ -279,9 +279,11 @@ namespace Dal {
             Vector_<String_> observables_;
             T_ spot_;
             T_ div_;
+            T_ logSpot_;
             LocalVolSurface_<T_> surface_;
             double maxStep_;
             Vector_<> timeline_;
+            Vector_<> rootDt_;
             Vector_<T_> integratedCarry_;
             Vector_<T_*> parameters_;
             Vector_<String_> labels_;
@@ -293,8 +295,10 @@ namespace Dal {
                 observables_ = other.observables_;
                 spot_ = other.spot_;
                 div_ = other.div_;
+                logSpot_ = other.logSpot_;
                 maxStep_ = other.maxStep_;
                 timeline_ = other.timeline_;
+                rootDt_ = other.rootDt_;
                 integratedCarry_ = other.integratedCarry_;
                 labels_ = other.labels_;
                 SetParameterPointers();
@@ -345,8 +349,13 @@ namespace Dal {
                 REQUIRE(integratedCarry.size() + 1 == timeline.size(), "InvalidHybridCurve: carry must match the model timeline");
                 timeline_ = timeline;
                 integratedCarry_ = integratedCarry;
+                logSpot_ = Dal::log(spot_);
+                surface_.Prepare(Vector_<>(timeline.begin(), timeline.end() - 1));
+                rootDt_.Resize(integratedCarry.size());
+                for (size_t step = 0; step < rootDt_.size(); ++step)
+                    rootDt_[step] = std::sqrt(timeline[step + 1] - timeline[step]);
             }
-            void ResetState(Vector_<T_>* state, size_t offset) const override { (*state)[offset] = Dal::log(spot_); }
+            void ResetState(Vector_<T_>* state, size_t offset) const override { (*state)[offset] = logSpot_; }
             void Evolve(size_t step,
                         const Vector_<>& factors,
                         const Vector_<size_t>& factorSlots,
@@ -354,8 +363,8 @@ namespace Dal {
                         Vector_<T_>* state,
                         size_t stateOffset) const override {
                 const double dt = timeline_[step + 1] - timeline_[step];
-                const T_ vol = surface_.Vol(timeline_[step], Dal::exp((*state)[stateOffset]));
-                const T_ standardDeviation = vol * Dal::sqrt(dt);
+                const T_ vol = surface_.VolAtLogSpot(step, (*state)[stateOffset]);
+                const T_ standardDeviation = vol * rootDt_[step];
                 (*state)[stateOffset] += integratedCarry_[step] + carryAdjustment - div_ * dt - 0.5 * standardDeviation * standardDeviation +
                                          standardDeviation * factors[factorSlots[0]];
             }
