@@ -419,7 +419,7 @@ namespace Dal::AAD {
                         "InvalidGSRObservation: batch observation slot is outside its prepared or output range");
         }
 
-        template <bool HJM>
+        template <bool HJM_>
         bool FillHybridObservationBatchImpl(size_t sample,
                                             const Vector_<std::pair<size_t, size_t>>& slots,
                                             const Vector_<T_>& state,
@@ -429,7 +429,7 @@ namespace Dal::AAD {
             if (!UsesHybridObservationBatch(sample))
                 return false;
             ValidateHybridBatchOutputs(sample, slots, output);
-            const size_t dimension = HJM ? NumFactors() * (NumFactors() + 1) : NumFactors();
+            const size_t dimension = HJM_ ? NumFactors() * (NumFactors() + 1) : NumFactors();
             REQUIRE(stateOffset <= state.size() && dimension <= state.size() - stateOffset,
                     "InvalidGSRObservation: batch rate state exceeds its vector");
             auto& prices = output->modelScratch_;
@@ -440,7 +440,7 @@ namespace Dal::AAD {
             // Reserve before obtaining the state pointer: the first Hybrid sample shares this vector.
             const T_* factors = &state[stateOffset];
             for (const auto& bond : bonds_[sample]) {
-                if constexpr (HJM)
+                if constexpr (HJM_)
                     prices.push_back(BondHJM(bond, factors, factors + NumFactors()));
                 else
                     prices.push_back(Bond(bond, factors));
