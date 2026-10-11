@@ -160,6 +160,7 @@ namespace Dal {
                 THROW("InvalidHybridDiscounts: component does not provide discount factors");
             }
             // Slots map component observations to sample outputs; scratchPrefix protects shared path state.
+            [[nodiscard]] virtual bool UsesObservationBatch(size_t) const { return false; }
             virtual bool
             FillObservationBatch(size_t, const Vector_<std::pair<size_t, size_t>>&, const Vector_<T_>&, size_t, Sample_<T_>*, size_t) const {
                 return false;
@@ -510,6 +511,7 @@ namespace Dal {
                                Vector_<T_>* discounts) const override {
                 model_->ObserveHybridDiscounts(sample, &state[stateOffset], discounts);
             }
+            [[nodiscard]] bool UsesObservationBatch(size_t sample) const override { return model_->UsesHybridObservationBatch(sample); }
             bool FillObservationBatch(size_t sample,
                                       const Vector_<std::pair<size_t, size_t>>& slots,
                                       const Vector_<T_>& state,
@@ -791,6 +793,7 @@ namespace Dal {
             const Vector_<SampleDef_>* defLine_ = nullptr;
             Vector_<Vector_<OutputSlot_>> outputSlots_;
             Vector_<Vector_<std::pair<size_t, size_t>>> rateObservationSlots_;
+            Vector_<bool> batchSamples_;
             Vector_<T_> numeraires_;
             Vector_<T_> initialCarry_;
 
@@ -932,8 +935,14 @@ namespace Dal {
                 }
             }
 
+            void PrepareObservationBatches(const Vector_<SampleDef_>& definitions) {
+                for (size_t sample = 0; sample < definitions.size(); ++sample)
+                    batchSamples_[sample] = (!rateObservationSlots_[sample].empty() || !definitions[sample].discountMats_.empty()) &&
+                                            components_[rateSlot_]->UsesObservationBatch(productGridIndices_[sample]);
+            }
+
             bool FillRateObservations(size_t sample, const Vector_<T_>& state, Sample_<T_>* output) const {
-                if (rateObservationSlots_[sample].empty() && output->discounts_.empty())
+                if (!batchSamples_[sample])
                     return false;
                 const bool sharedState = &state == &output->modelScratch_;
                 const bool batchFilled =
@@ -1043,6 +1052,7 @@ namespace Dal {
                 copy->defLine_ = defLine_;
                 copy->outputSlots_ = outputSlots_;
                 copy->rateObservationSlots_ = rateObservationSlots_;
+                copy->batchSamples_ = batchSamples_;
                 copy->numeraires_ = numeraires_;
                 copy->initialCarry_ = initialCarry_;
                 return copy;
@@ -1106,6 +1116,8 @@ namespace Dal {
                     component->BeginAllocate(timeLine_);
                 outputSlots_.Resize(defLine.size());
                 rateObservationSlots_.Resize(defLine.size());
+                batchSamples_.Resize(defLine.size());
+                batchSamples_.Fill(false);
                 for (size_t sample = 0; sample < defLine.size(); ++sample) {
                     outputSlots_[sample].clear();
                     rateObservationSlots_[sample].clear();
@@ -1141,6 +1153,7 @@ namespace Dal {
                 initialCarry_ = integratedCarry;
                 for (auto& component : components_)
                     component->Prepare(timeLine_, integratedCarry);
+                PrepareObservationBatches(defLine);
                 for (size_t sample = 0; sample < defLine.size(); ++sample)
                     if (defLine[sample].numeraire_) {
                         numeraires_[sample] = Dal::exp(-logDiscounts[productGridIndices_[sample]]);

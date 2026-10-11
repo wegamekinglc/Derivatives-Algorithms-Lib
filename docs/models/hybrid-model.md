@@ -145,7 +145,9 @@ The Gaussian GSR component batches rate observations and delayed-payment
 discounts when they share prepared OIS bonds. Each path prices a distinct bond
 once per sample. Prices use caller-owned scratch, preserving the first sample's
 state prefix; its temporary price tail is removed before other component calls.
-Custom components may implement `HybridComponent_::FillObservationBatch`.
+Custom components may implement `HybridComponent_::UsesObservationBatch` and
+`FillObservationBatch`. After component preparation, Hybrid records each sample's
+eligibility; the default eligibility is false, avoiding batch calls on direct paths.
 Its slot pairs map component observations to sample outputs, and its scratch
 prefix protects shared state. Returning false leaves outputs to the existing
 `Observe` and `FillDiscounts` methods; the default returns false.

@@ -87,6 +87,35 @@ namespace {
         return (ObservationValue(factors, parameter, step, gaussian) - ObservationValue(factors, parameter, -step, gaussian)) / (2.0 * step);
     }
 
+    Dal::AAD::Number_ HybridObservationPayoff(const Dal::Vector_<Dal::AAD::Number_>& observations, const Dal::Vector_<Dal::AAD::Number_>& discounts) {
+        Dal::AAD::Number_ payoff = 0.2 * discounts[0] + 0.3 * discounts[1];
+        for (size_t slot = 0; slot < observations.size(); ++slot)
+            payoff += (slot + 1) * observations[slot];
+        return payoff;
+    }
+
+    void AssertHybridObservationValues(const Dal::AAD::Sample_<Dal::AAD::Number_>& output,
+                                       const Dal::Vector_<Dal::AAD::Number_>& observations,
+                                       const Dal::Vector_<Dal::AAD::Number_>& discounts,
+                                       size_t prefix) {
+        for (size_t i = 0; i < prefix; ++i)
+            ASSERT_DOUBLE_EQ(Dal::AAD::Value(output.modelScratch_[i]), 0.03 * (i + 1));
+        for (size_t slot = 0; slot < observations.size(); ++slot)
+            ASSERT_DOUBLE_EQ(Dal::AAD::Value(output.observations_[slot]), Dal::AAD::Value(observations[slot]));
+        for (size_t slot = 0; slot < discounts.size(); ++slot)
+            ASSERT_DOUBLE_EQ(Dal::AAD::Value(output.discounts_[slot]), Dal::AAD::Value(discounts[slot]));
+    }
+
+    Dal::Vector_<>
+    HybridObservationRisks(const Dal::AAD::GSR_<Dal::AAD::Number_>& model, const Dal::Vector_<Dal::AAD::Number_>& state, size_t prefix) {
+        Dal::Vector_<> values;
+        for (const auto* parameter : model.Parameters())
+            values.push_back(Dal::AAD::Adjoint(*parameter));
+        for (size_t i = 0; i < prefix; ++i)
+            values.push_back(Dal::AAD::Adjoint(state[i]));
+        return values;
+    }
+
     Dal::String_ CashSettledSwaptionExercise(const Dal::Date_& exercise, double strike) {
         const Dal::Ccy_ currency("USD");
         const Dal::Index::Swap_ swap(currency, "5Y");
@@ -219,39 +248,23 @@ TEST(ModelTest, TestGsrHybridBatchMatchesDirectObservationsAndRisks) {
             AAD::PutOnTape(value);
         AAD::NewRecording(*AAD::Tape());
         model.InitHybrid(timeline, definitions);
+        ASSERT_TRUE(model.UsesHybridObservationBatch(sample));
         const Vector_<std::pair<size_t, size_t>> slots{{2, 0}, {0, 3}, {1, 2}, {3, 1}};
         Vector_<AAD::Number_> direct(output.observations_.size()), discounts(output.discounts_.size());
         for (const auto& slot : slots)
             direct[slot.second] = model.ObserveHybrid(sample, slot.first, &output.modelScratch_[1]);
         model.ObserveHybridDiscounts(sample, &output.modelScratch_[1], &discounts);
-        AAD::Number_ directPayoff = 0.2 * discounts[0] + 0.3 * discounts[1];
-        for (size_t slot = 0; slot < direct.size(); ++slot)
-            directPayoff += (slot + 1) * direct[slot];
+        AAD::Number_ directPayoff = HybridObservationPayoff(direct, discounts);
         ASSERT_TRUE(model.FillHybridObservationBatch(sample, slots, output.modelScratch_, 1, &output, prefix));
-        for (size_t i = 0; i < prefix; ++i)
-            ASSERT_DOUBLE_EQ(AAD::Value(output.modelScratch_[i]), 0.03 * (i + 1));
-        for (size_t slot = 0; slot < direct.size(); ++slot)
-            ASSERT_DOUBLE_EQ(AAD::Value(output.observations_[slot]), AAD::Value(direct[slot]));
-        for (size_t slot = 0; slot < discounts.size(); ++slot)
-            ASSERT_DOUBLE_EQ(AAD::Value(output.discounts_[slot]), AAD::Value(discounts[slot]));
-        AAD::Number_ batchPayoff = 0.2 * output.discounts_[0] + 0.3 * output.discounts_[1];
-        for (size_t slot = 0; slot < direct.size(); ++slot)
-            batchPayoff += (slot + 1) * output.observations_[slot];
-        const auto risks = [&]() {
-            Vector_<> values;
-            for (const auto* parameter : model.Parameters())
-                values.push_back(AAD::Adjoint(*parameter));
-            for (size_t i = 0; i < prefix; ++i)
-                values.push_back(AAD::Adjoint(output.modelScratch_[i]));
-            return values;
-        };
+        ASSERT_NO_FATAL_FAILURE(AssertHybridObservationValues(output, direct, discounts, prefix));
+        AAD::Number_ batchPayoff = HybridObservationPayoff(output.observations_, output.discounts_);
         AAD::Adjoint(directPayoff) = 1.0;
         AAD::PropagateToStart(*AAD::Tape());
-        const auto directRisks = risks();
+        const auto directRisks = HybridObservationRisks(model, output.modelScratch_, prefix);
         AAD::ZeroAdjoints(*AAD::Tape());
         AAD::Adjoint(batchPayoff) = 1.0;
         AAD::PropagateToStart(*AAD::Tape());
-        const auto batchRisks = risks();
+        const auto batchRisks = HybridObservationRisks(model, output.modelScratch_, prefix);
         ASSERT_EQ(batchRisks.size(), directRisks.size());
         for (size_t i = 0; i < batchRisks.size(); ++i)
             ASSERT_NEAR(batchRisks[i], directRisks[i], 1e-12 * std::max(1.0, std::abs(directRisks[i])));
@@ -276,6 +289,8 @@ TEST(ModelTest, TestGsrHybridBatchLeavesSingleUseObservationsToDirectCalls) {
     output.Allocate(definitions[0]);
     output.Initialize();
     output.modelScratch_ = {99.0};
+    ASSERT_FALSE(model.UsesHybridObservationBatch(0));
+    ASSERT_THROW(static_cast<void>(model.UsesHybridObservationBatch(timeline.size())), Exception_);
     ASSERT_FALSE(model.FillHybridObservationBatch(0, {{0, 0}}, {0.02}, 0, &output, 0));
     ASSERT_DOUBLE_EQ(output.observations_[0], 0.0);
     ASSERT_EQ(output.modelScratch_.size(), 1U);

@@ -602,14 +602,18 @@ namespace Dal::AAD {
                 (*discounts)[k] = Bond(discountBonds_[sample][k], state);
         }
 
+        [[nodiscard]] bool UsesHybridObservationBatch(size_t sample) const {
+            REQUIRE(sample < reuseBonds_.size(), "InvalidGSRObservation: batch sample was not prepared");
+            return reuseBonds_[sample];
+        }
+
         bool FillHybridObservationBatch(size_t sample,
                                         const Vector_<std::pair<size_t, size_t>>& slots,
                                         const Vector_<T_>& state,
                                         size_t stateOffset,
                                         Sample_<T_>* output,
                                         size_t scratchPrefix) const {
-            REQUIRE(sample < reuseBonds_.size(), "InvalidGSRObservation: batch sample was not prepared");
-            if (!reuseBonds_[sample])
+            if (!UsesHybridObservationBatch(sample))
                 return false;
             ValidateHybridBatchOutputs(sample, slots, output);
             REQUIRE(stateOffset <= state.size() && NumFactors() <= state.size() - stateOffset,
