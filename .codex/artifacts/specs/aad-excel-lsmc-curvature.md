@@ -15,8 +15,9 @@ ownership, complete passive policy projections and strict raw admission.
    observations, event dates and time line. Native EXERCISE dates must be
    strictly after the evaluation date; same-day exercise is unsupported.
 2. Read every physical cell of the complete finite point row/column. Reject
-   leading, interior and trailing gaps, text, bool, date, errors and nonfinite
-   numbers before raw conversion; normalize valid integer cells. Positive paths
+   leading, interior and trailing gaps, text, bool, typed Date cells, raw errors
+   and nonfinite numbers. Raw guards precede required conversion and normalize
+   valid integer cells. Positive paths
    are exact size_t integers through the worksheet 2^53-1 limit. Preserve native
    training + validation + replicates * pricing <= UINT32_MAX admission and the
    existing settings constructor's int-based limits; add no INT_MAX price limit.

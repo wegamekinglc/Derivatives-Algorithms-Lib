@@ -32,6 +32,13 @@ configuration and documentation checks pass. The initial time-zero polynomial
 fixture was rejected by the existing native exercise-date contract and was
 corrected to a legal future exercise; no native behavior was broadened.
 
+The first Codacy run reported complexity 10 against limit 8 in the raw input
+test. Extracting its physical-cell checks into a focused helper retains all
+cases and reduces the test complexity. This repair changes no timed source,
+dependency, driver or executable; all 160 accepted cost observations remain
+applicable after identity checks. Typed Date rejection is distinguished from
+raw Excel numeric serial dates in the specification.
+
 Four selected costs retain 160 valid observations in 15.012276119 measured
 seconds. Both same-contract MC cases pass the +4% gate in both rounds; native
 versus owning-Excel LSMC comparisons remain informational.

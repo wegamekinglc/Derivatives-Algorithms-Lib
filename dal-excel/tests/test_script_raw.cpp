@@ -227,6 +227,27 @@ namespace {
         }
     }
 
+    void CheckLsmcRawPoints(const RawLsmcFixture_& fixture) {
+        RawText_ empty(L""), text(L"1");
+        OPER_ missing{}, boolean{}, error{};
+        missing.xltype = xltypeMissing;
+        boolean.xltype = xltypeBool;
+        boolean.val.xbool = 1;
+        error.xltype = xltypeErr;
+        for (const auto& invalid :
+             {fixture.blank_, missing, empty.cell_, text.cell_, boolean, error, Number(std::numeric_limits<double>::infinity())})
+            for (int position : {0, 2, 4})
+                for (const bool column : {false, true}) {
+                    OPER_ cells[]{Number(10), Number(0), Number(0), Number(0), Number(2)};
+                    cells[position] = invalid;
+                    auto point = Multi(cells, column ? 5 : 1, column ? 1 : 5);
+                    Output_ rejected(fixture.Curvature(&point, &fixture.paths_, fixture.bumps_.Scalar()));
+                    const auto row = "row=" + std::to_string(column ? position + 1 : 1);
+                    const auto col = "column=" + std::to_string(column ? 1 : position + 1);
+                    CheckError(rejected, {"point", row.c_str(), col.c_str()});
+                }
+    }
+
     void CheckRateFinancialSpills(const Output_& value, const Output_& gradient, const Output_& products) {
         const double payment = 1.028, discount = 1.025;
         ASSERT_NEAR(value.Scalar()->val.num, -2.0 * (payment / discount - 1.0), 1.0e-10);
@@ -333,23 +354,11 @@ TEST(ScriptExcelRawTest, TestLsmcAllGeneratedExportsAndIndependentFinancialSpill
 
 TEST(ScriptExcelRawTest, TestLsmcRawPointPathsPolicyIndexAndHandlesRejectAndRecover) {
     RawLsmcFixture_ fixture;
-    RawText_ empty(L""), text(L"1"), nul(std::wstring(L"bad\0name", 8));
-    OPER_ missing{}, boolean{}, error{};
-    missing.xltype = xltypeMissing;
+    CheckLsmcRawPoints(fixture);
+    RawText_ text(L"1"), nul(std::wstring(L"bad\0name", 8));
+    OPER_ boolean{};
     boolean.xltype = xltypeBool;
     boolean.val.xbool = 1;
-    error.xltype = xltypeErr;
-    for (const auto& invalid : {fixture.blank_, missing, empty.cell_, text.cell_, boolean, error, Number(std::numeric_limits<double>::infinity())})
-        for (int position : {0, 2, 4})
-            for (const bool column : {false, true}) {
-                OPER_ cells[]{Number(10), Number(0), Number(0), Number(0), Number(2)};
-                cells[position] = invalid;
-                auto point = Multi(cells, column ? 5 : 1, column ? 1 : 5);
-                Output_ rejected(fixture.Curvature(&point, &fixture.paths_, fixture.bumps_.Scalar()));
-                const auto row = "row=" + std::to_string(column ? position + 1 : 1);
-                const auto col = "column=" + std::to_string(column ? 1 : position + 1);
-                CheckError(rejected, {"point", row.c_str(), col.c_str()});
-            }
     for (const auto& invalid : {fixture.blank_, boolean, text.cell_, Number(0), Number(-1), Number(.5), Number(9007199254740992.0),
                                 Number(std::numeric_limits<double>::infinity())}) {
         Output_ rejected(fixture.Curvature(&fixture.point_, &invalid, fixture.bumps_.Scalar()));
