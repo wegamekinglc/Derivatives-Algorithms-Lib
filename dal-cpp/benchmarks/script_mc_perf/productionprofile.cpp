@@ -52,9 +52,29 @@ namespace {
     }
 
     bool ValidNames(const Options_& options) {
-        return Choice(options.scenario_, {"short", "long", "local-vol", "hybrid-bs", "hybrid-gsr", "gsr-swap-1f", "gsr-swap-3f", "gsr-bond-1f",
-                                          "hybrid-gsr-swap", "hybrid-gsr-swap-3f", "hybrid-gsr-bond-1f", "slv-swap-1f", "slv-swap-3f", "slv-bond-1f",
-                                          "hybrid-slv-swap-1f", "hybrid-slv-swap-3f", "hybrid-slv-bond-1f", "lsmc-bs", "lsmc-local-vol"}) &&
+        return Choice(options.scenario_, {"short",
+                                          "long",
+                                          "local-vol",
+                                          "hybrid-bs",
+                                          "hybrid-gsr",
+                                          "gsr-swap-1f",
+                                          "gsr-swap-2f",
+                                          "gsr-swap-3f",
+                                          "gsr-swap-4f",
+                                          "gsr-bond-1f",
+                                          "gsr-bond-3f",
+                                          "hybrid-gsr-swap",
+                                          "hybrid-gsr-swap-3f",
+                                          "hybrid-gsr-bond-1f",
+                                          "hybrid-gsr-bond-3f",
+                                          "slv-swap-1f",
+                                          "slv-swap-3f",
+                                          "slv-bond-1f",
+                                          "hybrid-slv-swap-1f",
+                                          "hybrid-slv-swap-3f",
+                                          "hybrid-slv-bond-1f",
+                                          "lsmc-bs",
+                                          "lsmc-local-vol"}) &&
                Choice(options.mode_, {"double", "aad"}) && Choice(options.engine_, {"tree", "compiled"}) &&
                Choice(options.measurement_, {"cold", "warm", "phases"});
     }
@@ -125,8 +145,15 @@ namespace {
             new MultiFactorGSRModelData_("production-rates", curve, Handle_<MultiFactorGSRVolData_>(new MultiFactorGSRVolData_("vol", settings))));
     }
 
+    size_t RateFactorCount(const Options_& options) {
+        for (size_t factors : {size_t{2}, size_t{3}, size_t{4}})
+            if (options.scenario_.find("-" + std::to_string(factors) + "f") != std::string::npos)
+                return factors;
+        return 1;
+    }
+
     Handle_<ModelData_> RateData(const Options_& options) {
-        const auto gaussian = GaussianRateData(options.scenario_.find("-3f") != std::string::npos ? 3 : 1);
+        const auto gaussian = GaussianRateData(RateFactorCount(options));
         Handle_<GSRSLVModelData_> slv;
         if (options.Slv()) {
             Matrix_<> values(2, 1);
@@ -509,8 +536,9 @@ int RunProductionProfile(int argc, char** argv, ExerciseProductFactory_ exercise
     Options_ options;
     if (!Parse(argc, argv, &options)) {
         std::cerr << "usage: script_mc_perf --production-profile "
-                     "short|long|local-vol|hybrid-bs|hybrid-gsr|gsr-swap-1f|gsr-swap-3f|gsr-bond-1f|hybrid-gsr-swap|hybrid-gsr-swap-3f|hybrid-gsr-"
-                     "bond-1f|slv-swap-1f|slv-swap-3f|slv-bond-1f|hybrid-slv-swap-1f|hybrid-slv-swap-3f|hybrid-slv-bond-1f|lsmc-bs|lsmc-local-vol "
+                     "short|long|local-vol|hybrid-bs|hybrid-gsr|gsr-swap-1f|gsr-swap-2f|gsr-swap-3f|gsr-swap-4f|gsr-bond-1f|gsr-bond-3f|"
+                     "hybrid-gsr-swap|hybrid-gsr-swap-3f|hybrid-gsr-bond-1f|hybrid-gsr-bond-3f|slv-swap-1f|slv-swap-3f|slv-bond-1f|"
+                     "hybrid-slv-swap-1f|hybrid-slv-swap-3f|hybrid-slv-bond-1f|lsmc-bs|lsmc-local-vol "
                      "PATHS double|aad "
                      "tree|compiled "
                      "cold|warm|phases OUTPUTS GRID TRAINING REPEATS\n";

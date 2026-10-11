@@ -191,6 +191,31 @@ namespace {
         ASSERT_NO_FATAL_FAILURE(AssertObservationBatchRisks(model, flat, prefix, directPayoff, batchPayoff));
     }
 
+    void CheckGsrSwapNodeBudget(size_t factors, size_t budget, bool observeSwap = true) {
+        using namespace Dal;
+        const TapeGuard_ guard(AAD::Tape());
+        auto model = CreateModel<AAD::Number_>(ObservationModelData(factors));
+        Vector_<> timeline;
+        for (int quarter = 0; quarter <= 16; ++quarter)
+            timeline.push_back(quarter * 91.0 / DAYS_PER_YEAR);
+        Vector_<AAD::SampleDef_> definitions(timeline.size());
+        if (observeSwap)
+            for (auto& definition : definitions)
+                definition.indexNames_ = {"IR[USD,SWAP,5Y]"};
+        model->Allocate(timeline, definitions);
+        AAD::Scenario_<AAD::Number_> path;
+        AAD::AllocatePath(definitions, path);
+        AAD::Rewind(*AAD::Tape());
+        for (auto* parameter : model->Parameters())
+            AAD::PutOnTape(*parameter);
+        AAD::NewRecording(*AAD::Tape());
+        model->Init(timeline, definitions);
+        AAD::InitializePath(path);
+        const auto prefixNodes = AAD::Tape()->nodes_.OccupiedSlots();
+        model->GeneratePath(Vector_<>(model->SimDim(), 0.2), &path);
+        ASSERT_LE(AAD::Tape()->nodes_.OccupiedSlots() - prefixNodes, budget);
+    }
+
     Dal::String_ CashSettledSwaptionExercise(const Dal::Date_& exercise, double strike) {
         const Dal::Ccy_ currency("USD");
         const Dal::Index::Swap_ swap(currency, "5Y");
@@ -214,31 +239,22 @@ namespace {
 using namespace Dal;
 
 TEST(ModelTest, TestGsrSwapObservationsFitNodeBudget) {
-    for (const size_t factors : {size_t{1}, size_t{3}}) {
-        const TapeGuard_ guard(AAD::Tape());
-        auto model = CreateModel<AAD::Number_>(ObservationModelData(factors));
-        Vector_<> timeline;
-        for (int quarter = 0; quarter <= 16; ++quarter)
-            timeline.push_back(quarter * 91.0 / DAYS_PER_YEAR);
-        Vector_<AAD::SampleDef_> definitions(timeline.size());
-        for (auto& definition : definitions)
-            definition.indexNames_ = {"IR[USD,SWAP,5Y]"};
-        model->Allocate(timeline, definitions);
-        AAD::Scenario_<AAD::Number_> path;
-        AAD::AllocatePath(definitions, path);
-        AAD::Rewind(*AAD::Tape());
-        for (auto* parameter : model->Parameters())
-            AAD::PutOnTape(*parameter);
-        AAD::NewRecording(*AAD::Tape());
-        model->Init(timeline, definitions);
-        const auto prefixNodes = AAD::Tape()->nodes_.OccupiedSlots();
-        model->GeneratePath(Vector_<>(model->SimDim(), 0.2), &path);
-        ASSERT_LE(AAD::Tape()->nodes_.OccupiedSlots() - prefixNodes, factors == 1 ? 1900U : 3000U);
-    }
+    for (const size_t factors : {size_t{1}, size_t{3}})
+        ASSERT_NO_FATAL_FAILURE(CheckGsrSwapNodeBudget(factors, factors == 1 ? 1900U : 3000U));
+}
+
+TEST(ModelTest, TestGsrFusedRecursionFitsNodeBudget) {
+    for (const auto& test : {std::pair<size_t, size_t>{1, 1600}, {3, 1900}})
+        ASSERT_NO_FATAL_FAILURE(CheckGsrSwapNodeBudget(test.first, test.second));
+}
+
+TEST(ModelTest, TestGsrStateEvolutionFitsNodeBudget) {
+    for (const auto& test : {std::pair<size_t, size_t>{1, 60}, {3, 100}})
+        ASSERT_NO_FATAL_FAILURE(CheckGsrSwapNodeBudget(test.first, test.second, false));
 }
 
 TEST(ModelTest, TestGsrSharedBondsPreserveAllRisksAndRecordingReplay) {
-    for (const size_t factors : {size_t{1}, size_t{3}}) {
+    for (const size_t factors : {size_t{1}, size_t{2}, size_t{3}, size_t{4}}) {
         const TapeGuard_ guard(AAD::Tape());
         auto model = CreateModel<AAD::Number_>(ObservationModelData(factors, true));
         const Vector_<> timeline{0.0, 146.0 / DAYS_PER_YEAR, 292.0 / DAYS_PER_YEAR};
@@ -274,6 +290,90 @@ TEST(ModelTest, TestGsrSharedBondsPreserveAllRisksAndRecordingReplay) {
                 ASSERT_DOUBLE_EQ(AAD::Value(path.back().discounts_[0]), AAD::Value(path.back().discounts_[1]));
                 ASSERT_DOUBLE_EQ(AAD::Value(path.back().discounts_[0]), AAD::Value(path.back().observations_[2]));
             }
+        }
+    }
+}
+
+TEST(ModelTest, TestGsrScratchPrefixPreservesStateAndReusesCapacity) {
+    for (const size_t factors : {size_t{2}, size_t{3}, size_t{4}}) {
+        const auto data = ObservationModelData(factors, true);
+        const auto* rates = dynamic_cast<const MultiFactorGSRModelData_*>(data.get());
+        ASSERT_NE(rates, nullptr);
+        AAD::GSR_<> model(*rates);
+        const Vector_<> timeline{146.0 / DAYS_PER_YEAR};
+        const Vector_<AAD::SampleDef_> definitions(1, RepeatedObservations()[0]);
+        model.Allocate(timeline, definitions);
+        model.Init(timeline, definitions);
+        AAD::Scenario_<> path;
+        AAD::AllocatePath(definitions, path);
+        AAD::InitializePath(path);
+        ASSERT_TRUE(model.UsesHybridObservationBatch(0));
+        model.GeneratePath(Vector_<>(model.SimDim(), 0.2), &path);
+        auto& scratch = path[0].modelScratch_;
+        ASSERT_GE(scratch.size(), factors);
+        const auto* storage = scratch.data();
+        const auto capacity = scratch.capacity();
+        for (const double normal : {-0.3, 0.4}) {
+            model.GeneratePath(Vector_<>(model.SimDim(), normal), &path);
+            ASSERT_EQ(scratch.data(), storage);
+            ASSERT_EQ(scratch.capacity(), capacity);
+            ASSERT_DOUBLE_EQ(path[0].spot_, 0.0);
+            for (size_t slot = 0; slot < path[0].observations_.size(); ++slot)
+                ASSERT_NEAR(path[0].observations_[slot], model.ObserveHybrid(0, slot, scratch.data()), 1e-14);
+        }
+    }
+}
+
+TEST(ModelTest, TestGsrUnallocatedEmptyPathRemainsValid) {
+    for (const size_t factors : {size_t{1}, size_t{3}, size_t{4}}) {
+        auto model = CreateModel<double>(ObservationModelData(factors));
+        AAD::Scenario_<> path;
+        ASSERT_NO_THROW(model->GeneratePath({}, &path));
+        ASSERT_TRUE(path.empty());
+    }
+}
+
+TEST(ModelTest, TestGsrGenerationClearsPreviouslyPopulatedSpots) {
+    for (const size_t factors : {size_t{1}, size_t{3}, size_t{4}}) {
+        auto model = CreateModel<double>(ObservationModelData(factors));
+        const Vector_<> timeline{0.0, 146.0 / DAYS_PER_YEAR};
+        const Vector_<AAD::SampleDef_> definitions(timeline.size());
+        model->Allocate(timeline, definitions);
+        model->Init(timeline, definitions);
+        AAD::Scenario_<> path;
+        AAD::AllocatePath(definitions, path);
+        for (const double previousSpot : {42.0, 17.0}) {
+            for (auto& sample : path)
+                sample.spot_ = previousSpot;
+            model->GeneratePath(Vector_<>(model->SimDim(), 0.2), &path);
+            for (const auto& sample : path)
+                ASSERT_DOUBLE_EQ(sample.spot_, 0.0);
+        }
+    }
+}
+
+TEST(ModelTest, TestGsrGenerationRebindsZeroSpotsForEachRecording) {
+    for (const size_t factors : {size_t{1}, size_t{3}, size_t{4}}) {
+        const TapeGuard_ guard(AAD::Tape());
+        auto model = CreateModel<AAD::Number_>(ObservationModelData(factors));
+        const Vector_<> timeline{0.0, 146.0 / DAYS_PER_YEAR};
+        const Vector_<AAD::SampleDef_> definitions(timeline.size());
+        model->Allocate(timeline, definitions);
+        AAD::Scenario_<AAD::Number_> path;
+        AAD::AllocatePath(definitions, path);
+        for (int replay = 0; replay < 2; ++replay) {
+            AAD::Rewind(*AAD::Tape());
+            for (auto* parameter : model->Parameters())
+                AAD::PutOnTape(*parameter);
+            AAD::NewRecording(*AAD::Tape());
+            model->Init(timeline, definitions);
+            model->GeneratePath(Vector_<>(model->SimDim(), 0.2), &path);
+            AAD::Number_ payoff = path[0].spot_ + path[1].spot_;
+            ASSERT_DOUBLE_EQ(AAD::Value(payoff), 0.0);
+            AAD::Adjoint(payoff) = 1.0;
+            AAD::PropagateToStart(*AAD::Tape());
+            for (const auto* parameter : model->Parameters())
+                ASSERT_DOUBLE_EQ(AAD::Adjoint(*parameter), 0.0);
         }
     }
 }
