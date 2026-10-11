@@ -1,0 +1,41 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>RateTradeQuoteCurvatureResult_New</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>RateTradeQuoteCurvatureResult_New (in Excel: RATETRADEQUOTECURVATURERESULT.NEW)</h1>
+Evaluate signed rate quote Hessian products through full native recalibration
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>name</td><td>string</td><td></td><td>Object name</td></tr>
+<tr><td>trades</td><td>vector of handles</td><td></td><td>Native rate trade rows; every row is validated including zero-weight rows</td></tr>
+<tr><td>calibration</td><td>handle of type StorableRateCalibrationSnapshot</td><td></td><td>Owning EXACT square native calibration snapshot</td></tr>
+<tr><td>bumps</td><td>handle of type StorableBumpOverAADRequest</td><td></td><td>Full raw directions and positive steps; native numeric and recording caps remain separate</td></tr>
+<tr><td>settings</td><td>handle of type StorableRateTradeQuoteCurvatureSettings</td><td>yes</td><td>Copied weights and history; blank uses unit weights and native history admission</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>result</td><td>handle of type StorableRateTradeQuoteCurvatureResult</td><td>Owning finite-step result; actual PV currencies must agree, with no FX conversion</td></tr>
+</table>
+
+
+
+
+
+

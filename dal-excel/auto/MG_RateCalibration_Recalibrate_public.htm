@@ -1,0 +1,39 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>RateCalibration_Recalibrate</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>RateCalibration_Recalibrate (in Excel: RATECALIBRATION.RECALIBRATE)</h1>
+Rebuild a sealed native rate snapshot at complete raw quotes
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>name</td><td>string</td><td></td><td>Object name</td></tr>
+<tr><td>calibration</td><td>handle of type StorableRateCalibrationSnapshot</td><td></td><td>Owning sealed calibration snapshot</td></tr>
+<tr><td>quotes</td><td>matrix of cells</td><td></td><td>One finite numeric value per complete raw quote; row or column vector</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>rebuilt</td><td>handle of type StorableRateCalibrationSnapshot</td><td>New immutable snapshot with the same quote and parameter axes</td></tr>
+</table>
+
+
+
+
+
+

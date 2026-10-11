@@ -232,7 +232,12 @@ pybind11_add_module(_dal
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/dupirerisk.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/calibrationrisk.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/calibrationriskrequest.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/dupireriskrequest.cpp)
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/dupireriskrequest.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/dupirecurvature.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/ratecurvature.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/montecarlocurvature.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/lsmccurvature.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/europeanpderisk.cpp)
 
 if(DAL_PYTHON_USES_INSTALLED_PUBLIC)
     if(NOT COMMAND dal_cpp_apply_msvc_runtime)

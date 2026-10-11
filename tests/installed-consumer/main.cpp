@@ -9,18 +9,108 @@
 #include <dal-public/src/calendar.hpp>
 #include <dal-public/src/dupirecurvature.hpp>
 #include <dal-public/src/dupirerisk.hpp>
+#include <dal-public/src/europeanpderisk.hpp>
 #include <dal-public/src/global.hpp>
 #include <dal-public/src/interp.hpp>
+#include <dal-public/src/lsmccurvature.hpp>
 #include <dal-public/src/models.hpp>
+#include <dal-public/src/montecarlocurvature.hpp>
 #include <dal-public/src/ratecurvature.hpp>
 #include <dal-public/src/script.hpp>
 #include <dal-public/src/storage.hpp>
 #include <dal-public/src/value.hpp>
+#include <dal/math/aad/forwardoverreverse.hpp>
 #include <dal/model/dupirerisk.hpp>
 #include <dal/model/ivs.hpp>
+#include <dal/script/lsmccurvature.hpp>
+#include <dal/script/simulation.hpp>
 #include <dal/utilities/numerics.hpp>
 
 namespace {
+    bool CheckOwningEuropeanPdeBoundary() {
+        Dal::EuropeanPdeRiskRequest_ request;
+        request.settings_.gridPoints_ = 9;
+        request.settings_.ordinarySteps_ = 8;
+        request.numericPayloadBudgetBytes_ = 688;
+        const auto resolved = Dal::ResolveEuropeanPdeSettings(request.settings_);
+        if (resolved.spotIndex_ != 2 || request.settings_.spotIndex_)
+            return false;
+        const auto result = Dal::EvaluateEuropeanPdeRisk(request);
+        return std::abs(result.prices_[0] - 4.153690693968586) < 1e-10 && std::abs(result.jacobian_(1, 2) - 0.8605082862555484) < 1e-9 &&
+               result.transposeBackwardErrors_.Rows() == 10 && result.execution_.numericPayloadBytes_ == 688 &&
+               result.method_ == "NativeAADFixedGridEuropeanTheta";
+    }
+
+    bool CheckOwningLsmcBoundary() {
+        Dal::Script::ScriptValuationSettings_ valuation;
+        valuation.evaluationDate_ = Dal::Date_(2026, 10, 10);
+        auto simulation = Dal::DefaultRiskMonteCarloSettings();
+        simulation.lsmcTrainingPaths_ = 32;
+        const auto product =
+            Dal::NewScriptProduct("installed-lsmc", {Dal::Cell_("K"), Dal::Cell_(Dal::Date_(2027, 4, 10))}, {"45", "EXERCISE 2 * K"});
+        const auto plan = Dal::PlanBlackScholesLsmc(product, simulation, valuation);
+        Dal::AAD::BumpOverAADRequest_ bumps;
+        bumps.directions_ = Dal::Matrix_<>(1, 5, 0.0);
+        bumps.directions_(0, 4) = 1.0;
+        bumps.steps_ = {0.1};
+        const auto result = Dal::ValueByBlackScholesLsmcWithCurvature(plan, {100, 0.2, 0, 0, 50}, 3, bumps);
+        return std::abs(result.Curvature().Value() - 100) < 1e-10 && std::abs(result.Curvature().Gradient()[4] - 2) < 1e-10 &&
+               std::abs(result.Curvature().HessianProducts()(0, 4)) < 1e-9 && result.Curvature().BasePolicy().size() == 1 &&
+               result.Plan().Contract().Name() == "installed-lsmc" && result.Plan().ScriptConstants()[0] == 45;
+    }
+
+    bool CheckSegmentedMonteCarloBoundary() {
+        Dal::Script::ScriptValuationSettings_ valuation;
+        valuation.evaluationDate_ = Dal::Date_(2026, 1, 2);
+        const auto product = Dal::NewScriptProduct("installed-segmented", {Dal::Cell_("SCALE"), Dal::Cell_(Dal::Date_(2026, 1, 2))},
+                                                   {"2", "pay PAYS SCALE * FIX(EQ[INSTALLED]) ^ 2"});
+        const auto plan = Dal::PlanBlackScholesMonteCarlo(product, valuation);
+        const Dal::Vector_<> point{10, 0.2, 0.03, 0.01, 2};
+        const auto mean = Dal::ValueByBlackScholesSegmentedMonteCarlo(plan, point, 1);
+        Dal::AAD::BumpOverAADRequest_ bumps;
+        bumps.directions_ = Dal::Matrix_<>(1, 5, 0.0);
+        bumps.directions_(0, 0) = 1.0;
+        bumps.steps_ = {0.25};
+        const auto result = Dal::ValueByBlackScholesMonteCarloWithCurvature(plan, point, 1, bumps);
+        return std::abs(mean.Mean().MeanValue() - 200) < 1e-10 && std::abs(mean.Mean().MeanGradient()[0] - 40) < 1e-10 &&
+               std::abs(result.Curvature().HessianProducts()(0, 0) - 4) < 1e-9 &&
+               result.Plan().Valuation().evaluationDate_ == valuation.evaluationDate_;
+    }
+
+    bool CheckSmoothCurvature() {
+        Dal::AAD::ForwardOverReverseRequest_ request;
+        request.directions_ = Dal::Matrix_<>(1, 1, 1.0);
+        const auto result = Dal::AAD::EvaluateForwardOverReverse(
+            [](Dal::AAD::RecordingScope_*, const Dal::Vector_<Dal::AAD::ForwardOverReverseNumber_>& x) { return x[0] * x[0] * x[0] * x[0]; }, {2.0},
+            request);
+        return result.Value() == 16.0 && result.Gradient()[0] == 32.0 && result.HessianProducts()(0, 0) == 48.0 &&
+               result.DirectionalDerivatives()[0] == 32.0 && result.Execution().reverseSweeps_ == 2;
+    }
+
+    bool CheckLsmcCurvature() {
+        Dal::Script::MonteCarloSettings_ simulation;
+        simulation.enableAad_ = true;
+        simulation.compiled_ = true;
+        simulation.smooth_ = 2.0;
+        simulation.lsmcTrainingPaths_ = 128;
+        Dal::Script::ScriptValuationSettings_ valuation;
+        valuation.evaluationDate_ = Dal::Date_(2026, 10, 10);
+        const Dal::Script::ScriptProductData_ product("", {Dal::Cell_(Dal::Date_(2027, 4, 10)), Dal::Cell_(Dal::Date_(2027, 10, 10))},
+                                                      {"EXERCISE 100 - spot()", "EXERCISE 100 - spot()"});
+        Dal::AAD::BlackScholes_<> model(100.0, 0.2, 0.05, 0.0);
+        const auto prepared =
+            std::make_shared<const Dal::Script::PreparedScript_>(Dal::Script::PrepareScript(product, &model, valuation, simulation));
+        Dal::AAD::BumpOverAADRequest_ bumps;
+        bumps.directions_ = Dal::Matrix_<>(2, 4, 0.0);
+        bumps.directions_(0, 0) = 1.0;
+        bumps.directions_(1, 0) = -1.0;
+        bumps.steps_ = {0.1, 0.1};
+        const auto result = Dal::Script::EvaluateBlackScholesLsmcCurvature(prepared, {100.0, 0.2, 0.05, 0.0}, 128, bumps);
+        return result.BasePolicy().size() == 2 && result.Gradient().size() == 4 && result.Execution().gradientEvaluations_ == 5 &&
+               std::isfinite(result.HessianProducts()(0, 0)) && result.HessianProducts()(0, 0) == -result.HessianProducts()(1, 0) &&
+               result.Execution().method_ == "BumpOverFrozenNativeLsmcAAD";
+    }
+
     class ConsumerIVS_ final : public Dal::AAD::IVS_ {
     public:
         explicit ConsumerIVS_(double rate = 0.0, double dividend = 0.0) : IVS_(100.0, rate, dividend) {}
@@ -140,6 +230,10 @@ namespace {
 } // namespace
 
 int main() {
+    if (!CheckOwningEuropeanPdeBoundary())
+        return 17;
+    if (!CheckSmoothCurvature())
+        return 1;
     Dal::InitGlobalData(1);
     const auto product = Dal::NewScriptProduct("installed-risk", {Dal::Cell_(Dal::Date_(2026, 9, 22))}, {"pay PAYS SPOT()"});
     const auto model = Dal::NewBSModelData("installed-model", 100.0, 0.0, 0.0, 0.0);
@@ -173,6 +267,12 @@ int main() {
         return 12;
     if (!CheckXccyFactoryExports())
         return 13;
+    if (!CheckLsmcCurvature())
+        return 14;
+    if (!CheckSegmentedMonteCarloBoundary())
+        return 15;
+    if (!CheckOwningLsmcBoundary())
+        return 16;
     const auto merton = Dal::NewMertonIVS(100.0, 0.2, 0.08, -0.1, 0.15);
     const Dal::AAD::MertonIVS_ mertonReference(100.0, 0.2, 0.08, -0.1, 0.15);
     if (merton.ImpliedVol(105.0, 0.4) != mertonReference.ImpliedVol(105.0, 0.4))

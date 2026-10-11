@@ -861,6 +861,31 @@ terminal payoffs, discounted external boundaries and volatility-square
 coefficients, then validates discrete risks and continuum grid convergence
 separately.
 
+### Language Boundaries of Structured Operators
+
+Native structured operators own C++ recording scopes, Numbers, reverse events
+and accuracy reports. Their numerical/recording acceptance does not provide a
+Python or Excel active graph API. The current financial surfaces are:
+
+| Capability                                          | C++                                                             | Python                                        | Excel                                                                                             |
+|-----------------------------------------------------|-----------------------------------------------------------------|-----------------------------------------------|---------------------------------------------------------------------------------------------------|
+| Dense/coordinate solve and implicit-root recording  | Installed native APIs                                           | Active recording/equation API unavailable     | Active recording/equation handles unavailable                                                     |
+| Sampled theta-step recording                        | Installed native API                                            | Sampled-step API unavailable                  | Sampled-step handles unavailable                                                                  |
+| Fixed-grid European PDE prices/rho/vega/strike risk | [Owning financial request](pde/aad.md#owning-financial-request) | Closed owning request and passive diagnostics | [Typed handles and labeled spills](../excel/README.md#european-pde-risk)                          |
+| Calibration quote pullback                          | Owning typed financial API                                      | Typed passive snapshots/seeds/results         | Immutable handles and passive getters                                                             |
+| Dupire finite-step quote curvature                  | Owning typed financial API                                      | Closed typed requests/results                 | [Typed requests, plans and results](../excel/README.md#dupire-quote-gamma-and-hessian-products)   |
+| Rate finite-step quote curvature                    | Owning typed financial API                                      | Closed typed requests/results                 | [Typed snapshots, settings and results](../excel/README.md#rate-quote-gamma-and-hessian-products) |
+| Segmented MC finite-step curvature                  | Owning typed financial API                                      | Closed plans and passive results              | Owning segmented settings, plans, mean and curvature handles                                      |
+| LSMC finite-step policy curvature                   | Owning typed financial API                                      | Closed plans and passive results              | [Owning plans, results and detached policies](../excel/README.md#native-lsmc-policy-curvature)    |
+
+The PDE example holds its mesh, evaluation spot, expiry and dividend passive;
+its r/volatility/strike adjoints describe that discrete program. Calibration
+pullbacks retain their declared native-Dupire or retained-effective-inverse
+method and boundary; they do not certify generic exact stationary-fit risk.
+Existing passive Python IVS calibration overrides are a separate supported
+surface. General native `higherOrder_` remains false; the opt-in C++ smooth
+mixed-mode prototype does not grant general Python/Excel higher-order support.
+
 ### Native Production Profiling
 
 `DAL_ENABLE_AAD_PROFILING=ON` enables the C++ diagnostics in
@@ -2026,6 +2051,57 @@ adapter, request storage, tapes and consumed results; they exclude allocator
 metadata, direct C allocations, stacks, common runtime infrastructure and RSS.
 Shared-host paired sampling and per-worker retained capacity limit generalization.
 
+## Smooth native forward-over-reverse prototype
+
+`AAD::EvaluateForwardOverReverse` in `dal/math/aad/forwardoverreverse.hpp`
+computes a smooth scalar function's gradient, directional derivatives and
+Hessian-vector products without an outer difference step. Its callback uses
+the distinct `ForwardOverReverseNumber_`: each value contains a native active
+primal and a native active directional derivative. Reversing the latter gives
+the Hessian product. Returned values own numeric storage and survive tape cleanup.
+
+```cpp
+AAD::ForwardOverReverseRequest_ request;
+request.directions_ = Matrix_<>(1, 1, 1.0);
+const auto result = AAD::EvaluateForwardOverReverse(
+    [](AAD::RecordingScope_*, const Vector_<AAD::ForwardOverReverseNumber_>& x) {
+        return x[0] * x[0] * x[0] * x[0];
+    },
+    {2.0}, request);
+// Value 16, gradient 32, directional derivative 32, Hessian product 48.
+```
+
+Direction rows preserve their order and signs; product columns follow input
+coordinates. Zero and tiny directions are valid. With M positive directions,
+the driver records M graphs and performs M+1 scalar reverse sweeps; an empty
+direction matrix performs one evaluation and one gradient sweep. Execution
+metadata reports these counts, the `NativeForwardOverReversePrototype` method,
+actual peak tape capacity and cleanup reserve. The optional numeric-output
+budget covers `(1 + 2N + 2MN + M) * sizeof(double)`; metadata, callback captures
+and temporary recording storage are excluded. A separate recording-capacity
+budget bounds native tape allocation, including cleanup reserve, across graph
+reuse. These are capacity measurements, not RSS or total process memory.
+
+Supported primitives are arithmetic, `exp`, `log`, `sqrt`, `pow`, `erfc`, `NCDF`
+and `NPDF`. Constants require explicit construction when returned directly.
+Log/sqrt arguments and active-exponent bases must be positive. Passive integer
+powers admit negative bases and smooth zero-base powers; powers zero and one
+have constant and identity semantics. All values, directional derivatives and
+reverse outputs must be finite within floating-point range.
+
+Callbacks must represent the same deterministic C2 function for every direction.
+The driver checks repeated scalar values; this does not certify purity. Extracting
+`Value()` or `DirectionalDerivative()` to bypass active arithmetic, or branching
+on a direction, violates this contract. Comparisons, abs/min/max, regression,
+opaque reverse events, checkpoints and independent nesting are unsupported.
+The caller's scalar/vector mode is restored after success or failure.
+
+`ForwardOverReverseCapabilities()` describes only this opt-in prototype.
+Ordinary native `higherOrder_` and independent nesting remain false. This core
+C++ surface does not differentiate arbitrary existing financial adapters or
+provide Python/Excel projection. Existing finite-step curvature entries retain
+their own estimator semantics.
+
 ## Directional curvature with bump-over-AAD
 
 `AAD::EvaluateBumpOverAAD` in `dal/math/aad/bumpoveraad.hpp` takes a scalar native
@@ -2088,6 +2164,19 @@ caller methodology; the generic driver does not certify those estimators.
 
 ### Common-path segmented Monte Carlo curvature
 
+The owning C++ financial boundary is in `dal-public/src/montecarlocurvature.hpp`.
+`PlanBlackScholesMonteCarlo` seals a copied contract and valuation history;
+`ValueByBlackScholesSegmentedMonteCarlo` and
+`ValueByBlackScholesMonteCarloWithCurvature` evaluate explicit full parameter
+points and retain that plan in their results. Python exposes the same
+[segmented risk interface](../python/README.md#segmented-blackscholes-monte-carlo-risk)
+with immutable settings and detached passive results.
+
+The [Excel projection](../excel/README.md#segmented-blackscholes-monte-carlo-risk)
+provides owning segmented settings, sealed plans, mean/gradient and curvature
+handles. Its stored base getter returns the completed mean without another
+evaluation; full-width scramble keys spill as decimal text.
+
 `Script::EvaluateBlackScholesMonteCarloCurvature` in
 `dal/script/montecarlocurvature.hpp` composes complete segmented native AAD
 Monte Carlo gradients with the same explicit direction/step request. It takes
@@ -2140,6 +2229,65 @@ pathwise delta across the strike interval. Step bias and finite-path error
 remain distinct. Smooth polynomial convergence does not establish convergence
 order for nonsmooth products, unbiased Gamma, calibration curvature or exercise
 policy responses. Native `higherOrder_` remains false.
+
+### Native LSMC policy curvature
+
+`Script::EvaluateBlackScholesLsmcCurvature` in `dal/script/lsmccurvature.hpp`
+takes an owning `shared_ptr<const PreparedScript_>`, a complete numeric point,
+positive pricing path count and explicit `AAD::BumpOverAADRequest_`. The point
+contains spot, volatility, rate and dividend yield, then the prepared script
+constants. The preparation must originate from the concrete native
+`AAD::BlackScholes_<double>` model, contain live EXERCISE events and enable native
+AAD. Preparation retains the original model's dynamic type without retaining its
+state. Hybrid models and custom subclasses are rejected before training even
+when their observations are compatible; the supplied point replaces only the
+four Black–Scholes parameter values. Tree and compiled programs use the
+preparation's smoothing and sampling.
+
+`Frozen` trains one baseline policy and retains its coefficients, basis,
+normalization and selected degrees for all outer points. Path states and script
+constants remain active, including continuation predictions and historical
+initialization. This is curvature conditional on that fitted policy. Repeating
+ordinary Frozen valuations at bumped points instead trains new policies and
+therefore estimates a different quantity.
+
+`RetrainedBump` trains at each outer point. Its first-order estimator combines
+the native partial derivative with the existing policy-only price secant. The
+inner step is `lsmcPolicyBumpRelative_ * max(1, abs(coordinate))` at that point;
+model lower-domain boundaries use the existing one-sided fallback and script
+constants use central inner bumps. The outer product differences that complete
+gradient estimator. Its method is `BumpOverRetrainedNativeLsmcPolicySecant`;
+Frozen uses `BumpOverFrozenNativeLsmcAAD`.
+
+All evaluations share absolute training, validation and pricing blocks, RNG,
+bridge, normal precision and RQMC seeds/replicate keys. Constants replay the
+sealed historical program before training and pricing. The result owns the
+base mean `Value()`, full `Gradient()`, `Point()`, `Directions()`, `Steps()`,
+`HessianProducts()`, immutable `Prepared()` and `BasePolicy()`. Execution records
+`1+2M` gradient requests and the training/validation/pricing/replicate counts.
+
+Numeric output budgets follow the generic owning-double formula and exclude
+retained preparation, policy, metadata and temporary work. Recording caps apply
+independently to each replay batch. Maximum batch tape and cleanup reserve are
+capacity measures, not aggregate concurrent memory or RSS. Nested recording is
+rejected; caller and worker adjoint modes are restored on every exit. Every
+outer model domain and inner policy-bump representation is checked before
+training. Failures identify the base or direction/sign.
+
+These are finite-step products of a finite-path estimator. Piecewise smoothing
+and hard policy fitting do not guarantee a globally C2 function, symmetric
+Hessian, unbiased Gamma or quadratic step convergence. Outer-step bias, inner
+policy-secant error and sampling dispersion must be assessed separately.
+Native `higherOrder_` remains false. Public C++ consumers use
+`PlanBlackScholesLsmc` / `ValueByBlackScholesLsmcWithCurvature` from
+`dal-public/src/lsmccurvature.hpp` for a closed owning financial preparation and
+result. The [Python projection](../python/README.md#native-lsmc-policy-curvature)
+retains the same policy, simulation, steps and resource metadata; it exposes
+passive values and no active scalar/model callback. The
+[Excel projection](../excel/README.md#native-lsmc-policy-curvature) provides owning
+plans/results, full simulation metadata and detached baseline-policy arrays and
+configuration, including logical empty shapes. Other model families are outside
+this entry.
 
 ### Recalibrated Dupire quote curvature
 
@@ -2304,8 +2452,15 @@ global fixing reads. With M directions, the adapter performs exactly 1+2M
 calibrations and objective reverse sweeps. Raw quote units and the owning bump
 payload budget retain their existing meanings; the payload budget excludes
 portfolio preparation and solver storage. These are finite-step estimates
-through full recalibration, and native `higherOrder_` remains false. This entry
-is available in C++; Python and Excel bindings are not provided.
+through full recalibration, and native `higherOrder_` remains false. Python
+projects this financial entry through `RateCalibration_New` and
+`RateTradeQuoteCurvature`; see the
+[Python interface](../python/README.md#rate-quote-gamma-and-hessian-products).
+Excel projects the same closed financial entry through typed snapshots,
+portfolio settings and passive result queries; see the
+[worksheet interface](../excel/README.md#rate-quote-gamma-and-hessian-products).
+The worksheet snapshot factory consumes retained calibration result
+specifications and performs a new native solve with default options.
 
 ### Common-path C++ Monte Carlo quote curvature
 

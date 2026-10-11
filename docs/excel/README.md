@@ -8,6 +8,67 @@ workflow, and [FIX settings](script-settings.md) for complete worksheet
 matrices and the executable workbook. The numerical methods have C++ examples
 in the [method chapters](../README.md#quantitative-methods).
 
+## European PDE risk
+
+Use immutable settings, request and result handles for a fixed-grid European
+call/put calculation. Place `grid_points`/9 and `ordinary_steps`/8 in the two
+columns of A1:B2, without a header:
+
+```text
+D1 = EUROPEANPDERISKSETTINGS.NEW("small", A1:B2)
+D2 = EUROPEANPDERISKREQUEST.NEW("request", 0.05, 0.20, 110, D1)
+D3 = EUROPEANPDERISKRESULT.NEW("risk", D2)
+F1 = EUROPEANPDERISKRESULT.GET.PRICES(D3)
+I1 = EUROPEANPDERISKRESULT.GET.JACOBIAN(D3)
+```
+
+Omitting settings selects 61 nodes, 120 ordinary time intervals, upper spot
+400, expiry 1 and decimal dividend yield 0.02. Optional `spot_index` is
+zero-based; when omitted, the upper/4 spot must be a mesh node. The rate and
+volatility arguments use decimal units. The strike must lie strictly inside
+the grid and away from a node, where its payoff derivative is not unique.
+The method uses four implicit half-steps followed by Crank–Nicolson; actual
+step count is `ordinary_steps + 2`. See the
+[financial PDE contract](../methodology/pde/aad.md#owning-financial-request).
+
+Settings keys match case-insensitively and may also specify `upper`,
+`spot_index`, `expiry`, `dividend_yield`, `forward_backward_error_limit`,
+`transpose_backward_error_limit`, `numeric_payload_budget_bytes` and
+`recording_capacity_budget_bytes`. Both error limits default to 1e-12 and must
+be finite in [0,1]. Numeric inputs reject text, booleans and Excel errors;
+integer fields require exact nonnegative integers. Unknown/repeated keys and
+malformed ranges fail. Blank optional index/budget cells mean unset; explicit
+zero is a limit. Blank required numeric settings fail. Settings and requests
+are passive; point-domain and budget admission occur when creating the result.
+The worksheet row ceiling reserves a header: at most 1,048,575 grid nodes and
+1,048,573 ordinary intervals.
+
+`EUROPEANPDERISKSETTINGS.GET.CONFIGURATION(settings)` returns all ten key/value
+rows. `EUROPEANPDERISKREQUEST.GET.SETTINGS(request)` and `GET.POINT(request)`
+copy the settings and three parameters. Result `GET.REQUEST` returns the
+actually resolved request. All result getters take only the result handle:
+
+| Getter              | Spill                                                 |
+|---------------------|-------------------------------------------------------|
+| GET.PRICES          | Payoff/Price header and Call/Put rows                 |
+| GET.JACOBIAN        | Six Payoff/Parameter/Unit/Derivative rows plus header |
+| GET.GRID            | NodeIndex/Spot header and zero-based nodes            |
+| GET.FORWARDERRORS   | Step/Call/Put header and chronological actual steps   |
+| GET.TRANSPOSEERRORS | Step plus four exact layer/seed labels                |
+| GET.EXECUTION       | Method and five native execution/resource counters    |
+
+Step ordinals are one-based. Derivatives are raw price per decimal rate,
+decimal volatility or strike-price unit; there is no per-bp scaling, Delta,
+Gamma or higher-order claim. Getters return detached copies without pricing.
+Handles do not support serialization. Result execution requires the XLL's
+native caller tape to be empty and free of an independent recording scope.
+
+The retained numeric payload is `8*(17+N+6*(ordinary_steps+2))` bytes.
+Its optional cap is separate from actual recording capacity. Neither cap
+counts worksheet cells, labels, handles or additional getter copies. Budget
+cells must be exact nonnegative integers at most 2^53-1 and representable as
+size_t; these limits do not bound the complete Excel heap.
+
 ## Script valuation
 
 ```text
@@ -60,6 +121,184 @@ matrix/handle rules, diagnostics, and the executable workbook with PV/AAD oracle
 `SOBOLRSG.NEW(name, i_path, n_dim, precise, polish)` uses the same independent
 normal-draw flags as C++ and Python. Pass `TRUE, TRUE` for the precise-CDF Newton
 correction; leaving both optional flags `FALSE` selects the Acklam-only default.
+
+## Segmented Black–Scholes Monte Carlo risk
+
+Create a sealed script plan, then evaluate an owning mean/gradient or finite-step
+curvature result. This interface uses compiled native AAD and segmented paths:
+
+```text
+=SEGMENTEDMONTECARLOSETTINGS.NEW("mc", settings_range)
+=BLACKSCHOLESMONTECARLOPLAN.NEW("plan", product_handle, valuation_handle, 0.01)
+=BLACKSCHOLESMONTECARLORESULT.NEW("mean", plan_handle, point_range, 33, mc_handle)
+=BLACKSCHOLESMONTECARLOCURVATURERESULT.NEW("curvature", plan_handle, point_range, 33, bumps_handle, mc_handle)
+```
+
+The point is a complete numeric row or column: spot, decimal volatility,
+continuously compounded decimal rate, decimal dividend yield, then every script
+constant in plan-label order. Every blank gap, text, Boolean or nonfinite numeric
+cell rejects with its physical location. Numeric integer cells are accepted.
+Paths must be positive exact integers, representable as size_t and at most
+2^53-1. This segmented interface has its own path admission.
+
+The optional two-column settings table accepts the following keys. Keys match
+case-insensitively; unknown/repeated keys and embedded NUL reject.
+
+| Key                              | Value                                                              |
+|----------------------------------|--------------------------------------------------------------------|
+| rsg                              | Native RNG name; default sobol                                     |
+| use_bb                           | Boolean; native default false                                      |
+| first_path                       | Exact nonnegative absolute zero-based path offset; default 0       |
+| scramble_key                     | Blank unset; exact numeric through 2^53-1 or canonical uint64 text |
+| normal_precision                 | Default, Fast or Precise                                           |
+| segment_steps                    | Positive exact integer; native default 64                          |
+| checkpoint_capacity_budget_bytes | Blank unset; exact nonnegative per-path capacity limit             |
+| recording_capacity_budget_bytes  | Blank unset; exact nonnegative per-path recording limit            |
+
+All numeric counts and caps must also fit size_t and be at most 2^53-1.
+Explicit zero caps are actual limits. Text scramble keys contain only decimal
+digits, without signs, spaces or leading zeros except "0", through
+"18446744073709551615". A present key always spills as text to preserve all bits.
+Generator/key/precision combinations are admitted by the native evaluation.
+`SEGMENTEDMONTECARLOSETTINGS.GET.CONFIGURATION` returns all eight requested fields.
+Omitted MC settings select native defaults.
+
+Plan getters `GET.PRODUCT`, `GET.VALUATION`, `GET.SMOOTHING`,
+`GET.PARAMETERLABELS`, `GET.SCRIPTCONSTANTS` and `GET.OBSERVATIONS` take the
+plan handle. Product/valuation/smoothing are sealed copies; omitted valuation
+captures native defaults and omitted smoothing selects 0.01.
+`PRODUCT.DESCRIBE` exposes the copied contract's dates, events and settings.
+Observations spill a header followed by index, fixing time, historical flag
+and optional captured value, preserving the distinction between absent and zero.
+
+Mean-result getters take the mean handle:
+
+| Getter              | Output                                              |
+|---------------------|-----------------------------------------------------|
+| GET.VALUE           | Sample mean PV                                      |
+| GET.GRADIENT        | Complete raw mean gradient in parameter-label order |
+| GET.PARAMETERLABELS | Complete parameter order                            |
+| GET.EXECUTION       | Thirteen native execution fields                    |
+| GET.PLAN            | Copied sealed plan                                  |
+| GET.POINT           | Copied complete point column                        |
+| GET.SETTINGS        | Copied requested segmented settings                 |
+
+Execution fields are path_count, first_path, batch_size, batches, lanes,
+segment_steps, rsg, use_bb, scramble_key, max_path_tape_bytes,
+max_path_checkpoint_bytes, max_path_cleanup_reserve_bytes and normal_precision.
+
+Curvature uses the shared `BUMPOVERAADREQUEST.NEW` direction/step handle.
+Result getters `GET.POINT`, `GET.DIRECTIONS`, `GET.STEPS`,
+`GET.HESSIANPRODUCTS`, `GET.SHAPE`, `GET.EXECUTION`, `GET.PLAN` and
+`GET.SETTINGS` take the curvature handle. `GET.BASE` returns the completed
+mean-result handle; use the mean getters above without a second evaluation.
+Shape is a row containing direction count and full parameter count. Zero
+directions preserve logical 0-by-N, spill one empty text cell for numeric arrays,
+and require one base evaluation.
+
+Curvature execution reports method BumpOverSegmentedNativeAAD,
+gradient_evaluations (1+2M), numeric_payload_bytes, the three per-path resource
+maxima above and the effective recording_capacity_budget_bytes. The effective
+recording cap is the minimum of the requested path and bump caps; requested
+settings retain the original path cap. Native numeric payload excludes worksheet
+cells, handles and preparation. Neither capacity limit measures aggregate heap.
+
+All getters return detached copies without simulation or history reads. New risk
+handles reject serialization; evaluation rejects entry from an independent
+recording scope. Curvature is an actual-step secant of common-path first-order
+gradients, with separate step bias and sampling error; it does not grant general
+higher-order differentiation. EXERCISE uses the LSMC interface. See the
+[numerical contract](../methodology/aad.md#common-path-segmented-monte-carlo-curvature).
+
+## Native LSMC policy curvature
+
+Create a sealed Black–Scholes EXERCISE plan, a shared bump request and an owning
+result. Exercise dates must be strictly after the valuation date; same-day
+exercise is unsupported. The point contains spot, decimal volatility, decimal
+rate, decimal dividend yield, then all script constants in parameter-label order.
+
+```text
+=MONTECARLOSETTINGS.NEW("simulation", simulation_settings)
+=BLACKSCHOLESLSMCPLAN.NEW("plan", product_handle, valuation_handle, simulation_handle)
+=BUMPOVERAADREQUEST.NEW("bumps", directions, actual_steps, bump_settings)
+=BLACKSCHOLESLSMCCURVATURERESULT.NEW("curvature", plan_handle, point_range, 33, bumps_handle)
+=BLACKSCHOLESLSMCCURVATURERESULT.GET.GRADIENT(result_handle)
+=BLACKSCHOLESLSMCCURVATURERESULT.GET.HESSIANPRODUCTS(result_handle)
+```
+
+The existing [simulation settings](script-settings.md) constructor accepts a
+two-column table. Set `enable_aad` to TRUE for an explicit simulation handle;
+omitting that handle from the plan selects native risk defaults with AAD enabled.
+For example, set `lsmc_training_paths` to 64, `lsmc_policy_risk_mode` to Frozen
+or RetrainedBump and, for the latter, `lsmc_policy_bump_relative` to 0.002.
+`MONTECARLOSETTINGS.GET.CONFIGURATION` copies all fourteen original fields:
+method, use_bb, enable_aad, smooth, compiled, lsmc_basis_degree,
+lsmc_training_paths, lsmc_validation_paths, lsmc_rqmc_replicates,
+lsmc_training_seed, lsmc_pricing_seed, lsmc_policy_risk_mode,
+lsmc_policy_bump_relative and normal_precision. Absent optional settings remain
+blank; explicit FALSE and zero remain present.
+
+The complete point must be one finite numeric row or column. Leading, interior
+and trailing blanks, numeric text and booleans reject. Excel integer cells are
+accepted. Pricing paths must be positive exact integers representable as size_t
+and at most 2^53-1. Native admission additionally requires training + validation
++ pricing_replicates * pricing_paths <= UINT32_MAX. Existing optional simulation
+count fields retain their constructor's int-based limits. There is no additional
+INT_MAX limit on the pricing-path argument.
+
+Plan getters under `BLACKSCHOLESLSMCPLAN` take the plan handle:
+
+| Getter                                   | Copied data                                         |
+|------------------------------------------|-----------------------------------------------------|
+| GET.PRODUCT, GET.VALUATION               | Sealed contract and valuation settings              |
+| GET.SIMULATION                           | Complete requested simulation settings              |
+| GET.PARAMETERLABELS, GET.SCRIPTCONSTANTS | Full parameter order and original script constants  |
+| GET.OBSERVATIONS                         | Index, fixing time, historical flag, captured value |
+| GET.EVENTDATES, GET.TIMELINE             | Complete prepared event dates and times in years    |
+
+Result getters under `BLACKSCHOLESLSMCCURVATURERESULT` take the result handle:
+`GET.VALUE`, `GET.GRADIENT`, `GET.PARAMETERLABELS`, `GET.POINT`, `GET.DIRECTIONS`,
+`GET.STEPS`, `GET.HESSIANPRODUCTS`, `GET.SHAPE`, `GET.EXECUTION`, `GET.PLAN`,
+`GET.SIMULATION` and `GET.BASEPOLICYCOUNT`. Shape reports logical direction and
+parameter counts, including 0-by-N. Empty numeric arrays spill one empty text
+cell; zero directions require one complete gradient request.
+
+`GET.BASEPOLICY(result, index)` returns a detached policy handle. The index is a
+strict numeric zero-based ordinal below GET.BASEPOLICYCOUNT, in native exercise-day
+order. It is not an event ordinal. The full plan dates/times are separate data;
+the native policy has no individual event-ID field.
+
+Under `LSMCEXERCISEPOLICY`, `GET.COEFFICIENTS`, `GET.NORMALIZATIONMEANS`,
+`GET.NORMALIZATIONSIGMAS` and `GET.BASISPOWERS` copy the retained regression
+arrays. Powers have three columns; an empty basis spills one empty text cell.
+`GET.CONFIGURATION` returns basis_degree, degenerate, degenerate_reason, mean,
+sigma, condition_path_count, effective_rank, solver, fallback_reason and optional
+validation_mse, plus coefficients_length, normalization_means_length,
+normalization_sigmas_length, basis_power_rows and basis_power_columns. These size
+fields preserve logical empty shapes. Absent MSE is blank; present zero is numeric.
+
+Execution contains method, gradient_evaluations, paths_per_replicate,
+training_paths, validation_paths, pricing_replicates, numeric_payload_bytes,
+max_batch_tape_bytes, max_batch_cleanup_reserve_bytes and
+recording_capacity_budget_bytes. Gradient evaluations count 1+2M complete
+requests. Numeric and recording budgets are independent; explicit zero is an
+actual limit. For five parameters, zero directions retain 88 numeric bytes and
+two directions retain 264. Numeric payload excludes preparation, policies,
+metadata and worksheet copies. Recording limits apply independently per replay
+batch; reported capacities are not aggregate concurrent memory or RSS.
+
+Frozen retains one fitted policy at all outer points. RetrainedBump differences
+the complete native partial-plus-policy-secant gradient estimator; its inner
+relative policy step is distinct from the bump request's actual outer steps.
+Methods are BumpOverFrozenNativeLsmcAAD and
+BumpOverRetrainedNativeLsmcPolicySecant. These are finite-step, finite-path
+products; smoothing, fitting and sampling require separate accuracy assessment.
+They do not establish unbiased Gamma or general higher-order AD.
+
+All getters copy stored data without training, pricing or historical reads.
+Factories preserve previous results on failure, and reject execution inside an
+independent AAD recording. Plan, result and policy risk handles reject archive
+serialization. See the [numerical contract](../methodology/aad.md#native-lsmc-policy-curvature).
 
 ## Weighted script risk
 
@@ -278,6 +517,151 @@ handles and do not support archive serialization. Snapshot mismatches and
 missing selected surface risks fail explicitly. See the
 [discrete calibration method](../methodology/aad.md#discrete-dupire-calibration-pullback)
 for identity, units, rounding and estimator boundaries.
+
+## Dupire quote Gamma and Hessian products
+
+Create a common finite-step request, combine it with the first-order Dupire
+request, freeze a plan and evaluate it. The calibration and model handles use
+the construction above. `directions` has one row per direction and one column
+per **complete raw quote**, in strike-major order; `steps` contains one positive
+number per row, as either a row or column vector.
+
+```text
+=DUPIRESCRIPTRISKSETTINGS.NEW("execution", 17, valuation_handle, simulation_handle)
+=DUPIRESCRIPTRISKREQUEST.NEW("first", execution_handle, , bindings, )
+=BUMPOVERAADREQUEST.NEW("bumps", directions, steps, )
+=DUPIRESCRIPTCURVATUREREQUEST.NEW("request", first_handle, bumps_handle)
+=DUPIRESCRIPTCURVATUREPLAN.NEW("plan", product_handle, model_handle, calibration_handle, "equity", request_handle)
+=DUPIRESCRIPTCURVATURERESULT.NEW("result", plan_handle)
+=DUPIRESCRIPTCURVATURERESULT.GET.GRADIENT(result_handle)
+=DUPIRESCRIPTCURVATURERESULT.GET.HESSIANPRODUCTS(result_handle)
+```
+
+Bindings are optional two-column rows containing a zero-based scalar constant
+ordinal and a quote ID, for example `0 | quote:3`. Each perturbed quote point
+rebuilds the bound scalar, recalibrates the complete surface, and evaluates its
+native AAD gradient using common paths. For the script `QUOTE=0.001` followed
+by `pay PAYS QUOTE * QUOTE`, bind constant zero to `quote:3`. At rate 0.05 and
+expiry one year, the raw quote-3 gradient is `0.002*exp(-0.05)`; a unit quote-3
+direction gives Gamma `2*exp(-0.05)`. A direction of minus two gives
+`-4*exp(-0.05)`. Other raw coordinates are zero for this payoff.
+
+The gradient is a full quote column. Hessian products have direction rows and
+full quote columns. They estimate `H*v` with explicit central step sizes in
+decimal-volatility quote units. Selection and report factors in the first-order
+request affect only the retained base report; they never shrink or scale the
+raw gradient and products. This finite-step calculation does not enable general
+higher-order AD. EXERCISE products and external direct-adjoint seeds reject.
+
+| Handle prefix                  | Getter suffixes                                                                                                                              | Returned data                                                                        |
+|--------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------|
+| `BUMPOVERAADREQUEST`           | `GET.DIRECTIONS`, `GET.STEPS`, `GET.SETTINGS`, `GET.SHAPE`                                                                                   | Copied common request and logical dimensions                                         |
+| `DUPIRESCRIPTCURVATUREREQUEST` | `GET.RISK`, `GET.BUMPS`                                                                                                                      | Detached first-order and bump requests                                               |
+| `DUPIRESCRIPTCURVATUREPLAN`    | `GET.BASEPLAN`, `GET.POINT`, `GET.DIRECTIONS`, `GET.STEPS`, `GET.SHAPE`, `GET.PAYLOAD`                                                       | Frozen first-order plan, raw point, directions, steps, dimensions and admitted bytes |
+| `DUPIRESCRIPTCURVATURERESULT`  | `GET.BASE`, `GET.QUOTEPLAN`, `GET.POINT`, `GET.GRADIENT`, `GET.DIRECTIONS`, `GET.STEPS`, `GET.HESSIANPRODUCTS`, `GET.SHAPE`, `GET.EXECUTION` | Owning base result, quote plan, raw numeric copies and work counters                 |
+
+All getters take just their owning handle. To obtain quote IDs, coordinates,
+units and scales, pass `GET.QUOTEPLAN(result)` into
+`CALIBRATIONRISKPLAN.GET.INPUTS(quote_plan, TRUE)`. This returns the complete
+twelve-column quote metadata, including quotes omitted from the base report.
+Execution returns four key/value rows: `method`, `quote_gradient_evaluations`,
+`paths_per_evaluation`, and `numeric_payload_bytes`. M directions require
+exactly `1+2*M` quote-gradient evaluations.
+
+Blank direction/step ranges mean zero directions. Supply `input_count | Q` in
+the bump settings to retain a logical zero-by-Q shape. Planning requires Q to
+match the complete calibration axis. Zero directions perform one base
+evaluation. Empty numeric spills contain one blank cell; `GET.SHAPE` always
+returns one row containing the actual direction and quote counts. Input count
+must be in `0..1048575`, reserving a metadata header row; nonempty direction
+matrices must fit the worksheet's row and column limits.
+
+Common bump settings also accept `numeric_payload_budget_bytes` and
+`recording_capacity_budget_bytes`. Blank means unset; zero is an actual limit.
+Both caps require exactly represented nonnegative numeric integers no larger
+than 2^53-1 and size_t. Dupire rejects every supplied bump recording cap,
+including zero, because this interface does not enforce worker tape limits.
+Its combined native numeric cap covers `8*(2+S+B+5*Q+2*M*Q+M)` bytes, where S
+counts mandatory surface derivatives and B bound scalar constants. The existing
+first-order quote budget remains separate. These caps exclude worksheet cells,
+labels, handles, getter copies, calibration/model snapshots and worker memory.
+
+Names and settings keys reject embedded NUL; numeric cells reject bool, text,
+errors and nonfinite values. Steps must be positive and match the number
+of direction rows. Financial planning checks nonzero directions, representable
+perturbations and valid calibration points. Constructors copy passive inputs;
+queries do no simulation or history access. Plans retain their date, history,
+grids, carry and execution settings. Financial planning and execution reject
+active outer recording scopes. All new handles reject archive serialization.
+See [the curvature method](../methodology/aad.md#common-path-c-monte-carlo-quote-curvature).
+
+## Rate quote Gamma and Hessian products
+
+The rate curvature worksheet interface uses existing calibration result and
+native rate-trade handles. It solves the calibration again at the base and
+every perturbed quote point, then takes central secants of native quote
+gradients. These are finite-step estimates; native higher-order differentiation
+remains unavailable.
+
+```text
+A1: =RATECALIBRATION.NEW("snapshot", calibration_result)
+B1: =RATECALIBRATION.GET.POINT(A1)
+C1: =RATECALIBRATION.GET.QUOTEPLAN(A1)
+D1: =CALIBRATIONRISKPLAN.GET.INPUTS(C1, TRUE)
+E1: =BUMPOVERAADREQUEST.NEW("bumps", direction_rows, positive_steps)
+F1: =RATETRADEQUOTECURVATURESETTINGS.NEW("portfolio", signed_weights, fixing_snapshot)
+G1: =RATETRADEQUOTECURVATURERESULT.NEW("gamma", trade_handles, A1, E1, F1)
+H1: =RATETRADEQUOTECURVATURERESULT.GET.GRADIENT(G1)
+I1: =RATETRADEQUOTECURVATURERESULT.GET.HESSIANPRODUCTS(G1)
+J1: =RATETRADEQUOTECURVATURERESULT.GET.EXECUTION(G1)
+```
+
+The source may be a single-curve, generic joint multi-curve, staged-XCCY or
+joint-XCCY result. The factory seals its retained final specification and
+performs a new solve with native default options; it does not reuse the old
+parameters or solver-option overrides. Only native EXACT square systems are
+supported. Legacy staged multi-curve results without a retained full
+specification and arbitrary handles reject. `RATECALIBRATION.RECALIBRATE`
+takes name, snapshot and a complete finite raw quote row/column and returns a
+new snapshot. `GET.PARAMETERS` copies solved free parameters. Quote metadata
+uses the existing twelve-column formatter; its rate value column remains
+blank, with actual quote values available separately from `GET.POINT`.
+
+Blank weights or a blank settings handle mean unit weights. Supplied weights
+must be finite and match the trade count; signed and zero weights are allowed.
+Every trade is validated, including zero-weight rows, and duplicate rows remain
+distinct. Trade ranges reject leading, interrupted and trailing blank cells
+before conversion, with trade ordinal and worksheet position. Actual PV
+currencies must agree; there is no portfolio FX conversion.
+An explicit fixing snapshot supplies all additional historical observations,
+with native conflict checks against calibration history. If absent, the native
+adapter captures missing required trade history once. Settings getters copy
+weights and fixing records. `GET.FIXINGS` returns three columns: the first row
+is `explicit_snapshot`, a presence Boolean and blank; subsequent rows contain
+index, fixing time and value. This distinguishes absent and explicit empty
+history.
+
+Result getters copy value, currency, point, raw gradient, directions, steps,
+Hessian products, shape, execution evidence and the base calibration snapshot.
+Products have one row per direction and one column per full raw decimal quote,
+without DV01/report scaling. Zero directions retain logical 0-by-Q shape and
+perform one base calibration; empty numeric outputs spill one blank cell.
+`GET.SHAPE` returns direction count then quote count. With M directions there
+are exactly 1+2M calibrations, gradient evaluations and objective reverses.
+
+Common request settings accept separate numeric and recording capacity limits.
+The numeric budget is `8*(1+2Q+2MQ+M)` bytes and excludes solver/preparation
+storage, handles and worksheet cells. Rate recording caps apply to caller-thread
+recalibration and objective recording, including retained capacity and cleanup
+reserve. Blank caps are unset; zero is an actual limit. Execution reports peak
+tape capacity and cleanup reserve separately, without an RSS claim.
+
+Numeric quote/weight ranges reject bool, text, date, blank, error and nonfinite
+elements before coercion; integers are normalized. Names reject embedded NUL.
+Constructors and getters copy passive data; financial entries reject active
+outer recordings. Failed financial calls preserve prior output handles and
+caller adjoint mode. New handles reject archive serialization. See the
+[native rate curvature contract](../methodology/aad.md#native-rate-trade-quote-curvature).
 
 ## Curve workflows
 

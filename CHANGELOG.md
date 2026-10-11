@@ -16,8 +16,68 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-10-11
+
+- **Excel LSMC policy curvature** — sealed native EXERCISE plans and owning
+  results expose Frozen/RetrainedBump finite-step products, complete simulation
+  settings and detached baseline-policy arrays and metadata. See
+  [the worksheet interface](docs/excel/README.md#native-lsmc-policy-curvature).
+
+- **Excel segmented Monte Carlo risk** — immutable native settings and sealed
+  script plans expose owning means, complete raw gradients and common-path
+  finite-step Hessian products, exact uint64 scramble keys and separate path
+  resource limits. See [the worksheet interface](docs/excel/README.md#segmented-blackscholes-monte-carlo-risk).
+
+- **Excel rate quote curvature** — owning native calibration snapshots,
+  portfolio settings and results expose full recalibrated rate quote gradients,
+  signed finite-step Hessian products and separate numeric/recording limits.
+  See [the worksheet interface](docs/excel/README.md#rate-quote-gamma-and-hessian-products).
+
+- **Excel Dupire quote curvature** — immutable worksheet requests, plans and
+  results expose full recalibrated quote gradients, signed finite-step Hessian
+  products, complete quote metadata and separate native numeric budgets. See
+  [the worksheet interface](docs/excel/README.md#dupire-quote-gamma-and-hessian-products).
+
+- **Excel European PDE risk** — immutable worksheet settings, requests and
+  results expose native fixed-grid call/put prices, all six first derivatives,
+  chronological solve diagnostics and separate native memory budgets. See
+  [the worksheet interface](docs/excel/README.md#european-pde-risk).
+
 ## 2026-10-10
 
+- **European PDE financial interfaces** — public C++ and Python expose owning
+  fixed-grid call/put prices and rate/volatility/strike adjoints, sharing the
+  full terminal/coefficient/boundary chain with the native example and reporting
+  actual per-step solve accuracy and separate payload/recording budgets. See
+  [the financial interface](docs/methodology/pde/aad.md#owning-financial-request).
+
+- **LSMC financial interfaces** — public C++ and Python own closed Black–Scholes
+  EXERCISE preparation and expose frozen/retrained policy curvature with complete
+  passive policy metadata and separate inner/outer steps. See
+  [the Python interface](docs/python/README.md#native-lsmc-policy-curvature).
+- **Segmented Monte Carlo financial interfaces** — public C++ and Python own
+  frozen Black–Scholes script preparation and expose segmented mean gradients
+  and common-path finite-step Hessian products with explicit sampling and memory
+  budgets. See [the Python interface](docs/python/README.md#segmented-blackscholes-monte-carlo-risk).
+- **Python rate quote curvature** — immutable four-family calibration snapshots
+  and weighted native rate portfolios expose recalibrated raw quote gradients,
+  Gamma/cross-Gamma and Hessian products with explicit steps and budgets. See
+  [the Python interface](docs/python/README.md#rate-quote-gamma-and-hessian-products).
+- **Python Dupire quote curvature** — typed owning requests, plans and results
+  expose recalibrated common-path Gamma, cross-Gamma and Hessian-vector estimates,
+  with raw quote axes, explicit steps and numeric budgets. See
+  [the Python interface](docs/python/README.md#dupire-quote-gamma-and-hessian-products).
+- **Smooth native second derivatives** — an opt-in C++ forward-over-reverse
+  number and request driver compute smooth directional Hessian products without
+  an outer finite-difference step, with scoped recording budgets and explicit
+  capability limits. See
+  [the prototype contract](docs/methodology/aad.md#smooth-native-forward-over-reverse-prototype).
+- **Native LSMC policy curvature** — Black–Scholes C++ requests distinguish
+  curvature conditional on one frozen policy from differences of retrained
+  policy-secanted gradients, with common paths, active historical constants
+  and explicit inner/outer steps. Model provenance rejects Hybrid and custom
+  preparations before training. See
+  [LSMC policy curvature](docs/methodology/aad.md#native-lsmc-policy-curvature).
 - **Native rate-trade quote curvature** — weighted native rate and XCCY
   portfolios expose full recalibrated quote gradients and Hessian products,
   with an owning market, fixed historical observations and explicit PV currency.

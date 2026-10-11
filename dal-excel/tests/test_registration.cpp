@@ -70,6 +70,202 @@ namespace {
 
 TEST(ExcelRegistrationTest, TestRegistrationTableIsPopulated) { ASSERT_GE(RegisteredFunctionsForTest().size(), 67); }
 
+TEST(ExcelRegistrationTest, TestEuropeanPdeFunctionsRetainTypedArgumentsAndHelp) {
+    const std::pair<const char*, const char*> contracts[] = {{"EuropeanPdeRiskSettings_New", "name,[settings]"},
+                                                             {"EuropeanPdeRiskSettings_Get_Configuration", "settings"},
+                                                             {"EuropeanPdeRiskRequest_New", "name,rate,volatility,strike,[settings]"},
+                                                             {"EuropeanPdeRiskRequest_Get_Settings", "request"},
+                                                             {"EuropeanPdeRiskRequest_Get_Point", "request"},
+                                                             {"EuropeanPdeRiskResult_New", "name,request"},
+                                                             {"EuropeanPdeRiskResult_Get_Request", "result"},
+                                                             {"EuropeanPdeRiskResult_Get_Prices", "result"},
+                                                             {"EuropeanPdeRiskResult_Get_Jacobian", "result"},
+                                                             {"EuropeanPdeRiskResult_Get_Grid", "result"},
+                                                             {"EuropeanPdeRiskResult_Get_ForwardErrors", "result"},
+                                                             {"EuropeanPdeRiskResult_Get_TransposeErrors", "result"},
+                                                             {"EuropeanPdeRiskResult_Get_Execution", "result"}};
+    const auto registrations = RegisteredFunctionsForTest();
+    for (const auto& contract : contracts) {
+        const auto name = String_("xl_") + contract.first;
+        const auto found = std::find_if(registrations.begin(), registrations.end(), [&](const auto& reg) { return reg.cName_ == name; });
+        ASSERT_NE(found, registrations.end()) << contract.first;
+        ASSERT_EQ(CaseSensitive(found->xlName_), UpperDotted(contract.first));
+        ASSERT_EQ(CaseSensitive(found->argNames_), contract.second);
+        ASSERT_EQ(CaseSensitive(found->argTypes_), std::string(static_cast<size_t>(NamedArgCount(*found)) + 1, 'Q'));
+        ASSERT_FALSE(found->volatile_);
+        ASSERT_FALSE(found->help_.empty());
+        ASSERT_EQ(found->argHelpCount_, NamedArgCount(*found));
+        ASSERT_LE(found->maxArgHelpLength_, 255);
+    }
+}
+
+TEST(ExcelRegistrationTest, TestLsmcFunctionsRetainTypedArgumentsAndHelp) {
+    const std::pair<const char*, const char*> contracts[] = {{"BlackScholesLsmcPlan_New", "name,product,[valuation],[simulation]"},
+                                                             {"BlackScholesLsmcCurvatureResult_New", "name,plan,point,paths,bumps"},
+                                                             {"MonteCarloSettings_Get_Configuration", "simulation"},
+                                                             {"BlackScholesLsmcPlan_Get_Product", "plan"},
+                                                             {"BlackScholesLsmcPlan_Get_Valuation", "plan"},
+                                                             {"BlackScholesLsmcPlan_Get_Simulation", "plan"},
+                                                             {"BlackScholesLsmcPlan_Get_ParameterLabels", "plan"},
+                                                             {"BlackScholesLsmcPlan_Get_ScriptConstants", "plan"},
+                                                             {"BlackScholesLsmcPlan_Get_Observations", "plan"},
+                                                             {"BlackScholesLsmcPlan_Get_EventDates", "plan"},
+                                                             {"BlackScholesLsmcPlan_Get_TimeLine", "plan"},
+                                                             {"BlackScholesLsmcCurvatureResult_Get_Value", "result"},
+                                                             {"BlackScholesLsmcCurvatureResult_Get_Gradient", "result"},
+                                                             {"BlackScholesLsmcCurvatureResult_Get_ParameterLabels", "result"},
+                                                             {"BlackScholesLsmcCurvatureResult_Get_Point", "result"},
+                                                             {"BlackScholesLsmcCurvatureResult_Get_Directions", "result"},
+                                                             {"BlackScholesLsmcCurvatureResult_Get_Steps", "result"},
+                                                             {"BlackScholesLsmcCurvatureResult_Get_HessianProducts", "result"},
+                                                             {"BlackScholesLsmcCurvatureResult_Get_Shape", "result"},
+                                                             {"BlackScholesLsmcCurvatureResult_Get_Execution", "result"},
+                                                             {"BlackScholesLsmcCurvatureResult_Get_Plan", "result"},
+                                                             {"BlackScholesLsmcCurvatureResult_Get_Simulation", "result"},
+                                                             {"BlackScholesLsmcCurvatureResult_Get_BasePolicyCount", "result"},
+                                                             {"BlackScholesLsmcCurvatureResult_Get_BasePolicy", "result,index"},
+                                                             {"LsmcExercisePolicy_Get_Coefficients", "policy"},
+                                                             {"LsmcExercisePolicy_Get_NormalizationMeans", "policy"},
+                                                             {"LsmcExercisePolicy_Get_NormalizationSigmas", "policy"},
+                                                             {"LsmcExercisePolicy_Get_BasisPowers", "policy"},
+                                                             {"LsmcExercisePolicy_Get_Configuration", "policy"}};
+    const auto registrations = RegisteredFunctionsForTest();
+    for (const auto& contract : contracts) {
+        const auto name = String_("xl_") + contract.first;
+        const auto found = std::find_if(registrations.begin(), registrations.end(), [&](const auto& reg) { return reg.cName_ == name; });
+        ASSERT_NE(found, registrations.end()) << contract.first;
+        ASSERT_EQ(CaseSensitive(found->xlName_), UpperDotted(contract.first));
+        ASSERT_EQ(CaseSensitive(found->argNames_), contract.second);
+        ASSERT_EQ(CaseSensitive(found->argTypes_), std::string(static_cast<size_t>(NamedArgCount(*found)) + 1, 'Q'));
+        ASSERT_FALSE(found->volatile_);
+        ASSERT_FALSE(found->help_.empty());
+        ASSERT_EQ(found->argHelpCount_, NamedArgCount(*found));
+        ASSERT_LE(found->maxArgHelpLength_, 255);
+    }
+}
+
+TEST(ExcelRegistrationTest, TestSegmentedMonteCarloFunctionsRetainTypedArgumentsAndHelp) {
+    const std::pair<const char*, const char*> contracts[] = {{"SegmentedMonteCarloSettings_New", "name,[settings]"},
+                                                             {"SegmentedMonteCarloSettings_Get_Configuration", "settings"},
+                                                             {"BlackScholesMonteCarloPlan_New", "name,product,[valuation],[smoothing]"},
+                                                             {"BlackScholesMonteCarloPlan_Get_Product", "plan"},
+                                                             {"BlackScholesMonteCarloPlan_Get_Valuation", "plan"},
+                                                             {"BlackScholesMonteCarloPlan_Get_Smoothing", "plan"},
+                                                             {"BlackScholesMonteCarloPlan_Get_ParameterLabels", "plan"},
+                                                             {"BlackScholesMonteCarloPlan_Get_ScriptConstants", "plan"},
+                                                             {"BlackScholesMonteCarloPlan_Get_Observations", "plan"},
+                                                             {"BlackScholesMonteCarloResult_New", "name,plan,point,paths,[settings]"},
+                                                             {"BlackScholesMonteCarloResult_Get_Value", "result"},
+                                                             {"BlackScholesMonteCarloResult_Get_Gradient", "result"},
+                                                             {"BlackScholesMonteCarloResult_Get_ParameterLabels", "result"},
+                                                             {"BlackScholesMonteCarloResult_Get_Execution", "result"},
+                                                             {"BlackScholesMonteCarloResult_Get_Plan", "result"},
+                                                             {"BlackScholesMonteCarloResult_Get_Point", "result"},
+                                                             {"BlackScholesMonteCarloResult_Get_Settings", "result"},
+                                                             {"BlackScholesMonteCarloCurvatureResult_New", "name,plan,point,paths,bumps,[settings]"},
+                                                             {"BlackScholesMonteCarloCurvatureResult_Get_Point", "result"},
+                                                             {"BlackScholesMonteCarloCurvatureResult_Get_Directions", "result"},
+                                                             {"BlackScholesMonteCarloCurvatureResult_Get_Steps", "result"},
+                                                             {"BlackScholesMonteCarloCurvatureResult_Get_HessianProducts", "result"},
+                                                             {"BlackScholesMonteCarloCurvatureResult_Get_Shape", "result"},
+                                                             {"BlackScholesMonteCarloCurvatureResult_Get_Execution", "result"},
+                                                             {"BlackScholesMonteCarloCurvatureResult_Get_Base", "result"},
+                                                             {"BlackScholesMonteCarloCurvatureResult_Get_Plan", "result"},
+                                                             {"BlackScholesMonteCarloCurvatureResult_Get_Settings", "result"}};
+    const auto registrations = RegisteredFunctionsForTest();
+    for (const auto& contract : contracts) {
+        const auto name = String_("xl_") + contract.first;
+        const auto found = std::find_if(registrations.begin(), registrations.end(), [&](const auto& reg) { return reg.cName_ == name; });
+        ASSERT_NE(found, registrations.end()) << contract.first;
+        ASSERT_EQ(CaseSensitive(found->xlName_), UpperDotted(contract.first));
+        ASSERT_EQ(CaseSensitive(found->argNames_), contract.second);
+        ASSERT_EQ(CaseSensitive(found->argTypes_), std::string(static_cast<size_t>(NamedArgCount(*found)) + 1, 'Q'));
+        ASSERT_FALSE(found->volatile_);
+        ASSERT_FALSE(found->help_.empty());
+        ASSERT_EQ(found->argHelpCount_, NamedArgCount(*found));
+        ASSERT_LE(found->maxArgHelpLength_, 255);
+    }
+}
+
+TEST(ExcelRegistrationTest, TestRateCurvatureFunctionsRetainTypedArgumentsAndHelp) {
+    const std::pair<const char*, const char*> contracts[] = {
+        {"RateCalibration_New", "name,source"},
+        {"RateCalibration_Recalibrate", "name,calibration,quotes"},
+        {"RateCalibration_Get_Point", "calibration"},
+        {"RateCalibration_Get_Parameters", "calibration"},
+        {"RateCalibration_Get_QuotePlan", "calibration"},
+        {"RateTradeQuoteCurvatureSettings_New", "name,[weights],[fixings]"},
+        {"RateTradeQuoteCurvatureSettings_Get_Weights", "settings"},
+        {"RateTradeQuoteCurvatureSettings_Get_Fixings", "settings"},
+        {"RateTradeQuoteCurvatureResult_New", "name,trades,calibration,bumps,[settings]"},
+        {"RateTradeQuoteCurvatureResult_Get_Value", "result"},
+        {"RateTradeQuoteCurvatureResult_Get_Currency", "result"},
+        {"RateTradeQuoteCurvatureResult_Get_Point", "result"},
+        {"RateTradeQuoteCurvatureResult_Get_Gradient", "result"},
+        {"RateTradeQuoteCurvatureResult_Get_Directions", "result"},
+        {"RateTradeQuoteCurvatureResult_Get_Steps", "result"},
+        {"RateTradeQuoteCurvatureResult_Get_HessianProducts", "result"},
+        {"RateTradeQuoteCurvatureResult_Get_Shape", "result"},
+        {"RateTradeQuoteCurvatureResult_Get_Execution", "result"},
+        {"RateTradeQuoteCurvatureResult_Get_BaseCalibration", "result"},
+    };
+    const auto registrations = RegisteredFunctionsForTest();
+    for (const auto& contract : contracts) {
+        const auto name = String_("xl_") + contract.first;
+        const auto found = std::find_if(registrations.begin(), registrations.end(), [&](const auto& reg) { return reg.cName_ == name; });
+        ASSERT_NE(found, registrations.end()) << contract.first;
+        ASSERT_EQ(CaseSensitive(found->xlName_), UpperDotted(contract.first));
+        ASSERT_EQ(CaseSensitive(found->argNames_), contract.second);
+        ASSERT_EQ(CaseSensitive(found->argTypes_), std::string(static_cast<size_t>(NamedArgCount(*found)) + 1, 'Q'));
+        ASSERT_FALSE(found->volatile_);
+        ASSERT_FALSE(found->help_.empty());
+        ASSERT_EQ(found->argHelpCount_, NamedArgCount(*found));
+        ASSERT_LE(found->maxArgHelpLength_, 255);
+    }
+}
+
+TEST(ExcelRegistrationTest, TestDupireCurvatureFunctionsRetainTypedArgumentsAndHelp) {
+    const std::pair<const char*, const char*> contracts[] = {
+        {"BumpOverAADRequest_New", "name,[directions],[steps],[settings]"},
+        {"BumpOverAADRequest_Get_Directions", "request"},
+        {"BumpOverAADRequest_Get_Steps", "request"},
+        {"BumpOverAADRequest_Get_Settings", "request"},
+        {"BumpOverAADRequest_Get_Shape", "request"},
+        {"DupireScriptCurvatureRequest_New", "name,risk,bumps"},
+        {"DupireScriptCurvatureRequest_Get_Risk", "request"},
+        {"DupireScriptCurvatureRequest_Get_Bumps", "request"},
+        {"DupireScriptCurvaturePlan_New", "name,product,modelData,calibration,component,request"},
+        {"DupireScriptCurvaturePlan_Get_BasePlan", "plan"},
+        {"DupireScriptCurvaturePlan_Get_Point", "plan"},
+        {"DupireScriptCurvaturePlan_Get_Directions", "plan"},
+        {"DupireScriptCurvaturePlan_Get_Steps", "plan"},
+        {"DupireScriptCurvaturePlan_Get_Shape", "plan"},
+        {"DupireScriptCurvaturePlan_Get_Payload", "plan"},
+        {"DupireScriptCurvatureResult_New", "name,plan"},
+        {"DupireScriptCurvatureResult_Get_Base", "result"},
+        {"DupireScriptCurvatureResult_Get_QuotePlan", "result"},
+        {"DupireScriptCurvatureResult_Get_Point", "result"},
+        {"DupireScriptCurvatureResult_Get_Gradient", "result"},
+        {"DupireScriptCurvatureResult_Get_Directions", "result"},
+        {"DupireScriptCurvatureResult_Get_Steps", "result"},
+        {"DupireScriptCurvatureResult_Get_HessianProducts", "result"},
+        {"DupireScriptCurvatureResult_Get_Shape", "result"},
+        {"DupireScriptCurvatureResult_Get_Execution", "result"}};
+    const auto registrations = RegisteredFunctionsForTest();
+    for (const auto& contract : contracts) {
+        const auto name = String_("xl_") + contract.first;
+        const auto found = std::find_if(registrations.begin(), registrations.end(), [&](const auto& reg) { return reg.cName_ == name; });
+        ASSERT_NE(found, registrations.end()) << contract.first;
+        ASSERT_EQ(CaseSensitive(found->xlName_), UpperDotted(contract.first));
+        ASSERT_EQ(CaseSensitive(found->argNames_), contract.second);
+        ASSERT_EQ(CaseSensitive(found->argTypes_), std::string(static_cast<size_t>(NamedArgCount(*found)) + 1, 'Q'));
+        ASSERT_FALSE(found->volatile_);
+        ASSERT_FALSE(found->help_.empty());
+        ASSERT_EQ(found->argHelpCount_, NamedArgCount(*found));
+        ASSERT_LE(found->maxArgHelpLength_, 255);
+    }
+}
+
 TEST(ExcelRegistrationTest, TestScriptSettingsAndLegacyContracts) {
     struct Contract_ {
         const char* name_;

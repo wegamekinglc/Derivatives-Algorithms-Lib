@@ -472,6 +472,232 @@ are read-only and detached. Copy/deepcopy retain owning passive values. Planning
 and execution release the GIL after copying typed inputs. See the
 [native automatic request boundaries](../methodology/aad.md#automatic-c-dupire-risk-requests).
 
+## Dupire quote Gamma and Hessian products
+
+`DupireScriptCurvaturePlan_New` plans finite-step differences of complete native
+quote gradients, recalibrating the surface at every perturbed quote point.
+`DupireScriptCurvatureResult_New(plan)` executes the sealed plan on common paths.
+Use an existing `DupireScriptRiskRequest_` to specify paths, valuation, simulation
+and any direct script-constant quote bindings:
+
+```python
+directions = dal.DoubleMatrix_(1, 6, 0.0)
+directions[0, 3] = 1.0
+bumps = dal.BumpOverAADRequest_(directions=directions, steps=[0.0002])
+request = dal.DupireScriptCurvatureRequest_(risk=risk_request, bumps=bumps)
+plan = dal.DupireScriptCurvaturePlan_New(
+    product, hybrid, calibration, "Z_LOCAL", request,
+)
+result = dal.DupireScriptCurvatureResult_New(plan)
+gamma = result.hessian_products[0, 3]
+gradient = result.gradient
+```
+
+Direction columns follow the complete raw strike-major decimal-vol spread axis,
+available as `result.input_axis`. Unit rows select Gamma/cross-Gamma; signed rows
+select Hessian-vector products. First-order input subsets and report factors
+affect `result.base.quote_risk` only; `gradient` and `hessian_products` retain
+the complete raw axis. Steps are finite, positive and explicit, one per direction
+row. All-zero direction rows reject. A `DoubleMatrix_(0, quote_count)` with
+`steps=[]` requests the base gradient without curvature rows.
+
+The bump constructor is keyword-only and copies a native `DoubleMatrix_` and a
+list/tuple of real steps. It excludes bool/enums and implicit matrix conversion.
+Optional `numeric_payload_budget_bytes` and `recording_capacity_budget_bytes`
+accept nonnegative size_t integers or `None`; zero remains an explicit cap.
+The Dupire planner rejects recording-cap requests because a caller-thread tape
+cap cannot constrain parallel worker tapes. The numeric cap covers the combined
+bump/base result payload described in the
+[native financial contract](../methodology/aad.md#common-path-c-monte-carlo-quote-curvature).
+External first-order direct seeds and exercise policies also reject.
+
+Requests, plans and results support copy/deepcopy. All container, matrix and
+nested getters return detached values. Plans expose `base_plan`, `point`,
+`directions`, `steps` and `numeric_payload_bytes`; results add `base`, `gradient`,
+`input_axis`, `hessian_products` and `execution`. Execution reports `method`,
+`quote_gradient_evaluations` (`1+2*direction_count`), `paths_per_evaluation` and
+`numeric_payload_bytes`. Planning freezes the evaluation date and fixing snapshot;
+native planning/execution release the GIL after owning typed Python inputs.
+The method is a finite-step estimator, with the native first-order smoothing and
+calibration stencil constraints. This entry does not select the smooth C++
+forward-over-reverse prototype.
+
+## Rate quote Gamma and Hessian products
+
+`RateCalibration_New(spec)` captures an owning immutable calibration snapshot.
+It accepts native single-curve, joint multi-curve, staged XCCY and joint XCCY
+specifications, restricted to supported exact square systems. `point` contains
+raw decimal quotes in `provenance.axis.quotes` order; `parameters` contains the
+solved free coordinates. Staged XCCY exposes basis quotes only; its other curves
+remain fixed. `RateCalibration_Recalibrate(calibration, quotes)` returns a new
+snapshot from a copied list/tuple of finite real quotes with the same axis.
+
+Use existing `RateTradeDefinition_` values and the shared bump request:
+
+```python
+calibration = dal.RateCalibration_New(spec)
+directions = dal.DoubleMatrix_(1, len(calibration.point), 0.0)
+directions[0, 0] = 1.0
+bumps = dal.BumpOverAADRequest_(directions=directions, steps=[0.0002])
+settings = dal.RateTradeQuoteCurvatureSettings_(weights=[1.0, -0.5])
+result = dal.RateTradeQuoteCurvature([trade_a, trade_b], calibration, bumps, settings=settings)
+value = result.curvature.value
+gradient = result.curvature.gradient
+gamma = result.curvature.hessian_products[0, 0]
+```
+
+Trades support the native deposit, FRA, future, IRS, basis-swap, OIS and XCCY
+families. Use curve component keys from calibration provenance for free curves;
+joint declarations retain distinct keys even when display names repeat. All
+trades must have the same actual PV currency, returned as `result.currency`.
+This entry performs no currency conversion. Missing or empty weights mean unit
+weights; supplied finite weights must match the trade count. Negative and zero
+weights are allowed, and every trade is validated even at zero weight.
+
+`RateTradeQuoteCurvatureSettings_(*, weights=None, fixings=None)` optionally
+retains an immutable `MarketFixingSnapshot_` for additional trade history.
+It must agree with saved calibration observations. Without an explicit snapshot,
+missing required history is captured once from global fixings. Calibration
+sources, valuation inputs and historical observations stay fixed during bumps.
+
+The finite-step method `BumpOverRecalibratedNativeRateAAD` recalibrates and
+recomputes the full quote gradient at every point. With M directions, execution
+reports `1+2*M` calibrations, quote gradients and objective reverse sweeps.
+`DoubleMatrix_(0, quote_count)` and `steps=[]` request the base gradient only.
+Products retain raw quote units and signs; choose explicit positive steps using
+convergence checks. These estimates do not enable general native higher order.
+
+The numeric budget covers `8*(1+2*N+2*N*M+M)` bytes for N quotes and M directions,
+excluding solver/source storage, getter copies and allocator overhead. The
+separate recording cap constrains caller-thread recalibration and objective
+tapes, including cleanup reserve. Both optional caps preserve zero. Execution
+also reports `numeric_payload_bytes`, `peak_tape_bytes` and `cleanup_reserve_bytes`.
+Vectors, matrices, nested results and provenance getters are detached; snapshots,
+settings and results support copy/deepcopy. Factories release the GIL after
+copying typed inputs. See the
+[native financial contract](../methodology/aad.md#native-rate-trade-quote-curvature).
+
+## Segmented Black–Scholes Monte Carlo risk
+
+Prepare a closed native Black–Scholes script once, then reuse its frozen contract
+and historical observations for explicit parameter points:
+
+```python
+valuation = dal.ScriptValuationSettings_(evaluation_date=dal.Date_(2026, 1, 2))
+product = dal.Product_New(
+    ["SCALE", dal.Date_(2027, 1, 2)],
+    ["2", "pay PAYS SCALE * FIX(EQ[UNDERLYING]) ^ 2"],
+)
+plan = dal.BlackScholesMonteCarloPlan_New(product, valuation=valuation)
+point = [100.0, 0.2, 0.03, 0.01, *plan.script_constants]
+settings = dal.SegmentedMonteCarloSettings_(first_path=7, segment_steps=64)
+mean = dal.BlackScholesMonteCarlo_Get_Risk(plan, point, 129, settings=settings)
+bumps = dal.BumpOverAADRequest_(
+    directions=dal.DoubleMatrix_([[1.0, 0.0, 0.0, 0.0, 0.0]]), steps=[0.25]
+)
+risk = dal.BlackScholesMonteCarlo_Get_Curvature(
+    plan, point, 129, bumps, settings=settings
+)
+spot_gamma = risk.hessian_products[0, 0]
+```
+
+Columns follow `plan.parameter_labels`: spot, volatility, continuously compounded
+rate, dividend yield, then script constants. Points must be lists or tuples of
+finite real numbers; no coordinate scaling is applied. The path count follows
+the positive integer contract above. Plan creation resolves history; subsequent
+evaluations replay the sealed observations and do not read global history again.
+`valuation`, `smoothing`, `contract_dates`, `contract_events`, `contract_settings`
+and `observations` identify the preparation. An optional `smoothing` factory
+argument selects the compiled native first-order smoothing width. EXERCISE
+requires the separate policy estimator and is rejected by this preparation.
+
+Keyword-only settings expose `rsg` (sobol/mrg32/irn), `use_bb`, absolute
+`first_path`, optional Sobol-only uint64 `scramble_key`, `normal_precision`
+(Default/Fast/Precise), positive `segment_steps` and optional
+`checkpoint_capacity_budget_bytes` / `recording_capacity_budget_bytes`.
+Explicit zero caps remain zero. Fixed 32-path batches preserve native reduction
+order. Defaults select Sobol, offset zero, no bridge and 64-step segments.
+
+Mean results expose `value`, `gradient`, `point`, `parameter_labels`, `settings`,
+`execution` and the owning `plan`. Curvature exposes `base` with the mean and
+gradient, plus point, directions, actual steps, products, settings, execution
+and plan. Containers/settings are detached copies; copy/deepcopy may safely
+share immutable native preparation. Numerical calls release the Python GIL.
+
+The curvature method is `BumpOverSegmentedNativeAAD`: each row differences
+complete native mean gradients on the same absolute paths. Its `1+2M`
+`gradient_evaluations` count is distinct from segment reverse sweeps. Empty
+directions retain the base gradient and a `0 x N` product. Numeric payload uses
+the shared bump request's owning-double formula and excludes preparation,
+tasks and random buffers. The smaller path/bump recording limit applies;
+execution reports that effective limit and per-path tape/checkpoint/cleanup
+maxima, excluding aggregate memory and RSS. These are finite-step secants;
+nonsmooth payoffs have separate step and sampling errors. See the
+[native methodology](../methodology/aad.md#common-path-segmented-monte-carlo-curvature).
+
+## Native LSMC policy curvature
+
+Prepare a closed Black–Scholes EXERCISE contract and seal its valuation,
+historical observations and simulation settings before requesting curvature:
+
+```python
+product = dal.Product_New(
+    ["K", dal.Date_(2027, 4, 10), dal.Date_(2027, 10, 10)],
+    ["50", "EXERCISE 2 * K - spot()", "EXERCISE 2 * K - spot()"],
+)
+simulation = dal.MonteCarloSettings_(
+    enable_aad=True, compiled=True, smooth=2.0,
+    lsmc_training_paths=256, lsmc_policy_risk_mode="Frozen",
+)
+plan = dal.BlackScholesLsmcPlan_New(
+    product, simulation=simulation,
+    valuation=dal.ScriptValuationSettings_(evaluation_date=dal.Date_(2026, 10, 10)),
+)
+point = [100.0, 0.2, 0.05, 0.0, *plan.script_constants]
+bumps = dal.BumpOverAADRequest_(
+    directions=dal.DoubleMatrix_([[1.0, 0.0, 0.0, 0.0, 0.0]]), steps=[0.1],
+)
+risk = dal.BlackScholesLsmc_Get_Curvature(plan, point, 129, bumps)
+spot_gamma = risk.hessian_products[0, 0]
+base_policy = risk.base_policy
+```
+
+The point uses raw spot, volatility, rate, dividend yield, then script constants
+in `plan.parameter_labels` order. Planning copies the contract and resolves
+history once; evaluation replays those sealed observations with the supplied
+constant values. `simulation=None` uses native-risk defaults with AAD enabled.
+An explicitly disabled AAD setting, expired exercise or a contract without live
+EXERCISE is rejected. Settings and numeric arguments are copied before GIL
+release; no active Python scalar, objective or model callback is accepted.
+
+`Frozen` fits one base policy and uses that same policy for all outer points;
+its method is `BumpOverFrozenNativeLsmcAAD`. Repeating ordinary Frozen pricing
+at bumped points fits different policies and estimates a different quantity.
+`RetrainedBump` fits a policy at every outer point and differences the existing
+complete gradient estimator, including its inner policy-only price secant.
+It reports `BumpOverRetrainedNativeLsmcPolicySecant`. The retained
+`simulation.lsmc_policy_bump_relative` controls the inner step independently
+from `risk.steps`; training, validation and pricing streams remain common.
+
+Results own `plan`, `value`, `gradient`, `parameter_labels`, `point`,
+`directions`, `steps`, `hessian_products`, `base_policy`, `simulation` and
+`execution`. Passive `LsmcExercisePolicy_` elements retain coefficients, scalar
+and multivariate normalization, basis powers/degree, degeneracy, effective rank,
+solver/fallback and validation error in live EXERCISE order. Plan getters include
+valuation, simulation, original contract dates/events/settings, live event dates,
+time line and observation snapshots. Nested containers/settings are detached;
+copy/deepcopy may share immutable preparation.
+
+Execution records `1+2M` gradient requests, paths per replicate,
+training/validation/replicate counts, numeric payload, recording cap and maximum
+batch tape/cleanup reserve. Empty directions retain the full base gradient.
+Numeric payload excludes policy, preparation and temporary work. Recording caps
+apply to individual fuzzy replay batches and can fail after policy training;
+resource maxima exclude aggregate process memory. Explicit zero limits remain
+zero. These finite-path, finite-step estimators do not imply an analytic,
+symmetric Hessian or unbiased optimal-stopping Gamma. See
+[the estimator contract](../methodology/aad.md#native-lsmc-policy-curvature).
+
 ## Matrix and local-volatility surface input
 
 `DoubleMatrix_` supports all of the following:
@@ -590,5 +816,39 @@ multi-curve chain rules remain outside the supported Python surface.
 compatibility with the standalone web application. `_StorableToJson`,
 `_StorableFromJson`, `_BagNew`, and `_BagContents` are private integration
 helpers rather than supported general serialization functions.
+
+## Fixed-grid European PDE risk
+
+```python
+settings = dal.EuropeanPdeSettings_(grid_points=61, ordinary_steps=120)
+risk = dal.EuropeanPdeRiskResult_New(0.05, 0.20, 110.0, settings=settings)
+call_price, put_price = risk.prices
+call_rho_per_bp = 1e-4 * risk.jacobian[0, 0]
+call_vega_per_point = 0.01 * risk.jacobian[0, 1]
+```
+
+The three required parameters are absolute decimal rate, volatility and strike.
+Optional settings and `numeric_payload_budget_bytes` /
+`recording_capacity_budget_bytes` are keyword-only. Settings are immutable:
+node/ordinary-interval defaults are 61/120, upper boundary 400, expiry 1,
+dividend yield 0.02 and both solve-error limits 1e-12.
+Both error limits must be finite and in [0,1].
+`spot_index=None` resolves the quarter-grid node; otherwise supply an interior
+node index. Strike must be positive, below the upper boundary and away from
+grid nodes. Volatility and expiry must be positive. Bool, enums and implicit
+numeric coercions are rejected.
+
+The owning result exposes copied `point`, `settings`, `grid`, `prices`,
+`jacobian`, axes/units, `spot`, `method`, actual chronological forward/
+transpose error matrices and `execution` resource observations. Its arrays and
+matrices remain valid after GC or subsequent calls. Native work releases the
+GIL. The mesh, spot node, dividend and expiry are passive; the Jacobian contains
+rate/volatility/strike first derivatives only.
+
+The numeric budget covers `8*(17+nodes+6*(ordinary_steps+2))` retained doubles,
+excluding labels, containers and temporary copies. The recording limit uses
+actual retained tape/event capacity with a cleanup reservation; it is not a
+process heap quota. Zero limits reject nonempty requests. See
+[the financial program and budget details](../methodology/pde/aad.md#owning-financial-request).
 
 See [dal-python/README.md](../../dal-python/README.md) for package-focused examples.

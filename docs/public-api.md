@@ -82,6 +82,15 @@ the environment, row-reader, and conversion contracts used by host adapters.
 earlier tags, including objects with the same type and name, preserving the
 Excel adapter's current generated-default policy.
 
+### European PDE financial risk
+
+`dal-public/src/europeanpderisk.hpp` exposes `EuropeanPdeRiskRequest_`,
+`EuropeanPdeSettings_` and `EvaluateEuropeanPdeRisk`. One request owns the
+rate/volatility/strike point and passive mesh/time/domain settings; one result
+owns both option prices, their 2-by-3 Jacobian and actual solve diagnostics.
+See [the complete financial program](methodology/pde/aad.md#owning-financial-request)
+for a minimal call, units, error policies and resource-budget scope.
+
 ### Sobol normal-draw policy
 
 The public constructor is:

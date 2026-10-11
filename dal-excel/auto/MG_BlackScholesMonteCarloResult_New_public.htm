@@ -1,0 +1,41 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>BlackScholesMonteCarloResult_New</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>BlackScholesMonteCarloResult_New (in Excel: BLACKSCHOLESMONTECARLORESULT.NEW)</h1>
+Evaluate an owning segmented native MC mean and full raw gradient
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>name</td><td>string</td><td></td><td>Object name</td></tr>
+<tr><td>plan</td><td>handle of type StorableBlackScholesMonteCarloPlan</td><td></td><td>Sealed native Black-Scholes script plan</td></tr>
+<tr><td>point</td><td>matrix of cells</td><td></td><td>Complete finite numeric row or column; blank gaps reject</td></tr>
+<tr><td>paths</td><td>number</td><td></td><td>Positive exact size_t integer at most 2^53-1</td></tr>
+<tr><td>settings</td><td>handle of type StorableSegmentedMonteCarloSettings</td><td>yes</td><td>Copied segmented settings; blank uses native defaults</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>result</td><td>handle of type StorableBlackScholesMonteCarloResult</td><td>Completed owning mean, gradient, plan, point and requested settings</td></tr>
+</table>
+
+
+
+
+
+

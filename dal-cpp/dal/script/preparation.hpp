@@ -5,6 +5,7 @@
 #pragma once
 
 #include <functional>
+#include <typeindex>
 
 #include <dal/indice/fixingsnapshot.hpp>
 #include <dal/model/base.hpp>
@@ -23,6 +24,7 @@ namespace Dal::Script {
         size_t maxNestedIfs_ = 0;
         std::optional<ScriptCompiled_> compiled_;
         std::optional<ScriptCompiled_> pastCompiled_;
+        std::type_index modelType_ = typeid(void);
 
         PreparedScript_(std::unique_ptr<ScriptProduct_>&& product,
                         const Date_& evaluationDate,
@@ -41,6 +43,7 @@ namespace Dal::Script {
         [[nodiscard]] std::shared_ptr<const ObservationPlan_> PlanHandle() const { return plan_; }
         [[nodiscard]] bool AllExpired() const { return product_->EventDates().empty(); }
         [[nodiscard]] const MonteCarloSettings_& Simulation() const { return simulation_; }
+        [[nodiscard]] std::type_index PreparedModelType() const { return modelType_; }
         [[nodiscard]] size_t MaxNestedIfs() const { return maxNestedIfs_; }
         [[nodiscard]] const Vector_<Date_>& EventDates() const { return product_->EventDates(); }
         [[nodiscard]] const Vector_<String_>& ConstVarNames() const { return product_->ConstVarNames(); }
