@@ -875,8 +875,8 @@ Python or Excel active graph API. The current financial surfaces are:
 | Calibration quote pullback                          | Owning typed financial API                                      | Typed passive snapshots/seeds/results         | Immutable handles and passive getters                                                             |
 | Dupire finite-step quote curvature                  | Owning typed financial API                                      | Closed typed requests/results                 | [Typed requests, plans and results](../excel/README.md#dupire-quote-gamma-and-hessian-products)   |
 | Rate finite-step quote curvature                    | Owning typed financial API                                      | Closed typed requests/results                 | [Typed snapshots, settings and results](../excel/README.md#rate-quote-gamma-and-hessian-products) |
-| Segmented MC finite-step curvature                  | Owning typed financial API                                      | Closed plans and passive results              | Owning segmented settings, plans, mean and curvature handles                                       |
-| LSMC finite-step policy curvature                   | Owning typed financial API                                      | Closed plans and passive results              | Corresponding curvature handles unavailable                                                       |
+| Segmented MC finite-step curvature                  | Owning typed financial API                                      | Closed plans and passive results              | Owning segmented settings, plans, mean and curvature handles                                      |
+| LSMC finite-step policy curvature                   | Owning typed financial API                                      | Closed plans and passive results              | [Owning plans, results and detached policies](../excel/README.md#native-lsmc-policy-curvature)    |
 
 The PDE example holds its mesh, evaluation spot, expiry and dividend passive;
 its r/volatility/strike adjoints describe that discrete program. Calibration
@@ -2283,8 +2283,11 @@ Native `higherOrder_` remains false. Public C++ consumers use
 `dal-public/src/lsmccurvature.hpp` for a closed owning financial preparation and
 result. The [Python projection](../python/README.md#native-lsmc-policy-curvature)
 retains the same policy, simulation, steps and resource metadata; it exposes
-passive values and no active scalar/model callback. Other model families are
-outside this entry.
+passive values and no active scalar/model callback. The
+[Excel projection](../excel/README.md#native-lsmc-policy-curvature) provides owning
+plans/results, full simulation metadata and detached baseline-policy arrays and
+configuration, including logical empty shapes. Other model families are outside
+this entry.
 
 ### Recalibrated Dupire quote curvature
 
