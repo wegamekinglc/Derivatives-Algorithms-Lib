@@ -123,6 +123,60 @@ namespace {
         Output_ trade_{Call("xl_RateDepositTrade_New", header_.Scalar(), &notional_, &contract_, &lend_, index_.Scalar(), &name_.cell_)};
     };
 
+    struct RawMonteCarloFixture_ {
+        CurvatureRuntime_ runtime_;
+        RawText_ name_{L"raw-segmented-mc"}, constant_{L"SCALE"}, constantValue_{L"2"}, formula_{L"pay PAYS SCALE * FIX(EQ[EXCEL_SEGMENTED]) ^ 2"},
+            evaluationKey_{L"evaluation_date"}, scrambleKey_{L"scramble_key"}, scrambleValue_{L"18446744073709551615"}, segmentKey_{L"segment_steps"};
+        OPER_ blank_ = Blank(), date_ = Number(Date::ToExcel(Date_(2026, 1, 2))), paths_ = Number(1);
+        OPER_ dateCells_[2]{constant_.cell_, date_}, eventCells_[2]{constantValue_.cell_, formula_.cell_},
+            valuationCells_[2]{evaluationKey_.cell_, date_}, settingCells_[4]{scrambleKey_.cell_, scrambleValue_.cell_, segmentKey_.cell_, paths_},
+            pointCells_[5]{Number(10), Number(.2), Number(.03), Number(.01), Number(2)},
+            directionCells_[10]{Number(1), Number(0), Number(0), Number(0), Number(.5), Number(-1), Number(0), Number(0), Number(0), Number(.25)},
+            stepCells_[2]{Number(.01), Number(.01)};
+        OPER_ dates_ = Multi(dateCells_, 2, 1), events_ = Multi(eventCells_, 2, 1), valuationRows_ = Multi(valuationCells_, 1, 2),
+              settingRows_ = Multi(settingCells_, 2, 2), point_ = Multi(pointCells_, 1, 5), directions_ = Multi(directionCells_, 2, 5),
+              steps_ = Multi(stepCells_, 2, 1);
+        Output_ product_{Call("xl_Product_New", &name_.cell_, &dates_, &events_)};
+        Output_ valuation_{Call("xl_ScriptValuationSettings_New", &name_.cell_, &valuationRows_, &blank_)};
+        Output_ plan_{Call("xl_BlackScholesMonteCarloPlan_New", &name_.cell_, product_.Scalar(), valuation_.Scalar(), &blank_)};
+        Output_ settings_{Call("xl_SegmentedMonteCarloSettings_New", &name_.cell_, &settingRows_)};
+        Output_ bumps_{Call("xl_BumpOverAADRequest_New", &name_.cell_, &directions_, &steps_, &blank_)};
+        OPER_* Mean(const OPER_* point, const OPER_* paths) const {
+            return Call("xl_BlackScholesMonteCarloResult_New", &name_.cell_, plan_.Scalar(), point, paths, settings_.Scalar());
+        }
+        OPER_* Curvature(const OPER_* point, const OPER_* paths, const OPER_* bumps) const {
+            return Call("xl_BlackScholesMonteCarloCurvatureResult_New", &name_.cell_, plan_.Scalar(), point, paths, bumps, settings_.Scalar());
+        }
+    };
+
+    void CheckMonteCarloFinancialSpills(const OPER_* mean, const OPER_* curvature) {
+        Output_ value(Call("xl_BlackScholesMonteCarloResult_Get_Value", mean));
+        ASSERT_DOUBLE_EQ(value.Scalar()->val.num, 200);
+        Output_ gradient(Call("xl_BlackScholesMonteCarloResult_Get_Gradient", mean));
+        ASSERT_EQ(gradient.value_->val.array.rows, 5);
+        const double expected[]{40, 0, 0, 0, 100};
+        for (int column = 0; column < 5; ++column)
+            ASSERT_DOUBLE_EQ(gradient.value_->val.array.lparray[column].val.num, expected[column]);
+        Output_ products(Call("xl_BlackScholesMonteCarloCurvatureResult_Get_HessianProducts", curvature));
+        ASSERT_EQ(products.value_->val.array.rows, 2);
+        ASSERT_EQ(products.value_->val.array.columns, 5);
+        const double wanted[]{14, 0, 0, 0, 20, 1, 0, 0, 0, -20};
+        for (int column = 0; column < 10; ++column)
+            ASSERT_NEAR(products.value_->val.array.lparray[column].val.num, wanted[column], 2e-10);
+    }
+
+    void CheckMonteCarloPointAdmission(const RawMonteCarloFixture_& fixture, const OPER_& invalid, int position, bool column) {
+        OPER_ cells[]{Number(10), Number(.2), Number(.03), Number(.01), Number(2)};
+        cells[position] = invalid;
+        auto point = Multi(cells, column ? 5 : 1, column ? 1 : 5);
+        const auto row = "row=" + std::to_string(column ? position + 1 : 1);
+        const auto col = "column=" + std::to_string(column ? 1 : position + 1);
+        Output_ mean(fixture.Mean(&point, &fixture.paths_));
+        CheckError(mean, {"point", row.c_str(), col.c_str()});
+        Output_ result(fixture.Curvature(&point, &fixture.paths_, fixture.bumps_.Scalar()));
+        CheckError(result, {"point", row.c_str(), col.c_str()});
+    }
+
     void CheckRateFinancialSpills(const Output_& value, const Output_& gradient, const Output_& products) {
         const double payment = 1.028, discount = 1.025;
         ASSERT_NEAR(value.Scalar()->val.num, -2.0 * (payment / discount - 1.0), 1.0e-10);
@@ -149,6 +203,141 @@ namespace {
         }
     }
 } // namespace
+
+TEST(ScriptExcelRawTest, TestSegmentedMonteCarloAllGeneratedExportsAndIndependentSpills) {
+    RawMonteCarloFixture_ fixture;
+    ASSERT_EQ(fixture.plan_.Text().find("#Error:"), std::string::npos) << fixture.plan_.Text();
+    ASSERT_EQ(fixture.settings_.Text().find("#Error:"), std::string::npos) << fixture.settings_.Text();
+    OPER_ integer{};
+    integer.xltype = xltypeInt;
+    integer.val.w = 1;
+    fixture.pointCells_[0].xltype = xltypeInt;
+    fixture.pointCells_[0].val.w = 10;
+    Output_ mean(fixture.Mean(&fixture.point_, &integer));
+    ASSERT_EQ(mean.Text().find("#Error:"), std::string::npos) << mean.Text();
+    Output_ result(fixture.Curvature(&fixture.point_, &integer, fixture.bumps_.Scalar()));
+    ASSERT_EQ(result.Text().find("#Error:"), std::string::npos) << result.Text();
+    CheckMonteCarloFinancialSpills(mean.Scalar(), result.Scalar());
+    Output_ base(Call("xl_BlackScholesMonteCarloCurvatureResult_Get_Base", result.Scalar()));
+    CheckMonteCarloFinancialSpills(base.Scalar(), result.Scalar());
+    Output_ configuration(Call("xl_SegmentedMonteCarloSettings_Get_Configuration", fixture.settings_.Scalar()));
+    ASSERT_EQ(configuration.value_->val.array.rows, 8);
+    const auto& key = configuration.value_->val.array.lparray[7];
+    ASSERT_EQ(key.xltype, xltypeStr);
+    ASSERT_EQ(std::wstring(key.val.str + 1, key.val.str + 1 + key.val.str[0]), L"18446744073709551615");
+    for (const auto* function : {"xl_BlackScholesMonteCarloPlan_Get_Product", "xl_BlackScholesMonteCarloPlan_Get_Valuation"}) {
+        Output_ copied(Call(function, fixture.plan_.Scalar()));
+        ASSERT_EQ(copied.Text().find("#Error:"), std::string::npos) << copied.Text();
+    }
+    Output_ smoothing(Call("xl_BlackScholesMonteCarloPlan_Get_Smoothing", fixture.plan_.Scalar()));
+    ASSERT_DOUBLE_EQ(smoothing.Scalar()->val.num, .01);
+    Output_ labels(Call("xl_BlackScholesMonteCarloPlan_Get_ParameterLabels", fixture.plan_.Scalar()));
+    ASSERT_EQ(labels.value_->val.array.rows, 5);
+    Output_ constants(Call("xl_BlackScholesMonteCarloPlan_Get_ScriptConstants", fixture.plan_.Scalar()));
+    ASSERT_DOUBLE_EQ(constants.Scalar()->val.num, 2);
+    Output_ observations(Call("xl_BlackScholesMonteCarloPlan_Get_Observations", fixture.plan_.Scalar()));
+    ASSERT_EQ(observations.value_->val.array.rows, 2);
+    ASSERT_EQ(observations.value_->val.array.columns, 4);
+    ASSERT_EQ(observations.value_->val.array.lparray[6].xltype, xltypeBool);
+    ASSERT_EQ(observations.value_->val.array.lparray[6].val.xbool, 0);
+    Output_ meanLabels(Call("xl_BlackScholesMonteCarloResult_Get_ParameterLabels", mean.Scalar()));
+    ASSERT_EQ(meanLabels.value_->val.array.rows, 5);
+    Output_ meanExecution(Call("xl_BlackScholesMonteCarloResult_Get_Execution", mean.Scalar()));
+    ASSERT_EQ(meanExecution.value_->val.array.rows, 13);
+    ASSERT_DOUBLE_EQ(meanExecution.value_->val.array.lparray[1].val.num, 1);
+    ASSERT_EQ(meanExecution.value_->val.array.lparray[17].xltype, xltypeStr);
+    for (const auto* function : {"xl_BlackScholesMonteCarloResult_Get_Plan", "xl_BlackScholesMonteCarloResult_Get_Settings"}) {
+        Output_ copied(Call(function, mean.Scalar()));
+        ASSERT_EQ(copied.Text().find("#Error:"), std::string::npos) << copied.Text();
+    }
+    Output_ meanPoint(Call("xl_BlackScholesMonteCarloResult_Get_Point", mean.Scalar()));
+    ASSERT_DOUBLE_EQ(meanPoint.value_->val.array.lparray[0].val.num, 10);
+    for (const auto* function : {"xl_BlackScholesMonteCarloCurvatureResult_Get_Point", "xl_BlackScholesMonteCarloCurvatureResult_Get_Directions",
+                                 "xl_BlackScholesMonteCarloCurvatureResult_Get_Steps"}) {
+        Output_ copied(Call(function, result.Scalar()));
+        ASSERT_EQ(copied.value_->val.array.lparray[0].xltype, xltypeNum);
+        copied.value_->val.array.lparray[0].val.num = 999;
+    }
+    Output_ retained(Call("xl_BlackScholesMonteCarloCurvatureResult_Get_Point", result.Scalar()));
+    ASSERT_DOUBLE_EQ(retained.value_->val.array.lparray[0].val.num, 10);
+    Output_ shape(Call("xl_BlackScholesMonteCarloCurvatureResult_Get_Shape", result.Scalar()));
+    ASSERT_DOUBLE_EQ(shape.value_->val.array.lparray[0].val.num, 2);
+    ASSERT_DOUBLE_EQ(shape.value_->val.array.lparray[1].val.num, 5);
+    Output_ execution(Call("xl_BlackScholesMonteCarloCurvatureResult_Get_Execution", result.Scalar()));
+    ASSERT_EQ(execution.value_->val.array.rows, 7);
+    ASSERT_DOUBLE_EQ(execution.value_->val.array.lparray[3].val.num, 5);
+    ASSERT_DOUBLE_EQ(execution.value_->val.array.lparray[5].val.num, 264);
+    for (const auto* function : {"xl_BlackScholesMonteCarloCurvatureResult_Get_Plan", "xl_BlackScholesMonteCarloCurvatureResult_Get_Settings"}) {
+        Output_ copied(Call(function, result.Scalar()));
+        ASSERT_EQ(copied.Text().find("#Error:"), std::string::npos) << copied.Text();
+    }
+    Output_ integerSmoothing(
+        Call("xl_BlackScholesMonteCarloPlan_New", &fixture.name_.cell_, fixture.product_.Scalar(), fixture.valuation_.Scalar(), &integer));
+    Output_ retainedSmoothing(Call("xl_BlackScholesMonteCarloPlan_Get_Smoothing", integerSmoothing.Scalar()));
+    ASSERT_DOUBLE_EQ(retainedSmoothing.Scalar()->val.num, 1);
+}
+
+TEST(ScriptExcelRawTest, TestSegmentedMonteCarloRawPointGapsKindsAndPathAdmission) {
+    RawMonteCarloFixture_ fixture;
+    RawText_ empty(L""), text(L"1"), nul(std::wstring(L"bad\0name", 8));
+    OPER_ missing{}, boolean{};
+    missing.xltype = xltypeMissing;
+    boolean.xltype = xltypeBool;
+    boolean.val.xbool = 1;
+    for (const auto& invalid : {fixture.blank_, missing, empty.cell_, text.cell_, boolean, Number(std::numeric_limits<double>::infinity())})
+        for (int position : {0, 2, 4})
+            for (const bool column : {false, true})
+                CheckMonteCarloPointAdmission(fixture, invalid, position, column);
+    for (const auto& invalid : {fixture.blank_, boolean, text.cell_, Number(0), Number(-1), Number(.5), Number(9007199254740992.0),
+                                Number(std::numeric_limits<double>::infinity())}) {
+        Output_ mean(fixture.Mean(&fixture.point_, &invalid));
+        CheckError(mean, {"paths"});
+        Output_ result(fixture.Curvature(&fixture.point_, &invalid, fixture.bumps_.Scalar()));
+        CheckError(result, {"paths"});
+    }
+    Output_ badName(Call("xl_BlackScholesMonteCarloPlan_New", &nul.cell_, fixture.product_.Scalar(), fixture.valuation_.Scalar(), &fixture.blank_));
+    CheckError(badName, {"name", "NUL"});
+    Output_ wrongHandle(Call("xl_BlackScholesMonteCarloResult_New", &fixture.name_.cell_, fixture.settings_.Scalar(), &fixture.point_,
+                             &fixture.paths_, fixture.settings_.Scalar()));
+    CheckError(wrongHandle, {"plan"});
+    RawText_ overflow(L"18446744073709551616");
+    fixture.settingCells_[1] = overflow.cell_;
+    Output_ badKey(Call("xl_SegmentedMonteCarloSettings_New", &fixture.name_.cell_, &fixture.settingRows_));
+    CheckError(badKey, {"scramble_key", "uint64"});
+    Output_ recovered(fixture.Mean(&fixture.point_, &fixture.paths_));
+    ASSERT_EQ(recovered.Text().find("#Error:"), std::string::npos) << recovered.Text();
+}
+
+TEST(ScriptExcelRawTest, TestSegmentedMonteCarloRawZeroDirectionsAndSeparateRecordingCapRecover) {
+    RawMonteCarloFixture_ fixture;
+    RawText_ inputCount(L"input_count");
+    OPER_ countCells[]{inputCount.cell_, Number(5)};
+    auto countSettings = Multi(countCells, 1, 2);
+    Output_ empty(Call("xl_BumpOverAADRequest_New", &fixture.name_.cell_, &fixture.blank_, &fixture.blank_, &countSettings));
+    Output_ result(fixture.Curvature(&fixture.point_, &fixture.paths_, empty.Scalar()));
+    ASSERT_EQ(result.Text().find("#Error:"), std::string::npos) << result.Text();
+    for (const auto* function : {"xl_BlackScholesMonteCarloCurvatureResult_Get_Directions", "xl_BlackScholesMonteCarloCurvatureResult_Get_Steps",
+                                 "xl_BlackScholesMonteCarloCurvatureResult_Get_HessianProducts"}) {
+        Output_ spilled(Call(function, result.Scalar()));
+        ASSERT_EQ(spilled.Scalar()->xltype, xltypeStr);
+        ASSERT_EQ(spilled.Scalar()->val.str[0], 0);
+    }
+    Output_ shape(Call("xl_BlackScholesMonteCarloCurvatureResult_Get_Shape", result.Scalar()));
+    ASSERT_DOUBLE_EQ(shape.value_->val.array.lparray[0].val.num, 0);
+    ASSERT_DOUBLE_EQ(shape.value_->val.array.lparray[1].val.num, 5);
+    Output_ execution(Call("xl_BlackScholesMonteCarloCurvatureResult_Get_Execution", result.Scalar()));
+    ASSERT_DOUBLE_EQ(execution.value_->val.array.lparray[3].val.num, 1);
+    ASSERT_DOUBLE_EQ(execution.value_->val.array.lparray[5].val.num, 88);
+    RawText_ recordCap(L"recording_capacity_budget_bytes");
+    OPER_ capCells[]{recordCap.cell_, Number(0)};
+    auto capSettings = Multi(capCells, 1, 2);
+    Output_ capped(Call("xl_SegmentedMonteCarloSettings_New", &fixture.name_.cell_, &capSettings));
+    Output_ rejected(Call("xl_BlackScholesMonteCarloCurvatureResult_New", &fixture.name_.cell_, fixture.plan_.Scalar(), &fixture.point_,
+                          &fixture.paths_, fixture.bumps_.Scalar(), capped.Scalar()));
+    CheckError(rejected, {"Tape capacity budget exceeded", "limit=0"});
+    Output_ recovered(fixture.Curvature(&fixture.point_, &fixture.paths_, fixture.bumps_.Scalar()));
+    ASSERT_EQ(recovered.Text().find("#Error:"), std::string::npos) << recovered.Text();
+}
 
 TEST(ScriptExcelRawTest, TestRateCurvatureAllGeneratedExportsAndSignedAnalyticSpills) {
     RawRateFixture_ fixture;

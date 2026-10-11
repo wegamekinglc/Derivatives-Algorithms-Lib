@@ -18,6 +18,11 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-11
 
+- **Excel segmented Monte Carlo risk** — immutable native settings and sealed
+  script plans expose owning means, complete raw gradients and common-path
+  finite-step Hessian products, exact uint64 scramble keys and separate path
+  resource limits. See [the worksheet interface](docs/excel/README.md#segmented-blackscholes-monte-carlo-risk).
+
 - **Excel rate quote curvature** — owning native calibration snapshots,
   portfolio settings and results expose full recalibrated rate quote gradients,
   signed finite-step Hessian products and separate numeric/recording limits.

@@ -4,29 +4,44 @@ Status: active implementation under the native-only AAD scope.
 No stage is complete until its correctness, compatibility,
 performance, and applicable CI evidence has been inspected.
 
-Active delivery: Excel native rate-trade quote curvature after merged
-[#536](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/536).
-Current controls are the [specification](../specs/aad-excel-rate-curvature.md),
-[API](../api-notes/aad-excel-rate-curvature.md),
-[critique](../critiques/aad-excel-rate-curvature.md) and scoped
-[cost selection](../performance/aad-excel-rate-curvature.md).
-All 19 worksheet functions are implemented and generated, reusing accepted
-native calibration/closed-trade evaluators and the common Excel bump request.
-Twelve typed financial/interface cases, ten strict OFF/combined probes, the
-actual CMake binding boundary and 19 wrapper/help drift checks pass locally.
-Two selected complete rate costs retain 80 calibrated observations in
-7.658490101 measured seconds after the raw-admission repair; unequal owning
-contracts are informational. Only the original two selected cases were repeated.
-Four raw Windows cases and one registration case are authored; actual Windows
-runtime, exact-head CI/Codacy/reviews and publication remain pending. The active
-[review](../reviews/aad-excel-rate-curvature.md) controls those gates.
-External review's raw trade-range truncation finding is repaired by complete
-pre-conversion admission; the actual-converter RED/GREEN probe covers all 18
-blank-gap boundaries and retained duplicate rows. Actual Windows runtime and
-new-head publication acceptance remain required.
-Following rate, Excel segmented MC/LSMC and final requirement/documentation
-reconciliation remain. Developer effort is approximately 14–23 hours:
-rate 3–4, MC/LSMC 7–11 and final-only work 4–8; remote CI waiting is separate.
+Active delivery: Excel segmented Black–Scholes Monte Carlo after merged
+[#537](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/537).
+Current controls are the [specification](../specs/aad-excel-segmented-mc.md),
+[API](../api-notes/aad-excel-segmented-mc.md),
+[critique](../critiques/aad-excel-segmented-mc.md) and scoped
+[cost selection](../performance/aad-excel-segmented-mc.md).
+The missing-interface RED and eleven scoped typed GREEN cases are retained.
+Twenty-seven generated wrapper/help pairs, strict OFF/combined probes, the
+public binding boundary and two selected costs (80 observations, 6.198 seconds)
+pass locally. Immutable settings/plans/results delegate to accepted public
+native evaluators; actual Windows and publication acceptance remain open.
+LSMC follows in its own PR after this increment merges.
+Remaining developer effort is approximately 11–19 hours: MC 4–6, LSMC 3–5
+and final-only work 4–8; remote CI waiting is separate.
+
+Excel rate-trade quote curvature is accepted in #537 at merge
+`7d80c545a2fe4de0977a2e3cc0f8f73aa5056ade`, with accepted and merged tree
+`e4ab7d6311e692c806b046b6227360822dd8cfb4` of final head `c58235d0`.
+All 29 applicable exact-head checks pass; the unchanged Python wheel workflow
+does not trigger for this Excel/documentation-only diff, and its six checks are
+not claimed as passes. Codacy annotations and unresolved review threads are zero;
+the full current-head Codex review, both final audits and guarded merge pass.
+Actual logs verify twelve new C++ cases in fourteen build profiles. All four
+Windows profiles pass four raw cases, one registration case covering all nineteen
+exports and installed consumers 3/3. Required sanitizer checks pass; their
+focused selectors do not execute the new Excel cases. Local acceptance includes
+ten strict probes, the actual CMake binding boundary and nineteen generated
+wrapper/help pairs. The two scoped costs retain 80 calibrated observations in
+7.658490101 measured seconds, with unequal contracts informational. Only those
+two cases were repeated after the raw trade-admission repair; the final Windows
+empty-text assertion correction changes no timed production code.
+Completed controls remain immutable in the accepted
+[specification](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/c58235d0e0ef1bb78c757283d2d22f215ae82c2c/.codex/artifacts/specs/aad-excel-rate-curvature.md),
+[API](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/c58235d0e0ef1bb78c757283d2d22f215ae82c2c/.codex/artifacts/api-notes/aad-excel-rate-curvature.md),
+[critique](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/c58235d0e0ef1bb78c757283d2d22f215ae82c2c/.codex/artifacts/critiques/aad-excel-rate-curvature.md),
+[review](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/c58235d0e0ef1bb78c757283d2d22f215ae82c2c/.codex/artifacts/reviews/aad-excel-rate-curvature.md)
+and [cost report](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/c58235d0e0ef1bb78c757283d2d22f215ae82c2c/.codex/artifacts/performance/aad-excel-rate-curvature.md).
+Executable/raw cost artifacts remain active for final caller acceptance.
 
 Excel Dupire curvature is accepted in #536 at merge
 `f55bc5596f3208c875f7d6b71ce1c51eb3df7b20`, with accepted and merged tree
@@ -976,7 +991,7 @@ incremental implementation turns and PRs; a green first stage does not complete 
 - [x] P03: measured block-width policy and demand-driven result extraction; default maximum one retained.
 - [ ] Bindings: F01/F02 C++/Python/Excel and F04 C++/Python are accepted;
   closed financial PDE and Excel Dupire projections are accepted; complete
-  the remaining Excel rate/MC/LSMC interfaces.
+  the remaining Excel MC/LSMC interfaces.
   Native recording scopes/events and generic equation callbacks stay C++-owned.
 
 ## Stage C: structured reverse operators
@@ -1647,10 +1662,10 @@ overlapping acceptance work is included once in the integration allowance.
 | P04                     | Structural compression, safe fallback and selection accepted     | #511 merged; final 36/36 gates accepted  | 0                     |
 | P05                     | Core, fixed-path and Monte Carlo adapters accepted               | #512/#513/#515 merged; 36/36 gates       | 0                     |
 | F04                     | Finite-step and opt-in smooth prototype accepted                 | #517–#528 merged                         | 0                     |
-| Final integration/audit | Excel rate/MC/LSMC and final requirement audit remain            | Open                                     | 1.8–2.9               |
+| Final integration/audit | Excel MC/LSMC and final requirement audit remain                 | Open                                     | 1.4–2.4               |
 
-Remaining total after merged Excel Dupire acceptance: 14–23 hours,
-approximately 1.8–2.9 eight-hour person-days, excluding CI queue time. Both
+Remaining total after merged Excel rate acceptance: 11–19 hours,
+approximately 1.4–2.4 eight-hour person-days, excluding CI queue time. Both
 financial PDE projections are accepted and contribute zero hours. Delivery contingency
 is included in those same hour ranges; there is no extra undisclosed allowance. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
@@ -1663,8 +1678,8 @@ platform, consumer and performance evidence; they do not require repeating
 unrelated full local campaigns. Final work maps requirements to current APIs,
 tests and immutable delivery proofs, checks source/dependency applicability,
 repairs concrete documentation or behavior gaps, retires completed active
-controls, and inspects the required final exact-head CI/reviews. Excel rate,
-MC and LSMC implementation remains separately estimated below. A newly
+controls, and inspects the required final exact-head CI/reviews. Excel MC
+and LSMC implementation remains separately estimated below. A newly
 discovered behavior gap receives its own scope and estimate.
 
 Python rate-trade quote curvature is accepted in merged
@@ -1715,10 +1730,11 @@ numeric/native diagnostics are not counted again.
 | 11e   | Closed financial PDE projection      | #534 merged; 35/35 checks, review repairs, actual runtime, scoped costs and both final audits accepted | 0               |
 | 12a   | Excel European PDE                   | #535 merged; 35/35 checks, fourteen actual runtime profiles, both audits and identical tree accepted   | 0               |
 | 12b1  | Excel Dupire curvature               | #536 merged; 35/35 checks, fourteen runtime profiles, both audits and identical merged tree accepted   | 0               |
-| 12b2  | Excel rate curvature                 | Native calibration snapshots and trade quote-curvature interfaces, separate acceptance and publication | 3–4             |
-| 12c   | Excel MC and LSMC curvature          | Typed requests/plans/results, scoped acceptance and publication                                        | 7–11            |
+| 12b2  | Excel rate curvature                 | #537 merged; 29/29 applicable checks, fourteen runtime profiles, both audits and identical tree accepted | 0               |
+| 12c1  | Excel segmented MC curvature        | Typed settings/plans/results, scoped acceptance and publication                                        | 4–6             |
+| 12c2  | Excel LSMC curvature                | Typed plans/results and complete policy queries, scoped acceptance and publication                     | 3–5             |
 | 13    | Final integration and documentation  | Requirement/evidence audit, current docs, concrete gap repairs and final publication gates             | 4–8             |
-| Total | Full remaining implementation        | All remaining plan requirements                                                                        | 14–23           |
+| Total | Full remaining implementation        | All remaining plan requirements                                                                        | 11–19           |
 
 
 The first delivery boundary is complete. Whole-PR review repaired the Windows
@@ -2321,6 +2337,6 @@ Merge verification and both audits are retained in session evidence
 `aad-selected-extraction-merged-01.json`; the merge used the accepted-head SHA guard.
 P03 remaining effort is zero. The owning normalized-LU numeric pullback in #490
 and subsequent F03 recording/event integration are accepted. Current remaining
-work is Excel rate/MC/LSMC and final integration: 14–23 developer-hours, as detailed in
+work is Excel MC/LSMC and final integration: 11–19 developer-hours, as detailed in
 the current status table. The closed financial PDE projection is accepted in #534.
 Native algorithms are accepted; full interface/integration delivery is incomplete.
