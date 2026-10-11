@@ -49,8 +49,9 @@ namespace {
     }
 
     bool ValidNames(const Options_& options) {
-        return Choice(options.scenario_, {"short", "long", "local-vol", "lsmc-bs", "lsmc-local-vol"}) && Choice(options.mode_, {"double", "aad"}) &&
-               Choice(options.engine_, {"tree", "compiled"}) && Choice(options.measurement_, {"cold", "warm", "phases"});
+        return Choice(options.scenario_, {"short", "long", "local-vol", "hybrid-bs", "hybrid-gsr", "lsmc-bs", "lsmc-local-vol"}) &&
+               Choice(options.mode_, {"double", "aad"}) && Choice(options.engine_, {"tree", "compiled"}) &&
+               Choice(options.measurement_, {"cold", "warm", "phases"});
     }
 
     bool ValidOutputs(size_t outputs) { return outputs == 1 || outputs == 4 || outputs == 16 || outputs == 64; }
@@ -78,7 +79,26 @@ namespace {
         REQUIRE(options.measurement_ != "phases" || AAD::ProfilingAvailable(), "phase measurement requires DAL_ENABLE_AAD_PROFILING=ON");
     }
 
+    Handle_<ModelData_> HybridData(bool stochasticRates) {
+        HybridSettings_ settings;
+        settings.domesticCurrency_ = "USD";
+        settings.components_ = {Handle_<HybridComponentData_>(new HybridDeterministicRateData_("rate", "USD", 0.05)),
+                                Handle_<HybridComponentData_>(new HybridBSEquityData_("equity", "EQ[DAL418_TEST]", "USD", "EQ", 100.0, 0.2, 0.02))};
+        if (stochasticRates) {
+            const Date_ today(2024, 1, 1);
+            const Handle_<GSRCurveData_> curve(
+                new GSRCurveData_("curve", today, "USD", {today, today.AddDays(730)}, {0.0, -0.1}, {}, Matrix_<>(0, 0)));
+            const Handle_<GSRVolData_> vol(new GSRVolData_("vol", {today}, {0.02}, {today}, {1.0}));
+            settings.components_[0] = Handle_<HybridComponentData_>(new HybridGSRRateData_("rate", "RATE", curve, vol));
+        }
+        const Vector_<HybridFactorLink_> links = stochasticRates ? Vector_<HybridFactorLink_>{{"EQ", "RATE", -0.25}} : Vector_<HybridFactorLink_>{};
+        settings.correlation_ = AssembleHybridCorrelation("corr", settings.components_, links);
+        return Handle_<ModelData_>(new HybridModelData_("production-hybrid", settings));
+    }
+
     Handle_<ModelData_> ModelData(const Options_& options) {
+        if (options.scenario_ == "hybrid-bs" || options.scenario_ == "hybrid-gsr")
+            return HybridData(options.scenario_ == "hybrid-gsr");
         if (!options.LocalVol())
             return Handle_<ModelData_>(new BSModelData_("production-bs", 100.0, 0.2, 0.05, 0.02));
         Vector_<> spots(options.grid_), times(options.grid_);
@@ -103,7 +123,7 @@ namespace {
             }
         }
         dates.push_back(Cell_(maturity));
-        const std::string underlying = options.scenario_ == "long" ? "runningTotal" : options.scenario_ == "local-vol" ? "observedSpot" : "SPOT()";
+        const std::string underlying = options.scenario_ == "long" ? "runningTotal" : options.scenario_ == "short" ? "SPOT()" : "observedSpot";
         events.push_back(String_("call PAYS MAX(" + underlying + " - " + std::to_string(90.0 + static_cast<double>(output)) + ", 0.0)"));
         return {OutputName(output), dates, events};
     }
@@ -405,7 +425,8 @@ namespace {
 int RunProductionProfile(int argc, char** argv, ExerciseProductFactory_ exerciseFactory) {
     Options_ options;
     if (!Parse(argc, argv, &options)) {
-        std::cerr << "usage: script_mc_perf --production-profile short|long|local-vol|lsmc-bs|lsmc-local-vol PATHS double|aad tree|compiled "
+        std::cerr << "usage: script_mc_perf --production-profile short|long|local-vol|hybrid-bs|hybrid-gsr|lsmc-bs|lsmc-local-vol PATHS double|aad "
+                     "tree|compiled "
                      "cold|warm|phases OUTPUTS GRID TRAINING REPEATS\n";
         return 2;
     }

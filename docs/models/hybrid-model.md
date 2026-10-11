@@ -130,6 +130,10 @@ samples initial logDF once per simulation time and precomputes each step's
 initial integrated carry. Deterministic-rate paths use
 `N(t)=exp(-logDF(t))`; stochastic rate paths use their realized numeraire and
 conditional rate observations. The path loop does no name parsing or matrix factorization.
+With deterministic rates, components use the prepared carry through
+`HybridComponent_::EvolveWithoutCarry`. Its default delegates to `Evolve` with
+zero adjustment, so custom components can retain their existing implementation.
+Stateful rate components still evolve when their current volatility is zero.
 `SimDim()` is the number of internal positive time
 steps multiplied by `NumFactors()`, which includes internal bridge drivers.
 Independent Gaussian inputs are time-major, with registered factors in sorted

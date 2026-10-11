@@ -24,6 +24,65 @@
 using namespace Dal;
 
 namespace {
+    class LegacyHybridComponent_ final : public AAD::HybridComponent_<double> {
+        String_ name_ = "legacy", currency_ = "USD";
+        Vector_<String_> factors_{"W"}, observables_{"EQ[LEGACY]"}, labels_;
+        Vector_<double*> parameters_;
+
+    public:
+        [[nodiscard]] const String_& Name() const override { return name_; }
+        [[nodiscard]] const String_& Currency() const override { return currency_; }
+        [[nodiscard]] size_t StateDim() const override { return 1; }
+        [[nodiscard]] size_t FactorDim() const override { return 1; }
+        [[nodiscard]] const Vector_<String_>& FactorNames() const override { return factors_; }
+        [[nodiscard]] const Vector_<String_>& ObservableNames() const override { return observables_; }
+        [[nodiscard]] const Vector_<double*>& Parameters() const override { return parameters_; }
+        [[nodiscard]] const Vector_<String_>& ParameterLabels() const override { return labels_; }
+        void Prepare(const Vector_<>&, const Vector_<>&) override {}
+        void ResetState(Vector_<>* state, size_t offset) const override { (*state)[offset] = 1.0; }
+        void Evolve(size_t,
+                    const Vector_<>& factors,
+                    const Vector_<size_t>& factorSlots,
+                    const double& carryAdjustment,
+                    Vector_<>* state,
+                    size_t offset) const override {
+            (*state)[offset] += 0.25 + factors[factorSlots[0]] + carryAdjustment;
+        }
+        [[nodiscard]] double Observe(size_t, size_t, const Vector_<>& state, size_t offset, bool) const override { return state[offset]; }
+        [[nodiscard]] std::unique_ptr<AAD::HybridComponent_<double>> Clone() const override {
+            return std::make_unique<LegacyHybridComponent_>(*this);
+        }
+    };
+
+    std::pair<double, Vector_<>> HybridEquityPathResult(const HybridComponentData_& input, bool withoutAdjustment) {
+        AAD::Rewind(*AAD::Tape());
+        auto component = AAD::CreateHybridComponent<AAD::Number_>(input);
+        Vector_<AAD::Number_> carry{0.015, 0.025};
+        for (auto* parameter : component->Parameters())
+            AAD::PutOnTape(*parameter);
+        for (auto& increment : carry)
+            AAD::PutOnTape(increment);
+        AAD::NewRecording(*AAD::Tape());
+        component->Prepare({0.0, 0.4, 1.0}, carry);
+        Vector_<AAD::Number_> state(component->StateDim());
+        component->ResetState(&state, 0);
+        for (size_t step = 0; step < 2; ++step) {
+            if (withoutAdjustment)
+                component->EvolveWithoutCarry(step, {0.35 - 0.7 * step}, {0}, &state, 0);
+            else
+                component->Evolve(step, {0.35 - 0.7 * step}, {0}, AAD::Number_(0.0), &state, 0);
+        }
+        const AAD::Number_ payoff = component->Observe(2, 0, state, 0, false);
+        AAD::Adjoint(payoff) = 1.0;
+        AAD::PropagateToStart(*AAD::Tape());
+        Vector_<> risks;
+        for (const auto* parameter : component->Parameters())
+            risks.push_back(AAD::Adjoint(*parameter));
+        for (const auto& increment : carry)
+            risks.push_back(AAD::Adjoint(increment));
+        return std::make_pair(AAD::Value(payoff), risks);
+    }
+
     Matrix_<> HybridCorrelation(double rho = 0.35) {
         Matrix_<> correlations(2, 2, rho);
         correlations(0, 0) = correlations(1, 1) = 1.0;
@@ -138,6 +197,27 @@ TEST(ModelTest, TestHybridComponentCopiesOwnTheirParameters) {
     ASSERT_NO_FATAL_FAILURE(check(AAD::HybridLocalVolEquity_<double>(HybridLocalVolEquityData_("eq", "EQ[A]", "USD", "W", 100.0, 0.0, surface))));
 }
 
+TEST(ModelTest, TestHybridCarryFreeEquitiesMatchZeroAdjustmentAndAllRisks) {
+    Matrix_<> vols(2, 2);
+    vols(0, 0) = 0.16;
+    vols(0, 1) = 0.19;
+    vols(1, 0) = 0.25;
+    vols(1, 1) = 0.28;
+    const Handle_<LocalVolSurfaceData_> surface(new LocalVolSurfaceData_("vol", {80.0, 120.0}, {0.0, 1.0}, vols));
+    const Vector_<Handle_<HybridComponentData_>> data{
+        Handle_<HybridComponentData_>(new HybridBSEquityData_("eq", "EQ[A]", "USD", "W", 100.0, 0.2, 0.01)),
+        Handle_<HybridComponentData_>(new HybridLocalVolEquityData_("eq", "EQ[A]", "USD", "W", 100.0, 0.01, surface))};
+    const TapeGuard_ guard(AAD::Tape());
+    for (const auto& input : data) {
+        const auto reference = HybridEquityPathResult(*input, false);
+        const auto actual = HybridEquityPathResult(*input, true);
+        ASSERT_NEAR(actual.first, reference.first, 1e-12);
+        ASSERT_EQ(actual.second.size(), reference.second.size());
+        for (size_t parameter = 0; parameter < actual.second.size(); ++parameter)
+            ASSERT_NEAR(actual.second[parameter], reference.second[parameter], 1e-12);
+    }
+}
+
 TEST(ModelTest, TestHybridMultiFactorGsrEquityMatchesGaussianPrice) {
     const Date_ today(2026, 10, 3);
     const Handle_<GSRCurveData_> curve(new GSRCurveData_("curve", today, "USD", {today, today.AddDays(730)}, {0.0, 0.0}, {}, Matrix_<>(0, 0)));
@@ -166,6 +246,58 @@ TEST(ModelTest, TestHybridMultiFactorGsrEquityMatchesGaussianPrice) {
             ASSERT_NEAR(GaussianEquityCall(clone.get(), times), expected, 1e-10);
         }
     }
+}
+
+TEST(ModelTest, TestHybridCarryFreeEvolutionSupportsLegacyComponents) {
+    Vector_<std::unique_ptr<AAD::HybridComponent_<double>>> components;
+    components.push_back(std::make_unique<LegacyHybridComponent_>());
+    components.push_back(std::make_unique<AAD::HybridDeterministicRate_<double>>(HybridDeterministicRateData_("rate", "USD", 0.05)));
+    const HybridConstantCorrelationData_ correlation("corr", {"W"}, Matrix_<>(1, 1, 1.0));
+    AAD::HybridModel_<> model("USD", std::move(components), correlation);
+    const Vector_<> timeline{0.5, 1.0};
+    Vector_<AAD::SampleDef_> definitions(2);
+    model.Allocate(timeline, definitions);
+    model.Init(timeline, definitions);
+    AAD::Scenario_<> path;
+    AAD::AllocatePath(definitions, path);
+    model.GeneratePath({0.1, -0.3}, &path);
+    ASSERT_NEAR(path[0].spot_, 1.35, 1e-12);
+    ASSERT_NEAR(path[1].spot_, 1.3, 1e-12);
+    ASSERT_NEAR(path[1].numeraire_, std::exp(0.05), 1e-12);
+}
+
+TEST(ModelTest, TestHybridDeterministicGsrStillEvolvesObservationRisks) {
+    const Date_ today(2026, 10, 3), maturity = today.AddDays(730);
+    const Handle_<GSRCurveData_> curve(new GSRCurveData_("curve", today, "USD", {today, maturity}, {0.0, -0.06}, {}, Matrix_<>(0, 0)));
+    const Handle_<GSRVolData_> vol(new GSRVolData_("vol", {today}, {0.0}, {today}, {1.0}));
+    HybridSettings_ settings;
+    settings.domesticCurrency_ = "USD";
+    settings.components_ = {Handle_<HybridComponentData_>(new HybridGSRRateData_("rate", "RATE", curve, vol)),
+                            Handle_<HybridComponentData_>(new HybridBSEquityData_("equity", "EQ[A]", "USD", "EQ", 100.0, 0.2, 0.01))};
+    settings.correlation_ = AssembleHybridCorrelation("corr", settings.components_, {});
+    const TapeGuard_ guard(AAD::Tape());
+    auto model = CreateModel<AAD::Number_>(HybridData(settings));
+    ASSERT_TRUE(model->NumeraireIsDeterministic());
+    const Vector_<> timeline{1.0};
+    Vector_<AAD::SampleDef_> definitions(1);
+    definitions[0].indexNames_ = {"IR[USD,DF," + Date::ToString(maturity) + "]"};
+    model->Allocate(timeline, definitions);
+    AAD::Scenario_<AAD::Number_> path;
+    AAD::AllocatePath(definitions, path);
+    AAD::Rewind(*AAD::Tape());
+    for (auto* parameter : model->Parameters())
+        AAD::PutOnTape(*parameter);
+    AAD::NewRecording(*AAD::Tape());
+    model->Init(timeline, definitions);
+    model->GeneratePath({0.1, 0.4, -0.3}, &path);
+    const AAD::Number_ discount = path[0].observations_[0];
+    AAD::Adjoint(discount) = 1.0;
+    AAD::PropagateToStart(*AAD::Tape());
+    ASSERT_NEAR(AAD::Value(discount), std::exp(-0.03), 1e-12);
+    const auto& labels = model->ParameterLabels();
+    const auto found = std::find(labels.begin(), labels.end(), "g:" + Date::ToString(today));
+    ASSERT_NE(found, labels.end());
+    ASSERT_NEAR(AAD::Adjoint(*model->Parameters()[static_cast<size_t>(found - labels.begin())]), -0.4 * std::exp(-0.03), 1e-12);
 }
 
 TEST(ModelTest, TestHybridTwoEquitiesMatchCorrelatedBSPath) {
