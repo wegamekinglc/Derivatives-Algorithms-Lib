@@ -94,6 +94,12 @@ distinct OIS bond once per sample and reuse it across rate observations and
 delayed-payment discounts. Samples with repeated bonds keep prices in the
 path's `Sample_::modelScratch_`; the initialized model
 can be shared by double workers.
+For one, two and three factors, Gaussian bond exponents and state/numeraire sums
+compose native AAD expressions before recording their results. Higher factor
+counts retain the general loops. Standalone multi-factor paths reuse a state
+prefix in the first sample's scratch storage; cached first-sample bond prices
+follow that prefix. Path initialization clears the unused spot field, and
+repeated generation reuses scratch capacity.
 Projection spreads retain their separate input derivatives even when projection
 and OIS curves have equal values.
 

@@ -87,8 +87,9 @@ class ProductionProfileTest(unittest.TestCase):
     def test_representative_scenarios(self):
         scenarios = {
             "long": (0, 0), "local-vol": (2, 0), "hybrid-bs": (0, 0), "hybrid-gsr": (0, 0),
-            "gsr-swap-1f": (0, 0), "gsr-swap-3f": (0, 0), "gsr-bond-1f": (0, 0),
-            "hybrid-gsr-swap": (0, 0), "hybrid-gsr-swap-3f": (0, 0), "hybrid-gsr-bond-1f": (0, 0),
+            "gsr-swap-1f": (0, 0), "gsr-swap-2f": (0, 0), "gsr-swap-3f": (0, 0), "gsr-swap-4f": (0, 0),
+            "gsr-bond-1f": (0, 0), "gsr-bond-3f": (0, 0),
+            "hybrid-gsr-swap": (0, 0), "hybrid-gsr-swap-3f": (0, 0), "hybrid-gsr-bond-1f": (0, 0), "hybrid-gsr-bond-3f": (0, 0),
             "slv-swap-1f": (0, 0), "slv-swap-3f": (0, 0), "slv-bond-1f": (0, 0),
             "hybrid-slv-swap-1f": (0, 0), "hybrid-slv-swap-3f": (0, 0), "hybrid-slv-bond-1f": (0, 0),
             "lsmc-bs": (0, 64), "lsmc-local-vol": (2, 64),

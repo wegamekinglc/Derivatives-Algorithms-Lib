@@ -19,6 +19,7 @@
 #include <dal/curve/logdfinterp.hpp>
 #include <dal/indice/index/ir.hpp>
 #include <dal/indice/indexparse.hpp>
+#include <dal/math/aad/accumulate.hpp>
 #include <dal/model/gsrmultidata.hpp>
 #include <dal/platform/consts.hpp>
 #include <dal/protocol/conventions.hpp>
@@ -239,11 +240,27 @@ namespace Dal::AAD {
             return {std::move(loading), intercept};
         }
 
+        template <size_t N_, class F_, class G_> static auto WithSmallFactorCount(size_t factors, const F_& fixed, const G_& general) {
+            if (factors == N_)
+                return fixed(std::integral_constant<size_t, N_>{});
+            if constexpr (N_ < 3)
+                return WithSmallFactorCount<N_ + 1>(factors, fixed, general);
+            else
+                return general();
+        }
+
         [[nodiscard]] static T_ Bond(const Bond_& bond, const T_* state) {
-            T_ exponent = bond.intercept_;
-            for (size_t i = 0; i < bond.loading_.size(); ++i)
-                exponent -= bond.loading_[i] * state[i];
-            return Dal::exp(exponent);
+            return WithSmallFactorCount<1>(
+                bond.loading_.size(),
+                [&](auto count) -> T_ {
+                    return Dal::exp(Accumulate<decltype(count)::value>(bond.intercept_, [&](size_t i) { return -(bond.loading_[i] * state[i]); }));
+                },
+                [&]() -> T_ {
+                    T_ exponent = bond.intercept_;
+                    for (size_t i = 0; i < bond.loading_.size(); ++i)
+                        exponent -= bond.loading_[i] * state[i];
+                    return Dal::exp(exponent);
+                });
         }
 
         template <class F_>
@@ -362,7 +379,7 @@ namespace Dal::AAD {
                                  0.5 * Quadratic(step->loading_, StateVariance(0.0, from)) + (2.0 / 3.0) * variance;
         }
 
-        void AdvancePath(const Step_& step, const double* gaussian, T_* state, T_* logNumeraire) const {
+        void AdvancePathGeneral(const Step_& step, const double* gaussian, T_* state, T_* logNumeraire) const {
             T_ logDiscount = step.a_;
             for (size_t i = 0; i < NumFactors(); ++i)
                 logDiscount -= step.loading_[i] * state[i] + step.discountNormals_[i] * gaussian[i];
@@ -370,6 +387,25 @@ namespace Dal::AAD {
             for (size_t i = 0; i < NumFactors(); ++i)
                 for (size_t j = 0; j <= i; ++j)
                     state[i] += step.lower_(static_cast<int>(i), static_cast<int>(j)) * gaussian[j];
+        }
+
+        template <size_t I_> static void AdvanceFactor(const Step_& step, const double* gaussian, T_* state) {
+            state[I_] = Accumulate<I_ + 1>(state[I_], [&](size_t j) { return step.lower_(static_cast<int>(I_), static_cast<int>(j)) * gaussian[j]; });
+        }
+
+        template <size_t... I_> static void AdvanceFactors(const Step_& step, const double* gaussian, T_* state, std::index_sequence<I_...>) {
+            (AdvanceFactor<I_>(step, gaussian, state), ...);
+        }
+
+        void AdvancePath(const Step_& step, const double* gaussian, T_* state, T_* logNumeraire) const {
+            WithSmallFactorCount<1>(
+                NumFactors(),
+                [&](auto count) {
+                    *logNumeraire -= Accumulate<decltype(count)::value>(
+                        step.a_, [&](size_t i) { return -(step.loading_[i] * state[i] + step.discountNormals_[i] * gaussian[i]); });
+                    AdvanceFactors(step, gaussian, state, std::make_index_sequence<decltype(count)::value>{});
+                },
+                [&] { AdvancePathGeneral(step, gaussian, state, logNumeraire); });
         }
 
         [[nodiscard]] T_ BondHJM(const Bond_& bond, const T_* state, const T_* covariance) const {
@@ -456,7 +492,7 @@ namespace Dal::AAD {
             return true;
         }
 
-        void GeneratePathWithState(const Vector_<>& gaussian, Scenario_<T_>* path, T_* state) const {
+        void GeneratePathWithState(const Vector_<>& gaussian, Scenario_<T_>* path, T_* state, size_t statePrefix) const {
             T_ logNumeraire(0.0);
             size_t gaussianSlot = 0;
             for (size_t i = 0; i < productTimeLine_.size(); ++i) {
@@ -466,15 +502,15 @@ namespace Dal::AAD {
                     gaussianSlot += NumFactors();
                 }
                 auto& sample = (*path)[i];
-                sample.spot_ = T_(0.0);
                 sample.numeraire_ = Dal::exp(logNumeraire);
                 if (reuseBonds_[i]) {
                     auto& prices = sample.modelScratch_;
-                    prices.clear();
-                    prices.reserve(bonds_[i].size());
+                    const size_t prefix = i == 0 ? statePrefix : 0;
+                    prices.Resize(prefix);
+                    prices.reserve(prefix + bonds_[i].size());
                     for (const auto& bond : bonds_[i])
                         prices.push_back(Bond(bond, state));
-                    WriteObservations(i, [&](const Bond_& bond) -> const T_& { return prices[bond.index_]; }, &sample);
+                    WriteObservations(i, [&](const Bond_& bond) -> const T_& { return prices[prefix + bond.index_]; }, &sample);
                 } else
                     WriteObservations(i, [&](const Bond_& bond) { return Bond(bond, state); }, &sample);
             }
@@ -639,10 +675,20 @@ namespace Dal::AAD {
             REQUIRE(factorSlots.size() == NumFactors() + 1 && factors.size() >= NumFactors() + 1, "InvalidGSRPath: hybrid factor layout mismatch");
             const Step_& step = steps_[sample];
             REQUIRE(step.hybridStateVol_.size() == NumFactors(), "InvalidGSRPath: call InitHybrid before hybrid stepping");
-            T_ increment = step.hybridDrift_ + step.hybridBridgeVol_ * factors[factorSlots.back()];
-            for (size_t i = 0; i < NumFactors(); ++i)
-                increment += step.loading_[i] * state[i] + step.hybridNormals_[i] * factors[factorSlots[i]];
-            *logNumeraire += increment;
+            WithSmallFactorCount<1>(
+                NumFactors(),
+                [&](auto count) {
+                    *logNumeraire +=
+                        Accumulate<decltype(count)::value>(step.hybridDrift_ + step.hybridBridgeVol_ * factors[factorSlots.back()], [&](size_t i) {
+                            return step.loading_[i] * state[i] + step.hybridNormals_[i] * factors[factorSlots[i]];
+                        });
+                },
+                [&] {
+                    T_ increment = step.hybridDrift_ + step.hybridBridgeVol_ * factors[factorSlots.back()];
+                    for (size_t i = 0; i < NumFactors(); ++i)
+                        increment += step.loading_[i] * state[i] + step.hybridNormals_[i] * factors[factorSlots[i]];
+                    *logNumeraire += increment;
+                });
             for (size_t i = 0; i < NumFactors(); ++i)
                 state[i] += step.hybridStateVol_[i] * factors[factorSlots[i]];
         }
@@ -784,12 +830,18 @@ namespace Dal::AAD {
         void GeneratePath(const Vector_<>& gaussian, Scenario_<T_>* path) const override {
             REQUIRE(gaussian.size() == SimDim() && path && path->size() == productTimeLine_.size(),
                     "InvalidGSRPath: Gaussian or scenario dimension mismatch");
+            if (path->empty())
+                return;
             if (NumFactors() == 1) {
                 T_ state(0.0);
-                GeneratePathWithState(gaussian, path, &state);
+                GeneratePathWithState(gaussian, path, &state, 0);
             } else {
-                Vector_<T_> state(NumFactors(), T_(0.0));
-                GeneratePathWithState(gaussian, path, &state[0]);
+                auto& state = (*path)[0].modelScratch_;
+                state.Resize(NumFactors());
+                // First-sample bond caching shares this vector; establish capacity before taking state pointers.
+                state.reserve(NumFactors() + (reuseBonds_[0] ? bonds_[0].size() : 0));
+                std::fill(state.begin(), state.end(), T_(0.0));
+                GeneratePathWithState(gaussian, path, &state[0], NumFactors());
             }
         }
     };

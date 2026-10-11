@@ -228,6 +228,26 @@ callers, but must not replace marks or discard graphs managed by scoped
 checkpoint methods. The scope does not validate every expression or make raw
 iterators stable checkpoints.
 
+### Fixed-Size Expression Accumulation
+
+`AAD::Accumulate<N>(initial, term)` in `dal/math/aad/accumulate.hpp` composes a
+fixed-size sum with the native expression templates. It calls `term(i)` once
+per index in ascending order and preserves left-to-right addition. For example:
+
+```cpp
+Number_ value = exp(AAD::Accumulate<3>(intercept, [&](size_t i) {
+    return coefficients[i] * variables[i];
+}));
+```
+
+The expression snapshots its operands and records one result node when assigned
+to a native active number, provided the term factory does not materialize its
+own active intermediates. Active coefficients retain their derivatives even
+when their values are zero. Composed expressions use the existing lifetime
+checks at materialization. An empty sum copies `initial`, calls no term factory
+and adds no node; ordinary active-number copy semantics apply. Plain double
+arguments use ordinary arithmetic without tape storage.
+
 ### Native Active-Number Lifetime Diagnostics
 
 Configure with `DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS=ON` to check native
@@ -968,10 +988,10 @@ Equity scenarios are `short`, `long`, `local-vol`, `hybrid-bs`, `hybrid-gsr`,
 `lsmc-bs` and `lsmc-local-vol`. The hybrid equity cases observe one BS equity daily under a
 constant 5% rate or one-factor GSR rates (2% Gaussian volatility, unit loading,
 and equity/rate correlation -0.25), respectively. They use a zero surface grid.
-Rate scenarios `gsr-swap-1f`, `gsr-swap-3f`, `hybrid-gsr-swap`,
+Rate scenarios `gsr-swap-1f`, `gsr-swap-2f`, `gsr-swap-3f`, `gsr-swap-4f`, `hybrid-gsr-swap`,
 `hybrid-gsr-swap-3f`, `slv-swap-1f`, `slv-swap-3f`, `hybrid-slv-swap-1f` and
 `hybrid-slv-swap-3f` observe a 5Y swap, 3M Libor and dated OIS bond at 17 quarterly
-dates. `gsr-bond-1f`, `hybrid-gsr-bond-1f`, `slv-bond-1f` and
+dates. `gsr-bond-1f`, `gsr-bond-3f`, `hybrid-gsr-bond-1f`, `hybrid-gsr-bond-3f`, `slv-bond-1f` and
 `hybrid-slv-bond-1f` observe only the bond. They use separate OIS/3M curves,
 piecewise g/H inputs and a zero surface grid. Gaussian GSR cases include a
 delayed payment; standalone and Hybrid SLV pay at the final event.
