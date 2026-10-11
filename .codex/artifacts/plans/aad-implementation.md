@@ -1,3 +1,106 @@
+# Native AAD roadmap: implementation closure
+
+Status: all applicable implementation requirements are accepted through merged
+[#539](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/539).
+Publication of the separate final retirement PR remains required before closing
+the overall task. The tables and checkboxes in this section control the current
+state; the historical snapshots below retain their original intermediate status.
+
+The [complete expanded design](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/de5dd8b20089223e6938dfd8100d463aa6d4a169/.codex/artifacts/plans/aad-improvement-plan.md)
+remains the detailed plan. The native-only amendment supersedes its external
+backend obligations. No remaining native algorithm or financial binding feature
+is identified by the requirement audit.
+
+## Requirement-by-requirement closure
+
+| Requirement          | Implemented contract and independent acceptance                                                                                                                | Delivery                   |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| C01/C05              | Every nonzero adjoint propagates; scaled/materialized/fused identities, subnormals and signed zeros preserve exact default semantics                           | #480                       |
+| C02                  | Independent vector channels agree with scalar/weighted requests, aliases and zero-seed/infinite-derivative cases                                               | #480                       |
+| C03                  | Nonfinite seeds/derivatives remain observable; owning public results reject invalid numerical risk                                                             | #480                       |
+| C04                  | Consumed intermediates clear, leaves accumulate, repeated sweeps and restored suffixes retain their declared semantics                                         | #480                       |
+| D00                  | XAD, CoDiPack and Adept implementations, gitlinks, configuration and exports removed; old options/macros explicitly reject; five unrelated dependencies remain | #480; current source audit |
+| D01                  | Owning recordings/checkpoints, nested-entry rejection, exception/foreign-thread recovery and cancelled RNG cleanup accepted                                    | #480, #529                 |
+| D02                  | Optional lifetime/owner/generation checks retain OFF ABI/performance and pass stale-slot, reset, exhaustion and failure cases                                  | #480                       |
+| D03                  | Native seed/read/recording/reverse-event contracts match actual capabilities; general higher order remains false                                               | #480, #528                 |
+| P01                  | Production tape/Jacobian/MC measurements, calibrated paired observations, resources and scaling accepted                                                       | #480                       |
+| D04                  | Owning scalar risk axes, units, provenance, numeric budgets and legacy PV/gradient projections accepted                                                        | #480                       |
+| F01                  | Dupire direct/calibration quote composition, Hybrid requests, curve quote semantics and full recalibration/common-path oracles accepted                        | #480                       |
+| F02 weighted         | Prepared weighted VJP agrees with independent scalar component sums, aliases/constants and caller-state checks                                                 | #483                       |
+| F02 blocked          | Budgeted rerecording and root lanes agree with scalar rows and weighted transpose sums across widths, tails and exact cap/recovery boundaries                  | #484                       |
+| F02 portfolios       | Ordered full-request grouping, captured observations, duplicate coordinates, weights and owning result projections accepted                                    | #487                       |
+| P02/P03              | Prepared worker reuse, safe re-registration, demand extraction and complete-request paired cost evidence accepted; default maximum width remains one           | #488, #489                 |
+| F03 solves           | Dense and independent-coordinate reverse operators pass nonsymmetric/directional, alias/lifecycle/capacity, accuracy and installed-consumer references         | #490–#500                  |
+| F03 implicit roots   | Owning linearization and native events pass elementary branch, nonsymmetric Cramer, stationarity-Jacobian and residual references                              | #501, #502                 |
+| F03 PDE              | Sampled theta steps and closed fixed-grid European risk pass nonuniform/pivot, discrete/continuum and financial grid references                                | #504–#506, #534, #535      |
+| P04                  | Proven supports, coloring, recording and financial selection pass dense seed sums, exhaustive small supports, changing numerical zero and safe fallback        | #507–#511                  |
+| P05                  | Full state/RNG checkpoint replay passes independent three-step references, segment lengths, mismatch/recovery and complete long-path financial requests        | #512, #513, #515           |
+| F04 finite step      | Signed mixed/Gamma and full recalibration/common-path references cover quote, MC and Frozen/RetrainedBump LSMC estimators with explicit inner/outer steps      | #517–#527                  |
+| F04 smooth prototype | Explicit opt-in C++ forward-over-reverse smooth kernels pass analytic scalar/mixed references and capability checks                                            | #528                       |
+| Python parity        | Owning financial PDE, quote, segmented MC and LSMC requests/results pass detached-copy, strict-input, GIL/runtime and scoped cost acceptance                   | #529–#534                  |
+| Excel parity         | Owning PDE, common bump, Dupire, rate, segmented MC and LSMC plans/results pass generated/help/registration, typed and actual raw Windows acceptance           | #535–#539                  |
+
+Native recording scopes/events and generic equation callbacks remain C++-owned.
+Finite-step estimators do not grant general higher-order AD. These are accepted
+API boundaries documented in the published methodology and binding guides.
+
+## Consolidated completion evidence
+
+- [x] Each requirement links to accepted independent mathematical/resource evidence
+  and retained RED/GREEN delivery records; test names alone are not oracle proof.
+- [x] Actual implementation-head logs match all 538 selected requirement anchors,
+  with fresh full native/core/public/portable-binding verification in required CI.
+- [x] Native-only OFF/ON configuration, package/ABI, migration rejection and current
+  implementation/build/test inventory are reconciled; removed backend support is absent.
+- [x] Python and Excel financial parity, generated-source integrity, and published
+  documentation integrity are accepted within the declared language boundaries.
+- [x] Changed-path/caller/boundary performance sets retain raw observations and
+  executable/dependency identity. No final all-benchmark repeat is needed.
+- [x] Current-state method docs, executable examples, installation and changelog
+  describe existing behavior, shapes, units, budget limits and estimator semantics.
+- [x] Local read-first review and full implementation-head external review have no
+  unresolved actionable correctness or compatibility findings.
+- [x] The actual final implementation is audited against every requirement above;
+  historical intermediate pending statements do not create new feature obligations.
+
+Latest implementation evidence: accepted head `c77320ae412de333e55b28a0c6b7009e602b19c9`, squash
+merge `a8638f79fb95356b9e322402509400f0bc76099a`, and accepted/merged tree `d827d43456af9b41598ad7537f5317f91d9dd915`.
+All 29 applicable checks, both final audits and SHA-guarded merge pass. The six
+unchanged wheel checks do not trigger and are not counted as passes. Codacy
+annotations and unresolved review threads are zero; current-head Codex review is
+clear. Fourteen actual runtime profiles pass all 20 affected typed cases; all four
+Windows profiles also pass eight raw/registration cases and three installed
+consumers. Required sanitizer checks retain their actual focused selectors.
+
+The current implementation audit records 2,315 tracked implementation/test/build/
+dependency entries, including five dependency pins. Accepted Python module and
+archive hashes remain valid; both actual dependents of the two additive public
+headers were rebuilt to identical objects. The latest four selected cost cases
+retain 160 calibrated observations in 15.012276119 measured seconds. Both
+same-contract MC cases pass +4% in both rounds; unequal native/Excel LSMC ownership
+costs remain informational. Earlier accepted cost sets keep their original caller,
+boundary, configuration and executable scope.
+
+The final PR retires 121 completed controls/assets and updates the artifact README.
+Production, tests, generated wrappers, dependencies and build/CI configuration stay
+identical to the accepted implementation. No new local numerical suite or timing
+campaign is selected for that scope. The existing classifier requires all 29
+applicable closing-head CI checks because historical CPP/Python/JSON assets are
+deleted. Closing-head complete review, two final audits and guarded merge remain
+the only publication boundary.
+
+`CLAUDE.md` contains pre-existing obsolete backend guidance. Repository policy
+protects it from edits without a specific request; it is preserved. The published
+installation guide correctly documents native-only builds and migration errors.
+The unrelated DAL-317 artifact is also preserved.
+
+## Historical increment snapshots
+
+The following record preserves earlier delivery reasoning and estimates. Its
+intermediate pending statements are superseded by the closure above.
+
+---
+
 # DAL AAD implementation ledger
 
 Status: active implementation under the native-only AAD scope.
