@@ -14,6 +14,7 @@
 
 #include "__curvatureinput.hpp"
 #include "__curvaturerows.hpp"
+#include "__mcriskrows.hpp"
 
 // clang-format off
 /*IF--------------------------------------------------------------------------
@@ -491,21 +492,6 @@ namespace Dal {
             *budget->second = Cell::IsEmpty(cell) ? std::nullopt : std::optional<size_t>(Excel::PayloadBudget(cell, context, budget->first));
         }
 
-        Vector_<> ReadPoint(const Matrix_<Cell_>& cells, const char* function) {
-            REQUIRE(cells.Rows() == 1 || cells.Cols() == 1, String_(function) + "; point must be a complete row or column vector");
-            Vector_<> point;
-            for (int row = 0; row < cells.Rows(); ++row)
-                for (int column = 0; column < cells.Cols(); ++column)
-                    point.push_back(Excel::CurvatureNumber(cells(row, column), Excel::ScriptSettingLocation(function, "point", row + 1, column + 1)));
-            return point;
-        }
-
-        size_t ReadPaths(double paths, const char* function) {
-            const auto count = Excel::PayloadBudget(Cell_(paths), String_(function) + "; ", "paths");
-            REQUIRE(count > 0, String_(function) + "; paths must be positive");
-            return count;
-        }
-
         Matrix_<Cell_> MeanExecution(const Script::SegmentedMonteCarloExecution_& execution) {
             using namespace Excel;
             return FieldCells({Field("path_count", double(execution.pathCount_)), Field("first_path", double(execution.firstPath_)),
@@ -582,20 +568,7 @@ namespace Dal {
 
     void BlackScholesMonteCarloPlan_Get_Observations(const Handle_<StorableBlackScholesMonteCarloPlan_>& plan, Matrix_<Cell_>* observations) {
         const auto& values = Excel::CheckedCurvatureValue(plan, "BlackScholesMonteCarloPlan_Get_Observations; plan").Observations();
-        REQUIRE(values.size() < static_cast<size_t>(Excel::CURVATURE_MAX_ROWS),
-                "BlackScholesMonteCarloPlan_Get_Observations; rows exceed worksheet limit");
-        Matrix_<Cell_> cells(static_cast<int>(values.size()) + 1, 4);
-        const std::array<const char*, 4> headers = {{"index", "fixing_time", "historical", "value"}};
-        for (int column = 0; column < 4; ++column)
-            cells(0, column) = headers[column];
-        for (int row = 1; row < cells.Rows(); ++row) {
-            const auto& value = values[row - 1];
-            cells(row, 0) = value.index_;
-            cells(row, 1) = value.fixingTime_;
-            cells(row, 2) = value.historical_;
-            cells(row, 3) = Excel::OptionalCell(value.value_);
-        }
-        *observations = std::move(cells);
+        *observations = Excel::MonteCarloObservationCells(values, "BlackScholesMonteCarloPlan_Get_Observations");
     }
 
     void BlackScholesMonteCarloResult_New(const String_& name,
@@ -607,7 +580,8 @@ namespace Dal {
         constexpr const char* FUNCTION = "BlackScholesMonteCarloResult_New";
         Excel::CheckCurvatureText(name, String_(FUNCTION) + "; name");
         const auto& fixedPlan = Excel::CheckedCurvatureValue(plan, "BlackScholesMonteCarloResult_New; plan");
-        auto value = ValueByBlackScholesSegmentedMonteCarlo(fixedPlan, ReadPoint(point, FUNCTION), ReadPaths(paths, FUNCTION),
+        auto value = ValueByBlackScholesSegmentedMonteCarlo(fixedPlan, Excel::ReadMonteCarloPoint(point, FUNCTION),
+                                                            Excel::ReadMonteCarloPaths(paths, FUNCTION),
                                                             settings ? settings->val_ : Script::SegmentedMonteCarloSettings_());
         result->reset(new StorableBlackScholesMonteCarloResult_(
             name, Excel::MonteCarloMeanSnapshot_{value.Plan(), value.Point(), value.Settings(), value.Mean()}));
@@ -624,7 +598,8 @@ namespace Dal {
         Excel::CheckCurvatureText(name, String_(FUNCTION) + "; name");
         const auto& fixedPlan = Excel::CheckedCurvatureValue(plan, "BlackScholesMonteCarloCurvatureResult_New; plan");
         const auto& request = Excel::CheckedCurvatureValue(bumps, "BlackScholesMonteCarloCurvatureResult_New; bumps");
-        auto value = ValueByBlackScholesMonteCarloWithCurvature(fixedPlan, ReadPoint(point, FUNCTION), ReadPaths(paths, FUNCTION), request,
+        auto value = ValueByBlackScholesMonteCarloWithCurvature(fixedPlan, Excel::ReadMonteCarloPoint(point, FUNCTION),
+                                                                Excel::ReadMonteCarloPaths(paths, FUNCTION), request,
                                                                 settings ? settings->val_ : Script::SegmentedMonteCarloSettings_());
         result->reset(new StorableBlackScholesMonteCarloCurvatureResult_(name, std::move(value)));
     }

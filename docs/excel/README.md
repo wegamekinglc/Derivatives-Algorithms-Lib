@@ -210,6 +210,96 @@ gradients, with separate step bias and sampling error; it does not grant general
 higher-order differentiation. EXERCISE uses the LSMC interface. See the
 [numerical contract](../methodology/aad.md#common-path-segmented-monte-carlo-curvature).
 
+## Native LSMC policy curvature
+
+Create a sealed Black–Scholes EXERCISE plan, a shared bump request and an owning
+result. Exercise dates must be strictly after the valuation date; same-day
+exercise is unsupported. The point contains spot, decimal volatility, decimal
+rate, decimal dividend yield, then all script constants in parameter-label order.
+
+```text
+=MONTECARLOSETTINGS.NEW("simulation", simulation_settings)
+=BLACKSCHOLESLSMCPLAN.NEW("plan", product_handle, valuation_handle, simulation_handle)
+=BUMPOVERAADREQUEST.NEW("bumps", directions, actual_steps, bump_settings)
+=BLACKSCHOLESLSMCCURVATURERESULT.NEW("curvature", plan_handle, point_range, 33, bumps_handle)
+=BLACKSCHOLESLSMCCURVATURERESULT.GET.GRADIENT(result_handle)
+=BLACKSCHOLESLSMCCURVATURERESULT.GET.HESSIANPRODUCTS(result_handle)
+```
+
+The existing [simulation settings](script-settings.md) constructor accepts a
+two-column table. Set `enable_aad` to TRUE for an explicit simulation handle;
+omitting that handle from the plan selects native risk defaults with AAD enabled.
+For example, set `lsmc_training_paths` to 64, `lsmc_policy_risk_mode` to Frozen
+or RetrainedBump and, for the latter, `lsmc_policy_bump_relative` to 0.002.
+`MONTECARLOSETTINGS.GET.CONFIGURATION` copies all fourteen original fields:
+method, use_bb, enable_aad, smooth, compiled, lsmc_basis_degree,
+lsmc_training_paths, lsmc_validation_paths, lsmc_rqmc_replicates,
+lsmc_training_seed, lsmc_pricing_seed, lsmc_policy_risk_mode,
+lsmc_policy_bump_relative and normal_precision. Absent optional settings remain
+blank; explicit FALSE and zero remain present.
+
+The complete point must be one finite numeric row or column. Leading, interior
+and trailing blanks, numeric text and booleans reject. Excel integer cells are
+accepted. Pricing paths must be positive exact integers representable as size_t
+and at most 2^53-1. Native admission additionally requires training + validation
++ pricing_replicates * pricing_paths <= UINT32_MAX. Existing optional simulation
+count fields retain their constructor's int-based limits. There is no additional
+INT_MAX limit on the pricing-path argument.
+
+Plan getters under `BLACKSCHOLESLSMCPLAN` take the plan handle:
+
+| Getter                                   | Copied data                                         |
+|------------------------------------------|-----------------------------------------------------|
+| GET.PRODUCT, GET.VALUATION               | Sealed contract and valuation settings              |
+| GET.SIMULATION                           | Complete requested simulation settings              |
+| GET.PARAMETERLABELS, GET.SCRIPTCONSTANTS | Full parameter order and original script constants  |
+| GET.OBSERVATIONS                         | Index, fixing time, historical flag, captured value |
+| GET.EVENTDATES, GET.TIMELINE             | Complete prepared event dates and times in years    |
+
+Result getters under `BLACKSCHOLESLSMCCURVATURERESULT` take the result handle:
+`GET.VALUE`, `GET.GRADIENT`, `GET.PARAMETERLABELS`, `GET.POINT`, `GET.DIRECTIONS`,
+`GET.STEPS`, `GET.HESSIANPRODUCTS`, `GET.SHAPE`, `GET.EXECUTION`, `GET.PLAN`,
+`GET.SIMULATION` and `GET.BASEPOLICYCOUNT`. Shape reports logical direction and
+parameter counts, including 0-by-N. Empty numeric arrays spill one empty text
+cell; zero directions require one complete gradient request.
+
+`GET.BASEPOLICY(result, index)` returns a detached policy handle. The index is a
+strict numeric zero-based ordinal below GET.BASEPOLICYCOUNT, in native exercise-day
+order. It is not an event ordinal. The full plan dates/times are separate data;
+the native policy has no individual event-ID field.
+
+Under `LSMCEXERCISEPOLICY`, `GET.COEFFICIENTS`, `GET.NORMALIZATIONMEANS`,
+`GET.NORMALIZATIONSIGMAS` and `GET.BASISPOWERS` copy the retained regression
+arrays. Powers have three columns; an empty basis spills one empty text cell.
+`GET.CONFIGURATION` returns basis_degree, degenerate, degenerate_reason, mean,
+sigma, condition_path_count, effective_rank, solver, fallback_reason and optional
+validation_mse, plus coefficients_length, normalization_means_length,
+normalization_sigmas_length, basis_power_rows and basis_power_columns. These size
+fields preserve logical empty shapes. Absent MSE is blank; present zero is numeric.
+
+Execution contains method, gradient_evaluations, paths_per_replicate,
+training_paths, validation_paths, pricing_replicates, numeric_payload_bytes,
+max_batch_tape_bytes, max_batch_cleanup_reserve_bytes and
+recording_capacity_budget_bytes. Gradient evaluations count 1+2M complete
+requests. Numeric and recording budgets are independent; explicit zero is an
+actual limit. For five parameters, zero directions retain 88 numeric bytes and
+two directions retain 264. Numeric payload excludes preparation, policies,
+metadata and worksheet copies. Recording limits apply independently per replay
+batch; reported capacities are not aggregate concurrent memory or RSS.
+
+Frozen retains one fitted policy at all outer points. RetrainedBump differences
+the complete native partial-plus-policy-secant gradient estimator; its inner
+relative policy step is distinct from the bump request's actual outer steps.
+Methods are BumpOverFrozenNativeLsmcAAD and
+BumpOverRetrainedNativeLsmcPolicySecant. These are finite-step, finite-path
+products; smoothing, fitting and sampling require separate accuracy assessment.
+They do not establish unbiased Gamma or general higher-order AD.
+
+All getters copy stored data without training, pricing or historical reads.
+Factories preserve previous results on failure, and reject execution inside an
+independent AAD recording. Plan, result and policy risk handles reject archive
+serialization. See the [numerical contract](../methodology/aad.md#native-lsmc-policy-curvature).
+
 ## Weighted script risk
 
 Use `PRODUCT.GET.RISKOUTPUTS(product)` to list scalar output IDs, labels and

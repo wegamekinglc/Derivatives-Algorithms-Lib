@@ -18,6 +18,11 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-11
 
+- **Excel LSMC policy curvature** — sealed native EXERCISE plans and owning
+  results expose Frozen/RetrainedBump finite-step products, complete simulation
+  settings and detached baseline-policy arrays and metadata. See
+  [the worksheet interface](docs/excel/README.md#native-lsmc-policy-curvature).
+
 - **Excel segmented Monte Carlo risk** — immutable native settings and sealed
   script plans expose owning means, complete raw gradients and common-path
   finite-step Hessian products, exact uint64 scramble keys and separate path

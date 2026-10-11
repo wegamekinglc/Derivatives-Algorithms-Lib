@@ -4,20 +4,44 @@ Status: active implementation under the native-only AAD scope.
 No stage is complete until its correctness, compatibility,
 performance, and applicable CI evidence has been inspected.
 
-Active delivery: Excel segmented Black–Scholes Monte Carlo after merged
-[#537](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/537).
-Current controls are the [specification](../specs/aad-excel-segmented-mc.md),
-[API](../api-notes/aad-excel-segmented-mc.md),
-[critique](../critiques/aad-excel-segmented-mc.md) and scoped
-[cost selection](../performance/aad-excel-segmented-mc.md).
-The missing-interface RED and eleven scoped typed GREEN cases are retained.
-Twenty-seven generated wrapper/help pairs, strict OFF/combined probes, the
-public binding boundary and two selected costs (80 observations, 6.198 seconds)
-pass locally. Immutable settings/plans/results delegate to accepted public
-native evaluators; actual Windows and publication acceptance remain open.
-LSMC follows in its own PR after this increment merges.
-Remaining developer effort is approximately 11–19 hours: MC 4–6, LSMC 3–5
-and final-only work 4–8; remote CI waiting is separate.
+Active delivery: Excel native LSMC policy curvature after merged
+[#538](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/538).
+Current controls are the [specification](../specs/aad-excel-lsmc-curvature.md),
+[API](../api-notes/aad-excel-lsmc-curvature.md),
+[critique](../critiques/aad-excel-lsmc-curvature.md) and scoped
+[cost selection](../performance/aad-excel-lsmc-curvature.md).
+The missing-interface and passive-projection RED records are retained.
+Nine LSMC typed cases and all eleven affected MC cases pass, including both
+policy modes/programs, complete passive queries, history, budgets and lifecycle.
+Twenty-nine generated wrapper/help pairs, ten strict OFF/combined probes and
+the public binding boundary pass. Three Windows raw cases and registration
+contracts are written; actual Windows runtime, scoped costs and publication
+acceptance remain open. Native EXERCISE dates must be
+strictly after evaluation; the rejected same-day fixture is retained separately.
+Remaining developer effort is approximately 7–13 hours: LSMC 3–5 and
+final-only work 4–8; remote CI waiting is separate.
+
+Excel segmented Monte Carlo is accepted in #538 at merge
+`061e4673440898ef59c20a091f5c70309985c1f4`, with accepted and merged tree
+`16264689a237ea3e7532cc5a8ee60bd141cbc6ac` of final head `2e584df6`.
+All 29 applicable checks pass; the six unchanged wheel checks do not trigger
+and are not claimed as passes. Both complete final audits pass, Codacy
+annotations and unresolved threads are zero, and the current-head review is
+clear. Actual logs verify eleven typed cases in all fourteen build profiles;
+all four Windows profiles pass three raw cases, the registration case covering
+27 exports and installed consumers 3/3. Required focused sanitizer checks pass
+without selecting the new Excel cases. Local acceptance includes ten strict
+probes, the public binding boundary and 27 generated wrapper/help pairs.
+Two selected costs retain 80 calibrated observations in 6.198122721 seconds;
+unequal ownership is informational. The Windows repair changes tests only,
+so timed dependencies and accepted observations retain identity. Completed
+controls remain immutable in the accepted
+[specification](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/2e584df61da93aecf7b67a8349cd38fdf9e2022c/.codex/artifacts/specs/aad-excel-segmented-mc.md),
+[API](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/2e584df61da93aecf7b67a8349cd38fdf9e2022c/.codex/artifacts/api-notes/aad-excel-segmented-mc.md),
+[critique](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/2e584df61da93aecf7b67a8349cd38fdf9e2022c/.codex/artifacts/critiques/aad-excel-segmented-mc.md),
+[review](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/2e584df61da93aecf7b67a8349cd38fdf9e2022c/.codex/artifacts/reviews/aad-excel-segmented-mc.md)
+and [cost report](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/2e584df61da93aecf7b67a8349cd38fdf9e2022c/.codex/artifacts/performance/aad-excel-segmented-mc.md).
+Executable/raw cost artifacts remain active for the affected LSMC helper callers.
 
 Excel rate-trade quote curvature is accepted in #537 at merge
 `7d80c545a2fe4de0977a2e3cc0f8f73aa5056ade`, with accepted and merged tree
@@ -990,8 +1014,8 @@ incremental implementation turns and PRs; a green first stage does not complete 
 - [x] P02: per-worker capacity reuse and safe re-registration/reinitialization.
 - [x] P03: measured block-width policy and demand-driven result extraction; default maximum one retained.
 - [ ] Bindings: F01/F02 C++/Python/Excel and F04 C++/Python are accepted;
-  closed financial PDE and Excel Dupire projections are accepted; complete
-  the remaining Excel MC/LSMC interfaces.
+  closed financial PDE and Excel Dupire/rate/MC projections are accepted;
+  complete the remaining Excel LSMC interface.
   Native recording scopes/events and generic equation callbacks stay C++-owned.
 
 ## Stage C: structured reverse operators
@@ -1662,10 +1686,10 @@ overlapping acceptance work is included once in the integration allowance.
 | P04                     | Structural compression, safe fallback and selection accepted     | #511 merged; final 36/36 gates accepted  | 0                     |
 | P05                     | Core, fixed-path and Monte Carlo adapters accepted               | #512/#513/#515 merged; 36/36 gates       | 0                     |
 | F04                     | Finite-step and opt-in smooth prototype accepted                 | #517–#528 merged                         | 0                     |
-| Final integration/audit | Excel MC/LSMC and final requirement audit remain                 | Open                                     | 1.4–2.4               |
+| Final integration/audit | Excel LSMC and final requirement audit remain                    | Open                                     | 0.9–1.6               |
 
-Remaining total after merged Excel rate acceptance: 11–19 hours,
-approximately 1.4–2.4 eight-hour person-days, excluding CI queue time. Both
+Remaining total after merged Excel MC acceptance: 7–13 hours,
+approximately 0.9–1.6 eight-hour person-days, excluding CI queue time. Both
 financial PDE projections are accepted and contribute zero hours. Delivery contingency
 is included in those same hour ranges; there is no extra undisclosed allowance. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
@@ -1678,8 +1702,8 @@ platform, consumer and performance evidence; they do not require repeating
 unrelated full local campaigns. Final work maps requirements to current APIs,
 tests and immutable delivery proofs, checks source/dependency applicability,
 repairs concrete documentation or behavior gaps, retires completed active
-controls, and inspects the required final exact-head CI/reviews. Excel MC
-and LSMC implementation remains separately estimated below. A newly
+controls, and inspects the required final exact-head CI/reviews. Excel LSMC
+implementation remains separately estimated below. A newly
 discovered behavior gap receives its own scope and estimate.
 
 Python rate-trade quote curvature is accepted in merged
@@ -1708,33 +1732,33 @@ above. The accepted #490/#491/#493/#494/#495/#496/#497/#498/#499/#500 deliveries
 hours. Structured coordinates are split into numeric and native PRs; completed
 numeric/native diagnostics are not counted again.
 
-| Order | Delivery task                        | Required result                                                                                        | Remaining hours |
-|-------|--------------------------------------|--------------------------------------------------------------------------------------------------------|-----------------|
-| 1     | Accepted solve/root PRs through #501 | Merged; mathematical, resource, platform and scoped performance gates accepted                         | 0               |
-| 2     | F03 numeric coordinates              | Accepted in merged #495; immutable accepted evidence retained                                          | 0               |
-| 3     | F03 native coordinates               | Accepted in merged #496; immutable accepted evidence retained                                          | 0               |
-| 4     | F03 native coordinate accuracy       | Accepted in merged #500; exact-head CI/review and guarded merge pass                                   | 0               |
-| 4a    | F03 implicit calibration             | Numeric #501 and native #502 merged; all final gates accepted                                          | 0               |
-| 5     | F03 PDE operators                    | #504/#505/#506 merged; financial/grid and all publication gates accepted                               | 0               |
-| 6     | P04 structural sparsity              | #507–#511 merged; implementation, scoped cost and publication gates accepted                           | 0               |
-| 7a    | P05 segmentation core                | #512 merged; actual runtime, exact-head CI/review and guarded merge accepted                           | 0               |
-| 7b    | P05 financial adapter                | #513 merged; exact-head CI, review, costs, actual runtime and merge accepted                           | 0               |
-| 7c    | P05 Monte Carlo acceptance           | #515 merged; 36/36 gates, fourteen actual runtime profiles and merge proof                             | 0               |
-| 8     | F04 second-order risk                | #517–#527 increments merged; finite-step mathematical and publication gates pass                       | 0               |
-| 9     | F04 native mixed-mode prototype      | #528 merged; analytic/capability/cost and exact-head publication acceptance complete                   | 0               |
-| 10    | Python Dupire curvature              | #529 merged; exact-head CI/reviews, scoped costs and merge proof accepted                              | 0               |
-| 11a   | Python rate-trade curvature          | #530 merged; 35/35 gates, actual Python runtime and merge proof accepted                               | 0               |
-| 11b   | C++/Python segmented MC curvature    | #531 merged; 35/35 gates, actual runtime and identical merged-tree proof accepted                      | 0               |
-| 11c   | C++/Python LSMC policy curvature     | #532 merged; 35/35 checks, actual runtime, both audits and identical merged tree accepted              | 0               |
-| 11d   | Structured-operator interface audit  | #533 merged; required gates, full review, two final audits and identical tree accepted                 | 0               |
-| 11e   | Closed financial PDE projection      | #534 merged; 35/35 checks, review repairs, actual runtime, scoped costs and both final audits accepted | 0               |
-| 12a   | Excel European PDE                   | #535 merged; 35/35 checks, fourteen actual runtime profiles, both audits and identical tree accepted   | 0               |
-| 12b1  | Excel Dupire curvature               | #536 merged; 35/35 checks, fourteen runtime profiles, both audits and identical merged tree accepted   | 0               |
+| Order | Delivery task                        | Required result                                                                                          | Remaining hours |
+|-------|--------------------------------------|----------------------------------------------------------------------------------------------------------|-----------------|
+| 1     | Accepted solve/root PRs through #501 | Merged; mathematical, resource, platform and scoped performance gates accepted                           | 0               |
+| 2     | F03 numeric coordinates              | Accepted in merged #495; immutable accepted evidence retained                                            | 0               |
+| 3     | F03 native coordinates               | Accepted in merged #496; immutable accepted evidence retained                                            | 0               |
+| 4     | F03 native coordinate accuracy       | Accepted in merged #500; exact-head CI/review and guarded merge pass                                     | 0               |
+| 4a    | F03 implicit calibration             | Numeric #501 and native #502 merged; all final gates accepted                                            | 0               |
+| 5     | F03 PDE operators                    | #504/#505/#506 merged; financial/grid and all publication gates accepted                                 | 0               |
+| 6     | P04 structural sparsity              | #507–#511 merged; implementation, scoped cost and publication gates accepted                             | 0               |
+| 7a    | P05 segmentation core                | #512 merged; actual runtime, exact-head CI/review and guarded merge accepted                             | 0               |
+| 7b    | P05 financial adapter                | #513 merged; exact-head CI, review, costs, actual runtime and merge accepted                             | 0               |
+| 7c    | P05 Monte Carlo acceptance           | #515 merged; 36/36 gates, fourteen actual runtime profiles and merge proof                               | 0               |
+| 8     | F04 second-order risk                | #517–#527 increments merged; finite-step mathematical and publication gates pass                         | 0               |
+| 9     | F04 native mixed-mode prototype      | #528 merged; analytic/capability/cost and exact-head publication acceptance complete                     | 0               |
+| 10    | Python Dupire curvature              | #529 merged; exact-head CI/reviews, scoped costs and merge proof accepted                                | 0               |
+| 11a   | Python rate-trade curvature          | #530 merged; 35/35 gates, actual Python runtime and merge proof accepted                                 | 0               |
+| 11b   | C++/Python segmented MC curvature    | #531 merged; 35/35 gates, actual runtime and identical merged-tree proof accepted                        | 0               |
+| 11c   | C++/Python LSMC policy curvature     | #532 merged; 35/35 checks, actual runtime, both audits and identical merged tree accepted                | 0               |
+| 11d   | Structured-operator interface audit  | #533 merged; required gates, full review, two final audits and identical tree accepted                   | 0               |
+| 11e   | Closed financial PDE projection      | #534 merged; 35/35 checks, review repairs, actual runtime, scoped costs and both final audits accepted   | 0               |
+| 12a   | Excel European PDE                   | #535 merged; 35/35 checks, fourteen actual runtime profiles, both audits and identical tree accepted     | 0               |
+| 12b1  | Excel Dupire curvature               | #536 merged; 35/35 checks, fourteen runtime profiles, both audits and identical merged tree accepted     | 0               |
 | 12b2  | Excel rate curvature                 | #537 merged; 29/29 applicable checks, fourteen runtime profiles, both audits and identical tree accepted | 0               |
-| 12c1  | Excel segmented MC curvature        | Typed settings/plans/results, scoped acceptance and publication                                        | 4–6             |
-| 12c2  | Excel LSMC curvature                | Typed plans/results and complete policy queries, scoped acceptance and publication                     | 3–5             |
-| 13    | Final integration and documentation  | Requirement/evidence audit, current docs, concrete gap repairs and final publication gates             | 4–8             |
-| Total | Full remaining implementation        | All remaining plan requirements                                                                        | 11–19           |
+| 12c1  | Excel segmented MC curvature         | #538 merged; 29/29 checks, fourteen runtime profiles, both audits and identical merged tree accepted     | 0               |
+| 12c2  | Excel LSMC curvature                 | Typed plans/results and complete policy queries, scoped acceptance and publication                       | 3–5             |
+| 13    | Final integration and documentation  | Requirement/evidence audit, current docs, concrete gap repairs and final publication gates               | 4–8             |
+| Total | Full remaining implementation        | All remaining plan requirements                                                                          | 7–13            |
 
 
 The first delivery boundary is complete. Whole-PR review repaired the Windows
@@ -2337,6 +2361,6 @@ Merge verification and both audits are retained in session evidence
 `aad-selected-extraction-merged-01.json`; the merge used the accepted-head SHA guard.
 P03 remaining effort is zero. The owning normalized-LU numeric pullback in #490
 and subsequent F03 recording/event integration are accepted. Current remaining
-work is Excel MC/LSMC and final integration: 11–19 developer-hours, as detailed in
+work is Excel LSMC and final integration: 7–13 developer-hours, as detailed in
 the current status table. The closed financial PDE projection is accepted in #534.
 Native algorithms are accepted; full interface/integration delivery is incomplete.

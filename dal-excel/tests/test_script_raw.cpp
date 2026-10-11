@@ -10,9 +10,11 @@
 #ifdef _WIN32
 #define NOMINMAX
 #include <dal-excel/src/__europeanpderisk.hpp>
+#include <dal-excel/src/__lsmccurvature.hpp>
 #include <dal-excel/src/__script_test_api.hpp>
 #include <dal-excel/src/_excel.hpp>
 #include <dal-excel/src/_xlcall.hpp>
+#include <dal-public/src/script.hpp>
 
 // Parse DAL's VOID enum before Windows.h defines its VOID macro.
 #include <Windows.h>
@@ -177,6 +179,54 @@ namespace {
         CheckError(result, {"point", row.c_str(), col.c_str()});
     }
 
+    struct RawLsmcFixture_ {
+        CurvatureRuntime_ runtime_;
+        RawText_ name_{L"raw-lsmc"}, constant_{L"SCALE"}, constantValue_{L"2"}, formula_{L"EXERCISE SCALE * FIX(EQ[EXCEL_LSMC]) ^ 2"},
+            evaluationKey_{L"evaluation_date"};
+        OPER_ blank_ = Blank(), evaluation_ = Number(Date::ToExcel(Date_(2026, 1, 2))), exercise_ = Number(Date::ToExcel(Date_(2026, 1, 3))),
+              paths_ = Number(1);
+        OPER_ dateCells_[2]{constant_.cell_, exercise_}, eventCells_[2]{constantValue_.cell_, formula_.cell_},
+            valuationCells_[2]{evaluationKey_.cell_, evaluation_}, pointCells_[5]{Number(10), Number(0), Number(0), Number(0), Number(2)},
+            directionCells_[10]{Number(1), Number(0), Number(0), Number(0), Number(.5), Number(-2), Number(0), Number(0), Number(0), Number(-1)},
+            stepCells_[2]{Number(.01), Number(.005)};
+        OPER_ dates_ = Multi(dateCells_, 2, 1), events_ = Multi(eventCells_, 2, 1), valuationRows_ = Multi(valuationCells_, 1, 2),
+              point_ = Multi(pointCells_, 1, 5), directions_ = Multi(directionCells_, 2, 5), steps_ = Multi(stepCells_, 2, 1);
+        Output_ product_{Call("xl_Product_New", &name_.cell_, &dates_, &events_)};
+        Output_ valuation_{Call("xl_ScriptValuationSettings_New", &name_.cell_, &valuationRows_, &blank_)};
+        Output_ plan_{Call("xl_BlackScholesLsmcPlan_New", &name_.cell_, product_.Scalar(), valuation_.Scalar(), &blank_)};
+        Output_ bumps_{Call("xl_BumpOverAADRequest_New", &name_.cell_, &directions_, &steps_, &blank_)};
+        OPER_* Curvature(const OPER_* point, const OPER_* paths, const OPER_* bumps) const {
+            return Call("xl_BlackScholesLsmcCurvatureResult_New", &name_.cell_, plan_.Scalar(), point, paths, bumps);
+        }
+    };
+
+    void CheckLsmcFinancialSpills(const OPER_* result) {
+        Output_ value(Call("xl_BlackScholesLsmcCurvatureResult_Get_Value", result));
+        ASSERT_DOUBLE_EQ(value.Scalar()->val.num, 200);
+        auto random = Script::CreateRNG("sobol", 1, false);
+        random->SkipTo(1);
+        Vector_<> normal(1);
+        random->FillNormal(&normal);
+        const double time = 1.0 / 365.0;
+        const auto gradientAt = [&](double spot, double scale) {
+            const double pv = scale * spot * spot;
+            return Vector_<>{2 * pv / spot, 2 * std::sqrt(time) * normal[0] * pv, time * pv, -2 * time * pv, pv / scale};
+        };
+        const auto expected = gradientAt(10, 2), plus = gradientAt(10.01, 2.005), minus = gradientAt(9.99, 1.995);
+        Output_ gradient(Call("xl_BlackScholesLsmcCurvatureResult_Get_Gradient", result));
+        ASSERT_EQ(gradient.value_->val.array.rows, 5);
+        ASSERT_EQ(gradient.value_->val.array.columns, 1);
+        Output_ products(Call("xl_BlackScholesLsmcCurvatureResult_Get_HessianProducts", result));
+        ASSERT_EQ(products.value_->val.array.rows, 2);
+        ASSERT_EQ(products.value_->val.array.columns, 5);
+        for (int coordinate = 0; coordinate < 5; ++coordinate) {
+            ASSERT_NEAR(gradient.value_->val.array.lparray[coordinate].val.num, expected[coordinate], 1e-10);
+            const double product = (plus[coordinate] - minus[coordinate]) / .02;
+            ASSERT_NEAR(products.value_->val.array.lparray[coordinate].val.num, product, 1e-8);
+            ASSERT_NEAR(products.value_->val.array.lparray[5 + coordinate].val.num, -2 * product, 1e-8);
+        }
+    }
+
     void CheckRateFinancialSpills(const Output_& value, const Output_& gradient, const Output_& products) {
         const double payment = 1.028, discount = 1.025;
         ASSERT_NEAR(value.Scalar()->val.num, -2.0 * (payment / discount - 1.0), 1.0e-10);
@@ -203,6 +253,171 @@ namespace {
         }
     }
 } // namespace
+
+TEST(ScriptExcelRawTest, TestLsmcAllGeneratedExportsAndIndependentFinancialSpills) {
+    RawLsmcFixture_ fixture;
+    ASSERT_EQ(fixture.plan_.Text().find("#Error:"), std::string::npos) << fixture.plan_.Text();
+    OPER_ integer{};
+    integer.xltype = xltypeInt;
+    integer.val.w = 1;
+    fixture.pointCells_[0].xltype = xltypeInt;
+    fixture.pointCells_[0].val.w = 10;
+    Output_ result(fixture.Curvature(&fixture.point_, &integer, fixture.bumps_.Scalar()));
+    ASSERT_EQ(result.Text().find("#Error:"), std::string::npos) << result.Text();
+    CheckLsmcFinancialSpills(result.Scalar());
+    for (const auto* function : {"xl_BlackScholesLsmcPlan_Get_Product", "xl_BlackScholesLsmcPlan_Get_Valuation"}) {
+        Output_ copied(Call(function, fixture.plan_.Scalar()));
+        ASSERT_EQ(copied.Text().find("#Error:"), std::string::npos) << copied.Text();
+    }
+    Output_ simulation(Call("xl_BlackScholesLsmcPlan_Get_Simulation", fixture.plan_.Scalar()));
+    Output_ configuration(Call("xl_MonteCarloSettings_Get_Configuration", simulation.Scalar()));
+    ASSERT_EQ(configuration.value_->val.array.rows, 14);
+    ASSERT_EQ(configuration.value_->val.array.columns, 2);
+    ASSERT_EQ(configuration.value_->val.array.lparray[5].xltype, xltypeBool);
+    ASSERT_EQ(configuration.value_->val.array.lparray[5].val.xbool, 1);
+    for (const int index : {9, 13, 15, 17, 19, 21}) {
+        ASSERT_EQ(configuration.value_->val.array.lparray[index].xltype, xltypeStr);
+        ASSERT_EQ(configuration.value_->val.array.lparray[index].val.str[0], 0);
+    }
+    Output_ labels(Call("xl_BlackScholesLsmcPlan_Get_ParameterLabels", fixture.plan_.Scalar()));
+    ASSERT_EQ(labels.value_->val.array.rows, 5);
+    Output_ constants(Call("xl_BlackScholesLsmcPlan_Get_ScriptConstants", fixture.plan_.Scalar()));
+    ASSERT_DOUBLE_EQ(constants.Scalar()->val.num, 2);
+    Output_ observations(Call("xl_BlackScholesLsmcPlan_Get_Observations", fixture.plan_.Scalar()));
+    ASSERT_EQ(observations.value_->val.array.rows, 2);
+    ASSERT_EQ(observations.value_->val.array.columns, 4);
+    Output_ dates(Call("xl_BlackScholesLsmcPlan_Get_EventDates", fixture.plan_.Scalar()));
+    ASSERT_DOUBLE_EQ(dates.Scalar()->val.num, fixture.exercise_.val.num);
+    Output_ times(Call("xl_BlackScholesLsmcPlan_Get_TimeLine", fixture.plan_.Scalar()));
+    ASSERT_NEAR(times.value_->val.array.lparray[times.value_->val.array.rows - 1].val.num, 1.0 / 365.0, 1e-12);
+    Output_ resultLabels(Call("xl_BlackScholesLsmcCurvatureResult_Get_ParameterLabels", result.Scalar()));
+    ASSERT_EQ(resultLabels.value_->val.array.rows, 5);
+    for (const auto* function : {"xl_BlackScholesLsmcCurvatureResult_Get_Point", "xl_BlackScholesLsmcCurvatureResult_Get_Directions",
+                                 "xl_BlackScholesLsmcCurvatureResult_Get_Steps"}) {
+        Output_ copied(Call(function, result.Scalar()));
+        ASSERT_EQ(copied.value_->val.array.lparray[0].xltype, xltypeNum);
+        copied.value_->val.array.lparray[0].val.num = 999;
+    }
+    Output_ retained(Call("xl_BlackScholesLsmcCurvatureResult_Get_Point", result.Scalar()));
+    ASSERT_DOUBLE_EQ(retained.value_->val.array.lparray[0].val.num, 10);
+    Output_ shape(Call("xl_BlackScholesLsmcCurvatureResult_Get_Shape", result.Scalar()));
+    ASSERT_DOUBLE_EQ(shape.value_->val.array.lparray[0].val.num, 2);
+    ASSERT_DOUBLE_EQ(shape.value_->val.array.lparray[1].val.num, 5);
+    Output_ execution(Call("xl_BlackScholesLsmcCurvatureResult_Get_Execution", result.Scalar()));
+    ASSERT_EQ(execution.value_->val.array.rows, 10);
+    ASSERT_DOUBLE_EQ(execution.value_->val.array.lparray[3].val.num, 5);
+    ASSERT_DOUBLE_EQ(execution.value_->val.array.lparray[5].val.num, 1);
+    ASSERT_DOUBLE_EQ(execution.value_->val.array.lparray[7].val.num, 1);
+    ASSERT_DOUBLE_EQ(execution.value_->val.array.lparray[13].val.num, 264);
+    for (const auto* function : {"xl_BlackScholesLsmcCurvatureResult_Get_Plan", "xl_BlackScholesLsmcCurvatureResult_Get_Simulation"}) {
+        Output_ copied(Call(function, result.Scalar()));
+        ASSERT_EQ(copied.Text().find("#Error:"), std::string::npos) << copied.Text();
+    }
+    Output_ count(Call("xl_BlackScholesLsmcCurvatureResult_Get_BasePolicyCount", result.Scalar()));
+    ASSERT_DOUBLE_EQ(count.Scalar()->val.num, 1);
+    integer.val.w = 0;
+    Output_ policy(Call("xl_BlackScholesLsmcCurvatureResult_Get_BasePolicy", result.Scalar(), &integer));
+    ASSERT_EQ(policy.Text().find("#Error:"), std::string::npos) << policy.Text();
+    for (const auto* function : {"xl_LsmcExercisePolicy_Get_Coefficients", "xl_LsmcExercisePolicy_Get_NormalizationMeans",
+                                 "xl_LsmcExercisePolicy_Get_NormalizationSigmas", "xl_LsmcExercisePolicy_Get_BasisPowers"}) {
+        Output_ copied(Call(function, policy.Scalar()));
+        ASSERT_GE(copied.value_->val.array.rows, 1);
+        ASSERT_GE(copied.value_->val.array.columns, 1);
+    }
+    Output_ policyConfiguration(Call("xl_LsmcExercisePolicy_Get_Configuration", policy.Scalar()));
+    ASSERT_EQ(policyConfiguration.value_->val.array.rows, 15);
+    ASSERT_DOUBLE_EQ(policyConfiguration.value_->val.array.lparray[29].val.num, 3);
+    ASSERT_EQ(policyConfiguration.value_->val.array.lparray[19].xltype, xltypeStr);
+    ASSERT_EQ(policyConfiguration.value_->val.array.lparray[19].val.str[0], 0);
+}
+
+TEST(ScriptExcelRawTest, TestLsmcRawPointPathsPolicyIndexAndHandlesRejectAndRecover) {
+    RawLsmcFixture_ fixture;
+    RawText_ empty(L""), text(L"1"), nul(std::wstring(L"bad\0name", 8));
+    OPER_ missing{}, boolean{}, error{};
+    missing.xltype = xltypeMissing;
+    boolean.xltype = xltypeBool;
+    boolean.val.xbool = 1;
+    error.xltype = xltypeErr;
+    for (const auto& invalid : {fixture.blank_, missing, empty.cell_, text.cell_, boolean, error, Number(std::numeric_limits<double>::infinity())})
+        for (int position : {0, 2, 4})
+            for (const bool column : {false, true}) {
+                OPER_ cells[]{Number(10), Number(0), Number(0), Number(0), Number(2)};
+                cells[position] = invalid;
+                auto point = Multi(cells, column ? 5 : 1, column ? 1 : 5);
+                Output_ rejected(fixture.Curvature(&point, &fixture.paths_, fixture.bumps_.Scalar()));
+                const auto row = "row=" + std::to_string(column ? position + 1 : 1);
+                const auto col = "column=" + std::to_string(column ? 1 : position + 1);
+                CheckError(rejected, {"point", row.c_str(), col.c_str()});
+            }
+    for (const auto& invalid : {fixture.blank_, boolean, text.cell_, Number(0), Number(-1), Number(.5), Number(9007199254740992.0),
+                                Number(std::numeric_limits<double>::infinity())}) {
+        Output_ rejected(fixture.Curvature(&fixture.point_, &invalid, fixture.bumps_.Scalar()));
+        CheckError(rejected, {"paths"});
+    }
+    Output_ result(fixture.Curvature(&fixture.point_, &fixture.paths_, fixture.bumps_.Scalar()));
+    for (const auto& invalid : {fixture.blank_, boolean, text.cell_, Number(-1), Number(.5), Number(1), Number(9007199254740992.0),
+                                Number(std::numeric_limits<double>::infinity())}) {
+        Output_ rejected(Call("xl_BlackScholesLsmcCurvatureResult_Get_BasePolicy", result.Scalar(), &invalid));
+        CheckError(rejected, {"index"});
+    }
+    Output_ badName(Call("xl_BlackScholesLsmcPlan_New", &nul.cell_, fixture.product_.Scalar(), fixture.valuation_.Scalar(), &fixture.blank_));
+    CheckError(badName, {"name", "NUL"});
+    Output_ wrongPlan(Call("xl_BlackScholesLsmcCurvatureResult_New", &fixture.name_.cell_, fixture.bumps_.Scalar(), &fixture.point_, &fixture.paths_,
+                           fixture.bumps_.Scalar()));
+    CheckError(wrongPlan, {"plan"});
+    Output_ wrongPolicy(Call("xl_LsmcExercisePolicy_Get_Configuration", result.Scalar()));
+    CheckError(wrongPolicy, {"policy"});
+    auto large = Number(4294967295.0);
+    Output_ nativeLimit(fixture.Curvature(&fixture.point_, &large, fixture.bumps_.Scalar()));
+    CheckError(nativeLimit, {"32-bit Sobol"});
+    Output_ recovered(fixture.Curvature(&fixture.point_, &fixture.paths_, fixture.bumps_.Scalar()));
+    CheckLsmcFinancialSpills(recovered.Scalar());
+}
+
+TEST(ScriptExcelRawTest, TestLsmcRawZeroDirectionsExactPayloadAndSeparateRecordingCapRecover) {
+    RawLsmcFixture_ fixture;
+    RawText_ countKey(L"input_count"), numericKey(L"numeric_payload_budget_bytes"), capacityKey(L"recording_capacity_budget_bytes");
+    OPER_ countCells[]{countKey.cell_, Number(5)};
+    auto countSettings = Multi(countCells, 1, 2);
+    Output_ empty(Call("xl_BumpOverAADRequest_New", &fixture.name_.cell_, &fixture.blank_, &fixture.blank_, &countSettings));
+    Output_ result(fixture.Curvature(&fixture.point_, &fixture.paths_, empty.Scalar()));
+    ASSERT_EQ(result.Text().find("#Error:"), std::string::npos) << result.Text();
+    for (const auto* function : {"xl_BlackScholesLsmcCurvatureResult_Get_Directions", "xl_BlackScholesLsmcCurvatureResult_Get_Steps",
+                                 "xl_BlackScholesLsmcCurvatureResult_Get_HessianProducts"}) {
+        Output_ spilled(Call(function, result.Scalar()));
+        ASSERT_EQ(spilled.Scalar()->xltype, xltypeStr);
+        ASSERT_EQ(spilled.Scalar()->val.str[0], 0);
+    }
+    Output_ shape(Call("xl_BlackScholesLsmcCurvatureResult_Get_Shape", result.Scalar()));
+    ASSERT_DOUBLE_EQ(shape.value_->val.array.lparray[0].val.num, 0);
+    ASSERT_DOUBLE_EQ(shape.value_->val.array.lparray[1].val.num, 5);
+    Output_ execution(Call("xl_BlackScholesLsmcCurvatureResult_Get_Execution", result.Scalar()));
+    ASSERT_DOUBLE_EQ(execution.value_->val.array.lparray[3].val.num, 1);
+    ASSERT_DOUBLE_EQ(execution.value_->val.array.lparray[13].val.num, 88);
+    OPER_ budgetCells[]{numericKey.cell_, Number(263), capacityKey.cell_, fixture.blank_};
+    auto budgetSettings = Multi(budgetCells, 2, 2);
+    Output_ low(Call("xl_BumpOverAADRequest_New", &fixture.name_.cell_, &fixture.directions_, &fixture.steps_, &budgetSettings));
+    Output_ lowResult(fixture.Curvature(&fixture.point_, &fixture.paths_, low.Scalar()));
+    CheckError(lowResult, {"numeric payload budget"});
+    budgetCells[1] = Number(264);
+    budgetCells[3] = Number(0);
+    Output_ capacity(Call("xl_BumpOverAADRequest_New", &fixture.name_.cell_, &fixture.directions_, &fixture.steps_, &budgetSettings));
+    Output_ exhausted(fixture.Curvature(&fixture.point_, &fixture.paths_, capacity.Scalar()));
+    CheckError(exhausted, {"Tape capacity budget exceeded", "limit=0"});
+    budgetCells[1] = Number(0);
+    budgetCells[3] = fixture.blank_;
+    OPER_ zeroCells[]{countKey.cell_, Number(5), numericKey.cell_, Number(0)};
+    auto zeroSettings = Multi(zeroCells, 2, 2);
+    Output_ zeroBudget(Call("xl_BumpOverAADRequest_New", &fixture.name_.cell_, &fixture.blank_, &fixture.blank_, &zeroSettings));
+    auto large = Number(2147483648.0);
+    Output_ largeResult(fixture.Curvature(&fixture.point_, &large, zeroBudget.Scalar()));
+    CheckError(largeResult, {"numeric payload budget"});
+    budgetCells[1] = Number(264);
+    Output_ exact(Call("xl_BumpOverAADRequest_New", &fixture.name_.cell_, &fixture.directions_, &fixture.steps_, &budgetSettings));
+    Output_ recovered(fixture.Curvature(&fixture.point_, &fixture.paths_, exact.Scalar()));
+    CheckLsmcFinancialSpills(recovered.Scalar());
+}
 
 TEST(ScriptExcelRawTest, TestSegmentedMonteCarloAllGeneratedExportsAndIndependentSpills) {
     RawMonteCarloFixture_ fixture;

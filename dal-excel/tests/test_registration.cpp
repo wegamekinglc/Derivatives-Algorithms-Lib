@@ -99,6 +99,51 @@ TEST(ExcelRegistrationTest, TestEuropeanPdeFunctionsRetainTypedArgumentsAndHelp)
     }
 }
 
+TEST(ExcelRegistrationTest, TestLsmcFunctionsRetainTypedArgumentsAndHelp) {
+    const std::pair<const char*, const char*> contracts[] = {{"BlackScholesLsmcPlan_New", "name,product,[valuation],[simulation]"},
+                                                             {"BlackScholesLsmcCurvatureResult_New", "name,plan,point,paths,bumps"},
+                                                             {"MonteCarloSettings_Get_Configuration", "simulation"},
+                                                             {"BlackScholesLsmcPlan_Get_Product", "plan"},
+                                                             {"BlackScholesLsmcPlan_Get_Valuation", "plan"},
+                                                             {"BlackScholesLsmcPlan_Get_Simulation", "plan"},
+                                                             {"BlackScholesLsmcPlan_Get_ParameterLabels", "plan"},
+                                                             {"BlackScholesLsmcPlan_Get_ScriptConstants", "plan"},
+                                                             {"BlackScholesLsmcPlan_Get_Observations", "plan"},
+                                                             {"BlackScholesLsmcPlan_Get_EventDates", "plan"},
+                                                             {"BlackScholesLsmcPlan_Get_TimeLine", "plan"},
+                                                             {"BlackScholesLsmcCurvatureResult_Get_Value", "result"},
+                                                             {"BlackScholesLsmcCurvatureResult_Get_Gradient", "result"},
+                                                             {"BlackScholesLsmcCurvatureResult_Get_ParameterLabels", "result"},
+                                                             {"BlackScholesLsmcCurvatureResult_Get_Point", "result"},
+                                                             {"BlackScholesLsmcCurvatureResult_Get_Directions", "result"},
+                                                             {"BlackScholesLsmcCurvatureResult_Get_Steps", "result"},
+                                                             {"BlackScholesLsmcCurvatureResult_Get_HessianProducts", "result"},
+                                                             {"BlackScholesLsmcCurvatureResult_Get_Shape", "result"},
+                                                             {"BlackScholesLsmcCurvatureResult_Get_Execution", "result"},
+                                                             {"BlackScholesLsmcCurvatureResult_Get_Plan", "result"},
+                                                             {"BlackScholesLsmcCurvatureResult_Get_Simulation", "result"},
+                                                             {"BlackScholesLsmcCurvatureResult_Get_BasePolicyCount", "result"},
+                                                             {"BlackScholesLsmcCurvatureResult_Get_BasePolicy", "result,index"},
+                                                             {"LsmcExercisePolicy_Get_Coefficients", "policy"},
+                                                             {"LsmcExercisePolicy_Get_NormalizationMeans", "policy"},
+                                                             {"LsmcExercisePolicy_Get_NormalizationSigmas", "policy"},
+                                                             {"LsmcExercisePolicy_Get_BasisPowers", "policy"},
+                                                             {"LsmcExercisePolicy_Get_Configuration", "policy"}};
+    const auto registrations = RegisteredFunctionsForTest();
+    for (const auto& contract : contracts) {
+        const auto name = String_("xl_") + contract.first;
+        const auto found = std::find_if(registrations.begin(), registrations.end(), [&](const auto& reg) { return reg.cName_ == name; });
+        ASSERT_NE(found, registrations.end()) << contract.first;
+        ASSERT_EQ(CaseSensitive(found->xlName_), UpperDotted(contract.first));
+        ASSERT_EQ(CaseSensitive(found->argNames_), contract.second);
+        ASSERT_EQ(CaseSensitive(found->argTypes_), std::string(static_cast<size_t>(NamedArgCount(*found)) + 1, 'Q'));
+        ASSERT_FALSE(found->volatile_);
+        ASSERT_FALSE(found->help_.empty());
+        ASSERT_EQ(found->argHelpCount_, NamedArgCount(*found));
+        ASSERT_LE(found->maxArgHelpLength_, 255);
+    }
+}
+
 TEST(ExcelRegistrationTest, TestSegmentedMonteCarloFunctionsRetainTypedArgumentsAndHelp) {
     const std::pair<const char*, const char*> contracts[] = {{"SegmentedMonteCarloSettings_New", "name,[settings]"},
                                                              {"SegmentedMonteCarloSettings_Get_Configuration", "settings"},
