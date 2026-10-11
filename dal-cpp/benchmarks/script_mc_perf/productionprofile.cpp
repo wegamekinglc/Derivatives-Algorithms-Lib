@@ -35,7 +35,9 @@ namespace {
         size_t paths_ = 0, outputs_ = 0, grid_ = 0, training_ = 0, repeats_ = 0;
         [[nodiscard]] bool Exercise() const { return scenario_ == "lsmc-bs" || scenario_ == "lsmc-local-vol"; }
         [[nodiscard]] bool LocalVol() const { return scenario_ == "local-vol" || scenario_ == "lsmc-local-vol"; }
-        [[nodiscard]] bool Rates() const { return scenario_.find("gsr-") == 0 || scenario_ == "hybrid-gsr-swap" || scenario_ == "slv-swap-1f"; }
+        [[nodiscard]] bool HybridRates() const { return scenario_.find("hybrid-gsr-") == 0 || scenario_ == "hybrid-slv-swap-1f"; }
+        [[nodiscard]] bool Slv() const { return scenario_ == "slv-swap-1f" || scenario_ == "hybrid-slv-swap-1f"; }
+        [[nodiscard]] bool Rates() const { return scenario_.find("gsr-") == 0 || HybridRates() || Slv(); }
         [[nodiscard]] bool Aad() const { return mode_ == "aad"; }
     };
 
@@ -50,8 +52,9 @@ namespace {
     }
 
     bool ValidNames(const Options_& options) {
-        return Choice(options.scenario_, {"short", "long", "local-vol", "hybrid-bs", "hybrid-gsr", "gsr-swap-1f", "gsr-swap-3f", "gsr-bond-1f",
-                                          "hybrid-gsr-swap", "slv-swap-1f", "lsmc-bs", "lsmc-local-vol"}) &&
+        return Choice(options.scenario_,
+                      {"short", "long", "local-vol", "hybrid-bs", "hybrid-gsr", "gsr-swap-1f", "gsr-swap-3f", "gsr-bond-1f", "hybrid-gsr-swap",
+                       "hybrid-gsr-swap-3f", "hybrid-gsr-bond-1f", "slv-swap-1f", "hybrid-slv-swap-1f", "lsmc-bs", "lsmc-local-vol"}) &&
                Choice(options.mode_, {"double", "aad"}) && Choice(options.engine_, {"tree", "compiled"}) &&
                Choice(options.measurement_, {"cold", "warm", "phases"});
     }
@@ -123,8 +126,9 @@ namespace {
     }
 
     Handle_<ModelData_> RateData(const Options_& options) {
-        const auto gaussian = GaussianRateData(options.scenario_ == "gsr-swap-3f" ? 3 : 1);
-        if (options.scenario_ == "slv-swap-1f") {
+        const auto gaussian = GaussianRateData(options.scenario_ == "gsr-swap-3f" || options.scenario_ == "hybrid-gsr-swap-3f" ? 3 : 1);
+        Handle_<GSRSLVModelData_> slv;
+        if (options.Slv()) {
             Matrix_<> values(2, 1);
             values(0, 0) = 0.8;
             values(1, 0) = 1.2;
@@ -132,17 +136,20 @@ namespace {
             GSRSLVSettings_ settings;
             settings.maxStep_ = 0.25;
             settings.varianceCorrelations_ = {-0.2};
-            return Handle_<ModelData_>(new GSRSLVModelData_("production-slv", gaussian, leverage, settings));
+            slv = Handle_<GSRSLVModelData_>(new GSRSLVModelData_("production-slv", gaussian, leverage, settings));
         }
-        if (options.scenario_ == "hybrid-gsr-swap") {
+        if (options.HybridRates()) {
             HybridSettings_ settings;
             settings.domesticCurrency_ = "USD";
             settings.components_ = {
-                Handle_<HybridComponentData_>(new HybridGSRRateData_("rate", {}, gaussian->curve_, gaussian->vol_)),
+                slv ? Handle_<HybridComponentData_>(new HybridGSRSLVRateData_("rate", "variance", "bridge", slv))
+                    : Handle_<HybridComponentData_>(new HybridGSRRateData_("rate", {}, gaussian->curve_, gaussian->vol_)),
                 Handle_<HybridComponentData_>(new HybridBSEquityData_("equity", "EQ[DAL418_TEST]", "USD", "EQ", 100.0, 0.2, 0.02))};
             settings.correlation_ = AssembleHybridCorrelation("corr", settings.components_, {{"EQ", "factor0", -0.25}});
             return Handle_<ModelData_>(new HybridModelData_("production-hybrid-rates", settings));
         }
+        if (slv)
+            return Handle_<ModelData_>(slv);
         return Handle_<ModelData_>(gaussian);
     }
 
@@ -155,14 +162,15 @@ namespace {
         const Date_ today(2024, 1, 1);
         Vector_<Cell_> dates;
         Vector_<String_> events;
-        const String_ observed = options.scenario_ == "gsr-bond-1f" ? "FIX(IR[USD,DF,2033-01-01])"
-                                                                    : "FIX(IR[USD,SWAP,5Y]) + FIX(IR[USD,LIBOR_3M_LCH]) + FIX(IR[USD,DF,2033-01-01])";
+        const bool bond = options.scenario_ == "gsr-bond-1f" || options.scenario_ == "hybrid-gsr-bond-1f";
+        const String_ observed =
+            bond ? "FIX(IR[USD,DF,2033-01-01])" : "FIX(IR[USD,SWAP,5Y]) + FIX(IR[USD,LIBOR_3M_LCH]) + FIX(IR[USD,DF,2033-01-01])";
         for (int quarter = 0; quarter <= 16; ++quarter) {
             dates.push_back(Cell_(today.AddDays(quarter * 91)));
             events.push_back("runningTotal = runningTotal + (" + observed + ") / 17.0");
         }
         events.back() += " pay PAYS runningTotal * " + String::FromInt(static_cast<int>(output + 1));
-        if (options.scenario_ != "slv-swap-1f")
+        if (!options.Slv())
             events.back() += " ON 2029-01-01";
         return {OutputName(options, output), dates, events};
     }
@@ -498,12 +506,12 @@ namespace {
 int RunProductionProfile(int argc, char** argv, ExerciseProductFactory_ exerciseFactory) {
     Options_ options;
     if (!Parse(argc, argv, &options)) {
-        std::cerr
-            << "usage: script_mc_perf --production-profile "
-               "short|long|local-vol|hybrid-bs|hybrid-gsr|gsr-swap-1f|gsr-swap-3f|gsr-bond-1f|hybrid-gsr-swap|slv-swap-1f|lsmc-bs|lsmc-local-vol "
-               "PATHS double|aad "
-               "tree|compiled "
-               "cold|warm|phases OUTPUTS GRID TRAINING REPEATS\n";
+        std::cerr << "usage: script_mc_perf --production-profile "
+                     "short|long|local-vol|hybrid-bs|hybrid-gsr|gsr-swap-1f|gsr-swap-3f|gsr-bond-1f|hybrid-gsr-swap|hybrid-gsr-swap-3f|hybrid-gsr-"
+                     "bond-1f|slv-swap-1f|hybrid-slv-swap-1f|lsmc-bs|lsmc-local-vol "
+                     "PATHS double|aad "
+                     "tree|compiled "
+                     "cold|warm|phases OUTPUTS GRID TRAINING REPEATS\n";
         return 2;
     }
     try {

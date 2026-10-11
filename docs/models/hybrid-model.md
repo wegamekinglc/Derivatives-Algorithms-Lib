@@ -141,6 +141,16 @@ label order, followed by internal drivers within each step. `FactorNames()`
 lists only the registered factors used by the correlation matrix.
 The output `Sample_::observations_` follows the requested name order;
 `Sample_::spot_` remains the first equity's compatibility field.
+The Gaussian GSR component batches rate observations and delayed-payment
+discounts when they share prepared OIS bonds. Each path prices a distinct bond
+once per sample. Prices use caller-owned scratch, preserving the first sample's
+state prefix; its temporary price tail is removed before other component calls.
+Custom components may implement `HybridComponent_::FillObservationBatch`.
+Its slot pairs map component observations to sample outputs, and its scratch
+prefix protects shared state. Returning false leaves outputs to the existing
+`Observe` and `FillDiscounts` methods; the default returns false.
+Returning true means all listed observations and registered discounts are filled,
+with spot, numeraire and the state prefix preserved.
 The `script_mc_perf --correlated-bs` benchmark compares the constant-rate and
 logDF hybrid path loops at 100,000 paths, 12 steps, and two assets; model
 initialization is outside its timed section.

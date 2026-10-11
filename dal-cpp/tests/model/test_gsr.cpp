@@ -6,6 +6,7 @@
 
 #include <cmath>
 #include <future>
+#include <utility>
 
 #include <dal/platform/platform.hpp>
 
@@ -192,6 +193,93 @@ TEST(ModelTest, TestGsrSharedModelKeepsBondPricesInEachPath) {
     auto second = std::async(std::launch::async, evaluate, -0.4);
     ASSERT_DOUBLE_EQ(first.get(), positive);
     ASSERT_DOUBLE_EQ(second.get(), negative);
+}
+
+TEST(ModelTest, TestGsrHybridBatchMatchesDirectObservationsAndRisks) {
+    for (const size_t factors : {size_t{1}, size_t{3}}) {
+        const TapeGuard_ guard(AAD::Tape());
+        const auto data = ObservationModelData(factors, true);
+        const auto* rates = dynamic_cast<const MultiFactorGSRModelData_*>(data.get());
+        ASSERT_NE(rates, nullptr);
+        AAD::GSR_<AAD::Number_> model(*rates);
+        const Vector_<> timeline{
+            0.0, 120.0 / DAYS_PER_YEAR, 146.0 / DAYS_PER_YEAR, 180.0 / DAYS_PER_YEAR, 240.0 / DAYS_PER_YEAR, 292.0 / DAYS_PER_YEAR};
+        const Vector_<AAD::SampleDef_> definitions(timeline.size(), RepeatedObservations()[0]);
+        const size_t sample = 2;
+        model.Allocate(timeline, definitions);
+        AAD::Sample_<AAD::Number_> output;
+        output.Allocate(definitions[sample]);
+        const size_t prefix = factors + 2;
+        for (size_t i = 0; i < prefix; ++i)
+            output.modelScratch_.push_back(0.03 * (i + 1));
+        AAD::Rewind(*AAD::Tape());
+        for (auto* parameter : model.Parameters())
+            AAD::PutOnTape(*parameter);
+        for (auto& value : output.modelScratch_)
+            AAD::PutOnTape(value);
+        AAD::NewRecording(*AAD::Tape());
+        model.InitHybrid(timeline, definitions);
+        const Vector_<std::pair<size_t, size_t>> slots{{2, 0}, {0, 3}, {1, 2}, {3, 1}};
+        Vector_<AAD::Number_> direct(output.observations_.size()), discounts(output.discounts_.size());
+        for (const auto& slot : slots)
+            direct[slot.second] = model.ObserveHybrid(sample, slot.first, &output.modelScratch_[1]);
+        model.ObserveHybridDiscounts(sample, &output.modelScratch_[1], &discounts);
+        AAD::Number_ directPayoff = 0.2 * discounts[0] + 0.3 * discounts[1];
+        for (size_t slot = 0; slot < direct.size(); ++slot)
+            directPayoff += (slot + 1) * direct[slot];
+        ASSERT_TRUE(model.FillHybridObservationBatch(sample, slots, output.modelScratch_, 1, &output, prefix));
+        for (size_t i = 0; i < prefix; ++i)
+            ASSERT_DOUBLE_EQ(AAD::Value(output.modelScratch_[i]), 0.03 * (i + 1));
+        for (size_t slot = 0; slot < direct.size(); ++slot)
+            ASSERT_DOUBLE_EQ(AAD::Value(output.observations_[slot]), AAD::Value(direct[slot]));
+        for (size_t slot = 0; slot < discounts.size(); ++slot)
+            ASSERT_DOUBLE_EQ(AAD::Value(output.discounts_[slot]), AAD::Value(discounts[slot]));
+        AAD::Number_ batchPayoff = 0.2 * output.discounts_[0] + 0.3 * output.discounts_[1];
+        for (size_t slot = 0; slot < direct.size(); ++slot)
+            batchPayoff += (slot + 1) * output.observations_[slot];
+        const auto risks = [&]() {
+            Vector_<> values;
+            for (const auto* parameter : model.Parameters())
+                values.push_back(AAD::Adjoint(*parameter));
+            for (size_t i = 0; i < prefix; ++i)
+                values.push_back(AAD::Adjoint(output.modelScratch_[i]));
+            return values;
+        };
+        AAD::Adjoint(directPayoff) = 1.0;
+        AAD::PropagateToStart(*AAD::Tape());
+        const auto directRisks = risks();
+        AAD::ZeroAdjoints(*AAD::Tape());
+        AAD::Adjoint(batchPayoff) = 1.0;
+        AAD::PropagateToStart(*AAD::Tape());
+        const auto batchRisks = risks();
+        ASSERT_EQ(batchRisks.size(), directRisks.size());
+        for (size_t i = 0; i < batchRisks.size(); ++i)
+            ASSERT_NEAR(batchRisks[i], directRisks[i], 1e-12 * std::max(1.0, std::abs(directRisks[i])));
+        ASSERT_THROW(model.FillHybridObservationBatch(sample, slots, output.modelScratch_, 1, &output, 0), Exception_);
+        const Vector_<std::pair<size_t, size_t>> invalidSlots{{0, output.observations_.size()}};
+        ASSERT_THROW(model.FillHybridObservationBatch(sample, invalidSlots, output.modelScratch_, 1, &output, prefix), Exception_);
+        ASSERT_THROW(model.FillHybridObservationBatch(timeline.size(), slots, output.modelScratch_, 1, &output, prefix), Exception_);
+    }
+}
+
+TEST(ModelTest, TestGsrHybridBatchLeavesSingleUseObservationsToDirectCalls) {
+    const auto data = ObservationModelData(1, true);
+    const auto* rates = dynamic_cast<const MultiFactorGSRModelData_*>(data.get());
+    ASSERT_NE(rates, nullptr);
+    AAD::GSR_<> model(*rates);
+    const Vector_<> timeline{0.0};
+    Vector_<AAD::SampleDef_> definitions(1);
+    definitions[0].indexNames_ = {"IR[USD,LIBOR_3M_LCH]"};
+    model.Allocate(timeline, definitions);
+    model.InitHybrid(timeline, definitions);
+    AAD::Sample_<> output;
+    output.Allocate(definitions[0]);
+    output.Initialize();
+    output.modelScratch_ = {99.0};
+    ASSERT_FALSE(model.FillHybridObservationBatch(0, {{0, 0}}, {0.02}, 0, &output, 0));
+    ASSERT_DOUBLE_EQ(output.observations_[0], 0.0);
+    ASSERT_EQ(output.modelScratch_.size(), 1U);
+    ASSERT_DOUBLE_EQ(output.modelScratch_[0], 99.0);
 }
 
 TEST(ModelTest, TestGsrEqualBondValuesKeepDistinctMaturityRisks) {
