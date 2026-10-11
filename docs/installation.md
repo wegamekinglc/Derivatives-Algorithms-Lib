@@ -329,7 +329,9 @@ neither discovered nor required.
 
 In a workspace build, `DAL_CPP_BUILD_EXAMPLES=ON` builds the core C++ examples
 under `dal-cpp/examples/` using core APIs and `DAL::cpp`. They also build with
-`DAL_BUILD_PUBLIC=OFF`. `DAL_PUBLIC_BUILD_EXAMPLES=ON` separately enables
+`DAL_BUILD_PUBLIC=OFF`. The [core catalog](../dal-cpp/examples/README.md) lists the
+four categories and their build targets; installed programs remain in `bin/`.
+`DAL_PUBLIC_BUILD_EXAMPLES=ON` separately enables
 facade examples under `dal-public/examples/` when that component is built.
 The `dal_script_settings_example` and
 `dal_hybrid_script_example` targets register `ScriptSettingsExample` and

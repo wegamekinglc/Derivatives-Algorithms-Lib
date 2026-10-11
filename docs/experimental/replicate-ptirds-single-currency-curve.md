@@ -278,7 +278,7 @@ observed max `|err|` of ~`5.2e-7` (`log_linear`), ~`4.6e-7` (`log_cubic`), and
   the `CurveParameterization` / `CurveSolveMode` / `CurveJacobianMode` /
   `LogDfScheme` enums, and `CurveCalibrationSpecBuilder_`; `dal-python/src/dal/api.py`
   adds a `calibrate_curve(...)` convenience wrapper.
-- **Examples:** `dal-cpp/examples/curve_calibration/curve_calibration.cpp` already
+- **Examples:** `dal-cpp/examples/curves/curve_calibration/curve_calibration.cpp` already
   demonstrates `CurveCalibrationSpec_` / `MultiCurveCalibrationSpec_` with
   `Holidays::None`, explicit knot dates, and `CalibrateMultiCurve`.
 
@@ -393,7 +393,7 @@ numerical validation lives in the core C++ test suite.
   - each calibrated curve reprices all 13 instruments within the solver tolerance
     (residual `< 1e-8`).
 - **Related examples:** the general C++ calibration examples under
-  `dal-cpp/examples/curve_calibration/` and the Python calibration surface documented
+  `dal-cpp/examples/curves/curve_calibration/` and the Python calibration surface documented
   in `dal-python/README.md` show the supported entry points. The PTIRDS-specific
   numerical oracle remains the test above.
 

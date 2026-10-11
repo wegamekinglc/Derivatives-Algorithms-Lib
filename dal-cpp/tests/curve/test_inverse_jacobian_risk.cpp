@@ -26,17 +26,14 @@
 
 using namespace Dal;
 
-// These tests gate the inverse-Jacobian IR-risk machinery that dal-cpp/examples/yield_curve_jacobian
-// demonstrates but does NOT register in CTest (examples are plain executables with no add_test call,
-// so the example's THROW-based self-checks never fire under `ctest`). The novel, subtle piece under
-// test is the unit correction on diagnostics_.effJacobianInverse_: the underdetermined solver scales
+// These tests complement the yield_curve_jacobian example's CTest smoke checks.
+// The unit correction on diagnostics_.effJacobianInverse_ matters because the underdetermined solver scales
 // every residual row by 1/tolerance_ before forming the pseudoinverse
 // (dal-cpp/dal/math/optimization/underdetermined.cpp -- XScaledFunc_::F divides residuals by tol,
 // J() calls DivideRows(tol)), so effJacobianInverse_ carries units
 // d(params) * tolerance_ / d(decimal-rate perturbation). Both the linear re-solve prediction and the
 // bucketed-risk transform r = g^T * effJacobianInverse_ must therefore divide by tolerance_. If a
-// future change drops that division, these tests fail. The example self-check is good documentation
-// but is not a regression gate; this file is the gate.
+// future change drops that division, these tests fail independently of the example's printed output.
 
 namespace {
     RateLegConvention_ AnnualLeg() {

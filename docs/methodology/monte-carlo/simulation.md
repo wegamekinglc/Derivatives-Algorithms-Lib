@@ -10,7 +10,7 @@ the separate [LSM driver](lsm.md); the ordinary driver does no regression.
 
 The full runnable public-facade pattern is in the
 [C++ API guide](../../public-api.md#scripted-monte-carlo). At core level, the
-[American put example](../../../dal-cpp/examples/american_put_mc/american_put_mc.cpp)
+[American put example](../../../dal-cpp/examples/methods/american_put_mc/american_put_mc.cpp)
 uses this call for both a terminal European payment and early exercise:
 
 ```cpp

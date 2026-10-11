@@ -9,7 +9,11 @@ and result contracts. Numerical definitions remain in the linked methodology.
 
 ## C++
 
-Configure the workspace and build only the three new example targets:
+The [core C++ catalog](../dal-cpp/examples/README.md) covers products, curves,
+models and numerical methods. The native AAD operator and financial workflows
+below are in `dal-cpp/examples/methods/`.
+
+Configure the workspace and build these three example targets:
 
 ```bash
 cmake --preset=Release-linux -S . -B build/Release-linux -DDAL_BUILD_PUBLIC=ON -DDAL_PUBLIC_BUILD_EXAMPLES=ON
@@ -25,7 +29,7 @@ input files, and are registered as CTest `examples` smoke tests.
 
 ### Recorded operators and curvature
 
-[`aad_operators.cpp`](../dal-cpp/examples/aad_operators/aad_operators.cpp) demonstrates:
+[`aad_operators.cpp`](../dal-cpp/examples/methods/aad_operators/aad_operators.cpp) demonstrates:
 
 - A checked dense linear solve composed with a scalar objective; its reverse
   report remains readable after recording close.
@@ -45,7 +49,7 @@ The prototype uses its own active type; general native `higherOrder_` remains fa
 
 ### Financial risk and common paths
 
-[`aad_financial.cpp`](../dal-cpp/examples/aad_financial/aad_financial.cpp) uses native
+[`aad_financial.cpp`](../dal-cpp/examples/methods/aad_financial/aad_financial.cpp) uses native
 preparation and batch APIs to demonstrate:
 
 - Ordered component outputs, a Jacobian in blocks of at most two output lanes and weighted VJP,
@@ -66,10 +70,10 @@ separately; see [weighted risk](methodology/aad.md#weighted-script-risk-results)
 [segmented MC curvature](methodology/aad.md#common-path-segmented-monte-carlo-curvature)
 and [LSMC estimator semantics](methodology/aad.md#native-lsmc-policy-curvature).
 
-Existing examples cover [Black analytic Greeks](../dal-cpp/examples/aad/aad.cpp),
-[complete fixed-grid European PDE risk](../dal-cpp/examples/european_aad_fd/european_aad_fd.cpp),
-[curve Jacobians](../dal-cpp/examples/yield_curve_jacobian/yield_curve_jacobian.cpp)
-and [first-order quote risk](../dal-cpp/examples/quote_risk/quote_risk.cpp).
+Existing examples cover [Black analytic Greeks](../dal-cpp/examples/methods/aad/aad.cpp),
+[complete fixed-grid European PDE risk](../dal-cpp/examples/methods/european_aad_fd/european_aad_fd.cpp),
+[curve Jacobians](../dal-cpp/examples/curves/yield_curve_jacobian/yield_curve_jacobian.cpp)
+and [first-order quote risk](../dal-cpp/examples/curves/quote_risk/quote_risk.cpp).
 PDE derivative accuracy and grid convergence are separate checks; see
 [the PDE guide](methodology/pde/aad.md).
 

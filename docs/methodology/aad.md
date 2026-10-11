@@ -2523,7 +2523,7 @@ sampling error. It provides finite-step curvature estimates, with native
 
 ## Examples
 
-The runnable [AAD Black example](../../dal-cpp/examples/aad) compares passive
+The runnable [AAD Black example](../../dal-cpp/examples/methods/aad) compares passive
 pricing, native AAD and analytic price/gradient references. It treats forward,
 volatility, numeraire, strike and expiry as independent coordinates, so the
 expiry derivative holds forward and numeraire fixed.

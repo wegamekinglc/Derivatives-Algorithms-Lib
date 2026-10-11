@@ -3,6 +3,11 @@
 The dependency direction is `dal-cpp <- dal-public <- {dal-python, dal-excel}`.
 It applies to implementation, examples, benchmarks, tests and their helpers.
 
+Core examples are grouped by primary purpose into `products/`, `curves/`,
+`models/` and `methods/`; the [core catalog](../../dal-cpp/examples/README.md)
+owns the program-to-category map. Reorganizing those directories retains core
+ownership and existing build targets, CTest names and installed program names.
+
 - `dal-cpp/`, including `dal-cpp/examples/`, must not include public-facade
   headers or depend on `dal_public` / `DAL::public`, directly or through helpers,
   aliases, include directories or transitive target links.

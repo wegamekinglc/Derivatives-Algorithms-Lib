@@ -23,7 +23,7 @@ invariant across thread counts.
 
 ## C++ Example and Path Counts
 
-The runnable [American put comparison](../../../dal-cpp/examples/american_put_mc/american_put_mc.cpp)
+The runnable [American put comparison](../../../dal-cpp/examples/methods/american_put_mc/american_put_mc.cpp)
 constructs a product with `EXERCISE` on each allowed date and calls the core
 C++ simulation for both hard pricing and AAD. This excerpt follows its
 settings and call pattern:
@@ -252,7 +252,7 @@ Optional held-out paths select the polynomial degree with the one-standard-error
 rule, using paths disjoint from both fitting and final pricing. The scalar
 single-state path retains its existing degree limit and fast solver.
 
-The runnable example in [`dal-cpp/examples/hybrid_script/`](../../../dal-cpp/examples/hybrid_script)
+The runnable example in [`dal-cpp/examples/models/hybrid_script/`](../../../dal-cpp/examples/models/hybrid_script)
 and [Python equivalent](../../../dal-python/examples/hybrid_script.py) compare
 one-state and two-state fits on the same two-equity Bermudan. Both payoffs use
 the first exercise date's frozen equity values: `max(A-B+60, 0)` now and
@@ -284,7 +284,7 @@ the [simulation diagnostic](../script_engine.md#simulation-diagnostic-full-valua
 and the acceptance suite anchors both engines against a test-only Bermudan
 PDE pricer (`dal-cpp/test-support/bermudan_pde.hpp`; the library PDE itself
 stays European-only). The runnable
-[`dal-cpp/examples/american_put_mc/`](../../../dal-cpp/examples/american_put_mc)
+[`dal-cpp/examples/methods/american_put_mc/`](../../../dal-cpp/examples/methods/american_put_mc)
 compares the European closed form with ordinary Monte Carlo and its AAD
 version, and prices two-date Bermudan and weekly-exercise puts with both
 hard valuation and AAD. It also prints the diagnostic.

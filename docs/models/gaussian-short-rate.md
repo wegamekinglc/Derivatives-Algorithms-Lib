@@ -424,7 +424,7 @@ curve-bridge handles are process-local; fitted model data supports archives.
 
 ## C++ and Python examples
 
-The C++ example in [`dal-cpp/examples/gsr_swap_swaption/`](../../dal-cpp/examples/gsr_swap_swaption/)
+The C++ example in [`dal-cpp/examples/models/gsr_swap_swaption/`](../../dal-cpp/examples/models/gsr_swap_swaption/)
 and [Python example](../../dal-python/examples/014.gsr_swap_swaption.py) build
 an input USD OIS `YieldCurve_`, snapshot it into `GSRCurveData_`, and supply
 piecewise constant `g = 0.02` and `H = 1.0`. Their curve tables compare input
@@ -463,14 +463,14 @@ unsupported.
 After building the Release-linux workspace, run:
 
 ```bash
-build/Release-linux/dal-cpp/examples/gsr_swap_swaption/gsr_swap_swaption
+build/Release-linux/dal-cpp/examples/models/gsr_swap_swaption/gsr_swap_swaption
 DAL_PY_SITE=$(dal-python/.venv/bin/python -c 'import site; print(site.getsitepackages()[0])')
 PYTHONPATH="build/Release-linux/dal-python:$DAL_PY_SITE" dal-python/.venv/bin/python -S dal-python/examples/014.gsr_swap_swaption.py
 ```
 
 ### Three-factor SLV calibration and pricing
 
-The [C++ example](../../dal-cpp/examples/gsr_slv_calibration/)
+The [C++ example](../../dal-cpp/examples/models/gsr_slv_calibration/)
 and [Python example](../../dal-python/examples/016.gsr_slv_calibration.py) use the
 inputs and print aligned tables for the complete workflow:
 
@@ -513,7 +513,7 @@ the workspace with Python enabled, run:
 
 ```bash
 cmake --build build/Release-linux --target gsr_slv_calibration
-build/Release-linux/dal-cpp/examples/gsr_slv_calibration/gsr_slv_calibration
+build/Release-linux/dal-cpp/examples/models/gsr_slv_calibration/gsr_slv_calibration
 DAL_PY_SITE=$(dal-python/.venv/bin/python -c 'import site; print(site.getsitepackages()[0])')
 PYTHONPATH="build/Release-linux/dal-python:$DAL_PY_SITE" dal-python/.venv/bin/python -S dal-python/examples/016.gsr_slv_calibration.py
 ```

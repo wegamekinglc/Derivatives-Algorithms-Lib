@@ -1,0 +1,8 @@
+add_subdirectory(average_option_script)
+add_subdirectory(basket_mc)
+add_subdirectory(digital)
+add_subdirectory(script)
+add_subdirectory(script_settings)
+add_subdirectory(script_tree)
+add_subdirectory(snowball)
+add_subdirectory(uoc)

@@ -195,7 +195,7 @@ global capture, which is sequential rather than an atomic cross-series snapshot.
 Native Value and Explain retain the valuation/mutation barrier, so public calls
 serialize even with explicit dates. Global date setters wait for them; getters
 remain available. The executable
-[`dal-cpp/examples/script_settings/`](../dal-cpp/examples/script_settings/) checks historical
+[`dal-cpp/examples/products/script_settings/`](../dal-cpp/examples/products/script_settings/) checks historical
 compiled-AAD `PV=160` and `d_SCALE=80` with an explicit date/snapshot and zero rates.
 
 `DescribeScriptProduct(product)` returns `dal.script-product/2`: original and
@@ -701,7 +701,7 @@ failures remain explicit in the parallel metadata. Provenance construction is
 the only calibration-time step: `AggregateRatePortfolioQuoteRisk` neither bumps
 quotes nor recalibrates curves.
 
-See the runnable [C++ quote-risk example](../dal-cpp/examples/quote_risk) and
+See the runnable [C++ quote-risk example](../dal-cpp/examples/curves/quote_risk) and
 the [Jacobian methodology](yield-curves/jacobian-risk.md#production-quote-space-dv01).
 
 ## Python

@@ -208,11 +208,11 @@ The scalar-generic weight geometry that underpins the curve layer is exercised
 end to end by the log-discount curve calibration program, which builds the same
 curve under `LOG_LINEAR`, `LOG_CUBIC_NATURAL`, and `MIXED` schemes and compares
 the resulting node discount factors and forward rates. See
-[`dal-cpp/examples/interpolate_curve/`](../../dal-cpp/examples/interpolate_curve)
+[`dal-cpp/examples/curves/interpolate_curve/`](../../dal-cpp/examples/curves/interpolate_curve)
 for a runnable version; its per-scheme calibration call is:
 
 ```cpp
-// from dal-cpp/examples/interpolate_curve/interpolate_curve.cpp
+// from dal-cpp/examples/curves/interpolate_curve/interpolate_curve.cpp
 CurveCalibrationSpec_ spec;
 spec.parameterization_ = CurveParameterization_::Value_::LOG_DISCOUNT;
 spec.solveMode_        = CurveSolveMode_::Value_::EXACT;

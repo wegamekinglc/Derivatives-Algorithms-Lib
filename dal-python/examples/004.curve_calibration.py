@@ -2,7 +2,7 @@
 """
 004.curve_calibration.py — Exactly-determined (square) multi-curve calibration
 
-Mirrors dal-cpp/examples/curve_calibration/curve_calibration.cpp.
+Mirrors dal-cpp/examples/curves/curve_calibration/curve_calibration.cpp.
 
 Calibrates in two sequential stages:
   Stage 1: OIS discount curve — 9 instruments on 9 knot pillars

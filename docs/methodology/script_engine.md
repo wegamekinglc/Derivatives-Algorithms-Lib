@@ -154,11 +154,11 @@ END
 ```
 
 The first two lines represent definition rows, not dated statements. See the
-runnable [C++ script example](../../dal-cpp/examples/script/script.cpp) for
+runnable [C++ script example](../../dal-cpp/examples/products/script/script.cpp) for
 the events-table construction and valuation. Mutable vectors retain values
 across events and historical replay, reset between Monte Carlo paths, and are
 preallocated from the indexed entries and number of `APPEND` statements.
-The runnable [average call example](../../dal-cpp/examples/average_option_script/)
+The runnable [average call example](../../dal-cpp/examples/products/average_option_script/)
 uses four dated events to append observed spots to `fixings`, then pays
 `MAX(AVERAGE(fixings) - STRIKE, 0)` at the last observation date.
 It compares compiled double and AAD Monte Carlo valuation with a
@@ -456,7 +456,7 @@ The returned map contains `PV` and, with AAD, `d_<model parameter>` and
 `d_<script constant parameter>` only. PV is a path mean; risks are already
 normalized. There are no fixing-risk, preparation, or diagnostic result keys.
 
-The example in [`dal-cpp/examples/script_settings/`](../../dal-cpp/examples/script_settings/)
+The example in [`dal-cpp/examples/products/script_settings/`](../../dal-cpp/examples/products/script_settings/)
 uses an explicit date and snapshot, historical `SCALE * FIX(EQ[DAL196_TEST])`,
 and compiled AAD. With history 80, SCALE 2 and zero rates, it checks `PV=160`
 and `d_SCALE=80`, then prints product and prepared-valuation diagnostics. The
@@ -1425,11 +1425,11 @@ tree.
 
 The script program feeds an events table to `ScriptProduct_`, which runs the
 parser and AST construction in its constructor, and then prints the debug walk
-of the processed tree. See [`dal-cpp/examples/script/`](../../dal-cpp/examples/script)
+of the processed tree. See [`dal-cpp/examples/products/script/`](../../dal-cpp/examples/products/script)
 for a runnable version; its events table and product construction are:
 
 ```cpp
-// from dal-cpp/examples/script/script.cpp
+// from dal-cpp/examples/products/script/script.cpp
 #include <dal/platform/platform.hpp>
 #include <dal/script/event.hpp>
 #include <dal/storage/globals.hpp>
@@ -1661,7 +1661,7 @@ Python exposes the same diagnostic as
 and Excel as `SCRIPTSIMULATION.EXPLAIN(product, modelData, n_paths, [valuation],
 [simulation])`, both returning the identical JSON contract (as a dictionary and
 as concatenated text chunks respectively). The runnable
-[`dal-cpp/examples/american_put_mc/`](../../dal-cpp/examples/american_put_mc)
+[`dal-cpp/examples/methods/american_put_mc/`](../../dal-cpp/examples/methods/american_put_mc)
 prices the European-limit, two-date Bermudan, and weekly-exercise puts off the
 same engine and prints the diagnostic.
 
@@ -1739,17 +1739,17 @@ uses the legacy text wrapper.
 
 - [Automatic Adjoint Differentiation](aad.md) — the reverse-mode machinery that
   fuzzy evaluation feeds, enabling pathwise Greeks through discontinuous payoffs.
-- [`dal-cpp/examples/script_settings/`](../../dal-cpp/examples/script_settings/)
+- [`dal-cpp/examples/products/script_settings/`](../../dal-cpp/examples/products/script_settings/)
   — historical fixing, explicit date/snapshot, compiled AAD, and product/valuation diagnostics.
 - [Python FIX settings](../../dal-python/README.md#historical-and-future-fix)
   — keyword-only settings, midnight snapshots, copies, diagnostics, and a complete example.
 - [Excel FIX settings](../excel/script-settings.md)
   — immutable handles, two-column ranges, JSON chunks, and the runnable workbook.
-- [`dal-cpp/examples/script/`](../../dal-cpp/examples/script) — runnable example
+- [`dal-cpp/examples/products/script/`](../../dal-cpp/examples/products/script) — runnable example
   of the full pipeline: events table parsing, preprocessing, domain analysis,
   condition folding, and evaluation.
-- [`dal-cpp/examples/average_option_script/`](../../dal-cpp/examples/average_option_script/)
+- [`dal-cpp/examples/products/average_option_script/`](../../dal-cpp/examples/products/average_option_script/)
   — four-observation arithmetic-average call with a path-local vector.
-- [`dal-cpp/examples/script_tree/`](../../dal-cpp/examples/script_tree) and
+- [`dal-cpp/examples/products/script_tree/`](../../dal-cpp/examples/products/script_tree) and
   [`dal-python/examples/008.script_tree.py`](../../dal-python/examples/008.script_tree.py)
   — runnable demos of the Unicode/ASCII tree dump at several width budgets.
