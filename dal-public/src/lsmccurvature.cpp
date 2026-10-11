@@ -8,6 +8,8 @@
 
 #include <dal-public/src/lsmccurvature.hpp>
 
+#include "riskvalueinternal.hpp"
+
 namespace Dal {
     BlackScholesLsmcPlan_ PlanBlackScholesLsmc(const Handle_<Script::ScriptProductData_>& product,
                                                const Script::MonteCarloSettings_& simulation,
@@ -24,12 +26,8 @@ namespace Dal {
         auto prepared = std::make_shared<const Script::PreparedScript_>(Script::PrepareScript(*contract, &model, fixedValuation, fixedSimulation));
         REQUIRE2(!prepared->AllExpired() && prepared->Product().ContainsExercise(), "BlackScholesLsmcPlan: live EXERCISE preparation required",
                  ScriptError_);
-        Vector_<Script::RiskObservationSnapshot_> observations;
-        for (const auto& request : prepared->Plan().Requests())
-            observations.push_back(
-                {request.key_.canonicalIndex_, request.key_.fixingTime_, request.historical_,
-                 request.historyValueId_ ? std::optional<double>(prepared->Plan().KnownValue(*request.historyValueId_)) : std::nullopt});
-        return {contract, prepared, Vector::Join(model.ParameterLabels(), prepared->ConstVarNames()), std::move(observations)};
+        return {contract, prepared, Vector::Join(model.ParameterLabels(), prepared->ConstVarNames()),
+                Detail::CaptureScriptRiskObservations(*prepared)};
     }
 
     BlackScholesLsmcCurvatureResult_ ValueByBlackScholesLsmcWithCurvature(const BlackScholesLsmcPlan_& plan,

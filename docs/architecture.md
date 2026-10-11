@@ -44,9 +44,16 @@ includes and rejects direct core links. Native observer hooks used by Excel
 tests live under `dal-excel/tests/support/` and are compiled into the XLL only
 when tests are enabled.
 
-All repository C++ examples live under `dal-cpp/examples/` and use core APIs.
-Their DAL dependency is `DAL::cpp`; `DAL_CPP_BUILD_EXAMPLES=ON` enables them
-independently of `DAL_BUILD_PUBLIC`.
+Core C++ examples live under `dal-cpp/examples/`, use core APIs and depend on
+`DAL::cpp`. `DAL_CPP_BUILD_EXAMPLES=ON` enables them independently of
+`DAL_BUILD_PUBLIC`. They must not include or link the public facade, including
+through shared helpers or conditional targets.
+
+Examples using facade builders or valuations live under `dal-public/examples/`
+and link `DAL::public`, which depends on `DAL::cpp`. `DAL_PUBLIC_BUILD_EXAMPLES`
+controls these targets within the public component. See the
+[example catalog](examples.md) for runnable workflows and the
+[installation guide](installation.md#common-cmake-options) for defaults.
 
 ## Core Organization
 

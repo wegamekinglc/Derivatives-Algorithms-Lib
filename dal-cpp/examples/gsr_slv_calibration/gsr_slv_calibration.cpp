@@ -18,17 +18,16 @@
 
 #include <dal/platform/platform.hpp>
 
+#include <dal/curve/calibration.hpp>
+#include <dal/curve/ycinstrument.hpp>
 #include <dal/math/matrix/matrixutils.hpp>
+#include <dal/model/gsrcalibration.hpp>
+#include <dal/model/gsrmarketcalibration.hpp>
+#include <dal/model/gsrslvdata.hpp>
 #include <dal/platform/initall.hpp>
+#include <dal/script/event.hpp>
+#include <dal/script/simulation.hpp>
 #include <dal/storage/globals.hpp>
-#include <dal-public/src/curvedata.hpp>
-#include <dal-public/src/curveinstrument.hpp>
-#include <dal-public/src/curveprotocol.hpp>
-#include <dal-public/src/curvespec.hpp>
-#include <dal-public/src/gsr.hpp>
-#include <dal-public/src/models.hpp>
-#include <dal-public/src/script.hpp>
-#include <dal-public/src/value.hpp>
 
 #include "../floatformat.hpp"
 
@@ -89,32 +88,37 @@ namespace {
     CurveInputs_ CalibrateCurve() {
         const std::array<int, 9> days{{30, 90, 180, 365, 730, 1095, 1825, 2555, 3650}};
         const std::array<double, 9> rates{{0.0270, 0.0280, 0.0290, 0.0302, 0.0310, 0.0315, 0.0322, 0.0325, 0.0328}};
-        const auto fixed = RateLegConvention_New(PeriodLength_("12M"), DayBasis_("ACT_365F"));
-        const auto floating = RateLegConvention_New(PeriodLength_("12M"), DayBasis_("ACT_360"));
-        const auto index = RateIndexConvention_New(PeriodLength_("1M"), DayBasis_("ACT_360"), CollateralType_OIS());
-        CurveCalibrationSpecBuilder_ builder;
-        builder.today_ = TODAY;
-        builder.ccy_ = "USD";
-        builder.curveName_ = "calibrated_ois";
+        RateLegConvention_ fixed;
+        fixed.paymentFrequency_ = PeriodLength_("12M");
+        fixed.dayBasis_ = DayBasis_("ACT_365F");
+        auto floating = fixed;
+        floating.dayBasis_ = DayBasis_("ACT_360");
+        RateIndexConvention_ index;
+        index.forecastTenor_ = PeriodLength_("1M");
+        index.dayBasis_ = DayBasis_("ACT_360");
+        CurveCalibrationSpec_ spec;
+        spec.today_ = TODAY;
+        spec.ccy_ = "USD";
+        spec.curveName_ = "calibrated_ois";
         for (size_t i = 0; i < days.size(); ++i) {
             const auto date = TODAY.AddDays(days[i]);
-            builder.knotDates_.push_back(date);
-            builder.instruments_.push_back(i < 3 ? DepositNew(TODAY, TODAY, date, rates[i], index)
-                                                 : OISSwapNew(TODAY, TODAY, date, rates[i], fixed, index, floating));
+            spec.knotDates_.push_back(date);
+            spec.instruments_.push_back(i < 3 ? Handle_<YCInstrument_>(new Deposit_(TODAY, TODAY, date, rates[i], index))
+                                              : Handle_<YCInstrument_>(new OISSwap_(TODAY, TODAY, date, rates[i], fixed, index, floating)));
         }
-        const auto spec = builder.Build();
         REQUIRE(ValidateSingleCurveAnalyticEligibility(spec).eligible_, "Yield curve instruments must support the AAD Jacobian");
-        const auto fit = CalibrateSingleCurve(spec, CurveJacobianMode_(CurveJacobianMode_::Value_::ANALYTIC));
+        auto fit = CalibrateYieldCurve(spec);
+        const Handle_<DiscountCurve_> discount(fit.curve_.release());
         const auto& diagnostics = fit.diagnostics_;
-        REQUIRE(diagnostics.maxAbsResidual_ <= builder.fitTolerance_, "Yield curve calibration exceeded the quote tolerance");
+        REQUIRE(diagnostics.maxAbsResidual_ <= spec.fitTolerance_, "Yield curve calibration exceeded the quote tolerance");
         Rows_ rows;
         for (size_t i = 0; i < days.size(); ++i)
-            rows.push_back({std::string(i < 3 ? "Deposit " : "OIS ") + Text(Date::ToString(builder.knotDates_[i])),
+            rows.push_back({std::string(i < 3 ? "Deposit " : "OIS ") + Text(Date::ToString(spec.knotDates_[i])),
                             ExampleFloat(diagnostics.marketRates_[i] * 100), ExampleFloat(diagnostics.modelRates_[i] * 100),
-                            ExampleFloat(diagnostics.residuals_[i] * 10000), ExampleFloat((*fit.curve_)(TODAY, builder.knotDates_[i]))});
+                            ExampleFloat(diagnostics.residuals_[i] * 10000), ExampleFloat((*discount)(TODAY, spec.knotDates_[i]))});
         PrintTable("Yield curve calibration: deposits and OIS; AAD Jacobian", {"Instrument", "Market(%)", "Model(%)", "Error(bp)", "Fitted DF"},
                    rows);
-        std::set<Date_> nodes(builder.knotDates_.begin(), builder.knotDates_.end());
+        std::set<Date_> nodes(spec.knotDates_.begin(), spec.knotDates_.end());
         nodes.insert(TODAY);
         for (const auto& expiry : VOL_EXPIRIES) {
             const auto date = TODAY.AddDays(expiry.first);
@@ -122,9 +126,11 @@ namespace {
             for (const auto& tenor : CAPLET_TENORS)
                 nodes.insert(date.AddDays(tenor.first));
         }
-        const auto source = CurveBlockNew(fit.curve_);
         const Vector_<Date_> dates(nodes.begin(), nodes.end());
-        return {fit.curve_, NewGSRCurveDataFromYieldCurve("gsr_curve", *source, TODAY, dates, {})};
+        Vector_<> logDiscountFactors;
+        for (const auto& date : dates)
+            logDiscountFactors.push_back(std::log((*discount)(TODAY, date)));
+        return {discount, Handle_<GSRCurveData_>(new GSRCurveData_("gsr_curve", TODAY, "USD", dates, logDiscountFactors, {}, {}))};
     }
 
     double Forward(const DiscountCurve_& curve, const Date_& expiry, int days) {
@@ -137,7 +143,7 @@ namespace {
         return {expiry, expiry, end, end, accrual, accrual, tenor, Forward(curve, expiry, days) + offset, OptionType_("CALL")};
     }
 
-    Handle_<ModelData_> GaussianModel(const Handle_<GSRCurveData_>& curve) {
+    Handle_<MultiFactorGSRModelData_> GaussianModel(const Handle_<GSRCurveData_>& curve) {
         MultiFactorGSRVolSettings_ settings;
         settings.factorNames_ = {"level", "slope", "curvature"};
         settings.gKnotDates_ = {TODAY, TODAY.AddDays(365), TODAY.AddDays(730)};
@@ -145,7 +151,8 @@ namespace {
         settings.hKnotDates_ = {TODAY, TODAY.AddDays(365), TODAY.AddDays(1095)};
         settings.hValues_ = Matrix::FromVectors<double>({{1.0, 1.0, 1.0}, {0.4, 0.3, 0.2}, {0.1, 0.2, 0.1}});
         settings.correlations_ = Matrix::FromVectors<double>({{1.0, 0.25, 0.1}, {0.25, 1.0, 0.15}, {0.1, 0.15, 1.0}});
-        return NewMultiFactorGSRModelData("gaussian", curve, NewMultiFactorGSRVolData("gaussian_vol", settings));
+        const Handle_<MultiFactorGSRVolData_> vol(new MultiFactorGSRVolData_("gaussian_vol", settings));
+        return Handle_<MultiFactorGSRModelData_>(new MultiFactorGSRModelData_("gaussian", curve, vol));
     }
 
     template <class F_> void ReportDiagnostics(const std::string& title, const F_& fit, const std::optional<bool>& heldOut = std::nullopt) {
@@ -162,18 +169,18 @@ namespace {
         REQUIRE(!heldOut || *heldOut, "Held-out quote validation failed");
     }
 
-    Handle_<ModelData_> CalibrateGaussian(const CurveInputs_& curve) {
+    Handle_<MultiFactorGSRModelData_> CalibrateGaussian(const CurveInputs_& curve) {
         Vector_<VolQuote_> market;
         for (size_t i = 0; i < VOL_EXPIRIES.size(); ++i)
             for (const auto& tenor : CAPLET_TENORS)
                 market.push_back({String_(VOL_EXPIRIES[i].second) + " " + tenor.second + " ATM",
                                   Caplet(*curve.discount_, VOL_EXPIRIES[i].first, 0.0, tenor.first, tenor.second), SMILE_VOLS[i][1], GAUSSIAN_SCALE});
-        const auto prices = ConvertVolQuotes(Handle_<Storable_>(curve.snapshot_), market);
+        const auto prices = ConvertVolQuotes(*curve.snapshot_, market);
         Vector_<CalibrationQuote_> quotes;
         for (size_t i = 0; i < market.size(); ++i)
             quotes.push_back({market[i].name_, market[i].option_, prices[i].price_, GAUSSIAN_SCALE});
         const auto fit =
-            CalibrateGSRVolatility(GaussianModel(curve.snapshot_), quotes, {{0, 0, 0.001, 0.04}, {0, 1, 0.001, 0.04}, {0, 2, 0.001, 0.04}});
+            CalibrateGSRVolatility(*GaussianModel(curve.snapshot_), quotes, {{0, 0, 0.001, 0.04}, {0, 1, 0.001, 0.04}, {0, 2, 0.001, 0.04}});
         Rows_ rows;
         for (size_t i = 0; i < market.size(); ++i)
             rows.push_back({Text(market[i].name_), ExampleFloat(market[i].volatility_ * 10000), ExampleFloat(prices[i].price_),
@@ -184,17 +191,17 @@ namespace {
             rows.push_back({"g:level:" + Text(Date::ToString(TODAY.AddDays(365 * i))), ExampleFloat(0.009), ExampleFloat(fit.parameters_[i])});
         PrintTable("Calibrated Gaussian parameters; slope, curvature, H and correlations fixed", {"Parameter", "Initial", "Fitted"}, rows);
         ReportDiagnostics("Gaussian calibration diagnostics", fit);
-        return Handle_<ModelData_>(fit.model_);
+        return Handle_<MultiFactorGSRModelData_>(fit.model_);
     }
 
-    Handle_<ModelData_> CalibrateSLV(const CurveInputs_& curve, const Handle_<ModelData_>& gaussian) {
+    Handle_<GSRSLVModelData_> CalibrateSLV(const CurveInputs_& curve, const Handle_<MultiFactorGSRModelData_>& gaussian) {
         GSRSLVSettings_ modelSettings;
         modelSettings.kappa_ = 1.0;
         modelSettings.volOfVol_ = 0.5;
         modelSettings.varianceCorrelations_ = {-0.2, 0.0, 0.0};
         modelSettings.maxStep_ = 1.0 / 12.0;
-        const auto leverage = NewGSRLeverageData("leverage", {-0.02, 0.0, 0.02}, {0.0}, Matrix_<>(3, 1, 1.0));
-        const auto initial = NewGSRSLVModelData("initial_slv", gaussian, leverage, modelSettings);
+        const Handle_<GSRLeverageData_> leverage(new GSRLeverageData_("leverage", {-0.02, 0.0, 0.02}, {0.0}, Matrix_<>(3, 1, 1.0)));
+        const GSRSLVModelData_ initial("initial_slv", gaussian, leverage, modelSettings);
         GSRSLVCalibrationSettings_ settings;
         settings.pricing_ = {16384, 1729};
         settings.validation_ = {32768, 81173};
@@ -211,7 +218,7 @@ namespace {
             }
         const Vector_<VolQuote_> heldOut{{"2Y +0.0025 held-out", Caplet(*curve.discount_, 730, 0.0025), 0.01120, PRICE_SCALE}};
         const auto fit = CalibrateGSRSLVMarket(initial, quotes, parameters, settings, heldOut);
-        const auto prices = ConvertVolQuotes(Handle_<Storable_>(curve.snapshot_), quotes);
+        const auto prices = ConvertVolQuotes(*curve.snapshot_, quotes);
         Rows_ rows;
         for (size_t i = 0; i < quotes.size(); ++i)
             rows.push_back({Text(quotes[i].name_), ExampleFloat(quotes[i].volatility_ * 10000), ExampleFloat(prices[i].price_),
@@ -229,7 +236,7 @@ namespace {
                    {{"Max numerical error", "N/A", ExampleFloat(*std::max_element(fit.numericalErrors_.begin(), fit.numericalErrors_.end())),
                      ExampleFloat(settings.solver_.numericalErrorFraction_ * PRICE_SCALE)},
                     {"Held-out 2Y +0.0025", ExampleFloat(fit.heldOutPrices_[0]), ExampleFloat(heldOutError), ExampleFloat(PRICE_SCALE)}});
-        return Handle_<ModelData_>(fit.model_);
+        return Handle_<GSRSLVModelData_>(fit.model_);
     }
 
     struct ScriptValues_ {
@@ -238,24 +245,25 @@ namespace {
     };
 
     ScriptValues_
-    ValueScript(const Handle_<ScriptProductData_>& product, const Handle_<ModelData_>& model, const GSRMonteCarloPrice_& reference, int paths) {
-        ScriptValuationSettings_ valuation;
+    ValueScript(const Script::ScriptProductData_& product, const Handle_<ModelData_>& model, const GSRMonteCarloPrice_& reference, int paths) {
+        Script::ScriptValuationSettings_ valuation;
         valuation.evaluationDate_ = TODAY;
-        MonteCarloSettings_ execution;
+        Script::MonteCarloSettings_ execution;
         execution.compiled_ = true;
         execution.useBb_ = true;
         execution.smooth_ = 1e-8;
-        const auto plain = ValueByMonteCarlo(product, model, paths, valuation, execution);
+        const auto plain = Script::MCSimulation<double>(product, model, paths, valuation, execution);
         execution.enableAad_ = true;
-        const auto adjoint = ValueByMonteCarlo(product, model, paths, valuation, execution);
-        REQUIRE(std::abs(adjoint.at("PV") - plain.at("PV")) <= 1e-10, "AAD and plain PV differ");
-        REQUIRE(std::abs(adjoint.at("PV") - reference.price_) <= 5 * reference.standardError_ + 0.0001, "Script and European pricer differ");
-        std::map<std::string, double> risks;
-        for (const auto& entry : adjoint) {
-            REQUIRE(std::isfinite(entry.second), "Non-finite AAD result");
-            risks.emplace(Text(entry.first), entry.second);
+        const auto adjoint = Script::MCSimulation<AAD::Number_>(product, model, paths, valuation, execution);
+        const double plainPv = plain.aggregated_ / paths, adjointPv = adjoint.aggregated_ / paths;
+        REQUIRE(std::abs(adjointPv - plainPv) <= 1e-10, "AAD and plain PV differ");
+        REQUIRE(std::abs(adjointPv - reference.price_) <= 5 * reference.standardError_ + 0.0001, "Script and European pricer differ");
+        std::map<std::string, double> risks{{"PV", adjointPv}};
+        for (const auto& name : adjoint.names_) {
+            REQUIRE(std::isfinite(adjoint[name]), "Non-finite AAD result");
+            risks.emplace("d_" + Text(name), adjoint[name]);
         }
-        return {plain.at("PV"), std::move(risks)};
+        return {plainPv, std::move(risks)};
     }
 
     void ReportRisks(const std::array<std::map<std::string, double>, 2>& risks, const Date_& expiry) {
@@ -272,7 +280,7 @@ namespace {
         PrintTable("AAD input derivatives; calibration held fixed; active inputs", {"Risk", "1Y ATM caplet", "1Y into 2Y payer"}, rows);
     }
 
-    void PriceProducts(const DiscountCurve_& discount, const Handle_<ModelData_>& model) {
+    void PriceProducts(const DiscountCurve_& discount, const Handle_<GSRSLVModelData_>& model) {
         const auto expiry = TODAY.AddDays(365), first = expiry.AddDays(365), end = first.AddDays(365);
         const double strike = (discount(TODAY, expiry) - discount(TODAY, end)) / (discount(TODAY, first) + discount(TODAY, end));
         const Swaption_ swaption{expiry,
@@ -282,21 +290,21 @@ namespace {
                                  OptionType_("CALL")};
         const GSRMonteCarloSettings_ settings{16384, 27183};
         const auto caplet = Caplet(discount, 365);
-        const auto prices = PriceGSRSLVEuropeanOptions(model, {caplet, swaption}, settings);
-        const auto capletScript = NewScriptProduct(
+        const auto prices = PriceGSRSLVEuropeanOptions(*model, {caplet, swaption}, settings);
+        const Script::ScriptProductData_ capletScript(
             "caplet", {Cell_("STRIKE"), Cell_(expiry)},
             {String_(Precise(caplet.strike_)), String_("pay PAYS MAX(1 - (1 + " + Precise(182.0 / 365.0) + " * STRIKE) * FIX(IR[USD,DF," +
                                                        Text(Date::ToString(expiry.AddDays(182))) + "]), 0)")});
-        const auto swaptionScript = NewScriptProduct(
+        const Script::ScriptProductData_ swaptionScript(
             "swaption", {Cell_("STRIKE"), Cell_(expiry)},
             {String_(Precise(strike)), String_("pay PAYS MAX(1 - FIX(IR[USD,DF," + Text(Date::ToString(end)) + "]) - STRIKE * (FIX(IR[USD,DF," +
                                                Text(Date::ToString(first)) + "]) + FIX(IR[USD,DF," + Text(Date::ToString(end)) + "])), 0)")});
         const std::array<std::string, 2> names{{"1Y ATM caplet", "1Y into 2Y ATM payer"}};
-        const std::array<Handle_<ScriptProductData_>, 2> products{{capletScript, swaptionScript}};
+        const std::array<const Script::ScriptProductData_*, 2> products{{&capletScript, &swaptionScript}};
         std::array<std::map<std::string, double>, 2> risks;
         Rows_ rows;
         for (size_t i = 0; i < products.size(); ++i) {
-            const auto values = ValueScript(products[i], model, prices[i], settings.paths_);
+            const auto values = ValueScript(*products[i], Handle_<ModelData_>(model), prices[i], settings.paths_);
             const double adjoint = values.adjoint_.at("PV");
             risks[i] = values.adjoint_;
             rows.push_back({names[i], ExampleFloat(prices[i].price_), ExampleFloat(prices[i].standardError_), ExampleFloat(values.plain_),

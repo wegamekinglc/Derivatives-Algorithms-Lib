@@ -26,7 +26,13 @@ git log --oneline -5
 ```
 
 2. Determine the branch. Use an existing feature/fix branch when appropriate; create a new branch from `master` if currently on `master`.
-3. Review the diff carefully. Stage only files that belong to this logical change. Prove the
+3. Review the diff carefully. For example/build changes, verify the
+   [component boundary contract](../../references/component-boundaries.md): core examples
+   must build without the public component, and facade examples must live under
+   `dal-public/examples/`. Preserve existing core example locations and targets;
+   fix reverse dependencies with core APIs, rather than moving those examples.
+   Check source includes and target dependencies before publication.
+   Stage only files that belong to this logical change. Prove the
    exact staged scope with `git diff --cached --name-status` and validate it with
    `git diff --cached --check`.
 4. Commit with an imperative summary under 72 characters and a body explaining why.

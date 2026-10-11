@@ -29,6 +29,8 @@ _PACKAGE_ROOT = str(Path(dal.__file__).resolve().parent.parent)
             "Early-exercise premium",
         ),
         ("014.gsr_swap_swaption.py", {}, "Static YieldCurve PV"),
+        ("017.native_aad_risk.py", {"DAL_NUM_THREADS": "1"}, "Native AAD risk examples passed."),
+        ("018.quote_curvature.py", {"DAL_NUM_THREADS": "1"}, "Native quote curvature examples passed."),
     ],
 )
 def test_example_runs_through_its_guards(name, env, marker):

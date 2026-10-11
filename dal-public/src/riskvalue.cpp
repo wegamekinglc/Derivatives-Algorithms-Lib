@@ -80,10 +80,7 @@ namespace Dal {
             execution.todayFixingPolicy_ = prepared.Settings().todayFixingPolicy_.String();
             execution.fixingSource_ = Script::FixingSourceKind(prepared.Settings());
             execution.modelSnapshotJson_ = JSON::WriteString(model);
-            for (const auto& request : prepared.Plan().Requests())
-                execution.observations_.push_back(
-                    {request.key_.canonicalIndex_, request.key_.fixingTime_, request.historical_,
-                     request.historyValueId_ ? std::optional<double>(prepared.Plan().KnownValue(*request.historyValueId_)) : std::nullopt});
+            execution.observations_ = Detail::CaptureScriptRiskObservations(prepared);
             provenance.execution_ = std::move(execution);
             return provenance;
         }
