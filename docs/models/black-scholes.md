@@ -21,6 +21,11 @@ Bachelier implementation described below is a vanilla pricing kernel; it is
 not a separate Monte Carlo model. The simulation implementation is in
 `dal-cpp/dal/model/blackscholes.hpp`.
 
+`Init` prepares the initial log spot together with step coefficients and
+deterministic discount factors. With AAD, these calculations belong to the
+recording prefix and retain their parameter derivatives across path replays.
+Re-run `Init` after changing model parameters or starting a fresh recording.
+
 ## Notation and the Volatility Convention
 
 Throughout, let $F$ be the forward, $K$ the strike, $\sigma$ the (annualized) volatility,
