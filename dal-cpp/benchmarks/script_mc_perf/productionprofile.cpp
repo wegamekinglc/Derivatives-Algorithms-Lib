@@ -35,6 +35,7 @@ namespace {
         size_t paths_ = 0, outputs_ = 0, grid_ = 0, training_ = 0, repeats_ = 0;
         [[nodiscard]] bool Exercise() const { return scenario_ == "lsmc-bs" || scenario_ == "lsmc-local-vol"; }
         [[nodiscard]] bool LocalVol() const { return scenario_ == "local-vol" || scenario_ == "lsmc-local-vol"; }
+        [[nodiscard]] bool Rates() const { return scenario_.find("gsr-") == 0 || scenario_ == "hybrid-gsr-swap" || scenario_ == "slv-swap-1f"; }
         [[nodiscard]] bool Aad() const { return mode_ == "aad"; }
     };
 
@@ -49,7 +50,8 @@ namespace {
     }
 
     bool ValidNames(const Options_& options) {
-        return Choice(options.scenario_, {"short", "long", "local-vol", "hybrid-bs", "hybrid-gsr", "lsmc-bs", "lsmc-local-vol"}) &&
+        return Choice(options.scenario_, {"short", "long", "local-vol", "hybrid-bs", "hybrid-gsr", "gsr-swap-1f", "gsr-swap-3f", "gsr-bond-1f",
+                                          "hybrid-gsr-swap", "slv-swap-1f", "lsmc-bs", "lsmc-local-vol"}) &&
                Choice(options.mode_, {"double", "aad"}) && Choice(options.engine_, {"tree", "compiled"}) &&
                Choice(options.measurement_, {"cold", "warm", "phases"});
     }
@@ -96,7 +98,73 @@ namespace {
         return Handle_<ModelData_>(new HybridModelData_("production-hybrid", settings));
     }
 
+    Handle_<MultiFactorGSRModelData_> GaussianRateData(size_t factors) {
+        const Date_ today(2024, 1, 1);
+        Matrix_<> projection(1, 3, 0.0);
+        projection(0, 1) = -0.04;
+        projection(0, 2) = -0.4;
+        const Handle_<GSRCurveData_> curve(
+            new GSRCurveData_("curve", today, "USD", {today, today.AddDays(365), today.AddDays(3650)}, {0.0, -0.03, -0.3}, {"3M"}, projection));
+        MultiFactorGSRVolSettings_ settings;
+        settings.gKnotDates_ = {today, today.AddDays(120)};
+        settings.hKnotDates_ = {today, today.AddDays(180)};
+        settings.gValues_ = settings.hValues_ = Matrix_<>(static_cast<int>(factors), 2);
+        settings.correlations_ = Matrix_<>(static_cast<int>(factors), static_cast<int>(factors), 0.3);
+        for (size_t factor = 0; factor < factors; ++factor) {
+            settings.factorNames_.push_back("factor" + String::FromInt(static_cast<int>(factor)));
+            settings.gValues_(static_cast<int>(factor), 0) = 0.02 / (factor + 1);
+            settings.gValues_(static_cast<int>(factor), 1) = 0.025 / (factor + 1);
+            settings.hValues_(static_cast<int>(factor), 0) = 1.0 - 0.3 * factor;
+            settings.hValues_(static_cast<int>(factor), 1) = 0.8 - 0.2 * factor;
+            settings.correlations_(static_cast<int>(factor), static_cast<int>(factor)) = 1.0;
+        }
+        return Handle_<MultiFactorGSRModelData_>(
+            new MultiFactorGSRModelData_("production-rates", curve, Handle_<MultiFactorGSRVolData_>(new MultiFactorGSRVolData_("vol", settings))));
+    }
+
+    Handle_<ModelData_> RateData(const Options_& options) {
+        const auto gaussian = GaussianRateData(options.scenario_ == "gsr-swap-3f" ? 3 : 1);
+        if (options.scenario_ == "slv-swap-1f") {
+            Matrix_<> values(2, 1);
+            values(0, 0) = 0.8;
+            values(1, 0) = 1.2;
+            const Handle_<GSRLeverageData_> leverage(new GSRLeverageData_("leverage", {-0.05, 0.05}, {0.0}, values));
+            GSRSLVSettings_ settings;
+            settings.maxStep_ = 0.25;
+            settings.varianceCorrelations_ = {-0.2};
+            return Handle_<ModelData_>(new GSRSLVModelData_("production-slv", gaussian, leverage, settings));
+        }
+        if (options.scenario_ == "hybrid-gsr-swap") {
+            HybridSettings_ settings;
+            settings.domesticCurrency_ = "USD";
+            settings.components_ = {
+                Handle_<HybridComponentData_>(new HybridGSRRateData_("rate", {}, gaussian->curve_, gaussian->vol_)),
+                Handle_<HybridComponentData_>(new HybridBSEquityData_("equity", "EQ[DAL418_TEST]", "USD", "EQ", 100.0, 0.2, 0.02))};
+            settings.correlation_ = AssembleHybridCorrelation("corr", settings.components_, {{"EQ", "factor0", -0.25}});
+            return Handle_<ModelData_>(new HybridModelData_("production-hybrid-rates", settings));
+        }
+        return Handle_<ModelData_>(gaussian);
+    }
+
+    ScriptProductData_ RateProduct(const Options_& options, size_t output) {
+        const Date_ today(2024, 1, 1);
+        Vector_<Cell_> dates;
+        Vector_<String_> events;
+        const String_ observed = options.scenario_ == "gsr-bond-1f" ? "FIX(IR[USD,DF,2033-01-01])"
+                                                                    : "FIX(IR[USD,SWAP,5Y]) + FIX(IR[USD,LIBOR_3M_LCH]) + FIX(IR[USD,DF,2033-01-01])";
+        for (int quarter = 0; quarter <= 16; ++quarter) {
+            dates.push_back(Cell_(today.AddDays(quarter * 91)));
+            events.push_back("runningTotal = runningTotal + (" + observed + ") / 17.0");
+        }
+        events.back() += " pay PAYS runningTotal * " + String::FromInt(static_cast<int>(output + 1));
+        if (options.scenario_ != "slv-swap-1f")
+            events.back() += " ON 2029-01-01";
+        return {"rates-output-" + String::FromInt(static_cast<int>(output)), dates, events};
+    }
+
     Handle_<ModelData_> ModelData(const Options_& options) {
+        if (options.Rates())
+            return RateData(options);
         if (options.scenario_ == "hybrid-bs" || options.scenario_ == "hybrid-gsr")
             return HybridData(options.scenario_ == "hybrid-gsr");
         if (!options.LocalVol())
@@ -113,6 +181,8 @@ namespace {
     String_ OutputName(size_t output) { return String_("call-strike-" + std::to_string(90.0 + static_cast<double>(output))); }
 
     ScriptProductData_ OrdinaryProduct(const Options_& options, size_t output) {
+        if (options.Rates())
+            return RateProduct(options, output);
         const Date_ start(2024, 1, 1), maturity(2025, 1, 1);
         Vector_<Cell_> dates;
         Vector_<String_> events;
