@@ -40,6 +40,7 @@ namespace Dal {
             T_ rate_;
             T_ div_;
             T_ vol_;
+            T_ logSpot_{};
 
             Vector_<> timeLine_;
             bool todayOnTimeLine_ = false;
@@ -99,7 +100,7 @@ namespace Dal {
             }
 
             template <bool VALIDATE_> bool GeneratePathImpl(const Vector_<>& gaussVec, Scenario_<T_>* path) const {
-                return GenerateSpots(spot_, T_(Dal::log(spot_)), todayOnTimeLine_, drifts_, stds_, gaussVec,
+                return GenerateSpots(spot_, logSpot_, todayOnTimeLine_, drifts_, stds_, gaussVec,
                                      [&](size_t idx, const T_& spot) { return FillScenario<VALIDATE_>(idx, spot, (*path)[idx], (*defLine_)[idx]); });
             }
 
@@ -153,10 +154,7 @@ namespace Dal {
             }
 
             template <class U_>
-            BlackScholes_(const U_& spot,
-                          const U_& vol,
-                          const U_& rate = U_(0.0),
-                          const U_& div = U_(0.0))
+            BlackScholes_(const U_& spot, const U_& vol, const U_& rate = U_(0.0), const U_& div = U_(0.0))
                 : spot_(spot), vol_(vol), rate_(rate), div_(div), parameters_(4), parameterLabels_(BlackScholesLabels()) {
                 ValidateParameters();
                 SetParamPointers();
@@ -206,6 +204,7 @@ namespace Dal {
 
             void Init(const Vector_<>& productTimeline, const Vector_<SampleDef_>& defLine) override {
                 ValidateParameters();
+                logSpot_ = Dal::log(spot_);
                 const T_ mu = rate_ - div_;
                 const size_t n = timeLine_.size() - 1;
 
@@ -244,18 +243,14 @@ namespace Dal {
         };
     } // namespace AAD
 
-    struct BSModelData_: ModelData_ {
+    struct BSModelData_ : ModelData_ {
         double spot_;
         double vol_;
         double rate_;
         double div_;
 
-        BSModelData_(const String_& name,
-                     double spot,
-                     double vol,
-                     double rate = 0.0,
-                     double div = 0.0)
-                     : ModelData_("BSModelData_", name), spot_(spot), vol_(vol), rate_(rate), div_(div) {
+        BSModelData_(const String_& name, double spot, double vol, double rate = 0.0, double div = 0.0)
+            : ModelData_("BSModelData_", name), spot_(spot), vol_(vol), rate_(rate), div_(div) {
             parameterLabels_ = BlackScholesLabels();
         }
 
