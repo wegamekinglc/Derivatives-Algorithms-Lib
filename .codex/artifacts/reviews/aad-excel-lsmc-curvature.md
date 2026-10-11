@@ -1,6 +1,6 @@
 # Excel LSMC curvature review
 
-Verdict: local source review clear; scoped cost and publication acceptance open.
+Verdict: local source/cost review clear; publication acceptance open.
 Review performed locally under the DAL reviewer contract, without delegation.
 
 Read the native/public ownership and estimator contracts first, then the full
@@ -32,6 +32,10 @@ configuration and documentation checks pass. The initial time-zero polynomial
 fixture was rejected by the existing native exercise-date contract and was
 corrected to a legal future exercise; no native behavior was broadened.
 
-Remaining gates: four selected cost cases, actual Windows raw/registration
+Four selected costs retain 160 valid observations in 15.012276119 measured
+seconds. Both same-contract MC cases pass the +4% gate in both rounds; native
+versus owning-Excel LSMC comparisons remain informational.
+
+Remaining gates: actual Windows raw/registration
 runtime, applicable exact-head CI, all Codacy/review findings, two final audits
 and SHA-guarded merge. Linux portable probes do not execute Windows-only bodies.

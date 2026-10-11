@@ -13,12 +13,14 @@ Current controls are the [specification](../specs/aad-excel-lsmc-curvature.md),
 The missing-interface and passive-projection RED records are retained.
 Nine LSMC typed cases and all eleven affected MC cases pass, including both
 policy modes/programs, complete passive queries, history, budgets and lifecycle.
-Twenty-nine generated wrapper/help pairs, ten strict OFF/combined probes and
+Twenty-nine generated wrapper/help pairs, twelve strict OFF/combined probes and
 the public binding boundary pass. Three Windows raw cases and registration
-contracts are written; actual Windows runtime, scoped costs and publication
-acceptance remain open. Native EXERCISE dates must be
+contracts are written. Four selected costs retain 160 valid observations in
+15.012276119 measured seconds; both same-contract MC cases pass +4% in both
+rounds, while native-versus-owning LSMC costs remain informational.
+Actual Windows runtime and publication acceptance remain open. Native EXERCISE dates must be
 strictly after evaluation; the rejected same-day fixture is retained separately.
-Remaining developer effort is approximately 7–13 hours: LSMC 3–5 and
+Remaining developer effort is approximately 6–12 hours: LSMC 2–4 and
 final-only work 4–8; remote CI waiting is separate.
 
 Excel segmented Monte Carlo is accepted in #538 at merge
@@ -1686,10 +1688,10 @@ overlapping acceptance work is included once in the integration allowance.
 | P04                     | Structural compression, safe fallback and selection accepted     | #511 merged; final 36/36 gates accepted  | 0                     |
 | P05                     | Core, fixed-path and Monte Carlo adapters accepted               | #512/#513/#515 merged; 36/36 gates       | 0                     |
 | F04                     | Finite-step and opt-in smooth prototype accepted                 | #517–#528 merged                         | 0                     |
-| Final integration/audit | Excel LSMC and final requirement audit remain                    | Open                                     | 0.9–1.6               |
+| Final integration/audit | Excel LSMC and final requirement audit remain                    | Open                                     | 0.8–1.5               |
 
-Remaining total after merged Excel MC acceptance: 7–13 hours,
-approximately 0.9–1.6 eight-hour person-days, excluding CI queue time. Both
+Remaining total after merged Excel MC acceptance: 6–12 hours,
+approximately 0.8–1.5 eight-hour person-days, excluding CI queue time. Both
 financial PDE projections are accepted and contribute zero hours. Delivery contingency
 is included in those same hour ranges; there is no extra undisclosed allowance. F01 is merged;
 native algorithms and independent mathematical acceptance already exist. This is a rough
@@ -1756,9 +1758,9 @@ numeric/native diagnostics are not counted again.
 | 12b1  | Excel Dupire curvature               | #536 merged; 35/35 checks, fourteen runtime profiles, both audits and identical merged tree accepted     | 0               |
 | 12b2  | Excel rate curvature                 | #537 merged; 29/29 applicable checks, fourteen runtime profiles, both audits and identical tree accepted | 0               |
 | 12c1  | Excel segmented MC curvature         | #538 merged; 29/29 checks, fourteen runtime profiles, both audits and identical merged tree accepted     | 0               |
-| 12c2  | Excel LSMC curvature                 | Typed plans/results and complete policy queries, scoped acceptance and publication                       | 3–5             |
+| 12c2  | Excel LSMC curvature                 | Typed plans/results and complete policy queries, scoped acceptance and publication                       | 2–4             |
 | 13    | Final integration and documentation  | Requirement/evidence audit, current docs, concrete gap repairs and final publication gates               | 4–8             |
-| Total | Full remaining implementation        | All remaining plan requirements                                                                          | 7–13            |
+| Total | Full remaining implementation        | All remaining plan requirements                                                                          | 6–12            |
 
 
 The first delivery boundary is complete. Whole-PR review repaired the Windows
@@ -2361,6 +2363,6 @@ Merge verification and both audits are retained in session evidence
 `aad-selected-extraction-merged-01.json`; the merge used the accepted-head SHA guard.
 P03 remaining effort is zero. The owning normalized-LU numeric pullback in #490
 and subsequent F03 recording/event integration are accepted. Current remaining
-work is Excel LSMC and final integration: 7–13 developer-hours, as detailed in
+work is Excel LSMC and final integration: 6–12 developer-hours, as detailed in
 the current status table. The closed financial PDE projection is accepted in #534.
 Native algorithms are accepted; full interface/integration delivery is incomplete.
