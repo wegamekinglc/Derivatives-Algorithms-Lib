@@ -10,6 +10,7 @@
 #include <map>
 #include <memory>
 #include <type_traits>
+#include <utility>
 #include <variant>
 
 #include <dal/platform/platform.hpp>
@@ -399,6 +400,14 @@ namespace Dal::AAD {
                 output->discounts_[slot] = price(discountBonds_[sample][slot]);
         }
 
+        void ValidateHybridBatchOutputs(size_t sample, const Vector_<std::pair<size_t, size_t>>& slots, const Sample_<T_>* output) const {
+            REQUIRE(output && output->discounts_.size() == discountBonds_[sample].size(),
+                    "InvalidGSRObservation: batch discount dimensions do not match");
+            for (const auto& slot : slots)
+                REQUIRE(slot.first < observations_[sample].size() && slot.second < output->observations_.size(),
+                        "InvalidGSRObservation: batch observation slot is outside its prepared or output range");
+        }
+
         void GeneratePathWithState(const Vector_<>& gaussian, Scenario_<T_>* path, T_* state) const {
             T_ logNumeraire(0.0);
             size_t gaussianSlot = 0;
@@ -591,6 +600,40 @@ namespace Dal::AAD {
                     "InvalidGSRObservation: discount sample or dimensions do not match");
             for (size_t k = 0; k < discounts->size(); ++k)
                 (*discounts)[k] = Bond(discountBonds_[sample][k], state);
+        }
+
+        [[nodiscard]] bool UsesHybridObservationBatch(size_t sample) const {
+            REQUIRE(sample < reuseBonds_.size(), "InvalidGSRObservation: batch sample was not prepared");
+            return reuseBonds_[sample];
+        }
+
+        bool FillHybridObservationBatch(size_t sample,
+                                        const Vector_<std::pair<size_t, size_t>>& slots,
+                                        const Vector_<T_>& state,
+                                        size_t stateOffset,
+                                        Sample_<T_>* output,
+                                        size_t scratchPrefix) const {
+            if (!UsesHybridObservationBatch(sample))
+                return false;
+            ValidateHybridBatchOutputs(sample, slots, output);
+            REQUIRE(stateOffset <= state.size() && NumFactors() <= state.size() - stateOffset,
+                    "InvalidGSRObservation: batch rate state exceeds its vector");
+            auto& prices = output->modelScratch_;
+            REQUIRE(scratchPrefix <= prices.size(), "InvalidGSRObservation: scratch prefix exceeds its vector");
+            REQUIRE(&prices != &state || scratchPrefix >= stateOffset + NumFactors(),
+                    "InvalidGSRObservation: scratch prefix overlaps the rate state");
+            prices.erase(prices.begin() + scratchPrefix, prices.end());
+            prices.reserve(scratchPrefix + bonds_[sample].size());
+            // Reserve before obtaining the state pointer: the first Hybrid sample shares this vector.
+            const T_* factors = &state[stateOffset];
+            for (const auto& bond : bonds_[sample])
+                prices.push_back(Bond(bond, factors));
+            const auto price = [&](const Bond_& bond) -> const T_& { return prices[scratchPrefix + bond.index_]; };
+            for (const auto& slot : slots)
+                output->observations_[slot.second] = Observe(observations_[sample][slot.first], price);
+            for (size_t slot = 0; slot < discountBonds_[sample].size(); ++slot)
+                output->discounts_[slot] = price(discountBonds_[sample][slot]);
+            return true;
         }
 
         [[nodiscard]] size_t NumAssets() const override { return 0; }

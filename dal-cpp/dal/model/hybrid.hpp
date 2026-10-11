@@ -159,6 +159,12 @@ namespace Dal {
                 static_cast<void>(discounts);
                 THROW("InvalidHybridDiscounts: component does not provide discount factors");
             }
+            // Slots map component observations to sample outputs; scratchPrefix protects shared path state.
+            [[nodiscard]] virtual bool UsesObservationBatch(size_t) const { return false; }
+            virtual bool
+            FillObservationBatch(size_t, const Vector_<std::pair<size_t, size_t>>&, const Vector_<T_>&, size_t, Sample_<T_>*, size_t) const {
+                return false;
+            }
             [[nodiscard]] virtual std::optional<Date_> EvaluationDate() const { return std::nullopt; }
             [[nodiscard]] virtual bool SupportsIndex(const Index_&) const { return false; }
             [[nodiscard]] virtual double MaxStep() const { return std::numeric_limits<double>::infinity(); }
@@ -505,6 +511,15 @@ namespace Dal {
                                Vector_<T_>* discounts) const override {
                 model_->ObserveHybridDiscounts(sample, &state[stateOffset], discounts);
             }
+            [[nodiscard]] bool UsesObservationBatch(size_t sample) const override { return model_->UsesHybridObservationBatch(sample); }
+            bool FillObservationBatch(size_t sample,
+                                      const Vector_<std::pair<size_t, size_t>>& slots,
+                                      const Vector_<T_>& state,
+                                      size_t stateOffset,
+                                      Sample_<T_>* output,
+                                      size_t scratchPrefix) const override {
+                return model_->FillHybridObservationBatch(sample, slots, state, stateOffset, output, scratchPrefix);
+            }
             [[nodiscard]] std::unique_ptr<HybridComponent_<T_>> Clone() const override { return std::make_unique<HybridGSRRate_<T_>>(*this); }
         };
 
@@ -564,6 +579,7 @@ namespace Dal {
             [[nodiscard]] bool SupportsIndex(const Index_& index) const override { return model_->SupportsIndex(index); }
             [[nodiscard]] double MaxStep() const override { return model_->MaxStep(); }
             [[nodiscard]] Vector_<> TimelineKnots() const override { return timelineKnots_; }
+            void BeginInit() override { model_->ResetAnchorsForRecording(); }
             [[nodiscard]] T_ LogDiscount(double time) const override { return model_->InitialLogDiscount(time); }
             [[nodiscard]] T_ PathLogNumeraire(double, const Vector_<T_>& state, size_t offset) const override {
                 return model_->HybridLogNumeraire(state, offset);
@@ -777,6 +793,8 @@ namespace Dal {
             bool todayOnTimeLine_ = false;
             const Vector_<SampleDef_>* defLine_ = nullptr;
             Vector_<Vector_<OutputSlot_>> outputSlots_;
+            Vector_<Vector_<std::pair<size_t, size_t>>> rateObservationSlots_;
+            Vector_<bool> batchSamples_;
             Vector_<T_> numeraires_;
             Vector_<T_> initialCarry_;
 
@@ -903,6 +921,39 @@ namespace Dal {
                 THROW("UnsupportedModelObservation: " + name);
             }
 
+            void FillObservedIndices(size_t sample, const Vector_<T_>& state, bool today, bool batchFilled, Sample_<T_>* output) const {
+                const size_t gridIndex = productGridIndices_[sample];
+                output->spot_ = components_[spotSlot_]->Observe(gridIndex, 0, state, stateOffsets_[spotSlot_], today);
+                for (size_t i = 0; i < outputSlots_[sample].size(); ++i) {
+                    const auto slot = outputSlots_[sample][i];
+                    if (batchFilled && slot.component_ == rateSlot_)
+                        continue;
+                    if (slot.component_ == spotSlot_ && slot.observable_ == 0)
+                        output->observations_[i] = output->spot_;
+                    else
+                        output->observations_[i] =
+                            components_[slot.component_]->Observe(gridIndex, slot.observable_, state, stateOffsets_[slot.component_], today);
+                }
+            }
+
+            void PrepareObservationBatches(const Vector_<SampleDef_>& definitions) {
+                for (size_t sample = 0; sample < definitions.size(); ++sample)
+                    batchSamples_[sample] = (!rateObservationSlots_[sample].empty() || !definitions[sample].discountMats_.empty()) &&
+                                            components_[rateSlot_]->UsesObservationBatch(productGridIndices_[sample]);
+            }
+
+            bool FillRateObservations(size_t sample, const Vector_<T_>& state, Sample_<T_>* output) const {
+                if (!batchSamples_[sample])
+                    return false;
+                const bool sharedState = &state == &output->modelScratch_;
+                const bool batchFilled =
+                    components_[rateSlot_]->FillObservationBatch(productGridIndices_[sample], rateObservationSlots_[sample], state,
+                                                                 stateOffsets_[rateSlot_], output, sharedState ? totalState_ : 0);
+                if (batchFilled && sharedState)
+                    output->modelScratch_.Resize(totalState_);
+                return batchFilled;
+            }
+
             void FillSample(size_t sample, const Vector_<T_>& state, bool today, Sample_<T_>* output) const {
                 const size_t gridIndex = productGridIndices_[sample];
                 if ((*defLine_)[sample].numeraire_) {
@@ -912,18 +963,11 @@ namespace Dal {
                         output->numeraire_ =
                             Dal::exp(components_[rateSlot_]->PathLogNumeraire(timeLine_[gridIndex], state, stateOffsets_[rateSlot_]));
                 }
-                if (!output->discounts_.empty())
+                const bool batchFilled = FillRateObservations(sample, state, output);
+                if (!batchFilled && !output->discounts_.empty())
                     components_[rateSlot_]->FillDiscounts(gridIndex, timeLine_[gridIndex], (*defLine_)[sample].discountMats_, state,
                                                           stateOffsets_[rateSlot_], &output->discounts_);
-                output->spot_ = components_[spotSlot_]->Observe(gridIndex, 0, state, stateOffsets_[spotSlot_], today);
-                for (size_t i = 0; i < outputSlots_[sample].size(); ++i) {
-                    const auto slot = outputSlots_[sample][i];
-                    if (slot.component_ == spotSlot_ && slot.observable_ == 0)
-                        output->observations_[i] = output->spot_;
-                    else
-                        output->observations_[i] =
-                            components_[slot.component_]->Observe(gridIndex, slot.observable_, state, stateOffsets_[slot.component_], today);
-                }
+                FillObservedIndices(sample, state, today, batchFilled, output);
             }
 
             void Advance(size_t step, const Vector_<>& gaussian, Vector_<>* factors, Vector_<T_>* state) const {
@@ -1008,6 +1052,8 @@ namespace Dal {
                 copy->todayOnTimeLine_ = todayOnTimeLine_;
                 copy->defLine_ = defLine_;
                 copy->outputSlots_ = outputSlots_;
+                copy->rateObservationSlots_ = rateObservationSlots_;
+                copy->batchSamples_ = batchSamples_;
                 copy->numeraires_ = numeraires_;
                 copy->initialCarry_ = initialCarry_;
                 return copy;
@@ -1070,10 +1116,18 @@ namespace Dal {
                 for (auto& component : components_)
                     component->BeginAllocate(timeLine_);
                 outputSlots_.Resize(defLine.size());
+                rateObservationSlots_.Resize(defLine.size());
+                batchSamples_.Resize(defLine.size());
+                batchSamples_.Fill(false);
                 for (size_t sample = 0; sample < defLine.size(); ++sample) {
                     outputSlots_[sample].clear();
-                    for (const auto& name : defLine[sample].indexNames_)
+                    rateObservationSlots_[sample].clear();
+                    for (const auto& name : defLine[sample].indexNames_) {
                         outputSlots_[sample].push_back(FindOutput(productGridIndices_[sample], name));
+                        const auto slot = outputSlots_[sample].back();
+                        if (slot.component_ == rateSlot_)
+                            rateObservationSlots_[sample].push_back({slot.observable_, outputSlots_[sample].size() - 1});
+                    }
                 }
                 for (size_t sample = 0; sample < defLine.size(); ++sample) {
                     if (defLine[sample].discountMats_.empty())
@@ -1100,6 +1154,7 @@ namespace Dal {
                 initialCarry_ = integratedCarry;
                 for (auto& component : components_)
                     component->Prepare(timeLine_, integratedCarry);
+                PrepareObservationBatches(defLine);
                 for (size_t sample = 0; sample < defLine.size(); ++sample)
                     if (defLine[sample].numeraire_) {
                         numeraires_[sample] = Dal::exp(-logDiscounts[productGridIndices_[sample]]);

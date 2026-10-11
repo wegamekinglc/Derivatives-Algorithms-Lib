@@ -968,11 +968,13 @@ Equity scenarios are `short`, `long`, `local-vol`, `hybrid-bs`, `hybrid-gsr`,
 `lsmc-bs` and `lsmc-local-vol`. The hybrid equity cases observe one BS equity daily under a
 constant 5% rate or one-factor GSR rates (2% Gaussian volatility, unit loading,
 and equity/rate correlation -0.25), respectively. They use a zero surface grid.
-Rate scenarios `gsr-swap-1f`, `gsr-swap-3f`, `hybrid-gsr-swap` and `slv-swap-1f`
-observe a 5Y swap, 3M Libor and dated OIS bond at 17 quarterly dates; `gsr-bond-1f`
-observes only the bond. They use separate OIS/3M curves, piecewise g/H inputs and
-a zero surface grid. GSR and hybrid cases include a delayed payment; SLV pays
-at the final event. Ordinary cases accept 1/4/16/64 outputs with different strikes
+Rate scenarios `gsr-swap-1f`, `gsr-swap-3f`, `hybrid-gsr-swap`,
+`hybrid-gsr-swap-3f`, `slv-swap-1f` and `hybrid-slv-swap-1f` observe a 5Y swap,
+3M Libor and dated OIS bond at 17 quarterly dates. `gsr-bond-1f` and
+`hybrid-gsr-bond-1f` observe only the bond. They use separate OIS/3M curves,
+piecewise g/H inputs and a zero surface grid. Gaussian GSR cases include a
+delayed payment; standalone and Hybrid SLV pay at the final event.
+Ordinary cases accept 1/4/16/64 outputs with different strikes
 for equities or payoff scales for rates; they execute
 sequential single-output requests with the same model inputs and Sobol paths.
 AAD channel width remains one. Passive requests report zero active parameters
