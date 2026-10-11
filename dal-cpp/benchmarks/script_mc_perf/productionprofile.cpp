@@ -146,6 +146,11 @@ namespace {
         return Handle_<ModelData_>(gaussian);
     }
 
+    String_ OutputName(const Options_& options, size_t output) {
+        return options.Rates() ? "rates-output-" + String::FromInt(static_cast<int>(output))
+                               : String_("call-strike-" + std::to_string(90.0 + static_cast<double>(output)));
+    }
+
     ScriptProductData_ RateProduct(const Options_& options, size_t output) {
         const Date_ today(2024, 1, 1);
         Vector_<Cell_> dates;
@@ -159,7 +164,7 @@ namespace {
         events.back() += " pay PAYS runningTotal * " + String::FromInt(static_cast<int>(output + 1));
         if (options.scenario_ != "slv-swap-1f")
             events.back() += " ON 2029-01-01";
-        return {"rates-output-" + String::FromInt(static_cast<int>(output)), dates, events};
+        return {OutputName(options, output), dates, events};
     }
 
     Handle_<ModelData_> ModelData(const Options_& options) {
@@ -178,8 +183,6 @@ namespace {
                                                    Matrix_<>(static_cast<int>(options.grid_), static_cast<int>(options.grid_), 0.2));
     }
 
-    String_ OutputName(size_t output) { return String_("call-strike-" + std::to_string(90.0 + static_cast<double>(output))); }
-
     ScriptProductData_ OrdinaryProduct(const Options_& options, size_t output) {
         if (options.Rates())
             return RateProduct(options, output);
@@ -195,7 +198,7 @@ namespace {
         dates.push_back(Cell_(maturity));
         const std::string underlying = options.scenario_ == "long" ? "runningTotal" : options.scenario_ == "short" ? "SPOT()" : "observedSpot";
         events.push_back(String_("call PAYS MAX(" + underlying + " - " + std::to_string(90.0 + static_cast<double>(output)) + ", 0.0)"));
-        return {OutputName(output), dates, events};
+        return {OutputName(options, output), dates, events};
     }
 
     struct Case_ {
@@ -450,7 +453,7 @@ namespace {
         for (size_t output = 0; output < results.size(); ++output) {
             const auto& result = results[output];
             std::cout << "{\"record\":\"result\",\"sample\":" << sample
-                      << ",\"output\":" << std::quoted(options.Exercise() ? options.scenario_ : std::string(OutputName(output).c_str()))
+                      << ",\"output\":" << std::quoted(options.Exercise() ? options.scenario_ : std::string(OutputName(options, output).c_str()))
                       << ",\"pv\":" << result.aggregated_ / static_cast<double>(options.paths_) << ",\"risk_names\":[";
             if (options.Aad())
                 PrintNames(result.names_);
@@ -495,9 +498,12 @@ namespace {
 int RunProductionProfile(int argc, char** argv, ExerciseProductFactory_ exerciseFactory) {
     Options_ options;
     if (!Parse(argc, argv, &options)) {
-        std::cerr << "usage: script_mc_perf --production-profile short|long|local-vol|hybrid-bs|hybrid-gsr|lsmc-bs|lsmc-local-vol PATHS double|aad "
-                     "tree|compiled "
-                     "cold|warm|phases OUTPUTS GRID TRAINING REPEATS\n";
+        std::cerr
+            << "usage: script_mc_perf --production-profile "
+               "short|long|local-vol|hybrid-bs|hybrid-gsr|gsr-swap-1f|gsr-swap-3f|gsr-bond-1f|hybrid-gsr-swap|slv-swap-1f|lsmc-bs|lsmc-local-vol "
+               "PATHS double|aad "
+               "tree|compiled "
+               "cold|warm|phases OUTPUTS GRID TRAINING REPEATS\n";
         return 2;
     }
     try {
