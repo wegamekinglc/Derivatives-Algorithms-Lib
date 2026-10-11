@@ -333,6 +333,51 @@ TEST(ModelTest, TestGsrUnallocatedEmptyPathRemainsValid) {
     }
 }
 
+TEST(ModelTest, TestGsrGenerationClearsPreviouslyPopulatedSpots) {
+    for (const size_t factors : {size_t{1}, size_t{3}, size_t{4}}) {
+        auto model = CreateModel<double>(ObservationModelData(factors));
+        const Vector_<> timeline{0.0, 146.0 / DAYS_PER_YEAR};
+        const Vector_<AAD::SampleDef_> definitions(timeline.size());
+        model->Allocate(timeline, definitions);
+        model->Init(timeline, definitions);
+        AAD::Scenario_<> path;
+        AAD::AllocatePath(definitions, path);
+        for (const double previousSpot : {42.0, 17.0}) {
+            for (auto& sample : path)
+                sample.spot_ = previousSpot;
+            model->GeneratePath(Vector_<>(model->SimDim(), 0.2), &path);
+            for (const auto& sample : path)
+                ASSERT_DOUBLE_EQ(sample.spot_, 0.0);
+        }
+    }
+}
+
+TEST(ModelTest, TestGsrGenerationRebindsZeroSpotsForEachRecording) {
+    for (const size_t factors : {size_t{1}, size_t{3}, size_t{4}}) {
+        const TapeGuard_ guard(AAD::Tape());
+        auto model = CreateModel<AAD::Number_>(ObservationModelData(factors));
+        const Vector_<> timeline{0.0, 146.0 / DAYS_PER_YEAR};
+        const Vector_<AAD::SampleDef_> definitions(timeline.size());
+        model->Allocate(timeline, definitions);
+        AAD::Scenario_<AAD::Number_> path;
+        AAD::AllocatePath(definitions, path);
+        for (int replay = 0; replay < 2; ++replay) {
+            AAD::Rewind(*AAD::Tape());
+            for (auto* parameter : model->Parameters())
+                AAD::PutOnTape(*parameter);
+            AAD::NewRecording(*AAD::Tape());
+            model->Init(timeline, definitions);
+            model->GeneratePath(Vector_<>(model->SimDim(), 0.2), &path);
+            AAD::Number_ payoff = path[0].spot_ + path[1].spot_;
+            ASSERT_DOUBLE_EQ(AAD::Value(payoff), 0.0);
+            AAD::Adjoint(payoff) = 1.0;
+            AAD::PropagateToStart(*AAD::Tape());
+            for (const auto* parameter : model->Parameters())
+                ASSERT_DOUBLE_EQ(AAD::Adjoint(*parameter), 0.0);
+        }
+    }
+}
+
 TEST(ModelTest, TestGsrSharedModelKeepsBondPricesInEachPath) {
     auto model = CreateModel<double>(ObservationModelData(3, true));
     const Vector_<> timeline{0.0, 146.0 / DAYS_PER_YEAR, 292.0 / DAYS_PER_YEAR};

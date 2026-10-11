@@ -494,6 +494,7 @@ namespace Dal::AAD {
 
         void GeneratePathWithState(const Vector_<>& gaussian, Scenario_<T_>* path, T_* state, size_t statePrefix) const {
             T_ logNumeraire(0.0);
+            const T_ zeroSpot(0.0);
             size_t gaussianSlot = 0;
             for (size_t i = 0; i < productTimeLine_.size(); ++i) {
                 const auto& step = steps_[i];
@@ -502,6 +503,7 @@ namespace Dal::AAD {
                     gaussianSlot += NumFactors();
                 }
                 auto& sample = (*path)[i];
+                sample.spot_ = zeroSpot;
                 sample.numeraire_ = Dal::exp(logNumeraire);
                 if (reuseBonds_[i]) {
                     auto& prices = sample.modelScratch_;

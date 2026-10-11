@@ -98,8 +98,8 @@ For one, two and three factors, Gaussian bond exponents and state/numeraire sums
 compose native AAD expressions before recording their results. Higher factor
 counts retain the general loops. Standalone multi-factor paths reuse a state
 prefix in the first sample's scratch storage; cached first-sample bond prices
-follow that prefix. Path initialization clears the unused spot field, and
-repeated generation reuses scratch capacity.
+follow that prefix. Each generated path refreshes one zero spot binding shared
+by its samples and reuses scratch capacity.
 Projection spreads retain their separate input derivatives even when projection
 and OIS curves have equal values.
 
