@@ -85,7 +85,10 @@ class ProductionProfileTest(unittest.TestCase):
         self.assertEqual(sum(row["calls"] for row in suffix), 32)
 
     def test_representative_scenarios(self):
-        scenarios = {"long": (0, 0), "local-vol": (2, 0), "lsmc-bs": (0, 64), "lsmc-local-vol": (2, 64)}
+        scenarios = {
+            "long": (0, 0), "local-vol": (2, 0), "hybrid-bs": (0, 0), "hybrid-gsr": (0, 0),
+            "lsmc-bs": (0, 64), "lsmc-local-vol": (2, 64),
+        }
         for scenario, (grid, training) in scenarios.items():
             rows = self.run_cli([scenario, "8", "aad", "compiled", "cold", "1", str(grid), str(training), "1"])
             request = self.records(rows, "request")[0]

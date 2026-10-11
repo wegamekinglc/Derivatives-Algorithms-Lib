@@ -181,6 +181,10 @@ namespace Dal {
                                 const T_& carryAdjustment,
                                 Vector_<T_>* state,
                                 size_t stateOffset) const = 0;
+            virtual void EvolveWithoutCarry(
+                size_t step, const Vector_<>& factors, const Vector_<size_t>& factorSlots, Vector_<T_>* state, size_t stateOffset) const {
+                Evolve(step, factors, factorSlots, T_(0.0), state, stateOffset);
+            }
             [[nodiscard]] virtual T_ Observe(size_t sample, size_t slot, const Vector_<T_>& state, size_t stateOffset, bool today) const = 0;
             [[nodiscard]] virtual std::unique_ptr<HybridComponent_<T_>> Clone() const = 0;
         };
@@ -203,6 +207,15 @@ namespace Dal {
                 REQUIRE(std::isfinite(Value(spot_)) && Value(spot_) > 0.0 && std::isfinite(Value(vol_)) && Value(vol_) >= 0.0 &&
                             std::isfinite(Value(div_)),
                         "InvalidHybridComponent: invalid BS equity parameters for " + name_);
+            }
+            template <class E_>
+            void EvolveWithDrift(size_t step,
+                                 const Vector_<>& factors,
+                                 const Vector_<size_t>& factorSlots,
+                                 const E_& drift,
+                                 Vector_<T_>* state,
+                                 size_t stateOffset) const {
+                (*state)[stateOffset] += drift + stds_[step] * factors[factorSlots[0]];
             }
 
         public:
@@ -261,7 +274,11 @@ namespace Dal {
                         const T_& carryAdjustment,
                         Vector_<T_>* state,
                         size_t stateOffset) const override {
-                (*state)[stateOffset] += drifts_[step] + carryAdjustment + stds_[step] * factors[factorSlots[0]];
+                EvolveWithDrift(step, factors, factorSlots, drifts_[step] + carryAdjustment, state, stateOffset);
+            }
+            void EvolveWithoutCarry(
+                size_t step, const Vector_<>& factors, const Vector_<size_t>& factorSlots, Vector_<T_>* state, size_t stateOffset) const override {
+                EvolveWithDrift(step, factors, factorSlots, drifts_[step], state, stateOffset);
             }
             [[nodiscard]] T_ Observe(size_t, size_t slot, const Vector_<T_>& state, size_t stateOffset, bool today) const override {
                 REQUIRE(slot == 0, "InvalidHybridObservation: BS equity has one output");
@@ -315,6 +332,19 @@ namespace Dal {
                     REQUIRE(std::isfinite(Value(*vol)) && Value(*vol) >= 0.0,
                             "InvalidHybridComponent: local volatility must be finite and nonnegative for " + name_);
             }
+            template <class E_>
+            void EvolveWithCarry(size_t step,
+                                 const Vector_<>& factors,
+                                 const Vector_<size_t>& factorSlots,
+                                 const E_& carry,
+                                 Vector_<T_>* state,
+                                 size_t stateOffset) const {
+                const double dt = timeline_[step + 1] - timeline_[step];
+                const T_ vol = surface_.VolAtLogSpot(step, (*state)[stateOffset]);
+                const T_ standardDeviation = vol * rootDt_[step];
+                (*state)[stateOffset] +=
+                    carry - div_ * dt - 0.5 * standardDeviation * standardDeviation + standardDeviation * factors[factorSlots[0]];
+            }
 
         public:
             HybridLocalVolEquity_(const HybridLocalVolEquity_& other) : surface_(other.surface_) { CopyState(other); }
@@ -362,11 +392,11 @@ namespace Dal {
                         const T_& carryAdjustment,
                         Vector_<T_>* state,
                         size_t stateOffset) const override {
-                const double dt = timeline_[step + 1] - timeline_[step];
-                const T_ vol = surface_.VolAtLogSpot(step, (*state)[stateOffset]);
-                const T_ standardDeviation = vol * rootDt_[step];
-                (*state)[stateOffset] += integratedCarry_[step] + carryAdjustment - div_ * dt - 0.5 * standardDeviation * standardDeviation +
-                                         standardDeviation * factors[factorSlots[0]];
+                EvolveWithCarry(step, factors, factorSlots, integratedCarry_[step] + carryAdjustment, state, stateOffset);
+            }
+            void EvolveWithoutCarry(
+                size_t step, const Vector_<>& factors, const Vector_<size_t>& factorSlots, Vector_<T_>* state, size_t stateOffset) const override {
+                EvolveWithCarry(step, factors, factorSlots, integratedCarry_[step], state, stateOffset);
             }
             [[nodiscard]] T_ Observe(size_t, size_t slot, const Vector_<T_>& state, size_t stateOffset, bool today) const override {
                 REQUIRE(slot == 0, "InvalidHybridObservation: local-vol equity has one output");
@@ -458,6 +488,10 @@ namespace Dal {
             }
             void Evolve(size_t step, const Vector_<>& factors, const Vector_<size_t>& factorSlots, const T_&, Vector_<T_>* state, size_t stateOffset)
                 const override {
+                EvolveWithoutCarry(step, factors, factorSlots, state, stateOffset);
+            }
+            void EvolveWithoutCarry(
+                size_t step, const Vector_<>& factors, const Vector_<size_t>& factorSlots, Vector_<T_>* state, size_t stateOffset) const override {
                 model_->AdvanceHybrid(step + 1, factors, factorSlots, &(*state)[stateOffset], &(*state)[stateOffset + model_->NumFactors()]);
             }
             [[nodiscard]] T_ Observe(size_t sample, size_t slot, const Vector_<T_>& state, size_t stateOffset, bool) const override {
@@ -561,6 +595,10 @@ namespace Dal {
             void ResetState(Vector_<T_>* state, size_t offset) const override { model_->ResetHybridState(state, offset); }
             void Evolve(size_t step, const Vector_<>& factors, const Vector_<size_t>& factorSlots, const T_&, Vector_<T_>* state, size_t stateOffset)
                 const override {
+                EvolveWithoutCarry(step, factors, factorSlots, state, stateOffset);
+            }
+            void EvolveWithoutCarry(
+                size_t step, const Vector_<>& factors, const Vector_<size_t>& factorSlots, Vector_<T_>* state, size_t stateOffset) const override {
                 model_->EvolveHybrid(step, factors, factorSlots, state, stateOffset);
             }
             [[nodiscard]] T_ Observe(size_t sample, size_t slot, const Vector_<T_>& state, size_t stateOffset, bool) const override {
@@ -820,6 +858,9 @@ namespace Dal {
                     parameters_.Append(component.Parameters());
                     parameterLabels_.Append(component.ParameterLabels());
                 }
+                const auto rate = std::find(evolvingComponents_.begin(), evolvingComponents_.end(), rateSlot_);
+                if (rate != evolvingComponents_.end())
+                    std::rotate(evolvingComponents_.begin(), rate, rate + 1);
             }
 
             // Reconstruct each component's correlation block from the global Cholesky factor so
@@ -896,14 +937,15 @@ namespace Dal {
                 }
                 for (size_t i = n; i < totalFactors_; ++i)
                     (*factors)[i] = gaussian[step * totalFactors_ + i];
-                T_ previousLogNumeraire(0.0);
-                if (!NumeraireIsDeterministic())
-                    previousLogNumeraire = components_[rateSlot_]->PathLogNumeraire(timeLine_[step], *state, stateOffsets_[rateSlot_]);
-                components_[rateSlot_]->Evolve(step, *factors, factorSlots_[rateSlot_], T_(0.0), state, stateOffsets_[rateSlot_]);
-                T_ carryAdjustment(0.0);
-                if (!NumeraireIsDeterministic())
-                    carryAdjustment = components_[rateSlot_]->PathLogNumeraire(timeLine_[step + 1], *state, stateOffsets_[rateSlot_]) -
-                                      previousLogNumeraire - initialCarry_[step];
+                if (NumeraireIsDeterministic()) {
+                    for (const size_t i : evolvingComponents_)
+                        components_[i]->EvolveWithoutCarry(step, *factors, factorSlots_[i], state, stateOffsets_[i]);
+                    return;
+                }
+                const T_ previousLogNumeraire = components_[rateSlot_]->PathLogNumeraire(timeLine_[step], *state, stateOffsets_[rateSlot_]);
+                components_[rateSlot_]->EvolveWithoutCarry(step, *factors, factorSlots_[rateSlot_], state, stateOffsets_[rateSlot_]);
+                const T_ carryAdjustment = components_[rateSlot_]->PathLogNumeraire(timeLine_[step + 1], *state, stateOffsets_[rateSlot_]) -
+                                           previousLogNumeraire - initialCarry_[step];
                 for (const size_t i : evolvingComponents_)
                     if (i != rateSlot_)
                         components_[i]->Evolve(step, *factors, factorSlots_[i], carryAdjustment, state, stateOffsets_[i]);

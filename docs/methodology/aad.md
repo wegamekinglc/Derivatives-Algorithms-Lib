@@ -964,7 +964,10 @@ script_mc_perf --production-profile lsmc-bs 8192 aad tree warm 1 0 512 3
 
 Arguments are scenario, pricing paths, `double|aad`, `tree|compiled`,
 `cold|warm|phases`, outputs, surface grid, training paths and repetitions.
-Scenarios are `short`, `long`, `local-vol`, `lsmc-bs` and `lsmc-local-vol`.
+Scenarios are `short`, `long`, `local-vol`, `hybrid-bs`, `hybrid-gsr`, `lsmc-bs`
+and `lsmc-local-vol`. The hybrid cases observe one BS equity daily under a
+constant 5% rate or one-factor GSR rates (2% Gaussian volatility, unit loading,
+and equity/rate correlation -0.25), respectively. They use a zero surface grid.
 Ordinary cases accept 1/4/16/64 different strike outputs; they execute
 sequential single-output requests with the same model inputs and Sobol paths.
 AAD channel width remains one. Passive requests report zero active parameters
@@ -977,7 +980,8 @@ worker/model initialization. Phases use the cold boundary and explicit scopes.
 All modes run validation before timing, so cold is not process-first startup.
 The short BS fixture validates each output's price and four risks against
 analytic fixed-path formulas. Long/local-vol fixtures use common-path finite
-differences at two steps; LSM uses tree/compiled fixed-path comparisons.
+differences at two steps, as do the hybrid fixtures; LSM uses tree/compiled
+fixed-path comparisons.
 Independent checks use up to 256 pricing paths. Each timed result also matches
 an untimed request at the full path count, with every requested risk checked.
 Startup messages go to stderr; request/result/scope/phase records go to stdout.

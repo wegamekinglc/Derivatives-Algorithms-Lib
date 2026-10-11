@@ -46,6 +46,32 @@ TEST(ModelTest, TestLocalVolSurfaceInterpolatesAndRoundTrips) {
     ASSERT_EQ(JSON::WriteString(*restored), JSON::WriteString(data));
 }
 
+TEST(ModelTest, TestHybridPreparedLocalVolPathFitsNodeBudget) {
+    Matrix_<> vols(5, 4);
+    for (int row = 0; row < 5; ++row)
+        for (int column = 0; column < 4; ++column)
+            vols(row, column) = 0.15 + 0.02 * row + 0.01 * column;
+    const auto data =
+        MakeFlatRateLocalVolHybridModelData("lv", "EQ[A]", 100.0, 0.05, 0.02, {60.0, 80.0, 100.0, 120.0, 140.0}, {0.25, 0.5, 1.0, 2.0}, vols, 1.0);
+    const TapeGuard_ guard(AAD::Tape());
+    auto model = CreateModel<AAD::Number_>(data);
+    Vector_<> timeline;
+    for (int sample = 0; sample <= 53; ++sample)
+        timeline.push_back(sample / 53.0);
+    Vector_<AAD::SampleDef_> definitions(timeline.size());
+    model->Allocate(timeline, definitions);
+    AAD::Scenario_<AAD::Number_> path;
+    AAD::AllocatePath(definitions, path);
+    AAD::Rewind(*AAD::Tape());
+    for (auto* parameter : model->Parameters())
+        AAD::PutOnTape(*parameter);
+    AAD::NewRecording(*AAD::Tape());
+    model->Init(timeline, definitions);
+    const auto prefixNodes = AAD::Tape()->nodes_.OccupiedSlots();
+    model->GeneratePath(Vector_<>(model->SimDim(), 0.3), &path);
+    ASSERT_LE(AAD::Tape()->nodes_.OccupiedSlots() - prefixNodes, 300U);
+}
+
 TEST(ModelTest, TestPreparedLocalVolMatchesSpotQueriesAndBoundaries) {
     Matrix_<> vols(2, 2);
     vols(0, 0) = 0.20;
