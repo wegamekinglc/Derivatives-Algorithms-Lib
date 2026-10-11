@@ -82,6 +82,11 @@ See [the financial contract](../docs/methodology/pde/aad.md#owning-financial-req
 
 ## Build and Test
 
+Facade examples live in `examples/` and link `DAL::public`. Enable
+`DAL_PUBLIC_BUILD_EXAMPLES` to build `aad_public_risk`;
+see the [example catalog](../docs/examples.md). Core examples remain under
+`dal-cpp/examples/` and depend only on `DAL::cpp`.
+
 The standard core profile builds and tests this component:
 
 ```bash

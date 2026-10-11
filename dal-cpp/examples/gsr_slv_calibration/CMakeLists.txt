@@ -1,5 +1,5 @@
 add_executable(gsr_slv_calibration gsr_slv_calibration.cpp)
-target_link_libraries(gsr_slv_calibration PRIVATE DAL::public)
+target_link_libraries(gsr_slv_calibration PRIVATE DAL::cpp)
 
 install(TARGETS gsr_slv_calibration
         RUNTIME DESTINATION bin

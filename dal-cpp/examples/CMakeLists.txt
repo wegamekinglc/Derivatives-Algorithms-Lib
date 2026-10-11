@@ -1,5 +1,6 @@
 add_subdirectory(aad)
 add_subdirectory(aad_operators)
+add_subdirectory(aad_financial)
 add_subdirectory(digital)
 add_subdirectory(concurrency)
 add_subdirectory(curve_calibration)
@@ -18,10 +19,7 @@ add_subdirectory(european_fd)
 add_subdirectory(european_aad_fd)
 add_subdirectory(fix_mc)
 add_subdirectory(gsr_swap_swaption)
-if(DAL_BUILD_PUBLIC)
-    add_subdirectory(aad_financial)
-    add_subdirectory(gsr_slv_calibration)
-endif()
+add_subdirectory(gsr_slv_calibration)
 add_subdirectory(hybrid_script)
 add_subdirectory(snowball)
 add_subdirectory(sobol)
@@ -70,6 +68,7 @@ endif()
 set(DAL_EXAMPLE_TARGETS
     aad
     aad_operators
+    aad_financial
     digital
     concurrency
     curve_calibration
@@ -88,6 +87,7 @@ set(DAL_EXAMPLE_TARGETS
     european_aad_fd
     fix_mc
     gsr_swap_swaption
+    gsr_slv_calibration
     dal_hybrid_script_example
     snowball
     sobol
@@ -101,11 +101,6 @@ set(DAL_EXAMPLE_TARGETS
 
 if(DAL_HAS_EXCEL)
     list(APPEND DAL_EXAMPLE_TARGETS excelwriter)
-endif()
-
-if(DAL_BUILD_PUBLIC)
-    list(APPEND DAL_EXAMPLE_TARGETS aad_financial)
-    list(APPEND DAL_EXAMPLE_TARGETS gsr_slv_calibration)
 endif()
 
 # Register examples as CTest smoke tests so CI exercises them at runtime, not

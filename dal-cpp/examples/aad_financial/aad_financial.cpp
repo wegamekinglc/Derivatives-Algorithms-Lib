@@ -2,69 +2,93 @@
 // Created by Codex on 2026/10/11.
 //
 
+#include <algorithm>
 #include <cmath>
 #include <iomanip>
 #include <iostream>
+#include <memory>
 #include <string>
+#include <utility>
 
-#include <dal-public/src/lsmccurvature.hpp>
-#include <dal-public/src/models.hpp>
-#include <dal-public/src/montecarlocurvature.hpp>
-#include <dal-public/src/script.hpp>
-#include <dal-public/src/value.hpp>
 #include <dal/concurrency/threadpool.hpp>
+#include <dal/model/blackscholes.hpp>
 #include <dal/platform/initall.hpp>
+#include <dal/script/lsmccurvature.hpp>
+#include <dal/script/montecarlocurvature.hpp>
+#include <dal/script/portfoliobatch.hpp>
+#include <dal/script/simulation.hpp>
 
 #include "../aadreport.hpp"
 
 using namespace Dal;
 using Examples::Compare;
+namespace Native = Dal::Script::Detail;
 
 namespace {
-    ScriptValuationSettings_ Valuation() {
-        ScriptValuationSettings_ settings;
+    Script::ScriptValuationSettings_ Valuation() {
+        Script::ScriptValuationSettings_ settings;
         settings.evaluationDate_ = Date_(2026, 10, 10);
         return settings;
     }
 
+    Script::MonteCarloSettings_ Simulation() {
+        Script::MonteCarloSettings_ settings;
+        settings.enableAad_ = true;
+        settings.compiled_ = true;
+        return settings;
+    }
+
+    Native::PortfolioBatchOutput_ Output(const Native::PreparedPortfolio_& portfolio, size_t trade, size_t slot, double weight) {
+        auto coordinate = Script::ScriptRiskOutputAxis(portfolio.Trades()[trade].Product())[slot];
+        coordinate.id_ = "trade:" + String_(std::to_string(trade)) + ":" + coordinate.id_;
+        return {trade, std::move(coordinate), weight};
+    }
+
     void WeightedAndBlockedRisk() {
-        const auto product =
-            NewScriptProduct("components", {Cell_("X"), Cell_("Y"), Cell_(Date_(2027, 10, 10))}, {"2", "3", "a = X * Y b = X + Y pay PAYS 5"});
-        const auto model = NewBSModelData("bs", 100.0, 0.2, 0.0, 0.0);
-        Script::JacobianRiskRequest_ rows;
-        rows.selection_.outputs_ = Vector_<String_>{"output:0", "output:1", "payoff"};
-        rows.selection_.inputs_ = Vector_<String_>{"constant:0", "constant:1"};
-        rows.maxBlockWidth_ = 2;
-        const auto jacobian = ValueByMonteCarloWithJacobianRisk(product, model, 33, rows, Valuation());
-        Script::WeightedRiskRequest_ objective;
-        objective.selection_ = rows.selection_;
-        objective.weights_ = Vector_<>{2.0, -1.0, 0.5};
-        const auto weighted = ValueByMonteCarloWithWeightedRisk(product, model, 33, objective, Valuation());
-        Compare("Weighted value: 2XY-X-Y+2.5", weighted.WeightedValue(), 9.5);
+        const Handle_<Script::ScriptProductData_> product(new Script::ScriptProductData_(
+            "components", {Cell_("X"), Cell_("Y"), Cell_(Date_(2027, 10, 10))}, {"2", "3", "a = X * Y b = X + Y pay PAYS 5"}));
+        const Handle_<ModelData_> model(new BSModelData_("bs", 100.0, 0.2, 0.0, 0.0));
+        const Handle_<Script::ScriptPortfolioData_> data(new Script::ScriptPortfolioData_("components", {{"A", product, model}}));
+        const auto portfolio = Native::PrepareScriptPortfolio(data, 33, Valuation(), Simulation());
+        const Vector_<Native::PortfolioBatchOutput_> outputs{Output(portfolio, 0, 0, 2.0), Output(portfolio, 0, 1, -1.0),
+                                                             Output(portfolio, 0, portfolio.Trades()[0].PayOffIdx(), 0.5)};
+        const auto weighted = Native::EvaluatePortfolioWeightedBatch(portfolio, 0, {0, 33}, outputs);
+        Matrix_<> jacobian(3, 2, 0.0);
+        // Each block has at most two output lanes; the final block has one.
+        for (size_t first = 0; first < outputs.size(); first += 2) {
+            const size_t width = std::min(size_t(2), outputs.size() - first);
+            const Vector_<Native::PortfolioBatchOutput_> block(outputs.begin() + first, outputs.begin() + first + width);
+            const auto result = Native::EvaluatePortfolioJacobianBatch(portfolio, 0, {0, 33}, block, width);
+            for (size_t row = 0; row < width; ++row)
+                for (int column = 0; column < 2; ++column)
+                    jacobian(static_cast<int>(first + row), column) = result.constantGradientSums_[0](static_cast<int>(row), column) / 33.0;
+        }
+        Compare("Weighted value: 2XY-X-Y+2.5", weighted.weightedSum_ / 33.0, 9.5);
         const Vector_<> expected{5.0, 3.0};
         for (int column = 0; column < 2; ++column) {
             double transposeSum = 0.0;
             for (int row = 0; row < 3; ++row)
-                transposeSum += weighted.Weights()[row] * jacobian.Jacobian()(row, column);
-            Compare(column == 0 ? "Weighted dV/dX" : "Weighted dV/dY", weighted.Jacobian()(0, column), expected[column]);
+                transposeSum += outputs[row].weight_ * jacobian(row, column);
+            Compare(column == 0 ? "Weighted dV/dX" : "Weighted dV/dY", weighted.constantGradientSums_[0][column] / 33.0, expected[column]);
             Compare(column == 0 ? "J transpose weights: X" : "J transpose weights: Y", transposeSum, expected[column]);
         }
     }
 
     void SharedOwnerPortfolio() {
-        const auto model = NewBSModelData("shared", 100.0, 0.0, 0.0, 0.0);
-        const auto first = NewScriptProduct("A", {Cell_(Date_(2027, 10, 10))}, {"pay PAYS 2 * spot() + 5"});
-        const auto second = NewScriptProduct("B", {Cell_(Date_(2027, 10, 10))}, {"pay PAYS 3 * spot() + 7"});
-        const Handle_<Script::ScriptPortfolioData_> portfolio(
-            new Script::ScriptPortfolioData_("portfolio", {{"A", first, model}, {"B", second, model}}));
-        PortfolioWeightedRiskRequest_ request;
-        request.selection_.outputs_ = Vector_<String_>{"trade:0:payoff", "trade:1:payoff"};
-        request.selection_.inputs_ = Vector_<String_>{"model:0:parameter:0"};
-        request.weights_ = Vector_<>{2.0, -1.0};
-        const auto risk = ValuePortfolioByMonteCarloWithWeightedRisk(portfolio, 33, request, Valuation());
-        Compare("Shared-owner portfolio PV", risk.WeightedValue(), 103.0);
-        Compare("Shared-owner portfolio Delta", risk.Jacobian()(0, 0), 1.0);
-        REQUIRE(risk.Provenance().modelOwners_ == Vector_<int>({0, 0}), "Expected one shared model owner");
+        const Handle_<ModelData_> model(new BSModelData_("shared", 100.0, 0.0, 0.0, 0.0));
+        const Handle_<Script::ScriptProductData_> first(
+            new Script::ScriptProductData_("A", {Cell_(Date_(2027, 10, 10))}, {"pay PAYS 2 * spot() + 5"}));
+        const Handle_<Script::ScriptProductData_> second(
+            new Script::ScriptProductData_("B", {Cell_(Date_(2027, 10, 10))}, {"pay PAYS 3 * spot() + 7"}));
+        const Handle_<Script::ScriptPortfolioData_> data(new Script::ScriptPortfolioData_("portfolio", {{"A", first, model}, {"B", second, model}}));
+        const auto portfolio = Native::PrepareScriptPortfolio(data, 33, Valuation(), Simulation());
+        const Vector_<Native::PortfolioBatchOutput_> outputs{Output(portfolio, 0, portfolio.Trades()[0].PayOffIdx(), 2.0),
+                                                             Output(portfolio, 1, portfolio.Trades()[1].PayOffIdx(), -1.0)};
+        const auto risk = Native::EvaluatePortfolioWeightedBatch(portfolio, 0, {0, 33}, outputs);
+        Compare("Shared-owner portfolio PV", risk.weightedSum_ / 33.0, 103.0);
+        Compare("Shared-owner portfolio Delta", risk.modelGradientSums_[0] / 33.0, 1.0);
+        REQUIRE(portfolio.Groups().size() == 1 && risk.generatedScenarios_ == 33 && risk.evaluatorCalls_ == 66,
+                "Expected one shared model group and one scenario per path");
     }
 
     AAD::BumpOverAADRequest_ SpotDirection(size_t coordinates) {
@@ -76,38 +100,38 @@ namespace {
     }
 
     void SegmentedCurvature() {
-        const auto product = NewScriptProduct("quadratic", {Cell_("SCALE"), Cell_(Date_(2027, 10, 10))}, {"2", "pay PAYS SCALE * spot() ^ 2"});
-        const auto plan = PlanBlackScholesMonteCarlo(product, Valuation());
-        const Vector_<> point{100.0, 0.2, 0.03, 0.01, plan.ScriptConstants()[0]};
+        const Script::ScriptProductData_ product("quadratic", {Cell_("SCALE"), Cell_(Date_(2027, 4, 10)), Cell_(Date_(2027, 10, 10))},
+                                                 {"2", "pay PAYS SCALE * spot() ^ 2", "pay PAYS SCALE * spot() ^ 2"});
+        const auto preparation =
+            std::make_shared<const Script::BlackScholesSegmentedPreparation_>(Script::PrepareBlackScholesSegmentedScript(product, Valuation()));
+        const Script::BlackScholesSegmentedPath_ kernel(preparation);
+        const Vector_<> point{100.0, 0.2, 0.03, 0.01, 2.0};
         Script::SegmentedMonteCarloSettings_ settings;
         settings.firstPath_ = 7;
         settings.path_.segmentSteps_ = 1;
-        const auto result = ValueByBlackScholesMonteCarloWithCurvature(plan, point, 33, SpotDirection(point.size()), settings);
-        const auto& risk = result.Curvature();
-        // For every fixed Gaussian path this payoff is proportional to initial spot squared.
+        const auto risk = Script::EvaluateBlackScholesMonteCarloCurvature(kernel, point, 33, SpotDirection(point.size()), settings);
         Compare("Common-path spot Delta", risk.Base().MeanGradient()[0], 2.0 * risk.Base().MeanValue() / point[0]);
         Compare("Common-path spot Gamma", risk.HessianProducts()(0, 0), 2.0 * risk.Base().MeanValue() / (point[0] * point[0]));
         REQUIRE(risk.Execution().gradientEvaluations_ == 3, "Expected base/plus/minus complete gradients");
-        std::cout << "  Segmented MC: 33 paths, offset 7, one spot direction, outer step 0.1.\n";
+        std::cout << "  Segmented MC: two payment dates, 33 paths, offset 7, one-step segments, outer step 0.1.\n";
     }
 
     void PolicyCurvature() {
-        const auto product = NewScriptProduct("bermudan", {Cell_(Date_(2027, 4, 10)), Cell_(Date_(2027, 10, 10))},
-                                              {"EXERCISE MAX(100 - spot(), 0)", "EXERCISE MAX(100 - spot(), 0)"});
+        const Script::ScriptProductData_ product("bermudan", {Cell_(Date_(2027, 4, 10)), Cell_(Date_(2027, 10, 10))},
+                                                 {"EXERCISE MAX(100 - spot(), 0)", "EXERCISE MAX(100 - spot(), 0)"});
         const Vector_<> point{100.0, 0.2, 0.05, 0.0};
         std::cout << "\nBermudan put: finite-path, finite-step estimates (raw spot units)\n"
                   << std::left << std::setw(20) << "Policy estimator" << std::right << std::setw(18) << "PV" << std::setw(18) << "Spot Delta"
                   << std::setw(18) << "Spot HVP" << '\n'
                   << std::string(74, '-') << '\n';
         for (const auto* policy : {"Frozen", "RetrainedBump"}) {
-            auto simulation = DefaultRiskMonteCarloSettings();
-            simulation.compiled_ = true;
+            auto simulation = Simulation();
             simulation.lsmcTrainingPaths_ = 256;
             simulation.lsmcPolicyRiskMode_ = policy;
             simulation.lsmcPolicyBumpRelative_ = 0.002;
-            const auto plan = PlanBlackScholesLsmc(product, simulation, Valuation());
-            const auto result = ValueByBlackScholesLsmcWithCurvature(plan, point, 129, SpotDirection(point.size()));
-            const auto& risk = result.Curvature();
+            AAD::BlackScholes_<> model(1.0, 0.0);
+            const auto prepared = std::make_shared<const Script::PreparedScript_>(Script::PrepareScript(product, &model, Valuation(), simulation));
+            const auto risk = Script::EvaluateBlackScholesLsmcCurvature(prepared, point, 129, SpotDirection(point.size()));
             REQUIRE(std::isfinite(risk.Value()) && std::isfinite(risk.Gradient()[0]) && std::isfinite(risk.HessianProducts()(0, 0)),
                     "Expected finite LSMC estimator");
             REQUIRE(risk.BasePolicy().size() == 2 && risk.Execution().gradientEvaluations_ == 3,
@@ -124,7 +148,7 @@ namespace {
 int main() {
     RegisterAll_::Init();
     ThreadPool_::GetInstance()->Start(1, true);
-    Examples::PrintReferenceHeader("Native financial AAD: raw-coordinate references");
+    Examples::PrintReferenceHeader("Core financial AAD: raw-coordinate references");
     WeightedAndBlockedRisk();
     SharedOwnerPortfolio();
     SegmentedCurvature();

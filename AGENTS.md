@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Last updated: 2026-10-07
+Last updated: 2026-10-11
 
 Codex-native guidance for this repository. This file is intentionally separate from
 `CLAUDE.md` and `.claude/`; do not edit the Claude originals unless the user explicitly asks.
@@ -26,6 +26,10 @@ This is a C++17 quantitative finance workspace with Automatic Adjoint Differenti
 support. The dependency direction is `dal-cpp <- dal-public <- {dal-python, dal-excel}`. The shared
 architecture map is in [CLAUDE.md](CLAUDE.md#architecture), with the published overview in
 [docs/architecture.md](docs/architecture.md).
+
+This direction also governs examples, benchmarks, tests and helpers. Core examples
+must remain independent of `dal-public`; facade examples belong in `dal-public/examples/`.
+Follow the [component boundary contract](.codex/references/component-boundaries.md).
 
 ## Build And Test
 

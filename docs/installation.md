@@ -131,7 +131,8 @@ in the build configuration.
 | `DAL_EXCEL_BUILD_TESTS`               | `ON`         | Enable Excel component tests; portable tests also require Google Test                 |
 | `DAL_CPP_BUILD_TESTS`                 | `ON`         | Build core tests                                                                      |
 | `DAL_PUBLIC_BUILD_TESTS`              | `ON`         | Build public-facade tests                                                             |
-| `DAL_CPP_BUILD_EXAMPLES`              | `ON`         | Build C++ examples                                                                    |
+| `DAL_CPP_BUILD_EXAMPLES`              | `ON`         | Build core C++ examples independently of the public facade                            |
+| `DAL_PUBLIC_BUILD_EXAMPLES`           | `ON`         | Build separate public-facade examples; see initial default below                      |
 | `DAL_CPP_BUILD_BENCHMARKS`            | `OFF`        | Build benchmarks                                                                      |
 | `DAL_ENABLE_NATIVE_ARCH`              | `OFF`        | Tune Release code for the build machine                                               |
 | `DAL_ENABLE_SANITIZERS`               | `""`         | Semicolon-separated sanitizer list for all targets (GCC/Clang only)                   |
@@ -139,6 +140,11 @@ in the build configuration.
 | `DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS` | `OFF`        | Check native active-number ownership, recording epochs and reused slots               |
 | `DAL_ENABLE_AAD_PROFILING`            | `OFF`        | Enable explicit native request, task, phase and storage profiling                     |
 | `MSVC_RUNTIME`                        | `dynamic`    | MSVC-only C++ runtime: `static` for `/MT` (`/MTd` in Debug), otherwise `/MD` (`/MDd`) |
+
+On first configuration, `DAL_PUBLIC_BUILD_EXAMPLES` defaults to the current
+`DAL_CPP_BUILD_EXAMPLES` value when available, or `OFF` in a standalone public
+build. It is then an independent cache option. Disable both example options
+explicitly when reconfiguring an existing build without examples.
 
 ### Native AAD configuration
 
@@ -321,9 +327,11 @@ are private to `dal_public_tests`; `DAL::cpp` and `DAL::public` exports do not
 require them. With `DAL_PUBLIC_BUILD_TESTS=OFF`, these test dependencies are
 neither discovered nor required.
 
-In a workspace build, `DAL_CPP_BUILD_EXAMPLES=ON` builds all C++ examples
+In a workspace build, `DAL_CPP_BUILD_EXAMPLES=ON` builds the core C++ examples
 under `dal-cpp/examples/` using core APIs and `DAL::cpp`. They also build with
-`DAL_BUILD_PUBLIC=OFF`. The `dal_script_settings_example` and
+`DAL_BUILD_PUBLIC=OFF`. `DAL_PUBLIC_BUILD_EXAMPLES=ON` separately enables
+facade examples under `dal-public/examples/` when that component is built.
+The `dal_script_settings_example` and
 `dal_hybrid_script_example` targets register `ScriptSettingsExample` and
 `HybridScriptExample` under the `examples` label independently of public
 tests. Public tests register the legacy/typed-signature consumer

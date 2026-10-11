@@ -9,16 +9,18 @@ and result contracts. Numerical definitions remain in the linked methodology.
 
 ## C++
 
-Configure the workspace and build only the two new example targets:
+Configure the workspace and build only the three new example targets:
 
 ```bash
-cmake --preset=Release-linux -S . -B build/Release-linux
-cmake --build build/Release-linux --target aad_operators aad_financial -j 4
-ctest --test-dir build/Release-linux -R '^(aad_operators|aad_financial)$' --output-on-failure
+cmake --preset=Release-linux -S . -B build/Release-linux -DDAL_BUILD_PUBLIC=ON -DDAL_PUBLIC_BUILD_EXAMPLES=ON
+cmake --build build/Release-linux --target aad_operators aad_financial aad_public_risk -j 4
+ctest --test-dir build/Release-linux -R '^(aad_operators|aad_financial|aad_public_risk)$' --output-on-failure
 ```
 
-`aad_operators` links `DAL::cpp`. `aad_financial` links `DAL::public` and is
-available when `DAL_BUILD_PUBLIC=ON`. Both are installed into `bin/`, take no
+`aad_operators` and `aad_financial` live under `dal-cpp/examples/` and link only
+`DAL::cpp`; they build without the public component. `aad_public_risk` is a
+separate program under `dal-public/examples/` and links `DAL::public` when that
+component and its examples are enabled. All are installed into `bin/`, take no
 input files, and are registered as CTest `examples` smoke tests.
 
 ### Recorded operators and curvature
@@ -43,14 +45,15 @@ The prototype uses its own active type; general native `higherOrder_` remains fa
 
 ### Financial risk and common paths
 
-[`aad_financial.cpp`](../dal-cpp/examples/aad_financial/aad_financial.cpp) demonstrates:
+[`aad_financial.cpp`](../dal-cpp/examples/aad_financial/aad_financial.cpp) uses native
+preparation and batch APIs to demonstrate:
 
-- Ordered component outputs, a two-column blocked Jacobian and weighted VJP,
+- Ordered component outputs, a Jacobian in blocks of at most two output lanes and weighted VJP,
   checked against both a polynomial reference and the weighted Jacobian rows.
-- A two-trade portfolio sharing one original model handle; the owning result
-  preserves that shared owner and the selected global coordinate.
+- A two-trade portfolio sharing one original model handle; preparation groups
+  the trades and generates one shared scenario per path.
 - A segmented Black–Scholes request with absolute path offset 7 and a spot
-  curvature direction. A quadratic payoff checks Delta and Gamma against exact
+  curvature direction and two payment dates. Quadratic payoffs check Delta and Gamma against exact
   identities on those same realized paths, independently of sampling error.
 - A two-date Bermudan put under both Frozen and RetrainedBump, displaying PV,
   spot Delta and directional curvature with separate inner and outer steps.
@@ -69,6 +72,15 @@ Existing examples cover [Black analytic Greeks](../dal-cpp/examples/aad/aad.cpp)
 and [first-order quote risk](../dal-cpp/examples/quote_risk/quote_risk.cpp).
 PDE derivative accuracy and grid convergence are separate checks; see
 [the PDE guide](methodology/pde/aad.md).
+
+### Public facade and owning results
+
+The independent [`aad_public_risk.cpp`](../dal-public/examples/aad_public_risk/aad_public_risk.cpp)
+uses facade builders and `ValueByMonteCarloWithWeightedRisk`. It requests the
+input order Y, X, attaches different reporting factors, releases the caller's
+product/model handles and then reads the owning value, raw/report Jacobians,
+axes and execution snapshot. Analytic checks distinguish coordinate order from
+reporting units. This example complements the core preparation/batch workflows.
 
 ## Python
 

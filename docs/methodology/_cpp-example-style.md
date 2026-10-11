@@ -18,9 +18,11 @@ The current chapter inventory is maintained in
 
 Snippets compile against the real public headers in `dal-cpp/dal/` (the `dal_cpp` target) and,
 where relevant, the public wrappers in `dal-public/src/`. The runnable programs under
-`dal-cpp/examples/` are the canonical reference for include sets, namespace usage, and factory
+`dal-cpp/examples/` (core APIs) and `dal-public/examples/` (facade APIs) are the
+canonical reference for include sets, namespace usage, and factory
 patterns. When a snippet disagrees with a header or an example program, the header wins and the
-snippet is wrong.
+snippet is wrong. Existing core examples must remain in place and use core APIs;
+add separate facade programs when the public layer needs a runnable example.
 
 ## Include style
 
