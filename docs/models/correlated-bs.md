@@ -78,7 +78,7 @@ states for a multivariate continuation fit. The model supports a deterministic
 numeraire, so its paths can enter the existing LSM discounting contract.
 Correlation remains passive for AAD.
 
-The runnable [basket call example](../../dal-cpp/examples/basket_mc/) prices
+The runnable [basket call example](../../dal-cpp/examples/products/basket_mc/) prices
 `max(0.5 S_A(T) + 0.5 S_B(T) - 110, 0)` with two correlated equity paths and
 named `FIX` observations. It averages discounted path payoffs over $2^{18}$
 Sobol paths. The program compares compiled double and AAD valuation, double

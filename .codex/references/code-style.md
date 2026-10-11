@@ -231,8 +231,8 @@ Reference files:
 
 - Show calibration results and sample product values in aligned text tables,
   with a section title, column headers, and horizontal separators. Match the
-  layouts in `dal-cpp/examples/curve_calibration/curve_calibration.cpp` and
-  `dal-cpp/examples/uoc/uoc.cpp`; Python examples follow the same layout.
+  layouts in `dal-cpp/examples/curves/curve_calibration/curve_calibration.cpp` and
+  `dal-cpp/examples/products/uoc/uoc.cpp`; Python examples follow the same layout.
 - Calibration tables identify instruments, market/fitted values, residuals,
   fitted parameters and validation status. Product tables identify the product,
   valuation method and price; include numerical or sampling errors when available.

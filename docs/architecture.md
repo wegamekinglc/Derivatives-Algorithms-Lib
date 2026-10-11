@@ -45,7 +45,9 @@ tests live under `dal-excel/tests/support/` and are compiled into the XLL only
 when tests are enabled.
 
 Core C++ examples live under `dal-cpp/examples/`, use core APIs and depend on
-`DAL::cpp`. `DAL_CPP_BUILD_EXAMPLES=ON` enables them independently of
+`DAL::cpp`. The [core catalog](../dal-cpp/examples/README.md) groups them by primary
+purpose into `products/`, `curves/`, `models/` and `methods/`.
+`DAL_CPP_BUILD_EXAMPLES=ON` enables them independently of
 `DAL_BUILD_PUBLIC`. They must not include or link the public facade, including
 through shared helpers or conditional targets.
 

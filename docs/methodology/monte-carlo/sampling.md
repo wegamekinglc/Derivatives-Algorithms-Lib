@@ -425,11 +425,11 @@ narrows both payoff and barrier smoothing.
 The Sobol benchmark program drives every generator through the same
 `FillUniform` / `FillNormal` inner loop and times the `precise` / `polish`
 inverse-CDF modes separately. See
-[`dal-cpp/examples/sobol/`](../../../dal-cpp/examples/sobol) for a runnable
+[`dal-cpp/examples/methods/sobol/`](../../../dal-cpp/examples/methods/sobol) for a runnable
 version; its per-configuration construction and draw loop is:
 
 ```cpp
-// from dal-cpp/examples/sobol/sobol.cpp
+// from dal-cpp/examples/methods/sobol/sobol.cpp
 #include <dal/math/random/sobol.hpp>
 #include <dal/math/random/quasirandom.hpp>
 #include <dal/math/vectors.hpp>

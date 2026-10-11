@@ -2,7 +2,7 @@
 """
 005.yield_curve_jacobian.py — Yield-curve Jacobian and inverse-Jacobian IR risk
 
-Mirrors dal-cpp/examples/yield_curve_jacobian/yield_curve_jacobian.cpp.
+Mirrors dal-cpp/examples/curves/yield_curve_jacobian/yield_curve_jacobian.cpp.
 
 Demonstrates:
   - LOG_DISCOUNT single-curve calibration with EXACT solver
@@ -244,7 +244,7 @@ def _explain_analytic_jacobian(j_analytic_ok):
         print(f"    - every instrument must use forecast==discount (no projection curve)")
         print(f"    - every instrument must trade at the curve anchor date")
         print(f"    - every instrument must be a Deposit_, FRA_, Future_, or Swap_")
-        print(f"  The C++ example at dal-cpp/examples/yield_curve_jacobian/")
+        print(f"  The C++ example at dal-cpp/examples/curves/yield_curve_jacobian/")
         print(f"  demonstrates the full AAD Jacobian workflow.")
 
 
@@ -321,7 +321,7 @@ def _print_summary(j_analytic_ok):
         print(f"  The calibration completed successfully (residuals ~ 0).")
         print(f"  The AAD analytic Jacobian was not populated in this build.")
         print(f"  See the C++ example for the full AAD Jacobian demonstration:")
-        print(f"    dal-cpp/examples/yield_curve_jacobian/yield_curve_jacobian.cpp")
+        print(f"    dal-cpp/examples/curves/yield_curve_jacobian/yield_curve_jacobian.cpp")
     print(f"{'=' * 70}")
 
 
@@ -333,13 +333,13 @@ def _run_aad_vs_bump_comparison(j_analytic, j_bumped, j_analytic_ok, j_bumped_ok
     elif j_analytic_ok and not j_bumped_ok:
         print(f"  [SKIP] AAD Jacobian available but BUMPED Jacobian is empty.")
         print(f"  In the current build, only the ANALYTIC AAD path populates jacobian_.")
-        print(f"  The C++ example at dal-cpp/examples/yield_curve_jacobian/")
+        print(f"  The C++ example at dal-cpp/examples/curves/yield_curve_jacobian/")
         print(f"  performs a full AAD-vs-bump cross-check using an independent bump oracle.")
     elif j_bumped_ok and not j_analytic_ok:
         print(f"  [SKIP] BUMPED Jacobian available but AAD Jacobian is empty.")
     else:
         print(f"  [SKIP] Neither Jacobian was populated.")
-        print(f"  The C++ example at dal-cpp/examples/yield_curve_jacobian/")
+        print(f"  The C++ example at dal-cpp/examples/curves/yield_curve_jacobian/")
         print(f"  demonstrates the full AAD analytic Jacobian cross-check.")
 
 

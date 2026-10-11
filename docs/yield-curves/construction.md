@@ -517,7 +517,7 @@ The residual drift has two sources:
   at the 1Y pillar — about $14\times$ tighter than the baseless default.
 
 These drift figures are reported by the example
-`dal-cpp/examples/joint_multi_curve_calibration/joint_multi_curve_calibration.cpp`
+`dal-cpp/examples/curves/joint_multi_curve_calibration/joint_multi_curve_calibration.cpp`
 as informational measurements (BAR-B, BAR-C), not gated. The example's sole
 pass/fail gate (BAR-A) checks that both paths converge and reprice every
 instrument to `10 * fitTolerance_`. A curve-routing bug — for example, the joint
@@ -536,15 +536,15 @@ source; see the citations in each example.
 
 ### Single-curve bootstrap from deposits, futures, and swaps
 
-This mirrors `dal-cpp/examples/euribor3m_curve/euribor3m_curve.cpp`: a classic
+This mirrors `dal-cpp/examples/curves/euribor3m_curve/euribor3m_curve.cpp`: a classic
 single-curve Euribor 3M bootstrap that discounts and forecasts off one curve
 (no OIS data). The instrument set is deposit + STIR futures + vanilla swaps,
 assembled into a `CurveCalibrationSpec_` and solved by `CalibrateYieldCurve`.
-See [`dal-cpp/examples/euribor3m_curve/`](../../dal-cpp/examples/euribor3m_curve)
+See [`dal-cpp/examples/curves/euribor3m_curve/`](../../dal-cpp/examples/curves/euribor3m_curve)
 for a runnable version.
 
 ```cpp
-// from dal-cpp/examples/euribor3m_curve/euribor3m_curve.cpp
+// from dal-cpp/examples/curves/euribor3m_curve/euribor3m_curve.cpp
 #include <dal/curve/calibration.hpp>
 #include <dal/curve/ycinstrument.hpp>
 #include <dal/protocol/collateraltype.hpp>
@@ -646,17 +646,17 @@ API citations:
 
 ### Sequential multi-curve calibration (OIS discounting + tenor forecasting)
 
-This mirrors `dal-cpp/examples/curve_calibration/curve_calibration.cpp`. Two
+This mirrors `dal-cpp/examples/curves/curve_calibration/curve_calibration.cpp`. Two
 stages share a knot grid: stage 1 calibrates the OIS discount curve from OIS
 deposits and OIS swaps; stage 2 calibrates the 3M forecasting curve from FRAs
 and IRS, holding the discount curve fixed. Each stage quotes 20 instruments
 onto 9 knots, an overdetermined system, so both stages use the least-squares
 `APPROXIMATE` solver. See
-[`dal-cpp/examples/curve_calibration/`](../../dal-cpp/examples/curve_calibration)
+[`dal-cpp/examples/curves/curve_calibration/`](../../dal-cpp/examples/curves/curve_calibration)
 for a runnable version.
 
 ```cpp
-// from dal-cpp/examples/curve_calibration/curve_calibration.cpp
+// from dal-cpp/examples/curves/curve_calibration/curve_calibration.cpp
 #include <dal/curve/calibration.hpp>
 #include <dal/curve/curveblock.hpp>
 #include <dal/curve/piecewiselinear.hpp>
@@ -721,12 +721,12 @@ When no market quotes are available (e.g. building a market to derive implied
 quotes), a flat forward curve is built directly with `NewDiscountPWLF`. This is
 the helper used in both `curve_calibration.cpp` and
 `xccy_curve_calibration.cpp` (see
-[`dal-cpp/examples/curve_calibration/`](../../dal-cpp/examples/curve_calibration)
+[`dal-cpp/examples/curves/curve_calibration/`](../../dal-cpp/examples/curves/curve_calibration)
 and
-[`dal-cpp/examples/xccy_curve_calibration/`](../../dal-cpp/examples/xccy_curve_calibration)):
+[`dal-cpp/examples/curves/xccy_curve_calibration/`](../../dal-cpp/examples/curves/xccy_curve_calibration)):
 
 ```cpp
-// from dal-cpp/examples/curve_calibration/curve_calibration.cpp (MakeFlatDiscountCurve)
+// from dal-cpp/examples/curves/curve_calibration/curve_calibration.cpp (MakeFlatDiscountCurve)
 #include <dal/curve/piecewiselinear.hpp>
 #include <dal/curve/ycimp.hpp>
 
@@ -750,17 +750,17 @@ API citations:
 
 ### Joint simultaneous multi-curve calibration
 
-This mirrors `dal-cpp/examples/joint_multi_curve_calibration/joint_multi_curve_calibration.cpp`.
+This mirrors `dal-cpp/examples/curves/joint_multi_curve_calibration/joint_multi_curve_calibration.cpp`.
 The joint path solves OIS discount and IBOR-3M forward curves in one
 `CalibrateJointMultiCurve` call over a stacked parameter vector, rather than the
 two staged `CalibrateMultiCurve` calls illustrated above. See
-[`dal-cpp/examples/joint_multi_curve_calibration/`](../../dal-cpp/examples/joint_multi_curve_calibration)
+[`dal-cpp/examples/curves/joint_multi_curve_calibration/`](../../dal-cpp/examples/curves/joint_multi_curve_calibration)
 for a runnable version. Each declaration contributes one `JointCurveDeclaration_`
 that names its collateral, tenor, and whether it calibrates a discount or forward
 slot; the spec carries the single shared `solveMode_` and `fitTolerance_`.
 
 ```cpp
-// from dal-cpp/examples/joint_multi_curve_calibration/joint_multi_curve_calibration.cpp
+// from dal-cpp/examples/curves/joint_multi_curve_calibration/joint_multi_curve_calibration.cpp
 JointCurveDeclaration_ oisDecl;
 oisDecl.curveName_            = "joint_ois";
 oisDecl.instruments_          = market.ois;
@@ -797,18 +797,18 @@ API citations:
 
 ### Log-discount curve across all three schemes
 
-This mirrors `dal-cpp/examples/interpolate_curve/interpolate_curve.cpp`. The
+This mirrors `dal-cpp/examples/curves/interpolate_curve/interpolate_curve.cpp`. The
 program calibrates the same instrument set three times under `LOG_DISCOUNT`,
 varying only `logDfScheme_` across `LOG_LINEAR`, `LOG_CUBIC_NATURAL`, and
 `MIXED`, then compares the solved node discount factors, the 1-year forward
 rates at each node, and the per-scheme repricing residuals. See
-[`dal-cpp/examples/interpolate_curve/`](../../dal-cpp/examples/interpolate_curve)
+[`dal-cpp/examples/curves/interpolate_curve/`](../../dal-cpp/examples/curves/interpolate_curve)
 for a runnable version. See [Log-Discount Curve](log-discount.md) for the
 boundary, extrapolation, and column-order contracts that distinguish the three
 schemes.
 
 ```cpp
-// from dal-cpp/examples/interpolate_curve/interpolate_curve.cpp
+// from dal-cpp/examples/curves/interpolate_curve/interpolate_curve.cpp
 CurveCalibrationSpec_ spec;
 spec.today_            = today;
 spec.parameterization_ = CurveParameterization_::Value_::LOG_DISCOUNT;

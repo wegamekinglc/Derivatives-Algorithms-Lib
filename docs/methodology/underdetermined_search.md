@@ -406,11 +406,11 @@ directly. The example program constructs an instrument set and a denser knot
 grid, then calls the positional `CalibrateYieldCurve` overload from
 `dal-cpp/dal/curve/curveblock.hpp`, which assembles a `CurveCalibrationSpec_`,
 runs the residual function through `Underdetermined::Find`, and returns the
-fitted discount curve. See [`dal-cpp/examples/underdetermined/`](../../dal-cpp/examples/underdetermined)
+fitted discount curve. See [`dal-cpp/examples/curves/underdetermined/`](../../dal-cpp/examples/curves/underdetermined)
 for a runnable version; its calibration entry point is:
 
 ```cpp
-// from dal-cpp/examples/underdetermined/underdetermined.cpp
+// from dal-cpp/examples/curves/underdetermined/underdetermined.cpp
 #include <dal/platform/platform.hpp>
 #include <dal/curve/curveblock.hpp>
 

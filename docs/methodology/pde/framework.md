@@ -208,7 +208,7 @@ std::unique_ptr<MatrixCoeff_> NewMatrixCoeff(std::function<double(double)> f);
 These make Black-Scholes coefficients concise:
 
 ```cpp
-// from dal-cpp/examples/european_fd/european_fd.cpp
+// from dal-cpp/examples/methods/european_fd/european_fd.cpp
 Handle_<ScalarCoeff_> disc(NewConstCoeff(rate));
 Handle_<VectorCoeff_> mu(NewVectorCoeff([=](double s) { return (rate - div) * s; }));
 Handle_<MatrixCoeff_> var(NewMatrixCoeff([=](double s) { return vol * vol * s * s; }));
@@ -299,7 +299,7 @@ fresh `Cube_<>(1, 1, n)`; the implementation does not resize cubes in place.
 ## Example Roll Loop
 
 The European finite-difference example in
-[`dal-cpp/examples/european_fd/`](../../../dal-cpp/examples/european_fd) runs explicit,
+[`dal-cpp/examples/methods/european_fd/`](../../../dal-cpp/examples/methods/european_fd) runs explicit,
 Crank-Nicolson, and fully implicit scheme configurations through the same rollback helper.
 The explicit configuration uses a finer time grid because explicit rollback is
 conditionally stable. After the base scheme comparison, the example continues the
@@ -307,7 +307,7 @@ Crank-Nicolson convergence sweep by increasing `spaceSteps` and `timeSteps` toge
 each selected run, the helper uses:
 
 ```cpp
-// from dal-cpp/examples/european_fd/european_fd.cpp
+// from dal-cpp/examples/methods/european_fd/european_fd.cpp
 const SchemeRun_ schemeRuns[] = {
     {"Explicit", 0.0, kBaseSteps, kExplicitTimeSteps},
     {"Crank-Nicolson", 0.5, kBaseSteps, kBaseSteps},

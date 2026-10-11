@@ -1,6 +1,6 @@
 # Fixed-Grid European PDE Prices and Adjoints
 
-The runnable [European AAD example](../../../dal-cpp/examples/european_aad_fd/european_aad_fd.cpp)
+The runnable [European AAD example](../../../dal-cpp/examples/methods/european_aad_fd/european_aad_fd.cpp)
 records a complete Black-Scholes call/put rollback through
 [native sampled theta steps](../aad.md#recorded-sampled-pde-theta-steps).
 Two price layers share rate, volatility and strike inputs. Two reverse channels
@@ -48,7 +48,7 @@ With examples enabled in the normal build:
 
 ```bash
 cmake --build build/Release-linux --target european_aad_fd
-./build/Release-linux/dal-cpp/examples/european_aad_fd/european_aad_fd
+./build/Release-linux/dal-cpp/examples/methods/european_aad_fd/european_aad_fd
 ```
 
 The default 61-node/120-interval result is:
