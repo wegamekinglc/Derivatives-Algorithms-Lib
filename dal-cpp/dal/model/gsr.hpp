@@ -38,25 +38,27 @@ namespace Dal::AAD {
             T_ hybridBridgeVol_ = T_(0.0);
         };
 
+        // Inline coefficients avoid table indirection in direct observation calls.
         struct Bond_ {
             Vector_<T_> loading_;
             T_ intercept_;
+            size_t index_ = 0;
         };
         struct DiscountObservation_ {
-            size_t start_, end_;
+            Bond_ start_, end_;
         };
         struct LiborObservation_ {
-            size_t start_, end_;
+            Bond_ start_, end_;
             T_ scale_;
             double accrual_;
         };
         struct FixedCoupon_ {
-            size_t payment_;
+            Bond_ payment_;
             double accrual_;
         };
         struct FloatCoupon_ {
             LiborObservation_ fixing_;
-            size_t payment_;
+            Bond_ payment_;
             double accrual_;
         };
         struct SwapObservation_ {
@@ -87,7 +89,8 @@ namespace Dal::AAD {
         Vector_<Step_> steps_;
         Vector_<Vector_<Observation_>> observations_;
         Vector_<Vector_<Bond_>> bonds_;
-        Vector_<Vector_<size_t>> discountIndices_;
+        Vector_<Vector_<Bond_>> discountBonds_;
+        Vector_<bool> reuseBonds_;
 
         [[nodiscard]] double Time(const Date_& date) const {
             REQUIRE(date >= evaluationDate_, "InvalidGSRDate: date precedes evaluation date");
@@ -389,6 +392,13 @@ namespace Dal::AAD {
                 request);
         }
 
+        template <class F_> void WriteObservations(size_t sample, const F_& price, Sample_<T_>* output) const {
+            for (size_t slot = 0; slot < observations_[sample].size(); ++slot)
+                output->observations_[slot] = Observe(observations_[sample][slot], price);
+            for (size_t slot = 0; slot < discountBonds_[sample].size(); ++slot)
+                output->discounts_[slot] = price(discountBonds_[sample][slot]);
+        }
+
         void GeneratePathWithState(const Vector_<>& gaussian, Scenario_<T_>* path, T_* state) const {
             T_ logNumeraire(0.0);
             size_t gaussianSlot = 0;
@@ -401,15 +411,15 @@ namespace Dal::AAD {
                 auto& sample = (*path)[i];
                 sample.spot_ = T_(0.0);
                 sample.numeraire_ = Dal::exp(logNumeraire);
-                auto& prices = sample.modelScratch_;
-                prices.clear();
-                prices.reserve(bonds_[i].size());
-                for (const auto& bond : bonds_[i])
-                    prices.push_back(Bond(bond, state));
-                for (size_t j = 0; j < observations_[i].size(); ++j)
-                    sample.observations_[j] = Observe(observations_[i][j], [&](size_t bond) -> const T_& { return prices[bond]; });
-                for (size_t k = 0; k < discountIndices_[i].size(); ++k)
-                    sample.discounts_[k] = prices[discountIndices_[i][k]];
+                if (reuseBonds_[i]) {
+                    auto& prices = sample.modelScratch_;
+                    prices.clear();
+                    prices.reserve(bonds_[i].size());
+                    for (const auto& bond : bonds_[i])
+                        prices.push_back(Bond(bond, state));
+                    WriteObservations(i, [&](const Bond_& bond) -> const T_& { return prices[bond.index_]; }, &sample);
+                } else
+                    WriteObservations(i, [&](const Bond_& bond) { return Bond(bond, state); }, &sample);
             }
         }
 
@@ -476,7 +486,8 @@ namespace Dal::AAD {
                 steps_ = other.steps_;
                 observations_ = other.observations_;
                 bonds_ = other.bonds_;
-                discountIndices_ = other.discountIndices_;
+                discountBonds_ = other.discountBonds_;
+                reuseBonds_ = other.reuseBonds_;
                 SetParameterPointers();
             }
             return *this;
@@ -527,8 +538,7 @@ namespace Dal::AAD {
             REQUIRE(sample < observations_.size() && slot < observations_[sample].size(),
                     "InvalidGSRObservation: HJM sample, state or covariance dimensions do not match");
             const size_t n = NumFactors();
-            return Observe(observations_[sample][slot], [&](size_t index) -> T_ {
-                const auto& bond = bonds_[sample][index];
+            return Observe(observations_[sample][slot], [&](const Bond_& bond) -> T_ {
                 T_ exponent = bond.intercept_;
                 for (size_t i = 0; i < bond.loading_.size(); ++i)
                     exponent -= bond.loading_[i] * state[i];
@@ -573,14 +583,14 @@ namespace Dal::AAD {
         [[nodiscard]] T_ ObserveHybrid(size_t sample, size_t slot, const T_* state) const {
             REQUIRE(sample < observations_.size() && slot < observations_[sample].size(),
                     "InvalidGSRObservation: hybrid observation was not prepared");
-            return Observe(observations_[sample][slot], [&](size_t bond) { return Bond(bonds_[sample][bond], state); });
+            return Observe(observations_[sample][slot], [&](const Bond_& bond) { return Bond(bond, state); });
         }
         //  Fill one hybrid sample's discount factors from its prepared bonds
         void ObserveHybridDiscounts(size_t sample, const T_* state, Vector_<T_>* discounts) const {
-            REQUIRE(sample < discountIndices_.size() && discounts->size() == discountIndices_[sample].size(),
+            REQUIRE(sample < discountBonds_.size() && discounts->size() == discountBonds_[sample].size(),
                     "InvalidGSRObservation: discount sample or dimensions do not match");
             for (size_t k = 0; k < discounts->size(); ++k)
-                (*discounts)[k] = Bond(bonds_[sample][discountIndices_[sample][k]], state);
+                (*discounts)[k] = Bond(discountBonds_[sample][k], state);
         }
 
         [[nodiscard]] size_t NumAssets() const override { return 0; }
@@ -624,7 +634,8 @@ namespace Dal::AAD {
             steps_.Resize(timeline.size());
             observations_.Resize(timeline.size());
             bonds_.Resize(timeline.size());
-            discountIndices_.Resize(timeline.size());
+            discountBonds_.Resize(timeline.size());
+            reuseBonds_.Resize(timeline.size());
         }
         void Init(const Vector_<>& timeline, const Vector_<SampleDef_>& definitions) override { InitObservations(timeline, definitions, true); }
         void InitHJM(const Vector_<>& timeline, const Vector_<SampleDef_>& definitions) { InitObservations(timeline, definitions, false); }
@@ -635,20 +646,24 @@ namespace Dal::AAD {
             const double current = productTimeLine_[sample];
             observations_[sample].clear();
             bonds_[sample].clear();
+            reuseBonds_[sample] = false;
             std::map<Date_, size_t> bondIndices;
             // All bonds in a sample use the discount curve; projection basis stays in Libor's scale.
             const auto prepareBond = [&](const Date_& maturity) {
                 const auto [entry, inserted] = bondIndices.try_emplace(maturity, bonds_[sample].size());
-                if (inserted)
+                if (inserted) {
                     bonds_[sample].push_back(PrepareBond(current, maturity, variance, mean));
-                return entry->second;
+                    bonds_[sample].back().index_ = entry->second;
+                } else
+                    reuseBonds_[sample] = true;
+                return bonds_[sample][entry->second];
             };
             for (const auto& name : definition.indexNames_)
                 observations_[sample].push_back(PrepareObservation(name, sampleDate, prepareBond));
-            discountIndices_[sample].clear();
+            discountBonds_[sample].clear();
             for (const double maturity : definition.discountMats_) {
                 REQUIRE(maturity >= current, "InvalidGSRDiscount: discount maturity precedes its sample");
-                discountIndices_[sample].push_back(prepareBond(DateAt(maturity)));
+                discountBonds_[sample].push_back(prepareBond(DateAt(maturity)));
             }
         }
 

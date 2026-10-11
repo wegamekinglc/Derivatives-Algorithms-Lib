@@ -90,8 +90,9 @@ Initialization prepares transition and observation coefficients; path generation
 does not rebuild schedules or integrate dated parameters. Brownian bridge
 sampling applies independently to each factor before the covariance transform.
 Standalone GSR paths price each distinct OIS bond once per sample and reuse it
-across rate observations and delayed-payment discounts. Prices live in the path's
-`Sample_::modelScratch_`; the initialized model can be shared by double workers.
+across rate observations and delayed-payment discounts. Samples with repeated
+bonds keep prices in the path's `Sample_::modelScratch_`; the initialized model
+can be shared by double workers.
 Projection spreads retain their separate input derivatives even when projection
 and OIS curves have equal values.
 
