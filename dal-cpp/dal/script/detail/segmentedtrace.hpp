@@ -189,7 +189,7 @@ namespace Dal::Script::Detail {
             return observations_->Read(request, values_);
         }
 
-        template <class C_> void Extremum(size_t pc, const T_& left, const T_& right, C_ compare) const {
+        template <class U_, class C_> void Extremum(size_t pc, const T_& left, const U_& right, C_ compare) const {
             Write(pc, 0, Choice(AAD::Value(left), AAD::Value(right), compare));
         }
 
