@@ -303,6 +303,25 @@ TEST(SegmentedMonteCarloTest, TestHistoricalVectorsOldFixingsAndReadablePayments
     }
 }
 
+TEST(SegmentedMonteCarloTest, TestConstantLeftExtremaAtTiesAcrossSegments) {
+    const ScopedThreads_ threads(1);
+    const auto prepared =
+        PrepareMonteCarloProduct(Script::ScriptProductData_("", {Cell_(Date_(2026, 10, 1).AddDays(365)), Cell_(Date_(2026, 10, 1).AddDays(730))},
+                                                            {"pay PAYS MAX(1, SPOT())", "pay PAYS MIN(1, SPOT())"}));
+    const Script::BlackScholesSegmentedPath_ kernel(prepared);
+    Script::SegmentedMonteCarloSettings_ settings;
+    settings.firstPath_ = 7;
+    for (const size_t steps : {1U, 2U}) {
+        settings.path_.segmentSteps_ = steps;
+        const auto result = Script::EvaluateBlackScholesSegmentedMonteCarlo(kernel, {1.0, 0.0, 0.0, 0.0}, 35, settings);
+        ASSERT_NEAR(result.MeanValue(), 2.0, 1e-10);
+        const Vector_<> expected{0.0, 0.0, -3.0, 0.0};
+        ASSERT_EQ(result.MeanGradient().size(), expected.size());
+        for (size_t i = 0; i < expected.size(); ++i)
+            ASSERT_NEAR(result.MeanGradient()[i], expected[i], 1e-10);
+    }
+}
+
 TEST(SegmentedMonteCarloTest, TestTimeZeroAndHistoricalOnlyWithoutDrivers) {
     const ScopedThreads_ threads(1);
     Script::SegmentedMonteCarloSettings_ settings;
