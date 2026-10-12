@@ -587,6 +587,11 @@ namespace Dal::Script {
                 *value = other;
         }
 
+        template <class T_, class C_> FORCE_INLINE void UpdateCompiledConstantExtremum(T_* value, double other, C_ compare) {
+            if (compare(other, AAD::Value(*value)))
+                *value = other;
+        }
+
         template <class T_, class P_>
         FORCE_INLINE size_t EvalCompiledSum(const CompiledEventView_<T_, P_>& event, size_t i, EvalState_<T_>* statePtr) {
             auto& state = *statePtr;
@@ -696,9 +701,9 @@ namespace Dal::Script {
             }
         }
 
-        template <class T_, class P_, class C_>
+        template <class T_, class P_, class U_, class C_>
         FORCE_INLINE void
-        TraceCompiledExtremum(const CompiledEventView_<T_, P_>& event, size_t pc, const StaticStack_<T_>& stack, const T_& other, C_ compare) {
+        TraceCompiledExtremum(const CompiledEventView_<T_, P_>& event, size_t pc, const StaticStack_<T_>& stack, const U_& other, C_ compare) {
             if constexpr (P_::trace_)
                 event.policy_.Extremum(pc, stack.Top(), other, compare);
         }
@@ -719,9 +724,9 @@ namespace Dal::Script {
                 return i;
             }
             case Max2Const: {
-                const T_ y(constStream[nodeStream[++i]]);
+                const double y = constStream[nodeStream[++i]];
                 TraceCompiledExtremum(event, i - 1, dStack, y, std::greater<>());
-                UpdateCompiledExtremum(&dStack.Top(), y, std::greater<>());
+                UpdateCompiledConstantExtremum(&dStack.Top(), y, std::greater<>());
                 ++i;
                 return i;
             }
@@ -733,9 +738,9 @@ namespace Dal::Script {
                 return i;
             }
             case Min2Const: {
-                const T_ y(constStream[nodeStream[++i]]);
+                const double y = constStream[nodeStream[++i]];
                 TraceCompiledExtremum(event, i - 1, dStack, y, std::less<>());
-                UpdateCompiledExtremum(&dStack.Top(), y, std::less<>());
+                UpdateCompiledConstantExtremum(&dStack.Top(), y, std::less<>());
                 ++i;
                 return i;
             }
@@ -821,7 +826,7 @@ namespace Dal::Script {
             case PaysConst: {
                 const double val = constStream[nodeStream[++i]];
                 const size_t idx = nodeStream[++i];
-                state.variables_[idx] += T_(val) / scenario.numeraire_;
+                state.variables_[idx] += val / scenario.numeraire_;
                 ++i;
                 return i;
             }
@@ -836,7 +841,7 @@ namespace Dal::Script {
                 const double val = constStream[nodeStream[++i]];
                 const size_t slot = nodeStream[++i];
                 const size_t idx = nodeStream[++i];
-                state.variables_[idx] += T_(val) * scenario.discounts_[slot] / scenario.numeraire_;
+                state.variables_[idx] += val * scenario.discounts_[slot] / scenario.numeraire_;
                 ++i;
                 return i;
             }
@@ -1256,7 +1261,7 @@ namespace Dal::Script {
         }
 
         //  Fuzzy (AAD) recording tier: the recorded rows stay live on the worker's tape
-        template <class T_> FORCE_INLINE void RecordLsmcFuzzyPayment(EvalState_<T_>* statePtr, size_t index, const T_& payment) {
+        template <class T_, class U_> FORCE_INLINE void RecordLsmcFuzzyPayment(EvalState_<T_>* statePtr, size_t index, const U_& payment) {
             auto& sinks = RequireLsmcFuzzySinks(statePtr);
             if (index == sinks.payoffIdx_)
                 (*sinks.pays_)[sinks.eventOrdinal_] += payment;
@@ -1302,8 +1307,8 @@ namespace Dal::Script {
             if (op == LsmcFuzzyPaysConst) {
                 const double val = constStream[nodeStream[++i]];
                 const size_t idx = nodeStream[++i];
-                RecordLsmcFuzzyPayment(statePtr, idx, T_(val));
-                state.variables_[idx] += T_(val) / event.scenario_.numeraire_;
+                RecordLsmcFuzzyPayment(statePtr, idx, val);
+                state.variables_[idx] += val / event.scenario_.numeraire_;
                 return i + 1;
             }
             if (op == LsmcFuzzyPaysOn) {
@@ -1318,7 +1323,7 @@ namespace Dal::Script {
                 const double val = constStream[nodeStream[++i]];
                 const size_t slot = nodeStream[++i];
                 const size_t idx = nodeStream[++i];
-                const T_ payment = T_(val) * event.scenario_.discounts_[slot];
+                const T_ payment = val * event.scenario_.discounts_[slot];
                 RecordLsmcFuzzyPayment(statePtr, idx, payment);
                 state.variables_[idx] += payment / event.scenario_.numeraire_;
                 return i + 1;
@@ -1354,7 +1359,7 @@ namespace Dal::Script {
                 const double val = constStream[nodeStream[++i]];
                 const size_t idx = nodeStream[++i];
                 RecordLsmcPayment(statePtr, idx, val);
-                state.variables_[idx] += T_(val) / event.scenario_.numeraire_;
+                state.variables_[idx] += val / event.scenario_.numeraire_;
                 return i + 1;
             }
             if (op == LsmcPaysOn) {
@@ -1369,7 +1374,7 @@ namespace Dal::Script {
                 const double val = constStream[nodeStream[++i]];
                 const size_t slot = nodeStream[++i];
                 const size_t idx = nodeStream[++i];
-                const T_ payment = T_(val) * event.scenario_.discounts_[slot];
+                const T_ payment = val * event.scenario_.discounts_[slot];
                 RecordLsmcPayment(statePtr, idx, Value(payment));
                 state.variables_[idx] += payment / event.scenario_.numeraire_;
                 return i + 1;
