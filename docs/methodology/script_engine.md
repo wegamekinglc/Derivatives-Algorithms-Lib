@@ -1253,6 +1253,14 @@ Callers can pass `compiled = true` to opt into the stream evaluator. Both modes
 are required to produce the same payoff and risk numbers, aside from normal
 floating-point association noise.
 
+Choose the evaluator using complete requests representative of the product,
+path count, model, and double/AAD mode. Include preparation when measuring cold
+requests: lowering to streams adds setup work, while repeated evaluation can
+benefit from reduced dispatch overhead. A gain on a large schedule-heavy
+product does not establish a gain for a small cold request. Set
+`simulation.compiled_` before model-aware preparation and use the same selection
+for execution. Evaluator selection does not change the LSMC training budget.
+
 Scalar `MAX(a, b)` and `MIN(a, b)` choose `b` only when it is strictly greater
 or strictly less than `a`, respectively. Ties, including opposite signed zeros,
 and unordered comparisons retain `a`. AAD follows the selected operand's risk:
@@ -1362,6 +1370,13 @@ generator in `dal-cpp/tests/script/test_compile_parity_fuzz.cpp`). The benchmark
 per process, printing elapsed time, PV, and AAD risks so paired runs can
 compare equal budgets and peak process memory. The `deadfix` workload puts
 dead future FIX requests on each exercise row to measure observation pruning.
+
+`dal-cpp/tests/script/test_compiled_request_parity.cpp` checks complete requests
+with historical vector state, live constants, named/default observations and
+delayed payment against independent BS price and all-risk oracles. It also
+checks fuzzy vector branches at exact smoothing endpoints and in the transition
+region, plus historical/vector LSMC policy diagnostics, effective default
+training counts, and Frozen/RetrainedBump risks with validation and RQMC.
 
 Named coverage in `dal-cpp/tests/script/test_exact_folding.cpp`,
 `dal-cpp/tests/script/test_fuzzy_arithmetic.cpp`,
