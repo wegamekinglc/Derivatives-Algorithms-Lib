@@ -190,7 +190,8 @@ namespace {
         ASSERT_EQ(plan.MaxWords(), 1U);
         Dal::Vector_<std::uint64_t> trace(1, 0);
         const Dal::Vector_<Dal::AAD::Number_> observations;
-        const Dal::Script::Detail::SegmentedCompiledPolicy_<Dal::AAD::Number_> policy(nullptr, observations, plan.View(0, &trace));
+        using TracePolicy_ = Dal::Script::Detail::SegmentedCompiledPolicy_<Dal::AAD::Number_>;
+        const TracePolicy_ policy(nullptr, observations, plan.View(0, &trace));
         auto state = product.BuildEvalState<Dal::AAD::Number_>(1, 2.0);
         Dal::AAD::Sample_<Dal::AAD::Number_> sample;
         Dal::AAD::Number_ threshold;
@@ -205,7 +206,7 @@ namespace {
         Dal::Script::Detail::EvalCompiledEvents<false>(
             1,
             [&](size_t) {
-                return Dal::Script::Detail::CompiledEventView_<Dal::AAD::Number_, decltype(policy)>{
+                return Dal::Script::Detail::CompiledEventView_<Dal::AAD::Number_, TracePolicy_>{
                     compiler.NodeStream(), compiler.ConstStream(), sample, 0, 0, true, policy};
             },
             &state);
