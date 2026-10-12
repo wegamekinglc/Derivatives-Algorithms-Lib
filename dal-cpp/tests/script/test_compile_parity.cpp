@@ -767,9 +767,9 @@ TEST(ScriptCompiledParityTest, TestGolden_FixedBarrier_PV_Risks) {
 
 namespace {
     bool IsOneOperandOpcode(int op) {
-        static const std::set<int> ops = {AddConst, SubConst,  ConstSub,   MultiConst, DivConst, ConstDiv,     PowConst,
-                                          ConstPow, Max2Const, Min2Const,  Var,        Const,    ConstVar,     Assign,
-                                          Pays,     If,        FuzzyEqual, FuzzyComp,  LsmcPays, LsmcExercise, VectorAppend};
+        static const std::set<int> ops = {AddConst,  SubConst,  ConstSub,   MultiConst, DivConst, ConstDiv,     PowConst,    ConstPow,
+                                          Max2Const, ConstMax2, Min2Const,  ConstMin2,  Var,      Const,        ConstVar,    Assign,
+                                          Pays,      If,        FuzzyEqual, FuzzyComp,  LsmcPays, LsmcExercise, VectorAppend};
         return ops.count(op) != 0;
     }
 
@@ -1089,8 +1089,10 @@ TEST(ScriptCompiledParityTest, TestOpcodeCoverage_AllReachableOpcodesExercised) 
         a = 2 ^ x
         a = MAX(x, x + 1)
         a = MAX(x, 2)
+        a = MAX(2, x)
         a = MIN(x, x + 1)
         a = MIN(x, 2)
+        a = MIN(2, x)
         a = SQRT(x)
         a = LOG(x)
         a = EXP(x)
@@ -1098,7 +1100,8 @@ TEST(ScriptCompiledParityTest, TestOpcodeCoverage_AllReachableOpcodesExercised) 
         a = 3
         out pays a
         out pays 3
-    )", &seen);
+    )",
+                        &seen);
 
     MergeProductOpcodes(R"(
         x = spot()
@@ -1145,8 +1148,8 @@ TEST(ScriptCompiledParityTest, TestOpcodeCoverage_AllReachableOpcodesExercised) 
     seen.insert(fuzzyVectorSeen.begin(), fuzzyVectorSeen.end());
 
     const std::set<int> unreachable = {};
-    for (const int op : {FuzzySub, FuzzySubConst, FuzzyConstSub})
-        ASSERT_EQ(seen.count(op), 1U) << "missing fused comparison opcode " << op;
+    for (const int op : {FuzzySub, FuzzySubConst, FuzzyConstSub, ConstMax2, ConstMin2})
+        ASSERT_EQ(seen.count(op), 1U) << "missing extended opcode " << op;
     for (int op = Add; op <= FuzzyIf; ++op) {
         if (unreachable.count(op)) {
             ASSERT_EQ(seen.count(op), 0u)
