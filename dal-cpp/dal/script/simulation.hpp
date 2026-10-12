@@ -375,7 +375,8 @@ namespace Dal::Script {
         model.Init(prd.TimeLine(), prd.DefLine());
         InitializePath(path);
 
-        if constexpr (std::is_base_of_v<PreparedScript_, P_>)
+        if constexpr (std::is_base_of_v<PreparedScript_, P_> ||
+                      (std::is_base_of_v<ScriptProduct_, P_> && std::is_base_of_v<EvalStateCore_<AAD::Number_>, E_>))
             prd.InitializeHistoricalState(&evaluator);
 
         return recording.MakeCheckpoint();
