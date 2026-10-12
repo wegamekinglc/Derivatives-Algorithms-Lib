@@ -168,19 +168,16 @@ namespace Dal::Script {
         FORCE_INLINE void Visit(const NodeFalse_& node) { fuzzyStack_.Push(this->SmoothingConstants().Zero()); }
 
         void VisitDifference(const NodeSub_& node, const SmoothingComparison_& comparison) {
-            const auto* left = Downcast<ExprNode_>(node.arguments_[0]);
-            const auto* right = Downcast<ExprNode_>(node.arguments_[1]);
-            // Unprocessed variables carry placeholder constant metadata.
-            const bool leftLiteral = left->isConst_ && dynamic_cast<const NodeConst_*>(left);
-            const bool rightLiteral = right->isConst_ && dynamic_cast<const NodeConst_*>(right);
-            if (leftLiteral) {
+            const auto* left = Base::Literal(node.arguments_[0]);
+            const auto* right = Base::Literal(node.arguments_[1]);
+            if (left) {
                 VisitNode(*node.arguments_[1]);
                 const T rhs = dStack_.TopAndPop();
                 fuzzyStack_.Push(comparison.Difference(left->constVal_, rhs, defEps_, this->SmoothingConstants()));
                 return;
             }
             VisitNode(*node.arguments_[0]);
-            if (rightLiteral) {
+            if (right) {
                 const T lhs = dStack_.TopAndPop();
                 fuzzyStack_.Push(comparison.Difference(lhs, right->constVal_, defEps_, this->SmoothingConstants()));
                 return;
@@ -228,6 +225,12 @@ namespace Dal::Script {
             fuzzyStack_.Push(args.first + args.second - args.first * args.second);
         }
 
+        template <class U_> FORCE_INLINE void RecordPayment(int varIdx, const U_& payment) {
+            if (static_cast<size_t>(varIdx) == lsmcFuzzySinks_->payoffIdx_)
+                (*lsmcFuzzySinks_->pays_)[lsmcFuzzySinks_->eventOrdinal_] += payment;
+            variables_[varIdx] += payment / (*scenario_)[curEvt_].numeraire_;
+        }
+
         //  LSMC recording: with no sinks installed the plain fuzzy arithmetic runs; with
         //  them the raw payment lands in the driver's row while the payoff variable keeps
         //  the exact accumulated arithmetic of the base evaluator. Payments inside a
@@ -239,25 +242,21 @@ namespace Dal::Script {
                 return;
             }
             const auto varIdx = Downcast<NodeVar_>(node.arguments_[0])->index_;
-            VisitNode(*node.arguments_[1]);
-            const auto& sample = (*scenario_)[curEvt_];
-            if (node.discountId_) {
-                REQUIRE2(*node.discountId_ < sample.discounts_.size(),
-                         "DiscountIdOutOfRange: delayed payment slot; " + node.source_.Describe(), ScriptError_);
-                const T payment = dStack_.TopAndPop() * sample.discounts_[*node.discountId_];
-                if (static_cast<size_t>(varIdx) == lsmcFuzzySinks_->payoffIdx_)
-                    (*lsmcFuzzySinks_->pays_)[lsmcFuzzySinks_->eventOrdinal_] += payment;
-                variables_[varIdx] += payment / sample.numeraire_;
-            } else {
-                if (node.paymentDate_)
-                    THROW2("PreparationRequired: PAYS ... ON " + Date::ToString(*node.paymentDate_) +
-                               " requires model-aware preparation; " + node.source_.Describe(),
-                           ScriptError_);
-                const T payment = dStack_.TopAndPop();
-                if (static_cast<size_t>(varIdx) == lsmcFuzzySinks_->payoffIdx_)
-                    (*lsmcFuzzySinks_->pays_)[lsmcFuzzySinks_->eventOrdinal_] += payment;
-                variables_[varIdx] += payment / sample.numeraire_;
-            }
+            this->VisitPaymentAmount(node, [&](const auto& amount) {
+                const auto& sample = (*scenario_)[curEvt_];
+                if (node.discountId_) {
+                    REQUIRE2(*node.discountId_ < sample.discounts_.size(), "DiscountIdOutOfRange: delayed payment slot; " + node.source_.Describe(),
+                             ScriptError_);
+                    const T payment = amount * sample.discounts_[*node.discountId_];
+                    RecordPayment(varIdx, payment);
+                } else {
+                    if (node.paymentDate_)
+                        THROW2("PreparationRequired: PAYS ... ON " + Date::ToString(*node.paymentDate_) + " requires model-aware preparation; " +
+                                   node.source_.Describe(),
+                               ScriptError_);
+                    RecordPayment(varIdx, amount);
+                }
+            });
         }
 
         //  EXERCISE leaves the script state untouched; the driver's rows receive the live
