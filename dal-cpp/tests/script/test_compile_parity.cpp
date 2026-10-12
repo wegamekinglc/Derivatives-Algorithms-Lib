@@ -6,6 +6,7 @@
 
 #include <gtest/gtest.h>
 
+#include <map>
 #include <set>
 #include <string>
 #include <vector>
@@ -784,15 +785,14 @@ namespace {
             return 2;
         if (IsTwoOperandOpcode(op))
             return 3;
-        if (op == PaysOnConst || op == LsmcPaysOnConst || op == LsmcFuzzyPaysOnConst)
-            return 4;
         if (op == FuzzyIf) {
             const size_t nAff = static_cast<size_t>(stream[idx + 3]);
             return 5 + nAff + static_cast<size_t>(stream[idx + 4 + nAff]);
         }
-        if (op == VectorRead || op == VectorReduce)
-            return 6;
-        return 1;
+        static const std::map<int, size_t> widths{{PaysOnConst, 4},  {LsmcPaysOnConst, 4}, {LsmcFuzzyPaysOnConst, 4}, {VectorRead, 6},
+                                                  {VectorReduce, 6}, {FuzzySub, 5},        {FuzzySubConst, 5},        {FuzzyConstSub, 5}};
+        const auto found = widths.find(op);
+        return found == widths.end() ? 1 : found->second;
     }
 
     void CollectOpcodes(const Vector_<int>& stream, std::set<int>* out) {
@@ -863,6 +863,12 @@ namespace {
             IF spot() != 3 THEN
                 y = y + 3
             END
+            IF 2 > spot() THEN
+                y = y + 1
+            END
+            IF spot() > y THEN
+                y = y + 1
+            END
             IF 1 > 0 AND spot() > 2 THEN
                 y = y + 4
             END
@@ -879,6 +885,16 @@ namespace {
         Compiler_ literals(true);
         NodeTrue_().Accept(literals);
         NodeFalse_().Accept(literals);
+        for (const bool discrete : {false, true}) {
+            NodeEqual_ equal;
+            equal.isDiscrete_ = discrete;
+            equal.arguments_.push_back(std::make_unique<NodeConst_>(0.25));
+            equal.Accept(literals);
+            NodeSup_ superior;
+            superior.isDiscrete_ = discrete;
+            superior.arguments_.push_back(std::make_unique<NodeConst_>(0.25));
+            superior.Accept(literals);
+        }
         CollectOpcodes(literals.NodeStream(), out);
     }
 
@@ -1129,6 +1145,8 @@ TEST(ScriptCompiledParityTest, TestOpcodeCoverage_AllReachableOpcodesExercised) 
     seen.insert(fuzzyVectorSeen.begin(), fuzzyVectorSeen.end());
 
     const std::set<int> unreachable = {};
+    for (const int op : {FuzzySub, FuzzySubConst, FuzzyConstSub})
+        ASSERT_EQ(seen.count(op), 1U) << "missing fused comparison opcode " << op;
     for (int op = Add; op <= FuzzyIf; ++op) {
         if (unreachable.count(op)) {
             ASSERT_EQ(seen.count(op), 0u)

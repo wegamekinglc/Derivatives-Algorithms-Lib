@@ -167,32 +167,47 @@ namespace Dal::Script {
         FORCE_INLINE void Visit(const NodeTrue_& node) { fuzzyStack_.Push(this->SmoothingConstants().One()); }
         FORCE_INLINE void Visit(const NodeFalse_& node) { fuzzyStack_.Push(this->SmoothingConstants().Zero()); }
 
-        FORCE_INLINE void Visit(const NodeEqual_& node) {
-            VisitNode(*node.arguments_[0]);
-            const T expr = dStack_.TopAndPop();
-
-            if (node.isDiscrete_)
-                fuzzyStack_.Push(BFly(expr, node.lb_, node.rb_, this->SmoothingConstants()));
-            else {
-                double eps = node.eps_ < 0 ? defEps_ : node.eps_;
-                fuzzyStack_.Push(BFly(expr, eps, this->SmoothingConstants()));
+        void VisitDifference(const NodeSub_& node, const SmoothingComparison_& comparison) {
+            const auto* left = Downcast<ExprNode_>(node.arguments_[0]);
+            const auto* right = Downcast<ExprNode_>(node.arguments_[1]);
+            // Unprocessed variables carry placeholder constant metadata.
+            const bool leftLiteral = left->isConst_ && dynamic_cast<const NodeConst_*>(left);
+            const bool rightLiteral = right->isConst_ && dynamic_cast<const NodeConst_*>(right);
+            if (leftLiteral) {
+                VisitNode(*node.arguments_[1]);
+                const T rhs = dStack_.TopAndPop();
+                fuzzyStack_.Push(comparison.Difference(left->constVal_, rhs, defEps_, this->SmoothingConstants()));
+                return;
             }
+            VisitNode(*node.arguments_[0]);
+            if (rightLiteral) {
+                const T lhs = dStack_.TopAndPop();
+                fuzzyStack_.Push(comparison.Difference(lhs, right->constVal_, defEps_, this->SmoothingConstants()));
+                return;
+            }
+            VisitNode(*node.arguments_[1]);
+            const T rhs = dStack_.TopAndPop();
+            const T lhs = dStack_.TopAndPop();
+            fuzzyStack_.Push(comparison.Difference(lhs, rhs, defEps_, this->SmoothingConstants()));
         }
 
-        void VisitComp(const CompNode_& node) {
-            VisitNode(*node.arguments_[0]);
-            const T expr = dStack_.TopAndPop();
-
-            if (node.isDiscrete_) {
-                fuzzyStack_.Push(CSpr(expr, node.lb_, node.rb_, this->SmoothingConstants()));
-            } else {
-                const double eps = node.eps_ < 0 ? defEps_ : node.eps_;
-                fuzzyStack_.Push(CSpr(expr, eps, this->SmoothingConstants()));
+        void VisitComparison(const CompNode_& node, bool equality) {
+            const SmoothingComparison_ comparison{equality, node.isDiscrete_, node.isDiscrete_ ? node.lb_ : node.eps_, node.rb_};
+            const auto* difference = dynamic_cast<const NodeSub_*>(node.arguments_[0].get());
+            if (difference && !difference->isConst_) {
+                VisitDifference(*difference, comparison);
+                return;
             }
+            VisitNode(*node.arguments_[0]);
+            const T gap = dStack_.TopAndPop();
+            fuzzyStack_.Push(comparison.Apply(gap, defEps_, this->SmoothingConstants()));
         }
 
-        FORCE_INLINE void Visit(const NodeSup_& node) { VisitComp(node); }
-        FORCE_INLINE void Visit(const NodeSupEqual_& node) { VisitComp(node); }
+        void VisitComp(const CompNode_& node) { VisitComparison(node, false); }
+
+        FORCE_INLINE void Visit(const NodeEqual_& node) { VisitComparison(node, true); }
+        FORCE_INLINE void Visit(const NodeSup_& node) { VisitComparison(node, false); }
+        FORCE_INLINE void Visit(const NodeSupEqual_& node) { VisitComparison(node, false); }
 
         FORCE_INLINE void Visit(const NodeNot_& node) {
             VisitNode(*node.arguments_[0]);

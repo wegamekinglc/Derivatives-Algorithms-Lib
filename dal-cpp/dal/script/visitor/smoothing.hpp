@@ -75,6 +75,38 @@ namespace Dal::Script {
         return 1.0 - x / rb;
     }
 
+    struct SmoothingComparison_ {
+        bool equality_, discrete_;
+        double first_, second_;
+
+        [[nodiscard]] FORCE_INLINE std::pair<double, double> Bounds(double defaultEps) const {
+            if (discrete_)
+                return {first_, second_};
+            const double halfEps = 0.5 * (first_ < 0.0 ? defaultEps : first_);
+            return {-halfEps, halfEps};
+        }
+
+        template <class T_> FORCE_INLINE T_ Apply(const T_& gap, double defaultEps, const SmoothingConstants_<T_>& constants) const {
+            if (discrete_)
+                return equality_ ? BFly(gap, first_, second_, constants) : CSpr(gap, first_, second_, constants);
+            const double eps = first_ < 0.0 ? defaultEps : first_;
+            return equality_ ? BFly(gap, eps, constants) : CSpr(gap, eps, constants);
+        }
+
+        template <class T_, class L_, class R_>
+        FORCE_INLINE T_ Difference(const L_& left, const R_& right, double defaultEps, const SmoothingConstants_<T_>& constants) const {
+            const double value = AAD::Value(left) - AAD::Value(right);
+            const auto [lower, upper] = Bounds(defaultEps);
+            if (value < lower)
+                return constants.Zero();
+            if (value > upper)
+                return equality_ ? constants.Zero() : constants.One();
+            // Endpoints retain the original active ramp and its derivative.
+            const T_ gap = left - right;
+            return Apply(gap, defaultEps, constants);
+        }
+    };
+
     template <class T_> FORCE_INLINE T_ CSpr(const T_& x, double eps) { return CSpr(x, eps, SmoothingConstants_<T_>{}); }
     template <class T_> FORCE_INLINE T_ CSpr(const T_& x, double lb, double rb) { return CSpr(x, lb, rb, SmoothingConstants_<T_>{}); }
     template <class T_> FORCE_INLINE T_ BFly(const T_& x, double eps) { return BFly(x, eps, SmoothingConstants_<T_>{}); }
