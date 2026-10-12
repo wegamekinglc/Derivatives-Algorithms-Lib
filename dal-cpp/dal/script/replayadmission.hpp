@@ -67,6 +67,8 @@ namespace Dal::Script::Detail {
         AAD::Number_ zero = 0.0;
         PutOnTape(zero);
         recording->StartRecording();
+        if constexpr (std::is_base_of_v<EvalStateCore_<AAD::Number_>, E_>)
+            evaluator->InitRecordingConstants();
         model->Init(product.TimeLine(), product.DefLine());
         InitializePath(*path);
         auto retainHistoryShape = [&](const auto& past) {

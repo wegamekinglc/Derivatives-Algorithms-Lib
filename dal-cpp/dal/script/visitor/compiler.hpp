@@ -988,27 +988,27 @@ namespace Dal::Script {
             switch (op) {
             case FuzzyEqual: {
                 const double eps = constStream[nodeStream[++i]];
-                dStack.Top() = BFly(dStack.Top(), eps < 0 ? state.defEps_ : eps);
+                dStack.Top() = BFly(dStack.Top(), eps < 0 ? state.defEps_ : eps, state.SmoothingConstants());
                 ++i;
                 return i;
             }
             case FuzzyEqualDiscrete: {
                 const double lb = constStream[nodeStream[++i]];
                 const double rb = constStream[nodeStream[++i]];
-                dStack.Top() = BFly(dStack.Top(), lb, rb);
+                dStack.Top() = BFly(dStack.Top(), lb, rb, state.SmoothingConstants());
                 ++i;
                 return i;
             }
             case FuzzyComp: {
                 const double eps = constStream[nodeStream[++i]];
-                dStack.Top() = CSpr(dStack.Top(), eps < 0 ? state.defEps_ : eps);
+                dStack.Top() = CSpr(dStack.Top(), eps < 0 ? state.defEps_ : eps, state.SmoothingConstants());
                 ++i;
                 return i;
             }
             case FuzzyCompDiscrete: {
                 const double lb = constStream[nodeStream[++i]];
                 const double rb = constStream[nodeStream[++i]];
-                dStack.Top() = CSpr(dStack.Top(), lb, rb);
+                dStack.Top() = CSpr(dStack.Top(), lb, rb, state.SmoothingConstants());
                 ++i;
                 return i;
             }
@@ -1042,12 +1042,12 @@ namespace Dal::Script {
                 return i;
             }
             case FuzzyTrue: {
-                dStack.Push(T_(1.0));
+                dStack.Push(state.SmoothingConstants().One());
                 ++i;
                 return i;
             }
             case FuzzyFalse: {
-                dStack.Push(T_(0.0));
+                dStack.Push(state.SmoothingConstants().Zero());
                 ++i;
                 return i;
             }

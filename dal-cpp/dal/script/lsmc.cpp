@@ -1481,7 +1481,8 @@ namespace Dal::Script {
                           const Vector_<T_>& features,
                           const Vector_<ExerciseRegression_>& regressions,
                           const ObservationPlan_& plan,
-                          const Scenario_<T_>& path) {
+                          const Scenario_<T_>& path,
+                          const SmoothingConstants_<T_>& constants) {
             const auto& eventToSample = plan.EventToSample();
             T_ value(0.0);
             if (eventToSample.empty())
@@ -1500,7 +1501,7 @@ namespace Dal::Script {
                         state[feature] = features[day * nFeatures + feature];
                     const T_ continuation = RegressionPredict(regressions[day], state);
                     const T_ gap = h[day] - continuation;
-                    const T_ degree = CSpr(gap, scan.days_[day].eps_) * CSpr(h[day], 0.0, scan.days_[day].eps_) * cond[day];
+                    const T_ degree = CSpr(gap, scan.days_[day].eps_, constants) * CSpr(h[day], 0.0, scan.days_[day].eps_, constants) * cond[day];
                     value = degree * h[day] + (1.0 - degree) * value;
                 }
             }
@@ -1643,7 +1644,8 @@ namespace Dal::Script {
                 forward.Finish();
                 AAD::ProfilingSpan_ payoff(AAD::AADProfilingPhase_::Value_::PAYOFF);
                 evaluate(ws, prepared, evaluator);
-                AAD::Number_ value = FuzzyPathValue(scan, ws.pays_, ws.h_, ws.cond_, ws.features_, regressions, prepared.Plan(), ws.path_);
+                AAD::Number_ value = FuzzyPathValue(scan, ws.pays_, ws.h_, ws.cond_, ws.features_, regressions, prepared.Plan(), ws.path_,
+                                                    evaluator.SmoothingConstants());
                 REQUIRE2(std::isfinite(Value(value)), "InvalidPayoff: non-finite path value", ScriptError_);
                 recording.FinishRecording();
                 payoff.Finish();
@@ -1742,7 +1744,8 @@ namespace Dal::Script {
                 forward.Finish();
                 AAD::ProfilingSpan_ payoff(AAD::AADProfilingPhase_::Value_::PAYOFF);
                 evaluate(ws, prepared, evaluator);
-                const double value = FuzzyPathValue(scan, ws.pays_, ws.h_, ws.cond_, ws.features_, regressions, prepared.Plan(), ws.path_);
+                const double value = FuzzyPathValue(scan, ws.pays_, ws.h_, ws.cond_, ws.features_, regressions, prepared.Plan(), ws.path_,
+                                                    evaluator.SmoothingConstants());
                 REQUIRE2(std::isfinite(value), "InvalidPayoff: non-finite path value", ScriptError_);
 #if defined(DAL_ENABLE_AAD_PROFILING)
                 CaptureReplayArrays(ws, evaluator);
