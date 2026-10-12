@@ -164,18 +164,18 @@ namespace Dal::Script {
             --nestedIfLvl_;
         }
 
-        FORCE_INLINE void Visit(const NodeTrue_& node) { fuzzyStack_.Push(1.0); }
-        FORCE_INLINE void Visit(const NodeFalse_& node) { fuzzyStack_.Push(0.0); }
+        FORCE_INLINE void Visit(const NodeTrue_& node) { fuzzyStack_.Push(this->SmoothingConstants().One()); }
+        FORCE_INLINE void Visit(const NodeFalse_& node) { fuzzyStack_.Push(this->SmoothingConstants().Zero()); }
 
         FORCE_INLINE void Visit(const NodeEqual_& node) {
             VisitNode(*node.arguments_[0]);
             const T expr = dStack_.TopAndPop();
 
             if (node.isDiscrete_)
-                fuzzyStack_.Push(BFly(expr, node.lb_, node.rb_));
+                fuzzyStack_.Push(BFly(expr, node.lb_, node.rb_, this->SmoothingConstants()));
             else {
                 double eps = node.eps_ < 0 ? defEps_ : node.eps_;
-                fuzzyStack_.Push(BFly(expr, eps));
+                fuzzyStack_.Push(BFly(expr, eps, this->SmoothingConstants()));
             }
         }
 
@@ -184,10 +184,10 @@ namespace Dal::Script {
             const T expr = dStack_.TopAndPop();
 
             if (node.isDiscrete_) {
-                fuzzyStack_.Push(CSpr(expr, node.lb_, node.rb_));
+                fuzzyStack_.Push(CSpr(expr, node.lb_, node.rb_, this->SmoothingConstants()));
             } else {
                 const double eps = node.eps_ < 0 ? defEps_ : node.eps_;
-                fuzzyStack_.Push(CSpr(expr, eps));
+                fuzzyStack_.Push(CSpr(expr, eps, this->SmoothingConstants()));
             }
         }
 

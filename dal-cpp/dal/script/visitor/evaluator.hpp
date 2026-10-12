@@ -37,8 +37,10 @@ namespace Dal::Script {
         using ConstVisitor_<EVAL_<T_>>::VisitNode;
         using StateCore_::ConstVarVals;
         using StateCore_::Init;
+        using StateCore_::InitRecordingConstants;
         using StateCore_::SetHistoricalSeed;
         using StateCore_::SetHistoricalVectorSeed;
+        using StateCore_::SmoothingConstants;
         using StateCore_::VarVals;
         using StateCore_::VectorVals;
 

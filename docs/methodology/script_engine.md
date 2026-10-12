@@ -1049,7 +1049,7 @@ centred at $0$:
 $$
 \mathrm{BFly}(x;\; \varepsilon) =
 \begin{cases}
-0 & |x| \ge \varepsilon/2,\\
+0 & |x| > \varepsilon/2,\\
 (\varepsilon/2 - |x|)/(\varepsilon/2) & \text{otherwise}.
 \end{cases}
 $$
@@ -1074,6 +1074,14 @@ $$
 1 - x/rb & 0 \le x \le rb.
 \end{cases}
 $$
+
+Band endpoints use the ramp expression and retain its derivative. In ordinary
+AAD and LSMC replay, each recording owner prepares shared zero/one leaves before
+the path checkpoint. Tree and compiled fuzzy kernels reuse these leaves for
+plateaus and boolean literals. The owner refreshes them for each recording;
+copies fall back to uncached constants until initialized by their own recording.
+Direct kernel calls keep their existing constant construction behavior. This
+storage choice adds no model or script risk parameter.
 
 ### Nested If Evaluation
 

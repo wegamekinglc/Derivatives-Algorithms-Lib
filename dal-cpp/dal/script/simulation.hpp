@@ -369,6 +369,9 @@ namespace Dal::Script {
 
         recording.StartRecording();
 
+        if constexpr (std::is_base_of_v<EvalStateCore_<AAD::Number_>, E_>)
+            evaluator.InitRecordingConstants();
+
         model.Init(prd.TimeLine(), prd.DefLine());
         InitializePath(path);
 

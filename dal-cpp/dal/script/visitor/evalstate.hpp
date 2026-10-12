@@ -10,6 +10,7 @@
 
 #include <dal/math/stacks.hpp>
 #include <dal/math/vectors.hpp>
+#include <dal/script/visitor/smoothing.hpp>
 #include <dal/utilities/exceptions.hpp>
 
 namespace Dal::Script {
@@ -22,7 +23,7 @@ namespace Dal::Script {
     template <> struct HistoricalSeedStorage_<double> {};
 
     //  Variable/stack state shared by the tree-walking evaluators and the compiled-script evaluator.
-    template <class T_> struct EvalStateCore_ : HistoricalSeedStorage_<T_> {
+    template <class T_> struct EvalStateCore_ : HistoricalSeedStorage_<T_>, private SmoothingConstants_<T_> {
         Vector_<T_> variables_;
         Vector_<> variablesInit_;
         Vector_<T_> constVariables_;
@@ -42,8 +43,8 @@ namespace Dal::Script {
         }
 
         EvalStateCore_(const EvalStateCore_& rhs)
-            : HistoricalSeedStorage_<T_>(rhs), variables_(rhs.variables_), variablesInit_(rhs.variablesInit_), constVariables_(rhs.constVariables_),
-              vectors_(rhs.vectors_), vectorSeed_(rhs.vectorSeed_), dStack_(rhs.dStack_), bStack_(rhs.bStack_) {
+            : HistoricalSeedStorage_<T_>(rhs), SmoothingConstants_<T_>(rhs), variables_(rhs.variables_), variablesInit_(rhs.variablesInit_),
+              constVariables_(rhs.constVariables_), vectors_(rhs.vectors_), vectorSeed_(rhs.vectorSeed_), dStack_(rhs.dStack_), bStack_(rhs.bStack_) {
             for (size_t i = 0; i < vectors_.size(); ++i)
                 vectors_[i].reserve(rhs.vectors_[i].capacity());
         }
@@ -52,6 +53,7 @@ namespace Dal::Script {
             if (this == &rhs)
                 return *this;
             HistoricalSeedStorage_<T_>::operator=(rhs);
+            SmoothingConstants_<T_>::operator=(rhs);
             variables_ = rhs.variables_;
             variablesInit_ = rhs.variablesInit_;
             constVariables_ = rhs.constVariables_;
@@ -78,6 +80,9 @@ namespace Dal::Script {
         }
 
         [[nodiscard]] const Vector_<T_>& VarVals() const { return variables_; }
+        // Recording owners refresh constants after rewind and before the path checkpoint.
+        void InitRecordingConstants() { SmoothingConstants_<T_>::Initialize(); }
+        [[nodiscard]] const SmoothingConstants_<T_>& SmoothingConstants() const { return *this; }
         [[nodiscard]] const Vector_<Vector_<T_>>& VectorVals() const { return vectors_; }
         void SetHistoricalVectorSeed(Vector_<Vector_<T_>> seed) {
             REQUIRE(seed.size() == vectors_.size(), "historical vector seed size mismatch");
