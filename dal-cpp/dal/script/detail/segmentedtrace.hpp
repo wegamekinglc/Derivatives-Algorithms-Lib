@@ -29,8 +29,8 @@ namespace Dal::Script::Detail {
         Vector_<Vector_<size_t>> schedule_;
         size_t maximum_ = 0;
 
-        static std::array<size_t, VectorReduce + 1> InstructionWidths() {
-            std::array<size_t, VectorReduce + 1> result{};
+        static std::array<size_t, FuzzyConstSub + 1> InstructionWidths() {
+            std::array<size_t, FuzzyConstSub + 1> result{};
             for (const int op : {Add,  Sub, Multi, Div, Pow,    Max2, Min2,  Spot,     Equal,   Sup,      SupEqual,  And,        Or,
                                  Sqrt, Log, Exp,   Not, UMinus, True, False, FuzzyAnd, FuzzyOr, FuzzyNot, FuzzyTrue, FuzzyFalse, Discard})
                 result[op] = 1;
@@ -41,6 +41,7 @@ namespace Dal::Script::Detail {
                 result[op] = 3;
             result[PaysOnConst] = 4;
             result[VectorRead] = result[VectorReduce] = 6;
+            result[FuzzySub] = result[FuzzySubConst] = result[FuzzyConstSub] = 5;
             return result;
         }
 
@@ -68,7 +69,7 @@ namespace Dal::Script::Detail {
         }
 
         [[nodiscard]] static bool ScalarTrace(int op) {
-            if (op >= FuzzyEqual && op <= FuzzyCompDiscrete)
+            if ((op >= FuzzyEqual && op <= FuzzyCompDiscrete) || (op >= FuzzySub && op <= FuzzyConstSub))
                 return true;
             constexpr std::array<int, 7> traced{Max2, Max2Const, Min2, Min2Const, If, IfElse, FuzzyIf};
             return std::find(traced.begin(), traced.end(), op) != traced.end();
@@ -90,7 +91,7 @@ namespace Dal::Script::Detail {
             size_t pc = 0;
             while (pc < stream.size()) {
                 const int op = stream[pc];
-                REQUIRE2(op >= 0 && op <= VectorReduce, "SegmentedTrace: unknown instruction", ScriptError_);
+                REQUIRE2(op >= 0 && op <= FuzzyConstSub, "SegmentedTrace: unknown instruction", ScriptError_);
                 const size_t width = op == FuzzyIf ? FuzzyWidth(stream, pc) : widths[op];
                 REQUIRE2(width && width <= stream.size() - pc, "SegmentedTrace: unsupported or truncated instruction", ScriptError_);
                 const size_t words = op == VectorReduce ? VectorWords(stream, pc, bounds) : static_cast<size_t>(ScalarTrace(op));
@@ -194,7 +195,7 @@ namespace Dal::Script::Detail {
 
         void Branch(size_t pc, bool taken) const { Write(pc, 0, taken ? 2 : 1); }
 
-        void FuzzyComparison(size_t pc, const T_& value, double lower, double upper, bool equality) const {
+        template <class U_> void FuzzyComparison(size_t pc, const U_& value, double lower, double upper, bool equality) const {
             Write(pc, 0, equality ? EqualityRange(AAD::Value(value), lower, upper) : ComparisonRange(AAD::Value(value), lower, upper));
         }
 

@@ -1083,6 +1083,16 @@ copies fall back to uncached constants until initialized by their own recording.
 Direct kernel calls keep their existing constant construction behavior. This
 storage choice adds no model or script risk parameter.
 
+For parsed comparisons, tree and compiled evaluation inspect the passive values
+of both operands before recording their outer difference. Strictly outside the
+smoothing band they reuse the plateau constant; inside the band, including its
+endpoints, they record the original difference and kernel arithmetic. Active
+operands still evaluate in order, so their arithmetic and read errors remain
+observable. Compiled passive operands can use constant-folding metadata; tree
+evaluation specializes literal operands. Named script parameters and ordinary
+tree variables remain active. Segmented curvature tracing classifies the same passive
+gap and endpoints without adding a difference to the tape.
+
 ### Nested If Evaluation
 
 The fuzzy evaluator handles conditionally-assigned variables via a **split

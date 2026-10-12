@@ -165,7 +165,10 @@ namespace Dal::Script {
         VectorRead = 63,
         VectorAssign = 64,
         VectorAppend = 65,
-        VectorReduce = 66
+        VectorReduce = 66,
+        FuzzySub = 67,
+        FuzzySubConst = 68,
+        FuzzyConstSub = 69
     };
 
     class Compiler_ : public ConstVisitor_<Compiler_> {
@@ -247,24 +250,54 @@ namespace Dal::Script {
         void Visit(const NodeSqrt_& node) { VisitUnary<Sqrt>(node); }
         void Visit(const NodeExp_& node) { VisitUnary<Exp>(node); }
 
+        int StoreConstant(double value) {
+            const int index = static_cast<int>(constStream_.size());
+            constStream_.push_back(value);
+            return index;
+        }
+
+        bool CompileFuzzyDifference(const CompNode_& node, int kernel) {
+            const auto* difference = dynamic_cast<const NodeSub_*>(node.arguments_[0].get());
+            if (!difference || difference->isConst_)
+                return false;
+            const auto* left = Downcast<ExprNode_>(difference->arguments_[0]);
+            const auto* right = Downcast<ExprNode_>(difference->arguments_[1]);
+            int op = FuzzySub;
+            int scalar = -1;
+            if (left->isConst_) {
+                difference->arguments_[1]->Accept(*this);
+                op = FuzzyConstSub;
+                scalar = StoreConstant(left->constVal_);
+            } else if (right->isConst_) {
+                difference->arguments_[0]->Accept(*this);
+                op = FuzzySubConst;
+                scalar = StoreConstant(right->constVal_);
+            } else {
+                VisitArguments(*difference);
+            }
+            const int first = StoreConstant(node.isDiscrete_ ? node.lb_ : node.eps_);
+            const int second = node.isDiscrete_ ? StoreConstant(node.rb_) : -1;
+            for (const int word : {op, kernel, scalar, first, second})
+                nodeStream_.push_back(word);
+            return true;
+        }
+
+        template <NodeType_ NT> void CompileFuzzyCondition(const CompNode_& node) {
+            const int kernel = node.isDiscrete_ ? (NT == Equal ? FuzzyEqualDiscrete : FuzzyCompDiscrete) : (NT == Equal ? FuzzyEqual : FuzzyComp);
+            if (CompileFuzzyDifference(node, kernel))
+                return;
+            node.arguments_[0]->Accept(*this);
+            nodeStream_.push_back(kernel);
+            nodeStream_.push_back(StoreConstant(node.isDiscrete_ ? node.lb_ : node.eps_));
+            if (node.isDiscrete_)
+                nodeStream_.push_back(StoreConstant(node.rb_));
+        }
+
         template <NodeType_ NT, typename OP> void VisitCondition(const CompNode_& node, OP op) {
             if (fuzzy_) {
-                //  Keep fuzzy conditions as smoothed runtime opcodes.
-                node.arguments_[0]->Accept(*this);
-                if (node.isDiscrete_) {
-                    nodeStream_.emplace_back(NT == Equal ? FuzzyEqualDiscrete : FuzzyCompDiscrete);
-                    nodeStream_.emplace_back(int(constStream_.size()));
-                    constStream_.emplace_back(node.lb_);
-                    nodeStream_.emplace_back(int(constStream_.size()));
-                    constStream_.emplace_back(node.rb_);
-                } else {
-                    nodeStream_.emplace_back(NT == Equal ? FuzzyEqual : FuzzyComp);
-                    nodeStream_.emplace_back(int(constStream_.size()));
-                    constStream_.emplace_back(node.eps_);
-                }
+                CompileFuzzyCondition<NT>(node);
                 return;
             }
-
             const auto* arg = Downcast<ExprNode_>(node.arguments_[0]);
 
             if (arg->isConst_) {
@@ -959,6 +992,40 @@ namespace Dal::Script {
             return EvalCompiledUnary(event, i, statePtr);
         }
 
+        template <class T_, class P_> FORCE_INLINE SmoothingComparison_ CompiledDifferenceRule(const CompiledEventView_<T_, P_>& event, size_t pc) {
+            const int kernel = event.nodeStream_[pc + 1];
+            const bool discrete = kernel == FuzzyEqualDiscrete || kernel == FuzzyCompDiscrete;
+            return {kernel == FuzzyEqual || kernel == FuzzyEqualDiscrete, discrete, event.constStream_[event.nodeStream_[pc + 3]],
+                    discrete ? event.constStream_[event.nodeStream_[pc + 4]] : 0.0};
+        }
+
+        template <class T_, class P_, class L_, class R_>
+        FORCE_INLINE T_
+        EvalFuzzyDifference(const CompiledEventView_<T_, P_>& event, size_t pc, const EvalState_<T_>& state, const L_& left, const R_& right) {
+            const auto comparison = CompiledDifferenceRule(event, pc);
+            if constexpr (P_::trace_) {
+                const auto [lower, upper] = comparison.Bounds(state.defEps_);
+                event.policy_.FuzzyComparison(pc, AAD::Value(left) - AAD::Value(right), lower, upper, comparison.equality_);
+            }
+            return comparison.Difference(left, right, state.defEps_, state.SmoothingConstants());
+        }
+
+        template <class T_, class P_>
+        FORCE_INLINE size_t EvalCompiledFuzzyDifference(const CompiledEventView_<T_, P_>& event, size_t pc, EvalState_<T_>* statePtr) {
+            auto& state = *statePtr;
+            auto& stack = state.dStack_;
+            const int op = event.nodeStream_[pc];
+            if (op == FuzzySub) {
+                const T_ right = stack.TopAndPop();
+                stack.Top() = EvalFuzzyDifference(event, pc, state, stack.Top(), right);
+            } else {
+                const double scalar = event.constStream_[event.nodeStream_[pc + 2]];
+                stack.Top() = op == FuzzySubConst ? EvalFuzzyDifference(event, pc, state, stack.Top(), scalar)
+                                                  : EvalFuzzyDifference(event, pc, state, scalar, stack.Top());
+            }
+            return pc + 5;
+        }
+
         template <class T_, class P_>
         FORCE_INLINE void TraceCompiledFuzzyComparison(const CompiledEventView_<T_, P_>& event, size_t pc, const EvalState_<T_>& state) {
             if constexpr (P_::trace_) {
@@ -1411,6 +1478,8 @@ namespace Dal::Script {
                 return EvalCompiledScalar(event, i, statePtr);
             if (op <= FuzzyCompDiscrete)
                 return EvalCompiledFuzzyComparison(event, i, statePtr);
+            if (op >= FuzzySub && op <= FuzzyConstSub)
+                return EvalCompiledFuzzyDifference(event, i, statePtr);
             return EvalCompiledTail<Prepared_, Lsmc_>(event, i, statePtr);
         }
 
