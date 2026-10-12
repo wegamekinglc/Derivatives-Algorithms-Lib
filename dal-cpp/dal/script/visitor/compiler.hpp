@@ -168,7 +168,9 @@ namespace Dal::Script {
         VectorReduce = 66,
         FuzzySub = 67,
         FuzzySubConst = 68,
-        FuzzyConstSub = 69
+        FuzzyConstSub = 69,
+        ConstMax2 = 70,
+        ConstMin2 = 71
     };
 
     class Compiler_ : public ConstVisitor_<Compiler_> {
@@ -228,9 +230,9 @@ namespace Dal::Script {
         void Visit(const NodeDiv_& node) { VisitBinary<Div, ConstDiv, DivConst>(node); }
         void Visit(const NodePow_& node) { VisitBinary<Pow, ConstPow, PowConst>(node); }
 
-        void Visit(const NodeMax_& node) { VisitBinary<Max2, Max2Const, Max2Const>(node); }
+        void Visit(const NodeMax_& node) { VisitBinary<Max2, ConstMax2, Max2Const>(node); }
 
-        void Visit(const NodeMin_& node) { VisitBinary<Min2, Min2Const, Min2Const>(node); }
+        void Visit(const NodeMin_& node) { VisitBinary<Min2, ConstMin2, Min2Const>(node); }
 
         template <NodeType_ NT> void VisitUnary(const ExprNode_& node) {
             if (node.isConst_) {
@@ -701,49 +703,55 @@ namespace Dal::Script {
             }
         }
 
-        template <class T_, class P_, class U_, class C_>
-        FORCE_INLINE void
-        TraceCompiledExtremum(const CompiledEventView_<T_, P_>& event, size_t pc, const StaticStack_<T_>& stack, const U_& other, C_ compare) {
+        template <class T_, class P_, class L_, class R_, class C_>
+        FORCE_INLINE void TraceCompiledExtremum(const CompiledEventView_<T_, P_>& event, size_t pc, const L_& left, const R_& right, C_ compare) {
             if constexpr (P_::trace_)
-                event.policy_.Extremum(pc, stack.Top(), other, compare);
+                event.policy_.Extremum(pc, left, right, compare);
+        }
+
+        template <bool Left_, class T_, class P_, class C_>
+        FORCE_INLINE size_t EvalCompiledConstantExtremum(const CompiledEventView_<T_, P_>& event, size_t i, EvalState_<T_>* statePtr, C_ compare) {
+            auto& value = statePtr->dStack_.Top();
+            const double scalar = event.constStream_[event.nodeStream_[i + 1]];
+            if constexpr (Left_) {
+                TraceCompiledExtremum(event, i, scalar, value, compare);
+                if (!compare(AAD::Value(value), scalar))
+                    value = scalar;
+            } else {
+                TraceCompiledExtremum(event, i, value, scalar, compare);
+                UpdateCompiledConstantExtremum(&value, scalar, compare);
+            }
+            return i + 2;
         }
 
         template <class T_, class P_>
         FORCE_INLINE size_t EvalCompiledExtremum(const CompiledEventView_<T_, P_>& event, size_t i, EvalState_<T_>* statePtr) {
             auto& state = *statePtr;
             auto& dStack = state.dStack_;
-            auto& nodeStream = event.nodeStream_;
-            auto& constStream = event.constStream_;
             const int op = event.nodeStream_[i];
             switch (op) {
             case Max2: {
                 const T_ y = dStack.TopAndPop();
-                TraceCompiledExtremum(event, i, dStack, y, std::greater<>());
+                TraceCompiledExtremum(event, i, dStack.Top(), y, std::greater<>());
                 UpdateCompiledExtremum(&dStack.Top(), y, std::greater<>());
                 ++i;
                 return i;
             }
-            case Max2Const: {
-                const double y = constStream[nodeStream[++i]];
-                TraceCompiledExtremum(event, i - 1, dStack, y, std::greater<>());
-                UpdateCompiledConstantExtremum(&dStack.Top(), y, std::greater<>());
-                ++i;
-                return i;
-            }
+            case Max2Const:
+                return EvalCompiledConstantExtremum<false>(event, i, statePtr, std::greater<>());
+            case ConstMax2:
+                return EvalCompiledConstantExtremum<true>(event, i, statePtr, std::greater<>());
             case Min2: {
                 const T_ y = dStack.TopAndPop();
-                TraceCompiledExtremum(event, i, dStack, y, std::less<>());
+                TraceCompiledExtremum(event, i, dStack.Top(), y, std::less<>());
                 UpdateCompiledExtremum(&dStack.Top(), y, std::less<>());
                 ++i;
                 return i;
             }
-            case Min2Const: {
-                const double y = constStream[nodeStream[++i]];
-                TraceCompiledExtremum(event, i - 1, dStack, y, std::less<>());
-                UpdateCompiledConstantExtremum(&dStack.Top(), y, std::less<>());
-                ++i;
-                return i;
-            }
+            case Min2Const:
+                return EvalCompiledConstantExtremum<false>(event, i, statePtr, std::less<>());
+            case ConstMin2:
+                return EvalCompiledConstantExtremum<true>(event, i, statePtr, std::less<>());
             default:
                 ThrowUnknownCompiledOpcode(op);
             }
@@ -1460,6 +1468,8 @@ namespace Dal::Script {
         template <bool Prepared_, bool Lsmc_, class T_, class P_>
         FORCE_INLINE size_t EvalCompiledTail(const CompiledEventView_<T_, P_>& event, size_t i, EvalState_<T_>* statePtr) {
             const int op = event.nodeStream_[i];
+            if (op == ConstMax2 || op == ConstMin2)
+                return EvalCompiledExtremum(event, i, statePtr);
             // Keep vector dispatch off the hot path for scalar-only scripts.
             if (op >= VectorRead && op <= VectorReduce)
                 return EvalCompiledVector(event, i, statePtr);

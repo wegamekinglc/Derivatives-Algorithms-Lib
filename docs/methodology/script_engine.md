@@ -1253,6 +1253,13 @@ Callers can pass `compiled = true` to opt into the stream evaluator. Both modes
 are required to produce the same payoff and risk numbers, aside from normal
 floating-point association noise.
 
+Scalar `MAX(a, b)` and `MIN(a, b)` choose `b` only when it is strictly greater
+or strictly less than `a`, respectively. Ties, including opposite signed zeros,
+and unordered comparisons retain `a`. AAD follows the selected operand's risk:
+at `SPOT() = 10`, `MAX(10, SPOT())` has zero spot derivative, while
+`MAX(SPOT(), 10)` has spot derivative one. This selection rule is shared by
+tree and compiled evaluation; scalar extrema are not smoothed by fuzzy `IF`.
+
 For the raw legacy path, `ScriptProduct_::Compile(fuzzy)` is `const`, but it
 requires that `PreProcess(...)` has already run. Preprocessing indexes variables, seeds past
 event values, folds domain-provable constant conditions, and finalizes constant
