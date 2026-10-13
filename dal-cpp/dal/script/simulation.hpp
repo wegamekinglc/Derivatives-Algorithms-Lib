@@ -83,8 +83,11 @@ namespace Dal::Script {
                     return values[payoffIndex];
             }
             void Seed(AAD::Number_* root) const { Adjoint(*root) = 1.0; }
+            void AccumulateInput(Vector_<>* risks, size_t position, const AAD::Number_& input, size_t paths) const {
+                (*risks)[position] += Adjoint(input) / static_cast<double>(paths);
+            }
             template <class R_> void AccumulateInput(R_* result, size_t position, const AAD::Number_& input, size_t paths) const {
-                result->risks_[position] += Adjoint(input) / static_cast<double>(paths);
+                AccumulateInput(&result->risks_, position, input, paths);
             }
             [[nodiscard]] AAD::ProfilingArrayStatistics_ WorkspaceArrays() const { return {}; }
         };
