@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import os
@@ -74,6 +75,23 @@ def benchmark_binary(build_root: Path, benchmark: str) -> Path:
     if not os.access(binary, os.X_OK):
         raise PermissionError(f"benchmark binary is not executable: {binary}")
     return binary
+
+
+def binary_identity(base_root: Path, head_root: Path, benchmarks: list[str]) -> dict[str, dict[str, object]]:
+    identities = {}
+    for benchmark in benchmarks:
+        hashes = {}
+        for side, root in (("base", base_root), ("head", head_root)):
+            path = benchmark_binary_path(root, benchmark)
+            hashes[side] = (
+                hashlib.sha256(benchmark_binary(root, benchmark).read_bytes()).hexdigest()
+                if side == "head" or path.is_file() else None
+            )
+        identities[benchmark] = {
+            "base_sha256": hashes["base"], "head_sha256": hashes["head"],
+            "identical": hashes["base"] is not None and hashes["base"] == hashes["head"],
+        }
+    return identities
 
 
 def run_benchmark(build_root: Path, benchmark: str, output_file: Path) -> dict[str, float]:
@@ -289,6 +307,14 @@ def comparison_row(
     }
 
 
+def regression_failure(benchmark: str, row: dict[str, object], threshold_percent: float) -> str:
+    formatted = ", ".join(f"{delta:+.2f}%" for delta in row["round_delta_percent"])
+    return (
+        f"{benchmark} / {row['case']}: every confirmation round exceeds "
+        f"+{threshold_percent:.2f}% ({formatted})"
+    )
+
+
 def benchmark_case_differences(
     benchmark: str,
     base: dict[str, float],
@@ -345,11 +371,7 @@ def compare_benchmark(
         )
         rows.append(row)
         if not row["passed"]:
-            formatted_deltas = ", ".join(f"{delta:+.2f}%" for delta in row["round_delta_percent"])
-            failures.append(
-                f"{benchmark} / {case}: every confirmation round exceeds "
-                f"+{threshold_percent:.2f}% ({formatted_deltas})"
-            )
+            failures.append(regression_failure(benchmark, row, threshold_percent))
     for case in new_coverage:
         rows.append(new_coverage_row(case, head[case]))
 
@@ -523,6 +545,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--confirmation-rounds", type=int, default=2)
     parser.add_argument("--threshold-percent", type=float, default=4.0)
     parser.add_argument("--precise-slowdown-limit", type=float, default=10.0)
+    parser.add_argument(
+        "--retry-identical-binaries", action="store_true",
+        help="Retry only relative timing failures once when every selected base/head executable is byte-identical.",
+    )
     args = parser.parse_args()
     if args.samples < 10:
         parser.error("--samples must be at least 10")
@@ -531,11 +557,10 @@ def parse_args() -> argparse.Namespace:
     return args
 
 
-def main() -> int:
-    args = parse_args()
-    args.output_dir.mkdir(parents=True, exist_ok=True)
-    total_samples = args.samples * args.confirmation_rounds
-    collected = collect_samples(args.base_root, args.head_root, args.benchmarks, total_samples, args.output_dir)
+def write_results(
+    collected: dict, args: argparse.Namespace, output_dir: Path,
+    identities: dict | None = None, retry_benchmarks: list[str] | None = None, prefix: str = "",
+) -> tuple[dict, list[str], str]:
     comparisons, failures = evaluate(
         collected,
         args.threshold_percent,
@@ -549,7 +574,7 @@ def main() -> int:
         generic_joint_overhead_checks(collected["rate_risk_perf"]["head"], args.samples, args.confirmation_rounds)[0]
         if "rate_risk_perf" in collected else []
     )
-    report = markdown_report(
+    report = prefix + markdown_report(
         comparisons,
         failures,
         args.samples,
@@ -559,14 +584,75 @@ def main() -> int:
         args.precise_slowdown_limit,
         overhead_checks,
     )
-    (args.output_dir / "summary.md").write_text(report, encoding="utf-8")
-    (args.output_dir / "results.json").write_text(
-        json.dumps({
-            "samples": collected, "comparisons": comparisons,
-            "generic_joint_overhead": overhead_checks, "failures": failures,
-        }, indent=2) + "\n",
-        encoding="utf-8",
+    results = {
+        "samples": collected, "comparisons": comparisons,
+        "generic_joint_overhead": overhead_checks, "failures": failures,
+    }
+    if identities is not None:
+        results["binary_identity"] = identities
+        results["retry_benchmarks"] = retry_benchmarks or []
+    (output_dir / "summary.md").write_text(report, encoding="utf-8")
+    (output_dir / "results.json").write_text(json.dumps(results, indent=2) + "\n", encoding="utf-8")
+    return comparisons, failures, report
+
+
+def retry_targets(comparisons: dict, failures: list[str], identities: dict, threshold_percent: float) -> list[str]:
+    if not failures or not identities or not all(item["identical"] for item in identities.values()):
+        return []
+    relative_failures = []
+    targets = []
+    for benchmark, rows in comparisons.items():
+        failed = [row for row in rows if row.get("gated", True) and not row["passed"]]
+        if failed:
+            targets.append(benchmark)
+            relative_failures.extend(regression_failure(benchmark, row, threshold_percent) for row in failed)
+    # Structural failures and head-only absolute cost checks must never be retried.
+    return targets if set(failures) == set(relative_failures) else []
+
+
+def verify_binary_identity(args: argparse.Namespace, identities: dict, output_dir: Path) -> None:
+    current = binary_identity(args.base_root, args.head_root, args.benchmarks)
+    (output_dir / "binary-identity.json").write_text(
+        json.dumps({"before": identities, "after": current}, indent=2) + "\n", encoding="utf-8"
     )
+    if current != identities:
+        raise RuntimeError("Benchmark executable identity changed during sampling")
+
+
+def main() -> int:
+    args = parse_args()
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+    total_samples = args.samples * args.confirmation_rounds
+    identities = binary_identity(args.base_root, args.head_root, args.benchmarks) if args.retry_identical_binaries else None
+    if identities is not None:
+        (args.output_dir / "binary-identity.json").write_text(
+            json.dumps({"before": identities}, indent=2) + "\n", encoding="utf-8"
+        )
+    collected = collect_samples(args.base_root, args.head_root, args.benchmarks, total_samples, args.output_dir)
+    if identities is not None:
+        verify_binary_identity(args, identities, args.output_dir)
+    comparisons, failures, report = write_results(collected, args, args.output_dir, identities)
+    targets = retry_targets(comparisons, failures, identities or {}, args.threshold_percent)
+    if targets:
+        print(
+            "::warning::Relative timing failed for byte-identical executables; "
+            f"retrying {', '.join(targets)} once with unchanged sampling and thresholds. Initial evidence is retained.",
+            flush=True,
+        )
+        (args.output_dir / "initial-results.json").write_bytes((args.output_dir / "results.json").read_bytes())
+        (args.output_dir / "initial-summary.md").write_text(report, encoding="utf-8")
+        retry_dir = args.output_dir / "retry"
+        retry_dir.mkdir(exist_ok=True)
+        retry = collect_samples(args.base_root, args.head_root, targets, total_samples, retry_dir)
+        verify_binary_identity(args, identities, retry_dir)
+        write_results(retry, args, retry_dir, {target: identities[target] for target in targets})
+        prefix = (
+            "## Initial comparison\n\n" + report + "\n## Final comparison after one unchanged-binary retry\n\n"
+            f"Retried only {', '.join(targets)} with the original sampling and thresholds. "
+            "Initial results and raw outputs are retained; retry outputs are under `retry/`.\n\n"
+        )
+        collected = {**collected, **retry}
+        comparisons, failures, report = write_results(collected, args, args.output_dir, identities, targets, prefix)
     if args.summary_file:
         with args.summary_file.open("a", encoding="utf-8") as summary:
             summary.write(report)

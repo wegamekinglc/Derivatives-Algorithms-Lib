@@ -261,7 +261,8 @@ jobs:
             --summary-file "$GITHUB_STEP_SUMMARY" \
             --samples 10 \
             --confirmation-rounds 2 \
-            --threshold-percent 4
+            --threshold-percent 4 \
+            --retry-identical-binaries
 
       - name: Diagnose Python regression with baseline A/A
         if: ${{ !cancelled() && steps.python-performance.outcome == 'failure' }}
