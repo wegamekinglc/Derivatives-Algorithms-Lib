@@ -819,7 +819,7 @@ passive values and the historical program. Its double replay provides the
 initial value state, but converting that state to active numbers would lose
 the dependence of `x = SCALE * FIX(index, date)` on `SCALE`.
 
-Each AAD batch therefore activates its worker's tape and constructs its own
+Each ordinary AAD worker therefore activates its tape and constructs its own
 model, constant variables, evaluator, and registered zero input. After rewind,
 input registration, and `NewRecording`, it initializes the model and replays
 past events with `PastEvaluator_<AAD::Number_>` or the prepared hard historical
@@ -828,8 +828,9 @@ bytecode using the sealed doubles.
 Every path rewinds to that mark and restores the seed's live node references;
 it does not restore parameter-dependent variables from `variablesInit_` doubles.
 Historical replay reads no index, fixing store, or environment on the worker.
-The next batch rebuilds the seed even when it runs on the same thread; active
-numbers and seeds never cross threads or recordings.
+The worker retains this prefix and typed seed across its request's chunks.
+Another recording rebuilds the seed; active numbers and seeds never cross
+threads or recordings.
 
 After future evaluation, `AAD::PayoffRoot` in `dal-cpp/dal/math/aad/aad.hpp`
 reuses the native payoff node only when the post-mark range is nonempty and
@@ -840,9 +841,10 @@ root and propagating to the mark accumulates contributions without overwriting
 a historical seed's adjoint. The fallback also handles a pre-mark payoff,
 a passive constant, or an otherwise empty post-mark recording, ensuring a
 valid reverse range.
-After all paths in a batch, propagation from mark to start carries the
-accumulated seed risk into script and model inputs. Each batch's risks are
-divided by the total simulation path count once; summing worker results does
+After all paths in a chunk, propagation from mark to start carries the
+accumulated seed risk into script and model inputs. Harvested input leaf
+adjoints are then cleared before the next chunk. Each chunk's risks are
+divided by the total simulation path count once; summing chunk results does
 not normalize them again. `SimResults_::risks_` therefore contains mean-price
 sensitivities, while `aggregated_` remains the unnormalized payoff sum.
 
@@ -1189,12 +1191,13 @@ nor a bridge is constructed.
 
 ### Batching and Thread Pool
 
-Paths are divided with an effective batch size
-`min(8192, ceil(nPaths / nThreads))` and submitted to
-`ThreadPool_::GetInstance()`. Batch sizes, offsets, and counts use `size_t`, and
-the planner rejects a zero thread count without performing division. This keeps
-multiple useful tasks for small simulations while capping large batches at
-`8192`. Each thread owns its own RNG, Gaussian vector, scenario
+Ordinary scalar and weighted paths round `ceil(nPaths / 256)` up to a power of
+two, clamped to 64..2048, as their chunk size. Boundaries depend
+on the path count independently of the worker count. At most
+`min(nThreads, nChunks)` tasks are submitted to `ThreadPool_::GetInstance()`;
+each persistently claims chunks from a shared counter. Sizes, offsets and counts
+use `size_t`, including tails and zero-path requests. LSMC retains its separate
+`BatchPlan_` policy. Each thread owns its RNG, Gaussian vector, scenario
 (`Scenario_<T_>`), and evaluator state, so the per-path work is lock-free. For
 value-only simulation, each worker constructs its buffers on first use and
 reuses them for subsequent batches in the same request. The caller's state is
@@ -1210,7 +1213,15 @@ soon as submission succeeds and drains all accepted tasks during normal or
 exceptional unwinding, including when a later submission is rejected. It first
 waits until every accepted future is ready and then consumes every future, so a
 task failure is rethrown to the valuation caller only after no task can still
-reference local simulation state. Thread-local results are summed at the end.
+reference local simulation state. Chunk results occupy at most 256 reusable
+numeric slots with a 16 MiB payload target (at least one slot for an oversized
+partial). If all chunks fit, workers write exclusive slots and the caller
+reduces them after draining all tasks. Otherwise, a completing worker reduces
+every ready consecutive chunk under one lock, releasing slots for reuse.
+Capacity waits release that lock and cancellation wakes all waiters.
+Reduction follows absolute chunk order, so ordinary prices, all Greeks and
+weighted components repeat exactly across worker counts and task assignment
+for the same build, floating-point environment and simulation inputs.
 This is the parallel structure described in
 [Pathwise Adjoints in Monte Carlo](aad.md#pathwise-adjoints-in-monte-carlo).
 
@@ -1232,9 +1243,11 @@ streams) and accumulates the payoff slot across paths. The
    It creates or reuses a path-local payoff root via `AAD::PayoffRoot`, as
    described under [recording lifetime](#historical-state-and-recording-lifetime),
    seeds its adjoint to $1$, and propagates back to the mark.
-3. After the batch: propagates from mark to start, harvests per-parameter
-   adjoints, and divides by total `nPaths` once. Worker reduction sums these
-   normalized contributions without a second division.
+3. After each chunk: propagates from mark to start, harvests per-parameter
+   adjoints, divides by total `nPaths` once, and clears input leaf adjoints.
+   Ordered chunk reduction sums the normalized contributions without a second
+   division. The model, evaluator and prefix recording remain owned by that
+   worker until all its chunks finish.
 
 The result is a `SimResults_` carrying the aggregated payoff and a risk vector
 labelled by model parameter and constant variable.

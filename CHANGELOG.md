@@ -16,6 +16,17 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-10-14
+
+- **Deterministic ordinary Monte Carlo** — scalar and weighted double/AAD
+  valuation uses thread-independent chunks, ordered bounded numeric reduction
+  and persistent worker state. PVs, all Greeks and weighted components repeat
+  exactly across worker counts on the same build and floating-point environment;
+  changed summation grouping can alter the last bits from earlier versions.
+  Hard LSMC prices share this numeric grouping, retaining the same training
+  and regression policy.
+  See [simulation batching](docs/methodology/script_engine.md#batching-and-thread-pool).
+
 ## 2026-10-11
 
 - **Excel LSMC policy curvature** — sealed native EXERCISE plans and owning

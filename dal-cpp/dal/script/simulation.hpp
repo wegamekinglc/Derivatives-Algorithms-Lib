@@ -5,8 +5,11 @@
 #pragma once
 
 #include <atomic>
+#include <condition_variable>
 #include <cstdint>
 #include <exception>
+#include <limits>
+#include <mutex>
 #include <optional>
 #include <type_traits>
 #include <utility>
@@ -75,6 +78,23 @@ namespace Dal::Script {
             explicit WeightedBatchValues_(size_t components) : componentSums_(components, 0.0) {}
         };
 
+        inline void ResetNumericBatch(double* batch) { *batch = 0.0; }
+
+        inline void ResetNumericBatch(AADBatchValues_* batch) {
+            batch->aggregated_ = 0.0;
+            std::fill(batch->risks_.begin(), batch->risks_.end(), 0.0);
+        }
+
+        inline void ResetNumericBatch(WeightedBatchValues_* batch) {
+            batch->aggregated_ = 0.0;
+            std::fill(batch->componentSums_.begin(), batch->componentSums_.end(), 0.0);
+        }
+
+        inline void ResetNumericBatch(WeightedAADBatchValues_* batch) {
+            ResetNumericBatch(static_cast<AADBatchValues_*>(batch));
+            std::fill(batch->componentSums_.begin(), batch->componentSums_.end(), 0.0);
+        }
+
         struct ScalarPayoffCollector_ {
             template <class T_> T_ operator()(const Vector_<T_>& values, size_t payoffIndex, const T_& zero) const {
                 if constexpr (std::is_same_v<T_, AAD::Number_>)
@@ -137,6 +157,7 @@ namespace Dal::Script {
             [[nodiscard]] ScalarPayoffCollector_ DoubleCollector(DoubleBatch_*) const { return {}; }
             void SetDoubleValue(DoubleBatch_* batch, double value) const { *batch = value; }
             void AggregateDouble(Result_* result, const Vector_<DoubleBatch_>& batches) const { result->aggregated_ = Accumulate(batches); }
+            void AccumulateDouble(Result_* result, const DoubleBatch_& batch) const { result->aggregated_ += batch; }
             template <class B_> void AccumulateComponents(Result_*, const B_&) const {}
             template <class R_> [[nodiscard]] AAD::ProfilingArrayStatistics_ ResultArrays(const R_& result) const {
                 return ProfileArrays(result.risks_);
@@ -152,7 +173,13 @@ namespace Dal::Script {
             explicit WeightedSimulationObjective_(const WeightedRiskPlan_& plan) : plan_(plan) {}
             [[nodiscard]] Result_ MakeResult(const Vector_<String_>& names) const { return Result_(names, plan_.OutputAxis().size()); }
             [[nodiscard]] AADBatch_ MakeAADBatch(size_t risks) const { return AADBatch_(risks, plan_.OutputAxis().size()); }
-            [[nodiscard]] DoubleBatch_ MakeDoubleBatch() const { return DoubleBatch_(plan_.OutputAxis().size()); }
+            [[nodiscard]] DoubleBatch_ MakeDoubleBatch() const {
+                DoubleBatch_ batch(plan_.OutputAxis().size());
+                constexpr size_t COMPONENT_PADDING = 64 / sizeof(double);
+                // Separate chunks' frequently written component arrays.
+                batch.componentSums_.reserve(batch.componentSums_.size() + COMPONENT_PADDING);
+                return batch;
+            }
             template <class R_> [[nodiscard]] WeightedPayoffCollector_<AAD::Number_> AADCollector(R_* result) const {
                 return {plan_, &result->componentSums_};
             }
@@ -160,9 +187,12 @@ namespace Dal::Script {
             void SetDoubleValue(DoubleBatch_* batch, double value) const { batch->aggregated_ = value; }
             void AggregateDouble(Result_* result, const Vector_<DoubleBatch_>& batches) const {
                 for (const auto& batch : batches) {
-                    result->aggregated_ += batch.aggregated_;
-                    AccumulateComponents(result, batch);
+                    AccumulateDouble(result, batch);
                 }
+            }
+            void AccumulateDouble(Result_* result, const DoubleBatch_& batch) const {
+                result->aggregated_ += batch.aggregated_;
+                AccumulateComponents(result, batch);
             }
             template <class B_> void AccumulateComponents(Result_* result, const B_& batch) const {
                 for (size_t component = 0; component < result->componentSums_.size(); ++component)
@@ -195,6 +225,13 @@ namespace Dal::Script {
                         decltype(std::declval<const O_&>().AccumulateComponents(std::declval<typename O_::Result_*>(),
                                                                                 std::declval<const typename O_::AADBatch_&>()))>> : std::true_type {};
 
+        template <class O_, class = void> struct HasOrderedAADBatch_ : std::false_type {};
+
+        template <class O_>
+        struct HasOrderedAADBatch_<O_, std::void_t<typename O_::AADBatch_>>
+            : std::bool_constant<HasNumericAADBatch_<O_>::value && (std::is_same_v<typename O_::AADBatch_, AADBatchValues_> ||
+                                                                    std::is_same_v<typename O_::AADBatch_, WeightedAADBatchValues_>)> {};
+
         template <class O_> auto MakeAADBatchResults(size_t threads, const typename O_::Result_& values, const O_& objective) {
             const auto initialValue = [&]() -> decltype(auto) {
                 if constexpr (HasNumericAADBatch_<O_>::value)
@@ -205,6 +242,31 @@ namespace Dal::Script {
             using B_ = std::decay_t<decltype(initialValue())>;
             return Vector_<B_>(threads, initialValue());
         }
+
+        template <class F_> auto MakeSimulationPartials(size_t count, const F_& factory) {
+            using B_ = std::decay_t<decltype(factory())>;
+            Vector_<B_> batches;
+            batches.reserve(count);
+            for (size_t i = 0; i < count; ++i)
+                batches.push_back(factory());
+            return batches;
+        }
+
+        template <class O_> auto MakeDoubleBatchResults(size_t count, const O_& objective) {
+            return MakeSimulationPartials(count, [&] { return objective.MakeDoubleBatch(); });
+        }
+
+        template <class O_, class = void> struct HasNumericDoubleBatch_ : std::false_type {};
+
+        template <class O_>
+        struct HasNumericDoubleBatch_<O_,
+                                      std::void_t<decltype(ResetNumericBatch(std::declval<typename O_::DoubleBatch_*>())),
+                                                  decltype(std::declval<const O_&>().AccumulateDouble(
+                                                      std::declval<typename O_::Result_*>(), std::declval<const typename O_::DoubleBatch_&>())),
+                                                  decltype(&O_::AggregateDouble)>>
+            : std::bool_constant<HasNumericAADBatch_<O_>::value &&
+                                 (std::is_same_v<decltype(&O_::AggregateDouble), decltype(&ScalarSimulationObjective_::AggregateDouble)> ||
+                                  std::is_same_v<decltype(&O_::AggregateDouble), decltype(&WeightedSimulationObjective_::AggregateDouble)>)> {};
     } // namespace Detail
 
     constexpr size_t BATCH_SIZE = 8192;
@@ -228,6 +290,7 @@ namespace Dal::Script {
         }
 
         [[nodiscard]] size_t BatchSize() const { return batchSize_; }
+        [[nodiscard]] size_t PathCount() const { return nPaths_; }
 
         [[nodiscard]] size_t BatchCount() const {
             return batchSize_ == 0 ? 0 : nPaths_ / batchSize_ + static_cast<size_t>(nPaths_ % batchSize_ != 0);
@@ -239,6 +302,166 @@ namespace Dal::Script {
             return {firstPath, std::min(batchSize_, nPaths_ - firstPath)};
         }
     };
+
+    namespace Detail {
+        class ChunkPlan_ {
+            size_t nPaths_;
+            size_t chunkSize_ = 0;
+
+        public:
+            explicit ChunkPlan_(size_t nPaths) : nPaths_(nPaths) {
+                if (nPaths_ == 0)
+                    return;
+                constexpr size_t TARGET_CHUNKS = 256, MIN_PATHS = 64, MAX_PATHS = 2048;
+                const size_t target = nPaths_ / TARGET_CHUNKS + static_cast<size_t>(nPaths_ % TARGET_CHUNKS != 0);
+                chunkSize_ = MIN_PATHS;
+                while (chunkSize_ < target && chunkSize_ < MAX_PATHS)
+                    chunkSize_ *= 2;
+            }
+
+            [[nodiscard]] size_t BatchSize() const { return chunkSize_; }
+            [[nodiscard]] size_t BatchCount() const {
+                return chunkSize_ == 0 ? 0 : nPaths_ / chunkSize_ + static_cast<size_t>(nPaths_ % chunkSize_ != 0);
+            }
+            [[nodiscard]] PathBatch_ BatchAt(size_t index) const {
+                REQUIRE(index < BatchCount(), "Monte Carlo chunk index is out of range");
+                const size_t first = index * chunkSize_;
+                return {first, std::min(chunkSize_, nPaths_ - first)};
+            }
+        };
+
+        inline size_t ChunkPartialCapacity(size_t chunks, uint64_t payloadBytes) {
+            constexpr size_t MAX_SLOTS = 256;
+            constexpr uint64_t MAX_BYTES = 16 * 1024 * 1024;
+            const uint64_t byBytes = payloadBytes == 0 ? MAX_SLOTS : std::max(uint64_t{1}, MAX_BYTES / payloadBytes);
+            return std::min(chunks, static_cast<size_t>(std::min(uint64_t{MAX_SLOTS}, byBytes)));
+        }
+
+        inline uint64_t NumericPartialBytes(const AAD::ProfilingArrayStatistics_& arrays, uint64_t fixedBytes = 0) {
+            REQUIRE(arrays.valid_ && arrays.liveBytes_ <= std::numeric_limits<uint64_t>::max() - fixedBytes,
+                    "Monte Carlo numeric partial payload is out of range");
+            return arrays.liveBytes_ + fixedBytes;
+        }
+
+        template <class O_> auto MakeDoubleChunkResults(size_t chunks, const O_& objective) {
+            auto batches = MakeDoubleBatchResults(std::min(size_t{1}, chunks), objective);
+            const size_t capacity = ChunkPartialCapacity(chunks, NumericPartialBytes(objective.DoubleArrays(batches)));
+            batches.reserve(capacity);
+            for (size_t i = batches.size(); i < capacity; ++i)
+                batches.push_back(objective.MakeDoubleBatch());
+            return batches;
+        }
+
+        template <class B_> class OrderedChunkResults_ {
+            Vector_<B_> partials_;
+            Vector_<size_t> owners_;
+            Vector_<bool> ready_;
+            size_t reduced_ = 0;
+            std::mutex mutex_;
+            std::condition_variable available_;
+            std::atomic<bool> cancelled_{false};
+
+        public:
+            explicit OrderedChunkResults_(Vector_<B_> partials)
+                : partials_(std::move(partials)), owners_(partials_.size()), ready_(partials_.size(), false) {
+                for (size_t i = 0; i < owners_.size(); ++i)
+                    owners_[i] = i;
+            }
+
+            [[nodiscard]] const Vector_<B_>& Partials() const { return partials_; }
+            [[nodiscard]] bool Cancelled() const { return cancelled_.load(std::memory_order_acquire); }
+
+            void Cancel() {
+                {
+                    std::lock_guard<std::mutex> lock(mutex_);
+                    cancelled_.store(true, std::memory_order_release);
+                }
+                available_.notify_all();
+            }
+
+            B_* Acquire(size_t index, bool reusesSlots = true) {
+                REQUIRE(!partials_.empty(), "Monte Carlo chunks require numeric partial storage");
+                if (!reusesSlots) {
+                    REQUIRE(index < partials_.size(), "Monte Carlo initial chunk slot is out of range");
+                    return Cancelled() ? nullptr : &partials_[index];
+                }
+                const size_t slot = index % partials_.size();
+                std::unique_lock<std::mutex> lock(mutex_);
+                available_.wait(lock, [&] { return Cancelled() || owners_[slot] == index; });
+                return Cancelled() ? nullptr : &partials_[slot];
+            }
+
+            template <class R_> void Publish(size_t index, const R_& reduce) {
+                {
+                    std::lock_guard<std::mutex> lock(mutex_);
+                    if (Cancelled())
+                        return;
+                    const size_t slot = index % partials_.size();
+                    REQUIRE(owners_[slot] == index && !ready_[slot], "Monte Carlo chunk is not owned by its publisher");
+                    ready_[slot] = true;
+                    while (ready_[reduced_ % partials_.size()]) {
+                        const size_t next = reduced_ % partials_.size();
+                        reduce(partials_[next]);
+                        ResetNumericBatch(&partials_[next]);
+                        ready_[next] = false;
+                        owners_[next] += partials_.size();
+                        ++reduced_;
+                    }
+                }
+                available_.notify_all();
+            }
+        };
+
+        template <class B_> class ChunkDispatcher_ {
+            const ChunkPlan_& plan_;
+            OrderedChunkResults_<B_>* results_;
+            std::unique_ptr<Random_> positioner_;
+            bool reusesSlots_;
+            std::atomic<size_t> next_{0};
+            std::mutex positioning_;
+
+        public:
+            struct Claim_ {
+                size_t index_;
+                PathBatch_ batch_;
+                B_* partial_;
+                std::unique_ptr<Random_> random_;
+            };
+
+            ChunkDispatcher_(const ChunkPlan_& plan, OrderedChunkResults_<B_>* results, std::unique_ptr<Random_> positioner)
+                : plan_(plan), results_(results), positioner_(std::move(positioner)), reusesSlots_(plan.BatchCount() > results->Partials().size()) {}
+
+            template <class R_> void Publish(size_t index, const R_& reduce) {
+                if (reusesSlots_)
+                    results_->Publish(index, reduce);
+            }
+
+            template <class R_> void Complete(const R_& reduce) {
+                if (!reusesSlots_)
+                    for (const auto& partial : results_->Partials())
+                        reduce(partial);
+            }
+
+            std::optional<Claim_> Claim() {
+                std::unique_lock<std::mutex> lock(positioning_, std::defer_lock);
+                if (positioner_)
+                    lock.lock();
+                const size_t index = next_.fetch_add(1, std::memory_order_relaxed);
+                if (index >= plan_.BatchCount())
+                    return std::nullopt;
+                B_* partial = results_->Acquire(index, reusesSlots_);
+                if (!partial)
+                    return std::nullopt;
+                Claim_ claim{index, plan_.BatchAt(index), partial, nullptr};
+                if (positioner_) {
+                    positioner_->SkipNormalTo(claim.batch_.firstPath_);
+                    Dal::Detail::BufferCapacitySuspension_ suspension;
+                    claim.random_ = positioner_->Clone();
+                }
+                return claim;
+            }
+        };
+    } // namespace Detail
 
     // Owns every accepted task future. Construction reserves all future storage,
     // and destruction drains without replacing an exception already in flight.
@@ -355,6 +578,47 @@ namespace Dal::Script {
     };
 
     namespace Detail {
+        template <class B_, class F_, class R_>
+        void RunChunkWorkers(ThreadPool_* pool,
+                             const ChunkPlan_& plan,
+                             OrderedChunkResults_<B_>* results,
+                             std::unique_ptr<Random_> positioner,
+                             const F_& worker,
+                             const R_& reduce) {
+            ChunkDispatcher_<B_> dispatcher(plan, results, std::move(positioner));
+            const size_t workers = std::min(pool->NumThreads(), plan.BatchCount());
+            const auto run = [&](const auto& evaluate) {
+                while (!results->Cancelled()) {
+                    auto claim = dispatcher.Claim();
+                    if (!claim)
+                        return;
+                    evaluate(claim->batch_, claim->partial_, std::move(claim->random_));
+                    dispatcher.Publish(claim->index_, reduce);
+                }
+            };
+            // Drain accepted tasks before their captured callback leaves scope.
+            SimulationTaskGroup_ tasks(pool, workers);
+            try {
+                for (size_t i = 0; i < workers; ++i) {
+                    tasks.Spawn([&] {
+                        try {
+                            if (!results->Cancelled())
+                                worker(run);
+                        } catch (...) {
+                            results->Cancel();
+                            throw;
+                        }
+                        return true;
+                    });
+                }
+                tasks.Complete();
+                dispatcher.Complete(reduce);
+            } catch (...) {
+                results->Cancel();
+                throw;
+            }
+        }
+
         template <class F_>
         void RunSimulationBatches(ThreadPool_* pool, const BatchPlan_& plan, std::unique_ptr<Random_> positioner, const F_& work) {
             const bool positioned = static_cast<bool>(positioner);
@@ -675,47 +939,58 @@ namespace Dal::Script {
         threadStates[0] = std::make_unique<ThreadState_>(product, *mdl, rsg, useBb, Detail::NormalPrecision(product));
 
         auto results = objective.MakeResult(Vector::Join(mdl->ParameterLabels(), product.ConstVarNames()));
-
-        const BatchPlan_ batchPlan(nPaths, nThreads);
-        Vector_<typename O_::DoubleBatch_> simResults;
-        simResults.reserve(batchPlan.BatchCount());
-        for (size_t i = 0; i < batchPlan.BatchCount(); ++i)
-            simResults.emplace_back(objective.MakeDoubleBatch());
-
         auto payoffIndex = product.PayOffIdx();
         auto positioner = rsg == "irn" && nThreads > 1 && threadStates[0]->random_ ? threadStates[0]->random_->Clone() : nullptr;
-        prepare.Finish();
-
-        Detail::RunSimulationBatches(
-            pool, batchPlan, std::move(positioner), [&](size_t batchIndex, const PathBatch_& batch, std::unique_ptr<Random_> random) {
-                AAD::ProfilingSpan_ initialize(AAD::AADProfilingPhase_::Value_::WORKER_INIT);
-                const size_t threadNum = ThreadPool_::ThreadNum();
-                auto& state = threadStates[threadNum];
-                if (!state)
-                    state = std::make_unique<ThreadState_>(product, *mdl, rsg, useBb, Detail::NormalPrecision(product));
+        const auto worker = [&](const auto& run) {
+            AAD::ProfilingSpan_ initialize(AAD::AADProfilingPhase_::Value_::WORKER_INIT);
+            const size_t threadNum = ThreadPool_::ThreadNum();
+            auto& state = threadStates[threadNum];
+            if (!state)
+                state = std::make_unique<ThreadState_>(product, *mdl, rsg, useBb, Detail::NormalPrecision(product));
+            initialize.Finish();
+            run([&](const PathBatch_& batch, auto* partial, std::unique_ptr<Random_> random) {
                 if (random)
                     state->random_ = std::move(random);
-                initialize.Finish();
-                auto collector = objective.DoubleCollector(&simResults[batchIndex]);
+                auto collector = objective.DoubleCollector(partial);
                 auto runPaths = [&](auto& evaluator, const auto& evaluate) {
                     return Detail::EvaluateDoubleBatch(*mdl, state.get(), &evaluator, batch, payoffIndex, evaluate, collector);
                 };
                 if (useCompiled)
-                    objective.SetDoubleValue(&simResults[batchIndex],
+                    objective.SetDoubleValue(partial,
                                              runPaths(state->compiledState_, [&](const auto& p, auto& e) { compiledProduct->Evaluate(p, e); }));
                 else
-                    objective.SetDoubleValue(&simResults[batchIndex],
-                                             runPaths(state->evaluator_, [&](const auto& p, auto& e) { product.Evaluate(p, e); }));
+                    objective.SetDoubleValue(partial, runPaths(state->evaluator_, [&](const auto& p, auto& e) { product.Evaluate(p, e); }));
             });
-
-        AAD::ProfilingSpan_ reduce(AAD::AADProfilingPhase_::Value_::REDUCE);
+        };
+        const auto captureResults = [&](const auto& partials) {
 #if defined(DAL_ENABLE_AAD_PROFILING)
-        AAD::CaptureMemoryForProfiling([&] {
-            return AAD::ProfilingMemoryStatistics_{
-                {}, {}, Detail::JoinProfileArrays(objective.ResultArrays(results), objective.DoubleArrays(simResults)), {}};
-        });
+            AAD::CaptureMemoryForProfiling([&] {
+                return AAD::ProfilingMemoryStatistics_{
+                    {}, {}, Detail::JoinProfileArrays(objective.ResultArrays(results), objective.DoubleArrays(partials)), {}};
+            });
 #endif
-        objective.AggregateDouble(&results, simResults);
+        };
+        if constexpr (Detail::HasNumericDoubleBatch_<O_>::value) {
+            const Detail::ChunkPlan_ chunks(nPaths);
+            Detail::OrderedChunkResults_<typename O_::DoubleBatch_> partials(Detail::MakeDoubleChunkResults(chunks.BatchCount(), objective));
+            prepare.Finish();
+            Detail::RunChunkWorkers(pool, chunks, &partials, std::move(positioner), worker, [&](const auto& partial) {
+                AAD::ProfilingSpan_ reduce(AAD::AADProfilingPhase_::Value_::REDUCE);
+                objective.AccumulateDouble(&results, partial);
+            });
+            captureResults(partials.Partials());
+        } else {
+            const BatchPlan_ batchPlan(nPaths, nThreads);
+            auto batches = Detail::MakeDoubleBatchResults(batchPlan.BatchCount(), objective);
+            prepare.Finish();
+            Detail::RunSimulationBatches(pool, batchPlan, std::move(positioner),
+                                         [&](size_t index, const PathBatch_& batch, std::unique_ptr<Random_> random) {
+                                             worker([&](const auto& evaluate) { evaluate(batch, &batches[index], std::move(random)); });
+                                         });
+            AAD::ProfilingSpan_ reduce(AAD::AADProfilingPhase_::Value_::REDUCE);
+            captureResults(batches);
+            objective.AggregateDouble(&results, batches);
+        }
         return results;
     }
 
@@ -759,6 +1034,109 @@ namespace Dal::Script {
             String_ normalPrecision_ = "Default";
         };
 
+        template <class E_, class R_, class O_>
+        void HarvestAADChunk(AAD::Model_<AAD::Number_>* model, E_* evaluator, const AADBatchSettings_& settings, R_* results, const O_& objective) {
+            for (size_t j = 0; j < settings.nConstVars_; ++j) {
+                auto& input = evaluator->ConstVarVals()[j];
+                objective.AccumulateInput(results, j + settings.nParams_, input, settings.nPaths_);
+                Adjoint(input) = 0.0;
+            }
+            for (size_t j = 0; j < settings.nParams_; ++j) {
+                auto& input = *model->Parameters()[j];
+                objective.AccumulateInput(results, j, input, settings.nPaths_);
+                Adjoint(input) = 0.0;
+            }
+        }
+
+        template <class F_> void GenerateAADPath(Random_* random, Vector_<>* gauss, Scenario_<AAD::Number_>* path, const F_& generate) {
+            if (random)
+                random->FillNormal(gauss);
+            generate(*gauss, path);
+        }
+
+        template <class P_, class F_>
+        void WithAADWorker(const P_& product,
+                           const Handle_<ModelData_>& modelData,
+                           const AADBatchSettings_& settings,
+                           const std::optional<ScriptCompiled_>& compiledProduct,
+                           const F_& work,
+                           std::unique_ptr<Random_> random = nullptr,
+                           bool positioned = false) {
+            AAD::ProfilingSpan_ initialize(AAD::AADProfilingPhase_::Value_::WORKER_INIT);
+            AAD::RecordingScope_ recording;
+            std::unique_ptr<AAD::Model_<AAD::Number_>> model = CreateModel<AAD::Number_>(modelData);
+            model->Allocate(product.TimeLine(), product.DefLine());
+
+            if (!random && !positioned)
+                random = CreateRNG(settings.rsg_, *model, settings.useBb_, std::nullopt, settings.normalPrecision_);
+            Vector_<> gVec(model->SimDim());
+
+            Scenario_<AAD::Number_> path;
+            AllocatePath(product.DefLine(), path);
+            InitializePath(path);
+            auto runEvaluator = [&](auto& evaluator, const auto& evaluate) {
+                AAD::Number_ payoffZero = 0.0;
+                const auto checkpoint = InitModel4ParallelAAD(product, *model, path, evaluator, recording, &payoffZero);
+                recording.FinishRecording();
+                AAD::CaptureTapeForProfiling();
+                initialize.Finish();
+                const auto evaluateBatch = [&](const PathBatch_& batch, auto* results, auto objective, std::unique_ptr<Random_> positionedRandom) {
+                    if (positionedRandom)
+                        random = std::move(positionedRandom);
+                    if (random)
+                        random->SkipNormalTo(batch.firstPath_);
+                    double sumValue = 0.0;
+                    WithPathGenerator(*model, [&](const auto& generate) {
+                        for (size_t i = 0; i < batch.pathCount_; i++) {
+                            AAD::ProfilingSpan_ forward(AAD::AADProfilingPhase_::Value_::PATH_FORWARD);
+                            recording.Restore(checkpoint);
+                            GenerateAADPath(random.get(), &gVec, &path, generate);
+                            forward.Finish();
+                            AAD::ProfilingSpan_ payoff(AAD::AADProfilingPhase_::Value_::PAYOFF);
+                            evaluate(path, evaluator);
+                            AAD::Number_ res = objective(evaluator.VarVals(), settings.payoffIndex_, payoffZero);
+                            REQUIRE2(std::isfinite(Value(res)), "InvalidPayoff: non-finite path value", ScriptError_);
+                            recording.FinishRecording();
+                            payoff.Finish();
+                            AAD::CaptureTapeForProfiling();
+#if defined(DAL_ENABLE_AAD_PROFILING)
+                            AAD::CaptureMemoryForProfiling([&] {
+                                return AAD::ProfilingMemoryStatistics_{
+                                    ProfilePathArrays(path),
+                                    JoinProfileArrays(JoinProfileArrays(ProfileArrays(gVec), ProfileEvaluatorArrays(evaluator)),
+                                                      objective.WorkspaceArrays()),
+                                    {},
+                                    {}};
+                            });
+#endif
+                            AAD::ProfilingSpan_ reverse(AAD::AADProfilingPhase_::Value_::REVERSE_SUFFIX);
+                            objective.Seed(&res);
+                            recording.ReverseSuffix(checkpoint);
+                            sumValue += Value(res);
+                        }
+                    });
+                    {
+                        AAD::ProfilingSpan_ reverse(AAD::AADProfilingPhase_::Value_::REVERSE_PREFIX);
+                        recording.ReversePrefix(checkpoint);
+                    }
+                    HarvestAADChunk(model.get(), &evaluator, settings, results, objective);
+                    Adjoint(payoffZero) = 0.0;
+                    results->aggregated_ += sumValue;
+                };
+                work(evaluateBatch);
+            };
+
+            if (compiledProduct) {
+                EvalState_<AAD::Number_> evalState =
+                    product.template BuildEvalState<AAD::Number_>(static_cast<size_t>(std::max(settings.maxNestedIfs_, 0)), settings.eps_);
+                runEvaluator(evalState, [&](Scenario_<AAD::Number_>& p, EvalState_<AAD::Number_>& e) { compiledProduct->Evaluate(p, e); });
+            } else {
+                FuzzyEvaluator_<AAD::Number_> eval = product.template BuildFuzzyEvaluator<AAD::Number_>(settings.maxNestedIfs_, settings.eps_);
+                runEvaluator(eval, [&](Scenario_<AAD::Number_>& p, FuzzyEvaluator_<AAD::Number_>& e) { product.Evaluate(p, e); });
+            }
+            recording.Close();
+        }
+
         template <class P_, class O_ = ScalarPayoffCollector_, class R_ = SimResults_>
         void EvaluateAADBatch(const P_& product,
                               const Handle_<ModelData_>& modelData,
@@ -768,109 +1146,21 @@ namespace Dal::Script {
                               R_* results,
                               O_ objective = {},
                               std::unique_ptr<Random_> random = nullptr) {
-            AAD::ProfilingSpan_ initialize(AAD::AADProfilingPhase_::Value_::WORKER_INIT);
-            AAD::RecordingScope_ recording;
-            std::unique_ptr<AAD::Model_<AAD::Number_>> model = CreateModel<AAD::Number_>(modelData);
-            model->Allocate(product.TimeLine(), product.DefLine());
+            WithAADWorker(
+                product, modelData, settings, compiledProduct, [&](const auto& evaluate) { evaluate(batch, results, std::move(objective), nullptr); },
+                std::move(random));
+        }
 
-            if (!random)
-                random = CreateRNG(settings.rsg_, *model, settings.useBb_, std::nullopt, settings.normalPrecision_);
-            Vector_<> gVec(model->SimDim());
-
-            Scenario_<AAD::Number_> path;
-            AllocatePath(product.DefLine(), path);
-            InitializePath(path);
-            if (random)
-                random->SkipNormalTo(batch.firstPath_);
-
-            double sumValue = 0.0;
-            AAD::Checkpoint_ checkpoint;
-
-            auto runPaths = [&](auto& evaluator, auto evaluate) {
-                AAD::Number_ payoffZero = 0.0;
-                checkpoint = InitModel4ParallelAAD(product, *model, path, evaluator, recording, &payoffZero);
-                recording.FinishRecording();
-                AAD::CaptureTapeForProfiling();
-#if defined(DAL_ENABLE_AAD_PROFILING)
-                AAD::CaptureMemoryForProfiling([&] {
-                    return AAD::ProfilingMemoryStatistics_{
-                        ProfilePathArrays(path),
-                        JoinProfileArrays(JoinProfileArrays(ProfileArrays(gVec), ProfileEvaluatorArrays(evaluator)), objective.WorkspaceArrays()),
-                        {},
-                        {}};
-                });
-#endif
-                initialize.Finish();
-                WithPathGenerator(*model, [&](const auto& generate) {
-                    for (size_t i = 0; i < batch.pathCount_; i++) {
-                        AAD::ProfilingSpan_ forward(AAD::AADProfilingPhase_::Value_::PATH_FORWARD);
-                        recording.Restore(checkpoint);
-                        if (random)
-                            random->FillNormal(&gVec);
-                        generate(gVec, &path);
-                        forward.Finish();
-                        AAD::ProfilingSpan_ payoff(AAD::AADProfilingPhase_::Value_::PAYOFF);
-                        evaluate(path, evaluator);
-                        AAD::Number_ res = objective(evaluator.VarVals(), settings.payoffIndex_, payoffZero);
-                        REQUIRE2(std::isfinite(Value(res)), "InvalidPayoff: non-finite path value", ScriptError_);
-                        recording.FinishRecording();
-                        payoff.Finish();
-                        AAD::CaptureTapeForProfiling();
-#if defined(DAL_ENABLE_AAD_PROFILING)
-                        AAD::CaptureMemoryForProfiling([&] {
-                            return AAD::ProfilingMemoryStatistics_{
-                                ProfilePathArrays(path),
-                                JoinProfileArrays(JoinProfileArrays(ProfileArrays(gVec), ProfileEvaluatorArrays(evaluator)),
-                                                  objective.WorkspaceArrays()),
-                                {},
-                                {}};
-                        });
-#endif
-                        AAD::ProfilingSpan_ reverse(AAD::AADProfilingPhase_::Value_::REVERSE_SUFFIX);
-                        objective.Seed(&res);
-                        recording.ReverseSuffix(checkpoint);
-                        sumValue += Value(res);
-                    }
-                });
-            };
-
-            auto accumulateConstVarRisks = [&](const auto& constVarVals) {
-                for (size_t j = 0; j < settings.nConstVars_; ++j)
-                    objective.AccumulateInput(results, j + settings.nParams_, constVarVals[j], settings.nPaths_);
-            };
-
-            const auto reversePrefix = [&] {
-                AAD::ProfilingSpan_ reverse(AAD::AADProfilingPhase_::Value_::REVERSE_PREFIX);
-                recording.ReversePrefix(checkpoint);
-            };
-
-            if (compiledProduct) {
-                EvalState_<AAD::Number_> evalState =
-                    product.template BuildEvalState<AAD::Number_>(static_cast<size_t>(std::max(settings.maxNestedIfs_, 0)), settings.eps_);
-                runPaths(evalState, [&](Scenario_<AAD::Number_>& p, EvalState_<AAD::Number_>& e) { compiledProduct->Evaluate(p, e); });
-                reversePrefix();
-                accumulateConstVarRisks(evalState.ConstVarVals());
-            } else {
-                FuzzyEvaluator_<AAD::Number_> eval = product.template BuildFuzzyEvaluator<AAD::Number_>(settings.maxNestedIfs_, settings.eps_);
-                runPaths(eval, [&](Scenario_<AAD::Number_>& p, FuzzyEvaluator_<AAD::Number_>& e) { product.Evaluate(p, e); });
-                reversePrefix();
-                accumulateConstVarRisks(eval.ConstVarVals());
-            }
-
-            for (size_t j = 0; j < settings.nParams_; ++j)
-                objective.AccumulateInput(results, j, *model->Parameters()[j], settings.nPaths_);
-
-            results->aggregated_ += sumValue;
-            recording.Close();
+        template <class R_, class B_, class O_> void AccumulateAADResult(R_* result, const B_& batch, const O_& objective) {
+            result->aggregated_ += batch.aggregated_;
+            for (size_t j = 0; j < result->risks_.size(); ++j)
+                result->risks_[j] += batch.risks_[j];
+            objective.AccumulateComponents(result, batch);
         }
 
         template <class R_, class B_, class O_> void AccumulateAADResults(R_* result, const Vector_<B_>& simResults, const O_& objective) {
-            for (const auto& res : simResults) {
-                result->aggregated_ += res.aggregated_;
-                for (size_t j = 0; j < result->risks_.size(); ++j)
-                    result->risks_[j] += res.risks_[j];
-                objective.AccumulateComponents(result, res);
-            }
+            for (const auto& batch : simResults)
+                AccumulateAADResult(result, batch, objective);
         }
 
         template <class O_ = ScalarSimulationObjective_>
@@ -924,28 +1214,56 @@ namespace Dal::Script {
         auto payoffIndex = product.PayOffIdx();
 
         auto values = objective.MakeResult(Vector::Join(metadataModel->ParameterLabels(), product.ConstVarNames()));
-        auto simResults = Detail::MakeAADBatchResults(nThreads, values, objective);
         const Detail::AADBatchSettings_ settings{
             rsg, useBb, maxNestedIfs, eps, nPaths, nParams, nConstVars, payoffIndex, Detail::NormalPrecision(product)};
         auto positioner = rsg == "irn" ? CreateRNG(rsg, *metadataModel, useBb, std::nullopt, settings.normalPrecision_) : nullptr;
-        prepare.Finish();
-
-        Detail::RunSimulationBatches(pool, batchPlan, std::move(positioner), [&](size_t, const PathBatch_& batch, std::unique_ptr<Random_> random) {
-            const size_t threadNum = ThreadPool_::ThreadNum();
-            Detail::EvaluateAADBatch(product, modelData, settings, compiledProduct, batch, &simResults(threadNum),
-                                     objective.AADCollector(&simResults(threadNum)), std::move(random));
-        });
-
-        AAD::ProfilingSpan_ reduce(AAD::AADProfilingPhase_::Value_::REDUCE);
+        const auto captureResults = [&](const auto& partials) {
 #if defined(DAL_ENABLE_AAD_PROFILING)
-        AAD::CaptureMemoryForProfiling([&] {
-            auto resultArrays = objective.ResultArrays(values);
-            for (const auto& result : simResults)
-                resultArrays = Detail::JoinProfileArrays(resultArrays, objective.ResultArrays(result));
-            return AAD::ProfilingMemoryStatistics_{{}, {}, resultArrays, {}};
-        });
+            AAD::CaptureMemoryForProfiling([&] {
+                auto resultArrays = objective.ResultArrays(values);
+                for (const auto& result : partials)
+                    resultArrays = Detail::JoinProfileArrays(resultArrays, objective.ResultArrays(result));
+                return AAD::ProfilingMemoryStatistics_{{}, {}, resultArrays, {}};
+            });
 #endif
-        Detail::AccumulateAADResults(&values, simResults, objective);
+        };
+        if constexpr (Detail::HasOrderedAADBatch_<O_>::value) {
+            const Detail::ChunkPlan_ chunks(nPaths);
+            const size_t capacity =
+                Detail::ChunkPartialCapacity(chunks.BatchCount(), Detail::NumericPartialBytes(objective.ResultArrays(values), sizeof(double)));
+            Detail::OrderedChunkResults_<typename O_::AADBatch_> partials(
+                Detail::MakeSimulationPartials(capacity, [&] { return objective.MakeAADBatch(values.risks_.size()); }));
+            prepare.Finish();
+            Detail::RunChunkWorkers(
+                pool, chunks, &partials, std::move(positioner),
+                [&](const auto& run) {
+                    Detail::WithAADWorker(
+                        product, modelData, settings, compiledProduct,
+                        [&](const auto& evaluate) {
+                            run([&](const PathBatch_& batch, auto* partial, std::unique_ptr<Random_> random) {
+                                evaluate(batch, partial, objective.AADCollector(partial), std::move(random));
+                            });
+                        },
+                        nullptr, rsg == "irn");
+                },
+                [&](const auto& partial) {
+                    AAD::ProfilingSpan_ reduce(AAD::AADProfilingPhase_::Value_::REDUCE);
+                    Detail::AccumulateAADResult(&values, partial, objective);
+                });
+            captureResults(partials.Partials());
+        } else {
+            auto simResults = Detail::MakeAADBatchResults(nThreads, values, objective);
+            prepare.Finish();
+            Detail::RunSimulationBatches(pool, batchPlan, std::move(positioner),
+                                         [&](size_t, const PathBatch_& batch, std::unique_ptr<Random_> random) {
+                                             const size_t threadNum = ThreadPool_::ThreadNum();
+                                             Detail::EvaluateAADBatch(product, modelData, settings, compiledProduct, batch, &simResults(threadNum),
+                                                                      objective.AADCollector(&simResults(threadNum)), std::move(random));
+                                         });
+            AAD::ProfilingSpan_ reduce(AAD::AADProfilingPhase_::Value_::REDUCE);
+            captureResults(simResults);
+            Detail::AccumulateAADResults(&values, simResults, objective);
+        }
         return values;
     }
 

@@ -303,12 +303,14 @@ replays the stream once, without inverse-normal conversion, and preserves each
 path's sequential normal draws, precision and Brownian bridge. Single-threaded
 double simulation reuses its contiguous engine directly.
 
-The positioner limits outstanding tasks to twice the pool's thread count;
-workers own their clones exclusively. Capacity waits can execute queued work,
-including with a one-thread pool. Positioning, submission or worker failures
-cancel further positioned work and drain accepted tasks before returning an
-error. Existing batch boundaries and reductions remain in use: AAD reduction
-can still differ in its last bits with worker scheduling. Separate drivers,
+Ordinary simulation submits at most `min(nThreads, nChunks)` persistent workers.
+The positioner claims chunks in path order and clones only after a numeric slot
+is available; each worker owns its clone exclusively. Clone storage is bounded
+independently of the total chunk count. Cancellation wakes capacity waiters and
+drains accepted tasks before returning an error. Numeric reduction follows
+chunk order, so ordinary prices and AAD Greeks repeat exactly across worker
+counts for the same inputs, build and floating-point environment. See
+[simulation batching](simulation.md#batches-compiled-scripts-and-aad). Separate drivers,
 including segmented Monte Carlo, retain their own positioning schedules.
 MRG32 and Sobol support efficient independent seeking when that is required.
 

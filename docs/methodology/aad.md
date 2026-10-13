@@ -1036,16 +1036,17 @@ $$
 
 This is the **pathwise adjoint** estimator. The algorithm is:
 
-1. For each batch recording, place the parameters $\theta$ on the worker's
+1. At worker setup, place the parameters $\theta$ on its
    tape, record shared model initialization and any parameter-dependent
    historical state, then mark.
 2. For each path: rewind to the mark, simulate the path and evaluate the payoff
    (forward pass), create or reuse a path-local payoff root, seed its adjoint
    to $1$, and run the reverse pass to the mark. Adjoints before the mark
    **accumulate** across paths automatically.
-3. After the batch's paths: propagate from the mark to the start and divide
-   the parameter adjoints by the total simulation path count $P$. Sum batch
-   contributions without a second normalization.
+3. After each chunk's paths: propagate from the mark to the start and divide
+   the parameter adjoints by the total simulation path count $P$. Clear the
+   harvested input leaf adjoints before the worker's next chunk. Sum numeric
+   chunk contributions in path order without a second normalization.
 
 In [prepared script evaluation](script_engine.md#historical-state-and-recording-lifetime),
 historical fixings are sealed doubles, but script expressions using them can
@@ -1070,7 +1071,11 @@ The result is the full gradient of the Monte Carlo price — every Greek for eve
 parameter — for the cost of roughly one extra simulation, regardless of how many
 parameters there are. Because each thread keeps its own tape and the per-path
 work is independent, the scheme parallelises with no synchronisation during the
-forward or reverse passes; thread results are summed at the end.
+forward or reverse passes. Ordinary scalar and weighted simulation retains the
+prefix for each worker and reduces bounded numeric chunks in fixed path order,
+making its PV and all Greeks exactly repeatable across thread counts for the
+same inputs, build and floating-point environment. See
+[simulation batching](script_engine.md#batching-and-thread-pool).
 
 ## Smoothing Discontinuous Payoffs
 
