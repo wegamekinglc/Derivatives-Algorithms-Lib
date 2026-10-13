@@ -596,18 +596,25 @@ def write_results(
     return comparisons, failures, report
 
 
-def retry_targets(comparisons: dict, failures: list[str], identities: dict, threshold_percent: float) -> list[str]:
-    if not failures or not identities or not all(item["identical"] for item in identities.values()):
-        return []
-    relative_failures = []
-    targets = []
+def relative_timing_failures(comparisons: dict, threshold_percent: float) -> dict[str, list[str]]:
+    failures = {}
     for benchmark, rows in comparisons.items():
-        failed = [row for row in rows if row.get("gated", True) and not row["passed"]]
-        if failed:
-            targets.append(benchmark)
-            relative_failures.extend(regression_failure(benchmark, row, threshold_percent) for row in failed)
+        for row in rows:
+            if row.get("gated", True) and not row["passed"]:
+                failures.setdefault(benchmark, []).append(regression_failure(benchmark, row, threshold_percent))
+    return failures
+
+
+def retry_targets(comparisons: dict, failures: list[str], identities: dict, threshold_percent: float) -> list[str]:
+    if not failures or not identities:
+        return []
+    if not all(item["identical"] for item in identities.values()):
+        return []
+    relative = relative_timing_failures(comparisons, threshold_percent)
     # Structural failures and head-only absolute cost checks must never be retried.
-    return targets if set(failures) == set(relative_failures) else []
+    if set(failures) != set().union(*relative.values()):
+        return []
+    return list(relative)
 
 
 def verify_binary_identity(args: argparse.Namespace, identities: dict, output_dir: Path) -> None:
@@ -617,6 +624,31 @@ def verify_binary_identity(args: argparse.Namespace, identities: dict, output_di
     )
     if current != identities:
         raise RuntimeError("Benchmark executable identity changed during sampling")
+
+
+def compare_with_retry(args: argparse.Namespace, collected: dict, identities: dict | None) -> tuple[dict, list[str], str]:
+    comparisons, failures, report = write_results(collected, args, args.output_dir, identities)
+    targets = retry_targets(comparisons, failures, identities or {}, args.threshold_percent)
+    if not targets:
+        return comparisons, failures, report
+    print(
+        "::warning::Relative timing failed for byte-identical executables; "
+        f"retrying {', '.join(targets)} once with unchanged sampling and thresholds. Initial evidence is retained.",
+        flush=True,
+    )
+    (args.output_dir / "initial-results.json").write_bytes((args.output_dir / "results.json").read_bytes())
+    (args.output_dir / "initial-summary.md").write_text(report, encoding="utf-8")
+    retry_dir = args.output_dir / "retry"
+    retry_dir.mkdir(exist_ok=True)
+    retry = collect_samples(args.base_root, args.head_root, targets, args.samples * args.confirmation_rounds, retry_dir)
+    verify_binary_identity(args, identities, retry_dir)
+    write_results(retry, args, retry_dir, {target: identities[target] for target in targets})
+    prefix = (
+        "## Initial comparison\n\n" + report + "\n## Final comparison after one unchanged-binary retry\n\n"
+        f"Retried only {', '.join(targets)} with the original sampling and thresholds. "
+        "Initial results and raw outputs are retained; retry outputs are under `retry/`.\n\n"
+    )
+    return write_results({**collected, **retry}, args, args.output_dir, identities, targets, prefix)
 
 
 def main() -> int:
@@ -631,28 +663,7 @@ def main() -> int:
     collected = collect_samples(args.base_root, args.head_root, args.benchmarks, total_samples, args.output_dir)
     if identities is not None:
         verify_binary_identity(args, identities, args.output_dir)
-    comparisons, failures, report = write_results(collected, args, args.output_dir, identities)
-    targets = retry_targets(comparisons, failures, identities or {}, args.threshold_percent)
-    if targets:
-        print(
-            "::warning::Relative timing failed for byte-identical executables; "
-            f"retrying {', '.join(targets)} once with unchanged sampling and thresholds. Initial evidence is retained.",
-            flush=True,
-        )
-        (args.output_dir / "initial-results.json").write_bytes((args.output_dir / "results.json").read_bytes())
-        (args.output_dir / "initial-summary.md").write_text(report, encoding="utf-8")
-        retry_dir = args.output_dir / "retry"
-        retry_dir.mkdir(exist_ok=True)
-        retry = collect_samples(args.base_root, args.head_root, targets, total_samples, retry_dir)
-        verify_binary_identity(args, identities, retry_dir)
-        write_results(retry, args, retry_dir, {target: identities[target] for target in targets})
-        prefix = (
-            "## Initial comparison\n\n" + report + "\n## Final comparison after one unchanged-binary retry\n\n"
-            f"Retried only {', '.join(targets)} with the original sampling and thresholds. "
-            "Initial results and raw outputs are retained; retry outputs are under `retry/`.\n\n"
-        )
-        collected = {**collected, **retry}
-        comparisons, failures, report = write_results(collected, args, args.output_dir, identities, targets, prefix)
+    comparisons, failures, report = compare_with_retry(args, collected, identities)
     if args.summary_file:
         with args.summary_file.open("a", encoding="utf-8") as summary:
             summary.write(report)
