@@ -77,7 +77,15 @@ def benchmark_binary(build_root: Path, benchmark: str) -> Path:
     return binary
 
 
+def static_build(build_root: Path) -> bool:
+    cache = build_root / "CMakeCache.txt"
+    return cache.is_file() and re.search(
+        r"^BUILD_SHARED_LIBS:(?:BOOL|UNINITIALIZED)=OFF$", cache.read_text(encoding="utf-8"), re.MULTILINE
+    ) is not None
+
+
 def binary_identity(base_root: Path, head_root: Path, benchmarks: list[str]) -> dict[str, dict[str, object]]:
+    static = all(static_build(root) for root in (base_root, head_root))
     identities = {}
     for benchmark in benchmarks:
         hashes = {}
@@ -90,6 +98,7 @@ def binary_identity(base_root: Path, head_root: Path, benchmarks: list[str]) -> 
         identities[benchmark] = {
             "base_sha256": hashes["base"], "head_sha256": hashes["head"],
             "identical": hashes["base"] is not None and hashes["base"] == hashes["head"],
+            "static_build": static,
         }
     return identities
 
@@ -547,7 +556,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--precise-slowdown-limit", type=float, default=10.0)
     parser.add_argument(
         "--retry-identical-binaries", action="store_true",
-        help="Retry only relative timing failures once when every selected base/head executable is byte-identical.",
+        help="Retry relative timing failures once for byte-identical executables from verified static builds.",
     )
     args = parser.parse_args()
     if args.samples < 10:
@@ -608,7 +617,7 @@ def relative_timing_failures(comparisons: dict, threshold_percent: float) -> dic
 def retry_targets(comparisons: dict, failures: list[str], identities: dict, threshold_percent: float) -> list[str]:
     if not failures or not identities:
         return []
-    if not all(item["identical"] for item in identities.values()):
+    if not all(item["identical"] and item["static_build"] for item in identities.values()):
         return []
     relative = relative_timing_failures(comparisons, threshold_percent)
     # Structural failures and head-only absolute cost checks must never be retried.

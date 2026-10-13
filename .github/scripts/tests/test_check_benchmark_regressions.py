@@ -25,6 +25,9 @@ class BenchmarkRegressionTest(unittest.TestCase):
         binary.parent.mkdir(parents=True)
         binary.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
         binary.chmod(mode)
+        cache = build_root / "CMakeCache.txt"
+        if not cache.exists():
+            cache.write_text("BUILD_SHARED_LIBS:BOOL=OFF\n", encoding="utf-8")
         return binary
 
     def test_main_retries_only_failed_targets_when_all_binaries_are_identical(self):
@@ -95,6 +98,25 @@ class BenchmarkRegressionTest(unittest.TestCase):
                     mock.patch("sys.stdout", new_callable=io.StringIO):
                 self.assertEqual(BENCHMARKS.main(), 0)
             collect.assert_called_once()
+
+    def test_main_does_not_retry_when_static_linking_is_unverified(self):
+        failing = {"pde_perf": {"base": {"case": [100.0] * 20}, "head": {"case": [105.0] * 20}}}
+        passing = {"pde_perf": {"base": {"case": [100.0] * 20}, "head": {"case": [100.0] * 20}}}
+        for changed_side, mode in (("base", "ON"), ("head", "ON"), ("base", None), ("head", None)):
+            with self.subTest(side=changed_side, mode=mode), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                for side in ("base", "head"):
+                    self._create_benchmark_binary(root / side)
+                cache = root / changed_side / "CMakeCache.txt"
+                if mode is None:
+                    cache.unlink()
+                else:
+                    cache.write_text("BUILD_SHARED_LIBS:BOOL=ON\n")
+                with mock.patch.object(BENCHMARKS, "parse_args", return_value=self._args(root)), \
+                        mock.patch.object(BENCHMARKS, "collect_samples", side_effect=[failing, passing]) as collect, \
+                        mock.patch("sys.stdout", new_callable=io.StringIO):
+                    self.assertEqual(BENCHMARKS.main(), 1)
+                collect.assert_called_once()
 
     def test_main_second_relative_failure_still_fails_without_a_third_attempt(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -198,6 +220,13 @@ class BenchmarkRegressionTest(unittest.TestCase):
             self.assertIsNone(identity["base_sha256"])
             self.assertEqual(len(identity["head_sha256"]), 64)
             self.assertFalse(identity["identical"])
+
+    def test_static_build_accepts_typed_and_scheduled_untyped_cache_entries(self):
+        for cache_type in ("BOOL", "UNINITIALIZED"):
+            with self.subTest(cache_type=cache_type), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                (root / "CMakeCache.txt").write_text(f"BUILD_SHARED_LIBS:{cache_type}=OFF\n")
+                self.assertTrue(BENCHMARKS.static_build(root))
 
     def test_retry_is_an_explicit_cli_option(self):
         argv = [str(SCRIPT), "--base-root", "base", "--head-root", "head", "--output-dir", "results"]

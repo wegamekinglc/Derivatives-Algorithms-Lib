@@ -243,9 +243,11 @@ record and the paired gate's raw outputs, `results.json`, and `summary.md`.
 
 The scheduled native gate enables `--retry-identical-binaries`. It records executable
 SHA-256 identities before and after sampling. When every selected base/head executable
-is byte-identical and all failures concern relative timing, it retries only failing
+is byte-identical, both CMake caches confirm `BUILD_SHARED_LIBS=OFF`, and all
+failures concern relative timing, it retries only failing
 targets once with the same sample count, rounds and thresholds. Changed executables,
-missing coverage, process errors and head-only absolute cost failures are not eligible.
+missing or shared build modes, missing coverage, process errors and head-only
+absolute cost failures are not eligible.
 Identity drift is a hard error. A repeated timing failure still fails the job.
 When a retry occurs, `initial-results.json`, `initial-summary.md` and the original raw
 outputs preserve the first verdict; `retry/` contains the second attempt. The final
