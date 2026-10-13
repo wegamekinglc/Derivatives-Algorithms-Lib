@@ -93,6 +93,11 @@ into the risk vector. The [AAD guide](../aad.md#pathwise-adjoints-in-monte-carlo
 explains tape ownership and smoothing. For `EXERCISE`, the AAD meaning depends
 on the [frozen or retrained policy mode](lsm.md#early-exercise-aad).
 
+Ordinary scalar and weighted AAD valuations construct the final risk labels and
+lookup map once. Workers accumulate numeric payoff sums, normalized risks and,
+for weighted objectives, component sums. Reduction follows worker order;
+changing the worker count or assignment can change floating-point rounding.
+
 ## Interpreting a Result
 
 An ordinary Monte Carlo PV is the average over pricing paths. Core

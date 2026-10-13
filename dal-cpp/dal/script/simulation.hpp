@@ -56,6 +56,18 @@ namespace Dal::Script {
             WeightedSimResults_(const Vector_<String_>& names, size_t components) : SimResults_(names), componentSums_(components, 0.0) {}
         };
 
+        // Workers omit public result metadata.
+        struct AADBatchValues_ {
+            double aggregated_ = 0.0;
+            Vector_<> risks_;
+            explicit AADBatchValues_(size_t risks) : risks_(risks, 0.0) {}
+        };
+
+        struct WeightedAADBatchValues_ : AADBatchValues_ {
+            Vector_<> componentSums_;
+            WeightedAADBatchValues_(size_t risks, size_t components) : AADBatchValues_(risks), componentSums_(components, 0.0) {}
+        };
+
         // Passive batches omit model risk and axis storage.
         struct WeightedBatchValues_ {
             double aggregated_ = 0.0;
@@ -71,8 +83,11 @@ namespace Dal::Script {
                     return values[payoffIndex];
             }
             void Seed(AAD::Number_* root) const { Adjoint(*root) = 1.0; }
-            void AccumulateInput(SimResults_* result, size_t position, const AAD::Number_& input, size_t paths) const {
-                result->risks_[position] += Adjoint(input) / static_cast<double>(paths);
+            void AccumulateInput(Vector_<>* risks, size_t position, const AAD::Number_& input, size_t paths) const {
+                (*risks)[position] += Adjoint(input) / static_cast<double>(paths);
+            }
+            template <class R_> void AccumulateInput(R_* result, size_t position, const AAD::Number_& input, size_t paths) const {
+                AccumulateInput(&result->risks_, position, input, paths);
             }
             [[nodiscard]] AAD::ProfilingArrayStatistics_ WorkspaceArrays() const { return {}; }
         };
@@ -113,26 +128,34 @@ namespace Dal::Script {
 
         struct ScalarSimulationObjective_ {
             using Result_ = SimResults_;
+            using AADBatch_ = AADBatchValues_;
             using DoubleBatch_ = double;
             [[nodiscard]] Result_ MakeResult(const Vector_<String_>& names) const { return Result_(names); }
+            [[nodiscard]] AADBatch_ MakeAADBatch(size_t risks) const { return AADBatch_(risks); }
             [[nodiscard]] DoubleBatch_ MakeDoubleBatch() const { return 0.0; }
-            [[nodiscard]] ScalarPayoffCollector_ AADCollector(Result_*) const { return {}; }
+            template <class R_> [[nodiscard]] ScalarPayoffCollector_ AADCollector(R_*) const { return {}; }
             [[nodiscard]] ScalarPayoffCollector_ DoubleCollector(DoubleBatch_*) const { return {}; }
             void SetDoubleValue(DoubleBatch_* batch, double value) const { *batch = value; }
             void AggregateDouble(Result_* result, const Vector_<DoubleBatch_>& batches) const { result->aggregated_ = Accumulate(batches); }
-            void AccumulateComponents(Result_*, const Result_&) const {}
-            [[nodiscard]] AAD::ProfilingArrayStatistics_ ResultArrays(const Result_& result) const { return ProfileArrays(result.risks_); }
+            template <class B_> void AccumulateComponents(Result_*, const B_&) const {}
+            template <class R_> [[nodiscard]] AAD::ProfilingArrayStatistics_ ResultArrays(const R_& result) const {
+                return ProfileArrays(result.risks_);
+            }
             [[nodiscard]] AAD::ProfilingArrayStatistics_ DoubleArrays(const Vector_<DoubleBatch_>& batches) const { return ProfileArrays(batches); }
         };
 
         struct WeightedSimulationObjective_ {
             using Result_ = WeightedSimResults_;
+            using AADBatch_ = WeightedAADBatchValues_;
             using DoubleBatch_ = WeightedBatchValues_;
             const WeightedRiskPlan_& plan_;
             explicit WeightedSimulationObjective_(const WeightedRiskPlan_& plan) : plan_(plan) {}
             [[nodiscard]] Result_ MakeResult(const Vector_<String_>& names) const { return Result_(names, plan_.OutputAxis().size()); }
+            [[nodiscard]] AADBatch_ MakeAADBatch(size_t risks) const { return AADBatch_(risks, plan_.OutputAxis().size()); }
             [[nodiscard]] DoubleBatch_ MakeDoubleBatch() const { return DoubleBatch_(plan_.OutputAxis().size()); }
-            [[nodiscard]] WeightedPayoffCollector_<AAD::Number_> AADCollector(Result_* result) const { return {plan_, &result->componentSums_}; }
+            template <class R_> [[nodiscard]] WeightedPayoffCollector_<AAD::Number_> AADCollector(R_* result) const {
+                return {plan_, &result->componentSums_};
+            }
             [[nodiscard]] WeightedPayoffCollector_<double> DoubleCollector(DoubleBatch_* result) const { return {plan_, &result->componentSums_}; }
             void SetDoubleValue(DoubleBatch_* batch, double value) const { batch->aggregated_ = value; }
             void AggregateDouble(Result_* result, const Vector_<DoubleBatch_>& batches) const {
@@ -145,7 +168,7 @@ namespace Dal::Script {
                 for (size_t component = 0; component < result->componentSums_.size(); ++component)
                     result->componentSums_[component] += batch.componentSums_[component];
             }
-            [[nodiscard]] AAD::ProfilingArrayStatistics_ ResultArrays(const Result_& result) const {
+            template <class R_> [[nodiscard]] AAD::ProfilingArrayStatistics_ ResultArrays(const R_& result) const {
                 return ProfileArrays(result.risks_, result.componentSums_);
             }
             [[nodiscard]] AAD::ProfilingArrayStatistics_ DoubleArrays(const Vector_<DoubleBatch_>& batches) const {
@@ -155,6 +178,33 @@ namespace Dal::Script {
                 return arrays;
             }
         };
+
+        template <class O_, class = void> struct HasNumericAADBatch_ : std::false_type {};
+
+        template <class O_>
+        struct HasNumericAADBatch_<
+            O_,
+            std::void_t<typename O_::AADBatch_,
+                        decltype(std::declval<const O_&>().MakeAADBatch(size_t{})),
+                        decltype(std::declval<const O_&>().AADCollector(std::declval<typename O_::AADBatch_*>())),
+                        decltype(std::declval<const O_&>()
+                                     .AADCollector(std::declval<typename O_::AADBatch_*>())
+                                     .AccumulateInput(
+                                         std::declval<typename O_::AADBatch_*>(), size_t{}, std::declval<const AAD::Number_&>(), size_t{})),
+                        decltype(std::declval<const O_&>().ResultArrays(std::declval<const typename O_::AADBatch_&>())),
+                        decltype(std::declval<const O_&>().AccumulateComponents(std::declval<typename O_::Result_*>(),
+                                                                                std::declval<const typename O_::AADBatch_&>()))>> : std::true_type {};
+
+        template <class O_> auto MakeAADBatchResults(size_t threads, const typename O_::Result_& values, const O_& objective) {
+            const auto initialValue = [&]() -> decltype(auto) {
+                if constexpr (HasNumericAADBatch_<O_>::value)
+                    return objective.MakeAADBatch(values.risks_.size());
+                else
+                    return (values);
+            };
+            using B_ = std::decay_t<decltype(initialValue())>;
+            return Vector_<B_>(threads, initialValue());
+        }
     } // namespace Detail
 
     constexpr size_t BATCH_SIZE = 8192;
@@ -709,13 +759,13 @@ namespace Dal::Script {
             String_ normalPrecision_ = "Default";
         };
 
-        template <class P_, class O_ = ScalarPayoffCollector_>
+        template <class P_, class O_ = ScalarPayoffCollector_, class R_ = SimResults_>
         void EvaluateAADBatch(const P_& product,
                               const Handle_<ModelData_>& modelData,
                               const AADBatchSettings_& settings,
                               const std::optional<ScriptCompiled_>& compiledProduct,
                               const PathBatch_& batch,
-                              SimResults_* results,
+                              R_* results,
                               O_ objective = {},
                               std::unique_ptr<Random_> random = nullptr) {
             AAD::ProfilingSpan_ initialize(AAD::AADProfilingPhase_::Value_::WORKER_INIT);
@@ -814,16 +864,20 @@ namespace Dal::Script {
             recording.Close();
         }
 
+        template <class R_, class B_, class O_> void AccumulateAADResults(R_* result, const Vector_<B_>& simResults, const O_& objective) {
+            for (const auto& res : simResults) {
+                result->aggregated_ += res.aggregated_;
+                for (size_t j = 0; j < result->risks_.size(); ++j)
+                    result->risks_[j] += res.risks_[j];
+                objective.AccumulateComponents(result, res);
+            }
+        }
+
         template <class O_ = ScalarSimulationObjective_>
         typename O_::Result_
         AggregateAADResults(const Vector_<String_>& names, const Vector_<typename O_::Result_>& simResults, const O_& objective = {}) {
             auto rtn = objective.MakeResult(names);
-            for (const auto& res : simResults) {
-                rtn.aggregated_ += res.aggregated_;
-                for (size_t j = 0; j < rtn.risks_.size(); ++j)
-                    rtn.risks_[j] += res.risks_[j];
-                objective.AccumulateComponents(&rtn, res);
-            }
+            AccumulateAADResults(&rtn, simResults, objective);
             return rtn;
         }
     } // namespace Detail
@@ -870,7 +924,7 @@ namespace Dal::Script {
         auto payoffIndex = product.PayOffIdx();
 
         auto values = objective.MakeResult(Vector::Join(metadataModel->ParameterLabels(), product.ConstVarNames()));
-        Vector_<typename O_::Result_> simResults(nThreads, values);
+        auto simResults = Detail::MakeAADBatchResults(nThreads, values, objective);
         const Detail::AADBatchSettings_ settings{
             rsg, useBb, maxNestedIfs, eps, nPaths, nParams, nConstVars, payoffIndex, Detail::NormalPrecision(product)};
         auto positioner = rsg == "irn" ? CreateRNG(rsg, *metadataModel, useBb, std::nullopt, settings.normalPrecision_) : nullptr;
@@ -891,7 +945,8 @@ namespace Dal::Script {
             return AAD::ProfilingMemoryStatistics_{{}, {}, resultArrays, {}};
         });
 #endif
-        return Detail::AggregateAADResults(Vector::Join(metadataModel->ParameterLabels(), product.ConstVarNames()), simResults, objective);
+        Detail::AccumulateAADResults(&values, simResults, objective);
+        return values;
     }
 
     template <class P_>
