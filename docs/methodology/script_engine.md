@@ -1223,9 +1223,11 @@ streams) and accumulates the payoff slot across paths. The
 
 1. Activates the worker's tape and registers model parameters, constant
    variables, and a zero input (`InitModel4ParallelAAD`). It starts a recording,
-   initializes the model, rebuilds any prepared historical seed, then marks.
+   initializes the model, records the raw initial state or replays prepared
+   historical state, then marks. Scalar and vector seed handles belong to this
+   recording and are refreshed before its path checkpoint.
 2. Per path: rewinds to the mark, generates the path, restores initial state
-   (the typed seed for prepared AAD), and evaluates the AST with a
+   by copying the typed scalar/vector seed, and evaluates the AST with a
    `FuzzyEvaluator_<AAD::Number_>` (or compiled `EvalState_<AAD::Number_>`).
    It creates or reuses a path-local payoff root via `AAD::PayoffRoot`, as
    described under [recording lifetime](#historical-state-and-recording-lifetime),
