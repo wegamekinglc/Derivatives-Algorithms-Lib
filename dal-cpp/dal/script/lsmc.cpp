@@ -1522,10 +1522,9 @@ namespace Dal::Script {
             return value / path[eventToSample.front()].numeraire_;
         }
 
-        //  Phase C (fuzzy): raw adjoint sums per batch slot, reduced in batch-index order (N9)
-        struct AadReplayOutcome_ {
-            double sum_ = 0.0;
-            Vector_<> risks_;
+        using AadReplayOutcome_ = Detail::AADBatchValues_;
+
+        struct ReplayCapacity_ {
             size_t tapeBytes_ = 0;
             size_t cleanupBytes_ = 0;
         };
@@ -1533,6 +1532,16 @@ namespace Dal::Script {
         struct CurvatureReplay_ {
             const Vector_<>& constants_;
             size_t capacityLimit_;
+        };
+
+        struct FuzzyReplayContext_ {
+            const PreparedScript_& prepared_;
+            const Handle_<ModelData_>& modelData_;
+            const LsmcPlan_& scan_;
+            const Vector_<ExerciseRegression_>& regressions_;
+            const ScriptCompiled_* compiled_;
+            size_t pricingOffset_;
+            std::optional<uint64_t> scrambleKey_;
         };
 
         //  Per-worker replay state: active model, regenerated paths, and the per-path
@@ -1563,24 +1572,19 @@ namespace Dal::Script {
         }
 #endif
 
-        template <class T_>
-        FuzzyReplayWorkspace_<T_> MakeFuzzyReplayWorkspace(const PreparedScript_& prepared,
-                                                           const Handle_<ModelData_>& modelData,
-                                                           const LsmcPlan_& scan,
-                                                           const PathBatch_& batch,
-                                                           std::optional<uint64_t> scrambleKey) {
+        template <class T_> FuzzyReplayWorkspace_<T_> MakeFuzzyReplayWorkspace(const FuzzyReplayContext_& ctx) {
+            const auto& prepared = ctx.prepared_;
+            const auto& scan = ctx.scan_;
             const auto& simulation = prepared.Simulation();
             FuzzyReplayWorkspace_<T_> ws;
-            ws.model_ = CreateModel<T_>(modelData);
+            ws.model_ = CreateModel<T_>(ctx.modelData_);
             ws.model_->Allocate(prepared.TimeLine(), prepared.DefLine());
             if constexpr (std::is_same_v<T_, double>)
                 ws.model_->Init(prepared.TimeLine(), prepared.DefLine());
-            ws.random_ = CreateRNG(simulation.rsg_, *ws.model_, simulation.useBb_, scrambleKey, simulation.normalPrecision_);
+            ws.random_ = CreateRNG(simulation.rsg_, *ws.model_, simulation.useBb_, ctx.scrambleKey_, simulation.normalPrecision_);
             ws.gauss_.Resize(ws.model_->SimDim());
             AllocatePath(prepared.DefLine(), ws.path_);
             InitializePath(ws.path_);
-            if (ws.random_)
-                ws.random_->SkipTo(batch.firstPath_);
             ws.sinks_.eventToExercise_ = &scan.eventToExercise_;
             ws.sinks_.payoffIdx_ = prepared.PayOffIdx();
             ws.sinks_.plan_ = &prepared.Plan();
@@ -1589,6 +1593,14 @@ namespace Dal::Script {
             ws.cond_ = Vector_<T_>(scan.days_.size(), 1.0);
             ws.features_ = Vector_<T_>(scan.days_.size() * prepared.Plan().RegressionFeatureCount(), 0.0);
             return ws;
+        }
+
+        template <class T_> void BindFuzzyReplaySinks(FuzzyReplayWorkspace_<T_>* ws) {
+            // Bind after construction so the pointers do not depend on NRVO.
+            ws->sinks_.pays_ = &ws->pays_;
+            ws->sinks_.h_ = &ws->h_;
+            ws->sinks_.cond_ = &ws->cond_;
+            ws->sinks_.features_ = &ws->features_;
         }
 
         //  Mirrors the double recorder: the driver owns the event boundaries and the sinks'
@@ -1635,17 +1647,10 @@ namespace Dal::Script {
                               const PathBatch_& batch,
                               FuzzyReplayWorkspace_<AAD::Number_>& ws,
                               AAD::RecordingScope_& recording,
+                              const AAD::Checkpoint_& checkpoint,
                               E_& evaluator,
                               const F_& evaluate,
                               AadReplayOutcome_* outcome) {
-            AAD::ProfilingSpan_ initialize(AAD::AADProfilingPhase_::Value_::WORKER_INIT);
-            const auto checkpoint = InitModel4ParallelAAD(prepared, *ws.model_, ws.path_, evaluator, recording, nullptr);
-            recording.FinishRecording();
-            AAD::CaptureTapeForProfiling();
-#if defined(DAL_ENABLE_AAD_PROFILING)
-            CaptureReplayArrays(ws, evaluator);
-#endif
-            initialize.Finish();
             for (size_t i = 0; i < batch.pathCount_; ++i) {
                 AAD::ProfilingSpan_ forward(AAD::AADProfilingPhase_::Value_::PATH_FORWARD);
                 recording.Restore(checkpoint);
@@ -1670,33 +1675,55 @@ namespace Dal::Script {
                 AAD::ProfilingSpan_ reverse(AAD::AADProfilingPhase_::Value_::REVERSE_SUFFIX);
                 Adjoint(value) = 1.0;
                 recording.ReverseSuffix(checkpoint);
-                outcome->sum_ += Value(value);
+                outcome->aggregated_ += Value(value);
             }
             {
                 AAD::ProfilingSpan_ reverse(AAD::AADProfilingPhase_::Value_::REVERSE_PREFIX);
                 recording.ReversePrefix(checkpoint);
             }
-            size_t j = 0;
-            for (const auto* parameter : ws.model_->Parameters())
-                outcome->risks_[j++] += Adjoint(*parameter);
-            for (const auto& constVar : evaluator.ConstVarVals())
-                outcome->risks_[j++] += Adjoint(constVar);
+            const auto& simulation = prepared.Simulation();
+            const Detail::AADBatchSettings_ settings{
+                simulation.rsg_,     simulation.useBb_, 0, simulation.smooth_, 1, ws.model_->Parameters().size(), evaluator.ConstVarVals().size(),
+                prepared.PayOffIdx()};
+            Detail::HarvestAADChunk(ws.model_.get(), &evaluator, settings, outcome, Detail::ScalarPayoffCollector_());
         }
 
-        void RunFuzzyReplayBatch(const PreparedScript_& prepared,
-                                 const Handle_<ModelData_>& modelData,
-                                 const LsmcPlan_& scan,
-                                 const Vector_<ExerciseRegression_>& regressions,
-                                 const ScriptCompiled_* fuzzyCompiled,
-                                 const PathBatch_& batch,
-                                 std::optional<uint64_t> scrambleKey,
-                                 AadReplayOutcome_* outcome,
-                                 const CurvatureReplay_* curvature = nullptr) {
+        template <class E_> void InitializeValueConstants(const PreparedScript_& prepared, E_* evaluator, const Vector_<>* constants);
+
+        template <class T_, class E_> void InitializeReplayConstants(const PreparedScript_& prepared, E_* evaluator, const Vector_<>* constants) {
+            if constexpr (std::is_same_v<T_, double>) {
+                InitializeValueConstants(prepared, evaluator, constants);
+            } else if (constants) {
+                for (size_t j = 0; j < constants->size(); ++j)
+                    evaluator->ConstVarVals()[j] = (*constants)[j];
+            }
+        }
+
+        template <class T_, class F_> void WithFuzzyReplayEvaluator(const FuzzyReplayContext_& ctx, const Vector_<>* constants, const F_& work) {
+            const auto& prepared = ctx.prepared_;
+            const auto invoke = [&](auto& evaluator, const auto& evaluate) {
+                InitializeReplayConstants<T_>(prepared, &evaluator, constants);
+                work(evaluator, evaluate);
+            };
+            if (ctx.compiled_) {
+                auto state = prepared.BuildEvalState<T_>(0, prepared.Simulation().smooth_);
+                invoke(state, [&](FuzzyReplayWorkspace_<T_>& ws, const PreparedScript_& product, EvalState_<T_>& evaluator) {
+                    CompiledEvaluateFuzzyPath(ws, product, *ctx.compiled_, evaluator);
+                });
+            } else {
+                auto evaluator = prepared.BuildFuzzyEvaluator<T_>(0, prepared.Simulation().smooth_);
+                invoke(evaluator, TreeEvaluateFuzzyPath<T_>);
+            }
+        }
+
+        template <class F_>
+        void WithFuzzyReplayWorker(const FuzzyReplayContext_& ctx, const F_& run, ReplayCapacity_* capacityStats, const CurvatureReplay_* curvature) {
             AAD::ProfilingSpan_ initialize(AAD::AADProfilingPhase_::Value_::WORKER_INIT);
             std::optional<AAD::NumResultsResetterForAAD_> mode;
             std::optional<AAD::TapeCapacityBudget_> budget;
             std::optional<AAD::TapeCapacityScope_> capacity;
             if (curvature) {
+                REQUIRE(capacityStats, "LSMC curvature requires worker capacity statistics");
                 AAD::RequireRecordingModeChangeAllowed();
                 auto* tape = AAD::Tape();
                 mode.emplace(tape, tape->multi_, tape->numAdj_);
@@ -1706,36 +1733,28 @@ namespace Dal::Script {
                 capacity.emplace(&*budget, true);
             }
             AAD::RecordingScope_ recording;
-            FuzzyReplayWorkspace_<AAD::Number_> ws = MakeFuzzyReplayWorkspace<AAD::Number_>(prepared, modelData, scan, batch, scrambleKey);
-            //  Bind after the return-by-value, without relying on optional NRVO.
-            ws.sinks_.pays_ = &ws.pays_;
-            ws.sinks_.h_ = &ws.h_;
-            ws.sinks_.cond_ = &ws.cond_;
-            ws.sinks_.features_ = &ws.features_;
-            if (fuzzyCompiled) {
-                EvalState_<AAD::Number_> state = prepared.BuildEvalState<AAD::Number_>(0, prepared.Simulation().smooth_);
-                if (curvature)
-                    for (size_t j = 0; j < curvature->constants_.size(); ++j)
-                        state.ConstVarVals()[j] = curvature->constants_[j];
+            auto ws = MakeFuzzyReplayWorkspace<AAD::Number_>(ctx);
+            BindFuzzyReplaySinks(&ws);
+            WithFuzzyReplayEvaluator<AAD::Number_>(ctx, curvature ? &curvature->constants_ : nullptr, [&](auto& evaluator, const auto& evaluate) {
+                const auto checkpoint = InitModel4ParallelAAD(ctx.prepared_, *ws.model_, ws.path_, evaluator, recording, nullptr);
+                recording.FinishRecording();
+                AAD::CaptureTapeForProfiling();
+#if defined(DAL_ENABLE_AAD_PROFILING)
+                CaptureReplayArrays(ws, evaluator);
+#endif
                 initialize.Finish();
-                FuzzyReplayPaths(
-                    prepared, scan, regressions, batch, ws, recording, state,
-                    [fuzzyCompiled](FuzzyReplayWorkspace_<AAD::Number_>& w, const PreparedScript_& p, EvalState_<AAD::Number_>& s) {
-                        CompiledEvaluateFuzzyPath(w, p, *fuzzyCompiled, s);
-                    },
-                    outcome);
-            } else {
-                FuzzyEvaluator_<AAD::Number_> evaluator = prepared.BuildFuzzyEvaluator<AAD::Number_>(0, prepared.Simulation().smooth_);
-                if (curvature)
-                    for (size_t j = 0; j < curvature->constants_.size(); ++j)
-                        evaluator.ConstVarVals()[j] = curvature->constants_[j];
-                initialize.Finish();
-                FuzzyReplayPaths(prepared, scan, regressions, batch, ws, recording, evaluator, TreeEvaluateFuzzyPath<AAD::Number_>, outcome);
-            }
+                run([&](const PathBatch_& batch, AadReplayOutcome_* outcome, std::unique_ptr<Random_>) {
+                    const PathBatch_ pricingBatch{ctx.pricingOffset_ + batch.firstPath_, batch.pathCount_};
+                    if (ws.random_)
+                        ws.random_->SkipTo(pricingBatch.firstPath_);
+                    FuzzyReplayPaths(ctx.prepared_, ctx.scan_, ctx.regressions_, pricingBatch, ws, recording, checkpoint, evaluator, evaluate,
+                                     outcome);
+                });
+            });
             recording.Close();
             if (capacity) {
-                outcome->tapeBytes_ = budget->PeakCapacityBytes();
-                outcome->cleanupBytes_ = AAD::TapeCleanupCapacityBytes();
+                capacityStats->tapeBytes_ = budget->PeakCapacityBytes();
+                capacityStats->cleanupBytes_ = AAD::TapeCleanupCapacityBytes();
                 capacity->Close();
             }
         }
@@ -1780,33 +1799,19 @@ namespace Dal::Script {
             evaluator->SetHistoricalVectorSeed(past.VectorVals());
         }
 
-        double RunValueFuzzyReplayBatch(const PreparedScript_& prepared,
-                                        const Handle_<ModelData_>& modelData,
-                                        const LsmcPlan_& scan,
-                                        const Vector_<ExerciseRegression_>& regressions,
-                                        const ScriptCompiled_* fuzzyCompiled,
-                                        const PathBatch_& batch,
-                                        std::optional<uint64_t> scrambleKey,
-                                        const Vector_<>* constants = nullptr) {
+        template <class F_> void WithValueFuzzyReplayWorker(const FuzzyReplayContext_& ctx, const F_& run, const Vector_<>* constants) {
             AAD::ProfilingSpan_ initialize(AAD::AADProfilingPhase_::Value_::WORKER_INIT);
-            auto ws = MakeFuzzyReplayWorkspace<double>(prepared, modelData, scan, batch, scrambleKey);
-            ws.sinks_.pays_ = &ws.pays_;
-            ws.sinks_.h_ = &ws.h_;
-            ws.sinks_.cond_ = &ws.cond_;
-            ws.sinks_.features_ = &ws.features_;
-            if (fuzzyCompiled) {
-                auto state = prepared.BuildEvalState<double>(0, prepared.Simulation().smooth_);
-                InitializeValueConstants(prepared, &state, constants);
+            auto ws = MakeFuzzyReplayWorkspace<double>(ctx);
+            BindFuzzyReplaySinks(&ws);
+            WithFuzzyReplayEvaluator<double>(ctx, constants, [&](auto& evaluator, const auto& evaluate) {
                 initialize.Finish();
-                return ValueFuzzyReplayPaths(prepared, scan, regressions, batch, ws, state,
-                                             [fuzzyCompiled](FuzzyReplayWorkspace_<double>& w, const PreparedScript_& p, EvalState_<double>& s) {
-                                                 CompiledEvaluateFuzzyPath(w, p, *fuzzyCompiled, s);
-                                             });
-            }
-            auto evaluator = prepared.BuildFuzzyEvaluator<double>(0, prepared.Simulation().smooth_);
-            InitializeValueConstants(prepared, &evaluator, constants);
-            initialize.Finish();
-            return ValueFuzzyReplayPaths(prepared, scan, regressions, batch, ws, evaluator, TreeEvaluateFuzzyPath<double>);
+                run([&](const PathBatch_& batch, double* outcome, std::unique_ptr<Random_>) {
+                    const PathBatch_ pricingBatch{ctx.pricingOffset_ + batch.firstPath_, batch.pathCount_};
+                    if (ws.random_)
+                        ws.random_->SkipTo(pricingBatch.firstPath_);
+                    *outcome += ValueFuzzyReplayPaths(ctx.prepared_, ctx.scan_, ctx.regressions_, pricingBatch, ws, evaluator, evaluate);
+                });
+            });
         }
 
         double ValueFuzzyPolicy(const PreparedScript_& prepared,
@@ -1825,20 +1830,17 @@ namespace Dal::Script {
                     counts.replicates_ > 1
                         ? std::optional<uint64_t>(LsmcScrambleKey(true, prepared.Simulation().lsmcPricingSeed_.value_or(0), replicate))
                         : std::nullopt;
-                Vector_<> batchSums(batchPlan.BatchCount(), 0.0);
-                SimulationTaskGroup_ tasks(ThreadPool_::GetInstance(), batchPlan.BatchCount());
-                for (size_t batchIndex = 0; batchIndex < batchPlan.BatchCount(); ++batchIndex) {
-                    const PathBatch_ batch = batchPlan.BatchAt(batchIndex);
-                    tasks.Spawn([&, batch, batchIndex]() {
-                        const PathBatch_ pricingBatch{counts.pricingOffset_ + replicate * nPaths + batch.firstPath_, batch.pathCount_};
-                        batchSums[batchIndex] =
-                            RunValueFuzzyReplayBatch(prepared, modelData, scan, regressions, fuzzyCompiled, pricingBatch, pricingKey, constants);
-                        return true;
+                const FuzzyReplayContext_ ctx{prepared,  modelData, scan, regressions, fuzzyCompiled, counts.pricingOffset_ + replicate * nPaths,
+                                              pricingKey};
+                const size_t capacity = Detail::ChunkPartialCapacity(batchPlan.BatchCount(), sizeof(double));
+                Detail::OrderedChunkResults_<double> partials(Detail::MakeSimulationPartials(capacity, [] { return 0.0; }));
+                Detail::RunChunkWorkers(
+                    ThreadPool_::GetInstance(), batchPlan, &partials, nullptr,
+                    [&](const auto& run) { WithValueFuzzyReplayWorker(ctx, run, constants); },
+                    [&](const auto& outcome) {
+                        AAD::ProfilingSpan_ reduce(AAD::AADProfilingPhase_::Value_::REDUCE);
+                        sum += outcome;
                     });
-                }
-                tasks.Complete();
-                for (double batchSum : batchSums)
-                    sum += batchSum;
             }
             return sum / static_cast<double>(counts.replicates_ * nPaths);
         }
@@ -1949,41 +1951,40 @@ namespace Dal::Script {
                                       const CurvatureReplay_* curvature = nullptr,
                                       LsmcCurvatureExecution_* execution = nullptr) {
             AAD::ProfilingSpan_ replay(AAD::AADProfilingPhase_::Value_::LSM_REPLAY);
-            Vector_<AadReplayOutcome_> outcomes(batchPlan.BatchCount());
-            for (auto& outcome : outcomes)
-                outcome.risks_ = Vector_<>(results->risks_.size(), 0.0);
-
-            SimulationTaskGroup_ tasks(ThreadPool_::GetInstance(), batchPlan.BatchCount());
-            for (size_t batchIndex = 0; batchIndex < batchPlan.BatchCount(); ++batchIndex) {
-                const PathBatch_ batch = batchPlan.BatchAt(batchIndex);
-                tasks.Spawn([&, batch, batchIndex]() {
-                    const PathBatch_ pricingBatch{pricingOffset + batch.firstPath_, batch.pathCount_};
-                    RunFuzzyReplayBatch(prepared, modelData, scan, regressions, fuzzyCompiled, pricingBatch, pricingKey, &outcomes[batchIndex],
-                                        curvature);
-                    return true;
+            const FuzzyReplayContext_ ctx{prepared, modelData, scan, regressions, fuzzyCompiled, pricingOffset, pricingKey};
+            auto* pool = ThreadPool_::GetInstance();
+            const size_t workers = std::min(pool->NumThreads(), batchPlan.BatchCount());
+            Vector_<ReplayCapacity_> capacities(curvature ? workers : 0);
+            std::atomic<size_t> nextWorker{0};
+            const size_t capacity = Detail::ChunkPartialCapacity(batchPlan.BatchCount(),
+                                                                 Detail::NumericPartialBytes(Detail::ProfileArrays(results->risks_), sizeof(double)));
+            Detail::OrderedChunkResults_<AadReplayOutcome_> partials(
+                Detail::MakeSimulationPartials(capacity, [&] { return AadReplayOutcome_(results->risks_.size()); }));
+            Detail::RunChunkWorkers(
+                pool, batchPlan, &partials, nullptr,
+                [&](const auto& run) {
+                    auto* statistics = curvature ? &capacities[nextWorker.fetch_add(1, std::memory_order_relaxed)] : nullptr;
+                    WithFuzzyReplayWorker(ctx, run, statistics, curvature);
+                },
+                [&](const auto& outcome) {
+                    AAD::ProfilingSpan_ reduce(AAD::AADProfilingPhase_::Value_::REDUCE);
+                    results->aggregated_ += outcome.aggregated_;
+                    for (size_t j = 0; j < riskTotals->size(); ++j)
+                        (*riskTotals)[j] += outcome.risks_[j];
                 });
-            }
-            tasks.Complete();
-
-            AAD::ProfilingSpan_ reduce(AAD::AADProfilingPhase_::Value_::REDUCE);
 #if defined(DAL_ENABLE_AAD_PROFILING)
             AAD::CaptureMemoryForProfiling([&] {
-                auto resultArrays = Detail::ProfileArrays(results->risks_, *riskTotals, outcomes);
-                for (const auto& outcome : outcomes)
+                auto resultArrays = Detail::ProfileArrays(results->risks_, *riskTotals, partials.Partials(), capacities);
+                for (const auto& outcome : partials.Partials())
                     resultArrays = Detail::JoinProfileArrays(resultArrays, Detail::ProfileArrays(outcome.risks_));
                 return AAD::ProfilingMemoryStatistics_{{}, {}, resultArrays, {}};
             });
 #endif
-            for (const auto& outcome : outcomes) {
-                results->aggregated_ += outcome.sum_;
-                if (execution) {
-                    execution->maxBatchTapeBytes_ = std::max(execution->maxBatchTapeBytes_, outcome.tapeBytes_);
-                    execution->maxBatchCleanupReserveBytes_ = std::max(execution->maxBatchCleanupReserveBytes_, outcome.cleanupBytes_);
+            if (execution)
+                for (const auto& statistics : capacities) {
+                    execution->maxBatchTapeBytes_ = std::max(execution->maxBatchTapeBytes_, statistics.tapeBytes_);
+                    execution->maxBatchCleanupReserveBytes_ = std::max(execution->maxBatchCleanupReserveBytes_, statistics.cleanupBytes_);
                 }
-            }
-            for (size_t j = 0; j < results->risks_.size(); ++j)
-                for (const auto& outcome : outcomes)
-                    (*riskTotals)[j] += outcome.risks_[j];
         }
 
         std::unique_ptr<AAD::BlackScholes_<double>> MakeLsmcCurvatureModel(const PreparedScript_& prepared, const Vector_<>& point) {

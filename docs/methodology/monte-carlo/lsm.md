@@ -310,8 +310,11 @@ Products containing `EXERCISE` divert to the fuzzy LSMC driver
 (`MCLsmcAadSimulation` in `dal-cpp/dal/script/lsmc.cpp`), in both tree and
 compiled execution. The forward storage and backward regression phases run
 exactly as the double driver, so the continuation coefficients `C_k` are the
-thread-count independent hard-decision artifact. Each replay worker then
-generates its batch from the disjoint pricing block on its own tape, records the per-event payments and the
+thread-count independent hard-decision artifact. Each pricing replicate submits
+at most one task per pool thread, capped by the number of 8192-path batches.
+Each worker reuses its model, Sobol generator, evaluator and tape prefix across
+the batches it claims, seeking each batch's absolute position in the disjoint
+pricing block. It records the per-event payments and the
 per-date exercise values and fuzzy condition degrees, and prices the path with
 the recursive blend
 
@@ -350,8 +353,13 @@ finite difference, which also includes finite-step curvature of the direct
 payoff response. An envelope argument at an optimal stopping rule does not
 provide a general second-order error guarantee for an approximate, smoothed
 policy. Adjoint accumulation and reduction follow the
-thread-count-independent 8192-path batch layout and batch-index ordering,
-so PV and every `d_<param>` are bitwise invariant across
+thread-count-independent 8192-path batch layout and batch-index ordering.
+Each batch reverses the shared worker prefix, harvests numeric risks and clears
+the input adjoints before the next batch. Ordered result storage is bounded by
+256 slots and a 16 MiB numeric-payload target, with one slot as the minimum;
+worker model, path and tape storage is additional. Value-only policy repricing
+also reuses worker state and folds batches in the same order. Thus PV and every
+`d_<param>` are bitwise invariant across
 thread counts in AAD mode as well, and historical fixings replay into the
 seed exactly as for non-exercise products.
 
