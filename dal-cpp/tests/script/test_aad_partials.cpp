@@ -163,6 +163,18 @@ namespace {
         return product;
     }
 
+    void AssertChunkProfileCounts(const AAD::ProfilingData_& statistics, const Script::Detail::ChunkPlan_& chunks) {
+        ASSERT_EQ(statistics.taskGroups_.size(), 1u);
+        ASSERT_EQ(statistics.taskGroups_.front().size(), std::min(ThreadPool_::GetInstance()->NumThreads(), chunks.BatchCount()));
+        uint64_t prefix = 0;
+        for (const auto& task : statistics.taskGroups_.front()) {
+            ASSERT_TRUE(task.complete_);
+            ASSERT_EQ(task.Phase(AAD::AADProfilingPhase_::Value_::WORKER_INIT).calls_, 1u);
+            prefix += task.Phase(AAD::AADProfilingPhase_::Value_::REVERSE_PREFIX).calls_;
+        }
+        ASSERT_EQ(prefix, chunks.BatchCount());
+    }
+
     void AssertWeightedAadPartials(bool compiled, size_t paths, size_t threads) {
         ScopedAadWorkers_ workers(threads);
         const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 1, 1));
@@ -188,8 +200,11 @@ namespace {
         profile.reset();
         if (AAD::ProfilingAvailable()) {
             ASSERT_TRUE(statistics.complete_);
-            ASSERT_EQ(statistics.memory_.resultArrays_.liveBytes_, (threads + 1) * (inputs.size() + 3) * sizeof(double));
+            const Script::Detail::ChunkPlan_ chunks(paths);
+            const size_t slots = Script::Detail::ChunkPartialCapacity(chunks.BatchCount(), (inputs.size() + 4) * sizeof(double));
+            ASSERT_EQ(statistics.memory_.resultArrays_.liveBytes_, (slots + 1) * (inputs.size() + 3) * sizeof(double));
             ASSERT_GE(statistics.memory_.resultArrays_.capacityBytes_, statistics.memory_.resultArrays_.liveBytes_);
+            ASSERT_NO_FATAL_FAILURE(AssertChunkProfileCounts(statistics, chunks));
         }
         ASSERT_EQ(audit.axes_, 1);
         ASSERT_EQ(audit.metadataCopies_, 0);

@@ -17,9 +17,12 @@ held-out block for selecting degree; otherwise the requested degree is used dire
 Fixing both counts keeps the fitted policy unchanged when the pricing count changes.
 Valuation runs in three phases over a fixed,
 thread-count-independent batch layout: batches of at most 8192 paths
-indexed by batch order, with per-batch contributions reduced in batch-index
-sequence, so PV, the frozen coefficients, and every exercise rate are bitwise
-invariant across thread counts.
+indexed by batch order. Training statistics and exercise counts reduce in
+batch-index sequence. Hard-pricing PV sums paths in the same adaptive numeric
+chunks as [ordinary simulation](simulation.md), then adds those chunk sums in
+path order. This preserves exact agreement with ordinary pricing when every
+exercise value is zero. PV, the frozen coefficients, and every exercise rate
+are bitwise invariant across thread counts.
 
 ## C++ Example and Path Counts
 
@@ -156,8 +159,7 @@ mask per Sobol coordinate. Shifted integer points are mapped to bin midpoints
 before inverse-normal transformation, avoiding 0 and 1. Omitted training and
 pricing seeds use zero, but role separation keeps their stream identities
 distinct. Explicit seeds without a replicate count, and non-Sobol RQMC settings,
-are rejected. Unset RQMC settings retain the original deterministic Sobol path
-and numerical results.
+are rejected. Unset RQMC settings use the deterministic Sobol path.
 
 The RQMC price is the mean of replicate prices. Its
 `ReplicateMeanStandardError()` is the sample standard deviation of those prices
@@ -348,8 +350,8 @@ finite difference, which also includes finite-step curvature of the direct
 payoff response. An envelope argument at an optimal stopping rule does not
 provide a general second-order error guarantee for an approximate, smoothed
 policy. Adjoint accumulation and reduction follow the
-same thread-count independent batch layout and batch-index ordering as the
-double driver, so PV and every `d_<param>` are bitwise invariant across
+thread-count-independent 8192-path batch layout and batch-index ordering,
+so PV and every `d_<param>` are bitwise invariant across
 thread counts in AAD mode as well, and historical fixings replay into the
 seed exactly as for non-exercise products.
 

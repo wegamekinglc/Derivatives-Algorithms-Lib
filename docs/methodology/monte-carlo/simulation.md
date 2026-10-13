@@ -70,7 +70,10 @@ generators, see [sampling](sampling.md).
 
 ## Batches, Compiled Scripts, and AAD
 
-Ordinary paths use batches of size `min(8192, ceil(nPaths / nThreads))`.
+Ordinary scalar and weighted paths use chunks whose size depends on the path
+count, independently of the thread count. Round `ceil(nPaths / 256)` up to a
+power of two, then clamp to 64..2048 paths. At most
+`min(nThreads, nChunks)` persistent tasks claim chunks from a shared counter.
 In value-only `double` evaluation, each worker reuses its Gaussian vector,
 scenario and evaluator across batches in one valuation. Sobol, MRG32 and
 single-threaded IRN also reuse the worker RNG. Multi-threaded IRN replaces it
@@ -87,16 +90,24 @@ The detailed opcode and observation contracts are in
 
 With `enableAad_ = true`, `MCSimulation<AAD::Number_>` creates an active model
 and tape on each worker. Model parameters and script constants are registered
-once per batch; each path rewinds to a tape mark, evaluates fuzzy future
-conditions, and back-propagates the path payoff. Batch adjoints are reduced
+once per worker; each path rewinds to a tape mark, evaluates fuzzy future
+conditions, and back-propagates the path payoff. After each chunk the prefix
+reverses, input adjoints are harvested and cleared, and numeric contributions are reduced
 into the risk vector. The [AAD guide](../aad.md#pathwise-adjoints-in-monte-carlo)
 explains tape ownership and smoothing. For `EXERCISE`, the AAD meaning depends
 on the [frozen or retrained policy mode](lsm.md#early-exercise-aad).
 
 Ordinary scalar and weighted AAD valuations construct the final risk labels and
 lookup map once. Workers accumulate numeric payoff sums, normalized risks and,
-for weighted objectives, component sums. Reduction follows worker order;
-changing the worker count or assignment can change floating-point rounding.
+for weighted objectives, component sums. A bounded ring holds at most 256
+partials with a 16 MiB numeric payload target; an individual oversized partial
+requires one slot. When every chunk fits, workers write exclusive slots and
+the caller reduces them after all tasks finish. Otherwise, completing workers
+reduce the ready prefix in chunk order and release slots for reuse.
+For identical inputs, path count, RNG and evaluator on the same build and
+floating-point environment, ordinary PVs, every Greek and weighted component
+are exactly repeatable across worker counts and scheduling. LSMC uses its
+separate partition and training policy.
 
 ## Interpreting a Result
 

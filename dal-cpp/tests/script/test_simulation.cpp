@@ -232,16 +232,19 @@ TEST(SimulationTest, TestExplicitPassiveProfilingCapturesEachPathWithoutTapeSamp
         ASSERT_EQ(actual.risks_, expected.risks_);
         ASSERT_EQ(data.taskGroups_.size(), 1);
         ASSERT_EQ(data.Phase(AAD::AADProfilingPhase_::Value_::WAIT).calls_, 1);
-        ASSERT_EQ(data.Phase(AAD::AADProfilingPhase_::Value_::REDUCE).calls_, 1);
-        std::uint64_t forward = 0, payoff = 0;
+        const Script::Detail::ChunkPlan_ chunks(N_PATHS);
+        ASSERT_EQ(data.taskGroups_.front().size(), std::min(ThreadPool_::GetInstance()->NumThreads(), chunks.BatchCount()));
+        std::uint64_t forward = 0, payoff = 0, reduce = data.Phase(AAD::AADProfilingPhase_::Value_::REDUCE).calls_;
         for (const auto& task : data.taskGroups_.front()) {
             ASSERT_TRUE(task.complete_);
             ASSERT_EQ(task.tapeSamples_, 0);
             forward += task.Phase(AAD::AADProfilingPhase_::Value_::PATH_FORWARD).calls_;
             payoff += task.Phase(AAD::AADProfilingPhase_::Value_::PAYOFF).calls_;
+            reduce += task.Phase(AAD::AADProfilingPhase_::Value_::REDUCE).calls_;
         }
         ASSERT_EQ(forward, N_PATHS);
         ASSERT_EQ(payoff, N_PATHS);
+        ASSERT_EQ(reduce, chunks.BatchCount());
     }
 }
 
@@ -304,8 +307,9 @@ TEST(SimulationTest, TestExplicitAadProfilingCapturesEveryPathAndBatchWithoutCha
             ASSERT_NEAR(actual.risks_[i], expected.risks_[i], 1e-10 * std::max(1.0, std::abs(expected.risks_[i])));
         ASSERT_NEAR(actual.risks_[0], actual.aggregated_ / (N_PATHS * 10.0), 1e-10);
         ASSERT_EQ(data.taskGroups_.size(), 1);
-        const BatchPlan_ batches(N_PATHS, ThreadPool_::GetInstance()->NumThreads());
-        ASSERT_EQ(data.taskGroups_.front().size(), batches.BatchCount());
+        const Script::Detail::ChunkPlan_ chunks(N_PATHS);
+        const size_t workers = std::min(ThreadPool_::GetInstance()->NumThreads(), chunks.BatchCount());
+        ASSERT_EQ(data.taskGroups_.front().size(), workers);
         ASSERT_GT(data.memory_.resultArrays_.liveBytes_, 0);
         std::uint64_t forward = 0, payoff = 0, suffix = 0, prefix = 0, samples = 0;
         for (const auto& task : data.taskGroups_.front()) {
@@ -324,8 +328,8 @@ TEST(SimulationTest, TestExplicitAadProfilingCapturesEveryPathAndBatchWithoutCha
         ASSERT_EQ(forward, N_PATHS);
         ASSERT_EQ(payoff, N_PATHS);
         ASSERT_EQ(suffix, N_PATHS);
-        ASSERT_EQ(prefix, batches.BatchCount());
-        ASSERT_EQ(samples, N_PATHS + batches.BatchCount());
+        ASSERT_EQ(prefix, chunks.BatchCount());
+        ASSERT_EQ(samples, N_PATHS + workers);
     }
 }
 #endif

@@ -1265,16 +1265,23 @@ TEST(ScriptExerciseLSMCTest, TestThreadInvarianceBitwise) {
 TEST(ScriptExerciseLSMCTest, TestZeroExerciseMatchesPlainProductBitwise) {
     const auto date = XGLOBAL::SetEvaluationDateInScope(EvalDate());
     PoolRestore_ pool;
-    pool.pool_->Start(1, true);
     const Vector_<Cell_> dates{Cell_(Date_(2027, 9, 20)), Cell_(Date_(2028, 3, 20))};
     const Vector_<String_> plainEvents{"pay PAYS 1.0", "pay PAYS 2.0"};
     const Vector_<String_> exerciseEvents{"pay PAYS 1.0", "pay PAYS 2.0\nEXERCISE 1000.0 IF spot() > 1.0e9"};
     MonteCarloSettings_ simulation;
-    const auto plain =
-        MCSimulation<double>(ScriptProductData_("", dates, plainEvents), StandardModel(), 4096, ScriptValuationSettings_(), simulation);
-    const auto exercise =
-        MCSimulation<double>(ScriptProductData_("", dates, exerciseEvents), StandardModel(), 4096, ScriptValuationSettings_(), simulation);
-    ASSERT_EQ(BitsOf(plain.aggregated_), BitsOf(exercise.aggregated_));
+    for (const size_t threads : {1, 4}) {
+        pool.pool_->Start(threads, true);
+        for (const bool compiled : {false, true}) {
+            simulation.compiled_ = compiled;
+            for (const size_t paths : {4096, 8193}) {
+                const auto plain =
+                    MCSimulation<double>(ScriptProductData_("", dates, plainEvents), StandardModel(), paths, ScriptValuationSettings_(), simulation);
+                const auto exercise = MCSimulation<double>(ScriptProductData_("", dates, exerciseEvents), StandardModel(), paths,
+                                                           ScriptValuationSettings_(), simulation);
+                ASSERT_EQ(BitsOf(plain.aggregated_), BitsOf(exercise.aggregated_));
+            }
+        }
+    }
 }
 
 //  ---------------------------------------------------------------------------

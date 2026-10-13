@@ -1350,6 +1350,21 @@ namespace Dal::Script {
                 : pricing_{ctx.prepared_, ctx.model_, ctx.scan_, storage_, ctx.compiled_, &regressions, ctx.scrambleKey_}, state_(pricing_) {}
         };
 
+        void ReplayPriceChunks(
+            ReplayWorkspace_* workspace, const PathBatch_& batch, const Detail::ChunkPlan_& chunks, ReplayOutcome_* outcome, Vector_<>* chunkSums) {
+            for (size_t first = 0; first < batch.pathCount_; first += chunks.BatchSize()) {
+                const size_t end = std::min(batch.pathCount_, first + chunks.BatchSize());
+                double sum = 0.0;
+                for (size_t i = first; i < end; ++i) {
+                    EvaluateRecordedPath(workspace->state_, workspace->pricing_, 0);
+                    const double payoff = PathPayoff(workspace->pricing_, workspace->state_, &outcome->exerciseCounts_);
+                    sum += payoff;
+                    outcome->sumSq_ += payoff * payoff;
+                }
+                (*chunkSums)[(batch.firstPath_ + first) / chunks.BatchSize()] = sum;
+            }
+        }
+
         //  Phase C evaluates the frozen strategy on a disjoint Sobol block. Each
         //  worker reuses its evaluator and scalar state; batch-index reduction
         //  preserves thread invariance.
@@ -1358,6 +1373,10 @@ namespace Dal::Script {
                                       size_t pricingPathOffset,
                                       const Vector_<ExerciseRegression_>& regressions) {
             AAD::ProfilingSpan_ replay(AAD::AADProfilingPhase_::Value_::LSM_REPLAY);
+            const Detail::ChunkPlan_ chunks(batchPlan.PathCount());
+            REQUIRE(batchPlan.BatchCount() <= 1 || batchPlan.BatchSize() % chunks.BatchSize() == 0,
+                    "LSMC replay batches must align with numeric chunks");
+            Vector_<> chunkSums(chunks.BatchCount(), 0.0);
             Vector_<ReplayOutcome_> outcomes(batchPlan.BatchCount());
             for (auto& outcome : outcomes)
                 outcome.exerciseCounts_ = Vector_<size_t>(ctx.scan_.days_.size(), 0);
@@ -1373,16 +1392,10 @@ namespace Dal::Script {
                     auto& local = workspaces[ThreadPool_::ThreadNum()];
                     if (!local)
                         local = std::make_unique<ReplayWorkspace_>(ctx, regressions);
-                    auto& pricing = local->pricing_;
                     auto& state = local->state_;
                     state.random_->SkipTo(pricingPathOffset + batch.firstPath_);
                     initialize.Finish();
-                    for (size_t i = 0; i < batch.pathCount_; ++i) {
-                        EvaluateRecordedPath(state, pricing, 0);
-                        const double payoff = PathPayoff(pricing, state, &outcome.exerciseCounts_);
-                        outcome.sum_ += payoff;
-                        outcome.sumSq_ += payoff * payoff;
-                    }
+                    ReplayPriceChunks(local.get(), batch, chunks, &outcome, &chunkSums);
                     return true;
                 });
             }
@@ -1391,8 +1404,9 @@ namespace Dal::Script {
             // Fixed reduction order keeps results independent of worker scheduling.
             AAD::ProfilingSpan_ reduce(AAD::AADProfilingPhase_::Value_::REDUCE);
             ReplayOutcome_ reduction{0.0, 0.0, Vector_<size_t>(ctx.scan_.days_.size(), 0)};
+            for (const double sum : chunkSums)
+                reduction.sum_ += sum;
             for (const auto& outcome : outcomes) {
-                reduction.sum_ += outcome.sum_;
                 reduction.sumSq_ += outcome.sumSq_;
                 for (size_t k = 0; k < reduction.exerciseCounts_.size(); ++k)
                     reduction.exerciseCounts_[k] += outcome.exerciseCounts_[k];
