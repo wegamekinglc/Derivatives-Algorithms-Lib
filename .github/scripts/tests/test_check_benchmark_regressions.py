@@ -1,5 +1,6 @@
 """Tests for the paired DAL benchmark regression gate."""
 
+import argparse
 import importlib.util
 import io
 import json
@@ -24,7 +25,216 @@ class BenchmarkRegressionTest(unittest.TestCase):
         binary.parent.mkdir(parents=True)
         binary.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
         binary.chmod(mode)
+        cache = build_root / "CMakeCache.txt"
+        if not cache.exists():
+            cache.write_text("BUILD_SHARED_LIBS:BOOL=OFF\n", encoding="utf-8")
         return binary
+
+    def test_main_retries_only_failed_targets_when_all_binaries_are_identical(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for side in ("base", "head"):
+                for benchmark in ("pde_perf", "tape_perf"):
+                    self._create_benchmark_binary(root / side, benchmark)
+            args = argparse.Namespace(
+                base_root=root / "base", head_root=root / "head", output_dir=root / "results",
+                summary_file=root / "summary.md", benchmarks=["pde_perf", "tape_perf"],
+                samples=10, confirmation_rounds=2, threshold_percent=4.0,
+                precise_slowdown_limit=10.0, retry_identical_binaries=True,
+            )
+            initial = {
+                "pde_perf": {"base": {"case": [100.0] * 20}, "head": {"case": [105.0] * 20}},
+                "tape_perf": {"base": {"case": [100.0] * 20}, "head": {"case": [100.0] * 20}},
+            }
+            retry = {"pde_perf": {"base": {"case": [100.0] * 20}, "head": {"case": [100.0] * 20}}}
+            with mock.patch.object(BENCHMARKS, "parse_args", return_value=args), \
+                    mock.patch.object(BENCHMARKS, "collect_samples", side_effect=[initial, retry]) as collect, \
+                    mock.patch("sys.stdout", new_callable=io.StringIO) as output:
+                self.assertEqual(BENCHMARKS.main(), 0)
+            self.assertEqual(collect.call_count, 2)
+            self.assertEqual(collect.call_args.args[2:4], (["pde_perf"], 20))
+            self.assertEqual(collect.call_args.args[4], args.output_dir / "retry")
+            final = json.loads((args.output_dir / "results.json").read_text())
+            self.assertEqual(final["failures"], [])
+            self.assertEqual(final["retry_benchmarks"], ["pde_perf"])
+            self.assertTrue(final["binary_identity"]["pde_perf"]["identical"])
+            original = json.loads((args.output_dir / "initial-results.json").read_text())
+            self.assertEqual(len(original["failures"]), 1)
+            self.assertIn("::warning::", output.getvalue())
+            self.assertIn("Initial comparison", args.summary_file.read_text())
+
+    @staticmethod
+    def _args(root, benchmarks=("pde_perf",), retry=True):
+        return argparse.Namespace(
+            base_root=root / "base", head_root=root / "head", output_dir=root / "results",
+            summary_file=None, benchmarks=list(benchmarks), samples=10,
+            confirmation_rounds=2, threshold_percent=4.0, precise_slowdown_limit=10.0,
+            retry_identical_binaries=retry,
+        )
+
+    def test_main_never_retries_changed_binaries_or_a_disabled_retry(self):
+        samples = {"pde_perf": {"base": {"case": [100.0] * 20}, "head": {"case": [105.0] * 20}}}
+        for changed, enabled in ((True, True), (False, False)):
+            with self.subTest(changed=changed, enabled=enabled), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                self._create_benchmark_binary(root / "base")
+                head = self._create_benchmark_binary(root / "head")
+                if changed:
+                    head.write_text("#!/bin/sh\nexit 1\n")
+                with mock.patch.object(BENCHMARKS, "parse_args", return_value=self._args(root, retry=enabled)), \
+                        mock.patch.object(BENCHMARKS, "collect_samples", return_value=samples) as collect, \
+                        mock.patch("sys.stdout", new_callable=io.StringIO):
+                    self.assertEqual(BENCHMARKS.main(), 1)
+                collect.assert_called_once()
+
+    def test_main_passing_comparison_does_not_retry(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for side in ("base", "head"):
+                self._create_benchmark_binary(root / side)
+            samples = {"pde_perf": {"base": {"case": [100.0] * 20}, "head": {"case": [100.0] * 20}}}
+            with mock.patch.object(BENCHMARKS, "parse_args", return_value=self._args(root)), \
+                    mock.patch.object(BENCHMARKS, "collect_samples", return_value=samples) as collect, \
+                    mock.patch("sys.stdout", new_callable=io.StringIO):
+                self.assertEqual(BENCHMARKS.main(), 0)
+            collect.assert_called_once()
+
+    def test_main_does_not_retry_when_static_linking_is_unverified(self):
+        failing = {"pde_perf": {"base": {"case": [100.0] * 20}, "head": {"case": [105.0] * 20}}}
+        passing = {"pde_perf": {"base": {"case": [100.0] * 20}, "head": {"case": [100.0] * 20}}}
+        for changed_side, mode in (("base", "ON"), ("head", "ON"), ("base", None), ("head", None)):
+            with self.subTest(side=changed_side, mode=mode), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                for side in ("base", "head"):
+                    self._create_benchmark_binary(root / side)
+                cache = root / changed_side / "CMakeCache.txt"
+                if mode is None:
+                    cache.unlink()
+                else:
+                    cache.write_text("BUILD_SHARED_LIBS:BOOL=ON\n")
+                with mock.patch.object(BENCHMARKS, "parse_args", return_value=self._args(root)), \
+                        mock.patch.object(BENCHMARKS, "collect_samples", side_effect=[failing, passing]) as collect, \
+                        mock.patch("sys.stdout", new_callable=io.StringIO):
+                    self.assertEqual(BENCHMARKS.main(), 1)
+                collect.assert_called_once()
+
+    def test_main_second_relative_failure_still_fails_without_a_third_attempt(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for side in ("base", "head"):
+                self._create_benchmark_binary(root / side)
+            samples = {"pde_perf": {"base": {"case": [100.0] * 20}, "head": {"case": [105.0] * 20}}}
+            with mock.patch.object(BENCHMARKS, "parse_args", return_value=self._args(root)), \
+                    mock.patch.object(BENCHMARKS, "collect_samples", return_value=samples) as collect, \
+                    mock.patch("sys.stdout", new_callable=io.StringIO):
+                self.assertEqual(BENCHMARKS.main(), 1)
+            self.assertEqual(collect.call_count, 2)
+            self.assertEqual(len(json.loads((root / "results/results.json").read_text())["failures"]), 1)
+
+    def test_main_does_not_retry_structural_or_absolute_cost_failures(self):
+        relative = {"base": {"case": [100.0] * 20}, "head": {"case": [105.0] * 20}}
+        missing_case = {"base": {**relative["base"], "missing": [100.0] * 20}, "head": relative["head"]}
+        sobol = {
+            side: {**relative[side], BENCHMARKS.FAST_SOBOL_CASE: [100.0] * 20,
+                   BENCHMARKS.PRECISE_SOBOL_CASE: [1100.0] * 20}
+            for side in ("base", "head")
+        }
+        overhead = {
+            side: {**relative[side], **self._generic_joint_samples()}
+            for side in ("base", "head")
+        }
+        overhead["head"]["Quote risk generic joint (100 IRS x N=5)"] = [121.0] * 20
+        for benchmark, sample in (("pde_perf", missing_case), ("rng_perf", sobol), ("rate_risk_perf", overhead)):
+            with self.subTest(benchmark=benchmark), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                for side in ("base", "head"):
+                    self._create_benchmark_binary(root / side, benchmark)
+                with mock.patch.object(BENCHMARKS, "parse_args", return_value=self._args(root, (benchmark,))), \
+                        mock.patch.object(BENCHMARKS, "collect_samples", return_value={benchmark: sample}) as collect, \
+                        mock.patch("sys.stdout", new_callable=io.StringIO):
+                    self.assertEqual(BENCHMARKS.main(), 1)
+                collect.assert_called_once()
+
+    def test_main_rejects_binary_drift_during_either_attempt(self):
+        samples = {"pde_perf": {"base": {"case": [100.0] * 20}, "head": {"case": [105.0] * 20}}}
+        for attempt in (1, 2):
+            with self.subTest(attempt=attempt), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                self._create_benchmark_binary(root / "base")
+                head = self._create_benchmark_binary(root / "head")
+                calls = []
+
+                def sample(*_):
+                    calls.append(None)
+                    if len(calls) == attempt:
+                        head.write_text("#!/bin/sh\nexit 1\n")
+                    return samples
+
+                with mock.patch.object(BENCHMARKS, "parse_args", return_value=self._args(root)), \
+                        mock.patch.object(BENCHMARKS, "collect_samples", side_effect=sample), \
+                        mock.patch("sys.stdout", new_callable=io.StringIO):
+                    with self.assertRaisesRegex(RuntimeError, "identity changed"):
+                        BENCHMARKS.main()
+                self.assertEqual(len(calls), attempt)
+                evidence = root / "results" / ("retry/binary-identity.json" if attempt == 2 else "binary-identity.json")
+                identity = json.loads(evidence.read_text())
+                self.assertNotEqual(identity["before"], identity["after"])
+
+    def test_main_mixed_changed_and_identical_targets_are_not_retried(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for side in ("base", "head"):
+                for benchmark in ("pde_perf", "tape_perf"):
+                    self._create_benchmark_binary(root / side, benchmark)
+            (root / "head/dal-cpp/benchmarks/tape_perf/tape_perf").write_text("#!/bin/sh\nexit 1\n")
+            samples = {
+                "pde_perf": {"base": {"case": [100.0] * 20}, "head": {"case": [105.0] * 20}},
+                "tape_perf": {"base": {"case": [100.0] * 20}, "head": {"case": [100.0] * 20}},
+            }
+            with mock.patch.object(BENCHMARKS, "parse_args", return_value=self._args(root, samples)), \
+                    mock.patch.object(BENCHMARKS, "collect_samples", return_value=samples) as collect, \
+                    mock.patch("sys.stdout", new_callable=io.StringIO):
+                self.assertEqual(BENCHMARKS.main(), 1)
+            collect.assert_called_once()
+
+    def test_main_sampling_errors_are_never_retried(self):
+        failing = {"pde_perf": {"base": {"case": [100.0] * 20}, "head": {"case": [105.0] * 20}}}
+        for attempt in (1, 2):
+            with self.subTest(attempt=attempt), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                for side in ("base", "head"):
+                    self._create_benchmark_binary(root / side)
+                samples = [failing] * (attempt - 1) + [RuntimeError("process failed")]
+                with mock.patch.object(BENCHMARKS, "parse_args", return_value=self._args(root)), \
+                        mock.patch.object(BENCHMARKS, "collect_samples", side_effect=samples) as collect, \
+                        mock.patch("sys.stdout", new_callable=io.StringIO):
+                    with self.assertRaisesRegex(RuntimeError, "process failed"):
+                        BENCHMARKS.main()
+                self.assertEqual(collect.call_count, attempt)
+
+    def test_binary_identity_requires_an_existing_baseline(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self._create_benchmark_binary(root / "head")
+            identity = BENCHMARKS.binary_identity(root / "base", root / "head", ["pde_perf"])["pde_perf"]
+            self.assertIsNone(identity["base_sha256"])
+            self.assertEqual(len(identity["head_sha256"]), 64)
+            self.assertFalse(identity["identical"])
+
+    def test_static_build_accepts_typed_and_scheduled_untyped_cache_entries(self):
+        for cache_type in ("BOOL", "UNINITIALIZED"):
+            with self.subTest(cache_type=cache_type), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                (root / "CMakeCache.txt").write_text(f"BUILD_SHARED_LIBS:{cache_type}=OFF\n")
+                self.assertTrue(BENCHMARKS.static_build(root))
+
+    def test_retry_is_an_explicit_cli_option(self):
+        argv = [str(SCRIPT), "--base-root", "base", "--head-root", "head", "--output-dir", "results"]
+        for flags, enabled in (([], False), (["--retry-identical-binaries"], True)):
+            with self.subTest(flags=flags), mock.patch("sys.argv", argv + flags):
+                args = BENCHMARKS.parse_args()
+            self.assertEqual(args.retry_identical_binaries, enabled)
+            self.assertEqual((args.samples, args.confirmation_rounds, args.threshold_percent), (10, 2, 4.0))
 
     def test_parse_benchmark_output_converts_minimum_to_nanoseconds(self):
         output = """Benchmark                  Median       Min       Max  Reps
@@ -167,6 +377,7 @@ Case in nanoseconds      120.000 ns  100.000 ns  130.000 ns    10
                 threshold_percent=4.0, precise_slowdown_limit=10.0,
                 base_root=root / "base", head_root=root / "head",
                 benchmarks=["rate_risk_perf"], summary_file=root / "step-summary.md",
+                retry_identical_binaries=False,
             )
             with mock.patch.object(BENCHMARKS, "parse_args", return_value=args), \
                     mock.patch.object(BENCHMARKS, "collect_samples", return_value={

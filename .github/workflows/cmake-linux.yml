@@ -341,6 +341,7 @@ jobs:
         run: |
           python3 .github/scripts/check_docs.py
           python3 -m unittest discover -s .github/scripts/tests -p test_checkout_dependencies.py
+          python3 -m unittest discover -s .github/scripts/tests -p test_check_benchmark_regressions.py -v
 
   warning-clean:
     name: Warning-clean GCC build
