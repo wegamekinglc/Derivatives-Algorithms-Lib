@@ -95,8 +95,20 @@ def validate_risks(record, job):
     expected = 8 if job.case == "local_vol_weekly" else 5
     if len(names) != expected or len(risks) != expected or len(set(names)) != expected:
         raise ValueError("missing, duplicated or cropped native risk coordinates")
-    if not all(isinstance(name, str) and name for name in names) or not finite_numbers([record.get("pv"), *risks]):
+    if not valid_risk_names(names) or not finite_numbers([record.get("pv"), *risks]):
         raise ValueError("invalid native price/risk values")
+
+
+def valid_risk_names(names):
+    return all(isinstance(name, str) and name for name in names)
+
+
+def validate_diagnostics(record, job):
+    replicates = record.get("hard_replicate_means", [])
+    if len(replicates) != job.replicates or not finite_numbers([record.get("hard_pv"), *replicates]):
+        raise ValueError("missing hard-policy replicate diagnostics")
+    if not isinstance(record.get("policy"), list) or not record["policy"]:
+        raise ValueError("missing fitted-policy diagnostics")
 
 
 def parse_record(output, job, anchor):
@@ -107,11 +119,7 @@ def parse_record(output, job, anchor):
     if any(record.get(name) != value for name, value in expected_fields(job, anchor).items()):
         raise ValueError("native result settings or sample addresses do not match the job")
     validate_risks(record, job)
-    replicates = record.get("hard_replicate_means", [])
-    if len(replicates) != job.replicates or not finite_numbers([record.get("hard_pv"), *replicates]):
-        raise ValueError("missing hard-policy replicate diagnostics")
-    if not isinstance(record.get("policy"), list) or not record["policy"]:
-        raise ValueError("missing fitted-policy diagnostics")
+    validate_diagnostics(record, job)
     return record
 
 

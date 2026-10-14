@@ -3,7 +3,7 @@
 from contextlib import contextmanager
 import json
 from pathlib import Path
-import subprocess
+import subprocess  # nosec B404: execute only the identity-verified native study image
 import time
 
 from lsmc_study_build import digest, require_source_inputs
@@ -57,7 +57,7 @@ def execute_job(root, job, executable, timeout, process):
     command = job.command(executable)
     start = time.monotonic()
     try:
-        result = process(command, capture_output=True, text=True, timeout=timeout, check=False)
+        result = process(command, capture_output=True, text=True, timeout=timeout, check=False, shell=False)
         stdout, stderr, returncode = result.stdout, result.stderr, result.returncode
     except subprocess.TimeoutExpired as error:
         stdout, stderr, returncode = output_text(error.stdout), output_text(error.stderr), 124

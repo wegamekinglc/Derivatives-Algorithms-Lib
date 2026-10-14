@@ -1,7 +1,7 @@
 """Preparation reads committed inputs without changing a user's checkout."""
 
 from pathlib import Path
-import subprocess
+import subprocess  # nosec B404: fixed Git commands in an owned temporary fixture
 import sys
 import tempfile
 import unittest
@@ -9,6 +9,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "dal-cpp/benchmarks/script_mc_perf"))
 import lsmc_study_prepare as study  # noqa: E402
+from lsmc_study_build import program  # noqa: E402
 
 
 class PreparationTest(unittest.TestCase):
@@ -25,7 +26,7 @@ class PreparationTest(unittest.TestCase):
         self.git("-c", "user.name=Study test", "-c", "user.email=study@example.invalid", "commit", "-qm", "Initial")
 
     def git(self, *arguments):
-        return subprocess.check_output(["git", *arguments], cwd=self.source, text=True).strip()
+        return subprocess.check_output([program("git"), *arguments], cwd=self.source, text=True, shell=False).strip()  # nosemgrep  # nosec B603
 
     def test_committed_identity_allows_unrelated_untracked_notes(self):
         (self.source / "personal-notes").write_text("keep me\n")
@@ -52,7 +53,7 @@ class PreparationTest(unittest.TestCase):
 
     def test_dependency_must_be_clean_and_match_the_committed_pin(self):
         dependency = self.source.parent / "dependency"
-        subprocess.run(["git", "clone", "-q", "--no-local", str(self.source), str(dependency)], check=True)
+        subprocess.run([program("git"), "clone", "-q", "--no-local", str(self.source), str(dependency)], check=True, shell=False)  # nosemgrep  # nosec B603
         pin = self.git("rev-parse", "HEAD")
         study.validate_dependency(dependency, pin)
         with self.assertRaisesRegex(ValueError, "pin"):

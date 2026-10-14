@@ -49,12 +49,16 @@ def save_attempt(root, job, command, stdout, stderr, returncode, elapsed):
                                    stdout_sha256=text_hash(stdout), stderr_sha256=text_hash(stderr)))
 
 
+def require_attempt_files(paths):
+    if not all(path.is_file() for path in paths.values()):
+        raise ValueError("incomplete process attempt; preserve it before an explicit retry")
+
+
 def load_attempt(root, job):
     paths = attempt_paths(root, job)
     if not any(path.exists() for path in paths.values()):
         return None
-    if not all(path.is_file() for path in paths.values()):
-        raise ValueError("incomplete process attempt; preserve it before an explicit retry")
+    require_attempt_files(paths)
     receipt = json.loads(paths["json"].read_text())
     if receipt["job"] != asdict(job) or receipt["returncode"] != 0:
         raise ValueError("failed or mismatched process attempt; explicit retry required")

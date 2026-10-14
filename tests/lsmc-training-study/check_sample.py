@@ -4,14 +4,21 @@ import argparse
 import json
 import math
 from pathlib import Path
-import subprocess
+import subprocess  # nosec B404: execute the explicitly selected local DAL study image
 import sys
 import unittest
 
 
+def native_executable(value):
+    binary = Path(value).resolve(strict=True)
+    if binary.name not in ("script_mc_perf", "script_mc_perf.exe") or not binary.is_file():
+        raise ValueError("expected the local script_mc_perf study executable")
+    return binary
+
+
 def arguments():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("binary", type=Path)
+    parser.add_argument("binary", type=native_executable)
     parser.add_argument("--addressing", choices=("stock", "controlled"), default="stock")
     return parser.parse_args()
 
@@ -36,7 +43,8 @@ class NativeSampleTest(unittest.TestCase):
         command = [str(OPTIONS.binary), "--lsmc-training-sample"]
         for name, value in settings.items():
             command.extend(("--" + name, value))
-        result = subprocess.run(command, capture_output=True, text=True, timeout=90)
+        # Fixed test options reach the selected local executable without a shell.
+        result = subprocess.run(command, capture_output=True, text=True, timeout=90, shell=False)  # nosemgrep  # nosec B603
         self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
         rows = [json.loads(line) for line in result.stdout.splitlines() if line.startswith("{")]
         self.assertEqual(len(rows), 1)
@@ -143,9 +151,9 @@ class NativeSampleTest(unittest.TestCase):
         )
         for options in bad_options:
             with self.subTest(options=options):
-                result = subprocess.run(
-                    [str(OPTIONS.binary), "--lsmc-training-sample", *options],
-                    capture_output=True, text=True, timeout=30,
+                result = subprocess.run(  # nosemgrep  # nosec B603
+                    [str(OPTIONS.binary), "--lsmc-training-sample", *options],  # nosemgrep
+                    capture_output=True, text=True, timeout=30, shell=False,
                 )
                 self.assertNotEqual(result.returncode, 0)
                 self.assertFalse(any(line.startswith("{") for line in result.stdout.splitlines()))

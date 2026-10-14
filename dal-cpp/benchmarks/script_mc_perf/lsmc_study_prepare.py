@@ -3,9 +3,9 @@
 
 import argparse
 from pathlib import Path
-import subprocess
+import subprocess  # nosec B404: fixed local Git/CMake tools, without a shell
 
-from lsmc_study_build import build_control, digest, run_logged, source_inputs, require_source_inputs
+from lsmc_study_build import build_control, digest, program, run_logged, source_inputs, require_source_inputs
 from lsmc_study_store import write_json
 from lsmc_study_support import count
 
@@ -13,7 +13,7 @@ DEPENDENCIES = ("eigen", "googletest", "machinist", "rapidjson")
 
 
 def git(source, *arguments):
-    return subprocess.check_output(["git", *arguments], cwd=source, text=True).strip()
+    return subprocess.check_output([program("git"), *arguments], cwd=source, text=True, shell=False).strip()  # nosemgrep  # nosec B603
 
 
 def source_identity(source):
@@ -53,25 +53,25 @@ def dependency_pins(source):
 
 def clone_inputs(source, root, identity, pins):
     stock = root / "stock-source"
-    run_logged(["git", "clone", "--no-local", "--no-checkout", str(source), str(stock)], root, root / "clone.log")
-    run_logged(["git", "checkout", "--detach", identity["commit"]], stock, root / "checkout.log")
+    run_logged([program("git"), "clone", "--no-local", "--no-checkout", str(source), str(stock)], root, root / "clone.log")
+    run_logged([program("git"), "checkout", "--detach", identity["commit"]], stock, root / "checkout.log")
     for relative, pin in pins.items():
         name = Path(relative).name
         target = stock / relative
-        run_logged(["git", "clone", "--no-local", str(source / relative), str(target)], root, root / f"clone-{name}.log")
-        run_logged(["git", "checkout", "--detach", pin], target, root / f"checkout-{name}.log")
+        run_logged([program("git"), "clone", "--no-local", str(source / relative), str(target)], root, root / f"clone-{name}.log")
+        run_logged([program("git"), "checkout", "--detach", pin], target, root / f"checkout-{name}.log")
         validate_dependency(target, pin)
     return stock
 
 
 def build_stock(stock, root, jobs):
     build = root / "stock-build"
-    configure = ["cmake", "--preset", "Release-linux", "-G", "Unix Makefiles", "-S", str(stock), "-B", str(build),
+    configure = [program("cmake"), "--preset", "Release-linux", "-G", "Unix Makefiles", "-S", str(stock), "-B", str(build),
                  "-DBUILD_SHARED_LIBS=OFF", "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON", "-DCMAKE_CXX_COMPILER_LAUNCHER=",
                  "-DDAL_CPP_BUILD_BENCHMARKS=ON", "-DDAL_CPP_BUILD_TESTS=OFF", "-DDAL_CPP_BUILD_EXAMPLES=OFF",
                  "-DDAL_BUILD_PUBLIC=OFF", "-DDAL_BUILD_PYTHON=OFF", "-DDAL_BUILD_EXCEL=OFF",
                  "-DDAL_BUILD_EXCEL_PORTABLE_TESTS=OFF", "-DDAL_USE_EIGEN=ON", "-DDAL_ENABLE_AAD_PROFILING=OFF"]
-    compile_command = ["cmake", "--build", str(build), "--target", "script_mc_perf", "--parallel", str(jobs)]
+    compile_command = [program("cmake"), "--build", str(build), "--target", "script_mc_perf", "--parallel", str(jobs)]
     inputs = source_inputs(stock)
     for name, command in (("configure", configure), ("compile", compile_command)):
         run_logged(command, root, root / (name + ".log"))
@@ -98,7 +98,7 @@ def prepare(source, output, anchor, jobs):
     control["preparation"] = dict(revision=identity, dependencies=pins, commands=commands,
                                   cache_sha256=digest(build / "CMakeCache.txt"),
                                   compile_database_sha256=digest(build / "compile_commands.json"),
-                                  cmake=subprocess.check_output(["cmake", "--version"], text=True))
+                                  cmake=subprocess.check_output([program("cmake"), "--version"], text=True, shell=False))  # nosemgrep  # nosec B603
     write_json(output / "prepared-image.json", control)
     print(f"prepared immutable stock/control image: {output / 'prepared-image.json'}", flush=True)
 

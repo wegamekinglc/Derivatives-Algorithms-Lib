@@ -5,13 +5,21 @@ import hashlib
 import json
 from pathlib import Path
 import shlex
-import subprocess
+import shutil
+import subprocess  # nosec B404: trusted local compiler/build tools, without a shell
 
 from lsmc_study_support import CONTROL_MACRO, controlled_source
 
 
 def digest(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def program(name):
+    executable = shutil.which(name)
+    if executable is None:
+        raise ValueError(f"missing required local build tool: {name}")
+    return str(Path(executable).resolve())
 
 
 def cache_value(build, name):
@@ -89,13 +97,14 @@ def replacement_link(command, directory, old_sample, new_sample, control, output
 
 def run_logged(command, directory, log):
     with log.open("w") as output:
-        result = subprocess.run(command, cwd=directory, stdout=output, stderr=subprocess.STDOUT)
+        # Commands come from the owned CMake build or fixed Git/build operations.
+        result = subprocess.run(command, cwd=directory, stdout=output, stderr=subprocess.STDOUT, shell=False)  # nosemgrep  # nosec B603
     if result.returncode:
         raise RuntimeError(f"command failed ({result.returncode}); retained log: {log}")
 
 
 def source_inputs(source):
-    names = subprocess.check_output(["git", "ls-files", "dal-cpp/dal"], cwd=source, text=True).splitlines()
+    names = subprocess.check_output([program("git"), "ls-files", "dal-cpp/dal"], cwd=source, text=True, shell=False).splitlines()  # nosemgrep  # nosec B603
     benchmark = source / "dal-cpp/benchmarks/script_mc_perf"
     names += [str(path.relative_to(source)) for path in benchmark.iterdir()
               if path.suffix in (".cpp", ".hpp") or path.name == "CMakeLists.txt"]
@@ -165,6 +174,6 @@ def build_control(source, build, destination, anchor):
                    source_sha256=inputs, reused_sha256=reused_identity, commands=commands,
                    patch_sha256=digest(destination / "address-control.patch"),
                    controlled_source_sha256=digest(destination / "lsmc.cpp"),
-                   compiler=subprocess.check_output([compile_commands[0][0][0], "--version"], text=True))
+                   compiler=subprocess.check_output([compile_commands[0][0][0], "--version"], text=True, shell=False))  # nosemgrep  # nosec B603
     (destination / "identity.json").write_text(json.dumps(receipt, indent=2))
     return receipt

@@ -16,6 +16,11 @@ def policy_fingerprint(record):
     return hashlib.sha256(encoded.encode()).hexdigest()
 
 
+def require_mode_prices(mode_prices):
+    if not mode_prices or any(set(values) != {"frozen", "retrained"} or len(set(values.values())) != 1 for values in mode_prices.values()):
+        raise ValueError("missing mode or policy-risk modes disagree on price")
+
+
 def index_observations(observations):
     indexed, axes, policies, mode_prices = {}, {}, defaultdict(list), defaultdict(dict)
     for job, record in observations:
@@ -29,8 +34,7 @@ def index_observations(observations):
         axes[job.case] = names
         policies[key[:-1]].append(record)
         mode_prices[(job.case, job.training, job.training_seed, job.pricing_seed)][job.mode] = record["pv"]
-    if not indexed or any(set(values) != {"frozen", "retrained"} or len(set(values.values())) != 1 for values in mode_prices.values()):
-        raise ValueError("missing mode or policy-risk modes disagree on price")
+    require_mode_prices(mode_prices)
     return indexed, axes, policies
 
 
@@ -47,9 +51,13 @@ def policy_groups(policies):
     return result
 
 
+def matrix_extents(keys):
+    return tuple(sorted({key[index] for key in keys}) for index in range(1, 5))
+
+
 def check_matrix(indexed, case):
     keys = [key for key in indexed if key[0] == case]
-    modes, budgets, training, pricing = (sorted({key[index] for key in keys}) for index in range(1, 5))
+    modes, budgets, training, pricing = matrix_extents(keys)
     expected = {(case, *key) for key in itertools.product(modes, budgets, training, pricing)}
     if len(training) < 2 or len(pricing) < 2 or set(keys) != expected:
         raise ValueError("missing paired budget/training/pricing observations")

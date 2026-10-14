@@ -88,9 +88,9 @@ namespace {
     }
 
     template <class T_, class F_>
-    bool ReadMapped(const std::map<std::string, T_*>& fields, const std::string& name, const std::string& text, const F_& read) {
+    bool ReadMapped(const std::map<std::string, T_*>& fields, const std::string& name, const std::string& text, const F_& parse) {
         const auto found = fields.find(name);
-        return found != fields.end() && read(text, found->second);
+        return found != fields.end() && parse(text, found->second);
     }
 
     bool ReadOption(const std::string& name, const std::string& text, SampleOptions_* options) {

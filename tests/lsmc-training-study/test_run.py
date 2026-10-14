@@ -2,9 +2,10 @@
 
 import json
 from pathlib import Path
-import subprocess
+import subprocess  # nosec B404: only construct a timeout exception; no test process is executed
 import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock
 
@@ -29,20 +30,21 @@ class RunTest(unittest.TestCase):
         return study.run_jobs(self.root, (self.job,), 32768, Path("sample"), 3, retry, process)
 
     def test_success_is_resumed_without_another_process(self):
-        process = Mock(return_value=subprocess.CompletedProcess([], 0, self.output, "startup\n"))
+        process = Mock(return_value=SimpleNamespace(returncode=0, stdout=self.output, stderr="startup\n"))
         self.run_jobs(process)
         self.run_jobs(process)
         process.assert_called_once()
+        self.assertFalse(process.call_args.kwargs["shell"])
         self.assertEqual(attempt_paths(self.root, self.job)["stdout"].read_text(), self.output)
 
     def test_failed_process_requires_explicit_retry_and_keeps_first_attempt(self):
-        process = Mock(return_value=subprocess.CompletedProcess([], 2, "", "native failure"))
+        process = Mock(return_value=SimpleNamespace(returncode=2, stdout="", stderr="native failure"))
         with self.assertRaises(ValueError):
             self.run_jobs(process)
         with self.assertRaises(ValueError):
             self.run_jobs(process)
         process.assert_called_once()
-        process.return_value = subprocess.CompletedProcess([], 0, self.output, "")
+        process.return_value = SimpleNamespace(returncode=0, stdout=self.output, stderr="")
         self.run_jobs(process, retry=True)
         archived = list((self.root / "failed-attempts").glob("*/attempt.stderr"))
         self.assertEqual(len(archived), 1)
@@ -59,7 +61,7 @@ class RunTest(unittest.TestCase):
     def test_wrong_native_settings_cannot_be_accepted_or_silently_retried(self):
         broken = native_record(self.job, 32768)
         broken["pricing_offset"] = 512
-        process = Mock(return_value=subprocess.CompletedProcess([], 0, json.dumps(broken), ""))
+        process = Mock(return_value=SimpleNamespace(returncode=0, stdout=json.dumps(broken), stderr=""))
         with self.assertRaises(ValueError):
             self.run_jobs(process)
         with self.assertRaises(ValueError):
