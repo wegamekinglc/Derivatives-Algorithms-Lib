@@ -33,11 +33,11 @@ def load_storage_dataset(root, helpers):
     return observations, image, jobs
 
 
-def analyze(dataset, reference, helpers, output):
+def analyze(dataset, reference, helpers, output, attestation=None):
     if output.exists():
         raise FileExistsError("preserve the existing storage summary before writing another")
     observations, image, jobs = load_storage_dataset(dataset, helpers)
-    native, provenance = load_native_reference(reference, jobs, image)
+    native, provenance = load_native_reference(reference, jobs, image, attestation)
     summary = summarize_storage(observations, native)
     summary["provenance"] = dict(native_reference=provenance, storage_executable_sha256=image["executable_sha256"],
                                  storage_manifest_sha256=digest(dataset / "profile.json"),
@@ -51,8 +51,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ("dataset", "native-reference", "execution-helpers", "output"):
         parser.add_argument("--" + name, type=Path, required=True)
+    parser.add_argument("--native-attestation", type=Path)
     arguments = parser.parse_args()
-    analyze(arguments.dataset, arguments.native_reference, arguments.execution_helpers, arguments.output)
+    analyze(arguments.dataset, arguments.native_reference, arguments.execution_helpers, arguments.output, arguments.native_attestation)
 
 
 if __name__ == "__main__":

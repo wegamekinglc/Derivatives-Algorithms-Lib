@@ -4,6 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 
+from lsmc_storage_attestation import certified_source_inputs
 from lsmc_storage_patch import CORE, ROWS, SOURCE_HASHES
 from lsmc_study_build import compile_entry, digest
 from lsmc_study_data import Job, parse_record
@@ -35,12 +36,12 @@ def selected_observations(root, manifest, jobs, anchor):
     return [(job, parse_record(indexed[job.key][1]["stdout"], job, anchor)) for job in jobs]
 
 
-def load_native_reference(root, jobs, storage_image):
+def load_native_reference(root, jobs, storage_image, attestation=None):
     root = Path(root)
     manifest = json.loads((root / "profile.json").read_text())
     image = manifest["context"]["image"]
     verify_image(image)
-    require_reference_sources(image["source_sha256"], storage_image["source_sha256"])
+    require_reference_sources(certified_source_inputs(image, attestation), storage_image["source_sha256"])
     native_flags = compile_signature(image["source"], image["build"])
     storage_flags = compile_signature(storage_image["overlay"], storage_image["build"])
     if native_flags != storage_flags or image["anchor"] != storage_image["anchor"]:
@@ -51,4 +52,5 @@ def load_native_reference(root, jobs, storage_image):
     provenance = dict(manifest_sha256=digest(root / "profile.json"), executable_sha256=image["executable_sha256"],
                       selected_jobs=len(jobs), selected_keys_sha256=hashlib.sha256(keys.encode()).hexdigest(),
                       source_and_dependency_match=True, compile_signature=native_flags)
+    provenance["attestation_sha256"] = digest(attestation) if attestation is not None else None
     return observations, provenance
