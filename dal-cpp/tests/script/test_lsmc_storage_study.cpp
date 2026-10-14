@@ -4,8 +4,11 @@
 
 #include <gtest/gtest.h>
 
+#include <array>
+#include <atomic>
 #include <cmath>
 #include <limits>
+#include <thread>
 #include <utility>
 
 #include "../../benchmarks/script_mc_perf/lsmcstoragestudy.hpp"
@@ -96,4 +99,33 @@ TEST(LsmcStorageStudyTest, TestLiveRowBytesSurviveOwnershipMoves) {
         ASSERT_GE(Dal::Script::StudyPeakRowBytes(), Dal::Script::StudyCurrentRowBytes());
     }
     ASSERT_EQ(Dal::Script::StudyCurrentRowBytes(), before);
+}
+
+TEST(LsmcStorageStudyTest, TestConcurrentRowsKeepIndependentValuesAndAccurateOwnership) {
+    const size_t before = Dal::Script::StudyCurrentRowBytes();
+    std::atomic<size_t> ready{0};
+    std::atomic<bool> release{false};
+    std::array<double, 4> values{};
+    std::array<std::thread, 4> workers;
+    for (size_t worker = 0; worker < workers.size(); ++worker) {
+        workers[worker] = std::thread([&, worker] {
+            StudyRows_<float> rows(2, 17);
+            rows.ZeroPaths(0, 17);
+            rows[0][0] = static_cast<double>(worker) + 0.25;
+            values[worker] = static_cast<const StudyRows_<float>&>(rows)[0][0];
+            ready.fetch_add(1, std::memory_order_release);
+            while (!release.load(std::memory_order_acquire))
+                std::this_thread::yield();
+        });
+    }
+    while (ready.load(std::memory_order_acquire) != workers.size())
+        std::this_thread::yield();
+    const size_t live = Dal::Script::StudyCurrentRowBytes();
+    release.store(true, std::memory_order_release);
+    for (auto& worker : workers)
+        worker.join();
+    ASSERT_EQ(live, before + workers.size() * 2 * 17 * sizeof(float));
+    ASSERT_EQ(Dal::Script::StudyCurrentRowBytes(), before);
+    for (size_t worker = 0; worker < values.size(); ++worker)
+        ASSERT_EQ(values[worker], static_cast<double>(worker) + 0.25);
 }
