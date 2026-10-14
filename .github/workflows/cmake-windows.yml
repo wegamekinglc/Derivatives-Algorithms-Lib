@@ -219,6 +219,9 @@ jobs:
           fi
           python tests/aad-profiling/check_production_profile.py \
             build/Release-windows/dal-cpp/benchmarks/script_mc_perf/script_mc_perf.exe --profiling "$profiling"
+          python -m unittest discover -s tests/lsmc-training-study -p 'test_*.py' -v
+          python tests/lsmc-training-study/check_sample.py \
+            build/Release-windows/dal-cpp/benchmarks/script_mc_perf/script_mc_perf.exe --addressing stock
 
       - name: Test installed CMake consumer
         shell: pwsh

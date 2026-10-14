@@ -413,3 +413,21 @@ additional AAD tape recordings. The peak RSS comparison includes tape and
 ordinary process allocations; it is not a tape-byte count.
 Tree and compiled runs returned matching PV and all five risks to the printed
 precision on native AAD.
+
+## Controlled Training-Budget Research
+
+The core benchmark includes a [reproducible training-budget study](../../../dal-cpp/benchmarks/script_mc_perf/README.md#lsmc-training-budget-study).
+It keeps validation and pricing Sobol points identical across explicit training
+budgets in an isolated address-only experimental image. Native pricing seeds
+alone are insufficient because changing the training count also moves held-out
+blocks. Production simulation keeps its existing block layout and defaults.
+
+The study crosses eight training seeds with eight independently shifted pricing
+groups, each with two pricing replicates, and retains PV and every Greek in
+Frozen and RetrainedBump modes. For each training seed it computes paired budget
+differences and conditional pricing standard errors, then reports observed
+training-seed dispersion separately. Hard/fuzzy price differences and policy
+diagnostics have separate outputs. The largest budget is a comparison reference,
+not a stopping-value oracle; observed dispersion includes residual pricing noise.
+Without admissible price/Greek error ceilings, this research does not establish
+an automatic cap. The unset training budget remains the pricing path count.
