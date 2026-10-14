@@ -15,10 +15,14 @@ def storage_jobs(profile, threads=4):
     return tuple(job for job in profile_jobs(profile, threads=threads) if job.training in definition["budgets"])
 
 
-def parse_storage_record(output, job, anchor, bits):
-    record = parse_record(output, job, anchor)
+def require_width(record, bits):
     if type(bits) is not int or bits not in (32, 64) or type(record.get("storage_bits")) is not int or record["storage_bits"] != bits:
         raise ValueError("native result storage width differs from the experiment image")
+
+
+def parse_storage_record(output, job, anchor, bits):
+    record = parse_record(output, job, anchor)
+    require_width(record, bits)
     if type(record.get("peak_training_row_bytes")) is not int or record["peak_training_row_bytes"] <= 0:
         raise ValueError("native result lacks a positive measured row allocation")
     if type(record.get("live_training_row_bytes")) is not int or record["live_training_row_bytes"] != 0:
