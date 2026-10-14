@@ -1,5 +1,13 @@
 # LSMC training-storage precision study
 
+In the completed equal-input width comparisons, binary32 training storage
+reduces native valuation time by **7.3% / 9.3% for Hard pricing** and
+**3.2% / 2.6% for FrozenAAD**, respectively in rounds 1 / 2. Median peak RSS
+falls approximately **49.8%**. These runtime improvements compare binary32 and
+binary64 storage overlays with identical paths and parameters; they describe
+the measured daily workload. The separate overlay/native controls below report
+experiment overhead, including the inconsistent Hard results.
+
 Binary32 training rows reduce stored row bytes, while observed price and Greek
 changes depend on the fitted stopping policy. The ordinary DAL storage type
 remains double. No admissible price/Greek error ceilings are supplied, so this
@@ -145,6 +153,17 @@ overlay with the binary64 overlay. Native overhead cases compare the binary64
 overlay with ordinary native64. Sampling stopped at the user's request to draw
 conclusions from finite available samples instead of repeatedly retrying
 individual interruptions. The table contains only complete pairs.
+
+The completed width cases give the following absolute valuation times. Each
+entry is the minimum of ten processes per side in that round; the reduction is
+one minus binary32 time divided by binary64-overlay time.
+
+| Mode      | Round | Binary64-overlay seconds | Binary32 seconds | Time reduction |
+|-----------|-------|--------------------------|------------------|----------------|
+| Hard      | 1     | 7.0181                   | 6.5084           | 7.3%           |
+| Hard      | 2     | 7.1941                   | 6.5234           | 9.3%           |
+| FrozenAAD | 1     | 31.3534                  | 30.3590          | 3.2%           |
+| FrozenAAD | 2     | 31.1695                  | 30.3491          | 2.6%           |
 
 | Case                  | Complete pairs, rounds 1 / 2 | Valuation time ratio, rounds 1 / 2 | Process time ratio, rounds 1 / 2 | RSS ratio, rounds 1 / 2 |
 |-----------------------|------------------------------|------------------------------------|----------------------------------|-------------------------|
