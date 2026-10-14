@@ -431,3 +431,5 @@ diagnostics have separate outputs. The largest budget is a comparison reference,
 not a stopping-value oracle; observed dispersion includes residual pricing noise.
 Without admissible price/Greek error ceilings, this research does not establish
 an automatic cap. The unset training budget remains the pricing path count.
+The [research report and coordinate data](../../experimental/lsmc-training-budget-study.md)
+record the observed differences, separate resource comparisons and their limits.

@@ -44,6 +44,9 @@ compares supported curve behavior with an external benchmark.
 The [LSMC training-budget study](../dal-cpp/benchmarks/script_mc_perf/README.md#lsmc-training-budget-study)
 compares explicit budgets on identical held-out samples and reports conditional
 pricing uncertainty separately from observed training variation.
+Its [results and full coordinate data](experimental/lsmc-training-budget-study.md)
+cover representative contracts and a large daily-exercise corner, with separate
+resource measurements and the retained-default decision.
 
 ## Documentation Conventions
 

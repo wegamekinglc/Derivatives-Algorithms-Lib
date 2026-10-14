@@ -81,6 +81,10 @@ resource savings and conditional pricing error alone do not justify a universal
 cap or an accuracy pass. Resource timing must disable extra hard diagnostics and
 distinguish native valuation time from total process time and peak RSS.
 
+The [research report and full coordinate data](../../../docs/experimental/lsmc-training-budget-study.md)
+record the representative and large-corner results, separate resource comparisons
+and the decision to retain defaults.
+
 ## Structured native samples
 
 `--lsmc-training-sample` emits one JSON record on stdout and startup/errors on
