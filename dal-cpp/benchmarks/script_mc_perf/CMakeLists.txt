@@ -3,6 +3,7 @@ file(GLOB_RECURSE SCRIPT_MC_PERF_FILES CONFIGURE_DEPENDS "*.hpp" "*.cpp")
 add_executable(script_mc_perf ${SCRIPT_MC_PERF_FILES})
 
 target_link_libraries(script_mc_perf dal_library)
+target_include_directories(script_mc_perf PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../externals/rapidjson/include")
 
 
 if(MSVC)

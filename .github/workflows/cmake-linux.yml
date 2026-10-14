@@ -282,6 +282,9 @@ jobs:
           fi
           python tests/aad-profiling/check_production_profile.py \
             build/Release-linux/dal-cpp/benchmarks/script_mc_perf/script_mc_perf --profiling "$profiling"
+          python -m unittest discover -s tests/lsmc-training-study -p 'test_*.py' -v
+          python tests/lsmc-training-study/check_sample.py \
+            build/Release-linux/dal-cpp/benchmarks/script_mc_perf/script_mc_perf --addressing stock
 
       - name: Verify generated sources
         run: |

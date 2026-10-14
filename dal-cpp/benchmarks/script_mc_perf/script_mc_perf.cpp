@@ -33,6 +33,7 @@
 #include "gsreuropeanperf.hpp"
 #include "gsrperf.hpp"
 #include "gsrslvcalibrationperf.hpp"
+#include "lsmctrainingstudy.hpp"
 #include "productionprofile.hpp"
 #include "rngpolicyprofile.hpp"
 
@@ -330,12 +331,14 @@ namespace {
 int main(int argc, char** argv) {
     const bool productionProfile = argc > 1 && std::string(argv[1]) == "--production-profile";
     auto* startupOutput = std::cout.rdbuf();
-    if (productionProfile)
+    if (productionProfile || (argc > 1 && std::string(argv[1]) == "--lsmc-training-sample"))
         std::cout.rdbuf(std::cerr.rdbuf());
     RegisterAll_::Init();
     std::cout.rdbuf(startupOutput);
     Global::Dates_::SetEvaluationDate(Date_(2024, 1, 1));
     if (argc > 1) {
+        if (std::string(argv[1]) == "--lsmc-training-sample")
+            return RunLsmcTrainingSample(argc, argv, BuildBermudanExerciseProduct);
         if (std::string(argv[1]) == "--rng-policy")
             return RunRngPolicyProfile(argc, argv, BuildWeeklyBarrierData);
         if (std::string(argv[1]) == "--production-profile")
