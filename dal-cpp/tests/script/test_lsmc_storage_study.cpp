@@ -67,6 +67,7 @@ TEST(LsmcStorageStudyTest, TestAllocationAndPathRangeBoundsAreChecked) {
     ASSERT_THROW(StudyRows_<float>(std::numeric_limits<size_t>::max(), 2), Dal::Exception_);
     StudyRows_<float> empty(0, 0);
     empty.ZeroPaths(0, 0);
+    ASSERT_NO_THROW(empty.ZeroPaths(7, 3));
     ASSERT_EQ(empty.AllocatedBytes(), 0);
     StudyRows_<float> rows(1, 3);
     rows.ZeroPaths(0, 3);

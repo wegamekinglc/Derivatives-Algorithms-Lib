@@ -122,6 +122,8 @@ namespace Dal::Script {
         [[nodiscard]] StudyReadRow_ operator[](size_t row) const { return StudyReadRow_(data_.get() + row * nPaths_); }
 
         void ZeroPaths(size_t firstPath, size_t pathCount) {
+            if (nRows_ == 0)
+                return;
             REQUIRE(firstPath <= nPaths_ && pathCount <= nPaths_ - firstPath, "InvalidStudyStorage: path range exceeds row length");
             if (pathCount == 0)
                 return;
