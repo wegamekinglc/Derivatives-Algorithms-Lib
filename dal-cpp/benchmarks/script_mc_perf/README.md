@@ -134,6 +134,7 @@ production/dependency inputs, compile settings, executable identity and path
 addresses. An older reference manifest without dependency-header identities
 requires `--native-attestation`: an explicit complete rebuild proof with an
 identical stock executable/native archive and both identical controlled objects,
+including a fully relinked controlled executable and its original linked archive,
 plus the expanded source identities and retained rebuild inputs. An incomplete
 or changed proof is rejected. Differences are paired at each identical budget and pricing group
 before estimating conditional pricing error and observed training dispersion.

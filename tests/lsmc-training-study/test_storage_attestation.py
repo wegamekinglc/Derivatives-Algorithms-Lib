@@ -23,10 +23,17 @@ class StorageAttestationTest(unittest.TestCase):
             (source / "dependency.hpp").write_text("dependency")
             stock = root / "stock"
             stock.write_text("stock executable bytes")
-            image = dict(source=str(source), anchor=32768, executable_sha256="controlled-image",
-                         stock_sha256=digest(stock), source_sha256={"native.hpp": digest(source / "native.hpp")}, commands=[])
-            entry = dict(anchor=32768, executable_sha256="controlled-image", stock_sha256=digest(stock),
-                         fresh_stock=str(stock), identical_controlled_objects=[])
+            archive, fresh_archive = root / "libdal_cpp.a", root / "fresh-libdal_cpp.a"
+            archive.write_text("native archive bytes")
+            fresh_archive.write_bytes(archive.read_bytes())
+            control, fresh_control = root / "control", root / "fresh-control"
+            control.write_text("controlled executable bytes")
+            fresh_control.write_bytes(control.read_bytes())
+            image = dict(source=str(source), anchor=32768, executable_sha256=digest(control),
+                         stock_sha256=digest(stock), source_sha256={"native.hpp": digest(source / "native.hpp")}, commands=[],
+                         reused_sha256={str(archive): digest(archive)})
+            entry = dict(anchor=32768, executable_sha256=digest(control), stock_sha256=digest(stock),
+                         fresh_stock=str(stock), fresh_executable=str(fresh_control), identical_controlled_objects=[])
             for index in range(2):
                 old, fresh = root / f"old-{index}", root / f"fresh-{index}"
                 old.write_text(f"object-{index}")
@@ -41,13 +48,15 @@ class StorageAttestationTest(unittest.TestCase):
                 (build / name).write_text(name)
             collector = root / "collector.py"
             collector.write_text("rebuild collector")
-            proof.update(identical_native_archive=dict(original=str(stock), fresh=str(stock), sha256=digest(stock)),
+            proof.update(identical_native_archive=dict(original=str(archive), fresh=str(fresh_archive), sha256=digest(archive)),
                          commands=[["cmake", "-B", str(build)]], cache_sha256=digest(build / "CMakeCache.txt"),
                          compile_database_sha256=digest(build / "compile_commands.json"), collector_sha256=digest(collector))
             path = root / "proof.json"
             path.write_text(json.dumps(proof))
             self.assertEqual(certified_source_inputs(image, path), inputs)
             self.assertEqual(certified_source_inputs(image, None), image["source_sha256"])
+            with self.assertRaises(ValueError):
+                certified_source_inputs(dict(image, reused_sha256={}), path)
             for name, value in (("byte_identical_stock_and_controlled_objects", False), ("images", []),
                                 ("source_sha256", {"native.hpp": "wrong"})):
                 changed = copy.deepcopy(proof)
@@ -56,7 +65,7 @@ class StorageAttestationTest(unittest.TestCase):
                 with self.subTest(name=name), self.assertRaises(ValueError):
                     certified_source_inputs(image, path)
             path.write_text(json.dumps(proof))
-            for target in (stock, build / "CMakeCache.txt", build / "compile_commands.json", collector):
+            for target in (stock, archive, fresh_archive, fresh_control, build / "CMakeCache.txt", build / "compile_commands.json", collector):
                 original = target.read_bytes()
                 target.write_text("changed rebuild input")
                 with self.subTest(target=target.name), self.assertRaises(ValueError):
