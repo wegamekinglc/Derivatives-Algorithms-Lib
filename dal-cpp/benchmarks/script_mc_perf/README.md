@@ -116,12 +116,13 @@ python "$study/lsmc_storage_study.py" \
   --profile accuracy --output /tmp/dal-lsmc-storage-accuracy
 ```
 
-Storage `accuracy` has2816 observations: the same11 financial cases, budgets
-512/32768,8 training seeds,8 pricing groups,2replicates and both policy-risk
-modes. It uses4096 pricing paths per replicate,128 validation paths and anchor
-32768. Storage `corner` has256 daily-put observations at budgets65536/524288,
-32768 pricing paths per replicate,1024 validation paths and anchor524288.
-Both use compiled evaluation,4threads,Default normal precision and no Brownian
+Storage `accuracy` has 2816 observations: the same 11 financial cases, budgets
+512/32768, eight training seeds, eight pricing groups, two replicates and both
+policy-risk modes. It uses 4096 pricing paths per replicate, 128 validation paths
+and anchor 32768. Storage `corner` has 256 daily-put observations at budgets
+65536/524288, 32768 pricing paths per replicate, 1024 validation paths and
+anchor 524288.
+Both use compiled evaluation, four threads, Default normal precision and no Brownian
 bridge. Prepare the corner image with its matching anchor. Width admission is
 mandatory on execution, resume and explicit retry, with the same raw-attempt
 retention and exclusive dataset lock as the budget study.
@@ -136,11 +137,17 @@ requires `--native-attestation`: an explicit complete rebuild proof with an
 identical stock executable/native archive and both identical controlled objects,
 including a fully relinked controlled executable and its original linked archive,
 plus the expanded source identities and retained rebuild inputs. An incomplete
-or changed proof is rejected. Differences are paired at each identical budget and pricing group
-before estimating conditional pricing error and observed training dispersion.
+or changed proof is rejected. Differences are paired at each identical budget
+and pricing group before estimating conditional pricing error and observed
+training dispersion.
 The summary retains all first-order risks, hard and fuzzy prices and policy
 diagnostics. No admissible accuracy ceiling is supplied; the ordinary storage
 type and default training count remain unchanged.
+
+The [storage-precision report and coordinate data](../../../docs/experimental/lsmc-storage-precision-study.md)
+record price/Greek differences, conditioning diagnostics and the available
+time/RSS samples. The report lists partial and unmeasured resource cases and
+retains the ordinary double-storage and training-budget defaults.
 
 ## Structured native samples
 
