@@ -1,13 +1,15 @@
 """Experimental linking preserves stock objects and rejects unsafe commands."""
 
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 import subprocess  # nosec B404: fixed Git setup for an owned temporary input fixture
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "dal-cpp/benchmarks/script_mc_perf"))
+import lsmc_study_build as build  # noqa: E402
 from lsmc_study_build import program, replacement_compile, replacement_link, require_source_inputs, source_inputs  # noqa: E402
 
 
@@ -23,6 +25,11 @@ def committed_fixture(root, files):
 
 
 class ConsumedInputTest(unittest.TestCase):
+    def test_windows_dependencies_use_portable_manifest_keys(self):
+        with patch.object(build, "Path", PureWindowsPath), patch.object(build, "tracked_files", side_effect=[["Eigen/Core"], ["include/rapidjson/writer.h"]]):
+            names = build.dependency_sources(PureWindowsPath("C:/study"))
+        self.assertEqual(names, ["dal-cpp/externals/eigen/Eigen/Core", "dal-cpp/externals/rapidjson/include/rapidjson/writer.h"])
+
     def test_configuration_and_dependency_headers_are_part_of_consumed_identity(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

@@ -49,7 +49,7 @@ class PreparationTest(unittest.TestCase):
             with self.subTest(path=path), self.assertRaises(ValueError):
                 study.validate_destination(self.source, path)
         target = self.source.parent / "new-study"
-        self.assertEqual(study.validate_destination(self.source, target), target)
+        self.assertEqual(study.validate_destination(self.source, target), target.resolve())
 
     def test_dependency_must_be_clean_and_match_the_committed_pin(self):
         dependency = self.source.parent / "dependency"

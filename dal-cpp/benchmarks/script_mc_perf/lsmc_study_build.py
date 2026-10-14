@@ -111,7 +111,7 @@ def dependency_sources(source):
     names = []
     for dependency, include in (("eigen", "Eigen"), ("rapidjson", "include")):
         relative = Path("dal-cpp/externals") / dependency
-        names.extend(str(relative / name) for name in tracked_files(source / relative, include))
+        names.extend((relative / name).as_posix() for name in tracked_files(source / relative, include))
     return names
 
 
@@ -120,7 +120,7 @@ def source_inputs(source):
     names = tracked_files(source, "dal-cpp/dal", *configuration)
     names += dependency_sources(source)
     benchmark = source / "dal-cpp/benchmarks/script_mc_perf"
-    names += [str(path.relative_to(source)) for path in benchmark.iterdir()
+    names += [path.relative_to(source).as_posix() for path in benchmark.iterdir()
               if path.suffix in (".cpp", ".hpp") or path.name == "CMakeLists.txt"]
     return {name: digest(source / name) for name in names}
 
