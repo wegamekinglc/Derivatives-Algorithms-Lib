@@ -8,12 +8,14 @@ import tempfile
 from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock
+from functools import partial
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "dal-cpp/benchmarks/script_mc_perf"))
 from lsmc_study_data import Job  # noqa: E402
 from lsmc_study_store import prepare_dataset, attempt_paths  # noqa: E402
 from test_data import native_record  # noqa: E402
+from lsmc_storage_data import parse_storage_record  # noqa: E402
 import lsmc_study_run as study  # noqa: E402
 
 
@@ -78,6 +80,23 @@ class RunTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.run_jobs(process)
         process.assert_called_once()
+
+    def test_storage_admission_is_required_on_execution_resume_and_retry(self):
+        process = Mock(return_value=SimpleNamespace(returncode=0, stdout=self.output, stderr=""))
+        parser = partial(parse_storage_record, bits=32)
+        arguments = (self.root, (self.job,), 32768, Path("sample"))
+        with self.assertRaises(ValueError):
+            study.run_jobs(*arguments, process=process, parser=parser)
+        with self.assertRaises(ValueError):
+            study.run_jobs(*arguments, process=process, parser=parser)
+        process.assert_called_once()
+        record = native_record(self.job, 32768)
+        record.update(storage_bits=32, peak_training_row_bytes=1024, live_training_row_bytes=0)
+        process.return_value = SimpleNamespace(returncode=0, stdout=json.dumps(record), stderr="")
+        study.run_jobs(*arguments, process=process, retry=True, parser=parser)
+        study.run_jobs(*arguments, process=process, parser=parser)
+        self.assertEqual(process.call_count, 2)
+        self.assertEqual(len(list((self.root / "failed-attempts").glob("*/attempt.stdout"))), 1)
 
 
 if __name__ == "__main__":

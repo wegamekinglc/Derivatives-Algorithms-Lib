@@ -38,10 +38,10 @@ def dataset_lock(root):
             fcntl.flock(handle, fcntl.LOCK_UN)
 
 
-def existing_record(root, job, anchor, retry):
+def existing_record(root, job, anchor, retry, parser=parse_record):
     try:
         attempt = load_attempt(root, job)
-        return None if attempt is None else parse_record(attempt["stdout"], job, anchor)
+        return None if attempt is None else parser(attempt["stdout"], job, anchor)
     except (ValueError, KeyError, json.JSONDecodeError):
         if not retry:
             raise
@@ -66,13 +66,13 @@ def execute_job(root, job, executable, timeout, process):
     save_attempt(root, job, command, stdout, stderr, returncode, time.monotonic() - start)
 
 
-def run_jobs(root, jobs, anchor, executable, timeout=900, retry=False, process=subprocess.run):
+def run_jobs(root, jobs, anchor, executable, timeout=900, retry=False, process=subprocess.run, parser=parse_record):
     last_progress = time.monotonic()
     for index, job in enumerate(jobs, 1):
-        if existing_record(root, job, anchor, retry) is None:
+        if existing_record(root, job, anchor, retry, parser) is None:
             execute_job(root, job, executable, timeout, process)
             attempt = load_attempt(root, job)
-            parse_record(attempt["stdout"], job, anchor)
+            parser(attempt["stdout"], job, anchor)
         now = time.monotonic()
         if now - last_progress >= 30 or index == len(jobs):
             print(f"completed {index}/{len(jobs)}: {job.case} N={job.training} {job.mode}", flush=True)

@@ -85,6 +85,70 @@ The [research report and full coordinate data](../../../docs/experimental/lsmc-t
 record the representative and large-corner results, separate resource comparisons
 and the decision to retain defaults.
 
+## LSMC storage-precision experiment
+
+`lsmc_storage_prepare.py` creates a complete isolated build with binary32 or
+binary64 training/validation rows. It changes payments, regression features,
+immediate exercise values and stochastic discount-ratio storage. Every write,
+including payment accumulation, rounds to the selected storage type. Reads
+promote to double; model evolution, backward holding values, regression/QR,
+coefficients and pricing/replay arithmetic retain double precision. Finite
+underflow is allowed; nonfinite or out-of-range writes fail before conversion.
+
+The overlay changes native row layouts, so **every header consumer is rebuilt**.
+Do not link its objects with an ordinary or differently sized DAL archive.
+The supplied checkout remains unchanged. Preparation requires the same committed,
+clean source/dependency setup as the training-budget tool and rejects unknown
+complete native source versions. It retains the patch and source/configuration/
+executable identities. Native samples identify `storage_bits`, measured
+`peak_training_row_bytes` and `live_training_row_bytes` after valuation.
+These counters describe row allocations; overall peak RSS also includes model,
+regression and pricing workspaces.
+
+```bash
+study=dal-cpp/benchmarks/script_mc_perf
+python "$study/lsmc_storage_prepare.py" --source "$PWD" \
+  --output /tmp/dal-lsmc-storage32 --bits 32 --anchor 32768 --jobs 4
+python "$study/lsmc_storage_prepare.py" --source "$PWD" \
+  --output /tmp/dal-lsmc-storage64 --bits 64 --anchor 32768 --jobs 4
+python "$study/lsmc_storage_study.py" \
+  --image /tmp/dal-lsmc-storage32/prepared-storage-image.json \
+  --profile accuracy --output /tmp/dal-lsmc-storage-accuracy
+```
+
+Storage `accuracy` has 2816 observations: the same 11 financial cases, budgets
+512/32768, eight training seeds, eight pricing groups, two replicates and both
+policy-risk modes. It uses 4096 pricing paths per replicate, 128 validation paths
+and anchor 32768. Storage `corner` has 256 daily-put observations at budgets
+65536/524288, 32768 pricing paths per replicate, 1024 validation paths and
+anchor 524288.
+Both use compiled evaluation, four threads, Default normal precision and no Brownian
+bridge. Prepare the corner image with its matching anchor. Width admission is
+mandatory on execution, resume and explicit retry, with the same raw-attempt
+retention and exclusive dataset lock as the budget study.
+
+`lsmc_storage_analyze.py` compares a complete binary32 dataset with the exact
+matching native binary64 jobs from a training-budget dataset. Pass `--dataset`,
+`--native-reference`, `--execution-helpers` (the original immutable helper
+directory) and a new `--output` path. Reference reuse requires matching complete
+production/dependency inputs, compile settings, executable identity and path
+addresses. An older reference manifest without dependency-header identities
+requires `--native-attestation`: an explicit complete rebuild proof with an
+identical stock executable/native archive and both identical controlled objects,
+including a fully relinked controlled executable and its original linked archive,
+plus the expanded source identities and retained rebuild inputs. An incomplete
+or changed proof is rejected. Differences are paired at each identical budget
+and pricing group before estimating conditional pricing error and observed
+training dispersion.
+The summary retains all first-order risks, hard and fuzzy prices and policy
+diagnostics. No admissible accuracy ceiling is supplied; the ordinary storage
+type and default training count remain unchanged.
+
+The [storage-precision report and coordinate data](../../../docs/experimental/lsmc-storage-precision-study.md)
+record price/Greek differences, conditioning diagnostics and the available
+time/RSS samples. The report lists partial and unmeasured resource cases and
+retains the ordinary double-storage and training-budget defaults.
+
 ## Structured native samples
 
 `--lsmc-training-sample` emits one JSON record on stdout and startup/errors on

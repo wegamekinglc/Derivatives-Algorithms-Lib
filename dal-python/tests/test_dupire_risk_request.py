@@ -10,12 +10,13 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import threading
+import time
 
 import dal
 import pytest
 
 from test_dupire_risk import flat_calibration, hybrid_model, inputs, smooth_product
-from test_quote_risk import _run_with_quote_risk_gil_heartbeat
 
 
 def valuation():
@@ -327,7 +328,30 @@ def test_empty_quotes_keep_smoothed_estimator_and_expired_results():
 
 def test_execution_releases_gil_and_passive_results_support_concurrent_reads():
     plan = plan_for(dal.DupireScriptRiskRequest_(num_paths=4097, valuation=valuation()))
-    result = _run_with_quote_risk_gil_heartbeat(lambda: dal.DupireScriptRiskResult_New(plan), barrier=lambda _: None)
+    released = threading.Event()
+    errors = []
+
+    def release():
+        try:
+            deadline = time.monotonic() + 5.0
+            while not dal._dal._DupireScriptRiskGilBarrier_ReleaseForTesting():
+                if time.monotonic() >= deadline:
+                    raise AssertionError("native Dupire wrapper did not allow Python barrier release")
+                time.sleep(0)
+            released.set()
+        except BaseException as error:
+            errors.append(error)
+
+    dal._dal._DupireScriptRiskGilBarrier_ArmForTesting()
+    worker = threading.Thread(target=release)
+    worker.start()
+    try:
+        result = dal.DupireScriptRiskResult_New(plan)
+    finally:
+        worker.join(timeout=6.0)
+    assert not worker.is_alive()
+    assert not errors
+    assert released.is_set()
     expected = result.quote_risk.jacobian.to_rows()
     with ThreadPoolExecutor(max_workers=2) as pool:
         copies = list(pool.map(lambda _: copy.deepcopy(result).quote_risk.jacobian.to_rows(), range(4)))

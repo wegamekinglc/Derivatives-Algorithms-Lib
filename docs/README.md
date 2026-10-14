@@ -48,6 +48,10 @@ Its [results and full coordinate data](experimental/lsmc-training-budget-study.m
 cover representative contracts and a large daily-exercise corner, with separate
 resource measurements and the retained-default decision.
 
+The [LSMC storage-precision study](experimental/lsmc-storage-precision-study.md)
+compares binary32 training rows with native double on identical pricing samples,
+including first-order risks, conditioning controls and finite resource samples.
+
 ## Documentation Conventions
 
 Use relative links between guides and repo-relative paths when naming source
