@@ -103,8 +103,22 @@ def run_logged(command, directory, log):
         raise RuntimeError(f"command failed ({result.returncode}); retained log: {log}")
 
 
+def tracked_files(source, *paths):
+    return subprocess.check_output([program("git"), "ls-files", "--", *paths], cwd=source, text=True, shell=False).splitlines()  # nosemgrep  # nosec B603
+
+
+def dependency_sources(source):
+    names = []
+    for dependency, include in (("eigen", "Eigen"), ("rapidjson", "include")):
+        relative = Path("dal-cpp/externals") / dependency
+        names.extend(str(relative / name) for name in tracked_files(source / relative, include))
+    return names
+
+
 def source_inputs(source):
-    names = subprocess.check_output([program("git"), "ls-files", "dal-cpp/dal"], cwd=source, text=True, shell=False).splitlines()  # nosemgrep  # nosec B603
+    configuration = ("CMakeLists.txt", "CMakePresets.json", "dal-cpp/CMakeLists.txt", "dal-cpp/benchmarks/CMakeLists.txt")
+    names = tracked_files(source, "dal-cpp/dal", *configuration)
+    names += dependency_sources(source)
     benchmark = source / "dal-cpp/benchmarks/script_mc_perf"
     names += [str(path.relative_to(source)) for path in benchmark.iterdir()
               if path.suffix in (".cpp", ".hpp") or path.name == "CMakeLists.txt"]

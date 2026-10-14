@@ -1,12 +1,44 @@
 """Experimental linking preserves stock objects and rejects unsafe commands."""
 
 from pathlib import Path
+import subprocess  # nosec B404: fixed Git setup for an owned temporary input fixture
 import sys
+import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "dal-cpp/benchmarks/script_mc_perf"))
-from lsmc_study_build import replacement_compile, replacement_link  # noqa: E402
+from lsmc_study_build import program, replacement_compile, replacement_link, require_source_inputs, source_inputs  # noqa: E402
+
+
+def committed_fixture(root, files):
+    root.mkdir(parents=True, exist_ok=True)
+    for name in files:
+        path = root / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("fixture\n")
+    commands = (("init", "-q"), ("add", "."), ("-c", "user.name=Study test", "-c", "user.email=study@example.invalid", "commit", "-qm", "Initial"))
+    for arguments in commands:
+        subprocess.run([program("git"), *arguments], cwd=root, check=True, shell=False)  # nosemgrep  # nosec B603
+
+
+class ConsumedInputTest(unittest.TestCase):
+    def test_configuration_and_dependency_headers_are_part_of_consumed_identity(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            configuration = ("CMakeLists.txt", "CMakePresets.json", "dal-cpp/CMakeLists.txt", "dal-cpp/benchmarks/CMakeLists.txt")
+            committed_fixture(root, (*configuration, "dal-cpp/dal/lsmc.cpp", "dal-cpp/benchmarks/script_mc_perf/sample.cpp"))
+            committed_fixture(root / "dal-cpp/externals/eigen", ("Eigen/Core",))
+            committed_fixture(root / "dal-cpp/externals/rapidjson", ("include/rapidjson/writer.h",))
+            inputs = source_inputs(root)
+            for relative in (*configuration, "dal-cpp/externals/eigen/Eigen/Core", "dal-cpp/externals/rapidjson/include/rapidjson/writer.h"):
+                self.assertIn(relative, inputs)
+                path = root / relative
+                original = path.read_bytes()
+                path.write_bytes(original + b"changed")
+                with self.subTest(input=relative), self.assertRaises(ValueError):
+                    require_source_inputs(root, inputs)
+                path.write_bytes(original)
 
 
 class BuildCommandTest(unittest.TestCase):

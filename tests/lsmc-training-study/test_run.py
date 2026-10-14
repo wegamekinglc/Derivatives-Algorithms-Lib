@@ -58,6 +58,17 @@ class RunTest(unittest.TestCase):
         self.assertEqual(paths["stdout"].read_text(), "partial")
         self.assertEqual(json.loads(paths["json"].read_text())["returncode"], 124)
 
+    def test_launch_error_is_retained_and_requires_explicit_retry(self):
+        process = Mock(side_effect=OSError("executable permission denied"))
+        with self.assertRaises(ValueError):
+            self.run_jobs(process)
+        paths = attempt_paths(self.root, self.job)
+        self.assertEqual(json.loads(paths["json"].read_text())["returncode"], 127)
+        self.assertIn("permission denied", paths["stderr"].read_text())
+        with self.assertRaises(ValueError):
+            self.run_jobs(process)
+        process.assert_called_once()
+
     def test_wrong_native_settings_cannot_be_accepted_or_silently_retried(self):
         broken = native_record(self.job, 32768)
         broken["pricing_offset"] = 512

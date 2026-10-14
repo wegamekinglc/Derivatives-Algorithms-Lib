@@ -61,6 +61,8 @@ def execute_job(root, job, executable, timeout, process):
         stdout, stderr, returncode = result.stdout, result.stderr, result.returncode
     except subprocess.TimeoutExpired as error:
         stdout, stderr, returncode = output_text(error.stdout), output_text(error.stderr), 124
+    except OSError as error:
+        stdout, stderr, returncode = "", str(error), 127
     save_attempt(root, job, command, stdout, stderr, returncode, time.monotonic() - start)
 
 
