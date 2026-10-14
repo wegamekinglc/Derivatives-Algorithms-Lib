@@ -3,6 +3,7 @@
 import importlib.util
 from pathlib import Path
 import sys
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -52,12 +53,20 @@ class StorageOverlayTest(unittest.TestCase):
 
     def test_source_admission_uses_utf8_under_a_non_utf8_host_locale(self):
         def host_read(path, encoding=None):
-            return path.read_bytes().decode(encoding or "cp1252")
+            return path.read_bytes().decode(encoding or "cp1252").replace("\r\n", "\n").replace("\r", "\n")
 
-        with patch.object(Path, "read_text", host_read):
-            source = PATCH.read_native_sources(ROOT)
-        patched = PATCH.storage_sources(source, 32, 32768)
-        self.assertIn("StudyReadRow_ x_;", patched[PATCH.CORE])
+        original = PATCH.read_native_sources(ROOT)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for newline in ("\n", "\r\n"):
+                for name, content in original.items():
+                    path = root / name
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_bytes(content.replace("\n", newline).encode("utf-8"))
+                with self.subTest(newline=repr(newline)), patch.object(Path, "read_text", host_read):
+                    source = PATCH.read_native_sources(root)
+                patched = PATCH.storage_sources(source, 32, 32768)
+                self.assertIn("StudyReadRow_ x_;", patched[PATCH.CORE])
 
 
 if __name__ == "__main__":
