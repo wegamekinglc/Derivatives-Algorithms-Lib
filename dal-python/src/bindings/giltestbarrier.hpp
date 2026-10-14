@@ -8,7 +8,7 @@
 #include <condition_variable>
 #include <mutex>
 
-#include <dal/utilities/exceptions.hpp>
+#include <dal-public/src/types.hpp>
 
 namespace Dal::Python {
     class GilTestBarrier_ {
