@@ -8,6 +8,13 @@ binary64 storage overlays with identical paths and parameters; they describe
 the measured daily workload. The separate overlay/native controls below report
 experiment overhead, including the inconsistent Hard results.
 
+Against the original native double-row implementation, the available same-round
+minima show Hard time reductions of **13.0% / 2.8%**, while FrozenAAD time
+increases by **0.2% / 1.8%**. These native comparisons combine the separate
+width and overhead measurement sessions, rather than adjacent paired runs.
+The practical observed result is substantial memory savings, faster Hard
+pricing, and no FrozenAAD speed gain against native double in these samples.
+
 Binary32 training rows reduce stored row bytes, while observed price and Greek
 changes depend on the fitted stopping policy. The ordinary DAL storage type
 remains double. No admissible price/Greek error ceilings are supplied, so this
@@ -164,6 +171,19 @@ one minus binary32 time divided by binary64-overlay time.
 | Hard      | 2     | 7.1941                   | 6.5234           | 9.3%           |
 | FrozenAAD | 1     | 31.3534                  | 30.3590          | 3.2%           |
 | FrozenAAD | 2     | 31.1695                  | 30.3491          | 2.6%           |
+
+For the native implementation comparison, native64 times come from the overhead
+case in the same round and binary32 times from the width case above. Inputs and
+path addresses match, but the processes were measured in separate sessions;
+these are descriptive comparisons of the available minima, not a new paired
+experiment or an estimate of a stable production speedup.
+
+| Mode      | Round | Native64 seconds | Binary32 seconds | Observed binary32 change |
+|-----------|-------|------------------|------------------|--------------------------|
+| Hard      | 1     | 7.4843           | 6.5084           | 13.0% less time          |
+| Hard      | 2     | 6.7130           | 6.5234           | 2.8% less time           |
+| FrozenAAD | 1     | 30.3027          | 30.3590          | 0.2% more time           |
+| FrozenAAD | 2     | 29.8169          | 30.3491          | 1.8% more time           |
 
 | Case                  | Complete pairs, rounds 1 / 2 | Valuation time ratio, rounds 1 / 2 | Process time ratio, rounds 1 / 2 | RSS ratio, rounds 1 / 2 |
 |-----------------------|------------------------------|------------------------------------|----------------------------------|-------------------------|
