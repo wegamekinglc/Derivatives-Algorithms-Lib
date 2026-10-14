@@ -1,6 +1,7 @@
 """Exact-source overlays for complete, isolated storage experiment builds."""
 
 import hashlib
+from pathlib import Path
 import re
 
 from lsmc_study_support import CONTROL_MACRO, controlled_source
@@ -16,6 +17,10 @@ SOURCE_HASHES = {
     SAMPLE: "55d36a9fbee88eb2e7740d7aa61b8571612bab3eecf733037306a91c9ca55a4c",
 }
 HEADER = "benchmarks/script_mc_perf/lsmcstoragestudy.hpp"
+
+
+def read_native_sources(source):
+    return {name: (Path(source) / name).read_text(encoding="utf-8") for name in SOURCE_HASHES}
 
 
 def replace_exact(source, before, after, count=1):

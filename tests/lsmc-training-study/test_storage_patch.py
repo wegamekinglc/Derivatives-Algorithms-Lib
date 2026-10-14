@@ -4,6 +4,7 @@ import importlib.util
 from pathlib import Path
 import sys
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 HELPERS = ROOT / "dal-cpp/benchmarks/script_mc_perf"
@@ -16,11 +17,11 @@ SPEC.loader.exec_module(PATCH)
 
 class StorageOverlayTest(unittest.TestCase):
     def test_source_width_and_address_controls_are_explicit(self):
-        source = {name: (ROOT / name).read_text() for name in PATCH.SOURCE_HASHES}
+        source = PATCH.read_native_sources(ROOT)
         for bits in (32, 64):
             with self.subTest(bits=bits):
                 result = PATCH.storage_sources(source, bits, 32768)
-                self.assertEqual(source, {name: (ROOT / name).read_text() for name in source})
+                self.assertEqual(source, PATCH.read_native_sources(ROOT))
                 core = result["dal-cpp/dal/script/lsmc.cpp"]
                 self.assertIn("StudyReadRow_ x_;", core)
                 self.assertIn("StudyReadRow_ pendingH = pending.h_;", core)
@@ -31,7 +32,7 @@ class StorageOverlayTest(unittest.TestCase):
                 self.assertIn(f"writer->Uint({bits});", result["dal-cpp/benchmarks/script_mc_perf/lsmctrainingstudy.cpp"])
 
     def test_unknown_and_repeated_inputs_fail_closed(self):
-        source = {name: (ROOT / name).read_text() for name in PATCH.SOURCE_HASHES}
+        source = PATCH.read_native_sources(ROOT)
         for name in source:
             changed = dict(source, **{name: source[name] + "\n// drift\n"})
             with self.subTest(name=name), self.assertRaises(ValueError):
@@ -40,7 +41,7 @@ class StorageOverlayTest(unittest.TestCase):
             PATCH.storage_sources(PATCH.storage_sources(source, 32, 32768), 32, 32768)
 
     def test_invalid_widths_missing_files_and_invalid_anchors_fail(self):
-        source = {name: (ROOT / name).read_text() for name in PATCH.SOURCE_HASHES}
+        source = PATCH.read_native_sources(ROOT)
         for bits in (16, 128, True, "32"):
             with self.subTest(bits=bits), self.assertRaises(ValueError):
                 PATCH.storage_sources(source, bits, 32768)
@@ -48,6 +49,15 @@ class StorageOverlayTest(unittest.TestCase):
             PATCH.storage_sources({}, 32, 32768)
         with self.assertRaises(ValueError):
             PATCH.storage_sources(source, 32, 0)
+
+    def test_source_admission_uses_utf8_under_a_non_utf8_host_locale(self):
+        def host_read(path, encoding=None):
+            return path.read_bytes().decode(encoding or "cp1252")
+
+        with patch.object(Path, "read_text", host_read):
+            source = PATCH.read_native_sources(ROOT)
+        patched = PATCH.storage_sources(source, 32, 32768)
+        self.assertIn("StudyReadRow_ x_;", patched[PATCH.CORE])
 
 
 if __name__ == "__main__":

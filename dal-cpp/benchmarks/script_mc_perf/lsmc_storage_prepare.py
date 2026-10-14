@@ -5,7 +5,7 @@ import argparse
 import difflib
 from pathlib import Path
 
-from lsmc_storage_patch import SOURCE_HASHES, storage_sources
+from lsmc_storage_patch import read_native_sources, storage_sources
 from lsmc_study_build import digest, require_source_inputs, source_inputs
 from lsmc_study_prepare import build_stock, clone_inputs, dependency_pins, source_identity, validate_destination
 from lsmc_study_store import write_json
@@ -13,15 +13,15 @@ from lsmc_study_support import count
 
 
 def apply_overlay(source, bits, anchor, output):
-    original = {name: (source / name).read_text() for name in SOURCE_HASHES}
+    original = read_native_sources(source)
     patched = storage_sources(original, bits, anchor)
     changes = []
     for name, content in patched.items():
         changes.extend(difflib.unified_diff(original[name].splitlines(keepends=True), content.splitlines(keepends=True),
                                            fromfile="stock/" + name, tofile="storage/" + name))
-        (source / name).write_text(content)
+        (source / name).write_text(content, encoding="utf-8")
     patch = output / "storage-overlay.patch"
-    patch.write_text("".join(changes))
+    patch.write_text("".join(changes), encoding="utf-8")
     return patch
 
 
