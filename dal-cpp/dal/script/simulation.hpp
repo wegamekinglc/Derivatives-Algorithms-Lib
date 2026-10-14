@@ -412,8 +412,8 @@ namespace Dal::Script {
             }
         };
 
-        template <class B_> class ChunkDispatcher_ {
-            const ChunkPlan_& plan_;
+        template <class B_, class P_ = ChunkPlan_> class ChunkDispatcher_ {
+            const P_& plan_;
             OrderedChunkResults_<B_>* results_;
             std::unique_ptr<Random_> positioner_;
             bool reusesSlots_;
@@ -428,7 +428,7 @@ namespace Dal::Script {
                 std::unique_ptr<Random_> random_;
             };
 
-            ChunkDispatcher_(const ChunkPlan_& plan, OrderedChunkResults_<B_>* results, std::unique_ptr<Random_> positioner)
+            ChunkDispatcher_(const P_& plan, OrderedChunkResults_<B_>* results, std::unique_ptr<Random_> positioner)
                 : plan_(plan), results_(results), positioner_(std::move(positioner)), reusesSlots_(plan.BatchCount() > results->Partials().size()) {}
 
             template <class R_> void Publish(size_t index, const R_& reduce) {
@@ -578,14 +578,14 @@ namespace Dal::Script {
     };
 
     namespace Detail {
-        template <class B_, class F_, class R_>
+        template <class B_, class F_, class R_, class P_>
         void RunChunkWorkers(ThreadPool_* pool,
-                             const ChunkPlan_& plan,
+                             const P_& plan,
                              OrderedChunkResults_<B_>* results,
                              std::unique_ptr<Random_> positioner,
                              const F_& worker,
                              const R_& reduce) {
-            ChunkDispatcher_<B_> dispatcher(plan, results, std::move(positioner));
+            ChunkDispatcher_<B_, P_> dispatcher(plan, results, std::move(positioner));
             const size_t workers = std::min(pool->NumThreads(), plan.BatchCount());
             const auto run = [&](const auto& evaluate) {
                 while (!results->Cancelled()) {
