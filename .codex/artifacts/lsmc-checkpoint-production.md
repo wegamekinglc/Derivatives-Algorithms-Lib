@@ -390,3 +390,113 @@ with those three pinned rules reports three static-command findings on the old
 source and zero on the new source. Local old-source lines are 52/59/75; this is
 not claimed as an exact reproduction of hosted Codacy's 52/75/76 annotations
 or its engine/configuration. Current-head hosted checks remain authoritative.
+
+## Integration of SIMD-normal master
+
+Merge `d4095e83de59615b942f550c5309fa4cbef1c1d8` has parents
+`ac9cd68a7091855f1e06d1f60ec1caf4c64a4151` and master
+`94311ed8facf0a44bffe41af15011b54abebd8db`; their common base is
+`01dcadace1180629e3b4467f5334c021c530054a`. The original feature branch and
+reviewed commits are retained. The only conflict was `CHANGELOG.md`: both
+branches introduced a 2026-10-16 entry. Resolution keeps the checkpoint entry
+and the SIMD-normal entry under that date, with both links and contracts intact.
+There was no source conflict or additional implementation change.
+
+A Git-tree audit of the merge tree established that all 42 feature files other
+than the changelog are byte-identical to `ac9cd68a`; the subsequent evidence
+commit updates only this report. All 13 other imported files are exactly
+master's blobs: core CMake, the three inverse-normal translation units, shared
+normal coefficients/vector traversal, Sobol and pseudo-random filling, SIMD
+declaration, scalar special functions, three test files and sampling documentation.
+In particular, this preserves `pastCompiled_` and all other admission charges,
+the compiled/single-worker/exact-BS support checks and fallback, the collector,
+fixed historical fixtures, Machinist source/generated help and the complete
+headerless 16-row Excel configuration contract. No generated file was edited.
+Pinned Eigen, Google Test, Machinist, pybind11 and RapidJSON gitlinks are unchanged.
+
+The imported implementation is a direct numerical dependency: default/Fast
+Sobol requests with at least 32 coordinates now use the runtime-dispatched
+normal block conversion. Checkpoint and full providers both use `CreateRNG`,
+including digitally shifted Sobol and bridge wrappers. The 65-event checkpoint
+tests therefore exercise this interaction. Scalar `InverseNCDF` also moves to
+its own translation unit. Master requires `-ffp-contract=off` on all three
+normal units, `DAL_NORMAL_AVX2` on the dispatch and AVX2 units, and
+`-mavx2 -mno-fma` only on the AVX2 unit on this GNU x86-64 host. These source
+options are retained; other core compile options and native-AAD configuration
+remain unchanged. An old archive cannot establish integrated numerical behavior.
+
+Scope is the existing nine checkpoint regressions plus the imported normal
+block boundary/invalid/dense tests and the Sobol/pseudo-random precision,
+seeking, cloning and raw-draw/cache tests. This covers replay/policy/price and
+each named risk, long historical capacities, rejection/recovery and the new
+normal dependency without repeating the component or performance matrices.
+The shared issue486 lock serializes the rebuild and execution; lock contention
+with DAL-359 measurements is allowed to finish without interfering with it or
+the unrelated DAL-336 monitor.
+
+The focused executable uses the same Release/native-AAD flags, pinned Google
+Test archive and test main as the historical-budget check, with
+`test_lsmc_checkpoint.cpp`, `test_inverse_normal_block.cpp`, `test_sobol.cpp`
+and `test_pseudorandom.cpp` compiled against the rebuilt archive. Commands are
+recorded in the attached integration evidence, including the lock wrapper:
+
+```bash
+flock -w 50 <shared-issue486-lock> bash build/verify-master-integration.sh
+cmake --build build/checkpoint-production --target dal_cpp -j 4
+env DAL_NUM_THREADS=1 build/master-integration-tests \
+  --gtest_filter='LsmcCheckpointTest.*:InverseNormalBlockTest.*:RandomTest.TestSobolBlockModesMatchScalarAfterSeeking:RandomTest.TestSobolNormalPrecisionPolicy:RandomTest.TestSobolClonePreservesStateAndNormalPolicy:PseudoRandomTest.TestBulkNormalPreservesRawDrawsAndUniformCache:PseudoRandomTest.TestMRGNormalSeekingMatchesLegacyAtBatchBoundaries:PseudoRandomTest.TestIRNReplayPreservesMixedDrawCountsAndPrecisionAtBatchBoundaries' \
+  --gtest_output=xml:build/master-integration-tests.xml
+```
+
+The core rebuild completed, and **19 tests passed**: all nine checkpoint
+regressions, four inverse-normal block tests, three Sobol tests and three
+pseudo-random tests. The historical-capacity XML again records 2,800,000 bytes
+of growth, bounds 736,748 and 3,536,748, and long-history peak 3,425,693.
+Hard policy parity, bitwise Frozen/RetrainedBump prices and all five named risks,
+fallback and failed-admission recovery pass against the integrated archive.
+The host supports AVX2. Generated build rules were checked for the required
+per-source flags and definitions above.
+
+Core archive SHA-256:
+`15b49042c5181e4357fbc16dda254ac4ec2d428b259869c8aec6ea5d8be79487`.
+Focused executable SHA-256:
+`a19eb32b71f8281411ddf1fe8029a3146f8e6cfb8adbda11588defba01f2abf8`.
+An object-by-object SHA-256 comparison with the repaired `e6b6d134` archive's
+build directory finds **181 unchanged objects**, three changed objects
+(`sobol.cpp`, `pseudorandom.cpp`, `specialfunctions.cpp`) and three added
+normal-conversion objects. There are no removed objects. In particular,
+`lsmc.cpp`, `simulation.cpp`, `blackscholes.cpp`, `tape.cpp`, `settings.cpp`,
+`diagnostics.cpp` and `portfoliogroups.cpp` objects are unchanged. Compiler
+GCC 15.2.0, CMake 4.2, x86-64, native AAD, Eigen enabled, static Release,
+native-architecture tuning disabled and the dependency revisions are the same.
+The build regenerated its makefiles for master's per-source options; it did
+not alter the general core flags.
+
+Evidence reuse is limited accordingly:
+
+- The original 176-core/27-public/50-Excel/92-Python results retain their
+  recorded executable identities. Their unchanged contract and implementation
+  coverage is reused; integrated numerical behavior is established by the
+  focused run above. The old full test binary and Python extension are not
+  presented as rebuilt integrated binaries.
+- The 64 normal/optimized study tests, historical fixture identities and
+  collector regressions are reused: their complete Python/fixture/archived
+  payload inputs are unchanged. Historical overlays still reject current
+  production sources and do not certify the new normal implementation.
+- The 11 Excel signature/help checks, generated-source check and two passive
+  schema projections from `ac9cd68a` remain applicable. Their sources,
+  generated blobs, schema and binding implementation are unchanged. The
+  original portable executable still hashes to `9de8bb67...`; its results
+  are contract evidence, not a new numerical-library run. Windows XLL
+  registration/raw exports remain with CI.
+- The original 60-production/200-prototype samples retain their original
+  source and binary identities. No timing, RSS or memory-saving result is
+  relabelled as a measurement of the integrated archive; their budget and
+  inconclusive timing limitations still apply. There is no new performance
+  target or feature beyond the independently reviewed master change.
+
+Whitespace and the 75-file documentation check passed. No component-wide
+regression, performance matrix or Windows execution was repeated. The only
+post-merge change is this evidence note. The coordinator owns any narrow
+conflict/dependency review, actual-head CI/Codacy/review convergence and merge;
+earlier approval is not represented as approval of this new head.
