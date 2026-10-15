@@ -56,6 +56,33 @@ namespace {
         }
     }
 
+    template <size_t L_>
+    void CheckBranchCase(const ScriptProduct_& product,
+                         const ScriptCompiled_& compiled,
+                         const Plan_& plan,
+                         const std::vector<Row_<L_>>& spots,
+                         size_t count,
+                         bool balanced,
+                         Plan_::State_<L_>* state) {
+        for (const bool fallback : {false, true}) {
+            Counters_ counters;
+            plan.Evaluate(spots, Vector_<>{2.0}, count, fallback, state, &counters);
+            for (size_t lane = 0; lane < count; ++lane) {
+                auto scalar = product.BuildEvalState<double>();
+                Dal::AAD::Scenario_<double> path(1);
+                path[0].spot_ = spots[0][lane];
+                path[0].numeraire_ = 2.0;
+                compiled.Evaluate(path, scalar);
+                for (size_t v = 0; v < scalar.VarVals().size(); ++v)
+                    ASSERT_DOUBLE_EQ(state->variables_[v][lane], scalar.VarVals()[v]);
+            }
+            if (count == L_) {
+                ASSERT_GT(counters.mixed_, 0U);
+                ASSERT_EQ(counters.fallbackLanes_ > 0, fallback && balanced);
+            }
+        }
+    }
+
     template <size_t L_> void CheckBranches() {
         const auto date = Dal::XGLOBAL::SetEvaluationDateInScope(Dal::Date_(2024, 1, 1));
         ScriptProduct_ product({Dal::Cell_(Dal::Date_(2025, 1, 1))},
@@ -71,23 +98,7 @@ namespace {
             for (const bool balanced : {false, true}) {
                 for (size_t lane = 0; lane < count; ++lane)
                     spots[0][lane] = balanced ? 70.0 + 20.0 * (lane % 4) : (lane == 0 ? 130.0 : 90.0);
-                for (const bool fallback : {false, true}) {
-                    Counters_ counters;
-                    plan.Evaluate(spots, Vector_<>{2.0}, count, fallback, &state, &counters);
-                    for (size_t lane = 0; lane < count; ++lane) {
-                        auto scalar = product.BuildEvalState<double>();
-                        Dal::AAD::Scenario_<double> path(1);
-                        path[0].spot_ = spots[0][lane];
-                        path[0].numeraire_ = 2.0;
-                        compiled.Evaluate(path, scalar);
-                        for (size_t v = 0; v < scalar.VarVals().size(); ++v)
-                            ASSERT_DOUBLE_EQ(state.variables_[v][lane], scalar.VarVals()[v]);
-                    }
-                    if (count == L_) {
-                        ASSERT_GT(counters.mixed_, 0U);
-                        ASSERT_EQ(counters.fallbackLanes_ > 0, fallback && balanced);
-                    }
-                }
+                ASSERT_NO_FATAL_FAILURE(CheckBranchCase(product, compiled, plan, spots, count, balanced, &state));
             }
         }
     }
