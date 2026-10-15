@@ -148,6 +148,43 @@ namespace {
         return stream;
     }
 
+    void AssertLsmcPaymentRows(const LsmcPaymentCase_& payment, int receiver, const LsmcRows_& rows, const Vector_<>& fuzzyRows, int paymentCount) {
+        const double amount = paymentCount * (payment.delayed_ ? 8.0 : 10.0);
+        LsmcRows_ expected(3, 3);
+        expected.ZeroPaths(0, 3);
+        double expectedFuzzy = 0.0;
+        if (receiver == 1) {
+            if (payment.fuzzy_)
+                expectedFuzzy = amount;
+            else
+                expected[0][2] = amount;
+        }
+        for (size_t row = 0; row < 3; ++row)
+            for (size_t path = 0; path < 3; ++path)
+                ASSERT_DOUBLE_EQ(rows[row][path], expected[row][path]);
+        ASSERT_DOUBLE_EQ(fuzzyRows[0], 17.0);
+        ASSERT_DOUBLE_EQ(fuzzyRows[1], expectedFuzzy);
+        ASSERT_DOUBLE_EQ(fuzzyRows[2], 19.0);
+    }
+
+    void AssertLsmcReceiverAdjoints(const LsmcPaymentCase_& payment,
+                                    const AAD::Number_& amount,
+                                    const AAD::Number_& discount,
+                                    const AAD::Number_& numeraire) {
+        ASSERT_NEAR(AAD::Adjoint(amount), payment.constant_ ? 0.0 : payment.delayed_ ? 0.4 : 0.5, 1e-10);
+        ASSERT_NEAR(AAD::Adjoint(discount), payment.delayed_ ? 5.0 : 0.0, 1e-10);
+        ASSERT_NEAR(AAD::Adjoint(numeraire), payment.delayed_ ? -2.0 : -2.5, 1e-10);
+    }
+
+    void AssertLsmcFuzzyRowAdjoints(const LsmcPaymentCase_& payment,
+                                    const AAD::Number_& amount,
+                                    const AAD::Number_& discount,
+                                    const AAD::Number_& numeraire) {
+        ASSERT_NEAR(AAD::Adjoint(amount), payment.constant_ ? 0.0 : payment.delayed_ ? 0.8 : 1.0, 1e-10);
+        ASSERT_NEAR(AAD::Adjoint(discount), payment.delayed_ ? 10.0 : 0.0, 1e-10);
+        ASSERT_NEAR(AAD::Adjoint(numeraire), 0.0, 1e-10);
+    }
+
     // Parse + index + const-process a source snippet, then compile it. Mirrors the
     // pipeline ScriptProduct_::PreProcess runs before Compile(), without schedules
     // or macro handling.
@@ -224,15 +261,9 @@ TEST(CompilerTest, TestLsmcPaymentOpcodesRecordAndAdvance) {
             const Script::Detail::CompiledEventView_<double> event{stream, constants, sample};
 
             ASSERT_EQ(Script::Detail::EvalCompiledLsmcOp(event, 1, &state), stream.size() - 1);
-            const double amount = payment.delayed_ ? 8.0 : 10.0;
             ASSERT_DOUBLE_EQ(state.VarVals()[receiver], payment.delayed_ ? 7.0 : 8.0);
             ASSERT_DOUBLE_EQ(state.VarVals()[1 - receiver], 3.0);
-            for (size_t row = 0; row < 3; ++row)
-                for (size_t path = 0; path < 3; ++path)
-                    ASSERT_DOUBLE_EQ(rows[row][path], !payment.fuzzy_ && receiver == 1 && row == 0 && path == 2 ? amount : 0.0);
-            ASSERT_DOUBLE_EQ(fuzzyRows[0], 17.0);
-            ASSERT_DOUBLE_EQ(fuzzyRows[1], payment.fuzzy_ && receiver == 1 ? amount : 0.0);
-            ASSERT_DOUBLE_EQ(fuzzyRows[2], 19.0);
+            ASSERT_NO_FATAL_FAILURE(AssertLsmcPaymentRows(payment, receiver, rows, fuzzyRows, 1));
             ASSERT_EQ(state.dStack_.Size(), 1u);
             ASSERT_DOUBLE_EQ(state.dStack_.Top(), -7.0);
             ASSERT_EQ(state.bStack_.Size(), 1u);
@@ -241,8 +272,7 @@ TEST(CompilerTest, TestLsmcPaymentOpcodesRecordAndAdvance) {
                 state.dStack_.Push(10.0);
             ASSERT_EQ(Script::Detail::EvalCompiledLsmcOp(event, 1, &state), stream.size() - 1);
             ASSERT_DOUBLE_EQ(state.VarVals()[receiver], payment.delayed_ ? 11.0 : 13.0);
-            ASSERT_DOUBLE_EQ(rows[0][2], !payment.fuzzy_ && receiver == 1 ? 2.0 * amount : 0.0);
-            ASSERT_DOUBLE_EQ(fuzzyRows[1], payment.fuzzy_ && receiver == 1 ? 2.0 * amount : 0.0);
+            ASSERT_NO_FATAL_FAILURE(AssertLsmcPaymentRows(payment, receiver, rows, fuzzyRows, 2));
         }
     }
 }
@@ -289,17 +319,13 @@ TEST(CompilerTest, TestLsmcPaymentOpcodesPreserveAnalyticAdjoints) {
         AAD::ZeroAdjoints(*tape);
         AAD::Adjoint(state.variables_[0]) = 1.0;
         AAD::PropagateToStart(*tape);
-        ASSERT_NEAR(AAD::Adjoint(amount), payment.constant_ ? 0.0 : payment.delayed_ ? 0.4 : 0.5, 1e-10);
-        ASSERT_NEAR(AAD::Adjoint(discount), payment.delayed_ ? 5.0 : 0.0, 1e-10);
-        ASSERT_NEAR(AAD::Adjoint(numeraire), payment.delayed_ ? -2.0 : -2.5, 1e-10);
+        ASSERT_NO_FATAL_FAILURE(AssertLsmcReceiverAdjoints(payment, amount, discount, numeraire));
         if (payment.fuzzy_) {
             ASSERT_DOUBLE_EQ(AAD::Value(fuzzyRows[0]), payment.delayed_ ? 8.0 : 10.0);
             AAD::ZeroAdjoints(*tape);
             AAD::Adjoint(fuzzyRows[0]) = 1.0;
             AAD::PropagateToStart(*tape);
-            ASSERT_NEAR(AAD::Adjoint(amount), payment.constant_ ? 0.0 : payment.delayed_ ? 0.8 : 1.0, 1e-10);
-            ASSERT_NEAR(AAD::Adjoint(discount), payment.delayed_ ? 10.0 : 0.0, 1e-10);
-            ASSERT_NEAR(AAD::Adjoint(numeraire), 0.0, 1e-10);
+            ASSERT_NO_FATAL_FAILURE(AssertLsmcFuzzyRowAdjoints(payment, amount, discount, numeraire));
         }
     }
 }
