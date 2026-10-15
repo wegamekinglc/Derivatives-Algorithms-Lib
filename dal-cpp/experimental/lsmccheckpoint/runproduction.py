@@ -47,24 +47,24 @@ def parse_options():
 def git_metadata(key):
     arguments = {"commit": ("rev-parse", "HEAD"), "status": ("status", "--porcelain")}
     flags = arguments[key]
-    git = executable(Path("/usr/bin/git"))
-    # A resolved system executable and an allowlisted argv; no caller-supplied git arguments.
+    executable(Path("/usr/bin/git"))
+    # Fixed system executable and allowlisted argv; no caller-supplied git arguments.
     return subprocess.check_output(  # nosec B603
-        [str(git), *flags], cwd=ROOT, text=True, shell=False)
+        ["/usr/bin/git", *flags], cwd=ROOT, text=True, shell=False)
 
 
 def compiler_version():
-    compiler = executable(Path("/usr/bin/c++"))
-    # Query only the resolved system compiler's version, without PATH lookup or a shell.
+    executable(Path("/usr/bin/c++"))
+    # Query only the fixed system compiler's version, without PATH lookup or a shell.
     return subprocess.check_output(  # nosec B603
-        [str(compiler), "--version"], text=True, shell=False).splitlines()[0]
+        ["/usr/bin/c++", "--version"], text=True, shell=False).splitlines()[0]
 
 
 def collect_sample(binary, raw_dir, mode, sample, schedule):
     require(mode in MODES and schedule in SCHEDULES, "unsupported production workload")
     require(isinstance(sample, int) and 0 <= sample < 10, "invalid sample index")
     binary = executable(binary)
-    timer = executable(Path("/usr/bin/time"))
+    executable(Path("/usr/bin/time"))
     label = f"{mode}-{sample}-{schedule}"
     resource = (raw_dir / f"{label}.time").resolve()
     command = [str(binary), "--schedule", schedule, "--mode", mode,
@@ -73,7 +73,7 @@ def collect_sample(binary, raw_dir, mode, sample, schedule):
     # The operator trusts this local driver; both executables and the log path are absolute.
     # Workload arguments are fixed or allowlisted above, and shell metacharacters stay in argv.
     process = subprocess.run(  # nosec B603
-        [str(timer), "-v", "-o", str(resource), *command],
+        ["/usr/bin/time", "-v", "-o", str(resource), *command],
         cwd=ROOT, env=dict(os.environ, DAL_NUM_THREADS="1"),
         text=True, capture_output=True, check=False, shell=False,
     )

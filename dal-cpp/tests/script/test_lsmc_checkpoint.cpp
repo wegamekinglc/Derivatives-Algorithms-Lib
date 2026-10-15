@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstring>
 #include <exception>
+#include <string>
 #include <thread>
 
 #include <dal/model/blackscholes.hpp>
@@ -186,6 +187,103 @@ TEST(LsmcCheckpointTest, TestGrowingStateFallsBackAndBudgetFailureRecovers) {
     const auto failing = CheckpointPrepare(CheckpointProduct(), &invalidPath, simulation);
     ASSERT_THROW(Dal::Script::MCLsmcSimulation(failing, &invalidPath, 17), Dal::Exception_);
     ASSERT_EQ(Dal::Script::MCLsmcSimulation(fallback, &model, 17).aggregated_, expected.aggregated_);
+}
+
+namespace {
+    void AssertHistoricalProgramBudget() {
+        auto simulation = CheckpointSettings();
+        simulation.lsmcValidationPaths_.reset();
+        simulation.lsmcCheckpointBlockEvents_ = 8;
+        simulation.lsmcTrainingMemoryMb_ = 1;
+        Dal::AAD::BlackScholes_<double> model(100.0, 0.2, 0.05, 0.02);
+        const auto product = [](size_t increments) {
+            String_ history = "seed = K ";
+            for (size_t i = 0; i < increments; ++i)
+                history += "seed = seed + K ";
+            Vector_<Cell_> dates{Cell_("K"), Cell_(Date_(2023, 12, 31))};
+            Vector_<String_> scripts{"100", history};
+            for (int i = 0; i < 65; ++i) {
+                dates.push_back(Cell_(Date_(2024, 1, 1).AddDays(7 * (i + 1))));
+                scripts.push_back(i < 64 ? "EXERCISE MAX(K + seed * 0.000001 - SPOT(), 0)" : "pay PAYS MAX(K + seed * 0.000001 - SPOT(), 0)");
+            }
+            return ScriptProductData_("historical bytecode budget", dates, scripts);
+        };
+        const auto shortHistory = CheckpointPrepare(product(0), &model, simulation);
+        const auto longProduct = product(100000);
+        const auto longHistory = CheckpointPrepare(longProduct, &model, simulation);
+        ASSERT_EQ(shortHistory.Product().VarNames(), longHistory.Product().VarNames());
+        ASSERT_EQ(shortHistory.ConstVarNames(), longHistory.ConstVarNames());
+        ASSERT_EQ(shortHistory.TimeLine(), longHistory.TimeLine());
+        const auto programBytes = [](const Dal::Script::ScriptCompiled_& program) {
+            size_t bytes = program.NodeStreams().capacity() * sizeof(Vector_<int>) + program.ConstStreams().capacity() * sizeof(Vector_<>);
+            for (const auto& row : program.NodeStreams())
+                bytes += row.capacity() * sizeof(int);
+            for (const auto& row : program.ConstStreams())
+                bytes += row.capacity() * sizeof(double);
+            return bytes;
+        };
+        const size_t historyGrowth = programBytes(longHistory.HistoricalCompiledProgram()) - programBytes(shortHistory.HistoricalCompiledProgram());
+        ASSERT_GT(historyGrowth, size_t{1024} * 1024);
+        LsmcDiagnostics_ shortDiagnostics;
+        const auto shortPrice = Dal::Script::MCLsmcSimulation(shortHistory, &model, 17, &shortDiagnostics).aggregated_;
+        ASSERT_LE(shortDiagnostics.trainingAllocationBound_, size_t{1024} * 1024);
+        ASSERT_THROW(Dal::Script::MCLsmcSimulation(longHistory, &model, 17), Dal::ScriptError_);
+        ASSERT_EQ(Dal::Script::MCLsmcSimulation(shortHistory, &model, 17).aggregated_, shortPrice);
+
+        simulation.lsmcTrainingMemoryMb_ = 64;
+        const auto retry = CheckpointPrepare(longProduct, &model, simulation);
+        LsmcDiagnostics_ diagnostics;
+        const auto recovered = Dal::Script::MCLsmcSimulation(retry, &model, 17, &diagnostics);
+        ASSERT_GT(diagnostics.trainingAllocationBound_, shortDiagnostics.trainingAllocationBound_ + size_t{1024} * 1024);
+        ASSERT_EQ(diagnostics.trainingAllocationBound_ - shortDiagnostics.trainingAllocationBound_, historyGrowth);
+        ASSERT_LE(diagnostics.trainingAllocationPeak_, diagnostics.trainingAllocationBound_);
+        ::testing::Test::RecordProperty("historical_capacity_growth_bytes", std::to_string(historyGrowth));
+        ::testing::Test::RecordProperty("short_history_bound_bytes", std::to_string(shortDiagnostics.trainingAllocationBound_));
+        ::testing::Test::RecordProperty("long_history_bound_bytes", std::to_string(diagnostics.trainingAllocationBound_));
+        ::testing::Test::RecordProperty("long_history_peak_bytes", std::to_string(diagnostics.trainingAllocationPeak_));
+        simulation.lsmcCheckpointBlockEvents_.reset();
+        simulation.lsmcTrainingMemoryMb_.reset();
+        const auto full = CheckpointPrepare(longProduct, &model, simulation);
+        LsmcDiagnostics_ baseline;
+        ASSERT_EQ(recovered.aggregated_, Dal::Script::MCLsmcSimulation(full, &model, 17, &baseline).aggregated_);
+        AssertCheckpointPolicies(diagnostics, baseline);
+
+        const Dal::Handle_<Dal::ModelData_> data(new Dal::BSModelData_("", 100.0, 0.2, 0.05, 0.02));
+        for (const String_ mode : {"Frozen", "RetrainedBump"}) {
+            simulation.enableAad_ = true;
+            simulation.lsmcPolicyRiskMode_ = mode;
+            const auto reference = CheckpointPrepare(longProduct, &model, simulation);
+            const auto expected = Dal::Script::MCLsmcAadSimulation(reference, data, 17);
+            simulation.lsmcCheckpointBlockEvents_ = 8;
+            simulation.lsmcTrainingMemoryMb_ = 64;
+            const auto budgeted = CheckpointPrepare(longProduct, &model, simulation);
+            const auto actual = Dal::Script::MCLsmcAadSimulation(budgeted, data, 17);
+            ASSERT_EQ(CheckpointBits(actual.aggregated_), CheckpointBits(expected.aggregated_));
+            ASSERT_EQ(actual.names_, (Vector_<String_>{"spot", "vol", "rate", "div", "K"}));
+            ASSERT_EQ(actual.names_, expected.names_);
+            ASSERT_EQ(actual.risks_.size(), expected.risks_.size());
+            for (size_t j = 0; j < actual.risks_.size(); ++j)
+                ASSERT_EQ(CheckpointBits(actual.risks_[j]), CheckpointBits(expected.risks_[j])) << actual.names_[j];
+            simulation.lsmcCheckpointBlockEvents_.reset();
+            simulation.lsmcTrainingMemoryMb_.reset();
+        }
+    }
+} // namespace
+
+TEST(LsmcCheckpointTest, TestHistoricalProgramCapacityIsBudgetedAndRejectionRecovers) {
+    CheckpointThreads_ threads;
+    std::exception_ptr failure;
+    // Admission includes retained tape, so the 1 MiB control needs a fresh worker.
+    std::thread worker([&] {
+        try {
+            AssertHistoricalProgramBudget();
+        } catch (...) {
+            failure = std::current_exception();
+        }
+    });
+    worker.join();
+    if (failure)
+        std::rethrow_exception(failure);
 }
 
 TEST(LsmcCheckpointTest, TestTwoSidedFitDoesNotRequireUnusedBumpsAtBumpedPoints) {

@@ -125,14 +125,14 @@ class ProductionCollectorTests(unittest.TestCase):
             spawn.assert_not_called()
         with mock.patch.object(COLLECTOR.subprocess, "check_output", return_value="value\n") as query:
             self.assertEqual(COLLECTOR.git_metadata("commit"), "value\n")
-            query.assert_called_once_with([str(Path("/usr/bin/git").resolve()), "rev-parse", "HEAD"],
+            query.assert_called_once_with(["/usr/bin/git", "rev-parse", "HEAD"],
                                           cwd=ROOT, text=True, shell=False)
             query.reset_mock()
             with self.assertRaises(KeyError):
                 COLLECTOR.git_metadata("--config=untrusted")
             query.assert_not_called()
             self.assertEqual(COLLECTOR.compiler_version(), "value")
-            query.assert_called_once_with([str(Path("/usr/bin/c++").resolve()), "--version"], text=True, shell=False)
+            query.assert_called_once_with(["/usr/bin/c++", "--version"], text=True, shell=False)
 
     def test_numerical_and_work_bounds_remain_active(self):
         samples = json.loads((ROOT / "docs/experimental/data/lsmc-checkpoint-production.json").read_text())["samples"]

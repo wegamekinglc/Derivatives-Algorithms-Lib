@@ -318,7 +318,8 @@ The allocation guard charges actual vector capacities before allocation,
 including temporary old/new capacity overlap, historical vectors, checkpoint
 records, masks and holding values, full normal vectors, model/path/RNG buffers,
 QR columns and copied targets. The admission reserve includes raw row arrays,
-fixed QR/construction workspace, immutable numeric programs/plans, model state,
+fixed QR/construction workspace, immutable numeric programs/plans (including
+historical compiled bytecode and its actual nested capacities), model state,
 overlapping policies, and the native tape capacity retained on the single worker.
 Each bumped fit repeats admission after frozen AAD, including that retained tape.
 Training storage is released before pricing. This budget covers training

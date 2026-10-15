@@ -303,6 +303,10 @@ TrainingMemoryPlan_ PlanTrainingMemory(const LsmcContext_& ctx, const PathCounts
         fixed = TrainingAdd(fixed, TrainingNestedBytes(preparedProgram.NodeStreams()));
         fixed = TrainingAdd(fixed, TrainingNestedBytes(preparedProgram.ConstStreams()));
     }
+    const auto& historicalProgram = ctx.prepared_.HistoricalCompiledProgram();
+    fixed = TrainingAdd(fixed, sizeof(std::optional<ScriptCompiled_>));
+    fixed = TrainingAdd(fixed, TrainingNestedBytes(historicalProgram.NodeStreams()));
+    fixed = TrainingAdd(fixed, TrainingNestedBytes(historicalProgram.ConstStreams()));
     // Base/up/down policies and validation candidates can overlap a bumped fit.
     fixed = TrainingAdd(fixed, TrainingMultiply(TrainingAdd(TrainingMultiply(4, ctx.scan_.days_.size()), 16),
                                                 sizeof(ExerciseRegression_) + 20 * (sizeof(double) + 3) + 6 * sizeof(double) + 512));

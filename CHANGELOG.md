@@ -20,8 +20,9 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 - **Bounded LSMC training opt-in** — compiled, single-worker exact Black–Scholes
   training can restore complete passive state in time blocks, preserving the
-  native policy and named risks. Explicit memory admission includes QR, temporary
-  capacities and retained AAD tape, with budgeted full-storage fallback.
+  native policy and named risks. Explicit memory admission includes historical
+  compiled programs, QR, temporary capacities and retained AAD tape, with budgeted
+  full-storage fallback.
   See [training checkpoints](docs/methodology/monte-carlo/lsm.md#opt-in-training-checkpoints).
 
 ## 2026-10-14
