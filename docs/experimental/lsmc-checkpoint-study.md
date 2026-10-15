@@ -29,6 +29,15 @@ compiler/test/benchmark load as well; it can invalidate timing conclusions even
 while this lock is held. The runner records load snapshots and never cancels
 other work.
 
+The Linux runner executes the operator-selected local `--binary`, which must
+resolve to an executable file. Use only a trusted build: checking a path does
+not establish that its contents are safe. Study arguments come from fixed cases;
+metadata queries use fixed `/usr/bin` tools and an allowlist of Git arguments.
+Every subprocess uses argv with `shell=False`. The import and these audited
+calls carry only the specific Bandit B404/B603 annotations; shell-injection
+checks remain enabled. The metadata commands also satisfy Semgrep's
+`dangerous-subprocess-use-audit` static-executable rule.
+
 `--schedule materialized|checkpoint` emits one JSON sample. `--mode
 hard|frozen|retrained` selects valuation. `--schedule verify` also checks native
 rows, model samples, restored state, policy and all three valuation modes, and

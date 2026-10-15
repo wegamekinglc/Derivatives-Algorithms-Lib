@@ -8,7 +8,8 @@ import json
 import os
 from pathlib import Path
 import platform
-import subprocess
+# The Linux study runner uses only the audited argv calls below.
+import subprocess  # nosec B404
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -21,8 +22,26 @@ CASES = (
 )
 
 
-def capture(command):
-    return subprocess.check_output(command, cwd=ROOT, text=True).strip()
+def capture_git(key):
+    arguments = {
+        "head": ("rev-parse", "HEAD"),
+        "dirty": ("status", "--short"),
+        "submodules": ("submodule", "status"),
+        "source_diff": ("diff", "HEAD", "--", "dal-cpp/experimental/lsmccheckpoint"),
+    }
+    # Only fixed metadata queries can reach the executable; unknown keys fail before spawning.
+    output = subprocess.check_output(  # nosec B603
+        ["/usr/bin/git", *arguments[key]], cwd=ROOT, text=True, shell=False)
+    return output.strip()
+
+
+def tool_versions():
+    # Fixed system tools report the build provenance.
+    compiler = subprocess.check_output(  # nosec B603
+        ["/usr/bin/c++", "--version"], text=True, shell=False)
+    cmake = subprocess.check_output(  # nosec B603
+        ["/usr/bin/cmake", "--version"], text=True, shell=False)
+    return {"compiler": compiler.splitlines()[0], "cmake": cmake.splitlines()[0]}
 
 
 def digest(path):
@@ -30,7 +49,9 @@ def digest(path):
 
 
 def load_snapshot():
-    rows = capture(["ps", "-eo", "pid,comm,pcpu"]).splitlines()[1:]
+    output = subprocess.check_output(  # nosec B603
+        ["/usr/bin/ps", "-eo", "pid,comm,pcpu"], text=True, shell=False)
+    rows = output.splitlines()[1:]
     return [row.split() for row in rows if row.split()[1] in
             {"cc1plus", "rustc", "ld", "dal_cpp_tests", "script_mc_perf", "rate_risk_perf"}]
 
@@ -42,9 +63,11 @@ def sample(binary, destination, case, schedule):
                "--validation", str(validation), "--pricing", "257",
                "--growing-vector", str(growing).lower()]
     resource = destination.with_suffix(".resource.txt")
-    process = subprocess.run(["/usr/bin/time", "-v", "-o", str(resource), *command],
-                             cwd=ROOT, env={**os.environ, "DAL_NUM_THREADS": "1"},
-                             text=True, capture_output=True, check=False)
+    # The operator selects the local executable; all study arguments come from the fixed cases.
+    process = subprocess.run(  # nosec B603
+        ["/usr/bin/time", "-v", "-o", str(resource), *command],
+        cwd=ROOT, env={**os.environ, "DAL_NUM_THREADS": "1"},
+        text=True, capture_output=True, check=False, shell=False)
     destination.with_suffix(".stdout.txt").write_text(process.stdout)
     destination.with_suffix(".stderr.txt").write_text(process.stderr)
     if process.returncode:
@@ -57,7 +80,7 @@ def sample(binary, destination, case, schedule):
     return result
 
 
-def main():
+def read_options():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
@@ -66,21 +89,33 @@ def main():
     options = parser.parse_args()
     if options.samples < 10 or options.rounds < 2:
         parser.error("retain at least two rounds of ten samples per schedule")
-    binary = options.binary.resolve()
-    output = options.output.resolve()
-    output.mkdir(parents=True, exist_ok=False)
-    provenance = {
-        "head": capture(["git", "rev-parse", "HEAD"]),
+    try:
+        options.binary = options.binary.resolve(strict=True)
+    except OSError as error:
+        parser.error(f"cannot resolve local study binary: {error}")
+    if not options.binary.is_file() or not os.access(options.binary, os.X_OK):
+        parser.error("--binary must name an executable local file")
+    options.output = options.output.resolve()
+    return options
+
+
+def cpu_model():
+    return next(line.split(":", 1)[1].strip() for line in Path("/proc/cpuinfo").read_text().splitlines()
+                if line.startswith("model name"))
+
+
+def provenance_record(options):
+    binary = options.binary
+    return {
+        "head": capture_git("head"),
         "baseline": "e6f57c7237db603256a8d5f99656fb66a639de9a",
-        "dirty": capture(["git", "status", "--short"]),
+        "dirty": capture_git("dirty"),
         "binary_sha256": digest(binary),
         "source_sha256": digest(Path(__file__).with_name("checkpointstudy.cpp")),
-        "compiler": capture(["c++", "--version"]).splitlines()[0],
-        "cmake": capture(["cmake", "--version"]).splitlines()[0],
-        "submodules": capture(["git", "submodule", "status"]),
+        **tool_versions(),
+        "submodules": capture_git("submodules"),
         "platform": platform.platform(),
-        "cpu": next(line.split(":", 1)[1].strip() for line in Path("/proc/cpuinfo").read_text().splitlines()
-                    if line.startswith("model name")),
+        "cpu": cpu_model(),
         "threads": 1,
         "aad": "native",
         "samples_per_round": options.samples,
@@ -88,49 +123,84 @@ def main():
         "before_load": load_snapshot(),
         "cmake_cache": (binary.parent / "CMakeCache.txt").read_text(),
         "compile_commands": (binary.parent / "compile_commands.json").read_text(),
-        "source_diff": capture(["git", "diff", "HEAD", "--", "dal-cpp/experimental/lsmccheckpoint"]),
+        "source_diff": capture_git("source_diff"),
     }
-    (output / "provenance.json").write_text(json.dumps(provenance, indent=2) + "\n")
+
+
+def collect_pair(binary, output, case, round_index, index):
+    schedules = ("materialized", "checkpoint") if index % 2 == 0 else ("checkpoint", "materialized")
+    pair = []
+    for schedule in schedules:
+        destination = output / f"{case[0]}-r{round_index}-s{index}-{schedule}"
+        result = sample(binary, destination, case, schedule)
+        result.update(round=round_index, sample=index)
+        pair.append(result)
+    if pair[0]["pv"] != pair[1]["pv"] or pair[0]["risks"] != pair[1]["risks"]:
+        raise RuntimeError(f"price/risk mismatch: {case[0]}")
+    return pair
+
+
+def collect_results(options):
     results = []
     for round_index in range(options.rounds):
         for index in range(options.samples):
             for case in CASES:
-                schedules = ("materialized", "checkpoint") if index % 2 == 0 else ("checkpoint", "materialized")
-                pair = []
-                for schedule in schedules:
-                    destination = output / f"{case[0]}-r{round_index}-s{index}-{schedule}"
-                    result = sample(binary, destination, case, schedule)
-                    result.update(round=round_index, sample=index)
-                    pair.append(result)
-                    results.append(result)
-                if pair[0]["pv"] != pair[1]["pv"] or pair[0]["risks"] != pair[1]["risks"]:
-                    raise RuntimeError(f"price/risk mismatch: {case[0]}")
-    if digest(binary) != provenance["binary_sha256"]:
-        raise RuntimeError("binary changed during sampling")
-    provenance["after_load"] = load_snapshot()
-    provenance["timing_verdict"] = "informational; no nine-target regression verdict"
-    (output / "provenance.json").write_text(json.dumps(provenance, indent=2) + "\n")
-    (output / "results.json").write_text(json.dumps(results, indent=2) + "\n")
+                results.extend(collect_pair(options.binary, options.output, case, round_index, index))
+    return results
+
+
+def write_samples(output, results):
     fields = ["case", "schedule", "round", "sample", "seconds", "max_rss_kib", "peak_owned_storage_bytes",
               "checkpoint_bytes", "normal_vectors", "normal_coordinates", "model_steps", "bootstrap_model_steps", "script_events", "pv"]
     with (output / "samples.csv").open("w", newline="") as stream:
         writer = csv.DictWriter(stream, fieldnames=fields, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(results)
+
+
+def round_minimum(samples, round_index):
+    return min(row["seconds"] for row in samples if row["round"] == round_index)
+
+
+def summarize_samples(samples, rounds):
+    return {
+        "min_seconds_by_round": [round_minimum(samples, round_index) for round_index in range(rounds)],
+        "min_seconds": min(row["seconds"] for row in samples),
+        "rss_kib_range": [min(row["max_rss_kib"] for row in samples), max(row["max_rss_kib"] for row in samples)],
+        **{key: samples[0][key] for key in ("peak_owned_storage_bytes", "checkpoint_bytes", "normal_vectors",
+                                           "normal_coordinates", "model_steps", "bootstrap_model_steps", "script_events", "pv", "risks")},
+    }
+
+
+def select_samples(results, case_name, schedule):
+    return [row for row in results if row["case"] == case_name and row["schedule"] == schedule]
+
+
+def summarize(results, rounds):
     summaries = []
     for case in CASES:
         summary = {"case": case[0]}
         for schedule in ("materialized", "checkpoint"):
-            samples = [row for row in results if row["case"] == case[0] and row["schedule"] == schedule]
-            summary[schedule] = {
-                "min_seconds_by_round": [min(row["seconds"] for row in samples if row["round"] == round_index)
-                                         for round_index in range(options.rounds)],
-                "min_seconds": min(row["seconds"] for row in samples),
-                "rss_kib_range": [min(row["max_rss_kib"] for row in samples), max(row["max_rss_kib"] for row in samples)],
-                **{key: samples[0][key] for key in ("peak_owned_storage_bytes", "checkpoint_bytes", "normal_vectors",
-                                                   "normal_coordinates", "model_steps", "bootstrap_model_steps", "script_events", "pv", "risks")},
-            }
+            summary[schedule] = summarize_samples(select_samples(results, case[0], schedule), rounds)
         summaries.append(summary)
+    return summaries
+
+
+def main():
+    options = read_options()
+    output = options.output
+    output.mkdir(parents=True, exist_ok=False)
+    provenance = provenance_record(options)
+    (output / "provenance.json").write_text(json.dumps(provenance, indent=2) + "\n")
+    results = collect_results(options)
+    if digest(options.binary) != provenance["binary_sha256"]:
+        raise RuntimeError("binary changed during sampling")
+    provenance["after_load"] = load_snapshot()
+    provenance["timing_verdict"] = "informational; no nine-target regression verdict"
+    (output / "provenance.json").write_text(json.dumps(provenance, indent=2) + "\n")
+    (output / "results.json").write_text(json.dumps(results, indent=2) + "\n")
+    write_samples(output, results)
+    summaries = summarize(results, options.rounds)
     (output / "summary.json").write_text(json.dumps(summaries, indent=2) + "\n")
     print(json.dumps(summaries, indent=2))
 

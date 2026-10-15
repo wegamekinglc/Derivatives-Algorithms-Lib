@@ -117,10 +117,31 @@ The current training rows plus rollback state occupy
 M_full = L * (8 * (P + D*(F+1) + I*(E-1)) + Dc + 9) + R + workerScratch
 ```
 
-`R` is regression scratch: scalar moment/chunk buffers or up to
-`8 * eligibleTrainingPaths * basisColumns` for multivariate QR, with at most
-20 basis columns. Validation storage is live alongside training. Do not claim
-that checkpointing removes QR's current-date workspace.
+`R` is the peak of simultaneously live regression scratch, including scalar
+moment/chunk buffers or multivariate QR. In `dal-cpp/dal/script/lsmcmulti.cpp`,
+`MakeWorkspace` copies both the eligible targets and every design column.
+For `n=eligibleTrainingPaths` and `q=basisColumns` (at most 20), the dynamic
+double payload alone is **at least** `8*n*(q+1)`, not an allocation upper bound.
+For one native QR workspace, its owned bytes are
+
+```
+R_QR_owned = sizeof(RegressionQR::Workspace_<20>)
+           + 8 * (targets.capacity() + sum_{j=0}^{19}(columns[j].capacity()))
+```
+
+The fixed `sizeof` term includes all 20 vector headers, the target vector
+header, row/basis counts, scales, permutation, upper-triangular storage and
+projection arrays, including padding. The full `R` also includes other live
+regression temporaries (moments, basis powers and coefficient recovery) and
+any simultaneously live workspace objects during construction/return. Count
+each allocation once by capacity, rather than its logical size, and take the
+maximum across construction, factorization, degree/rank fallback and recovery;
+do not sum sequential candidate workspaces. Allocator bookkeeping and retained
+arena pages are additional process costs, not vector payload.
+
+Validation rows remain live alongside training, but do not add a second
+concurrent QR fit in the current serial schedule. The QR target copy is live
+alongside the original holding/target rows. Checkpointing removes neither.
 
 For time blocks with row-byte cost `Rb` per path:
 
@@ -219,6 +240,17 @@ production implementation needs a versioned internal model restart adapter,
 prepared-state/parameter-point identity checks, event-boundary snapshots,
 immutable stream descriptors, and a row provider with the same native reductions.
 Reject unsupported model/state combinations before allocating checkpoints.
+
+For #571, budget admission must conservatively bound the complete concurrent
+allocation peak before allocation: checkpoint and row capacities/headers,
+rollback state, `R` above (including the QR target copy and fixed workspace),
+worker/model/RNG scratch, immutable policies and retained AAD tape capacity.
+Use checked size arithmetic and known allocator capacity bounds; an unknown
+bound or a budget excess requires the existing full-storage fallback or its
+existing budget rejection. The owned-training counter excludes QR and tape
+and cannot alone admit a production workload. Its published measurements and
+RSS observations keep their original scope and provenance; this correction
+requires no new process samples or budget-default change.
 
 The prototype is compiled-only, single worker, exact BS, one positive-time
 sample per event, three scalar regression features, optional growing vector,

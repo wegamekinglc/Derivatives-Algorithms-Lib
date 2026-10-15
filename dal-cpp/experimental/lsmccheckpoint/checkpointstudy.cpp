@@ -27,41 +27,65 @@ namespace Dal::Script::CheckpointStudy {
         bool bridge_ = false;
     };
 
-    Options_ ReadOptions(int argc, char** argv) {
-        REQUIRE(argc % 2 == 1, "expected --option value pairs");
-        Options_ options;
-        for (int i = 1; i < argc; i += 2) {
-            const std::string name(argv[i]), value(argv[i + 1]);
-            if (name == "--schedule")
-                options.schedule_ = value;
-            else if (name == "--mode")
-                options.mode_ = value;
-            else if (name == "--growing-vector" || name == "--bridge") {
-                REQUIRE(value == "true" || value == "false", "expected true or false");
-                (name == "--bridge" ? options.bridge_ : options.growingVector_) = value == "true";
-            } else {
-                size_t number = 0;
-                const auto parsed = std::from_chars(value.data(), value.data() + value.size(), number);
-                REQUIRE(parsed.ec == std::errc() && parsed.ptr == value.data() + value.size(), "invalid count");
-                if (name == "--events")
-                    options.events_ = number;
-                else if (name == "--block")
-                    options.block_ = number;
-                else if (name == "--training")
-                    options.training_ = number;
-                else if (name == "--validation")
-                    options.validation_ = number;
-                else if (name == "--pricing")
-                    options.pricing_ = number;
-                else
-                    THROW("unknown option " + name);
+    void SetCount(const std::string& name, const std::string& value, Options_* options) {
+        size_t number = 0;
+        const auto parsed = std::from_chars(value.data(), value.data() + value.size(), number);
+        REQUIRE(parsed.ec == std::errc() && parsed.ptr == value.data() + value.size(), "invalid count");
+        const std::pair<const char*, size_t Options_::*> fields[] = {{"--events", &Options_::events_},
+                                                                     {"--block", &Options_::block_},
+                                                                     {"--training", &Options_::training_},
+                                                                     {"--validation", &Options_::validation_},
+                                                                     {"--pricing", &Options_::pricing_}};
+        for (const auto& field : fields) {
+            if (name == field.first) {
+                options->*field.second = number;
+                return;
             }
         }
+        THROW("unknown option " + name);
+    }
+
+    bool ReadBool(const std::string& value) {
+        REQUIRE(value == "true" || value == "false", "expected true or false");
+        return value == "true";
+    }
+
+    void SetOption(const std::string& name, const std::string& value, Options_* options) {
+        const std::pair<const char*, std::string Options_::*> strings[] = {{"--schedule", &Options_::schedule_}, {"--mode", &Options_::mode_}};
+        for (const auto& field : strings) {
+            if (name == field.first) {
+                options->*field.second = value;
+                return;
+            }
+        }
+        const std::pair<const char*, bool Options_::*> flags[] = {{"--growing-vector", &Options_::growingVector_}, {"--bridge", &Options_::bridge_}};
+        for (const auto& field : flags) {
+            if (name == field.first) {
+                options->*field.second = ReadBool(value);
+                return;
+            }
+        }
+        SetCount(name, value, options);
+    }
+
+    void ValidateModes(const Options_& options) {
         REQUIRE(options.schedule_ == "verify" || options.schedule_ == "materialized" || options.schedule_ == "checkpoint", "invalid schedule");
         REQUIRE(options.mode_ == "hard" || options.mode_ == "frozen" || options.mode_ == "retrained", "invalid mode");
+    }
+
+    void ValidateCounts(const Options_& options) {
         REQUIRE(options.events_ >= 2 && options.events_ <= 256 && options.block_ > 0, "invalid event/block count");
         REQUIRE(options.training_ > 0 && options.training_ <= 1000000 && options.validation_ <= 1000000, "invalid training/validation count");
         REQUIRE(options.pricing_ > 0 && options.pricing_ <= 1000000, "invalid pricing count");
+    }
+
+    Options_ ReadOptions(int argc, char** argv) {
+        REQUIRE(argc % 2 == 1, "expected --option value pairs");
+        Options_ options;
+        for (int i = 1; i < argc; i += 2)
+            SetOption(argv[i], argv[i + 1], &options);
+        ValidateModes(options);
+        ValidateCounts(options);
         return options;
     }
 
@@ -393,6 +417,31 @@ namespace Dal::Script::CheckpointStudy {
         }
     }
 
+    void ValidateCheckpoint(
+        const Workload_& workload, const AAD::Model_<double>& model, const Vector_<>* constants, const Checkpoints_& checkpoints, size_t first) {
+        REQUIRE(checkpoints.prepared_ == &workload.prepared_ && first % checkpoints.blockSize_ == 0, "checkpoint preparation/boundary mismatch");
+        REQUIRE(checkpoints.scrambleKey_ == LsmcScrambleKey(false, 17), "checkpoint stream mismatch");
+        const auto& constantValues = constants ? *constants : workload.prepared_.Product().ConstVarValues();
+        REQUIRE(checkpoints.constants_ == constantValues, "checkpoint constant point mismatch");
+        REQUIRE(checkpoints.parameters_.size() == model.Parameters().size(), "checkpoint model schema mismatch");
+        for (size_t j = 0; j < checkpoints.parameters_.size(); ++j)
+            Equal(*model.Parameters()[j], checkpoints.parameters_[j], "checkpoint model point");
+    }
+
+    void CompareSamples(const Workspace_& workspace, AAD::Model_<double>* model, size_t first, size_t last, Work_* work) {
+        auto nativePath = workspace.workload_.pathTemplate_;
+        model->GeneratePath(workspace.gauss_, &nativePath);
+        for (size_t e = first; e < last; ++e) {
+            Equal(workspace.path_[e].spot_, nativePath[e].spot_, "native path spot");
+            Equal(workspace.path_[e].numeraire_, nativePath[e].numeraire_, "native path numeraire");
+            work->sampleValuesCompared_ += 2;
+            for (size_t j = 0; j < nativePath[e].observations_.size(); ++j) {
+                Equal(workspace.path_[e].observations_[j], nativePath[e].observations_[j], "native observation");
+                ++work->sampleValuesCompared_;
+            }
+        }
+    }
+
     LsmcStorage_ Regenerate(const Workload_& workload,
                             AAD::Model_<double>* model,
                             const Vector_<>* constants,
@@ -404,13 +453,7 @@ namespace Dal::Script::CheckpointStudy {
                             bool verify) {
         if (checkpoints.paths_ == 0)
             return {};
-        REQUIRE(checkpoints.prepared_ == &workload.prepared_ && first % checkpoints.blockSize_ == 0, "checkpoint preparation/boundary mismatch");
-        REQUIRE(checkpoints.scrambleKey_ == LsmcScrambleKey(false, 17), "checkpoint stream mismatch");
-        const auto& constantValues = constants ? *constants : workload.prepared_.Product().ConstVarValues();
-        REQUIRE(checkpoints.constants_ == constantValues, "checkpoint constant point mismatch");
-        REQUIRE(checkpoints.parameters_.size() == model->Parameters().size(), "checkpoint model schema mismatch");
-        for (size_t j = 0; j < checkpoints.parameters_.size(); ++j)
-            Equal(*model->Parameters()[j], checkpoints.parameters_[j], "checkpoint model point");
+        ValidateCheckpoint(workload, *model, constants, checkpoints, first);
         auto storage = MakeStorage(slice, checkpoints.paths_, 3, false);
         storage.ZeroPaths(0, checkpoints.paths_);
         Workspace_ workspace(workload, model, constants, work);
@@ -420,19 +463,8 @@ namespace Dal::Script::CheckpointStudy {
             const auto& checkpoint = checkpoints.states_[(first / checkpoints.blockSize_) * checkpoints.paths_ + p];
             workspace.Restore(checkpoint);
             const double logSpot = workspace.Advance(first, last, checkpoint.logSpot_, work);
-            if (verify) {
-                auto nativePath = workload.pathTemplate_;
-                model->GeneratePath(workspace.gauss_, &nativePath);
-                for (size_t e = first; e < last; ++e) {
-                    Equal(workspace.path_[e].spot_, nativePath[e].spot_, "native path spot");
-                    Equal(workspace.path_[e].numeraire_, nativePath[e].numeraire_, "native path numeraire");
-                    work->sampleValuesCompared_ += 2;
-                    for (size_t j = 0; j < nativePath[e].observations_.size(); ++j) {
-                        Equal(workspace.path_[e].observations_[j], nativePath[e].observations_[j], "native observation");
-                        ++work->sampleValuesCompared_;
-                    }
-                }
-            }
+            if (verify)
+                CompareSamples(workspace, model, first, last, work);
             for (size_t e = first; e < last; ++e)
                 workspace.Event(e, p, work);
             if (verify && last < workload.options_.events_)
@@ -455,30 +487,80 @@ namespace Dal::Script::CheckpointStudy {
         rows->pending_ = {};
     }
 
-    Vector_<ExerciseRegression_>
-    Train(const Workload_& workload, AAD::Model_<double>* model, const Vector_<>* constants, bool checkpoint, Work_* work, bool verify = false) {
+    Vector_<ExerciseRegression_> TrainMaterialized(const Workload_& workload, AAD::Model_<double>* model, const Vector_<>* constants, Work_* work) {
         const size_t n = workload.counts_.training_, v = workload.counts_.validation_;
         const auto& scan = workload.scan_;
-        if (!checkpoint) {
-            auto storage = MakeStorage(scan, n, 3, false);
-            LsmcContext_ ctx{workload.prepared_, model, scan, storage, &workload.hardCompiled_, nullptr, LsmcScrambleKey(false, 17), constants};
-            RunForwardPhase(ctx, BatchPlan_(n, 1));
-            const auto numeraires = SampleGridNumeraires(ctx);
-            LsmcStorage_ validation;
-            if (v) {
-                validation = MakeStorage(scan, v, 3, false);
-                LsmcContext_ validationCtx{workload.prepared_,         model,    scan, validation, &workload.hardCompiled_, nullptr,
-                                           LsmcScrambleKey(false, 17), constants};
-                RunForwardPhase(validationCtx, BatchPlan_(v, 1), n);
-            }
-            // Native forward phases visit every event; the extra path is their deterministic-numeraire probe.
-            work->normalVectors_ += n + v + 1;
-            work->normalCoordinates_ += (n + v + 1) * model->SimDim();
-            work->modelSteps_ += (n + v + 1) * model->SimDim();
-            work->scriptEvents_ += (n + v) * workload.options_.events_;
-            work->peakStorageBytes_ = std::max(work->peakStorageBytes_, StorageBytes(storage) + StorageBytes(validation) + (n + v) * 9);
-            return RunBackwardPhase(ctx, numeraires, n, 2, v ? &validation : nullptr, v);
+        auto storage = MakeStorage(scan, n, 3, false);
+        LsmcContext_ ctx{workload.prepared_, model, scan, storage, &workload.hardCompiled_, nullptr, LsmcScrambleKey(false, 17), constants};
+        RunForwardPhase(ctx, BatchPlan_(n, 1));
+        const auto numeraires = SampleGridNumeraires(ctx);
+        LsmcStorage_ validation;
+        if (v) {
+            validation = MakeStorage(scan, v, 3, false);
+            LsmcContext_ validationCtx{workload.prepared_,         model,    scan, validation, &workload.hardCompiled_, nullptr,
+                                       LsmcScrambleKey(false, 17), constants};
+            RunForwardPhase(validationCtx, BatchPlan_(v, 1), n);
         }
+        // Native forward phases visit every event; the extra path is their deterministic-numeraire probe.
+        work->normalVectors_ += n + v + 1;
+        work->normalCoordinates_ += (n + v + 1) * model->SimDim();
+        work->modelSteps_ += (n + v + 1) * model->SimDim();
+        work->scriptEvents_ += (n + v) * workload.options_.events_;
+        work->peakStorageBytes_ = std::max(work->peakStorageBytes_, StorageBytes(storage) + StorageBytes(validation) + (n + v) * 9);
+        return RunBackwardPhase(ctx, numeraires, n, 2, v ? &validation : nullptr, v);
+    }
+
+    void SweepBlock(const Workload_& workload,
+                    const LsmcPlan_& slice,
+                    size_t first,
+                    size_t last,
+                    const Scenario_<>& numeraires,
+                    const Vector_<BackwardRows_*>& active,
+                    Vector_<ExerciseRegression_>* policies) {
+        for (size_t e = last; e-- > first;) {
+            const bool hasNext = e + 1 < workload.options_.events_;
+            const double discount = hasNext ? numeraires[e].numeraire_ / numeraires[e + 1].numeraire_ : 1.0;
+            std::array<IncludedSums_, 2> sums{};
+            for (size_t j = 0; j < active.size(); ++j)
+                sums[j] = SweepAndClear(slice, e, discount, hasNext, active[j]);
+            const size_t localDay = slice.eventToExercise_[e];
+            if (localDay != NO_SLOT) {
+                auto& policy = (*policies)[workload.scan_.eventToExercise_[e]];
+                policy = FitExerciseDay(active, sums, localDay, 2);
+                for (auto* row : active)
+                    DeferDecision(policy, localDay, row);
+            }
+        }
+    }
+
+    void BackwardBlock(const Workload_& workload,
+                       const LsmcPlan_& slice,
+                       size_t first,
+                       size_t last,
+                       const Scenario_<>& numeraires,
+                       const LsmcStorage_& storage,
+                       const LsmcStorage_& validationStorage,
+                       Vector_<ExerciseRegression_>* policies,
+                       Vector_<>* w,
+                       Vector_<>* validationW) {
+        BackwardRows_ rows(storage, workload.counts_.training_, nullptr), validationRows(validationStorage, workload.counts_.validation_, nullptr);
+        rows.w_.Swap(w);
+        validationRows.w_.Swap(validationW);
+        Vector_<BackwardRows_*> active{&rows};
+        if (workload.counts_.validation_)
+            active.push_back(&validationRows);
+        SweepBlock(workload, slice, first, last, numeraires, active, policies);
+        if (first > 0)
+            for (auto* row : active)
+                ApplyPending(row);
+        w->Swap(&rows.w_);
+        validationW->Swap(&validationRows.w_);
+    }
+
+    Vector_<ExerciseRegression_>
+    TrainCheckpoint(const Workload_& workload, AAD::Model_<double>* model, const Vector_<>* constants, Work_* work, bool verify) {
+        const size_t n = workload.counts_.training_, v = workload.counts_.validation_;
+        const auto& scan = workload.scan_;
         const auto training = Capture(workload, model, constants, n, 0, work);
         const auto validation = Capture(workload, model, constants, v, n, work);
         const size_t checkpointBytes = training.Bytes() + validation.Bytes();
@@ -502,35 +584,31 @@ namespace Dal::Script::CheckpointStudy {
                 CompareRows(storage, reference, slice, scan, first, last, work);
                 CompareRows(validationStorage, referenceValidation, slice, scan, first, last, work);
             }
-            BackwardRows_ rows(storage, n, nullptr), validationRows(validationStorage, v, nullptr);
-            rows.w_.Swap(&w);
-            validationRows.w_.Swap(&validationW);
-            Vector_<BackwardRows_*> active{&rows};
-            if (v)
-                active.push_back(&validationRows);
             work->peakStorageBytes_ =
                 std::max(work->peakStorageBytes_, checkpointBytes + StorageBytes(storage) + StorageBytes(validationStorage) + (n + v) * 17);
-            for (size_t e = last; e-- > first;) {
-                const bool hasNext = e + 1 < workload.options_.events_;
-                const double discount = hasNext ? numeraires[e].numeraire_ / numeraires[e + 1].numeraire_ : 1.0;
-                std::array<IncludedSums_, 2> sums{};
-                for (size_t j = 0; j < active.size(); ++j)
-                    sums[j] = SweepAndClear(slice, e, discount, hasNext, active[j]);
-                const size_t localDay = slice.eventToExercise_[e];
-                if (localDay != NO_SLOT) {
-                    auto& policy = policies[scan.eventToExercise_[e]];
-                    policy = FitExerciseDay(active, sums, localDay, 2);
-                    for (auto* row : active)
-                        DeferDecision(policy, localDay, row);
-                }
-            }
-            if (first > 0)
-                for (auto* row : active)
-                    ApplyPending(row);
-            w.Swap(&rows.w_);
-            validationW.Swap(&validationRows.w_);
+            BackwardBlock(workload, slice, first, last, numeraires, storage, validationStorage, &policies, &w, &validationW);
         }
         return policies;
+    }
+
+    Vector_<ExerciseRegression_>
+    Train(const Workload_& workload, AAD::Model_<double>* model, const Vector_<>* constants, bool checkpoint, Work_* work, bool verify = false) {
+        return checkpoint ? TrainCheckpoint(workload, model, constants, work, verify) : TrainMaterialized(workload, model, constants, work);
+    }
+
+    void ComparePolicyMetadata(const ExerciseRegression_& a, const ExerciseRegression_& b) {
+        REQUIRE(a.coefficients_.size() == b.coefficients_.size(), "policy coefficient count mismatch");
+        REQUIRE(a.powers_ == b.powers_, "policy powers mismatch");
+        REQUIRE(a.basisDegree_ == b.basisDegree_, "policy degree mismatch");
+        REQUIRE(a.means_.size() == b.means_.size(), "policy mean count mismatch");
+        REQUIRE(a.sigmas_.size() == b.sigmas_.size(), "policy sigma count mismatch");
+        REQUIRE(a.numCondTrue_ == b.numCondTrue_, "policy condition count mismatch");
+        REQUIRE(a.effectiveRank_ == b.effectiveRank_, "policy rank mismatch");
+        REQUIRE(a.solver_ == b.solver_, "policy solver mismatch");
+        REQUIRE(a.degenerate_ == b.degenerate_, "policy degeneracy mismatch");
+        REQUIRE(a.degenerateReason_ == b.degenerateReason_, "policy degeneracy reason mismatch");
+        REQUIRE(a.fallbackReason_ == b.fallbackReason_, "policy fallback reason mismatch");
+        REQUIRE(a.validationMse_ == b.validationMse_, "policy validation MSE mismatch");
     }
 
     void ComparePolicy(const Vector_<ExerciseRegression_>& actual, const Vector_<ExerciseRegression_>& expected) {
@@ -538,11 +616,7 @@ namespace Dal::Script::CheckpointStudy {
         for (size_t e = 0; e < actual.size(); ++e) {
             const auto& a = actual[e];
             const auto& b = expected[e];
-            REQUIRE(a.coefficients_.size() == b.coefficients_.size() && a.powers_ == b.powers_ && a.basisDegree_ == b.basisDegree_ &&
-                        a.means_.size() == b.means_.size() && a.sigmas_.size() == b.sigmas_.size() && a.numCondTrue_ == b.numCondTrue_ &&
-                        a.effectiveRank_ == b.effectiveRank_ && a.solver_ == b.solver_ && a.degenerate_ == b.degenerate_ &&
-                        a.degenerateReason_ == b.degenerateReason_ && a.fallbackReason_ == b.fallbackReason_ && a.validationMse_ == b.validationMse_,
-                    "policy metadata mismatch");
+            ComparePolicyMetadata(a, b);
             Equal(a.mean_, b.mean_, "policy scalar mean");
             Equal(a.sigma_, b.sigma_, "policy scalar sigma");
             for (size_t j = 0; j < a.coefficients_.size(); ++j)
