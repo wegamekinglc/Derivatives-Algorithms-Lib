@@ -284,6 +284,10 @@ jobs:
             build/Release-linux/dal-cpp/benchmarks/script_mc_perf/script_mc_perf --profiling "$profiling"
           python tests/aad-profiling/check_sobol_profile.py \
             build/Release-linux/dal-cpp/benchmarks/rng_perf/rng_perf
+          python -O tests/aad-profiling/check_sobol_profile.py \
+            build/Release-linux/dal-cpp/benchmarks/rng_perf/rng_perf
+          python -m unittest discover -s tests/aad-profiling -p 'test_*.py' -v
+          python -OO -m unittest discover -s tests/aad-profiling -p 'test_*.py' -v
           python -m unittest discover -s tests/lsmc-training-study -p 'test_*.py' -v
           python tests/lsmc-training-study/check_sample.py \
             build/Release-linux/dal-cpp/benchmarks/script_mc_perf/script_mc_perf --addressing stock
