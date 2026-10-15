@@ -1,8 +1,10 @@
 # Compiled double SoA study (DAL-357 / #576 / WP-11)
 
-Status: measured isolated research prototype; runner and complexity repairs await
-incremental independent review. The full study below belongs to `f4681d6f`;
-the repaired source has separate, narrowly scoped evidence at the end.
+Status: measured isolated research prototype; DAL-370's incremental approval is
+accepted. The branch includes master `94311ed8` with separate integration
+validation below. The full study belongs to `f4681d6f`; the repaired source has
+separate, narrowly scoped evidence. Neither timing batch measures the integrated
+binary.
 The general 2x whole-request target is a no-go for the weekly barrier workload.
 This artifact controls the active research decision.
 It adds no public feature and changes neither the default tree engine nor the
@@ -346,3 +348,54 @@ Repair `results.json` SHA-256:
 The repair attachment retains exact commands, raw outputs, manifests, caches,
 compile flags, load snapshots and logs. Required CI/Codacy and DAL-370's
 incremental review apply to the final PR head independently of local validation.
+
+## Integration with accepted inverse-normal changes
+
+Merge commit `8734c49149e74bccf54f08d722756998e852fa52` has parents
+`c4eb2c71ef49fea404a65cb16baa4d6ac90d9bdc` and master
+`94311ed8facf0a44bffe41af15011b54abebd8db`. The ordinary merge had no conflicts.
+The experimental tree remains `a4737af9e20528573c014ee71f2e15d94f4e5428`;
+evaluator, model, collector, request timing and tests are byte-identical to the
+accepted DAL-370 review. Production code and build configuration exactly match
+master, whose entire tree matches accepted PR #588 head `a942051f`.
+No new production functionality is introduced by this integration.
+
+The dependency change affects this study: weekly/divergent Sobol requests have
+53 Gaussian coordinates and enter the new unpolished block inverse-normal path;
+vanilla has one coordinate and retains scalar filling. The accepted #588 evidence
+includes 176 unchanged stream fingerprints and 280 production request processes
+with matching price and all named risks (4 BS, 67 local-vol, 16 GSR, 20 SLV axes).
+Those results and DAL-371's accepted review retain their own source, executable,
+platform and numerical limits; they are reused, not rerun here.
+
+The new build retains GCC 15.2, CMake 4.2.3, Release/static, native AAD, Eigen ON,
+native architecture/profiling/lifetime diagnostics OFF and the same pinned
+dependencies. The actual compile commands preserve the old study, model, RNG
+and evaluator flags. Contraction is now disabled only for the three inverse-normal
+translation units; AVX2 is enabled only for its dedicated translation unit, with
+runtime CPU/OS admission and SSE2/scalar fallback. The resulting library and study
+binary have new identities; the integration evidence retains caches, flags,
+source/dependency hashes and executable hashes.
+
+Under the shared flock, a fresh `build/soa-integration` build of
+`compiled_soa_study` and `compiled_soa_tests` passes the selected existing test
+`CompiledSoaTest.TestBlackScholesWeeklyAndVanillaAllWidthsAndTail`. It covers
+vanilla/weekly/divergent products, all four lane widths, model/payoff equivalence,
+fallback settings and tails. Eight additional CLI processes exercise both engines
+at L32: the three products with 16,387 paths, plus weekly with seven paths for
+scalar bypass. Every PV, Gaussian fingerprint and event count exactly matches
+the corresponding archived original output; branch counters match per iteration.
+The 16,387-path fingerprints remain `5a00cb6adcd2f117` and `7ceacc7a1ee1c5dd`.
+The final documentation update does not alter those executable inputs.
+
+Integrated study executable SHA-256:
+`0b28e2d1bcc35f3689f2640d2b877f4425bccd028a6f06c9549b1abb80522fb0`.
+This is correctness/build validation, with no formal timing or performance
+classification. Original 560 pairs remain bound to `f4681d6f`, and repair 160
+pairs to `d7f10b03`; neither establishes throughput for this new library/binary.
+Their raw results and limited conclusions remain historical evidence. The
+conservative research decision remains no production adoption, retaining the
+tree default, compiled-double/exact-BS scope and fallback restriction. No full
+test, sanitizer, Python, 8-case or 28-case performance matrix is repeated for this
+integration. Current-head CI/Codacy and coordinator acceptance remain separate
+delivery gates.
