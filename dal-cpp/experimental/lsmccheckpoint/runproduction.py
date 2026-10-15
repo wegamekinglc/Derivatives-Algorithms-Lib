@@ -47,7 +47,7 @@ def main():
                 (raw_dir / f"{label}.out").write_text(process.stdout)
                 (raw_dir / f"{label}.err").write_text(process.stderr)
                 require(process.returncode == 0, f"{label} exited {process.returncode}")
-                result = json.loads(process.stdout)
+                result = json.loads(process.stdout.splitlines()[-1])
                 usage = resource.read_text()
                 rss = next(int(line.split(":")[-1]) for line in usage.splitlines()
                            if "Maximum resident set size" in line)
