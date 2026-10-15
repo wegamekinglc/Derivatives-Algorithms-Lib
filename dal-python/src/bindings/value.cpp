@@ -174,6 +174,11 @@ namespace {
         return LsmcPathCount(value, "lsmc_training_paths", "lsmcTrainingPaths_", "InvalidLsmcTrainingPaths", Script::ValidateLsmcTrainingPaths);
     }
 
+    std::optional<int> CheckpointCount(const py::handle& value, const char* field, const char* member) {
+        return LsmcPathCount(value, field, member, "InvalidLsmcCheckpointSetting",
+                             [](int count) { REQUIRE2(count > 0, "InvalidLsmcCheckpointSetting: positive integer required", ScriptError_); });
+    }
+
     std::optional<int> ValidationPaths(const py::handle& value) {
         return LsmcPathCount(value, "lsmc_validation_paths", "lsmcValidationPaths_", "InvalidLsmcValidationPaths",
                              Script::ValidateLsmcValidationPaths);
@@ -260,7 +265,7 @@ void init_bindings_value(py::module_& m) {
                          const py::object& compiled, const py::object& lsmcBasisDegree, const py::object& lsmcTrainingPaths,
                          const py::object& lsmcValidationPaths, const py::object& lsmcRqmcReplicates, const py::object& lsmcTrainingSeed,
                          const py::object& lsmcPricingSeed, const py::object& lsmcPolicyRiskMode, const py::object& lsmcPolicyBumpRelative,
-                         const py::object& normalPrecision) {
+                         const py::object& normalPrecision, const py::object& checkpointBlock, const py::object& trainingMemory) {
                  return MonteCarloSettings_{Method(method),
                                             Boolean(useBb, "use_bb / simulation.useBb_"),
                                             Boolean(enableAad, "enable_aad / simulation.enableAad_"),
@@ -274,14 +279,27 @@ void init_bindings_value(py::module_& m) {
                                             RqmcSeed(lsmcPricingSeed, "lsmc_pricing_seed", "lsmcPricingSeed_"),
                                             LsmcPolicyRiskMode(lsmcPolicyRiskMode),
                                             LsmcPolicyBumpRelative(lsmcPolicyBumpRelative),
-                                            NormalPrecision(normalPrecision)};
+                                            NormalPrecision(normalPrecision),
+                                            CheckpointCount(checkpointBlock, "lsmc_checkpoint_block_events", "lsmcCheckpointBlockEvents_"),
+                                            CheckpointCount(trainingMemory, "lsmc_training_memory_mb", "lsmcTrainingMemoryMb_")};
              }),
              py::kw_only(), py::arg("method") = "sobol", py::arg("use_bb") = false, py::arg("enable_aad") = false,
              py::arg("smooth") = Script::DEFAULT_SMOOTH, py::arg("compiled") = py::none(),
              py::arg("lsmc_basis_degree") = Script::DEFAULT_LSMC_BASIS_DEGREE, py::arg("lsmc_training_paths") = py::none(),
              py::arg("lsmc_validation_paths") = py::none(), py::arg("lsmc_rqmc_replicates") = py::none(), py::arg("lsmc_training_seed") = py::none(),
              py::arg("lsmc_pricing_seed") = py::none(), py::arg("lsmc_policy_risk_mode") = "Frozen",
-             py::arg("lsmc_policy_bump_relative") = Script::DEFAULT_LSMC_POLICY_BUMP_RELATIVE, py::arg("normal_precision") = "Default")
+             py::arg("lsmc_policy_bump_relative") = Script::DEFAULT_LSMC_POLICY_BUMP_RELATIVE, py::arg("normal_precision") = "Default",
+             py::arg("lsmc_checkpoint_block_events") = py::none(), py::arg("lsmc_training_memory_mb") = py::none())
+        .def_property(
+            "lsmc_checkpoint_block_events", [](const MonteCarloSettings_& settings) { return settings.lsmcCheckpointBlockEvents_; },
+            [](MonteCarloSettings_* settings, const py::object& value) {
+                settings->lsmcCheckpointBlockEvents_ = CheckpointCount(value, "lsmc_checkpoint_block_events", "lsmcCheckpointBlockEvents_");
+            })
+        .def_property(
+            "lsmc_training_memory_mb", [](const MonteCarloSettings_& settings) { return settings.lsmcTrainingMemoryMb_; },
+            [](MonteCarloSettings_* settings, const py::object& value) {
+                settings->lsmcTrainingMemoryMb_ = CheckpointCount(value, "lsmc_training_memory_mb", "lsmcTrainingMemoryMb_");
+            })
         .def_property(
             "normal_precision", [](const MonteCarloSettings_& settings) { return Text(settings.normalPrecision_); },
             [](MonteCarloSettings_* settings, const py::object& value) { settings->normalPrecision_ = NormalPrecision(value); })

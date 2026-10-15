@@ -231,11 +231,15 @@ two-column table. Set `enable_aad` to TRUE for an explicit simulation handle;
 omitting that handle from the plan selects native risk defaults with AAD enabled.
 For example, set `lsmc_training_paths` to 64, `lsmc_policy_risk_mode` to Frozen
 or RetrainedBump and, for the latter, `lsmc_policy_bump_relative` to 0.002.
-`MONTECARLOSETTINGS.GET.CONFIGURATION` copies all fourteen original fields:
+`MONTECARLOSETTINGS.GET.CONFIGURATION` copies all simulation settings:
 method, use_bb, enable_aad, smooth, compiled, lsmc_basis_degree,
 lsmc_training_paths, lsmc_validation_paths, lsmc_rqmc_replicates,
 lsmc_training_seed, lsmc_pricing_seed, lsmc_policy_risk_mode,
-lsmc_policy_bump_relative and normal_precision. Absent optional settings remain
+lsmc_policy_bump_relative, normal_precision, lsmc_checkpoint_block_events and
+lsmc_training_memory_mb. The last two are optional positive integers; block
+events require a memory budget in MiB. See
+[training checkpoints](../methodology/monte-carlo/lsm.md#opt-in-training-checkpoints)
+for admission and fallback. Absent optional settings remain
 blank; explicit FALSE and zero remain present.
 
 The complete point must be one finite numeric row or column. Leading, interior

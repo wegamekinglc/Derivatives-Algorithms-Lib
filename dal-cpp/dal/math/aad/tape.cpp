@@ -33,8 +33,10 @@ namespace Dal::AAD {
 
     Tape_::~Tape_() noexcept {
         reverseEvents_.reset();
-        if (threadDefault_)
+        if (threadDefault_) {
             NativeThread::eventValidationRequired = false;
+            NativeThread::retainedTape = nullptr;
+        }
     }
 
     void Tape_::ReverseEventsDeleter_::operator()(ReverseEvents_* events) const noexcept {

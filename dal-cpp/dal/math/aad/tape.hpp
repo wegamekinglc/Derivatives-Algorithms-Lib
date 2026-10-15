@@ -28,6 +28,7 @@
 #include <dal/math/aad/reverseevent.hpp>
 
 namespace Dal::AAD {
+    class Tape_;
     class Number_;
     class ReverseEvent_;
     struct NativeRecordedOperation_;
@@ -37,6 +38,7 @@ namespace Dal::AAD {
 
     namespace NativeThread {
         inline thread_local bool eventValidationRequired = false;
+        inline thread_local Tape_* retainedTape = nullptr;
 #if defined(__GNUC__) || defined(__clang__)
         __attribute__((const))
 #endif
@@ -89,7 +91,10 @@ namespace Dal::AAD {
 
     private:
         struct ThreadDefault_ {};
-        explicit Tape_(ThreadDefault_) : Tape_() { threadDefault_ = true; }
+        explicit Tape_(ThreadDefault_) : Tape_() {
+            threadDefault_ = true;
+            NativeThread::retainedTape = this;
+        }
         friend Tape_* Tape();
         struct ReverseEvents_;
         struct ReverseEventsDeleter_ {

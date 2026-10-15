@@ -238,7 +238,7 @@ TEST(ExcelLsmcCurvatureTest, TestCompletePassivePlanResultSettingsAndPolicyProje
     ASSERT_TRUE(simulation->val_.enableAad_);
     Matrix_<Cell_> cells;
     MonteCarloSettings_Get_Configuration(simulation, &cells);
-    ASSERT_EQ(cells.Rows(), 14);
+    ASSERT_EQ(cells.Rows(), 16);
     ASSERT_EQ(Cell::ToString(Field(cells, "method")), "sobol");
     ASSERT_TRUE(Cell::IsBool(Field(cells, "enable_aad")));
     for (const auto* key :
@@ -393,7 +393,7 @@ TEST(ExcelLsmcCurvatureTest, TestCompleteSimulationOptionalZeroAndValidationPoli
     BlackScholesLsmcPlan_Get_Simulation(plan, &simulation);
     Matrix_<Cell_> cells;
     MonteCarloSettings_Get_Configuration(simulation, &cells);
-    ASSERT_EQ(cells.Rows(), 14);
+    ASSERT_EQ(cells.Rows(), 16);
     ASSERT_EQ(Cell::ToString(Field(cells, "method")), "sobol");
     ASSERT_TRUE(std::get<bool>(Field(cells, "use_bb").val_));
     ASSERT_TRUE(std::get<bool>(Field(cells, "enable_aad").val_));

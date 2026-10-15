@@ -108,7 +108,7 @@ namespace Dal::Script::CheckpointStudy {
         return {"checkpoint path-state study", dates, events, settings};
     }
 
-    MonteCarloSettings_ Simulation(const Options_& options) {
+    MonteCarloSettings_ Simulation(const Options_& options, bool production = false) {
         MonteCarloSettings_ simulation;
         simulation.enableAad_ = true;
         simulation.compiled_ = true;
@@ -120,6 +120,10 @@ namespace Dal::Script::CheckpointStudy {
         simulation.lsmcRqmcReplicates_ = 2;
         simulation.lsmcTrainingSeed_ = 17;
         simulation.lsmcPricingSeed_ = 29;
+        if (production) {
+            simulation.lsmcTrainingMemoryMb_ = 512;
+            simulation.lsmcCheckpointBlockEvents_ = static_cast<int>(options.block_);
+        }
         return simulation;
     }
 
@@ -148,8 +152,8 @@ namespace Dal::Script::CheckpointStudy {
         Scenario_<> pathTemplate_;
         Vector_<> numeraires_;
 
-        explicit Workload_(const Options_& options)
-            : options_(options), prepared_(PrepareScript(Product(options), model_.get(), Valuation(), Simulation(options))),
+        explicit Workload_(const Options_& options, bool production = false)
+            : options_(options), prepared_(PrepareScript(Product(options), model_.get(), Valuation(), Simulation(options, production))),
               hardCompiled_(ScriptCompiled_::Build(prepared_.Product().Events(), false, prepared_.PlanHandle(), false, true)),
               scan_(ScanEvents(prepared_.Product().Events(), prepared_.Simulation().smooth_)),
               counts_(LsmcPathCounts(prepared_.Simulation(), options.pricing_)) {
@@ -779,6 +783,7 @@ namespace Dal::Script::CheckpointStudy {
     }
 } // namespace Dal::Script::CheckpointStudy
 
+#ifndef DAL_LSMC_STUDY_NO_MAIN
 int main(int argc, char** argv) {
     try {
         Dal::RegisterAll_::Init();
@@ -790,3 +795,4 @@ int main(int argc, char** argv) {
         return 1;
     }
 }
+#endif

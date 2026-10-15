@@ -482,7 +482,8 @@ MonteCarloSettings_(*, method="sobol", use_bb=False, enable_aad=False,
                    lsmc_training_paths=None, lsmc_validation_paths=None,
                    lsmc_rqmc_replicates=None, lsmc_training_seed=None,
                    lsmc_pricing_seed=None, lsmc_policy_risk_mode="Frozen",
-                   lsmc_policy_bump_relative=0.001)
+                   lsmc_policy_bump_relative=0.001, normal_precision="Default",
+                   lsmc_checkpoint_block_events=None, lsmc_training_memory_mb=None)
 ```
 
 | Field                                     | Accepted input / default                                                                                        | Property result                     |
@@ -503,6 +504,12 @@ MonteCarloSettings_(*, method="sobol", use_bb=False, enable_aad=False,
 | `lsmc_training_seed`, `lsmc_pricing_seed` | Nonnegative integer or valid `__index__` up to `2**31-1`; `None` uses effective seed 0 in RQMC mode             | `int` or `None`                     |
 | `lsmc_policy_risk_mode`                   | Exact `Frozen` (default) or `RetrainedBump`; the latter requires AAD                                            | `str`                               |
 | `lsmc_policy_bump_relative`               | Finite Python `int` / `float` in `(0, 0.1]`, excluding bool and enums; default `0.001`                          | `float`                             |
+
+`lsmc_checkpoint_block_events` and `lsmc_training_memory_mb` accept the same
+positive integer inputs as `lsmc_training_paths` and default to `None`.
+The block setting requires a memory budget in MiB. See
+[training checkpoints](../docs/methodology/monte-carlo/lsm.md#opt-in-training-checkpoints)
+for single-worker admission, deterministic recomputation and full-storage fallback.
 
 For `EXERCISE`, `regression_features` selects up to three distinct
 model-supported EQ/IR observations or scalar `VAR[name]` states. For example,

@@ -60,7 +60,8 @@ name is string
 &optional
 settings is cell[][]+
     Two columns: method, use_bb, enable_aad, smooth, compiled, lsmc_basis_degree, lsmc_training_paths, lsmc_validation_paths,
-    lsmc_rqmc_replicates, lsmc_training_seed, lsmc_pricing_seed, lsmc_policy_risk_mode, lsmc_policy_bump_relative, normal_precision.
+    lsmc_rqmc_replicates, lsmc_training_seed, lsmc_pricing_seed, lsmc_policy_risk_mode, lsmc_policy_bump_relative, normal_precision,
+    lsmc_checkpoint_block_events, lsmc_training_memory_mb.
 &outputs
 simulation is handle StorableMonteCarloSettings
     Immutable Monte Carlo settings
@@ -188,6 +189,12 @@ namespace Dal {
         bool ApplyLsmcSetting(const String_& key, const Cell_& cell, const String_& valueContext, Script::MonteCarloSettings_* settings) {
             if (key == "lsmc_basis_degree")
                 settings->lsmcBasisDegree_ = BasisDegreeValue(cell, valueContext);
+            else if (key == "lsmc_checkpoint_block_events")
+                settings->lsmcCheckpointBlockEvents_ =
+                    LsmcPathCountValue(cell, valueContext, "InvalidLsmcCheckpointSetting", Script::ValidateLsmcTrainingPaths);
+            else if (key == "lsmc_training_memory_mb")
+                settings->lsmcTrainingMemoryMb_ =
+                    LsmcPathCountValue(cell, valueContext, "InvalidLsmcCheckpointSetting", Script::ValidateLsmcTrainingPaths);
             else if (key == "lsmc_training_paths")
                 settings->lsmcTrainingPaths_ = LsmcPathCountValue(cell, valueContext, "InvalidLsmcTrainingPaths", Script::ValidateLsmcTrainingPaths);
             else if (key == "lsmc_validation_paths")
@@ -287,7 +294,8 @@ namespace Dal {
                              THROW(keyContext + "unknown key " + key +
                                    "; expected method, use_bb, enable_aad, smooth, compiled, lsmc_basis_degree, lsmc_training_paths, "
                                    "lsmc_validation_paths, lsmc_rqmc_replicates, lsmc_training_seed, lsmc_pricing_seed, "
-                                   "lsmc_policy_risk_mode, lsmc_policy_bump_relative or normal_precision");
+                                   "lsmc_policy_risk_mode, lsmc_policy_bump_relative, lsmc_checkpoint_block_events, lsmc_training_memory_mb or "
+                                   "normal_precision");
                          const auto flag = BooleanValue(cell, valueContext);
                          if (key == "use_bb")
                              value.useBb_ = flag;
