@@ -25,6 +25,12 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   full-storage fallback.
   See [training checkpoints](docs/methodology/monte-carlo/lsm.md#opt-in-training-checkpoints).
 
+- **Fast normal blocks** — Sobol and pseudo-random normal fills use runtime-selected
+  AVX2 central-region conversion on x86-64, with SSE2/scalar fallbacks and unchanged
+  uniform streams. Scalar and vector inverse-normal arithmetic disable contraction
+  for bitwise agreement within a build; older native-architecture builds can differ
+  in their last bits. See [normal precision](docs/methodology/monte-carlo/sampling.md#monte-carlo-normal-precision).
+
 ## 2026-10-14
 
 - **Deterministic ordinary Monte Carlo** — scalar and weighted double/AAD

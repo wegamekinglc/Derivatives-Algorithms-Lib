@@ -13,4 +13,5 @@ namespace Dal::Math {
     [[nodiscard]] double Sum(const double* src, size_t n);
     [[nodiscard]] double Dot(const double* lhs, const double* rhs, size_t n);
     void Axpy(double scale, const double* src, double* dst, size_t n);
+    void InverseNCDFBlock(double* values, size_t n, bool precise = false, bool polish = false);
 } // namespace Dal::Math
