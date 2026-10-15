@@ -63,7 +63,7 @@ its own finite, positive-spot, nonnegative-volatility BS workload.
 ## Correctness evidence
 
 The standalone CTest passes on measured commit
-`78fc60368c75b09907197a3d5eded603a8ebbe73`. Its checks remain active in Release:
+`ff7222023e6eda4451bbb85324c3964d7ae3ff18`. Its checks remain active in Release:
 
 - 214 individual paths compare PV and every named risk (`spot`, `vol`, `rate`,
   `div`, `STRIKE`, `BARRIER`) against fresh native AAD recording and the actual
@@ -121,9 +121,9 @@ one valuation; phase diagnostics are separate and not used as timing samples.
 
 | Case                | Native minima ms, R1/R2 | Replay minima ms, R1/R2 | Replay delta R1/R2  | Replay vs caller R1/R2 |
 |---------------------|-------------------------|-------------------------|---------------------|------------------------|
-| Single-step vanilla | 3.453 / 3.464           | 2.598 / 2.583           | -24.77% / -25.44%   | -28.62% / -28.13%      |
-| Barrier 150         | 44.778 / 45.263         | 66.270 / 66.329         | +48.00% / +46.54%   | +5.84% / +5.65%        |
-| Barrier 110         | 43.908 / 44.349         | 188.514 / 187.464       | +329.34% / +322.70% | +187.69% / +187.56%    |
+| Single-step vanilla | 3.547 / 3.589           | 2.556 / 2.566           | -27.94% / -28.52%   | -34.86% / -34.41%      |
+| Barrier 150         | 46.595 / 47.202         | 68.686 / 69.348         | +47.41% / +46.92%   | +5.40% / +5.88%        |
+| Barrier 110         | 47.175 / 46.683         | 187.845 / 184.221       | +298.18% / +294.62% | +177.20% / +167.28%    |
 
 The common lowered native comparator separates replay from avoiding script
 interpretation. Comparing replay only with its own more expensive recorder
@@ -134,13 +134,12 @@ lose to both native comparators. No 80% saving is inferred from forward share.
 To check the influence of initialization on the short vanilla, a further
 100 interleaved process runs and four diagnostics use **262,144 vanilla paths
 only**, the same executable hash and the same two-round best-of-ten policy.
-Native minima are 24.372 / 24.388 ms; replay minima are 20.664 / 20.826 ms,
-or **-15.21% / -14.61%**. Native A/A is +0.44% / -0.39%. The benefit persists
+Native minima are 27.184 / 27.411 ms; replay minima are 22.398 / 22.706 ms,
+or **-17.60% / -17.16%**. Native A/A is -1.25% / -3.93%. The benefit persists
 after more initialization amortization, but this does not measure reuse of
 an already allocated worker tape across separate valuations. The 32,768-path
-gain is not a universal steady-state speedup. Only the Python runner's case
-filter differs between these evidence captures; measured C++ sources and
-executable identity are unchanged, with both manifests retained.
+gain is not a universal steady-state speedup. Both captures use identical
+source and executable identities, with separate retained manifests.
 
 | Case        | Hits  | Initial recordings | Guard re-recordings | Hit rate | Re-record rate |
 |-------------|-------|--------------------|---------------------|----------|----------------|
@@ -153,9 +152,9 @@ after a previous knock-out. The single preceding-graph cache records this
 behavior faithfully rather than assuming dead paths remove future computation.
 
 Separate diagnostics include recomputation and guard decisions together in the
-forward phase. Mean hit forward cost is approximately 72 ns/path for vanilla
-and 1.01 microseconds/path for either barrier; misses including partial replay,
-discard and recording cost about 6.1–6.4 microseconds/path for barriers.
+forward phase. Mean hit forward cost is approximately 68 ns/path for vanilla
+and 1.05–1.06 microseconds/path for either barrier; misses including partial replay,
+discard and recording cost about 5.8–6.4 microseconds/path for barriers.
 The JSON retains total forward/reverse and hit/miss times for each mode.
 These clock-instrumented figures are explanatory; they are not subtracted
 from the uninstrumented end-to-end samples to manufacture a recording saving.
@@ -199,6 +198,20 @@ machine-readable companion to this note; the complete raw bundle is attached
 to DAL-358. No full regression suite or nine-target gate was rerun: production
 code and defaults are unchanged, and the standalone experiment has no callers
 outside this study. Default CI does not build this opt-in experimental target.
+
+The runner accepts the operator's executable local `primal_replay_study` build
+and resolves a fixed set of metadata tools. Its process boundary rejects
+executables outside that allowlist, restricts mode/case and path-count arguments,
+and passes an argv list with explicit `shell=False`. The local Bandit B404/B603
+and Semgrep variable-argv exceptions cover this intentional process boundary,
+following the repository benchmark runner pattern; they do not exempt the file
+or change repository analysis policy. `test_runstudy.py` checks literal execution
+of a path containing shell characters and rejection of unlisted programs and
+unsupported study requests:
+
+```bash
+python3 -m unittest discover -s dal-cpp/experimental/primalreplay -p 'test_runstudy.py' -v
+```
 
 Retain production behavior and seek independent focused review of this
 research code. A later stable-graph opt-in would need real integration,
