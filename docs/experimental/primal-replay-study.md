@@ -90,12 +90,26 @@ LV/SLV, calibration or LSMC.
 
 ## Measurement
 
-Baseline production source is master
+The measurements below use production baseline master
 `01dcadace1180629e3b4467f5334c021c530054a`, including the accepted #567/#572
 evidence and retained constant policy. Measured research source is the commit
 above; its production tree is unchanged. All modes use the same executable,
 so separate production baseline/head builds are unnecessary here. This is an
 informational experiment outside the nine-target regression gate.
+
+Current source also incorporates master
+`94311ed8facf0a44bffe41af15011b54abebd8db` through merge
+`045b5813a544265d08a9f19e0253318d81394233`. The research C++/CMake and collector
+match approved `3ddd76ba`; AAD, BS and script implementations are unchanged.
+The dependency update adds block normal generation for 52-dimensional Fast
+Sobol and moves scalar inverse-CDF code with per-source contraction disabled.
+The integrated Release rebuild passes the same 214-path/257-path correctness
+checks and an additional 257-path crossing-barrier comparison across all four
+modes, with diagnostics both off and on. Its binary hash is
+`d7763e3acfcfea10326f354af56ecce3f27e99c861a6462ec69fe5a5e6c02f5e`.
+This is correctness evidence, not a new timing study. Saved timings, memory,
+hit rates and percentage changes retain their original source/binary identity;
+they do not establish performance on the integrated dependency build.
 
 GCC 15.2.0, CMake 4.2.3, Release static C++17, `-O3 -DNDEBUG
 -ffp-contract=fast`, native arch OFF, Eigen ON, native scalar AAD, profiling
