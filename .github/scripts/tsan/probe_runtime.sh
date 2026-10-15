@@ -44,9 +44,12 @@ check_run() {
         "$@" > "$output/$name.log" 2>&1 || status=$?
     cat "$output/$name.log"
     echo "$name exit=$status expected=$expected"
+    if grep -q 'FATAL: ThreadSanitizer' "$output/$name.log"; then
+        return 1
+    fi
     test "$status" -eq "$expected"
     if [ "$expected" -eq 0 ]; then
-        if grep -Eq 'WARNING: ThreadSanitizer|FATAL: ThreadSanitizer' "$output/$name.log"; then
+        if grep -q 'WARNING: ThreadSanitizer' "$output/$name.log"; then
             return 1
         fi
         grep -q 'messageSize=256' "$output/$name.log"

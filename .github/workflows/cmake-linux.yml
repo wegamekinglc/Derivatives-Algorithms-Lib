@@ -478,6 +478,7 @@ jobs:
         run: |
           set -euo pipefail
           scripts="$GITHUB_WORKSPACE/.github/scripts/tsan"
+          python3 -m unittest discover -s .github/scripts/tests -p test_tsan_probe.py -v
           work="$RUNNER_TEMP/tsan-runtime"
           evidence="$RUNNER_TEMP/tsan-runtime-evidence"
           mkdir -p "$work" "$evidence"

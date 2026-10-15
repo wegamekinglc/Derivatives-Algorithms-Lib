@@ -20,8 +20,12 @@ check also proves the detector remains active.
 records loaded library paths, Build IDs, hashes and compiler commands. Stock
 mode requires an exception race report (exit 66) and a clean synchronized control.
 Instrumented mode requires both exception modes to pass. Both require the real
-race to be detected. Startup failures, timeouts and unexpected exit codes fail
+race to be detected. Fatal diagnostics fail every mode, including expected race
+reports with exit 66. Startup failures, timeouts and unexpected exit codes fail
 the job; no warnings are suppressed.
+
+The output gate's controlled-process regression runs before the runtime build:
+`python3 -m unittest discover -s .github/scripts/tests -p test_tsan_probe.py -v`.
 
 `build_runtime.sh <matching-GCC-source-directory> <work-directory>` builds the
 library, verifies POSIX thread support and the TSan atomic call in exception
