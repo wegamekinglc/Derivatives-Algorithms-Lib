@@ -112,6 +112,32 @@ class ProductionProfileTest(unittest.TestCase):
         self.assertEqual(result["risk_names"], [])
         self.assertEqual(result["risks"], [])
 
+    def test_structure_preserves_results(self):
+        for scenario, grid in (("short", "0"), ("long", "0"), ("local-vol", "2"),
+                               ("gsr-swap-3f", "0"), ("slv-swap-3f", "0")):
+            for engine in ("tree", "compiled"):
+                common = [scenario, "4", "aad", engine]
+                rows = self.run_cli([*common, "structure", "1", grid, "0", "1"])
+                warm = self.run_cli([*common, "warm", "1", grid, "0", "1"])
+                self.check_matching_results(self.records(rows, "result"), self.records(warm, "result"))
+                structures = self.records(rows, "structure")
+                self.assertEqual([row["stage"] for row in structures], ["prefix", *(["payoff"] * 4)])
+                self.assertEqual([row["path"] for row in structures[1:]], list(range(4)))
+                inputs = self.records(rows, "request")[0]["active_parameters"]
+                for row in structures:
+                    self.assertEqual(row["risk_input_leaves"], inputs)
+                    self.assertEqual(row["leaves"], inputs + 1 + row["constant_leaf_candidates"])
+                    self.assertGreaterEqual(row["nodes"], row["leaves"])
+                    self.assertGreaterEqual(row["tape_capacity_bytes"], row["tape_occupied_bytes"])
+                    self.assertGreaterEqual(row["tape_occupied_bytes"], row["tape_live_bytes"])
+                    self.assertEqual(row["tape_live_bytes"], row["nodes"] * row["node_bytes"] + row["edges"] * row["edge_bytes"])
+
+    def test_structure_rejects_unsupported_requests(self):
+        for mode, paths, outputs, repeats in (("double", "4", "1", "1"), ("aad", "65", "1", "1"),
+                                              ("aad", "4", "4", "1"), ("aad", "4", "1", "2")):
+            self.run_cli(["short", paths, mode, "compiled", "structure", outputs, "0", "0", repeats], False)
+        self.run_cli(["lsmc-bs", "4", "aad", "compiled", "structure", "1", "0", "64", "1"], False)
+
     def test_three_factor_slv_validation_paths(self):
         for scenario in ("slv-swap-3f", "hybrid-slv-swap-3f"):
             for mode, engine in (("double", "tree"), ("aad", "compiled")):

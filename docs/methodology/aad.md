@@ -1019,6 +1019,35 @@ Use uninstrumented Release binaries for throughput comparisons and measure
 profiling overhead separately. External process resource tools include the
 untimed validation and warm-up when reporting lifetime peak RSS.
 
+For a structural scan through the same production AAD worker, select
+`structure` with one ordinary output, 1–64 paths and one repetition:
+
+```bash
+script_mc_perf --production-profile long 8 aad compiled structure 1 0 0 1
+rng_perf --sobol-profile 366 8192 fast 1
+```
+
+Structure mode needs no profiling build. It scans the initialized prefix and
+each completed payoff graph before reverse, then checks price and every risk
+against the ordinary request. Its request `wall_ns` is zero; this mode is not a
+throughput measurement. It reports nodes, edges, zero-argument leaves and
+live/occupied/allocated tape payload. Known risk-input roots and the shared
+payoff-zero root are counted separately. Remaining zero-argument nodes are
+`constant_leaf_candidates`: this includes transient initialization and random
+draw constants, without a reachability or removability claim. Reverse-operator
+graphs are rejected because their output slots need a different classification.
+Snapshots describe one worker's retained prefix and current path, not the sum
+over paths or workers. Tree and compiled evaluators can have different counts.
+
+The selected Sobol mode takes dimensions, paths, `uniform|fast|precise` and
+repetitions. Each sample constructs a fresh sequence at path zero outside the
+timed fill loop. An untimed complete-stream replay checks finiteness and emits
+a reproducible 64-bit fingerprint of all coordinates. `fast` uses the current
+default inverse normal; `precise` includes its polishing step. Compare matched
+dimensions and path counts across at least ten interleaved processes, using
+best-of-N and the repository noise policy. Uniform versus normal cost is an
+informational decomposition, not a measured SIMD speedup.
+
 ## Pathwise Adjoints in Monte Carlo
 
 A Monte Carlo price is an average over $P$ simulated paths,
