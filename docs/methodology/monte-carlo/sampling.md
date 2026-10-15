@@ -344,6 +344,26 @@ preserve the uniform stream, including the equality case above.
 
 ## Monte Carlo Normal Precision
 
+`Math::InverseNCDFBlock(values, n, precise = false, polish = false)` converts a
+contiguous array in place. On x86-64, unpolished requests of at least 32
+coordinates use the AVX2 central-region kernel
+when the CPU and OS support it, with SSE2 and scalar fallbacks. Tail values and
+polished modes use `InverseNCDF`; other architectures use the scalar implementation. Empty ranges
+accept a null pointer, unaligned storage and non-block lengths are supported,
+and invalid inputs throw as in the scalar API. The existing scalar endpoint
+behavior at zero and one is retained.
+
+Scalar and vector inverse-normal arithmetic disable floating-point contraction
+and agree bitwise within the same build, including the central-region branch
+boundaries. This is a comparison against the scalar implementation, rather than
+an accuracy bound against the exact normal quantile. Contraction settings can
+change results relative to older native-architecture builds.
+
+Sobol and the pseudo-random engines use this conversion without changing uniform
+draws, precision flags, antithetic caches, bridge ordering, cloning or seeking.
+Pseudo-random normal draws continue to consume fresh engine draws independently
+of the uniform antithetic cache. Smaller requests retain scalar conversion.
+
 `MonteCarloSettings_::normalPrecision_` selects the inverse-normal conversion.
 Python and Excel expose the same setting as `normal_precision`:
 

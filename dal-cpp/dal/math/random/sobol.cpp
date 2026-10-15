@@ -7,6 +7,7 @@
 #include <dal/math/random/quasirandom.hpp>
 #include <dal/math/random/sobol.hpp>
 #include <dal/math/specialfunctions.hpp>
+#include <dal/math/simdkernels.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/utilities/exceptions.hpp>
@@ -21294,10 +21295,8 @@ const uint_least32_t* const DIRECTIONS[21201] = {
         }
 
         void SobolSet_::FillNormal(Vector_<>* dst) {
-            // Preserve both caller-selected inverse-CDF policy flags unchanged.
-            auto func = [precise = precise_, polish = polish_](double x) { return InverseNCDF(x, precise, polish); };
             FillUniform(dst);
-            Transform(dst, func);
+            Math::InverseNCDFBlock(dst->data(), dst->size(), precise_, polish_);
         }
 
         std::unique_ptr<SequenceSet_> SobolSet_::TakeAway(int subSize) {
