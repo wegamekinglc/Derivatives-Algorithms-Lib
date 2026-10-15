@@ -3,6 +3,7 @@
 //
 
 #include <iostream>
+#include <limits>
 #include <optional>
 
 #include <dal/math/aad/statistics.hpp>
@@ -51,12 +52,13 @@ namespace {
 } // namespace
 
 SimResults_ RunProductionStructure(const PreparedScript_& product, const Handle_<ModelData_>& data, size_t paths) {
+    REQUIRE(product.MaxNestedIfs() <= static_cast<size_t>(std::numeric_limits<int>::max()), "structure nesting exceeds integer range");
     const auto model = CreateModel<double>(data);
     const auto names = Vector::Join(model->ParameterLabels(), product.ConstVarNames());
     const size_t inputs = names.size();
     Script::Detail::AADBatchSettings_ settings{"sobol",
                                                false,
-                                               product.MaxNestedIfs(),
+                                               static_cast<int>(product.MaxNestedIfs()),
                                                product.Simulation().smooth_,
                                                paths,
                                                model->Parameters().size(),
