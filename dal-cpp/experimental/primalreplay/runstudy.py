@@ -37,6 +37,7 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--paths", type=int, default=32768)
     parser.add_argument("--cpu", type=int, required=True)
+    parser.add_argument("--cases", nargs="+", choices=("vanilla", "barrier", "crossing"), default=("vanilla", "barrier", "crossing"))
     args = parser.parse_args()
     binary = args.binary.resolve()
     output = args.output.resolve()
@@ -46,7 +47,7 @@ def main():
     os.sched_setaffinity(0, {args.cpu})
     os.environ["DAL_NUM_THREADS"] = "1"
     modes = ("native", "replay", "record", "caller", "native-aa")
-    cases = ("vanilla", "barrier", "crossing")
+    cases = tuple(args.cases)
     identity = {
         "source_head": run(["git", "-C", str(repo), "rev-parse", "HEAD"]).strip(),
         "diff": run(["git", "-C", str(repo), "diff", "HEAD"]),
@@ -65,6 +66,7 @@ def main():
         "affinity": sorted(os.sched_getaffinity(0)),
         "threads": 1,
         "paths": args.paths,
+        "cases": cases,
         "samples_per_round": 10,
         "rounds": 2,
         "reduction": "min",
