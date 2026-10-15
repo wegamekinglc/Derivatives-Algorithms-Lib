@@ -291,6 +291,8 @@ def test_diagnostics_keep_actual_ids_and_legacy_schema_boundary():
         "lsmc_rqmc_replicates": None,
         "lsmc_training_seed": None,
         "lsmc_pricing_seed": None,
+        "lsmc_checkpoint_block_events": None,
+        "lsmc_training_memory_mb": None,
     }
     assert_pv(
         dal.MonteCarlo_ValueWithSettings(product, data, 257, valuation=valuation),

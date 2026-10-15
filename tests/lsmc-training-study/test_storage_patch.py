@@ -15,14 +15,16 @@ SPEC = importlib.util.spec_from_file_location("lsmc_storage_patch", HELPERS / "l
 PATCH = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(PATCH)
 
+from native_fixture import native_sources
+
 
 class StorageOverlayTest(unittest.TestCase):
     def test_source_width_and_address_controls_are_explicit(self):
-        source = PATCH.read_native_sources(ROOT)
+        source = native_sources()
         for bits in (32, 64):
             with self.subTest(bits=bits):
                 result = PATCH.storage_sources(source, bits, 32768)
-                self.assertEqual(source, PATCH.read_native_sources(ROOT))
+                self.assertEqual(source, native_sources())
                 core = result["dal-cpp/dal/script/lsmc.cpp"]
                 self.assertIn("StudyReadRow_ x_;", core)
                 self.assertIn("StudyReadRow_ pendingH = pending.h_;", core)
@@ -33,7 +35,7 @@ class StorageOverlayTest(unittest.TestCase):
                 self.assertIn(f"writer->Uint({bits});", result["dal-cpp/benchmarks/script_mc_perf/lsmctrainingstudy.cpp"])
 
     def test_unknown_and_repeated_inputs_fail_closed(self):
-        source = PATCH.read_native_sources(ROOT)
+        source = native_sources()
         for name in source:
             changed = dict(source, **{name: source[name] + "\n// drift\n"})
             with self.subTest(name=name), self.assertRaises(ValueError):
@@ -42,7 +44,7 @@ class StorageOverlayTest(unittest.TestCase):
             PATCH.storage_sources(PATCH.storage_sources(source, 32, 32768), 32, 32768)
 
     def test_invalid_widths_missing_files_and_invalid_anchors_fail(self):
-        source = PATCH.read_native_sources(ROOT)
+        source = native_sources()
         for bits in (16, 128, True, "32"):
             with self.subTest(bits=bits), self.assertRaises(ValueError):
                 PATCH.storage_sources(source, bits, 32768)
@@ -55,7 +57,7 @@ class StorageOverlayTest(unittest.TestCase):
         def host_read(path, encoding=None):
             return path.read_bytes().decode(encoding or "cp1252").replace("\r\n", "\n").replace("\r", "\n")
 
-        original = PATCH.read_native_sources(ROOT)
+        original = native_sources()
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             for newline in ("\n", "\r\n"):
@@ -67,6 +69,10 @@ class StorageOverlayTest(unittest.TestCase):
                     source = PATCH.read_native_sources(root)
                 patched = PATCH.storage_sources(source, 32, 32768)
                 self.assertIn("StudyReadRow_ x_;", patched[PATCH.CORE])
+
+    def test_current_checkpoint_source_is_outside_the_historical_support_domain(self):
+        with self.assertRaisesRegex(ValueError, "unrecognized complete native source: dal-cpp/dal/script/lsmc.cpp"):
+            PATCH.storage_sources(PATCH.read_native_sources(ROOT), 32, 32768)
 
 
 if __name__ == "__main__":

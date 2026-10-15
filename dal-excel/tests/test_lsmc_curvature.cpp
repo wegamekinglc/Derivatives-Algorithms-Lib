@@ -238,11 +238,37 @@ TEST(ExcelLsmcCurvatureTest, TestCompletePassivePlanResultSettingsAndPolicyProje
     ASSERT_TRUE(simulation->val_.enableAad_);
     Matrix_<Cell_> cells;
     MonteCarloSettings_Get_Configuration(simulation, &cells);
-    ASSERT_EQ(cells.Rows(), 14);
-    ASSERT_EQ(Cell::ToString(Field(cells, "method")), "sobol");
+    ASSERT_EQ(cells.Rows(), 16);
+    ASSERT_EQ(cells.Cols(), 2);
+    const Vector_<String_> keys{"method",
+                                "use_bb",
+                                "enable_aad",
+                                "smooth",
+                                "compiled",
+                                "lsmc_basis_degree",
+                                "lsmc_training_paths",
+                                "lsmc_validation_paths",
+                                "lsmc_rqmc_replicates",
+                                "lsmc_training_seed",
+                                "lsmc_pricing_seed",
+                                "lsmc_policy_risk_mode",
+                                "lsmc_policy_bump_relative",
+                                "normal_precision",
+                                "lsmc_checkpoint_block_events",
+                                "lsmc_training_memory_mb"};
+    for (int row = 0; row < cells.Rows(); ++row)
+        ASSERT_EQ(Cell::ToString(cells(row, 0)), keys[row]) << row;
+    ASSERT_EQ(std::get<String_>(Field(cells, "method").val_), "sobol");
+    ASSERT_FALSE(std::get<bool>(Field(cells, "use_bb").val_));
     ASSERT_TRUE(Cell::IsBool(Field(cells, "enable_aad")));
-    for (const auto* key :
-         {"compiled", "lsmc_training_paths", "lsmc_validation_paths", "lsmc_rqmc_replicates", "lsmc_training_seed", "lsmc_pricing_seed"})
+    ASSERT_TRUE(std::get<bool>(Field(cells, "enable_aad").val_));
+    ASSERT_DOUBLE_EQ(std::get<double>(Field(cells, "smooth").val_), 0.01);
+    ASSERT_DOUBLE_EQ(std::get<double>(Field(cells, "lsmc_basis_degree").val_), 3.0);
+    ASSERT_EQ(std::get<String_>(Field(cells, "lsmc_policy_risk_mode").val_), "Frozen");
+    ASSERT_DOUBLE_EQ(std::get<double>(Field(cells, "lsmc_policy_bump_relative").val_), 0.001);
+    ASSERT_EQ(std::get<String_>(Field(cells, "normal_precision").val_), "Default");
+    for (const auto* key : {"compiled", "lsmc_training_paths", "lsmc_validation_paths", "lsmc_rqmc_replicates", "lsmc_training_seed",
+                            "lsmc_pricing_seed", "lsmc_checkpoint_block_events", "lsmc_training_memory_mb"})
         ASSERT_TRUE(Cell::IsEmpty(Field(cells, key))) << key;
     Vector_<String_> labels;
     BlackScholesLsmcPlan_Get_ParameterLabels(plan, &labels);
@@ -393,7 +419,7 @@ TEST(ExcelLsmcCurvatureTest, TestCompleteSimulationOptionalZeroAndValidationPoli
     BlackScholesLsmcPlan_Get_Simulation(plan, &simulation);
     Matrix_<Cell_> cells;
     MonteCarloSettings_Get_Configuration(simulation, &cells);
-    ASSERT_EQ(cells.Rows(), 14);
+    ASSERT_EQ(cells.Rows(), 16);
     ASSERT_EQ(Cell::ToString(Field(cells, "method")), "sobol");
     ASSERT_TRUE(std::get<bool>(Field(cells, "use_bb").val_));
     ASSERT_TRUE(std::get<bool>(Field(cells, "enable_aad").val_));
