@@ -6,10 +6,12 @@
 
 #include <algorithm>
 #include <atomic>
+#include <limits>
 #include <memory>
 
 #include <dal/math/aad/profiling.hpp>
 #include <dal/platform/platform.hpp>
+#include <dal/script/detail/traininggaussians.hpp>
 #include <dal/script/lsmccurvature.hpp>
 #include <dal/script/simulation.hpp>
 
@@ -281,6 +283,160 @@ TEST(ScriptExerciseLSMCTest, TestLsmcRetrainedValueWorkersAreExactAcrossMultiple
         }
     }
 }
+
+TEST(ScriptExerciseLSMCTest, TestRetrainedTrainingGaussiansMatchUncachedCurvatureCaller) {
+    const ReplayThreads_ pool(3);
+    for (bool compiled : {false, true}) {
+        for (const Dal::String_ precision : {"Fast", "Precise"}) {
+            for (bool bridge : {false, true}) {
+                SCOPED_TRACE(::testing::Message() << compiled << "; " << precision << "; bridge=" << bridge);
+                auto settings = ReplaySettings(compiled, 33);
+                settings.useBb_ = bridge;
+                settings.normalPrecision_ = precision;
+                settings.lsmcTrainingPaths_ = 8193;
+                settings.lsmcPolicyRiskMode_ = "RetrainedBump";
+                settings.lsmcRqmcReplicates_ = 2;
+                settings.lsmcTrainingSeed_ = 17;
+                settings.lsmcPricingSeed_ = 29;
+                auto model = Dal::CreateModel<double>(ReplayModel());
+                const auto prepared =
+                    std::make_shared<const Script::PreparedScript_>(Script::PrepareScript(ReplayProduct(), model.get(), ReplayValuation(), settings));
+                const auto cached = Script::MCLsmcAadSimulation(*prepared, ReplayModel(), 129);
+                const auto uncached =
+                    Script::EvaluateBlackScholesLsmcCurvature(prepared, {100.0, 0.2, 0.05, 0.0, 55.0}, 129, ReplaySpotDirection(true));
+                ASSERT_EQ(cached.aggregated_ / 129.0, uncached.Value());
+                ASSERT_EQ(cached.risks_, uncached.Gradient());
+            }
+        }
+    }
+}
+
+TEST(ScriptExerciseLSMCTest, TestRetrainedTrainingGaussianStorageBoundsAndIdentity) {
+    using Script::Detail::TrainingGaussians_;
+    constexpr size_t DIMENSIONS = 4;
+    constexpr size_t PATHS = TrainingGaussians_::MAX_BYTES / sizeof(double) / DIMENSIONS;
+    const TrainingGaussians_ full(DIMENSIONS, 2, PATHS, 17);
+    ASSERT_EQ(full.Bytes(), TrainingGaussians_::MAX_BYTES);
+    ASSERT_TRUE(full.Matches(DIMENSIONS, 2, 17));
+    ASSERT_FALSE(full.Matches(DIMENSIONS + 1, 2, 17));
+    ASSERT_FALSE(full.Matches(DIMENSIONS, 1, 17));
+    ASSERT_FALSE(full.Matches(DIMENSIONS, 2, 29));
+    ASSERT_FALSE(full.Matches(DIMENSIONS, 2, std::nullopt));
+    for (const auto shape : {std::pair<size_t, size_t>{DIMENSIONS, PATHS + 1},
+                             {0, PATHS},
+                             {std::numeric_limits<size_t>::max(), 2},
+                             {2, std::numeric_limits<size_t>::max()}}) {
+        const TrainingGaussians_ oversized(shape.first, 1, shape.second, std::nullopt);
+        ASSERT_EQ(oversized.Bytes(), 0u);
+        ASSERT_FALSE(oversized.Matches(shape.first, 1, std::nullopt));
+    }
+    TrainingGaussians_ cache(DIMENSIONS, 1, 3, 17);
+    auto generator = Script::CreateRNG("sobol", DIMENSIONS, true, 17, "Precise");
+    Vector_<Vector_<>> expected(3, Vector_<>(DIMENSIONS));
+    for (size_t path = 0; path < expected.size(); ++path)
+        cache.FillNormal(generator.get(), path, &expected[path]);
+    cache.Complete();
+    for (size_t path : {2, 0, 1}) {
+        Vector_<> actual(DIMENSIONS);
+        cache.FillNormal(nullptr, path, &actual);
+        ASSERT_EQ(actual, expected[path]);
+    }
+    Vector_<> invalid(DIMENSIONS - 1);
+    ASSERT_THROW(cache.FillNormal(nullptr, 0, &invalid), Dal::Exception_);
+    Vector_<> valid(DIMENSIONS);
+    ASSERT_THROW(cache.FillNormal(nullptr, 3, &valid), Dal::Exception_);
+}
+
+TEST(ScriptExerciseLSMCTest, TestRetrainedTrainingGaussianFailuresDrainAndRecover) {
+    for (size_t threads : {1, 3}) {
+        const ReplayThreads_ pool(threads);
+        for (bool compiled : {false, true}) {
+            SCOPED_TRACE(::testing::Message() << threads << "; " << compiled);
+            auto settings = ReplaySettings(compiled, 33);
+            settings.lsmcTrainingPaths_ = 8193;
+            const size_t frozenSubmissions = CountReplaySubmissions(
+                [&] { return Script::MCSimulation<AAD::Number_>(ReplayProduct(), ReplayModel(), 129, ReplayValuation(), settings); });
+            settings.lsmcPolicyRiskMode_ = "RetrainedBump";
+            const auto expected = Script::MCSimulation<AAD::Number_>(ReplayProduct(), ReplayModel(), 129, ReplayValuation(), settings);
+            for (size_t offset : {1, 3, 6}) {
+                struct FailTraining_ final : Script::Detail::SimulationObserver_ {
+                    size_t calls_ = 0;
+                    size_t failAt_;
+                    explicit FailTraining_(size_t failAt) : failAt_(failAt) {}
+                    void AfterSubmission() override {
+                        if (++calls_ == failAt_)
+                            THROW("retrained training submission failure");
+                    }
+                } observer(frozenSubmissions + offset);
+                {
+                    const Script::Detail::ScopedSimulationObserver_ scope(&observer);
+                    ASSERT_THROW(
+                        static_cast<void>(Script::MCSimulation<AAD::Number_>(ReplayProduct(), ReplayModel(), 129, ReplayValuation(), settings)),
+                        Dal::Exception_);
+                }
+                ASSERT_EQ(observer.calls_, frozenSubmissions + offset);
+                AssertReplayEqual(Script::MCSimulation<AAD::Number_>(ReplayProduct(), ReplayModel(), 129, ReplayValuation(), settings), expected);
+            }
+            for (const Dal::String_ condition : {"spot() > 100.05", "K > 55.02"}) {
+                SCOPED_TRACE(condition);
+                const Script::ScriptProductData_ failing("", {Cell_("K"), Cell_(Date_(2027, 10, 10))},
+                                                         {"55", "IF " + condition + " THEN divisor = 0 ELSE divisor = 1 END EXERCISE 1 / divisor"});
+                const Dal::Handle_<Dal::ModelData_> deterministic(new Dal::BSModelData_("", 100.0, 0.0, 0.0, 0.0));
+                auto frozen = settings;
+                frozen.lsmcPolicyRiskMode_ = "Frozen";
+                ASSERT_NO_THROW(static_cast<void>(Script::MCSimulation<AAD::Number_>(failing, deterministic, 129, ReplayValuation(), frozen)));
+                ASSERT_THROW(static_cast<void>(Script::MCSimulation<AAD::Number_>(failing, deterministic, 129, ReplayValuation(), settings)),
+                             Dal::Exception_);
+                AssertReplayEqual(Script::MCSimulation<AAD::Number_>(ReplayProduct(), ReplayModel(), 129, ReplayValuation(), settings), expected);
+            }
+        }
+    }
+}
+
+TEST(ScriptExerciseLSMCTest, TestRetrainedTrainingGaussianCallerPreservesNestedRecording) {
+    const ReplayThreads_ pool(1);
+    auto settings = ReplaySettings(true, 33);
+    settings.lsmcPolicyRiskMode_ = "RetrainedBump";
+    auto model = Dal::CreateModel<double>(ReplayModel());
+    const auto prepared = Script::PrepareScript(ReplayProduct(), model.get(), ReplayValuation(), settings);
+    AAD::RecordingScope_ recording;
+    AAD::Number_ input;
+    recording.RegisterInput(input, 2.0);
+    recording.StartRecording();
+    AAD::Number_ output = input * input;
+    ASSERT_THROW(static_cast<void>(Script::MCLsmcAadSimulation(prepared, ReplayModel(), 129)), Dal::Exception_);
+    recording.FinishRecording();
+    AAD::Adjoint(output) = 1.0;
+    recording.Reverse();
+    ASSERT_DOUBLE_EQ(AAD::Adjoint(input), 4.0);
+    recording.Close();
+    const auto recovered = Script::MCLsmcAadSimulation(prepared, ReplayModel(), 129);
+    AssertReplayEqual(Script::MCLsmcAadSimulation(prepared, ReplayModel(), 129), recovered);
+}
+
+#if defined(DAL_ENABLE_AAD_PROFILING)
+TEST(ScriptExerciseLSMCTest, TestRetrainedTrainingGaussianProfileAccountsCapacity) {
+    const ReplayThreads_ pool(1);
+    auto settings = ReplaySettings(true, 33);
+    auto model = Dal::CreateModel<double>(ReplayModel());
+    static_cast<void>(Script::PrepareScript(ReplayProduct(), model.get(), ReplayValuation(), settings));
+    const size_t cacheBytes = (128 + 33) * model->SimDim() * sizeof(double);
+    AAD::ProfilingData_ frozen, retrained;
+    {
+        AAD::ProfilingScope_ profile(&frozen);
+        static_cast<void>(Script::MCSimulation<AAD::Number_>(ReplayProduct(), ReplayModel(), 129, ReplayValuation(), settings));
+    }
+    settings.lsmcPolicyRiskMode_ = "RetrainedBump";
+    {
+        AAD::ProfilingScope_ profile(&retrained);
+        static_cast<void>(Script::MCSimulation<AAD::Number_>(ReplayProduct(), ReplayModel(), 129, ReplayValuation(), settings));
+    }
+    ASSERT_TRUE(frozen.complete_);
+    ASSERT_TRUE(retrained.complete_);
+    ASSERT_TRUE(retrained.memory_.regressionArrays_.valid_);
+    ASSERT_EQ(retrained.memory_.regressionArrays_.capacityBytes_, frozen.memory_.regressionArrays_.capacityBytes_ + cacheBytes);
+}
+#endif
 
 TEST(ScriptExerciseLSMCTest, TestLsmcLegacyPlanOneSlotPreservesOrderCancelsAndRecovers) {
     for (size_t threads : {1, 3, 8}) {

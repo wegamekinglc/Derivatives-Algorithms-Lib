@@ -25,6 +25,7 @@
 #include <dal/math/aad/tapecapacity.hpp>
 #include <dal/math/matrix/cholesky.hpp>
 #include <dal/math/matrix/squarematrix.hpp>
+#include <dal/script/detail/traininggaussians.hpp>
 #include <dal/script/lsmc.hpp>
 #include <dal/script/lsmccurvature.hpp>
 #include <dal/script/regressionqr.hpp>
@@ -722,6 +723,22 @@ namespace Dal::Script {
             bool cond_;
         };
 
+        using Detail::TrainingGaussians_;
+
+        bool SupportsTrainingGaussianCache(const ModelData_& data) {
+            if (typeid(data) == typeid(BSModelData_))
+                return true;
+            const auto* hybrid = dynamic_cast<const HybridModelData_*>(&data);
+            if (!hybrid || typeid(data) != typeid(HybridModelData_) || hybrid->components_.size() != 2)
+                return false;
+            size_t equities = 0, rates = 0;
+            for (const auto& component : hybrid->components_) {
+                equities += typeid(*component) == typeid(HybridLocalVolEquityData_);
+                rates += typeid(*component) == typeid(HybridDeterministicRateData_);
+            }
+            return equities == 1 && rates == 1;
+        }
+
         struct ThreadState_ {
             std::unique_ptr<Random_> random_;
             Vector_<> gauss_;
@@ -756,6 +773,8 @@ namespace Dal::Script {
             const Vector_<ExerciseRegression_>* policy_ = nullptr; //  pricing stops evaluating after the first hard exercise
             std::optional<uint64_t> scrambleKey_;
             const Vector_<>* constValues_ = nullptr; //  optional bumped script constants for policy training
+            TrainingGaussians_* gaussians_ = nullptr;
+            size_t gaussianOffset_ = 0;
 
             const ScriptProduct_& Product() const { return prepared_.Product(); }
             const ObservationPlan_& Plan() const { return prepared_.Plan(); }
@@ -885,7 +904,10 @@ namespace Dal::Script {
             state.exercisedDay_ = NO_SLOT;
             state.preExercise_ = 0.0;
             state.exerciseValue_ = 0.0;
-            state.random_->FillNormal(&state.gauss_);
+            if (ctx.gaussians_)
+                ctx.gaussians_->FillNormal(state.random_.get(), ctx.gaussianOffset_ + pathSlot, &state.gauss_);
+            else
+                state.random_->FillNormal(&state.gauss_);
             if (state.bsPaths_) {
                 if (!state.bsPaths_->Generate(state.gauss_))
                     Detail::DiagnoseInvalidSimulationPath(state.bsPaths_->Path());
@@ -918,6 +940,11 @@ namespace Dal::Script {
 
         //  Phase A: forward storage over disjoint per-batch path slots
         void RunForwardPhase(LsmcContext_& ctx, const BatchPlan_& batchPlan, size_t pathOffset = 0) {
+            if (ctx.gaussians_) {
+                REQUIRE(pathOffset <= ctx.gaussians_->Paths() && batchPlan.PathCount() <= ctx.gaussians_->Paths() - pathOffset,
+                        "LSMC training Gaussian range exceeds its storage");
+                ctx.gaussianOffset_ = pathOffset;
+            }
             ThreadPool_* pool = ThreadPool_::GetInstance();
             Vector_<std::unique_ptr<ThreadState_>> threadStates(pool->NumThreads());
             SimulationTaskGroup_ tasks(pool, batchPlan.BatchCount());
@@ -1270,6 +1297,9 @@ namespace Dal::Script {
 #if defined(DAL_ENABLE_AAD_PROFILING)
             AAD::CaptureMemoryForProfiling([&] {
                 auto regressionArrays = Detail::ProfileArrays(eventNumeraire);
+                if (ctx.gaussians_)
+                    regressionArrays =
+                        Detail::JoinProfileArrays(regressionArrays, Detail::ProfileElements(ctx.gaussians_->Bytes(), ctx.gaussians_->Bytes(), 1));
                 for (const auto* rows : blocks) {
                     regressionArrays = Detail::JoinProfileArrays(regressionArrays, ProfileStorage(rows->storage_));
                     regressionArrays = Detail::JoinProfileArrays(regressionArrays, Detail::ProfileArrays(rows->w_, rows->included_));
@@ -1309,10 +1339,13 @@ namespace Dal::Script {
                     MakeStorage(ctx.scan_, counts.validation_, ctx.Plan().RegressionFeatureCount(), !ctx.model_->NumeraireIsDeterministic());
                 LsmcContext_ validationCtx{ctx.prepared_, ctx.model_, ctx.scan_, validationStorage, ctx.compiled_, nullptr, ctx.scrambleKey_};
                 validationCtx.constValues_ = ctx.constValues_;
+                validationCtx.gaussians_ = ctx.gaussians_;
                 RunForwardPhase(validationCtx, BatchPlan_(counts.validation_, 1), counts.training_);
             }
             auto regressions = RunBackwardPhase(ctx, eventNumeraire, counts.training_, ctx.prepared_.Simulation().lsmcBasisDegree_,
                                                 counts.validation_ ? &validationStorage : nullptr, counts.validation_);
+            if (ctx.gaussians_)
+                ctx.gaussians_->Complete();
             return {std::move(eventNumeraire), std::move(regressions)};
         }
 
@@ -1853,12 +1886,15 @@ namespace Dal::Script {
                                                        std::optional<uint64_t> trainingKey,
                                                        size_t parameter,
                                                        double bump,
-                                                       const Vector_<>* constants = nullptr) {
+                                                       const Vector_<>* constants = nullptr,
+                                                       TrainingGaussians_* gaussians = nullptr) {
             auto model = baseModel.Clone();
             *model->Parameters()[parameter] += bump;
             model->Init(prepared.TimeLine(), prepared.DefLine());
             auto storage = MakeStorage(scan, counts.training_, prepared.Plan().RegressionFeatureCount(), !model->NumeraireIsDeterministic());
             LsmcContext_ ctx{prepared, model.get(), scan, storage, hardCompiled, nullptr, trainingKey, constants};
+            if (gaussians && gaussians->Matches(model->SimDim(), model->NumFactors(), trainingKey))
+                ctx.gaussians_ = gaussians;
             return TrainFrozenPolicy(ctx, counts).regressions_;
         }
 
@@ -1870,11 +1906,14 @@ namespace Dal::Script {
                                                                std::optional<uint64_t> trainingKey,
                                                                size_t constant,
                                                                double bump,
-                                                               const Vector_<>* baseConstants = nullptr) {
+                                                               const Vector_<>* baseConstants = nullptr,
+                                                               TrainingGaussians_* gaussians = nullptr) {
             auto constants = baseConstants ? *baseConstants : prepared.Product().ConstVarValues();
             constants[constant] += bump;
             auto storage = MakeStorage(scan, counts.training_, prepared.Plan().RegressionFeatureCount(), !model->NumeraireIsDeterministic());
             LsmcContext_ ctx{prepared, model, scan, storage, hardCompiled, nullptr, trainingKey, &constants};
+            if (gaussians && gaussians->Matches(model->SimDim(), model->NumFactors(), trainingKey))
+                ctx.gaussians_ = gaussians;
             return TrainFrozenPolicy(ctx, counts).regressions_;
         }
 
@@ -1899,7 +1938,8 @@ namespace Dal::Script {
                                      std::optional<uint64_t> trainingKey,
                                      size_t nPaths,
                                      SimResults_* results,
-                                     const Vector_<>* baseConstants = nullptr) {
+                                     const Vector_<>* baseConstants = nullptr,
+                                     TrainingGaussians_* gaussians = nullptr) {
             std::optional<double> basePolicyValue;
             const double relative = prepared.Simulation().lsmcPolicyBumpRelative_;
             for (size_t j = 0; j < baseModel.NumParams(); ++j) {
@@ -1908,7 +1948,8 @@ namespace Dal::Script {
                 REQUIRE2(ValidModelPolicyBump(parameter, step), "InvalidLsmcPolicyBump: model parameter cannot be bumped", ScriptError_);
                 REQUIRE2(baseModel.ValidParameterValue(j, parameter + step), "InvalidLsmcPolicyBump: upper model parameter violates its constraint",
                          ScriptError_);
-                const auto upPolicy = TrainBumpedPolicy(prepared, baseModel, scan, hardCompiled, counts, trainingKey, j, step, baseConstants);
+                const auto upPolicy =
+                    TrainBumpedPolicy(prepared, baseModel, scan, hardCompiled, counts, trainingKey, j, step, baseConstants, gaussians);
                 const double up = ValueFuzzyPolicy(prepared, modelData, scan, upPolicy, fuzzyCompiled, batchPlan, counts, nPaths, baseConstants);
                 double down;
                 double denominator = 2.0 * step;
@@ -1919,7 +1960,8 @@ namespace Dal::Script {
                     down = *basePolicyValue;
                     denominator = step;
                 } else {
-                    const auto downPolicy = TrainBumpedPolicy(prepared, baseModel, scan, hardCompiled, counts, trainingKey, j, -step, baseConstants);
+                    const auto downPolicy =
+                        TrainBumpedPolicy(prepared, baseModel, scan, hardCompiled, counts, trainingKey, j, -step, baseConstants, gaussians);
                     down = ValueFuzzyPolicy(prepared, modelData, scan, downPolicy, fuzzyCompiled, batchPlan, counts, nPaths, baseConstants);
                 }
                 results->risks_[j] += (up - down) / denominator;
@@ -1929,9 +1971,9 @@ namespace Dal::Script {
                 const double step = relative * std::max(1.0, std::abs(constants[k]));
                 REQUIRE2(ValidConstantPolicyBump(constants[k], step), "InvalidLsmcPolicyBump: script constant cannot be bumped", ScriptError_);
                 const auto upPolicy =
-                    TrainBumpedConstantPolicy(prepared, &baseModel, scan, hardCompiled, counts, trainingKey, k, step, baseConstants);
+                    TrainBumpedConstantPolicy(prepared, &baseModel, scan, hardCompiled, counts, trainingKey, k, step, baseConstants, gaussians);
                 const auto downPolicy =
-                    TrainBumpedConstantPolicy(prepared, &baseModel, scan, hardCompiled, counts, trainingKey, k, -step, baseConstants);
+                    TrainBumpedConstantPolicy(prepared, &baseModel, scan, hardCompiled, counts, trainingKey, k, -step, baseConstants, gaussians);
                 const double up = ValueFuzzyPolicy(prepared, modelData, scan, upPolicy, fuzzyCompiled, batchPlan, counts, nPaths, baseConstants);
                 const double down = ValueFuzzyPolicy(prepared, modelData, scan, downPolicy, fuzzyCompiled, batchPlan, counts, nPaths, baseConstants);
                 results->risks_[baseModel.NumParams() + k] += (up - down) / (2.0 * step);
@@ -2219,9 +2261,13 @@ namespace Dal::Script {
         results.aggregated_ /= static_cast<double>(counts.replicates_);
         for (size_t j = 0; j < results.risks_.size(); ++j)
             results.risks_[j] = riskTotals[j] / static_cast<double>(counts.replicates_ * nPaths);
-        if (simulation.lsmcPolicyRiskMode_ == "RetrainedBump")
+        if (simulation.lsmcPolicyRiskMode_ == "RetrainedBump") {
+            std::optional<TrainingGaussians_> gaussians;
+            if (SupportsTrainingGaussianCache(*modelData))
+                gaussians.emplace(doubleModel->SimDim(), doubleModel->NumFactors(), counts.training_ + counts.validation_, trainingKey);
             AddRetrainedPolicyRisks(prepared, modelData, *doubleModel, scan, trained.regressions_, hardCompiled ? &*hardCompiled : nullptr,
-                                    fuzzyCompiled, batchPlan, counts, trainingKey, nPaths, &results);
+                                    fuzzyCompiled, batchPlan, counts, trainingKey, nPaths, &results, nullptr, gaussians ? &*gaussians : nullptr);
+        }
         return results;
     }
     BlackScholesLsmcCurvatureResult_ EvaluateBlackScholesLsmcCurvature(std::shared_ptr<const PreparedScript_> prepared,
