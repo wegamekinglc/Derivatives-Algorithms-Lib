@@ -8,6 +8,7 @@
 #include <cmath>
 #include <limits>
 #include <memory>
+#include <type_traits>
 
 #include <dal/indice/parser/equity.hpp>
 #include <dal/math/matrix/matrixs.hpp>
@@ -189,6 +190,42 @@ namespace Dal {
                 }
             }
 
+            void ReuseObservationSlots(Vector_<size_t>* slots) const {
+                if constexpr (std::is_same_v<T_, Number_>) {
+                    if (slots->size() < 2)
+                        return;
+                    Vector_<size_t> firstOutput(assetNames_.size(), slots->size());
+                    for (size_t output = 0; output < slots->size(); ++output) {
+                        const size_t asset = (*slots)[output];
+                        if (asset == 0)
+                            continue;
+                        if (firstOutput[asset] == slots->size())
+                            firstOutput[asset] = output;
+                        else
+                            (*slots)[output] = OBSERVATION_SOURCE | firstOutput[asset];
+                    }
+                }
+            }
+
+            void FillObservations(size_t sampleId, const Vector_<T_>& logSpots, bool isToday, Sample_<T_>* sample) const {
+                const auto& slots = observationSlots_[sampleId];
+                for (size_t output = 0; output < slots.size(); ++output) {
+                    const size_t slot = slots[output];
+                    if constexpr (std::is_same_v<T_, Number_>) {
+                        if (slot & OBSERVATION_SOURCE) {
+                            sample->observations_[output] = sample->observations_[slot & ~OBSERVATION_SOURCE];
+                            continue;
+                        }
+                    }
+                    if (slot == 0)
+                        sample->observations_[output] = sample->spot_;
+                    else if (isToday)
+                        sample->observations_[output] = spots_[slot];
+                    else
+                        sample->observations_[output] = Dal::exp(logSpots[slot]);
+                }
+            }
+
             void FillSample(size_t sampleId, const Vector_<T_>& logSpots, bool isToday, Sample_<T_>* sample) const {
                 if ((*defLine_)[sampleId].numeraire_)
                     sample->numeraire_ = numeraires_[sampleId];
@@ -198,18 +235,7 @@ namespace Dal {
                     sample->spot_ = spots_[0];
                 else
                     sample->spot_ = Dal::exp(logSpots[0]);
-                const auto& slots = observationSlots_[sampleId];
-                for (size_t output = 0; output < slots.size(); ++output) {
-                    const size_t slot = slots[output];
-                    if (slot == 0)
-                        sample->observations_[output] = sample->spot_;
-                    else if (slot & OBSERVATION_SOURCE)
-                        sample->observations_[output] = sample->observations_[slot & ~OBSERVATION_SOURCE];
-                    else if (isToday)
-                        sample->observations_[output] = spots_[slot];
-                    else
-                        sample->observations_[output] = Dal::exp(logSpots[slot]);
-                }
+                FillObservations(sampleId, logSpots, isToday, sample);
             }
 
         public:
@@ -288,18 +314,7 @@ namespace Dal {
                     slots.clear();
                     for (const auto& name : defLine[sample].indexNames_)
                         slots.push_back(AssetSlot(name));
-                    if (slots.size() < 2)
-                        continue;
-                    Vector_<size_t> firstOutput(assetNames_.size(), slots.size());
-                    for (size_t output = 0; output < slots.size(); ++output) {
-                        const size_t asset = slots[output];
-                        if (asset == 0)
-                            continue;
-                        if (firstOutput[asset] == slots.size())
-                            firstOutput[asset] = output;
-                        else
-                            slots[output] = OBSERVATION_SOURCE | firstOutput[asset];
-                    }
+                    ReuseObservationSlots(&slots);
                 }
                 const size_t steps = timeLine_.size() - 1;
                 drifts_.Resize(steps * assetNames_.size());
