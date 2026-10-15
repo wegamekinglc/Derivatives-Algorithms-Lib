@@ -69,6 +69,7 @@ namespace Dal {
             bool todayOnTimeLine_ = false;
             const Vector_<SampleDef_>* defLine_ = nullptr;
             Vector_<Vector_<size_t>> observationSlots_;
+            Vector_<Vector_<size_t>> observationSources_;
             Vector_<T_> drifts_;
             Vector_<T_> stds_;
             Vector_<T_> initialLogSpots_;
@@ -197,15 +198,20 @@ namespace Dal {
                 else
                     sample->spot_ = Dal::exp(logSpots[0]);
                 const auto& slots = observationSlots_[sampleId];
-                for (size_t output = 0; output < slots.size(); ++output) {
-                    const size_t asset = slots[output];
+                const auto spot = [&](size_t asset) -> T_ {
                     if (asset == 0)
-                        sample->observations_[output] = sample->spot_;
-                    else if (isToday)
-                        sample->observations_[output] = spots_[asset];
-                    else
-                        sample->observations_[output] = Dal::exp(logSpots[asset]);
-                }
+                        return sample->spot_;
+                    if (isToday)
+                        return spots_[asset];
+                    return Dal::exp(logSpots[asset]);
+                };
+                const auto& sources = observationSources_[sampleId];
+                if (sources.empty()) {
+                    for (size_t output = 0; output < slots.size(); ++output)
+                        sample->observations_[output] = spot(slots[output]);
+                } else
+                    for (size_t output = 0; output < slots.size(); ++output)
+                        sample->observations_[output] = sources[output] == output ? spot(slots[output]) : sample->observations_[sources[output]];
             }
 
         public:
@@ -222,6 +228,7 @@ namespace Dal {
                     todayOnTimeLine_ = other.todayOnTimeLine_;
                     defLine_ = other.defLine_;
                     observationSlots_ = other.observationSlots_;
+                    observationSources_ = other.observationSources_;
                     drifts_ = other.drifts_;
                     stds_ = other.stds_;
                     initialLogSpots_ = other.initialLogSpots_;
@@ -279,10 +286,32 @@ namespace Dal {
                         timeLine_.push_back(time);
                 todayOnTimeLine_ = productTimeLine[0] == 0.0;
                 observationSlots_.Resize(defLine.size());
+                observationSources_.Resize(defLine.size());
                 for (size_t sample = 0; sample < defLine.size(); ++sample) {
-                    observationSlots_[sample].clear();
+                    auto& slots = observationSlots_[sample];
+                    auto& sources = observationSources_[sample];
+                    slots.clear();
+                    sources.clear();
                     for (const auto& name : defLine[sample].indexNames_)
-                        observationSlots_[sample].push_back(AssetSlot(name));
+                        slots.push_back(AssetSlot(name));
+                    if (slots.size() < 2)
+                        continue;
+                    Vector_<size_t> firstOutput(assetNames_.size(), slots.size());
+                    for (size_t output = 0; output < slots.size(); ++output) {
+                        const size_t asset = slots[output];
+                        if (asset == 0)
+                            continue;
+                        if (firstOutput[asset] == slots.size())
+                            firstOutput[asset] = output;
+                        else {
+                            if (sources.empty()) {
+                                sources.Resize(slots.size());
+                                for (size_t slot = 0; slot < slots.size(); ++slot)
+                                    sources[slot] = slot;
+                            }
+                            sources[output] = firstOutput[asset];
+                        }
+                    }
                 }
                 const size_t steps = timeLine_.size() - 1;
                 drifts_.Resize(steps * assetNames_.size());

@@ -2,9 +2,12 @@
 // Created by Codex on 2026/9/27.
 //
 
+#include <array>
 #include <string>
+#include <type_traits>
 
 #include <dal/benchmarks/bench.hpp>
+#include <dal/math/aad/recording.hpp>
 #include <dal/model/correlatedblackscholes.hpp>
 #include <dal/model/factory.hpp>
 #include <dal/model/hybrid.hpp>
@@ -86,6 +89,71 @@ namespace {
         RunPathCase(hybrid, {"EQ[AAA]", "EQ[BBB]"},
                     termStructure ? "hybrid logDF path (100K x 12 steps x 2 assets)" : "hybrid flat-rate path (100K x 12 steps x 2 assets)");
     }
+
+    template <class T_> void RunOutputCase(const Vector_<String_>& outputs, const std::string& label) {
+        constexpr size_t PATHS = 8192;
+        Matrix_<> correlations(3, 3, 0.3);
+        for (int i = 0; i < 3; ++i)
+            correlations(i, i) = 1.0;
+        AAD::CorrelatedBlackScholes_<T_> model({"EQ[AAA]", "EQ[BBB]", "EQ[CCC]"}, {100.0, 110.0, 120.0}, {0.2, 0.25, 0.3}, {0.01, 0.02, 0.03}, 0.05,
+                                               correlations);
+        Vector_<> timeline;
+        Vector_<AAD::SampleDef_> definitions(13);
+        for (size_t date = 0; date < definitions.size(); ++date) {
+            timeline.push_back(static_cast<double>(date) / 12.0);
+            definitions[date].indexNames_ = outputs;
+        }
+        model.Allocate(timeline, definitions);
+        AAD::Scenario_<T_> path;
+        AAD::AllocatePath(definitions, path);
+        AAD::InitializePath(path);
+        Vector_<Vector_<>> gaussians(128, Vector_<>(model.SimDim()));
+        for (size_t i = 0; i < gaussians.size(); ++i)
+            for (size_t j = 0; j < model.SimDim(); ++j)
+                gaussians[i][j] = static_cast<double>(static_cast<int>((i * 17 + j * 31) % 101) - 50) * 0.025;
+        const auto payoff = [&] {
+            T_ value = 0.0;
+            for (const auto& sample : path)
+                for (size_t slot = 0; slot < sample.observations_.size(); ++slot)
+                    value += (1.0 + 0.1 * slot) * sample.observations_[slot] / sample.numeraire_;
+            return value;
+        };
+        double sink = 0.0;
+        const auto result = Bench::Run(
+            label,
+            [&] {
+                if constexpr (std::is_same_v<T_, AAD::Number_>) {
+                    AAD::RecordingScope_ recording;
+                    for (auto* parameter : model.Parameters())
+                        recording.RegisterInput(*parameter, AAD::Value(*parameter));
+                    recording.StartRecording();
+                    model.Init(timeline, definitions);
+                    const auto checkpoint = recording.MakeCheckpoint();
+                    for (size_t i = 0; i < PATHS; ++i) {
+                        recording.Restore(checkpoint);
+                        model.GeneratePath(gaussians[i % gaussians.size()], &path);
+                        T_ value = payoff();
+                        sink += AAD::Value(value);
+                        recording.FinishRecording();
+                        AAD::Adjoint(value) = 1.0;
+                        recording.ReverseSuffix(checkpoint);
+                    }
+                    recording.ReversePrefix(checkpoint);
+                    for (auto* parameter : model.Parameters())
+                        sink += AAD::Adjoint(*parameter);
+                } else {
+                    model.Init(timeline, definitions);
+                    for (size_t i = 0; i < PATHS; ++i) {
+                        model.GeneratePath(gaussians[i % gaussians.size()], &path);
+                        sink += payoff();
+                    }
+                }
+            },
+            1, 5);
+        REQUIRE(std::isfinite(sink), "non-finite correlated BS output benchmark result");
+        Bench::Print(result);
+        Bench::DoNotOptimize(&sink);
+    }
 } // namespace
 
 void RunCorrelatedBSPathCases() {
@@ -93,4 +161,15 @@ void RunCorrelatedBSPathCases() {
         RunCase(assets);
     RunHybridCase(false);
     RunHybridCase(true);
+}
+
+void RunCorrelatedBSOutputCases() {
+    const Vector_<Vector_<String_>> outputs{{"EQ[CCC]"},
+                                            {"EQ[AAA]", "EQ[BBB]", "EQ[CCC]"},
+                                            {"EQ[CCC]", "EQ[BBB]", "EQ[CCC]", "EQ[AAA]", "EQ[BBB]", "EQ[AAA]", "EQ[CCC]", "EQ[BBB]", "EQ[CCC]"}};
+    const std::array<std::string, 3> labels{"single", "unique", "repeated"};
+    for (size_t i = 0; i < outputs.size(); ++i) {
+        RunOutputCase<double>(outputs[i], "correlated BS double " + labels[i] + " outputs (8K x 12 steps)");
+        RunOutputCase<AAD::Number_>(outputs[i], "correlated BS AAD " + labels[i] + " outputs (8K x 12 steps)");
+    }
 }

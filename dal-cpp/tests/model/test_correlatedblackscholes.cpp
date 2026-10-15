@@ -68,6 +68,58 @@ namespace {
             ASSERT_NE(std::string(error.what()).find(message.c_str()), std::string::npos);
         }
     }
+
+    const Vector_<String_> OUTPUT_ASSETS{"EQ[AAA]", "EQ[BBB]", "EQ[CCC]"};
+    const Vector_<Vector_<size_t>> OUTPUT_SLOTS{{2, 1, 2, 0, 1, 0, 2}, {1, 2, 1, 0, 2}, {0, 1, 2}, {2}};
+    const Vector_<> OUTPUT_TIMES{0.0, 0.2, 0.6, 1.0};
+    const Vector_<> OUTPUT_PARAMETERS{100.0, 0.2, 0.01, 120.0, 0.3, 0.02, 90.0, 0.15, 0.005, 0.05};
+
+    Vector_<AAD::SampleDef_> OutputDefinitions(bool repeated) {
+        Vector_<AAD::SampleDef_> definitions(OUTPUT_TIMES.size());
+        for (size_t date = 0; date < definitions.size(); ++date) {
+            for (const auto asset : repeated ? OUTPUT_SLOTS[date] : Vector_<size_t>{0, 1, 2})
+                definitions[date].indexNames_.push_back(OUTPUT_ASSETS[asset]);
+            definitions[date].discountMats_ = {1.4};
+        }
+        return definitions;
+    }
+
+    Matrix_<> OutputCorrelation(double rho) {
+        Matrix_<> correlation(3, 3, rho);
+        for (int i = 0; i < 3; ++i)
+            correlation(i, i) = 1.0;
+        return correlation;
+    }
+
+    template <class T_> AAD::CorrelatedBlackScholes_<T_> OutputModel(const Vector_<>& parameters, const Matrix_<>& correlation) {
+        return AAD::CorrelatedBlackScholes_<T_>(OUTPUT_ASSETS, {parameters[0], parameters[3], parameters[6]},
+                                                {parameters[1], parameters[4], parameters[7]}, {parameters[2], parameters[5], parameters[8]},
+                                                parameters[9], correlation);
+    }
+
+    template <class T_> T_ OutputPayoff(const AAD::Scenario_<T_>& path, bool repeated) {
+        T_ payoff = 0.0;
+        for (size_t date = 0; date < path.size(); ++date)
+            for (size_t slot = 0; slot < OUTPUT_SLOTS[date].size(); ++slot) {
+                const size_t output = repeated ? slot : OUTPUT_SLOTS[date][slot];
+                payoff += (1.0 + 0.25 * slot) * path[date].observations_[output] * path[date].discounts_[0] / path[date].numeraire_;
+            }
+        return payoff;
+    }
+
+    double ReferenceOutputValue(const Vector_<>& parameters, const Matrix_<>& correlation, const Vector_<Vector_<>>& gaussians) {
+        auto model = OutputModel<double>(parameters, correlation);
+        const auto definitions = OutputDefinitions(false);
+        model.Allocate(OUTPUT_TIMES, definitions);
+        model.Init(OUTPUT_TIMES, definitions);
+        auto path = Path<double>(definitions);
+        double value = 0.0;
+        for (const auto& gaussian : gaussians) {
+            model.GeneratePath(gaussian, &path);
+            value += OutputPayoff(path, false);
+        }
+        return value;
+    }
 } // namespace
 
 TEST(ModelTest, TestCorrelatedBlackScholesNamedOutputs) {
@@ -441,4 +493,122 @@ TEST(ModelTest, TestCorrelatedBlackScholesCloneThreadDeterminism) {
     auto first = std::async(std::launch::async, [&] { return run(original); });
     auto second = std::async(std::launch::async, [&] { return run(*clone); });
     ASSERT_EQ(first.get(), second.get());
+}
+
+TEST(ModelTest, TestCorrelatedBlackScholesRepeatedOutputsOwnNoExtraAadNodes) {
+    const TapeGuard_ guard(AAD::Tape());
+    auto model = OutputModel<AAD::Number_>(OUTPUT_PARAMETERS, OutputCorrelation(0.3));
+    const auto unique = OutputDefinitions(false);
+    const auto repeated = OutputDefinitions(true);
+    auto uniquePath = Path<AAD::Number_>(unique);
+    auto repeatedPath = Path<AAD::Number_>(repeated);
+    const Vector_<Vector_<>> gaussians{{0.1, -0.2, 0.3, -0.4, 0.5, -0.6, 0.7, -0.8, 0.9}, {-0.8, 0.7, -0.6, 0.5, -0.4, 0.3, -0.2, 0.1, 0.0}};
+    for (const auto& gaussian : gaussians) {
+        Vector_<size_t> nodeCounts;
+        Vector_<Vector_<double>> values;
+        // Reallocate back to unique outputs after recording the repeated layout.
+        for (const bool duplicates : {false, true, false}) {
+            const auto& definitions = duplicates ? repeated : unique;
+            auto* path = duplicates ? &repeatedPath : &uniquePath;
+            model.Allocate(OUTPUT_TIMES, definitions);
+            AAD::Rewind(*AAD::Tape());
+            for (auto* parameter : model.Parameters())
+                AAD::PutOnTape(*parameter);
+            AAD::NewRecording(*AAD::Tape());
+            model.Init(OUTPUT_TIMES, definitions);
+            const auto before = AAD::Tape()->nodes_.OccupiedSlots();
+            model.GeneratePath(gaussian, path);
+            nodeCounts.push_back(AAD::Tape()->nodes_.OccupiedSlots() - before);
+            Vector_<> outputs;
+            for (size_t date = 0; date < path->size(); ++date)
+                for (size_t slot = 0; slot < OUTPUT_SLOTS[date].size(); ++slot)
+                    outputs.push_back(AAD::Value((*path)[date].observations_[duplicates ? slot : OUTPUT_SLOTS[date][slot]]));
+            values.push_back(outputs);
+        }
+        // The repeated layout requests the same assets at future dates except its final single output.
+        ASSERT_EQ(nodeCounts[1] + 1, nodeCounts[0]);
+        ASSERT_EQ(nodeCounts[2], nodeCounts[0]);
+        ASSERT_EQ(values[0], values[1]);
+        ASSERT_EQ(values[0], values[2]);
+    }
+}
+
+TEST(ModelTest, TestCorrelatedBlackScholesRepeatedOutputsCheckpointAllRisks) {
+    const auto definitions = OutputDefinitions(true);
+    const Vector_<Vector_<>> gaussians{{0.1, -0.2, 0.3, -0.4, 0.5, -0.6, 0.7, -0.8, 0.9}, {-0.8, 0.7, -0.6, 0.5, -0.4, 0.3, -0.2, 0.1, 0.0}};
+    auto path = Path<AAD::Number_>(definitions);
+    for (const double rho : {-0.3, 0.0, 0.4}) {
+        const auto correlation = OutputCorrelation(rho);
+        auto original = OutputModel<AAD::Number_>(OUTPUT_PARAMETERS, correlation);
+        original.Allocate(OUTPUT_TIMES, definitions);
+        auto model = original.Clone();
+        for (const bool checkpointed : {false, true}) {
+            AAD::RecordingScope_ recording;
+            for (size_t i = 0; i < model->NumParams(); ++i)
+                recording.RegisterInput(*model->Parameters()[i], OUTPUT_PARAMETERS[i]);
+            recording.StartRecording();
+            model->Init(OUTPUT_TIMES, definitions);
+            const auto checkpoint = recording.MakeCheckpoint();
+            double value = 0.0;
+            AAD::Number_ total = 0.0;
+            for (const auto& gaussian : gaussians) {
+                if (checkpointed)
+                    recording.Restore(checkpoint);
+                model->GeneratePath(gaussian, &path);
+                AAD::Number_ payoff = OutputPayoff(path, true);
+                value += AAD::Value(payoff);
+                if (checkpointed) {
+                    recording.FinishRecording();
+                    AAD::Adjoint(payoff) = 1.0;
+                    recording.ReverseSuffix(checkpoint);
+                } else
+                    total += payoff;
+            }
+            if (checkpointed)
+                recording.ReversePrefix(checkpoint);
+            else {
+                recording.FinishRecording();
+                AAD::Adjoint(total) = 1.0;
+                recording.Reverse();
+            }
+            ASSERT_NEAR(value, ReferenceOutputValue(OUTPUT_PARAMETERS, correlation, gaussians), 1e-10);
+            for (size_t parameter = 0; parameter < model->NumParams(); ++parameter) {
+                SCOPED_TRACE(model->ParameterLabels()[parameter].c_str());
+                auto up = OUTPUT_PARAMETERS;
+                auto down = OUTPUT_PARAMETERS;
+                const double bump = parameter % 3 == 0 && parameter < 9 ? 1e-3 : 1e-5;
+                up[parameter] += bump;
+                down[parameter] -= bump;
+                const double finiteDifference =
+                    (ReferenceOutputValue(up, correlation, gaussians) - ReferenceOutputValue(down, correlation, gaussians)) / (2.0 * bump);
+                ASSERT_NEAR(AAD::Adjoint(*model->Parameters()[parameter]), finiteDifference, 2e-6);
+            }
+        }
+    }
+}
+
+TEST(ModelTest, TestCorrelatedBlackScholesRepeatedOutputsSharedDoubleModelAndClone) {
+    const auto definitions = OutputDefinitions(true);
+    const auto correlation = OutputCorrelation(-0.3);
+    auto model = OutputModel<double>(OUTPUT_PARAMETERS, correlation);
+    model.Allocate(OUTPUT_TIMES, definitions);
+    model.Init(OUTPUT_TIMES, definitions);
+    const auto clone = model.Clone();
+    const Vector_<Vector_<>> gaussians{{0.1, -0.2, 0.3, -0.4, 0.5, -0.6, 0.7, -0.8, 0.9}, {-0.8, 0.7, -0.6, 0.5, -0.4, 0.3, -0.2, 0.1, 0.0}};
+    const auto run = [&](const AAD::Model_<double>& workerModel, bool reverse) {
+        auto path = Path<double>(definitions);
+        double value = 0.0;
+        for (size_t i = 0; i < gaussians.size(); ++i) {
+            workerModel.GeneratePath(gaussians[reverse ? gaussians.size() - 1 - i : i], &path);
+            value += OutputPayoff(path, true);
+        }
+        return value;
+    };
+    auto first = std::async(std::launch::async, [&] { return run(model, false); });
+    auto second = std::async(std::launch::async, [&] { return run(model, true); });
+    auto copied = std::async(std::launch::async, [&] { return run(*clone, false); });
+    const double expected = ReferenceOutputValue(OUTPUT_PARAMETERS, correlation, gaussians);
+    ASSERT_NEAR(first.get(), expected, 1e-10);
+    ASSERT_NEAR(second.get(), expected, 1e-10);
+    ASSERT_NEAR(copied.get(), expected, 1e-10);
 }
