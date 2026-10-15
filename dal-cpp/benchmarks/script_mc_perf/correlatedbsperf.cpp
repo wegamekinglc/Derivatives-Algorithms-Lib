@@ -90,8 +90,60 @@ namespace {
                     termStructure ? "hybrid logDF path (100K x 12 steps x 2 assets)" : "hybrid flat-rate path (100K x 12 steps x 2 assets)");
     }
 
-    template <class T_> void RunOutputCase(const Vector_<String_>& outputs, const std::string& label) {
+    Vector_<Vector_<>> OutputGaussians(size_t dimensions) {
+        Vector_<Vector_<>> gaussians(128, Vector_<>(dimensions));
+        for (size_t i = 0; i < gaussians.size(); ++i)
+            for (size_t j = 0; j < dimensions; ++j)
+                gaussians[i][j] = static_cast<double>(static_cast<int>((i * 17 + j * 31) % 101) - 50) * 0.025;
+        return gaussians;
+    }
+
+    template <class T_> T_ OutputPayoff(const AAD::Scenario_<T_>& path) {
+        T_ value = 0.0;
+        for (const auto& sample : path)
+            for (size_t slot = 0; slot < sample.observations_.size(); ++slot)
+                value += (1.0 + 0.1 * slot) * sample.observations_[slot] / sample.numeraire_;
+        return value;
+    }
+
+    template <class T_>
+    double ValueOutputPaths(AAD::CorrelatedBlackScholes_<T_>* model,
+                            const Vector_<>& timeline,
+                            const Vector_<AAD::SampleDef_>& definitions,
+                            const Vector_<Vector_<>>& gaussians,
+                            AAD::Scenario_<T_>* path) {
         constexpr size_t PATHS = 8192;
+        double sink = 0.0;
+        if constexpr (std::is_same_v<T_, AAD::Number_>) {
+            AAD::RecordingScope_ recording;
+            for (auto* parameter : model->Parameters())
+                recording.RegisterInput(*parameter, AAD::Value(*parameter));
+            recording.StartRecording();
+            model->Init(timeline, definitions);
+            const auto checkpoint = recording.MakeCheckpoint();
+            for (size_t i = 0; i < PATHS; ++i) {
+                recording.Restore(checkpoint);
+                model->GeneratePath(gaussians[i % gaussians.size()], path);
+                T_ value = OutputPayoff(*path);
+                sink += AAD::Value(value);
+                recording.FinishRecording();
+                AAD::Adjoint(value) = 1.0;
+                recording.ReverseSuffix(checkpoint);
+            }
+            recording.ReversePrefix(checkpoint);
+            for (auto* parameter : model->Parameters())
+                sink += AAD::Adjoint(*parameter);
+        } else {
+            model->Init(timeline, definitions);
+            for (size_t i = 0; i < PATHS; ++i) {
+                model->GeneratePath(gaussians[i % gaussians.size()], path);
+                sink += OutputPayoff(*path);
+            }
+        }
+        return sink;
+    }
+
+    template <class T_> void RunOutputCase(const Vector_<String_>& outputs, const std::string& label) {
         Matrix_<> correlations(3, 3, 0.3);
         for (int i = 0; i < 3; ++i)
             correlations(i, i) = 1.0;
@@ -107,49 +159,9 @@ namespace {
         AAD::Scenario_<T_> path;
         AAD::AllocatePath(definitions, path);
         AAD::InitializePath(path);
-        Vector_<Vector_<>> gaussians(128, Vector_<>(model.SimDim()));
-        for (size_t i = 0; i < gaussians.size(); ++i)
-            for (size_t j = 0; j < model.SimDim(); ++j)
-                gaussians[i][j] = static_cast<double>(static_cast<int>((i * 17 + j * 31) % 101) - 50) * 0.025;
-        const auto payoff = [&] {
-            T_ value = 0.0;
-            for (const auto& sample : path)
-                for (size_t slot = 0; slot < sample.observations_.size(); ++slot)
-                    value += (1.0 + 0.1 * slot) * sample.observations_[slot] / sample.numeraire_;
-            return value;
-        };
+        const auto gaussians = OutputGaussians(model.SimDim());
         double sink = 0.0;
-        const auto result = Bench::Run(
-            label,
-            [&] {
-                if constexpr (std::is_same_v<T_, AAD::Number_>) {
-                    AAD::RecordingScope_ recording;
-                    for (auto* parameter : model.Parameters())
-                        recording.RegisterInput(*parameter, AAD::Value(*parameter));
-                    recording.StartRecording();
-                    model.Init(timeline, definitions);
-                    const auto checkpoint = recording.MakeCheckpoint();
-                    for (size_t i = 0; i < PATHS; ++i) {
-                        recording.Restore(checkpoint);
-                        model.GeneratePath(gaussians[i % gaussians.size()], &path);
-                        T_ value = payoff();
-                        sink += AAD::Value(value);
-                        recording.FinishRecording();
-                        AAD::Adjoint(value) = 1.0;
-                        recording.ReverseSuffix(checkpoint);
-                    }
-                    recording.ReversePrefix(checkpoint);
-                    for (auto* parameter : model.Parameters())
-                        sink += AAD::Adjoint(*parameter);
-                } else {
-                    model.Init(timeline, definitions);
-                    for (size_t i = 0; i < PATHS; ++i) {
-                        model.GeneratePath(gaussians[i % gaussians.size()], &path);
-                        sink += payoff();
-                    }
-                }
-            },
-            1, 5);
+        const auto result = Bench::Run(label, [&] { sink += ValueOutputPaths(&model, timeline, definitions, gaussians, &path); }, 1, 5);
         REQUIRE(std::isfinite(sink), "non-finite correlated BS output benchmark result");
         Bench::Print(result);
         Bench::DoNotOptimize(&sink);

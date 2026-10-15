@@ -107,6 +107,14 @@ namespace {
         return payoff;
     }
 
+    template <class T_> Vector_<> OutputValues(const AAD::Scenario_<T_>& path, bool repeated) {
+        Vector_<> outputs;
+        for (size_t date = 0; date < path.size(); ++date)
+            for (size_t slot = 0; slot < OUTPUT_SLOTS[date].size(); ++slot)
+                outputs.push_back(AAD::Value(path[date].observations_[repeated ? slot : OUTPUT_SLOTS[date][slot]]));
+        return outputs;
+    }
+
     double ReferenceOutputValue(const Vector_<>& parameters, const Matrix_<>& correlation, const Vector_<Vector_<>>& gaussians) {
         auto model = OutputModel<double>(parameters, correlation);
         const auto definitions = OutputDefinitions(false);
@@ -119,6 +127,20 @@ namespace {
             value += OutputPayoff(path, false);
         }
         return value;
+    }
+
+    void AssertOutputRisks(const AAD::Model_<AAD::Number_>& model, const Matrix_<>& correlation, const Vector_<Vector_<>>& gaussians) {
+        for (size_t parameter = 0; parameter < model.NumParams(); ++parameter) {
+            SCOPED_TRACE(model.ParameterLabels()[parameter].c_str());
+            auto up = OUTPUT_PARAMETERS;
+            auto down = OUTPUT_PARAMETERS;
+            const double bump = parameter % 3 == 0 && parameter < 9 ? 1e-3 : 1e-5;
+            up[parameter] += bump;
+            down[parameter] -= bump;
+            const double finiteDifference =
+                (ReferenceOutputValue(up, correlation, gaussians) - ReferenceOutputValue(down, correlation, gaussians)) / (2.0 * bump);
+            ASSERT_NEAR(AAD::Adjoint(*model.Parameters()[parameter]), finiteDifference, 2e-6);
+        }
     }
 } // namespace
 
@@ -519,11 +541,7 @@ TEST(ModelTest, TestCorrelatedBlackScholesRepeatedOutputsOwnNoExtraAadNodes) {
             const auto before = AAD::Tape()->nodes_.OccupiedSlots();
             model.GeneratePath(gaussian, path);
             nodeCounts.push_back(AAD::Tape()->nodes_.OccupiedSlots() - before);
-            Vector_<> outputs;
-            for (size_t date = 0; date < path->size(); ++date)
-                for (size_t slot = 0; slot < OUTPUT_SLOTS[date].size(); ++slot)
-                    outputs.push_back(AAD::Value((*path)[date].observations_[duplicates ? slot : OUTPUT_SLOTS[date][slot]]));
-            values.push_back(outputs);
+            values.push_back(OutputValues(*path, duplicates));
         }
         // The repeated layout requests the same assets at future dates except its final single output.
         ASSERT_EQ(nodeCounts[1] + 1, nodeCounts[0]);
@@ -572,17 +590,7 @@ TEST(ModelTest, TestCorrelatedBlackScholesRepeatedOutputsCheckpointAllRisks) {
                 recording.Reverse();
             }
             ASSERT_NEAR(value, ReferenceOutputValue(OUTPUT_PARAMETERS, correlation, gaussians), 1e-10);
-            for (size_t parameter = 0; parameter < model->NumParams(); ++parameter) {
-                SCOPED_TRACE(model->ParameterLabels()[parameter].c_str());
-                auto up = OUTPUT_PARAMETERS;
-                auto down = OUTPUT_PARAMETERS;
-                const double bump = parameter % 3 == 0 && parameter < 9 ? 1e-3 : 1e-5;
-                up[parameter] += bump;
-                down[parameter] -= bump;
-                const double finiteDifference =
-                    (ReferenceOutputValue(up, correlation, gaussians) - ReferenceOutputValue(down, correlation, gaussians)) / (2.0 * bump);
-                ASSERT_NEAR(AAD::Adjoint(*model->Parameters()[parameter]), finiteDifference, 2e-6);
-            }
+            AssertOutputRisks(*model, correlation, gaussians);
         }
     }
 }
