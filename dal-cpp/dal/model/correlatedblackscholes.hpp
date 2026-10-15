@@ -230,6 +230,16 @@ namespace Dal {
                 }
             }
 
+            // Keep the optional loop out of the ordinary path's register allocation.
+#if defined(__GNUC__) || defined(__clang__)
+            __attribute__((noinline))
+#elif defined(_MSC_VER)
+            __declspec(noinline)
+#endif
+            void GenerateRepeatedPath(const Vector_<>& gaussVec, Scenario_<T_>* path) const {
+                GeneratePathImpl<true>(gaussVec, path);
+            }
+
         public:
             CorrelatedBlackScholes_(const CorrelatedBlackScholes_& other) { *this = other; }
             CorrelatedBlackScholes_& operator=(const CorrelatedBlackScholes_& other) {
@@ -363,7 +373,7 @@ namespace Dal {
                 REQUIRE(defLine_ && path && path->size() == defLine_->size() && gaussVec.size() == SimDim(),
                         "InvalidModelPath: correlated BS path or Gaussian dimension mismatch");
                 if (hasRepeatedObservations_)
-                    GeneratePathImpl<true>(gaussVec, path);
+                    GenerateRepeatedPath(gaussVec, path);
                 else
                     GeneratePathImpl<false>(gaussVec, path);
             }
