@@ -70,6 +70,7 @@ namespace Dal {
             const Vector_<SampleDef_>* defLine_ = nullptr;
             Vector_<Vector_<size_t>> observationSlots_;
             Vector_<Vector_<size_t>> observationSources_;
+            bool hasRepeatedObservations_ = false;
             Vector_<T_> drifts_;
             Vector_<T_> stds_;
             Vector_<T_> initialLogSpots_;
@@ -188,7 +189,7 @@ namespace Dal {
                 }
             }
 
-            void FillSample(size_t sampleId, const Vector_<T_>& logSpots, bool isToday, Sample_<T_>* sample) const {
+            template <bool R_> void FillSample(size_t sampleId, const Vector_<T_>& logSpots, bool isToday, Sample_<T_>* sample) const {
                 if ((*defLine_)[sampleId].numeraire_)
                     sample->numeraire_ = numeraires_[sampleId];
                 if (!sample->discounts_.empty())
@@ -205,13 +206,28 @@ namespace Dal {
                         return spots_[asset];
                     return Dal::exp(logSpots[asset]);
                 };
-                const auto& sources = observationSources_[sampleId];
-                if (sources.empty()) {
-                    for (size_t output = 0; output < slots.size(); ++output)
-                        sample->observations_[output] = spot(slots[output]);
-                } else
-                    for (size_t output = 0; output < slots.size(); ++output)
-                        sample->observations_[output] = sources[output] == output ? spot(slots[output]) : sample->observations_[sources[output]];
+                if constexpr (R_) {
+                    const auto& sources = observationSources_[sampleId];
+                    if (!sources.empty()) {
+                        for (size_t output = 0; output < slots.size(); ++output)
+                            sample->observations_[output] = sources[output] == output ? spot(slots[output]) : sample->observations_[sources[output]];
+                        return;
+                    }
+                }
+                for (size_t output = 0; output < slots.size(); ++output)
+                    sample->observations_[output] = spot(slots[output]);
+            }
+
+            template <bool R_> void GeneratePathImpl(const Vector_<>& gaussVec, Scenario_<T_>* path) const {
+                auto* logSpots = &(*path)[0].modelScratch_;
+                ResetLogSpots(logSpots);
+                size_t sample = 0;
+                if (todayOnTimeLine_)
+                    FillSample<R_>(sample++, *logSpots, true, &(*path)[0]);
+                for (size_t step = 0; step + 1 < timeLine_.size(); ++step, ++sample) {
+                    AdvanceStep(step, gaussVec, logSpots);
+                    FillSample<R_>(sample, *logSpots, false, &(*path)[sample]);
+                }
             }
 
         public:
@@ -229,6 +245,7 @@ namespace Dal {
                     defLine_ = other.defLine_;
                     observationSlots_ = other.observationSlots_;
                     observationSources_ = other.observationSources_;
+                    hasRepeatedObservations_ = other.hasRepeatedObservations_;
                     drifts_ = other.drifts_;
                     stds_ = other.stds_;
                     initialLogSpots_ = other.initialLogSpots_;
@@ -287,6 +304,7 @@ namespace Dal {
                 todayOnTimeLine_ = productTimeLine[0] == 0.0;
                 observationSlots_.Resize(defLine.size());
                 observationSources_.Resize(defLine.size());
+                hasRepeatedObservations_ = false;
                 for (size_t sample = 0; sample < defLine.size(); ++sample) {
                     auto& slots = observationSlots_[sample];
                     auto& sources = observationSources_[sample];
@@ -312,6 +330,7 @@ namespace Dal {
                             sources[output] = firstOutput[asset];
                         }
                     }
+                    hasRepeatedObservations_ = hasRepeatedObservations_ || !sources.empty();
                 }
                 const size_t steps = timeLine_.size() - 1;
                 drifts_.Resize(steps * assetNames_.size());
@@ -343,15 +362,10 @@ namespace Dal {
             void GeneratePath(const Vector_<>& gaussVec, Scenario_<T_>* path) const override {
                 REQUIRE(defLine_ && path && path->size() == defLine_->size() && gaussVec.size() == SimDim(),
                         "InvalidModelPath: correlated BS path or Gaussian dimension mismatch");
-                auto* logSpots = &(*path)[0].modelScratch_;
-                ResetLogSpots(logSpots);
-                size_t sample = 0;
-                if (todayOnTimeLine_)
-                    FillSample(sample++, *logSpots, true, &(*path)[0]);
-                for (size_t step = 0; step + 1 < timeLine_.size(); ++step, ++sample) {
-                    AdvanceStep(step, gaussVec, logSpots);
-                    FillSample(sample, *logSpots, false, &(*path)[sample]);
-                }
+                if (hasRepeatedObservations_)
+                    GeneratePathImpl<true>(gaussVec, path);
+                else
+                    GeneratePathImpl<false>(gaussVec, path);
             }
         };
     } // namespace AAD
