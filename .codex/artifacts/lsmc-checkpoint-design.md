@@ -158,15 +158,26 @@ safe fallback regenerates the *whole model path* per block, replacing `2*G`
 with `(K+1)*G`; restarting the script from time zero as well can cost
 `O(L*E^2/B)` event work. Neither case supports a universal 2x-forward claim.
 
+Bootstrap also includes historical seed construction. For `Hp` historical
+operations, explicit-constant retraining in this prototype can replay that
+history in each block workspace, adding `O(K*Hp)` work per fit, versus
+`O(workers*Hp)` in native training. A production passive provider can build and
+share the sealed seed once per parameter point. Active AAD seeds remain local
+to their recording; they cannot use that passive sharing rule. Future-event
+counters exclude history replay and state-copy operations; elapsed times include
+them.
+
 Mode-specific peaks and work:
 
 - **Hard:** overall peak is `max(trainingPeak, hardReplayWorkers)` plus shared
   immutable data. Pricing is unchanged and needs no population-sized row store.
 - **FrozenAAD:** training remains passive double, with the same bounds. Overall
-  peak is `max(trainingPeak, workers*(tapePeak + activePath + evaluator +
-  perPathRows))`. Persistent workers retain tape capacity until their request
-  ends; allocator RSS may not fall when training storage is released. There is
-  no demonstrated reduction of the active per-path tape in this task.
+  peak for a fresh process is `max(trainingPeak, workers*(tapePeak + activePath +
+  evaluator + perPathRows))`. In a reused process, add previously retained tape
+  capacity to the training phase. `RecordingScope_::Close` rewinds the thread's
+  tape; its block capacity can outlive that request. Allocator RSS can also
+  retain freed row storage. There is no demonstrated reduction of the active
+  per-path tape in this task.
 - **RetrainedBump:** with `q` model/script inputs and two-sided admissible bumps,
   do one base fit plus `2q` sequential fits and `2q` value-only policy replays,
   in addition to frozen AAD. Multiply the training work bounds by `1+2q`, not
@@ -174,6 +185,14 @@ Mode-specific peaks and work:
   rebuild model, historical scalar/vector seeds, checkpoints and numeraires at
   every point. A constrained input uses the current one-sided rule and base
   policy reuse. Concurrent bump fits multiply the storage peak and are excluded.
+
+For RetrainedBump specifically, frozen AAD executes before the bumped fits.
+Let `Tretained` be the worker tapes' capacity after that replay. The peak bound
+must therefore include `trainingFitPeak + Tretained` and
+`valueReplayPeak + Tretained`, as well as the base training and active AAD peaks.
+Sequential fitting avoids multiplying row/checkpoint storage by q; it does not
+make retained tape capacity disappear. The process RSS measurements include this
+overlap; the owned-training-storage counter deliberately does not.
 
 ## Persistent worker and AAD boundary
 
@@ -210,3 +229,11 @@ stochastic discount ratios, arbitrary program counters, cross-process archives,
 one-sided bump constraints, active tape segmentation or parallel restart.
 Those need focused admission tests when implemented; no default budget or
 public binding change is authorized by this experiment.
+
+The measured admission result is conditional: the 65-event compact-state case
+with B=8 reduces owned training storage by 40.60% and process RSS by about
+5 MiB. Full growing-vector history increases owned storage by 46.58%; the
+single-block and tested short-grid shapes also increase it. Thus #571 can use
+this schedule behind explicit model/state and memory admission, while general
+default replacement is no-go. Timings remain informational under external
+load; see the linked study for all samples, exact provenance and risk evidence.
