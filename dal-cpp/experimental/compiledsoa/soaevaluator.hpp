@@ -144,12 +144,13 @@ namespace Dal::Script::SoaStudy {
 
     private:
         template <size_t L_, class F_> static void Each(uint64_t mask, size_t count, const F_& f) {
+            const size_t limit = std::min(count, L_);
             const uint64_t full = count == 64 ? ~uint64_t(0) : (uint64_t(1) << count) - 1;
             if (mask == full) {
-                for (size_t lane = 0; lane < count; ++lane)
+                for (size_t lane = 0; lane < limit; ++lane)
                     f(lane);
             } else {
-                for (size_t lane = 0; lane < count; ++lane)
+                for (size_t lane = 0; lane < limit; ++lane)
                     if (mask & (uint64_t(1) << lane))
                         f(lane);
             }

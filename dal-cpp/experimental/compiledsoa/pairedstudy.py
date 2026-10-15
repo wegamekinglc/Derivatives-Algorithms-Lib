@@ -36,12 +36,12 @@ def run(binary, case, engine, iterations, output):
     command = [str(binary), "--workload", workload, "--lanes", str(lanes),
                "--phase", phase, "--paths", str(paths), "--fallback", str(fallback).lower(),
                "--engine", engine, "--iterations", str(iterations)]
-    completed = subprocess.run(command, text=True, capture_output=True, check=False)
+    completed = subprocess.run(command, text=True, capture_output=True, check=False, timeout=120)
     record = {"command": command, "returncode": completed.returncode,
               "stdout": completed.stdout, "stderr": completed.stderr}
     output.write_text(json.dumps(record, indent=2) + "\n")
     completed.check_returncode()
-    result = json.loads(completed.stdout)
+    result = json.loads(completed.stdout.splitlines()[-1])
     if not math.isfinite(result["seconds"]) or result["seconds"] <= 0 or not math.isfinite(result["pv"]):
         raise ValueError(f"invalid measurement: {output}")
     return result

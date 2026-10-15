@@ -130,7 +130,7 @@ TEST(CompiledSoaTest, TestScalarArithmeticBooleanAndSeedReuse) {
     const auto date = Dal::XGLOBAL::SetEvaluationDateInScope(Dal::Date_(2024, 1, 1));
     ScriptProduct_ product({Dal::Cell_(Dal::Date_(2025, 1, 1))},
                            {"x = spot() / 3 y = 5 / x z = sqrt(x) + exp(log(x)) - (-x) "
-                            "if NOT (x = 0) AND (x > 1 OR x >= 2) then "
+                            "if x != 0 AND (x > 1 OR x >= 2) then "
                             "pay pays MAX(2, MIN(z, y)) + MIN(3, MAX(x, 1)) else pay pays 7 end"},
                            "pay");
     product.PreProcess(false, true);
@@ -214,7 +214,7 @@ TEST(CompiledSoaTest, TestBatchModelRejectsPreparedObservationsAndWrongShockShap
 }
 
 int main(int argc, char** argv) {
-    Dal::RegisterAll_::Init();
+    Dal::RegisterAll_::Init(1);
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }

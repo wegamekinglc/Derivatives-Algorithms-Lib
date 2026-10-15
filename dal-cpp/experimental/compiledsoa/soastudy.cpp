@@ -149,7 +149,7 @@ namespace Dal::Script::SoaStudy {
 
 int main(int argc, char** argv) {
     try {
-        Dal::RegisterAll_::Init();
+        Dal::RegisterAll_::Init(1);
         const auto options = Dal::Script::SoaStudy::ReadOptions(argc, argv);
         switch (options.lanes_) {
         case 8:
