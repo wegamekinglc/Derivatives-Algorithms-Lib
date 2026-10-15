@@ -199,18 +199,33 @@ to DAL-358. No full regression suite or nine-target gate was rerun: production
 code and defaults are unchanged, and the standalone experiment has no callers
 outside this study. Default CI does not build this opt-in experimental target.
 
+Before accepting the first reference, any timed sample or any diagnostic, the
+runner validates the complete JSON schema and requested mode, case and paths.
+The native A/A control must identify itself as `native`. PV and the fixed six
+named risks must be finite, whole-valuation time must be positive and finite,
+and phase times and integer memory fields must match the mode and instrumentation.
+Replay hits plus recordings must cover every path, with one initial recording
+and one further recording per guard failure; forced recording covers every path
+without hits or guard failures. Native and caller report no replay counters.
+The verification JSON must report success, positive path coverage, six risks and
+the forced guard checks before sampling starts. Invalid output aborts collection,
+retaining the raw response without publishing `results.json`. These checks remain
+active under optimized Python interpreters.
+
 The runner accepts the operator's executable local `primal_replay_study` build
 and resolves a fixed set of metadata tools. Its process boundary rejects
 executables outside that allowlist, restricts mode/case and path-count arguments,
 and passes an argv list with explicit `shell=False`. The local Bandit B404/B603
 and Semgrep variable-argv exceptions cover this intentional process boundary,
 following the repository benchmark runner pattern; they do not exempt the file
-or change repository analysis policy. `test_runstudy.py` checks literal execution
-of a path containing shell characters and rejection of unlisted programs and
-unsupported study requests:
+or change repository analysis policy. `test_runstudy.py` checks the process
+boundary, failed verification, invalid output at all three collection entries,
+schema/type/count/timing/memory rejection and acceptance of valid output:
 
 ```bash
 python3 -m unittest discover -s dal-cpp/experimental/primalreplay -p 'test_runstudy.py' -v
+python3 -O -m unittest discover -s dal-cpp/experimental/primalreplay -p 'test_runstudy.py' -v
+python3 -OO -m unittest discover -s dal-cpp/experimental/primalreplay -p 'test_runstudy.py' -v
 ```
 
 Retain production behavior and seek independent focused review of this
