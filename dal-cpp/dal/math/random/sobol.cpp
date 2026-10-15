@@ -21296,7 +21296,12 @@ const uint_least32_t* const DIRECTIONS[21201] = {
 
         void SobolSet_::FillNormal(Vector_<>* dst) {
             FillUniform(dst);
-            Math::InverseNCDFBlock(dst->data(), dst->size(), precise_, polish_);
+            if (!polish_ && dst->size() >= 32)
+                Math::InverseNCDFBlock(dst->data(), dst->size(), precise_, polish_);
+            else {
+                auto func = [precise = precise_, polish = polish_](double x) { return InverseNCDF(x, precise, polish); };
+                Transform(dst, func);
+            }
         }
 
         std::unique_ptr<SequenceSet_> SobolSet_::TakeAway(int subSize) {
