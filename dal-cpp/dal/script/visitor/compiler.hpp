@@ -1024,7 +1024,7 @@ namespace Dal::Script {
         }
 
         template <class T_, class P_>
-        FORCE_INLINE size_t EvalCompiledFuzzyDifference(const CompiledEventView_<T_, P_>& event, size_t pc, EvalState_<T_>* statePtr) {
+        inline size_t EvalCompiledFuzzyDifference(const CompiledEventView_<T_, P_>& event, size_t pc, EvalState_<T_>* statePtr) {
             auto& state = *statePtr;
             auto& stack = state.dStack_;
             const int op = event.nodeStream_[pc];
@@ -1058,7 +1058,7 @@ namespace Dal::Script {
         }
 
         template <class T_, class P_>
-        FORCE_INLINE size_t EvalCompiledFuzzyComparison(const CompiledEventView_<T_, P_>& event, size_t i, EvalState_<T_>* statePtr) {
+        inline size_t EvalCompiledFuzzyComparison(const CompiledEventView_<T_, P_>& event, size_t i, EvalState_<T_>* statePtr) {
             auto& state = *statePtr;
             auto& dStack = state.dStack_;
             auto& nodeStream = event.nodeStream_;
@@ -1208,7 +1208,7 @@ namespace Dal::Script {
         }
 
         template <bool Prepared_, bool Lsmc_, class T_, class P_>
-        FORCE_INLINE size_t EvalCompiledFuzzyControl(const CompiledEventView_<T_, P_>& event, size_t i, EvalState_<T_>* statePtr) {
+        inline size_t EvalCompiledFuzzyControl(const CompiledEventView_<T_, P_>& event, size_t i, EvalState_<T_>* statePtr) {
             if (event.nodeStream_[i] == FuzzyIf)
                 return EvalCompiledFuzzyBranch<Prepared_, Lsmc_>(event, i, statePtr);
             return EvalCompiledFuzzyBoolean(event, i, statePtr);
