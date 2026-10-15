@@ -182,3 +182,63 @@ flock <shared-issue486-lock> python3 \
   build/checkpoint-production/lsmc_checkpoint_production \
   --output docs/experimental/data/lsmc-checkpoint-production.json
 ```
+
+## Collector repair and master integration
+
+The follow-up uses the same feature branch and retains the reviewed
+`8226c5eb17a748c7bacb5310828be4c2d846ce8b` object. Merge commit
+`3a7ced3afe38797ee02d41da409e7eedb0ef5a87` integrates master
+`01dcadace1180629e3b4467f5334c021c530054a` without conflicts. That master
+change affects benchmark diagnostics, CI and documentation; the measured core,
+public/binding implementation, standalone production driver, build definitions
+and pinned dependencies are unchanged. The three executable/library hashes
+listed above were checked again and match. The 60-process production study,
+component coverage and earlier prototype study retain their original provenance;
+they are not new-head measurements.
+
+The Linux collector resolves its operator-selected, trusted local executable to
+an existing executable file. The timer, Git and compiler come from fixed
+`/usr/bin/` paths, resolved before use. Every spawn uses an argument list and
+`shell=False`; modes, schedules, sample indices and metadata queries are
+allowlisted, and workload sizes remain fixed. Raw output and Git provenance
+use the collector's repository root. The narrowly audited B404/B603 annotations
+describe these boundaries, following the existing study runner; no rule or gate
+is disabled. Collection, numerical checks and summaries are separate functions:
+Radon reports `main=1`, with maximum complexity 8. Bandit 1.9.4 reports no
+findings with the audited annotations.
+
+The added collector regression suite runs with:
+
+```bash
+build/python-checks/bin/python -m unittest discover \
+  -s tests/lsmc-training-study -p test_production_collector.py -v
+build/python-checks/bin/python -O -m unittest discover \
+  -s tests/lsmc-training-study -p test_production_collector.py -v
+```
+
+Both runs pass **9 tests**. A lightweight local driver exercises all 60 process
+positions through the real GNU timer, alternating order, stdout/stderr retention,
+fixed workload arguments and summary output. Separate cases reject invalid
+executables/arguments, retain failed-process diagnostics, enforce every
+price/risk/work/allocation assertion under optimization, and reject identity
+drift. The executable name contains spaces and shell metacharacters to verify
+literal argv handling. Replaying the archived production samples reproduces the
+entire original payload exactly; the fixtures are not production measurements.
+The collector's Linux-specific process tests are skipped on other platforms.
+
+Old-head CI additionally exposed two stale exact-schema expectations:
+`ScriptApiTest.TestSimulationEchoFieldSetMatchesAcrossSchemas` and
+`test_diagnostics_keep_actual_ids_and_legacy_schema_boundary`. Both were
+reproduced locally. Their assertions now explicitly include the two opt-in
+settings and continue checking the complete field set and default null values.
+This fixes the expectations without changing the diagnostic or numerical API.
+
+Follow-up verification passed: rebuild `dal_public_tests` with the original
+Release configuration, then run only
+`--gtest_filter=ScriptApiTest.TestSimulationEchoFieldSetMatchesAcrossSchemas`
+(1 passed); run `test_fix_valuation.py::test_diagnostics_keep_actual_ids_and_legacy_schema_boundary`
+against the existing matching Python extension (1 passed). The rebuild and
+Python request held the shared issue486 lock. Final driver/core archive/core
+test hashes still match the original identities. Documentation checks pass for
+75 Markdown files, and `git diff --check` is clean. Full regression and
+cross-platform checks remain with current-head CI.
