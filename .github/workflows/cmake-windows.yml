@@ -212,13 +212,15 @@ jobs:
           DAL_NUM_THREADS: 4
         run: |
           cmake -S . -B build/Release-windows -DDAL_CPP_BUILD_BENCHMARKS=ON
-          cmake --build build/Release-windows --target script_mc_perf --config Release --parallel
+          cmake --build build/Release-windows --target script_mc_perf rng_perf --config Release --parallel
           profiling=off
           if [[ "${{ matrix.aad-backend }}" = aadet-profiling || "${{ matrix.aad-backend }}" = aadet-all-diagnostics ]]; then
             profiling=on
           fi
           python tests/aad-profiling/check_production_profile.py \
             build/Release-windows/dal-cpp/benchmarks/script_mc_perf/script_mc_perf.exe --profiling "$profiling"
+          python tests/aad-profiling/check_sobol_profile.py \
+            build/Release-windows/dal-cpp/benchmarks/rng_perf/rng_perf.exe
           python -m unittest discover -s tests/lsmc-training-study -p 'test_*.py' -v
           python tests/lsmc-training-study/check_sample.py \
             build/Release-windows/dal-cpp/benchmarks/script_mc_perf/script_mc_perf.exe --addressing stock

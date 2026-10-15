@@ -9,6 +9,7 @@
 #include <dal/benchmarks/bench.hpp>
 
 #include "productionrng.hpp"
+#include "sobolprofile.hpp"
 
 using namespace Dal;
 
@@ -17,7 +18,9 @@ namespace {
     constexpr int kNumPaths = 100000;
 } // namespace
 
-int main() {
+int main(int argc, char** argv) {
+    if (argc > 1)
+        return RunSobolProfile(argc, argv);
     constexpr int kRepeats = 10;
     Bench::PrintHeader();
 
