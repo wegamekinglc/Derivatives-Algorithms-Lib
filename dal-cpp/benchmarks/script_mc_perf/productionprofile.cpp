@@ -25,6 +25,7 @@
 #include <dal/script/simulation.hpp>
 
 #include "productionprofile.hpp"
+#include "productionstructure.hpp"
 
 using namespace Dal;
 using namespace Dal::Script;
@@ -76,7 +77,7 @@ namespace {
                                           "lsmc-bs",
                                           "lsmc-local-vol"}) &&
                Choice(options.mode_, {"double", "aad"}) && Choice(options.engine_, {"tree", "compiled"}) &&
-               Choice(options.measurement_, {"cold", "warm", "phases"});
+               Choice(options.measurement_, {"cold", "warm", "phases", "structure"});
     }
 
     bool ValidOutputs(size_t outputs) { return outputs == 1 || outputs == 4 || outputs == 16 || outputs == 64; }
@@ -102,6 +103,9 @@ namespace {
                     : options.training_ == 0,
                 "invalid training count or LSM output count");
         REQUIRE(options.measurement_ != "phases" || AAD::ProfilingAvailable(), "phase measurement requires DAL_ENABLE_AAD_PROFILING=ON");
+        REQUIRE(options.measurement_ != "structure" ||
+                    (options.Aad() && !options.Exercise() && options.outputs_ == 1 && options.paths_ <= 64 && options.repeats_ == 1),
+                "structure requires ordinary AAD, one output, at most 64 paths and one repetition");
     }
 
     Handle_<ModelData_> HybridData(bool stochasticRates) {
@@ -506,6 +510,13 @@ namespace {
         const auto referenceCase = PrepareCase(options, exerciseFactory);
         const auto expected = Evaluate(referenceCase, options);
         std::cout << std::setprecision(17);
+        if (options.measurement_ == "structure") {
+            const std::vector<SimResults_> result{RunProductionStructure(referenceCase.prepared_.front(), referenceCase.data_, options.paths_)};
+            Match(result, expected, options.paths_);
+            PrintRequest(options, referenceCase, 0, 0);
+            PrintResults(result, options, 0);
+            return 0;
+        }
         for (size_t sample = 0; sample < options.repeats_; ++sample) {
             AAD::ProfilingData_ data;
             std::vector<SimResults_> result;
@@ -541,7 +552,7 @@ int RunProductionProfile(int argc, char** argv, ExerciseProductFactory_ exercise
                      "hybrid-slv-swap-1f|hybrid-slv-swap-3f|hybrid-slv-bond-1f|lsmc-bs|lsmc-local-vol "
                      "PATHS double|aad "
                      "tree|compiled "
-                     "cold|warm|phases OUTPUTS GRID TRAINING REPEATS\n";
+                     "cold|warm|phases|structure OUTPUTS GRID TRAINING REPEATS\n";
         return 2;
     }
     try {
