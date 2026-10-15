@@ -21,10 +21,11 @@ namespace Dal::Script::CheckpointStudy {
         bool checkpoint_ = false;
     };
 
-    Vector_<ExerciseRegression_>
-    FitProduction(const Workload_& workload, AAD::Model_<double>* model, const Vector_<>* constants, ProductionMetrics_* metrics) {
+    Vector_<ExerciseRegression_> FitProduction(
+        const Workload_& workload, AAD::Model_<double>* model, const Vector_<>* constants, ProductionMetrics_* metrics, bool bumped = false) {
         LsmcStorage_ empty;
         LsmcContext_ ctx{workload.prepared_, model, workload.scan_, empty, &workload.hardCompiled_, nullptr, LsmcScrambleKey(false, 17), constants};
+        ctx.policyBumpTraining_ = bumped;
         if (workload.options_.schedule_ == "materialized") {
             const auto plan = PlanTrainingMemory(ctx, workload.counts_, workload.options_.events_);
             TrainingAllocationBudget_ budget(
@@ -123,6 +124,23 @@ namespace Dal::Script::CheckpointStudy {
         ++metrics->rejectedRestores_;
     }
 
+    Vector_<ExerciseRegression_> FitProductionPoint(const Workload_& workload, size_t input, double bump, ProductionMetrics_* metrics) {
+        if (input < 4) {
+            auto model = workload.model_->Clone();
+            *model->Parameters()[input] += bump;
+            model->Init(workload.prepared_.TimeLine(), workload.prepared_.DefLine());
+            return FitProduction(workload, model.get(), nullptr, metrics, true);
+        }
+        auto constants = workload.prepared_.Product().ConstVarValues();
+        constants[input - 4] += bump;
+        return FitProduction(workload, workload.model_.get(), &constants, metrics, true);
+    }
+
+    double ProductionPolicyValue(const Workload_& workload, const Vector_<ExerciseRegression_>& policy) {
+        return ValueFuzzyPolicy(workload.prepared_, workload.modelData_, workload.scan_, policy, &workload.prepared_.CompiledProgram(true),
+                                BatchPlan_(workload.options_.pricing_, 1), workload.counts_, workload.options_.pricing_);
+    }
+
     SimResults_ ProductionResult(const Workload_& workload, ProductionMetrics_* metrics) {
         const auto policy = FitProduction(workload, workload.model_.get(), nullptr, metrics);
         Vector_<size_t> counts;
@@ -133,22 +151,11 @@ namespace Dal::Script::CheckpointStudy {
         for (size_t input = 0; input < 4 + constants.size(); ++input) {
             const double value = input < 4 ? *workload.model_->Parameters()[input] : constants[input - 4];
             const double step = workload.prepared_.Simulation().lsmcPolicyBumpRelative_ * std::max(1.0, std::fabs(value));
-            std::array<double, 2> values{};
-            for (size_t side = 0; side < 2; ++side) {
-                auto model = workload.model_->Clone();
-                auto point = constants;
-                const double bump = side == 0 ? step : -step;
-                if (input < 4)
-                    *model->Parameters()[input] += bump;
-                else
-                    point[input - 4] += bump;
-                model->Init(workload.prepared_.TimeLine(), workload.prepared_.DefLine());
-                const auto bumpedPolicy = FitProduction(workload, model.get(), &point, metrics);
-                values[side] =
-                    ValueFuzzyPolicy(workload.prepared_, workload.modelData_, workload.scan_, bumpedPolicy, &workload.prepared_.CompiledProgram(true),
-                                     BatchPlan_(workload.options_.pricing_, 1), workload.counts_, workload.options_.pricing_);
-            }
-            result.risks_[input] += (values[0] - values[1]) / (2.0 * step);
+            const auto upPolicy = FitProductionPoint(workload, input, step, metrics);
+            const double up = ProductionPolicyValue(workload, upPolicy);
+            const auto downPolicy = FitProductionPoint(workload, input, -step, metrics);
+            const double down = ProductionPolicyValue(workload, downPolicy);
+            result.risks_[input] += (up - down) / (2.0 * step);
         }
         return result;
     }
@@ -171,6 +178,8 @@ namespace Dal::Script::CheckpointStudy {
             Vector_<size_t> actualCounts, expectedCounts;
             CompareResult(Price(workload, actual, false, &actualCounts), Price(workload, reference, false, &expectedCounts));
             REQUIRE(actualCounts == expectedCounts, "production exercise counts differ");
+            if (options.mode_ != "hard")
+                CompareResult(result, MCLsmcAadSimulation(workload.prepared_, workload.modelData_, options.pricing_));
         }
         const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
         std::cout << std::setprecision(17) << "{\"schedule\":\"" << options.schedule_ << "\",\"mode\":\"" << options.mode_

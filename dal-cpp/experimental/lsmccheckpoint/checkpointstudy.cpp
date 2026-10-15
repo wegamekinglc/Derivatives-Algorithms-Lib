@@ -123,6 +123,8 @@ namespace Dal::Script::CheckpointStudy {
         if (production) {
             simulation.lsmcTrainingMemoryMb_ = 512;
             simulation.lsmcCheckpointBlockEvents_ = static_cast<int>(options.block_);
+            if (options.mode_ == "retrained")
+                simulation.lsmcPolicyRiskMode_ = "RetrainedBump";
         }
         return simulation;
     }
