@@ -6,6 +6,10 @@ compact case reduces charged training capacity and process RSS. Runtime
 comparisons remain informational on this shared host; no production speedup,
 general memory-saving percentage or financial tolerance is inferred.
 
+The archived allocation counters below predate the historical-bytecode budget
+correction. They retain their original binary identity and are not complete
+current admission bounds; the repair and its focused evidence are recorded below.
+
 ## Provenance and scope
 
 - Baseline: `cdf9e267a8028ae23ce04af277acecb7205f45bc` (merged #583).
@@ -14,7 +18,7 @@ general memory-saving percentage or financial tolerance is inferred.
   `be058edc620c730f0732a487475134bd70ec3211`.
 - Measured driver/collector:
   `bc96fd149b9d053578396312b7f0748a7ea14466`, clean worktree at collection.
-  Later commits add this report and raw results only.
+  Subsequent implementation repairs have separate provenance below.
 - Driver SHA-256:
   `3f7cc97ab016d96a8d939813c6aa0ee4482a475d04640ba519a854aaf9a4cd6e`.
 - Core library SHA-256:
@@ -104,6 +108,12 @@ plan's live-event IDs, so historical rows do not shift future sample matching.
 [Raw outputs, resource records, samples and provenance](../../docs/experimental/data/lsmc-checkpoint-production.json)
 contain ten process samples per side and mode, alternating side order.
 
+These archived charged peaks and bounds belong to `bc96fd14`; that implementation
+omitted the simultaneously retained historical compiled program. Its RSS, raw
+prices/risks and work counts remain observations of that binary, but its charged
+figures do not prove complete training admission. Current admission adds the
+historical holder and all nested program capacities to each fit's reserve.
+
 One case was selected: 65 events, block length 8 (nine blocks, one-event tail),
 4,097 training, 1,023 validation, 2,049 pricing paths per replicate, two pricing
 replicates, bridge enabled, quadratic three-feature basis, seeds 17/29.
@@ -164,8 +174,9 @@ RetrainedBump performs eleven sequential fits: 56,331 versus 563,200 training
 normal vectors and 3,661,515 versus 7,321,600 model steps. Every sampled count
 was checked by the collector.
 
-The result supports the declared opt-in and complete training admission for
-this domain. It provides no general replacement or acceleration claim.
+The original compact-case measurements support the declared opt-in's numerical
+and work behavior. Complete admission additionally requires the historical-program
+correction verified below. They provide no general replacement or acceleration claim.
 The reported best-of-ten times are informational; shared-host variability
 prevents a stable regression verdict. The earlier prototype's 40.60% compact-state
 reduction and 46.58% growing-history increase are not relabelled as these
@@ -242,3 +253,88 @@ Python request held the shared issue486 lock. Final driver/core archive/core
 test hashes still match the original identities. Documentation checks pass for
 75 Markdown files, and `git diff --check` is clean. Full regression and
 cross-platform checks remain with current-head CI.
+
+## Historical-program budget and source-admission repair
+
+Implementation/test commit: `e6b6d134c0614a9c48558d0fa8fa1cbda0b1b7dd`,
+on the original feature branch after `2830f17f`. Admission now borrows the
+prepared historical program and charges its optional holder, outer vector
+capacities and each opcode/constant row capacity through the existing checked
+addition/multiplication helpers. This reserve is shared by the full and checkpoint
+envelopes and repeated for bumped fits. Existing future-program, state, row,
+checkpoint, normal, QR, policy and retained-tape charges remain in place.
+
+The new regression preserves variable/constant dimensions and the 65-event
+future grid while adding 100,000 historical `seed = seed + K` statements.
+Against the original archive (`c828dad9...`), its 1 MiB rejection assertion
+fails because the long-history request succeeds. With the correction, short
+history still fits 1 MiB; long history is rejected, and a subsequent short request
+succeeds. A 64 MiB retry matches unrestricted Hard policy metadata and price,
+and Frozen/RetrainedBump prices plus `spot`, `vol`, `rate`, `div`, `K` risks match
+bit for bit. Historical compiled capacity grows by exactly **2,800,000 bytes**;
+the admitted bound grows from **736,748 to 3,536,748 bytes**, by that same amount.
+The long-history charged peak is **3,425,693 bytes**. A fresh native thread isolates
+the 1 MiB control from tape retained by preceding tests; retained tape continues
+to be charged in production and in the existing bumped-fit recovery case.
+
+The core target was rebuilt with its existing Release configuration under the
+shared issue486 lock. The focused executable links only
+`test_lsmc_checkpoint.cpp`, the existing test main, the rebuilt core archive and
+the matching Google Test archive. This avoids rebuilding unrelated test objects:
+
+```bash
+cmake --build build/checkpoint-production --target dal_cpp -j 4
+c++ -std=c++17 -O3 -DNDEBUG -fPIE -ffp-contract=fast \
+  -I dal-cpp -I dal-cpp/externals/rapidjson/include \
+  -isystem dal-cpp/externals/googletest/googletest/include \
+  dal-cpp/tests/script/test_lsmc_checkpoint.cpp dal-cpp/tests/test_main.cpp \
+  build/checkpoint-production/dal-cpp/libdal_cpp.a \
+  build/checkpoint-production/lib/libgtest.a -pthread -o build/history-budget-tests
+DAL_NUM_THREADS=1 build/history-budget-tests --gtest_filter='LsmcCheckpointTest.*'
+```
+
+All **9 checkpoint tests passed** at implementation/test commit `e6b6d134`,
+including the existing block/tail, mapping/policy, every named risk, growing-state
+fallback, retained-tape rejection/recovery, unsupported-domain and 8,193-path
+boundary cases. The test XML records the capacity/bound/peak values above.
+New core archive SHA-256:
+`e1e5a1aac0dc5789fe1a11cfe8af0af2406a75f40ddef88adf58cc4e92b00a05`.
+New focused test executable SHA-256:
+`450500df9d64ec18465d9ad3e8efeb54f556e6184c4816ff2de2edaceec41469`.
+The original standalone driver and original full test executable were not
+relinked as new-head artifacts. Source/dependency/configuration checks,
+clang-format, whitespace checks and the 75-file documentation checks passed.
+
+The original whole-test target rebuild was cancelled before completion when it
+started recompiling unrelated objects; it is not reported as a successful build
+or test run. No 60/200-process sampling or full component matrix was repeated.
+The numerical training/replay algorithms are unchanged; this repair adds the
+missing fixed reserve and traverses historical event containers for capacities.
+Prior numerical, mapping, public-binding and measured-process evidence remains
+at its original identity, rather than being relabelled as new-head execution.
+
+The research overlays remain historical tools. Their complete-source hashes,
+function-shape checks, address replacements and width checks are unchanged.
+Portable tests now consume four exact sources from immutable tool commit
+`05a24acd3457e0d42ce396f02d88572872d14095`, with every existing native hash
+verified after deterministic gzip decoding. Both overlays explicitly reject the
+current production source. The UTF-8/CRLF, both-width, unknown/mutated source and
+repeated-application tests remain active. The original 62-test group plus these
+two rejection cases passes **64 tests in normal and optimized Python modes**;
+this includes all nine collector cases and exact archived-payload replay.
+Neither the binary32 nor training-budget studies certify current checkpoint code.
+
+The collector now invokes literal absolute system executable paths
+(`/usr/bin/git`, `/usr/bin/c++`, `/usr/bin/time`) after validating their resolved
+targets. The operator-selected local driver remains resolved and checked; workload
+arguments remain fixed/allowlisted and every spawn still uses `shell=False`.
+No subprocess API was hidden or replaced, and no new suppression/configuration
+exception was added. The matching upstream Semgrep families are
+`dangerous-subprocess-use-audit`, `dangerous-subprocess-use-tainted-env-args`
+and `dangerous-subprocess-use`, in the Python security/audit rules.
+[The inspected Codacy wrapper's rule-source pin](https://github.com/codacy/codacy-semgrep/blob/b32599900a45557911bd75425c8d30bc9eec3985/internal/docgen/parsing.go)
+is `4ccd3b9cce2321a5fe3793868e4c2d4cfa5e9c43`. Local Semgrep 1.180.0
+with those three pinned rules reports three static-command findings on the old
+source and zero on the new source. Local old-source lines are 52/59/75; this is
+not claimed as an exact reproduction of hosted Codacy's 52/75/76 annotations
+or its engine/configuration. Current-head hosted checks remain authoritative.
