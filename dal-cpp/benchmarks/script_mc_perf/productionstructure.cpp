@@ -66,7 +66,7 @@ SimResults_ RunProductionStructure(const PreparedScript_& product, const Handle_
                                                product.PayOffIdx()};
     std::optional<ScriptCompiled_> compiled;
     if (product.Simulation().compiled_.value_or(false))
-        compiled.emplace(product.Compile());
+        compiled.emplace(product.Compile(true));
     SimResults_ result(names);
     size_t path = 0;
     Script::Detail::WithAADWorker(product, data, settings, compiled, [&](const auto& evaluate) {
