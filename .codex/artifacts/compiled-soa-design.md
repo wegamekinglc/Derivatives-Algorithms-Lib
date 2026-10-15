@@ -1,6 +1,8 @@
 # Compiled double SoA study (DAL-357 / #576 / WP-11)
 
-Status: measured isolated research prototype; pending independent focused review.
+Status: measured isolated research prototype; runner and complexity repairs await
+incremental independent review. The full study below belongs to `f4681d6f`;
+the repaired source has separate, narrowly scoped evidence at the end.
 The general 2x whole-request target is a no-go for the weekly barrier workload.
 This artifact controls the active research decision.
 It adds no public feature and changes neither the default tree engine nor the
@@ -135,8 +137,9 @@ rounds exceed 2x after a 4% noise margin; nearby results are inconclusive.
 
 Measured source: `f4681d6f72919f5fef8025ff2c94c3dc62b6f45f`; baseline:
 `01dcadace1180629e3b4467f5334c021c530054a`. The experimental directory Git tree is
-`1681e58a7555df81e437cfa594ace7e462a28a66`. Only this design note changes after
-sampling; its final commit carries identical executable inputs. Detached sources
+`1681e58a7555df81e437cfa594ace7e462a28a66`. The original delivery `ecc53854`
+added only this note and carried identical executable inputs. Later repairs
+change the experimental tree and do not inherit this full-matrix timing identity. Detached sources
 and separate build roots are under the task's `measurements/{baseline,head}-source`
 and `measurements/{baseline,head}-build`. Baseline overlay file hashes exactly
 match the committed head study files; production baseline files are untouched.
@@ -252,3 +255,94 @@ the task evidence attachment. Each case directory contains every command,
 stdout/stderr and exit status. No full regression, nine-target sweep, #567 timing
 rerun or #574 measurement was performed. Remote required CI and independent
 focused review remain distinct publication/acceptance requirements.
+
+## Runner and complexity repair validation
+
+Repair source: `d7f10b03588533f6a561b9f8cf78f186b60dfaab`; experimental tree:
+`a4737af9e20528573c014ee71f2e15d94f4e5428`. Production code, model generation,
+RNG, public surfaces and dependencies are unchanged. Decoder helpers separate
+operand access, stack effects and balanced branches. Execution helpers separate
+lane partitioning, scalar fallback and opcode dispatch. Request helpers retain
+the original phase boundaries, warmup, allocation exclusions and serial path
+summation order. Lizard 1.23.0 reports no function above complexity 8.
+
+The runner now resolves the explicitly selected executable, requires a regular
+file named `compiled_soa_study` (or `.exe`) with executable permission, and uses
+an argument vector with `shell=False`. Standalone CMake builds may use arbitrary
+build-root names, so the production-profile checker's fixed parent-directory
+layout is inapplicable. The three local subprocess audit annotations use the
+same reviewed rationale as the DAL-348 profiling checkers, after these actual
+boundary checks; no repository-wide analyzer rule or gate is disabled.
+
+DAL-370 found that mutually matching responses could still describe a different
+request or engine. `verify_request` now checks the value and JSON type of every
+requested workload, phase, paths, lanes, iterations, fallback and engine field,
+including a missing engine, before accepting a sample. Paired event counts and
+Gaussian fingerprints remain checked. Nine corrupt-response variants reproduced
+the defect before the fix. The existing 560-pair evidence was independently
+audited by DAL-370 and did not contain this mismatch; it remains original-source
+evidence, rather than new-head measurement.
+
+New validation on the repair content:
+
+```bash
+python3 -m unittest discover -s dal-cpp/experimental/compiledsoa -p test_pairedstudy.py
+python3 -O -m unittest discover -s dal-cpp/experimental/compiledsoa -p test_pairedstudy.py
+python3 -OO -m unittest discover -s dal-cpp/experimental/compiledsoa -p test_pairedstudy.py
+lizard -C 8 -w dal-cpp/experimental/compiledsoa
+semgrep scan --config p/python --metrics off --disable-version-check --quiet --error \
+  dal-cpp/experimental/compiledsoa/pairedstudy.py
+```
+
+All seven Python tests pass in each mode. A fresh core-only portable Release
+build using the reproduction commands above, with `build/soa-repair` as build
+root, passes the seven C++ tests and all seven ASan/UBSan tests with leak
+detection enabled. Semgrep reports no findings. The dedicated task checkout was
+clean and detached at the repair commit for sampling; the comparison reuses the
+identity-verified original detached head build without modifying it. Compiler,
+flags, pinned dependencies and platform match the original configuration.
+
+Changed callers are confined to the experimental evaluator and request harness.
+Eight repair comparisons cover weekly SoA evaluation, model, pipeline and full
+request, divergent evaluation with fallback on/off, seven-path scalar bypass,
+and scalar materialized evaluation. All use L32; correctness tests cover all
+four widths, tails and nested/inactive branches. Four-phase CLI preflight at 65
+paths compares both engines and both revisions. No 28-case rerun, lane ranking,
+production regression suite or nine-target gate is needed for this repair.
+
+The attached `repair_measure.py` runs with `DAL_NUM_THREADS=1`, CPU affinity 2
+and the shared roadmap flock. Each selected case calibrates to at least 50 ms,
+then uses two rounds of ten alternating old/new process pairs and best-of-ten
+minima with the unchanged 4% threshold. There are 160 formal pairs; every PV
+difference is zero, branch counters match, and executable hashes remain stable.
+Times below are ms per request; deltas compare repaired against original code
+using the same engine, rather than comparing scalar against SoA.
+
+| Case                    | Original R1/R2 ms   | Repaired R1/R2 ms   | Delta R1/R2 (%) | Verdict     |
+|-------------------------|---------------------|---------------------|-----------------|-------------|
+| weekly eval SoA         | 2.321153/2.277993   | 2.242296/2.237862   | -3.40/-1.76     | no-change   |
+| weekly model SoA        | 3.016883/3.018627   | 3.049949/3.060590   | +1.10/+1.39     | no-change   |
+| weekly pipeline SoA     | 5.471646/5.417545   | 5.386049/5.374164   | -1.56/-0.80     | no-change   |
+| weekly end SoA          | 8.541930/8.495896   | 8.597455/8.510974   | +0.65/+0.18     | no-change   |
+| divergent eval fallback | 8.448373/8.443163   | 7.711373/7.754309   | -8.72/-8.16     | improvement |
+| divergent eval masks    | 4.338987/4.355545   | 4.276906/4.282502   | -1.43/-1.68     | no-change   |
+| weekly end, 7 paths     | 0.006309/0.006252   | 0.005884/0.006054   | -6.74/-3.17     | no-change   |
+| weekly eval scalar      | 13.650306/12.459053 | 13.334140/12.262530 | -2.32/-1.58     | no-change   |
+
+Overall scoped repair verdict: no regression. This is still shared WSL2, with
+99% interval idle before sampling and maximum median/minimum ratio 1.092.
+Scalar evaluation minima drifted 8.7% between rounds; matched relative deltas
+remain small. Do not compare these absolute times with the original study or
+promote the fallback's local improvement into a production-adoption claim.
+The original whole-request no-go and rejection of the fallback heuristic remain
+the research decision; this limited repair sample is not a new full study.
+
+Repair executable SHA-256:
+`0bdf8728b0a8de58f0e96eb963abc4d000ebaa9f5a11effd873a4296f6f075ac`.
+The original comparison executable retains SHA-256
+`495c32370228f115daf87da3d192e3726b8057cf8feda3245df06f17764074a0`.
+Repair `results.json` SHA-256:
+`1acfb31b1bdf0db70f43a8fcbe2431e755d016437046fe2c397a2356d5a0e64d`.
+The repair attachment retains exact commands, raw outputs, manifests, caches,
+compile flags, load snapshots and logs. Required CI/Codacy and DAL-370's
+incremental review apply to the final PR head independently of local validation.
