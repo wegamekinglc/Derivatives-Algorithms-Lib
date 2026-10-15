@@ -231,7 +231,8 @@ two-column table. Set `enable_aad` to TRUE for an explicit simulation handle;
 omitting that handle from the plan selects native risk defaults with AAD enabled.
 For example, set `lsmc_training_paths` to 64, `lsmc_policy_risk_mode` to Frozen
 or RetrainedBump and, for the latter, `lsmc_policy_bump_relative` to 0.002.
-`MONTECARLOSETTINGS.GET.CONFIGURATION` copies all simulation settings:
+`MONTECARLOSETTINGS.GET.CONFIGURATION` returns a 16-row, two-column key/value
+table without a header, in this order:
 method, use_bb, enable_aad, smooth, compiled, lsmc_basis_degree,
 lsmc_training_paths, lsmc_validation_paths, lsmc_rqmc_replicates,
 lsmc_training_seed, lsmc_pricing_seed, lsmc_policy_risk_mode,

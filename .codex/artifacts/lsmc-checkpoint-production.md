@@ -1,5 +1,57 @@
 # LSMC checkpoint production evidence (DAL-352 / #571)
 
+## Excel metadata and spill schema repair
+
+This narrow repair starts at `d32f582bd7c46e94252024774155e1f1e92de703`.
+It changes Excel help, direct schema tests and the schema description only.
+The settings parser, numerical implementation and admission formula are unchanged.
+
+- `MonteCarloSettings_New` argument help is **254 characters**, down from 305.
+  It preserves the two-column format, setting categories, defaults, positive
+  checkpoint/budget dependency, MiB unit and compiled/single-worker/exact-BS
+  restriction. The complete supported key list remains in the Excel guide.
+  Both `.inc` and `.htm` were regenerated from Machinist markup.
+- The configuration spill is **16 rows by 2 columns, without a header**.
+  The Windows raw-export regression now verifies every ordered key, both
+  booleans, three numeric defaults, method/risk/precision strings and all eight
+  absent optional values, including the two appended checkpoint fields.
+  The portable projection test checks the same schema and native cell types.
+- `dal_generate` and staged `dal_check_generated` passed. Python extraction of
+  the generated argument-help literals and signatures for all **11** contracts
+  in `TestScriptSettingsAndLegacyContracts` confirmed unchanged argument names
+  and types and maximum argument-help lengths at most 255. This is a static
+  metadata check, not execution of Windows registration.
+
+The first portable CMake build was stopped when regenerated-file timestamps
+scheduled unrelated dependency recompilation; it is not reported as a completed
+build. Instead, the updated `test_lsmc_curvature.cpp` was compiled with the
+existing Release portable-test flags:
+
+```bash
+c++ -std=c++17 -O3 -DNDEBUG -fPIE -DDAL_EXCEL_API_TESTS_PORTABLE \
+  -I . -I dal-cpp -I dal-cpp/externals/rapidjson/include -I dal-cpp/test-support \
+  -isystem dal-cpp/externals/googletest/googletest/include \
+  -c dal-excel/tests/test_lsmc_curvature.cpp -o build/excel-contract-test_lsmc_curvature.o
+```
+
+The existing CMake `dal_excel_portable_tests` link command was replayed with that
+test object substituted and output `build/excel-contract-tests`. The unchanged
+binding objects were reused; the LSMC binding, public LSMC implementation and
+test runtime sources match their recorded `bc96fd14` versions. The core archive
+matches the repaired `e6b6d134` identity below. Under the shared issue486 flock,
+`DAL_NUM_THREADS=1 build/excel-contract-tests` ran only
+`ExcelLsmcCurvatureTest.TestCompletePassivePlanResultSettingsAndPolicyProjectionsDoNoWork`
+and `ExcelLsmcCurvatureTest.TestCompleteSimulationOptionalZeroAndValidationPolicyMetadataRoundTrip`:
+**2 passed**. Executable SHA-256:
+`9de8bb67026a8fba38c49bd4e9a1b0b2671f60b0fedd8d229435f97a760e608a`.
+Public archive SHA-256:
+`17e01a9791c5e580959934eb78a46dfb52bacb9409aea64d4aef4843f1277a22`.
+
+Clang-format, whitespace and 75-file documentation checks passed. Windows XLL
+registration and raw-export execution remain with CI; they were not run on this
+Linux host. No full regression, nine-target benchmark or 60/200-process matrix
+was repeated. Earlier numerical evidence retains its original identities.
+
 The opt-in implementation preserves the full-storage default and uses exact
 passive BS/script restoration only inside its admitted domain. The measured
 compact case reduces charged training capacity and process RSS. Runtime
