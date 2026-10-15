@@ -2,6 +2,10 @@
 // Created by Codex on 2026/10/16.
 //
 
+#if defined(_MSC_VER)
+#pragma fp_contract(off)
+#endif
+
 #include <dal/math/normalcentral.hpp>
 #include <dal/math/simdkernels.hpp>
 #include <dal/math/specialfunctions.hpp>
@@ -20,6 +24,12 @@ namespace Dal::Math {
 #if defined(DAL_NORMAL_SSE2)
         struct Sse2_ {
             using Vector_ = __m128d;
+            static constexpr size_t WIDTH = 2;
+            static Vector_ Load(const double* values) { return _mm_loadu_pd(values); }
+            static void Store(double* values, Vector_ x) { _mm_storeu_pd(values, x); }
+            static bool Central(Vector_ x) {
+                return _mm_movemask_pd(_mm_and_pd(_mm_cmpge_pd(x, _mm_set1_pd(0.02425)), _mm_cmple_pd(x, _mm_set1_pd(1.0 - 0.02425)))) == 3;
+            }
             static Vector_ Broadcast(double value) { return _mm_set1_pd(value); }
             static Vector_ Add(Vector_ a, Vector_ b) { return _mm_add_pd(a, b); }
             static Vector_ Subtract(Vector_ a, Vector_ b) { return _mm_sub_pd(a, b); }
@@ -48,7 +58,6 @@ namespace Dal::Math {
     } // namespace
 
     void InverseNCDFBlock(double* values, size_t n, bool precise, bool polish) {
-        size_t i = 0;
         if (!polish && n >= 32) {
 #if defined(DAL_NORMAL_AVX2)
             static const bool USE_AVX2 = Avx2Available();
@@ -58,18 +67,11 @@ namespace Dal::Math {
             }
 #endif
 #if defined(DAL_NORMAL_SSE2)
-            for (; i + 2 <= n; i += 2) {
-                const auto x = _mm_loadu_pd(values + i);
-                const auto central = _mm_and_pd(_mm_cmpge_pd(x, _mm_set1_pd(0.02425)), _mm_cmple_pd(x, _mm_set1_pd(1.0 - 0.02425)));
-                if (_mm_movemask_pd(central) == 3)
-                    _mm_storeu_pd(values + i, Detail::CentralInverse<Sse2_>(x));
-                else
-                    for (size_t lane = 0; lane < 2; ++lane)
-                        values[i + lane] = InverseNCDF(values[i + lane], precise, polish);
-            }
+            Detail::InverseNormalVector<Sse2_>(values, n);
+            return;
 #endif
         }
-        for (; i < n; ++i)
+        for (size_t i = 0; i < n; ++i)
             values[i] = InverseNCDF(values[i], precise, polish);
     }
 } // namespace Dal::Math

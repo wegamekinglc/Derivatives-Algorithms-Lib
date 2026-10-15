@@ -2,6 +2,10 @@
 // Created by Codex on 2026/10/16.
 //
 
+#if defined(_MSC_VER)
+#pragma fp_contract(off)
+#endif
+
 #include <dal/math/normalcentral.hpp>
 #include <dal/math/specialfunctions.hpp>
 #include <dal/platform/platform.hpp>

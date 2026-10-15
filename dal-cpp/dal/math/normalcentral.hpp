@@ -5,6 +5,7 @@
 #pragma once
 
 #include <cstddef>
+#include <dal/math/specialfunctions.hpp>
 
 namespace Dal::Math::Detail {
     inline constexpr double NORMAL_A[] = {-3.969683028665376e+01, 2.209460984245205e+02,  -2.759285104469687e+02,
@@ -22,6 +23,20 @@ namespace Dal::Math::Detail {
             denominator = O_::Add(O_::Multiply(denominator, r), O_::Broadcast(NORMAL_B[i]));
         }
         return O_::Divide(O_::Multiply(numerator, z), denominator);
+    }
+
+    template <class O_> void InverseNormalVector(double* values, size_t n) {
+        size_t i = 0;
+        for (; i + O_::WIDTH <= n; i += O_::WIDTH) {
+            const auto x = O_::Load(values + i);
+            if (O_::Central(x))
+                O_::Store(values + i, CentralInverse<O_>(x));
+            else
+                for (size_t lane = 0; lane < O_::WIDTH; ++lane)
+                    values[i + lane] = InverseNCDF(values[i + lane], false, false);
+        }
+        for (; i < n; ++i)
+            values[i] = InverseNCDF(values[i], false, false);
     }
 
     void InverseNormalAvx2(double* values, size_t n);

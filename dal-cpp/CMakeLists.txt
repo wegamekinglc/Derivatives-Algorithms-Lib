@@ -154,11 +154,7 @@ target_include_directories(dal_cpp
 
 dal_apply_platform_options(dal_cpp)
 
-if(MSVC)
-    # Match scalar and vector inverse-normal arithmetic without contraction.
-    set_source_files_properties(dal/math/inversenormal.cpp dal/math/inversenormalavx2.cpp dal/math/inversecdfscalar.cpp
-        PROPERTIES COMPILE_OPTIONS "/fp:strict")
-else()
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU" AND NOT MSVC)
     set_source_files_properties(dal/math/inversenormal.cpp dal/math/inversenormalavx2.cpp dal/math/inversecdfscalar.cpp
         PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
 endif()
