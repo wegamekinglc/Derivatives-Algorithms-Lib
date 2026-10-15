@@ -44,52 +44,83 @@ namespace Dal::ReplayStudy {
             return operand.slot_ == std::numeric_limits<size_t>::max() ? operand.literal_ : states_.at(operand.slot_).value_;
         }
 
+        static void Arithmetic(Op_ op, double l, double r, State_* state) {
+            switch (op) {
+            case Op_::ADD:
+                *state = {l + r, 1.0, 1.0, 0.0};
+                break;
+            case Op_::SUB:
+                *state = {l - r, 1.0, -1.0, 0.0};
+                break;
+            case Op_::MUL:
+                *state = {l * r, r, l, 0.0};
+                break;
+            case Op_::DIV:
+                *state = {l / r, 1.0 / r, -l / r / r, 0.0};
+                break;
+            default:
+                throw std::runtime_error("invalid arithmetic opcode");
+            }
+        }
+
+        static void Unary(Op_ op, double l, State_* state) {
+            switch (op) {
+            case Op_::EXP:
+                state->value_ = std::exp(l);
+                state->left_ = state->value_;
+                break;
+            case Op_::LOG:
+                state->value_ = std::log(l);
+                state->left_ = 1.0 / l;
+                break;
+            default:
+                throw std::runtime_error("invalid unary opcode");
+            }
+        }
+
+        static void Selector(Op_ op, double l, double r, State_* state) {
+            switch (op) {
+            case Op_::MAX:
+                *state = {std::max(l, r), double(l > r), double(r > l), 0.0};
+                break;
+            case Op_::MIN:
+                *state = {std::min(l, r), double(l < r), double(r < l), 0.0};
+                break;
+            case Op_::SCRIPT_MAX:
+                *state = {std::max(l, r), double(l >= r), double(r > l), 0.0};
+                break;
+            case Op_::SCRIPT_MIN:
+                *state = {std::min(l, r), double(l <= r), double(r < l), 0.0};
+                break;
+            default:
+                throw std::runtime_error("invalid selector opcode");
+            }
+        }
+
+        static bool Finite(const State_& state) { return std::isfinite(state.value_) && std::isfinite(state.left_) && std::isfinite(state.right_); }
+
+        static bool EvaluateGuard(const Node_& node, double l, double r, State_* state) {
+            state->value_ = l - r;
+            return std::isfinite(state->value_) && Region(state->value_, node.lower_, node.upper_) == node.region_;
+        }
+
         bool Evaluate(size_t slot, const std::vector<double>& frame) {
             const auto& node = nodes_[slot];
             auto& state = states_[slot];
             const double l = Read(node.left_), r = Read(node.right_);
             state.left_ = state.right_ = 0.0;
-            switch (node.op_) {
-            case Op_::LEAF:
+            // Contiguous private opcode groups keep each evaluator small.
+            if (node.op_ == Op_::LEAF)
                 state.value_ = node.source_ == std::numeric_limits<size_t>::max() ? l : frame.at(node.source_);
-                break;
-            case Op_::ADD:
-                state = {l + r, 1.0, 1.0, 0.0};
-                break;
-            case Op_::SUB:
-                state = {l - r, 1.0, -1.0, 0.0};
-                break;
-            case Op_::MUL:
-                state = {l * r, r, l, 0.0};
-                break;
-            case Op_::DIV:
-                state = {l / r, 1.0 / r, -l / r / r, 0.0};
-                break;
-            case Op_::EXP:
-                state.value_ = std::exp(l);
-                state.left_ = state.value_;
-                break;
-            case Op_::LOG:
-                state.value_ = std::log(l);
-                state.left_ = 1.0 / l;
-                break;
-            case Op_::MAX:
-                state = {std::max(l, r), double(l > r), double(r > l), 0.0};
-                break;
-            case Op_::MIN:
-                state = {std::min(l, r), double(l < r), double(r < l), 0.0};
-                break;
-            case Op_::SCRIPT_MAX:
-                state = {std::max(l, r), double(l >= r), double(r > l), 0.0};
-                break;
-            case Op_::SCRIPT_MIN:
-                state = {std::min(l, r), double(l <= r), double(r < l), 0.0};
-                break;
-            case Op_::GUARD:
-                state.value_ = l - r;
-                return std::isfinite(state.value_) && Region(state.value_, node.lower_, node.upper_) == node.region_;
-            }
-            return std::isfinite(state.value_) && std::isfinite(state.left_) && std::isfinite(state.right_);
+            else if (node.op_ <= Op_::DIV)
+                Arithmetic(node.op_, l, r, &state);
+            else if (node.op_ <= Op_::LOG)
+                Unary(node.op_, l, &state);
+            else if (node.op_ <= Op_::SCRIPT_MIN)
+                Selector(node.op_, l, r, &state);
+            else
+                return EvaluateGuard(node, l, r, &state);
+            return Finite(state);
         }
 
         void AddAdjoint(const Operand_& operand, double value) {

@@ -50,17 +50,26 @@ namespace Dal::ReplayStudy {
     }
 
     double Elapsed(Clock_::time_point start) { return std::chrono::duration<double>(Clock_::now() - start).count(); }
-    void Validate(const Case_& c, const Inputs_& inputs, const Vector_<>& normals) {
+    void ValidateShape(const Case_& c, const Vector_<>& normals) {
         Check(c.steps_ > 0 && c.times_.size() == c.steps_ && normals.size() == c.steps_ && c.width_ > 0.0 && std::isfinite(c.width_),
               "invalid graph shape or smoothing width");
+    }
+    void ValidateInputs(const Inputs_& inputs) {
         Check(std::isfinite(inputs[0]) && inputs[0] > 0.0 && std::isfinite(inputs[1]) && inputs[1] >= 0.0, "invalid BS parameters");
         for (double value : inputs)
             Check(std::isfinite(value), "nonfinite input");
+    }
+    void ValidateTimeline(const std::vector<double>& times) {
         double previous = 0.0;
-        for (double time : c.times_) {
+        for (double time : times) {
             Check(std::isfinite(time) && time > previous, "invalid timeline");
             previous = time;
         }
+    }
+    void Validate(const Case_& c, const Inputs_& inputs, const Vector_<>& normals) {
+        ValidateShape(c, normals);
+        ValidateInputs(inputs);
+        ValidateTimeline(c.times_);
         for (double normal : normals)
             Check(std::isfinite(normal), "nonfinite normal");
     }
@@ -198,6 +207,10 @@ namespace Dal::ReplayStudy {
         Inputs_ inputs_{};
         size_t root_ = 0;
 
+        [[nodiscard]] bool KeyChanged(const Case_& c, const Inputs_& inputs) const {
+            return !prefix_ || c.times_ != case_.times_ || c.width_ != case_.width_ || c.barrier_ != case_.barrier_ || inputs != inputs_;
+        }
+
     public:
         Result_ counts_;
         bool Evaluate(const Case_& c, const Inputs_& inputs, const Vector_<>& normals, bool forceRecord = false) {
@@ -210,9 +223,7 @@ namespace Dal::ReplayStudy {
             }
             frame_ = Frame(inputs, normals);
             const ReplayBuilder_ b{&graph_, &frame_};
-            const bool keyChanged =
-                !prefix_ || c.times_ != case_.times_ || c.width_ != case_.width_ || c.barrier_ != case_.barrier_ || inputs != inputs_;
-            if (keyChanged) {
+            if (KeyChanged(c, inputs)) {
                 prefix_.reset();
                 graph_.Reset();
                 prefix_ = BuildPrefix(c, b);
@@ -332,7 +343,7 @@ namespace Dal::ReplayStudy {
         return result;
     }
 
-    void VerifyGraph() {
+    void VerifySelectors() {
         Graph_ graph;
         std::vector<double> frame{2.0, 3.0};
         auto x = Leaf(&graph, &frame, 2.0, 0), y = Leaf(&graph, &frame, 3.0, 1);
@@ -364,6 +375,13 @@ namespace Dal::ReplayStudy {
         graph.Finish();
         graph.Reverse(scriptMin.slot_);
         Check(graph.Adjoint(x.slot_) == 1.0 && graph.Adjoint(y.slot_) == 0.0, "script MIN tie alias changed");
+    }
+
+    void VerifyGraph() {
+        VerifySelectors();
+        Graph_ graph;
+        std::vector<double> frame{2.0, 2.0};
+        auto x = Leaf(&graph, &frame, 2.0, 0), y = Leaf(&graph, &frame, 2.0, 1);
         graph.Mark();
         const auto oldSuffix = x + y;
         graph.Restore();
@@ -386,7 +404,7 @@ namespace Dal::ReplayStudy {
         x = Leaf(&graph, &frame, 3.0, 0);
         const auto zero = Leaf(&graph, &frame, 0.0);
         graph.Mark();
-        root = x + zero;
+        const auto root = x + zero;
         graph.Finish();
         graph.Reverse(root.slot_, true);
         graph.ReversePrefix();
@@ -421,8 +439,7 @@ namespace Dal::ReplayStudy {
         }
     }
 
-    void Verify(const Case_& vanilla, const Case_& barrier) {
-        VerifyGraph();
+    size_t VerifyRandom(const Case_& vanilla, const Case_& barrier) {
         size_t comparisons = 0;
         Replay_ replay;
         for (const auto& c : {vanilla, barrier}) {
@@ -442,6 +459,13 @@ namespace Dal::ReplayStudy {
                 ++comparisons;
             }
         }
+        return comparisons;
+    }
+
+    void Verify(const Case_& vanilla, const Case_& barrier) {
+        VerifyGraph();
+        size_t comparisons = VerifyRandom(vanilla, barrier);
+        Replay_ replay;
         Case_ single = vanilla;
         single.barrier_ = true;
         single.width_ = 2.0;
@@ -535,134 +559,189 @@ namespace Dal::ReplayStudy {
         result->capacity_ = std::max(result->capacity_, stats.capacityBytes_);
     }
 
+    Clock_::time_point PhaseStart(bool phases) { return phases ? Clock_::now() : Clock_::time_point{}; }
+
+    void AddElapsed(bool phases, Clock_::time_point start, double* seconds) {
+        if (phases)
+            *seconds += Elapsed(start);
+    }
+
+    Result_ MeasureCaller(const Case_& c, const Inputs_& inputs, size_t paths, bool phases, Random_* rng, Vector_<>* normals) {
+        Result_ result;
+        WithCaller(c, inputs, [&](const auto& evaluate, const auto& finish) {
+            for (size_t i = 0; i < paths; ++i) {
+                rng->FillNormal(normals);
+                result.pv_ += evaluate(*normals);
+                if (phases)
+                    CaptureNativeMemory(&result);
+            }
+            result.risks_ = finish();
+        });
+        return result;
+    }
+
+    Result_ MeasureNative(const Case_& c, const Inputs_& inputs, size_t paths, bool phases, Random_* rng, Vector_<>* normals) {
+        Result_ result;
+        AAD::RecordingScope_ scope;
+        auto frame = Frame(inputs, *normals);
+        const NativeBuilder_ builder{&frame};
+        const auto prefix = BuildPrefix(c, builder);
+        scope.StartRecording();
+        const auto checkpoint = scope.MakeCheckpoint();
+        scope.FinishRecording();
+        for (size_t i = 0; i < paths; ++i) {
+            rng->FillNormal(normals);
+            frame = Frame(inputs, *normals);
+            const auto start = PhaseStart(phases);
+            scope.Restore(checkpoint);
+            const auto output = Path(c, builder, prefix);
+            scope.FinishRecording();
+            AddElapsed(phases, start, &result.forward_);
+            const auto reverse = PhaseStart(phases);
+            AAD::Adjoint(output) = 1.0;
+            scope.ReverseSuffix(checkpoint);
+            result.pv_ += Primal(output);
+            AddElapsed(phases, reverse, &result.reverse_);
+            if (phases)
+                CaptureNativeMemory(&result);
+        }
+        scope.ReversePrefix(checkpoint);
+        for (size_t i = 0; i < BASE.size(); ++i)
+            result.risks_[i] = AAD::Adjoint(prefix.inputs_[i]);
+        return result;
+    }
+
+    Result_
+    MeasureReplay(const std::string& mode, const Case_& c, const Inputs_& inputs, size_t paths, bool phases, Random_* rng, Vector_<>* normals) {
+        Result_ result;
+        Replay_ replay;
+        for (size_t i = 0; i < paths; ++i) {
+            rng->FillNormal(normals);
+            const auto start = PhaseStart(phases);
+            const bool hit = replay.Evaluate(c, inputs, *normals, mode == "record");
+            if (phases) {
+                const double forward = Elapsed(start);
+                result.forward_ += forward;
+                (hit ? result.hitSeconds_ : result.missSeconds_) += forward;
+            }
+            const auto reverse = PhaseStart(phases);
+            result.pv_ += replay.Gradient(true).pv_;
+            AddElapsed(phases, reverse, &result.reverse_);
+        }
+        result.risks_ = replay.FinishRisks();
+        const auto counts = replay.counts_;
+        result.hits_ = counts.hits_;
+        result.recordings_ = counts.recordings_;
+        result.guardFailures_ = counts.guardFailures_;
+        result.nodes_ = counts.nodes_;
+        result.bytes_ = counts.bytes_;
+        result.capacity_ = counts.capacity_;
+        return result;
+    }
+
     Result_ Measure(const std::string& mode, const Case_& c, const Inputs_& inputs, size_t paths, bool phases) {
         auto rng = NewSobol(static_cast<int>(c.steps_), 1);
         Vector_<> normals(c.steps_);
         Result_ result;
-        if (mode == "caller") {
-            WithCaller(c, inputs, [&](const auto& evaluate, const auto& finish) {
-                for (size_t i = 0; i < paths; ++i) {
-                    rng->FillNormal(&normals);
-                    result.pv_ += evaluate(normals);
-                    if (phases)
-                        CaptureNativeMemory(&result);
-                }
-                result.risks_ = finish();
-            });
-        } else if (mode == "native") {
-            AAD::RecordingScope_ scope;
-            auto frame = Frame(inputs, normals);
-            const NativeBuilder_ builder{&frame};
-            const auto prefix = BuildPrefix(c, builder);
-            scope.StartRecording();
-            const auto checkpoint = scope.MakeCheckpoint();
-            scope.FinishRecording();
-            for (size_t i = 0; i < paths; ++i) {
-                rng->FillNormal(&normals);
-                frame = Frame(inputs, normals);
-                const auto start = phases ? Clock_::now() : Clock_::time_point{};
-                scope.Restore(checkpoint);
-                const auto output = Path(c, builder, prefix);
-                scope.FinishRecording();
-                if (phases)
-                    result.forward_ += Elapsed(start);
-                const auto reverse = phases ? Clock_::now() : Clock_::time_point{};
-                AAD::Adjoint(output) = 1.0;
-                scope.ReverseSuffix(checkpoint);
-                result.pv_ += Primal(output);
-                if (phases)
-                    result.reverse_ += Elapsed(reverse);
-                if (phases)
-                    CaptureNativeMemory(&result);
-            }
-            scope.ReversePrefix(checkpoint);
-            for (size_t i = 0; i < BASE.size(); ++i)
-                result.risks_[i] = AAD::Adjoint(prefix.inputs_[i]);
-        } else {
-            Replay_ replay;
-            for (size_t i = 0; i < paths; ++i) {
-                rng->FillNormal(&normals);
-                const auto start = phases ? Clock_::now() : Clock_::time_point{};
-                const bool hit = replay.Evaluate(c, inputs, normals, mode == "record");
-                if (phases) {
-                    const double forward = Elapsed(start);
-                    result.forward_ += forward;
-                    (hit ? result.hitSeconds_ : result.missSeconds_) += forward;
-                }
-                const auto reverse = phases ? Clock_::now() : Clock_::time_point{};
-                result.pv_ += replay.Gradient(true).pv_;
-                if (phases)
-                    result.reverse_ += Elapsed(reverse);
-            }
-            result.risks_ = replay.FinishRisks();
-            const auto counts = replay.counts_;
-            result.hits_ = counts.hits_;
-            result.recordings_ = counts.recordings_;
-            result.guardFailures_ = counts.guardFailures_;
-            result.nodes_ = counts.nodes_;
-            result.bytes_ = counts.bytes_;
-            result.capacity_ = counts.capacity_;
-        }
+        if (mode == "caller")
+            result = MeasureCaller(c, inputs, paths, phases, rng.get(), &normals);
+        else if (mode == "native")
+            result = MeasureNative(c, inputs, paths, phases, rng.get(), &normals);
+        else
+            result = MeasureReplay(mode, c, inputs, paths, phases, rng.get(), &normals);
         Normalize(paths, &result);
         return result;
     }
-} // namespace Dal::ReplayStudy
+    struct Options_ {
+        std::string mode_ = "verify", scenario_ = "barrier";
+        size_t paths_ = 4096;
+        bool phases_ = false;
+    };
 
-int main(int argc, char** argv) {
-    using namespace Dal;
-    using namespace Dal::ReplayStudy;
-    try {
-        std::string mode = "verify", scenario = "barrier";
-        size_t paths = 4096;
-        bool phases = false;
+    size_t ReadPaths(const std::string& value) {
+        size_t paths = 0;
+        const auto parsed = std::from_chars(value.data(), value.data() + value.size(), paths);
+        Check(parsed.ec == std::errc() && parsed.ptr == value.data() + value.size() && paths > 0 && paths <= 1000000, "invalid paths");
+        return paths;
+    }
+
+    void SetOption(const std::string& name, const std::string& value, Options_* options) {
+        if (name == "--mode")
+            options->mode_ = value;
+        else if (name == "--case")
+            options->scenario_ = value;
+        else if (name == "--phases") {
+            Check(value == "true" || value == "false", "invalid phases flag");
+            options->phases_ = value == "true";
+        } else if (name == "--paths")
+            options->paths_ = ReadPaths(value);
+        else
+            throw std::runtime_error("unknown option");
+    }
+
+    Options_ ReadOptions(int argc, char** argv) {
         Check(argc % 2 == 1, "expected option/value pairs");
+        Options_ options;
         for (int i = 1; i < argc; i += 2) {
-            const std::string name = argv[i], value = argv[i + 1];
-            if (name == "--mode")
-                mode = value;
-            else if (name == "--case")
-                scenario = value;
-            else if (name == "--phases") {
-                Check(value == "true" || value == "false", "invalid phases flag");
-                phases = value == "true";
-            } else if (name == "--paths") {
-                const auto parsed = std::from_chars(value.data(), value.data() + value.size(), paths);
-                Check(parsed.ec == std::errc() && parsed.ptr == value.data() + value.size() && paths > 0 && paths <= 1000000, "invalid paths");
-            } else
-                throw std::runtime_error("unknown option");
+            SetOption(argv[i], argv[i + 1], &options);
         }
-        Check(mode == "verify" || mode == "native" || mode == "replay" || mode == "record" || mode == "caller", "invalid mode");
-        Check(scenario == "vanilla" || scenario == "barrier" || scenario == "crossing", "invalid case");
-        const auto storage = XGLOBAL::SetEvaluationDateInScope(Date_(2024, 1, 1));
-        Case_ vanilla{1, 0.1, false, {7.0 / 365.0}};
+        const std::array<std::string, 5> modes{"verify", "native", "replay", "record", "caller"};
+        const std::array<std::string, 3> scenarios{"vanilla", "barrier", "crossing"};
+        Check(std::find(modes.begin(), modes.end(), options.mode_) != modes.end(), "invalid mode");
+        Check(std::find(scenarios.begin(), scenarios.end(), options.scenario_) != scenarios.end(), "invalid case");
+        return options;
+    }
+
+    Case_ BarrierCase() {
         Case_ barrier{52, 0.1, true, {}};
         for (size_t i = 1; i <= barrier.steps_; ++i)
             barrier.times_.push_back(7.0 * i / 365.0);
-        if (mode == "verify") {
-            Verify(vanilla, barrier);
-            for (const auto& c : {vanilla, barrier}) {
-                const auto reference = Measure("native", c, BASE, 257, false);
-                for (const auto& method : {"replay", "record", "caller"})
-                    Compare(reference, Measure(method, c, BASE, 257, false));
-            }
-            return 0;
+        return barrier;
+    }
+
+    void VerifyAggregates(const Case_& vanilla, const Case_& barrier) {
+        for (const auto& c : {vanilla, barrier}) {
+            const auto reference = Measure("native", c, BASE, 257, false);
+            for (const auto& method : {"replay", "record", "caller"})
+                Compare(reference, Measure(method, c, BASE, 257, false));
         }
-        Inputs_ inputs = BASE;
-        const auto& c = scenario == "vanilla" ? vanilla : barrier;
-        if (scenario == "crossing")
-            inputs[5] = 110.0;
-        const auto start = Clock_::now();
-        const auto result = Measure(mode, c, inputs, paths, phases);
-        const double total = Elapsed(start);
-        std::cout << std::setprecision(17) << "{\"mode\":\"" << mode << "\",\"case\":\"" << scenario << "\",\"paths\":" << paths
-                  << ",\"seconds\":" << total << ",\"pv\":" << result.pv_ << ",\"risks\":{";
+    }
+
+    void PrintResult(const Options_& options, const Result_& result, double total) {
+        std::cout << std::setprecision(17) << "{\"mode\":\"" << options.mode_ << "\",\"case\":\"" << options.scenario_
+                  << "\",\"paths\":" << options.paths_ << ",\"seconds\":" << total << ",\"pv\":" << result.pv_ << ",\"risks\":{";
         for (size_t i = 0; i < BASE.size(); ++i)
             std::cout << (i ? "," : "") << '"' << LABELS[i] << "\":" << result.risks_[i];
         std::cout << "},\"hits\":" << result.hits_ << ",\"recordings\":" << result.recordings_ << ",\"guard_failures\":" << result.guardFailures_
                   << ",\"peak_nodes\":" << result.nodes_ << ",\"graph_bytes\":" << result.bytes_ << ",\"graph_capacity\":" << result.capacity_
                   << ",\"forward_seconds\":" << result.forward_ << ",\"reverse_seconds\":" << result.reverse_
                   << ",\"hit_seconds\":" << result.hitSeconds_ << ",\"miss_seconds\":" << result.missSeconds_ << "}\n";
+    }
+
+    int RunStudy(const Options_& options) {
+        const auto storage = XGLOBAL::SetEvaluationDateInScope(Date_(2024, 1, 1));
+        const Case_ vanilla{1, 0.1, false, {7.0 / 365.0}};
+        const auto barrier = BarrierCase();
+        if (options.mode_ == "verify") {
+            Verify(vanilla, barrier);
+            VerifyAggregates(vanilla, barrier);
+            return 0;
+        }
+        Inputs_ inputs = BASE;
+        const auto& c = options.scenario_ == "vanilla" ? vanilla : barrier;
+        if (options.scenario_ == "crossing")
+            inputs[5] = 110.0;
+        const auto start = Clock_::now();
+        const auto result = Measure(options.mode_, c, inputs, options.paths_, options.phases_);
+        PrintResult(options, result, Elapsed(start));
         (void)storage;
+        return 0;
+    }
+} // namespace Dal::ReplayStudy
+
+int main(int argc, char** argv) {
+    try {
+        return Dal::ReplayStudy::RunStudy(Dal::ReplayStudy::ReadOptions(argc, argv));
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
         return 1;
