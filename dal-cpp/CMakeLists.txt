@@ -154,6 +154,19 @@ target_include_directories(dal_cpp
 
 dal_apply_platform_options(dal_cpp)
 
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU" AND NOT MSVC)
+    set_source_files_properties(dal/math/inversenormal.cpp dal/math/inversenormalavx2.cpp dal/math/inversecdfscalar.cpp
+        PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
+endif()
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$" AND (MSVC OR CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU"))
+    set_source_files_properties(dal/math/inversenormal.cpp dal/math/inversenormalavx2.cpp PROPERTIES COMPILE_DEFINITIONS DAL_NORMAL_AVX2)
+    if(MSVC)
+        set_property(SOURCE dal/math/inversenormalavx2.cpp APPEND PROPERTY COMPILE_OPTIONS "/arch:AVX2")
+    else()
+        set_property(SOURCE dal/math/inversenormalavx2.cpp APPEND PROPERTY COMPILE_OPTIONS "-mavx2;-mno-fma")
+    endif()
+endif()
+
 if(DAL_USE_EIGEN)
     target_include_directories(dal_cpp PRIVATE ${PROJECT_SOURCE_DIR}/externals/eigen)
     target_compile_definitions(dal_cpp PRIVATE DAL_USE_EIGEN EIGEN_DONT_PARALLELIZE)
