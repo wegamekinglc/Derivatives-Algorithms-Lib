@@ -8,6 +8,7 @@
 
 #include <dal/math/random/pseudorandom.hpp>
 #include <dal/math/specialfunctions.hpp>
+#include <dal/math/simdkernels.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/platform/host.hpp>
 #include <dal/platform/platform.hpp>
@@ -42,6 +43,12 @@ namespace Dal {
         namespace RWT {
             template <class F_>
             FORCE_INLINE void Fill(const F_& nextUniform, bool precise, Vector_<>::iterator dst_begin, Vector_<>::iterator dst_end) {
+                if (!precise && dst_end - dst_begin >= 32) {
+                    for (auto pn = dst_begin; pn != dst_end; ++pn)
+                        *pn = nextUniform();
+                    Math::InverseNCDFBlock(&*dst_begin, dst_end - dst_begin);
+                    return;
+                }
                 for (auto pn = dst_begin; pn != dst_end; ++pn) {
                     const double f = nextUniform();
                     *pn = InverseNCDF(f, precise, precise);
