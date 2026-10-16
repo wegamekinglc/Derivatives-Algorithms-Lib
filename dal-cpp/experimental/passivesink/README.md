@@ -4,6 +4,10 @@ This isolated experiment measures a native per-tape constant sink against the
 unchanged DAL implementation. The overlay patch is applied only to a separate
 source worktree. It is not a public library option and is not production adoption.
 
+The separate [core C++ opt-in](../../../docs/methodology/passive-constants.md)
+uses a scoped runtime policy and retains the default construction contract.
+The overlay and frozen datasets here remain isolated research evidence.
+
 Double construction and assignment share one lazily allocated zero-argument node
 per tape recording. Explicit `RegisterIndependent`, `PutOnTape` and scoped input
 registration create distinct independent nodes. Direct passive adjoint reads and

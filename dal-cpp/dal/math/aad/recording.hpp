@@ -5,9 +5,9 @@
 #pragma once
 
 #include <cstdint>
+#include <dal/math/aad/aad.hpp>
 #include <exception>
 #include <thread>
-#include <dal/math/aad/aad.hpp>
 
 /*IF--------------------------------------------------------------------------
 enumeration AADRecordingState
@@ -107,6 +107,7 @@ namespace Dal::AAD {
         RecordingScope_& operator=(RecordingScope_&&) = delete;
 
         void RegisterInput(Number_& input, double value);
+        void EnablePassiveConstants();
         void StartRecording();
         FORCE_INLINE void FinishRecording() {
             RequireState(State_::RECORDING, "RecordingScope.FinishRecording");

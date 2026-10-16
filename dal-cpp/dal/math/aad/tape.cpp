@@ -12,6 +12,18 @@
 
 namespace Dal::AAD {
 
+    TapNode_* Number_::CreatePassiveConstantNode(Tape_* tape) {
+#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+        tape->CheckNodeAllocation();
+#endif
+        if (tape->constantSink_ == nullptr)
+            tape->constantSink_ = tape->RecordNode<0>();
+#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+        binding_ = tape->CaptureBinding(tape->constantSink_);
+#endif
+        return tape->constantSink_;
+    }
+
     bool& NativeThread::EventValidationRequired() noexcept { return eventValidationRequired; }
     void NativeThread::RequireEventState() { Tape()->RequireReverseEventState("Number.Adjoint"); }
 
@@ -62,6 +74,7 @@ namespace Dal::AAD {
     }
 
     void Tape_::PrepareReverseEvent() {
+        REQUIRE(!passiveConstants_, "Tape.RecordEvent: passive constant recording does not support reverse events");
         RequireReverseEventState("Tape.RecordEvent");
         RequireReverseEventMutation("Tape.RecordEvent");
         if (reverseEvents_ == nullptr) {
@@ -290,6 +303,8 @@ namespace Dal::AAD {
             tape.reverseFailed_ = true;
         tape.reverseEvents_.reset();
         tape.eventScratchPeakBytes_ = 0;
+        tape.constantSink_ = nullptr;
+        tape.markedConstantSink_ = nullptr;
         ForEachBlockAll(tape, [](auto& block) { block.Clear(); });
         tape.reverseFailed_ = false;
         tape.UpdateThreadEventValidation();
@@ -306,6 +321,7 @@ namespace Dal::AAD {
         tape.RequireLiveGraph("Tape.Mark");
 #endif
         ForEachBlock(tape, [](auto& block) { block.SetMark(); });
+        tape.markedConstantSink_ = tape.constantSink_;
         if (tape.reverseEvents_ != nullptr)
             tape.reverseEvents_->marked_ = tape.reverseEvents_->entries_.size();
 #if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
@@ -321,12 +337,16 @@ namespace Dal::AAD {
         tape.eventScratchPeakBytes_ = 0;
 #if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
         tape.BeginLifetimeReset();
+        tape.constantSink_ = nullptr;
+        tape.markedConstantSink_ = nullptr;
         ForEachBlockAll(tape, [](auto& block) {
             block.Rewind();
             block.SetMark();
         });
         tape.lifetimeFailed_ = false;
 #else
+        tape.constantSink_ = nullptr;
+        tape.markedConstantSink_ = nullptr;
         ForEachBlock(tape, [](auto& block) { block.Rewind(); });
 #endif
         tape.reverseFailed_ = false;
@@ -344,6 +364,12 @@ namespace Dal::AAD {
         tape.liveNodes_ = tape.markedNodes_;
 #endif
         ForEachBlock(tape, [](auto& block) { block.RewindToMark(); });
+        tape.constantSink_ = tape.markedConstantSink_;
+        if (tape.constantSink_ != nullptr) {
+            tape.constantSink_->Adjoint() = 0.0;
+            if (tape.multi_)
+                std::fill_n(&tape.constantSink_->Adjoint(0), tape.numAdj_, 0.0);
+        }
     }
 
     void NewRecording(Tape_&) {}

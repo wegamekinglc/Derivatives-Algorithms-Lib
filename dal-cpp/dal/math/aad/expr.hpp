@@ -478,6 +478,15 @@ namespace Dal::AAD {
 #endif
         }
 
+        TapNode_* CreatePassiveConstantNode(Tape_* tape);
+
+        FORCE_INLINE TapNode_* CreateConstantNode() {
+            auto* tape = Tape();
+            if (tape->passiveConstants_)
+                return CreatePassiveConstantNode(tape);
+            return CreateMultiNode<0>();
+        }
+
         template <class E_> void FromExpr(const Expression_<E_>& e) {
             Tape_* tape = Tape();
 #if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
@@ -514,18 +523,20 @@ namespace Dal::AAD {
 
         Number_(): value_(0.0), node_(nullptr) {}
 
-        Number_(double val) : value_(val) { node_ = CreateMultiNode<0>(); }
+        Number_(double val) : value_(val) { node_ = CreateConstantNode(); }
 
         FORCE_INLINE Number_& operator=(double val) {
 #if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
-            node_ = CreateMultiNode<0>();
+            node_ = CreateConstantNode();
             value_ = val;
 #else
             value_ = val;
-            node_ = CreateMultiNode<0>();
+            node_ = CreateConstantNode();
 #endif
             return *this;
         }
+
+        [[nodiscard]] bool IsPassive() const { return node_ != nullptr && node_ == Tape()->constantSink_; }
 
         template <class E_>
         FORCE_INLINE Number_(const Expression_<E_>& e) : value_(Value(e)) {
@@ -546,6 +557,7 @@ namespace Dal::AAD {
         }
 
         friend void PutOnTape(Number_&);
+        friend void RegisterIndependent(Number_&, double);
 
         friend double Value(const Number_&);
         friend double& Adjoint(const Number_&);
@@ -616,6 +628,7 @@ namespace Dal::AAD {
         num.ValidateOperands(Tape(), "Number.Adjoint");
 #endif
         REQUIRE(num.node_ != nullptr, "Adjoint: Number_ has no tape node");
+        REQUIRE(!num.IsPassive(), "Adjoint: passive constant requires explicit independent registration");
         return num.node_->Adjoint();
     }
 

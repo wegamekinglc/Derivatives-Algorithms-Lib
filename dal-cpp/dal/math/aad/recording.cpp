@@ -63,6 +63,7 @@ namespace Dal::AAD {
                 context_->failure_ = nullptr;
             }
             AAD::Activate(*tape_);
+            tape_->passiveConstants_ = false;
             rewind_(*tape_);
             multi_ = tape_->multi_;
             width_ = tape_->numAdj_;
@@ -108,6 +109,16 @@ namespace Dal::AAD {
             RetainFailure();
             throw;
         }
+    }
+
+    void RecordingScope_::EnablePassiveConstants() {
+        RequireState(State_::REGISTERING, "RecordingScope.EnablePassiveConstants");
+        REQUIRE(!tape_->HasReverseEventState(), "RecordingScope.EnablePassiveConstants: reverse events are unsupported");
+        REQUIRE(tape_->nodes_.OccupiedSlots() == 0, "RecordingScope.EnablePassiveConstants: enable before registering inputs");
+        if (tape_->nodes_.AllocatedBlocks() > 1 || tape_->ders_.AllocatedBlocks() > 1 || tape_->argPtrs_.AllocatedBlocks() > 1 ||
+            tape_->adjointsMulti_.AllocatedBlocks() > 1)
+            Apply(static_cast<Reset_>(&AAD::Clear), State_::REGISTERING);
+        tape_->passiveConstants_ = true;
     }
 
     void RecordingScope_::StartRecording() {
@@ -156,6 +167,7 @@ namespace Dal::AAD {
         if (state_ == State_::CLOSED)
             return;
         state_ = State_::CLOSED;
+        tape_->passiveConstants_ = false;
         try {
             RequireMode("RecordingScope.Close");
             rewind_(*tape_);

@@ -101,6 +101,21 @@ TEST(AADRecordingTest, TestExplicitCloseFailureRejectsFailedRebuildAndRecovers) 
     ASSERT_DOUBLE_EQ(IndependentSquareGradient(5.0), 10.0);
 }
 
+TEST(AADRecordingTest, TestPassivePolicyRestoresAfterExplicitCloseFailure) {
+    rewindCalls = 0;
+    auto failed = RecordingScopeTestAccess_::Create(FailClose, Clear);
+    failed->EnablePassiveConstants();
+    Number_ passive(5.0);
+    ASSERT_TRUE(passive.IsPassive());
+    ASSERT_THROW(failed->Close(), Exception_);
+    Number_ first(2.0), second(2.0);
+    ASSERT_FALSE(first.IsPassive());
+    ASSERT_NE(&Adjoint(first), &Adjoint(second));
+    failed.reset();
+    ASSERT_DOUBLE_EQ(IndependentSquareGradient(4.0), 8.0);
+    ASSERT_FALSE(LastRecordingCleanupFailure());
+}
+
 TEST(AADRecordingTest, TestCleanupDuringUnwindPreservesBusinessException) {
     rewindCalls = 0;
     const auto fail = [] {
