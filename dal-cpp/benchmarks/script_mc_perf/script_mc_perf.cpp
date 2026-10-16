@@ -373,6 +373,11 @@ int main(int argc, char** argv) {
             RunCorrelatedBSPathCases();
             return 0;
         }
+        if (std::string(argv[1]) == "--correlated-bs-outputs") {
+            Bench::PrintHeader();
+            RunCorrelatedBSOutputCases();
+            return 0;
+        }
         if (std::string(argv[1]) == "--lsmc-multi-regression") {
             Bench::PrintHeader();
             RunMultivariateRegressionCase(2, 2, 3);
