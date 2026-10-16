@@ -353,11 +353,14 @@ accept a null pointer, unaligned storage and non-block lengths are supported,
 and invalid inputs throw as in the scalar API. The existing scalar endpoint
 behavior at zero and one is retained.
 
-Scalar and vector inverse-normal arithmetic disable floating-point contraction
-and agree bitwise within the same build, including the central-region branch
-boundaries. This is a comparison against the scalar implementation, rather than
-an accuracy bound against the exact normal quantile. Contraction settings can
-change results relative to older native-architecture builds.
+Scalar and vector central-region polynomials share the scalar build's rounding
+policy: FMA-enabled builds fuse each Horner stage, while portable x86 builds use
+separate multiplication and addition. Runtime AVX2 selection requires FMA support
+when the scalar build uses it; portable builds retain the non-FMA AVX2 kernel.
+Tail values and polished modes use the same scalar routine. Scalar and vector
+results agree bitwise within the same build, including branch boundaries; this
+does not specify an accuracy bound against the exact normal quantile or require
+identical rounding across different CPU/compiler configurations.
 
 Sobol and the pseudo-random engines use this conversion without changing uniform
 draws, precision flags, antithetic caches, bridge ordering, cloning or seeking.

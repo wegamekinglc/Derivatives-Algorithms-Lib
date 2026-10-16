@@ -155,15 +155,17 @@ target_include_directories(dal_cpp
 dal_apply_platform_options(dal_cpp)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU" AND NOT MSVC)
-    set_source_files_properties(dal/math/inversenormal.cpp dal/math/inversenormalavx2.cpp dal/math/inversecdfscalar.cpp
+    set_source_files_properties(dal/math/inversenormal.cpp dal/math/inversenormalavx2.cpp dal/math/inversenormalfma.cpp
         PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
 endif()
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$" AND (MSVC OR CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU"))
-    set_source_files_properties(dal/math/inversenormal.cpp dal/math/inversenormalavx2.cpp PROPERTIES COMPILE_DEFINITIONS DAL_NORMAL_AVX2)
+    set_source_files_properties(dal/math/inversenormal.cpp dal/math/inversenormalavx2.cpp dal/math/inversenormalfma.cpp
+        PROPERTIES COMPILE_DEFINITIONS DAL_NORMAL_AVX2)
     if(MSVC)
-        set_property(SOURCE dal/math/inversenormalavx2.cpp APPEND PROPERTY COMPILE_OPTIONS "/arch:AVX2")
+        set_property(SOURCE dal/math/inversenormalavx2.cpp dal/math/inversenormalfma.cpp APPEND PROPERTY COMPILE_OPTIONS "/arch:AVX2")
     else()
         set_property(SOURCE dal/math/inversenormalavx2.cpp APPEND PROPERTY COMPILE_OPTIONS "-mavx2;-mno-fma")
+        set_property(SOURCE dal/math/inversenormalfma.cpp APPEND PROPERTY COMPILE_OPTIONS "-mavx2;-mfma")
     endif()
 endif()
 
