@@ -1,8 +1,9 @@
 # Compiled double SoA study (DAL-357 / #576 / WP-11)
 
 Status: measured isolated research prototype; DAL-370's incremental approval is
-accepted. The branch includes master `127fec94` with separate integration
-validation below. The full study belongs to `f4681d6f`; the repaired source has
+accepted. The branch includes master `4cb3064e`; its isolated replay research
+does not change this study's executable inputs, as audited below. The full study
+belongs to `f4681d6f`; the repaired source has
 separate, narrowly scoped evidence. Neither timing batch measures the integrated
 binary.
 The general 2x whole-request target is a no-go for the weekly barrier workload.
@@ -464,3 +465,46 @@ performed. Shared-host/cold-start limits, the general 2x whole-request no-go,
 weekly 1.29–1.58x historical result, fallback rejection, exact-BS/double scope
 and tree default remain unchanged. Current-head CI/Codacy and coordinator
 acceptance remain required before merge.
+
+## Integration with accepted isolated replay research
+
+Ordinary merge `7c09378d7b4c09b5b05ed7c8e761b8f4b303ce2c` has parents
+`b0de29a2571faf446dc880b331cd867c0a605265` and master
+`4cb3064e15be322bdc4664dc928db9d38cd38c2d`. It has no conflicts and preserves
+the reviewed history. Master's whole tree `f3b75ced2920174f46ec554dd1439544073bceba`
+equals accepted PR #590 head `411ddd3549806d28c60f3ce8a10e042073f90d27`.
+All seven inherited files match master: `CMakeLists.txt`, `replaygraph.hpp`,
+`replaystudy.cpp`, `runstudy.py` and `test_runstudy.py` under
+`dal-cpp/experimental/primalreplay/`, plus
+`docs/experimental/data/primal-replay-summary.json` and
+`docs/experimental/primal-replay-study.md`.
+
+The replay CMake file is an independent project entrypoint. Neither the root
+build nor this SoA project adds that directory. The core source glob covers
+only `dal-cpp/dal/`, so the new replay sources are excluded; their target-local
+settings do not enter this build. Production sources, public headers, root/core
+CMake, dependency pins and flags are unchanged. The seven SoA files/tree
+`a4737af9` remain identical to DAL-370's accepted content, including exact
+request-value/type/engine checks and optimized-Python rejection behavior.
+
+The static audit reads the retained build's 190 compiler dependency files
+(878 project dependency paths), generated CMake input graph and 260 compile
+commands. No incoming file intersects these inputs. All tracked compiler/CMake
+inputs still match the previous delivery; the actual cache and compile-command
+files match the preceding evidence byte for byte. GCC/CMake versions, initialized
+dependency revisions and clean dependency worktrees also match. All 193 retained
+executable/archive/object hashes match that evidence, including the three full
+SHA-256 identities listed in the preceding section. These remain the binaries
+built at `58105447`; no new current-head binary is claimed.
+
+With no invalidated executable input or caller, this integration requires only
+the static identity audit and `git diff --check`. No configure, build, test,
+sanitizer, risk or performance run is performed. Reuse DAL-370's accepted approval
+and `58105447`'s selected BS test/two-engine CLI checks for unchanged inputs.
+Accepted #590/DAL-372 covers the inherited independent research within its own
+scope. Original 560 pairs remain bound to `f4681d6f`, repair 160 pairs to
+`d7f10b03`, and previous integration checks to their original commits. No timing
+is relabelled as this integration's measurement. The general 2x whole-request
+no-go, historical weekly 1.29–1.58x result, fallback rejection, double/exact-BS
+domain, tree default and shared-host/cold-start limits remain unchanged.
+Actual-head CI/Codacy and coordinator acceptance remain separate merge gates.
