@@ -72,6 +72,10 @@ are not measurements of the production implementation. Other event schedules
 can save occupied payload without releasing a block. Do not multiply a
 per-worker tape saving by path count or equate tape capacity with process RSS.
 
+The [production rollout report](../experimental/passive-constants-rollout.md)
+records the separate default-mode controls and same-binary OFF/ON measurements
+for this implementation, together with its numerical and lifecycle checks.
+
 The production profile accepts `--passive-constants` after its positional
 arguments. Its `cold` mode retains numeric admission, alternate-engine and
 common-path derivative oracles. Its GSR-only `memory` mode runs ordinary
