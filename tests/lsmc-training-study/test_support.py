@@ -3,14 +3,17 @@
 import importlib.util
 import math
 from pathlib import Path
+import sys
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 MODULE = ROOT / "dal-cpp/benchmarks/script_mc_perf/lsmc_study_support.py"
+sys.path.insert(0, str(MODULE.parent))
+from native_fixture import native_sources
 SPEC = importlib.util.spec_from_file_location("lsmc_study_support", MODULE)
 SUPPORT = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(SUPPORT)
-STOCK = (ROOT / "dal-cpp/dal/script/lsmc.cpp").read_text()
+STOCK = native_sources()["dal-cpp/dal/script/lsmc.cpp"]
 
 
 class SourceAdmissionTest(unittest.TestCase):
@@ -40,6 +43,11 @@ class SourceAdmissionTest(unittest.TestCase):
         for anchor in (0, -1, 2**31, True, "1024"):
             with self.subTest(anchor=anchor), self.assertRaises(ValueError):
                 SUPPORT.controlled_source(STOCK, anchor)
+
+    def test_current_checkpoint_training_shape_is_rejected(self):
+        current = (ROOT / "dal-cpp/dal/script/lsmc.cpp").read_text(encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "unrecognized native source shape: TrainFrozenPolicy"):
+            SUPPORT.controlled_source(current, 1024)
 
 
 class AddressLayoutTest(unittest.TestCase):

@@ -6,6 +6,13 @@ and build with `DAL_BUILD_PUBLIC=OFF`. Ordinary production profiling and
 
 ## LSMC training-budget study
 
+The address overlay supports the historical native functions in
+`05a24acd3457e0d42ce396f02d88572872d14095` (core baseline `582b1fe5`).
+Prepare from a clean checkout of that tool commit with its pinned dependencies.
+The current production checkpoint trainer is outside this overlay's support
+domain and is rejected. The portable tests use an exact historical source
+fixture; their success does not certify the overlay for current production code.
+
 Changing the native training count moves the validation and pricing Sobol blocks.
 Equal pricing seeds alone therefore do not give equal pricing samples. The study
 builds an isolated experimental image with training `[0,N)`, validation `[A,A+V)`
@@ -86,6 +93,11 @@ record the representative and large-corner results, separate resource comparison
 and the decision to retain defaults.
 
 ## LSMC storage-precision experiment
+
+The storage overlay admits only the four complete source identities recorded in
+`lsmc_storage_patch.SOURCE_HASHES`, exported at the same historical tool commit
+above. Current checkpoint production sources are rejected. The historical
+binary32/binary64 results retain their original source and executable provenance.
 
 `lsmc_storage_prepare.py` creates a complete isolated build with binary32 or
 binary64 training/validation rows. It changes payments, regression features,

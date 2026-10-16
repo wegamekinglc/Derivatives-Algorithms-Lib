@@ -84,6 +84,11 @@ namespace {
             ASSERT_NE(text.find(field), std::string::npos) << text;
     }
 
+    void CheckText(const OPER_& cell, const wchar_t* expected) {
+        ASSERT_EQ(cell.xltype, xltypeStr);
+        ASSERT_EQ(std::wstring(cell.val.str + 1, cell.val.str[0]), expected);
+    }
+
     struct CurvatureRuntime_ {
         std::pair<size_t, bool> workers_;
         Date_ date_;
@@ -292,14 +297,42 @@ TEST(ScriptExcelRawTest, TestLsmcAllGeneratedExportsAndIndependentFinancialSpill
     }
     Output_ simulation(Call("xl_BlackScholesLsmcPlan_Get_Simulation", fixture.plan_.Scalar()));
     Output_ configuration(Call("xl_MonteCarloSettings_Get_Configuration", simulation.Scalar()));
-    ASSERT_EQ(configuration.value_->val.array.rows, 14);
+    ASSERT_EQ(configuration.value_->val.array.rows, 16);
     ASSERT_EQ(configuration.value_->val.array.columns, 2);
-    ASSERT_EQ(configuration.value_->val.array.lparray[5].xltype, xltypeBool);
-    ASSERT_EQ(configuration.value_->val.array.lparray[5].val.xbool, 1);
-    for (const int index : {9, 13, 15, 17, 19, 21}) {
-        ASSERT_EQ(configuration.value_->val.array.lparray[index].xltype, xltypeStr);
-        ASSERT_EQ(configuration.value_->val.array.lparray[index].val.str[0], 0);
+    const wchar_t* keys[]{L"method",
+                          L"use_bb",
+                          L"enable_aad",
+                          L"smooth",
+                          L"compiled",
+                          L"lsmc_basis_degree",
+                          L"lsmc_training_paths",
+                          L"lsmc_validation_paths",
+                          L"lsmc_rqmc_replicates",
+                          L"lsmc_training_seed",
+                          L"lsmc_pricing_seed",
+                          L"lsmc_policy_risk_mode",
+                          L"lsmc_policy_bump_relative",
+                          L"normal_precision",
+                          L"lsmc_checkpoint_block_events",
+                          L"lsmc_training_memory_mb"};
+    const auto* configurationCells = configuration.value_->val.array.lparray;
+    for (int row = 0; row < 16; ++row) {
+        SCOPED_TRACE(row);
+        CheckText(configurationCells[2 * row], keys[row]);
     }
+    for (const int row : {1, 2}) {
+        ASSERT_EQ(configurationCells[2 * row + 1].xltype, xltypeBool);
+        ASSERT_EQ(configurationCells[2 * row + 1].val.xbool, row == 2 ? 1 : 0);
+    }
+    for (const auto& value : {std::pair<int, double>{3, 0.01}, {5, 3.0}, {12, 0.001}}) {
+        ASSERT_EQ(configurationCells[2 * value.first + 1].xltype, xltypeNum);
+        ASSERT_DOUBLE_EQ(configurationCells[2 * value.first + 1].val.num, value.second);
+    }
+    CheckText(configurationCells[1], L"sobol");
+    CheckText(configurationCells[23], L"Frozen");
+    CheckText(configurationCells[27], L"Default");
+    for (const int row : {4, 6, 7, 8, 9, 10, 14, 15})
+        CheckText(configurationCells[2 * row + 1], L"");
     Output_ labels(Call("xl_BlackScholesLsmcPlan_Get_ParameterLabels", fixture.plan_.Scalar()));
     ASSERT_EQ(labels.value_->val.array.rows, 5);
     Output_ constants(Call("xl_BlackScholesLsmcPlan_Get_ScriptConstants", fixture.plan_.Scalar()));
