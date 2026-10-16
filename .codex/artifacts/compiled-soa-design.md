@@ -1,7 +1,7 @@
 # Compiled double SoA study (DAL-357 / #576 / WP-11)
 
 Status: measured isolated research prototype; DAL-370's incremental approval is
-accepted. The branch includes master `94311ed8` with separate integration
+accepted. The branch includes master `127fec94` with separate integration
 validation below. The full study belongs to `f4681d6f`; the repaired source has
 separate, narrowly scoped evidence. Neither timing batch measures the integrated
 binary.
@@ -399,3 +399,68 @@ tree default, compiled-double/exact-BS scope and fallback restriction. No full
 test, sanitizer, Python, 8-case or 28-case performance matrix is repeated for this
 integration. Current-head CI/Codacy and coordinator acceptance remain separate
 delivery gates.
+
+## Integration with accepted checkpoint master
+
+Ordinary merge `581054472164a90b558a8683180f84c1d13beb2b` retains previous
+delivery `cb88a485e1fc2dbef8fa930e3125415e7ac691ca` and includes master
+`127fec94f709d1d67b8d4d1c1eb5437c75fbddca`, without conflicts. All 43 imported
+files equal that master; its whole Git tree `af23358281c856a4207a038e307231b3439a0f92`
+equals accepted PR #587 head `62df26f3`. The seven experimental files and tree
+`a4737af9` remain byte-identical to DAL-370's accepted incremental review,
+including the collector's exact request-value/type/engine rejection contract.
+Only this evidence note is edited after the merge.
+
+This master adds bounded LSMC checkpoint training, its C++/Python/Excel settings
+and diagnostics, historical study fixtures and related evidence. It is distinct
+from the preceding inverse-normal integration. The study's actual compiler
+dependency files include changed `blackscholes.hpp`, `tape.hpp` and
+`settings.hpp`. Removing only the new BS restart/storage declarations reproduces
+the previous BS header byte for byte; existing generation, coefficients and
+numeraire definitions are unchanged. The study uses legacy `PreProcess(false,
+false)`, `Compile()` and explicit double model/evaluator calls, with no EXERCISE,
+prepared settings, portfolio grouping or diagnostic invocation.
+
+Actual static-link maps for both executables extract 50 DAL archive members.
+They exclude `lsmc.cpp`, `settings.cpp`, `diagnostics.cpp`, `preparation.cpp`,
+`portfoliogroups.cpp` and `blackscholes.cpp`; the BS template is compiled in the
+study/test translation units. Both study/test objects do change, as do four
+linked archive members: `parser.cpp`, `recording.cpp`, `tape.cpp` and
+`tapecapacity.cpp`. The retained-tape TLS symbol and changed tape destructor are
+present. The whole archive has 146 unchanged and 41 changed objects, with no
+added or removed objects. It would be incorrect to call either the library or
+binary unchanged. Each map-producing replay of the generated link command is
+byte-identical to its actual build-tree executable.
+
+GCC 15.2/CMake 4.2.3, all compile commands, DAL cache options, pinned dependencies,
+Release/static/native-AAD/Eigen settings and the previous inverse-normal
+per-source options remain identical. Under the shared flock, the rebuilt
+`compiled_soa_study` and `compiled_soa_tests` pass the one existing selected test
+`CompiledSoaTest.TestBlackScholesWeeklyAndVanillaAllWidthsAndTail`. It covers
+all three supported products, four lane widths, tails and fallback modes. Two
+additional weekly L32/end-to-end/16,387-path CLI processes, one per engine,
+exactly match the preceding integration's configuration, PV
+`7.139904685510628`, Gaussian fingerprint `7ceacc7a1ee1c5dd`, 54 events and
+branch counters. This is correctness/build evidence for `58105447`, with no
+new calibrated timing or risk measurement.
+
+New study SHA-256:
+`ff79d4d6385b7f52fece7a9d221af684d420be7b695c6a20ec6ab3875a1e7054`.
+New test SHA-256:
+`92ffa6d0a85225ac399521dcd8a730af13a88bbab8e126919c384b8c1aa36219`.
+New core archive SHA-256:
+`ec57765ac13d2e630e82443797b881f4d679ea528d688e78493a30dab31ce3c8`.
+The integration attachment retains source/dependency manifests, before/after
+object hashes, cache/compile commands, load snapshots, link maps and raw checks.
+
+Accepted #587/DAL-369 evidence covers the imported checkpoint, lifecycle and
+public binding contracts within its recorded source/configuration and numerical
+limits; that evidence and unchanged DAL-370 review are reused. No new review
+scope or production admission is inferred. Original 560 pairs remain bound to
+`f4681d6f`, repair 160 pairs to `d7f10b03`; the preceding eight CLI checks remain
+bound to `8734c491`. None measures this new binary's throughput. No seven-test,
+sanitizer, Python, full regression, nine-target or performance-matrix rerun is
+performed. Shared-host/cold-start limits, the general 2x whole-request no-go,
+weekly 1.29–1.58x historical result, fallback rejection, exact-BS/double scope
+and tree default remain unchanged. Current-head CI/Codacy and coordinator
+acceptance remain required before merge.
