@@ -133,7 +133,11 @@ TEST(PortfolioGroupingTest, TestSimulationContractsCannotBeMergedByGeometryAlone
              [](auto* x) { x->smooth_ = 0.02; }, [](auto* x) { x->compiled_ = true; }, [](auto* x) { x->lsmcBasisDegree_ = 2; },
              [](auto* x) { x->lsmcTrainingPaths_ = 10; }, [](auto* x) { x->lsmcValidationPaths_ = 10; }, [](auto* x) { x->lsmcRqmcReplicates_ = 2; },
              [](auto* x) { x->lsmcPolicyRiskMode_ = "RetrainedBump"; }, [](auto* x) { x->lsmcPolicyBumpRelative_ = 0.002; },
-             [](auto* x) { x->normalPrecision_ = "Precise"; }}) {
+             [](auto* x) { x->normalPrecision_ = "Precise"; }, [](auto* x) { x->lsmcTrainingMemoryMb_ = 64; },
+             [](auto* x) {
+                 x->lsmcTrainingMemoryMb_ = 64;
+                 x->lsmcCheckpointBlockEvents_ = 8;
+             }}) {
         auto simulation = base;
         change(&simulation);
         const auto other = PrepareScript(product, &model, valuation, simulation);

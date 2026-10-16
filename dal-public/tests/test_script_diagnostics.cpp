@@ -648,9 +648,10 @@ TEST(ScriptApiTest, TestSimulationEchoFieldSetMatchesAcrossSchemas) {
     ASSERT_STREQ(simulation["schema"].GetString(), "dal.script-simulation/1");
     for (const auto* json : {&valuation, &simulation}) {
         const auto& echo = (*json)["simulation"];
-        ASSERT_EQ(echo.MemberCount(), 12u);
+        ASSERT_EQ(echo.MemberCount(), 14u);
         for (const auto* field : {"rsg", "normal_precision", "use_bb", "enable_aad", "smooth", "compiled", "lsmc_basis_degree", "lsmc_training_paths",
-                                  "lsmc_validation_paths", "lsmc_rqmc_replicates", "lsmc_training_seed", "lsmc_pricing_seed"})
+                                  "lsmc_validation_paths", "lsmc_rqmc_replicates", "lsmc_training_seed", "lsmc_pricing_seed",
+                                  "lsmc_checkpoint_block_events", "lsmc_training_memory_mb"})
             ASSERT_TRUE(echo.HasMember(field)) << field;
         ASSERT_STREQ(echo["normal_precision"].GetString(), "Default");
         ASSERT_TRUE(echo["lsmc_training_paths"].IsNull());
@@ -658,6 +659,8 @@ TEST(ScriptApiTest, TestSimulationEchoFieldSetMatchesAcrossSchemas) {
         ASSERT_TRUE(echo["lsmc_rqmc_replicates"].IsNull());
         ASSERT_TRUE(echo["lsmc_training_seed"].IsNull());
         ASSERT_TRUE(echo["lsmc_pricing_seed"].IsNull());
+        ASSERT_TRUE(echo["lsmc_checkpoint_block_events"].IsNull());
+        ASSERT_TRUE(echo["lsmc_training_memory_mb"].IsNull());
     }
     ASSERT_TRUE(valuation["simulation"] == simulation["simulation"]);
 }

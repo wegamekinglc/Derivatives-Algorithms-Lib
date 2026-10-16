@@ -124,6 +124,12 @@ namespace Dal {
         }
 
         void ValidateSimulationSettings(const MonteCarloSettings_& settings) {
+            REQUIRE2(!settings.lsmcCheckpointBlockEvents_ || *settings.lsmcCheckpointBlockEvents_ > 0,
+                     "InvalidSetting: lsmcCheckpointBlockEvents must be positive", ScriptError_);
+            REQUIRE2(!settings.lsmcTrainingMemoryMb_ || *settings.lsmcTrainingMemoryMb_ > 0, "InvalidSetting: lsmcTrainingMemoryMb must be positive",
+                     ScriptError_);
+            REQUIRE2(!settings.lsmcCheckpointBlockEvents_ || settings.lsmcTrainingMemoryMb_,
+                     "InvalidSetting: lsmcCheckpointBlockEvents requires lsmcTrainingMemoryMb", ScriptError_);
             ValidateRNG(settings.rsg_);
             ValidateNormalPrecision(settings.normalPrecision_);
             ValidateSmoothing(settings.smooth_);

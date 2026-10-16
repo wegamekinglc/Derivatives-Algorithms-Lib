@@ -169,6 +169,8 @@ namespace Dal::Excel {
                            Field("lsmc_pricing_seed", OptionalCell(simulation.lsmcPricingSeed_)),
                            Field("lsmc_policy_risk_mode", simulation.lsmcPolicyRiskMode_),
                            Field("lsmc_policy_bump_relative", simulation.lsmcPolicyBumpRelative_),
+                           Field("lsmc_checkpoint_block_events", OptionalCell(simulation.lsmcCheckpointBlockEvents_)),
+                           Field("lsmc_training_memory_mb", OptionalCell(simulation.lsmcTrainingMemoryMb_)),
                            Field("today_fixing_policy", execution.todayFixingPolicy_),
                            Field("fixing_source", execution.fixingSource_),
                            Field("default_index", execution.productSettings_.defaultIndex_),
