@@ -23,6 +23,7 @@
 #include <dal/math/aad/detail/gradientbumps.hpp>
 #include <dal/math/aad/native.hpp>
 #include <dal/math/aad/tapecapacity.hpp>
+#include <dal/math/buffercapacity.hpp>
 #include <dal/math/matrix/cholesky.hpp>
 #include <dal/math/matrix/squarematrix.hpp>
 #include <dal/script/lsmc.hpp>
@@ -756,6 +757,8 @@ namespace Dal::Script {
             const Vector_<ExerciseRegression_>* policy_ = nullptr; //  pricing stops evaluating after the first hard exercise
             std::optional<uint64_t> scrambleKey_;
             const Vector_<>* constValues_ = nullptr; //  optional bumped script constants for policy training
+            LsmcDiagnostics_* trainingDiagnostics_ = nullptr;
+            bool policyBumpTraining_ = false;
 
             const ScriptProduct_& Product() const { return prepared_.Product(); }
             const ObservationPlan_& Plan() const { return prepared_.Plan(); }
@@ -1251,6 +1254,30 @@ namespace Dal::Script {
             return SelectRegression(DayRows(training, day), sums[0], training.chunks_, DayRows(*blocks[1], day), sums[1].count_, degree);
         }
 
+        void SweepTrainingEvents(const LsmcPlan_& scan,
+                                 const LsmcPlan_& original,
+                                 const Vector_<>& eventNumeraire,
+                                 size_t first,
+                                 size_t last,
+                                 int degree,
+                                 const Vector_<BackwardRows_*>& blocks,
+                                 Vector_<ExerciseRegression_>* regressions) {
+            for (size_t ei = last; ei-- > first;) {
+                const bool hasNext = ei + 1 < scan.eventToExercise_.size();
+                const double dNext = hasNext && !eventNumeraire.empty() ? eventNumeraire[ei] / eventNumeraire[ei + 1] : 1.0;
+                std::array<IncludedSums_, 2> sums;
+                for (size_t b = 0; b < blocks.size(); ++b)
+                    sums[b] = SweepAndClear(scan, ei, dNext, hasNext, blocks[b]);
+                const size_t day = scan.eventToExercise_[ei];
+                if (day == NO_SLOT)
+                    continue;
+                auto& regression = (*regressions)[original.eventToExercise_[ei]];
+                regression = FitExerciseDay(blocks, sums, day, degree);
+                for (BackwardRows_* rows : blocks)
+                    DeferDecision(regression, day, rows);
+            }
+        }
+
         Vector_<ExerciseRegression_> RunBackwardPhase(const LsmcContext_& ctx,
                                                       const Vector_<>& eventNumeraire,
                                                       size_t nPaths,
@@ -1277,19 +1304,7 @@ namespace Dal::Script {
                 return AAD::ProfilingMemoryStatistics_{{}, {}, {}, regressionArrays};
             });
 #endif
-            for (size_t ei = events.size(); ei-- > 0;) {
-                const bool hasNext = ei + 1 < events.size();
-                const double dNext = hasNext && !eventNumeraire.empty() ? eventNumeraire[ei] / eventNumeraire[ei + 1] : 1.0;
-                std::array<IncludedSums_, 2> sums;
-                for (size_t b = 0; b < blocks.size(); ++b)
-                    sums[b] = SweepAndClear(scan, ei, dNext, hasNext, blocks[b]);
-                const size_t day = scan.eventToExercise_[ei];
-                if (day == NO_SLOT)
-                    continue;
-                regressions[day] = FitExerciseDay(blocks, sums, day, degree);
-                for (BackwardRows_* rows : blocks)
-                    DeferDecision(regressions[day], day, rows);
-            }
+            SweepTrainingEvents(scan, scan, eventNumeraire, 0, events.size(), degree, blocks, &regressions);
             team.Complete();
             return regressions;
         }
@@ -1299,8 +1314,14 @@ namespace Dal::Script {
             Vector_<ExerciseRegression_> regressions_;
         };
 
+#include "lsmccheckpoint.inc"
+
         TrainingOutcome_ TrainFrozenPolicy(LsmcContext_& ctx, const PathCounts_& counts) {
             AAD::ProfilingSpan_ training(AAD::AADProfilingPhase_::Value_::LSM_TRAIN);
+            if (ctx.prepared_.Simulation().lsmcTrainingMemoryMb_)
+                return TrainWithMemoryBudget(ctx, counts);
+            if (ctx.storage_.hByDay_.Rows() == 0)
+                ctx.storage_ = MakeStorage(ctx.scan_, counts.training_, ctx.Plan().RegressionFeatureCount(), !ctx.model_->NumeraireIsDeterministic());
             RunForwardPhase(ctx, BatchPlan_(counts.training_, 1));
             auto eventNumeraire = ctx.model_->NumeraireIsDeterministic() ? SampleGridNumeraires(ctx) : Vector_<>();
             LsmcStorage_ validationStorage;
@@ -1857,8 +1878,9 @@ namespace Dal::Script {
             auto model = baseModel.Clone();
             *model->Parameters()[parameter] += bump;
             model->Init(prepared.TimeLine(), prepared.DefLine());
-            auto storage = MakeStorage(scan, counts.training_, prepared.Plan().RegressionFeatureCount(), !model->NumeraireIsDeterministic());
+            LsmcStorage_ storage;
             LsmcContext_ ctx{prepared, model.get(), scan, storage, hardCompiled, nullptr, trainingKey, constants};
+            ctx.policyBumpTraining_ = true;
             return TrainFrozenPolicy(ctx, counts).regressions_;
         }
 
@@ -1873,8 +1895,9 @@ namespace Dal::Script {
                                                                const Vector_<>* baseConstants = nullptr) {
             auto constants = baseConstants ? *baseConstants : prepared.Product().ConstVarValues();
             constants[constant] += bump;
-            auto storage = MakeStorage(scan, counts.training_, prepared.Plan().RegressionFeatureCount(), !model->NumeraireIsDeterministic());
+            LsmcStorage_ storage;
             LsmcContext_ ctx{prepared, model, scan, storage, hardCompiled, nullptr, trainingKey, &constants};
+            ctx.policyBumpTraining_ = true;
             return TrainFrozenPolicy(ctx, counts).regressions_;
         }
 
@@ -2056,7 +2079,7 @@ namespace Dal::Script {
         Vector_<ExerciseRegression_>
         TrainLsmcCurvaturePolicy(const LsmcCurvatureContext_& ctx, AAD::Model_<double>* model, const Vector_<>& constants, const String_& position) {
             try {
-                auto storage = MakeStorage(ctx.scan_, ctx.counts_.training_, ctx.prepared_.Plan().RegressionFeatureCount(), false);
+                LsmcStorage_ storage;
                 LsmcContext_ training{ctx.prepared_, model, ctx.scan_, storage, ctx.hardCompiled_, nullptr, ctx.trainingKey_, &constants};
                 return TrainFrozenPolicy(training, ctx.counts_).regressions_;
             } catch (const Exception_& error) {
@@ -2135,6 +2158,8 @@ namespace Dal::Script {
     }
 
     SimResults_ MCLsmcSimulation(const PreparedScript_& prepared, AAD::Model_<double>* mdl, size_t nPaths, LsmcDiagnostics_* diagnostics) {
+        if (diagnostics)
+            *diagnostics = {};
         AAD::ProfilingSpan_ prepare(AAD::AADProfilingPhase_::Value_::PREPARE);
         const auto& product = prepared.Product();
         const auto& simulation = prepared.Simulation();
@@ -2144,12 +2169,13 @@ namespace Dal::Script {
 
         const auto scan = ScanEvents(product.Events(), simulation.smooth_);
         const auto counts = LsmcPathCounts(simulation, nPaths);
-        auto storage = MakeStorage(scan, counts.training_, prepared.Plan().RegressionFeatureCount(), !mdl->NumeraireIsDeterministic());
+        LsmcStorage_ storage;
         const BatchPlan_ batchPlan(nPaths, 1);
         const ScriptCompiled_* compiled = simulation.compiled_.value_or(false) ? &prepared.CompiledProgram() : nullptr;
         const std::optional<uint64_t> trainingKey =
             counts.replicates_ > 1 ? std::optional<uint64_t>(LsmcScrambleKey(false, simulation.lsmcTrainingSeed_.value_or(0))) : std::nullopt;
         LsmcContext_ ctx{prepared, mdl, scan, storage, compiled, nullptr, trainingKey};
+        ctx.trainingDiagnostics_ = diagnostics;
         prepare.Finish();
         const auto trained = TrainFrozenPolicy(ctx, counts);
         storage = LsmcStorage_();
@@ -2194,7 +2220,7 @@ namespace Dal::Script {
 
         const auto scan = ScanEvents(product.Events(), simulation.smooth_);
         const auto counts = LsmcPathCounts(simulation, nPaths);
-        auto storage = MakeStorage(scan, counts.training_, prepared.Plan().RegressionFeatureCount(), !doubleModel->NumeraireIsDeterministic());
+        LsmcStorage_ storage;
         const BatchPlan_ batchPlan(nPaths, 1);
         std::optional<ScriptCompiled_> hardCompiled;
         if (simulation.compiled_.value_or(false))

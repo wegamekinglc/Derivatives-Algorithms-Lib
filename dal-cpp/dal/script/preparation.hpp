@@ -85,6 +85,10 @@ namespace Dal::Script {
             REQUIRE2(compiled_ && fuzzy == simulation_.enableAad_, "UnsupportedExecutionMode: compilation differs from preparation", ScriptError_);
             return *compiled_;
         }
+        [[nodiscard]] const ScriptCompiled_& HistoricalCompiledProgram() const {
+            REQUIRE2(pastCompiled_, "PreparationRequired: historical bytecode is not prepared", ScriptError_);
+            return *pastCompiled_;
+        }
         [[nodiscard]] ScriptCompiled_ Compile(bool fuzzy = false) const {
             REQUIRE2(compiled_ && fuzzy == simulation_.enableAad_, "UnsupportedExecutionMode: compilation differs from preparation", ScriptError_);
             return *compiled_;

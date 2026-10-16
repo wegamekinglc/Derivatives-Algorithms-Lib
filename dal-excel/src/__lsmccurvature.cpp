@@ -450,15 +450,16 @@ namespace Dal {
         using namespace Excel;
         REQUIRE(simulation, "MonteCarloSettings_Get_Configuration; simulation handle is null");
         const auto& value = simulation->val_;
-        *configuration =
-            FieldCells({Field("method", value.rsg_), Field("use_bb", value.useBb_), Field("enable_aad", value.enableAad_),
-                        Field("smooth", value.smooth_), Field("compiled", OptionalCell(value.compiled_)),
-                        Field("lsmc_basis_degree", value.lsmcBasisDegree_), Field("lsmc_training_paths", OptionalCell(value.lsmcTrainingPaths_)),
-                        Field("lsmc_validation_paths", OptionalCell(value.lsmcValidationPaths_)),
-                        Field("lsmc_rqmc_replicates", OptionalCell(value.lsmcRqmcReplicates_)),
-                        Field("lsmc_training_seed", OptionalCell(value.lsmcTrainingSeed_)),
-                        Field("lsmc_pricing_seed", OptionalCell(value.lsmcPricingSeed_)), Field("lsmc_policy_risk_mode", value.lsmcPolicyRiskMode_),
-                        Field("lsmc_policy_bump_relative", value.lsmcPolicyBumpRelative_), Field("normal_precision", value.normalPrecision_)});
+        *configuration = FieldCells(
+            {Field("method", value.rsg_), Field("use_bb", value.useBb_), Field("enable_aad", value.enableAad_), Field("smooth", value.smooth_),
+             Field("compiled", OptionalCell(value.compiled_)), Field("lsmc_basis_degree", value.lsmcBasisDegree_),
+             Field("lsmc_training_paths", OptionalCell(value.lsmcTrainingPaths_)),
+             Field("lsmc_validation_paths", OptionalCell(value.lsmcValidationPaths_)),
+             Field("lsmc_rqmc_replicates", OptionalCell(value.lsmcRqmcReplicates_)),
+             Field("lsmc_training_seed", OptionalCell(value.lsmcTrainingSeed_)), Field("lsmc_pricing_seed", OptionalCell(value.lsmcPricingSeed_)),
+             Field("lsmc_policy_risk_mode", value.lsmcPolicyRiskMode_), Field("lsmc_policy_bump_relative", value.lsmcPolicyBumpRelative_),
+             Field("normal_precision", value.normalPrecision_), Field("lsmc_checkpoint_block_events", OptionalCell(value.lsmcCheckpointBlockEvents_)),
+             Field("lsmc_training_memory_mb", OptionalCell(value.lsmcTrainingMemoryMb_))});
     }
 
     void BlackScholesLsmcPlan_Get_Product(const Handle_<StorableBlackScholesLsmcPlan_>& plan, Handle_<ScriptProductData_>* product) {
