@@ -98,15 +98,20 @@ so separate production baseline/head builds are unnecessary here. This is an
 informational experiment outside the nine-target regression gate.
 
 Current source also incorporates master
-`94311ed8facf0a44bffe41af15011b54abebd8db` through merge
-`045b5813a544265d08a9f19e0253318d81394233`. The research C++/CMake and collector
-match approved `3ddd76ba`; AAD, BS and script implementations are unchanged.
-The dependency update adds block normal generation for 52-dimensional Fast
-Sobol and moves scalar inverse-CDF code with per-source contraction disabled.
+`127fec94f709d1d67b8d4d1c1eb5437c75fbddca` through conflict-free merge
+`a9dc1ffec7db267c6f8cadc9d9058645386e8183`. The research C++/CMake, collector
+and tests match approved `3ddd76ba`. Direct dependencies now include retained
+thread-tape tracking, passive BS restart helpers and optional LSMC checkpoint
+settings; public script diagnostics also expose those settings. The study uses
+ordinary BS paths and its own unchanged JSON schema. Fast Sobol retains block
+normal generation for 52-dimensional paths and per-source contraction controls.
 The integrated Release rebuild passes the same 214-path/257-path correctness
-checks and an additional 257-path crossing-barrier comparison across all four
-modes, with diagnostics both off and on. Its binary hash is
-`d7763e3acfcfea10326f354af56ecce3f27e99c861a6462ec69fe5a5e6c02f5e`.
+checks and eight additional 257-path crossing-barrier outputs across all four
+modes, with diagnostics both off and on. The collector explicitly accepts the
+verification result and validates all output identities, six risks, phase/memory
+fields and mode counts. The new binary hash is
+`56dc0f42eb9de479a739591d444517c7844f4b38856a58a0080d46305cfd7fa0`.
+Build configuration and dependency pins match the accepted standalone setup.
 This is correctness evidence, not a new timing study. Saved timings, memory,
 hit rates and percentage changes retain their original source/binary identity;
 they do not establish performance on the integrated dependency build.
