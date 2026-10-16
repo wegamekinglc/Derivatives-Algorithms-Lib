@@ -424,6 +424,27 @@ also reuses worker state and folds batches in the same order. Thus PV and every
 thread counts in AAD mode as well, and historical fixings replay into the
 seed exactly as for non-exercise products.
 
+For native Black-Scholes and a hybrid containing one local-volatility equity
+and one flat deterministic domestic rate, ordinary `RetrainedBump` valuation
+reuses training and held-out Gaussian vectors across inputs. One call owns
+at most 32 MiB of additional double storage, independent of the number of
+local-volatility grid risks. The first bumped fit captures the existing
+post-bridge vectors; later fits read the same rows. Training rows start at
+zero, held-out rows at the training count. Pricing streams and their offsets
+are unchanged and are never stored in this cache.
+
+The cache belongs to the immutable prepared request and its training scramble
+key, random method, normal precision, bridge setting, and full path counts.
+Each bumped model must retain the same simulation dimension and factor layout;
+otherwise that fit generates its own vectors. Exceeding 32 MiB or failing the
+optional allocation uses the existing uncached path without reducing training.
+Storage is released after the call, including failed fits after their tasks
+have drained. The cache adds no tasks, tapes, or simultaneous policies.
+Its numeric capacity is included in regression-array profiling. Other model
+compositions, requests with an explicit LSMC training memory budget (including
+checkpoint training), and the budgeted LSMC curvature caller retain uncached training;
+the curvature request's existing numeric-payload accounting is unchanged.
+
 ## LSMC Policy Sensitivity Validation
 
 `dal-python/benchmarks/compare_lsmc_policy_sensitivities.py` reproduces a

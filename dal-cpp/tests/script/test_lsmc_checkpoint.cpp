@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstring>
 #include <exception>
+#include <optional>
 #include <string>
 #include <thread>
 
@@ -148,16 +149,18 @@ TEST(LsmcCheckpointTest, TestFrozenAndRetrainedEveryNamedRiskParity) {
         Dal::AAD::BlackScholes_<double> model(100.0, 0.2, 0.05, 0.02);
         const auto full = CheckpointPrepare(product, &model, simulation);
         const auto expected = Dal::Script::MCLsmcAadSimulation(full, data, 129);
-        simulation.lsmcCheckpointBlockEvents_ = 8;
-        simulation.lsmcTrainingMemoryMb_ = 64;
-        const auto prepared = CheckpointPrepare(product, &model, simulation);
-        const auto actual = Dal::Script::MCLsmcAadSimulation(prepared, data, 129);
-        ASSERT_EQ(CheckpointBits(actual.aggregated_), CheckpointBits(expected.aggregated_));
-        ASSERT_EQ(actual.names_, expected.names_);
-        ASSERT_EQ(actual.names_, (Vector_<String_>{"spot", "vol", "rate", "div", "K"}));
-        ASSERT_EQ(actual.risks_.size(), 5);
-        for (size_t j = 0; j < actual.risks_.size(); ++j)
-            ASSERT_EQ(CheckpointBits(actual.risks_[j]), CheckpointBits(expected.risks_[j])) << actual.names_[j];
+        for (const std::optional<int> block : {std::optional<int>{}, std::optional<int>{8}}) {
+            simulation.lsmcCheckpointBlockEvents_ = block;
+            simulation.lsmcTrainingMemoryMb_ = 64;
+            const auto prepared = CheckpointPrepare(product, &model, simulation);
+            const auto actual = Dal::Script::MCLsmcAadSimulation(prepared, data, 129);
+            ASSERT_EQ(CheckpointBits(actual.aggregated_), CheckpointBits(expected.aggregated_));
+            ASSERT_EQ(actual.names_, expected.names_);
+            ASSERT_EQ(actual.names_, (Vector_<String_>{"spot", "vol", "rate", "div", "K"}));
+            ASSERT_EQ(actual.risks_.size(), 5);
+            for (size_t j = 0; j < actual.risks_.size(); ++j)
+                ASSERT_EQ(CheckpointBits(actual.risks_[j]), CheckpointBits(expected.risks_[j])) << actual.names_[j];
+        }
     }
 }
 
