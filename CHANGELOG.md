@@ -18,6 +18,13 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-16
 
+- **Bounded LSMC training opt-in** — compiled, single-worker exact Black–Scholes
+  training can restore complete passive state in time blocks, preserving the
+  native policy and named risks. Explicit memory admission includes historical
+  compiled programs, QR, temporary capacities and retained AAD tape, with budgeted
+  full-storage fallback.
+  See [training checkpoints](docs/methodology/monte-carlo/lsm.md#opt-in-training-checkpoints).
+
 - **Fast normal blocks** — Sobol and pseudo-random normal fills use runtime-selected
   AVX2 central-region conversion on x86-64, with SSE2/scalar fallbacks and unchanged
   uniform streams. Scalar and vector inverse-normal arithmetic disable contraction

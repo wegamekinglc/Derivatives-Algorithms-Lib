@@ -111,6 +111,13 @@ namespace Dal::Script {
     };
 
     struct LsmcDiagnostics_ {
+        bool checkpointTraining_ = false;
+        size_t trainingAllocationBound_ = 0;
+        size_t trainingAllocationPeak_ = 0;
+        size_t retainedTapeBytes_ = 0;
+        size_t trainingNormalVectors_ = 0;
+        size_t trainingModelSteps_ = 0;
+        size_t trainingScriptEvents_ = 0;
         Vector_<ExerciseEventStats_> events_;
         double payoffSum_ = 0.0;
         double payoffSumSq_ = 0.0;
