@@ -1,0 +1,16 @@
+cmake_minimum_required(VERSION 3.21)
+project(primal_replay_study LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+foreach(component IN ITEMS DAL_BUILD_PUBLIC DAL_BUILD_PYTHON DAL_BUILD_EXCEL DAL_BUILD_EXCEL_PORTABLE_TESTS
+        DAL_CPP_BUILD_TESTS DAL_CPP_BUILD_EXAMPLES DAL_CPP_BUILD_BENCHMARKS)
+    set(${component} OFF CACHE BOOL "" FORCE)
+endforeach()
+add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../../.." dal)
+add_executable(primal_replay_study replaystudy.cpp)
+target_link_libraries(primal_replay_study PRIVATE DAL::cpp)
+dal_apply_platform_options(primal_replay_study)
+enable_testing()
+add_test(NAME primal_replay_correctness COMMAND primal_replay_study --mode verify)
