@@ -1,6 +1,8 @@
 {
   "baseline": "3be8dab9997646c040db209eaa999a459d556d59",
   "sampled_overlay_sha256": "4cd39a9bd8c7815b66b85b72fbc41af978478c96b7a279b1bbe61605444d4022",
+  "sampled_collector_sha256": "84787259591bf060c97590738a4e6686623bf0eac2dae6b13a1a6477a5fa83c3",
+  "final_collector_sha256": "8afaf033201133415a179b96b0e45a72e1ac12ad3c5497a3bde7c300f5329ee5",
   "final_overlay_sha256": "7ae78663078bab9d6be3ff9f54c6dedf76af36a539981a8a2a1b85ec3d5df724",
   "timed_head_binary_identity_after_rebuild": {
     "chain": {
@@ -590,10 +592,10 @@
   "experimental_files_sha256": {
     "README.md": "ca4f23a086c7976c1bb207fd289450c5af2c9d05b3fab338d1a13ba01632ac0f",
     "CMakeLists.txt": "735cb4321613e551febe5925f1f862892cbd85acf91142e6692646b0c0e1c8b0",
-    "prepare.py": "f59f17eee1e49afb726028b6120051699c684726bb7a8edc61710e67823d25fd",
+    "prepare.py": "aa28f79b39bff896617c08b6da1fe58e16a3869653fef1aa65292eb72f983b52",
     "test_sink.cpp": "446281181b9d137fedbc88038920df86b5f9ac91343f699f40f30ec72035e80a",
-    "test_runstudy.py": "18cea2d39f8b1c83bbe60ba9a2f2be5a609656a86f5accea30c5c0ce7784098d",
-    "runstudy.py": "84787259591bf060c97590738a4e6686623bf0eac2dae6b13a1a6477a5fa83c3",
+    "test_runstudy.py": "0481d3b4f863b73c66072f9e8f3528e947fc6b06deabc9934144b2f1426acd91",
+    "runstudy.py": "8afaf033201133415a179b96b0e45a72e1ac12ad3c5497a3bde7c300f5329ee5",
     "native-sink.patch": "7ae78663078bab9d6be3ff9f54c6dedf76af36a539981a8a2a1b85ec3d5df724",
     "sinkstudy.cpp": "b420bcd4af5c27a473dad1fd28063c58c1746fbca6269ffd5ebcbd48ce8a0a8b"
   },

@@ -2,7 +2,7 @@
 """Guard evidence rejection and paired reduction, including optimized Python."""
 
 import unittest
-from runstudy import fingerprint, require, summarize
+from runstudy import append_measurement, fingerprint, production_measurement, require, summarize
 
 
 class SinkStudyEvidenceTest(unittest.TestCase):
@@ -27,6 +27,24 @@ class SinkStudyEvidenceTest(unittest.TestCase):
             result = summarize({"case": {"base": base, "head": [[value] + [200] * 9 for value in rounds]}})[0]
             self.assertEqual(result["verdict"], verdict)
             self.assertEqual(result["base_min_ms"], 0.0001)
+
+    def test_wrong_workload_or_missing_results_reject(self):
+        request = {"record": "request", "paths_per_output": 32, "threads": 1, "wall_ns": 100}
+        result = {"record": "result", "pv": 2.0}
+        self.assertEqual(production_measurement([request, result], "case", 32, 1)[0], {"wall_ns": 100})
+        for size, threads in [(31, 1), (32, 4)]:
+            with self.assertRaises(RuntimeError):
+                production_measurement([request, result], "case", size, threads)
+        with self.assertRaises(RuntimeError):
+            production_measurement([request], "case", 32, 1)
+
+    def test_cross_side_bit_mismatch_and_zero_duration_reject(self):
+        samples, fingerprints = {}, {}
+        append_measurement(samples, fingerprints, "case", "base", 0, {"wall_ns": 100}, [1.0])
+        with self.assertRaises(RuntimeError):
+            append_measurement(samples, fingerprints, "case", "head", 0, {"wall_ns": 100}, [1.0000000000000002])
+        with self.assertRaises(RuntimeError):
+            append_measurement(samples, fingerprints, "case", "head", 0, {"wall_ns": 0}, [1.0])
 
 
 if __name__ == "__main__":

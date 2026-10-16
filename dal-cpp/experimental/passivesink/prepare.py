@@ -8,7 +8,10 @@ import subprocess  # nosec B404: git argv only, without shell interpretation
 
 
 def git(repo, *arguments):
-    return subprocess.check_output(["git", "-C", str(repo), *arguments], text=True).strip()  # nosemgrep # nosec B603
+    executable = shutil.which("git")
+    if executable is None:
+        raise RuntimeError("git executable is required")
+    return subprocess.check_output([executable, "-C", str(repo), *arguments], text=True).strip()  # nosemgrep # nosec B603
 
 
 def dependencies(repo, commit):

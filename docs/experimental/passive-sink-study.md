@@ -120,7 +120,7 @@ No production-memory threshold is inferred from the synthetic graph reductions.
   preserve the corresponding result fingerprints. Three chain workloads preserve
   their value and gradient fingerprints and independently check the analytic
   chain result.
-- The collector passes three meaningful rejection/reduction tests in ordinary
+- The collector passes five meaningful rejection/reduction tests in ordinary
   Python and with `-O`: adjacent doubles/signed zero, missing processes/rounds,
   nonfinite evidence, and sustained two-round verdicts. Preparation is smoke-tested
   by creating fresh worktrees and applying the overlay.
@@ -128,6 +128,10 @@ No production-memory threshold is inferred from the synthetic graph reductions.
   Both timed head executables are rebuilt and remain byte-identical to the sampled
   executables. The original sampled overlay and final overlay hashes, plus the
   executable identity proof, are retained. The valid timing cohort is reused.
+- The collector's command resolution and function boundaries are tightened for
+  Codacy after sampling. The original collector is retained in the raw evidence;
+  the final collector reproduces all thirteen reductions, and an offline audit
+  rechecks all native result fingerprints. Timed native code is unchanged.
 
 The final cohort has 414 successful commands and thirteen paired timing metrics.
 Raw stdout/stderr, resource records, load snapshots, patches, source/configuration

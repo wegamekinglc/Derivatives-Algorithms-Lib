@@ -8,6 +8,7 @@ import json
 import math
 import os
 from pathlib import Path
+import shutil
 import struct
 import subprocess  # nosec B404: explicitly selected local build-tree executables, without a shell
 import sys
@@ -58,16 +59,27 @@ def validate_builds(run, binaries, root):
                                                  "8", "aad", "compiled", "structure", "1", grid, "0", "1"])
 
 
+def round_minima(rounds, name):
+    require(len(rounds) == 2, f"Incomplete rounds: {name}")
+    require(all(len(values) == 10 for values in rounds), f"Incomplete sample set: {name}")
+    return list(map(min, rounds))
+
+
+def verdict(deltas):
+    if all(delta > 4 for delta in deltas):
+        return "regression"
+    if all(delta < -4 for delta in deltas):
+        return "improvement"
+    return "no-change"
+
+
 def summarize(samples):
     results = []
     for name, data in samples.items():
-        require(all(len(round_values) == 10 for side in data.values() for round_values in side), f"Incomplete sample set: {name}")
-        require(all(len(side) == 2 for side in data.values()), f"Incomplete rounds: {name}")
-        base, head = [min(r) for r in data["base"]], [min(r) for r in data["head"]]
+        base, head = round_minima(data["base"], name), round_minima(data["head"], name)
         deltas = [(h / b - 1) * 100 for b, h in zip(base, head)]
-        verdict = "regression" if all(d > 4 for d in deltas) else "improvement" if all(d < -4 for d in deltas) else "no-change"
         results.append({"case": name, "base_min_ms": min(base) / 1e6, "sink_min_ms": min(head) / 1e6,
-                        "round_1_percent": deltas[0], "round_2_percent": deltas[1], "verdict": verdict})
+                        "round_1_percent": deltas[0], "round_2_percent": deltas[1], "verdict": verdict(deltas)})
     return results
 
 
@@ -75,6 +87,56 @@ def verify_binaries(binaries, identity):
     for side, paths in binaries.items():
         for key, path in paths.items():
             require(digest(path) == identity[side][key]["sha256"], "Binary changed during sampling")
+
+
+def system_output(program, *arguments):
+    executable = shutil.which(program)
+    require(executable is not None, f"Required system tool missing: {program}")
+    # Only fixed git/ps operations inspect the selected local worktree or process list.
+    return subprocess.check_output([executable, *map(str, arguments)], text=True).strip()  # nosemgrep # nosec B603
+
+
+def executable_identity(binaries):
+    return {side: {key: {"path": str(path), "sha256": digest(path)} for key, path in paths.items()}
+            for side, paths in binaries.items()}
+
+
+def measurement_command(binaries, job, side):
+    _, kind, scenario, size, engine, _ = job
+    if kind == "production":
+        grid = "8" if scenario == "local-vol" else "0"
+        return [binaries[side][kind], "--production-profile", scenario, str(size), "aad", engine, "cold", "1", grid, "0", "1"]
+    return [binaries[side][kind], scenario, str(size)]
+
+
+def production_measurement(rows, name, size, threads):
+    request = next(row for row in rows if row["record"] == "request")
+    values = [row for row in rows if row["record"] == "result"]
+    require(values and request["paths_per_output"] == size and request["threads"] == threads, f"Wrong workload: {name}")
+    return {"wall_ns": request["wall_ns"]}, values
+
+
+def parse_measurement(text, job, side, output):
+    name, kind, _, size, _, threads = job
+    rows = [json.loads(line, parse_int=float) for line in text.splitlines() if line.startswith("{")]
+    if kind == "production":
+        return production_measurement(rows, name, size, threads)
+    require(len(rows) == 1, f"Wrong chain output: {name}")
+    row = rows[0]
+    (output / f"{name}-{side}-structure.json").write_text(json.dumps(row, indent=2) + "\n")
+    return {key: row[key] for key in ["record_ns", "reverse_ns"]}, {key: row[key] for key in ["value", "gradient"]}
+
+
+def append_measurement(samples, fingerprints, name, side, round_index, metrics, values):
+    current = fingerprint(values)
+    if name in fingerprints:
+        require(current == fingerprints[name], f"PV/risk bit mismatch: {name}/{side}")
+    else:
+        fingerprints[name] = current
+    for metric, value in metrics.items():
+        require(value > 0, f"Invalid elapsed value: {name}/{metric}")
+        entry = samples.setdefault(f"{name}/{metric}", {"base": [[], []], "head": [[], []]})
+        entry[side][round_index].append(value)
 
 
 def main():
@@ -94,8 +156,7 @@ def main():
         "production": root / f"{side}-build/dal/dal-cpp/benchmarks/script_mc_perf/script_mc_perf",
         "tests": root / f"{side}-build/passive_sink_tests",
     } for side in ["base", "head"]}
-    identity = {side: {key: {"path": str(path), "sha256": digest(path)} for key, path in paths.items()}
-                for side, paths in binaries.items()}
+    identity = executable_identity(binaries)
     commands, samples, fingerprints = [], {}, {}
 
     def run(label, command, threads=1):
@@ -123,48 +184,23 @@ def main():
     validate_builds(run, binaries, root)
     jobs = selected_jobs()
     environment = {"executables": identity, "cpus": allowed[:4], "rounds": 2, "process_samples_per_side_per_round": 10,
-                   "reduction": "min", "threshold_percent": 4, "source_base": subprocess.check_output(
-                       ["git", "-C", str(root / "base-source"), "rev-parse", "HEAD"], text=True).strip(),
+                   "reduction": "min", "threshold_percent": 4,
+                   "source_base": system_output("git", "-C", root / "base-source", "rev-parse", "HEAD"),
                    "overlay_sha256": digest(Path(__file__).with_name("native-sink.patch")),
                    "uname": list(os.uname())}
     (output / "environment.json").write_text(json.dumps(environment, indent=2) + "\n")
 
     def collect(round_index, sample_index, job, side):
-        name, kind, scenario, size, engine, threads = job
-        if kind == "production":
-            grid = "8" if scenario == "local-vol" else "0"
-            command = [binaries[side][kind], "--production-profile", scenario, str(size), "aad", engine, "cold", "1", grid, "0", "1"]
-        else:
-            command = [binaries[side][kind], scenario, str(size)]
+        name, _, _, _, _, threads = job
+        command = measurement_command(binaries, job, side)
         text = run(f"r{round_index}-s{sample_index}-{name}-{side}", command, threads)
-        rows = [json.loads(line, parse_int=float) for line in text.splitlines() if line.startswith("{")]
-        if kind == "production":
-            request = next(row for row in rows if row["record"] == "request")
-            values = [row for row in rows if row["record"] == "result"]
-            require(values and request["paths_per_output"] == size and request["threads"] == threads, f"Wrong workload: {name}")
-            metrics = {"wall_ns": request["wall_ns"]}
-        else:
-            require(len(rows) == 1, f"Wrong chain output: {name}")
-            row = rows[0]
-            metrics = {key: row[key] for key in ["record_ns", "reverse_ns"]}
-            values = {key: row[key] for key in ["value", "gradient"]}
-            (output / f"{name}-{side}-structure.json").write_text(json.dumps(row, indent=2) + "\n")
-        current = fingerprint(values)
-        if name in fingerprints:
-            require(current == fingerprints[name], f"PV/risk bit mismatch: {name}/{side}")
-        else:
-            fingerprints[name] = current
-        for metric, value in metrics.items():
-            require(value > 0, f"Invalid elapsed value: {name}/{metric}")
-            key = f"{name}/{metric}"
-            entry = samples.setdefault(key, {"base": [[], []], "head": [[], []]})
-            entry[side][round_index].append(value)
+        metrics, values = parse_measurement(text, job, side, output)
+        append_measurement(samples, fingerprints, name, side, round_index, metrics, values)
         (output / "raw-samples.json").write_text(json.dumps(samples, indent=2) + "\n")
         (output / "fingerprints.json").write_text(json.dumps(fingerprints, indent=2) + "\n")
 
     for round_index in range(2):
-        (output / f"load-round-{round_index}.txt").write_text(subprocess.check_output(
-            ["ps", "-eo", "pid,comm,pcpu,pmem,args", "--sort=-pcpu"], text=True))
+        (output / f"load-round-{round_index}.txt").write_text(system_output("ps", "-eo", "pid,comm,pcpu,pmem,args", "--sort=-pcpu"))
         for sample_index in range(10):
             for job in jobs:
                 order = ["base", "head"] if (round_index + sample_index) % 2 == 0 else ["head", "base"]
