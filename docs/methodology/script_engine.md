@@ -1381,7 +1381,7 @@ generator in `dal-cpp/tests/script/test_compile_parity_fuzz.cpp`). The benchmark
 `dal-cpp/benchmarks/script_mc_perf` compares `compiled=false` and
 `compiled=true` runs across simple and schedule-heavy products for both
 `double` and `AAD::Number_`. Its optional `--lsmc-replay TRAINING PRICING
-1W|1CD hard|aad bs|local_vol tree|compiled [deadfix]` mode runs one valuation
+1W|1CD hard|aad bs|local_vol tree|compiled [deadfix] [retrained]` mode runs one valuation
 per process, printing elapsed time, PV, and AAD risks so paired runs can
 compare equal budgets and peak process memory. The `deadfix` workload puts
 dead future FIX requests on each exercise row to measure observation pruning.
