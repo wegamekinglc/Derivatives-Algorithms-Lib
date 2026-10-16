@@ -29,6 +29,7 @@
 #include <dal/time/dateincrement.hpp>
 #include <dal/time/schedules.hpp>
 
+#include "compiledsoaprofile.hpp"
 #include "correlatedbsperf.hpp"
 #include "gsreuropeanperf.hpp"
 #include "gsrperf.hpp"
@@ -337,6 +338,8 @@ int main(int argc, char** argv) {
     std::cout.rdbuf(startupOutput);
     Global::Dates_::SetEvaluationDate(Date_(2024, 1, 1));
     if (argc > 1) {
+        if (std::string(argv[1]) == "--compiled-soa")
+            return RunCompiledSoaProfile(argc - 1, argv + 1);
         if (std::string(argv[1]) == "--lsmc-training-sample")
             return RunLsmcTrainingSample(argc, argv, BuildBermudanExerciseProduct);
         if (std::string(argv[1]) == "--rng-policy")
