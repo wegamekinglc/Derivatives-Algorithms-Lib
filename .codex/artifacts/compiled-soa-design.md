@@ -1,14 +1,16 @@
 # Compiled double SoA study (DAL-357 / #576 / WP-11)
 
-Status: measured isolated research prototype; DAL-370's incremental approval is
+Status: historical measured isolated research prototype; the approved production
+batch is controlled by [the rollout design](compiled-soa-rollout.md).
+DAL-370's incremental approval is
 accepted. The branch includes master `4cb3064e`; its isolated replay research
 does not change this study's executable inputs, as audited below. The full study
 belongs to `f4681d6f`; the repaired source has
 separate, narrowly scoped evidence. Neither timing batch measures the integrated
 binary.
-The general 2x whole-request target is a no-go for the weekly barrier workload.
-This artifact controls the active research decision.
-It adds no public feature and changes neither the default tree engine nor the
+The historical general 2x whole-request target was not met for the weekly
+barrier workload; it is not an adoption condition for the production batch.
+The isolated study adds no public feature and changes neither the default tree engine nor the
 production compiled evaluator, model or RNG.
 
 ## Prototype and supported domain

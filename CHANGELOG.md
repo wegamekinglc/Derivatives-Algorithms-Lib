@@ -18,6 +18,11 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-16
 
+- **Explicit compiled double SoA** — C++ ordinary Monte Carlo can batch exact
+  single-worker Black–Scholes requests in 8–64 path lanes, preserving prepared
+  observations, history and masked branch semantics. See
+  [simulation](docs/methodology/monte-carlo/simulation.md#explicit-compiled-double-batching).
+
 - **Bounded LSMC training opt-in** — compiled, single-worker exact Black–Scholes
   training can restore complete passive state in time blocks, preserving the
   native policy and named risks. Explicit memory admission includes historical

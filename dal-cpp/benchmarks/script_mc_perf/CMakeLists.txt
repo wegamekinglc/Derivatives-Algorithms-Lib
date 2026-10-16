@@ -18,3 +18,5 @@ install(TARGETS script_mc_perf
 
 add_test(NAME script_mc_perf COMMAND script_mc_perf)
 set_tests_properties(script_mc_perf PROPERTIES LABELS "benchmark")
+add_test(NAME script_mc_compiled_soa_profile COMMAND script_mc_perf --compiled-soa weekly 32 65 1 steady)
+set_tests_properties(script_mc_compiled_soa_profile PROPERTIES LABELS "benchmark")
