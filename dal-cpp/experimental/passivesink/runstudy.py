@@ -98,6 +98,18 @@ def validate_reused_evidence(binaries, report_path):
             "configuration": report["configuration"], "dependencies": report["dependencies"]}
 
 
+def admit_study(study, run, binaries, root, output):
+    baseline = system_output("git", "-C", root / "base-source", "rev-parse", "HEAD")
+    if study != "gsr-memory":
+        validate_builds(run, binaries, root)
+        return baseline, None
+    report = Path(__file__).resolve().parents[3] / "docs/experimental/data/passive-sink-summary.json"
+    reused = validate_reused_evidence(binaries, report)
+    require(baseline == reused["baseline"], "Prior baseline identity changed")
+    validate_gsr(run, binaries, output)
+    return baseline, reused
+
+
 def memory_statistics(rounds):
     round_minima(rounds, "peak RSS")
     values = [value for sample in rounds for value in sample]
@@ -180,14 +192,17 @@ def production_measurement(rows, name, size, threads):
     return {"wall_ns": request["wall_ns"]}, values
 
 
+def validate_production_mode(request, job):
+    keys = ["scenario", "mode", "engine", "measurement", "outputs", "profiling_build"]
+    require(tuple(request[key] for key in keys) == (job[2], "aad", job[4], "cold", 1, False), f"Wrong production mode: {job[0]}")
+
+
 def parse_measurement(text, job, side, output):
     name, kind, _, size, _, threads = job
     rows = json_rows(text)
     if kind == "production":
         request = next(row for row in rows if row["record"] == "request")
-        require(request["scenario"] == job[2] and request["mode"] == "aad" and request["engine"] == job[4]
-                and request["measurement"] == "cold" and request["outputs"] == 1 and not request["profiling_build"],
-                f"Wrong production mode: {name}")
+        validate_production_mode(request, job)
         return production_measurement(rows, name, size, threads)
     require(len(rows) == 1, f"Wrong chain output: {name}")
     row = rows[0]
@@ -252,20 +267,13 @@ def main():
         require(result.returncode == 0, f"Command failed: {label}; see {stderr}")
         return result.stdout
 
-    reused = None
-    if args.study == "gsr-memory":
-        report = Path(__file__).resolve().parents[3] / "docs/experimental/data/passive-sink-summary.json"
-        reused = validate_reused_evidence(binaries, report)
-        validate_gsr(run, binaries, output)
-    else:
-        validate_builds(run, binaries, root)
+    baseline, reused = admit_study(args.study, run, binaries, root, output)
     environment = {"study": args.study, "executables": identity, "cpus": allowed[:max_threads], "rounds": 2,
                    "process_samples_per_side_per_round": 10, "reused_evidence": reused,
                    "reduction": "min", "threshold_percent": 4,
-                   "source_base": system_output("git", "-C", root / "base-source", "rev-parse", "HEAD"),
+                   "source_base": baseline,
                    "overlay_sha256": digest(Path(__file__).with_name("native-sink.patch")),
                    "collector_sha256": digest(Path(__file__)), "uname": list(os.uname())}
-    require(reused is None or environment["source_base"] == reused["baseline"], "Prior baseline identity changed")
     (output / "environment.json").write_text(json.dumps(environment, indent=2) + "\n")
 
     def collect(round_index, sample_index, job, side):

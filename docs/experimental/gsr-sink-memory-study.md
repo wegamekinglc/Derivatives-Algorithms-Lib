@@ -154,7 +154,9 @@ retains its existing numeric admission/oracle checks.
 
 The cohort contains 288 successful commands: 280 timed requests and eight
 structural requests, all with bit-identical base/sink PV and complete named
-risks. Normal and optimized Python collector checks both pass 9/9. The
+risks. Normal and optimized Python collector checks both pass 9/9. Sampled and
+delivered collector hashes are retained separately; the delivered collector
+reproduces every raw timing/RSS reduction with unchanged native executables. The
 [CSV](data/gsr-memory-results.csv) combines tape, RSS and latency reductions;
 the JSON retains per-round medians, full ranges and identities.
 

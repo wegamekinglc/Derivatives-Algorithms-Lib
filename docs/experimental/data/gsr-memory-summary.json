@@ -525,13 +525,15 @@
   "scope": "native compiled GSR swap fixture only; fixed 17 events; factor, worker and path boundaries",
   "reused_checks": "unchanged executables: base/head native 5/5, sink lifetime diagnostics 7/7; no repeats",
   "collector_tests": "9/9 normal Python and 9/9 optimized Python",
+  "sampled_collector_sha256": "f4ac2d9984bb2202d027e28575c477e14a2e0de84ce4c49787be2d20709ed94c",
+  "final_collector_sha256": "9664374289718236474885587eb05932d3ea3dfc3a810940421c2099dab16929",
   "collector_source_sha256": {
     "README.md": "1966f0b4cb4d39c54c84c68cd9f798b622e2f5d52036e7788ba771a941496526",
     "CMakeLists.txt": "735cb4321613e551febe5925f1f862892cbd85acf91142e6692646b0c0e1c8b0",
     "prepare.py": "aa28f79b39bff896617c08b6da1fe58e16a3869653fef1aa65292eb72f983b52",
     "test_sink.cpp": "446281181b9d137fedbc88038920df86b5f9ac91343f699f40f30ec72035e80a",
     "test_runstudy.py": "939f5b27c82f473e09b3547ad9ea50dd0193f3a4894bafb9d273e92d67b6c7e3",
-    "runstudy.py": "f4ac2d9984bb2202d027e28575c477e14a2e0de84ce4c49787be2d20709ed94c",
+    "runstudy.py": "9664374289718236474885587eb05932d3ea3dfc3a810940421c2099dab16929",
     "native-sink.patch": "7ae78663078bab9d6be3ff9f54c6dedf76af36a539981a8a2a1b85ec3d5df724",
     "sinkstudy.cpp": "b420bcd4af5c27a473dad1fd28063c58c1746fbca6269ffd5ebcbd48ce8a0a8b"
   }
