@@ -7,6 +7,13 @@ retain the production `Number_(double)` and registration contracts. GSR's smalle
 tape allocation and process RSS justify considering a future memory-constrained
 caller, with an explicit compatibility design before adoption.
 
+The [focused GSR memory study](gsr-sink-memory-study.md) measures factor, worker
+and path boundaries using the same binaries. Its three-factor fixture crosses
+a node-block threshold and saves about 1.10/2.71/4.92 MiB of process peak RSS
+at one/four/eight workers. Other tested factor counts do not reduce allocated
+tape capacity or show a stable RSS benefit. This supports a specific
+memory-constrained caller evaluation rather than broad production adoption.
+
 ## Implementation and scope
 
 The [experiment](../../dal-cpp/experimental/passivesink/README.md) applies

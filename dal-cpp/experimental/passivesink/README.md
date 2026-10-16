@@ -85,3 +85,35 @@ direction for improvement/regression. These are explicitly requested experimenta
 measurements, outside the repository's nine-target production gate. Production
 adoption also requires the original compatibility, numerical and affected-boundary
 acceptance criteria. Tape payload and process RSS remain separate measurements.
+
+## GSR memory follow-up
+
+The focused profile uses the same admitted native compiled GSR swap fixture:
+one through four factors with one worker, three factors with four/eight workers,
+and a fourfold path-count increase with four workers. Each case retains two
+rounds of ten interleaved processes per side. It records process peak RSS with
+GNU time and reports its combined and per-round medians and full range. Latency
+retains the existing minimum reduction and four-percent two-round signal.
+
+```bash
+python3 Derivatives-Algorithms-Lib/dal-cpp/experimental/passivesink/runstudy.py \
+  --work-root sink-study --output sink-study/gsr-memory --study gsr-memory
+```
+
+Hold the shared measurement flock for the complete command. This profile requires
+eight allowed CPUs and unchanged binaries matching the versioned prototype
+summary. It reuses their completed native/lifetime checks rather than rebuilding
+or repeating the original full cohort. Eight-path structural requests cover each
+factor count before sampling, and all structural/timed PV and named risks must
+match base/head by double bits. Workload metadata, missing samples, invalid RSS
+and changed executable/overlay identities reject the run.
+
+`structure.json` records the prefix and eight payoff graphs, `memory-samples.json`
+and `memory-results.json` retain RSS samples/reductions, and the usual timing,
+command and executable records remain available. Host load and `/proc` memory,
+swap and pressure snapshots describe contention without recording other process
+arguments. RSS includes startup, numerical admission, reference valuation and the
+measured request; it is not request-only memory or a peak-concurrency guarantee.
+The [GSR report](../../../docs/experimental/gsr-sink-memory-study.md) separates
+measured process RSS from single-worker tape allocation and its worker-count
+projection. No production option or memory-budget admission is introduced.

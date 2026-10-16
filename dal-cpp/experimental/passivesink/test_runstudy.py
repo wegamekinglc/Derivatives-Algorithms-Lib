@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 """Guard evidence rejection and paired reduction, including optimized Python."""
 
+import json
+from pathlib import Path
+import tempfile
 import unittest
-from runstudy import append_measurement, fingerprint, production_measurement, require, summarize
+from runstudy import (append_measurement, fingerprint, memory_statistics, parse_measurement, production_measurement,
+                      require, summarize, summarize_memory, validate_reused_evidence)
 
 
 class SinkStudyEvidenceTest(unittest.TestCase):
@@ -45,6 +49,42 @@ class SinkStudyEvidenceTest(unittest.TestCase):
             append_measurement(samples, fingerprints, "case", "head", 0, {"wall_ns": 100}, [1.0000000000000002])
         with self.assertRaises(RuntimeError):
             append_measurement(samples, fingerprints, "case", "head", 0, {"wall_ns": 0}, [1.0])
+
+    def test_memory_reduction_uses_round_medians_and_keeps_range(self):
+        base = [[10] + [100] * 9, [20] + [200] * 9]
+        head = [[5] + [80] * 9, [10] + [160] * 9]
+        result = summarize_memory({"case": {"base": base, "head": head}})[0]
+        self.assertEqual(result["base"]["median_peak_rss_kib"], 100)
+        self.assertEqual(result["base"]["min_peak_rss_kib"], 10)
+        self.assertEqual(result["base"]["max_peak_rss_kib"], 200)
+        self.assertEqual(result["base"]["round_median_peak_rss_kib"], [100, 200])
+        for delta in result["round_median_percent"]:
+            self.assertAlmostEqual(delta, -20)
+
+    def test_incomplete_or_invalid_memory_evidence_rejects(self):
+        for rounds in [[[100] * 10], [[100] * 10, [100] * 9], [[100] * 10, [0] * 10],
+                       [[100] * 10, [float("nan")] * 10], [[100] * 10, [float("inf")] * 10]]:
+            with self.assertRaises(RuntimeError):
+                memory_statistics(rounds)
+
+    def test_wrong_production_mode_cannot_enter_measurement(self):
+        request = {"record": "request", "scenario": "gsr-swap-3f", "mode": "aad", "engine": "compiled", "measurement": "cold",
+                   "outputs": 1, "profiling_build": False, "threads": 4, "paths_per_output": 8192, "wall_ns": 100}
+        job = ("case", "production", "gsr-swap-3f", 8192, "compiled", 4)
+        for key, wrong in [("scenario", "short"), ("mode", "double"), ("engine", "tree"), ("measurement", "warm"),
+                           ("outputs", 4), ("profiling_build", True)]:
+            rows = [json.dumps({**request, key: wrong}), json.dumps({"record": "result", "pv": 1.0})]
+            with self.assertRaises(RuntimeError):
+                parse_measurement("\n".join(rows), job, "head", Path("."))
+
+    def test_changed_binary_cannot_reuse_prior_correctness(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            binary, report = root / "binary", root / "report.json"
+            binary.write_bytes(b"changed")
+            report.write_text(json.dumps({"timed_executable_sha256": {"base": {"production": "wrong"}}}))
+            with self.assertRaises(RuntimeError):
+                validate_reused_evidence({"base": {"production": binary}}, report)
 
 
 if __name__ == "__main__":

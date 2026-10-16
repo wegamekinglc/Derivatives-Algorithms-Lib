@@ -1,0 +1,538 @@
+{
+  "environment": {
+    "study": "gsr-memory",
+    "executables": {
+      "base": {
+        "chain": {
+          "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-353-2d194001e552/workdir/sink-study/base-build/passive_sink_study",
+          "sha256": "77dca6aa682dae748fcd0ebabbf7dacf38678c8a9780780d6dbc6124c024aa4d"
+        },
+        "production": {
+          "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-353-2d194001e552/workdir/sink-study/base-build/dal/dal-cpp/benchmarks/script_mc_perf/script_mc_perf",
+          "sha256": "f79e1242a578fc911c6b63322324a880917aee59bb6838b58022f27fdd6da59d"
+        },
+        "tests": {
+          "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-353-2d194001e552/workdir/sink-study/base-build/passive_sink_tests",
+          "sha256": "2b471675c0261323f684f1cc0f141d7f06a02d9f5f96c0a2d5efe83710707e03"
+        }
+      },
+      "head": {
+        "chain": {
+          "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-353-2d194001e552/workdir/sink-study/head-build/passive_sink_study",
+          "sha256": "d64393a6770816a02fd154af29f7d405df4b96d1b84237115e4132e8804143e4"
+        },
+        "production": {
+          "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-353-2d194001e552/workdir/sink-study/head-build/dal/dal-cpp/benchmarks/script_mc_perf/script_mc_perf",
+          "sha256": "e81da06d96ee80167e983068510f8046868b501c29c04bf565267a286112bc92"
+        },
+        "tests": {
+          "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-353-2d194001e552/workdir/sink-study/head-build/passive_sink_tests",
+          "sha256": "e328096410fd81d503949d8edc208c371a16de2a11922c7efa779e842925efb4"
+        }
+      }
+    },
+    "cpus": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "rounds": 2,
+    "process_samples_per_side_per_round": 10,
+    "reused_evidence": {
+      "report_sha256": "e5437a08c714f1a590f91f34edafebe85c4074b59d15ff406ab087c30304bfee",
+      "baseline": "3be8dab9997646c040db209eaa999a459d556d59",
+      "configuration": "Release, static Native/AADET, Eigen ON, native-arch OFF, profiling OFF; timed lifetime diagnostics OFF",
+      "dependencies": {
+        "eigen": "3147391d946bb4b6c68edd901f2add6ac1f31f8c",
+        "googletest": "d72f9c8aea6817cdf1ca0ac10887f328de7f3da2",
+        "rapidjson": "ea152ded01708ff1657b275ed0bcbf0681d64519",
+        "machinist": "e76b0ef243ca9bd506bb2f3743d8c9b52ee8d01d"
+      }
+    },
+    "reduction": "min",
+    "threshold_percent": 4,
+    "source_base": "3be8dab9997646c040db209eaa999a459d556d59",
+    "overlay_sha256": "7ae78663078bab9d6be3ff9f54c6dedf76af36a539981a8a2a1b85ec3d5df724",
+    "collector_sha256": "f4ac2d9984bb2202d027e28575c477e14a2e0de84ce4c49787be2d20709ed94c",
+    "uname": [
+      "Linux",
+      "chengli-i9",
+      "5.15.167.4-microsoft-standard-WSL2",
+      "#1 SMP Tue Nov 5 00:21:55 UTC 2024",
+      "x86_64"
+    ]
+  },
+  "successful_commands": 288,
+  "timed_requests_bit_checked": 280,
+  "structural_requests_bit_checked": 8,
+  "single_worker_structure": {
+    "gsr-swap-1f": {
+      "base": {
+        "nodes": 12246,
+        "edges": 21086,
+        "tape_occupied_bytes": 827216,
+        "tape_capacity_bytes": 1966080,
+        "tape_blocks": 4
+      },
+      "head": {
+        "nodes": 8433,
+        "edges": 21086,
+        "tape_occupied_bytes": 674696,
+        "tape_capacity_bytes": 1966080,
+        "tape_blocks": 4
+      }
+    },
+    "gsr-swap-2f": {
+      "base": {
+        "nodes": 15261,
+        "edges": 32113,
+        "tape_occupied_bytes": 1124248,
+        "tape_capacity_bytes": 1966080,
+        "tape_blocks": 4
+      },
+      "head": {
+        "nodes": 11448,
+        "edges": 32113,
+        "tape_occupied_bytes": 971728,
+        "tape_capacity_bytes": 1966080,
+        "tape_blocks": 4
+      }
+    },
+    "gsr-swap-3f": {
+      "base": {
+        "nodes": 19588,
+        "edges": 48324,
+        "tape_occupied_bytes": 1556704,
+        "tape_capacity_bytes": 2621440,
+        "tape_blocks": 5
+      },
+      "head": {
+        "nodes": 15775,
+        "edges": 48324,
+        "tape_occupied_bytes": 1404184,
+        "tape_capacity_bytes": 1966080,
+        "tape_blocks": 4
+      }
+    },
+    "gsr-swap-4f": {
+      "base": {
+        "nodes": 26979,
+        "edges": 71503,
+        "tape_occupied_bytes": 2223224,
+        "tape_capacity_bytes": 3670016,
+        "tape_blocks": 7
+      },
+      "head": {
+        "nodes": 23166,
+        "edges": 71503,
+        "tape_occupied_bytes": 2070704,
+        "tape_capacity_bytes": 3670016,
+        "tape_blocks": 7
+      }
+    }
+  },
+  "process_peak_rss": [
+    {
+      "case": "mc-gsr-swap-1f-compiled-t1-p8192",
+      "base": {
+        "median_peak_rss_kib": 11832.0,
+        "min_peak_rss_kib": 11628,
+        "max_peak_rss_kib": 12016,
+        "round_median_peak_rss_kib": [
+          11826.0,
+          11860.0
+        ]
+      },
+      "sink": {
+        "median_peak_rss_kib": 11878.0,
+        "min_peak_rss_kib": 11616,
+        "max_peak_rss_kib": 12020,
+        "round_median_peak_rss_kib": [
+          11892.0,
+          11864.0
+        ]
+      },
+      "round_median_percent": [
+        0.5580923389142622,
+        0.03372681281619272
+      ],
+      "combined_median_percent": 0.3887762001352213
+    },
+    {
+      "case": "mc-gsr-swap-2f-compiled-t1-p8192",
+      "base": {
+        "median_peak_rss_kib": 12082.0,
+        "min_peak_rss_kib": 11592,
+        "max_peak_rss_kib": 12288,
+        "round_median_peak_rss_kib": [
+          12102.0,
+          11988.0
+        ]
+      },
+      "sink": {
+        "median_peak_rss_kib": 12140.0,
+        "min_peak_rss_kib": 11620,
+        "max_peak_rss_kib": 12272,
+        "round_median_peak_rss_kib": [
+          12144.0,
+          12130.0
+        ]
+      },
+      "round_median_percent": [
+        0.3470500743678828,
+        1.184517851184519
+      ],
+      "combined_median_percent": 0.4800529713623547
+    },
+    {
+      "case": "mc-gsr-swap-3f-compiled-t1-p8192",
+      "base": {
+        "median_peak_rss_kib": 12744.0,
+        "min_peak_rss_kib": 12516,
+        "max_peak_rss_kib": 12968,
+        "round_median_peak_rss_kib": [
+          12784.0,
+          12650.0
+        ]
+      },
+      "sink": {
+        "median_peak_rss_kib": 11618.0,
+        "min_peak_rss_kib": 11280,
+        "max_peak_rss_kib": 11808,
+        "round_median_peak_rss_kib": [
+          11620.0,
+          11582.0
+        ]
+      },
+      "round_median_percent": [
+        -9.10513141426783,
+        -8.44268774703557
+      ],
+      "combined_median_percent": -8.835530445699934
+    },
+    {
+      "case": "mc-gsr-swap-4f-compiled-t1-p8192",
+      "base": {
+        "median_peak_rss_kib": 13824.0,
+        "min_peak_rss_kib": 13568,
+        "max_peak_rss_kib": 13940,
+        "round_median_peak_rss_kib": [
+          13804.0,
+          13824.0
+        ]
+      },
+      "sink": {
+        "median_peak_rss_kib": 13806.0,
+        "min_peak_rss_kib": 13648,
+        "max_peak_rss_kib": 13976,
+        "round_median_peak_rss_kib": [
+          13804.0,
+          13806.0
+        ]
+      },
+      "round_median_percent": [
+        0.0,
+        -0.13020833333333703
+      ],
+      "combined_median_percent": -0.13020833333333703
+    },
+    {
+      "case": "mc-gsr-swap-3f-compiled-t4-p8192",
+      "base": {
+        "median_peak_rss_kib": 20750.0,
+        "min_peak_rss_kib": 20548,
+        "max_peak_rss_kib": 21388,
+        "round_median_peak_rss_kib": [
+          20728.0,
+          20776.0
+        ]
+      },
+      "sink": {
+        "median_peak_rss_kib": 17970.0,
+        "min_peak_rss_kib": 17640,
+        "max_peak_rss_kib": 18112,
+        "round_median_peak_rss_kib": [
+          17978.0,
+          17944.0
+        ]
+      },
+      "round_median_percent": [
+        -13.267078348128136,
+        -13.63111282248749
+      ],
+      "combined_median_percent": -13.397590361445788
+    },
+    {
+      "case": "mc-gsr-swap-3f-compiled-t8-p8192",
+      "base": {
+        "median_peak_rss_kib": 31380.0,
+        "min_peak_rss_kib": 31104,
+        "max_peak_rss_kib": 31564,
+        "round_median_peak_rss_kib": [
+          31432.0,
+          31296.0
+        ]
+      },
+      "sink": {
+        "median_peak_rss_kib": 26340.0,
+        "min_peak_rss_kib": 26132,
+        "max_peak_rss_kib": 26488,
+        "round_median_peak_rss_kib": [
+          26342.0,
+          26298.0
+        ]
+      },
+      "round_median_percent": [
+        -16.19368796131331,
+        -15.970092024539873
+      ],
+      "combined_median_percent": -16.061185468451246
+    },
+    {
+      "case": "mc-gsr-swap-3f-compiled-t4-p32768",
+      "base": {
+        "median_peak_rss_kib": 20816.0,
+        "min_peak_rss_kib": 20580,
+        "max_peak_rss_kib": 21204,
+        "round_median_peak_rss_kib": [
+          20814.0,
+          20816.0
+        ]
+      },
+      "sink": {
+        "median_peak_rss_kib": 17860.0,
+        "min_peak_rss_kib": 17708,
+        "max_peak_rss_kib": 18036,
+        "round_median_peak_rss_kib": [
+          17952.0,
+          17836.0
+        ]
+      },
+      "round_median_percent": [
+        -13.75036033439031,
+        -14.315910837817059
+      ],
+      "combined_median_percent": -14.200614911606458
+    }
+  ],
+  "request_latency": [
+    {
+      "case": "mc-gsr-swap-1f-compiled-t1-p8192/wall_ns",
+      "base_min_ms": 268.345251,
+      "sink_min_ms": 284.905553,
+      "round_1_percent": 10.742686480410256,
+      "round_2_percent": -0.5311470377567629,
+      "verdict": "no-change"
+    },
+    {
+      "case": "mc-gsr-swap-2f-compiled-t1-p8192/wall_ns",
+      "base_min_ms": 351.888835,
+      "sink_min_ms": 345.859685,
+      "round_1_percent": -3.130796952504311,
+      "round_2_percent": 0.060422491097233966,
+      "verdict": "no-change"
+    },
+    {
+      "case": "mc-gsr-swap-3f-compiled-t1-p8192/wall_ns",
+      "base_min_ms": 436.097828,
+      "sink_min_ms": 429.233368,
+      "round_1_percent": -1.5740642487217293,
+      "round_2_percent": -8.821218052779312,
+      "verdict": "no-change"
+    },
+    {
+      "case": "mc-gsr-swap-4f-compiled-t1-p8192/wall_ns",
+      "base_min_ms": 533.227375,
+      "sink_min_ms": 565.856162,
+      "round_1_percent": 6.119113258204334,
+      "round_2_percent": -1.7840529850163156,
+      "verdict": "no-change"
+    },
+    {
+      "case": "mc-gsr-swap-3f-compiled-t4-p8192/wall_ns",
+      "base_min_ms": 125.16721,
+      "sink_min_ms": 119.486201,
+      "round_1_percent": -3.672016816544843,
+      "round_2_percent": -9.014521543029364,
+      "verdict": "no-change"
+    },
+    {
+      "case": "mc-gsr-swap-3f-compiled-t8-p8192/wall_ns",
+      "base_min_ms": 78.064565,
+      "sink_min_ms": 79.518474,
+      "round_1_percent": 1.8624442472714664,
+      "round_2_percent": -2.994122007299549,
+      "verdict": "no-change"
+    },
+    {
+      "case": "mc-gsr-swap-3f-compiled-t4-p32768/wall_ns",
+      "base_min_ms": 516.784503,
+      "sink_min_ms": 533.521796,
+      "round_1_percent": 3.2387374046314976,
+      "round_2_percent": 1.2305654839744884,
+      "verdict": "no-change"
+    }
+  ],
+  "combined_results": [
+    {
+      "case": "mc-gsr-swap-1f-compiled-t1-p8192",
+      "paths": 8192,
+      "workers": 1,
+      "base_tape_occupied_bytes_per_worker": 827216,
+      "sink_tape_occupied_bytes_per_worker": 674696,
+      "base_tape_capacity_bytes_per_worker": 1966080,
+      "sink_tape_capacity_bytes_per_worker": 1966080,
+      "projected_capacity_saving_bytes": 0,
+      "base_median_peak_rss_kib": 11832.0,
+      "sink_median_peak_rss_kib": 11878.0,
+      "rss_round_1_percent": 0.5580923389142622,
+      "rss_round_2_percent": 0.03372681281619272,
+      "rss_combined_median_percent": 0.3887762001352213,
+      "base_min_ms": 268.345251,
+      "sink_min_ms": 284.905553,
+      "round_1_percent": 10.742686480410256,
+      "round_2_percent": -0.5311470377567629,
+      "verdict": "no-change"
+    },
+    {
+      "case": "mc-gsr-swap-2f-compiled-t1-p8192",
+      "paths": 8192,
+      "workers": 1,
+      "base_tape_occupied_bytes_per_worker": 1124248,
+      "sink_tape_occupied_bytes_per_worker": 971728,
+      "base_tape_capacity_bytes_per_worker": 1966080,
+      "sink_tape_capacity_bytes_per_worker": 1966080,
+      "projected_capacity_saving_bytes": 0,
+      "base_median_peak_rss_kib": 12082.0,
+      "sink_median_peak_rss_kib": 12140.0,
+      "rss_round_1_percent": 0.3470500743678828,
+      "rss_round_2_percent": 1.184517851184519,
+      "rss_combined_median_percent": 0.4800529713623547,
+      "base_min_ms": 351.888835,
+      "sink_min_ms": 345.859685,
+      "round_1_percent": -3.130796952504311,
+      "round_2_percent": 0.060422491097233966,
+      "verdict": "no-change"
+    },
+    {
+      "case": "mc-gsr-swap-3f-compiled-t1-p8192",
+      "paths": 8192,
+      "workers": 1,
+      "base_tape_occupied_bytes_per_worker": 1556704,
+      "sink_tape_occupied_bytes_per_worker": 1404184,
+      "base_tape_capacity_bytes_per_worker": 2621440,
+      "sink_tape_capacity_bytes_per_worker": 1966080,
+      "projected_capacity_saving_bytes": 655360,
+      "base_median_peak_rss_kib": 12744.0,
+      "sink_median_peak_rss_kib": 11618.0,
+      "rss_round_1_percent": -9.10513141426783,
+      "rss_round_2_percent": -8.44268774703557,
+      "rss_combined_median_percent": -8.835530445699934,
+      "base_min_ms": 436.097828,
+      "sink_min_ms": 429.233368,
+      "round_1_percent": -1.5740642487217293,
+      "round_2_percent": -8.821218052779312,
+      "verdict": "no-change"
+    },
+    {
+      "case": "mc-gsr-swap-4f-compiled-t1-p8192",
+      "paths": 8192,
+      "workers": 1,
+      "base_tape_occupied_bytes_per_worker": 2223224,
+      "sink_tape_occupied_bytes_per_worker": 2070704,
+      "base_tape_capacity_bytes_per_worker": 3670016,
+      "sink_tape_capacity_bytes_per_worker": 3670016,
+      "projected_capacity_saving_bytes": 0,
+      "base_median_peak_rss_kib": 13824.0,
+      "sink_median_peak_rss_kib": 13806.0,
+      "rss_round_1_percent": 0.0,
+      "rss_round_2_percent": -0.13020833333333703,
+      "rss_combined_median_percent": -0.13020833333333703,
+      "base_min_ms": 533.227375,
+      "sink_min_ms": 565.856162,
+      "round_1_percent": 6.119113258204334,
+      "round_2_percent": -1.7840529850163156,
+      "verdict": "no-change"
+    },
+    {
+      "case": "mc-gsr-swap-3f-compiled-t4-p8192",
+      "paths": 8192,
+      "workers": 4,
+      "base_tape_occupied_bytes_per_worker": 1556704,
+      "sink_tape_occupied_bytes_per_worker": 1404184,
+      "base_tape_capacity_bytes_per_worker": 2621440,
+      "sink_tape_capacity_bytes_per_worker": 1966080,
+      "projected_capacity_saving_bytes": 2621440,
+      "base_median_peak_rss_kib": 20750.0,
+      "sink_median_peak_rss_kib": 17970.0,
+      "rss_round_1_percent": -13.267078348128136,
+      "rss_round_2_percent": -13.63111282248749,
+      "rss_combined_median_percent": -13.397590361445788,
+      "base_min_ms": 125.16721,
+      "sink_min_ms": 119.486201,
+      "round_1_percent": -3.672016816544843,
+      "round_2_percent": -9.014521543029364,
+      "verdict": "no-change"
+    },
+    {
+      "case": "mc-gsr-swap-3f-compiled-t8-p8192",
+      "paths": 8192,
+      "workers": 8,
+      "base_tape_occupied_bytes_per_worker": 1556704,
+      "sink_tape_occupied_bytes_per_worker": 1404184,
+      "base_tape_capacity_bytes_per_worker": 2621440,
+      "sink_tape_capacity_bytes_per_worker": 1966080,
+      "projected_capacity_saving_bytes": 5242880,
+      "base_median_peak_rss_kib": 31380.0,
+      "sink_median_peak_rss_kib": 26340.0,
+      "rss_round_1_percent": -16.19368796131331,
+      "rss_round_2_percent": -15.970092024539873,
+      "rss_combined_median_percent": -16.061185468451246,
+      "base_min_ms": 78.064565,
+      "sink_min_ms": 79.518474,
+      "round_1_percent": 1.8624442472714664,
+      "round_2_percent": -2.994122007299549,
+      "verdict": "no-change"
+    },
+    {
+      "case": "mc-gsr-swap-3f-compiled-t4-p32768",
+      "paths": 32768,
+      "workers": 4,
+      "base_tape_occupied_bytes_per_worker": 1556704,
+      "sink_tape_occupied_bytes_per_worker": 1404184,
+      "base_tape_capacity_bytes_per_worker": 2621440,
+      "sink_tape_capacity_bytes_per_worker": 1966080,
+      "projected_capacity_saving_bytes": 2621440,
+      "base_median_peak_rss_kib": 20816.0,
+      "sink_median_peak_rss_kib": 17860.0,
+      "rss_round_1_percent": -13.75036033439031,
+      "rss_round_2_percent": -14.315910837817059,
+      "rss_combined_median_percent": -14.200614911606458,
+      "base_min_ms": 516.784503,
+      "sink_min_ms": 533.521796,
+      "round_1_percent": 3.2387374046314976,
+      "round_2_percent": 1.2305654839744884,
+      "verdict": "no-change"
+    }
+  ],
+  "memory_reduction": "median per round and combined; full observed range retained; no RSS gate threshold",
+  "latency_assessment": "informational minimum/4-percent signals on a contended shared host; no adoption claim",
+  "scope": "native compiled GSR swap fixture only; fixed 17 events; factor, worker and path boundaries",
+  "reused_checks": "unchanged executables: base/head native 5/5, sink lifetime diagnostics 7/7; no repeats",
+  "collector_tests": "9/9 normal Python and 9/9 optimized Python",
+  "collector_source_sha256": {
+    "README.md": "1966f0b4cb4d39c54c84c68cd9f798b622e2f5d52036e7788ba771a941496526",
+    "CMakeLists.txt": "735cb4321613e551febe5925f1f862892cbd85acf91142e6692646b0c0e1c8b0",
+    "prepare.py": "aa28f79b39bff896617c08b6da1fe58e16a3869653fef1aa65292eb72f983b52",
+    "test_sink.cpp": "446281181b9d137fedbc88038920df86b5f9ac91343f699f40f30ec72035e80a",
+    "test_runstudy.py": "939f5b27c82f473e09b3547ad9ea50dd0193f3a4894bafb9d273e92d67b6c7e3",
+    "runstudy.py": "f4ac2d9984bb2202d027e28575c477e14a2e0de84ce4c49787be2d20709ed94c",
+    "native-sink.patch": "7ae78663078bab9d6be3ff9f54c6dedf76af36a539981a8a2a1b85ec3d5df724",
+    "sinkstudy.cpp": "b420bcd4af5c27a473dad1fd28063c58c1746fbca6269ffd5ebcbd48ce8a0a8b"
+  }
+}
