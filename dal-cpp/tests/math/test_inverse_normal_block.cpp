@@ -24,6 +24,17 @@ namespace {
     }
 } // namespace
 
+TEST(InverseNormalBlockTest, TestScalarBuildRoundingPolicy) {
+    // Rounded Acklam Horner stages; the native FMA build fuses each stage.
+#if defined(__FMA__) || (defined(_MSC_VER) && defined(__AVX2__)) || defined(__ARM_FEATURE_FMA)
+    AssertSame(Dal::InverseNCDF(0.1, false, false), -0x1.4813c3681e9fap+0);
+    AssertSame(Dal::InverseNCDF(0.02425, false, false), -0x1.f913f9ae1a1bcp+0);
+#else
+    AssertSame(Dal::InverseNCDF(0.1, false, false), -0x1.4813c3681e9f4p+0);
+    AssertSame(Dal::InverseNCDF(0.02425, false, false), -0x1.f913f9ae19f39p+0);
+#endif
+}
+
 TEST(InverseNormalBlockTest, TestBoundariesAndSizes) {
     const std::vector<double> inputs{0.0,
                                      1.0,
@@ -43,18 +54,23 @@ TEST(InverseNormalBlockTest, TestBoundariesAndSizes) {
                                      0.1,
                                      0.9};
     Dal::Math::InverseNCDFBlock(nullptr, 0);
+    std::vector<size_t> sizes{31, 32, 33, 34, 35, 52, 53, 366, 367};
+    for (size_t size = 0; size <= inputs.size(); ++size)
+        sizes.push_back(size);
     for (const bool precise : {false, true}) {
         for (const bool polish : {false, true}) {
-            for (size_t size = 0; size <= inputs.size(); ++size) {
-                std::vector<double> values(inputs.size() + 2, -7.0);
-                std::copy(inputs.begin(), inputs.end(), values.begin() + 1);
+            for (const size_t size : sizes) {
+                const size_t capacity = std::max(size, inputs.size());
+                std::vector<double> values(capacity + 2, -7.0);
+                for (size_t i = 0; i < capacity; ++i)
+                    values[i + 1] = inputs[i % inputs.size()];
                 Dal::Math::InverseNCDFBlock(values.data() + 1, size, precise, polish);
                 AssertSame(values.front(), -7.0);
                 AssertSame(values.back(), -7.0);
                 for (size_t i = 0; i < size; ++i)
-                    AssertSame(values[i + 1], Dal::InverseNCDF(inputs[i], precise, polish));
-                for (size_t i = size; i < inputs.size(); ++i)
-                    AssertSame(values[i + 1], inputs[i]);
+                    AssertSame(values[i + 1], Dal::InverseNCDF(inputs[i % inputs.size()], precise, polish));
+                for (size_t i = size; i < capacity; ++i)
+                    AssertSame(values[i + 1], inputs[i % inputs.size()]);
             }
         }
     }

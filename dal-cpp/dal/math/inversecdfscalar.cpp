@@ -2,9 +2,7 @@
 // Created by Codex on 2026/10/16.
 //
 
-#if defined(_MSC_VER)
-#pragma fp_contract(off)
-#endif
+#include <cmath>
 
 #include <dal/math/normalcentral.hpp>
 #include <dal/math/specialfunctions.hpp>
@@ -12,21 +10,27 @@
 #include <dal/utilities/exceptions.hpp>
 
 namespace Dal {
+    namespace {
+        struct Scalar_ {
+            using Vector_ = double;
+            static double Broadcast(double x) { return x; }
+            static double Subtract(double a, double b) { return a - b; }
+            static double Multiply(double a, double b) { return a * b; }
+            static double Divide(double a, double b) { return a / b; }
+            static double MultiplyAdd(double a, double b, double c) {
+#if defined(DAL_NORMAL_FMA)
+                return std::fma(a, b, c);
+#else
+                return a * b + c;
+#endif
+            }
+        };
+    } // namespace
+
     double InverseNCDF(double x, bool precise, bool polish) {
 
         REQUIRE(x >= 0.0 && x <= 1.0, "x should be in bound [0, 1]");
 
-        static const double a1_ = Math::Detail::NORMAL_A[0];
-        static const double a2_ = Math::Detail::NORMAL_A[1];
-        static const double a3_ = Math::Detail::NORMAL_A[2];
-        static const double a4_ = Math::Detail::NORMAL_A[3];
-        static const double a5_ = Math::Detail::NORMAL_A[4];
-        static const double a6_ = Math::Detail::NORMAL_A[5];
-        static const double b1_ = Math::Detail::NORMAL_B[0];
-        static const double b2_ = Math::Detail::NORMAL_B[1];
-        static const double b3_ = Math::Detail::NORMAL_B[2];
-        static const double b4_ = Math::Detail::NORMAL_B[3];
-        static const double b5_ = Math::Detail::NORMAL_B[4];
         static const double c1_ = -7.784894002430293e-03;
         static const double c2_ = -3.223964580411365e-01;
         static const double c3_ = -2.400758277161838e+00;
@@ -50,9 +54,7 @@ namespace Dal {
         if (x < x_low_ || x_high_ < x) {
             z = x < x_low_ ? TailRational(x) : -TailRational(1.0 - x);
         } else {
-            z = x - 0.5;
-            double r = z * z;
-            z = (((((a1_ * r + a2_) * r + a3_) * r + a4_) * r + a5_) * r + a6_) * z / (((((b1_ * r + b2_) * r + b3_) * r + b4_) * r + b5_) * r + 1.0);
+            z = Math::Detail::CentralInverse<Scalar_>(x);
         }
 
         if (polish) {

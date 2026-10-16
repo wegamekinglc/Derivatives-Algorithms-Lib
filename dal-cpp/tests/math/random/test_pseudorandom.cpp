@@ -209,7 +209,7 @@ TEST(PseudoRandomTest, TestSeekingMatchesReplayForEveryOffsetAndMode) {
 
 TEST(PseudoRandomTest, TestBulkNormalPreservesRawDrawsAndUniformCache) {
     for (const auto* engine : {"IRN", "MRG32"}) {
-        for (const size_t dimension : {31, 32, 33, 52, 53}) {
+        for (const size_t dimension : {0, 1, 10, 31, 32, 33, 52, 53}) {
             for (const bool precise : {false, true}) {
                 auto generator = New(RNGType_(engine), 1024, dimension, precise);
                 auto reference = New(RNGType_(engine), 1024, dimension, precise);
