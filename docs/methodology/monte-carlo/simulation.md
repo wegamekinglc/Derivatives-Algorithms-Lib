@@ -55,6 +55,36 @@ is deterministic. The future observation plan keeps exact event-to-sample
 mapping rather than assuming one model sample per script event. A model path
 with a non-finite or non-positive numeraire is rejected as `InvalidModelPath`.
 
+## Explicit Compiled Double Batching
+
+Core C++ callers can include `<dal/script/compiledsoa.hpp>` and call
+`MCDoubleSimulationSoa<32>(product, &model, nPaths, "sobol", false)`.
+The returned `SimResults_::aggregated_` is a sum, as in the scalar core driver;
+divide by `nPaths` for PV. Widths 8, 16, 32 and 64 are supported.
+Configure the pool for one worker before the call. `model` must be an exact
+`AAD::BlackScholes_<double>`, and `product` must be preprocessed or prepared.
+Prepared products require `compiled_ = true`, no AAD, and matching RNG/bridge
+settings; their frozen history, dates, normal precision and observation grid
+remain authoritative. This opt-in does not change the default engine or expose
+new Python/Excel settings.
+
+Immediate PAYS, scalar variables, ordinary arithmetic other than powers,
+extrema, sqrt/log/exp and hard IF/ELSE with nested masks are supported, including
+prepared named equity observations on different sample dates. Vectors, delayed
+PAYS, rates/forwards, fuzzy execution, weighted objectives, LSMC and other model
+types are outside this entry's domain. Unsupported requests raise `ScriptError_`
+before drawing paths. Fewer than eight paths use the existing compiled scalar
+driver after model/configuration/sample checks and can use its wider opcode
+set. Invalid input and non-finite paths/payoffs still fail. No failed or partly
+executed request is automatically restarted. Choose the general driver directly
+for requests outside this restricted domain.
+
+`compiled_soa_perf WORKLOAD LANES PATHS ITERATIONS steady|cold` provides whole
+request timings for vanilla, weekly and divergent workloads. Both modes include
+RNG, model work, compilation, plan and workspace allocation; cold also parses
+and preprocesses the script. Small requests can lose to scalar setup costs, so
+select this explicit path using measurements of the intended workload.
+
 ## Random Draws and Paths
 
 `MonteCarloSettings_` defaults to `rsg_ = "sobol"`, no Brownian bridge, no
