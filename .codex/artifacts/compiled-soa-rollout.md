@@ -81,35 +81,44 @@ explicit admission and parity evidence before this subset is extended.
 
 ## Measured adoption boundary
 
-Baseline is immutable master `3be8dab9`; initial production sampling uses
-`fca6198a`, followed by the threshold-only repair `f73c84fe`. Two rounds of ten
-alternating process pairs in each cost mode produce these best-of-ten speedups:
+Baseline is immutable master `3be8dab9`; final measured production source is
+`e43237f4`. Two rounds of ten alternating process pairs in each cost mode
+produce these best-of-ten speedups:
 
 | Case                | Steady R1/R2 | Cold R1/R2  |
 |---------------------|--------------|-------------|
-| vanilla L16/16387   | 1.807/1.769  | 1.797/1.814 |
-| weekly L32/16387    | 1.366/1.344  | 1.380/1.443 |
-| divergent L32/16387 | 1.504/1.474  | 1.469/1.486 |
-| weekly L32/7        | 1.001/0.952  | 0.973/0.998 |
-| weekly L32/9        | 0.994/1.007  | 1.010/0.990 |
-| weekly L32/65       | 1.211/1.195  | 0.994/1.062 |
+| vanilla L16/16387   | 1.801/1.816  | 1.814/1.891 |
+| weekly L32/16387    | 1.372/1.434  | 1.384/1.358 |
+| divergent L32/16387 | 1.479/1.517  | 1.511/1.509 |
+| weekly L32/7        | 0.983/0.980  | 1.016/1.016 |
+| weekly L32/9        | 0.964/0.965  | 0.990/1.007 |
+| weekly L32/65       | 1.180/1.175  | 1.068/1.029 |
 
-Nine paths initially lost 12.08%/14.32% in steady mode; the final scalar bypass
-below sixteen paths removes that loss. The final binary differs only at four
-threshold bytes (`cmp 7` to `cmp 15`), one per lane width, with identical
-instruction addresses, branch targets and read-only constants. The unchanged
-seven-path and >=16-path bodies retain their original evidence; only the
-nine-path case was remeasured. The evidence bundle records both binary hashes,
-complete disassembly differences, source/dependency/build identities and all
-280 new formal pairs. Every pair has identical payoff sums, exceeding the
-requested 1e-12 agreement.
+All 240 final formal pairs have identical payoff sums, exceeding the requested
+1e-12 agreement. Adopt the measured large vanilla, weekly and frequent-divergence
+shapes. Seven- and nine-path costs remain in the 4% no-change band. The 65-path
+cold benefit is inconclusive under the two-round rule, so there is no blanket
+all-size speed guarantee. Prepared named observations have correctness coverage
+but were not separately timed. The shared WSL2 machine had unrelated background
+load; raw minima and both rounds are retained.
 
-Adopt the measured large vanilla, weekly and frequent-divergence shapes.
-Seven-path steady and 65-path cold timings remain inconclusive under the 4%
-two-round rule, so there is no blanket all-size speed guarantee. In particular,
-65-path steady improvement does not imply a cold-request improvement. Prepared
-named observations have correctness coverage but were not separately timed.
-All seven new regressions, including 15/16/17-path boundaries, pass normally
-and under ASan/UBSan on the new header/test translation units. Three unchanged
-tree/scalar/AAD caller checks also pass. Full regressions and platform gates
-remain CI work; production review is independent of the old prototype review.
+Initial `fca6198a` sampling found a 12.08%/14.32% nine-path steady loss. The
+`f73c84fe` repair moved the scalar bypass below sixteen paths, with 15/16/17-path
+boundary coverage. Its intermediate executable differed only at four compare
+bytes and retained identical read-only constants; that proof and 40 repair pairs
+remain traceable history.
+
+The first PR snapshot at `7e478f90` found two complexity warnings and a benchmark
+inventory failure. Admission was split into prepared/sample/observation checks
+without removing conditions or changing their order, discard decoding moved
+out of the stack decoder, and the profile joined the existing `script_mc_perf`
+target. Because setup code and the harness changed, all six scenarios and both
+cost modes were refreshed for final acceptance. The evidence bundle includes
+final and earlier source/dependency/build identities, executable hashes, commands
+and every raw output; earlier timings are not substituted for final evidence.
+
+All seven new regressions pass normally and under ASan/UBSan on the new
+header/test translation units. Three unchanged tree/scalar/AAD caller checks
+retain their valid passing evidence. The integrated profile smoke and local
+documentation integrity check pass. Full regressions and platform gates remain
+CI work; production review is independent of the old prototype review.
