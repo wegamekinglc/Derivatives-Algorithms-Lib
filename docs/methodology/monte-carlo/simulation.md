@@ -79,7 +79,7 @@ set. Invalid input and non-finite paths/payoffs still fail. No failed or partly
 executed request is automatically restarted. Choose the general driver directly
 for requests outside this restricted domain.
 
-`compiled_soa_perf WORKLOAD LANES PATHS ITERATIONS steady|cold` provides whole
+`script_mc_perf --compiled-soa WORKLOAD LANES PATHS ITERATIONS steady|cold` provides whole
 request timings for vanilla, weekly and divergent workloads. Both modes include
 RNG, model work, compilation, plan and workspace allocation; cold also parses
 and preprocesses the script. Small requests can lose to scalar setup costs, so

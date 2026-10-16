@@ -101,8 +101,6 @@ namespace Dal::Script::Detail::CompiledSoa {
             } else if (IsOneOf(op, {And, Or})) {
                 item->right_ = Pop(booleans);
                 item->dst_ = Top(*booleans);
-            } else if (op == Discard) {
-                item->left_ = Pop(doubles);
             } else if (IsOneOf(op, {UMinus, Sqrt, Log, Exp})) {
                 item->dst_ = Top(*doubles);
             } else {
@@ -133,6 +131,8 @@ namespace Dal::Script::Detail::CompiledSoa {
                 DecodeLoad(event, last, pc, doubles, item);
             else if (IsOneOf(item->op_, {Assign, Pays, AssignConst, PaysConst}))
                 DecodeStore(event, last, pc, doubles, item);
+            else if (item->op_ == Discard)
+                item->left_ = Pop(doubles);
             else
                 DecodeStack(event, last, pc, doubles, booleans, item);
         }

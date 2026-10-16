@@ -60,7 +60,7 @@ repeated requests. Existing scalar/tree/AAD callers provide isolation evidence.
 The existing nine-target performance gate and full cross-platform regressions
 remain CI responsibilities.
 
-`compiled_soa_perf` measures whole production requests. `steady` reuses a parsed
+`script_mc_perf --compiled-soa` measures whole production requests. `steady` reuses a parsed
 and preprocessed product but includes compilation, plan construction, model
 initialization, RNG, workspaces and execution on every invocation. `cold` also
 includes product parsing and preprocessing. Thus neither result omits plan or

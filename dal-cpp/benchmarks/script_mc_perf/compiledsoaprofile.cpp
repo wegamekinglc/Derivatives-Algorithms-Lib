@@ -11,6 +11,8 @@
 #include <dal/script/simulation.hpp>
 #include <dal/storage/globals.hpp>
 
+#include "compiledsoaprofile.hpp"
+
 #if !defined(DAL_SOA_PROFILE_BASELINE)
 #include <dal/script/compiledsoa.hpp>
 #endif
@@ -71,10 +73,12 @@ namespace {
     }
 } // namespace
 
-int main(int argc, char** argv) {
+int RunCompiledSoaProfile(int argc, char** argv) {
     try {
-        REQUIRE(argc == 6, "Usage: compiled_soa_perf vanilla|weekly|divergent LANES PATHS ITERATIONS steady|cold");
+        REQUIRE(argc == 6, "Usage: script_mc_perf --compiled-soa vanilla|weekly|divergent LANES PATHS ITERATIONS steady|cold");
+#if defined(DAL_SOA_PROFILE_STANDALONE)
         RegisterAll_::Init();
+#endif
         ThreadPool_::GetInstance()->Start(1, true);
         const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2024, 1, 1));
         const size_t lanes = Positive(argv[2]), paths = Positive(argv[3]), iterations = Positive(argv[4]);
@@ -102,3 +106,7 @@ int main(int argc, char** argv) {
         return 1;
     }
 }
+
+#if defined(DAL_SOA_PROFILE_STANDALONE)
+int main(int argc, char** argv) { return RunCompiledSoaProfile(argc, argv); }
+#endif

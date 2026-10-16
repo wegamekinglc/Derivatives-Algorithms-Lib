@@ -23,14 +23,7 @@ namespace Dal::Script {
             return nullptr;
         }
 
-        template <class P_> void RequireAdmission(const P_& product, const AAD::Model_<double>* model, const String_& rsg, bool useBb) {
-            product.RequireExecutable();
-            ValidateRNG(rsg);
-            REQUIRE2(model, "InvalidSoaModel: null model", ScriptError_);
-            REQUIRE2(typeid(*model) == typeid(AAD::BlackScholes_<double>), "UnsupportedSoaModel: exact BlackScholes required", ScriptError_);
-            REQUIRE2(ThreadPool_::GetInstance()->NumThreads() == 1, "UnsupportedSoaExecution: single worker required", ScriptError_);
-            REQUIRE2(!Product(product).ContainsExercise() && Product(product).VectorNames().empty(),
-                     "UnsupportedSoaExecution: ordinary scalar-variable MC required", ScriptError_);
+        template <class P_> void RequirePreparedAdmission(const P_& product, const AAD::Model_<double>* model, const String_& rsg, bool useBb) {
             if constexpr (std::is_base_of_v<PreparedScript_, P_>) {
                 const auto& settings = product.Simulation();
                 REQUIRE2(!settings.enableAad_ && settings.compiled_.value_or(false) && settings.rsg_ == rsg && settings.useBb_ == useBb &&
@@ -38,6 +31,9 @@ namespace Dal::Script {
                          "UnsupportedExecutionMode: execution differs from preparation", ScriptError_);
                 ValidateSimulationSettings(settings);
             }
+        }
+
+        template <class P_> void RequireSampleAdmission(const P_& product) {
             REQUIRE2(product.TimeLine().size() == product.DefLine().size(), "InvalidModelTimeline: sample definitions must match dates",
                      ScriptError_);
             for (size_t sample = 0; sample < product.DefLine().size(); ++sample) {
@@ -48,6 +44,9 @@ namespace Dal::Script {
                 REQUIRE2(definition.discountMats_.empty() && definition.liborDefs_.empty() && (definition.forwardMats_.empty() || legacyPlaceholder),
                          "UnsupportedSoaSamples: delayed payments, rates and forwards are unsupported", ScriptError_);
             }
+        }
+
+        template <class P_> void RequireObservationAdmission(const P_& product, const AAD::Model_<double>* model) {
             if (const auto* observations = Observations(product)) {
                 for (const auto& request : observations->Requests()) {
                     if (request.historyValueId_) {
@@ -62,6 +61,19 @@ namespace Dal::Script {
                     }
                 }
             }
+        }
+
+        template <class P_> void RequireAdmission(const P_& product, const AAD::Model_<double>* model, const String_& rsg, bool useBb) {
+            product.RequireExecutable();
+            ValidateRNG(rsg);
+            REQUIRE2(model, "InvalidSoaModel: null model", ScriptError_);
+            REQUIRE2(typeid(*model) == typeid(AAD::BlackScholes_<double>), "UnsupportedSoaModel: exact BlackScholes required", ScriptError_);
+            REQUIRE2(ThreadPool_::GetInstance()->NumThreads() == 1, "UnsupportedSoaExecution: single worker required", ScriptError_);
+            REQUIRE2(!Product(product).ContainsExercise() && Product(product).VectorNames().empty(),
+                     "UnsupportedSoaExecution: ordinary scalar-variable MC required", ScriptError_);
+            RequirePreparedAdmission(product, model, rsg, useBb);
+            RequireSampleAdmission(product);
+            RequireObservationAdmission(product, model);
         }
 
         class BatchModel_ {
