@@ -31,7 +31,7 @@ payments, rates/forwards and LSMC are rejected. There is no exception-swallowing
 fallback. An unsupported live request raises `ScriptError_`; the caller may
 choose the existing driver before invoking this opt-in. Empty/expired products
 retain the existing zero-result behavior after executable/RNG/path-count checks.
-Fewer than eight paths use the original compiled scalar driver after basic
+Fewer than sixteen paths use the original compiled scalar driver after basic
 model/configuration/sample admission; that scalar bypass does not require the
 SoA opcode subset. There is no partial execution followed by request replay.
 
@@ -53,7 +53,7 @@ Excel, weighted-objective or parallel execution modes.
 ## Verification and measurement scope
 
 Core regression cases cover 8/16/32/64 lanes, vanilla/weekly/frequent divergence,
-1/7/8/9/65/129 paths, prepared observation-only dates and history, all three
+1/7/8/9/15/16/17/65/129 paths, prepared observation-only dates and history, all three
 RNG methods, both explicit normal precisions and bridges, nested inactive
 invalid arithmetic, extrema operands, admission, overflow, payoff errors and
 repeated requests. Existing scalar/tree/AAD callers provide isolation evidence.

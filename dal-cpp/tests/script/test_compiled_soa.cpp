@@ -44,7 +44,7 @@ namespace {
     template <size_t L_> void CheckRequests() {
         for (const auto* name : {"vanilla", "weekly", "divergent"}) {
             const auto product = Product(name);
-            for (const size_t paths : {1, 7, 8, 9, 65, 129}) {
+            for (const size_t paths : {1, 7, 8, 9, 15, 16, 17, 65, 129}) {
                 AAD::BlackScholes_<double> model(107.0, 0.31, -0.007, 0.041);
                 const auto expected = MCDoubleSimulation(product, &model, paths, "sobol", false, true);
                 const auto actual = MCDoubleSimulationSoa<L_>(product, &model, paths);

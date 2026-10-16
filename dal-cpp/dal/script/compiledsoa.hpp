@@ -160,7 +160,7 @@ namespace Dal::Script {
         if (product.EventDates().empty())
             return SimResults_(Vector::Join(model->ParameterLabels(), product.ConstVarNames()));
         Detail::CompiledSoa::RequireAdmission(product, model, rsg, useBb);
-        if (nPaths < 8)
+        if (nPaths < 16)
             return MCDoubleSimulation(product, model, nPaths, rsg, useBb, true);
         Detail::InitializeDoubleSimulation(product, model, true, false);
         const auto plan = Detail::CompiledSoa::BuildPlan(product);

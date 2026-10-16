@@ -73,7 +73,7 @@ extrema, sqrt/log/exp and hard IF/ELSE with nested masks are supported, includin
 prepared named equity observations on different sample dates. Vectors, delayed
 PAYS, rates/forwards, fuzzy execution, weighted objectives, LSMC and other model
 types are outside this entry's domain. Unsupported requests raise `ScriptError_`
-before drawing paths. Fewer than eight paths use the existing compiled scalar
+before drawing paths. Fewer than sixteen paths use the existing compiled scalar
 driver after model/configuration/sample checks and can use its wider opcode
 set. Invalid input and non-finite paths/payoffs still fail. No failed or partly
 executed request is automatically restarted. Choose the general driver directly
