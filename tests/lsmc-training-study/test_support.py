@@ -14,6 +14,7 @@ SPEC = importlib.util.spec_from_file_location("lsmc_study_support", MODULE)
 SUPPORT = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(SUPPORT)
 STOCK = native_sources()["dal-cpp/dal/script/lsmc.cpp"]
+CACHED = native_sources(cached=True)["dal-cpp/dal/script/lsmc.cpp"]
 
 
 class SourceAdmissionTest(unittest.TestCase):
@@ -27,17 +28,35 @@ class SourceAdmissionTest(unittest.TestCase):
         self.assertIn("BatchPlan_(counts.validation_, 1), static_cast<size_t>(DAL_LSMC_STUDY_PRICING_OFFSET)", patched)
         self.assertNotIn("DAL_LSMC_STUDY_PRICING_OFFSET", STOCK)
 
+    def test_fixed_validation_stream_uses_compact_gaussian_rows(self):
+        patched = SUPPORT.controlled_source(CACHED, 32768)
+        self.assertIn("BatchPlan_(counts.validation_, 1), static_cast<size_t>(DAL_LSMC_STUDY_PRICING_OFFSET), counts.training_);", patched)
+        self.assertIn("size_t pathOffset = 0, size_t gaussianOffset = 0)", patched)
+        self.assertIn("REQUIRE(gaussianOffset <= ctx.gaussians_->Paths() && batchPlan.PathCount() <= ctx.gaussians_->Paths() - gaussianOffset,", patched)
+        self.assertIn("ctx.gaussianOffset_ = gaussianOffset;", patched)
+        self.assertIn("state.random_->SkipTo(pathOffset + batch.firstPath_);", patched)
+        self.assertIn("counts.training_ + counts.validation_, trainingKey);", patched)
+
     def test_unknown_function_shapes_and_repeated_application_are_rejected(self):
-        mutations = (
-            STOCK.replace("const size_t training = simulation", "const size_t training = 1 + simulation", 1),
-            STOCK.replace("validationCtx.constValues_ = ctx.constValues_;", "validationCtx.constValues_ = nullptr;", 1),
-            STOCK.replace("return {training, validation, training + validation, replicates};", "return {};", 1),
-        )
-        for source in mutations:
-            with self.subTest(source=source[:30]), self.assertRaises(ValueError):
-                SUPPORT.controlled_source(source, 1024)
-        with self.assertRaises(ValueError):
-            SUPPORT.controlled_source(SUPPORT.controlled_source(STOCK, 1024), 1024)
+        for stock in (STOCK, CACHED):
+            mutations = (
+                stock.replace("const size_t training = simulation", "const size_t training = 1 + simulation", 1),
+                stock.replace("validationCtx.constValues_ = ctx.constValues_;", "validationCtx.constValues_ = nullptr;", 1),
+                stock.replace("return {training, validation, training + validation, replicates};", "return {};", 1),
+                stock.replace("state.random_->SkipTo(pathOffset + batch.firstPath_);", "state.random_->SkipTo(batch.firstPath_);", 1),
+                stock + stock[stock.index("        void RunForwardPhase("):stock.index("        // Deterministic-rate models")],
+                stock + "\n// drift outside admitted functions\n",
+            )
+            if stock == CACHED:
+                mutations += (
+                    stock.replace("ctx.gaussianOffset_ = pathOffset;", "ctx.gaussianOffset_ = 0;", 1),
+                    stock.replace("validationCtx.gaussians_ = ctx.gaussians_;", "validationCtx.gaussians_ = nullptr;", 1),
+                )
+            for source in mutations:
+                with self.subTest(source=source[:30]), self.assertRaises(ValueError):
+                    SUPPORT.controlled_source(source, 1024)
+            with self.assertRaises(ValueError):
+                SUPPORT.controlled_source(SUPPORT.controlled_source(stock, 1024), 1024)
 
     def test_invalid_anchors_are_rejected(self):
         for anchor in (0, -1, 2**31, True, "1024"):
@@ -46,7 +65,7 @@ class SourceAdmissionTest(unittest.TestCase):
 
     def test_current_checkpoint_training_shape_is_rejected(self):
         current = (ROOT / "dal-cpp/dal/script/lsmc.cpp").read_text(encoding="utf-8")
-        with self.assertRaisesRegex(ValueError, "unrecognized native source shape: TrainFrozenPolicy"):
+        with self.assertRaisesRegex(ValueError, "unrecognized complete native source"):
             SUPPORT.controlled_source(current, 1024)
 
 

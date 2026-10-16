@@ -8,9 +8,17 @@ import statistics
 MAX_INT = 2**31 - 1
 MAX_SOBOL_PATHS = 2**32 - 1
 CONTROL_MACRO = "DAL_LSMC_STUDY_PRICING_OFFSET"
-FUNCTIONS = {
+HISTORICAL_CORE_SHA256 = "e53a2c25001f46498c3797864f4c1fa184b83c8c9320b9c11fb3d41e688ccb82"
+CACHED_CORE_SHA256 = "a37d9044c3f79b20a30c278578e573e20e6acebc1ac5c64eb15833278dac2106"
+CACHED_FUNCTIONS = {
     "LsmcPathCounts": ("PathCounts_", "89c20bcccd037c38e529817ebf1343c44e2de64edebe4406cccfa5316ce42a0a"),
+    "TrainFrozenPolicy": ("TrainingOutcome_", "f69f27dec1d7c935cd9bf05c886004891bf57cb75e50ff527563835ae1d68c48"),
+    "RunForwardPhase": ("void", "a7fd42e6aa3a2bdebbf614400f3535296647b92cdc43dbf77396e9539efec8fe"),
+}
+HISTORICAL_FUNCTIONS = {
+    "LsmcPathCounts": CACHED_FUNCTIONS["LsmcPathCounts"],
     "TrainFrozenPolicy": ("TrainingOutcome_", "e5feb1810afbb0b31ed12419e0a1a46798583aac70f70e1bc25fa65d1ee28cea"),
+    "RunForwardPhase": ("void", "e126fa916539bfdf1a9902312b7be6a4d27dd9486f0a96182971f5bde1d6075b"),
 }
 
 
@@ -22,7 +30,11 @@ def count(value, name, minimum=1, maximum=MAX_INT):
 
 def controlled_source(source, anchor):
     count(anchor, "training anchor")
-    for name, (result_type, expected) in FUNCTIONS.items():
+    digest = hashlib.sha256(source.encode("utf-8")).hexdigest()
+    functions = {HISTORICAL_CORE_SHA256: HISTORICAL_FUNCTIONS, CACHED_CORE_SHA256: CACHED_FUNCTIONS}.get(digest)
+    if functions is None:
+        raise ValueError("unrecognized complete native source: dal-cpp/dal/script/lsmc.cpp")
+    for name, (result_type, expected) in functions.items():
         pattern = rf"        {result_type} {name}\([^\n]*\) \{{[\s\S]*?\n        \}}"
         matches = re.findall(pattern, source)
         if len(matches) != 1 or hashlib.sha256(matches[0].encode()).hexdigest() != expected:
@@ -34,9 +46,22 @@ def controlled_source(source, anchor):
                      "InvalidStudyPathCount: anchor must follow training and all held-out blocks must fit Sobol", ScriptError_);
             return {{training, validation, studyAnchor + validation, replicates}};'''
     original_validation = "RunForwardPhase(validationCtx, BatchPlan_(counts.validation_, 1), counts.training_);"
-    fixed_validation = f"RunForwardPhase(validationCtx, BatchPlan_(counts.validation_, 1), static_cast<size_t>({CONTROL_MACRO}));"
+    cached = digest == CACHED_CORE_SHA256
+    cached_offset = ", counts.training_" if cached else ""
+    fixed_validation = f"RunForwardPhase(validationCtx, BatchPlan_(counts.validation_, 1), static_cast<size_t>({CONTROL_MACRO}){cached_offset});"
     if source.count(original_return) != 1 or source.count(original_validation) != 1:
         raise ValueError("expected exactly two native address sites")
+    # Sobol addresses use the fixed anchor; cached validation rows remain adjacent to training rows.
+    cache_sites = (
+        ("size_t pathOffset = 0) {", "size_t pathOffset = 0, size_t gaussianOffset = 0) {"),
+        ("REQUIRE(pathOffset <= ctx.gaussians_->Paths() && batchPlan.PathCount() <= ctx.gaussians_->Paths() - pathOffset,",
+         "REQUIRE(gaussianOffset <= ctx.gaussians_->Paths() && batchPlan.PathCount() <= ctx.gaussians_->Paths() - gaussianOffset,"),
+        ("ctx.gaussianOffset_ = pathOffset;", "ctx.gaussianOffset_ = gaussianOffset;"),
+    )
+    for before, after in cache_sites if cached else ():
+        if source.count(before) != 1:
+            raise ValueError("expected exactly one native Gaussian offset site")
+        source = source.replace(before, after)
     return source.replace(original_return, replacement).replace(original_validation, fixed_validation)
 
 

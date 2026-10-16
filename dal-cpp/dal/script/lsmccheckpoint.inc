@@ -67,6 +67,7 @@ bool CheckpointCompactState(const LsmcContext_& ctx) {
 }
 
 void RequireTrainingBudgetDomain(const LsmcContext_& ctx) {
+    REQUIRE2(!ctx.gaussians_, "LsmcTrainingBudget: optional Gaussian cache must be disabled", ScriptError_);
     REQUIRE2(ctx.compiled_ && ctx.prepared_.Simulation().rsg_ == "sobol" && typeid(*ctx.model_) == typeid(AAD::BlackScholes_<double>) &&
                  ThreadPool_::GetInstance()->NumThreads() == 1,
              "LsmcTrainingBudget: requires compiled Sobol, exact BlackScholes and one worker", ScriptError_);
