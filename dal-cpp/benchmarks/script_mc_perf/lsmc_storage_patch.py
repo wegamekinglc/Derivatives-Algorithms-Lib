@@ -4,18 +4,19 @@ import hashlib
 from pathlib import Path
 import re
 
-from lsmc_study_support import CONTROL_MACRO, controlled_source
+from lsmc_study_support import CACHED_CORE_SHA256, HISTORICAL_CORE_SHA256, CONTROL_MACRO, controlled_source
 
 CORE = "dal-cpp/dal/script/lsmc.cpp"
 API = "dal-cpp/dal/script/lsmc.hpp"
 ROWS = "dal-cpp/dal/script/visitor/evalstate.hpp"
 SAMPLE = "dal-cpp/benchmarks/script_mc_perf/lsmctrainingstudy.cpp"
 SOURCE_HASHES = {
-    CORE: "a37d9044c3f79b20a30c278578e573e20e6acebc1ac5c64eb15833278dac2106",
+    CORE: HISTORICAL_CORE_SHA256,
     API: "b63da56f108901fa12cff1901f3059be60d2163e7cbe9c5c3469b7d5cca32278",
     ROWS: "117eb18dae677af7e7024821e704e8207c4b66497cf909b673b590477062c8ce",
     SAMPLE: "55d36a9fbee88eb2e7740d7aa61b8571612bab3eecf733037306a91c9ca55a4c",
 }
+CACHED_SOURCE_HASHES = dict(SOURCE_HASHES, **{CORE: CACHED_CORE_SHA256})
 HEADER = "benchmarks/script_mc_perf/lsmcstoragestudy.hpp"
 
 
@@ -61,7 +62,8 @@ def storage_sources(sources, bits, anchor):
         raise ValueError("storage width must be 32 or 64")
     if set(sources) != set(SOURCE_HASHES):
         raise ValueError("storage overlay requires exactly four complete native inputs")
-    for name, expected in SOURCE_HASHES.items():
+    expected_hashes = CACHED_SOURCE_HASHES if hashlib.sha256(sources[CORE].encode("utf-8")).hexdigest() == CACHED_CORE_SHA256 else SOURCE_HASHES
+    for name, expected in expected_hashes.items():
         if hashlib.sha256(sources[name].encode()).hexdigest() != expected:
             raise ValueError(f"unrecognized complete native source: {name}")
     api = replace_exact(sources[API], "#pragma once", f'#pragma once\n\n#include "../../{HEADER}"')

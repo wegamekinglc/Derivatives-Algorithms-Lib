@@ -270,11 +270,72 @@ for payments, regressor/exercise rows, and the backward working vector, plus
 one byte per path for each conditional exercise date and the inclusion mask.
 Enabling selection adds analogous storage for `nValidationPaths` until backward
 induction finishes. Each multivariate QR fit temporarily holds up to
-`nEligibleTrainingPaths × nBasisColumns × 8B` of design columns (at most 20),
-in addition to the recorded rows.
+`nEligibleTrainingPaths × (nBasisColumns + 1) × 8B` of design columns and copied targets
+(at most 20 columns), plus the fixed QR workspace and actual vector capacities.
 Hard pricing keeps the pre-exercise receiver value and terminal payoff in its
 worker-local evaluator state. Reduce the training path count or event count to
 stay inside a memory budget.
+
+## Opt-in Training Checkpoints
+
+Set `lsmcCheckpointBlockEvents_` and `lsmcTrainingMemoryMb_` together to request
+bounded training storage. Both are positive integers; memory units are MiB.
+Python and Excel use `lsmc_checkpoint_block_events` and
+`lsmc_training_memory_mb`. Both default to absent, preserving full storage,
+double precision and the existing training-path defaults.
+
+The supported execution is compiled Sobol with exactly one worker, an exact
+Black–Scholes model, and one positive-time sample per event. Brownian bridges,
+held-out degree selection, historical scalar/vector seeds, up to three regression
+features, and Hard/FrozenAAD/two-sided RetrainedBump retain their existing
+semantics. Retained future fixing samples, other models, parallel restoration,
+one-sided policy bumps and active tape segmentation are excluded. Unsupported
+execution raises `LsmcTrainingBudget`; removing these settings selects the
+ordinary unrestricted full-storage implementation.
+Set `DAL_NUM_THREADS=1` before starting the process (before importing DAL in
+Python or loading the Excel add-in); C++ callers can instead configure the
+thread pool directly.
+
+Training first captures exact log-spot and complete passive script states at
+event boundaries. Blocks are regenerated from last to first using each path's
+original absolute Sobol address and a complete normal vector, including with a
+Brownian bridge. Each fit still sees all training paths in native 8192-path
+reduction order. Payments, features, conditions and exercise rows keep their
+original event mapping. Pending decisions are consumed before their block is
+released. Every parameter or script-constant point gets fresh checkpoints and
+historical seeds from the sealed preparation.
+
+Admission compares full-storage and checkpoint allocation envelopes. A
+single-block request, growing future APPEND history, or a checkpoint envelope
+that is larger or does not fit selects full storage when its complete envelope
+fits. If neither fits, the request fails before training. A budget without a
+block setting requests budgeted full storage within the same supported domain.
+Restoration, invalid paths and allocation failures propagate as errors; no
+partial policy or changed risk method is returned. A subsequent request can run
+normally.
+
+The allocation guard charges actual vector capacities before allocation,
+including temporary old/new capacity overlap, historical vectors, checkpoint
+records, masks and holding values, full normal vectors, model/path/RNG buffers,
+QR columns and copied targets. The admission reserve includes raw row arrays,
+fixed QR/construction workspace, immutable numeric programs/plans (including
+historical compiled bytecode and its actual nested capacities), model state,
+overlapping policies, and the native tape capacity retained on the single worker.
+Each bumped fit repeats admission after frozen AAD, including that retained tape.
+Training storage is released before pricing. This budget covers training
+allocations and their concurrent reserves; it does not cap pricing's future AAD
+tape growth, allocator bookkeeping, retained allocator pages, the caller's source
+contract graph, executable/runtime memory or process RSS. These process costs
+must be measured separately.
+
+For `L` training plus validation paths, `E` events and
+`K = ceil(E / blockEvents)`, an accepted checkpoint fit generates
+`L × (K + 1)` complete normal vectors and makes `2 × L × E` model steps and
+script-event evaluations. Full storage uses `L` vectors and `L × E` steps in
+the budgeted provider. There is no general memory-saving percentage or runtime
+speedup guarantee; state size, block shape, QR and retained tape affect the peak.
+The separate [prototype study](../../experimental/lsmc-checkpoint-study.md)
+retains its original provenance and limitations.
 
 `script_mc_perf --lsmc-multi-regression` reports masked 100,000-path fit times
 for two-state quadratic, two-state cubic, and three-state cubic bases. This
@@ -380,7 +441,8 @@ optional allocation uses the existing uncached path without reducing training.
 Storage is released after the call, including failed fits after their tasks
 have drained. The cache adds no tasks, tapes, or simultaneous policies.
 Its numeric capacity is included in regression-array profiling. Other model
-compositions and the budgeted LSMC curvature caller retain uncached training;
+compositions, requests with an explicit LSMC training memory budget (including
+checkpoint training), and the budgeted LSMC curvature caller retain uncached training;
 the curvature request's existing numeric-payload accounting is unchanged.
 
 ## LSMC Policy Sensitivity Validation

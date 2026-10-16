@@ -76,8 +76,9 @@ provide `default_index` and `regression_features`; valuation settings provide `e
 `today_fixing` and `fixings`; simulation settings provide
 `method`, `use_bb`, `enable_aad`, `smooth`, `compiled`, `lsmc_basis_degree`,
 `lsmc_training_paths`, `lsmc_validation_paths`, `lsmc_rqmc_replicates`,
-`lsmc_training_seed`, `lsmc_pricing_seed`, `lsmc_policy_risk_mode`, and
-`lsmc_policy_bump_relative`, and `normal_precision`. The latter accepts exact
+`lsmc_training_seed`, `lsmc_pricing_seed`, `lsmc_policy_risk_mode`,
+`lsmc_policy_bump_relative`, `lsmc_checkpoint_block_events`,
+`lsmc_training_memory_mb`, and `normal_precision`. The latter accepts exact
 `Default`, `Fast`, or `Precise` strings. `Default` uses fast conversion for all
 three generators; use `MonteCarloSettings_(method="mrg32", normal_precision="Precise")`
 to use CDF-polished MRG32 normals. See [normal precision](../methodology/monte-carlo/sampling.md#monte-carlo-normal-precision)
@@ -86,6 +87,8 @@ for the numerical tradeoff. `Frozen` is the default AAD sensitivity mode;
 and script-constant risks. RQMC pricing uses one fitted
 policy and reports conditional replicate-mean uncertainty through
 `ScriptSimulation_Explain`.
+Checkpoint settings default to `None`; see the supported domain, MiB budget
+and fallback contract under [training checkpoints](../methodology/monte-carlo/lsm.md#opt-in-training-checkpoints).
 
 For multi-asset `EXERCISE`, pass a list of at most three state names, such as
 `ScriptProductSettings_(regression_features=["EQ[A]", "VAR[runningAverage]"])`.

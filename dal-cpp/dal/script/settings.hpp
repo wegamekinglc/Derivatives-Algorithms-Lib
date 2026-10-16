@@ -59,6 +59,8 @@ namespace Dal {
             String_ lsmcPolicyRiskMode_ = "Frozen";
             double lsmcPolicyBumpRelative_ = DEFAULT_LSMC_POLICY_BUMP_RELATIVE;
             String_ normalPrecision_ = "Default";
+            std::optional<int> lsmcCheckpointBlockEvents_;
+            std::optional<int> lsmcTrainingMemoryMb_;
         };
 
         struct ScriptValuationSettings_ {
