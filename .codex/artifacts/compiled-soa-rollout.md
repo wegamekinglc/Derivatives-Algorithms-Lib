@@ -78,3 +78,38 @@ reproducibility; it is not another production backend. Maintenance cost is a
 bounded opcode decoder and mask executor plus an exact-BS batch generator,
 using existing step math and driver RNG/chunk contracts. New opcodes require
 explicit admission and parity evidence before this subset is extended.
+
+## Measured adoption boundary
+
+Baseline is immutable master `3be8dab9`; initial production sampling uses
+`fca6198a`, followed by the threshold-only repair `f73c84fe`. Two rounds of ten
+alternating process pairs in each cost mode produce these best-of-ten speedups:
+
+| Case                | Steady R1/R2 | Cold R1/R2  |
+|---------------------|--------------|-------------|
+| vanilla L16/16387   | 1.807/1.769  | 1.797/1.814 |
+| weekly L32/16387    | 1.366/1.344  | 1.380/1.443 |
+| divergent L32/16387 | 1.504/1.474  | 1.469/1.486 |
+| weekly L32/7        | 1.001/0.952  | 0.973/0.998 |
+| weekly L32/9        | 0.994/1.007  | 1.010/0.990 |
+| weekly L32/65       | 1.211/1.195  | 0.994/1.062 |
+
+Nine paths initially lost 12.08%/14.32% in steady mode; the final scalar bypass
+below sixteen paths removes that loss. The final binary differs only at four
+threshold bytes (`cmp 7` to `cmp 15`), one per lane width, with identical
+instruction addresses, branch targets and read-only constants. The unchanged
+seven-path and >=16-path bodies retain their original evidence; only the
+nine-path case was remeasured. The evidence bundle records both binary hashes,
+complete disassembly differences, source/dependency/build identities and all
+280 new formal pairs. Every pair has identical payoff sums, exceeding the
+requested 1e-12 agreement.
+
+Adopt the measured large vanilla, weekly and frequent-divergence shapes.
+Seven-path steady and 65-path cold timings remain inconclusive under the 4%
+two-round rule, so there is no blanket all-size speed guarantee. In particular,
+65-path steady improvement does not imply a cold-request improvement. Prepared
+named observations have correctness coverage but were not separately timed.
+All seven new regressions, including 15/16/17-path boundaries, pass normally
+and under ASan/UBSan on the new header/test translation units. Three unchanged
+tree/scalar/AAD caller checks also pass. Full regressions and platform gates
+remain CI work; production review is independent of the old prototype review.
