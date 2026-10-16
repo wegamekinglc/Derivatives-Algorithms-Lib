@@ -1292,6 +1292,35 @@ namespace Dal::Script {
             }
         }
 
+        template <bool Fuzzy_, bool Constant_, bool Delayed_, class T_, class P_>
+        FORCE_INLINE size_t EvalCompiledLsmcPayment(const CompiledEventView_<T_, P_>& event, size_t i, EvalState_<T_>* statePtr) {
+            double val = 0.0;
+            if constexpr (Constant_)
+                val = event.constStream_[event.nodeStream_[++i]];
+            size_t slot = 0;
+            if constexpr (Delayed_)
+                slot = event.nodeStream_[++i];
+            const size_t idx = event.nodeStream_[++i];
+            // Plain literals stay double; delayed payments materialize before recording and division.
+            const auto payment = [&]() {
+                if constexpr (Delayed_) {
+                    if constexpr (Constant_)
+                        return T_(val * event.scenario_.discounts_[slot]);
+                    else
+                        return T_(statePtr->dStack_.TopAndPop() * event.scenario_.discounts_[slot]);
+                } else if constexpr (Constant_)
+                    return val;
+                else
+                    return statePtr->dStack_.TopAndPop();
+            }();
+            if constexpr (Fuzzy_)
+                RecordLsmcFuzzyPayment(statePtr, idx, payment);
+            else
+                RecordLsmcPayment(statePtr, idx, Value(payment));
+            statePtr->variables_[idx] += payment / event.scenario_.numeraire_;
+            return i + 1;
+        }
+
         //  LSMC recording tier of the prepared tail zone: payments and exercise
         //  triples land in the driver's sinks while the script-state arithmetic
         //  mirrors the plain Pays opcodes statement for statement. Compiled only
@@ -1303,39 +1332,15 @@ namespace Dal::Script {
             auto& state = *statePtr;
             auto& dStack = state.dStack_;
             auto& nodeStream = event.nodeStream_;
-            auto& constStream = event.constStream_;
             const int op = event.nodeStream_[i];
-            if (op == LsmcFuzzyPays) {
-                const size_t idx = nodeStream[++i];
-                const T_ payment = dStack.TopAndPop();
-                RecordLsmcFuzzyPayment(statePtr, idx, payment);
-                state.variables_[idx] += payment / event.scenario_.numeraire_;
-                return i + 1;
-            }
-            if (op == LsmcFuzzyPaysConst) {
-                const double val = constStream[nodeStream[++i]];
-                const size_t idx = nodeStream[++i];
-                RecordLsmcFuzzyPayment(statePtr, idx, val);
-                state.variables_[idx] += val / event.scenario_.numeraire_;
-                return i + 1;
-            }
-            if (op == LsmcFuzzyPaysOn) {
-                const size_t slot = nodeStream[++i];
-                const size_t idx = nodeStream[++i];
-                const T_ payment = dStack.TopAndPop() * event.scenario_.discounts_[slot];
-                RecordLsmcFuzzyPayment(statePtr, idx, payment);
-                state.variables_[idx] += payment / event.scenario_.numeraire_;
-                return i + 1;
-            }
-            if (op == LsmcFuzzyPaysOnConst) {
-                const double val = constStream[nodeStream[++i]];
-                const size_t slot = nodeStream[++i];
-                const size_t idx = nodeStream[++i];
-                const T_ payment = val * event.scenario_.discounts_[slot];
-                RecordLsmcFuzzyPayment(statePtr, idx, payment);
-                state.variables_[idx] += payment / event.scenario_.numeraire_;
-                return i + 1;
-            }
+            if (op == LsmcFuzzyPays)
+                return EvalCompiledLsmcPayment<true, false, false>(event, i, statePtr);
+            if (op == LsmcFuzzyPaysConst)
+                return EvalCompiledLsmcPayment<true, true, false>(event, i, statePtr);
+            if (op == LsmcFuzzyPaysOn)
+                return EvalCompiledLsmcPayment<true, false, true>(event, i, statePtr);
+            if (op == LsmcFuzzyPaysOnConst)
+                return EvalCompiledLsmcPayment<true, true, true>(event, i, statePtr);
             if (op == LsmcFuzzyExercise) {
                 const bool hasCond = nodeStream[++i] != 0;
                 T_ cond(1.0);
@@ -1354,39 +1359,15 @@ namespace Dal::Script {
             auto& dStack = state.dStack_;
             auto& bStack = state.bStack_;
             auto& nodeStream = event.nodeStream_;
-            auto& constStream = event.constStream_;
             const int op = event.nodeStream_[i];
-            if (op == LsmcPays) {
-                const size_t idx = nodeStream[++i];
-                const T_ payment = dStack.TopAndPop();
-                RecordLsmcPayment(statePtr, idx, Value(payment));
-                state.variables_[idx] += payment / event.scenario_.numeraire_;
-                return i + 1;
-            }
-            if (op == LsmcPaysConst) {
-                const double val = constStream[nodeStream[++i]];
-                const size_t idx = nodeStream[++i];
-                RecordLsmcPayment(statePtr, idx, val);
-                state.variables_[idx] += val / event.scenario_.numeraire_;
-                return i + 1;
-            }
-            if (op == LsmcPaysOn) {
-                const size_t slot = nodeStream[++i];
-                const size_t idx = nodeStream[++i];
-                const T_ payment = dStack.TopAndPop() * event.scenario_.discounts_[slot];
-                RecordLsmcPayment(statePtr, idx, Value(payment));
-                state.variables_[idx] += payment / event.scenario_.numeraire_;
-                return i + 1;
-            }
-            if (op == LsmcPaysOnConst) {
-                const double val = constStream[nodeStream[++i]];
-                const size_t slot = nodeStream[++i];
-                const size_t idx = nodeStream[++i];
-                const T_ payment = val * event.scenario_.discounts_[slot];
-                RecordLsmcPayment(statePtr, idx, Value(payment));
-                state.variables_[idx] += payment / event.scenario_.numeraire_;
-                return i + 1;
-            }
+            if (op == LsmcPays)
+                return EvalCompiledLsmcPayment<false, false, false>(event, i, statePtr);
+            if (op == LsmcPaysConst)
+                return EvalCompiledLsmcPayment<false, true, false>(event, i, statePtr);
+            if (op == LsmcPaysOn)
+                return EvalCompiledLsmcPayment<false, false, true>(event, i, statePtr);
+            if (op == LsmcPaysOnConst)
+                return EvalCompiledLsmcPayment<false, true, true>(event, i, statePtr);
             if (op == LsmcExercise) {
                 const bool hasCond = nodeStream[++i] != 0;
                 const T_ value = dStack.TopAndPop();
