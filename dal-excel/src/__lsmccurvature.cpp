@@ -72,7 +72,7 @@ simulation is handle StorableMonteCarloSettings
 +xl_simulation = Excel::ScriptScalarInput(xl_simulation);
 &outputs
 configuration is cell[][]
-    All fourteen original simulation fields; absent optional values blank
+    All sixteen simulation fields; absent optional values blank
 -IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------
