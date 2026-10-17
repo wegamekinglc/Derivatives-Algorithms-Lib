@@ -72,6 +72,7 @@ namespace Dal::AAD {
         friend auto SetNumResultsForAAD(bool, size_t);
         friend struct NumResultsResetterForAAD_;
         friend class Number_;
+        friend class RecordingScope_;
         friend void Clear(Tape_& tape);
         friend void Mark(Tape_& tape);
         friend void RewindToMark(Tape_& tape);
@@ -107,6 +108,10 @@ namespace Dal::AAD {
         size_t eventScratchPeakBytes_ = 0;
         bool threadDefault_ = false; // GCC spills recording values when these constructor flags are adjacent.
         friend struct NativeRecordedOperation_;
+
+        TapNode_* constantSink_ = nullptr;
+        TapNode_* markedConstantSink_ = nullptr;
+        bool passiveConstants_ = false;
 
         void UpdateThreadEventValidation() const noexcept {
             if (threadDefault_)

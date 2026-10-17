@@ -11,8 +11,8 @@
  */
 
 #pragma once
-#include <memory>
 #include <dal/math/aad/expr.hpp>
+#include <memory>
 
 namespace Dal::AAD {
 
@@ -47,7 +47,15 @@ namespace Dal::AAD {
 
     FORCE_INLINE void Clear(Tape_* tape) { return Clear(*tape); }
 
-    FORCE_INLINE void RegisterIndependent(Number_& n, double v) { n = v; }
+    FORCE_INLINE void RegisterIndependent(Number_& n, double v) {
+#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+        n.node_ = n.CreateMultiNode<0>();
+        n.value_ = v;
+#else
+        n.value_ = v;
+        n.node_ = n.CreateMultiNode<0>();
+#endif
+    }
 
     FORCE_INLINE void ZeroAdjoints(Tape_& tape) {
         if (tape.HasReverseEventState()) {
@@ -79,6 +87,8 @@ namespace Dal::AAD {
 
 namespace Dal::AAD {
     inline Number_ PayoffRoot(const Number_& payoff, const Number_& activeZero) {
+        if (payoff.IsPassive())
+            return payoff + activeZero;
         auto end = Tape()->nodes_.End();
         // Only a terminal node recorded after the mark is already a path-local root.
         if (end != Tape()->nodes_.Mark() && &Adjoint(payoff) == &std::prev(end)->Adjoint())

@@ -16,6 +16,13 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-10-17
+
+- **Scoped GSR passive constants** — core C++ prepared compiled scalar AAD
+  Monte Carlo can opt into shared constant leaves for native three-factor GSR,
+  preserving default input registration and constructor semantics. See
+  [scoped passive constants](docs/methodology/passive-constants.md).
+
 ## 2026-10-16
 
 - **Explicit compiled double SoA** — C++ ordinary Monte Carlo can batch exact

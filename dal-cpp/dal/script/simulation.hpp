@@ -1032,7 +1032,40 @@ namespace Dal::Script {
             size_t nConstVars_;
             size_t payoffIndex_;
             String_ normalPrecision_ = "Default";
+            bool passiveConstants_ = false;
         };
+
+        template <class P_> bool RequestedPassiveConstants(const P_& product) {
+            if constexpr (std::is_same_v<P_, PreparedScript_>)
+                return product.Simulation().usePassiveConstants_;
+            return false;
+        }
+
+        template <class P_, class O_>
+        bool AdmitPassiveConstants(const P_& product, const AAD::Model_<double>* model, const String_& rsg, bool useBb) {
+            if (!RequestedPassiveConstants(product))
+                return false;
+            REQUIRE2((std::is_same_v<O_, ScalarSimulationObjective_>),
+                     "UnsupportedPassiveConstants: requires the ordinary scalar objective", ScriptError_);
+            REQUIRE2(!AAD::Tape()->multi_ && AAD::Tape()->numAdj_ == 1,
+                     "UnsupportedPassiveConstants: requires scalar adjoints", ScriptError_);
+            REQUIRE2(rsg == "sobol" && !useBb,
+                     "UnsupportedPassiveConstants: requires default Sobol without a Brownian bridge", ScriptError_);
+            ValidatePassiveConstantModel(model, RequiresLsmc(product));
+            return true;
+        }
+
+        template <class P_>
+        void ConfigurePassiveConstants(const P_& product, const AADBatchSettings_& settings, AAD::RecordingScope_* recording) {
+            const bool passiveConstants = RequestedPassiveConstants(product);
+            REQUIRE2(passiveConstants == settings.passiveConstants_,
+                     "UnsupportedPassiveConstants: requires scalar ordinary MC entry point", ScriptError_);
+            if (passiveConstants) {
+                REQUIRE2(!AAD::Tape()->multi_ && AAD::Tape()->numAdj_ == 1,
+                         "UnsupportedPassiveConstants: vector adjoints are not admitted for GSR MC", ScriptError_);
+                recording->EnablePassiveConstants();
+            }
+        }
 
         template <class E_, class R_, class O_>
         void HarvestAADChunk(AAD::Model_<AAD::Number_>* model, E_* evaluator, const AADBatchSettings_& settings, R_* results, const O_& objective) {
@@ -1064,6 +1097,7 @@ namespace Dal::Script {
                            bool positioned = false) {
             AAD::ProfilingSpan_ initialize(AAD::AADProfilingPhase_::Value_::WORKER_INIT);
             AAD::RecordingScope_ recording;
+            ConfigurePassiveConstants(product, settings, &recording);
             std::unique_ptr<AAD::Model_<AAD::Number_>> model = CreateModel<AAD::Number_>(modelData);
             model->Allocate(product.TimeLine(), product.DefLine());
 
@@ -1189,6 +1223,7 @@ namespace Dal::Script {
         const bool useCompiled = compiled.value_or(false);
 
         const std::unique_ptr<AAD::Model_<double>> metadataModel = CreateModel<double>(modelData);
+        const bool passiveConstants = Detail::AdmitPassiveConstants<P_, O_>(product, metadataModel.get(), rsg, useBb);
         if (product.EventDates().empty())
             return objective.MakeResult(Vector::Join(metadataModel->ParameterLabels(), product.ConstVarNames()));
         Detail::ValidateAADExecution(product, useCompiled, eps);
@@ -1215,7 +1250,7 @@ namespace Dal::Script {
 
         auto values = objective.MakeResult(Vector::Join(metadataModel->ParameterLabels(), product.ConstVarNames()));
         const Detail::AADBatchSettings_ settings{
-            rsg, useBb, maxNestedIfs, eps, nPaths, nParams, nConstVars, payoffIndex, Detail::NormalPrecision(product)};
+            rsg, useBb, maxNestedIfs, eps, nPaths, nParams, nConstVars, payoffIndex, Detail::NormalPrecision(product), passiveConstants};
         auto positioner = rsg == "irn" ? CreateRNG(rsg, *metadataModel, useBb, std::nullopt, settings.normalPrecision_) : nullptr;
         const auto captureResults = [&](const auto& partials) {
 #if defined(DAL_ENABLE_AAD_PROFILING)

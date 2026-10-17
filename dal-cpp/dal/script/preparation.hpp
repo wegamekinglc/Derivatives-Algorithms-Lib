@@ -14,6 +14,9 @@
 #include <dal/script/settings.hpp>
 
 namespace Dal::Script {
+    namespace Detail {
+        void ValidatePassiveConstantModel(const AAD::Model_<double>* model, bool exercise);
+    } // namespace Detail
     class PreparedScript_ {
         std::unique_ptr<const ScriptProduct_> product_;
         Date_ evaluationDate_;

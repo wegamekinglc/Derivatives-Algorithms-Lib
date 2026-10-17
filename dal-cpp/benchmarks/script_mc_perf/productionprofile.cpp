@@ -34,6 +34,7 @@ namespace {
     struct Options_ {
         std::string scenario_, mode_, engine_, measurement_;
         size_t paths_ = 0, outputs_ = 0, grid_ = 0, training_ = 0, repeats_ = 0;
+        bool passiveConstants_ = false;
         [[nodiscard]] bool Exercise() const { return scenario_ == "lsmc-bs" || scenario_ == "lsmc-local-vol"; }
         [[nodiscard]] bool LocalVol() const { return scenario_ == "local-vol" || scenario_ == "lsmc-local-vol"; }
         [[nodiscard]] bool HybridRates() const { return scenario_.find("hybrid-gsr-") == 0 || scenario_.find("hybrid-slv-") == 0; }
@@ -77,14 +78,19 @@ namespace {
                                           "lsmc-bs",
                                           "lsmc-local-vol"}) &&
                Choice(options.mode_, {"double", "aad"}) && Choice(options.engine_, {"tree", "compiled"}) &&
-               Choice(options.measurement_, {"cold", "warm", "phases", "structure"});
+               Choice(options.measurement_, {"cold", "warm", "phases", "structure", "memory"});
     }
 
     bool ValidOutputs(size_t outputs) { return outputs == 1 || outputs == 4 || outputs == 16 || outputs == 64; }
 
     bool Parse(int argc, char** argv, Options_* options) {
-        if (argc != 11)
+        if (argc != 11 && argc != 12)
             return false;
+        if (argc == 12) {
+            if (std::string(argv[11]) != "--passive-constants")
+                return false;
+            options->passiveConstants_ = true;
+        }
         options->scenario_ = argv[2];
         options->mode_ = argv[4];
         options->engine_ = argv[5];
@@ -97,6 +103,9 @@ namespace {
     }
 
     void ValidateOptions(const Options_& options) {
+        REQUIRE(options.measurement_ != "memory" || (options.scenario_ == "gsr-swap-3f" && options.Aad() && options.engine_ == "compiled" &&
+                                                     options.outputs_ == 1 && options.repeats_ == 1),
+                "memory requires compiled GSR 3F AAD with one output/repetition and prior external numeric admission");
         REQUIRE(options.LocalVol() ? options.grid_ >= 2 && options.grid_ <= 64 : options.grid_ == 0, "invalid surface grid");
         REQUIRE(options.Exercise()
                     ? options.outputs_ == 1 && options.training_ > 0 && options.training_ <= static_cast<size_t>(std::numeric_limits<int>::max())
@@ -253,6 +262,7 @@ namespace {
         MonteCarloSettings_ simulation;
         simulation.enableAad_ = options.Aad();
         simulation.compiled_ = options.engine_ == "compiled";
+        simulation.usePassiveConstants_ = options.passiveConstants_;
         if (options.Exercise())
             simulation.lsmcTrainingPaths_ = static_cast<int>(options.training_);
         for (size_t output = 0; output < options.outputs_; ++output) {
@@ -389,6 +399,7 @@ namespace {
         reference.paths_ = std::min<size_t>(options.paths_, 256);
         auto alternate = reference;
         alternate.engine_ = options.engine_ == "tree" ? "compiled" : "tree";
+        alternate.passiveConstants_ = false;
         const auto current = Evaluate(PrepareCase(reference, exerciseFactory), reference);
         Match(current, Evaluate(PrepareCase(alternate, exerciseFactory), alternate), reference.paths_);
         if (options.Exercise())
@@ -398,6 +409,7 @@ namespace {
         const auto aad = Evaluate(PrepareCase(active, exerciseFactory), active);
         auto passive = reference;
         passive.mode_ = "double";
+        passive.passiveConstants_ = false;
         const auto passiveCase = PrepareCase(passive, exerciseFactory);
         const auto prices = Evaluate(passiveCase, passive);
         for (size_t output = 0; output < aad.size(); ++output)
@@ -472,10 +484,12 @@ namespace {
             << ",\"training_paths\":" << options.training_ << ",\"surface_grid\":" << options.grid_
             << ",\"training_first_path\":0,\"pricing_first_path\":" << options.training_
             << ",\"risk_basis\":\"fixed_model_and_script_parameters\",\"rng\":\"sobol\",\"scramble\":\"none\",\"seed\":null,\"brownian_bridge\":false"
-            << ",\"lsm_policy\":\"Frozen\",\"smooth\":0.01,\"oracle_paths\":" << std::min<size_t>(options.paths_, 256)
+            << ",\"lsm_policy\":\"Frozen\",\"smooth\":0.01,\"oracle_paths\":"
+            << (options.measurement_ == "memory" ? 0 : std::min<size_t>(options.paths_, 256))
             << ",\"risk_units\":\"d_mean_price_per_raw_parameter_unit\""
             << ",\"preparation_included\":" << (options.measurement_ == "warm" ? "false" : "true")
             << ",\"profiling_build\":" << (AAD::ProfilingAvailable() ? "true" : "false")
+            << ",\"passive_constants\":" << (options.passiveConstants_ ? "true" : "false")
             << ",\"process_first_request\":false,\"worker_state_reused\":false"
             << ",\"wall_ns\":" << elapsed << "}\n";
     }
@@ -506,7 +520,8 @@ namespace {
     }
 
     int Execute(const Options_& options, ExerciseProductFactory_ exerciseFactory) {
-        ValidateNumeric(options, exerciseFactory);
+        if (options.measurement_ != "memory")
+            ValidateNumeric(options, exerciseFactory);
         const auto referenceCase = PrepareCase(options, exerciseFactory);
         const auto expected = Evaluate(referenceCase, options);
         std::cout << std::setprecision(17);
@@ -552,7 +567,7 @@ int RunProductionProfile(int argc, char** argv, ExerciseProductFactory_ exercise
                      "hybrid-slv-swap-1f|hybrid-slv-swap-3f|hybrid-slv-bond-1f|lsmc-bs|lsmc-local-vol "
                      "PATHS double|aad "
                      "tree|compiled "
-                     "cold|warm|phases|structure OUTPUTS GRID TRAINING REPEATS\n";
+                     "cold|warm|phases|structure|memory OUTPUTS GRID TRAINING REPEATS [--passive-constants]\n";
         return 2;
     }
     try {

@@ -61,6 +61,7 @@ namespace Dal {
             String_ normalPrecision_ = "Default";
             std::optional<int> lsmcCheckpointBlockEvents_;
             std::optional<int> lsmcTrainingMemoryMb_;
+            bool usePassiveConstants_ = false;
         };
 
         struct ScriptValuationSettings_ {

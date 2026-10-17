@@ -228,6 +228,14 @@ callers, but must not replace marks or discard graphs managed by scoped
 checkpoint methods. The scope does not validate every expression or make raw
 iterators stable checkpoints.
 
+### Scoped Passive Constants
+
+Default double construction keeps independent leaves. Core C++ prepared
+compiled scalar GSR Monte Carlo has an explicit, default-off memory opt-in;
+its owned recording shares passive constant leaves while keeping registered
+input adjoints distinct. See [scoped passive constants](passive-constants.md)
+for admission, lifecycle and migration boundaries.
+
 ### Fixed-Size Expression Accumulation
 
 `AAD::Accumulate<N>(initial, term)` in `dal/math/aad/accumulate.hpp` composes a

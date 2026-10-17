@@ -49,6 +49,7 @@ namespace Dal::AAD {
         REQUIRE(recording != nullptr, "RecordedOperation: recording scope must not be null");
         recording->RequireState(AADRecordingState_::Value_::RECORDING, "RecordedOperation");
         auto* tape = recording->tape_;
+        REQUIRE(!tape->passiveConstants_, "RecordedOperation: passive constant recording does not support reverse events");
         NativeOperations_::ValidateAdjointMode(tape->multi_, tape->numAdj_);
         if (tape->HasReverseEventState())
             tape->RequireReverseEventState("RecordedOperation");
