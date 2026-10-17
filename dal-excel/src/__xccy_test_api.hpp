@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/7/14.
-//
-
 #pragma once
 
 #include "__curve_storable.hpp"

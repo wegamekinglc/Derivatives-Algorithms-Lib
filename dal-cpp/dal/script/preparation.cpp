@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/9/13.
-//
-
 #include <type_traits>
 #include <typeinfo>
 

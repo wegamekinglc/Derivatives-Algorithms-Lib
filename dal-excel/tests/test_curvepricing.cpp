@@ -1,7 +1,3 @@
-//
-// Created by dal-implementer on 2026/8/25.
-//
-
 #if defined(_WIN32) || defined(DAL_EXCEL_API_TESTS_PORTABLE)
 
 #include <gtest/gtest.h>

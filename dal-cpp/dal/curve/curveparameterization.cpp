@@ -1,7 +1,3 @@
-//
-// Created by dal-implementer on 2026/7/12.
-//
-
 #include <algorithm>
 #include <type_traits>
 

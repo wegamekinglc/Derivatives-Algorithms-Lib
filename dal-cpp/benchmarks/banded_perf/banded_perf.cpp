@@ -1,6 +1,3 @@
-//
-// Created by dal-implementer on 2026-6-28.
-//
 // Banded tri-diagonal matrix-vector multiply micro-benchmark.
 // Builds a TriDiagonal_ of size 10K and measures the tri mat-vec path that the
 // PDE solver exercises (TriDecomp_::XMultiplyLeft_af, reached via the public

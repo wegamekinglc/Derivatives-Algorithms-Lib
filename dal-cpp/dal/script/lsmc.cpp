@@ -1,7 +1,3 @@
-//
-// Created by dal-implementer on 2026/9/20.
-//
-
 #include <algorithm>
 #include <array>
 #include <atomic>

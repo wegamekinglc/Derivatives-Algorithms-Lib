@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/10/2.
-//
-
 #pragma once
 
 #include "__gsr_test_api.hpp"

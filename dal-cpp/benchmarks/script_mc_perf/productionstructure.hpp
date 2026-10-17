@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/10/15.
-//
-
 #pragma once
 
 #include <dal/script/simulation.hpp>

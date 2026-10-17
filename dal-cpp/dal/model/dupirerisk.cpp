@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/10/5.
-//
-
 #include <array>
 #include <limits>
 #include <map>

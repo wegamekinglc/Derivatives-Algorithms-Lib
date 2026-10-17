@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/9/13.
-//
-
 #include <gtest/gtest.h>
 
 #include <dal/indice/detail/fixingobserver.hpp>

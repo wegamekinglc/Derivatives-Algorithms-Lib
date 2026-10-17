@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/10/16.
-//
-
 #define DAL_LSMC_STUDY_NO_MAIN
 #include "checkpointstudy.cpp"
 

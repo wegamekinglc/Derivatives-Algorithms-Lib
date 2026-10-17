@@ -1,6 +1,3 @@
-//
-// Created by Claude on 2026/6/16.
-//
 // Single-curve Euribor 3M bootstrap from market quotes (as-of 2026-04-30).
 // Market data is embedded verbatim from three CSVs:
 //   - EUR_cash_rates.csv                    (3M cash deposit, only 3M used)

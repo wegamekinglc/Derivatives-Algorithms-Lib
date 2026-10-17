@@ -1,7 +1,3 @@
-//
-// Created by Claude on 2026/9/28.
-//
-
 #include <gtest/gtest.h>
 #include <dal/platform/platform.hpp>
 #include <dal/math/matrix/squarematrix.hpp>

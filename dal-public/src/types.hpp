@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/10/1.
-//
-
 #pragma once
 
 // Value types shared by the public API and its language adapters.

@@ -1,7 +1,3 @@
-//
-// Created by ZCode on 2026/10/3.
-//
-
 #include <dal/platform/platform.hpp>
 
 #include <dal/platform/strict.hpp>

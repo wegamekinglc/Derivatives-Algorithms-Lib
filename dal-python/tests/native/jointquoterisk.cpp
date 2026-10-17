@@ -1,7 +1,3 @@
-//
-// Created by dal-implementer on 2026/9/11.
-//
-
 #include <pybind11/pybind11.h>
 
 #include <tests/curve/jointquoteriskopaque.hpp>

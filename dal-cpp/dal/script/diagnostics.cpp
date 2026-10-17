@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/9/15.
-//
-
 #include <dal/model/factory.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>

@@ -1,7 +1,3 @@
-//
-// Created by dal-implementer on 2026/6/18.
-//
-
 #include <gtest/gtest.h>
 
 #include <dal/curve/calibration.hpp>

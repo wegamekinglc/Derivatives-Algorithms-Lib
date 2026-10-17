@@ -1,7 +1,3 @@
-//
-// Created by Claude on 2026/6/16.
-//
-
 #include <gtest/gtest.h>
 #include <dal/platform/platform.hpp>
 #include <dal/time/date.hpp>

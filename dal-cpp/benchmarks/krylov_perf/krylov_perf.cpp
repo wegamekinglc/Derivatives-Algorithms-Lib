@@ -1,6 +1,3 @@
-//
-// Created by dal-implementer on 2026-6-28.
-//
 // Conjugate-gradient (CG) Krylov-solver micro-benchmark.
 // Builds a 500x500 symmetric positive-definite tri-diagonal matrix (strictly
 // diagonally dominant) and runs CGSolve with a 200-iteration budget.

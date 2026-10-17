@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/10/7.
-//
-
 #include <gtest/gtest.h>
 
 #include <dal-excel/src/__portfoliorisk.hpp>

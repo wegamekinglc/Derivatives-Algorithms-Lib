@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/10/12.
-//
-
 #pragma once
 
 #include <cstddef>

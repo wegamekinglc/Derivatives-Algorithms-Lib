@@ -1,6 +1,3 @@
-//
-// Created by dal-implementer on 2026-6-28.
-//
 // Interpolation micro-benchmark.
 // Builds a cubic interpolator on 50 knots and measures the full sweep over
 // 10K monotonically-increasing query points, the dominant inner loop in

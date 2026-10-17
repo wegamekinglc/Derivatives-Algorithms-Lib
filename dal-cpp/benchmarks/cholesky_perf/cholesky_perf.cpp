@@ -1,6 +1,3 @@
-//
-// Created by dal-implementer on 2026-6-28.
-//
 // Dense Cholesky decomposition micro-benchmark.
 // Builds a 200x200 symmetric positive-definite dense matrix and measures
 // CholeskyDecomposition plus one forward/back Solve.

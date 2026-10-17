@@ -1,6 +1,3 @@
-//
-// Created by dal-implementer on 2026/8/24.
-//
 // Rate node-risk sweep benchmarks: the long-batch serial sweep (tape memory/latency
 // driver — one passive PV per trade, one preparation per component, one AAD sweep per
 // (trade, component) cell), the OIS daily-compounding recording shape, and the XCCY

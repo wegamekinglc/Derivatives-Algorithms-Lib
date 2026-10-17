@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/10/3.
-//
-
 #pragma once
 
 #include <array>

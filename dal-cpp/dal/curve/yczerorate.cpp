@@ -1,7 +1,3 @@
-//
-// Created by dal-implementer on 2026/7/12.
-//
-
 // Platform defines the default DAL container element types used by the curve headers.
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>

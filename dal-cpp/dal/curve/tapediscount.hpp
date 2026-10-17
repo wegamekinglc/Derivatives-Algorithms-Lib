@@ -1,7 +1,3 @@
-//
-// Created by dal-implementer on 2026/8/15.
-//
-
 #pragma once
 
 #include <cmath>

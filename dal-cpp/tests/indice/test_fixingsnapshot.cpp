@@ -1,7 +1,3 @@
-//
-// Created by dal-implementer on 2026/7/13.
-//
-
 #include <gtest/gtest.h>
 
 #include <dal/curve/xccyinstrument.hpp>

@@ -1,6 +1,3 @@
-//
-// Created by dal-implementer on 2026-7-4.
-//
 // Script-engine tree-walk vs compiled evaluator benchmarks.
 
 #include <algorithm>

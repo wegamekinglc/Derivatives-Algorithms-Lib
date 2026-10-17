@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/9/12.
-//
-
 #include <gtest/gtest.h>
 #include <dal/platform/platform.hpp>
 #include <dal/time/schedules.hpp>

@@ -1,6 +1,3 @@
-//
-// Created by dal-implementer on 2026-7-4.
-//
 // End-to-end curve-calibration micro-benchmark.
 // Drives CalibrateYieldCurve -> YieldCurveCalibrationFunc_::F -> Underdetermined::Find
 // -> AnalyticJacobian and the scalar-templated curve factory on a real

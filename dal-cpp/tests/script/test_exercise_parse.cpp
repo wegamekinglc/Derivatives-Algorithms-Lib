@@ -1,7 +1,3 @@
-//
-// Created by dal-implementer on 2026/9/19.
-//
-
 #include <gtest/gtest.h>
 
 #include <cmath>

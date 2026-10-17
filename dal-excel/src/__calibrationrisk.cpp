@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/10/5.
-//
-
 #include "__calibrationrisk.hpp"
 
 #include <type_traits>

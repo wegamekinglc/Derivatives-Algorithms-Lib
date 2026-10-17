@@ -1,6 +1,3 @@
-//
-// Created by dal-implementer on 2026/6/28.
-//
 // Curve-calibration Jacobian micro-benchmark.
 //
 // Legacy cases isolate a ZeroAdjoints/seed/propagate/harvest reference. Additional cases call

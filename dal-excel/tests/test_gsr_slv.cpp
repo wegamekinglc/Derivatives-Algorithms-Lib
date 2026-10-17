@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/10/2.
-//
-
 #include <gtest/gtest.h>
 #include <dal-excel/src/__models_test_api.hpp>
 #include <dal/storage/splat.hpp>

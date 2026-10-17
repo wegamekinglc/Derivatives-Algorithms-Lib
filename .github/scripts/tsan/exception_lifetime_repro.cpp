@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/10/15.
-//
-
 #include <atomic>
 #include <exception>
 #include <future>

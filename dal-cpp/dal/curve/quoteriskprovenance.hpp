@@ -1,7 +1,3 @@
-//
-// Created by dal-implementer on 2026/8/31.
-//
-
 #pragma once
 
 #include <map>

@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/10/2.
-//
-
 #include "__gsr_helpers.hpp"
 
 #include <cmath>

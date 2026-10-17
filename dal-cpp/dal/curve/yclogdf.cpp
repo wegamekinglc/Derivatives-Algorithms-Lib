@@ -1,7 +1,3 @@
-//
-// Created by dal-implementer on 2026/6/14.
-//
-
 #include <cmath>
 #include <dal/curve/discount.hpp>
 #include <dal/curve/fittable.hpp>

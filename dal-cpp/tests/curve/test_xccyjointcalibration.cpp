@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/7/14.
-//
-
 #include <gtest/gtest.h>
 
 #include <limits>

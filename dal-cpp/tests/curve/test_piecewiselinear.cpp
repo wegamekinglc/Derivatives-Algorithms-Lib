@@ -1,7 +1,3 @@
-//
-// Created by GitHub Copilot on 2026/4/15.
-//
-
 #include <gtest/gtest.h>
 #include <dal/platform/platform.hpp>
 #include <dal/curve/piecewiselinear.hpp>
