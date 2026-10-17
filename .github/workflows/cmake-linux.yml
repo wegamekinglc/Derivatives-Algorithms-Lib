@@ -351,6 +351,12 @@ jobs:
           python3 .github/scripts/check_docs.py
           python3 -m unittest discover -s .github/scripts/tests -p test_checkout_dependencies.py
           python3 -m unittest discover -s .github/scripts/tests -p test_check_benchmark_regressions.py -v
+          # Gate-contract tests must run on PRs, not only in the scheduled
+          # benchmarks job they protect: a PR that breaks run_benchmarks.py
+          # or the change classifier would otherwise merge green and fail
+          # the next scheduled run.
+          python3 -m unittest discover -s .github/scripts/tests -p test_run_benchmarks.py -v
+          python3 -m unittest discover -s .github/scripts/tests -p test_classify_ci_changes.py -v
 
   warning-clean:
     name: Warning-clean GCC build
