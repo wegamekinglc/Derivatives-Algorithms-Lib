@@ -57,11 +57,12 @@ set_tests_properties(ordinary_perf script_mc_compiled_soa_profile PROPERTIES
         return working
 
     def run_cli(self, root, build, *extra):
-        return subprocess.run(
+        # Launch this repository's runner with fixture paths as separate arguments.
+        return subprocess.run(  # nosemgrep
             [sys.executable, str(RUNNER), "--build-root", str(build),
              "--results-dir", str(root / "results"), "--configuration", "fixture", *extra],
             cwd=root, env={**os.environ, "DAL_NUM_THREADS": "4"},
-            capture_output=True, text=True, check=False,
+            capture_output=True, text=True, check=False, shell=False,
         )
 
     def assert_profile(self, results, working):

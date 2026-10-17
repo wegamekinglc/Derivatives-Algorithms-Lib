@@ -12,6 +12,10 @@ import sys
 from write_benchmark_summary import build_report
 
 
+def valid_test_name(name: str) -> bool:
+    return bool(name) and name not in (".", "..") and "/" not in name and "\\" not in name
+
+
 def discover_benchmarks(build_root: Path, results_dir: Path) -> list[dict]:
     completed = subprocess.run(
         ["ctest", "--test-dir", str(build_root), "--show-only=json-v1", "-L", "^benchmark$"],
@@ -24,7 +28,7 @@ def discover_benchmarks(build_root: Path, results_dir: Path) -> list[dict]:
     names = set()
     for test in tests:
         name = test["name"]
-        if not name or name in (".", "..") or "/" in name or "\\" in name or name in names:
+        if not valid_test_name(name) or name in names:
             raise ValueError(f"invalid or duplicate benchmark test name: {name!r}")
         if not test.get("command"):
             raise ValueError(f"CTest could not resolve the command for {name}; build the benchmark first")
@@ -42,9 +46,10 @@ def run_benchmark(test: dict, build_root: Path, results_dir: Path, resource_usag
     print(f"========== {name} ==========", flush=True)
     with output_file.open("w", encoding="utf-8") as output:
         try:
-            completed = subprocess.run(
+            # CTest supplies the locally generated argument vector; no shell parses it.
+            completed = subprocess.run(  # nosemgrep
                 command, cwd=properties.get("WORKING_DIRECTORY", str(build_root)),
-                stdout=output, stderr=subprocess.STDOUT, check=False,
+                stdout=output, stderr=subprocess.STDOUT, check=False, shell=False,
             )
             status = completed.returncode
         except OSError as error:
