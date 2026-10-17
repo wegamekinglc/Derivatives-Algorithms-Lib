@@ -13,6 +13,8 @@ Examples use C++ unless a guide explicitly points to the dedicated
 4. [Rate-trade node risk](node-risk.md) — AAD eligibility and batch risk cells.
 5. [Joint quote risk](joint-quote-risk.md) — coupled curve/base risk and
    provenance.
+6. [PTIRDS replication](ptirds-replication.md) — external single-currency curve
+   benchmark and the current test mapping.
 
 The underlying solver is documented in
 [underdetermined search](../methodology/underdetermined_search.md); the

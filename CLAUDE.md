@@ -67,6 +67,8 @@ ctest --test-dir build/Release-linux --output-on-failure
 ./build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter='ScriptCompiledParityTest.*:ScriptCompiledParityFuzzTest.*'
 ```
 
+CTest also registers configuration-script tests that are not part of the GoogleTest binaries: `dal_native_aad_configuration`, `dal_aad_profiling_configuration`, and `dal_optional_excel_configuration` (top-level `tests/`). The installed-consumer check under `tests/installed-consumer/` is driven by CI.
+
 For script engine performance changes, build and smoke-run the benchmark (benchmarks are off in the `base` preset, so enable them explicitly):
 
 ```bash
@@ -79,10 +81,12 @@ The paired regression gate runs in the twice-daily scheduled benchmark workflow 
 
 ## Code Style
 
-Formatting is enforced via `.clang-format` (LLVM-based):
+Formatting follows `.clang-format` (LLVM-based):
 - 4-space indentation, 150 column limit
 - `PointerBindsToType: true` (use `T*` not `T *`)
 - Braces attach style (`BreakBeforeBraces: Attach`)
+
+There is no CI format gate; run `clang-format` on touched files before publishing.
 
 The full conventions live in the [code style guide](.claude/rules/code-style.md); test conventions in the [unit test style guide](.claude/rules/unit-test-style.md).
 

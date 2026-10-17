@@ -404,6 +404,9 @@ Use an explicitly typed `ScriptValuationSettings_` for the fourth argument;
 | `MonteCarloSettings_`      | `lsmcPricingSeed_`        | `std::nullopt`                      | Nonnegative `int` seed; effective default 0 in RQMC mode.                                                             |
 | `MonteCarloSettings_`      | `lsmcPolicyRiskMode_`     | `"Frozen"`                          | `Frozen` or `RetrainedBump`; retraining mode requires AAD.                                                            |
 | `MonteCarloSettings_`      | `lsmcPolicyBumpRelative_` | `0.001`                             | Finite relative bump in `(0, 0.1]` for retrained-policy risk.                                                         |
+| `MonteCarloSettings_`      | `lsmcCheckpointBlockEvents_` | `std::nullopt`                   | Positive event-block size for opt-in training checkpoints; requires a memory budget.                                  |
+| `MonteCarloSettings_`      | `lsmcTrainingMemoryMb_`   | `std::nullopt`                      | Positive MiB budget admitted with checkpoint training; see [training checkpoints](monte-carlo/lsm.md#opt-in-training-checkpoints). |
+| `MonteCarloSettings_`      | `usePassiveConstants_`    | `false`                             | Share passive constant tape leaves for prepared compiled scalar AAD with three-factor GSR.                            |
 
 The valuation settings initialize the policy to `MODEL`; assigning a separately
 default-constructed, unset `TodayFixingPolicy_` is invalid. There is no

@@ -185,11 +185,6 @@ See the [Excel interface chapter](docs/excel/README.md) for worksheet formulas
 and handle conventions. Python examples are in the
 [Python interface chapter](docs/python/README.md).
 
-## Web UI
-
-The portfolio management web UI moved to its own repository:
-[wegamekinglc/dal-web](https://github.com/wegamekinglc/dal-web).
-
 ## Documentation
 
 - **[Installation Guide](docs/installation.md)** — Canonical setup workflows
@@ -199,6 +194,7 @@ The portfolio management web UI moved to its own repository:
 - **[Excel Interface](docs/excel/README.md)** — worksheet functions and handles
 - **[Contributing Guide](CONTRIBUTING.md)** — Development and review workflow
 - **[Documentation Index](docs/README.md)** — All methodology and component guides
+- **[Web UI](https://github.com/wegamekinglc/dal-web)** — portfolio management UI (separate repository)
 
 Methodology notes (see the index above for the full list):
 

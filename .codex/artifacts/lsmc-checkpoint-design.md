@@ -4,8 +4,8 @@ This design controls the follow-on production storage work in #571. The baseline
 is `e6f57c7237db603256a8d5f99656fb66a639de9a`. The isolated executable in
 `dal-cpp/experimental/lsmccheckpoint/` exercises the scheduling contract without
 changing `LsmcRows_`, public APIs, training defaults, or persistent replay workers.
-The experiment and its limits are reported in
-[`docs/experimental/lsmc-checkpoint-study.md`](../../docs/experimental/lsmc-checkpoint-study.md).
+The production opt-in and limits are documented in
+[training checkpoints](../../docs/methodology/monte-carlo/lsm.md#opt-in-training-checkpoints).
 
 ## What an address does and does not restore
 

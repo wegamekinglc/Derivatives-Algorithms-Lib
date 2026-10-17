@@ -334,8 +334,6 @@ For `L` training plus validation paths, `E` events and
 script-event evaluations. Full storage uses `L` vectors and `L × E` steps in
 the budgeted provider. There is no general memory-saving percentage or runtime
 speedup guarantee; state size, block shape, QR and retained tape affect the peak.
-The separate [prototype study](../../experimental/lsmc-checkpoint-study.md)
-retains its original provenance and limitations.
 
 `script_mc_perf --lsmc-multi-regression` reports masked 100,000-path fit times
 for two-state quadratic, two-state cubic, and three-state cubic bases. This
@@ -479,22 +477,12 @@ execution), representative spot sensitivities are:
 | Bermudan low volatility  | -0.74700 | -0.74700      | -0.73789          | -0.75503 CRR          | 0.00002 |
 
 `dal-cpp/benchmarks/script_mc_perf/script_mc_perf.cpp` accepts `retrained` on
-the `--lsmc-replay` AAD profile. On a Linux i9-13900HX, GCC 15.2 Release,
-four DAL threads, 1,024 training paths, 2,048 pricing paths, the 1CD
-Black-Scholes compiled profile gave these best-of-five interleaved process
-measurements (milliseconds and peak RSS in KiB):
-
-| AAD backend | Frozen ms | Retrained ms | Time ratio | Frozen RSS | Retrained RSS |
-|-------------|-----------|--------------|------------|------------|---------------|
-| Native      | 282       | 741          | 2.62       | 16,424     | 18,576        |
-
-Both modes record the same 2,048 AAD pricing paths. This profile has five
-live inputs (four model parameters and one script constant), so the retrained
-mode adds ten hard-policy fits and ten value-only pricing passes, with no
-additional AAD tape recordings. The peak RSS comparison includes tape and
-ordinary process allocations; it is not a tape-byte count.
-Tree and compiled runs returned matching PV and all five risks to the printed
-precision on native AAD.
+the `--lsmc-replay` AAD profile. Measure frozen versus retrained cost on the
+target machine rather than reusing a published timing: the ratio depends on
+the fit cost and the number of live inputs. Both modes record the same AAD
+pricing paths; retrained mode adds hard-policy fits and value-only pricing
+passes without additional AAD tape recordings. Tree and compiled runs must
+return matching PV and named risks to the printed precision.
 
 ## Controlled Training-Budget Research
 
@@ -512,6 +500,5 @@ training-seed dispersion separately. Hard/fuzzy price differences and policy
 diagnostics have separate outputs. The largest budget is a comparison reference,
 not a stopping-value oracle; observed dispersion includes residual pricing noise.
 Without admissible price/Greek error ceilings, this research does not establish
-an automatic cap. The unset training budget remains the pricing path count.
-The [research report and coordinate data](../../experimental/lsmc-training-budget-study.md)
-record the observed differences, separate resource comparisons and their limits.
+an automatic cap. The unset training budget remains the pricing path count. Rerun
+the benchmark on the target workload instead of reusing published coordinates.

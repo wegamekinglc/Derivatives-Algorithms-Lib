@@ -135,7 +135,7 @@ class ProductionCollectorTests(unittest.TestCase):
             query.assert_called_once_with(["/usr/bin/c++", "--version"], text=True, shell=False)
 
     def test_numerical_and_work_bounds_remain_active(self):
-        samples = json.loads((ROOT / "docs/experimental/data/lsmc-checkpoint-production.json").read_text())["samples"]
+        samples = json.loads((ROOT / "tests/lsmc-training-study/lsmc-checkpoint-production.json").read_text())["samples"]
         pair = {row["schedule"]: row for row in samples if row["mode"] == "hard" and row["sample"] == 0}
         COLLECTOR.validate_pair(pair, "hard")
         for schedule, field in (("checkpoint", "pv"), ("checkpoint", "risks"), ("checkpoint", "normal_vectors"),
@@ -147,7 +147,7 @@ class ProductionCollectorTests(unittest.TestCase):
                 COLLECTOR.validate_pair(changed, "hard")
 
     def test_recorded_samples_reproduce_original_payload(self):
-        recorded = json.loads((ROOT / "docs/experimental/data/lsmc-checkpoint-production.json").read_text())
+        recorded = json.loads((ROOT / "tests/lsmc-training-study/lsmc-checkpoint-production.json").read_text())
         with mock.patch.object(COLLECTOR, "git_metadata", side_effect=[recorded["source_commit"], recorded["source_status"]]), \
                 mock.patch.object(COLLECTOR, "compiler_version", return_value=recorded["compiler"]), \
                 mock.patch.object(COLLECTOR.platform, "platform", return_value=recorded["platform"]):

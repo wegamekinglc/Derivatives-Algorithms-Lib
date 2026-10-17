@@ -88,9 +88,8 @@ resource savings and conditional pricing error alone do not justify a universal
 cap or an accuracy pass. Resource timing must disable extra hard diagnostics and
 distinguish native valuation time from total process time and peak RSS.
 
-The [research report and full coordinate data](../../../docs/experimental/lsmc-training-budget-study.md)
-record the representative and large-corner results, separate resource comparisons
-and the decision to retain defaults.
+The study retains its decision to keep defaults; rerun it for current numbers
+rather than reusing historical coordinates.
 
 ## LSMC storage-precision experiment
 
@@ -156,10 +155,8 @@ The summary retains all first-order risks, hard and fuzzy prices and policy
 diagnostics. No admissible accuracy ceiling is supplied; the ordinary storage
 type and default training count remain unchanged.
 
-The [storage-precision report and coordinate data](../../../docs/experimental/lsmc-storage-precision-study.md)
-record price/Greek differences, conditioning diagnostics and the available
-time/RSS samples. The report lists partial and unmeasured resource cases and
-retains the ordinary double-storage and training-budget defaults.
+The ordinary double-storage and training-budget defaults remain; rerun the
+experiment for current price/Greek differences, conditioning and resource data.
 
 ## Structured native samples
 

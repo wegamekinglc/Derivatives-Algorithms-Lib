@@ -64,17 +64,9 @@ uses normal tape reset and capacity-budget admission; it does not bypass
 budgets. A failed reset poisons the recording through the existing recovery
 path. Already minimal tapes retain their allocation.
 
-Memory savings depend on graph size and block boundaries. The
-[isolated study](../experimental/gsr-sink-memory-study.md) identifies the
-17-event three-factor swap fixture whose node count falls below one block.
-That study is evidence for selecting this opt-in's caller; its timings and RSS
-are not measurements of the production implementation. Other event schedules
+Memory savings depend on graph size and block boundaries. Other event schedules
 can save occupied payload without releasing a block. Do not multiply a
 per-worker tape saving by path count or equate tape capacity with process RSS.
-
-The [production rollout report](../experimental/passive-constants-rollout.md)
-records the separate default-mode controls and same-binary OFF/ON measurements
-for this implementation, together with its numerical and lifecycle checks.
 
 The production profile accepts `--passive-constants` after its positional
 arguments. Its `cold` mode retains numeric admission, alternate-engine and
