@@ -337,7 +337,7 @@ class CiWorkflowFastPathTest(unittest.TestCase):
     def test_gate_shell_requires_success_for_every_required_job(self):
         required_jobs = {
             "linux": ("changes", "documentation", "define-matrix", "build",
-                      "build-extended", "warning-clean", "sanitizers"),
+                      "build-extended", "warning-clean", "core-only-examples", "sanitizers"),
             "windows": ("changes", "build", "build-script"),
         }
         for platform, jobs in required_jobs.items():
@@ -353,7 +353,7 @@ class CiWorkflowFastPathTest(unittest.TestCase):
     def test_gate_shell_docs_only_accepts_skipped_builds_and_checks_documentation(self):
         for platform in ("linux", "windows"):
             results = dict.fromkeys(("define-matrix", "build",
-                                     "build-extended", "warning-clean", "sanitizers",
+                                     "build-extended", "warning-clean", "core-only-examples", "sanitizers",
                                      "build-script"), "skipped")
             required = ("changes", "documentation") if platform == "linux" else ("changes",)
             results.update(dict.fromkeys(required, "success"))

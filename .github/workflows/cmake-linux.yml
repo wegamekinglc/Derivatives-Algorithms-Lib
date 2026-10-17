@@ -401,6 +401,53 @@ jobs:
             -DDAL_BUILD_PYTHON=OFF
           cmake --build "$build_dir" --target dal_cpp dal_public --parallel "$(nproc)"
 
+  # Core-only boundary check: the component-boundary contract
+  # (.codex/references/component-boundaries.md) requires core examples to
+  # configure and build with the public component disabled. Every other leg
+  # configures DAL_BUILD_PUBLIC=ON, so without this leg a core example that
+  # picked up a dal-public include would compile and pass CI silently.
+  # DAL_BUILD_EXCEL_PORTABLE_TESTS must be OFF here: dal-excel links only
+  # against DAL::public and hard-fails configure when it is absent.
+  core-only-examples:
+    name: Core-only examples (DAL_BUILD_PUBLIC=OFF)
+    needs: changes
+    if: needs.changes.outputs.docs_only != 'true'
+    runs-on: ubuntu-latest
+    env:
+      CMAKE_C_COMPILER_LAUNCHER: ccache
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Check out pinned dependencies
+        run: python .github/scripts/checkout_dependencies.py
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@f09c25b45002a07be2955cbe52e8cee55643f89d # @v1.2.24
+        with:
+          key: ${{ runner.os }}-core-only-examples
+
+      - name: Setup
+        run: |
+          sudo apt install -y gcc-14 g++-14 make cmake
+
+      - name: Configure and build core examples without dal-public
+        env:
+          CC: gcc-14
+          CXX: g++-14
+        run: |
+          build_dir="$RUNNER_TEMP/dal-core-only"
+          cmake -S . -B "$build_dir" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DDAL_BUILD_PUBLIC=OFF \
+            -DDAL_BUILD_EXCEL_PORTABLE_TESTS=OFF \
+            -DDAL_CPP_BUILD_EXAMPLES=ON \
+            -DDAL_CPP_BUILD_TESTS=OFF \
+            -DDAL_CPP_BUILD_BENCHMARKS=OFF \
+            -DDAL_BUILD_PYTHON=OFF
+          cmake --build "$build_dir" --parallel "$(nproc)"
+
   sanitizers:
     name: ${{ matrix.label }}
     needs: changes
@@ -600,6 +647,7 @@ jobs:
       - build
       - build-extended
       - warning-clean
+      - core-only-examples
       - sanitizers
     runs-on: ubuntu-latest
     env:
@@ -610,6 +658,7 @@ jobs:
       BUILD_RESULT: ${{ needs.build.result }}
       EXTENDED_RESULT: ${{ needs.build-extended.result }}
       WARNING_RESULT: ${{ needs.warning-clean.result }}
+      CORE_ONLY_RESULT: ${{ needs.core-only-examples.result }}
       SANITIZER_RESULT: ${{ needs.sanitizers.result }}
     steps:
       - name: Require the selected CI path to pass
@@ -624,6 +673,7 @@ jobs:
             "$BUILD_RESULT" \
             "$EXTENDED_RESULT" \
             "$WARNING_RESULT" \
+            "$CORE_ONLY_RESULT" \
             "$SANITIZER_RESULT"; do
             test "$result" = success
           done
