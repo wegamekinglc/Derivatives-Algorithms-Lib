@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/7/13.
-//
-
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 
@@ -182,6 +178,11 @@ namespace Dal {
         template <class T_> struct TypedBlockStorage_ {
             Tape::JointCurveBlock_<T_> block_;
             std::vector<std::unique_ptr<PassiveDiscountCurve_<T_>>> owned_;
+
+            TypedBlockStorage_() = default;
+            // Vector_ reallocation must move rather than fall back to a deleted copy.
+            TypedBlockStorage_(TypedBlockStorage_&&) noexcept = default;
+            TypedBlockStorage_& operator=(TypedBlockStorage_&&) noexcept = default;
         };
 
         template <class T_> const Tape::DiscountCurve_<T_>* AddPassiveCurve(const DiscountCurve_& source, TypedBlockStorage_<T_>* storage) {
@@ -212,20 +213,68 @@ namespace Dal {
             Handle_<MarketFixingSnapshot_> fixings_;
             Vector_<XccyCashflowPlan_> plans_;
             Vector_<> marketRates_;
+            // The domestic/foreign blocks depend only on each plan's conventions.
+            // Build each numeric family lazily so a finite-difference calibration
+            // does not pay for AAD blocks (and vice versa).
+            mutable Vector_<TypedBlockStorage_<double>> domesticBlocks_;
+            mutable Vector_<TypedBlockStorage_<double>> foreignBlocks_;
+            mutable Vector_<TypedBlockStorage_<AAD::Number_>> domesticAadBlocks_;
+            mutable Vector_<TypedBlockStorage_<AAD::Number_>> foreignAadBlocks_;
+            mutable bool doubleBlocksBuilt_ = false;
+            mutable bool aadBlocksBuilt_ = false;
             CurveDefinition_ basisDefinition_;
             CurveJacobianMode_ jacobianMode_;
             double bumpSize_;
             FdScheme_ fdScheme_;
             int* evaluationCount_;
 
+            template <class T_>
+            void BuildBlocks(Vector_<TypedBlockStorage_<T_>>& domestic, Vector_<TypedBlockStorage_<T_>>& foreign) const {
+                domestic.reserve(plans_.size());
+                foreign.reserve(plans_.size());
+                for (const auto& plan : plans_) {
+                    const auto& convention = plan.config_.convention_;
+                    domestic.push_back(BuildTypedBlock<T_>(*domesticBlock_, convention.domesticIndex_));
+                    foreign.push_back(BuildTypedBlock<T_>(*foreignBlock_, convention.foreignIndex_));
+                }
+            }
+
+            template <class T_> void EnsureBlocks() const {
+                if constexpr (std::is_same_v<T_, double>) {
+                    if (doubleBlocksBuilt_)
+                        return;
+                    BuildBlocks(domesticBlocks_, foreignBlocks_);
+                    doubleBlocksBuilt_ = true;
+                } else {
+                    if (aadBlocksBuilt_)
+                        return;
+                    BuildBlocks(domesticAadBlocks_, foreignAadBlocks_);
+                    aadBlocksBuilt_ = true;
+                }
+            }
+
+            template <class T_> const TypedBlockStorage_<T_>& DomesticBlock(size_t i) const {
+                if constexpr (std::is_same_v<T_, double>)
+                    return domesticBlocks_[i];
+                else
+                    return domesticAadBlocks_[i];
+            }
+
+            template <class T_> const TypedBlockStorage_<T_>& ForeignBlock(size_t i) const {
+                if constexpr (std::is_same_v<T_, double>)
+                    return foreignBlocks_[i];
+                else
+                    return foreignAadBlocks_[i];
+            }
+
             template <class T_> Vector_<T_> Residuals(const Vector_<T_>& parameters) const {
+                EnsureBlocks<T_>();
                 const auto basis = BuildDiscountCurveT<T_>(basisDefinition_, parameters);
                 Vector_<T_> result(plans_.size());
                 for (int i = 0; i < static_cast<int>(plans_.size()); ++i) {
                     const auto& plan = plans_[i];
-                    const auto& convention = plan.config_.convention_;
-                    auto domestic = BuildTypedBlock<T_>(*domesticBlock_, convention.domesticIndex_);
-                    auto foreign = BuildTypedBlock<T_>(*foreignBlock_, convention.foreignIndex_);
+                    const auto& domestic = DomesticBlock<T_>(static_cast<size_t>(i));
+                    const auto& foreign = ForeignBlock<T_>(static_cast<size_t>(i));
 
                     XccyMarketView_<T_> market;
                     market.valuationTime_ = valuationTime_;

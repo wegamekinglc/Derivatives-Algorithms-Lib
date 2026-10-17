@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/10/06.
-//
-
 #pragma once
 
 #include <limits>
@@ -113,7 +109,7 @@ namespace Dal::Script::Detail {
     inline void EvaluateAADBlockBatch(const PreparedScript_& product,
                                       const Handle_<ModelData_>& modelData,
                                       const AADBatchSettings_& settings,
-                                      const std::optional<ScriptCompiled_>& compiledProduct,
+                                      const ScriptCompiled_* compiledProduct,
                                       const PathBatch_& batch,
                                       const AAD::AdjointBlock_& block,
                                       const Vector_<RiskOutputCoordinate_>& outputs,
@@ -135,9 +131,24 @@ namespace Dal::Script::Detail {
             EvaluateAADBatch(product, modelData, settings, compiledProduct, batch, &scalarBookkeeping, std::move(collector));
         };
         if (scratchBudget) {
-            auto capacity = BufferCapacityScope_::ForWorker(scratchBudget, AADBlockBatchFixedPayloadBytes(compiledProduct.has_value()));
+            auto capacity = BufferCapacityScope_::ForWorker(scratchBudget, AADBlockBatchFixedPayloadBytes(compiledProduct != nullptr));
             run();
         } else
             run();
+    }
+
+    inline void EvaluateAADBlockBatch(const PreparedScript_& product,
+                                      const Handle_<ModelData_>& modelData,
+                                      const AADBatchSettings_& settings,
+                                      const std::optional<ScriptCompiled_>& compiledProduct,
+                                      const PathBatch_& batch,
+                                      const AAD::AdjointBlock_& block,
+                                      const Vector_<RiskOutputCoordinate_>& outputs,
+                                      const Vector_<size_t>& selectedInputs,
+                                      AADBlockBatchResult_* result,
+                                      BufferCapacityBudget_* scratchBudget = nullptr,
+                                      AAD::TapeCapacityBudget_* tapeBudget = nullptr) {
+        EvaluateAADBlockBatch(product, modelData, settings, compiledProduct ? &*compiledProduct : nullptr, batch, block, outputs, selectedInputs,
+                              result, scratchBudget, tapeBudget);
     }
 } // namespace Dal::Script::Detail

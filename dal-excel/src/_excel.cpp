@@ -751,6 +751,9 @@ namespace Dal {
     int Excel::ToInt(const OPER_* src) {
         switch (src->xltype) {
         case xltypeInt:
+            // xltypeInt keeps its value in the four-byte val.w member. Reading val.num
+            // would combine it with unrelated padding and produce garbage.
+            return src->val.w;
         case xltypeNum:
             break;
         case xltypeMulti:
@@ -776,6 +779,8 @@ namespace Dal {
         case xltypeBool:
             return src->val.xbool != 0;
         case xltypeInt:
+            REQUIRE(src->val.w == 0 || src->val.w == 1, "Can't convert an integer (except 0 or 1) to boolean");
+            return src->val.w != 0;
         case xltypeNum:
             REQUIRE(src->val.num == 0 || src->val.num == 1, "Can't convert a number (except 0 or 1) to boolean");
             return src->val.num != 0;
@@ -872,6 +877,7 @@ namespace Dal {
         case xltypeStr:
             return Cell_(FromPascalString(src->val.str));
         case xltypeInt:
+            return Cell_(static_cast<double>(src->val.w));
         case xltypeNum:
             return Cell_(src->val.num);
         case xltypeBool:

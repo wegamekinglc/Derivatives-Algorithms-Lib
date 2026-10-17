@@ -1,22 +1,16 @@
-//
-// Created by Codex on 2026/10/11.
-//
-
 #include <iostream>
 
+#include <dal-public/src/global.hpp>
 #include <dal-public/src/models.hpp>
 #include <dal-public/src/script.hpp>
 #include <dal-public/src/value.hpp>
-#include <dal/concurrency/threadpool.hpp>
-#include <dal/platform/initall.hpp>
 
-#include "../../../dal-cpp/examples/aadreport.hpp"
+#include "aadreport.hpp"
 
 using namespace Dal;
 
 int main() {
-    RegisterAll_::Init();
-    ThreadPool_::GetInstance()->Start(1, true);
+    InitGlobalData(1);
     ScriptValuationSettings_ valuation;
     valuation.evaluationDate_ = Date_(2026, 10, 10);
     auto model = NewBSModelData("facade", 100.0, 0.2, 0.0, 0.0);

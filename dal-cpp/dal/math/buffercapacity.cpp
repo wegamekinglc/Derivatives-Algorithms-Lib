@@ -1,8 +1,5 @@
-//
-// Created by Codex on 2026/10/06.
-//
-
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <limits>
 #include <map>
@@ -51,13 +48,21 @@ namespace Dal {
 
     struct BufferCapacityBudget_::Impl_ {
         const size_t limitBytes_;
-        size_t capacityBytes_ = 0;
-        size_t peakBytes_ = 0;
-        size_t activeScopes_ = 0;
-        std::mutex mutex_;
-        std::map<std::uintptr_t, size_t> allocations_;
+        // Worker scopes share one budget. Keep the hot-path accounting atomic so
+        // allocations from different workers do not serialize on a mutex.
+        std::atomic<size_t> capacityBytes_{0};
+        std::atomic<size_t> peakBytes_{0};
+        std::atomic<size_t> activeScopes_{0};
+        // A buffer may be destroyed under a different scope than the one that
+        // allocated it, so the byte count cannot be attributed from the call site.
+        // Shard the address ledger so unrelated worker allocations do not share one mutex.
+        static constexpr size_t ADDRESS_SHARDS = 32;
+        std::array<std::mutex, ADDRESS_SHARDS> allocationsMutex_;
+        std::array<std::map<std::uintptr_t, size_t>, ADDRESS_SHARDS> allocations_;
 
         explicit Impl_(size_t limit) : limitBytes_(limit) {}
+
+        [[nodiscard]] static size_t Shard(std::uintptr_t address) noexcept { return (address >> 4) % ADDRESS_SHARDS; }
     };
 
     struct BufferCapacityScope_::Attachment_ {
@@ -73,48 +78,50 @@ namespace Dal {
     BufferCapacityBudget_::BufferCapacityBudget_(size_t limitBytes) : impl_(std::make_unique<Impl_>(limitBytes)) {}
 
     BufferCapacityBudget_::~BufferCapacityBudget_() noexcept {
-        if (impl_->activeScopes_ != 0)
+        if (impl_->activeScopes_.load(std::memory_order_relaxed) != 0)
             std::terminate();
     }
 
     size_t BufferCapacityBudget_::LimitBytes() const { return impl_->limitBytes_; }
 
-    size_t BufferCapacityBudget_::CapacityBytes() const {
-        const std::lock_guard<std::mutex> lock(impl_->mutex_);
-        return impl_->capacityBytes_;
-    }
+    size_t BufferCapacityBudget_::CapacityBytes() const { return impl_->capacityBytes_.load(std::memory_order_relaxed); }
 
-    size_t BufferCapacityBudget_::PeakCapacityBytes() const {
-        const std::lock_guard<std::mutex> lock(impl_->mutex_);
-        return impl_->peakBytes_;
-    }
+    size_t BufferCapacityBudget_::PeakCapacityBytes() const { return impl_->peakBytes_.load(std::memory_order_relaxed); }
 
     void BufferCapacityBudget_::Reserve(size_t bytes) {
-        const std::lock_guard<std::mutex> lock(impl_->mutex_);
-        RequireBufferCapacity(impl_->capacityBytes_, bytes, impl_->limitBytes_);
-        impl_->capacityBytes_ += bytes;
-        impl_->peakBytes_ = std::max(impl_->peakBytes_, impl_->capacityBytes_);
+        auto current = impl_->capacityBytes_.load(std::memory_order_relaxed);
+        size_t updated = 0;
+        for (;;) {
+            RequireBufferCapacity(current, bytes, impl_->limitBytes_);
+            updated = current + bytes;
+            if (impl_->capacityBytes_.compare_exchange_weak(current, updated, std::memory_order_relaxed))
+                break;
+        }
+        auto peak = impl_->peakBytes_.load(std::memory_order_relaxed);
+        while (peak < updated && !impl_->peakBytes_.compare_exchange_weak(peak, updated, std::memory_order_relaxed))
+            ;
     }
 
     void BufferCapacityBudget_::Cancel(size_t bytes) noexcept {
-        const std::lock_guard<std::mutex> lock(impl_->mutex_);
-        if (bytes > impl_->capacityBytes_)
+        const auto previous = impl_->capacityBytes_.fetch_sub(bytes, std::memory_order_relaxed);
+        if (previous < bytes)
             std::terminate();
-        impl_->capacityBytes_ -= bytes;
     }
 
     void BufferCapacityBudget_::Commit(const void* allocation, size_t bytes) {
-        const std::lock_guard<std::mutex> lock(impl_->mutex_);
-        REQUIRE(impl_->allocations_.emplace(reinterpret_cast<std::uintptr_t>(allocation), bytes).second,
-                "Scratch buffer allocation: address is already admitted");
+        const auto address = reinterpret_cast<std::uintptr_t>(allocation);
+        const auto shard = Impl_::Shard(address);
+        const std::lock_guard<std::mutex> lock(impl_->allocationsMutex_[shard]);
+        REQUIRE(impl_->allocations_[shard].emplace(address, bytes).second, "Scratch buffer allocation: address is already admitted");
     }
 
     size_t BufferCapacityBudget_::Detach(std::uintptr_t allocation) noexcept {
-        const std::lock_guard<std::mutex> lock(impl_->mutex_);
-        const auto found = impl_->allocations_.find(allocation);
-        if (found != impl_->allocations_.end()) {
+        const auto shard = Impl_::Shard(allocation);
+        const std::lock_guard<std::mutex> lock(impl_->allocationsMutex_[shard]);
+        const auto found = impl_->allocations_[shard].find(allocation);
+        if (found != impl_->allocations_[shard].end()) {
             const auto bytes = found->second;
-            impl_->allocations_.erase(found);
+            impl_->allocations_[shard].erase(found);
             return bytes;
         }
         return 0;
@@ -133,10 +140,7 @@ namespace Dal {
         REQUIRE(previous == nullptr || (reuseAttachment && previous == budget), "Scratch buffer scope: nested scope is unsupported");
         auto attachment = std::make_unique<Attachment_>(budget, fixedPayloadBytes);
         budget->Reserve(fixedPayloadBytes);
-        {
-            const std::lock_guard<std::mutex> lock(budget->impl_->mutex_);
-            ++budget->impl_->activeScopes_;
-        }
+        ++budget->impl_->activeScopes_;
         attachment_ = std::move(attachment);
         // Publish before attaching; retire only after restoring the previous attachment.
         activeBufferScopes.fetch_add(1, std::memory_order_relaxed);
@@ -153,10 +157,7 @@ namespace Dal {
         REQUIRE(currentBufferAttachment == attachment_.get(), "Scratch buffer scope: close must follow attachment order");
         auto* budget = attachment_->budget_;
         budget->Cancel(attachment_->fixedBytes_);
-        {
-            const std::lock_guard<std::mutex> lock(budget->impl_->mutex_);
-            --budget->impl_->activeScopes_;
-        }
+        --budget->impl_->activeScopes_;
         Detail::CurrentBufferBudget() = attachment_->previousBudget_;
         currentBufferAttachment = attachment_->previousAttachment_;
         activeBufferScopes.fetch_sub(1, std::memory_order_relaxed);
@@ -205,6 +206,8 @@ namespace Dal {
             __declspec(noinline)
 #endif
             void DeallocateWithBudgetContext(void* allocation, size_t bytes, D_ deallocate) noexcept {
+                // The address ledger also covers buffers allocated outside this scope:
+                // an unknown address cancels nothing instead of underflowing the budget.
                 if (auto* budget = currentBufferBudget)
                     DeallocateTrackedBuffer(budget, allocation, deallocate);
                 else
@@ -279,8 +282,8 @@ namespace Dal {
             budget_ = nullptr;
         }
 
-        BufferDeallocationTicket_::BufferDeallocationTicket_(BufferCapacityBudget_* budget, std::uintptr_t allocation) noexcept
-            : budget_(budget), bytes_(budget->Detach(allocation)) {}
+        BufferDeallocationTicket_::BufferDeallocationTicket_(BufferCapacityBudget_* budget, const void* allocation) noexcept
+            : budget_(budget), bytes_(budget->Detach(reinterpret_cast<std::uintptr_t>(allocation))) {}
 
         BufferDeallocationTicket_::~BufferDeallocationTicket_() noexcept { budget_->Cancel(bytes_); }
     } // namespace Detail

@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/10/12.
-//
-
 #include <gtest/gtest.h>
 
 #include <cmath>
@@ -267,6 +263,17 @@ TEST(ExtremumOrderTest, TestHistoricalCompilationRetainsLiteralOrder) {
 TEST(ExtremumOrderTest, TestCopiedAndMovedStatesReuseSelectedConstantsAcrossRecordings) {
     ASSERT_NO_FATAL_FAILURE(CheckCheckpointReuse(false));
     ASSERT_NO_FATAL_FAILURE(CheckCheckpointReuse(true));
+}
+
+TEST(ExtremumOrderTest, TestVariadicExtremaKeepSourceLeftRisk) {
+    // Fold left means the earlier operand wins every tie. These cases also prove
+    // that AAD reaches the operand selected at the innermost comparison.
+    ASSERT_NO_FATAL_FAILURE(CheckExpressionTie("pay = MAX(SPOT(), 1, 2)", 1.5, 0.0));
+    ASSERT_NO_FATAL_FAILURE(CheckExpressionTie("pay = MAX(0, SPOT(), 2)", 3.0, 1.0));
+    ASSERT_NO_FATAL_FAILURE(CheckExpressionTie("pay = MAX(1, 2, SPOT())", 3.0, 1.0));
+    ASSERT_NO_FATAL_FAILURE(CheckExpressionTie("pay = MIN(SPOT(), 3, 2)", 2.5, 0.0));
+    ASSERT_NO_FATAL_FAILURE(CheckExpressionTie("pay = MAX(SPOT(), 2, 2)", 2.0, 1.0));
+    ASSERT_NO_FATAL_FAILURE(CheckExpressionTie("pay = MAX(2, SPOT(), 2)", 2.0, 0.0));
 }
 
 TEST(ExtremumOrderTest, TestVariadicExtremaFoldIntoBinaryNodes) {

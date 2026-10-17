@@ -30,6 +30,11 @@ namespace Dal {
     DAL_EXCEL_TEST_API bool EmptyHandleOutputIsErrorForTest(String_* message);
     DAL_EXCEL_TEST_API String_ ErrorCellTextForTest(const String_& what);
     DAL_EXCEL_TEST_API bool EmptyVectorOutputIsBlankForTest(int* rows, int* cols);
+    // xltypeInt uses the four-byte val.w member; these wrappers keep the
+    // conversion helpers private while still exercising that representation.
+    DAL_EXCEL_TEST_API int IntOperandForTest(int value);
+    DAL_EXCEL_TEST_API bool BoolOperandForTest(int value);
+    DAL_EXCEL_TEST_API double CellIntOperandForTest(int value);
 } // namespace Dal
 
 #undef DAL_EXCEL_TEST_API

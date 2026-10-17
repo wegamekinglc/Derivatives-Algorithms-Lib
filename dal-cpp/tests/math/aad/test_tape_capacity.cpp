@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/10/06.
-//
-
 #include <gtest/gtest.h>
 
 #include <algorithm>
@@ -14,6 +10,7 @@
 #include <future>
 #include <limits>
 #include <new>
+#include <thread>
 #include <tuple>
 
 using namespace Dal;
@@ -23,7 +20,9 @@ TEST(AADTapeCapacityTest, TestColdWorkerReservesBeforeInitialTapeAllocation) {
     const size_t nodeBytes = sizeof(std::array<TapNode_, BLOCK_SIZE>);
     const size_t initial =
         nodeBytes + sizeof(std::array<double, DATA_SIZE>) + sizeof(std::array<double*, DATA_SIZE>) + sizeof(std::array<double, ADJ_SIZE>);
-    auto worker = std::async(std::launch::async, [initial] {
+    // A fresh std::thread guarantees a cold thread-local tape; std::async may
+    // reuse an implementation thread that already carries cached capacity.
+    std::packaged_task<std::tuple<bool, size_t, size_t, size_t>()> task([initial] {
         TapeCapacityBudget_ insufficient(initial - 1);
         bool rejected = false;
         try {
@@ -49,7 +48,10 @@ TEST(AADTapeCapacityTest, TestColdWorkerReservesBeforeInitialTapeAllocation) {
         }
         return std::make_tuple(rejected, failedCurrent, failedPeak, exact.CapacityBytes());
     });
-    const auto result = worker.get();
+    auto resultFuture = task.get_future();
+    std::thread worker(std::move(task));
+    const auto result = resultFuture.get();
+    worker.join();
     ASSERT_TRUE(std::get<0>(result));
     ASSERT_EQ(std::get<1>(result), 0);
     ASSERT_EQ(std::get<2>(result), initial - nodeBytes);

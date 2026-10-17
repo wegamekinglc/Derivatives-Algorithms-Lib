@@ -1,11 +1,17 @@
-//
-// Created by Codex on 2026/10/1.
-//
-
 #include <gtest/gtest.h>
 
+#include <dal-excel/src/__excel_test_api.hpp>
 #include <dal-excel/src/__script_test_api.hpp>
 #include <dal-excel/src/__utilities_test_api.hpp>
+
+#ifdef _WIN32
+TEST(ExcelUtilitiesTest, TestIntegerOperandConversion) {
+    EXPECT_EQ(7, Dal::IntOperandForTest(7));
+    EXPECT_TRUE(Dal::BoolOperandForTest(1));
+    EXPECT_FALSE(Dal::BoolOperandForTest(0));
+    EXPECT_DOUBLE_EQ(7.0, Dal::CellIntOperandForTest(7));
+}
+#endif
 
 TEST(ExcelUtilitiesTest, TestCalendarFunctions) {
     Dal::Excel::ScriptTestInitialize(1);
