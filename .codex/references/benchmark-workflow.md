@@ -241,6 +241,14 @@ contain `environment.json` with source SHAs, runner and CPU identity, toolchain,
 thread settings. Linux additionally retains each smoke run's `/usr/bin/time --verbose` resource
 record and the paired gate's raw outputs, `results.json`, and `summary.md`.
 
+Both jobs use `.github/scripts/run_benchmarks.py` to discover smoke cases through CTest's
+JSON inventory and execute each registered command, including its arguments and working
+directory. Test names identify evidence files; they need not match executable names. The
+`script_mc_compiled_soa_profile` case runs `script_mc_perf --compiled-soa weekly 32 65 1 steady`.
+The retained `ctest-tests.json` records the discovered commands. Smoke runs
+use build-tree binaries on both platforms, retain each test's output and exit status, and
+continue through remaining cases after a process failure before failing the step.
+
 The scheduled native gate enables `--retry-identical-binaries`. It records executable
 SHA-256 identities before and after sampling. When every selected base/head executable
 is byte-identical, both CMake caches confirm `BUILD_SHARED_LIBS=OFF`, and all

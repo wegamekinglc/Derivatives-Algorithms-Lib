@@ -197,7 +197,8 @@ class CiWorkflowFastPathTest(unittest.TestCase):
         self.assertIn("check_python_benchmark_regressions.py", linux)
         self.assertIn("check_benchmark_regressions.py", linux)
         self.assertIn("run_comparisons.py", linux)
-        self.assertIn("ctest -N -L benchmark", windows)
+        self.assertIn("run_benchmarks.py", windows)
+        self.assertIn("--build-root build/Release-windows", windows)
         self.assertIn("fetch-depth: 2", windows)
         self.assertIn("actions/upload-artifact@", linux)
         self.assertIn("actions/upload-artifact@", windows)
@@ -311,8 +312,9 @@ class CiWorkflowFastPathTest(unittest.TestCase):
                 self.assertIn("retention-days: 30", benchmark)
 
         linux_benchmark = self.job(workflow, "linux")
-        self.assertIn("/usr/bin/time --verbose", linux_benchmark)
-        self.assertIn('resource_file="benchmark-results/${bench}.resources.txt"', linux_benchmark)
+        self.assertIn("run_benchmarks.py", linux_benchmark)
+        self.assertIn("--resource-usage", linux_benchmark)
+        self.assertNotIn("--resource-usage", self.job(workflow, "windows"))
 
     def run_gate(self, platform, results, docs_only=False):
         gate = self.job(self.workflow(f"cmake-{platform}.yml"), f"{platform}-gate")
