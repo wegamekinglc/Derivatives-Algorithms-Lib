@@ -172,8 +172,23 @@ TEST(ScriptTest, TestEvaluatorMax) {
 }
 
 TEST(ScriptTest, TestEvaluatorMaxThreeArgs) {
-    auto vars = ParseIndexEval("x = MAX(3, 7, 5)");
-    ASSERT_NEAR(vars["x"], 7.0, 1e-10);
+    auto vars = ParseIndexEval("x = MAX(3, 7, 9)");
+    ASSERT_NEAR(vars["x"], 9.0, 1e-10);
+}
+
+TEST(ScriptTest, TestEvaluatorMaxThreeArgsMiddleWins) {
+    auto vars = ParseIndexEval("x = MAX(3, 9, 7)");
+    ASSERT_NEAR(vars["x"], 9.0, 1e-10);
+}
+
+TEST(ScriptTest, TestEvaluatorMinThreeArgs) {
+    auto vars = ParseIndexEval("x = MIN(3, 7, 1)");
+    ASSERT_NEAR(vars["x"], 1.0, 1e-10);
+}
+
+TEST(ScriptTest, TestEvaluatorMinFourArgs) {
+    auto vars = ParseIndexEval("x = MIN(3, 7, 1, 5)");
+    ASSERT_NEAR(vars["x"], 1.0, 1e-10);
 }
 
 TEST(ScriptTest, TestEvaluatorUnaryMinus) {

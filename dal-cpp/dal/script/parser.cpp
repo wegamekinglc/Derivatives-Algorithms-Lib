@@ -136,6 +136,23 @@ namespace Dal::Script {
                 top->arguments_ = ParseFuncArg(cur, end);
                 if (top->arguments_.size() < minArg || top->arguments_.size() > maxArg)
                     THROW2(String_("Function ") + func + String_(": wrong number of arguments_"), ScriptError_);
+                if ((func == "MIN" || func == "MAX") && top->arguments_.size() > 2) {
+                    //	Downstream evaluators only read the first two operands of a flat
+                    //	extremum node; fold extra arguments into nested binary nodes
+                    Expression_ folded = std::move(top->arguments_[0]);
+                    for (size_t i = 1; i < top->arguments_.size(); ++i) {
+                        Expression_ next;
+                        if (func == "MAX")
+                            next = MakeBaseNode<NodeMax_>();
+                        else
+                            next = MakeBaseNode<NodeMin_>();
+                        next->arguments_.Resize(2);
+                        next->arguments_[0] = std::move(folded);
+                        next->arguments_[1] = std::move(top->arguments_[i]);
+                        folded = std::move(next);
+                    }
+                    top = std::move(folded);
+                }
             }
             //	Return
             return top;

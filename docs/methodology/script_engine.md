@@ -1282,6 +1282,8 @@ and unordered comparisons retain `a`. AAD follows the selected operand's risk:
 at `SPOT() = 10`, `MAX(10, SPOT())` has zero spot derivative, while
 `MAX(SPOT(), 10)` has spot derivative one. This selection rule is shared by
 tree and compiled evaluation; scalar extrema are not smoothed by fuzzy `IF`.
+Calls with more than two operands, e.g. `MAX(a, b, c)`, fold left into nested
+binary extrema, so the same source-left rule applies at every level.
 
 For the raw legacy path, `ScriptProduct_::Compile(fuzzy)` is `const`, but it
 requires that `PreProcess(...)` has already run. Preprocessing indexes variables, seeds past

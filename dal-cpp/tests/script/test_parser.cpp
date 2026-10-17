@@ -343,9 +343,16 @@ TEST(ScriptTest, TestParseMax) {
     String_ event = "x = MAX(2, 3, 4)";
     auto res = parser.Parse(event);
     auto assign = dynamic_cast<NodeAssign_*>(res[0].get());
+    // Variadic extrema fold left into nested binary nodes
     auto max = dynamic_cast<NodeMax_*>(assign->arguments_[1].get());
     ASSERT_NE(max, nullptr);
-    ASSERT_EQ(max->arguments_.size(), 3);
+    ASSERT_EQ(max->arguments_.size(), 2);
+    auto inner = dynamic_cast<NodeMax_*>(max->arguments_[0].get());
+    ASSERT_NE(inner, nullptr);
+    ASSERT_EQ(inner->arguments_.size(), 2);
+    ASSERT_NE(dynamic_cast<NodeConst_*>(max->arguments_[1].get()), nullptr);
+    ASSERT_NE(dynamic_cast<NodeConst_*>(inner->arguments_[0].get()), nullptr);
+    ASSERT_NE(dynamic_cast<NodeConst_*>(inner->arguments_[1].get()), nullptr);
 }
 
 TEST(ScriptTest, TestParseMinWrongArgCountThrows) {
