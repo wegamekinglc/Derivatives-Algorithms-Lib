@@ -18,6 +18,14 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-17
 
+- **Script variadic extrema** — scalar `MIN(...)`/`MAX(...)` calls with more
+  than two arguments now evaluate every operand: the parser folds extra
+  arguments into nested binary extrema, applying the source-left selection
+  rule at each level. Previously only the first two operands were read, so
+  later operands were silently dropped in tree, compiled and constant-folded
+  evaluation alike.
+  See [script extrema](docs/methodology/script_engine.md).
+
 - **Scoped GSR passive constants** — core C++ prepared compiled scalar AAD
   Monte Carlo can opt into shared constant leaves for native three-factor GSR,
   preserving default input registration and constructor semantics. See

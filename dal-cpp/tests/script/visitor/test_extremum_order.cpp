@@ -268,3 +268,30 @@ TEST(ExtremumOrderTest, TestCopiedAndMovedStatesReuseSelectedConstantsAcrossReco
     ASSERT_NO_FATAL_FAILURE(CheckCheckpointReuse(false));
     ASSERT_NO_FATAL_FAILURE(CheckCheckpointReuse(true));
 }
+
+TEST(ExtremumOrderTest, TestVariadicExtremaFoldIntoBinaryNodes) {
+    // The trailing operand decides the result, so a flat binary-only read of the
+    // first two operands (the old defect) fails this test
+    for (const bool maximum : {false, true}) {
+        Dal::Script::Parser_ parser;
+        const Dal::String_ expression = maximum ? "pay = MAX(SPOT(), 1, 3)" : "pay = MIN(SPOT(), 3, 1)";
+        auto event = parser.Parse(expression);
+        Dal::Script::VarIndexer_ indexer;
+        event[0]->Accept(indexer);
+        Dal::Script::ConstProcessor_ constants(indexer.VarNames().size());
+        event[0]->Accept(constants);
+        Dal::Script::Compiler_ compiler(false, nullptr);
+        event[0]->Accept(compiler);
+        Dal::AAD::Scenario_<double> path(1);
+        path[0].spot_ = 2.0;
+        Dal::Script::Evaluator_<double> tree(Vector_<>{0.0}, Vector_<>{path[0].spot_});
+        tree.SetScenario(&path);
+        tree.SetCurEvt(0);
+        event[0]->Accept(tree);
+        Dal::Script::EvalState_<double> state(Vector_<>{0.0}, Vector_<>{path[0].spot_});
+        Dal::Script::EvalCompiled(compiler.NodeStream(), compiler.ConstStream(), path[0], state);
+        const double expected = maximum ? 3.0 : 1.0;
+        ASSERT_NO_FATAL_FAILURE(AssertIeeeValue(tree.VarVals()[0], expected));
+        ASSERT_NO_FATAL_FAILURE(AssertIeeeValue(state.VarVals()[0], expected));
+    }
+}
