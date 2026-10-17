@@ -2,7 +2,7 @@
 """
 006.xccy_calibration.py — Cross-currency basis calibration
 
-Mirrors dal-cpp/examples/xccy_curve_calibration/xccy_curve_calibration.cpp.
+Mirrors dal-cpp/examples/curves/xccy_curve_calibration/xccy_curve_calibration.cpp.
 
 Demonstrates:
   - Building USD and EUR OIS discount curves

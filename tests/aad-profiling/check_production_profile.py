@@ -85,7 +85,15 @@ class ProductionProfileTest(unittest.TestCase):
         self.assertEqual(sum(row["calls"] for row in suffix), 32)
 
     def test_representative_scenarios(self):
-        scenarios = {"long": (0, 0), "local-vol": (2, 0), "lsmc-bs": (0, 64), "lsmc-local-vol": (2, 64)}
+        scenarios = {
+            "long": (0, 0), "local-vol": (2, 0), "hybrid-bs": (0, 0), "hybrid-gsr": (0, 0),
+            "gsr-swap-1f": (0, 0), "gsr-swap-2f": (0, 0), "gsr-swap-3f": (0, 0), "gsr-swap-4f": (0, 0),
+            "gsr-bond-1f": (0, 0), "gsr-bond-3f": (0, 0),
+            "hybrid-gsr-swap": (0, 0), "hybrid-gsr-swap-3f": (0, 0), "hybrid-gsr-bond-1f": (0, 0), "hybrid-gsr-bond-3f": (0, 0),
+            "slv-swap-1f": (0, 0), "slv-swap-3f": (0, 0), "slv-bond-1f": (0, 0),
+            "hybrid-slv-swap-1f": (0, 0), "hybrid-slv-swap-3f": (0, 0), "hybrid-slv-bond-1f": (0, 0),
+            "lsmc-bs": (0, 64), "lsmc-local-vol": (2, 64),
+        }
         for scenario, (grid, training) in scenarios.items():
             rows = self.run_cli([scenario, "8", "aad", "compiled", "cold", "1", str(grid), str(training), "1"])
             request = self.records(rows, "request")[0]
@@ -103,6 +111,40 @@ class ProductionProfileTest(unittest.TestCase):
         self.assertEqual(request["active_parameters"], 0)
         self.assertEqual(result["risk_names"], [])
         self.assertEqual(result["risks"], [])
+
+    def test_structure_preserves_results(self):
+        for scenario, grid in (("short", "0"), ("long", "0"), ("local-vol", "2"),
+                               ("gsr-swap-3f", "0"), ("slv-swap-3f", "0")):
+            for engine in ("tree", "compiled"):
+                common = [scenario, "4", "aad", engine]
+                rows = self.run_cli([*common, "structure", "1", grid, "0", "1"])
+                warm = self.run_cli([*common, "warm", "1", grid, "0", "1"])
+                self.check_matching_results(self.records(rows, "result"), self.records(warm, "result"))
+                structures = self.records(rows, "structure")
+                self.assertEqual([row["stage"] for row in structures], ["prefix", *(["payoff"] * 4)])
+                self.assertEqual([row["path"] for row in structures[1:]], list(range(4)))
+                inputs = self.records(rows, "request")[0]["active_parameters"]
+                for row in structures:
+                    self.assertEqual(row["risk_input_leaves"], inputs)
+                    self.assertEqual(row["leaves"], inputs + 1 + row["constant_leaf_candidates"])
+                    self.assertGreaterEqual(row["nodes"], row["leaves"])
+                    self.assertGreaterEqual(row["tape_capacity_bytes"], row["tape_occupied_bytes"])
+                    self.assertGreaterEqual(row["tape_occupied_bytes"], row["tape_live_bytes"])
+                    self.assertEqual(row["tape_live_bytes"], row["nodes"] * row["node_bytes"] + row["edges"] * row["edge_bytes"])
+
+    def test_structure_rejects_unsupported_requests(self):
+        for mode, paths, outputs, repeats in (("double", "4", "1", "1"), ("aad", "65", "1", "1"),
+                                              ("aad", "4", "4", "1"), ("aad", "4", "1", "2")):
+            self.run_cli(["short", paths, mode, "compiled", "structure", outputs, "0", "0", repeats], False)
+        self.run_cli(["lsmc-bs", "4", "aad", "compiled", "structure", "1", "0", "64", "1"], False)
+
+    def test_three_factor_slv_validation_paths(self):
+        for scenario in ("slv-swap-3f", "hybrid-slv-swap-3f"):
+            for mode, engine in (("double", "tree"), ("aad", "compiled")):
+                rows = self.run_cli([scenario, "256", mode, engine, "warm", "1", "0", "0", "1"])
+                request = self.records(rows, "request")[0]
+                self.assertEqual(request["paths_per_output"], 256)
+                self.check_finite(self.records(rows, "result"))
 
     def test_sixty_four_outputs(self):
         for engine in ("tree", "compiled"):

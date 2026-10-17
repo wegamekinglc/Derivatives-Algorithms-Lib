@@ -154,11 +154,11 @@ END
 ```
 
 The first two lines represent definition rows, not dated statements. See the
-runnable [C++ script example](../../dal-cpp/examples/script/script.cpp) for
+runnable [C++ script example](../../dal-cpp/examples/products/script/script.cpp) for
 the events-table construction and valuation. Mutable vectors retain values
 across events and historical replay, reset between Monte Carlo paths, and are
 preallocated from the indexed entries and number of `APPEND` statements.
-The runnable [average call example](../../dal-cpp/examples/average_option_script/)
+The runnable [average call example](../../dal-cpp/examples/products/average_option_script/)
 uses four dated events to append observed spots to `fixings`, then pays
 `MAX(AVERAGE(fixings) - STRIKE, 0)` at the last observation date.
 It compares compiled double and AAD Monte Carlo valuation with a
@@ -456,7 +456,7 @@ The returned map contains `PV` and, with AAD, `d_<model parameter>` and
 `d_<script constant parameter>` only. PV is a path mean; risks are already
 normalized. There are no fixing-risk, preparation, or diagnostic result keys.
 
-The example in [`dal-cpp/examples/script_settings/`](../../dal-cpp/examples/script_settings/)
+The example in [`dal-cpp/examples/products/script_settings/`](../../dal-cpp/examples/products/script_settings/)
 uses an explicit date and snapshot, historical `SCALE * FIX(EQ[DAL196_TEST])`,
 and compiled AAD. With history 80, SCALE 2 and zero rates, it checks `PV=160`
 and `d_SCALE=80`, then prints product and prepared-valuation diagnostics. The
@@ -819,7 +819,7 @@ passive values and the historical program. Its double replay provides the
 initial value state, but converting that state to active numbers would lose
 the dependence of `x = SCALE * FIX(index, date)` on `SCALE`.
 
-Each AAD batch therefore activates its worker's tape and constructs its own
+Each ordinary AAD worker therefore activates its tape and constructs its own
 model, constant variables, evaluator, and registered zero input. After rewind,
 input registration, and `NewRecording`, it initializes the model and replays
 past events with `PastEvaluator_<AAD::Number_>` or the prepared hard historical
@@ -828,8 +828,9 @@ bytecode using the sealed doubles.
 Every path rewinds to that mark and restores the seed's live node references;
 it does not restore parameter-dependent variables from `variablesInit_` doubles.
 Historical replay reads no index, fixing store, or environment on the worker.
-The next batch rebuilds the seed even when it runs on the same thread; active
-numbers and seeds never cross threads or recordings.
+The worker retains this prefix and typed seed across its request's chunks.
+Another recording rebuilds the seed; active numbers and seeds never cross
+threads or recordings.
 
 After future evaluation, `AAD::PayoffRoot` in `dal-cpp/dal/math/aad/aad.hpp`
 reuses the native payoff node only when the post-mark range is nonempty and
@@ -840,9 +841,10 @@ root and propagating to the mark accumulates contributions without overwriting
 a historical seed's adjoint. The fallback also handles a pre-mark payoff,
 a passive constant, or an otherwise empty post-mark recording, ensuring a
 valid reverse range.
-After all paths in a batch, propagation from mark to start carries the
-accumulated seed risk into script and model inputs. Each batch's risks are
-divided by the total simulation path count once; summing worker results does
+After all paths in a chunk, propagation from mark to start carries the
+accumulated seed risk into script and model inputs. Harvested input leaf
+adjoints are then cleared before the next chunk. Each chunk's risks are
+divided by the total simulation path count once; summing chunk results does
 not normalize them again. `SimResults_::risks_` therefore contains mean-price
 sensitivities, while `aggregated_` remains the unnormalized payoff sum.
 
@@ -1049,7 +1051,7 @@ centred at $0$:
 $$
 \mathrm{BFly}(x;\; \varepsilon) =
 \begin{cases}
-0 & |x| \ge \varepsilon/2,\\
+0 & |x| > \varepsilon/2,\\
 (\varepsilon/2 - |x|)/(\varepsilon/2) & \text{otherwise}.
 \end{cases}
 $$
@@ -1074,6 +1076,24 @@ $$
 1 - x/rb & 0 \le x \le rb.
 \end{cases}
 $$
+
+Band endpoints use the ramp expression and retain its derivative. In ordinary
+AAD and LSMC replay, each recording owner prepares shared zero/one leaves before
+the path checkpoint. Tree and compiled fuzzy kernels reuse these leaves for
+plateaus and boolean literals. The owner refreshes them for each recording;
+copies fall back to uncached constants until initialized by their own recording.
+Direct kernel calls keep their existing constant construction behavior. This
+storage choice adds no model or script risk parameter.
+
+For parsed comparisons, tree and compiled evaluation inspect the passive values
+of both operands before recording their outer difference. Strictly outside the
+smoothing band they reuse the plateau constant; inside the band, including its
+endpoints, they record the original difference and kernel arithmetic. Active
+operands still evaluate in order, so their arithmetic and read errors remain
+observable. Compiled passive operands can use constant-folding metadata; tree
+evaluation specializes literal operands. Named script parameters and ordinary
+tree variables remain active. Segmented curvature tracing classifies the same passive
+gap and endpoints without adding a difference to the tape.
 
 ### Nested If Evaluation
 
@@ -1171,12 +1191,13 @@ nor a bridge is constructed.
 
 ### Batching and Thread Pool
 
-Paths are divided with an effective batch size
-`min(8192, ceil(nPaths / nThreads))` and submitted to
-`ThreadPool_::GetInstance()`. Batch sizes, offsets, and counts use `size_t`, and
-the planner rejects a zero thread count without performing division. This keeps
-multiple useful tasks for small simulations while capping large batches at
-`8192`. Each thread owns its own RNG, Gaussian vector, scenario
+Ordinary scalar and weighted paths round `ceil(nPaths / 256)` up to a power of
+two, clamped to 64..2048, as their chunk size. Boundaries depend
+on the path count independently of the worker count. At most
+`min(nThreads, nChunks)` tasks are submitted to `ThreadPool_::GetInstance()`;
+each persistently claims chunks from a shared counter. Sizes, offsets and counts
+use `size_t`, including tails and zero-path requests. LSMC retains its separate
+`BatchPlan_` policy. Each thread owns its RNG, Gaussian vector, scenario
 (`Scenario_<T_>`), and evaluator state, so the per-path work is lock-free. For
 value-only simulation, each worker constructs its buffers on first use and
 reuses them for subsequent batches in the same request. The caller's state is
@@ -1192,7 +1213,15 @@ soon as submission succeeds and drains all accepted tasks during normal or
 exceptional unwinding, including when a later submission is rejected. It first
 waits until every accepted future is ready and then consumes every future, so a
 task failure is rethrown to the valuation caller only after no task can still
-reference local simulation state. Thread-local results are summed at the end.
+reference local simulation state. Chunk results occupy at most 256 reusable
+numeric slots with a 16 MiB payload target (at least one slot for an oversized
+partial). If all chunks fit, workers write exclusive slots and the caller
+reduces them after draining all tasks. Otherwise, a completing worker reduces
+every ready consecutive chunk under one lock, releasing slots for reuse.
+Capacity waits release that lock and cancellation wakes all waiters.
+Reduction follows absolute chunk order, so ordinary prices, all Greeks and
+weighted components repeat exactly across worker counts and task assignment
+for the same build, floating-point environment and simulation inputs.
 This is the parallel structure described in
 [Pathwise Adjoints in Monte Carlo](aad.md#pathwise-adjoints-in-monte-carlo).
 
@@ -1205,16 +1234,20 @@ streams) and accumulates the payoff slot across paths. The
 
 1. Activates the worker's tape and registers model parameters, constant
    variables, and a zero input (`InitModel4ParallelAAD`). It starts a recording,
-   initializes the model, rebuilds any prepared historical seed, then marks.
+   initializes the model, records the raw initial state or replays prepared
+   historical state, then marks. Scalar and vector seed handles belong to this
+   recording and are refreshed before its path checkpoint.
 2. Per path: rewinds to the mark, generates the path, restores initial state
-   (the typed seed for prepared AAD), and evaluates the AST with a
+   by copying the typed scalar/vector seed, and evaluates the AST with a
    `FuzzyEvaluator_<AAD::Number_>` (or compiled `EvalState_<AAD::Number_>`).
    It creates or reuses a path-local payoff root via `AAD::PayoffRoot`, as
    described under [recording lifetime](#historical-state-and-recording-lifetime),
    seeds its adjoint to $1$, and propagates back to the mark.
-3. After the batch: propagates from mark to start, harvests per-parameter
-   adjoints, and divides by total `nPaths` once. Worker reduction sums these
-   normalized contributions without a second division.
+3. After each chunk: propagates from mark to start, harvests per-parameter
+   adjoints, divides by total `nPaths` once, and clears input leaf adjoints.
+   Ordered chunk reduction sums the normalized contributions without a second
+   division. The model, evaluator and prefix recording remain owned by that
+   worker until all its chunks finish.
 
 The result is a `SimResults_` carrying the aggregated payoff and a risk vector
 labelled by model parameter and constant variable.
@@ -1234,6 +1267,21 @@ model capabilities, today policy, error semantics, or cashflow rules. The defaul
 Callers can pass `compiled = true` to opt into the stream evaluator. Both modes
 are required to produce the same payoff and risk numbers, aside from normal
 floating-point association noise.
+
+Choose the evaluator using complete requests representative of the product,
+path count, model, and double/AAD mode. Include preparation when measuring cold
+requests: lowering to streams adds setup work, while repeated evaluation can
+benefit from reduced dispatch overhead. A gain on a large schedule-heavy
+product does not establish a gain for a small cold request. Set
+`simulation.compiled_` before model-aware preparation and use the same selection
+for execution. Evaluator selection does not change the LSMC training budget.
+
+Scalar `MAX(a, b)` and `MIN(a, b)` choose `b` only when it is strictly greater
+or strictly less than `a`, respectively. Ties, including opposite signed zeros,
+and unordered comparisons retain `a`. AAD follows the selected operand's risk:
+at `SPOT() = 10`, `MAX(10, SPOT())` has zero spot derivative, while
+`MAX(SPOT(), 10)` has spot derivative one. This selection rule is shared by
+tree and compiled evaluation; scalar extrema are not smoothed by fuzzy `IF`.
 
 For the raw legacy path, `ScriptProduct_::Compile(fuzzy)` is `const`, but it
 requires that `PreProcess(...)` has already run. Preprocessing indexes variables, seeds past
@@ -1333,10 +1381,17 @@ generator in `dal-cpp/tests/script/test_compile_parity_fuzz.cpp`). The benchmark
 `dal-cpp/benchmarks/script_mc_perf` compares `compiled=false` and
 `compiled=true` runs across simple and schedule-heavy products for both
 `double` and `AAD::Number_`. Its optional `--lsmc-replay TRAINING PRICING
-1W|1CD hard|aad bs|local_vol tree|compiled [deadfix]` mode runs one valuation
+1W|1CD hard|aad bs|local_vol tree|compiled [deadfix] [retrained]` mode runs one valuation
 per process, printing elapsed time, PV, and AAD risks so paired runs can
 compare equal budgets and peak process memory. The `deadfix` workload puts
 dead future FIX requests on each exercise row to measure observation pruning.
+
+`dal-cpp/tests/script/test_compiled_request_parity.cpp` checks complete requests
+with historical vector state, live constants, named/default observations and
+delayed payment against independent BS price and all-risk oracles. It also
+checks fuzzy vector branches at exact smoothing endpoints and in the transition
+region, plus historical/vector LSMC policy diagnostics, effective default
+training counts, and Frozen/RetrainedBump risks with validation and RQMC.
 
 Named coverage in `dal-cpp/tests/script/test_exact_folding.cpp`,
 `dal-cpp/tests/script/test_fuzzy_arithmetic.cpp`,
@@ -1425,11 +1480,11 @@ tree.
 
 The script program feeds an events table to `ScriptProduct_`, which runs the
 parser and AST construction in its constructor, and then prints the debug walk
-of the processed tree. See [`dal-cpp/examples/script/`](../../dal-cpp/examples/script)
+of the processed tree. See [`dal-cpp/examples/products/script/`](../../dal-cpp/examples/products/script)
 for a runnable version; its events table and product construction are:
 
 ```cpp
-// from dal-cpp/examples/script/script.cpp
+// from dal-cpp/examples/products/script/script.cpp
 #include <dal/platform/platform.hpp>
 #include <dal/script/event.hpp>
 #include <dal/storage/globals.hpp>
@@ -1661,7 +1716,7 @@ Python exposes the same diagnostic as
 and Excel as `SCRIPTSIMULATION.EXPLAIN(product, modelData, n_paths, [valuation],
 [simulation])`, both returning the identical JSON contract (as a dictionary and
 as concatenated text chunks respectively). The runnable
-[`dal-cpp/examples/american_put_mc/`](../../dal-cpp/examples/american_put_mc)
+[`dal-cpp/examples/methods/american_put_mc/`](../../dal-cpp/examples/methods/american_put_mc)
 prices the European-limit, two-date Bermudan, and weekly-exercise puts off the
 same engine and prints the diagnostic.
 
@@ -1739,17 +1794,17 @@ uses the legacy text wrapper.
 
 - [Automatic Adjoint Differentiation](aad.md) — the reverse-mode machinery that
   fuzzy evaluation feeds, enabling pathwise Greeks through discontinuous payoffs.
-- [`dal-cpp/examples/script_settings/`](../../dal-cpp/examples/script_settings/)
+- [`dal-cpp/examples/products/script_settings/`](../../dal-cpp/examples/products/script_settings/)
   — historical fixing, explicit date/snapshot, compiled AAD, and product/valuation diagnostics.
 - [Python FIX settings](../../dal-python/README.md#historical-and-future-fix)
   — keyword-only settings, midnight snapshots, copies, diagnostics, and a complete example.
 - [Excel FIX settings](../excel/script-settings.md)
   — immutable handles, two-column ranges, JSON chunks, and the runnable workbook.
-- [`dal-cpp/examples/script/`](../../dal-cpp/examples/script) — runnable example
+- [`dal-cpp/examples/products/script/`](../../dal-cpp/examples/products/script) — runnable example
   of the full pipeline: events table parsing, preprocessing, domain analysis,
   condition folding, and evaluation.
-- [`dal-cpp/examples/average_option_script/`](../../dal-cpp/examples/average_option_script/)
+- [`dal-cpp/examples/products/average_option_script/`](../../dal-cpp/examples/products/average_option_script/)
   — four-observation arithmetic-average call with a path-local vector.
-- [`dal-cpp/examples/script_tree/`](../../dal-cpp/examples/script_tree) and
+- [`dal-cpp/examples/products/script_tree/`](../../dal-cpp/examples/products/script_tree) and
   [`dal-python/examples/008.script_tree.py`](../../dal-python/examples/008.script_tree.py)
   — runnable demos of the Unicode/ASCII tree dump at several width budgets.

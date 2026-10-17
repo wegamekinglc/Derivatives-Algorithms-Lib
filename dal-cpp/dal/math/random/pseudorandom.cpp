@@ -8,6 +8,7 @@
 
 #include <dal/math/random/pseudorandom.hpp>
 #include <dal/math/specialfunctions.hpp>
+#include <dal/math/simdkernels.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/platform/host.hpp>
 #include <dal/platform/platform.hpp>
@@ -41,7 +42,24 @@ namespace Dal {
     namespace {
         namespace RWT {
             template <class F_>
+#if defined(_MSC_VER)
+            __declspec(noinline)
+#else
+            __attribute__((noinline))
+#endif
+            void FillBlock(const F_& nextUniform, Vector_<>::iterator dst_begin, Vector_<>::iterator dst_end) {
+                // Keep the long-block loop out of the short scalar engine's register allocation.
+                for (auto pn = dst_begin; pn != dst_end; ++pn)
+                    *pn = nextUniform();
+                Math::InverseNCDFBlock(&*dst_begin, dst_end - dst_begin);
+            }
+
+            template <class F_>
             FORCE_INLINE void Fill(const F_& nextUniform, bool precise, Vector_<>::iterator dst_begin, Vector_<>::iterator dst_end) {
+                if (!precise && dst_end - dst_begin >= 32) {
+                    FillBlock(nextUniform, dst_begin, dst_end);
+                    return;
+                }
                 for (auto pn = dst_begin; pn != dst_end; ++pn) {
                     const double f = nextUniform();
                     *pn = InverseNCDF(f, precise, precise);

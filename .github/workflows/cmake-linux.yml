@@ -275,13 +275,22 @@ jobs:
           DAL_NUM_THREADS: 4
         run: |
           cmake -S . -B build/Release-linux -DDAL_CPP_BUILD_BENCHMARKS=ON
-          cmake --build build/Release-linux --target script_mc_perf --parallel "$(nproc)"
+          cmake --build build/Release-linux --target script_mc_perf rng_perf --parallel "$(nproc)"
           profiling=off
           if [ "${{ matrix.profiling }}" = ON ]; then
             profiling=on
           fi
           python tests/aad-profiling/check_production_profile.py \
             build/Release-linux/dal-cpp/benchmarks/script_mc_perf/script_mc_perf --profiling "$profiling"
+          python tests/aad-profiling/check_sobol_profile.py \
+            build/Release-linux/dal-cpp/benchmarks/rng_perf/rng_perf
+          python -O tests/aad-profiling/check_sobol_profile.py \
+            build/Release-linux/dal-cpp/benchmarks/rng_perf/rng_perf
+          python -m unittest discover -s tests/aad-profiling -p 'test_*.py' -v
+          python -OO -m unittest discover -s tests/aad-profiling -p 'test_*.py' -v
+          python -m unittest discover -s tests/lsmc-training-study -p 'test_*.py' -v
+          python tests/lsmc-training-study/check_sample.py \
+            build/Release-linux/dal-cpp/benchmarks/script_mc_perf/script_mc_perf --addressing stock
 
       - name: Verify generated sources
         run: |
@@ -341,6 +350,7 @@ jobs:
         run: |
           python3 .github/scripts/check_docs.py
           python3 -m unittest discover -s .github/scripts/tests -p test_checkout_dependencies.py
+          python3 -m unittest discover -s .github/scripts/tests -p test_check_benchmark_regressions.py -v
 
   warning-clean:
     name: Warning-clean GCC build
@@ -460,12 +470,46 @@ jobs:
         run: |
           sudo apt install -y gcc-14 g++-14 make cmake
 
+      - name: Prepare observable exception runtime
+        if: matrix.slug == 'tsan-profiling'
+        env:
+          CC: gcc-14
+          CXX: g++-14
+        run: |
+          set -euo pipefail
+          scripts="$GITHUB_WORKSPACE/.github/scripts/tsan"
+          python3 -m unittest discover -s .github/scripts/tests -p test_tsan_probe.py -v
+          work="$RUNNER_TEMP/tsan-runtime"
+          evidence="$RUNNER_TEMP/tsan-runtime-evidence"
+          mkdir -p "$work" "$evidence"
+          dpkg-query -W gcc-14 g++-14 libstdc++6 libtsan2 | tee "$evidence/packages.log"
+          stock=$(dirname "$(realpath "$(g++-14 -print-file-name=libstdc++.so.6)")")
+          bash "$scripts/probe_runtime.sh" g++-14 "$stock" "$evidence/stock" stock \
+            2>&1 | tee "$evidence/stock.log"
+          cd "$work"
+          version=$(dpkg-query -W -f='${Version}' gcc-14)
+          apt-get download "gcc-14-source=$version"
+          packages=(gcc-14-source_*.deb)
+          test "${#packages[@]}" -eq 1
+          sha256sum "${packages[0]}" | tee "$evidence/source.log"
+          dpkg-deb -x "${packages[0]}" package
+          archive="package/usr/src/gcc-14/gcc-$(g++-14 -dumpfullversion).tar.xz"
+          sha256sum "$archive" | tee -a "$evidence/source.log"
+          tar -xf "$archive"
+          bash "$scripts/build_runtime.sh" "$work/gcc-$(g++-14 -dumpfullversion)" "$work" \
+            2>&1 | tee "$evidence/build.log"
+          runtime="$work/install/lib"
+          bash "$scripts/probe_runtime.sh" g++-14 "$runtime" "$evidence/instrumented" instrumented \
+            2>&1 | tee "$evidence/instrumented.log"
+          echo "TSAN_STDLIB_LINK_FLAGS=-L$runtime -Wl,-rpath,$runtime" >> "$GITHUB_ENV"
+          echo 'TSAN_OPTIONS=halt_on_error=1:second_deadlock_stack=1' >> "$GITHUB_ENV"
+
       - name: Build instrumented tests
         env:
           CC: gcc-14
           CXX: g++-14
           CXXFLAGS: ${{ matrix.flags }}
-          LDFLAGS: ${{ matrix.flags }}
+          LDFLAGS: ${{ matrix.flags }} ${{ env.TSAN_STDLIB_LINK_FLAGS }}
         run: |
           build_dir="$RUNNER_TEMP/dal-${{ matrix.slug }}"
           cmake -S . -B "$build_dir" \
@@ -486,6 +530,25 @@ jobs:
           cmake --build "$build_dir" --target "${targets[@]}" --parallel "$(nproc)"
           echo "SANITIZER_BUILD_DIR=$build_dir" >> "$GITHUB_ENV"
 
+      - name: Verify exception runtime and recovery
+        if: matrix.slug == 'tsan-profiling'
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/tsan-runtime-evidence"
+          runtime="$RUNNER_TEMP/tsan-runtime/install/lib"
+          binary="$SANITIZER_BUILD_DIR/dal-public/dal_public_tests"
+          ldd "$binary" | tee "$evidence/dal.ldd"
+          for name in libstdc++.so.6 libtsan.so.2; do
+            loaded=$(awk -v name="$name" '$1 == name {print $3}' "$evidence/dal.ldd")
+            test "$(realpath "$loaded")" = "$(realpath "$runtime/$name")"
+          done
+          cp "$SANITIZER_BUILD_DIR/CMakeCache.txt" "$evidence/"
+          grep -F 'DAL_ENABLE_AAD_PROFILING:BOOL=ON' "$evidence/CMakeCache.txt"
+          DAL_NUM_THREADS=4 TSAN_OPTIONS=halt_on_error=1:second_deadlock_stack=1 \
+            "$binary" \
+            --gtest_filter=JacobianRiskValueTest.TestPassiveFailureDrainsAndEarlierResultsRemainUsable \
+            --gtest_fail_if_no_test_selected 2>&1 | tee "$evidence/recovery.log"
+
       - name: Run focused core tests
         env:
           ASAN_OPTIONS: detect_leaks=0:halt_on_error=1
@@ -494,7 +557,10 @@ jobs:
           DAL_NUM_THREADS: 4
         run: |
           "$SANITIZER_BUILD_DIR/dal-cpp/dal_cpp_tests" \
-            --gtest_filter='${{ matrix.core-filter }}:ScriptTest.TestPositioned*:ScriptTest.TestIRNPrepared*:ScriptExerciseLSMCTest.TestCurvature*'
+            --gtest_filter='${{ matrix.core-filter }}:ScriptTest.TestPositioned*:ScriptTest.TestIRNPrepared*:ScriptExerciseLSMCTest.TestCurvature*:ModelTest.TestBlackScholesPrefix*:AADAccumulateTest.*:GSRMultiFactorTest.*:ModelTest.TestGsrFusedRecursionFitsNodeBudget:ModelTest.TestGsrStateEvolutionFitsNodeBudget:ModelTest.TestGsrScratchPrefixPreservesStateAndReusesCapacity:ModelTest.TestGsrUnallocatedEmptyPathRemainsValid:ModelTest.TestGsrGeneration*:ModelTest.TestGsrSwapObservationsFitNodeBudget:ModelTest.TestGsrShared*:ModelTest.TestGsrEqualBondValues*:ModelTest.TestGsrReallocation*:ModelTest.TestGsrHybridBatch*:ModelTest.TestHybridGsrBatch*:ModelTest.TestHybridGsrSwapObservationsFitNodeBudget:ModelTest.TestHybridGSRSLVRateRefreshesAnchorsBeforeEachRecording:ModelTest.TestGsrHjmBatch*:ModelTest.TestGsrHybridHjmBatch*:ModelTest.TestHybridSlvBatch*:GSRSLVTest.TestSwapObservationsFitNodeBudget:GSRSLVTest.TestRepeatedBonds*:GSRSLVTest.TestRecursion*:SmoothingConstantsTest.*:LazyComparisonsTest.*:CompiledScalarsTest.*:TreeScalarsTest.*:ExtremumOrderTest.*:SegmentedMonteCarloTest.TestConstantLeftExtremaAtTiesAcrossSegments:CompiledRequestParityTest.*:RawPrefixTest.*:ScriptTest.TestAad*:SimulationTest.*:ScriptTest.*:ScriptObservationSimulationTest.*:ScriptPastReplayTest.*:ScriptFixingPreparationTest.*:ScriptExerciseLSMCTest.*'
+          "$SANITIZER_BUILD_DIR/dal-cpp/dal_cpp_tests" \
+            --gtest_filter='LsmcStorageStudyTest.*' \
+            --gtest_fail_if_no_test_selected
           "$SANITIZER_BUILD_DIR/dal-cpp/dal_cpp_schedule_allocation_tests" \
             --gtest_filter='SchedulesTest.TestContextAllocationCountDoesNotGrowPerPeriod' \
             --gtest_fail_if_no_test_selected
@@ -511,6 +577,18 @@ jobs:
         run: |
           "$SANITIZER_BUILD_DIR/dal-public/dal_public_tests" \
             --gtest_filter='${{ matrix.public-filter }}'
+
+      - name: Upload exception runtime evidence
+        if: always() && matrix.slug == 'tsan-profiling'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: tsan-profiling-runtime-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/tsan-runtime-evidence
+            ${{ runner.temp }}/tsan-runtime/build/config.log
+            ${{ runner.temp }}/tsan-runtime/compiler.log
+            ${{ runner.temp }}/tsan-runtime/runtime-symbols.log
+            ${{ runner.temp }}/tsan-runtime/exception-release.log
 
   linux-gate:
     name: Linux CI gate

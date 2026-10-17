@@ -14,6 +14,9 @@
 #include <dal/script/settings.hpp>
 
 namespace Dal::Script {
+    namespace Detail {
+        void ValidatePassiveConstantModel(const AAD::Model_<double>* model, bool exercise);
+    } // namespace Detail
     class PreparedScript_ {
         std::unique_ptr<const ScriptProduct_> product_;
         Date_ evaluationDate_;
@@ -84,6 +87,10 @@ namespace Dal::Script {
         [[nodiscard]] const ScriptCompiled_& CompiledProgram(bool fuzzy = false) const {
             REQUIRE2(compiled_ && fuzzy == simulation_.enableAad_, "UnsupportedExecutionMode: compilation differs from preparation", ScriptError_);
             return *compiled_;
+        }
+        [[nodiscard]] const ScriptCompiled_& HistoricalCompiledProgram() const {
+            REQUIRE2(pastCompiled_, "PreparationRequired: historical bytecode is not prepared", ScriptError_);
+            return *pastCompiled_;
         }
         [[nodiscard]] ScriptCompiled_ Compile(bool fuzzy = false) const {
             REQUIRE2(compiled_ && fuzzy == simulation_.enableAad_, "UnsupportedExecutionMode: compilation differs from preparation", ScriptError_);

@@ -562,7 +562,7 @@ TEST(ScriptPastReplayTest, TestEveryPathRebuildAcrossBatchBoundary) {
     }
 }
 
-TEST(ScriptPastReplayTest, TestHistoricalSeedFailureDrainsAndRebuildsEveryBatch) {
+TEST(ScriptPastReplayTest, TestHistoricalSeedFailureDrainsAndRebuildsEveryWorker) {
     const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
     PoolRestore_ pool;
     for (size_t threads : {1, 2, 4}) {
@@ -572,10 +572,12 @@ TEST(ScriptPastReplayTest, TestHistoricalSeedFailureDrainsAndRebuildsEveryBatch)
         simulation.enableAad_ = true;
         SeedAudit_ audit;
         const SeedAuditedPrepared_ prepared(PrepareScript(HistoricalProduct(), model.get(), {}, simulation, History()), &audit);
-        const size_t batches = BatchPlan_(16385, pool.pool_->NumThreads()).BatchCount();
+        const size_t workers = std::min(pool.pool_->NumThreads(), Script::Detail::ChunkPlan_(16385).BatchCount());
         audit.fail_ = true;
         ASSERT_THROW(MCAADSimulation(prepared, Model(), 16385, "sobol", false, false, 0, 0.01), Exception_);
-        ASSERT_EQ(audit.seeds_.load(), batches);
+        const auto failedSeeds = audit.seeds_.load();
+        ASSERT_GT(failedSeeds, 0u);
+        ASSERT_LE(failedSeeds, workers);
         ASSERT_EQ(audit.paths_.load(), 0u);
         audit.fail_ = false;
         for (size_t repeat = 1; repeat <= 2; ++repeat) {
@@ -585,7 +587,7 @@ TEST(ScriptPastReplayTest, TestHistoricalSeedFailureDrainsAndRebuildsEveryBatch)
             ASSERT_NEAR(result.aggregated_ / 16385, 160.0 * discount, 160.0 * discount * 1.0e-12);
             ASSERT_NEAR(result["SCALE"], 80.0 * discount, 1.0e-10);
             ASSERT_NEAR(result["rate"], -10.0 / DAYS_PER_YEAR * 160.0 * discount, 1.0e-10);
-            ASSERT_EQ(audit.seeds_.load(), (repeat + 1) * batches);
+            ASSERT_EQ(audit.seeds_.load(), failedSeeds + repeat * workers);
             ASSERT_EQ(audit.paths_.load(), repeat * 16385);
         }
     }

@@ -54,7 +54,11 @@ model->GeneratePath({0.4, -0.7}, &path);
 
 Each requested output slot is resolved to an asset during `Allocate`.
 Requests may repeat an asset or use a different order from the model's asset
-list. The single `Sample_::spot_` compatibility field is the first configured
+list. Repeated AAD slots reuse the spot already written in the same sample's
+path-owned observations, including its tape node. Source references are enabled
+only for repeated requests and hold no spot values across samples or recordings.
+Double paths evaluate the requested spots directly.
+The single `Sample_::spot_` compatibility field is the first configured
 asset; multi-asset consumers should use the named `observations_` slots. The
 model validates unknown or duplicate asset names, malformed correlation
 matrices, invalid parameters, and unsupported output indices before path
@@ -78,7 +82,7 @@ states for a multivariate continuation fit. The model supports a deterministic
 numeraire, so its paths can enter the existing LSM discounting contract.
 Correlation remains passive for AAD.
 
-The runnable [basket call example](../../dal-cpp/examples/basket_mc/) prices
+The runnable [basket call example](../../dal-cpp/examples/products/basket_mc/) prices
 `max(0.5 S_A(T) + 0.5 S_B(T) - 110, 0)` with two correlated equity paths and
 named `FIX` observations. It averages discounted path payoffs over $2^{18}$
 Sobol paths. The program compares compiled double and AAD valuation, double

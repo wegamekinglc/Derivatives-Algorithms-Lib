@@ -164,35 +164,47 @@ namespace Dal::Script {
             --nestedIfLvl_;
         }
 
-        FORCE_INLINE void Visit(const NodeTrue_& node) { fuzzyStack_.Push(1.0); }
-        FORCE_INLINE void Visit(const NodeFalse_& node) { fuzzyStack_.Push(0.0); }
+        FORCE_INLINE void Visit(const NodeTrue_& node) { fuzzyStack_.Push(this->SmoothingConstants().One()); }
+        FORCE_INLINE void Visit(const NodeFalse_& node) { fuzzyStack_.Push(this->SmoothingConstants().Zero()); }
 
-        FORCE_INLINE void Visit(const NodeEqual_& node) {
-            VisitNode(*node.arguments_[0]);
-            const T expr = dStack_.TopAndPop();
-
-            if (node.isDiscrete_)
-                fuzzyStack_.Push(BFly(expr, node.lb_, node.rb_));
-            else {
-                double eps = node.eps_ < 0 ? defEps_ : node.eps_;
-                fuzzyStack_.Push(BFly(expr, eps));
+        void VisitDifference(const NodeSub_& node, const SmoothingComparison_& comparison) {
+            const auto* left = Base::Literal(node.arguments_[0]);
+            const auto* right = Base::Literal(node.arguments_[1]);
+            if (left) {
+                VisitNode(*node.arguments_[1]);
+                const T rhs = dStack_.TopAndPop();
+                fuzzyStack_.Push(comparison.Difference(left->constVal_, rhs, defEps_, this->SmoothingConstants()));
+                return;
             }
+            VisitNode(*node.arguments_[0]);
+            if (right) {
+                const T lhs = dStack_.TopAndPop();
+                fuzzyStack_.Push(comparison.Difference(lhs, right->constVal_, defEps_, this->SmoothingConstants()));
+                return;
+            }
+            VisitNode(*node.arguments_[1]);
+            const T rhs = dStack_.TopAndPop();
+            const T lhs = dStack_.TopAndPop();
+            fuzzyStack_.Push(comparison.Difference(lhs, rhs, defEps_, this->SmoothingConstants()));
         }
 
-        void VisitComp(const CompNode_& node) {
-            VisitNode(*node.arguments_[0]);
-            const T expr = dStack_.TopAndPop();
-
-            if (node.isDiscrete_) {
-                fuzzyStack_.Push(CSpr(expr, node.lb_, node.rb_));
-            } else {
-                const double eps = node.eps_ < 0 ? defEps_ : node.eps_;
-                fuzzyStack_.Push(CSpr(expr, eps));
+        void VisitComparison(const CompNode_& node, bool equality) {
+            const SmoothingComparison_ comparison{equality, node.isDiscrete_, node.isDiscrete_ ? node.lb_ : node.eps_, node.rb_};
+            const auto* difference = dynamic_cast<const NodeSub_*>(node.arguments_[0].get());
+            if (difference && !difference->isConst_) {
+                VisitDifference(*difference, comparison);
+                return;
             }
+            VisitNode(*node.arguments_[0]);
+            const T gap = dStack_.TopAndPop();
+            fuzzyStack_.Push(comparison.Apply(gap, defEps_, this->SmoothingConstants()));
         }
 
-        FORCE_INLINE void Visit(const NodeSup_& node) { VisitComp(node); }
-        FORCE_INLINE void Visit(const NodeSupEqual_& node) { VisitComp(node); }
+        void VisitComp(const CompNode_& node) { VisitComparison(node, false); }
+
+        FORCE_INLINE void Visit(const NodeEqual_& node) { VisitComparison(node, true); }
+        FORCE_INLINE void Visit(const NodeSup_& node) { VisitComparison(node, false); }
+        FORCE_INLINE void Visit(const NodeSupEqual_& node) { VisitComparison(node, false); }
 
         FORCE_INLINE void Visit(const NodeNot_& node) {
             VisitNode(*node.arguments_[0]);
@@ -213,6 +225,12 @@ namespace Dal::Script {
             fuzzyStack_.Push(args.first + args.second - args.first * args.second);
         }
 
+        template <class U_> FORCE_INLINE void RecordPayment(int varIdx, const U_& payment) {
+            if (static_cast<size_t>(varIdx) == lsmcFuzzySinks_->payoffIdx_)
+                (*lsmcFuzzySinks_->pays_)[lsmcFuzzySinks_->eventOrdinal_] += payment;
+            variables_[varIdx] += payment / (*scenario_)[curEvt_].numeraire_;
+        }
+
         //  LSMC recording: with no sinks installed the plain fuzzy arithmetic runs; with
         //  them the raw payment lands in the driver's row while the payoff variable keeps
         //  the exact accumulated arithmetic of the base evaluator. Payments inside a
@@ -224,25 +242,21 @@ namespace Dal::Script {
                 return;
             }
             const auto varIdx = Downcast<NodeVar_>(node.arguments_[0])->index_;
-            VisitNode(*node.arguments_[1]);
-            const auto& sample = (*scenario_)[curEvt_];
-            if (node.discountId_) {
-                REQUIRE2(*node.discountId_ < sample.discounts_.size(),
-                         "DiscountIdOutOfRange: delayed payment slot; " + node.source_.Describe(), ScriptError_);
-                const T payment = dStack_.TopAndPop() * sample.discounts_[*node.discountId_];
-                if (static_cast<size_t>(varIdx) == lsmcFuzzySinks_->payoffIdx_)
-                    (*lsmcFuzzySinks_->pays_)[lsmcFuzzySinks_->eventOrdinal_] += payment;
-                variables_[varIdx] += payment / sample.numeraire_;
-            } else {
-                if (node.paymentDate_)
-                    THROW2("PreparationRequired: PAYS ... ON " + Date::ToString(*node.paymentDate_) +
-                               " requires model-aware preparation; " + node.source_.Describe(),
-                           ScriptError_);
-                const T payment = dStack_.TopAndPop();
-                if (static_cast<size_t>(varIdx) == lsmcFuzzySinks_->payoffIdx_)
-                    (*lsmcFuzzySinks_->pays_)[lsmcFuzzySinks_->eventOrdinal_] += payment;
-                variables_[varIdx] += payment / sample.numeraire_;
-            }
+            this->VisitPaymentAmount(node, [&](const auto& amount) {
+                const auto& sample = (*scenario_)[curEvt_];
+                if (node.discountId_) {
+                    REQUIRE2(*node.discountId_ < sample.discounts_.size(), "DiscountIdOutOfRange: delayed payment slot; " + node.source_.Describe(),
+                             ScriptError_);
+                    const T payment = amount * sample.discounts_[*node.discountId_];
+                    RecordPayment(varIdx, payment);
+                } else {
+                    if (node.paymentDate_)
+                        THROW2("PreparationRequired: PAYS ... ON " + Date::ToString(*node.paymentDate_) + " requires model-aware preparation; " +
+                                   node.source_.Describe(),
+                               ScriptError_);
+                    RecordPayment(varIdx, amount);
+                }
+            });
         }
 
         //  EXERCISE leaves the script state untouched; the driver's rows receive the live

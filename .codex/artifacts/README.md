@@ -8,4 +8,7 @@ current-state explanations in the published docs or focused Codex references.
 
 ## Current Artifacts
 
+- [DAL-357 restricted compiled double SoA](compiled-soa-rollout.md).
+
 - [DAL-317 documentation audit](dal-317-doc-audit.md).
+- [DAL-351 checkpoint admission design for #571](lsmc-checkpoint-design.md).

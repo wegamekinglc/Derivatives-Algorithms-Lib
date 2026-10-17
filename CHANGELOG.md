@@ -16,6 +16,44 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-10-17
+
+- **Scoped GSR passive constants** — core C++ prepared compiled scalar AAD
+  Monte Carlo can opt into shared constant leaves for native three-factor GSR,
+  preserving default input registration and constructor semantics. See
+  [scoped passive constants](docs/methodology/passive-constants.md).
+
+## 2026-10-16
+
+- **Explicit compiled double SoA** — C++ ordinary Monte Carlo can batch exact
+  single-worker Black–Scholes requests in 8–64 path lanes, preserving prepared
+  observations, history and masked branch semantics. See
+  [simulation](docs/methodology/monte-carlo/simulation.md#explicit-compiled-double-batching).
+
+- **Bounded LSMC training opt-in** — compiled, single-worker exact Black–Scholes
+  training can restore complete passive state in time blocks, preserving the
+  native policy and named risks. Explicit memory admission includes historical
+  compiled programs, QR, temporary capacities and retained AAD tape, with budgeted
+  full-storage fallback.
+  See [training checkpoints](docs/methodology/monte-carlo/lsm.md#opt-in-training-checkpoints).
+
+- **Fast normal blocks** — Sobol and pseudo-random normal fills use runtime-selected
+  AVX2 central-region conversion on x86-64, with SSE2/scalar fallbacks and unchanged
+  uniform streams. Scalar and vector inverse-normal arithmetic share the build's
+  fused or non-fused rounding policy for bitwise agreement within a build.
+  See [normal precision](docs/methodology/monte-carlo/sampling.md#monte-carlo-normal-precision).
+
+## 2026-10-14
+
+- **Deterministic ordinary Monte Carlo** — scalar and weighted double/AAD
+  valuation uses thread-independent chunks, ordered bounded numeric reduction
+  and persistent worker state. PVs, all Greeks and weighted components repeat
+  exactly across worker counts on the same build and floating-point environment;
+  changed summation grouping can alter the last bits from earlier versions.
+  Hard LSMC prices share this numeric grouping, retaining the same training
+  and regression policy.
+  See [simulation batching](docs/methodology/script_engine.md#batching-and-thread-pool).
+
 ## 2026-10-11
 
 - **Excel LSMC policy curvature** — sealed native EXERCISE plans and owning

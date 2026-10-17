@@ -228,6 +228,34 @@ callers, but must not replace marks or discard graphs managed by scoped
 checkpoint methods. The scope does not validate every expression or make raw
 iterators stable checkpoints.
 
+### Scoped Passive Constants
+
+Default double construction keeps independent leaves. Core C++ prepared
+compiled scalar GSR Monte Carlo has an explicit, default-off memory opt-in;
+its owned recording shares passive constant leaves while keeping registered
+input adjoints distinct. See [scoped passive constants](passive-constants.md)
+for admission, lifecycle and migration boundaries.
+
+### Fixed-Size Expression Accumulation
+
+`AAD::Accumulate<N>(initial, term)` in `dal/math/aad/accumulate.hpp` composes a
+fixed-size sum with the native expression templates. It calls `term(i)` once
+per index in ascending order and preserves left-to-right addition. For example:
+
+```cpp
+Number_ value = exp(AAD::Accumulate<3>(intercept, [&](size_t i) {
+    return coefficients[i] * variables[i];
+}));
+```
+
+The expression snapshots its operands and records one result node when assigned
+to a native active number, provided the term factory does not materialize its
+own active intermediates. Active coefficients retain their derivatives even
+when their values are zero. Composed expressions use the existing lifetime
+checks at materialization. An empty sum copies `initial`, calls no term factory
+and adds no node; ordinary active-number copy semantics apply. Plain double
+arguments use ordinary arithmetic without tape storage.
+
 ### Native Active-Number Lifetime Diagnostics
 
 Configure with `DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS=ON` to check native
@@ -964,8 +992,19 @@ script_mc_perf --production-profile lsmc-bs 8192 aad tree warm 1 0 512 3
 
 Arguments are scenario, pricing paths, `double|aad`, `tree|compiled`,
 `cold|warm|phases`, outputs, surface grid, training paths and repetitions.
-Scenarios are `short`, `long`, `local-vol`, `lsmc-bs` and `lsmc-local-vol`.
-Ordinary cases accept 1/4/16/64 different strike outputs; they execute
+Equity scenarios are `short`, `long`, `local-vol`, `hybrid-bs`, `hybrid-gsr`,
+`lsmc-bs` and `lsmc-local-vol`. The hybrid equity cases observe one BS equity daily under a
+constant 5% rate or one-factor GSR rates (2% Gaussian volatility, unit loading,
+and equity/rate correlation -0.25), respectively. They use a zero surface grid.
+Rate scenarios `gsr-swap-1f`, `gsr-swap-2f`, `gsr-swap-3f`, `gsr-swap-4f`, `hybrid-gsr-swap`,
+`hybrid-gsr-swap-3f`, `slv-swap-1f`, `slv-swap-3f`, `hybrid-slv-swap-1f` and
+`hybrid-slv-swap-3f` observe a 5Y swap, 3M Libor and dated OIS bond at 17 quarterly
+dates. `gsr-bond-1f`, `gsr-bond-3f`, `hybrid-gsr-bond-1f`, `hybrid-gsr-bond-3f`, `slv-bond-1f` and
+`hybrid-slv-bond-1f` observe only the bond. They use separate OIS/3M curves,
+piecewise g/H inputs and a zero surface grid. Gaussian GSR cases include a
+delayed payment; standalone and Hybrid SLV pay at the final event.
+Ordinary cases accept 1/4/16/64 outputs with different strikes
+for equities or payoff scales for rates; they execute
 sequential single-output requests with the same model inputs and Sobol paths.
 AAD channel width remains one. Passive requests report zero active parameters
 and no risks. LSM cases accept one output and keep the Frozen policy; the
@@ -977,13 +1016,45 @@ worker/model initialization. Phases use the cold boundary and explicit scopes.
 All modes run validation before timing, so cold is not process-first startup.
 The short BS fixture validates each output's price and four risks against
 analytic fixed-path formulas. Long/local-vol fixtures use common-path finite
-differences at two steps; LSM uses tree/compiled fixed-path comparisons.
+differences at two steps, as do the hybrid and rate fixtures; LSM uses tree/compiled
+fixed-path comparisons. SLV uses steps of `2e-6` and `1e-6` to resolve local
+derivatives of its piecewise variance paths; other directional fixtures use
+`1e-5` and `5e-6`. The scaled derivative tolerance remains `1e-6`.
 Independent checks use up to 256 pricing paths. Each timed result also matches
 an untimed request at the full path count, with every requested risk checked.
 Startup messages go to stderr; request/result/scope/phase records go to stdout.
 Use uninstrumented Release binaries for throughput comparisons and measure
 profiling overhead separately. External process resource tools include the
 untimed validation and warm-up when reporting lifetime peak RSS.
+
+For a structural scan through the same production AAD worker, select
+`structure` with one ordinary output, 1–64 paths and one repetition:
+
+```bash
+script_mc_perf --production-profile long 8 aad compiled structure 1 0 0 1
+rng_perf --sobol-profile 366 8192 fast 1
+```
+
+Structure mode needs no profiling build. It scans the initialized prefix and
+each completed payoff graph before reverse, then checks price and every risk
+against the ordinary request. Its request `wall_ns` is zero; this mode is not a
+throughput measurement. It reports nodes, edges, zero-argument leaves and
+live/occupied/allocated tape payload. Known risk-input roots and the shared
+payoff-zero root are counted separately. Remaining zero-argument nodes are
+`constant_leaf_candidates`: this includes transient initialization and random
+draw constants, without a reachability or removability claim. Reverse-operator
+graphs are rejected because their output slots need a different classification.
+Snapshots describe one worker's retained prefix and current path, not the sum
+over paths or workers. Tree and compiled evaluators can have different counts.
+
+The selected Sobol mode takes dimensions, paths, `uniform|fast|precise` and
+repetitions. Each sample constructs a fresh sequence at path zero outside the
+timed fill loop. An untimed complete-stream replay checks finiteness and emits
+a reproducible 64-bit fingerprint of all coordinates. `fast` uses the current
+default inverse normal; `precise` includes its polishing step. Compare matched
+dimensions and path counts across at least ten interleaved processes, using
+best-of-N and the repository noise policy. Uniform versus normal cost is an
+informational decomposition, not a measured SIMD speedup.
 
 ## Pathwise Adjoints in Monte Carlo
 
@@ -1002,16 +1073,17 @@ $$
 
 This is the **pathwise adjoint** estimator. The algorithm is:
 
-1. For each batch recording, place the parameters $\theta$ on the worker's
+1. At worker setup, place the parameters $\theta$ on its
    tape, record shared model initialization and any parameter-dependent
    historical state, then mark.
 2. For each path: rewind to the mark, simulate the path and evaluate the payoff
    (forward pass), create or reuse a path-local payoff root, seed its adjoint
    to $1$, and run the reverse pass to the mark. Adjoints before the mark
    **accumulate** across paths automatically.
-3. After the batch's paths: propagate from the mark to the start and divide
-   the parameter adjoints by the total simulation path count $P$. Sum batch
-   contributions without a second normalization.
+3. After each chunk's paths: propagate from the mark to the start and divide
+   the parameter adjoints by the total simulation path count $P$. Clear the
+   harvested input leaf adjoints before the worker's next chunk. Sum numeric
+   chunk contributions in path order without a second normalization.
 
 In [prepared script evaluation](script_engine.md#historical-state-and-recording-lifetime),
 historical fixings are sealed doubles, but script expressions using them can
@@ -1036,7 +1108,11 @@ The result is the full gradient of the Monte Carlo price — every Greek for eve
 parameter — for the cost of roughly one extra simulation, regardless of how many
 parameters there are. Because each thread keeps its own tape and the per-path
 work is independent, the scheme parallelises with no synchronisation during the
-forward or reverse passes; thread results are summed at the end.
+forward or reverse passes. Ordinary scalar and weighted simulation retains the
+prefix for each worker and reduces bounded numeric chunks in fixed path order,
+making its PV and all Greeks exactly repeatable across thread counts for the
+same inputs, build and floating-point environment. See
+[simulation batching](script_engine.md#batching-and-thread-pool).
 
 ## Smoothing Discontinuous Payoffs
 
@@ -2523,7 +2599,7 @@ sampling error. It provides finite-step curvature estimates, with native
 
 ## Examples
 
-The runnable [AAD Black example](../../dal-cpp/examples/aad) compares passive
+The runnable [AAD Black example](../../dal-cpp/examples/methods/aad) compares passive
 pricing, native AAD and analytic price/gradient references. It treats forward,
 volatility, numeraire, strike and expiry as independent coordinates, so the
 expiry derivative holds forward and numeraire fixed.

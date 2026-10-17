@@ -207,6 +207,32 @@ TEST(PseudoRandomTest, TestSeekingMatchesReplayForEveryOffsetAndMode) {
     }
 }
 
+TEST(PseudoRandomTest, TestBulkNormalPreservesRawDrawsAndUniformCache) {
+    for (const auto* engine : {"IRN", "MRG32"}) {
+        for (const size_t dimension : {0, 1, 10, 31, 32, 33, 52, 53}) {
+            for (const bool precise : {false, true}) {
+                auto generator = New(RNGType_(engine), 1024, dimension, precise);
+                auto reference = New(RNGType_(engine), 1024, dimension, precise);
+                Vector_<> values(dimension), uniform(dimension);
+                generator->FillUniform(&uniform);
+                for (const double value : uniform)
+                    ASSERT_EQ(value, reference->NextUniform());
+                generator->FillNormal(&values);
+                for (const double value : values)
+                    ASSERT_EQ(value, InverseNCDF(reference->NextUniform(), precise, precise));
+                auto clone = generator->Clone();
+                generator->FillUniform(&values);
+                for (size_t i = 0; i < dimension; ++i)
+                    ASSERT_EQ(values[i], 1.0 - uniform[i]);
+                clone->FillUniform(&uniform);
+                ASSERT_EQ(values, uniform);
+                const double next = reference->NextUniform();
+                ASSERT_EQ(generator->NextUniform(), next);
+            }
+        }
+    }
+}
+
 TEST(PseudoRandomTest, TestIRNReplayPreservesMixedDrawCountsAndPrecisionAtBatchBoundaries) {
     for (const int seed : {0, 1024, -1})
         for (const bool precise : {false, true}) {

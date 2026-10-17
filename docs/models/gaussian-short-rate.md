@@ -89,6 +89,19 @@ Both factories share the [rate kernel](../../dal-cpp/dal/model/gsr.hpp).
 Initialization prepares transition and observation coefficients; path generation
 does not rebuild schedules or integrate dated parameters. Brownian bridge
 sampling applies independently to each factor before the covariance transform.
+Standalone GSR paths and the Gaussian rate component of Hybrid price each
+distinct OIS bond once per sample and reuse it across rate observations and
+delayed-payment discounts. Samples with repeated bonds keep prices in the
+path's `Sample_::modelScratch_`; the initialized model
+can be shared by double workers.
+For one, two and three factors, Gaussian bond exponents and state/numeraire sums
+compose native AAD expressions before recording their results. Higher factor
+counts retain the general loops. Standalone multi-factor paths reuse a state
+prefix in the first sample's scratch storage; cached first-sample bond prices
+follow that prefix. Each generated path refreshes one zero spot binding shared
+by its samples and reuses scratch capacity.
+Projection spreads retain their separate input derivatives even when projection
+and OIS curves have equal values.
 
 Script `FIX` supports these single-currency observations:
 
@@ -269,6 +282,12 @@ than the Gaussian endpoint shortcut. With unit leverage and zero vol-of-vol, bon
 states match GSR; averaging over the integrated-rate bridge recovers the Gaussian
 conditional discount.
 
+Repeated bond maturities within a sample share one path-owned price in both
+standalone SLV and its Hybrid component. HJM pricing uses the current path's x
+and Y; prices are rebuilt for every path and continuation state. Projection
+basis factors remain separate active quantities, including when their current
+values equal the discount curve.
+
 In dal-public, call `NewGSRLeverageData` and `NewGSRSLVModelData`; Python and Excel
 expose `GSRLeverageData_New` and `GSRSLVModelData_New`. For an existing multi-factor
 Gaussian model:
@@ -424,7 +443,7 @@ curve-bridge handles are process-local; fitted model data supports archives.
 
 ## C++ and Python examples
 
-The C++ example in [`dal-cpp/examples/gsr_swap_swaption/`](../../dal-cpp/examples/gsr_swap_swaption/)
+The C++ example in [`dal-cpp/examples/models/gsr_swap_swaption/`](../../dal-cpp/examples/models/gsr_swap_swaption/)
 and [Python example](../../dal-python/examples/014.gsr_swap_swaption.py) build
 an input USD OIS `YieldCurve_`, snapshot it into `GSRCurveData_`, and supply
 piecewise constant `g = 0.02` and `H = 1.0`. Their curve tables compare input
@@ -463,14 +482,14 @@ unsupported.
 After building the Release-linux workspace, run:
 
 ```bash
-build/Release-linux/dal-cpp/examples/gsr_swap_swaption/gsr_swap_swaption
+build/Release-linux/dal-cpp/examples/models/gsr_swap_swaption/gsr_swap_swaption
 DAL_PY_SITE=$(dal-python/.venv/bin/python -c 'import site; print(site.getsitepackages()[0])')
 PYTHONPATH="build/Release-linux/dal-python:$DAL_PY_SITE" dal-python/.venv/bin/python -S dal-python/examples/014.gsr_swap_swaption.py
 ```
 
 ### Three-factor SLV calibration and pricing
 
-The [C++ example](../../dal-cpp/examples/gsr_slv_calibration/)
+The [C++ example](../../dal-cpp/examples/models/gsr_slv_calibration/)
 and [Python example](../../dal-python/examples/016.gsr_slv_calibration.py) use the
 inputs and print aligned tables for the complete workflow:
 
@@ -513,7 +532,7 @@ the workspace with Python enabled, run:
 
 ```bash
 cmake --build build/Release-linux --target gsr_slv_calibration
-build/Release-linux/dal-cpp/examples/gsr_slv_calibration/gsr_slv_calibration
+build/Release-linux/dal-cpp/examples/models/gsr_slv_calibration/gsr_slv_calibration
 DAL_PY_SITE=$(dal-python/.venv/bin/python -c 'import site; print(site.getsitepackages()[0])')
 PYTHONPATH="build/Release-linux/dal-python:$DAL_PY_SITE" dal-python/.venv/bin/python -S dal-python/examples/016.gsr_slv_calibration.py
 ```

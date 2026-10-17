@@ -272,6 +272,88 @@ TEST(ScriptTest, TestPositionedBatchesDoNotSeekOrCloneForZeroPaths) {
     ASSERT_EQ(audit.runs_.load(), 0u);
 }
 
+TEST(ScriptTest, TestChunkPositionedWorkersMatchSequentialStreamWithBoundedLinearReplay) {
+    PoolRestore_ restore;
+    restore.pool_->Start(8, true);
+    constexpr size_t PATHS = 4097;
+    const Script::Detail::ChunkPlan_ plan(PATHS);
+    Script::Detail::OrderedChunkResults_<double> partials(Vector_<>{0.0, 0.0});
+    Vector_<Vector_<>> draws(PATHS, Vector_<>(3));
+    PositioningAudit_ audit;
+    Script::TestSupport::SubmissionCounter_ submissions;
+    const Script::Detail::ScopedSimulationObserver_ observer(&submissions);
+    size_t processed = 0;
+    Script::Detail::RunChunkWorkers(
+        restore.pool_, plan, &partials, std::make_unique<AuditedIRN_>(&audit),
+        [&](const auto& run) {
+            run([&](const Script::PathBatch_& batch, double* partial, std::unique_ptr<Random_> random) {
+                for (size_t i = 0; i < batch.pathCount_; ++i)
+                    random->FillNormal(&draws[batch.firstPath_ + i]);
+                *partial = static_cast<double>(batch.pathCount_);
+            });
+        },
+        [&](double partial) { processed += static_cast<size_t>(partial); });
+    ASSERT_EQ(processed, PATHS);
+    ASSERT_EQ(submissions.submissions_, std::min(restore.pool_->NumThreads(), plan.BatchCount()));
+    ASSERT_EQ(audit.clones_.load(), plan.BatchCount());
+    ASSERT_EQ(audit.live_.load(), 0u);
+    ASSERT_LE(audit.peak_.load(), restore.pool_->NumThreads());
+    ASSERT_EQ(audit.replayed_, (plan.BatchCount() - 1) * plan.BatchSize() * 3);
+    auto sequential = Script::CreateRNG("irn", 3, false);
+    Vector_<> expected(3);
+    for (size_t path = 0; path < PATHS; ++path) {
+        sequential->FillNormal(&expected);
+        ASSERT_EQ(draws[path], expected);
+    }
+}
+
+TEST(ScriptTest, TestChunkWorkersCancelDrainAndRecoverAfterEveryFailureSource) {
+    PoolRestore_ restore;
+    const Script::Detail::ChunkPlan_ plan(4097);
+    for (const size_t threads : {1, 4}) {
+        restore.pool_->Start(threads, true);
+        for (const String_ source : {"seek", "clone", "submission", "initialization", "worker"}) {
+            SCOPED_TRACE(::testing::Message() << "threads=" << threads << " source=" << source);
+            PositioningAudit_ audit;
+            if (source == "seek")
+                audit.failSeek_ = plan.BatchSize();
+            if (source == "clone")
+                audit.failClone_ = 1;
+            Script::Detail::OrderedChunkResults_<double> partials(Vector_<>{0.0});
+            bool caught = false;
+            try {
+                Script::TestSupport::RejectSubmissions_ observer("injected submission failure");
+                const Script::Detail::ScopedSimulationObserver_ scope(source == "submission" ? &observer : nullptr);
+                Script::Detail::RunChunkWorkers(
+                    restore.pool_, plan, &partials, std::make_unique<AuditedIRN_>(&audit),
+                    [&](const auto& run) {
+                        REQUIRE(source != "initialization", "injected initialization failure");
+                        run([&](const Script::PathBatch_& batch, double* partial, std::unique_ptr<Random_>) {
+                            ++audit.runs_;
+                            REQUIRE(source != "worker" || batch.firstPath_ != 0, "injected worker failure");
+                            *partial = batch.pathCount_;
+                        });
+                    },
+                    [](double) {});
+            } catch (const Exception_& error) {
+                caught = String_(error.what()).find("injected " + source + " failure") != String_::npos;
+            }
+            ASSERT_TRUE(caught);
+            ASSERT_TRUE(partials.Cancelled());
+            ASSERT_EQ(audit.live_.load(), 0u);
+            size_t processed = 0;
+            Script::Detail::OrderedChunkResults_<double> recovery(Vector_<>{0.0});
+            Script::Detail::RunChunkWorkers(
+                restore.pool_, plan, &recovery, Script::CreateRNG("irn", 3, false),
+                [&](const auto& run) {
+                    run([](const Script::PathBatch_& batch, double* partial, std::unique_ptr<Random_>) { *partial = batch.pathCount_; });
+                },
+                [&](double partial) { processed += static_cast<size_t>(partial); });
+            ASSERT_EQ(processed, 4097u);
+        }
+    }
+}
+
 TEST(ScriptTest, TestPositionedClonesDestroyedByWorkersDoNotRetainCallerCapacity) {
     PoolRestore_ restore;
     restore.pool_->Start(2, true);

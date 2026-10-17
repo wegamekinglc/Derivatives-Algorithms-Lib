@@ -156,6 +156,32 @@ TEST(RandomTest, TestSobolClonePreservesStateAndNormalPolicy) {
     }
 }
 
+TEST(RandomTest, TestSobolBlockModesMatchScalarAfterSeeking) {
+    for (const size_t dimension : {31, 32, 33, 366}) {
+        for (const bool precise : {false, true}) {
+            for (const bool polish : {false, true}) {
+                auto normal = NewSobol(dimension, 0, precise, polish);
+                auto uniform = NewSobol(dimension, 0);
+                Vector_<> values, reference;
+                for (const size_t offset : {0, 8193, 1}) {
+                    normal->SkipTo(offset);
+                    uniform->SkipTo(offset);
+                    for (size_t path = 0; path < 4; ++path) {
+                        normal->FillNormal(&values);
+                        uniform->FillUniform(&reference);
+                        for (size_t i = 0; i < dimension; ++i)
+                            ASSERT_EQ(values[i], InverseNCDF(reference[i], precise, polish));
+                    }
+                    auto clone = normal->Clone();
+                    normal->FillUniform(&values);
+                    clone->FillUniform(&reference);
+                    ASSERT_EQ(values, reference);
+                }
+            }
+        }
+    }
+}
+
 TEST(RandomTest, TestNewSobolWithLargePath) {
     const int dim = 443;
     const size_t iPath = size_t{1} << 30;

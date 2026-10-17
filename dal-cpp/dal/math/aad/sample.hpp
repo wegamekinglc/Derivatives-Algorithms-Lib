@@ -35,7 +35,7 @@ namespace Dal::AAD {
         Vector_<T_> discounts_;
         Vector_<T_> libors_;
         Vector_<Vector_<T_>> forwards_;
-        //  Reusable model-owned path state; correlated BS and hybrid models use the first sample.
+        // Caller-owned path state and observation scratch.
         Vector_<T_> modelScratch_;
         Vector_<> modelFactorScratch_;
 

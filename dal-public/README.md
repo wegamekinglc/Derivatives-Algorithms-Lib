@@ -54,7 +54,7 @@ model-sourced named fixings bind to their own model output by index name.
 Correlated BS and hybrid models accept several configured future EQ indices;
 BS accepts one. See the
 [field/default contract](../docs/methodology/script_engine.md#public-c-settings)
-and executable [core settings example in `dal-cpp/examples/script_settings/`](../dal-cpp/examples/script_settings/).
+and executable [core settings example in `dal-cpp/examples/products/script_settings/`](../dal-cpp/examples/products/script_settings/).
 
 `DescribeScriptProduct` provides contract JSON /2 without historical, model,
 or global-date access. `ExplainScriptValuation` provides valuation JSON /1
@@ -81,6 +81,11 @@ program with the example and reports detached per-step solve diagnostics.
 See [the financial contract](../docs/methodology/pde/aad.md#owning-financial-request).
 
 ## Build and Test
+
+Facade examples live in `examples/` and link `DAL::public`. Enable
+`DAL_PUBLIC_BUILD_EXAMPLES` to build `aad_public_risk`;
+see the [example catalog](../docs/examples.md). Core examples remain under
+`dal-cpp/examples/` and depend only on `DAL::cpp`.
 
 The standard core profile builds and tests this component:
 

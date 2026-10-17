@@ -12,6 +12,7 @@
 
 #include <dal-public/src/lsmccurvature.hpp>
 
+#include "giltestbarrier.hpp"
 #include "riskrequest.hpp"
 
 using namespace Dal;
@@ -19,6 +20,8 @@ using namespace Dal::Python;
 
 namespace {
     constexpr const char* IDENTIFIER = "InvalidLsmcCurvatureRequest";
+    thread_local bool testBarrierArmed = false;
+    GilTestBarrier_ testBarrier;
 
     BlackScholesLsmcPlan_ NewPlan(const py::object& product, const py::object& valuation, const py::object& simulation) {
         if (!py::isinstance<Script::ScriptProductData_>(product))
@@ -43,6 +46,7 @@ namespace {
         const auto request =
             RequiredRiskInput<AAD::BumpOverAADRequest_>(bumps, "BlackScholesLsmc_Get_Curvature; bumps", "BumpOverAADRequest_", IDENTIFIER);
         py::gil_scoped_release release;
+        testBarrier.Wait(&testBarrierArmed, "LsmcCurvature: Python GIL test barrier timed out");
         return ValueByBlackScholesLsmcWithCurvature(fixedPlan, fixedPoint, count, request);
     }
 
@@ -116,4 +120,7 @@ void init_bindings_lsmccurvature(py::module_& m) {
         .def_property_readonly("simulation", [](const BlackScholesLsmcCurvatureResult_& value) { return value.Plan().Simulation(); })
         .def_property_readonly("execution", [](const BlackScholesLsmcCurvatureResult_& value) { return value.Curvature().Execution(); });
     m.def("BlackScholesLsmc_Get_Curvature", &NewCurvature, py::arg("plan"), py::arg("point"), py::arg("num_path"), py::arg("bumps"));
+
+    m.def("_LsmcCurvatureGilBarrier_ArmForTesting", [] { testBarrier.Arm(&testBarrierArmed); });
+    m.def("_LsmcCurvatureGilBarrier_ReleaseForTesting", [] { return testBarrier.Release(); });
 }

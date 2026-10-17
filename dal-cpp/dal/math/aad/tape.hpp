@@ -28,6 +28,7 @@
 #include <dal/math/aad/reverseevent.hpp>
 
 namespace Dal::AAD {
+    class Tape_;
     class Number_;
     class ReverseEvent_;
     struct NativeRecordedOperation_;
@@ -37,6 +38,7 @@ namespace Dal::AAD {
 
     namespace NativeThread {
         inline thread_local bool eventValidationRequired = false;
+        inline thread_local Tape_* retainedTape = nullptr;
 #if defined(__GNUC__) || defined(__clang__)
         __attribute__((const))
 #endif
@@ -70,6 +72,7 @@ namespace Dal::AAD {
         friend auto SetNumResultsForAAD(bool, size_t);
         friend struct NumResultsResetterForAAD_;
         friend class Number_;
+        friend class RecordingScope_;
         friend void Clear(Tape_& tape);
         friend void Mark(Tape_& tape);
         friend void RewindToMark(Tape_& tape);
@@ -89,7 +92,10 @@ namespace Dal::AAD {
 
     private:
         struct ThreadDefault_ {};
-        explicit Tape_(ThreadDefault_) : Tape_() { threadDefault_ = true; }
+        explicit Tape_(ThreadDefault_) : Tape_() {
+            threadDefault_ = true;
+            NativeThread::retainedTape = this;
+        }
         friend Tape_* Tape();
         struct ReverseEvents_;
         struct ReverseEventsDeleter_ {
@@ -102,6 +108,10 @@ namespace Dal::AAD {
         size_t eventScratchPeakBytes_ = 0;
         bool threadDefault_ = false; // GCC spills recording values when these constructor flags are adjacent.
         friend struct NativeRecordedOperation_;
+
+        TapNode_* constantSink_ = nullptr;
+        TapNode_* markedConstantSink_ = nullptr;
+        bool passiveConstants_ = false;
 
         void UpdateThreadEventValidation() const noexcept {
             if (threadDefault_)

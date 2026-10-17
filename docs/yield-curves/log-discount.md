@@ -211,12 +211,12 @@ example, which calibrates the same instrument set three times — once each for
 `LOG_LINEAR`, `LOG_CUBIC_NATURAL`, and `MIXED` — and prints the solved node
 discount factors, the 1-year forward rates at each node, and the per-scheme
 repricing residuals. See
-[`dal-cpp/examples/interpolate_curve/`](../../dal-cpp/examples/interpolate_curve)
+[`dal-cpp/examples/curves/interpolate_curve/`](../../dal-cpp/examples/curves/interpolate_curve)
 for a runnable version. The per-scheme calibration builds the typed curve
 through the public factory:
 
 ```cpp
-// from dal-cpp/examples/interpolate_curve/interpolate_curve.cpp
+// from dal-cpp/examples/curves/interpolate_curve/interpolate_curve.cpp
 CurveCalibrationSpec_ spec;
 spec.parameterization_ = CurveParameterization_::Value_::LOG_DISCOUNT;
 spec.knotPolicy_       = CurveKnotPolicy_::Value_::INPUT;
@@ -232,7 +232,7 @@ const Vector_<> nodeDf = curve->NodeDF();        // P(today, nodeDate) per stora
 `NodeDF()` and `NodeLogDF()` return one entry per storage node — anchor first,
 then every declared future knot — so the pinned anchor ordinate is included in
 the returned vector. The staged multi-curve calibration program
-([`dal-cpp/examples/curve_calibration/`](../../dal-cpp/examples/curve_calibration))
+([`dal-cpp/examples/curves/curve_calibration/`](../../dal-cpp/examples/curves/curve_calibration))
 exercises the same `CalibrateYieldCurve` entry point in an OIS-discounting +
 tenor-forecasting setup, with the discount and forward curves layered through
 `CurveBlock_`.

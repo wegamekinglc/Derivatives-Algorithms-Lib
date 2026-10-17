@@ -173,41 +173,12 @@ jobs:
           DAL_NUM_THREADS: 4
           DAL_JOINT_QUOTE_RISK_BENCHMARK_FILE: ${{ github.workspace }}/benchmark-results/generic-joint-raw-v1.csv
         run: |
-          # Single-source benchmark list via CTest labels (H8 fix)
-          # ctest -N right-justifies the test-number field ("  Test  #1:" .. "  Test #10:"), so tolerate the padding
-          benchmarks=( $(ctest -N -L benchmark --test-dir build/benchmark-head | awk -F': ' '/Test +#/{print $2}') )
-          if [ ${#benchmarks[@]} -eq 0 ]; then
-            echo "benchmark discovery failed: ctest -N -L benchmark --test-dir build/benchmark-head found no tests"
-            exit 1
-          fi
-
-          mkdir -p benchmark-results
-          benchmark_failure=0
-          for bench in "${benchmarks[@]}"; do
-            echo "========== $bench =========="
-            result_file="benchmark-results/${bench}.txt"
-            resource_file="benchmark-results/${bench}.resources.txt"
-            if /usr/bin/time --verbose --output="$resource_file" \
-              "./build/benchmark-head/dal-cpp/benchmarks/$bench/$bench" > "$result_file" 2>&1; then
-              status=0
-            else
-              status=$?
-              benchmark_failure=1
-            fi
-            echo "$status" > "benchmark-results/${bench}.status"
-            cat "$result_file"
-            echo
-          done
-
-          # One aggregated table for the whole run, replacing the old per-benchmark
-          # summary sections that each repeated their own header.
-          python3 .github/scripts/write_benchmark_summary.py \
+          python3 .github/scripts/run_benchmarks.py \
+            --build-root build/benchmark-head \
             --results-dir benchmark-results \
             --summary-file "$GITHUB_STEP_SUMMARY" \
             --configuration "gcc-14, native CPU tuning, AADet backend, Release." \
-            --benchmarks "${benchmarks[@]}" | tee benchmark-results/summary.md
-
-          exit "$benchmark_failure"
+            --resource-usage
 
       - name: Compare base and head Python performance
         id: python-performance
@@ -261,7 +232,8 @@ jobs:
             --summary-file "$GITHUB_STEP_SUMMARY" \
             --samples 10 \
             --confirmation-rounds 2 \
-            --threshold-percent 4
+            --threshold-percent 4 \
+            --retry-identical-binaries
 
       - name: Diagnose Python regression with baseline A/A
         if: ${{ !cancelled() && steps.python-performance.outcome == 'failure' }}
@@ -402,39 +374,11 @@ jobs:
       - name: Run benchmarks
         shell: bash
         run: |
-          # Discover the same registered CTest benchmark set as the Linux job.
-          # ctest -N right-justifies the test-number field ("  Test  #1:" .. "  Test #10:"), so tolerate the padding
-          benchmarks=( $(ctest -N -L benchmark --test-dir build/Release-windows | awk -F': ' '/Test +#/{print $2}') )
-          if [ ${#benchmarks[@]} -eq 0 ]; then
-            echo "benchmark discovery failed: ctest -N -L benchmark --test-dir build/Release-windows found no tests"
-            exit 1
-          fi
-
-          mkdir -p benchmark-results
-          benchmark_failure=0
-          for bench in "${benchmarks[@]}"; do
-            echo "========== $bench =========="
-            result_file="benchmark-results/${bench}.txt"
-            if "./build/stage/Release-windows/bin/$bench.exe" > "$result_file" 2>&1; then
-              status=0
-            else
-              status=$?
-              benchmark_failure=1
-            fi
-            echo "$status" > "benchmark-results/${bench}.status"
-            cat "$result_file"
-            echo
-          done
-
-          # One aggregated table for the whole run,
-          # replacing the old per-benchmark summary sections.
-          python3 .github/scripts/write_benchmark_summary.py \
+          python3 .github/scripts/run_benchmarks.py \
+            --build-root build/Release-windows \
             --results-dir benchmark-results \
             --summary-file "$GITHUB_STEP_SUMMARY" \
-            --configuration "msvc, native/AADet backend." \
-            --benchmarks "${benchmarks[@]}" | tee benchmark-results/summary.md
-
-          exit "$benchmark_failure"
+            --configuration "msvc, native/AADet backend."
 
       - name: Upload benchmark evidence
         if: always()

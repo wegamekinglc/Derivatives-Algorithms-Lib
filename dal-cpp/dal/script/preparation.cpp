@@ -14,10 +14,16 @@
 #include <dal/indice/index/fx.hpp>
 #include <dal/indice/index/ir.hpp>
 #include <dal/indice/indexparse.hpp>
+#include <dal/model/gsr.hpp>
 #include <dal/script/detail/simulationobserver.hpp>
 #include <dal/script/plannedpreparation.hpp>
 
 namespace Dal::Script {
+    void Detail::ValidatePassiveConstantModel(const AAD::Model_<double>* model, bool exercise) {
+        REQUIRE2(model && typeid(*model) == typeid(AAD::GSR_<double>), "UnsupportedPassiveConstants: requires native GSR", ScriptError_);
+        REQUIRE2(model->NumFactors() == 3 && !exercise, "UnsupportedPassiveConstants: requires three-factor non-exercise GSR", ScriptError_);
+    }
+
     namespace {
         ScriptProductSettings_ ResolveContract(const ScriptProductSettings_& product, const ScriptProductSettings_& legacy) {
             if (legacy.defaultIndex_.empty() && legacy.regressionFeatures_.empty())
@@ -604,6 +610,9 @@ namespace Dal::Script {
             REQUIRE2(product->HasPayoff(), "InvalidScriptStructure: dates/events has no PAYS payoff", ScriptError_);
             product->PartitionEvents(evaluationDate);
             ValidateSimulationSettings(simulation);
+            if (simulation.usePassiveConstants_) {
+                Detail::ValidatePassiveConstantModel(model, product->ContainsExercise());
+            }
             // Sobol's exact seek keeps training and pricing batches disjoint.
             const auto expired = FindExercise(*product, [&](const Date_& date) { return date <= evaluationDate; });
             REQUIRE2(!expired.first,

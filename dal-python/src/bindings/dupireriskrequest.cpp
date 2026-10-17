@@ -8,6 +8,7 @@
 
 #include <dal-public/src/dupireriskrequest.hpp>
 
+#include "giltestbarrier.hpp"
 #include "riskrequest.hpp"
 
 using namespace Dal;
@@ -15,6 +16,8 @@ using namespace Dal::Python;
 
 namespace {
     constexpr const char* IDENTIFIER = "InvalidDupireRiskRequest";
+    thread_local bool testBarrierArmed = false;
+    GilTestBarrier_ testBarrier;
 
     int RequestPaths(const py::handle& value) {
         const auto context =
@@ -115,7 +118,10 @@ void init_bindings_dupireriskrequest(py::module_& m) {
             const auto nativePlan =
                 RequiredRiskInput<DupireScriptRiskPlan_>(plan, "DupireScriptRiskResult_New; plan", "DupireScriptRiskPlan_", IDENTIFIER);
             py::gil_scoped_release release;
+            testBarrier.Wait(&testBarrierArmed, "DupireScriptRisk: Python GIL test barrier timed out");
             return ValueByMonteCarloWithDupireRisk(nativePlan);
         },
         py::arg("plan"));
+    m.def("_DupireScriptRiskGilBarrier_ArmForTesting", [] { testBarrier.Arm(&testBarrierArmed); });
+    m.def("_DupireScriptRiskGilBarrier_ReleaseForTesting", [] { return testBarrier.Release(); });
 }

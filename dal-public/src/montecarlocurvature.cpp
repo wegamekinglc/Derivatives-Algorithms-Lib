@@ -7,6 +7,8 @@
 
 #include <dal-public/src/montecarlocurvature.hpp>
 
+#include "riskvalueinternal.hpp"
+
 namespace Dal {
     BlackScholesMonteCarloPlan_ PlanBlackScholesMonteCarlo(const Handle_<Script::ScriptProductData_>& product,
                                                            const Script::ScriptValuationSettings_& valuation,
@@ -19,12 +21,7 @@ namespace Dal {
             Script::PrepareBlackScholesSegmentedScript(*contract, valuation, {}, {}, smoothing));
         auto kernel = std::make_shared<const Script::BlackScholesSegmentedPath_>(preparation);
         const auto& prepared = preparation->Prepared();
-        Vector_<Script::RiskObservationSnapshot_> observations;
-        for (const auto& request : prepared.Plan().Requests())
-            observations.push_back(
-                {request.key_.canonicalIndex_, request.key_.fixingTime_, request.historical_,
-                 request.historyValueId_ ? std::optional<double>(prepared.Plan().KnownValue(*request.historyValueId_)) : std::nullopt});
-        return {contract, std::move(kernel), std::move(observations)};
+        return {contract, std::move(kernel), Detail::CaptureScriptRiskObservations(prepared)};
     }
 
     BlackScholesMonteCarloResult_ ValueByBlackScholesSegmentedMonteCarlo(const BlackScholesMonteCarloPlan_& plan,

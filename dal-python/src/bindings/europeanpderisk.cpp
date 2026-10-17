@@ -4,16 +4,14 @@
 
 #include "bindings.h"
 
-#include <chrono>
 #include <cmath>
-#include <condition_variable>
 #include <limits>
-#include <mutex>
 
 #include <pybind11/stl.h>
 
 #include <dal-public/src/europeanpderisk.hpp>
 
+#include "giltestbarrier.hpp"
 #include "riskrequest.hpp"
 
 using namespace Dal;
@@ -22,20 +20,7 @@ using namespace Dal::Python;
 namespace {
     constexpr const char* IDENTIFIER = "InvalidEuropeanPdeRiskRequest";
     thread_local bool testBarrierArmed = false;
-    std::mutex testBarrierMutex;
-    std::condition_variable testBarrierCondition;
-    bool testBarrierEntered = false;
-    bool testBarrierReleased = false;
-
-    void WaitForGilTestRelease() {
-        if (!testBarrierArmed)
-            return;
-        testBarrierArmed = false;
-        std::unique_lock<std::mutex> lock(testBarrierMutex);
-        testBarrierEntered = true;
-        REQUIRE(testBarrierCondition.wait_for(lock, std::chrono::seconds(5), [] { return testBarrierReleased; }),
-                "EuropeanPdeRisk: Python GIL test barrier timed out");
-    }
+    GilTestBarrier_ testBarrier;
 
     double RealInput(const py::handle& value, const char* field) {
         const auto context = InputContext(value, std::string("EuropeanPdeRisk; ") + field, "finite int or float, excluding bool", IDENTIFIER);
@@ -88,7 +73,7 @@ namespace {
         request.numericPayloadBudgetBytes_ = RequestBudget(payloadBudget, {"EuropeanPdeRisk; numeric_payload_budget_bytes", IDENTIFIER});
         request.recordingCapacityBudgetBytes_ = RequestBudget(tapeBudget, {"EuropeanPdeRisk; recording_capacity_budget_bytes", IDENTIFIER});
         py::gil_scoped_release release;
-        WaitForGilTestRelease();
+        testBarrier.Wait(&testBarrierArmed, "EuropeanPdeRisk: Python GIL test barrier timed out");
         return EvaluateEuropeanPdeRisk(request);
     }
 } // namespace
@@ -141,17 +126,6 @@ void init_bindings_europeanpderisk(py::module_& m) {
           py::arg("settings") = py::none(), py::arg("numeric_payload_budget_bytes") = py::none(),
           py::arg("recording_capacity_budget_bytes") = py::none());
 
-    m.def("_EuropeanPdeRiskGilBarrier_ArmForTesting", [] {
-        std::lock_guard<std::mutex> lock(testBarrierMutex);
-        testBarrierEntered = testBarrierReleased = false;
-        testBarrierArmed = true;
-    });
-    m.def("_EuropeanPdeRiskGilBarrier_ReleaseForTesting", [] {
-        std::lock_guard<std::mutex> lock(testBarrierMutex);
-        if (!testBarrierEntered)
-            return false;
-        testBarrierReleased = true;
-        testBarrierCondition.notify_all();
-        return true;
-    });
+    m.def("_EuropeanPdeRiskGilBarrier_ArmForTesting", [] { testBarrier.Arm(&testBarrierArmed); });
+    m.def("_EuropeanPdeRiskGilBarrier_ReleaseForTesting", [] { return testBarrier.Release(); });
 }

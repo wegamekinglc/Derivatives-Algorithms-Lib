@@ -25,6 +25,7 @@
 #include <dal/script/simulation.hpp>
 
 #include "productionprofile.hpp"
+#include "productionstructure.hpp"
 
 using namespace Dal;
 using namespace Dal::Script;
@@ -33,8 +34,12 @@ namespace {
     struct Options_ {
         std::string scenario_, mode_, engine_, measurement_;
         size_t paths_ = 0, outputs_ = 0, grid_ = 0, training_ = 0, repeats_ = 0;
+        bool passiveConstants_ = false;
         [[nodiscard]] bool Exercise() const { return scenario_ == "lsmc-bs" || scenario_ == "lsmc-local-vol"; }
         [[nodiscard]] bool LocalVol() const { return scenario_ == "local-vol" || scenario_ == "lsmc-local-vol"; }
+        [[nodiscard]] bool HybridRates() const { return scenario_.find("hybrid-gsr-") == 0 || scenario_.find("hybrid-slv-") == 0; }
+        [[nodiscard]] bool Slv() const { return scenario_.find("slv-") == 0 || scenario_.find("hybrid-slv-") == 0; }
+        [[nodiscard]] bool Rates() const { return scenario_.find("gsr-") == 0 || HybridRates() || Slv(); }
         [[nodiscard]] bool Aad() const { return mode_ == "aad"; }
     };
 
@@ -49,15 +54,43 @@ namespace {
     }
 
     bool ValidNames(const Options_& options) {
-        return Choice(options.scenario_, {"short", "long", "local-vol", "lsmc-bs", "lsmc-local-vol"}) && Choice(options.mode_, {"double", "aad"}) &&
-               Choice(options.engine_, {"tree", "compiled"}) && Choice(options.measurement_, {"cold", "warm", "phases"});
+        return Choice(options.scenario_, {"short",
+                                          "long",
+                                          "local-vol",
+                                          "hybrid-bs",
+                                          "hybrid-gsr",
+                                          "gsr-swap-1f",
+                                          "gsr-swap-2f",
+                                          "gsr-swap-3f",
+                                          "gsr-swap-4f",
+                                          "gsr-bond-1f",
+                                          "gsr-bond-3f",
+                                          "hybrid-gsr-swap",
+                                          "hybrid-gsr-swap-3f",
+                                          "hybrid-gsr-bond-1f",
+                                          "hybrid-gsr-bond-3f",
+                                          "slv-swap-1f",
+                                          "slv-swap-3f",
+                                          "slv-bond-1f",
+                                          "hybrid-slv-swap-1f",
+                                          "hybrid-slv-swap-3f",
+                                          "hybrid-slv-bond-1f",
+                                          "lsmc-bs",
+                                          "lsmc-local-vol"}) &&
+               Choice(options.mode_, {"double", "aad"}) && Choice(options.engine_, {"tree", "compiled"}) &&
+               Choice(options.measurement_, {"cold", "warm", "phases", "structure", "memory"});
     }
 
     bool ValidOutputs(size_t outputs) { return outputs == 1 || outputs == 4 || outputs == 16 || outputs == 64; }
 
     bool Parse(int argc, char** argv, Options_* options) {
-        if (argc != 11)
+        if (argc != 11 && argc != 12)
             return false;
+        if (argc == 12) {
+            if (std::string(argv[11]) != "--passive-constants")
+                return false;
+            options->passiveConstants_ = true;
+        }
         options->scenario_ = argv[2];
         options->mode_ = argv[4];
         options->engine_ = argv[5];
@@ -70,15 +103,123 @@ namespace {
     }
 
     void ValidateOptions(const Options_& options) {
+        REQUIRE(options.measurement_ != "memory" || (options.scenario_ == "gsr-swap-3f" && options.Aad() && options.engine_ == "compiled" &&
+                                                     options.outputs_ == 1 && options.repeats_ == 1),
+                "memory requires compiled GSR 3F AAD with one output/repetition and prior external numeric admission");
         REQUIRE(options.LocalVol() ? options.grid_ >= 2 && options.grid_ <= 64 : options.grid_ == 0, "invalid surface grid");
         REQUIRE(options.Exercise()
                     ? options.outputs_ == 1 && options.training_ > 0 && options.training_ <= static_cast<size_t>(std::numeric_limits<int>::max())
                     : options.training_ == 0,
                 "invalid training count or LSM output count");
         REQUIRE(options.measurement_ != "phases" || AAD::ProfilingAvailable(), "phase measurement requires DAL_ENABLE_AAD_PROFILING=ON");
+        REQUIRE(options.measurement_ != "structure" ||
+                    (options.Aad() && !options.Exercise() && options.outputs_ == 1 && options.paths_ <= 64 && options.repeats_ == 1),
+                "structure requires ordinary AAD, one output, at most 64 paths and one repetition");
+    }
+
+    Handle_<ModelData_> HybridData(bool stochasticRates) {
+        HybridSettings_ settings;
+        settings.domesticCurrency_ = "USD";
+        settings.components_ = {Handle_<HybridComponentData_>(new HybridDeterministicRateData_("rate", "USD", 0.05)),
+                                Handle_<HybridComponentData_>(new HybridBSEquityData_("equity", "EQ[DAL418_TEST]", "USD", "EQ", 100.0, 0.2, 0.02))};
+        if (stochasticRates) {
+            const Date_ today(2024, 1, 1);
+            const Handle_<GSRCurveData_> curve(
+                new GSRCurveData_("curve", today, "USD", {today, today.AddDays(730)}, {0.0, -0.1}, {}, Matrix_<>(0, 0)));
+            const Handle_<GSRVolData_> vol(new GSRVolData_("vol", {today}, {0.02}, {today}, {1.0}));
+            settings.components_[0] = Handle_<HybridComponentData_>(new HybridGSRRateData_("rate", "RATE", curve, vol));
+        }
+        const Vector_<HybridFactorLink_> links = stochasticRates ? Vector_<HybridFactorLink_>{{"EQ", "RATE", -0.25}} : Vector_<HybridFactorLink_>{};
+        settings.correlation_ = AssembleHybridCorrelation("corr", settings.components_, links);
+        return Handle_<ModelData_>(new HybridModelData_("production-hybrid", settings));
+    }
+
+    Handle_<MultiFactorGSRModelData_> GaussianRateData(size_t factors) {
+        const Date_ today(2024, 1, 1);
+        Matrix_<> projection(1, 3, 0.0);
+        projection(0, 1) = -0.04;
+        projection(0, 2) = -0.4;
+        const Handle_<GSRCurveData_> curve(
+            new GSRCurveData_("curve", today, "USD", {today, today.AddDays(365), today.AddDays(3650)}, {0.0, -0.03, -0.3}, {"3M"}, projection));
+        MultiFactorGSRVolSettings_ settings;
+        settings.gKnotDates_ = {today, today.AddDays(120)};
+        settings.hKnotDates_ = {today, today.AddDays(180)};
+        settings.gValues_ = settings.hValues_ = Matrix_<>(static_cast<int>(factors), 2);
+        settings.correlations_ = Matrix_<>(static_cast<int>(factors), static_cast<int>(factors), 0.3);
+        for (size_t factor = 0; factor < factors; ++factor) {
+            settings.factorNames_.push_back("factor" + String::FromInt(static_cast<int>(factor)));
+            settings.gValues_(static_cast<int>(factor), 0) = 0.02 / (factor + 1);
+            settings.gValues_(static_cast<int>(factor), 1) = 0.025 / (factor + 1);
+            settings.hValues_(static_cast<int>(factor), 0) = 1.0 - 0.3 * factor;
+            settings.hValues_(static_cast<int>(factor), 1) = 0.8 - 0.2 * factor;
+            settings.correlations_(static_cast<int>(factor), static_cast<int>(factor)) = 1.0;
+        }
+        return Handle_<MultiFactorGSRModelData_>(
+            new MultiFactorGSRModelData_("production-rates", curve, Handle_<MultiFactorGSRVolData_>(new MultiFactorGSRVolData_("vol", settings))));
+    }
+
+    size_t RateFactorCount(const Options_& options) {
+        for (size_t factors : {size_t{2}, size_t{3}, size_t{4}})
+            if (options.scenario_.find("-" + std::to_string(factors) + "f") != std::string::npos)
+                return factors;
+        return 1;
+    }
+
+    Handle_<ModelData_> RateData(const Options_& options) {
+        const auto gaussian = GaussianRateData(RateFactorCount(options));
+        Handle_<GSRSLVModelData_> slv;
+        if (options.Slv()) {
+            Matrix_<> values(2, 1);
+            values(0, 0) = 0.8;
+            values(1, 0) = 1.2;
+            const Handle_<GSRLeverageData_> leverage(new GSRLeverageData_("leverage", {-0.05, 0.05}, {0.0}, values));
+            GSRSLVSettings_ settings;
+            settings.maxStep_ = 0.25;
+            settings.varianceCorrelations_ = Vector_<>(gaussian->vol_->factorNames_.size(), -0.2);
+            slv = Handle_<GSRSLVModelData_>(new GSRSLVModelData_("production-slv", gaussian, leverage, settings));
+        }
+        if (options.HybridRates()) {
+            HybridSettings_ settings;
+            settings.domesticCurrency_ = "USD";
+            settings.components_ = {
+                slv ? Handle_<HybridComponentData_>(new HybridGSRSLVRateData_("rate", "variance", "bridge", slv))
+                    : Handle_<HybridComponentData_>(new HybridGSRRateData_("rate", {}, gaussian->curve_, gaussian->vol_)),
+                Handle_<HybridComponentData_>(new HybridBSEquityData_("equity", "EQ[DAL418_TEST]", "USD", "EQ", 100.0, 0.2, 0.02))};
+            settings.correlation_ = AssembleHybridCorrelation("corr", settings.components_, {{"EQ", "factor0", -0.25}});
+            return Handle_<ModelData_>(new HybridModelData_("production-hybrid-rates", settings));
+        }
+        if (slv)
+            return Handle_<ModelData_>(slv);
+        return Handle_<ModelData_>(gaussian);
+    }
+
+    String_ OutputName(const Options_& options, size_t output) {
+        return options.Rates() ? "rates-output-" + String::FromInt(static_cast<int>(output))
+                               : String_("call-strike-" + std::to_string(90.0 + static_cast<double>(output)));
+    }
+
+    ScriptProductData_ RateProduct(const Options_& options, size_t output) {
+        const Date_ today(2024, 1, 1);
+        Vector_<Cell_> dates;
+        Vector_<String_> events;
+        const bool bond = options.scenario_.find("-bond-") != std::string::npos;
+        const String_ observed =
+            bond ? "FIX(IR[USD,DF,2033-01-01])" : "FIX(IR[USD,SWAP,5Y]) + FIX(IR[USD,LIBOR_3M_LCH]) + FIX(IR[USD,DF,2033-01-01])";
+        for (int quarter = 0; quarter <= 16; ++quarter) {
+            dates.push_back(Cell_(today.AddDays(quarter * 91)));
+            events.push_back("runningTotal = runningTotal + (" + observed + ") / 17.0");
+        }
+        events.back() += " pay PAYS runningTotal * " + String::FromInt(static_cast<int>(output + 1));
+        if (!options.Slv())
+            events.back() += " ON 2029-01-01";
+        return {OutputName(options, output), dates, events};
     }
 
     Handle_<ModelData_> ModelData(const Options_& options) {
+        if (options.Rates())
+            return RateData(options);
+        if (options.scenario_ == "hybrid-bs" || options.scenario_ == "hybrid-gsr")
+            return HybridData(options.scenario_ == "hybrid-gsr");
         if (!options.LocalVol())
             return Handle_<ModelData_>(new BSModelData_("production-bs", 100.0, 0.2, 0.05, 0.02));
         Vector_<> spots(options.grid_), times(options.grid_);
@@ -90,9 +231,9 @@ namespace {
                                                    Matrix_<>(static_cast<int>(options.grid_), static_cast<int>(options.grid_), 0.2));
     }
 
-    String_ OutputName(size_t output) { return String_("call-strike-" + std::to_string(90.0 + static_cast<double>(output))); }
-
     ScriptProductData_ OrdinaryProduct(const Options_& options, size_t output) {
+        if (options.Rates())
+            return RateProduct(options, output);
         const Date_ start(2024, 1, 1), maturity(2025, 1, 1);
         Vector_<Cell_> dates;
         Vector_<String_> events;
@@ -103,9 +244,9 @@ namespace {
             }
         }
         dates.push_back(Cell_(maturity));
-        const std::string underlying = options.scenario_ == "long" ? "runningTotal" : options.scenario_ == "local-vol" ? "observedSpot" : "SPOT()";
+        const std::string underlying = options.scenario_ == "long" ? "runningTotal" : options.scenario_ == "short" ? "SPOT()" : "observedSpot";
         events.push_back(String_("call PAYS MAX(" + underlying + " - " + std::to_string(90.0 + static_cast<double>(output)) + ", 0.0)"));
-        return {OutputName(output), dates, events};
+        return {OutputName(options, output), dates, events};
     }
 
     struct Case_ {
@@ -121,6 +262,7 @@ namespace {
         MonteCarloSettings_ simulation;
         simulation.enableAad_ = options.Aad();
         simulation.compiled_ = options.engine_ == "compiled";
+        simulation.usePassiveConstants_ = options.passiveConstants_;
         if (options.Exercise())
             simulation.lsmcTrainingPaths_ = static_cast<int>(options.training_);
         for (size_t output = 0; output < options.outputs_; ++output) {
@@ -196,12 +338,14 @@ namespace {
         const auto& inputs = model->Parameters();
         const bool columns = inputs.size() <= 8;
         const size_t directions = columns ? inputs.size() : 2;
+        // Smaller bumps keep SLV's piecewise variance paths in the local derivative regime.
+        const double initialStep = options.Slv() ? 2e-6 : 1e-5;
         for (size_t axis = 0; axis < directions; ++axis) {
             const auto direction = ParameterDirection(inputs, columns, axis);
             for (size_t output = 0; output < aad.size(); ++output) {
                 REQUIRE(aad[output].risks_.size() >= direction.size(), "AAD direction axes differ");
                 const double expected = std::inner_product(direction.begin(), direction.end(), aad[output].risks_.begin(), 0.0);
-                for (const double step : {1e-5, 5e-6}) {
+                for (const double step : {initialStep, initialStep * 0.5}) {
                     const double actual = (BumpedPrice(passive.prepared_[output], passive.data_, options, direction, step) -
                                            BumpedPrice(passive.prepared_[output], passive.data_, options, direction, -step)) /
                                           (2.0 * step);
@@ -255,6 +399,7 @@ namespace {
         reference.paths_ = std::min<size_t>(options.paths_, 256);
         auto alternate = reference;
         alternate.engine_ = options.engine_ == "tree" ? "compiled" : "tree";
+        alternate.passiveConstants_ = false;
         const auto current = Evaluate(PrepareCase(reference, exerciseFactory), reference);
         Match(current, Evaluate(PrepareCase(alternate, exerciseFactory), alternate), reference.paths_);
         if (options.Exercise())
@@ -264,6 +409,7 @@ namespace {
         const auto aad = Evaluate(PrepareCase(active, exerciseFactory), active);
         auto passive = reference;
         passive.mode_ = "double";
+        passive.passiveConstants_ = false;
         const auto passiveCase = PrepareCase(passive, exerciseFactory);
         const auto prices = Evaluate(passiveCase, passive);
         for (size_t output = 0; output < aad.size(); ++output)
@@ -338,10 +484,12 @@ namespace {
             << ",\"training_paths\":" << options.training_ << ",\"surface_grid\":" << options.grid_
             << ",\"training_first_path\":0,\"pricing_first_path\":" << options.training_
             << ",\"risk_basis\":\"fixed_model_and_script_parameters\",\"rng\":\"sobol\",\"scramble\":\"none\",\"seed\":null,\"brownian_bridge\":false"
-            << ",\"lsm_policy\":\"Frozen\",\"smooth\":0.01,\"oracle_paths\":" << std::min<size_t>(options.paths_, 256)
+            << ",\"lsm_policy\":\"Frozen\",\"smooth\":0.01,\"oracle_paths\":"
+            << (options.measurement_ == "memory" ? 0 : std::min<size_t>(options.paths_, 256))
             << ",\"risk_units\":\"d_mean_price_per_raw_parameter_unit\""
             << ",\"preparation_included\":" << (options.measurement_ == "warm" ? "false" : "true")
             << ",\"profiling_build\":" << (AAD::ProfilingAvailable() ? "true" : "false")
+            << ",\"passive_constants\":" << (options.passiveConstants_ ? "true" : "false")
             << ",\"process_first_request\":false,\"worker_state_reused\":false"
             << ",\"wall_ns\":" << elapsed << "}\n";
     }
@@ -360,7 +508,7 @@ namespace {
         for (size_t output = 0; output < results.size(); ++output) {
             const auto& result = results[output];
             std::cout << "{\"record\":\"result\",\"sample\":" << sample
-                      << ",\"output\":" << std::quoted(options.Exercise() ? options.scenario_ : std::string(OutputName(output).c_str()))
+                      << ",\"output\":" << std::quoted(options.Exercise() ? options.scenario_ : std::string(OutputName(options, output).c_str()))
                       << ",\"pv\":" << result.aggregated_ / static_cast<double>(options.paths_) << ",\"risk_names\":[";
             if (options.Aad())
                 PrintNames(result.names_);
@@ -372,10 +520,18 @@ namespace {
     }
 
     int Execute(const Options_& options, ExerciseProductFactory_ exerciseFactory) {
-        ValidateNumeric(options, exerciseFactory);
+        if (options.measurement_ != "memory")
+            ValidateNumeric(options, exerciseFactory);
         const auto referenceCase = PrepareCase(options, exerciseFactory);
         const auto expected = Evaluate(referenceCase, options);
         std::cout << std::setprecision(17);
+        if (options.measurement_ == "structure") {
+            const std::vector<SimResults_> result{RunProductionStructure(referenceCase.prepared_.front(), referenceCase.data_, options.paths_)};
+            Match(result, expected, options.paths_);
+            PrintRequest(options, referenceCase, 0, 0);
+            PrintResults(result, options, 0);
+            return 0;
+        }
         for (size_t sample = 0; sample < options.repeats_; ++sample) {
             AAD::ProfilingData_ data;
             std::vector<SimResults_> result;
@@ -405,8 +561,13 @@ namespace {
 int RunProductionProfile(int argc, char** argv, ExerciseProductFactory_ exerciseFactory) {
     Options_ options;
     if (!Parse(argc, argv, &options)) {
-        std::cerr << "usage: script_mc_perf --production-profile short|long|local-vol|lsmc-bs|lsmc-local-vol PATHS double|aad tree|compiled "
-                     "cold|warm|phases OUTPUTS GRID TRAINING REPEATS\n";
+        std::cerr << "usage: script_mc_perf --production-profile "
+                     "short|long|local-vol|hybrid-bs|hybrid-gsr|gsr-swap-1f|gsr-swap-2f|gsr-swap-3f|gsr-swap-4f|gsr-bond-1f|gsr-bond-3f|"
+                     "hybrid-gsr-swap|hybrid-gsr-swap-3f|hybrid-gsr-bond-1f|hybrid-gsr-bond-3f|slv-swap-1f|slv-swap-3f|slv-bond-1f|"
+                     "hybrid-slv-swap-1f|hybrid-slv-swap-3f|hybrid-slv-bond-1f|lsmc-bs|lsmc-local-vol "
+                     "PATHS double|aad "
+                     "tree|compiled "
+                     "cold|warm|phases|structure|memory OUTPUTS GRID TRAINING REPEATS [--passive-constants]\n";
         return 2;
     }
     try {

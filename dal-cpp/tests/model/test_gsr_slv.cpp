@@ -2,15 +2,19 @@
 // Created by Codex on 2026/10/2.
 //
 
+#include <gtest/gtest.h>
+
 #include <cmath>
+#include <future>
+#include <random>
+
+#include <dal/platform/platform.hpp>
+
 #include <dal/curve/tapeguard.hpp>
 #include <dal/model/factory.hpp>
 #include <dal/model/gsreuropean.hpp>
 #include <dal/model/gsrslv.hpp>
-#include <dal/platform/platform.hpp>
 #include <dal/storage/json.hpp>
-#include <gtest/gtest.h>
-#include <random>
 
 using Dal::Date_;
 using Dal::Handle_;
@@ -20,9 +24,17 @@ using Dal::Vector_;
 namespace {
     const Date_ TODAY(2026, 10, 2);
 
-    Handle_<Dal::MultiFactorGSRModelData_> Gaussian(int n = 1, bool knots = false) {
-        const Handle_<Dal::GSRCurveData_> curve(
-            new Dal::GSRCurveData_("curve", TODAY, "USD", {TODAY, TODAY.AddDays(3650)}, {0.0, -0.3}, {}, Matrix_<>(0, 0)));
+    Handle_<Dal::GSRCurveData_> SLVCurve(bool projectionCurve) {
+        Matrix_<> projection(projectionCurve ? 1 : 0, projectionCurve ? 2 : 0, 0.0);
+        if (projectionCurve)
+            projection(0, 1) = -0.3;
+        return Handle_<Dal::GSRCurveData_>(new Dal::GSRCurveData_("curve", TODAY, "USD", {TODAY, TODAY.AddDays(3650)}, {0.0, -0.3},
+                                                                  projectionCurve ? Vector_<Dal::String_>{"3M"} : Vector_<Dal::String_>{},
+                                                                  projection));
+    }
+
+    Handle_<Dal::MultiFactorGSRModelData_> Gaussian(int n = 1, bool knots = false, bool projectionCurve = false) {
+        const auto curve = SLVCurve(projectionCurve);
         Dal::MultiFactorGSRVolSettings_ vol;
         vol.gKnotDates_ = vol.hKnotDates_ = {TODAY};
         if (knots) {
@@ -54,6 +66,60 @@ namespace {
         return definitions;
     }
 
+    Handle_<Dal::GSRSLVModelData_> BatchSLVData(int factors) {
+        Matrix_<> values(2, 2);
+        values(0, 0) = 0.8;
+        values(0, 1) = 1.0;
+        values(1, 0) = 1.2;
+        values(1, 1) = 1.1;
+        const Handle_<Dal::GSRLeverageData_> leverage(new Dal::GSRLeverageData_("grid", {-0.05, 0.05}, {0.0, 240.0 / Dal::DAYS_PER_YEAR}, values));
+        Dal::GSRSLVSettings_ settings;
+        settings.maxStep_ = 0.25;
+        settings.varianceCorrelations_ = Vector_<>(factors, -0.1);
+        return Handle_<Dal::GSRSLVModelData_>(new Dal::GSRSLVModelData_("smile", Gaussian(factors, true, true), leverage, settings));
+    }
+
+    Vector_<Dal::AAD::SampleDef_> BatchSLVDefinitions(size_t samples) {
+        Vector_<Dal::AAD::SampleDef_> definitions(samples);
+        for (auto& definition : definitions)
+            definition.indexNames_ = {"IR[USD,SWAP,5Y]", "IR[USD,DF,2031-10-02]", "IR[USD,LIBOR_3M_LCH]", "IR[USD,SWAP,5Y]", "IR[USD,LIBOR_6M_LCH]"};
+        return definitions;
+    }
+
+    template <class T_> T_ BatchSLVPayoff(const Dal::AAD::Scenario_<T_>& path) {
+        T_ value(0.0);
+        for (const auto& sample : path)
+            for (size_t slot = 0; slot < sample.observations_.size(); ++slot)
+                value += (slot + 1) * sample.observations_[slot] / sample.numeraire_;
+        return value;
+    }
+
+    Dal::AAD::Scenario_<> BatchSLVPath(int factors,
+                                       const Vector_<>& timeline,
+                                       const Vector_<Dal::AAD::SampleDef_>& definitions,
+                                       const Vector_<>& gaussian,
+                                       size_t parameter = 0,
+                                       double shift = 0.0) {
+        Dal::AAD::GSRSLV_<> model(*BatchSLVData(factors));
+        model.Allocate(timeline, definitions);
+        *model.Parameters()[parameter] += shift;
+        model.Init(timeline, definitions);
+        Dal::AAD::Scenario_<> path;
+        Dal::AAD::AllocatePath(definitions, path);
+        model.GeneratePath(gaussian, &path);
+        return path;
+    }
+
+    template <class T_> void CompareSLVBatchPaths(const Dal::AAD::Scenario_<T_>& actual, const Dal::AAD::Scenario_<>& expected) {
+        ASSERT_EQ(actual.size(), expected.size());
+        for (size_t sample = 0; sample < actual.size(); ++sample) {
+            ASSERT_NEAR(Dal::AAD::Value(actual[sample].numeraire_), expected[sample].numeraire_, 1e-12);
+            ASSERT_EQ(actual[sample].observations_.size(), expected[sample].observations_.size());
+            for (size_t slot = 0; slot < actual[sample].observations_.size(); ++slot)
+                ASSERT_NEAR(Dal::AAD::Value(actual[sample].observations_[slot]), expected[sample].observations_[slot], 1e-12);
+        }
+    }
+
     struct Moments_ {
         double mean_ = 0.0, variance_ = 0.0;
     };
@@ -76,6 +142,131 @@ namespace {
         return {mean, std::max(0.0, sumSquares / count - mean * mean)};
     }
 } // namespace
+
+TEST(GSRSLVTest, TestSwapObservationsFitNodeBudget) {
+    for (const int factors : {1, 3}) {
+        const Dal::TapeGuard_ guard(Dal::AAD::Tape());
+        Dal::GSRSLVSettings_ settings;
+        settings.maxStep_ = 1.0;
+        Dal::AAD::GSRSLV_<Dal::AAD::Number_> model(Dal::GSRSLVModelData_("smile", Gaussian(factors), Leverage(), settings));
+        Vector_<> timeline;
+        for (int quarter = 0; quarter <= 16; ++quarter)
+            timeline.push_back(quarter * 91.0 / Dal::DAYS_PER_YEAR);
+        Vector_<Dal::AAD::SampleDef_> definitions(timeline.size());
+        for (auto& definition : definitions)
+            definition.indexNames_ = {"IR[USD,SWAP,5Y]"};
+        model.Allocate(timeline, definitions);
+        Dal::AAD::Scenario_<Dal::AAD::Number_> path;
+        Dal::AAD::AllocatePath(definitions, path);
+        Dal::AAD::Rewind(*Dal::AAD::Tape());
+        for (auto* parameter : model.Parameters())
+            Dal::AAD::PutOnTape(*parameter);
+        Dal::AAD::NewRecording(*Dal::AAD::Tape());
+        model.Init(timeline, definitions);
+        const auto prefixNodes = Dal::AAD::Tape()->nodes_.OccupiedSlots();
+        model.GeneratePath(Vector_<>(model.SimDim(), 0.2), &path);
+        ASSERT_LE(Dal::AAD::Tape()->nodes_.OccupiedSlots() - prefixNodes, factors == 1 ? 3000U : 7000U);
+    }
+}
+
+TEST(GSRSLVTest, TestRepeatedBondsPreserveEveryRiskAndReplay) {
+    for (const int factors : {1, 3}) {
+        for (const Vector_<>& timeline : {Vector_<>{0.0, 146.0 / Dal::DAYS_PER_YEAR, 292.0 / Dal::DAYS_PER_YEAR},
+                                          Vector_<>{146.0 / Dal::DAYS_PER_YEAR, 292.0 / Dal::DAYS_PER_YEAR}}) {
+            const Dal::TapeGuard_ guard(Dal::AAD::Tape());
+            Dal::AAD::GSRSLV_<Dal::AAD::Number_> model(*BatchSLVData(factors));
+            const auto definitions = BatchSLVDefinitions(timeline.size());
+            model.Allocate(timeline, definitions);
+            Dal::AAD::Scenario_<Dal::AAD::Number_> path;
+            Dal::AAD::AllocatePath(definitions, path);
+            for (int recording = 0; recording < 2; ++recording) {
+                Dal::AAD::Rewind(*Dal::AAD::Tape());
+                for (auto* parameter : model.Parameters())
+                    Dal::AAD::PutOnTape(*parameter);
+                Dal::AAD::NewRecording(*Dal::AAD::Tape());
+                model.Init(timeline, definitions);
+                Dal::AAD::Mark(*Dal::AAD::Tape());
+                for (const double normal : {0.2, -0.4}) {
+                    const Vector_<> gaussian(model.SimDim(), normal);
+                    Dal::AAD::RewindToMark(*Dal::AAD::Tape());
+                    Dal::AAD::ZeroAdjoints(*Dal::AAD::Tape());
+                    model.GeneratePath(gaussian, &path);
+                    ASSERT_NO_FATAL_FAILURE(CompareSLVBatchPaths(path, BatchSLVPath(factors, timeline, definitions, gaussian)));
+                    const Dal::AAD::Number_ payoff = BatchSLVPayoff(path);
+                    Dal::AAD::Adjoint(payoff) = 1.0;
+                    Dal::AAD::PropagateToStart(*Dal::AAD::Tape());
+                    for (size_t parameter = 0; parameter < model.Parameters().size(); ++parameter) {
+                        const auto difference = [&](double step) {
+                            return (BatchSLVPayoff(BatchSLVPath(factors, timeline, definitions, gaussian, parameter, step)) -
+                                    BatchSLVPayoff(BatchSLVPath(factors, timeline, definitions, gaussian, parameter, -step))) /
+                                   (2.0 * step);
+                        };
+                        const double expected = (4.0 * difference(5e-4) - difference(1e-3)) / 3.0;
+                        ASSERT_NEAR(Dal::AAD::Adjoint(*model.Parameters()[parameter]), expected, 1e-7 * std::max(1.0, std::abs(expected)))
+                            << model.ParameterLabels()[parameter];
+                    }
+                }
+            }
+        }
+    }
+}
+
+TEST(GSRSLVTest, TestRepeatedBondsUseContinuationCovariance) {
+    for (const int factors : {1, 3}) {
+        const auto data = BatchSLVData(factors);
+        Dal::AAD::GSRSLV_<> model(*data);
+        const Vector_<> timeline{146.0 / Dal::DAYS_PER_YEAR, 292.0 / Dal::DAYS_PER_YEAR};
+        const auto definitions = BatchSLVDefinitions(timeline.size());
+        model.Allocate(timeline, definitions);
+        model.Init(timeline, definitions);
+        Dal::AAD::Scenario_<> full, continued;
+        Dal::AAD::AllocatePath(definitions, full);
+        Dal::AAD::AllocatePath(definitions, continued);
+        Vector_<Dal::AAD::GSRSLV_<>::State_> states;
+        model.GeneratePathWithStates(Vector_<>(model.SimDim(), 0.2), &full, &states);
+        model.GeneratePathFrom(0, states[0], Vector_<>(model.SimDimFrom(0), 0.2), &continued);
+        ASSERT_NO_FATAL_FAILURE(CompareSLVBatchPaths(continued, full));
+        states[0].y_(0, 0) *= 1.7;
+        model.GeneratePathFrom(0, states[0], Vector_<>(model.SimDimFrom(0), -0.3), &continued);
+        Dal::AAD::GSR_<> direct(*data->gaussian_);
+        direct.Allocate(timeline, definitions);
+        direct.InitHJM(timeline, definitions);
+        ASSERT_NE(continued[0].observations_[1], full[0].observations_[1]);
+        for (size_t slot = 0; slot < definitions[0].indexNames_.size(); ++slot)
+            ASSERT_DOUBLE_EQ(continued[0].observations_[slot], direct.ObserveHJM(0, slot, states[0].x_, states[0].y_));
+    }
+}
+
+TEST(GSRSLVTest, TestRepeatedBondsReallocateCloneAndSharedModelPaths) {
+    const int factors = 3;
+    Dal::AAD::GSRSLV_<> model(*BatchSLVData(factors));
+    const Vector_<> timeline{0.0, 146.0 / Dal::DAYS_PER_YEAR, 292.0 / Dal::DAYS_PER_YEAR};
+    auto definitions = BatchSLVDefinitions(timeline.size());
+    model.Allocate(timeline, definitions);
+    model.Init(timeline, definitions);
+    auto clone = model.Clone();
+    for (auto& definition : definitions)
+        std::reverse(definition.indexNames_.begin(), definition.indexNames_.end());
+    clone->Allocate(timeline, definitions);
+    clone->Init(timeline, definitions);
+    Dal::AAD::Scenario_<> cloned;
+    Dal::AAD::AllocatePath(definitions, cloned);
+    clone->GeneratePath(Vector_<>(clone->SimDim(), 0.2), &cloned);
+    ASSERT_NO_FATAL_FAILURE(CompareSLVBatchPaths(cloned, BatchSLVPath(factors, timeline, definitions, Vector_<>(clone->SimDim(), 0.2))));
+    definitions = BatchSLVDefinitions(timeline.size());
+    Vector_<std::future<Dal::AAD::Scenario_<>>> tasks;
+    for (int worker = 0; worker < 4; ++worker)
+        tasks.push_back(std::async(std::launch::async, [&, worker] {
+            Dal::AAD::Scenario_<> path;
+            Dal::AAD::AllocatePath(definitions, path);
+            model.GeneratePath(Vector_<>(model.SimDim(), 0.1 * worker), &path);
+            model.GeneratePath(Vector_<>(model.SimDim(), -0.1 * (worker + 1)), &path);
+            return path;
+        }));
+    for (size_t worker = 0; worker < tasks.size(); ++worker)
+        ASSERT_NO_FATAL_FAILURE(
+            CompareSLVBatchPaths(tasks[worker].get(), BatchSLVPath(factors, timeline, definitions, Vector_<>(model.SimDim(), -0.1 * (worker + 1)))));
+}
 
 TEST(GSRSLVTest, TestGaussianStateAndConditionalDiscountMatchGSR) {
     Dal::GSRSLVSettings_ settings;

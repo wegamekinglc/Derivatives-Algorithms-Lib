@@ -12,13 +12,13 @@ This note explains two operations that sit on top of a calibrated yield curve
    inverse Jacobian `effJacobianInverse_`.
 
 The runnable demonstration of both is
-[`dal-cpp/examples/yield_curve_jacobian/`](../../dal-cpp/examples/yield_curve_jacobian).
+[`dal-cpp/examples/curves/yield_curve_jacobian/`](../../dal-cpp/examples/curves/yield_curve_jacobian).
 The program calibrates a square LOG_DISCOUNT system once, reads the analytic
 Jacobian straight off the diagnostics struct, and cross-checks it against an
 independent central-difference bump oracle:
 
 ```cpp
-// from dal-cpp/examples/yield_curve_jacobian/yield_curve_jacobian.cpp
+// from dal-cpp/examples/curves/yield_curve_jacobian/yield_curve_jacobian.cpp
 CurveCalibrationOptions_ options;
 options.jacobianMode_ = CurveJacobianMode_::Value_::ANALYTIC;
 const auto result = CalibrateYieldCurve(spec, options);
@@ -811,5 +811,5 @@ benchmarking.
   Jacobian.
 - [Single-curve AAD calibration internals](construction.md#single-curve-aad-calibration-internals)
   — the `CurveJacobianMode_::{BUMPED,ANALYTIC}` selection and eligibility rules.
-- [`dal-cpp/examples/yield_curve_jacobian/`](../../dal-cpp/examples/yield_curve_jacobian)
+- [`dal-cpp/examples/curves/yield_curve_jacobian/`](../../dal-cpp/examples/curves/yield_curve_jacobian)
   — the runnable program demonstrating both arcs end to end.

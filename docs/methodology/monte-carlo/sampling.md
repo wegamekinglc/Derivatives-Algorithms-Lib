@@ -303,12 +303,14 @@ replays the stream once, without inverse-normal conversion, and preserves each
 path's sequential normal draws, precision and Brownian bridge. Single-threaded
 double simulation reuses its contiguous engine directly.
 
-The positioner limits outstanding tasks to twice the pool's thread count;
-workers own their clones exclusively. Capacity waits can execute queued work,
-including with a one-thread pool. Positioning, submission or worker failures
-cancel further positioned work and drain accepted tasks before returning an
-error. Existing batch boundaries and reductions remain in use: AAD reduction
-can still differ in its last bits with worker scheduling. Separate drivers,
+Ordinary simulation submits at most `min(nThreads, nChunks)` persistent workers.
+The positioner claims chunks in path order and clones only after a numeric slot
+is available; each worker owns its clone exclusively. Clone storage is bounded
+independently of the total chunk count. Cancellation wakes capacity waiters and
+drains accepted tasks before returning an error. Numeric reduction follows
+chunk order, so ordinary prices and AAD Greeks repeat exactly across worker
+counts for the same inputs, build and floating-point environment. See
+[simulation batching](simulation.md#batches-compiled-scripts-and-aad). Separate drivers,
 including segmented Monte Carlo, retain their own positioning schedules.
 MRG32 and Sobol support efficient independent seeking when that is required.
 
@@ -341,6 +343,29 @@ loops. Jump products use unsigned 64-bit arithmetic. Both filling and seeking
 preserve the uniform stream, including the equality case above.
 
 ## Monte Carlo Normal Precision
+
+`Math::InverseNCDFBlock(values, n, precise = false, polish = false)` converts a
+contiguous array in place. On x86-64, unpolished requests of at least 32
+coordinates use the AVX2 central-region kernel
+when the CPU and OS support it, with SSE2 and scalar fallbacks. Tail values and
+polished modes use `InverseNCDF`; other architectures use the scalar implementation. Empty ranges
+accept a null pointer, unaligned storage and non-block lengths are supported,
+and invalid inputs throw as in the scalar API. The existing scalar endpoint
+behavior at zero and one is retained.
+
+Scalar and vector central-region polynomials share the scalar build's rounding
+policy: FMA-enabled builds fuse each Horner stage, while portable x86 builds use
+separate multiplication and addition. Runtime AVX2 selection requires FMA support
+when the scalar build uses it; portable builds retain the non-FMA AVX2 kernel.
+Tail values and polished modes use the same scalar routine. Scalar and vector
+results agree bitwise within the same build, including branch boundaries; this
+does not specify an accuracy bound against the exact normal quantile or require
+identical rounding across different CPU/compiler configurations.
+
+Sobol and the pseudo-random engines use this conversion without changing uniform
+draws, precision flags, antithetic caches, bridge ordering, cloning or seeking.
+Pseudo-random normal draws continue to consume fresh engine draws independently
+of the uniform antithetic cache. Smaller requests retain scalar conversion.
 
 `MonteCarloSettings_::normalPrecision_` selects the inverse-normal conversion.
 Python and Excel expose the same setting as `normal_precision`:
@@ -425,11 +450,11 @@ narrows both payoff and barrier smoothing.
 The Sobol benchmark program drives every generator through the same
 `FillUniform` / `FillNormal` inner loop and times the `precise` / `polish`
 inverse-CDF modes separately. See
-[`dal-cpp/examples/sobol/`](../../../dal-cpp/examples/sobol) for a runnable
+[`dal-cpp/examples/methods/sobol/`](../../../dal-cpp/examples/methods/sobol) for a runnable
 version; its per-configuration construction and draw loop is:
 
 ```cpp
-// from dal-cpp/examples/sobol/sobol.cpp
+// from dal-cpp/examples/methods/sobol/sobol.cpp
 #include <dal/math/random/sobol.hpp>
 #include <dal/math/random/quasirandom.hpp>
 #include <dal/math/vectors.hpp>

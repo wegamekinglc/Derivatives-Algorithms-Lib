@@ -130,6 +130,10 @@ samples initial logDF once per simulation time and precomputes each step's
 initial integrated carry. Deterministic-rate paths use
 `N(t)=exp(-logDF(t))`; stochastic rate paths use their realized numeraire and
 conditional rate observations. The path loop does no name parsing or matrix factorization.
+With deterministic rates, components use the prepared carry through
+`HybridComponent_::EvolveWithoutCarry`. Its default delegates to `Evolve` with
+zero adjustment, so custom components can retain their existing implementation.
+Stateful rate components still evolve when their current volatility is zero.
 `SimDim()` is the number of internal positive time
 steps multiplied by `NumFactors()`, which includes internal bridge drivers.
 Independent Gaussian inputs are time-major, with registered factors in sorted
@@ -137,6 +141,20 @@ label order, followed by internal drivers within each step. `FactorNames()`
 lists only the registered factors used by the correlation matrix.
 The output `Sample_::observations_` follows the requested name order;
 `Sample_::spot_` remains the first equity's compatibility field.
+The Gaussian GSR component batches rate observations and delayed-payment
+discounts when they share prepared OIS bonds. Each path prices a distinct bond
+once per sample. Prices use caller-owned scratch, preserving the first sample's
+state prefix; its temporary price tail is removed before other component calls.
+The SLV rate component uses the same batching contract for repeated bonds,
+with HJM prices computed from the path's current factor state and covariance.
+Custom components may implement `HybridComponent_::UsesObservationBatch` and
+`FillObservationBatch`. After component preparation, Hybrid records each sample's
+eligibility; the default eligibility is false, avoiding batch calls on direct paths.
+Its slot pairs map component observations to sample outputs, and its scratch
+prefix protects shared state. Returning false leaves outputs to the existing
+`Observe` and `FillDiscounts` methods; the default returns false.
+Returning true means all listed observations and registered discounts are filled,
+with spot, numeraire and the state prefix preserved.
 The `script_mc_perf --correlated-bs` benchmark compares the constant-rate and
 logDF hybrid path loops at 100,000 paths, 12 steps, and two assets; model
 initialization is outside its timed section.
@@ -168,7 +186,7 @@ Each future `FIX(EQ[...])` binds independently to its named component; requests
 on one date may use either order. Historical fixings retain their own index and
 never fall back to simulated values. A multi-equity `SPOT()` requires
 `ScriptProductSettings_::defaultIndex_`. Stochastic rate components supply
-future `IR[...]` observations; FX remains unsupported. See [`dal-cpp/examples/hybrid_script/`](../../dal-cpp/examples/hybrid_script/)
+future `IR[...]` observations; FX remains unsupported. See [`dal-cpp/examples/models/hybrid_script/`](../../dal-cpp/examples/models/hybrid_script/)
 for the runnable two-equity C++ example
 and [Python example](../../dal-python/examples/hybrid_script.py).
 

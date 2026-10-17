@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <dal/math/aad/accumulate.hpp>
 #include <dal/model/gsr.hpp>
 #include <dal/model/gsrslvdata.hpp>
 
@@ -11,7 +12,7 @@ namespace Dal::AAD {
     template <class T_ = double> class GSRSLV_ final : public Model_<T_> {
         struct Step_ {
             double time_, width_, sqrtWidth_;
-            Vector_<T_> g_, h_, covarianceH_;
+            Vector_<T_> g_, h_, hg_, covarianceH_;
             Matrix_<T_> covariance_;
             T_ bankBase_, bridgeVariance_, bridgeStd_;
         };
@@ -61,14 +62,17 @@ namespace Dal::AAD {
             step.sqrtWidth_ = std::sqrt(step.width_);
             step.g_ = rates_->FactorVolatilities(from);
             step.h_ = rates_->ShortRateLoadings(from);
+            step.hg_ = Vector_<T_>(n);
             step.covariance_ = Matrix_<T_>(n, n, T_(0.0));
             step.covarianceH_ = Vector_<T_>(n, T_(0.0));
             step.bridgeVariance_ = T_(0.0);
-            for (int i = 0; i < n; ++i)
+            for (int i = 0; i < n; ++i) {
+                step.hg_[i] = step.h_[i] * step.g_[i];
                 for (int j = 0; j < n; ++j) {
                     step.covariance_(i, j) = step.g_[i] * step.g_[j] * T_(correlations(i, j));
                     step.covarianceH_[i] += step.covariance_(i, j) * step.h_[j];
                 }
+            }
             for (int i = 0; i < n; ++i)
                 for (int j = 0; j < n; ++j) {
                     const T_ exposure = step.h_[i] * step.g_[i] * T_(correlations(i, j));
@@ -123,28 +127,46 @@ namespace Dal::AAD {
                     (*correlated)[i] += driverLower_(i, j) * gaussian[j];
         }
 
-        [[nodiscard]] T_ Shift(const Step_& step, const T_* x) const {
-            T_ shift(0.0);
-            for (size_t i = 0; i < rates_->NumFactors(); ++i)
-                shift += step.h_[i] * x[i];
-            return shift;
+        template <size_t N_ = 1, class F_> static void WithFactorCount(size_t factors, const F_& evolve) {
+            if (factors == N_)
+                evolve(std::integral_constant<size_t, N_>{});
+            else if constexpr (N_ < 3)
+                WithFactorCount<N_ + 1>(factors, evolve);
+            else
+                evolve(std::integral_constant<size_t, 0>{});
         }
 
-        template <bool Indirect>
-        void AdvanceRatesCore(const Step_& step,
-                              const Vector_<>& drivers,
-                              const Vector_<size_t>* driverSlots,
-                              const T_& varianceScale,
-                              const T_& diffusion,
-                              T_* x,
-                              T_* y) const {
-            const size_t n = rates_->NumFactors();
+        template <size_t N_, class F_> [[nodiscard]] static T_ Sum(size_t factors, const F_& term) {
+            if constexpr (N_ > 0)
+                return Accumulate<N_>(0.0, term);
+            else {
+                T_ sum(0.0);
+                for (size_t i = 0; i < factors; ++i)
+                    sum += term(i);
+                return sum;
+            }
+        }
+
+        template <size_t N_> [[nodiscard]] T_ Shift(const Step_& step, const T_* x) const {
+            return Sum<N_>(rates_->NumFactors(), [&](size_t i) { return step.h_[i] * x[i]; });
+        }
+
+        template <bool Indirect, size_t N_>
+        [[nodiscard]] T_ AdvanceRatesCore(const Step_& step,
+                                          const Vector_<>& drivers,
+                                          const Vector_<size_t>* driverSlots,
+                                          const T_& varianceScale,
+                                          const T_& diffusion,
+                                          T_* x,
+                                          T_* y) const {
+            const size_t n = N_ == 0 ? rates_->NumFactors() : N_;
             const auto driver = [&](size_t i) -> double { return Indirect ? drivers[(*driverSlots)[i]] : drivers[i]; };
             const double dt = step.width_;
+            T_ yHH(0.0);
+            // Capture the old covariance rows before updating y.
             for (size_t i = 0; i < n; ++i) {
-                T_ drift(0.0);
-                for (size_t j = 0; j < n; ++j)
-                    drift += y[i * n + j] * step.h_[j];
+                const T_ drift = Sum<N_>(n, [&](size_t j) { return y[i * n + j] * step.h_[j]; });
+                yHH += step.h_[i] * drift;
                 x[i] += dt * drift + 0.5 * dt * dt * varianceScale * step.covarianceH_[i] + diffusion * step.sqrtWidth_ * step.g_[i] * driver(i);
             }
             for (size_t i = 0; i < n; ++i)
@@ -152,11 +174,39 @@ namespace Dal::AAD {
                     y[i * n + j] += dt * varianceScale * step.covariance_(i, j);
                     y[j * n + i] = y[i * n + j];
                 }
+            return yHH;
         }
 
         // Shared evolution on a flat state layout: x[n], y[n*n] row-major, variance, latentVariance,
         // logNumeraire. Drivers come either contiguously (standalone correlated vector) or through a
         // hybrid factor-slot indirection; the flag is a compile-time constant in both callers.
+        template <bool Indirect, size_t N_>
+        void AdvanceFixedCore(const Step_& step,
+                              const Vector_<>& drivers,
+                              const Vector_<size_t>* driverSlots,
+                              double bridge,
+                              T_* x,
+                              T_* y,
+                              T_* variance,
+                              T_* latentVariance,
+                              T_* logNumeraire) const {
+            const size_t n = N_ == 0 ? rates_->NumFactors() : N_;
+            const auto driver = [&](size_t i) -> double { return Indirect ? drivers[(*driverSlots)[i]] : drivers[i]; };
+            const T_ shift = Shift<N_>(step, x);
+            const T_ leverage = LocalLeverage(step.time_, shift);
+            const T_ varianceScale = leverage * leverage * *variance;
+            const T_ sqrtVariance = Value(*variance) > 0.0 ? T_(Dal::sqrt(*variance)) : T_(0.0);
+            const T_ diffusion = leverage * sqrtVariance;
+            const double dt = step.width_;
+            const T_ noiseH = Sum<N_>(n, [&](size_t i) { return step.hg_[i] * driver(i); });
+            const T_ yHH = AdvanceRatesCore<Indirect, N_>(step, drivers, driverSlots, varianceScale, diffusion, x, y);
+            *logNumeraire += step.bankBase_ + dt * shift + 0.5 * dt * dt * yHH + varianceScale * step.bridgeVariance_ * (dt * dt * dt / 6.0) +
+                             diffusion * (0.5 * dt * step.sqrtWidth_ * noiseH + step.bridgeStd_ * bridge);
+            *latentVariance += dt * kappa_ * (1.0 - *variance) + volOfVol_ * step.sqrtWidth_ * sqrtVariance * driver(n);
+            REQUIRE(std::isfinite(Value(*latentVariance)), "InvalidGSRSLVPath: nonfinite latent variance");
+            *variance = Value(*latentVariance) > 0.0 ? *latentVariance : T_(0.0);
+        }
+
         template <bool Indirect>
         void AdvanceCore(const Step_& step,
                          const Vector_<>& drivers,
@@ -167,26 +217,9 @@ namespace Dal::AAD {
                          T_* variance,
                          T_* latentVariance,
                          T_* logNumeraire) const {
-            const size_t n = rates_->NumFactors();
-            const auto driver = [&](size_t i) -> double { return Indirect ? drivers[(*driverSlots)[i]] : drivers[i]; };
-            const T_ shift = Shift(step, x);
-            const T_ leverage = LocalLeverage(step.time_, shift);
-            const T_ varianceScale = leverage * leverage * *variance;
-            const T_ sqrtVariance = Value(*variance) > 0.0 ? T_(Dal::sqrt(*variance)) : T_(0.0);
-            const T_ diffusion = leverage * sqrtVariance;
-            const double dt = step.width_;
-            T_ yHH(0.0), noiseH(0.0);
-            for (size_t i = 0; i < n; ++i) {
-                noiseH += step.h_[i] * step.g_[i] * driver(i);
-                for (size_t j = 0; j < n; ++j)
-                    yHH += step.h_[i] * y[i * n + j] * step.h_[j];
-            }
-            *logNumeraire += step.bankBase_ + dt * shift + 0.5 * dt * dt * yHH + varianceScale * step.bridgeVariance_ * (dt * dt * dt / 6.0) +
-                             diffusion * (0.5 * dt * step.sqrtWidth_ * noiseH + step.bridgeStd_ * bridge);
-            AdvanceRatesCore<Indirect>(step, drivers, driverSlots, varianceScale, diffusion, x, y);
-            *latentVariance += dt * kappa_ * (1.0 - *variance) + volOfVol_ * step.sqrtWidth_ * sqrtVariance * driver(n);
-            REQUIRE(std::isfinite(Value(*latentVariance)), "InvalidGSRSLVPath: nonfinite latent variance");
-            *variance = Value(*latentVariance) > 0.0 ? *latentVariance : T_(0.0);
+            WithFactorCount(rates_->NumFactors(), [&](auto count) {
+                AdvanceFixedCore<Indirect, decltype(count)::value>(step, drivers, driverSlots, bridge, x, y, variance, latentVariance, logNumeraire);
+            });
         }
 
         void Advance(const Step_& step, const Vector_<>& correlated, double bridge, State_* state) const {
@@ -202,8 +235,10 @@ namespace Dal::AAD {
             output.numeraire_ = Dal::exp(state.logNumeraire_);
             REQUIRE(std::isfinite(Value(output.numeraire_)) && Value(output.numeraire_) > 0.0,
                     "InvalidGSRSLVPath: bank account overflow or underflow");
+            const bool batched = rates_->FillHJMObservations(sample, state.x_, state.y_, &output);
             for (size_t slot = 0; slot < output.observations_.size(); ++slot) {
-                output.observations_[slot] = rates_->ObserveHJM(sample, slot, state.x_, state.y_);
+                if (!batched)
+                    output.observations_[slot] = rates_->ObserveHJM(sample, slot, state.x_, state.y_);
                 REQUIRE(std::isfinite(Value(output.observations_[slot])), "InvalidGSRSLVPath: nonfinite rate observation");
             }
         }
@@ -302,6 +337,7 @@ namespace Dal::AAD {
         }
         [[nodiscard]] std::unique_ptr<Model_<T_>> Clone() const override { return std::make_unique<GSRSLV_<T_>>(*this); }
         [[nodiscard]] std::unique_ptr<GSRSLV_<T_>> CloneSLVKernel() const { return std::make_unique<GSRSLV_<T_>>(*this); }
+        void ResetAnchorsForRecording() { rates_->ResetAnchorsForRecording(); }
         [[nodiscard]] T_ InitialLogDiscount(double time) const { return rates_->InitialLogDiscount(time); }
         [[nodiscard]] double MaxStep() const { return maxStep_; }
         [[nodiscard]] size_t HybridStateDim() const {
@@ -337,6 +373,15 @@ namespace Dal::AAD {
         [[nodiscard]] T_ ObserveHybrid(size_t sample, size_t slot, const Vector_<T_>& state, size_t offset) const {
             const size_t n = rates_->NumFactors();
             return rates_->ObserveHJMFlat(sample, slot, &state[offset], &state[offset + n]);
+        }
+        [[nodiscard]] bool UsesHybridObservationBatch(size_t sample) const { return rates_->UsesHybridObservationBatch(sample); }
+        bool FillHybridObservationBatch(size_t sample,
+                                        const Vector_<std::pair<size_t, size_t>>& slots,
+                                        const Vector_<T_>& state,
+                                        size_t offset,
+                                        Sample_<T_>* output,
+                                        size_t scratchPrefix) const {
+            return rates_->FillHybridHJMObservationBatch(sample, slots, state, offset, output, scratchPrefix);
         }
         [[nodiscard]] T_ HybridLogNumeraire(const Vector_<T_>& state, size_t offset) const {
             const size_t n = rates_->NumFactors();

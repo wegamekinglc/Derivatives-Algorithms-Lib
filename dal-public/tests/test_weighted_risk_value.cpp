@@ -328,41 +328,59 @@ TEST(WeightedRiskValueTest, TestPartialSubmissionFailureDrainsAndRecovers) {
 }
 
 #if defined(DAL_ENABLE_AAD_PROFILING)
-TEST(WeightedRiskValueTest, TestOneForwardAndReverseSuffixPerPathAndPrefixPerBatch) {
-    const ScopedThreads_ scoped(4);
+TEST(WeightedRiskValueTest, TestOneForwardAndReverseSuffixPerPathAndPrefixPerChunk) {
     const auto product = NewScriptProduct("profile", {Cell_(Date_(2027, 1, 1))}, {"a = SPOT() b = a pay PAYS a + b"});
     const auto model = NewBSModelData("model", 100.0, 0.2, 0.0, 0.0);
     Script::WeightedRiskRequest_ request;
     request.selection_.outputs_ = Vector_<String_>{"output:0", "output:1", "payoff"};
     request.weights_ = Vector_<>{2.0, -1.0, 0.5};
-    for (const bool compiled : {false, true}) {
-        auto simulation = DefaultRiskMonteCarloSettings();
-        simulation.compiled_ = compiled;
-        AAD::ProfilingData_ data;
-        const auto result = [&] {
-            AAD::ProfilingScope_ profile(&data);
-            return ValueByMonteCarloWithWeightedRisk(product, model, 257, request, WeightedValuation(), simulation);
-        }();
-        ASSERT_TRUE(data.complete_);
-        ASSERT_FALSE(data.invalidMeasurement_);
-        ASSERT_GT(result.WeightedValue(), 0.0);
-        ASSERT_EQ(data.taskGroups_.size(), 1);
-        const Script::BatchPlan_ batches(257, 4);
-        ASSERT_EQ(data.taskGroups_.front().size(), batches.BatchCount());
-        std::uint64_t forward = 0, payoff = 0, suffix = 0, prefix = 0;
-        for (const auto& task : data.taskGroups_.front()) {
-            ASSERT_TRUE(task.complete_);
-            forward += task.Phase(AAD::AADProfilingPhase_::Value_::PATH_FORWARD).calls_;
-            payoff += task.Phase(AAD::AADProfilingPhase_::Value_::PAYOFF).calls_;
-            suffix += task.Phase(AAD::AADProfilingPhase_::Value_::REVERSE_SUFFIX).calls_;
-            prefix += task.Phase(AAD::AADProfilingPhase_::Value_::REVERSE_PREFIX).calls_;
-            ASSERT_GT(task.memory_.workspaceArrays_.liveBytes_, 3 * sizeof(AAD::Number_));
+    for (const size_t threads : {1, 4}) {
+        const ScopedThreads_ scoped(threads);
+        for (const bool compiled : {false, true}) {
+            auto simulation = DefaultRiskMonteCarloSettings();
+            simulation.compiled_ = compiled;
+            const auto expected = ValueByMonteCarloWithWeightedRisk(product, model, 257, request, WeightedValuation(), simulation);
+            AAD::ProfilingData_ data;
+            const auto result = [&] {
+                AAD::ProfilingScope_ profile(&data);
+                return ValueByMonteCarloWithWeightedRisk(product, model, 257, request, WeightedValuation(), simulation);
+            }();
+            ASSERT_TRUE(data.complete_);
+            ASSERT_FALSE(data.invalidMeasurement_);
+            ASSERT_GT(result.WeightedValue(), 0.0);
+            ASSERT_EQ(result.WeightedValue(), expected.WeightedValue());
+            ASSERT_EQ(result.ComponentMeans(), expected.ComponentMeans());
+            for (int input = 0; input < result.Jacobian().Cols(); ++input)
+                ASSERT_EQ(result.Jacobian()(0, input), expected.Jacobian()(0, input));
+            ASSERT_EQ(data.taskGroups_.size(), 1);
+            const Script::Detail::ChunkPlan_ chunks(257);
+            const size_t workers = std::min(scoped.pool_->NumThreads(), chunks.BatchCount());
+            ASSERT_EQ(data.taskGroups_.front().size(), workers);
+            std::uint64_t forward = 0, payoff = 0, suffix = 0, prefix = 0, samples = 0;
+            std::uint64_t reduce = data.Phase(AAD::AADProfilingPhase_::Value_::REDUCE).calls_;
+            for (const auto& task : data.taskGroups_.front()) {
+                ASSERT_TRUE(task.complete_);
+                ASSERT_EQ(task.Phase(AAD::AADProfilingPhase_::Value_::WORKER_INIT).calls_, 1);
+                const auto paths = task.Phase(AAD::AADProfilingPhase_::Value_::PATH_FORWARD).calls_;
+                forward += paths;
+                payoff += task.Phase(AAD::AADProfilingPhase_::Value_::PAYOFF).calls_;
+                suffix += task.Phase(AAD::AADProfilingPhase_::Value_::REVERSE_SUFFIX).calls_;
+                prefix += task.Phase(AAD::AADProfilingPhase_::Value_::REVERSE_PREFIX).calls_;
+                reduce += task.Phase(AAD::AADProfilingPhase_::Value_::REDUCE).calls_;
+                samples += task.tapeSamples_;
+                if (paths > 0)
+                    ASSERT_GT(task.memory_.workspaceArrays_.liveBytes_, 3 * sizeof(AAD::Number_));
+                else
+                    ASSERT_EQ(task.memory_.workspaceArrays_.liveBytes_, 0);
+            }
+            ASSERT_EQ(forward, 257);
+            ASSERT_EQ(payoff, 257);
+            ASSERT_EQ(suffix, 257);
+            ASSERT_EQ(prefix, chunks.BatchCount());
+            ASSERT_EQ(reduce, chunks.BatchCount());
+            ASSERT_EQ(samples, 257 + workers);
+            ASSERT_GE(data.memory_.resultArrays_.liveBytes_, (1 + chunks.BatchCount()) * (4 + 3) * sizeof(double));
         }
-        ASSERT_EQ(forward, 257);
-        ASSERT_EQ(payoff, 257);
-        ASSERT_EQ(suffix, 257);
-        ASSERT_EQ(prefix, batches.BatchCount());
-        ASSERT_GE(data.memory_.resultArrays_.liveBytes_, (1 + 4) * (4 + 3) * sizeof(double));
     }
 }
 #endif

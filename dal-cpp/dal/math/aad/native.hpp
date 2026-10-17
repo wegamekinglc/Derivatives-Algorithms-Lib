@@ -69,6 +69,8 @@ namespace Dal::AAD {
 #endif
             if (number.node_ == nullptr)
                 Reject(operation, "number has no tape node");
+            if (number.IsPassive())
+                Reject(operation, "passive constant requires explicit independent registration");
             RequireMode(tape->multi_, tape->numAdj_, operation);
             if (channel >= (tape->multi_ ? tape->numAdj_ : 1))
                 Reject(operation, "channel must be below the current adjoint width");
