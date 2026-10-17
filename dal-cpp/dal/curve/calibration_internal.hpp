@@ -320,9 +320,12 @@ namespace Dal {
         auto* tape = AAD::Tape();
         TapeGuard_ guard(tape);
         Vector_<AAD::Number_> parameters = RegisterCurveParameters(x);
-        AAD::NewRecording(*tape);
+        guard.recording_.StartRecording();
         Vector_<AAD::Number_> residuals = computeResiduals(parameters);
-        return std::make_unique<XCurveJacobian_>(HarvestCurveJacobian(*tape, parameters, residuals));
+        guard.recording_.FinishRecording();
+        auto result = std::make_unique<XCurveJacobian_>(HarvestCurveJacobian(*tape, parameters, residuals));
+        guard.Close();
+        return result;
     }
 
     // Resolve the coupon-months count for a single-period instrument's day-count context.

@@ -18,6 +18,11 @@ include(CMakePackageConfigHelpers)
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/DALBindingBoundary.cmake")
 
 option(DAL_PUBLIC_BUILD_TESTS "Build dal-public tests" ON)
+set(DAL_PUBLIC_EXAMPLES_DEFAULT OFF)
+if(DEFINED DAL_CPP_BUILD_EXAMPLES)
+    set(DAL_PUBLIC_EXAMPLES_DEFAULT "${DAL_CPP_BUILD_EXAMPLES}")
+endif()
+option(DAL_PUBLIC_BUILD_EXAMPLES "Build dal-public examples" "${DAL_PUBLIC_EXAMPLES_DEFAULT}")
 
 # Need DAL::cpp from the workspace
 set(DAL_PUBLIC_USES_INSTALLED_CPP FALSE)
@@ -99,8 +104,15 @@ install(FILES
         DESTINATION ${DAL_PUBLIC_CONFIG_INSTALL_DIR})
 
 # ---------------------------------------------------------------------------
-# Tests
+# Examples and tests
 # ---------------------------------------------------------------------------
+if(DAL_PUBLIC_BUILD_EXAMPLES)
+    if(PROJECT_IS_TOP_LEVEL)
+        enable_testing()
+    endif()
+    add_subdirectory(examples)
+endif()
+
 if(DAL_PUBLIC_BUILD_TESTS)
     if(PROJECT_IS_TOP_LEVEL)
         enable_testing()
@@ -126,6 +138,11 @@ if(DAL_PUBLIC_BUILD_TESTS)
         "${PROJECT_SOURCE_DIR}/tests/*.cpp")
 
     add_executable(dal_public_tests ${TEST_FILES})
+    find_file(DAL_PUBLIC_TEST_QUOTE_RISK_FIXTURE_SOURCE quoteriskbenchfixtures.cpp
+        HINTS "${DAL_WORKSPACE_ROOT}/dal-cpp/benchmarks/rate_risk_perf"
+        DOC "Shared curve quote-risk workloads for dal-public tests"
+        REQUIRED)
+    target_sources(dal_public_tests PRIVATE "${DAL_PUBLIC_TEST_QUOTE_RISK_FIXTURE_SOURCE}")
     if(DAL_PUBLIC_USES_INSTALLED_CPP)
         dal_cpp_apply_msvc_runtime(dal_public_tests)
         if(MSVC)

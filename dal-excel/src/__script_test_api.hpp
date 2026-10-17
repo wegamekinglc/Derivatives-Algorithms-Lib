@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <functional>
+
 #include "__script_storable.hpp"
 #include <dal-public/src/script.hpp>
 #include <dal-public/src/types.hpp>
@@ -69,10 +71,14 @@ namespace Dal {
     namespace Excel {
         DAL_SCRIPT_TEST_API Vector_<String_> ScriptDiagnosticChunks(const String_& json, const String_& function);
         DAL_SCRIPT_TEST_API void ScriptTestInitialize(int threads);
+        DAL_SCRIPT_TEST_API std::pair<size_t, bool> ScriptTestStartWorkers(size_t threads);
+        DAL_SCRIPT_TEST_API void ScriptTestRestoreWorkers(const std::pair<size_t, bool>& state);
         DAL_SCRIPT_TEST_API Date_ ScriptTestSetDate(const Date_& date);
         DAL_SCRIPT_TEST_API void ScriptTestStoreFixings(const String_& name, const FixHistory_& history);
         DAL_SCRIPT_TEST_API Detail::FixingReadObserver_*& ScriptTestFixingObserver();
         DAL_SCRIPT_TEST_API Script::Detail::SimulationObserver_*& ScriptTestSimulationObserver();
+        DAL_SCRIPT_TEST_API void ScriptTestWithRecording(const std::function<void(size_t)>& action, bool finishBeforeAction, double* adjoint);
+        DAL_SCRIPT_TEST_API size_t ScriptTestTapeNodeCount();
         DAL_SCRIPT_TEST_API String_ ScriptTestNativeDescribe(const Handle_<ScriptProductData_>& product);
         DAL_SCRIPT_TEST_API String_ ScriptTestNativeExplain(const Handle_<ScriptProductData_>& product,
                                                             const Handle_<ModelData_>& model,

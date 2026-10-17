@@ -1,0 +1,42 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>DupireScriptCurvaturePlan_New</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>DupireScriptCurvaturePlan_New (in Excel: DUPIRESCRIPTCURVATUREPLAN.NEW)</h1>
+Admit and freeze a common-path recalibrated Dupire curvature plan
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>name</td><td>string</td><td></td><td>Object name</td></tr>
+<tr><td>product</td><td>handle of type ScriptProductData</td><td></td><td>European script product with rebuildable scalar quote bindings</td></tr>
+<tr><td>modelData</td><td>handle of type ModelData</td><td></td><td>Matching native Hybrid model</td></tr>
+<tr><td>calibration</td><td>handle of type StorableDupireCalibration</td><td></td><td>Frozen Dupire calibration and full strike-major quote order</td></tr>
+<tr><td>component</td><td>string</td><td></td><td>Native local-vol component name</td></tr>
+<tr><td>request</td><td>handle of type StorableDupireScriptCurvatureRequest</td><td></td><td>Copied first-order settings and full raw quote direction request</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>plan</td><td>handle of type StorableDupireScriptCurvaturePlan</td><td>Owning admitted plan; no valuation paths are submitted during planning</td></tr>
+</table>
+
+
+
+
+
+

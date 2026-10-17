@@ -16,28 +16,6 @@ using namespace Dal;
 using namespace Dal::Python;
 
 namespace {
-    long long IntegerInput(const py::handle& value, const std::string& context, long long lowest, long long highest, const std::string& rangeError) {
-        if (PyBool_Check(value.ptr()) || IsEnum(value) || !PyIndex_Check(value.ptr()))
-            throw py::type_error(context);
-        const auto integer = py::reinterpret_steal<py::object>(PyNumber_Index(value.ptr()));
-        if (!integer) {
-            PyErr_Clear();
-            throw py::type_error(context);
-        }
-        int overflow = 0;
-        const long long result = PyLong_AsLongLongAndOverflow(integer.ptr(), &overflow);
-        if (PyErr_Occurred())
-            throw py::error_already_set();
-        REQUIRE2(!overflow && result >= lowest && result <= highest, String_(context + rangeError), ScriptError_);
-        return result;
-    }
-
-    int PathCount(const py::handle& value, const char* function) {
-        const auto context = InputContext(value, std::string(function) + "; num_path / numPath",
-                                          "a positive integer in 1.." + std::to_string(std::numeric_limits<int>::max()), "InvalidPathCount");
-        return static_cast<int>(IntegerInput(value, context, 1, std::numeric_limits<int>::max(), "; number of Monte Carlo paths must be positive"));
-    }
-
     std::optional<Date_> EvaluationDate(const py::handle& value) {
         if (value.is_none())
             return std::nullopt;
@@ -62,8 +40,9 @@ namespace {
         }
         if (!py::isinstance<py::str>(value) && !py::isinstance<String_>(value))
             throw py::type_error(context);
-        const auto name = SettingStringInput(value, "ScriptValuationSettings_; today_fixing / valuation.todayFixingPolicy_ (Model or RequireHistorical)",
-                                             "InvalidSetting: InvalidTodayFixingPolicy");
+        const auto name =
+            SettingStringInput(value, "ScriptValuationSettings_; today_fixing / valuation.todayFixingPolicy_ (Model or RequireHistorical)",
+                               "InvalidSetting: InvalidTodayFixingPolicy");
         TodayFixingPolicy_ policy;
         //  explicit branch, not a macro argument: keeps the parse call unconditional
         if (!Script::TryParseTodayFixingPolicy(name, &policy))
@@ -86,6 +65,12 @@ namespace {
         } catch (const Exception_& error) {
             THROW2(String_(error.what()) + "; MonteCarloSettings_; method", ScriptError_);
         }
+        return result;
+    }
+
+    String_ NormalPrecision(const py::handle& value) {
+        const auto result = SettingStringInput(value, "MonteCarloSettings_; normal_precision / simulation.normalPrecision_");
+        Script::ValidateNormalPrecision(result);
         return result;
     }
 
@@ -189,6 +174,11 @@ namespace {
         return LsmcPathCount(value, "lsmc_training_paths", "lsmcTrainingPaths_", "InvalidLsmcTrainingPaths", Script::ValidateLsmcTrainingPaths);
     }
 
+    std::optional<int> CheckpointCount(const py::handle& value, const char* field, const char* member) {
+        return LsmcPathCount(value, field, member, "InvalidLsmcCheckpointSetting",
+                             [](int count) { REQUIRE2(count > 0, "InvalidLsmcCheckpointSetting: positive integer required", ScriptError_); });
+    }
+
     std::optional<int> ValidationPaths(const py::handle& value) {
         return LsmcPathCount(value, "lsmc_validation_paths", "lsmcValidationPaths_", "InvalidLsmcValidationPaths",
                              Script::ValidateLsmcValidationPaths);
@@ -252,15 +242,14 @@ void init_bindings_value(py::module_& m) {
         .value("REQUIREHISTORICAL", TodayFixingPolicy_::Value_::REQUIREHISTORICAL);
 
     WithCopies(py::class_<ScriptValuationSettings_>(m, "ScriptValuationSettings_"))
-        .def(
-            py::init([](const py::object& evaluationDate, const py::object& todayFixing, const py::object& fixings) {
-                ScriptValuationSettings_ settings;
-                settings.evaluationDate_ = EvaluationDate(evaluationDate);
-                settings.todayFixingPolicy_ = TodayPolicy(todayFixing);
-                settings.fixings_ = Fixings(fixings);
-                return settings;
-            }),
-            py::kw_only(), py::arg("evaluation_date") = py::none(), py::arg("today_fixing") = "Model", py::arg("fixings") = py::none())
+        .def(py::init([](const py::object& evaluationDate, const py::object& todayFixing, const py::object& fixings) {
+                 ScriptValuationSettings_ settings;
+                 settings.evaluationDate_ = EvaluationDate(evaluationDate);
+                 settings.todayFixingPolicy_ = TodayPolicy(todayFixing);
+                 settings.fixings_ = Fixings(fixings);
+                 return settings;
+             }),
+             py::kw_only(), py::arg("evaluation_date") = py::none(), py::arg("today_fixing") = "Model", py::arg("fixings") = py::none())
         .def_property(
             "evaluation_date", [](const ScriptValuationSettings_& settings) { return settings.evaluationDate_; },
             [](ScriptValuationSettings_* settings, const py::object& value) { settings->evaluationDate_ = EvaluationDate(value); })
@@ -275,7 +264,8 @@ void init_bindings_value(py::module_& m) {
         .def(py::init([](const py::object& method, const py::object& useBb, const py::object& enableAad, const py::object& smooth,
                          const py::object& compiled, const py::object& lsmcBasisDegree, const py::object& lsmcTrainingPaths,
                          const py::object& lsmcValidationPaths, const py::object& lsmcRqmcReplicates, const py::object& lsmcTrainingSeed,
-                         const py::object& lsmcPricingSeed, const py::object& lsmcPolicyRiskMode, const py::object& lsmcPolicyBumpRelative) {
+                         const py::object& lsmcPricingSeed, const py::object& lsmcPolicyRiskMode, const py::object& lsmcPolicyBumpRelative,
+                         const py::object& normalPrecision, const py::object& checkpointBlock, const py::object& trainingMemory) {
                  return MonteCarloSettings_{Method(method),
                                             Boolean(useBb, "use_bb / simulation.useBb_"),
                                             Boolean(enableAad, "enable_aad / simulation.enableAad_"),
@@ -288,14 +278,31 @@ void init_bindings_value(py::module_& m) {
                                             RqmcSeed(lsmcTrainingSeed, "lsmc_training_seed", "lsmcTrainingSeed_"),
                                             RqmcSeed(lsmcPricingSeed, "lsmc_pricing_seed", "lsmcPricingSeed_"),
                                             LsmcPolicyRiskMode(lsmcPolicyRiskMode),
-                                            LsmcPolicyBumpRelative(lsmcPolicyBumpRelative)};
+                                            LsmcPolicyBumpRelative(lsmcPolicyBumpRelative),
+                                            NormalPrecision(normalPrecision),
+                                            CheckpointCount(checkpointBlock, "lsmc_checkpoint_block_events", "lsmcCheckpointBlockEvents_"),
+                                            CheckpointCount(trainingMemory, "lsmc_training_memory_mb", "lsmcTrainingMemoryMb_")};
              }),
              py::kw_only(), py::arg("method") = "sobol", py::arg("use_bb") = false, py::arg("enable_aad") = false,
              py::arg("smooth") = Script::DEFAULT_SMOOTH, py::arg("compiled") = py::none(),
              py::arg("lsmc_basis_degree") = Script::DEFAULT_LSMC_BASIS_DEGREE, py::arg("lsmc_training_paths") = py::none(),
              py::arg("lsmc_validation_paths") = py::none(), py::arg("lsmc_rqmc_replicates") = py::none(), py::arg("lsmc_training_seed") = py::none(),
              py::arg("lsmc_pricing_seed") = py::none(), py::arg("lsmc_policy_risk_mode") = "Frozen",
-             py::arg("lsmc_policy_bump_relative") = Script::DEFAULT_LSMC_POLICY_BUMP_RELATIVE)
+             py::arg("lsmc_policy_bump_relative") = Script::DEFAULT_LSMC_POLICY_BUMP_RELATIVE, py::arg("normal_precision") = "Default",
+             py::arg("lsmc_checkpoint_block_events") = py::none(), py::arg("lsmc_training_memory_mb") = py::none())
+        .def_property(
+            "lsmc_checkpoint_block_events", [](const MonteCarloSettings_& settings) { return settings.lsmcCheckpointBlockEvents_; },
+            [](MonteCarloSettings_* settings, const py::object& value) {
+                settings->lsmcCheckpointBlockEvents_ = CheckpointCount(value, "lsmc_checkpoint_block_events", "lsmcCheckpointBlockEvents_");
+            })
+        .def_property(
+            "lsmc_training_memory_mb", [](const MonteCarloSettings_& settings) { return settings.lsmcTrainingMemoryMb_; },
+            [](MonteCarloSettings_* settings, const py::object& value) {
+                settings->lsmcTrainingMemoryMb_ = CheckpointCount(value, "lsmc_training_memory_mb", "lsmcTrainingMemoryMb_");
+            })
+        .def_property(
+            "normal_precision", [](const MonteCarloSettings_& settings) { return Text(settings.normalPrecision_); },
+            [](MonteCarloSettings_* settings, const py::object& value) { settings->normalPrecision_ = NormalPrecision(value); })
         .def_property(
             "method", [](const MonteCarloSettings_& settings) { return Text(settings.rsg_); },
             [](MonteCarloSettings_* settings, const py::object& value) { settings->rsg_ = Method(value); })

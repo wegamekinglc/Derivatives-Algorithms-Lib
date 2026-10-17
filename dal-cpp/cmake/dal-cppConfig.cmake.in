@@ -1,8 +1,8 @@
 @PACKAGE_INIT@
 
-include(CMakeFindDependencyMacro)
-
 set(DAL_CPP_AAD_BACKEND "@DAL_CPP_AAD_BACKEND@")
+set(DAL_CPP_AAD_LIFETIME_DIAGNOSTICS "@DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS@")
+set(DAL_CPP_AAD_PROFILING "@DAL_ENABLE_AAD_PROFILING@")
 set(DAL_CPP_MSVC_RUNTIME_LIBRARY "@DAL_CPP_MSVC_RUNTIME_LIBRARY@")
 
 function(dal_cpp_apply_msvc_runtime target)
@@ -18,14 +18,6 @@ function(dal_cpp_apply_msvc_runtime target)
             MSVC_RUNTIME_LIBRARY "${DAL_CPP_MSVC_RUNTIME_LIBRARY}")
     endif()
 endfunction()
-
-if(DAL_CPP_AAD_BACKEND STREQUAL "XAD")
-    find_dependency(XAD CONFIG)
-elseif(DAL_CPP_AAD_BACKEND STREQUAL "CoDiPack")
-    include("${CMAKE_CURRENT_LIST_DIR}/DALCoDiPackTargets.cmake")
-elseif(DAL_CPP_AAD_BACKEND STREQUAL "Adept")
-    include("${CMAKE_CURRENT_LIST_DIR}/DALAdeptTargets.cmake")
-endif()
 
 include("${CMAKE_CURRENT_LIST_DIR}/dal-cppTargets.cmake")
 check_required_components(dal-cpp)

@@ -81,8 +81,6 @@ namespace Dal {
             T_ annuity(static_cast<double>(0.0));
             for (const auto& period : fixedPeriods)
                 annuity += static_cast<double>(period.accrual_.dcf_) * discount(tradeDate, period.schedule_.paymentDate_);
-            // Dal::AAD::Value extracts the primal on every backend; static_cast<double> would
-            // only work on native and CoDiPack (XAD/Adept have no conversion operator).
             REQUIRE(Dal::AAD::Value(annuity) > 0.0, "Swap pricing requires positive fixed-leg annuity");
             T_ floatPv(static_cast<double>(0.0));
             for (const auto& period : floatPeriods) {

@@ -1,35 +1,3 @@
-add_subdirectory(aad)
-add_subdirectory(digital)
-add_subdirectory(concurrency)
-add_subdirectory(curve_calibration)
-add_subdirectory(euribor3m_curve)
-add_subdirectory(interpolate_curve)
-add_subdirectory(joint_multi_curve_calibration)
-add_subdirectory(quote_risk)
-add_subdirectory(xccy_curve_calibration)
-add_subdirectory(xccy_mtm_calibration)
-add_subdirectory(xccy_reset_pricing)
-add_subdirectory(american_put_mc)
-add_subdirectory(average_option_script)
-add_subdirectory(basket_mc)
-add_subdirectory(european_mc)
-add_subdirectory(european_fd)
-add_subdirectory(fix_mc)
-add_subdirectory(gsr_swap_swaption)
-if(DAL_BUILD_PUBLIC)
-    add_subdirectory(gsr_slv_calibration)
-endif()
-add_subdirectory(hybrid_script)
-add_subdirectory(snowball)
-add_subdirectory(sobol)
-add_subdirectory(script)
-add_subdirectory(script_tree)
-add_subdirectory(script_settings)
-add_subdirectory(underdetermined)
-add_subdirectory(uoc)
-add_subdirectory(vanilla)
-add_subdirectory(yield_curve_jacobian)
-
 # The excelwriter example needs MSVC's #import COM support plus the Microsoft
 # Office type libraries on the build machine (see excelimport.hpp). Detect
 # them; users may also pass the OFFICE_* paths explicitly as cache variables.
@@ -58,14 +26,17 @@ if(WIN32 AND MSVC)
     endif()
 endif()
 
-if(DAL_HAS_EXCEL)
-    add_subdirectory(excelwriter)
-endif()
+add_subdirectory(products)
+add_subdirectory(curves)
+add_subdirectory(models)
+add_subdirectory(methods)
 
 # Keep FP-contraction policy consistent with the library, tests, and benchmarks
 # (see dal_apply_platform_options in cmake/Platform.cmake).
 set(DAL_EXAMPLE_TARGETS
     aad
+    aad_operators
+    aad_financial
     digital
     concurrency
     curve_calibration
@@ -81,8 +52,10 @@ set(DAL_EXAMPLE_TARGETS
     basket_mc
     european_mc
     european_fd
+    european_aad_fd
     fix_mc
     gsr_swap_swaption
+    gsr_slv_calibration
     dal_hybrid_script_example
     snowball
     sobol
@@ -96,10 +69,6 @@ set(DAL_EXAMPLE_TARGETS
 
 if(DAL_HAS_EXCEL)
     list(APPEND DAL_EXAMPLE_TARGETS excelwriter)
-endif()
-
-if(DAL_BUILD_PUBLIC)
-    list(APPEND DAL_EXAMPLE_TARGETS gsr_slv_calibration)
 endif()
 
 # Register examples as CTest smoke tests so CI exercises them at runtime, not
@@ -138,7 +107,7 @@ foreach(example_target IN LISTS DAL_EXAMPLE_TARGETS)
             add_test(NAME uoc_output
                 COMMAND ${CMAKE_COMMAND} -E env "UOC_BINARY=$<TARGET_FILE:uoc>"
                     ${CMAKE_COMMAND} "-DUOC_PYTHON=${Python3_EXECUTABLE}"
-                    -P "${CMAKE_CURRENT_SOURCE_DIR}/uoc/test_uoc_output.cmake")
+                    -P "${CMAKE_CURRENT_SOURCE_DIR}/products/uoc/test_uoc_output.cmake")
             set_tests_properties(uoc_output PROPERTIES LABELS examples TIMEOUT 60)
         endif()
         add_test(NAME uoc_rejects_zero COMMAND uoc 0)

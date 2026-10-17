@@ -1,0 +1,41 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>PortfolioMonteCarlo_ValueWithJacobianRisk</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>PortfolioMonteCarlo_ValueWithJacobianRisk (in Excel: PORTFOLIOMONTECARLO.VALUEWITHJACOBIANRISK)</h1>
+Value separate portfolio rows and their global blocked Jacobian
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>portfolio</td><td>handle of type ScriptPortfolioData</td><td></td><td>Sealed portfolio</td></tr>
+<tr><td>n_paths</td><td>number</td><td></td><td>Positive integer paths, excluding bool and text, at most INT_MAX</td></tr>
+<tr><td>request</td><td>handle of type StorablePortfolioJacobianRiskRequest</td><td>yes</td><td>Blank selects every payoff, all native columns and width one</td></tr>
+<tr><td>valuation</td><td>handle of type StorableScriptValuationSettings</td><td>yes</td><td>Blank captures current date and required history once</td></tr>
+<tr><td>simulation</td><td>handle of type StorableMonteCarloSettings</td><td>yes</td><td>Blank enables native AAD; passive rows retain sharp prices and zero columns</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>result</td><td>handle of type StorablePortfolioJacobianRiskResult</td><td>Owning completed attribution result with actual group work</td></tr>
+</table>
+
+
+
+
+
+

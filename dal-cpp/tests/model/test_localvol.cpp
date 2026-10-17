@@ -46,6 +46,106 @@ TEST(ModelTest, TestLocalVolSurfaceInterpolatesAndRoundTrips) {
     ASSERT_EQ(JSON::WriteString(*restored), JSON::WriteString(data));
 }
 
+TEST(ModelTest, TestHybridPreparedLocalVolPathFitsNodeBudget) {
+    Matrix_<> vols(5, 4);
+    for (int row = 0; row < 5; ++row)
+        for (int column = 0; column < 4; ++column)
+            vols(row, column) = 0.15 + 0.02 * row + 0.01 * column;
+    const auto data =
+        MakeFlatRateLocalVolHybridModelData("lv", "EQ[A]", 100.0, 0.05, 0.02, {60.0, 80.0, 100.0, 120.0, 140.0}, {0.25, 0.5, 1.0, 2.0}, vols, 1.0);
+    const TapeGuard_ guard(AAD::Tape());
+    auto model = CreateModel<AAD::Number_>(data);
+    Vector_<> timeline;
+    for (int sample = 0; sample <= 53; ++sample)
+        timeline.push_back(sample / 53.0);
+    Vector_<AAD::SampleDef_> definitions(timeline.size());
+    model->Allocate(timeline, definitions);
+    AAD::Scenario_<AAD::Number_> path;
+    AAD::AllocatePath(definitions, path);
+    AAD::Rewind(*AAD::Tape());
+    for (auto* parameter : model->Parameters())
+        AAD::PutOnTape(*parameter);
+    AAD::NewRecording(*AAD::Tape());
+    model->Init(timeline, definitions);
+    const auto prefixNodes = AAD::Tape()->nodes_.OccupiedSlots();
+    model->GeneratePath(Vector_<>(model->SimDim(), 0.3), &path);
+    ASSERT_LE(AAD::Tape()->nodes_.OccupiedSlots() - prefixNodes, 300U);
+}
+
+TEST(ModelTest, TestPreparedLocalVolMatchesSpotQueriesAndBoundaries) {
+    Matrix_<> vols(2, 2);
+    vols(0, 0) = 0.20;
+    vols(0, 1) = 0.24;
+    vols(1, 0) = 0.30;
+    vols(1, 1) = 0.34;
+    const LocalVolSurfaceData_ data("vol", {80.0, 120.0}, {0.0, 1.0}, vols);
+    AAD::LocalVolSurface_<double> surface(data);
+    const Vector_<> times{-1.0, 0.0, 0.5, 1.0, 2.0};
+    surface.Prepare(times);
+    for (size_t step = 0; step < times.size(); ++step)
+        for (const double spot : {50.0, 80.0, std::sqrt(80.0 * 120.0), 120.0, 150.0})
+            ASSERT_NEAR(surface.VolAtLogSpot(step, std::log(spot)), surface.Vol(times[step], spot), 1e-12);
+
+    AAD::LocalVolSurface_<double> copied(surface), assigned(data);
+    assigned = surface;
+    for (auto* copy : {&copied, &assigned}) {
+        *copy->Parameters()[0] = 0.4;
+        copy->Prepare(times);
+        ASSERT_NEAR(copy->VolAtLogSpot(0, std::log(50.0)), 0.4, 1e-12);
+        ASSERT_NEAR(surface.VolAtLogSpot(0, std::log(50.0)), 0.2, 1e-12);
+    }
+    AAD::LocalVolSurface_<double> flat(LocalVolSurfaceData_("flat", {100.0}, {0.0}, Matrix_<>(1, 1, 0.2)));
+    flat.Prepare(times);
+    ASSERT_NEAR(flat.VolAtLogSpot(2, std::log(100.0)), 0.2, 1e-12);
+}
+
+TEST(ModelTest, TestPreparedLocalVolRejectsInvalidQueries) {
+    AAD::LocalVolSurface_<double> surface(LocalVolSurfaceData_("vol", {100.0}, {0.0}, Matrix_<>(1, 1, 0.2)));
+    ASSERT_THROW(static_cast<void>(surface.VolAtLogSpot(0, 0.0)), Exception_);
+    ASSERT_THROW(surface.Prepare({std::numeric_limits<double>::quiet_NaN()}), Exception_);
+    surface.Prepare({0.0});
+    ASSERT_THROW(static_cast<void>(surface.VolAtLogSpot(1, 0.0)), Exception_);
+    ASSERT_THROW(static_cast<void>(surface.VolAtLogSpot(0, std::numeric_limits<double>::infinity())), Exception_);
+    ASSERT_THROW(static_cast<void>(surface.VolAtLogSpot(0, std::numeric_limits<double>::quiet_NaN())), Exception_);
+    surface.Prepare({});
+    ASSERT_THROW(static_cast<void>(surface.VolAtLogSpot(0, 0.0)), Exception_);
+}
+
+TEST(ModelTest, TestPreparedLocalVolRetainsAllSurfaceAndLogSpotRisks) {
+    Matrix_<> vols(2, 2);
+    vols(0, 0) = 0.20;
+    vols(0, 1) = 0.24;
+    vols(1, 0) = 0.30;
+    vols(1, 1) = 0.34;
+    const LocalVolSurfaceData_ data("vol", {80.0, 120.0}, {0.0, 1.0}, vols);
+    for (const double time : {-1.0, 0.0, 0.5, 1.0, 2.0}) {
+        for (const double spot : {50.0, 80.0, std::sqrt(80.0 * 120.0), 120.0, 150.0}) {
+            const TapeGuard_ guard(AAD::Tape());
+            AAD::LocalVolSurface_<AAD::Number_> surface(data);
+            for (auto* parameter : surface.Parameters())
+                AAD::PutOnTape(*parameter);
+            AAD::Number_ logSpot(std::log(spot));
+            AAD::PutOnTape(logSpot);
+            surface.Prepare({time});
+            const AAD::Number_ prepared = surface.VolAtLogSpot(0, logSpot);
+            const AAD::Number_ reference = surface.Vol(time, Dal::exp(logSpot));
+            ASSERT_NEAR(AAD::Value(prepared), AAD::Value(reference), 1e-12);
+            AAD::Adjoint(reference) = 1.0;
+            AAD::PropagateToStart(*AAD::Tape());
+            Vector_<> risks;
+            for (const auto* parameter : surface.Parameters())
+                risks.push_back(AAD::Adjoint(*parameter));
+            const double logSpotRisk = AAD::Adjoint(logSpot);
+            AAD::ZeroAdjoints(*AAD::Tape());
+            AAD::Adjoint(prepared) = 1.0;
+            AAD::PropagateToStart(*AAD::Tape());
+            for (size_t i = 0; i < risks.size(); ++i)
+                ASSERT_NEAR(AAD::Adjoint(*surface.Parameters()[i]), risks[i], 1e-12);
+            ASSERT_NEAR(AAD::Adjoint(logSpot), logSpotRisk, 1e-12);
+        }
+    }
+}
+
 TEST(ModelTest, TestLocalVolSurfaceRejectsInvalidAxesAndVols) {
     const Matrix_<> good(2, 2, 0.20);
     ASSERT_THROW(LocalVolSurfaceData_("bad", {120.0, 80.0}, {0.0, 1.0}, good), Exception_);
@@ -254,4 +354,60 @@ TEST(ModelTest, TestHybridLocalVolAadSpotAndVolRisk) {
     ASSERT_NEAR(AAD::Adjoint(*model->Parameters()[2]), expected * (0.4 - 0.20), 1e-8);
     auto clone = model->Clone();
     ASSERT_NE(clone->Parameters()[2], model->Parameters()[2]);
+}
+
+TEST(ModelTest, TestHybridPreparedLocalVolAllRisksAfterReinitialization) {
+    Matrix_<> vols(2, 2);
+    vols(0, 0) = 0.18;
+    vols(0, 1) = 0.22;
+    vols(1, 0) = 0.28;
+    vols(1, 1) = 0.32;
+    const auto data = MakeFlatRateLocalVolHybridModelData("model", "EQ[A]", 100.0, 0.05, 0.02, {80.0, 120.0}, {0.0, 1.0}, vols, 0.25);
+    const Vector_<> timeline{0.0, 0.5, 1.0};
+    Vector_<AAD::SampleDef_> definitions(timeline.size());
+    for (auto& definition : definitions)
+        definition.indexNames_ = {"EQ[A]"};
+    const Vector_<> gaussian{0.2, -0.4, 0.1, 0.3};
+    const auto bumpedValue = [&](size_t parameter, double shift) {
+        auto model = CreateModel<double>(data);
+        model->Allocate(timeline, definitions);
+        *model->Parameters()[parameter] += shift;
+        model->Init(timeline, definitions);
+        AAD::Scenario_<> path;
+        AAD::AllocatePath(definitions, path);
+        model->GeneratePath(gaussian, &path);
+        return (path[1].observations_[0] + path[2].observations_[0]) / path[2].numeraire_;
+    };
+    const TapeGuard_ guard(AAD::Tape());
+    auto model = CreateModel<AAD::Number_>(data);
+    model->Allocate(timeline, definitions);
+    AAD::Scenario_<AAD::Number_> path;
+    AAD::AllocatePath(definitions, path);
+    Vector_<> firstRisks;
+    for (int recording = 0; recording < 2; ++recording) {
+        AAD::Rewind(*AAD::Tape());
+        for (auto* parameter : model->Parameters())
+            AAD::PutOnTape(*parameter);
+        AAD::NewRecording(*AAD::Tape());
+        model->Init(timeline, definitions);
+        AAD::Mark(*AAD::Tape());
+        for (int replay = 0; replay < 2; ++replay) {
+            AAD::RewindToMark(*AAD::Tape());
+            AAD::ZeroAdjoints(*AAD::Tape());
+            model->GeneratePath(gaussian, &path);
+            const AAD::Number_ payoff = (path[1].observations_[0] + path[2].observations_[0]) / path[2].numeraire_;
+            AAD::Adjoint(payoff) = 1.0;
+            AAD::PropagateToStart(*AAD::Tape());
+            ASSERT_NEAR(AAD::Value(payoff), bumpedValue(0, 0.0), 1e-10);
+            for (size_t parameter = 0; parameter < model->Parameters().size(); ++parameter) {
+                const double risk = AAD::Adjoint(*model->Parameters()[parameter]);
+                const double difference = (bumpedValue(parameter, 1e-5) - bumpedValue(parameter, -1e-5)) / 2e-5;
+                ASSERT_NEAR(risk, difference, 1e-7);
+                if (recording == 0 && replay == 0)
+                    firstRisks.push_back(risk);
+                else
+                    ASSERT_DOUBLE_EQ(risk, firstRisks[parameter]);
+            }
+        }
+    }
 }

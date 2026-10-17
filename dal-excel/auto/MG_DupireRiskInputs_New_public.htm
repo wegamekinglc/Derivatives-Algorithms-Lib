@@ -1,0 +1,41 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>DupireRiskInputs_New</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>DupireRiskInputs_New (in Excel: DUPIRERISKINPUTS.NEW)</h1>
+Create immutable spread quotes and grid inputs
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>name</td><td>string</td><td></td><td>Object name</td></tr>
+<tr><td>quoteStrikes</td><td>vector of numbers</td><td></td><td>Positive increasing strike axis</td></tr>
+<tr><td>quoteMaturities</td><td>vector of numbers</td><td></td><td>Positive increasing maturity axis</td></tr>
+<tr><td>quoteSpreads</td><td>matrix of numbers</td><td></td><td>Strike rows, maturity columns; absolute decimal-vol spreads</td></tr>
+<tr><td>grid</td><td>handle of type StorableDupireGrid</td><td></td><td>Immutable grid settings</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>inputs</td><td>handle of type StorableDupireRiskInputs</td><td>Copied quote and grid inputs</td></tr>
+</table>
+
+
+
+
+
+

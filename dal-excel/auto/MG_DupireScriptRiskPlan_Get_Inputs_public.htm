@@ -1,0 +1,38 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>DupireScriptRiskPlan_Get_Inputs</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>DupireScriptRiskPlan_Get_Inputs (in Excel: DUPIRESCRIPTRISKPLAN.GET.INPUTS)</h1>
+Copy required or complete native model and constant axes
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>plan</td><td>handle of type StorableDupireScriptRiskPlan</td><td></td><td>Sealed plan</td></tr>
+<tr><td>complete</td><td>boolean</td><td>yes (default = false)</td><td>True returns the complete model axis; default returns required inputs</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>inputs</td><td>matrix of cells</td><td>Header plus exact model/constant coordinates</td></tr>
+</table>
+
+
+
+
+
+

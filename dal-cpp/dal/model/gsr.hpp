@@ -7,8 +7,10 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <map>
 #include <memory>
 #include <type_traits>
+#include <utility>
 #include <variant>
 
 #include <dal/platform/platform.hpp>
@@ -17,6 +19,7 @@
 #include <dal/curve/logdfinterp.hpp>
 #include <dal/indice/index/ir.hpp>
 #include <dal/indice/indexparse.hpp>
+#include <dal/math/aad/accumulate.hpp>
 #include <dal/model/gsrmultidata.hpp>
 #include <dal/platform/consts.hpp>
 #include <dal/protocol/conventions.hpp>
@@ -37,9 +40,11 @@ namespace Dal::AAD {
             T_ hybridBridgeVol_ = T_(0.0);
         };
 
+        // Inline coefficients avoid table indirection in direct observation calls.
         struct Bond_ {
             Vector_<T_> loading_;
             T_ intercept_;
+            size_t index_ = 0;
         };
         struct DiscountObservation_ {
             Bond_ start_, end_;
@@ -85,9 +90,9 @@ namespace Dal::AAD {
         Vector_<> productTimeLine_;
         Vector_<Step_> steps_;
         Vector_<Vector_<Observation_>> observations_;
-        //  Discount bonds P(t, maturity) prepared per sample from SampleDef_::discountMats_
-        //  (delayed PAYS ... ON payments)
+        Vector_<Vector_<Bond_>> bonds_;
         Vector_<Vector_<Bond_>> discountBonds_;
+        Vector_<bool> reuseBonds_;
 
         [[nodiscard]] double Time(const Date_& date) const {
             REQUIRE(date >= evaluationDate_, "InvalidGSRDate: date precedes evaluation date");
@@ -235,45 +240,54 @@ namespace Dal::AAD {
             return {std::move(loading), intercept};
         }
 
-        [[nodiscard]] static T_ Bond(const Bond_& bond, const T_* state) {
-            T_ exponent = bond.intercept_;
-            for (size_t i = 0; i < bond.loading_.size(); ++i)
-                exponent -= bond.loading_[i] * state[i];
-            return Dal::exp(exponent);
+        template <size_t N_, class F_, class G_> static auto WithSmallFactorCount(size_t factors, const F_& fixed, const G_& general) {
+            if (factors == N_)
+                return fixed(std::integral_constant<size_t, N_>{});
+            if constexpr (N_ < 3)
+                return WithSmallFactorCount<N_ + 1>(factors, fixed, general);
+            else
+                return general();
         }
 
-        [[nodiscard]] LiborObservation_ PrepareLibor(double time,
-                                                     const Date_& start,
-                                                     const Date_& maturity,
-                                                     const String_& tenor,
-                                                     const DayBasis_& basis,
-                                                     const Matrix_<T_>& variance,
-                                                     const Vector_<T_>& mean) const {
+        [[nodiscard]] static T_ Bond(const Bond_& bond, const T_* state) {
+            return WithSmallFactorCount<1>(
+                bond.loading_.size(),
+                [&](auto count) -> T_ {
+                    return Dal::exp(Accumulate<decltype(count)::value>(bond.intercept_, [&](size_t i) { return -(bond.loading_[i] * state[i]); }));
+                },
+                [&]() -> T_ {
+                    T_ exponent = bond.intercept_;
+                    for (size_t i = 0; i < bond.loading_.size(); ++i)
+                        exponent -= bond.loading_[i] * state[i];
+                    return Dal::exp(exponent);
+                });
+        }
+
+        template <class F_>
+        [[nodiscard]] LiborObservation_
+        PrepareLibor(const Date_& start, const Date_& maturity, const String_& tenor, const DayBasis_& basis, const F_& prepareBond) const {
             const double accrual = basis(start, maturity, nullptr);
             REQUIRE(accrual > 0.0 && start < maturity, "InvalidGSRObservation: invalid Libor accrual");
             const auto& projection = Projection(tenor);
             const T_ scale = Dal::exp(LogDF(Time(start), projection) - LogDF(Time(maturity), projection) - LogDF(start) + LogDF(maturity));
-            return {PrepareBond(time, start, variance, mean), PrepareBond(time, maturity, variance, mean), scale, accrual};
+            return {prepareBond(start), prepareBond(maturity), scale, accrual};
         }
 
         template <class F_> [[nodiscard]] static T_ Libor(const LiborObservation_& request, const F_& price) {
             return (request.scale_ * price(request.start_) / price(request.end_) - 1.0) / request.accrual_;
         }
 
-        [[nodiscard]] Observation_
-        PrepareObservation(const String_& name, const Date_& sampleDate, const Matrix_<T_>& variance, const Vector_<T_>& mean) const {
+        template <class F_> [[nodiscard]] Observation_ PrepareObservation(const String_& name, const Date_& sampleDate, const F_& prepareBond) const {
             const Handle_<Index_> index(Index::Parse(name));
             const DateTime_ eventTime(sampleDate, 0.0);
-            const double time = Time(sampleDate);
             if (const auto* df = dynamic_cast<const Index::DF_*>(index.get())) {
                 const Date_ start = df->StartDate(eventTime), maturity = df->Maturity(eventTime);
                 REQUIRE(start >= sampleDate && maturity > start, "InvalidGSRObservation: invalid discount interval");
-                return DiscountObservation_{PrepareBond(time, start, variance, mean), PrepareBond(time, maturity, variance, mean)};
+                return DiscountObservation_{prepareBond(start), prepareBond(maturity)};
             } else if (const auto* libor = dynamic_cast<const Index::Libor_*>(index.get())) {
                 const Date_ start = libor->StartDate(eventTime);
                 const Date_ maturity = Date::NominalMaturity(start, libor->tenor_.Period(), libor->ccy_);
-                return PrepareLibor(time, start, maturity, libor->tenor_.Period().String(), Ccy::Conventions::LiborDayBasis()(libor->ccy_), variance,
-                                    mean);
+                return PrepareLibor(start, maturity, libor->tenor_.Period().String(), Ccy::Conventions::LiborDayBasis()(libor->ccy_), prepareBond);
             } else if (const auto* swap = dynamic_cast<const Index::Swap_*>(index.get())) {
                 const Date_ start = swap->StartDate(eventTime);
                 const Date_ maturity = Date::ParseIncrement(swap->tenor_)->FwdFrom(start);
@@ -290,12 +304,12 @@ namespace Dal::AAD {
                                         floatLeg.paymentConvention_, floatLeg.endOfMonth_);
                 SwapObservation_ result;
                 for (const auto& period : fixedPeriods)
-                    result.fixed_.push_back({PrepareBond(time, period.paymentDate_, variance, mean),
+                    result.fixed_.push_back({prepareBond(period.paymentDate_),
                                              fixedLeg.dayBasis_(period.accrualStart_, period.accrualEnd_, period.dayCountContext_.get())});
                 for (const auto& period : floatPeriods)
-                    result.floating_.push_back({PrepareLibor(time, period.accrualStart_, period.accrualEnd_, floatIndex.Period().String(),
-                                                             Ccy::Conventions::LiborDayBasis()(swap->ccy_), variance, mean),
-                                                PrepareBond(time, period.paymentDate_, variance, mean),
+                    result.floating_.push_back({PrepareLibor(period.accrualStart_, period.accrualEnd_, floatIndex.Period().String(),
+                                                             Ccy::Conventions::LiborDayBasis()(swap->ccy_), prepareBond),
+                                                prepareBond(period.paymentDate_),
                                                 floatLeg.dayBasis_(period.accrualStart_, period.accrualEnd_, period.dayCountContext_.get())});
                 return result;
             } else
@@ -365,7 +379,7 @@ namespace Dal::AAD {
                                  0.5 * Quadratic(step->loading_, StateVariance(0.0, from)) + (2.0 / 3.0) * variance;
         }
 
-        void AdvancePath(const Step_& step, const double* gaussian, T_* state, T_* logNumeraire) const {
+        void AdvancePathGeneral(const Step_& step, const double* gaussian, T_* state, T_* logNumeraire) const {
             T_ logDiscount = step.a_;
             for (size_t i = 0; i < NumFactors(); ++i)
                 logDiscount -= step.loading_[i] * state[i] + step.discountNormals_[i] * gaussian[i];
@@ -373,6 +387,36 @@ namespace Dal::AAD {
             for (size_t i = 0; i < NumFactors(); ++i)
                 for (size_t j = 0; j <= i; ++j)
                     state[i] += step.lower_(static_cast<int>(i), static_cast<int>(j)) * gaussian[j];
+        }
+
+        template <size_t I_> static void AdvanceFactor(const Step_& step, const double* gaussian, T_* state) {
+            state[I_] = Accumulate<I_ + 1>(state[I_], [&](size_t j) { return step.lower_(static_cast<int>(I_), static_cast<int>(j)) * gaussian[j]; });
+        }
+
+        template <size_t... I_> static void AdvanceFactors(const Step_& step, const double* gaussian, T_* state, std::index_sequence<I_...>) {
+            (AdvanceFactor<I_>(step, gaussian, state), ...);
+        }
+
+        void AdvancePath(const Step_& step, const double* gaussian, T_* state, T_* logNumeraire) const {
+            WithSmallFactorCount<1>(
+                NumFactors(),
+                [&](auto count) {
+                    *logNumeraire -= Accumulate<decltype(count)::value>(
+                        step.a_, [&](size_t i) { return -(step.loading_[i] * state[i] + step.discountNormals_[i] * gaussian[i]); });
+                    AdvanceFactors(step, gaussian, state, std::make_index_sequence<decltype(count)::value>{});
+                },
+                [&] { AdvancePathGeneral(step, gaussian, state, logNumeraire); });
+        }
+
+        [[nodiscard]] T_ BondHJM(const Bond_& bond, const T_* state, const T_* covariance) const {
+            T_ exponent = bond.intercept_;
+            for (size_t i = 0; i < bond.loading_.size(); ++i)
+                exponent -= bond.loading_[i] * state[i];
+            const size_t n = NumFactors();
+            for (size_t i = 0; i < n; ++i)
+                for (size_t j = 0; j < n; ++j)
+                    exponent -= 0.5 * covariance[i * n + j] * bond.loading_[i] * bond.loading_[j];
+            return Dal::exp(exponent);
         }
 
         template <class F_> [[nodiscard]] static T_ Observe(const Observation_& request, const F_& price) {
@@ -396,8 +440,61 @@ namespace Dal::AAD {
                 request);
         }
 
-        void GeneratePathWithState(const Vector_<>& gaussian, Scenario_<T_>* path, T_* state) const {
+        template <class F_> void WriteObservations(size_t sample, const F_& price, Sample_<T_>* output) const {
+            for (size_t slot = 0; slot < observations_[sample].size(); ++slot)
+                output->observations_[slot] = Observe(observations_[sample][slot], price);
+            for (size_t slot = 0; slot < discountBonds_[sample].size(); ++slot)
+                output->discounts_[slot] = price(discountBonds_[sample][slot]);
+        }
+
+        void ValidateHybridBatchOutputs(size_t sample, const Vector_<std::pair<size_t, size_t>>& slots, const Sample_<T_>* output) const {
+            REQUIRE(output && output->discounts_.size() == discountBonds_[sample].size(),
+                    "InvalidGSRObservation: batch discount dimensions do not match");
+            for (const auto& slot : slots)
+                REQUIRE(slot.first < observations_[sample].size() && slot.second < output->observations_.size(),
+                        "InvalidGSRObservation: batch observation slot is outside its prepared or output range");
+        }
+
+        template <bool HJM_> [[nodiscard]] T_ BatchBond(const Bond_& bond, const T_* factors) const {
+            if constexpr (HJM_)
+                return BondHJM(bond, factors, factors + NumFactors());
+            else
+                return Bond(bond, factors);
+        }
+
+        template <bool HJM_>
+        bool FillHybridObservationBatchImpl(size_t sample,
+                                            const Vector_<std::pair<size_t, size_t>>& slots,
+                                            const Vector_<T_>& state,
+                                            size_t stateOffset,
+                                            Sample_<T_>* output,
+                                            size_t scratchPrefix) const {
+            if (!UsesHybridObservationBatch(sample))
+                return false;
+            ValidateHybridBatchOutputs(sample, slots, output);
+            const size_t dimension = HJM_ ? NumFactors() * (NumFactors() + 1) : NumFactors();
+            REQUIRE(stateOffset <= state.size() && dimension <= state.size() - stateOffset,
+                    "InvalidGSRObservation: batch rate state exceeds its vector");
+            auto& prices = output->modelScratch_;
+            REQUIRE(scratchPrefix <= prices.size(), "InvalidGSRObservation: scratch prefix exceeds its vector");
+            REQUIRE(&prices != &state || scratchPrefix >= stateOffset + dimension, "InvalidGSRObservation: scratch prefix overlaps the rate state");
+            prices.erase(prices.begin() + scratchPrefix, prices.end());
+            prices.reserve(scratchPrefix + bonds_[sample].size());
+            // Reserve before obtaining the state pointer: the first Hybrid sample shares this vector.
+            const T_* factors = &state[stateOffset];
+            for (const auto& bond : bonds_[sample])
+                prices.push_back(BatchBond<HJM_>(bond, factors));
+            const auto price = [&](const Bond_& bond) -> const T_& { return prices[scratchPrefix + bond.index_]; };
+            for (const auto& slot : slots)
+                output->observations_[slot.second] = Observe(observations_[sample][slot.first], price);
+            for (size_t slot = 0; slot < discountBonds_[sample].size(); ++slot)
+                output->discounts_[slot] = price(discountBonds_[sample][slot]);
+            return true;
+        }
+
+        void GeneratePathWithState(const Vector_<>& gaussian, Scenario_<T_>* path, T_* state, size_t statePrefix) const {
             T_ logNumeraire(0.0);
+            const T_ zeroSpot(0.0);
             size_t gaussianSlot = 0;
             for (size_t i = 0; i < productTimeLine_.size(); ++i) {
                 const auto& step = steps_[i];
@@ -406,12 +503,18 @@ namespace Dal::AAD {
                     gaussianSlot += NumFactors();
                 }
                 auto& sample = (*path)[i];
-                sample.spot_ = T_(0.0);
+                sample.spot_ = zeroSpot;
                 sample.numeraire_ = Dal::exp(logNumeraire);
-                for (size_t j = 0; j < observations_[i].size(); ++j)
-                    sample.observations_[j] = Observe(observations_[i][j], [&](const Bond_& bond) { return Bond(bond, state); });
-                for (size_t k = 0; k < discountBonds_[i].size(); ++k)
-                    sample.discounts_[k] = Bond(discountBonds_[i][k], state);
+                if (reuseBonds_[i]) {
+                    auto& prices = sample.modelScratch_;
+                    const size_t prefix = i == 0 ? statePrefix : 0;
+                    prices.Resize(prefix);
+                    prices.reserve(prefix + bonds_[i].size());
+                    for (const auto& bond : bonds_[i])
+                        prices.push_back(Bond(bond, state));
+                    WriteObservations(i, [&](const Bond_& bond) -> const T_& { return prices[prefix + bond.index_]; }, &sample);
+                } else
+                    WriteObservations(i, [&](const Bond_& bond) { return Bond(bond, state); }, &sample);
             }
         }
 
@@ -477,7 +580,9 @@ namespace Dal::AAD {
                 productTimeLine_ = other.productTimeLine_;
                 steps_ = other.steps_;
                 observations_ = other.observations_;
+                bonds_ = other.bonds_;
                 discountBonds_ = other.discountBonds_;
+                reuseBonds_ = other.reuseBonds_;
                 SetParameterPointers();
             }
             return *this;
@@ -527,16 +632,25 @@ namespace Dal::AAD {
         [[nodiscard]] T_ ObserveHJMFlat(size_t sample, size_t slot, const T_* state, const T_* covariance) const {
             REQUIRE(sample < observations_.size() && slot < observations_[sample].size(),
                     "InvalidGSRObservation: HJM sample, state or covariance dimensions do not match");
-            const size_t n = NumFactors();
-            return Observe(observations_[sample][slot], [&](const Bond_& bond) -> T_ {
-                T_ exponent = bond.intercept_;
-                for (size_t i = 0; i < bond.loading_.size(); ++i)
-                    exponent -= bond.loading_[i] * state[i];
-                for (size_t i = 0; i < n; ++i)
-                    for (size_t j = 0; j < n; ++j)
-                        exponent -= 0.5 * covariance[i * n + j] * bond.loading_[i] * bond.loading_[j];
-                return Dal::exp(exponent);
-            });
+            return Observe(observations_[sample][slot], [&](const Bond_& bond) { return BondHJM(bond, state, covariance); });
+        }
+        bool FillHJMObservations(size_t sample, const Vector_<T_>& state, const Matrix_<T_>& covariance, Sample_<T_>* output) const {
+            if (!UsesHybridObservationBatch(sample))
+                return false;
+            REQUIRE(state.size() == NumFactors() && covariance.Rows() == static_cast<int>(NumFactors()) &&
+                        covariance.Cols() == static_cast<int>(NumFactors()),
+                    "InvalidGSRObservation: HJM state or covariance dimensions do not match");
+            REQUIRE(output && output->observations_.size() == observations_[sample].size() &&
+                        output->discounts_.size() == discountBonds_[sample].size(),
+                    "InvalidGSRObservation: HJM output dimensions do not match");
+            auto& prices = output->modelScratch_;
+            REQUIRE(&prices != &state, "InvalidGSRObservation: standalone HJM scratch aliases the factor state");
+            prices.clear();
+            prices.reserve(bonds_[sample].size());
+            for (const auto& bond : bonds_[sample])
+                prices.push_back(BondHJM(bond, &state[0], &covariance(0, 0)));
+            WriteObservations(sample, [&](const Bond_& bond) -> const T_& { return prices[bond.index_]; }, output);
+            return true;
         }
         void ResetAnchorsForRecording() {
             if constexpr (!std::is_same_v<T_, double>) {
@@ -563,10 +677,20 @@ namespace Dal::AAD {
             REQUIRE(factorSlots.size() == NumFactors() + 1 && factors.size() >= NumFactors() + 1, "InvalidGSRPath: hybrid factor layout mismatch");
             const Step_& step = steps_[sample];
             REQUIRE(step.hybridStateVol_.size() == NumFactors(), "InvalidGSRPath: call InitHybrid before hybrid stepping");
-            T_ increment = step.hybridDrift_ + step.hybridBridgeVol_ * factors[factorSlots.back()];
-            for (size_t i = 0; i < NumFactors(); ++i)
-                increment += step.loading_[i] * state[i] + step.hybridNormals_[i] * factors[factorSlots[i]];
-            *logNumeraire += increment;
+            WithSmallFactorCount<1>(
+                NumFactors(),
+                [&](auto count) {
+                    *logNumeraire +=
+                        Accumulate<decltype(count)::value>(step.hybridDrift_ + step.hybridBridgeVol_ * factors[factorSlots.back()], [&](size_t i) {
+                            return step.loading_[i] * state[i] + step.hybridNormals_[i] * factors[factorSlots[i]];
+                        });
+                },
+                [&] {
+                    T_ increment = step.hybridDrift_ + step.hybridBridgeVol_ * factors[factorSlots.back()];
+                    for (size_t i = 0; i < NumFactors(); ++i)
+                        increment += step.loading_[i] * state[i] + step.hybridNormals_[i] * factors[factorSlots[i]];
+                    *logNumeraire += increment;
+                });
             for (size_t i = 0; i < NumFactors(); ++i)
                 state[i] += step.hybridStateVol_[i] * factors[factorSlots[i]];
         }
@@ -581,6 +705,29 @@ namespace Dal::AAD {
                     "InvalidGSRObservation: discount sample or dimensions do not match");
             for (size_t k = 0; k < discounts->size(); ++k)
                 (*discounts)[k] = Bond(discountBonds_[sample][k], state);
+        }
+
+        [[nodiscard]] bool UsesHybridObservationBatch(size_t sample) const {
+            REQUIRE(sample < reuseBonds_.size(), "InvalidGSRObservation: batch sample was not prepared");
+            return reuseBonds_[sample];
+        }
+
+        bool FillHybridObservationBatch(size_t sample,
+                                        const Vector_<std::pair<size_t, size_t>>& slots,
+                                        const Vector_<T_>& state,
+                                        size_t stateOffset,
+                                        Sample_<T_>* output,
+                                        size_t scratchPrefix) const {
+            return FillHybridObservationBatchImpl<false>(sample, slots, state, stateOffset, output, scratchPrefix);
+        }
+
+        bool FillHybridHJMObservationBatch(size_t sample,
+                                           const Vector_<std::pair<size_t, size_t>>& slots,
+                                           const Vector_<T_>& state,
+                                           size_t stateOffset,
+                                           Sample_<T_>* output,
+                                           size_t scratchPrefix) const {
+            return FillHybridObservationBatchImpl<true>(sample, slots, state, stateOffset, output, scratchPrefix);
         }
 
         [[nodiscard]] size_t NumAssets() const override { return 0; }
@@ -623,12 +770,40 @@ namespace Dal::AAD {
             productTimeLine_ = timeline;
             steps_.Resize(timeline.size());
             observations_.Resize(timeline.size());
+            bonds_.Resize(timeline.size());
             discountBonds_.Resize(timeline.size());
+            reuseBonds_.Resize(timeline.size());
         }
         void Init(const Vector_<>& timeline, const Vector_<SampleDef_>& definitions) override { InitObservations(timeline, definitions, true); }
         void InitHJM(const Vector_<>& timeline, const Vector_<SampleDef_>& definitions) { InitObservations(timeline, definitions, false); }
 
     private:
+        void PrepareSampleObservations(
+            size_t sample, const Date_& sampleDate, const SampleDef_& definition, const Matrix_<T_>& variance, const Vector_<T_>& mean) {
+            const double current = productTimeLine_[sample];
+            observations_[sample].clear();
+            bonds_[sample].clear();
+            reuseBonds_[sample] = false;
+            std::map<Date_, size_t> bondIndices;
+            // All bonds in a sample use the discount curve; projection basis stays in Libor's scale.
+            const auto prepareBond = [&](const Date_& maturity) {
+                const auto [entry, inserted] = bondIndices.try_emplace(maturity, bonds_[sample].size());
+                if (inserted) {
+                    bonds_[sample].push_back(PrepareBond(current, maturity, variance, mean));
+                    bonds_[sample].back().index_ = entry->second;
+                } else
+                    reuseBonds_[sample] = true;
+                return bonds_[sample][entry->second];
+            };
+            for (const auto& name : definition.indexNames_)
+                observations_[sample].push_back(PrepareObservation(name, sampleDate, prepareBond));
+            discountBonds_[sample].clear();
+            for (const double maturity : definition.discountMats_) {
+                REQUIRE(maturity >= current, "InvalidGSRDiscount: discount maturity precedes its sample");
+                discountBonds_[sample].push_back(prepareBond(DateAt(maturity)));
+            }
+        }
+
         void InitObservations(const Vector_<>& timeline, const Vector_<SampleDef_>& definitions, bool gaussian) {
             REQUIRE(timeline == productTimeLine_, "InvalidGSRTimeline: Allocate and Init timelines differ");
             this->ValidateTimeline(timeline, definitions);
@@ -643,16 +818,9 @@ namespace Dal::AAD {
                     ComputeStep(previous, current, &steps_[i]);
                 else
                     steps_[i] = Step_();
-                observations_[i].clear();
                 const auto variance = gaussian ? StateVariance(0.0, current) : Matrix_<T_>(NumFactors(), NumFactors(), T_(0.0));
                 const auto mean = gaussian ? DiscountedStateMean(current) : Vector_<T_>(NumFactors(), T_(0.0));
-                for (const auto& name : definitions[i].indexNames_)
-                    observations_[i].push_back(PrepareObservation(name, sampleDate, variance, mean));
-                discountBonds_[i].clear();
-                for (const double maturity : definitions[i].discountMats_) {
-                    REQUIRE(maturity >= current, "InvalidGSRDiscount: discount maturity precedes its sample");
-                    discountBonds_[i].push_back(PrepareBond(current, DateAt(maturity), variance, mean));
-                }
+                PrepareSampleObservations(i, sampleDate, definitions[i], variance, mean);
                 previous = current;
             }
         }
@@ -664,12 +832,18 @@ namespace Dal::AAD {
         void GeneratePath(const Vector_<>& gaussian, Scenario_<T_>* path) const override {
             REQUIRE(gaussian.size() == SimDim() && path && path->size() == productTimeLine_.size(),
                     "InvalidGSRPath: Gaussian or scenario dimension mismatch");
+            if (path->empty())
+                return;
             if (NumFactors() == 1) {
                 T_ state(0.0);
-                GeneratePathWithState(gaussian, path, &state);
+                GeneratePathWithState(gaussian, path, &state, 0);
             } else {
-                Vector_<T_> state(NumFactors(), T_(0.0));
-                GeneratePathWithState(gaussian, path, &state[0]);
+                auto& state = (*path)[0].modelScratch_;
+                state.Resize(NumFactors());
+                // First-sample bond caching shares this vector; establish capacity before taking state pointers.
+                state.reserve(NumFactors() + (reuseBonds_[0] ? bonds_[0].size() : 0));
+                std::fill(state.begin(), state.end(), T_(0.0));
+                GeneratePathWithState(gaussian, path, &state[0], NumFactors());
             }
         }
     };

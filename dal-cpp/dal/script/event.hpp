@@ -4,6 +4,10 @@
 
 #pragma once
 
+#include <regex>
+#include <type_traits>
+#include <utility>
+
 #include <dal/math/aad/sample.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/script/node.hpp>
@@ -12,8 +16,6 @@
 #include <dal/storage/archive.hpp>
 #include <dal/time/date.hpp>
 #include <dal/utilities/algorithms.hpp>
-#include <regex>
-#include <utility>
 
 /*IF--------------------------------------------------------------------------
 storable ScriptProductData
@@ -166,6 +168,12 @@ namespace Dal::Script {
         [[nodiscard]] const Vector_<Vector_<>>& VectorValues() const { return vectorValues_; }
         [[nodiscard]] const Vector_<>& TimeLine() const { return timeLine_; }
         [[nodiscard]] const Vector_<AAD::SampleDef_>& DefLine() const { return defLine_; }
+
+        template <class E_> void InitializeHistoricalState(E_* evaluator) const {
+            using T_ = typename std::decay_t<decltype(evaluator->VarVals())>::value_type;
+            evaluator->SetHistoricalSeed(Vector_<T_>(variableValues_.begin(), variableValues_.end()));
+            evaluator->SetHistoricalVectorSeed(TypedVectorValues<T_>(vectorValues_));
+        }
 
         template <class T_> Evaluator_<T_> BuildEvaluator() const {
             Evaluator_<T_> evaluator(variableValues_, Apply([](double x) { return T_(x); }, consVariablesValues_), vectorCapacities_);

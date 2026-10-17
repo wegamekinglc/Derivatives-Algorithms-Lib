@@ -2344,7 +2344,6 @@ TEST(RateCashflowPricingTest, TestXccyNodeAADTriPartiteIsolation) {
     assertDenseNonTargetLeavesTargetUntouched(XCCY_FOR_OIS, assemble(noCurve, noCurve), assemble(noCurve, dense(0.032, "USD")));
 }
 
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
 TEST(RateCashflowPricingTest, TestXccyNodeAADTapeSizeBoundedByPeriodsTimesKnots) {
     // Frozen P0 contract 8 size bound: the kernel resolves one fixing per coupon period, so the
     // recording scales with periods (and a per-knot curve-construction constant), never with the
@@ -2417,7 +2416,6 @@ TEST(RateCashflowPricingTest, TestXccyNodeAADTapeSizeBoundedByPeriodsTimesKnots)
     ASSERT_GT(sizeAnnual, 0);
     ASSERT_LE(sizeAnnual, 1.5 * sizeQuarterly);
 }
-#endif
 
 TEST(RateCashflowPricingTest, TestFraAndFutureNodeAADActivePvEqualsPassiveBitwiseBothSettlementModes) {
     const Dal::Date_ today(2026, 1, 15);
@@ -3566,7 +3564,6 @@ TEST(RateCashflowPricingTest, TestXccyNodeAADReasonPrecedenceForCombinedFailures
     AssertCanonicalFailure(Dal::RateTradeNodeSensitivities(invalidTrade, supported, XCCY_DOM_OIS), "TRADE_VALIDATION_FAILED");
 }
 
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
 TEST(RateCashflowPricingTest, TestNodeSensitivitySweepTapeSizeIndependentOfPassiveCurveDensity) {
     // Direct native seam (Tape_::nodes_ / BlockList_::Size()): an unregistered-constant
     // AAD::Number_ passive curve would still pass value and width assertions, but its per-knot
@@ -3651,7 +3648,6 @@ TEST(RateCashflowPricingTest, TestNodeSensitivityTapeObservationIsScopedAndConcu
         std::runtime_error);
     ASSERT_EQ(internal::g_nodeSensitivityTapeSizeSink.load(), nullptr);
 }
-#endif
 
 TEST(RateCashflowPricingTest, TestAggregatePortfolioNodeRiskCountsDuplicateKeysOnce) {
     const Dal::Date_ today(2026, 1, 15);

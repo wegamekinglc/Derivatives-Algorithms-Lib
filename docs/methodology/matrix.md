@@ -67,6 +67,244 @@ Dense matrix-matrix products use zero-copy Eigen views by default, with Eigen's
 internal parallelism disabled. `DAL_USE_EIGEN=OFF` selects the built-in SIMD
 kernel. Both paths preserve output aliasing and empty-shape behavior.
 
+## Dense Linear-Solve Pullback
+
+`LinearSolvePullback_` in `dal-cpp/dal/math/matrix/linearsolvepullback.hpp`
+solves $AX=B$ with one or more right-hand-side columns and retains its normalized,
+row-pivoted LU factors and solution. `Reverse(W)` reuses those factors to return
+fresh dense matrix and RHS contributions:
+
+$$
+A^{\mathsf T}\Lambda=W,\qquad
+\bar B=\Lambda,\qquad \bar A=-\Lambda X^{\mathsf T}.
+$$
+
+The matrix result sums over all RHS columns. Its coordinates are independent
+dense entries; symmetric or shared coordinates require callers to combine the
+corresponding entries. The operator owns its numeric state, accepts repeated
+const reverse calls, and can be shared across concurrent readers. It does not
+record native tape events or accumulate into caller adjoints.
+
+Inputs must have positive compatible dimensions and finite values. A is scaled
+by its largest absolute entry before partial pivoting. The relative pivot
+tolerance defaults to 64 times double machine epsilon and must lie strictly
+between zero and one; pivots at or below it are rejected. `ScaledMinimumPivot()`
+reports the smallest accepted normalized pivot, which is not a condition number.
+The solve does not regularize or truncate rank. Non-finite arithmetic, including
+overflow in a reverse contribution, raises a DAL exception; a failed reverse
+leaves the operator usable for a subsequent valid seed.
+
+RHS columns whose early normalization would become subnormal use the original
+RHS during substitution and divide the solved column by the matrix scale
+afterward. This preserves representable tiny solutions and adjoints; each RHS
+chooses its scaling order independently. A nonzero solved component that becomes
+zero at final scaling raises an exception instead of publishing a truncated
+contribution. Finite inputs may still be rejected if substitution overflows.
+
+```cpp
+Dal::LinearSolvePullback_ solve(matrix, rhs);
+const auto& values = solve.Solution();
+const auto contributions = solve.Reverse(solutionSeeds);
+// contributions.matrix_ and contributions.rhs_ own their dense numeric values.
+```
+
+Construction costs $O(n^3+n^2m)$ for n rows and m RHS columns. Each reverse costs
+$O(n^2m)$, with no inverse or repeated factorization; retained storage is
+$O(n^2+nm)$.
+
+### Symmetric and Banded Solve Coordinates
+
+`LinearSolveCoordinates_` and `CoordinateLinearSolvePullback_` in
+`dal/math/matrix/linearsolvecoordinates.hpp` describe independent matrix
+parameters explicitly. `Symmetric(n)` packs the lower triangle by row:
+$(0,0),(1,0),(1,1),\ldots$. Each off-diagonal parameter sets both symmetric
+entries. Symmetry does not require positive definiteness; the solve uses the
+same general pivoted LU and numerical policy as the dense operator.
+
+`Banded(n, below, above)` packs actual entries by row, then increasing column,
+with columns from $\max(0,i-\mathrm{below})$ through
+$\min(n-1,i+\mathrm{above})$. Outside entries are fixed zero and boundary
+padding has no parameter. For example, `Banded(3, 1, 0)` uses
+$(0,0),(1,0),(1,1),(2,1),(2,2)$, rather than a padded rectangular band array.
+`Count()` reports the number of parameters; `Location(k)` returns the
+representative physical entry for parameter k. Layouts own constant-size
+metadata and validate dimensions, widths and representable dense storage.
+
+For $A(p)X=B$, reverse reuses the LU to solve $A^{\mathsf T}\Lambda=W$ and
+contracts each independent parameter with $-\Lambda X^{\mathsf T}$. In the
+symmetric layout,
+
+$$
+\bar p_{ii}=-\sum_r\Lambda_{ir}X_{ir},\qquad
+\bar p_{ij}=-\sum_r(\Lambda_{ir}X_{jr}+\Lambda_{jr}X_{ir}),\quad i>j.
+$$
+
+The off-diagonal contribution is a sum, without averaging. Banded parameters
+receive only their physical entry's contribution. `Reverse(W)` returns owning
+`coordinates_` in packing order and dense `rhs_`; `ReverseRhs(W)` computes
+only the RHS contribution. Source mutation, repeated const calls and concurrent
+readers do not alter the cache. Non-finite contributions raise an exception and
+leave it usable for a later valid seed. All buffers obey the active budget.
+
+```cpp
+#include <dal/math/matrix/linearsolvecoordinates.hpp>
+
+const auto layout = Dal::LinearSolveCoordinates_::Symmetric(2);
+const Dal::Vector_<> parameters = {2.0, 1.0, 3.0};
+Dal::CoordinateLinearSolvePullback_ solve(layout, parameters, rhs);
+const auto contributions = solve.Reverse(solutionSeeds);
+// coordinates_[1] combines the A(1,0) and A(0,1) contributions.
+```
+
+For p parameters and m RHS columns, the parameter contraction costs $O(pm)$
+and reverse allocates $O(p+nm)$ output storage, without a dense matrix adjoint.
+Transpose substitution still costs $O(n^2m)$; factorization and retained storage
+remain dense. This numeric surface does not record native tape events. The
+[native coordinate overloads](aad.md#recorded-solve-coordinates) compose the same
+layouts and owning cache with ordinary active expressions in a recording scope.
+
+### Optional Solve Diagnostics
+
+`DiagnosedLinearSolve_` in `dal/math/matrix/linearsolvediagnostics.hpp`
+owns a numeric pullback and its passive diagnostics. It reuses the same LU to
+solve normalized inverse columns and reports
+`reciprocalConditionInfinity_`, the floating-point value of
+$1/(\lVert A\rVert_\infty\lVert A^{-1}\rVert_\infty)$.
+Norm scaling avoids overflowing the product or constructing the physical
+inverse of a uniformly tiny matrix. This diagnostic is independent of the
+minimum pivot; an accepted system can still be ill-conditioned. A small
+reciprocal signals sensitivity, and a value below representable range is zero.
+No additional condition threshold changes the pivot policy.
+
+`componentwiseBackwardErrors_` contains one value per RHS column:
+
+$$
+\mathrm{berr}_j = \max_i
+\frac{|(AX-B)_{ij}|}{\sum_k |A_{ik}X_{kj}|+|B_{ij}|}.
+$$
+
+A zero denominator denotes an exact zero equation and contributes zero.
+`LinearSolveBackwardErrors(A, B, X)` also evaluates this metric independently
+for any finite candidate X, including a solution from another solver. Binary
+exponent scaling prevents intermediate product overflow/underflow; explicit
+FMA product compensation and compensated summation retain small residuals
+through cancellation. A binary64 mantissa of scaling headroom preserves
+representable subnormal ratios, including sums of individually tiny products,
+while keeping sums safe for int-sized matrix rows.
+Rounding below the final representable ratio can still
+produce zero. A small backward error alone does not guarantee a small forward
+error for an ill-conditioned matrix.
+
+```cpp
+#include <dal/math/matrix/linearsolvediagnostics.hpp>
+
+Dal::DiagnosedLinearSolve_ result(matrix, rhs);
+const auto& diagnostics = result.Diagnostics();
+const auto& values = result.Solve().Solution();
+const auto contributions = result.Solve().Reverse(solutionSeeds);
+```
+
+Diagnostics add $O(n^3+n^2m)$ work, $O(n^2)$ temporary scratch and $O(m)$
+retained error values. They perform no second factorization and retain no
+inverse. All numeric allocations obey the active buffer budget and refund
+failed construction. Opt-in construction rejects unsupported diagnostic
+inverse range even if the supplied RHS alone is solvable. Ordinary
+`LinearSolvePullback_` and native recorded solves keep their existing work,
+layout and caches. The optional native `LinearSolveWithDiagnostics` returns
+the same passive diagnostics alongside recorded outputs; see
+[recorded dense solves](aad.md#recorded-dense-linear-solves).
+
+The reciprocal definition and componentwise metric correspond to the
+[LAPACK condition interface](https://www.netlib.org/lapack/explore-html/d4/daf/group__gecon_ga4f9b830e19e12c7f082ddb497a57af18.html)
+and [backward-error interface](https://www.netlib.org/lapack/explore-html/d5/da4/group__gerfs_gaf9908a6db85a278e5756cbded5f49819.html).
+The diagnostic computes inverse columns directly; it supplies neither a norm
+estimator nor iterative refinement or certified forward-error bounds.
+
+### Explicit Forward and Transpose Accuracy
+
+`CheckedLinearSolve_` in `dal/math/matrix/linearsolveaccuracy.hpp` owns the
+diagnosed solve, a physical transpose snapshot and an explicit
+`LinearSolveAccuracyPolicy_`. Its required policy specifies maximum forward
+and transpose componentwise backward errors. Limits must be finite in [0,1];
+equality passes. The separate relative pivot tolerance retains its existing
+meaning and default. Construction checks each forward RHS error before
+exposing the solution and diagnostics.
+
+`Reverse(W)` and `ReverseRhs(W)` perform one cached transpose solve, then
+evaluate the same compensated metric for $A^{\mathsf T}\Lambda=W$ against
+the captured physical entries. They return owning `CheckedLinearSolveAdjoints_`
+with `adjoints_` and one `transposeBackwardErrors_` value per RHS column.
+Full reverse supplies dense A/B contributions; RHS-only leaves
+`adjoints_.matrix_` empty and omits its storage, work and overflow checks.
+Later changes to source A/B do not change the solve or its residual checks.
+Repeated and concurrent const reverse calls have separate reports.
+
+```cpp
+#include <dal/math/matrix/linearsolveaccuracy.hpp>
+
+Dal::SquareMatrix_<> matrix(2);
+matrix(0, 0) = 2.0;
+matrix(0, 1) = 1.0;
+matrix(1, 1) = 4.0;
+Dal::Matrix_<> rhs(2, 1), seeds(2, 1);
+rhs(0, 0) = 5.0;
+rhs(1, 0) = 8.0;
+seeds(0, 0) = 3.0;
+seeds(1, 0) = -1.0;
+Dal::CheckedLinearSolve_ solve(matrix, rhs, {1e-14, 1e-14});
+const auto risk = solve.ReverseRhs(seeds);
+// risk.adjoints_.rhs_ is [1.5, -0.625]; both error reports are zero.
+const auto& forwardErrors = solve.Diagnostics().componentwiseBackwardErrors_;
+const auto& transposeErrors = risk.transposeBackwardErrors_;
+```
+
+An unmet policy or invalid numeric contribution throws without returning a
+partial result; a later valid reverse can reuse the cache. Limits govern a
+floating-point diagnostic, not a certified error enclosure. A zero limit
+demands zero reported error and does not prove exact arithmetic. Conditioning
+remains separate: an accepted ill-conditioned equation can have large finite
+risks, which are preserved. Entry contributions differentiate the supplied
+matrix; external parameter mappings require their own chain rule.
+
+Checking retains an additional $n^2$ doubles for the physical transpose and
+allocates m error values per returned reverse. Residual work costs $O(n^2m)$,
+with no new factorization or reverse inverse. Buffers obey the active capacity
+budget. Ordinary solve interfaces retain their existing caches and work.
+
+### Checked Coordinate Accuracy
+
+`CheckedCoordinateLinearSolve_` in
+`dal/math/matrix/linearsolvecoordinateaccuracy.hpp` applies the
+[same accuracy policy](#explicit-forward-and-transpose-accuracy) to a packed
+symmetric or banded layout. It expands the physical entries once for capture,
+retains one checked LU cache and exposes `Coordinates`, `Solution`, `Diagnostics`
+and `Policy` as immutable views. Source parameters, RHS and policy can change
+after construction without changing the capture.
+
+`Reverse(W)` returns owning `CheckedCoordinateLinearSolveAdjoints_`: packed
+parameter contributions in `adjoints_.coordinates_`, RHS contributions in
+`adjoints_.rhs_`, and one `transposeBackwardErrors_` value per RHS column.
+Symmetric off-diagonal contributions add both physical entry risks, including
+zero-valued parameters. `ReverseRhs(W)` leaves the packed vector empty and omits
+its work and overflow checks. Failed reverse refunds unpublished outputs and
+leaves the numeric cache usable for a later valid seed.
+
+```cpp
+#include <dal/math/matrix/linearsolvecoordinateaccuracy.hpp>
+
+const auto layout = Dal::LinearSolveCoordinates_::Symmetric(2);
+const Dal::Vector_<> parameters{3.0, 1.0, 2.0};
+const Dal::CheckedCoordinateLinearSolve_ solve(layout, parameters, rhs, {1e-14, 1e-14});
+const auto risk = solve.Reverse(solutionSeeds);
+const auto rhsOnly = solve.ReverseRhs(solutionSeeds);
+```
+
+Reverse contracts directly into p packed risks and allocates $O(p+nm+m)$ result
+storage, without a dense matrix gradient. Factorization, condition diagnostics,
+physical transpose storage and residual evaluation remain dense. All buffers
+obey the active capacity budget. This is a numeric interface; native recorded
+coordinate overloads retain their existing contract.
+
 ## Numerical-Recipes Band Storage
 
 Band-diagonal matrices are stored in the compact form used throughout the

@@ -1,0 +1,41 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>DupireScriptRiskRequest_New</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>DupireScriptRiskRequest_New (in Excel: DUPIRESCRIPTRISKREQUEST.NEW)</h1>
+Create an automatic quote request with explicit direct dependencies
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>name</td><td>string</td><td></td><td>Object name</td></tr>
+<tr><td>settings</td><td>handle of type StorableDupireScriptRiskSettings</td><td></td><td>Required execution settings</td></tr>
+<tr><td>quotes</td><td>handle of type StorableCalibrationRiskRequest</td><td>yes</td><td>Blank selects all quotes; budget applies to combined retained results</td></tr>
+<tr><td>bindings</td><td>matrix of cells</td><td>yes</td><td>Two data columns: exact constant ordinal, quote ID; no header</td></tr>
+<tr><td>direct</td><td>handle of type StorableCalibrationDirectQuoteAdjoints</td><td>yes</td><td>Optional external direct seeds; mutually exclusive with bindings</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>request</td><td>handle of type StorableDupireScriptRiskRequest</td><td>Immutable automatic request</td></tr>
+</table>
+
+
+
+
+
+

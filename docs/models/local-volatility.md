@@ -54,6 +54,14 @@ supported `maxStep` generally reduces discretization error at greater
 simulation cost. `SimDim()` includes the internal steps times the number of
 Brownian factors.
 
+Initialization prepares a time-interpolated volatility column for each internal
+step, together with the initial log spot and square roots of step lengths.
+Path evolution interpolates these columns directly in log spot. AAD records the
+columns on the initialization prefix, so sensitivities still reach every surface
+parameter. Reinitialize after changing parameters or starting a new recording;
+prepared columns are immutable while paths are generated and can be shared by
+double-precision workers.
+
 ## Construction
 
 ```cpp

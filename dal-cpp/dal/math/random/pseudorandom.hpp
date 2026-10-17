@@ -4,9 +4,11 @@
 
 #pragma once
 
-#include <dal/storage/archive.hpp>
+#include <dal/platform/platform.hpp>
+
 #include <dal/math/random/base.hpp>
 #include <dal/math/vectors.hpp>
+#include <dal/storage/archive.hpp>
 #include <dal/string/strings.hpp>
 #include <dal/utilities/exceptions.hpp>
 
@@ -36,6 +38,18 @@ namespace Dal {
         Vector_<> cache_;
         virtual void SkipUniformDraws(size_t nDraws) { THROW("Pseudo-random engine does not support draw seeking"); }
 
+        template <class F_> void FillUniformWith(const F_& nextUniform, Vector_<>* deviates) {
+            if (anti_) {
+                for (size_t i = 0; i < deviates->size(); ++i)
+                    (*deviates)[i] = 1.0 - cache_[i];
+                anti_ = false;
+            } else {
+                for (size_t i = 0; i < deviates->size(); ++i)
+                    (*deviates)[i] = cache_[i] = nextUniform();
+                anti_ = true;
+            }
+        }
+
     public:
         explicit PseudoRandom_(size_t nDim, bool precise = true) : cache_(nDim), precise_(precise) {}
         ~PseudoRandom_() override = default;
@@ -52,25 +66,19 @@ namespace Dal {
 #include <dal/auto/MG_RNGType_enum.hpp>
     std::unique_ptr<PseudoRandom_> New(const RNGType_& type, int seed, size_t nDim = 1, bool precise = true);
 
-    class BASE_EXPORT PseudoRSG_: public Storable_ {
+    class BASE_EXPORT PseudoRSG_ : public Storable_ {
         std::unique_ptr<PseudoRandom_> rsg_;
         double seed_;
         double ndim_;
         bool precise_;
+
     public:
         PseudoRSG_(const String_& name, double seed, double ndim = 1, bool precise = true)
-            : Storable_("PseudoRSG", name),
-              rsg_(New(RNGType_(name), static_cast<int>(seed), static_cast<size_t>(ndim), precise)),
-              seed_(seed),
-              ndim_(ndim),
-              precise_(precise) {}
+            : Storable_("PseudoRSG", name), rsg_(New(RNGType_(name), static_cast<int>(seed), static_cast<size_t>(ndim), precise)), seed_(seed),
+              ndim_(ndim), precise_(precise) {}
         void Write(Archive::Store_& dst) const override;
-        void FillUniform(Vector_<>* deviates) const {
-            rsg_->FillUniform(deviates);
-        }
-        void FillNormal(Vector_<>* deviates) const {
-            rsg_->FillNormal(deviates);
-        }
+        void FillUniform(Vector_<>* deviates) const { rsg_->FillUniform(deviates); }
+        void FillNormal(Vector_<>* deviates) const { rsg_->FillNormal(deviates); }
         [[nodiscard]] size_t NDim() const { return rsg_->NDim(); }
     };
 

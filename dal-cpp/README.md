@@ -15,7 +15,7 @@ generation, storage, and concurrency.
 | `benchmarks/`   | Opt-in native performance executables                        |
 | `config/`       | Machinist interface and generation configuration             |
 | `cmake/`        | Platform options and installed package configuration         |
-| `externals/`    | Git-submodule dependencies and AAD backends                  |
+| `externals/`    | Build, test, serialization and numeric dependencies          |
 
 Direct core consumers get the widest API surface and therefore track core source
 changes. Applications that want construction and valuation helpers should also
@@ -44,8 +44,7 @@ with `DAL_ENABLE_NATIVE_ARCH=ON`; portable builds leave it off.
 
 ## AAD and Concurrency
 
-With all external backend options disabled, DAL uses its native AAD
-implementation. XAD, CoDiPack, and Adept are selectable CMake alternatives.
+DAL uses its built-in native AAD implementation exclusively.
 Live AAD tape state is thread-local.
 
 The process-wide thread pool starts lazily. Set a positive `DAL_NUM_THREADS`

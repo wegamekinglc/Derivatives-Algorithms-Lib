@@ -222,6 +222,9 @@ valid residual system without the analytic eligibility requirement.
 - **Core/public C++:** staged XCCY has full options and both matrices on
   `CrossCurrencyCalibrationDiagnostics_`; joint XCCY has full options and both
   top-level matrices. The public facade has read-only helpers for each.
+  Exact square calibration snapshots also support
+  [native portfolio quote curvature](../methodology/aad.md#native-rate-trade-quote-curvature)
+  through full recalibration in C++.
 - **Python:** staged XCCY has both overloads, options, matrices, axes, scaling,
   and availability metadata under `result.diagnostics`, with
   trailing-underscore and snake-case aliases. Joint XCCY has options, named
@@ -244,11 +247,11 @@ include paths match the current source. See the citations in each example.
 `xccy_curve_calibration` performs staged basis-only calibration against
 supplied domestic and foreign curve blocks and prints fit diagnostics,
 including the FX spot and maximum residual, plus elapsed time. See
-[`dal-cpp/examples/xccy_curve_calibration/`](../../dal-cpp/examples/xccy_curve_calibration)
+[`dal-cpp/examples/curves/xccy_curve_calibration/`](../../dal-cpp/examples/curves/xccy_curve_calibration)
 for a runnable version.
 
 ```cpp
-// from dal-cpp/examples/xccy_curve_calibration/xccy_curve_calibration.cpp
+// from dal-cpp/examples/curves/xccy_curve_calibration/xccy_curve_calibration.cpp
 #include <dal/platform/platform.hpp>
 #include <dal/platform/initall.hpp>
 #include <dal/curve/curveblock.hpp>
@@ -300,11 +303,11 @@ already-started MTM swap, and recovers five declaration blocks across the
 domestic, foreign, and basis groups in one joint calibration. It prints the
 convergence residual, Jacobian shape, block ranges, and parameter-recovery
 errors. See
-[`dal-cpp/examples/xccy_mtm_calibration/`](../../dal-cpp/examples/xccy_mtm_calibration)
+[`dal-cpp/examples/curves/xccy_mtm_calibration/`](../../dal-cpp/examples/curves/xccy_mtm_calibration)
 for a runnable version.
 
 ```cpp
-// from dal-cpp/examples/xccy_mtm_calibration/xccy_mtm_calibration.cpp
+// from dal-cpp/examples/curves/xccy_mtm_calibration/xccy_mtm_calibration.cpp
 #include <dal/platform/platform.hpp>
 #include <dal/curve/curveblock.hpp>
 #include <dal/curve/xccyjointcalibration.hpp>
@@ -354,11 +357,11 @@ const JointXccyCalibrationResult_ result = CalibrateJointXccyMarket(spec);
 piecewise-constant discount, projection, and basis curves, validates their
 reset and notional behavior, and prices an already-started MTM swap from an
 immutable snapshot of historical domestic-rate, foreign-rate, and FX fixings.
-See [`dal-cpp/examples/xccy_reset_pricing/`](../../dal-cpp/examples/xccy_reset_pricing)
+See [`dal-cpp/examples/curves/xccy_reset_pricing/`](../../dal-cpp/examples/curves/xccy_reset_pricing)
 for a runnable version.
 
 ```cpp
-// from dal-cpp/examples/xccy_reset_pricing/xccy_reset_pricing.cpp
+// from dal-cpp/examples/curves/xccy_reset_pricing/xccy_reset_pricing.cpp
 #include <dal/platform/platform.hpp>
 #include <dal/platform/initall.hpp>
 #include <dal/curve/xccycalibration.hpp>

@@ -10,6 +10,7 @@
 #include <utility>
 
 #include <dal/curve/tapeguard.hpp>
+#include <dal/math/aad/statistics.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/script/event.hpp>
 #include <dal/script/parser.hpp>
@@ -124,6 +125,66 @@ TEST(ScriptTest, TestCompileWithSeveralEvents) {
 }
 
 namespace {
+    struct LsmcPaymentCase_ {
+        int opcode_;
+        bool constant_;
+        bool delayed_;
+        bool fuzzy_;
+    };
+
+    constexpr LsmcPaymentCase_ LSMC_PAYMENTS[] = {{LsmcPays, false, false, false},      {LsmcPaysConst, true, false, false},
+                                                  {LsmcPaysOn, false, true, false},     {LsmcPaysOnConst, true, true, false},
+                                                  {LsmcFuzzyPays, false, false, true},  {LsmcFuzzyPaysConst, true, false, true},
+                                                  {LsmcFuzzyPaysOn, false, true, true}, {LsmcFuzzyPaysOnConst, true, true, true}};
+
+    Vector_<int> LsmcPaymentStream(const LsmcPaymentCase_& payment, int receiver) {
+        Vector_<int> stream{999, payment.opcode_};
+        if (payment.constant_)
+            stream.push_back(1);
+        if (payment.delayed_)
+            stream.push_back(1);
+        stream.push_back(receiver);
+        stream.push_back(999);
+        return stream;
+    }
+
+    void AssertLsmcPaymentRows(const LsmcPaymentCase_& payment, int receiver, const LsmcRows_& rows, const Vector_<>& fuzzyRows, int paymentCount) {
+        const double amount = paymentCount * (payment.delayed_ ? 8.0 : 10.0);
+        LsmcRows_ expected(3, 3);
+        expected.ZeroPaths(0, 3);
+        double expectedFuzzy = 0.0;
+        if (receiver == 1) {
+            if (payment.fuzzy_)
+                expectedFuzzy = amount;
+            else
+                expected[0][2] = amount;
+        }
+        for (size_t row = 0; row < 3; ++row)
+            for (size_t path = 0; path < 3; ++path)
+                ASSERT_DOUBLE_EQ(rows[row][path], expected[row][path]);
+        ASSERT_DOUBLE_EQ(fuzzyRows[0], 17.0);
+        ASSERT_DOUBLE_EQ(fuzzyRows[1], expectedFuzzy);
+        ASSERT_DOUBLE_EQ(fuzzyRows[2], 19.0);
+    }
+
+    void AssertLsmcReceiverAdjoints(const LsmcPaymentCase_& payment,
+                                    const AAD::Number_& amount,
+                                    const AAD::Number_& discount,
+                                    const AAD::Number_& numeraire) {
+        ASSERT_NEAR(AAD::Adjoint(amount), payment.constant_ ? 0.0 : payment.delayed_ ? 0.4 : 0.5, 1e-10);
+        ASSERT_NEAR(AAD::Adjoint(discount), payment.delayed_ ? 5.0 : 0.0, 1e-10);
+        ASSERT_NEAR(AAD::Adjoint(numeraire), payment.delayed_ ? -2.0 : -2.5, 1e-10);
+    }
+
+    void AssertLsmcFuzzyRowAdjoints(const LsmcPaymentCase_& payment,
+                                    const AAD::Number_& amount,
+                                    const AAD::Number_& discount,
+                                    const AAD::Number_& numeraire) {
+        ASSERT_NEAR(AAD::Adjoint(amount), payment.constant_ ? 0.0 : payment.delayed_ ? 0.8 : 1.0, 1e-10);
+        ASSERT_NEAR(AAD::Adjoint(discount), payment.delayed_ ? 10.0 : 0.0, 1e-10);
+        ASSERT_NEAR(AAD::Adjoint(numeraire), 0.0, 1e-10);
+    }
+
     // Parse + index + const-process a source snippet, then compile it. Mirrors the
     // pipeline ScriptProduct_::PreProcess runs before Compile(), without schedules
     // or macro handling.
@@ -165,6 +226,191 @@ namespace {
                     tol);
     }
 } // namespace
+
+TEST(CompilerTest, TestLsmcPaymentOpcodesRecordAndAdvance) {
+    for (const auto& payment : LSMC_PAYMENTS) {
+        for (const int receiver : {0, 1}) {
+            SCOPED_TRACE(payment.opcode_);
+            SCOPED_TRACE(receiver);
+            EvalState_<double> state(Vector_<>{3.0, 3.0});
+            state.dStack_.Push(-7.0);
+            if (!payment.constant_)
+                state.dStack_.Push(10.0);
+            state.bStack_.Push(true);
+            AAD::Sample_<double> sample{};
+            sample.numeraire_ = 2.0;
+            sample.discounts_ = {-9.0, 0.8};
+            const auto stream = LsmcPaymentStream(payment, receiver);
+            const Vector_<> constants{-99.0, 10.0};
+            LsmcRows_ rows(3, 3);
+            rows.ZeroPaths(0, 3);
+            const Vector_<size_t> eventToPays{2, 0};
+            LsmcSinks_ hard;
+            hard.pays_ = &rows;
+            hard.eventToPays_ = &eventToPays;
+            hard.eventOrdinal_ = 1;
+            hard.pathSlot_ = 2;
+            hard.payoffIdx_ = 1;
+            Vector_<> fuzzyRows{17.0, 0.0, 19.0};
+            LsmcFuzzySinks_<double> fuzzy;
+            fuzzy.pays_ = &fuzzyRows;
+            fuzzy.eventOrdinal_ = 1;
+            fuzzy.payoffIdx_ = 1;
+            state.lsmcSinks_ = &hard;
+            state.lsmcFuzzySinks_ = &fuzzy;
+            const Script::Detail::CompiledEventView_<double> event{stream, constants, sample};
+
+            ASSERT_EQ(Script::Detail::EvalCompiledLsmcOp(event, 1, &state), stream.size() - 1);
+            ASSERT_DOUBLE_EQ(state.VarVals()[receiver], payment.delayed_ ? 7.0 : 8.0);
+            ASSERT_DOUBLE_EQ(state.VarVals()[1 - receiver], 3.0);
+            ASSERT_NO_FATAL_FAILURE(AssertLsmcPaymentRows(payment, receiver, rows, fuzzyRows, 1));
+            ASSERT_EQ(state.dStack_.Size(), 1u);
+            ASSERT_DOUBLE_EQ(state.dStack_.Top(), -7.0);
+            ASSERT_EQ(state.bStack_.Size(), 1u);
+            ASSERT_TRUE(state.bStack_.Top());
+            if (!payment.constant_)
+                state.dStack_.Push(10.0);
+            ASSERT_EQ(Script::Detail::EvalCompiledLsmcOp(event, 1, &state), stream.size() - 1);
+            ASSERT_DOUBLE_EQ(state.VarVals()[receiver], payment.delayed_ ? 11.0 : 13.0);
+            ASSERT_NO_FATAL_FAILURE(AssertLsmcPaymentRows(payment, receiver, rows, fuzzyRows, 2));
+        }
+    }
+}
+
+TEST(CompilerTest, TestLsmcPaymentOpcodesPreserveAnalyticAdjoints) {
+    for (const auto& payment : LSMC_PAYMENTS) {
+        SCOPED_TRACE(payment.opcode_);
+        auto* tape = AAD::Tape();
+        TapeGuard_ guard(tape);
+        AAD::Number_ amount = 10.0, discount = 0.8, numeraire = 2.0;
+        AAD::PutOnTape(amount);
+        AAD::PutOnTape(discount);
+        AAD::PutOnTape(numeraire);
+        AAD::NewRecording(*tape);
+        EvalState_<AAD::Number_> state(Vector_<>{3.0});
+        if (!payment.constant_)
+            state.dStack_.Push(amount);
+        AAD::Sample_<AAD::Number_> sample{};
+        sample.numeraire_ = numeraire;
+        sample.discounts_ = {AAD::Number_(-9.0), discount};
+        LsmcRows_ rows(1, 1);
+        rows.ZeroPaths(0, 1);
+        const Vector_<size_t> eventToPays{0};
+        LsmcSinks_ hard;
+        hard.pays_ = &rows;
+        hard.eventToPays_ = &eventToPays;
+        hard.payoffIdx_ = 0;
+        Vector_<AAD::Number_> fuzzyRows{AAD::Number_(0.0)};
+        LsmcFuzzySinks_<AAD::Number_> fuzzy;
+        fuzzy.pays_ = &fuzzyRows;
+        fuzzy.payoffIdx_ = 0;
+        state.lsmcSinks_ = &hard;
+        state.lsmcFuzzySinks_ = &fuzzy;
+        const auto stream = LsmcPaymentStream(payment, 0);
+        Script::Detail::EvalCompiledRange<true, true>(stream, Vector_<>{-99.0, 10.0}, sample, state, 1, stream.size() - 1, false);
+        const auto stats = AAD::MeasureTape(*tape);
+        const std::string prefix = "opcode_" + std::to_string(payment.opcode_);
+        RecordProperty(prefix + "_nodes", static_cast<int>(stats.nodes_));
+        RecordProperty(prefix + "_edges", static_cast<int>(stats.edges_));
+        RecordProperty(prefix + "_bytes", static_cast<int>(stats.liveBytes_));
+        ASSERT_DOUBLE_EQ(AAD::Value(state.VarVals()[0]), payment.delayed_ ? 7.0 : 8.0);
+        ASSERT_DOUBLE_EQ(rows[0][0], payment.fuzzy_ ? 0.0 : payment.delayed_ ? 8.0 : 10.0);
+        ASSERT_TRUE(state.dStack_.IsEmpty());
+        AAD::ZeroAdjoints(*tape);
+        AAD::Adjoint(state.variables_[0]) = 1.0;
+        AAD::PropagateToStart(*tape);
+        ASSERT_NO_FATAL_FAILURE(AssertLsmcReceiverAdjoints(payment, amount, discount, numeraire));
+        if (payment.fuzzy_) {
+            ASSERT_DOUBLE_EQ(AAD::Value(fuzzyRows[0]), payment.delayed_ ? 8.0 : 10.0);
+            AAD::ZeroAdjoints(*tape);
+            AAD::Adjoint(fuzzyRows[0]) = 1.0;
+            AAD::PropagateToStart(*tape);
+            ASSERT_NO_FATAL_FAILURE(AssertLsmcFuzzyRowAdjoints(payment, amount, discount, numeraire));
+        }
+    }
+}
+
+TEST(CompilerTest, TestLsmcPaymentMissingSinksPreserveErrorAndMutationOrder) {
+    for (const auto& payment : LSMC_PAYMENTS) {
+        for (const int receiver : {0, 1}) {
+            SCOPED_TRACE(payment.opcode_);
+            SCOPED_TRACE(receiver);
+            EvalState_<double> state(Vector_<>{3.0, 3.0});
+            state.dStack_.Push(-7.0);
+            if (!payment.constant_)
+                state.dStack_.Push(10.0);
+            AAD::Sample_<double> sample{};
+            sample.numeraire_ = 2.0;
+            sample.discounts_ = {-9.0, 0.8};
+            const auto stream = LsmcPaymentStream(payment, receiver);
+            const Vector_<> constants{-99.0, 10.0};
+            const Script::Detail::CompiledEventView_<double> event{stream, constants, sample};
+            try {
+                Script::Detail::EvalCompiledLsmcOp(event, 1, &state);
+                FAIL() << "missing LSMC sinks must fail";
+            } catch (const ScriptError_& error) {
+                const std::string message = payment.fuzzy_ ? "UnsupportedExecutionMode: the LSMC fuzzy replay requires the LSMC driver's sinks"
+                                                           : "UnsupportedExecutionMode: the LSMC recording stream requires the LSMC driver's sinks";
+                ASSERT_NE(std::string(error.what()).find(message), std::string::npos);
+            }
+            ASSERT_EQ(state.VarVals(), Vector_<>({3.0, 3.0}));
+            ASSERT_EQ(state.dStack_.Size(), 1u);
+            ASSERT_DOUBLE_EQ(state.dStack_.Top(), -7.0);
+        }
+    }
+}
+
+TEST(CompilerTest, TestLsmcHardPaymentWithoutRecordingRowsStillAccumulates) {
+    for (const auto& payment : LSMC_PAYMENTS) {
+        if (payment.fuzzy_)
+            continue;
+        SCOPED_TRACE(payment.opcode_);
+        EvalState_<double> state(Vector_<>{3.0});
+        if (!payment.constant_)
+            state.dStack_.Push(10.0);
+        AAD::Sample_<double> sample{};
+        sample.numeraire_ = 2.0;
+        sample.discounts_ = {-9.0, 0.8};
+        LsmcSinks_ sinks;
+        sinks.payoffIdx_ = 0;
+        state.lsmcSinks_ = &sinks;
+        const auto stream = LsmcPaymentStream(payment, 0);
+        Script::Detail::EvalCompiledRange<true, true>(stream, Vector_<>{-99.0, 10.0}, sample, state, 1, stream.size() - 1, false);
+        ASSERT_DOUBLE_EQ(state.VarVals()[0], payment.delayed_ ? 7.0 : 8.0);
+        ASSERT_TRUE(state.dStack_.IsEmpty());
+    }
+}
+
+TEST(CompilerTest, TestLsmcDelayedPaymentMaterializesBeforeNumeraireDivision) {
+    for (const auto& payment : LSMC_PAYMENTS) {
+        if (!payment.delayed_)
+            continue;
+        SCOPED_TRACE(payment.opcode_);
+        EvalState_<double> state(Vector_<>{0.0});
+        if (!payment.constant_)
+            state.dStack_.Push(1e308);
+        AAD::Sample_<double> sample{};
+        sample.numeraire_ = 1e308;
+        sample.discounts_ = {0.0, 1e-308};
+        LsmcRows_ rows(1, 1);
+        rows.ZeroPaths(0, 1);
+        const Vector_<size_t> eventToPays{0};
+        LsmcSinks_ hard;
+        hard.pays_ = &rows;
+        hard.eventToPays_ = &eventToPays;
+        hard.payoffIdx_ = 0;
+        Vector_<> fuzzyRows{0.0};
+        LsmcFuzzySinks_<double> fuzzy;
+        fuzzy.pays_ = &fuzzyRows;
+        fuzzy.payoffIdx_ = 0;
+        state.lsmcSinks_ = &hard;
+        state.lsmcFuzzySinks_ = &fuzzy;
+        const auto stream = LsmcPaymentStream(payment, 0);
+        Script::Detail::EvalCompiledRange<true, true>(stream, Vector_<>{0.0, 1e308}, sample, state, 1, stream.size() - 1, false);
+        ASSERT_DOUBLE_EQ(state.VarVals()[0], 1e-308);
+        ASSERT_NEAR(payment.fuzzy_ ? fuzzyRows[0] : rows[0][0], 1.0, 1e-15);
+    }
+}
 
 TEST(CompilerTest, TestConstAssignmentEmitsAssignConst) {
     const auto [stream, consts] = CompileSource("x = 3");

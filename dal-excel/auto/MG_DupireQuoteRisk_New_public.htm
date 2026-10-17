@@ -1,0 +1,40 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>DupireQuoteRisk_New</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>DupireQuoteRisk_New (in Excel: DUPIREQUOTERISK.NEW)</h1>
+Pull local-vol node adjoints back to spread quotes
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>name</td><td>string</td><td></td><td>Object name</td></tr>
+<tr><td>calibration</td><td>handle of type StorableDupireCalibration</td><td></td><td>Frozen calibration</td></tr>
+<tr><td>parameters</td><td>handle of type StorableDupireParameterAdjoints</td><td></td><td>Raw surface-node adjoints</td></tr>
+<tr><td>direct</td><td>handle of type StorableDupireDirectQuoteAdjoints</td><td>yes</td><td>Blank omits the direct quote contribution</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>result</td><td>handle of type StorableDupireQuoteRisk</td><td>Passive separated quote contributions</td></tr>
+</table>
+
+
+
+
+
+

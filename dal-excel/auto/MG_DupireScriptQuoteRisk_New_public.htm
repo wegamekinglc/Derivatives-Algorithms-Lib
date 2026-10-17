@@ -1,0 +1,41 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>DupireScriptQuoteRisk_New</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>DupireScriptQuoteRisk_New (in Excel: DUPIRESCRIPTQUOTERISK.NEW)</h1>
+Map completed valuation risk to frozen spread quotes
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>name</td><td>string</td><td></td><td>Object name</td></tr>
+<tr><td>valuation</td><td>handle of type StorableRiskResult</td><td></td><td>Completed scalar valuation risk</td></tr>
+<tr><td>calibration</td><td>handle of type StorableDupireCalibration</td><td></td><td>Frozen calibration</td></tr>
+<tr><td>component</td><td>string</td><td></td><td>Local-vol component name</td></tr>
+<tr><td>direct</td><td>handle of type StorableDupireDirectQuoteAdjoints</td><td>yes</td><td>Blank omits the direct quote contribution</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>result</td><td>handle of type StorableDupireScriptQuoteRisk</td><td>Retained valuation and separated quote risk</td></tr>
+</table>
+
+
+
+
+
+

@@ -10,7 +10,7 @@ the separate [LSM driver](lsm.md); the ordinary driver does no regression.
 
 The full runnable public-facade pattern is in the
 [C++ API guide](../../public-api.md#scripted-monte-carlo). At core level, the
-[American put example](../../../dal-cpp/examples/american_put_mc/american_put_mc.cpp)
+[American put example](../../../dal-cpp/examples/methods/american_put_mc/american_put_mc.cpp)
 uses this call for both a terminal European payment and early exercise:
 
 ```cpp
@@ -55,6 +55,36 @@ is deterministic. The future observation plan keeps exact event-to-sample
 mapping rather than assuming one model sample per script event. A model path
 with a non-finite or non-positive numeraire is rejected as `InvalidModelPath`.
 
+## Explicit Compiled Double Batching
+
+Core C++ callers can include `<dal/script/compiledsoa.hpp>` and call
+`MCDoubleSimulationSoa<32>(product, &model, nPaths, "sobol", false)`.
+The returned `SimResults_::aggregated_` is a sum, as in the scalar core driver;
+divide by `nPaths` for PV. Widths 8, 16, 32 and 64 are supported.
+Configure the pool for one worker before the call. `model` must be an exact
+`AAD::BlackScholes_<double>`, and `product` must be preprocessed or prepared.
+Prepared products require `compiled_ = true`, no AAD, and matching RNG/bridge
+settings; their frozen history, dates, normal precision and observation grid
+remain authoritative. This opt-in does not change the default engine or expose
+new Python/Excel settings.
+
+Immediate PAYS, scalar variables, ordinary arithmetic other than powers,
+extrema, sqrt/log/exp and hard IF/ELSE with nested masks are supported, including
+prepared named equity observations on different sample dates. Vectors, delayed
+PAYS, rates/forwards, fuzzy execution, weighted objectives, LSMC and other model
+types are outside this entry's domain. Unsupported requests raise `ScriptError_`
+before drawing paths. Fewer than sixteen paths use the existing compiled scalar
+driver after model/configuration/sample checks and can use its wider opcode
+set. Invalid input and non-finite paths/payoffs still fail. No failed or partly
+executed request is automatically restarted. Choose the general driver directly
+for requests outside this restricted domain.
+
+`script_mc_perf --compiled-soa WORKLOAD LANES PATHS ITERATIONS steady|cold` provides whole
+request timings for vanilla, weekly and divergent workloads. Both modes include
+RNG, model work, compilation, plan and workspace allocation; cold also parses
+and preprocesses the script. Small requests can lose to scalar setup costs, so
+select this explicit path using measurements of the intended workload.
+
 ## Random Draws and Paths
 
 `MonteCarloSettings_` defaults to `rsg_ = "sobol"`, no Brownian bridge, no
@@ -70,10 +100,17 @@ generators, see [sampling](sampling.md).
 
 ## Batches, Compiled Scripts, and AAD
 
-Ordinary paths use batches of size `min(8192, ceil(nPaths / nThreads))`.
-In value-only `double` evaluation, worker-owned RNG, Gaussian vector, scenario,
-and evaluator are reused across batches in one valuation. Each batch calls
-`SkipNormalTo(firstPath)` before generating its assigned normal substream.
+Ordinary scalar and weighted paths use chunks whose size depends on the path
+count, independently of the thread count. Round `ceil(nPaths / 256)` up to a
+power of two, then clamp to 64..2048 paths. At most
+`min(nThreads, nChunks)` persistent tasks claim chunks from a shared counter.
+In value-only `double` evaluation, each worker reuses its Gaussian vector,
+scenario and evaluator across batches in one valuation. Sobol, MRG32 and
+single-threaded IRN also reuse the worker RNG. Multi-threaded IRN replaces it
+with an exclusive positioned clone for each batch. Each batch calls
+`SkipNormalTo(firstPath)` before generating its assigned normal substream;
+an IRN clone already starts at that position. Ordinary IRN AAD uses the same
+sequential positioner and bounded clone dispatch.
 Value-only evaluation can walk the AST or
 execute a compiled per-event opcode stream. `compiled_` defaults to tree mode;
 compiled mode is an opt-in execution choice and must preserve the same
@@ -83,11 +120,24 @@ The detailed opcode and observation contracts are in
 
 With `enableAad_ = true`, `MCSimulation<AAD::Number_>` creates an active model
 and tape on each worker. Model parameters and script constants are registered
-once per batch; each path rewinds to a tape mark, evaluates fuzzy future
-conditions, and back-propagates the path payoff. Batch adjoints are reduced
+once per worker; each path rewinds to a tape mark, evaluates fuzzy future
+conditions, and back-propagates the path payoff. After each chunk the prefix
+reverses, input adjoints are harvested and cleared, and numeric contributions are reduced
 into the risk vector. The [AAD guide](../aad.md#pathwise-adjoints-in-monte-carlo)
 explains tape ownership and smoothing. For `EXERCISE`, the AAD meaning depends
 on the [frozen or retrained policy mode](lsm.md#early-exercise-aad).
+
+Ordinary scalar and weighted AAD valuations construct the final risk labels and
+lookup map once. Workers accumulate numeric payoff sums, normalized risks and,
+for weighted objectives, component sums. A bounded ring holds at most 256
+partials with a 16 MiB numeric payload target; an individual oversized partial
+requires one slot. When every chunk fits, workers write exclusive slots and
+the caller reduces them after all tasks finish. Otherwise, completing workers
+reduce the ready prefix in chunk order and release slots for reuse.
+For identical inputs, path count, RNG and evaluator on the same build and
+floating-point environment, ordinary PVs, every Greek and weighted component
+are exactly repeatable across worker counts and scheduling. LSMC uses its
+separate partition and training policy.
 
 ## Interpreting a Result
 

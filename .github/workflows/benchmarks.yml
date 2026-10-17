@@ -19,13 +19,18 @@ jobs:
     runs-on: ubuntu-latest
     # No ccache here: this job builds with -march=native, and cached objects
     # restored on a different runner CPU generation crash with SIGILL.
+    env:
+      # Bare Make -j is unbounded; keep compiler memory within hosted-runner limits.
+      CMAKE_BUILD_PARALLEL_LEVEL: 2
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          submodules: recursive
           # The previous master commit is the scheduled comparison baseline.
           fetch-depth: 2
+
+      - name: Check out pinned dependencies
+        run: python .github/scripts/checkout_dependencies.py
 
       - name: Resolve benchmark base SHA
         run: echo "BASE_SHA=$(git rev-parse HEAD^1)" >> "$GITHUB_ENV"
@@ -34,7 +39,9 @@ jobs:
         with:
           ref: ${{ env.BASE_SHA }}
           path: benchmark-base
-          submodules: recursive
+
+      - name: Check out pinned benchmark baseline dependencies
+        run: python .github/scripts/checkout_dependencies.py --worktree benchmark-base
 
       - name: Setup
         run: |
@@ -72,6 +79,12 @@ jobs:
         run: |
           python3 -m unittest discover -s .github/scripts/tests -v
 
+      - name: Prepare historical benchmark timing check
+        run: |
+          python3 .github/scripts/prepare_benchmark_baseline.py \
+            --source-root benchmark-base \
+            --evidence-dir benchmark-results/baseline-timing-adjustment
+
       - name: Build head benchmarks
         env:
           CC: gcc-14
@@ -90,12 +103,9 @@ jobs:
             -DDAL_CPP_BUILD_BENCHMARKS=ON \
             -DDAL_BUILD_PYTHON=ON \
             -DPython3_EXECUTABLE="$(command -v python3)" \
-            -DDAL_USE_XAD_AAD=OFF \
-            -DDAL_USE_CODIPACK_AAD=OFF \
-            -DDAL_USE_ADEPT_AAD=OFF \
             -DCMAKE_CXX_FLAGS=-ffile-prefix-map=$PWD/benchmark-base=$PWD \
             -DDAL_ENABLE_NATIVE_ARCH=ON
-          cmake --build build/benchmark-head --parallel
+          cmake --build build/benchmark-head --parallel "$CMAKE_BUILD_PARALLEL_LEVEL"
 
       - name: Build base benchmarks
         env:
@@ -119,12 +129,9 @@ jobs:
             -DDAL_CPP_BUILD_BENCHMARKS=ON \
             -DDAL_BUILD_PYTHON=ON \
             -DPython3_EXECUTABLE="$(command -v python3)" \
-            -DDAL_USE_XAD_AAD=OFF \
-            -DDAL_USE_CODIPACK_AAD=OFF \
-            -DDAL_USE_ADEPT_AAD=OFF \
             -DCMAKE_CXX_FLAGS=-ffile-prefix-map=$PWD/benchmark-base=$PWD \
             -DDAL_ENABLE_NATIVE_ARCH=ON
-          cmake --build benchmark-base/build/benchmark-base --parallel
+          cmake --build benchmark-base/build/benchmark-base --parallel "$CMAKE_BUILD_PARALLEL_LEVEL"
 
       - name: Verify Python workloads on both native builds
         id: python-workloads
@@ -136,8 +143,24 @@ jobs:
             local build_root="$2"
             (
               cd "$build_root/dal-python"
-              # A new bug regression can intentionally fail on the base revision.
-              PYTHONPATH="$build_root/dal-python" python3 -m pytest "$source_root/dal-python/tests" -q
+              if [ "$source_root" = "$GITHUB_WORKSPACE/benchmark-base" ]; then
+                # Historical suite failures are diagnostic; shared benchmark correctness still gates both builds.
+                local evidence="$GITHUB_WORKSPACE/benchmark-results/python-baseline-tests"
+                local status
+                mkdir -p "$evidence"
+                if PYTHONPATH="$build_root/dal-python" python3 -m pytest "$source_root/dal-python/tests" -q > "$evidence/output.txt" 2>&1; then
+                  status=0
+                else
+                  status=$?
+                fi
+                echo "$status" > "$evidence/status.txt"
+                cat "$evidence/output.txt"
+                if [ "$status" -ne 0 ]; then
+                  echo "::warning::Historical baseline Python suite failed (exit $status); see retained evidence. Shared benchmark tests remain required."
+                fi
+              else
+                PYTHONPATH="$build_root/dal-python" python3 -m pytest "$source_root/dal-python/tests" -q
+              fi
               # Both native revisions must still satisfy the same head workloads.
               PYTHONPATH="$build_root/dal-python" python3 -m pytest "$GITHUB_WORKSPACE/dal-python/tests/test_benchmarks.py" -q
             )
@@ -150,41 +173,12 @@ jobs:
           DAL_NUM_THREADS: 4
           DAL_JOINT_QUOTE_RISK_BENCHMARK_FILE: ${{ github.workspace }}/benchmark-results/generic-joint-raw-v1.csv
         run: |
-          # Single-source benchmark list via CTest labels (H8 fix)
-          # ctest -N right-justifies the test-number field ("  Test  #1:" .. "  Test #10:"), so tolerate the padding
-          benchmarks=( $(ctest -N -L benchmark --test-dir build/benchmark-head | awk -F': ' '/Test +#/{print $2}') )
-          if [ ${#benchmarks[@]} -eq 0 ]; then
-            echo "benchmark discovery failed: ctest -N -L benchmark --test-dir build/benchmark-head found no tests"
-            exit 1
-          fi
-
-          mkdir -p benchmark-results
-          benchmark_failure=0
-          for bench in "${benchmarks[@]}"; do
-            echo "========== $bench =========="
-            result_file="benchmark-results/${bench}.txt"
-            resource_file="benchmark-results/${bench}.resources.txt"
-            if /usr/bin/time --verbose --output="$resource_file" \
-              "./build/benchmark-head/dal-cpp/benchmarks/$bench/$bench" > "$result_file" 2>&1; then
-              status=0
-            else
-              status=$?
-              benchmark_failure=1
-            fi
-            echo "$status" > "benchmark-results/${bench}.status"
-            cat "$result_file"
-            echo
-          done
-
-          # One aggregated table for the whole run, replacing the old per-benchmark
-          # summary sections that each repeated their own header.
-          python3 .github/scripts/write_benchmark_summary.py \
+          python3 .github/scripts/run_benchmarks.py \
+            --build-root build/benchmark-head \
             --results-dir benchmark-results \
             --summary-file "$GITHUB_STEP_SUMMARY" \
             --configuration "gcc-14, native CPU tuning, AADet backend, Release." \
-            --benchmarks "${benchmarks[@]}" | tee benchmark-results/summary.md
-
-          exit "$benchmark_failure"
+            --resource-usage
 
       - name: Compare base and head Python performance
         id: python-performance
@@ -238,7 +232,8 @@ jobs:
             --summary-file "$GITHUB_STEP_SUMMARY" \
             --samples 10 \
             --confirmation-rounds 2 \
-            --threshold-percent 4
+            --threshold-percent 4 \
+            --retry-identical-binaries
 
       - name: Diagnose Python regression with baseline A/A
         if: ${{ !cancelled() && steps.python-performance.outcome == 'failure' }}
@@ -302,8 +297,10 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          submodules: recursive
           fetch-depth: 2
+
+      - name: Check out pinned dependencies
+        run: python .github/scripts/checkout_dependencies.py
 
       - name: Setup MSVC environment
         shell: pwsh
@@ -370,7 +367,6 @@ jobs:
         run: |
           rm -rf build/Release-windows build/stage/Release-windows
           cmake --preset Release-windows -DDAL_BUILD_PUBLIC=ON -DDAL_CPP_BUILD_EXAMPLES=ON \
-            -DDAL_USE_XAD_AAD=off -DDAL_USE_CODIPACK_AAD=off -DDAL_USE_ADEPT_AAD=off \
             -DDAL_BUILD_PYTHON=OFF -DDAL_CPP_BUILD_BENCHMARKS=ON -DDAL_ENABLE_NATIVE_ARCH=ON
           cmake --build build/Release-windows --parallel
           cmake --install build/Release-windows
@@ -378,39 +374,11 @@ jobs:
       - name: Run benchmarks
         shell: bash
         run: |
-          # Discover the same registered CTest benchmark set as the Linux job.
-          # ctest -N right-justifies the test-number field ("  Test  #1:" .. "  Test #10:"), so tolerate the padding
-          benchmarks=( $(ctest -N -L benchmark --test-dir build/Release-windows | awk -F': ' '/Test +#/{print $2}') )
-          if [ ${#benchmarks[@]} -eq 0 ]; then
-            echo "benchmark discovery failed: ctest -N -L benchmark --test-dir build/Release-windows found no tests"
-            exit 1
-          fi
-
-          mkdir -p benchmark-results
-          benchmark_failure=0
-          for bench in "${benchmarks[@]}"; do
-            echo "========== $bench =========="
-            result_file="benchmark-results/${bench}.txt"
-            if "./build/stage/Release-windows/bin/$bench.exe" > "$result_file" 2>&1; then
-              status=0
-            else
-              status=$?
-              benchmark_failure=1
-            fi
-            echo "$status" > "benchmark-results/${bench}.status"
-            cat "$result_file"
-            echo
-          done
-
-          # One aggregated table for the whole run,
-          # replacing the old per-benchmark summary sections.
-          python3 .github/scripts/write_benchmark_summary.py \
+          python3 .github/scripts/run_benchmarks.py \
+            --build-root build/Release-windows \
             --results-dir benchmark-results \
             --summary-file "$GITHUB_STEP_SUMMARY" \
-            --configuration "msvc, native/AADet backend." \
-            --benchmarks "${benchmarks[@]}" | tee benchmark-results/summary.md
-
-          exit "$benchmark_failure"
+            --configuration "msvc, native/AADet backend."
 
       - name: Upload benchmark evidence
         if: always()

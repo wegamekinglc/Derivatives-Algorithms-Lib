@@ -11,6 +11,7 @@
 #include <utility>
 
 #include <dal/model/gsr.hpp>
+#include <dal/model/gsrslv.hpp>
 #include <dal/model/hybriddata.hpp>
 
 namespace Dal {
@@ -107,6 +108,23 @@ namespace Dal {
     namespace AAD {
         template <class T_> class HybridComponent_ {
         public:
+            static void* operator new(size_t bytes) { return Dal::Detail::AllocateBufferObject(bytes); }
+            static void* operator new(size_t bytes, std::align_val_t alignment) { return Dal::Detail::AllocateBufferObject(bytes, alignment); }
+            static void operator delete(void* storage) noexcept { Dal::Detail::DeallocateBufferObject(storage); }
+            static void operator delete(void* storage, std::align_val_t alignment) noexcept { Dal::Detail::DeallocateBufferObject(storage, alignment); }
+            static void* operator new(size_t bytes, const std::nothrow_t&) noexcept { return Dal::Detail::AllocateBufferObjectNothrow(bytes); }
+            static void* operator new(size_t bytes, std::align_val_t alignment, const std::nothrow_t&) noexcept {
+                return Dal::Detail::AllocateBufferObjectNothrow(bytes, alignment);
+            }
+            static void operator delete(void* storage, const std::nothrow_t&) noexcept { Dal::Detail::DeallocateBufferObject(storage); }
+            static void operator delete(void* storage, std::align_val_t alignment, const std::nothrow_t&) noexcept {
+                Dal::Detail::DeallocateBufferObject(storage, alignment);
+            }
+            static void* operator new(size_t, void* storage) noexcept { return storage; }
+            static void* operator new(size_t, std::align_val_t, void* storage) noexcept { return storage; }
+            static void operator delete(void*, void*) noexcept {}
+            static void operator delete(void*, std::align_val_t, void*) noexcept {}
+
             virtual ~HybridComponent_() = default;
             [[nodiscard]] virtual const String_& Name() const = 0;
             [[nodiscard]] virtual const String_& Currency() const = 0;
@@ -141,6 +159,12 @@ namespace Dal {
                 static_cast<void>(discounts);
                 THROW("InvalidHybridDiscounts: component does not provide discount factors");
             }
+            // Slots map component observations to sample outputs; scratchPrefix protects shared path state.
+            [[nodiscard]] virtual bool UsesObservationBatch(size_t) const { return false; }
+            virtual bool
+            FillObservationBatch(size_t, const Vector_<std::pair<size_t, size_t>>&, const Vector_<T_>&, size_t, Sample_<T_>*, size_t) const {
+                return false;
+            }
             [[nodiscard]] virtual std::optional<Date_> EvaluationDate() const { return std::nullopt; }
             [[nodiscard]] virtual bool SupportsIndex(const Index_&) const { return false; }
             [[nodiscard]] virtual double MaxStep() const { return std::numeric_limits<double>::infinity(); }
@@ -163,6 +187,10 @@ namespace Dal {
                                 const T_& carryAdjustment,
                                 Vector_<T_>* state,
                                 size_t stateOffset) const = 0;
+            virtual void EvolveWithoutCarry(
+                size_t step, const Vector_<>& factors, const Vector_<size_t>& factorSlots, Vector_<T_>* state, size_t stateOffset) const {
+                Evolve(step, factors, factorSlots, T_(0.0), state, stateOffset);
+            }
             [[nodiscard]] virtual T_ Observe(size_t sample, size_t slot, const Vector_<T_>& state, size_t stateOffset, bool today) const = 0;
             [[nodiscard]] virtual std::unique_ptr<HybridComponent_<T_>> Clone() const = 0;
         };
@@ -185,6 +213,15 @@ namespace Dal {
                 REQUIRE(std::isfinite(Value(spot_)) && Value(spot_) > 0.0 && std::isfinite(Value(vol_)) && Value(vol_) >= 0.0 &&
                             std::isfinite(Value(div_)),
                         "InvalidHybridComponent: invalid BS equity parameters for " + name_);
+            }
+            template <class E_>
+            void EvolveWithDrift(size_t step,
+                                 const Vector_<>& factors,
+                                 const Vector_<size_t>& factorSlots,
+                                 const E_& drift,
+                                 Vector_<T_>* state,
+                                 size_t stateOffset) const {
+                (*state)[stateOffset] += drift + stds_[step] * factors[factorSlots[0]];
             }
 
         public:
@@ -243,7 +280,11 @@ namespace Dal {
                         const T_& carryAdjustment,
                         Vector_<T_>* state,
                         size_t stateOffset) const override {
-                (*state)[stateOffset] += drifts_[step] + carryAdjustment + stds_[step] * factors[factorSlots[0]];
+                EvolveWithDrift(step, factors, factorSlots, drifts_[step] + carryAdjustment, state, stateOffset);
+            }
+            void EvolveWithoutCarry(
+                size_t step, const Vector_<>& factors, const Vector_<size_t>& factorSlots, Vector_<T_>* state, size_t stateOffset) const override {
+                EvolveWithDrift(step, factors, factorSlots, drifts_[step], state, stateOffset);
             }
             [[nodiscard]] T_ Observe(size_t, size_t slot, const Vector_<T_>& state, size_t stateOffset, bool today) const override {
                 REQUIRE(slot == 0, "InvalidHybridObservation: BS equity has one output");
@@ -261,9 +302,11 @@ namespace Dal {
             Vector_<String_> observables_;
             T_ spot_;
             T_ div_;
+            T_ logSpot_{};
             LocalVolSurface_<T_> surface_;
             double maxStep_;
             Vector_<> timeline_;
+            Vector_<> rootDt_;
             Vector_<T_> integratedCarry_;
             Vector_<T_*> parameters_;
             Vector_<String_> labels_;
@@ -275,8 +318,10 @@ namespace Dal {
                 observables_ = other.observables_;
                 spot_ = other.spot_;
                 div_ = other.div_;
+                logSpot_ = other.logSpot_;
                 maxStep_ = other.maxStep_;
                 timeline_ = other.timeline_;
+                rootDt_ = other.rootDt_;
                 integratedCarry_ = other.integratedCarry_;
                 labels_ = other.labels_;
                 SetParameterPointers();
@@ -292,6 +337,19 @@ namespace Dal {
                 for (const auto* vol : surface_.Parameters())
                     REQUIRE(std::isfinite(Value(*vol)) && Value(*vol) >= 0.0,
                             "InvalidHybridComponent: local volatility must be finite and nonnegative for " + name_);
+            }
+            template <class E_>
+            void EvolveWithCarry(size_t step,
+                                 const Vector_<>& factors,
+                                 const Vector_<size_t>& factorSlots,
+                                 const E_& carry,
+                                 Vector_<T_>* state,
+                                 size_t stateOffset) const {
+                const double dt = timeline_[step + 1] - timeline_[step];
+                const T_ vol = surface_.VolAtLogSpot(step, (*state)[stateOffset]);
+                const T_ standardDeviation = vol * rootDt_[step];
+                (*state)[stateOffset] +=
+                    carry - div_ * dt - 0.5 * standardDeviation * standardDeviation + standardDeviation * factors[factorSlots[0]];
             }
 
         public:
@@ -327,19 +385,24 @@ namespace Dal {
                 REQUIRE(integratedCarry.size() + 1 == timeline.size(), "InvalidHybridCurve: carry must match the model timeline");
                 timeline_ = timeline;
                 integratedCarry_ = integratedCarry;
+                logSpot_ = Dal::log(spot_);
+                surface_.Prepare(Vector_<>(timeline.begin(), timeline.end() - 1));
+                rootDt_.Resize(integratedCarry.size());
+                for (size_t step = 0; step < rootDt_.size(); ++step)
+                    rootDt_[step] = std::sqrt(timeline[step + 1] - timeline[step]);
             }
-            void ResetState(Vector_<T_>* state, size_t offset) const override { (*state)[offset] = Dal::log(spot_); }
+            void ResetState(Vector_<T_>* state, size_t offset) const override { (*state)[offset] = logSpot_; }
             void Evolve(size_t step,
                         const Vector_<>& factors,
                         const Vector_<size_t>& factorSlots,
                         const T_& carryAdjustment,
                         Vector_<T_>* state,
                         size_t stateOffset) const override {
-                const double dt = timeline_[step + 1] - timeline_[step];
-                const T_ vol = surface_.Vol(timeline_[step], Dal::exp((*state)[stateOffset]));
-                const T_ standardDeviation = vol * Dal::sqrt(dt);
-                (*state)[stateOffset] += integratedCarry_[step] + carryAdjustment - div_ * dt - 0.5 * standardDeviation * standardDeviation +
-                                         standardDeviation * factors[factorSlots[0]];
+                EvolveWithCarry(step, factors, factorSlots, integratedCarry_[step] + carryAdjustment, state, stateOffset);
+            }
+            void EvolveWithoutCarry(
+                size_t step, const Vector_<>& factors, const Vector_<size_t>& factorSlots, Vector_<T_>* state, size_t stateOffset) const override {
+                EvolveWithCarry(step, factors, factorSlots, integratedCarry_[step], state, stateOffset);
             }
             [[nodiscard]] T_ Observe(size_t, size_t slot, const Vector_<T_>& state, size_t stateOffset, bool today) const override {
                 REQUIRE(slot == 0, "InvalidHybridObservation: local-vol equity has one output");
@@ -431,6 +494,10 @@ namespace Dal {
             }
             void Evolve(size_t step, const Vector_<>& factors, const Vector_<size_t>& factorSlots, const T_&, Vector_<T_>* state, size_t stateOffset)
                 const override {
+                EvolveWithoutCarry(step, factors, factorSlots, state, stateOffset);
+            }
+            void EvolveWithoutCarry(
+                size_t step, const Vector_<>& factors, const Vector_<size_t>& factorSlots, Vector_<T_>* state, size_t stateOffset) const override {
                 model_->AdvanceHybrid(step + 1, factors, factorSlots, &(*state)[stateOffset], &(*state)[stateOffset + model_->NumFactors()]);
             }
             [[nodiscard]] T_ Observe(size_t sample, size_t slot, const Vector_<T_>& state, size_t stateOffset, bool) const override {
@@ -443,6 +510,15 @@ namespace Dal {
                                size_t stateOffset,
                                Vector_<T_>* discounts) const override {
                 model_->ObserveHybridDiscounts(sample, &state[stateOffset], discounts);
+            }
+            [[nodiscard]] bool UsesObservationBatch(size_t sample) const override { return model_->UsesHybridObservationBatch(sample); }
+            bool FillObservationBatch(size_t sample,
+                                      const Vector_<std::pair<size_t, size_t>>& slots,
+                                      const Vector_<T_>& state,
+                                      size_t stateOffset,
+                                      Sample_<T_>* output,
+                                      size_t scratchPrefix) const override {
+                return model_->FillHybridObservationBatch(sample, slots, state, stateOffset, output, scratchPrefix);
             }
             [[nodiscard]] std::unique_ptr<HybridComponent_<T_>> Clone() const override { return std::make_unique<HybridGSRRate_<T_>>(*this); }
         };
@@ -503,6 +579,7 @@ namespace Dal {
             [[nodiscard]] bool SupportsIndex(const Index_& index) const override { return model_->SupportsIndex(index); }
             [[nodiscard]] double MaxStep() const override { return model_->MaxStep(); }
             [[nodiscard]] Vector_<> TimelineKnots() const override { return timelineKnots_; }
+            void BeginInit() override { model_->ResetAnchorsForRecording(); }
             [[nodiscard]] T_ LogDiscount(double time) const override { return model_->InitialLogDiscount(time); }
             [[nodiscard]] T_ PathLogNumeraire(double, const Vector_<T_>& state, size_t offset) const override {
                 return model_->HybridLogNumeraire(state, offset);
@@ -534,10 +611,23 @@ namespace Dal {
             void ResetState(Vector_<T_>* state, size_t offset) const override { model_->ResetHybridState(state, offset); }
             void Evolve(size_t step, const Vector_<>& factors, const Vector_<size_t>& factorSlots, const T_&, Vector_<T_>* state, size_t stateOffset)
                 const override {
+                EvolveWithoutCarry(step, factors, factorSlots, state, stateOffset);
+            }
+            void EvolveWithoutCarry(
+                size_t step, const Vector_<>& factors, const Vector_<size_t>& factorSlots, Vector_<T_>* state, size_t stateOffset) const override {
                 model_->EvolveHybrid(step, factors, factorSlots, state, stateOffset);
             }
             [[nodiscard]] T_ Observe(size_t sample, size_t slot, const Vector_<T_>& state, size_t stateOffset, bool) const override {
                 return model_->ObserveHybrid(sample, slot, state, stateOffset);
+            }
+            [[nodiscard]] bool UsesObservationBatch(size_t sample) const override { return model_->UsesHybridObservationBatch(sample); }
+            bool FillObservationBatch(size_t sample,
+                                      const Vector_<std::pair<size_t, size_t>>& slots,
+                                      const Vector_<T_>& state,
+                                      size_t stateOffset,
+                                      Sample_<T_>* output,
+                                      size_t scratchPrefix) const override {
+                return model_->FillHybridObservationBatch(sample, slots, state, stateOffset, output, scratchPrefix);
             }
             [[nodiscard]] std::unique_ptr<HybridComponent_<T_>> Clone() const override { return std::make_unique<HybridGSRSLVRate_<T_>>(*this); }
         };
@@ -712,6 +802,8 @@ namespace Dal {
             bool todayOnTimeLine_ = false;
             const Vector_<SampleDef_>* defLine_ = nullptr;
             Vector_<Vector_<OutputSlot_>> outputSlots_;
+            Vector_<Vector_<std::pair<size_t, size_t>>> rateObservationSlots_;
+            Vector_<bool> batchSamples_;
             Vector_<T_> numeraires_;
             Vector_<T_> initialCarry_;
 
@@ -793,6 +885,9 @@ namespace Dal {
                     parameters_.Append(component.Parameters());
                     parameterLabels_.Append(component.ParameterLabels());
                 }
+                const auto rate = std::find(evolvingComponents_.begin(), evolvingComponents_.end(), rateSlot_);
+                if (rate != evolvingComponents_.end())
+                    std::rotate(evolvingComponents_.begin(), rate, rate + 1);
             }
 
             // Reconstruct each component's correlation block from the global Cholesky factor so
@@ -835,6 +930,39 @@ namespace Dal {
                 THROW("UnsupportedModelObservation: " + name);
             }
 
+            void FillObservedIndices(size_t sample, const Vector_<T_>& state, bool today, bool batchFilled, Sample_<T_>* output) const {
+                const size_t gridIndex = productGridIndices_[sample];
+                output->spot_ = components_[spotSlot_]->Observe(gridIndex, 0, state, stateOffsets_[spotSlot_], today);
+                for (size_t i = 0; i < outputSlots_[sample].size(); ++i) {
+                    const auto slot = outputSlots_[sample][i];
+                    if (batchFilled && slot.component_ == rateSlot_)
+                        continue;
+                    if (slot.component_ == spotSlot_ && slot.observable_ == 0)
+                        output->observations_[i] = output->spot_;
+                    else
+                        output->observations_[i] =
+                            components_[slot.component_]->Observe(gridIndex, slot.observable_, state, stateOffsets_[slot.component_], today);
+                }
+            }
+
+            void PrepareObservationBatches(const Vector_<SampleDef_>& definitions) {
+                for (size_t sample = 0; sample < definitions.size(); ++sample)
+                    batchSamples_[sample] = (!rateObservationSlots_[sample].empty() || !definitions[sample].discountMats_.empty()) &&
+                                            components_[rateSlot_]->UsesObservationBatch(productGridIndices_[sample]);
+            }
+
+            bool FillRateObservations(size_t sample, const Vector_<T_>& state, Sample_<T_>* output) const {
+                if (!batchSamples_[sample])
+                    return false;
+                const bool sharedState = &state == &output->modelScratch_;
+                const bool batchFilled =
+                    components_[rateSlot_]->FillObservationBatch(productGridIndices_[sample], rateObservationSlots_[sample], state,
+                                                                 stateOffsets_[rateSlot_], output, sharedState ? totalState_ : 0);
+                if (batchFilled && sharedState)
+                    output->modelScratch_.Resize(totalState_);
+                return batchFilled;
+            }
+
             void FillSample(size_t sample, const Vector_<T_>& state, bool today, Sample_<T_>* output) const {
                 const size_t gridIndex = productGridIndices_[sample];
                 if ((*defLine_)[sample].numeraire_) {
@@ -844,18 +972,11 @@ namespace Dal {
                         output->numeraire_ =
                             Dal::exp(components_[rateSlot_]->PathLogNumeraire(timeLine_[gridIndex], state, stateOffsets_[rateSlot_]));
                 }
-                if (!output->discounts_.empty())
+                const bool batchFilled = FillRateObservations(sample, state, output);
+                if (!batchFilled && !output->discounts_.empty())
                     components_[rateSlot_]->FillDiscounts(gridIndex, timeLine_[gridIndex], (*defLine_)[sample].discountMats_, state,
                                                           stateOffsets_[rateSlot_], &output->discounts_);
-                output->spot_ = components_[spotSlot_]->Observe(gridIndex, 0, state, stateOffsets_[spotSlot_], today);
-                for (size_t i = 0; i < outputSlots_[sample].size(); ++i) {
-                    const auto slot = outputSlots_[sample][i];
-                    if (slot.component_ == spotSlot_ && slot.observable_ == 0)
-                        output->observations_[i] = output->spot_;
-                    else
-                        output->observations_[i] =
-                            components_[slot.component_]->Observe(gridIndex, slot.observable_, state, stateOffsets_[slot.component_], today);
-                }
+                FillObservedIndices(sample, state, today, batchFilled, output);
             }
 
             void Advance(size_t step, const Vector_<>& gaussian, Vector_<>* factors, Vector_<T_>* state) const {
@@ -869,14 +990,15 @@ namespace Dal {
                 }
                 for (size_t i = n; i < totalFactors_; ++i)
                     (*factors)[i] = gaussian[step * totalFactors_ + i];
-                T_ previousLogNumeraire(0.0);
-                if (!NumeraireIsDeterministic())
-                    previousLogNumeraire = components_[rateSlot_]->PathLogNumeraire(timeLine_[step], *state, stateOffsets_[rateSlot_]);
-                components_[rateSlot_]->Evolve(step, *factors, factorSlots_[rateSlot_], T_(0.0), state, stateOffsets_[rateSlot_]);
-                T_ carryAdjustment(0.0);
-                if (!NumeraireIsDeterministic())
-                    carryAdjustment = components_[rateSlot_]->PathLogNumeraire(timeLine_[step + 1], *state, stateOffsets_[rateSlot_]) -
-                                      previousLogNumeraire - initialCarry_[step];
+                if (NumeraireIsDeterministic()) {
+                    for (const size_t i : evolvingComponents_)
+                        components_[i]->EvolveWithoutCarry(step, *factors, factorSlots_[i], state, stateOffsets_[i]);
+                    return;
+                }
+                const T_ previousLogNumeraire = components_[rateSlot_]->PathLogNumeraire(timeLine_[step], *state, stateOffsets_[rateSlot_]);
+                components_[rateSlot_]->EvolveWithoutCarry(step, *factors, factorSlots_[rateSlot_], state, stateOffsets_[rateSlot_]);
+                const T_ carryAdjustment = components_[rateSlot_]->PathLogNumeraire(timeLine_[step + 1], *state, stateOffsets_[rateSlot_]) -
+                                           previousLogNumeraire - initialCarry_[step];
                 for (const size_t i : evolvingComponents_)
                     if (i != rateSlot_)
                         components_[i]->Evolve(step, *factors, factorSlots_[i], carryAdjustment, state, stateOffsets_[i]);
@@ -908,6 +1030,7 @@ namespace Dal {
             [[nodiscard]] size_t MaxObservedIndices() const override { return std::numeric_limits<size_t>::max(); }
             [[nodiscard]] size_t MaxOutputSlotsPerSample() const override { return std::numeric_limits<size_t>::max(); }
             [[nodiscard]] size_t NumFactors() const override { return totalFactors_; }
+            [[nodiscard]] size_t StateDim() const { return totalState_; }
             [[nodiscard]] bool SupportsBrownianBridge() const override { return true; }
             [[nodiscard]] bool NumeraireIsDeterministic() const override { return components_[rateSlot_]->NumeraireIsDeterministic(); }
             [[nodiscard]] bool SupportsDiscountFactors() const override { return components_[rateSlot_]->ProvidesDiscountFactors(); }
@@ -938,6 +1061,8 @@ namespace Dal {
                 copy->todayOnTimeLine_ = todayOnTimeLine_;
                 copy->defLine_ = defLine_;
                 copy->outputSlots_ = outputSlots_;
+                copy->rateObservationSlots_ = rateObservationSlots_;
+                copy->batchSamples_ = batchSamples_;
                 copy->numeraires_ = numeraires_;
                 copy->initialCarry_ = initialCarry_;
                 return copy;
@@ -1000,10 +1125,18 @@ namespace Dal {
                 for (auto& component : components_)
                     component->BeginAllocate(timeLine_);
                 outputSlots_.Resize(defLine.size());
+                rateObservationSlots_.Resize(defLine.size());
+                batchSamples_.Resize(defLine.size());
+                batchSamples_.Fill(false);
                 for (size_t sample = 0; sample < defLine.size(); ++sample) {
                     outputSlots_[sample].clear();
-                    for (const auto& name : defLine[sample].indexNames_)
+                    rateObservationSlots_[sample].clear();
+                    for (const auto& name : defLine[sample].indexNames_) {
                         outputSlots_[sample].push_back(FindOutput(productGridIndices_[sample], name));
+                        const auto slot = outputSlots_[sample].back();
+                        if (slot.component_ == rateSlot_)
+                            rateObservationSlots_[sample].push_back({slot.observable_, outputSlots_[sample].size() - 1});
+                    }
                 }
                 for (size_t sample = 0; sample < defLine.size(); ++sample) {
                     if (defLine[sample].discountMats_.empty())
@@ -1030,6 +1163,7 @@ namespace Dal {
                 initialCarry_ = integratedCarry;
                 for (auto& component : components_)
                     component->Prepare(timeLine_, integratedCarry);
+                PrepareObservationBatches(defLine);
                 for (size_t sample = 0; sample < defLine.size(); ++sample)
                     if (defLine[sample].numeraire_) {
                         numeraires_[sample] = Dal::exp(-logDiscounts[productGridIndices_[sample]]);

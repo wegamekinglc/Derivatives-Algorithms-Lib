@@ -411,4 +411,43 @@ TEST(ExcelCurvePricingTest, TestSingleCurveQuoteRiskSpillMatchesPublicAggregate)
         ASSERT_TRUE(Cell::IsEmpty(spill(row, 9)));
     }
 }
+
+TEST(ExcelCurvePricingTest, TestOptInRecordCapturePreservesSingleCurveIdentity) {
+    const auto fixture = SingleQuoteRiskFixture();
+    Handle_<StorableRateQuoteRiskProvenance_> original, captured;
+    const Vector_<String_> blocks{fixture.result_->spec_.curveName_};
+    SingleCurveQuoteRiskProvenance_New(fixture.result_, "single", blocks, {"discount"}, fixture.market_, &original);
+    SingleCurveQuoteRiskProvenance_New(fixture.result_, "single", blocks, {"discount"}, fixture.market_, Cell_(true), &captured);
+    ASSERT_TRUE(original->val_->CalibrationRecord().empty());
+    ASSERT_FALSE(captured->val_->CalibrationRecord().empty());
+    ASSERT_EQ(original->val_->Axis().fingerprint_, captured->val_->Axis().fingerprint_);
+    ASSERT_EQ(original->val_->State().fingerprint_, captured->val_->State().fingerprint_);
+    ASSERT_EQ(original->val_->Tolerance(), captured->val_->Tolerance());
+    const auto& before = original->val_->EffectiveInverse();
+    const auto& after = captured->val_->EffectiveInverse();
+    ASSERT_EQ(before.Rows(), after.Rows());
+    ASSERT_EQ(before.Cols(), after.Cols());
+    for (int row = 0; row < before.Rows(); ++row)
+        for (int col = 0; col < before.Cols(); ++col)
+            ASSERT_EQ(before(row, col), after(row, col));
+}
+
+TEST(ExcelCurvePricingTest, TestCaptureOptionRejectsCoercionAndPreservesPriorOutput) {
+    const auto fixture = SingleQuoteRiskFixture();
+    Handle_<StorableRateQuoteRiskProvenance_> captured;
+    const Vector_<String_> blocks{fixture.result_->spec_.curveName_};
+    SingleCurveQuoteRiskProvenance_New(fixture.result_, "single", blocks, {"discount"}, fixture.market_, Cell_(true), &captured);
+    const auto* before = captured.get();
+    for (const Cell_& invalid : {Cell_(0.0), Cell_(1.0), Cell_("true"), Cell_(Date_(2026, 10, 5))}) {
+        ASSERT_THROW(SingleCurveQuoteRiskProvenance_New(fixture.result_, "single", blocks, {"discount"}, fixture.market_, invalid, &captured),
+                     Exception_);
+        ASSERT_EQ(captured.get(), before);
+    }
+    for (const Cell_& disabled : {Cell_(), Cell_(false), Cell_("")}) {
+        Handle_<StorableRateQuoteRiskProvenance_> result;
+        SingleCurveQuoteRiskProvenance_New(fixture.result_, "single", blocks, {"discount"}, fixture.market_, disabled, &result);
+        ASSERT_TRUE(result->val_->CalibrationRecord().empty());
+        ASSERT_EQ(result->val_->State().fingerprint_, captured->val_->State().fingerprint_);
+    }
+}
 #endif

@@ -53,6 +53,8 @@ namespace Dal::Script {
         void WriteSimulationSettings(std::ostream& out, const MonteCarloSettings_& simulation) {
             out << ",\"simulation\":{\"rsg\":";
             JsonWriteString(simulation.rsg_, out);
+            out << ",\"normal_precision\":";
+            JsonWriteString(simulation.normalPrecision_, out);
             out << ",\"use_bb\":" << (simulation.useBb_ ? "true" : "false") << ",\"enable_aad\":" << (simulation.enableAad_ ? "true" : "false")
                 << ",\"smooth\":" << DebugNumber(simulation.smooth_) << ",\"compiled\":" << (simulation.compiled_.value_or(false) ? "true" : "false")
                 << ",\"lsmc_basis_degree\":" << simulation.lsmcBasisDegree_ << ",\"lsmc_training_paths\":";
@@ -65,6 +67,10 @@ namespace Dal::Script {
             WriteOptionalInt(out, simulation.lsmcTrainingSeed_);
             out << ",\"lsmc_pricing_seed\":";
             WriteOptionalInt(out, simulation.lsmcPricingSeed_);
+            out << ",\"lsmc_checkpoint_block_events\":";
+            WriteOptionalInt(out, simulation.lsmcCheckpointBlockEvents_);
+            out << ",\"lsmc_training_memory_mb\":";
+            WriteOptionalInt(out, simulation.lsmcTrainingMemoryMb_);
             out << '}';
         }
 

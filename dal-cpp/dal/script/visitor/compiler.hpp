@@ -165,7 +165,12 @@ namespace Dal::Script {
         VectorRead = 63,
         VectorAssign = 64,
         VectorAppend = 65,
-        VectorReduce = 66
+        VectorReduce = 66,
+        FuzzySub = 67,
+        FuzzySubConst = 68,
+        FuzzyConstSub = 69,
+        ConstMax2 = 70,
+        ConstMin2 = 71
     };
 
     class Compiler_ : public ConstVisitor_<Compiler_> {
@@ -225,9 +230,9 @@ namespace Dal::Script {
         void Visit(const NodeDiv_& node) { VisitBinary<Div, ConstDiv, DivConst>(node); }
         void Visit(const NodePow_& node) { VisitBinary<Pow, ConstPow, PowConst>(node); }
 
-        void Visit(const NodeMax_& node) { VisitBinary<Max2, Max2Const, Max2Const>(node); }
+        void Visit(const NodeMax_& node) { VisitBinary<Max2, ConstMax2, Max2Const>(node); }
 
-        void Visit(const NodeMin_& node) { VisitBinary<Min2, Min2Const, Min2Const>(node); }
+        void Visit(const NodeMin_& node) { VisitBinary<Min2, ConstMin2, Min2Const>(node); }
 
         template <NodeType_ NT> void VisitUnary(const ExprNode_& node) {
             if (node.isConst_) {
@@ -247,24 +252,54 @@ namespace Dal::Script {
         void Visit(const NodeSqrt_& node) { VisitUnary<Sqrt>(node); }
         void Visit(const NodeExp_& node) { VisitUnary<Exp>(node); }
 
+        int StoreConstant(double value) {
+            const int index = static_cast<int>(constStream_.size());
+            constStream_.push_back(value);
+            return index;
+        }
+
+        bool CompileFuzzyDifference(const CompNode_& node, int kernel) {
+            const auto* difference = dynamic_cast<const NodeSub_*>(node.arguments_[0].get());
+            if (!difference || difference->isConst_)
+                return false;
+            const auto* left = Downcast<ExprNode_>(difference->arguments_[0]);
+            const auto* right = Downcast<ExprNode_>(difference->arguments_[1]);
+            int op = FuzzySub;
+            int scalar = -1;
+            if (left->isConst_) {
+                difference->arguments_[1]->Accept(*this);
+                op = FuzzyConstSub;
+                scalar = StoreConstant(left->constVal_);
+            } else if (right->isConst_) {
+                difference->arguments_[0]->Accept(*this);
+                op = FuzzySubConst;
+                scalar = StoreConstant(right->constVal_);
+            } else {
+                VisitArguments(*difference);
+            }
+            const int first = StoreConstant(node.isDiscrete_ ? node.lb_ : node.eps_);
+            const int second = node.isDiscrete_ ? StoreConstant(node.rb_) : -1;
+            for (const int word : {op, kernel, scalar, first, second})
+                nodeStream_.push_back(word);
+            return true;
+        }
+
+        template <NodeType_ NT> void CompileFuzzyCondition(const CompNode_& node) {
+            const int kernel = node.isDiscrete_ ? (NT == Equal ? FuzzyEqualDiscrete : FuzzyCompDiscrete) : (NT == Equal ? FuzzyEqual : FuzzyComp);
+            if (CompileFuzzyDifference(node, kernel))
+                return;
+            node.arguments_[0]->Accept(*this);
+            nodeStream_.push_back(kernel);
+            nodeStream_.push_back(StoreConstant(node.isDiscrete_ ? node.lb_ : node.eps_));
+            if (node.isDiscrete_)
+                nodeStream_.push_back(StoreConstant(node.rb_));
+        }
+
         template <NodeType_ NT, typename OP> void VisitCondition(const CompNode_& node, OP op) {
             if (fuzzy_) {
-                //  Keep fuzzy conditions as smoothed runtime opcodes.
-                node.arguments_[0]->Accept(*this);
-                if (node.isDiscrete_) {
-                    nodeStream_.emplace_back(NT == Equal ? FuzzyEqualDiscrete : FuzzyCompDiscrete);
-                    nodeStream_.emplace_back(int(constStream_.size()));
-                    constStream_.emplace_back(node.lb_);
-                    nodeStream_.emplace_back(int(constStream_.size()));
-                    constStream_.emplace_back(node.rb_);
-                } else {
-                    nodeStream_.emplace_back(NT == Equal ? FuzzyEqual : FuzzyComp);
-                    nodeStream_.emplace_back(int(constStream_.size()));
-                    constStream_.emplace_back(node.eps_);
-                }
+                CompileFuzzyCondition<NT>(node);
                 return;
             }
-
             const auto* arg = Downcast<ExprNode_>(node.arguments_[0]);
 
             if (arg->isConst_) {
@@ -519,22 +554,32 @@ namespace Dal::Script {
                              bool reset = true);
 
     namespace Detail {
-        template <bool Prepared_, bool Lsmc_ = false, class T_>
+        struct DefaultCompiledPolicy_ {
+            static constexpr bool trace_ = false;
+            template <class T_> T_ Read(size_t requestId, const EvalState_<T_>& state) const {
+                REQUIRE2(state.observations_, "PreparationRequired: compiled observation requires a plan", ScriptError_);
+                return state.observations_->Read(requestId, state.scenario_);
+            }
+        };
+
+        template <bool Prepared_, bool Lsmc_ = false, class T_, class P_ = DefaultCompiledPolicy_>
         inline void EvalCompiledRange(const Vector_<int>& nodeStream,
                                       const Vector_<double>& constStream,
                                       const AAD::Sample_<T_>& scenario,
                                       EvalState_<T_>& state,
                                       size_t first,
                                       size_t last,
-                                      bool reset);
+                                      bool reset,
+                                      const P_& policy = {});
 
-        template <class T_> struct CompiledEventView_ {
+        template <class T_, class P_ = DefaultCompiledPolicy_> struct CompiledEventView_ {
             const Vector_<int>& nodeStream_;
             const Vector_<double>& constStream_;
             const AAD::Sample_<T_>& scenario_;
             size_t first_ = 0;
             size_t last_ = 0;
             bool reset_ = true;
+            P_ policy_ = {};
         };
 
         [[noreturn]] inline void ThrowUnknownCompiledOpcode(int op) { THROW("unknown compiled script opcode: " + std::to_string(op)); }
@@ -544,7 +589,13 @@ namespace Dal::Script {
                 *value = other;
         }
 
-        template <class T_> FORCE_INLINE size_t EvalCompiledSum(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+        template <class T_, class C_> FORCE_INLINE void UpdateCompiledConstantExtremum(T_* value, double other, C_ compare) {
+            if (compare(other, AAD::Value(*value)))
+                *value = other;
+        }
+
+        template <class T_, class P_>
+        FORCE_INLINE size_t EvalCompiledSum(const CompiledEventView_<T_, P_>& event, size_t i, EvalState_<T_>* statePtr) {
             auto& state = *statePtr;
             auto& dStack = state.dStack_;
             auto& nodeStream = event.nodeStream_;
@@ -583,7 +634,8 @@ namespace Dal::Script {
             }
         }
 
-        template <class T_> FORCE_INLINE size_t EvalCompiledProduct(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+        template <class T_, class P_>
+        FORCE_INLINE size_t EvalCompiledProduct(const CompiledEventView_<T_, P_>& event, size_t i, EvalState_<T_>* statePtr) {
             auto& state = *statePtr;
             auto& dStack = state.dStack_;
             auto& nodeStream = event.nodeStream_;
@@ -622,7 +674,8 @@ namespace Dal::Script {
             }
         }
 
-        template <class T_> FORCE_INLINE size_t EvalCompiledPower(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+        template <class T_, class P_>
+        FORCE_INLINE size_t EvalCompiledPower(const CompiledEventView_<T_, P_>& event, size_t i, EvalState_<T_>* statePtr) {
             auto& state = *statePtr;
             auto& dStack = state.dStack_;
             auto& nodeStream = event.nodeStream_;
@@ -650,43 +703,62 @@ namespace Dal::Script {
             }
         }
 
-        template <class T_> FORCE_INLINE size_t EvalCompiledExtremum(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+        template <class T_, class P_, class L_, class R_, class C_>
+        FORCE_INLINE void TraceCompiledExtremum(const CompiledEventView_<T_, P_>& event, size_t pc, const L_& left, const R_& right, C_ compare) {
+            if constexpr (P_::trace_)
+                event.policy_.Extremum(pc, left, right, compare);
+        }
+
+        template <bool Left_, class T_, class P_, class C_>
+        FORCE_INLINE size_t EvalCompiledConstantExtremum(const CompiledEventView_<T_, P_>& event, size_t i, EvalState_<T_>* statePtr, C_ compare) {
+            auto& value = statePtr->dStack_.Top();
+            const double scalar = event.constStream_[event.nodeStream_[i + 1]];
+            if constexpr (Left_) {
+                TraceCompiledExtremum(event, i, scalar, value, compare);
+                if (!compare(AAD::Value(value), scalar))
+                    value = scalar;
+            } else {
+                TraceCompiledExtremum(event, i, value, scalar, compare);
+                UpdateCompiledConstantExtremum(&value, scalar, compare);
+            }
+            return i + 2;
+        }
+
+        template <class T_, class P_>
+        FORCE_INLINE size_t EvalCompiledExtremum(const CompiledEventView_<T_, P_>& event, size_t i, EvalState_<T_>* statePtr) {
             auto& state = *statePtr;
             auto& dStack = state.dStack_;
-            auto& nodeStream = event.nodeStream_;
-            auto& constStream = event.constStream_;
             const int op = event.nodeStream_[i];
             switch (op) {
             case Max2: {
                 const T_ y = dStack.TopAndPop();
+                TraceCompiledExtremum(event, i, dStack.Top(), y, std::greater<>());
                 UpdateCompiledExtremum(&dStack.Top(), y, std::greater<>());
                 ++i;
                 return i;
             }
-            case Max2Const: {
-                const T_ y(constStream[nodeStream[++i]]);
-                UpdateCompiledExtremum(&dStack.Top(), y, std::greater<>());
-                ++i;
-                return i;
-            }
+            case Max2Const:
+                return EvalCompiledConstantExtremum<false>(event, i, statePtr, std::greater<>());
+            case ConstMax2:
+                return EvalCompiledConstantExtremum<true>(event, i, statePtr, std::greater<>());
             case Min2: {
                 const T_ y = dStack.TopAndPop();
+                TraceCompiledExtremum(event, i, dStack.Top(), y, std::less<>());
                 UpdateCompiledExtremum(&dStack.Top(), y, std::less<>());
                 ++i;
                 return i;
             }
-            case Min2Const: {
-                const T_ y(constStream[nodeStream[++i]]);
-                UpdateCompiledExtremum(&dStack.Top(), y, std::less<>());
-                ++i;
-                return i;
-            }
+            case Min2Const:
+                return EvalCompiledConstantExtremum<false>(event, i, statePtr, std::less<>());
+            case ConstMin2:
+                return EvalCompiledConstantExtremum<true>(event, i, statePtr, std::less<>());
             default:
                 ThrowUnknownCompiledOpcode(op);
             }
         }
 
-        template <class T_> FORCE_INLINE size_t EvalCompiledArithmetic(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+        template <class T_, class P_>
+        FORCE_INLINE size_t EvalCompiledArithmetic(const CompiledEventView_<T_, P_>& event, size_t i, EvalState_<T_>* statePtr) {
             const int op = event.nodeStream_[i];
             if (op <= ConstSub)
                 return EvalCompiledSum(event, i, statePtr);
@@ -697,7 +769,8 @@ namespace Dal::Script {
             return EvalCompiledExtremum(event, i, statePtr);
         }
 
-        template <class T_> FORCE_INLINE size_t EvalCompiledLoad(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+        template <class T_, class P_>
+        FORCE_INLINE size_t EvalCompiledLoad(const CompiledEventView_<T_, P_>& event, size_t i, EvalState_<T_>* statePtr) {
             auto& state = *statePtr;
             auto& dStack = state.dStack_;
             auto& nodeStream = event.nodeStream_;
@@ -730,7 +803,8 @@ namespace Dal::Script {
             }
         }
 
-        template <class T_> FORCE_INLINE size_t EvalCompiledStore(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+        template <class T_, class P_>
+        FORCE_INLINE size_t EvalCompiledStore(const CompiledEventView_<T_, P_>& event, size_t i, EvalState_<T_>* statePtr) {
             auto& state = *statePtr;
             auto& dStack = state.dStack_;
             auto& nodeStream = event.nodeStream_;
@@ -760,7 +834,7 @@ namespace Dal::Script {
             case PaysConst: {
                 const double val = constStream[nodeStream[++i]];
                 const size_t idx = nodeStream[++i];
-                state.variables_[idx] += T_(val) / scenario.numeraire_;
+                state.variables_[idx] += val / scenario.numeraire_;
                 ++i;
                 return i;
             }
@@ -775,7 +849,7 @@ namespace Dal::Script {
                 const double val = constStream[nodeStream[++i]];
                 const size_t slot = nodeStream[++i];
                 const size_t idx = nodeStream[++i];
-                state.variables_[idx] += T_(val) * scenario.discounts_[slot] / scenario.numeraire_;
+                state.variables_[idx] += val * scenario.discounts_[slot] / scenario.numeraire_;
                 ++i;
                 return i;
             }
@@ -784,14 +858,15 @@ namespace Dal::Script {
             }
         }
 
-        template <class T_> FORCE_INLINE size_t EvalCompiledData(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+        template <class T_, class P_>
+        FORCE_INLINE size_t EvalCompiledData(const CompiledEventView_<T_, P_>& event, size_t i, EvalState_<T_>* statePtr) {
             if (event.nodeStream_[i] <= Const)
                 return EvalCompiledLoad(event, i, statePtr);
             return EvalCompiledStore(event, i, statePtr);
         }
 
-        template <bool Prepared_, bool Lsmc_, class T_>
-        FORCE_INLINE size_t EvalCompiledBranch(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+        template <bool Prepared_, bool Lsmc_, class T_, class P_>
+        FORCE_INLINE size_t EvalCompiledBranch(const CompiledEventView_<T_, P_>& event, size_t i, EvalState_<T_>* statePtr) {
             auto& state = *statePtr;
             auto& bStack = state.bStack_;
             auto& nodeStream = event.nodeStream_;
@@ -800,6 +875,8 @@ namespace Dal::Script {
             const int op = event.nodeStream_[i];
             switch (op) {
             case If: {
+                if constexpr (P_::trace_)
+                    event.policy_.Branch(i, bStack.Top());
                 if (bStack.Top()) {
                     i += 2;
                 } else {
@@ -809,11 +886,13 @@ namespace Dal::Script {
                 return i;
             }
             case IfElse: {
+                if constexpr (P_::trace_)
+                    event.policy_.Branch(i, bStack.Top());
                 if (!bStack.Top()) {
                     i = nodeStream[++i];
                 } else {
                     //  Preserve parent stacks while running the true branch.
-                    EvalCompiledRange<Prepared_, Lsmc_>(nodeStream, constStream, scenario, state, i + 3, nodeStream[i + 1], false);
+                    EvalCompiledRange<Prepared_, Lsmc_>(nodeStream, constStream, scenario, state, i + 3, nodeStream[i + 1], false, event.policy_);
                     i = nodeStream[i + 2];
                 }
                 bStack.Pop();
@@ -824,7 +903,8 @@ namespace Dal::Script {
             }
         }
 
-        template <class T_> FORCE_INLINE size_t EvalCompiledBoolean(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+        template <class T_, class P_>
+        FORCE_INLINE size_t EvalCompiledBoolean(const CompiledEventView_<T_, P_>& event, size_t i, EvalState_<T_>* statePtr) {
             auto& state = *statePtr;
             auto& dStack = state.dStack_;
             auto& bStack = state.bStack_;
@@ -864,14 +944,15 @@ namespace Dal::Script {
             }
         }
 
-        template <bool Prepared_, bool Lsmc_, class T_>
-        FORCE_INLINE size_t EvalCompiledControl(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+        template <bool Prepared_, bool Lsmc_, class T_, class P_>
+        FORCE_INLINE size_t EvalCompiledControl(const CompiledEventView_<T_, P_>& event, size_t i, EvalState_<T_>* statePtr) {
             if (event.nodeStream_[i] <= IfElse)
                 return EvalCompiledBranch<Prepared_, Lsmc_>(event, i, statePtr);
             return EvalCompiledBoolean(event, i, statePtr);
         }
 
-        template <class T_> FORCE_INLINE size_t EvalCompiledUnary(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+        template <class T_, class P_>
+        FORCE_INLINE size_t EvalCompiledUnary(const CompiledEventView_<T_, P_>& event, size_t i, EvalState_<T_>* statePtr) {
             auto& state = *statePtr;
             auto& dStack = state.dStack_;
             auto& bStack = state.bStack_;
@@ -917,42 +998,97 @@ namespace Dal::Script {
             }
         }
 
-        template <class T_> FORCE_INLINE size_t EvalCompiledScalar(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+        template <class T_, class P_>
+        FORCE_INLINE size_t EvalCompiledScalar(const CompiledEventView_<T_, P_>& event, size_t i, EvalState_<T_>* statePtr) {
             if (event.nodeStream_[i] == ConstVar)
                 return EvalCompiledLoad(event, i, statePtr);
             return EvalCompiledUnary(event, i, statePtr);
         }
 
-        template <class T_> FORCE_INLINE size_t EvalCompiledFuzzyComparison(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+        template <class T_, class P_> FORCE_INLINE SmoothingComparison_ CompiledDifferenceRule(const CompiledEventView_<T_, P_>& event, size_t pc) {
+            const int kernel = event.nodeStream_[pc + 1];
+            const bool discrete = kernel == FuzzyEqualDiscrete || kernel == FuzzyCompDiscrete;
+            return {kernel == FuzzyEqual || kernel == FuzzyEqualDiscrete, discrete, event.constStream_[event.nodeStream_[pc + 3]],
+                    discrete ? event.constStream_[event.nodeStream_[pc + 4]] : 0.0};
+        }
+
+        template <class T_, class P_, class L_, class R_>
+        FORCE_INLINE T_
+        EvalFuzzyDifference(const CompiledEventView_<T_, P_>& event, size_t pc, const EvalState_<T_>& state, const L_& left, const R_& right) {
+            const auto comparison = CompiledDifferenceRule(event, pc);
+            if constexpr (P_::trace_) {
+                const auto [lower, upper] = comparison.Bounds(state.defEps_);
+                event.policy_.FuzzyComparison(pc, AAD::Value(left) - AAD::Value(right), lower, upper, comparison.equality_);
+            }
+            return comparison.Difference(left, right, state.defEps_, state.SmoothingConstants());
+        }
+
+        template <class T_, class P_>
+        inline size_t EvalCompiledFuzzyDifference(const CompiledEventView_<T_, P_>& event, size_t pc, EvalState_<T_>* statePtr) {
+            auto& state = *statePtr;
+            auto& stack = state.dStack_;
+            const int op = event.nodeStream_[pc];
+            if (op == FuzzySub) {
+                const T_ right = stack.TopAndPop();
+                stack.Top() = EvalFuzzyDifference(event, pc, state, stack.Top(), right);
+            } else {
+                const double scalar = event.constStream_[event.nodeStream_[pc + 2]];
+                stack.Top() = op == FuzzySubConst ? EvalFuzzyDifference(event, pc, state, stack.Top(), scalar)
+                                                  : EvalFuzzyDifference(event, pc, state, scalar, stack.Top());
+            }
+            return pc + 5;
+        }
+
+        template <class T_, class P_>
+        FORCE_INLINE void TraceCompiledFuzzyComparison(const CompiledEventView_<T_, P_>& event, size_t pc, const EvalState_<T_>& state) {
+            if constexpr (P_::trace_) {
+                const int op = event.nodeStream_[pc];
+                const bool equality = op == FuzzyEqual || op == FuzzyEqualDiscrete;
+                const bool discrete = op == FuzzyEqualDiscrete || op == FuzzyCompDiscrete;
+                double lower = event.constStream_[event.nodeStream_[pc + 1]];
+                double upper;
+                if (discrete) {
+                    upper = event.constStream_[event.nodeStream_[pc + 2]];
+                } else {
+                    upper = 0.5 * (lower < 0 ? state.defEps_ : lower);
+                    lower = -upper;
+                }
+                event.policy_.FuzzyComparison(pc, state.dStack_.Top(), lower, upper, equality);
+            }
+        }
+
+        template <class T_, class P_>
+        inline size_t EvalCompiledFuzzyComparison(const CompiledEventView_<T_, P_>& event, size_t i, EvalState_<T_>* statePtr) {
             auto& state = *statePtr;
             auto& dStack = state.dStack_;
             auto& nodeStream = event.nodeStream_;
             auto& constStream = event.constStream_;
             const int op = event.nodeStream_[i];
+            TraceCompiledFuzzyComparison(event, i, state);
             switch (op) {
             case FuzzyEqual: {
                 const double eps = constStream[nodeStream[++i]];
-                dStack.Top() = BFly(dStack.Top(), eps < 0 ? state.defEps_ : eps);
+                dStack.Top() = BFly(dStack.Top(), eps < 0 ? state.defEps_ : eps, state.SmoothingConstants());
                 ++i;
                 return i;
             }
             case FuzzyEqualDiscrete: {
                 const double lb = constStream[nodeStream[++i]];
                 const double rb = constStream[nodeStream[++i]];
-                dStack.Top() = BFly(dStack.Top(), lb, rb);
+                dStack.Top() = BFly(dStack.Top(), lb, rb, state.SmoothingConstants());
                 ++i;
                 return i;
             }
             case FuzzyComp: {
                 const double eps = constStream[nodeStream[++i]];
-                dStack.Top() = CSpr(dStack.Top(), eps < 0 ? state.defEps_ : eps);
+                dStack.Top() = CSpr(dStack.Top(), eps < 0 ? state.defEps_ : eps, state.SmoothingConstants());
                 ++i;
                 return i;
             }
             case FuzzyCompDiscrete: {
                 const double lb = constStream[nodeStream[++i]];
                 const double rb = constStream[nodeStream[++i]];
-                dStack.Top() = CSpr(dStack.Top(), lb, rb);
+                dStack.Top() = CSpr(dStack.Top(), lb, rb, state.SmoothingConstants());
                 ++i;
                 return i;
             }
@@ -961,7 +1097,8 @@ namespace Dal::Script {
             }
         }
 
-        template <class T_> FORCE_INLINE size_t EvalCompiledFuzzyBoolean(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+        template <class T_, class P_>
+        FORCE_INLINE size_t EvalCompiledFuzzyBoolean(const CompiledEventView_<T_, P_>& event, size_t i, EvalState_<T_>* statePtr) {
             auto& state = *statePtr;
             auto& dStack = state.dStack_;
             const int op = event.nodeStream_[i];
@@ -985,12 +1122,12 @@ namespace Dal::Script {
                 return i;
             }
             case FuzzyTrue: {
-                dStack.Push(T_(1.0));
+                dStack.Push(state.SmoothingConstants().One());
                 ++i;
                 return i;
             }
             case FuzzyFalse: {
-                dStack.Push(T_(0.0));
+                dStack.Push(state.SmoothingConstants().Zero());
                 ++i;
                 return i;
             }
@@ -999,8 +1136,24 @@ namespace Dal::Script {
             }
         }
 
-        template <bool Prepared_, bool Lsmc_, class T_>
-        FORCE_INLINE size_t EvalCompiledFuzzyBranch(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+        template <class T_, class P_>
+        FORCE_INLINE void TraceCompiledFuzzyBranch(const CompiledEventView_<T_, P_>& event, size_t pc, const T_& degree) {
+            if constexpr (P_::trace_)
+                event.policy_.FuzzyBranch(pc, degree);
+        }
+
+        template <class T_, class P_>
+        FORCE_INLINE void
+        BlendCompiledFuzzyScalars(const CompiledEventView_<T_, P_>& event, size_t pc, const T_& degree, EvalState_<T_>* statePtr, size_t level) {
+            const auto& stream = event.nodeStream_;
+            for (int k = 0; k < stream[pc + 3]; ++k) {
+                const size_t index = stream[pc + 4 + k];
+                statePtr->variables_[index] = degree * statePtr->varStore1_[level][index] + (1.0 - degree) * statePtr->variables_[index];
+            }
+        }
+
+        template <bool Prepared_, bool Lsmc_, class T_, class P_>
+        FORCE_INLINE size_t EvalCompiledFuzzyBranch(const CompiledEventView_<T_, P_>& event, size_t i, EvalState_<T_>* statePtr) {
             auto& state = *statePtr;
             auto& dStack = state.dStack_;
             auto& nodeStream = event.nodeStream_;
@@ -1018,8 +1171,9 @@ namespace Dal::Script {
             const auto vectorLast = nodeStream.begin() + firstTrue;
 
             const T_ t = dStack.TopAndPop();
+            TraceCompiledFuzzyBranch(event, i, t);
             if (t > 1.0 - EPSILON) {
-                EvalCompiledRange<Prepared_, Lsmc_>(nodeStream, constStream, scenario, state, firstTrue, lastTrue, false);
+                EvalCompiledRange<Prepared_, Lsmc_>(nodeStream, constStream, scenario, state, firstTrue, lastTrue, false, event.policy_);
                 i = lastFalse;
             } else if (t < EPSILON) {
                 i = lastTrue;
@@ -1033,7 +1187,7 @@ namespace Dal::Script {
                 SnapshotFuzzyVectors(state.vectors_, &state.vectorStore0_[lvl], vectorFirst, vectorLast);
                 if (state.lsmcFuzzySinks_)
                     state.lsmcFuzzySinks_->SnapshotBranchPayment(lvl);
-                EvalCompiledRange<Prepared_, Lsmc_>(nodeStream, constStream, scenario, state, firstTrue, lastTrue, false);
+                EvalCompiledRange<Prepared_, Lsmc_>(nodeStream, constStream, scenario, state, firstTrue, lastTrue, false, event.policy_);
                 for (int k = 0; k < nAff; ++k) {
                     const size_t idx = nodeStream[firstAff + k];
                     state.varStore1_[lvl][idx] = state.variables_[idx];
@@ -1042,11 +1196,8 @@ namespace Dal::Script {
                 CaptureAndRestoreFuzzyVectors(&state.vectors_, state.vectorStore0_[lvl], &state.vectorStore1_[lvl], vectorFirst, vectorLast);
                 if (state.lsmcFuzzySinks_)
                     state.lsmcFuzzySinks_->CaptureBranchPayment(lvl);
-                EvalCompiledRange<Prepared_, Lsmc_>(nodeStream, constStream, scenario, state, lastTrue, lastFalse, false);
-                for (int k = 0; k < nAff; ++k) {
-                    const size_t idx = nodeStream[firstAff + k];
-                    state.variables_[idx] = t * state.varStore1_[lvl][idx] + (1.0 - t) * state.variables_[idx];
-                }
+                EvalCompiledRange<Prepared_, Lsmc_>(nodeStream, constStream, scenario, state, lastTrue, lastFalse, false, event.policy_);
+                BlendCompiledFuzzyScalars(event, i, t, statePtr, lvl);
                 BlendFuzzyVectors(&state.vectors_, state.vectorStore1_[lvl], t, vectorFirst, vectorLast);
                 if (state.lsmcFuzzySinks_)
                     state.lsmcFuzzySinks_->BlendBranchPayment(lvl, t);
@@ -1056,8 +1207,8 @@ namespace Dal::Script {
             return i;
         }
 
-        template <bool Prepared_, bool Lsmc_, class T_>
-        FORCE_INLINE size_t EvalCompiledFuzzyControl(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+        template <bool Prepared_, bool Lsmc_, class T_, class P_>
+        inline size_t EvalCompiledFuzzyControl(const CompiledEventView_<T_, P_>& event, size_t i, EvalState_<T_>* statePtr) {
             if (event.nodeStream_[i] == FuzzyIf)
                 return EvalCompiledFuzzyBranch<Prepared_, Lsmc_>(event, i, statePtr);
             return EvalCompiledFuzzyBoolean(event, i, statePtr);
@@ -1118,7 +1269,7 @@ namespace Dal::Script {
         }
 
         //  Fuzzy (AAD) recording tier: the recorded rows stay live on the worker's tape
-        template <class T_> FORCE_INLINE void RecordLsmcFuzzyPayment(EvalState_<T_>* statePtr, size_t index, const T_& payment) {
+        template <class T_, class U_> FORCE_INLINE void RecordLsmcFuzzyPayment(EvalState_<T_>* statePtr, size_t index, const U_& payment) {
             auto& sinks = RequireLsmcFuzzySinks(statePtr);
             if (index == sinks.payoffIdx_)
                 (*sinks.pays_)[sinks.eventOrdinal_] += payment;
@@ -1141,90 +1292,55 @@ namespace Dal::Script {
             }
         }
 
+        template <bool Fuzzy_, bool Constant_, bool Delayed_, class T_, class P_>
+        FORCE_INLINE size_t EvalCompiledLsmcPayment(const CompiledEventView_<T_, P_>& event, size_t i, EvalState_<T_>* statePtr) {
+            double val = 0.0;
+            if constexpr (Constant_)
+                val = event.constStream_[event.nodeStream_[++i]];
+            size_t slot = 0;
+            if constexpr (Delayed_)
+                slot = event.nodeStream_[++i];
+            const size_t idx = event.nodeStream_[++i];
+            // Plain literals stay double; delayed payments materialize before recording and division.
+            const auto payment = [&]() {
+                if constexpr (Delayed_) {
+                    if constexpr (Constant_)
+                        return T_(val * event.scenario_.discounts_[slot]);
+                    else
+                        return T_(statePtr->dStack_.TopAndPop() * event.scenario_.discounts_[slot]);
+                } else if constexpr (Constant_)
+                    return val;
+                else
+                    return statePtr->dStack_.TopAndPop();
+            }();
+            if constexpr (Fuzzy_)
+                RecordLsmcFuzzyPayment(statePtr, idx, payment);
+            else
+                RecordLsmcPayment(statePtr, idx, Value(payment));
+            statePtr->variables_[idx] += payment / event.scenario_.numeraire_;
+            return i + 1;
+        }
+
         //  LSMC recording tier of the prepared tail zone: payments and exercise
         //  triples land in the driver's sinks while the script-state arithmetic
         //  mirrors the plain Pays opcodes statement for statement. Compiled only
         //  into the Lsmc_ dispatch chain (see EvalCompiledPrepared): a reachable
         //  recording tail, called or not, perturbs the inlined LoadObservation
         //  path that every prepared product executes.
-        template <class T_> FORCE_INLINE size_t EvalCompiledLsmcOp(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+        template <class T_, class P_>
+        FORCE_INLINE size_t EvalCompiledFuzzyLsmcOp(const CompiledEventView_<T_, P_>& event, size_t i, EvalState_<T_>* statePtr) {
             auto& state = *statePtr;
             auto& dStack = state.dStack_;
-            auto& bStack = state.bStack_;
             auto& nodeStream = event.nodeStream_;
-            auto& constStream = event.constStream_;
             const int op = event.nodeStream_[i];
-            if (op == LsmcPays) {
-                const size_t idx = nodeStream[++i];
-                const T_ payment = dStack.TopAndPop();
-                RecordLsmcPayment(statePtr, idx, Value(payment));
-                state.variables_[idx] += payment / event.scenario_.numeraire_;
-                return i + 1;
-            }
-            if (op == LsmcPaysConst) {
-                const double val = constStream[nodeStream[++i]];
-                const size_t idx = nodeStream[++i];
-                RecordLsmcPayment(statePtr, idx, val);
-                state.variables_[idx] += T_(val) / event.scenario_.numeraire_;
-                return i + 1;
-            }
-            if (op == LsmcPaysOn) {
-                const size_t slot = nodeStream[++i];
-                const size_t idx = nodeStream[++i];
-                const T_ payment = dStack.TopAndPop() * event.scenario_.discounts_[slot];
-                RecordLsmcPayment(statePtr, idx, Value(payment));
-                state.variables_[idx] += payment / event.scenario_.numeraire_;
-                return i + 1;
-            }
-            if (op == LsmcPaysOnConst) {
-                const double val = constStream[nodeStream[++i]];
-                const size_t slot = nodeStream[++i];
-                const size_t idx = nodeStream[++i];
-                const T_ payment = T_(val) * event.scenario_.discounts_[slot];
-                RecordLsmcPayment(statePtr, idx, Value(payment));
-                state.variables_[idx] += payment / event.scenario_.numeraire_;
-                return i + 1;
-            }
-            if (op == LsmcExercise) {
-                const bool hasCond = nodeStream[++i] != 0;
-                const T_ value = dStack.TopAndPop();
-                double cond = 1.0;
-                if (hasCond)
-                    cond = bStack.TopAndPop() ? 1.0 : 0.0;
-                RecordLsmcExercise(statePtr, Value(value), cond, Value(event.scenario_.spot_));
-                return i + 1;
-            }
-            if (op == LsmcFuzzyPays) {
-                const size_t idx = nodeStream[++i];
-                const T_ payment = dStack.TopAndPop();
-                RecordLsmcFuzzyPayment(statePtr, idx, payment);
-                state.variables_[idx] += payment / event.scenario_.numeraire_;
-                return i + 1;
-            }
-            if (op == LsmcFuzzyPaysConst) {
-                const double val = constStream[nodeStream[++i]];
-                const size_t idx = nodeStream[++i];
-                RecordLsmcFuzzyPayment(statePtr, idx, T_(val));
-                state.variables_[idx] += T_(val) / event.scenario_.numeraire_;
-                return i + 1;
-            }
-            if (op == LsmcFuzzyPaysOn) {
-                const size_t slot = nodeStream[++i];
-                const size_t idx = nodeStream[++i];
-                const T_ payment = dStack.TopAndPop() * event.scenario_.discounts_[slot];
-                RecordLsmcFuzzyPayment(statePtr, idx, payment);
-                state.variables_[idx] += payment / event.scenario_.numeraire_;
-                return i + 1;
-            }
-            if (op == LsmcFuzzyPaysOnConst) {
-                const double val = constStream[nodeStream[++i]];
-                const size_t slot = nodeStream[++i];
-                const size_t idx = nodeStream[++i];
-                const T_ payment = T_(val) * event.scenario_.discounts_[slot];
-                RecordLsmcFuzzyPayment(statePtr, idx, payment);
-                state.variables_[idx] += payment / event.scenario_.numeraire_;
-                return i + 1;
-            }
+            if (op == LsmcFuzzyPays)
+                return EvalCompiledLsmcPayment<true, false, false>(event, i, statePtr);
+            if (op == LsmcFuzzyPaysConst)
+                return EvalCompiledLsmcPayment<true, true, false>(event, i, statePtr);
+            if (op == LsmcFuzzyPaysOn)
+                return EvalCompiledLsmcPayment<true, false, true>(event, i, statePtr);
+            if (op == LsmcFuzzyPaysOnConst)
+                return EvalCompiledLsmcPayment<true, true, true>(event, i, statePtr);
             if (op == LsmcFuzzyExercise) {
                 const bool hasCond = nodeStream[++i] != 0;
                 T_ cond(1.0);
@@ -1237,15 +1353,41 @@ namespace Dal::Script {
             ThrowUnknownCompiledOpcode(op);
         }
 
+        template <class T_, class P_>
+        FORCE_INLINE size_t EvalCompiledLsmcOp(const CompiledEventView_<T_, P_>& event, size_t i, EvalState_<T_>* statePtr) {
+            auto& state = *statePtr;
+            auto& dStack = state.dStack_;
+            auto& bStack = state.bStack_;
+            auto& nodeStream = event.nodeStream_;
+            const int op = event.nodeStream_[i];
+            if (op == LsmcPays)
+                return EvalCompiledLsmcPayment<false, false, false>(event, i, statePtr);
+            if (op == LsmcPaysConst)
+                return EvalCompiledLsmcPayment<false, true, false>(event, i, statePtr);
+            if (op == LsmcPaysOn)
+                return EvalCompiledLsmcPayment<false, false, true>(event, i, statePtr);
+            if (op == LsmcPaysOnConst)
+                return EvalCompiledLsmcPayment<false, true, true>(event, i, statePtr);
+            if (op == LsmcExercise) {
+                const bool hasCond = nodeStream[++i] != 0;
+                const T_ value = dStack.TopAndPop();
+                double cond = 1.0;
+                if (hasCond)
+                    cond = bStack.TopAndPop() ? 1.0 : 0.0;
+                RecordLsmcExercise(statePtr, Value(value), cond, Value(event.scenario_.spot_));
+                return i + 1;
+            }
+            return EvalCompiledFuzzyLsmcOp(event, i, statePtr);
+        }
+
         //  Lsmc_ instantiates the recording tier for the LSMC driver's streams; the
         //  default compiles to exactly the LoadObservation/Discard/throw shape that
         //  predates the recording opcodes (hot path of every prepared product)
-        template <bool Lsmc_ = false, class T_>
-        FORCE_INLINE size_t EvalCompiledPrepared(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+        template <bool Lsmc_ = false, class T_, class P_>
+        FORCE_INLINE size_t EvalCompiledPrepared(const CompiledEventView_<T_, P_>& event, size_t i, EvalState_<T_>* statePtr) {
             const int op = event.nodeStream_[i];
             if (op == LoadObservation) {
-                REQUIRE2(statePtr->observations_, "PreparationRequired: compiled observation requires a plan", ScriptError_);
-                statePtr->dStack_.Push(statePtr->observations_->Read(event.nodeStream_[i + 1], statePtr->scenario_));
+                statePtr->dStack_.Push(event.policy_.Read(event.nodeStream_[i + 1], *statePtr));
                 return i + 2;
             }
             if (op == Discard) {
@@ -1265,16 +1407,20 @@ namespace Dal::Script {
             return value;
         }
 
-        template <class T_>
-        FORCE_INLINE size_t EvalCompiledVectorReduction(const Vector_<int>& stream, size_t i, size_t index, EvalState_<T_>* statePtr) {
+        template <class T_, class P_>
+        FORCE_INLINE size_t
+        EvalCompiledVectorReduction(const Vector_<int>& stream, size_t i, size_t index, EvalState_<T_>* statePtr, const P_& policy) {
             const auto kind = static_cast<NodeVectorReduce_::Kind_>(stream[i++]);
             const auto& values = statePtr->vectors_[index];
+            if constexpr (P_::trace_)
+                policy.VectorReduction(i - 3, kind, values);
             const String_ context = values.empty() && kind != NodeVectorReduce_::Kind_::Sum ? CompiledVectorContext(stream, i, index) : String_();
             statePtr->dStack_.Push(ReduceVectorValues(values, kind, context));
             return i + 3;
         }
 
-        template <class T_> FORCE_INLINE size_t EvalCompiledVector(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+        template <class T_, class P_>
+        FORCE_INLINE size_t EvalCompiledVector(const CompiledEventView_<T_, P_>& event, size_t i, EvalState_<T_>* statePtr) {
             const auto& stream = event.nodeStream_;
             const int op = stream[i++];
             const size_t index = static_cast<size_t>(stream[i++]);
@@ -1296,12 +1442,27 @@ namespace Dal::Script {
                 return i;
             }
             if (op == VectorReduce)
-                return EvalCompiledVectorReduction(stream, i, index, statePtr);
+                return EvalCompiledVectorReduction(stream, i, index, statePtr, event.policy_);
             ThrowUnknownCompiledOpcode(op);
         }
 
-        template <bool Prepared_, bool Lsmc_, class T_>
-        FORCE_INLINE size_t EvalCompiledInstruction(const CompiledEventView_<T_>& event, size_t i, EvalState_<T_>* statePtr) {
+        template <bool Prepared_, bool Lsmc_, class T_, class P_>
+        FORCE_INLINE size_t EvalCompiledTail(const CompiledEventView_<T_, P_>& event, size_t i, EvalState_<T_>* statePtr) {
+            const int op = event.nodeStream_[i];
+            if (op == ConstMax2 || op == ConstMin2)
+                return EvalCompiledExtremum(event, i, statePtr);
+            // Keep vector dispatch off the hot path for scalar-only scripts.
+            if (op >= VectorRead && op <= VectorReduce)
+                return EvalCompiledVector(event, i, statePtr);
+            if constexpr (Prepared_) {
+                if (op > FuzzyIf)
+                    return EvalCompiledPrepared<Lsmc_>(event, i, statePtr);
+            }
+            return EvalCompiledFuzzyControl<Prepared_, Lsmc_>(event, i, statePtr);
+        }
+
+        template <bool Prepared_, bool Lsmc_, class T_, class P_>
+        FORCE_INLINE size_t EvalCompiledInstruction(const CompiledEventView_<T_, P_>& event, size_t i, EvalState_<T_>* statePtr) {
             const int op = event.nodeStream_[i];
             if (op <= Min2Const)
                 return EvalCompiledArithmetic(event, i, statePtr);
@@ -1313,14 +1474,9 @@ namespace Dal::Script {
                 return EvalCompiledScalar(event, i, statePtr);
             if (op <= FuzzyCompDiscrete)
                 return EvalCompiledFuzzyComparison(event, i, statePtr);
-            // Keep vector dispatch off the hot path for scalar-only scripts.
-            if (op >= VectorRead && op <= VectorReduce)
-                return EvalCompiledVector(event, i, statePtr);
-            if constexpr (Prepared_) {
-                if (op > FuzzyIf)
-                    return EvalCompiledPrepared<Lsmc_>(event, i, statePtr);
-            }
-            return EvalCompiledFuzzyControl<Prepared_, Lsmc_>(event, i, statePtr);
+            if (op >= FuzzySub && op <= FuzzyConstSub)
+                return EvalCompiledFuzzyDifference(event, i, statePtr);
+            return EvalCompiledTail<Prepared_, Lsmc_>(event, i, statePtr);
         }
 
         template <bool Prepared_ = true, bool Lsmc_ = false, class T_, class E_>
@@ -1338,16 +1494,17 @@ namespace Dal::Script {
             }
         }
 
-        template <bool Prepared_, bool Lsmc_, class T_>
+        template <bool Prepared_, bool Lsmc_, class T_, class P_>
         inline void EvalCompiledRange(const Vector_<int>& nodeStream,
                                       const Vector_<double>& constStream,
                                       const AAD::Sample_<T_>& scenario,
                                       EvalState_<T_>& state,
                                       size_t first,
                                       size_t last,
-                                      bool reset) {
+                                      bool reset,
+                                      const P_& policy) {
             EvalCompiledEvents<Prepared_, Lsmc_>(
-                1, [&](size_t) { return CompiledEventView_<T_>{nodeStream, constStream, scenario, first, last, reset}; }, &state);
+                1, [&](size_t) { return CompiledEventView_<T_, P_>{nodeStream, constStream, scenario, first, last, reset, policy}; }, &state);
         }
     } // namespace Detail
 

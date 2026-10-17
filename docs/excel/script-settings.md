@@ -45,38 +45,159 @@ keys instead of assuming PV is the first row. AAD adds model and script-constant
 risks; risks are already normalized, and there are no fixing-risk or diagnostic
 rows. With AAD disabled the result is a 1×2 PV table.
 
+## Structured script risk
+
+`RISKREQUEST.NEW(name, [settings])` creates an immutable request from a
+two-column key/value table. Supported keys are `inputs`, `outputs`,
+`report_factors` and `numeric_payload_budget_bytes`. IDs and factors are
+semicolon-separated text, such as `constant:0;model:1` and `0.5;0.01`.
+An omitted input row selects all native inputs; a present input row with a blank
+value selects none. Blank output selection is invalid. Budget is an exactly
+representable nonnegative integer no larger than `2^53-1`; zero cannot hold the
+mandatory payoff value. Unknown or repeated keys fail.
+
+`MONTECARLO.VALUEWITHRISK(product, modelData, n_paths, [request], [valuation],
+[simulation])` returns a completed result handle. Omitted simulation enables
+native AAD; an explicit simulation handle with `enable_aad=FALSE` requests price
+only and cannot select nonempty risk inputs. No getter performs valuation.
+
+Use `RISKRESULT.GET.VALUES`, `.GET.OUTPUTS`, `.GET.JACOBIAN(result, [reported])`
+and `.GET.SHAPE` for numeric values, ordered output IDs, raw/reported derivatives
+and exact matrix extent. A zero-column Jacobian spills one blank cell, while
+shape reports `1, 0`. `.GET.INPUTS(result, [complete])` returns a header and
+ordered coordinate rows containing ID, label, family, ordinal, native value/unit,
+optional physical unit and reporting scale. Unknown physical units are blank.
+
+`.GET.PROVENANCE`, `.GET.HISTORY`, `.GET.PRODUCT` and `.GET.MODELSNAPSHOT`
+extract actual method/settings, observation keys/frozen historical values,
+the original product table and model-data JSON chunks. Concatenate model chunks
+without separators. `.GET.LEGACYVALUES` returns raw `PV`/`d_...` and rejects
+colliding display labels. Results survive later valuation/failure; request/result
+handle serialization explicitly fails with `RiskArchiveUnsupported`.
+The [AAD methodology](../methodology/aad.md#structured-scalar-risk-results)
+defines normalization, reporting factors and mixed LSM policy risk. Numeric
+payload budgets exclude metadata, worker/tape storage and subsequent getter copies.
+
+## Calibration quote requests
+
+`CALIBRATIONRISKREQUEST.NEW(name, [settings])` accepts two-column rows for
+`inputs`, `report_factors` and `numeric_payload_budget_bytes`. Quote IDs are
+source-scoped `quote:<ordinal>` values. Omitted inputs select every quote;
+an explicit blank inputs row selects none. IDs and factors use the same
+semicolon syntax as scalar requests. Unknown/repeated keys, invalid factors
+and numeric budgets reject. `.GET.SETTINGS` returns configured rows only,
+preserving omitted versus explicitly empty selections on round trips.
+
+Create a common boundary with `CALIBRATIONPULLBACK.NEW`, then call
+`CALIBRATIONRISKPLAN.NEW(name, calibration, [request])`. `.GET.CALIBRATION`
+returns the owning boundary; `.GET.INPUTS(plan, [complete])` returns selected
+or complete quote metadata. Dupire includes actual spread, strike and maturity;
+curves retain native block ordinals/units and leave unavailable quote values
+blank. `.GET.SHAPE` reports the exact selected extent, native quote dimensions
+and retained numeric payload. It attaches no PV or currency to external seeds.
+
+`CALIBRATIONRISKRESULT.NEW(name, plan, parameters, [direct])` executes the
+native common pullback with typed seeds. `.GET.JACOBIAN(result, [projection])`
+accepts `Total` (default), `Calibration`, `Direct` or `Reported`.
+Reporting scales selected derivatives once and preserves all raw matrices.
+`.GET.PLAN` returns the owning plan; `.GET.QUOTERISK` returns the existing
+common result handle for full contributions and source provenance. An empty
+selected Jacobian spills one blank cell; shape still reports zero selected
+columns. Empty selection continues to execute the native pullback.
+
+The common numeric budget always counts three complete native quote matrices,
+even for subset/empty selections. It excludes source storage, metadata, temporary
+work, tape/workers and getter copies. See the
+[native request contract](../yield-curves/jacobian-risk.md#c-quote-coordinate-requests).
+
+## Automatic Dupire script requests
+
+Use one execution settings handle with the existing typed valuation/simulation
+controls. These formulas refer to previously created product, model and frozen
+calibration handles; `quoteSettings` and `bindings` are optional ranges.
+
+```text
+execution = DUPIRESCRIPTRISKSETTINGS.NEW("execution", 257, valuation, simulation)
+quotes = CALIBRATIONRISKREQUEST.NEW("quotes", quoteSettings)
+request = DUPIRESCRIPTRISKREQUEST.NEW("request", execution, quotes, bindings)
+plan = DUPIRESCRIPTRISKPLAN.NEW("plan", product, modelData, calibration, "equity", request)
+result = DUPIRESCRIPTRISKRESULT.NEW("result", plan)
+valuationResult = DUPIRESCRIPTRISKRESULT.GET.VALUATION(result)
+quoteResult = DUPIRESCRIPTRISKRESULT.GET.QUOTERISK(result)
+reported = CALIBRATIONRISKRESULT.GET.JACOBIAN(quoteResult, "Reported")
+```
+
+`component` is the exact local-vol component name. The `DUPIREMODELDATA.NEW`
+factory names its component `equity`; its observation index, such as
+`EQ[LOCAL]`, is a different field. A custom native Hybrid supplies its own
+component name. The automatic path supports a scalar payoff and one calibrated
+local-vol component in a native single-currency Hybrid with a matching flat
+deterministic domestic rate. Omitted simulation enables native AAD; an explicit
+`enable_aad=FALSE` rejects during planning.
+
+`bindings` contains two data columns without a header: exact nonnegative script
+constant ordinal and source quote ID. For example, ordinal `0` and `quote:0`
+declare a direct dependency whose native values must agree. Bool/text ordinals,
+fractions, overflow and embedded NUL reject. A fifth optional request argument
+accepts an owning common external direct seed instead; planning rejects its
+combination with bindings. The fixed-surface direct partial is added once.
+
+The plan seals caller product/model data before execution, exposes complete or
+required model/constant axes through `.GET.INPUTS`, and exposes the common
+quote plan through `.GET.QUOTEPLAN`. Quote selection never removes mandatory
+surface/direct valuation inputs. Its combined budget counts the scalar value,
+required valuation Jacobian and three complete quote matrices; exact equality
+succeeds and a short budget rejects before history/worker activity.
+
+Settings/request/plan `.GET.CONFIGURATION` functions copy passive controls.
+Request configuration includes `has_direct`; `.GET.DIRECT` explicitly rejects
+when no external seed exists. Multi-output configuration functions accept the
+usual trailing `format` argument. Plan settings capture an omitted evaluation
+date; global history is resolved at execution. `.GET.PROVENANCE` exposes
+component/payload and the result's actual combined method. Valuation provenance
+remains `calibration=fixed`; the quote result records the subsequent mapping.
+Getters read retained passive data. Immutable calibration/request handles reject
+serialization with `CalibrationArchiveUnsupported`. See
+[automatic native requests](../methodology/aad.md#automatic-c-dupire-risk-requests).
+
 ## Settings Ranges
 
 Each `settings` range has exactly two columns, key then value, with no header.
 Model-sourced FIX observations are bound by index name, so the valuation
-constructor takes no binding range: the engine binds the model's spot output
-to the script's future FIX index.
+constructor takes no binding range: the engine binds each requested index to
+a supported equity or rate model output.
 
-| Settings handle | Key                         | Default                                         | Accepted value                                                  |
-|-----------------|-----------------------------|-------------------------------------------------|-----------------------------------------------------------------|
-| Product         | `default_index`             | No default                                      | Nonempty index-name text                                        |
-| Product         | `regression_features`       | No explicit states                              | Semicolon-separated EQ indices or `VAR[name]`, up to three      |
-| Valuation       | `evaluation_date`           | Capture global date at each Value/Explain entry | Valid integral Excel date serial                                |
-| Valuation       | `today_fixing`              | `Model`                                         | Exact text `Model` or `RequireHistorical`                       |
-| Simulation      | `method`                    | `sobol`                                         | Text `sobol`, `mrg32`, or `irn`                                 |
-| Simulation      | `use_bb`                    | `FALSE`                                         | Excel boolean or numeric 0/1                                    |
-| Simulation      | `enable_aad`                | `FALSE`                                         | Excel boolean or numeric 0/1                                    |
-| Simulation      | `smooth`                    | `0.01`                                          | Finite, strictly positive number; not boolean                   |
-| Simulation      | `compiled`                  | Unset, selecting tree execution                 | Excel boolean or numeric 0/1                                    |
-| Simulation      | `lsmc_basis_degree`         | `3`                                             | Integral number 1..8; not boolean                               |
-| Simulation      | `lsmc_training_paths`       | Same as the pricing count                       | Integral number 1..2147483647; not boolean                      |
-| Simulation      | `lsmc_validation_paths`     | Omitted (fixed degree)                          | Integral number 1..2147483647; not boolean                      |
-| Simulation      | `lsmc_rqmc_replicates`      | Omitted (deterministic Sobol)                   | Integral number 2..2147483647; not boolean                      |
-| Simulation      | `lsmc_training_seed`        | Omitted (effective 0 in RQMC mode)              | Integral number 0..2147483647; not boolean                      |
-| Simulation      | `lsmc_pricing_seed`         | Omitted (effective 0 in RQMC mode)              | Integral number 0..2147483647; not boolean                      |
-| Simulation      | `lsmc_policy_risk_mode`     | `Frozen`                                        | Exact text `Frozen` or `RetrainedBump`; the latter requires AAD |
-| Simulation      | `lsmc_policy_bump_relative` | `0.001`                                         | Finite number in (0, 0.1]; not boolean                          |
+| Settings handle | Key                         | Default                                         | Accepted value                                                               |
+|-----------------|-----------------------------|-------------------------------------------------|------------------------------------------------------------------------------|
+| Product         | `default_index`             | No default                                      | Nonempty index-name text                                                     |
+| Product         | `regression_features`       | No explicit states                              | Up to three semicolon-separated model-supported EQ/IR indices or `VAR[name]` |
+| Valuation       | `evaluation_date`           | Capture global date at each Value/Explain entry | Valid integral Excel date serial                                             |
+| Valuation       | `today_fixing`              | `Model`                                         | Exact text `Model` or `RequireHistorical`                                    |
+| Simulation      | `method`                    | `sobol`                                         | Text `sobol`, `mrg32`, or `irn`                                              |
+| Simulation      | `normal_precision`          | `Default`                                       | Exact text `Default`, `Fast`, or `Precise`                                    |
+| Simulation      | `use_bb`                    | `FALSE`                                         | Excel boolean or numeric 0/1                                                 |
+| Simulation      | `enable_aad`                | `FALSE`                                         | Excel boolean or numeric 0/1                                                 |
+| Simulation      | `smooth`                    | `0.01`                                          | Finite, strictly positive number; not boolean                                |
+| Simulation      | `compiled`                  | Unset, selecting tree execution                 | Excel boolean or numeric 0/1                                                 |
+| Simulation      | `lsmc_basis_degree`         | `3`                                             | Integral number 1..8; not boolean                                            |
+| Simulation      | `lsmc_training_paths`       | Same as the pricing count                       | Integral number 1..2147483647; not boolean                                   |
+| Simulation      | `lsmc_validation_paths`     | Omitted (fixed degree)                          | Integral number 1..2147483647; not boolean                                   |
+| Simulation      | `lsmc_rqmc_replicates`      | Omitted (deterministic Sobol)                   | Integral number 2..2147483647; not boolean                                   |
+| Simulation      | `lsmc_training_seed`        | Omitted (effective 0 in RQMC mode)              | Integral number 0..2147483647; not boolean                                   |
+| Simulation      | `lsmc_pricing_seed`         | Omitted (effective 0 in RQMC mode)              | Integral number 0..2147483647; not boolean                                   |
+| Simulation      | `lsmc_policy_risk_mode`     | `Frozen`                                        | Exact text `Frozen` or `RetrainedBump`; the latter requires AAD              |
+| Simulation      | `lsmc_policy_bump_relative` | `0.001`                                         | Finite number in (0, 0.1]; not boolean                                       |
 
 Settings keys and RNG names use DAL's case-insensitive
 comparison, with no whitespace trimming. Today-policy values are case-sensitive:
 `MODEL`, `model`, and `UseIfAvailable` are invalid. Boolean fields reject text
 `"TRUE"`, `"FALSE"`, and `"1"`, as well as numbers other than 0 and 1.
 Smoothing must be valid even with AAD disabled.
+`normal_precision=Default` uses fast conversion for Sobol, MRG32 and IRN.
+Select `Precise` to include the CDF correction for any generator.
+An explicit `Fast` or `Precise` policy applies to every simulation stage;
+see [normal precision](../methodology/monte-carlo/sampling.md#monte-carlo-normal-precision)
+before choosing fast conversion for sensitive payoffs or Greeks.
 `lsmc_training_paths` sets the regression count for exercise products;
 `n_paths` still sets the pricing count. Training and pricing use disjoint Sobol blocks.
 Omit the training key to use the pricing count. Products without `EXERCISE`
@@ -168,8 +289,9 @@ or diagnostic formulas after such a change. Reusing a default valuation handle
 then captures the current global date/history; an explicit date/snapshot keeps
 those inputs fixed. No prepared plan is cached between calls. Settings handles
 are local calculation objects, not persistent settings archives. The separate
-[product v2 archive](../methodology/script_engine.md#contract-archive) preserves
-contract text/default identity and excludes runtime plans and market data.
+[product v3 archive](../methodology/script_engine.md#contract-archive) preserves
+contract text, default identity, and selected regression features, and excludes
+runtime plans and market data.
 
 ## FIX Source and Model Rules
 
@@ -193,15 +315,17 @@ EQ binds to its own model output. `CORRELATEDBSMODELDATA.NEW` and
 `HYBRIDMODELDATA.NEW` accept multiple named equities; BS accepts one
 distinct future EQ index. GSR and a Hybrid GSR rate component support
 compatible future IR observations. Future FX, composite, and delivery indices are
-unsupported. Historical EQ/FX observations need no model index and may contain
+unsupported. Historical EQ, FX, and Libor observations need no model index and may contain
 multiple identities. A product default does not supply market data: the model
-inputs must describe the intended equity. In a multi-asset model, `SPOT()` and
-`SPOT()` requires an explicit `default_index`. LSM exercise requires either
+inputs must describe the intended market. In a multi-asset model, `SPOT()`
+requires an explicit `default_index`. Multi-asset LSM exercise requires either
 that single-state default or a `regression_features` row, for example
 `EQ[A];EQ[B]` or `EQ[A];VAR[runningAverage]`. The named model outputs or scalar
 script variables are recorded at every exercise date for continuation
 regression. A `VAR[...]` name must refer to a scalar script variable; the
 product may still need `default_index` if its script calls `SPOT()`.
+Rate-only exercise requires explicit features, such as `IR[USD,SWAP,5Y]` for
+a supported GSR model; see [GSR Bermudan products](../models/gaussian-short-rate.md#bermudan-products).
 
 A two-equity hybrid worksheet can create two components with
 `HYBRIDBSEQUITYDATA.NEW`, a domestic `HYBRIDDETERMINISTICRATEDATA.NEW`, and a
@@ -209,7 +333,7 @@ A two-equity hybrid worksheet can create two components with
 three component handles and correlation handle to `HYBRIDMODELDATA.NEW`, then
 use `PRODUCT.NEW` with `pay PAYS FIX(EQ[A]) * FIX(EQ[B])` and
 `MONTECARLO.VALUEWITHSETTINGS`. The corresponding C++ and Python examples are
-[`dal-cpp/examples/hybrid_script/`](../../dal-cpp/examples/hybrid_script/) and
+[`dal-cpp/examples/models/hybrid_script/`](../../dal-cpp/examples/models/hybrid_script/) and
 [here](../../dal-python/examples/hybrid_script.py).
 
 `SPOT()` is the retained zero-argument compatibility form; write `FIX(index)`
@@ -248,7 +372,7 @@ it explicitly runs the full double valuation with `n_paths` pricing paths and
 `lsmc_validation_paths` held-out paths on exercise
 products — path generation plus workers plus the exercise regressions — and
 reports the
-simulation echo (including `lsmc_basis_degree`, `lsmc_training_paths`,
+simulation echo (including `normal_precision`, `lsmc_basis_degree`, `lsmc_training_paths`,
 `lsmc_validation_paths`, `lsmc_rqmc_replicates`, `lsmc_training_seed`, and
 `lsmc_pricing_seed`, null when unset), the explicit per-replicate `n_paths`,
 an `uncertainty` object with budgets, seeds, replicate means and error, and

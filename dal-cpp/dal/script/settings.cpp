@@ -14,6 +14,17 @@ namespace Dal {
 #include <dal/auto/MG_TodayFixingPolicy_enum.inc>
 
     namespace Script {
+        namespace {
+            void ValidatePassiveConstantSettings(const MonteCarloSettings_& settings) {
+                if (!settings.usePassiveConstants_)
+                    return;
+                REQUIRE2(settings.enableAad_ && settings.compiled_.value_or(false),
+                         "UnsupportedPassiveConstants: requires compiled AAD", ScriptError_);
+                REQUIRE2(settings.rsg_ == "sobol" && !settings.useBb_ && settings.normalPrecision_ == "Default",
+                         "UnsupportedPassiveConstants: requires default Sobol without a Brownian bridge", ScriptError_);
+            }
+        } // namespace
+
         Date_ CaptureScriptEvaluationDate() { return Global::Dates_::EvaluationDate(); }
 
         Handle_<Index_> ParseSettingIndex(const String_& name, const String_& field) {
@@ -66,9 +77,14 @@ namespace Dal {
 
         void ValidateSmoothing(double smooth) {
             REQUIRE2(std::isfinite(smooth) && smooth > 0.0,
-                     "InvalidSetting: InvalidSmoothing; simulation.smooth_=" + String_(std::to_string(smooth)) +
-                         "; expected a finite positive width",
+                     "InvalidSetting: InvalidSmoothing; simulation.smooth_=" + String_(std::to_string(smooth)) + "; expected a finite positive width",
                      ScriptError_);
+        }
+
+        void ValidateNormalPrecision(const String_& precision) {
+            const std::string exact(precision.data(), precision.size());
+            REQUIRE2(exact == "Default" || exact == "Fast" || exact == "Precise",
+                     "InvalidSetting: simulation.normalPrecision_=" + precision + "; expected Default, Fast or Precise", ScriptError_);
         }
 
         void ValidateLsmcBasisDegree(int degree) {
@@ -119,7 +135,15 @@ namespace Dal {
         }
 
         void ValidateSimulationSettings(const MonteCarloSettings_& settings) {
+            ValidatePassiveConstantSettings(settings);
+            REQUIRE2(!settings.lsmcCheckpointBlockEvents_ || *settings.lsmcCheckpointBlockEvents_ > 0,
+                     "InvalidSetting: lsmcCheckpointBlockEvents must be positive", ScriptError_);
+            REQUIRE2(!settings.lsmcTrainingMemoryMb_ || *settings.lsmcTrainingMemoryMb_ > 0, "InvalidSetting: lsmcTrainingMemoryMb must be positive",
+                     ScriptError_);
+            REQUIRE2(!settings.lsmcCheckpointBlockEvents_ || settings.lsmcTrainingMemoryMb_,
+                     "InvalidSetting: lsmcCheckpointBlockEvents requires lsmcTrainingMemoryMb", ScriptError_);
             ValidateRNG(settings.rsg_);
+            ValidateNormalPrecision(settings.normalPrecision_);
             ValidateSmoothing(settings.smooth_);
             ValidateLsmcBasisDegree(settings.lsmcBasisDegree_);
             ValidateLsmcPolicyRiskMode(settings.lsmcPolicyRiskMode_);

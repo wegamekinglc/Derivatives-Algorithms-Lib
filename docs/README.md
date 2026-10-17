@@ -11,6 +11,7 @@ the dedicated Python and Excel chapters, examples use C++ by default.
 - [C++ public API](public-api.md) — facade headers, construction, pricing, and risk.
 - [Python interface](python/README.md) — bindings, settings, examples, and package usage.
 - [Excel interface](excel/README.md) — worksheet functions, handles, and examples.
+- [Native AAD examples](examples.md) — runnable operators, financial risk and worksheet recipes.
 - [Contributing](../CONTRIBUTING.md) — build, test, and review workflow.
 
 ## Quantitative Methods
@@ -22,6 +23,14 @@ the dedicated Python and Excel chapters, examples use C++ by default.
 | [CCY curves](ccy-curves/README.md)     | Cross-currency pricing, fixing snapshots, staged and joint calibration                |
 | [Methodology](methodology/README.md)   | Monte Carlo, PDE, AAD, script evaluation, numerical routines, and market conventions  |
 
+The [fixed-grid European PDE example](methodology/pde/aad.md) covers complete
+call/put native adjoints and separate derivative/grid-convergence acceptance.
+
+The [structural Jacobian guide](methodology/aad-sparsity.md) describes conservative
+row supports, compressed direction recovery, numeric payload admission and
+rate-trade dependency capture with complete structural identity, and
+[complete rate-trade Jacobian execution](methodology/aad-sparsity.md#complete-rate-trade-jacobians).
+
 ## Component Guides
 
 - [Core C++](../dal-cpp/README.md) and [public C++ facade](../dal-public/README.md).
@@ -31,6 +40,17 @@ the dedicated Python and Excel chapters, examples use C++ by default.
 
 The [PTIRDS replication note](experimental/replicate-ptirds-single-currency-curve.md)
 compares supported curve behavior with an external benchmark.
+
+The [LSMC training-budget study](../dal-cpp/benchmarks/script_mc_perf/README.md#lsmc-training-budget-study)
+compares explicit budgets on identical held-out samples and reports conditional
+pricing uncertainty separately from observed training variation.
+Its [results and full coordinate data](experimental/lsmc-training-budget-study.md)
+cover representative contracts and a large daily-exercise corner, with separate
+resource measurements and the retained-default decision.
+
+The [LSMC storage-precision study](experimental/lsmc-storage-precision-study.md)
+compares binary32 training rows with native double on identical pricing samples,
+including first-order risks, conditioning controls and finite resource samples.
 
 ## Documentation Conventions
 

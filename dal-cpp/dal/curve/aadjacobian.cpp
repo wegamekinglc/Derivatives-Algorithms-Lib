@@ -17,25 +17,12 @@ namespace Dal {
             return result;
         }
 
-        void PrepareAdjoints(AAD::Tape_& tape) {
-#if defined(DAL_USE_XAD_AAD) || defined(DAL_USE_CODIPACK_AAD) || defined(DAL_USE_ADEPT_AAD)
-            AAD::ZeroAdjoints(tape);
-#else
-            (void)tape;
-#endif
-        }
-
         void ClearIndependentAdjoints(Vector_<AAD::Number_>& independents) {
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
             for (auto& independent : independents)
                 AAD::Adjoint(independent) = 0.0;
-#else
-            (void)independents;
-#endif
         }
 
         void HarvestRow(AAD::Tape_& tape, Vector_<AAD::Number_>& independents, AAD::Number_& residual, int row, int width, Matrix_<>& result) {
-            PrepareAdjoints(tape);
             AAD::Adjoint(residual) = 1.0;
             AAD::PropagateToStart(tape);
             for (int column = 0; column < width; ++column)

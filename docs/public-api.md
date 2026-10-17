@@ -5,6 +5,10 @@ focuses on the C++ public facade and points to the dedicated [Python](python/REA
 and [Excel](excel/README.md) chapters. It is not an exhaustive reference for
 every core numerical type.
 
+The [native AAD example catalog](examples.md) maps operators, financial risk and
+curvature to complete runnable programs. Numerical definitions live in methodology
+chapters; Python types and worksheet cell contracts live in their language guides.
+
 ## API Layers
 
 | Layer         | Intended use                                                                             | Compatibility contract                                                    |
@@ -37,25 +41,34 @@ on other toolchains.
 
 ### Public facade headers
 
-| Header                                 | Main entry points                                                                                                     |
-|----------------------------------------|-----------------------------------------------------------------------------------------------------------------------|
-| `<dal-public/src/global.hpp>`          | `InitGlobalData`, `SetEvaluationDate`, `GetEvaluationDate`                                                            |
-| `<dal-public/src/script.hpp>`          | `NewScriptProduct`, `DescribeScriptProduct`, `DebugScriptProduct`, `DebugScriptProductJson`, `DebugScriptProductTree` |
-| `<dal-public/src/models.hpp>`          | `NewBSModelData`, `NewLocalVolSurfaceDataFromIVS`, `NewBSLocalVolModelData`                                           |
-| `<dal-public/src/value.hpp>`           | `ValueByMonteCarlo`, `ExplainScriptValuation`, `ExplainScriptSimulation`                                              |
-| `<dal-public/src/random.hpp>`          | Pseudo/Sobol constructors and uniform/normal matrix fills                                                             |
-| `<dal-public/src/curveprotocol.hpp>`   | Day-basis, tenor, collateral, rate-leg/index, currency-pair, FX-reset, and fixing-snapshot builders                   |
-| `<dal-public/src/curveinstrument.hpp>` | Deposit, FRA, future, swap, OIS, basis-swap, and fixed/resettable/MTM cross-currency-swap builders                    |
-| `<dal-public/src/curvedata.hpp>`       | Piecewise-linear-forward, zero-rate, and curve-block builders                                                         |
-| `<dal-public/src/curvespec.hpp>`       | `CurveCalibrationSpecBuilder_`, `CalibrateSingleCurve`, `CalibrateMultiCurveBundle`                                   |
-| `<dal-public/src/xccycalibration.hpp>` | Staged and joint XCCY spec builders, calibration, and joint-result accessors                                          |
-| `<dal-public/src/curvepricing.hpp>`    | Typed rate-cashflow planning, batch pricing, node sensitivity, and family registry                                    |
-| `<dal-public/src/interp.hpp>`          | Linear, smoothed-linear, cubic, and bilinear factories; batched evaluation                                            |
-| `<dal-public/src/calendar.hpp>`        | Business-day checks, stepping, adjustment, and counting                                                               |
-| `<dal-public/src/storage.hpp>`         | JSON serialization/deserialization and bag construction                                                               |
-| `<dal-public/src/repository.hpp>`      | Repository store, fetch, find, erase, and size helpers                                                                |
-| `<dal-public/src/types.hpp>`           | Shared scalar, container, dictionary, and storable types                                                              |
-| `<dal-public/src/host.hpp>`            | Environment, row-reader, and host-conversion contracts                                                                |
+| Header                                     | Main entry points                                                                                                     |
+|--------------------------------------------|-----------------------------------------------------------------------------------------------------------------------|
+| `<dal-public/src/global.hpp>`              | `InitGlobalData`, `SetEvaluationDate`, `GetEvaluationDate`                                                            |
+| `<dal-public/src/script.hpp>`              | `NewScriptProduct`, `DescribeScriptProduct`, `DebugScriptProduct`, `DebugScriptProductJson`, `DebugScriptProductTree` |
+| `<dal-public/src/models.hpp>`              | `NewBSModelData`, `NewLocalVolSurfaceDataFromIVS`, `NewBSLocalVolModelData`                                           |
+| `<dal-public/src/value.hpp>`               | Monte Carlo value, scalar/weighted/blocked risk, and script diagnostics                                               |
+| `<dal-public/src/portfoliorisk.hpp>`       | Ordered portfolio axes and owning weighted/Jacobian results                                                           |
+| `<dal-public/src/bumpoveraad.hpp>`         | Shared finite-step direction, step, payload, and recording-budget contracts                                           |
+| `<dal-public/src/calibrationrisk.hpp>`     | Owning common calibration pullback and quote-risk results                                                             |
+| `<dal-public/src/dupireriskrequest.hpp>`   | Sealed financial Dupire-to-quote risk requests and direct bindings                                                    |
+| `<dal-public/src/dupirecurvature.hpp>`     | `PlanDupireScriptCurvature`, `ValueByMonteCarloWithDupireCurvature`                                                   |
+| `<dal-public/src/ratecurvature.hpp>`       | `NewRateCalibration`, `EvaluateRateTradeQuoteCurvature`                                                               |
+| `<dal-public/src/montecarlocurvature.hpp>` | `PlanBlackScholesMonteCarlo`, segmented mean gradients and common-path curvature                                      |
+| `<dal-public/src/lsmccurvature.hpp>`       | `PlanBlackScholesLsmc`, `ValueByBlackScholesLsmcWithCurvature`                                                        |
+| `<dal-public/src/europeanpderisk.hpp>`     | `EuropeanPdeRiskRequest_`, `EvaluateEuropeanPdeRisk`                                                                  |
+| `<dal-public/src/random.hpp>`              | Pseudo/Sobol constructors and uniform/normal matrix fills                                                             |
+| `<dal-public/src/curveprotocol.hpp>`       | Day-basis, tenor, collateral, rate-leg/index, currency-pair, FX-reset, and fixing-snapshot builders                   |
+| `<dal-public/src/curveinstrument.hpp>`     | Deposit, FRA, future, swap, OIS, basis-swap, and fixed/resettable/MTM cross-currency-swap builders                    |
+| `<dal-public/src/curvedata.hpp>`           | Piecewise-linear-forward, zero-rate, and curve-block builders                                                         |
+| `<dal-public/src/curvespec.hpp>`           | `CurveCalibrationSpecBuilder_`, `CalibrateSingleCurve`, `CalibrateMultiCurveBundle`                                   |
+| `<dal-public/src/xccycalibration.hpp>`     | Staged and joint XCCY spec builders, calibration, and joint-result accessors                                          |
+| `<dal-public/src/curvepricing.hpp>`        | Typed rate-cashflow planning, batch pricing, node sensitivity, and family registry                                    |
+| `<dal-public/src/interp.hpp>`              | Linear, smoothed-linear, cubic, and bilinear factories; batched evaluation                                            |
+| `<dal-public/src/calendar.hpp>`            | Business-day checks, stepping, adjustment, and counting                                                               |
+| `<dal-public/src/storage.hpp>`             | JSON serialization/deserialization and bag construction                                                               |
+| `<dal-public/src/repository.hpp>`          | Repository store, fetch, find, erase, and size helpers                                                                |
+| `<dal-public/src/types.hpp>`               | Shared scalar, container, dictionary, and storable types                                                              |
+| `<dal-public/src/host.hpp>`                | Environment, row-reader, and host-conversion contracts                                                                |
 
 The installed include path intentionally retains `dal-public/src/`. Python and
 Excel adapters include DAL headers through this facade and link `DAL::public`;
@@ -81,6 +94,15 @@ the environment, row-reader, and conversion contracts used by host adapters.
 `FetchRepository` and pattern-based `EraseRepositoryMatching`. Storing retains
 earlier tags, including objects with the same type and name, preserving the
 Excel adapter's current generated-default policy.
+
+### European PDE financial risk
+
+`dal-public/src/europeanpderisk.hpp` exposes `EuropeanPdeRiskRequest_`,
+`EuropeanPdeSettings_` and `EvaluateEuropeanPdeRisk`. One request owns the
+rate/volatility/strike point and passive mesh/time/domain settings; one result
+owns both option prices, their 2-by-3 Jacobian and actual solve diagnostics.
+See [the complete financial program](methodology/pde/aad.md#owning-financial-request)
+for a minimal call, units, error policies and resource-budget scope.
 
 ### Sobol normal-draw policy
 
@@ -141,12 +163,12 @@ Write an explicit `ScriptValuationSettings_`, since a bare fourth-argument
 uses `SPOT()`, the retained zero-argument compatibility form for model spot at
 the event date; unbound future-only scripts need no change. The named form for
 new scripts is unquoted `FIX(EQ[AAPL])` or `FIX(EQ[AAPL], 2026-09-11)`.
-Historical EQ/FX
-requests resolve at exact midnight, and a missing required fixing is an error,
-never a model or placeholder fallback. Model-sourced requests bind the model's
-`spot` output to one ordinary EQ, taken from the script's own future FIX index
-by name; no settings are involved. A product
-default does not supply that model index or model market data. The
+Historical EQ, FX, and Libor requests resolve at exact midnight, and a missing
+required fixing is an error, never a model or placeholder fallback.
+Model-sourced requests bind by index name: BS accepts one ordinary EQ,
+correlated BS and hybrid models accept multiple configured equities, and GSR
+rate components support compatible IR discount-factor, Libor, and swap indices.
+A product default names legacy `SPOT()`; it does not supply model market data. The
 per-form, per-date rules are in the
 [SPOT/FIX boundary](methodology/script_engine.md#spot-compatibility-and-the-fix-boundary).
 
@@ -173,7 +195,7 @@ global capture, which is sequential rather than an atomic cross-series snapshot.
 Native Value and Explain retain the valuation/mutation barrier, so public calls
 serialize even with explicit dates. Global date setters wait for them; getters
 remain available. The executable
-[`dal-cpp/examples/script_settings/`](../dal-cpp/examples/script_settings/) checks historical
+[`dal-cpp/examples/products/script_settings/`](../dal-cpp/examples/products/script_settings/) checks historical
 compiled-AAD `PV=160` and `d_SCALE=80` with an explicit date/snapshot and zero rates.
 
 `DescribeScriptProduct(product)` returns `dal.script-product/2`: original and
@@ -193,14 +215,15 @@ paths on exercise products, so its cost is path generation plus worker
 parallelism plus the exercise regressions; products without `EXERCISE` skip the
 run, since the LSMC driver is the only source of exercise statistics. It
 supports the double tree-walk and compiled modes and rejects
-`enable_aad` settings. Products without `EXERCISE` return an empty
+`simulation.enableAad_ = true`. Products without `EXERCISE` return an empty
 `exercise_events` array; exercise products report per-exercise-event regression
 degree, regressor index, in-the-money condition-true path count, coefficients,
 degenerate flag with PascalCase reason, and exercise rate.
 
-Product archives write v2 with optional `default_index` and retain the v1
-reader. They preserve contract text/identity and exclude runtime market data.
-There is no public v1 export or promise that old binaries can read v2; build
+Product archives write v3 with `default_index` and `regression_features`, and
+retain the v1 and v2 readers. They preserve contract text/identity and exclude
+runtime market data. There is no public v1 export or promise that old binaries
+can read newer archives; build
 consumers and bindings against matching headers/libraries.
 
 The legacy text and width-aware tree dumps remain available.
@@ -209,6 +232,128 @@ phases, but rejects FIX or any nonempty default with `DebugSchemaUnsupported`
 and a Describe /2 hint. See the
 [archive and diagnostic contracts](methodology/script_engine.md#product-archive-and-diagnostics)
 and [legacy dumps](methodology/script_engine.md#product-debug-outputs).
+
+### Structured script risk
+
+`ValueByMonteCarloWithRisk(product, modelData, paths, request = {}, valuation = {},
+simulation = DefaultRiskMonteCarloSettings())` returns a passive structured result.
+The new default enables native AAD. An explicit simulation with AAD disabled
+returns price only and rejects nonempty risk selection.
+
+```cpp
+Dal::Script::RiskRequest_ request;
+request.inputs_ = Dal::Vector_<Dal::String_>{"constant:0", "model:1"};
+request.reportFactors_ = Dal::Vector_<>{0.5, 0.01};
+const auto risk = Dal::ValueByMonteCarloWithRisk(product, model, 1 << 16, request);
+const auto& raw = risk.Jacobian();       // one row, strike then volatility
+const auto reported = risk.ReportedJacobian();
+```
+
+IDs select positions on the retained complete model/script axis; labels remain
+display data. Omitted native inputs select all, explicit empty inputs preserve
+a `(1, 0)` matrix and native smoothing, and unknown/repeated IDs fail before
+preparation. The output ID is `payoff`. `LegacyValues()` projects raw `PV` and
+`d_...` keys and rejects display collisions. Raw gradients are means and reporting
+factors apply only in the separate reported getter.
+
+`numericPayloadBudgetBytes_` bounds numeric values/raw-Jacobian storage;
+metadata, worker/tape storage and getter copies are outside that budget.
+Results retain actual execution/product/history snapshots and expose no tape
+state. The [AAD methodology](methodology/aad.md#structured-scalar-risk-results)
+defines units, normalization and estimator provenance.
+
+### Weighted script risk
+
+`ValueByMonteCarloWithWeightedRisk` accepts the same product/model, valuation and
+simulation settings as structured scalar risk, plus a `WeightedRiskRequest_`.
+Native AAD is the default. Output IDs address indexed scalar slots: `payoff`
+for the default receiver, `output:<ordinal>` for other slots. Query them with
+`ScriptRiskOutputAxis` on an indexed product; labels are display data.
+
+```cpp
+Dal::Script::WeightedRiskRequest_ request;
+request.selection_.outputs_ = Dal::Vector_<Dal::String_>{"output:0", "payoff"};
+request.weights_ = Dal::Vector_<>{2.0, -1.0};
+request.selection_.inputs_ = Dal::Vector_<Dal::String_>{"model:0"};
+const auto risk = Dal::ValueByMonteCarloWithWeightedRisk(product, model, 1 << 16, request);
+const double objectiveMean = risk.WeightedValue();
+const auto& components = risk.ComponentMeans();
+const auto& objectiveGradient = risk.Jacobian(); // one row, spot column
+```
+
+Weights are copied passive constants. Results own component means, ordered axes,
+weights, the objective mean/gradient and actual execution provenance. Selecting
+several outputs uses one forward evaluation and one suffix reverse per path.
+The retained numeric payload is `sizeof(double) * (1 + inputs + 2 * outputs)`.
+Vectors, exercise and fully expired products are not supported as weighted
+outputs. See [weighted AAD methodology](methodology/aad.md#weighted-script-risk-results)
+for validation, normalization and the native-empty/price-only distinction.
+
+### Budgeted script Jacobians
+
+`ValueByMonteCarloWithJacobianRisk` accepts an owning ordered selection and
+capacity limits. It returns selected scalar output means and the complete raw
+Jacobian, preserving both axis orders:
+
+```cpp
+Dal::Script::JacobianRiskRequest_ request;
+request.selection_.outputs_ = Dal::Vector_<Dal::String_>{"output:0", "payoff"};
+request.selection_.inputs_ = Dal::Vector_<Dal::String_>{"model:0", "model:1"};
+request.maxBlockWidth_ = 2;
+request.scratchCapacityBudgetBytes_ = 8 * 1024 * 1024;
+const auto risk = Dal::ValueByMonteCarloWithJacobianRisk(product, model, 1024, request);
+const auto& means = risk.Values();
+const auto& matrix = risk.Jacobian(); // two output rows, two input columns
+const auto reported = risk.ReportedJacobian();
+const auto& work = risk.Execution();
+```
+
+Width defaults to one and is bounded by the native channel limit. Each native
+output block uses a fresh graph and replays all requested paths over the same
+sealed preparation. The retained result budget is `sizeof(double) * m * (1 + n)`.
+Recording/scratch limits account aggregate worker capacities separately and
+preflight known model/path/evaluator storage before reading history. Execution
+diagnostics disclose actual widths, replay attempts, executed paths and capacity
+peaks. Native empty inputs retain fuzzy prices and `(m, 0)`; passive execution
+selects no risk columns and performs one forward replay. Exercise and fully
+expired products are unsupported. See the
+[capacity and replay contract](methodology/aad.md#budgeted-script-jacobians).
+
+### C++ weighted script portfolios
+
+Construct a `Script::ScriptPortfolioData_` from ordered trade IDs and product/model
+handles, then call `ValuePortfolioByMonteCarloWithWeightedRisk` with a
+`PortfolioWeightedRiskRequest_`. Repeating a model handle establishes a shared
+owner; matching model values alone do not. Select global IDs such as
+`trade:1:payoff`, `model:0:parameter:0` and `trade:0:constant:0`.
+
+The owning result exposes `WeightedValue()`, `ComponentMeans()`, `Weights()`,
+selected/complete axes, detached raw/report gradient matrices and trade/group
+provenance. Its gradient has one row, including explicit zero-column execution.
+Compatible trades share scenarios while retaining private evaluator/history state;
+incompatible trades retain their original sampling plans. Whole-request numeric,
+recording and scratch budgets admit known shapes before history and guard runtime
+growth. See [portfolio construction](methodology/aad.md#sealed-script-portfolio-coordinates)
+and [weighted execution](methodology/aad.md#weighted-script-portfolio-risk).
+
+### C++ portfolio Jacobians
+
+`ValuePortfolioByMonteCarloWithJacobianRisk` takes a sealed portfolio, positive
+path count and `PortfolioJacobianRiskRequest_`. It owns ordered `Values()`, a
+detached `(m, n)` `Jacobian()`, reported copies and the same trade/owner/global
+axis metadata as the weighted entry. Native empty inputs retain `(m, 0)`.
+
+The request adds `maxBlockWidth_`, default one, and whole-request numeric,
+recording and scratch limits. Groups preserve original meshes and replay the
+original path range per output block. Execution metadata records the requested
+maximum, actual per-group widths and scenario/evaluator/reversal counts. Known
+block capacities admit before history; capacity-only narrowing retains the same
+estimator. Passive execution retains sharp pricing and `(m, 0)`, evaluates each
+selected group once without native widths/reversals, and ignores recording limits.
+See [portfolio Jacobians](methodology/aad.md#script-portfolio-jacobians).
+
+For language projections, use the [Python portfolio guide](python/README.md#compatible-script-portfolios)
+and [Excel portfolio guide](excel/README.md#compatible-script-portfolios).
 
 ### C++ curve calibration
 
@@ -556,7 +701,7 @@ failures remain explicit in the parallel metadata. Provenance construction is
 the only calibration-time step: `AggregateRatePortfolioQuoteRisk` neither bumps
 quotes nor recalibrates curves.
 
-See the runnable [C++ quote-risk example](../dal-cpp/examples/quote_risk) and
+See the runnable [C++ quote-risk example](../dal-cpp/examples/curves/quote_risk) and
 the [Jacobian methodology](yield-curves/jacobian-risk.md#production-quote-space-dv01).
 
 ## Python

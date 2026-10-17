@@ -4,6 +4,9 @@
 
 #pragma once
 
+#include <functional>
+#include <type_traits>
+
 #include <dal/math/aad/sample.hpp>
 #include <dal/math/operators.hpp>
 #include <dal/math/stacks.hpp>
@@ -37,8 +40,10 @@ namespace Dal::Script {
         using ConstVisitor_<EVAL_<T_>>::VisitNode;
         using StateCore_::ConstVarVals;
         using StateCore_::Init;
+        using StateCore_::InitRecordingConstants;
         using StateCore_::SetHistoricalSeed;
         using StateCore_::SetHistoricalVectorSeed;
+        using StateCore_::SmoothingConstants;
         using StateCore_::VarVals;
         using StateCore_::VectorVals;
 
@@ -79,39 +84,61 @@ namespace Dal::Script {
             dStack_.Pop();
         }
 
+        static FORCE_INLINE const NodeConst_* Literal(const ExprTree_& node) {
+            const auto* expression = Downcast<ExprNode_>(node);
+            // Unprocessed variables carry placeholder constant metadata.
+            return expression->isConst_ ? dynamic_cast<const NodeConst_*>(expression) : nullptr;
+        }
+
+        template <class OP_> FORCE_INLINE void VisitArithmetic(const ExprNode_& node, OP_ op) {
+            if constexpr (!std::is_same_v<T_, double>) {
+                const auto* left = Literal(node.arguments_[0]);
+                const auto* right = Literal(node.arguments_[1]);
+                if (left) {
+                    if (right) {
+                        dStack_.Push(op(left->constVal_, right->constVal_));
+                    } else {
+                        VisitNode(*node.arguments_[1]);
+                        dStack_.Top() = op(left->constVal_, dStack_.Top());
+                    }
+                    return;
+                }
+                if (right) {
+                    VisitNode(*node.arguments_[0]);
+                    dStack_.Top() = op(dStack_.Top(), right->constVal_);
+                    return;
+                }
+            }
+            VisitBinary(node, [&](T_& x, const T_ y) { x = op(x, y); });
+        }
+
         FORCE_INLINE void Visit(const NodeAdd_& node) {
-            VisitBinary(node, [](T_& x, const T_ y) { x += y; });
+            VisitArithmetic(node, [](const auto& x, const auto& y) { return x + y; });
         }
 
         FORCE_INLINE void Visit(const NodeSub_& node) {
-            VisitBinary(node, [](T_& x, const T_ y) { x -= y; });
+            VisitArithmetic(node, [](const auto& x, const auto& y) { return x - y; });
         }
 
         FORCE_INLINE void Visit(const NodeMulti_& node) {
-            VisitBinary(node, [](T_& x, const T_ y) { x *= y; });
+            VisitArithmetic(node, [](const auto& x, const auto& y) { return x * y; });
         }
 
         FORCE_INLINE void Visit(const NodeDiv_& node) {
-            VisitBinary(node, [](T_& x, const T_ y) { x /= y; });
+            VisitArithmetic(node, [](const auto& x, const auto& y) { return x / y; });
         }
 
         FORCE_INLINE void Visit(const NodePow_& node) {
-            VisitBinary(node, [](T_& x, const T_ y) { x = pow(x, y); });
+            VisitArithmetic(node, [](const auto& x, const auto& y) { return pow(x, y); });
         }
 
-        FORCE_INLINE void Visit(const NodeMax_& node) {
-            VisitBinary(node, [](T_& x, const T_ y) {
-                if (x < y)
-                    x = y;
-            });
+        template <class C_> FORCE_INLINE void VisitExtremum(const ExprNode_& node, C_ compare) {
+            VisitArithmetic(node, [&](const auto& x, const auto& y) -> T_ { return compare(AAD::Value(x), AAD::Value(y)) ? T_(y) : T_(x); });
         }
 
-        FORCE_INLINE void Visit(const NodeMin_& node) {
-            VisitBinary(node, [](T_& x, const T_ y) {
-                if (x > y)
-                    x = y;
-            });
-        }
+        FORCE_INLINE void Visit(const NodeMax_& node) { VisitExtremum(node, std::less<>()); }
+
+        FORCE_INLINE void Visit(const NodeMin_& node) { VisitExtremum(node, std::greater<>()); }
 
         template <class OP> FORCE_INLINE void VisitUnary(const ExprNode_& node, OP op) {
             VisitNode(*node.arguments_[0]);
@@ -203,23 +230,34 @@ namespace Dal::Script {
             variables_[varIdx] = dStack_.TopAndPop();
         }
 
+        template <class OP_> FORCE_INLINE void VisitPaymentAmount(const NodePays_& node, OP_ op) {
+            if constexpr (!std::is_same_v<T_, double>) {
+                if (const auto* literal = Literal(node.arguments_[1])) {
+                    op(literal->constVal_);
+                    return;
+                }
+            }
+            VisitNode(*node.arguments_[1]);
+            const T_ amount = dStack_.TopAndPop();
+            op(amount);
+        }
+
         FORCE_INLINE void Visit(const NodePays_& node) {
             const auto varIdx = Downcast<NodeVar_>(node.arguments_[0])->index_;
-
-            VisitNode(*node.arguments_[1]);
-
-            const auto& sample = (*scenario_)[curEvt_];
-            if (node.discountId_) {
-                REQUIRE2(*node.discountId_ < sample.discounts_.size(),
-                         "DiscountIdOutOfRange: delayed payment slot; " + node.source_.Describe(), ScriptError_);
-                variables_[varIdx] += dStack_.TopAndPop() * sample.discounts_[*node.discountId_] / sample.numeraire_;
-            } else {
-                if (node.paymentDate_)
-                    THROW2("PreparationRequired: PAYS ... ON " + Date::ToString(*node.paymentDate_) +
-                               " requires model-aware preparation; " + node.source_.Describe(),
-                           ScriptError_);
-                variables_[varIdx] += dStack_.TopAndPop() / sample.numeraire_;
-            }
+            VisitPaymentAmount(node, [&](const auto& amount) {
+                const auto& sample = (*scenario_)[curEvt_];
+                if (node.discountId_) {
+                    REQUIRE2(*node.discountId_ < sample.discounts_.size(), "DiscountIdOutOfRange: delayed payment slot; " + node.source_.Describe(),
+                             ScriptError_);
+                    variables_[varIdx] += amount * sample.discounts_[*node.discountId_] / sample.numeraire_;
+                } else {
+                    if (node.paymentDate_)
+                        THROW2("PreparationRequired: PAYS ... ON " + Date::ToString(*node.paymentDate_) + " requires model-aware preparation; " +
+                                   node.source_.Describe(),
+                               ScriptError_);
+                    variables_[varIdx] += amount / sample.numeraire_;
+                }
+            });
         }
 
         void Visit(const NodeExercise_& node) {

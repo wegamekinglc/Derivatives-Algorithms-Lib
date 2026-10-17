@@ -24,6 +24,75 @@
 using namespace Dal;
 
 namespace {
+    class LegacyHybridComponent_ final : public AAD::HybridComponent_<double> {
+        String_ name_ = "legacy", currency_ = "USD";
+        Vector_<String_> factors_{"W"}, observables_{"EQ[LEGACY]"}, labels_;
+        Vector_<double*> parameters_;
+        size_t expectedStateSize_ = 0;
+
+        void CheckStateSize(const Vector_<>& state) const {
+            REQUIRE(expectedStateSize_ == 0 || state.size() == expectedStateSize_, "InvalidLegacyStateSize: unexpected shared state size");
+        }
+
+    public:
+        explicit LegacyHybridComponent_(size_t expectedStateSize = 0) : expectedStateSize_(expectedStateSize) {}
+        [[nodiscard]] const String_& Name() const override { return name_; }
+        [[nodiscard]] const String_& Currency() const override { return currency_; }
+        [[nodiscard]] size_t StateDim() const override { return 1; }
+        [[nodiscard]] size_t FactorDim() const override { return 1; }
+        [[nodiscard]] const Vector_<String_>& FactorNames() const override { return factors_; }
+        [[nodiscard]] const Vector_<String_>& ObservableNames() const override { return observables_; }
+        [[nodiscard]] const Vector_<double*>& Parameters() const override { return parameters_; }
+        [[nodiscard]] const Vector_<String_>& ParameterLabels() const override { return labels_; }
+        void Prepare(const Vector_<>&, const Vector_<>&) override {}
+        void ResetState(Vector_<>* state, size_t offset) const override { (*state)[offset] = 1.0; }
+        void Evolve(size_t,
+                    const Vector_<>& factors,
+                    const Vector_<size_t>& factorSlots,
+                    const double& carryAdjustment,
+                    Vector_<>* state,
+                    size_t offset) const override {
+            CheckStateSize(*state);
+            (*state)[offset] += 0.25 + factors[factorSlots[0]] + carryAdjustment;
+        }
+        [[nodiscard]] double Observe(size_t, size_t, const Vector_<>& state, size_t offset, bool) const override {
+            CheckStateSize(state);
+            return state[offset];
+        }
+        [[nodiscard]] std::unique_ptr<AAD::HybridComponent_<double>> Clone() const override {
+            return std::make_unique<LegacyHybridComponent_>(*this);
+        }
+    };
+
+    std::pair<double, Vector_<>> HybridEquityPathResult(const HybridComponentData_& input, bool withoutAdjustment) {
+        AAD::Rewind(*AAD::Tape());
+        auto component = AAD::CreateHybridComponent<AAD::Number_>(input);
+        Vector_<AAD::Number_> carry{0.015, 0.025};
+        for (auto* parameter : component->Parameters())
+            AAD::PutOnTape(*parameter);
+        for (auto& increment : carry)
+            AAD::PutOnTape(increment);
+        AAD::NewRecording(*AAD::Tape());
+        component->Prepare({0.0, 0.4, 1.0}, carry);
+        Vector_<AAD::Number_> state(component->StateDim());
+        component->ResetState(&state, 0);
+        for (size_t step = 0; step < 2; ++step) {
+            if (withoutAdjustment)
+                component->EvolveWithoutCarry(step, {0.35 - 0.7 * step}, {0}, &state, 0);
+            else
+                component->Evolve(step, {0.35 - 0.7 * step}, {0}, AAD::Number_(0.0), &state, 0);
+        }
+        const AAD::Number_ payoff = component->Observe(2, 0, state, 0, false);
+        AAD::Adjoint(payoff) = 1.0;
+        AAD::PropagateToStart(*AAD::Tape());
+        Vector_<> risks;
+        for (const auto* parameter : component->Parameters())
+            risks.push_back(AAD::Adjoint(*parameter));
+        for (const auto& increment : carry)
+            risks.push_back(AAD::Adjoint(increment));
+        return std::make_pair(AAD::Value(payoff), risks);
+    }
+
     Matrix_<> HybridCorrelation(double rho = 0.35) {
         Matrix_<> correlations(2, 2, rho);
         correlations(0, 0) = correlations(1, 1) = 1.0;
@@ -45,6 +114,88 @@ namespace {
     }
 
     Handle_<ModelData_> HybridData(const HybridSettings_& settings) { return Handle_<ModelData_>(new HybridModelData_("hybrid", settings)); }
+
+    HybridSettings_ HybridBondSettings(size_t factors) {
+        const Date_ today(2026, 10, 2);
+        Matrix_<> projection(1, 3, 0.0);
+        projection(0, 1) = -0.03;
+        projection(0, 2) = -0.3;
+        const Handle_<GSRCurveData_> curve(
+            new GSRCurveData_("curve", today, "USD", {today, today.AddDays(365), today.AddDays(3650)}, {0.0, -0.03, -0.3}, {"3M"}, projection));
+        MultiFactorGSRVolSettings_ vol;
+        vol.gKnotDates_ = {today, today.AddDays(120), today.AddDays(240)};
+        vol.hKnotDates_ = {today, today.AddDays(180)};
+        vol.gValues_ = Matrix_<>(static_cast<int>(factors), 3);
+        vol.hValues_ = Matrix_<>(static_cast<int>(factors), 2);
+        vol.correlations_ = Matrix_<>(static_cast<int>(factors), static_cast<int>(factors), 0.3);
+        for (size_t factor = 0; factor < factors; ++factor) {
+            vol.factorNames_.push_back("factor" + String::FromInt(static_cast<int>(factor)));
+            vol.correlations_(static_cast<int>(factor), static_cast<int>(factor)) = 1.0;
+            for (int knot = 0; knot < 3; ++knot)
+                vol.gValues_(static_cast<int>(factor), knot) = Vector_<>{0.02, 0.015, 0.025}[knot] / (factor + 1);
+            for (int knot = 0; knot < 2; ++knot)
+                vol.hValues_(static_cast<int>(factor), knot) = Vector_<>{1.0, 0.8}[knot] * (1.0 - factor * 0.3);
+        }
+        HybridSettings_ settings;
+        settings.domesticCurrency_ = "USD";
+        settings.components_ = {Handle_<HybridComponentData_>(new HybridGSRRateData_(
+                                    "rate", {}, curve, Handle_<MultiFactorGSRVolData_>(new MultiFactorGSRVolData_("vol", vol)))),
+                                Handle_<HybridComponentData_>(new HybridBSEquityData_("equity", "EQ[BONDS]", "USD", "EQ", 100.0, 0.2, 0.02))};
+        settings.correlation_ = AssembleHybridCorrelation("corr", settings.components_, {{"EQ", "factor0", -0.25}});
+        return settings;
+    }
+
+    Vector_<AAD::SampleDef_> HybridBondDefinitions(size_t samples) {
+        Vector_<AAD::SampleDef_> definitions(samples);
+        const double payment = (Date_(2031, 10, 2) - Date_(2026, 10, 2)) / DAYS_PER_YEAR;
+        for (auto& definition : definitions) {
+            definition.indexNames_ = {"EQ[BONDS]", "IR[USD,SWAP,5Y]",      "IR[USD,DF,2031-10-02]", "IR[USD,LIBOR_3M_LCH]",
+                                      "EQ[BONDS]", "IR[USD,LIBOR_6M_LCH]", "IR[USD,SWAP,5Y]"};
+            definition.discountMats_ = {payment, payment};
+        }
+        return definitions;
+    }
+
+    template <class T_> T_ HybridBondPayoff(const AAD::Scenario_<T_>& path) {
+        T_ total(0.0);
+        for (const auto& sample : path) {
+            T_ cash = 0.01 * sample.spot_ + 0.2 * sample.discounts_[0] + 0.3 * sample.discounts_[1];
+            for (size_t slot = 0; slot < sample.observations_.size(); ++slot)
+                cash += (slot + 1) * sample.observations_[slot];
+            total += cash / sample.numeraire_;
+        }
+        return total;
+    }
+
+    AAD::Scenario_<> HybridBondPath(size_t factors,
+                                    const Vector_<>& timeline,
+                                    const Vector_<AAD::SampleDef_>& definitions,
+                                    const Vector_<>& gaussian,
+                                    size_t parameter = 0,
+                                    double shift = 0.0) {
+        auto model = CreateModel<double>(HybridData(HybridBondSettings(factors)));
+        model->Allocate(timeline, definitions);
+        *model->Parameters()[parameter] += shift;
+        model->Init(timeline, definitions);
+        AAD::Scenario_<> path;
+        AAD::AllocatePath(definitions, path);
+        model->GeneratePath(gaussian, &path);
+        return path;
+    }
+
+    template <class T_> void CompareHybridBondPaths(const AAD::Scenario_<T_>& actual, const AAD::Scenario_<>& expected) {
+        ASSERT_EQ(actual.size(), expected.size());
+        for (size_t sample = 0; sample < actual.size(); ++sample) {
+            ASSERT_NEAR(AAD::Value(actual[sample].spot_), expected[sample].spot_, 1e-10);
+            ASSERT_NEAR(AAD::Value(actual[sample].numeraire_), expected[sample].numeraire_, 1e-12);
+            ASSERT_EQ(actual[sample].observations_.size(), expected[sample].observations_.size());
+            for (size_t slot = 0; slot < actual[sample].observations_.size(); ++slot)
+                ASSERT_NEAR(AAD::Value(actual[sample].observations_[slot]), expected[sample].observations_[slot], 1e-10);
+            ASSERT_EQ(actual[sample].discounts_.size(), expected[sample].discounts_.size());
+            for (size_t slot = 0; slot < actual[sample].discounts_.size(); ++slot)
+                ASSERT_NEAR(AAD::Value(actual[sample].discounts_[slot]), expected[sample].discounts_[slot], 1e-12);
+        }
+    }
 
     void ExpectHybridError(const HybridSettings_& settings, const String_& message) {
         try {
@@ -92,6 +243,149 @@ namespace {
     }
 } // namespace
 
+TEST(ModelTest, TestHybridGsrSwapObservationsFitNodeBudget) {
+    for (const size_t factors : {size_t{1}, size_t{3}}) {
+        const TapeGuard_ guard(AAD::Tape());
+        auto model = CreateModel<AAD::Number_>(HybridData(HybridBondSettings(factors)));
+        Vector_<> timeline;
+        for (int quarter = 0; quarter <= 16; ++quarter)
+            timeline.push_back(quarter * 91.0 / DAYS_PER_YEAR);
+        Vector_<AAD::SampleDef_> definitions(timeline.size());
+        for (auto& definition : definitions)
+            definition.indexNames_ = {"IR[USD,SWAP,5Y]"};
+        model->Allocate(timeline, definitions);
+        AAD::Scenario_<AAD::Number_> path;
+        AAD::AllocatePath(definitions, path);
+        AAD::Rewind(*AAD::Tape());
+        for (auto* parameter : model->Parameters())
+            AAD::PutOnTape(*parameter);
+        AAD::NewRecording(*AAD::Tape());
+        model->Init(timeline, definitions);
+        const auto prefixNodes = AAD::Tape()->nodes_.OccupiedSlots();
+        model->GeneratePath(Vector_<>(model->SimDim(), 0.2), &path);
+        ASSERT_LE(AAD::Tape()->nodes_.OccupiedSlots() - prefixNodes, factors == 1 ? 2400U : 3600U);
+    }
+}
+
+TEST(ModelTest, TestHybridGsrBatchKeepsLegacyStateVectorSize) {
+    const auto settings = HybridBondSettings(1);
+    const auto* rate = dynamic_cast<const HybridGSRRateData_*>(settings.components_[0].get());
+    ASSERT_NE(rate, nullptr);
+    Vector_<std::unique_ptr<AAD::HybridComponent_<double>>> components;
+    components.push_back(std::make_unique<LegacyHybridComponent_>(3));
+    components.push_back(std::make_unique<AAD::HybridGSRRate_<double>>(*rate));
+    const HybridConstantCorrelationData_ correlation("corr", {"W", "factor0"}, HybridCorrelation(-0.25));
+    AAD::HybridModel_<> model("USD", std::move(components), correlation);
+    const Vector_<> timeline{0.0, 146.0 / DAYS_PER_YEAR};
+    Vector_<AAD::SampleDef_> definitions(2);
+    for (auto& definition : definitions)
+        definition.indexNames_ = {"IR[USD,SWAP,5Y]", "EQ[LEGACY]"};
+    model.Allocate(timeline, definitions);
+    model.Init(timeline, definitions);
+    AAD::Scenario_<> path;
+    AAD::AllocatePath(definitions, path);
+    model.GeneratePath(Vector_<>(model.SimDim(), 0.2), &path);
+    ASSERT_DOUBLE_EQ(path[0].spot_, 1.0);
+    for (const auto& sample : path)
+        ASSERT_DOUBLE_EQ(sample.spot_, sample.observations_[1]);
+}
+
+TEST(ModelTest, TestHybridGsrBatchPreservesEveryRiskAndReplay) {
+    const double first = 146.0 / DAYS_PER_YEAR, second = 292.0 / DAYS_PER_YEAR;
+    for (const size_t factors : {size_t{1}, size_t{3}}) {
+        for (const Vector_<>& timeline : {Vector_<>{0.0, first, second}, Vector_<>{first, second}, Vector_<>{first}}) {
+            const TapeGuard_ guard(AAD::Tape());
+            auto model = CreateModel<AAD::Number_>(HybridData(HybridBondSettings(factors)));
+            const auto definitions = HybridBondDefinitions(timeline.size());
+            model->Allocate(timeline, definitions);
+            AAD::Scenario_<AAD::Number_> path;
+            AAD::AllocatePath(definitions, path);
+            for (int recording = 0; recording < 2; ++recording) {
+                AAD::Rewind(*AAD::Tape());
+                for (auto* parameter : model->Parameters())
+                    AAD::PutOnTape(*parameter);
+                AAD::NewRecording(*AAD::Tape());
+                model->Init(timeline, definitions);
+                AAD::Mark(*AAD::Tape());
+                for (int replay = 0; replay < 2; ++replay) {
+                    const Vector_<> gaussian(model->SimDim(), replay == 0 ? 0.2 : -0.4);
+                    AAD::RewindToMark(*AAD::Tape());
+                    AAD::ZeroAdjoints(*AAD::Tape());
+                    model->GeneratePath(gaussian, &path);
+                    const auto expected = HybridBondPath(factors, timeline, definitions, gaussian);
+                    ASSERT_NO_FATAL_FAILURE(CompareHybridBondPaths(path, expected));
+                    const AAD::Number_ payoff = HybridBondPayoff(path);
+                    AAD::Adjoint(payoff) = 1.0;
+                    AAD::PropagateToStart(*AAD::Tape());
+                    ASSERT_NEAR(AAD::Value(payoff), HybridBondPayoff(expected), 1e-10);
+                    for (size_t parameter = 0; parameter < model->Parameters().size(); ++parameter) {
+                        SCOPED_TRACE(model->ParameterLabels()[parameter].c_str());
+                        const auto difference = [&](double step) {
+                            return (HybridBondPayoff(HybridBondPath(factors, timeline, definitions, gaussian, parameter, step)) -
+                                    HybridBondPayoff(HybridBondPath(factors, timeline, definitions, gaussian, parameter, -step))) /
+                                   (2.0 * step);
+                        };
+                        const double risk = AAD::Adjoint(*model->Parameters()[parameter]);
+                        const double finiteDifference = (4.0 * difference(5e-4) - difference(1e-3)) / 3.0;
+                        ASSERT_NEAR(risk, finiteDifference, 1e-7 * std::max(1.0, std::abs(risk)));
+                    }
+                }
+            }
+        }
+    }
+}
+
+TEST(ModelTest, TestHybridGsrBatchReallocationAndCloneKeepOutputSlots) {
+    const auto data = HybridData(HybridBondSettings(3));
+    auto model = CreateModel<double>(data);
+    const Vector_<> originalTimeline{0.0, 146.0 / DAYS_PER_YEAR, 292.0 / DAYS_PER_YEAR};
+    const auto originalDefinitions = HybridBondDefinitions(originalTimeline.size());
+    model->Allocate(originalTimeline, originalDefinitions);
+    model->Init(originalTimeline, originalDefinitions);
+    auto clone = model->Clone();
+    const Vector_<> originalGaussian(model->SimDim(), 0.2);
+    const auto expectedOriginal = HybridBondPath(3, originalTimeline, originalDefinitions, originalGaussian);
+
+    const Vector_<> timeline{182.0 / DAYS_PER_YEAR};
+    auto definitions = HybridBondDefinitions(1);
+    std::reverse(definitions[0].indexNames_.begin(), definitions[0].indexNames_.end());
+    model->Allocate(timeline, definitions);
+    model->Init(timeline, definitions);
+    AAD::Scenario_<> path;
+    AAD::AllocatePath(definitions, path);
+    const Vector_<> gaussian(model->SimDim(), -0.3);
+    const auto expected = HybridBondPath(3, timeline, definitions, gaussian);
+    model->GeneratePath(gaussian, &path);
+    ASSERT_NO_FATAL_FAILURE(CompareHybridBondPaths(path, expected));
+    auto replacementClone = model->Clone();
+    replacementClone->GeneratePath(gaussian, &path);
+    ASSERT_NO_FATAL_FAILURE(CompareHybridBondPaths(path, expected));
+    AAD::AllocatePath(originalDefinitions, path);
+    clone->GeneratePath(originalGaussian, &path);
+    CompareHybridBondPaths(path, expectedOriginal);
+}
+
+TEST(ModelTest, TestHybridGsrBatchSharedModelUsesEachPath) {
+    auto model = CreateModel<double>(HybridData(HybridBondSettings(3)));
+    const Vector_<> timeline{0.0, 146.0 / DAYS_PER_YEAR, 292.0 / DAYS_PER_YEAR};
+    const auto definitions = HybridBondDefinitions(timeline.size());
+    model->Allocate(timeline, definitions);
+    model->Init(timeline, definitions);
+    const auto evaluate = [&](double normal) {
+        AAD::Scenario_<> path;
+        AAD::AllocatePath(definitions, path);
+        for (int iteration = 0; iteration < 50; ++iteration)
+            model->GeneratePath(Vector_<>(model->SimDim(), normal), &path);
+        return path;
+    };
+    const auto positive = evaluate(0.3), negative = evaluate(-0.4);
+    ASSERT_GT(std::abs(HybridBondPayoff(positive) - HybridBondPayoff(negative)), 0.01);
+    auto first = std::async(std::launch::async, evaluate, 0.3);
+    auto second = std::async(std::launch::async, evaluate, -0.4);
+    ASSERT_NO_FATAL_FAILURE(CompareHybridBondPaths(first.get(), positive));
+    CompareHybridBondPaths(second.get(), negative);
+}
+
 TEST(ModelTest, TestHybridGsrEquityPriceIsIndependentOfEventGrid) {
     const Date_ today(2026, 10, 3);
     const Handle_<GSRCurveData_> curve(new GSRCurveData_("curve", today, "USD", {today, today.AddDays(730)}, {0.0, 0.0}, {}, Matrix_<>(0, 0)));
@@ -138,6 +432,27 @@ TEST(ModelTest, TestHybridComponentCopiesOwnTheirParameters) {
     ASSERT_NO_FATAL_FAILURE(check(AAD::HybridLocalVolEquity_<double>(HybridLocalVolEquityData_("eq", "EQ[A]", "USD", "W", 100.0, 0.0, surface))));
 }
 
+TEST(ModelTest, TestHybridCarryFreeEquitiesMatchZeroAdjustmentAndAllRisks) {
+    Matrix_<> vols(2, 2);
+    vols(0, 0) = 0.16;
+    vols(0, 1) = 0.19;
+    vols(1, 0) = 0.25;
+    vols(1, 1) = 0.28;
+    const Handle_<LocalVolSurfaceData_> surface(new LocalVolSurfaceData_("vol", {80.0, 120.0}, {0.0, 1.0}, vols));
+    const Vector_<Handle_<HybridComponentData_>> data{
+        Handle_<HybridComponentData_>(new HybridBSEquityData_("eq", "EQ[A]", "USD", "W", 100.0, 0.2, 0.01)),
+        Handle_<HybridComponentData_>(new HybridLocalVolEquityData_("eq", "EQ[A]", "USD", "W", 100.0, 0.01, surface))};
+    const TapeGuard_ guard(AAD::Tape());
+    for (const auto& input : data) {
+        const auto reference = HybridEquityPathResult(*input, false);
+        const auto actual = HybridEquityPathResult(*input, true);
+        ASSERT_NEAR(actual.first, reference.first, 1e-12);
+        ASSERT_EQ(actual.second.size(), reference.second.size());
+        for (size_t parameter = 0; parameter < actual.second.size(); ++parameter)
+            ASSERT_NEAR(actual.second[parameter], reference.second[parameter], 1e-12);
+    }
+}
+
 TEST(ModelTest, TestHybridMultiFactorGsrEquityMatchesGaussianPrice) {
     const Date_ today(2026, 10, 3);
     const Handle_<GSRCurveData_> curve(new GSRCurveData_("curve", today, "USD", {today, today.AddDays(730)}, {0.0, 0.0}, {}, Matrix_<>(0, 0)));
@@ -166,6 +481,58 @@ TEST(ModelTest, TestHybridMultiFactorGsrEquityMatchesGaussianPrice) {
             ASSERT_NEAR(GaussianEquityCall(clone.get(), times), expected, 1e-10);
         }
     }
+}
+
+TEST(ModelTest, TestHybridCarryFreeEvolutionSupportsLegacyComponents) {
+    Vector_<std::unique_ptr<AAD::HybridComponent_<double>>> components;
+    components.push_back(std::make_unique<LegacyHybridComponent_>());
+    components.push_back(std::make_unique<AAD::HybridDeterministicRate_<double>>(HybridDeterministicRateData_("rate", "USD", 0.05)));
+    const HybridConstantCorrelationData_ correlation("corr", {"W"}, Matrix_<>(1, 1, 1.0));
+    AAD::HybridModel_<> model("USD", std::move(components), correlation);
+    const Vector_<> timeline{0.5, 1.0};
+    Vector_<AAD::SampleDef_> definitions(2);
+    model.Allocate(timeline, definitions);
+    model.Init(timeline, definitions);
+    AAD::Scenario_<> path;
+    AAD::AllocatePath(definitions, path);
+    model.GeneratePath({0.1, -0.3}, &path);
+    ASSERT_NEAR(path[0].spot_, 1.35, 1e-12);
+    ASSERT_NEAR(path[1].spot_, 1.3, 1e-12);
+    ASSERT_NEAR(path[1].numeraire_, std::exp(0.05), 1e-12);
+}
+
+TEST(ModelTest, TestHybridDeterministicGsrStillEvolvesObservationRisks) {
+    const Date_ today(2026, 10, 3), maturity = today.AddDays(730);
+    const Handle_<GSRCurveData_> curve(new GSRCurveData_("curve", today, "USD", {today, maturity}, {0.0, -0.06}, {}, Matrix_<>(0, 0)));
+    const Handle_<GSRVolData_> vol(new GSRVolData_("vol", {today}, {0.0}, {today}, {1.0}));
+    HybridSettings_ settings;
+    settings.domesticCurrency_ = "USD";
+    settings.components_ = {Handle_<HybridComponentData_>(new HybridGSRRateData_("rate", "RATE", curve, vol)),
+                            Handle_<HybridComponentData_>(new HybridBSEquityData_("equity", "EQ[A]", "USD", "EQ", 100.0, 0.2, 0.01))};
+    settings.correlation_ = AssembleHybridCorrelation("corr", settings.components_, {});
+    const TapeGuard_ guard(AAD::Tape());
+    auto model = CreateModel<AAD::Number_>(HybridData(settings));
+    ASSERT_TRUE(model->NumeraireIsDeterministic());
+    const Vector_<> timeline{1.0};
+    Vector_<AAD::SampleDef_> definitions(1);
+    definitions[0].indexNames_ = {"IR[USD,DF," + Date::ToString(maturity) + "]"};
+    model->Allocate(timeline, definitions);
+    AAD::Scenario_<AAD::Number_> path;
+    AAD::AllocatePath(definitions, path);
+    AAD::Rewind(*AAD::Tape());
+    for (auto* parameter : model->Parameters())
+        AAD::PutOnTape(*parameter);
+    AAD::NewRecording(*AAD::Tape());
+    model->Init(timeline, definitions);
+    model->GeneratePath({0.1, 0.4, -0.3}, &path);
+    const AAD::Number_ discount = path[0].observations_[0];
+    AAD::Adjoint(discount) = 1.0;
+    AAD::PropagateToStart(*AAD::Tape());
+    ASSERT_NEAR(AAD::Value(discount), std::exp(-0.03), 1e-12);
+    const auto& labels = model->ParameterLabels();
+    const auto found = std::find(labels.begin(), labels.end(), "g:" + Date::ToString(today));
+    ASSERT_NE(found, labels.end());
+    ASSERT_NEAR(AAD::Adjoint(*model->Parameters()[static_cast<size_t>(found - labels.begin())]), -0.4 * std::exp(-0.03), 1e-12);
 }
 
 TEST(ModelTest, TestHybridTwoEquitiesMatchCorrelatedBSPath) {
@@ -807,7 +1174,184 @@ namespace {
         settings.correlation_ = Handle_<HybridCorrelationData_>(new HybridConstantCorrelationData_("corr", names, correlations));
         return settings;
     }
+
+    HybridSettings_ SLVBatchSettings(size_t factors) {
+        auto settings = HybridBondSettings(factors);
+        const auto* rate = dynamic_cast<const HybridGSRRateData_*>(settings.components_[0].get());
+        REQUIRE(rate, "Missing Gaussian test component");
+        const Handle_<MultiFactorGSRModelData_> gaussian(new MultiFactorGSRModelData_("gaussian", rate->curve_, rate->multiVol_));
+        Matrix_<> values(2, 2);
+        values(0, 0) = 0.8;
+        values(0, 1) = 1.0;
+        values(1, 0) = 1.2;
+        values(1, 1) = 1.1;
+        const Handle_<GSRLeverageData_> leverage(new GSRLeverageData_("grid", {-0.05, 0.05}, {0.0, 240.0 / DAYS_PER_YEAR}, values));
+        GSRSLVSettings_ slvSettings;
+        slvSettings.maxStep_ = 0.25;
+        slvSettings.varianceCorrelations_ = Vector_<>(factors, -0.1);
+        const Handle_<GSRSLVModelData_> slv(new GSRSLVModelData_("smile", gaussian, leverage, slvSettings));
+        settings.components_[0] = Handle_<HybridComponentData_>(new HybridGSRSLVRateData_("rate", "variance", "bridge", slv));
+        settings.correlation_ = AssembleHybridCorrelation("corr", settings.components_, {{"EQ", "factor0", -0.25}});
+        return settings;
+    }
+
+    Vector_<AAD::SampleDef_> SLVBatchDefinitions(size_t samples) {
+        auto definitions = HybridBondDefinitions(samples);
+        for (auto& definition : definitions)
+            definition.discountMats_.clear();
+        return definitions;
+    }
+
+    template <class T_> T_ HybridSLVBatchPayoff(const AAD::Scenario_<T_>& path) {
+        T_ total(0.0);
+        for (const auto& sample : path) {
+            T_ cash = 0.01 * sample.spot_;
+            for (size_t slot = 0; slot < sample.observations_.size(); ++slot)
+                cash += (slot + 1) * sample.observations_[slot];
+            total += cash / sample.numeraire_;
+        }
+        return total;
+    }
+
+    AAD::Scenario_<> HybridSLVBatchPath(size_t factors,
+                                        const Vector_<>& timeline,
+                                        const Vector_<AAD::SampleDef_>& definitions,
+                                        const Vector_<>& gaussian,
+                                        size_t parameter = 0,
+                                        double shift = 0.0) {
+        auto model = CreateModel<double>(HybridData(SLVBatchSettings(factors)));
+        model->Allocate(timeline, definitions);
+        *model->Parameters()[parameter] += shift;
+        model->Init(timeline, definitions);
+        AAD::Scenario_<> path;
+        AAD::AllocatePath(definitions, path);
+        model->GeneratePath(gaussian, &path);
+        return path;
+    }
 } // namespace
+
+TEST(ModelTest, TestHybridSlvBatchFitsNodeBudget) {
+    for (const size_t factors : {size_t{1}, size_t{3}}) {
+        const TapeGuard_ guard(AAD::Tape());
+        auto model = CreateModel<AAD::Number_>(HybridData(SLVBatchSettings(factors)));
+        Vector_<> timeline;
+        for (int quarter = 0; quarter <= 16; ++quarter)
+            timeline.push_back(quarter * 91.0 / DAYS_PER_YEAR);
+        Vector_<AAD::SampleDef_> definitions(timeline.size());
+        for (auto& definition : definitions)
+            definition.indexNames_ = {"IR[USD,SWAP,5Y]"};
+        model->Allocate(timeline, definitions);
+        AAD::Scenario_<AAD::Number_> path;
+        AAD::AllocatePath(definitions, path);
+        AAD::Rewind(*AAD::Tape());
+        for (auto* parameter : model->Parameters())
+            AAD::PutOnTape(*parameter);
+        AAD::NewRecording(*AAD::Tape());
+        model->Init(timeline, definitions);
+        const auto prefixNodes = AAD::Tape()->nodes_.OccupiedSlots();
+        model->GeneratePath(Vector_<>(model->SimDim(), 0.2), &path);
+        ASSERT_LE(AAD::Tape()->nodes_.OccupiedSlots() - prefixNodes, factors == 1 ? 4000U : 8000U);
+    }
+}
+
+TEST(ModelTest, TestHybridSlvBatchPreservesEveryRiskAndReplay) {
+    for (const size_t factors : {size_t{1}, size_t{3}}) {
+        const TapeGuard_ guard(AAD::Tape());
+        auto model = CreateModel<AAD::Number_>(HybridData(SLVBatchSettings(factors)));
+        const Vector_<> timeline{0.0, 146.0 / DAYS_PER_YEAR, 292.0 / DAYS_PER_YEAR};
+        const auto definitions = SLVBatchDefinitions(timeline.size());
+        model->Allocate(timeline, definitions);
+        AAD::Scenario_<AAD::Number_> path;
+        AAD::AllocatePath(definitions, path);
+        for (int recording = 0; recording < 2; ++recording) {
+            AAD::Rewind(*AAD::Tape());
+            for (auto* parameter : model->Parameters())
+                AAD::PutOnTape(*parameter);
+            AAD::NewRecording(*AAD::Tape());
+            model->Init(timeline, definitions);
+            AAD::Mark(*AAD::Tape());
+            for (const double normal : {0.2, -0.4}) {
+                const Vector_<> gaussian(model->SimDim(), normal);
+                AAD::RewindToMark(*AAD::Tape());
+                AAD::ZeroAdjoints(*AAD::Tape());
+                model->GeneratePath(gaussian, &path);
+                ASSERT_NO_FATAL_FAILURE(CompareHybridBondPaths(path, HybridSLVBatchPath(factors, timeline, definitions, gaussian)));
+                const AAD::Number_ payoff = HybridSLVBatchPayoff(path);
+                AAD::Adjoint(payoff) = 1.0;
+                AAD::PropagateToStart(*AAD::Tape());
+                for (size_t parameter = 0; parameter < model->Parameters().size(); ++parameter) {
+                    const auto difference = [&](double step) {
+                        return (HybridSLVBatchPayoff(HybridSLVBatchPath(factors, timeline, definitions, gaussian, parameter, step)) -
+                                HybridSLVBatchPayoff(HybridSLVBatchPath(factors, timeline, definitions, gaussian, parameter, -step))) /
+                               (2.0 * step);
+                    };
+                    const double expected = (4.0 * difference(5e-4) - difference(1e-3)) / 3.0;
+                    ASSERT_NEAR(AAD::Adjoint(*model->Parameters()[parameter]), expected, 1e-7 * std::max(1.0, std::abs(expected)))
+                        << model->ParameterLabels()[parameter];
+                }
+            }
+        }
+    }
+}
+
+TEST(ModelTest, TestHybridSlvBatchKeepsLegacyStateVectorSize) {
+    const auto settings = SLVBatchSettings(1);
+    const auto* rate = dynamic_cast<const HybridGSRSLVRateData_*>(settings.components_[0].get());
+    ASSERT_NE(rate, nullptr);
+    Vector_<std::unique_ptr<AAD::HybridComponent_<double>>> components;
+    components.push_back(std::make_unique<LegacyHybridComponent_>(6));
+    components.push_back(std::make_unique<AAD::HybridGSRSLVRate_<double>>(*rate));
+    Matrix_<> correlations(4, 4, 0.0);
+    for (int i = 0; i < 4; ++i)
+        correlations(i, i) = 1.0;
+    correlations(1, 2) = correlations(2, 1) = -0.1;
+    const HybridConstantCorrelationData_ correlation("corr", {"W", "factor0", "variance", "bridge"}, correlations);
+    AAD::HybridModel_<> model("USD", std::move(components), correlation);
+    const Vector_<> timeline{0.0, 146.0 / DAYS_PER_YEAR};
+    Vector_<AAD::SampleDef_> definitions(2);
+    for (auto& definition : definitions)
+        definition.indexNames_ = {"IR[USD,SWAP,5Y]", "EQ[LEGACY]"};
+    model.Allocate(timeline, definitions);
+    model.Init(timeline, definitions);
+    AAD::Scenario_<> path;
+    AAD::AllocatePath(definitions, path);
+    model.GeneratePath(Vector_<>(model.SimDim(), 0.2), &path);
+    ASSERT_DOUBLE_EQ(path[0].spot_, 1.0);
+    for (const auto& sample : path)
+        ASSERT_DOUBLE_EQ(sample.spot_, sample.observations_[1]);
+}
+
+TEST(ModelTest, TestHybridSlvBatchReallocationCloneAndSharedModelPaths) {
+    const size_t factors = 3;
+    auto model = CreateModel<double>(HybridData(SLVBatchSettings(factors)));
+    const Vector_<> timeline{146.0 / DAYS_PER_YEAR, 292.0 / DAYS_PER_YEAR};
+    auto definitions = SLVBatchDefinitions(timeline.size());
+    model->Allocate(timeline, definitions);
+    model->Init(timeline, definitions);
+    auto clone = model->Clone();
+    for (auto& definition : definitions)
+        std::reverse(definition.indexNames_.begin(), definition.indexNames_.end());
+    clone->Allocate(timeline, definitions);
+    clone->Init(timeline, definitions);
+    AAD::Scenario_<> cloned;
+    AAD::AllocatePath(definitions, cloned);
+    clone->GeneratePath(Vector_<>(clone->SimDim(), 0.2), &cloned);
+    ASSERT_NO_FATAL_FAILURE(CompareHybridBondPaths(cloned, HybridSLVBatchPath(factors, timeline, definitions, Vector_<>(clone->SimDim(), 0.2))));
+    definitions = SLVBatchDefinitions(timeline.size());
+    const auto evaluate = [&](double normal) {
+        AAD::Scenario_<> path;
+        AAD::AllocatePath(definitions, path);
+        for (int replay = 0; replay < 20; ++replay)
+            model->GeneratePath(Vector_<>(model->SimDim(), normal), &path);
+        return path;
+    };
+    const auto positive = evaluate(0.3), negative = evaluate(-0.4);
+    ASSERT_GT(std::abs(HybridSLVBatchPayoff(positive) - HybridSLVBatchPayoff(negative)), 0.01);
+    auto first = std::async(std::launch::async, evaluate, 0.3);
+    auto second = std::async(std::launch::async, evaluate, -0.4);
+    ASSERT_NO_FATAL_FAILURE(CompareHybridBondPaths(first.get(), positive));
+    ASSERT_NO_FATAL_FAILURE(CompareHybridBondPaths(second.get(), negative));
+}
 
 TEST(ModelTest, TestHybridRejectsSubDayMaximumStep) {
     auto settings = SLVRateSettings(0.3);
@@ -851,6 +1395,65 @@ TEST(ModelTest, TestHybridGSRSLVRateMatchesStandalonePath) {
     for (size_t sample = 0; sample < timeline.size(); ++sample) {
         ASSERT_NEAR(hybridPath[sample].numeraire_, standalonePath[sample].numeraire_, 1e-12);
         ASSERT_NEAR(hybridPath[sample].observations_[0], standalonePath[sample].observations_[0], 1e-12);
+    }
+}
+
+TEST(ModelTest, TestHybridGSRSLVRateRefreshesAnchorsBeforeEachRecording) {
+    const TapeGuard_ guard(AAD::Tape());
+    const auto data = HybridData(SLVRateSettings(0.3));
+    auto model = CreateModel<AAD::Number_>(data);
+    auto reference = CreateModel<double>(data);
+    const Vector_<> timeline{0.0, 1.0, 2.0};
+    Vector_<AAD::SampleDef_> definitions(timeline.size());
+    for (auto& definition : definitions) {
+        definition.numeraire_ = true;
+        definition.indexNames_ = {"EQ[AAA]", "IR[USD,SWAP,5Y]"};
+    }
+    model->Allocate(timeline, definitions);
+    reference->Allocate(timeline, definitions);
+    reference->Init(timeline, definitions);
+    const Vector_<> gaussian(model->SimDim(), 0.3);
+    AAD::Scenario_<AAD::Number_> path;
+    AAD::Scenario_<> referencePath;
+    AAD::AllocatePath(definitions, path);
+    AAD::AllocatePath(definitions, referencePath);
+    reference->GeneratePath(gaussian, &referencePath);
+    const auto value = [&](size_t parameter, double shift) {
+        auto bumped = CreateModel<double>(data);
+        bumped->Allocate(timeline, definitions);
+        *bumped->Parameters()[parameter] += shift;
+        bumped->Init(timeline, definitions);
+        AAD::Scenario_<> bumpedPath;
+        AAD::AllocatePath(definitions, bumpedPath);
+        bumped->GeneratePath(gaussian, &bumpedPath);
+        return bumpedPath.back().spot_ * bumpedPath.back().observations_[1] / bumpedPath.back().numeraire_;
+    };
+    const auto difference = [&](size_t parameter, double step) { return (value(parameter, step) - value(parameter, -step)) / (2.0 * step); };
+    Vector_<> firstRisks;
+    for (int recording = 0; recording < 2; ++recording) {
+        AAD::Rewind(*AAD::Tape());
+        for (auto* parameter : model->Parameters())
+            AAD::PutOnTape(*parameter);
+        AAD::NewRecording(*AAD::Tape());
+        model->Init(timeline, definitions);
+        model->GeneratePath(gaussian, &path);
+        ASSERT_NO_FATAL_FAILURE(CompareHybridBondPaths(path, referencePath));
+        AAD::Number_ payoff = path.back().spot_ * path.back().observations_[1] / path.back().numeraire_;
+        AAD::Adjoint(payoff) = 1.0;
+        AAD::PropagateToStart(*AAD::Tape());
+        Vector_<> risks;
+        for (const auto* parameter : model->Parameters()) {
+            risks.push_back(AAD::Adjoint(*parameter));
+            ASSERT_TRUE(std::isfinite(risks.back()));
+        }
+        for (size_t i = 0; i < risks.size(); ++i) {
+            const double expected = (4.0 * difference(i, 5e-4) - difference(i, 1e-3)) / 3.0;
+            ASSERT_NEAR(risks[i], expected, 1e-7 * std::max(1.0, std::abs(expected))) << model->ParameterLabels()[i];
+        }
+        if (recording == 0)
+            firstRisks = risks;
+        else
+            ASSERT_EQ(risks, firstRisks);
     }
 }
 

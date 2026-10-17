@@ -102,6 +102,7 @@ if(NOT WIN32)
         "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.hpp")
     add_executable(dal_excel_portable_tests ${PORTABLE_BINDING_SOURCES} ${PORTABLE_TEST_FILES})
+    target_sources(dal_excel_portable_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../dal-cpp/benchmarks/rate_risk_perf/quoteriskbenchfixtures.cpp")
     target_include_directories(dal_excel_portable_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/..")
     target_include_directories(dal_excel_portable_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../dal-cpp")
     target_include_directories(dal_excel_portable_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../dal-cpp/externals/rapidjson/include")
@@ -152,9 +153,7 @@ if(MSVC)
     target_compile_options(dal_excel PRIVATE /utf-8)
     target_compile_definitions(dal_excel PRIVATE
         IS_BASE
-        # Windows.h defines min/max as macros, which breaks AAD headers
-        # (XAD, Adept) that use std::numeric_limits<...>::max() and
-        # std::min/max. NOMINMAX suppresses those macros.
+        # Keep Windows min/max macros out of standard and AAD headers.
         NOMINMAX
     )
 endif()
@@ -206,6 +205,7 @@ if(DAL_EXCEL_BUILD_TESTS)
 
     if(TEST_FILES)
         add_executable(dal_excel_tests ${TEST_FILES})
+        target_sources(dal_excel_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../dal-cpp/benchmarks/rate_risk_perf/quoteriskbenchfixtures.cpp")
         target_include_directories(dal_excel_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/..")
         target_include_directories(dal_excel_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../dal-cpp")
         target_include_directories(dal_excel_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../dal-cpp/externals/rapidjson/include")

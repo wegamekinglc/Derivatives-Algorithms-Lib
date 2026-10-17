@@ -17,13 +17,16 @@ held-out block for selecting degree; otherwise the requested degree is used dire
 Fixing both counts keeps the fitted policy unchanged when the pricing count changes.
 Valuation runs in three phases over a fixed,
 thread-count-independent batch layout: batches of at most 8192 paths
-indexed by batch order, with per-batch contributions reduced in batch-index
-sequence, so PV, the frozen coefficients, and every exercise rate are bitwise
-invariant across thread counts.
+indexed by batch order. Training statistics and exercise counts reduce in
+batch-index sequence. Hard-pricing PV sums paths in the same adaptive numeric
+chunks as [ordinary simulation](simulation.md), then adds those chunk sums in
+path order. This preserves exact agreement with ordinary pricing when every
+exercise value is zero. PV, the frozen coefficients, and every exercise rate
+are bitwise invariant across thread counts.
 
 ## C++ Example and Path Counts
 
-The runnable [American put comparison](../../../dal-cpp/examples/american_put_mc/american_put_mc.cpp)
+The runnable [American put comparison](../../../dal-cpp/examples/methods/american_put_mc/american_put_mc.cpp)
 constructs a product with `EXERCISE` on each allowed date and calls the core
 C++ simulation for both hard pricing and AAD. This excerpt follows its
 settings and call pattern:
@@ -156,8 +159,7 @@ mask per Sobol coordinate. Shifted integer points are mapped to bin midpoints
 before inverse-normal transformation, avoiding 0 and 1. Omitted training and
 pricing seeds use zero, but role separation keeps their stream identities
 distinct. Explicit seeds without a replicate count, and non-Sobol RQMC settings,
-are rejected. Unset RQMC settings retain the original deterministic Sobol path
-and numerical results.
+are rejected. Unset RQMC settings use the deterministic Sobol path.
 
 The RQMC price is the mean of replicate prices. Its
 `ReplicateMeanStandardError()` is the sample standard deviation of those prices
@@ -226,8 +228,11 @@ coordinates, for example `{"EQ[A]", "EQ[B]"}` or
 `{"VAR[runningAverage]", "EQ[B]"}`. `VAR[...]` reads a scalar script variable
 at each exercise event, after the preceding statements have run. This lets a
 path-dependent payoff retain its running state in the continuation fit.
-Each named EQ coordinate requests a model output at exercise dates; neither
-form needs a default SPOT binding unless the script itself calls `SPOT()`.
+Named EQ coordinates and model-supported IR discount-factor, Libor, or swap
+indices request model outputs at exercise dates. For a rate-only GSR model,
+an explicit feature list is required, for example `{"IR[USD,SWAP,5Y]"}`;
+see [GSR Bermudan products](../../models/gaussian-short-rate.md#bermudan-products).
+Explicit features need no default SPOT binding unless the script itself calls `SPOT()`.
 With no explicit features, the original single-state behavior remains: a
 multi-asset exercise requires `defaultIndex_` and otherwise fails as ambiguous.
 Exercise dates must be strictly after the
@@ -249,7 +254,7 @@ Optional held-out paths select the polynomial degree with the one-standard-error
 rule, using paths disjoint from both fitting and final pricing. The scalar
 single-state path retains its existing degree limit and fast solver.
 
-The runnable example in [`dal-cpp/examples/hybrid_script/`](../../../dal-cpp/examples/hybrid_script)
+The runnable example in [`dal-cpp/examples/models/hybrid_script/`](../../../dal-cpp/examples/models/hybrid_script)
 and [Python equivalent](../../../dal-python/examples/hybrid_script.py) compare
 one-state and two-state fits on the same two-equity Bermudan. Both payoffs use
 the first exercise date's frozen equity values: `max(A-B+60, 0)` now and
@@ -265,11 +270,72 @@ for payments, regressor/exercise rows, and the backward working vector, plus
 one byte per path for each conditional exercise date and the inclusion mask.
 Enabling selection adds analogous storage for `nValidationPaths` until backward
 induction finishes. Each multivariate QR fit temporarily holds up to
-`nEligibleTrainingPaths × nBasisColumns × 8B` of design columns (at most 20),
-in addition to the recorded rows.
+`nEligibleTrainingPaths × (nBasisColumns + 1) × 8B` of design columns and copied targets
+(at most 20 columns), plus the fixed QR workspace and actual vector capacities.
 Hard pricing keeps the pre-exercise receiver value and terminal payoff in its
 worker-local evaluator state. Reduce the training path count or event count to
 stay inside a memory budget.
+
+## Opt-in Training Checkpoints
+
+Set `lsmcCheckpointBlockEvents_` and `lsmcTrainingMemoryMb_` together to request
+bounded training storage. Both are positive integers; memory units are MiB.
+Python and Excel use `lsmc_checkpoint_block_events` and
+`lsmc_training_memory_mb`. Both default to absent, preserving full storage,
+double precision and the existing training-path defaults.
+
+The supported execution is compiled Sobol with exactly one worker, an exact
+Black–Scholes model, and one positive-time sample per event. Brownian bridges,
+held-out degree selection, historical scalar/vector seeds, up to three regression
+features, and Hard/FrozenAAD/two-sided RetrainedBump retain their existing
+semantics. Retained future fixing samples, other models, parallel restoration,
+one-sided policy bumps and active tape segmentation are excluded. Unsupported
+execution raises `LsmcTrainingBudget`; removing these settings selects the
+ordinary unrestricted full-storage implementation.
+Set `DAL_NUM_THREADS=1` before starting the process (before importing DAL in
+Python or loading the Excel add-in); C++ callers can instead configure the
+thread pool directly.
+
+Training first captures exact log-spot and complete passive script states at
+event boundaries. Blocks are regenerated from last to first using each path's
+original absolute Sobol address and a complete normal vector, including with a
+Brownian bridge. Each fit still sees all training paths in native 8192-path
+reduction order. Payments, features, conditions and exercise rows keep their
+original event mapping. Pending decisions are consumed before their block is
+released. Every parameter or script-constant point gets fresh checkpoints and
+historical seeds from the sealed preparation.
+
+Admission compares full-storage and checkpoint allocation envelopes. A
+single-block request, growing future APPEND history, or a checkpoint envelope
+that is larger or does not fit selects full storage when its complete envelope
+fits. If neither fits, the request fails before training. A budget without a
+block setting requests budgeted full storage within the same supported domain.
+Restoration, invalid paths and allocation failures propagate as errors; no
+partial policy or changed risk method is returned. A subsequent request can run
+normally.
+
+The allocation guard charges actual vector capacities before allocation,
+including temporary old/new capacity overlap, historical vectors, checkpoint
+records, masks and holding values, full normal vectors, model/path/RNG buffers,
+QR columns and copied targets. The admission reserve includes raw row arrays,
+fixed QR/construction workspace, immutable numeric programs/plans (including
+historical compiled bytecode and its actual nested capacities), model state,
+overlapping policies, and the native tape capacity retained on the single worker.
+Each bumped fit repeats admission after frozen AAD, including that retained tape.
+Training storage is released before pricing. This budget covers training
+allocations and their concurrent reserves; it does not cap pricing's future AAD
+tape growth, allocator bookkeeping, retained allocator pages, the caller's source
+contract graph, executable/runtime memory or process RSS. These process costs
+must be measured separately.
+
+For `L` training plus validation paths, `E` events and
+`K = ceil(E / blockEvents)`, an accepted checkpoint fit generates
+`L × (K + 1)` complete normal vectors and makes `2 × L × E` model steps and
+script-event evaluations. Full storage uses `L` vectors and `L × E` steps in
+the budgeted provider. There is no general memory-saving percentage or runtime
+speedup guarantee; state size, block shape, QR and retained tape affect the peak.
+The separate [prototype study](../../experimental/lsmc-checkpoint-study.md)
+retains its original provenance and limitations.
 
 `script_mc_perf --lsmc-multi-regression` reports masked 100,000-path fit times
 for two-state quadratic, two-state cubic, and three-state cubic bases. This
@@ -281,7 +347,7 @@ the [simulation diagnostic](../script_engine.md#simulation-diagnostic-full-valua
 and the acceptance suite anchors both engines against a test-only Bermudan
 PDE pricer (`dal-cpp/test-support/bermudan_pde.hpp`; the library PDE itself
 stays European-only). The runnable
-[`dal-cpp/examples/american_put_mc/`](../../../dal-cpp/examples/american_put_mc)
+[`dal-cpp/examples/methods/american_put_mc/`](../../../dal-cpp/examples/methods/american_put_mc)
 compares the European closed form with ordinary Monte Carlo and its AAD
 version, and prices two-date Bermudan and weekly-exercise puts with both
 hard valuation and AAD. It also prints the diagnostic.
@@ -305,8 +371,11 @@ Products containing `EXERCISE` divert to the fuzzy LSMC driver
 (`MCLsmcAadSimulation` in `dal-cpp/dal/script/lsmc.cpp`), in both tree and
 compiled execution. The forward storage and backward regression phases run
 exactly as the double driver, so the continuation coefficients `C_k` are the
-thread-count independent hard-decision artifact. Each replay worker then
-generates its batch from the disjoint pricing block on its own tape, records the per-event payments and the
+thread-count independent hard-decision artifact. Each pricing replicate submits
+at most one task per pool thread, capped by the number of 8192-path batches.
+Each worker reuses its model, Sobol generator, evaluator and tape prefix across
+the batches it claims, seeking each batch's absolute position in the disjoint
+pricing block. It records the per-event payments and the
 per-date exercise values and fuzzy condition degrees, and prices the path with
 the recursive blend
 
@@ -345,10 +414,36 @@ finite difference, which also includes finite-step curvature of the direct
 payoff response. An envelope argument at an optimal stopping rule does not
 provide a general second-order error guarantee for an approximate, smoothed
 policy. Adjoint accumulation and reduction follow the
-same thread-count independent batch layout and batch-index ordering as the
-double driver, so PV and every `d_<param>` are bitwise invariant across
+thread-count-independent 8192-path batch layout and batch-index ordering.
+Each batch reverses the shared worker prefix, harvests numeric risks and clears
+the input adjoints before the next batch. Ordered result storage is bounded by
+256 slots and a 16 MiB numeric-payload target, with one slot as the minimum;
+worker model, path and tape storage is additional. Value-only policy repricing
+also reuses worker state and folds batches in the same order. Thus PV and every
+`d_<param>` are bitwise invariant across
 thread counts in AAD mode as well, and historical fixings replay into the
 seed exactly as for non-exercise products.
+
+For native Black-Scholes and a hybrid containing one local-volatility equity
+and one flat deterministic domestic rate, ordinary `RetrainedBump` valuation
+reuses training and held-out Gaussian vectors across inputs. One call owns
+at most 32 MiB of additional double storage, independent of the number of
+local-volatility grid risks. The first bumped fit captures the existing
+post-bridge vectors; later fits read the same rows. Training rows start at
+zero, held-out rows at the training count. Pricing streams and their offsets
+are unchanged and are never stored in this cache.
+
+The cache belongs to the immutable prepared request and its training scramble
+key, random method, normal precision, bridge setting, and full path counts.
+Each bumped model must retain the same simulation dimension and factor layout;
+otherwise that fit generates its own vectors. Exceeding 32 MiB or failing the
+optional allocation uses the existing uncached path without reducing training.
+Storage is released after the call, including failed fits after their tasks
+have drained. The cache adds no tasks, tapes, or simultaneous policies.
+Its numeric capacity is included in regression-array profiling. Other model
+compositions, requests with an explicit LSMC training memory budget (including
+checkpoint training), and the budgeted LSMC curvature caller retain uncached training;
+the curvature request's existing numeric-payload accounting is unchanged.
 
 ## LSMC Policy Sensitivity Validation
 
@@ -392,14 +487,31 @@ measurements (milliseconds and peak RSS in KiB):
 | AAD backend | Frozen ms | Retrained ms | Time ratio | Frozen RSS | Retrained RSS |
 |-------------|-----------|--------------|------------|------------|---------------|
 | Native      | 282       | 741          | 2.62       | 16,424     | 18,576        |
-| XAD         | 288       | 742          | 2.58       | 46,892     | 46,752        |
-| Adept       | 479       | 945          | 1.97       | 16,752     | 16,932        |
-| CoDiPack    | 358       | 828          | 2.32       | 36,740     | 41,392        |
 
 Both modes record the same 2,048 AAD pricing paths. This profile has five
 live inputs (four model parameters and one script constant), so the retrained
 mode adds ten hard-policy fits and ten value-only pricing passes, with no
 additional AAD tape recordings. The peak RSS comparison includes tape and
-ordinary process allocations; it is not a backend-specific tape-byte count.
+ordinary process allocations; it is not a tape-byte count.
 Tree and compiled runs returned matching PV and all five risks to the printed
-precision on every backend.
+precision on native AAD.
+
+## Controlled Training-Budget Research
+
+The core benchmark includes a [reproducible training-budget study](../../../dal-cpp/benchmarks/script_mc_perf/README.md#lsmc-training-budget-study).
+It keeps validation and pricing Sobol points identical across explicit training
+budgets in an isolated address-only experimental image. Native pricing seeds
+alone are insufficient because changing the training count also moves held-out
+blocks. Production simulation keeps its existing block layout and defaults.
+
+The study crosses eight training seeds with eight independently shifted pricing
+groups, each with two pricing replicates, and retains PV and every Greek in
+Frozen and RetrainedBump modes. For each training seed it computes paired budget
+differences and conditional pricing standard errors, then reports observed
+training-seed dispersion separately. Hard/fuzzy price differences and policy
+diagnostics have separate outputs. The largest budget is a comparison reference,
+not a stopping-value oracle; observed dispersion includes residual pricing noise.
+Without admissible price/Greek error ceilings, this research does not establish
+an automatic cap. The unset training budget remains the pricing path count.
+The [research report and coordinate data](../../experimental/lsmc-training-budget-study.md)
+record the observed differences, separate resource comparisons and their limits.

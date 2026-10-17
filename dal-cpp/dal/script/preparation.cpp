@@ -2,6 +2,7 @@
 // Created by Codex on 2026/9/13.
 //
 
+#include <type_traits>
 #include <typeinfo>
 
 #include <dal/platform/platform.hpp>
@@ -13,10 +14,16 @@
 #include <dal/indice/index/fx.hpp>
 #include <dal/indice/index/ir.hpp>
 #include <dal/indice/indexparse.hpp>
+#include <dal/model/gsr.hpp>
 #include <dal/script/detail/simulationobserver.hpp>
-#include <dal/script/preparation.hpp>
+#include <dal/script/plannedpreparation.hpp>
 
 namespace Dal::Script {
+    void Detail::ValidatePassiveConstantModel(const AAD::Model_<double>* model, bool exercise) {
+        REQUIRE2(model && typeid(*model) == typeid(AAD::GSR_<double>), "UnsupportedPassiveConstants: requires native GSR", ScriptError_);
+        REQUIRE2(model->NumFactors() == 3 && !exercise, "UnsupportedPassiveConstants: requires three-factor non-exercise GSR", ScriptError_);
+    }
+
     namespace {
         ScriptProductSettings_ ResolveContract(const ScriptProductSettings_& product, const ScriptProductSettings_& legacy) {
             if (legacy.defaultIndex_.empty() && legacy.regressionFeatures_.empty())
@@ -109,8 +116,8 @@ namespace Dal::Script {
                     if (pays->paymentDate_) {
                         const Date_ paymentDate = *pays->paymentDate_;
                         REQUIRE2(paymentDate >= date,
-                                 "InvalidPaymentDate: payment " + Date::ToString(paymentDate) + " precedes its event " + Date::ToString(date) +
-                                     "; " + pays->source_.Describe(),
+                                 "InvalidPaymentDate: payment " + Date::ToString(paymentDate) + " precedes its event " + Date::ToString(date) + "; " +
+                                     pays->source_.Describe(),
                                  ScriptError_);
                         if (paymentDate == date) {
                             pays->paymentDate_.reset();
@@ -200,8 +207,9 @@ namespace Dal::Script {
                        ScriptError_);
             }
             REQUIRE2(std::isfinite(value), "InvalidFixing: expected a finite fixing" + Context(request), ScriptError_);
-            if (dynamic_cast<const Index::Fx_*>(request.index_.get()))
+            if (dynamic_cast<const Index::Fx_*>(request.index_.get())) {
                 REQUIRE2(value > 0.0, "InvalidFixing: expected a positive FX fixing" + Context(request), ScriptError_);
+            }
             return value;
         }
 
@@ -466,12 +474,14 @@ namespace Dal::Script {
         //  Bind every live delayed payment to its event sample's discount-factor slot: the
         //  payment date itself adds no sample (the DF is observed on the paying event), and
         //  maturity requests are deduplicated per sample in first-use order.
-        static void
-        BindDelayedPayments(ObservationPlan_* plan, const Vector_<DelayedPaymentUse_>& uses, const Date_& evaluationDate, const AAD::Model_<double>& model) {
+        static void BindDelayedPayments(ObservationPlan_* plan,
+                                        const Vector_<DelayedPaymentUse_>& uses,
+                                        const Date_& evaluationDate,
+                                        const AAD::Model_<double>& model) {
             if (uses.empty())
                 return;
-            REQUIRE2(model.SupportsDiscountFactors(),
-                     "UnsupportedDelayedPayment: the model does not provide discount factors for PAYS ... ON", ScriptError_);
+            REQUIRE2(model.SupportsDiscountFactors(), "UnsupportedDelayedPayment: the model does not provide discount factors for PAYS ... ON",
+                     ScriptError_);
             const auto sampleId = [&](const Date_& date) {
                 return static_cast<size_t>(std::lower_bound(plan->sampleDates_.begin(), plan->sampleDates_.end(), date) - plan->sampleDates_.begin());
             };
@@ -488,20 +498,110 @@ namespace Dal::Script {
             }
         }
 
+        static FORCE_INLINE void Complete(PreparedScript_* result,
+                                          ScriptProduct_* writable,
+                                          AAD::Model_<double>* model,
+                                          const Handle_<MarketFixingSnapshot_>& snapshot,
+                                          bool compileExpiredHistory = false) {
+            if (result->AllExpired() && !compileExpiredHistory)
+                return;
+            result->plan_->knownValues_ = ResolveHistory(&result->plan_->requests_, result->Settings(), snapshot);
+            if (!model)
+                return;
+            writable->InitializePastObservations(result->Plan());
+            ConstProcessor_ constants(writable->VarNames().size(), result->plan_.get(), true);
+            writable->Visit(constants, true, false);
+            // Retain parsed branches and continuous fuzzy kernels without tolerance-domain arithmetic.
+            result->maxNestedIfs_ = writable->IFProcess();
+            constants.StartFuture();
+            writable->Visit(constants, false, true);
+            if (writable->ContainsExercise()) {
+                writable->OptimizeLsmc(result->plan_->RegressionVariableIndices());
+                result->maxNestedIfs_ = writable->IFProcess();
+                if (PruneDeadModelObservations(result->plan_.get(), *writable)) {
+                    model->Allocate(result->TimeLine(), result->DefLine());
+                    model->Init(result->TimeLine(), result->DefLine());
+                }
+            }
+            if (result->Simulation().compiled_.value_or(false)) {
+                if (auto* observer = Detail::SimulationObserver())
+                    observer->BeforeCompilation();
+                result->pastCompiled_ = ScriptCompiled_::Build(writable->PastEvents(), false, result->plan_, true);
+                result->compiled_ =
+                    ScriptCompiled_::Build(writable->Events(), result->Simulation().enableAad_, result->plan_, false, writable->ContainsExercise());
+            }
+            result->modelType_ = typeid(*model);
+            result->executable_ = true;
+        }
+
     public:
-        static PreparedScript_ Prepare(const ScriptProductData_& data,
-                                       const ScriptValuationSettings_& valuation,
-                                       const Handle_<MarketFixingSnapshot_>& snapshot,
-                                       AAD::Model_<double>* model,
-                                       const MonteCarloSettings_& requestedSimulation,
-                                       const ScriptProductSettings_& legacyContract) {
+        struct NoAdmission_ {};
+        struct CompiledHistory_ {
+            void operator()(const PreparedScript_&) const {}
+        };
+        struct DeferredHistory_ {
+            std::unique_ptr<AAD::Model_<double>>* model_;
+        };
+
+        template <class F_> static void ValidatePlanningCapability(const ScriptProduct_&, const F_&) {}
+
+        static void ValidatePlanningCapability(const ScriptProduct_& product, const DeferredHistory_&) {
+            REQUIRE2(!product.EventDates().empty() && !product.ContainsExercise(),
+                     "UnsupportedPortfolioRisk: exercise and fully expired trades are unsupported", ScriptError_);
+        }
+
+        static Detail::PlannedScript_ ExportPlan(PreparedScript_&& result, ScriptProduct_* product, const DeferredHistory_& admission) {
+            return Detail::PlannedScript_(std::move(result), product, std::move(*admission.model_));
+        }
+
+        static void AdmitBeforeHistory(PreparedScript_*, ScriptProduct_*, const NoAdmission_&) {}
+
+        static void AdmitBeforeHistory(PreparedScript_* result, ScriptProduct_* product, const DeferredHistory_&) {
+            result->maxNestedIfs_ = product->IFProcess();
+        }
+
+        template <class F_> static void AdmitBeforeHistory(PreparedScript_* result, ScriptProduct_* product, const F_& beforeHistory) {
+            result->maxNestedIfs_ = product->IFProcess();
+            beforeHistory(*result);
+        }
+
+        template <class F_>
+        static FORCE_INLINE void PlanBeforeHistory(PreparedScript_* result,
+                                                   ScriptProduct_* product,
+                                                   AAD::Model_<double>* model,
+                                                   const Vector_<DelayedPaymentUse_>& delayed,
+                                                   const ScriptProductSettings_& contract,
+                                                   const F_& beforeHistory) {
+            if (result->AllExpired())
+                return;
+            REQUIRE2(model || delayed.empty(), "UnsupportedDelayedPayment: PAYS ... ON requires model-aware preparation", ScriptError_);
+            if (model) {
+                ModelPlan(result->plan_.get(), result->Product(), result->EvaluationDate(), *model, contract);
+                BindDelayedPayments(result->plan_.get(), delayed, result->EvaluationDate(), *model);
+                REQUIRE2(result->plan_->RegressionFeatureCount() == 1 || result->Simulation().lsmcBasisDegree_ <= 3,
+                         "InvalidLsmcFeatureBudget: multivariate LSMC basis degree must be in 1..3", ScriptError_);
+                model->Allocate(result->TimeLine(), result->DefLine());
+                model->Init(result->TimeLine(), result->DefLine());
+            }
+            AdmitBeforeHistory(result, product, beforeHistory);
+        }
+
+        template <class F_>
+        static auto Prepare(const ScriptProductData_& data,
+                            const ScriptValuationSettings_& valuation,
+                            const Handle_<MarketFixingSnapshot_>& snapshot,
+                            AAD::Model_<double>* model,
+                            const MonteCarloSettings_& requestedSimulation,
+                            const ScriptProductSettings_& legacyContract,
+                            const F_& beforeHistory) {
             //  Snapshot: observer callbacks during history resolution can mutate the caller's settings object
             const auto simulation = requestedSimulation;
             const auto settings = ResolveValuationSettings(valuation, snapshot);
             const Date_ evaluationDate = *settings.evaluationDate_;
-            if (model && model->EvaluationDate())
-                REQUIRE2(*model->EvaluationDate() == evaluationDate,
-                         "InvalidModelEvaluationDate: model curve date must match script valuation date", ScriptError_);
+            if (model && model->EvaluationDate()) {
+                REQUIRE2(*model->EvaluationDate() == evaluationDate, "InvalidModelEvaluationDate: model curve date must match script valuation date",
+                         ScriptError_);
+            }
             const auto contract = ResolveContract(data.Settings(), legacyContract);
             auto product = std::make_unique<ScriptProduct_>(data.Product());
             REQUIRE2(!product->Events().empty(), "InvalidScriptStructure: script has no dated events", ScriptError_);
@@ -510,6 +610,9 @@ namespace Dal::Script {
             REQUIRE2(product->HasPayoff(), "InvalidScriptStructure: dates/events has no PAYS payoff", ScriptError_);
             product->PartitionEvents(evaluationDate);
             ValidateSimulationSettings(simulation);
+            if (simulation.usePassiveConstants_) {
+                Detail::ValidatePassiveConstantModel(model, product->ContainsExercise());
+            }
             // Sobol's exact seek keeps training and pricing batches disjoint.
             const auto expired = FindExercise(*product, [&](const Date_& date) { return date <= evaluationDate; });
             REQUIRE2(!expired.first,
@@ -532,50 +635,38 @@ namespace Dal::Script {
             auto* writable = product.get();
             PreparedScript_ result(std::move(product), evaluationDate, settings, std::move(plan));
             result.simulation_ = simulation;
-            if (result.AllExpired())
+            ValidatePlanningCapability(*writable, beforeHistory);
+            PlanBeforeHistory(&result, writable, model, collector.delayed_, contract, beforeHistory);
+            if constexpr (std::is_same_v<F_, DeferredHistory_>)
+                return ExportPlan(std::move(result), writable, beforeHistory);
+            else {
+                Complete(&result, writable, model, settings.fixings_, std::is_same_v<F_, CompiledHistory_>);
                 return result;
-            REQUIRE2(model || collector.delayed_.empty(), "UnsupportedDelayedPayment: PAYS ... ON requires model-aware preparation", ScriptError_);
-            if (model) {
-                ModelPlan(result.plan_.get(), result.Product(), evaluationDate, *model, contract);
-                BindDelayedPayments(result.plan_.get(), collector.delayed_, evaluationDate, *model);
-                REQUIRE2(result.plan_->RegressionFeatureCount() == 1 || simulation.lsmcBasisDegree_ <= 3,
-                         "InvalidLsmcFeatureBudget: multivariate LSMC basis degree must be in 1..3", ScriptError_);
-                model->Allocate(result.TimeLine(), result.DefLine());
-                model->Init(result.TimeLine(), result.DefLine());
             }
-            result.plan_->knownValues_ = ResolveHistory(&result.plan_->requests_, settings, settings.fixings_);
-            if (model) {
-                writable->InitializePastObservations(result.Plan());
-                ConstProcessor_ constants(writable->VarNames().size(), result.plan_.get(), true);
-                writable->Visit(constants, true, false);
-                // Retain parsed branches and continuous fuzzy kernels without tolerance-domain arithmetic.
-                result.maxNestedIfs_ = writable->IFProcess();
-                constants.StartFuture();
-                writable->Visit(constants, false, true);
-                if (writable->ContainsExercise()) {
-                    writable->OptimizeLsmc(result.plan_->RegressionVariableIndices());
-                    result.maxNestedIfs_ = writable->IFProcess();
-                    if (PruneDeadModelObservations(result.plan_.get(), *writable)) {
-                        model->Allocate(result.TimeLine(), result.DefLine());
-                        model->Init(result.TimeLine(), result.DefLine());
-                    }
-                }
-                if (simulation.compiled_.value_or(false)) {
-                    if (auto* observer = Detail::SimulationObserver())
-                        observer->BeforeCompilation();
-                    result.pastCompiled_ = ScriptCompiled_::Build(writable->PastEvents(), false, result.plan_, true);
-                    result.compiled_ =
-                        ScriptCompiled_::Build(writable->Events(), simulation.enableAad_, result.plan_, false, writable->ContainsExercise());
-                }
-                result.executable_ = true;
-            }
-            return result;
+        }
+
+        static Detail::PlannedScript_ Plan(const ScriptProductData_& product,
+                                           std::unique_ptr<AAD::Model_<double>> model,
+                                           const ScriptValuationSettings_& valuation,
+                                           const MonteCarloSettings_& simulation) {
+            REQUIRE2(model, "InvalidPreparationPlan: planning model must not be null", ScriptError_);
+            return Prepare(product, valuation, {}, model.get(), simulation, {}, DeferredHistory_{&model});
+        }
+
+        static PreparedScript_ Complete(Detail::PlannedScript_ planned, const Handle_<MarketFixingSnapshot_>& snapshot) {
+            REQUIRE2(planned.model_, "InvalidPreparationPlan: planning model has been consumed", ScriptError_);
+            REQUIRE2(snapshot, "InvalidPreparationSnapshot: completion requires a frozen fixing snapshot", ScriptError_);
+            const auto& settings = planned.prepared_.Settings();
+            REQUIRE2(!settings.fixings_ || settings.fixings_ == snapshot, "InvalidPreparationSnapshot: explicit valuation snapshot must be preserved",
+                     ScriptError_);
+            Complete(&planned.prepared_, planned.product_, planned.model_.get(), snapshot);
+            return std::move(planned.prepared_);
         }
     };
 
     PreparedScript_
     PrepareScript(const ScriptProductData_& data, const ScriptValuationSettings_& settings, const Handle_<MarketFixingSnapshot_>& snapshot) {
-        return PreparedScriptBuilder_::Prepare(data, settings, snapshot, nullptr, {}, {});
+        return PreparedScriptBuilder_::Prepare(data, settings, snapshot, nullptr, {}, {}, PreparedScriptBuilder_::NoAdmission_{});
     }
 
     PreparedScript_ PrepareScript(const ScriptProductData_& data,
@@ -585,6 +676,40 @@ namespace Dal::Script {
                                   const Handle_<MarketFixingSnapshot_>& snapshot,
                                   const ScriptProductSettings_& contract) {
         REQUIRE2(model, "InvalidModel: preparation requires a model", ScriptError_);
-        return PreparedScriptBuilder_::Prepare(data, settings, snapshot, model, simulation, contract);
+        return PreparedScriptBuilder_::Prepare(data, settings, snapshot, model, simulation, contract, PreparedScriptBuilder_::NoAdmission_{});
     }
+
+    namespace Detail {
+        PreparedScript_ PrepareScriptForSegmentation(const ScriptProductData_& data,
+                                                     AAD::Model_<double>* model,
+                                                     const ScriptValuationSettings_& settings,
+                                                     const MonteCarloSettings_& simulation,
+                                                     const Handle_<MarketFixingSnapshot_>& snapshot,
+                                                     const ScriptProductSettings_& contract) {
+            REQUIRE2(model, "InvalidModel: segmentation preparation requires a model", ScriptError_);
+            REQUIRE2(simulation.enableAad_ && simulation.compiled_.value_or(false),
+                     "UnsupportedExecutionMode: segmentation preparation requires native compiled AAD", ScriptError_);
+            return PreparedScriptBuilder_::Prepare(data, settings, snapshot, model, simulation, contract, PreparedScriptBuilder_::CompiledHistory_{});
+        }
+
+        PlannedScript_ PlanScript(const ScriptProductData_& product,
+                                  std::unique_ptr<AAD::Model_<double>> model,
+                                  const ScriptValuationSettings_& valuation,
+                                  const MonteCarloSettings_& simulation) {
+            return PreparedScriptBuilder_::Plan(product, std::move(model), valuation, simulation);
+        }
+
+        PreparedScript_ CompleteScriptPreparation(PlannedScript_&& planned, const Handle_<MarketFixingSnapshot_>& snapshot) {
+            return PreparedScriptBuilder_::Complete(std::move(planned), snapshot);
+        }
+
+        PreparedScript_ PrepareScriptWithAdmission(const ScriptProductData_& data,
+                                                   AAD::Model_<double>* model,
+                                                   const ScriptValuationSettings_& settings,
+                                                   const MonteCarloSettings_& simulation,
+                                                   const std::function<void(const PreparedScript_&)>& beforeHistory) {
+            REQUIRE2(model && beforeHistory, "InvalidPreparationAdmission: model and admission callback are required", ScriptError_);
+            return PreparedScriptBuilder_::Prepare(data, settings, {}, model, simulation, {}, beforeHistory);
+        }
+    } // namespace Detail
 } // namespace Dal::Script

@@ -9,6 +9,7 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
+#include <dal/math/bufferallocation.hpp>
 #include <dal/platform/host.hpp>
 
 namespace Dal {
@@ -21,8 +22,8 @@ namespace Dal {
      * DON'T add any member variable to this class
      * DON'T override any methods from vector
      */
-    template <class E_> class Vector_ : private std::vector<E_> {
-        using base_t = std::vector<E_>;
+    template <class E_> class Vector_ : private std::vector<E_, Detail::VectorAllocator_<E_>> {
+        using base_t = std::vector<E_, Detail::VectorAllocator_<E_>>;
 
     public:
         Vector_() : base_t() {}
@@ -75,28 +76,28 @@ namespace Dal {
 
         bool operator!=(const Vector_<E_>& rhs) const;
 
-        using typename std::vector<E_>::iterator;
-        using typename std::vector<E_>::const_iterator;
-        using typename std::vector<E_>::reference;
-        using typename std::vector<E_>::const_reference;
-        using typename std::vector<E_>::value_type;
+        using typename base_t::iterator;
+        using typename base_t::const_iterator;
+        using typename base_t::reference;
+        using typename base_t::const_reference;
+        using typename base_t::value_type;
 
-        using std::vector<E_>::size;
-        using std::vector<E_>::capacity;
-        using std::vector<E_>::empty;
-        using std::vector<E_>::operator[];
-        using std::vector<E_>::begin;
-        using std::vector<E_>::cbegin;
-        using std::vector<E_>::end;
-        using std::vector<E_>::rbegin;
-        using std::vector<E_>::rend;
-        using std::vector<E_>::front;
-        using std::vector<E_>::back;
-        using std::vector<E_>::erase;
-        using std::vector<E_>::push_back;
-        using std::vector<E_>::pop_back;
-        using std::vector<E_>::reserve;
-        using std::vector<E_>::clear;
+        using base_t::size;
+        using base_t::capacity;
+        using base_t::empty;
+        using base_t::operator[];
+        using base_t::begin;
+        using base_t::cbegin;
+        using base_t::end;
+        using base_t::rbegin;
+        using base_t::rend;
+        using base_t::front;
+        using base_t::back;
+        using base_t::erase;
+        using base_t::push_back;
+        using base_t::pop_back;
+        using base_t::reserve;
+        using base_t::clear;
 
         // std::vector<bool> has no data(); expose the raw storage for the other element types
         template <class E2_ = E_, class = std::enable_if_t<!std::is_same_v<E2_, bool>>> E_* data() noexcept { return base_t::data(); }

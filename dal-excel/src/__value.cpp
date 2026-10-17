@@ -93,19 +93,6 @@ json is string[]
 -IF-------------------------------------------------------------------------*/
 
 namespace Dal {
-    namespace {
-        Matrix_<Cell_> PriceTable(const std::map<String_, double>& prices) {
-            Matrix_<Cell_> values(prices.size(), 2);
-            int row = 0;
-            for (const auto& price : prices) {
-                values(row, 0) = price.first;
-                values(row, 1) = price.second;
-                ++row;
-            }
-            return values;
-        }
-    } // namespace
-
     void MonteCarlo_Value(const Handle_<ScriptProductData_>& product,
                           const Handle_<ModelData_>& modelData,
                           double n_paths,
@@ -115,7 +102,7 @@ namespace Dal {
                           double smooth,
                           Matrix_<Cell_>* values) {
         const int nPaths = Excel::CheckedMonteCarloPathCount(n_paths);
-        *values = PriceTable(ValueByMonteCarlo(product, modelData, nPaths, rsg, use_bb, enable_aad, smooth));
+        *values = Excel::MonteCarloPriceTable(ValueByMonteCarlo(product, modelData, nPaths, rsg, use_bb, enable_aad, smooth));
     }
 
     void MonteCarlo_ValueWithSettings(const Handle_<ScriptProductData_>& product,
@@ -126,13 +113,8 @@ namespace Dal {
                                       Matrix_<Cell_>* values) {
         const auto settings = valuation ? valuation->val_ : ScriptValuationSettings_();
         const auto execution = simulation ? simulation->val_ : MonteCarloSettings_();
-        int count;
-        try {
-            count = Excel::CheckedMonteCarloPathCount(nPaths);
-        } catch (const Exception_& error) {
-            THROW("InvalidPathCount: MonteCarlo_ValueWithSettings; n_paths; " + String_(error.what()));
-        }
-        *values = PriceTable(ValueByMonteCarlo(product, modelData, count, settings, execution));
+        const int count = Excel::CheckedMonteCarloPathCount(nPaths, "MonteCarlo_ValueWithSettings");
+        *values = Excel::MonteCarloPriceTable(ValueByMonteCarlo(product, modelData, count, settings, execution));
     }
 
     void ScriptValuation_Explain(const Handle_<ScriptProductData_>& product,
@@ -151,12 +133,7 @@ namespace Dal {
                                   Vector_<String_>* json) {
         const auto settings = valuation ? valuation->val_ : ScriptValuationSettings_();
         const auto execution = simulation ? simulation->val_ : MonteCarloSettings_();
-        int count;
-        try {
-            count = Excel::CheckedMonteCarloPathCount(nPaths);
-        } catch (const Exception_& error) {
-            THROW("InvalidPathCount: ScriptSimulation_Explain; n_paths; " + String_(error.what()));
-        }
+        const int count = Excel::CheckedMonteCarloPathCount(nPaths, "ScriptSimulation_Explain");
         *json = Excel::ScriptDiagnosticChunks(ExplainScriptSimulation(product, modelData, count, settings, execution), "ScriptSimulation_Explain");
     }
 

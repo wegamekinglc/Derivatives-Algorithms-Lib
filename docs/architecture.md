@@ -44,9 +44,18 @@ includes and rejects direct core links. Native observer hooks used by Excel
 tests live under `dal-excel/tests/support/` and are compiled into the XLL only
 when tests are enabled.
 
-All repository C++ examples live under `dal-cpp/examples/` and use core APIs.
-Their DAL dependency is `DAL::cpp`; `DAL_CPP_BUILD_EXAMPLES=ON` enables them
-independently of `DAL_BUILD_PUBLIC`.
+Core C++ examples live under `dal-cpp/examples/`, use core APIs and depend on
+`DAL::cpp`. The [core catalog](../dal-cpp/examples/README.md) groups them by primary
+purpose into `products/`, `curves/`, `models/` and `methods/`.
+`DAL_CPP_BUILD_EXAMPLES=ON` enables them independently of
+`DAL_BUILD_PUBLIC`. They must not include or link the public facade, including
+through shared helpers or conditional targets.
+
+Examples using facade builders or valuations live under `dal-public/examples/`
+and link `DAL::public`, which depends on `DAL::cpp`. `DAL_PUBLIC_BUILD_EXAMPLES`
+controls these targets within the public component. See the
+[example catalog](examples.md) for runnable workflows and the
+[installation guide](installation.md#common-cmake-options) for defaults.
 
 ## Core Organization
 
@@ -55,10 +64,10 @@ The main core namespaces live under `dal-cpp/dal/`:
 | Area                    | Contents                                                                                                     |
 |-------------------------|--------------------------------------------------------------------------------------------------------------|
 | `math/`                 | Vectors, matrices, interpolation, root finding, integration, optimization, random generation, PDE primitives |
-| `math/aad/`             | Native and adapter-backed reverse-mode AAD facade                                                            |
+| `math/aad/`             | Built-in native reverse-mode AAD with scalar/vector adjoints                                                 |
 | `curve/`                | Discount/forward curves, calibration instruments, single- and multi-curve solvers                            |
 | `script/`               | Product preprocessing, parsing, domain analysis, tree-walk/compiled evaluation, Monte Carlo                  |
-| `model/`                | Black-Scholes, correlated equities, hybrid composition, Dupire calibration, implied/local volatility        |
+| `model/`                | Black-Scholes, correlated equities, hybrid composition, Dupire calibration, implied/local volatility         |
 | `time/`                 | Dates, calendars, schedules, and day-count bases                                                             |
 | `protocol/`             | Market and contract conventions: accrual, payment, coupon, option types, collateral                          |
 | `currency/`             | Currency definitions and static data                                                                         |
@@ -177,15 +186,15 @@ mode with the same payoff/risk contract. AAD simulations use a separate recordin
 for each worker's path batch.
 
 Public C++ settings select the script default index, date/policy, and
-immutable fixing snapshot; model-sourced FIX observations bind the model's
-spot output to the script's own future FIX index by name rather than through
-a setting. Python projects these settings through
+immutable fixing snapshot; model-sourced FIX observations bind to the model's
+supported equity or rate outputs by index name. Python projects these settings through
 keyword-only native classes, and Excel through immutable settings handles;
 both bindings retain their legacy signatures with default native preparation.
 Each Value and Explain call prepares independently;
 Describe inspects contract syntax without date, model, or history access.
-Script archive v2 stores original contract text/default identity and retains the
-v1 reader; no runtime market or prepared state is persisted. See
+Script archive v3 stores original contract text, default identity, and selected
+regression features, while retaining the v1 and v2 readers. No runtime market
+or prepared state is persisted. See
 [script settings and diagnostics](methodology/script_engine.md#public-c-settings).
 
 ## Curve Calibration Flow

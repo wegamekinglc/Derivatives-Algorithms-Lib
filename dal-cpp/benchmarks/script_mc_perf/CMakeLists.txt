@@ -3,14 +3,8 @@ file(GLOB_RECURSE SCRIPT_MC_PERF_FILES CONFIGURE_DEPENDS "*.hpp" "*.cpp")
 add_executable(script_mc_perf ${SCRIPT_MC_PERF_FILES})
 
 target_link_libraries(script_mc_perf dal_library)
+target_include_directories(script_mc_perf PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../externals/rapidjson/include")
 
-if(DAL_USE_XAD_AAD)
-    target_link_libraries(script_mc_perf XAD::xad)
-elseif(DAL_USE_CODIPACK_AAD)
-    target_link_libraries(script_mc_perf CoDiPack)
-elseif(DAL_USE_ADEPT_AAD)
-    target_link_libraries(script_mc_perf adept)
-endif ()
 
 if(MSVC)
 else()
@@ -24,4 +18,5 @@ install(TARGETS script_mc_perf
 
 add_test(NAME script_mc_perf COMMAND script_mc_perf)
 set_tests_properties(script_mc_perf PROPERTIES LABELS "benchmark")
-
+add_test(NAME script_mc_compiled_soa_profile COMMAND script_mc_perf --compiled-soa weekly 32 65 1 steady)
+set_tests_properties(script_mc_compiled_soa_profile PROPERTIES LABELS "benchmark")

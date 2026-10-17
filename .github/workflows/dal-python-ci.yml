@@ -11,6 +11,7 @@ on:
       - .github/scripts/tests/test_python_smoke.py
       - .github/scripts/tests/test_python_syntax.py
       - .github/workflows/dal-python-ci.yml
+      - .github/scripts/checkout_dependencies.py
       - .github/workflows/dal-python-release.yml
       - dal-python/**
       - '!dal-python/**/*.md'
@@ -68,8 +69,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          submodules: recursive
+
+      - name: Check out pinned dependencies
+        run: python .github/scripts/checkout_dependencies.py
 
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # @v10.2.0
 

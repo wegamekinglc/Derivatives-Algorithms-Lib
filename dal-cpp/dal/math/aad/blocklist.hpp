@@ -14,9 +14,14 @@
 
 #include <array>
 #include <cstring>
+#include <functional>
 #include <iterator>
+#include <limits>
 #include <list>
 #include <type_traits>
+
+#include <dal/math/aad/blockallocation.hpp>
+#include <dal/math/aad/profilinghooks.hpp>
 #include <dal/utilities/exceptions.hpp>
 
 namespace Dal::AAD {
@@ -39,7 +44,34 @@ namespace Dal::AAD {
         block_iter markedSpace_;
 
         void NewBlock() {
+            if (TapeCapacityActive()) {
+                NewBudgetedBlock();
+                return;
+            }
             data_.emplace_back();
+            FinishNewBlock();
+        }
+
+#if defined(__GNUC__) || defined(__clang__)
+        __attribute__((cold, noinline))
+#elif defined(_MSC_VER)
+        __declspec(noinline)
+#endif
+        void NewBudgetedBlock() {
+            BlockAllocationTicket_ allocation(this, sizeof(std::array<T_, BLOCK_SIZE_>));
+            data_.emplace_back();
+            allocation.Commit();
+            FinishNewBlock();
+        }
+
+        void FinishNewBlock() {
+#if defined(DAL_ENABLE_AAD_PROFILING)
+            RecordBlockAllocation(sizeof(std::array<T_, BLOCK_SIZE_>));
+#endif
+            SetCurrentToLastBlock();
+        }
+
+        void SetCurrentToLastBlock() {
             currBlock_ = lastBlock_ = std::prev(data_.end());
             nextSpace_ = currBlock_->begin();
             lastSpace_ = currBlock_->end();
@@ -48,6 +80,27 @@ namespace Dal::AAD {
         void ResetMark() {
             markedBlock_ = currBlock_;
             markedSpace_ = nextSpace_;
+        }
+
+#if defined(__GNUC__) || defined(__clang__)
+        __attribute__((cold, noinline))
+#elif defined(_MSC_VER)
+        __declspec(noinline)
+#endif
+        void ClearBudgeted() {
+            const size_t releasedBytes = data_.size() * sizeof(std::array<T_, BLOCK_SIZE_>);
+            BlockAllocationTicket_ allocation(this, sizeof(std::array<T_, BLOCK_SIZE_>), true);
+            decltype(data_) replacement;
+            replacement.emplace_back();
+            allocation.Commit();
+#if defined(DAL_ENABLE_AAD_PROFILING)
+            RecordBlockAllocation(sizeof(std::array<T_, BLOCK_SIZE_>));
+#endif
+            data_.swap(replacement);
+            replacement.clear();
+            ReleaseBlockAllocation(this, releasedBytes);
+            SetCurrentToLastBlock();
+            ResetMark();
         }
 
         void NextBlock() {
@@ -66,7 +119,7 @@ namespace Dal::AAD {
             block_iter nextSpace_;
 
             BlockPosition_() = default;
-            BlockPosition_(iterator curr_block, block_iter next_space): currBlock_(curr_block), nextSpace_(next_space) {}
+            BlockPosition_(iterator curr_block, block_iter next_space) : currBlock_(curr_block), nextSpace_(next_space) {}
         };
 
         BlockList_() {
@@ -75,6 +128,10 @@ namespace Dal::AAD {
         }
 
         void Clear() {
+            if (TapeCapacityActive()) {
+                ClearBudgeted();
+                return;
+            }
             data_.clear();
             NewBlock();
             ResetMark();
@@ -87,10 +144,42 @@ namespace Dal::AAD {
         }
 
         [[nodiscard]] int Size() const {
-            int count = 0;
-            for(ConstIterator_ it = this->Begin(); it != this->End(); ++it)
-                count += 1;
-            return count;
+            const size_t count = OccupiedSlots();
+            REQUIRE(count <= static_cast<size_t>(std::numeric_limits<int>::max()), "BlockList.Size: occupied count exceeds int range");
+            return static_cast<int>(count);
+        }
+
+        [[nodiscard]] size_t AllocatedBlocks() const { return data_.size(); }
+
+        [[nodiscard]] bool Contains(const T_* element) const {
+            const auto less = std::less<const T_*>();
+            for (auto block = data_.cbegin();; ++block) {
+                const bool current = block == const_iterator(currBlock_);
+                const T_* first = block->data();
+                const T_* last = current ? first + std::distance(currBlock_->begin(), nextSpace_) : first + BLOCK_SIZE_;
+                if (!less(element, first) && less(element, last))
+                    return true;
+                if (current)
+                    return false;
+            }
+        }
+
+        template <class F_> void ForEachLiveRange(const F_& visit) const {
+            for (auto block = data_.cbegin();; ++block) {
+                const bool current = block == const_iterator(currBlock_);
+                const T_* first = block->data();
+                const T_* last = current ? first + std::distance(currBlock_->begin(), nextSpace_) : first + BLOCK_SIZE_;
+                if (first != last)
+                    visit(first, last);
+                if (current)
+                    return;
+            }
+        }
+
+        // Includes unused tails skipped when a contiguous allocation moves to the next block.
+        [[nodiscard]] size_t OccupiedSlots() const {
+            const size_t precedingBlocks = static_cast<size_t>(std::distance(data_.cbegin(), const_iterator(currBlock_)));
+            return precedingBlocks * BLOCK_SIZE_ + static_cast<size_t>(std::distance(currBlock_->begin(), nextSpace_));
         }
 
         void Memset(unsigned char val) {
@@ -279,4 +368,4 @@ namespace Dal::AAD {
             lastSpace_ = currBlock_->end();
         }
     };
-} // namespace Dal
+} // namespace Dal::AAD

@@ -14,6 +14,7 @@
 - [Errors and common patterns](#error-handling)
 - [Public function naming](#public-function-naming-dal-excel-and-dal-python)
 - [Tests, comments, and documentation](#test-conventions-google-test)
+- [Example output](#example-output-c-and-python)
 
 ## Formatting (primarily enforced by `.clang-format`)
 
@@ -69,8 +70,8 @@
 - Keep separator rows compact: each column's dash count equals the column width (content length + 2). Do not add spaces around dashes between pipes.
 - When table cells reference specific C++ files, use project-relative paths such as `dal-cpp/dal/curve/yc.hpp`, not short names like `yc.hpp` or shorthand like `yc.hpp/cpp`.
 - For convention-only filename examples, use filenames without project-relative paths, such as `threadpool.cpp` or `test_date.cpp`.
-- Keep related Markdown tables consistent across repository and agent guidance files
-  (`.claude/rules/` and `.codex/references/` hold mirrored copies; keep them in sync).
+- Keep related Markdown tables consistent across repository and agent guidance files;
+  synchronize protected platform copies only when the user authorizes it.
 
 ## Header Files
 
@@ -226,6 +227,23 @@ Reference files:
 - Test suites: PascalCase (`AADTest`, `VectorTest`)
 - Test names: PascalCase with `Test` prefix (`TestNumberAdd`)
 
+## Example Output (C++ and Python)
+
+- Show calibration results and sample product values in aligned text tables,
+  with a section title, column headers, and horizontal separators. Match the
+  layouts in `dal-cpp/examples/curve_calibration/curve_calibration.cpp` and
+  `dal-cpp/examples/uoc/uoc.cpp`; Python examples follow the same layout.
+- Calibration tables identify instruments, market/fitted values, residuals,
+  fitted parameters and validation status. Product tables identify the product,
+  valuation method and price; include numerical or sampling errors when available.
+- Label units and scales explicitly. Use the shared `ExampleFloat` / `format_float`
+  helpers for fixed-point output that keeps small meaningful values visible.
+- When AAD is available, include the AAD price and named input derivatives.
+  State whether sensitivities hold calibrated inputs fixed or propagate through
+  calibration. Compare plain and AAD values on the same contract and random paths.
+- Keep explanation in the corresponding documentation; table headings and concise
+  labels supply the context needed to read the program's output.
+
 ## Comment Style
 
 - Sparse — code is self-documenting
@@ -233,9 +251,11 @@ Reference files:
 - Single-line `//` for inline notes
 - No docstrings or doxygen-style comments
 - File headers are the only mandatory comments
+- References are one-way: documentation may reference source files; code must not
+  reference documentation files.
 - **No large explanatory comments.** Multi-line comments that explain design, methodology, or
   algorithm derivations belong in `docs/methodology/`, not in source. Move the prose to the doc
-  (via the `dal-doc-writer` agent) and leave at most a one-line `// why` pointer — or nothing. A
+  and retain at most a brief local constraint or non-obvious reason — or nothing. A
   comment block that reads like a paragraph of documentation is a signal to migrate it.
 
 ## Documentation
@@ -243,6 +263,8 @@ Reference files:
 - Docs under `docs/` describe the **current state only** — no historical narrative, design
   alternatives, implementation-phase plans, or "how this design was reached" sections.
   Historical context belongs in `CHANGELOG.md` and only there.
+- Favor readability over exhaustive coverage. Explain the central idea, essential
+  constraints, and a useful example; avoid repeating implementation details.
 - **No source line numbers in docs.** Line citations (`calibration.hpp:70-95,142`) go stale
   as soon as the file is edited. Reference the struct, function, or file name instead
   (e.g., "the `CurveCalibrationSpec_` struct in `dal-cpp/dal/curve/calibration.hpp`").
@@ -251,7 +273,7 @@ Reference files:
   formatting, and build changes are deliberately omitted from the changelog.
 - **`docs/` is the home for methodology prose migrated out of source comments.** When a code
   comment grows into design/methodology/algorithm explanation, move the prose into the matching
-  `docs/methodology/` note and reduce the source comment to a one-line pointer or delete it.
+  `docs/methodology/` note and retain only a necessary local constraint or delete the comment.
   See the Comment Style section and the `dal-doc-writer` agent.
 - **Math notation uses only macros GitHub renders.** DAL math is LaTeX inside `$...$` /
   `$$...$$`. Restrict yourself to macros GitHub's math renderer displays; in particular do **not**

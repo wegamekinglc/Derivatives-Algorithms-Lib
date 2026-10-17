@@ -659,9 +659,7 @@ TEST(AADTest, TestNumberAbs) {
     ASSERT_NEAR(Adjoint(s1), -1.0, 1e-10);
 }
 
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
 TEST(AADTest, TestDefaultNumberAdjointRequiresTapeNode) {
     Number_ uninit;
     ASSERT_THROW(Adjoint(uninit), Dal::Exception_);
 }
-#endif

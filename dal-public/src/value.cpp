@@ -2,6 +2,7 @@
 // Created by wegam on 2022/11/20.
 //
 
+#include <cmath>
 #include <dal/model/factory.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
@@ -9,26 +10,17 @@
 #include <dal/storage/globals.hpp>
 
 #include <dal-public/src/value.hpp>
+#include <dal-public/src/valuevalidation.hpp>
 
 namespace Dal {
     using AAD::Model_;
     using Script::SimResults_;
 
     namespace {
-        const std::set<String_> MODEL_STORE = {"BSModelData_", "CorrelatedBSModelData_",  "HybridModelData_",
-                                               "GSRModelData", "MultiFactorGSRModelData", "GSRSLVModelData"};
-
         ScriptValuationSettings_ CheckedValuation(const Handle_<ScriptProductData_>& product,
                                                   const Handle_<ModelData_>& modelData,
                                                   const ScriptValuationSettings_& valuation) {
-            REQUIRE2(product, "InvalidSetting: product=null; expected a non-null product", ScriptError_);
-            REQUIRE2(modelData, "InvalidSetting: modelData=null; expected a non-null model", ScriptError_);
-            const auto modelType = modelData->Type();
-            REQUIRE2(
-                MODEL_STORE.find(modelType) != MODEL_STORE.end(),
-                "InvalidSetting: modelData.Type=" + modelType +
-                    "; expected BSModelData_, CorrelatedBSModelData_, HybridModelData_, GSRModelData, MultiFactorGSRModelData, or GSRSLVModelData",
-                ScriptError_);
+            Detail::CheckScriptValuationInputs(product, modelData);
             return Script::ResolveValuationSettings(valuation);
         }
     } // namespace
@@ -94,11 +86,16 @@ namespace Dal {
         const size_t numPaths = static_cast<size_t>(nPaths);
         const auto results = execution.enableAad_ ? Script::MCSimulation<AAD::Number_>(*productCopy, modelCopy, numPaths, settings, execution)
                                                   : Script::MCSimulation<double>(*productCopy, modelCopy, numPaths, settings, execution);
+        const double pv = results.aggregated_ / static_cast<double>(numPaths);
+        REQUIRE2(std::isfinite(pv), "InvalidPayoff: non-finite Monte Carlo mean; output=PV", ScriptError_);
         std::map<String_, double> res;
-        res["PV"] = results.aggregated_ / static_cast<double>(numPaths);
+        res["PV"] = pv;
         if (execution.enableAad_)
-            for (const auto& n : results.names_)
-                res["d_" + n] = results[n];
+            for (const auto& n : results.names_) {
+                const double risk = results[n];
+                REQUIRE2(std::isfinite(risk), "InvalidRisk: non-finite Monte Carlo sensitivity; output=PV; input=" + n, ScriptError_);
+                res["d_" + n] = risk;
+            }
         return res;
     }
 } // namespace Dal

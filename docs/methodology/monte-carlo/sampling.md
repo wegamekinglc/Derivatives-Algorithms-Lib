@@ -281,7 +281,7 @@ enum, whose alternatives are `IRN` and `MRG32`.
 `PseudoRandom_` adds antithetic variates on top of the underlying engine:
 `FillUniform` alternates between drawing $u_i$ and emitting the antithetic
 $1 - u_i$ from its cache, halving the number of engine calls when antithetic
-sampling is in use. `FillNormal`, however, consumes a fresh `NextUniform()` per
+sampling is in use. `FillNormal`, however, consumes a fresh engine draw per
 component and bypasses that cache. The `precise_` flag selects a higher-accuracy
 inverse-normal-CDF inside `FillNormal`.
 
@@ -296,9 +296,23 @@ correlations that plain lagged generators exhibit. The output is the shuffled
 value mapped to $(0,1)$ as `(2 * ret_val + 1) / 2^31`, which keeps both
 endpoints excluded. Seeking advances from the current engine position when
 possible and replays from the seed for backwards seeks. Its cost is linear in
-the number of engine draws replayed; AAD batches create fresh generators, so
-many batches can incur substantial replay overhead. Prefer MRG32 or Sobol
-for large batched valuations requiring efficient seeking.
+the number of engine draws replayed. Ordinary multi-threaded double Monte Carlo
+and ordinary AAD Monte Carlo use one sequential positioner that clones the
+engine at each batch start while workers consume earlier batches. Positioning
+replays the stream once, without inverse-normal conversion, and preserves each
+path's sequential normal draws, precision and Brownian bridge. Single-threaded
+double simulation reuses its contiguous engine directly.
+
+Ordinary simulation submits at most `min(nThreads, nChunks)` persistent workers.
+The positioner claims chunks in path order and clones only after a numeric slot
+is available; each worker owns its clone exclusively. Clone storage is bounded
+independently of the total chunk count. Cancellation wakes capacity waiters and
+drains accepted tasks before returning an error. Numeric reduction follows
+chunk order, so ordinary prices and AAD Greeks repeat exactly across worker
+counts for the same inputs, build and floating-point environment. See
+[simulation batching](simulation.md#batches-compiled-scripts-and-aad). Separate drivers,
+including segmented Monte Carlo, retain their own positioning schedules.
+MRG32 and Sobol support efficient independent seeking when that is required.
 
 ### `MRG32` — Combined Multiple Recursive
 
@@ -324,6 +338,57 @@ over $n\,\text{NDim}$ draws and clears the antithetic toggle. Both operations
 reproduce their respective sequential streams, including when seeking backwards.
 The matrix jump takes logarithmic time in the number of skipped draws.
 
+MRG32 uses exact signed 64-bit recurrence arithmetic and direct batch fill
+loops. Jump products use unsigned 64-bit arithmetic. Both filling and seeking
+preserve the uniform stream, including the equality case above.
+
+## Monte Carlo Normal Precision
+
+`Math::InverseNCDFBlock(values, n, precise = false, polish = false)` converts a
+contiguous array in place. On x86-64, unpolished requests of at least 32
+coordinates use the AVX2 central-region kernel
+when the CPU and OS support it, with SSE2 and scalar fallbacks. Tail values and
+polished modes use `InverseNCDF`; other architectures use the scalar implementation. Empty ranges
+accept a null pointer, unaligned storage and non-block lengths are supported,
+and invalid inputs throw as in the scalar API. The existing scalar endpoint
+behavior at zero and one is retained.
+
+Scalar and vector central-region polynomials share the scalar build's rounding
+policy: FMA-enabled builds fuse each Horner stage, while portable x86 builds use
+separate multiplication and addition. Runtime AVX2 selection requires FMA support
+when the scalar build uses it; portable builds retain the non-FMA AVX2 kernel.
+Tail values and polished modes use the same scalar routine. Scalar and vector
+results agree bitwise within the same build, including branch boundaries; this
+does not specify an accuracy bound against the exact normal quantile or require
+identical rounding across different CPU/compiler configurations.
+
+Sobol and the pseudo-random engines use this conversion without changing uniform
+draws, precision flags, antithetic caches, bridge ordering, cloning or seeking.
+Pseudo-random normal draws continue to consume fresh engine draws independently
+of the uniform antithetic cache. Smaller requests retain scalar conversion.
+
+`MonteCarloSettings_::normalPrecision_` selects the inverse-normal conversion.
+Python and Excel expose the same setting as `normal_precision`:
+
+- `Default` uses fast normal conversion for Sobol, MRG32 and IRN.
+- `Fast` uses `InverseNCDF(u, false, false)`, the Acklam approximation.
+- `Precise` uses `InverseNCDF(u, true, true)`, including the CDF correction.
+
+These values are case-sensitive. The policy applies before the Brownian bridge,
+including factor-aware bridges, and is retained throughout ordinary simulation,
+portfolio valuation, risk replay and LSMC training/pricing/replay. Changing it
+preserves the underlying uniform sequence but changes normal draws, prices and
+Greeks. Small draw errors can be amplified near smoothing boundaries; compare
+all relevant risks when choosing a policy for a product. Select `Precise` when
+the CDF correction is required. Simulation diagnostics include
+`normal_precision`.
+
+```cpp
+Dal::Script::MonteCarloSettings_ simulation;
+simulation.rsg_ = "mrg32";
+simulation.normalPrecision_ = "Precise";
+```
+
 ## Selection Guidance
 
 - **Quasi-random + Brownian bridge** can improve path-dependent Monte Carlo
@@ -337,8 +402,8 @@ The matrix jump takes logarithmic time in the number of skipped draws.
   estimators where low-discrepancy bias is undesirable. Between the two
   engines, `MRG32` has the stronger theoretical recurrence and efficient
   matrix-based seeking; `IRN` is a Knuth-style alternative with linear replay.
-  Ordinary Monte Carlo uses `SkipNormalTo` to give each batch its sequential
-  normal substream for either engine.
+  Ordinary Monte Carlo gives each batch its sequential normal stream, using
+  `SkipNormalTo` directly for MRG32 and bounded sequential positioning for IRN.
 - **Script `EXERCISE` products** accept only `sobol` (`UnsupportedRsgForExercise`
   otherwise): their LSMC driver seeks each batch's first path with `SkipTo` —
   in the recording pass and, for AAD risks, in the on-tape replay of the
@@ -366,16 +431,30 @@ and linear replay costs, but do not measure whole multi-batch valuations.
   rather than re-measuring the common inverse-CDF cost already covered by the
   Sobol fast/precise pair.
 
+Additional `CreateRNG` cases use the production factory with `Default` and
+`Precise` policies for MRG32/IRN, at 100K paths × 10 dimensions and 8192 paths ×
+52 dimensions. An MRG32 uniform case isolates engine throughput.
+
+`script_mc_perf --rng-policy double mrg32 Fast 1048576` measures the
+single-thread BS weekly-barrier valuation. Replace `double` with `aad` to
+report the price and every named risk. Optional arguments select the global
+smoothing width, `tree|compiled` evaluator, barrier smoothing width (default
+`0.1`), and thread count (default `1`). For example,
+`--rng-policy aad irn Fast 1048576 0.01 tree 0.1 32` measures a 32-thread
+valuation; the output reports the actual pool size. The command
+`--rng-policy aad mrg32 Precise 131072 0.000001 compiled 0.000001`
+narrows both payoff and barrier smoothing.
+
 ## Examples
 
 The Sobol benchmark program drives every generator through the same
 `FillUniform` / `FillNormal` inner loop and times the `precise` / `polish`
 inverse-CDF modes separately. See
-[`dal-cpp/examples/sobol/`](../../../dal-cpp/examples/sobol) for a runnable
+[`dal-cpp/examples/methods/sobol/`](../../../dal-cpp/examples/methods/sobol) for a runnable
 version; its per-configuration construction and draw loop is:
 
 ```cpp
-// from dal-cpp/examples/sobol/sobol.cpp
+// from dal-cpp/examples/methods/sobol/sobol.cpp
 #include <dal/math/random/sobol.hpp>
 #include <dal/math/random/quasirandom.hpp>
 #include <dal/math/vectors.hpp>

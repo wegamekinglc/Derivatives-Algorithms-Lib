@@ -3,20 +3,185 @@
 //
 
 #include <gtest/gtest.h>
-#include <dal/platform/platform.hpp>
+
+#include <array>
+#include <cstdint>
+#include <limits>
+#include <utility>
+
+#include <dal/math/buffercapacity.hpp>
 #include <dal/math/operators.hpp>
 #include <dal/math/random/pseudorandom.hpp>
+#include <dal/math/specialfunctions.hpp>
 #include <dal/math/vectors.hpp>
+#include <dal/platform/platform.hpp>
 
 using namespace Dal;
 
 namespace {
+    struct LegacyIRN_ {
+        std::array<unsigned, 55> ring_{};
+        std::array<unsigned, 128> shuffle_{};
+        int position_ = 0;
+
+        unsigned Advance() {
+            position_ = (position_ + 54) % 55;
+            auto& value = ring_[position_];
+            value = (value + ring_[(position_ + 31) % 55]) % (1U << 30);
+            return value;
+        }
+
+        explicit LegacyIRN_(int seed) {
+            ring_[0] = seed;
+            for (size_t i = 1; i < ring_.size(); ++i)
+                ring_[i] = ((17U * ring_[i - 1]) % (1U << 30)) ^ 0x1F2E3D4CU;
+            for (auto& value : shuffle_)
+                value = Advance();
+        }
+
+        double Next() {
+            const unsigned value = Advance();
+            const unsigned previous = std::exchange(shuffle_[value % shuffle_.size()], value);
+            return (2.0 * previous + 1.0) / 2147483648.0;
+        }
+    };
+
+    // Pins the pre-optimization floating recurrence independently of the production engine.
+    struct LegacyMRG_ {
+        double x_, x1_, x2_, y_, y1_, y2_;
+
+        explicit LegacyMRG_(int seed) : x_(static_cast<unsigned>(seed)), x1_(x_), x2_(x_), y_(static_cast<unsigned>(seed) + 1U), y1_(y_), y2_(y_) {}
+
+        double Next() {
+            double x = 1403580.0 * x1_ - 810728.0 * x2_;
+            x -= static_cast<int64_t>(x / 4294967087.0) * 4294967087.0;
+            if (x < 0)
+                x += 4294967087.0;
+            x2_ = x1_;
+            x1_ = x_;
+            x_ = x;
+            double y = 527612.0 * y_ - 1370589.0 * y2_;
+            y -= static_cast<int64_t>(y / 4294944443.0) * 4294944443.0;
+            if (y < 0)
+                y += 4294944443.0;
+            y2_ = y1_;
+            y1_ = y_;
+            y_ = y;
+            return (x > y ? x - y : x - y + 4294967087.0) / 4294967088.0;
+        }
+    };
+
     struct RandomStreamMode_ {
         const char* name_;
         void (Random_::*fill_)(Vector_<>*);
         void (Random_::*seek_)(size_t);
     };
 } // namespace
+
+TEST(PseudoRandomTest, TestIRNClonedStateHonorsBufferCapacityBudget) {
+    constexpr size_t minimumBytes = (55 + 128) * sizeof(unsigned) + 52 * sizeof(double);
+    BufferCapacityBudget_ budget(4 * minimumBytes);
+    {
+        BufferCapacityScope_ scope(&budget);
+        auto generator = New(RNGType_("IRN"), 1024, 52, false);
+        const auto stateBytes = budget.CapacityBytes();
+        ASSERT_GE(stateBytes, minimumBytes);
+        {
+            auto clone = generator->Clone();
+            ASSERT_EQ(budget.CapacityBytes(), 2 * stateBytes);
+        }
+        ASSERT_EQ(budget.CapacityBytes(), stateBytes);
+    }
+    ASSERT_EQ(budget.CapacityBytes(), 0);
+    BufferCapacityBudget_ limited((55 + 128) * sizeof(unsigned));
+    {
+        BufferCapacityScope_ scope(&limited);
+        ASSERT_THROW(static_cast<void>(New(RNGType_("IRN"), 1024, 52, false)), Exception_);
+        ASSERT_EQ(limited.CapacityBytes(), 0);
+    }
+}
+
+TEST(PseudoRandomTest, TestIRNUniformStreamMatchesLegacyAcrossSeeds) {
+    for (const int seed : {0, 1, 1024, 12345, -1, std::numeric_limits<int>::min(), std::numeric_limits<int>::max()}) {
+        auto generator = New(RNGType_("IRN"), seed, 1, false);
+        LegacyIRN_ reference(seed);
+        for (size_t draw = 0; draw < 2000000; ++draw)
+            ASSERT_EQ(generator->NextUniform(), reference.Next()) << "seed=" << seed << "; draw=" << draw;
+    }
+}
+
+TEST(PseudoRandomTest, TestMRGUniformStreamMatchesLegacyAcrossSeeds) {
+    for (const int seed : {0, 1, 1024, 12345, -1, std::numeric_limits<int>::min(), std::numeric_limits<int>::max()}) {
+        auto generator = New(RNGType_("MRG32"), seed, 1, false);
+        LegacyMRG_ reference(seed);
+        for (size_t draw = 0; draw < 2000000; ++draw)
+            ASSERT_EQ(generator->NextUniform(), reference.Next()) << "seed=" << seed << "; draw=" << draw;
+    }
+}
+
+TEST(PseudoRandomTest, TestMRGBulkUniformAndMixedCloneMatchScalarStream) {
+    for (const int seed : {0, 1024, -1}) {
+        auto generator = New(RNGType_("MRG32"), seed, 52, false);
+        LegacyMRG_ reference(seed);
+        Vector_<> actual(52), expected(52);
+        for (int path = 0; path < 31; ++path) {
+            for (auto& value : expected)
+                value = reference.Next();
+            generator->FillUniform(&actual);
+            ASSERT_EQ(actual, expected);
+            auto clone = generator->Clone();
+            generator->FillUniform(&actual);
+            for (size_t i = 0; i < actual.size(); ++i)
+                ASSERT_EQ(actual[i], 1.0 - expected[i]);
+            clone->FillUniform(&expected);
+            ASSERT_EQ(actual, expected);
+            ASSERT_EQ(generator->NextUniform(), reference.Next());
+        }
+    }
+}
+
+TEST(PseudoRandomTest, TestMRGNormalSeekingMatchesLegacyAtBatchBoundaries) {
+    for (const int seed : {0, 1024, -1, std::numeric_limits<int>::min(), std::numeric_limits<int>::max()}) {
+        for (const bool precise : {false, true}) {
+            auto generator = New(RNGType_("MRG32"), seed, 52, precise);
+            Vector_<> actual(52);
+            for (const size_t offset : {8193, 1025, 0, 1}) {
+                LegacyMRG_ reference(seed);
+                for (size_t draw = 0; draw < offset * actual.size(); ++draw)
+                    reference.Next();
+                generator->SkipNormalTo(offset);
+                auto clone = generator->Clone();
+                Vector_<> cloned(52);
+                generator->FillNormal(&actual);
+                clone->FillNormal(&cloned);
+                ASSERT_EQ(actual, cloned);
+                for (const auto value : actual)
+                    ASSERT_EQ(value, InverseNCDF(reference.Next(), precise, precise)) << "seed=" << seed << "; offset=" << offset;
+            }
+        }
+    }
+}
+
+TEST(PseudoRandomTest, TestMRGUniformSeekingMatchesLegacyAndAntitheticCache) {
+    for (const int seed : {0, 1024, -1, std::numeric_limits<int>::min(), std::numeric_limits<int>::max()}) {
+        auto generator = New(RNGType_("MRG32"), seed, 52, false);
+        Vector_<> actual(52);
+        for (const size_t offset : {8192, 8193, 3, 0, 1}) {
+            LegacyMRG_ reference(seed);
+            for (size_t draw = 0; draw < (offset / 2) * actual.size(); ++draw)
+                reference.Next();
+            generator->SkipTo(offset);
+            generator->FillUniform(&actual);
+            for (const auto value : actual) {
+                const double uniform = reference.Next();
+                ASSERT_EQ(value, offset % 2 ? 1.0 - uniform : uniform) << "seed=" << seed << "; offset=" << offset;
+            }
+            generator->FillNormal(&actual);
+            for (const auto value : actual)
+                ASSERT_EQ(value, InverseNCDF(reference.Next(), false, false));
+        }
+    }
+}
 
 TEST(PseudoRandomTest, TestSeekingMatchesReplayForEveryOffsetAndMode) {
     const RandomStreamMode_ modes[] = {{"uniform", &Random_::FillUniform, &Random_::SkipTo},
@@ -40,6 +205,63 @@ TEST(PseudoRandomTest, TestSeekingMatchesReplayForEveryOffsetAndMode) {
             }
         }
     }
+}
+
+TEST(PseudoRandomTest, TestBulkNormalPreservesRawDrawsAndUniformCache) {
+    for (const auto* engine : {"IRN", "MRG32"}) {
+        for (const size_t dimension : {0, 1, 10, 31, 32, 33, 52, 53}) {
+            for (const bool precise : {false, true}) {
+                auto generator = New(RNGType_(engine), 1024, dimension, precise);
+                auto reference = New(RNGType_(engine), 1024, dimension, precise);
+                Vector_<> values(dimension), uniform(dimension);
+                generator->FillUniform(&uniform);
+                for (const double value : uniform)
+                    ASSERT_EQ(value, reference->NextUniform());
+                generator->FillNormal(&values);
+                for (const double value : values)
+                    ASSERT_EQ(value, InverseNCDF(reference->NextUniform(), precise, precise));
+                auto clone = generator->Clone();
+                generator->FillUniform(&values);
+                for (size_t i = 0; i < dimension; ++i)
+                    ASSERT_EQ(values[i], 1.0 - uniform[i]);
+                clone->FillUniform(&uniform);
+                ASSERT_EQ(values, uniform);
+                const double next = reference->NextUniform();
+                ASSERT_EQ(generator->NextUniform(), next);
+            }
+        }
+    }
+}
+
+TEST(PseudoRandomTest, TestIRNReplayPreservesMixedDrawCountsAndPrecisionAtBatchBoundaries) {
+    for (const int seed : {0, 1024, -1})
+        for (const bool precise : {false, true}) {
+            auto sought = New(RNGType_("IRN"), seed, 52, precise);
+            Vector_<> actual(52), expected(52);
+            for (const size_t offset : {8192, 8193, 3, 0, 1}) {
+                auto replay = New(RNGType_("IRN"), seed, 52, precise);
+                for (size_t path = 0; path < offset; ++path)
+                    for (size_t dim = 0; dim < expected.size(); ++dim)
+                        replay->NextUniform();
+                sought->SkipNormalTo(offset);
+                ASSERT_EQ(sought->NextUniform(), replay->NextUniform());
+                sought->FillNormal(&actual);
+                replay->FillNormal(&expected);
+                ASSERT_EQ(actual, expected);
+                auto clone = sought->Clone();
+                sought->FillUniform(&actual);
+                clone->FillUniform(&expected);
+                ASSERT_EQ(actual, expected);
+                sought->SkipTo(offset);
+                replay->SkipTo(offset);
+                sought->FillUniform(&actual);
+                replay->FillUniform(&expected);
+                ASSERT_EQ(actual, expected);
+                sought->FillNormal(&actual);
+                replay->FillNormal(&expected);
+                ASSERT_EQ(actual, expected);
+            }
+        }
 }
 
 TEST(PseudoRandomTest, TestClonePreservesStateAndPrecision) {

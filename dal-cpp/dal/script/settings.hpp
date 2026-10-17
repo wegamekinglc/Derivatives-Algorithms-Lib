@@ -58,6 +58,10 @@ namespace Dal {
             // common-path policy secant for model parameters and script constants.
             String_ lsmcPolicyRiskMode_ = "Frozen";
             double lsmcPolicyBumpRelative_ = DEFAULT_LSMC_POLICY_BUMP_RELATIVE;
+            String_ normalPrecision_ = "Default";
+            std::optional<int> lsmcCheckpointBlockEvents_;
+            std::optional<int> lsmcTrainingMemoryMb_;
+            bool usePassiveConstants_ = false;
         };
 
         struct ScriptValuationSettings_ {
@@ -78,6 +82,7 @@ namespace Dal {
         ScriptValuationSettings_ ResolveValuationSettings(const ScriptValuationSettings_& settings,
                                                           const Handle_<MarketFixingSnapshot_>& snapshot = {});
         void ValidateRNG(const String_& method);
+        void ValidateNormalPrecision(const String_& precision);
         void ValidateSmoothing(double smooth);
         void ValidateLsmcBasisDegree(int degree);
         void ValidateLsmcTrainingPaths(int count);

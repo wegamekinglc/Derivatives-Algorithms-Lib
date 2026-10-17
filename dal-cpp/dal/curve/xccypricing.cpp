@@ -125,10 +125,7 @@ namespace Dal {
             const T_ domesticDf = DiscountFromValuation(domesticDiscount, market.valuationTime_, fixingTime.Date());
             const T_ foreignDf = DiscountFromValuation(foreignDiscount, market.valuationTime_, fixingTime.Date());
             const T_ basisDf = market.basis_ ? DiscountFromValuation(*market.basis_, market.valuationTime_, fixingTime.Date()) : T_(1.0);
-            // Spelled as an explicit reciprocal: Adept evaluates an active-denominator division's
-            // primal as lhs*(1/rhs), so the plain quotient would round differently from the double
-            // path and break bitwise active == passive PV (1/basisDf with a unit numerator is
-            // correctly rounded on every backend).
+            // Keep the established reciprocal order for active/passive PV agreement.
             return market.fxSpot_ * foreignDf * (T_(1.0) / (domesticDf * basisDf));
         }
 
@@ -255,8 +252,7 @@ namespace Dal {
         T_ ForeignConversionFactor(const Tape::DiscountCurve_<T_>& foreignDiscount, const XccyMarketView_<T_>& market, const Date_& paymentDate) {
             const T_ foreignDf = DiscountFromValuation(foreignDiscount, market.valuationTime_, paymentDate);
             const T_ basisDf = market.basis_ ? DiscountFromValuation(*market.basis_, market.valuationTime_, paymentDate) : T_(1.0);
-            // Explicit reciprocal, same reasoning as ActiveFxForward: the plain quotient would
-            // round differently from the double path on Adept and break bitwise active == passive.
+            // Match the reciprocal order in ActiveFxForward.
             return market.fxSpot_ * foreignDf * (T_(1.0) / basisDf);
         }
 

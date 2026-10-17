@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Last updated: 2026-10-01
+Last updated: 2026-10-11
 
 Codex-native guidance for this repository. This file is intentionally separate from
 `CLAUDE.md` and `.claude/`; do not edit the Claude originals unless the user explicitly asks.
@@ -26,6 +26,10 @@ This is a C++17 quantitative finance workspace with Automatic Adjoint Differenti
 support. The dependency direction is `dal-cpp <- dal-public <- {dal-python, dal-excel}`. The shared
 architecture map is in [CLAUDE.md](CLAUDE.md#architecture), with the published overview in
 [docs/architecture.md](docs/architecture.md).
+
+This direction also governs examples, benchmarks, tests and helpers. Core examples
+depend only on core APIs; separate facade examples belong in `dal-public/examples/`.
+Follow the [component boundary contract](.codex/references/component-boundaries.md).
 
 ## Build And Test
 
@@ -53,6 +57,25 @@ The [tester agent contract](.codex/agents/dal-tester.toml) covers test execution
 **Commit conventions:** [git-commit-pr.md](.codex/references/git-commit-pr.md).
 
 **Pull-request publication:** [publish-workflow.md](.codex/skills/dal-git-pr/references/publish-workflow.md).
+
+## Performance Acceptance
+
+These rules apply to every development task in this repository.
+
+- Select performance cases from the changed code and its actual callers. Record a
+  short mapping from changed paths to selected cases and explain coverage exclusions.
+- Use the smallest set covering affected algorithms, public entry points and relevant
+  size/mode boundaries. Do not run the full benchmark or parameter matrix for every
+  edit, PR or merge. Shared headers require caller analysis, not automatic full coverage.
+- During repair, repeat only affected cases. Expand coverage when a new failure,
+  dependency change or specific coverage gap justifies it; record the reason first.
+- Preserve calibrated sampling, noise controls and regression thresholds for selected
+  cases. Reduce case count rather than weakening evidence for each case.
+- Reuse accepted evidence only when source/dependency/configuration provenance and
+  executable identity establish applicability. Rebuild affected binaries; do not use
+  stale binaries or claim omitted cases passed.
+- Scheduled full-suite monitoring and required exact-head CI remain applicable.
+  Document scope decisions in the PR using [benchmark-workflow.md](.codex/references/benchmark-workflow.md).
 
 ## Work Style
 

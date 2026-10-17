@@ -5,10 +5,13 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <cmath>
+#include <limits>
 
 #include <dal/curve/logdfinterp.hpp>
 #include <dal/curve/yclogdf.hpp>
 #include <dal/math/aad/aad.hpp>
+#include <dal/math/buffercapacity.hpp>
 #include <dal/math/interp/interpcubic.hpp>
 #include <dal/math/interp/interplinear.hpp>
 #include <dal/math/interp/interpmixed.hpp>
@@ -55,6 +58,25 @@ TEST(LogDfInterpolationTest, TestAllSchemesReproduceLegacyCurvePolicy) {
             const double expected = LegacyCurveValue(yf, logDf, scheme, query);
             ASSERT_DOUBLE_EQ(interpolation.Evaluate(logDf, query), expected) << "scheme=" << scheme.String() << ", query=" << query;
         }
+    }
+}
+
+TEST(LogDfInterpolationTest, TestDoubleKnotQueriesNeedNoScratchCapacity) {
+    const Vector_<> yf{0.0, 0.25, 0.75, 1.5, 3.0, 5.0};
+    const Vector_<> values{-0.0, -0.004, -0.013, -0.03, -0.075, -0.14};
+    for (const LogDfScheme_ scheme : {LogDfScheme_::Value_::LOG_LINEAR, LogDfScheme_::Value_::LOG_CUBIC_NATURAL,
+                                    LogDfScheme_::Value_::MIXED}) {
+        const LogDfInterpolation_ interpolation(yf, scheme);
+        auto nonfinite = values;
+        nonfinite[2] = std::numeric_limits<double>::quiet_NaN();
+        BufferCapacityBudget_ budget(0);
+        const BufferCapacityScope_ scope(&budget);
+        for (size_t i = 0; i < yf.size(); ++i)
+            ASSERT_EQ(interpolation.Evaluate(values, yf[i]), 0.0 + values[i]);
+        ASSERT_FALSE(std::signbit(interpolation.Evaluate(values, yf.front())));
+        ASSERT_EQ(interpolation.Evaluate(nonfinite, yf[1]), values[1]);
+        ASSERT_TRUE(std::isnan(interpolation.Evaluate(nonfinite, yf[2])));
+        ASSERT_EQ(budget.PeakCapacityBytes(), 0);
     }
 }
 

@@ -54,7 +54,7 @@ model-sourced named fixings bind to their own model output by index name.
 Correlated BS and hybrid models accept several configured future EQ indices;
 BS accepts one. See the
 [field/default contract](../docs/methodology/script_engine.md#public-c-settings)
-and executable [core settings example in `dal-cpp/examples/script_settings/`](../dal-cpp/examples/script_settings/).
+and executable [core settings example in `dal-cpp/examples/products/script_settings/`](../dal-cpp/examples/products/script_settings/).
 
 `DescribeScriptProduct` provides contract JSON /2 without historical, model,
 or global-date access. `ExplainScriptValuation` provides valuation JSON /1
@@ -62,8 +62,8 @@ using default price preparation with history access but no workers; every
 call prepares independently. `ExplainScriptSimulation` provides simulation
 JSON /1 from a full double valuation on exercise products (plain products
 skip the run) with per-exercise-event statistics.
-Product archive v2 preserves the original
-contract/default index and retains a v1 reader. Legacy debug JSON /1 rejects
+Product archive v3 preserves the original contract, default index, and selected
+regression features, and retains v1 and v2 readers. Legacy debug JSON /1 rejects
 FIX/nonempty defaults with a Describe /2 migration hint. See
 [archives and diagnostics](../docs/methodology/script_engine.md#product-archive-and-diagnostics).
 
@@ -75,7 +75,17 @@ calibration provenance, verifies bound component fingerprints, and aggregates
 portfolio price-per-decimal quote sensitivities plus DV01 without recalibration.
 See the [quote-space DV01 contract](../docs/public-api.md#c-quote-space-dv01).
 
+`dal-public/src/europeanpderisk.hpp` exposes the closed owning European PDE
+price/rate/volatility/strike-risk request. It shares the full native financial
+program with the example and reports detached per-step solve diagnostics.
+See [the financial contract](../docs/methodology/pde/aad.md#owning-financial-request).
+
 ## Build and Test
+
+Facade examples live in `examples/` and link `DAL::public`. Enable
+`DAL_PUBLIC_BUILD_EXAMPLES` to build `aad_public_risk`;
+see the [example catalog](../docs/examples.md). Core examples remain under
+`dal-cpp/examples/` and depend only on `DAL::cpp`.
 
 The standard core profile builds and tests this component:
 

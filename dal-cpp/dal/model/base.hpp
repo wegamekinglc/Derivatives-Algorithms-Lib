@@ -76,6 +76,23 @@ namespace Dal {
             }
 
         public:
+            static void* operator new(size_t bytes) { return Dal::Detail::AllocateBufferObject(bytes); }
+            static void* operator new(size_t bytes, std::align_val_t alignment) { return Dal::Detail::AllocateBufferObject(bytes, alignment); }
+            static void operator delete(void* storage) noexcept { Dal::Detail::DeallocateBufferObject(storage); }
+            static void operator delete(void* storage, std::align_val_t alignment) noexcept { Dal::Detail::DeallocateBufferObject(storage, alignment); }
+            static void* operator new(size_t bytes, const std::nothrow_t&) noexcept { return Dal::Detail::AllocateBufferObjectNothrow(bytes); }
+            static void* operator new(size_t bytes, std::align_val_t alignment, const std::nothrow_t&) noexcept {
+                return Dal::Detail::AllocateBufferObjectNothrow(bytes, alignment);
+            }
+            static void operator delete(void* storage, const std::nothrow_t&) noexcept { Dal::Detail::DeallocateBufferObject(storage); }
+            static void operator delete(void* storage, std::align_val_t alignment, const std::nothrow_t&) noexcept {
+                Dal::Detail::DeallocateBufferObject(storage, alignment);
+            }
+            static void* operator new(size_t, void* storage) noexcept { return storage; }
+            static void* operator new(size_t, std::align_val_t, void* storage) noexcept { return storage; }
+            static void operator delete(void*, void*) noexcept {}
+            static void operator delete(void*, std::align_val_t, void*) noexcept {}
+
             [[nodiscard]] virtual bool SupportsIndex(const Index_& index) const { return false; }
             [[nodiscard]] virtual size_t MaxObservedIndices() const { return 1; }
             [[nodiscard]] virtual size_t MaxOutputSlotsPerSample() const { return 1; }

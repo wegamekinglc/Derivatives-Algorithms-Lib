@@ -20,6 +20,14 @@ namespace {
 
     ProbeState_ state_;
     Dal::BcgAllocationProbePrivate_::Snapshot_ lastSnapshot_{};
+    thread_local std::size_t failureCountdown_ = std::numeric_limits<std::size_t>::max();
+
+    void CheckFailure_() {
+        if (failureCountdown_ != std::numeric_limits<std::size_t>::max() && failureCountdown_-- == 0) {
+            failureCountdown_ = std::numeric_limits<std::size_t>::max();
+            throw std::bad_alloc();
+        }
+    }
 
     void CountAllocationRequest_() noexcept {
         if (state_.depth_.load(std::memory_order_relaxed) == 1 && !state_.failedClosed_.load(std::memory_order_relaxed))
@@ -30,6 +38,7 @@ namespace {
 
     void* Allocate_(std::size_t size) {
         CountAllocationRequest_();
+        CheckFailure_();
         if (void* result = std::malloc(NonZeroSize_(size)))
             return result;
         throw std::bad_alloc();
@@ -45,6 +54,7 @@ namespace {
 
     void* AllocateAligned_(std::size_t size, std::size_t alignment) {
         CountAllocationRequest_();
+        CheckFailure_();
 #if defined(_WIN32)
         if (void* result = _aligned_malloc(NonZeroSize_(size), alignment))
             return result;
@@ -75,6 +85,9 @@ namespace {
 
 namespace Dal {
     namespace BcgAllocationProbePrivate_ {
+        void FailAfter_(std::size_t successfulRequests) noexcept { failureCountdown_ = successfulRequests; }
+        void CancelFailure_() noexcept { failureCountdown_ = std::numeric_limits<std::size_t>::max(); }
+
         void Reset_() noexcept {
             if (state_.depth_.load(std::memory_order_relaxed) != 0) {
                 state_.failedClosed_.store(true, std::memory_order_relaxed);

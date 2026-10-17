@@ -29,10 +29,14 @@
 #include <dal/time/dateincrement.hpp>
 #include <dal/time/schedules.hpp>
 
+#include "compiledsoaprofile.hpp"
 #include "correlatedbsperf.hpp"
 #include "gsreuropeanperf.hpp"
 #include "gsrperf.hpp"
 #include "gsrslvcalibrationperf.hpp"
+#include "lsmctrainingstudy.hpp"
+#include "productionprofile.hpp"
+#include "rngpolicyprofile.hpp"
 
 using namespace Dal;
 using namespace Dal::Script;
@@ -49,7 +53,7 @@ namespace {
         return {eventDates, events, "call"};
     }
 
-    ScriptProduct_ BuildWeeklyBarrierProduct() {
+    ScriptProductData_ BuildWeeklyBarrierData(const String_& barrierWidth = "0.1") {
         const Date_ start = Date_(2024, 1, 1);
         const Date_ maturity = Date_(2025, 1, 1);
         Vector_<Cell_> eventDates;
@@ -61,11 +65,13 @@ namespace {
         eventDates.push_back(Cell_(start));
         events.push_back("alive = 1");
         eventDates.push_back(Cell_("START: " + Date::ToString(start) + " END: " + Date::ToString(maturity) + " FREQ: 1W"));
-        events.push_back("if spot() >= BARRIER:0.1 then alive = 0 end");
+        events.push_back("if spot() >= BARRIER:" + barrierWidth + " then alive = 0 end");
         eventDates.push_back(Cell_(maturity));
         events.push_back(String_("uoc pays alive * MAX(spot() - STRIKE, 0.0)"));
-        return {eventDates, events, "uoc"};
+        return {"weekly barrier", eventDates, events};
     }
+
+    ScriptProduct_ BuildWeeklyBarrierProduct() { return BuildWeeklyBarrierData().Product(); }
 
     Handle_<ModelData_> BuildModelData() { return Handle_<ModelData_>(new BSModelData_("bs", 100.0, 0.20, 0.05, 0.02)); }
 
@@ -324,9 +330,22 @@ namespace {
 } // namespace
 
 int main(int argc, char** argv) {
+    const bool productionProfile = argc > 1 && std::string(argv[1]) == "--production-profile";
+    auto* startupOutput = std::cout.rdbuf();
+    if (productionProfile || (argc > 1 && std::string(argv[1]) == "--lsmc-training-sample"))
+        std::cout.rdbuf(std::cerr.rdbuf());
     RegisterAll_::Init();
+    std::cout.rdbuf(startupOutput);
     Global::Dates_::SetEvaluationDate(Date_(2024, 1, 1));
     if (argc > 1) {
+        if (std::string(argv[1]) == "--compiled-soa")
+            return RunCompiledSoaProfile(argc - 1, argv + 1);
+        if (std::string(argv[1]) == "--lsmc-training-sample")
+            return RunLsmcTrainingSample(argc, argv, BuildBermudanExerciseProduct);
+        if (std::string(argv[1]) == "--rng-policy")
+            return RunRngPolicyProfile(argc, argv, BuildWeeklyBarrierData);
+        if (std::string(argv[1]) == "--production-profile")
+            return RunProductionProfile(argc, argv, BuildBermudanExerciseProduct);
         if (std::string(argv[1]) == "--gsr-market-calibration") {
             Bench::PrintHeader();
             RunGSRMarketCalibrationCases();
@@ -355,6 +374,11 @@ int main(int argc, char** argv) {
         if (std::string(argv[1]) == "--correlated-bs") {
             Bench::PrintHeader();
             RunCorrelatedBSPathCases();
+            return 0;
+        }
+        if (std::string(argv[1]) == "--correlated-bs-outputs") {
+            Bench::PrintHeader();
+            RunCorrelatedBSOutputCases();
             return 0;
         }
         if (std::string(argv[1]) == "--lsmc-multi-regression") {

@@ -4,6 +4,9 @@
 
 #pragma once
 
+#include <functional>
+#include <typeindex>
+
 #include <dal/indice/fixingsnapshot.hpp>
 #include <dal/model/base.hpp>
 #include <dal/script/event.hpp>
@@ -11,6 +14,9 @@
 #include <dal/script/settings.hpp>
 
 namespace Dal::Script {
+    namespace Detail {
+        void ValidatePassiveConstantModel(const AAD::Model_<double>* model, bool exercise);
+    } // namespace Detail
     class PreparedScript_ {
         std::unique_ptr<const ScriptProduct_> product_;
         Date_ evaluationDate_;
@@ -21,6 +27,7 @@ namespace Dal::Script {
         size_t maxNestedIfs_ = 0;
         std::optional<ScriptCompiled_> compiled_;
         std::optional<ScriptCompiled_> pastCompiled_;
+        std::type_index modelType_ = typeid(void);
 
         PreparedScript_(std::unique_ptr<ScriptProduct_>&& product,
                         const Date_& evaluationDate,
@@ -39,6 +46,8 @@ namespace Dal::Script {
         [[nodiscard]] std::shared_ptr<const ObservationPlan_> PlanHandle() const { return plan_; }
         [[nodiscard]] bool AllExpired() const { return product_->EventDates().empty(); }
         [[nodiscard]] const MonteCarloSettings_& Simulation() const { return simulation_; }
+        [[nodiscard]] std::type_index PreparedModelType() const { return modelType_; }
+        [[nodiscard]] size_t MaxNestedIfs() const { return maxNestedIfs_; }
         [[nodiscard]] const Vector_<Date_>& EventDates() const { return product_->EventDates(); }
         [[nodiscard]] const Vector_<String_>& ConstVarNames() const { return product_->ConstVarNames(); }
         [[nodiscard]] const Vector_<>& TimeLine() const { return plan_->TimeLine(); }
@@ -79,6 +88,10 @@ namespace Dal::Script {
             REQUIRE2(compiled_ && fuzzy == simulation_.enableAad_, "UnsupportedExecutionMode: compilation differs from preparation", ScriptError_);
             return *compiled_;
         }
+        [[nodiscard]] const ScriptCompiled_& HistoricalCompiledProgram() const {
+            REQUIRE2(pastCompiled_, "PreparationRequired: historical bytecode is not prepared", ScriptError_);
+            return *pastCompiled_;
+        }
         [[nodiscard]] ScriptCompiled_ Compile(bool fuzzy = false) const {
             REQUIRE2(compiled_ && fuzzy == simulation_.enableAad_, "UnsupportedExecutionMode: compilation differs from preparation", ScriptError_);
             return *compiled_;
@@ -106,4 +119,19 @@ namespace Dal::Script {
                                   const MonteCarloSettings_& simulation,
                                   const Handle_<MarketFixingSnapshot_>& snapshot = {},
                                   const ScriptProductSettings_& contract = {});
+
+    namespace Detail {
+        PreparedScript_ PrepareScriptForSegmentation(const ScriptProductData_& product,
+                                                     AAD::Model_<double>* model,
+                                                     const ScriptValuationSettings_& settings,
+                                                     const MonteCarloSettings_& simulation,
+                                                     const Handle_<MarketFixingSnapshot_>& snapshot = {},
+                                                     const ScriptProductSettings_& contract = {});
+
+        PreparedScript_ PrepareScriptWithAdmission(const ScriptProductData_& product,
+                                                   AAD::Model_<double>* model,
+                                                   const ScriptValuationSettings_& settings,
+                                                   const MonteCarloSettings_& simulation,
+                                                   const std::function<void(const PreparedScript_&)>& beforeHistory);
+    } // namespace Detail
 } // namespace Dal::Script

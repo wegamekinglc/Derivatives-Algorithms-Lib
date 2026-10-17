@@ -245,17 +245,12 @@ namespace Dal {
 
         void AccumulateJacobian(Vector_<AAD::Number_>* values, const SelectedParameters_& selected, int paths, Matrix_<>* result) {
             for (size_t row = 0; row < values->size(); ++row) {
-#if defined(DAL_USE_XAD_AAD) || defined(DAL_USE_CODIPACK_AAD) || defined(DAL_USE_ADEPT_AAD)
-                AAD::ZeroAdjoints(*AAD::Tape());
-#endif
                 AAD::Adjoint((*values)[row]) = 1.0;
                 AAD::PropagateToStart(*AAD::Tape());
                 for (size_t col = 0; col < selected.size(); ++col)
                     for (auto* parameter : selected[col]) {
                         (*result)(row, col) += AAD::AdjointValue(*parameter) / paths;
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
                         AAD::Adjoint(*parameter) = 0.0;
-#endif
                     }
             }
         }
@@ -451,25 +446,15 @@ namespace Dal {
             std::set<String_> unique;
             for (const auto& label : labels)
                 REQUIRE(unique.insert(label).second, "InvalidGSRSLVPricing: duplicate Jacobian parameter " + label);
-            const TapeGuard_ guard(AAD::Tape());
+            TapeGuard_ guard(AAD::Tape());
             Matrix_<> result(data_->payoffs_.size(), labels.size(), 0.0);
             const int pairs = data_->settings_.paths_ / 2;
-#if defined(DAL_USE_XAD_AAD)
-            const int batchPairs = 16;
-#else
-            const int batchPairs = pairs;
-#endif
-            for (int first = 0; first < pairs; first += batchPairs) {
-#if defined(DAL_USE_XAD_AAD)
-                AAD::Clear(*AAD::Tape());
-#endif
-                SelectedParameters_ selected(labels.size());
-                const auto initialize = [&](auto* outer, auto* inner) { RegisterParameters(outer, inner, labels, &selected); };
-                data_->Samples<AAD::Number_>(
-                    data, initialize, [] { AAD::Mark(*AAD::Tape()); }, [] { AAD::RewindToMark(*AAD::Tape()); },
-                    [&](auto* values, const auto&, int, int) { AccumulateJacobian(values, selected, data_->settings_.paths_, &result); }, first,
-                    std::min(pairs, first + batchPairs));
-            }
+            SelectedParameters_ selected(labels.size());
+            const auto initialize = [&](auto* outer, auto* inner) { RegisterParameters(outer, inner, labels, &selected); };
+            data_->Samples<AAD::Number_>(
+                data, initialize, [] { AAD::Mark(*AAD::Tape()); }, [] { AAD::RewindToMark(*AAD::Tape()); },
+                [&](auto* values, const auto&, int, int) { AccumulateJacobian(values, selected, data_->settings_.paths_, &result); }, 0, pairs);
+            guard.Close();
             return result;
         }
 

@@ -164,7 +164,7 @@ strike. `CalibrateDupireLocalVolSurface` stores this output as a
 Dupire is a calibration method. It produces a surface that can be archived and
 attached to a Hybrid equity component. The up-and-out call example constructs
 a flat surface and uses the Hybrid Monte Carlo driver. See
-[`dal-cpp/examples/uoc/`](../../dal-cpp/examples/uoc) for the runnable version.
+[`dal-cpp/examples/products/uoc/`](../../dal-cpp/examples/products/uoc) for the runnable version.
 
 ```cpp
 // Calibration from an IVS_ into reusable surface data.
@@ -184,11 +184,11 @@ surface grid value has its own Hybrid risk label.
 
 Related flat-volatility baselines:
 
-- [`dal-cpp/examples/vanilla/`](../../dal-cpp/examples/vanilla) — European call
+- [`dal-cpp/examples/methods/vanilla/`](../../dal-cpp/examples/methods/vanilla) — European call
   priced analytically and by Monte Carlo on a `BlackScholes_<T_>` model.
-- [`dal-cpp/examples/european_mc/`](../../dal-cpp/examples/european_mc) —
+- [`dal-cpp/examples/methods/european_mc/`](../../dal-cpp/examples/methods/european_mc) —
   convergence of the quasi-Monte Carlo pricer to the Black-Scholes closed form.
-- [`dal-cpp/examples/european_fd/`](../../dal-cpp/examples/european_fd) —
+- [`dal-cpp/examples/methods/european_fd/`](../../dal-cpp/examples/methods/european_fd) —
   finite-difference European pricer that recovers the Black-Scholes closed form
   from the PDE.
 

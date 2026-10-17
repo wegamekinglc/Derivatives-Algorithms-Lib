@@ -6,10 +6,16 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <atomic>
 #include <cmath>
+#include <iomanip>
 #include <limits>
+#include <sstream>
 
 #include <dal/curve/tapeguard.hpp>
+#include <dal/math/aad/profiling.hpp>
+#include <dal/math/specialfunctions.hpp>
 #include <dal/model/blackscholes.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/script/event.hpp>
@@ -38,6 +44,296 @@ namespace {
     };
 } // namespace
 
+TEST(SimulationTest, TestNormalPrecisionFactoryDefaultsToFastAndPreservesUniforms) {
+    for (const auto* method : {"sobol", "mrg32", "irn"}) {
+        for (const auto* precision : {"Default", "Fast", "Precise"}) {
+            auto normal = CreateRNG(method, 52, false, std::nullopt, precision);
+            auto uniform = CreateRNG(method, 52, false);
+            Vector_<> actual(52), expected(52);
+            const bool precise = String_(precision) == "Precise";
+            for (int path = 0; path < 4; ++path) {
+                normal->FillNormal(&actual);
+                uniform->FillUniform(&expected);
+                for (size_t i = 0; i < actual.size(); ++i)
+                    ASSERT_EQ(actual[i], InverseNCDF(expected[i], precise, precise));
+                if (String_(method) != "sobol")
+                    uniform->FillUniform(&expected);
+            }
+        }
+        auto fast = CreateRNG(method, 3, false, std::nullopt, "Fast");
+        auto precise = CreateRNG(method, 3, false, std::nullopt, "Precise");
+        auto defaultNormal = CreateRNG(method, 3, false);
+        auto fastNormal = CreateRNG(method, 3, false, std::nullopt, "Fast");
+        Vector_<> actual(3), expected(3);
+        for (int path = 0; path < 5; ++path) {
+            fast->FillUniform(&actual);
+            precise->FillUniform(&expected);
+            ASSERT_EQ(actual, expected);
+            defaultNormal->FillNormal(&actual);
+            fastNormal->FillNormal(&expected);
+            ASSERT_EQ(actual, expected);
+        }
+    }
+    ASSERT_THROW(CreateRNG("mrg32", 0, false, std::nullopt, "fast"), ScriptError_);
+    ASSERT_THROW(CreateRNG("sobol", 3, false, std::nullopt, "invalid"), ScriptError_);
+    auto shifted = CreateRNG("sobol", 3, false, 17, "Precise");
+    auto expectedShifted = NewDigitallyShiftedSobol(3, 2048, 17, true, true);
+    Vector_<> actual(3), expected(3);
+    shifted->FillNormal(&actual);
+    expectedShifted->FillNormal(&expected);
+    ASSERT_EQ(actual, expected);
+}
+
+TEST(SimulationTest, TestNormalPrecisionPreservesBridgeCloneAndSeeking) {
+    for (const auto* method : {"sobol", "mrg32", "irn"}) {
+        for (const auto* precision : {"Fast", "Precise"}) {
+            auto sought = CreateRNG(method, 52, true, std::nullopt, precision);
+            Vector_<> actual(52), expected(52);
+            for (const size_t offset : {0, 1, 17, 8193, 3}) {
+                auto replay = CreateRNG(method, 52, true, std::nullopt, precision);
+                replay->SkipNormalTo(0);
+                for (size_t path = 0; path < offset; ++path)
+                    replay->FillNormal(&expected);
+                sought->SkipNormalTo(offset);
+                auto clone = sought->Clone();
+                replay->FillNormal(&expected);
+                sought->FillNormal(&actual);
+                ASSERT_EQ(actual, expected);
+                clone->FillNormal(&actual);
+                ASSERT_EQ(actual, expected);
+            }
+        }
+    }
+}
+
+TEST(SimulationTest, TestPreparedNormalPrecisionMatchesCommonPathPriceAndAllGreeks) {
+    const auto evaluationDate = XGLOBAL::SetEvaluationDateInScope(Date_(2024, 1, 1));
+    const ScriptProductData_ data("", {Cell_(Date_(2025, 1, 1))}, {"payoff PAYS SPOT()"});
+    const Handle_<ModelData_> modelData(new BSModelData_("", 100.0, 0.2, 0.05, 0.02));
+    constexpr size_t PATHS = 8193;
+    const double time = 366.0 / 365.0;
+    for (const auto* method : {"sobol", "mrg32", "irn"}) {
+        for (const auto* precision : {"Default", "Fast", "Precise"}) {
+            auto rng = CreateRNG(method, 1, false, std::nullopt, precision);
+            rng->SkipNormalTo(0);
+            Vector_<> gaussian(1);
+            double price = 0.0, vega = 0.0;
+            for (size_t path = 0; path < PATHS; ++path) {
+                rng->FillNormal(&gaussian);
+                const double value = 100.0 * std::exp((-0.02 - 0.5 * 0.2 * 0.2) * time + 0.2 * std::sqrt(time) * gaussian[0]);
+                price += value / PATHS;
+                vega += value * (std::sqrt(time) * gaussian[0] - 0.2 * time) / PATHS;
+            }
+            for (const bool compiled : {false, true}) {
+                MonteCarloSettings_ simulation;
+                simulation.rsg_ = method;
+                simulation.normalPrecision_ = precision;
+                simulation.compiled_ = compiled;
+                auto model = CreateModel<double>(modelData);
+                const auto passive = PrepareScript(data, model.get(), {}, simulation);
+                const auto plain = MCSimulation<double>(passive, modelData, PATHS, method, false, compiled);
+                ASSERT_NEAR(plain.aggregated_ / PATHS, price, 1e-10);
+                simulation.enableAad_ = true;
+                const auto active = PrepareScript(data, model.get(), {}, simulation);
+                const auto result = MCSimulation<AAD::Number_>(active, modelData, PATHS, method, false, compiled, active.MaxNestedIfs());
+                ASSERT_EQ(result.risks_.size(), 4);
+                ASSERT_NEAR(result.aggregated_ / PATHS, price, 1e-10);
+                ASSERT_NEAR(result["spot"], price / 100.0, 1e-10);
+                ASSERT_NEAR(result["vol"], vega, 1e-10);
+                ASSERT_NEAR(result["rate"], 0.0, 1e-10);
+                ASSERT_NEAR(result["div"], -time * price, 1e-10);
+            }
+        }
+    }
+    MonteCarloSettings_ invalid;
+    invalid.normalPrecision_ = "fast";
+    ASSERT_THROW(ValidateSimulationSettings(invalid), ScriptError_);
+}
+
+TEST(SimulationTest, TestNormalPrecisionAllGreeksAtNarrowSmoothingBoundary) {
+    const auto evaluationDate = XGLOBAL::SetEvaluationDateInScope(Date_(2024, 1, 1));
+    const Handle_<ModelData_> modelData(new BSModelData_("", 100.0, 0.2, 0.05, 0.02));
+    const double time = 366.0 / 365.0;
+    const double discount = std::exp(-0.05 * time);
+    constexpr double WIDTH = 1e-6;
+    constexpr double STRIKE = 0.0;
+    for (const auto* method : {"mrg32", "irn"}) {
+        const auto terminal = [&](const char* precision) {
+            auto rng = CreateRNG(method, 1, false, std::nullopt, precision);
+            Vector_<> normal(1);
+            rng->FillNormal(&normal);
+            const double logReturn = (0.05 - 0.02 - 0.5 * 0.2 * 0.2) * time + 0.2 * std::sqrt(time) * normal[0];
+            return std::make_pair(normal[0], std::exp(std::log(100.0) + logReturn));
+        };
+        const auto fast = terminal("Fast"), precise = terminal("Precise");
+        ASSERT_NE(fast.second, precise.second);
+        ASSERT_LT(std::abs(fast.second - precise.second), WIDTH);
+        // Put the two policies on opposite sides of the lower smoothing edge.
+        const double barrier = 0.5 * (fast.second + precise.second) + 0.5 * WIDTH;
+        std::ostringstream barrierText;
+        barrierText << std::setprecision(17) << barrier;
+        const ScriptProductData_ data(
+            "", {Cell_("STRIKE"), Cell_("BARRIER"), Cell_(Date_(2025, 1, 1))},
+            {"0.0", String_(barrierText.str()), "if spot() >= BARRIER:0.000001 then payoff PAYS spot() - STRIKE else payoff PAYS 0.0 end"});
+        for (const bool compiled : {false, true}) {
+            Vector_<SimResults_> results;
+            for (const auto* precision : {"Default", "Fast", "Precise"}) {
+                SCOPED_TRACE(::testing::Message() << method << "; " << precision << "; compiled=" << compiled);
+                MonteCarloSettings_ settings;
+                settings.rsg_ = method;
+                settings.normalPrecision_ = precision;
+                settings.enableAad_ = true;
+                settings.compiled_ = compiled;
+                settings.smooth_ = WIDTH;
+                auto model = CreateModel<double>(modelData);
+                const auto prepared = PrepareScript(data, model.get(), {}, settings);
+                const auto result = MCSimulation<AAD::Number_>(prepared, modelData, 1, method, false, compiled, prepared.MaxNestedIfs(), WIDTH);
+                const auto point = String_(precision) == "Precise" ? precise : fast;
+                const double spot = point.second;
+                const double degree = std::clamp((spot - barrier + 0.5 * WIDTH) / WIDTH, 0.0, 1.0);
+                const double slope = degree > 0.0 && degree < 1.0 ? 1.0 / WIDTH : 0.0;
+                const double pathDelta = discount * (degree + slope * (spot - STRIKE));
+                const Vector_<> expected{pathDelta * spot / 100.0,
+                                         pathDelta * spot * (std::sqrt(time) * point.first - 0.2 * time),
+                                         time * (pathDelta * spot - discount * degree * (spot - STRIKE)),
+                                         -time * pathDelta * spot,
+                                         -discount * slope * (spot - STRIKE),
+                                         -discount * degree};
+                ASSERT_NEAR(result.aggregated_, discount * degree * (spot - STRIKE), 1e-7);
+                const Vector_<String_> names{"spot", "vol", "rate", "div", "BARRIER", "STRIKE"};
+                ASSERT_EQ(result.risks_.size(), names.size());
+                for (size_t i = 0; i < names.size(); ++i)
+                    ASSERT_NEAR(result[names[i]], expected[i], 1e-7 * std::max(1.0, std::abs(expected[i]))) << names[i];
+                results.push_back(result);
+            }
+            ASSERT_EQ(results[0].aggregated_, results[1].aggregated_);
+            ASSERT_EQ(results[0].risks_, results[1].risks_);
+            ASSERT_GT(std::abs(results[1]["BARRIER"] - results[2]["BARRIER"]), 1e6);
+        }
+    }
+}
+
+#if defined(DAL_ENABLE_AAD_PROFILING)
+TEST(SimulationTest, TestExplicitPassiveProfilingCapturesEachPathWithoutTapeSamples) {
+    const auto evaluationDate = XGLOBAL::SetEvaluationDateInScope(Date_(2022, 6, 22));
+    const auto model = StandardBSModel();
+    constexpr size_t N_PATHS = 67;
+    for (const bool compiled : {false, true}) {
+        ScriptProduct_ product({Cell_(Date_(2024, 6, 21))}, {"payoff PAYS SPOT()"});
+        product.PreProcess(false, false);
+        const auto expected = MCSimulation<double>(product, model, N_PATHS, "sobol", false, compiled);
+        AAD::ProfilingData_ data;
+        const auto actual = [&] {
+            AAD::ProfilingScope_ profile(&data);
+            return MCSimulation<double>(product, model, N_PATHS, "sobol", false, compiled);
+        }();
+        ASSERT_TRUE(data.complete_);
+        ASSERT_DOUBLE_EQ(actual.aggregated_, expected.aggregated_);
+        ASSERT_EQ(actual.risks_, expected.risks_);
+        ASSERT_EQ(data.taskGroups_.size(), 1);
+        ASSERT_EQ(data.Phase(AAD::AADProfilingPhase_::Value_::WAIT).calls_, 1);
+        const Script::Detail::ChunkPlan_ chunks(N_PATHS);
+        ASSERT_EQ(data.taskGroups_.front().size(), std::min(ThreadPool_::GetInstance()->NumThreads(), chunks.BatchCount()));
+        std::uint64_t forward = 0, payoff = 0, reduce = data.Phase(AAD::AADProfilingPhase_::Value_::REDUCE).calls_;
+        for (const auto& task : data.taskGroups_.front()) {
+            ASSERT_TRUE(task.complete_);
+            ASSERT_EQ(task.tapeSamples_, 0);
+            forward += task.Phase(AAD::AADProfilingPhase_::Value_::PATH_FORWARD).calls_;
+            payoff += task.Phase(AAD::AADProfilingPhase_::Value_::PAYOFF).calls_;
+            reduce += task.Phase(AAD::AADProfilingPhase_::Value_::REDUCE).calls_;
+        }
+        ASSERT_EQ(forward, N_PATHS);
+        ASSERT_EQ(payoff, N_PATHS);
+        ASSERT_EQ(reduce, chunks.BatchCount());
+    }
+}
+
+TEST(SimulationTest, TestProfilingTaskFailureDrainsEveryAcceptedTaskBeforeRequestEnds) {
+    std::atomic<size_t> completed{0};
+    AAD::ProfilingData_ data;
+    const auto fail = [&] {
+        AAD::ProfilingScope_ profile(&data);
+        SimulationTaskGroup_ tasks(ThreadPool_::GetInstance(), 2);
+        tasks.Spawn([]() -> bool {
+            AAD::ProfilingSpan_ span(AAD::AADProfilingPhase_::Value_::PAYOFF);
+            THROW("profiled business failure");
+        });
+        tasks.Spawn([&] {
+            ++completed;
+            return true;
+        });
+        tasks.Complete();
+    };
+    ASSERT_THROW(fail(), Exception_);
+    ASSERT_EQ(completed.load(), 1);
+    ASSERT_FALSE(data.complete_);
+    ASSERT_EQ(data.taskGroups_.size(), 1);
+    ASSERT_FALSE(data.taskGroups_.front()[0].complete_);
+    ASSERT_TRUE(data.taskGroups_.front()[1].complete_);
+    AAD::ProfilingData_ next;
+    {
+        AAD::ProfilingScope_ profile(&next);
+        SimulationTaskGroup_ tasks(ThreadPool_::GetInstance(), 1);
+        tasks.Spawn([&] {
+            ++completed;
+            return true;
+        });
+        tasks.Complete();
+    }
+    ASSERT_EQ(completed.load(), 2);
+    ASSERT_TRUE(next.complete_);
+}
+
+TEST(SimulationTest, TestExplicitAadProfilingCapturesEveryPathAndBatchWithoutChangingRisk) {
+    const auto evaluationDate = XGLOBAL::SetEvaluationDateInScope(Date_(2022, 6, 22));
+    const Handle_<ModelData_> model(new BSModelData_("", 10.0, 0.2, 0.034, 0.021));
+    constexpr size_t N_PATHS = 64;
+    for (const bool compiled : {false, true}) {
+        ScriptProduct_ product({Cell_(Date_(2024, 6, 21))}, {"payoff PAYS SPOT()"});
+        const int nestedIfs = product.PreProcess(true, false);
+        const auto plain = MCSimulation<double>(product, model, N_PATHS, "sobol", false, compiled);
+        const auto expected = MCSimulation<AAD::Number_>(product, model, N_PATHS, "sobol", false, compiled, nestedIfs);
+        AAD::ProfilingData_ data;
+        const auto actual = [&] {
+            AAD::ProfilingScope_ profile(&data);
+            return MCSimulation<AAD::Number_>(product, model, N_PATHS, "sobol", false, compiled, nestedIfs);
+        }();
+        ASSERT_TRUE(data.complete_);
+        ASSERT_NEAR(actual.aggregated_, plain.aggregated_, 1e-10);
+        ASSERT_NEAR(actual.aggregated_, expected.aggregated_, 1e-10);
+        ASSERT_EQ(actual.names_, expected.names_);
+        ASSERT_EQ(actual.risks_.size(), expected.risks_.size());
+        for (size_t i = 0; i < actual.risks_.size(); ++i)
+            ASSERT_NEAR(actual.risks_[i], expected.risks_[i], 1e-10 * std::max(1.0, std::abs(expected.risks_[i])));
+        ASSERT_NEAR(actual.risks_[0], actual.aggregated_ / (N_PATHS * 10.0), 1e-10);
+        ASSERT_EQ(data.taskGroups_.size(), 1);
+        const Script::Detail::ChunkPlan_ chunks(N_PATHS);
+        const size_t workers = std::min(ThreadPool_::GetInstance()->NumThreads(), chunks.BatchCount());
+        ASSERT_EQ(data.taskGroups_.front().size(), workers);
+        ASSERT_GT(data.memory_.resultArrays_.liveBytes_, 0);
+        std::uint64_t forward = 0, payoff = 0, suffix = 0, prefix = 0, samples = 0;
+        for (const auto& task : data.taskGroups_.front()) {
+            ASSERT_TRUE(task.complete_);
+            forward += task.Phase(AAD::AADProfilingPhase_::Value_::PATH_FORWARD).calls_;
+            payoff += task.Phase(AAD::AADProfilingPhase_::Value_::PAYOFF).calls_;
+            suffix += task.Phase(AAD::AADProfilingPhase_::Value_::REVERSE_SUFFIX).calls_;
+            prefix += task.Phase(AAD::AADProfilingPhase_::Value_::REVERSE_PREFIX).calls_;
+            samples += task.tapeSamples_;
+            ASSERT_GT(task.highWater_.nodes_, 0);
+            ASSERT_GT(task.highWater_.edges_, 0);
+            ASSERT_GT(task.tapeSamples_, 0);
+            ASSERT_GT(task.memory_.pathArrays_.liveBytes_, 0);
+            ASSERT_GT(task.memory_.workspaceArrays_.liveBytes_, 0);
+        }
+        ASSERT_EQ(forward, N_PATHS);
+        ASSERT_EQ(payoff, N_PATHS);
+        ASSERT_EQ(suffix, N_PATHS);
+        ASSERT_EQ(prefix, chunks.BatchCount());
+        ASSERT_EQ(samples, N_PATHS + workers);
+    }
+}
+#endif
+
 TEST(SimulationTest, TestInvalidPathDiagnosticsAcrossSamples) {
     AAD::Scenario_<double> path(3);
     for (auto& sample : path) {
@@ -48,10 +344,8 @@ TEST(SimulationTest, TestInvalidPathDiagnosticsAcrossSamples) {
     for (size_t i = 0; i < path.size(); ++i) {
         auto& sample = path[i];
         const Vector_<double*> fields{&sample.spot_, &sample.numeraire_, &sample.observations_[2], &sample.discounts_[0]};
-        const Vector_<String_> messages{"InvalidModelPath: non-finite spot",
-                                        "InvalidModelPath: non-finite or nonpositive numeraire",
-                                        "InvalidModelPath: non-finite observation",
-                                        "InvalidModelPath: non-finite or nonpositive discount factor"};
+        const Vector_<String_> messages{"InvalidModelPath: non-finite spot", "InvalidModelPath: non-finite or nonpositive numeraire",
+                                        "InvalidModelPath: non-finite observation", "InvalidModelPath: non-finite or nonpositive discount factor"};
         for (size_t field = 0; field < fields.size(); ++field) {
             for (const double value :
                  {std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity(), -std::numeric_limits<double>::infinity()}) {
@@ -204,7 +498,6 @@ TEST(SimulationTest, TestParallelDoubleStateMatchesSerialAcrossRequests) {
 }
 
 TEST(SimulationTest, TestPseudoAadMatchesValueAndDeltaAcrossBatches) {
-    TapeGuard_ tapeGuard(AAD::Tape());
     const auto evaluationDate = XGLOBAL::SetEvaluationDateInScope(Date_(2022, 6, 22));
     ScriptProduct_ product({Cell_(Date_(2024, 6, 21))}, {"payoff PAYS SPOT()"});
     const int maxNestedIfs = static_cast<int>(product.PreProcess(true, false));
@@ -301,7 +594,6 @@ TEST(SimulationTest, TestEmptyScriptPaysNothing) {
 }
 
 TEST(SimulationTest, TestHybridLocalVolAadCallerInitializationPreservesValueAndRisks) {
-    TapeGuard_ tapeGuard(AAD::Tape());
     const auto restore = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
     ScriptProduct_ product({Cell_(Date_(2027, 9, 12))}, {"payoff PAYS SPOT()"});
     const int maxNestedIfs = static_cast<int>(product.PreProcess(true, false));

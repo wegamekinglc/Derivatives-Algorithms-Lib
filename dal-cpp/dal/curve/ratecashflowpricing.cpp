@@ -9,6 +9,7 @@
 #include <array>
 #include <cmath>
 #include <exception>
+#include <limits>
 #include <optional>
 #include <set>
 #include <type_traits>
@@ -18,14 +19,20 @@
 #include <dal/curve/curveparameterization.hpp>
 #include <dal/curve/jointrate.hpp>
 #include <dal/curve/quoteriskaggregation.hpp>
+#include <dal/curve/quoteriskmapping.hpp>
 #include <dal/curve/quoteriskprovenance_internal.hpp>
 #include <dal/curve/ratecashflowpricing.hpp>
 #include <dal/curve/ratecashflowpricing_internal.hpp>
+#include <dal/curve/rateparameterjacobian.hpp>
+#include <dal/curve/ratestructuraljacobian_internal.hpp>
+#include <dal/curve/ratetradeobjective_internal.hpp>
+#include <dal/curve/xccyinstrument.hpp>
 #include <dal/curve/xccypricing.hpp>
 #include <dal/curve/ycconst.hpp>
 #include <dal/curve/yclogdf.hpp>
 #include <dal/curve/ycpwlf.hpp>
 #include <dal/curve/yczerorate.hpp>
+#include <dal/math/aad/structuraljacobiannative.hpp>
 #include <dal/math/matrix/matrixarithmetic.hpp>
 #include <dal/time/dateincrement.hpp>
 
@@ -201,8 +208,6 @@ namespace Dal {
             const CurveRef_<T_>& forecast, const Date_& start, const Date_& maturity, const DayBasis_& basis, const DayBasis::Context_* context) {
             const double accrual = basis(start, maturity, context);
             const T_ df = forecast(start, maturity);
-            // Dal::AAD::Value extracts the primal on every backend; static_cast<double> would
-            // only work on native and CoDiPack (XAD/Adept have no conversion operator).
             const double dfValue = AAD::Value(df);
             REQUIRE(std::isfinite(accrual) && accrual > 0.0 && std::isfinite(dfValue) && dfValue > 0.0,
                     "Floating rate pricing requires positive finite accrual and forecast discount factor");
@@ -442,13 +447,11 @@ namespace Dal {
             }
         }
 
-        double PriceXccy(const RateTradeDefinition_& trade,
-                         const XccyTradeTerms_& terms,
-                         const RatePricingMarket_& market,
-                         RatePricingTradeResult_* result) {
+        void ValidateXccyPosition(const XccyTradeTerms_& terms) {
             REQUIRE(std::isfinite(terms.positionCount_) && terms.positionCount_ > 0.0, "XCCY position count must be positive and finite");
-            if (trade.maturityDate_ < market.valuationTime_.Date())
-                return 0.0;
+        }
+
+        const CrossCurrencyMarket_& ValidateXccyTradeMarket(const XccyTradeTerms_& terms, const RatePricingMarket_& market) {
             REQUIRE(terms.spreadOnForeignLeg_ == terms.config_.convention_.spreadOnForeignLeg_,
                     "XCCY spread-leg pricing terms must match the cashflow convention");
             REQUIRE(market.xccyMarket_, "XCCY pricing requires an immutable cross-currency market");
@@ -456,6 +459,17 @@ namespace Dal {
             REQUIRE(nativeMarket.ValuationTime() == market.valuationTime_, "XCCY market valuation time does not match the pricing request");
             REQUIRE(nativeMarket.DomesticCcy() == terms.config_.pair_.domestic_ && nativeMarket.ForeignCcy() == terms.config_.pair_.foreign_,
                     "XCCY market currencies do not match the trade");
+            return nativeMarket;
+        }
+
+        double PriceXccy(const RateTradeDefinition_& trade,
+                         const XccyTradeTerms_& terms,
+                         const RatePricingMarket_& market,
+                         RatePricingTradeResult_* result) {
+            ValidateXccyPosition(terms);
+            if (trade.maturityDate_ < market.valuationTime_.Date())
+                return 0.0;
+            const auto& nativeMarket = ValidateXccyTradeMarket(terms, market);
             const auto domestic = JointBlock(nativeMarket.DomesticBlock());
             const auto foreign = JointBlock(nativeMarket.ForeignBlock());
             XccyMarketView_<double> view;
@@ -1123,8 +1137,7 @@ namespace Dal {
                 const auto preparations = JointPreparations(closure, target, hoist != nullptr);
                 if (!preparations.count(target))
                     return RateCashflowPricingInternal::NodeSensitivityFailure("AAD_EVALUATION_FAILED");
-                return RunJointNodeSensitivityStage(trade, market_, target, preparations, hoist,
-                                                    hoist ? nullptr : CashflowsFor(trade));
+                return RunJointNodeSensitivityStage(trade, market_, target, preparations, hoist, hoist ? nullptr : CashflowsFor(trade));
             }
 
             RateTradeNodeSensitivityResult_
@@ -1372,6 +1385,707 @@ namespace Dal {
         return BuildRateCashflowPlanPrepared(trade, market, &cashflows);
     }
 
+    namespace {
+        using RateStructuralRecord_ = RateStructuralJacobianInternal::Canonical_;
+
+        struct RateStructuralCapture_ {
+            std::map<const DiscountCurve_*, CurveParameterState_> states_;
+            std::map<const DiscountCurve_*, size_t> ordinals_;
+            RateStructuralJacobianInternal::Canonical_ record_;
+
+            explicit RateStructuralCapture_(std::string* bytes) : record_(bytes) {}
+
+            const CurveParameterState_& State(const DiscountCurve_* curve, const Date_& valuationDate) {
+                if (!states_.count(curve))
+                    states_.emplace(curve, InspectCurveParameters(*curve, valuationDate));
+                return states_.at(curve);
+            }
+
+            const CurveParameterState_* RepresentedState(const DiscountCurve_* curve, const Date_& valuationDate) {
+                try {
+                    return &State(curve, valuationDate);
+                } catch (const Exception_&) {
+                    return nullptr;
+                }
+            }
+        };
+
+        bool
+        RateStructuralParametersRepresented(const JointCurveClosure_& closure, const RatePricingMarket_& market, RateStructuralCapture_* capture) {
+            return std::all_of(closure.bases_.begin(), closure.bases_.end(),
+                               [&](const auto& entry) { return capture->RepresentedState(entry.first, market.valuationTime_.Date()) != nullptr; });
+        }
+
+        Vector_<const DiscountCurve_*> RegisterRateStructuralGraph(const JointCurveClosure_& closure, RateStructuralCapture_* capture) {
+            Vector_<const DiscountCurve_*> added;
+            for (const auto* root : closure.roots_)
+                for (const auto* curve = root; curve && !capture->ordinals_.count(curve); curve = closure.bases_.at(curve)) {
+                    capture->ordinals_.emplace(curve, capture->ordinals_.size());
+                    added.push_back(curve);
+                }
+            return added;
+        }
+
+        void AppendRateStructuralAliases(const DiscountCurve_* curve, const RatePricingMarket_& market, RateStructuralRecord_* record) {
+            Vector_<String_> aliases;
+            for (const auto& entry : market.curveComponents_)
+                if (entry.second.get() == curve)
+                    aliases.push_back(entry.first);
+            record->Add(aliases.size());
+            for (const auto& alias : aliases)
+                record->Add(alias);
+        }
+
+        void AppendRateStructuralGraph(const JointCurveClosure_& closure, const RatePricingMarket_& market, RateStructuralCapture_* capture) {
+            const auto added = RegisterRateStructuralGraph(closure, capture);
+            capture->record_.Add(closure.roots_.size());
+            for (const auto* root : closure.roots_)
+                capture->record_.Add(capture->ordinals_.at(root));
+            capture->record_.Add(added.size());
+            for (const auto* curve : added) {
+                const auto* base = closure.bases_.at(curve);
+                capture->record_.Fields(capture->ordinals_.at(curve), base != nullptr);
+                if (base)
+                    capture->record_.Add(capture->ordinals_.at(base));
+                RateStructuralJacobianInternal::AppendCurveDefinition(capture->State(curve, market.valuationTime_.Date()), &capture->record_);
+                AppendRateStructuralAliases(curve, market, &capture->record_);
+            }
+        }
+
+        Vector_<const DiscountCurve_*> RateStructuralInputCurves(const RatePricingMarket_& market,
+                                                                 const Vector_<RateCurveParameterCoordinate_>& axis,
+                                                                 RateStructuralJacobianDescriptor_::Data_* data,
+                                                                 RateStructuralCapture_* capture) {
+            Vector_<const DiscountCurve_*> result;
+            std::set<std::pair<const DiscountCurve_*, size_t>> distinct;
+            for (const auto& coordinate : axis) {
+                const auto found = market.curveComponents_.find(coordinate.componentKey_);
+                REQUIRE(found != market.curveComponents_.end() && found->second,
+                        "RateStructuralJacobian: input component is unavailable: " + coordinate.componentKey_);
+                const auto* curve = found->second.get();
+                REQUIRE(distinct.emplace(curve, coordinate.parameterOrdinal_).second,
+                        "RateStructuralJacobian: duplicate physical input coordinate: " + coordinate.componentKey_);
+                if (!IsExactJointCurve(*curve)) {
+                    data->reason_ = "RATE_STRUCTURAL_UNSUPPORTED_INPUT_CURVE";
+                    continue;
+                }
+                const auto* state = capture->RepresentedState(curve, market.valuationTime_.Date());
+                if (!state) {
+                    data->reason_ = "RATE_STRUCTURAL_UNREPRESENTABLE_CURVE_PARAMETERS";
+                    continue;
+                }
+                REQUIRE(coordinate.parameterOrdinal_ < static_cast<size_t>(state->expectedParameterCount_),
+                        "RateStructuralJacobian: input parameter ordinal is outside component: " + coordinate.componentKey_);
+                result.push_back(curve);
+                capture->record_.Fields(coordinate.componentKey_, coordinate.parameterOrdinal_);
+            }
+            if (!data->reason_.empty())
+                return {};
+            const auto closure = BuildJointCurveClosure(result);
+            if (!closure.complete_) {
+                data->reason_ = "RATE_STRUCTURAL_INCOMPLETE_INPUT_GRAPH";
+                return {};
+            }
+            if (!RateStructuralParametersRepresented(closure, market, capture)) {
+                data->reason_ = "RATE_STRUCTURAL_UNREPRESENTABLE_CURVE_PARAMETERS";
+                return {};
+            }
+            AppendRateStructuralGraph(closure, market, capture);
+            return result;
+        }
+
+        std::optional<Vector_<const DiscountCurve_*>> RateStructuralRoots(const RateTradeDefinition_& trade, const RatePricingMarket_& market) {
+            if (const auto* terms = std::get_if<XccyTradeTerms_>(&trade.terms_)) {
+                const auto consumed = ResolveXccyConsumedCurves(*terms, market);
+                if (!consumed.resolved_)
+                    return {};
+                return consumed.curves_;
+            }
+            Vector_<const DiscountCurve_*> roots;
+            for (const auto& key : AadDependencyKeys(trade)) {
+                const auto found = market.curveComponents_.find(key);
+                roots.push_back(found == market.curveComponents_.end() ? nullptr : found->second.get());
+            }
+            return roots;
+        }
+
+        bool RateStructuralRootsRegistered(const Vector_<const DiscountCurve_*>& roots, const RatePricingMarket_& market) {
+            return std::all_of(roots.begin(), roots.end(), [&](const auto* root) {
+                return std::any_of(market.curveComponents_.begin(), market.curveComponents_.end(),
+                                   [&](const auto& entry) { return entry.second.get() == root; });
+            });
+        }
+
+        void AppendRateStructuralPeriod(const SchedulePeriod_& period, RateStructuralRecord_* record) {
+            record->Fields(period.unadjustedStart_, period.unadjustedEnd_, period.accrualStart_, period.accrualEnd_, period.fixingDate_,
+                           period.paymentDate_, period.isStub_);
+        }
+
+        void AppendRateStructuralCoupon(const CouponPeriod_& period, RateStructuralRecord_* record) {
+            AppendRateStructuralPeriod(period.schedule_, record);
+            const auto& accrual = period.accrual_;
+            record->Fields(accrual.startDate_, accrual.endDate_, accrual.notional_, accrual.couponBasis_.String(), accrual.dcf_, accrual.isStub_);
+        }
+
+        void AppendRateStructuralObservation(const String_& name,
+                                             const DateTime_& time,
+                                             const DateTime_& valuation,
+                                             const MarketFixingSnapshot_* fixings,
+                                             RateStructuralRecord_* record) {
+            record->Fields(name, time, time < valuation, time == valuation);
+            const auto value = time <= valuation && fixings ? fixings->Find(name, time) : std::optional<double>();
+            record->Add(value.has_value());
+            if (value)
+                record->Add(*value);
+        }
+
+        struct RateStructuralGeometry_ {
+            const RateTradeDefinition_& trade_;
+            const RatePricingMarket_& market_;
+            RequestCashflows_* cashflows_;
+            RateStructuralCapture_* capture_;
+
+            void FixedLeg(const RateLegConvention_& leg) const {
+                const auto& periods = cashflows_->Leg(trade_, leg, 0, Holidays::None());
+                capture_->record_.Add(periods.size());
+                for (const auto& period : periods)
+                    AppendRateStructuralCoupon(period, &capture_->record_);
+            }
+
+            void
+            FloatingLeg(const RateLegConvention_& leg, const RateIndexConvention_& index, const FixingIdentity_& identity, bool overnight) const {
+                const auto& periods = cashflows_->Leg(trade_, leg, index.fixingLag_, index.fixingHolidays_);
+                capture_->record_.Add(periods.size());
+                for (const auto& period : periods) {
+                    AppendRateStructuralCoupon(period, &capture_->record_);
+                    if (overnight) {
+                        capture_->record_.Add(static_cast<size_t>(period.schedule_.accrualEnd_ - period.schedule_.accrualStart_));
+                        for (Date_ day = period.schedule_.accrualStart_; day < period.schedule_.accrualEnd_; ++day) {
+                            Observation(identity.indexName_, FixingTime(day, index, identity));
+                            capture_->record_.Add(index.dayBasis_(day, day.AddDays(1), nullptr));
+                        }
+                    } else {
+                        capture_->record_.Add(size_t{1});
+                        Observation(identity.indexName_, FixingDateTime(period.schedule_.fixingDate_, identity));
+                        capture_->record_.Add(
+                            index.dayBasis_(period.schedule_.accrualStart_, period.schedule_.accrualEnd_, period.schedule_.dayCountContext_.get()));
+                    }
+                }
+            }
+
+            void Observation(const String_& name, const DateTime_& time) const {
+                AppendRateStructuralObservation(name, time, market_.valuationTime_, market_.fixings_.get(), &capture_->record_);
+            }
+
+            SchedulePeriod_ Single(const RateIndexConvention_& index, const FixingIdentity_& identity) const {
+                const auto period = SinglePeriod(trade_, index);
+                AppendRateStructuralPeriod(period, &capture_->record_);
+                capture_->record_.Add(index.dayBasis_(period.accrualStart_, period.accrualEnd_, period.dayCountContext_.get()));
+                Observation(identity.indexName_, FixingTime(period.accrualStart_, index, identity));
+                return period;
+            }
+        };
+
+        void AppendRateStructuralGeometry(const DepositTradeTerms_& terms, const RateStructuralGeometry_& geometry) {
+            geometry.capture_->record_.Add(terms.index_.dayBasis_(geometry.trade_.startDate_, geometry.trade_.maturityDate_, nullptr));
+        }
+
+        void AppendRateStructuralGeometry(const FraTradeTerms_& terms, const RateStructuralGeometry_& geometry) {
+            const auto period = geometry.Single(terms.index_, terms.fixingIdentity_);
+            geometry.capture_->record_.Add(terms.settleAtStart_ ? period.accrualStart_ : period.accrualEnd_);
+        }
+
+        void AppendRateStructuralGeometry(const FutureTradeTerms_& terms, const RateStructuralGeometry_& geometry) {
+            geometry.Single(terms.index_, terms.fixingIdentity_);
+        }
+
+        void AppendRateStructuralGeometry(const OisTradeTerms_& terms, const RateStructuralGeometry_& geometry) {
+            geometry.FixedLeg(terms.value_.fixedLeg_);
+            geometry.FloatingLeg(terms.value_.floatLeg_, terms.value_.floatIndex_, terms.value_.fixingIdentity_, true);
+        }
+
+        void AppendRateStructuralGeometry(const IrsTradeTerms_& terms, const RateStructuralGeometry_& geometry) {
+            geometry.FixedLeg(terms.value_.fixedLeg_);
+            geometry.FloatingLeg(terms.value_.floatLeg_, terms.value_.floatIndex_, terms.value_.fixingIdentity_, false);
+        }
+
+        void AppendRateStructuralGeometry(const BasisTradeTerms_& terms, const RateStructuralGeometry_& geometry) {
+            geometry.FloatingLeg(terms.spreadLeg_, terms.spreadIndex_, terms.spreadFixingIdentity_, false);
+            geometry.FloatingLeg(terms.referenceLeg_, terms.referenceIndex_, terms.referenceFixingIdentity_, false);
+        }
+
+        void AppendRateStructuralXccyPeriods(const Vector_<XccyCouponPeriod_>& periods,
+                                             const DateTime_& valuation,
+                                             const MarketFixingSnapshot_& fixings,
+                                             RateStructuralRecord_* record) {
+            record->Add(periods.size());
+            for (const auto& period : periods) {
+                AppendRateStructuralPeriod(period.schedule_, record);
+                const auto& accrual = period.accrual_;
+                record->Fields(accrual.startDate_, accrual.endDate_, accrual.notional_, accrual.couponBasis_.String(), accrual.dcf_, accrual.isStub_);
+                AppendRateStructuralObservation(period.rateIndexName_, period.rateFixingTime_, valuation, &fixings, record);
+            }
+        }
+
+        void AppendRateStructuralXccyRoutes(const XccyTradeTerms_& terms, const RateStructuralGeometry_& geometry) {
+            const auto& native = *geometry.market_.xccyMarket_;
+            const auto domestic = JointBlock(native.DomesticBlock());
+            const auto foreign = JointBlock(native.ForeignBlock());
+            const auto& convention = terms.config_.convention_;
+            const Vector_<const DiscountCurve_*> routes = {&domestic.Discount(convention.domesticIndex_.collateral_),
+                                                           &Tape::ForecastCurve(domestic, convention.domesticIndex_),
+                                                           &foreign.Discount(convention.foreignIndex_.collateral_),
+                                                           &Tape::ForecastCurve(foreign, convention.foreignIndex_), native.BasisCurve()};
+            for (const auto* curve : routes) {
+                geometry.capture_->record_.Add(curve != nullptr);
+                if (curve)
+                    geometry.capture_->record_.Add(geometry.capture_->ordinals_.at(curve));
+            }
+        }
+
+        void AppendRateStructuralGeometry(const XccyTradeTerms_& terms, const RateStructuralGeometry_& geometry) {
+            const auto& native = *geometry.market_.xccyMarket_;
+            auto* record = &geometry.capture_->record_;
+            record->Fields(native.ValuationTime(), native.DomesticCcy().String(), native.ForeignCcy().String(), native.CollateralCurrency().String());
+            AppendRateStructuralXccyRoutes(terms, geometry);
+            const auto plan = BuildXccyCashflowPlan(geometry.trade_.startDate_, geometry.trade_.maturityDate_, terms.config_);
+            const auto& fixings = XccyFixings(geometry.market_, native);
+            AppendRateStructuralXccyPeriods(plan.domesticPeriods_, geometry.market_.valuationTime_, fixings, record);
+            AppendRateStructuralXccyPeriods(plan.foreignPeriods_, geometry.market_.valuationTime_, fixings, record);
+            record->Add(plan.resets_.size());
+            for (const auto& reset : plan.resets_) {
+                record->Fields(reset.effectiveDate_, reset.domesticPeriodIndex_);
+                AppendRateStructuralObservation(FxIndexName(terms.config_.pair_), reset.fxFixingTime_, geometry.market_.valuationTime_, &fixings,
+                                                record);
+                AppendRateStructuralObservation(FxIndexName(terms.config_.pair_.Reversed()), reset.fxFixingTime_, geometry.market_.valuationTime_,
+                                                &fixings, record);
+            }
+        }
+
+        bool CaptureRateStructuralRow(const RateTradeDefinition_& trade,
+                                      const RatePricingMarket_& market,
+                                      const Vector_<const DiscountCurve_*>& inputs,
+                                      size_t row,
+                                      RateStructuralJacobianDescriptor_::Data_* data,
+                                      RateStructuralCapture_* capture) {
+            RequestCashflows_ cashflows;
+            BuildRateCashflowPlanPrepared(trade, market, &cashflows);
+            const auto roots = RateStructuralRoots(trade, market);
+            if (!roots) {
+                data->reason_ = "RATE_STRUCTURAL_UNRESOLVED_ROUTE";
+                return false;
+            }
+            if (std::holds_alternative<XccyTradeTerms_>(trade.terms_) && !RateStructuralRootsRegistered(*roots, market)) {
+                data->reason_ = "RATE_STRUCTURAL_UNREGISTERED_CONSUMED_CURVE";
+                return false;
+            }
+            const auto closure = BuildJointCurveClosure(*roots);
+            if (!closure.complete_) {
+                data->reason_ = "RATE_STRUCTURAL_INCOMPLETE_CURVE_GRAPH";
+                return false;
+            }
+            if (!RateStructuralParametersRepresented(closure, market, capture)) {
+                data->reason_ = "RATE_STRUCTURAL_UNREPRESENTABLE_CURVE_PARAMETERS";
+                return false;
+            }
+            for (size_t column = 0; column < inputs.size(); ++column)
+                if (closure.bases_.count(inputs[column]))
+                    data->supports_[row].push_back(column);
+            RateStructuralJacobianInternal::AppendTrade(trade, &capture->record_);
+            AppendRateStructuralGraph(closure, market, capture);
+            const RateStructuralGeometry_ geometry{trade, market, &cashflows, capture};
+            std::visit([&](const auto& terms) { AppendRateStructuralGeometry(terms, geometry); }, trade.terms_);
+            return true;
+        }
+    } // namespace
+
+    RateStructuralJacobianDescriptor_ CaptureRateStructuralJacobian(const Vector_<RateTradeDefinition_>& trades,
+                                                                    const RatePricingMarket_& market,
+                                                                    const Vector_<RateCurveParameterCoordinate_>& inputAxis) {
+        REQUIRE(inputAxis.size() <= static_cast<size_t>(std::numeric_limits<int>::max()) &&
+                    trades.size() <= static_cast<size_t>(std::numeric_limits<int>::max()),
+                "RateStructuralJacobian: axis counts must fit Matrix dimensions");
+        REQUIRE(market.valuationTime_.IsValid(), "RateStructuralJacobian: valuation time must be valid");
+        auto data = std::make_shared<RateStructuralJacobianDescriptor_::Data_>();
+        data->inputs_ = inputAxis.size();
+        data->inputAxis_ = inputAxis;
+        data->outputAxis_.reserve(trades.size());
+        for (const auto& trade : trades)
+            data->outputAxis_.push_back(trade.instrumentId_);
+        data->supports_.Resize(trades.size());
+        RateStructuralCapture_ capture(&data->canonical_);
+        capture.record_.Fields(size_t{1}, market.valuationTime_, market.resultCurrency_.String(), inputAxis.size(), trades.size());
+        const auto inputs = RateStructuralInputCurves(market, inputAxis, data.get(), &capture);
+        if (!data->reason_.empty())
+            return RateStructuralJacobianDescriptor_(std::move(data));
+        for (size_t row = 0; row < trades.size(); ++row)
+            if (!CaptureRateStructuralRow(trades[row], market, inputs, row, data.get(), &capture))
+                break;
+        return RateStructuralJacobianDescriptor_(std::move(data));
+    }
+
+    namespace {
+        struct RateJacobianPreparation_ {
+            Vector_<const DiscountCurve_*> inputs_;
+            std::map<const DiscountCurve_*, CurveParameterState_> curves_;
+            std::map<const DiscountCurve_*, Vector_<std::pair<size_t, size_t>>> selected_;
+        };
+
+        void AddRateJacobianCurve(const DiscountCurve_* curve, const RatePricingMarket_& market, RateJacobianPreparation_* preparation) {
+            if (preparation->curves_.count(curve))
+                return;
+            REQUIRE(curve && IsExactJointCurve(*curve), "RateJacobian: active curve representation is unsupported");
+            auto state = InspectCurveParameters(*curve, market.valuationTime_.Date());
+            REQUIRE(std::all_of(state.passiveParameters_.begin(), state.passiveParameters_.end(), [](double x) { return std::isfinite(x); }),
+                    "RateJacobian: curve parameters must be finite: " + curve->Name());
+            preparation->curves_.emplace(curve, std::move(state));
+        }
+
+        RateJacobianPreparation_ PrepareRateJacobian(const Vector_<RateTradeDefinition_>& trades,
+                                                     const RatePricingMarket_& market,
+                                                     const Vector_<RateCurveParameterCoordinate_>& axis,
+                                                     const String_& operation = "RateJacobian") {
+            RateJacobianPreparation_ result;
+            Vector_<const DiscountCurve_*> roots;
+            std::set<std::pair<const DiscountCurve_*, size_t>> distinct;
+            for (size_t column = 0; column < axis.size(); ++column) {
+                const auto& coordinate = axis[column];
+                const auto found = market.curveComponents_.find(coordinate.componentKey_);
+                REQUIRE(found != market.curveComponents_.end() && found->second,
+                        "RateJacobian: input component is unavailable: " + coordinate.componentKey_);
+                const auto* curve = found->second.get();
+                REQUIRE(distinct.emplace(curve, coordinate.parameterOrdinal_).second,
+                        "RateJacobian: duplicate physical input coordinate: " + coordinate.componentKey_);
+                AddRateJacobianCurve(curve, market, &result);
+                REQUIRE(coordinate.parameterOrdinal_ < static_cast<size_t>(result.curves_.at(curve).expectedParameterCount_),
+                        "RateJacobian: input parameter ordinal is outside component: " + coordinate.componentKey_);
+                result.inputs_.push_back(curve);
+                result.selected_[curve].emplace_back(coordinate.parameterOrdinal_, column);
+                AddUniqueCurve(curve, &roots);
+            }
+            for (size_t row = 0; row < trades.size(); ++row) {
+                const auto& trade = trades[row];
+                const auto context = [&] {
+                    if (operation == "RateJacobian")
+                        return trade.instrumentId_;
+                    return String_("trade[" + String_(std::to_string(row)) + "] " + trade.instrumentId_);
+                };
+                REQUIRE(TermsMatchFamily(trade), operation + ": instrument family and terms disagree: " + context());
+                const auto consumed = RateStructuralRoots(trade, market);
+                REQUIRE(consumed && RateStructuralRootsRegistered(*consumed, market),
+                        operation + ": consumed curve routing is unavailable: " + context());
+                for (const auto* curve : *consumed)
+                    AddUniqueCurve(curve, &roots);
+            }
+            const auto closure = BuildJointCurveClosure(roots);
+            REQUIRE(closure.complete_, "RateJacobian: active curve graph is incomplete or cyclic");
+            for (const auto& [curve, base] : closure.bases_)
+                AddRateJacobianCurve(curve, market, &result);
+            return result;
+        }
+
+        void BuildRateJacobianActiveCurve(const DiscountCurve_* curve,
+                                          const RateJacobianPreparation_& preparation,
+                                          const Vector_<AAD::Number_>& inputs,
+                                          ActiveCurveMap_* active) {
+            if (active->count(curve))
+                return;
+            const auto& state = preparation.curves_.at(curve);
+            auto parameters = ConstantActiveParameters(state.passiveParameters_);
+            const auto selected = preparation.selected_.find(curve);
+            if (selected != preparation.selected_.end())
+                for (const auto& [ordinal, column] : selected->second)
+                    parameters[ordinal] = inputs[column];
+            if (const auto* base = state.passiveBase_.get()) {
+                BuildRateJacobianActiveCurve(base, preparation, inputs, active);
+                const Handle_<Tape::DiscountCurve_<AAD::Number_>> activeBase(active->at(base));
+                active->emplace(curve,
+                                BuildDiscountCurveT<AAD::Number_, Tape::DiscountCurve_<AAD::Number_>>(state.definition_, parameters, activeBase));
+            } else {
+                active->emplace(curve, BuildDiscountCurveT<AAD::Number_>(state.definition_, parameters, state.passiveBase_));
+            }
+        }
+
+        Vector_<AAD::Number_> RegisterRateJacobianInputs(AAD::RecordingScope_* recording,
+                                                         const RateJacobianPreparation_& preparation,
+                                                         const Vector_<RateCurveParameterCoordinate_>& axis) {
+            Vector_<AAD::Number_> inputs(axis.size());
+            for (size_t column = 0; column < axis.size(); ++column)
+                recording->RegisterInput(inputs[column],
+                                         preparation.curves_.at(preparation.inputs_[column]).passiveParameters_[axis[column].parameterOrdinal_]);
+            return inputs;
+        }
+
+        Vector_<RatePricingTradeResult_> ValidateRateJacobianPrices(const Vector_<RateTradeDefinition_>& trades,
+                                                                    const RatePricingMarket_& market,
+                                                                    Vector_<RequestCashflows_>* cashflows) {
+            Vector_<RatePricingTradeResult_> prices;
+            prices.reserve(trades.size());
+            for (size_t row = 0; row < trades.size(); ++row) {
+                auto price = PriceRateTradePrepared(trades[row], market, &(*cashflows)[row]);
+                REQUIRE(price.succeeded_,
+                        "RateJacobian: trade[" + String_(std::to_string(row)) + "] " + trades[row].instrumentId_ + ": " + price.error_);
+                price.currency_ = ActualPvCurrency(trades[row]);
+                prices.push_back(std::move(price));
+            }
+            return prices;
+        }
+
+        AAD::Number_ PriceRateJacobianOutput(const RateTradeDefinition_& trade,
+                                             const RatePricingMarket_& market,
+                                             const ActiveCurveMap_& active,
+                                             RequestCashflows_* cashflows) {
+            if (const auto* terms = std::get_if<XccyTradeTerms_>(&trade.terms_)) {
+                XccyNodeSensitivityHoist_ hoist;
+                hoist.expired_ = trade.maturityDate_ < market.valuationTime_.Date();
+                hoist.plan_ = BuildXccyCashflowPlan(trade.startDate_, trade.maturityDate_, terms->config_);
+                return PriceJointActive(trade, market, active, &hoist, nullptr);
+            }
+            return PriceJointActive(trade, market, active, nullptr, cashflows);
+        }
+
+        AAD::StructuralJacobianPlan_ DenseRateJacobianPlan(size_t inputs, size_t outputs, const RateJacobianExecutionSettings_& settings) {
+            try {
+                return AAD::PlanDenseJacobian(inputs, outputs, {settings.numericPayloadBudgetBytes_});
+            } catch (const Exception_& error) {
+                THROW(String_("RateJacobian: ") + String_(error.what()));
+            }
+        }
+
+        void ValidateRateJacobianSettings(const AAD::StructuralJacobianPlan_& numeric, const RateJacobianExecutionSettings_& settings) {
+            REQUIRE(settings.vectorAdjoints_ || settings.adjointWidth_ == 1, "RateJacobian: scalar adjoint width must be one");
+            REQUIRE(settings.adjointWidth_ > 0 && settings.adjointWidth_ <= AAD::ADJ_SIZE, "RateJacobian: adjoint width is outside native range");
+            REQUIRE(!settings.numericPayloadBudgetBytes_ || numeric.NumericPayloadBytes() <= *settings.numericPayloadBudgetBytes_,
+                    "RateJacobian: numeric payload exceeds numericPayloadBudgetBytes");
+        }
+
+        RateTradeParameterJacobianResult_ RunRateJacobian(const Vector_<RateTradeDefinition_>& trades,
+                                                          const RatePricingMarket_& market,
+                                                          const Vector_<RateCurveParameterCoordinate_>& axis,
+                                                          const AAD::StructuralJacobianPlan_& numeric,
+                                                          const RateJacobianExecutionSettings_& settings) {
+            ValidateRateJacobianSettings(numeric, settings);
+            const auto mode = AAD::SetNumResultsForAAD(settings.vectorAdjoints_, settings.adjointWidth_);
+            const auto preparation = PrepareRateJacobian(trades, market, axis);
+            Vector_<RequestCashflows_> cashflows(trades.size());
+            RateTradeParameterJacobianResult_ result;
+            result.prices_ = ValidateRateJacobianPrices(trades, market, &cashflows);
+            result.inputAxis_ = axis;
+            for (const auto& trade : trades)
+                result.outputAxis_.push_back(trade.instrumentId_);
+            AAD::RecordingScope_ recording;
+            const auto inputs = RegisterRateJacobianInputs(&recording, preparation, axis);
+            recording.StartRecording();
+            const auto bindings = AAD::BindStructuralJacobianInputs(&recording, inputs);
+            ActiveCurveMap_ active;
+            for (const auto& [curve, state] : preparation.curves_)
+                BuildRateJacobianActiveCurve(curve, preparation, inputs, &active);
+            Vector_<AAD::Number_> outputs;
+            outputs.reserve(trades.size());
+            for (size_t row = 0; row < trades.size(); ++row) {
+                outputs.push_back(PriceRateJacobianOutput(trades[row], market, active, &cashflows[row]));
+                result.prices_[row].pv_ = AAD::Value(outputs.back());
+            }
+            recording.FinishRecording();
+            result.jacobian_ = AAD::ExecuteStructuralJacobian(&recording, bindings, numeric, inputs, outputs);
+            for (int row = 0; row < result.jacobian_.Rows(); ++row)
+                for (int column = 0; column < result.jacobian_.Cols(); ++column)
+                    REQUIRE(std::isfinite(result.jacobian_(row, column)), "RateJacobian: returned derivative must be finite");
+            result.reverseDirections_ = numeric.ColorCount();
+            result.reverseSweeps_ = (numeric.ColorCount() + settings.adjointWidth_ - 1) / settings.adjointWidth_;
+            return result;
+        }
+    } // namespace
+
+    namespace {
+        String_ RateObjectiveTradeContext(const RateTradeDefinition_& trade, size_t row) {
+            return "RateTradeObjective: trade[" + String_(std::to_string(row)) + "] " + trade.instrumentId_ + ": ";
+        }
+
+        struct RateTradeObjectiveData_ {
+            Vector_<RateTradeDefinition_> trades_;
+            RatePricingMarket_ market_;
+            RateJacobianPreparation_ preparation_;
+            Vector_<PreparedCashflows_> cashflows_;
+            std::map<size_t, XccyNodeSensitivityHoist_> xccy_;
+            Vector_<> weights_;
+            Ccy_ currency_;
+            size_t inputs_ = 0;
+
+            AAD::Number_ Evaluate(const Vector_<AAD::Number_>& inputs) const {
+                REQUIRE(inputs.size() == inputs_, "RateTradeObjective: objective input count must match the captured axis and tail");
+                ActiveCurveMap_ active;
+                for (const auto& [curve, state] : preparation_.curves_)
+                    BuildRateJacobianActiveCurve(curve, preparation_, inputs, &active);
+                AAD::Number_ value(0.0);
+                for (size_t row = 0; row < trades_.size(); ++row) {
+                    try {
+                        RequestCashflows_ cashflows(&cashflows_[row]);
+                        const auto xccy = xccy_.find(row);
+                        const auto price = PriceJointActive(trades_[row], market_, active, xccy == xccy_.end() ? nullptr : &xccy->second, &cashflows);
+                        REQUIRE(std::isfinite(AAD::Value(price)), "trade PV must be finite");
+                        value += weights_[row] * price;
+                    } catch (const std::exception& error) {
+                        THROW(RateObjectiveTradeContext(trades_[row], row) + String_(error.what()));
+                    }
+                }
+                return value;
+            }
+        };
+
+        Vector_<> RateObjectiveWeights(const Vector_<>& weights, size_t trades) {
+            REQUIRE(weights.empty() || weights.size() == trades, "RateTradeObjective: weights must match trade count");
+            REQUIRE(std::all_of(weights.begin(), weights.end(), [](double weight) { return std::isfinite(weight); }),
+                    "RateTradeObjective: weights must be finite");
+            return weights.empty() ? Vector_<>(trades, 1.0) : weights;
+        }
+
+        void ValidateRateObjectiveXccy(const RateTradeDefinition_& trade, const XccyTradeTerms_& terms, const RatePricingMarket_& market) {
+            ValidateXccyPosition(terms);
+            (void)ValidateXccyTradeMarket(terms, market);
+            (void)CrossCurrencySwap_(trade.tradeDate_, trade.startDate_, trade.maturityDate_, terms.contractSpread_, terms.config_);
+        }
+
+        void PrepareRateObjectiveGeometry(RateTradeObjectiveData_* data) {
+            data->cashflows_.reserve(data->trades_.size());
+            for (size_t row = 0; row < data->trades_.size(); ++row) {
+                const auto& trade = data->trades_[row];
+                try {
+                    data->cashflows_.emplace_back(trade);
+                    if (const auto* terms = std::get_if<XccyTradeTerms_>(&trade.terms_)) {
+                        ValidateRateObjectiveXccy(trade, *terms, data->market_);
+                        XccyNodeSensitivityHoist_ hoist;
+                        hoist.expired_ = trade.maturityDate_ < data->market_.valuationTime_.Date();
+                        hoist.plan_ = BuildXccyCashflowPlan(trade.startDate_, trade.maturityDate_, terms->config_);
+                        data->xccy_.emplace(row, std::move(hoist));
+                    }
+                } catch (const std::exception& error) {
+                    THROW(RateObjectiveTradeContext(trade, row) + String_(error.what()));
+                }
+            }
+        }
+
+        Handle_<MarketFixingSnapshot_> MergeRateObjectiveFixings(const Handle_<MarketFixingSnapshot_>& saved,
+                                                                 const MarketFixingSnapshot_& supplement) {
+            auto values = saved ? saved->Values() : MarketFixingSnapshot_::values_t{};
+            for (const auto& [name, history] : supplement.Values())
+                for (const auto& [time, value] : history) {
+                    const auto [found, inserted] = values[name].emplace(time, value);
+                    REQUIRE(inserted || found->second == value,
+                            "RateTradeObjective: fixing conflicts with saved calibration observation: " + name + " at " + DateTime::ToString(time));
+                }
+            return Handle_<MarketFixingSnapshot_>(new MarketFixingSnapshot_(values));
+        }
+
+        Vector_<FixingRequest_> MissingRateObjectiveFixings(const RateTradeObjectiveData_& data, const Handle_<MarketFixingSnapshot_>& saved) {
+            Vector_<FixingRequest_> missing;
+            for (size_t row = 0; row < data.trades_.size(); ++row) {
+                try {
+                    RequestCashflows_ scratch(&data.cashflows_[row]);
+                    const auto plan = BuildRateCashflowPlanPrepared(data.trades_[row], data.market_, &scratch);
+                    for (const auto& request : plan.requiredHistoricalFixings_)
+                        if (!saved || !saved->Find(request.indexName_, request.fixingTime_))
+                            AddUnique(request, &missing);
+                } catch (const std::exception& error) {
+                    THROW(RateObjectiveTradeContext(data.trades_[row], row) + String_(error.what()));
+                }
+            }
+            return missing;
+        }
+
+        Handle_<MarketFixingSnapshot_> CaptureRateObjectiveFixings(const RateTradeObjectiveData_& data,
+                                                                   const Handle_<MarketFixingSnapshot_>& supplied) {
+            auto saved = data.market_.fixings_;
+            if (!saved && data.market_.xccyMarket_)
+                saved = data.market_.xccyMarket_->Fixings();
+            const auto supplement = supplied ? supplied : SnapshotGlobalFixings(MissingRateObjectiveFixings(data, saved));
+            return MergeRateObjectiveFixings(saved, *supplement);
+        }
+
+        void
+        ValidateRateObjectiveCurveCurrency(const RateTradeDefinition_& trade, const RatePricingMarket_& market, const Ccy_& currency, size_t row) {
+            if (std::holds_alternative<XccyTradeTerms_>(trade.terms_))
+                return;
+            const auto roots = RateStructuralRoots(trade, market);
+            REQUIRE(roots, "RateTradeObjective: consumed curve routing must be available");
+            for (const auto* root : *roots)
+                for (const auto* curve = root; curve; curve = RateCashflowPricingInternal::NodeSensitivityBase(*curve))
+                    REQUIRE(curve->ccy_ == currency, "RateTradeObjective: trade[" + String_(std::to_string(row)) + "] " + trade.instrumentId_ +
+                                                         ": consumed curve currency must match actual PV currency");
+        }
+
+        Ccy_ RateObjectiveCurrency(const RateTradeObjectiveData_& data) {
+            Vector_<RequestCashflows_> cashflows;
+            for (const auto& prepared : data.cashflows_)
+                cashflows.emplace_back(&prepared);
+            const auto prices = ValidateRateJacobianPrices(data.trades_, data.market_, &cashflows);
+            const auto currency = prices.front().currency_;
+            REQUIRE(currency.Switch() != Ccy_::Value_::_NOT_SET, "RateTradeObjective: actual PV currency must be specified");
+            for (size_t row = 0; row < prices.size(); ++row) {
+                REQUIRE(prices[row].currency_ == currency, "RateTradeObjective: trade[" + String_(std::to_string(row)) + "] " +
+                                                               data.trades_[row].instrumentId_ + ": actual PV currencies must match");
+                ValidateRateObjectiveCurveCurrency(data.trades_[row], data.market_, currency, row);
+            }
+            return currency;
+        }
+    } // namespace
+
+    RateCashflowPricingInternal::RateTradeObjective_
+    RateCashflowPricingInternal::NewRateTradeObjective(const Vector_<RateTradeDefinition_>& trades,
+                                                       const RatePricingMarket_& market,
+                                                       const Vector_<RateCurveParameterCoordinate_>& inputAxis,
+                                                       const RateTradeObjectiveSettings_& settings) {
+        AAD::RequireRecordingModeChangeAllowed();
+        REQUIRE(!trades.empty(), "RateTradeObjective: portfolio must not be empty");
+        REQUIRE(inputAxis.size() <= static_cast<size_t>(std::numeric_limits<int>::max()) &&
+                    settings.trailingInputs_ <= static_cast<size_t>(std::numeric_limits<int>::max()) - inputAxis.size(),
+                "RateTradeObjective: objective input count exceeds integer range");
+        auto data = std::make_shared<RateTradeObjectiveData_>();
+        data->trades_ = trades;
+        data->market_ = market;
+        if (market.xccyMarket_)
+            data->market_.xccyMarket_ = std::make_shared<CrossCurrencyMarket_>(*market.xccyMarket_);
+        data->weights_ = RateObjectiveWeights(settings.weights_, trades.size());
+        data->inputs_ = inputAxis.size() + settings.trailingInputs_;
+        data->preparation_ = PrepareRateJacobian(data->trades_, data->market_, inputAxis, "RateTradeObjective");
+        PrepareRateObjectiveGeometry(data.get());
+        data->market_.fixings_ = CaptureRateObjectiveFixings(*data, settings.fixings_);
+        data->currency_ = RateObjectiveCurrency(*data);
+        const std::shared_ptr<const RateTradeObjectiveData_> fixed = data;
+        return {data->currency_, [fixed](AAD::RecordingScope_*, const Vector_<AAD::Number_>& inputs) { return fixed->Evaluate(inputs); }};
+    }
+
+    RateTradeParameterJacobianResult_ RateTradeParameterJacobian(const Vector_<RateTradeDefinition_>& trades,
+                                                                 const RatePricingMarket_& market,
+                                                                 const Vector_<RateCurveParameterCoordinate_>& inputAxis,
+                                                                 const RateJacobianExecutionSettings_& settings) {
+        const auto numeric = DenseRateJacobianPlan(inputAxis.size(), trades.size(), settings);
+        return RunRateJacobian(trades, market, inputAxis, numeric, settings);
+    }
+
+    RateTradeParameterJacobianResult_ RateTradeParameterJacobian(const Vector_<RateTradeDefinition_>& trades,
+                                                                 const RatePricingMarket_& market,
+                                                                 const Vector_<RateCurveParameterCoordinate_>& inputAxis,
+                                                                 const RateStructuralJacobianPlan_& cachedPlan,
+                                                                 const RateJacobianExecutionSettings_& settings) {
+        const auto current = CaptureRateStructuralJacobian(trades, market, inputAxis);
+        if (!current.Available() || !SameRateStructuralJacobianStructure(cachedPlan.Descriptor(), current))
+            return RateTradeParameterJacobian(trades, market, inputAxis, settings);
+        return RunRateJacobian(trades, market, inputAxis, cachedPlan.NumericPlan(), settings);
+    }
+
+    RateTradeParameterJacobianResult_ ExecuteRateStructuralJacobian(const Vector_<RateTradeDefinition_>& trades,
+                                                                    const RatePricingMarket_& market,
+                                                                    const RateStructuralJacobianPlan_& plan,
+                                                                    const RateJacobianExecutionSettings_& settings) {
+        ValidateRateJacobianSettings(plan.NumericPlan(), settings);
+        const auto& axis = plan.Descriptor().InputAxis();
+        const auto current = CaptureRateStructuralJacobian(trades, market, axis);
+        REQUIRE(current.Available(), "RateJacobian: compressed dependency proof is unavailable: " + current.Reason());
+        REQUIRE(SameRateStructuralJacobianStructure(plan.Descriptor(), current), "RateJacobian: compressed structural plan is stale");
+        return RunRateJacobian(trades, market, axis, plan.NumericPlan(), settings);
+    }
+
     RatePricingTradeResult_ PriceRateTrade(const RateTradeDefinition_& trade, const RatePricingMarket_& market) {
         if (!UsesCouponLegs(trade))
             return PriceRateTradePrepared(trade, market, nullptr);
@@ -1600,7 +2314,7 @@ namespace Dal {
                 const auto& provenance = provenances[index];
                 ++RateCashflowPricingInternal::g_quoteRiskProvenancePreparationCount;
                 REQUIRE(calibrationIds.insert(provenance.CalibrationId()).second, "QUOTE_RISK_DUPLICATE_CALIBRATION_ID");
-                PreparedQuoteRiskProvenance_ entry{index, &provenance};
+                PreparedQuoteRiskProvenance_ entry{index, &provenance, false, {}, 0};
                 if (!provenance.Available()) {
                     AppendProvenanceFailure(provenance, provenance.Reason(), String_(), String_(), String_(), result);
                     prepared.push_back(entry);
@@ -1699,14 +2413,8 @@ namespace Dal {
                                     const Vector_<>& gradient,
                                     RatePortfolioQuoteRisk_* result) {
             const auto& provenance = *prepared.provenance_;
-            Vector_<> sensitivities;
-            Matrix::Multiply(gradient, provenance.EffectiveInverse(), &sensitivities);
-            REQUIRE(sensitivities.size() == provenance.Axis().quotes_.size(), "QUOTE_RISK_TRANSFORM_WIDTH_MISMATCH");
-            for (int i = 0; i < static_cast<int>(sensitivities.size()); ++i) {
+            RateQuoteRiskInternal::ForEachQuoteAdjoint(provenance, gradient, [&](int i, double sensitivity, double dv01) {
                 const auto& quote = provenance.Axis().quotes_[i];
-                const double sensitivity = sensitivities[i] / provenance.Tolerance();
-                const double dv01 = sensitivity * 1.0e-4;
-                REQUIRE(std::isfinite(sensitivity) && std::isfinite(dv01), "QUOTE_RISK_NON_FINITE_OUTPUT");
                 RateQuoteRiskBucket_ bucket;
                 bucket.calibrationId_ = provenance.CalibrationId();
                 bucket.axisFingerprint_ = provenance.Axis().fingerprint_;
@@ -1718,7 +2426,7 @@ namespace Dal {
                 bucket.dPvDDecimalQuote_ = sensitivity;
                 bucket.dv01_ = dv01;
                 result->buckets_.push_back(std::move(bucket));
-            }
+            });
         }
 
         bool UsablePassivePrice(const RatePricingTradeResult_& passive) { return passive.succeeded_ && std::isfinite(passive.pv_); }
@@ -1782,7 +2490,8 @@ namespace Dal {
             if (failedGradientSums->count(sumKey) || !AddQuoteRiskGradient(item.index_, actualPvCcy.String(), gradient, gradientSums)) {
                 if (failedGradientSums->insert(sumKey).second)
                     AppendProvenanceFailure(*item.provenance_, "QUOTE_RISK_NON_FINITE_GRADIENT", String_(), String_(), String_(), result);
-                AppendQuoteRiskMeta(trade, item, actualPvCcy, passive.pv_, false, structuralZero, String_(), "QUOTE_RISK_NON_FINITE_GRADIENT", result);
+                AppendQuoteRiskMeta(trade, item, actualPvCcy, passive.pv_, false, structuralZero, String_(), "QUOTE_RISK_NON_FINITE_GRADIENT",
+                                    result);
                 return;
             }
             AppendQuoteRiskMeta(trade, item, actualPvCcy, passive.pv_, true, structuralZero, String_(), String_(), result);

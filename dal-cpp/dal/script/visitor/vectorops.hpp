@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <type_traits>
+
 #include <dal/script/node.hpp>
 #include <dal/utilities/exceptions.hpp>
 
@@ -15,8 +17,13 @@ namespace Dal::Script {
     }
 
     template <class T_> void WriteVectorEntry(Vector_<T_>* values, size_t entry, const T_& value) {
-        if (values->size() <= entry)
+        if (values->size() <= entry) {
+            const auto previous = values->size();
             values->Resize(entry + 1);
+            if constexpr (std::is_same_v<T_, AAD::Number_>)
+                if (previous < entry)
+                    std::fill(values->begin() + previous, values->begin() + entry, T_(0.0));
+        }
         (*values)[entry] = value;
     }
 

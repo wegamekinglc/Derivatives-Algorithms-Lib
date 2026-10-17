@@ -1,0 +1,38 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>RateCalibration_New</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>RateCalibration_New (in Excel: RATECALIBRATION.NEW)</h1>
+Seal a retained native rate calibration specification and solve anew
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>name</td><td>string</td><td></td><td>Object name</td></tr>
+<tr><td>source</td><td>handle</td><td></td><td>Existing single, joint, staged-XCCY or joint-XCCY result; native default solve options</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>calibration</td><td>handle of type StorableRateCalibrationSnapshot</td><td>Owning EXACT square snapshot; old parameters and option overrides are not replayed</td></tr>
+</table>
+
+
+
+
+
+

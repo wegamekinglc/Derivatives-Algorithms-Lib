@@ -1,0 +1,38 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>CalibrationRiskResult_Get_Jacobian</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>CalibrationRiskResult_Get_Jacobian (in Excel: CALIBRATIONRISKRESULT.GET.JACOBIAN)</h1>
+Copy a selected raw or reported quote row
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>result</td><td>handle of type StorableCalibrationRiskResult</td><td></td><td>Requested quote result</td></tr>
+<tr><td>projection</td><td>string</td><td>yes</td><td>Total (default), Calibration, Direct or Reported</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>jacobian</td><td>matrix of cells</td><td>Scalar quote row; zero selected columns spill one blank cell</td></tr>
+</table>
+
+
+
+
+
+

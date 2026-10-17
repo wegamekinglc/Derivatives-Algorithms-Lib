@@ -37,11 +37,6 @@
 
 using namespace Dal;
 
-// The joint AAD analytic Jacobian is backend-neutral: the templated machinery (Tape::DiscountPWLF_,
-// Tape::JointCurveBlock_, Tape::JointRate_) compiles and produces a correct Jacobian under every
-// AAD backend (native, XAD, CoDiPack, Adept) via the Dal::AAD facade. Every test below runs on
-// every backend; there is no skip machinery.
-//
 // AC10 validates factory-vs-direct-construction identity of Tape::DiscountPWLF_<double>.
 // AC11 validates Tape::DiscountPWLF_<double>::operator() against the independent
 // PiecewiseLinear_::IntegralTo() oracle across all four IntegralTo branches.

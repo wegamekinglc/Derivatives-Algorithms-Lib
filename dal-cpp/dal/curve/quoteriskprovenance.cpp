@@ -450,9 +450,9 @@ namespace Dal {
             return result;
         }
 
-        String_ Fingerprint(const Json_& value) {
+        String_ FingerprintCanonical(const std::string& canonical) {
             static constexpr char HEX[] = "0123456789abcdef";
-            const auto digest = Sha256(Jcs(value));
+            const auto digest = Sha256(canonical);
             std::string result = "sha256:";
             result.reserve(71);
             for (const unsigned char byte : digest) {
@@ -461,6 +461,8 @@ namespace Dal {
             }
             return String_(result);
         }
+
+        String_ Fingerprint(const Json_& value) { return FingerprintCanonical(Jcs(value)); }
 
         Json_ FromRapidJson(const rapidjson::Value& value) {
             if (value.IsNull())
@@ -1721,9 +1723,7 @@ namespace Dal {
             return *found->second;
         }
 
-        String_ ExpectedStagedInverseAvailability(const CrossCurrencyCalibrationOptions_& options,
-                                                  bool approximate,
-                                                  const Matrix_<>& inverse) {
+        String_ ExpectedStagedInverseAvailability(const CrossCurrencyCalibrationOptions_& options, bool approximate, const Matrix_<>& inverse) {
             if (!options.computeEffJacobianInverse_)
                 return "not_requested";
             if (approximate)
@@ -2179,7 +2179,17 @@ namespace Dal {
         RateQuoteRiskState_ state_;
         Matrix_<> effectiveInverse_;
         double tolerance_ = 0.0;
+        std::unique_ptr<const std::string> calibrationRecord_;
     };
+
+    namespace {
+        void FreezeStateRecord(const Json_& record, bool retain, RateQuoteRiskProvenance_::Data_* data) {
+            auto canonical = Jcs(record);
+            data->state_.fingerprint_ = FingerprintCanonical(canonical);
+            if (retain)
+                data->calibrationRecord_ = std::make_unique<const std::string>(std::move(canonical));
+        }
+    } // namespace
 
     RateQuoteRiskProvenance_::RateQuoteRiskProvenance_(const std::shared_ptr<const Data_>& data) : data_(data) {
         REQUIRE(data_, "QUOTE_RISK_PROVENANCE_DATA_EMPTY");
@@ -2194,6 +2204,10 @@ namespace Dal {
     const RateQuoteRiskState_& RateQuoteRiskProvenance_::State() const { return data_->state_; }
     const Matrix_<>& RateQuoteRiskProvenance_::EffectiveInverse() const { return data_->effectiveInverse_; }
     double RateQuoteRiskProvenance_::Tolerance() const { return data_->tolerance_; }
+    const std::string& RateQuoteRiskProvenance_::CalibrationRecord() const {
+        static const std::string empty;
+        return data_->calibrationRecord_ ? *data_->calibrationRecord_ : empty;
+    }
 
     const String_& RateQuoteRiskAxisFingerprintScheme() {
         static const String_ result("dal.quote-risk-axis/1+jcs+sha256");
@@ -2261,7 +2275,7 @@ namespace Dal {
                                   GenericJointResultJson(spec, result), data->reason_, specRecord, result.effJacobianInverse_, data->tolerance_);
         state.object_["scheme"] = Json_::String(JOINT_STATE_SCHEME);
         state.object_["jointRouting"] = JointRoutingJson(boundMarket, data->bindings_);
-        data->state_.fingerprint_ = Fingerprint(state);
+        FreezeStateRecord(state, config.retainCalibrationRecord_, data.get());
         return RateQuoteRiskProvenance_(data);
     }
 
@@ -2295,9 +2309,9 @@ namespace Dal {
         if (data->available_)
             data->effectiveInverse_ = result.diagnostics_.effJacobianInverse_;
 
-        data->state_.fingerprint_ =
-            Fingerprint(StateRecord(data->kind_, data->axis_, data->bindings_, boundMarket, SingleOptionsJson(options), SingleResultJson(result),
-                                    data->reason_, SingleSpecJson(normalizedSpec), result.diagnostics_.effJacobianInverse_, data->tolerance_));
+        FreezeStateRecord(StateRecord(data->kind_, data->axis_, data->bindings_, boundMarket, SingleOptionsJson(options), SingleResultJson(result),
+                                      data->reason_, SingleSpecJson(normalizedSpec), result.diagnostics_.effJacobianInverse_, data->tolerance_),
+                          config.retainCalibrationRecord_, data.get());
         return RateQuoteRiskProvenance_(data);
     }
 
@@ -2325,9 +2339,9 @@ namespace Dal {
         if (data->available_)
             data->effectiveInverse_ = result.effJacobianInverse_;
 
-        data->state_.fingerprint_ =
-            Fingerprint(StateRecord(data->kind_, data->axis_, data->bindings_, boundMarket, JointOptionsJson(options), JointResultJson(result),
-                                    data->reason_, JointSpecJson(spec), result.effJacobianInverse_, data->tolerance_));
+        FreezeStateRecord(StateRecord(data->kind_, data->axis_, data->bindings_, boundMarket, JointOptionsJson(options), JointResultJson(result),
+                                      data->reason_, JointSpecJson(spec), result.effJacobianInverse_, data->tolerance_),
+                          config.retainCalibrationRecord_, data.get());
         return RateQuoteRiskProvenance_(data);
     }
 
@@ -2353,9 +2367,9 @@ namespace Dal {
         if (data->available_)
             data->effectiveInverse_ = result.diagnostics_.effJacobianInverse_;
 
-        data->state_.fingerprint_ =
-            Fingerprint(StateRecord(data->kind_, data->axis_, data->bindings_, boundMarket, StagedOptionsJson(options), StagedResultJson(result),
-                                    data->reason_, StagedSpecJson(spec), result.diagnostics_.effJacobianInverse_, data->tolerance_));
+        FreezeStateRecord(StateRecord(data->kind_, data->axis_, data->bindings_, boundMarket, StagedOptionsJson(options), StagedResultJson(result),
+                                      data->reason_, StagedSpecJson(spec), result.diagnostics_.effJacobianInverse_, data->tolerance_),
+                          config.retainCalibrationRecord_, data.get());
         return RateQuoteRiskProvenance_(data);
     }
 } // namespace Dal

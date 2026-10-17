@@ -40,6 +40,7 @@ namespace Dal {
             Vector_<> logSpots_;
             Vector_<> times_;
             Matrix_<T_> vols_;
+            Vector_<Vector_<T_>> stepVols_;
             Vector_<T_*> parameters_;
 
             void SetParameterPointers() {
@@ -60,6 +61,17 @@ namespace Dal {
                 return (1.0 - weight) * vols_(static_cast<int>(row), hi - 1) + weight * vols_(static_cast<int>(row), hi);
             }
 
+            template <class F_> [[nodiscard]] T_ SpotInterpolated(const T_& logSpot, const F_& volAtRow) const {
+                if (logSpots_.size() == 1 || Value(logSpot) <= logSpots_.front())
+                    return volAtRow(0);
+                if (Value(logSpot) >= logSpots_.back())
+                    return volAtRow(logSpots_.size() - 1);
+                const auto upper = std::upper_bound(logSpots_.begin(), logSpots_.end(), Value(logSpot));
+                const auto hi = static_cast<size_t>(upper - logSpots_.begin());
+                const T_ weight = (logSpot - logSpots_[hi - 1]) / (logSpots_[hi] - logSpots_[hi - 1]);
+                return (1.0 - weight) * volAtRow(hi - 1) + weight * volAtRow(hi);
+            }
+
         public:
             explicit LocalVolSurface_(const LocalVolSurfaceData_& data)
                 : logSpots_(data.spots_.size()), times_(data.times_), vols_(data.vols_.Rows(), data.vols_.Cols()) {
@@ -70,7 +82,8 @@ namespace Dal {
                         vols_(i, j) = T_(data.vols_(i, j));
                 SetParameterPointers();
             }
-            LocalVolSurface_(const LocalVolSurface_& other) : logSpots_(other.logSpots_), times_(other.times_), vols_(other.vols_) {
+            LocalVolSurface_(const LocalVolSurface_& other)
+                : logSpots_(other.logSpots_), times_(other.times_), vols_(other.vols_), stepVols_(other.stepVols_) {
                 SetParameterPointers();
             }
             LocalVolSurface_& operator=(const LocalVolSurface_& other) {
@@ -78,6 +91,7 @@ namespace Dal {
                     logSpots_ = other.logSpots_;
                     times_ = other.times_;
                     vols_ = other.vols_;
+                    stepVols_ = other.stepVols_;
                     SetParameterPointers();
                 }
                 return *this;
@@ -86,14 +100,23 @@ namespace Dal {
                 REQUIRE(std::isfinite(time) && std::isfinite(Value(spot)) && Value(spot) > 0.0,
                         "InvalidLocalVolSurface: query requires finite time and positive spot");
                 const T_ logSpot = Dal::log(spot);
-                if (logSpots_.size() == 1 || Value(logSpot) <= logSpots_.front())
-                    return TimeInterpolated(0, time);
-                if (Value(logSpot) >= logSpots_.back())
-                    return TimeInterpolated(logSpots_.size() - 1, time);
-                const auto upper = std::upper_bound(logSpots_.begin(), logSpots_.end(), Value(logSpot));
-                const auto hi = static_cast<size_t>(upper - logSpots_.begin());
-                const T_ weight = (logSpot - logSpots_[hi - 1]) / (logSpots_[hi] - logSpots_[hi - 1]);
-                return (1.0 - weight) * TimeInterpolated(hi - 1, time) + weight * TimeInterpolated(hi, time);
+                return SpotInterpolated(logSpot, [&](size_t row) { return TimeInterpolated(row, time); });
+            }
+            void Prepare(const Vector_<>& stepTimes) {
+                for (const double time : stepTimes)
+                    REQUIRE(std::isfinite(time), "InvalidLocalVolSurface: preparation requires finite step times");
+                stepVols_.Resize(stepTimes.size());
+                for (size_t step = 0; step < stepTimes.size(); ++step) {
+                    auto& column = stepVols_[step];
+                    column.Resize(logSpots_.size());
+                    for (size_t row = 0; row < column.size(); ++row)
+                        column[row] = TimeInterpolated(row, stepTimes[step]);
+                }
+            }
+            [[nodiscard]] T_ VolAtLogSpot(size_t step, const T_& logSpot) const {
+                REQUIRE(step < stepVols_.size(), "InvalidLocalVolSurface: step is outside the prepared times");
+                REQUIRE(std::isfinite(Value(logSpot)), "InvalidLocalVolSurface: query requires finite log spot");
+                return SpotInterpolated(logSpot, [&](size_t row) { return stepVols_[step][row]; });
             }
             [[nodiscard]] const Vector_<T_*>& Parameters() const { return parameters_; }
         };

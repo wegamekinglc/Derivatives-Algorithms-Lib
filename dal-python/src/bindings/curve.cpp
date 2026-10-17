@@ -23,6 +23,8 @@
 #include <dal-public/src/types.hpp>
 #include <dal-public/src/xccycalibration.hpp>
 
+#include "scriptsettings.hpp"
+
 using namespace Dal;
 
 namespace {
@@ -2042,15 +2044,27 @@ namespace {
     }
 
     void init_bindings_curve_quote_risk(py::module_& m) {
+        const auto makeConfig = [](const std::string& calibrationId, const std::map<std::string, std::string>& bindings) {
+            RateQuoteRiskProvenanceConfig_ result;
+            result.calibrationId_ = String_(calibrationId);
+            for (const auto& [block, component] : bindings)
+                result.componentKeyByParameterBlock_[String_(block)] = String_(component);
+            return result;
+        };
         py::class_<RateQuoteRiskProvenanceConfig_>(m, "RateQuoteRiskProvenanceConfig_")
-            .def(py::init([](const std::string& calibrationId, const std::map<std::string, std::string>& bindings) {
-                     RateQuoteRiskProvenanceConfig_ result;
-                     result.calibrationId_ = String_(calibrationId);
-                     for (const auto& [block, component] : bindings)
-                         result.componentKeyByParameterBlock_[String_(block)] = String_(component);
-                     return result;
-                 }),
-                 py::kw_only(), py::arg("calibration_id"), py::arg("component_key_by_parameter_block"))
+            .def(py::init(makeConfig), py::kw_only(), py::arg("calibration_id"), py::arg("component_key_by_parameter_block"))
+            .def(py::init(
+                     [makeConfig](const std::string& calibrationId, const std::map<std::string, std::string>& bindings, const py::object& retain) {
+                         if (!PyBool_Check(retain.ptr()))
+                             throw py::type_error(Dal::Python::InputContext(retain, "RateQuoteRiskProvenanceConfig_; retain_calibration_record",
+                                                                            "bool", "InvalidCalibrationPullback"));
+                         auto result = makeConfig(calibrationId, bindings);
+                         result.retainCalibrationRecord_ = retain.ptr() == Py_True;
+                         return result;
+                     }),
+                 py::kw_only(), py::arg("calibration_id"), py::arg("component_key_by_parameter_block"), py::arg("retain_calibration_record"))
+            .def_property_readonly("retain_calibration_record",
+                                   [](const RateQuoteRiskProvenanceConfig_& value) { return value.retainCalibrationRecord_; })
             .def_property_readonly("calibration_id", [](const RateQuoteRiskProvenanceConfig_& value) { return StdString(value.calibrationId_); })
             .def_property_readonly("component_key_by_parameter_block", [](const RateQuoteRiskProvenanceConfig_& value) {
                 std::map<std::string, std::string> result;
@@ -2110,6 +2124,7 @@ namespace {
             .def_property_readonly("axis", [](const RateQuoteRiskProvenance_& value) { return value.Axis(); })
             .def_property_readonly("state", [](const RateQuoteRiskProvenance_& value) { return value.State(); })
             .def_property_readonly("effective_inverse", [](const RateQuoteRiskProvenance_& value) { return Matrix_<>(value.EffectiveInverse()); })
+            .def_property_readonly("calibration_record", &RateQuoteRiskProvenance_::CalibrationRecord)
             .def_property_readonly("tolerance", [](const RateQuoteRiskProvenance_& value) { return value.Tolerance(); });
 
         py::class_<RateQuoteRiskBucket_>(m, "RateQuoteRiskBucket_")

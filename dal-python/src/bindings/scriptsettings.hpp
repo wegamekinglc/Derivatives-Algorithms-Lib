@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <limits>
+
 #include <pybind11/pybind11.h>
 
 #include <dal-public/src/types.hpp>
@@ -38,6 +40,29 @@ namespace Dal::Python {
 
     inline bool IsEnum(const py::handle& value) {
         return py::hasattr(py::type::of(value), "__entries") || py::isinstance(value, py::module_::import("enum").attr("Enum"));
+    }
+
+    inline long long
+    IntegerInput(const py::handle& value, const std::string& context, long long lowest, long long highest, const std::string& rangeError) {
+        if (PyBool_Check(value.ptr()) || IsEnum(value) || !PyIndex_Check(value.ptr()))
+            throw py::type_error(context);
+        const auto integer = py::reinterpret_steal<py::object>(PyNumber_Index(value.ptr()));
+        if (!integer) {
+            PyErr_Clear();
+            throw py::type_error(context);
+        }
+        int overflow = 0;
+        const long long result = PyLong_AsLongLongAndOverflow(integer.ptr(), &overflow);
+        if (PyErr_Occurred())
+            throw py::error_already_set();
+        REQUIRE2(!overflow && result >= lowest && result <= highest, String_(context + rangeError), ScriptError_);
+        return result;
+    }
+
+    inline int PathCount(const py::handle& value, const char* function) {
+        const auto context = InputContext(value, std::string(function) + "; num_path / numPath",
+                                          "a positive integer in 1.." + std::to_string(std::numeric_limits<int>::max()), "InvalidPathCount");
+        return static_cast<int>(IntegerInput(value, context, 1, std::numeric_limits<int>::max(), "; number of Monte Carlo paths must be positive"));
     }
 
     inline String_ StringInput(const py::handle& value, const std::string& field, const std::string& identifier = "InvalidSetting") {

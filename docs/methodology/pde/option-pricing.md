@@ -1,9 +1,11 @@
 # Finite-Difference Option Pricing
 
 The public C++ PDE module is a one-dimensional `double` rollback framework.
-The runnable [European call example](../../../dal-cpp/examples/european_fd/european_fd.cpp)
+The runnable [European call example](../../../dal-cpp/examples/methods/european_fd/european_fd.cpp)
 constructs a Black-Scholes operator and compares explicit, Crank–Nicolson,
 and fully implicit theta schemes with the Black closed form.
+The [European AAD example](aad.md) records sampled theta steps for complete
+call/put rate, volatility and strike risks on a declared fixed grid.
 
 ## Equation and Scheme
 
@@ -62,7 +64,7 @@ or penalty methods. The repository's
 [Bermudan PDE helper](../../../dal-cpp/test-support/bermudan_pde.hpp) is test-only:
 it rolls back between exercise dates and projects onto the put payoff at
 those dates to validate [LSM pricing](../monte-carlo/lsm.md). The
-[American put C++ example](../../../dal-cpp/examples/american_put_mc/american_put_mc.cpp)
+[American put C++ example](../../../dal-cpp/examples/methods/american_put_mc/american_put_mc.cpp)
 also applies an obstacle after each rollback step locally; that code is an
 example benchmark, not a public PDE pricer. The production early-exercise
 method is the script engine's LSM driver.

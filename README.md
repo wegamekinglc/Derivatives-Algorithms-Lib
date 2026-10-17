@@ -11,10 +11,10 @@ A C++17 quantitative finance library with built-in Automatic Adjoint Differentia
 ## CI
 
 Pull requests with source, configuration, or build changes build and test the
-full compiler × AAD-backend matrix below. Documentation-only changes run the
+native AAD compiler matrix below. Documentation-only changes run the
 documentation integrity check and stable Linux/Windows gates without starting
 the compile or sanitizer jobs. Pushes to `master` (merges and direct
-master pushes) run a lean GCC 14 + Clang 20 subset across all four backends,
+master pushes) run a lean GCC 14 + Clang 20 subset,
 because the pull request already covered every combination. GitHub publishes
 one status badge per workflow; open a workflow run for per-job results.
 Path-matched pull requests run [Python wheel CI](.github/workflows/dal-python-ci.yml)
@@ -29,19 +29,19 @@ Python and native regression checks; Windows runs benchmark executables on
 MSVC/AADet. Results remain in the workflow summaries and 30-day artifacts.
 Benchmark failures do not block pull-request or push CI.
 
-| Platform                   | Compiler | AADet | XAD | CoDiPack | Adept |
-|----------------------------|----------|-------|-----|----------|-------|
-| Ubuntu (`ubuntu-latest`)   | GCC 13   | ✓     | ✓   | ✓        | ✓     |
-| Ubuntu (`ubuntu-latest`)   | GCC 14   | ✓     | ✓   | ✓        | ✓     |
-| Ubuntu (`ubuntu-latest`)   | GCC 15   | ✓     | ✓   | ✓        | ✓     |
-| Ubuntu (`ubuntu-latest`)   | Clang 18 | ✓     | ✓   | ✓        | ✓     |
-| Ubuntu (`ubuntu-latest`)   | Clang 19 | ✓     | ✓   | ✓        | ✓     |
-| Ubuntu (`ubuntu-latest`)   | Clang 20 | ✓     | ✓   | ✓        | ✓     |
-| Windows (`windows-latest`) | MSVC     | ✓     | ✓   | —        | ✓     |
+| Platform                   | Compiler | Native AAD |
+|----------------------------|----------|------------|
+| Ubuntu (`ubuntu-latest`)   | GCC 13   | ✓          |
+| Ubuntu (`ubuntu-latest`)   | GCC 14   | ✓          |
+| Ubuntu (`ubuntu-latest`)   | GCC 15   | ✓          |
+| Ubuntu (`ubuntu-latest`)   | Clang 18 | ✓          |
+| Ubuntu (`ubuntu-latest`)   | Clang 19 | ✓          |
+| Ubuntu (`ubuntu-latest`)   | Clang 20 | ✓          |
+| Windows (`windows-latest`) | MSVC     | ✓          |
 
 - The GCC 14 + AADet leg additionally runs gcov coverage, tracked by Coveralls.
 - Windows legs additionally build the `dal-python` bindings and the `dal-excel` add-in.
-- Separate Linux jobs cover CoDiPack thread isolation, Python bindings with
+- Separate Linux jobs cover native diagnostic OFF/ON and Python bindings with
   generated-source verification, documentation integrity, a warning-clean
   build, and ASan/UBSan/TSan spot tests.
 
@@ -81,7 +81,7 @@ not an ABI-isolated compatibility boundary.
 Core domains in `dal-cpp/dal/`:
 
 - **math/** — Interpolation, optimization, PDE solvers, random numbers, matrix ops
-- **math/aad/** — Automatic Adjoint Differentiation (native, XAD, Adept, CoDiPack backends)
+- **math/aad/** — Built-in Automatic Adjoint Differentiation with scalar/vector adjoints
 - **curve/** — Yield curve construction, piecewise forward rates, calibration
 - **script/** — Expression scripting engine for exotic payoffs, with tree-walk and compiled evaluation modes
 - **model/** — Financial models (Black-Scholes, GSR, Hybrid), local-volatility surfaces, and Dupire calibration
@@ -97,25 +97,28 @@ Core domains in `dal-cpp/dal/`:
 
 ### C++
 
+The [core C++ example catalog](dal-cpp/examples/README.md) groups programs into
+products, curves, models and numerical methods, with build targets and run instructions.
+
 The [scripted Monte Carlo example](docs/public-api.md#scripted-monte-carlo)
 constructs a product and Black-Scholes model through the public C++ facade,
 then calls `ValueByMonteCarlo`. The runnable
-[European](dal-cpp/examples/european_mc/) and
-[American/Bermudan](dal-cpp/examples/american_put_mc/) C++ examples compare
+[European](dal-cpp/examples/methods/european_mc/) and
+[American/Bermudan](dal-cpp/examples/methods/american_put_mc/) C++ examples compare
 Monte Carlo prices with analytic or PDE references.
 
 More examples: [Python](dal-python/examples), [Excel](dal-excel/examples), [C++](dal-cpp/examples). The C++ Monte Carlo script examples show both tree-walk and compiled evaluator output where applicable.
 
 Cross-currency examples:
 
-- [reset-aware pricing](dal-cpp/examples/xccy_reset_pricing)
-- [staged basis calibration](dal-cpp/examples/xccy_curve_calibration)
-- [joint domestic/foreign/basis calibration](dal-cpp/examples/xccy_mtm_calibration)
+- [reset-aware pricing](dal-cpp/examples/curves/xccy_reset_pricing)
+- [staged basis calibration](dal-cpp/examples/curves/xccy_curve_calibration)
+- [joint domestic/foreign/basis calibration](dal-cpp/examples/curves/xccy_mtm_calibration)
 - [Python joint calibration](dal-python/examples/007.xccy_joint_calibration.py)
 
 Quote-space DV01 examples:
 
-- [C++ single-curve quote risk](dal-cpp/examples/quote_risk)
+- [C++ single-curve quote risk](dal-cpp/examples/curves/quote_risk)
 - [Python single-curve quote risk](dal-python/examples/009.quote_risk.py)
 - [Excel worksheet recipe](dal-excel/examples/008.quote_risk.md)
 - [Generic joint multi-curve worksheet recipe](dal-excel/examples/009.generic_joint_quote_risk.md)
@@ -145,8 +148,8 @@ Public C++ supports typed product and valuation settings for unquoted
 `FIX(index[,date])`, explicit dates/snapshots, and BS/Hybrid EQ bindings while
 preserving old call signatures. See the
 [settings contract](docs/methodology/script_engine.md#public-c-settings) and
-[runnable core C++ example in `dal-cpp/examples/script_settings/`](dal-cpp/examples/script_settings/).
-[fix_mc](dal-cpp/examples/fix_mc) is a runnable Monte Carlo example covering
+[runnable core C++ example in `dal-cpp/examples/products/script_settings/`](dal-cpp/examples/products/script_settings/).
+[fix_mc](dal-cpp/examples/methods/fix_mc) is a runnable Monte Carlo example covering
 historical fixings (global store or explicit snapshot), future fixings
 (simulated model paths), mixed payoffs, and the evaluation-date fixing policy.
 

@@ -1,0 +1,251 @@
+{
+  "summaries": {
+    "accuracy": {
+      "summary_sha256": "e810ace64a678edc655c0f927ed6fedda01beb73c4b3ff0182baa100f199a658",
+      "provenance": {
+        "native_reference": {
+          "manifest_sha256": "05f0f3dac0061567ebde1786ca5448ff9b36277a8b84d33578fb49338b44944d",
+          "executable_sha256": "8a756c27c2ecf904fd66230f1eb5e760cc8305c865230bc71a9a30fdd9dbda83",
+          "selected_jobs": 2816,
+          "selected_keys_sha256": "e88dfd71572018c3c977162f68c80f2df73eb85d616a9e9d6c0f54e634f25d7e",
+          "source_and_dependency_match": true,
+          "compile_signature": [
+            "/usr/bin/c++",
+            "-DDAL_USE_EIGEN",
+            "-DEIGEN_DONT_PARALLELIZE",
+            "-I<source>/dal-cpp",
+            "-I<source>/dal-cpp/externals/rapidjson/include",
+            "-I<source>/dal-cpp/externals/eigen",
+            "-O3",
+            "-DNDEBUG",
+            "-std=c++17",
+            "-fPIC",
+            "-ffp-contract=fast",
+            "-O3",
+            "-o",
+            "CMakeFiles/dal_cpp.dir/dal/script/lsmc.cpp.o",
+            "-c",
+            "<source>/dal-cpp/dal/script/lsmc.cpp"
+          ],
+          "attestation_sha256": "642d137e4209d56e10a5796741b87db2570283114c8674d68cdd64d516d892fb"
+        },
+        "storage_executable_sha256": "4fcaeddbf1f24cdfde2f746a0fe9223a9866e129f8706be6915d866ec53267f5",
+        "storage_manifest_sha256": "2bcdb415c0c53164f0ff497ebc4a290c28d9c99eab0e3eb0a7cc3eb66af796d6",
+        "analyzer_sha256": "d4b590ba7d6e0cbea7f7aab2da641d0bdb18ffddb91bc2f8b14a4c02f68843ca"
+      },
+      "policy_changes": {
+        "changed_event_observations": {},
+        "max_absolute_exercise_rate_difference": 0.000732421875
+      }
+    },
+    "corner": {
+      "summary_sha256": "6c88496751d615b2648817a941882fabf8f5ec0998a896d31a6743678c528a2c",
+      "provenance": {
+        "native_reference": {
+          "manifest_sha256": "27a90183ed81fa910b951a29f3b09273faf3a0300cbbc99f4ed71b90f20e712e",
+          "executable_sha256": "aa08beefe78cf79a422f2e0a57a4a9828d2a23eb42d80a0f849edc27044ca84b",
+          "selected_jobs": 256,
+          "selected_keys_sha256": "bd0ecdf446ff26c26a3f72c6879952f34aa6d0265fa7dc888b80278559077730",
+          "source_and_dependency_match": true,
+          "compile_signature": [
+            "/usr/bin/c++",
+            "-DDAL_USE_EIGEN",
+            "-DEIGEN_DONT_PARALLELIZE",
+            "-I<source>/dal-cpp",
+            "-I<source>/dal-cpp/externals/rapidjson/include",
+            "-I<source>/dal-cpp/externals/eigen",
+            "-O3",
+            "-DNDEBUG",
+            "-std=c++17",
+            "-fPIC",
+            "-ffp-contract=fast",
+            "-O3",
+            "-o",
+            "CMakeFiles/dal_cpp.dir/dal/script/lsmc.cpp.o",
+            "-c",
+            "<source>/dal-cpp/dal/script/lsmc.cpp"
+          ],
+          "attestation_sha256": "642d137e4209d56e10a5796741b87db2570283114c8674d68cdd64d516d892fb"
+        },
+        "storage_executable_sha256": "2629bb13615f1f459b79bd2f81b776c450bb74ad3f6a195bf422b8278dd58cf1",
+        "storage_manifest_sha256": "97353b73c019f479820f780951418f4f6b8c0a82c747a7f6a48a7748cc5306bb",
+        "analyzer_sha256": "d4b590ba7d6e0cbea7f7aab2da641d0bdb18ffddb91bc2f8b14a4c02f68843ca"
+      },
+      "policy_changes": {
+        "changed_event_observations": {},
+        "max_absolute_exercise_rate_difference": 0.000274658203125
+      }
+    }
+  },
+  "paired_rows": 3168,
+  "dispersion_rows": 396,
+  "conditioning_rows": 24,
+  "exporter_sha256": "83b2e1701499112f5f8e317bbe6fc9b992d4a73b612662d795972bc2b38662fb",
+  "accuracy_acceptance_defined": false,
+  "default_storage": "unchanged: native double",
+  "files_sha256": {
+    "lsmc-storage-precision-dispersion.csv": "255b09e6e501032fb43eafccf5716e2c25abe82f0051f5101f6d0ff71b9c8545",
+    "price-table.md": "e3036736e5914493b054e648332f0e8e88de215fc96679f5b8055f0b9c121a1e",
+    "lsmc-storage-precision-conditioning.csv": "47fa799f2ded23cefe1b00e7ad163d481229b9fa1ad85f4eb19131e1a75e5d09",
+    "lsmc-storage-precision-paired.csv": "a0220f4839f2f5f608dde52f62e26c42e9ebd6da6d8afecc94a6355c526a66f8"
+  },
+  "storage_images": [
+    {
+      "storage_bits": 32,
+      "anchor": 524288,
+      "input_revision": {
+        "commit": "34248da37b2188831d0dd4e64a4e2274a1b799b9",
+        "tree": "23ddc8a74ff416fa526bddb83306f1225f52e286"
+      },
+      "dependency_pins": {
+        "dal-cpp/externals/eigen": "3147391d946bb4b6c68edd901f2add6ac1f31f8c",
+        "dal-cpp/externals/googletest": "d72f9c8aea6817cdf1ca0ac10887f328de7f3da2",
+        "dal-cpp/externals/machinist": "e76b0ef243ca9bd506bb2f3743d8c9b52ee8d01d",
+        "dal-cpp/externals/rapidjson": "ea152ded01708ff1657b275ed0bcbf0681d64519"
+      },
+      "executable_sha256": "2629bb13615f1f459b79bd2f81b776c450bb74ad3f6a195bf422b8278dd58cf1",
+      "overlay_patch_sha256": "8a8c88546e56a4232e6b958f03a2e2864049646a0befa8d49677eae2ecae9fe3",
+      "cmake_cache_sha256": "9229583dc39825d614e70893f6408f8330c5010d527cfcd2d42fe9d428c04428",
+      "compile_database_sha256": "616267e85f4b9a75dd3eba12f269132414a20a5de0080c1dc2e1fe01a4a81083"
+    },
+    {
+      "storage_bits": 64,
+      "anchor": 524288,
+      "input_revision": {
+        "commit": "34248da37b2188831d0dd4e64a4e2274a1b799b9",
+        "tree": "23ddc8a74ff416fa526bddb83306f1225f52e286"
+      },
+      "dependency_pins": {
+        "dal-cpp/externals/eigen": "3147391d946bb4b6c68edd901f2add6ac1f31f8c",
+        "dal-cpp/externals/googletest": "d72f9c8aea6817cdf1ca0ac10887f328de7f3da2",
+        "dal-cpp/externals/machinist": "e76b0ef243ca9bd506bb2f3743d8c9b52ee8d01d",
+        "dal-cpp/externals/rapidjson": "ea152ded01708ff1657b275ed0bcbf0681d64519"
+      },
+      "executable_sha256": "e2c04faec79cb678bb33e8a6c0e9a53317167397561fda6ed49ed6b8ad4818d1",
+      "overlay_patch_sha256": "afcf39496222a5f20f44b3860673b93ae796256f43fe93622046e1d134f7db7f",
+      "cmake_cache_sha256": "b6f35c1e7e30e7aef773fed3f59b42043776a683ccbe1f5bfe4982517e5b861f",
+      "compile_database_sha256": "67d06dbcbca834056923c69ca77e1cb233453d3bfefee00094daa8adc1e45f0b"
+    },
+    {
+      "storage_bits": 32,
+      "anchor": 32768,
+      "input_revision": {
+        "commit": "34248da37b2188831d0dd4e64a4e2274a1b799b9",
+        "tree": "23ddc8a74ff416fa526bddb83306f1225f52e286"
+      },
+      "dependency_pins": {
+        "dal-cpp/externals/eigen": "3147391d946bb4b6c68edd901f2add6ac1f31f8c",
+        "dal-cpp/externals/googletest": "d72f9c8aea6817cdf1ca0ac10887f328de7f3da2",
+        "dal-cpp/externals/machinist": "e76b0ef243ca9bd506bb2f3743d8c9b52ee8d01d",
+        "dal-cpp/externals/rapidjson": "ea152ded01708ff1657b275ed0bcbf0681d64519"
+      },
+      "executable_sha256": "4fcaeddbf1f24cdfde2f746a0fe9223a9866e129f8706be6915d866ec53267f5",
+      "overlay_patch_sha256": "fcb4bb0d6e0797961ff11292d9fcc88210a7cd7656b66fccbaf63b700aa80da0",
+      "cmake_cache_sha256": "cc5abffd41c05d9727808965fd07db104c00e8c28233e1a262d33382a21899c6",
+      "compile_database_sha256": "81e56ab76e58ac00cacd080e7f3790a5cdee7544d61c6d34716c0b25755bd965"
+    },
+    {
+      "storage_bits": 64,
+      "anchor": 32768,
+      "input_revision": {
+        "commit": "34248da37b2188831d0dd4e64a4e2274a1b799b9",
+        "tree": "23ddc8a74ff416fa526bddb83306f1225f52e286"
+      },
+      "dependency_pins": {
+        "dal-cpp/externals/eigen": "3147391d946bb4b6c68edd901f2add6ac1f31f8c",
+        "dal-cpp/externals/googletest": "d72f9c8aea6817cdf1ca0ac10887f328de7f3da2",
+        "dal-cpp/externals/machinist": "e76b0ef243ca9bd506bb2f3743d8c9b52ee8d01d",
+        "dal-cpp/externals/rapidjson": "ea152ded01708ff1657b275ed0bcbf0681d64519"
+      },
+      "executable_sha256": "a5eee953b89c1a13f6d0628178999fbbbdeed12472603f79cccbb3857648ee1e",
+      "overlay_patch_sha256": "d6726783a542e01bc71090a1ba07c3eec0fad3bad8fe36dcb113f2d7d60bfb32",
+      "cmake_cache_sha256": "0c879c061dd22491b43852814e302517cf2848e64580ca4cd55e744962ef6a5e",
+      "compile_database_sha256": "78b071941b0bc8571017b880e28c3d792dc1342f4408fb6de7b864d42efd7f01"
+    }
+  ],
+  "execution_helper_revision": "1b14a9e2ad0e8a6449a5e182ee0b8c3b1c349d38",
+  "native_reference_images": [
+    {
+      "anchor": 32768,
+      "executable_sha256": "8a756c27c2ecf904fd66230f1eb5e760cc8305c865230bc71a9a30fdd9dbda83",
+      "stock_sha256": "09c82adb5d86166d3a97ba51bf2e1b2fc235540af6e9906b2cfdaaff5499b172",
+      "address_patch_sha256": "65a00acec1b3b6adb5290db89b2b60d0b9a24901b0cff3f85bd790ed84a3ecb0",
+      "source_revision": "0fc9d452f00694be33e3d5495db58d25fb32de47"
+    },
+    {
+      "anchor": 524288,
+      "executable_sha256": "aa08beefe78cf79a422f2e0a57a4a9828d2a23eb42d80a0f849edc27044ca84b",
+      "stock_sha256": "09c82adb5d86166d3a97ba51bf2e1b2fc235540af6e9906b2cfdaaff5499b172",
+      "address_patch_sha256": "65a00acec1b3b6adb5290db89b2b60d0b9a24901b0cff3f85bd790ed84a3ecb0",
+      "source_revision": "0fc9d452f00694be33e3d5495db58d25fb32de47"
+    }
+  ],
+  "python_binding_control": {
+    "baseline_dupire_source_commit": "57a31253f6cfe1805e56262e92a63bb34254e5f7",
+    "baseline_dupire_source_sha256": "93ef6fe64899374b2d38baaf3d7a8e7640c70864a6236410cfd276587dfdb8fa",
+    "baseline_module_sha256": "db159ee1c5d14811dd983ff55096c8eae34d5fa602cd53d3a297e5fd07da0e70",
+    "candidate_module_sha256": "9d4566c74a42340f45800179472484bca3606e8ff43bbbabc98344645e472878",
+    "construction": "Original Dupire binding; identical current native/public libraries and other binding objects on both sides.",
+    "reused_input_sha256": {
+      "dal-python/CMakeFiles/_dal.dir/src/bindings/module.cpp.o": "46ecbae27f22b5b61c2ff862d2f846ea20f79881d034b48080539e7796572b37",
+      "dal-python/CMakeFiles/_dal.dir/src/bindings/calendar.cpp.o": "54a2fdabc1023d791c659237976acb7d596125ff86b57d28b5aaa9bf9a8c0743",
+      "dal-python/CMakeFiles/_dal.dir/src/bindings/core.cpp.o": "682d81930db6ae68e2c4e0813ea211f5e4064578b76445537503471682407424",
+      "dal-python/CMakeFiles/_dal.dir/src/bindings/curve.cpp.o": "8ebc2a26da7fd025c23ae58b835923ff9b3167874dc260299b70188d64bcbd9c",
+      "dal-python/CMakeFiles/_dal.dir/src/bindings/global.cpp.o": "8c8453784270402c50b78c7a2346b895d8e51e67597fe4960b19a488499a9cd7",
+      "dal-python/CMakeFiles/_dal.dir/src/bindings/gsr.cpp.o": "d6f01a156a3d4cf1f60112400511a40256b27079fbb2c26de57c7917a6fe58cb",
+      "dal-python/CMakeFiles/_dal.dir/src/bindings/models.cpp.o": "6d867c3690c9ee6623b33eccce242ad0784d80cd17d41e7d86ba907a126a3413",
+      "dal-python/CMakeFiles/_dal.dir/src/bindings/random.cpp.o": "7e60c3bfaf2e258c3dc63f6ef39bb394389d8545080f156328fcaf3705d0ba6c",
+      "dal-python/CMakeFiles/_dal.dir/src/bindings/script.cpp.o": "ef721f27d9c07c9b7d1c2890e56409f9fe926d0494816b0bc0069f7cd800cf73",
+      "dal-python/CMakeFiles/_dal.dir/src/bindings/value.cpp.o": "5e09049a5f475e202f94cdfff3e181661711163b68dc44093c02f356d87e28bb",
+      "dal-python/CMakeFiles/_dal.dir/src/bindings/risk.cpp.o": "c934884b7a48dfefa078ae0afd1c90f00cb43b09d1457ee9eeec42eb76b2fdff",
+      "dal-python/CMakeFiles/_dal.dir/src/bindings/weightedrisk.cpp.o": "fda64496d0c89ec4fd5622120e957219639b5db8379b72f365c5737ae8aa6b74",
+      "dal-python/CMakeFiles/_dal.dir/src/bindings/jacobianrisk.cpp.o": "aa15d79d8b33df471072b135d6ed8af0fca6499ca7108066f9d654569c6c5ecd",
+      "dal-python/CMakeFiles/_dal.dir/src/bindings/portfoliorisk.cpp.o": "68a3a1a96125f24c53825c1979da53a73040ec9271d9f062bf197020f292d640",
+      "dal-python/CMakeFiles/_dal.dir/src/bindings/dupirerisk.cpp.o": "8fe46f5fe04387efd76b122184b21212a51047f697a104b879ea8ab58b27447d",
+      "dal-python/CMakeFiles/_dal.dir/src/bindings/calibrationrisk.cpp.o": "cc51a8a1cdedcf88430171589ba394a9798c6b540a598b96d49a6e49aca53110",
+      "dal-python/CMakeFiles/_dal.dir/src/bindings/calibrationriskrequest.cpp.o": "36f8269ce7697dd72335fd88d44000da104b48449c638e84d1200f891c2ef33b",
+      "dal-python/CMakeFiles/_dal.dir/src/bindings/dupirecurvature.cpp.o": "703713c6e205c3ca4866bcf5ef282b1176bdcf6dcf88a9c37aa941ca6f69ef2c",
+      "dal-python/CMakeFiles/_dal.dir/src/bindings/ratecurvature.cpp.o": "3ee64a59918960819e087f45ac29f84113d1f04d887ae8ced3394c4c7c9814a0",
+      "dal-python/CMakeFiles/_dal.dir/src/bindings/montecarlocurvature.cpp.o": "93ab429254c21bd013749e575af19df6f8fff99da10fa3a73a81fff9fcd80e65",
+      "dal-python/CMakeFiles/_dal.dir/src/bindings/lsmccurvature.cpp.o": "0a3da208e9208a227145a8b6ec6ff3f2050c3245ee98f6edae44e6a408cee82a",
+      "dal-python/CMakeFiles/_dal.dir/src/bindings/europeanpderisk.cpp.o": "f7f3c08489f675dbb2ef84524e2eb9584fee2086569c92851faabf22d0d50207",
+      "dal-public/libdal_public.a": "55224952e2dae614f1a279af6a70dc8c13407e8972aebe43e282f50fe764574b",
+      "dal-cpp/libdal_cpp.a": "daccb5e4a7b6e5afa0af9ffca34e9969a4c7a635a2123bfc5d439f67d2b56998"
+    }
+  },
+  "resource_evidence": {
+    "selection_sha256": "497c2e83522c2d893451f7088e5bf7e75ea399346d1e9d1dc79b4b001faf5e6a",
+    "sources": {
+      "resource-paired-v5": {
+        "results_sha256": "332dca252632485c179996f3813511078fd085ee2de6c2be2baa25458f9ba6b1",
+        "provenance_sha256": "9d84377feaae6918c55156c9119819d66c4e0a81eff2e4800f9b977df8567199"
+      }
+    },
+    "collector_sha256": "c46217fc3cc035240c7c39064c050c0b5ee1b8040427520d61235685e0b44d92",
+    "support_sha256": "6577dc15c17a0db404c287aa19e8c13de8b8d0a611f32cb75f8b9545cde0bfcc",
+    "python_driver_sha256": "7b90bf3ce496a63e5cb94f3cda4db52c2bb9f5d06058d497124cfa618561f4a0",
+    "cases": 4,
+    "processes": 148,
+    "planned_cases": 7,
+    "planned_processes": 280,
+    "sampling_complete": false,
+    "unmeasured_cases": [
+      "asian-three-overhead",
+      "asian-three-width",
+      "python-expired-dupire-overhead"
+    ]
+  },
+  "published_csv_sha256": {
+    "lsmc-storage-precision-dispersion.csv": "255b09e6e501032fb43eafccf5716e2c25abe82f0051f5101f6d0ff71b9c8545",
+    "lsmc-storage-precision-conditioning.csv": "47fa799f2ded23cefe1b00e7ad163d481229b9fa1ad85f4eb19131e1a75e5d09",
+    "lsmc-storage-precision-paired.csv": "a0220f4839f2f5f608dde52f62e26c42e9ebd6da6d8afecc94a6355c526a66f8",
+    "lsmc-storage-precision-resources.csv": "6759abc35a4168661906bc0c51b117a3dcb989e4a01d13c12a6a52690bd00bb8"
+  },
+  "financial_table_verification": {
+    "verifier_sha256": "45246e9fb892bc2c7db0ab6d18ce0c32b3e489d77dde7c22f056dad6e39cba71",
+    "receipt_sha256": "6f49dfbd9c502dbe80433481c2abe4a864de92aebea0170e352a10bcac41696b",
+    "coordinate_rows": 3168,
+    "dispersion_rows": 396,
+    "conditioning_rows": 24
+  }
+}

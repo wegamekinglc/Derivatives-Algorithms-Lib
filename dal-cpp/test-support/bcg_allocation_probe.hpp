@@ -20,6 +20,8 @@ namespace Dal {
         void Begin_() noexcept;
         void End_() noexcept;
         Snapshot_ Read_() noexcept;
+        void FailAfter_(std::size_t successfulRequests) noexcept;
+        void CancelFailure_() noexcept;
 
         class Measurement_ {
             bool active_;

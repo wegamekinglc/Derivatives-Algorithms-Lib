@@ -13,7 +13,7 @@
 // on every F) and #5 (duplicate at-solution Gradient) are separately measurable. An
 // APPROXIMATE-mode case covers Underdetermined::Approximate + the implicit CG penalty solve (G9).
 // Mirrors the instrument set from
-// examples/yield_curve_jacobian/yield_curve_jacobian.cpp.
+// examples/curves/yield_curve_jacobian/yield_curve_jacobian.cpp.
 
 #include <memory>
 #include <string>

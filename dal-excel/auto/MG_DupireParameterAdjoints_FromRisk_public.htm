@@ -1,0 +1,40 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>DupireParameterAdjoints_FromRisk</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>DupireParameterAdjoints_FromRisk (in Excel: DUPIREPARAMETERADJOINTS.FROMRISK)</h1>
+Extract all local-vol node adjoints from a valuation
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>name</td><td>string</td><td></td><td>Object name</td></tr>
+<tr><td>valuation</td><td>handle of type StorableRiskResult</td><td></td><td>Completed scalar valuation risk</td></tr>
+<tr><td>calibration</td><td>handle of type StorableDupireCalibration</td><td></td><td>Frozen calibration</td></tr>
+<tr><td>component</td><td>string</td><td></td><td>Local-vol component name, equity for DupireModelData_New</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>parameters</td><td>handle of type StorableDupireParameterAdjoints</td><td>Validated raw surface-node adjoints</td></tr>
+</table>
+
+
+
+
+
+

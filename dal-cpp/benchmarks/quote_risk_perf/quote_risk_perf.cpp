@@ -14,6 +14,7 @@
 #include <dal/platform/platform.hpp>
 
 #include "../rate_risk_perf/quoteriskbenchfixtures.hpp"
+#include "dupirecurvatureperf.hpp"
 
 using namespace Dal;
 
@@ -52,7 +53,9 @@ namespace {
     }
 } // namespace
 
-int main() {
+int main(int argc, char** argv) {
+    if (argc > 1)
+        return RunDupireQuoteCurvatureBenchmarks(argc, argv);
     const auto analytic = CurveJacobianMode_(CurveJacobianMode_::Value_::ANALYTIC);
     const auto single8 = RateRiskPerf::MakeSingleCurveProvenanceMaterials(8, analytic);
     const auto single16 = RateRiskPerf::MakeSingleCurveProvenanceMaterials(16, analytic);
@@ -87,5 +90,5 @@ int main() {
     for (int i = 0; i < 5; ++i)
         jointComponents.push_back("joint-quote-bench-" + String::FromInt(i));
     RunProbeCase("Quote risk state probe joint (5 components x 16 quotes)", joint16, jointComponents);
-    return 0;
+    return RunDupireQuoteCurvatureBenchmarks(argc, argv);
 }

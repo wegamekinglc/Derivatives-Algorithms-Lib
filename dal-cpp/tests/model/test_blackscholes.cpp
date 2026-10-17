@@ -9,15 +9,61 @@
 #include <limits>
 #include <new>
 
-#include <dal/platform/platform.hpp>
+#include <dal/curve/tapeguard.hpp>
 #include <dal/indice/index/equity.hpp>
 #include <dal/indice/indexparse.hpp>
 #include <dal/math/aad/sample.hpp>
 #include <dal/model/blackscholes.hpp>
+#include <dal/platform/platform.hpp>
 #include <dal/storage/json.hpp>
 
 using namespace Dal;
 using Dal::BSModelData_;
+
+namespace {
+    void AssertBlackScholesPrefixRisks(AAD::BlackScholes_<AAD::Number_>* model, const Vector_<>& values, const Vector_<>& timeline) {
+        AAD::RecordingScope_ recording;
+        for (size_t i = 0; i < values.size(); ++i)
+            recording.RegisterInput(*model->Parameters()[i], values[i]);
+        Vector_<AAD::SampleDef_> definitions(timeline.size());
+        definitions.front().discountMats_ = {1.5};
+        model->Allocate(timeline, definitions);
+        AAD::Scenario_<AAD::Number_> path;
+        AAD::AllocatePath(definitions, path);
+        recording.StartRecording();
+        model->Init(timeline, definitions);
+        AAD::InitializePath(path);
+        const auto checkpoint = recording.MakeCheckpoint();
+        Vector_<> expectedRisks(4, 0.0);
+        const double maturity = timeline.back();
+        const double discountTime = 1.5 - timeline.front();
+        const double discount = std::exp(-values[2] * discountTime);
+        for (const double normal : {0.3, -0.4}) {
+            recording.Restore(checkpoint);
+            const Vector_<> gaussian(model->SimDim(), normal);
+            ASSERT_TRUE(model->GeneratePathAndValidate(gaussian, &path));
+            double brownian = 0.0, previous = 0.0;
+            for (const double time : timeline) {
+                brownian += std::sqrt(time - previous) * normal;
+                previous = time;
+            }
+            const double equity = values[0] * std::exp(-values[3] * maturity - 0.5 * values[1] * values[1] * maturity + values[1] * brownian);
+            AAD::Number_ payoff = path.back().spot_ / path.back().numeraire_ + 0.7 * path.front().discounts_[0];
+            ASSERT_NEAR(AAD::Value(payoff), equity + 0.7 * discount, 1e-10);
+            ASSERT_DOUBLE_EQ(AAD::Value(path.front().discounts_[0]), discount);
+            expectedRisks[0] += equity / values[0];
+            expectedRisks[1] += equity * (brownian - values[1] * maturity);
+            expectedRisks[2] -= 0.7 * discountTime * discount;
+            expectedRisks[3] -= maturity * equity;
+            recording.FinishRecording();
+            AAD::Adjoint(payoff) = 1.0;
+            recording.ReverseSuffix(checkpoint);
+        }
+        recording.ReversePrefix(checkpoint);
+        for (size_t i = 0; i < expectedRisks.size(); ++i)
+            ASSERT_NEAR(AAD::Adjoint(*model->Parameters()[i]), expectedRisks[i], 1e-10);
+    }
+} // namespace
 
 TEST(ModelTest, TestBlackScholesModelData) {
     auto model_data = BSModelData_("my_model", 100.0, 0.20, 0.05, 0.01);
@@ -249,6 +295,57 @@ TEST(ModelTest, TestBlackScholesGeneratePathWithNonzeroGaussian) {
     const double drift = rate - div - 0.5 * vol * vol;
     ASSERT_NEAR(path[0].spot_, spot, 1e-10);
     ASSERT_NEAR(path[1].spot_, spot * std::exp(drift * 1.5 + vol * std::sqrt(1.5)), 1e-10);
+}
+
+TEST(ModelTest, TestBlackScholesPrefixLogSpotFitsNodeBudget) {
+    for (const Vector_<>& timeline : {Vector_<>{0.0}, Vector_<>{1.0}, Vector_<>{0.0, 0.25, 1.0}}) {
+        const TapeGuard_ guard(AAD::Tape());
+        AAD::BlackScholes_<AAD::Number_> model(100.0, 0.2, 0.05, 0.01);
+        const Vector_<AAD::SampleDef_> definitions(timeline.size());
+        model.Allocate(timeline, definitions);
+        AAD::Scenario_<AAD::Number_> path;
+        AAD::AllocatePath(definitions, path);
+        AAD::Rewind(*AAD::Tape());
+        for (auto* parameter : model.Parameters())
+            AAD::PutOnTape(*parameter);
+        AAD::NewRecording(*AAD::Tape());
+        model.Init(timeline, definitions);
+        AAD::InitializePath(path);
+        const auto prefixNodes = AAD::Tape()->nodes_.OccupiedSlots();
+        model.GeneratePath(Vector_<>(model.SimDim(), 0.3), &path);
+        ASSERT_LE(AAD::Tape()->nodes_.OccupiedSlots() - prefixNodes, 2 * model.SimDim());
+    }
+}
+
+TEST(ModelTest, TestBlackScholesPrefixLogSpotRetainsReplayAndFreshRecordingRisks) {
+    AAD::BlackScholes_<AAD::Number_> model(100.0, 0.2, 0.05, 0.01);
+    for (const Vector_<>& timeline : {Vector_<>{0.0}, Vector_<>{0.25, 1.0}, Vector_<>{0.0, 0.25, 1.0}}) {
+        ASSERT_NO_FATAL_FAILURE(AssertBlackScholesPrefixRisks(&model, {100.0, 0.2, 0.05, 0.01}, timeline));
+        ASSERT_NO_FATAL_FAILURE(AssertBlackScholesPrefixRisks(&model, {125.0, 0.0, -0.03, -0.01}, timeline));
+    }
+}
+
+TEST(ModelTest, TestBlackScholesPrefixLogSpotRefreshesOnReinitAndClone) {
+    AAD::BlackScholes_<> original(100.0, 0.2, 0.05, 0.01);
+    const Vector_<> timeline{0.0, 1.0};
+    const Vector_<AAD::SampleDef_> definitions(timeline.size());
+    original.Allocate(timeline, definitions);
+    original.Init(timeline, definitions);
+    auto clone = original.Clone();
+    *clone->Parameters()[0] = 125.0;
+    clone->Init(timeline, definitions);
+    AAD::Scenario_<> path;
+    AAD::AllocatePath(definitions, path);
+    AAD::InitializePath(path);
+    clone->GeneratePath({0.3}, &path);
+    const double growth = std::exp(0.05 - 0.01 - 0.5 * 0.2 * 0.2 + 0.2 * 0.3);
+    ASSERT_NEAR(path.back().spot_, 125.0 * growth, 1e-10);
+    original.GeneratePath({0.3}, &path);
+    ASSERT_NEAR(path.back().spot_, 100.0 * growth, 1e-10);
+    *original.Parameters()[0] = 80.0;
+    original.Init(timeline, definitions);
+    original.GeneratePath({0.3}, &path);
+    ASSERT_NEAR(path.back().spot_, 80.0 * growth, 1e-10);
 }
 
 TEST(ModelTest, TestBlackScholesCheckedPathMatchesGeneration) {

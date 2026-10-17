@@ -153,6 +153,19 @@ TEST(ScriptExcelContractTest, TestSimulationSettingsLsmcBasisDegree) {
                 {"row=1 column=2", "lsmc_basis_degree", "non-empty"});
 }
 
+TEST(ScriptExcelContractTest, TestSimulationNormalPrecision) {
+    Handle_<StorableMonteCarloSettings_> settings;
+    MonteCarloSettings_New("defaults", {}, &settings);
+    ASSERT_EQ(settings->val_.normalPrecision_, "Default");
+    for (const auto* precision : {"Default", "Fast", "Precise"}) {
+        MonteCarloSettings_New("precision", Rows({{Cell_("NORMAL_PRECISION"), Cell_(precision)}}), &settings);
+        ASSERT_EQ(settings->val_.normalPrecision_, precision);
+    }
+    for (const auto& value : {Cell_("fast"), Cell_("unknown"), Cell_(true), Cell_(1.0)})
+        AssertError([&] { MonteCarloSettings_New("bad", Rows({{Cell_("normal_precision"), value}}), &settings); },
+                    {"normal_precision", "row=1 column=2"});
+}
+
 TEST(ScriptExcelContractTest, TestSimulationRejectsInvalidScalarsAndDuplicateKeys) {
     Handle_<StorableMonteCarloSettings_> settings;
     for (const auto* key : {"use_bb", "enable_aad", "compiled"})
@@ -231,4 +244,16 @@ TEST(ScriptExcelContractTest, TestSimulationSettingsLsmcPolicyRisk) {
                     {"InvalidLsmcPolicyBumpRelative", "row=1 column=2"});
     AssertError([&] { MonteCarloSettings_New("bad", Rows({{Cell_("lsmc_policy_typo"), Cell_(1.0)}}), &settings); },
                 {"unknown key", "lsmc_policy_risk_mode", "lsmc_policy_bump_relative", "row=1 column=1"});
+}
+
+TEST(ScriptExcelContractTest, TestCheckpointTrainingSettings) {
+    Handle_<StorableMonteCarloSettings_> settings;
+    MonteCarloSettings_New("checkpoint", Rows({{Cell_("lsmc_checkpoint_block_events"), Cell_(8.0)}, {Cell_("lsmc_training_memory_mb"), Cell_(64.0)}}),
+                           &settings);
+    ASSERT_EQ(settings->val_.lsmcCheckpointBlockEvents_, 8);
+    ASSERT_EQ(settings->val_.lsmcTrainingMemoryMb_, 64);
+    for (const String_ key : {"lsmc_checkpoint_block_events", "lsmc_training_memory_mb"})
+        for (const auto& value : {Cell_(0.0), Cell_(-1.0), Cell_(1.5), Cell_(true), Cell_("8")})
+            AssertError([&] { MonteCarloSettings_New("bad", Rows({{Cell_(key), value}}), &settings); },
+                        {"InvalidLsmcCheckpointSetting", key, "row=1 column=2"});
 }

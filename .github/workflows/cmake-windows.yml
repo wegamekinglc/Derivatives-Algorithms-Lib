@@ -46,17 +46,30 @@ jobs:
       fail-fast: false
       matrix:
         compiler: [msvc]
-        aad-backend: [aadet, xad, adept]
+        aad-backend: [aadet]
         include:
           - compiler: msvc
+            cc: cl
+            cxx: cl
+          - compiler: msvc
+            aad-backend: aadet-diagnostics
+            cc: cl
+            cxx: cl
+          - compiler: msvc
+            aad-backend: aadet-profiling
+            cc: cl
+            cxx: cl
+          - compiler: msvc
+            aad-backend: aadet-all-diagnostics
             cc: cl
             cxx: cl
 
     steps:
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          submodules: recursive
+
+      - name: Check out pinned dependencies
+        run: python .github/scripts/checkout_dependencies.py
 
       # Same key rule as cmake-linux.yml: the action adds only a "ccache-"
       # prefix plus timestamp, so the key carries OS and backend itself.
@@ -103,28 +116,27 @@ jobs:
             }
           }
 
-      - name: Configure AAD backend
+      - name: Configure native AAD
         shell: bash
         run: |
-          case "${{ matrix.aad-backend }}" in
-            aadet)
-              FLAGS="-DDAL_USE_XAD_AAD=off -DDAL_USE_CODIPACK_AAD=off -DDAL_USE_ADEPT_AAD=off" ;;
-            xad)
-              FLAGS="-DDAL_USE_XAD_AAD=on -DDAL_USE_CODIPACK_AAD=off -DDAL_USE_ADEPT_AAD=off" ;;
-            codipack)
-              FLAGS="-DDAL_USE_XAD_AAD=off -DDAL_USE_CODIPACK_AAD=on -DDAL_USE_ADEPT_AAD=off" ;;
-            adept)
-              FLAGS="-DDAL_USE_XAD_AAD=off -DDAL_USE_CODIPACK_AAD=off -DDAL_USE_ADEPT_AAD=on" ;;
-          esac
+          FLAGS=""
+          if [ "${{ matrix.aad-backend }}" = aadet-diagnostics ]; then
+            FLAGS="-DDAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS=ON"
+          fi
+          if [ "${{ matrix.aad-backend }}" = aadet-profiling ]; then
+            FLAGS="$FLAGS -DDAL_ENABLE_AAD_PROFILING=ON"
+          fi
+          if [ "${{ matrix.aad-backend }}" = aadet-all-diagnostics ]; then
+            FLAGS="$FLAGS -DDAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS=ON -DDAL_ENABLE_AAD_PROFILING=ON"
+          fi
           # dal-python (pybind11 bindings) and dal-excel (Windows-only COM add-in)
           # are built on every matrix combination — the matrix is small
-          # (3 jobs) and the bindings are backend-agnostic.
+          # and includes the native diagnostic ABI configuration.
           FLAGS="$FLAGS -DDAL_BUILD_PYTHON=ON -DDAL_BUILD_EXCEL=ON"
           echo "ADDITIONAL_CMAKE_FLAGS=$FLAGS" >> $GITHUB_ENV
 
       # pybind11 is built from the dal-cpp/externals/pybind11 git submodule
-      # (pinned to v2.11.1). actions/checkout already initialized it via
-      # submodules: recursive — no system package or FetchContent needed.
+      # (pinned to v2.11.1), initialized by the pinned-dependency checkout.
 
       # Python env: uv-managed venv, matching the convention in
       # dal-python/run_tests.sh. The venv must be on PATH *before* the
@@ -186,10 +198,36 @@ jobs:
       - name: Test
         shell: bash
         run: |
-          # Examples are compile-checked here but only run in the Linux coverage
-          # leg: the AAD-backed Monte Carlo examples (e.g. european_mc) are
-          # pathologically slow under the MSVC xad backend (hours, not minutes).
-          ctest --test-dir build/Release-windows --output-on-failure --parallel -C Release -LE "benchmark|examples|examples_slow"
+          # Examples are compile-checked here and run in the Linux coverage leg.
+          ctest --test-dir build/Release-windows --output-on-failure --parallel -C Release -LE "benchmark|examples|examples_slow" -E '^dal_python_pytest$'
+
+      - name: Test Python with case evidence
+        shell: bash
+        run: |
+          ctest --test-dir build/Release-windows --verbose --output-on-failure --no-tests=error -C Release -R '^dal_python_pytest$'
+
+      - name: Test production profiling CLI
+        shell: bash
+        env:
+          DAL_NUM_THREADS: 4
+        run: |
+          cmake -S . -B build/Release-windows -DDAL_CPP_BUILD_BENCHMARKS=ON
+          cmake --build build/Release-windows --target script_mc_perf rng_perf --config Release --parallel
+          profiling=off
+          if [[ "${{ matrix.aad-backend }}" = aadet-profiling || "${{ matrix.aad-backend }}" = aadet-all-diagnostics ]]; then
+            profiling=on
+          fi
+          python tests/aad-profiling/check_production_profile.py \
+            build/Release-windows/dal-cpp/benchmarks/script_mc_perf/script_mc_perf.exe --profiling "$profiling"
+          python tests/aad-profiling/check_sobol_profile.py \
+            build/Release-windows/dal-cpp/benchmarks/rng_perf/rng_perf.exe
+          python -O tests/aad-profiling/check_sobol_profile.py \
+            build/Release-windows/dal-cpp/benchmarks/rng_perf/rng_perf.exe
+          python -m unittest discover -s tests/aad-profiling -p 'test_*.py' -v
+          python -OO -m unittest discover -s tests/aad-profiling -p 'test_*.py' -v
+          python -m unittest discover -s tests/lsmc-training-study -p 'test_*.py' -v
+          python tests/lsmc-training-study/check_sample.py \
+            build/Release-windows/dal-cpp/benchmarks/script_mc_perf/script_mc_perf.exe --addressing stock
 
       - name: Test installed CMake consumer
         shell: pwsh
@@ -215,7 +253,7 @@ jobs:
           cmake --build $pythonBuild --target _dal --parallel
 
       - name: Test standalone Excel against installed DAL
-        if: matrix.aad-backend == 'aadet'
+        if: startsWith(matrix.aad-backend, 'aadet')
         shell: pwsh
         run: |
           $stage = (Resolve-Path .\build\stage\Release-windows).Path
@@ -238,8 +276,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          submodules: recursive
+
+      - name: Check out pinned dependencies
+        run: python .github/scripts/checkout_dependencies.py
 
       - name: Run build_windows.bat --configure-only
         shell: cmd

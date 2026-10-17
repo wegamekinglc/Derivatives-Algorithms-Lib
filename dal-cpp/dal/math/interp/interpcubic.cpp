@@ -2,6 +2,8 @@
 // Created by wegam on 2020/12/16.
 //
 
+#include <algorithm>
+
 #include <dal/platform/strict.hpp>
 #include <dal/math/interp/interpcubic.hpp>
 #include <dal/storage/archive.hpp>
@@ -56,10 +58,13 @@ namespace Dal {
 
         // based on Numerical Recipes' splint
         double Cubic1_::operator()(double x) const {
-            auto pGE = LowerBound(x_, x);
-            if (pGE != x_.end() && *pGE == x)
-                return f_[pGE - x_.begin()];
-            const ptrdiff_t iGE = std::min(static_cast<ptrdiff_t>(x_.size() - 1), std::max(static_cast<ptrdiff_t>(1), pGE - x_.begin()));
+            if (x == x_.front())
+                return f_.front();
+            // Interior search always yields a valid right endpoint, including extrapolation.
+            const auto pGE = std::lower_bound(x_.begin() + 1, x_.end() - 1, x);
+            const ptrdiff_t iGE = pGE - x_.begin();
+            if (*pGE == x)
+                return f_[iGE];
             const ptrdiff_t iLT = iGE - 1;
             const double h = x_[iGE] - x_[iLT];
             const double b = (x - x_[iLT]) / h;

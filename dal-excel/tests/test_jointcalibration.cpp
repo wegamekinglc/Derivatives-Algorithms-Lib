@@ -93,6 +93,32 @@ namespace {
     }
 } // namespace
 
+TEST(JointCalibrationExcelTest, TestCapturedGenericRecordKeepsLegacyDispatcherExclusion) {
+    using namespace Dal;
+    for (bool layered : {false, true}) {
+        const auto spec = JointQuoteRiskPublicFixture::Spec(layered);
+        JointMultiCurveCalibrationOptions_ options;
+        options.computeEffJacobianInverse_ = true;
+        const auto result = CalibrateJointMultiCurveBundle(spec, options);
+        const Handle_<StorableJointMultiCurveCalibrationResult_> bundle(new StorableJointMultiCurveCalibrationResult_(result, spec, options));
+        const Handle_<StorableRatePricingMarket_> market(new StorableRatePricingMarket_(JointQuoteRiskPublicFixture::Market(result)));
+        Handle_<StorableRateQuoteRiskProvenance_> original, captured, excluded;
+        JointMultiCurveQuoteRiskProvenance_New(bundle, "captured", {"curve:0", "curve:1"}, {"discount", "forward"}, market, &original);
+        JointMultiCurveQuoteRiskProvenance_New(bundle, "captured", {"curve:0", "curve:1"}, {"discount", "forward"}, market, Cell_(true), &captured);
+        auto config = JointQuoteRiskPublicFixture::Config();
+        config.calibrationId_ = "captured";
+        config.retainCalibrationRecord_ = true;
+        const auto native = BuildJointMultiCurveQuoteRiskProvenance(spec, result, options, market->val_, config);
+        ASSERT_TRUE(original->val_->CalibrationRecord().empty());
+        ASSERT_EQ(captured->val_->CalibrationRecord(), native.CalibrationRecord());
+        ASSERT_EQ(captured->AxisFingerprint(), original->AxisFingerprint());
+        ASSERT_EQ(captured->val_->State().fingerprint_, original->val_->State().fingerprint_);
+        RateQuoteRiskProvenance_New(Handle_<Storable_>(bundle), "excluded", {}, {}, market, Cell_(true), &excluded);
+        ASSERT_FALSE(excluded->Native());
+        ASSERT_EQ(excluded->reason_, "QUOTE_RISK_EFFECTIVE_INVERSE_UNAVAILABLE");
+    }
+}
+
 TEST(JointCalibrationExcelTest, TestReachableConstructionMatchesPublicRiskAndRetainsLegacyExclusion) {
     for (bool layered : {false, true})
         for (const String_& mode : {String_("ANALYTIC"), String_("BUMPED")}) {

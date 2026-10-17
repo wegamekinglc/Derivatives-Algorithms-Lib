@@ -87,3 +87,37 @@ TEST(ScriptLexerTest, TestNonAsciiBytesAreNotWordCharacters) {
         }
     }
 }
+
+namespace {
+    void AssertUnexpectedCharacterMessage(const std::string& text, const std::string& expectedCharacter) {
+        try {
+            static_cast<void>(Tokenize(String_(text)));
+            FAIL() << "the script must be rejected";
+        } catch (const ScriptError_& error) {
+            const std::string expected("InvalidScript: unexpected character '" + expectedCharacter + "'");
+            ASSERT_NE(std::string(error.what()).find(expected), std::string::npos) << error.what();
+        }
+    }
+} // namespace
+
+TEST(ScriptLexerTest, TestNonAsciiUnexpectedCharacterQuotesFullUtf8Sequence) {
+    //  what() must stay valid UTF-8 so binding layers can decode it (issue #492)
+    AssertUnexpectedCharacterMessage("x = \xC3\xA9", "\xC3\xA9");         //  e-acute
+    AssertUnexpectedCharacterMessage("x = \xE4\xB8\xAD", "\xE4\xB8\xAD"); //  CJK ideograph
+    AssertUnexpectedCharacterMessage("x = \xC2\xA9", "\xC2\xA9");         //  copyright sign
+    //  RFC 3629 boundary code points on either side of the rejected ranges
+    AssertUnexpectedCharacterMessage("x = \xE0\xA0\x80", "\xE0\xA0\x80");         //  U+0800
+    AssertUnexpectedCharacterMessage("x = \xED\x9F\xBF", "\xED\x9F\xBF");         //  U+D7FF
+    AssertUnexpectedCharacterMessage("x = \xF0\x90\x80\x80", "\xF0\x90\x80\x80"); //  U+10000
+    AssertUnexpectedCharacterMessage("x = \xF4\x8F\xBF\xBF", "\xF4\x8F\xBF\xBF"); //  U+10FFFF
+}
+
+TEST(ScriptLexerTest, TestNonAsciiUnexpectedCharacterEscapesMalformedSequence) {
+    //  A sequence RFC 3629 rejects must not enter the message: escape its lead byte as \xNN
+    AssertUnexpectedCharacterMessage("x = \xC3", "\\xC3");             //  2-byte lead without continuation
+    AssertUnexpectedCharacterMessage("x = \xA9", "\\xA9");             //  continuation byte without a lead
+    AssertUnexpectedCharacterMessage("x = \xE0\x80\x80", "\\xE0");     //  overlong 3-byte form
+    AssertUnexpectedCharacterMessage("x = \xED\xA0\x80", "\\xED");     //  UTF-16 surrogate
+    AssertUnexpectedCharacterMessage("x = \xF0\x80\x80\x80", "\\xF0"); //  overlong 4-byte form
+    AssertUnexpectedCharacterMessage("x = \xF4\x90\x80\x80", "\\xF4"); //  above U+10FFFF
+}

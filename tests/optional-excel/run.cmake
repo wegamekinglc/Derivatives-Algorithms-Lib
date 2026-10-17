@@ -31,8 +31,7 @@ function(check_case name mode platform public excel portable tests gtest expecte
         "-DDAL_BUILD_EXCEL_PORTABLE_TESTS=${portable}" "-DDAL_EXCEL_BUILD_TESTS=${tests}"
         -DDAL_CPP_BUILD_TESTS=OFF -DDAL_PUBLIC_BUILD_TESTS=OFF
         -DDAL_CPP_BUILD_EXAMPLES=OFF -DDAL_CPP_BUILD_BENCHMARKS=OFF
-        -DDAL_BUILD_PYTHON=OFF -DDAL_USE_XAD_AAD=OFF
-        -DDAL_USE_CODIPACK_AAD=OFF -DDAL_USE_ADEPT_AAD=OFF
+        -DDAL_BUILD_PYTHON=OFF
         -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF
         "--trace-source=${DAL_OPTIONAL_EXCEL_ROOT}/dal-excel/CMakeLists.txt"
         "--trace-source=${DAL_OPTIONAL_EXCEL_ROOT}/dal-public/cmake/DALBindingBoundary.cmake"

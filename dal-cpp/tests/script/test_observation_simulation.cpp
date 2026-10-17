@@ -625,10 +625,13 @@ TEST(ScriptObservationSimulationTest, TestPathFailureDrainsWorkers) {
     SubmissionCounter_ workers;
     const Dal::Script::Detail::ScopedSimulationObserver_ observe(&workers);
     ASSERT_THROW(MCDoubleSimulation(prepared, &model, 257, "sobol", false, false, true), Exception_);
-    ASSERT_GT(workers.submissions_, 0);
-    ASSERT_EQ(model.paths_->load(), workers.submissions_);
+    ASSERT_EQ(workers.submissions_, std::min(ThreadPool_::GetInstance()->NumThreads(), Script::Detail::ChunkPlan_(257).BatchCount()));
+    const auto failedPaths = model.paths_->load();
+    ASSERT_GT(failedPaths, 0u);
+    ASSERT_LE(failedPaths, workers.submissions_);
     model.badPath_ = false;
     ASSERT_EQ(MCDoubleSimulation(prepared, &model, 1, "sobol", false, false, true).aggregated_, 120.0);
+    ASSERT_EQ(model.paths_->load(), failedPaths + 1);
 }
 
 TEST(ScriptObservationSimulationTest, TestFiniteModelInitializationBeforeHistory) {
@@ -930,7 +933,7 @@ TEST(ScriptObservationSimulationTest, TestNonFiniteHistoryInDeadBranchFailsBefor
     }
 }
 
-TEST(ScriptObservationSimulationTest, TestDeadBranchPathAndPayoffFailuresDrainEveryBatch) {
+TEST(ScriptObservationSimulationTest, TestDeadBranchPathAndPayoffFailuresCancelAndDrainWorkers) {
     const auto restore = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
     PoolRestore_ restorePool;
     for (const size_t threads : {1, 2, 4}) {
@@ -944,8 +947,14 @@ TEST(ScriptObservationSimulationTest, TestDeadBranchPathAndPayoffFailuresDrainEv
             SubmissionCounter_ workers;
             const Dal::Script::Detail::ScopedSimulationObserver_ submissions(&workers);
             ASSERT_THROW(MCDoubleSimulation(prepared, &model, 16385, "sobol", false, false, true), ScriptError_);
-            ASSERT_EQ(workers.submissions_, BatchPlan_(16385, threads).BatchCount());
-            ASSERT_EQ(model.paths_->load(), workers.submissions_);
+            ASSERT_EQ(workers.submissions_, std::min(restorePool.pool_->NumThreads(), Script::Detail::ChunkPlan_(16385).BatchCount()));
+            const auto failedPaths = model.paths_->load();
+            ASSERT_GT(failedPaths, 0u);
+            ASSERT_LE(failedPaths, workers.submissions_);
+            model.badPath_ = false;
+            const auto valid = PrepareScript(ScriptTestProduct("pay PAYS FIX(EQ[DAL196_TEST], 2026-09-15)"), &model, {}, {});
+            ASSERT_EQ(MCDoubleSimulation(valid, &model, 1, "sobol", false, false, true).aggregated_, 120.0);
+            ASSERT_EQ(model.paths_->load(), failedPaths + 1);
         }
     }
 }
@@ -1074,7 +1083,7 @@ TEST(ScriptObservationSimulationTest, TestCompiledNoHotPathLookupAndStableStorag
     }
 }
 
-TEST(ScriptObservationSimulationTest, TestCompiledPathFailureDrainsEveryBatch) {
+TEST(ScriptObservationSimulationTest, TestCompiledPathFailureCancelsAndDrainsWorkers) {
     const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
     PoolRestore_ pool;
     pool.pool_->Start(4, true);
@@ -1085,8 +1094,13 @@ TEST(ScriptObservationSimulationTest, TestCompiledPathFailureDrainsEveryBatch) {
     simulation.compiled_ = true;
     const auto prepared = PrepareScript(ScriptTestProduct("pay PAYS LOG(-1) + FIX(EQ[DAL196_TEST])"), &model, {}, simulation);
     ASSERT_THROW(MCDoubleSimulation(prepared, &model, 8193, "sobol", false, true, true), ScriptError_);
-    ASSERT_EQ(observer.submissions_, BatchPlan_(8193, pool.pool_->NumThreads()).BatchCount());
-    ASSERT_EQ(model.paths_->load(), observer.submissions_);
+    ASSERT_EQ(observer.submissions_, std::min(pool.pool_->NumThreads(), Script::Detail::ChunkPlan_(8193).BatchCount()));
+    const auto failedPaths = model.paths_->load();
+    ASSERT_GT(failedPaths, 0u);
+    ASSERT_LE(failedPaths, observer.submissions_);
+    const auto valid = PrepareScript(ScriptTestProduct("pay PAYS FIX(EQ[DAL196_TEST], 2026-09-15)"), &model, {}, simulation);
+    ASSERT_EQ(MCDoubleSimulation(valid, &model, 1, "sobol", false, true, true).aggregated_, 120.0);
+    ASSERT_EQ(model.paths_->load(), failedPaths + 1);
 }
 
 TEST(ScriptObservationSimulationTest, TestCompiledBoundSpotSharesFixingRequests) {
@@ -1124,10 +1138,7 @@ TEST(ScriptObservationSimulationTest, TestNamedAndLegacyFixedPathParityAcrossAda
     legacy.PreProcess(false, true);
     for (const auto& model : ParityModels())
         for (const String_ rng : {"sobol", "mrg32", "irn"}) {
-            // IRN SkipTo is a no-op: independent runs share samples only with one worker.
-            // Multi-worker IRN parity is checked on shared paths in the following test.
-            const Vector_<size_t> independentThreads = rng == "irn" ? Vector_<size_t>{1} : Vector_<size_t>{1, 4};
-            for (const size_t threads : independentThreads) {
+            for (const size_t threads : {1, 4}) {
                 restorePool.pool_->Start(threads, true);
                 for (const bool bb : {false, true}) {
                     MonteCarloSettings_ simulation;
@@ -1165,7 +1176,7 @@ TEST(ScriptObservationSimulationTest, TestNamedAndLegacySharedPathParityAcrossAd
                     SubmissionCounter_ workers;
                     const Dal::Script::Detail::ScopedSimulationObserver_ submissions(&workers);
                     const double actual = MCDoubleSimulation(prepared, model.get(), 8193, rng, bb, false).aggregated_ / 8193;
-                    ASSERT_EQ(workers.submissions_, BatchPlan_(8193, restorePool.pool_->NumThreads()).BatchCount());
+                    ASSERT_EQ(workers.submissions_, std::min(restorePool.pool_->NumThreads(), Script::Detail::ChunkPlan_(8193).BatchCount()));
                     ASSERT_NO_FATAL_FAILURE(AssertSharedPathParity(actual, states, 8193));
                 }
         }
@@ -1303,7 +1314,7 @@ TEST(ScriptFixingPreparationTest, TestAadUniqueHistoryAndNoHotPathLookup) {
                     ASSERT_NEAR(result["SCALE"], 34.0 * 80.0 * discount, 1.0e-10);
                 ASSERT_EQ(reads.histories_, 1u);
                 ASSERT_EQ(reads.fixings_, 1u);
-                ASSERT_EQ(workers.submissions_, BatchPlan_(paths, pool.pool_->NumThreads()).BatchCount());
+                ASSERT_EQ(workers.submissions_, std::min(pool.pool_->NumThreads(), Script::Detail::ChunkPlan_(paths).BatchCount()));
                 ASSERT_EQ(evaluations.load(), paths);
             }
     }
@@ -1334,11 +1345,13 @@ TEST(ScriptFixingPreparationTest, TestAadPreparationFailureAndPathDrain) {
     const AuditedPrepared_ prepared(
         PrepareScript(ScriptTestProduct("pay PAYS LOG(-1) + FIX(EQ[DAL196_TEST], 2026-09-11)"), model.get(), {}, simulation, snapshot), &evaluations);
     ASSERT_THROW(MCAADSimulation(prepared, data, 8193, "sobol", false, false, 0, 0.01), ScriptError_);
-    ASSERT_EQ(workers.submissions_, BatchPlan_(8193, pool.pool_->NumThreads()).BatchCount());
-    ASSERT_EQ(evaluations.load(), workers.submissions_);
-    const auto recovered =
-        MCSimulation<AAD::Number_>(ScriptTestProduct("pay PAYS FIX(EQ[DAL196_TEST], 2026-09-11)"), data, 257, {}, {}, snapshot);
+    ASSERT_EQ(workers.submissions_, std::min(pool.pool_->NumThreads(), Script::Detail::ChunkPlan_(8193).BatchCount()));
+    const auto failedEvaluations = evaluations.load();
+    ASSERT_GT(failedEvaluations, 0u);
+    ASSERT_LE(failedEvaluations, workers.submissions_);
+    const auto recovered = MCSimulation<AAD::Number_>(ScriptTestProduct("pay PAYS FIX(EQ[DAL196_TEST], 2026-09-11)"), data, 257, {}, {}, snapshot);
     ASSERT_DOUBLE_EQ(recovered.aggregated_ / 257, 80.0);
+    ASSERT_EQ(evaluations.load(), failedEvaluations);
     for (double risk : recovered.risks_)
         ASSERT_TRUE(std::isfinite(risk));
 }

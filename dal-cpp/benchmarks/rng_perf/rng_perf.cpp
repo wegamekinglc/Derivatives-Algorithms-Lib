@@ -8,14 +8,37 @@
 #include <dal/math/vectors.hpp>
 #include <dal/benchmarks/bench.hpp>
 
+#include "productionrng.hpp"
+#include "sobolprofile.hpp"
+
 using namespace Dal;
 
 namespace {
     constexpr int kDim = 10;
     constexpr int kNumPaths = 100000;
+
+    void RunSkipCases(int repeats) {
+        for (const auto* name : {"MRG32", "IRN"}) {
+            double sink = 0.0;
+            const auto result = Bench::Run(
+                std::string(name) + " SkipNormalTo (100K x 10D)",
+                [&]() {
+                    auto generator = New(RNGType_(name), 1024, kDim, false);
+                    Vector_<> dst(kDim);
+                    generator->SkipNormalTo(kNumPaths);
+                    generator->FillNormal(&dst);
+                    sink += dst[0];
+                },
+                2, repeats);
+            Bench::Print(result);
+            Bench::DoNotOptimize(&sink);
+        }
+    }
 } // namespace
 
-int main() {
+int main(int argc, char** argv) {
+    if (argc > 1)
+        return RunSobolProfile(argc, argv);
     constexpr int kRepeats = 10;
     Bench::PrintHeader();
 
@@ -104,21 +127,7 @@ int main() {
         Bench::DoNotOptimize(&sink);
     }
 
-    for (const auto* name : {"MRG32", "IRN"}) {
-        double sink = 0.0;
-        const auto result = Bench::Run(
-            std::string(name) + " SkipNormalTo (100K x 10D)",
-            [&]() {
-                auto generator = New(RNGType_(name), 1024, kDim, false);
-                Vector_<> dst(kDim);
-                generator->SkipNormalTo(kNumPaths);
-                generator->FillNormal(&dst);
-                sink += dst[0];
-            },
-            2, kRepeats);
-        Bench::Print(result);
-        Bench::DoNotOptimize(&sink);
-    }
-
+    RunSkipCases(kRepeats);
+    RunProductionRngCases(kRepeats);
     return 0;
 }

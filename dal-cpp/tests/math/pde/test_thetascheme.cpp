@@ -3,14 +3,15 @@
 //
 
 #include <gtest/gtest.h>
+
+#include <memory>
+
 #include <dal/platform/platform.hpp>
 #include <dal/math/distribution/black.hpp>
 #include <dal/math/pde/pdegrid.hpp>
 #include <dal/math/pde/thetascheme.hpp>
 #include <dal/protocol/optiontype.hpp>
 #include <dal/utilities/exceptions.hpp>
-
-#include <memory>
 
 using namespace Dal;
 using namespace Dal::PDE;
@@ -170,6 +171,35 @@ TEST(ThetaSchemeTest, TestPreparedStateValidationThrowsOnStaleInputs) {
     guarded.Prepare(dt, pde.grids, *timeDependentDisc, *pde.mu, *pde.var);
     mutableRate = 0.07;
     ASSERT_THROW(guarded(dt, pde.grids, vals, *timeDependentDisc, *pde.mu, *pde.var, &vals), Exception_);
+}
+
+TEST(ThetaSchemeTest, TestCoefficientScratchPreservesEmptyAndZeroInitializedOutputs) {
+    struct Advection_ : VectorCoeff_ {
+        void Value(const Vector_<>& x, Vector_<>* value) const override {
+            REQUIRE(value->empty(), "coefficient output must start empty");
+            value->Resize(1);
+            REQUIRE((*value)[0] == 0.0, "coefficient output must start zero initialized");
+            if (x[0] == 0.0)
+                (*value)[0] = 0.02;
+        }
+        Vector_<x_dep_t> XDependence() const override { return {x_dep_t(1)}; }
+    } advection;
+
+    BlackScholesPde_ pde(41);
+    const Handle_<VectorCoeff_> reference(NewVectorCoeff([](double x) { return x == 0.0 ? 0.02 : 0.0; }));
+    auto values = TerminalCallValue(pde.loc);
+    auto expected = TerminalCallValue(pde.loc);
+    ThetaScheme_ scheme(0.5);
+    ThetaScheme_ referenceScheme(0.5);
+    const double dt = 0.01;
+    scheme.Prepare(dt, pde.grids, *pde.disc, advection, *pde.var);
+    referenceScheme.Prepare(dt, pde.grids, *pde.disc, *reference, *pde.var);
+    for (int i = 0; i < 3; ++i) {
+        scheme(dt, pde.grids, values, *pde.disc, advection, *pde.var, &values);
+        referenceScheme(dt, pde.grids, expected, *pde.disc, *reference, *pde.var, &expected);
+        for (int k = 0; k < static_cast<int>(pde.loc.size()); ++k)
+            ASSERT_DOUBLE_EQ((*values[0])(0, 0, k), (*expected[0])(0, 0, k));
+    }
 }
 
 TEST(ThetaSchemeTest, TestCrankNicolsonEuropeanCallMatchesBlackPrice) {

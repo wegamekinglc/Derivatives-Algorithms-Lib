@@ -6,6 +6,7 @@
 
 #include <dal/math/operators.hpp>
 #include <dal/model/base.hpp>
+#include <dal/model/detail/blackscholesstep.hpp>
 #include <dal/storage/archive.hpp>
 #include <dal/utilities/algorithms.hpp>
 
@@ -39,6 +40,7 @@ namespace Dal {
             T_ rate_;
             T_ div_;
             T_ vol_;
+            T_ logSpot_{};
 
             Vector_<> timeLine_;
             bool todayOnTimeLine_ = false;
@@ -54,12 +56,7 @@ namespace Dal {
             Vector_<T_*> parameters_;
             Vector_<String_> parameterLabels_;
 
-            void ValidateParameters() const {
-                REQUIRE(std::isfinite(Value(spot_)) && Value(spot_) > 0.0, "InvalidModelParameter: spot must be finite and positive");
-                REQUIRE(std::isfinite(Value(vol_)) && Value(vol_) >= 0.0, "InvalidModelParameter: vol must be finite and nonnegative");
-                REQUIRE(std::isfinite(Value(rate_)), "InvalidModelParameter: rate must be finite");
-                REQUIRE(std::isfinite(Value(div_)), "InvalidModelParameter: div must be finite");
-            }
+            void ValidateParameters() const { Detail::ValidateBlackScholesParameters(spot_, vol_, rate_, div_); }
 
             void SetParamPointers() {
                 parameters_[0] = &spot_;
@@ -103,11 +100,62 @@ namespace Dal {
             }
 
             template <bool VALIDATE_> bool GeneratePathImpl(const Vector_<>& gaussVec, Scenario_<T_>* path) const {
-                return GenerateSpots(spot_, T_(Dal::log(spot_)), todayOnTimeLine_, drifts_, stds_, gaussVec,
+                return GenerateSpots(spot_, logSpot_, todayOnTimeLine_, drifts_, stds_, gaussVec,
                                      [&](size_t idx, const T_& spot) { return FillScenario<VALIDATE_>(idx, spot, (*path)[idx], (*defLine_)[idx]); });
             }
 
         public:
+            class RestartPaths_ {
+                const BlackScholes_& model_;
+                Scenario_<T_> path_;
+                T_ initialLogSpot_;
+                T_ logSpot_;
+                size_t next_ = 0;
+
+            public:
+                static constexpr size_t SCHEMA = 1;
+                struct State_ {
+                    T_ logSpot_;
+                    size_t next_;
+                };
+
+                explicit RestartPaths_(const BlackScholes_& model)
+                    : model_(model), initialLogSpot_(Dal::log(model.spot_)), logSpot_(initialLogSpot_) {
+                    static_assert(std::is_same_v<T_, double>, "Passive restart requires double storage");
+                    REQUIRE(typeid(model) == typeid(BlackScholes_) && !model.todayOnTimeLine_, "Unsupported BS restart model/grid");
+                    AllocatePath(*model.defLine_, path_);
+                    InitializePath(path_);
+                    for (size_t i = 0; i < path_.size(); ++i)
+                        model.template FillScenario<false>(i, T_(0.0), path_[i], (*model.defLine_)[i]);
+                }
+
+                void Restore(const State_& state) {
+                    REQUIRE(state.next_ <= path_.size() && std::isfinite(state.logSpot_), "Invalid BS restart state");
+                    logSpot_ = state.logSpot_;
+                    next_ = state.next_;
+                }
+                [[nodiscard]] State_ Save() const { return {logSpot_, next_}; }
+                void Reset() { Restore({initialLogSpot_, 0}); }
+                void Advance(const Vector_<>& normals, size_t last) {
+                    REQUIRE(normals.size() == model_.SimDim() && next_ <= last && last <= path_.size(), "Invalid BS restart range");
+                    for (; next_ < last; ++next_) {
+                        logSpot_ += model_.drifts_[next_] + model_.stds_[next_] * normals[next_];
+                        REQUIRE(model_.template FillScenario<true>(next_, Dal::exp(logSpot_), path_[next_], (*model_.defLine_)[next_]),
+                                "InvalidSimulationPath: BS restart");
+                    }
+                }
+                [[nodiscard]] const Scenario_<T_>& Path() const { return path_; }
+            };
+
+            [[nodiscard]] size_t PassiveStorageBytes() const {
+                size_t bytes = sizeof(*this) + sizeof(T_) * (stds_.capacity() + drifts_.capacity() + numeraires_.capacity()) +
+                               sizeof(double) * timeLine_.capacity() + sizeof(Vector_<T_>) * discounts_.capacity() +
+                               sizeof(T_*) * parameters_.capacity();
+                for (const auto& values : discounts_)
+                    bytes += sizeof(T_) * values.capacity();
+                return bytes;
+            }
+
             class CheckedPaths_ {
                 T_ spot_;
                 T_ logSpot_;
@@ -157,10 +205,7 @@ namespace Dal {
             }
 
             template <class U_>
-            BlackScholes_(const U_& spot,
-                          const U_& vol,
-                          const U_& rate = U_(0.0),
-                          const U_& div = U_(0.0))
+            BlackScholes_(const U_& spot, const U_& vol, const U_& rate = U_(0.0), const U_& div = U_(0.0))
                 : spot_(spot), vol_(vol), rate_(rate), div_(div), parameters_(4), parameterLabels_(BlackScholesLabels()) {
                 ValidateParameters();
                 SetParamPointers();
@@ -210,29 +255,23 @@ namespace Dal {
 
             void Init(const Vector_<>& productTimeline, const Vector_<SampleDef_>& defLine) override {
                 ValidateParameters();
+                logSpot_ = Dal::log(spot_);
                 const T_ mu = rate_ - div_;
                 const size_t n = timeLine_.size() - 1;
 
                 for (size_t i = 0; i < n; ++i) {
                     const double dt = timeLine_[i + 1] - timeLine_[i];
-                    stds_[i] = vol_ * Dal::sqrt(dt);
-
-                    drifts_[i] = (mu - 0.5 * vol_ * vol_) * dt;
-                    REQUIRE(std::isfinite(Value(stds_[i])) && std::isfinite(Value(drifts_[i])), "InvalidModelParameter: non-finite BS step");
+                    const auto coefficients = Detail::BlackScholesCoefficients(vol_, mu, dt);
+                    stds_[i] = coefficients.std_;
+                    drifts_[i] = coefficients.drift_;
                 }
 
                 const size_t m = productTimeline.size();
                 for (size_t i = 0; i < m; ++i) {
-                    if (defLine[i].numeraire_) {
-                        numeraires_[i] = Dal::exp(rate_ * productTimeline[i]);
-                        REQUIRE(std::isfinite(Value(numeraires_[i])) && Value(numeraires_[i]) > 0.0,
-                                "InvalidModelParameter: non-finite or zero BS numeraire");
-                    }
-                    for (size_t k = 0; k < defLine[i].discountMats_.size(); ++k) {
-                        discounts_[i][k] = Dal::exp(-rate_ * (defLine[i].discountMats_[k] - productTimeline[i]));
-                        REQUIRE(std::isfinite(Value(discounts_[i][k])) && Value(discounts_[i][k]) > 0.0,
-                                "InvalidModelParameter: non-finite or zero BS discount factor");
-                    }
+                    if (defLine[i].numeraire_)
+                        numeraires_[i] = Detail::BlackScholesNumeraire(rate_, productTimeline[i]);
+                    for (size_t k = 0; k < defLine[i].discountMats_.size(); ++k)
+                        discounts_[i][k] = Detail::BlackScholesDiscount(rate_, productTimeline[i], defLine[i].discountMats_[k]);
                 }
             }
 
@@ -255,18 +294,14 @@ namespace Dal {
         };
     } // namespace AAD
 
-    struct BSModelData_: ModelData_ {
+    struct BSModelData_ : ModelData_ {
         double spot_;
         double vol_;
         double rate_;
         double div_;
 
-        BSModelData_(const String_& name,
-                     double spot,
-                     double vol,
-                     double rate = 0.0,
-                     double div = 0.0)
-                     : ModelData_("BSModelData_", name), spot_(spot), vol_(vol), rate_(rate), div_(div) {
+        BSModelData_(const String_& name, double spot, double vol, double rate = 0.0, double div = 0.0)
+            : ModelData_("BSModelData_", name), spot_(spot), vol_(vol), rate_(rate), div_(div) {
             parameterLabels_ = BlackScholesLabels();
         }
 

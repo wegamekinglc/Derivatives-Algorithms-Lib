@@ -41,6 +41,13 @@ namespace Dal {
         return {{n - 2, -excess}, {n - 1, 1.0 + excess}};
     }
 
+    double LogDfInterpolation_::EvaluateDouble(const Vector_<>& values, double yf) const {
+        const auto knot = std::lower_bound(yf_.begin(), yf_.end(), yf);
+        if (knot != yf_.end() && *knot == yf)
+            return 0.0 + 1.0 * values[knot - yf_.begin()];
+        return Interp::ApplyInterpWeights(values, WeightsAt(yf));
+    }
+
     Interp::InterpWeights_ LogDfInterpolation_::WeightsAt(double yf) const {
         if (yf > yf_.back())
             return SecantExtrapolation(yf);

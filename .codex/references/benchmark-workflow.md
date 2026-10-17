@@ -7,6 +7,7 @@ substitute for correctness review.
 ## Contents
 
 - [Project benchmark context](#project-benchmark-context)
+- [Change-scoped acceptance](#change-scoped-acceptance)
 - [Regression gate and module map](#regression-gate-and-module-map)
 - [Baseline and isolation](#baseline-and-isolation)
 - [Release builds](#release-builds)
@@ -37,9 +38,34 @@ Read current shared build options in `CLAUDE.md`, the benchmark target inventory
 `.github/scripts/check_benchmark_regressions.py`. These are current repository files; no legacy
 Claude artifact is required.
 
+## Change-Scoped Acceptance
+
+For every development task, select cases by the changed paths and their callers before
+building or sampling. The default is the smallest defensible set, including affected
+algorithms, public entry points, and relevant size/mode boundaries. A shared-header edit
+requires dependency and caller analysis; it does not automatically require all targets or
+every Cartesian product of parameters. Record the mapping and exclusions in the PR or
+active performance report.
+
+During a repair, rerun affected cases only. Broaden the selection for a concrete new
+failure, changed dependency/configuration, or coverage gap, and record that reason first.
+Do not require full-matrix acceptance at every PR or merge. Keep each selected case's
+calibrated sample counts, interleaving, noise controls and threshold unchanged. Increase
+samples only for a borderline or noisy result.
+
+Reuse prior evidence when immutable baseline/dependency/configuration provenance and
+executable hashes establish that it still applies. Rebuild affected binaries, verify their
+identity, and retain the original raw evidence. A changed binary needs measurement of its
+affected paths; a documentation-only change needs no new timing. Record excluded cases
+as outside this change's scope, never as newly measured passes.
+
+The scheduled full-suite workflow remains a repository monitoring tool. Required
+exact-head CI remains required; local development acceptance uses the scoped selection.
+
 ## Regression Gate And Module Map
 
-The regression gate is exactly these nine executables:
+The scheduled regression gate allows these nine executables. For development acceptance,
+select the affected subset with `--benchmarks`:
 
 - `tape_perf`: native AAD tape clear, rewind, zero-adjoint, and propagation operations.
 - `jacobian_perf`: curve-calibration Jacobian sweeps and dense/row-width harvesting.
@@ -98,6 +124,20 @@ builds.
 
 ## Release Builds
 
+For a historical baseline containing the generic joint single-process timing assertion,
+prepare that isolated checkout before configuring it:
+
+```bash
+python3 "$head_source/.github/scripts/prepare_benchmark_baseline.py" \
+  --source-root "$baseline_source" \
+  --evidence-dir "$perf_root/baseline-timing-adjustment"
+```
+
+The preparation removes only the recognized timing assertion from the benchmark driver.
+It preserves native library code, workloads, numerical checks and operation counters, and
+retains the exact patch and before/after source hashes. An unfamiliar assertion fails
+preparation. An already prepared source needs no adjustment.
+
 Configure both sides as Release builds with benchmarks explicitly enabled. Keep `-S` and `-B`
 visible so there is no ambiguity about which source produced which binary:
 
@@ -105,8 +145,8 @@ visible so there is no ambiguity about which source produced which binary:
 cmake --preset=Release-linux -S "$head_source" -B "$head_build" -DDAL_CPP_BUILD_BENCHMARKS=ON
 cmake --preset=Release-linux -S "$baseline_source" -B "$baseline_build" -DDAL_CPP_BUILD_BENCHMARKS=ON
 
-cmake --build "$head_build" --parallel "$(nproc)"
-cmake --build "$baseline_build" --parallel "$(nproc)"
+cmake --build "$head_build" --target tape_perf jacobian_perf --parallel "$(nproc)"
+cmake --build "$baseline_build" --target tape_perf jacobian_perf --parallel "$(nproc)"
 ```
 
 Build both sides on the same machine without changing compiler, CPU governor, native-architecture
@@ -139,7 +179,7 @@ Do not use `bin/<benchmark>`, `build/stage/.../bin/<benchmark>`, or a path from 
 
 Single process runs are diagnostic only. Never issue a regression verdict from one run.
 
-For every gated executable:
+For every selected executable or case:
 
 1. Run the branch and baseline on the same otherwise-idle machine.
 2. Collect at least ten process-level samples per side.
@@ -165,13 +205,16 @@ Asia/Shanghai each day. It compares the latest default-branch commit with its
 first parent. Two rounds of ten means twenty interleaved process samples per
 case and side. The workflow can also be dispatched manually.
 
-Reproduce it against the isolated build roots:
+Reproduce the scheduled full gate against isolated build roots when diagnosing that
+workflow. For development acceptance, pass the affected target subset explicitly; for
+example, a tape/adjoint change can start with:
 
 ```bash
 python3 "$head_source/.github/scripts/check_benchmark_regressions.py" \
   --base-root "$baseline_build" \
   --head-root "$head_build" \
   --output-dir "$perf_root/paired-results" \
+  --benchmarks tape_perf jacobian_perf \
   --samples 10 \
   --confirmation-rounds 2 \
   --threshold-percent 4
@@ -185,6 +228,8 @@ The script:
 - fails a comparable case only when every confirmation round exceeds +4%;
 - treats base-only case removal/renaming as a hard coverage failure;
 - reports head-only cases as new informational coverage;
+- checks the head's six generic joint aggregation/reference pairs against the 20% overhead
+  ceiling using the same best-of-ten confirmation rounds, even without a comparable baseline;
 - applies the current Sobol precise-opt-in/fast ratio ceiling; and
 - writes raw command outputs, `results.json`, and `summary.md` under the output directory.
 
@@ -195,6 +240,38 @@ The Linux and Windows benchmark jobs upload `benchmark-results/` for 30 days. Bo
 contain `environment.json` with source SHAs, runner and CPU identity, toolchain, AAD backend, and
 thread settings. Linux additionally retains each smoke run's `/usr/bin/time --verbose` resource
 record and the paired gate's raw outputs, `results.json`, and `summary.md`.
+
+Both jobs use `.github/scripts/run_benchmarks.py` to discover smoke cases through CTest's
+JSON inventory and execute each registered command, including its arguments and working
+directory. Test names identify evidence files; they need not match executable names. The
+`script_mc_compiled_soa_profile` case runs `script_mc_perf --compiled-soa weekly 32 65 1 steady`.
+The retained `ctest-tests.json` records the discovered commands. Smoke runs
+use build-tree binaries on both platforms, retain each test's output and exit status, and
+continue through remaining cases after a process failure before failing the step.
+
+The scheduled native gate enables `--retry-identical-binaries`. It records executable
+SHA-256 identities before and after sampling. When every selected base/head executable
+is byte-identical, both CMake caches confirm `BUILD_SHARED_LIBS=OFF`, and all
+failures concern relative timing, it retries only failing
+targets once with the same sample count, rounds and thresholds. Changed executables,
+missing or shared build modes, missing coverage, process errors and head-only
+absolute cost failures are not eligible.
+Identity drift is a hard error. A repeated timing failure still fails the job.
+When a retry occurs, `initial-results.json`, `initial-summary.md` and the original raw
+outputs preserve the first verdict; `retry/` contains the second attempt. The final
+results identify retried targets and combine their new samples with unchanged targets'
+initial samples. The summary and workflow warning explicitly disclose the first failure.
+The command-line default keeps the original single-attempt behavior.
+
+Linux also retains any historical timing-assertion adjustment in
+`baseline-timing-adjustment/`. Smoke runs retain numerical and operation-counter checks;
+the generic joint timing ceiling is enforced by the paired Linux gate.
+
+The Linux job requires the current head's full Python suite and the same head benchmark
+workload tests on both native builds. The historical baseline's own full Python suite is
+diagnostic: its output and exit status are retained in `python-baseline-tests/`, and a failure
+emits a warning. Historical defects outside the shared workloads do not block measuring a fix;
+head-suite failures and either build's shared-workload failures still stop the comparisons.
 
 ## Threshold And Verdict
 
@@ -224,7 +301,8 @@ The report must contain:
 - Release configuration, benchmark enablement, compiler, CPU, AAD backend, thread count, and
   whether the machine was quiet;
 - sample count per side, interleaving order, reduction (`min`), round count, and threshold;
-- for every gated benchmark and case: baseline minimum, branch minimum, percentage delta, both
+- changed paths, selected cases, excluded coverage and any reason for expanding the selection;
+- for every selected benchmark and case: baseline minimum, branch minimum, percentage delta, both
   confirmation-round deltas, and verdict;
 - paths to retained raw outputs, `results.json`, and `summary.md`;
 - any informational benchmark results outside the nine-target gate;

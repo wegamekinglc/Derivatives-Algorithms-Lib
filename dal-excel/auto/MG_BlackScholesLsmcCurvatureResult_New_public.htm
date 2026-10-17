@@ -1,0 +1,41 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>BlackScholesLsmcCurvatureResult_New</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>BlackScholesLsmcCurvatureResult_New (in Excel: BLACKSCHOLESLSMCCURVATURERESULT.NEW)</h1>
+Evaluate finite-step LSMC curvature under Frozen or RetrainedBump policies
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>name</td><td>string</td><td></td><td>Object name</td></tr>
+<tr><td>plan</td><td>handle of type StorableBlackScholesLsmcPlan</td><td></td><td>Sealed native LSMC plan with AAD enabled</td></tr>
+<tr><td>point</td><td>matrix of cells</td><td></td><td>Complete finite numeric row or column; blank gaps reject</td></tr>
+<tr><td>paths</td><td>number</td><td></td><td>Positive exact size_t integer; combined Sobol blocks must fit native limits</td></tr>
+<tr><td>bumps</td><td>handle of type StorableBumpOverAADRequest</td><td></td><td>Full signed directions, positive actual steps and separate numeric and recording caps</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>result</td><td>handle of type StorableBlackScholesLsmcCurvatureResult</td><td>Completed owning value, gradient, products, base policies and execution metadata</td></tr>
+</table>
+
+
+
+
+
+

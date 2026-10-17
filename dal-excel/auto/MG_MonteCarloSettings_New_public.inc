@@ -37,7 +37,7 @@ struct XlRegister_MonteCarloSettings_New_
     {
         Vector_<String_> argHelp;        
         argHelp.push_back("Object name");
-        argHelp.push_back("Two columns: method, use_bb, enable_aad, smooth, compiled, lsmc_basis_degree, lsmc_training_paths, lsmc_validation_paths, lsmc_rqmc_replicates, lsmc_training_seed, lsmc_pricing_seed, lsmc_policy_risk_mode, lsmc_policy_bump_relative.");
+        argHelp.push_back("2-col key/value; blank=defaults. RNG/bridge/AAD/smooth/compiled/normal_precision; lsmc_* basis/paths/validation/RQMC/seeds/risk/bump. lsmc_checkpoint_block_events>0 needs lsmc_training_memory_mb>0 MiB; compiled,1 worker,exact BS only; unset=full storage.");
         Excel::Register("Base", "xl_MonteCarloSettings_New", "MONTECARLOSETTINGS.NEW", "Create immutable Monte Carlo execution settings", "QQQ", "name,[settings]", argHelp, false);
     }
 };

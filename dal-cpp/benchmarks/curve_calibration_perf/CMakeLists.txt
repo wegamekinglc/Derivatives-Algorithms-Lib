@@ -4,13 +4,6 @@ add_executable(curve_calibration_perf ${CURVE_CALIBRATION_PERF_FILES})
 
 target_link_libraries(curve_calibration_perf dal_library)
 
-if(DAL_USE_XAD_AAD)
-    target_link_libraries(curve_calibration_perf XAD::xad)
-elseif(DAL_USE_CODIPACK_AAD)
-    target_link_libraries(curve_calibration_perf CoDiPack)
-elseif(DAL_USE_ADEPT_AAD)
-    target_link_libraries(curve_calibration_perf adept)
-endif ()
 
 if(MSVC)
 else()
@@ -24,4 +17,3 @@ install(TARGETS curve_calibration_perf
 
 add_test(NAME curve_calibration_perf COMMAND curve_calibration_perf)
 set_tests_properties(curve_calibration_perf PROPERTIES LABELS "benchmark")
-

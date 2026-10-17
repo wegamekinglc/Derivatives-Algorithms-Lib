@@ -1,0 +1,172 @@
+diff --git a/dal-cpp/dal/math/aad/aad.hpp b/dal-cpp/dal/math/aad/aad.hpp
+index 5a0934cc..037e7be4 100644
+--- a/dal-cpp/dal/math/aad/aad.hpp
++++ b/dal-cpp/dal/math/aad/aad.hpp
+@@ -47,7 +47,10 @@ namespace Dal::AAD {
+
+     FORCE_INLINE void Clear(Tape_* tape) { return Clear(*tape); }
+
+-    FORCE_INLINE void RegisterIndependent(Number_& n, double v) { n = v; }
++    FORCE_INLINE void RegisterIndependent(Number_& n, double v) {
++        n.node_ = n.CreateMultiNode<0>();
++        n.value_ = v;
++    }
+
+     FORCE_INLINE void ZeroAdjoints(Tape_& tape) {
+         if (tape.HasReverseEventState()) {
+@@ -79,6 +82,8 @@ namespace Dal::AAD {
+
+ namespace Dal::AAD {
+     inline Number_ PayoffRoot(const Number_& payoff, const Number_& activeZero) {
++        if (payoff.IsPassive())
++            return payoff + activeZero;
+         auto end = Tape()->nodes_.End();
+         // Only a terminal node recorded after the mark is already a path-local root.
+         if (end != Tape()->nodes_.Mark() && &Adjoint(payoff) == &std::prev(end)->Adjoint())
+diff --git a/dal-cpp/dal/math/aad/expr.hpp b/dal-cpp/dal/math/aad/expr.hpp
+index f1f69c6d..79e1cac8 100644
+--- a/dal-cpp/dal/math/aad/expr.hpp
++++ b/dal-cpp/dal/math/aad/expr.hpp
+@@ -478,6 +478,19 @@ namespace Dal::AAD {
+ #endif
+         }
+
++        FORCE_INLINE TapNode_* CreateConstantNode() {
++            auto* tape = Tape();
++#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
++            tape->CheckNodeAllocation();
++#endif
++            if (tape->constantSink_ == nullptr)
++                tape->constantSink_ = tape->RecordNode<0>();
++#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
++            binding_ = tape->CaptureBinding(tape->constantSink_);
++#endif
++            return tape->constantSink_;
++        }
++
+         template <class E_> void FromExpr(const Expression_<E_>& e) {
+             Tape_* tape = Tape();
+ #if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+@@ -514,19 +527,16 @@ namespace Dal::AAD {
+
+         Number_(): value_(0.0), node_(nullptr) {}
+
+-        Number_(double val) : value_(val) { node_ = CreateMultiNode<0>(); }
++        Number_(double val) : value_(val) { node_ = CreateConstantNode(); }
+
+         FORCE_INLINE Number_& operator=(double val) {
+-#if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+-            node_ = CreateMultiNode<0>();
+-            value_ = val;
+-#else
++            node_ = CreateConstantNode();
+             value_ = val;
+-            node_ = CreateMultiNode<0>();
+-#endif
+             return *this;
+         }
+
++        [[nodiscard]] bool IsPassive() const { return node_ != nullptr && node_ == Tape()->constantSink_; }
++
+         template <class E_>
+         FORCE_INLINE Number_(const Expression_<E_>& e) : value_(Value(e)) {
+             FromExpr<E_>(static_cast<const E_&>(e));
+@@ -546,6 +556,7 @@ namespace Dal::AAD {
+         }
+
+         friend void PutOnTape(Number_&);
++        friend void RegisterIndependent(Number_&, double);
+
+         friend double Value(const Number_&);
+         friend double& Adjoint(const Number_&);
+@@ -616,10 +627,13 @@ namespace Dal::AAD {
+         num.ValidateOperands(Tape(), "Number.Adjoint");
+ #endif
+         REQUIRE(num.node_ != nullptr, "Adjoint: Number_ has no tape node");
++        REQUIRE(!num.IsPassive(), "Adjoint: passive constant requires explicit independent registration");
+         return num.node_->Adjoint();
+     }
+
+-    FORCE_INLINE void PutOnTape(Number_& n) { n.node_ = n.CreateMultiNode<0>(); }
++    FORCE_INLINE void PutOnTape(Number_& n) {
++        n.node_ = n.CreateMultiNode<0>();
++    }
+ } // namespace Dal::AAD
+
+ namespace Dal::AAD {
+diff --git a/dal-cpp/dal/math/aad/native.hpp b/dal-cpp/dal/math/aad/native.hpp
+index 6769e775..0a4669fe 100644
+--- a/dal-cpp/dal/math/aad/native.hpp
++++ b/dal-cpp/dal/math/aad/native.hpp
+@@ -69,6 +69,8 @@ namespace Dal::AAD {
+ #endif
+             if (number.node_ == nullptr)
+                 Reject(operation, "number has no tape node");
++            if (number.IsPassive())
++                Reject(operation, "passive constant requires explicit independent registration");
+             RequireMode(tape->multi_, tape->numAdj_, operation);
+             if (channel >= (tape->multi_ ? tape->numAdj_ : 1))
+                 Reject(operation, "channel must be below the current adjoint width");
+diff --git a/dal-cpp/dal/math/aad/tape.cpp b/dal-cpp/dal/math/aad/tape.cpp
+index 95b19a2d..506ba148 100644
+--- a/dal-cpp/dal/math/aad/tape.cpp
++++ b/dal-cpp/dal/math/aad/tape.cpp
+@@ -290,6 +290,8 @@ namespace Dal::AAD {
+             tape.reverseFailed_ = true;
+         tape.reverseEvents_.reset();
+         tape.eventScratchPeakBytes_ = 0;
++        tape.constantSink_ = nullptr;
++        tape.markedConstantSink_ = nullptr;
+         ForEachBlockAll(tape, [](auto& block) { block.Clear(); });
+         tape.reverseFailed_ = false;
+         tape.UpdateThreadEventValidation();
+@@ -306,6 +308,7 @@ namespace Dal::AAD {
+         tape.RequireLiveGraph("Tape.Mark");
+ #endif
+         ForEachBlock(tape, [](auto& block) { block.SetMark(); });
++        tape.markedConstantSink_ = tape.constantSink_;
+         if (tape.reverseEvents_ != nullptr)
+             tape.reverseEvents_->marked_ = tape.reverseEvents_->entries_.size();
+ #if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+@@ -319,8 +322,14 @@ namespace Dal::AAD {
+             tape.reverseFailed_ = true;
+         tape.reverseEvents_.reset();
+         tape.eventScratchPeakBytes_ = 0;
++#if !defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
++        tape.constantSink_ = nullptr;
++        tape.markedConstantSink_ = nullptr;
++#endif
+ #if defined(DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS)
+         tape.BeginLifetimeReset();
++        tape.constantSink_ = nullptr;
++        tape.markedConstantSink_ = nullptr;
+         ForEachBlockAll(tape, [](auto& block) {
+             block.Rewind();
+             block.SetMark();
+@@ -344,6 +353,12 @@ namespace Dal::AAD {
+         tape.liveNodes_ = tape.markedNodes_;
+ #endif
+         ForEachBlock(tape, [](auto& block) { block.RewindToMark(); });
++        tape.constantSink_ = tape.markedConstantSink_;
++        if (tape.constantSink_ != nullptr) {
++            tape.constantSink_->Adjoint() = 0.0;
++            if (tape.multi_)
++                std::fill_n(&tape.constantSink_->Adjoint(0), tape.numAdj_, 0.0);
++        }
+     }
+
+     void NewRecording(Tape_&) {}
+diff --git a/dal-cpp/dal/math/aad/tape.hpp b/dal-cpp/dal/math/aad/tape.hpp
+index 76430524..493ee680 100644
+--- a/dal-cpp/dal/math/aad/tape.hpp
++++ b/dal-cpp/dal/math/aad/tape.hpp
+@@ -108,6 +108,9 @@ namespace Dal::AAD {
+         bool threadDefault_ = false; // GCC spills recording values when these constructor flags are adjacent.
+         friend struct NativeRecordedOperation_;
+
++        TapNode_* constantSink_ = nullptr;
++        TapNode_* markedConstantSink_ = nullptr;
++
+         void UpdateThreadEventValidation() const noexcept {
+             if (threadDefault_)
+                 NativeThread::eventValidationRequired = HasReverseEventState();

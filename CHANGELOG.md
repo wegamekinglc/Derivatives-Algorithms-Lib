@@ -16,6 +16,376 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-10-17
+
+- **Scoped GSR passive constants** — core C++ prepared compiled scalar AAD
+  Monte Carlo can opt into shared constant leaves for native three-factor GSR,
+  preserving default input registration and constructor semantics. See
+  [scoped passive constants](docs/methodology/passive-constants.md).
+
+## 2026-10-16
+
+- **Explicit compiled double SoA** — C++ ordinary Monte Carlo can batch exact
+  single-worker Black–Scholes requests in 8–64 path lanes, preserving prepared
+  observations, history and masked branch semantics. See
+  [simulation](docs/methodology/monte-carlo/simulation.md#explicit-compiled-double-batching).
+
+- **Bounded LSMC training opt-in** — compiled, single-worker exact Black–Scholes
+  training can restore complete passive state in time blocks, preserving the
+  native policy and named risks. Explicit memory admission includes historical
+  compiled programs, QR, temporary capacities and retained AAD tape, with budgeted
+  full-storage fallback.
+  See [training checkpoints](docs/methodology/monte-carlo/lsm.md#opt-in-training-checkpoints).
+
+- **Fast normal blocks** — Sobol and pseudo-random normal fills use runtime-selected
+  AVX2 central-region conversion on x86-64, with SSE2/scalar fallbacks and unchanged
+  uniform streams. Scalar and vector inverse-normal arithmetic share the build's
+  fused or non-fused rounding policy for bitwise agreement within a build.
+  See [normal precision](docs/methodology/monte-carlo/sampling.md#monte-carlo-normal-precision).
+
+## 2026-10-14
+
+- **Deterministic ordinary Monte Carlo** — scalar and weighted double/AAD
+  valuation uses thread-independent chunks, ordered bounded numeric reduction
+  and persistent worker state. PVs, all Greeks and weighted components repeat
+  exactly across worker counts on the same build and floating-point environment;
+  changed summation grouping can alter the last bits from earlier versions.
+  Hard LSMC prices share this numeric grouping, retaining the same training
+  and regression policy.
+  See [simulation batching](docs/methodology/script_engine.md#batching-and-thread-pool).
+
+## 2026-10-11
+
+- **Excel LSMC policy curvature** — sealed native EXERCISE plans and owning
+  results expose Frozen/RetrainedBump finite-step products, complete simulation
+  settings and detached baseline-policy arrays and metadata. See
+  [the worksheet interface](docs/excel/README.md#native-lsmc-policy-curvature).
+
+- **Excel segmented Monte Carlo risk** — immutable native settings and sealed
+  script plans expose owning means, complete raw gradients and common-path
+  finite-step Hessian products, exact uint64 scramble keys and separate path
+  resource limits. See [the worksheet interface](docs/excel/README.md#segmented-blackscholes-monte-carlo-risk).
+
+- **Excel rate quote curvature** — owning native calibration snapshots,
+  portfolio settings and results expose full recalibrated rate quote gradients,
+  signed finite-step Hessian products and separate numeric/recording limits.
+  See [the worksheet interface](docs/excel/README.md#rate-quote-gamma-and-hessian-products).
+
+- **Excel Dupire quote curvature** — immutable worksheet requests, plans and
+  results expose full recalibrated quote gradients, signed finite-step Hessian
+  products, complete quote metadata and separate native numeric budgets. See
+  [the worksheet interface](docs/excel/README.md#dupire-quote-gamma-and-hessian-products).
+
+- **Excel European PDE risk** — immutable worksheet settings, requests and
+  results expose native fixed-grid call/put prices, all six first derivatives,
+  chronological solve diagnostics and separate native memory budgets. See
+  [the worksheet interface](docs/excel/README.md#european-pde-risk).
+
+## 2026-10-10
+
+- **European PDE financial interfaces** — public C++ and Python expose owning
+  fixed-grid call/put prices and rate/volatility/strike adjoints, sharing the
+  full terminal/coefficient/boundary chain with the native example and reporting
+  actual per-step solve accuracy and separate payload/recording budgets. See
+  [the financial interface](docs/methodology/pde/aad.md#owning-financial-request).
+
+- **LSMC financial interfaces** — public C++ and Python own closed Black–Scholes
+  EXERCISE preparation and expose frozen/retrained policy curvature with complete
+  passive policy metadata and separate inner/outer steps. See
+  [the Python interface](docs/python/README.md#native-lsmc-policy-curvature).
+- **Segmented Monte Carlo financial interfaces** — public C++ and Python own
+  frozen Black–Scholes script preparation and expose segmented mean gradients
+  and common-path finite-step Hessian products with explicit sampling and memory
+  budgets. See [the Python interface](docs/python/README.md#segmented-blackscholes-monte-carlo-risk).
+- **Python rate quote curvature** — immutable four-family calibration snapshots
+  and weighted native rate portfolios expose recalibrated raw quote gradients,
+  Gamma/cross-Gamma and Hessian products with explicit steps and budgets. See
+  [the Python interface](docs/python/README.md#rate-quote-gamma-and-hessian-products).
+- **Python Dupire quote curvature** — typed owning requests, plans and results
+  expose recalibrated common-path Gamma, cross-Gamma and Hessian-vector estimates,
+  with raw quote axes, explicit steps and numeric budgets. See
+  [the Python interface](docs/python/README.md#dupire-quote-gamma-and-hessian-products).
+- **Smooth native second derivatives** — an opt-in C++ forward-over-reverse
+  number and request driver compute smooth directional Hessian products without
+  an outer finite-difference step, with scoped recording budgets and explicit
+  capability limits. See
+  [the prototype contract](docs/methodology/aad.md#smooth-native-forward-over-reverse-prototype).
+- **Native LSMC policy curvature** — Black–Scholes C++ requests distinguish
+  curvature conditional on one frozen policy from differences of retrained
+  policy-secanted gradients, with common paths, active historical constants
+  and explicit inner/outer steps. Model provenance rejects Hybrid and custom
+  preparations before training. See
+  [LSMC policy curvature](docs/methodology/aad.md#native-lsmc-policy-curvature).
+- **Native rate-trade quote curvature** — weighted native rate and XCCY
+  portfolios expose full recalibrated quote gradients and Hessian products,
+  with an owning market, fixed historical observations and explicit PV currency.
+  See [rate-trade quote curvature](docs/methodology/aad.md#native-rate-trade-quote-curvature).
+- **Cross-currency quote curvature** — staged basis and joint cross-currency
+  snapshots support full recalibration for native Gamma, cross-Gamma and HVP
+  estimates, with sealed fixed curve blocks and historical rate/FX fixings.
+  Fresh square inverse refinement retains the strict numerical admission check.
+  See [rate quote curvature](docs/methodology/aad.md#recalibrated-rate-quote-curvature).
+- **Recalibrated rate quote curvature** — owning single-curve and same-currency
+  joint snapshots rebuild exact square calibrations and their native analytic
+  quote mappings for Gamma, cross-Gamma and HVP estimates, including direct
+  objective quote dependence. See
+  [rate quote curvature](docs/methodology/aad.md#recalibrated-rate-quote-curvature).
+- **Monte Carlo Dupire quote curvature** — C++ financial requests estimate
+  Gamma, cross-Gamma and HVPs through full quote recalibration and rebuilt
+  model/direct dependencies on common paths, with frozen historical fixings
+  and owning raw-coordinate results. See
+  [MC quote curvature](docs/methodology/aad.md#common-path-c-monte-carlo-quote-curvature).
+- **Recalibrated Dupire quote curvature** — explicit native scalar objectives
+  produce quote Gamma, cross-Gamma and HVP estimates with a complete calibration,
+  objective gradient and native calibration pullback at every quote point.
+  Sealed base samples and fixed grids preserve the numerical calibration boundary.
+  See [Dupire quote curvature](docs/methodology/aad.md#recalibrated-dupire-quote-curvature).
+
+## 2026-10-09
+
+- **Common-path Monte Carlo curvature** — selected Gamma, cross-Gamma and HVP
+  estimates difference segmented native mean gradients over sealed common paths,
+  with complete bump-domain admission, owning preparation/smoothing provenance
+  and intersected per-path recording budgets. See
+  [Monte Carlo curvature](docs/methodology/aad.md#common-path-segmented-monte-carlo-curvature).
+- **Native directional curvature** — explicit bump-over-AAD requests return
+  owning base gradients and Gamma/cross-Gamma/Hessian-vector estimates from
+  fresh native recordings, with complete bump admission and separate numeric
+  and tape budgets. See [directional curvature](docs/methodology/aad.md#directional-curvature-with-bump-over-aad).
+- **Monte Carlo normal precision** — C++, Python and Excel settings explicitly
+  select fast or precise inverse-normal conversion across valuation and risk
+  replay. MRG32 and IRN now default to fast conversion, changing normal draws,
+  prices and Greeks; select `Precise` to retain their previous conversion.
+  MRG32 uses exact 64-bit recurrence arithmetic and direct batch filling with
+  the same uniform stream. See [sampling](docs/methodology/monte-carlo/sampling.md#monte-carlo-normal-precision).
+- **Segmented Black–Scholes Monte Carlo** — explicit native mean prices and
+  gradients use common-path RNG/bridge integration, bounded exclusive lanes,
+  ordered fixed-batch reduction and drained failure recovery. See
+  [segmented Monte Carlo](docs/methodology/aad.md#segmented-blackscholes-monte-carlo).
+- **Compiled Black–Scholes segmentation** — explicit native fixed-path gradients
+  retain complete script/vector/fixing state, rebuild historical constant risks
+  and check exact replay decisions while recording one segment at a time. See
+  [compiled Black–Scholes paths](docs/methodology/aad.md#compiled-blackscholes-paths).
+- **Segmented native path gradients** — an opt-in fixed-state C++ kernel driver
+  recomputes fresh local recordings, checks branch/state replay and accumulates
+  initialization, terminal and along-path parameter contributions with capacity
+  budgets. See [segmented path recomputation](docs/methodology/aad.md#segmented-path-recomputation).
+- **Rate-trade Jacobian strategies** — direct dense planning avoids conflict
+  construction; an explicit cached-plan request verifies current structure and
+  falls back to the current dense matrix when reuse is unavailable. See
+  [strategy selection](docs/methodology/aad-sparsity.md#choosing-a-strategy).
+- **Rate-trade parameter Jacobians** — dense and verified compressed native AAD
+  execution return complete owning price/parameter matrices across layered curves
+  and the closed pricing families. See
+  [complete rate-trade Jacobians](docs/methodology/aad-sparsity.md#complete-rate-trade-jacobians).
+- **Rate-trade structural dependencies** — owning curve-coordinate supports and
+  complete structural identity cover the closed pricing families and layered
+  bases, admitting fresh numerical points while rejecting unavailable proof.
+  See [rate-trade dependency capture](docs/methodology/aad-sparsity.md#rate-trade-dependency-provider).
+- **Native structural Jacobians** — scope-bound input identity and fixed-width
+  compressed reverse blocks reconstruct complete owning matrices from proven
+  supports, including aliases and recorded solver composition. See
+  [native execution](docs/methodology/aad-sparsity.md#native-aad-execution).
+- **Structural Jacobian plans** — owning conservative row supports and
+  deterministic greedy colors recover complete matrices from supplied compressed
+  gradients, with exact numeric payload admission. Supports require caller proof.
+  See [structural plans](docs/methodology/aad-sparsity.md).
+
+## 2026-10-08
+
+- **Recorded sampled PDE steps** — native AAD composes sampled theta steps with
+  ordinary expressions and serial rollback, accumulating declared state,
+  coefficient, boundary and time/theta risks with owning accuracy reports and
+  capacity budgets. See
+  [recorded PDE steps](docs/methodology/aad.md#recorded-sampled-pde-theta-steps).
+- **Sampled PDE theta-step pullback** — an owning numeric operator returns
+  discrete state, boundary, rate, drift, variance, time-step and theta risks
+  using a cached adjacent-pivot tridiagonal solve with physical forward/transpose
+  accuracy checks and linear buffer capacity. See
+  [sampled PDE steps](docs/methodology/aad.md#owning-sampled-pde-theta-steps).
+- **Recorded implicit roots** — native AAD composes owning equation
+  linearizations with ordinary expressions and serial root events, preserving
+  declared residual/transpose limits, shared invocation reports and capacity
+  budgets. See [recorded implicit roots](docs/methodology/aad.md#recorded-implicit-roots).
+- **Implicit-root linearization** — an owning numeric operator maps supplied
+  root-candidate adjoints through complete equation Jacobians, enforcing
+  per-equation residual and transpose accuracy limits with independent seed
+  columns and tracked buffers. See
+  [implicit roots](docs/methodology/aad.md#owning-implicit-root-linearization).
+- **Recorded coordinate accuracy** — native AAD checks packed symmetric/banded
+  solves under explicit forward/transpose limits, shares owning invocation
+  reports with dense solves and contracts risk into packed inputs. See
+  [recorded coordinate accuracy](docs/methodology/aad.md#recorded-coordinate-accuracy).
+- **Checked coordinate accuracy** — an optional owning numeric solver enforces
+  physical forward/transpose accuracy for packed symmetric and banded inputs,
+  returning parameter risks directly without a dense matrix gradient or a
+  second factorization. See
+  [checked coordinate accuracy](docs/methodology/matrix.md#checked-coordinate-accuracy).
+- **Recorded solve accuracy** — native dense solve events enforce explicit
+  forward/transpose limits and return owning reports from successful full,
+  suffix or prefix reverse invocations. Reports identify actual event/channel
+  execution and survive checkpoint restoration and recording close. See
+  [recorded accuracy](docs/methodology/aad.md#recorded-solve-accuracy).
+- **Explicit solve accuracy** — an optional owning numeric solver checks declared
+  forward and transpose backward-error limits, returns independent reverse
+  reports and preserves large finite equation risks. Physical transpose
+  snapshots and report buffers obey capacity budgets. See
+  [accuracy policies](docs/methodology/matrix.md#explicit-forward-and-transpose-accuracy).
+- **Recorded solve coordinates** — native AAD composes packed symmetric and
+  banded parameters with ordinary expressions, aliases and scalar/vector
+  reverse sweeps. One owning event retains packed bindings without a dense
+  active expansion, with the existing checkpoint and capacity contracts. See
+  [recorded coordinates](docs/methodology/aad.md#recorded-solve-coordinates).
+- **Explicit solve coordinates** — numeric linear-solve pullbacks accept packed
+  symmetric and variable-row band parameters, sum coupled symmetric gradients
+  and compute parameter contributions directly without a dense matrix adjoint.
+  Owning caches retain the existing pivoted LU and numerical checks. See
+  [coordinate pullbacks](docs/methodology/matrix.md#symmetric-and-banded-solve-coordinates).
+- **Native solve diagnostic results** — `LinearSolveWithDiagnostics` returns
+  differentiable outputs and an owning passive diagnostic report, reusing one
+  LU across forward, diagnostics and reverse. Cached and returned reports obey
+  tape and caller budgets respectively; the report survives restore and close.
+  See [recorded solves](docs/methodology/aad.md#recorded-dense-linear-solves).
+- **Opt-in linear-solve diagnostics** — numeric solves reuse their LU to report
+  infinity-norm reciprocal conditioning and per-RHS componentwise backward
+  errors, with scaled compensated residuals and tracked scratch. Ordinary
+  numeric and native recorded solves retain their existing caches and work.
+  See [solve diagnostics](docs/methodology/matrix.md#optional-solve-diagnostics).
+
+## 2026-10-07
+
+- **Native recorded dense solves** — dense solves compose with scalar/vector
+  native recordings, aliases, repeated reverse and checkpoint reuse, with
+  owned caches and preallocation tape-budget admission. Tape copying/moving
+  is uniformly disabled to preserve graph ownership. See
+  [recorded solves](docs/methodology/aad.md#recorded-dense-linear-solves).
+- **Independent dense linear-solve pullback** — a core C++ numeric operator owns
+  normalized pivoted LU factors, supports multiple RHS and repeated concurrent
+  reverse calls with adaptive RHS scaling, and returns dense matrix/RHS contributions with explicit pivot
+  and non-finite arithmetic rejection. See
+  [linear-solve methodology](docs/methodology/matrix.md#dense-linear-solve-pullback).
+- **Compatible C++/Python/Excel script portfolio risk** — sealed trade and model
+  ownership preserves shared model and private constant coordinates. Compatible
+  trades share scenarios; incompatible meshes and distinct owners retain separate
+  execution. Weighted objectives and blocked Jacobians return owning risk,
+  capacity and provenance results, with native-empty and passive zero-column
+  execution. See [portfolio APIs](docs/public-api.md#c-weighted-script-portfolios)
+  and [portfolio methodology](docs/methodology/aad.md#sealed-script-portfolio-coordinates).
+
+## 2026-10-06
+
+- **Budgeted C++/Python/Excel script Jacobians** — ordered output blocks replay a
+  single frozen preparation and return owning raw/report matrices, axes and
+  execution diagnostics. Result payload, aggregate native tape and numeric
+  scratch budgets admit known startup capacity before history and guard growth
+  during execution. Python adds read-only requests/results; Excel adds immutable
+  handles and spill tables. See [script Jacobians](docs/public-api.md#budgeted-script-jacobians).
+- **Tracked DAL numeric allocation** — native scratch budgets use a stateless
+  allocator across shared-library boundaries. This changes underlying standard
+  iterator types; C++ consumers must rebuild and use DAL iterator aliases. See
+  [capacity semantics](docs/methodology/aad.md#budgeted-script-jacobians).
+- **C++/Python/Excel weighted script risk** — ordered scalar output choices and passive
+  weights produce one native AAD objective, with owning component means,
+  weighted mean/gradient, reporting and preparation provenance. Exact numeric
+  payload preflight precedes history and workers; price-only execution is
+  explicit. Python supplies strict keyword requests, an output-axis query and
+  detached read-only results while releasing the GIL for native work. Excel
+  supplies immutable handles and component/gradient/snapshot tables. See
+  [weighted script risk](docs/public-api.md#weighted-script-risk) and the
+  [Python entry](docs/python/README.md#weighted-script-risk) and
+  [Excel entry](docs/excel/README.md#weighted-script-risk).
+- **Excel calibration and automatic Dupire requests** — immutable worksheet
+  requests and sealed plans expose quote selections, exact retained payload
+  budgets, explicit constant/direct dependencies and native AAD results. Passive
+  getters retain native source metadata and raw/report projections. See
+  [worksheet quote requests](docs/excel/script-settings.md#calibration-quote-requests).
+
+## 2026-10-05
+
+- **Python automatic Dupire script requests** — owning read-only requests and
+  sealed plans expose mandatory surface/direct inputs, complete payload budgets
+  and native Monte Carlo quote results. Typed direct bindings and callback-free
+  GIL release reuse the accepted C++ planner and execution. See
+  [automatic Python requests](docs/python/README.md#automatic-dupire-script-risk-requests).
+- **Python calibration-coordinate requests** — owning read-only requests,
+  plans and results expose native quote metadata, full/subset/empty selections,
+  complete retained payload budgets and detached raw/report projections. Strict
+  input parsing and callback-free GIL release reuse the native planner and VJP.
+  See [Python quote requests](docs/python/README.md#common-calibration-quote-requests).
+- **Automatic C++ Dupire script risk** — an owning request plan seals a native
+  flat-rate Hybrid, exposes mandatory surface/direct input coordinates and checks
+  the combined valuation/quote payload before execution. Explicit constant
+  dependencies add fixed-surface quote partials once; immutable results preserve
+  native estimator, provenance and report projections. See
+  [automatic requests](docs/methodology/aad.md#automatic-c-dupire-risk-requests).
+- **C++ calibration-coordinate requests** — passive owning plans select source-scoped
+  quote coordinates, expose native axes and preflight the complete retained
+  contribution payload. Immutable results preserve raw native derivatives and
+  provide detached report projections with finite scaling checks. See
+  [quote-coordinate requests](docs/yield-curves/jacobian-risk.md#c-quote-coordinate-requests).
+- **Common C++, Python and Excel calibration pullback** — an owning boundary maps passive
+  parameter adjoints from frozen Dupire or captured native curve provenance
+  into one immutable result with separate calibration, direct and total quote
+  contributions. Complete source checks preserve canonical coordinates and
+  existing inverse scaling. Python adds strict optional curve-record capture,
+  owning readonly values, detached matrices and callback-free GIL release.
+  Excel adds optional native record capture, immutable common handles and
+  detached contribution/source getters. See the
+  [common calibration interface](docs/yield-curves/jacobian-risk.md#common-passive-c-calibration-pullback).
+
+- **Frozen Dupire calibration quote pullback** — C++ snapshots retain numeric
+  base IVS samples and complete calibration identity; native scalar reverse maps
+  local-volatility node adjoints to spread quotes, with additive boundary seeds,
+  separate direct contributions and explicit domain validation. The public
+  Hybrid adapter checks retained model coordinates and typed component layout,
+  requires every surface seed and returns quote risk alongside the passive
+  valuation without rerunning Monte Carlo. See
+  [AAD methodology](docs/methodology/aad.md#discrete-dupire-calibration-pullback).
+  Python exposes the full chain with keyword configuration, custom/Merton IVS,
+  detached surfaces and readonly passive results; the public C++ flat-BS
+  convenience preserves deterministic carry. Excel exposes immutable calibration,
+  seed and result handles with detached getters and complete model/valuation
+  quote pullback; a shared model factory preserves frozen carry in both bindings.
+
+- **Structured script risk across C++, Python and Excel** —
+  `ValueByMonteCarloWithRisk` / `MonteCarlo_ValueWithRisk` return passive scalar
+  results with ordered model/script IDs, mean derivatives, report factors and
+  retained execution/model/history snapshots. Requests validate numeric payload
+  budgets before preparation; getters extract existing data and diagnose legacy
+  display collisions. See [AAD methodology](docs/methodology/aad.md#structured-scalar-risk-results).
+
+## 2026-10-04
+
+- **Explicit native AAD production profiling** — opt-in request and task
+  collectors expose phase wall time, actual thread CPU time, sampled tape
+  storage, successful block allocations, and selected array payloads. The
+  default-OFF build removes hot-loop instrumentation. `script_mc_perf` adds
+  explicit cold, warm, and phase modes with fixed-path price/risk validation.
+  See [AAD methodology](docs/methodology/aad.md#native-production-profiling).
+
+- **Native AAD only** — remove XAD, CoDiPack and Adept implementations,
+  submodule dependencies, build selections and installation exports. Enabled
+  legacy backend options fail explicitly; rebuild libraries and consumers with
+  native AAD. See [installation](docs/installation.md#native-aad-configuration).
+
+- **Optional native AAD lifetime diagnostics** — the default-OFF
+  `DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS` build checks active operands and adjoints
+  for foreign tapes, discarded recordings/suffixes and reused slots before node
+  access. Its ABI definition propagates to installed consumers and bindings.
+  See [AAD methodology](docs/methodology/aad.md#native-active-number-lifetime-diagnostics).
+
+- **Scoped AAD recordings and checkpoints** — recording phases, opaque checkpoint
+  handles, and owner/mode boundaries diagnose invalid use before tape mutation.
+  Independent curve, MC, and LSM replay recordings reject nesting and recover
+  after backend/cleanup failures. Native full clearing includes every vector
+  channel and leaf. See [AAD methodology](docs/methodology/aad.md#independent-recording-ownership).
+
+- **Native AAD propagation precision** — nonzero adjoints are no longer truncated
+  by an absolute threshold, preserving derivatives under intermediate rescaling.
+  Multi-result zero seeds are isolated from non-finite local derivatives, and
+  public Monte Carlo valuation diagnoses non-finite risk results. See
+  [AAD methodology](docs/methodology/aad.md).
+
 ## 2026-10-03
 
 - **perf: shared SIMD kernels and Eigen-backed dense product** —
@@ -539,8 +909,8 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 These are documented today and represent the current documented surface; they are listed
 here as the baseline rather than dated releases:
 
-- **Automatic Adjoint Differentiation (AAD)** — reverse-mode AD for risk sensitivities, with
-  Adept/XAD/CoDiPack backends. See `docs/methodology/aad.md`.
+- **Automatic Adjoint Differentiation (AAD)** — built-in native reverse-mode AD
+  for risk sensitivities. See `docs/methodology/aad.md`.
 - **Yield Curve Construction** — discount-factor / forward-rate parameterised curves
   calibrated to market instruments. See `docs/yield-curves/construction.md`.
 - **Underdetermined Search** — constrained least-change solver for over-parameterised
