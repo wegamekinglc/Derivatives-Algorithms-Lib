@@ -1,7 +1,3 @@
-//
-// Created by GitHub Copilot on 2026/5/17.
-//
-
 #include <gtest/gtest.h>
 
 #include <limits>

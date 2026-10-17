@@ -1,7 +1,3 @@
-//
-// Created on 2026/10/04.
-//
-
 #include <dal/curve/tapeguard.hpp>
 #include <dal/math/aad/statistics.hpp>
 #include <dal/platform/platform.hpp>

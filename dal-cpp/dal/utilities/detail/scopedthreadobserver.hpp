@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/9/16.
-//
-
 #pragma once
 
 #include <dal/platform/platform.hpp>

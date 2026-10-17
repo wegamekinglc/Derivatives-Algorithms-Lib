@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/10/06.
-//
-
 #pragma once
 
 #include <cstddef>
@@ -76,7 +72,7 @@ namespace Dal {
             size_t bytes_;
 
         public:
-            BufferDeallocationTicket_(BufferCapacityBudget_* budget, std::uintptr_t allocation) noexcept;
+            BufferDeallocationTicket_(BufferCapacityBudget_* budget, const void* allocation) noexcept;
             ~BufferDeallocationTicket_() noexcept;
             BufferDeallocationTicket_(const BufferDeallocationTicket_&) = delete;
             BufferDeallocationTicket_& operator=(const BufferDeallocationTicket_&) = delete;
@@ -112,7 +108,7 @@ namespace Dal {
         __declspec(noinline)
 #endif
         void DeallocateTrackedBuffer(BufferCapacityBudget_* budget, T_* allocation, D_ deallocate) noexcept {
-            const BufferDeallocationTicket_ ticket(budget, reinterpret_cast<std::uintptr_t>(allocation));
+            const BufferDeallocationTicket_ ticket(budget, static_cast<const void*>(allocation));
             deallocate(allocation);
         }
 

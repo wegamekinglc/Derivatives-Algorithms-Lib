@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/7/15.
-//
-
 #include <dal/platform/platform.hpp>
 
 #include <cmath>

@@ -1,7 +1,3 @@
-//
-// Created by dal-implementer on 2026/8/31.
-//
-
 #include <gtest/gtest.h>
 
 #include <dal/curve/quoteriskprovenance.hpp>

@@ -1,6 +1,3 @@
-//
-// Created by dal-implementer on 2026-7-4.
-//
 // InverseNCDF micro-benchmark.
 // InverseNCDF is the per-deviate cost inside every FillNormal (Sobol, PseudoRandom,
 // BrownianBridge inner RSG) -- ~82% of FillNormal per -fopt-info-vec-missed. rng_perf

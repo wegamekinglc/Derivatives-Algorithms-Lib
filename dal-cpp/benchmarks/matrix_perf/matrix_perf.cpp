@@ -1,6 +1,3 @@
-//
-// Created by dal-implementer on 2026-7-4.
-//
 // Production Dal::Matrix kernel micro-benchmark.
 
 #include <memory>

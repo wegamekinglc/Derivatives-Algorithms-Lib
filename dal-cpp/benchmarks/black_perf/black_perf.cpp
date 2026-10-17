@@ -1,6 +1,3 @@
-//
-// Created by dal-implementer on 2026-7-4.
-//
 // Black / Bachelier vanilla-pricing micro-benchmark.
 // BlackOpt and BachelierOpt are the per-eval cost in Dupire LV calibration (5 calls
 // per LV node via IVS_::Call central differences), implied-vol inversion, and any

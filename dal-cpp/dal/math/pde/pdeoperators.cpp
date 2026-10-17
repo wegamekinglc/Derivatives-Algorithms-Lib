@@ -1,7 +1,3 @@
-//
-// Created by dal-implementer on 2026/7/8.
-//
-
 #include <array>
 #include <memory>
 

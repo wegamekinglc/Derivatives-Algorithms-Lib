@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/10/4.
-//
-
 #include <cmath>
 #include <limits>
 #include <numeric>

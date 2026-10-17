@@ -1,7 +1,3 @@
-//
-// Created by dal-implementer on 2026/7/28.
-//
-
 #include <gtest/gtest.h>
 
 #include <type_traits>

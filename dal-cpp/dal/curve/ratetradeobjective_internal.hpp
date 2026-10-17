@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/10/10.
-//
-
 #pragma once
 
 #include <dal/curve/rateparameterjacobian.hpp>

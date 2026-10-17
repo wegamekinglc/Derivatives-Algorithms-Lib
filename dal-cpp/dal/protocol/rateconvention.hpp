@@ -1,7 +1,3 @@
-//
-// Created by GitHub Copilot on 2026/5/18.
-//
-
 #pragma once
 
 #include <dal/protocol/collateraltype.hpp>

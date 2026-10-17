@@ -63,8 +63,22 @@ value is cell[][]
 
 namespace Dal {
     namespace {
+        bool IsStringSetting(const String_& key) {
+            return key == "curveName" || key == "solveMode" || key == "parameterization" || key == "logDfScheme" || key == "liborBasis" ||
+                   key == "targetCollateral" || key == "targetTenor";
+        }
+
+        bool IsDoubleSetting(const String_& key) {
+            return key == "smoothingWeight" || key == "tolerance" || key == "fitTolerance" || key == "initialGuess";
+        }
+
+        bool IsIntegerSetting(const String_& key) { return key == "maxEvaluations" || key == "maxRestarts"; }
+
         // Helper: apply string-based settings
         void ApplyStringSettings(const String_& key, const Cell_& val, CurveCalibrationSpecBuilder_& b) {
+            if (!IsStringSetting(key))
+                return;
+            REQUIRE(Cell::IsString(val), "InvalidSetting: " + key + " expects a string value");
             if (key == "curveName")
                 b.curveName_ = Cell::ToString(val);
             else if (key == "solveMode")
@@ -83,8 +97,9 @@ namespace Dal {
 
         // Helper: apply double-valued settings (type check once, then dispatch by key)
         void ApplyDoubleSettings(const String_& key, const Cell_& val, CurveCalibrationSpecBuilder_& b) {
-            if (!Cell::IsDouble(val))
+            if (!IsDoubleSetting(key))
                 return;
+            REQUIRE(Cell::IsDouble(val), "InvalidSetting: " + key + " expects a numeric value");
             double d = Cell::ToDouble(val);
             if (key == "smoothingWeight")
                 b.smoothingWeight_ = d;
@@ -98,8 +113,9 @@ namespace Dal {
 
         // Helper: apply int-valued settings
         void ApplyIntSettings(const String_& key, const Cell_& val, CurveCalibrationSpecBuilder_& b) {
-            if (!Cell::IsInt(val))
+            if (!IsIntegerSetting(key))
                 return;
+            REQUIRE(Cell::IsInt(val), "InvalidSetting: " + key + " expects an integer value");
             int i = Cell::ToInt(val);
             if (key == "maxEvaluations")
                 b.maxEvaluations_ = i;
@@ -118,8 +134,8 @@ namespace Dal {
                 const Cell_& val = kv.second;
                 RequireKnownSettingsKey(key, validKeys);
                 if (key == "calibrateDiscountCurve") {
-                    if (Cell::IsBool(val))
-                        b.calibrateDiscountCurve_ = Cell::ToBool(val);
+                    REQUIRE(Cell::IsBool(val), "InvalidSetting: calibrateDiscountCurve expects a boolean value");
+                    b.calibrateDiscountCurve_ = Cell::ToBool(val);
                 } else {
                     ApplyStringSettings(key, val, b);
                     ApplyDoubleSettings(key, val, b);

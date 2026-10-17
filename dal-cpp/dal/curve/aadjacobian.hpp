@@ -1,7 +1,3 @@
-//
-// Created by dal-implementer on 2026/7/12.
-//
-
 #pragma once
 
 #include <dal/math/aad/aad.hpp>

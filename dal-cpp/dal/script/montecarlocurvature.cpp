@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/10/09.
-//
-
 #include <algorithm>
 
 #include <dal/math/aad/detail/gradientbumps.hpp>

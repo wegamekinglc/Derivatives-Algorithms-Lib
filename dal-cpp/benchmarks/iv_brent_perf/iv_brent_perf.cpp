@@ -1,6 +1,3 @@
-//
-// Created by dal-implementer on 2026-7-4.
-//
 // Implied-vol Brent root-find micro-benchmark.
 // BlackIV / BachelierIV drive BracketedBrent_ / Brent_ (the only root finder in the
 // codebase) -- up to 30 Brent iterations x 1 BlackOpt per iter, called from

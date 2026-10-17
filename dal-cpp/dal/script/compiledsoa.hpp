@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/10/16.
-//
-
 #pragma once
 
 #include <dal/model/blackscholes.hpp>

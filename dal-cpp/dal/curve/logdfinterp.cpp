@@ -1,7 +1,3 @@
-//
-// Created by dal-implementer on 2026/7/12.
-//
-
 #include <algorithm>
 
 #include <dal/platform/strict.hpp>
@@ -45,6 +41,23 @@ namespace Dal {
         const auto knot = std::lower_bound(yf_.begin(), yf_.end(), yf);
         if (knot != yf_.end() && *knot == yf)
             return 0.0 + 1.0 * values[knot - yf_.begin()];
+
+        // The linear schemes can be evaluated from the bound already computed above.
+        // Avoid WeightsAt(), which repeats the search and returns a heap-allocated vector.
+        const auto scheme = scheme_.Switch();
+        if (scheme == LogDfScheme_::Value_::LOG_LINEAR || (scheme == LogDfScheme_::Value_::MIXED && yf <= yf_[mixedCutoffIndex_])) {
+            if (yf > yf_.back()) {
+                const int n = static_cast<int>(yf_.size());
+                const double excess = (yf - yf_[n - 1]) / (yf_[n - 1] - yf_[n - 2]);
+                return -excess * values[n - 2] + (1.0 + excess) * values[n - 1];
+            }
+            if (knot == yf_.begin())
+                return values[0];
+            const int iGE = static_cast<int>(knot - yf_.begin());
+            const int iLT = iGE - 1;
+            const double upperWeight = (yf - yf_[iLT]) / (yf_[iGE] - yf_[iLT]);
+            return (1.0 - upperWeight) * values[iLT] + upperWeight * values[iGE];
+        }
         return Interp::ApplyInterpWeights(values, WeightsAt(yf));
     }
 

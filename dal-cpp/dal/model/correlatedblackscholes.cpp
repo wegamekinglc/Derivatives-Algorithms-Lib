@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/9/27.
-//
-
 #include <dal/model/correlatedblackscholes.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>

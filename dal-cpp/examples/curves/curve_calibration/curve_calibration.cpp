@@ -1,7 +1,3 @@
-//
-// Created by GitHub Copilot on 2026/5/19.
-//
-
 #include <iomanip>
 #include <iostream>
 #include <map>

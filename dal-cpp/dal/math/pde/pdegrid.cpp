@@ -1,7 +1,3 @@
-//
-// Created by dal-implementer on 2026/7/8.
-//
-
 #include <dal/math/pde/pdegrid.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>

@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/10/06.
-//
-
 #include "__platform.hpp"
 #include "__risk.hpp"
 #include "__riskrequestinput.hpp"

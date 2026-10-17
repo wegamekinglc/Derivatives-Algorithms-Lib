@@ -1,7 +1,3 @@
-//
-// Created by dal-implementer on 2026/8/25.
-//
-
 #pragma once
 
 #include "__curve_storable.hpp"

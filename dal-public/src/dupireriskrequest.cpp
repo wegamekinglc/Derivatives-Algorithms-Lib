@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/10/5.
-//
-
 #include <algorithm>
 #include <iomanip>
 #include <limits>

@@ -191,6 +191,27 @@ TEST(ScriptTest, TestEvaluatorMinFourArgs) {
     ASSERT_NEAR(vars["x"], 1.0, 1e-10);
 }
 
+TEST(ScriptTest, TestEvaluatorMaxFourArgsFirstWins) {
+    auto vars = ParseIndexEval("x = MAX(9, 1, 2, 3)");
+    ASSERT_NEAR(vars["x"], 9.0, 1e-10);
+}
+
+TEST(ScriptTest, TestVariadicExtremaConstantFolding) {
+    Parser_ parser;
+    auto event = parser.Parse("x = MAX(3, 7, 9)");
+    VarIndexer_ indexer;
+    event[0]->Accept(indexer);
+    ConstProcessor_ constants(indexer.VarNames().size());
+    event[0]->Accept(constants);
+
+    auto* assign = dynamic_cast<NodeAssign_*>(event[0].get());
+    ASSERT_NE(assign, nullptr);
+    auto* max = dynamic_cast<NodeMax_*>(assign->arguments_[1].get());
+    ASSERT_NE(max, nullptr);
+    ASSERT_TRUE(max->isConst_);
+    ASSERT_DOUBLE_EQ(max->constVal_, 9.0);
+}
+
 TEST(ScriptTest, TestEvaluatorUnaryMinus) {
     auto vars = ParseIndexEval("x = -5");
     ASSERT_NEAR(vars["x"], -5.0, 1e-10);

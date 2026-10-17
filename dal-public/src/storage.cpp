@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/10/1.
-//
-
 #include <dal-public/src/storage.hpp>
 #include <dal/storage/json.hpp>
 

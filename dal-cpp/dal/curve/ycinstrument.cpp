@@ -67,8 +67,7 @@ namespace Dal {
         }
 
         class DepositRate_ : public YCInstrument_::Rate_ {
-            Date_ start_;
-            Date_ maturity_;
+            SchedulePeriod_ period_;
             RateIndexConvention_ convention_;
             Handle_<YieldCurve_> fallback_;
         public:
@@ -76,18 +75,18 @@ namespace Dal {
                          const Date_& maturity,
                          const RateIndexConvention_& convention,
                          const Handle_<YieldCurve_>& fallback)
-                : start_(start), maturity_(maturity), convention_(convention), fallback_(fallback) {}
+                : period_(BuildSinglePeriodSchedule(start, maturity, convention, CouponMonths(start, maturity))),
+                  convention_(convention),
+                  fallback_(fallback) {}
 
             double operator()(const YieldCurve_& yc) const override {
-                const SchedulePeriod_ period = BuildSinglePeriodSchedule(start_, maturity_, convention_, CouponMonths(start_, maturity_));
                 const DiscountCurve_& forecast = ResolveForecastCurve(yc, fallback_, convention_);
-                return Tape::DepositRateFromCurves(forecast, period, convention_.dayBasis_);
+                return Tape::DepositRateFromCurves(forecast, period_, convention_.dayBasis_);
             }
         };
 
         class ForwardRate_ : public YCInstrument_::Rate_ {
-            Date_ start_;
-            Date_ maturity_;
+            SchedulePeriod_ period_;
             double convexityAdjustment_;
             RateIndexConvention_ convention_;
             Handle_<YieldCurve_> fallback_;
@@ -97,17 +96,14 @@ namespace Dal {
                          double convexityAdjustment,
                          const RateIndexConvention_& convention,
                          const Handle_<YieldCurve_>& fallback)
-                : start_(start),
-                  maturity_(maturity),
+                : period_(BuildSinglePeriodSchedule(start, maturity, convention, SinglePeriodCouponMonths(convention, start, maturity))),
                   convexityAdjustment_(convexityAdjustment),
                   convention_(convention),
                   fallback_(fallback) {}
 
             double operator()(const YieldCurve_& yc) const override {
-                const SchedulePeriod_ period =
-                    BuildSinglePeriodSchedule(start_, maturity_, convention_, SinglePeriodCouponMonths(convention_, start_, maturity_));
                 const DiscountCurve_& forecast = ResolveForecastCurve(yc, fallback_, convention_);
-                return Tape::ForwardRateFromCurves(forecast, period, convention_.dayBasis_, convexityAdjustment_);
+                return Tape::ForwardRateFromCurves(forecast, period_, convention_.dayBasis_, convexityAdjustment_);
             }
         };
 
@@ -225,23 +221,20 @@ namespace Dal {
 
         template <class T_, class Src_>
         class DepositRate_ : public Src_::base_t {
-            Date_ start_;
-            Date_ maturity_;
+            SchedulePeriod_ period_;
             RateIndexConvention_ convention_;
         public:
             DepositRate_(const Date_& start, const Date_& maturity, const RateIndexConvention_& convention)
-                : start_(start), maturity_(maturity), convention_(convention) {}
+                : period_(BuildSinglePeriodSchedule(start, maturity, convention, CouponMonths(start, maturity))), convention_(convention) {}
 
             T_ operator()(const typename Src_::ctx_t& ctx) const override {
-                const SchedulePeriod_ period = BuildSinglePeriodSchedule(start_, maturity_, convention_, CouponMonths(start_, maturity_));
-                return DepositRateFromCurves(Src_::Forecast(ctx, convention_), period, convention_.dayBasis_);
+                return DepositRateFromCurves(Src_::Forecast(ctx, convention_), period_, convention_.dayBasis_);
             }
         };
 
         template <class T_, class Src_>
         class ForwardRate_ : public Src_::base_t {
-            Date_ start_;
-            Date_ maturity_;
+            SchedulePeriod_ period_;
             double convexityAdjustment_;
             RateIndexConvention_ convention_;
         public:
@@ -249,12 +242,12 @@ namespace Dal {
                           const Date_& maturity,
                           double convexityAdjustment,
                           const RateIndexConvention_& convention)
-                : start_(start), maturity_(maturity), convexityAdjustment_(convexityAdjustment), convention_(convention) {}
+                : period_(BuildSinglePeriodSchedule(start, maturity, convention, SinglePeriodCouponMonths(convention, start, maturity))),
+                  convexityAdjustment_(convexityAdjustment),
+                  convention_(convention) {}
 
             T_ operator()(const typename Src_::ctx_t& ctx) const override {
-                const SchedulePeriod_ period =
-                    BuildSinglePeriodSchedule(start_, maturity_, convention_, SinglePeriodCouponMonths(convention_, start_, maturity_));
-                return ForwardRateFromCurves(Src_::Forecast(ctx, convention_), period, convention_.dayBasis_, convexityAdjustment_);
+                return ForwardRateFromCurves(Src_::Forecast(ctx, convention_), period_, convention_.dayBasis_, convexityAdjustment_);
             }
         };
 

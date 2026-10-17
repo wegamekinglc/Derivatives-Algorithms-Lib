@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/9/27.
-//
-
 #pragma once
 
 #include <dal-excel/src/__curve_storable.hpp>

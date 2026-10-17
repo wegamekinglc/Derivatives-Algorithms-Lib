@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/9/13.
-//
-
 #include <dal/indice/detail/fixingobserver.hpp>
 #include <dal/platform/platform.hpp>
 

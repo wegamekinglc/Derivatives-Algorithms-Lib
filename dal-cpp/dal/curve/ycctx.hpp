@@ -1,7 +1,3 @@
-//
-// Created by dal-implementer on 2026/6/15.
-//
-
 #pragma once
 
 #include <dal/curve/discount.hpp>

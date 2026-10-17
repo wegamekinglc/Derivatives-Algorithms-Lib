@@ -1,7 +1,3 @@
-//
-// Created by Claude on 2026/6/16.
-//
-
 #pragma once
 
 #include <dal/math/vectors.hpp>

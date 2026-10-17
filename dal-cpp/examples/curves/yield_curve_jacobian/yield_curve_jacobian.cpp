@@ -1,7 +1,3 @@
-//
-// Created by dal-implementer on 2026/6/19.
-//
-
 #include <algorithm>
 #include <chrono>
 #include <cmath>

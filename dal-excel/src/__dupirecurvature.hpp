@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/10/11.
-//
-
 #pragma once
 
 #include <dal-excel/src/__riskrequest.hpp>

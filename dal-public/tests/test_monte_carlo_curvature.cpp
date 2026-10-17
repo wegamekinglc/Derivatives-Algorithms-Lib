@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/10/10.
-//
-
 #include <gtest/gtest.h>
 
 #include <cmath>

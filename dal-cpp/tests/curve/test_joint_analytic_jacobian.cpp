@@ -1,7 +1,3 @@
-//
-// Created by dal-implementer on 2026/6/20.
-//
-
 #include <gtest/gtest.h>
 
 #include <dal/platform/platform.hpp>

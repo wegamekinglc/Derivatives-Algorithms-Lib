@@ -1,6 +1,3 @@
-//
-// Created by dal-implementer on 2026/9/5.
-//
 // Quote-risk provenance benchmarks: the Build*QuoteRiskProvenance entry points exposed to the
 // public, Python and Excel surfaces (PRs #325-#332). Every calibration consumer pays this once
 // per calibration — axis/ coordinate assembly, JCS-canonicalized curve JSON comparison, the

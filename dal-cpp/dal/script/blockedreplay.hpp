@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/10/06.
-//
-
 #pragma once
 
 #include <set>
@@ -142,7 +138,7 @@ namespace Dal::Script::Detail {
     inline void RunAADReplayBlock(const PreparedScript_& product,
                                   const Handle_<ModelData_>& model,
                                   const AADBatchSettings_& settings,
-                                  const std::optional<ScriptCompiled_>& program,
+                                  const ScriptCompiled_* program,
                                   const BatchPlan_& batches,
                                   const AAD::AdjointBlock_& block,
                                   const Vector_<RiskOutputCoordinate_>& outputs,
@@ -214,7 +210,7 @@ namespace Dal::Script::Detail {
         const auto plan = PlanAADBlockReplay(outputs.size(), inputs.size(), ReplayExtentSum(settings.nParams_, settings.nConstVars_), batches,
                                              threads, compiled, limits);
         static_cast<void>(ReplayExtentProduct(plan.BlockCount(), settings.nPaths_));
-        const auto program = compiled ? std::optional<ScriptCompiled_>(product.Compile(true)) : std::nullopt;
+        const ScriptCompiled_* program = compiled ? &product.CompiledProgram(true) : nullptr;
         Vector_<size_t> widths(plan.BlockCount(), plan.Width());
         AAD::TapeCapacityBudget_ tape(limits.tapeBudgetBytes_.value_or(std::numeric_limits<size_t>::max()));
         BufferCapacityBudget_ scratch(limits.scratchBudgetBytes_.value_or(std::numeric_limits<size_t>::max()));

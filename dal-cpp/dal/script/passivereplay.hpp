@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/10/06.
-//
-
 #pragma once
 
 #include <dal/script/blockedreplay.hpp>
@@ -44,7 +40,7 @@ namespace Dal::Script::Detail {
     inline void EvaluatePassiveOutputBatch(const PreparedScript_& product,
                                            const Handle_<ModelData_>& modelData,
                                            const MonteCarloSettings_& simulation,
-                                           const std::optional<ScriptCompiled_>& program,
+                                           const ScriptCompiled_* program,
                                            const PathBatch_& batch,
                                            const Vector_<RiskOutputCoordinate_>& outputs,
                                            Vector_<>* sums,
@@ -59,7 +55,7 @@ namespace Dal::Script::Detail {
         auto run = [&](auto* evaluator, const auto& evaluate) {
             static_cast<void>(EvaluateDoubleBatch(*model, &state, evaluator, batch, product.PayOffIdx(), evaluate, collector));
         };
-        if (program)
+        if (program != nullptr)
             run(&state.compiledState_, [&](const auto& path, auto& evaluator) { program->Evaluate(path, evaluator); });
         else
             run(&state.evaluator_, [&](const auto& path, auto& evaluator) { product.Evaluate(path, evaluator); });
@@ -68,7 +64,7 @@ namespace Dal::Script::Detail {
     inline void RunPassiveOutputTasks(const PreparedScript_& product,
                                       const Handle_<ModelData_>& model,
                                       const MonteCarloSettings_& simulation,
-                                      const std::optional<ScriptCompiled_>& program,
+                                      const ScriptCompiled_* program,
                                       const BatchPlan_& batches,
                                       const Vector_<RiskOutputCoordinate_>& outputs,
                                       Vector_<Vector_<>>* slots,
@@ -105,7 +101,7 @@ namespace Dal::Script::Detail {
         const BatchPlan_ batches(paths, pool->NumThreads());
         const bool checkedPaths = typeid(*model) == typeid(BSModelData_);
         PreflightPassiveReplay(outputs.size(), batches, pool->NumThreads(), checkedPaths, limits);
-        const auto program = simulation.compiled_.value_or(false) ? std::optional<ScriptCompiled_>(product.Compile()) : std::nullopt;
+        const ScriptCompiled_* program = simulation.compiled_.value_or(false) ? &product.CompiledProgram() : nullptr;
         BufferCapacityBudget_ scratch(limits.scratchBudgetBytes_.value_or(std::numeric_limits<size_t>::max()));
         BufferCapacityScope_ coordinator(&scratch, sizeof(AADBlockReplayResult_));
         AADBlockReplayResult_ result(outputs.size(), 0, {});

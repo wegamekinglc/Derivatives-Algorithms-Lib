@@ -54,6 +54,12 @@ namespace Dal::Script {
     };
 
     namespace Detail {
+        // Prepared products lend their compiled streams; unprepared product types
+        // keep an owning copy so the simulation entry remains generic.
+        template <class T_, class = void> struct HasCompiledProgram_ : std::false_type {};
+        template <class T_>
+        struct HasCompiledProgram_<T_, std::void_t<decltype(std::declval<const T_&>().CompiledProgram(false))>> : std::true_type {};
+
         struct WeightedSimResults_ : SimResults_ {
             Vector_<double> componentSums_;
             WeightedSimResults_(const Vector_<String_>& names, size_t components) : SimResults_(names), componentSums_(components, 0.0) {}
@@ -923,9 +929,16 @@ namespace Dal::Script {
             return Detail::RunDoubleLsmc<P_, O_>(product, mdl, nPaths, rsg, useBb);
         }
 
-        std::optional<ScriptCompiled_> compiledProduct;
-        if (useCompiled)
-            compiledProduct.emplace(product.Compile());
+        std::optional<ScriptCompiled_> compiledStorage;
+        const ScriptCompiled_* compiledProduct = nullptr;
+        if (useCompiled) {
+            if constexpr (Detail::HasCompiledProgram_<P_>::value)
+                compiledProduct = &product.CompiledProgram(false);
+            else {
+                compiledStorage = product.Compile(false);
+                compiledProduct = &*compiledStorage;
+            }
+        }
 
         ThreadPool_* pool = ThreadPool_::GetInstance();
         const size_t nThreads = pool->NumThreads();
@@ -1091,7 +1104,7 @@ namespace Dal::Script {
         void WithAADWorker(const P_& product,
                            const Handle_<ModelData_>& modelData,
                            const AADBatchSettings_& settings,
-                           const std::optional<ScriptCompiled_>& compiledProduct,
+                           const ScriptCompiled_* compiledProduct,
                            const F_& work,
                            std::unique_ptr<Random_> random = nullptr,
                            bool positioned = false) {
@@ -1160,7 +1173,7 @@ namespace Dal::Script {
                 work(evaluateBatch);
             };
 
-            if (compiledProduct) {
+            if (compiledProduct != nullptr) {
                 EvalState_<AAD::Number_> evalState =
                     product.template BuildEvalState<AAD::Number_>(static_cast<size_t>(std::max(settings.maxNestedIfs_, 0)), settings.eps_);
                 runEvaluator(evalState, [&](Scenario_<AAD::Number_>& p, EvalState_<AAD::Number_>& e) { compiledProduct->Evaluate(p, e); });
@@ -1169,6 +1182,31 @@ namespace Dal::Script {
                 runEvaluator(eval, [&](Scenario_<AAD::Number_>& p, FuzzyEvaluator_<AAD::Number_>& e) { product.Evaluate(p, e); });
             }
             recording.Close();
+        }
+
+        template <class P_, class F_>
+        void WithAADWorker(const P_& product,
+                           const Handle_<ModelData_>& modelData,
+                           const AADBatchSettings_& settings,
+                           const std::optional<ScriptCompiled_>& compiledProduct,
+                           const F_& work,
+                           std::unique_ptr<Random_> random = nullptr,
+                           bool positioned = false) {
+            WithAADWorker(product, modelData, settings, compiledProduct ? &*compiledProduct : nullptr, work, std::move(random), positioned);
+        }
+
+        template <class P_, class O_ = ScalarPayoffCollector_, class R_ = SimResults_>
+        void EvaluateAADBatch(const P_& product,
+                              const Handle_<ModelData_>& modelData,
+                              const AADBatchSettings_& settings,
+                              const ScriptCompiled_* compiledProduct,
+                              const PathBatch_& batch,
+                              R_* results,
+                              O_ objective = {},
+                              std::unique_ptr<Random_> random = nullptr) {
+            WithAADWorker(
+                product, modelData, settings, compiledProduct, [&](const auto& evaluate) { evaluate(batch, results, std::move(objective), nullptr); },
+                std::move(random));
         }
 
         template <class P_, class O_ = ScalarPayoffCollector_, class R_ = SimResults_>
@@ -1180,9 +1218,8 @@ namespace Dal::Script {
                               R_* results,
                               O_ objective = {},
                               std::unique_ptr<Random_> random = nullptr) {
-            WithAADWorker(
-                product, modelData, settings, compiledProduct, [&](const auto& evaluate) { evaluate(batch, results, std::move(objective), nullptr); },
-                std::move(random));
+            EvaluateAADBatch(product, modelData, settings, compiledProduct ? &*compiledProduct : nullptr, batch, results, std::move(objective),
+                             std::move(random));
         }
 
         template <class R_, class B_, class O_> void AccumulateAADResult(R_* result, const B_& batch, const O_& objective) {
@@ -1232,9 +1269,16 @@ namespace Dal::Script {
             return Detail::RunAADLsmc<P_, O_>(product, modelData, nPaths);
         }
 
-        std::optional<ScriptCompiled_> compiledProduct;
-        if (useCompiled)
-            compiledProduct.emplace(product.Compile(true));
+        std::optional<ScriptCompiled_> compiledStorage;
+        const ScriptCompiled_* compiledProduct = nullptr;
+        if (useCompiled) {
+            if constexpr (Detail::HasCompiledProgram_<P_>::value)
+                compiledProduct = &product.CompiledProgram(true);
+            else {
+                compiledStorage = product.Compile(true);
+                compiledProduct = &*compiledStorage;
+            }
+        }
 
         metadataModel->Allocate(product.TimeLine(), product.DefLine());
         metadataModel->Init(product.TimeLine(), product.DefLine());

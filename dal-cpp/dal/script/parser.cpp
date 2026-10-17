@@ -24,6 +24,22 @@ namespace {
 } // namespace
 
 namespace Dal::Script {
+    namespace {
+        // Downstream evaluators only read the first two operands of a flat extremum
+        // node. Fold extra arguments left into nested binary nodes so every operand
+        // participates while the existing source-left selection rule still applies.
+        Expression_ FoldVariadicExtremum(Expression_ top, bool maximum) {
+            Expression_ folded = std::move(top->arguments_[0]);
+            for (size_t i = 1; i < top->arguments_.size(); ++i) {
+                if (maximum)
+                    folded = MakeBaseBinary<NodeMax_>(folded, top->arguments_[i]);
+                else
+                    folded = MakeBaseBinary<NodeMin_>(folded, top->arguments_[i]);
+            }
+            return folded;
+        }
+    } // namespace
+
     Expression_ Parser_::ParseExpr(TokIt_& cur, const TokIt_& end) {
         auto lhs = ParseExprL2(cur, end);
         while (cur != end && (cur->Text()[0] == '+' || cur->Text()[0] == '-')) {
@@ -136,23 +152,8 @@ namespace Dal::Script {
                 top->arguments_ = ParseFuncArg(cur, end);
                 if (top->arguments_.size() < minArg || top->arguments_.size() > maxArg)
                     THROW2(String_("Function ") + func + String_(": wrong number of arguments_"), ScriptError_);
-                if ((func == "MIN" || func == "MAX") && top->arguments_.size() > 2) {
-                    //	Downstream evaluators only read the first two operands of a flat
-                    //	extremum node; fold extra arguments into nested binary nodes
-                    Expression_ folded = std::move(top->arguments_[0]);
-                    for (size_t i = 1; i < top->arguments_.size(); ++i) {
-                        Expression_ next;
-                        if (func == "MAX")
-                            next = MakeBaseNode<NodeMax_>();
-                        else
-                            next = MakeBaseNode<NodeMin_>();
-                        next->arguments_.Resize(2);
-                        next->arguments_[0] = std::move(folded);
-                        next->arguments_[1] = std::move(top->arguments_[i]);
-                        folded = std::move(next);
-                    }
-                    top = std::move(folded);
-                }
+                if ((func == "MIN" || func == "MAX") && top->arguments_.size() > 2)
+                    top = FoldVariadicExtremum(std::move(top), func == "MAX");
             }
             //	Return
             return top;
@@ -328,9 +329,10 @@ namespace Dal::Script {
 
     Parser_::TokIt_ Parser_::ParseForIteration(TokIt_ body, const TokIt_& end, bool emit, NodeCollect_* collected, const String_& context) {
         while (body != end && body->Text() != "END") {
+            REQUIRE2(parsedStatements_ < 100000, "InvalidFor: expanded program exceeds 100000 parsed statements" + context, ScriptError_);
+            ++parsedStatements_;
             auto statement = ParseStatement(body, end);
             if (emit) {
-                REQUIRE2(expandedStatements_ < 100000, "InvalidFor: expanded program exceeds 100000 statements" + context, ScriptError_);
                 ++expandedStatements_;
                 collected->arguments_.push_back(std::move(statement));
             }

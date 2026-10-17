@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/10/9.
-//
-
 #include <charconv>
 #include <iomanip>
 #include <iostream>

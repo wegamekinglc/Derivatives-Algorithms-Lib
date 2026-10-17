@@ -1,6 +1,3 @@
-//
-// Created by dal-implementer on 2026-6-28.
-//
 // PDE time-stepping micro-benchmark.
 // Prices a European call via ThetaScheme_ with explicit, Crank-Nicolson, and
 // implicit schemes. Each timed iteration rebuilds the grid, prepares the

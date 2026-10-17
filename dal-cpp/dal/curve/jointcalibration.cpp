@@ -1,7 +1,3 @@
-//
-// Created by dal-implementer on 2026/6/20.
-//
-
 #include <algorithm>
 #include <cmath>
 #include <dal/curve/calibration_internal.hpp>

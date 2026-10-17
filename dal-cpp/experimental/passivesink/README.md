@@ -118,6 +118,6 @@ command and executable records remain available. Host load and `/proc` memory,
 swap and pressure snapshots describe contention without recording other process
 arguments. RSS includes startup, numerical admission, reference valuation and the
 measured request; it is not request-only memory or a peak-concurrency guarantee.
-The [GSR report](../../../docs/experimental/gsr-sink-memory-study.md) separates
-measured process RSS from single-worker tape allocation and its worker-count
-projection. No production option or memory-budget admission is introduced.
+Measured process RSS is separate from single-worker tape allocation and its
+worker-count projection. No production option or memory-budget admission is
+introduced.

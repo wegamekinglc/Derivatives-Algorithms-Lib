@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/10/10.
-//
-
 #include <dal/model/blackscholes.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/storage/globals.hpp>

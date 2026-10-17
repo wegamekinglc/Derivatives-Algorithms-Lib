@@ -1,7 +1,3 @@
-//
-// Created on 2026/10/04.
-//
-
 #pragma once
 
 #include <algorithm>

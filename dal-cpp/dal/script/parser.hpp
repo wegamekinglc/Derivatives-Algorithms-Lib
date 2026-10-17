@@ -25,6 +25,9 @@ namespace Dal::Script {
         size_t ifLevel_ = 0;
         size_t forLevel_ = 0;
         size_t expandedStatements_ = 0;
+        // Counts every statement parsed during FOR expansion, including discarded
+        // non-final iterations. The emitted count alone lets nested loops multiply work.
+        size_t parsedStatements_ = 0;
 
         // Helpers
 

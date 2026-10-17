@@ -355,6 +355,22 @@ TEST(ScriptTest, TestParseMax) {
     ASSERT_NE(dynamic_cast<NodeConst_*>(inner->arguments_[1].get()), nullptr);
 }
 
+TEST(ScriptTest, TestParseVariadicExtremaArityLimit) {
+    String_ accepted = "x = MAX(1";
+    for (int i = 1; i < 1000; ++i)
+        accepted += ", 1";
+    accepted += ")";
+    Parser_ parser;
+    ASSERT_NO_THROW(parser.Parse(accepted));
+
+    String_ rejected = "x = MAX(1";
+    for (int i = 0; i < 1000; ++i)
+        rejected += ", 1";
+    rejected += ")";
+    Parser_ rejectingParser;
+    ASSERT_THROW(rejectingParser.Parse(rejected), ScriptError_);
+}
+
 TEST(ScriptTest, TestParseMinWrongArgCountThrows) {
     Parser_ parser;
     String_ event = "x = MIN(2)";

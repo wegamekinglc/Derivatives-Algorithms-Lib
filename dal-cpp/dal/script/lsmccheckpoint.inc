@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/10/16.
-//
-
 // Included inside the trainer's private namespace.
 size_t TrainingAdd(size_t a, size_t b) {
     REQUIRE2(b <= std::numeric_limits<size_t>::max() - a, "LsmcTrainingBudget: size overflow", ScriptError_);

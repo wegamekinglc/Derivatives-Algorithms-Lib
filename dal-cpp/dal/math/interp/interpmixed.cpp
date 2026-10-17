@@ -1,7 +1,3 @@
-//
-// Created by dal-implementer on 2026/6/14.
-//
-
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/math/interp/interpmixed.hpp>

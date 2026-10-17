@@ -1,7 +1,3 @@
-//
-// Created by dal-implementer on 2026/6/20.
-//
-
 // clang-format off
 #include <gtest/gtest.h>
 #include <string>

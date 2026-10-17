@@ -358,6 +358,19 @@ jobs:
           python3 -m unittest discover -s .github/scripts/tests -p test_run_benchmarks.py -v
           python3 -m unittest discover -s .github/scripts/tests -p test_classify_ci_changes.py -v
 
+      - name: Check mirrored agent guidance
+        run: |
+          diff .claude/rules/code-style.md .codex/references/code-style.md
+          diff .claude/rules/unit-test-style.md .codex/references/unit-test-style.md
+          diff .claude/rules/git-commit-pr.md .codex/references/git-commit-pr.md
+
+      - name: Check source headers
+        run: |
+          if git grep -nE '^// Created (by (Codex|Claude|GitHub Copilot|ZCode|dal-implementer)|on )' -- '*.hpp' '*.cpp' '*.h' '*.py'; then
+            echo "Tool-generated file headers are not allowed; remove them." >&2
+            exit 1
+          fi
+
   warning-clean:
     name: Warning-clean GCC build
     needs: changes

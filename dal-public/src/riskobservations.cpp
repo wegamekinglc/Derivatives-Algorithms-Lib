@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/10/11.
-//
-
 #include <dal/script/preparation.hpp>
 
 #include "riskvalueinternal.hpp"

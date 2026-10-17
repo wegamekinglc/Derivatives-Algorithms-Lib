@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/9/15.
-//
-
 #include <dal/math/aad/native.hpp>
 #include <dal/math/aad/recording.hpp>
 

@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/9/30.
-//
-
 #include <dal/model/surface/lvmodel.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>

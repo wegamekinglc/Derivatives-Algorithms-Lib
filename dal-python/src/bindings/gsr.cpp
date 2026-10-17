@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/10/2.
-//
-
 #include "bindings.h"
 
 #include <pybind11/stl.h>

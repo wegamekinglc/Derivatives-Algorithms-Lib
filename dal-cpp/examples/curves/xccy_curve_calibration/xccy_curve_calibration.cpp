@@ -1,7 +1,3 @@
-//
-// Created by GitHub Copilot on 2026/6/6.
-//
-
 #include <algorithm>
 #include <cmath>
 #include <iomanip>

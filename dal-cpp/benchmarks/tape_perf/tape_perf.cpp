@@ -1,6 +1,3 @@
-//
-// Created by dal-implementer on 2026-6-28.
-//
 // AAD tape micro-benchmarks: Clear vs Rewind vs ZeroAdjoints vs PropagateToStart.
 // Baselines the per-MC-batch tape-management cost so future optimizations
 // (e.g. tape reuse, lazy clear) can be measured against the current native backend.

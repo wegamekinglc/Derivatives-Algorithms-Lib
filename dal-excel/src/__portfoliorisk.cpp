@@ -1,7 +1,3 @@
-//
-// Created by Codex on 2026/10/7.
-//
-
 #include "__portfoliorisk.hpp"
 
 #include <array>

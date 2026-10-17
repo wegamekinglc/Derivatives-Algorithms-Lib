@@ -1,7 +1,3 @@
-//
-// Created by Claude on 2026/6/16.
-//
-
 #include <algorithm>
 
 #include <dal/platform/platform.hpp>
