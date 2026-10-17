@@ -128,6 +128,47 @@ For unary functions with result $v = g(r)$:
 Storing $v$ where it appears (e.g. for $\exp$) lets the reverse pass reuse the
 forward result rather than recompute it.
 
+## Propagation Across Units and Scales
+
+DAL's native reverse sweep preserves every exactly nonzero adjoint instead of
+applying an absolute sensitivity cutoff. A small intermediate sensitivity can
+be multiplied by a large local derivative later in the reverse pass. For
+$u = 10^{16}x$ and $y = u / 10^{16}$, seeding $\bar{y} = 1$ gives
+$\bar{u} = 10^{-16}$ and $\bar{x} = 10^{-16} \times 10^{16} = 1$.
+Materializing the intermediate as a separate active number retains that chain:
+
+```cpp
+#include <iomanip>
+#include <iostream>
+
+#include <dal/platform/platform.hpp>
+#include <dal/math/aad/aad.hpp>
+#include <dal/math/aad/recording.hpp>
+
+int main() {
+    using namespace Dal::AAD;
+    RecordingScope_ recording;
+    Number_ x;
+    recording.RegisterInput(x, 3.0);
+    recording.StartRecording();
+    Number_ u = x * 1e16;
+    Number_ y = u / 1e16;
+    recording.FinishRecording();
+    recording.ClearAdjoints();
+    Adjoint(y) = 1.0;
+    recording.Reverse();
+    std::cout << std::setprecision(17) << "value=" << Value(y)
+              << " derivative=" << AdjointValue(x) << '\n';
+    recording.Close();
+}
+```
+
+The result is `value=3 derivative=1`, matching the fused expression
+`(x * 1e16) / 1e16`. Native scalar and vector sweeps share the same nonzero
+propagation rule. Floating-point overflow, underflow and rounding still bound
+the representable values and derivatives; this example keeps its intermediates
+within those bounds.
+
 ## Vector-Valued Outputs
 
 For a function with $m$ outputs $y_1,\dots,y_m$, the same machinery yields the
