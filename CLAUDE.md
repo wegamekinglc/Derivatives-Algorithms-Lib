@@ -168,6 +168,7 @@ Detailed documentation of the quantitative methods implemented in this library:
 - **Matrix and Linear Algebra** — [Matrix and linear algebra](docs/methodology/matrix.md)
 - **Log-Discount Curve** — [Log-discount curve](docs/yield-curves/log-discount.md)
 - **PDE Framework, Grid Construction, and Coordinate Maps** — [PDE framework](docs/methodology/pde/framework.md)
+- **Bermudan and American PDE Pricing** — [Early-exercise PDE](docs/methodology/pde/early-exercise.md), including deterministic carry, exact dated events, original LCP residuals, budgets and owning results; double prices only
 - **Yield-Curve Jacobian and Inverse-Jacobian Risk** — [Yield-curve Jacobian](docs/yield-curves/jacobian-risk.md)
 - **Rate-Trade Node Risk and Portfolio Aggregation** — [Node-risk methodology](docs/yield-curves/node-risk.md)
 - **Generic Joint Multi-Curve Quote DV01** — [Joint quote-risk methodology](docs/yield-curves/joint-quote-risk.md)

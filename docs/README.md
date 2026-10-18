@@ -25,6 +25,9 @@ the dedicated Python and Excel chapters, examples use C++ by default.
 
 The [fixed-grid European PDE example](methodology/pde/aad.md) covers complete
 call/put native adjoints and separate derivative/grid-convergence acceptance.
+The [Bermudan/American PDE guide](methodology/pde/early-exercise.md) covers
+deterministic-carry BS vanilla prices, exact dated events, original LCP
+residuals, owning exercise regions and resource limits; this interface has no Greeks.
 
 The [structural Jacobian guide](methodology/aad-sparsity.md) describes conservative
 row supports, compressed direction recovery, numeric payload admission and

@@ -8,6 +8,82 @@ workflow, and [FIX settings](script-settings.md) for complete worksheet
 matrices and the executable workbook. The numerical methods have C++ examples
 in the [method chapters](../README.md#quantitative-methods).
 
+## Bermudan and American PDE pricing
+
+The `EARLYEXERCISEPDE*` family prices deterministic-carry BS vanilla calls/puts
+using copied settings, request and result handles. Populate A1:B5 with these
+contract key/value pairs, without a header:
+
+| A               | B                   |
+|-----------------|---------------------|
+| evaluation_date | `=DATE(2026,10,18)` |
+| maturity_date   | `=DATE(2027,10,18)` |
+| strike          | 100                 |
+| option_type     | PUT                 |
+| exercise_style  | BERMUDAN            |
+
+Put `spot`/100 and `volatility`/0.20 in D1:E2. G1:I1 is the headerless carry
+row `=DATE(2027,10,18)`, 0.05, 0.0 (end date, rate, dividend yield). Put
+`=DATE(2027,4,18)` and `=DATE(2027,10,18)` in K1:K2. Then enter:
+
+```text
+M1 = EARLYEXERCISEPDESETTINGS.NEW("defaults")
+M2 = EARLYEXERCISEPDEREQUEST.NEW("bermudan", A1:B5, D1:E2, G1:I1, K1:K2, M1)
+M3 = EARLYEXERCISEPDERESULT.NEW("price", M2)
+O1 = EARLYEXERCISEPDERESULT.GET.SUMMARY(M3)
+R1 = EARLYEXERCISEPDERESULT.GET.TIMEGRID(M3)
+X1 = EARLYEXERCISEPDERESULT.GET.EXERCISELEVELS(M3)
+AD1 = EARLYEXERCISEPDERESULT.GET.EXERCISEREGIONS(M3)
+```
+
+Read Summary's Status before calling
+`EARLYEXERCISEPDERESULT.GET.PRICE(M3)`. For American exercise, use `AMERICAN`
+and leave the exercise-date argument blank. Dates are integer Excel serials
+without intraday fractions; no business-day adjustment is applied. Carry must
+be a nonempty three-column range ending at maturity. Bermudan dates form one
+strictly increasing row or column, may include evaluation, and must end at maturity.
+
+Settings use the [method guide's snake-case keys and defaults](../methodology/pde/early-exercise.md#scheme-and-defaults).
+Omitted settings, including an entirely blank rectangular range of any shape,
+select native defaults. Any nonempty settings range must have two key/value
+columns; half-empty rows, duplicate/unknown keys and wrong types reject.
+Only `upper` permits a blank value to mean unset. Numeric cells exclude
+text, bool, errors and nonfinite values; count/budget cells require exact
+nonnegative integers fitting size_t and at most 2^53-1. Settings validation
+also enforces each field's native domain. Keys match case-insensitively;
+option/style text uses canonical uppercase names. Names/text reject embedded NUL.
+
+`EARLYEXERCISEPDESETTINGS.GET.CONFIGURATION` returns a header and all 14
+settings. Request getters `GET.SETTINGS`, `GET.CONTRACT`, `GET.MARKET`,
+`GET.CARRY` and `GET.EXERCISEDATES` copy inputs; the latter four tables include
+a header, which must be removed before reusing them as input ranges.
+All getters below take only the result handle:
+
+| Result getter suffix  | Copied output                                                          |
+|-----------------------|------------------------------------------------------------------------|
+| `GET.REQUEST`         | Owning resolved request handle                                         |
+| `GET.SUMMARY`         | Status, method, optional price, units and residual summaries           |
+| `GET.PRICE`           | Price on SUCCESS; error text otherwise                                 |
+| `GET.GRID`            | NodeIndex, Spot and Value; Value is blank on failure                   |
+| `GET.TIMEGRID`        | TimeIndex, ACT/365 time, optional calendar date and event flags        |
+| `GET.STEPS`           | Chronological step, solve, projection and original LCP diagnostics     |
+| `GET.EXERCISELEVELS`  | Level kind, zero-based region offset/count and epsilon                 |
+| `GET.EXERCISEREGIONS` | Zero-based time/region indices, inclusive node runs and clipping flags |
+| `GET.EXECUTION`       | Planned/actual steps, work and native capacity observations            |
+| `GET.FAILURE`         | Failure details, or header only on success                             |
+
+Tables are owning detached copies and perform no new valuation. Absent values
+are blank; artificial substeps have no fabricated calendar date. Use each
+level's offset/count to locate its regions, allowing zero or multiple runs;
+in a spilled region table the first data row is worksheet row 2, so offset zero
+selects that row. Worksheet-size limits are checked before spilling. Handles
+reject archive serialization. Invalid input or planned budget rejection creates
+no new result; numerical failure returns diagnostics with no readable price.
+This interface has no Greeks or local volatility. The
+[method guide](../methodology/pde/early-exercise.md) distinguishes residual,
+discretization error and resource limits; native budgets exclude worksheet
+cells, handles and getter copies.
+
 ## European PDE risk
 
 Use immutable settings, request and result handles for a fixed-grid European

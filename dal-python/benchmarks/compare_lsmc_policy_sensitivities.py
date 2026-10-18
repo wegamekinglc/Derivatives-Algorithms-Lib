@@ -2,8 +2,8 @@
 
 Use a just-built DAL package and numpy on PYTHONPATH. Independent outer seeds
 rescramble both training and pricing; bumps within a seed reuse both streams.
-The near-zero-volatility case uses the CRR reference because the shared PDE's
-central spatial stencil is convection dominated at that parameter boundary.
+The near-zero-volatility case retains the independent CRR reference; the public
+PDE diagnostic uses its monotone upwind stencil at that parameter boundary.
 """
 
 import argparse
@@ -296,7 +296,7 @@ def run_case(
         "reference_method": (
             "analytic"
             if name == "european"
-            else ("Crank-Nicolson PDE" if use_pde_reference else "CRR tree")
+            else ("fully implicit PDE" if use_pde_reference else "CRR tree")
         ),
         "pde_pv_diagnostic": pde_pv_diagnostic,
         "crr_pv_crosscheck": oracle.tree_price(days, spot, vol, RATE),

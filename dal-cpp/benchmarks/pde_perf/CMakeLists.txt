@@ -17,3 +17,5 @@ install(TARGETS pde_perf
 
 add_test(NAME pde_perf COMMAND pde_perf)
 set_tests_properties(pde_perf PROPERTIES LABELS "benchmark")
+add_test(NAME pde_early_exercise_perf COMMAND pde_perf --early-exercise)
+set_tests_properties(pde_early_exercise_perf PROPERTIES LABELS "benchmark")

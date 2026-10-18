@@ -341,21 +341,24 @@ for (int n = 0; n < numT; ++n) {
 }
 ```
 
-## American Obstacles Are Test-Only
+## Early Exercise Pricing
 
-The library PDE surface stays European: `Rollback_`/`ThetaScheme_` have no
-obstacle projection, PSOR, or penalty machinery, and there is no American or
-Bermudan pricer in the public framework. Early-exercise valuation lives in the
-script engine's LSMC driver (see
-[the LSM guide](../monte-carlo/lsm.md)).
+`Rollback_` and `ThetaScheme_` remain linear rollback primitives without
+obstacle projection or a penalty solver. The separate
+`PDE::EvaluateEarlyExercisePde` in `dal-cpp/dal/math/pde/earlyexercisepde.hpp`
+provides production Bermudan projection and American penalty pricing for
+deterministic-carry Black–Scholes vanilla contracts. It has its own uniform
+grid, monotonicity controls, budgets and owning diagnostics. See the
+[early-exercise guide](early-exercise.md) for its first-order fully implicit
+default, optional CN, original LCP residuals and failure-without-price contract.
 
-The one Bermudan rollback in the repository is deliberately test-only:
+The independent Bermudan rollback used by the LSMC acceptance suite remains test-only:
 `dal-cpp/test-support/bermudan_pde.hpp` rolls back between exercise dates with
 `ThetaScheme_` and projects onto the put obstacle $V = \max(V, K - s)$ on every
-exercise date. It anchors the LSMC acceptance suite, self-checking against the
-Black closed form in the single-exercise European limit and under grid
-refinement; it is not a public pricing API and adds no American capability to
-the framework.
+exercise date. It self-checks against the Black closed form in the
+single-exercise European limit and under grid refinement. The production
+early-exercise solver does not call this helper. Scripted and more general
+exercise products use [LSMC](../monte-carlo/lsm.md).
 
 ## See Also
 

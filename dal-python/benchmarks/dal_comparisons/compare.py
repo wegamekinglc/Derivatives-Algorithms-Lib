@@ -201,9 +201,10 @@ def summary(report):
         "with pricing seed 42 and calibration seed 43. Both refit policies for "
         "central-difference Greeks (common random numbers), with training included "
         "in timing. Degree 3 monomials; QuantLib adds a payoff column; "
-        "normalization and solvers differ. Independent Crank-Nicolson PDE "
+        "normalization and solvers differ. DAL public fully implicit PDE "
         "references use identical discrete exercise dates, 2,401 spot nodes and "
-        "four time steps per day. Equal path budgets do not imply "
+        "at least 32 ordinary time steps per calendar day (8x requested density), "
+        "with independent CRR cross-checks. Equal path budgets do not imply "
         "equal precision. Rateslib equity MC remains unsupported.",
         "",
         "Calibration: fresh non-flat annual IRS/XCCY markets, log-linear DFs; "

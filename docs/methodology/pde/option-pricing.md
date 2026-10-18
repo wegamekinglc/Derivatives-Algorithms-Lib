@@ -57,7 +57,7 @@ coefficients remain the same. The example interpolates the final value layer
 at spot with a cubic interpolator and prints differences from the Black
 analytic price over a Crank–Nicolson grid-refinement sweep.
 
-## Early Exercise Boundary
+## Early Exercise Pricing
 
 `Rollback_` and `ThetaScheme_` do not implement obstacle projection, PSOR,
 or penalty methods. The repository's
@@ -66,5 +66,9 @@ it rolls back between exercise dates and projects onto the put payoff at
 those dates to validate [LSM pricing](../monte-carlo/lsm.md). The
 [American put C++ example](../../../dal-cpp/examples/methods/american_put_mc/american_put_mc.cpp)
 also applies an obstacle after each rollback step locally; that code is an
-example benchmark, not a public PDE pricer. The production early-exercise
-method is the script engine's LSM driver.
+example benchmark. The separate [production early-exercise solver](early-exercise.md)
+prices deterministic-carry BS vanilla Bermudan and American contracts with
+owning results, exercise regions, original LCP diagnostics and bounded
+execution. Its default is fully implicit and first order in time; it does
+not inherit this example's CN configuration or the European AAD risk surface.
+Scripted exercise products continue to use [LSM](../monte-carlo/lsm.md).
