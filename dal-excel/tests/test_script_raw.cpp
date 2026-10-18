@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <array>
 #include <cmath>
 #include <limits>
 
@@ -937,6 +938,117 @@ TEST(ScriptExcelRawTest, TestCurvatureRawKindsIntegerNormalizationNulAndWrongHan
     CheckError(wrongResult, {"result"});
     Output_ missing(Call("xl_DupireScriptCurvaturePlan_Get_Point", &blank));
     CheckError(missing, {"plan"});
+}
+
+TEST(ScriptExcelRawTest, TestEarlyExercisePdeSettingsEntireBlankRangesUseDefaults) {
+    Excel::ScriptTestInitialize(1);
+    RawText_ name(L"early_exercise_blank"), empty(L"");
+    auto nil = Blank();
+    OPER_ missing{};
+    missing.xltype = xltypeMissing;
+    std::array<OPER_, 6> cells;
+    for (const auto blank : {nil, empty.cell_, missing}) {
+        SCOPED_TRACE("blank type=" + std::to_string(blank.xltype));
+        cells.fill(blank);
+        for (const auto shape : {std::pair<int, int>{2, 3}, {6, 1}}) {
+            SCOPED_TRACE(std::to_string(shape.first) + "x" + std::to_string(shape.second));
+            auto input = Multi(cells.data(), shape.first, shape.second);
+            Output_ settings(Call("xl_EarlyExercisePdeSettings_New", &name.cell_, &input));
+            ASSERT_EQ(settings.Text().find("#Error:"), std::string::npos) << settings.Text();
+            Output_ config(Call("xl_EarlyExercisePdeSettings_Get_Configuration", settings.Scalar()));
+            ASSERT_EQ(config.value_->xltype & xltypeMulti, xltypeMulti);
+            ASSERT_EQ(config.value_->val.array.rows, 15);
+            ASSERT_EQ(config.value_->val.array.columns, 2);
+            const auto* values = config.value_->val.array.lparray;
+            ASSERT_NO_FATAL_FAILURE(CheckText(values[2], L"grid_points"));
+            ASSERT_EQ(values[3].xltype, xltypeNum);
+            ASSERT_DOUBLE_EQ(values[3].val.num, 401.0);
+            ASSERT_NO_FATAL_FAILURE(CheckText(values[6], L"ordinary_steps"));
+            ASSERT_EQ(values[7].xltype, xltypeNum);
+            ASSERT_DOUBLE_EQ(values[7].val.num, 500.0);
+            ASSERT_NO_FATAL_FAILURE(CheckText(values[8], L"theta"));
+            ASSERT_EQ(values[9].xltype, xltypeNum);
+            ASSERT_DOUBLE_EQ(values[9].val.num, 1.0);
+        }
+    }
+}
+
+TEST(ScriptExcelRawTest, TestEarlyExercisePdeSettingsRejectPartiallyBlankAndInvalidRanges) {
+    Excel::ScriptTestInitialize(1);
+    RawText_ name(L"early_exercise_invalid"), key(L"grid_points"), duplicate(L"GRID_POINTS"), unknown(L"typo"), text(L"9");
+    auto nil = Blank();
+    OPER_ boolean{}, error{};
+    boolean.xltype = xltypeBool;
+    boolean.val.xbool = 0;
+    error.xltype = xltypeErr;
+    error.val.err = xlerrValue;
+    std::array<OPER_, 6> cells;
+    for (const auto shape : {std::pair<int, int>{2, 3}, {6, 1}}) {
+        auto input = Multi(cells.data(), shape.first, shape.second);
+        for (const auto nonblank : {Number(0.0), boolean, key.cell_, error}) {
+            for (size_t index = 0; index < cells.size(); ++index) {
+                SCOPED_TRACE(std::to_string(shape.first) + "x" + std::to_string(shape.second) + " cell=" + std::to_string(index));
+                cells.fill(nil);
+                cells[index] = nonblank;
+                Output_ rejected(Call("xl_EarlyExercisePdeSettings_New", &name.cell_, &input));
+                ASSERT_NO_FATAL_FAILURE(CheckError(rejected, {"EarlyExercisePdeSettings_New", "settings", "expected 2 columns"}));
+            }
+        }
+    }
+    OPER_ rows[]{key.cell_, Number(9.0), nil, nil};
+    auto input = Multi(rows, 2, 2);
+    {
+        Output_ rejected(Call("xl_EarlyExercisePdeSettings_New", &name.cell_, &input));
+        ASSERT_NO_FATAL_FAILURE(CheckError(rejected, {"settings row=2", "key"}));
+    }
+    rows[2] = duplicate.cell_;
+    rows[3] = Number(9.0);
+    {
+        Output_ rejected(Call("xl_EarlyExercisePdeSettings_New", &name.cell_, &input));
+        ASSERT_NO_FATAL_FAILURE(CheckError(rejected, {"duplicate key"}));
+    }
+    input.val.array.rows = 1;
+    rows[0] = unknown.cell_;
+    {
+        Output_ rejected(Call("xl_EarlyExercisePdeSettings_New", &name.cell_, &input));
+        ASSERT_NO_FATAL_FAILURE(CheckError(rejected, {"unknown settings key"}));
+    }
+    rows[0] = nil;
+    {
+        Output_ rejected(Call("xl_EarlyExercisePdeSettings_New", &name.cell_, &input));
+        ASSERT_NO_FATAL_FAILURE(CheckError(rejected, {"settings row=1", "key"}));
+    }
+    rows[0] = key.cell_;
+    for (const auto invalid : {nil, boolean, text.cell_, error}) {
+        rows[1] = invalid;
+        Output_ rejected(Call("xl_EarlyExercisePdeSettings_New", &name.cell_, &input));
+        ASSERT_NO_FATAL_FAILURE(CheckError(rejected, {"settings row=1 column=2"}));
+    }
+    RawText_ nul(std::wstring(L"grid\0_points", 12));
+    rows[0] = nul.cell_;
+    rows[1] = Number(9.0);
+    Output_ rejected(Call("xl_EarlyExercisePdeSettings_New", &name.cell_, &input));
+    ASSERT_NO_FATAL_FAILURE(CheckError(rejected, {"settings row=1 column=1", "NUL"}));
+}
+
+TEST(ScriptExcelRawTest, TestEarlyExercisePdeSettingsKeepIntegerAndOptionalUpperSemantics) {
+    Excel::ScriptTestInitialize(1);
+    RawText_ name(L"early_exercise_explicit"), key(L"grid_points"), upper(L"upper");
+    OPER_ integer{};
+    integer.xltype = xltypeInt;
+    integer.val.w = 9;
+    OPER_ rows[]{key.cell_, integer, upper.cell_, Blank()};
+    auto input = Multi(rows, 2, 2);
+    Output_ settings(Call("xl_EarlyExercisePdeSettings_New", &name.cell_, &input));
+    ASSERT_EQ(settings.Text().find("#Error:"), std::string::npos) << settings.Text();
+    Output_ config(Call("xl_EarlyExercisePdeSettings_Get_Configuration", settings.Scalar()));
+    ASSERT_EQ(config.value_->xltype & xltypeMulti, xltypeMulti);
+    ASSERT_EQ(config.value_->val.array.rows, 15);
+    ASSERT_EQ(config.value_->val.array.columns, 2);
+    const auto* values = config.value_->val.array.lparray;
+    ASSERT_EQ(values[3].xltype, xltypeNum);
+    ASSERT_DOUBLE_EQ(values[3].val.num, 9.0);
+    ASSERT_TRUE(values[5].xltype == xltypeNil || (values[5].xltype == xltypeStr && values[5].val.str[0] == 0));
 }
 
 TEST(ScriptExcelRawTest, TestEuropeanPdeAllGeneratedExportsAndOwningSpills) {

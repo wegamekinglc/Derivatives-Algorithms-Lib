@@ -92,3 +92,75 @@ A/B 计划与 B1 完整公式一致；CN-A 显式配置 payload=217277488、max_
 - 未单独构造 synthetic 多段 contact 分类输入；代码按所有 run 编码，不假定唯一边界，当前独立 vanilla 例覆盖空 / 单段、贴边及非贴边括区。独立 tester 可继续补充该定向边界。
 - 默认网格不是所有市场的精度保证；原始残差与价格误差分别验证。Greeks、局部波动率、自动网格和方法 fallback 未纳入本次实现。
 - 当前方法文档、CHANGELOG 和对外示例由已安排的后续 doc-writer 阶段处理；本轮只交付实施与验证记录。标准静态 P3 路径没有本地阻断；shared/AAD 归因及 Windows XLL 仍待进一步验证，交回独立 tester / reviewer。
+
+**2026-10-18：review P2 定向修复**
+
+本轮从 `0b903a023adaa414f4c268cfc472678d0ccdccc1` 修复真实 XLL 的全空 settings 前置校验。
+控制记录为 review 的 P2 和原 API 第 8 节；API / critique 的 SHA-256 与上文一致。
+只在 `Excel::ValidateEarlyExercisePdeSettingsInput` 中增加整块空检测：multi 的每个单元格都为
+nil、missing 或空字符串时继续使用 typed 层默认值；只要有非空单元格，继续调用原严格 validator。
+保留原矩形、不裁剪空行列，维持半空行、坏形状、错误类型、未知 / 重复键及 NUL 的拒绝。
+通用 validator、core 数值算法和公共 API 均未修改。
+
+| 改动路径 | 验证映射 |
+|---|---|
+| `dal-excel/src/__earlyexercisepdeinput.hpp` | 生产 validator 的最小 RED / GREEN 及边界探针；Windows raw 导出三项回归 |
+| `dal-excel/src/__earlyexercisepde.cpp` | markup 切换专用 validator；原 typed Excel 五项回归 |
+| `dal-excel/auto/MG_EarlyExercisePdeSettings_New_public.inc` | 由 `dal_generate` 重生成一个 stub；`dal_check_generated` 无漂移 |
+| `dal-excel/tests/test_script_raw.cpp` | 新增三项 `ScriptExcelRawTest.TestEarlyExercisePdeSettings*`，通过 `GetProcAddress` 调用真实 XLL constructor / getter，按现有 `xlAutoFree12` 路径释放结果 |
+
+Windows 回归用真实 OPER 构造全空 2×3 / 6×1，分别覆盖 nil / missing / 空字符串，并从 getter 核对
+401 网格、500 时间步、theta=1；在这两种形状的每个位置分别放入零、false、文本键或 Excel error，
+确认均拒绝。另覆盖两列半空行、缺键 / 缺值、重复 / 未知键、数字文本、bool、error 和嵌入 NUL，
+以及合法 `xltypeInt` 与空 `upper`。既有 CMake glob / `gtest_discover_tests` 已自动注册；
+`.github/workflows/cmake-windows.yml` 的现有 Test 步骤会运行这些未标记 benchmark 的测试，无须新增 CI 分支。
+
+最小失败先于生产修改执行。Linux 探针包含仓库真实 `_xlcall.hpp` OPER 定义和生产 validator，
+仅以本地 `Windows.h` shim 提供 SDK 声明；它没有运行 XLL、Excel 转换或 Windows ABI。
+探针源码、shim 和完整日志随本轮 evidence 附件交付，未加入产品 / 测试依赖。
+
+```sh
+# 旧入口使用的 validator：运行退出 1，明确报 settings row=1 column=3 / expected 2 columns。
+g++ -std=c++17 -Ibuild/dal379-p2-probe -I. -Idal-cpp \
+  -DSETTINGS_VALIDATOR=ValidateRiskRequestSettings build/dal379-p2-probe/main.cpp \
+  build/dal379-implementation/dal-cpp/libdal_cpp.a -pthread -o build/dal379-p2-probe/red
+build/dal379-p2-probe/red
+# 改用新入口 validator：同一全空 2×3 探针退出 0。
+g++ -std=c++17 -Ibuild/dal379-p2-probe -I. -Idal-cpp \
+  -DSETTINGS_VALIDATOR=ValidateEarlyExercisePdeSettingsInput build/dal379-p2-probe/main.cpp \
+  build/dal379-implementation/dal-cpp/libdal_cpp.a -pthread -o build/dal379-p2-probe/green
+build/dal379-p2-probe/green
+g++ -std=c++17 -Ibuild/dal379-p2-probe -I. -Idal-cpp build/dal379-p2-probe/cases.cpp \
+  build/dal379-implementation/dal-cpp/libdal_cpp.a -pthread -o build/dal379-p2-probe/cases
+build/dal379-p2-probe/cases
+g++ -std=c++17 -fsyntax-only -Ibuild/dal379-p2-probe -I. -Idal-cpp \
+  -Idal-cpp/externals/googletest/googletest/include build/dal379-p2-probe/raw-syntax.cpp
+cmake --build build/dal379-implementation --target dal_generate -j 8
+cmake --build build/dal379-implementation --target dal_excel_portable_tests -j 8
+ctest --test-dir build/dal379-implementation --output-on-failure \
+  -R '^(ExcelEarlyExercisePdeTest|ExcelEuropeanPdeRiskTest)\.|^ScriptExcelContractTest\.TestProductSettingsRejectBadRows$'
+# 暂存新生成的 stub 后执行：检查相对 index 无生成漂移。
+cmake --build build/dal379-implementation --target dal_check_generated -j 8
+```
+
+结果：RED 如预期失败；GREEN 接受全空 2×3；扩展探针接受 8 个全空范围、拒绝 36 个非空坏形状。
+实际 Excel portable target 构建成功；上述 16 项 CTest 全通过，耗时 0.13 s。
+Machinist 首次写入一个 Excel stub，第二次 Excel Wrote 0 files，一致性检查通过。
+两次 core 日志均 Wrote 16 files，随后由既有 normalization 步骤恢复为与原提交相同的内容，
+core 没有最终 diff；没有把这 16 次重写误记成 16 项产品变更或无写入。
+另以同一 SDK 声明 shim 对整个 raw 测试文件执行 GCC `-fsyntax-only`，退出 0；这仍不是 Windows 编译或入口运行证据。
+沿用上文静态 Release / GCC 15.2 / C++17 / native AAD / Eigen OFF 配置，没有重配置。
+
+本地无 Windows / Office 环境，新增三项真实 OPER / XLL 测试**未运行**，建议在现有 Windows 构建执行：
+
+```sh
+ctest --test-dir build/Release-windows -C Release --output-on-failure --no-tests=error \
+  -R '^ScriptExcelRawTest\.(TestEarlyExercisePdeSettings|TestPhysicalRangeErrorsAndIntegerBooleans)'
+```
+
+不以 16 项 portable 或 shim 探针代替上述入口运行。Windows 实际注册、转换与释放行为仍待 CI。
+`git diff 0b903a02 -- dal-cpp dal-public dal-python` 为空，故复用既有独立数值、实际容量、性能及
+standalone core-build 证据，不重跑全套 / benchmark，不新增构建或示例变更。
+review P3 的 CRR 风格项及已归因的基线 shared/AAD 问题未纳入本修复。
+保留 README、API、critique、review、validation 的全部既有未提交产物，未改其结论。
+按授权只创建同分支本地修复提交，不推送 / 合并 / 触发其他角色；父任务保持 `in_progress`。

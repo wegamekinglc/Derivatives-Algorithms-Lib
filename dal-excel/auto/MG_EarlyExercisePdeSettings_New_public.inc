@@ -11,7 +11,7 @@ ENV_SEED_TYPE(ObjectAccess_);
         Logging::Write("EarlyExercisePdeSettings_New");        
         argName = "name (input #1)";
         const String_ name = Excel::ToString(xl_name);
-        argName = "name"; Excel::ValidateRiskRequestText(xl_name, "EarlyExercisePdeSettings_New; name"); const Excel::ScriptSettingsInput_ normalized(xl_settings); xl_settings = normalized.Get(); argName = "settings"; Excel::ValidateRiskRequestSettings(xl_settings, "EarlyExercisePdeSettings_New");
+        argName = "name"; Excel::ValidateRiskRequestText(xl_name, "EarlyExercisePdeSettings_New; name"); const Excel::ScriptSettingsInput_ normalized(xl_settings); xl_settings = normalized.Get(); argName = "settings"; Excel::ValidateEarlyExercisePdeSettingsInput(xl_settings, "EarlyExercisePdeSettings_New");
         argName = "settings (input #2)";
         const Matrix_<Cell_> settings = Excel::ToCellMatrix(xl_settings, true, true);
         argName = 0;

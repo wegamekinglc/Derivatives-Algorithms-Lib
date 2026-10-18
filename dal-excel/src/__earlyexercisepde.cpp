@@ -17,7 +17,7 @@ name is string
     Object name
 +argName = "name"; Excel::ValidateRiskRequestText(xl_name, "EarlyExercisePdeSettings_New; name");
 +const Excel::ScriptSettingsInput_ normalized(xl_settings); xl_settings = normalized.Get();
-+argName = "settings"; Excel::ValidateRiskRequestSettings(xl_settings, "EarlyExercisePdeSettings_New");
++argName = "settings"; Excel::ValidateEarlyExercisePdeSettingsInput(xl_settings, "EarlyExercisePdeSettings_New");
 &optional
 settings is cell[][]+
     Two key/value columns; blank uses defaults

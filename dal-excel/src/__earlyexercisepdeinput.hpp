@@ -1,9 +1,21 @@
 #pragma once
 
+#include <algorithm>
+
 #include "__riskrequestinput.hpp"
 
 namespace Dal::Excel {
 #ifdef _WIN32
+    inline void ValidateEarlyExercisePdeSettingsInput(const OPER_* input, const String_& function) {
+        if (input->xltype == xltypeMulti) {
+            const auto* cells = input->val.array.lparray;
+            const size_t size = static_cast<size_t>(input->val.array.rows) * input->val.array.columns;
+            if (std::all_of(cells, cells + size, [](const auto& cell) { return ScriptInputBlank(&cell); }))
+                return;
+        }
+        ValidateRiskRequestSettings(input, function);
+    }
+
     inline void ValidateEarlyExercisePdeRange(const OPER_* input, const char* field) {
         if (ScriptInputBlank(ScriptScalarInput(input)))
             return;
