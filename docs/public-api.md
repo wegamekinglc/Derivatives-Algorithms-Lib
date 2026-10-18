@@ -56,6 +56,7 @@ on other toolchains.
 | `<dal-public/src/montecarlocurvature.hpp>` | `PlanBlackScholesMonteCarlo`, segmented mean gradients and common-path curvature                                      |
 | `<dal-public/src/lsmccurvature.hpp>`       | `PlanBlackScholesLsmc`, `ValueByBlackScholesLsmcWithCurvature`                                                        |
 | `<dal-public/src/europeanpderisk.hpp>`     | `EuropeanPdeRiskRequest_`, `EvaluateEuropeanPdeRisk`                                                                  |
+| `<dal-public/src/earlyexercisepde.hpp>`    | `EarlyExercisePdeRequest_`, `EvaluateEarlyExercisePde`, owning prices and exercise diagnostics                        |
 | `<dal-public/src/random.hpp>`              | Pseudo/Sobol constructors and uniform/normal matrix fills                                                             |
 | `<dal-public/src/curveprotocol.hpp>`       | Day-basis, tenor, collateral, rate-leg/index, currency-pair, FX-reset, and fixing-snapshot builders                   |
 | `<dal-public/src/curveinstrument.hpp>`     | Deposit, FRA, future, swap, OIS, basis-swap, and fixed/resettable/MTM cross-currency-swap builders                    |
@@ -103,6 +104,26 @@ rate/volatility/strike point and passive mesh/time/domain settings; one result
 owns both option prices, their 2-by-3 Jacobian and actual solve diagnostics.
 See [the complete financial program](methodology/pde/aad.md#owning-financial-request)
 for a minimal call, units, error policies and resource-budget scope.
+
+### Bermudan and American PDE pricing
+
+`<dal-public/src/earlyexercisepde.hpp>` re-exports the core request, settings,
+market, carry and result types and `EvaluateEarlyExercisePde` in `Dal`.
+Link `DAL::public` for this facade. Core-only callers use
+`<dal/math/pde/earlyexercisepde.hpp>`, namespace `Dal::PDE` and `DAL::cpp`;
+the [complete C++ example](methodology/pde/early-exercise.md#c-usage) keeps that
+core dependency direction.
+
+An `EarlyExercisePdeRequest_` copies its dated contract, constant-volatility BS
+market, piecewise deterministic carry and settings into the owning result.
+Inspect `IsSuccess()` before `Price()` or `Values()`: nonconverged rollback
+retains diagnostics but makes both accessors throw. Invalid inputs and planned
+budget rejection throw before a result is returned. Default `theta_=1` is
+first order in time; explicit CN has separate monotonicity and resource limits.
+This interface has no Greeks or local-volatility extension. See the
+[method and result contract](methodology/pde/early-exercise.md), and the
+[Python](python/README.md#bermudan-and-american-pde-pricing) /
+[Excel](excel/README.md#bermudan-and-american-pde-pricing) examples.
 
 ### Sobol normal-draw policy
 

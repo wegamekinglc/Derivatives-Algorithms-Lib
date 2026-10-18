@@ -28,6 +28,7 @@ import dal
 | XCCY reset data         | `FixingIdentity_`, `FxResetConvention_`, `MarketFixingSnapshot_New`, `CrossCurrencySwapConfigBuilder_`, `XccyNotionalMode`                                                                                                                         |
 | Rate cashflow pricing   | `RateTradeDefinition_`, typed terms, `RatePricingMarket_`, `PriceRateTrades`, `RateTradeNodeSensitivities`, `RateTradeNodeSensitivitiesBatch`, `AggregateRatePortfolioNodeRisk`, quote-risk provenance builders, `AggregateRatePortfolioQuoteRisk` |
 | Convenience calibration | `calibrate_curve` from `dal/api.py`                                                                                                                                                                                                                |
+| Early-exercise PDE      | `EarlyExercisePdeRequest_`, `EarlyExercisePdeSettings_`, `EarlyExercisePdeResult_New`                                                                                                                                                              |
 
 The basic valuation shape is:
 
@@ -819,6 +820,51 @@ multi-curve chain rules remain outside the supported Python surface.
 compatibility with the standalone web application. `_StorableToJson`,
 `_StorableFromJson`, `_BagNew`, and `_BagContents` are private integration
 helpers rather than supported general serialization functions.
+
+## Bermudan and American PDE pricing
+
+Build an owning, explicit-date Black–Scholes request. Carry rows end at their
+supplied date; the last row and the last Bermudan exercise date must equal maturity.
+
+```python
+import dal
+
+today, maturity = dal.Date_(2026, 10, 18), dal.Date_(2027, 10, 18)
+contract = dal.EarlyExercisePdeContract_(
+    today, maturity, 100.0, "PUT", "BERMUDAN",
+    exercise_dates=[dal.Date_(2027, 4, 18), maturity],
+)
+market = dal.EarlyExercisePdeMarket_(
+    100.0, 0.20, [dal.EarlyExercisePdeCarrySegment_(maturity, 0.05, 0.0)],
+)
+settings = dal.EarlyExercisePdeSettings_()
+request = dal.EarlyExercisePdeRequest_(contract, market, settings=settings)
+result = dal.EarlyExercisePdeResult_New(request)
+if not result.is_success:
+    raise RuntimeError(result.failure.reason)
+print(f"{'Style':<12}{'Price':>16}")
+print("-" * 28)
+print(f"{'BERMUDAN':<12}{result.price:>16.8f}")
+```
+
+For American exercise, use `"AMERICAN"` and omit `exercise_dates`. Native
+`dal.OptionType_.PUT` and `dal.EarlyExerciseStyle_.AMERICAN` enum members are
+also accepted; text uses the exact uppercase spellings. Dates require `dal.Date_`.
+Real inputs require finite int/float values excluding bool/enums; integer settings
+reject fractions. Constructors copy native inputs. Settings are keyword-only,
+read-only, and default to 401 nodes, 500 base intervals and fully implicit
+`theta=1`; `settings=None` on the request selects the same defaults. The native
+call copies its request before releasing the GIL and uses no Python callback.
+
+`status`, `is_success`, `method`, `request`, `grid`, `values`, `time_grid`,
+`step_diagnostics`, `exercise_levels`, `exercise_regions`, `execution` and
+`failure` are read-only result properties alongside `price`. Lists and nested
+values are detached copies and support copy/deepcopy. Failed numerical results
+retain status/failure/diagnostics, but `price` and `values` raise; invalid input
+or planned budget failure raises without returning a result. No AAD or Greeks
+are exposed. See the [method guide](../methodology/pde/early-exercise.md) for
+ACT/365 events, CN limits, all defaults, original LCP residuals and zero-based
+region slices; a success status is not a continuous-model accuracy certificate.
 
 ## Fixed-grid European PDE risk
 

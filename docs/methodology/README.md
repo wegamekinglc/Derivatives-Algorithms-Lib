@@ -11,7 +11,8 @@ C++ implementation. Model and curve-specific mathematics lives in the
   construction, least-squares exercise pricing, randomized QMC, and performance
   choices.
 - [PDE](pde/README.md) — one-dimensional grids, finite-difference operators,
-  theta rollback, and the European option example.
+  theta rollback, European pricing/adjoints, and deterministic-carry
+  Bermudan/American pricing.
 
 ## Evaluation and Differentiation
 

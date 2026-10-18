@@ -343,8 +343,9 @@ AAD valuation of exercise products uses the fuzzy driver described below. The
 per-exercise-date statistics are observable through
 the [simulation diagnostic](../script_engine.md#simulation-diagnostic-full-valuation-with-exercise-statistics),
 and the acceptance suite anchors both engines against a test-only Bermudan
-PDE pricer (`dal-cpp/test-support/bermudan_pde.hpp`; the library PDE itself
-stays European-only). The runnable
+PDE pricer (`dal-cpp/test-support/bermudan_pde.hpp`). This oracle remains
+independent of the [production Bermudan/American solver](../pde/early-exercise.md).
+The runnable
 [`dal-cpp/examples/methods/american_put_mc/`](../../../dal-cpp/examples/methods/american_put_mc)
 compares the European closed form with ordinary Monte Carlo and its AAD
 version, and prices two-date Bermudan and weekly-exercise puts with both

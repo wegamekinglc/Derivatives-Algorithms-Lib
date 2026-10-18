@@ -36,8 +36,10 @@ critique 为 `cfadaca7366d0669b3d2fdd9b28f4a4c5ae00558fbf38f40ecbf3c5466a2f37a`�
 
 采用 `dal379-accepted-ctest.log` 的新鲜采集摘要
 `100% tests passed, 0 tests failed out of 49` 及 `dal379-accepted-pytest.log` 的
-`45 passed in 0.11s`，不采用旧 `test_output.txt`。原命令 / 配置见
-[实施记录](../implementation/dal-379-early-exercise-pde.md)。其中高风险证据核对如下：
+`45 passed in 0.11s`，不采用旧 `test_output.txt`。原命令 / 配置保存在 Git 历史的
+`.codex/artifacts/implementation/dal-379-early-exercise-pde.md`
+（完整控制记录快照 `a9e6077913e288954085b24b345942fac3873b35`）；
+该已完成记录已退役。以下高风险证据和验证结论保持不变：
 
 - CRR 常 carry put / yield call 和对齐日期 Bermudan：oracle 自行构造树和最优停止，
   无生产 PDE 系数、boundary 或 penalty 调用；有多树深、奇偶带宽及价格阈值。

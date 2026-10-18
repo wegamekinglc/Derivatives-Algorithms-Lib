@@ -16,6 +16,17 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-10-18
+
+- **Bermudan and American PDE pricing** — added owning core/public C++, Python
+  and Excel interfaces for BS vanilla calls/puts with deterministic piecewise
+  carry and exact ACT/365 events. Bermudan projection and American penalty
+  rollback expose exercise regions, original LCP/linear-solve diagnostics and
+  separate storage/work limits; failed solves publish no price. Fully implicit
+  first-order time stepping is the default, with CN opt-in. This interface
+  provides double prices without Greeks or local volatility. See the
+  [early-exercise PDE guide](docs/methodology/pde/early-exercise.md).
+
 ## 2026-10-17
 
 - **Script variadic extrema** — scalar `MIN(...)`/`MAX(...)` calls with more
