@@ -172,7 +172,7 @@ scrambling. A finite number of replicates gives an estimated error bar, not a
 guaranteed confidence interval.
 
 The standalone [coverage experiment](../../../dal-python/benchmarks/lsmc_rqmc_coverage.py)
-uses 256 pricing-seed groups, eight replicates per group, 8,192 fixed-policy
+recorded a study with 256 pricing-seed groups, eight replicates per group, 8,192 fixed-policy
 training paths, and 2,048 pricing paths per replicate. With a mean ± two
 replicate-standard-error band, 233/256 European-put intervals covered the
 analytic value and 226/256 two-date Bermudan intervals covered an independent
@@ -180,6 +180,10 @@ Crank–Nicolson PDE value. The refined PDE grid changed that value by 0.000179,
 and the one-date PDE differed from the analytic European price by 0.000056;
 the mean Bermudan price exceeded it by 0.000541. These are observed coverages
 for this policy, budget, and band, not universal nominal-coverage claims.
+The current driver uses the [public fully implicit PDE](../pde/early-exercise.md)
+with eight times each requested interval's minimum time steps, as described in
+the [benchmark guide](../../../dal-python/benchmarks/README.md#bermudan-and-american-monte-carlo).
+The recorded figures above describe the CN configuration.
 
 ## Script Liveness and Recording
 
@@ -451,20 +455,22 @@ six-case study with disjoint training/pricing streams, two independently
 digitally shifted pricing replicates per outer run, and eight independent
 training/pricing seed pairs. Each full-retraining finite difference shares
 its seed pair between bumps. The European case uses analytic Black-Scholes
-Greeks; regular Bermudan cases use an independent Crank-Nicolson PDE with
-exercise-date projection and CRR cross-check. The low-volatility case uses
-CRR as its reference because the PDE's central spatial stencil becomes
-convection dominated there. The script reports the hard-price error to the
+Greeks; regular Bermudan cases use the public fully implicit PDE with exact
+exercise dates and an independent CRR cross-check. The low-volatility case
+retains CRR as its reference; the public PDE diagnostic uses a monotone upwind
+stencil at that boundary. The script reports the hard-price error to the
 oracle (fitting plus residual QMC), fuzzy-minus-hard smoothing bias, policy
 contribution, empirical standard error across independent seed pairs, separate
 hard-price variation when only training or only pricing seeds change, and the
-change when the spot bump is halved. In the ATM case the training-only and
-pricing-only hard-price standard errors were `0.00022` and `0.00150`;
+change when the spot bump is halved. In the recorded CN study below, the ATM
+training-only and pricing-only hard-price standard errors were `0.00022` and `0.00150`;
 the latter is close to the observed `0.00180` hard-price difference from the PDE.
 These quantities should be read separately: a closer Greek to the full-retraining bump is not necessarily
 closer to the continuous-model stopping oracle.
 
-For the default study (4,096 pricing paths per replicate, 4,096 training paths
+The recorded study below used the independent CN PDE for regular Bermudan
+reference values; these figures describe that configuration. For that study
+(4,096 pricing paths per replicate, 4,096 training paths
 except 256 in the sparse case, smoothing `0.1`, relative bump `0.001`, compiled
 execution), representative spot sensitivities are:
 

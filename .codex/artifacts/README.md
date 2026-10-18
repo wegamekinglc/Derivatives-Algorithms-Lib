@@ -8,27 +8,15 @@ current-state explanations in the published docs or focused Codex references.
 
 ## Current Artifacts
 
-- [DAL-379 benchmark migration and CI repair](implementation/dal-379-benchmark-ci-repair.md)
-  — Active follow-up for PR #602: call inventory, numerical configuration mapping,
-  Codacy findings, rebuilt targeted evidence and paired performance measurements.
+None.
 
-- [DAL-379 early-exercise PDE independent validation](validation/dal-379-early-exercise-pde.md)
-  — Retained for final acceptance: static numerical/budget evidence and contact
-  probes are reusable, while native Windows XLL execution is pending CI.
-  The mixed-link DSO/AAD failure is a baseline limitation, outside the P3 repair.
-  Appended validation at `6d09fc37` verifies benchmark call/contract migration,
-  unchanged numerical gates, eight full snapshots and the +88-byte ledger;
-  one policy Greek-routing regression and rebuilt contact probes pass.
-  CLI reference-description text remains a minor follow-up.
-
-- [DAL-379 early-exercise PDE focused code review](reviews/dal-379-early-exercise-pde.md)
-  — Appended scoped Approve at PR #602 head `1e2bc1c0` for benchmark migration
-  and Codacy refactoring: no new code blocker; numerical replay differs only by
-  the accounted +88-byte workspace context. Earlier P2 clearance is retained,
-  and the CRR style observation is now resolved. Final-head native Windows
-  OPER/XLL CI and check/thread audit remain required; portable/shim checks do
-  not substitute. CLI/reference-density wording remains a non-blocking docs
-  follow-up. Keep the full review history until final acceptance.
+Completed DAL-379 controls are archived at Git snapshot `d8bb4c1695cc6c963fd5bb4145ed59676a91c707`:
+[benchmark implementation and repair](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/d8bb4c1695cc6c963fd5bb4145ed59676a91c707/.codex/artifacts/implementation/dal-379-benchmark-ci-repair.md),
+[independent validation](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/d8bb4c1695cc6c963fd5bb4145ed59676a91c707/.codex/artifacts/validation/dal-379-early-exercise-pde.md),
+and [full review history](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/d8bb4c1695cc6c963fd5bb4145ed59676a91c707/.codex/artifacts/reviews/dal-379-early-exercise-pde.md).
+Final-head CI, native Windows OPER/XLL checks and acceptance are tracked in
+[PR #602](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/602)
+and the DAL-379 issue, rather than active stage records.
 
 The current API, method, defaults, budgets and language examples are documented
 in the [Bermudan/American PDE guide](../../docs/methodology/pde/early-exercise.md).

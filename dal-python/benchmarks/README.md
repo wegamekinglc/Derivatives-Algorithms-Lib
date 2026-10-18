@@ -459,9 +459,12 @@ training, pricing and conversion; a Greek row includes seven complete valuations
 Equal path budgets do not imply equal accuracy or equal-error timing ratios.
 
 Both benchmark references call DAL's public early-exercise PDE binding with
-the default fully implicit method, 2,401 uniform spot nodes from 0 to 400 and
-at least 32 ordinary time steps per calendar day (eight times the requested
-density). This refinement passes the original price/Greek convergence bounds;
+explicit fully implicit settings (`theta=1`, no Rannacher damping). The fine
+grid has 2,401 uniform spot nodes from 0 to 400 and requests four ordinary time
+steps per calendar day; the shared helper multiplies this density by eight,
+giving at least 32 ordinary steps per day. The coarse grid has 1,201 nodes and
+requests two ordinary steps per day, giving at least 16 after the same refinement.
+This refinement passes the original price/Greek convergence bounds;
 the original dense CN request fails the native strict linear-error check, so its
 failure is not bypassed or its tolerance relaxed. The driver explicitly allows up to one million steps,
 ten billion work units, 1 GiB numeric payload and 512 MiB workspace. Exercise is
@@ -471,13 +474,15 @@ approximation as the MC engines. Exact calendar dates use ACT/365, and each
 market's returned solution grid is cached for spot bumps. The RQMC and policy
 sensitivity drivers use the same public binding; their steps-per-interval option
 is mapped to a global density that meets eight times every requested interval minimum.
-Tests compare the reference with a 1,201-node, two-step-per-day grid across
-the price and Greek bumps, check the European limit against Black-Scholes,
+Tests compare these fine and coarse grids across the price and Greek bumps,
+check the European limit against Black-Scholes,
 and cross-check the price against a sixteen-step-per-day CRR tree. The
 reference Greeks use the same finite bumps as the MC engines. Absolute
 `[PV, Delta, Vega, Rho]` bounds are
 `[0.25, 0.02, 1, 1.5] * sqrt(16384/N) + [0.05, 0.01, 0.5, 1] * sqrt(16384/M)`.
 The training term retains an allowance for policy error when N increases.
+The refinement is a benchmark configuration, not a general accuracy guarantee;
+execution budgets do not set numerical precision.
 These empirical accuracy bounds are not confidence intervals. Tests also reject
 perturbed outputs and verify separate calibration/pricing settings and fresh fits.
 
