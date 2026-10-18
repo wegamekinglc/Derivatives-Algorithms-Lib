@@ -16,6 +16,10 @@ current-state explanations in the published docs or focused Codex references.
   — Retained for final acceptance: static numerical/budget evidence and contact
   probes are reusable, while native Windows XLL execution is pending CI.
   The mixed-link DSO/AAD failure is a baseline limitation, outside the P3 repair.
+  Appended validation at `6d09fc37` verifies benchmark call/contract migration,
+  unchanged numerical gates, eight full snapshots and the +88-byte ledger;
+  one policy Greek-routing regression and rebuilt contact probes pass.
+  CLI reference-description text remains a minor follow-up.
 
 - [DAL-379 early-exercise PDE focused code review](reviews/dal-379-early-exercise-pde.md)
   — Targeted Approve at `318ccc57` clears the P2 blank-settings code blocker.

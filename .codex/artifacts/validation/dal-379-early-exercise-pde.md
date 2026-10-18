@@ -181,3 +181,198 @@ GDB 17.1 及依赖通过 `apt-get download` / `dpkg-deb -x` 解压到隔离构�
 Windows XLL 未运行项目保持原边界；portable 通过不能替代 Windows 证据。
 本轮不重复已适用的数值、预算、组件构建或性能集合，不触发其他角色、发布或合并。
 父任务尚有 reviewer / doc-writer，保持 `in_progress`。
+
+## 2026-10-18 增量验证：benchmark 迁移与数值重构
+
+本节追加于原记录，不覆盖首轮证据。核验精确提交
+`6d09fc37ca3455e6387d65e4669ba0b90a6f89b9`，增量基线
+`0b5b675556287b9565564bea779a53dd0d879b77`，沿用原分支与 PR #602。
+进入本轮时工作树干净，本地 / origin head 一致。**本轮独立定向验证通过，
+没有新增数值或生产 blocker；Windows 原生运行仍待精确 head CI。**
+
+仅新增一项 benchmark 路由测试、追加本节并更新索引；未改生产实现、默认值、容差、
+构建配置或生成文件，没有提交 / 推送、分支 / 工作树 / PR、合并或触发其他角色。
+父任务保持 `in_progress`，交回安排增量 reviewer 与最终精确 head 门禁。
+
+### 来源、复用与本轮补证范围
+
+先读实施记录 `implementation/dal-379-benchmark-ci-repair.md`，通过 CLI 下载
+附件 `01a14ea7-9ed3-7291-ab12-f71758ac5064`。下载包与本地
+`dal379-benchmark-ci-evidence.zip` 字节相同，SHA-256 为
+`96fcd0bbc49a2bbdf9d2e9955e92ebce6bb2f6d6e1433f3c2dcc17741824f8c5`。
+作者的 delivery provenance 中 14 个文件全部匹配精确提交的 Git blob；新增测试前也
+全部匹配工作副本。最终与基线两个性能 binary 哈希均与 delivery / paired manifest 匹配。
+包内另有最初 `0b903a02` 的历史 identity / accepted 日志，未误用它们证明当前重构通过。
+
+复用本 head 的 `dal379-delivery-ctest.log`（**34/34**，4.39s）、
+`dal379-delivery-binding-pytest.log`（**11 passed**，0.05s）、
+`dal379-delivery-benchmark-pytest.log`（**20 passed, 21 deselected**，13.75s），
+以及真实 core-only 构建、示例运行与 RQMC / policy 协议 smoke 日志。
+未变范围继续采用原证据，没有重跑这些集合或性能矩阵。
+
+delivery manifest 只列性能 binary 身份，未列最终测试 / Python binary 的哈希。
+为补来源缺口，确认对应 targets 均 up-to-date、没有编译 / relink，捕获本轮二进制身份，
+并仅重放原八个小型完整结果快照。基线 Python binary 的哈希
+`d9df3097915323526400a0ca1eb50fc8282d0e308c6dbd7a86e8851bf5554d6e`
+匹配最初保存的不可变 binary；其 core 源码与 `0b5b6755` 的对应 blob 相同。
+当前 Python binary 为
+`30e27b927c8115ef6de0a666584032f414e5c0eb581daa492b8dd8dc8c0d2a0a`。
+完整测试、示例与 binding 哈希见新证据的 `independent-audit.json`。
+
+```sh
+cmake --build build/dal379-implementation \
+  --target dal_cpp_tests dal_public_tests dal_excel_portable_tests _dal -j 8
+cmake --build build/dal379-core-boundary --target pde_perf american_put_mc -j 8
+PYTHONPATH=build/dal379-ci-base/dal-python DAL_NUM_THREADS=4 python3 \
+  build/dal379-numeric-snapshot.py build/dal379-validation-benchmark/numeric-base.json
+PYTHONPATH=build/dal379-implementation/dal-python DAL_NUM_THREADS=4 python3 \
+  build/dal379-numeric-snapshot.py build/dal379-validation-benchmark/numeric-head.json
+```
+
+以上构建检查全部成功且没有改变任何已交付 binary。
+两个重放快照分别与作者 before / delivery 文件完整相等。八组包括 Bermudan、American、
+显式 CN、零 / 近零 vol、WORK_LIMIT、MAX_ITERATIONS 和线性精度失败；递归检查
+**58,836 个标量字段**，仅八处 `execution.peak_workspace_bytes` 各增加 88，其余完全相同。
+比较包括十六进制浮点、全部日期 / 时间层 / 区域 / 残差 / work、价格与失败 getter 状态，
+没有用价格相近代替完整结果等价。
+
+### 调用和合约语义核对
+
+- `dal-cpp/benchmarks/pde_perf/pde_perf.cpp` 的四条提前行权路径原已调用新 core API，
+  两处 Evaluate（计时和诊断）均保持。默认 European Theta 路径没有被误迁移。
+- `dal-cpp/examples/methods/american_put_mc/american_put_mc.cpp` 现在通过 core
+  `EvaluateEarlyExercisePde` 获取 American LCP 价格，覆盖 evaluation `2026-09-20`
+  至 maturity `2028-03-20`、S=K=100、vol=.20、r=.05、q=0。
+  原 601 节点、upper=300、600 ordinary steps、CN / 无 Rannacher 配置保持；
+  明确给预算允许单调性细分和完整区域输出。原 sample spot 正好是网格节点，
+  取消旧 cubic 插值不会在该调用增加插值误差。
+  American 连续行权 PDE 与 weekly MC 近似的语义仍有区别，原独立 MC / 解析断言保留。
+  core-only 的实际 build / link 和示例输出 PDE=7.0264 均有交付证据。
+- Python 的 comparison → `exercise_scenarios.pde_surface` / `pde_price` →
+  `exercise_pde.put_surface` → public `EarlyExercisePdeResult_New` 路径完整。
+  2025-01-15 起的 546 天合约、91 天 / 7 天日程及 maturity 不变，均明确请求
+  **Bermudan on those dates**；周频 “American” 行没有意外切成连续 American。
+- RQMC → `bermudan_put_pde` → 同一适配器，policy 的 `case_reference`、
+  `add_reference_greeks` 的六个 bump 也经该入口。原 2026-09-20 / 2027-09-20 /
+  2028-03-20 的精确日期、ACT/365 与 r/q/vol/strike 保持；这些日期覆盖 547 天，
+  没有错误复用 comparison 的 546 天常量。
+  European policy 行仍用解析，low-vol policy 的独立 CRR 选择保持，PDE diagnostic
+  本身也通过新 API。
+- 适配器固定 canonical market spot=strike 和 explicit upper=4K，使缓存表面不依赖
+  query spot；价格依旧在调用者的实际 spot / bumped spot 上插值。
+  rate / vol bump 会建立相应的新表面；carry 是 maturity 结束的同一确定性 r/q 段。
+- 全部 benchmark / 受影响示例搜索没有发现遗漏的美式 / 百慕大式 PDE 旧实现。
+  `script_mc_perf` 只有 MC，没有 PDE 调用；test-support oracle 保持独立，
+  未将它接到生产 API。没有新增 facade example 或反向组件依赖。
+
+### Python fully implicit 与精度门槛
+
+复核 dense CN 原始失败和不可变基线复现：两边均为 `LINEAR_SOLVE_FAILURE`，
+首步 residual `6.319554597791948e-6`、threshold `1e-12`、time index `279551`。
+这是新 API 严格求解检查拒绝该配置的证据，不能把旧 NumPy CN 输出当作同格式成功。
+本轮直接采用这组已定位证据，没有再计算 27 万时间层。
+
+适配器现在始终显式请求 theta=1，没有运行时 fallback 或重试。对各 interval 最小步数，
+取 `8 * max(ceil(requested_steps_i * total_days / interval_days_i))`，native 的
+按日期分配确保每段不少于原请求的 8 倍。comparison dense / coarse 实际为至少
+32 / 16 步每日，空间仍为 2401 / 1201；RQMC 不等区间的 allocation 也经过原新增测试。
+8 倍是这组 benchmark 的精度配置，不是所有市场的误差保证；调高执行预算没有放宽
+任何线性 / LCP 残差阈值。
+
+独立 AST 比较证实原 benchmark 测试文件的 13 个已有函数的 AST 完全相同，
+只有实现者新增两个路由 / 日期测试；因此下列原门槛没有被放宽：
+
+- dense / coarse PV、Delta、Vega、Rho 差分别不超过
+  `0.0005 / 0.0001 / 0.005 / 0.005`；两种离散行权日程都覆盖。
+- dense PDE 对更细 CRR 的 PV 差不超过 `0.003`，European PDE 对解析差 `0.001`。
+- 原全部 bump 点的两树深 CRR 差仍为 `0.003`，解析 European / 行权溢价检查保持。
+
+这些金融准入属于已通过的 20 项，继续复用。CRR 自行构造树与 payoff，未调用生产
+PDE 系数；core 的独立 CRR 只是抽出 payoff 并把非法概率的裸异常改为 REQUIRE。
+public 小 LCP 仍自行组矩阵、枚举全部 8 个 active set，原断言均保留。
+没有把共用生产 PDE 的 MC 一致性当成独立 PDE 价格参照。
+
+### 实际存储与性能证据
+
+直接编译包含当前生产 translation unit 的只读布局探针，结果为
+`Scratch=248 Rollback=336 Added=88 StepOperator=48 AssemblyArrays=64`。
+两个 exercise style 的 context 同大小；十个 N 长 double scratch 不变。
+额外 88 字节来自 request / carry 引用、输出 descriptor、容量和 scale 等固定上下文，
+确实进入 `fixedWorkspace`；per-step operand / buffer descriptor 有静态尺寸边界，
+占用原固定标量 allowance。计划包络、区域 reserve 和 payload 不变。
+
+```sh
+c++ -std=c++17 -O3 -DNDEBUG -I dal-cpp \
+  build/dal379-validation-benchmark/workspace_layout.cpp \
+  build/dal379-core-boundary/dal-cpp/libdal_cpp.a -pthread \
+  -o build/dal379-validation-benchmark/workspace_layout
+build/dal379-validation-benchmark/workspace_layout
+```
+
+核对最终 delivery capacity 日志，而非重构中间版本：A / B / CN-A 的步数是
+500 / 500 / 31876，region capacity 是 100500 / 200500 / 6407076，payload 是
+2141144 / 4147544 / 136053912 bytes；workspace 是
+53232 / 85232 / 1308272 bytes，分别小于计划 138880 / 241280 / 2146944。
+payload 也小于原计划 3418672 / 6625072 / 217277488。
+恰好 / 少 1 byte 的预算与失败隔离测试包含在本 head 的 34 项内。
+这些数字是原生 capacity 账本，不是 RSS / allocator 元数据测量。
+
+性能只复核作者最终 paired 原始日志，没有重新采样。base / head binary 分别是
+`f811e65cdfa5d70273a63f466349189f8d6aac589936ccd48ef9e5432ca25464` /
+`c342fb19b71530a5b7a9a76f5f08ef09baf28b313a3e96ca8c5a7045e7d8dfdc`。
+独立从 40 个进程输出重新归约四条路径的每轮 min，确认每进程 10 repetitions、
+源码保留 2 warmup、每侧每轮 10 进程、两轮、4% 原门槛不变。
+两轮 delta 依次为 Bermudan `-10.716% / -11.162%`、American
+`-6.402% / -5.797%`、Daily `+2.183% / +0.029%`、NearZero
+`-4.655% / -4.559%`，均通过。没有忽略初始 RED，shared-host 噪声边界保持。
+
+### 新增 / 更新的最窄检查
+
+新增 `test_policy_reference_uses_public_surface_at_every_greek_bump`，补原测试仅覆盖
+comparison / RQMC 路由而未直查 policy 六个 bump 的缺口。
+它用一个非 canonical spot=70 和已知线性合成表面，要求 PV 加六个 bump 全部调用
+public API，并核对实际插值 spot、精确日期、Bermudan 类型、carry、vol / rate bump
+及固定网格。合成数据用于验证路由 / 插值契约，不充当金融价格准确性证据。
+最小变异控制让旧式替身给出完全相同的 PV / Greeks 却绕过 API，测试因 0 次调用失败；
+真实路径 **1 passed, 41 deselected**。没有生产行为修复。
+
+```sh
+PYTHONPATH=build/dal379-implementation/dal-python DAL_NUM_THREADS=4 python3 -m pytest \
+  dal-python/benchmarks/tests/test_exercise_comparisons.py \
+  -k test_policy_reference_uses_public_surface_at_every_greek_bump -q
+```
+
+contact 分类代码已从局部 lambda 移到 `Rollback_::Contact / RecordExercise`，
+原八个探针的旧 binary 不足以单独证明当前 refactor。
+因此保留原测试数据 / 断言，只更新调试定位到当前方法、重编译当前 `.cpp`，
+**8 个 GREEN + 1 个预期 truncation mutation RED** 再次通过。
+它仍直接执行生产分类 / 区域存储代码，不引入复制算法或生产 hook。
+命令如下；采用原 `-O0 -g -DNDEBUG` 调试配置，不作性能或金融收敛证明。
+
+```sh
+c++ -std=c++17 -O0 -g -DNDEBUG -I dal-cpp \
+  -I dal-cpp/externals/googletest/googletest/include \
+  build/dal379-validation-benchmark/contact_probe.cpp dal-cpp/dal/math/pde/earlyexercisepde.cpp \
+  build/dal379-implementation/dal-cpp/libdal_cpp.a \
+  build/dal379-implementation/lib/libgtest_main.a \
+  build/dal379-implementation/lib/libgtest.a -pthread \
+  -o build/dal379-validation-benchmark/contact_probe
+python3 build/dal379-validation-benchmark/run_contacts.py
+```
+
+未扩大到完整 CTest / Python / 性能集合。
+
+### 余项和交接
+
+非阻断文字遗留：`dal-python/benchmarks/dal_comparisons/compare.py:204`
+仍把参考解描述为 “Independent Crank-Nicolson PDE” 和每日 4 步，
+实际已是 public fully implicit / 至少 32 步。README 与 CONVENTIONS 已更新，
+但 CLI 输出说明未同步；交后续 reviewer / 收尾修正，不更改数值结论。
+
+本轮只取一次精确 head 的真实 GitHub check-runs 快照：Codacy check
+`117655729769` SUCCESS，core-only examples SUCCESS；四个 MSVC 原生 build job
+仍为 `in_progress`，configure-only SUCCESS 不等于真实 OPER / XLL 测试已执行。
+没有把 Windows wheel、Linux shim 或 portable 成功替代原生入口证据，
+没有等待 / 轮询 CI。快照保留为 `ci-snapshot.json`，最终 exact-head 门禁由 orchestrator 收集。
+本轮新增测试 / 记录尚未提交，未来提交的门禁须匹配新的最终 head，不能沿用 `6d09fc37`
+的 SUCCESS 冒充其通过。既有混合链接问题不扩为修复。

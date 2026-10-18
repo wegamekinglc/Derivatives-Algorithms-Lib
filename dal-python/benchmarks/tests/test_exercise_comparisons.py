@@ -87,6 +87,49 @@ def test_rqmc_reference_preserves_dates_and_each_interval_step_minimum(monkeypat
     assert request.market.volatility == 0.002
 
 
+def test_policy_reference_uses_public_surface_at_every_greek_bump(monkeypatch):
+    from types import SimpleNamespace
+
+    import dal
+    import compare_lsmc_policy_sensitivities as policy
+
+    calls = []
+
+    def evaluate(request):
+        calls.append(request)
+        base = 5.0 + 100.0 * request.market.volatility + 1000.0 * request.market.carry[0].rate
+        return SimpleNamespace(is_success=True, grid=[0.0, 400.0], values=[base, base + 400.0])
+
+    monkeypatch.setattr(dal, "EarlyExercisePdeResult_New", evaluate)
+    days = (policy.MID_DAYS, policy.MATURITY_DAYS)
+    reference, dates, use_pde, diagnostic = policy.case_reference(
+        "bermudan_itm", 70.0, 0.17, days, 101, 25
+    )
+    policy.add_reference_greeks(reference, 70.0, 0.17, days, dates, use_pde, 0.01, 101, 25)
+    assert len(calls) == 7
+    assert use_pde
+    assert diagnostic == pytest.approx(142.0)
+    assert reference == pytest.approx(
+        {"PV": 142.0, "d_spot": 1.0, "d_vol": 100.0, "d_rate": 1000.0}, abs=1e-9
+    )
+    expected = [(0.17, 0.05)] * 3 + [(0.18, 0.05), (0.16, 0.05), (0.17, 0.06), (0.17, 0.04)]
+    for request, (volatility, rate) in zip(calls, expected):
+        assert request.contract.exercise_style == "BERMUDAN"
+        assert request.contract.evaluation_date == policy.EVALUATION
+        assert request.contract.maturity_date == policy.MATURITY
+        assert request.contract.exercise_dates == [policy.MID, policy.MATURITY]
+        assert request.contract.strike == 100.0
+        assert request.market.spot == 100.0
+        assert request.market.volatility == pytest.approx(volatility)
+        assert len(request.market.carry) == 1
+        assert request.market.carry[0].end_date == policy.MATURITY
+        assert request.market.carry[0].rate == pytest.approx(rate)
+        assert request.market.carry[0].dividend_yield == 0.0
+        assert request.settings.grid_points == 101
+        assert request.settings.upper == 400.0
+        assert request.settings.theta == 1.0
+
+
 @pytest.mark.parametrize("kind", ["bermudan", "american"])
 def test_comparison_reference_uses_pde_at_every_greek_bump(kind, monkeypatch):
     days = inputs.exercise_days(kind)
