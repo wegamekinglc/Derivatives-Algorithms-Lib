@@ -170,3 +170,109 @@ P2 修复与原契约一致，已补经过真实导出入口的回归并接入�
 其他未提交产物及产品代码不变。交回 orchestrator 进入文档阶段；父任务保持 `in_progress`。
 
 **本轮 Verdict: Approve**（仅 P2 修复及直接影响；Windows 原生验证仍待 CI）。
+
+## 2026-10-18：benchmark 迁移与 Codacy 修复增量主审
+
+### Findings
+
+本轮未发现新增代码问题或生产 blocker。审查范围为
+`0b5b675556287b9565564bea779a53dd0d879b77..1e2bc1c00b3a61fc35fa271fc7ea7271dd9649af`。
+PR #602 的 `headRefOid`、本地 HEAD 和 15 个增量文件的 Git blob 均核对为后者；
+沿用 `agent/dal-orchestrator/9f36be3b414c`，目标 `master`。
+完整读取改动文件、PR 元数据/文件清单、active implementation/validation、当前正式方法指南，
+并对照基线；没有重新开展旧功能全审。首轮与 P2 复核记录保留。
+
+以下为本次结论的源码依据，不是新增 Findings：
+
+- `dal-cpp/examples/methods/american_put_mc/american_put_mc.cpp:111` 改用 core
+  American LCP；精确 evaluation/maturity、r/q/vol、601 节点、upper=300、600 ordinary
+  steps、显式 CN/无 damping 均保持。预算明确容纳单调性细分和完整区域输出，失败立即拒绝价格。
+  `dal-cpp/examples/methods/american_put_mc/CMakeLists.txt:4` 仍只链接 core `dal_library`；
+  没有 facade include、反向依赖或搬迁。`dal-cpp/benchmarks/pde_perf/pde_perf.cpp:108`
+  与 `:114` 的计时/诊断入口原已使用新 API，四条提前行权路径及独立 European 路径保持。
+- `dal-python/benchmarks/dal_comparisons/exercise_pde.py:17` 用整数日长计算每段最小步数，
+  `:44` 显式取八倍，`:45` 构造精确 dated Bermudan，`:49` 保留 maturity 结束的 r/q 段。
+  `:52` 明确 theta=1、无 Rannacher，并单独给执行预算；`:59` 拒绝失败结果，没有 fallback、
+  重试或放宽残差。canonical spot=strike、explicit upper=4K 对该 Bermudan 表面有效，
+  调用者仍在实际 spot/bumped spot 插值。
+- `dal-python/benchmarks/dal_comparisons/exercise_scenarios.py:79` 保留 546 天的 91/7 天日程；
+  weekly “American” 比较行仍是相同日期上的 Bermudan。
+  `dal-python/benchmarks/lsmc_rqmc_coverage.py:41` 保留跨 547 天的原始精确日期和不等区间；
+  `dal-python/benchmarks/compare_lsmc_policy_sensitivities.py:66`、`:198` 的 PV/六个 bump
+  均经该入口。European 解析行和 low-vol 独立 CRR 选择不变。全调用搜索未发现遗留的
+  benchmark 提前行权 PDE 内嵌实现，独立 test-support oracle 没有接入生产 PDE。
+- `dal-cpp/dal/math/pde/earlyexercisepde.cpp:152`、`:198`、`:206` 的计划与边界拆分保留
+  exercise/carry 日期归属、候选点和运算顺序；`:286`、`:311` 保留三角回代及线性误差定义。
+  `:499` 的 RHS、`:514` 的 payoff correction、`:588` 的原始未加 penalty LCP/线性残差
+  及失败优先级与基线一致。`:597` 仍在 solve 前检查 work 并计入失败尝试，`:629` 只在成功
+  状态下继续，`:847` 只在成功后发布价格。Contact/区域扫描 `:653`、`:661` 的条件、容量
+  和 clipping 不变。私有按 style 特化没有改变公开类型、默认值或 owning/getter 契约。
+- `dal-cpp/dal/math/pde/earlyexercisepde.cpp:467` 新固定 context 比旧 Scratch 多 88 bytes；
+  `:770` 已计入它，`:774` 仍核验实际 workspace 不超过原计划包络。十个 double scratch
+  数组、payload 和最坏区域 reserve 不变；`:461`、`:466` 限制两个临时 descriptor 的尺寸，
+  使其落在原固定标量 allowance 内。
+- `dal-excel/src/__earlyexercisepde.cpp:275` 的 `read` 原为 typed callback；改名
+  `consumeRow` 后，`:286` 的两次矩阵访问仍受两列检查和行界限控制，没有删除边界保护或
+  压制安全规则。`:357` 起的字段解析拆分保留原校验、必填/重复/未知键和验证后提交行为；
+  `dal-excel/src/__earlyexercisepdeinput.hpp:19` 只提取原标量类型谓词，原 P2 专用空设置
+  validator 保持。markup/生成入口没有本轮内容差异，原 Machinist 一致性证据仍适用。
+- `dal-python/benchmarks/tests/test_exercise_comparisons.py:33`、`:65` 覆盖实际 API 调用、
+  精确日期、carry、显式方法和不等区间密度；`:90` 的 policy 回归用非 canonical 查询 spot
+  和线性合成表面核对 PV 加六个 bump 的七次 API 调用/参数/插值。
+  绕过 API 但返回相同数值的变异会失败，故能保护本次迁移；合成值不充当金融精度证据。
+  `dal-public/tests/test_early_exercise_pde.cpp:25` 起的独立小 LCP 仍自行组矩阵并枚举全部
+  八个 active set，抽取 helper 后保留原断言和 fatal-failure 传播。
+  `dal-cpp/tests/math/pde/test_early_exercise_pde.cpp:213` 的 CRR 仍独立计算；原裸异常已改为
+  REQUIRE，首轮非阻断风格项随此次修复关闭。
+
+### Open Questions
+
+无新的代码/API 决策或 blocker。既有
+`dal-python/benchmarks/dal_comparisons/compare.py:204` 仍输出旧 CN/每日 4 步说明，按委托
+保留为非阻断文档收尾。文档需统一说明 explicit fully implicit、八倍输入密度、dense/coarse
+实际至少 32/16 步每日；README 的 coarse “two-step-per-day” 用语宜明确是放大前请求值。
+这是一组 benchmark 的精度配置，不代表一般市场误差保证。
+
+已记录的 Codacy SUCCESS 属于实现修复提交 `6d09fc37`，不冒充最终 head required checks。
+本轮 PR check 快照没有证明 `1e2bc1c0` 的全部原生 Windows 作业和三项真实 OPER/XLL
+入口回归已通过；wheel、Linux shim、portable 都不能替代它们。
+本结论不宣称整个 PR merge-ready。最终 head 的真实 CI、全部未解决线程及合并由
+orchestrator 按既有授权统一审计；本轮不等待/轮询外部 CI。
+
+### Tests
+
+本轮补充的是只读来源/结果核对，没有重跑已验证集合或创建环境：
+
+- 15 个增量文件逐一匹配精确 HEAD blob。delivery source manifest 在当前副本仅有预期的
+  index 与 tester 新增路由测试两处变化；`6d09fc37..1e2bc1c0` 只有这两处与追加 validation，
+  生产实现不变。当前六个测试/binding/基线/standalone 示例 binary 的 SHA-256 均匹配
+  tester 的 `independent-audit.json`。路由测试文件哈希为
+  `7b6367f7aded520aae9b2c4257bdcb6f2ac8d112c36e253b57b817e5e0e4fc0e`。
+- 独立递归复核已重放的八组完整 JSON，共 58,836 个标量；除八处
+  `execution.peak_workspace_bytes` 各加 88 外完全相同，包含成功/失败、CN、零/近零 vol、
+  日期、carry、区域、残差、work 和失败 getter 状态。
+  布局日志为 Scratch=248、Rollback=336、StepOperator=48、AssemblyArrays=64。
+- AST 对照确认所有原有 benchmark test 函数保持，原 PV/Delta/Vega/Rho coarse-dense
+  门槛 `0.0005/0.0001/0.005/0.005`、CRR 价格 `0.003` 和 European 解析 `0.001`
+  没有放宽。原 dense CN 的严格线性误差失败在不可变基线上同样复现；显式隐式加密是配置
+  选择，没有修改求解器容差或把失败输出当价格。
+
+复用并核对本实现对应的原始日志：34/34 定向 CTest、11 binding pytest、20 benchmark
+pytest；tester 新增 policy 路由 1 GREEN/绕过变异预期 RED，当前分类代码八个 contact
+GREEN/截断变异预期 RED。复用 Lizard 原阈值、Flawfinder RED/GREEN、生成一致性和
+standalone core-only 实际 build/link/run（示例 PDE=7.0264）证据。
+capacity 日志中的 A/B/CN-A 实际 workspace 为 53232/85232/1308272 bytes，均在原包络内。
+
+四条性能路径继续采用已独立归约的两轮 paired 原始输出，原每轮 4% gate 不变：Bermudan
+`-10.716%/-11.162%`、American `-6.402%/-5.797%`、Daily `+2.183%/+0.029%`、
+NearZero `-4.655%/-4.559%`，没有新增疑点要求再采样。
+`git diff --check` 通过。shared/AAD 既有混合链接边界不扩入本增量。
+
+### Summary
+
+benchmark 调用迁移、组件方向、日期/carry 和显式数值配置与声明一致；数值函数拆分保留
+原残差、失败、区域、预算语义，新测试能防止迁移被绕过。仅追加本 review 并更新其索引，
+原记录逐字节保留，implementation/validation 与产品代码不改。交回 orchestrator 进行
+必要文档收尾及最终 head 门禁审计；父任务保持 `in_progress`。
+
+**本轮 Verdict: Approve**（仅上述增量；整体合并仍依赖最终 head 原生 CI 与收尾审计）。

@@ -22,10 +22,13 @@ current-state explanations in the published docs or focused Codex references.
   CLI reference-description text remains a minor follow-up.
 
 - [DAL-379 early-exercise PDE focused code review](reviews/dal-379-early-exercise-pde.md)
-  — Targeted Approve at `318ccc57` clears the P2 blank-settings code blocker.
-  Three raw OPER/XLL entry tests still require Windows CI compilation/execution;
-  portable/shim checks do not substitute. Keep this record until final acceptance;
-  the CRR style observation remains non-blocking.
+  — Appended scoped Approve at PR #602 head `1e2bc1c0` for benchmark migration
+  and Codacy refactoring: no new code blocker; numerical replay differs only by
+  the accounted +88-byte workspace context. Earlier P2 clearance is retained,
+  and the CRR style observation is now resolved. Final-head native Windows
+  OPER/XLL CI and check/thread audit remain required; portable/shim checks do
+  not substitute. CLI/reference-density wording remains a non-blocking docs
+  follow-up. Keep the full review history until final acceptance.
 
 The current API, method, defaults, budgets and language examples are documented
 in the [Bermudan/American PDE guide](../../docs/methodology/pde/early-exercise.md).
