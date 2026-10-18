@@ -8,5 +8,6 @@ current-state explanations in the published docs or focused Codex references.
 
 ## Current Artifacts
 
-- [DAL-357 restricted compiled double SoA](compiled-soa-rollout.md).
-- [DAL-351 checkpoint admission design for #571](lsmc-checkpoint-design.md).
+No active artifacts are registered. Supported compiled double batching and LSMC
+training checkpoints are documented in the [simulation guide](../../docs/methodology/monte-carlo/simulation.md#explicit-compiled-double-batching)
+and [LSMC guide](../../docs/methodology/monte-carlo/lsm.md#opt-in-training-checkpoints).

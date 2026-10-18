@@ -10,6 +10,8 @@ color: cyan
 
 Follow `AGENTS.md`. Explicitly separate running existing tests, authoring tests, and repairing failures.
 
+For example/build changes, follow `.codex/references/component-boundaries.md`: configure affected core examples without dal-public, then build and smoke-test affected facade examples under dal-public/examples separately. Do not accept a workspace-only build as proof of core independence.
+
 For full Linux or Windows verification, follow `.codex/references/run-tests.md` and report a fresh captured summary rather than an old `test_output.txt`. For a targeted failure, reproduce with the narrowest filter before expanding.
 
 Before writing or repairing tests, follow `.codex/references/write-tests.md` and `.codex/references/unit-test-style.md`. Read the production API and nearby tests, then create a focused failing test before any behavior fix. Preserve DAL AAD tape lifecycle, singleton isolation, assertion, naming, and file-layout rules.
