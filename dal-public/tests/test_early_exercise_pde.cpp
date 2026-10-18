@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <array>
 #include <cmath>
 #include <future>
 
@@ -20,62 +21,85 @@ namespace {
         r.settings_.rannacherIntervals_ = 0;
         return r;
     }
-} // namespace
-
-TEST(PublicEarlyExercisePdeTest, TestSmallLcpAgainstIndependentActiveSetEnumeration) {
-    const auto result = EvaluateEarlyExercisePde(Small());
-    ASSERT_TRUE(result.IsSuccess());
-    double a[3][3] = {}, b[3] = {110.0, 10.0, 0.0};
-    const double g[3] = {110.0, 10.0, 0.0}, dt = 1.0 / 365.0;
-    for (int i = 0; i < 3; ++i) {
-        const double node = i + 1, diffusion = 0.045 * node * node, drift = 0.03 * node;
-        a[i][i] = 1.0 + dt * (2.0 * diffusion + 0.1);
-        if (i > 0)
-            a[i][i - 1] = -dt * (diffusion - drift);
-        else
-            b[i] += dt * (diffusion - drift) * 210.0;
-        if (i < 2)
-            a[i][i + 1] = -dt * (diffusion + drift);
+    struct LcpReference_ {
+        double a_[3][3]{};
+        double b_[3]{110.0, 10.0, 0.0};
+        double g_[3]{110.0, 10.0, 0.0};
+    };
+    LcpReference_ SmallLcpReference() {
+        LcpReference_ ref;
+        const double dt = 1.0 / 365.0;
+        for (int i = 0; i < 3; ++i) {
+            const double node = i + 1, diffusion = 0.045 * node * node, drift = 0.03 * node;
+            ref.a_[i][i] = 1.0 + dt * (2.0 * diffusion + 0.1);
+            if (i > 0)
+                ref.a_[i][i - 1] = -dt * (diffusion - drift);
+            else
+                ref.b_[i] += dt * (diffusion - drift) * 210.0;
+            if (i < 2)
+                ref.a_[i][i + 1] = -dt * (diffusion + drift);
+        }
+        return ref;
     }
-    int admissible = 0;
-    for (int mask = 0; mask < 8; ++mask) {
-        double system[3][4] = {};
+    using DenseSystem_ = std::array<std::array<double, 4>, 3>;
+    DenseSystem_ ActiveSystem(const LcpReference_& ref, int mask) {
+        DenseSystem_ system{};
         for (int i = 0; i < 3; ++i) {
             const bool active = (mask & (1 << i)) != 0;
             for (int j = 0; j < 3; ++j)
-                system[i][j] = active ? double(i == j) : a[i][j];
-            system[i][3] = active ? g[i] : b[i];
+                system[i][j] = active ? double(i == j) : ref.a_[i][j];
+            system[i][3] = active ? ref.g_[i] : ref.b_[i];
         }
+        return system;
+    }
+    std::array<double, 3> SolveDense(DenseSystem_ system) {
         for (int i = 0; i < 3; ++i)
             for (int row = i + 1; row < 3; ++row) {
                 const double factor = system[row][i] / system[i][i];
                 for (int j = i; j <= 3; ++j)
                     system[row][j] -= factor * system[i][j];
             }
-        double u[3] = {};
+        std::array<double, 3> u{};
         for (int i = 2; i >= 0; --i) {
             u[i] = system[i][3];
             for (int j = i + 1; j < 3; ++j)
                 u[i] -= system[i][j] * u[j];
             u[i] /= system[i][i];
         }
+        return u;
+    }
+    bool Admissible(const LcpReference_& ref, const std::array<double, 3>& u) {
         bool valid = true;
         for (int i = 0; i < 3; ++i) {
-            double w = -b[i];
+            double w = -ref.b_[i];
             for (int j = 0; j < 3; ++j)
-                w += a[i][j] * u[j];
-            valid = valid && u[i] >= g[i] - 1e-10 && w >= -1e-10 && std::abs(std::min(u[i] - g[i], w)) <= 1e-10;
+                w += ref.a_[i][j] * u[j];
+            valid = valid && u[i] >= ref.g_[i] - 1e-10 && w >= -1e-10 && std::abs(std::min(u[i] - ref.g_[i], w)) <= 1e-10;
         }
-        if (!valid)
-            continue;
-        ++admissible;
+        return valid;
+    }
+    void CheckSolution(const EarlyExercisePdeResult_& result, const LcpReference_& ref, const std::array<double, 3>& u) {
         for (int i = 0; i < 3; ++i) {
             ASSERT_NEAR(result.Values()[i + 1], u[i], 3e-8);
-            double w = -b[i];
+            double w = -ref.b_[i];
             for (int j = 0; j < 3; ++j)
-                w += a[i][j] * result.Values()[j + 1];
-            ASSERT_LE(std::abs(std::min(result.Values()[i + 1] - g[i], w / a[i][i])), result.Execution().epsilon_);
+                w += ref.a_[i][j] * result.Values()[j + 1];
+            ASSERT_LE(std::abs(std::min(result.Values()[i + 1] - ref.g_[i], w / ref.a_[i][i])), result.Execution().epsilon_);
         }
+    }
+} // namespace
+
+TEST(PublicEarlyExercisePdeTest, TestSmallLcpAgainstIndependentActiveSetEnumeration) {
+    const auto result = EvaluateEarlyExercisePde(Small());
+    ASSERT_TRUE(result.IsSuccess());
+    const auto ref = SmallLcpReference();
+    int admissible = 0;
+    for (int mask = 0; mask < 8; ++mask) {
+        const auto u = SolveDense(ActiveSystem(ref, mask));
+        if (!Admissible(ref, u))
+            continue;
+        ++admissible;
+        ASSERT_NO_FATAL_FAILURE(CheckSolution(result, ref, u));
     }
     ASSERT_EQ(admissible, 1);
     ASSERT_EQ(result.ExerciseLevels().size(), 2);

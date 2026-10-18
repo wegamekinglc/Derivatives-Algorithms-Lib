@@ -272,7 +272,7 @@ namespace Dal {
         bool EmptyRange(const Matrix_<Cell_>& rows) {
             return std::all_of(rows.begin(), rows.end(), [](const auto& cell) { return Cell::IsEmpty(cell); });
         }
-        template <class F_> std::set<String_> Rows(const Matrix_<Cell_>& rows, const char* field, bool optional, F_ read) {
+        template <class F_> std::set<String_> Rows(const Matrix_<Cell_>& rows, const char* field, bool optional, F_ consumeRow) {
             std::set<String_> seen;
             if (EmptyRange(rows)) {
                 REQUIRE(optional, String_("InvalidEarlyExercisePdeRequest; ") + field + "; required table is empty");
@@ -283,7 +283,7 @@ namespace Dal {
                 const auto context = Excel::ScriptSettingLocation("EarlyExercisePde", field, row + 1, 2);
                 const auto key = Excel::TextValue(rows(row, 0), context + "; key; ");
                 REQUIRE(seen.insert(key).second, context + "; duplicate key " + key);
-                read(key, rows(row, 1), context + "; " + key);
+                consumeRow(key, rows(row, 1), context + "; " + key);
             }
             return seen;
         }
@@ -354,6 +354,55 @@ namespace Dal {
             for (const auto* key : keys)
                 REQUIRE(seen.count(key), String_("InvalidEarlyExercisePdeRequest; ") + field + "." + key + "; missing required key");
         }
+        void ReadContractField(EarlyExercisePdeContract_* c, const String_& key, const Cell_& cell, const String_& context) {
+            if (key == "evaluation_date")
+                c->evaluationDate_ = DateCell(cell, context);
+            else if (key == "maturity_date")
+                c->maturityDate_ = DateCell(cell, context);
+            else if (key == "strike")
+                c->strike_ = Number(cell, context);
+            else if (key == "option_type") {
+                const auto text = Excel::TextValue(cell, context);
+                REQUIRE(text == "CALL" || text == "PUT", context + "; expected CALL or PUT");
+                c->optionType_ = OptionType_(text);
+            } else if (key == "exercise_style") {
+                const auto text = Excel::TextValue(cell, context);
+                REQUIRE(text == "BERMUDAN" || text == "AMERICAN", context + "; expected BERMUDAN or AMERICAN");
+                c->exerciseStyle_ = EarlyExerciseStyle_(text);
+            } else
+                THROW(context + "; unknown contract key");
+        }
+        void ReadMarketField(EarlyExercisePdeMarket_* market, const String_& key, const Cell_& cell, const String_& context) {
+            if (key == "spot")
+                market->spot_ = Number(cell, context);
+            else if (key == "volatility")
+                market->volatility_ = Number(cell, context);
+            else
+                THROW(context + "; unknown market key");
+        }
+        Vector_<EarlyExercisePdeCarrySegment_> ReadCarry(const Matrix_<Cell_>& carry) {
+            Vector_<EarlyExercisePdeCarrySegment_> result;
+            REQUIRE(carry.Cols() == 3 && carry.Rows() > 0, "InvalidEarlyExercisePdeRequest; carry; expected nonempty three-column rectangle");
+            result.reserve(carry.Rows());
+            for (int row = 0; row < carry.Rows(); ++row) {
+                const auto context = Excel::ScriptSettingLocation("EarlyExercisePdeRequest_New", "carry", row + 1, 1);
+                result.push_back({DateCell(carry(row, 0), context), Number(carry(row, 1), context + "; column=2 rate"),
+                                  Number(carry(row, 2), context + "; column=3 dividend_yield")});
+            }
+            return result;
+        }
+        Vector_<Date_> ReadExerciseDates(const Matrix_<Cell_>& dates) {
+            Vector_<Date_> result;
+            if (!EmptyRange(dates)) {
+                REQUIRE(dates.Rows() == 1 || dates.Cols() == 1, "InvalidEarlyExercisePdeRequest; exercise_dates; expected single row or column");
+                const int count = std::max(dates.Rows(), dates.Cols());
+                result.reserve(count);
+                for (int i = 0; i < count; ++i)
+                    result.push_back(
+                        DateCell(dates(dates.Rows() == 1 ? 0 : i, dates.Rows() == 1 ? i : 0), "exercise_dates[" + String_(std::to_string(i)) + "]"));
+            }
+            return result;
+        }
     } // namespace
 
     void EarlyExercisePdeSettings_New(const String_& name, const Matrix_<Cell_>& rows, Handle_<StorableEarlyExercisePdeSettings_>* output) {
@@ -399,49 +448,15 @@ namespace Dal {
         EarlyExercisePdeRequest_ value;
         value.settings_ = settings ? settings->val_ : EarlyExercisePdeSettings_();
         const auto seenContract = Rows(contract, "contract", false, [&](const String_& key, const Cell_& cell, const String_& context) {
-            auto& c = value.contract_;
-            if (key == "evaluation_date")
-                c.evaluationDate_ = DateCell(cell, context);
-            else if (key == "maturity_date")
-                c.maturityDate_ = DateCell(cell, context);
-            else if (key == "strike")
-                c.strike_ = Number(cell, context);
-            else if (key == "option_type") {
-                const auto text = Excel::TextValue(cell, context);
-                REQUIRE(text == "CALL" || text == "PUT", context + "; expected CALL or PUT");
-                c.optionType_ = OptionType_(text);
-            } else if (key == "exercise_style") {
-                const auto text = Excel::TextValue(cell, context);
-                REQUIRE(text == "BERMUDAN" || text == "AMERICAN", context + "; expected BERMUDAN or AMERICAN");
-                c.exerciseStyle_ = EarlyExerciseStyle_(text);
-            } else
-                THROW(context + "; unknown contract key");
+            ReadContractField(&value.contract_, key, cell, context);
         });
         Required(seenContract, {"evaluation_date", "maturity_date", "strike", "option_type", "exercise_style"}, "contract");
         const auto seenMarket = Rows(market, "market", false, [&](const String_& key, const Cell_& cell, const String_& context) {
-            if (key == "spot")
-                value.market_.spot_ = Number(cell, context);
-            else if (key == "volatility")
-                value.market_.volatility_ = Number(cell, context);
-            else
-                THROW(context + "; unknown market key");
+            ReadMarketField(&value.market_, key, cell, context);
         });
         Required(seenMarket, {"spot", "volatility"}, "market");
-        REQUIRE(carry.Cols() == 3 && carry.Rows() > 0, "InvalidEarlyExercisePdeRequest; carry; expected nonempty three-column rectangle");
-        value.market_.carry_.reserve(carry.Rows());
-        for (int row = 0; row < carry.Rows(); ++row) {
-            const auto context = Excel::ScriptSettingLocation("EarlyExercisePdeRequest_New", "carry", row + 1, 1);
-            value.market_.carry_.push_back({DateCell(carry(row, 0), context), Number(carry(row, 1), context + "; column=2 rate"),
-                                            Number(carry(row, 2), context + "; column=3 dividend_yield")});
-        }
-        if (!EmptyRange(dates)) {
-            REQUIRE(dates.Rows() == 1 || dates.Cols() == 1, "InvalidEarlyExercisePdeRequest; exercise_dates; expected single row or column");
-            const int count = std::max(dates.Rows(), dates.Cols());
-            value.contract_.exerciseDates_.reserve(count);
-            for (int i = 0; i < count; ++i)
-                value.contract_.exerciseDates_.push_back(
-                    DateCell(dates(dates.Rows() == 1 ? 0 : i, dates.Rows() == 1 ? i : 0), "exercise_dates[" + String_(std::to_string(i)) + "]"));
-        }
+        value.market_.carry_ = ReadCarry(carry);
+        value.contract_.exerciseDates_ = ReadExerciseDates(dates);
         ValidateEarlyExercisePdeRequest(value);
         output->reset(new StorableEarlyExercisePdeRequest_(name, std::move(value)));
     }

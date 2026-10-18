@@ -210,28 +210,27 @@ namespace {
         const auto normal = [](double x) { return 0.5 * std::erfc(-x / std::sqrt(2.0)); };
         return r.contract_.optionType_ == OptionType_::Value_::CALL ? a * normal(d1) - b * normal(d2) : b * normal(-d2) - a * normal(-d1);
     }
+    double CrrPayoff(const EarlyExercisePdeRequest_& r, double spot) {
+        const double x = spot - r.contract_.strike_;
+        return std::max(r.contract_.optionType_ == OptionType_::Value_::CALL ? x : -x, 0.0);
+    }
     double Crr(const EarlyExercisePdeRequest_& r, int steps, bool american, const Vector_<int>& exercise = {}) {
         const double dt = (r.contract_.maturityDate_ - r.contract_.evaluationDate_) / (365.0 * steps);
         const double u = std::exp(r.market_.volatility_ * std::sqrt(dt));
         const auto& carry = r.market_.carry_.front();
         const double probability = (std::exp((carry.rate_ - carry.dividendYield_) * dt) - 1.0 / u) / (u - 1.0 / u);
-        if (!(probability >= 0.0 && probability <= 1.0))
-            throw std::runtime_error("invalid CRR probability");
+        REQUIRE(probability >= 0.0 && probability <= 1.0, "invalid CRR probability");
         const double discount = std::exp(-carry.rate_ * dt);
-        const auto payoff = [&](double spot) {
-            const double x = spot - r.contract_.strike_;
-            return std::max(r.contract_.optionType_ == OptionType_::Value_::CALL ? x : -x, 0.0);
-        };
         std::vector<double> values(steps + 1);
         for (int i = 0; i <= steps; ++i)
-            values[i] = payoff(r.market_.spot_ * std::pow(u, 2 * i - steps));
+            values[i] = CrrPayoff(r, r.market_.spot_ * std::pow(u, 2 * i - steps));
         for (int step = steps - 1; step >= 0; --step) {
             const bool project = american || std::find(exercise.begin(), exercise.end(), step) != exercise.end();
             double spot = r.market_.spot_ * std::pow(u, -step);
             for (int i = 0; i <= step; ++i) {
                 values[i] = discount * ((1.0 - probability) * values[i] + probability * values[i + 1]);
                 if (project)
-                    values[i] = std::max(values[i], payoff(spot));
+                    values[i] = std::max(values[i], CrrPayoff(r, spot));
                 spot *= u * u;
             }
         }

@@ -41,16 +41,16 @@ def european_put(maturity):
 def bermudan_put_pde(
     exercise_dates, grid_points, steps_per_interval, spot=SPOT, vol=VOL, rate=RATE
 ):
-    """Crank-Nicolson Black-Scholes rollback with exercise-date projection."""
-    exercise_times = tuple((day - TODAY).days / 365.0 for day in exercise_dates)
+    """Public implicit PDE with exact dates and 8x the requested steps/interval."""
     grid, values = put_surface(
-        exercise_times,
+        exercise_dates,
         grid_points,
-        (steps_per_interval,) * len(exercise_times),
+        (steps_per_interval,) * len(exercise_dates),
         vol,
         rate,
         STRIKE,
         DIVIDEND,
+        evaluation_date=TODAY,
     )
     return float(np.interp(spot, grid, values))
 

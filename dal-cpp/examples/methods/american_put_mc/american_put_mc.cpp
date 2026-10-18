@@ -4,7 +4,6 @@
 #include <cstdint>
 #include <iomanip>
 #include <iostream>
-#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -12,10 +11,7 @@
 #include <dal/platform/platform.hpp>
 
 #include <dal/math/distribution/black.hpp>
-#include <dal/math/interp/interpcubic.hpp>
-#include <dal/math/operators.hpp>
-#include <dal/math/pde/pdegrid.hpp>
-#include <dal/math/pde/thetascheme.hpp>
+#include <dal/math/pde/earlyexercisepde.hpp>
 #include <dal/model/blackscholes.hpp>
 #include <dal/platform/initall.hpp>
 #include <dal/script/diagnostics.hpp>
@@ -110,45 +106,25 @@ namespace {
         return MCSimulation<T_>(product, Model(), nPaths, ScriptValuationSettings_(), simulation);
     }
 
-    //  Continuously exercisable put on a Crank-Nicolson grid: after every backward
-    //  step the solution is lifted to the immediate-exercise value.
+    // Preserve the 601-node, upper=300, 600 ordinary-step CN setup. The native
+    // American solver enforces the original LCP and may subdivide for monotonicity.
     double AmericanPutPde() {
-        constexpr int SPACE_STEPS = 600;
-        constexpr int TIME_STEPS = 600;
-        constexpr double MAX_X = 3.0 * STRIKE;
-        const int numX = SPACE_STEPS + 1;
-
-        const PDE::CoordinateVector_ x = PDE::MakeUniformGrid(0.0, MAX_X, numX);
-        const Vector_<PDE::CoordinateVector_> grids(1, x);
-        const Vector_<> loc = PDE::GridLocations(x);
-
-        Vector_<std::shared_ptr<Cube_<>>> vals(1, std::make_shared<Cube_<>>(1, 1, numX));
-        for (int k = 0; k < numX; ++k)
-            (*vals[0])(0, 0, k) = std::max(STRIKE - loc[k], 0.0);
-        Vector_<std::shared_ptr<Cube_<>>> next(1, std::make_shared<Cube_<>>(1, 1, numX));
-
-        const Handle_<PDE::ScalarCoeff_> disc(PDE::NewConstCoeff(RATE));
-        const Handle_<PDE::VectorCoeff_> mu(PDE::NewVectorCoeff([](double s) { return (RATE - DIV) * s; }));
-        const Handle_<PDE::MatrixCoeff_> var(PDE::NewMatrixCoeff([](double s) { return VOL * VOL * s * s; }));
-        PDE::ThetaScheme_ scheme(0.5);
-        const double dt = YearFracTo(MATURITY) / TIME_STEPS;
-        scheme.Prepare(dt, grids, *disc, *mu, *var);
-        for (int n = 0; n < TIME_STEPS; ++n) {
-            (*next[0])(0, 0, 0) = STRIKE;
-            (*next[0])(0, 0, numX - 1) = 0.0;
-            scheme(dt, grids, vals, *disc, *mu, *var, &next);
-            vals.Swap(&next);
-            for (int k = 0; k < numX; ++k)
-                (*vals[0])(0, 0, k) = std::max((*vals[0])(0, 0, k), STRIKE - loc[k]);
-        }
-
-        const Cube_<>& value = *vals[0];
-        const Vector_<> res(value.SliceBegin(0, 0), value.SliceEnd(0, 0));
-        Interp::Boundary_ lhs(2, 0.);
-        Interp::Boundary_ rhs(2, 0);
-        std::unique_ptr<Interp1_> interp(Interp::NewCubic("cubic", loc, res, lhs, rhs));
-        return (*interp)(SPOT);
+        PDE::EarlyExercisePdeRequest_ request;
+        request.contract_ = {EVAL_DATE, MATURITY, STRIKE, OptionType_("PUT"), EarlyExerciseStyle_("AMERICAN"), {}};
+        request.market_ = {SPOT, VOL, {{MATURITY, RATE, DIV}}};
+        auto& settings = request.settings_;
+        settings.gridPoints_ = 601;
+        settings.upper_ = 3.0 * STRIKE;
+        settings.ordinarySteps_ = 600;
+        settings.theta_ = 0.5;
+        settings.rannacherIntervals_ = 0;
+        settings.numericPayloadBudgetBytes_ = 256 * 1024 * 1024;
+        settings.maxWorkUnits_ = 1000000000;
+        const auto result = PDE::EvaluateEarlyExercisePde(request);
+        REQUIRE(result.IsSuccess(), "American put PDE benchmark failed");
+        return result.Price();
     }
+
 } // namespace
 
 int main(int argc, char* argv[]) {
@@ -252,8 +228,7 @@ int main(int argc, char* argv[]) {
     REQUIRE(string(diagnostic.data(), diagnostic.size()).find(needle) != string::npos, "simulation diagnostic schema missing");
 
     Vector_<int> widths = {22, 14, 16, 12, 12, 12, 12, 12, 12, 14};
-    cout << '\n' << string(70, '=') << "\n  American put pricing comparison\n"
-         << string(70, '=') << "\n\n";
+    cout << '\n' << string(70, '=') << "\n  American put pricing comparison\n" << string(70, '=') << "\n\n";
     cout << fixed << setprecision(4);
     cout << setw(widths[0]) << left << "Method" << setw(widths[1]) << right << "# of ex dates" << setw(widths[2]) << right << "Pricing paths"
          << setw(widths[2]) << right << "Training paths" << setw(widths[3]) << right << "price" << setw(widths[4]) << right << "premium"

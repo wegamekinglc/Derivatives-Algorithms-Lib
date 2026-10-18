@@ -1,4 +1,4 @@
-"""Early-exercise put workloads and independent PDE stopping references."""
+"""Early-exercise put workloads, public PDE references and independent trees."""
 
 from datetime import timedelta
 from functools import lru_cache
@@ -28,7 +28,7 @@ CONVENTIONS = {
     "greeks": "PV, Delta, Vega, Rho per unit spot/decimal vol/decimal rate; both use refitted-policy central differences with common random numbers; DAL frozen-policy AAD is a different estimator and is not used here",
     "bumps": list(BUMPS),
     "boundary": "fresh product/model/engine construction, preprocessing, training, pricing and output conversion; oracle excluded",
-    "oracle": "independent Crank-Nicolson PDE, 2401 spot nodes and 4 time steps/day, exercise only on matching dates; Greeks use identical finite bumps; American rows approximate weekly exercise, not continuous exercise",
+    "oracle": "DAL public fully implicit PDE, 2401 spot nodes and at least 32 time steps/day (8x requested density), exercise only on matching dates; independently checked against CRR and unchanged convergence tolerances; Greeks use identical finite bumps; American rows approximate weekly exercise, not continuous exercise",
     "interpretation": "equal path budgets, different sampling/solvers; timings do not imply equal precision; tolerances include fixed-training policy error",
 }
 
@@ -79,13 +79,14 @@ def tree_price(days, spot=SPOT, vol=VOL, rate=RATE, steps_per_day=8):
 def pde_surface(days, vol, rate, grid_points, steps_per_day):
     intervals = tuple(day - previous for previous, day in zip((0, *days), days))
     return put_surface(
-        tuple(day / 365.0 for day in days),
+        tuple(TODAY + timedelta(days=day) for day in days),
         grid_points,
         tuple(interval * steps_per_day for interval in intervals),
         vol,
         rate,
         STRIKE,
         DIVIDEND,
+        evaluation_date=TODAY,
     )
 
 

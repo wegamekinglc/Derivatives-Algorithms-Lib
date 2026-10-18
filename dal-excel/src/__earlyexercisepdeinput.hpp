@@ -16,6 +16,11 @@ namespace Dal::Excel {
         ValidateRiskRequestSettings(input, function);
     }
 
+    inline bool IsEarlyExercisePdeCell(const OPER_* cell) {
+        return ScriptInputBlank(cell) || cell->xltype == xltypeNum || cell->xltype == xltypeInt || cell->xltype == xltypeBool ||
+               cell->xltype == xltypeStr;
+    }
+
     inline void ValidateEarlyExercisePdeRange(const OPER_* input, const char* field) {
         if (ScriptInputBlank(ScriptScalarInput(input)))
             return;
@@ -24,8 +29,7 @@ namespace Dal::Excel {
         for (int row = 0; row < rows; ++row) {
             for (int col = 0; col < cols; ++col) {
                 const auto* cell = multi ? input->val.array.lparray + row * cols + col : input;
-                REQUIRE(ScriptInputBlank(cell) || cell->xltype == xltypeNum || cell->xltype == xltypeInt || cell->xltype == xltypeBool ||
-                            cell->xltype == xltypeStr,
+                REQUIRE(IsEarlyExercisePdeCell(cell),
                         ScriptSettingLocation("EarlyExercisePdeRequest_New", field, row + 1, col + 1) + "; unsupported cell type");
                 ValidateNativeTextInput(cell, field, "InvalidEarlyExercisePdeRequest");
             }

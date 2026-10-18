@@ -8,6 +8,10 @@ current-state explanations in the published docs or focused Codex references.
 
 ## Current Artifacts
 
+- [DAL-379 benchmark migration and CI repair](implementation/dal-379-benchmark-ci-repair.md)
+  — Active follow-up for PR #602: call inventory, numerical configuration mapping,
+  Codacy findings, rebuilt targeted evidence and paired performance measurements.
+
 - [DAL-379 early-exercise PDE independent validation](validation/dal-379-early-exercise-pde.md)
   — Retained for final acceptance: static numerical/budget evidence and contact
   probes are reusable, while native Windows XLL execution is pending CI.
