@@ -49,7 +49,7 @@ Review all changed C++ files and changed repository guidance in the working tree
 
 ### Header Files
 - Must use `#pragma once` (not include guards)
-- Must have three-line file header: `//\n// Created by <author> on <date>.\n//`
+- Reject tool-generated author/date headers; preserve required license notices
 - Include order: `<gtest/gtest.h>` first (test files) -> standard/system headers -> DAL/project headers
 
 ### Test Files

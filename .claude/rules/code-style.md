@@ -76,7 +76,8 @@
 ## Header Files
 
 - Always `#pragma once` (no include guards)
-- File header comment uses three-line format: `//\n// Created by <author> on <date>.\n//`
+- File headers are not mandatory. Do not add tool-generated author/date headers;
+  preserve required license notices.
 - Include order: standard/system headers -> DAL/project headers -> local headers
 - Platform header: most `.cpp` files include `<dal/platform/platform.hpp>`
 
@@ -250,7 +251,7 @@ Reference files:
 - Focus on "why" not "what"
 - Single-line `//` for inline notes
 - No docstrings or doxygen-style comments
-- File headers are the only mandatory comments
+- Do not add tool-generated author/date boilerplate
 - References are one-way: documentation may reference source files; code must not
   reference documentation files.
 - **No large explanatory comments.** Multi-line comments that explain design, methodology, or

@@ -10,6 +10,8 @@ color: blue
 
 Follow `AGENTS.md` and `.codex/references/code-style.md`. Default to report-only; edit only when the user explicitly requests apply or fix mode.
 
+Preserve `.codex/references/component-boundaries.md` when extracting shared helpers. Simplification must not add direct or indirect dependencies from dal-cpp, including its examples, to dal-public.
+
 Read full changed or named files, the closest analogue, and relevant tests. Look for duplicated functions, branches, switch cases, and setup; near-duplicate templated and non-templated types; dead or discarded work; hand-written loops with clearer existing helpers; verbose constructs; and source comments that belong in methodology docs.
 
 Report the dominant pattern, findings with files and symbols, pattern, applicable rule, impact, recommended fix, and risk, plus axes checked with no finding. Cite symbols and files rather than unstable line numbers.

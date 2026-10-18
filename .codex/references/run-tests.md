@@ -53,7 +53,8 @@ Total Test time (real) = <seconds> sec
 100% tests passed, 0 tests failed out of <N>
 ```
 
-Here `<N>` is the number of Google Test cases discovered by CTest for the active
-configuration. Do not pin a historical test count: the discovered count changes
-as tests and platform-specific targets change. If any test fails, CTest names
-the failing case and `--output-on-failure` prints its Google Test diagnostics.
+Here `<N>` is the number of CTest entries selected for the active configuration,
+including discovered Google Test cases, configuration checks, and enabled example
+smoke tests. Do not pin a historical count: selected entries vary with build options,
+labels, and platform. If an entry fails, CTest names it and
+`--output-on-failure` prints its diagnostics.

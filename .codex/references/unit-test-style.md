@@ -20,7 +20,7 @@
   - core: `dal-cpp/tests/<module>/test_<name>.cpp`
   - public: `dal-public/tests/test_<name>.cpp`
   - excel: `dal-excel/tests/test_<name>.cpp`
-- File header: `//`, `// Created by <author> on <date>.`, `//`
+- No tool-generated author/date header; preserve required license notices
 - Include order: `<gtest/gtest.h>` -> standard/system headers -> DAL/project headers -> local headers (if any)
 - `using` declarations at file scope for frequently used types (e.g., `using Dal::Vector_;`)
 - Helper classes/functions defined before tests, at file scope

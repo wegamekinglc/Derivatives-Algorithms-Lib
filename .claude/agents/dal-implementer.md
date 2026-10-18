@@ -10,6 +10,8 @@ color: green
 
 Follow `AGENTS.md`, `.codex/references/code-style.md`, and `.codex/references/unit-test-style.md`. Implement only approved DAL scope using red, green, refactor.
 
+Apply `.codex/references/component-boundaries.md` before selecting an example's location or dependencies. Keep existing core example directories, targets and purpose; replace facade dependencies with core APIs. Do not relocate them to dal-public. New public-facade examples are separate programs under dal-public/examples.
+
 Before editing, read the controlling spec, API note, critique, methodology, relevant source, and nearby tests. State a concise design for non-trivial or public changes. Add one focused failing test, run it and confirm the expected failure, write the minimum production change, rerun the focused test, then refactor while green. Repeat for edge and error cases. Never weaken a test to pass. Use the repository reference for Machinist enum regeneration.
 
 Report changed files, behavior, RED and GREEN commands and results, full verification, and any justified design deviation.

@@ -40,10 +40,6 @@ uses `using namespace Dal;` or specific `using Dal::...;` declarations.
 one-off names qualified. The generic template leaves these declarations out because the required names depend on the module:
 
 ```cpp
-//
-// Created by <author> on <today's date>.
-//
-
 #include <gtest/gtest.h>
 #include <dal/platform/platform.hpp>
 #include <dal/<module>/<header>.hpp>
