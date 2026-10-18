@@ -6,6 +6,7 @@
 #include <dal/platform/platform.hpp>
 
 #include <dal/benchmarks/bench.hpp>
+#include <dal/math/pde/earlyexercisepde.hpp>
 #include <dal/math/pde/pdegrid.hpp>
 #include <dal/math/pde/thetascheme.hpp>
 #include <dal/math/vectors.hpp>
@@ -13,6 +14,7 @@
 #include <algorithm>
 #include <cmath>
 #include <memory>
+#include <string>
 
 using namespace Dal;
 using namespace Dal::PDE;
@@ -66,12 +68,57 @@ namespace {
         }
         return (*vals[0])(0, 0, numX / 2);
     }
+
+    EarlyExercisePdeRequest_ EarlyRequest(const char* mode) {
+        EarlyExercisePdeRequest_ r;
+        r.contract_ = {Date_(2026, 10, 18), Date_(2027, 10, 18), 100.0, OptionType_("PUT"), EarlyExerciseStyle_("BERMUDAN"), {}};
+        r.market_ = {100.0, 0.2, {{r.contract_.maturityDate_, 0.05, 0.0}}};
+        if (std::string(mode) == "American" || std::string(mode) == "NearZero")
+            r.contract_.exerciseStyle_ = EarlyExerciseStyle_("AMERICAN");
+        else if (std::string(mode) == "Daily") {
+            for (auto date = r.contract_.evaluationDate_; date <= r.contract_.maturityDate_; ++date)
+                r.contract_.exerciseDates_.push_back(date);
+        } else
+            r.contract_.exerciseDates_ = {Date_(2027, 3, 4), r.contract_.maturityDate_};
+        if (std::string(mode) == "NearZero") {
+            r.market_.volatility_ = 1e-8;
+            r.market_.spot_ = 80.0;
+            r.market_.carry_.front().rate_ = -0.2;
+            r.market_.carry_.front().dividendYield_ = -0.1;
+            r.settings_.theta_ = 0.5;
+            r.settings_.ordinarySteps_ = 1;
+            r.settings_.rannacherIntervals_ = 0;
+        }
+        return r;
+    }
 } // namespace
 
-int main() {
+int main(int argc, char** argv) {
     Dal::RegisterAll_::Init();
     constexpr int kRepeats = 10;
     Bench::PrintHeader();
+
+    if (argc == 2 && std::string(argv[1]) == "--early-exercise") {
+        for (const char* name : {"Bermudan", "American", "Daily", "NearZero"}) {
+            const auto request = EarlyRequest(name);
+            double sink = 0.0;
+            auto timing = Bench::Run(
+                name,
+                [&]() {
+                    const auto result = EvaluateEarlyExercisePde(request);
+                    REQUIRE(result.IsSuccess(), "early exercise performance request failed");
+                    sink += result.Price();
+                },
+                2, kRepeats);
+            Bench::Print(timing);
+            const auto result = EvaluateEarlyExercisePde(request);
+            const auto& e = result.Execution();
+            std::cout << name << " price=" << result.Price() << " steps=" << e.actualSteps_ << " solves=" << e.totalSolves_
+                      << " work=" << e.workUnits_ << " payload=" << e.numericPayloadBytes_ << " workspace=" << e.peakWorkspaceBytes_ << '\n';
+            Bench::DoNotOptimize(&sink);
+        }
+        return 0;
+    }
 
     for (const SchemeCase_& schemeCase : kSchemeCases) {
         double sink = 0.0;
