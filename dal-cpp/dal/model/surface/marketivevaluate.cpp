@@ -45,6 +45,20 @@ namespace Dal {
                 return x.query_.time_ >= s.minQueryTime_ && w >= s.minTotalVariance_ && x.g_ >= s.densityFactorFloor_ &&
                        error <= 1e-8L * std::abs(x.g_) && x.wt_ >= 0.;
             }
+            bool CarryRepresentable(const Carry_& carry) {
+                return carry.forward_ > 0. && carry.discount_ > 0. && std::isfinite(carry.forward_ * carry.discount_);
+            }
+            bool PreparePoint(const MarketIvCalibrationSnapshot_& snapshot, PointContext_* x) {
+                if (!CarryRepresentable(x->carry_))
+                    return false;
+                x->k_ = std::log(x->query_.strike_) - std::log(x->carry_.forward_);
+                const auto theta = ThetaAt(MarketIvData(snapshot).curve_, x->query_.time_);
+                if (!(theta.first > 0.) || !(theta.second >= 0.) || !std::isfinite(theta.first) || !std::isfinite(theta.second))
+                    return false;
+                x->thetaSlope_ = theta.second;
+                x->smile_ = Smile(theta.first, snapshot.Rho(), snapshot.Eta(), x->k_);
+                return x->smile_.w_ > 0. && std::isfinite(x->smile_.w_);
+            }
         } // namespace
         size_t EvaluationWorkspaceBytes() {
             return sizeof(PointContext_) + 2 * sizeof(MarketIvPointResult_) + sizeof(Smile_) + sizeof(Carry_) + 32 * sizeof(long double);
@@ -90,15 +104,7 @@ namespace Dal {
                 x.query_ = query;
                 x.carry_ = CarryAt(snapshot.Request().market_, query.time_);
                 p.carryDerivative_ = x.carry_.knot_ ? "RIGHT_CARRY_DERIVATIVE" : "SMOOTH_CARRY_DERIVATIVE";
-                if (!(x.carry_.forward_ > 0.) || !(x.carry_.discount_ > 0.) || !std::isfinite(x.carry_.forward_ * x.carry_.discount_))
-                    return p;
-                x.k_ = std::log(query.strike_) - std::log(x.carry_.forward_);
-                const auto theta = ThetaAt(MarketIvData(snapshot).curve_, query.time_);
-                if (!(theta.first > 0.) || !(theta.second >= 0.) || !std::isfinite(theta.first) || !std::isfinite(theta.second))
-                    return p;
-                x.thetaSlope_ = theta.second;
-                x.smile_ = Smile(theta.first, snapshot.Rho(), snapshot.Eta(), x.k_);
-                if (!(x.smile_.w_ > 0.) || !std::isfinite(x.smile_.w_))
+                if (!PreparePoint(snapshot, &x))
                     return p;
                 x.df_ = static_cast<long double>(x.carry_.forward_) * x.carry_.discount_;
                 if (!Values(&p, x))
@@ -143,21 +149,27 @@ namespace Dal {
         return Handle_<AAD::IVS_>(new MarketIvLegacy_(snapshot));
     }
     namespace MarketIvDetail {
-        std::optional<double> Quantity(const MarketIvPointResult_& point, const MarketIvQuantity_& quantity) {
-            switch (quantity.Switch()) {
-            case MarketIvQuantity_::Value_::TOTAL_VARIANCE:
-                return point.ValueStatus() == "SUCCESS" ? point.TotalVariance() : std::nullopt;
-            case MarketIvQuantity_::Value_::IMPLIED_VOL:
-                return point.ValueStatus() == "SUCCESS" ? point.ImpliedVol() : std::nullopt;
-            case MarketIvQuantity_::Value_::CALL_PRICE:
-                return point.ValueStatus() == "SUCCESS" ? point.CallPrice() : std::nullopt;
-            case MarketIvQuantity_::Value_::PUT_PRICE:
-                return point.ValueStatus() == "SUCCESS" ? point.PutPrice() : std::nullopt;
-            case MarketIvQuantity_::Value_::LOCAL_VOL:
-                return point.DupireStatus() == "SUCCESS" ? point.LocalVol() : std::nullopt;
-            default:
-                THROW("InvalidMarketIvRequest: unknown output quantity");
+        namespace {
+            std::optional<double> ValueQuantity(const MarketIvPointResult_& point, const MarketIvQuantity_& quantity) {
+                switch (quantity.Switch()) {
+                case MarketIvQuantity_::Value_::TOTAL_VARIANCE:
+                    return point.TotalVariance();
+                case MarketIvQuantity_::Value_::IMPLIED_VOL:
+                    return point.ImpliedVol();
+                case MarketIvQuantity_::Value_::CALL_PRICE:
+                    return point.CallPrice();
+                case MarketIvQuantity_::Value_::PUT_PRICE:
+                    return point.PutPrice();
+                default:
+                    THROW("InvalidMarketIvRequest: unknown output quantity");
+                }
             }
+        } // namespace
+        std::optional<double> Quantity(const MarketIvPointResult_& point, const MarketIvQuantity_& quantity) {
+            if (quantity == MarketIvQuantity_::Value_::LOCAL_VOL)
+                return point.DupireStatus() == "SUCCESS" ? point.LocalVol() : std::nullopt;
+            const auto value = ValueQuantity(point, quantity);
+            return point.ValueStatus() == "SUCCESS" ? value : std::nullopt;
         }
     } // namespace MarketIvDetail
 } // namespace Dal

@@ -7,14 +7,16 @@
 #include <dal/model/surface/marketivsurfaceinternal.hpp>
 
 namespace Dal::MarketIvDetail {
+    namespace {
+        bool Eligible(const MarketIvStart_& s) { return s.converged_ && s.certified_ && s.qualityAccepted_ && s.objective_.has_value(); }
+    } // namespace
     int SelectStart(const Vector_<MarketIvStart_>& starts, double tieTolerance) {
-        const auto eligible = [](const auto& s) { return s.converged_ && s.certified_ && s.qualityAccepted_ && s.objective_.has_value(); };
         double minimum = std::numeric_limits<double>::infinity();
         for (const auto& start : starts)
-            if (eligible(start))
+            if (Eligible(start))
                 minimum = std::min(minimum, *start.objective_);
         for (size_t i = 0; i < starts.size(); ++i)
-            if (eligible(starts[i]) && *starts[i].objective_ - minimum <= tieTolerance)
+            if (Eligible(starts[i]) && *starts[i].objective_ - minimum <= tieTolerance)
                 return static_cast<int>(i);
         return -1;
     }
@@ -48,8 +50,19 @@ namespace Dal::MarketIvDetail {
                 return upper ? s.rhoLimit_ : -s.rhoLimit_;
             return upper ? EtaMax(s) : 0.;
         }
+        void
+        JacobianRow(Workspace_* w, const MarketIvQuoteDiagnostic_& q, const Smile_& smile, double factor, size_t row, size_t m, size_t dimension) {
+            REQUIRE(!smile.derivativeRange_, "MarketIvNumericRange: analytic model Jacobian underflow/overflow");
+            const double root = std::sqrt(smile.w_), d1 = -q.logMoneyness_ / root + .5 * root;
+            const double vega = std::exp(-.5 * d1 * d1) / std::sqrt(2. * std::acos(-1.)) / (2. * root) * factor;
+            for (size_t j = 0; j < dimension; ++j) {
+                const double dw = j < m ? (j <= q.expiryIndex_ ? smile.wTheta_ : 0.) : (j == m ? smile.wRho_ : smile.wEta_);
+                w->jac_[row * (m + 2) + j] = vega * dw;
+                REQUIRE(std::isfinite(w->jac_[row * (m + 2) + j]), "MarketIvNumericRange: model Jacobian overflow");
+            }
+        }
         double ModelRows(FitData_* data, Workspace_* w, const Vector_<>& x, bool jacobian, Vector_<>* prices, size_t dimension) {
-            const size_t m = data->expiryTimes_.size(), p = m + 2;
+            const size_t m = data->expiryTimes_.size();
             double sum = 0., objective = 0.;
             for (size_t j = 0; j < m; ++j)
                 w->theta_[j] = sum += x[j];
@@ -64,19 +77,15 @@ namespace Dal::MarketIvDetail {
                 const double residual = factor * (price - q.normalizedMid_);
                 (*prices)[row] = price;
                 objective += .5 * residual * residual;
-                if (jacobian) {
-                    REQUIRE(!smile.derivativeRange_, "MarketIvNumericRange: analytic model Jacobian underflow/overflow");
-                    const double root = std::sqrt(smile.w_), d1 = -q.logMoneyness_ / root + .5 * root;
-                    const double vega = std::exp(-.5 * d1 * d1) / std::sqrt(2. * std::acos(-1.)) / (2. * root) * factor;
-                    for (size_t j = 0; j < dimension; ++j) {
-                        const double dw = j < m ? (j <= q.expiryIndex_ ? smile.wTheta_ : 0.) : (j == m ? smile.wRho_ : smile.wEta_);
-                        w->jac_[row * p + j] = vega * dw;
-                        REQUIRE(std::isfinite(w->jac_[row * p + j]), "MarketIvNumericRange: model Jacobian overflow");
-                    }
-                }
+                if (jacobian)
+                    JacobianRow(w, q, smile, factor, row, m, dimension);
             }
             REQUIRE(std::isfinite(objective), "MarketIvNumericRange: objective overflow");
             return objective;
+        }
+        bool GradientBlocked(const FitData_& d, const Workspace_& w, size_t m, size_t j) {
+            return (w.x_[j] == Bound(d.request_.settings_, m, j, false) && w.gradient_[j] > 0.) ||
+                   (w.x_[j] == Bound(d.request_.settings_, m, j, true) && w.gradient_[j] < 0.);
         }
         std::pair<double, double> Gradient(const FitData_& d, Workspace_* w, size_t dimension) {
             const size_t p = d.expiryTimes_.size() + 2;
@@ -90,8 +99,7 @@ namespace Dal::MarketIvDetail {
                     w->gradient_[j] += w->jac_[row * p + j] * residual;
             }
             for (size_t j = 0; j < dimension; ++j) {
-                const bool blocked = (w->x_[j] == Bound(d.request_.settings_, p - 2, j, false) && w->gradient_[j] > 0.) ||
-                                     (w->x_[j] == Bound(d.request_.settings_, p - 2, j, true) && w->gradient_[j] < 0.);
+                const bool blocked = GradientBlocked(d, *w, p - 2, j);
                 if (blocked)
                     w->gradient_[j] = 0.;
                 norm = std::max(norm, std::abs(w->gradient_[j]));
@@ -104,6 +112,25 @@ namespace Dal::MarketIvDetail {
             REQUIRE(std::isfinite(norm) && std::isfinite(threshold), "MarketIvNumericRange: projected gradient overflow");
             return {norm, threshold};
         }
+        double DampedNormalElement(double value, double damping, bool diagonal) {
+            if (diagonal)
+                value += damping * std::max(1., value);
+            return value;
+        }
+        bool ValidFactor(double value, bool diagonal) { return std::isfinite(value) && (!diagonal || value > 0.); }
+        void ForwardRow(Workspace_* w, size_t p, size_t i) {
+            double value = -w->gradient_[i];
+            for (size_t j = 0; j < i; ++j)
+                value -= w->lower_[i * p + j] * w->step_[j];
+            w->step_[i] = value / w->lower_[i * p + i];
+        }
+        void BackwardSubstitution(Workspace_* w, size_t p, size_t dimension) {
+            for (size_t i = dimension; i-- > 0;) {
+                for (size_t j = i + 1; j < dimension; ++j)
+                    w->step_[i] -= w->lower_[j * p + i] * w->step_[j];
+                w->step_[i] /= w->lower_[i * p + i];
+            }
+        }
         void Step(const FitData_& d, Workspace_* w, size_t dimension, double damping) {
             const size_t p = d.expiryTimes_.size() + 2;
             for (size_t i = 0; i < dimension; ++i) {
@@ -112,43 +139,48 @@ namespace Dal::MarketIvDetail {
                     if (w->gradient_[i] != 0. && w->gradient_[j] != 0.)
                         for (size_t row = 0; row < d.quotes_.size(); ++row)
                             value += w->jac_[row * p + i] * w->jac_[row * p + j];
-                    if (i == j)
-                        value += damping * std::max(1., value);
+                    value = DampedNormalElement(value, damping, i == j);
                     for (size_t k = 0; k < j; ++k)
                         value -= w->lower_[i * p + k] * w->lower_[j * p + k];
                     w->lower_[i * p + j] = i == j ? std::sqrt(value) : value / w->lower_[j * p + j];
-                    REQUIRE(std::isfinite(w->lower_[i * p + j]) && (i != j || w->lower_[i * p + j] > 0.),
-                            "MarketIvNumericRange: damped normal equation failed");
+                    REQUIRE(ValidFactor(w->lower_[i * p + j], i == j), "MarketIvNumericRange: damped normal equation failed");
                 }
-                double value = -w->gradient_[i];
-                for (size_t j = 0; j < i; ++j)
-                    value -= w->lower_[i * p + j] * w->step_[j];
-                w->step_[i] = value / w->lower_[i * p + i];
+                ForwardRow(w, p, i);
             }
-            for (size_t i = dimension; i-- > 0;) {
-                for (size_t j = i + 1; j < dimension; ++j)
-                    w->step_[i] -= w->lower_[j * p + i] * w->step_[j];
-                w->step_[i] /= w->lower_[i * p + i];
-            }
+            BackwardSubstitution(w, p, dimension);
+        }
+        double ColumnNorm(const Workspace_& w, size_t p, size_t q, size_t j) {
+            double sum = 0.;
+            for (size_t row = 0; row < q; ++row)
+                sum += w.rank_[row * p + j] * w.rank_[row * p + j];
+            return std::sqrt(sum);
+        }
+        size_t Pivot(const Workspace_& w, size_t p, size_t q, size_t i, size_t dimension) {
+            size_t best = i;
+            for (size_t j = i + 1; j < dimension; ++j)
+                if (ColumnNorm(w, p, q, j) > ColumnNorm(w, p, q, best))
+                    best = j;
+            return best;
+        }
+        void Orthogonalize(Workspace_* w, size_t p, size_t q, size_t i, size_t dimension) {
+            for (size_t j = i + 1; j < dimension; ++j)
+                for (int pass = 0; pass < 2; ++pass) {
+                    double dot = 0.;
+                    for (size_t row = 0; row < q; ++row)
+                        dot += w->rank_[row * p + i] * w->rank_[row * p + j];
+                    for (size_t row = 0; row < q; ++row)
+                        w->rank_[row * p + j] -= dot * w->rank_[row * p + i];
+                }
         }
         void Rank(const FitData_& d, Workspace_* w, size_t dimension, MarketIvStart_* start) {
             const size_t p = d.expiryTimes_.size() + 2, q = d.quotes_.size();
             std::copy(w->jac_.begin(), w->jac_.end(), w->rank_.begin());
             double largest = 0., smallest = std::numeric_limits<double>::infinity();
-            auto norm = [&](size_t j) {
-                double sum = 0.;
-                for (size_t row = 0; row < q; ++row)
-                    sum += w->rank_[row * p + j] * w->rank_[row * p + j];
-                return std::sqrt(sum);
-            };
             for (size_t j = 0; j < dimension; ++j)
-                largest = std::max(largest, norm(j));
+                largest = std::max(largest, ColumnNorm(*w, p, q, j));
             for (size_t i = 0; i < dimension; ++i) {
-                size_t best = i;
-                for (size_t j = i + 1; j < dimension; ++j)
-                    if (norm(j) > norm(best))
-                        best = j;
-                const double length = norm(best);
+                const size_t best = Pivot(*w, p, q, i, dimension);
+                const double length = ColumnNorm(*w, p, q, best);
                 if (length == 0. || length <= largest * 1e-8)
                     break;
                 ++start->rank_;
@@ -157,14 +189,7 @@ namespace Dal::MarketIvDetail {
                     std::swap(w->rank_[row * p + best], w->rank_[row * p + i]);
                     w->rank_[row * p + i] /= length;
                 }
-                for (size_t j = i + 1; j < dimension; ++j)
-                    for (int pass = 0; pass < 2; ++pass) {
-                        double dot = 0.;
-                        for (size_t row = 0; row < q; ++row)
-                            dot += w->rank_[row * p + i] * w->rank_[row * p + j];
-                        for (size_t row = 0; row < q; ++row)
-                            w->rank_[row * p + j] -= dot * w->rank_[row * p + i];
-                    }
+                Orthogonalize(w, p, q, i, dimension);
             }
             if (start->rank_ == static_cast<int>(dimension))
                 start->conditionEstimate_ = largest / smallest;
@@ -227,6 +252,11 @@ namespace Dal::MarketIvDetail {
             d.normalizedWeight_ = (q.weight_ / maxWeight) / sumWeight;
             return d;
         }
+        std::pair<long double, long double> PremiumBand(const MarketIvQuote_& quote, long double df, long double dk, long double width, bool call) {
+            const long double lo = quote.bid_ ? *quote.bid_ : std::max(std::max(call ? df - dk : dk - df, 0.L), quote.mid_ - width);
+            const long double hi = quote.ask_ ? *quote.ask_ : std::min(call ? df : dk, quote.mid_ + width);
+            return {lo, hi};
+        }
         bool PriceParityContradiction(const MarketIvQuote_& a,
                                       const MarketIvQuote_& b,
                                       const MarketIvQuoteDiagnostic_& d,
@@ -237,10 +267,9 @@ namespace Dal::MarketIvDetail {
             const auto& put = a.optionType_ == OptionType_::Value_::PUT ? a : b;
             const long double df = static_cast<long double>(d.discount_) * d.forward_, dk = static_cast<long double>(d.discount_) * a.strike_;
             const long double width = settings.normalizedPriceTolerance_ * df;
-            const long double callLo = call.bid_ ? *call.bid_ : std::max(std::max(df - dk, 0.L), call.mid_ - width);
-            const long double callHi = call.ask_ ? *call.ask_ : std::min(df, call.mid_ + width);
-            const long double putLo = put.bid_ ? *put.bid_ : std::max(std::max(dk - df, 0.L), put.mid_ - width);
-            const long double putHi = put.ask_ ? *put.ask_ : std::min(dk, put.mid_ + width);
+            const auto callBand = PremiumBand(call, df, dk, width, true);
+            const auto putBand = PremiumBand(put, df, dk, width, false);
+            const long double callLo = callBand.first, callHi = callBand.second, putLo = putBand.first, putHi = putBand.second;
             const long double error = 64.L * std::numeric_limits<long double>::epsilon() * (std::abs(df) + std::abs(dk) + callHi + putHi);
             if (!std::isfinite(error))
                 return false;
@@ -309,6 +338,43 @@ namespace Dal::MarketIvDetail {
             if (index == 0)
                 w->x_[m] = w->x_[m + 1] = 0.;
         }
+        bool
+        LineSearch(FitData_* data, Workspace_* w, size_t dimension, double objective, double* damping, bool* stalled, MarketIvIteration_* history) {
+            const auto& s = data->request_.settings_;
+            const size_t m = data->expiryTimes_.size();
+            for (int trial = 0; trial < s.maxLineSearchTrials_; ++trial) {
+                ++history->trials_;
+                Step(*data, w, dimension, *damping);
+                w->candidate_ = w->x_;
+                double distance = 0.;
+                for (size_t j = 0; j < dimension; ++j) {
+                    w->candidate_[j] = std::clamp(w->x_[j] + w->step_[j], Bound(s, m, j, false), Bound(s, m, j, true));
+                    distance = std::max(distance, std::abs(w->candidate_[j] - w->x_[j]));
+                }
+                const double next = ModelRows(data, w, w->candidate_, false, &w->trial_, dimension);
+                if (next < objective) {
+                    w->x_ = w->candidate_;
+                    w->prices_ = w->trial_;
+                    *damping = std::max(*damping / 3., 1e-12);
+                    *stalled = distance <= s.parameterStepTolerance_;
+                    return true;
+                }
+                *damping *= 10.;
+            }
+            return false;
+        }
+        void CertifyStart(FitData_* data, Workspace_* w, int index, size_t dimension) {
+            auto& start = data->starts_[index];
+            Rank(*data, w, dimension, &start);
+            const auto curve = Curve(*data, w->x_);
+            data->execution_.peakWorkspaceBytes_ =
+                std::max(data->execution_.peakWorkspaceBytes_, FIXED_FIT_FRAME_BYTES + w->BytesUsed() + curve.peakWorkspaceBytes_);
+            start.certified_ = curve.certified_;
+            start.qualityAccepted_ = Quality(*data, w->prices_);
+            if (!start.certified_ || !start.qualityAccepted_)
+                return;
+            std::copy(w->prices_.begin(), w->prices_.end(), w->candidatePrices_.begin() + index * data->quotes_.size());
+        }
         void RunStart(FitData_* data, Workspace_* w, int index) {
             Seed(data, w, index);
             auto& start = data->starts_[index];
@@ -336,27 +402,7 @@ namespace Dal::MarketIvDetail {
                     data->iterations_.push_back(history);
                     break;
                 }
-                bool accepted = false;
-                for (int trial = 0; trial < s.maxLineSearchTrials_; ++trial) {
-                    ++history.trials_;
-                    Step(*data, w, dimension, damping);
-                    w->candidate_ = w->x_;
-                    double distance = 0.;
-                    for (size_t j = 0; j < dimension; ++j) {
-                        w->candidate_[j] = std::clamp(w->x_[j] + w->step_[j], Bound(s, m, j, false), Bound(s, m, j, true));
-                        distance = std::max(distance, std::abs(w->candidate_[j] - w->x_[j]));
-                    }
-                    const double next = ModelRows(data, w, w->candidate_, false, &w->trial_, dimension);
-                    if (next < objective) {
-                        w->x_ = w->candidate_;
-                        w->prices_ = w->trial_;
-                        damping = std::max(damping / 3., 1e-12);
-                        stalled = distance <= s.parameterStepTolerance_;
-                        accepted = true;
-                        break;
-                    }
-                    damping *= 10.;
-                }
+                const bool accepted = LineSearch(data, w, dimension, objective, &damping, &stalled, &history);
                 data->iterations_.push_back(history);
                 if (!accepted) {
                     start.termination_ = "NO_DESCENT";
@@ -366,15 +412,7 @@ namespace Dal::MarketIvDetail {
             start.parameters_ = w->x_;
             if (!start.converged_)
                 return;
-            Rank(*data, w, dimension, &start);
-            const auto curve = Curve(*data, w->x_);
-            data->execution_.peakWorkspaceBytes_ =
-                std::max(data->execution_.peakWorkspaceBytes_, FIXED_FIT_FRAME_BYTES + w->BytesUsed() + curve.peakWorkspaceBytes_);
-            start.certified_ = curve.certified_;
-            start.qualityAccepted_ = Quality(*data, w->prices_);
-            if (!start.certified_ || !start.qualityAccepted_)
-                return;
-            std::copy(w->prices_.begin(), w->prices_.end(), w->candidatePrices_.begin() + index * data->quotes_.size());
+            CertifyStart(data, w, index, dimension);
         }
         void Reject(FitData_* data, Workspace_* w) {
             const bool converged = std::any_of(data->starts_.begin(), data->starts_.end(), [](const auto& s) { return s.converged_; });
@@ -442,8 +480,23 @@ namespace Dal::MarketIvDetail {
                 q.nativeResidual_ = *q.nativeFitted_ - input.mid_;
             }
         }
-        void Finish(FitData_* data, Workspace_* w) {
+        void WinnerSignature(FitData_* data) {
             const size_t m = data->expiryTimes_.size();
+            const auto& s = data->request_.settings_;
+            const auto& selected = data->starts_[data->selectedStart_];
+            data->nearTie_ = NearTie(data->starts_, data->selectedStart_, s.objectiveTieTolerance_);
+            const int dimension = static_cast<int>(m + (data->selectedStart_ == 0 ? 0 : 2));
+            data->underidentified_ = selected.rank_ < dimension || data->quotes_.size() < m + 2;
+            data->signature_.reserve(m * 2 + data->quotes_.size() + 16);
+            data->signature_.push_back(data->selectedStart_);
+            data->signature_.push_back(selected.rank_);
+            data->signature_.push_back(data->nearTie_);
+            for (size_t j = 0; j < m + 2; ++j)
+                data->signature_.push_back(data->parameters_[j] == Bound(s, m, j, false) ? -1 : data->parameters_[j] == Bound(s, m, j, true) ? 1 : 0);
+            for (const auto branch : data->certificate_.limiterBranches_)
+                data->signature_.push_back(branch);
+        }
+        void Finish(FitData_* data, Workspace_* w) {
             data->selectedStart_ = SelectStart(data->starts_, data->request_.settings_.objectiveTieTolerance_);
             if (data->selectedStart_ < 0) {
                 Reject(data, w);
@@ -458,19 +511,7 @@ namespace Dal::MarketIvDetail {
                 data->failure_ = "Final stored representation failed its full-domain certificate";
                 return;
             }
-            const auto& s = data->request_.settings_;
-            const auto& selected = data->starts_[data->selectedStart_];
-            data->nearTie_ = NearTie(data->starts_, data->selectedStart_, s.objectiveTieTolerance_);
-            const int dimension = static_cast<int>(m + (data->selectedStart_ == 0 ? 0 : 2));
-            data->underidentified_ = selected.rank_ < dimension || data->quotes_.size() < m + 2;
-            data->signature_.reserve(m * 2 + data->quotes_.size() + 16);
-            data->signature_.push_back(data->selectedStart_);
-            data->signature_.push_back(selected.rank_);
-            data->signature_.push_back(data->nearTie_);
-            for (size_t j = 0; j < m + 2; ++j)
-                data->signature_.push_back(data->parameters_[j] == Bound(s, m, j, false) ? -1 : data->parameters_[j] == Bound(s, m, j, true) ? 1 : 0);
-            for (const auto branch : cert.limiterBranches_)
-                data->signature_.push_back(branch);
+            WinnerSignature(data);
             QuoteDiagnostics(data, w);
             const bool numericStart =
                 std::any_of(data->starts_.begin(), data->starts_.end(), [](const auto& start) { return start.termination_ == "NUMERIC_RANGE"; });

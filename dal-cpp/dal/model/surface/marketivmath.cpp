@@ -21,19 +21,7 @@ namespace Dal::MarketIvDetail {
             const double represented = static_cast<double>(raw);
             return represented > 0. ? represented : std::numeric_limits<double>::quiet_NaN();
         }
-        double DerivativeBound(long double h, long double dy, double m0, double m1) {
-            if (dy == 0.)
-                return m0 == 0. && m1 == 0. ? 0. : -1.;
-            const long double d = dy / h;
-            const long double b = 3.L * d - m0 - m1;
-            const long double error = 64.L * std::numeric_limits<long double>::epsilon() * (3.L * std::abs(d) + m0 + m1) +
-                                      64.L * std::numeric_limits<long double>::denorm_min();
-            if (!std::isfinite(d) || !std::isfinite(b) || !std::isfinite(error))
-                return -1.;
-            if (b - error >= 0.) {
-                const long double lower = std::min({static_cast<long double>(m0), static_cast<long double>(m1), b - error});
-                return lower == 0. ? 0. : std::nextafter(static_cast<double>(lower), 0.);
-            }
+        double InteriorDerivativeBound(long double b, double m0, double m1, long double error) {
             const long double a = m0 - 2.L * b + m1;
             if (!std::isfinite(a))
                 return -1.;
@@ -43,6 +31,21 @@ namespace Dal::MarketIvDetail {
             const long double lower =
                 std::min(static_cast<long double>(std::min(m0, m1)), m0 * (1.L - u) * (1.L - u) + 2.L * b * u * (1.L - u) + m1 * u * u - 8.L * error);
             return lower == 0. ? 0. : std::nextafter(static_cast<double>(lower), -std::numeric_limits<double>::infinity());
+        }
+        double FlatDerivativeBound(double m0, double m1) { return m0 == 0. && m1 == 0. ? 0. : -1.; }
+        double DerivativeBound(long double h, long double dy, double m0, double m1) {
+            if (dy == 0.)
+                return FlatDerivativeBound(m0, m1);
+            const long double d = dy / h;
+            const long double b = 3.L * d - m0 - m1;
+            const long double error = 64.L * std::numeric_limits<long double>::epsilon() * (3.L * std::abs(d) + m0 + m1) +
+                                      64.L * std::numeric_limits<long double>::denorm_min();
+            if (!std::isfinite(d) || !std::isfinite(b) || !std::isfinite(error))
+                return -1.;
+            if (b - error < 0.)
+                return InteriorDerivativeBound(b, m0, m1, error);
+            const long double lower = std::min({static_cast<long double>(m0), static_cast<long double>(m1), b - error});
+            return lower == 0. ? 0. : std::nextafter(static_cast<double>(lower), 0.);
         }
         long double LogCdf(long double x) {
             if (x > -10.L)
@@ -83,10 +86,22 @@ namespace Dal::MarketIvDetail {
         bool ValidSecant(double h, double d, double from, double to) {
             return h > 0. && d >= 0. && !(to > from && d == 0.) && std::isfinite(d) && std::isfinite(to);
         }
+        bool ValidThetaAxis(const Vector_<>& times, const Vector_<>& values) {
+            return times.size() >= 2 && times.size() == values.size() && times.front() == 0. && values.front() == 0.;
+        }
+        bool CertifyIntervals(ThetaCurve_* c) {
+            for (size_t i = 0; i + 1 < c->times_.size(); ++i) {
+                c->lowerBounds_[i] = DerivativeBound(static_cast<long double>(c->times_[i + 1]) - c->times_[i],
+                                                     static_cast<long double>(c->values_[i + 1]) - c->values_[i], c->slopes_[i], c->slopes_[i + 1]);
+                if (!(c->lowerBounds_[i] >= 0.) || !std::isfinite(c->lowerBounds_[i]))
+                    return false;
+            }
+            return true;
+        }
     } // namespace
     ThetaCurve_ NewThetaCurve(const Vector_<>& times, const Vector_<>& values) {
         ThetaCurve_ c;
-        if (times.size() < 2 || times.size() != values.size() || times.front() != 0. || values.front() != 0.)
+        if (!ValidThetaAxis(times, values))
             return c;
         c.times_ = times;
         c.values_ = values;
@@ -107,13 +122,7 @@ namespace Dal::MarketIvDetail {
             return c;
         if (!Slopes(h, d, &c))
             return c;
-        for (size_t i = 0; i + 1 < n; ++i) {
-            c.lowerBounds_[i] = DerivativeBound(static_cast<long double>(times[i + 1]) - times[i],
-                                                static_cast<long double>(values[i + 1]) - values[i], c.slopes_[i], c.slopes_[i + 1]);
-            if (!(c.lowerBounds_[i] >= 0.) || !std::isfinite(c.lowerBounds_[i]))
-                return c;
-        }
-        c.certified_ = true;
+        c.certified_ = CertifyIntervals(&c);
         return c;
     }
     std::pair<double, double> ThetaAt(const ThetaCurve_& c, double time) {
@@ -135,34 +144,39 @@ namespace Dal::MarketIvDetail {
             return {static_cast<double>(value), -1.};
         return {static_cast<double>(value), representedSlope};
     }
+    namespace {
+        long double PriceAsNormalizedCall(double premium, bool call, double forward, double strike, double discount, long double df) {
+            long double normalized;
+            if (call)
+                normalized = premium / df;
+            else if (strike >= forward)
+                normalized = 1.L + static_cast<long double>(std::fma(-discount, strike, premium)) / df;
+            else
+                normalized = premium / df + (static_cast<long double>(forward) - strike) / forward;
+            return normalized;
+        }
+        long double BlackIntrinsic(long double x, bool call) { return call ? (x < 0. ? -std::expm1(x) : 0.) : (x > 0. ? std::expm1(x) : 0.); }
+    } // namespace
     double NormalizePrice(double premium, bool call, double forward, double strike, double discount, double maxError) {
         const long double df = static_cast<long double>(discount) * forward;
         REQUIRE(df > 0. && std::isfinite(df), "MarketIvNumericRange: PRICE normalization scale cannot be represented");
-        long double normalized;
-        if (call)
-            normalized = premium / df;
-        else if (strike >= forward)
-            normalized = 1.L + static_cast<long double>(std::fma(-discount, strike, premium)) / df;
-        else
-            normalized = premium / df + (static_cast<long double>(forward) - strike) / forward;
+        const long double normalized = PriceAsNormalizedCall(premium, call, forward, strike, discount, df);
         REQUIRE(std::isfinite(normalized) && normalized >= 0. && normalized <= 1.,
                 "MarketIvNumericRange: PRICE parity conversion cannot represent a legal normalized call");
         const long double quantum = std::numeric_limits<double>::denorm_min();
         const long double scaledQuantum = quantum / df;
         // Cover absolute rounding of the double FMA and scale even when long double has only double precision.
-        const long double error =
-            8.L * std::numeric_limits<double>::epsilon() *
-                (call ? std::abs(normalized) : 1.L + std::abs(static_cast<long double>(premium) / df - strike / forward)) +
-            8.L * scaledQuantum * (1.L + std::abs(normalized)) + 8.L * quantum +
-            (!call && strike < forward ? 8.L * quantum / forward : 0.L);
-        REQUIRE(scaledQuantum < .125L && error <= maxError,
-                "MarketIvNumericRange: PRICE parity conversion error exceeds normalized precision");
+        const long double error = 8.L * std::numeric_limits<double>::epsilon() *
+                                      (call ? std::abs(normalized) : 1.L + std::abs(static_cast<long double>(premium) / df - strike / forward)) +
+                                  8.L * scaledQuantum * (1.L + std::abs(normalized)) + 8.L * quantum +
+                                  (!call && strike < forward ? 8.L * quantum / forward : 0.L);
+        REQUIRE(scaledQuantum < .125L && error <= maxError, "MarketIvNumericRange: PRICE parity conversion error exceeds normalized precision");
         return static_cast<double>(normalized);
     }
     double NormalizedBlack(double k, double variance, bool call) {
         const long double x = k, w = variance;
         if (w == 0.)
-            return call ? (x < 0. ? static_cast<double>(-std::expm1(x)) : 0.) : (x > 0. ? static_cast<double>(std::expm1(x)) : 0.);
+            return static_cast<double>(BlackIntrinsic(x, call));
         REQUIRE(w > 0. && std::isfinite(w), "MarketIvNumericRange: invalid Black total variance");
         const long double root = std::sqrt(w), d1 = -x / root + .5L * root, d2 = d1 - root;
         const bool otmCall = x >= 0.;
@@ -171,7 +185,7 @@ namespace Dal::MarketIvDetail {
         REQUIRE(b <= a, "MarketIvNumericRange: unresolved Black tail difference");
         const long double otm = std::exp(a) * (-std::expm1(b - a));
         REQUIRE(otm > 0. || call != otmCall, "MarketIvNumericRange: Black OTM price underflow");
-        const long double intrinsic = call ? (x < 0. ? -std::expm1(x) : 0.) : (x > 0. ? std::expm1(x) : 0.);
+        const long double intrinsic = BlackIntrinsic(x, call);
         const long double price = otm + intrinsic;
         REQUIRE(std::isfinite(price) && (price == 0. || price >= std::numeric_limits<double>::denorm_min()),
                 "MarketIvNumericRange: Black price overflow or underflow");

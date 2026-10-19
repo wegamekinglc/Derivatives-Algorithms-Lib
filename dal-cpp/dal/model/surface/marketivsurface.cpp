@@ -78,6 +78,17 @@ namespace Dal {
         result.dividendYield_ = yield;
         return result;
     }
+    namespace {
+        void ValidateFitLimits(const MarketIvFitSettings_& s) {
+            REQUIRE(s.maxIterationsPerStart_ > 0 && s.maxLineSearchTrials_ > 0,
+                    "InvalidMarketIvRequest: iteration/trial limits must be positive int");
+            const size_t intMax = static_cast<size_t>(std::numeric_limits<int>::max());
+            REQUIRE(s.maxQuotes_ > 0 && s.maxQuotes_ <= intMax && s.maxExpiries_ > 0 && s.maxExpiries_ <= intMax - 2 && s.maxMarketTerms_ > 0 &&
+                        s.maxMarketTerms_ <= intMax,
+                    "InvalidMarketIvRequest: size limits must be positive representable int");
+            MarketIvDetail::CheckedMultiply(4, MarketIvDetail::CheckedAdd(s.maxIterationsPerStart_, 1));
+        }
+    } // namespace
     void ValidateMarketIvFitSettings(const MarketIvFitSettings_& s) {
         Proportion(s.rhoLimit_, "settings.rho_limit");
         Proportion(s.constraintMargin_, "settings.constraint_margin");
@@ -94,34 +105,15 @@ namespace Dal {
         Proportion(s.decimalIvTolerance_, "settings.decimal_iv_tolerance");
         Proportion(s.normalizedPriceScaleFloor_, "settings.normalized_price_scale_floor");
         Proportion(s.feasibilityTolerance_, "settings.feasibility_tolerance");
-        REQUIRE(s.maxIterationsPerStart_ > 0 && s.maxLineSearchTrials_ > 0, "InvalidMarketIvRequest: iteration/trial limits must be positive int");
-        const size_t intMax = static_cast<size_t>(std::numeric_limits<int>::max());
-        REQUIRE(s.maxQuotes_ > 0 && s.maxQuotes_ <= intMax && s.maxExpiries_ > 0 && s.maxExpiries_ <= intMax - 2 && s.maxMarketTerms_ > 0 &&
-                    s.maxMarketTerms_ <= intMax,
-                "InvalidMarketIvRequest: size limits must be positive representable int");
-        MarketIvDetail::CheckedMultiply(4, MarketIvDetail::CheckedAdd(s.maxIterationsPerStart_, 1));
+        ValidateFitLimits(s);
     }
     void ValidateMarketIvEvaluationSettings(const MarketIvEvaluationSettings_& s) {
         Positive(s.densityFactorFloor_, "settings.density_factor_floor");
         Positive(s.minQueryTime_, "settings.min_query_time");
         Positive(s.minTotalVariance_, "settings.min_total_variance");
     }
-    void ValidateMarketIvFitRequest(const MarketIvFitRequest_& request) {
-        ValidateMarketIvFitSettings(request.settings_);
-        ValidateMarket(request.market_);
-        const auto& quotes = request.quotes_;
-        const auto& terms = request.market_.Terms();
-        const auto& s = request.settings_;
-        REQUIRE(!quotes.empty(), "InvalidMarketIvRequest: quotes; at least one quote required");
-        REQUIRE(quotes.size() <= s.maxQuotes_ && terms.size() <= s.maxMarketTerms_,
-                "MarketIvBudgetExceeded: quotes/market.terms exceeds configured count limit");
-        size_t quotedTerms = 0;
-        for (const auto& t : terms)
-            quotedTerms += std::any_of(quotes.begin(), quotes.end(), [&](const auto& q) { return q.expiry_ == t.expiry_; });
-        REQUIRE(quotedTerms <= s.maxExpiries_, "MarketIvBudgetExceeded: quoted expiries exceeds max_expiries");
-        MarketIvDetail::PlanFit(quotes.size(), quotedTerms, terms.size(), s);
-        for (size_t i = 0; i < quotes.size(); ++i) {
-            const auto& q = quotes[i];
+    namespace {
+        void ValidateQuote(const MarketIvQuote_& q, const Vector_<MarketIvTerm_>& terms, size_t i) {
             const String_ path = "quotes[row=" + String_(std::to_string(i)) + ";id=" + q.id_ + "]";
             REQUIRE(!q.id_.empty() && q.id_.find('\0') == String_::npos, "InvalidMarketIvRequest: " + path + ".id; expected nonempty ID without NUL");
             const auto term = std::find_if(terms.begin(), terms.end(), [&](const auto& t) { return t.expiry_ == q.expiry_; });
@@ -140,10 +132,46 @@ namespace Dal {
                 REQUIRE(*q.bid_ <= q.mid_ && q.mid_ <= *q.ask_, "InvalidMarketIvRequest: " + path + "; expected bid <= mid <= ask");
             }
         }
+    } // namespace
+    void ValidateMarketIvFitRequest(const MarketIvFitRequest_& request) {
+        ValidateMarketIvFitSettings(request.settings_);
+        ValidateMarket(request.market_);
+        const auto& quotes = request.quotes_;
+        const auto& terms = request.market_.Terms();
+        const auto& s = request.settings_;
+        REQUIRE(!quotes.empty(), "InvalidMarketIvRequest: quotes; at least one quote required");
+        REQUIRE(quotes.size() <= s.maxQuotes_ && terms.size() <= s.maxMarketTerms_,
+                "MarketIvBudgetExceeded: quotes/market.terms exceeds configured count limit");
+        size_t quotedTerms = 0;
+        for (const auto& t : terms)
+            quotedTerms += std::any_of(quotes.begin(), quotes.end(), [&](const auto& q) { return q.expiry_ == t.expiry_; });
+        REQUIRE(quotedTerms <= s.maxExpiries_, "MarketIvBudgetExceeded: quoted expiries exceeds max_expiries");
+        MarketIvDetail::PlanFit(quotes.size(), quotedTerms, terms.size(), s);
+        for (size_t i = 0; i < quotes.size(); ++i)
+            ValidateQuote(quotes[i], terms, i);
         ValidateQuoteAxes(quotes);
     }
 
     namespace MarketIvDetail {
+        namespace {
+            Carry_ InterpolateCarry(const MarketIvMarket_& market, double time, size_t hi, bool knot) {
+                const auto& terms = market.Terms();
+                const double t1 = (terms[hi].expiry_ - market.EvaluationDate()) / 365.;
+                const double t0 = hi == 0 ? 0. : (terms[hi - 1].expiry_ - market.EvaluationDate()) / 365.;
+                const double d1 = std::log(terms[hi].discount_), f1 = std::log(terms[hi].forward_) - std::log(market.Spot());
+                const double d0 = hi == 0 ? 0. : std::log(terms[hi - 1].discount_);
+                const double f0 = hi == 0 ? 0. : std::log(terms[hi - 1].forward_) - std::log(market.Spot());
+                const double ds = (d1 - d0) / (t1 - t0), fs = (f1 - f0) / (t1 - t0);
+                double f = market.Spot() * std::exp(f0 + fs * (time - t0)), d = std::exp(d0 + ds * (time - t0));
+                for (const auto& term : terms)
+                    if ((term.expiry_ - market.EvaluationDate()) / 365. == time) {
+                        f = term.forward_;
+                        d = term.discount_;
+                        break;
+                    }
+                return {f, d, -ds, -ds - fs, knot};
+            }
+        } // namespace
         Carry_ CarryAt(const MarketIvMarket_& market, double time) {
             if (market.IsFlatCarry())
                 return {market.Spot() * std::exp((market.Rate() - market.DividendYield()) * time), std::exp(-market.Rate() * time), market.Rate(),
@@ -155,20 +183,7 @@ namespace Dal {
             const bool knot = hi > 0 && (terms[hi - 1].expiry_ - market.EvaluationDate()) / 365. == time;
             if (hi == terms.size())
                 hi = terms.size() - 1;
-            const double t1 = (terms[hi].expiry_ - market.EvaluationDate()) / 365.;
-            const double t0 = hi == 0 ? 0. : (terms[hi - 1].expiry_ - market.EvaluationDate()) / 365.;
-            const double d1 = std::log(terms[hi].discount_), f1 = std::log(terms[hi].forward_) - std::log(market.Spot());
-            const double d0 = hi == 0 ? 0. : std::log(terms[hi - 1].discount_);
-            const double f0 = hi == 0 ? 0. : std::log(terms[hi - 1].forward_) - std::log(market.Spot());
-            const double ds = (d1 - d0) / (t1 - t0), fs = (f1 - f0) / (t1 - t0);
-            double f = market.Spot() * std::exp(f0 + fs * (time - t0)), d = std::exp(d0 + ds * (time - t0));
-            for (const auto& term : terms)
-                if ((term.expiry_ - market.EvaluationDate()) / 365. == time) {
-                    f = term.forward_;
-                    d = term.discount_;
-                    break;
-                }
-            return {f, d, -ds, -ds - fs, knot};
+            return InterpolateCarry(market, time, hi, knot);
         }
         void ValidateQuery(const MarketIvQuery_& query) {
             Positive(query.strike_, "query.strike");

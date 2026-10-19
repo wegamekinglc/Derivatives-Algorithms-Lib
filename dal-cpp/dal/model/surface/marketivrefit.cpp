@@ -37,6 +37,37 @@ namespace Dal {
                 change(&*q->ask_);
             }
         }
+        void DirectionOutputs(const MarketIvCalibrationSnapshot_& snapshot,
+                              const MarketIvRefitRiskRequest_& request,
+                              size_t axis,
+                              bool plus,
+                              bool changed,
+                              MarketIvDetail::RiskData_* data) {
+            for (size_t o = 0; o < request.outputs_.size(); ++o) {
+                auto& response = data->responses_[axis * request.outputs_.size() + o];
+                const auto& output = request.outputs_[o];
+                const auto point = EvaluateMarketIvSurface(snapshot, output.query_, request.settings_.evaluation_);
+                ++data->execution_.outputEvaluations_;
+                (plus ? response.plus_ : response.minus_) = MarketIvDetail::Quantity(point, output.quantity_);
+                const auto value = plus ? response.plus_ : response.minus_;
+                (plus ? response.plusOutputCode_ : response.minusOutputCode_) = value ? 1 : point.DupireStatus() == "SINGULAR_DENSITY" ? 3 : 2;
+                response.regimeChanged_ |= changed;
+            }
+        }
+        void SuccessfulDirection(const MarketIvCalibrationSnapshot_& base,
+                                 const MarketIvFitResult_& fit,
+                                 const MarketIvRefitRiskRequest_& request,
+                                 size_t axis,
+                                 bool plus,
+                                 MarketIvDetail::RiskData_* data) {
+            auto& a = data->axis_[axis];
+            const auto snapshot = fit.Snapshot();
+            const bool changed = snapshot.RegimeSignature() != base.RegimeSignature();
+            a.regimeChanged_ |= changed;
+            (plus ? a.plusStart_ : a.minusStart_) = fit.SelectedStart();
+            (plus ? a.plusRank_ : a.minusRank_) = fit.Starts()[fit.SelectedStart()].rank_;
+            DirectionOutputs(snapshot, request, axis, plus, changed, data);
+        }
         void Direction(const MarketIvCalibrationSnapshot_& base,
                        const MarketIvRefitRiskRequest_& request,
                        size_t axis,
@@ -70,21 +101,7 @@ namespace Dal {
             failure = fit.Failure();
             if (!fit.IsSuccess())
                 return;
-            const auto snapshot = fit.Snapshot();
-            const bool changed = snapshot.RegimeSignature() != base.RegimeSignature();
-            a.regimeChanged_ |= changed;
-            (plus ? a.plusStart_ : a.minusStart_) = fit.SelectedStart();
-            (plus ? a.plusRank_ : a.minusRank_) = fit.Starts()[fit.SelectedStart()].rank_;
-            for (size_t o = 0; o < request.outputs_.size(); ++o) {
-                auto& response = data->responses_[axis * request.outputs_.size() + o];
-                const auto& output = request.outputs_[o];
-                const auto point = EvaluateMarketIvSurface(snapshot, output.query_, request.settings_.evaluation_);
-                ++data->execution_.outputEvaluations_;
-                (plus ? response.plus_ : response.minus_) = Quantity(point, output.quantity_);
-                const auto value = plus ? response.plus_ : response.minus_;
-                (plus ? response.plusOutputCode_ : response.minusOutputCode_) = value ? 1 : point.DupireStatus() == "SINGULAR_DENSITY" ? 3 : 2;
-                response.regimeChanged_ |= changed;
-            }
+            SuccessfulDirection(base, fit, request, axis, plus, data);
         }
         Vector_<Selection_> Select(const MarketIvCalibrationSnapshot_& base, const MarketIvRefitRiskRequest_& request) {
             using namespace MarketIvDetail;
@@ -118,6 +135,17 @@ namespace Dal {
                     data->complete_ = false;
             }
         }
+        void ValidateRefitStepCount(const Vector_<>& steps, size_t count) {
+            REQUIRE(steps.empty() || steps.size() == count, "InvalidMarketIvRequest: refit steps must match quote_ids");
+        }
+        void ValidateRefitOutputs(const Vector_<MarketIvRefitOutput_>& outputs) {
+            for (const auto& output : outputs) {
+                MarketIvDetail::ValidateQuery(output.query_);
+                REQUIRE(output.quantity_.Switch() >= MarketIvQuantity_::Value_::TOTAL_VARIANCE &&
+                            output.quantity_.Switch() < MarketIvQuantity_::Value_::_N_VALUES,
+                        "InvalidMarketIvRequest: invalid output quantity");
+            }
+        }
     } // namespace
 
     void ValidateMarketIvRefitRiskRequest(const MarketIvRefitRiskRequest_& request) {
@@ -126,17 +154,12 @@ namespace Dal {
         const size_t a = request.quoteIds_.size(), o = request.outputs_.size();
         REQUIRE(a > 0 && a <= s.maxSelectedQuotes_ && o > 0 && o <= s.maxOutputs_,
                 "InvalidMarketIvRequest: refit quote_ids/outputs; empty or exceeds configured count limit");
-        REQUIRE(request.steps_.empty() || request.steps_.size() == a, "InvalidMarketIvRequest: refit steps must match quote_ids");
+        ValidateRefitStepCount(request.steps_, a);
         ValidateMarketIvEvaluationSettings(s.evaluation_);
         ValidateIds(request.quoteIds_);
         for (const auto step : request.steps_)
             REQUIRE(std::isfinite(step) && step > 0., "InvalidMarketIvRequest: refit steps must be finite positive");
-        for (const auto& output : request.outputs_) {
-            ValidateQuery(output.query_);
-            REQUIRE(output.quantity_.Switch() >= MarketIvQuantity_::Value_::TOTAL_VARIANCE &&
-                        output.quantity_.Switch() < MarketIvQuantity_::Value_::_N_VALUES,
-                    "InvalidMarketIvRequest: invalid output quantity");
-        }
+        ValidateRefitOutputs(request.outputs_);
     }
     MarketIvRefitRiskResult_ EvaluateMarketIvRefitRisk(const MarketIvCalibrationSnapshot_& base, const MarketIvRefitRiskRequest_& request) {
         using namespace MarketIvDetail;

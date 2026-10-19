@@ -665,6 +665,20 @@ namespace Dal {
             Validate(s.evaluation_);
             REQUIRE(s.maxSelectedQuotes_ > 0 && s.maxOutputs_ > 0, "InvalidMarketIvRequest: refit size limits must be positive");
         }
+        template <class S_> bool AdditionalSetting(const String_& key, const Cell_& value, const String_& context, S_* s) {
+            if constexpr (std::is_same_v<S_, MarketIvDupireSettings_> || std::is_same_v<S_, MarketIvRefitRiskSettings_>) {
+                if (Setting(key, value, context, &s->evaluation_))
+                    return true;
+            }
+            if constexpr (std::is_same_v<S_, MarketIvRefitRiskSettings_>) {
+                if (key == "max_total_model_row_evaluations") {
+                    s->maxTotalModelRowEvaluations_ =
+                        Cell::IsEmpty(value) ? std::nullopt : std::optional<size_t>(PayloadBudget(value, context, "max_total_model_row_evaluations"));
+                    return true;
+                }
+            }
+            return false;
+        }
         template <class S_> S_ Settings(const Matrix_<Cell_>& cells) {
             S_ s;
             if (AllBlank(cells))
@@ -677,23 +691,22 @@ namespace Dal {
                 [&](const auto& key, const auto& value, const auto&, const auto& context) {
                     if (Setting(key, value, context, &s))
                         return;
-                    if constexpr (std::is_same_v<S_, MarketIvDupireSettings_> || std::is_same_v<S_, MarketIvRefitRiskSettings_>) {
-                        if (Setting(key, value, context, &s.evaluation_))
-                            return;
-                    }
-                    if constexpr (std::is_same_v<S_, MarketIvRefitRiskSettings_>) {
-                        if (key == "max_total_model_row_evaluations") {
-                            s.maxTotalModelRowEvaluations_ =
-                                Cell::IsEmpty(value) ? std::nullopt
-                                                     : std::optional<size_t>(PayloadBudget(value, context, "max_total_model_row_evaluations"));
-                            return;
-                        }
-                    }
+                    if (AdditionalSetting(key, value, context, &s))
+                        return;
                     THROW("InvalidMarketIvRequest: " + context + "; unknown settings key=" + key);
                 },
                 true);
             Validate(s);
             return s;
+        }
+        template <class S_> void AdditionalConfiguration(const S_& s, Vector_<std::pair<String_, Cell_>>* result) {
+            if constexpr (std::is_same_v<S_, MarketIvDupireSettings_> || std::is_same_v<S_, MarketIvRefitRiskSettings_>) {
+                for (const auto& f : MarketIvSettings::RealFields(s.evaluation_))
+                    result->push_back(Field(f.name_, s.evaluation_.*(f.member_)));
+            }
+            if constexpr (std::is_same_v<S_, MarketIvRefitRiskSettings_>)
+                result->push_back(Field("max_total_model_row_evaluations",
+                                        s.maxTotalModelRowEvaluations_ ? Cell_(double(*s.maxTotalModelRowEvaluations_)) : Cell_()));
         }
         template <class S_> Vector_<std::pair<String_, Cell_>> Configuration(const S_& s) {
             Vector_<std::pair<String_, Cell_>> result{Field("key", "value")};
@@ -703,13 +716,7 @@ namespace Dal {
                 result.push_back(Field(f.name_, double(s.*(f.member_))));
             for (const auto& f : MarketIvSettings::IntegerFields(s))
                 result.push_back(Field(f.name_, double(s.*(f.member_))));
-            if constexpr (std::is_same_v<S_, MarketIvDupireSettings_> || std::is_same_v<S_, MarketIvRefitRiskSettings_>) {
-                for (const auto& f : MarketIvSettings::RealFields(s.evaluation_))
-                    result.push_back(Field(f.name_, s.evaluation_.*(f.member_)));
-            }
-            if constexpr (std::is_same_v<S_, MarketIvRefitRiskSettings_>)
-                result.push_back(Field("max_total_model_row_evaluations",
-                                       s.maxTotalModelRowEvaluations_ ? Cell_(double(*s.maxTotalModelRowEvaluations_)) : Cell_()));
+            AdditionalConfiguration(s, &result);
             return result;
         }
         template <class T_> void Store(const String_& name, T_ value, Handle_<Excel::StorableRiskValue_<T_>>* output) {
@@ -855,6 +862,16 @@ namespace Dal {
                                   Handle_<StorableMarketIvDupireResult_>* output) {
         Store(name, CalibrateMarketIvDupire(Value(snapshot), Value(request)), output);
     }
+    namespace {
+        MarketIvRefitOutput_ RefitOutput(const Matrix_<Cell_>& outputs, int r) {
+            const auto quantity = TextInput(outputs(r, 2), Location("outputs", r, 2));
+            REQUIRE(quantity == "TOTAL_VARIANCE" || quantity == "IMPLIED_VOL" || quantity == "CALL_PRICE" || quantity == "PUT_PRICE" ||
+                        quantity == "LOCAL_VOL",
+                    "InvalidMarketIvRequest: outputs; unknown quantity");
+            return {{Number(outputs(r, 0), Location("outputs", r, 0)), Number(outputs(r, 1), Location("outputs", r, 1))},
+                    MarketIvQuantity_(quantity)};
+        }
+    } // namespace
     void MarketIvRefitRiskRequest_New(const String_& name,
                                       const Matrix_<Cell_>& ids,
                                       const Matrix_<Cell_>& outputs,
@@ -867,14 +884,8 @@ namespace Dal {
         for (int r = 0; r < ids.Rows(); ++r)
             for (int c = 0; c < ids.Cols(); ++c)
                 request.quoteIds_.push_back(TextInput(ids(r, c), Location("quote_ids", r, c)));
-        for (int r = 0; r < outputs.Rows(); ++r) {
-            const auto quantity = TextInput(outputs(r, 2), Location("outputs", r, 2));
-            REQUIRE(quantity == "TOTAL_VARIANCE" || quantity == "IMPLIED_VOL" || quantity == "CALL_PRICE" || quantity == "PUT_PRICE" ||
-                        quantity == "LOCAL_VOL",
-                    "InvalidMarketIvRequest: outputs; unknown quantity");
-            request.outputs_.push_back(
-                {{Number(outputs(r, 0), Location("outputs", r, 0)), Number(outputs(r, 1), Location("outputs", r, 1))}, MarketIvQuantity_(quantity)});
-        }
+        for (int r = 0; r < outputs.Rows(); ++r)
+            request.outputs_.push_back(RefitOutput(outputs, r));
         request.settings_ = Default(settings);
         request.steps_ = AxisNumbers(steps, "steps", true);
         ValidateMarketIvRefitRiskRequest(request);
