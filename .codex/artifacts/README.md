@@ -24,6 +24,20 @@ current-state explanations in the published docs or focused Codex references.
   derivatives, full refit and all bindings; contains directed numerical/budget
   evidence and the explicit native Windows verification boundary.
 
+- [DAL-379 market IV surface independent validation](validation/dal-379-market-iv-surface.md)
+  — P2 targeted evidence at `0068d052`: independent carry/derivative and banded
+  refit checks pass; subnormal-scale PUT PRICE conversion exceeds its precision
+  budget yet publishes a snapshot. Production repair and native Windows evidence
+  remain outstanding.
+
+- [DAL-379 market IV surface focused code review](reviews/dal-379-market-iv-surface.md)
+  — Appended scoped Approve at `24662d9a`: the Excel raw-hook order code blocker
+  is cleared; six constructors validate before conversion, strict bool diagnostics
+  remain and two new exported-entry storage regressions are registered.
+  The first-round review and PRICE clearance are retained. All four native
+  Windows OPER/XLL regressions remain unexecuted locally; portable/shim evidence
+  does not substitute. Public docs/CHANGELOG remain for delivery.
+
 Completed DAL-379 controls are archived at Git snapshot `d8bb4c1695cc6c963fd5bb4145ed59676a91c707`:
 [benchmark implementation and repair](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/d8bb4c1695cc6c963fd5bb4145ed59676a91c707/.codex/artifacts/implementation/dal-379-benchmark-ci-repair.md),
 [independent validation](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/d8bb4c1695cc6c963fd5bb4145ed59676a91c707/.codex/artifacts/validation/dal-379-early-exercise-pde.md),
@@ -40,3 +54,8 @@ Git history rather than registered as active work.
 Supported compiled double batching and LSMC training checkpoints are documented in
 the [simulation guide](../../docs/methodology/monte-carlo/simulation.md#explicit-compiled-double-batching)
 and [LSMC guide](../../docs/methodology/monte-carlo/lsm.md#opt-in-training-checkpoints).
+
+P2 PRICE follow-up at `525b11de`: the appended
+[independent revalidation](validation/dal-379-market-iv-surface.md)
+clears the conversion blocker. The first-round RED record remains intact;
+focused main review and native Windows evidence remain outstanding.
