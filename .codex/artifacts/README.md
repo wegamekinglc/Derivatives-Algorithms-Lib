@@ -8,6 +8,11 @@ current-state explanations in the published docs or focused Codex references.
 
 ## Current Artifacts
 
+- [DAL-379 market IV Codacy repair](implementation/dal-379-market-iv-ci-repair.md)
+  — Incremental PR #604 complexity/length refactor; preserves the reviewed
+  numerical contracts and raw-hook order. Includes scoped comparison evidence
+  and the new-head native Windows validation boundary.
+
 - [DAL-379 market IV surface independent validation](validation/dal-379-market-iv-surface.md)
   — Pending final acceptance only: the appended PRICE revalidation at `525b11de`
   clears the numerical blocker; the initial RED and all independent evidence
