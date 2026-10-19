@@ -18,3 +18,5 @@ benchmarks. For path generation, regression, and Monte Carlo evaluation, see
    option calibration, and Bermudan exercise.
 6. [Local volatility in hybrid models](local-volatility.md) — reusable and
    serializable local-vol grids with BS or stochastic GSR rates.
+7. [Constrained market IV surfaces](market-iv-surface.md) — PRICE/decimal-IV
+   fitting, global SSVI certificates, analytic Dupire and complete quote refits.

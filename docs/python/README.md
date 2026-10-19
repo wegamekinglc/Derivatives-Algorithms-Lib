@@ -328,6 +328,81 @@ getters perform no valuation or history reads. Path counts exclude bool, enums,
 fractions and values beyond `INT_MAX`. Malformed requests fail with field and
 trade/group/coordinate context, leaving prior completed results intact.
 
+## Market implied-volatility surfaces
+
+Fit raw European PRICE/decimal-IV quotes before querying prices, analytic
+derivatives, an explicit Dupire grid or full-refit quote responses:
+
+```python
+import dal
+
+today = dal.Date_(2026, 10, 19)
+expiries = [dal.Date_(2027, 4, 19), dal.Date_(2027, 10, 19)]
+market = dal.MarketIvFlatMarket_New(today, 100.0, 0.03, 0.01, expiries)
+quotes = [
+    dal.MarketIvQuote_(
+        id=f"q{3*j+i}", expiry=expiry, strike=strike,
+        option_type="CALL", quote_type="DECIMAL_IV", mid=0.20,
+    )
+    for j, expiry in enumerate(expiries)
+    for i, strike in enumerate([90.0, 100.0, 110.0])
+]
+fit = dal.MarketIvFitResult_New(dal.MarketIvFitRequest_(market, quotes))
+if not fit.is_success:
+    raise RuntimeError(f"{fit.status}: {fit.failure}")
+snapshot = fit.snapshot
+point = dal.MarketIvPointResult_New(snapshot, dal.MarketIvQuery_(100.0, 1.0))
+if point.value_status != "SUCCESS":
+    raise RuntimeError(point.value_status)
+grid = dal.MarketIvDupireResult_New(
+    snapshot, dal.MarketIvDupireRequest_([80.0, 100.0, 120.0], [0.25, 1.0]),
+)
+if not grid.is_success:
+    raise RuntimeError(grid.failure)
+surface = grid.surface
+outputs = [dal.MarketIvRefitOutput_(dal.MarketIvQuery_(100.0, 1.0), "CALL_PRICE")]
+risk = dal.MarketIvRefitRiskResult_New(
+    snapshot, dal.MarketIvRefitRiskRequest_(["q1"], outputs, steps=[1e-6]),
+)
+if not risk.complete:
+    raise RuntimeError("Full refit incomplete; inspect risk.axis and risk.responses")
+print(f"{'Metric':<16}{'Value':>16}")
+print("-" * 32)
+print(f"{'Call price':<16}{point.call_price:>16.8f}")
+```
+
+For nonflat carry, construct `MarketIvMarket_(today, spot, terms)` from
+`MarketIvTerm_(expiry, forward, discount)` values. Every quoted expiry must
+match a term; extra unquoted carry knots are allowed. Dates require `Date_`;
+query time is actual calendar days/365 from `today`. PRICE is a discounted
+premium per unit underlying; decimal IV `0.20` means 20%. Optional bid/ask
+must both be supplied in the quote's native unit. Weight defaults to one.
+
+Quote/settings fields are keyword-only. Fit, evaluation, Dupire and refit
+settings use `MarketIvFitSettings_`, `MarketIvEvaluationSettings_`,
+`MarketIvDupireSettings_`, `MarketIvRefitRiskSettings_`; request `settings=None`
+selects fresh defaults. Numbers exclude bool/enums/numeric text, counts must be
+integers, and unknown settings reject. Containers/settings are read-only copied
+values; copy/deepcopy and detached getters preserve the owning snapshot after
+inputs or the original fit result die. Native calls copy inputs before GIL release.
+
+Check `is_success` before `snapshot`; numerical failures retain fit diagnostics
+but the snapshot getter raises `SnapshotUnavailable`. Point results separately
+report `value_status`, `derivative_status`, `dupire_status`; unavailable numbers
+are `None`. `variance_t` fixes log-moneyness k; `fixed_k_variance_t` fixes
+**strike K**, despite its lowercase spelling. `call_k`/`call_kk` differentiate
+strike, while `variance_k`/`variance_kk` differentiate log-moneyness.
+
+`risk.axis` reports per-direction fits, input unit and discrete regime changes;
+`risk.responses` reports original-row/output indices, f0/f+/f-,
+`symmetric_bump_slope`, both side slopes and output statuses. These are complete
+raw-quote refits, distinct from the fixed-base spread VJP below.
+`RefitMarketIvSurface(snapshot, quotes)` also supports replacing a complete
+same-axis mid/bid/ask set. `MarketIvSurfaceAsLegacyIVS(snapshot)` accepts only
+explicit `FLAT_CARRY`; inherited legacy LocalVol remains finite differences.
+See the [method and defaults](../models/market-iv-surface.md) for the global
+certificate's scope, local fitting/quality limits, budgets and model boundaries.
+
 ## Dupire quote risk
 
 `DupireCalibration_New(base, inputs, *, name="")` creates a frozen calibration

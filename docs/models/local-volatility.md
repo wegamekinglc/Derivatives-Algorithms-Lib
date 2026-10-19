@@ -19,6 +19,13 @@ constant local volatility. `NewLocalVolSurfaceData` constructs it directly;
 an `AAD::IVS_` and stores the calibrated grid. See [Dupire](dupire.md) for the
 inversion's finite-difference and tail conventions.
 
+The [market-IV surface](market-iv-surface.md#analytic-derivatives-and-dupire)
+can instead export an exact requested analytic Dupire grid. Archive v1 retains
+only that grid, not its quotes, carry or continuous certificate. Flat-rate
+convenience model construction does not automatically represent nonflat F/D;
+drift/rates must match the calibration market, with grid and simulation
+convergence checked separately.
+
 The surface and its enclosing hybrid model use DAL's storable archive format.
 In Python, `dal._dal._StorableToJson(surface)` and
 `dal._dal._StorableFromJson(payload)` provide a JSON round trip. The archive

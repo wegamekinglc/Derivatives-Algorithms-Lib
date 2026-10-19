@@ -1,4 +1,4 @@
-add_executable(quote_risk_perf quote_risk_perf.cpp dupirecurvatureperf.cpp ../rate_risk_perf/quoteriskbenchfixtures.cpp)
+add_executable(quote_risk_perf quote_risk_perf.cpp dupirecurvatureperf.cpp marketivperf.cpp ../rate_risk_perf/quoteriskbenchfixtures.cpp)
 
 target_link_libraries(quote_risk_perf dal_library)
 
@@ -15,3 +15,5 @@ install(TARGETS quote_risk_perf
 
 add_test(NAME quote_risk_perf COMMAND quote_risk_perf)
 set_tests_properties(quote_risk_perf PROPERTIES LABELS "benchmark")
+add_test(NAME quote_risk_market_iv_perf COMMAND quote_risk_perf --market-iv)
+set_tests_properties(quote_risk_market_iv_perf PROPERTIES LABELS "benchmark")

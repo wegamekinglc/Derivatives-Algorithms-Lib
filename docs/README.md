@@ -29,6 +29,11 @@ The [Bermudan/American PDE guide](methodology/pde/early-exercise.md) covers
 deterministic-carry BS vanilla prices, exact dated events, original LCP
 residuals, owning exercise regions and resource limits; this interface has no Greeks.
 
+The [market implied-volatility surface guide](models/market-iv-surface.md)
+covers constrained SSVI quote fitting, global static certificates, analytic
+Dupire, complete refit bumps and C++/Python/Excel use, with explicit legacy
+IVS and nonflat-carry model boundaries.
+
 The [structural Jacobian guide](methodology/aad-sparsity.md) describes conservative
 row supports, compressed direction recovery, numeric payload admission and
 rate-trade dependency capture with complete structural identity, and

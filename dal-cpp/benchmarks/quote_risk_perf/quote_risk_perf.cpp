@@ -12,6 +12,7 @@
 
 #include "../rate_risk_perf/quoteriskbenchfixtures.hpp"
 #include "dupirecurvatureperf.hpp"
+#include "marketivperf.hpp"
 
 using namespace Dal;
 
@@ -51,6 +52,8 @@ namespace {
 } // namespace
 
 int main(int argc, char** argv) {
+    if (argc > 1 && std::string(argv[1]) == "--market-iv")
+        return RunMarketIvBenchmarks();
     if (argc > 1)
         return RunDupireQuoteCurvatureBenchmarks(argc, argv);
     const auto analytic = CurveJacobianMode_(CurveJacobianMode_::Value_::ANALYTIC);
