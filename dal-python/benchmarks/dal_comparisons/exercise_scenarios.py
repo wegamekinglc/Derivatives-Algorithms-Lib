@@ -7,7 +7,6 @@ import math
 import numpy as np
 
 from .constants import DAY_COUNT, TODAY
-from .exercise_pde import put_surface
 
 SPOT, VOL, RATE, DIVIDEND, STRIKE = 100.0, 0.2, 0.05, 0.0, 100.0
 MATURITY_DAYS = 546
@@ -77,6 +76,8 @@ def tree_price(days, spot=SPOT, vol=VOL, rate=RATE, steps_per_day=8):
 
 @lru_cache(maxsize=32)
 def pde_surface(days, vol, rate, grid_points, steps_per_day):
+    from .exercise_pde import put_surface
+
     intervals = tuple(day - previous for previous, day in zip((0, *days), days))
     return put_surface(
         tuple(TODAY + timedelta(days=day) for day in days),

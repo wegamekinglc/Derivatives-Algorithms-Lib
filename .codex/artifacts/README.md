@@ -8,6 +8,10 @@ current-state explanations in the published docs or focused Codex references.
 
 ## Current Artifacts
 
+- [DAL-387 benchmark startup repair](implementation/dal-387-benchmark-repair.md)
+  — Scheduled comparison import-order failure, focused RED/GREEN evidence,
+  build selection and actual driver verification; awaiting independent review.
+
 - [DAL-379 market IV Codacy repair](implementation/dal-379-market-iv-ci-repair.md)
   — Incremental PR #604 complexity/length refactor; preserves the reviewed
   numerical contracts and raw-hook order. Includes scoped comparison evidence

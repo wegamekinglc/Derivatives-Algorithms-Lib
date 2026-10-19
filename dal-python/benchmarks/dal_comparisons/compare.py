@@ -339,8 +339,9 @@ def run(args):
 
 def main(argv=None):
     args = arguments(argv)
-    if args.worker:
-        from .worker import run as run_worker
+    from .worker import load_dal, run as run_worker
 
+    if args.worker:
         return run_worker(args)
+    load_dal(args.dal_package)
     return run(args)
