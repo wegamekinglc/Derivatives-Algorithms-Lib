@@ -201,3 +201,80 @@ xltypeInt、错误格/NUL、数组边界和 fit→snapshot→query→point。Cla
 该保守模型族及局部优化没有全局最优/市场可拟合保证；范围不足的点会明确失败。
 旧 test-support oracle 未改动；未用三绑定一致性代替独立金融参照。
 本轮仅创建本地提交，后续独立验证、review、发布文档和单一 PR 由 orchestrator 顺序协调。
+
+## PRICE 次正规尺度 blocker 修复（2026-10-19）
+
+本节是 tester 在 `0068d0526e5e1e13ecae007215bfbdb93b1b50ea` 复现问题后的生产修复记录；
+原 validation 的失败结论、原始日志、三项未提交 Python 测试及索引内容均保持原样。
+本地产品修复提交：`85fddb691e18a65548af33a54fc92288ea5863b9`。没有改动 API、critique、生成接口或其他角色的结论。
+
+根因是 double FMA 残差的绝对舍入误差被极小 D*F 放大，原有相对误差项没有覆盖；
+在 MSVC 的 double 精度 long double 上，D*F 本身的次正规乘积舍入也需覆盖。
+原反例 normalized call 的精确参照为 .75561081415586906，原实际值为 .75561082353714404，
+误差约 9.38e-9；二进制放大 2^8 后仍有约 7.55e-11，均超过转换精度 1e-12。
+
+`NormalizePrice` 保留三条原数值表达式及 `maxError`，补充以 double 的
+`denorm_min/(D*F)` 度量的绝对误差放大项、最终舍入的绝对下限，以及 OTM put 差分的绝对误差项。
+先拒绝无法表示的 D*F；相对量子达到 1/8 时拒绝，避免在可能接近零的真实分母上使用相对扰动论证。
+量子小于 1/8 时，真实分母至少为已算分母的 3/4（包括 double epsilon 的余量），
+系数 8 外包乘积、FMA、除法、加法及最终 double 舍入；原相对误差项仍保留。
+新增认证使用 double 的 epsilon/最小次正规量子，未借更宽 long double 的范围或精度放行。
+不是提高允许误差：请求精度保持不变，不能认证的输入按既有 NUMERIC_RANGE 失败，不发布 snapshot。
+
+只改 `marketivmath.cpp` 中的认证，不增加 heap 分配、请求设置、报价单位、诊断字段或 work 操作。
+P/W 包络、计数定义及输出／失败接口不变；原容量账本继续复用。
+原 benchmark 全部使用 DECIMAL_IV，不经过修改的 PRICE 分支，其性能证据继续复用；未对新 PRICE 失败路径声称原耗时。
+
+新增两个 core 回归：44 项二进制缩放的精确有理数常量参照，覆盖 CALL、ITM/OTM PUT；
+另 12 项覆盖 normal/subnormal 交界相邻 double 和零 premium，要求这些良态边界继续可转换。
+测试不要求所有次正规输入失败：任何返回数值均须满足原精度，真正可稳定转换的输入仍允许成功。
+独立 probe 另覆盖 71 项，使用 tester 原精确有理数 oracle 验证，不复制生产误差认证算法。
+
+复现和定向命令（沿用上文 Release/static/GCC 配置）：
+
+```bash
+DAL_NUM_THREADS=4 PYTHONPATH=build/dal379-market-iv/dal-python \
+  /home/wegamekinglc/anaconda3/bin/python3 -m pytest -q -s \
+  dal-python/tests/test_market_iv_surface.py -k subnormal_df_price_conversion
+# RED: 1 failed, 9 deselected；原回归未屏蔽或修改。
+
+cmake --build build/dal379-market-iv --target dal_cpp_tests _dal -j 6
+ctest --test-dir build/dal379-market-iv --output-on-failure \
+  -R '^MarketIvSurfaceTest.Test(PriceConversion.*|PlatformCertificateAndExtremePut|ExtremePutAndDisjointParityNeverCreateSnapshot|StableDefaultPriceBumpAtExtremeCarryScale)$'
+DAL_NUM_THREADS=4 PYTHONPATH=build/dal379-market-iv/dal-python \
+  /home/wegamekinglc/anaconda3/bin/python3 -m pytest -q -s \
+  dal-python/tests/test_market_iv_surface.py \
+  -k 'subnormal_df_price_conversion or synthetic_mixed_quotes_flat_and_owning'
+```
+
+独立探针的普通精度编译命令如下；第二次增加 `-mlong-double-64`，输出文件名增加 `-53`：
+
+```bash
+/usr/bin/c++ -std=c++17 -O3 -DNDEBUG -ffp-contract=fast -I dal-cpp \
+  .codex/artifacts/implementation/probes/dal-379-price-conversion.cpp \
+  dal-cpp/dal/model/surface/marketivmath.cpp \
+  build/dal379-market-iv/dal-cpp/libdal_cpp.a -pthread \
+  -o build/market-iv-price-fix-probe
+build/market-iv-price-fix-probe > build/market-iv-price-fix-probe.jsonl
+/home/wegamekinglc/anaconda3/bin/python3 \
+  .codex/artifacts/validation/probes/dal-379-market-iv-certificate-oracle.py \
+  build/market-iv-price-fix-probe.jsonl
+```
+
+修复前的 native core 回归为 1 failed / 1 passed；71 项 probe 的普通精度版本存在 4 个超限结果。
+原函数的强制 53 位版本也存在 4 个超限结果，包含 CALL 和 OTM PUT，直接证明还需外包 D*F 的舍入。
+修复后普通和 53 位版本各 71 项：61 个准确返回值、10 个明确拒绝，没有超限接受值；
+probe 标识分别确认 long_double_digits=64 和 53。
+强制 53 位运行只执行实际转换函数及 double JSON 输出，不调用混合 long-double ABI 的库数学函数；
+它验证该认证不依赖额外精度，**不等于原生 MSVC／SDK／Office 执行**。
+
+最终定向结果：5/5 CTest、2/2 Python（8 deselected），普通/53 位精确有理数 oracle 各 71 项均无超限接受值。
+原 public blocker 返回 NUMERIC_RANGE、snapshot 不可取得、model rows=0、quote conversions=1。
+上文原 19 项 core/portable 集合、完整 Python 集合、旧接口兼容及性能矩阵未重跑。
+修改的 core 源文件按原 warning-clean CI flags 通过 syntax 检查；定向 lizard 无告警，
+75 个 Markdown 检查和 diff whitespace 通过。没有枚举或注册 markup 改动，复用既有生成一致性证据。
+没有示例或构建依赖变化，复用原 standalone core-build 的组件边界证据。
+完整命令、原始 RED/GREEN、构建配置及 source/binary 身份随本次增量证据包交付。
+保留原 tester 失败记录；未重启导数/refit/证书的完整验证集合或性能矩阵，
+原 PRICE 相关 case（含极端价格 bump）仅作为直接影响验证运行。
+Windows 原生 OPER/XLL 仍未执行，独立 blocker 复验及聚焦 review 由 orchestrator 后续安排。
