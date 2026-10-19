@@ -9,8 +9,9 @@ current-state explanations in the published docs or focused Codex references.
 ## Current Artifacts
 
 - [DAL-387 benchmark startup repair](implementation/dal-387-benchmark-repair.md)
-  — Scheduled comparison import-order failure, focused RED/GREEN evidence,
-  build selection and actual driver verification; awaiting independent review.
+  — Approved PR #605 merged with guarded head verification; complete post-merge
+  benchmark succeeds, including native/Python gates and full comparison.
+  Merge audits, raw evidence and final CI results retained; awaiting acceptance.
 
 - [DAL-379 market IV Codacy repair](implementation/dal-379-market-iv-ci-repair.md)
   — Incremental PR #604 complexity/length refactor; preserves the reviewed
