@@ -278,3 +278,78 @@ probe 标识分别确认 long_double_digits=64 和 53。
 保留原 tester 失败记录；未重启导数/refit/证书的完整验证集合或性能矩阵，
 原 PRICE 相关 case（含极端价格 bump）仅作为直接影响验证运行。
 Windows 原生 OPER/XLL 仍未执行，独立 blocker 复验及聚焦 review 由 orchestrator 后续安排。
+
+## Excel raw hook 顺序 blocker 修复（2026-10-19）
+
+基线 `525b11dea38d0a4e3d4b8147ace272e8b1480265`；产品修复提交 `f9b35fddf8f45fac69aebd9ee9a61b7979ee0896`。
+原 review、两轮 validation、tester Python 回归及 artifact 索引均保留原未提交状态和字节，
+没有修改 reviewer 的 Request Changes 结论或原始失败证据。
+
+只把六个 constructor 的既有 raw validator/normalizer block 移到 name 后、受影响参数首次转换前：
+Market、FlatMarket、FitRequest、Query、DupireRequest、RefitRiskRequest。
+FitRequest 的 quotes 校验现在也先于 required market handle 读取。
+四类 settings 工厂、共享 validator/normalizer、ToDouble/ToCellMatrix、typed factory 和数值核心均未改动。
+六个 public inc 经 Machinist 重生成；注册签名、帮助文本及输出协议不变，没有直接编辑 auto。
+
+保留 `TestMarketIvFitActualXllOwningAndTypedRejection` 原函数全部字节，含
+`{"strike", "excluding bool"}` 的严格诊断断言；函数 SHA-256 为
+`a5fd67320c4bbabf789facab1379f9b20c7663e1d0bedd327c558efa399c0a62`。
+新增两个真实 Windows 导出回归（**本机未运行**）：
+
+- `ScriptExcelRawTest.TestMarketIvGeneratedScalarInputsRejectBadStorage`：Query 两个 scalar、
+  Market 两个 scalar、FlatMarket 四个 scalar，共 8 个字段。
+- `ScriptExcelRawTest.TestMarketIvGeneratedRangeInputsRejectBadStorage`：terms、expiries、quotes、
+  spots、times、quote_ids、outputs、optional steps，共 8 个字段。
+
+每个字段使用实际 `GetProcAddress` 导出和原生 OPER，依次传入空存储的
+1×1、1×2、2×1、0×1、1×0、负 rows、超过最大 rows、超过最大 columns；
+要求 `InvalidMarketIvRequest`、字段名及 `array dimensions/storage`，每项测试共 64 个入口调用。
+既有 CMake Windows 测试 glob 和 gtest discovery 覆盖新 TEST，无需新增 target 或注册规则。
+
+最小 RED→GREEN 使用可复现的 Linux 控制流隔离探针：
+
+```bash
+python3 .codex/artifacts/implementation/probes/dal-379-market-iv-wrapper-order.py \
+  --output-dir build/market-iv-raw-hook-red
+# 在改动前：6/6 generated 顺序检查为 false；bool 缺少专用诊断，
+# Query scalar-null 和 DupireRequest range-null 子进程均 exit -11 / SIGSEGV。
+cmake --build build/dal379-market-iv --target dal_generate
+python3 .codex/artifacts/implementation/probes/dal-379-market-iv-wrapper-order.py \
+  --output-dir build/market-iv-raw-hook-green
+# 改动后：6/6 顺序通过；bool、scalar-null、range-null、scalar-int、range-int 五模式通过。
+cmake --build build/dal379-market-iv --target dal_excel_portable_tests -j 6
+ctest --test-dir build/dal379-market-iv --output-on-failure -R '^ExcelMarketIvSurfaceTest\.'
+```
+
+探针直接纳入当前生成 Query/DupireRequest wrapper，提取生产 ToDouble、ToMatrix、validator、
+ScriptSettingsInput_ 和实际 OPER 声明，未修改其控制流；session、registration、环境、
+String/Matrix/Cell 值封装、typed factory、错误/返回封装使用替身。
+range-int 仅验证 normalizer 已在 cell converter 前执行，不能作为原生 cell 转换数值证据。
+初始声明 shim 缺少 `_stdcall` 的编译配置失败另存 setup 日志，不作为生产 RED。
+RED 的 generated 来源是上述基线；GREEN 来源是本节产品提交。各自源输入、输出和 binary 哈希随包提供。
+
+实际编译沿用 Linux C++17 Release/static、GCC 15.2、native AAD、Eigen OFF。
+另用既有 Windows 声明 shim 对完整 `__marketivsurface.cpp` 和包含全部 raw TEST 的 TU 做 Clang syntax 检查，
+命令及 baseline 告警输出随包提供。最终结果：portable 定向 CTest 1/1；上述两份 syntax 检查 exit 0
+（分别有 49 和 4 条既有声明/平台告警），6 个静态顺序检查及 5 个隔离模式均通过。
+两个 native 新 TEST 的 NLOC/CCN 分别为 26/1、26/1，共享测试 helper 为 10/2；
+独立 probe 的 lizard 无告警。76 个 Markdown 与 diff whitespace 检查通过。
+Machinist 一致性检查在将六个生成文件加入 index 后执行，未把预期的生成差异当漂移。
+重建后 core/public 静态库逐字节哈希匹配重建前，四类 settings 生成入口和共享转换/校验源文件与基线一致。
+
+```bash
+clang++ -std=c++17 -fms-extensions -D_WIN32 -DNOMINMAX \
+  -I build/dal379-p2-probe -I . -I dal-cpp -fsyntax-only \
+  dal-excel/src/__marketivsurface.cpp
+clang++ -std=c++17 -fms-extensions -DNOMINMAX \
+  -I build/dal379-p2-probe -I . -I dal-cpp \
+  -I dal-cpp/externals/googletest/googletest/include -fsyntax-only \
+  build/market-iv-raw-syntax.cpp
+cmake --build build/dal379-market-iv --target dal_check_generated
+```
+
+没有示例／构建依赖修改，复用原 standalone core-build 的组件边界证据。
+数值核心未变，复用已通过的 PRICE、导数、refit、证书、预算及性能证据，不重跑产品集合或矩阵。
+本地无 MSVC/Windows SDK/Office，原两项和新增两项真实 OPER/XLL 回归均未原生执行；
+Linux 控制流、portable 结果和声明 shim 均不能替代它们。
+交回 orchestrator 仅安排 blocker 与直接影响复核；未另建分支／PR、推送、合并或触发其他角色。
