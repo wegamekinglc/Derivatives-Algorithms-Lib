@@ -80,6 +80,44 @@ TEST(MarketIvSurfaceTest, TestObjectiveTieUsesEarliestNearGlobalMinimum) {
     ASSERT_EQ(MarketIvDetail::SelectStart(starts, .1), 1);
 }
 
+TEST(MarketIvSurfaceTest, TestPriceConversionSubnormalResidualAndScaling) {
+    struct Case_ {
+        double premium_, strike_, reference_;
+        bool call_;
+    };
+    // References round exact rational expressions of the binary input doubles.
+    const std::array<Case_, 4> cases{{
+        {1e-308 * 100000000.1, 100000000.1, 0x1.82df6bae9b562p-1, false},
+        {1e-308 * 100000003.14159265, 100000003.14159265, .6738750434962077, false},
+        {1e-317, 1e-8, 0x1.99999fcae8343p-4, true},
+        {1e-317, 5e-9, 0x1.333333f95d068p-1, false},
+    }};
+    for (const auto& c : cases) {
+        for (const int exponent : {0, 8, 24, 26, 27, 28, 29, 30, 32, 128, 512}) {
+            SCOPED_TRACE(exponent);
+            SCOPED_TRACE(c.strike_);
+            try {
+                const double actual = MarketIvDetail::NormalizePrice(std::ldexp(c.premium_, exponent), c.call_, 1e-8, c.strike_,
+                                                                    std::ldexp(1e-308, exponent));
+                ASSERT_NEAR(actual, c.reference_, 1e-12);
+            } catch (const Exception_& e) {
+                ASSERT_NE(std::string(e.what()).find("MarketIvNumericRange"), std::string::npos);
+            }
+        }
+    }
+}
+
+TEST(MarketIvSurfaceTest, TestPriceConversionAcrossNormalSubnormalBoundary) {
+    const double normal = std::numeric_limits<double>::min();
+    for (const double discount : {std::nextafter(normal, 0.), normal, std::nextafter(normal, 1.)}) {
+        for (const bool call : {true, false}) {
+            const double premium = discount / 4.;
+            ASSERT_NEAR(MarketIvDetail::NormalizePrice(premium, call, 1., 1., discount), .25, 1e-15);
+            ASSERT_NEAR(MarketIvDetail::NormalizePrice(0., call, 1., 1., discount), 0., 1e-15);
+        }
+    }
+}
+
 TEST(MarketIvSurfaceTest, TestParameterCertificateOneUlpBoundaries) {
     for (const auto box : {std::pair<double, double>{.999, 1e-8}, {.25, .99}}) {
         MarketIvFitSettings_ s;

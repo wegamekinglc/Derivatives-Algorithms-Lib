@@ -137,6 +137,7 @@ namespace Dal::MarketIvDetail {
     }
     double NormalizePrice(double premium, bool call, double forward, double strike, double discount, double maxError) {
         const long double df = static_cast<long double>(discount) * forward;
+        REQUIRE(df > 0. && std::isfinite(df), "MarketIvNumericRange: PRICE normalization scale cannot be represented");
         long double normalized;
         if (call)
             normalized = premium / df;
@@ -146,9 +147,16 @@ namespace Dal::MarketIvDetail {
             normalized = premium / df + (static_cast<long double>(forward) - strike) / forward;
         REQUIRE(std::isfinite(normalized) && normalized >= 0. && normalized <= 1.,
                 "MarketIvNumericRange: PRICE parity conversion cannot represent a legal normalized call");
-        const long double error = 8.L * std::numeric_limits<double>::epsilon() *
-                                  (call ? std::abs(normalized) : 1.L + std::abs(static_cast<long double>(premium) / df - strike / forward));
-        REQUIRE(error <= maxError, "MarketIvNumericRange: PRICE parity conversion error exceeds normalized precision");
+        const long double quantum = std::numeric_limits<double>::denorm_min();
+        const long double scaledQuantum = quantum / df;
+        // Cover absolute rounding of the double FMA and scale even when long double has only double precision.
+        const long double error =
+            8.L * std::numeric_limits<double>::epsilon() *
+                (call ? std::abs(normalized) : 1.L + std::abs(static_cast<long double>(premium) / df - strike / forward)) +
+            8.L * scaledQuantum * (1.L + std::abs(normalized)) + 8.L * quantum +
+            (!call && strike < forward ? 8.L * quantum / forward : 0.L);
+        REQUIRE(scaledQuantum < .125L && error <= maxError,
+                "MarketIvNumericRange: PRICE parity conversion error exceeds normalized precision");
         return static_cast<double>(normalized);
     }
     double NormalizedBlack(double k, double variance, bool call) {
