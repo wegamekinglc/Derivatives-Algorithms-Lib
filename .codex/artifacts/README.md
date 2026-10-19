@@ -8,7 +8,21 @@ current-state explanations in the published docs or focused Codex references.
 
 ## Current Artifacts
 
-None.
+- [DAL-379 market IV surface API decision](api-notes/dal-379-market-iv-surface.md)
+  — Active P2 C++/Python/Excel contract for price/decimal-IV quotes, constrained
+  SSVI, analytic derivatives, Dupire export and full-refit bump responses.
+  Numerical risk review found no design blocker; targeted certificate, conversion,
+  derivative, refit and actual-budget validation remain for implementation.
+
+- [DAL-379 market IV surface numerical critique](critiques/dal-379-market-iv-surface.md)
+  — Active P2 review with full-domain algebra, independent high-precision probes,
+  budget checks and concrete implementation acceptance cases; implementation and
+  product numerical validation remain.
+
+- [DAL-379 market IV surface implementation](implementation/dal-379-market-iv-surface.md)
+  — Active P2 delivery record for constrained fitting, owning snapshots, analytic
+  derivatives, full refit and all bindings; contains directed numerical/budget
+  evidence and the explicit native Windows verification boundary.
 
 Completed DAL-379 controls are archived at Git snapshot `d8bb4c1695cc6c963fd5bb4145ed59676a91c707`:
 [benchmark implementation and repair](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/d8bb4c1695cc6c963fd5bb4145ed59676a91c707/.codex/artifacts/implementation/dal-379-benchmark-ci-repair.md),
