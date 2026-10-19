@@ -33,3 +33,4 @@ void init_bindings_montecarlocurvature(py::module_& m);
 void init_bindings_lsmccurvature(py::module_& m);
 void init_bindings_europeanpderisk(py::module_& m);
 void init_bindings_earlyexercisepde(py::module_& m);
+void init_bindings_marketivsurface(py::module_& m);

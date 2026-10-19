@@ -34,6 +34,7 @@ namespace Dal {
         int Rows() const { return rows_; }
         int Cols() const { return cols_; }
         bool Empty() const { return vals_.empty(); }
+        [[nodiscard]] size_t Capacity() const { return vals_.capacity(); }
         void Clear() {
             vals_.clear();
             rows_ = 0;
