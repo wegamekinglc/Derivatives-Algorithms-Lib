@@ -86,6 +86,17 @@ namespace {
         ASSERT_EQ(std::wstring(cell.val.str + 1, cell.val.str[0]), expected);
     }
 
+    template <class C_> void CheckMarketIvBadStorage(const char* field, C_ call) {
+        for (const auto shape : {std::pair<int, int>{1, 1}, {1, 2}, {2, 1}, {0, 1}, {1, 0}, {-1, 1}, {1048577, 1}, {1, 16385}}) {
+            SCOPED_TRACE(field);
+            SCOPED_TRACE(shape.first);
+            SCOPED_TRACE(shape.second);
+            auto input = Multi(nullptr, shape.first, shape.second);
+            Output_ rejected(call(&input));
+            ASSERT_NO_FATAL_FAILURE(CheckError(rejected, {"InvalidMarketIvRequest", field, "array dimensions/storage"}));
+        }
+    }
+
     struct CurvatureRuntime_ {
         std::pair<size_t, bool> workers_;
         Date_ date_;
@@ -1576,5 +1587,59 @@ TEST(ScriptExcelRawTest, TestMarketIvFitActualXllOwningAndTypedRejection) {
     quoteCells[0] = nul.cell_;
     Output_ badId(Call("xl_MarketIvFitRequest_New", &name.cell_, market.Scalar(), &quotes, &blank));
     ASSERT_NO_FATAL_FAILURE(CheckError(badId, {"quotes", "NUL"}));
+}
+
+TEST(ScriptExcelRawTest, TestMarketIvGeneratedScalarInputsRejectBadStorage) {
+    Excel::ScriptTestInitialize(1);
+    RawText_ name(L"market_iv_scalar_storage");
+    auto date = Number(Date::ToExcel(Date_(2026, 10, 19))), expiry = Number(Date::ToExcel(Date_(2027, 10, 19)));
+    auto spot = Number(100.), zero = Number(0.), time = Number(.5);
+    OPER_ termCells[]{expiry, spot, Number(1.)};
+    auto terms = Multi(termCells, 1, 3);
+    CheckMarketIvBadStorage("strike", [&](const OPER_* bad) { return Call("xl_MarketIvQuery_New", &name.cell_, bad, &time); });
+    CheckMarketIvBadStorage("time", [&](const OPER_* bad) { return Call("xl_MarketIvQuery_New", &name.cell_, &spot, bad); });
+    CheckMarketIvBadStorage("evaluation_date", [&](const OPER_* bad) {
+        return Call("xl_MarketIvMarket_New", &name.cell_, bad, &spot, &terms);
+    });
+    CheckMarketIvBadStorage("spot", [&](const OPER_* bad) { return Call("xl_MarketIvMarket_New", &name.cell_, &date, bad, &terms); });
+    CheckMarketIvBadStorage("evaluation_date", [&](const OPER_* bad) {
+        return Call("xl_MarketIvFlatMarket_New", &name.cell_, bad, &spot, &zero, &zero, &expiry);
+    });
+    CheckMarketIvBadStorage("spot", [&](const OPER_* bad) {
+        return Call("xl_MarketIvFlatMarket_New", &name.cell_, &date, bad, &zero, &zero, &expiry);
+    });
+    CheckMarketIvBadStorage("rate", [&](const OPER_* bad) {
+        return Call("xl_MarketIvFlatMarket_New", &name.cell_, &date, &spot, bad, &zero, &expiry);
+    });
+    CheckMarketIvBadStorage("dividend_yield", [&](const OPER_* bad) {
+        return Call("xl_MarketIvFlatMarket_New", &name.cell_, &date, &spot, &zero, bad, &expiry);
+    });
+}
+
+TEST(ScriptExcelRawTest, TestMarketIvGeneratedRangeInputsRejectBadStorage) {
+    Excel::ScriptTestInitialize(1);
+    RawText_ name(L"market_iv_range_storage"), id(L"atm"), quantity(L"CALL_PRICE");
+    auto date = Number(Date::ToExcel(Date_(2026, 10, 19))), expiry = Number(Date::ToExcel(Date_(2027, 10, 19)));
+    auto spot = Number(100.), zero = Number(0.), time = Number(.5), blank = Blank();
+    Output_ market(Call("xl_MarketIvFlatMarket_New", &name.cell_, &date, &spot, &zero, &zero, &expiry));
+    ASSERT_EQ(market.Text().find("#Error:"), std::string::npos) << market.Text();
+    OPER_ outputCells[]{spot, time, quantity.cell_};
+    auto outputs = Multi(outputCells, 1, 3);
+    CheckMarketIvBadStorage("terms", [&](const OPER_* bad) { return Call("xl_MarketIvMarket_New", &name.cell_, &date, &spot, bad); });
+    CheckMarketIvBadStorage("expiries", [&](const OPER_* bad) {
+        return Call("xl_MarketIvFlatMarket_New", &name.cell_, &date, &spot, &zero, &zero, bad);
+    });
+    CheckMarketIvBadStorage("quotes", [&](const OPER_* bad) { return Call("xl_MarketIvFitRequest_New", &name.cell_, market.Scalar(), bad, &blank); });
+    CheckMarketIvBadStorage("spots", [&](const OPER_* bad) { return Call("xl_MarketIvDupireRequest_New", &name.cell_, bad, &time, &blank); });
+    CheckMarketIvBadStorage("times", [&](const OPER_* bad) { return Call("xl_MarketIvDupireRequest_New", &name.cell_, &spot, bad, &blank); });
+    CheckMarketIvBadStorage("quote_ids", [&](const OPER_* bad) {
+        return Call("xl_MarketIvRefitRiskRequest_New", &name.cell_, bad, &outputs, &blank, &blank);
+    });
+    CheckMarketIvBadStorage("outputs", [&](const OPER_* bad) {
+        return Call("xl_MarketIvRefitRiskRequest_New", &name.cell_, &id.cell_, bad, &blank, &blank);
+    });
+    CheckMarketIvBadStorage("steps", [&](const OPER_* bad) {
+        return Call("xl_MarketIvRefitRiskRequest_New", &name.cell_, &id.cell_, &outputs, &blank, bad);
+    });
 }
 #endif

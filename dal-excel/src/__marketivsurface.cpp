@@ -125,18 +125,18 @@ public MarketIvMarket_New
 &inputs
 name is string
     name
-evaluation_date is number
-    evaluation date
-spot is number
-    spot
-terms is cell[][]+
-    terms
 +Excel::ValidateMarketIvNumber(xl_evaluation_date, "evaluation_date");
 +const Excel::ScriptSettingsInput_ normalized_evaluation_date(xl_evaluation_date); xl_evaluation_date = normalized_evaluation_date.Get();
 +Excel::ValidateMarketIvNumber(xl_spot, "spot");
 +const Excel::ScriptSettingsInput_ normalized_spot(xl_spot); xl_spot = normalized_spot.Get();
 +Excel::ValidateMarketIvRange(xl_terms, "terms");
 +const Excel::ScriptSettingsInput_ normalized_terms(xl_terms); xl_terms = normalized_terms.Get();
+evaluation_date is number
+    evaluation date
+spot is number
+    spot
+terms is cell[][]+
+    terms
 &outputs
 market is handle StorableMarketIvMarket
     market
@@ -148,16 +148,6 @@ public MarketIvFlatMarket_New
 &inputs
 name is string
     name
-evaluation_date is number
-    evaluation date
-spot is number
-    spot
-rate is number
-    rate
-dividend_yield is number
-    dividend yield
-expiries is cell[][]+
-    expiries
 +Excel::ValidateMarketIvNumber(xl_evaluation_date, "evaluation_date");
 +const Excel::ScriptSettingsInput_ normalized_evaluation_date(xl_evaluation_date); xl_evaluation_date = normalized_evaluation_date.Get();
 +Excel::ValidateMarketIvNumber(xl_spot, "spot");
@@ -168,6 +158,16 @@ expiries is cell[][]+
 +const Excel::ScriptSettingsInput_ normalized_dividend_yield(xl_dividend_yield); xl_dividend_yield = normalized_dividend_yield.Get();
 +Excel::ValidateMarketIvRange(xl_expiries, "expiries");
 +const Excel::ScriptSettingsInput_ normalized_expiries(xl_expiries); xl_expiries = normalized_expiries.Get();
+evaluation_date is number
+    evaluation date
+spot is number
+    spot
+rate is number
+    rate
+dividend_yield is number
+    dividend yield
+expiries is cell[][]+
+    expiries
 &outputs
 market is handle StorableMarketIvMarket
     market
@@ -179,12 +179,12 @@ public MarketIvFitRequest_New
 &inputs
 name is string
     name
++Excel::ValidateMarketIvRange(xl_quotes, "quotes");
++const Excel::ScriptSettingsInput_ normalized_quotes(xl_quotes); xl_quotes = normalized_quotes.Get();
 market is handle StorableMarketIvMarket
     market
 quotes is cell[][]+
     quotes
-+Excel::ValidateMarketIvRange(xl_quotes, "quotes");
-+const Excel::ScriptSettingsInput_ normalized_quotes(xl_quotes); xl_quotes = normalized_quotes.Get();
 &optional
 settings is handle StorableMarketIvFitSettings
     settings
@@ -212,14 +212,14 @@ public MarketIvQuery_New
 &inputs
 name is string
     name
-strike is number
-    strike
-time is number
-    time
 +Excel::ValidateMarketIvNumber(xl_strike, "strike");
 +const Excel::ScriptSettingsInput_ normalized_strike(xl_strike); xl_strike = normalized_strike.Get();
 +Excel::ValidateMarketIvNumber(xl_time, "time");
 +const Excel::ScriptSettingsInput_ normalized_time(xl_time); xl_time = normalized_time.Get();
+strike is number
+    strike
+time is number
+    time
 &outputs
 query is handle StorableMarketIvQuery
     query
@@ -249,14 +249,14 @@ public MarketIvDupireRequest_New
 &inputs
 name is string
     name
-spots is cell[][]+
-    spots
-times is cell[][]+
-    times
 +Excel::ValidateMarketIvRange(xl_spots, "spots");
 +const Excel::ScriptSettingsInput_ normalized_spots(xl_spots); xl_spots = normalized_spots.Get();
 +Excel::ValidateMarketIvRange(xl_times, "times");
 +const Excel::ScriptSettingsInput_ normalized_times(xl_times); xl_times = normalized_times.Get();
+spots is cell[][]+
+    spots
+times is cell[][]+
+    times
 &optional
 settings is handle StorableMarketIvDupireSettings
     settings
@@ -286,16 +286,16 @@ public MarketIvRefitRiskRequest_New
 &inputs
 name is string
     name
-quote_ids is cell[][]+
-    quote ids
-outputs is cell[][]+
-    outputs
 +Excel::ValidateMarketIvRange(xl_quote_ids, "quote_ids");
 +const Excel::ScriptSettingsInput_ normalized_quote_ids(xl_quote_ids); xl_quote_ids = normalized_quote_ids.Get();
 +Excel::ValidateMarketIvRange(xl_outputs, "outputs");
 +const Excel::ScriptSettingsInput_ normalized_outputs(xl_outputs); xl_outputs = normalized_outputs.Get();
 +Excel::ValidateMarketIvRange(xl_steps, "steps");
 +const Excel::ScriptSettingsInput_ normalized_steps(xl_steps); xl_steps = normalized_steps.Get();
+quote_ids is cell[][]+
+    quote ids
+outputs is cell[][]+
+    outputs
 &optional
 settings is handle StorableMarketIvRefitRiskSettings
     settings
