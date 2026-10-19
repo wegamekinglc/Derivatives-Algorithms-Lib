@@ -6,6 +6,11 @@ grid-construction conventions used when calibrating a discrete local-volatility
 matrix. The IVS inversion and the calibration grid are the load-bearing
 numerical content of `dal-cpp/dal/model/ivs.hpp` (`IVS_::LocalVol`) and
 `dal-cpp/dal/model/dupire.hpp` (`DupireCalibMaturity`, `DupireCalib`).
+For raw market PRICE/decimal-IV quotes, the separate
+[constrained SSVI surface](market-iv-surface.md) provides a global static
+certificate, analytic derivatives and exact requested Dupire grids. Its full
+quote refits differ from the fixed-base spread-risk path; the legacy IVS
+inversion and grid policies below retain their existing meaning.
 To store the result independently of rates and spot and combine it with BS or
 GSR dynamics, use the [local-volatility Hybrid component](local-volatility.md).
 

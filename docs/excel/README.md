@@ -542,6 +542,101 @@ no history access or valuation. Zero-column matrices spill one blank cell, while
 `2^53-1` are text to preserve their values. Requests/results do not support
 archive serialization. See [portfolio risk semantics](../methodology/aad.md#script-portfolio-jacobians).
 
+## Market implied-volatility surfaces
+
+The `MARKETIV*` family fits raw European market quotes, retains an owning
+snapshot and exposes analytic queries, explicit Dupire grids and full refits.
+Use the same six-quote flat-carry setup as the
+[C++ method example](../models/market-iv-surface.md#c-usage-and-ownership)
+and [Python workflow](../python/README.md#market-implied-volatility-surfaces).
+Put `=DATE(2027,4,19)` and `=DATE(2027,10,19)` in A1:A2, then put these six
+data rows **without a header** in A5:I10. Leave Bid/Ask cells physically blank:
+
+| ID | Expiry | Strike | OptionType | QuoteType  | Mid  | Bid | Ask | Weight |
+|----|--------|--------|------------|------------|------|-----|-----|--------|
+| q0 | =$A$1  | 90     | CALL       | DECIMAL_IV | 0.20 |     |     | 1      |
+| q1 | =$A$1  | 100    | CALL       | DECIMAL_IV | 0.20 |     |     | 1      |
+| q2 | =$A$1  | 110    | CALL       | DECIMAL_IV | 0.20 |     |     | 1      |
+| q3 | =$A$2  | 90     | CALL       | DECIMAL_IV | 0.20 |     |     | 1      |
+| q4 | =$A$2  | 100    | CALL       | DECIMAL_IV | 0.20 |     |     | 1      |
+| q5 | =$A$2  | 110    | CALL       | DECIMAL_IV | 0.20 |     |     | 1      |
+
+```text
+M1 = MARKETIVFLATMARKET.NEW("market", DATE(2026,10,19), 100, 0.03, 0.01, A1:A2)
+M2 = MARKETIVFITSETTINGS.NEW("defaults")
+M3 = MARKETIVFITREQUEST.NEW("request", M1, A5:I10, M2)
+M4 = MARKETIVFITRESULT.NEW("fit", M3)
+O1 = MARKETIVFITRESULT.GET.SUMMARY(M4)
+```
+
+Read Summary's status before requesting the snapshot. On `SUCCESS` or
+`SUCCESS_WITH_WARNINGS`, continue:
+
+```text
+M5 = MARKETIVFITRESULT.GET.SNAPSHOT(M4)
+M6 = MARKETIVQUERY.NEW("query", 100, 1)
+M7 = MARKETIVPOINTRESULT.NEW("point", M5, M6)
+R1 = MARKETIVPOINTRESULT.GET.VALUES(M7)
+U1 = MARKETIVPOINTRESULT.GET.SUMMARY(M7)
+M8 = MARKETIVDUPIREREQUEST.NEW("grid", {80;100;120}, {0.25;1})
+M9 = MARKETIVDUPIRERESULT.NEW("dupire", M5, M8)
+X1 = MARKETIVDUPIRERESULT.GET.NODES(M9)
+```
+
+Only when all node Dupire statuses succeed does
+`MARKETIVDUPIRERESULT.GET.SURFACE(M9)` return complete
+`LocalVolSurfaceData`. This uses exactly the requested axes, with spot rows and
+time columns. For one quote's complete refit response, put `100`, `1`,
+`CALL_PRICE` in K20:M20 and `1e-6` in J20:
+
+```text
+M11 = MARKETIVREFITRISKREQUEST.NEW("bump", "q1", K20:M20, , J20)
+M12 = MARKETIVREFITRISKRESULT.NEW("risk", M5, M11)
+O20 = MARKETIVREFITRISKRESULT.GET.AXIS(M12)
+O25 = MARKETIVREFITRISKRESULT.GET.RESPONSES(M12)
+```
+
+An outputs range has three headerless columns Strike/Time/Quantity; quote IDs
+and optional positive steps are rows/columns of equal length. Axes return in
+original quote-row order; responses retain requested output order. Inspect fit
+and output statuses and `REGIME_CHANGED`; a failed direction yields no slope.
+These finite bumps refit original quotes and are distinct from the spread VJP below.
+
+`MARKETIVMARKET.NEW(name,evaluation_date,spot,terms)` accepts general carry as
+three headerless columns Expiry/Forward/Discount. All quoted expiries must be
+present; extra unquoted carry knots are allowed. Dates are valid integer Excel
+serials; query Time is actual days/365 from the evaluation date. PRICE is a
+discounted per-unit premium, IV is annualized decimal volatility, and optional
+bid/ask must both be present or absent. Empty Weight means one.
+
+The four settings families are `MARKETIVFITSETTINGS`,
+`MARKETIVEVALUATIONSETTINGS`, `MARKETIVDUPIRESETTINGS`,
+`MARKETIVREFITRISKSETTINGS`, with `NEW` and `GET.CONFIGURATION`.
+Omitted or entirely blank settings ranges of any shape select defaults;
+nonempty tables require exactly two key/value columns. Half-empty rows,
+unknown/duplicate keys, bool/text/error numeric cells and malformed storage
+reject before conversion. Counts/budgets must be exact nonnegative integers
+through 2^53-1 fitting size_t, with each field's native domain also enforced.
+The optional aggregate refit work limit may have a blank value for its default.
+
+Fit getters `GET.QUOTES`, `GET.PARAMETERS`, `GET.CONSTRAINTS`,
+`GET.ITERATIONS`, `GET.EXECUTION`, `GET.FAILURE` copy diagnostics.
+Snapshot getters `GET.TERMS`, `GET.THETA`, `GET.CERTIFICATE` and point
+`GET.DERIVATIVES` expose retained state and the fixed-k/K coordinate labels.
+Dupire `GET.FAILURE`/`GET.EXECUTION` and refit `GET.FAILURES`/`GET.EXECUTION`
+provide failures and resource counters. Tables include headers; remove them
+before reuse as input. Uncomputed fields are blank, not fabricated zeros.
+Spills check worksheet limits and never truncate. New handles reject archives;
+native budgets exclude worksheet cells and getter copies. Failed fits retain
+diagnostics but snapshot access returns the existing Excel error text.
+
+The [method guide](../models/market-iv-surface.md) defines continuous certificate
+scope, local-fit limitations, all defaults and compatibility. Excel's old
+BS/Merton `DUPIRECALIBRATION.NEW` dispatch does not accept a market snapshot
+as a legacy IVS; analytic grid export is the new path. The four native Windows
+OPER/XLL regression tests remain unexecuted locally and require final-head CI;
+portable/shim checks do not establish Windows execution.
+
 ## Dupire quote risk
 
 The calibration holds the base IVS, deterministic carry and grid choices fixed;

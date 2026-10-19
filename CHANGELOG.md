@@ -16,6 +16,18 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-10-19
+
+- **Constrained market IV surfaces** — added owning C++/Python/Excel fitting
+  of European PRICE/decimal-IV quotes under positive forward and deterministic
+  proportional carry. Constrained SSVI with certified monotone theta provides
+  continuous global static-arbitrage conditions, analytic fixed-k/K derivatives
+  and explicit Dupire grids. Complete raw-quote refit bumps report finite-step
+  responses and discrete regime changes. Quality, work or numerical failures
+  provide diagnostics without a calibration snapshot; existing IVS, fixed-base
+  spread risk and local-vol archive contracts remain unchanged. See the
+  [market-IV surface guide](docs/models/market-iv-surface.md).
+
 ## 2026-10-18
 
 - **Bermudan and American PDE pricing** — added owning core/public C++, Python
