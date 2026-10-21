@@ -88,7 +88,7 @@ select this explicit path using measurements of the intended workload.
 ## Random Draws and Paths
 
 `MonteCarloSettings_` defaults to `rsg_ = "sobol"`, no Brownian bridge, no
-AAD, smoothing width `0.01`, and tree evaluation. The ordinary driver also
+AAD, smoothing width `0.01`, and compiled evaluation. The ordinary driver also
 accepts `mrg32` and `irn`. `CreateRNG` sizes the generator to the model's
 simulation dimension; a zero-dimensional model validates the method name but
 does not construct a generator or bridge. `useBb_` wraps draws in a Brownian
@@ -112,9 +112,9 @@ with an exclusive positioned clone for each batch. Each batch calls
 an IRN clone already starts at that position. Ordinary IRN AAD uses the same
 sequential positioner and bounded clone dispatch.
 Value-only evaluation can walk the AST or
-execute a compiled per-event opcode stream. `compiled_` defaults to tree mode;
-compiled mode is an opt-in execution choice and must preserve the same
-cashflow and error semantics. Preparation compiles once before dispatch.
+execute a compiled per-event opcode stream. `compiled_` defaults to `true`;
+unset flags also select compiled evaluation, and explicit `false` selects
+tree-walk evaluation. Both modes preserve the same cashflow and error semantics. Preparation compiles once before dispatch.
 The detailed opcode and observation contracts are in
 [script evaluation](../script_engine.md#tree-walk-and-compiled-evaluation).
 

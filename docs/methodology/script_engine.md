@@ -366,14 +366,14 @@ and `MarketFixingSnapshot_` belong to `Dal`.
 
 The supported call shapes are:
 
-| Entry                        | Arguments and defaults                                                                                       |
-|------------------------------|--------------------------------------------------------------------------------------------------------------|
-| `NewScriptProduct`           | `name, dates, events` or `name, dates, events, contract`                                                     |
-| Legacy `ValueByMonteCarlo`   | `product, modelData, numPath, rsg="sobol", useBb=false, enableAad=false, smooth=0.01, compiled=std::nullopt` |
-| Settings `ValueByMonteCarlo` | `product, modelData, numPath, valuation, simulation=MonteCarloSettings_()`                                   |
-| `DescribeScriptProduct`      | `product`                                                                                                    |
-| `ExplainScriptValuation`     | `product, modelData, valuation=ScriptValuationSettings_()`                                                   |
-| `ExplainScriptSimulation`    | `product, modelData, numPath, valuation=ScriptValuationSettings_(), simulation=MonteCarloSettings_()`        |
+| Entry                        | Arguments and defaults                                                                                |
+|------------------------------|-------------------------------------------------------------------------------------------------------|
+| `NewScriptProduct`           | `name, dates, events` or `name, dates, events, contract`                                              |
+| Legacy `ValueByMonteCarlo`   | `product, modelData, numPath, rsg="sobol", useBb=false, enableAad=false, smooth=0.01, compiled=true`  |
+| Settings `ValueByMonteCarlo` | `product, modelData, numPath, valuation, simulation=MonteCarloSettings_()`                            |
+| `DescribeScriptProduct`      | `product`                                                                                             |
+| `ExplainScriptValuation`     | `product, modelData, valuation=ScriptValuationSettings_()`                                            |
+| `ExplainScriptSimulation`    | `product, modelData, numPath, valuation=ScriptValuationSettings_(), simulation=MonteCarloSettings_()` |
 
 The product settings overload requires its fourth argument. Three-argument
 valuation selects the legacy overload, which maps its optional arguments to
@@ -384,30 +384,30 @@ Use an explicitly typed `ScriptValuationSettings_` for the fourth argument;
 
 ### Fields and Defaults
 
-| Settings type              | Field                     | Default                             | Contract                                                                                                              |
-|----------------------------|---------------------------|-------------------------------------|-----------------------------------------------------------------------------------------------------------------------|
-| `ScriptProductSettings_`   | `defaultIndex_`           | Empty string                        | Gives legacy `SPOT()` its index identity; a nonempty value must parse completely.                                     |
-| `ScriptProductSettings_`   | `regressionFeatures_`     | Empty vector                        | Up to three distinct model-supported EQ/IR indices or scalar `VAR[name]` states for `EXERCISE`.                       |
-| `ScriptValuationSettings_` | `todayFixingPolicy_`      | `TodayFixingPolicy_::Value_::MODEL` | The other valid value is `TodayFixingPolicy_::Value_::REQUIREHISTORICAL`.                                             |
-| `ScriptValuationSettings_` | `evaluationDate_`         | `std::nullopt`                      | Capture the global date once if omitted; an explicit `Date_` must be valid.                                           |
-| `ScriptValuationSettings_` | `fixings_`                | Null handle                         | Capture required global history for this call; a non-null snapshot is authoritative, even when empty.                 |
-| `MonteCarloSettings_`      | `rsg_`                    | `"sobol"`                           | `sobol`, `mrg32`, or `irn`, using DAL's case-insensitive comparison.                                                  |
-| `MonteCarloSettings_`      | `useBb_`                  | `false`                             | Enable Brownian bridge; a zero-dimensional model constructs neither RNG nor bridge.                                   |
-| `MonteCarloSettings_`      | `enableAad_`              | `false`                             | Enable parameter risks, hard historical replay, and fuzzy future evaluation.                                          |
-| `MonteCarloSettings_`      | `smooth_`                 | `0.01`                              | Finite and strictly positive, including when AAD is disabled or the product is expired.                               |
-| `MonteCarloSettings_`      | `compiled_`               | `std::nullopt`                      | Unset means `false` (tree); `true` selects compiled execution.                                                        |
-| `MonteCarloSettings_`      | `normalPrecision_`        | `"Default"`                         | Exact `Default`, `Fast`, or `Precise`; [inverse-normal policy](monte-carlo/sampling.md#monte-carlo-normal-precision). |
-| `MonteCarloSettings_`      | `lsmcBasisDegree_`        | `3`                                 | Integer 1..8: polynomial degree of the LSMC regression basis for `EXERCISE` valuation.                                |
-| `MonteCarloSettings_`      | `lsmcTrainingPaths_`      | `std::nullopt`                      | Positive `int`: training paths for `EXERCISE`; unset uses the pricing count. Ignored for products without `EXERCISE`. |
-| `MonteCarloSettings_`      | `lsmcValidationPaths_`    | `std::nullopt`                      | Positive `int`: held-out paths for degree selection; unset retains the fixed-degree fast path.                        |
-| `MonteCarloSettings_`      | `lsmcRqmcReplicates_`     | `std::nullopt`                      | Integer at least 2: opt-in independent digitally shifted pricing replicates for one frozen LSMC policy.               |
-| `MonteCarloSettings_`      | `lsmcTrainingSeed_`       | `std::nullopt`                      | Nonnegative `int` seed; effective default 0 in RQMC mode.                                                             |
-| `MonteCarloSettings_`      | `lsmcPricingSeed_`        | `std::nullopt`                      | Nonnegative `int` seed; effective default 0 in RQMC mode.                                                             |
-| `MonteCarloSettings_`      | `lsmcPolicyRiskMode_`     | `"Frozen"`                          | `Frozen` or `RetrainedBump`; retraining mode requires AAD.                                                            |
-| `MonteCarloSettings_`      | `lsmcPolicyBumpRelative_` | `0.001`                             | Finite relative bump in `(0, 0.1]` for retrained-policy risk.                                                         |
-| `MonteCarloSettings_`      | `lsmcCheckpointBlockEvents_` | `std::nullopt`                   | Positive event-block size for opt-in training checkpoints; requires a memory budget.                                  |
-| `MonteCarloSettings_`      | `lsmcTrainingMemoryMb_`   | `std::nullopt`                      | Positive MiB budget admitted with checkpoint training; see [training checkpoints](monte-carlo/lsm.md#opt-in-training-checkpoints). |
-| `MonteCarloSettings_`      | `usePassiveConstants_`    | `false`                             | Share passive constant tape leaves for prepared compiled scalar AAD with three-factor GSR.                            |
+| Settings type              | Field                        | Default                             | Contract                                                                                                                           |
+|----------------------------|------------------------------|-------------------------------------|------------------------------------------------------------------------------------------------------------------------------------|
+| `ScriptProductSettings_`   | `defaultIndex_`              | Empty string                        | Gives legacy `SPOT()` its index identity; a nonempty value must parse completely.                                                  |
+| `ScriptProductSettings_`   | `regressionFeatures_`        | Empty vector                        | Up to three distinct model-supported EQ/IR indices or scalar `VAR[name]` states for `EXERCISE`.                                    |
+| `ScriptValuationSettings_` | `todayFixingPolicy_`         | `TodayFixingPolicy_::Value_::MODEL` | The other valid value is `TodayFixingPolicy_::Value_::REQUIREHISTORICAL`.                                                          |
+| `ScriptValuationSettings_` | `evaluationDate_`            | `std::nullopt`                      | Capture the global date once if omitted; an explicit `Date_` must be valid.                                                        |
+| `ScriptValuationSettings_` | `fixings_`                   | Null handle                         | Capture required global history for this call; a non-null snapshot is authoritative, even when empty.                              |
+| `MonteCarloSettings_`      | `rsg_`                       | `"sobol"`                           | `sobol`, `mrg32`, or `irn`, using DAL's case-insensitive comparison.                                                               |
+| `MonteCarloSettings_`      | `useBb_`                     | `false`                             | Enable Brownian bridge; a zero-dimensional model constructs neither RNG nor bridge.                                                |
+| `MonteCarloSettings_`      | `enableAad_`                 | `false`                             | Enable parameter risks, hard historical replay, and fuzzy future evaluation.                                                       |
+| `MonteCarloSettings_`      | `smooth_`                    | `0.01`                              | Finite and strictly positive, including when AAD is disabled or the product is expired.                                            |
+| `MonteCarloSettings_`      | `compiled_`                  | `true`                              | Unset also selects compiled execution; explicit `false` selects tree execution.                                                    |
+| `MonteCarloSettings_`      | `normalPrecision_`           | `"Default"`                         | Exact `Default`, `Fast`, or `Precise`; [inverse-normal policy](monte-carlo/sampling.md#monte-carlo-normal-precision).              |
+| `MonteCarloSettings_`      | `lsmcBasisDegree_`           | `3`                                 | Integer 1..8: polynomial degree of the LSMC regression basis for `EXERCISE` valuation.                                             |
+| `MonteCarloSettings_`      | `lsmcTrainingPaths_`         | `std::nullopt`                      | Positive `int`: training paths for `EXERCISE`; unset uses the pricing count. Ignored for products without `EXERCISE`.              |
+| `MonteCarloSettings_`      | `lsmcValidationPaths_`       | `std::nullopt`                      | Positive `int`: held-out paths for degree selection; unset retains the fixed-degree fast path.                                     |
+| `MonteCarloSettings_`      | `lsmcRqmcReplicates_`        | `std::nullopt`                      | Integer at least 2: opt-in independent digitally shifted pricing replicates for one frozen LSMC policy.                            |
+| `MonteCarloSettings_`      | `lsmcTrainingSeed_`          | `std::nullopt`                      | Nonnegative `int` seed; effective default 0 in RQMC mode.                                                                          |
+| `MonteCarloSettings_`      | `lsmcPricingSeed_`           | `std::nullopt`                      | Nonnegative `int` seed; effective default 0 in RQMC mode.                                                                          |
+| `MonteCarloSettings_`      | `lsmcPolicyRiskMode_`        | `"Frozen"`                          | `Frozen` or `RetrainedBump`; retraining mode requires AAD.                                                                         |
+| `MonteCarloSettings_`      | `lsmcPolicyBumpRelative_`    | `0.001`                             | Finite relative bump in `(0, 0.1]` for retrained-policy risk.                                                                      |
+| `MonteCarloSettings_`      | `lsmcCheckpointBlockEvents_` | `std::nullopt`                      | Positive event-block size for opt-in training checkpoints; requires a memory budget.                                               |
+| `MonteCarloSettings_`      | `lsmcTrainingMemoryMb_`      | `std::nullopt`                      | Positive MiB budget admitted with checkpoint training; see [training checkpoints](monte-carlo/lsm.md#opt-in-training-checkpoints). |
+| `MonteCarloSettings_`      | `usePassiveConstants_`       | `false`                             | Share passive constant tape leaves for prepared compiled scalar AAD with three-factor GSR.                                         |
 
 The valuation settings initialize the policy to `MODEL`; assigning a separately
 default-constructed, unset `TodayFixingPolicy_` is invalid. There is no
@@ -588,8 +588,8 @@ It accepts `ScriptProductData_`, a `Handle_<ModelData_>`, and a positive path
 count. The required `settings` argument is `ScriptValuationSettings_`;
 the remaining simulation, snapshot, and contract arguments are optional.
 `MonteCarloSettings_` defaults to Sobol, no Brownian
-bridge, no AAD, smoothing width `0.01`, and an unset compiled flag (tree).
-Set `simulation.compiled_ = true` to use compiled exact-double execution.
+bridge, no AAD, smoothing width `0.01`, and `compiled_=true`.
+Set `simulation.compiled_ = false` to use tree-walk exact-double execution.
 `SimResults_::aggregated_` is the sum of path payoffs; divide by `nPaths` for PV.
 
 This entry creates the model and calls
@@ -716,8 +716,8 @@ failure; preparation does not claim to predict every random numerical failure.
 
 Model-aware preparation supports named double exact and AAD fuzzy valuation
 in tree and compiled modes, including all-historical FIX with future payments
-and default-bound SPOT. Set `simulation.compiled_ = true` before preparation
-to select compiled execution; unset or false selects tree execution. The
+and default-bound SPOT. Compiled execution is the default, including when `simulation.compiled_` is unset.
+Set `simulation.compiled_ = false` before preparation to select tree execution. The
 simulation type, compiled selection, and AAD smoothing must match preparation.
 History-only preparation remains nonexecutable for nonexpired products. Legacy
 AAD through a raw `ScriptProduct_` rejects nonexpired products containing any
@@ -743,7 +743,7 @@ covers exact policy strings, property copies, conversion errors and GIL ownershi
 
 Python `Product_Describe` and `ScriptValuation_Explain` return dictionaries;
 their low-level bindings return the unchanged C++ JSON strings. Describe is
-pure contract inspection; Explain always uses independent default exact/tree
+pure contract inspection; Explain always uses independent default exact/compiled
 price preparation, even after compiled/AAD valuation. Neither diagnostic is a
 Python product archive. `ScriptSimulation_Explain` runs the full double
 valuation on exercise products (plain products skip it) and returns the
@@ -795,7 +795,7 @@ must match preparation, and `eps` must equal its `smooth_`; a mismatch raises
 `UnsupportedExecutionMode: AAD mode, smoothing, or compiled/tree mode differs from preparation`.
 The outer prepared overload checks the scalar type first and reports
 `UnsupportedExecutionMode: evaluation mode differs from preparation` for that
-mismatch. An omitted `compiled` argument resolves to tree; it does not inherit
+mismatch. An omitted or unset `compiled` argument resolves to compiled execution; it does not inherit
 the prepared selection. The prepared product supplies the required IF
 nesting depth. Retaining it retains its captured date, script parameters, and
 sealed history; prepare again when those inputs change. Each simulation still
@@ -1266,9 +1266,9 @@ the same AST into flat per-event streams and then evaluates those streams with
 
 `compiled` selects the evaluator implementation. It does not change prefetch,
 model capabilities, today policy, error semantics, or cashflow rules. The default is
-`compiled = false` for both `MCSimulation<double>` and
-`MCSimulation<AAD::Number_>`, preserving the historical tree-walk behavior.
-Callers can pass `compiled = true` to opt into the stream evaluator. Both modes
+`compiled = true` for both `MCSimulation<double>` and
+`MCSimulation<AAD::Number_>`. An unset flag also selects the stream evaluator.
+Callers can pass `compiled = false` to select tree-walk evaluation. Both modes
 are required to produce the same payoff and risk numbers, aside from normal
 floating-point association noise.
 
@@ -1384,7 +1384,7 @@ parity, const-variable mutation, preprocessing guards, fuzzy condition
 behavior, opcode reachability, and early-exercise LSMC parity between the
 tree-walk and compiled recording engines (named cases plus the randomized
 generator in `dal-cpp/tests/script/test_compile_parity_fuzz.cpp`). The benchmark target
-`dal-cpp/benchmarks/script_mc_perf` compares `compiled=false` and
+`dal-cpp/benchmarks/script_mc_perf` compares default evaluator selection, explicit `compiled=false`, and
 `compiled=true` runs across simple and schedule-heavy products for both
 `double` and `AAD::Number_`. Its optional `--lsmc-replay TRAINING PRICING
 1W|1CD hard|aad bs|local_vol tree|compiled [deadfix] [retrained]` mode runs one valuation
@@ -1627,7 +1627,7 @@ from parser/preprocessor metadata, including macro and schedule expansion.
 date, model, and historical preparation as pricing. Its optional valuation
 settings default exactly as in [public C++ settings](#fields-and-defaults).
 Simulation settings are fixed to default price semantics: Sobol, no bridge,
-no AAD, smoothing `0.01`, and tree execution. There is no path-count or
+no AAD, smoothing `0.01`, and compiled execution. There is no path-count or
 simulation-settings argument. Explain can construct, allocate, and initialize
 a model, resolve history, and replay hard past state; it generates no paths,
 starts no workers, and creates no active AAD recording.

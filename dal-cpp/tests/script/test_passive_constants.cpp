@@ -170,6 +170,8 @@ TEST(GSRPassiveConstantsTest, TestRejectsUnadmittedModelsModesAndObjectives) {
     settings.usePassiveConstants_ = true;
     ASSERT_THROW(ValidateSimulationSettings(settings), ScriptError_);
     settings.enableAad_ = true;
+    ASSERT_NO_THROW(ValidateSimulationSettings(settings));
+    settings.compiled_ = false;
     ASSERT_THROW(ValidateSimulationSettings(settings), ScriptError_);
     settings.compiled_ = true;
     settings.useBb_ = true;

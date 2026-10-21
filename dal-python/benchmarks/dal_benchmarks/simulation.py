@@ -97,18 +97,16 @@ def prepare_mc(kind, aad, compiled, paths):
 
     def run(use_compiled=compiled):
         # Like script_mc_perf, product/model construction and preprocessing are timed.
+        selection = {} if use_compiled is None else {"compiled": use_compiled}
         return dal.MonteCarlo_Value(
             dal.Product_New(dates, events),
             dal.BSModelData_New(100, 0.2, 0.05, 0.02),
             paths,
-            "sobol",
-            False,
-            aad,
-            0.01,
-            use_compiled,
+            enable_aad=aad,
+            **selection,
         )
 
-    reference = run(not compiled)
+    reference = run(False if compiled is None else not compiled)
 
     def validate(result):
         require(

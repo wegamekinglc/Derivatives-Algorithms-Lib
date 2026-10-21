@@ -41,6 +41,35 @@ namespace {
     };
 } // namespace
 
+TEST(ScriptContractTest, TestCompiledDefaultAndUnsetSettingsAreReportedAndPriced) {
+    Dal::InitGlobalData(1);
+    const auto date = Dal::XGLOBAL::SetEvaluationDateInScope(Date_(2024, 1, 1));
+    const auto product = Dal::NewScriptProduct("default-compiled", {Cell_(Date_(2025, 1, 1))}, {"pay PAYS MAX(SPOT() - 100, 0)"});
+    const Handle_<Dal::ModelData_> model(new Dal::BSModelData_("", 100.0, 0.2, 0.05, 0.02));
+    const auto defaults = Dal::ValueByMonteCarlo(product, model, 257);
+    for (const auto compiled : {std::optional<bool>(true), std::optional<bool>(), std::optional<bool>(false)}) {
+        Dal::MonteCarloSettings_ simulation;
+        simulation.compiled_ = compiled;
+        rapidjson::Document explanation;
+        explanation.Parse(Dal::ExplainScriptSimulation(product, model, 257, {}, simulation).c_str());
+        ASSERT_FALSE(explanation.HasParseError());
+        ASSERT_EQ(explanation["simulation"]["compiled"].GetBool(), compiled.value_or(true));
+        for (const bool aad : {false, true}) {
+            simulation.enableAad_ = aad;
+            const auto settings = Dal::ValueByMonteCarlo(product, model, 257, {}, simulation);
+            const auto legacy = Dal::ValueByMonteCarlo(product, model, 257, "sobol", false, aad, 0.01, compiled);
+            ASSERT_EQ(settings, legacy);
+            ASSERT_NEAR(settings.at("PV"), defaults.at("PV"), 1e-10);
+            if (aad)
+                ASSERT_EQ(settings.size(), 5u);
+        }
+    }
+    rapidjson::Document explanation;
+    explanation.Parse(Dal::ExplainScriptSimulation(product, model, 257).c_str());
+    ASSERT_FALSE(explanation.HasParseError());
+    ASSERT_TRUE(explanation["simulation"]["compiled"].GetBool());
+}
+
 TEST(ScriptContractTest, TestExplainInterleavesModelAndInverseFxHistoryIds) {
     Dal::InitGlobalData(1);
     const auto restore = Dal::XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 23));

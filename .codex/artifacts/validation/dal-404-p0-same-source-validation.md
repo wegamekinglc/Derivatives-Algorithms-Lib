@@ -11,6 +11,10 @@ through script MC/AAD. Acceptance remains subject to coordinator review of
 this test/validation PR and its exact-head CI; this record does not authorize
 starting DAL-405/411 before that PR is merged.
 
+The final section records the subsequent master integration and fresh P0
+revalidation after the GCC 15 infrastructure failure. Earlier revisions,
+executable identities and evidence remain scoped to the original execution.
+
 This is P0 acceptance, not general script calibration, general curve/XCCY
 providers, SLV equivalence, public/binding delivery or calibrated quote risk.
 No product, shared API, build, workflow, published guide or CHANGELOG changed.
@@ -309,3 +313,77 @@ No full product/statistical/performance matrix, local MSVC, public rebuild or
 example/standalone/public-disabled topology build was repeated. There are no
 example/build edits. Coordinator review should focus on the new numerical cells,
 oracle independence, evidence applicability and this P0 verdict.
+
+## CI repair and master integration (2026-10-22)
+
+The four failed Linux attempts at the original PR head failed during GCC 15
+toolchain installation. Launchpad returned HTTP 503 for packages or its
+InRelease index; the fourth attempt consequently could not locate gcc-15/g++-15.
+No product configure, compilation or test ran in that leg. The Linux aggregate
+gate failed with it; the other 34 PR checks passed. The complete paginated
+review-thread read contained zero threads, so there were no unresolved review
+findings to repair.
+
+Latest master `f2e4ebc3afab272d025153047be956a74141f8b6` already contains the
+actual infrastructure repair in `db64f44cad90243a604c8c9e333e6e2b758eefc6`
+(PR #613): GCC 15 runs on Ubuntu 26.04 using official archive packages,
+without adding the Launchpad PPA. Compiler selection, check name and strict
+gate remain intact. The existing portable instruction baseline is explicit
+in CXXFLAGS. Upstream PR #613's GCC 15 check actually succeeded at head
+`cd716b0b9cf7e6c20080242203f0edc9eac90174`, job `119428430689`;
+that upstream result is evidence for the adopted repair, not a current-PR
+CI result.
+
+The clean DAL-404 branch merges that complete master with first parent
+`6d446d247880b5b4ba3467c86139cef91866e47a`, preserving both histories.
+There were no conflicts. The Linux workflow is byte-identical to master;
+relative to master, only the original three DAL-404 files differ: this
+record, the artifact index and the BondOption test. The test source is
+unchanged from the already reviewed original PR head. Upstream benchmark,
+facade and other product changes are retained without additional edits.
+This also resolves the PR's previous BEHIND state against that master.
+
+Master changes shared script preparation and the default compiled evaluator,
+including CalibrationMcSettings_. The old unchanged-runtime argument therefore
+does not establish the integrated executable's correctness. Rebuild the affected
+core and focused binary, then run both complete P0 template files, shared MC
+tests and admission/preparation tests. **All 97 tests from seven suites pass.**
+These include the upstream compiled-default/explicit-tree-override regression,
+both tree/compiled/AAD paths, independent oracles, 28 frozen numerical rows,
+CRN/FD, covariance/quotient, source/binding/context invalidation, unavailable
+derivatives, numerical-budget rejection and owned errors/tape cleanup.
+
+The separate integration audit independently recomputes the 14 fresh Deposit
+Price/Rate rows, 14 fresh CALL/PUT rows, both native derivative gates and all
+224 option batch means, gradient means, SEs and normal-path intervals. It
+passes with the original sampling, scales, FD steps and acceptance thresholds.
+The existing CI workflow test suite also passes **21 tests**, including its
+specific check that GCC 15 uses Ubuntu 26.04 and no Launchpad PPA. No tests
+were authored or repaired in this integration; existing tests are re-executed.
+
+Commands, in the same configuration documented above:
+
+```sh
+cmake --build build/Release-linux --target dal_cpp gtest -j 10
+g++-15 -O3 -DNDEBUG -std=c++17 -fPIE -ffp-contract=fast -I dal-cpp -I dal-cpp/externals/rapidjson/include -isystem dal-cpp/externals/googletest/googletest/include dal-cpp/tests/test_main.cpp dal-cpp/tests/curve/test_deposit_script.cpp dal-cpp/tests/model/test_gsr_bondoption_script.cpp dal-cpp/tests/script/test_calibration_mc.cpp dal-cpp/tests/script/test_calibration_preparation.cpp build/Release-linux/dal-cpp/libdal_cpp.a build/Release-linux/lib/libgtest.a -pthread -o build/Release-linux/dal404_integrated_tests
+build/Release-linux/dal404_integrated_tests --gtest_filter='DepositScriptTest.*:DepositScriptNumericalTest.*:GSRBondOptionScriptTest.*:GSRBondOptionNumericalTest.*:CalibrationMcTest.*:CalibrationMcNumericalTest.*:CalibrationPreparationTest.*' --gtest_output=xml:../evidence/dal404-integrated-p0.xml
+python3 ../evidence/dal404_integration_audit.py
+python3 -m unittest discover -s .github/scripts/tests -p test_classify_ci_changes.py -v
+python3 .github/scripts/check_docs.py
+git diff --cached --check
+```
+
+New integrated SHA-256 identities (original hashes above stay historical):
+
+- Core archive: `71147b77ac55359cf1e2508d7343d238adb4995c456cb927f3b806db19556dbc`.
+- Focused executable: `291f62675cebb78013f34bd03e46cb3a0975b1eef2a12d39138b3c07c84859f6`.
+- Unchanged test: `4c18ac5a6035240574009e6d7c61bb4f7ff007360fec38c4fa479047ba5ba5f5`.
+
+Raw XML/logs, the independent integration audit, original failure and upstream
+repair identities accompany the handoff. Relative to master no production,
+workflow, dependency, example or build target changes; no new benchmark or
+example topology matrix is required for this PR. The targeted revalidation
+above specifically closes the changed shared-runtime provenance gap, without
+repeating unrelated upstream product/performance suites. Current-head CI and
+coordinator merge gates still must complete; prior-head success cannot replace
+them and no failing check is disabled or waived.

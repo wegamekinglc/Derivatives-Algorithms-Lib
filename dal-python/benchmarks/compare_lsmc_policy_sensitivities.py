@@ -336,7 +336,7 @@ def main():
     )
     parser.add_argument("--smooth", type=float, default=0.1)
     parser.add_argument("--bump-relative", type=float, default=1e-3)
-    parser.add_argument("--compiled", action="store_true")
+    parser.add_argument("--compiled", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--pde-grid", type=int, default=401)
     parser.add_argument("--pde-steps", type=int, default=200)
     parser.add_argument("--cases", nargs="+", choices=CASES, default=list(CASES))

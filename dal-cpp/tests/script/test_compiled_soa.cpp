@@ -193,10 +193,15 @@ TEST(CompiledSoaTest, TestAdmissionErrorsAndExceptionRecovery) {
     ASSERT_DOUBLE_EQ(MCDoubleSimulationSoa(product, &model, 65).aggregated_, expected.aggregated_);
     const ScriptProductData_ data("", {Cell_(Date_(2025, 1, 1))}, {"pay pays spot()"});
     MonteCarloSettings_ settings;
+    const auto defaultPrepared = PrepareScript(data, &model, {}, settings);
+    const double defaultValue = MCDoubleSimulation(defaultPrepared, &model, 65, "sobol", false, true).aggregated_;
+    ASSERT_DOUBLE_EQ(MCDoubleSimulationSoa(defaultPrepared, &model, 65).aggregated_, defaultValue);
+    settings.compiled_ = false;
     const auto tree = PrepareScript(data, &model, {}, settings);
     ASSERT_THROW(MCDoubleSimulationSoa(tree, &model, 65), ScriptError_);
-    settings.compiled_ = true;
+    settings.compiled_ = std::nullopt;
     const auto compiled = PrepareScript(data, &model, {}, settings);
+    ASSERT_DOUBLE_EQ(MCDoubleSimulationSoa(compiled, &model, 65).aggregated_, defaultValue);
     ASSERT_THROW(MCDoubleSimulationSoa(compiled, &model, 65, "mrg32"), ScriptError_);
     const ScriptProductData_ delayed("", {Cell_(Date_(2025, 1, 1))}, {"pay pays spot() ON 2025-02-01"});
     const auto delayedRequest = PrepareScript(delayed, &model, {}, settings);

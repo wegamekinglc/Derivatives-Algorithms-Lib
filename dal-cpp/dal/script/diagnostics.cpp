@@ -52,7 +52,8 @@ namespace Dal::Script {
             out << ",\"normal_precision\":";
             JsonWriteString(simulation.normalPrecision_, out);
             out << ",\"use_bb\":" << (simulation.useBb_ ? "true" : "false") << ",\"enable_aad\":" << (simulation.enableAad_ ? "true" : "false")
-                << ",\"smooth\":" << DebugNumber(simulation.smooth_) << ",\"compiled\":" << (simulation.compiled_.value_or(false) ? "true" : "false")
+                << ",\"smooth\":" << DebugNumber(simulation.smooth_)
+                << ",\"compiled\":" << (simulation.compiled_.value_or(DEFAULT_COMPILED) ? "true" : "false")
                 << ",\"lsmc_basis_degree\":" << simulation.lsmcBasisDegree_ << ",\"lsmc_training_paths\":";
             WriteOptionalInt(out, simulation.lsmcTrainingPaths_);
             out << ",\"lsmc_validation_paths\":";

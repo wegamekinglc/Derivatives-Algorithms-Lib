@@ -230,7 +230,7 @@ def test_comparison_gate_needs_no_third_party_packages(monkeypatch):
 
 def test_mc_and_calibration_comparisons_are_gated_without_removing_cases():
     inventory = build_cases()
-    assert len(inventory) == 98
+    assert len(inventory) == 102
     assert len([c for c in inventory if c.name.startswith("comparison.")]) == 26
 
 

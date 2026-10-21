@@ -855,7 +855,7 @@ namespace Dal::Script {
 
         template <class P_> void InitializeDoubleSimulation(const P_& product, AAD::Model_<double>* model, bool compiled, bool initialized) {
             if constexpr (std::is_base_of_v<PreparedScript_, P_>)
-                REQUIRE2(!product.Simulation().enableAad_ && compiled == product.Simulation().compiled_.value_or(false),
+                REQUIRE2(!product.Simulation().enableAad_ && compiled == product.Simulation().compiled_.value_or(DEFAULT_COMPILED),
                          "UnsupportedExecutionMode: execution differs from preparation", ScriptError_);
             if (!initialized) {
                 model->Allocate(product.TimeLine(), product.DefLine());
@@ -872,7 +872,7 @@ namespace Dal::Script {
         template <class P_> void ValidateAADExecution(const P_& product, bool compiled, double eps) {
             if constexpr (std::is_base_of_v<PreparedScript_, P_>)
                 REQUIRE2(product.Simulation().enableAad_ && eps == product.Simulation().smooth_ &&
-                             compiled == product.Simulation().compiled_.value_or(false),
+                             compiled == product.Simulation().compiled_.value_or(DEFAULT_COMPILED),
                          "UnsupportedExecutionMode: AAD mode, smoothing, or compiled/tree mode differs from preparation", ScriptError_);
         }
 
@@ -900,7 +900,7 @@ namespace Dal::Script {
                              size_t nPaths,
                              const String_& rsg = "sobol",
                              bool useBb = false,
-                             std::optional<bool> compiled = std::nullopt,
+                             std::optional<bool> compiled = DEFAULT_COMPILED,
                              int maxNestedIfs = -1,
                              double eps = 0.01) {
         THROW("not implemented");
@@ -918,7 +918,7 @@ namespace Dal::Script {
         AAD::ProfilingSpan_ prepare(AAD::AADProfilingPhase_::Value_::PREPARE);
         product.RequireExecutable();
         ValidateRNG(rsg);
-        const bool useCompiled = compiled.value_or(false);
+        const bool useCompiled = compiled.value_or(DEFAULT_COMPILED);
 
         if (product.EventDates().empty())
             return objective.MakeResult(Vector::Join(mdl->ParameterLabels(), product.ConstVarNames()));
@@ -1257,7 +1257,7 @@ namespace Dal::Script {
         product.RequireExecutable();
         ValidateRNG(rsg);
         Detail::ValidateAADHistory(product);
-        const bool useCompiled = compiled.value_or(false);
+        const bool useCompiled = compiled.value_or(DEFAULT_COMPILED);
 
         const std::unique_ptr<AAD::Model_<double>> metadataModel = CreateModel<double>(modelData);
         const bool passiveConstants = Detail::AdmitPassiveConstants<P_, O_>(product, metadataModel.get(), rsg, useBb);
@@ -1375,7 +1375,7 @@ namespace Dal::Script {
                              size_t nPaths,
                              const String_& rsg = "sobol",
                              bool useBb = false,
-                             std::optional<bool> compiled = std::nullopt,
+                             std::optional<bool> compiled = DEFAULT_COMPILED,
                              int maxNestedIfs = -1,
                              double eps = 0.01) {
         AAD::ProfilingSpan_ prepare(AAD::AADProfilingPhase_::Value_::PREPARE);

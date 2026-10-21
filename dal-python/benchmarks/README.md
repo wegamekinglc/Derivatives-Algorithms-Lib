@@ -54,15 +54,15 @@ are errors, never silently skipped workloads.
 
 ## Workload alignment
 
-| Native target            | Python cases | Full workload and timing boundary                                                                                                                                |
-|--------------------------|--------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `rng_perf`               | 4            | 100,000 paths × 10 dimensions; Sobol normal fast, normal precise with polish, uniform, and MRG32 normal; fresh generator and output matrix each invocation       |
-| `script_perf`            | 1            | Same three-year weekly barrier event table; `Product_New` + `Product_DebugJson`, including frontend construction, indexing and JSON serialization                |
-| `script_mc_perf`         | 24           | Eight native-aligned tree/compiled double/AAD cases plus sixteen comparable European/barrier/Bermudan/American MC price and Greek cases at 16,384/65,536 pricing paths |
-| `curve_calibration_perf` | 27           | 21 native-aligned representation/Jacobian/diagnostic cases plus single, staged multi-curve and joint multi-curve comparisons at 5/15 quotes per block           |
-| `xccy_perf`              | 12           | Eight native-aligned joint/staged/Jacobian/diagnostic cases plus staged and joint XCCY comparisons at 5/15 quotes per block                                       |
-| `rate_risk_perf`         | 21           | 120-IRS batch and 240 single-component calls; five-year OIS; 24-XCCY batch; nine quote portfolios; six generic-joint portfolios; 32/256-IRS AAD node DV01        |
-| `quote_risk_perf`        | 9            | Single, joint XCCY and staged provenance at N=8/16; additional generic joint provenance at total N=5/10/16                                                       |
+| Native target            | Python cases | Full workload and timing boundary                                                                                                                                               |
+|--------------------------|--------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `rng_perf`               | 4            | 100,000 paths × 10 dimensions; Sobol normal fast, normal precise with polish, uniform, and MRG32 normal; fresh generator and output matrix each invocation                      |
+| `script_perf`            | 1            | Same three-year weekly barrier event table; `Product_New` + `Product_DebugJson`, including frontend construction, indexing and JSON serialization                               |
+| `script_mc_perf`         | 28           | Twelve native-aligned default/tree/compiled double/AAD cases plus sixteen comparable European/barrier/Bermudan/American MC price and Greek cases at 16,384/65,536 pricing paths |
+| `curve_calibration_perf` | 27           | 21 native-aligned representation/Jacobian/diagnostic cases plus single, staged multi-curve and joint multi-curve comparisons at 5/15 quotes per block                           |
+| `xccy_perf`              | 12           | Eight native-aligned joint/staged/Jacobian/diagnostic cases plus staged and joint XCCY comparisons at 5/15 quotes per block                                                     |
+| `rate_risk_perf`         | 21           | 120-IRS batch and 240 single-component calls; five-year OIS; 24-XCCY batch; nine quote portfolios; six generic-joint portfolios; 32/256-IRS AAD node DV01                       |
+| `quote_risk_perf`        | 9            | Single, joint XCCY and staged provenance at N=8/16; additional generic joint provenance at total N=5/10/16                                                                      |
 
 All these target mappings are marked `partial`: the timed boundary is the Python
 interface, and some native-only subcases remain inaccessible. This is not a claim
@@ -206,7 +206,7 @@ recorded CI interpreter, platform and native CPU flags; they are diagnostic buil
 outputs, not portable distribution wheels.
 
 The same head benchmark code and workload metadata must be used for both sides,
-including when the base predates this benchmark suite. All 98 cases are measured
+including when the base predates this benchmark suite. All 102 cases are measured
 and gated against the base library. When a base suite exists, its inventory is
 also checked: removing or renaming a case fails. New cases must run against both
 libraries. A missing base API,
@@ -254,14 +254,14 @@ correctness/smoke workloads through pytest; the paired performance gate is Linux
 ## Third-party comparison
 
 The Linux `Benchmarks` job also runs 43 workloads against DAL,
-QuantLib-Python and rateslib. Every supported backend/case pair must execute and pass
+QuantLib-Python, rateslib and InFine. Every supported backend/case pair must execute and pass
 its independent oracle. Only declared unsupported capabilities are reported as
 `unsupported` with a reason and no timings: rateslib equity MC and GSR
-swaption, and QuantLib simultaneous joint calibration. This gives 43 DAL,
-39 QuantLib and 25 rateslib measured cases. Missing dependencies, incorrect
+swaption, QuantLib simultaneous joint calibration, and InFine's matching LSM
+and joint/XCCY calibration. This gives 43 DAL, 39 QuantLib, 25 rateslib and
+29 InFine measured cases. Missing dependencies, incorrect
 results, incomplete reports, changed workloads/binaries or process timeouts
-fail the job and therefore
-the existing `Linux CI gate`. Relative speed is reported without an absolute
+fail the scheduled benchmark job. Relative speed is reported without an absolute
 competitor speed threshold; the separate base/head gate still enforces the 4% DAL
 regression rule.
 
@@ -297,10 +297,17 @@ Run from the repository root, with the same interpreter used to build DAL:
 
 ```bash
 uv pip install --require-hashes -r dal-python/benchmarks/requirements-comparisons.txt
+git clone https://github.com/infineco/quant-finance-library.git benchmark-results/infine-source
+git -C benchmark-results/infine-source checkout --detach 514ffe83b9ef8be0a29578c6f190b390267facf7
+python dal-python/benchmarks/prepare_infine.py \
+  --source benchmark-results/infine-source \
+  --output benchmark-results/infine-build
+export DAL_INFINE_BUILD="$PWD/benchmark-results/infine-build"
 PYTHONPATH="$PWD/build/Release-linux/dal-python" \
   python -m pytest dal-python/benchmarks/tests -q
 python dal-python/benchmarks/run_comparisons.py \
   --dal-package build/Release-linux/dal-python \
+  --infine-build benchmark-results/infine-build \
   --output-dir benchmark-results/python-third-party \
   --samples 10 --rounds 2
 ```
@@ -317,6 +324,66 @@ validation and returned-float-list destruction are outside timing. Instrument
 construction/destruction is timed in the explicit cold cases, MC option cases and
 calibration cases. GC stays enabled, DAL uses
 four threads, and OMP/OpenBLAS/MKL use one thread.
+
+### InFine CPU backend
+
+The [InFine source](https://github.com/infineco/quant-finance-library/tree/514ffe83b9ef8be0a29578c6f190b390267facf7)
+is pinned to `514ffe83b9ef8be0a29578c6f190b390267facf7`. Install the x64
+.NET SDK **8.0.426** before running `prepare_infine.py`; its output directory
+must be new. The helper verifies a clean pinned checkout, selects that SDK,
+and publishes a Release worker with locked NuGet dependencies from
+[`infine/packages.lock.json`](infine/packages.lock.json). Build intermediates
+stay under the selected output directory. The manifest records the source revision,
+adapter and binary hashes, SDK, and .NET runtime hashes. Workers select that
+exact runtime version and reject changed
+adapters, libraries or runtimes. Python dependencies remain comparison-only;
+the DAL package does not acquire a .NET dependency.
+
+`--infine-build` selects this published worker; `DAL_INFINE_BUILD` provides the
+same default and enables native smoke/full integration tests under pytest.
+An absent SDK, build, dependency or supported result fails execution rather
+than becoming an unsupported timing. Scheduled Linux benchmarks check out the
+same source revision, build the worker, run the native integration tests and
+include it in the existing rotated ten-sample/two-round comparison. No GPU
+satellite is built or timed.
+
+InFine covers all thirteen discount/IRS cases, all eight vanilla/barrier MC
+cases, four single/staged curve calibration cases, and all four GSR cases.
+Its fourteen unsupported cases retain their inventory rows and reasons:
+native LSM fits/prices one population with a quadratic basis, while these eight
+cases require separate training/pricing populations and cubic regression;
+the six simultaneous joint/XCCY cases need missing native instruments or solvers.
+Staged two-curve calibration uses the native bootstrap with an
+`ICurveInstrument` wrapper delegating to native `ParRate(discount, forecast)`.
+
+The native C# timer includes valuation, required setup and conversion to a
+managed result array. Process startup, JSON serialization, Python communication
+and oracle checks stay outside timing. DAL's Python/native conversion remains
+timed, so the ratios compare available APIs, including different overheads.
+InFine host MC is sequential; DAL uses four threads. Tiered compilation is
+disabled for optimized JIT code before sampling. GC remains enabled.
+The native Sobol stream starts at point 1, without bridge or antithetics;
+vanilla Greeks use its hand-written reverse adjoint and barrier Greeks use the
+same seven common-random-number bumped valuations. Equal path budgets do not
+imply equal accuracy. Node DV01 uses central differences on 42 prebuilt curves
+with the same 0.01bp step as QuantLib, while DAL retains reverse AAD.
+
+Its GSR MC uses exact zero-reversion state/integrated-state and bond kernels
+with stochastic discounting and two-dimensional Sobol. The host Hull–White
+constructor rejects zero reversion, so this adapter calls the public kernels
+that implement that limit. In the `gaussian1d_128` row it uses native analytic
+Jamshidian decomposition for the same payoff, with the same `5e-6` accuracy
+bound as QuantLib's deterministic engine. It performs no 128-point quadrature
+or MC in that row; DAL retains its MC valuation. That ratio reflects different
+algorithms. Every method and exclusion is recorded in raw reports and summaries.
+
+To intentionally update NuGet resolution, use the pinned source and SDK and run
+`dotnet restore infine/Dal.Infine.Benchmarks.csproj` from this directory with
+`-p:QflSource=/absolute/path/to/source -p:UpdateInfineLock=true` and an external
+`--artifacts-path`. Review and commit the regenerated lock, then create a new
+published worker with `prepare_infine.py`.
+
+### Discount and IRS pricing
 
 | Case                | Full workload                                                   |
 |---------------------|-----------------------------------------------------------------|
@@ -383,8 +450,8 @@ workloads too.
 
 ### Monte Carlo options
 
-Eight `mc_{vanilla,barrier}_{price,greeks}_{16384,65536}` cases use native DAL and
-QuantLib Monte Carlo engines under Black-Scholes. Spot and strike are 100,
+Eight `mc_{vanilla,barrier}_{price,greeks}_{16384,65536}` cases use native DAL,
+QuantLib and InFine Monte Carlo under Black-Scholes. Spot and strike are 100,
 volatility is 20%, the continuous rate is 3%, and dividend yield is 1%. Valuation
 is 2025-01-15 and maturity is 364 days later, with ACT/365F time. The up-and-out call
 has barrier 130, zero rebate and exactly 52 weekly observations including maturity.
@@ -392,15 +459,18 @@ QuantLib's [`MCBarrierEngine`](https://github.com/lballabio/QuantLib/blob/master
 uses `isBiased=True` to select discrete monitoring; its default continuous-barrier
 correction would price a different payoff.
 
-Both use Sobol with no Brownian bridge or antithetics. DAL restarts at initial
+All use Sobol with no Brownian bridge or antithetics. DAL restarts at initial
 point 0; QuantLib uses fixed seed 42, since seed 0 can randomize high-dimensional
 direction initialization. Streams need not coincide between libraries. Product,
 model and engine construction, preprocessing, simulation and conversion are timed
 on every invocation, preventing cached NPV or reuse of a completed simulation.
 
+InFine's sampling, adjoint and timing differences are described in the
+[backend section](#infine-cpu-backend).
+
 Greek cases return `[PV, Delta, Vega, Rho]`, with sensitivities per unit spot,
 decimal volatility and decimal rate. DAL vanilla uses reverse AAD. QuantLib
-vanilla and both discrete-barrier engines use central differences with common
+vanilla and all discrete-barrier engines use central differences with common
 random numbers, with bumps of 1 spot unit, 0.01 volatility and 0.01 rate. The
 barrier reference uses the same finite bumps. Hard barrier indicators are not
 treated as having a valid naive pathwise derivative. Gamma and Theta are not
@@ -536,8 +606,8 @@ call owns its internal preparation. On unchanged markets, QuantLib's floating
 coupons may retain cached rates even after the swap's `recalculate()`;
 DAL prepared pricing reevaluates rates and discount factors. The market-update
 case explicitly measures invalidation and fresh pricing. These are comparisons
-of the available Python APIs, not isolated
-identical native kernels.
+of the available APIs, not isolated identical native kernels. InFine uses
+its direct C# API as described above.
 
 ### GSR swap and swaption
 
@@ -545,12 +615,12 @@ Four cases reproduce the [GSR example](../examples/014.gsr_swap_swaption.py) on
 2026-09-28 with unit notional, a 2.5% continuously compounded input OIS curve,
 `g = 0.02`, `H = 1`, a 3% fixed strike, and a one-year forward start:
 
-| Case | Timed operation | Backends |
-|------|-----------------|----------|
-| `gsr_swap_reused_cashflows_32` | Price 32 standard IRS trades with cashflows and instruments prepared before timing | DAL, QuantLib, rateslib |
-| `gsr_swap_fresh_cashflows_32` | Price the same 32 IRS trades while rebuilding cashflows or instruments inside timing | DAL, QuantLib, rateslib |
-| `gsr_swaption_price_65536` | Reprice the European option with 65,536 Sobol paths in both DAL and QuantLib | DAL, QuantLib |
-| `gsr_swaption_gaussian1d_128` | Reprice the same option with DAL's 65,536-path MC and QuantLib's 128-point Gaussian1d integration | DAL, QuantLib |
+| Case                           | Timed operation                                                                                 | Backends                        |
+|--------------------------------|-------------------------------------------------------------------------------------------------|---------------------------------|
+| `gsr_swap_reused_cashflows_32` | Price 32 standard IRS trades with cashflows and instruments prepared before timing              | DAL, QuantLib, rateslib, InFine |
+| `gsr_swap_fresh_cashflows_32`  | Price the same 32 IRS trades while rebuilding cashflows or instruments inside timing            | DAL, QuantLib, rateslib, InFine |
+| `gsr_swaption_price_65536`     | Reprice the European option with 65,536 Sobol paths in each MC backend                          | DAL, QuantLib, InFine           |
+| `gsr_swaption_gaussian1d_128`  | DAL's 65,536-path MC, QuantLib's 128-point Gaussian1d integration, InFine's analytic Jamshidian | DAL, QuantLib, InFine           |
 
 Smoke mode uses four swaps and 4,096 Monte Carlo paths for each MC backend.
 The underlying swap pays floating quarterly ACT/360 and fixed semiannually
@@ -595,11 +665,14 @@ instrument construction. Timings are reported as informational API comparisons.
 Rateslib's 30E/360 and DAL's 30/360 fixed coupons are both exactly 0.5 for
 these dates.
 
-`results.json` (`dal.python-comparisons/7`) retains raw timings, minimum and median,
+`results.json` (`dal.python-comparisons/8`) retains raw timings, minimum and median,
 per-round ratios, conventions and provenance. Each process also retains its checked
 output values, package versions, module paths/hashes, source and dependency-lock
-hashes, DAL build flags, CPU/Python/thread settings and log. `summary.md` and the
-Actions summary show per-round minima and `third_party / DAL` ratios (>1 means DAL
+hashes, DAL build flags, CPU/Python/thread settings and log.
+InFine workers also retain `infine-input.json`, `infine-native.json` and the
+native process log; their identity includes published .NET libraries and runtime.
+`summary.md` and the Actions summary show per-round minima and
+`third_party / DAL` ratios (>1 means DAL
 took less time); unsupported cells show `N/A` and have no ratio or timing sample.
 Both successful and failed evidence is uploaded in the existing
 `benchmark-linux-*` artifact under `python-third-party/`.

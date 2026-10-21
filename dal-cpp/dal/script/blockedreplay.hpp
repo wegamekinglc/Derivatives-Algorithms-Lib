@@ -202,7 +202,7 @@ namespace Dal::Script::Detail {
         ValidateRNG(settings.rsg_);
         ValidateNormalPrecision(settings.normalPrecision_);
         ValidateAADHistory(product);
-        const bool compiled = product.Simulation().compiled_.value_or(false);
+        const bool compiled = product.Simulation().compiled_.value_or(DEFAULT_COMPILED);
         ValidateAADExecution(product, compiled, settings.eps_);
         auto* pool = ThreadPool_::GetInstance();
         const auto threads = pool->NumThreads();

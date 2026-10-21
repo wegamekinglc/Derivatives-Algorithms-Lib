@@ -71,7 +71,7 @@ namespace Dal::Script::Detail {
             evaluator->SetHistoricalSeed(past.VarVals());
             evaluator->SetHistoricalVectorSeed(AdmissionVectorSeed(product, past.VectorVals()));
         };
-        if (product.Simulation().compiled_.value_or(false)) {
+        if (product.Simulation().compiled_.value_or(DEFAULT_COMPILED)) {
             const EvalState_<AAD::Number_> past(Vector_<>(product.Product().VarNames().size(), 0.0), evaluator->ConstVarVals(), 0, 0.0,
                                                 product.Product().VectorCapacities());
             retainHistoryShape(past);
@@ -92,7 +92,7 @@ namespace Dal::Script::Detail {
                                   size_t tapeQuota) {
         const ReplayAdmissionProduct_ admissionProduct(product);
         BufferCapacityBudget_ scratch(scratchQuota);
-        BufferCapacityScope_ scratchScope(&scratch, AADBlockBatchFixedPayloadBytes(product.Simulation().compiled_.value_or(false)));
+        BufferCapacityScope_ scratchScope(&scratch, AADBlockBatchFixedPayloadBytes(product.Simulation().compiled_.value_or(DEFAULT_COMPILED)));
         AAD::TapeCapacityBudget_ tape(tapeQuota);
         AAD::TapeCapacityScope_ tapeScope(&tape, true);
         auto mode = AAD::SetNumResultsForAAD(true, width);
@@ -114,7 +114,7 @@ namespace Dal::Script::Detail {
             AdmitKnownPathScratch(*model, &path);
             recording.FinishRecording();
         };
-        if (simulation.compiled_.value_or(false))
+        if (simulation.compiled_.value_or(DEFAULT_COMPILED))
             run(admissionProduct.BuildEvalState<AAD::Number_>());
         else
             run(admissionProduct.BuildFuzzyEvaluator<AAD::Number_>());
@@ -179,7 +179,7 @@ namespace Dal::Script::Detail {
         const auto workers = std::min(threads, batches.BatchCount());
         const bool native = product.Simulation().enableAad_;
         size_t width = native ? PlanAADBlockReplay(outputs.size(), inputs.size(), ReplayExtentSum(modelInputs, product.ConstVarNames().size()),
-                                                   batches, threads, product.Simulation().compiled_.value_or(false), limits)
+                                                   batches, threads, product.Simulation().compiled_.value_or(DEFAULT_COMPILED), limits)
                                     .Width()
                               : 1;
         if (!HasPreparedReplayBudget(native, limits))

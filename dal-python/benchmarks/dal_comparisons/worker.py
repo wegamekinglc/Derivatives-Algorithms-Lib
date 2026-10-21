@@ -58,7 +58,15 @@ def run(args):
         provenance["cmake"].get("CMAKE_BUILD_TYPE:STRING") == "Release",
         "comparison requires a Release DAL build",
     )
-    results = list(map(partial(measured_case, args.worker), cases(args.smoke)))
+    versions = package_versions()
+    if args.worker == "infine":
+        from .infine import measure_cases
+
+        results, files, metadata = measure_cases(args)
+        versions["infine"] = metadata
+    else:
+        results = list(map(partial(measured_case, args.worker), cases(args.smoke)))
+        files = backend_files(args.worker)
     report = {
         "schema": SCHEMA,
         "status": "passed",
@@ -66,10 +74,13 @@ def run(args):
         "smoke": args.smoke,
         "conventions": CONVENTIONS,
         "source_hashes": source_hashes(),
-        "versions": package_versions(),
-        "backend_files": backend_files(args.worker),
+        "versions": versions,
+        "backend_files": files,
         "environment": provenance,
         "results": results,
     }
+    from .evidence import check_report
+
+    check_report(report, args.worker, args.smoke, report["source_hashes"])
     write_json(args.output_dir / "worker.json", report)
     return 0

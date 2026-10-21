@@ -263,8 +263,9 @@ TEST(ExcelLsmcCurvatureTest, TestCompletePassivePlanResultSettingsAndPolicyProje
     ASSERT_EQ(std::get<String_>(Field(cells, "lsmc_policy_risk_mode").val_), "Frozen");
     ASSERT_DOUBLE_EQ(std::get<double>(Field(cells, "lsmc_policy_bump_relative").val_), 0.001);
     ASSERT_EQ(std::get<String_>(Field(cells, "normal_precision").val_), "Default");
-    for (const auto* key : {"compiled", "lsmc_training_paths", "lsmc_validation_paths", "lsmc_rqmc_replicates", "lsmc_training_seed",
-                            "lsmc_pricing_seed", "lsmc_checkpoint_block_events", "lsmc_training_memory_mb"})
+    ASSERT_TRUE(std::get<bool>(Field(cells, "compiled").val_));
+    for (const auto* key : {"lsmc_training_paths", "lsmc_validation_paths", "lsmc_rqmc_replicates", "lsmc_training_seed", "lsmc_pricing_seed",
+                            "lsmc_checkpoint_block_events", "lsmc_training_memory_mb"})
         ASSERT_TRUE(Cell::IsEmpty(Field(cells, key))) << key;
     Vector_<String_> labels;
     BlackScholesLsmcPlan_Get_ParameterLabels(plan, &labels);

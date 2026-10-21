@@ -262,28 +262,39 @@ def test_rotates_processes_and_reports_minimum_without_relative_speed_gate(
     def invoke(_args, backend, _directory, _hashes):
         calls.append(backend)
         # DAL deliberately slower: relative speed is evidence, not an invented gate.
-        duration = {"dal": 200, "quantlib": 100, "rateslib": 50}[backend]
+        duration = {"dal": 200, "quantlib": 100, "rateslib": 50, "infine": 400}[backend]
         return worker_report(backend, duration)
 
     monkeypatch.setattr(compare, "invoke", invoke)
     args = smoke_args(tmp_path)
-    args.samples, args.rounds = 3, 2
+    args.samples, args.rounds = 4, 2
     assert compare.run(args) == 0
-    assert calls[:9] == [
+    assert calls[:16] == [
         "dal",
         "quantlib",
         "rateslib",
+        "infine",
         "quantlib",
         "rateslib",
+        "infine",
         "dal",
         "rateslib",
+        "infine",
         "dal",
         "quantlib",
+        "infine",
+        "dal",
+        "quantlib",
+        "rateslib",
     ]
-    assert calls[9:12] == ["rateslib", "quantlib", "dal"]
+    assert calls[16:20] == ["infine", "rateslib", "quantlib", "dal"]
     report = json.loads((args.output_dir / "results.json").read_text())
     row = report["rounds"][0]["cases"][0]
-    assert row["third_party_over_dal"] == {"quantlib": 0.5, "rateslib": 0.25}
+    assert row["third_party_over_dal"] == {
+        "quantlib": 0.5,
+        "rateslib": 0.25,
+        "infine": 2.0,
+    }
     risk = report["rounds"][0]["cases"][6]
     assert risk["backends"]["dal"]["method"] == "reverse AAD"
     assert risk["backends"]["rateslib"]["method"] == "forward AD (Dual)"
@@ -291,6 +302,8 @@ def test_rotates_processes_and_reports_minimum_without_relative_speed_gate(
     assert "Node DV01: DAL reverse AAD" in (args.output_dir / "summary.md").read_text()
     summary = (args.output_dir / "summary.md").read_text()
     assert "Pricing N | Training M" in summary
+    assert "InFine min ms" in summary
+    assert "native Jamshidian" in summary or "analytic Jamshidian" in summary
     assert "mc_bermudan_price_16384 | 4096 | 2048 |" in summary
     assert "PDE reference" in summary
     exercise = next(
@@ -307,6 +320,8 @@ def test_unsupported_capabilities_have_no_aggregate_timing_or_ratio():
     for name, backend in (
         ("mc_barrier_greeks_65536", "rateslib"),
         ("calibration_xccy_joint_15", "quantlib"),
+        ("calibration_xccy_joint_15", "infine"),
+        ("mc_american_price_65536", "infine"),
     ):
         row = rows[name]
         assert row["backends"][backend] == {

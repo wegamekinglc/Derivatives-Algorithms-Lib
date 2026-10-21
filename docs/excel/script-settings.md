@@ -174,11 +174,11 @@ a supported equity or rate model output.
 | Valuation       | `evaluation_date`           | Capture global date at each Value/Explain entry | Valid integral Excel date serial                                             |
 | Valuation       | `today_fixing`              | `Model`                                         | Exact text `Model` or `RequireHistorical`                                    |
 | Simulation      | `method`                    | `sobol`                                         | Text `sobol`, `mrg32`, or `irn`                                              |
-| Simulation      | `normal_precision`          | `Default`                                       | Exact text `Default`, `Fast`, or `Precise`                                    |
+| Simulation      | `normal_precision`          | `Default`                                       | Exact text `Default`, `Fast`, or `Precise`                                   |
 | Simulation      | `use_bb`                    | `FALSE`                                         | Excel boolean or numeric 0/1                                                 |
 | Simulation      | `enable_aad`                | `FALSE`                                         | Excel boolean or numeric 0/1                                                 |
 | Simulation      | `smooth`                    | `0.01`                                          | Finite, strictly positive number; not boolean                                |
-| Simulation      | `compiled`                  | Unset, selecting tree execution                 | Excel boolean or numeric 0/1                                                 |
+| Simulation      | `compiled`                  | `true`, selecting compiled execution            | Excel boolean or numeric 0/1                                                 |
 | Simulation      | `lsmc_basis_degree`         | `3`                                             | Integral number 1..8; not boolean                                            |
 | Simulation      | `lsmc_training_paths`       | Same as the pricing count                       | Integral number 1..2147483647; not boolean                                   |
 | Simulation      | `lsmc_validation_paths`     | Omitted (fixed degree)                          | Integral number 1..2147483647; not boolean                                   |
@@ -225,7 +225,7 @@ empty cell or empty string is blank; a space, zero, or `FALSE` is not blank.
 Any other column count is rejected, even for an entirely blank range.
 
 A half-empty row is an error. Omit the `default_index` or `compiled` row to
-leave it unset; do not pair the key with a blank value. Unknown or repeated
+use its default; do not pair the key with a blank value. Unknown or repeated
 keys are errors, including differently cased duplicates. Complete
 index parsing and model-capability checks occur in description/preparation,
 so constructing a settings handle does not establish that a product can price.
@@ -356,7 +356,7 @@ not establish pricing readiness; even empty or definitions-only products can
 be described.
 
 `SCRIPTVALUATION.EXPLAIN` returns `dal.script-valuation/1` from one fresh
-default price preparation: Sobol, no bridge/AAD, smoothing 0.01, tree execution.
+default price preparation: Sobol, no bridge/AAD, smoothing 0.01, compiled execution.
 It accepts no path count or simulation settings. It can initialize a model,
 read history, and replay past state, but generates no paths, submits no workers,
 and creates no active AAD recording. It describes its own preparation, including

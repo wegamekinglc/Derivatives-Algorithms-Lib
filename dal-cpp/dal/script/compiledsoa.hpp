@@ -22,7 +22,7 @@ namespace Dal::Script {
         template <class P_> void RequirePreparedAdmission(const P_& product, const AAD::Model_<double>* model, const String_& rsg, bool useBb) {
             if constexpr (std::is_base_of_v<PreparedScript_, P_>) {
                 const auto& settings = product.Simulation();
-                REQUIRE2(!settings.enableAad_ && settings.compiled_.value_or(false) && settings.rsg_ == rsg && settings.useBb_ == useBb &&
+                REQUIRE2(!settings.enableAad_ && settings.compiled_.value_or(DEFAULT_COMPILED) && settings.rsg_ == rsg && settings.useBb_ == useBb &&
                              product.PreparedModelType() == typeid(*model),
                          "UnsupportedExecutionMode: execution differs from preparation", ScriptError_);
                 ValidateSimulationSettings(settings);

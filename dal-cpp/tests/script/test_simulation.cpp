@@ -44,6 +44,41 @@ namespace {
     };
 } // namespace
 
+TEST(SimulationTest, TestCompiledEvaluatorIsDefaultForPreparedAndLegacySimulation) {
+    const auto evaluationDate = XGLOBAL::SetEvaluationDateInScope(Date_(2024, 1, 1));
+    const ScriptProductData_ data("", {Cell_("STRIKE"), Cell_(Date_(2025, 1, 1))}, {"10.0", "call PAYS MAX(SPOT() - STRIKE, 0.0)"});
+    const auto modelData = StandardBSModel();
+    ASSERT_EQ(MonteCarloSettings_().compiled_, std::optional<bool>(true));
+    for (const auto compiled : {std::optional<bool>(true), std::optional<bool>()}) {
+        for (const bool aad : {false, true}) {
+            MonteCarloSettings_ simulation;
+            simulation.compiled_ = compiled;
+            simulation.enableAad_ = aad;
+            auto model = CreateModel<double>(modelData);
+            const auto prepared = PrepareScript(data, model.get(), {}, simulation);
+            ASSERT_NO_THROW(static_cast<void>(prepared.CompiledProgram(aad)));
+            const auto result = aad ? MCSimulation<AAD::Number_>(prepared, modelData, 257) : MCSimulation<double>(prepared, modelData, 257);
+            const auto explicitCompiled = aad ? MCSimulation<AAD::Number_>(prepared, modelData, 257, "sobol", false, true)
+                                              : MCSimulation<double>(prepared, modelData, 257, "sobol", false, true);
+            ASSERT_DOUBLE_EQ(result.aggregated_, explicitCompiled.aggregated_);
+            ASSERT_EQ(result.risks_, explicitCompiled.risks_);
+            auto legacy = data.Product();
+            const int depth = legacy.PreProcess(aad, aad);
+            const auto legacyDefault = aad ? MCSimulation<AAD::Number_>(legacy, modelData, 257) : MCSimulation<double>(legacy, modelData, 257);
+            const auto legacyExplicit = aad ? MCSimulation<AAD::Number_>(legacy, modelData, 257, "sobol", false, compiled, depth)
+                                            : MCSimulation<double>(legacy, modelData, 257, "sobol", false, compiled);
+            ASSERT_DOUBLE_EQ(legacyDefault.aggregated_, legacyExplicit.aggregated_);
+            ASSERT_EQ(legacyDefault.risks_, legacyExplicit.risks_);
+        }
+    }
+    MonteCarloSettings_ tree;
+    tree.compiled_ = false;
+    auto model = CreateModel<double>(modelData);
+    const auto preparedTree = PrepareScript(data, model.get(), {}, tree);
+    ASSERT_THROW(static_cast<void>(preparedTree.CompiledProgram()), ScriptError_);
+    ASSERT_NO_THROW(MCSimulation<double>(preparedTree, modelData, 257, "sobol", false, false));
+}
+
 TEST(SimulationTest, TestNormalPrecisionFactoryDefaultsToFastAndPreservesUniforms) {
     for (const auto* method : {"sobol", "mrg32", "irn"}) {
         for (const auto* precision : {"Default", "Fast", "Precise"}) {

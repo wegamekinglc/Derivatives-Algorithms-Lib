@@ -33,7 +33,7 @@ Benchmark failures do not block pull-request or push CI.
 |----------------------------|----------|------------|
 | Ubuntu (`ubuntu-latest`)   | GCC 13   | ✓          |
 | Ubuntu (`ubuntu-latest`)   | GCC 14   | ✓          |
-| Ubuntu (`ubuntu-latest`)   | GCC 15   | ✓          |
+| Ubuntu (`ubuntu-26.04`)    | GCC 15   | ✓          |
 | Ubuntu (`ubuntu-latest`)   | Clang 18 | ✓          |
 | Ubuntu (`ubuntu-latest`)   | Clang 19 | ✓          |
 | Ubuntu (`ubuntu-latest`)   | Clang 20 | ✓          |
@@ -130,9 +130,9 @@ remain separated by actual PV currency without FX conversion.
 
 ### Script Engine Modes
 
-Monte Carlo script valuation defaults to the tree-walk evaluator (`compiled=false`).
-Pass `compiled=True` in Python or `compiled=true` in C++ to select the flat-stream
-evaluator. The compiled mode is a performance option; payoff values and AAD risks
+Monte Carlo script valuation defaults to the compiled evaluator (`compiled=true`).
+Pass `compiled=False` in Python or `compiled=false` in C++ to select tree-walk
+evaluation. Unset flags also select compiled execution; payoff values and AAD risks
 are expected to match tree-walk results up to normal floating-point noise.
 
 For implementation details and parity coverage, see [Script Engine methodology](docs/methodology/script_engine.md#tree-walk-and-compiled-evaluation). To compare runtime locally, build and run the `script_mc_perf` benchmark target:
