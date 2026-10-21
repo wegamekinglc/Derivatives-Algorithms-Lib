@@ -125,6 +125,64 @@ time, log-linear interpolation and native Gaussian numeraire are required;
 other curve parameterizations need an explicit snapshot Jacobian. Zero-g
 agreement is only an additional deterministic check in this matched domain.
 
+## Gaussian BondOption import and selected-g fitting
+
+The core `dal/model/gsrbondoption.hpp` API imports a native `BondOption_` once
+with an instrument ID, currency, discount route and explicit positive notional.
+`NewBondOptionScriptInstrument` writes expiry, observed bond maturity, strike,
+direction and N into the immutable source/header. Binding, persistence, fast
+Price and MC/AAD use that contract; no native option is retained as another
+pricing authority.
+
+The admitted template has one hard Gaussian payment at expiry under the native
+one-factor or multi-factor GSR numeraire, a matching curve snapshot and `AtEvent`
+settlement. Extra fees, delayed payment, fixing-dependent strike, SLV and positive
+smoothing fail admission. `PrepareCalibrationInstrument` derives the complete
+descriptor. `PriceGaussianBondOption` validates plan compatibility and calls the
+native Gaussian kernel with an ephemeral descriptor-derived option, applying N
+once. Numerical kernel failures carry an owning Evaluate report, original cause
+and instrument/measure IDs through `CalibrationError_`.
+
+`CalibrateGaussianBondOptions` accepts native MultiFactor GSR, immutable Price
+observations and selected g coordinates. It uses bounded Gauss-Newton finite
+differences with the existing parameter scaling, bounds, prior and smoothing
+meanings. Every row requires the fast template; fitting does not execute MC.
+
+```cpp
+const auto instrument = Dal::NewBondOptionScriptInstrument(
+    nativeOption, {"bond-option", Dal::Ccy_("USD"), "USD.OIS", 100.0});
+const auto quote = Dal::NewCalibrationMarketQuote(
+    "option-price", marketPrice, Dal::CalibrationValueUnit_::Parse("Price:USD"));
+const auto observation = Dal::NewCalibrationObservation(
+    "option-fit", instrument, "Price", quote, 1e-6);
+const auto result = Dal::CalibrateGaussianBondOptions(
+    modelContext, {observation}, {{0, 0, 0.0, 0.1}});
+```
+
+The result owns the fitted model, raw/scaled data residuals, observation/quote
+axes, parameter labels, final plan identities and actual model/preparation/Price
+call counts. Its common report carries axes/errors; numeric metrics remain on
+the domain result. `quoteJacobian_` is finite raw dPrice/dg at fixed bindings,
+excludes penalty rows and is not calibrated quote risk. Unit restoration avoids
+an overflowing scale ratio; unrepresentable partials raise an owning numerical
+failure. `oneSidedColumns_` identifies bound-truncated FD stencils. A selected
+zero g or degenerate payoff sets `nativeJacobianAvailable_=false` and leaves
+the raw Jacobian empty while double Price can remain available.
+
+After `StepStalled`, the adapter rechecks the original projected-gradient
+criterion at the final accepted point, including penalties. Convergence,
+per-row fit tolerance and the fast backend's numerical indicator are distinct
+decisions; this adapter preserves legacy solver behavior.
+
+For independent repricing, copy the resolved context, set its model to
+`Handle_<ModelData_>(result.model_)`, and call `PrepareCalibrationMc` on the
+original instrument with explicit sampling/AAD settings. `ValidateCalibrationMc`
+compares independent validation values and native gradients with a fast
+reference, including FD refinement indicators. This statistical validation is
+separate from fitting and is not a strict probability or floating-point bound.
+The adapter is core-only; general-script fitting, caplet/swaption, SLV and
+public/Python/Excel importers remain outside its scope.
+
 ## Affine observables and methods
 
 For Deposit, preparation proves K is structurally affine and extracts per-payment

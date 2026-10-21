@@ -18,6 +18,12 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-21
 
+- **Gaussian BondOption script calibration** — added core one-time import,
+  descriptor-derived fast Price and selected-g bounded calibration, with
+  same-contract MC/AAD validation and explicit derivative/model/settlement
+  admission boundaries. See the
+  [BondOption guide](docs/methodology/script_calibration_contract.md#gaussian-bondoption-import-and-selected-g-fitting).
+
 - **Same-source Deposit curve fitting** — added a one-time native Deposit
   exporter, fixed-layout log-linear candidate values/derivatives and a bounded
   one-node Brent adapter. Fixed contract coupons remain independent of market

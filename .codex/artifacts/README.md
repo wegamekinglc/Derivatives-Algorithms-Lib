@@ -8,6 +8,10 @@ current-state explanations in the published docs or focused Codex references.
 
 ## Current Artifacts
 
+- [DAL-403 Gaussian BondOption prototype](implementation/dal-403-bondoption-prototype.md)
+  — Active one-time native export, descriptor-derived Gaussian Price,
+  selected-g fitting and frozen same-contract MC/AAD verification evidence.
+
 - [DAL-402 Deposit prototype](implementation/dal-402-deposit-prototype.md)
   — Active one-time native export, candidate curve/Brent adapter and frozen
   independent cashflow/fast/MC verification evidence.
