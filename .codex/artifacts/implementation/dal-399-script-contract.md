@@ -213,3 +213,104 @@ equality with the archived `1f5cda30...` executable. Together with unchanged
 legacy caller/dependency/configuration provenance, it establishes that this
 repair preserves the previously accepted paired performance evidence. No new
 timing matrix is needed or claimed.
+
+## Focused review repairs
+
+Input head: `4eab56f91e80fbf4b948790363e672df7858d413`; review evidence:
+`01a15c86-cb26-70f5-9c69-403650f4af4b`. This follow-up addresses the two review
+blockers and the three requested methodology-index links on the same PR/branch.
+
+### Bounded portable JSON loading
+
+The new portable loaders run RapidJSON's iterative SAX reader with a 128-container
+nesting budget before constructing a DOM or recursively converting it. The
+preflight accepts valid strings/escapes independently of their bracket characters;
+duplicate-field/schema validation remains in the existing conversion path. The
+50 MiB input bound is unchanged. A budget failure returns InvalidCalibrationArchive
+with an owned Load-stage report and the observed depth at rejection.
+
+Two process-isolated tests reproduce SIGSEGV at depth 12000 for arrays and objects
+before the fix. After the fix they cover depths 129/12000/30000, both container
+types and both definition/instrument loaders, exiting normally with the required
+owned failure. Additional coverage checks the inclusive depth-128 boundary and
+escaped quotes/backslashes/brackets inside a valid contract's route string.
+
+### Contextual script parse failures
+
+A caller-owned ParseContext_ is passed through new core parser/Product overloads;
+the existing overloads remain and pass null. The parser records the current
+top-level statement ordinal and the failing token's source location before
+rethrowing the original exception. No context pointer is retained in a product,
+and Exception_/ScriptError_ are unchanged.
+
+Only the new contract boundary translates the legacy DAL parser exceptions into
+CalibrationError_. It copies row/date/statement and cause into the owned payload,
+with `/source/rows/<zero-based-index>/text`; portable load prefixes the definition
+path and retains its instrument/load context. HasPays validation stays outside
+the parser catch so NoSharedPriceDefinition keeps its existing error code.
+
+Four tests fail before the fix: factory, portable instrument load, portable
+definition load, and same-date merged events. They show the unstructured N^
+exception and the imprecise N* path. After the fix they pass for both expressions,
+including one-based source row 5, event date 2027-10-21, statement 0 (or 1 after
+merging a prior statement). Payload assertions occur after the action's inputs
+have unwound. A fifth characterization confirms the legacy Product still throws
+plain Exception_ for N^ and ScriptError_ for N*.
+
+### Documentation and validation scope
+
+The guide is linked directly from `docs/README.md`,
+`docs/methodology/README.md` and the explicitly authorized CLAUDE methodology list.
+The guide states the nesting budget and available parser-error context without
+expanding the implemented financial scope. There are no enum, CMake, facade,
+example, solver, JCS/SHA or quote-risk changes.
+
+RED commands (both exit 1 after successful test builds):
+
+```sh
+./build/Release-linux/dal-cpp/dal_cpp_tests \
+  --gtest_filter='ScriptInstrumentTest.TestArchive*DepthIsBoundedBeforeParsing' \
+  --gtest_death_test_style=threadsafe
+./build/Release-linux/dal-cpp/dal_cpp_tests \
+  --gtest_filter='ScriptInstrumentTest.Test*Parser*'
+```
+
+The same focused commands pass after their respective fixes (2 depth tests and
+5 parser/legacy tests). Depth tests select threadsafe subprocess execution in
+the committed test helper. The complete affected selection additionally covers
+existing parser/preprocessor, event construction, historical replay, folding,
+compiled parity and public Product/archive compatibility. The unchanged numerical
+calibration and quote-risk suites reuse the prior accepted evidence.
+
+The added preflight initially rejected a UTF-8 BOM accepted by the original DOM
+entry. A focused BOM regression failed with InvalidCalibrationArchive, then
+passed after the preflight adopted the same EncodedInputStream and shared parse
+flags as the DOM reader. This preserves reader compatibility while enforcing
+the nesting budget.
+
+Final verification, all successful:
+
+```sh
+cmake --build build/Release-linux --target dal_cpp_tests dal_public_tests script_perf rate_risk_perf -j 12
+./build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter='ScriptInstrumentTest.*:CalibrationProtocolTest.*:ScriptTest.TestParse*:ScriptTest.TestEvent*:ScriptPreprocessorTest.*:ScriptPastReplayTest.*:ScriptExactFoldingTest.*:ScriptCompiledParityTest.*'
+./build/Release-linux/dal-public/dal_public_tests --gtest_filter='ScriptArchiveTest.*:ScriptTest.*'
+cmake --build build/warning-clean --target dal_cpp dal_public -j 12
+python3 .github/scripts/check_docs.py
+./build/Release-linux/dal-cpp/benchmarks/script_perf/script_perf
+sha256sum build/Release-linux/dal-cpp/benchmarks/rate_risk_perf/rate_risk_perf
+```
+
+Results: 171 core tests (including 34 contract/protocol tests), 15 public tests,
+GCC 14.3 warning-clean core/public libraries, 79 Markdown files, frontend smoke,
+modified-range formatting and diff checks pass. Nine tests are added in this
+follow-up. Lizard checks of added/modified functions stay within CCN 8; older
+unchanged parser functions are outside this repair's complexity scope.
+
+Frontend smoke is informational and runs after compilation finishes. The final
+rate-risk executable retains local SHA-256
+`a9dfaf72ab416f8223da429447e91fa64754a46ac49ee732e1a31607b4d787c6`.
+The changed loader/parser paths are absent from that executable, so the previous
+paired rate-risk evidence remains applicable without another timing run. No full
+test/benchmark matrix, Windows execution or downstream calibration capability is
+claimed by this local verification. Required CI and the coordinator's focused
+blocker recheck still apply to the pushed head.

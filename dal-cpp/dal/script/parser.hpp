@@ -12,6 +12,11 @@
 
 namespace Dal::Script {
 
+    struct ParseContext_ {
+        SourceLocation_ source_;
+        size_t statement_ = 0;
+    };
+
     class Parser_ {
         using TokIt_ = Vector_<Token_>::const_iterator;
         std::map<String_, double> constVariables_;
@@ -136,6 +141,7 @@ namespace Dal::Script {
             : constVariables_(constVariables), numericVectors_(numericVectors) {}
         Statement_ ParseStatement(TokIt_& cur, const TokIt_& end);
         Event_ Parse(const String_& event, const Vector_<SourceOrigin_>& origins = {});
+        Event_ Parse(const String_& event, const Vector_<SourceOrigin_>& origins, ParseContext_* context);
         [[nodiscard]] const String_& PreparationError() const { return preparationError_; }
         // Whether the last Parse built a PAYS or EXERCISE statement (at any nesting depth for PAYS)
         [[nodiscard]] bool HasPays() const { return hasPays_; }

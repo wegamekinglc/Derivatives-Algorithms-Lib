@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <cstdlib>
 #include <limits>
 #include <rapidjson/document.h>
 #include <rapidjson/pointer.h>
@@ -118,17 +119,189 @@ namespace {
             ASSERT_FALSE(error.Failure().candidate_);
         }
     }
+    String_ JsonText(const rapidjson::Value& value) {
+        rapidjson::StringBuffer buffer;
+        rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+        value.Accept(writer);
+        return String_(buffer.GetString());
+    }
     template <class F_> String_ MutateArchive(const F_& mutation) {
         const auto json = DumpCalibrationInstrumentJson(Instrument());
         rapidjson::Document document;
         document.Parse(json.c_str());
         mutation(document);
-        rapidjson::StringBuffer buffer;
-        rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-        document.Accept(writer);
-        return String_(buffer.GetString());
+        return JsonText(document);
+    }
+    String_ NestedJson(size_t depth, bool objects) {
+        String_ result;
+        for (size_t i = 0; i < depth; ++i)
+            result += objects ? "{\"nested\":" : "[";
+        return result + "0" + String_(depth, objects ? '}' : ']');
+    }
+    bool OwnedNestingFailure(const CalibrationError_& error) {
+        const auto& failure = error.Failure();
+        if (!failure.report_)
+            return false;
+        const auto& d = failure.diagnostic_;
+        return d.code_ == "InvalidCalibrationArchive" && d.stage_ == CalibrationStage_::Value_::Load &&
+               d.expected_ == std::optional<String_>("at most 128 nested JSON containers") &&
+               failure.report_->Stage() == CalibrationStage_::Value_::Load && failure.report_->Errors().size() == 1;
+    }
+    int NestingFailureExitCode(const String_& json, bool definition) {
+        try {
+            if (definition)
+                static_cast<void>(LoadScriptInstrumentDefinitionJson(json));
+            else
+                static_cast<void>(LoadCalibrationInstrumentJson(json));
+            return 41;
+        } catch (const CalibrationError_& error) {
+            return OwnedNestingFailure(error) ? 0 : 42;
+        } catch (const std::exception&) {
+            return 43;
+        }
+    }
+    void AssertBoundedArchiveDepth(bool objects) {
+        ::testing::FLAGS_gtest_death_test_style = "threadsafe";
+        for (size_t depth : {12000, 30000, 129}) {
+            const auto json = NestedJson(depth, objects);
+            for (bool definition : {false, true}) {
+                SCOPED_TRACE(depth);
+                ASSERT_EXIT(std::_Exit(NestingFailureExitCode(json, definition)), ::testing::ExitedWithCode(0), "");
+            }
+        }
+    }
+    template <class F_> void AssertParseFailure(const F_& action, const String_& field, CalibrationStage_ stage, int statement = 0) {
+        std::optional<CalibrationError_> saved;
+        try {
+            action();
+        } catch (const CalibrationError_& error) {
+            saved = error;
+        } catch (const Exception_& error) {
+            FAIL() << "unstructured parser failure: " << error.what();
+        }
+        ASSERT_TRUE(saved) << "expected an owned calibration failure";
+        const auto& failure = saved->Failure();
+        const auto& d = failure.diagnostic_;
+        ASSERT_EQ(d.code_, stage == CalibrationStage_::Value_::Load ? "InvalidCalibrationArchive" : "InvalidScriptInstrumentDefinition");
+        ASSERT_EQ(d.stage_, stage);
+        ASSERT_EQ(d.field_, std::optional<String_>(field));
+        ASSERT_EQ(d.sourceRow_, std::optional<int>(5));
+        ASSERT_EQ(d.eventDate_, std::optional<Date_>(Date_(2027, 10, 21)));
+        ASSERT_EQ(d.statement_, std::optional<int>(statement));
+        ASSERT_TRUE(d.actual_);
+        ASSERT_NE(d.actual_->find("unexpected end of statement"), String_::npos);
+        ASSERT_TRUE(failure.report_);
+        ASSERT_EQ(failure.report_->Stage(), stage);
+        ASSERT_EQ(failure.report_->Errors().size(), 1);
+        ASSERT_EQ(failure.report_->Errors()[0].sourceRow_, d.sourceRow_);
+        ASSERT_EQ(failure.report_->Errors()[0].eventDate_, d.eventDate_);
+        ASSERT_EQ(failure.report_->Errors()[0].statement_, d.statement_);
     }
 } // namespace
+
+TEST(ScriptInstrumentTest, TestArchiveArrayDepthIsBoundedBeforeParsing) { AssertBoundedArchiveDepth(false); }
+
+TEST(ScriptInstrumentTest, TestArchiveObjectDepthIsBoundedBeforeParsing) { AssertBoundedArchiveDepth(true); }
+
+TEST(ScriptInstrumentTest, TestArchiveNestingBoundaryAndQuotedDelimiters) {
+    for (bool objects : {false, true}) {
+        try {
+            static_cast<void>(LoadCalibrationInstrumentJson(NestedJson(128, objects)));
+            FAIL() << "non-schema JSON was accepted";
+        } catch (const CalibrationError_& error) {
+            ASSERT_FALSE(OwnedNestingFailure(error));
+            ASSERT_EQ(error.Failure().diagnostic_.stage_, CalibrationStage_::Value_::Load);
+        }
+    }
+    const String_ route = String_(1000, '[') + "\"\\{}\"" + String_(1000, ']');
+    const auto json = MutateArchive([&](auto& d) { d["definition"]["header"]["discount_route"].SetString(route.c_str(), d.GetAllocator()); });
+    ASSERT_EQ(LoadCalibrationInstrumentJson(json)->Definition()->Spec().header_.discountRoute_, route);
+}
+
+TEST(ScriptInstrumentTest, TestPortableLoadKeepsUtf8BomCompatibility) {
+    const auto instrument = Instrument();
+    const String_ bom(std::string("\xef\xbb\xbf", 3));
+    ASSERT_EQ(LoadCalibrationInstrumentJson(bom + DumpCalibrationInstrumentJson(instrument))->InstrumentIdentity(), instrument->InstrumentIdentity());
+    const auto& definition = instrument->Definition();
+    ASSERT_EQ(LoadScriptInstrumentDefinitionJson(bom + DumpScriptInstrumentDefinitionJson(definition))->DefinitionIdentity(),
+              definition->DefinitionIdentity());
+}
+
+TEST(ScriptInstrumentTest, TestFactoryParserErrorsOwnSourceContext) {
+    for (const char* text : {"pay PAYS N^", "pay PAYS N*"}) {
+        SCOPED_TRACE(text);
+        AssertParseFailure(
+            [&] {
+                auto spec = DepositDefinition();
+                spec.source_.rows_[4].text_ = text;
+                static_cast<void>(NewScriptInstrumentDefinition(spec));
+            },
+            "/source/rows/4/text", CalibrationStage_::Value_::Input);
+    }
+}
+
+TEST(ScriptInstrumentTest, TestPortableParserErrorsOwnSourceContext) {
+    for (const char* text : {"pay PAYS N^", "pay PAYS N*"}) {
+        SCOPED_TRACE(text);
+        AssertParseFailure(
+            [&] {
+                const auto json = MutateArchive([&](auto& d) { d["definition"]["source"]["rows"][4]["text"].SetString(text, d.GetAllocator()); });
+                static_cast<void>(LoadCalibrationInstrumentJson(json));
+            },
+            "/definition/source/rows/4/text", CalibrationStage_::Value_::Load);
+    }
+}
+
+TEST(ScriptInstrumentTest, TestDefinitionLoadParserErrorsOwnSourceContext) {
+    for (const char* text : {"pay PAYS N^", "pay PAYS N*"}) {
+        SCOPED_TRACE(text);
+        AssertParseFailure(
+            [&] {
+                const auto json = MutateArchive([&](auto& d) { d["definition"]["source"]["rows"][4]["text"].SetString(text, d.GetAllocator()); });
+                rapidjson::Document document;
+                document.Parse(json.c_str());
+                static_cast<void>(LoadScriptInstrumentDefinitionJson(JsonText(document["definition"])));
+            },
+            "/source/rows/4/text", CalibrationStage_::Value_::Load);
+    }
+}
+
+TEST(ScriptInstrumentTest, TestMergedEventParserFailureRetainsFailingRowAndStatement) {
+    for (const char* text : {"pay PAYS N^", "pay PAYS N*"}) {
+        AssertParseFailure(
+            [&] {
+                auto spec = DepositDefinition();
+                spec.source_.rows_[3].key_ = "2027-10-21";
+                spec.source_.rows_[4].text_ = text;
+                static_cast<void>(NewScriptInstrumentDefinition(spec));
+            },
+            "/source/rows/4/text", CalibrationStage_::Value_::Input, 1);
+        AssertParseFailure(
+            [&] {
+                const auto json = MutateArchive([&](auto& d) {
+                    d["definition"]["source"]["rows"][3]["key"].SetString("2027-10-21");
+                    d["definition"]["source"]["rows"][4]["text"].SetString(text, d.GetAllocator());
+                });
+                static_cast<void>(LoadCalibrationInstrumentJson(json));
+            },
+            "/definition/source/rows/4/text", CalibrationStage_::Value_::Load, 1);
+    }
+}
+
+TEST(ScriptInstrumentTest, TestLegacyProductKeepsParserExceptionTypes) {
+    const auto check = [](const char* text, bool typed) {
+        try {
+            Script::ScriptProduct_ product({Cell_("N"), Cell_(Date_(2027, 10, 21))}, {"1", text}, "PAY");
+            FAIL() << "invalid legacy source was accepted";
+        } catch (const CalibrationError_&) {
+            FAIL() << "legacy Product acquired a calibration exception";
+        } catch (const Exception_& error) {
+            ASSERT_EQ(dynamic_cast<const ScriptError_*>(&error) != nullptr, typed);
+        }
+    };
+    check("pay PAYS N^", false);
+    check("pay PAYS N*", true);
+}
 
 TEST(ScriptInstrumentTest, TestBindingReturnsNewCompleteContract) {
     auto spec = DepositDefinition();

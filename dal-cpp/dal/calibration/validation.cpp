@@ -2,6 +2,9 @@
 #include <dal/platform/strict.hpp>
 
 #include <charconv>
+#include <rapidjson/encodedstream.h>
+#include <rapidjson/memorystream.h>
+#include <rapidjson/reader.h>
 #include <string_view>
 
 #include <dal/calibration/validation_internal.hpp>
@@ -116,12 +119,38 @@ namespace Dal::CalibrationInternal {
             result.stage_ = CalibrationStage_::Value_::Load;
             return result;
         }
+        constexpr size_t MAX_ARCHIVE_NESTING = 128;
+        constexpr unsigned ARCHIVE_PARSE_FLAGS = rapidjson::kParseFullPrecisionFlag | rapidjson::kParseValidateEncodingFlag;
+        class JsonNesting_ final : public rapidjson::BaseReaderHandler<rapidjson::UTF8<>, JsonNesting_> {
+            size_t depth_ = 0;
+
+        public:
+            bool StartObject() { return ++depth_ <= MAX_ARCHIVE_NESTING; }
+            bool StartArray() { return StartObject(); }
+            bool EndObject(rapidjson::SizeType) {
+                --depth_;
+                return true;
+            }
+            bool EndArray(rapidjson::SizeType count) { return EndObject(count); }
+            [[nodiscard]] size_t Depth() const { return depth_; }
+        };
+        void CheckJsonNesting(const String_& input) {
+            rapidjson::MemoryStream stream(input.data(), input.size());
+            rapidjson::EncodedInputStream<rapidjson::UTF8<>, rapidjson::MemoryStream> encoded(stream);
+            rapidjson::Reader reader;
+            JsonNesting_ nesting;
+            const auto parsed = reader.Parse<ARCHIVE_PARSE_FLAGS | rapidjson::kParseIterativeFlag>(encoded, nesting);
+            Check(nesting.Depth() <= MAX_ARCHIVE_NESTING, "InvalidCalibrationArchive", "", "at most 128 nested JSON containers",
+                  OrdinalText(nesting.Depth()), LoadContext());
+            Check(bool(parsed), "InvalidCalibrationArchive", "", "valid JSON", "", LoadContext());
+        }
     } // namespace
     Json_ Parse(const String_& input) {
         Text(input, "InvalidCalibrationArchive", "", LoadContext());
         Check(input.size() <= 50U * 1024U * 1024U, "InvalidCalibrationArchive", "", "at most 50 MiB", "", LoadContext());
+        CheckJsonNesting(input);
         rapidjson::Document document;
-        document.Parse<rapidjson::kParseFullPrecisionFlag | rapidjson::kParseValidateEncodingFlag>(input.data(), input.size());
+        document.Parse<ARCHIVE_PARSE_FLAGS>(input.data(), input.size());
         Check(!document.HasParseError(), "InvalidCalibrationArchive", "", "valid JSON", "", LoadContext());
         return Decode(document, "");
     }

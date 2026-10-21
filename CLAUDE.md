@@ -173,6 +173,7 @@ Detailed documentation of the quantitative methods implemented in this library:
 - **Rate-Trade Node Risk and Portfolio Aggregation** — [Node-risk methodology](docs/yield-curves/node-risk.md)
 - **Generic Joint Multi-Curve Quote DV01** — [Joint quote-risk methodology](docs/yield-curves/joint-quote-risk.md)
 - **Script Engine** — [Script engine](docs/methodology/script_engine.md), including named FIX observations with historical preparation, valuation settings and Describe/Explain diagnostics, tree-walk, fuzzy AAD, compiled evaluation, parity coverage, product debug dumps, and benchmarks
+- **Core Script Calibration Contracts** — [Script calibration contracts](docs/methodology/script_calibration_contract.md), including immutable contract data, typed bindings, quote/observation axes and persistence
 - **Dupire Local Volatility** — [Dupire local volatility](docs/models/dupire.md)
 - **Constrained Market IV Surfaces** — [Market IV surfaces](docs/models/market-iv-surface.md), including global SSVI certificates, analytic Dupire, owning snapshots and full quote refits
 - **Black / Bachelier Vanilla Pricing** — [Black / Bachelier vanilla pricing](docs/models/black-scholes.md)

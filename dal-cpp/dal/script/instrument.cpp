@@ -6,11 +6,23 @@
 
 #include <dal/script/event.hpp>
 #include <dal/script/instrument_internal.hpp>
+#include <dal/script/parser.hpp>
 
 namespace Dal {
     using namespace CalibrationInternal;
     namespace {
         const String_ DEF_ERROR = "InvalidScriptInstrumentDefinition", BIND_ERROR = "InvalidCalibrationParameterBinding";
+        [[noreturn]] void ParseFailure(const Exception_& error, const Script::ParseContext_& parsed, CalibrationDiagnostic_ context) {
+            String_ path = "/source/rows";
+            if (parsed.source_.row_ != 0 && parsed.source_.row_ <= INT_MAX) {
+                context.sourceRow_ = static_cast<int>(parsed.source_.row_);
+                context.eventDate_ = parsed.source_.eventDate_;
+                if (parsed.statement_ <= INT_MAX)
+                    context.statement_ = static_cast<int>(parsed.statement_);
+                path += "/" + OrdinalText(parsed.source_.row_ - 1) + "/text";
+            }
+            Fail(DEF_ERROR, path, "parseable bound Price source", String_(error.what()), context);
+        }
         std::unique_ptr<Script::ScriptProduct_>
         BoundProduct(const ScriptInstrumentDefinitionSpec_& spec, const std::map<String_, double>& slots, const CalibrationDiagnostic_& context) {
             Vector_<Cell_> dates;
@@ -21,13 +33,15 @@ namespace Dal {
                                     : Cell_(ParseDate(row.key_, DEF_ERROR, "/source/rows/key", context)));
                 events.push_back(row.text_);
             }
+            Script::ParseContext_ parsed;
+            std::unique_ptr<Script::ScriptProduct_> product;
             try {
-                auto product = std::make_unique<Script::ScriptProduct_>(dates, events, spec.header_.receiver_, slots);
-                Check(product->HasPays(), "NoSharedPriceDefinition", "/source/rows", "shared PAYS cashflows", "", context);
-                return product;
-            } catch (const ScriptError_& error) {
-                Fail(DEF_ERROR, "/source/rows", "parseable bound Price source", String_(error.what()), context);
+                product = std::make_unique<Script::ScriptProduct_>(dates, events, spec.header_.receiver_, slots, &parsed);
+            } catch (const Exception_& error) {
+                ParseFailure(error, parsed, context);
             }
+            Check(product->HasPays(), "NoSharedPriceDefinition", "/source/rows", "shared PAYS cashflows", "", context);
+            return product;
         }
         double SourceNumber(const String_& text, const String_& path, const CalibrationDiagnostic_& context) {
             double result = 0.;

@@ -77,9 +77,15 @@ portable JSON under `ScriptInstrumentDefinition_v1` and
 `CalibrationInstrument_v1`. Legacy ScriptProductData v1/v2/v3 archives retain
 their existing readers and v3 writer.
 
+Portable JSON loaders accept at most 50 MiB and 128 nested objects/arrays. The
+nesting budget is checked without recursion before building or converting the DOM;
+exceeding it returns InvalidCalibrationArchive with a Load report.
+
 `CalibrationError_` owns structured diagnostics and a nonnull partial
 `CalibrationReport_`, including field paths and available object/source
-context. Input and Load stages are distinguished. Reports currently provide
+context. Input and Load stages are distinguished. Parser failures retain available
+source row, event date and zero-based statement ordinal; the legacy Product
+exception types are preserved. Reports currently provide
 the owned axes and errors needed by these data boundaries; evaluator/solver
 metrics are not populated as fabricated results. Their archive Write fails
 with CalibrationPersistenceUnsupported. Saving an instrument does not save

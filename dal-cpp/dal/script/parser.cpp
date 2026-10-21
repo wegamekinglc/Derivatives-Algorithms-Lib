@@ -740,7 +740,9 @@ namespace Dal::Script {
         THROW2("statement without an instruction", ScriptError_);
     }
 
-    Event_ Parser_::Parse(const String_& event, const Vector_<SourceOrigin_>& origins) {
+    Event_ Parser_::Parse(const String_& event, const Vector_<SourceOrigin_>& origins) { return Parse(event, origins, nullptr); }
+
+    Event_ Parser_::Parse(const String_& event, const Vector_<SourceOrigin_>& origins, ParseContext_* context) {
         preparationError_.clear();
         hasExercise_ = false;
         hasPays_ = false;
@@ -749,10 +751,21 @@ namespace Dal::Script {
         expandedStatements_ = 0;
         loopIndices_.clear();
         Event_ e;
+        if (context)
+            *context = {};
         auto tokens = Lex(event, origins);
         Vector_<Token_>::const_iterator it = tokens.begin();
-        while (it != tokens.end())
-            e.push_back(ParseStatement(it, tokens.end()));
+        try {
+            while (it != tokens.end()) {
+                if (context)
+                    *context = {it->source_, e.size()};
+                e.push_back(ParseStatement(it, tokens.end()));
+            }
+        } catch (const Exception_&) {
+            if (context && !tokens.empty())
+                context->source_ = (it == tokens.end() ? tokens.back() : *it).source_;
+            throw;
+        }
         return e;
     }
 } // namespace Dal::Script

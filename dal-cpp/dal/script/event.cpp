@@ -60,6 +60,12 @@ namespace Dal::Script {
     void ScriptProduct_::ParseEvents(const Vector_<std::pair<Cell_, String_>>& events) { ParseEvents(events, {}); }
 
     void ScriptProduct_::ParseEvents(const Vector_<std::pair<Cell_, String_>>& events, const std::map<String_, double>& constantBindings) {
+        ParseEvents(events, constantBindings, nullptr);
+    }
+
+    void ScriptProduct_::ParseEvents(const Vector_<std::pair<Cell_, String_>>& events,
+                                     const std::map<String_, double>& constantBindings,
+                                     ParseContext_* context) {
         REQUIRE2(!evaluationDate_, "cannot append events after preparation has partitioned the product", ScriptError_);
         // 1. Definition front-end: resolve macros, const variables and schedules.
         Preprocessor_ preprocessor;
@@ -78,7 +84,7 @@ namespace Dal::Script {
                      "InvalidFixingDate: dates/events; row=" + String_(std::to_string(preprocessed.sources_.at(processedEvent.first).front().row_)) +
                          "; expected a valid event date",
                      ScriptError_);
-            auto event = parser.Parse(processedEvent.second, preprocessed.sources_.at(processedEvent.first));
+            auto event = parser.Parse(processedEvent.second, preprocessed.sources_.at(processedEvent.first), context);
             if (preparationError_.empty())
                 preparationError_ = parser.PreparationError();
             hasPays_ = hasPays_ || parser.HasPays();
