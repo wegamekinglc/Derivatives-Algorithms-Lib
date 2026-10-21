@@ -13,8 +13,8 @@ are inputs, not a request to reopen accepted upstream work.
 Exclusive changes: model-owned BondOption importer, fast executor and selected-g
 adapter, plus dedicated model tests. Shared definition/preparation/MC/protocol,
 curve code, build lists and existing entry points remain read-only. No example
-or facade changes are planned. Shared guide/CHANGELOG/index integration belongs
-to DAL-402 now; drafts will be retained here for serial integration before merge.
+or facade changes are planned. Shared guide/CHANGELOG/index writes were initially
+reserved for DAL-402; their subsequent serial integration is recorded below.
 
 ## Design frozen before implementation
 
@@ -221,64 +221,28 @@ not paired regression gates or a throughput guarantee. Full product/performance
 matrices and Windows/MSVC remain unrun locally; current-head CI and coordinator
 review/merge gates remain required.
 
-## Shared documentation drafts: integration pending
+## Shared documentation integration
 
-DAL-402 owns shared guide/CHANGELOG/artifact-index writes during parallel work.
-The following is a concrete draft for serial integration by the coordinator;
-none of these shared-file updates is claimed completed. Merge must wait for it.
+After the coordinator released DAL-402's write scope, the Gaussian BondOption
+draft was integrated into the existing
+[contract guide](../../../docs/methodology/script_calibration_contract.md#gaussian-bondoption-import-and-selected-g-fitting),
+the 2026-10-21 CHANGELOG and the active artifact index. The guide includes the
+two repaired numerical boundaries and the actual core API limits.
 
-### Methodology guide addition
+DAL-402's accepted Deposit guide, CHANGELOG entry and index text are retained
+from `afb17746c816f31a345e1ce7e35f428e6f4b597b`. Its implementation record is
+copied byte-for-byte only to keep the index target available before that PR
+lands. No Deposit product source, tests or unmerged product commits are imported.
+The existing docs/README, methodology/README and CLAUDE links already point to
+this unchanged guide path; no additional guide or index edit is needed there.
 
-Add a Gaussian BondOption subsection to the existing script calibration guide:
-
-The core `dal/model/gsrbondoption.hpp` API imports BondOption once with explicit
-instrument ID, currency, discount route and notional. NewBondOptionScriptInstrument
-stores concrete expiry, observed bond maturity, strike, direction and N in the
-immutable source/header. Subsequent binding, save/load, fast pricing and MC/AAD
-all use that source; no native product is retained. It admits the existing
-single-payment hard Gaussian template only, with native one/multi-factor GSR
-numeraire, same curve snapshot and AtEvent settlement. Extra fees, delayed
-payment, fixing-dependent strike, SLV and positive smoothing are refused.
-
-PrepareCalibrationInstrument derives the complete descriptor; PriceGaussianBondOption
-validates that plan against the instrument/context and calls the native Gaussian
-Black kernel using an ephemeral descriptor-derived BondOption. Source N is
-applied once. CalibrateGaussianBondOptions accepts MultiFactor GSR, immutable
-Price observations and selected g coordinates, retaining the existing bounded
-Gauss-Newton parameter scaling, bounds, prior and smoothing meanings. It always
-requires the fast template; it does not run MC in the optimization loop.
-
-Its result exposes the fitted model, raw/scaled data residuals, stable quote axes,
-parameter labels, final plan identities and actual model/preparation/price-call
-counts. Its owning report carries the existing common axes/errors; numeric
-metrics are on the domain result, not new shared report-table APIs.
-quoteJacobian means raw dPrice/dg at fixed contract bindings, excludes
-penalty rows and is not calibrated quote risk. oneSidedColumns identifies bound
-stencils. Zero selected g or a degenerate payoff sets nativeJacobianAvailable
-false and leaves the raw Jacobian empty, while double Price can remain available.
-After StepStalled, the adapter checks the original projected-gradient criterion
-at the final accepted point; it does not change legacy solver behavior.
-
-For independent repricing, copy the resolved preparation context, set its model
-to Handle_<ModelData_>(result.model_), and call PrepareCalibrationMc on the
-original instrument with explicit sampling/AAD settings. ValidateCalibrationMc
-compares independent validation mean/SE and native gradients with a fast
-reference, including FD step-refinement indicators. Optimizer convergence,
-per-row fit tolerance, fast numerical indicator and MC statistical validation
-are distinct decisions. No public/Python/Excel importer, general-script fitting,
-caplet/swaption, SLV or quote-risk capability follows from this prototype.
-
-### CHANGELOG draft
-
-- Add core Gaussian BondOption script import, descriptor-derived fast Price and
-  selected-g calibration, with same-contract MC/AAD validation and explicit
-  degenerate-derivative and model/settlement/smoothing admission boundaries.
-
-### Artifact index draft
-
-Add `implementation/dal-403-bondoption-prototype.md` as the active Gaussian
-BondOption prototype implementation/validation record. No new user guide,
-renamed document or docs/CLAUDE index entry is needed for this guide extension.
+This documentation-only follow-up starts at repaired code head
+`64f4acfd6fabf42dcf0da81001ad7aa87e727512`. Static checks are
+`python3 .github/scripts/check_docs.py`, `git diff --check` and assertions that
+the prior Deposit text is unchanged, its artifact copy is exact and every
+changed file is Markdown. No product test/build or performance probe is run.
+The earlier code/statistics/performance evidence remains applicable; focused
+code/document review and current-head CI remain with the coordinator.
 
 ## Focused P2 raw-partial and Price-boundary repair
 
@@ -287,8 +251,8 @@ and branch `agent/dal-implementer/4a63910df848`. The two review findings are
 confined to the new model-owned adapters. DAL-398 section 9 controls owning
 diagnostics. The existing Gaussian kernel, optimizer, shared interfaces,
 source/binding identities and frozen numerical/statistical settings are unchanged.
-This repair does not integrate the shared-document drafts above; serial write
-ownership and documentation acceptance remain separate merge requirements.
+That code-repair handoff preceded the shared-document integration recorded above;
+documentation acceptance remains a separate merge requirement.
 
 ### Design and behavior
 
@@ -359,8 +323,8 @@ reported as a new execution. Its record and four source digests match the input
 Git blobs. This repair changes only the two adapter TUs, their dedicated tests
 and this record; no shared kernel/MC/statistics, header, dependency or build
 configuration changes. No complete product/statistics matrix or local Windows
-run is repeated. The PR remains draft pending serial shared documentation,
-two-blocker review and exact-head CI.
+run is repeated. At the code-repair handoff the PR remained draft pending serial
+documentation, two-blocker review and exact-head CI.
 
 ### Scoped performance and normal-result provenance
 

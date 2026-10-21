@@ -4,8 +4,8 @@ The core headers `dal/script/instrument.hpp` and `dal/calibration/protocol.hpp`
 provide immutable contract data, typed parameter binding and ordered calibration
 observations. `dal/script/calibrationpreparation.hpp` adds structural preparation
 for Deposit and Gaussian BondOption contracts. Existing Product, curve and GSR
-entry points keep their own behavior. These core interfaces do not implement a
-calibration solver.
+entry points keep their own behavior. The separate core Deposit adapter in
+`dal/curve/depositscript.hpp` supports one-node curve fitting with Brent.
 
 A `ScriptInstrumentDefinition_` owns the exact source rows, fixed-date header,
 numeric parameter declarations and measures. Source numeric definitions are the
@@ -69,6 +69,119 @@ timestamps and values, today policy, convention state and smoothing contribute
 to identity. Sampling contributes when MC is selected. Call `RequireCompatible`
 with the current instrument and context before reusing a prepared artifact;
 changes require preparation again. No shared descriptor cache is maintained.
+
+## Native Deposit import and candidate curves
+
+`NewDepositScriptInstrument` imports a native `Deposit_` once. Import settings
+require an instrument ID, currency and explicit discount route. Positive lender
+notional defaults to one because the native Deposit has no notional or payment
+direction. The exporter resolves the native adjusted start/end and day-count
+context once, then writes N, K, fixed ALPHA and concrete principal/redemption
+PAYS into the definition. K is the native MarketRate at import. Later quotes
+are independent; an explicit K=q update creates a new binding.
+
+The import requires trade=start=valuation and an adjusted start equal to that
+date. Forecast must equal discount under OIS collateral. Projection curves,
+spot starts, other collateral and reversed payment direction are outside this
+template. Native date adjustment at maturity is supported; both executors use
+the exported date and accrual. Native interfaces retain their broader existing
+conventions.
+
+`PreparedDepositCurve_` derives its descriptor and coefficient views through
+the shared preparation API. It caches ACT/365F log-linear weights for a fixed,
+anchored `GSRCurveData_` node layout covering maturity. Each `Evaluate` refreshes
+discounts, Price(K), A/B, ParRate and analytic raw log-DF node derivatives;
+the rate value reuses `Tape::ForwardRateFromDf` with the source accrual. No
+candidate rebuilds a schedule or reads a native product. Candidate identity
+includes the original plan and new curve content. Date/layout/currency changes,
+projection rows, smoothing or other convention states require a new plan or
+fail admission. Prepare this deterministic adapter without a model.
+
+```cpp
+const auto instrument = Dal::NewDepositScriptInstrument(
+    nativeDeposit, {"deposit-1y", Dal::Ccy_("USD"), "USD.OIS", 100.0});
+const Dal::PreparedDepositCurve_ plan(instrument, curveContext);
+const auto quote = Dal::NewCalibrationMarketQuote(
+    "deposit-rate", 0.035, Dal::CalibrationValueUnit_::Parse("Rate"));
+const auto observation = Dal::NewCalibrationObservation(
+    "deposit-fit", instrument, "ParRate", quote, 1e-10);
+const auto fit = Dal::FitDepositCurveNode(
+    plan, observation, curveContext.curve_, 1, -0.1, 0.05, 64);
+```
+
+The fit changes one non-anchor log-DF coordinate; other nodes stay fixed. It
+uses a ParRate observation for exactly the prepared binding, and accepts only
+`abs(rawResidual/errorScale)<1` inside the explicit bracket/evaluation budget.
+The result retains the curve, raw/scaled residuals, native partials, evaluation
+count and shared observation/quote axes. Unbracketed roots and exhausted budgets
+throw owning Solve reports with the last validated curve. This is a narrow
+scalar adapter, with no general basket, approximate objective or quote-risk API.
+
+To reprice, construct a matching Gaussian model directly from `fit.curve_` and
+pass the original instrument to `PrepareCalibrationMc`. The original coupon
+usually gives nonzero PV at the fitted curve. Price and ParRate validation use
+their own amount/rate scales. Same binding, currency, discount route, ACT/365F
+time, log-linear interpolation and native Gaussian numeraire are required;
+other curve parameterizations need an explicit snapshot Jacobian. Zero-g
+agreement is only an additional deterministic check in this matched domain.
+
+## Gaussian BondOption import and selected-g fitting
+
+The core `dal/model/gsrbondoption.hpp` API imports a native `BondOption_` once
+with an instrument ID, currency, discount route and explicit positive notional.
+`NewBondOptionScriptInstrument` writes expiry, observed bond maturity, strike,
+direction and N into the immutable source/header. Binding, persistence, fast
+Price and MC/AAD use that contract; no native option is retained as another
+pricing authority.
+
+The admitted template has one hard Gaussian payment at expiry under the native
+one-factor or multi-factor GSR numeraire, a matching curve snapshot and `AtEvent`
+settlement. Extra fees, delayed payment, fixing-dependent strike, SLV and positive
+smoothing fail admission. `PrepareCalibrationInstrument` derives the complete
+descriptor. `PriceGaussianBondOption` validates plan compatibility and calls the
+native Gaussian kernel with an ephemeral descriptor-derived option, applying N
+once. Numerical kernel failures carry an owning Evaluate report, original cause
+and instrument/measure IDs through `CalibrationError_`.
+
+`CalibrateGaussianBondOptions` accepts native MultiFactor GSR, immutable Price
+observations and selected g coordinates. It uses bounded Gauss-Newton finite
+differences with the existing parameter scaling, bounds, prior and smoothing
+meanings. Every row requires the fast template; fitting does not execute MC.
+
+```cpp
+const auto instrument = Dal::NewBondOptionScriptInstrument(
+    nativeOption, {"bond-option", Dal::Ccy_("USD"), "USD.OIS", 100.0});
+const auto quote = Dal::NewCalibrationMarketQuote(
+    "option-price", marketPrice, Dal::CalibrationValueUnit_::Parse("Price:USD"));
+const auto observation = Dal::NewCalibrationObservation(
+    "option-fit", instrument, "Price", quote, 1e-6);
+const auto result = Dal::CalibrateGaussianBondOptions(
+    modelContext, {observation}, {{0, 0, 0.0, 0.1}});
+```
+
+The result owns the fitted model, raw/scaled data residuals, observation/quote
+axes, parameter labels, final plan identities and actual model/preparation/Price
+call counts. Its common report carries axes/errors; numeric metrics remain on
+the domain result. `quoteJacobian_` is finite raw dPrice/dg at fixed bindings,
+excludes penalty rows and is not calibrated quote risk. Unit restoration avoids
+an overflowing scale ratio; unrepresentable partials raise an owning numerical
+failure. `oneSidedColumns_` identifies bound-truncated FD stencils. A selected
+zero g or degenerate payoff sets `nativeJacobianAvailable_=false` and leaves
+the raw Jacobian empty while double Price can remain available.
+
+After `StepStalled`, the adapter rechecks the original projected-gradient
+criterion at the final accepted point, including penalties. Convergence,
+per-row fit tolerance and the fast backend's numerical indicator are distinct
+decisions; this adapter preserves legacy solver behavior.
+
+For independent repricing, copy the resolved context, set its model to
+`Handle_<ModelData_>(result.model_)`, and call `PrepareCalibrationMc` on the
+original instrument with explicit sampling/AAD settings. `ValidateCalibrationMc`
+compares independent validation values and native gradients with a fast
+reference, including FD refinement indicators. This statistical validation is
+separate from fitting and is not a strict probability or floating-point bound.
+The adapter is core-only; general-script fitting, caplet/swaption, SLV and
+public/Python/Excel importers remain outside its scope.
 
 ## Affine observables and methods
 
