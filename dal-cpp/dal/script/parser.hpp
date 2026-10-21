@@ -36,6 +36,9 @@ namespace Dal::Script {
 
         // Helpers
 
+        Vector_<Token_> ReadTokens(const String_& event, const Vector_<SourceOrigin_>& origins, ParseContext_* context);
+        size_t StatementAtLexFailure(const String_& event, const Vector_<SourceOrigin_>& origins, const SourceLocation_& failure) const;
+
         // Find matching closing char, for example matching ) for a (, skipping through nested pairs
         // does not change the cur iterator, assumed to be on the opening,
         // and returns an iterator on the closing match

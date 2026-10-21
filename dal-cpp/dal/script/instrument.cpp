@@ -3,6 +3,7 @@
 
 #include <map>
 #include <set>
+#include <stdexcept>
 
 #include <dal/script/event.hpp>
 #include <dal/script/instrument_internal.hpp>
@@ -12,7 +13,11 @@ namespace Dal {
     using namespace CalibrationInternal;
     namespace {
         const String_ DEF_ERROR = "InvalidScriptInstrumentDefinition", BIND_ERROR = "InvalidCalibrationParameterBinding";
-        [[noreturn]] void ParseFailure(const Exception_& error, const Script::ParseContext_& parsed, CalibrationDiagnostic_ context) {
+        bool IsInputParseError(const std::exception& error) {
+            return dynamic_cast<const Exception_*>(&error) || dynamic_cast<const std::invalid_argument*>(&error) ||
+                   dynamic_cast<const std::out_of_range*>(&error);
+        }
+        [[noreturn]] void ParseFailure(const std::exception& error, const Script::ParseContext_& parsed, CalibrationDiagnostic_ context) {
             String_ path = "/source/rows";
             if (parsed.source_.row_ != 0 && parsed.source_.row_ <= INT_MAX) {
                 context.sourceRow_ = static_cast<int>(parsed.source_.row_);
@@ -37,7 +42,9 @@ namespace Dal {
             std::unique_ptr<Script::ScriptProduct_> product;
             try {
                 product = std::make_unique<Script::ScriptProduct_>(dates, events, spec.header_.receiver_, slots, &parsed);
-            } catch (const Exception_& error) {
+            } catch (const std::exception& error) {
+                if (!IsInputParseError(error))
+                    throw;
                 ParseFailure(error, parsed, context);
             }
             Check(product->HasPays(), "NoSharedPriceDefinition", "/source/rows", "shared PAYS cashflows", "", context);

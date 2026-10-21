@@ -6,6 +6,7 @@
 #include <rapidjson/pointer.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
+#include <stdexcept>
 
 #include <dal/calibration/protocol.hpp>
 #include <dal/script/event.hpp>
@@ -170,13 +171,15 @@ namespace {
             }
         }
     }
-    template <class F_> void AssertParseFailure(const F_& action, const String_& field, CalibrationStage_ stage, int statement = 0) {
+    template <class F_>
+    void AssertParseFailure(
+        const F_& action, const String_& field, CalibrationStage_ stage, int statement = 0, const String_& cause = "unexpected end of statement") {
         std::optional<CalibrationError_> saved;
         try {
             action();
         } catch (const CalibrationError_& error) {
             saved = error;
-        } catch (const Exception_& error) {
+        } catch (const std::exception& error) {
             FAIL() << "unstructured parser failure: " << error.what();
         }
         ASSERT_TRUE(saved) << "expected an owned calibration failure";
@@ -189,15 +192,72 @@ namespace {
         ASSERT_EQ(d.eventDate_, std::optional<Date_>(Date_(2027, 10, 21)));
         ASSERT_EQ(d.statement_, std::optional<int>(statement));
         ASSERT_TRUE(d.actual_);
-        ASSERT_NE(d.actual_->find("unexpected end of statement"), String_::npos);
+        ASSERT_NE(d.actual_->find(cause), String_::npos);
         ASSERT_TRUE(failure.report_);
         ASSERT_EQ(failure.report_->Stage(), stage);
         ASSERT_EQ(failure.report_->Errors().size(), 1);
+        ASSERT_EQ(failure.report_->Errors()[0].code_, d.code_);
+        ASSERT_EQ(failure.report_->Errors()[0].field_, d.field_);
         ASSERT_EQ(failure.report_->Errors()[0].sourceRow_, d.sourceRow_);
         ASSERT_EQ(failure.report_->Errors()[0].eventDate_, d.eventDate_);
         ASSERT_EQ(failure.report_->Errors()[0].statement_, d.statement_);
     }
+    void AssertInputFailureAtAllBoundaries(const String_& text, const String_& cause, int statement = 0, bool merged = false) {
+        AssertParseFailure(
+            [&] {
+                auto spec = DepositDefinition();
+                if (merged)
+                    spec.source_.rows_[3].key_ = "2027-10-21";
+                spec.source_.rows_[4].text_ = text;
+                static_cast<void>(NewScriptInstrumentDefinition(spec));
+            },
+            "/source/rows/4/text", CalibrationStage_::Value_::Input, statement, cause);
+        for (bool definition : {false, true}) {
+            AssertParseFailure(
+                [&] {
+                    const auto json = MutateArchive([&](auto& d) {
+                        if (merged)
+                            d["definition"]["source"]["rows"][3]["key"].SetString("2027-10-21");
+                        d["definition"]["source"]["rows"][4]["text"].SetString(text.c_str(), d.GetAllocator());
+                    });
+                    if (definition) {
+                        rapidjson::Document document;
+                        document.Parse(json.c_str());
+                        static_cast<void>(LoadScriptInstrumentDefinitionJson(JsonText(document["definition"])));
+                    } else
+                        static_cast<void>(LoadCalibrationInstrumentJson(json));
+                },
+                definition ? "/source/rows/4/text" : "/definition/source/rows/4/text", CalibrationStage_::Value_::Load, statement, cause);
+        }
+    }
+    void LegacyProduct(const String_& text) { Script::ScriptProduct_ product({Cell_("N"), Cell_(Date_(2027, 10, 21))}, {"1", text}, "PAY"); }
 } // namespace
+
+TEST(ScriptInstrumentTest, TestStandardNumericErrorsOwnSourceContext) {
+    for (const char* text : {"pay PAYS 1e999", "pay PAYS ."}) {
+        SCOPED_TRACE(text);
+        AssertInputFailureAtAllBoundaries(text, "stod");
+    }
+}
+
+TEST(ScriptInstrumentTest, TestLexicalErrorsOwnSourceContext) { AssertInputFailureAtAllBoundaries("pay PAYS N$", "unexpected character '$'"); }
+
+TEST(ScriptInstrumentTest, TestRemainingInputErrorsOwnMergedContext) {
+    for (const char* text : {"pay PAYS 1e999", "pay PAYS .", "pay PAYS N$"}) {
+        SCOPED_TRACE(text);
+        AssertInputFailureAtAllBoundaries(text, text == String_("pay PAYS N$") ? "unexpected character '$'" : "stod", 1, true);
+    }
+}
+
+TEST(ScriptInstrumentTest, TestLexicalErrorsAfterValidStatementOwnContext) {
+    AssertInputFailureAtAllBoundaries("x = 1 pay PAYS N$", "unexpected character '$'", 1);
+}
+
+TEST(ScriptInstrumentTest, TestLegacyProductKeepsNumericAndLexExceptionTypes) {
+    ASSERT_THROW(LegacyProduct("pay PAYS 1e999"), std::out_of_range);
+    ASSERT_THROW(LegacyProduct("pay PAYS ."), std::invalid_argument);
+    ASSERT_THROW(LegacyProduct("pay PAYS N$"), ScriptError_);
+}
 
 TEST(ScriptInstrumentTest, TestArchiveArrayDepthIsBoundedBeforeParsing) { AssertBoundedArchiveDepth(false); }
 

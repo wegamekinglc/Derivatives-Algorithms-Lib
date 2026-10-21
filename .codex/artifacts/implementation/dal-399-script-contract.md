@@ -314,3 +314,64 @@ paired rate-risk evidence remains applicable without another timing run. No full
 test/benchmark matrix, Windows execution or downstream calibration capability is
 claimed by this local verification. Required CI and the coordinator's focused
 blocker recheck still apply to the pushed head.
+
+## Remaining P2 input-error repairs
+
+Input head: `2adeedf6d880abed3a5336ab52cc2108cdcbddfa`; review comment:
+`01a15cac-59d3-71cd-a953-ed6bb305e8cc`. This follow-up is restricted to numeric
+conversion exceptions, lexical-error context, and directly affected checks.
+The accepted JSON-depth, N^/N*, methodology-index, identity and performance
+evidence above remains applicable.
+
+The new calibration boundary now translates the parser's std::invalid_argument
+and std::out_of_range in addition to legacy DAL exceptions. Other standard
+exception families propagate. ParseContext_ records the failing numeric token
+before rethrowing the original exception; existing Product entry points still
+receive std::out_of_range for 1e999, std::invalid_argument for '.', and ScriptError_
+for N$.
+
+An additive Lex overload records the source location before validating a token.
+When contextual parsing encounters a lexical error, it retains that location and
+probes only the lexically valid prefix to recover the top-level statement ordinal.
+The probe uses a separate parser, cannot mutate the Product, and preserves the
+original lexical exception. Normal successful parsing does not probe prefixes.
+No caller-owned context pointer is retained.
+
+Five focused tests cover 1e999, '.', and N$ through the definition factory,
+portable instrument loader and portable definition loader. Assertions inspect
+copied exceptions after the inputs unwind, including code, stage, exact field,
+source row 5, date 2027-10-21, statement and owned report contents. Same-date
+merged events and a later statement in one row require statement 1. The legacy
+Product characterization asserts the three original exception types.
+
+After a successful test build, the following RED command exits 1 with four
+diagnostic tests failing (unowned stod exceptions or generic /source/rows paths)
+and the legacy characterization passing:
+
+```sh
+./build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter='ScriptInstrumentTest.TestStandardNumericErrorsOwnSourceContext:ScriptInstrumentTest.TestLexicalErrorsOwnSourceContext:ScriptInstrumentTest.TestRemainingInputErrorsOwnMergedContext:ScriptInstrumentTest.TestLexicalErrorsAfterValidStatementOwnContext:ScriptInstrumentTest.TestLegacyProductKeepsNumericAndLexExceptionTypes'
+```
+
+The identical focused command is GREEN after the production change: all five
+tests pass. Directly affected validation also passes:
+
+```sh
+cmake --build build/Release-linux --target dal_cpp_tests -j 12
+./build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter='ScriptLexerTest.*:ScriptTest.TestParse*'
+cmake --build build/warning-clean --target dal_cpp dal_public -j 4
+```
+
+Results: 49 additional lexer/parser tests and GCC 14.3 Debug warning-clean
+core/public libraries. Added/modified functions remain within CCN 8, and modified
+range formatting and diff checks pass. The previous accepted depth/N^/N*/index,
+public compatibility and numerical performance suites are reused rather than
+rerun. No loader format, header/binding semantics, JCS/SHA, quote-risk, product
+archive or financial admission changes are introduced.
+
+Rebuilt `script_perf` completes its frontend/evaluation smoke after compilation.
+The rebuilt `rate_risk_perf` retains the identical local SHA-256
+`a9dfaf72ab416f8223da429447e91fa64754a46ac49ee732e1a31607b4d787c6`.
+The rate-risk executable does not include the changed parser/lexer/calibration
+construction path, preserving the prior paired performance evidence without
+another numerical timing matrix. Current-head CI and the coordinator's limited
+remaining-P2 recheck remain the merge prerequisites.

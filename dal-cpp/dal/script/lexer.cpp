@@ -170,7 +170,9 @@ namespace Dal::Script {
         return result;
     }
 
-    Vector_<Token_> Lex(const String_& str, const Vector_<SourceOrigin_>& origins) {
+    Vector_<Token_> Lex(const String_& str, const Vector_<SourceOrigin_>& origins) { return Lex(str, origins, nullptr); }
+
+    Vector_<Token_> Lex(const String_& str, const Vector_<SourceOrigin_>& origins, SourceLocation_* failureSource) {
         Vector_<Token_> result;
         SourceLocation_ source;
         size_t origin = 0;
@@ -181,6 +183,8 @@ namespace Dal::Script {
             }
             AdvanceSource(str, pos, &source);
             ApplyOrigins(origins, pos, &origin, &source);
+            if (failureSource)
+                *failureSource = source;
             const auto literalEnd = IndexLiteralEnd(str, pos, source);
             if (literalEnd != pos) {
                 result.push_back({source, IndexLiteral_{str.substr(pos, literalEnd - pos)}});
