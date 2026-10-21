@@ -4,8 +4,8 @@ The core headers `dal/script/instrument.hpp` and `dal/calibration/protocol.hpp`
 provide immutable contract data, typed parameter binding and ordered calibration
 observations. `dal/script/calibrationpreparation.hpp` adds structural preparation
 for Deposit and Gaussian BondOption contracts. Existing Product, curve and GSR
-entry points keep their own behavior. These core interfaces do not implement a
-calibration solver.
+entry points keep their own behavior. The separate core Deposit adapter in
+`dal/curve/depositscript.hpp` supports one-node curve fitting with Brent.
 
 A `ScriptInstrumentDefinition_` owns the exact source rows, fixed-date header,
 numeric parameter declarations and measures. Source numeric definitions are the
@@ -69,6 +69,61 @@ timestamps and values, today policy, convention state and smoothing contribute
 to identity. Sampling contributes when MC is selected. Call `RequireCompatible`
 with the current instrument and context before reusing a prepared artifact;
 changes require preparation again. No shared descriptor cache is maintained.
+
+## Native Deposit import and candidate curves
+
+`NewDepositScriptInstrument` imports a native `Deposit_` once. Import settings
+require an instrument ID, currency and explicit discount route. Positive lender
+notional defaults to one because the native Deposit has no notional or payment
+direction. The exporter resolves the native adjusted start/end and day-count
+context once, then writes N, K, fixed ALPHA and concrete principal/redemption
+PAYS into the definition. K is the native MarketRate at import. Later quotes
+are independent; an explicit K=q update creates a new binding.
+
+The import requires trade=start=valuation and an adjusted start equal to that
+date. Forecast must equal discount under OIS collateral. Projection curves,
+spot starts, other collateral and reversed payment direction are outside this
+template. Native date adjustment at maturity is supported; both executors use
+the exported date and accrual. Native interfaces retain their broader existing
+conventions.
+
+`PreparedDepositCurve_` derives its descriptor and coefficient views through
+the shared preparation API. It caches ACT/365F log-linear weights for a fixed,
+anchored `GSRCurveData_` node layout covering maturity. Each `Evaluate` refreshes
+discounts, Price(K), A/B, ParRate and analytic raw log-DF node derivatives;
+the rate value reuses `Tape::ForwardRateFromDf` with the source accrual. No
+candidate rebuilds a schedule or reads a native product. Candidate identity
+includes the original plan and new curve content. Date/layout/currency changes,
+projection rows, smoothing or other convention states require a new plan or
+fail admission. Prepare this deterministic adapter without a model.
+
+```cpp
+const auto instrument = Dal::NewDepositScriptInstrument(
+    nativeDeposit, {"deposit-1y", Dal::Ccy_("USD"), "USD.OIS", 100.0});
+const Dal::PreparedDepositCurve_ plan(instrument, curveContext);
+const auto quote = Dal::NewCalibrationMarketQuote(
+    "deposit-rate", 0.035, Dal::CalibrationValueUnit_::Parse("Rate"));
+const auto observation = Dal::NewCalibrationObservation(
+    "deposit-fit", instrument, "ParRate", quote, 1e-10);
+const auto fit = Dal::FitDepositCurveNode(
+    plan, observation, curveContext.curve_, 1, -0.1, 0.05, 64);
+```
+
+The fit changes one non-anchor log-DF coordinate; other nodes stay fixed. It
+uses a ParRate observation for exactly the prepared binding, and accepts only
+`abs(rawResidual/errorScale)<1` inside the explicit bracket/evaluation budget.
+The result retains the curve, raw/scaled residuals, native partials, evaluation
+count and shared observation/quote axes. Unbracketed roots and exhausted budgets
+throw owning Solve reports with the last validated curve. This is a narrow
+scalar adapter, with no general basket, approximate objective or quote-risk API.
+
+To reprice, construct a matching Gaussian model directly from `fit.curve_` and
+pass the original instrument to `PrepareCalibrationMc`. The original coupon
+usually gives nonzero PV at the fitted curve. Price and ParRate validation use
+their own amount/rate scales. Same binding, currency, discount route, ACT/365F
+time, log-linear interpolation and native Gaussian numeraire are required;
+other curve parameterizations need an explicit snapshot Jacobian. Zero-g
+agreement is only an additional deterministic check in this matched domain.
 
 ## Affine observables and methods
 
