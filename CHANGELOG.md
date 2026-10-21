@@ -16,6 +16,14 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-10-21
+
+- **Core script calibration contracts** — added immutable versioned script
+  definitions and typed N/K bindings, quote/observation axes and structured
+  failures, plus strict portable JSON and DAL archive round trips. Raw Product
+  archives and legacy calibration APIs retain their behavior. See the
+  [contract guide](docs/methodology/script_calibration_contract.md).
+
 ## 2026-10-19
 
 - **Constrained market IV surfaces** — added owning C++/Python/Excel fitting

@@ -142,10 +142,12 @@ namespace Dal::Script {
 
     public:
         ScriptProduct_(const Vector_<Cell_>& dates, const Vector_<String_>& events, String_ payoff = "")
+            : ScriptProduct_(dates, events, std::move(payoff), {}) {}
+
+        ScriptProduct_(const Vector_<Cell_>& dates, const Vector_<String_>& events, String_ payoff, const std::map<String_, double>& constantBindings)
             : payoff_(std::move(payoff)), payoffIdx_(-1) {
             REQUIRE2(dates.size() == events.size(), "dates size is not equal to events size", ScriptError_);
-            auto dateEvents = Zip(dates, events);
-            ParseEvents(dateEvents);
+            ParseEvents(Zip(dates, events), constantBindings);
         }
 
         [[nodiscard]] const Vector_<Date_>& PastEventDates() const { return pastEventDates_; }
@@ -200,6 +202,7 @@ namespace Dal::Script {
         }
 
         void ParseEvents(const Vector_<std::pair<Cell_, String_>>& events);
+        void ParseEvents(const Vector_<std::pair<Cell_, String_>>& events, const std::map<String_, double>& constantBindings);
         void PartitionEvents(const Date_& evaluationDate);
         void RequireExecutable() const {
             RequirePreparedFixings();

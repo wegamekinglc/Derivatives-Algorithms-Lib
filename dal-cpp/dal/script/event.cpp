@@ -57,11 +57,19 @@ namespace Dal::Script {
         }
     } // namespace
 
-    void ScriptProduct_::ParseEvents(const Vector_<std::pair<Cell_, String_>>& events) {
+    void ScriptProduct_::ParseEvents(const Vector_<std::pair<Cell_, String_>>& events) { ParseEvents(events, {}); }
+
+    void ScriptProduct_::ParseEvents(const Vector_<std::pair<Cell_, String_>>& events, const std::map<String_, double>& constantBindings) {
         REQUIRE2(!evaluationDate_, "cannot append events after preparation has partitioned the product", ScriptError_);
         // 1. Definition front-end: resolve macros, const variables and schedules.
         Preprocessor_ preprocessor;
         auto preprocessed = preprocessor.Process(events);
+        for (const auto& binding : constantBindings) {
+            const auto slot = preprocessed.constVariables_.find(binding.first);
+            REQUIRE2(slot != preprocessed.constVariables_.end() && std::isfinite(binding.second),
+                     "InvalidConstantBinding: expected an existing numeric definition; parameter=" + binding.first, ScriptError_);
+            slot->second = binding.second;
+        }
 
         // 2. Payoff back-end: parse the resolved event descriptions into AST.
         Parser_ parser(preprocessed.constVariables_, preprocessed.numericVectors_);
