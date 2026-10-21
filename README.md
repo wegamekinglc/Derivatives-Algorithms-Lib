@@ -33,7 +33,7 @@ Benchmark failures do not block pull-request or push CI.
 |----------------------------|----------|------------|
 | Ubuntu (`ubuntu-latest`)   | GCC 13   | ✓          |
 | Ubuntu (`ubuntu-latest`)   | GCC 14   | ✓          |
-| Ubuntu (`ubuntu-latest`)   | GCC 15   | ✓          |
+| Ubuntu (`ubuntu-26.04`)    | GCC 15   | ✓          |
 | Ubuntu (`ubuntu-latest`)   | Clang 18 | ✓          |
 | Ubuntu (`ubuntu-latest`)   | Clang 19 | ✓          |
 | Ubuntu (`ubuntu-latest`)   | Clang 20 | ✓          |
