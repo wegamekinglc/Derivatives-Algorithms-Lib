@@ -71,7 +71,6 @@ namespace Dal {
                                                 const ScriptValuationSettings_& valuation,
                                                 const MonteCarloSettings_& simulation = MonteCarloSettings_());
 
-    //  compiled: opt into the script flat-stream evaluator.
     std::map<String_, double> ValueByMonteCarlo(const Handle_<ScriptProductData_>& product,
                                                 const Handle_<ModelData_>& modelData,
                                                 int numPath,

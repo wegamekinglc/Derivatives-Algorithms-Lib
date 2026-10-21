@@ -589,7 +589,7 @@ count. The required `settings` argument is `ScriptValuationSettings_`;
 the remaining simulation, snapshot, and contract arguments are optional.
 `MonteCarloSettings_` defaults to Sobol, no Brownian
 bridge, no AAD, smoothing width `0.01`, and `compiled_=true`.
-Set `simulation.compiled_ = true` to use compiled exact-double execution.
+Set `simulation.compiled_ = false` to use tree-walk exact-double execution.
 `SimResults_::aggregated_` is the sum of path payoffs; divide by `nPaths` for PV.
 
 This entry creates the model and calls
