@@ -18,6 +18,12 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-21
 
+- **Same-source Deposit curve fitting** — added a one-time native Deposit
+  exporter, fixed-layout log-linear candidate values/derivatives and a bounded
+  one-node Brent adapter. Fixed contract coupons remain independent of market
+  quotes, and the fitted curve reprices the original script through the shared
+  MC bridge. See the [Deposit guide](docs/methodology/script_calibration_contract.md#native-deposit-import-and-candidate-curves).
+
 - **Same-instrument script Monte Carlo** — added a core Deposit/Gaussian
   BondOption repricing bridge with reproducible disjoint pseudorandom batches,
   hard tree/compiled AAD, raw native Jacobians, pooled affine estimates and
