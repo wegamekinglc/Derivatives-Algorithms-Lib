@@ -8,6 +8,10 @@ current-state explanations in the published docs or focused Codex references.
 
 ## Current Artifacts
 
+- [DAL-401 bounded script Monte Carlo](implementation/dal-401-script-mc.md)
+  — Active core bridge design, frozen statistical conditions and scoped
+  verification for same-definition Deposit/Gaussian BondOption repricing.
+
 - [DAL-398 script contract and calibration API v1](api-notes/dal-398-script-contract.md)
   — Active definition/header/binding schema, persistence, public error/report contracts
   and C++/Python/Excel mappings for the DAL-396 implementation chain. P0 admission is

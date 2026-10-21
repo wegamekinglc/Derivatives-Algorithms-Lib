@@ -100,13 +100,69 @@ analytic coefficient partials. Gaussian descriptor admission supports native
 finite differences or no derivatives; requesting AAD fails rather than changing
 the derivative method.
 
-`ScriptMC` preparation requires explicit calibration opt-in, Price, a matching
-Gaussian context and explicit `irn` sampling with at least two paths and a
-nonnegative seed. Its admitted derivative method is None. This is contract and
-request admission: this module does not generate paths, estimate sampling errors
-or expose a new MC repricing endpoint. Unknown scripts never switch silently to
-MC. Solver integration, MC equivalence validation and other product families are
-outside these preparation capabilities.
+`ScriptMC` admission requires explicit calibration opt-in, a matching Gaussian
+context and explicit sampling. Existing `irn` Price admission retains derivative
+None. Executable `mrg32` admission also supports Deposit ParRate and native AAD.
+Unknown scripts never switch silently to MC.
+
+## Same-instrument Monte Carlo
+
+`dal/script/calibrationmc.hpp` provides `PrepareCalibrationMc` and its immutable
+plan's `Evaluate(instrument, context, validation)` method. Callers pass the
+original instrument and context; the wrapper derives its own disposable bound
+script. It repeats identity checks before execution. K/N rebinding requires a
+new plan and leaves previous plans unchanged. This core bridge adds no solver
+or public/Python/Excel entry point.
+
+Settings require explicit opt-in, fit/validation batch counts, paths per batch
+and a maximum path budget per coefficient view. Both groups need at least two
+batches of at least two paths; validation uses more paths than fit. Counts are
+bounded by the protocol's exact integer range. The wrapper reserves one MRG32
+stream with a nonnegative seed: fit starts at normal-path zero, validation
+starts after the entire fit range, and batches occupy disjoint intervals.
+`Mapping()` records stream version, seed, ACT/365 timeline, sample/factor normal
+coordinates, native Gaussian numeraire, Precise normals and no Brownian bridge.
+CRN reuse requires this mapping; a matching seed across products proves no
+shared economic Brownian path. Sobol/RQMC error estimates are unsupported.
+
+Tree and compiled execution use the same hard payoff, including native AAD.
+Nonzero context smoothing is rejected. Option AAD requires a nondegenerate
+Gaussian distribution; selected zero-g boundaries require a separate one-sided
+method and return `DerivativeUnavailable`. Requested native labels match bytes
+exactly and must occur once. `CalibrationMcGLabels` maps existing factor/knot
+coordinates using the model's original factor names and knot dates. Missing,
+duplicate or incorrectly cased labels fail with owning diagnostics.
+
+Price results expose batch means, gradient batch means, their separate standard
+errors and raw `quoteJacobian_(0,j)` in the requested native coordinates. Risks
+are already path-normalized. Optional retained path values/partials support
+diagnostics. Each evaluation creates its own model, evaluator and recording
+scope; active values are never cached across calls or shared across threads.
+
+Deposit affine views lower the proven payment RHSs to A and B and execute both
+on the same normal paths. The estimate is `-mean(B)/mean(A)` and the derivative
+uses the full quotient rule on pooled coefficient partials. The result exposes
+paired sample covariance in the order B, A, dB0, dA0, dB1, dA1, etc. Value and
+gradient uncertainties use the delta method with covariance of means equal to
+sample covariance divided by batch count. The annuity's direction and lower
+confidence magnitude must exceed the declared minimum. Affine batches retain
+coefficients rather than per-batch ratios; retained path quote ratios are not
+produced. `engineRuns_` counts logical batch/view executions (twice the batch
+count for affine), with model initialization shared across batches. Tape node
+and retained-capacity high water marks are reported separately.
+
+`ValidateCalibrationMc` compares independent fit/validation results, or a
+caller-supplied independent reference with numerical/FD indicators. The paired
+overload checks instrument, measure, context, exact parameter axes and disjoint
+stream ranges, and rechecks both affine denominators at the requested validation
+sigma. Freeze value scale, sigma, numerical-error fraction, parameter
+scales and numerical floors before sampling. Value parity, precision and total
+error indicators must all pass; every requested gradient must satisfy its own
+parity and precision tests. Floors must lie below their budgets. Failure returns
+`numericalValidationPassed_=false` and an owning Validate report; invalid
+requests or execution failures throw `CalibrationError_`. Exceeding the declared
+path budget fails explicitly. No adaptive scale enlargement or retry is applied.
+SEs, FD refinement and affine ratio errors are estimates, not strict bounds.
 
 Quote units are exact: Rate and BasisSpread are decimal quantities, Price:USD is
 an amount for the bound contract, and FxOutright:EUR/USD is USD per EUR. Currency

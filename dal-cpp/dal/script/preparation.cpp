@@ -582,8 +582,8 @@ namespace Dal::Script {
             AdmitBeforeHistory(result, product, beforeHistory);
         }
 
-        template <class F_>
-        static auto Prepare(const ScriptProductData_& data,
+        template <class P_, class F_>
+        static auto Prepare(P_&& data,
                             const ScriptValuationSettings_& valuation,
                             const Handle_<MarketFixingSnapshot_>& snapshot,
                             AAD::Model_<double>* model,
@@ -676,6 +676,22 @@ namespace Dal::Script {
     }
 
     namespace Detail {
+        PreparedScript_ PrepareBoundScript(std::unique_ptr<ScriptProduct_> product,
+                                           AAD::Model_<double>* model,
+                                           const ScriptValuationSettings_& settings,
+                                           const MonteCarloSettings_& simulation,
+                                           const ScriptProductSettings_& contract) {
+            REQUIRE2(product && model, "InvalidPreparationPlan: bound product and model are required", ScriptError_);
+            struct BoundInput_ {
+                std::unique_ptr<ScriptProduct_> product_;
+                ScriptProductSettings_ settings_;
+                const ScriptProductSettings_& Settings() const { return settings_; }
+                ScriptProduct_ Product() { return std::move(*product_); }
+            };
+            return PreparedScriptBuilder_::Prepare(BoundInput_{std::move(product), contract}, settings, {}, model, simulation, {},
+                                                   PreparedScriptBuilder_::NoAdmission_{});
+        }
+
         PreparedScript_ PrepareScriptForSegmentation(const ScriptProductData_& data,
                                                      AAD::Model_<double>* model,
                                                      const ScriptValuationSettings_& settings,
