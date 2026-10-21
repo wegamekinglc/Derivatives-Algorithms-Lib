@@ -4,10 +4,11 @@
 import argparse
 import json
 import os
-from pathlib import Path
 import shutil
-import subprocess
+import subprocess  # nosec B404
+from pathlib import Path
 
+from dal_benchmarks.harness import require
 from dal_comparisons.infine import (
     ASSEMBLY,
     BUILD_SCHEMA,
@@ -19,11 +20,15 @@ from dal_comparisons.infine import (
     binary_files,
     sha256,
 )
-from dal_benchmarks.harness import require
 
 
 def git(source, *args):
-    return subprocess.check_output(["git", "-C", str(source), *args], text=True).strip()
+    executable = shutil.which("git")
+    require(executable is not None, "git executable missing")
+    # Resolved Git executable, fixed commands and literal paths; no shell.
+    return subprocess.check_output(  # nosec B603  # nosemgrep
+        [executable, "-C", str(source), *args], text=True
+    ).strip()
 
 
 def verify_source(source):
@@ -36,19 +41,22 @@ def verify_source(source):
     )
 
 
-def runtime_files(dotnet):
-    lines = subprocess.check_output(
-        [str(dotnet), "--list-runtimes"], text=True
-    ).splitlines()
-    entries = [line.split(maxsplit=2) for line in lines]
-    candidates = [
-        entry
-        for entry in entries
-        if len(entry) == 3
+def is_stable_runtime(entry):
+    return (
+        len(entry) == 3
         and entry[0] == "Microsoft.NETCore.App"
         and entry[1].startswith("8.")
         and all(part.isdigit() for part in entry[1].split("."))
-    ]
+    )
+
+
+def runtime_files(dotnet):
+    # dotnet is resolved by the caller; arguments are fixed and never use a shell.
+    lines = subprocess.check_output(  # nosec B603  # nosemgrep
+        [str(dotnet), "--list-runtimes"], text=True
+    ).splitlines()
+    entries = [line.split(maxsplit=2) for line in lines]
+    candidates = [entry for entry in entries if is_stable_runtime(entry)]
     require(bool(candidates), "InFine requires the .NET 8 runtime")
     _, version, parent = max(
         candidates, key=lambda fields: tuple(map(int, fields[1].split(".")))
@@ -94,7 +102,8 @@ def main(argv=None):
         f"-p:QflSource={source}",
     ]
     with (output / "build.log").open("w", encoding="utf-8") as log:
-        subprocess.run(
+        # Only the resolved SDK, repository project and literal paths are invoked.
+        subprocess.run(  # nosec B603  # nosemgrep
             command,
             shell=False,
             check=True,
@@ -113,7 +122,7 @@ def main(argv=None):
         "revision": REVISION,
         "configuration": "Release",
         "dotnet": str(dotnet),
-        "sdk": subprocess.check_output(
+        "sdk": subprocess.check_output(  # nosec B603  # nosemgrep
             [str(dotnet), "--version"], cwd=output, text=True
         ).strip(),
         "runtime": runtime,

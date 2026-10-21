@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 
+// Suppressions below cover value-type parameters, which cannot be null.
 namespace Dal.Infine.Benchmarks;
 
 internal static class Program
@@ -9,6 +10,10 @@ internal static class Program
     {
         try
         {
+            if (args == null)
+            {
+                throw new ArgumentNullException(nameof(args));
+            }
             Run(args);
             return 0;
         }
@@ -39,13 +44,19 @@ internal static class Program
                 : operation.StartsWith("gsr_", StringComparison.Ordinal)
                     ? Gsr.Prepare(input.GetProperty("gsr"), workload)
                     : Rates.Prepare(input.GetProperty("rates"), fixture);
-            for (int i = 0; i < 3; i++) Check(fixture, run());
+            for (int i = 0; i < 3; i++)
+            {
+                Check(fixture, run());
+            }
             long start = Stopwatch.GetTimestamp();
             double[] values = run();
             long stop = Stopwatch.GetTimestamp();
             Check(fixture, values);
             long duration = checked((long)Math.Round((stop - start) * 1e9 / Stopwatch.Frequency));
-            if (duration <= 0) throw new InvalidOperationException("Nonpositive native timing");
+            if (duration <= 0)
+            {
+                throw new InvalidOperationException("Nonpositive native timing");
+            }
             results.Add(new { name, workload, status = "passed", values,
                 samples_ns = new[] { duration }, method = fixture.GetProperty("method").GetString() });
         }
@@ -56,17 +67,27 @@ internal static class Program
 
     private static void Check(JsonElement fixture, double[] values)
     {
-        double[] reference = Numbers(fixture.GetProperty("reference"));
-        double[] tolerance = Numbers(fixture.GetProperty("tolerance"));
+        if (values == null)
+        {
+            throw new ArgumentNullException(nameof(values));
+        }
+        double[] reference = Numbers(fixture.GetProperty("reference")); // nosemgrep: codacy.csharp.security.null-dereference
+        double[] tolerance = Numbers(fixture.GetProperty("tolerance")); // nosemgrep: codacy.csharp.security.null-dereference
         if (values.Length != reference.Length || values.Length != tolerance.Length)
+        {
             throw new InvalidOperationException("Comparison output/tolerance width mismatch");
+        }
         for (int i = 0; i < values.Length; i++)
+        {
             if (!double.IsFinite(values[i]) || Math.Abs(values[i] - reference[i]) >
                     Math.Max(tolerance[i], 1e-10 * Math.Max(Math.Abs(values[i]), Math.Abs(reference[i]))))
-                throw new InvalidOperationException($"{fixture.GetProperty("workload").GetProperty("name")}[{i}]: {values[i]:R} != {reference[i]:R}");
+            {
+                throw new InvalidOperationException($"{fixture.GetProperty("workload").GetProperty("name")}[{i}]: {values[i]:R} != {reference[i]:R}"); // nosemgrep: codacy.csharp.security.null-dereference
+            }
+        }
     }
 
-    internal static double[] Numbers(JsonElement values) => values.EnumerateArray().Select(x => x.GetDouble()).ToArray();
-    internal static DateOnly Date(JsonElement value) => DateOnly.Parse(value.GetString()![..10], System.Globalization.CultureInfo.InvariantCulture);
-    internal static DateOnly[] Dates(JsonElement values) => values.EnumerateArray().Select(Date).ToArray();
+    internal static double[] Numbers(JsonElement values) => values.EnumerateArray().Select(x => x.GetDouble()).ToArray(); // nosemgrep: codacy.csharp.security.null-dereference
+    internal static DateOnly Date(JsonElement value) => DateOnly.Parse(value.GetString()![..10], System.Globalization.CultureInfo.InvariantCulture); // nosemgrep: codacy.csharp.security.null-dereference
+    internal static DateOnly[] Dates(JsonElement values) => values.EnumerateArray().Select(Date).ToArray(); // nosemgrep: codacy.csharp.security.null-dereference
 }

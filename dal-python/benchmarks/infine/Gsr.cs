@@ -4,20 +4,24 @@ using InFine.QuantFinance.Market;
 using InFine.QuantFinance.Models.Diffusion;
 using InFine.QuantFinance.Random.QuasiRandom;
 
+// Suppressions below cover value-type parameters, which cannot be null.
 namespace Dal.Infine.Benchmarks;
 
 internal static class Gsr
 {
     internal static Func<double[]> Prepare(JsonElement market, JsonElement workload)
     {
-        string operation = workload.GetProperty("operation").GetString()!;
-        int size = workload.GetProperty("size").GetInt32();
-        var today = Program.Date(market.GetProperty("today"));
-        var expiryDate = Program.Date(market.GetProperty("expiry"));
-        var maturityDate = Program.Date(market.GetProperty("maturity"));
-        double rate = market.GetProperty("rate").GetDouble(), strike = market.GetProperty("strike").GetDouble();
-        double vol = market.GetProperty("vol").GetDouble(), a = market.GetProperty("mean_reversion").GetDouble();
-        if (a != 0) throw new InvalidOperationException("GSR comparison requires exactly zero mean reversion");
+        string operation = workload.GetProperty("operation").GetString()!; // nosemgrep: codacy.csharp.security.null-dereference
+        int size = workload.GetProperty("size").GetInt32(); // nosemgrep: codacy.csharp.security.null-dereference
+        var today = Program.Date(market.GetProperty("today")); // nosemgrep: codacy.csharp.security.null-dereference
+        var expiryDate = Program.Date(market.GetProperty("expiry")); // nosemgrep: codacy.csharp.security.null-dereference
+        var maturityDate = Program.Date(market.GetProperty("maturity")); // nosemgrep: codacy.csharp.security.null-dereference
+        double rate = market.GetProperty("rate").GetDouble(), strike = market.GetProperty("strike").GetDouble(); // nosemgrep: codacy.csharp.security.null-dereference
+        double vol = market.GetProperty("vol").GetDouble(), a = market.GetProperty("mean_reversion").GetDouble(); // nosemgrep: codacy.csharp.security.null-dereference
+        if (!a.Equals(0.0))
+        {
+            throw new InvalidOperationException("GSR comparison requires exactly zero mean reversion");
+        }
         if (operation is "gsr_swap_reused" or "gsr_swap_fresh")
         {
             var conventions = new SwapConventions(WeekendsOnlyCalendar.Instance, 0, BusinessDayConvention.Unadjusted,
@@ -28,9 +32,9 @@ internal static class Gsr
             return operation == "gsr_swap_reused" ? () => Rates.Prices(swaps, curve)
                 : () => Enumerable.Range(0, size).Select(_ => Make().Npv(curve)).ToArray();
         }
-        double Time(DateOnly date) => (date.DayNumber - today.DayNumber) / 365.0;
+        double Time(DateOnly date) => (date.DayNumber - today.DayNumber) / 365.0; // nosemgrep: codacy.csharp.security.null-dereference
         double expiry = Time(expiryDate);
-        var times = new[] { Time(Program.Date(market.GetProperty("first_coupon"))), Time(maturityDate) };
+        var times = new[] { Time(Program.Date(market.GetProperty("first_coupon"))), Time(maturityDate) }; // nosemgrep: codacy.csharp.security.null-dereference
         var dfs = times.Select(t => Math.Exp(-rate * t)).ToArray();
         var accruals = new[] { .5, .5 };
         double dfExpiry = Math.Exp(-rate * expiry);
@@ -40,8 +44,13 @@ internal static class Gsr
         double[] Run()
         {
             if (operation == "gsr_swaption_gaussian1d")
+            {
                 return new[] { HullWhiteKernels.Swaption(1, a, vol, expiry, dfExpiry, 2, times, dfs, accruals, strike) };
-            if (operation != "gsr_swaption_mc") throw new InvalidOperationException("Unmapped GSR operation: " + operation);
+            }
+            if (operation != "gsr_swaption_mc")
+            {
+                throw new InvalidOperationException("Unmapped GSR operation: " + operation);
+            }
             var generator = new SobolGenerator(2);
             var z = new double[2];
             double sum = 0;

@@ -3,8 +3,8 @@
 import hashlib
 import json
 import os
+import subprocess  # nosec B404
 from pathlib import Path
-import subprocess
 
 from dal_benchmarks.harness import require
 
@@ -46,25 +46,22 @@ def unsupported_reason(case):
 
 def method(case):
     op = case["operation"]
-    if op == "node_dv01":
-        return "central finite difference (42 prepared curves, 0.01bp zero-rate step)"
-    if op == "dv01":
-        return "central finite difference"
-    if op == "mc_greeks" and case["kind"] == "vanilla":
-        return "Sobol + native hand-written reverse adjoint (sequential C#)"
     if op == "mc_greeks":
-        return "Sobol + central differences, common random numbers (sequential C#)"
-    if op == "mc_price":
-        return "Sobol Monte Carlo (sequential C#)"
-    if op == "gsr_swaption_mc":
-        return "a=0 native HullWhiteStep state/integral and bond kernels, Sobol MC (sequential C#)"
-    if op == "gsr_swaption_gaussian1d":
-        return "a=0 native Jamshidian analytic swaption; no 128-point integration or Monte Carlo"
-    if op == "calibration":
-        return "native Brent log-linear bootstrap, tolerance 1e-12; staged two-curve ParRate wrapper"
-    if op in ("prepared_pv", "gsr_swap_reused"):
-        return "passive, native prepared swaps (direct C#)"
-    return "passive (direct C#)"
+        return (
+            "Sobol + native hand-written reverse adjoint (sequential C#)"
+            if case["kind"] == "vanilla"
+            else "Sobol + central differences, common random numbers (sequential C#)"
+        )
+    return {
+        "node_dv01": "central finite difference (42 prepared curves, 0.01bp zero-rate step)",
+        "dv01": "central finite difference",
+        "mc_price": "Sobol Monte Carlo (sequential C#)",
+        "gsr_swaption_mc": "a=0 native HullWhiteStep state/integral and bond kernels, Sobol MC (sequential C#)",
+        "gsr_swaption_gaussian1d": "a=0 native Jamshidian analytic swaption; no 128-point integration or Monte Carlo",
+        "calibration": "native Brent log-linear bootstrap, tolerance 1e-12; staged two-curve ParRate wrapper",
+        "prepared_pv": "passive, native prepared swaps (direct C#)",
+        "gsr_swap_reused": "passive, native prepared swaps (direct C#)",
+    }.get(op, "passive (direct C#)")
 
 
 def fixtures(smoke):
@@ -74,7 +71,7 @@ def fixtures(smoke):
     rows = []
     for case in scenarios.cases(smoke):
         reason = unsupported_reason(case)
-        row = dict(workload=case)
+        row = {"workload": case}
         if reason:
             row["unsupported"] = reason
         else:
@@ -206,7 +203,8 @@ def measure_cases(args):
         str(output),
     ]
     with (args.output_dir / "infine-native.log").open("w", encoding="utf-8") as log:
-        subprocess.run(
+        # The executable and payload come from the validated local build/fixtures.
+        subprocess.run(  # nosec B603  # nosemgrep
             command,
             shell=False,
             check=True,
