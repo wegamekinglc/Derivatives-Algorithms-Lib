@@ -22,13 +22,19 @@ namespace Dal {
         Check(descriptor->maturity_ <= context.curve_->nodeDates_.back(), "UnsupportedFastEvaluator", "/source/rows",
               "bond maturity within the frozen curve", "", d);
         const BondOption_ option{descriptor->expiry_, descriptor->maturity_, descriptor->strike_, OptionType_(descriptor->call_ ? "CALL" : "PUT")};
-        auto result = typeid(*context.model_) == typeid(MultiFactorGSRModelData_)
-                          ? PriceGSREuropeanOption(static_cast<const MultiFactorGSRModelData_&>(*context.model_), option)
-                          : PriceGSREuropeanOption(static_cast<const GSRModelData_&>(*context.model_), option);
-        result.price_ *= descriptor->notional_;
-        result.numericalError_ *= descriptor->notional_;
-        Check(std::isfinite(result.price_), "CalibrationNumericalFailure", "/price", "finite contract amount", "", d);
-        return result;
+        try {
+            auto result = typeid(*context.model_) == typeid(MultiFactorGSRModelData_)
+                              ? PriceGSREuropeanOption(static_cast<const MultiFactorGSRModelData_&>(*context.model_), option)
+                              : PriceGSREuropeanOption(static_cast<const GSRModelData_&>(*context.model_), option);
+            result.price_ *= descriptor->notional_;
+            result.numericalError_ *= descriptor->notional_;
+            Check(std::isfinite(result.price_), "CalibrationNumericalFailure", "/price", "finite contract amount", "", d);
+            return result;
+        } catch (const CalibrationError_&) {
+            throw;
+        } catch (const Exception_& error) {
+            Fail("CalibrationNumericalFailure", "/price", "finite, resolvable Gaussian option Price", String_(error.what()), d);
+        }
     }
 
     Handle_<CalibrationInstrument_> NewBondOptionScriptInstrument(const BondOption_& option, const BondOptionScriptImportSettings_& settings) {

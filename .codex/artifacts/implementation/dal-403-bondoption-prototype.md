@@ -279,3 +279,104 @@ caplet/swaption, SLV or quote-risk capability follows from this prototype.
 Add `implementation/dal-403-bondoption-prototype.md` as the active Gaussian
 BondOption prototype implementation/validation record. No new user guide,
 renamed document or docs/CLAUDE index entry is needed for this guide extension.
+
+## Focused P2 raw-partial and Price-boundary repair
+
+Input head: `37bdb17599d1f11bc03e893bf68c47e23eccea5f`, existing PR #611
+and branch `agent/dal-implementer/4a63910df848`. The two review findings are
+confined to the new model-owned adapters. DAL-398 section 9 controls owning
+diagnostics. The existing Gaussian kernel, optimizer, shared interfaces,
+source/binding identities and frozen numerical/statistical settings are unchanged.
+This repair does not integrate the shared-document drafts above; serial write
+ownership and documentation acceptance remain separate merge requirements.
+
+### Design and behavior
+
+Raw Jacobian restoration no longer forms ErrorScale/parameterScale first.
+A private adapter helper splits the normalized partial and both finite positive
+scales with frexp, combines their bounded mantissas and restores the combined
+binary exponent with ldexp. This avoids intermediate ratio/product overflow or
+underflow when the resulting native partial is representable. Every published
+row/column is checked. Nonfinite input/output or loss of a nonzero partial to
+zero raises CalibrationNumericalFailure, rather than publishing an available
+nonfinite Jacobian. The Solve diagnostic identifies the exact /quote_jacobian
+row/column, native parameter label, instrument, measure, observation and quote;
+the existing boundary retains owning report/axes. FD steps, bounds, optimizer
+metrics/rank conventions, zero-g unavailable semantics and numerical scales are
+not changed. This is unit restoration of the existing FD result, not a new
+analytic derivative or stronger floating-point accuracy guarantee.
+
+The independent PriceGaussianBondOption entry catches native Exception_ only
+at its new Gaussian evaluation boundary. It emits an owning Evaluate-stage
+CalibrationNumericalFailure at /price, retaining original what() text in actual
+and message plus instrument/measure IDs. Existing CalibrationError diagnostics
+are rethrown intact. Admission and compatibility checks remain in place; native
+PriceGSREuropeanOption calls keep their original exception behavior.
+
+### RED/GREEN and directly affected verification
+
+Four new regressions were written before their repairs and failed as expected:
+
+- The review's g=.02, exact fast target, default settings and errorScale=1e308
+  returned an infinite raw Jacobian. The repaired value is 33.132851047086234,
+  versus 33.132851047130465 at scale 1e-6 (difference below 1e-7). The large
+  scale is an input-boundary test only, not a change to frozen acceptance.
+- Two selected g knots and ordinary/large-scale observations sharing one quote
+  reproduce the defect beyond the first row/column. All four repaired native
+  partials agree with the ordinary-scale reference within 1e-7.
+- A finite-Price long-maturity/N=1e308 case whose native derivative is genuinely
+  unrepresentable previously published infinity. It now throws the owning
+  Solve failure with /quote_jacobian/0/0 and complete observation/quote axes.
+- Finite g=1e200 passed preparation and leaked InvalidCovariance from the native
+  kernel. The new standalone Price error has owning Evaluate report and exact
+  cause after input unwind. Both native one-factor and multi-factor entry
+  points are checked to retain their original bare exception on the same input.
+
+The three Jacobian tests went from 0/3 to 3/3; the Price test went from a leaked
+exception to passing both model cases. Focused executables compile committed
+test sources and link the freshly rebuilt Release core/gtest archives:
+
+```sh
+cmake --build build/Release-linux --target dal_cpp -j 12
+g++-15 -O3 -DNDEBUG -std=c++17 -ffp-contract=fast -I dal-cpp -I dal-cpp/externals/rapidjson/include -isystem dal-cpp/externals/googletest/googletest/include -c dal-cpp/tests/model/test_gsr_bondoption_script.cpp -o build/Release-linux/dal403_repair_test.o
+g++-15 -O3 -DNDEBUG -std=c++17 -ffp-contract=fast -I dal-cpp -isystem dal-cpp/externals/googletest/googletest/include -c dal-cpp/tests/model/test_gsr_european.cpp -o build/Release-linux/dal403_repair_legacy_test.o
+g++-15 -O3 -DNDEBUG -std=c++17 -ffp-contract=fast -I dal-cpp -isystem dal-cpp/externals/googletest/googletest/include -c dal-cpp/tests/test_main.cpp -o build/Release-linux/dal403_repair_main.o
+g++-15 -O3 -DNDEBUG -ffp-contract=fast build/Release-linux/dal403_repair_main.o build/Release-linux/dal403_repair_test.o build/Release-linux/dal403_repair_legacy_test.o build/Release-linux/dal-cpp/libdal_cpp.a build/Release-linux/lib/libgtest.a -pthread -o build/Release-linux/dal403_repair_tests
+```
+
+Final selection passes 15/15: the four new regressions, ordinary descriptor Price
+and calibration, owned solver overflow, plan invalidation, one-factor pricing,
+bounds/prior/smoothing/selected-knot behavior, zero-boundary unavailable Jacobian,
+and three existing native Gaussian Price/invalid-input/degeneracy tests. The full
+filter is retained in the attached final log/XML and repair manifest. Both
+production TUs pass GCC 14.3 syntax-only Werror with the existing CI warning
+categories/exclusions. Modified-range formatting, CCN <=8, diff and changed-record
+documentation checks pass. No frozen test or acceptance threshold is weakened.
+
+The original 135-core/16-public and frozen MC evidence in attachment
+`01a15e33-32e1-7345-bd84-c27ea56e5e82` is reused within its source scope, not
+reported as a new execution. Its record and four source digests match the input
+Git blobs. This repair changes only the two adapter TUs, their dedicated tests
+and this record; no shared kernel/MC/statistics, header, dependency or build
+configuration changes. No complete product/statistics matrix or local Windows
+run is repeated. The PR remains draft pending serial shared documentation,
+two-blocker review and exact-head CI.
+
+### Scoped performance and normal-result provenance
+
+Only compatible fast Price and one/two-row fit callers are affected. The original
+probe retains CPU 0, one warmup, ten measured rounds, 100 Price calls and ten
+fits per round; unchanged preparation and all MC timing cases are excluded.
+Input-source objects from the exact reviewed head override the two adapters in
+the baseline executable; repaired and baseline probes link the same current
+archive and probe object. This is not an input-head archive identity claim.
+
+All warmup/measured one/two-row outputs match exactly: fitted g
+0.020000000000000108, raw derivative 33.132851048462733, Price
+0.38203940125753538, 20/40 fast calls and checksum 424.64334138329616.
+Before/after median microseconds are fast Price 42.90/42.79, one-row fit
+2812.41/2792.90 and two-row fit 5480.41/5517.43. Raw samples and binary/source
+digests accompany the handoff. These are scoped informational timings, not
+calibrated performance-gate passes or speedup claims. Unchanged numerical
+kernels, MC and unrelated benchmark matrices are excluded. The implementer
+does not merge, dispatch experts or activate downstream work.

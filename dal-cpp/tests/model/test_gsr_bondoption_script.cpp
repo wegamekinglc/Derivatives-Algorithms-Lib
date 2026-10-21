@@ -114,6 +114,55 @@ TEST(GSRBondOptionScriptTest, TestFastPriceUsesCompleteBoundDescriptor) {
     }
 }
 
+TEST(GSRBondOptionScriptTest, TestFastPriceOwnsNativeNumericalFailureAndLeavesLegacyError) {
+    for (bool oneFactor : {false, true}) {
+        std::optional<CalibrationError_> saved;
+        std::string nativeCause;
+        {
+            const auto instrument = Instrument();
+            auto context = Context(1e200);
+            if (oneFactor) {
+                const Handle_<GSRVolData_> vol(new GSRVolData_("large", {V}, {1e200}, {V}, {1.}));
+                context.model_.reset(new GSRModelData_("large", context.curve_, vol));
+            }
+            const auto plan = PrepareCalibrationInstrument(instrument, "Price", context);
+            const BondOption_ native{E, T, .97, OptionType_("CALL")};
+            try {
+                if (oneFactor)
+                    static_cast<void>(PriceGSREuropeanOption(static_cast<const GSRModelData_&>(*context.model_), native));
+                else
+                    static_cast<void>(PriceGSREuropeanOption(static_cast<const MultiFactorGSRModelData_&>(*context.model_), native));
+                FAIL() << "expected legacy numerical error";
+            } catch (const CalibrationError_&) {
+                FAIL() << "legacy error protocol changed";
+            } catch (const Exception_& error) {
+                nativeCause = error.what();
+            }
+            ASSERT_NE(nativeCause.find("InvalidCovariance: matrix must be finite"), std::string::npos);
+            try {
+                static_cast<void>(PriceGaussianBondOption(plan, instrument, context));
+            } catch (const CalibrationError_& error) {
+                saved = error;
+            }
+        }
+        ASSERT_TRUE(saved);
+        const auto& failure = saved->Failure();
+        ASSERT_EQ(failure.diagnostic_.code_, "CalibrationNumericalFailure");
+        ASSERT_EQ(failure.diagnostic_.stage_, CalibrationStage_::Value_::Evaluate);
+        ASSERT_EQ(failure.diagnostic_.field_, std::optional<String_>("/price"));
+        ASSERT_EQ(failure.diagnostic_.instrumentId_, std::optional<String_>("bond"));
+        ASSERT_EQ(failure.diagnostic_.measureId_, std::optional<String_>("Price"));
+        ASSERT_EQ(failure.diagnostic_.actual_, std::optional<String_>(String_(nativeCause)));
+        ASSERT_NE(std::string(saved->what()).find(nativeCause), std::string::npos);
+        ASSERT_TRUE(failure.report_);
+        ASSERT_EQ(failure.report_->Stage(), CalibrationStage_::Value_::Evaluate);
+        ASSERT_EQ(failure.report_->Errors().size(), 1);
+        ASSERT_EQ(failure.report_->Errors()[0].message_, failure.diagnostic_.message_);
+        ASSERT_TRUE(failure.report_->Axes().observations_.empty());
+        ASSERT_FALSE(failure.candidate_);
+    }
+}
+
 TEST(GSRBondOptionScriptTest, TestFastCalibrationKeepsInstrumentAndNativeJacobian) {
     const auto instrument = Instrument();
     const auto observation = Observation(instrument, Oracle(0.02));
@@ -134,6 +183,87 @@ TEST(GSRBondOptionScriptTest, TestFastCalibrationKeepsInstrumentAndNativeJacobia
     ASSERT_GT(result.costs_.fastPrices_, 3);
     ASSERT_EQ(result.costs_.fastPrices_, result.costs_.preparations_);
     ASSERT_EQ(result.costs_.monteCarloPaths_, 0);
+}
+
+TEST(GSRBondOptionScriptTest, TestRawJacobianRestoresUnitsWithoutScaleRatioOverflow) {
+    const auto instrument = Instrument();
+    const auto context = Context();
+    const double target = Fast(instrument, context);
+    const Vector_<GSRCalibrationParameter_> selected{{0, 0, 0., 0.1}};
+    const auto reference = CalibrateGaussianBondOptions(context, {Observation(instrument, target)}, selected);
+    const auto large = CalibrateGaussianBondOptions(context, {Observation(instrument, target, 1e308)}, selected);
+    ASSERT_TRUE(large.converged_);
+    ASSERT_TRUE(large.fitWithinTolerance_);
+    ASSERT_TRUE(large.nativeJacobianAvailable_);
+    ASSERT_EQ(large.quoteJacobian_.Rows(), 1);
+    ASSERT_EQ(large.quoteJacobian_.Cols(), 1);
+    ASSERT_TRUE(std::isfinite(large.quoteJacobian_(0, 0)));
+    ASSERT_NEAR(large.quoteJacobian_(0, 0), reference.quoteJacobian_(0, 0), 1e-7);
+    ASSERT_DOUBLE_EQ(large.parameters_[0], reference.parameters_[0]);
+    ASSERT_DOUBLE_EQ(large.modelPrices_[0], reference.modelPrices_[0]);
+    RecordProperty("ordinary_scale_raw_partial", reference.quoteJacobian_(0, 0));
+    RecordProperty("large_scale_raw_partial", large.quoteJacobian_(0, 0));
+}
+
+TEST(GSRBondOptionScriptTest, TestRawJacobianRestoresEveryRowAndColumn) {
+    auto context = Context();
+    const auto& initial = static_cast<const MultiFactorGSRModelData_&>(*context.model_);
+    const Handle_<MultiFactorGSRVolData_> vol(
+        new MultiFactorGSRVolData_("two-knots", {"level"}, {V, V.AddDays(180)}, Matrix_<>(1, 2, .02), {V}, Matrix_<>(1, 1, 1.), Matrix_<>(1, 1, 1.)));
+    context.model_.reset(new MultiFactorGSRModelData_("two-knots", initial.curve_, vol));
+    const auto instrument = Instrument();
+    const auto quote = NewCalibrationMarketQuote("shared", Fast(instrument, context), CalibrationValueUnit_::Parse("Price:USD"));
+    const auto ordinary = NewCalibrationObservation("ordinary", instrument, "Price", quote, 1e-6);
+    const auto large = NewCalibrationObservation("large", instrument, "Price", quote, 1e308);
+    const Vector_<GSRCalibrationParameter_> selected{{0, 0, 0., .1}, {0, 1, 0., .1}};
+    const auto reference = CalibrateGaussianBondOptions(context, {ordinary}, selected);
+    const auto result = CalibrateGaussianBondOptions(context, {ordinary, large}, selected);
+    ASSERT_TRUE(result.nativeJacobianAvailable_);
+    ASSERT_EQ(result.quoteJacobian_.Rows(), 2);
+    ASSERT_EQ(result.quoteJacobian_.Cols(), 2);
+    ASSERT_EQ(result.axes_.quoteIndex_, (Vector_<int>{0, 0}));
+    for (int row = 0; row < 2; ++row)
+        for (int col = 0; col < 2; ++col) {
+            ASSERT_TRUE(std::isfinite(result.quoteJacobian_(row, col)));
+            ASSERT_NEAR(result.quoteJacobian_(row, col), reference.quoteJacobian_(0, col), 1e-7);
+        }
+}
+
+TEST(GSRBondOptionScriptTest, TestUnrepresentableRawJacobianHasOwnedNumericalFailure) {
+    std::optional<CalibrationError_> saved;
+    {
+        auto context = Context();
+        const Date_ maturity(2066, 10, 21);
+        const auto vol = static_cast<const MultiFactorGSRModelData_&>(*context.model_).vol_;
+        context.curve_.reset(new GSRCurveData_("long", V, "USD", {V, E, maturity}, {0., -.04, -.08}, {}, {}));
+        context.model_.reset(new MultiFactorGSRModelData_("long", context.curve_, vol));
+        const auto instrument = NewBondOptionScriptInstrument({E, maturity, .97, OptionType_("CALL")}, {"long", Ccy_("USD"), "USD.OIS", 1e308});
+        const auto row = Observation(instrument, Fast(instrument, context), 1e308);
+        try {
+            static_cast<void>(CalibrateGaussianBondOptions(context, {row}, {{0, 0, 0., .1}}));
+        } catch (const CalibrationError_& error) {
+            saved = error;
+        }
+    }
+    ASSERT_TRUE(saved);
+    const auto& failure = saved->Failure();
+    ASSERT_EQ(failure.diagnostic_.code_, "CalibrationNumericalFailure");
+    ASSERT_EQ(failure.diagnostic_.stage_, CalibrationStage_::Value_::Solve);
+    ASSERT_EQ(failure.diagnostic_.field_, std::optional<String_>("/quote_jacobian/0/0"));
+    ASSERT_EQ(failure.diagnostic_.instrumentId_, std::optional<String_>("long"));
+    ASSERT_EQ(failure.diagnostic_.measureId_, std::optional<String_>("Price"));
+    ASSERT_EQ(failure.diagnostic_.observationId_, std::optional<String_>("fit"));
+    ASSERT_EQ(failure.diagnostic_.quoteId_, std::optional<String_>("market"));
+    ASSERT_EQ(failure.diagnostic_.parameterKey_, std::optional<String_>("g:level:2026-10-21"));
+    ASSERT_TRUE(failure.report_);
+    ASSERT_EQ(failure.report_->Stage(), CalibrationStage_::Value_::Solve);
+    ASSERT_EQ(failure.report_->Axes().observations_[0]->Id(), "fit");
+    ASSERT_EQ(failure.report_->Axes().quotes_[0]->Id(), "market");
+    ASSERT_EQ(failure.report_->Axes().quoteIndex_, Vector_<int>{0});
+    ASSERT_DOUBLE_EQ(failure.report_->Axes().quoteMap_(0, 0), 1.);
+    ASSERT_EQ(failure.report_->Errors().size(), 1);
+    ASSERT_EQ(failure.report_->Errors()[0].message_, failure.diagnostic_.message_);
+    RecordProperty("owned_failure", std::string(saved->what()));
 }
 
 TEST(GSRBondOptionScriptTest, TestInvalidTargetsKeepOwnedObservationReport) {

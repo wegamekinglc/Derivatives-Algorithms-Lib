@@ -1,5 +1,7 @@
 #include <dal/platform/platform.hpp>
 
+#include <cmath>
+
 #include <dal/calibration/validation_internal.hpp>
 #include <dal/math/optimization/boundedgn.hpp>
 #include <dal/model/gsr.hpp>
@@ -179,6 +181,18 @@ namespace Dal {
                     r->numericalValidationPassed_ && price.numericalError_ <= settings.numericalErrorFraction_ * row->ErrorScale();
             }
         }
+        double RawPartial(double normalized, double observationScale, double parameterScale, const CalibrationDiagnostic_& diagnostic) {
+            Check(std::isfinite(normalized), "CalibrationNumericalFailure", *diagnostic.field_, "finite normalized partial", "", diagnostic);
+            int derivativeExponent = 0, observationExponent = 0, parameterExponent = 0;
+            const double derivativeMantissa = std::frexp(normalized, &derivativeExponent);
+            const double observationMantissa = std::frexp(observationScale, &observationExponent);
+            const double parameterMantissa = std::frexp(parameterScale, &parameterExponent);
+            const double raw = std::ldexp(derivativeMantissa * observationMantissa / parameterMantissa,
+                                          derivativeExponent + observationExponent - parameterExponent);
+            if (!std::isfinite(raw) || (normalized != 0. && raw == 0.))
+                Fail("CalibrationNumericalFailure", *diagnostic.field_, "finite representable raw native partial", NumberText(raw), diagnostic);
+            return raw;
+        }
         void
         FinalJacobian(const Problem_& problem, const Vector_<>& x, const GSRCalibrationSettings_& settings, GaussianBondOptionCalibrationResult_* r) {
             const auto residuals = problem.Residuals(x);
@@ -197,9 +211,20 @@ namespace Dal {
                 for (int col = 0; col < r->quoteJacobian_.Cols(); ++col)
                     r->quoteJacobian_(row, col) = jacobian(row, col);
             RankDiagnostics(r->quoteJacobian_, r);
-            for (int row = 0; row < r->quoteJacobian_.Rows(); ++row)
-                for (int col = 0; col < r->quoteJacobian_.Cols(); ++col)
-                    r->quoteJacobian_(row, col) *= r->axes_.observations_[row]->ErrorScale() / settings.parameterScale_;
+            for (int row = 0; row < r->quoteJacobian_.Rows(); ++row) {
+                const auto& observation = *r->axes_.observations_[row];
+                CalibrationDiagnostic_ d;
+                d.stage_ = CalibrationStage_::Value_::Solve;
+                d.instrumentId_ = observation.Instrument()->Id();
+                d.observationId_ = observation.Id();
+                d.quoteId_ = observation.Quote()->Id();
+                d.measureId_ = observation.MeasureId();
+                for (int col = 0; col < r->quoteJacobian_.Cols(); ++col) {
+                    d.field_ = "/quote_jacobian/" + OrdinalText(row) + "/" + OrdinalText(col);
+                    d.parameterKey_ = r->parameterLabels_[col];
+                    r->quoteJacobian_(row, col) = RawPartial(r->quoteJacobian_(row, col), observation.ErrorScale(), settings.parameterScale_, d);
+                }
+            }
         }
 
         GaussianBondOptionCalibrationResult_ Calibrate(const CalibrationPreparationContext_& context,
