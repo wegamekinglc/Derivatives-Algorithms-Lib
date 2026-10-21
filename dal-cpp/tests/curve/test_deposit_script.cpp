@@ -94,6 +94,67 @@ namespace {
         ASSERT_NEAR(result.standardError_, std::sqrt(variance), 1e-12);
         ASSERT_GT(a - 3. * estimate.annuityStandardError_, estimate.minAbsAnnuity_);
     }
+    std::optional<CalibrationError_> NumericalFitFailure(double upper, double scale, double lower = -.1) {
+        const auto instrument = ImportedDeposit();
+        const PreparedDepositCurve_ plan(instrument, CurveContext());
+        const auto quote = NewCalibrationMarketQuote("q", .035, CalibrationValueUnit_::Parse("Rate"));
+        const auto observation = NewCalibrationObservation("fit", instrument, "ParRate", quote, scale);
+        try {
+            static_cast<void>(FitDepositCurveNode(plan, observation, Candidate(), 1, lower, upper, 64));
+        } catch (const CalibrationError_& error) {
+            return error;
+        }
+        return {};
+    }
+    void AssertRetainedFitFailure(const CalibrationError_& error, std::optional<double> theta, int evaluations) {
+        const auto& failure = error.Failure();
+        const auto& d = failure.diagnostic_;
+        ASSERT_EQ(d.code_, "CalibrationNumericalFailure");
+        ASSERT_EQ(d.stage_, CalibrationStage_::Value_::Solve);
+        ASSERT_EQ(d.instrumentId_, std::optional<String_>("deposit"));
+        ASSERT_EQ(d.observationId_, std::optional<String_>("fit"));
+        ASSERT_EQ(d.quoteId_, std::optional<String_>("q"));
+        ASSERT_EQ(d.measureId_, std::optional<String_>("ParRate"));
+        ASSERT_TRUE(failure.report_);
+        ASSERT_EQ(failure.report_->Stage(), CalibrationStage_::Value_::Solve);
+        const auto& axes = failure.report_->Axes();
+        ASSERT_EQ(axes.observations_.size(), 1);
+        ASSERT_EQ(axes.quotes_.size(), 1);
+        ASSERT_EQ(axes.observations_[0]->Id(), "fit");
+        ASSERT_EQ(axes.quotes_[0]->Id(), "q");
+        ASSERT_DOUBLE_EQ(axes.quotes_[0]->Value(), .035);
+        ASSERT_EQ(axes.quoteIndex_, Vector_<int>{0});
+        ASSERT_EQ(axes.quoteMap_.Rows(), 1);
+        ASSERT_EQ(axes.quoteMap_.Cols(), 1);
+        ASSERT_DOUBLE_EQ(axes.quoteMap_(0, 0), 1.);
+        ASSERT_EQ(failure.report_->Errors().size(), 1);
+        ASSERT_EQ(failure.report_->Errors()[0].message_, d.message_);
+        double raw = 0.;
+        if (theta) {
+            const auto* curve = dynamic_cast<const GSRCurveData_*>(failure.candidate_.get());
+            ASSERT_NE(curve, nullptr);
+            ASSERT_EQ(curve->nodeDates_, (Vector_<Date_>{VALUE_DATE, END_DATE}));
+            ASSERT_EQ(curve->discountLogDF_.size(), 2);
+            ASSERT_NEAR(curve->discountLogDF_[1], *theta, 1e-12);
+            const PreparedDepositCurve_ plan(axes.observations_[0]->Instrument(), CurveContext());
+            const Handle_<GSRCurveData_> retained(std::dynamic_pointer_cast<const GSRCurveData_>(failure.candidate_));
+            const auto value = plan.Evaluate(retained);
+            ASSERT_TRUE(std::isfinite(value.price_.derivatives_[0]));
+            raw = value.parRate_.value_ - axes.quotes_[0]->Value();
+            ::testing::Test::RecordProperty("retained_theta", curve->discountLogDF_[1]);
+        } else {
+            ASSERT_FALSE(failure.candidate_);
+        }
+        ASSERT_TRUE(d.actual_);
+        const std::string actual(d.actual_->data(), d.actual_->size());
+        for (const auto& [key, expected] : std::initializer_list<std::pair<std::string, double>>{
+                 {"evaluations=", static_cast<double>(evaluations)}, {"raw=", raw}, {"scaled=", raw / axes.observations_[0]->ErrorScale()}}) {
+            const auto start = actual.find(key);
+            ASSERT_NE(start, std::string::npos) << actual;
+            ASSERT_NEAR(std::stod(actual.substr(start + key.size())), expected, std::max(1e-12, std::abs(expected) * 1e-12));
+        }
+        ::testing::Test::RecordProperty("owned_solve_diagnostic", std::string(error.what()));
+    }
 } // namespace
 
 TEST(DepositScriptTest, TestImportFreezesConcreteLenderCashflows) {
@@ -254,6 +315,43 @@ TEST(DepositScriptTest, TestSolverFailureOwnsLastCandidateAndObservationAxes) {
     ASSERT_THROW(FitDepositCurveNode(plan, observation, Candidate(), 1, .1, -.1, 64), CalibrationError_);
 }
 
+TEST(DepositScriptTest, TestUpperBracketFailureRetainsValidatedLowerCandidate) {
+    const auto saved = NumericalFitFailure(1000., 1e-10);
+    ASSERT_TRUE(saved);
+    ASSERT_NO_FATAL_FAILURE(AssertRetainedFitFailure(*saved, -.1, 1));
+    ASSERT_EQ(saved->Failure().diagnostic_.field_, std::optional<String_>("/discounts"));
+    ASSERT_NE(std::string(saved->what()).find("finite positive discounts"), std::string::npos);
+}
+
+TEST(DepositScriptTest, TestSolverNumericalFailureRetainsPreviousCandidate) {
+    const auto saved = NumericalFitFailure(.05, 1e-200);
+    ASSERT_TRUE(saved);
+    const double low = (std::exp(.1) - 1.) / ALPHA - .035;
+    const double high = (std::exp(-.05) - 1.) / ALPHA - .035;
+    const double first = (-.1 * high - .05 * low) / (high - low);
+    const double firstResidual = (std::exp(-first) - 1.) / ALPHA - .035;
+    const double second = (-.1 * firstResidual - first * low) / (firstResidual - low);
+    ASSERT_NO_FATAL_FAILURE(AssertRetainedFitFailure(*saved, second, 4));
+    ASSERT_EQ(saved->Failure().diagnostic_.field_, std::optional<String_>("/solver"));
+    ASSERT_NE(std::string(saved->what()).find("non-finite discount logDF"), std::string::npos);
+}
+
+TEST(DepositScriptTest, TestNonfiniteResidualDoesNotPublishCandidate) {
+    const auto saved = NumericalFitFailure(.05, 1e-320);
+    ASSERT_TRUE(saved);
+    ASSERT_NO_FATAL_FAILURE(AssertRetainedFitFailure(*saved, {}, 0));
+    ASSERT_EQ(saved->Failure().diagnostic_.field_, std::optional<String_>("/solver/residual"));
+    ASSERT_NE(std::string(saved->what()).find("finite scaled residual"), std::string::npos);
+}
+
+TEST(DepositScriptTest, TestResidualOverflowRetainsValidatedLowerCandidate) {
+    const auto saved = NumericalFitFailure(.05, 1e-310, -.04);
+    ASSERT_TRUE(saved);
+    ASSERT_NO_FATAL_FAILURE(AssertRetainedFitFailure(*saved, -.04, 1));
+    ASSERT_EQ(saved->Failure().diagnostic_.field_, std::optional<String_>("/solver/residual"));
+    ASSERT_NE(std::string(saved->what()).find("finite scaled residual"), std::string::npos);
+}
+
 TEST(DepositScriptTest, TestIndependentNativeAadAndMultipleInterpolationWeights) {
     const auto instrument = ImportedDeposit();
     auto context = CurveContext();
@@ -313,6 +411,34 @@ TEST(DepositScriptTest, TestFastKernelCannotReturnNonfiniteRateForFiniteAffineVa
     ASSERT_TRUE(std::isfinite(shared.AffineMeasure(shared.Coefficients({1., std::exp(-710.)})).value_));
     const PreparedDepositCurve_ plan(instrument, context);
     ASSERT_THROW(plan.Evaluate(context.curve_), CalibrationError_);
+}
+
+TEST(DepositScriptTest, TestCancellationOverflowCannotReturnNonfinitePricePartial) {
+    std::optional<CalibrationError_> saved;
+    {
+        const Deposit_ native(VALUE_DATE, END_DATE, -2., DayBasis_("ACT_360"));
+        const auto instrument = NewDepositScriptInstrument(native, {"extreme", Ccy_("USD"), "USD.OIS", 5.8e307});
+        const PreparedDepositCurve_ plan(instrument, CurveContext());
+        const double cashflowPartial = 5.8e307 * (1. - 2. * ALPHA) * 2.;
+        ASSERT_TRUE(std::isfinite(cashflowPartial));
+        ASSERT_TRUE(std::isfinite(-5.8e307 + cashflowPartial));
+        try {
+            static_cast<void>(plan.Evaluate(Candidate(std::log(2.))));
+        } catch (const CalibrationError_& error) {
+            saved = error;
+        }
+    }
+    ASSERT_TRUE(saved);
+    const auto& failure = saved->Failure();
+    ASSERT_EQ(failure.diagnostic_.code_, "CalibrationNumericalFailure");
+    ASSERT_EQ(failure.diagnostic_.stage_, CalibrationStage_::Value_::Evaluate);
+    ASSERT_EQ(failure.diagnostic_.instrumentId_, std::optional<String_>("extreme"));
+    ASSERT_EQ(failure.diagnostic_.field_, std::optional<String_>("/derivatives"));
+    ASSERT_TRUE(failure.report_);
+    ASSERT_EQ(failure.report_->Stage(), CalibrationStage_::Value_::Evaluate);
+    ASSERT_EQ(failure.report_->Errors().size(), 1);
+    ASSERT_EQ(failure.report_->Errors()[0].code_, failure.diagnostic_.code_);
+    ASSERT_FALSE(failure.candidate_);
 }
 
 TEST(DepositScriptTest, TestAdjustedEndIsExportedOnlyOnce) {

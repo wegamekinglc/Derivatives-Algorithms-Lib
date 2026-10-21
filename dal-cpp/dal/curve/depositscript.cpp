@@ -66,11 +66,12 @@ namespace Dal {
         [[noreturn]] void FitFailure(const String_& code, const DepositCurveFit_& fit, CalibrationDiagnostic_ diagnostic) {
             diagnostic.stage_ = CalibrationStage_::Value_::Solve;
             diagnostic.code_ = code;
-            diagnostic.field_ = "/solver";
-            diagnostic.actual_ = "evaluations=" + String::FromInt(fit.evaluations_) + "; raw=" + NumberText(fit.rawResidual_) +
-                                 "; scaled=" + NumberText(fit.scaledResidual_);
-            diagnostic.expected_ = "bracketed ParRate root with abs(scaled residual)<1 inside evaluation budget";
-            diagnostic.message_ = code + ": " + *diagnostic.actual_;
+            diagnostic.field_ = diagnostic.field_.value_or("/solver");
+            const String_ state = "evaluations=" + String::FromInt(fit.evaluations_) + "; raw=" + NumberText(fit.rawResidual_) +
+                                  "; scaled=" + NumberText(fit.scaledResidual_);
+            diagnostic.actual_ = diagnostic.actual_.value_or("") + "; last validated " + state;
+            diagnostic.expected_ = diagnostic.expected_.value_or("bracketed ParRate root with abs(scaled residual)<1 inside evaluation budget");
+            diagnostic.message_ = code + ": " + *diagnostic.field_ + "; " + diagnostic.message_ + "; " + state;
             auto failure = std::make_shared<CalibrationFailure_>();
             failure->diagnostic_ = diagnostic;
             failure->candidate_ = Handle_<Storable_>(fit.curve_);
@@ -104,8 +105,7 @@ namespace Dal {
 
             // Calibration updates the last validated candidate for owned failure reporting.
             double Evaluate(double theta, DepositCurveFit_* fit) const {
-                if (fit->evaluations_ == budget_)
-                    FitFailure("CalibrationBudgetExceeded", *fit, diagnostic_);
+                Check(fit->evaluations_ < budget_, "CalibrationBudgetExceeded", "/solver", "evaluation within budget", "", diagnostic_);
                 auto values = initial_.discountLogDF_;
                 Check(values.size() == initial_.nodeDates_.size(), "InvalidCalibrationPlan", "/candidate/log_df", "one value per node", "",
                       diagnostic_);
@@ -113,14 +113,15 @@ namespace Dal {
                 Handle_<GSRCurveData_> candidate(new GSRCurveData_("deposit-fit", initial_.evaluationDate_, initial_.currency_, initial_.nodeDates_,
                                                                    values, initial_.projectionTenors_, initial_.projectionLogDF_));
                 const auto value = plan_.Evaluate(candidate);
+                const double raw = value.parRate_.value_ - observation_.Quote()->Value(), scaled = raw / observation_.ErrorScale();
+                if (!std::isfinite(scaled))
+                    Fail("CalibrationNumericalFailure", "/solver/residual", "finite scaled residual", NumberText(scaled), diagnostic_);
                 fit->curve_ = candidate;
                 fit->value_ = value;
                 ++fit->evaluations_;
-                fit->rawResidual_ = value.parRate_.value_ - observation_.Quote()->Value();
-                fit->scaledResidual_ = fit->rawResidual_ / observation_.ErrorScale();
-                Check(std::isfinite(fit->scaledResidual_), "CalibrationNumericalFailure", "/solver/residual", "finite scaled residual", "",
-                      diagnostic_);
-                return fit->scaledResidual_;
+                fit->rawResidual_ = raw;
+                fit->scaledResidual_ = scaled;
+                return scaled;
             }
         };
     } // namespace
@@ -188,8 +189,12 @@ namespace Dal {
         result.coefficients_ = parPlan_.Coefficients({1., discount}, partials);
         result.price_.value_ = pricePlan_.Price({1., discount});
         const auto& descriptor = std::get<CalibrationDepositDescriptor_>(pricePlan_.Descriptor());
-        for (size_t j = 0; j < result.coefficients_.da_.size(); ++j)
-            result.price_.derivatives_.push_back(result.coefficients_.db_[j] + descriptor.coupon_ * result.coefficients_.da_[j]);
+        for (size_t j = 0; j < result.coefficients_.da_.size(); ++j) {
+            const double derivative = result.coefficients_.db_[j] + descriptor.coupon_ * result.coefficients_.da_[j];
+            if (!std::isfinite(derivative))
+                Fail("CalibrationNumericalFailure", "/derivatives", "finite Price partials", NumberText(derivative), d);
+            result.price_.derivatives_.push_back(derivative);
+        }
         result.parRate_ = parPlan_.AffineMeasure(result.coefficients_);
         result.parRate_.value_ = Tape::ForwardRateFromDf(discount, descriptor.accrual_);
         Check(std::isfinite(result.parRate_.value_), "CalibrationNumericalFailure", "/measure", "finite explicit DF/accrual kernel value", "", d);
@@ -210,20 +215,32 @@ namespace Dal {
         DepositCurveFit_ fit;
         fit.axes_ = BuildCalibrationObservationAxes({observation});
         const NodeFitEvaluator_ evaluator{plan, *observation, *initial, freeNode, maxEvaluations, diagnostic};
-        const double low = evaluator.Evaluate(lower, &fit);
-        if (std::abs(low) < 1.)
-            return fit;
-        const double high = evaluator.Evaluate(upper, &fit);
-        if (std::abs(high) < 1.)
-            return fit;
-        if (std::signbit(low) == std::signbit(high))
-            FitFailure("CalibrationFitFailed", fit, diagnostic);
-        BracketedBrent_ solver({lower, low}, {upper, high}, std::numeric_limits<double>::epsilon());
-        for (;;) {
-            const double residual = evaluator.Evaluate(solver.NextX(), &fit);
-            if (std::abs(residual) < 1.)
+        try {
+            const double low = evaluator.Evaluate(lower, &fit);
+            if (std::abs(low) < 1.)
                 return fit;
-            solver.PutY(residual);
+            const double high = evaluator.Evaluate(upper, &fit);
+            if (std::abs(high) < 1.)
+                return fit;
+            Check(std::signbit(low) != std::signbit(high), "CalibrationFitFailed", "/solver", "bracketed ParRate root", "", diagnostic);
+            BracketedBrent_ solver({lower, low}, {upper, high}, std::numeric_limits<double>::epsilon());
+            for (;;) {
+                const double residual = evaluator.Evaluate(solver.NextX(), &fit);
+                if (std::abs(residual) < 1.)
+                    return fit;
+                solver.PutY(residual);
+            }
+        } catch (const CalibrationError_& error) {
+            auto cause = error.Failure().diagnostic_;
+            cause.instrumentId_ = diagnostic.instrumentId_;
+            cause.observationId_ = diagnostic.observationId_;
+            cause.quoteId_ = diagnostic.quoteId_;
+            cause.measureId_ = cause.measureId_.value_or(*diagnostic.measureId_);
+            FitFailure(cause.code_, fit, cause);
+        } catch (const std::exception& error) {
+            auto cause = diagnostic;
+            cause.message_ = String_(error.what());
+            FitFailure("CalibrationNumericalFailure", fit, cause);
         }
     }
 } // namespace Dal

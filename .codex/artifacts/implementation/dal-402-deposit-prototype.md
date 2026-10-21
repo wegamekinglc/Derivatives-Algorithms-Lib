@@ -210,3 +210,103 @@ standalone/public-disabled/example matrices and full regressions were not run.
 No general curve provider, MC optimizer, facade/bindings, XCCY or quote-risk
 capability is asserted. There is no shared-API blocker or scope deviation;
 focused reviewer acceptance and actual current-head CI remain with coordinator.
+
+## Focused P2 numerical-boundary repair
+
+Input PR head: `9243a880fa5c4f4db53e731cc813209285f25f71`, original branch
+`agent/dal-implementer/2a3458a7c4ec`. The two accepted review findings are
+confined to Deposit-owned candidate evaluation and its scalar solver adapter.
+DAL-398 section 9 controls ownership and the last fully validated candidate;
+the existing Brent, shared protocol, MC/statistics/model and numerical kernels
+are unchanged. No additional design or product family is introduced.
+
+The first repair checks each composed Price partial before returning it.
+The review's N=5.8e307, K=-2, ACT/360, logDF=log(2) example has finite
+cashflow Price and a finite factored derivative, but the existing db+K*da
+composition overflows. The adapter conservatively rejects that computation
+with an owned Evaluate-stage CalibrationNumericalFailure at /derivatives,
+rather than returning successful nonfinite risk or expanding the numeric
+kernel. Ordinary partial arithmetic is unchanged. Diagnostic number text is
+formatted only on failure.
+
+The second repair wraps internal CalibrationError and standard exceptions at
+the new fit boundary. An existing diagnostic retains its code, offending
+field, expected/actual constraint and source context; the wrapper adds the
+fit's observation/quote IDs, owning Solve report/axes and last validated
+candidate/state. A bare internal exception becomes CalibrationNumericalFailure
+while its original what() text remains in the diagnostic. No evaluator failure
+is retried or swallowed. Candidate construction, value/partial checks and
+finite scaled residual must all finish before the retained curve, value,
+raw/scaled residuals and successful-evaluation count are updated. Failed
+attempts are excluded from that retained count. If none succeeded, candidate
+is absent and the retained count/residuals are zero. Budget and unbracketed-root
+failures keep their codes. The original root finder is not modified.
+
+Five new regression tests copy failures beyond the lifetime of the input
+instrument, plan, quote, observation and candidate. They verify owned report
+stage/error, observation/quote axes/map, cause, last curve and finite native
+partials, raw/scaled residuals and successful-evaluation count:
+
+- Cancellation/intermediate overflow rejects the nonfinite Price partial.
+- Bracket [-.1,1000], scale 1e-10 retains theta=-.1 and count 1 after the
+  upper DF fails; the original /discounts cause survives.
+- Bracket [-.1,.05], scale 1e-200 retains theta=-.03478167262856853 and
+  count 4 when Brent later emits NaN; InvalidGSRCurve's non-finite discount
+  logDF cause survives at /solver. The expected point uses independent
+  cashflow residuals and the two finite secant steps. The initial test draft
+  incorrectly predicted failure after one secant; observing the unchanged
+  Brent sequence corrected the expected point/count, not the ownership check.
+- Scale 1e-320 rejects the first nonfinite residual with no published curve.
+- Lower=-.04, upper=.05, scale 1e-310 retains the valid lower curve/count 1
+  when the upper scaled residual overflows; no failed upper curve is exposed.
+
+RED was observed before each repair: one missing Price-partial error, then
+three missing Solve/ownership boundaries (including a leaked bare exception).
+The final residual-after-valid regression also fails against an object
+compiled from the exact input-head Deposit source. This baseline object is
+linked explicitly ahead of the current archive; it is not called a rebuilt
+input-head archive. All five behavioral RED logs are attached.
+
+GREEN builds the Release core and a focused executable from the committed
+Deposit test, existing root-finder test and repository test main:
+
+```bash
+cmake --build build/Release-linux --target dal_cpp -j 12
+g++-15 -O3 -DNDEBUG -std=c++17 -fPIE -ffp-contract=fast -I dal-cpp -I dal-cpp/externals/rapidjson/include -isystem dal-cpp/externals/googletest/googletest/include -c dal-cpp/tests/curve/test_deposit_script.cpp -o build/Release-linux/dal402_repair_test.o
+g++-15 -O3 -DNDEBUG -std=c++17 -fPIE -ffp-contract=fast -I dal-cpp -isystem dal-cpp/externals/googletest/googletest/include -c dal-cpp/tests/math/test_rootfind.cpp -o build/Release-linux/dal402_repair_rootfind_test.o
+g++-15 -O3 -DNDEBUG -std=c++17 -fPIE -ffp-contract=fast -I dal-cpp -isystem dal-cpp/externals/googletest/googletest/include -c dal-cpp/tests/test_main.cpp -o build/Release-linux/dal402_repair_main.o
+g++-15 -O3 -DNDEBUG -ffp-contract=fast build/Release-linux/dal402_repair_main.o build/Release-linux/dal402_repair_test.o build/Release-linux/dal402_repair_rootfind_test.o build/Release-linux/dal-cpp/libdal_cpp.a build/Release-linux/lib/libgtest.a -pthread -o build/Release-linux/dal402_repair_tests
+./build/Release-linux/dal402_repair_tests --gtest_filter='DepositScriptTest.*:RootFinderTest.*' --gtest_output=xml:../dal402-repair-final.xml
+```
+
+All 24 selected tests pass, including five new regressions and four legacy
+Brent tests. Three ordinary candidate/fit/AAD tests also pass with the
+input-source object; fitted theta, fixed-coupon PV and six-evaluation count
+match the repaired XML exactly. GCC 14.3 syntax-only compilation of the
+affected production TU with the original CI Werror categories/exclusions
+passes. Modified-range formatting, CCN <=8 (maximum 7), diff and the changed
+implementation record's documentation checks pass. No test, scale, sampling,
+statistical acceptance condition or existing failure gate is weakened.
+
+Original 139-core/15-public and frozen statistical evidence is reused from
+attachment `01a15e2c-157a-7724-9a5a-faf10ae052fb`, whose implementation record
+matches the input Git blob. It is not reported as a new 139/15 execution.
+Only Deposit-owned source/tests and this record change; the shared executor,
+MC, statistics, source/binding identities, compiler/dependency/configuration
+inputs and ordinary candidate/fit numerical definitions remain unchanged.
+No full product/statistical matrix or local Windows build is repeated.
+
+Performance scope maps the new finite-partial guard to cached candidate
+evaluation/prepare-plus-evaluate and the exception/commit boundary to fitting.
+The original two/three-node probe is reused with pure import timing excluded:
+CPU 0, one warmup and ten rounds, 100 prepares, 10000 evaluations and 100 fits
+per round. Input-source and repaired executables link the same current core
+archive, the former overriding only the Deposit object. Both observable
+checksums are 5663.79111461. Before/after median microseconds are cached
+evaluation 3.85/3.94 (two nodes), 4.37/4.44 (three nodes), and fitting
+25.44/25.61, 28.52/28.62 respectively. These raw paired samples are scoped
+information, not a calibrated performance-gate verdict or a comparison with
+the original probe's different process timing. No legacy kernel/benchmark
+caller changes; unrelated matrices are excluded. Current-head CI and the
+coordinator's two-blocker review remain required; no merge or downstream work
+is performed here.
