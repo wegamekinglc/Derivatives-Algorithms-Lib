@@ -9,6 +9,7 @@
 #include <dal/model/gsrmultidata.hpp>
 #include <dal/script/calibrationpreparation.hpp>
 #include <dal/script/event.hpp>
+#include <dal/time/dateutils.hpp>
 
 using namespace Dal;
 
@@ -95,6 +96,57 @@ namespace {
         result.model_.reset(new MultiFactorGSRModelData_("model", result.curve_, vol));
         return result;
     }
+    void AssertReceiverSource(const ScriptInstrumentDefinitionSpec_& spec, int row, int statement = 1) {
+        std::optional<CalibrationError_> saved;
+        try {
+            const auto instrument = Instrument(spec);
+            static_cast<void>(PrepareCalibrationInstrument(instrument, "Price", Context()));
+        } catch (const CalibrationError_& error) {
+            saved = error;
+        }
+        ASSERT_TRUE(saved);
+        const auto& d = saved->Failure().diagnostic_;
+        ASSERT_EQ(d.code_, "InvalidCalibrationOutputBinding");
+        ASSERT_EQ(d.stage_, CalibrationStage_::Value_::Prepare);
+        ASSERT_EQ(d.field_, std::optional<String_>("/source/rows/" + String_(std::to_string(row - 1)) + "/text"));
+        ASSERT_EQ(d.sourceRow_, std::optional<int>(row));
+        ASSERT_EQ(d.eventDate_, std::optional<Date_>(Date_(2027, 10, 21)));
+        ASSERT_EQ(d.statement_, std::optional<int>(statement));
+        ASSERT_TRUE(saved->Failure().report_);
+        ASSERT_EQ(saved->Failure().report_->Stage(), CalibrationStage_::Value_::Prepare);
+        ASSERT_EQ(saved->Failure().report_->Errors().size(), 1);
+        const auto& reported = saved->Failure().report_->Errors()[0];
+        ASSERT_EQ(reported.field_, d.field_);
+        ASSERT_EQ(reported.sourceRow_, d.sourceRow_);
+        ASSERT_EQ(reported.eventDate_, d.eventDate_);
+        ASSERT_EQ(reported.statement_, d.statement_);
+    }
+    std::unique_ptr<Script::ScriptProduct_> BareProduct(const ScriptInstrumentDefinitionSpec_& spec) {
+        Vector_<Cell_> dates;
+        Vector_<String_> events;
+        for (const auto& row : spec.source_.rows_) {
+            dates.push_back(row.kind_ == ScriptSourceRowKind_::Value_::Definition ? Cell_(row.key_) : Cell_(Date::FromString(row.key_)));
+            events.push_back(row.text_);
+        }
+        return std::make_unique<Script::ScriptProduct_>(dates, events, "PAY");
+    }
+    template <class F_> void InputParameterFailure(const F_& action, const String_& code, const String_& field) {
+        std::optional<CalibrationError_> saved;
+        try {
+            action();
+        } catch (const CalibrationError_& error) {
+            saved = error;
+        }
+        ASSERT_TRUE(saved);
+        const auto& d = saved->Failure().diagnostic_;
+        ASSERT_EQ(d.code_, code);
+        ASSERT_EQ(d.stage_, CalibrationStage_::Value_::Input);
+        ASSERT_EQ(d.field_, std::optional<String_>(field));
+        ASSERT_TRUE(saved->Failure().report_);
+        ASSERT_EQ(saved->Failure().report_->Stage(), CalibrationStage_::Value_::Input);
+        ASSERT_EQ(saved->Failure().report_->Errors().size(), 1);
+        ASSERT_EQ(saved->Failure().report_->Errors()[0].field_, d.field_);
+    }
 } // namespace
 
 TEST(CalibrationPreparationTest, TestAffineCoefficientsAndIndependentQuotientOracle) {
@@ -130,6 +182,68 @@ TEST(CalibrationPreparationTest, TestReceiverGuardPrecedesTemplateMatchingAcross
     Failure([&] { PrepareCalibrationInstrument(Instrument(spec), "Price", context); }, "InvalidCalibrationOutputBinding");
 }
 
+TEST(CalibrationPreparationTest, TestMergedReceiverFailureUsesFailingPaymentSource) {
+    auto spec = DepositSpec();
+    spec.source_.rows_.push_back({ScriptSourceRowKind_::Value_::Event, "2027-10-21", "other PAYS 1"});
+    AssertReceiverSource(spec, 6);
+}
+
+TEST(CalibrationPreparationTest, TestBranchReceiverFailureUsesFailingPaymentSource) {
+    for (bool thenBranch : {false, true}) {
+        auto spec = DepositSpec();
+        spec.source_.rows_.push_back(
+            {ScriptSourceRowKind_::Value_::Event, "2027-10-21", thenBranch ? "IF N > 0 THEN" : "IF N > 0 THEN pay PAYS 1 ELSE"});
+        spec.source_.rows_.push_back(
+            {ScriptSourceRowKind_::Value_::Event, "2027-10-21", thenBranch ? "other PAYS 1 ELSE pay PAYS 1 END" : "other PAYS 1 END"});
+        AssertReceiverSource(spec, 7);
+    }
+}
+
+TEST(CalibrationPreparationTest, TestMergedResetFailureUsesAssignmentSource) {
+    for (const String_ text : {"pay = 0", "pay = N", "pay[0] = 0"}) {
+        SCOPED_TRACE(text);
+        auto spec = DepositSpec();
+        spec.source_.rows_.push_back({ScriptSourceRowKind_::Value_::Event, "2027-10-21", text});
+        AssertReceiverSource(spec, 6);
+    }
+}
+
+TEST(CalibrationPreparationTest, TestBranchResetFailureUsesAssignmentSource) {
+    auto spec = DepositSpec();
+    spec.source_.rows_.push_back({ScriptSourceRowKind_::Value_::Event, "2027-10-21", "IF N > 0 THEN pay PAYS 1 ELSE"});
+    spec.source_.rows_.push_back({ScriptSourceRowKind_::Value_::Event, "2027-10-21", "pay = 0 END"});
+    AssertReceiverSource(spec, 7);
+}
+
+TEST(CalibrationPreparationTest, TestReceiverLocationRetainsContainingStatementOrdinal) {
+    auto spec = DepositSpec();
+    spec.source_.rows_[4].text_ = "IF N > 0 THEN other PAYS 1 ELSE pay PAYS N END";
+    AssertReceiverSource(spec, 5, 0);
+    spec = DepositSpec();
+    spec.source_.rows_.push_back({ScriptSourceRowKind_::Value_::Event, "2027-10-21", "x = 1 other PAYS 1"});
+    AssertReceiverSource(spec, 6, 2);
+}
+
+TEST(CalibrationPreparationTest, TestBareProductKeepsMergedReceiverAndResetSemantics) {
+    for (const String_ text : {"other PAYS 1", "pay = 0", "IF N > 0 THEN pay PAYS 1 ELSE pay = 0 END"}) {
+        auto spec = DepositSpec();
+        spec.source_.rows_.push_back({ScriptSourceRowKind_::Value_::Event, "2027-10-21", text});
+        auto product = BareProduct(spec);
+        product->PartitionEvents(Date_(2026, 10, 21));
+        product->PreProcess(false, true);
+        AAD::Scenario_<> scenario(product->EventDates().size());
+        for (auto& sample : scenario)
+            sample.numeraire_ = 1.;
+        auto evaluator = product->BuildEvaluator<double>();
+        product->Evaluate(scenario, evaluator);
+        auto state = product->BuildEvalState<double>();
+        product->Compile().Evaluate(scenario, state);
+        const double expected = text == "other PAYS 1" ? 3. : (text == "pay = 0" ? 0. : 4.);
+        ASSERT_NEAR(evaluator.VarVals()[product->PayOffIdx()], expected, 1e-10);
+        ASSERT_NEAR(state.VarVals()[product->PayOffIdx()], expected, 1e-10);
+    }
+}
+
 TEST(CalibrationPreparationTest, TestBondOptionDescriptorUsesSameSourceForCallAndPut) {
     for (bool call : {true, false}) {
         const auto instrument = Instrument(BondOptionSpec(call));
@@ -144,6 +258,76 @@ TEST(CalibrationPreparationTest, TestBondOptionDescriptorUsesSameSourceForCallAn
         ASSERT_EQ(descriptor.strike_, 0.97);
         ASSERT_EQ(descriptor.call_, call);
     }
+}
+
+TEST(CalibrationPreparationTest, TestBondOptionRejectsCouponDeclarationAndUnusedAccrual) {
+    for (const String_ strike : {"0.025", "-0.01", "0"}) {
+        SCOPED_TRACE(strike);
+        auto spec = DepositSpec();
+        spec.source_.rows_.pop_back();
+        spec.source_.rows_[1].text_ = strike;
+        spec.source_.rows_[3] = BondOptionSpec().source_.rows_[2];
+        spec.measures_.pop_back();
+        ASSERT_TRUE(BareProduct(spec)->HasPays());
+        const auto instrument = Instrument(spec);
+        std::optional<CalibrationError_> saved;
+        try {
+            static_cast<void>(PrepareCalibrationInstrument(instrument, "Price", GaussianContext()));
+        } catch (const CalibrationError_& error) {
+            saved = error;
+        }
+        ASSERT_TRUE(saved) << "BondOption accepted Coupon/Rate and unused ALPHA";
+        const auto& d = saved->Failure().diagnostic_;
+        ASSERT_EQ(d.code_, "UnsupportedFastEvaluator");
+        ASSERT_EQ(d.stage_, CalibrationStage_::Value_::Prepare);
+        ASSERT_EQ(d.field_, std::optional<String_>("/parameters"));
+        ASSERT_TRUE(saved->Failure().report_);
+        ASSERT_EQ(saved->Failure().report_->Errors().size(), 1);
+    }
+}
+
+TEST(CalibrationPreparationTest, TestBondOptionDeclarationUnitAndExtraParameterFailuresAreOwned) {
+    auto spec = BondOptionSpec();
+    spec.parameters_[1].unit_ = CalibrationValueUnit_::Parse("Rate");
+    InputParameterFailure([&] { static_cast<void>(Instrument(spec)); }, "InvalidScriptInstrumentDefinition", "/parameters/1/unit");
+    spec = DepositSpec();
+    spec.parameters_[1] = BondOptionSpec().parameters_[1];
+    spec.source_.rows_.pop_back();
+    spec.source_.rows_[1].text_ = "0.97";
+    spec.source_.rows_[3] = BondOptionSpec().source_.rows_[2];
+    spec.measures_.pop_back();
+    InputParameterFailure([&] { static_cast<void>(Instrument(spec)); }, "InvalidScriptInstrumentDefinition", "/parameters");
+}
+
+TEST(CalibrationPreparationTest, TestBondOptionStrikeDomainRejectsNonpositiveSourceAndRebinding) {
+    const auto valid = Instrument(BondOptionSpec());
+    for (double strike : {-0.01, 0.}) {
+        auto spec = BondOptionSpec();
+        spec.source_.rows_[1].text_ = String_(std::to_string(strike));
+        ASSERT_TRUE(BareProduct(spec)->HasPays());
+        InputParameterFailure([&] { static_cast<void>(Instrument(spec)); }, "InvalidScriptInstrumentDefinition", "/source/rows/1/text");
+        InputParameterFailure(
+            [&] { static_cast<void>(BindCalibrationInstrumentParameters(valid, {{{"K", strike, CalibrationValueUnit_::Parse("BondPrice")}}, {}})); },
+            "InvalidCalibrationParameterBinding", "/bindings/values/0/value");
+    }
+}
+
+TEST(CalibrationPreparationTest, TestBondOptionAllowsPositiveNarrowedDomainAndSourceOrder) {
+    auto spec = BondOptionSpec();
+    spec.parameters_[1].lower_ = 0.5;
+    spec.parameters_[1].upper_ = 1.;
+    const auto instrument = Instrument(spec);
+    InputParameterFailure(
+        [&] { static_cast<void>(BindCalibrationInstrumentParameters(instrument, {{{"K", 0.5, CalibrationValueUnit_::Parse("BondPrice")}}, {}})); },
+        "InvalidCalibrationParameterBinding", "/bindings/values/0/value");
+    const auto rebound = BindCalibrationInstrumentParameters(instrument, {{{"K", 0.6, CalibrationValueUnit_::Parse("BondPrice")}}, {}});
+    ASSERT_DOUBLE_EQ(
+        std::get<CalibrationBondOptionDescriptor_>(PrepareCalibrationInstrument(rebound, "Price", GaussianContext()).Descriptor()).strike_, 0.6);
+    std::swap(spec.source_.rows_[0], spec.source_.rows_[1]);
+    std::swap(spec.parameters_[0], spec.parameters_[1]);
+    const auto plan = PrepareCalibrationInstrument(Instrument(spec), "Price", GaussianContext());
+    ASSERT_DOUBLE_EQ(std::get<CalibrationBondOptionDescriptor_>(plan.Descriptor()).notional_, 100.);
+    ASSERT_DOUBLE_EQ(std::get<CalibrationBondOptionDescriptor_>(plan.Descriptor()).strike_, 0.97);
 }
 
 TEST(CalibrationPreparationTest, TestExplicitMcRequiresOptInSamplingAndSharedPrice) {

@@ -6,6 +6,7 @@
 #include <dal/model/gsrmultidata.hpp>
 #include <dal/script/calibrationpreparation.hpp>
 #include <dal/script/event.hpp>
+#include <dal/script/instrument_internal.hpp>
 #include <dal/storage/json.hpp>
 
 namespace Dal {
@@ -90,19 +91,42 @@ namespace Dal {
             const auto* var = dynamic_cast<const NodeVar_*>(&node);
             return var && var->name_ == name;
         }
+        const Script::SourceLocation_* NodeSource(const Node_& node) {
+            if (const auto* payment = dynamic_cast<const NodePays_*>(&node))
+                return &payment->source_;
+            if (const auto* assignment = dynamic_cast<const NodeAssign_*>(&node))
+                return &assignment->source_;
+            if (dynamic_cast<const NodeVectorAssign_*>(&node))
+                return NodeSource(*node.arguments_[0]);
+            if (const auto* entry = dynamic_cast<const NodeVectorEntry_*>(&node))
+                return &entry->source_;
+            return nullptr;
+        }
+        CalibrationDiagnostic_ WithNodeSource(const Node_& node, CalibrationDiagnostic_ d) {
+            const auto* source = NodeSource(node);
+            if (source && source->row_ != 0 && source->row_ <= INT_MAX) {
+                d.sourceRow_ = static_cast<int>(source->row_);
+                d.eventDate_ = source->eventDate_;
+            }
+            return d;
+        }
+        String_ SourceField(const CalibrationDiagnostic_& d) {
+            return d.sourceRow_ && *d.sourceRow_ > 0 ? "/source/rows/" + OrdinalText(*d.sourceRow_ - 1) + "/text" : String_("/source/rows");
+        }
         void GuardAssignment(const Node_& node, bool paid, const String_& receiver, const CalibrationDiagnostic_& d) {
             if (dynamic_cast<const NodeAssign_*>(&node) && Receiver(*node.arguments_[0], receiver))
-                Check(!paid && Literal(*node.arguments_[1], 0.), "InvalidCalibrationOutputBinding", "/source/rows",
+                Check(!paid && Literal(*node.arguments_[1], 0.), "InvalidCalibrationOutputBinding", SourceField(d),
                       "literal-zero receiver initialization before every historical or live PAYS", "", d);
             if (const auto* vector = dynamic_cast<const NodeVectorAssign_*>(&node)) {
                 const auto* entry = dynamic_cast<const NodeVectorEntry_*>(vector->arguments_[0].get());
-                Check(!entry || entry->name_ != receiver, "InvalidCalibrationOutputBinding", "/source/rows", "scalar Price receiver", "", d);
+                Check(!entry || entry->name_ != receiver, "InvalidCalibrationOutputBinding", SourceField(d), "scalar Price receiver", "", d);
             }
         }
         bool Guard(const Node_& node, bool paid, const String_& receiver, const CalibrationDiagnostic_& d) {
+            const auto source = WithNodeSource(node, d);
             const auto visit = [&](size_t first, size_t last, bool state) {
                 for (size_t i = first; i < last; ++i)
-                    state = Guard(*node.arguments_[i], state, receiver, d);
+                    state = Guard(*node.arguments_[i], state, receiver, source);
                 return state;
             };
             if (const auto* branch = dynamic_cast<const NodeIf_*>(&node)) {
@@ -112,11 +136,11 @@ namespace Dal {
                 return thenPaid || elsePaid;
             }
             if (dynamic_cast<const NodePays_*>(&node)) {
-                Check(Receiver(*node.arguments_[0], receiver), "InvalidCalibrationOutputBinding", "/source/rows", "one declared PAYS receiver", "",
-                      d);
+                Check(Receiver(*node.arguments_[0], receiver), "InvalidCalibrationOutputBinding", SourceField(source), "one declared PAYS receiver",
+                      "", source);
                 return true;
             }
-            GuardAssignment(node, paid, receiver, d);
+            GuardAssignment(node, paid, receiver, source);
             return visit(0, node.arguments_.size(), paid);
         }
         struct Payment_ {
@@ -138,7 +162,8 @@ namespace Dal {
                 d.sourceRow_ = static_cast<int>(product.ParsedEventSources()[e][0].row_);
                 for (size_t s = 0; s < product.Events()[e].size(); ++s) {
                     d.statement_ = static_cast<int>(s);
-                    action(*product.Events()[e][s], d);
+                    const auto& node = *product.Events()[e][s];
+                    action(node, WithNodeSource(node, d));
                 }
             }
         }
@@ -210,6 +235,28 @@ namespace Dal {
                     return value.value_;
             Fail("UnsupportedCalibrationProduct", "/parameters", "required P0 parameter", name);
         }
+        void BondOptionParameter(
+            const CalibrationInstrument_& instrument, const String_& key, ScriptParameterRole_ role, const String_& unit, CalibrationDiagnostic_ d) {
+            const auto& declarations = instrument.Definition()->Spec().parameters_;
+            const auto found = std::find_if(declarations.begin(), declarations.end(), [&](const auto& p) { return Bytes(p.key_) == Bytes(key); });
+            const String_ code = "UnsupportedFastEvaluator";
+            d.parameterKey_ = key;
+            Check(found != declarations.end(), code, "/parameters", "BondOption parameter " + key, "", d);
+            const auto index = static_cast<size_t>(found - declarations.begin());
+            d.sourceRow_ = static_cast<int>(index + 1);
+            const String_ path = "/parameters/" + OrdinalText(index);
+            Check(found->type_ == ScriptParameterType_::Value_::Real && found->bindable_, code, path, "bindable Real parameter", "", d);
+            Check(found->role_ == role, code, path + "/role", role.String(), found->role_.String(), d);
+            Check(Bytes(found->unit_.Token()) == Bytes(unit), code, path + "/unit", unit, found->unit_.Token(), d);
+            ValidateParameter(Bound(instrument, key), *found, "/binding/values/" + OrdinalText(index) + "/value", d, code);
+        }
+        void BondOptionParameters(const CalibrationInstrument_& instrument, const CalibrationDiagnostic_& d) {
+            Check(instrument.Definition()->Spec().parameters_.size() == 2, "UnsupportedFastEvaluator", "/parameters",
+                  "exactly N/Notional and K/Strike for BondOption; no ALPHA", "", d);
+            BondOptionParameter(instrument, "N", ScriptParameterRole_::Value_::Notional,
+                                "Price:" + String_(instrument.Definition()->Spec().header_.payCurrency_.String()), d);
+            BondOptionParameter(instrument, "K", ScriptParameterRole_::Value_::Strike, "BondPrice", d);
+        }
         double PaymentAmount(const ScriptProduct_& product, const NodePays_& payment) {
             Evaluator_<double> evaluator(Vector_<>(product.VarNames().size(), 0.), product.ConstVarValues(), product.VectorCapacities());
             AAD::Scenario_<> scenario(1);
@@ -255,6 +302,7 @@ namespace Dal {
             const auto* df = dynamic_cast<const Index::DF_*>(fix->index_.get());
             if (!df || !Cell::IsDate(df->maturity_) || !Cell::IsEmpty(df->start_))
                 return {};
+            BondOptionParameters(instrument, d);
             Check(df->ccy_ == c.currency_, "CalibrationContextMismatch", "/source/rows", "DF currency matching contract and context", "", d);
             const Date_ expiry = payments[0].date_, maturity = Cell::ToDate(df->maturity_);
             Check(*c.valuation_.evaluationDate_ < expiry && expiry < maturity, "UnsupportedFastEvaluator", "/source/rows",
@@ -380,9 +428,9 @@ namespace Dal {
         result.compilerIdentity_ = Fingerprint(Obj({{"build", Str("dal.core/1")},
                                                     {"parser", Str("typed-slots/1")},
                                                     {"lowering", Str("p0-cashflows/1")},
-                                                    {"matcher", Str("p0-ast/1")},
+                                                    {"matcher", Str("p0-ast/2")},
                                                     {"constant_binding", Str("effective-slots/1")},
-                                                    {"receiver_guard", Str("whole-history/1")}}));
+                                                    {"receiver_guard", Str("whole-history/2")}}));
         result.planIdentity_ = Fingerprint(Obj({{"instrument", Str(instrument->InstrumentIdentity())},
                                                 {"measure", Str(measureId)},
                                                 {"compiler", Str(result.compilerIdentity_)},

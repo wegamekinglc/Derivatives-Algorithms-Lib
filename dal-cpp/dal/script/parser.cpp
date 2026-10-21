@@ -411,10 +411,13 @@ namespace Dal::Script {
     }
 
     Statement_ Parser_::ParseAssign(TokIt_& cur, const TokIt_& end, Expression_& lhs) {
+        const auto source = cur->source_;
         ++cur;
         REQUIRE2(cur != end, "unexpected end of statement", ScriptError_);
         auto rhs = ParseExpr(cur, end);
-        return MakeBaseBinary<NodeAssign_>(lhs, rhs);
+        auto top = MakeBaseBinary<NodeAssign_>(lhs, rhs);
+        Downcast<NodeAssign_>(top)->source_ = source;
+        return top;
     }
 
     Statement_ Parser_::ParsePays(TokIt_& cur, const TokIt_& end, Expression_& lhs) {

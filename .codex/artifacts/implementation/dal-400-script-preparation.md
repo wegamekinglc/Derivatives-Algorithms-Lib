@@ -231,3 +231,91 @@ and performance scope. No full test or timing matrix is repeated. The separate
 review findings about BondOption parameter declarations and merged-event guard
 diagnostics remain open for coordinator-directed follow-up; this repair does
 not claim to resolve them. DAL-400 and parent DAL-396 remain in_progress.
+
+## BondOption admission and receiver-source review repairs
+
+Input head: `7920b13f963e2a9bfde76ddad475320b327ed9fc`, preserving the preceding
+Windows namespace repair. This follow-up addresses review items 2 and 3 on the
+same PR/branch; Windows success remains a current-head CI requirement.
+
+BondOption's complete AST match now also requires exactly N/Notional and
+K/Strike, bindable Real declarations with pay-currency Price and BondPrice units.
+Effective values reuse the shared parameter-domain validator, including strict
+positivity and any declared narrowing. Lookup follows keys rather than assuming
+N/K declaration order. The immutable definition/binding remain authoritative;
+no bare Product restriction or alternate native product is added.
+
+The receiver guard takes source context from the actual PAYS, scalar assignment
+or vector target, including nodes inside both branches. Scalar assignment nodes
+now retain the parser's source location, matching existing PAYS/vector metadata.
+This is diagnostic metadata only: runtime assignment visitors and bytecode remain
+unchanged. A failure reports the actual one-based source row and event date,
+the containing zero-based top-level statement ordinal, and the exact row-text
+JSON pointer. The report and exception copy that context before the tree unwinds.
+
+RED commands after successful focused test builds:
+
+```bash
+./build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter='CalibrationPreparationTest.TestBondOptionRejectsCouponDeclarationAndUnusedAccrual'
+./build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter='CalibrationPreparationTest.TestMergedReceiverFailureUsesFailingPaymentSource:CalibrationPreparationTest.TestBranchReceiverFailureUsesFailingPaymentSource:CalibrationPreparationTest.TestMergedResetFailureUsesAssignmentSource:CalibrationPreparationTest.TestBranchResetFailureUsesAssignmentSource:CalibrationPreparationTest.TestBareProductKeepsMergedReceiverAndResetSemantics'
+```
+
+The first exits 1 because Coupon/Rate plus unused ALPHA is incorrectly admitted.
+It is GREEN after adding template-specific parameter validation, alongside the
+existing valid CALL/PUT case. The second exits 1 with all four source-diagnostic
+tests failing and the bare tree/compiled characterization passing. Tests cover
+same-date row merging, both IF arms across source rows, scalar resets and vector
+targets. The receiver harness initially missed the dateutils include; that
+test-build issue was corrected before collecting the actual RED results.
+
+Additional directed parameter coverage checks nonpositive source/rebinding,
+wrong units, extra ALPHA with a Strike declaration, a narrowed positive domain
+and reversed N/K source order. Source and binding violations retain owned Input
+reports at their original boundaries; declaration/template mismatch returns an
+owned Prepare-stage UnsupportedFastEvaluator. Bare source construction still
+accepts negative-strike DSL, extra receivers and resets; tree and compiled
+results retain their prior values.
+
+Final GREEN verification (all successful):
+
+```bash
+cmake --build build/Release-linux --target dal_cpp_tests dal_public_tests script_perf -j 12
+./build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter='CalibrationPreparationTest.*:ScriptTest.TestParse*:ScriptTest.TestEvent*:ScriptPastReplayTest.*:ScriptExactFoldingTest.*:ScriptCompiledParityTest.*'
+./build/Release-linux/dal-public/dal_public_tests --gtest_filter='ScriptArchiveTest.*:ScriptTest.*'
+cmake --build build/warning-clean --target dal_cpp dal_public -j 4
+git diff --check
+```
+
+There are 151 affected core tests, including 28 preparation tests (10 new), and
+15 public Script/archive tests. The final preparation/compiler-token change is
+also verified before the last full directed selection; public and script_perf
+executables remain byte-identical across that token-only change. A final edge
+test checks top-level statement ordinals 0 and 2 in addition to merged-branch
+ordinal 1. No assertion or tolerance is weakened. Modified-range formatting and
+added/modified function complexity checks pass, with maximum CCN 8. GCC 14.3
+warning-clean core/public libraries use the existing CI categories/exclusions.
+
+The matcher and receiver-guard compiler tokens advance to p0-ast/2 and
+whole-history/2 so derived plan identity reflects the tightened admission and
+diagnostics. Definition, binding, quote-risk JCS/SHA and archive identity rules
+are unchanged. These are direct fixes within the accepted contract, not a new
+financial template or public capability.
+
+Scalar-assignment metadata changes the parser/AST caller, so the original
+script_perf executable-isolation claim is not reused for that changed binary.
+Before production edits, the input-head executable was built and frozen with
+SHA-256 `b18f3aff073bf913f3a50bc2a27a89ddac3c9d5e0161dff03ded78d9bba3d825`.
+The repaired executable is
+`8171fbe5ba6339d633226f39eef9f03f768e407aebf9a18cf601eaea4c3158d5`.
+Both use the same GCC 15.2 Release/AAD/dependency/build settings. Ten process
+samples per side alternate before/after order and use the same CPU affinity;
+raw outputs and environment accompany the issue evidence. Best-of-10 parse
+time is 155.433 to 156.446 us/iteration (+0.65%); full construction is 255.269 to
+251.639 us/iteration (-1.42%). script_perf is informational, outside the allowed
+regression-gate executables; this is not an independent clean baseline build or
+a full benchmark/regression verdict.
+
+Original evidence remains valid for unchanged coefficient/quotient numerical
+kernels, generated output and product documentation. No unrelated numerical,
+MC, solver, full benchmark or downstream matrix is rerun. The current-head
+Windows checks, necessary focused repair review and all merge gates still apply.
