@@ -18,6 +18,12 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-21
 
+- **Script calibration preparation** — added complete AST admission for Deposit
+  and Gaussian BondOption contracts, strict historical/branch receiver guards,
+  shared cashflow and affine coefficient views with quotient partials, and
+  context-bound method capabilities. See the
+  [contract guide](docs/methodology/script_calibration_contract.md#structural-preparation).
+
 - **Core script calibration contracts** — added immutable versioned script
   definitions and typed N/K bindings, quote/observation axes and structured
   failures, plus strict portable JSON and DAL archive round trips. Raw Product

@@ -179,7 +179,9 @@ namespace Dal::Script {
 
     //	Assign, Pays
 
-    struct NodeAssign_ : public Visitable_<ActNode_, NodeAssign_, VISITORS> {};
+    struct NodeAssign_ : public Visitable_<ActNode_, NodeAssign_, VISITORS> {
+        SourceLocation_ source_;
+    };
 
     struct NodeVectorAssign_ : public Visitable_<ActNode_, NodeVectorAssign_, VISITORS> {};
 
