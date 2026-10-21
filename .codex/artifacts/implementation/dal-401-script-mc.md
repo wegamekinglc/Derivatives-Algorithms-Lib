@@ -211,3 +211,68 @@ Raw RED/GREEN logs, numerical XML, probe source/CSV and resource output accompan
 the issue handoff. Local Windows/MSVC, full product tests and full benchmarks
 were not run. Current-head CI and focused reviewer acceptance remain with the
 coordinator; this task neither merges nor activates downstream tasks.
+
+## Windows budget-conversion repair
+
+Input head: `eb472e47d665dc695c2543d604cc924d4364f718`. Actual RED evidence is
+Windows run `39575555999`, main job `119140142054` and diagnostics job
+`119140142146`: both report C4244 for the implicit size_t-to-double argument
+conversion when encoding the plan's budget. This is a code diagnostic, not an
+external permission/service failure. No gate, warning policy or numerical
+acceptance condition is changed.
+
+The production repair is one expression: make the conversion to double explicit
+at budget serialization. This is a conversion of an already validated value:
+PrepareCalibrationMc calls ValidateSettings/ValidateSampling before building
+the identity, and that existing guard requires maxPathsPerView <= INT_MAX.
+On the supported Windows/Linux types, INT_MAX = 2^31-1 is below double's exact
+integer limit 2^53. The existing bound is retained, not extended to larger
+representable integers. Values above it, including nonrepresentable integers,
+fail before fingerprinting; there is no rounding, clipping or lossy admission.
+The JSON number, plan identity inputs and actual fit/validation counts retain
+their previous definitions.
+
+Two new characterization tests pass before and after the expression repair.
+They check INT_MAX-1 and INT_MAX for distinct/reproducible identities, unchanged
+mapping and bitwise-equal actual fit/validation path values and counts.
+INT_MAX+1, SIZE_MAX and (on 64-bit size_t) 2^53+1 retain owned Prepare-stage
+InvalidCalibrationPlan reports at /mc/max_paths_per_view after input unwind.
+The tests do not execute a huge path schedule: changing the maximum budget does
+not change the small explicit schedule. Four existing sampling/range/oracle
+tests complete the directly affected selection. No runtime test failure is
+claimed for this compile-only defect; RED is the actual MSVC compiler failure.
+
+Local verification builds only the core and a focused executable from the
+committed test source and repository test main, using the Release core/gtest
+archives. This avoids rebuilding or rerunning unrelated test cases:
+
+```bash
+cmake --build build/Release-linux --target dal_cpp -j 12
+g++-15 -O3 -DNDEBUG -std=c++17 -fPIE -ffp-contract=fast -I dal-cpp -I dal-cpp/externals/rapidjson/include -isystem dal-cpp/externals/googletest/googletest/include -c dal-cpp/tests/script/test_calibration_mc.cpp -o build/Release-linux/dal401_budget_test.o
+g++-15 -O3 -DNDEBUG -std=c++17 -fPIE -ffp-contract=fast -I dal-cpp -isystem dal-cpp/externals/googletest/googletest/include -c dal-cpp/tests/test_main.cpp -o build/Release-linux/dal401_budget_main.o
+g++-15 -O3 -DNDEBUG -ffp-contract=fast build/Release-linux/dal401_budget_main.o build/Release-linux/dal401_budget_test.o build/Release-linux/dal-cpp/libdal_cpp.a build/Release-linux/lib/libgtest.a -pthread -o build/Release-linux/dal401_budget_tests
+./build/Release-linux/dal401_budget_tests --gtest_filter='CalibrationMcTest.TestBudgetIdentityRetainsExactAcceptedBoundary:CalibrationMcTest.TestOversizedBudgetsKeepOwnedPreparationFailure:CalibrationMcTest.TestSamplingRequiresOptInBatchesSeedAndBudget:CalibrationMcTest.TestZeroSeedAndExplicitCountBoundaries:CalibrationMcTest.TestRangesMatchSequentialNormalsAndIndependentPathOracle:CalibrationMcTest.TestSameBindingTreeAndCompiledPathPayoffs'
+```
+
+All six selected tests pass on both input and repaired libraries. Gtest XML
+records the two upper-bound identities; comparing the before/after properties
+confirms exact equality. GCC 14.3 syntax-only compilation of calibrationmc.cpp
+with the existing CI warning categories/exclusions and Werror passes. Modified
+range formatting, CCN <=8 and diff checks pass. The original statistical scales,
+sample counts, error budgets, mappings, numerical kernels and dependencies are
+unchanged.
+
+With identical local GCC 15.2 Release configuration, the rebuilt files retain
+their input-head SHA-256 exactly:
+
+- calibrationmc.cpp.o: `1dcda78e90f176c3f8cf5b02274e75044a2a0e84502b948f993af574f654258e`
+- libdal_cpp.a: `5c37f4562f10456a00d66123e8f0945322ade64a178c6322dce1810f92ea1cd2`
+- focused test executable: `10bf9762e1fc7e6b2cf7fabb1c0bc3559b60a1707a62ab2393163b0b49d5359a`
+
+These are local before/after identities, not claims of equality with the
+archived binaries built at other workspace paths. Together with the unchanged
+runtime source/dependency/configuration provenance, they support reusing the
+original 205-core/15-public, frozen statistics and informational performance
+evidence in attachment `01a15dc0-6f4a-7d09-ad68-993d19c18c08`. No full test or
+benchmark matrix is repeated. Local MSVC execution is not claimed; the pushed
+head's real Windows checks and coordinator-arranged review remain required.

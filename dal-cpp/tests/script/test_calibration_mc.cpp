@@ -1,7 +1,9 @@
 #include <gtest/gtest.h>
 
 #include <climits>
+#include <cstdint>
 #include <functional>
+#include <limits>
 
 #include <dal/math/aad/recording.hpp>
 #include <dal/math/random/pseudorandom.hpp>
@@ -469,6 +471,60 @@ TEST(CalibrationMcTest, TestAffineTreeCompiledAadCrnAndRebinding) {
     ASSERT_NEAR(fresh.mean_, tree.mean_, 1e-12);
     for (size_t j = 0; j < 2; ++j)
         ASSERT_NEAR(fresh.gradient_[j], tree.gradient_[j], 1e-10);
+}
+
+TEST(CalibrationMcTest, TestBudgetIdentityRetainsExactAcceptedBoundary) {
+    const auto instrument = McInstrument(true);
+    const auto context = McContext();
+    auto settings = McSettings();
+    const auto reference = PrepareCalibrationMc(instrument, "Price", context, settings);
+    const auto fit = reference.Evaluate(instrument, context, false);
+    const auto validation = reference.Evaluate(instrument, context, true);
+    String_ previous = reference.PlanIdentity();
+    for (size_t budget : {static_cast<size_t>(INT_MAX) - 1, static_cast<size_t>(INT_MAX)}) {
+        settings.maxPathsPerView_ = budget;
+        const auto plan = PrepareCalibrationMc(instrument, "Price", context, settings);
+        ASSERT_NE(plan.PlanIdentity(), previous);
+        ASSERT_EQ(plan.PlanIdentity(), PrepareCalibrationMc(instrument, "Price", context, settings).PlanIdentity());
+        ASSERT_EQ(plan.Mapping().identity_, reference.Mapping().identity_);
+        const auto actualFit = plan.Evaluate(instrument, context, false);
+        const auto actualValidation = plan.Evaluate(instrument, context, true);
+        ASSERT_EQ(actualFit.pathValues_, fit.pathValues_);
+        ASSERT_EQ(actualValidation.pathValues_, validation.pathValues_);
+        ASSERT_EQ(actualFit.pathsPerView_, fit.pathsPerView_);
+        ASSERT_EQ(actualValidation.pathsPerView_, validation.pathsPerView_);
+        RecordProperty("budget_" + std::to_string(budget) + "_identity", std::string(plan.PlanIdentity().data(), plan.PlanIdentity().size()));
+        previous = plan.PlanIdentity();
+    }
+}
+
+TEST(CalibrationMcTest, TestOversizedBudgetsKeepOwnedPreparationFailure) {
+    Vector_<size_t> budgets{static_cast<size_t>(INT_MAX) + 1, std::numeric_limits<size_t>::max()};
+    if constexpr (sizeof(size_t) >= sizeof(std::uint64_t))
+        budgets.push_back(static_cast<size_t>((std::uint64_t{1} << 53) + 1));
+    for (size_t budget : budgets) {
+        SCOPED_TRACE(budget);
+        std::optional<CalibrationError_> saved;
+        try {
+            auto settings = McSettings();
+            settings.maxPathsPerView_ = budget;
+            const auto instrument = McInstrument(true);
+            static_cast<void>(PrepareCalibrationMc(instrument, "Price", McContext(), settings));
+        } catch (const CalibrationError_& error) {
+            saved = error;
+        }
+        ASSERT_TRUE(saved);
+        const auto& failure = saved->Failure();
+        const auto& d = failure.diagnostic_;
+        ASSERT_EQ(d.code_, "InvalidCalibrationPlan");
+        ASSERT_EQ(d.stage_, CalibrationStage_::Value_::Prepare);
+        ASSERT_EQ(d.field_, std::optional<String_>("/mc/max_paths_per_view"));
+        ASSERT_TRUE(failure.report_);
+        ASSERT_EQ(failure.report_->Stage(), CalibrationStage_::Value_::Prepare);
+        ASSERT_EQ(failure.report_->Errors().size(), 1);
+        ASSERT_EQ(failure.report_->Errors()[0].code_, d.code_);
+        ASSERT_EQ(failure.report_->Errors()[0].field_, d.field_);
+    }
 }
 
 TEST(CalibrationMcTest, TestZeroSeedAndExplicitCountBoundaries) {

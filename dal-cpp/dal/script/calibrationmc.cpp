@@ -395,7 +395,7 @@ namespace Dal {
                                                    {"fit_paths", Num(settings.fitPathsPerBatch_)},
                                                    {"validation_batches", Num(settings.validationBatches_)},
                                                    {"validation_paths", Num(settings.validationPathsPerBatch_)},
-                                                   {"budget", Num(settings.maxPathsPerView_)},
+                                                   {"budget", Num(static_cast<double>(settings.maxPathsPerView_))},
                                                    {"compiled", Bool(settings.compiled_)},
                                                    {"aad", Bool(settings.aad_)},
                                                    {"annuity_sigma", Num(settings.annuitySigma_)},
