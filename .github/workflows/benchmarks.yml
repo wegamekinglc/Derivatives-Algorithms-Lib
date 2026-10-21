@@ -205,16 +205,43 @@ jobs:
           uv pip install --require-hashes \
             -r dal-python/benchmarks/requirements-comparisons.txt
 
-      - name: Compare Python pricing and AAD risk with QuantLib and rateslib
+      - name: Set up InFine .NET SDK
+        id: infine-sdk
         if: ${{ !cancelled() && steps.python-comparison-dependencies.outcome == 'success' }}
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # @v5
+        with:
+          dotnet-version: '8.0.426'
+
+      - name: Check out pinned InFine source
+        id: infine-source
+        if: ${{ !cancelled() && steps.python-comparison-dependencies.outcome == 'success' }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: infineco/quant-finance-library
+          ref: 514ffe83b9ef8be0a29578c6f190b390267facf7
+          path: benchmark-infine-source
+          persist-credentials: false
+
+      - name: Build pinned InFine comparison worker
+        id: infine-build
+        if: ${{ !cancelled() && steps.infine-sdk.outcome == 'success' && steps.infine-source.outcome == 'success' }}
+        run: |
+          python3 dal-python/benchmarks/prepare_infine.py \
+            --source benchmark-infine-source \
+            --output benchmark-results/infine-build
+
+      - name: Compare pricing and risk with QuantLib, rateslib and InFine
+        if: ${{ !cancelled() && steps.infine-build.outcome == 'success' }}
         env:
           DAL_NUM_THREADS: 4
           MPLCONFIGDIR: ${{ runner.temp }}/dal-comparison-matplotlib
+          DAL_INFINE_BUILD: ${{ github.workspace }}/benchmark-results/infine-build
         run: |
           PYTHONPATH="$PWD/build/benchmark-head/dal-python" \
             python3 -m pytest dal-python/benchmarks/tests -q
           python3 dal-python/benchmarks/run_comparisons.py \
             --dal-package build/benchmark-head/dal-python \
+            --infine-build benchmark-results/infine-build \
             --output-dir benchmark-results/python-third-party \
             --summary-file "$GITHUB_STEP_SUMMARY" \
             --samples 10 \
