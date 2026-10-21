@@ -99,6 +99,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.define-matrix.outputs.matrix) }}
+    env:
+      # Keep both Ubuntu images on the same portable instruction baseline.
+      CXXFLAGS: ${{ matrix.compiler == 'gcc-15' && '-O2 -march=x86-64 -mtune=generic' || '-O2' }}
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -140,7 +143,6 @@ jobs:
 
       - name: Compile and test
         env:
-          CXXFLAGS: -O2
           CC: ${{ matrix.cc }}
           CXX: ${{ matrix.cxx }}
         run: |
