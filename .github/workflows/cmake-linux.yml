@@ -67,9 +67,10 @@ jobs:
                "packages": "gcc-13 g++-13"},
               {"compiler": "gcc-14", "cc": "gcc-14", "cxx": "g++-14",
                "packages": "gcc-14 g++-14"},
-              # Ubuntu 26.04 provides gcc-15 without a toolchain PPA.
+              # Ubuntu 26.04 provides gcc-15; keep the earlier portable CPU baseline.
               {"compiler": "gcc-15", "cc": "gcc-15", "cxx": "g++-15",
-               "packages": "gcc-15 g++-15", "runner": "ubuntu-26.04"},
+               "packages": "gcc-15 g++-15", "runner": "ubuntu-26.04",
+               "cxxflags": "-O2 -march=x86-64"},
           ]
           push_compilers = {"gcc-14", "clang-20"}
 
@@ -79,6 +80,7 @@ jobs:
                   continue
               leg = dict(entry)
               leg.setdefault("runner", "ubuntu-latest")
+              leg.setdefault("cxxflags", "-O2")
               leg["aad-backend"] = "aadet"
               leg["coverage"] = entry["compiler"] == "gcc-14"
               if leg["coverage"]:
@@ -141,7 +143,7 @@ jobs:
 
       - name: Compile and test
         env:
-          CXXFLAGS: -O2
+          CXXFLAGS: ${{ matrix.cxxflags }}
           CC: ${{ matrix.cc }}
           CXX: ${{ matrix.cxx }}
         run: |
@@ -165,6 +167,7 @@ jobs:
         env:
           CC: ${{ matrix.cc }}
           CXX: ${{ matrix.cxx }}
+          CXXFLAGS: ${{ matrix.cxxflags }}
         run: |
           consumer_build="$RUNNER_TEMP/dal-consumer-${{ matrix.compiler }}-${{ matrix.aad-backend }}"
           cmake \
