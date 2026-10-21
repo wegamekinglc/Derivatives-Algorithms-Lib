@@ -113,7 +113,7 @@ TEST(ScriptExcelContractTest, TestSimulationSettingsDefaultsAndBooleans) {
     ASSERT_EQ(settings->val_.rsg_, String_("sobol"));
     ASSERT_FALSE(settings->val_.useBb_);
     ASSERT_FALSE(settings->val_.enableAad_);
-    ASSERT_FALSE(settings->val_.compiled_);
+    ASSERT_EQ(settings->val_.compiled_, std::optional<bool>(true));
     ASSERT_DOUBLE_EQ(settings->val_.smooth_, .01);
     for (const auto& value : {Cell_(true), Cell_(false), Cell_(1.0), Cell_(0.0)}) {
         const bool expected = Cell::IsBool(value) ? std::get<bool>(value.val_) : Cell::ToDouble(value) == 1.0;

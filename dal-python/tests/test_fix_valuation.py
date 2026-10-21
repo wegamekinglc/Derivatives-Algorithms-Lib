@@ -284,7 +284,7 @@ def test_diagnostics_keep_actual_ids_and_legacy_schema_boundary():
         "use_bb": False,
         "enable_aad": False,
         "smooth": 0.01,
-        "compiled": False,
+        "compiled": True,
         "lsmc_basis_degree": 3,
         "lsmc_training_paths": None,
         "lsmc_validation_paths": None,

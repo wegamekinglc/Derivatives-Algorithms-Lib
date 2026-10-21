@@ -451,7 +451,8 @@ the curvature request's existing numeric-payload accounting is unchanged.
 ## LSMC Policy Sensitivity Validation
 
 `dal-python/benchmarks/compare_lsmc_policy_sensitivities.py` reproduces a
-six-case study with disjoint training/pricing streams, two independently
+six-case study using compiled evaluation by default (`--no-compiled` selects
+tree-walk), with disjoint training/pricing streams, two independently
 digitally shifted pricing replicates per outer run, and eight independent
 training/pricing seed pairs. Each full-retraining finite difference shares
 its seed pair between bumps. The European case uses analytic Black-Scholes

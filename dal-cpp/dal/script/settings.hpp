@@ -24,6 +24,7 @@ namespace Dal {
 
     namespace Script {
         constexpr double DEFAULT_SMOOTH = 0.01;
+        constexpr bool DEFAULT_COMPILED = true;
         constexpr int DEFAULT_LSMC_BASIS_DEGREE = 3;
         constexpr double DEFAULT_LSMC_POLICY_BUMP_RELATIVE = 1e-3;
 
@@ -37,7 +38,7 @@ namespace Dal {
             bool useBb_ = false;
             bool enableAad_ = false;
             double smooth_ = DEFAULT_SMOOTH;
-            std::optional<bool> compiled_;
+            std::optional<bool> compiled_ = DEFAULT_COMPILED;
             // Polynomial degree of the LSMC regression basis for EXERCISE valuation
             int lsmcBasisDegree_ = DEFAULT_LSMC_BASIS_DEGREE;
             // Positive training count for EXERCISE valuation; unset uses the pricing count.

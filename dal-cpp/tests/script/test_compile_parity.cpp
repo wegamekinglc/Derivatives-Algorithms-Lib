@@ -329,9 +329,8 @@ TEST(ScriptCompiledParityTest, TestParity_ConstCompile_Artifact) {
 
     auto model = StandardBSModel(10.0, 0.20, 0.034, 0.021);
     const SimResults_ defaulted = MCSimulation<double>(product, model, 2048, "sobol", false);
-    const SimResults_ treeWalk = MCSimulation<double>(product, model, 2048, "sobol", false, false);
-    ASSERT_NEAR(defaulted.aggregated_, treeWalk.aggregated_, 1e-8)
-        << "<double> default diverges from explicit tree-walk";
+    const SimResults_ explicitCompiled = MCSimulation<double>(product, model, 2048, "sobol", false, true);
+    ASSERT_DOUBLE_EQ(defaulted.aggregated_, explicitCompiled.aggregated_);
 }
 
 TEST(ScriptCompiledParityTest, TestParity_PastEvents_InitSeeding) {

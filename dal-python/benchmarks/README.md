@@ -54,15 +54,15 @@ are errors, never silently skipped workloads.
 
 ## Workload alignment
 
-| Native target            | Python cases | Full workload and timing boundary                                                                                                                                |
-|--------------------------|--------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `rng_perf`               | 4            | 100,000 paths × 10 dimensions; Sobol normal fast, normal precise with polish, uniform, and MRG32 normal; fresh generator and output matrix each invocation       |
-| `script_perf`            | 1            | Same three-year weekly barrier event table; `Product_New` + `Product_DebugJson`, including frontend construction, indexing and JSON serialization                |
-| `script_mc_perf`         | 24           | Eight native-aligned tree/compiled double/AAD cases plus sixteen comparable European/barrier/Bermudan/American MC price and Greek cases at 16,384/65,536 pricing paths |
-| `curve_calibration_perf` | 27           | 21 native-aligned representation/Jacobian/diagnostic cases plus single, staged multi-curve and joint multi-curve comparisons at 5/15 quotes per block           |
-| `xccy_perf`              | 12           | Eight native-aligned joint/staged/Jacobian/diagnostic cases plus staged and joint XCCY comparisons at 5/15 quotes per block                                       |
-| `rate_risk_perf`         | 21           | 120-IRS batch and 240 single-component calls; five-year OIS; 24-XCCY batch; nine quote portfolios; six generic-joint portfolios; 32/256-IRS AAD node DV01        |
-| `quote_risk_perf`        | 9            | Single, joint XCCY and staged provenance at N=8/16; additional generic joint provenance at total N=5/10/16                                                       |
+| Native target            | Python cases | Full workload and timing boundary                                                                                                                                               |
+|--------------------------|--------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `rng_perf`               | 4            | 100,000 paths × 10 dimensions; Sobol normal fast, normal precise with polish, uniform, and MRG32 normal; fresh generator and output matrix each invocation                      |
+| `script_perf`            | 1            | Same three-year weekly barrier event table; `Product_New` + `Product_DebugJson`, including frontend construction, indexing and JSON serialization                               |
+| `script_mc_perf`         | 28           | Twelve native-aligned default/tree/compiled double/AAD cases plus sixteen comparable European/barrier/Bermudan/American MC price and Greek cases at 16,384/65,536 pricing paths |
+| `curve_calibration_perf` | 27           | 21 native-aligned representation/Jacobian/diagnostic cases plus single, staged multi-curve and joint multi-curve comparisons at 5/15 quotes per block                           |
+| `xccy_perf`              | 12           | Eight native-aligned joint/staged/Jacobian/diagnostic cases plus staged and joint XCCY comparisons at 5/15 quotes per block                                                     |
+| `rate_risk_perf`         | 21           | 120-IRS batch and 240 single-component calls; five-year OIS; 24-XCCY batch; nine quote portfolios; six generic-joint portfolios; 32/256-IRS AAD node DV01                       |
+| `quote_risk_perf`        | 9            | Single, joint XCCY and staged provenance at N=8/16; additional generic joint provenance at total N=5/10/16                                                                      |
 
 All these target mappings are marked `partial`: the timed boundary is the Python
 interface, and some native-only subcases remain inaccessible. This is not a claim
@@ -206,7 +206,7 @@ recorded CI interpreter, platform and native CPU flags; they are diagnostic buil
 outputs, not portable distribution wheels.
 
 The same head benchmark code and workload metadata must be used for both sides,
-including when the base predates this benchmark suite. All 98 cases are measured
+including when the base predates this benchmark suite. All 102 cases are measured
 and gated against the base library. When a base suite exists, its inventory is
 also checked: removing or renaming a case fails. New cases must run against both
 libraries. A missing base API,

@@ -4,6 +4,11 @@
 and build with `DAL_BUILD_PUBLIC=OFF`. Ordinary production profiling and
 `--lsmc-replay` retain their existing command lines.
 
+The ordinary benchmark compares default evaluator selection (compiled),
+explicit tree-walk, and explicit compiled execution for vanilla and
+weekly barrier products in double and AAD modes. The RNG-policy profile also
+uses compiled evaluation when its optional evaluator argument is omitted.
+
 ## LSMC training-budget study
 
 The address overlay supports the historical native functions in

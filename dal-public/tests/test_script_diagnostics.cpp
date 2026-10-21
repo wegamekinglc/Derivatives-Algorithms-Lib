@@ -219,7 +219,7 @@ TEST(ScriptApiTest, TestExplainPreparation) {
     ASSERT_STREQ(json["evaluation_date"].GetString(), "2026-09-12");
     ASSERT_STREQ(json["today_fixing"].GetString(), "Model");
     ASSERT_STREQ(json["source_kind"].GetString(), "ExplicitSnapshot");
-    ASSERT_FALSE(json["simulation"]["compiled"].GetBool());
+    ASSERT_TRUE(json["simulation"]["compiled"].GetBool());
     ASSERT_FALSE(json["all_expired"].GetBool());
     ASSERT_EQ(json["requests"].Size(), 2u);
     const auto& history = json["requests"][0];
@@ -551,19 +551,19 @@ TEST(ScriptApiTest, TestExplainScriptSimulation) {
     ASSERT_TRUE(events[0]["degenerate_reason"].IsNull());
     ASSERT_GT(events[0]["exercise_rate"].GetDouble(), 0.0);
 
-    { //  the compiled mode joins the LSMC driver (T3): the echo reports it and the events stay consistent
+    {
         MonteCarloSettings_ simulation;
-        simulation.compiled_ = true;
-        const auto compiledText = ExplainScriptSimulation(product, model, 4096, ScriptValuationSettings_(), simulation);
-        rapidjson::Document compiledJson;
-        compiledJson.Parse(compiledText.c_str());
-        ASSERT_FALSE(compiledJson.HasParseError());
-        ASSERT_TRUE(compiledJson["simulation"]["compiled"].GetBool());
-        const auto& compiledEvents = compiledJson["exercise_events"];
-        ASSERT_EQ(compiledEvents.Size(), events.Size());
+        simulation.compiled_ = false;
+        const auto treeText = ExplainScriptSimulation(product, model, 4096, ScriptValuationSettings_(), simulation);
+        rapidjson::Document treeJson;
+        treeJson.Parse(treeText.c_str());
+        ASSERT_FALSE(treeJson.HasParseError());
+        ASSERT_FALSE(treeJson["simulation"]["compiled"].GetBool());
+        const auto& treeEvents = treeJson["exercise_events"];
+        ASSERT_EQ(treeEvents.Size(), events.Size());
         for (rapidjson::SizeType k = 0; k < events.Size(); ++k) {
-            ASSERT_EQ(compiledEvents[k]["event_id"].GetInt(), events[k]["event_id"].GetInt());
-            ASSERT_NEAR(compiledEvents[k]["exercise_rate"].GetDouble(), events[k]["exercise_rate"].GetDouble(), 1e-4);
+            ASSERT_EQ(treeEvents[k]["event_id"].GetInt(), events[k]["event_id"].GetInt());
+            ASSERT_NEAR(treeEvents[k]["exercise_rate"].GetDouble(), events[k]["exercise_rate"].GetDouble(), 1e-4);
         }
     }
     { // held-out selection is visible without exposing validation rows as pricing observations

@@ -85,7 +85,7 @@ namespace Dal::Script::Detail {
             trade.RequireExecutable();
             if (trade.Simulation().enableAad_) {
                 ValidateAADHistory(trade);
-                ValidateAADExecution(trade, trade.Simulation().compiled_.value_or(false), trade.Simulation().smooth_);
+                ValidateAADExecution(trade, trade.Simulation().compiled_.value_or(DEFAULT_COMPILED), trade.Simulation().smooth_);
             }
             const auto axis = ScriptRiskOutputAxis(trade.Product());
             REQUIRE2(output.coordinate_.slot_ < axis.size(), "InvalidPortfolioBatch: scalar slot is out of range; output=" + output.coordinate_.id_,
@@ -440,7 +440,7 @@ namespace Dal::Script::Detail {
                                const C_& consume) {
             const auto& representative = portfolio.Trades()[selection.tradePositions_.front()];
             REQUIRE2(representative.Simulation().enableAad_, "UnsupportedPortfolioJacobianBatch: native preparation is required", ScriptError_);
-            if (representative.Simulation().compiled_.value_or(false))
+            if (representative.Simulation().compiled_.value_or(DEFAULT_COMPILED))
                 return RunNativeBatches<O_>(portfolio, group, outputs, selection, BuildCompiledState<AAD::Number_>(),
                                             EvaluateCompiled<AAD::Number_>(), tape, width, consume);
             return RunNativeBatches<O_>(portfolio, group, outputs, selection, BuildTreeState<AAD::Number_>(), EVALUATE_TREE, tape, width, consume);
@@ -453,7 +453,7 @@ namespace Dal::Script::Detail {
                                 const BatchSelection_& selection,
                                 const C_& consume) {
             const auto& representative = portfolio.Trades()[selection.tradePositions_.front()];
-            if (representative.Simulation().compiled_.value_or(false))
+            if (representative.Simulation().compiled_.value_or(DEFAULT_COMPILED))
                 return RunPassiveBatches(portfolio, group, outputs, selection, BuildCompiledState<double>(), EvaluateCompiled<double>(), consume);
             return RunPassiveBatches(portfolio, group, outputs, selection, BuildTreeState<double>(), EVALUATE_TREE, consume);
         }
@@ -490,10 +490,10 @@ namespace Dal::Script::Detail {
                 const auto run = [&] { return RunSelectedBatches<O_>(portfolio, group, outputs, selection, tape, width, consume); };
                 if (scratch) {
                     const auto fixed =
-                        O_::BLOCKED ? PortfolioJacobianWorkerFixedBytes(representative.Simulation().compiled_.value_or(false),
+                        O_::BLOCKED ? PortfolioJacobianWorkerFixedBytes(representative.Simulation().compiled_.value_or(DEFAULT_COMPILED),
                                                                         selection.tradePositions_.size())
                                     : PortfolioWeightedWorkerFixedBytes(
-                                          representative.Simulation().compiled_.value_or(false), selection.tradePositions_.size(),
+                                          representative.Simulation().compiled_.value_or(DEFAULT_COMPILED), selection.tradePositions_.size(),
                                           representative.Simulation().enableAad_,
                                           typeid(*portfolio.Portfolio()->Models()[portfolio.Groups()[group].modelOwner_]) == typeid(BSModelData_));
                     auto capacity = BufferCapacityScope_::ForWorker(scratch, fixed);

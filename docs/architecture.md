@@ -181,8 +181,8 @@ C++ / Python / Excel caller
 ```
 
 `numPath` must be positive at the public valuation boundary. The script
-tree-walk evaluator is the default; the compiled evaluator is an opt-in execution
-mode with the same payoff/risk contract. AAD simulations use a separate recording
+compiled evaluator is the default; explicit `compiled=false` selects tree-walk
+execution with the same payoff/risk contract. AAD simulations use a separate recording
 for each worker's path batch.
 
 Public C++ settings select the script default index, date/policy, and

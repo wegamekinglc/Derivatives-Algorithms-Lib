@@ -101,7 +101,7 @@ namespace Dal::Script::Detail {
         const BatchPlan_ batches(paths, pool->NumThreads());
         const bool checkedPaths = typeid(*model) == typeid(BSModelData_);
         PreflightPassiveReplay(outputs.size(), batches, pool->NumThreads(), checkedPaths, limits);
-        const ScriptCompiled_* program = simulation.compiled_.value_or(false) ? &product.CompiledProgram() : nullptr;
+        const ScriptCompiled_* program = simulation.compiled_.value_or(DEFAULT_COMPILED) ? &product.CompiledProgram() : nullptr;
         BufferCapacityBudget_ scratch(limits.scratchBudgetBytes_.value_or(std::numeric_limits<size_t>::max()));
         BufferCapacityScope_ coordinator(&scratch, sizeof(AADBlockReplayResult_));
         AADBlockReplayResult_ result(outputs.size(), 0, {});

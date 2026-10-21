@@ -79,6 +79,6 @@ namespace Dal {
                                                 bool useBb = false,
                                                 bool enableAad = false,
                                                 double smooth = Script::DEFAULT_SMOOTH,
-                                                std::optional<bool> compiled = std::nullopt);
+                                                std::optional<bool> compiled = Script::DEFAULT_COMPILED);
 
 } // namespace Dal

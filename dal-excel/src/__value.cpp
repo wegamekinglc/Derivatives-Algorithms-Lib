@@ -48,7 +48,7 @@ n_paths is number
 valuation is handle StorableScriptValuationSettings
     Valuation settings handle; blank captures the global date and required history for this call
 simulation is handle StorableMonteCarloSettings
-    Monte Carlo settings handle; blank uses sobol, no BB/AAD, smooth 0.01 and tree
+    Monte Carlo settings handle; blank uses sobol, no BB/AAD, smooth 0.01 and compiled evaluation
 &outputs
 values is cell[][]
     Two columns: PV and optional d_ parameter keys, then numeric values; no header
@@ -86,7 +86,7 @@ n_paths is number
 valuation is handle StorableScriptValuationSettings
     Valuation settings handle; blank selects per-call defaults
 simulation is handle StorableMonteCarloSettings
-    Monte Carlo settings handle; blank uses sobol, no BB/AAD, smooth 0.01 and tree
+    Monte Carlo settings handle; blank uses sobol, no BB/AAD, smooth 0.01 and compiled evaluation
 &outputs
 json is string[]
     JSON chunks in one column; concatenate without separators for dal.script-simulation/1
