@@ -18,6 +18,12 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-21
 
+- **Same-instrument script Monte Carlo** — added a core Deposit/Gaussian
+  BondOption repricing bridge with reproducible disjoint pseudorandom batches,
+  hard tree/compiled AAD, raw native Jacobians, pooled affine estimates and
+  explicit value/gradient precision budgets. See the
+  [contract guide](docs/methodology/script_calibration_contract.md#same-instrument-monte-carlo).
+
 - **Script calibration preparation** — added complete AST admission for Deposit
   and Gaussian BondOption contracts, strict historical/branch receiver guards,
   shared cashflow and affine coefficient views with quotient partials, and

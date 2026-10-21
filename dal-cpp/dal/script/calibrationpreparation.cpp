@@ -323,6 +323,25 @@ namespace Dal {
                   "/context/model/curve", "same discount curve in model and context", "", d);
             Check(c.smoothing_ == 0., "UnsupportedFastEvaluator", "/context/smoothing", "hard Gaussian payoff with zero smoothing", "", d);
         }
+        void McMeasure(bool deposit, const CalibrationMeasureSpec_& measure, bool executable, const CalibrationDiagnostic_& d) {
+            Check(measure.kind_ == CalibrationMeasureKind_::Value_::Price ||
+                      (executable && deposit && measure.kind_ == CalibrationMeasureKind_::Value_::ParAffineRate),
+                  "UnsupportedCalibrationMeasure", "/measure_id", "shared Price or proven Deposit affine rate", "", d);
+        }
+        void McSampling(const CalibrationEvaluationOptions_& options, const CalibrationDiagnostic_& d) {
+            Check(options.sampling_ && options.sampling_->paths_ >= 2 && options.sampling_->seed_ >= 0, "InvalidCalibrationPlan", "/options/sampling",
+                  "explicit paths >= 2 and nonnegative seed", "", d);
+            Check(Bytes(options.sampling_->generator_) == "irn" || Bytes(options.sampling_->generator_) == "mrg32", "InvalidCalibrationPlan",
+                  "/options/sampling/generator", "irn or mrg32", "", d);
+        }
+        CalibrationDerivative_ McDerivative(const CalibrationEvaluationOptions_& options, bool executable, const CalibrationDiagnostic_& d) {
+            Check(options.derivativeMethod_ == CalibrationDerivative_::Value_::Auto ||
+                      options.derivativeMethod_ == CalibrationDerivative_::Value_::None ||
+                      (executable && options.derivativeMethod_ == CalibrationDerivative_::Value_::AAD),
+                  "DerivativeUnavailable", "/options/derivative_method", "AAD or None for MC", "", d);
+            return options.derivativeMethod_ == CalibrationDerivative_::Value_::AAD ? CalibrationDerivative_::Value_::AAD
+                                                                                    : CalibrationDerivative_::Value_::None;
+        }
         CalibrationPreparationCapability_ AdmitMonteCarlo(bool deposit,
                                                           const CalibrationMeasureSpec_& measure,
                                                           const CalibrationPreparationContext_& context,
@@ -330,17 +349,12 @@ namespace Dal {
                                                           const CalibrationDiagnostic_& d) {
             Check(options.allowMonteCarloCalibration_, "UnsupportedFastEvaluator", "/options/allow_monte_carlo_calibration",
                   "explicit MC calibration opt-in", "false", d);
-            Check(measure.kind_ == CalibrationMeasureKind_::Value_::Price, "UnsupportedCalibrationMeasure", "/measure_id",
-                  "shared Price; pathwise par ratios are not supported", "", d);
+            const bool executable = options.sampling_ && Bytes(options.sampling_->generator_) == "mrg32";
+            McMeasure(deposit, measure, executable, d);
             GaussianContext(context, d);
-            Check(options.sampling_ && options.sampling_->paths_ >= 2 && options.sampling_->seed_ >= 0, "InvalidCalibrationPlan", "/options/sampling",
-                  "explicit paths >= 2 and nonnegative seed", "", d);
-            Check(Bytes(options.sampling_->generator_) == "irn", "InvalidCalibrationPlan", "/options/sampling/generator", "irn", "", d);
-            Check(options.derivativeMethod_ == CalibrationDerivative_::Value_::Auto ||
-                      options.derivativeMethod_ == CalibrationDerivative_::Value_::None,
-                  "DerivativeUnavailable", "/options/derivative_method", "None for MC preparation admission", "", d);
+            McSampling(options, d);
             return {deposit ? "dal.deposit-origination/1" : "dal.gaussian-bond-option/1", CalibrationBackend_::Value_::ScriptMC,
-                    CalibrationDerivative_::Value_::None, true, deposit};
+                    McDerivative(options, executable, d), true, deposit};
         }
         CalibrationPreparationCapability_
         AdmitDeterministic(bool deposit, const CalibrationEvaluationOptions_& options, const CalibrationDiagnostic_& d) {

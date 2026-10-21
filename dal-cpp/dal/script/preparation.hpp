@@ -117,6 +117,12 @@ namespace Dal::Script {
                                   const ScriptProductSettings_& contract = {});
 
     namespace Detail {
+        PreparedScript_ PrepareBoundScript(std::unique_ptr<ScriptProduct_> product,
+                                           AAD::Model_<double>* model,
+                                           const ScriptValuationSettings_& settings,
+                                           const MonteCarloSettings_& simulation,
+                                           const ScriptProductSettings_& contract);
+
         PreparedScript_ PrepareScriptForSegmentation(const ScriptProductData_& product,
                                                      AAD::Model_<double>* model,
                                                      const ScriptValuationSettings_& settings,
