@@ -51,7 +51,7 @@ namespace Dal::Script::Detail {
                 evaluator->SetHistoricalSeed(past.VarVals());
                 evaluator->SetHistoricalVectorSeed(AdmissionVectorSeed(trade, past.VectorVals()));
             };
-            if (trade.Simulation().compiled_.value_or(false)) {
+            if (trade.Simulation().compiled_.value_or(DEFAULT_COMPILED)) {
                 const EvalState_<AAD::Number_> past(Vector_<>(trade.Product().VarNames().size(), 0.0), evaluator->ConstVarVals(), 0, 0.0,
                                                     trade.Product().VectorCapacities());
                 retain(past);
@@ -93,7 +93,7 @@ namespace Dal::Script::Detail {
                                         const PortfolioAdmissionSettings_& settings) {
             constexpr bool BLOCKED = std::is_same_v<G_, Matrix_<double>>;
             REQUIRE2(!trades.empty(), "InvalidPortfolioAdmission: selected trades must not be empty", ScriptError_);
-            const bool compiled = trades.front()->Simulation().compiled_.value_or(false);
+            const bool compiled = trades.front()->Simulation().compiled_.value_or(DEFAULT_COMPILED);
             const auto width = settings.width_;
             BufferCapacityBudget_ scratch(settings.scratchQuota_);
             const auto fixed =
@@ -166,7 +166,7 @@ namespace Dal::Script::Detail {
                                      const Vector_<PortfolioBatchOutput_>& requestedOutputs,
                                      size_t scratchQuota) {
         REQUIRE2(!trades.empty(), "InvalidPortfolioAdmission: selected trades must not be empty", ScriptError_);
-        const bool compiled = trades.front()->Simulation().compiled_.value_or(false);
+        const bool compiled = trades.front()->Simulation().compiled_.value_or(DEFAULT_COMPILED);
         BufferCapacityBudget_ scratch(scratchQuota);
         BufferCapacityScope_ buffers(&scratch,
                                      PortfolioWeightedWorkerFixedBytes(compiled, trades.size(), false, typeid(*modelData) == typeid(BSModelData_)));

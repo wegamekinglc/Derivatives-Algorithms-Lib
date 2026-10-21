@@ -18,6 +18,8 @@ using namespace Dal::Script;
 using namespace Dal::Script::TestSupport;
 
 namespace {
+    MonteCarloSettings_ TreeSimulationSettings() { return {"sobol", false, false, 0.01, false}; }
+
     struct ControlledModel_ : AAD::BlackScholes_<double> {
         std::shared_ptr<std::atomic<size_t>> paths_ = std::make_shared<std::atomic<size_t>>(0);
         size_t allocations_ = 0;
@@ -293,7 +295,7 @@ TEST(ScriptObservationSimulationTest, TestFutureOnlyNoHistory) {
         ASSERT_NEAR(result.aggregated_, 123.0, 123.0e-12);
         ControlledModel_ controlled;
         controlled.fixing_ = 123.0;
-        const auto prepared = PrepareScript(product, &controlled, settings, {}, snapshot);
+        const auto prepared = PrepareScript(product, &controlled, settings, TreeSimulationSettings(), snapshot);
         ASSERT_EQ(MCDoubleSimulation(prepared, &controlled, 1, "sobol", false, false, true).aggregated_, 123.0);
     }
 }
@@ -319,7 +321,7 @@ TEST(ScriptObservationSimulationTest, TestMixedAndRepeatedHistory) {
         ControlledModel_ model;
         const auto product =
             ScriptTestProduct("pay PAYS FIX(EQ[DAL196_TEST], 2026-09-11) + FIX(EQ[DAL196_TEST], " + String_(future ? "2026-09-15)" : "2026-09-11)"));
-        const auto prepared = PrepareScript(product, &model, {}, {});
+        const auto prepared = PrepareScript(product, &model, {}, TreeSimulationSettings());
         ASSERT_EQ(reads.histories_, 1);
         ASSERT_EQ(reads.fixings_, 1);
         RejectFixingReads_ reject;
@@ -336,7 +338,7 @@ TEST(ScriptObservationSimulationTest, TestRetainedFutureFixing) {
     const ScriptProductData_ product("", {Cell_(Date_(2026, 9, 22)), Cell_(Date_(2026, 9, 23))},
                                      {"x = FIX(EQ[DAL196_TEST], 2026-09-15) pay PAYS x", "pay PAYS FIX(EQ[DAL196_TEST], 2026-09-15) - x"});
     ControlledModel_ model;
-    const auto prepared = PrepareScript(product, &model, {}, {});
+    const auto prepared = PrepareScript(product, &model, {}, TreeSimulationSettings());
     ASSERT_EQ(prepared.Plan().Requests().size(), 1);
     ASSERT_EQ(prepared.Plan().Request(0).uses_.size(), 2);
     ASSERT_EQ(prepared.Plan().SampleDates().size(), 3);
@@ -362,7 +364,7 @@ TEST(ScriptObservationSimulationTest, TestRetainedFutureFixing) {
     const ScriptProductData_ zeroProduct(
         "", {Cell_(Date_(2026, 9, 22)), Cell_(Date_(2026, 9, 23))},
         {"x = FIX(EQ[DAL196_TEST], 2026-09-15) + 0 * FIX(EQ[DAL196_TEST])", "pay PAYS FIX(EQ[DAL196_TEST], 2026-09-15) - x"});
-    const auto zero = PrepareScript(zeroProduct, &model, {}, {});
+    const auto zero = PrepareScript(zeroProduct, &model, {}, TreeSimulationSettings());
     AAD::AllocatePath(zero.DefLine(), path);
     AAD::InitializePath(path);
     model.GeneratePath(gauss, &path);
@@ -473,7 +475,7 @@ TEST(ScriptObservationSimulationTest, TestLocalVolHybridOutputCapability) {
     const auto restore = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
     auto model = CreateModel<double>(
         MakeFlatRateLocalVolHybridModelData("local_vol", "EQ[DAL196_TEST]", 120.0, 0.0, 0.0, {80.0, 160.0}, {0.0, 1.0}, Matrix_<>(2, 2, 0.0)));
-    const auto prepared = PrepareScript(ScriptTestProduct("pay PAYS FIX(EQ[DAL196_TEST], 2026-09-15)"), model.get(), {}, {});
+    const auto prepared = PrepareScript(ScriptTestProduct("pay PAYS FIX(EQ[DAL196_TEST], 2026-09-15)"), model.get(), {}, TreeSimulationSettings());
     ASSERT_NEAR(MCDoubleSimulation(prepared, model.get(), 1, "sobol", false, false, true).aggregated_, 120.0, 120.0e-12);
 }
 
@@ -494,7 +496,7 @@ TEST(ScriptObservationSimulationTest, TestValidLiveParametersUseCurrentValues) {
                 FixingReadCounter_ reads;
                 const Dal::Detail::ScopedFixingReadObserver_ history(&reads);
                 const auto prepared = PrepareScript(ScriptTestProduct("pay PAYS FIX(EQ[DAL196_TEST], 2026-09-11) + FIX(EQ[DAL196_TEST])", date),
-                                                    model.get(), {}, {}, snapshot);
+                                                    model.get(), {}, TreeSimulationSettings(), snapshot);
                 const double value = MCDoubleSimulation(prepared, model.get(), 1, "sobol", false, false, true).aggregated_;
                 const double time = (date - Date_(2026, 9, 12)) / DAYS_PER_YEAR;
                 const double expected = 80.0 * std::exp(-rate * time) + 124.0 * std::exp(-carry * time);
@@ -588,7 +590,7 @@ TEST(ScriptObservationSimulationTest, TestDefaultSpotSharesFixing) {
     ControlledModel_ model;
     FixingReadCounter_ reads;
     const Dal::Detail::ScopedFixingReadObserver_ history(&reads);
-    const auto prepared = PrepareScript(product, &model, {}, {}, {}, contract);
+    const auto prepared = PrepareScript(product, &model, {}, TreeSimulationSettings(), {}, contract);
     ASSERT_EQ(prepared.Plan().Requests().size(), 1);
     ASSERT_EQ(prepared.Plan().Request(0).uses_.size(), 2);
     ASSERT_EQ(reads.fixings_, 1);
@@ -617,7 +619,7 @@ TEST(ScriptObservationSimulationTest, TestPathFailureDrainsWorkers) {
     const auto restore = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
     ControlledModel_ model;
     model.badPath_ = true;
-    const auto prepared = PrepareScript(ScriptTestProduct("pay PAYS FIX(EQ[DAL196_TEST], 2026-09-15)"), &model, {}, {});
+    const auto prepared = PrepareScript(ScriptTestProduct("pay PAYS FIX(EQ[DAL196_TEST], 2026-09-15)"), &model, {}, TreeSimulationSettings());
     SubmissionCounter_ workers;
     const Dal::Script::Detail::ScopedSimulationObserver_ observe(&workers);
     ASSERT_THROW(MCDoubleSimulation(prepared, &model, 257, "sobol", false, false, true), Exception_);
@@ -728,7 +730,7 @@ TEST(ScriptObservationSimulationTest, TestHistoricalIndicesAndFrozenSnapshot) {
     FixingReadCounter_ reads;
     const Dal::Detail::ScopedFixingReadObserver_ observe(&reads);
     ControlledModel_ model;
-    const auto prepared = PrepareScript(product, &model, {}, {}, snapshot);
+    const auto prepared = PrepareScript(product, &model, {}, TreeSimulationSettings(), snapshot);
     ASSERT_EQ(reads.histories_, 0);
     ASSERT_EQ(reads.fixings_, 3);
     StoreScriptTestFixing("EQ[DAL196_TEST]", 80.0);
@@ -749,7 +751,7 @@ TEST(ScriptObservationSimulationTest, TestPaymentNumeraireIsIndependentOfRetaine
     const ScriptProductData_ product("", {Cell_(Date_(2026, 9, 22)), Cell_(Date_(2026, 9, 23))},
                                      {"pay PAYS FIX(EQ[DAL196_TEST], 2026-09-15)", "pay PAYS FIX(EQ[DAL196_TEST], 2026-09-15)"});
     PaymentModel_ model;
-    const auto prepared = PrepareScript(product, &model, {}, {});
+    const auto prepared = PrepareScript(product, &model, {}, TreeSimulationSettings());
     ASSERT_EQ(prepared.Plan().Requests().size(), 1);
     ASSERT_EQ(prepared.Plan().SampleDates().size(), 3);
     for (const size_t paths : {1, 257})
@@ -808,7 +810,7 @@ TEST(ScriptObservationSimulationTest, TestFrozenObservationStorageOnWorkers) {
     const auto product = ScriptTestProduct("pay PAYS FIX(EQ[DAL196_TEST], 2026-09-11) + FIX(EQ[DAL196_TEST], 2026-09-15)");
     ControlledModel_ model;
     WorkerStorage_ storage(restorePool.pool_->NumThreads());
-    const GuardedPrepared_ prepared(PrepareScript(product, &model, {}, {}, snapshot), &storage);
+    const GuardedPrepared_ prepared(PrepareScript(product, &model, {}, TreeSimulationSettings(), snapshot), &storage);
     snapshot = {};
     const auto changedDate = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 10, 1));
     RejectFixingReads_ reject;
@@ -904,8 +906,8 @@ TEST(ScriptObservationSimulationTest, TestFutureDefaultSpotAndFixShareModelCell)
     ControlledModel_ model;
     ScriptProductSettings_ contract;
     contract.defaultIndex_ = "EQ[DAL196_TEST]";
-    const auto prepared =
-        PrepareScript(ScriptTestProduct("pay PAYS SPOT() - FIX(EQ[DAL196_TEST])", Date_(2026, 9, 15)), &model, {}, {}, {}, contract);
+    const auto prepared = PrepareScript(ScriptTestProduct("pay PAYS SPOT() - FIX(EQ[DAL196_TEST])", Date_(2026, 9, 15)), &model, {},
+                                        TreeSimulationSettings(), {}, contract);
     ASSERT_EQ(prepared.Plan().Requests().size(), 1);
     ASSERT_EQ(prepared.Plan().Request(0).uses_.size(), 2);
     ASSERT_EQ(prepared.DefLine()[0].indexNames_.size(), 1);
@@ -939,7 +941,7 @@ TEST(ScriptObservationSimulationTest, TestDeadBranchPathAndPayoffFailuresCancelA
             model.badPath_ = badPath;
             const auto product = ScriptTestProduct(badPath ? "IF 1 = 0 THEN pay PAYS FIX(EQ[DAL196_TEST], 2026-09-15) ELSE pay PAYS 7 END"
                                                            : "pay PAYS LOG(-1) + FIX(EQ[DAL196_TEST], 2026-09-15)");
-            const auto prepared = PrepareScript(product, &model, {}, {});
+            const auto prepared = PrepareScript(product, &model, {}, TreeSimulationSettings());
             SubmissionCounter_ workers;
             const Dal::Script::Detail::ScopedSimulationObserver_ submissions(&workers);
             ASSERT_THROW(MCDoubleSimulation(prepared, &model, 16385, "sobol", false, false, true), ScriptError_);
@@ -948,7 +950,7 @@ TEST(ScriptObservationSimulationTest, TestDeadBranchPathAndPayoffFailuresCancelA
             ASSERT_GT(failedPaths, 0u);
             ASSERT_LE(failedPaths, workers.submissions_);
             model.badPath_ = false;
-            const auto valid = PrepareScript(ScriptTestProduct("pay PAYS FIX(EQ[DAL196_TEST], 2026-09-15)"), &model, {}, {});
+            const auto valid = PrepareScript(ScriptTestProduct("pay PAYS FIX(EQ[DAL196_TEST], 2026-09-15)"), &model, {}, TreeSimulationSettings());
             ASSERT_EQ(MCDoubleSimulation(valid, &model, 1, "sobol", false, false, true).aggregated_, 120.0);
             ASSERT_EQ(model.paths_->load(), failedPaths + 1);
         }
@@ -1143,7 +1145,7 @@ TEST(ScriptObservationSimulationTest, TestNamedAndLegacyFixedPathParityAcrossAda
                     SCOPED_TRACE(::testing::Message() << "model=" << model->Type() << " threads=" << threads << " rng=" << rng << " bb=" << bb);
                     const double actual = MCSimulation<double>(named, model, 8193, {}, simulation, snapshot).aggregated_ / 8193;
                     for (const bool compiled : {false, true}) {
-                        SCOPED_TRACE(::testing::Message() << "named=tree legacy=" << (compiled ? "compiled" : "tree"));
+                        SCOPED_TRACE(::testing::Message() << "named=compiled legacy=" << (compiled ? "compiled" : "tree"));
                         const double expected = MCSimulation<double>(legacy, model, 8193, rng, bb, compiled).aggregated_ / 8193;
                         ASSERT_NEAR(actual, expected, 1.0e-8);
                     }
@@ -1167,7 +1169,7 @@ TEST(ScriptObservationSimulationTest, TestNamedAndLegacySharedPathParityAcrossAd
                     SCOPED_TRACE(::testing::Message() << "model=" << modelData->Type() << " threads=" << threads << " rng=" << rng << " bb=" << bb);
                     auto model = CreateModel<double>(modelData);
                     Vector_<PathParityState_> states(restorePool.pool_->NumThreads(), PathParityState_(legacy));
-                    const SharedPathParity_ prepared(PrepareScript(named, model.get(), {}, {}, snapshot), &legacy, &states);
+                    const SharedPathParity_ prepared(PrepareScript(named, model.get(), {}, TreeSimulationSettings(), snapshot), &legacy, &states);
                     ASSERT_EQ(prepared.TimeLine(), legacy.TimeLine());
                     SubmissionCounter_ workers;
                     const Dal::Script::Detail::ScopedSimulationObserver_ submissions(&workers);
@@ -1209,7 +1211,7 @@ TEST(ScriptObservationSimulationTest, TestControlledSinglePathHistoricalOracles)
         const Dal::Detail::ScopedFixingReadObserver_ history(&reads);
         const auto product =
             ScriptTestProduct("pay PAYS FIX(EQ[DAL196_TEST], 2026-09-11) + FIX(EQ[DAL196_TEST], " + String_(future ? "2026-09-15)" : "2026-09-11)"));
-        const auto prepared = PrepareScript(product, &model, {}, {}, snapshot);
+        const auto prepared = PrepareScript(product, &model, {}, TreeSimulationSettings(), snapshot);
         ASSERT_EQ(reads.histories_, 0);
         ASSERT_EQ(reads.fixings_, 1);
         ASSERT_NEAR(MCDoubleSimulation(prepared, &model, 1, "sobol", false, false, true).aggregated_, future ? 200.0 : 160.0, 160.0e-12);
@@ -1297,6 +1299,7 @@ TEST(ScriptFixingPreparationTest, TestAadUniqueHistoryAndNoHotPathLookup) {
                 auto model = CreateModel<double>(data);
                 MonteCarloSettings_ simulation;
                 simulation.enableAad_ = aad;
+                simulation.compiled_ = false;
                 std::atomic<size_t> evaluations{0};
                 const AuditedPrepared_ prepared(PrepareScript(product, model.get(), {}, simulation), &evaluations);
                 ASSERT_EQ(prepared.Plan().Requests()[0].uses_.size(), 100u);

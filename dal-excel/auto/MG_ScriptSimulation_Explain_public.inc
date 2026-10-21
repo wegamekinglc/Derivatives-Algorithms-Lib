@@ -46,7 +46,7 @@ struct XlRegister_ScriptSimulation_Explain_
         argHelp.push_back("BS, correlated BS, GSR, or hybrid model data handle");
         argHelp.push_back("Finite integer from 1 to INT_MAX");
         argHelp.push_back("Valuation settings handle; blank selects per-call defaults");
-        argHelp.push_back("Monte Carlo settings handle; blank uses sobol, no BB/AAD, smooth 0.01 and tree");
+        argHelp.push_back("Monte Carlo settings handle; blank uses sobol, no BB/AAD, smooth 0.01 and compiled evaluation");
         Excel::Register("Base", "xl_ScriptSimulation_Explain", "SCRIPTSIMULATION.EXPLAIN", "Run the full double valuation and report per-exercise-event LSMC diagnostics", "QQQQQQ", "product,modelData,n_paths,[valuation],[simulation]", argHelp, false);
     }
 };

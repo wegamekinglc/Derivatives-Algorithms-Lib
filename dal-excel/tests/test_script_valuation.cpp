@@ -117,6 +117,29 @@ namespace {
     }
 } // namespace
 
+TEST(ScriptExcelContractTest, TestBlankSimulationUsesCompiledEvaluator) {
+    Excel::ScriptTestInitialize(1);
+    const DateScope_ date(D);
+    Handle_<ScriptProductData_> product;
+    Product_New("compiled-default", {Cell_(P)}, {"pay PAYS SPOT()"}, &product);
+    const Handle_<ModelData_> model(new BSModelData_("", 100.0, 0.2, 0.05, 0.02));
+    Vector_<String_> chunks;
+    ScriptSimulation_Explain(product, model, 257, {}, {}, &chunks);
+    ASSERT_TRUE(Json(chunks)["simulation"]["compiled"].GetBool());
+    Handle_<StorableMonteCarloSettings_> simulation;
+    MonteCarloSettings_New("blank", Matrix_<Cell_>(2, 2), &simulation);
+    ASSERT_EQ(simulation->val_.compiled_, std::optional<bool>(true));
+    Matrix_<Cell_> defaults, explicitCompiled, legacy;
+    MonteCarlo_ValueWithSettings(product, model, 257, {}, {}, &defaults);
+    MonteCarlo_ValueWithSettings(product, model, 257, {}, simulation, &explicitCompiled);
+    ASSERT_EQ(Result(defaults), Result(explicitCompiled));
+    MonteCarlo_Value(product, model, 257, "sobol", false, false, 0.01, &legacy);
+    ASSERT_EQ(Result(legacy), Result(explicitCompiled));
+    MonteCarloSettings_New("tree", Setting("compiled", Cell_(false)), &simulation);
+    ScriptSimulation_Explain(product, model, 257, {}, simulation, &chunks);
+    ASSERT_FALSE(Json(chunks)["simulation"]["compiled"].GetBool());
+}
+
 TEST(ScriptExcelContractTest, TestHistoricalPriceAndAadOracle) {
     Excel::ScriptTestInitialize(2);
     const DateScope_ restore(D.AddDays(20));

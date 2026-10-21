@@ -387,16 +387,17 @@ def test_mc_value_use_bb_flag():
 
 
 def test_mc_value_compiled_flag_parity():
-    """compiled=True/False/None (default tree-walk) produce the same PV."""
+    """The compiled default and explicit tree selection produce the same PV."""
     model = dal.BSModelData_New(spot=100.0, vol=0.2, rate=0.05, div=0.02)
     product = _make_european_call(100.0, dal.Date_(2023, 9, 25))
 
     pv_default = dal.MonteCarlo_Value(product, model, 2**14)["PV"]
     pv_compiled = dal.MonteCarlo_Value(product, model, 2**14, compiled=True)["PV"]
     pv_tree_walk = dal.MonteCarlo_Value(product, model, 2**14, compiled=False)["PV"]
+    pv_unset = dal.MonteCarlo_Value(product, model, 2**14, compiled=None)["PV"]
 
     assert abs(pv_compiled - pv_tree_walk) < 1e-8  # nosec B101 - pytest assertions are intentional
-    assert abs(pv_default - pv_tree_walk) < 1e-8  # nosec B101 - pytest assertions are intentional
+    assert pv_default == pv_compiled == pv_unset  # nosec B101 - pytest assertions are intentional
 
 
 def test_mc_value_compiled_flag_parity_aad():

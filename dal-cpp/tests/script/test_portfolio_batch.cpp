@@ -58,7 +58,7 @@ namespace {
                                                               model->NumParams(),
                                                               product.ConstVarNames().size(),
                                                               product.PayOffIdx(), simulation.normalPrecision_};
-        const auto program = simulation.compiled_.value_or(false) ? std::optional<ScriptCompiled_>(product.Compile(true)) : std::nullopt;
+        const auto program = simulation.compiled_.value_or(DEFAULT_COMPILED) ? std::optional<ScriptCompiled_>(product.Compile(true)) : std::nullopt;
         Dal::Script::Detail::EvaluateAADBatch(product, data, settings, program, batch, &result);
         return result;
     }

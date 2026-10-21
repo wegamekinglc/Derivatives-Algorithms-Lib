@@ -2209,7 +2209,7 @@ namespace Dal::Script {
         const auto counts = LsmcPathCounts(simulation, nPaths);
         LsmcStorage_ storage;
         const BatchPlan_ batchPlan(nPaths, 1);
-        const ScriptCompiled_* compiled = simulation.compiled_.value_or(false) ? &prepared.CompiledProgram() : nullptr;
+        const ScriptCompiled_* compiled = simulation.compiled_.value_or(DEFAULT_COMPILED) ? &prepared.CompiledProgram() : nullptr;
         const std::optional<uint64_t> trainingKey =
             counts.replicates_ > 1 ? std::optional<uint64_t>(LsmcScrambleKey(false, simulation.lsmcTrainingSeed_.value_or(0))) : std::nullopt;
         LsmcContext_ ctx{prepared, mdl, scan, storage, compiled, nullptr, trainingKey};
@@ -2261,7 +2261,7 @@ namespace Dal::Script {
         LsmcStorage_ storage;
         const BatchPlan_ batchPlan(nPaths, 1);
         std::optional<ScriptCompiled_> hardCompiled;
-        if (simulation.compiled_.value_or(false))
+        if (simulation.compiled_.value_or(DEFAULT_COMPILED))
             hardCompiled.emplace(ScriptCompiled_::Build(product.Events(), false, prepared.PlanHandle(), false, true));
         const std::optional<uint64_t> trainingKey =
             counts.replicates_ > 1 ? std::optional<uint64_t>(LsmcScrambleKey(false, simulation.lsmcTrainingSeed_.value_or(0))) : std::nullopt;
@@ -2270,7 +2270,7 @@ namespace Dal::Script {
         const auto trained = TrainFrozenPolicy(ctx, counts);
         storage = LsmcStorage_();
 
-        const ScriptCompiled_* fuzzyCompiled = simulation.compiled_.value_or(false) ? &prepared.CompiledProgram(true) : nullptr;
+        const ScriptCompiled_* fuzzyCompiled = simulation.compiled_.value_or(DEFAULT_COMPILED) ? &prepared.CompiledProgram(true) : nullptr;
         SimResults_ results(Vector::Join(doubleModel->ParameterLabels(), product.ConstVarNames()));
         Vector_<> riskTotals(results.risks_.size(), 0.0);
         for (size_t replicate = 0; replicate < counts.replicates_; ++replicate) {
@@ -2319,7 +2319,7 @@ namespace Dal::Script {
         const auto counts = LsmcPathCounts(simulation, pathCount);
         const BatchPlan_ batches(pathCount, 1);
         std::optional<ScriptCompiled_> hardCompiled;
-        if (simulation.compiled_.value_or(false))
+        if (simulation.compiled_.value_or(DEFAULT_COMPILED))
             hardCompiled.emplace(ScriptCompiled_::Build(prepared->Product().Events(), false, prepared->PlanHandle(), false, true));
         const LsmcCurvatureContext_ ctx{
             *prepared,
@@ -2327,7 +2327,7 @@ namespace Dal::Script {
             counts,
             batches,
             hardCompiled ? &*hardCompiled : nullptr,
-            simulation.compiled_.value_or(false) ? &prepared->CompiledProgram(true) : nullptr,
+            simulation.compiled_.value_or(DEFAULT_COMPILED) ? &prepared->CompiledProgram(true) : nullptr,
             counts.replicates_ > 1 ? std::optional<uint64_t>(LsmcScrambleKey(false, simulation.lsmcTrainingSeed_.value_or(0))) : std::nullopt,
             pathCount,
             fixedBumps.recordingCapacityBudgetBytes_.value_or(std::numeric_limits<size_t>::max())};

@@ -203,7 +203,8 @@ captures required global history for this call. A non-null snapshot, including
 an empty one, is authoritative and never falls back to global history.
 
 `MonteCarloSettings_` defaults to Sobol, no bridge/AAD, `smooth_=0.01`, and
-`compiled_=std::nullopt` (false). Smoothing must be finite and strictly positive
+`compiled_=true`. Unset flags also select compiled evaluation; explicit `false`
+selects tree-walk execution. Smoothing must be finite and strictly positive
 in all modes. Tree/compiled selection preserves observation policies; AAD
 rebuilds historical parameter state and uses fuzzy future comparisons. Full
 field, validation, and numerical contracts are in

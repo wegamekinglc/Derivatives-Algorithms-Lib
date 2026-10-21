@@ -139,6 +139,21 @@ namespace {
     }
 } // namespace
 
+TEST(CalibrationMcTest, TestCompiledEvaluatorIsDefault) {
+    const CalibrationMcSettings_ defaults;
+    ASSERT_TRUE(defaults.compiled_);
+    const auto instrument = McInstrument(true);
+    const auto context = McContext();
+    for (const bool aad : {false, true}) {
+        auto settings = McSettings(aad);
+        settings.compiled_ = defaults.compiled_;
+        const auto actual = PrepareCalibrationMc(instrument, "Price", context, settings).Evaluate(instrument, context, false);
+        const auto expected = PrepareCalibrationMc(instrument, "Price", context, McSettings(aad, true)).Evaluate(instrument, context, false);
+        ASSERT_EQ(actual.pathValues_, expected.pathValues_);
+        ASSERT_EQ(actual.gradient_, expected.gradient_);
+    }
+}
+
 TEST(CalibrationMcTest, TestSameBindingTreeAndCompiledPathPayoffs) {
     const auto instrument = McInstrument(true);
     const auto context = McContext();

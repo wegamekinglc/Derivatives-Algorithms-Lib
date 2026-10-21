@@ -16,6 +16,14 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-10-22
+
+- **Compiled Monte Carlo default** — core and public C++, Python, and Excel
+  Monte Carlo APIs use compiled evaluation by default, including AAD and LSMC.
+  Unset C++ flags, Python `None`, and blank Excel settings select compiled
+  execution; explicit `compiled=false` retains tree-walk execution. See
+  [script evaluation](docs/methodology/script_engine.md#tree-walk-and-compiled-evaluation).
+
 ## 2026-10-21
 
 - **Gaussian BondOption script calibration** — added core one-time import,

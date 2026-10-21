@@ -280,7 +280,7 @@ void init_bindings_value(py::module_& m) {
                                             CheckpointCount(trainingMemory, "lsmc_training_memory_mb", "lsmcTrainingMemoryMb_")};
              }),
              py::kw_only(), py::arg("method") = "sobol", py::arg("use_bb") = false, py::arg("enable_aad") = false,
-             py::arg("smooth") = Script::DEFAULT_SMOOTH, py::arg("compiled") = py::none(),
+             py::arg("smooth") = Script::DEFAULT_SMOOTH, py::arg("compiled") = Script::DEFAULT_COMPILED,
              py::arg("lsmc_basis_degree") = Script::DEFAULT_LSMC_BASIS_DEGREE, py::arg("lsmc_training_paths") = py::none(),
              py::arg("lsmc_validation_paths") = py::none(), py::arg("lsmc_rqmc_replicates") = py::none(), py::arg("lsmc_training_seed") = py::none(),
              py::arg("lsmc_pricing_seed") = py::none(), py::arg("lsmc_policy_risk_mode") = "Frozen",
@@ -401,5 +401,5 @@ void init_bindings_value(py::module_& m) {
             return Value(nativeProduct, nativeModel, count, ScriptValuationSettings_(), simulation);
         },
         py::arg("product"), py::arg("modelData"), py::arg("num_path"), py::arg("method") = "sobol", py::arg("use_bb") = false,
-        py::arg("enable_aad") = false, py::arg("smooth") = Script::DEFAULT_SMOOTH, py::arg("compiled") = py::none());
+        py::arg("enable_aad") = false, py::arg("smooth") = Script::DEFAULT_SMOOTH, py::arg("compiled") = Script::DEFAULT_COMPILED);
 }

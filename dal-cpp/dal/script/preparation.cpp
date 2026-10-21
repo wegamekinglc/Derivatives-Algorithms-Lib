@@ -519,7 +519,7 @@ namespace Dal::Script {
                     model->Init(result->TimeLine(), result->DefLine());
                 }
             }
-            if (result->Simulation().compiled_.value_or(false)) {
+            if (result->Simulation().compiled_.value_or(DEFAULT_COMPILED)) {
                 if (auto* observer = Detail::SimulationObserver())
                     observer->BeforeCompilation();
                 result->pastCompiled_ = ScriptCompiled_::Build(writable->PastEvents(), false, result->plan_, true);
@@ -699,7 +699,7 @@ namespace Dal::Script {
                                                      const Handle_<MarketFixingSnapshot_>& snapshot,
                                                      const ScriptProductSettings_& contract) {
             REQUIRE2(model, "InvalidModel: segmentation preparation requires a model", ScriptError_);
-            REQUIRE2(simulation.enableAad_ && simulation.compiled_.value_or(false),
+            REQUIRE2(simulation.enableAad_ && simulation.compiled_.value_or(DEFAULT_COMPILED),
                      "UnsupportedExecutionMode: segmentation preparation requires native compiled AAD", ScriptError_);
             return PreparedScriptBuilder_::Prepare(data, settings, snapshot, model, simulation, contract, PreparedScriptBuilder_::CompiledHistory_{});
         }

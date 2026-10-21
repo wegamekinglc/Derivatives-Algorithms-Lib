@@ -16,7 +16,7 @@ Create immutable Monte Carlo execution settings
 <tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
 
 <tr><td>name</td><td>string</td><td></td><td>Object name</td></tr>
-<tr><td>settings</td><td>matrix of cells</td><td>yes</td><td>2-col key/value; blank=defaults. RNG/bridge/AAD/smooth/compiled/normal_precision; lsmc_* basis/paths/validation/RQMC/seeds/risk/bump. lsmc_checkpoint_block_events&gt;0 needs lsmc_training_memory_mb&gt;0 MiB; compiled,1 worker,exact BS only; unset=full storage.</td></tr>
+<tr><td>settings</td><td>matrix of cells</td><td>yes</td><td>2-col key/value; blank=defaults, compiled=true. RNG/bridge/AAD/smooth/compiled/normal_precision; lsmc_* paths/basis/seeds/risk. lsmc_checkpoint_block_events&gt;0 needs lsmc_training_memory_mb&gt;0 MiB; compiled,1 worker,exact BS only; unset=full storage.</td></tr>
 
 </table>
 

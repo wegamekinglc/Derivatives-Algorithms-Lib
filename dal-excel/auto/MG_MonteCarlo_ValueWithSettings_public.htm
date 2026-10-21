@@ -19,7 +19,7 @@ Value a script product with valuation and simulation settings
 <tr><td>modelData</td><td>handle of type ModelData</td><td></td><td>BS, correlated BS, GSR, or hybrid model data handle</td></tr>
 <tr><td>n_paths</td><td>number</td><td></td><td>Finite integer from 1 to INT_MAX</td></tr>
 <tr><td>valuation</td><td>handle of type StorableScriptValuationSettings</td><td>yes</td><td>Valuation settings handle; blank captures the global date and required history for this call</td></tr>
-<tr><td>simulation</td><td>handle of type StorableMonteCarloSettings</td><td>yes</td><td>Monte Carlo settings handle; blank uses sobol, no BB/AAD, smooth 0.01 and tree</td></tr>
+<tr><td>simulation</td><td>handle of type StorableMonteCarloSettings</td><td>yes</td><td>Monte Carlo settings handle; blank uses sobol, no BB/AAD, smooth 0.01 and compiled evaluation</td></tr>
 
 </table>
 

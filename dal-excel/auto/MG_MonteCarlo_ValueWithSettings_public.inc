@@ -46,7 +46,7 @@ struct XlRegister_MonteCarlo_ValueWithSettings_
         argHelp.push_back("BS, correlated BS, GSR, or hybrid model data handle");
         argHelp.push_back("Finite integer from 1 to INT_MAX");
         argHelp.push_back("Valuation settings handle; blank captures the global date and required history for this call");
-        argHelp.push_back("Monte Carlo settings handle; blank uses sobol, no BB/AAD, smooth 0.01 and tree");
+        argHelp.push_back("Monte Carlo settings handle; blank uses sobol, no BB/AAD, smooth 0.01 and compiled evaluation");
         Excel::Register("Base", "xl_MonteCarlo_ValueWithSettings", "MONTECARLO.VALUEWITHSETTINGS", "Value a script product with valuation and simulation settings", "QQQQQQ", "product,modelData,n_paths,[valuation],[simulation]", argHelp, false);
     }
 };
