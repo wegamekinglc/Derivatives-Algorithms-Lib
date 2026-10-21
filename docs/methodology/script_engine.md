@@ -24,6 +24,7 @@ before simulation or valuation. The implementation lives in `dal-cpp/dal/script/
 - [Visitor Machinery](#visitor-machinery)
 - [Examples](#examples)
 - [Product Archive and Diagnostics](#product-archive-and-diagnostics)
+- [Core Calibration Contracts](#core-calibration-contracts)
 - [Product Debug Outputs](#product-debug-outputs)
 - [See Also](#see-also)
 
@@ -1724,6 +1725,13 @@ as concatenated text chunks respectively). The runnable
 [`dal-cpp/examples/methods/american_put_mc/`](../../dal-cpp/examples/methods/american_put_mc)
 prices the European-limit, two-date Bermudan, and weekly-exercise puts off the
 same engine and prints the diagnostic.
+
+## Core Calibration Contracts
+
+The [core calibration contract guide](script_calibration_contract.md) describes
+immutable script definitions, typed parameter bindings, distinct quote and
+observation axes, identities and portable contract persistence. These data APIs
+are separate from the existing raw Product archive and valuation entry points.
 
 ## Product Debug Outputs
 

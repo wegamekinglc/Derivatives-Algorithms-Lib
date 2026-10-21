@@ -20,6 +20,8 @@ C++ implementation. Model and curve-specific mathematics lives in the
   derivatives, parallel evaluation, and curve-calibration primitives.
 - [Script engine](script_engine.md) — syntax, preparation, FIX observations,
   evaluator passes, and diagnostics.
+- [Core script calibration contracts](script_calibration_contract.md) — immutable
+  contract data, typed bindings, quote/observation axes and persistence.
 
 ## Numerical Routines
 

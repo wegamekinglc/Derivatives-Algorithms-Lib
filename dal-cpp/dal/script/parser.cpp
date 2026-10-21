@@ -740,7 +740,34 @@ namespace Dal::Script {
         THROW2("statement without an instruction", ScriptError_);
     }
 
-    Event_ Parser_::Parse(const String_& event, const Vector_<SourceOrigin_>& origins) {
+    size_t Parser_::StatementAtLexFailure(const String_& event, const Vector_<SourceOrigin_>& origins, const SourceLocation_& failure) const {
+        Parser_ probe(constVariables_, numericVectors_);
+        ParseContext_ prefix;
+        try {
+            const auto parsed = probe.Parse(event.substr(0, failure.offset_), origins, &prefix);
+            return parsed.empty() ? 0 : parsed.size() - 1;
+        } catch (const std::exception&) {
+            // Prefix probing must preserve the original lexical exception.
+            return prefix.statement_;
+        }
+    }
+
+    Vector_<Token_> Parser_::ReadTokens(const String_& event, const Vector_<SourceOrigin_>& origins, ParseContext_* context) {
+        if (!context)
+            return Lex(event, origins);
+        SourceLocation_ failure;
+        try {
+            return Lex(event, origins, &failure);
+        } catch (const ScriptError_&) {
+            context->source_ = failure;
+            context->statement_ = StatementAtLexFailure(event, origins, failure);
+            throw;
+        }
+    }
+
+    Event_ Parser_::Parse(const String_& event, const Vector_<SourceOrigin_>& origins) { return Parse(event, origins, nullptr); }
+
+    Event_ Parser_::Parse(const String_& event, const Vector_<SourceOrigin_>& origins, ParseContext_* context) {
         preparationError_.clear();
         hasExercise_ = false;
         hasPays_ = false;
@@ -749,10 +776,21 @@ namespace Dal::Script {
         expandedStatements_ = 0;
         loopIndices_.clear();
         Event_ e;
-        auto tokens = Lex(event, origins);
+        if (context)
+            *context = {};
+        auto tokens = ReadTokens(event, origins, context);
         Vector_<Token_>::const_iterator it = tokens.begin();
-        while (it != tokens.end())
-            e.push_back(ParseStatement(it, tokens.end()));
+        try {
+            while (it != tokens.end()) {
+                if (context)
+                    *context = {it->source_, e.size()};
+                e.push_back(ParseStatement(it, tokens.end()));
+            }
+        } catch (const std::exception&) {
+            if (context && !tokens.empty())
+                context->source_ = (it == tokens.end() ? tokens.back() : *it).source_;
+            throw;
+        }
         return e;
     }
 } // namespace Dal::Script

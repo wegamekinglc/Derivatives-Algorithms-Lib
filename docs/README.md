@@ -23,6 +23,9 @@ the dedicated Python and Excel chapters, examples use C++ by default.
 | [CCY curves](ccy-curves/README.md)     | Cross-currency pricing, fixing snapshots, staged and joint calibration                |
 | [Methodology](methodology/README.md)   | Monte Carlo, PDE, AAD, script evaluation, numerical routines, and market conventions  |
 
+The [core script calibration contract guide](methodology/script_calibration_contract.md)
+covers immutable contract data, typed bindings, quote/observation axes and persistence.
+
 The [fixed-grid European PDE example](methodology/pde/aad.md) covers complete
 call/put native adjoints and separate derivative/grid-convergence acceptance.
 The [Bermudan/American PDE guide](methodology/pde/early-exercise.md) covers

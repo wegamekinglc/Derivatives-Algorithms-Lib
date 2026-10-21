@@ -44,6 +44,7 @@ namespace Dal::Script {
     };
 
     Vector_<Token_> Lex(const String_& str, const Vector_<SourceOrigin_>& origins = {});
+    Vector_<Token_> Lex(const String_& str, const Vector_<SourceOrigin_>& origins, SourceLocation_* failureSource);
     Vector_<std::pair<size_t, size_t>> IndexLiteralRanges(const String_& str);
     Vector_<String_> Tokenize(const String_& str);
 } // namespace Dal::Script

@@ -32,6 +32,7 @@ regression_features is string[]
 
 namespace Dal::Script {
     using AAD::Scenario_;
+    struct ParseContext_;
 
     template <class T_> Vector_<Vector_<T_>> TypedVectorValues(const Vector_<Vector_<>>& values) {
         Vector_<Vector_<T_>> result(values.size());
@@ -142,10 +143,19 @@ namespace Dal::Script {
 
     public:
         ScriptProduct_(const Vector_<Cell_>& dates, const Vector_<String_>& events, String_ payoff = "")
+            : ScriptProduct_(dates, events, std::move(payoff), {}) {}
+
+        ScriptProduct_(const Vector_<Cell_>& dates, const Vector_<String_>& events, String_ payoff, const std::map<String_, double>& constantBindings)
+            : ScriptProduct_(dates, events, std::move(payoff), constantBindings, nullptr) {}
+
+        ScriptProduct_(const Vector_<Cell_>& dates,
+                       const Vector_<String_>& events,
+                       String_ payoff,
+                       const std::map<String_, double>& constantBindings,
+                       ParseContext_* context)
             : payoff_(std::move(payoff)), payoffIdx_(-1) {
             REQUIRE2(dates.size() == events.size(), "dates size is not equal to events size", ScriptError_);
-            auto dateEvents = Zip(dates, events);
-            ParseEvents(dateEvents);
+            ParseEvents(Zip(dates, events), constantBindings, context);
         }
 
         [[nodiscard]] const Vector_<Date_>& PastEventDates() const { return pastEventDates_; }
@@ -200,6 +210,8 @@ namespace Dal::Script {
         }
 
         void ParseEvents(const Vector_<std::pair<Cell_, String_>>& events);
+        void ParseEvents(const Vector_<std::pair<Cell_, String_>>& events, const std::map<String_, double>& constantBindings);
+        void ParseEvents(const Vector_<std::pair<Cell_, String_>>& events, const std::map<String_, double>& constantBindings, ParseContext_* context);
         void PartitionEvents(const Date_& evaluationDate);
         void RequireExecutable() const {
             RequirePreparedFixings();

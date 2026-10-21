@@ -57,11 +57,25 @@ namespace Dal::Script {
         }
     } // namespace
 
-    void ScriptProduct_::ParseEvents(const Vector_<std::pair<Cell_, String_>>& events) {
+    void ScriptProduct_::ParseEvents(const Vector_<std::pair<Cell_, String_>>& events) { ParseEvents(events, {}); }
+
+    void ScriptProduct_::ParseEvents(const Vector_<std::pair<Cell_, String_>>& events, const std::map<String_, double>& constantBindings) {
+        ParseEvents(events, constantBindings, nullptr);
+    }
+
+    void ScriptProduct_::ParseEvents(const Vector_<std::pair<Cell_, String_>>& events,
+                                     const std::map<String_, double>& constantBindings,
+                                     ParseContext_* context) {
         REQUIRE2(!evaluationDate_, "cannot append events after preparation has partitioned the product", ScriptError_);
         // 1. Definition front-end: resolve macros, const variables and schedules.
         Preprocessor_ preprocessor;
         auto preprocessed = preprocessor.Process(events);
+        for (const auto& binding : constantBindings) {
+            const auto slot = preprocessed.constVariables_.find(binding.first);
+            REQUIRE2(slot != preprocessed.constVariables_.end() && std::isfinite(binding.second),
+                     "InvalidConstantBinding: expected an existing numeric definition; parameter=" + binding.first, ScriptError_);
+            slot->second = binding.second;
+        }
 
         // 2. Payoff back-end: parse the resolved event descriptions into AST.
         Parser_ parser(preprocessed.constVariables_, preprocessed.numericVectors_);
@@ -70,7 +84,7 @@ namespace Dal::Script {
                      "InvalidFixingDate: dates/events; row=" + String_(std::to_string(preprocessed.sources_.at(processedEvent.first).front().row_)) +
                          "; expected a valid event date",
                      ScriptError_);
-            auto event = parser.Parse(processedEvent.second, preprocessed.sources_.at(processedEvent.first));
+            auto event = parser.Parse(processedEvent.second, preprocessed.sources_.at(processedEvent.first), context);
             if (preparationError_.empty())
                 preparationError_ = parser.PreparationError();
             hasPays_ = hasPays_ || parser.HasPays();
