@@ -192,3 +192,42 @@ per coefficient/quotient/Price evaluation. The probe executable SHA-256 is
 the source, raw timings and executable identities accompany the issue evidence.
 Other benchmark matrices, full product suite, MSVC, and standalone/example
 builds were not run: their callers/build paths are unchanged.
+
+## Windows namespace lookup repair
+
+Input head: `3b8e41ef0d6eae1826684983ab48daee79acdb94`. The main MSVC job
+`119071610813` in run `39554675729` and Windows wheel job `119071627720` in
+run `39554675736` both fail with C2872 at `vectors.hpp`'s allocator references.
+The instantiation is `Vector_<Payment_>` in `calibrationpreparation.cpp`;
+the logged candidates are `Dal::Detail` and `Dal::Script::Detail`. This is
+the RED compiler evidence, not an external permission/service failure.
+
+The translation unit no longer introduces the whole Script namespace into Dal.
+Its anonymous namespace imports only the 20 script types/functions it uses.
+No shared vector/header, compiler flags, gate configuration, template admission,
+diagnostic behavior or numerical expressions change. A source comparison
+confirms the using-directive/declarations are the entire production diff.
+No additional runtime test is needed for this name-lookup-only repair; the
+existing preparation suite exercises the affected implementation.
+
+Local GREEN verification:
+
+```bash
+cmake --build build/Release-linux --target dal_cpp_tests -j 12
+./build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter='CalibrationPreparationTest.*'
+cmake --build build/warning-clean --target dal_cpp -j 4
+clang-format --dry-run --Werror dal-cpp/dal/script/calibrationpreparation.cpp
+git diff --check
+```
+
+All commands pass: 18 preparation tests; GCC 15.2 Release core/test link;
+GCC 14.3 Debug core with the existing Linux CI warning categories/exclusions
+and -Werror; formatting and diff checks. Local Windows execution is not claimed:
+main MSVC and Windows wheel success must come from the pushed head's actual CI.
+
+The original evidence attachment `01a15d1e-a38a-7561-8ae7-2a3783daea5a` remains
+applicable to unchanged public compatibility, generated sources, documentation
+and performance scope. No full test or timing matrix is repeated. The separate
+review findings about BondOption parameter declarations and merged-event guard
+diagnostics remain open for coordinator-directed follow-up; this repair does
+not claim to resolve them. DAL-400 and parent DAL-396 remain in_progress.

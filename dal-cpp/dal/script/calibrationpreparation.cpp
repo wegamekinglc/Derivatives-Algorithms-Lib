@@ -14,8 +14,28 @@ namespace Dal {
 #include <dal/auto/MG_CalibrationEvaluation_enum.inc>
 
     using namespace CalibrationInternal;
-    using namespace Script;
     namespace {
+        using Script::Evaluator_;
+        using Script::FindNode;
+        using Script::Node_;
+        using Script::NodeAdd_;
+        using Script::NodeAssign_;
+        using Script::NodeConst_;
+        using Script::NodeConstVar_;
+        using Script::NodeDiv_;
+        using Script::NodeFix_;
+        using Script::NodeIf_;
+        using Script::NodeMax_;
+        using Script::NodeMulti_;
+        using Script::NodePays_;
+        using Script::NodeSub_;
+        using Script::NodeUMinus_;
+        using Script::NodeUPlus_;
+        using Script::NodeVar_;
+        using Script::NodeVectorAssign_;
+        using Script::NodeVectorEntry_;
+        using Script::ScriptProduct_;
+
         CalibrationDiagnostic_ Diagnostic(const CalibrationInstrument_& instrument, const String_& measure) {
             CalibrationDiagnostic_ d;
             d.stage_ = CalibrationStage_::Value_::Prepare;
