@@ -165,6 +165,17 @@ class CiWorkflowFastPathTest(unittest.TestCase):
                 self.assertEqual(len(legs), len(compilers))
                 self.assertTrue(all(leg["aad-backend"] == "aadet" for leg in legs))
                 self.assertEqual([leg["compiler"] for leg in legs if leg["coverage"]], ["gcc-14"])
+                for leg in legs:
+                    self.assertEqual(
+                        leg["runner"],
+                        "ubuntu-26.04" if leg["compiler"] == "gcc-15" else "ubuntu-latest",
+                    )
+
+    def test_gcc15_uses_the_runner_toolchain_without_launchpad(self):
+        build = self.job(self.workflow("cmake-linux.yml"), "build")
+        self.assertIn("runs-on: ${{ matrix.runner }}", build)
+        self.assertNotIn("add-apt-repository", build)
+        self.assertNotIn("ubuntu-toolchain-r", build)
 
     def test_external_backend_jobs_and_gate_references_are_removed(self):
         for name in ("cmake-linux.yml", "cmake-windows.yml"):
