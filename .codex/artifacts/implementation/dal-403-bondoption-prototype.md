@@ -344,3 +344,76 @@ digests accompany the handoff. These are scoped informational timings, not
 calibrated performance-gate passes or speedup claims. Unchanged numerical
 kernels, MC and unrelated benchmark matrices are excluded. The implementer
 does not merge, dispatch experts or activate downstream work.
+
+## Master integration after DAL-402 merge
+
+The coordinator requested only integration of the existing PR #611 and branch
+`agent/dal-implementer/4a63910df848` after DAL-402 PR #610 merged. The clean
+original checkout was at 37bdb175; it was fast-forwarded to the exact reviewed
+head `a552cdc498db35254bb01e47f5468af83e037a53` before merging current master
+`920c8a99a6104ca416d5a88ff4d2faa01c624ebf`. This master contains the accepted
+DAL-402 implementation. No rebase, force push or new PR is used.
+
+The merge produced exactly three shared Markdown conflicts: the artifact index,
+CHANGELOG and script calibration guide. Keeping the already reviewed BondOption
+blocks resolves them: each resolved file is byte-for-byte identical to a552.
+The Deposit text in that head already equals master; removing the one
+BondOption block from each resolved document reproduces the complete master
+document exactly. Both artifact links and both methodology sections remain
+once, with their existing valid anchors. The DAL-402 activity record is also
+byte-for-byte identical to master. No reviewed prose is rewritten.
+
+Identity verification checks all 2845 tracked tree entries, including modes
+and object IDs. Relative to a552, the integration adds only master's three
+Deposit product/test files plus this appended activity section. Relative to
+master, PR #611 contains only its four reviewed BondOption product/test files,
+three shared documents with the reviewed BondOption additions, and this
+BondOption activity record. All other entries equal master, including shared
+APIs, build/workflow files and submodule pins.
+
+The preserved BondOption Git blob IDs, identical to a552, are:
+
+- `dal-cpp/dal/model/gsrbondoption.cpp`:
+  `fc54b451866dea71b660506b6840d554c4fc742b`.
+- `dal-cpp/dal/model/gsrbondoption.hpp`:
+  `b2804c3ae96710e6057c8a8a55185ac28d1b2db6`.
+- `dal-cpp/dal/model/gsrbondoptioncalibration.cpp`:
+  `0bb5379384fd8c5e97a0b8b8e156a98022866de3`.
+- `dal-cpp/tests/model/test_gsr_bondoption_script.cpp`:
+  `4b167f09d1f8011a3f8e5bb06c3e283eb318561b`.
+
+The imported Deposit Git blobs, identical to master, are:
+
+- `dal-cpp/dal/curve/depositscript.cpp`:
+  `39d4a94215131c8172a2424506ef4f6c39918cbc`.
+- `dal-cpp/dal/curve/depositscript.hpp`:
+  `e197de120f7d8e568e4d11997dff8b1f0608b547`.
+- `dal-cpp/tests/curve/test_deposit_script.cpp`:
+  `94207aea20059276516a8a74af50677e124779c1`.
+
+Static verification commands:
+
+```bash
+git fetch origin master agent/dal-implementer/4a63910df848
+git merge --ff-only origin/agent/dal-implementer/4a63910df848
+git merge --no-ff --no-commit origin/master
+python3 build/dal403-master-integration/verify.py
+python3 .github/scripts/check_docs.py
+git diff --cached --check
+git ls-files -u
+```
+
+The initial merge conflict is recorded; after resolution the identity checks,
+83-document static check, index targets, whitespace check and zero-unmerged
+entry check pass. The verification script/JSON and conflict scope accompany
+the handoff. This is pure integration: no new behavioral test or production
+RED/GREEN change is appropriate. No product/statistics/performance matrix,
+new build or local Windows execution is run or claimed.
+
+The coordinator's existing code approval `01a15e55-2feb-726c-b3ec-fe3e6a22d224`
+and document acceptance `01a15e5d-d806-79ab-8a35-68d783fcf0a3` remain inputs,
+supported by the exact preserved blobs/text. Earlier runtime/numerical evidence
+is reused within its recorded source scope; the combined tree is not claimed
+to have the previous executable hashes. Current-head CI and final integration
+acceptance remain with the coordinator. DAL-402 remains in_review; no PR is
+merged and no downstream task is activated by this integration.
