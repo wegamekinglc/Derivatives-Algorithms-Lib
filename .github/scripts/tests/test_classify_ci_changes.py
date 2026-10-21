@@ -165,22 +165,14 @@ class CiWorkflowFastPathTest(unittest.TestCase):
                 self.assertEqual(len(legs), len(compilers))
                 self.assertTrue(all(leg["aad-backend"] == "aadet" for leg in legs))
                 self.assertEqual([leg["compiler"] for leg in legs if leg["coverage"]], ["gcc-14"])
-                for leg in legs:
-                    self.assertEqual(
-                        leg["runner"],
-                        "ubuntu-26.04" if leg["compiler"] == "gcc-15" else "ubuntu-latest",
-                    )
-                    self.assertEqual(
-                        leg["cxxflags"],
-                        {"gcc-15": "-O2 -march=x86-64"}.get(leg["compiler"], "-O2"),
-                    )
 
     def test_gcc15_uses_the_runner_toolchain_without_launchpad(self):
         build = self.job(self.workflow("cmake-linux.yml"), "build")
-        self.assertIn("runs-on: ${{ matrix.runner }}", build)
+        self.assertIn("runs-on: ${{ matrix.compiler == 'gcc-15' && 'ubuntu-26.04' || 'ubuntu-latest' }}", build)
+        self.assertIn("CXXFLAGS: ${{ matrix.compiler == 'gcc-15' && '-O2 -march=x86-64 -mtune=generic' || '-O2' }}", build)
         self.assertNotIn("add-apt-repository", build)
         self.assertNotIn("ubuntu-toolchain-r", build)
-        self.assertEqual(build.count("CXXFLAGS: ${{ matrix.cxxflags }}"), 2)
+        self.assertEqual(build.count("CXXFLAGS:"), 1)
 
     def test_external_backend_jobs_and_gate_references_are_removed(self):
         for name in ("cmake-linux.yml", "cmake-windows.yml"):

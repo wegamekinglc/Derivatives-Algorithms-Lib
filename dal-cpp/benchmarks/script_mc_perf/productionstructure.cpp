@@ -62,7 +62,7 @@ SimResults_ RunProductionStructure(const PreparedScript_& product, const Handle_
                                                product.PayOffIdx()};
     settings.passiveConstants_ = product.Simulation().usePassiveConstants_;
     std::optional<ScriptCompiled_> compiled;
-    if (product.Simulation().compiled_.value_or(false))
+    if (product.Simulation().compiled_.value_or(Script::DEFAULT_COMPILED))
         compiled.emplace(product.Compile(true));
     SimResults_ result(names);
     size_t path = 0;

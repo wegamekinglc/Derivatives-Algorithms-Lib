@@ -238,7 +238,8 @@ coordinates, native Gaussian numeraire, Precise normals and no Brownian bridge.
 CRN reuse requires this mapping; a matching seed across products proves no
 shared economic Brownian path. Sobol/RQMC error estimates are unsupported.
 
-Tree and compiled execution use the same hard payoff, including native AAD.
+Compiled execution is the default; set `compiled_ = false` for tree execution.
+Both use the same hard payoff, including native AAD.
 Nonzero context smoothing is rejected. Option AAD requires a nondegenerate
 Gaussian distribution; selected zero-g boundaries require a separate one-sided
 method and return `DerivativeUnavailable`. Requested native labels match bytes

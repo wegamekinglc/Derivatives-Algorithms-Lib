@@ -14,8 +14,8 @@ namespace Dal {
             void ValidatePassiveConstantSettings(const MonteCarloSettings_& settings) {
                 if (!settings.usePassiveConstants_)
                     return;
-                REQUIRE2(settings.enableAad_ && settings.compiled_.value_or(false),
-                         "UnsupportedPassiveConstants: requires compiled AAD", ScriptError_);
+                REQUIRE2(settings.enableAad_ && settings.compiled_.value_or(DEFAULT_COMPILED), "UnsupportedPassiveConstants: requires compiled AAD",
+                         ScriptError_);
                 REQUIRE2(settings.rsg_ == "sobol" && !settings.useBb_ && settings.normalPrecision_ == "Default",
                          "UnsupportedPassiveConstants: requires default Sobol without a Brownian bridge", ScriptError_);
             }

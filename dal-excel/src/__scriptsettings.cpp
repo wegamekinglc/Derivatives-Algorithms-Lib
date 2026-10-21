@@ -55,7 +55,7 @@ name is string
 +argName = "settings (input #2)"; Excel::ValidateScriptSettingsRange(xl_settings, "MonteCarloSettings_New", "settings");
 &optional
 settings is cell[][]+
-    2-col key/value; blank=defaults. RNG/bridge/AAD/smooth/compiled/normal_precision; lsmc_* basis/paths/validation/RQMC/seeds/risk/bump.
+    2-col key/value; blank=defaults, compiled=true. RNG/bridge/AAD/smooth/compiled/normal_precision; lsmc_* paths/basis/seeds/risk.
     lsmc_checkpoint_block_events>0 needs lsmc_training_memory_mb>0 MiB; compiled,1 worker,exact BS only; unset=full storage.
 &outputs
 simulation is handle StorableMonteCarloSettings

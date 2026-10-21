@@ -1,6 +1,7 @@
 #pragma once
 
 #include <dal/script/calibrationpreparation.hpp>
+#include <dal/script/settings.hpp>
 
 namespace Dal {
     struct GSRCalibrationParameter_;
@@ -11,7 +12,7 @@ namespace Dal {
 
     struct CalibrationMcSettings_ {
         bool allowMonteCarloCalibration_ = false;
-        bool aad_ = false, compiled_ = false, retainPaths_ = false;
+        bool aad_ = false, compiled_ = Script::DEFAULT_COMPILED, retainPaths_ = false;
         int seed_ = 1024;
         int fitBatches_ = 0, validationBatches_ = 0;
         int fitPathsPerBatch_ = 0, validationPathsPerBatch_ = 0;

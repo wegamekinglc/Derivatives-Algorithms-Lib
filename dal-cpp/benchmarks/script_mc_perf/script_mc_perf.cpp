@@ -10,6 +10,7 @@
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include <optional>
 #include <string>
 
 #include <dal/benchmarks/bench.hpp>
@@ -97,19 +98,21 @@ namespace {
         int eventCount_;
     };
 
-    std::string CaseName(const ScriptBenchmarkCase_& scriptCase, const char* valueType, bool compiled, size_t paths) {
-        return std::string("script engine ") + scriptCase.name_ + " " + valueType + " compiled=" + (compiled ? "true" : "false") + " (" +
-               std::to_string(paths) + " paths x " + std::to_string(scriptCase.eventCount_) + " events)";
+    std::string CaseName(const ScriptBenchmarkCase_& scriptCase, const char* valueType, std::optional<bool> compiled, size_t paths) {
+        return std::string("script engine ") + scriptCase.name_ + " " + valueType +
+               " compiled=" + (compiled ? (*compiled ? "true" : "false") : "default") + " (" + std::to_string(paths) + " paths x " +
+               std::to_string(scriptCase.eventCount_) + " events)";
     }
 
-    void RunDoubleCase(const ScriptBenchmarkCase_& scriptCase, bool compiled, int repeats) {
+    void RunDoubleCase(const ScriptBenchmarkCase_& scriptCase, std::optional<bool> compiled, int repeats) {
         double sink = 0.0;
         auto r = Bench::Run(
             CaseName(scriptCase, "double", compiled, scriptCase.doublePaths_),
             [&]() {
                 ScriptProduct_ product = scriptCase.buildProduct_();
                 (void)product.PreProcess(false, false);
-                auto results = MCSimulation<double>(product, BuildModelData(), scriptCase.doublePaths_, "sobol", false, compiled);
+                auto results = compiled ? MCSimulation<double>(product, BuildModelData(), scriptCase.doublePaths_, "sobol", false, compiled)
+                                        : MCSimulation<double>(product, BuildModelData(), scriptCase.doublePaths_);
                 sink += results.aggregated_;
             },
             1, repeats);
@@ -117,7 +120,7 @@ namespace {
         Bench::DoNotOptimize(&sink);
     }
 
-    void RunAadCase(const ScriptBenchmarkCase_& scriptCase, bool compiled, int repeats) {
+    void RunAadCase(const ScriptBenchmarkCase_& scriptCase, std::optional<bool> compiled, int repeats) {
         double sink = 0.0;
         auto r = Bench::Run(
             CaseName(scriptCase, "Number_", compiled, scriptCase.aadPaths_),
@@ -396,8 +399,10 @@ int main(int argc, char** argv) {
     };
 
     for (const auto& scriptCase : scriptCases) {
+        RunDoubleCase(scriptCase, std::nullopt, kRepeats);
         RunDoubleCase(scriptCase, false, kRepeats);
         RunDoubleCase(scriptCase, true, kRepeats);
+        RunAadCase(scriptCase, std::nullopt, kRepeats);
         RunAadCase(scriptCase, false, kRepeats);
         RunAadCase(scriptCase, true, kRepeats);
     }

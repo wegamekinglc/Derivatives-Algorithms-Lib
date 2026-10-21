@@ -67,10 +67,9 @@ jobs:
                "packages": "gcc-13 g++-13"},
               {"compiler": "gcc-14", "cc": "gcc-14", "cxx": "g++-14",
                "packages": "gcc-14 g++-14"},
-              # Ubuntu 26.04 provides gcc-15; keep the earlier portable CPU baseline.
+              # Ubuntu 26.04 supplies gcc-15 without a toolchain PPA.
               {"compiler": "gcc-15", "cc": "gcc-15", "cxx": "g++-15",
-               "packages": "gcc-15 g++-15", "runner": "ubuntu-26.04",
-               "cxxflags": "-O2 -march=x86-64"},
+               "packages": "gcc-15 g++-15"},
           ]
           push_compilers = {"gcc-14", "clang-20"}
 
@@ -79,8 +78,6 @@ jobs:
               if event == "push" and entry["compiler"] not in push_compilers:
                   continue
               leg = dict(entry)
-              leg.setdefault("runner", "ubuntu-latest")
-              leg.setdefault("cxxflags", "-O2")
               leg["aad-backend"] = "aadet"
               leg["coverage"] = entry["compiler"] == "gcc-14"
               if leg["coverage"]:
@@ -98,10 +95,13 @@ jobs:
       - changes
       - define-matrix
     if: needs.changes.outputs.docs_only != 'true'
-    runs-on: ${{ matrix.runner }}
+    runs-on: ${{ matrix.compiler == 'gcc-15' && 'ubuntu-26.04' || 'ubuntu-latest' }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.define-matrix.outputs.matrix) }}
+    env:
+      # Keep both Ubuntu images on the same portable instruction baseline.
+      CXXFLAGS: ${{ matrix.compiler == 'gcc-15' && '-O2 -march=x86-64 -mtune=generic' || '-O2' }}
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -118,7 +118,7 @@ jobs:
         if: matrix.coverage == false
         uses: hendrikmuhs/ccache-action@f09c25b45002a07be2955cbe52e8cee55643f89d # @v1.2.24
         with:
-          key: ${{ matrix.runner == 'ubuntu-latest' && runner.os || matrix.runner }}-${{ matrix.compiler }}-${{ matrix.aad-backend }}
+          key: ${{ runner.os }}-${{ matrix.compiler }}-${{ matrix.aad-backend }}
 
       - name: Enable ccache launcher
         if: matrix.coverage == false
@@ -143,7 +143,6 @@ jobs:
 
       - name: Compile and test
         env:
-          CXXFLAGS: ${{ matrix.cxxflags }}
           CC: ${{ matrix.cc }}
           CXX: ${{ matrix.cxx }}
         run: |
@@ -167,7 +166,6 @@ jobs:
         env:
           CC: ${{ matrix.cc }}
           CXX: ${{ matrix.cxx }}
-          CXXFLAGS: ${{ matrix.cxxflags }}
         run: |
           consumer_build="$RUNNER_TEMP/dal-consumer-${{ matrix.compiler }}-${{ matrix.aad-backend }}"
           cmake \

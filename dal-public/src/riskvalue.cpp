@@ -123,9 +123,9 @@ namespace Dal {
             const auto threads = ThreadPool_::GetInstance()->NumThreads();
             const Script::BatchPlan_ batches(static_cast<size_t>(paths), threads);
             if (plan.EnableAad())
-                static_cast<void>(Script::Detail::PlanAADBlockReplay(plan.OutputAxis().size(), plan.InputAxis().size(),
-                                                                     plan.CompleteInputAxis().size(), batches, threads,
-                                                                     simulation.compiled_.value_or(false), ReplayLimits(plan.Request())));
+                static_cast<void>(Script::Detail::PlanAADBlockReplay(
+                    plan.OutputAxis().size(), plan.InputAxis().size(), plan.CompleteInputAxis().size(), batches, threads,
+                    simulation.compiled_.value_or(Script::DEFAULT_COMPILED), ReplayLimits(plan.Request())));
             else
                 Script::Detail::PreflightPassiveReplay(plan.OutputAxis().size(), batches, threads,
                                                        typeid(model) == typeid(AAD::BlackScholes_<double>), ReplayLimits(plan.Request()));

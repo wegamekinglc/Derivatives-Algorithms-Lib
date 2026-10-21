@@ -9,6 +9,29 @@ from dal import _dal as native
 import pytest
 
 
+def test_compiled_evaluator_is_default():
+    assert dal.MonteCarloSettings_().compiled is True
+
+
+@pytest.mark.parametrize("compiled, expected", [(None, True), (True, True), (False, False)])
+def test_simulation_reports_effective_compiled_selection(compiled, expected):
+    dal.EvaluationDate_Set(dal.Date_(2024, 1, 1))
+    product = dal.Product_New([dal.Date_(2025, 1, 1)], ["pay PAYS SPOT()"])
+    model = dal.BSModelData_New(100.0, 0.2, 0.05, 0.02)
+    settings = dal.MonteCarloSettings_(compiled=compiled)
+    explanation = dal.ScriptSimulation_Explain(product, model, 257, simulation=settings)
+    assert explanation["simulation"]["compiled"] is expected
+    default = dal.ScriptSimulation_Explain(product, model, 257)
+    assert default["simulation"]["compiled"] is True
+    for aad in (False, True):
+        settings.enable_aad = aad
+        explicit = dal.MonteCarlo_Value(product, model, 257, enable_aad=aad, compiled=compiled)
+        omitted = dal.MonteCarlo_Value(product, model, 257, enable_aad=aad)
+        with_settings = dal.MonteCarlo_ValueWithSettings(product, model, 257, simulation=settings)
+        assert explicit == pytest.approx(omitted, abs=1e-10)
+        assert with_settings == explicit
+
+
 def test_product_settings_copy_and_diagnostic_layers():
     settings = dal.ScriptProductSettings_(default_index="EQ[DAL196_TEST]")
     product = dal.Product_New(
@@ -114,7 +137,7 @@ def test_settings_values_and_copy_protocol():
         False,
         False,
         0.01,
-        None,
+        True,
     )
 
 

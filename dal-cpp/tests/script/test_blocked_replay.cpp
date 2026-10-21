@@ -72,7 +72,8 @@ namespace {
         ASSERT_LE(result.peakTapeBytes_, *limits.tapeBudgetBytes_);
         ASSERT_GT(result.peakScratchBytes_, 0);
         ASSERT_LE(result.peakScratchBytes_, *limits.scratchBudgetBytes_);
-        const auto program = product.Simulation().compiled_.value_or(false) ? std::optional<ScriptCompiled_>(product.Compile(true)) : std::nullopt;
+        const auto program =
+            product.Simulation().compiled_.value_or(DEFAULT_COMPILED) ? std::optional<ScriptCompiled_>(product.Compile(true)) : std::nullopt;
         for (size_t row = 0; row < outputs.size(); ++row) {
             auto mode = AAD::SetNumResultsForAAD(false, 1);
             auto scalarSettings = settings;

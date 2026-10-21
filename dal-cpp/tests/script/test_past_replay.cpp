@@ -284,18 +284,20 @@ TEST(ScriptPastReplayTest, TestPreparedCompiledModeCannotChange) {
     }
 }
 
-TEST(ScriptPastReplayTest, TestPreparedDefaultCompiledModeResolvesToTree) {
+TEST(ScriptPastReplayTest, TestPreparedDefaultCompiledModeResolvesToCompiled) {
     const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
     MonteCarloSettings_ simulation;
     simulation.enableAad_ = true;
     simulation.compiled_ = true;
     auto model = CreateModel<double>(Model());
     const auto compiled = PrepareScript(HistoricalProduct(), model.get(), {}, simulation, History());
-    ASSERT_NO_FATAL_FAILURE(CheckPreparedModeFailure([&] { MCSimulation<AAD::Number_>(compiled, Model(), 257); }));
+    const auto explicitResult = MCSimulation<AAD::Number_>(compiled, Model(), 257);
     simulation.compiled_ = std::nullopt;
-    const auto tree = PrepareScript(HistoricalProduct(), model.get(), {}, simulation, History());
-    ASSERT_NO_FATAL_FAILURE(CheckPreparedModeFailure([&] { MCSimulation<AAD::Number_>(tree, Model(), 257, "sobol", false, true); }));
-    const auto result = MCSimulation<AAD::Number_>(tree, Model(), 257);
+    const auto unset = PrepareScript(HistoricalProduct(), model.get(), {}, simulation, History());
+    ASSERT_NO_FATAL_FAILURE(CheckPreparedModeFailure([&] { MCSimulation<AAD::Number_>(unset, Model(), 257, "sobol", false, false); }));
+    const auto result = MCSimulation<AAD::Number_>(unset, Model(), 257);
+    ASSERT_DOUBLE_EQ(result.aggregated_, explicitResult.aggregated_);
+    ASSERT_EQ(result.risks_, explicitResult.risks_);
     ASSERT_NEAR(result.aggregated_ / 257, 160.0 * exp(-0.03 * 10.0 / DAYS_PER_YEAR), 1.0e-10);
 }
 
@@ -566,6 +568,7 @@ TEST(ScriptPastReplayTest, TestHistoricalSeedFailureDrainsAndRebuildsEveryWorker
         auto model = CreateModel<double>(Model());
         MonteCarloSettings_ simulation;
         simulation.enableAad_ = true;
+        simulation.compiled_ = false;
         SeedAudit_ audit;
         const SeedAuditedPrepared_ prepared(PrepareScript(HistoricalProduct(), model.get(), {}, simulation, History()), &audit);
         const size_t workers = std::min(pool.pool_->NumThreads(), Script::Detail::ChunkPlan_(16385).BatchCount());

@@ -127,7 +127,7 @@ native copies without Python callbacks or mutable dictionaries.
 
 High-level Describe returns a `dal.script-product/2` dictionary without market
 I/O, global-date access or valuation phase. High-level Explain returns a
-`dal.script-valuation/1` dictionary from one independent default exact/tree
+`dal.script-valuation/1` dictionary from one independent default exact/compiled
 price preparation. It may read history and initialize a model, but generates
 no paths or workers and accepts no simulation settings. It neither describes
 a preceding compiled/AAD call nor caches the next Value. High-level

@@ -438,7 +438,7 @@ local_vol_model = dal.BSLocalVolModelData_New(
 
 ### Valuation
 
-- `dal.MonteCarlo_Value(product, modelData, num_path, method="sobol", use_bb=False, enable_aad=False, smooth=0.01, compiled=None)` — Monte Carlo pricing with optional AAD Greeks
+- `dal.MonteCarlo_Value(product, modelData, num_path, method="sobol", use_bb=False, enable_aad=False, smooth=0.01, compiled=True)` — Monte Carlo pricing with optional AAD Greeks
 - `dal.MonteCarlo_ValueWithSettings(product, modelData, num_path, *, valuation=None, simulation=None)` — Price with `ScriptValuationSettings_` and `MonteCarloSettings_`
 - `dal.ScriptValuation_Explain(product, modelData, *, valuation=None)` — Return a dictionary describing one default price preparation
 - `dal.ScriptSimulation_Explain(product, modelData, num_path, *, valuation=None, simulation=None)` — Run the full double valuation and return the `dal.script-simulation/1` exercise diagnostics dictionary
@@ -451,7 +451,7 @@ local_vol_model = dal.BSLocalVolModelData_New(
 - `use_bb` — Use Brownian bridge construction (default `False`)
 - `enable_aad` — Enable AAD for pathwise Greeks (default `False`)
 - `smooth` — Finite, strictly positive fuzzy smoothing width (default `0.01`), validated even without AAD
-- `compiled` — `True` selects the compiled evaluator; `None`/`False` uses tree-walk
+- `compiled` — `True` (default) and `None` select the compiled evaluator; `False` selects tree-walk
 
 **Returns:** Dictionary with keys:
 - `"PV"` — Present value
@@ -478,7 +478,7 @@ ScriptProductSettings_(*, default_index="", regression_features=None)
 ScriptValuationSettings_(*, evaluation_date=None, today_fixing="Model",
                          fixings=None)
 MonteCarloSettings_(*, method="sobol", use_bb=False, enable_aad=False,
-                   smooth=0.01, compiled=None, lsmc_basis_degree=3,
+                   smooth=0.01, compiled=True, lsmc_basis_degree=3,
                    lsmc_training_paths=None, lsmc_validation_paths=None,
                    lsmc_rqmc_replicates=None, lsmc_training_seed=None,
                    lsmc_pricing_seed=None, lsmc_policy_risk_mode="Frozen",
@@ -496,7 +496,7 @@ MonteCarloSettings_(*, method="sobol", use_bb=False, enable_aad=False,
 | `method`                                  | `str` / `String_`: `sobol`, `mrg32`, `irn` (case-insensitive); default `sobol`                                  | `str`, preserving spelling          |
 | `use_bb`, `enable_aad`                    | Python `bool` only; default `False`                                                                             | `bool`                              |
 | `smooth`                                  | Finite positive Python `int` / `float`, excluding bool and enums; default `0.01`                                | `float`                             |
-| `compiled`                                | Python `bool` or `None`; default `None` selects tree                                                            | `bool` or `None`                    |
+| `compiled`                                | Python `bool` or `None`; default `True` and unset `None` select compiled execution                              | `bool` or `None`                    |
 | `lsmc_basis_degree`                       | Integer or valid `__index__` in `1..8`, excluding bool, enums, floats; default `3`                              | `int`                               |
 | `lsmc_training_paths`                     | Positive integer or valid `__index__` up to `2**31-1`, excluding bool, enums, floats; `None` uses `num_path`    | `int` or `None`                     |
 | `lsmc_validation_paths`                   | Positive integer or valid `__index__` up to `2**31-1`, excluding bool, enums, floats; `None` keeps fixed degree | `int` or `None`                     |

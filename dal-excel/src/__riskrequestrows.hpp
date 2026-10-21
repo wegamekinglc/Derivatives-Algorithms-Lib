@@ -156,7 +156,7 @@ namespace Dal::Excel {
                            Field("use_bb", simulation.useBb_),
                            Field("enable_aad", simulation.enableAad_),
                            Field("smooth", simulation.smooth_),
-                           Field("compiled", simulation.compiled_.value_or(false)),
+                           Field("compiled", simulation.compiled_.value_or(Script::DEFAULT_COMPILED)),
                            Field("lsmc_basis_degree", double(simulation.lsmcBasisDegree_)),
                            Field("lsmc_training_paths", OptionalCell(simulation.lsmcTrainingPaths_)),
                            Field("lsmc_validation_paths", OptionalCell(simulation.lsmcValidationPaths_)),
