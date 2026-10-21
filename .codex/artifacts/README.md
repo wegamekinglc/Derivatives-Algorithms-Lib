@@ -8,6 +8,11 @@ current-state explanations in the published docs or focused Codex references.
 
 ## Current Artifacts
 
+- [DAL-398 script contract and calibration API v1](api-notes/dal-398-script-contract.md)
+  — Active definition/header/binding schema, persistence, public error/report contracts
+  and C++/Python/Excel mappings for the DAL-396 implementation chain. P0 admission is
+  limited to Deposit and Gaussian BondOption; product implementation and validation follow.
+
 - [DAL-387 benchmark startup repair](implementation/dal-387-benchmark-repair.md)
   — Scheduled comparison import-order failure, focused RED/GREEN evidence,
   build selection and actual driver verification; awaiting independent review.
