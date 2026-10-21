@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Optimize>true</Optimize>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <RestoreLockedMode Condition="'$(UpdateInfineLock)' != 'true'">true</RestoreLockedMode>
+  </PropertyGroup>
+  <Target Name="RequirePinnedSource" BeforeTargets="PrepareForBuild">
+    <Error Condition="'$(QflSource)' == ''" Text="Set QflSource to the pinned InFine source checkout." />
+  </Target>
+  <ItemGroup>
+    <ProjectReference Include="$(QflSource)/InFine.QuantFinance.Market/InFine.QuantFinance.Market.csproj" />
+    <ProjectReference Include="$(QflSource)/InFine.QuantFinance.Payoffs/InFine.QuantFinance.Payoffs.csproj" />
+    <ProjectReference Include="$(QflSource)/InFine.QuantFinance.Random/InFine.QuantFinance.Random.csproj" />
+  </ItemGroup>
+</Project>

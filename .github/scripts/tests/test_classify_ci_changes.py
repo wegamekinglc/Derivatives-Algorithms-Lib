@@ -166,6 +166,14 @@ class CiWorkflowFastPathTest(unittest.TestCase):
                 self.assertTrue(all(leg["aad-backend"] == "aadet" for leg in legs))
                 self.assertEqual([leg["compiler"] for leg in legs if leg["coverage"]], ["gcc-14"])
 
+    def test_gcc15_uses_the_runner_toolchain_without_launchpad(self):
+        build = self.job(self.workflow("cmake-linux.yml"), "build")
+        self.assertIn("runs-on: ${{ matrix.compiler == 'gcc-15' && 'ubuntu-26.04' || 'ubuntu-latest' }}", build)
+        self.assertIn("CXXFLAGS: ${{ matrix.compiler == 'gcc-15' && '-O2 -march=x86-64 -mtune=generic' || '-O2' }}", build)
+        self.assertNotIn("add-apt-repository", build)
+        self.assertNotIn("ubuntu-toolchain-r", build)
+        self.assertEqual(build.count("CXXFLAGS:"), 1)
+
     def test_external_backend_jobs_and_gate_references_are_removed(self):
         for name in ("cmake-linux.yml", "cmake-windows.yml"):
             workflow = self.workflow(name)
@@ -197,6 +205,11 @@ class CiWorkflowFastPathTest(unittest.TestCase):
         self.assertIn("check_python_benchmark_regressions.py", linux)
         self.assertIn("check_benchmark_regressions.py", linux)
         self.assertIn("run_comparisons.py", linux)
+        self.assertIn("repository: infineco/quant-finance-library", linux)
+        self.assertIn("ref: 514ffe83b9ef8be0a29578c6f190b390267facf7", linux)
+        self.assertIn("dotnet-version: '8.0.426'", linux)
+        self.assertIn("prepare_infine.py", linux)
+        self.assertIn("--infine-build", linux)
         self.assertIn("run_benchmarks.py", windows)
         self.assertIn("--build-root build/Release-windows", windows)
         self.assertIn("fetch-depth: 2", windows)

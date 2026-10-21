@@ -8,7 +8,6 @@ import tempfile
 import textwrap
 import unittest
 
-
 BENCHMARKS = Path(__file__).resolve().parents[1]
 LAUNCHER = textwrap.dedent("""
     import importlib.abc
@@ -35,7 +34,11 @@ def invoke(*arguments):
     env["PYTHONNOUSERSITE"] = "1"
     return subprocess.run(
         [sys.executable, "-s", "-c", LAUNCHER, str(BENCHMARKS), *arguments],
-        env=env, capture_output=True, text=True, timeout=30, check=False,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
     )
 
 
@@ -49,12 +52,15 @@ class ComparisonCliTest(unittest.TestCase):
     def test_controller_and_workers_reject_missing_selected_build(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            for backend in (None, "dal", "quantlib", "rateslib"):
+            for backend in (None, "dal", "quantlib", "rateslib", "infine"):
                 with self.subTest(backend=backend):
                     output = root / str(backend)
                     arguments = [
-                        "--dal-package", str(root / "missing"),
-                        "--output-dir", str(output), "--smoke",
+                        "--dal-package",
+                        str(root / "missing"),
+                        "--output-dir",
+                        str(output),
+                        "--smoke",
                     ]
                     if backend:
                         arguments += ["--worker", backend]
