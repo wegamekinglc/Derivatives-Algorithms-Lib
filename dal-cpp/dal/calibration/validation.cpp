@@ -2,11 +2,16 @@
 #include <dal/platform/strict.hpp>
 
 #include <charconv>
+#include <string_view>
 
 #include <dal/calibration/validation_internal.hpp>
 
 namespace Dal::CalibrationInternal {
     namespace {
+        bool Upper(char c) { return c >= 'A' && c <= 'Z'; }
+        bool Digit(char c) { return c >= '0' && c <= '9'; }
+        bool Alnum(char c) { return Upper(c) || (c >= 'a' && c <= 'z') || Digit(c); }
+        bool KeyInitial(char c) { return Upper(c) || c == '_'; }
         String_ SafeText(const String_& value) {
             if (!CanonicalJson::ValidUtf8(Bytes(value)))
                 return "<invalid UTF-8>";
@@ -35,14 +40,13 @@ namespace Dal::CalibrationInternal {
     bool ValidId(const String_& value) {
         if (value.empty() || value.size() > 128)
             return false;
-        const auto alnum = [](char c) { return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9'); };
-        return alnum(value.front()) &&
-               std::all_of(value.begin(), value.end(), [&](char c) { return alnum(c) || c == '_' || c == '.' || c == ':' || c == '/' || c == '-'; });
+        return Alnum(value.front()) && std::all_of(value.begin(), value.end(),
+                                                   [](char c) { return Alnum(c) || std::string_view("_.:/-").find(c) != std::string_view::npos; });
     }
     bool ValidKey(const String_& value) {
-        if (value.empty() || !((value.front() >= 'A' && value.front() <= 'Z') || value.front() == '_'))
+        if (value.empty() || !KeyInitial(value.front()))
             return false;
-        return std::all_of(value.begin(), value.end(), [](char c) { return (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'; });
+        return std::all_of(value.begin(), value.end(), [](char c) { return KeyInitial(c) || Digit(c); });
     }
     bool ValidFingerprint(const String_& value) {
         const auto s = Bytes(value);
@@ -146,8 +150,7 @@ namespace Dal::CalibrationInternal {
         Check(value.kind_ == JsonKind_::BOOLEAN, "InvalidCalibrationArchive", path, "boolean", "", LoadContext());
         return value.boolean_;
     }
-    const std::vector<Json_>& ReadArray(const Json_& value, const String_& path) {
+    void CheckArray(const Json_& value, const String_& path) {
         Check(value.kind_ == JsonKind_::ARRAY && value.array_.size() <= INT_MAX, "InvalidCalibrationArchive", path, "array", "", LoadContext());
-        return value.array_;
     }
 } // namespace Dal::CalibrationInternal

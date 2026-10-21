@@ -69,7 +69,7 @@ namespace Dal::CalibrationInternal {
     String_ ReadString(const Json_& value, const String_& path);
     double ReadNumber(const Json_& value, const String_& path);
     bool ReadBool(const Json_& value, const String_& path);
-    const std::vector<Json_>& ReadArray(const Json_& value, const String_& path);
+    void CheckArray(const Json_& value, const String_& path);
     template <class T_, class F_> std::optional<T_> ReadOptional(const Json_& value, const String_& path, const F_& convert) {
         return value.kind_ == JsonKind_::NIL ? std::nullopt : std::optional<T_>(convert(value, path));
     }

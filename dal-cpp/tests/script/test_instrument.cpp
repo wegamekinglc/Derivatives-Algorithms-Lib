@@ -2,6 +2,7 @@
 
 #include <limits>
 #include <rapidjson/document.h>
+#include <rapidjson/pointer.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 
@@ -142,6 +143,70 @@ TEST(ScriptInstrumentTest, TestBindingReturnsNewCompleteContract) {
     ASSERT_NE(original->BindingIdentity(), rebound->BindingIdentity());
     ASSERT_NE(original->InstrumentIdentity(), rebound->InstrumentIdentity());
     ASSERT_EQ(definition->Spec().source_.rows_[1].text_, "0.025");
+}
+
+TEST(CalibrationProtocolTest, TestQuoteIdAlphabetAndLength) {
+    const std::string initials = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    const std::string subsequent = initials + "_.:/-";
+    const auto rate = CalibrationValueUnit_::Parse("Rate");
+    const auto check = [&](const String_& id, bool accepted) {
+        if (accepted)
+            ASSERT_EQ(NewCalibrationMarketQuote(id, 0.01, rate)->Id(), id);
+        else
+            AssertFailure([&] { static_cast<void>(NewCalibrationMarketQuote(id, 0.01, rate)); }, "InvalidCalibrationQuote", "/id");
+    };
+    for (int byte = 0; byte < 256; ++byte) {
+        SCOPED_TRACE(byte);
+        const char c = static_cast<char>(byte);
+        check(String_(1, c), initials.find(c) != std::string::npos);
+        check("Q" + String_(1, c), subsequent.find(c) != std::string::npos);
+    }
+    check("", false);
+    check(String_(128, 'A'), true);
+    check(String_(129, 'A'), false);
+}
+
+TEST(ScriptInstrumentTest, TestParameterDomainBoundaries) {
+    auto spec = DepositDefinition();
+    spec.parameters_[1].lower_ = 0.02;
+    spec.parameters_[1].upper_ = 0.03;
+    spec.parameters_[1].lowerInclusive_ = spec.parameters_[1].upperInclusive_ = false;
+    const auto rate = CalibrationValueUnit_::Parse("Rate");
+    const auto open = NewScriptCalibrationInstrument({"open", NewScriptInstrumentDefinition(spec)});
+    for (double endpoint : {0.02, 0.03})
+        AssertFailure([&] { static_cast<void>(BindCalibrationInstrumentParameters(open, {{{"K", endpoint, rate}}, {}})); },
+                      "InvalidCalibrationParameterBinding", "/bindings/values/0/value", String_("K"));
+    spec.parameters_[1].lowerInclusive_ = spec.parameters_[1].upperInclusive_ = true;
+    const auto closed = NewScriptCalibrationInstrument({"closed", NewScriptInstrumentDefinition(spec)});
+    for (double endpoint : {0.02, 0.03})
+        ASSERT_DOUBLE_EQ(BindCalibrationInstrumentParameters(closed, {{{"K", endpoint, rate}}, {}})->Binding()[1].value_, endpoint);
+    spec.parameters_[1].lower_ = spec.parameters_[1].upper_ = 0.025;
+    ASSERT_DOUBLE_EQ(NewScriptInstrumentDefinition(spec)->Defaults()[1], 0.025);
+    spec.parameters_[1].upperInclusive_ = false;
+    AssertFailure([&] { static_cast<void>(NewScriptInstrumentDefinition(spec)); }, "InvalidScriptInstrumentDefinition", "/parameters/1",
+                  String_("K"));
+}
+
+TEST(ScriptInstrumentTest, TestArchiveArrayTypesHaveLoadPaths) {
+    for (const char* path : {"/definition/source/rows", "/definition/source/settings/regression_features", "/definition/parameters",
+                             "/definition/measures", "/binding/values"}) {
+        SCOPED_TRACE(path);
+        const auto json = MutateArchive([&](auto& d) { rapidjson::Pointer(path).Get(d)->SetObject(); });
+        AssertFailure([&] { static_cast<void>(LoadCalibrationInstrumentJson(json)); }, "InvalidCalibrationArchive", path);
+    }
+}
+
+TEST(ScriptInstrumentTest, TestArchiveQuoteCopyRequiresBothProvenanceFields) {
+    for (const char* supplied : {"quote_id", "quote_fingerprint"}) {
+        const auto json = MutateArchive([&](auto& d) {
+            auto& row = d["binding"]["values"][1];
+            row["origin"].SetString("QuoteCopy");
+            const char* value = std::string(supplied) == "quote_id" ? "Q" : "sha256:3b95b1a70005574b4d6755b6d11d567eda1dbc082e0eb56a6ca2343406b1d471";
+            row[supplied].SetString(rapidjson::StringRef(value));
+        });
+        AssertFailure([&] { static_cast<void>(LoadCalibrationInstrumentJson(json)); }, "InvalidCalibrationArchive",
+                      "/binding/values/1/quote_fingerprint", String_("K"));
+    }
 }
 
 TEST(ScriptInstrumentTest, TestScalarSourceCannotBecomePriceDefinition) {

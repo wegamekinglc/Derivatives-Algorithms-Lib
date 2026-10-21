@@ -29,6 +29,23 @@ namespace Dal::CalibrationInternal {
             const auto actual = ReadString(Field(value, name), path + "/" + name);
             Check(Bytes(actual) == expected, "UnsupportedCalibrationSchema", path + "/" + name, expected, actual);
         }
+        void ValidateBindingOrigin(const CalibrationEffectiveParameter_& value,
+                                   const ScriptParameterDeclaration_& declaration,
+                                   double sourceDefault,
+                                   const String_& path,
+                                   const CalibrationDiagnostic_& context) {
+            if (value.origin_ == CalibrationBindingOrigin_::Value_::SourceDefault)
+                Check(value.value_ == sourceDefault, ARCHIVE_ERROR, path + "/value", "matching source default", "", context);
+            Check(declaration.bindable_ || value.origin_ == CalibrationBindingOrigin_::Value_::SourceDefault, ARCHIVE_ERROR, path + "/origin",
+                  "SourceDefault for fixed parameters", "", context);
+            if (value.origin_ == CalibrationBindingOrigin_::Value_::QuoteCopy) {
+                Check(value.quoteId_ && ValidId(*value.quoteId_) && value.quoteFingerprint_ && ValidFingerprint(*value.quoteFingerprint_),
+                      ARCHIVE_ERROR, path + "/quote_fingerprint", "valid quote ID and SHA-256 fingerprint", "", context);
+            } else {
+                Check(!value.quoteId_ && !value.quoteFingerprint_, ARCHIVE_ERROR, path + "/origin", "null quote fields for SourceDefault/Literal", "",
+                      context);
+            }
+        }
     } // namespace
     Json_ SourceJson(const ScriptInstrumentSource_& source) {
         return Obj({{"rows", Array(source.rows_,
@@ -103,9 +120,10 @@ namespace Dal::CalibrationInternal {
         ScriptInstrumentDefinitionSpec_ spec;
         const auto& source = Field(value, "source");
         Fields(source, path + "/source", {"rows", "settings"});
-        const auto& rows = ReadArray(Field(source, "rows"), path + "/source/rows");
-        for (size_t i = 0; i < rows.size(); ++i) {
-            const auto& row = rows[i];
+        const auto& rows = Field(source, "rows");
+        CheckArray(rows, path + "/source/rows");
+        for (size_t i = 0; i < rows.array_.size(); ++i) {
+            const auto& row = rows.array_[i];
             const String_ p = path + "/source/rows/" + OrdinalText(i);
             Fields(row, p, {"kind", "key", "text"});
             spec.source_.rows_.push_back({ReadEnum<ScriptSourceRowKind_>(Field(row, "kind"), p + "/kind"), ReadString(Field(row, "key"), p + "/key"),
@@ -114,10 +132,11 @@ namespace Dal::CalibrationInternal {
         const auto& settings = Field(source, "settings");
         Fields(settings, path + "/source/settings", {"default_index", "regression_features"});
         spec.source_.settings_.defaultIndex_ = ReadString(Field(settings, "default_index"), path + "/source/settings/default_index");
-        const auto& features = ReadArray(Field(settings, "regression_features"), path + "/source/settings/regression_features");
-        for (size_t i = 0; i < features.size(); ++i)
+        const auto& features = Field(settings, "regression_features");
+        CheckArray(features, path + "/source/settings/regression_features");
+        for (size_t i = 0; i < features.array_.size(); ++i)
             spec.source_.settings_.regressionFeatures_.push_back(
-                ReadString(features[i], path + "/source/settings/regression_features/" + OrdinalText(i)));
+                ReadString(features.array_[i], path + "/source/settings/regression_features/" + OrdinalText(i)));
         const auto& header = Field(value, "header");
         const String_ h = path + "/header";
         Fields(header, h,
@@ -133,9 +152,10 @@ namespace Dal::CalibrationInternal {
                         ReadEnum<ScriptValuationCashflows_>(Field(header, "valuation_cashflows"), h + "/valuation_cashflows"),
                         ReadString(Field(header, "discount_route"), h + "/discount_route"),
                         ReadString(Field(header, "convention_set"), h + "/convention_set")};
-        const auto& declarations = ReadArray(Field(value, "parameters"), path + "/parameters");
-        for (size_t i = 0; i < declarations.size(); ++i) {
-            const auto& d = declarations[i];
+        const auto& declarations = Field(value, "parameters");
+        CheckArray(declarations, path + "/parameters");
+        for (size_t i = 0; i < declarations.array_.size(); ++i) {
+            const auto& d = declarations.array_[i];
             const String_ p = path + "/parameters/" + OrdinalText(i);
             Fields(d, p, {"key", "type", "unit", "role", "bindable", "lower", "upper", "lower_inclusive", "upper_inclusive"});
             spec.parameters_.push_back(
@@ -145,9 +165,10 @@ namespace Dal::CalibrationInternal {
                  ReadOptional<double>(Field(d, "upper"), p + "/upper", ReadNumber), ReadBool(Field(d, "lower_inclusive"), p + "/lower_inclusive"),
                  ReadBool(Field(d, "upper_inclusive"), p + "/upper_inclusive")});
         }
-        const auto& measures = ReadArray(Field(value, "measures"), path + "/measures");
-        for (size_t i = 0; i < measures.size(); ++i) {
-            const auto& m = measures[i];
+        const auto& measures = Field(value, "measures");
+        CheckArray(measures, path + "/measures");
+        for (size_t i = 0; i < measures.array_.size(); ++i) {
+            const auto& m = measures.array_[i];
             const String_ p = path + "/measures/" + OrdinalText(i);
             Fields(m, p, {"id", "kind", "receiver", "parameter", "unit", "annuity_sign", "min_abs_annuity"});
             spec.measures_.push_back(
@@ -161,12 +182,13 @@ namespace Dal::CalibrationInternal {
     Vector_<CalibrationEffectiveParameter_> ReadBinding(const Json_& value, const ScriptInstrumentDefinition_& definition) {
         Fields(value, "/binding", {"schema", "values"});
         Version(value, "schema", "/binding", "dal.calibration-parameter-binding/1");
-        const auto& rows = ReadArray(Field(value, "values"), "/binding/values");
+        const auto& rows = Field(value, "values");
+        CheckArray(rows, "/binding/values");
         const auto& declarations = definition.Spec().parameters_;
-        Check(rows.size() == declarations.size(), ARCHIVE_ERROR, "/binding/values", "complete binding in declaration order");
+        Check(rows.array_.size() == declarations.size(), ARCHIVE_ERROR, "/binding/values", "complete binding in declaration order");
         Vector_<CalibrationEffectiveParameter_> result;
-        for (size_t i = 0; i < rows.size(); ++i) {
-            const auto& row = rows[i];
+        for (size_t i = 0; i < rows.array_.size(); ++i) {
+            const auto& row = rows.array_[i];
             const auto& d = declarations[i];
             const String_ p = "/binding/values/" + OrdinalText(i);
             Fields(row, p, {"key", "value", "unit", "origin", "quote_id", "quote_fingerprint"});
@@ -182,16 +204,7 @@ namespace Dal::CalibrationInternal {
             Check(Bytes(v.key_) == Bytes(d.key_), ARCHIVE_ERROR, p + "/key", d.key_, v.key_, context);
             Check(v.unit_ == d.unit_, ARCHIVE_ERROR, p + "/unit", d.unit_.Token(), v.unit_.Token(), context);
             ValidateParameter(v.value_, d, p + "/value", context);
-            if (v.origin_ == CalibrationBindingOrigin_::Value_::SourceDefault)
-                Check(v.value_ == definition.Defaults()[i], ARCHIVE_ERROR, p + "/value", "matching source default", "", context);
-            Check(d.bindable_ || v.origin_ == CalibrationBindingOrigin_::Value_::SourceDefault, ARCHIVE_ERROR, p + "/origin",
-                  "SourceDefault for fixed parameters", "", context);
-            if (v.origin_ == CalibrationBindingOrigin_::Value_::QuoteCopy) {
-                Check(v.quoteId_ && ValidId(*v.quoteId_) && v.quoteFingerprint_ && ValidFingerprint(*v.quoteFingerprint_), ARCHIVE_ERROR,
-                      p + "/quote_fingerprint", "valid quote ID and SHA-256 fingerprint", "", context);
-            } else {
-                Check(!v.quoteId_ && !v.quoteFingerprint_, ARCHIVE_ERROR, p + "/origin", "null quote fields for SourceDefault/Literal", "", context);
-            }
+            ValidateBindingOrigin(v, d, definition.Defaults()[i], p, context);
             result.push_back(v);
         }
         return result;

@@ -127,3 +127,89 @@ repaired executable SHA-256:
 `1f5cda30b68bbf6d412fa4b32c3f11377f6fa02de714b4cc70f994da3d3380d3`.
 The subsequent archive-envelope-only correction is outside this caller; the
 final rebuilt rate-risk executable retained that same hash, establishing reuse.
+
+## CI repair on PR #607
+
+Repair input head: `aa4363cbbb305df49f15d262551567962d6b49e7` on the existing
+`agent/dal-implementer/50614838b462` branch. This follow-up addresses the compiler
+and Codacy diagnostics from that head. It does not close the separately reported
+JSON-depth/parser-error review findings or documentation-index follow-up.
+
+### Diagnostic evidence and design
+
+- GCC 14 warning-clean job `119018220881` fails at all five ReadArray call sites
+  with `-Werror=dangling-reference`. The returned array belongs to its JSON input;
+  the compiler associates the reference with the temporary diagnostic path.
+  CheckArray now validates without returning a reference, and callers traverse
+  the array directly from the owning JSON field. No warning suppression is added.
+- MSVC job `119018216773`, all-diagnostics job `119018216960` and Windows wheel
+  job `119018232847` fail with C4800 at `Check(seen.count(copy.first), ...)`.
+  Membership conditions now explicitly compare the count with zero.
+- Codacy check `119018399119` reports six complexity findings, not an access or
+  service failure. Lizard 1.23.0 reproduces the exact counts: ValidId 14,
+  ValidKey 9, ValidateDefinition 47, ApplyBindings 12, ValidateParameter 14,
+  ReadBinding 9. Small local validation functions preserve the condition order,
+  short-circuit guards, field paths and owned diagnostic context. Coupon detection
+  is computed once and shared by parameter and measure validation.
+
+Production edits are limited to `dal/calibration/validation.cpp`, its internal
+header, `dal/script/instrument.cpp` and `instrumentserialization.cpp`. The
+existing test file gains four characterizations covering ID alphabet/length,
+open/closed/equal parameter bounds, all five JSON array type errors, and partial
+QuoteCopy provenance. They pass on the original validation logic before its
+complexity refactor and after the refactor. This warning/refactor repair uses
+compiler/static-analysis RED gates rather than changing runtime behavior.
+
+### RED and GREEN
+
+The following focused RED command failed with the same five GCC diagnostics;
+after CheckArray extraction the identical command passed:
+
+```sh
+g++-14 -std=c++17 -fsyntax-only -I dal-cpp \
+  -I dal-cpp/externals/rapidjson/include -I dal-cpp/externals/eigen \
+  -Wall -Wextra -Wpedantic -Werror \
+  -Wno-unused-parameter -Wno-unused-function -Wno-sign-compare \
+  -Wno-dangling-else -Wno-reorder -Wno-switch \
+  -Wno-missing-field-initializers -Wno-parentheses -Wno-unused-variable \
+  -Wno-redundant-move -Wno-pessimizing-move -Wno-sequence-point \
+  -Wno-implicit-fallthrough dal-cpp/dal/script/instrumentserialization.cpp
+lizard -C 8 -w dal-cpp/dal/calibration/validation.cpp \
+  dal-cpp/dal/script/instrument.cpp dal-cpp/dal/script/instrumentserialization.cpp
+```
+
+The Lizard command initially lists exactly the six Codacy findings; after the
+refactor it reports none. All 81 functions in those files have CCN <=8, with no
+configuration changes or exclusions. Actual MSVC RED evidence is the CI logs;
+MSVC execution is left to the new-head Windows jobs, not claimed as a local pass.
+
+GREEN verification:
+
+```sh
+cmake --build build/Release-linux --target dal_cpp_tests rate_risk_perf -j 12
+./build/Release-linux/dal-cpp/dal_cpp_tests \
+  --gtest_filter='ScriptInstrumentTest.*:CalibrationProtocolTest.*'
+cmake --build build/warning-clean --target dal_cpp dal_public -j 12
+```
+
+The focused selection passes all 25 tests. The warning-clean tree uses GCC 14.3,
+Debug, the exact warning flags above, both core/public libraries, and tests,
+examples, benchmarks and Python disabled, matching the failing CI job. Release
+uses GCC 15.2 with the same pinned dependencies and native AAD configuration as
+the initial implementation. Formatting and diff checks pass. The broader 215
+core/28 public/generated/frontend evidence above remains prior evidence, not a
+claim that those checks were all rerun in this repair.
+
+### Performance evidence reuse
+
+The repair does not change legacy Product/archive, JCS/SHA, quote-risk or parser
+implementation. The changed data-boundary functions are absent from the linked
+rate-risk benchmark. Rebuilding rate_risk_perf before and after the complexity
+refactor produces the identical local SHA-256
+`a9dfaf72ab416f8223da429447e91fa64754a46ac49ee732e1a31607b4d787c6`.
+The local path differs from the original evidence build, whose executable embeds
+different source paths; this is a local before/after equality, not a claim of
+equality with the archived `1f5cda30...` executable. Together with unchanged
+legacy caller/dependency/configuration provenance, it establishes that this
+repair preserves the previously accepted paired performance evidence. No new
+timing matrix is needed or claimed.
