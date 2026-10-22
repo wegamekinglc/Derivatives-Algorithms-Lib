@@ -74,6 +74,37 @@ namespace {
         }
         return result;
     }
+    template <class D_>
+    double
+    TreeFixing(const Script::NodeFix_& fixing, const Vector_<>& parameters, const D_& discount, const std::map<int, double>& backgroundForwards) {
+        if (const auto* df = dynamic_cast<const Index::DF_*>(fixing.index_.get())) {
+            REQUIRE(Cell::IsDate(df->start_) && Cell::IsDate(df->maturity_), "independent tree probe requires explicit DF dates");
+            return discount(Cell::ToDate(df->maturity_)) / discount(Cell::ToDate(df->start_));
+        }
+        const auto* rate = dynamic_cast<const Index::Libor_*>(fixing.index_.get());
+        REQUIRE(rate && Cell::IsDate(rate->start_), "independent tree probe requires an explicit Libor start");
+        const Date_ start = Cell::ToDate(rate->start_), end = Date::AddMonths(start, rate->tenor_.Period().Months());
+        const auto background = backgroundForwards.find(rate->tenor_.Period().Months());
+        const double ratio = background == backgroundForwards.end() ? OracleDiscount(start, parameters) / OracleDiscount(end, parameters)
+                                                                    : std::exp(background->second * (end - start) / 365.);
+        return (ratio - 1.) / ((end - start) / 360.);
+    }
+    template <class D_>
+    void BindTreeFixings(Script::Node_* node,
+                         Vector_<Script::ObservationRequest_>* requests,
+                         Vector_<>* known,
+                         const Vector_<>& parameters,
+                         const D_& discount,
+                         const std::map<int, double>& backgroundForwards) {
+        if (auto* fixing = dynamic_cast<Script::NodeFix_*>(node)) {
+            fixing->observationId_ = requests->size();
+            requests->push_back(
+                {fixing->index_, {fixing->index_->Name(), DateTime_(fixing->fixingDate_.value_or(FAMILY_TODAY), 0.)}, {}, known->size(), {}, true});
+            known->push_back(TreeFixing(*fixing, parameters, discount, backgroundForwards));
+        }
+        for (const auto& child : node->arguments_)
+            BindTreeFixings(child.get(), requests, known, parameters, discount, backgroundForwards);
+    }
     double OriginalTreePrice(const Handle_<CalibrationInstrument_>& instrument,
                              const Vector_<>& parameters,
                              const std::optional<double>& discountRate = {},
@@ -85,35 +116,9 @@ namespace {
         product->IndexVariables();
         Vector_<Script::ObservationRequest_> requests;
         Vector_<> known;
-        const auto bind = [&](auto&& self, Script::Node_* node) -> void {
-            if (auto* fixing = dynamic_cast<Script::NodeFix_*>(node)) {
-                const auto* df = dynamic_cast<const Index::DF_*>(fixing->index_.get());
-                fixing->observationId_ = requests.size();
-                requests.push_back({fixing->index_,
-                                    {fixing->index_->Name(), DateTime_(fixing->fixingDate_.value_or(FAMILY_TODAY), 0.)},
-                                    {},
-                                    known.size(),
-                                    {},
-                                    true});
-                if (df) {
-                    REQUIRE(Cell::IsDate(df->start_) && Cell::IsDate(df->maturity_), "independent tree probe requires explicit DF dates");
-                    known.push_back(discount(Cell::ToDate(df->maturity_)) / discount(Cell::ToDate(df->start_)));
-                } else {
-                    const auto* rate = dynamic_cast<const Index::Libor_*>(fixing->index_.get());
-                    REQUIRE(rate && Cell::IsDate(rate->start_), "independent tree probe requires an explicit Libor start");
-                    const Date_ start = Cell::ToDate(rate->start_), end = Date::AddMonths(start, rate->tenor_.Period().Months());
-                    const auto background = backgroundForwards.find(rate->tenor_.Period().Months());
-                    const double ratio = background == backgroundForwards.end() ? OracleDiscount(start, parameters) / OracleDiscount(end, parameters)
-                                                                                : std::exp(background->second * (end - start) / 365.);
-                    known.push_back((ratio - 1.) / ((end - start) / 360.));
-                }
-            }
-            for (const auto& child : node->arguments_)
-                self(self, child.get());
-        };
         for (const auto& event : product->Events())
             for (const auto& node : event)
-                bind(bind, node.get());
+                BindTreeFixings(node.get(), &requests, &known, parameters, discount, backgroundForwards);
         const Script::ObservationPlan_ observations(std::move(requests), std::move(known));
         Script::Evaluator_<double> evaluator(Vector_<>(product->VarNames().size(), 0.), product->ConstVarValues(), product->VectorCapacities());
         evaluator.SetObservations(&observations);

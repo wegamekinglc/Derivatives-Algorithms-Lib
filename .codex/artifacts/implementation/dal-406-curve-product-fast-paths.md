@@ -176,9 +176,26 @@ performs the warning and isolated identity checks and builds the caller harness.
 Caller timing is a separate foreground step after compilation has finished;
 `caller-perf-environment.json` and CSV retain the exact measurement provenance.
 
+### Published-head Codacy correction
+
+The first published head `6e7315aba4f8fba497ad9a3596349af5b9fd7a27` receives
+Codacy check `119654203157`: the independent test helper `OriginalTreePrice` has
+CCN 14 against limit eight. Its observation mathematics and recursive binding
+are extracted into separate test helpers without changing assertions or formulas.
+The three helper CCNs are now 5/3/7; every function in that test file is at most
+eight. The corrected translation unit is recompiled with the workflow warning
+flags, linked into a fresh affected client, and **20/20 family cases pass**.
+Production, build and public paths remain identical to the first published head.
+The 217 core/47 public suite results, identity comparisons and informational
+caller timings from that head therefore remain applicable; they are not
+relabeled as new executions after a test-helper-only refactor. Exact follow-up
+compile/link commands, XML, annotation and complexity report are attached.
+Codacy and other CI results on the new published head remain external gates.
+
 ## Actual caller cost baseline
 
-These are head-only informational measurements for the new API, with no paired
+These are single-head informational measurements at the first published head
+`6e7315aba4f8fba497ad9a3596349af5b9fd7a27`, with no paired
 regression verdict. There is no existing closed benchmark that invokes the new
 curve-family representation. A small external harness covers preparation,
 combined Price/par evaluation and raw FD/AAD for the IRS, Basis and custom
