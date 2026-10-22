@@ -1,7 +1,9 @@
 # DAL-411: Gaussian Caplet/Swaption script fast paths
 
 Code delivered in original PR #616, branch `agent/dal-implementer/3c688a76ade6`,
-base `master`. Awaiting focused review and serial shared-document integration.
+base `master`. Focused code review approved head
+`cd78a8b39bf18dc171df4983f2d916fead997495`; shared documentation is now integrated.
+Necessary documentation acceptance and current-head CI remain coordinator gates.
 The final handoff and attached source manifest identify the exact PR head.
 This bounded template extension does not deliver DAL-412's MC calibration.
 
@@ -23,9 +25,9 @@ and grants the serial writes in RateStrike decision
 `01a16115-f296-74de-a024-969bad9885f2`. Changed shared files are limited to the
 role markup/three generated outputs, instrument validator and dedicated tests.
 Preparation extension, new model files/tests and this record are original
-DAL-411 scope. No DAL-405 curve/provider/optimizer, shared documentation/index,
-build/registration, example, public facade, shared compiler or MC/statistics
-implementation is changed.
+DAL-411 scope. No DAL-405 curve/provider/optimizer, build/registration, example,
+public facade, shared compiler or MC/statistics implementation is changed.
+Shared documentation/index writes below use the later serial release.
 
 ## Shipped behavior and bounded semantics
 
@@ -205,24 +207,33 @@ Final SHA-256 identities:
 - Performance executable: `1563bacc75b68a85f8142c61025780f730f46dba0fcfbece2fd3158b6381af74`.
 - Public executable: `64746bbd0fa90cfd67ad404727535208e68938ee7f60b96f5a25d8a55653f4c6`.
 
-## Shared documentation drafts awaiting serial integration
+## Serial documentation integration
 
-DAL-405 retains the shared writing window. These drafts have not been integrated
-into the published guide, CHANGELOG or indexes.
+Coordinator release `01a16155-7e5c-79bf-9988-a5b2e37a32f8` transfers the shared
+writing window after DAL-405's batch, without waiting for its CI or merge.
+DAL-405 completed at `e60a166b3fe6d749fc4209c00ef7edfdc0b781b5` in PR #617;
+none of its unmerged product commits is imported here. Merged master remains
+`1f6eaa32424d0c71efb148cfb953f1634ff209cf`; the shared guide, CHANGELOG and
+artifact index matched that baseline before this integration.
 
-Methodology: document the three core entry points and exact bounded source
-semantics above; signed RateStrike versus positive BondPrice Strike; default
-native double FastGaussian with finite differences; opt-in, statistically
-qualified same-binding MC/AAD; nominal maturity/day basis, Caplet payment measure,
-physical Swaption payment=end, effective-rank and positive-expectation AAD
-limits. Retain all P0/DAL-405 text. Do not imply a general optimizer, bindings,
-vol-quote conversion, SLV or quote-risk API.
+- The existing [contract guide](../../../docs/methodology/script_calibration_contract.md#gaussian-caplet-and-swaption-price)
+  now describes all three core entry points, signed RateStrike versus positive
+  BondPrice Strike, nominal maturity/day basis, Caplet payment measure,
+  physical Swaption payment=end, effective rank and qualified MC/AAD admission.
+  The BondOption fitting and Deposit sections retain their original scope.
+- CHANGELOG links the bounded Price capability; the artifact index links this
+  active evidence record. No new guide is introduced. Existing docs/README,
+  methodology/README, script-engine and CLAUDE guide links remain valid and their
+  data-contract descriptions remain accurate; no extra index entry is needed.
+- All changes in this batch are Markdown. Static documentation/link and patch
+  checks pass. All 2740 tracked non-Markdown entries and the four product trees
+  remain identical to the approved code head. The attached before/after manifest
+  and exact Markdown patch are the applicability evidence.
 
-CHANGELOG draft: "Add bounded core Caplet/Swaption script exporters and
-source-derived Gaussian Price fast paths, additive signed RateStrike bindings,
-owned capability/numerical diagnostics and same-contract MC/AAD validation."
-
-Artifact index draft: link this record as DAL-411 Gaussian rate-option fast
-paths, with independent price/gradient, model-domain and frozen-budget evidence.
-Integrate capability text into the existing guide; add guide indexes only if a
-separate guide is actually introduced. No nonexistent guide link is requested.
+The reviewer accepted all 28 numerical states and independently recomputed 448
+validation batches in parent comment `01a16152-84e3-70ab-8821-baa3d69970c1`.
+That code Approve and the 150 core/114 public, frozen numerical and scoped
+performance evidence remain applicable. No product or performance test is rerun
+for this Markdown-only batch. The extra Swaption MC-fit precision refusal above
+remains a refusal. Current-head CI and necessary documentation review are still
+pending acceptance; no downstream delivery or merge is claimed.
