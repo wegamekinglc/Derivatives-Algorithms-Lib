@@ -358,6 +358,36 @@ TEST(CalibrationMcTest, TestValidationEnforcesErrorPrecisionGradientAndDisjointS
     ASSERT_THROW(ValidateCalibrationMc(fit, validation, bad), CalibrationError_);
 }
 
+TEST(CalibrationMcTest, TestDisabledHeldOutPreservesMergedP0ExecutionIdentities) {
+    const Vector_<String_> golden = {"sha256:4838cc9937a7eba36e459179bfa5d9b5febbdfac36d8a9d2ab63ead78cef4c07",
+                                     "sha256:fdb7a5302614b129e1088a449274f60bc038d42eb17fc87971db4487e7a1d9c1",
+                                     "sha256:915051d408ac05a0cc853dbbf2965251ffa543b8453318be9404b46073b0805a",
+                                     "sha256:0194d025d5d5813a3ecfbe9abb667a338702d13473b30eb23cfddddf4ea90eeb",
+                                     "sha256:22feddd00638dc2615dc315af0af1e5076cf86832aaa0a42ecbc3cdaf06506a5",
+                                     "sha256:9bf2ea531e69f9e70c8b7e4966dff2b79def698d785621d74f4c26a74f79c880",
+                                     "sha256:1d281b5a3d647ac9d93c094344a91861fdc2ae798b825376ee5dffe04a94a046",
+                                     "sha256:2957cb0f5b76e2d7fe61bc71bf8e3fc8b394e0c6be8814ab98ceade7065bbf0d"};
+    int i = 0;
+    for (bool option : {false, true})
+        for (bool aad : {false, true})
+            for (bool compiled : {false, true})
+                ASSERT_EQ(PrepareCalibrationMc(McInstrument(option), "Price", McContext(), McSettings(aad, compiled)).PlanIdentity(), golden[i++]);
+}
+
+TEST(CalibrationMcTest, TestEnabledHeldOutHasDistinctRefreshStableIdentity) {
+    const auto instrument = McInstrument(true);
+    const auto context = McContext();
+    auto settings = McSettings();
+    settings.maxPathsPerView_ = 80;
+    const auto disabled = PrepareCalibrationMc(instrument, "Price", context, settings);
+    settings.heldOutBatches_ = 2;
+    settings.heldOutPathsPerBatch_ = 16;
+    const auto enabled = PrepareCalibrationMc(instrument, "Price", context, settings);
+    ASSERT_NE(disabled.PlanIdentity(), enabled.PlanIdentity());
+    ASSERT_EQ(enabled.PlanIdentity(), enabled.RefreshG(context).PlanIdentity());
+    ASSERT_EQ(disabled.PlanIdentity(), disabled.RefreshG(context).PlanIdentity());
+}
+
 TEST(CalibrationMcTest, TestRangesMatchSequentialNormalsAndIndependentPathOracle) {
     const auto instrument = McInstrument(true);
     const auto context = McContext();

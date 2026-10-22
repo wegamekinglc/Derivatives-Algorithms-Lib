@@ -84,8 +84,9 @@ namespace Dal {
         std::variant<Caplet_, Swaption_> option_;
         double notional_ = 0.;
     };
-    using CalibrationFastDescriptor_ =
-        std::variant<CalibrationDepositDescriptor_, CalibrationBondOptionDescriptor_, CalibrationRateOptionDescriptor_>;
+    struct CalibrationScriptMcDescriptor_ {};
+    using CalibrationFastDescriptor_ = std::
+        variant<CalibrationDepositDescriptor_, CalibrationBondOptionDescriptor_, CalibrationRateOptionDescriptor_, CalibrationScriptMcDescriptor_>;
     struct CalibrationPreparationCapability_ {
         String_ ruleId_;
         CalibrationBackend_ backend_;

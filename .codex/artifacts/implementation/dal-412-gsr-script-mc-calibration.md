@@ -2,10 +2,10 @@
 
 ## Delivery state and authority
 
-**Partial implementation; general Price admission and the arithmetic-average
-candidate remain blocked on the shared-source handoff. Do not merge this as
-complete DAL-412 or start DAL-413.** The final issue comment supplies the unique
-draft PR and exact head. No reviewer was dispatched by the author.
+**Full implementation and affected functional verification are complete under
+coordinator comment `01a16211-de3f-765e-ad80-3aca8b597f90`.** The original PR #618
+and checkout are retained. This record awaits focused review and exact-head CI;
+no reviewer is dispatched by the author and DAL-413 remains downstream.
 
 Clean input HEAD and fetched master were
 `f2dfa8e9cb4eb8508bd3425676e90c2cb513ee86` (merged DAL-411 / PR #616), containing
@@ -22,10 +22,12 @@ authorization/scheduling thread and both current issue descriptions; implementer
 code/test/component, publication and performance references; relevant source/tests.
 Research was downloaded through `multica attachment download`.
 
-DAL-406 still owns `calibrationpreparation.{hpp,cpp}`, `instrument.cpp`, its two
-shared tests and curve/provider paths. This branch changes none of them. Shared
-methodology, CHANGELOG and artifact indexes are also untouched as instructed.
-The proposed documentation text below awaits their serial window.
+After DAL-406's clean delivery, this continuation owns only the authorized
+preparation `.hpp/.cpp` and preparation-test window, plus its existing MC/driver
+scope. Instrument, curve and shared compiler products remain untouched. The
+authorized guide, CHANGELOG and own artifact-index integration is now included;
+DAL-406's unpublished content is not imported. Existing guide links in the docs
+indexes and CLAUDE already point to the same guide and need no new link.
 
 ## Design and implemented behavior
 
@@ -65,6 +67,10 @@ a claim that all preparation/parsing work disappeared. Models, evaluators,
 historical state, numeric inputs and scalar recording scopes are fresh per run;
 no active values or writable evaluator are shared between candidates/workers.
 Execution remains synchronous on the calling thread.
+General admission also performs a fresh uncompiled bound-script/model preflight.
+This is repeated admission work, not a cached evaluator or a claim that all
+parsing has disappeared. Preparation/refresh counters count logical outer plan
+and admission calls; measured caller time includes the internal preflight.
 
 Fit uses fixed MRG32/Precise paths. Validation follows the fit reservation;
 optional held-out follows validation, in a third disjoint range. Held-out is
@@ -104,14 +110,36 @@ tolerance while independent numerical validation passes; an exact fixed-path
 fit can fail its frozen numerical budget. No scale/path/SE floor was relaxed.
 The old Swaption `.0426379743 > .025` precision rejection remains a rejection.
 
-The blocked arithmetic-average probe freezes N=100, K=.04, two future USD
+The arithmetic-average protocol freezes N=100, K=.04, two future USD
 6M Libor observations at 2027-10-21 and 2028-04-21 with weights .5/.5, and one
 payment at 2028-10-21. Valuation=2026-10-21, flat log discount -.12 at
 2029-10-21, one factor g=.02/H=1. The planned numerical protocol is the larger
 589824-path reservation above, Price scale=.1, parameter scale=.01,
 sigma=3, nu=nuG=.25, epsilonV=1e-10, epsilonG=1e-8, CRN FD h=1e-6/5e-7.
-These choices precede any admitted candidate values. No candidate value,
-gradient, calibration or numerical success has been measured or claimed.
+These choices precede any admitted candidate values. The serial continuation
+uses the exact original flat curve and one constant g knot from the probe.
+Before measuring the admitted candidate, the fit check is specified as two
+Price observations: the original N=100 contract and its N=200 immutable rebind,
+both scale .1, with independent path-oracle targets at g=.02. Initial g=.012,
+one selected native g bounded [.001,.06]. Held-out targets use an independent
+mathematical expectation and retain scale .1. Non-root checks use g=.016,
+CRN h=1e-6/5e-7 and the existing raw-gradient comparison tolerance 2e-6.
+Single-fixing degeneration keeps coupon accrual 1 and the actual delayed payment
+to match the original cash amount exactly. No threshold is selected from results.
+The independent held-out expectation conditions the second lognormal Libor on
+the first Gaussian state under the payment-date measure, integrates the remaining
+standard normal on [-10,10] by Simpson with 8192 intervals, and checks 16384
+intervals at tolerance 1e-10. Its raw derivative uses the frozen h/h2 and records
+their difference separately. It does not call a script matcher, GSR pricer or
+model path generator. Pathwise oracle checks separately reconstruct the native
+Gaussian endpoint/numeraire mapping from sequential MRG32 Precise coordinates.
+
+The shared preparation window switches to DAL-412 after DAL-406's clean pushed
+handoff at `e65420120bdd9d5461c44b77791ac96123849e7f`. This checkout remains on
+merged-master f2dfa8e9 ancestry and imports no DAL-406 product. The bounded tag,
+explicit generic admission and shared tests are authorized; instrument/curve/
+compiler products stay outside this continuation. Shared publication writes
+are authorized for DAL-412 after functional/numerical validation.
 
 ## RED, GREEN and verification
 
@@ -162,8 +190,10 @@ The scoped executable links the current core archive, repository test main and
 the six relevant test translation units: driver, European/native calibration,
 BondOption script, rate-option script, MC and preparation. It is a dedicated
 binary, not an assertion that the full `dal_cpp_tests` target was built/run.
-Final scoped result: **128/128 passed**, including 14 driver tests, 27 MC tests,
-29 preparation tests and 58 native/fast/template tests. It covers tape cleanup/nested-recording recovery, exact labels, CRN path oracle,
+The prior partial head passed 128 scoped checks. The complete continuation
+freshly rebuilds and passes **146/146**: those same 128 plus 10 arithmetic-average,
+six shared preparation and two execution-identity checks. All 14 accepted driver test bodies and their
+helpers remain byte-identical. It covers tape cleanup/nested-recording recovery, exact labels, CRN path oracle,
 binding/history, original fast/native/vol behavior, frozen numerical matrices,
 and the new driver states. Final counts and immutable executable/source hashes
 are recorded with the delivery. Full repository, facade, Windows and binding
@@ -173,8 +203,14 @@ Build: GCC 15.2.0, CMake 4.2.3, Release, native AADET, Eigen 3.4.0, native-arch
 OFF, public enabled, examples disabled; direct test/probe TUs use C++17/O2 while
 the core archive uses the preset's O3. All five submodules are exactly at their
 repository pins. Changed production TUs also pass GCC 14.3/15.2 syntax checks
-with the repository's warning-clean categories/exclusions; this is not a claim
-of a full GCC-14 library rebuild. CI and focused review remain coordinator gates.
+with the repository's warning-clean categories/exclusions. The continuation's
+preparation TU and both changed test TUs pass six GCC 14/15 warning-as-error
+syntax checks. This is not a full GCC-14 library rebuild. CI and focused review
+remain coordinator gates.
+The subsequent compatibility fix also checks the MC production/test TUs under
+both compilers. Final format/diff and 87 Markdown/link checks pass. All 2,853
+inherited paths outside the 14 PR paths retain merged-master Git content;
+2,848 are also raw-byte identical, with five existing CRLF checkout conversions.
 
 ## Caller performance and memory
 
@@ -188,7 +224,7 @@ M AAD rows are compared with 2N basket bumps, without sharing cross-product
 paths. Ten repetitions alternate method order, pinned to CPU 4 on an Intel
 i9-13900HX; raw samples and source accompany the bundle.
 
-Final informational medians in microseconds (prepare/evaluate/Jacobian):
+Historical partial-head informational medians in microseconds (prepare/evaluate/Jacobian):
 one row FD=167.619/284.759/1101.810, AAD=167.935/328.333/316.849;
 two rows FD=348.221/570.054/2305.860, AAD=362.077/665.763/642.703.
 One-row Jacobians execute FD 8 batches/512 paths versus AAD 2/128; two-row
@@ -198,73 +234,138 @@ initialization and previous operations; it is not per-call allocated memory.
 The final binary/source manifest and raw samples identify this build. No performance threshold or speedup
 acceptance is asserted; these probes are outside the nine-target regression gate.
 No basket optimization is required for correctness or proposed on this evidence.
+Those old timings are not relabeled as current runs. The continuation builds
+fresh one/two-row native controls and the real arithmetic-average caller with
+the original full sampling reservation. Its exact commands, ten alternating
+method rounds, batch/path/tape/RSS counts and source/executable hashes accompany
+the delivery. Native controls substitute the actual pre-continuation preparation
+TU compiled with the current extended header into the otherwise current archive;
+this isolates the preparation delta and is not an untouched full baseline build.
 
-## Required serial handoff: exact scope and proposed glue
+Final continuation medians in microseconds (prepare/evaluate/Jacobian), with
+the full 65536-fit-path reservation per observation:
 
-The official arithmetic-average probe exits 1 with
-`UnsupportedCalibrationProduct: /source/rows; expected P0 payments with optional
-leading receiver initialization`. The typed immutable definition is accepted;
-`Payments` rejects the first running-average assignment. Native fast matchers
-must continue rejecting this product. The next shared-source window needs:
+| Rows | Method | Prepare | Evaluate   | Jacobian   | Jacobian batches | Jacobian paths |
+|------|--------|---------|------------|------------|------------------|----------------|
+| 1    | FD     | 422.543 | 15079.600  | 30243.300  | 16               | 131072         |
+| 1    | AAD    | 421.817 | 65937.100  | 64712.600  | 8                | 65536          |
+| 2    | FD     | 718.618 | 29604.800  | 59145.250  | 32               | 262144         |
+| 2    | AAD    | 729.020 | 129284.500 | 130476.000 | 16               | 131072         |
 
-1. `calibrationpreparation.hpp`: append an empty, derived-only
-   `CalibrationScriptMcDescriptor_` tag to `CalibrationFastDescriptor_`. It holds
-   no native product, economic fields, second source or evaluator. Existing
-   descriptor alternatives retain their meaning.
-2. `calibrationpreparation.cpp::PrepareCalibrationInstrument`: after common
-   measure/header/context checks, route explicitly requested executable
-   `ScriptMC` Price through a generic admission branch before `Payments` and
-   native `Payoff` matching. Keep all non-MC and affine routes unchanged.
-3. That branch reuses `ForStatements`/`Guard` over the whole bound AST for
-   receiver/history/reset checks, permits scalar non-receiver assignments,
-   retains AtEvent/currency/route/Gaussian/sampling/opt-in checks and rejects
-   EXERCISE, vectors and unsupported observations. For the initial hard AAD
-   scope, reject IF/comparison controls rather than mix hard residuals and fuzzy
-   derivatives. Execution still goes through `PrepareBoundScript`, which owns
-   real FIX/model/history validation; no second compiler or bare-Product bypass.
-4. Return generic ScriptMC capability/rule `dal.gaussian-script-price/1`, with
-   the derived tag, empty coefficient cashflows and actual AAD/None method.
-   Existing `RunView` already executes the original bound source. Generic Price
-   does not acquire a deterministic/fast or affine capability.
-5. Extend `DescriptorContextIdentity` for that tag to include the actual Libor
-   day-basis convention (`RateContextIdentity`), and advance only the relevant
-   generic compiler/rule identity token. Preserve accepted Deposit, BondOption,
-   Caplet and Swaption fast rules. Native-template matches may remain available
-   through their existing fast APIs.
-6. Add dedicated general-Price/average, reset/extra receiver, early-exercise,
-   hard-branch, currency/fixing, convention-change and binding/candidate cache
-   tests in `test_calibration_preparation.cpp` after its write window is released.
+For this single-parameter caller AAD uses fewer paths but takes longer than
+double basket FD. No speedup is claimed. AAD peaks at 250 tape nodes and
+1,966,080 capacity bytes; process RSS high water is 13,648 KiB with one DAL
+thread, not per-call allocated memory. CPU 4 is pinned, compiler/core settings
+match the functional build, and method order alternates over ten repetitions.
 
-The above is a precise implementation draft for coordination, not applied code
-or an accepted new financial convention. The arithmetic candidate already uses
-N/Notional and K/RateStrike, so it needs no `instrument.cpp` schema/role change,
-new wire fields, enum regeneration or shared compiler modification. If the
-DAL-406 variant changes while implementing its own descriptor, integrate this
-append/branch on its actually merged master, not its unmerged product commits.
-Only these necessary preparation files/tests need release; no claim is made
-that DAL-406 must finish unrelated CI before a safe serial window can be granted.
+Native controls retain their batch/path counts and 89/96-node tape peaks.
+Final one-row before/after prepare medians are FD 168.957/175.099 and AAD
+171.738/178.900; two-row medians are FD 343.505/339.238 and AAD
+360.810/339.584. Other evaluation/Jacobian changes are mixed small differences.
+These isolated informational probes are outside the nine closed benchmarks;
+neither a regression-gate pass nor a portable no-regression verdict is claimed.
+Native pricing, optimizer, tape and RNG kernels are unchanged and outside the
+measurement expansion. Public/binding/example/build callers are unchanged.
 
-Pending acceptance after release: implement generic admission; run the real
-multi-observation arithmetic-average fit, independent path-payoff oracle,
-AAD/CRN FD(h,h/2), binding/history/candidate freshness, single-fixing native
-degeneracy with exactly matched accrual/payment semantics, independent
-validation/held-out and frozen budget/refinement; measure that actual caller;
-integrate the necessary guide/CHANGELOG text; coordinator-dispatched focused
-review and exact-head CI. Existing vanilla evidence does not close these gaps.
+An intermediate probe exposed extra native preparation cost from source lookup.
+Additional node-location lookup is now restricted to the generic boundary;
+legacy source lookup remains on its original path. This is followed by
+**45/45 directly affected preparation/average checks**, two final production-TU
+warning checks, repeated legacy identity equality and refreshed caller binaries/
+measurements. The original complete **144/144** scoped result remains valid for
+the unchanged numerical paths. The final identity correction below then receives
+the complete 146-case affected run and refreshed caller binaries. No unrelated
+matrix is repeated. Intermediate and final timing snapshots are distinguished.
 
-## Proposed shared documentation text (not integrated)
+## Completed generic admission and serial integration
 
-Guide: “`CalibrateGSRScriptPrices` is an explicitly enabled core MC driver for
-admitted Price observations and selected native Gaussian g coordinates. It
-keeps fixed fit samples, independent validation and optional held-out ranges,
-reports raw M×N Price/g derivatives and real execution counts, and separates
-optimizer, fit, numerical and held-out outcomes. Prior/smoothing rows are
-separate from data rows. FD and AAD report the actual method. General-script
-admission and arithmetic-average numerical acceptance are pending; use the
-existing native fast adapters for their accepted templates. Calibrated quote
-risk is unavailable.”
+The original average RED fails at `Payments` with UnsupportedCalibrationProduct.
+The continuation appends only the empty derived `CalibrationScriptMcDescriptor_`
+tag. Explicit ScriptMC Price first runs the common complete receiver guard and
+retains recognized native-template classification. A small shape selector only
+routes known templates to the existing matchers and domain/parameter checks;
+it supplies no financial descriptor or pricing authority. Other bounded scalar
+Price programs receive `dal.gaussian-script-price/1`, AAD/None, no coefficient
+cashflows and no affine/fast/deterministic capability. There is no MC fallback.
 
-CHANGELOG draft: “Add a core selected-g script MC calibration driver with
-explicit budgets, raw row Jacobians, candidate structure reuse and separate
-fit/validation/held-out diagnostics.” Publish only with the final accurate
-admission/acceptance boundary after this blocked task is completed.
+Generic admission checks exact context/model/header, opt-in, executable mrg32,
+supported same-currency DF/Libor FIX and history snapshots. The full bound tree
+rejects EXERCISE, vectors, SPOT, IF/comparison controls and ON settlement, and
+passes the actual model and fixing requests through PrepareBoundScript. The
+common receiver guard runs once before native or generic classification.
+Only the generic compiler/rule tokens advance. Its context includes actual
+Libor day basis; no key, role, wire field, enum or instrument schema changes.
+The native Vanilla negative-target preflight remains effective.
+
+A second behavioral RED proves a rejected EXERCISE in a merged event reported
+row five instead of its true row six. Source lookup now uses that node's owned
+location (and locations of the other admitted/rejected source-bearing nodes).
+The same assertion passes after repair, including statement/date/report checks.
+No shared compiler change is required. All six new preparation tests pass.
+
+The isolated old/new preparation probes preserve all nine definition/binding/
+instrument/compiler/context/fast-plan/MC-plan/mapping/quote fingerprints for
+Deposit, BondOption, Caplet and Swaption. The baseline uses the actual 4d0d53ef
+preparation with the current header layout and otherwise current archive; it
+does not pretend to be an untouched full old build.
+
+A further merged-baseline audit finds that the partial implementation had
+included zero held-out counts in every MC execution hash. A new eight-case
+golden regression from actual f2dfa8e9 preparation/MC source first fails, then
+passes after omitting those fields when held-out is disabled. Enabled held-out
+counts still contribute and remain refresh-stable. A separate four-family
+probe now matches all nine fingerprints against actual merged f2 preparation
+and MC source, compiled with the current headers and otherwise current archive.
+This restores accepted P0 identities, rather than merely preserving the partial
+PR's changed identities. No JCS/SHA algorithm, wire schema or financial inputs
+change. The two new cases and all 27 prior MC cases pass, followed by 146/146
+complete affected checks. Full before/after source and command provenance is
+attached; this remains an isolated baseline substitution, not an old full build.
+
+## Arithmetic-average evidence and honest outcomes
+
+Ten new tests verify the original bound tree, compiled execution and pathwise
+AAD against independent mathematical path/payoff/numeraire and g-derivative
+oracles on every retained fit path. Non-root direct and full driver raw rows
+match CRN FD(h,h/2); scaled penalties do not overwrite raw columns. Frozen
+independent validation also matches a conditional-lognormal expectation and
+its refined FD gradient. Simpson 8192/16384 refinement passes 1e-10. A six-time
+refined event grid passes the same independent expectation/gradient budget;
+its different dimension/mapping is not falsely called the same CRN path.
+
+Starting at g=.012 recovers g=.019999999999999987. The original N=100 candidate
+has fit mean .770221..., validation mean .772113..., SE .001646..., combined
+error indicator .015935618758735004 <= .025 and gradient indicator .679506...
+<= 2.5. Independent held-out passes scale .1. The actual optimizer reports
+StepStalled/converged=false while fit and numerical/held-out flags pass; this
+is retained as a separate outcome, not changed to convergence.
+
+The predeclared second N=200 row keeps the same absolute scale .1. It recovers
+the same g and held-out passes, but its combined error indicator .031871... >
+.025, so the two-row result correctly reports numericalValidationPassed=false
+and budgetExhausted for that row. The original harness assumption that every
+such result must converge and pass every budget was incorrect; its raw failing
+log remains attached. The committed checks assert the separate actual flags,
+and the original 14 driver tests/helpers remain byte-identical. No frozen
+sampling, scale, stopping default, tolerance or budget was enlarged to pass.
+
+Single-fixing degeneration uses coupon accrual one, actual index accrual and
+the same delayed payment as the original source. Its path values/mapping and
+AAD agree with the native caplet source, while native Gaussian Price and its
+refined FD gradient pass independent MC validation. History replacement by a
+known literal, snapshot invalidation, N rebinding, g refresh/rebuild identity,
+owned budget/numerical exceptions and post-failure tape reuse also pass.
+Two initial reference fixtures omitted required gradient uncertainty/scaling
+axes; those harness inputs were corrected without changing numerical limits.
+Enum qualification, ON syntax, Matrix comparison and shell wildcard setup
+corrections are not counted as product RED evidence.
+
+## Documentation integration
+
+The existing methodology guide now documents the bounded scalar admission,
+arithmetic source, explicit budget configuration, selected-g entry, raw rows,
+real work counts and separate outcome flags. CHANGELOG and the own artifact
+index are synchronized. Existing Deposit/curve and Gaussian rate-option text
+is retained, without importing DAL-406's unmerged capabilities. Existing docs
+indexes already link this guide. Public/bindings, XCCY MC and calibrated quote
+risk are not claimed. Pure Markdown work receives only static checks.

@@ -56,20 +56,23 @@ namespace Dal {
         String_ ExecutionIdentity(const PreparedCalibrationInstrument_& admitted,
                                   const CalibrationMcMapping_& mapping,
                                   const CalibrationMcSettings_& settings) {
-            return Fingerprint(Obj({{"executor", Str("dal.script-mc/1")},
-                                    {"admission", Str(admitted.PlanIdentity())},
-                                    {"mapping", Str(mapping.identity_)},
-                                    {"fit_batches", Num(settings.fitBatches_)},
-                                    {"fit_paths", Num(settings.fitPathsPerBatch_)},
-                                    {"validation_batches", Num(settings.validationBatches_)},
-                                    {"validation_paths", Num(settings.validationPathsPerBatch_)},
-                                    {"held_out_batches", Num(settings.heldOutBatches_)},
-                                    {"held_out_paths", Num(settings.heldOutPathsPerBatch_)},
-                                    {"budget", Num(static_cast<double>(settings.maxPathsPerView_))},
-                                    {"compiled", Bool(settings.compiled_)},
-                                    {"aad", Bool(settings.aad_)},
-                                    {"annuity_sigma", Num(settings.annuitySigma_)},
-                                    {"labels", Array(settings.parameterLabels_, [](const auto& label) { return Str(label); })}}));
+            auto identity = Obj({{"executor", Str("dal.script-mc/1")},
+                                 {"admission", Str(admitted.PlanIdentity())},
+                                 {"mapping", Str(mapping.identity_)},
+                                 {"fit_batches", Num(settings.fitBatches_)},
+                                 {"fit_paths", Num(settings.fitPathsPerBatch_)},
+                                 {"validation_batches", Num(settings.validationBatches_)},
+                                 {"validation_paths", Num(settings.validationPathsPerBatch_)},
+                                 {"budget", Num(static_cast<double>(settings.maxPathsPerView_))},
+                                 {"compiled", Bool(settings.compiled_)},
+                                 {"aad", Bool(settings.aad_)},
+                                 {"annuity_sigma", Num(settings.annuitySigma_)},
+                                 {"labels", Array(settings.parameterLabels_, [](const auto& label) { return Str(label); })}});
+            if (settings.heldOutBatches_ != 0) {
+                identity.object_.emplace("held_out_batches", Num(settings.heldOutBatches_));
+                identity.object_.emplace("held_out_paths", Num(settings.heldOutPathsPerBatch_));
+            }
+            return Fingerprint(identity);
         }
         void RequireScalarTape(bool aad, const CalibrationDiagnostic_& d) {
             Check(!aad || (!AAD::Tape()->multi_ && AAD::Tape()->numAdj_ == 1), "DerivativeUnavailable", "/mc/tape",

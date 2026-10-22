@@ -18,6 +18,13 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-22
 
+- **Gaussian script Price MC calibration** — added an explicitly enabled core
+  selected-g driver for admitted scalar Price programs, including running
+  arithmetic averages, with raw native Jacobians, bounded fitting and separate
+  fit, numerical-validation and held-out outcomes. Existing vanilla fast paths
+  retain their checks. See the
+  [MC calibration guide](docs/methodology/script_calibration_contract.md#gaussian-script-price-mc-calibration).
+
 - **Gaussian Caplet/Swaption script Price** — added bounded core one-time
   exporters, source-derived native Gaussian Price fast paths and signed
   RateStrike bindings, with same-contract MC/AAD validation and explicit

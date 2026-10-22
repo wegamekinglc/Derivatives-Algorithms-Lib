@@ -1,11 +1,425 @@
 #include <gtest/gtest.h>
 
+#include <dal/indice/index/ir.hpp>
 #include <dal/math/aad/recording.hpp>
+#include <dal/math/random/pseudorandom.hpp>
 #include <dal/model/gsrbondoption.hpp>
+#include <dal/model/gsrrateoption.hpp>
 #include <dal/model/gsrscriptcalibration.hpp>
 #include <dal/time/dateutils.hpp>
 
 using namespace Dal;
+
+namespace {
+    const Date_ AVG_V(2026, 10, 21), AVG_F1(2027, 10, 21), AVG_F2(2028, 4, 21), AVG_PAY(2028, 10, 21), AVG_END(2029, 10, 21);
+    double AverageTime(const Date_& date) { return (date - AVG_V) / 365.; }
+    CalibrationPreparationContext_ AverageContext(double g = .02) {
+        CalibrationPreparationContext_ c;
+        c.currency_ = Ccy_("USD");
+        c.discountRoute_ = "USD.OIS";
+        c.valuation_.evaluationDate_ = AVG_V;
+        c.valuation_.fixings_.reset(new MarketFixingSnapshot_());
+        c.curve_.reset(new GSRCurveData_("average-curve", AVG_V, "USD", {AVG_V, AVG_END}, {0., -.12}, {}, {}));
+        Handle_<MultiFactorGSRVolData_> vol(
+            new MultiFactorGSRVolData_("average-vol", {"level"}, {AVG_V}, Matrix_<>(1, 1, g), {AVG_V}, Matrix_<>(1, 1, 1.), Matrix_<>(1, 1, 1.)));
+        c.model_.reset(new MultiFactorGSRModelData_("average-model", c.curve_, vol));
+        return c;
+    }
+    GSRScriptCalibrationSettings_ AverageSettings() {
+        GSRScriptCalibrationSettings_ s;
+        s.sampling_.allowMonteCarloCalibration_ = true;
+        s.sampling_.fitBatches_ = 8;
+        s.sampling_.fitPathsPerBatch_ = 8192;
+        s.sampling_.validationBatches_ = s.sampling_.heldOutBatches_ = 16;
+        s.sampling_.validationPathsPerBatch_ = s.sampling_.heldOutPathsPerBatch_ = 16384;
+        s.sampling_.maxPathsPerView_ = 589824;
+        s.optimizer_.gradientTolerance_ = 1e-10;
+        return s;
+    }
+    ScriptInstrumentDefinitionSpec_ AverageDefinition() {
+        const auto price = CalibrationValueUnit_::Parse("Price:USD");
+        ScriptInstrumentDefinitionSpec_ s;
+        s.header_.payCurrency_ = s.header_.resultCurrency_ = s.header_.collateralCurrency_ = Ccy_("USD");
+        s.header_.discountRoute_ = "USD.OIS";
+        s.source_.rows_ = {{ScriptSourceRowKind_::Value_::Definition, "N", "100"},
+                           {ScriptSourceRowKind_::Value_::Definition, "K", ".04"},
+                           {ScriptSourceRowKind_::Value_::Event, "2027-10-21", "avg = .5*FIX(IR[USD,LIBOR_6M_LCH,2027-10-21])"},
+                           {ScriptSourceRowKind_::Value_::Event, "2028-04-21", "avg = avg+.5*FIX(IR[USD,LIBOR_6M_LCH,2028-04-21])"},
+                           {ScriptSourceRowKind_::Value_::Event, "2028-10-21", "pay PAYS N*MAX(avg-K,0)"}};
+        s.parameters_ = {
+            {"N", ScriptParameterType_::Value_::Real, price, ScriptParameterRole_::Value_::Notional, true, 0., {}, false, true},
+            {"K", ScriptParameterType_::Value_::Real, CalibrationValueUnit_::Parse("Rate"), ScriptParameterRole_::Value_::RateStrike, true}};
+        s.measures_ = {{"Price", CalibrationMeasureKind_::Value_::Price, "PAY", {}, price}};
+        return s;
+    }
+    Handle_<CalibrationInstrument_> AverageInstrument(const String_& id = "average", double notional = 100.) {
+        const auto instrument = NewScriptCalibrationInstrument({id, NewScriptInstrumentDefinition(AverageDefinition())});
+        return BindCalibrationInstrumentParameters(instrument, {{{"N", notional, CalibrationValueUnit_::Parse("Price:USD")}}, {}});
+    }
+    std::pair<double, double> AveragePathOracle(double g, const Vector_<>& z) {
+        const Vector_<Date_> dates = {AVG_F1, AVG_F2, AVG_PAY};
+        double w = 0., logN = 0., dLogN = 0., average = 0., dAverage = 0., previous = 0.;
+        for (size_t i = 0; i < dates.size(); ++i) {
+            const double t = AverageTime(dates[i]), dt = t - previous;
+            const double c = .5 * dt * previous * previous + .5 * dt * dt * previous + .125 * dt * dt * dt;
+            const double dw = std::sqrt(dt) * z[i];
+            logN += .12 * dt / AverageTime(AVG_END) + g * g * c + g * dt * w + .5 * g * dt * dw;
+            dLogN += 2. * g * c + dt * w + .5 * dt * dw;
+            w += dw;
+            if (i < 2) {
+                const Date_ end = Date::AddMonths(dates[i], 6);
+                const double tau = (end - dates[i]) / 365., alpha = (end - dates[i]) / 360.;
+                const double drift = tau * t * t + tau * tau * t;
+                const double e = .12 * tau / AverageTime(AVG_END) + .5 * g * g * drift + tau * g * w;
+                average += .5 * std::expm1(e) / alpha;
+                dAverage += .5 * std::exp(e) * (g * drift + tau * w) / alpha;
+            }
+            previous = t;
+        }
+        const double payoff = std::max(average - .04, 0.), discount = std::exp(-logN);
+        return {100. * payoff * discount, 100. * discount * ((average > .04 ? dAverage : 0.) - payoff * dLogN)};
+    }
+    double AverageFitOracle(double g) {
+        auto random = New(RNGType_("MRG32"), 1024, 3, true);
+        Vector_<> z(3);
+        double mean = 0.;
+        for (int i = 0; i < 65536; ++i) {
+            random->FillNormal(&z);
+            mean += AveragePathOracle(g, z).first / 65536.;
+        }
+        return mean;
+    }
+    double AverageConditional(double z, double g) {
+        const double t1 = AverageTime(AVG_F1), t2 = AverageTime(AVG_F2), payment = AverageTime(AVG_PAY);
+        const double tau1 = (Date::AddMonths(AVG_F1, 6) - AVG_F1) / 365., tau2 = (Date::AddMonths(AVG_F2, 6) - AVG_F2) / 365.;
+        const double alpha1 = (Date::AddMonths(AVG_F1, 6) - AVG_F1) / 360., alpha2 = (Date::AddMonths(AVG_F2, 6) - AVG_F2) / 360.;
+        const auto exponent = [&](double t, double tau) {
+            return .12 * tau / AverageTime(AVG_END) + g * g * tau * t * (t - payment) + .5 * g * g * tau * tau * t + tau * g * std::sqrt(t1) * z;
+        };
+        const double a = .5 * std::exp(exponent(t2, tau2)) / alpha2;
+        const double b = .04 + .5 / alpha1 + .5 / alpha2 - .5 * std::exp(exponent(t1, tau1)) / alpha1;
+        const double sigma = tau2 * g * std::sqrt(t2 - t1), forward = a * std::exp(.5 * sigma * sigma);
+        if (b <= 0.)
+            return forward - b;
+        const double d2 = std::log(a / b) / sigma;
+        const auto cdf = [](double x) { return .5 * std::erfc(-x / std::sqrt(2.)); };
+        return forward * cdf(d2 + sigma) - b * cdf(d2);
+    }
+    double AverageExpectation(double g, int intervals = 8192) {
+        const double step = 20. / intervals, pi = std::acos(-1.);
+        double sum = 0.;
+        for (int i = 0; i <= intervals; ++i) {
+            const double z = -10. + i * step;
+            const double weight = i == 0 || i == intervals ? 1. : (i % 2 == 0 ? 2. : 4.);
+            sum += weight * AverageConditional(z, g) * std::exp(-.5 * z * z) / std::sqrt(2. * pi);
+        }
+        return 100. * std::exp(-.12 * AverageTime(AVG_PAY) / AverageTime(AVG_END)) * sum * step / 3.;
+    }
+    CalibrationMcSettings_ AverageSampling(bool aad = true) {
+        auto mc = AverageSettings().sampling_;
+        mc.aad_ = aad;
+        mc.retainPaths_ = true;
+        mc.parameterLabels_ = aad ? Vector_<String_>{"g:level:2026-10-21"} : Vector_<String_>{};
+        return mc;
+    }
+    Vector_<Handle_<CalibrationObservation_>> AverageRows(double target, const String_& prefix, double scale = .1) {
+        Vector_<Handle_<CalibrationObservation_>> rows;
+        for (int i = 0; i < 2; ++i) {
+            const String_ id = prefix + String::FromInt(i);
+            rows.push_back(NewCalibrationObservation(id, AverageInstrument(id, 100. * (i + 1)), "Price",
+                                                     NewCalibrationMarketQuote(id, target * (i + 1), CalibrationValueUnit_::Parse("Price:USD")),
+                                                     scale));
+        }
+        return rows;
+    }
+    void RecordAverageValidation(const GSRScriptCalibrationResult_& result) {
+        ::testing::Test::RecordProperty("converged", result.converged_ ? "true" : "false");
+        ::testing::Test::RecordProperty("termination", std::string(result.terminationReason_.begin(), result.terminationReason_.end()));
+        ::testing::Test::RecordProperty("fitted_g", std::to_string(result.parameters_[0]));
+        ::testing::Test::RecordProperty("basket_evaluations", static_cast<int>(result.costs_.basketEvaluations_));
+        ::testing::Test::RecordProperty("path_executions", static_cast<int>(result.costs_.paths_));
+        for (int i = 0; i < result.validation_.size(); ++i) {
+            const std::string id = std::to_string(i);
+            ::testing::Test::RecordProperty("fit_" + id, std::to_string(result.fit_[i].mean_));
+            ::testing::Test::RecordProperty("validation_" + id, std::to_string(result.validation_[i].mean_));
+            ::testing::Test::RecordProperty("se_" + id, std::to_string(result.validation_[i].standardError_));
+            ::testing::Test::RecordProperty("error_indicator_" + id, std::to_string(result.validationIndicators_[i].errorIndicator_));
+            ::testing::Test::RecordProperty("gradient_indicator_" + id,
+                                            std::to_string(result.validationIndicators_[i].gradientPrecisionIndicators_[0]));
+        }
+    }
+} // namespace
+
+TEST(GSRAverageCalibrationTest, TestOriginalBoundTreeCompiledAndAadMatchIndependentPathOracle) {
+    const auto context = AverageContext();
+    const auto instrument = AverageInstrument();
+    for (bool compiled : {false, true}) {
+        auto mc = AverageSampling();
+        mc.compiled_ = compiled;
+        const auto plan = PrepareCalibrationMc(instrument, "Price", context, mc);
+        ASSERT_EQ(plan.Capability().ruleId_, "dal.gaussian-script-price/1");
+        ASSERT_EQ(plan.Mapping().timeline_, (Vector_<>{AverageTime(AVG_F1), AverageTime(AVG_F2), AverageTime(AVG_PAY)}));
+        ASSERT_EQ(plan.Mapping().dimension_, 3);
+        const auto fit = plan.Evaluate(instrument, context, false);
+        auto random = New(RNGType_("MRG32"), 1024, 3, true);
+        Vector_<> z(3);
+        for (size_t i = 0; i < fit.pathValues_.size(); ++i) {
+            random->FillNormal(&z);
+            const auto oracle = AveragePathOracle(.02, z);
+            ASSERT_NEAR(fit.pathValues_[i], oracle.first, 1e-10);
+            ASSERT_NEAR(fit.pathDerivatives_(static_cast<int>(i), 0), oracle.second, 1e-8);
+        }
+        ASSERT_NEAR(fit.mean_, AverageFitOracle(.02), 1e-11);
+    }
+}
+
+TEST(GSRAverageCalibrationTest, TestNonRootRawGradientAndRefreshMatchCrnStepRefinement) {
+    const auto instrument = AverageInstrument();
+    const auto context = AverageContext(.016);
+    const auto plan = PrepareCalibrationMc(instrument, "Price", context, AverageSampling());
+    const auto fit = plan.Evaluate(instrument, context, false);
+    ASSERT_GT(std::abs(fit.mean_ - AverageFitOracle(.02)), .01);
+    Vector_<> gradients;
+    for (double h : {1e-6, 5e-7}) {
+        const auto high = AverageContext(.016 + h), low = AverageContext(.016 - h);
+        const auto up = plan.RefreshG(high), down = plan.RefreshG(low);
+        ASSERT_EQ(up.Mapping().identity_, plan.Mapping().identity_);
+        ASSERT_EQ(up.PlanIdentity(), PrepareCalibrationMc(instrument, "Price", high, AverageSampling()).PlanIdentity());
+        const double fd = (up.Evaluate(instrument, high, false).mean_ - down.Evaluate(instrument, low, false).mean_) / (2. * h);
+        ASSERT_NEAR(fit.gradient_[0], fd, 2e-6);
+        gradients.push_back(fd);
+    }
+    ASSERT_NEAR(gradients[0], gradients[1], 2e-6);
+    ASSERT_EQ(AAD::Tape()->nodes_.Size(), 0);
+}
+
+TEST(GSRAverageCalibrationTest, TestFrozenMultiObservationFitValidationAndIndependentHeldOut) {
+    const double oracle = AverageExpectation(.02);
+    ASSERT_NEAR(oracle, AverageExpectation(.02, 16384), 1e-10);
+    const auto rows = AverageRows(AverageFitOracle(.02), "fit-average-");
+    const auto held = AverageRows(oracle, "held-average-");
+    const auto result = CalibrateGSRScriptPrices(AverageContext(.012), rows, {{0, 0, .001, .06}}, AverageSettings(), held);
+    RecordAverageValidation(result);
+    ASSERT_TRUE(result.converged_ || result.terminationReason_ == "StepStalled");
+    ASSERT_TRUE(result.fitWithinTolerance_);
+    ASSERT_FALSE(result.numericalValidationPassed_);
+    ASSERT_TRUE(result.validationIndicators_[0].numericalValidationPassed_);
+    ASSERT_FALSE(result.validationIndicators_[1].numericalValidationPassed_);
+    ASSERT_TRUE(result.validationIndicators_[1].budgetExhausted_);
+    ASSERT_GT(result.validationIndicators_[1].errorIndicator_, .025);
+    ASSERT_TRUE(result.heldOutRequested_);
+    ASSERT_TRUE(result.heldOutPassed_);
+    ASSERT_NEAR(result.parameters_[0], .02, 1e-8);
+    ASSERT_EQ(result.quoteJacobian_.Rows(), 2);
+    ASSERT_EQ(result.quoteJacobian_.Cols(), 1);
+    ASSERT_EQ(result.parameterLabels_[0], "g:level:2026-10-21");
+    ASSERT_EQ(result.jacobianRank_, 1);
+    ASSERT_NEAR(result.quoteJacobian_(1, 0), 2. * result.quoteJacobian_(0, 0), 1e-10);
+    for (size_t i = 0; i < rows.size(); ++i) {
+        ASSERT_EQ(result.fit_[i].pathsPerView_, 65536);
+        ASSERT_EQ(result.validation_[i].ranges_[0].firstPath_, 65536);
+        ASSERT_EQ(result.heldOut_[i].ranges_[0].firstPath_, 327680);
+        ASSERT_EQ(result.validation_[i].pathsPerView_, 262144);
+        ASSERT_TRUE(result.validationIndicators_[i].gradientParityPassed_);
+        ASSERT_TRUE(result.validationIndicators_[i].gradientPrecisionPassed_);
+        ASSERT_LE(std::abs(result.heldOut_[i].mean_ - held[i]->Quote()->Value()) + 3. * result.heldOut_[i].standardError_, .1);
+    }
+    ASSERT_FALSE(result.quoteRiskAvailable_);
+    ASSERT_GT(result.costs_.peakTapeNodes_, 0);
+    ASSERT_EQ(AAD::Tape()->nodes_.Size(), 0);
+}
+
+TEST(GSRAverageCalibrationTest, TestFrozenPrimaryCandidateClosesIndependentNumericsAndHeldOut) {
+    const auto rows = AverageRows(AverageFitOracle(.02), "primary-");
+    const auto held = AverageRows(AverageExpectation(.02), "primary-held-");
+    const auto result = CalibrateGSRScriptPrices(AverageContext(.012), {rows[0]}, {{0, 0, .001, .06}}, AverageSettings(), {held[0]});
+    RecordAverageValidation(result);
+    ASSERT_TRUE(result.fitWithinTolerance_);
+    ASSERT_TRUE(result.numericalValidationPassed_);
+    ASSERT_TRUE(result.heldOutPassed_);
+    ASSERT_NEAR(result.parameters_[0], .02, 1e-8);
+    ASSERT_LE(result.validationIndicators_[0].errorIndicator_, .025);
+}
+
+TEST(GSRAverageCalibrationTest, TestIndependentExpectationGradientAndFrozenPrecisionBudget) {
+    const auto instrument = AverageInstrument();
+    auto mc = AverageSampling();
+    mc.retainPaths_ = false;
+    const auto context = AverageContext();
+    const auto plan = PrepareCalibrationMc(instrument, "Price", context, mc);
+    const auto fit = plan.Evaluate(instrument, context, false), val = plan.Evaluate(instrument, context, true);
+    Vector_<> differences;
+    for (double h : {1e-6, 5e-7})
+        differences.push_back((AverageExpectation(.02 + h) - AverageExpectation(.02 - h)) / (2. * h));
+    ASSERT_NEAR(differences[0], differences[1], 2e-6);
+    CalibrationMcReference_ reference;
+    reference.value_ = AverageExpectation(.02);
+    reference.numericalError_ = std::abs(reference.value_ - AverageExpectation(.02, 16384));
+    reference.gradient_ = {differences[1]};
+    reference.gradientStandardError_ = {0.};
+    reference.finiteDifferenceError_ = {std::abs(differences[0] - differences[1])};
+    CalibrationMcPrecision_ precision;
+    precision.errorScale_ = .1;
+    precision.parameterScales_ = {.01};
+    precision.epsilonGradient_ = {1e-8};
+    const auto validation = ValidateCalibrationMc(val, reference, precision);
+    ASSERT_TRUE(validation.numericalValidationPassed_);
+    ASSERT_TRUE(validation.gradientParityPassed_);
+    ASSERT_TRUE(validation.gradientPrecisionPassed_);
+    precision.errorScale_ = 1e-5;
+    const auto exhausted = ValidateCalibrationMc(fit, val, precision);
+    ASSERT_FALSE(exhausted.numericalValidationPassed_);
+    ASSERT_TRUE(exhausted.budgetExhausted_);
+    ASSERT_FALSE(exhausted.precisionPassed_);
+}
+
+TEST(GSRAverageCalibrationTest, TestSingleFixingDegeneracyPreservesAccrualAndDelayedNumeraire) {
+    auto source = AverageDefinition();
+    source.source_.rows_[2].text_ = "avg = FIX(IR[USD,LIBOR_6M_LCH,2027-10-21])";
+    source.source_.rows_.erase(source.source_.rows_.begin() + 3);
+    const auto instrument = NewScriptCalibrationInstrument({"single-average", NewScriptInstrumentDefinition(source)});
+    const auto context = AverageContext();
+    const auto mc = AverageSampling();
+    const auto plan = PrepareCalibrationMc(instrument, "Price", context, mc);
+    const Caplet_ caplet{AVG_F1, AVG_F1, AVG_F2, AVG_PAY, (AVG_F2 - AVG_F1) / 360., 1., "6M", .04, OptionType_("CALL")};
+    const auto native = NewCapletScriptInstrument(caplet, {"single-native", Ccy_("USD"), "USD.OIS", 100.});
+    const auto nativePlan = PrepareCalibrationMc(native, "Price", context, mc);
+    ASSERT_EQ(nativePlan.Capability().ruleId_, "dal.gaussian-caplet/1");
+    ASSERT_EQ(plan.Mapping().identity_, nativePlan.Mapping().identity_);
+    const auto fit = plan.Evaluate(instrument, context, false), nativeFit = nativePlan.Evaluate(native, context, false);
+    ASSERT_EQ(fit.pathValues_, nativeFit.pathValues_);
+    ASSERT_NEAR(fit.gradient_[0], nativeFit.gradient_[0], 1e-10);
+    CalibrationMcReference_ reference;
+    const auto& model = static_cast<const MultiFactorGSRModelData_&>(*context.model_);
+    reference.value_ = 100. * PriceGSREuropeanOption(model, caplet).price_;
+    const auto nativePrice = [&](double g) {
+        const auto c = AverageContext(g);
+        return 100. * PriceGSREuropeanOption(static_cast<const MultiFactorGSRModelData_&>(*c.model_), caplet).price_;
+    };
+    const double coarse = (nativePrice(.02 + 1e-6) - nativePrice(.02 - 1e-6)) / 2e-6;
+    const double fine = (nativePrice(.02 + 5e-7) - nativePrice(.02 - 5e-7)) / 1e-6;
+    reference.gradient_ = {fine};
+    reference.gradientStandardError_ = {0.};
+    reference.finiteDifferenceError_ = {std::abs(coarse - fine)};
+    CalibrationMcPrecision_ precision;
+    precision.errorScale_ = .1;
+    precision.parameterScales_ = {.01};
+    precision.epsilonGradient_ = {1e-8};
+    ASSERT_TRUE(ValidateCalibrationMc(plan.Evaluate(instrument, context, true), reference, precision).numericalValidationPassed_);
+}
+
+TEST(GSRAverageCalibrationTest, TestEventGridRefinementRetainsIndependentExpectationAndGradient) {
+    auto source = AverageDefinition();
+    const auto rows = source.source_.rows_;
+    source.source_.rows_ = {rows[0],
+                            rows[1],
+                            {ScriptSourceRowKind_::Value_::Event, "2027-04-21", "clock = 0"},
+                            rows[2],
+                            {ScriptSourceRowKind_::Value_::Event, "2028-01-21", "clock = 0"},
+                            rows[3],
+                            {ScriptSourceRowKind_::Value_::Event, "2028-07-21", "clock = 0"},
+                            rows[4]};
+    const auto instrument = NewScriptCalibrationInstrument({"refined-average", NewScriptInstrumentDefinition(source)});
+    const auto context = AverageContext();
+    auto mc = AverageSampling();
+    mc.retainPaths_ = false;
+    const auto plan = PrepareCalibrationMc(instrument, "Price", context, mc);
+    ASSERT_EQ(plan.Mapping().dimension_, 6);
+    ASSERT_NE(plan.Mapping().identity_, PrepareCalibrationMc(AverageInstrument(), "Price", context, mc).Mapping().identity_);
+    CalibrationMcReference_ reference;
+    reference.value_ = AverageExpectation(.02);
+    const double coarse = (AverageExpectation(.02 + 1e-6) - AverageExpectation(.02 - 1e-6)) / 2e-6;
+    const double fine = (AverageExpectation(.02 + 5e-7) - AverageExpectation(.02 - 5e-7)) / 1e-6;
+    reference.gradient_ = {fine};
+    reference.gradientStandardError_ = {0.};
+    reference.finiteDifferenceError_ = {std::abs(coarse - fine)};
+    CalibrationMcPrecision_ precision;
+    precision.errorScale_ = .1;
+    precision.parameterScales_ = {.01};
+    precision.epsilonGradient_ = {1e-8};
+    ASSERT_TRUE(ValidateCalibrationMc(plan.Evaluate(instrument, context, true), reference, precision).numericalValidationPassed_);
+}
+
+TEST(GSRAverageCalibrationTest, TestDriverNonRootRawRowsRemainUnscaledAndMatchCrnDifferences) {
+    auto settings = AverageSettings();
+    settings.optimizer_.priorWeight_ = 1e8;
+    const auto rows = AverageRows(AverageFitOracle(.02), "nonroot-average-");
+    const auto result = CalibrateGSRScriptPrices(AverageContext(.016), rows, {{0, 0, .001, .06}}, settings);
+    ASSERT_FALSE(result.fitWithinTolerance_);
+    ASSERT_GT(std::abs(result.residuals_[0]), .01);
+    ASSERT_EQ(result.penaltyResiduals_.size(), 1);
+    for (double h : {1e-6, 5e-7}) {
+        const auto high = AverageContext(result.parameters_[0] + h), low = AverageContext(result.parameters_[0] - h);
+        const auto instrument = rows[0]->Instrument();
+        const auto value = [&](const CalibrationPreparationContext_& c) {
+            return PrepareCalibrationMc(instrument, "Price", c, AverageSampling(false)).Evaluate(instrument, c, false).mean_;
+        };
+        const double fd = (value(high) - value(low)) / (2. * h);
+        ASSERT_NEAR(result.quoteJacobian_(0, 0), fd, 2e-6);
+        ASSERT_NEAR(result.quoteJacobian_(1, 0), 2. * fd, 2e-6);
+    }
+    ASSERT_EQ(result.quoteJacobian_(0, 0), result.fit_[0].gradient_[0]);
+}
+
+TEST(GSRAverageCalibrationTest, TestHistoricalAverageSnapshotAndRebindingCannotReuseStalePlan) {
+    auto source = AverageDefinition();
+    source.source_.rows_[2].key_ = "2026-10-20";
+    const auto instrument = NewScriptCalibrationInstrument({"historical-average", NewScriptInstrumentDefinition(source)});
+    auto context = AverageContext();
+    const String_ index = Index::Parse("IR:USD,LIBOR_6M_LCH,2027-10-21")->Name();
+    context.valuation_.fixings_.reset(new MarketFixingSnapshot_({{index, {{DateTime_(Date_(2026, 10, 20), 0.), .035}}}}));
+    const auto mc = AverageSampling();
+    const auto plan = PrepareCalibrationMc(instrument, "Price", context, mc);
+    const auto fit = plan.Evaluate(instrument, context, false);
+    source.source_.rows_[2].text_ = "avg = .5*.035";
+    const auto literal = NewScriptCalibrationInstrument({"literal-history", NewScriptInstrumentDefinition(source)});
+    const auto expected = PrepareCalibrationMc(literal, "Price", context, mc).Evaluate(literal, context, false);
+    ASSERT_EQ(fit.pathValues_, expected.pathValues_);
+    ASSERT_EQ(fit.pathDerivatives_.Rows(), expected.pathDerivatives_.Rows());
+    ASSERT_EQ(fit.pathDerivatives_.Cols(), expected.pathDerivatives_.Cols());
+    for (int i = 0; i < fit.pathDerivatives_.Rows(); ++i)
+        ASSERT_EQ(fit.pathDerivatives_(i, 0), expected.pathDerivatives_(i, 0));
+    auto changed = context;
+    changed.valuation_.fixings_.reset(new MarketFixingSnapshot_({{index, {{DateTime_(Date_(2026, 10, 20), 0.), .036}}}}));
+    ASSERT_THROW(static_cast<void>(plan.Evaluate(instrument, changed, false)), CalibrationError_);
+    ASSERT_NE(plan.PlanIdentity(), PrepareCalibrationMc(instrument, "Price", changed, mc).PlanIdentity());
+    const auto rebound = BindCalibrationInstrumentParameters(instrument, {{{"N", 200., CalibrationValueUnit_::Parse("Price:USD")}}, {}});
+    ASSERT_THROW(static_cast<void>(plan.Evaluate(rebound, context, false)), CalibrationError_);
+    const auto reboundFit = PrepareCalibrationMc(rebound, "Price", context, mc).Evaluate(rebound, context, false);
+    ASSERT_NEAR(reboundFit.mean_, 2. * fit.mean_, 1e-12);
+    ASSERT_EQ(plan.Evaluate(instrument, context, false).pathValues_, fit.pathValues_);
+}
+
+TEST(GSRAverageCalibrationTest, TestBudgetAndNumericalFailureOwnAxesAndLeaveTapeReusable) {
+    auto settings = AverageSettings();
+    settings.maxBasketEvaluations_ = 1;
+    const auto rows = AverageRows(AverageFitOracle(.02), "budget-average-");
+    try {
+        static_cast<void>(CalibrateGSRScriptPrices(AverageContext(.012), rows, {{0, 0, .001, .06}}, settings));
+        FAIL();
+    } catch (const CalibrationError_& e) {
+        ASSERT_EQ(e.Failure().diagnostic_.code_, "CalibrationBudgetExceeded");
+        ASSERT_EQ(e.Failure().diagnostic_.stage_, CalibrationStage_::Value_::Solve);
+        ASSERT_TRUE(e.Failure().candidate_);
+        ASSERT_EQ(e.Failure().report_->Axes().observations_.size(), 2);
+    }
+    auto source = AverageDefinition();
+    source.source_.rows_.back().text_ = "pay PAYS N/(avg-avg)";
+    const auto invalid = NewScriptCalibrationInstrument({"undefined-average", NewScriptInstrumentDefinition(source)});
+    const auto context = AverageContext();
+    const auto mc = AverageSampling();
+    const auto plan = PrepareCalibrationMc(invalid, "Price", context, mc);
+    try {
+        static_cast<void>(plan.Evaluate(invalid, context, false));
+        FAIL();
+    } catch (const CalibrationError_& e) {
+        ASSERT_EQ(e.Failure().diagnostic_.code_, "CalibrationNumericalFailure");
+        ASSERT_TRUE(e.Failure().report_);
+    }
+    ASSERT_EQ(AAD::Tape()->nodes_.Size(), 0);
+    const auto valid = AverageInstrument();
+    ASSERT_NEAR(PrepareCalibrationMc(valid, "Price", context, mc).Evaluate(valid, context, false).mean_, AverageFitOracle(.02), 1e-11);
+}
 
 namespace {
     CalibrationPreparationContext_ FitContext(double first = 0.012, double second = 0.016) {

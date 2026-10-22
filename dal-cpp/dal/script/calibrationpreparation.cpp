@@ -4,12 +4,14 @@
 #include <dal/calibration/validation_internal.hpp>
 #include <dal/currency/currencydata.hpp>
 #include <dal/indice/index/ir.hpp>
+#include <dal/model/factory.hpp>
 #include <dal/model/gsrmultidata.hpp>
 #include <dal/model/gsrrateoption_internal.hpp>
 #include <dal/script/calibrationpreparation.hpp>
 #include <dal/script/calibrationrateoption_internal.hpp>
 #include <dal/script/event.hpp>
 #include <dal/script/instrument_internal.hpp>
+#include <dal/script/preparation.hpp>
 #include <dal/storage/json.hpp>
 
 namespace Dal {
@@ -91,7 +93,10 @@ namespace Dal {
                                           const CalibrationFastDescriptor_& descriptor,
                                           const CalibrationDiagnostic_& d) {
             const auto identity = ContextIdentity(c, d);
-            return std::holds_alternative<CalibrationRateOptionDescriptor_>(descriptor) ? RateContextIdentity(c, identity, d) : identity;
+            return std::holds_alternative<CalibrationRateOptionDescriptor_>(descriptor) ||
+                           std::holds_alternative<CalibrationScriptMcDescriptor_>(descriptor)
+                       ? RateContextIdentity(c, identity, d)
+                       : identity;
         }
         bool Slot(const Node_& node, const String_& name) {
             const auto* slot = dynamic_cast<const NodeConstVar_*>(&node);
@@ -105,6 +110,26 @@ namespace Dal {
             const auto* var = dynamic_cast<const NodeVar_*>(&node);
             return var && var->name_ == name;
         }
+        const Script::SourceLocation_* NodeSource(const Node_& node);
+        const Script::SourceLocation_* NestedSource(const Node_& node) {
+            for (const auto& child : node.arguments_)
+                if (const auto* source = NodeSource(*child))
+                    return source;
+            return nullptr;
+        }
+        const Script::SourceLocation_* AdditionalNodeSource(const Node_& node) {
+            if (const auto* exercise = dynamic_cast<const Script::NodeExercise_*>(&node))
+                return &exercise->source_;
+            if (const auto* fix = dynamic_cast<const Script::NodeFix_*>(&node))
+                return &fix->source_;
+            if (const auto* spot = dynamic_cast<const Script::NodeSpot_*>(&node))
+                return &spot->source_;
+            if (const auto* append = dynamic_cast<const Script::NodeVectorAppend_*>(&node))
+                return &append->source_;
+            if (const auto* reduce = dynamic_cast<const Script::NodeVectorReduce_*>(&node))
+                return &reduce->source_;
+            return dynamic_cast<const NodeIf_*>(&node) ? NestedSource(node) : nullptr;
+        }
         const Script::SourceLocation_* NodeSource(const Node_& node) {
             if (const auto* payment = dynamic_cast<const NodePays_*>(&node))
                 return &payment->source_;
@@ -116,13 +141,17 @@ namespace Dal {
                 return &entry->source_;
             return nullptr;
         }
-        CalibrationDiagnostic_ WithNodeSource(const Node_& node, CalibrationDiagnostic_ d) {
-            const auto* source = NodeSource(node);
+        CalibrationDiagnostic_ WithSource(const Script::SourceLocation_* source, CalibrationDiagnostic_ d) {
             if (source && source->row_ != 0 && source->row_ <= INT_MAX) {
                 d.sourceRow_ = static_cast<int>(source->row_);
                 d.eventDate_ = source->eventDate_;
             }
             return d;
+        }
+        CalibrationDiagnostic_ WithNodeSource(const Node_& node, CalibrationDiagnostic_ d) { return WithSource(NodeSource(node), std::move(d)); }
+        CalibrationDiagnostic_ GeneralSource(const Node_& node, CalibrationDiagnostic_ d) {
+            const auto* source = NodeSource(node);
+            return WithSource(source ? source : AdditionalNodeSource(node), std::move(d));
         }
         String_ SourceField(const CalibrationDiagnostic_& d) {
             return d.sourceRow_ && *d.sourceRow_ > 0 ? "/source/rows/" + OrdinalText(*d.sourceRow_ - 1) + "/text" : String_("/source/rows");
@@ -177,9 +206,12 @@ namespace Dal {
                 }
             }
         }
-        Vector_<Payment_> Payments(const ScriptProduct_& product, const String_& receiver, const CalibrationDiagnostic_& d, bool affine) {
+        bool GuardProduct(const ScriptProduct_& product, const String_& receiver, const CalibrationDiagnostic_& d) {
             bool paid = false;
             ForStatements(product, d, [&](const Node_& node, const auto& source) { paid = Guard(node, paid, receiver, source); });
+            return paid;
+        }
+        Vector_<Payment_> Payments(const ScriptProduct_& product, const String_& receiver, const CalibrationDiagnostic_& d, bool affine) {
             Vector_<Payment_> result;
             ForStatements(product, d, [&](const Node_& node, CalibrationDiagnostic_ source) {
                 if (affine)
@@ -452,6 +484,136 @@ namespace Dal {
             }
             return result;
         }
+        bool RateTemplateShape(const Vector_<Payment_>& payments) {
+            if (payments.size() != 1)
+                return false;
+            const auto& amount = *payments[0].node_->arguments_[1];
+            if (!dynamic_cast<const NodeMulti_*>(&amount) || !Slot(*amount.arguments_[0], "N"))
+                return false;
+            const auto& option = *amount.arguments_[1];
+            if (dynamic_cast<const NodeMulti_*>(&option))
+                return dynamic_cast<const NodeMax_*>(option.arguments_[1].get()) != nullptr;
+            const auto* difference = OptionDifference(amount);
+            if (!difference)
+                return false;
+            const auto strike = [](const Node_& node) { return dynamic_cast<const NodeMulti_*>(&node) && Slot(*node.arguments_[0], "K"); };
+            return strike(*difference->arguments_[0]) || strike(*difference->arguments_[1]);
+        }
+        bool NativeTemplate(const ScriptProduct_& product,
+                            const CalibrationInstrument_& instrument,
+                            const CalibrationPreparationContext_& context,
+                            const CalibrationDiagnostic_& d) {
+            Vector_<Payment_> payments;
+            bool plain = true;
+            ForStatements(product, d, [&](const Node_& node, const auto& source) {
+                if (const auto* pay = dynamic_cast<const NodePays_*>(&node))
+                    payments.push_back({pay, *source.eventDate_, source});
+                else if (!(dynamic_cast<const NodeAssign_*>(&node) &&
+                           Receiver(*node.arguments_[0], instrument.Definition()->Spec().header_.receiver_) && Literal(*node.arguments_[1], 0.)))
+                    plain = false;
+            });
+            return plain && (IsDeposit(payments) || BondOption(payments, instrument, context, d).has_value() || RateTemplateShape(payments));
+        }
+        bool VectorNode(const Node_& node) {
+            return dynamic_cast<const NodeVectorAssign_*>(&node) || dynamic_cast<const NodeVectorEntry_*>(&node) ||
+                   dynamic_cast<const Script::NodeVectorReduce_*>(&node) || dynamic_cast<const Script::NodeVectorAppend_*>(&node) ||
+                   dynamic_cast<const Script::NodeCollect_*>(&node);
+        }
+        void GeneralFixing(const Script::NodeFix_& fix, const CalibrationPreparationContext_& c, const CalibrationDiagnostic_& d) {
+            const auto* df = dynamic_cast<const Index::DF_*>(fix.index_.get());
+            const auto* libor = dynamic_cast<const Index::Libor_*>(fix.index_.get());
+            Check(df || libor, "UnsupportedCalibrationProduct", SourceField(d), "Gaussian DF or Libor FIX", "", d);
+            Check((df ? df->ccy_ : libor->ccy_) == c.currency_, "CalibrationContextMismatch", SourceField(d), "same-currency FIX", "", d);
+            const auto date = fix.fixingDate_.value_or(*d.eventDate_);
+            const bool historical =
+                date < *c.valuation_.evaluationDate_ ||
+                (date == *c.valuation_.evaluationDate_ && c.valuation_.todayFixingPolicy_ == TodayFixingPolicy_::Value_::REQUIREHISTORICAL);
+            Check(!historical || c.valuation_.fixings_->Find(fix.index_->Name(), DateTime_(date, 0.)).has_value(), "InvalidCalibrationPlan",
+                  SourceField(d), "explicit historical fixing snapshot", fix.index_->Name(), d);
+        }
+        void GeneralNode(const Node_& node, const CalibrationPreparationContext_& c, const CalibrationDiagnostic_& d) {
+            const auto source = GeneralSource(node, d);
+            Check(!dynamic_cast<const Script::NodeExercise_*>(&node), "UnsupportedCalibrationProduct", SourceField(source), "no early exercise", "",
+                  source);
+            Check(!dynamic_cast<const NodeIf_*>(&node) && !dynamic_cast<const Script::BoolNode_*>(&node), "UnsupportedCalibrationProduct",
+                  SourceField(source), "hard scalar arithmetic without IF/comparison control", "", source);
+            Check(!VectorNode(node) && !dynamic_cast<const Script::NodeSpot_*>(&node), "UnsupportedCalibrationProduct", SourceField(source),
+                  "scalar Gaussian FIX arithmetic", "", source);
+            if (const auto* pay = dynamic_cast<const NodePays_*>(&node))
+                Check(!pay->paymentDate_, "UnsupportedFastEvaluator", SourceField(source), "AtEvent payment without ON clause", "", source);
+            if (const auto* fix = dynamic_cast<const Script::NodeFix_*>(&node))
+                GeneralFixing(*fix, c, source);
+            for (const auto& child : node.arguments_)
+                GeneralNode(*child, c, source);
+        }
+        void GeneralProduct(const ScriptProduct_& product,
+                            const CalibrationInstrument_& instrument,
+                            bool paid,
+                            const CalibrationPreparationContext_& c,
+                            const CalibrationDiagnostic_& d) {
+            ForStatements(product, d, [&](const Node_& node, const auto& source) { GeneralNode(node, c, source); });
+            Check(paid, "NoSharedPriceDefinition", "/source/rows", "shared PAYS cashflows", "", d);
+            try {
+                auto model = CreateModel<double>(c.model_);
+                Script::MonteCarloSettings_ simulation;
+                simulation.rsg_ = "mrg32";
+                simulation.compiled_ = false;
+                static_cast<void>(Script::Detail::PrepareBoundScript(instrument.Product(), model.get(), c.valuation_, simulation,
+                                                                     instrument.Definition()->Spec().source_.settings_));
+            } catch (const CalibrationError_&) {
+                throw;
+            } catch (const Exception_& error) {
+                Fail("InvalidCalibrationPlan", "/mc/preparation", "executable bound Gaussian Price script", String_(error.what()), d);
+            }
+        }
+        struct Preparation_ {
+            Payoff_ payoff_;
+            CalibrationPreparationCapability_ capability_;
+        };
+        Preparation_ NativePreparation(ScriptProduct_* product,
+                                       const CalibrationInstrument_& instrument,
+                                       const CalibrationMeasureSpec_& measure,
+                                       const CalibrationPreparationContext_& context,
+                                       const CalibrationEvaluationOptions_& options,
+                                       const CalibrationDiagnostic_& d) {
+            const auto payments =
+                Payments(*product, instrument.Definition()->Spec().header_.receiver_, d, measure.kind_ != CalibrationMeasureKind_::Value_::Price);
+            if (measure.kind_ != CalibrationMeasureKind_::Value_::Price)
+                for (const auto& payment : payments)
+                    static_cast<void>(Affine(*payment.node_->arguments_[1], payment.source_));
+            const bool deposit = IsDeposit(payments);
+            for (const auto& payment : payments)
+                Check(!payment.node_->paymentDate_, "UnsupportedFastEvaluator", "/source/rows", "AtEvent payment without ON clause", "",
+                      payment.source_);
+            return {Payoff(deposit, payments, product, instrument, context, options, measure, d), Admit(deposit, measure, context, options, d)};
+        }
+        Preparation_ LowerForExecution(ScriptProduct_* product,
+                                       const CalibrationInstrument_& instrument,
+                                       const CalibrationMeasureSpec_& measure,
+                                       const CalibrationPreparationContext_& context,
+                                       const CalibrationEvaluationOptions_& options,
+                                       const CalibrationDiagnostic_& d) {
+            const bool paid = GuardProduct(*product, instrument.Definition()->Spec().header_.receiver_, d);
+            if (options.evaluation_ != CalibrationEvaluation_::Value_::ScriptMC || measure.kind_ != CalibrationMeasureKind_::Value_::Price)
+                return NativePreparation(product, instrument, measure, context, options, d);
+            if (NativeTemplate(*product, instrument, context, d))
+                return NativePreparation(product, instrument, measure, context, options, d);
+            auto capability = Admit(false, measure, context, options, d);
+            Check(Bytes(options.sampling_->generator_) == "mrg32", "InvalidCalibrationPlan", "/options/sampling/generator",
+                  "executable mrg32 for general Price", "", d);
+            GeneralProduct(*product, instrument, paid, context, d);
+            capability.ruleId_ = "dal.gaussian-script-price/1";
+            capability.affine_ = false;
+            return {{CalibrationScriptMcDescriptor_{}, {}}, capability};
+        }
+        String_ GenericCompilerIdentity() {
+            return Fingerprint(Obj({{"build", Str("dal.core/1")},
+                                    {"parser", Str("typed-slots/1")},
+                                    {"lowering", Str("script-price/1")},
+                                    {"matcher", Str("whole-scalar-ast/1")},
+                                    {"constant_binding", Str("effective-slots/1")},
+                                    {"receiver_guard", Str("whole-history/2")}}));
+        }
         String_ CompilerIdentity(bool rate) {
             return Fingerprint(Obj({{"build", Str("dal.core/1")},
                                     {"parser", Str("typed-slots/1")},
@@ -484,25 +646,19 @@ namespace Dal {
         Check(context.currency_ == spec.header_.payCurrency_ && Bytes(context.discountRoute_) == Bytes(spec.header_.discountRoute_),
               "CalibrationContextMismatch", "/context", "matching currency and explicit discount route", "", d);
         auto product = instrument->Product();
-        const auto payments = Payments(*product, spec.header_.receiver_, d, found->kind_ != CalibrationMeasureKind_::Value_::Price);
-        if (found->kind_ != CalibrationMeasureKind_::Value_::Price)
-            for (const auto& payment : payments)
-                static_cast<void>(Affine(*payment.node_->arguments_[1], payment.source_));
-        const bool deposit = IsDeposit(payments);
-        for (const auto& payment : payments)
-            Check(!payment.node_->paymentDate_, "UnsupportedFastEvaluator", "/source/rows", "AtEvent payment without ON clause", "", payment.source_);
-        auto payoff = Payoff(deposit, payments, product.get(), *instrument, context, options, result.measure_, d);
-        result.descriptor_ = std::move(payoff.descriptor_);
-        result.cashflows_ = std::move(payoff.cashflows_);
-        result.capability_ = Admit(deposit, result.measure_, context, options, d);
+        auto lowered = LowerForExecution(product.get(), *instrument, result.measure_, context, options, d);
+        result.descriptor_ = std::move(lowered.payoff_.descriptor_);
+        result.cashflows_ = std::move(lowered.payoff_.cashflows_);
+        result.capability_ = std::move(lowered.capability_);
         const auto* rate = std::get_if<CalibrationRateOptionDescriptor_>(&result.descriptor_);
-        if (rate) {
+        const bool generic = std::holds_alternative<CalibrationScriptMcDescriptor_>(result.descriptor_);
+        if (rate)
             result.capability_.ruleId_ = CalibrationRateOptionInternal::Rule(*rate);
+        if (rate || generic)
             result.contextIdentity_ = RateContextIdentity(context, result.contextIdentity_, d);
-        }
         if (result.capability_.backend_ == CalibrationBackend_::Value_::ScriptMC)
             result.sampling_ = options.sampling_;
-        result.compilerIdentity_ = CompilerIdentity(rate != nullptr);
+        result.compilerIdentity_ = generic ? GenericCompilerIdentity() : CompilerIdentity(rate != nullptr);
         result.planIdentity_ = Fingerprint(Obj({{"instrument", Str(instrument->InstrumentIdentity())},
                                                 {"measure", Str(measureId)},
                                                 {"compiler", Str(result.compilerIdentity_)},

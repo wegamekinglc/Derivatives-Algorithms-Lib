@@ -8,6 +8,10 @@ current-state explanations in the published docs or focused Codex references.
 
 ## Current Artifacts
 
+- [DAL-412 Gaussian script MC calibration](implementation/dal-412-gsr-script-mc-calibration.md)
+  — Active general Price admission, selected-g driver, frozen arithmetic-average
+  oracle/fit/validation/held-out evidence and bounded caller measurements.
+
 - [DAL-411 Gaussian rate-option fast paths](implementation/dal-411-gaussian-fast-paths.md)
   — Active Caplet/Swaption source admission, independent Price/gradient oracles,
   effective-rank and frozen MC-budget evidence, with serial documentation integration.
