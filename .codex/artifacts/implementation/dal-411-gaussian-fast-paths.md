@@ -1,203 +1,228 @@
-# DAL-411: Gaussian Caplet/Swaption fast-path implementation boundary
+# DAL-411: Gaussian Caplet/Swaption script fast paths
 
-Status: **implementation blocked by a frozen shared-definition prerequisite**.
-No Caplet or Swaption exporter, matcher, descriptor or shared fast Price is
-enabled by this change. This record controls the prerequisite coordination and
-subsequent implementation; it is not a numerical acceptance report.
+Code delivered in original PR #616, branch `agent/dal-implementer/3c688a76ade6`,
+base `master`. Awaiting focused review and serial shared-document integration.
+The final handoff and attached source manifest identify the exact PR head.
+This bounded template extension does not deliver DAL-412's MC calibration.
 
-## Startup and controlling inputs
+## Authority, baseline and ownership
 
-The clean task branch `agent/dal-implementer/3c688a76ade6` starts at actual HEAD
-and fetched master `1f6eaa32424d0c71efb148cfb953f1634ff209cf`. It contains the
-DAL-404 squash merge. Multica's linked-PR table confirms PR #612 merged at
-2026-10-22T00:30:25Z, with 36 successful checks. The research source baseline
-`0f1feabee193d0976ab7a5336c9e9e29cb2aa28d` is historical, not this build's source.
+Input head `f4e00a8f9e77339fb3895892ecc62b5bbf4b8e83` contained the prerequisite
+record on merged DAL-404 `1f6eaa32424d0c71efb148cfb953f1634ff209cf`.
+Research source `0f1feabee193d0976ab7a5336c9e9e29cb2aa28d` is historical.
+Controlling inputs read: research attachment `01a15c20-3723-7ddd-8ef1-c0ac706cdc16`
+§§3.2–3.4, 5, 7.3, 8, 10–11 and critique;
+[DAL-398 API](../api-notes/dal-398-script-contract.md);
+[methodology](../../../docs/methodology/script_calibration_contract.md);
+DAL-399–403 implementation records;
+[P0 acceptance](../validation/dal-404-p0-same-source-validation.md);
+implementer/code/test/component/publication contracts; relevant source/tests.
 
-Controlling inputs read:
+Coordinator comment `01a16117-a0f2-7340-8e50-8e50b24a9e0b` resumes full delivery
+and grants the serial writes in RateStrike decision
+`01a16115-f296-74de-a024-969bad9885f2`. Changed shared files are limited to the
+role markup/three generated outputs, instrument validator and dedicated tests.
+Preparation extension, new model files/tests and this record are original
+DAL-411 scope. No DAL-405 curve/provider/optimizer, shared documentation/index,
+build/registration, example, public facade, shared compiler or MC/statistics
+implementation is changed.
 
-- DAL-411's current scope, prerequisite acceptance and parallel-write rules;
-  DAL-396's current authorization/scheduling description and bounded discussion.
-- DAL-396 research attachment `01a15c20-3723-7ddd-8ef1-c0ac706cdc16`, especially
-  §§3.2–3.4, 5, 7.3, 8 and 10–11, and its expert critique.
-- [DAL-398 contract](../api-notes/dal-398-script-contract.md),
-  [current methodology](../../../docs/methodology/script_calibration_contract.md),
-  DAL-399–403 activity records and
-  [accepted P0 validation](../validation/dal-404-p0-same-source-validation.md).
-- Repository AGENTS, implementer, component-boundary, C++ and unit-test rules;
-  definition/binding, preparation, MC, native Gaussian source and nearby tests.
+## Shipped behavior and bounded semantics
 
-The simultaneous DAL-405 run was verified through the sibling-run read. No
-curve/provider/parameterization/optimizer, shared documentation/index, build or
-example file has been changed. The only tracked change is this activity record.
+- RateStrike is appended after Accrual, preserving old ordinals. K/Real/Rate
+  is bindable with finite signed defaults/rebinds, zero/negative rates, existing
+  bounds and provenance. Exact archive token `RateStrike`, Java `RATESTRIKE`;
+  portable `/1` and DAL `_v1` stay unchanged. Strike stays positive BondPrice;
+  old Strike/Rate failure assertions are untouched.
+- `dal/model/gsrrateoption.hpp` adds `NewCapletScriptInstrument`,
+  `NewSwaptionScriptInstrument`, `PriceGaussianRateOption` and an import-settings
+  alias reusing BondOption settings (explicit positive N). Native input is
+  consumed once to emit authoritative source, never retained beside it.
+- Complete matching in `dal/script/calibrationrateoption_internal.*` checks the
+  exact N/K declarations, full hard-MAX expression, positive literal accruals,
+  every index/date and entire cashflow. Descriptors are derived only from AST
+  and effective binding. Extra arithmetic, payments, parameters, conditions,
+  EXERCISE and ON settlement do not acquire a fast capability from a subterm.
+- FastGaussian calls unchanged native double Black/quadrature kernels from
+  reconstructed descriptors. Its derivative capability is FiniteDifference,
+  not fast AAD. New Evaluate numerical failures retain cause, instrument,
+  measure and owned report; the native legacy exception protocol is unchanged.
+- Existing generic Price MC executes the original bound program with opt-in.
+  Native effective-rank admission is reused during preparation (one native
+  price call, included in preparation cost). Hard AAD conservatively requires
+  finite nonzero rate exposure and positive native expectation; zero volatility,
+  zero exposure and identically zero payoffs are refused.
+- New rules `dal.gaussian-caplet/1`, `dal.gaussian-swaption/1` use compiler
+  components `rate-option-cashflows/1` and `rate-option-ast/1`. P0 tokens stay
+  byte-identical. Actual Libor day basis enters only the new context identity.
+  Convention, binding, source, curve/fixings, model and smoothing changes
+  invalidate plans, including MC plans via existing RequireCompatible.
 
-## Reproduced prerequisite
+Caplet pays at P and explicitly observes fixing E, concrete start S, nominal
+3M/6M maturity T and literal coupon accrual. Amount is
+`N*(alpha*MAX(L(E;S,T)-K,0))`, reversed for floor. Import requires exact native
+end/index accrual agreement with GSR's nominal-maturity/Libor day-basis mapping.
+E<=S<T<=P; delayed payment P>T uses the native payment-measure kernel.
 
-Both options need an annual **Rate** strike. The immutable definition currently
-accepts only N/Notional, K/Coupon or K/Strike, and fixed ALPHA for Coupon. In
-`dal-cpp/dal/script/instrument.cpp`, `ParameterUnit` maps every Strike to
-BondPrice; `ValidateDeclaration` enforces it before parsing or matching.
-`ValidateParameter` additionally requires every non-Coupon value to be strictly
-positive. That is the deliberately narrow P0 contract, not a newly introduced
-Gaussian pricing defect.
+Swaption at E pays `N*MAX(floatingPV-K*annuity,0)`, reversed for receiver.
+Floating terms are literal coupon accrual * exercise-date Libor(concrete start)
+* DF(end); fixed terms are literal accrual * DF(pay). Supported native inputs
+have fixing>=E, fixing<=start, floating payment=end, canonical 3M/6M LCH indices,
+physical settlement and one discount/forecast curve. Payment=end makes native
+future-fixing convexity exactly zero, proving this conditional forward PV
+mapping. Original future fix dates are not retained as redundant authority.
+Floating payment lag, projection curves, cash settlement and nonmatching
+conventions are refused. SLV, smoothing, conditional/early exercise and >3
+effective Swaption directions are refused; rank-one four-factor pricing passes.
 
-Two focused executable probes request positive K=.03 with Strike/Rate:
+## Frozen acceptance and independent oracles
 
-1. Caplet-shaped cashflow at its payment event, with an explicit earlier Libor
-   fixing date and a literal coupon accrual. There is no delayed-PAYS header
-   reinterpretation in this witness.
-2. One-period, single-curve payer Swaption-shaped expiry cashflow
-   `N*MAX(1-(1+K)*DF(E,T),0)`, with a literal fixed accrual of one.
+V=2026-10-21, E=2027-10-21, flat continuous r=.03, N=100, K=.03, H=1.
+Caplet S=E, T=2028-01-21, ACT/360 index/coupon alpha=92/360, P=2028-02-04.
+Swaption floating 6M endpoints: 2028-04-21, 2028-10-21, 2029-04-21, 2029-10-21,
+payment=end, ACT/360. Fixed dates: 2028-10-21, 2029-10-21; ACT/365 alpha=366/365,1.
+Both directions use g=.012,.016,.02,.0201,.0199,.02005,.01995 (XML ordinals 0–6).
 
-Both fail identically at definition construction:
+Before statistical execution, the import guard rejected the initially proposed
+weekend-adjusted fixture: GSR's Date::NominalMaturity adds nominal months without
+business-day adjustment. The fixture was corrected to the supported convention;
+mismatched end/accrual refusals remain. No threshold or scale changed.
 
-```text
-InvalidScriptInstrumentDefinition: /parameters/1/unit;
-expected BondPrice; actual Rate
-```
+Independent Caplet mathematics uses payment-measure forward
+`F=exp(r*tau-g*g*tau*lag)`, sigma=g*tau, bond strike=1+indexAlpha*K and normal
+CDF truncated moments, multiplied by N*DF(P)*couponAlpha/indexAlpha. Analytic g
+partial includes dF/dg and dSigma/dg; it calls no matcher/native Black routine.
+Independent Swaption mathematics telescopes original floating coupons to
+1-DF(last), forms exponential E-forward bonds and annuity, and integrates
+truncated normal moments after monotone-root bisection. Boundary differentiation
+cancels at zero payoff, leaving analytic g partials. A separate two-factor
+Sobol cashflow integration checks quadrature without calling the lowerer.
 
-The same source texts parse through the existing bare DSL. A separate passing
-probe copies the CalibrationError, destroys its input spec, and verifies its
-owned code, field, expected/actual, parameter K and source row 2. These witnesses
-isolate declaration admission; they do not establish complete coupon semantics,
-native/MC equality, or a new supported product subset.
+Native/fast/oracle Price tolerance=1e-10, fine FD/oracle gradient tolerance=2e-4.
+FD h=1e-4/5e-5, pathwise CRN FD h=1e-5/5e-6. MRG32 seed=1024, Precise normals,
+fit=8*8192, validation=16*16384, total maximum=327680 paths/view, disjoint ranges.
+Frozen sigma=3, nu=nuG=.25, Price scale=.1, parameter scale=.01,
+epsilonV=1e-10, epsilonG=1e-8. No post-observation budget enlargement.
 
-The existing preparation regression
-`TestBondOptionDeclarationUnitAndExtraParameterFailuresAreOwned` explicitly
-requires Strike/Rate to fail at this definition boundary. The existing
-BondOption nonpositive-strike and rebind regressions also preserve its domain.
-Changing an expected failure/stage to make a general relaxation pass would
-change accepted P0 behavior. Declaring an option's strike as Coupon, disguising
-it as BondPrice, or hiding it in a second native object would bypass the typed
-contract rather than satisfy DAL-411.
+All 28 oracle–fast, fast–MC and oracle–MC value/gradient rows pass shared
+ValidateCalibrationMc. XML retains definition/binding, per-row instrument,
+context/plan/mapping identities and all 448 validation batch values, gradients
+and ranges. Selected reference-g rows:
 
-DAL-411 permits edits to `dal/script/calibrationpreparation.*` but explicitly
-freezes shared definition/compiler/MC interfaces and requires the coordinator
-to establish an independent prerequisite or serial ownership before extension.
-Thus changing only the Gaussian model and matcher files cannot admit either
-correctly typed template.
+| Template/direction | Fast Price  | MC mean     | MC SE      | Fine FD g    | MC g         | MC g SE    |
+|--------------------|-------------|-------------|------------|--------------|--------------|------------|
+| Caplet/call        | .191113088  | .190274160  | .000560919 | 9.727682133  | 9.686467826  | .028008538 |
+| Caplet/put         | .198834117  | .199505238  | .000636912 | 9.765167336  | 9.798640007  | .031840825 |
+| Swaption/payer     | 1.570004045 | 1.563347747 | .003180410 | 76.338310647 | 76.021881984 | .153182561 |
+| Swaption/receiver  | 1.485427264 | 1.486243366 | .005255050 | 76.338310647 | 76.378944812 | .276963961 |
 
-## Smallest coordination request
+Reference-g FD refinements are about 2.1e-8 (Caplet), 4.45e-7 (Swaption), separate
+from MC gradient SE. Two-factor order16/32 prices=1.558110315578993/1.558110315578999,
+refinement indicator=6.06e-15. Independent 131072-point Sobol=1.558050043485312,
+within frozen 2e-4; it is not an MC SE estimate.
 
-Establish a shared-definition prerequisite or grant an explicit serial write
-window for an additive **rate-strike declaration**, keeping the accepted
-Strike/BondPrice behavior and its failure tests intact. A distinct RateStrike
-role is one possible small extension; this record does not freeze a new enum
-or silently amend the accepted API contract.
+Native fast fits from g=.012 recover reference g=.02; same-binding independent
+MC validation passes. An extra MC-fit-versus-validation comparison correctly
+rejects Swaption's frozen fit budget: fit SE=.0107029603, validation
+SE=.00318041035, hence 3*hypot(SEFit,SEVal)>.025. Price/gradient parity passes;
+precision/error fail. The initial extra test wrongly assumed this budget must
+pass; the corrected regression explicitly retains refusal, unchanged scales
+and counts. It is not an accepted MC calibration or a passed validation pair.
+Tiny-budget regressions separately return budgetExhausted.
 
-The concrete likely write set for that option is:
+## RED, GREEN and verification
 
-- `dal-cpp/dal/calibration/types.hpp`: additive Machinist role markup;
-  regenerate the affected `MG_ScriptParameterRole_enum` outputs using
-  `dal_generate`, including its tracked Java counterpart.
-- `dal-cpp/dal/script/instrument.cpp`: key/role/unit validation and numeric
-  domain for the added declaration. Allow finite zero/negative rate strikes
-  subject to explicit bounds, retaining positive N, accrual and BondPrice.
-- `dal-cpp/tests/script/test_instrument.cpp` and focused preparation tests:
-  new-unit creation/rebind/domain/owned-error and JSON round-trip coverage,
-  while preserving the P0 rejection assertions.
+- Corrected RateStrike test against isolated input protocol/validator plus old
+  role headers fails unknown RateStrike; current generated objects pass. The
+  first test setup used private Vector resize; that compile error was corrected
+  and is not behavioral RED.
+- Initial Caplet source fails original preparation with UnsupportedFastEvaluator,
+  then passes new FastGaussian admission. Isolated input-head preparation
+  replays both Caplet/Swaption witnesses and rejects both; current code accepts
+  both. The replay uses the current extended variant layout, not a falsely
+  claimed untouched old executable.
+- Identically zero rate-MAX regression initially fails because hard AAD admits
+  it despite nonzero earlier bond exposure. Requiring positive expectation
+  closes that real gap; the unchanged regression passes.
+- Final focused executable: 150/150 pass, including 23 new tests (16 rate-option,
+  6 RateStrike, 1 BondPrice isolation). It retains 23 BondOption script, 17 native
+  Gaussian/calibration and 20 MC protocol tests plus original boundary assertions.
+  P0's unrelated statistical matrix is reused from accepted DAL-404.
+- Input/current P0 probes compare definition, binding, instrument, compiler,
+  context, fast plan, MC plan/mapping and quote fingerprints: byte-identical
+  Deposit and BondOption rows. JSON/SHA quote-risk implementation is unchanged.
+- Scoped GCC15 Wall/Wextra/Wpedantic/Werror syntax checks pass for affected
+  sources with existing CI exclusions. Changed handwritten functions have
+  CCN<=8. Machinist regeneration changes no further content; three output
+  hashes remain stable. Actual Windows status belongs to PR CI.
 
-Existing unit serialization is token-based, so no new unit or arbitrary
-parameter-slot mechanism is requested. Verify the actual affected generated
-paths during regeneration. Any additional interface need must be identified
-before writing it. No general compiler, stochastic model or curve-provider
-extension is requested by this handoff. The coordinator can resolve ownership
-without asking the user to redefine the financial product.
+Core build: `cmake --build build/Release-linux --target dal_cpp -j 10`.
+Focused link: test_main; rateoption/bondoption/european model tests;
+instrument, calibration_preparation and calibration_mc script tests. Filter is
+their nine suites, excluding GSRBondOptionNumericalTest's accepted old matrix.
+Full commands and RED/GREEN/XML outputs are attached.
 
-## Implementation design after prerequisite resolution
+Configuration: GCC15.2, Release/O3/C++17, static core, Eigen ON,
+`-fPIC -ffp-contract=fast`, native architecture OFF, native AAD, lifetime/profiling
+OFF. Public and benchmarks configured ON, core/public examples OFF, Python OFF,
+portable Excel tests configured ON but not run. This differs from the earlier
+prerequisite worker's public-disabled build; its binary is not this executable.
+Dependency pointers are unchanged. No full matrix, example, standalone,
+public-disabled or frontend product result is claimed; those components did
+not change. Source/binary manifests, public compatibility, scoped performance
+and static checks are attached; pushed-head CI is reported in the handoff.
 
-Keep native construction as one-time import. Emit concrete source dates,
-literal fixed accruals, canonical observations, one N binding and one correctly
-typed rate strike. Derive disposable Caplet/Swaption descriptors from complete
-ASTs and effective bindings; construct native kernel inputs only from those
-descriptors. Do not retain the original option as another pricing authority.
+## Compatibility and measured costs
 
-For Caplet, distinguish fixing E, index start/end S/T, coupon accrual and payment
-P. A payment-event PAYS with explicit fixing E is a candidate AtEvent encoding;
-prove its exact index start/end/day-count and projection mapping before enabling
-it. Reject conventions that cannot be frozen and verified. For Swaption, derive
-the full fixed annuity and floating conditional-PV cashflows at exercise, with
-direction and settlement checked. Do not infer arbitrary schedules from a swap
-index name. Prefer a narrow proven subset to an unverified convention mapping.
+Rebuilt public compatibility filter `*Calibration*:*Script*`: **114/114 pass**.
+Documentation static check: **85 Markdown files pass**. Formatting dry-run,
+CCN<=8, patch whitespace and stable regeneration checks pass. These are scoped
+checks, not a full frontend/example or platform matrix.
 
-Default admitted products to FastGaussian and the existing native double
-Black/quadrature kernels; finite differences are not fast AAD. Preserve the
-three-effective-direction limit, including rank-deficient larger models. Keep
-MC opt-in, native entry points, old aliases/archive behavior and independent
-model/curve/numeraire identity checks. Rebinding, source, model or smoothing
-changes must invalidate plans. Payment lag/cash settlement, unsupported
-conventions, SLV, conditional/early exercise and smoothing need explicit
-admission or precise refusal, never a changed payoff or silent MC fallback.
+After local builds finished, measurements ran serially on one allowed CPU
+(affinity recorded in evidence). New APIs use one warmup and ten rounds;
+unchanged native APIs use three alternating input/current runs, each with
+one warmup and ten rounds, 1000 calls/case. The input native object is compiled
+from exact input-head gsreuropean.cpp using the current CMake compile command.
+Core native sources and price results are unchanged. Median current/input
+ratios: BondOption 1.023, Caplet 1.047, Swaption .988. These small local timing
+samples do not establish a portable performance bound.
 
-## Evidence obtained in this run
+Informational new API medians (microseconds/call): Caplet native=1.274,
+prepare=98.036, cached Price=46.441; Swaption native=8.202, prepare=131.766,
+cached Price=57.453. Cached Price includes immutable context compatibility
+hashing; its overhead versus direct native pricing is visible and not called
+a speedup. Preparation includes parsing/matching plus native rank admission.
+Representative compiled MC/AAD validation costs 165.103ms/268.698ms for
+Caplet/Swaption, each 262144 paths and 16 engine runs. Peak tape nodes=155/204,
+reported allocated tape bytes=1966080 each. Timing is separate from precision;
+path counts and frozen numerical scales were not reduced for performance.
 
-Fresh Release core and gtest were built in this checkout with GCC 15.2.0,
-C++17, static libraries, Eigen ON, native architecture OFF, native AAD,
-public/examples/benchmarks OFF. Dependency pins remain Eigen `3147391d`,
-googletest `d72f9c8a`, Machinist `e76b0ef2`, pybind11 `8a099e44` and
-rapidjson `ea152ded`; no dependency pointer was changed.
+Final SHA-256 identities:
 
-```bash
-git submodule update --init --recursive -j 8
-cmake --preset Release-linux -S . -B build/Release-linux -DCMAKE_CXX_COMPILER=g++-15 -DDAL_CPP_BUILD_EXAMPLES=OFF -DDAL_CPP_BUILD_BENCHMARKS=OFF -DDAL_BUILD_PUBLIC=OFF -DDAL_BUILD_EXCEL_PORTABLE_TESTS=OFF -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
-cmake --build build/Release-linux --target dal_cpp gtest -j 10
-g++-15 -O3 -DNDEBUG -std=c++17 -fPIE -ffp-contract=fast -I dal-cpp -I dal-cpp/externals/rapidjson/include -isystem dal-cpp/externals/googletest/googletest/include dal-cpp/tests/test_main.cpp ../evidence/dal411_contract_probe.cpp dal-cpp/tests/model/test_gsr_european.cpp dal-cpp/tests/script/test_instrument.cpp dal-cpp/tests/script/test_calibration_preparation.cpp build/Release-linux/dal-cpp/libdal_cpp.a build/Release-linux/lib/libgtest.a -pthread -o build/Release-linux/dal411_contract_tests
-```
+- Focused executable: `b820ce6faa72a87684c82efa8008b658aab9abc128999f4caa774752d191c60e`.
+- Core archive: `fc67c81a67b2a4673d7b94c012c36e55a544547e682d86bcef9a701719e80ac8`.
+- Performance executable: `1563bacc75b68a85f8142c61025780f730f46dba0fcfbece2fd3158b6381af74`.
+- Public executable: `64746bbd0fa90cfd67ad404727535208e68938ee7f60b96f5a25d8a55653f4c6`.
 
-The two expected **RED** tests, each asserting that its Rate strike can reach
-the matcher, exit 1 with the exact failure above:
+## Shared documentation drafts awaiting serial integration
 
-```bash
-build/Release-linux/dal411_contract_tests --gtest_filter='Dal411ContractProbe.TestCapletRateStrikeCanReachMatcher:Dal411ContractProbe.TestSwaptionRateStrikeCanReachMatcher' --gtest_output=xml:../evidence/dal411-contract-red.xml
-```
+DAL-405 retains the shared writing window. These drafts have not been integrated
+into the published guide, CHANGELOG or indexes.
 
-There is **no GREEN implementation** of these two tests. They remain external
-reproduction probes in the evidence attachment, not committed failing CI tests.
-No production modification or assertion weakening was made.
+Methodology: document the three core entry points and exact bounded source
+semantics above; signed RateStrike versus positive BondPrice Strike; default
+native double FastGaussian with finite differences; opt-in, statistically
+qualified same-binding MC/AAD; nominal maturity/day basis, Caplet payment measure,
+physical Swaption payment=end, effective-rank and positive-expectation AAD
+limits. Retain all P0/DAL-405 text. Do not imply a general optimizer, bindings,
+vol-quote conversion, SLV or quote-risk API.
 
-Current-boundary verification exits 0, **86/86 pass**: 2 probe checks, 12 native
-European prices/refusals, 5 native calibrations, 33 instrument, 6 protocol and
-28 preparation tests. Native coverage includes payment-measure lag, future
-coupon convexity, independent two-factor integration, negative strike/zero
-volatility, rank-one four-factor reduction and four-independent-direction
-refusal. This verifies existing behavior only.
+CHANGELOG draft: "Add bounded core Caplet/Swaption script exporters and
+source-derived Gaussian Price fast paths, additive signed RateStrike bindings,
+owned capability/numerical diagnostics and same-contract MC/AAD validation."
 
-```bash
-build/Release-linux/dal411_contract_tests --gtest_filter='Dal411ContractProbe.TestWitnessPayoffsAreAcceptedByBareDsl:Dal411ContractProbe.TestOwnedDefinitionDiagnosticPinpointsRateStrikeUnit:GSREuropeanTest.*:GSRCalibrationTest.*:ScriptInstrumentTest.*:CalibrationPreparationTest.*:CalibrationProtocolTest.*' --gtest_output=xml:../evidence/dal411-current-boundaries-green.xml
-```
-
-Fresh binary SHA-256 identities:
-
-- `dal411_contract_tests`: `64c986917e76ec88bb0fbdaa6ed5490522830c8fe25c75ad748ed750c5270caa`.
-- `libdal_cpp.a`: `4c78288d28a54cc66374a6b956704d5b9243affd2f1ca35a3e3d36f42b46ae76`.
-- `libgtest.a`: `1015854de3a1397beae2a28dc7b0373f47d5c3136d5aff520bf9b0d0ff102bbe`.
-- External probe: `9804863428822b075e279a43fe1059ecefbd406febd9aa221e3344865fd4efc2`.
-
-The issue evidence attachment contains source, RED/GREEN logs/XML, build/link
-logs, configuration and manifests. Historical P0 evidence is retained only for
-its accepted Deposit/BondOption domain; no historical binary is presented as
-the binary above and no P0 acceptance is extended to either new template.
-
-## Remaining acceptance and documentation
-
-After the prerequisite, resume implementation on this branch and the same
-single draft DAL-411 PR. The prerequisite artifact must not be accepted as
-delivery of the original issue or used to start DAL-412.
-
-Still required per enabled template: independent mathematical/cashflow oracle,
-native/script-fast Price and applicable native partials, same-binding script
-MC/AAD and CRN FD, initial/nonroot/legal bumps, fixed sampling and predeclared
-budgets. Report quadrature refinement, FD refinement and batch MC uncertainty
-separately; never enlarge scales to hide a semantic difference. No new-template
-MC budgets or results have been established in this run.
-
-No executable production caller changed, so no timing matrix or performance
-acceptance is claimed. After implementation, select preparation and fast Price
-callers for each template plus affected native-only cases, separating parse,
-evaluate/FD and MC costs. Reuse valid P0 evidence only by source/configuration
-and executable identity; do not rerun unrelated matrices.
-
-Shared methodology, CHANGELOG and indexes remain assigned to DAL-405. Nothing
-is integrated into them, and no feature-added release text is appropriate yet.
-Once templates are enabled, place exact capability/limitation drafts here for
-the coordinator's serial integration. No examples, build or public facade were
-changed; standalone/example/public verification was not run or claimed.
+Artifact index draft: link this record as DAL-411 Gaussian rate-option fast
+paths, with independent price/gradient, model-domain and frozen-budget evidence.
+Integrate capability text into the existing guide; add guide indexes only if a
+separate guide is actually introduced. No nonexistent guide link is requested.

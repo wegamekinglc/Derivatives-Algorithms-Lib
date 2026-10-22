@@ -4,6 +4,7 @@
 
 #include <dal/calibration/protocol.hpp>
 #include <dal/model/gsrdata.hpp>
+#include <dal/protocol/rateoption.hpp>
 #include <dal/script/instrument.hpp>
 
 /*IF--------------------------------------------------------------------------
@@ -79,7 +80,12 @@ namespace Dal {
         bool call_ = true;
         String_ index_;
     };
-    using CalibrationFastDescriptor_ = std::variant<CalibrationDepositDescriptor_, CalibrationBondOptionDescriptor_>;
+    struct CalibrationRateOptionDescriptor_ {
+        std::variant<Caplet_, Swaption_> option_;
+        double notional_ = 0.;
+    };
+    using CalibrationFastDescriptor_ =
+        std::variant<CalibrationDepositDescriptor_, CalibrationBondOptionDescriptor_, CalibrationRateOptionDescriptor_>;
     struct CalibrationPreparationCapability_ {
         String_ ruleId_;
         CalibrationBackend_ backend_;

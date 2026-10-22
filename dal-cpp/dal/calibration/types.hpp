@@ -83,6 +83,7 @@ alternative Notional
 alternative Coupon
 alternative Strike
 alternative Accrual
+alternative RateStrike
 -IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------

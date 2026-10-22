@@ -13,6 +13,37 @@
 
 using namespace Dal;
 
+TEST(CalibrationPreparationTest, TestRateStrikeCannotImpersonateBondPriceStrike) {
+    const auto amount = CalibrationValueUnit_::Parse("Price:USD");
+    ScriptInstrumentDefinitionSpec_ spec;
+    spec.header_.payCurrency_ = spec.header_.resultCurrency_ = spec.header_.collateralCurrency_ = Ccy_("USD");
+    spec.header_.discountRoute_ = "USD.OIS";
+    spec.source_.rows_ = {{ScriptSourceRowKind_::Value_::Definition, "N", "100"},
+                          {ScriptSourceRowKind_::Value_::Definition, "K", ".97"},
+                          {ScriptSourceRowKind_::Value_::Event, "2027-10-21", "PAY PAYS N*MAX(FIX(IR[USD,DF,2028-10-21])-K,0)"}};
+    spec.parameters_ = {{"N", ScriptParameterType_::Value_::Real, amount, ScriptParameterRole_::Value_::Notional, true},
+                        {"K", ScriptParameterType_::Value_::Real, CalibrationValueUnit_::Parse("Rate"), ScriptParameterRole_("RateStrike"), true}};
+    spec.measures_ = {{"Price", CalibrationMeasureKind_::Value_::Price, "PAY", {}, amount}};
+    const auto instrument = NewScriptCalibrationInstrument({"rate-impostor", NewScriptInstrumentDefinition(spec)});
+    CalibrationPreparationContext_ c;
+    c.valuation_.evaluationDate_ = Date_(2026, 10, 21);
+    c.valuation_.fixings_.reset(new MarketFixingSnapshot_());
+    c.currency_ = Ccy_("USD");
+    c.discountRoute_ = "USD.OIS";
+    c.curve_.reset(
+        new GSRCurveData_("curve", *c.valuation_.evaluationDate_, "USD", {*c.valuation_.evaluationDate_, Date_(2028, 10, 21)}, {0., -.06}, {}, {}));
+    try {
+        static_cast<void>(PrepareCalibrationInstrument(instrument, "Price", c));
+        FAIL();
+    } catch (const CalibrationError_& error) {
+        ASSERT_EQ(error.Failure().diagnostic_.stage_, CalibrationStage_::Value_::Prepare);
+        ASSERT_EQ(error.Failure().diagnostic_.code_, "UnsupportedFastEvaluator");
+        ASSERT_EQ(error.Failure().diagnostic_.field_, std::optional<String_>("/parameters/1/role"));
+        ASSERT_EQ(error.Failure().diagnostic_.expected_, std::optional<String_>("Strike"));
+        ASSERT_EQ(error.Failure().diagnostic_.actual_, std::optional<String_>("RateStrike"));
+    }
+}
+
 namespace {
     struct NamedImpostorModel_ final : ModelData_ {
         NamedImpostorModel_() : ModelData_("MultiFactorGSRModelData", "model") {}
