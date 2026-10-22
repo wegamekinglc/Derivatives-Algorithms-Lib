@@ -11,6 +11,7 @@
 #include <dal/model/gsrslvdata.hpp>
 #include <dal/script/calibrationmc.hpp>
 #include <dal/script/preparation.hpp>
+#include <dal/storage/canonicaljson_internal.hpp>
 #include <dal/storage/json.hpp>
 
 using namespace Dal;
@@ -296,6 +297,8 @@ TEST(GSRRateOptionScriptTest, TestSubnormalAccrualUsesIndependentDecimalParserBo
                 actualError = error;
             }
             ASSERT_EQ(actualError.has_value(), expectedError.has_value());
+            const auto key = "subnormal_" + std::to_string(location) + (value == std::numeric_limits<double>::denorm_min() ? "_min" : "_max");
+            RecordProperty(key, expectedError ? std::string(expectedError->Failure().diagnostic_.actual_.value_or("").c_str()) : "parsed");
             if (expectedError) {
                 const auto& actual = actualError->Failure().diagnostic_;
                 const auto& expected = expectedError->Failure().diagnostic_;
@@ -420,6 +423,7 @@ TEST(GSRRateOptionScriptTest, TestAccrualCompatibilitySnapshots) {
     const LiborBasisScope_ basis;
     const auto c = Context();
     int ordinal = 0;
+    std::string snapshot;
     for (int location : {0, 1, 2})
         for (bool call : {true, false})
             for (const auto& values :
@@ -427,7 +431,10 @@ TEST(GSRRateOptionScriptTest, TestAccrualCompatibilitySnapshots) {
                 const auto instrument = AccrualInstrument(location, values[0], call, values[2], values[1]);
                 const auto plan = PrepareCalibrationInstrument(instrument, "Price", c);
                 const auto prefix = "case_" + std::to_string(ordinal++) + "_";
-                const auto record = [&](const char* key, const String_& value) { RecordProperty(prefix + key, std::string(value.c_str())); };
+                const auto record = [&](const char* key, const String_& value) {
+                    RecordProperty(prefix + key, std::string(value.c_str()));
+                    snapshot += prefix + key + "\n" + std::string(value.c_str()) + "\n";
+                };
                 record("source", instrument->Definition()->SourceIdentity());
                 record("definition", instrument->Definition()->DefinitionIdentity());
                 record("binding", instrument->BindingIdentity());
@@ -442,6 +449,7 @@ TEST(GSRRateOptionScriptTest, TestAccrualCompatibilitySnapshots) {
                     record(("row_" + std::to_string(row) + "_text").c_str(), source.text_);
                 }
             }
+    ASSERT_EQ(CanonicalJson::FingerprintCanonical(snapshot), "sha256:e6449292ee247ec0e27d808d028b63133a23a39d62b761d6126e41b5526ef8b0");
 }
 
 TEST(GSRRateOptionScriptTest, TestCompleteSwaptionSourceReachesFastGaussian) {
