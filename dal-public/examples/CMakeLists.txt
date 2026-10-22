@@ -1,8 +1,9 @@
 include("${CMAKE_CURRENT_SOURCE_DIR}/../../dal-cpp/cmake/Platform.cmake")
 
 add_subdirectory(aad_public_risk)
+add_subdirectory(script_calibration)
 
-foreach(example_target IN ITEMS aad_public_risk)
+foreach(example_target IN ITEMS aad_public_risk script_calibration)
     dal_apply_platform_options(${example_target})
     if(COMMAND dal_cpp_apply_msvc_runtime)
         dal_cpp_apply_msvc_runtime(${example_target})

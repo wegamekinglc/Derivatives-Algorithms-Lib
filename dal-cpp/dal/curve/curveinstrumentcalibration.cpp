@@ -78,6 +78,135 @@ namespace Dal {
                              "finite raw model-measure partial", NumberText(jacobian(i, j)), d);
                     }
         }
+        std::optional<double> ReportNumber(const Vector_<>& values, size_t i) {
+            return i < values.size() && std::isfinite(values[i]) ? std::optional<double>(values[i]) : std::nullopt;
+        }
+        std::optional<double> ReportNumber(const std::optional<double>& value) { return value && std::isfinite(*value) ? value : std::nullopt; }
+        Vector_<> ReportValues(const Vector_<>& values) {
+            return std::all_of(values.begin(), values.end(), [](double value) { return std::isfinite(value); }) ? values : Vector_<>();
+        }
+        void ReportParameters(const CurveInstrumentCalibrationResult_& result, CalibrationReportSnapshot_* data) {
+            data->parameters_.clear();
+            for (size_t i = 0; i < result.freeParameters_.size(); ++i) {
+                const auto& p = result.freeParameters_[i];
+                CalibrationReportParameter_ row;
+                row.id_ = String_(p.component_.String()) + ":" + Date::ToString(p.date_);
+                row.unit_ = p.component_ == CurveFreeParameterComponent_::Value_::LOG_DISCOUNT_FACTOR ? "Dimensionless" : "Rate";
+                row.initial_ = ReportNumber(result.initialParameters_, i);
+                row.value_ = ReportNumber(result.parameters_, i);
+                row.scale_ = ReportNumber(result.parameterScales_, i);
+                data->parameters_.push_back(row);
+            }
+        }
+        CalibrationReportObservation_ ReportObservation(const CurveInstrumentCalibrationResult_& result, size_t i) {
+            const auto& observation = *result.axes_.observations_[i];
+            CalibrationReportObservation_ row;
+            row.instrument_ = observation.Instrument();
+            row.observationId_ = observation.Id();
+            row.quoteId_ = observation.Quote()->Id();
+            row.quoteIndex_ = result.axes_.quoteIndex_[i];
+            row.measureId_ = observation.MeasureId();
+            row.unit_ = observation.Quote()->Unit().Token();
+            row.representation_ = observation.Quote()->Unit().kind_ == CalibrationUnitKind_::Value_::Price ? "Price" : "Scalar";
+            row.target_ = observation.Quote()->Value();
+            row.errorScale_ = observation.ErrorScale();
+            row.modelValue_ = ReportNumber(result.modelMeasures_, i);
+            row.rawResidual_ = ReportNumber(result.rawResiduals_, i);
+            row.scaledResidual_ = ReportNumber(result.scaledResiduals_, i);
+            if (row.scaledResidual_)
+                row.fitRowPassed_ = std::abs(*row.scaledResidual_) <= 1.;
+            if (i < result.capabilities_.size())
+                row.backend_ = result.capabilities_[i].backend_.String();
+            row.derivativeMethod_ = result.derivativeMethod_.String();
+            row.planIdentity_ = result.planIdentity_;
+            return row;
+        }
+        void ReportPlans(const Vector_<PreparedCalibrationInstrument_>& plans, CalibrationReportSnapshot_* data) {
+            data->plans_.clear();
+            for (size_t i = 0; i < plans.size(); ++i) {
+                const auto& plan = plans[i];
+                CalibrationReportPlan_ row;
+                row.observationId_ = data->observations_[i].observationId_;
+                row.measureId_ = plan.Measure().id_;
+                row.ruleId_ = plan.Capability().ruleId_;
+                row.backend_ = plan.Capability().backend_.String();
+                row.derivativeMethod_ = data->observations_[i].derivativeMethod_;
+                row.sourceIdentity_ = plan.Instrument()->Definition()->SourceIdentity();
+                row.definitionIdentity_ = plan.Instrument()->Definition()->DefinitionIdentity();
+                row.bindingIdentity_ = plan.Instrument()->BindingIdentity();
+                row.compilerIdentity_ = plan.CompilerIdentity();
+                row.contextIdentity_ = plan.ContextIdentity();
+                row.planIdentity_ = plan.PlanIdentity();
+                data->observations_[i].planIdentity_ = plan.PlanIdentity();
+                data->plans_.push_back(std::move(row));
+            }
+        }
+        void ReportFitSummary(const CurveInstrumentCalibrationResult_& result, CalibrationReportSnapshot_* data) {
+            auto& summary = data->summary_;
+            summary.domain_ = "Curve";
+            summary.mode_ = result.solveMode_.String();
+            summary.terminationReason_ = result.termination_.empty() ? std::nullopt : std::optional<String_>(result.termination_);
+            summary.evaluations_ = result.evaluations_;
+            summary.jacobianEvaluations_ = result.gradients_;
+            summary.fitWeight_ = ReportNumber(result.fitWeight_);
+            summary.fitNormTolerance_ = ReportNumber(result.fitNormTolerance_);
+            if (result.modelMeasures_.empty())
+                return;
+            summary.fitWithinTolerance_ = result.fitWithinTolerance_;
+            summary.scaledL2_ = ReportNumber(result.scaledNorm_);
+            summary.scaledInfinity_ = ReportNumber(result.maxAbsScaledResidual_);
+            const auto& first = result.axes_.observations_.front()->Quote()->Unit();
+            const bool homogeneous = std::all_of(result.axes_.observations_.begin(), result.axes_.observations_.end(),
+                                                 [&](const auto& row) { return row->Quote()->Unit() == first; });
+            if (homogeneous && std::isfinite(result.rawNorm_))
+                summary.rawL2_ = result.rawNorm_;
+        }
+        void ReportObjective(const CurveInstrumentCalibrationResult_& result, CalibrationReportSnapshot_* data) {
+            data->objective_.theta0_ = ReportValues(result.initialParameters_);
+            data->objective_.parameterScales_ = ReportValues(result.parameterScales_);
+            data->objective_.nativeLayout_.clear();
+            for (const auto& p : data->parameters_)
+                data->objective_.nativeLayout_.push_back(p.id_);
+            if (result.nativeWeights_.Rows() > 0)
+                data->objective_.weightMatrix_ = result.nativeWeights_;
+            data->objective_.lambda_ = ReportNumber(result.fitWeight_);
+            data->objective_.eta_ = ReportNumber(result.fitNormTolerance_);
+            data->objective_.weightProvenance_ = result.nativeWeights_.Rows() > 0 ? "NativeCurveSmoothingMetric" : "";
+        }
+        std::optional<String_> CommonPlanIdentity(const Vector_<CalibrationReportPlan_>& plans,
+                                                  std::optional<String_> CalibrationReportPlan_::* member) {
+            if (plans.empty())
+                return std::nullopt;
+            const auto& identity = plans.front().*member;
+            return std::all_of(plans.begin(), plans.end(), [&](const auto& plan) { return plan.*member == identity; }) ? identity : std::nullopt;
+        }
+        CalibrationReportSnapshot_ CurveReportData(const CurveInstrumentCalibrationResult_& result,
+                                                   const String_& status,
+                                                   const Vector_<PreparedCalibrationInstrument_>* plans = nullptr) {
+            auto data = result.report_ ? result.report_->Data() : CalibrationReportSnapshot_();
+            data.summary_.status_ = status;
+            ReportFitSummary(result, &data);
+            data.observations_.clear();
+            for (size_t i = 0; i < result.axes_.observations_.size(); ++i)
+                data.observations_.push_back(ReportObservation(result, i));
+            ReportParameters(result, &data);
+            if (plans)
+                ReportPlans(*plans, &data);
+            for (size_t i = 0; i < data.plans_.size(); ++i) {
+                data.plans_[i].derivativeMethod_ = result.derivativeMethod_.String();
+                data.observations_[i].planIdentity_ = data.plans_[i].planIdentity_.value_or("");
+            }
+            data.summary_.compilerIdentity_ = CommonPlanIdentity(data.plans_, &CalibrationReportPlan_::compilerIdentity_);
+            data.summary_.contextIdentity_ = CommonPlanIdentity(data.plans_, &CalibrationReportPlan_::contextIdentity_);
+            if (result.quoteJacobian_.Rows() > 0)
+                data.quoteJacobian_ = result.quoteJacobian_;
+            ReportObjective(result, &data);
+            if (result.resolvedSpec_) {
+                data.execution_.valuationDate_ = result.resolvedSpec_->valuation_.evaluationDate_;
+                data.execution_.todayFixingPolicy_ = result.resolvedSpec_->valuation_.todayFixingPolicy_.String();
+            }
+            return data;
+        }
         [[noreturn]] void CurveFailure(CurveInstrumentCalibrationResult_ result, CalibrationDiagnostic_ diagnostic) {
             if (!result.axes_.observations_.empty()) {
                 const auto& row = *result.axes_.observations_.front();
@@ -91,9 +220,9 @@ namespace Dal {
                 diagnostic.message_ = prefix + diagnostic.field_.value_or("/solver") + "; " + diagnostic.message_;
             auto failure = std::make_shared<CalibrationFailure_>();
             failure->diagnostic_ = diagnostic;
-            failure->report_.reset(new CalibrationReport_(diagnostic.stage_, result.axes_, {diagnostic}));
-            result.report_ = failure->report_;
             result.termination_ = diagnostic.code_;
+            failure->report_.reset(new CalibrationReport_(diagnostic.stage_, result.axes_, {diagnostic}, CurveReportData(result, "Failed")));
+            result.report_ = failure->report_;
             failure->candidate_.reset(new CurveInstrumentCalibrationCandidate_(std::move(result)));
             throw CalibrationError_(__FILE__, __LINE__, __func__, failure);
         }
@@ -424,7 +553,7 @@ namespace Dal {
             }
             ValidateNativeJacobian(result.quoteJacobian_, spec_, result.freeParameters_);
         }
-        result.report_.reset(new CalibrationReport_(CalibrationStage_::Value_::Evaluate, axes_));
+        result.report_.reset(new CalibrationReport_(CalibrationStage_::Value_::Evaluate, axes_, {}, CurveReportData(result, "Evaluated", &plans_)));
         return result;
     } catch (const CalibrationError_& error) {
         auto d = error.Failure().diagnostic_;
@@ -542,6 +671,7 @@ namespace Dal {
             result->candidateIdentity_ = CandidateIdentity(result->planIdentity_, result->parameters_);
             ++result->diagnosticEvaluations_;
             const auto values = plan.Evaluate(result->parameters_, false);
+            result->report_ = values.report_;
             result->curve_ = values.curve_;
             result->modelMeasures_ = values.modelMeasures_;
             result->rawResiduals_ = solved.rawResiduals_;
@@ -563,7 +693,9 @@ namespace Dal {
             result->diagnosticEvaluations_ +=
                 options.jacobianMode_ == CalibrationDerivative_::Value_::AAD ? 1 : 1 + 2 * static_cast<int>(result->parameters_.size());
             result->diagnosticGradients_ = 1;
-            result->quoteJacobian_ = plan.Evaluate(result->parameters_).quoteJacobian_;
+            const auto values = plan.Evaluate(result->parameters_);
+            result->quoteJacobian_ = values.quoteJacobian_;
+            result->report_ = values.report_;
             result->derivativeMethod_ = options.jacobianMode_ == CalibrationDerivative_::Value_::AAD
                                             ? CalibrationDerivative_::Value_::AAD
                                             : CalibrationDerivative_::Value_::FiniteDifference;
@@ -624,7 +756,9 @@ namespace Dal {
             if (!solved.fitWithinTolerance_)
                 UnsuccessfulFit(solved, result);
             DiagnosticJacobian(plan, options, &result);
-            result.report_.reset(new CalibrationReport_(CalibrationStage_::Value_::Solve, result.axes_));
+            auto data = CurveReportData(result, "Succeeded");
+            data.summary_.converged_ = result.fitWithinTolerance_;
+            result.report_.reset(new CalibrationReport_(CalibrationStage_::Value_::Solve, result.axes_, {}, data));
             return result;
         } catch (const CalibrationError_& error) {
             CurveFailure(std::move(result), error.Failure().diagnostic_);
