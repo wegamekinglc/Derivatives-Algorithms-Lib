@@ -8,6 +8,10 @@ current-state explanations in the published docs or focused Codex references.
 
 ## Current Artifacts
 
+- [DAL-405 script curve calibration](implementation/dal-405-script-curve-calibration.md)
+  — Active native-coordinate provider, independent objective/compatibility
+  oracles and scoped verification controlling the curve-family adapters.
+
 - [DAL-404 P0 same-source independent acceptance](validation/dal-404-p0-same-source-validation.md)
   — Active Deposit/Gaussian BondOption acceptance, source/evidence applicability,
   independent numerical checks and bounded capability verdict controlling P1 startup.
