@@ -3,7 +3,8 @@
 The core headers `dal/script/instrument.hpp` and `dal/calibration/protocol.hpp`
 provide immutable contract data, typed parameter binding and ordered calibration
 observations. `dal/script/calibrationpreparation.hpp` adds structural preparation
-for Deposit and bounded Gaussian BondOption, Caplet and Swaption contracts.
+for Deposit, bounded deterministic curve families and Gaussian BondOption,
+Caplet and Swaption contracts.
 Existing Product, curve and GSR entry points keep their own behavior.
 The separate core Deposit adapter in
 `dal/curve/depositscript.hpp` supports one-node curve fitting with Brent.
@@ -16,6 +17,9 @@ settlement and explicit discount routing. N and K are bindable; Deposit ALPHA is
 fixed. P0 parameter roles are Notional, Coupon, Strike and Accrual.
 Caplet/Swaption add RateStrike for a finite signed K in decimal Rate units;
 the original Strike role remains a strictly positive BondPrice.
+Bounded curve coupons can use signed decimal BasisSpread with the existing
+Coupon role and a matching ParAffineSpread measure; no basis-point conversion
+is implicit. Deposit's fixed ALPHA and Rate unit rules remain unchanged.
 Dates use the core Date_ range, 1970-01-01 through 2149-06-05; out-of-range
 or invalid Gregorian dates fail explicitly.
 
@@ -77,7 +81,7 @@ timestamps and values, today policy, convention state and smoothing contribute
 to identity. Sampling contributes when MC is selected. Call `RequireCompatible`
 with the current instrument and context before reusing a prepared artifact;
 changes require preparation again. No shared descriptor cache is maintained.
-Rate-option and general Price MC contexts additionally track the actual Libor day basis; this
+Rate-option, curve-family and general Price MC contexts additionally track the actual Libor day basis; this
 extension preserves the original Deposit/BondOption identity components.
 
 ## Native Deposit import and candidate curves
@@ -271,11 +275,11 @@ const double price = plan.Price({1.0, maturityDiscount});
 The Scalar observable is $m=-B/A$, with independent coefficient partials
 $dm=-dB/A+(B/A)(dA/A)$. Every evaluation checks the declared annuity sign and
 minimum absolute magnitude, dimensions and finite outputs. ParRate and Price
-have different units and residuals. BasisSpread remains reserved in the v1
-definition schema; scalar-only programs have no shared Price capability.
+have different units and residuals. The bounded curve-family path also supports
+BasisSpread/ParAffineSpread; scalar-only programs have no shared Price capability.
 
-`AutoFast` and `RequireFast` select the admitted Deposit deterministic or Gaussian
-option descriptor. `GenericDeterministic` admits Deposit cashflows; it cannot
+`AutoFast` and `RequireFast` select an admitted deterministic curve or Gaussian
+option descriptor. `GenericDeterministic` admits Deposit and bounded curve-family cashflows; it cannot
 replace a stochastic option expectation with a forward payoff. Deposit exposes
 analytic coefficient partials. Gaussian descriptor admission supports native
 finite differences or no derivatives; requesting AAD fails rather than changing
@@ -293,7 +297,7 @@ General scalar Price admission requires executable `mrg32` and an explicit
 `PreparedCurveInstruments_`. The spec separates `geometry_`, explicit `market_`
 routes, frozen `valuation_`, ordered `observations_` and `solver_`. An explicit
 valuation date and fixing snapshot are required. Preparation admits the shared
-Deposit cashflows once; candidates refresh native curves and numeric measures
+Deposit or bounded curve-family cashflows once; candidates refresh native curves and numeric measures
 without parsing source or importing native products again. Gaussian options
 continue through their separate model adapter.
 
@@ -303,7 +307,7 @@ currency/collateral conflicts and unsupported requests fail without a global
 market lookup. Ordered multi-curve stages inherit prior curves by key; explicit
 stage bindings win; all stages share currency and valuation. Projection stages
 inherit their discount base when one is not supplied. Deposit cashflows alone do not constrain projection
-parameters; projection-product lowering belongs to the separate family adapters.
+parameters; the bounded family adapters below supply explicit live projection dependencies.
 
 LOG_DISCOUNT requires an explicit first knot at today and excludes its fixed
 zero log-DF anchor from the free vector. ZERO_RATE takes future input knots
@@ -353,6 +357,90 @@ native spec/options and preserves its defaults, strict EXACT boundary and
 APPROXIMATE last-point behavior. Algebraic mapping does not promise the new
 driver's floating-point trajectory. This entry adds no FX/XCCY instrument
 admission, generic FIX lowering, box bounds, joint solve or public bindings.
+
+## Deterministic FRA, swap, basis and custom cashflows
+
+The core `dal/curve/curvescript.hpp` provides one-time
+`NewFraScriptInstrument`, `NewSwapScriptInstrument`,
+`NewPeriodForwardOisScriptInstrument` and `NewBasisSwapScriptInstrument` import.
+Settings reuse the instrument ID, currency, explicit discount route, positive
+notional and annuity floor from Deposit import. The resolved native schedule
+becomes concrete source dates, accruals and payments. No native product remains
+as a second pricing authority; future candidate values come from the bound source.
+
+- FRA requires an explicit payment date. Arrears payment can be at or after the
+  accrual end. Advance payment must be at the start and retains the native
+  `alpha*(K-L)/(1+alpha*L)` settlement amount. Intermediate settlement and
+  Future/STIR convexity or daily settlement are unsupported.
+- IRS imports resolved fixed and floating periods, including supported stubs,
+  fixing lags and actual delayed payments. Each coupon discounts at its own
+  payment event, with its source accrual and observation dates.
+- Period-forward OIS is explicitly single-curve: each period uses its DF ratio
+  and resolved accrual. This API does not represent overnight compounding,
+  averaging, lookback, lockout or observation-shift conventions.
+- Basis imports spread-leg PV plus K annuity minus reference-leg PV. K/Coupon
+  and the BasisSpread measure use signed decimal BasisSpread units; the
+  annuity sign and positive minimum magnitude are explicit. This is a
+  same-currency contract under OIS collateral.
+
+The complete payment AST must have `PAY PAYS N*(coupon expression)`, with N
+appearing once as the outer notional. Literals, K and admitted FIX leaves can
+use scalar arithmetic and unary signs. K-dependent products and divisors are
+rejected even when algebraic cancellation would hide their dependence. MAX,
+EXP, control flow, arbitrary callbacks, unknown indices and ON settlement do not
+acquire this deterministic capability. Known Gaussian templates retain their
+own admission rules.
+
+Weights, accruals and fractional notionals can be source literals. For example,
+this event on 2027-10-25 uses a .8 notional fraction, independent .7/.47 floating
+weight/accrual, .5 fixed accrual, actual payment lag and explicit observation:
+
+```text
+PAY PAYS N*(0.8*(0.7*0.47*((1/FIX(IR[USD,DF,2027-10-21,2027-04-21],2027-04-19)-1)/(183/360))-0.5*K))
+```
+
+Declare N/Notional in Price:USD, K/Coupon in Rate and ParRate/ParAffineRate with
+annuity sign -1 and a positive floor for this direction. Add further concrete
+payment rows to express amortization without another native instrument type or
+new parameter keys. The same source-derived coefficient program supplies Price
+and `-B/A`; each candidate checks the actual annuity sign/floor. Observed coupons
+must use `PreparedCurveInstruments_`, rather than treating their amounts as
+fixed inputs to the discount-only `Price`/`Coefficients` convenience methods.
+
+Single-curve forwards use explicit `DF(start,end)` observations. Separate
+projection uses canonical 3M/6M LCH Libor with concrete starts. Native maturity
+and index accrual must match nominal maturity and the actual currency Libor day
+basis; mismatched projection stubs/conventions are rejected. Register the exact,
+case-sensitive route returned by `CurveScriptProjectionRoute`:
+
+```cpp
+spec.market_.routes_.push_back({
+    Dal::CurveScriptProjectionRoute(Dal::Ccy_("USD"), Dal::PeriodLength_("3M")),
+    true, Dal::CollateralType_("OIS"), Dal::PeriodLength_("3M")});
+spec.market_.forwardCurves_[Dal::PeriodLength_("3M")] = backgroundThreeMonthCurve;
+```
+
+The background entry is required when that live tenor is not the calibrated
+projection target. Preparation validates actual binding, role, tenor, currency,
+collateral and initial forward execution before publishing a capability or
+entering Solve. A target projection uses the candidate curve; it needs an
+explicit compatible discount background instead of a redundant target entry.
+No global market fallback is used.
+
+Historical fixings and RequireHistorical today use the exact frozen snapshot
+and need no model projection route; their curve partials are zero. Model today
+uses the live route, and a future snapshot entry never substitutes for a live
+observation. Missing fixings and invalid live bindings fail during Prepare.
+Each row's owning report retains its instrument/observation/quote/measure IDs,
+original field and cause, one-based source row, date and zero-based statement,
+including after the input spec leaves scope. Failed admission consumes no Solve
+evaluations and publishes no failed capability.
+
+AutoFast/RequireFast and GenericDeterministic consume the same complete lowered
+cashflows. The curve adapter supplies raw native FD/AAD Price and par partials;
+these are not calibrated quote risk. New curve families reject ScriptMC,
+including explicit opt-in. Their deterministic admission does not imply a
+matching stochastic model, XCCY support or a general script optimizer.
 
 ## Same-instrument Monte Carlo
 

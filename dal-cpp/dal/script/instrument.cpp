@@ -116,11 +116,13 @@ namespace Dal {
             return d.role_ == ScriptParameterRole_::Value_::Coupon || d.role_ == ScriptParameterRole_::Value_::Strike ||
                    d.role_ == ScriptParameterRole_::Value_::RateStrike;
         }
-        String_ ParameterUnit(const ScriptParameterDeclaration_& d, const ScriptInstrumentHeader_& header) {
+        String_ ParameterUnit(const ScriptParameterDeclaration_& d, const ScriptInstrumentHeader_& header, bool allowSpread) {
             if (Bytes(d.key_) == "N")
                 return "Price:" + String_(header.payCurrency_.String());
             if (Bytes(d.key_) == "ALPHA")
                 return "YearFraction";
+            if (d.role_ == ScriptParameterRole_::Value_::Coupon)
+                return allowSpread && Bytes(d.unit_.Token()) == "BasisSpread" ? "BasisSpread" : "Rate";
             return d.role_ == ScriptParameterRole_::Value_::Strike ? "BondPrice" : "Rate";
         }
         bool NonemptyDomain(const ScriptParameterDeclaration_& d) {
@@ -134,6 +136,7 @@ namespace Dal {
         }
         void ValidateDeclaration(const ScriptParameterDeclaration_& d,
                                  const ScriptInstrumentHeader_& header,
+                                 bool allowSpread,
                                  const String_& path,
                                  const CalibrationDiagnostic_& context) {
             Check(d.type_ == ScriptParameterType_::Value_::Real, DEF_ERROR, path + "/type", "Real", "", context);
@@ -142,7 +145,7 @@ namespace Dal {
             Check(n || k || alpha, DEF_ERROR, path + "/key", "P0 slots N, K, ALPHA", d.key_, context);
             Check(ParameterRoleMatches(d), DEF_ERROR, path + "/role", "role matching parameter slot", "", context);
             Check(d.bindable_ == (n || k), DEF_ERROR, path + "/bindable", "only N/K bindable", "", context);
-            const auto expected = ParameterUnit(d, header);
+            const auto expected = ParameterUnit(d, header, allowSpread);
             Check(Bytes(d.unit_.Token()) == Bytes(expected), DEF_ERROR, path + "/unit", expected, d.unit_.Token(), context);
             ValidateDomain(d, path, context);
         }
@@ -159,13 +162,13 @@ namespace Dal {
                 Check(ValidKey(d.key_) && keys.insert(Bytes(d.key_)).second && defaults.count(Bytes(d.key_)) != 0, DEF_ERROR, path + "/key",
                       "unique declared numeric slot", d.key_, context);
                 Check(Bytes(spec.source_.rows_[i].key_) == Bytes(d.key_), DEF_ERROR, path + "/key", "source-definition order", d.key_, context);
-                ValidateDeclaration(d, spec.header_, path, context);
+                ValidateDeclaration(d, spec.header_, defaults.count("ALPHA") == 0, path, context);
                 const double value = defaults.at(Bytes(d.key_));
                 ValidateParameter(value, d, "/source/rows/" + OrdinalText(i) + "/text", context, DEF_ERROR);
                 values.push_back(value);
             }
             Check(keys.count("N") != 0 && keys.count("K") != 0, DEF_ERROR, "/parameters", "N and K declarations");
-            Check(keys.count("ALPHA") == static_cast<size_t>(coupon), DEF_ERROR, "/parameters", "ALPHA for Deposit coupon only");
+            Check(keys.count("ALPHA") == 0 || coupon, DEF_ERROR, "/parameters", "ALPHA for coupon contracts only");
             return values;
         }
         void ValidatePriceMeasure(const CalibrationMeasureSpec_& m,
@@ -179,14 +182,30 @@ namespace Dal {
                   "Price in pay currency", m.unit_.Token(), context);
         }
         bool ParRateParameter(const CalibrationMeasureSpec_& m) { return Bytes(m.id_) == "ParRate" && m.parameter_ && Bytes(*m.parameter_) == "K"; }
-        bool PositiveAnnuity(const CalibrationMeasureSpec_& m) {
-            return m.annuitySign_ && *m.annuitySign_ == 1 && m.minAbsAnnuity_ && std::isfinite(*m.minAbsAnnuity_) && *m.minAbsAnnuity_ > 0.;
+        bool ValidAnnuity(const CalibrationMeasureSpec_& m, bool legacyDeposit) {
+            return m.annuitySign_ && (*m.annuitySign_ == 1 || (!legacyDeposit && *m.annuitySign_ == -1)) && m.minAbsAnnuity_ &&
+                   std::isfinite(*m.minAbsAnnuity_) && *m.minAbsAnnuity_ > 0.;
         }
-        void ValidateParMeasure(const CalibrationMeasureSpec_& m, bool coupon, const String_& path, const CalibrationDiagnostic_& context) {
-            Check(m.kind_ == CalibrationMeasureKind_::Value_::ParAffineRate && coupon, "UnsupportedCalibrationMeasure", path + "/kind",
-                  "P0 Price or Deposit ParAffineRate", "", context);
-            Check(ParRateParameter(m) && PositiveAnnuity(m) && Bytes(m.unit_.Token()) == "Rate", DEF_ERROR, path,
-                  "ParRate(K), Rate, positive annuity floor and sign +1", "", context);
+        bool ParName(const CalibrationMeasureSpec_& measure, bool spread) {
+            return spread ? Bytes(measure.id_) == "BasisSpread" && measure.parameter_ && Bytes(*measure.parameter_) == "K"
+                          : ParRateParameter(measure);
+        }
+        bool CouponUnit(const ScriptInstrumentDefinitionSpec_& spec, const String_& unit) {
+            const auto parameter = std::find_if(spec.parameters_.begin(), spec.parameters_.end(), [](const auto& p) { return p.key_ == "K"; });
+            return parameter != spec.parameters_.end() && Bytes(parameter->unit_.Token()) == Bytes(unit);
+        }
+        void ValidateParMeasure(const CalibrationMeasureSpec_& m,
+                                const ScriptInstrumentDefinitionSpec_& spec,
+                                bool coupon,
+                                const String_& path,
+                                const CalibrationDiagnostic_& context) {
+            const bool spread = m.kind_ == CalibrationMeasureKind_::Value_::ParAffineSpread;
+            Check(coupon && (spread || m.kind_ == CalibrationMeasureKind_::Value_::ParAffineRate), "UnsupportedCalibrationMeasure", path + "/kind",
+                  "Price or coupon ParAffineRate/ParAffineSpread", "", context);
+            const String_ unit = spread ? "BasisSpread" : "Rate";
+            const bool legacyDeposit = spec.parameters_.size() == 3;
+            Check(ParName(m, spread) && ValidAnnuity(m, legacyDeposit) && Bytes(m.unit_.Token()) == Bytes(unit) && CouponUnit(spec, unit), DEF_ERROR,
+                  path, "matching K coupon/measure units, positive annuity floor and declared sign", "", context);
         }
         void ValidateMeasures(const ScriptInstrumentDefinitionSpec_& spec, bool coupon) {
             const auto& header = spec.header_;
@@ -204,7 +223,7 @@ namespace Dal {
                     ValidatePriceMeasure(m, price, header, path, context);
                     price = true;
                 } else {
-                    ValidateParMeasure(m, coupon, path, context);
+                    ValidateParMeasure(m, spec, coupon, path, context);
                 }
             }
             Check(price, "NoSharedPriceDefinition", "/measures", "exactly one Price measure");

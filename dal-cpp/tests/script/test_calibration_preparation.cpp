@@ -181,6 +181,28 @@ namespace {
     }
 } // namespace
 
+TEST(CalibrationPreparationTest, TestLiteralCurveFamilySharesPriceAndAffineSource) {
+    auto spec = DepositSpec();
+    spec.parameters_.pop_back();
+    spec.source_.rows_ = {{ScriptSourceRowKind_::Value_::Definition, "N", "100"},
+                          {ScriptSourceRowKind_::Value_::Definition, "K", "0.025"},
+                          {ScriptSourceRowKind_::Value_::Event, "2026-10-21", "pay PAYS N*(0.5*K-0.01)"},
+                          {ScriptSourceRowKind_::Value_::Event, "2027-10-21", "pay PAYS N*(0.25*K-0.02)"},
+                          {ScriptSourceRowKind_::Value_::Event, "2028-10-21", "pay PAYS N*(0.25*K-0.03)"}};
+    const auto instrument = Instrument(spec);
+    for (const auto method : {CalibrationEvaluation_::Value_::AutoFast, CalibrationEvaluation_::Value_::GenericDeterministic}) {
+        CalibrationEvaluationOptions_ options;
+        options.evaluation_ = method;
+        const auto price = PrepareCalibrationInstrument(instrument, "Price", Context(), options);
+        const auto rate = PrepareCalibrationInstrument(instrument, "ParRate", Context(), options);
+        const auto ab = rate.Coefficients({1., .97, .93});
+        ASSERT_NEAR(ab.a_, 100. * (.5 + .25 * .97 + .25 * .93), 1e-12);
+        ASSERT_NEAR(ab.b_, -100. * (.01 + .02 * .97 + .03 * .93), 1e-12);
+        ASSERT_NEAR(price.Price({1., .97, .93}), ab.b_ + .025 * ab.a_, 1e-12);
+        ASSERT_NEAR(rate.AffineMeasure(ab).value_, -ab.b_ / ab.a_, 1e-12);
+    }
+}
+
 TEST(CalibrationPreparationTest, TestAffineCoefficientsAndIndependentQuotientOracle) {
     const auto plan = PrepareCalibrationInstrument(Instrument(), "ParRate", Context());
     ASSERT_EQ(plan.Capability().backend_, CalibrationBackend_::Value_::FastDeterministic);
@@ -403,6 +425,35 @@ namespace {
         return options;
     }
 } // namespace
+
+TEST(CalibrationPreparationTest, TestCurveFamilyCannotAcquireGeneralMcRuleWithMatchingGaussianModel) {
+    auto spec = DepositSpec();
+    spec.parameters_.pop_back();
+    spec.source_.rows_ = {{ScriptSourceRowKind_::Value_::Definition, "N", "100"},
+                          {ScriptSourceRowKind_::Value_::Definition, "K", "0.025"},
+                          {ScriptSourceRowKind_::Value_::Event, "2027-10-21", "pay PAYS N*(K-FIX(IR[USD,DF,2028-10-21]))"}};
+    const auto instrument = Instrument(spec);
+    const auto deterministic = PrepareCalibrationInstrument(instrument, "Price", Context());
+    ASSERT_TRUE(std::holds_alternative<CalibrationCurveFamily_>(deterministic.Descriptor()));
+    ASSERT_EQ(deterministic.Capability().ruleId_, "dal.curve-affine-cashflows/1");
+    deterministic.RequireCompatible(instrument, Context());
+    std::optional<CalibrationError_> saved;
+    try {
+        static_cast<void>(PrepareCalibrationInstrument(instrument, "Price", GaussianContext(), GeneralMcOptions()));
+    } catch (const CalibrationError_& error) {
+        saved = error;
+    }
+    ASSERT_TRUE(saved);
+    const auto& diagnostic = saved->Failure().diagnostic_;
+    ASSERT_EQ(diagnostic.code_, "UnsupportedFastEvaluator");
+    ASSERT_EQ(diagnostic.stage_, CalibrationStage_::Value_::Prepare);
+    ASSERT_EQ(diagnostic.field_, std::optional<String_>("/options/evaluation"));
+    ASSERT_EQ(diagnostic.instrumentId_, std::optional<String_>(instrument->Id()));
+    ASSERT_EQ(diagnostic.measureId_, std::optional<String_>("Price"));
+    ASSERT_TRUE(saved->Failure().report_);
+    ASSERT_EQ(saved->Failure().report_->Errors().size(), 1);
+    ASSERT_EQ(saved->Failure().report_->Errors()[0].field_, diagnostic.field_);
+}
 
 TEST(CalibrationPreparationTest, TestGeneralPriceMcAdmitsBoundArithmeticAverage) {
     const auto instrument = Instrument(AverageSpec());

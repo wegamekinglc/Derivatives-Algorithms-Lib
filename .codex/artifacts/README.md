@@ -12,6 +12,10 @@ current-state explanations in the published docs or focused Codex references.
   — Active general Price admission, selected-g driver, frozen arithmetic-average
   oracle/fit/validation/held-out evidence and bounded caller measurements.
 
+- [DAL-406 deterministic curve script families](implementation/dal-406-curve-product-fast-paths.md)
+  — Active FRA/IRS/period-forward OIS/Basis/custom cashflow admission, independent
+  value/raw-derivative evidence, projection/owned-error repairs and serial documentation.
+
 - [DAL-411 Gaussian rate-option fast paths](implementation/dal-411-gaussian-fast-paths.md)
   — Active Caplet/Swaption source admission, independent Price/gradient oracles,
   effective-rank and frozen MC-budget evidence, with serial documentation integration.
