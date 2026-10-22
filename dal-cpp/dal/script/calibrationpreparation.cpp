@@ -4,6 +4,7 @@
 #include <dal/calibration/validation_internal.hpp>
 #include <dal/currency/currencydata.hpp>
 #include <dal/curve/curvescript_internal.hpp>
+#include <dal/curve/xccyscript_internal.hpp>
 #include <dal/indice/index/ir.hpp>
 #include <dal/model/gsrmultidata.hpp>
 #include <dal/model/gsrrateoption_internal.hpp>
@@ -54,7 +55,7 @@ namespace Dal {
             Check(!c.model_ || GaussianCurve(c.model_) != nullptr, "UnsupportedFastEvaluator", "/context/model",
                   "native one- or multi-factor Gaussian model; type names are not capability proofs", "", d);
         }
-        String_ ContextIdentity(const CalibrationPreparationContext_& c, const CalibrationDiagnostic_& d) {
+        String_ GenericContextIdentity(const CalibrationPreparationContext_& c, const CalibrationDiagnostic_& d) {
             const String_ code = "CalibrationContextMismatch";
             Check(c.valuation_.evaluationDate_ && c.valuation_.evaluationDate_->IsValid(), code, "/context/valuation_date",
                   "explicit valid valuation date", "", d);
@@ -83,6 +84,9 @@ namespace Dal {
                                     {"conventions", Str(c.conventionState_)},
                                     {"smoothing", Num(c.smoothing_)}}));
         }
+        String_ ContextIdentity(const CalibrationPreparationContext_& c, const CalibrationDiagnostic_& d) {
+            return c.xccy_ ? XccyScriptInternal::ContextIdentity(c, d) : GenericContextIdentity(c, d);
+        }
         String_ RateContextIdentity(const CalibrationPreparationContext_& c, const String_& identity, const CalibrationDiagnostic_& d) {
             return Fingerprint(Obj({{"context", Str(identity)},
                                     {"libor_day_basis", Str(Token(Ccy::Conventions::LiborDayBasis()(c.currency_), "CalibrationContextMismatch",
@@ -92,6 +96,10 @@ namespace Dal {
                                           const CalibrationFastDescriptor_& descriptor,
                                           const String_& identity,
                                           const CalibrationDiagnostic_& d) {
+            if (const auto* xccy = std::get_if<CalibrationXccy_>(&descriptor)) {
+                Check(c.xccy_ && *xccy, "CalibrationContextMismatch", "/context", "dedicated XCCY context", "", d);
+                return XccyScriptInternal::ContextIdentity(*c.xccy_, (*xccy)->fixings_.get(), d);
+            }
             if (std::holds_alternative<CalibrationCurveFamily_>(descriptor))
                 return CurveScriptInternal::ContextIdentity(c, identity, d);
             return std::holds_alternative<CalibrationRateOptionDescriptor_>(descriptor) ? RateContextIdentity(c, identity, d) : identity;
@@ -100,6 +108,12 @@ namespace Dal {
                                           const CalibrationFastDescriptor_& descriptor,
                                           const CalibrationDiagnostic_& d) {
             return DescriptorBindingIdentity(c, descriptor, ContextIdentity(c, d), d);
+        }
+        void HeaderContext(const CalibrationPreparationContext_& context, const ScriptInstrumentHeader_& header, const CalibrationDiagnostic_& d) {
+            const auto currency = context.xccy_ ? context.xccy_->pair_.domestic_ : context.currency_;
+            const auto route = context.xccy_ ? context.xccy_->discountRoute_ : context.discountRoute_;
+            Check(currency == header.payCurrency_ && Bytes(route) == Bytes(header.discountRoute_), "CalibrationContextMismatch", "/context",
+                  "matching currency and explicit discount route", "", d);
         }
         bool Slot(const Node_& node, const String_& name) {
             const auto* slot = dynamic_cast<const NodeConstVar_*>(&node);
@@ -492,6 +506,18 @@ namespace Dal {
                             const CalibrationEvaluationOptions_& options,
                             const CalibrationMeasureSpec_& measure,
                             const CalibrationDiagnostic_& d) {
+            if (context.xccy_) {
+                Vector_<const NodePays_*> nodes;
+                Vector_<CalibrationDiagnostic_> sources;
+                Payoff_ result;
+                for (const auto& payment : payments) {
+                    nodes.push_back(payment.node_);
+                    sources.push_back(payment.source_);
+                    result.cashflows_.push_back({payment.date_, {}, 0., 0., *payment.source_.sourceRow_, *payment.source_.statement_});
+                }
+                result.descriptor_ = XccyScriptInternal::Lower(instrument, *context.xccy_, nodes, sources);
+                return result;
+            }
             if (deposit)
                 return DepositPayoff(payments, instrument, product, context, d);
             if (const auto option = BondOption(payments, instrument, context, d)) {
@@ -525,13 +551,15 @@ namespace Dal {
                       payment.source_);
             }
         }
-        String_ CompilerIdentity(bool family, bool rate) {
-            return Fingerprint(Obj({{"build", Str("dal.core/1")},
-                                    {"parser", Str("typed-slots/1")},
-                                    {"lowering", Str(family ? "curve-cashflows/1" : (rate ? "rate-option-cashflows/1" : "p0-cashflows/1"))},
-                                    {"matcher", Str(family ? "curve-affine-ast/1" : (rate ? "rate-option-ast/1" : "p0-ast/2"))},
-                                    {"constant_binding", Str("effective-slots/1")},
-                                    {"receiver_guard", Str("whole-history/2")}}));
+        String_ CompilerIdentity(bool family, bool rate, bool xccy) {
+            return Fingerprint(
+                Obj({{"build", Str("dal.core/1")},
+                     {"parser", Str("typed-slots/1")},
+                     {"lowering",
+                      Str(xccy ? "xccy-cashflows/1" : (family ? "curve-cashflows/1" : (rate ? "rate-option-cashflows/1" : "p0-cashflows/1")))},
+                     {"matcher", Str(xccy ? "xccy-complete-ast/1" : (family ? "curve-affine-ast/1" : (rate ? "rate-option-ast/1" : "p0-ast/2")))},
+                     {"constant_binding", Str("effective-slots/1")},
+                     {"receiver_guard", Str("whole-history/2")}}));
         }
         void Discounts(const Vector_<>& discounts, size_t size, const CalibrationDiagnostic_& d) {
             Check(discounts.size() == size, "InvalidCalibrationPlan", "/discounts", "one discount per live cashflow", "", d);
@@ -554,25 +582,27 @@ namespace Dal {
         Check(found != spec.measures_.end(), "UnsupportedCalibrationMeasure", "/measure_id", "declared measure ID", measureId, d);
         result.measure_ = *found;
         result.contextIdentity_ = ContextIdentity(context, d);
-        Check(context.currency_ == spec.header_.payCurrency_ && Bytes(context.discountRoute_) == Bytes(spec.header_.discountRoute_),
-              "CalibrationContextMismatch", "/context", "matching currency and explicit discount route", "", d);
+        HeaderContext(context, spec.header_, d);
+        if (context.xccy_)
+            static_cast<void>(XccyScriptInternal::Admit(options, d));
         auto product = instrument->Product();
         const auto payments = Payments(*product, spec.header_.receiver_, d, found->kind_ != CalibrationMeasureKind_::Value_::Price);
         const bool deposit = IsDeposit(payments);
         const bool curveCandidate = CurveScriptInternal::Candidate(*instrument);
-        ValidatePayments(payments, !curveCandidate && found->kind_ != CalibrationMeasureKind_::Value_::Price);
+        ValidatePayments(payments, !context.xccy_ && !curveCandidate && found->kind_ != CalibrationMeasureKind_::Value_::Price);
         auto payoff = LowerPayoff(deposit, payments, *instrument, product.get(), context, options, result.measure_, d);
         result.descriptor_ = std::move(payoff.descriptor_);
         result.cashflows_ = std::move(payoff.cashflows_);
         result.contextIdentity_ = DescriptorBindingIdentity(context, result.descriptor_, result.contextIdentity_, d);
         const bool family = std::holds_alternative<CalibrationCurveFamily_>(result.descriptor_);
-        result.capability_ = family ? AdmitCurve(context, options, d) : Admit(deposit, result.measure_, context, options, d);
+        result.capability_ = context.xccy_ ? XccyScriptInternal::Admit(options, d)
+                                           : (family ? AdmitCurve(context, options, d) : Admit(deposit, result.measure_, context, options, d));
         const auto* rate = std::get_if<CalibrationRateOptionDescriptor_>(&result.descriptor_);
         if (rate)
             result.capability_.ruleId_ = CalibrationRateOptionInternal::Rule(*rate);
         if (result.capability_.backend_ == CalibrationBackend_::Value_::ScriptMC)
             result.sampling_ = options.sampling_;
-        result.compilerIdentity_ = CompilerIdentity(family, rate != nullptr);
+        result.compilerIdentity_ = CompilerIdentity(family, rate != nullptr, static_cast<bool>(context.xccy_));
         result.planIdentity_ = Fingerprint(Obj({{"instrument", Str(instrument->InstrumentIdentity())},
                                                 {"measure", Str(measureId)},
                                                 {"compiler", Str(result.compilerIdentity_)},

@@ -113,16 +113,23 @@ namespace Dal {
             return activeValue();
         }
 
+        template <class T_>
+        T_ FxForwardValue(const XccyMarketView_<T_>& market,
+                          const Date_& date,
+                          const CollateralType_& domesticCollateral,
+                          const CollateralType_& foreignCollateral) {
+            const auto& domestic = market.domestic_->Discount(domesticCollateral);
+            const auto& foreign = market.foreign_->Discount(foreignCollateral);
+            REQUIRE(domestic.ccy_ == market.pair_.domestic_ && foreign.ccy_ == market.pair_.foreign_, "XCCY FX forward curve currency mismatch");
+            const T_ domesticDf = DiscountFromValuation(domestic, market.valuationTime_, date);
+            const T_ foreignDf = DiscountFromValuation(foreign, market.valuationTime_, date);
+            const T_ basisDf = market.basis_ ? DiscountFromValuation(*market.basis_, market.valuationTime_, date) : T_(1.);
+            // Preserve native reciprocal order and basis sign.
+            return market.fxSpot_ * foreignDf * (T_(1.) / (domesticDf * basisDf));
+        }
         template <class T_> T_ ActiveFxForward(const XccyCashflowPlan_& plan, const XccyMarketView_<T_>& market, const DateTime_& fixingTime) {
-            const auto& domesticDiscount = market.domestic_->Discount(plan.config_.convention_.domesticIndex_.collateral_);
-            const auto& foreignDiscount = market.foreign_->Discount(plan.config_.convention_.foreignIndex_.collateral_);
-            REQUIRE(domesticDiscount.ccy_ == plan.config_.pair_.domestic_ && foreignDiscount.ccy_ == plan.config_.pair_.foreign_,
-                    "XCCY FX forward curves do not match the configured currency pair");
-            const T_ domesticDf = DiscountFromValuation(domesticDiscount, market.valuationTime_, fixingTime.Date());
-            const T_ foreignDf = DiscountFromValuation(foreignDiscount, market.valuationTime_, fixingTime.Date());
-            const T_ basisDf = market.basis_ ? DiscountFromValuation(*market.basis_, market.valuationTime_, fixingTime.Date()) : T_(1.0);
-            // Keep the established reciprocal order for active/passive PV agreement.
-            return market.fxSpot_ * foreignDf * (T_(1.0) / (domesticDf * basisDf));
+            return FxForwardValue(market, fixingTime.Date(), plan.config_.convention_.domesticIndex_.collateral_,
+                                  plan.config_.convention_.foreignIndex_.collateral_);
         }
 
         template <class T_> void ValidateMarketView(const XccyCashflowPlan_& plan, const XccyMarketView_<T_>& market) {
@@ -135,8 +142,33 @@ namespace Dal {
             REQUIRE(!market.basis_ || market.basis_->ccy_ == plan.config_.pair_.domestic_,
                     "XCCY basis curve currency must match the domestic currency");
         }
+        template <class T_> void ValidateFxMarket(const XccyMarketView_<T_>& market) {
+            REQUIRE(!(market.pair_.domestic_ == market.pair_.foreign_), "XCCY FX forward requires distinct currencies");
+            REQUIRE(market.domestic_ && market.foreign_, "XCCY FX forward requires both currency blocks");
+            REQUIRE(market.collateralCurrency_ == market.pair_.domestic_, "XCCY FX forward supports domestic collateral only");
+            REQUIRE(std::isfinite(AAD::Value(market.fxSpot_)) && AAD::Value(market.fxSpot_) > 0., "XCCY FX forward requires positive finite spot");
+            REQUIRE(!market.basis_ || market.basis_->ccy_ == market.pair_.domestic_, "XCCY FX forward requires domestic basis currency");
+        }
 
     } // namespace
+
+    template <class T_>
+    T_ XccyFxForward(const XccyMarketView_<T_>& market,
+                     const Date_& date,
+                     bool reverse,
+                     const CollateralType_& domesticCollateral,
+                     const CollateralType_& foreignCollateral) {
+        REQUIRE(market.valuationTime_.IsValid() && date.IsValid() && date >= market.valuationTime_.Date(),
+                "XCCY FX forward requires a valid date on or after valuation");
+        ValidateFxMarket(market);
+        const T_ forward = FxForwardValue(market, date, domesticCollateral, foreignCollateral);
+        const T_ result = reverse ? T_(1.) / forward : forward;
+        REQUIRE(std::isfinite(AAD::Value(result)) && AAD::Value(result) > 0., "XCCY FX forward requires a positive finite result");
+        return result;
+    }
+
+    template double XccyFxForward(const XccyMarketView_<double>&, const Date_&, bool, const CollateralType_&, const CollateralType_&);
+    template AAD::Number_ XccyFxForward(const XccyMarketView_<AAD::Number_>&, const Date_&, bool, const CollateralType_&, const CollateralType_&);
 
     XccyCashflowPlan_ BuildXccyCashflowPlan(const Date_& start, const Date_& maturity, const CrossCurrencySwapConfig_& config) {
         ValidateResetConfig(config);
