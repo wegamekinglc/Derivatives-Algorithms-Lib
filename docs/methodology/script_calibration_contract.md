@@ -788,7 +788,10 @@ fit/validation values and SE, and independent held-out values and flags.
 Report schema remains `dal.calibration-report/1`. Raw Jacobians are M×N
 dPrice/dNativeG; the quote map is separate. Unavailable matrices raise
 DerivativeUnavailable, and unavailable metadata stays null. Fast quadrature
-errors are numerical errors, never statistical SE. Public report admission
+errors are numerical errors, never statistical SE. Validation records compare
+against fit values and use the frozen numerical budget; held-out differences
+compare the market target and use its error scale.
+Public report admission
 records source/binding/compiler/context identities without repricing; its
 preparation count is separate from unchanged driver counters.
 Convergence, fit tolerance, numerical validation and requested held-out acceptance

@@ -235,7 +235,7 @@ namespace Dal {
             record.quantity_ = "Price";
             record.reason_ = accepted ? "Accepted" : "Rejected";
             record.value_ = value.mean_;
-            record.difference_ = value.mean_ - row->Quote()->Value();
+            record.difference_ = Finite(value.mean_ - row->Quote()->Value());
             record.standardError_ = value.standardError_;
             record.absoluteTolerance_ = row->ErrorScale();
             record.sigmaMultiplier_ = s.validationSigma_;
@@ -302,9 +302,13 @@ namespace Dal {
                 if (mc) {
                     row.standardError_ = r.fit_[i].standardError_;
                     row.validationValue_ = r.validation_[i].mean_;
-                    row.validationError_ = r.validationIndicators_[i].errorIndicator_;
+                    row.validationError_ = Finite(r.validationIndicators_[i].errorIndicator_);
                     Validation(data, r.axes_.observations_[i], r.validation_[i], "Validation", s,
                                r.validationIndicators_[i].numericalValidationPassed_);
+                    auto& validation = data->validation_.back();
+                    validation.difference_ = Finite(r.validation_[i].mean_ - r.fit_[i].mean_);
+                    validation.absoluteTolerance_ = s.solver_.numericalErrorFraction_ * r.axes_.observations_[i]->ErrorScale();
+                    validation.reason_ = r.validationIndicators_[i].terminationReason_;
                 } else {
                     row.validationError_ = Finite(r.numericalErrors_[i]);
                 }

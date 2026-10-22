@@ -92,6 +92,13 @@ TEST(ExcelGsrInstrumentTest, TestSettingsMissingValuationIsWorksheetInputError) 
 TEST(ExcelGsrInstrumentTest, TestStrictFieldsAndParameterRows) {
     const Fixture_ f;
     Handle_<StorableGSRInstrumentCalibrationSettings_> settings;
+    try {
+        GSRInstrumentCalibrationSettings_New(Fields({{"valuation", Cell_(Store(f.valuation_))}, {"valuation", Cell_(Store(f.valuation_))}}),
+                                             &settings);
+        FAIL() << "Expected duplicate at the second field row";
+    } catch (const Exception_& error) {
+        ASSERT_NE(std::string(error.what()).find("row=2 column=1"), std::string::npos);
+    }
     for (const auto& rows : {Fields({{"valuation", Cell_(Store(f.valuation_))}, {"Valuation", Cell_(Store(f.valuation_))}}),
                              Fields({{"valuation", Cell_(Store(f.valuation_))}, {"unknown", Cell_(1.)}}),
                              Fields({{"valuation", Cell_(Store(f.valuation_))}, {"compiled", Cell_(1.)}}),

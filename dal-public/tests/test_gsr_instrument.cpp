@@ -123,6 +123,8 @@ TEST(PublicGsrInstrumentTest, TestMcMapsCountsAndHeldOutWithoutAnotherEvaluation
     ASSERT_EQ(data.observations_.size(), 1u);
     ASSERT_DOUBLE_EQ(*data.observations_[0].standardError_, native.fit_[0].standardError_);
     ASSERT_DOUBLE_EQ(*data.validation_[0].standardError_, native.validation_[0].standardError_);
+    ASSERT_DOUBLE_EQ(*data.validation_[0].difference_, native.validation_[0].mean_ - native.fit_[0].mean_);
+    ASSERT_DOUBLE_EQ(*data.validation_[0].absoluteTolerance_, f.settings_.solver_.numericalErrorFraction_ * f.rows_[0]->ErrorScale());
 }
 
 TEST(PublicGsrInstrumentTest, TestSamplingConflictsAndCheckedBudgetEndpoints) {

@@ -82,14 +82,24 @@ namespace Dal {
             String_ field_;
             std::set<std::string> used_;
 
-        public:
-            GsrFields_(const Matrix_<Cell_>& cells, const String_& function) : fields_(cells), cells_(cells), function_(function) {
+            static const Matrix_<Cell_>& ValidateFields(const Matrix_<Cell_>& cells, const String_& function) {
+                if (cells.Rows() == 0 || (cells.Rows() == 1 && cells.Cols() == 1 && Cell::IsEmpty(cells(0, 0))))
+                    return cells;
+                REQUIRE(cells.Cols() == 2, Excel::ScriptSettingLocation(function, "settings", 1, 1) + "expected field/value columns");
                 std::map<String_, int> keys;
-                for (int i = 0; i < cells.Rows() && cells.Cols() == 2; ++i) {
+                for (int i = 0; i < cells.Rows(); ++i) {
+                    const auto context = Excel::ScriptSettingLocation(function, "settings", i + 1, 1);
+                    REQUIRE(Cell::IsString(cells(i, 0)), context + "expected text field");
                     const auto key = Excel::Calibration::Text(cells(i, 0));
-                    REQUIRE(keys.emplace(key, i).second, Location(key, i + 1) + "duplicate normalized field");
+                    REQUIRE(!key.empty(), context + "expected nonempty field");
+                    REQUIRE(keys.emplace(key, i).second, context + "field=" + key + "; duplicate normalized field");
                 }
+                return cells;
             }
+
+        public:
+            GsrFields_(const Matrix_<Cell_>& cells, const String_& function)
+                : fields_(ValidateFields(cells, function)), cells_(cells), function_(function) {}
             String_ Location(const String_& key, int row = 0) const {
                 if (!row)
                     for (int i = 0; i < cells_.Rows() && cells_.Cols() == 2; ++i)

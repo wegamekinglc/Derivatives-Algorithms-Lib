@@ -68,6 +68,10 @@ logs, XML and caller rows. Exploratory failures remain separate.
   matrix; MC FD report admission incorrectly requested a direct per-view FD.
   Each failed before its adapter fix. The example's initial Dimensionless K
   rebind also failed, then passed with source-declared BondPrice.
+  Final review added RED/GREEN for validation differences relative to fit
+  and the exact numerical budget, plus duplicate Excel fields retaining
+  their actual second-row/first-column location. Nonfinite derived report
+  indicators/differences remain unavailable instead of masking a candidate.
 - Actual targets built with GCC 15.2, CMake 4.2.3, native AADET/Eigen,
   native-arch off, CPython 3.13:
   `cmake --build build/Release-linux --target dal_public_tests dal_excel_portable_tests _dal gsr_script_calibration -j 6`.
@@ -136,8 +140,8 @@ The installed consumer provides minimal actual caller timing: one BondOption/
 g coordinate, fast and MC AAD, core/public, one DAL thread on CPU 4, twenty
 warmups and ten measured calls per case. All **40** rows have identical price,
 raw partial, driver work/path counts and final plan identity within each pair.
-Median microseconds: fast core/public **929.6025/1053.702**; MC core/public
-**1622.5505/1794.9415**. This measures metadata overhead and is informational,
+Median microseconds: fast core/public **1045.451/1197.9325**; MC core/public
+**1862.927/2190.438**. This measures metadata overhead and is informational,
 not a performance gate or optimization claim.
 
 The prior report-foundation before/after caller evidence remains valid for
