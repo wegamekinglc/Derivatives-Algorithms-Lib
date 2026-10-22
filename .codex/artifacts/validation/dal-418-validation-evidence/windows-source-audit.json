@@ -1,0 +1,28 @@
+{
+  "tested_head": "6372ede9452b2ec912234a373666dda9b239a1bc",
+  "verified_blobs": 5555,
+  "eol_exports": [
+    "build_windows.bat",
+    "dal-cpp/dal/auto/MG_AnalyticIneligibilityReason_enum.hpp",
+    "dal-cpp/dal/auto/MG_AnalyticIneligibilityReason_enum.inc",
+    "dal-cpp/dal/auto/MG_CurveFreeParameterComponent_enum.hpp",
+    "dal-cpp/dal/auto/MG_CurveFreeParameterComponent_enum.inc",
+    "dal-cpp/dal/auto/MG_CurveKnotCandidateDisposition_enum.hpp",
+    "dal-cpp/dal/auto/MG_CurveKnotCandidateDisposition_enum.inc",
+    "dal-cpp/dal/auto/MG_CurveKnotOriginKind_enum.hpp",
+    "dal-cpp/dal/auto/MG_CurveKnotOriginKind_enum.inc",
+    "dal-cpp/dal/auto/MG_DiscountPWC_v1_Read.inc",
+    "dal-cpp/dal/auto/MG_DiscountPWC_v1_Write.inc",
+    "dal-cpp/dal/auto/MG_RateInstrumentType_enum.hpp",
+    "dal-cpp/dal/auto/MG_RateInstrumentType_enum.inc",
+    "dal-cpp/dal/auto/MG_ScriptProductData_v3_Read.inc",
+    "dal-cpp/dal/auto/MG_ScriptProductData_v3_Write.inc",
+    "dal-cpp/dal/auto/MG_TodayFixingPolicy_enum.hpp",
+    "dal-cpp/dal/auto/MG_TodayFixingPolicy_enum.inc",
+    "dal-excel/tests/windows/run-script-fix-settings.ps1",
+    "dal-excel/tests/windows/test-script-fix-cleanup.ps1",
+    "dal-python/build_wheel.ps1",
+    "dal-python/run_tests.ps1"
+  ],
+  "content_mismatches": []
+}
