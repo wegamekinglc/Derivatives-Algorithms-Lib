@@ -427,6 +427,16 @@ TEST(CalibrationPreparationTest, TestGeneralMcCannotBypassDepositPayoffChecks) {
     }
 }
 
+TEST(CalibrationPreparationTest, TestUnrelatedAssignmentCannotReleaseDepositReservation) {
+    for (const String_ payment : {"pay PAYS N*(1+K*ALPHA)+1", "pay PAYS -N*(1+K*ALPHA)"}) {
+        auto spec = DepositSpec();
+        spec.source_.rows_.back().text_ = payment;
+        spec.source_.rows_.push_back({ScriptSourceRowKind_::Value_::Event, "2027-10-21", "scratch=0"});
+        Failure([&] { PrepareCalibrationInstrument(Instrument(spec), "Price", GaussianContext(), GeneralMcOptions()); },
+                "UnsupportedCalibrationProduct");
+    }
+}
+
 TEST(CalibrationPreparationTest, TestGeneralMcWholeSourceRefusesReceiverAndUnsupportedControls) {
     for (const String_ text : {"EXERCISE 1", "IF avg > K THEN avg = 1 END", "APPEND(v,1)", "avg = SPOT()"}) {
         auto spec = AverageSpec();

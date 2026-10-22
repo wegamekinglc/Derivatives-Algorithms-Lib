@@ -730,3 +730,250 @@ TEST(GSRScriptCalibrationTest, TestUnresolvedNativeStepNamesParameterAndStage) {
         ASSERT_EQ(error.Failure().report_->Axes().observations_.size(), 2);
     }
 }
+
+namespace {
+    Handle_<CalibrationObservation_> RepairRow(const String_& id, const Handle_<CalibrationInstrument_>& instrument, double target = 0.) {
+        return NewCalibrationObservation(id, instrument, "Price",
+                                         NewCalibrationMarketQuote(id + "-quote", target, CalibrationValueUnit_::Parse("Price:USD")), .1);
+    }
+    Handle_<CalibrationInstrument_> RepairRefinedAverage() {
+        auto source = AverageDefinition();
+        const auto rows = source.source_.rows_;
+        source.source_.rows_ = {rows[0],
+                                rows[1],
+                                {ScriptSourceRowKind_::Value_::Event, "2027-04-21", "clock=0"},
+                                rows[2],
+                                {ScriptSourceRowKind_::Value_::Event, "2028-01-21", "clock=0"},
+                                rows[3],
+                                {ScriptSourceRowKind_::Value_::Event, "2028-07-21", "clock=0"},
+                                rows[4]};
+        return NewScriptCalibrationInstrument({"six-dimension", NewScriptInstrumentDefinition(source)});
+    }
+    Handle_<CalibrationInstrument_> RepairBond() {
+        return NewBondOptionScriptInstrument(BondOption_{AVG_F1, AVG_PAY, .97, OptionType_("CALL")}, {"one-dimension", Ccy_("USD"), "USD.OIS", 100.});
+    }
+    template <class F_> std::optional<CalibrationError_> RepairFailure(const F_& action) {
+        try {
+            action();
+        } catch (const CalibrationError_& error) {
+            return error;
+        }
+        return {};
+    }
+    void AssertRepairRow(const CalibrationError_& error, const String_& rowId, CalibrationStage_ stage, size_t count, size_t ordinal) {
+        const auto& f = error.Failure();
+        const auto& d = f.diagnostic_;
+        ASSERT_EQ(d.stage_, stage);
+        ASSERT_EQ(d.observationId_, std::optional<String_>(rowId));
+        ASSERT_EQ(d.quoteId_, std::optional<String_>(rowId + "-quote"));
+        ASSERT_EQ(d.measureId_, std::optional<String_>("Price"));
+        ASSERT_TRUE(f.report_);
+        ASSERT_EQ(f.report_->Stage(), stage);
+        const auto& axes = f.report_->Axes();
+        ASSERT_EQ(axes.observations_.size(), count);
+        ASSERT_EQ(axes.quotes_.size(), count);
+        ASSERT_EQ(axes.observations_[ordinal]->Id(), rowId);
+        ASSERT_EQ(axes.quotes_[ordinal]->Id(), rowId + "-quote");
+        ASSERT_EQ(axes.quoteIndex_[ordinal], static_cast<int>(ordinal));
+        ASSERT_EQ(f.report_->Errors().size(), 1);
+        ASSERT_EQ(f.report_->Errors()[0].observationId_, d.observationId_);
+        ASSERT_EQ(f.report_->Errors()[0].message_, d.message_);
+    }
+} // namespace
+
+TEST(GSRScriptRepairTest, TestMixedFitDimensionsRejectActualDrawOverlap) {
+    const auto context = AverageContext();
+    const auto settings = FitSettings();
+    const auto high = RepairRefinedAverage(), low = RepairBond();
+    const auto highPlan = PrepareCalibrationMc(high, "Price", context, settings.sampling_);
+    const auto lowPlan = PrepareCalibrationMc(low, "Price", context, settings.sampling_);
+    ASSERT_EQ(highPlan.Mapping().dimension_, 6);
+    ASSERT_EQ(lowPlan.Mapping().dimension_, 1);
+    ASSERT_EQ(highPlan.Mapping().normalCoordinates_.size(), 6);
+    for (size_t draw : {size_t(128), size_t(640)}) {
+        auto wide = New(RNGType_("MRG32"), settings.sampling_.seed_, 6, true);
+        auto narrow = New(RNGType_("MRG32"), settings.sampling_.seed_, 1, true);
+        Vector_<> z(6), w(1);
+        wide->SkipNormalTo(draw / 6);
+        narrow->SkipNormalTo(draw);
+        wide->FillNormal(&z);
+        narrow->FillNormal(&w);
+        ASSERT_LT(draw / 6, 128);
+        ASSERT_DOUBLE_EQ(z[draw % 6], w[0]);
+    }
+    for (bool reverse : {false, true}) {
+        const auto rows = Vector_<Handle_<CalibrationObservation_>>{RepairRow("first-stream", reverse ? low : high),
+                                                                    RepairRow("second-stream", reverse ? high : low)};
+        const auto error = RepairFailure([&] { static_cast<void>(CalibrateGSRScriptPrices(context, rows, {{0, 0, .001, .06}}, settings)); });
+        ASSERT_TRUE(error);
+        ASSERT_EQ(error->Failure().diagnostic_.code_, "InvalidCalibrationPlan");
+        ASSERT_EQ(error->Failure().diagnostic_.field_, std::optional<String_>("/mc/mapping/dimension"));
+        AssertRepairRow(*error, "second-stream", CalibrationStage_::Value_::Prepare, 2, 1);
+        ASSERT_FALSE(error->Failure().candidate_);
+    }
+}
+
+TEST(GSRScriptRepairTest, TestMixedHeldOutDimensionsRejectBeforeSolverWork) {
+    const auto context = AverageContext();
+    const auto settings = FitSettings();
+    const auto error = RepairFailure([&] {
+        static_cast<void>(CalibrateGSRScriptPrices(context, {RepairRow("fit-stream", RepairRefinedAverage())}, {{0, 0, .001, .06}}, settings,
+                                                   {RepairRow("held-stream", RepairBond())}));
+    });
+    ASSERT_TRUE(error);
+    ASSERT_EQ(error->Failure().diagnostic_.code_, "InvalidCalibrationPlan");
+    ASSERT_EQ(error->Failure().diagnostic_.field_, std::optional<String_>("/mc/mapping/dimension"));
+    AssertRepairRow(*error, "held-stream", CalibrationStage_::Value_::Prepare, 1, 0);
+    ASSERT_FALSE(error->Failure().candidate_);
+    ASSERT_NE(error->Failure().diagnostic_.message_.find("held-out"), String_::npos);
+}
+
+TEST(GSRScriptRepairTest, TestSameDimensionDrawReservationsAndIdentityStayFixed) {
+    const auto context = AverageContext();
+    const auto settings = FitSettings();
+    const auto instrument = AverageInstrument("same-dimension");
+    auto sampling = settings.sampling_;
+    sampling.aad_ = true;
+    sampling.parameterLabels_ = CalibrationMcGLabels(context.model_, {{0, 0, .001, .06}});
+    const auto plan = PrepareCalibrationMc(instrument, "Price", context, sampling);
+    const auto fit = plan.Evaluate(instrument, context, false);
+    const auto validation = plan.Evaluate(instrument, context, true);
+    const auto held = plan.EvaluateHeldOut(instrument, context);
+    const size_t dimension = plan.Mapping().dimension_;
+    ASSERT_EQ(dimension, 3);
+    ASSERT_EQ(fit.ranges_.front().firstPath_, 0);
+    ASSERT_EQ(validation.ranges_.front().firstPath_, 128);
+    ASSERT_EQ(held.ranges_.front().firstPath_, 640);
+    ASSERT_LE((fit.ranges_.back().firstPath_ + fit.ranges_.back().pathCount_) * dimension, validation.ranges_.front().firstPath_ * dimension);
+    ASSERT_LE((validation.ranges_.back().firstPath_ + validation.ranges_.back().pathCount_) * dimension, held.ranges_.front().firstPath_ * dimension);
+    const auto result =
+        CalibrateGSRScriptPrices(context, {RepairRow("same-first", instrument, fit.mean_), RepairRow("same-second", instrument, fit.mean_)},
+                                 {{0, 0, .001, .06}}, settings, {RepairRow("same-held", instrument, fit.mean_)});
+    ASSERT_TRUE(result.fitWithinTolerance_);
+    ASSERT_TRUE(result.heldOutRequested_);
+    ASSERT_EQ(result.fit_[0].mappingIdentity_, plan.Mapping().identity_);
+    ASSERT_EQ(result.fit_[0].planIdentity_, fit.planIdentity_);
+    ASSERT_EQ(result.fit_[0].mean_, fit.mean_);
+    ASSERT_EQ(result.validation_[0].ranges_[0].firstPath_, 128);
+    ASSERT_EQ(result.heldOut_[0].ranges_[0].firstPath_, 640);
+    ASSERT_EQ(plan.RefreshG(AverageContext(.021)).Mapping().identity_, plan.Mapping().identity_);
+}
+
+TEST(GSRScriptRepairTest, TestPrepareFailureOwnsFitOrHeldOutRowAfterInputsDie) {
+    for (bool held : {false, true}) {
+        std::optional<CalibrationError_> saved;
+        {
+            auto source = AverageDefinition();
+            source.source_.rows_.back().text_ = "EXERCISE 1 pay PAYS N*MAX(avg-K,0)";
+            const auto bad = NewScriptCalibrationInstrument({"bad-prepare", NewScriptInstrumentDefinition(source)});
+            const auto good = AverageInstrument("good-prepare");
+            const auto first = RepairRow("prepare-first", good), second = RepairRow("prepare-second", bad);
+            const auto settings = FitSettings();
+            saved = RepairFailure([&] {
+                if (held)
+                    static_cast<void>(
+                        CalibrateGSRScriptPrices(AverageContext(), {RepairRow("prepare-fit", good)}, {{0, 0, .001, .06}}, settings, {first, second}));
+                else
+                    static_cast<void>(CalibrateGSRScriptPrices(AverageContext(), {first, second}, {{0, 0, .001, .06}}, settings));
+            });
+        }
+        ASSERT_TRUE(saved);
+        AssertRepairRow(*saved, "prepare-second", CalibrationStage_::Value_::Prepare, 2, 1);
+        ASSERT_EQ(saved->Failure().diagnostic_.instrumentId_, std::optional<String_>("bad-prepare"));
+        ASSERT_EQ(saved->Failure().diagnostic_.code_, "UnsupportedCalibrationProduct");
+        ASSERT_EQ(saved->Failure().diagnostic_.sourceRow_, std::optional<int>(5));
+        ASSERT_EQ(saved->Failure().diagnostic_.eventDate_, std::optional<Date_>(AVG_PAY));
+        ASSERT_FALSE(saved->Failure().candidate_);
+    }
+}
+
+TEST(GSRScriptRepairTest, TestExecutionFailureOwnsItsScopeAndLastCompleteCandidate) {
+    for (bool held : {false, true}) {
+        std::optional<CalibrationError_> saved, original;
+        {
+            const auto context = AverageContext();
+            const auto settings = FitSettings();
+            const auto good = AverageInstrument("good-execution");
+            auto source = AverageDefinition();
+            source.source_.rows_.back().text_ = "pay PAYS N/(avg-avg)";
+            const auto bad = NewScriptCalibrationInstrument({"bad-execution", NewScriptInstrumentDefinition(source)});
+            const auto plan = PrepareCalibrationMc(good, "Price", context, settings.sampling_);
+            const double target = plan.Evaluate(good, context, false).mean_;
+            original = RepairFailure(
+                [&] { static_cast<void>(PrepareCalibrationMc(bad, "Price", context, settings.sampling_).Evaluate(bad, context, false)); });
+            const auto first = RepairRow("execution-first", good, target), second = RepairRow("execution-second", bad);
+            saved = RepairFailure([&] {
+                if (held)
+                    static_cast<void>(CalibrateGSRScriptPrices(context, {RepairRow("execution-fit", good, target)}, {{0, 0, .001, .06}}, settings,
+                                                               {first, second}));
+                else
+                    static_cast<void>(CalibrateGSRScriptPrices(context, {first, second}, {{0, 0, .001, .06}}, settings));
+            });
+        }
+        ASSERT_TRUE(saved);
+        ASSERT_TRUE(original);
+        const auto& f = saved->Failure();
+        AssertRepairRow(*saved, "execution-second", held ? CalibrationStage_::Value_::Validate : CalibrationStage_::Value_::Solve, 2, 1);
+        ASSERT_EQ(f.diagnostic_.instrumentId_, std::optional<String_>("bad-execution"));
+        ASSERT_EQ(f.diagnostic_.code_, original->Failure().diagnostic_.code_);
+        ASSERT_EQ(f.diagnostic_.field_, original->Failure().diagnostic_.field_);
+        ASSERT_EQ(f.diagnostic_.sourceRow_, original->Failure().diagnostic_.sourceRow_);
+        ASSERT_EQ(f.diagnostic_.eventDate_, original->Failure().diagnostic_.eventDate_);
+        ASSERT_EQ(f.diagnostic_.statement_, original->Failure().diagnostic_.statement_);
+        ASSERT_NE(f.diagnostic_.message_.find(original->Failure().diagnostic_.message_), String_::npos);
+        if (held) {
+            ASSERT_NE(f.diagnostic_.message_.find("held-out"), String_::npos);
+            const auto* model = dynamic_cast<const MultiFactorGSRModelData_*>(f.candidate_.get());
+            ASSERT_NE(model, nullptr);
+            ASSERT_DOUBLE_EQ(model->vol_->gValues_(0, 0), .02);
+        } else {
+            ASSERT_FALSE(f.candidate_);
+        }
+        ASSERT_EQ(AAD::Tape()->nodes_.Size(), 0);
+        ASSERT_FALSE(AAD::LastRecordingCleanupFailure());
+    }
+}
+
+TEST(GSRScriptRepairTest, TestRefreshFailureRetainsOnlyACompletePriceableCandidate) {
+    std::optional<CalibrationError_> saved;
+    {
+        auto source = RepairBond()->Definition()->Spec();
+        source.source_.rows_.back().text_ = "pay PAYS N*MAX(FIX(IR[USD,DF,2028-10-21])-K,0)-1";
+        const auto instrument = NewScriptCalibrationInstrument({"refresh-boundary", NewScriptInstrumentDefinition(source)});
+        saved = RepairFailure([&] {
+            static_cast<void>(
+                CalibrateGSRScriptPrices(AverageContext(), {RepairRow("refresh-row", instrument, -100.)}, {{0, 0, 0., .06}}, FitSettings()));
+        });
+    }
+    ASSERT_TRUE(saved);
+    AssertRepairRow(*saved, "refresh-row", CalibrationStage_::Value_::Solve, 1, 0);
+    const auto& f = saved->Failure();
+    ASSERT_EQ(f.diagnostic_.code_, "DerivativeUnavailable");
+    ASSERT_EQ(f.diagnostic_.field_, std::optional<String_>("/mc/parameter_labels"));
+    ASSERT_EQ(f.diagnostic_.instrumentId_, std::optional<String_>("refresh-boundary"));
+    const auto* model = dynamic_cast<const MultiFactorGSRModelData_*>(f.candidate_.get());
+    ASSERT_NE(model, nullptr);
+    ASSERT_DOUBLE_EQ(model->vol_->gValues_(0, 0), 0.);
+    auto context = AverageContext();
+    context.model_ = handle_cast<ModelData_>(f.candidate_);
+    const auto& instrument = f.report_->Axes().observations_[0]->Instrument();
+    const auto sampling = FitSettings().sampling_;
+    const double value = PrepareCalibrationMc(instrument, "Price", context, sampling).Evaluate(instrument, context, false).mean_;
+    ASSERT_NEAR(value, -std::exp(-.12 * AverageTime(AVG_F1) / AverageTime(AVG_END)), 1e-12);
+    ASSERT_EQ(AAD::Tape()->nodes_.Size(), 0);
+    ASSERT_FALSE(AAD::LastRecordingCleanupFailure());
+}
+
+TEST(GSRScriptRepairTest, TestMissingHeldOutSamplingOwnsTheRequestedHeldOutAxis) {
+    auto settings = FitSettings();
+    settings.sampling_.heldOutBatches_ = settings.sampling_.heldOutPathsPerBatch_ = 0;
+    const auto instrument = AverageInstrument();
+    const auto error = RepairFailure([&] {
+        static_cast<void>(CalibrateGSRScriptPrices(AverageContext(), {RepairRow("sampling-fit", instrument)}, {{0, 0, .001, .06}}, settings,
+                                                   {RepairRow("sampling-held", instrument)}));
+    });
+    ASSERT_TRUE(error);
+    AssertRepairRow(*error, "sampling-held", CalibrationStage_::Value_::Prepare, 1, 0);
+    ASSERT_EQ(error->Failure().diagnostic_.field_, std::optional<String_>("/mc/held_out"));
+    ASSERT_FALSE(error->Failure().candidate_);
+}

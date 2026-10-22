@@ -514,8 +514,8 @@ namespace Dal {
                            Receiver(*node.arguments_[0], instrument.Definition()->Spec().header_.receiver_) && Literal(*node.arguments_[1], 0.)))
                     plain = false;
             });
-            return plain &&
-                   (DepositTemplateShape(payments) || BondOption(payments, instrument, context, d).has_value() || RateTemplateShape(payments));
+            return DepositTemplateShape(payments) ||
+                   (plain && (BondOption(payments, instrument, context, d).has_value() || RateTemplateShape(payments)));
         }
         bool VectorNode(const Node_& node) {
             return dynamic_cast<const NodeVectorAssign_*>(&node) || dynamic_cast<const NodeVectorEntry_*>(&node) ||

@@ -2,10 +2,11 @@
 
 ## Delivery state and authority
 
-**Full implementation and affected functional verification are complete under
-coordinator comment `01a16211-de3f-765e-ad80-3aca8b597f90`.** The original PR #618
-and checkout are retained. This record awaits focused review and exact-head CI;
-no reviewer is dispatched by the author and DAL-413 remains downstream.
+The complete implementation at 557415ed received main review; its three requested
+repairs are implemented under coordinator comment
+`01a16295-b49b-722e-ba0e-a4bc08456f32`. The original PR #618 and checkout are
+retained. This record now awaits limited repair review and exact-head CI; no
+reviewer is dispatched by the author and DAL-413 remains downstream.
 
 Clean input HEAD and fetched master were
 `f2dfa8e9cb4eb8508bd3425676e90c2cb513ee86` (merged DAL-411 / PR #616), containing
@@ -78,6 +79,10 @@ marked separately and cannot be supplied to `ValidateCalibrationMc` as ordinary
 validation. It uses `abs(meanHeld-targetHeld)+sigma*SEHeld<=errorScale` and never
 updates fit values or derivatives. Missing held-out input sets requested=false,
 passed=false (NotRequested), rather than manufacturing success.
+The driver now requires a common actual normal-draw dimension across every
+fit value/AAD and held-out plan. This is a Prepare restriction, not a new RNG,
+seed, budget or plan-identity scheme. It makes the three path ranges disjoint
+at the draw level across the entire admitted basket.
 
 `converged_`, fit tolerance, numerical validation and held-out acceptance are
 independent. MaxIterations, StepStalled and NoDescent return a candidate and
@@ -141,7 +146,7 @@ explicit generic admission and shared tests are authorized; instrument/curve/
 compiler products stay outside this continuation. Shared publication writes
 are authorized for DAL-412 after functional/numerical validation.
 
-## RED, GREEN and verification
+## Original complete-implementation RED, GREEN and verification
 
 Focused compilation REDs established missing held-out, refresh, driver and
 stencil APIs. Behavioral REDs then established:
@@ -245,7 +250,7 @@ the delivery. Native controls substitute the actual pre-continuation preparation
 TU compiled with the current extended header into the otherwise current archive;
 this isolates the preparation delta and is not an untouched full baseline build.
 
-Final continuation medians in microseconds (prepare/evaluate/Jacobian), with
+Reviewed-head continuation medians in microseconds (prepare/evaluate/Jacobian), with
 the full 65536-fit-path reservation per observation:
 
 | Rows | Method | Prepare | Evaluate   | Jacobian   | Jacobian batches | Jacobian paths |
@@ -403,3 +408,117 @@ expansion; unrelated matrices are not repeated. Warning/format/docs/complexity,
 legacy identity probes and caller binaries/measurements are refreshed for the
 selector delta. Raw build commands, XML, compiler logs and source hashes identify
 each execution. Exact-head external CI remains separate from local results.
+
+## Main-review repairs: draw isolation, reservation and owning rows
+
+Reviewer attachment `01a16292-5618-77f6-89c3-04340a0560a7` was obtained with
+Multica CLI. Its unmodified probe was compiled against the actual reviewed
+557415ed archive and reproduced all three blockers before repair. Raw output is
+`dal412-r2-review-red.log`. Source/build/dependency/compiler identity and the
+original attachment are retained. DAL-406's shared write stage completed at
+06a3e17f before this serial repair began; its unpublished products or text are
+not imported. Preparation and necessary guide ownership transfer back to 412.
+
+### Actual draw isolation
+
+The six-dimensional refined average and one-dimensional BondOption use the
+same small protocol, fit128/validation512/held512. Actual MRG32 calls reproduce
+both exact collisions: validation path128 equals fit path21/coordinate2,
+and held-out path640 equals fit path106/coordinate4. Merely distinct path
+ordinals are insufficient. New regression assertions retain those raw-draw
+equalities as the reason this combination must be rejected.
+
+The minimum authorized fix is in the new driver, not shared RNG/MC. Before
+optimizer work it inspects every prepared fit value/AAD and held-out mapping,
+requiring actual dimension and complete normal-coordinate count to equal the
+first fit plan's draw stride. Mixed dimensions in either fit order or held-out
+fail with an owning Prepare `InvalidCalibrationPlan` at
+`/mc/mapping/dimension`, the offending row and no candidate. No MC evaluation
+or solver work has started. This checks actual flattened normal draws, not
+factor count; changing a timeline can change the dimension with the same factor.
+
+The existing Precise normal generator consumes one uniform per normal and seeks
+path*dimension. With common stride D and unchanged shared sampling, all fit
+draws are [0,F*D), validation [F*D,(F+V)*D), and held-out thereafter across all
+rows. Different coordinate meanings/timelines are not relabeled identical CRN;
+per-row mapping identities and RefreshG checks remain unchanged. Mixed-dimension
+direct low-level MC plans retain their old behavior; this driver rejects their
+combination rather than claiming a new global stream allocator.
+
+The same-dimensional positive control retains exact range starts 0/128/640,
+draw-address ordering, values, AAD plan identity and refresh mapping. All 26
+non-statistical MC contracts, including merged-P0 golden identities, pass again.
+Shared MC/RNG/statistics source and all identity payloads remain unchanged.
+
+### Deposit reservation
+
+Both malformed maturity expressions still acquire general Price after an
+unrelated `scratch=0` on the original head; the new shared regression first
+reproduces that RED. Reservation now depends on the collected two-payment
+Deposit shape independently of the plain-statement selector. Full native AST
+admission then rejects the malformed/extra-statement program; no local shape
+grants native execution. Ordinary running-average assignments and one-payment
+signed Price remain admitted. The complete 37-case preparation set and actual
+unchanged Deposit source-mutation caller pass. Bare Product behavior is unchanged.
+
+### Per-row and held-out failures
+
+Row boundaries now wrap Prepare, RefreshG, execution and numerical-validation
+comparison. The original diagnostic's field, code, source, expected/actual and
+cause remain owned; current instrument/observation/quote/measure are bound.
+Prepare/mapping uses Prepare, optimizer baskets use Solve, validation/held-out
+execution uses Validate. Held-out scope is explicit in the message and its
+report owns held-out axes, not unrelated fit axes. Outer failure assembly
+preserves that scope and attaches only the last fully completed basket model.
+No combined wire schema, quote-ID rewrite or new public interface is introduced.
+
+New cases destroy all local inputs before checking copied exceptions, source
+row/date/statement, full quote maps and report entries. They cover second-fit
+and second-held-out preparation/execution failures and missing held-out sampling.
+Execution causes are compared directly with the original low-level MC failure.
+An incomplete first basket exposes no candidate. After full fit, held-out
+failure retains the fitted model. A real g=0 AAD RefreshG refusal retains the
+last completed passive-price candidate, which is independently repriced; it
+does not expose an incomplete recording. All failures leave tape nodes zero
+and cleanup failure clear. Old native numerical/Brent behavior is unchanged.
+
+### Repair verification and applicable reuse
+
+The two admission regressions and owning-row failures have real RED logs.
+Final **84/84** directly affected checks pass: seven new driver repair cases,
+13 existing driver cases, 37 preparation, 26 non-statistical MC and the actual
+Deposit source-mutation caller. Commands, XML and fresh archive/client hashes
+are retained. The original 14 driver tests/helpers remain byte-identical; the
+one frozen full-budget driver test, ten frozen average cases and three frozen
+MC numerical cases are reused within unchanged same-dimension semantics rather
+than repeated. Original 168/168 and 57/57 are historical accepted executions,
+not relabeled as current reruns. N100 StepStalled/converged=false with passing
+fit/numerical/held-out and N200's .031871>.025 rejection remain unchanged.
+
+The first new identity control compared AAD with a double plan; its sampling
+fixture was corrected to the matching AAD labels. The first unsupported-source
+fixture accidentally omitted PAYS and failed before the intended boundary; it
+was corrected to retain PAYS. These setup failures and a handle-cast compilation
+correction are not product RED and do not weaken original assertions or limits.
+The corrected pre-repair driver run records four failures and one positive;
+the same tests then pass after repair. All four affected TUs pass GCC14/15
+workflow-equivalent strict warning checks; their functions have CCN<=8.
+
+Only the actual new driver caller gets fresh informational timing: one/two
+BondOption rows, AAD/basket FD, unchanged small sampling protocol at the initial
+fit root, 20 warmup calls and ten one-call rounds, CPU4/one DAL thread. Before
+substitutes the exact reviewed driver and preparation TUs into the otherwise
+current archive with unchanged headers; it is not an untouched old full build.
+Before/after medians in us are one-row FD 3207.633/3279.724, AAD
+2066.014/2064.149; two-row FD 6532.580/6566.991, AAD 4091.650/4173.396.
+Values, per-row plan identities and actual basket/batch/path counts match
+exactly. This is not the previous direct-MC-operation timing or a portable
+regression-gate verdict. No full performance/statistical matrix is repeated.
+
+Reproduction from the task workdir uses the recorded compiler commands and
+`dal412-r2-verify.py`; `dal412-r2-final-green.xml/log` identify the final scoped
+execution. The delivery includes exact code/doc diffs, original/corrected RED,
+final GREEN, warning/complexity/static evidence, build/configuration and binary
+identities. Guide/CHANGELOG only need the common-dimension restriction and row
+scope clarification; the prior independent document review remains applicable
+to all unchanged prose. CI and limited review are still external gates.

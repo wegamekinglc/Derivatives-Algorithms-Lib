@@ -1,3 +1,5 @@
+#include <exception>
+
 #include <dal/platform/platform.hpp>
 
 #include <dal/calibration/validation_internal.hpp>
@@ -27,14 +29,43 @@ namespace Dal {
                       s.derivativeMethod_ == CalibrationDerivative_::Value_::FiniteDifference,
                   "DerivativeUnavailable", "/settings/derivative_method", "AAD rows or basket finite differences");
         }
-        CalibrationDiagnostic_ RowDiagnostic(const CalibrationObservation_& row) {
-            CalibrationDiagnostic_ d;
+        CalibrationDiagnostic_ RowDiagnostic(const CalibrationObservation_& row, CalibrationDiagnostic_ d = {}) {
             d.stage_ = CalibrationStage_::Value_::Solve;
             d.observationId_ = row.Id();
             d.instrumentId_ = row.Instrument()->Id();
             d.quoteId_ = row.Quote()->Id();
             d.measureId_ = row.MeasureId();
             return d;
+        }
+        [[noreturn]] void RowFailure(const std::exception& error,
+                                     const CalibrationObservation_& row,
+                                     const CalibrationObservationAxes_& axes,
+                                     CalibrationStage_ stage,
+                                     bool heldOut) {
+            auto d = RowDiagnostic(row);
+            if (const auto* calibration = dynamic_cast<const CalibrationError_*>(&error))
+                d = RowDiagnostic(row, calibration->Failure().diagnostic_);
+            else {
+                d.code_ = "CalibrationNumericalFailure";
+                d.field_ = "/solver";
+                d.message_ = error.what();
+            }
+            d.stage_ = stage;
+            d.message_ = d.code_ + (heldOut ? ": held-out; " : ": fit; ") + d.message_;
+            CalibrationFailure_ failure{d, Handle_<CalibrationReport_>(new CalibrationReport_(stage, axes, {d})), {}};
+            throw CalibrationError_(__FILE__, __LINE__, __func__, std::make_shared<const CalibrationFailure_>(std::move(failure)));
+        }
+        template <class F_>
+        auto InRow(const CalibrationObservation_& row,
+                   const CalibrationObservationAxes_& axes,
+                   CalibrationStage_ stage,
+                   const F_& action,
+                   bool heldOut = false) -> decltype(action()) {
+            try {
+                return action();
+            } catch (const std::exception& error) {
+                RowFailure(error, row, axes, stage, heldOut);
+            }
         }
         void PriceMeasure(const CalibrationObservation_& row) {
             const auto& measures = row.Instrument()->Definition()->Spec().measures_;
@@ -49,21 +80,54 @@ namespace Dal {
             Check(!vanilla || row.Quote()->Value() >= 0., "InvalidCalibrationQuote", "/observations/quote/value",
                   "nonnegative vanilla option Price target", "", RowDiagnostic(row));
         }
+        PreparedCalibrationMc_ PreparedRow(const CalibrationObservation_& row,
+                                           const CalibrationObservationAxes_& axes,
+                                           const CalibrationPreparationContext_& context,
+                                           const CalibrationMcSettings_& sampling,
+                                           bool heldOut = false) {
+            return InRow(
+                row, axes, CalibrationStage_::Value_::Prepare,
+                [&] {
+                    PriceMeasure(row);
+                    auto plan = PrepareCalibrationMc(row.Instrument(), row.MeasureId(), context, sampling);
+                    PriceTarget(row, plan.Capability());
+                    return plan;
+                },
+                heldOut);
+        }
+        void RequireDrawStride(const Vector_<PreparedCalibrationMc_>& plans,
+                               const CalibrationObservationAxes_& axes,
+                               size_t dimension,
+                               bool heldOut = false) {
+            for (size_t i = 0; i < plans.size(); ++i)
+                InRow(
+                    *axes.observations_[i], axes, CalibrationStage_::Value_::Prepare,
+                    [&] {
+                        const auto& mapping = plans[i].Mapping();
+                        Check(mapping.dimension_ == dimension && mapping.normalCoordinates_.size() == dimension, "InvalidCalibrationPlan",
+                              "/mc/mapping/dimension", "common normal draws per path across fit and held-out plans: " + OrdinalText(dimension),
+                              OrdinalText(mapping.dimension_), RowDiagnostic(*axes.observations_[i]));
+                    },
+                    heldOut);
+        }
         Vector_<PreparedCalibrationMc_> HeldPlans(const CalibrationPreparationContext_& c,
-                                                  const Vector_<Handle_<CalibrationObservation_>>& rows,
+                                                  const CalibrationObservationAxes_& axes,
                                                   const GSRScriptCalibrationSettings_& settings,
                                                   GSRScriptCalibrationCosts_* costs) {
             auto sampling = settings.sampling_;
             sampling.aad_ = false;
             sampling.parameterLabels_.clear();
             sampling.retainPaths_ = false;
-            Check(rows.empty() || sampling.heldOutBatches_ >= 2, "InvalidCalibrationPlan", "/mc/held_out",
-                  "explicit held-out batches when requested");
+            if (!axes.observations_.empty())
+                InRow(
+                    *axes.observations_.front(), axes, CalibrationStage_::Value_::Prepare,
+                    [&] {
+                        Check(sampling.heldOutBatches_ >= 2, "InvalidCalibrationPlan", "/mc/held_out", "explicit held-out batches when requested");
+                    },
+                    true);
             Vector_<PreparedCalibrationMc_> result;
-            for (const auto& row : rows) {
-                PriceMeasure(*row);
-                result.push_back(PrepareCalibrationMc(row->Instrument(), row->MeasureId(), c, sampling));
-                PriceTarget(*row, result.back().Capability());
+            for (const auto& row : axes.observations_) {
+                result.push_back(PreparedRow(*row, axes, c, sampling, true));
                 ++costs->preparations_;
             }
             return result;
@@ -81,6 +145,7 @@ namespace Dal {
         }
         class Problem_ {
             const CalibrationPreparationContext_& context_;
+            const CalibrationObservationAxes_& axes_;
             const Vector_<Handle_<CalibrationObservation_>>& rows_;
             const Vector_<GSRCalibrationParameter_>& parameters_;
             const GSRScriptCalibrationSettings_& settings_;
@@ -97,13 +162,11 @@ namespace Dal {
                 sampling.parameterLabels_ = aad ? CalibrationMcGLabels(context_.model_, parameters_) : Vector_<String_>{};
                 Vector_<PreparedCalibrationMc_> plans;
                 for (const auto& row : rows_) {
-                    PriceMeasure(*row);
                     Check(settings_.epsilonValue_ < settings_.optimizer_.numericalErrorFraction_ * row->ErrorScale() &&
                               settings_.epsilonGradient_ <
                                   settings_.optimizer_.numericalErrorFraction_ * row->ErrorScale() / settings_.optimizer_.parameterScale_,
                           "InvalidCalibrationPlan", "/settings/floors", "floors below each frozen numerical budget", "", RowDiagnostic(*row));
-                    plans.push_back(PrepareCalibrationMc(row->Instrument(), row->MeasureId(), context_, sampling));
-                    PriceTarget(*row, plans.back().Capability());
+                    plans.push_back(PreparedRow(*row, axes_, context_, sampling));
                     ++costs_->preparations_;
                 }
                 return plans;
@@ -143,13 +206,14 @@ namespace Dal {
         public:
             // Explicit counters belong to this calibration, while plans and models are immutable.
             Problem_(const CalibrationPreparationContext_& c,
-                     const Vector_<Handle_<CalibrationObservation_>>& rows,
+                     const CalibrationObservationAxes_& axes,
                      const Vector_<GSRCalibrationParameter_>& parameters,
                      const GSRScriptCalibrationSettings_& settings,
                      GSRScriptCalibrationCosts_* costs,
                      Handle_<Storable_>* lastCandidate)
-                : context_(c), rows_(rows), parameters_(parameters), settings_(settings), costs_(costs), lastCandidate_(lastCandidate) {
-                Check(!rows.empty() && !parameters.empty(), "InvalidCalibrationPlan", "/observations", "nonempty Price rows and g coordinates");
+                : context_(c), axes_(axes), rows_(axes.observations_), parameters_(parameters), settings_(settings), costs_(costs),
+                  lastCandidate_(lastCandidate) {
+                Check(!rows_.empty() && !parameters.empty(), "InvalidCalibrationPlan", "/observations", "nonempty Price rows and g coordinates");
                 static_cast<void>(CalibrationMcGLabels(c.model_, parameters));
                 const auto& g = Initial(c).vol_->gValues_;
                 for (const auto& p : parameters)
@@ -158,6 +222,12 @@ namespace Dal {
                 valuePlans_ = Plans(false);
                 if (settings.derivativeMethod_ == CalibrationDerivative_::Value_::AAD)
                     aadPlans_ = Plans(true);
+            }
+            void RequireStreams(const Vector_<PreparedCalibrationMc_>& heldPlans, const CalibrationObservationAxes_& heldAxes) const {
+                const auto dimension = valuePlans_.front().Mapping().dimension_;
+                RequireDrawStride(valuePlans_, axes_, dimension);
+                RequireDrawStride(aadPlans_, axes_, dimension);
+                RequireDrawStride(heldPlans, heldAxes, dimension, true);
             }
             [[nodiscard]] const Vector_<>& Guess() const { return guess_; }
             [[nodiscard]] double Bound(size_t i, bool upper) const {
@@ -196,9 +266,12 @@ namespace Dal {
                 const auto& plans = aad ? aadPlans_ : valuePlans_;
                 Vector_<CalibrationMcResult_> result;
                 for (size_t i = 0; i < rows_.size(); ++i) {
-                    const auto plan = plans[i].RefreshG(c);
-                    ++costs_->refreshes_;
-                    result.push_back(plan.Evaluate(rows_[i]->Instrument(), c, validation));
+                    result.push_back(
+                        InRow(*rows_[i], axes_, validation ? CalibrationStage_::Value_::Validate : CalibrationStage_::Value_::Solve, [&] {
+                            const auto plan = plans[i].RefreshG(c);
+                            ++costs_->refreshes_;
+                            return plan.Evaluate(rows_[i]->Instrument(), c, validation);
+                        }));
                     Count(result.back());
                 }
                 *lastCandidate_ = Handle_<Storable_>(c.model_);
@@ -301,7 +374,9 @@ namespace Dal {
                 r->residuals_.push_back(r->fit_[i].mean_ - row.Quote()->Value());
                 r->scaledResiduals_.push_back(r->residuals_.back() / row.ErrorScale());
                 r->fitWithinTolerance_ &= std::abs(r->scaledResiduals_.back()) <= 1.;
-                r->validationIndicators_.push_back(ValidateCalibrationMc(r->fit_[i], r->validation_[i], Precision(row, s, aad ? x.size() : 0)));
+                r->validationIndicators_.push_back(InRow(row, r->axes_, CalibrationStage_::Value_::Validate, [&] {
+                    return ValidateCalibrationMc(r->fit_[i], r->validation_[i], Precision(row, s, aad ? x.size() : 0));
+                }));
                 r->numericalErrors_.push_back(r->validationIndicators_.back().errorIndicator_);
                 r->numericalValidationPassed_ &= r->validationIndicators_.back().numericalValidationPassed_;
             }
@@ -332,8 +407,9 @@ namespace Dal {
             r.heldOutAxes_ = BuildCalibrationObservationAxes(heldOut);
             r.parameterLabels_ = CalibrationMcGLabels(context.model_, parameters);
             r.derivativeMethod_ = settings.derivativeMethod_;
-            const auto heldPlans = HeldPlans(context, heldOut, settings, &r.costs_);
-            const Problem_ problem(context, observations, parameters, settings, &r.costs_, &lastCandidate);
+            const auto heldPlans = HeldPlans(context, r.heldOutAxes_, settings, &r.costs_);
+            const Problem_ problem(context, axes, parameters, settings, &r.costs_, &lastCandidate);
+            problem.RequireStreams(heldPlans, r.heldOutAxes_);
             auto x = problem.Guess();
             const auto& o = settings.optimizer_;
             Fit(problem, {o.maxIterations_, o.gradientTolerance_, o.stepTolerance_}, &x, &r);
@@ -343,9 +419,14 @@ namespace Dal {
             const auto c = problem.Context(x);
             for (size_t i = 0; i < heldOut.size(); ++i) {
                 const auto& row = heldOut[i];
-                const auto plan = heldPlans[i].RefreshG(c);
-                ++r.costs_.refreshes_;
-                r.heldOut_.push_back(plan.EvaluateHeldOut(row->Instrument(), c));
+                r.heldOut_.push_back(InRow(
+                    *row, r.heldOutAxes_, CalibrationStage_::Value_::Validate,
+                    [&] {
+                        const auto plan = heldPlans[i].RefreshG(c);
+                        ++r.costs_.refreshes_;
+                        return plan.EvaluateHeldOut(row->Instrument(), c);
+                    },
+                    true));
                 problem.Count(r.heldOut_.back());
                 const auto& value = r.heldOut_.back();
                 r.heldOutPassed_ &=
@@ -356,15 +437,18 @@ namespace Dal {
             return r;
         } catch (const Exception_& error) {
             CalibrationDiagnostic_ d;
-            if (const auto* calibration = dynamic_cast<const CalibrationError_*>(&error))
+            auto failureAxes = axes;
+            if (const auto* calibration = dynamic_cast<const CalibrationError_*>(&error)) {
                 d = calibration->Failure().diagnostic_;
-            else {
+                if (!calibration->Failure().report_->Axes().observations_.empty())
+                    failureAxes = calibration->Failure().report_->Axes();
+            } else {
                 d.stage_ = CalibrationStage_::Value_::Solve;
                 d.code_ = "CalibrationNumericalFailure";
                 d.field_ = "/solver";
                 d.message_ = error.what();
             }
-            CalibrationFailure_ failure{d, Handle_<CalibrationReport_>(new CalibrationReport_(d.stage_, axes, {d})), lastCandidate};
+            CalibrationFailure_ failure{d, Handle_<CalibrationReport_>(new CalibrationReport_(d.stage_, std::move(failureAxes), {d})), lastCandidate};
             throw CalibrationError_(__FILE__, __LINE__, __func__, std::make_shared<const CalibrationFailure_>(std::move(failure)));
         }
     }
