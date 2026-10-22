@@ -1,0 +1,131 @@
+{
+  "previous": "aa9ba13a338f65b66f0fc2620562abfc17736666",
+  "latest_master": "bf4cabea8575206375047e51993a5aa5aeb54c0c",
+  "delta": [
+    "A\t.codex/artifacts/validation/dal-413-gsr-script-numerical-validation.md",
+    "A\tdal-cpp/tests/model/test_gsr_script_acceptance.cpp"
+  ],
+  "production_and_dependency_tree_unchanged": true,
+  "commands": [
+    {
+      "argv": [
+        "cmake",
+        "--preset=Release-linux",
+        "-S",
+        "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-408-e2075e8549aa/workdir/Derivatives-Algorithms-Lib/build/dal418-master/source",
+        "-B",
+        "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-408-e2075e8549aa/workdir/Derivatives-Algorithms-Lib/build/dal418-master/build",
+        "-DCMAKE_CXX_COMPILER=g++-14",
+        "-DDAL_BUILD_PUBLIC=OFF",
+        "-DDAL_CPP_BUILD_EXAMPLES=OFF",
+        "-DDAL_BUILD_EXCEL_PORTABLE_TESTS=OFF",
+        "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
+      ],
+      "cwd": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-408-e2075e8549aa/workdir/Derivatives-Algorithms-Lib",
+      "exit": 0
+    },
+    {
+      "argv": [
+        "cmake",
+        "--build",
+        "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-408-e2075e8549aa/workdir/Derivatives-Algorithms-Lib/build/dal418-master/build",
+        "--target",
+        "dal_cpp",
+        "gtest",
+        "-j",
+        "4"
+      ],
+      "cwd": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-408-e2075e8549aa/workdir/Derivatives-Algorithms-Lib",
+      "exit": 0
+    },
+    {
+      "argv": [
+        "/usr/bin/g++-14",
+        "-DDAL_TEST_MIXED_SIMD",
+        "-I/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-408-e2075e8549aa/workdir/Derivatives-Algorithms-Lib/build/dal418-master/source/dal-cpp/test-support",
+        "-I/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-408-e2075e8549aa/workdir/Derivatives-Algorithms-Lib/build/dal418-master/source/dal-cpp/externals/rapidjson/include",
+        "-I/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-408-e2075e8549aa/workdir/Derivatives-Algorithms-Lib/build/dal418-master/source/dal-cpp",
+        "-isystem",
+        "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-408-e2075e8549aa/workdir/Derivatives-Algorithms-Lib/build/dal418-master/source/dal-cpp/externals/googletest/googletest/include",
+        "-isystem",
+        "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-408-e2075e8549aa/workdir/Derivatives-Algorithms-Lib/build/dal418-master/source/dal-cpp/externals/googletest/googletest",
+        "-isystem",
+        "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-408-e2075e8549aa/workdir/Derivatives-Algorithms-Lib/build/dal418-master/source/dal-cpp/externals/googletest/googlemock/include",
+        "-isystem",
+        "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-408-e2075e8549aa/workdir/Derivatives-Algorithms-Lib/build/dal418-master/source/dal-cpp/externals/googletest/googlemock",
+        "-O3",
+        "-DNDEBUG",
+        "-std=c++17",
+        "-fPIE",
+        "-ffp-contract=fast",
+        "-O3",
+        "-o",
+        "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-408-e2075e8549aa/workdir/Derivatives-Algorithms-Lib/build/dal418-master/latest-test_main.o",
+        "-c",
+        "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-408-e2075e8549aa/workdir/Derivatives-Algorithms-Lib/build/dal418-master/source/dal-cpp/tests/test_main.cpp"
+      ],
+      "cwd": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-408-e2075e8549aa/workdir/Derivatives-Algorithms-Lib/build/dal418-master/build/dal-cpp",
+      "exit": 0
+    },
+    {
+      "argv": [
+        "/usr/bin/g++-14",
+        "-DDAL_TEST_MIXED_SIMD",
+        "-I/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-408-e2075e8549aa/workdir/Derivatives-Algorithms-Lib/build/dal418-master/source/dal-cpp/test-support",
+        "-I/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-408-e2075e8549aa/workdir/Derivatives-Algorithms-Lib/build/dal418-master/source/dal-cpp/externals/rapidjson/include",
+        "-I/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-408-e2075e8549aa/workdir/Derivatives-Algorithms-Lib/build/dal418-master/source/dal-cpp",
+        "-isystem",
+        "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-408-e2075e8549aa/workdir/Derivatives-Algorithms-Lib/build/dal418-master/source/dal-cpp/externals/googletest/googletest/include",
+        "-isystem",
+        "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-408-e2075e8549aa/workdir/Derivatives-Algorithms-Lib/build/dal418-master/source/dal-cpp/externals/googletest/googletest",
+        "-isystem",
+        "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-408-e2075e8549aa/workdir/Derivatives-Algorithms-Lib/build/dal418-master/source/dal-cpp/externals/googletest/googlemock/include",
+        "-isystem",
+        "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-408-e2075e8549aa/workdir/Derivatives-Algorithms-Lib/build/dal418-master/source/dal-cpp/externals/googletest/googlemock",
+        "-O3",
+        "-DNDEBUG",
+        "-std=c++17",
+        "-fPIE",
+        "-ffp-contract=fast",
+        "-O3",
+        "-o",
+        "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-408-e2075e8549aa/workdir/Derivatives-Algorithms-Lib/build/dal418-master/latest-test_gsr_rateoption_script.o",
+        "-c",
+        "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-408-e2075e8549aa/workdir/Derivatives-Algorithms-Lib/build/dal418-master/source/dal-cpp/tests/model/test_gsr_rateoption_script.cpp"
+      ],
+      "cwd": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-408-e2075e8549aa/workdir/Derivatives-Algorithms-Lib/build/dal418-master/build/dal-cpp",
+      "exit": 0
+    },
+    {
+      "argv": [
+        "g++-14",
+        "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-408-e2075e8549aa/workdir/Derivatives-Algorithms-Lib/build/dal418-master/latest-test_main.o",
+        "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-408-e2075e8549aa/workdir/Derivatives-Algorithms-Lib/build/dal418-master/latest-test_gsr_rateoption_script.o",
+        "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-408-e2075e8549aa/workdir/Derivatives-Algorithms-Lib/build/dal418-master/build/dal-cpp/libdal_cpp.a",
+        "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-408-e2075e8549aa/workdir/Derivatives-Algorithms-Lib/build/dal418-master/build/lib/libgtest.a",
+        "-pthread",
+        "-o",
+        "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-408-e2075e8549aa/workdir/Derivatives-Algorithms-Lib/build/dal418-master/latest_rate_tests"
+      ],
+      "cwd": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-408-e2075e8549aa/workdir/Derivatives-Algorithms-Lib",
+      "exit": 0
+    },
+    {
+      "argv": [
+        "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-408-e2075e8549aa/workdir/Derivatives-Algorithms-Lib/build/dal418-master/latest_rate_tests",
+        "--gtest_filter=GSRRateOptionScriptTest.TestTiny*",
+        "--gtest_output=xml:/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-408-e2075e8549aa/workdir/Derivatives-Algorithms-Lib/.codex/artifacts/implementation/dal-418-evidence/latest-master-red.xml"
+      ],
+      "cwd": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-408-e2075e8549aa/workdir/Derivatives-Algorithms-Lib",
+      "exit": 1
+    }
+  ],
+  "test_commit": "0ac14fb74696b1d0e80e2426e6270555028410fe",
+  "sha256": {
+    "build/dal418-master/source/dal-cpp/tests/model/test_gsr_rateoption_script.cpp": "fb005d5cf6412bc137bb56e44963e7b5042414c8b2780283b48c82a14b83df63",
+    "build/dal418-master/latest_rate_tests": "92dd5f65b8fbaa6e32f67ec8ce5c4bd579bd8fe3cfcb1f1751afd1903532449f",
+    "build/dal418-master/build/dal-cpp/libdal_cpp.a": "5bd626c823afeb4e3f7c9902aef5985ce8b9ccae850280fc663154e6c11e96bb",
+    "build/dal418-master/build/CMakeCache.txt": "837aff05bdaa6e52f8fc9ae522c314fefa6b8eb809280ec8d4b4e3190d77ca04",
+    "build/dal418-master/build/compile_commands.json": "06a32a1e2f48a075bd8010a91e72000b7ddca3234dc43508e9790641f4680a29"
+  }
+}

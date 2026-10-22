@@ -1,0 +1,14 @@
+{
+  "production_parent": "9c547ab64ff2a53ef444ac928440e443fc720c24",
+  "test_commit": "0ac14fb74696b1d0e80e2426e6270555028410fe",
+  "sha256": {
+    "dal-cpp/tests/model/test_gsr_rateoption_script.cpp": "fb005d5cf6412bc137bb56e44963e7b5042414c8b2780283b48c82a14b83df63",
+    "dal-cpp/dal/model/gsrrateoption.cpp": "339217d1a7779782a1eb967d690598351abf1a8f9b26ebfcb928a911aa620453",
+    "build/dal418-parent/rate_tests": "fa4e6f642f656c70108a7454b2db16bc32cb2971a572fe6f2517da34fb431467",
+    "build/dal408/dal-cpp/libdal_cpp.a": "f88f1e2b429731ee86c553040fc06450e6e941d2bd806ba0b1045ccd7e1ae194",
+    "build/dal408/compile_commands.json": "a95da82a53b3dd19460765c9af2dbb48ecb56f4f2111b34598d02269c742b0ce",
+    "build/dal408/CMakeCache.txt": "f7399acdd8b5c109abc2a15eb52a1322dcf53002344efd7373d6917ac3e072b2"
+  },
+  "red_exit": 1,
+  "snapshots_exit": 0
+}

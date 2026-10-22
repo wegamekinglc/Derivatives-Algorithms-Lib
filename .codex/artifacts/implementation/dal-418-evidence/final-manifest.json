@@ -1,0 +1,112 @@
+{
+  "initial_master": "aa9ba13a338f65b66f0fc2620562abfc17736666",
+  "latest_master": "bf4cabea8575206375047e51993a5aa5aeb54c0c",
+  "production_parent": "9c547ab64ff2a53ef444ac928440e443fc720c24",
+  "test_commits": [
+    "0ac14fb74696b1d0e80e2426e6270555028410fe",
+    "4b5e49e70fd561a2eca363cd0c5047f3d7acfcc6"
+  ],
+  "fix_commit": "a4386247bef912483aa2d736ee1f037caf6527a5",
+  "dependencies": {
+    "eigen": "3147391d946bb4b6c68edd901f2add6ac1f31f8c",
+    "googletest": "d72f9c8aea6817cdf1ca0ac10887f328de7f3da2",
+    "rapidjson": "ea152ded01708ff1657b275ed0bcbf0681d64519",
+    "machinist": "e76b0ef243ca9bd506bb2f3743d8c9b52ee8d01d",
+    "pybind11": "8a099e44b3d5f85b20f05828d919d2332a8de841"
+  },
+  "toolchain": {
+    "compiler": "g++-14 (Ubuntu 14.3.0-14ubuntu1) 14.3.0",
+    "cmake": "cmake version 4.2.3",
+    "platform": "Linux 5.15.167.4-microsoft-standard-WSL2 x86_64 GNU/Linux",
+    "cpu": "13th Gen Intel Core i9-13900HX",
+    "threads": 1,
+    "build": "Release; O3; C++17; native AAD; Eigen ON; native arch OFF; static"
+  },
+  "results": {
+    "master-red.xml": {
+      "tests": "3",
+      "failures": "3",
+      "errors": "0"
+    },
+    "latest-master-red.xml": {
+      "tests": "3",
+      "failures": "3",
+      "errors": "0"
+    },
+    "parent-red.xml": {
+      "tests": "3",
+      "failures": "3",
+      "errors": "0"
+    },
+    "parent-expanded-red.xml": {
+      "tests": "9",
+      "failures": "7",
+      "errors": "0"
+    },
+    "target-green.xml": {
+      "tests": "121",
+      "failures": "0",
+      "errors": "0"
+    }
+  },
+  "sha256": {
+    "dal-cpp/dal/model/gsrrateoption.cpp": "9c12a63b959999063be495ef26bf6f18af4d44222327500c7337e2d43b8ee3f5",
+    "dal-cpp/tests/model/test_gsr_rateoption_script.cpp": "0acedea31796ad2d186954647426fb99b6a316c30e13d150daed5eaac1d13722",
+    "build/dal408/dal-cpp/libdal_cpp.a": "0053c6cb06f685aabe5cf0bfae095d2858d0e867abc1b40f1307abe254c7fe6c",
+    "build/dal408/dal-cpp/dal_cpp_tests": "a6d18059c2a4daed6ae82095ebc68e3be943160290e5b56649a947f092e607c7",
+    "build/dal408/CMakeCache.txt": "f7399acdd8b5c109abc2a15eb52a1322dcf53002344efd7373d6917ac3e072b2",
+    "build/dal408/compile_commands.json": "a95da82a53b3dd19460765c9af2dbb48ecb56f4f2111b34598d02269c742b0ce",
+    "build/dal418-parent/focused_tests": "6b22d639428c3223d4d216729dee883cbdce630384bae0515ccdc802aa62fcf7"
+  },
+  "evidence_sha256": {
+    "master_red.py": "32d464dfc1d1ec1e9bcb18b31d61b06baef845e2859ee21dd9ebaa451f7e8d08",
+    "parent-runner-commands.json": "025aaeb1d02ae2964b1b2e43009fb9a003897183aee738af833d914f861b873e",
+    "focused-link.json": "b87eafff233a15f9ac19a9d75d775464a26067cb3d33d69f87b5858f809d94d9",
+    "final-runner-commands.json": "979d0c6c3558e1a9a3a442b4584725b14f90d335066c0d3854dd7a1f0e06c298",
+    "refresh_master_red.py": "f2e2eebfa84a29f1d458a583490394fa0d13ced4446223356ad9f995cfdaa66a",
+    "master-manifest-original.json": "fa4bb0ce8f086ac8565099c498fd55903c431926ee62dbe3432987bb80e8215f",
+    "parent-snapshots.json": "5612eef4de43943ee499b2508d866fe8249b20643590a01caa8aa74c060b588d",
+    "latest-master-manifest.json": "b1cde6c635c4e5f2e45087efb6d7cbad540141a28f6411d7a94d5119c120c51d",
+    "parent-manifest.json": "be52f4ceef1a585afb0cbae991985354367369a0952bcb604195712b47cee7db",
+    "compare_snapshots.py": "431087cec97316c127d7c630a44667e110f75c5e00382b04908ebd9e2dc33f09",
+    "capture_final.py": "888ba7491aed6b4a1e3a42565c1defa75f969acdd112d31f775a0d63edea4e27",
+    "snapshot-comparison.json": "c1737d3ce972371829bcbeb102245f364152fb2562793ee0af504aee7aa33741",
+    "master-manifest.json": "a2394ab1b4f3db8529de2d643f99b09ffa581b5df1a8b977ce7fef9e00a86b3b",
+    "final-gsr-green.log": "9ae6060e2e01c03eb6ab44c77041aec6a91a8c8a1d126c5959d3c2f4646b4242",
+    "final-gsr-green.xml": "2e8236ea178e9375c6c505d734dc38083414617d8a876b7007e33a23b2a91317",
+    "final-target-build.log": "56640d42bb22e8afd85f740e5c4f7843af89b1f001ba2f9361871aab91bdff6c",
+    "final-test-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "first-green.log": "a50ad9e81e6017ef4b22f3512235056bbdffdda172078581323e6ab26a8f2ae8",
+    "first-green.xml": "a807e2857d0fe772c33316bfbe6681c4b3f12f7aa2d09e811b7d9fd4d39d1e9c",
+    "focused-green.log": "fa8a148192ccebe05922d2906e2b56a2b0544a805277108039eb2d2cfd4ef245",
+    "focused-green.xml": "d0c5ff958734fd01c058d9bdcd1626009b2d342e9f534ad9d04fce4eb0388a26",
+    "green-core-build.log": "492cd0ee3e1b0b141f13c23b4a5637266892a5f09e36038810d3f461e0be2f31",
+    "gsr-green.log": "fbb8658ae6eeec05c0034f570b716a4fee0bc59aebbad5998678ed4ee82c48d6",
+    "gsr-green.xml": "439625472d802594b45485ca991d2ba375fffe5e1b8921fed5847cfc9c015e8d",
+    "latest-master-build.log": "eb08590158fbb0be4424eec64a6ea8cb44262944837e5f8469a55a41a10078ea",
+    "latest-master-configure.log": "25f67779be01f66128e8d2209690575e77bbc279293ac5ed6a1f1b68fda1b155",
+    "latest-master-link.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "latest-master-red.log": "f7ffe1629cf202c951cdd348674250d68a3f37c8c0cf4bb19a2b73ecc9021f2e",
+    "latest-master-red.xml": "60963c22dc288861167564c1cd371288a44657794b9328a1b0b3ee402ab0b607",
+    "latest-test_gsr_rateoption_script.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "latest-test_main.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "master-build.log": "bbf1a26b7460830f9bf70ed6b2c8b2ecc2607c06310add2767e1fbc277982041",
+    "master-configure.log": "6b44697c5e7bba41a924d5c4c1d967800a6fbc498fd2217e7fd8d8f3fa64752c",
+    "master-link.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "master-red.log": "d56d0cc1b3a96041419f96a8d6727d0729bf962bc510cce44a1d9082c485b6e7",
+    "master-red.xml": "667cdd56d0136b78f02d1df26f0e9518c84034c6708bf88f2d82d4b728929ee7",
+    "master-test_gsr_rateoption_script.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "master-test_main.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "parent-expanded-red.log": "ef0b04117b73e827449291f50d765c27bbe95ea5b56b8f0228e60666ae0c381f",
+    "parent-expanded-red.xml": "9f1fa693a5616c50c817821900b75a4cf97a94aa3cc32cf16fbf0faa920eb1cc",
+    "parent-red.log": "cc28d1fe09f88e92b31f8043aaa5d352cf13b90f3fb5caa9fe00939775e43b35",
+    "parent-red.xml": "d30f968f43c58f22d5c90953eb5499d14d86fd17851049e570e2efced750e548",
+    "parent-snapshots.log": "1f3bba3318974a084d8de36d479fb8276f79ef4da95fdafb1d4ad3493138c2c2",
+    "parent-snapshots.xml": "4c11332eea3f2da5a1d1241f091289f310cef78240e2b914ce8a7c207d149267",
+    "target-green.log": "77efffaa9b68102bd18206f6cffaada80439821c6341d5afad9201a684d03281",
+    "target-green.xml": "fd0ba62c6f97b0b7dbcbe84b2a3e6478ca5ac4581852961dbb5b243089ebb030",
+    "test_gsr_rateoption_script.compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "test_main.compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "raw_archive_sha256": "0607bfef391e955c556cff3c13774566e0590b6a0d785d304028a706eab046e3"
+}
