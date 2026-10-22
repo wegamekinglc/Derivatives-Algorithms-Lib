@@ -391,6 +391,41 @@ namespace Dal {
                 r->oneSidedColumns_.push_back(!aad && (x[j] - step < problem.Bound(j, false) || x[j] + step > problem.Bound(j, true)));
             }
         }
+
+        std::optional<double> ReportNumber(double value) { return std::isfinite(value) ? std::optional<double>(value) : std::nullopt; }
+
+        CalibrationReportSummary_ CompletedSummary(const GSRScriptCalibrationResult_& result) {
+            CalibrationReportSummary_ summary;
+            summary.converged_ = result.converged_;
+            summary.fitWithinTolerance_ = result.fitWithinTolerance_;
+            summary.numericalValidationPassed_ = result.numericalValidationPassed_;
+            summary.terminationReason_ = result.terminationReason_;
+            summary.objective_ = ReportNumber(result.objective_);
+            summary.dataObjective_ = ReportNumber(result.dataObjective_);
+            summary.penaltyObjective_ = ReportNumber(result.penaltyObjective_);
+            summary.jacobianRank_ = result.jacobianRank_;
+            summary.jacobianConditionEstimate_ = ReportNumber(result.jacobianConditionEstimate_);
+            return summary;
+        }
+
+        bool Accepted(const GSRScriptCalibrationResult_& result) {
+            return result.converged_ && result.fitWithinTolerance_ && result.numericalValidationPassed_ &&
+                   (!result.heldOutRequested_ || result.heldOutPassed_);
+        }
+
+        CalibrationReportSnapshot_ WorkSnapshot(const GSRScriptCalibrationResult_& result, bool finalized, bool failed) {
+            CalibrationReportSnapshot_ data;
+            auto& summary = data.summary_;
+            summary = finalized ? CompletedSummary(result) : CalibrationReportSummary_{};
+            summary.domain_ = "GSR";
+            summary.status_ = failed ? "Failed" : (Accepted(result) ? "Succeeded" : "Candidate");
+            summary.iterations_ = result.iterations_;
+            if (result.costs_.basketEvaluations_ <= INT_MAX)
+                summary.evaluations_ = static_cast<int>(result.costs_.basketEvaluations_);
+            if (result.costs_.jacobians_ <= INT_MAX)
+                summary.jacobianEvaluations_ = static_cast<int>(result.costs_.jacobians_);
+            return data;
+        }
     } // namespace
 
     GSRScriptCalibrationResult_ CalibrateGSRScriptPrices(const CalibrationPreparationContext_& context,
@@ -400,10 +435,11 @@ namespace Dal {
                                                          const Vector_<Handle_<CalibrationObservation_>>& heldOut) {
         const auto axes = BuildCalibrationObservationAxes(observations);
         Handle_<Storable_> lastCandidate;
+        GSRScriptCalibrationResult_ r;
+        r.axes_ = axes;
+        bool finalized = false;
         try {
             Settings(settings);
-            GSRScriptCalibrationResult_ r;
-            r.axes_ = axes;
             r.heldOutAxes_ = BuildCalibrationObservationAxes(heldOut);
             r.parameterLabels_ = CalibrationMcGLabels(context.model_, parameters);
             r.derivativeMethod_ = settings.derivativeMethod_;
@@ -414,6 +450,7 @@ namespace Dal {
             const auto& o = settings.optimizer_;
             Fit(problem, {o.maxIterations_, o.gradientTolerance_, o.stepTolerance_}, &x, &r);
             Finalize(problem, x, settings, &r);
+            finalized = true;
             r.heldOutRequested_ = !heldOut.empty();
             r.heldOutPassed_ = r.heldOutRequested_;
             const auto c = problem.Context(x);
@@ -433,7 +470,7 @@ namespace Dal {
                     std::abs(value.mean_ - row->Quote()->Value()) + settings.validationSigma_ * value.standardError_ <= row->ErrorScale();
             }
             r.evaluations_ = static_cast<int>(r.costs_.basketEvaluations_);
-            r.report_.reset(new CalibrationReport_(CalibrationStage_::Value_::Validate, axes));
+            r.report_.reset(new CalibrationReport_(CalibrationStage_::Value_::Validate, axes, {}, WorkSnapshot(r, finalized, false)));
             return r;
         } catch (const Exception_& error) {
             CalibrationDiagnostic_ d;
@@ -448,7 +485,9 @@ namespace Dal {
                 d.field_ = "/solver";
                 d.message_ = error.what();
             }
-            CalibrationFailure_ failure{d, Handle_<CalibrationReport_>(new CalibrationReport_(d.stage_, std::move(failureAxes), {d})), lastCandidate};
+            CalibrationFailure_ failure{
+                d, Handle_<CalibrationReport_>(new CalibrationReport_(d.stage_, std::move(failureAxes), {d}, WorkSnapshot(r, finalized, true))),
+                lastCandidate};
             throw CalibrationError_(__FILE__, __LINE__, __func__, std::make_shared<const CalibrationFailure_>(std::move(failure)));
         }
     }

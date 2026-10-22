@@ -8,6 +8,10 @@ current-state explanations in the published docs or focused Codex references.
 
 ## Current Artifacts
 
+- [DAL-414 GSR script public bindings](implementation/dal-414-gsr-script-public-bindings.md)
+  — Partial owning summary preservation with focused RED/GREEN evidence;
+  public sampling/held-out mapping awaits coordination under the frozen contract.
+
 - [DAL-407 public script bindings](implementation/dal-407-script-public-bindings.md)
   — Active owning report publication, shared C++/Python/Excel interfaces,
   lifecycle/error tests and independent component-build evidence.
