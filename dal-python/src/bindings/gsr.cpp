@@ -4,8 +4,8 @@
 
 #include <type_traits>
 
-#include <dal-public/src/gsr.hpp>
 #include <dal-public/src/curvepricing.hpp>
+#include <dal-public/src/gsr.hpp>
 
 using namespace Dal;
 
@@ -64,7 +64,11 @@ void init_bindings_gsr(py::module_& m) {
              py::arg("name"), py::arg("option"), py::arg("price"), py::arg("price_scale"));
     py::class_<GSRCalibrationParameter_>(m, "GSRCalibrationParameter_")
         .def(py::init([](int factor, int knot, double lower, double upper) { return GSRCalibrationParameter_{factor, knot, lower, upper}; }),
-             py::arg("factor"), py::arg("knot"), py::arg("lower"), py::arg("upper"));
+             py::arg("factor"), py::arg("knot"), py::arg("lower"), py::arg("upper"))
+        .def_readonly("factor", &GSRCalibrationParameter_::factor_)
+        .def_readonly("knot", &GSRCalibrationParameter_::knot_)
+        .def_readonly("lower", &GSRCalibrationParameter_::lower_)
+        .def_readonly("upper", &GSRCalibrationParameter_::upper_);
     py::class_<GSRCalibrationSettings_>(m, "GSRCalibrationSettings_")
         .def(py::init<>())
         .def_readwrite("max_iterations", &GSRCalibrationSettings_::maxIterations_)

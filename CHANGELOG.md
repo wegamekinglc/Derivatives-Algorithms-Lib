@@ -25,6 +25,12 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   history and same-time policy. Stochastic XCCY and quote risk remain unavailable.
   See the [XCCY guide](docs/methodology/script_calibration_contract.md#deterministic-xccy-script-cashflows).
 
+- **Public GSR script calibration** — added required frozen-valuation settings,
+  selected-g fitting through existing Gaussian fast/MC drivers in C++, Python
+  and Excel, owning model/report failures and separate fit, numerical and held-out
+  outcomes. The same bound instrument supports subsequent MC repricing; calibrated
+  quote risk remains unavailable. See the [GSR interface guide](docs/methodology/script_calibration_contract.md#gsr-instrument-calibration-settings-and-results).
+
 - **Public script calibration interfaces** — added owning typed reports,
   immutable contract/binding and native-import facades, curve calibration and
   explicit same-instrument MC repricing in C++, Python and Excel. Reports

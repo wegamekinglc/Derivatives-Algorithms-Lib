@@ -1,10 +1,36 @@
 #pragma once
 
+#include <dal-public/src/calibrationinstrument.hpp>
+#include <dal/model/gsrbondoption.hpp>
 #include <dal/model/gsrcalibration.hpp>
-#include <dal/model/gsrslvcalibration.hpp>
 #include <dal/model/gsrmarketcalibration.hpp>
+#include <dal/model/gsrscriptcalibration.hpp>
+#include <dal/model/gsrslvcalibration.hpp>
 
 namespace Dal {
+    struct GSRInstrumentCalibrationSettings_ {
+        GSRCalibrationSettings_ solver_{};
+        Script::ScriptValuationSettings_ valuation_;
+        CalibrationEvaluationOptions_ evaluation_{};
+        std::optional<CalibrationMonteCarloSampling_> fitSampling_, validationSampling_, heldOutSampling_;
+        Vector_<Handle_<CalibrationObservation_>> heldOutObservations_;
+        int maxPathsPerView_ = 0, maxBasketEvaluations_ = 1000;
+        double validationSigma_ = 3., epsilonValue_ = 1e-10, epsilonGradient_ = 1e-8;
+        bool compiled_ = Script::DEFAULT_COMPILED;
+    };
+    struct GSRInstrumentCalibrationResult_ : GSRScriptCalibrationResult_ {
+        String_ backend_;
+        bool nativeJacobianAvailable_ = false;
+        GaussianBondOptionCosts_ fastCosts_;
+        size_t reportPreparations_ = 0;
+    };
+    // Shared semantic checks for typed settings factories and direct C++ callers.
+    void ValidateGSRInstrumentSolverSettings(const GSRCalibrationSettings_& settings);
+    void ValidateGSRInstrumentCalibrationSettings(const GSRInstrumentCalibrationSettings_& settings);
+    GSRInstrumentCalibrationResult_ CalibrateGSRInstruments(const Handle_<ModelData_>& initial,
+                                                            const Vector_<Handle_<CalibrationObservation_>>& observations,
+                                                            const Vector_<GSRCalibrationParameter_>& parameters,
+                                                            const GSRInstrumentCalibrationSettings_& settings);
     Vector_<VolQuoteValue_> ConvertVolQuotes(const Handle_<Storable_>& snapshot, const Vector_<VolQuote_>& quotes);
     GSRSLVCalibrationResult_ CalibrateGSRSLVMarket(const Handle_<ModelData_>& initial,
                                                    const Vector_<VolQuote_>& quotes,

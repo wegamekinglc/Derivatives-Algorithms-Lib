@@ -16,6 +16,10 @@ current-state explanations in the published docs or focused Codex references.
   — Accepted master integration, current public/Python/Excel caller checks,
   fresh Linux/native Windows gates and recoverable evidence provenance.
 
+- [DAL-414 GSR script public bindings](implementation/dal-414-gsr-script-public-bindings.md)
+  — Owning GSR C++/Python/Excel adapters, accepted explicit sampling settings,
+  focused parity/lifecycle evidence and independent example/install closure.
+
 - [DAL-407 public script bindings](implementation/dal-407-script-public-bindings.md)
   — Active owning report publication, shared C++/Python/Excel interfaces,
   lifecycle/error tests and independent component-build evidence.

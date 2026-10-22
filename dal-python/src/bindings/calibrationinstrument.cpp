@@ -33,6 +33,8 @@ namespace {
     py::object Candidate(const Handle_<Storable_>& value) {
         if (const auto* curve = dynamic_cast<const CurveInstrumentCalibrationCandidate_*>(value.get()))
             return Output(curve->Result().curve_);
+        if (const auto model = handle_cast<ModelData_>(value))
+            return Output(model);
         return py::none();
     }
     void TranslateCalibrationError(std::exception_ptr exception) {
