@@ -57,8 +57,7 @@ namespace Dal {
             g.knotPolicy_ = CurveKnotPolicy_::Value_::INPUT;
             return spec;
         }
-        CalibrationDiagnostic_ RowDiagnostic(const CalibrationObservation_& row, CalibrationStage_ stage) {
-            CalibrationDiagnostic_ d;
+        CalibrationDiagnostic_ RowDiagnostic(const CalibrationObservation_& row, CalibrationStage_ stage, CalibrationDiagnostic_ d = {}) {
             d.stage_ = stage;
             d.observationId_ = row.Id();
             d.instrumentId_ = row.Instrument()->Id();
@@ -112,7 +111,11 @@ namespace Dal {
             Check(std::isfinite(options.differenceStep_) && options.differenceStep_ > 0., "InvalidCalibrationPlan", "/options/difference_step",
                   "finite positive FD step");
         }
-        CalibrationPreparationContext_ StructuralContext(const CurveInstrumentCalibrationSpec_& spec, const CalibrationObservation_& observation) {
+        struct RowContext_ {
+            CalibrationPreparationContext_ script_;
+            CandidateCurveProvider_<double> curves_;
+        };
+        RowContext_ StructuralContext(const CurveInstrumentCalibrationSpec_& spec, const CalibrationObservation_& observation) {
             const auto& g = spec.geometry_;
             const auto& header = observation.Instrument()->Definition()->Spec().header_;
             const auto route = std::find_if(spec.market_.routes_.begin(), spec.market_.routes_.end(),
@@ -124,7 +127,7 @@ namespace Dal {
                   "/routes/" + header.discountRoute_, "discount route with contract collateral", "", diagnostic);
             const auto geometry = NativeGeometry(spec);
             const auto initial = ResolveCurveCalibrationInitialGuess(geometry);
-            const CandidateCurveProvider_<double> provider(geometry, spec.market_.routes_, initial);
+            CandidateCurveProvider_<double> provider(geometry, spec.market_.routes_, initial);
             Vector_<Date_> dates = {g.today_};
             for (const auto& date : Definition(spec).nodeDates_)
                 if (date > g.today_)
@@ -137,11 +140,12 @@ namespace Dal {
             context.currency_ = Ccy_(g.ccy_);
             context.discountRoute_ = header.discountRoute_;
             context.curve_.reset(new GSRCurveData_("curve-structural-admission", g.today_, g.ccy_, dates, logDf, {}, {}));
-            return context;
+            return {std::move(context), std::move(provider)};
         }
         void AdmittedObservation(const CalibrationCurveObservation_& observation,
                                  const CurveInstrumentCalibrationSpec_& spec,
-                                 const std::optional<Date_>& pillar) {
+                                 const std::optional<Date_>& pillar,
+                                 const CandidateCurveProvider_<double>& provider) {
             if (observation.known_)
                 return;
             const auto route = std::find_if(spec.market_.routes_.begin(), spec.market_.routes_.end(),
@@ -150,6 +154,8 @@ namespace Dal {
                   "/routes/" + observation.route_, "explicit matching observation route", observation.index_, observation.source_);
             Check(!observation.projection_ || route->tenor_ == observation.tenor_, "CalibrationContextMismatch", "/routes/" + observation.route_,
                   "projection tenor matching authoritative index", observation.index_, observation.source_);
+            if (observation.projection_)
+                static_cast<void>(CurveScriptInternal::Observe(observation, provider));
             if (pillar)
                 Check(*pillar >= observation.end_, "InvalidCalibrationPlan", "/instrument/pillar", "pillar covers every observation dependency",
                       observation.index_, observation.source_);
@@ -158,7 +164,9 @@ namespace Dal {
             return (family || (flow.amount_ && flow.observationIndex_.empty())) && flow.eventDate_ >= spec.geometry_.today_ &&
                    flow.eventDate_ <= spec.geometry_.knotDates_.back();
         }
-        void AdmittedCashflows(const PreparedCalibrationInstrument_& plan, const CurveInstrumentCalibrationSpec_& spec) {
+        void AdmittedCashflows(const PreparedCalibrationInstrument_& plan,
+                               const CurveInstrumentCalibrationSpec_& spec,
+                               const CandidateCurveProvider_<double>& provider) {
             CalibrationDiagnostic_ d;
             d.instrumentId_ = plan.Instrument()->Id();
             d.measureId_ = plan.Measure().id_;
@@ -166,7 +174,7 @@ namespace Dal {
             const auto* family = std::get_if<CalibrationCurveFamily_>(&plan.Descriptor());
             if (family)
                 for (const auto& observation : (*family)->observations_)
-                    AdmittedObservation(observation, spec, plan.Instrument()->Pillar());
+                    AdmittedObservation(observation, spec, plan.Instrument()->Pillar(), provider);
             for (const auto& flow : plan.Cashflows())
                 Check(CoveredCashflow(flow, spec, family != nullptr), "InvalidCalibrationPlan", "/instrument/cashflows",
                       "live fixed cashflows covered by native curve nodes", "", d);
@@ -174,6 +182,19 @@ namespace Dal {
                 Check(*plan.Instrument()->Pillar() >= plan.Cashflows().back().eventDate_ &&
                           *plan.Instrument()->Pillar() <= spec.geometry_.knotDates_.back(),
                       "InvalidCalibrationPlan", "/instrument/pillar", "pillar covers cashflow dependency within curve layout", "", d);
+        }
+        PreparedCalibrationInstrument_ PrepareObservation(const CalibrationObservation_& observation,
+                                                          const CurveInstrumentCalibrationSpec_& spec,
+                                                          const CurveInstrumentCalibrationOptions_& options) try {
+            CalibrationEvaluationOptions_ preparation;
+            preparation.evaluation_ = options.evaluation_;
+            preparation.derivativeMethod_ = CalibrationDerivative_::Value_::None;
+            const auto context = StructuralContext(spec, observation);
+            auto plan = PrepareCalibrationInstrument(observation.Instrument(), observation.MeasureId(), context.script_, preparation);
+            AdmittedCashflows(plan, spec, context.curves_);
+            return plan;
+        } catch (const CalibrationError_& error) {
+            CurveFailure({}, RowDiagnostic(observation, CalibrationStage_::Value_::Prepare, error.Failure().diagnostic_));
         }
         template <class T_>
         T_ CashflowMeasure(const PreparedCalibrationInstrument_& plan, const CandidateCurveProvider_<T_>& provider, const Date_& today) {
@@ -208,14 +229,7 @@ namespace Dal {
                     Check(std::isfinite(static_cast<double>(value)), "CalibrationNumericalFailure", "/measure", "finite raw measure");
                     result.push_back(value);
                 } catch (const CalibrationError_& error) {
-                    auto d = error.Failure().diagnostic_;
-                    const auto row = RowDiagnostic(*spec.observations_[i], CalibrationStage_::Value_::Evaluate);
-                    d.stage_ = row.stage_;
-                    d.instrumentId_ = row.instrumentId_;
-                    d.observationId_ = row.observationId_;
-                    d.measureId_ = row.measureId_;
-                    d.quoteId_ = row.quoteId_;
-                    CurveFailure({}, d);
+                    CurveFailure({}, RowDiagnostic(*spec.observations_[i], CalibrationStage_::Value_::Evaluate, error.Failure().diagnostic_));
                 }
             }
             return result;
@@ -338,12 +352,7 @@ namespace Dal {
             spec_ = ResolveKnots(spec_);
             definition_ = Dal::Definition(spec_);
             for (const auto& observation : spec_.observations_) {
-                CalibrationEvaluationOptions_ preparation;
-                preparation.evaluation_ = options.evaluation_;
-                preparation.derivativeMethod_ = CalibrationDerivative_::Value_::None;
-                auto plan = PrepareCalibrationInstrument(observation->Instrument(), observation->MeasureId(), StructuralContext(spec_, *observation),
-                                                         preparation);
-                AdmittedCashflows(plan, spec_);
+                auto plan = PrepareObservation(*observation, spec_, options);
                 auto capability = plan.Capability();
                 capability.derivativeMethod_ = options_.jacobianMode_ == CalibrationDerivative_::Value_::AAD
                                                    ? CalibrationDerivative_::Value_::AAD

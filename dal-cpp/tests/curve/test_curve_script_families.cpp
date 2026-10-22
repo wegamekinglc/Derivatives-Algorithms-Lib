@@ -370,6 +370,15 @@ namespace {
         return Handle_<DiscountCurve_>(NewDiscountLogDF(name, "USD", {FAMILY_TODAY, FAMILY_END}, {0., -rate * (FAMILY_END - FAMILY_TODAY) / 365.},
                                                         DayBasis::Act365F(), LogDfScheme_("LOG_LINEAR")));
     }
+    CurveInstrumentCalibrationSpec_ ProjectionSpec(const String_& fixing = "2027-10-21") {
+        auto definition = ExplicitCouponDefinition();
+        definition.source_.rows_[2].text_ = "PAY PAYS N*(K-FIX(IR[USD,LIBOR_3M_LCH,2027-10-21]," + fixing + "))";
+        const auto instrument = NewScriptCalibrationInstrument({"missing-projection", NewScriptInstrumentDefinition(definition), {}, FAMILY_END});
+        auto spec = FamilySpec(instrument);
+        spec.market_.routes_.push_back(
+            {CurveScriptProjectionRoute(Ccy_("USD"), PeriodLength_("3M")), true, CollateralType_("OIS"), PeriodLength_("3M")});
+        return spec;
+    }
     pair<double, double> ProjectionOracle(bool basis, const Vector_<>& parameters) {
         const auto discount = [](const Date_& date) { return std::exp(-.02 * (date - FAMILY_TODAY) / 365.); };
         double firstPv = 0., firstAnnuity = 0., referencePv = 0.;
@@ -466,6 +475,171 @@ namespace {
 TEST(CurveScriptFamilyTest, TestProjectedIrsUsesExplicitBackgroundDiscountAndFitsNativeCoordinates) { AssertProjectionFamily(false); }
 
 TEST(CurveScriptFamilyTest, TestProjectedBasisPreservesIndependentThreeAndSixMonthRoutes) { AssertProjectionFamily(true); }
+
+TEST(CurveScriptFamilyTest, TestPrepareRejectsUnboundLiveProjectionBeforeSolve) {
+    for (bool solve : {false, true}) {
+        std::optional<CalibrationError_> saved;
+        {
+            const auto spec = ProjectionSpec();
+            try {
+                if (solve)
+                    static_cast<void>(CalibrateCurveInstruments(spec));
+                else
+                    static_cast<void>(PreparedCurveInstruments_(spec));
+            } catch (const CalibrationError_& error) {
+                saved = error;
+            }
+        }
+        ASSERT_TRUE(saved);
+        const auto& failure = saved->Failure();
+        ASSERT_EQ(failure.diagnostic_.code_, "CalibrationContextMismatch");
+        ASSERT_EQ(failure.diagnostic_.stage_, CalibrationStage_::Value_::Prepare);
+        ASSERT_EQ(failure.diagnostic_.field_, std::optional<String_>("/routes/IR:USD,LIBOR_3M_LCH"));
+        ASSERT_EQ(failure.diagnostic_.sourceRow_, std::optional<int>(3));
+        ASSERT_EQ(failure.diagnostic_.eventDate_, std::optional<Date_>(FAMILY_END));
+        ASSERT_EQ(failure.diagnostic_.statement_, std::optional<int>(0));
+        ASSERT_TRUE(failure.report_);
+        ASSERT_EQ(failure.report_->Axes().observations_[0]->Instrument()->Id(), "missing-projection");
+        const auto* candidate = dynamic_cast<const CurveInstrumentCalibrationCandidate_*>(failure.candidate_.get());
+        ASSERT_NE(candidate, nullptr);
+        ASSERT_EQ(candidate->Result().evaluations_, 0);
+        ASSERT_EQ(candidate->Result().gradients_, 0);
+        ASSERT_TRUE(candidate->Result().capabilities_.empty());
+    }
+}
+
+TEST(CurveScriptFamilyTest, TestSecondPrepareFailureOwnsItsObservationAndQuote) {
+    for (bool missingRoute : {true, false}) {
+        std::optional<CalibrationError_> saved;
+        {
+            auto spec = ProjectionSpec();
+            const auto first =
+                NewScriptCalibrationInstrument({"first-instrument", NewScriptInstrumentDefinition(ExplicitCouponDefinition()), {}, FAMILY_END});
+            const auto second = spec.observations_[0]->Instrument();
+            const auto rate = CalibrationValueUnit_::Parse("Rate");
+            spec.observations_ = {
+                NewCalibrationObservation("first-row", first, "ParRate", NewCalibrationMarketQuote("first-quote", .03, rate), 1e-8),
+                NewCalibrationObservation("second-row", second, "ParRate", NewCalibrationMarketQuote("second-quote", .04, rate), 1e-8)};
+            if (missingRoute)
+                spec.market_.routes_.pop_back();
+            try {
+                static_cast<void>(PreparedCurveInstruments_(spec));
+            } catch (const CalibrationError_& error) {
+                saved = error;
+            }
+        }
+        ASSERT_TRUE(saved);
+        const auto& failure = saved->Failure();
+        const auto& d = failure.diagnostic_;
+        ASSERT_EQ(d.stage_, CalibrationStage_::Value_::Prepare);
+        ASSERT_EQ(d.code_, "CalibrationContextMismatch");
+        ASSERT_EQ(d.instrumentId_, std::optional<String_>("missing-projection"));
+        ASSERT_EQ(d.observationId_, std::optional<String_>("second-row"));
+        ASSERT_EQ(d.quoteId_, std::optional<String_>("second-quote"));
+        ASSERT_EQ(d.measureId_, std::optional<String_>("ParRate"));
+        ASSERT_EQ(d.field_, std::optional<String_>("/routes/IR:USD,LIBOR_3M_LCH"));
+        ASSERT_EQ(d.sourceRow_, std::optional<int>(3));
+        ASSERT_EQ(d.eventDate_, std::optional<Date_>(FAMILY_END));
+        ASSERT_EQ(d.statement_, std::optional<int>(0));
+        ASSERT_TRUE(d.actual_);
+        ASSERT_NE(d.actual_->find("IR:USD,LIBOR_3M_LCH,2027-10-21"), String_::npos);
+        ASSERT_TRUE(failure.report_);
+        const auto& axes = failure.report_->Axes();
+        ASSERT_EQ(axes.observations_.size(), 2);
+        ASSERT_EQ(axes.quotes_.size(), 2);
+        ASSERT_EQ(axes.quoteIndex_, Vector_<int>({0, 1}));
+        ASSERT_EQ(axes.observations_[0]->Id(), "first-row");
+        ASSERT_EQ(axes.observations_[1]->Id(), "second-row");
+        ASSERT_EQ(axes.quotes_[1]->Id(), "second-quote");
+        ASSERT_DOUBLE_EQ(axes.quotes_[1]->Value(), .04);
+        ASSERT_EQ(failure.report_->Errors().size(), 1);
+        ASSERT_EQ(failure.report_->Errors()[0].observationId_, d.observationId_);
+        ASSERT_EQ(failure.report_->Errors()[0].quoteId_, d.quoteId_);
+        ASSERT_EQ(failure.report_->Errors()[0].message_, d.message_);
+        ASSERT_NE(d.message_.find(missingRoute ? "explicit matching observation route" : "explicit same-currency background curve"), String_::npos);
+    }
+}
+
+TEST(CurveScriptFamilyTest, TestPrepareChecksProjectionBackgroundCurrencyAndCollateral) {
+    for (int mismatch = 0; mismatch < 4; ++mismatch) {
+        SCOPED_TRACE(mismatch);
+        auto spec = ProjectionSpec();
+        spec.market_.forwardCurves_[PeriodLength_("3M")] = FlatFamilyCurve("background", .03);
+        if (mismatch == 0) {
+            spec.market_.forwardCurves_[PeriodLength_("6M")] = spec.market_.forwardCurves_[PeriodLength_("3M")];
+            spec.market_.forwardCurves_.erase(PeriodLength_("3M"));
+        } else if (mismatch == 1) {
+            spec.market_.forwardCurves_[PeriodLength_("3M")].reset();
+        } else if (mismatch == 2) {
+            spec.market_.forwardCurves_[PeriodLength_("3M")] = Handle_<DiscountCurve_>(
+                NewDiscountLogDF("foreign", "EUR", {FAMILY_TODAY, FAMILY_END}, {0., -.06}, DayBasis::Act365F(), LogDfScheme_("LOG_LINEAR")));
+        } else {
+            spec.market_.routes_.back().collateral_ = CollateralType_("GC");
+        }
+        std::optional<CalibrationError_> saved;
+        try {
+            static_cast<void>(PreparedCurveInstruments_(spec));
+        } catch (const CalibrationError_& error) {
+            saved = error;
+        }
+        ASSERT_TRUE(saved);
+        ASSERT_EQ(saved->Failure().diagnostic_.stage_, CalibrationStage_::Value_::Prepare);
+        ASSERT_EQ(saved->Failure().diagnostic_.code_, "CalibrationContextMismatch");
+        ASSERT_EQ(saved->Failure().diagnostic_.field_, std::optional<String_>("/routes/IR:USD,LIBOR_3M_LCH"));
+        ASSERT_EQ(saved->Failure().diagnostic_.sourceRow_, std::optional<int>(3));
+        ASSERT_TRUE(saved->Failure().report_);
+    }
+}
+
+TEST(CurveScriptFamilyTest, TestBoundProjectionAndProjectionTargetRetainRawValues) {
+    auto spec = ProjectionSpec();
+    spec.market_.forwardCurves_[PeriodLength_("3M")] = FlatFamilyCurve("background", .03);
+    const double independent = std::expm1(.03 * 92. / 365.) / (92. / 360.);
+    ASSERT_NEAR(independent, .029701194500805172, 1e-12);
+    for (const auto method : {CalibrationDerivative_::Value_::FiniteDifference, CalibrationDerivative_::Value_::AAD}) {
+        CurveInstrumentCalibrationOptions_ options;
+        options.jacobianMode_ = method;
+        const auto result = PreparedCurveInstruments_(spec, options).Evaluate({-.025, -.067});
+        ASSERT_NEAR(result.modelMeasures_[0], independent, 1e-12);
+        ASSERT_NEAR(result.quoteJacobian_(0, 0), 0., 1e-8);
+        ASSERT_NEAR(result.quoteJacobian_(0, 1), 0., 1e-8);
+    }
+    spec.geometry_.calibrateDiscountCurve_ = false;
+    spec.geometry_.targetTenor_ = PeriodLength_("3M");
+    spec.market_.forwardCurves_.clear();
+    spec.market_.discountCurves_[CollateralType_("OIS")] = FlatFamilyCurve("discount", .02);
+    const double targetRate = std::expm1(.042 * 92. / 366.) / (92. / 360.);
+    ASSERT_NEAR(PreparedCurveInstruments_(spec).Evaluate({-.025, -.067}).modelMeasures_[0], targetRate, 1e-12);
+}
+
+TEST(CurveScriptFamilyTest, TestKnownProjectionFixingNeedsNoLiveRouteOrBackground) {
+    for (const String_ fixing : {"2026-10-20", "2026-10-21"}) {
+        auto spec = ProjectionSpec(fixing);
+        spec.market_.routes_.pop_back();
+        spec.valuation_.todayFixingPolicy_ = TodayFixingPolicy_::Value_::REQUIREHISTORICAL;
+        const MarketFixingSnapshot_::values_t history = {{"IR:USD,LIBOR_3M_LCH,2027-10-21", {{DateTime_(Date::FromString(fixing), 0.), .031}}}};
+        spec.valuation_.fixings_.reset(new MarketFixingSnapshot_(history));
+        CurveInstrumentCalibrationOptions_ options;
+        options.jacobianMode_ = CalibrationDerivative_::Value_::AAD;
+        const auto known = PreparedCurveInstruments_(spec, options).Evaluate({-.025, -.067});
+        ASSERT_NEAR(known.modelMeasures_[0], .031, 1e-12);
+        ASSERT_NEAR(known.quoteJacobian_(0, 0), 0., 1e-12);
+        ASSERT_NEAR(known.quoteJacobian_(0, 1), 0., 1e-12);
+        if (fixing == "2026-10-21") {
+            spec.valuation_.todayFixingPolicy_ = TodayFixingPolicy_::Value_::MODEL;
+            ASSERT_THROW(static_cast<void>(PreparedCurveInstruments_(spec)), CalibrationError_);
+            spec.market_.routes_.push_back({"IR:USD,LIBOR_3M_LCH", true, CollateralType_("OIS"), PeriodLength_("3M")});
+            spec.market_.forwardCurves_[PeriodLength_("3M")] = FlatFamilyCurve("background", .03);
+            const auto model = PreparedCurveInstruments_(spec, options).Evaluate({-.025, -.067});
+            ASSERT_NEAR(model.modelMeasures_[0], .029701194500805172, 1e-12);
+            ASSERT_NE(model.planIdentity_, known.planIdentity_);
+        }
+    }
+    auto future = ProjectionSpec();
+    const MarketFixingSnapshot_::values_t history = {{"IR:USD,LIBOR_3M_LCH,2027-10-21", {{DateTime_(FAMILY_START, 0.), .031}}}};
+    future.valuation_.fixings_.reset(new MarketFixingSnapshot_(history));
+    ASSERT_THROW(static_cast<void>(PreparedCurveInstruments_(future)), CalibrationError_);
+}
 
 namespace {
     CalibrationPreparationContext_ FamilyContext() {

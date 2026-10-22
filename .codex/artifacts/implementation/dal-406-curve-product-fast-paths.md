@@ -3,10 +3,11 @@
 ## State, inputs and ownership
 
 Implementation uses the original `agent/dal-implementer/c097905d2513` branch.
-Implementation, merged-master integration and affected verification are complete.
-The unique DAL-406 PR awaits the coordinator's focused review and serial shared
-documentation window. This is not acceptance or permission to merge/start
-downstream work.
+Implementation and merged-master integration received a focused main review at
+`e65420120bdd9d5461c44b77791ac96123849e7f`. The two requested P2 repairs and
+their affected verification are now complete on the same PR #619. Shared
+documentation is the next serial phase after DAL-412's safe handoff. The PR
+still requires limited review and exact-head CI, not author merge/downstream work.
 
 The real prerequisite is merged DAL-405 / PR #617,
 `072c7da1b3071e71dac4f901451c2345957bd42a`. The initial boundary-only run had one
@@ -101,7 +102,7 @@ All new families reject ScriptMC even with opt-in. Compiler/MC/statistics/model
 product files stay outside this author's changes. Accepted Deposit P0 evidence
 is reused; zero-g is not offered as new stochastic/convexity proof.
 
-## Verification and provenance
+## Original implementation verification and provenance
 
 After master integration: **217/217 affected core** and **47/47 public
 compatibility** checks pass. The author adds 24 tests: 20 curve-family, three
@@ -235,3 +236,83 @@ CHANGELOG draft: bounded FRA/IRS/period-forward OIS/Basis/custom cashflow import
 and source-derived Price/par with candidate-curve FD/AAD and owned diagnostics.
 Artifact-index draft: link this active record. Existing guide entry links need
 no addition unless a separate guide is introduced.
+
+## Main-review P2 repair
+
+Authority: coordinator comment `01a16227-23e4-7747-a8b2-05f44de18366` and the
+current DAL-406 description. Reviewer reproduction attachment
+`01a16222-eb18-74d1-b4a7-c5648dd26d17` was downloaded with Multica CLI. Its
+original source/log/manifest are retained unchanged in the repair evidence.
+The clean original checkout/head e6542012 and its upstream match were verified;
+no DAL-412 product commits were imported. Actual fetched master remains f2dfa8e9.
+DAL-412 finished its publication writes at head 557415ed; only the released
+shared Markdown window transfers here. Its preparation/MC/model paths are frozen.
+
+Two focused tests first reproduce the actual failures: Prepare publishes a
+capability without a live projection background, and a second-row missing-route
+error owns the first row's observation/quote. Their real RED is in
+`p2-red.xml/log`. The repair is confined to `curveinstrumentcalibration.cpp`:
+the row-local structural context retains its existing native provider until
+admission finishes, and live projection observations reuse its actual Forward
+resolution through the existing owning observation wrapper. This validates
+target/background selection, presence, currency and collateral, and finite
+initial forward execution without a second market resolver or shared API change.
+Known historical values still return before any model-route lookup.
+
+The per-observation Prepare boundary copies the original diagnostic and binds
+the current instrument/observation/quote/measure and Prepare stage. Outer failure
+assembly then retains full axes and the original code/field/message/actual/
+expected/source context. The existing Evaluate boundary reuses that same row
+binding helper without changing its behavior. No first-row fallback can replace
+an already bound second row. A failed Prepare publishes no capability and
+consumes zero Solve evaluations/gradients.
+
+Five new family tests cover both factory/solve entry boundaries, missing/wrong
+tenor/null/foreign-currency backgrounds, collateral mismatch, a valid background,
+an active projection target without a redundant background, history and today
+RequireHistorical, Model-today and future snapshot non-fallback, and copied
+failures after local inputs are destroyed. Both row axes, quote map/value and
+report errors remain owned. Row 3/date/statement and the underlying cause remain
+available. Initial new assertions used statement=1; DAL-398 section 9 explicitly
+defines zero-based statements, so only those new harness expectations were
+corrected to zero. A unique_ptr-to-handle setup compilation correction is not
+counted as product RED. No original assertion is weakened.
+
+Fresh final verification: **52/52** directly affected core checks (25 family,
+including the five new cases, plus 27 existing curve-adapter cases). Commands,
+GCC 14.3 Release build/client logs, XML, warning-as-error checks for the two
+affected TUs and CCN<=8 reports are retained. The full original 217 core/47
+public matrix is not rerun or relabeled. Its unchanged numerical, shared-schema,
+MC and compatibility evidence remains scoped to the unchanged paths.
+
+The reviewer's unmodified probe is rebuilt against the repaired archive. It now
+reports Prepare failure and **evaluations=0/gradients=0** through Solve, retains
+the valid background value **0.029701194500805172**, and reports
+`missing-projection/second-row/second-quote`. The probe's independent PWC/PWLF/
+zero-rate raw FD/AAD errors remain 1.60e-10/1.14e-10/1.62e-10. Numerical formulas,
+FD defaults, frozen tolerances/budgets, preparation/compiler identities, Gaussian
+kernels, native solvers and Brent are unchanged.
+
+Only Prepare gets a new informational caller measurement: one-row IRS with DF
+observations as control, and one-row IRS with a valid live 3M background. Same
+CPU 4/one DAL thread, 20 warmups, 10 rounds of 100 calls, compile completed before
+timing. Before substitutes the actual e654 curve-adapter TU into the current
+archive with unchanged headers; it is not an untouched old full executable.
+Before/after medians are **126.967/127.268 us** for control and
+**116.362/121.663 us** for projection. Both valid plan IDs and values are identical.
+This captures the added admission work; no portable regression-gate pass is
+claimed. Original multi-operation caller data above remains explicitly historical,
+and unaffected pricing/Jacobian kernel timing is reused rather than repeated.
+
+Reproduction from the task workdir:
+
+```sh
+cmake --build Derivatives-Algorithms-Lib/build/dal406-scope-probe --target dal_cpp -j 8
+python3 evidence/verify_p2.py
+python3 evidence/build_p2_perf.py
+```
+
+`p2-red-command.json` identifies the focused failing filter;
+`p2-final-command.json` and `p2-review-probe-build.json` identify the final GREEN
+and exact original reproduction. Performance raw samples/environment/commands,
+source/dependency/configuration and archive/client hashes accompany delivery.
