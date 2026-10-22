@@ -211,20 +211,18 @@ namespace Dal {
                 data->objective_.nativeLayout_.push_back(row.id_);
             }
         }
-        void Plan(CalibrationReportSnapshot_* data, const CalibrationReportObservation_& row, const PreparedCalibrationInstrument_& admitted) {
+        CalibrationReportPlan_ Plan(const CalibrationReportObservation_& row, const std::optional<String_>& context) {
             CalibrationReportPlan_ plan;
             plan.observationId_ = row.observationId_;
             plan.measureId_ = row.measureId_;
-            plan.ruleId_ = admitted.Capability().ruleId_;
             plan.backend_ = row.backend_;
             plan.derivativeMethod_ = row.derivativeMethod_;
             plan.sourceIdentity_ = row.instrument_->Definition()->SourceIdentity();
             plan.definitionIdentity_ = row.instrument_->Definition()->DefinitionIdentity();
             plan.bindingIdentity_ = row.instrument_->BindingIdentity();
             plan.planIdentity_ = row.planIdentity_;
-            plan.contextIdentity_ = admitted.ContextIdentity();
-            plan.compilerIdentity_ = admitted.CompilerIdentity();
-            data->plans_.push_back(plan);
+            plan.contextIdentity_ = context;
+            return plan;
         }
         void Validation(CalibrationReportSnapshot_* data,
                         const Handle_<CalibrationObservation_>& row,
@@ -244,25 +242,6 @@ namespace Dal {
             record.sigmaMultiplier_ = s.validationSigma_;
             record.accepted_ = accepted;
             data->validation_.push_back(record);
-        }
-        PreparedCalibrationInstrument_ ReportAdmission(const CalibrationReportObservation_& row,
-                                                       const GSRInstrumentCalibrationResult_& r,
-                                                       const GSRInstrumentCalibrationSettings_& s) {
-            const auto& header = row.instrument_->Definition()->Spec().header_;
-            const CalibrationPreparationContext_ c{s.valuation_, header.payCurrency_, header.discountRoute_, r.model_->curve_,
-                                                   Handle_<ModelData_>(r.model_)};
-            CalibrationEvaluationOptions_ options;
-            options.evaluation_ =
-                Exact(r.backend_, "ScriptMC") ? CalibrationEvaluation_::Value_::ScriptMC : CalibrationEvaluation_::Value_::RequireFast;
-            options.derivativeMethod_ = r.derivativeMethod_;
-            if (options.evaluation_ == CalibrationEvaluation_::Value_::ScriptMC &&
-                r.derivativeMethod_ == CalibrationDerivative_::Value_::FiniteDifference)
-                options.derivativeMethod_ = CalibrationDerivative_::Value_::None;
-            options.allowMonteCarloCalibration_ = s.evaluation_.allowMonteCarloCalibration_;
-            if (s.fitSampling_)
-                options.sampling_ = CalibrationSamplingSpec_{static_cast<int>(int64_t(s.fitSampling_->batches_) * s.fitSampling_->pathsPerBatch_),
-                                                             s.fitSampling_->seed_, "mrg32"};
-            return PrepareCalibrationInstrument(row.instrument_, row.measureId_, c, options);
         }
         bool Accepted(const GSRInstrumentCalibrationResult_& r) {
             return r.converged_ && r.fitWithinTolerance_ && r.numericalValidationPassed_ && (!r.heldOutRequested_ || r.heldOutPassed_);
@@ -299,9 +278,8 @@ namespace Dal {
                 row.rawResidual_ = Finite(r.residuals_[i]);
                 row.scaledResidual_ = Finite(r.scaledResiduals_[i]);
                 row.fitRowPassed_ = std::abs(r.residuals_[i]) <= r.axes_.observations_[i]->ErrorScale();
-                const auto admitted = ReportAdmission(row, r, s);
-                ++r.reportPreparations_;
-                Plan(data, row, admitted);
+                // Publish existing final identities; unavailable driver metadata stays null without another admission.
+                data->plans_.push_back(Plan(row, mc ? std::optional<String_>(r.fit_[i].contextIdentity_) : std::nullopt));
                 if (mc) {
                     row.standardError_ = r.fit_[i].standardError_;
                     row.validationValue_ = r.validation_[i].mean_;

@@ -78,7 +78,7 @@ namespace Dal {
         class GsrFields_ {
             Excel::Calibration::Fields_ fields_;
             const Matrix_<Cell_>& cells_;
-            String_ function_;
+            String_ function_, pathPrefix_;
             String_ field_;
             std::set<std::string> used_;
 
@@ -98,8 +98,8 @@ namespace Dal {
             }
 
         public:
-            GsrFields_(const Matrix_<Cell_>& cells, const String_& function)
-                : fields_(ValidateFields(cells, function)), cells_(cells), function_(function) {}
+            GsrFields_(const Matrix_<Cell_>& cells, const String_& function, const String_& pathPrefix = "/settings/")
+                : fields_(ValidateFields(cells, function)), cells_(cells), function_(function), pathPrefix_(pathPrefix) {}
             String_ Location(const String_& key, int row = 0) const {
                 if (!row)
                     for (int i = 0; i < cells_.Rows() && cells_.Cols() == 2; ++i)
@@ -122,6 +122,10 @@ namespace Dal {
                 used_.insert(key);
                 return fields_.Maybe<T_>(key);
             }
+            void Require(bool condition, const char* key, const String_& expected) {
+                field_ = key;
+                REQUIRE(condition, expected);
+            }
             void Finish() {
                 for (int i = 0; i < cells_.Rows() && cells_.Cols() == 2; ++i) {
                     const auto key = Excel::Calibration::Text(cells_(i, 0));
@@ -136,9 +140,10 @@ namespace Dal {
                 String_ field = field_;
                 if (const auto* calibration = dynamic_cast<const CalibrationError_*>(&error)) {
                     const auto path = calibration->Failure().diagnostic_.field_.value_or("");
-                    const auto slash = path.find('/', 10);
-                    if (path.size() >= 10)
-                        field = path.substr(10, slash == String_::npos ? String_::npos : slash - 10);
+                    const auto offset = pathPrefix_.size();
+                    const auto slash = path.find('/', offset);
+                    if (path.find(pathPrefix_) == 0)
+                        field = path.substr(offset, slash == String_::npos ? String_::npos : slash - offset);
                 }
                 return Location(field) + error.what();
             }
@@ -209,14 +214,14 @@ namespace Dal {
             s.quadratureOrder_ = f.Default<int>("quadrature_order", s.quadratureOrder_);
             s.estimateError_ = f.Default<bool>("estimate_error", s.estimateError_);
             f.Finish();
-            REQUIRE(s.quadratureOrder_ >= 2 && s.quadratureOrder_ <= 32, "quadrature_order must be 2 through 32");
+            f.Require(s.quadratureOrder_ >= 2 && s.quadratureOrder_ <= 32, "quadrature_order", "quadrature_order must be 2 through 32");
             value->reset(new StorableGSRPricingSettings_(s));
         } catch (const Exception_& error) {
             THROW(f.Failure(error));
         }
     }
     void GSRCalibrationSolver_New(const Matrix_<Cell_>& settings, Handle_<StorableGSRCalibrationSolver_>* value) {
-        GsrFields_ f(settings, "GSRCalibrationSolver_New");
+        GsrFields_ f(settings, "GSRCalibrationSolver_New", "/settings/solver/");
         try {
             GSRCalibrationSettings_ s;
             s.maxIterations_ = f.Default<int>("max_iterations", s.maxIterations_);

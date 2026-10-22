@@ -79,6 +79,11 @@ TEST(PublicGsrInstrumentTest, TestFastMatchesExistingDriverAndOwnsRawAxes) {
     ASSERT_EQ(data.observations_[0].derivativeMethod_, "FiniteDifference");
     ASSERT_EQ(data.observations_[0].backend_, "FastGaussian");
     ASSERT_EQ(data.observations_[0].modelValue_, native.modelPrices_[0]);
+    ASSERT_EQ(result.reportPreparations_, 0u);
+    ASSERT_EQ(data.plans_[0].planIdentity_, native.planIdentities_[0]);
+    ASSERT_TRUE(data.plans_[0].ruleId_.empty());
+    ASSERT_FALSE(data.plans_[0].compilerIdentity_);
+    ASSERT_FALSE(data.plans_[0].contextIdentity_);
     ASSERT_TRUE(data.quoteJacobian_);
     ASSERT_DOUBLE_EQ((*data.quoteJacobian_)(0, 0), native.quoteJacobian_(0, 0));
     ASSERT_DOUBLE_EQ(result.report_->Axes().quoteMap_(0, 0), 1.);
@@ -125,6 +130,71 @@ TEST(PublicGsrInstrumentTest, TestMcMapsCountsAndHeldOutWithoutAnotherEvaluation
     ASSERT_DOUBLE_EQ(*data.validation_[0].standardError_, native.validation_[0].standardError_);
     ASSERT_DOUBLE_EQ(*data.validation_[0].difference_, native.validation_[0].mean_ - native.fit_[0].mean_);
     ASSERT_DOUBLE_EQ(*data.validation_[0].absoluteTolerance_, f.settings_.solver_.numericalErrorFraction_ * f.rows_[0]->ErrorScale());
+}
+
+TEST(PublicGsrInstrumentTest, TestRateOptionMcReportReusesFinalResultsWithoutPreparation) {
+    Handle_<CalibrationReport_> owned;
+    CalibrationReportPlan_ expected;
+    for (const bool caplet : {true, false}) {
+        GsrFixture_ f;
+        f.Mc();
+        const Date_ middle(2028, 4, 21);
+        const double first = (middle - f.expiry_) / 360., second = (f.maturity_ - middle) / 360.;
+        const EuropeanRateOption_ option =
+            caplet ? EuropeanRateOption_(Caplet_{f.expiry_, f.expiry_, middle, middle, first, first, "6M", .04, OptionType_("Call")})
+                   : EuropeanRateOption_(Swaption_{f.expiry_,
+                                                   {{middle, first}, {f.maturity_, second}},
+                                                   {{f.expiry_, f.expiry_, middle, middle, first, first, "6M"},
+                                                    {middle, middle, f.maturity_, f.maturity_, second, second, "6M"}},
+                                                   .04,
+                                                   OptionType_("Call")});
+        f.instrument_ = NewEuropeanRateOptionScriptInstrument(option, {caplet ? "caplet" : "swaption", Ccy_("USD"), 100., "USD.OIS"});
+        const auto price = CalibrationValueUnit_::Parse("Price:USD");
+        const double target = 100. * PriceGSREuropeanOption(f.model_, option).price_;
+        f.rows_ = {NewCalibrationObservation("rate-row", f.instrument_, "Price", NewCalibrationMarketQuote("rate-quote", target, price), .1)};
+        GSRScriptCalibrationSettings_ core;
+        core.optimizer_ = f.settings_.solver_;
+        core.sampling_.allowMonteCarloCalibration_ = true;
+        core.sampling_.fitBatches_ = core.sampling_.validationBatches_ = 2;
+        core.sampling_.fitPathsPerBatch_ = 16;
+        core.sampling_.validationPathsPerBatch_ = 32;
+        core.sampling_.maxPathsPerView_ = 96;
+        const auto native = CalibrateGSRScriptPrices(f.Context(), f.rows_, f.parameters_, core);
+        const auto result = CalibrateGSRInstruments(f.model_, f.rows_, f.parameters_, f.settings_);
+        ASSERT_EQ(result.reportPreparations_, 0u);
+        ASSERT_EQ(result.modelPrices_, native.modelPrices_);
+        ASSERT_EQ(result.costs_.preparations_, native.costs_.preparations_);
+        ASSERT_EQ(result.costs_.refreshes_, native.costs_.refreshes_);
+        ASSERT_EQ(result.costs_.basketEvaluations_, native.costs_.basketEvaluations_);
+        ASSERT_EQ(result.costs_.jacobians_, native.costs_.jacobians_);
+        ASSERT_EQ(result.costs_.batchRuns_, native.costs_.batchRuns_);
+        ASSERT_EQ(result.costs_.paths_, native.costs_.paths_);
+        ASSERT_DOUBLE_EQ(result.quoteJacobian_(0, 0), native.quoteJacobian_(0, 0));
+        const auto& plan = result.report_->Data().plans_[0];
+        ASSERT_EQ(plan.planIdentity_, native.fit_[0].planIdentity_);
+        ASSERT_EQ(plan.contextIdentity_, native.fit_[0].contextIdentity_);
+        ASSERT_EQ(plan.sourceIdentity_, f.instrument_->Definition()->SourceIdentity());
+        ASSERT_EQ(plan.definitionIdentity_, f.instrument_->Definition()->DefinitionIdentity());
+        ASSERT_EQ(plan.bindingIdentity_, f.instrument_->BindingIdentity());
+        ASSERT_TRUE(plan.ruleId_.empty());
+        ASSERT_FALSE(plan.compilerIdentity_);
+        expected = plan;
+        owned = result.report_;
+    }
+    ASSERT_EQ(owned->Axes().observations_[0]->Id(), "rate-row");
+    ASSERT_EQ(owned->Axes().quotes_[0]->Id(), "rate-quote");
+    const auto& plan = owned->Data().plans_[0];
+    ASSERT_EQ(plan.planIdentity_, expected.planIdentity_);
+    ASSERT_EQ(plan.contextIdentity_, expected.contextIdentity_);
+    ASSERT_EQ(plan.sourceIdentity_, expected.sourceIdentity_);
+    ASSERT_EQ(plan.definitionIdentity_, expected.definitionIdentity_);
+    ASSERT_EQ(plan.bindingIdentity_, expected.bindingIdentity_);
+    rapidjson::Document json;
+    json.Parse(DumpCalibrationReportJson(owned).c_str());
+    ASSERT_FALSE(json.HasParseError());
+    ASSERT_TRUE(json["plans"][0]["rule_id"].IsNull());
+    ASSERT_TRUE(json["plans"][0]["compiler_identity"].IsNull());
+    ASSERT_TRUE(json["plans"][0]["context_identity"].IsString());
 }
 
 TEST(PublicGsrInstrumentTest, TestSamplingConflictsAndCheckedBudgetEndpoints) {
@@ -218,7 +288,9 @@ TEST(PublicGsrInstrumentTest, TestMcFiniteDifferenceKeepsItsValuePlanAdmission) 
     ASSERT_TRUE(r.fit_[0].gradient_.empty());
     ASSERT_TRUE(r.nativeJacobianAvailable_);
     ASSERT_EQ(r.report_->Data().observations_[0].derivativeMethod_, "FiniteDifference");
-    ASSERT_EQ(r.report_->Data().plans_[0].ruleId_, "dal.gaussian-bond-option/1");
+    ASSERT_TRUE(r.report_->Data().plans_[0].ruleId_.empty());
+    ASSERT_EQ(r.report_->Data().plans_[0].planIdentity_, r.fit_[0].planIdentity_);
+    ASSERT_EQ(r.report_->Data().plans_[0].contextIdentity_, r.fit_[0].contextIdentity_);
 }
 
 TEST(PublicGsrInstrumentTest, TestAutoFallbackAdmitsGeneralPriceOnlyWithExplicitCompleteMc) {
@@ -242,7 +314,9 @@ TEST(PublicGsrInstrumentTest, TestAutoFallbackAdmitsGeneralPriceOnlyWithExplicit
     f.settings_.evaluation_.evaluation_ = CalibrationEvaluation_("AutoFast");
     const auto result = CalibrateGSRInstruments(f.model_, f.rows_, f.parameters_, f.settings_);
     ASSERT_EQ(result.backend_, "ScriptMC");
-    ASSERT_EQ(result.report_->Data().plans_[0].ruleId_, "dal.gaussian-script-price/1");
+    ASSERT_TRUE(result.report_->Data().plans_[0].ruleId_.empty());
+    ASSERT_EQ(result.report_->Data().plans_[0].planIdentity_, result.fit_[0].planIdentity_);
+    ASSERT_EQ(result.report_->Data().plans_[0].contextIdentity_, result.fit_[0].contextIdentity_);
     ASSERT_EQ(result.report_->Data().observations_[0].instrument_->BindingIdentity(), instrument->BindingIdentity());
     f.settings_.evaluation_.allowMonteCarloCalibration_ = false;
     ASSERT_THROW(CalibrateGSRInstruments(f.model_, f.rows_, f.parameters_, f.settings_), CalibrationError_);

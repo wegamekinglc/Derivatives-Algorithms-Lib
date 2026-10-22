@@ -89,6 +89,32 @@ TEST(ExcelGsrInstrumentTest, TestSettingsMissingValuationIsWorksheetInputError) 
     ASSERT_FALSE(value);
 }
 
+TEST(ExcelGsrInstrumentTest, TestSolverSemanticErrorUsesItsActualFieldRow) {
+    Handle_<StorableGSRCalibrationSolver_> value;
+    try {
+        GSRCalibrationSolver_New(Fields({{"parameter_scale", Cell_(.01)}, {"max_iterations", Cell_(0.)}}), &value);
+        FAIL() << "Expected invalid iteration limit";
+    } catch (const Exception_& error) {
+        const std::string message = error.what();
+        ASSERT_NE(message.find("GSRCalibrationSolver_New"), std::string::npos);
+        ASSERT_NE(message.find("settings row=2 column=2; field=max_iterations;"), std::string::npos) << message;
+    }
+    ASSERT_FALSE(value);
+}
+
+TEST(ExcelGsrInstrumentTest, TestPricingSemanticErrorUsesItsActualFieldRow) {
+    Handle_<StorableGSRPricingSettings_> value;
+    try {
+        GSRPricingSettings_New(Fields({{"estimate_error", Cell_(true)}, {"quadrature_order", Cell_(1.)}}), &value);
+        FAIL() << "Expected invalid quadrature order";
+    } catch (const Exception_& error) {
+        const std::string message = error.what();
+        ASSERT_NE(message.find("GSRPricingSettings_New"), std::string::npos);
+        ASSERT_NE(message.find("settings row=2 column=2; field=quadrature_order;"), std::string::npos) << message;
+    }
+    ASSERT_FALSE(value);
+}
+
 TEST(ExcelGsrInstrumentTest, TestStrictFieldsAndParameterRows) {
     const Fixture_ f;
     Handle_<StorableGSRInstrumentCalibrationSettings_> settings;

@@ -791,9 +791,12 @@ DerivativeUnavailable, and unavailable metadata stays null. Fast quadrature
 errors are numerical errors, never statistical SE. Validation records compare
 against fit values and use the frozen numerical budget; held-out differences
 compare the market target and use its error scale.
-Public report admission
-records source/binding/compiler/context identities without repricing; its
-preparation count is separate from unchanged driver counters.
+Report publication copies source/definition/binding identities and final driver
+plan identities without new preparation, pricing or simulation. MC context
+identities come from the final fit results. Rule/compiler identities and fast
+context identities are unavailable and remain null because the drivers do not
+return them. Driver counters retain their original scope; the initial fast-route
+admission is separate and can execute native rate-option domain checks.
 Convergence, fit tolerance, numerical validation and requested held-out acceptance
 are independent: a nonthrowing rejection is Candidate, while invalid inputs or
 execution failures throw owning CalibrationError. Last complete models survive
