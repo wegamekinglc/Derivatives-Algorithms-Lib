@@ -237,3 +237,70 @@ performance evidence remain applicable. No product or performance test is rerun
 for this Markdown-only batch. The extra Swaption MC-fit precision refusal above
 remains a refusal. Current-head CI and necessary documentation review are still
 pending acceptance; no downstream delivery or merge is claimed.
+
+## Master integration after DAL-405 acceptance
+
+Coordinator trigger `01a1619e-b19f-7c36-9189-41ae46cced0b` requests the serial
+integration after DAL-405 / PR #617 merged, retaining shared documentation
+ownership on DAL-411. The accepted incoming PR #616 head is
+`b12b0a8fc6dd57fb9468c912a04700f2e350186c`; its 36 successful effective checks,
+code Approve and documentation acceptance are prior-head evidence, not checks
+for this integration.
+
+The new integrated head is `7fc6192137755d8c4e339558bae266521f7d4554`, with
+ordered parents `b12b0a8fc6dd57fb9468c912a04700f2e350186c` and merged master
+`072c7da1b3071e71dac4f901451c2345957bd42a`. Their merge base is
+`1f6eaa32424d0c71efb148cfb953f1634ff209cf`. This appended record is delivered
+as a subsequent Markdown-only commit; its exact published head is recorded in
+the issue handoff and attached final manifest. Both commits stay on the same
+branch and PR. No DAL-406 unmerged commit is imported.
+
+Before editing, `git merge-tree --write-tree --name-only` reproduced exactly
+the two reported conflicts. Its expected automatic tree is
+`543e4b1a5b90ac45227fe7bba5aefc9caf7b206f`; the resolved merge tree is
+`b24d0de9591d847d724d07a4dc97295482495b05`. The only differences between those
+trees are `CHANGELOG.md` and `.codex/artifacts/README.md`: conflict markers are
+replaced by the complete 411 entry followed by the complete 405 entry, with a
+blank line between them. A line-preservation assertion verifies that both
+parents' entire versions of each document remain in order, without wording
+changes. The existing date/section and all other entries are retained.
+
+`docs/methodology/script_calibration_contract.md` is exactly Git's automatic
+merge blob `aa202cc158276222c62ed69257ea5d6efec66814`. It retains every line
+from accepted 411 and the complete new Native curve instrument calibration
+section from merged 405. No manual guide edit is made. The remaining 405
+activity record and underdetermined-search documentation match master.
+
+All **2744 tracked non-Markdown entries**, including modes and object IDs,
+match the automatic merge. The two parents' changed non-Markdown paths are
+disjoint, and each changed path retains the exact object from its owning
+parent. The four resolved product tree IDs also match the automatic result:
+
+- `dal-cpp`: `89f86737cef6bc3dea1deea672e981bbdc375205`.
+- `dal-public`: `9f30dbe5825eb2a8202cbf4480c8695a72a56481`.
+- `dal-python`: `39bc8427f0e4a7b566c3dc164ecc6d40694e89f3`.
+- `dal-excel`: `7fb7da8118e1da7ee44a067786af4b035a433bc9`.
+
+The core tree combines accepted 411 `af0320b90027a91cbdf30525a62b340fa1b6d083`
+with accepted master `23b55b675fa67d40e976065967b98c2acb6768b6`; it is not
+claimed identical to either parent. Master adds the accepted native curve
+provider/driver and additive Underdetermined::Fit code. Gaussian fitting still
+uses the unchanged BoundedGaussNewton implementation. GCC15 `-MM` preprocessing
+of eight relevant source/test roots verifies that none of the master's changed
+non-Markdown files enters those Gaussian/RateStrike/preparation dependencies.
+The attachment retains those full dependency lists and the preservation audit.
+No extra product edit, dependency pin, build setting, example or generated
+output change is introduced by the conflict resolution.
+
+Static verification passes for **86 Markdown files**, including local links
+and anchors, and `git diff --cached --check` passes with no unresolved paths.
+The manual-resolution patch and this record-only follow-up are separately
+audited. The original code Approve, documentation acceptance, 150 core/114
+public checks, 28 numerical states/448 batches and scoped performance evidence
+remain applicable to their unchanged paths; the merged 405 code retains its
+accepted master provenance. Product and performance matrices are not rerun for
+this mechanical integration. No fresh integrated product binary is built or
+claimed: the earlier executable hashes identify only those earlier builds.
+Exact new-head CI is reported separately in the final issue handoff and is a
+coordinator merge gate. The author does not merge, dispatch reviewers or start
+DAL-412; no acceptance threshold or prior precision refusal changes.
