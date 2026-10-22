@@ -497,6 +497,12 @@ namespace Dal {
             const auto& observation = family.observations_[fixing->left_];
             return {flow.payment_, {}, 0., 0., *flow.source_.sourceRow_, *flow.source_.statement_, observation.index_, observation.fixing_};
         }
+        Payoff_ CurvePayoff(const CalibrationCurveFamily_& family) {
+            Payoff_ result{family, {}};
+            for (const auto& flow : family->payments_)
+                result.cashflows_.push_back(CurveMetadata(flow, *family));
+            return result;
+        }
         Payoff_ RatePayoff(const CalibrationRateOptionDescriptor_& rate,
                            const Payment_& payment,
                            const CalibrationPreparationContext_& context,
@@ -540,12 +546,8 @@ namespace Dal {
                           option->index_,
                           option->expiry_}}};
             }
-            if (const auto family = CurveFamily(instrument, context, payments)) {
-                Payoff_ result{family, {}};
-                for (const auto& flow : family->payments_)
-                    result.cashflows_.push_back(CurveMetadata(flow, *family));
-                return result;
-            }
+            if (const auto family = CurveFamily(instrument, context, payments))
+                return CurvePayoff(family);
             const auto rate = CalibrationRateOptionInternal::Match(payments, instrument, context);
             Check(static_cast<bool>(rate), "UnsupportedFastEvaluator", "/source/rows", "complete admitted option or bounded curve cashflows", "",
                   payments[0].source_);
@@ -574,21 +576,44 @@ namespace Dal {
             const auto strike = [](const Node_& node) { return dynamic_cast<const NodeMulti_*>(&node) && Slot(*node.arguments_[0], "K"); };
             return strike(*difference->arguments_[0]) || strike(*difference->arguments_[1]);
         }
-        bool NativeTemplate(const ScriptProduct_& product,
-                            const CalibrationInstrument_& instrument,
-                            const CalibrationPreparationContext_& context,
-                            const CalibrationDiagnostic_& d) {
+        CalibrationCurveFamily_
+        MatchCurveFamily(const Vector_<Payment_>& payments, const CalibrationInstrument_& instrument, const CalibrationPreparationContext_& context) {
+            if (payments.empty())
+                return {};
+            try {
+                ValidatePayments(payments, false);
+                return CurveFamily(instrument, context, payments);
+            } catch (const CalibrationError_& error) {
+                const auto& code = error.Failure().diagnostic_.code_;
+                // Only the strict lowerer's structural nonmatches may enter general execution.
+                if (code == "UnsupportedFastEvaluator" || code == "UnsupportedCalibrationMeasure")
+                    return {};
+                throw;
+            }
+        }
+        struct TemplateMatch_ {
+            bool native_ = false;
+            CalibrationCurveFamily_ family_;
+        };
+        bool ReceiverInitialization(const Node_& node, const String_& receiver) {
+            return dynamic_cast<const NodeAssign_*>(&node) && Receiver(*node.arguments_[0], receiver) && Literal(*node.arguments_[1], 0.);
+        }
+        TemplateMatch_ NativeTemplate(const ScriptProduct_& product,
+                                      const CalibrationInstrument_& instrument,
+                                      const CalibrationPreparationContext_& context,
+                                      const CalibrationDiagnostic_& d) {
             Vector_<Payment_> payments;
             bool plain = true;
             ForStatements(product, d, [&](const Node_& node, const auto& source) {
                 if (const auto* pay = dynamic_cast<const NodePays_*>(&node))
                     payments.push_back({pay, *source.eventDate_, source});
-                else if (!(dynamic_cast<const NodeAssign_*>(&node) &&
-                           Receiver(*node.arguments_[0], instrument.Definition()->Spec().header_.receiver_) && Literal(*node.arguments_[1], 0.)))
+                else if (!ReceiverInitialization(node, instrument.Definition()->Spec().header_.receiver_))
                     plain = false;
             });
-            return DepositTemplateShape(payments) ||
-                   (plain && (BondOption(payments, instrument, context, d).has_value() || RateTemplateShape(payments)));
+            if (DepositTemplateShape(payments) ||
+                (plain && (BondOption(payments, instrument, context, d).has_value() || RateTemplateShape(payments))))
+                return {true, {}};
+            return {false, plain ? MatchCurveFamily(payments, instrument, context) : CalibrationCurveFamily_()};
         }
         bool VectorNode(const Node_& node) {
             return dynamic_cast<const NodeVectorAssign_*>(&node) || dynamic_cast<const NodeVectorEntry_*>(&node) ||
@@ -670,8 +695,11 @@ namespace Dal {
             const bool paid = GuardProduct(*product, instrument.Definition()->Spec().header_.receiver_, d);
             if (options.evaluation_ != CalibrationEvaluation_::Value_::ScriptMC || measure.kind_ != CalibrationMeasureKind_::Value_::Price)
                 return NativePreparation(product, instrument, measure, context, options, d);
-            if (CurveScriptInternal::Candidate(instrument) || NativeTemplate(*product, instrument, context, d))
+            const auto matched = NativeTemplate(*product, instrument, context, d);
+            if (matched.native_)
                 return NativePreparation(product, instrument, measure, context, options, d);
+            if (matched.family_)
+                return {CurvePayoff(matched.family_), AdmitCurve(context, options, d)};
             auto capability = Admit(false, measure, context, options, d);
             Check(Bytes(options.sampling_->generator_) == "mrg32", "InvalidCalibrationPlan", "/options/sampling/generator",
                   "executable mrg32 for general Price", "", d);
