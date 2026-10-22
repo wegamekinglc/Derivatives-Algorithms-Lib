@@ -8,6 +8,10 @@ current-state explanations in the published docs or focused Codex references.
 
 ## Current Artifacts
 
+- [DAL-408 deterministic XCCY script cashflows](implementation/dal-408-xccy-script-cashflows.md)
+  — Active native export, complete dual-leg/date admission, frozen timestamp
+  policy, independent value/raw-derivative evidence and bounded failure checks.
+
 - [DAL-406 deterministic curve script families](implementation/dal-406-curve-product-fast-paths.md)
   — Active FRA/IRS/period-forward OIS/Basis/custom cashflow admission, independent
   value/raw-derivative evidence, projection/owned-error repairs and serial documentation.

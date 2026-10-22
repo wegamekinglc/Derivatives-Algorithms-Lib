@@ -6,9 +6,10 @@ DAL-406 / PR #619. The research baseline `0f1feabee193d0976ab7a5336c9e9e29cb2aa2
 is historical evidence, rather than the implementation base.
 
 This record controls the focused code review and the subsequent DAL-409 adapter.
-Shared methodology, CHANGELOG and artifact indexes remain in DAL-407's writing
-window; the necessary documentation text is contained here for coordinator/doc
-integration. No public, Python, Excel, compiler, model, MC, wire or build file changes.
+Shared methodology, CHANGELOG and the artifact index now include the bounded
+XCCY capability. The documentation-only integration follows the accepted code
+repair; its handoff is recorded below. No public, Python, Excel, compiler,
+model, MC, wire or build file changes.
 
 ## Design and authority
 
@@ -293,3 +294,44 @@ The final commit/head and exact-head CI snapshot are in the handoff manifest.
 Public guide, CHANGELOG and index integration remains pending in the coordinated
 window; the earlier accurate draft in this record is preserved. Code repair can
 be handed off for limited review independently of that documentation gate.
+
+## Serial public-documentation integration
+
+The code baseline is the reviewed/approved
+`bcd0d8ca834c59fdfe5cf7d4bc42f39e327eb24a`. The original review and limited
+two-P2 approval at parent comment `01a16349-641b-7c7a-993c-32cd8a21c1e6`
+remain applicable; the large-MTM normalization exploration remains a disclosed
+failure and is not reclassified as a precision pass.
+
+The current issue and parent comment `01a1634c-25e2-73f1-9197-db37746ca782`
+authorize the narrow Markdown window after DAL-407's CI repair. That repair
+was safely delivered at `79e773213a2b00ded1a201988d60b3f5528b85a8`, with only
+its own record modified among documentation. Before editing, the original
+DAL-412 checkout was verified at
+`38b0427830659950540a311d5a4997fcfea23295`, with no staged or unstaged paths;
+its previously committed documentation window had ended. This establishes
+the serial transfer to DAL-408 without waiting for sibling CI or merge.
+Only the DAL-408 checkout is written for this integration.
+
+Four Markdown paths change: the existing methodology guide, CHANGELOG, active
+artifact index and this record. The new guide section covers one-time source
+authority, complete AST/date matching, signed affine measures, explicit routes
+and canonical geometry, future/payment/reset FX distinctions, exact timestamp
+and frozen-snapshot semantics, numeric failures and the bounded deterministic
+capability. Existing P0/405/406/411 prose is preserved. No unmerged DAL-407
+interface or DAL-412 generic MC content, new financial family, downstream
+adapter or nonexistent artifact link is copied. The guide already has stable
+entries in docs/README, methodology README and CLAUDE; those indexes need no
+additional entry for a section in the same guide.
+
+Verification is limited to Markdown/link/anchor/diff checks and a full Git-tree
+comparison against the reviewed code head. Every non-Markdown mode/type/blob
+is identical, and the previous guide text is intact after removing just the
+new section. Exact counts, patch, source and final-head identity plus a single
+CI snapshot are in the documentation handoff. No product, statistical or
+performance test is run for this phase. The 37 repair checks, original
+313 core/37 public, independent numerical/compatibility evidence and caller
+information retain their recorded identities and applicability. Code Approve
+is reused; necessary documentation review and exact-head gates remain for
+the coordinator. DAL-408's Markdown writing is complete before the author
+returns to the separately authorized DAL-412 Coupon dispatch repair.
