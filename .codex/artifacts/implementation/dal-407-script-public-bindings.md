@@ -425,3 +425,80 @@ snapshot are in the handoff manifest. Prior successful checks do not validate
 the new head. Only these three P2s and direct effects await limited review;
 the accepted guide/public example and remaining main-review conclusions stay
 applicable. The author does not dispatch experts, merge or start downstream.
+
+## Windows profiling test-runtime repair
+
+The original checkout starts clean at
+`974137c4b261a4c3b712a9018c352245bccc08da`. Coordinator comment
+`01a1639d-37ed-7489-84aa-83afc58a08d6` and the issue's Windows profiling
+section authorize only the dedicated Excel test, existing test-runtime
+bridge/header and this record. The complete main review, three P2 repairs
+and documentation acceptance remain applicable; only this new diff and
+its direct effects await limited review.
+
+The real RED is Windows MSVC/aadet-profiling run `39776188453`, job
+`119820704714`: compilation passes, then the typed-sheet test fails with
+`Repository object not found` at the `knot_dates` field. CTest reports one
+failure among 3867 tests; subsequent Python/profiling/install/standalone
+steps are skipped, not successful. The unchanged excerpt was downloaded
+through Multica attachment `01a1639d-369b-779c-9564-b3c938e1dd9c`; its
+SHA-256 is `15e4e81043d0a56b617b6af748ff73cd8402409db97bee00fc6bb5c16e16d055`.
+The coordinator's full-log hash is recorded separately; this repair run
+downloaded the excerpt, not the full Windows log. No workflow retry or
+local passing portable result is presented as reproducing that native RED.
+
+Source inspection confirms the boundary: the test executable links public
+and the XLL; the XLL statically links its own public/core runtime. Core's
+repository object map is file-local static state. The old Store template
+called StoreRepository in the executable, while the typed field reader
+called FetchRepository inside the XLL. The existing runtime support already
+bridges the same separation for dates, fixings, workers and AAD state.
+This explains the native failure from source; it is not an executed Windows
+confirmation of the repair.
+
+The minimal change adds ScriptTestStoreRepository to that existing bridge
+and forwards the dedicated test's Store template to it. On Windows both
+the Store and typed settings Fetch now resolve within the XLL runtime.
+The existing EXPORTS/IMPORTS decorators and EXPORTS-or-PORTABLE definition
+guard are unchanged. The hook has no worksheet markup/registration and is
+compiled into the XLL only by the existing test-support configuration.
+All 30 original assertion statements remain byte-identical and in order,
+including values, axes/backend, missing-matrix refusal, wrong handles and
+budget-failure outcome. Input data, labels and numerical tolerances remain.
+No product repository, binding implementation, native test gate, build
+dependency, shared public document or sibling source changes.
+
+Actual local GREEN commands:
+
+```sh
+cmake --build build/Release-linux --target dal_excel_portable_tests -j 4
+./build/Release-linux/dal-excel/dal_excel_portable_tests --gtest_filter='ExcelCalibrationInstrumentTest.TestTypedSheetConstructionSharesAxesAndUnavailableMatrixIsError'
+./build/Release-linux/dal-excel/dal_excel_portable_tests --gtest_filter='ExcelCalibrationInstrumentTest.*'
+./build/Release-linux/dal-excel/dal_excel_portable_tests --gtest_filter='ScriptExcelContractTest.*:ExcelUtilitiesTest.TestCalendarFunctions'
+```
+
+The focused test passes first, then all four calibration cases and 29
+direct runtime-bridge clients pass: **33 unique portable tests**, with the
+focused case also run separately. The normal target and its transitive
+core/facade dependencies complete; no unrelated test matrix is executed.
+Four GCC14/15 syntax/warning checks use the actual two affected TUs' CMake
+argv and unchanged CI warning exclusions. Formatting, CCN<=8, diff integrity
+and 88-Markdown checks pass. Static checks retain the exact gating and
+verify build files and public documentation are byte-identical to input.
+The support object contains the new bridge definition and its repository
+call. Exact argv/results, XML, source/dependency/configuration hashes and
+fresh runner/archive/object identities accompany the real RED excerpt.
+
+The diff is test-only and changes neither build/install boundaries nor
+financial algorithms or timed callers. Prior independent core/public-disabled/
+public build/install evidence, accepted numerical tests and informational
+performance data retain their original identities and documented scope;
+they are not claimed as new-head executions. No statistical/performance
+matrix or redundant independent component rebuild is warranted by this diff.
+Existing generated-file evidence remains applicable because no markup,
+generator, generated source or registration changes.
+
+The pushed head and one current-head CI snapshot are in the repair handoff.
+Native Windows/XLL, workbook and MSVC profiling GREEN remain unverified by
+this Linux run; new-head CI must establish the actual native result. The
+author does not merge, dispatch experts, restart workflows or start downstream.

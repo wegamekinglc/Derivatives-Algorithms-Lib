@@ -1,7 +1,7 @@
-#include <dal-excel/src/__calibrationinstrument.hpp>
-#include <dal-public/src/host.hpp>
-#include <dal-public/src/repository.hpp>
 #include <gtest/gtest.h>
+
+#include <dal-excel/src/__calibrationinstrument.hpp>
+#include <dal-excel/src/__script_test_api.hpp>
 
 TEST(ExcelCalibrationInstrumentTest, TestStrictImportSettingsRejectDuplicateUnknownAndBooleanNotional) {
     const auto valid = [] {
@@ -32,8 +32,7 @@ TEST(ExcelCalibrationInstrumentTest, TestStrictImportSettingsRejectDuplicateUnkn
 
 namespace {
     template <class T_> Dal::String_ Store(const Dal::Handle_<T_>& object) {
-        ENV_SEED_TYPE(Dal::ObjectAccess_);
-        return Dal::StoreRepository(_env, Dal::handle_cast<Dal::Storable_>(object));
+        return Dal::Excel::ScriptTestStoreRepository(Dal::handle_cast<Dal::Storable_>(object));
     }
     Dal::Matrix_<Dal::Cell_> Fields(std::initializer_list<std::pair<const char*, Dal::Cell_>> fields) {
         Dal::Matrix_<Dal::Cell_> result(static_cast<int>(fields.size()), 2);
