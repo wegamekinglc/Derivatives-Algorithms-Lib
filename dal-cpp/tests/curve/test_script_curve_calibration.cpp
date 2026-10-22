@@ -43,6 +43,16 @@ namespace {
         spec.observations_ = {NewCalibrationObservation("o", instrument, "ParRate", quote, 1e-10)};
         return spec;
     }
+    void AssertInvalidObjectiveMetadata(const CalibrationReport_& report, bool weight, double value) {
+        const auto expected = std::isfinite(value) ? std::optional<double>(value) : std::nullopt;
+        if (weight) {
+            ASSERT_EQ(report.Data().summary_.fitWeight_, expected);
+            ASSERT_EQ(report.Data().objective_.lambda_, expected);
+        } else {
+            ASSERT_EQ(report.Data().objective_.parameterScales_, std::isfinite(value) ? Vector_<>({value}) : Vector_<>());
+            ASSERT_EQ(report.Data().parameters_[0].scale_, expected);
+        }
+    }
 } // namespace
 
 TEST(ScriptCurveCalibrationTest, TestReportOwnsEvaluateAndFitAfterInputsAreDestroyed) {
@@ -110,6 +120,54 @@ TEST(ScriptCurveCalibrationTest, TestCopiedFailureReportOwnsLastCompleteCandidat
     ASSERT_EQ(failure.report_->Data().parameters_[0].value_, std::optional<double>(result.parameters_[0]));
     ASSERT_FALSE(failure.report_->Data().quoteJacobian_);
     ASSERT_EQ(failure.report_->Errors()[0].code_, failure.diagnostic_.code_);
+}
+
+TEST(ScriptCurveCalibrationTest, TestInvalidObjectiveReportRetainsPrimaryFailureAndOwnedAxes) {
+    for (bool weight : {false, true}) {
+        for (double value : {0., std::numeric_limits<double>::quiet_NaN()}) {
+            std::optional<CalibrationError_> retained;
+            {
+                auto spec = DepositSpec();
+                if (weight) {
+                    spec.solver_.solveMode_ = CurveSolveMode_::Value_::APPROXIMATE;
+                    spec.solver_.fitWeight_ = value;
+                    spec.solver_.fitNormTolerance_ = .1;
+                } else {
+                    spec.solver_.parameterScales_ = {value};
+                }
+                try {
+                    static_cast<void>(CalibrateCurveInstruments(spec));
+                } catch (const CalibrationError_& error) {
+                    retained = error;
+                }
+            }
+            ASSERT_TRUE(retained);
+            const auto& failure = retained->Failure();
+            const auto& d = failure.diagnostic_;
+            ASSERT_EQ(d.code_, "InvalidCalibrationObjective");
+            ASSERT_EQ(d.field_, std::optional<String_>(weight ? "/solver/fit_weight" : "/solver/parameter_scales"));
+            ASSERT_NE(d.message_.find(weight ? "lambda" : "scales"), String_::npos);
+            ASSERT_EQ(d.observationId_, std::optional<String_>("o"));
+            ASSERT_EQ(d.instrumentId_, std::optional<String_>("deposit"));
+            ASSERT_EQ(d.quoteId_, std::optional<String_>("q"));
+            ASSERT_EQ(d.measureId_, std::optional<String_>("ParRate"));
+            ASSERT_TRUE(failure.candidate_);
+            ASSERT_TRUE(failure.report_);
+            const auto& report = *failure.report_;
+            ASSERT_EQ(report.Errors().size(), 1);
+            ASSERT_EQ(report.Errors()[0].code_, d.code_);
+            ASSERT_EQ(report.Errors()[0].field_, d.field_);
+            ASSERT_EQ(report.Errors()[0].message_, d.message_);
+            ASSERT_EQ(report.Axes().observations_.size(), 1);
+            ASSERT_EQ(report.Axes().quotes_.size(), 1);
+            ASSERT_EQ(report.Axes().quoteIndex_, Vector_<int>({0}));
+            ASSERT_DOUBLE_EQ(report.Axes().quoteMap_(0, 0), 1.);
+            ASSERT_EQ(report.Data().observations_[0].instrument_->Id(), "deposit");
+            ASSERT_EQ(report.Data().summary_.evaluations_, std::optional<int>(0));
+            ASSERT_EQ(report.Data().summary_.jacobianEvaluations_, std::optional<int>(0));
+            AssertInvalidObjectiveMetadata(report, weight, value);
+        }
+    }
 }
 
 TEST(ScriptCurveCalibrationTest, TestNativeCoordinatesAndRawJacobianAgainstCashflowOracle) {

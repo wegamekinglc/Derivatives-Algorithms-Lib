@@ -36,3 +36,17 @@ TEST(CalibrationReportTest, TestNonfiniteObjectiveAndSimulationAreRejected) {
     data.execution_.simulation_->smooth_ = infinity;
     ASSERT_THROW(Dal::CalibrationReport_(Dal::CalibrationStage_("Input"), {}, {}, data), Dal::CalibrationError_);
 }
+
+TEST(CalibrationReportTest, TestNonfiniteScaleAndFitMetadataRemainRejected) {
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    for (int field = 0; field < 3; ++field) {
+        Dal::CalibrationReportSnapshot_ data;
+        if (field == 0)
+            data.objective_.parameterScales_ = {nan};
+        else if (field == 1)
+            data.objective_.lambda_ = nan;
+        else
+            data.summary_.fitWeight_ = nan;
+        ASSERT_THROW(Dal::CalibrationReport_(Dal::CalibrationStage_("Input"), {}, {}, data), Dal::CalibrationError_);
+    }
+}

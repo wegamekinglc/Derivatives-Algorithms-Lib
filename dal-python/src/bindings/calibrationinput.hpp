@@ -101,7 +101,8 @@ namespace Dal::Python::Calibration {
                 throw py::type_error(field + "; expected dict");
             std::map<K_, V_> result;
             for (const auto& row : py::reinterpret_borrow<py::dict>(value))
-                result.emplace(Input_<K_>::Read(row.first, field), Input_<V_>::Read(row.second, field));
+                if (!result.emplace(Input_<K_>::Read(row.first, field), Input_<V_>::Read(row.second, field)).second)
+                    CalibrationInputFailure("InvalidCalibrationPlan", String_(field), "unique keys after typed conversion");
             return result;
         }
     };

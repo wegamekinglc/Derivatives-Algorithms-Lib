@@ -1,6 +1,7 @@
 #include "bindings.h"
 
 #include "calibrationinput.hpp"
+#include "giltestbarrier.hpp"
 #include <pybind11/eval.h>
 
 using namespace Dal;
@@ -11,6 +12,19 @@ void init_calibration_types(py::module_& m);
 
 namespace {
     PyObject* calibrationErrorType = nullptr;
+    thread_local bool testBarrierArmed = false;
+    GilTestBarrier_ testBarrier;
+    constexpr const char* GIL_TIMEOUT = "CalibrationMC: Python GIL test barrier timed out";
+
+    void GilTestHooks(py::module_& m) {
+        m.def("_CalibrationMcGilBarrier_ArmForTesting", [] { testBarrier.Arm(&testBarrierArmed); });
+        m.def("_CalibrationMcGilBarrier_AwaitEntryForTesting", [] {
+            py::gil_scoped_release release;
+            return testBarrier.AwaitEntry();
+        });
+        m.def("_CalibrationMcGilBarrier_ReleaseForTesting", [] { return testBarrier.Release(); });
+        m.def("_CalibrationMcGilBarrier_BlockWithGilForTesting", [] { testBarrier.Wait(&testBarrierArmed, GIL_TIMEOUT); });
+    }
 
     template <class T_> std::shared_ptr<T_> Mutable(const Handle_<T_>& value) { return std::const_pointer_cast<T_>(value); }
     template <class T_> T_ Read(const py::handle& value, const char* field) { return Input_<T_>::Read(value, field); }
@@ -252,6 +266,7 @@ class CalibrationError(RuntimeError):
                 const auto market = Read<Handle_<ModelData_>>(model, "/model");
                 const auto settings = Read<CalibrationMonteCarloRequest_>(request, "/request");
                 py::gil_scoped_release release;
+                testBarrier.Wait(&testBarrierArmed, GIL_TIMEOUT);
                 return ValueCalibrationInstrumentByMonteCarlo(contract, market, settings);
             },
             py::arg("instrument"), py::arg("model"), py::arg("request"));
@@ -348,6 +363,7 @@ class CalibrationError(RuntimeError):
 } // namespace
 
 void init_bindings_calibrationinstrument(py::module_& m) {
+    GilTestHooks(m);
     init_calibration_types(m);
     Handles(m);
     ErrorType(m);

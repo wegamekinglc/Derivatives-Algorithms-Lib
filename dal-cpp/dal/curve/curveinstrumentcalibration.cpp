@@ -81,6 +81,10 @@ namespace Dal {
         std::optional<double> ReportNumber(const Vector_<>& values, size_t i) {
             return i < values.size() && std::isfinite(values[i]) ? std::optional<double>(values[i]) : std::nullopt;
         }
+        std::optional<double> ReportNumber(const std::optional<double>& value) { return value && std::isfinite(*value) ? value : std::nullopt; }
+        Vector_<> ReportValues(const Vector_<>& values) {
+            return std::all_of(values.begin(), values.end(), [](double value) { return std::isfinite(value); }) ? values : Vector_<>();
+        }
         void ReportParameters(const CurveInstrumentCalibrationResult_& result, CalibrationReportSnapshot_* data) {
             data->parameters_.clear();
             for (size_t i = 0; i < result.freeParameters_.size(); ++i) {
@@ -144,13 +148,13 @@ namespace Dal {
             summary.terminationReason_ = result.termination_.empty() ? std::nullopt : std::optional<String_>(result.termination_);
             summary.evaluations_ = result.evaluations_;
             summary.jacobianEvaluations_ = result.gradients_;
-            summary.fitWeight_ = result.fitWeight_;
-            summary.fitNormTolerance_ = result.fitNormTolerance_;
+            summary.fitWeight_ = ReportNumber(result.fitWeight_);
+            summary.fitNormTolerance_ = ReportNumber(result.fitNormTolerance_);
             if (result.modelMeasures_.empty())
                 return;
             summary.fitWithinTolerance_ = result.fitWithinTolerance_;
-            summary.scaledL2_ = result.scaledNorm_;
-            summary.scaledInfinity_ = result.maxAbsScaledResidual_;
+            summary.scaledL2_ = ReportNumber(result.scaledNorm_);
+            summary.scaledInfinity_ = ReportNumber(result.maxAbsScaledResidual_);
             const auto& first = result.axes_.observations_.front()->Quote()->Unit();
             const bool homogeneous = std::all_of(result.axes_.observations_.begin(), result.axes_.observations_.end(),
                                                  [&](const auto& row) { return row->Quote()->Unit() == first; });
@@ -158,15 +162,15 @@ namespace Dal {
                 summary.rawL2_ = result.rawNorm_;
         }
         void ReportObjective(const CurveInstrumentCalibrationResult_& result, CalibrationReportSnapshot_* data) {
-            data->objective_.theta0_ = result.initialParameters_;
-            data->objective_.parameterScales_ = result.parameterScales_;
+            data->objective_.theta0_ = ReportValues(result.initialParameters_);
+            data->objective_.parameterScales_ = ReportValues(result.parameterScales_);
             data->objective_.nativeLayout_.clear();
             for (const auto& p : data->parameters_)
                 data->objective_.nativeLayout_.push_back(p.id_);
             if (result.nativeWeights_.Rows() > 0)
                 data->objective_.weightMatrix_ = result.nativeWeights_;
-            data->objective_.lambda_ = result.fitWeight_;
-            data->objective_.eta_ = result.fitNormTolerance_;
+            data->objective_.lambda_ = ReportNumber(result.fitWeight_);
+            data->objective_.eta_ = ReportNumber(result.fitNormTolerance_);
             data->objective_.weightProvenance_ = result.nativeWeights_.Rows() > 0 ? "NativeCurveSmoothingMetric" : "";
         }
         std::optional<String_> CommonPlanIdentity(const Vector_<CalibrationReportPlan_>& plans,

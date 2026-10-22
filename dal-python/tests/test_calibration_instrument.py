@@ -1,8 +1,6 @@
 import gc
 import json
-import sys
 import threading
-import time
 
 import pytest
 import dal
@@ -127,6 +125,37 @@ def test_binding_updates_and_getters_are_copied_and_strict():
         raised.value.code = "changed"
 
 
+def _with_mc_gil_handshake(operation):
+    ready, released = threading.Event(), threading.Event()
+    errors = []
+
+    def release():
+        ready.set()
+        try:
+            assert dal._dal._CalibrationMcGilBarrier_AwaitEntryForTesting()
+            assert dal._dal._CalibrationMcGilBarrier_ReleaseForTesting()
+            released.set()
+        except BaseException as error:
+            errors.append(error)
+
+    dal._dal._CalibrationMcGilBarrier_ArmForTesting()
+    worker = threading.Thread(target=release)
+    worker.start()
+    try:
+        assert ready.wait(timeout=5)
+        return operation()
+    finally:
+        worker.join(timeout=6)
+        assert not worker.is_alive()
+        assert not errors
+        assert released.is_set()
+
+
+def test_mc_gil_handshake_rejects_a_native_wait_holding_the_gil():
+    with pytest.raises(RuntimeError, match="CalibrationMC: Python GIL test barrier timed out"):
+        _with_mc_gil_handshake(dal._dal._CalibrationMcGilBarrier_BlockWithGilForTesting)
+
+
 def test_mc_native_axes_are_reproducible_and_call_releases_gil():
     instrument, valuation = _deposit()
     today = valuation.evaluation_date
@@ -137,28 +166,7 @@ def test_mc_native_axes_are_reproducible_and_call_releases_gil():
     request = dal.CalibrationMonteCarloRequest_(measure_id="Price", valuation=valuation,
         sampling=dal.CalibrationMonteCarloSampling_(paths_per_batch=8192, batches=2, seed=1024, stream_version="dal.mrg32-normal-paths/1"),
         simulation=dal.CalibrationSimulationSettings_(smooth=0), derivative_method="AAD")
-    stop, started = threading.Event(), threading.Event()
-    ticks = [0]
-
-    def work():
-        started.set()
-        while not stop.is_set():
-            ticks[0] += 1
-            time.sleep(0.001)
-
-    worker = threading.Thread(target=work)
-    old_interval = sys.getswitchinterval()
-    try:
-        sys.setswitchinterval(60)
-        worker.start()
-        started.wait()
-        before = ticks[0]
-        result = dal.CalibrationInstrument_ValueByMonteCarlo(instrument, model, request)
-        assert ticks[0] > before
-    finally:
-        stop.set()
-        worker.join()
-        sys.setswitchinterval(old_interval)
+    result = _with_mc_gil_handshake(lambda: dal.CalibrationInstrument_ValueByMonteCarlo(instrument, model, request))
     repeated = dal.CalibrationInstrument_ValueByMonteCarlo(instrument, model, request)
     assert repeated.mean == result.mean
     assert repeated.standard_error == result.standard_error
@@ -179,3 +187,33 @@ def test_settings_accept_existing_typed_core_conventions():
     geometry = dal.CurveInstrumentGeometry_(today=dal.Date_(2026, 10, 21), currency="USD", knot_dates=[],
         target_tenor=tenor, libor_basis=dal.DayBasis_New("ACT_360"))
     assert geometry.target_tenor == repr(tenor)
+
+
+@pytest.mark.parametrize("field,text_key,typed_key", [
+    ("discount_curves", "OIS", dal.CollateralType_OIS()),
+    ("forward_curves", "QUARTERLY", dal.PeriodLength_New("3M")),
+])
+@pytest.mark.parametrize("reverse", [False, True])
+def test_curve_mapping_rejects_normalized_duplicates(field, text_key, typed_key, reverse):
+    instrument, valuation = _deposit()
+    today = valuation.evaluation_date
+
+    def curve(rate):
+        quote = dal.CalibrationMarketQuote_New("q", rate, dal.CalibrationValueUnit_(kind="Rate"))
+        observation = dal.CalibrationObservation_New("o", instrument, "ParRate", quote, 1e-10)
+        geometry = dal.CurveInstrumentGeometry_(today=today, currency="USD", knot_dates=[today, today.AddDays(365)],
+                                               parameterization="LOG_DISCOUNT")
+        market = dal.CurveInstrumentMarket_(routes=[dal.CurveScriptRoute_(id="USD.OIS")])
+        return dal.Calibrate_CurveInstruments(dal.CurveInstrumentCalibrationSpec_(
+            geometry=geometry, market=market, valuation=valuation, observations=[observation])).curve
+
+    first, second = curve(.03), curve(.04)
+    for key in (text_key, typed_key):
+        market = dal.CurveInstrumentMarket_(routes=[], **{field: {key: first}})
+        assert list(getattr(market, field).values()) == [first]
+    entries = [(text_key, first), (typed_key, second)]
+    with pytest.raises(dal.CalibrationError) as raised:
+        dal.CurveInstrumentMarket_(routes=[], **{field: dict(reversed(entries) if reverse else entries)})
+    assert raised.value.code == "InvalidCalibrationPlan"
+    data = json.loads(dal.CalibrationReport_Get_Json(raised.value.report))
+    assert data["errors"][0]["field"] == "/" + field
