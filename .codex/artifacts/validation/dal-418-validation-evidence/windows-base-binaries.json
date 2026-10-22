@@ -1,8 +1,0 @@
-{
-  "source/build/Release-windows/dal-cpp/dal_cpp.lib": "513e589f825bed5ecd4b73f1c050bcca26669ce9167ac011f2a065dc9d0e240c",
-  "source/build/Release-windows/dal-public/dal_public.lib": "43bbaa1cd04eca66a54eaeefe2a566e9782c727611cbfe26a47f4462efe3f051",
-  "source/build/Release-windows/dal-cpp/dal_cpp_tests.exe": "59ffe60f302bb45b1fdfb9863abca0ed3aa7727b4590ac77d026d5051898a70f",
-  "source/build/Release-windows/dal-public/dal_public_tests.exe": "1d9fd007da75c9e6a7954a7deee7999f6de19b2e05840c30e04c8e747f914eba",
-  "source/build/Release-windows/dal-excel/dal_excel.xll": "87182c676b87405924dbd00456b819a1b0676d98afa5b221bef97f0c52de0d83",
-  "source/build/Release-windows/dal-excel/dal_excel_tests.exe": "80f347c0fd7ed07575b99e9b54e045a5a6105e05e5966ba576ca35dd809e90d8"
-}

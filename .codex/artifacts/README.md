@@ -12,6 +12,10 @@ current-state explanations in the published docs or focused Codex references.
   — Active native export, complete dual-leg/date admission, frozen timestamp
   policy, independent value/raw-derivative evidence and bounded failure checks.
 
+- [DAL-418 final integration and publication](implementation/dal-418-publication.md)
+  — Accepted master integration, current public/Python/Excel caller checks,
+  fresh Linux/native Windows gates and recoverable evidence provenance.
+
 - [DAL-407 public script bindings](implementation/dal-407-script-public-bindings.md)
   — Active owning report publication, shared C++/Python/Excel interfaces,
   lifecycle/error tests and independent component-build evidence.
