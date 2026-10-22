@@ -63,6 +63,10 @@ namespace Dal::XccyScriptInternal {
         return {"dal.xccy-cashflows/1", CalibrationBackend_::Value_::FastDeterministic, derivative, true, true};
     }
     namespace {
+        void RequireFiniteCoefficient(double value, const char* field, const CalibrationDiagnostic_& d) {
+            if (!std::isfinite(value))
+                Fail("CalibrationNumericalFailure", field, "finite representable affine coefficient", NumberText(value), d);
+        }
         bool NeedsProjection(const Vector_<XccyCouponPeriod_>& periods, const CalibrationXccyDescriptor_& descriptor) {
             for (const auto& period : periods) {
                 if (period.schedule_.paymentDate_ < descriptor.valuationTime_.Date() || period.rateFixingTime_ < descriptor.valuationTime_)
@@ -112,6 +116,8 @@ namespace Dal::XccyScriptInternal {
             const double sign = descriptor.receiveNonSpreadPaySpread_ ? 1. : -1.;
             const T_ a = T_(-sign) * (foreign ? values.foreignSpreadAnnuity_ : values.domesticSpreadAnnuity_);
             const T_ b = T_(sign) * (foreign ? values.domesticPv_ - values.foreignPv_ : values.foreignPv_ - values.domesticPv_);
+            RequireFiniteCoefficient(static_cast<double>(a), "/affine/a", d);
+            RequireFiniteCoefficient(static_cast<double>(b), "/affine/b", d);
             if (prepared.Measure().kind_ == CalibrationMeasureKind_::Value_::Price) {
                 const T_ result = b + T_(descriptor.coupon_) * a;
                 Check(std::isfinite(static_cast<double>(result)), "CalibrationNumericalFailure", "/measure", "finite contract Price", "", d);

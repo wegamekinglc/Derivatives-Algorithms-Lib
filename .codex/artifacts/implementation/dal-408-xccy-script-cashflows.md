@@ -192,3 +192,104 @@ No DAL-412 unmerged implementation was imported. The only shared preparation
 changes are the dedicated XCCY context/descriptor/admission dispatch and its
 metadata; existing compiler identity values and generic paths are retained.
 Coordinator review and exact-head CI remain outstanding delivery gates.
+
+## Focused review repair: affine representability and DSL literals
+
+Repair input is PR #620 head `d64cc1ed62c15af3678f93219d00224b8fdc721b`,
+with the unchanged merged base `f50db2e93eb16823190ed18b5d73a115f0e9c48f`.
+The controlling issue's two P2 findings and reviewer attachment
+`01a1632e-d976-7d04-aa8f-ea1b084ad4a8` authorize only the XCCY exporter/provider,
+dedicated test file and this record. Shared preparation, protocol/report,
+curve adapter, public/bindings and public documentation windows are untouched.
+No unmerged DAL-407/412 content is imported.
+
+The original reviewer probe was rebuilt and run before changing production.
+It reproduced both finite individual annuities summing to infinity and the
+incorrect par zero, and the `1e-7` import failure. The independent scaled par
+is `0.0053559072433565372`; the small-ratio native par remains
+`-0.0029834908373643772`.
+
+The new wrapper checks representability of both affine coefficients before
+forming Price or par. Nonfinite A/B fail `CalibrationNumericalFailure` at
+`/affine/a` or `/affine/b`, with Evaluate stage, actual instrument/measure IDs,
+the Infinity cause, and an owning report. Tests copy the exception out of a
+scope containing the native trade, instrument, plan, market and AAD recording;
+all diagnostics remain readable afterward, with no candidate. Double/AAD,
+Price/par, A/B overflow, normal-scale positive controls and recording cleanup
+are covered. The legacy native overflow result remains zero, as explicitly
+required; native implementation and annuity floors are unchanged. String
+formatting of a nonfinite coefficient occurs only on the failure path.
+
+The exporter expands a scientific `NumberText` token into its equivalent plain
+decimal spelling when embedding a number in an expression. It moves the decimal
+point without changing the significant digits. Ordinary tokens and typed N/K
+definitions retain their existing spelling. This applies to foreign coupons,
+principal exchanges and reset/MTM notional ratios, using the unchanged complete
+AST/date matcher. The lexer, compiler, canonical JSON formatter and archives are
+unchanged. Regression cases cover the original `1e-7`, `1e-8`, `1.28e-7`,
+`1e22`, and a full scientific mantissa, plus native Price/par, immutable binding,
+save/load and all three notional modes. Frozen tolerances stay at Price 1e-10,
+par 1e-12 and raw derivative 1e-8.
+
+Actual RED/GREEN commands are retained in the repair attachment. The runner
+reuses the unchanged main object, recompiles the dedicated test TU from its
+actual CMake command and links the current core archive:
+
+```sh
+python3 evidence/dal408-r1/run_focused.py annuity-red
+cmake --build build/dal408 --target dal_cpp -j 4
+python3 evidence/dal408-r1/run_focused.py annuity-green
+python3 evidence/dal408-r1/run_focused.py literal-red-corrected2
+cmake --build build/dal408 --target dal_cpp -j 4
+python3 evidence/dal408-r1/run_focused.py literal-green
+python3 evidence/dal408-r1/run_focused.py final-green-corrected 'XccyScriptTest.*:XccyScriptRepairTest.*'
+```
+
+The helper paths above are relative to the task workdir; CMake runs in the
+repository. The evidence stores absolute argv and working directories for
+reproduction. Final result is **37/37**: the original 31 tests plus six repair
+tests. Original test/helpers are a byte-identical prefix; all thirteen other
+previously selected test sources and the build configuration/dependency pins
+are unchanged. Three affected TUs pass the same GCC14 warning policy, all
+functions have CCN <= 8, and format/diff checks pass. The original reviewer
+probe, unchanged, now reports `/affine/a` and successfully imports the small
+ratio. The previous 313 core/37 public and independent twelve-case/raw AAD/FD
+evidence is reused only for unchanged paths and numerical conditions; it is
+not described as a fresh execution of those larger selections.
+
+Early new-test compilation used nonexistent tape size/iterator methods; the
+test now checks the actual node occupancy API. A strict warning also required
+const-reference String iteration. These harness corrections are preserved.
+An extra full-mantissa MTM comparison at enormous par magnitude exposed the
+existing normalized-ratio representation limit: for Nd=1e9 and
+Nf=123.45678901234567, `(Nf/Nd)*Nd` is 123.45678901234565. The finite raw par
+difference was 3.7252902984619141e-9 at magnitude 1.421230769e7. Neither the DSL
+spelling repair nor the native implementation changes that normalization.
+That exploratory failure is retained, rather than counted as a passed frozen
+precision case. Cross-mode magnitude controls use ratios with exactly
+recoverable native notionals (including 1.28e-7); a separate fixed-notional
+full-mantissa test retains the original inputs, exact ratio comparison and
+unrelaxed Price/par tolerances at ordinary par scale. No claim of uniform raw
+precision for arbitrarily ill-conditioned native-to-ratio normalization is made.
+
+Changed-path caller selection is Import for exporter spelling, Prepare for its
+full-matcher caller, and Evaluate for both coefficient guards, at 1/16 repeated
+MTM contracts. Same GCC14/O3 flags, three warmups, ten samples, 100 inner
+Evaluate repetitions, DAL_NUM_THREADS=4 and two rounds of ten interleaved
+process samples per side are retained. CPU affinity and all 240 rows are in
+the repair bundle. Baseline uses the exact original exporter/provider objects
+ahead of the current archive for unchanged dependencies; this is not an
+untouched original full executable. Value, checksum and instrument/plan IDs
+match exactly. Second-round minima before/after are approximately 123.939 /
+126.746 us for Import x1, 312.665 / 308.556 us for Prepare x1 and 395 / 406 ns
+for Evaluate x1. XCCY remains outside the closed performance-gate allowlist;
+these measurements are informational. Unchanged native, stochastic and full
+performance matrices are not repeated.
+
+The 180 historical evidence hashes were checked without modifying that bundle.
+Current sources, baseline objects, current archive/clients, commands, RED/GREEN,
+configuration, code patch and fresh caller identities are separately recorded.
+The final commit/head and exact-head CI snapshot are in the handoff manifest.
+Public guide, CHANGELOG and index integration remains pending in the coordinated
+window; the earlier accurate draft in this record is preserved. Code repair can
+be handed off for limited review independently of that documentation gate.

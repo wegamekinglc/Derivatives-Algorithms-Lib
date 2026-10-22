@@ -1,5 +1,7 @@
 #include <dal/platform/platform.hpp>
 
+#include <string>
+
 #include <dal/currency/currencydata.hpp>
 #include <dal/curve/xccyscript_internal.hpp>
 #include <dal/indice/index/ir.hpp>
@@ -8,13 +10,32 @@
 namespace Dal::XccyScriptInternal {
     using namespace CalibrationInternal;
     namespace {
+        String_ Literal(double value) {
+            const auto text = Bytes(NumberText(value));
+            const auto exponent = text.find('e');
+            if (exponent == std::string::npos)
+                return String_(text);
+            const size_t prefix = text.front() == '-' ? 1 : 0;
+            auto digits = text.substr(prefix, exponent - prefix);
+            const auto point = digits.find('.');
+            const int position = static_cast<int>(point == std::string::npos ? digits.size() : point) + std::stoi(text.substr(exponent + 1));
+            if (point != std::string::npos)
+                digits.erase(point, 1);
+            if (position <= 0)
+                digits = "0." + std::string(static_cast<size_t>(-position), '0') + digits;
+            else if (static_cast<size_t>(position) >= digits.size())
+                digits.append(static_cast<size_t>(position) - digits.size(), '0');
+            else
+                digits.insert(static_cast<size_t>(position), ".");
+            return String_(text.substr(0, prefix) + digits);
+        }
         String_ Fx(const XccyCashflowPlan_& plan, const Date_& date) {
             return "FIX(" + FxIndexName(plan.config_.pair_) + "," + Date::ToString(date) + ")";
         }
         String_ Notional(const XccyCashflowPlan_& plan, size_t period) {
             if (period == 0 || plan.config_.notionalMode_ == XccyNotionalMode_::Value_::FIXED)
                 return "1";
-            return "(" + NumberText(plan.config_.foreignNotional_ / plan.config_.domesticNotional_) + "*" +
+            return "(" + Literal(plan.config_.foreignNotional_ / plan.config_.domesticNotional_) + "*" +
                    Fx(plan, plan.resets_[period - 1].fxFixingTime_.Date()) + ")";
         }
         Handle_<Index_> ParsedRate(const String_& name, const CalibrationDiagnostic_& d) {
@@ -59,8 +80,8 @@ namespace Dal::XccyScriptInternal {
             rows->push_back({ScriptSourceRowKind_::Value_::Event, Date::ToString(payment), "PAY PAYS N*(" + amount + ")"});
         }
         String_ CouponExpression(const String_& notional, const String_& rate, double alpha, bool spread, bool foreign, int orientation) {
-            return NumberText(spread ? -orientation : orientation) + "*" + notional + "*" + NumberText(alpha) + "*(" + rate +
-                   (spread ? "+K)" : "+0)") + "*" + (foreign ? String_("SPOT()") : String_("1"));
+            return Literal(spread ? -orientation : orientation) + "*" + notional + "*" + Literal(alpha) + "*(" + rate + (spread ? "+K)" : "+0)") +
+                   "*" + (foreign ? String_("SPOT()") : String_("1"));
         }
         void Coupons(Vector_<ScriptSourceRow_>* rows, const XccyCashflowPlan_& plan, bool foreign, int orientation, const CalibrationDiagnostic_& d) {
             const auto& config = plan.config_;
@@ -70,16 +91,15 @@ namespace Dal::XccyScriptInternal {
             for (size_t i = 0; i < periods.size(); ++i) {
                 const auto& period = periods[i];
                 const auto rate = Rate(period, index, foreign ? config.pair_.foreign_ : config.pair_.domestic_, d);
-                const auto n = foreign ? NumberText(config.foreignNotional_ / config.domesticNotional_) : Notional(plan, i);
+                const auto n = foreign ? Literal(config.foreignNotional_ / config.domesticNotional_) : Notional(plan, i);
                 Pay(rows, period.schedule_.paymentDate_, CouponExpression(n, rate, period.accrual_.dcf_, spread, foreign, orientation));
             }
         }
         void Principal(Vector_<ScriptSourceRow_>* rows, const XccyCashflowPlan_& plan, const Date_& date, bool final, int orientation) {
             const int domesticSign = (plan.config_.convention_.spreadOnForeignLeg_ ? orientation : -orientation) * (final ? 1 : -1);
             const size_t period = final ? plan.domesticPeriods_.size() - 1 : 0;
-            Pay(rows, date, NumberText(domesticSign) + "*" + Notional(plan, period) + "*1");
-            Pay(rows, date,
-                NumberText(-domesticSign) + "*" + NumberText(plan.config_.foreignNotional_ / plan.config_.domesticNotional_) + "*" + "SPOT()");
+            Pay(rows, date, Literal(domesticSign) + "*" + Notional(plan, period) + "*1");
+            Pay(rows, date, Literal(-domesticSign) + "*" + Literal(plan.config_.foreignNotional_ / plan.config_.domesticNotional_) + "*" + "SPOT()");
         }
     } // namespace
     Vector_<ScriptSourceRow_> ExportRows(const XccyCashflowPlan_& plan, double coupon, bool receive, const CalibrationDiagnostic_& d) {
@@ -97,7 +117,7 @@ namespace Dal::XccyScriptInternal {
         if (plan.config_.notionalMode_ == XccyNotionalMode_::Value_::MARK_TO_MARKET) {
             const int sign = plan.config_.convention_.spreadOnForeignLeg_ ? orientation : -orientation;
             for (size_t i = 0; i < plan.resets_.size(); ++i)
-                Pay(&rows, plan.resets_[i].effectiveDate_, NumberText(sign) + "*(" + Notional(plan, i + 1) + "-" + Notional(plan, i) + ")*1");
+                Pay(&rows, plan.resets_[i].effectiveDate_, Literal(sign) + "*(" + Notional(plan, i + 1) + "-" + Notional(plan, i) + ")*1");
         }
         return rows;
     }

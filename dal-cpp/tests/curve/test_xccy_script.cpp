@@ -642,3 +642,163 @@ TEST(XccyScriptTest, TestFutureFxRejectsNonFiniteResult) {
     view.fxSpot_ = std::numeric_limits<double>::max();
     ASSERT_THROW(XccyFxForward(view, XCCY_END), Exception_);
 }
+
+namespace {
+    template <class T_> std::optional<CalibrationError_> CaptureCoefficientOverflow(const String_& measure, bool intercept = false) {
+        auto config = ScriptConfig();
+        config.domesticNotional_ = config.foreignNotional_ = 1e308;
+        config.convention_.initialNotionalExchange_ = config.convention_.finalNotionalExchange_ = false;
+        config.convention_.spreadOnForeignLeg_ = false;
+        const CrossCurrencySwap_ native(XCCY_TODAY, XCCY_START, XCCY_MATURITY, .001, config);
+        const auto instrument = NewXccyScriptInstrument(native, {"coefficient-overflow", "USD.OIS"});
+        const auto prepared = PrepareCalibrationInstrument(instrument, measure, ScriptContext());
+        TapeGuard_ scope(AAD::Tape());
+        const auto parameters = RegisterCurveParameters({intercept ? 10. : 0., .02, .003, intercept ? .04 : -1.5});
+        AAD::NewRecording(*AAD::Tape());
+        const ScriptXccyMarket_<T_> market{T_(parameters[0]), T_(parameters[1]), T_(parameters[2])};
+        const ScriptFlatCurve_<T_> discount("USD", T_(parameters[3]));
+        auto view = market.View();
+        auto domestic = *view.domestic_;
+        domestic.discountCurves[CollateralType_("OIS")] = &discount;
+        view.domestic_ = &domestic;
+        try {
+            static_cast<void>(EvaluateXccyScript(prepared, view));
+        } catch (const CalibrationError_& error) {
+            return error;
+        }
+        return {};
+    }
+    void AssertCoefficientFailure(const CalibrationError_& error, const String_& measure, const String_& field) {
+        const auto& failure = error.Failure();
+        const auto& d = failure.diagnostic_;
+        ASSERT_EQ(d.code_, "CalibrationNumericalFailure");
+        ASSERT_EQ(d.stage_, CalibrationStage_::Value_::Evaluate);
+        ASSERT_EQ(d.instrumentId_, "coefficient-overflow");
+        ASSERT_EQ(d.measureId_, measure);
+        ASSERT_EQ(d.field_, field);
+        ASSERT_TRUE(d.expected_);
+        ASSERT_TRUE(d.actual_);
+        ASSERT_NE(d.actual_->find("Infinity"), String_::npos);
+        ASSERT_NE(String_(error.what()).find(*d.actual_), String_::npos);
+        ASSERT_TRUE(failure.report_);
+        ASSERT_EQ(failure.report_->Stage(), CalibrationStage_::Value_::Evaluate);
+        ASSERT_EQ(failure.report_->Errors().size(), 1U);
+        ASSERT_EQ(failure.report_->Errors()[0].message_, d.message_);
+        ASSERT_FALSE(failure.candidate_);
+    }
+} // namespace
+
+TEST(XccyScriptRepairTest, TestNonfiniteAnnuityOwnsFailureAfterInputsDie) {
+    for (const String_& measure : {String_("Price"), String_("BasisSpread")}) {
+        const auto failure = CaptureCoefficientOverflow<double>(measure);
+        ASSERT_TRUE(failure) << "nonfinite A was accepted for " << measure;
+        AssertCoefficientFailure(*failure, measure, "/affine/a");
+    }
+}
+
+TEST(XccyScriptRepairTest, TestNonfiniteCoefficientsAadAndInterceptKeepOwnedCause) {
+    AAD::Clear(*AAD::Tape());
+    for (const String_& measure : {String_("Price"), String_("BasisSpread")}) {
+        const auto annuity = CaptureCoefficientOverflow<AAD::Number_>(measure);
+        ASSERT_TRUE(annuity);
+        AssertCoefficientFailure(*annuity, measure, "/affine/a");
+        for (const auto& failure : {CaptureCoefficientOverflow<double>(measure, true), CaptureCoefficientOverflow<AAD::Number_>(measure, true)}) {
+            ASSERT_TRUE(failure);
+            AssertCoefficientFailure(*failure, measure, "/affine/b");
+        }
+    }
+    ASSERT_EQ(AAD::Tape()->nodes_.OccupiedSlots(), 0U);
+    ASSERT_FALSE(AAD::LastRecordingCleanupFailure());
+}
+
+TEST(XccyScriptRepairTest, TestLegacyOverflowAndNormalScaleArePreserved) {
+    auto config = ScriptConfig();
+    config.domesticNotional_ = config.foreignNotional_ = 1.;
+    config.convention_.initialNotionalExchange_ = config.convention_.finalNotionalExchange_ = false;
+    config.convention_.spreadOnForeignLeg_ = false;
+    const ScriptXccyMarket_<double> market(0., .02, .003);
+    const ScriptFlatCurve_<double> discount("USD", -1.5);
+    auto view = market.View();
+    auto domestic = *view.domestic_;
+    domestic.discountCurves[CollateralType_("OIS")] = &discount;
+    view.domestic_ = &domestic;
+    const CrossCurrencySwap_ native(XCCY_TODAY, XCCY_START, XCCY_MATURITY, .001, config);
+    const auto instrument = NewXccyScriptInstrument(native, {"normal-coefficients", "USD.OIS"});
+    const auto spread = PrepareCalibrationInstrument(instrument, "BasisSpread", ScriptContext());
+    const double oracle = .0053559072433565372;
+    ASSERT_NEAR(EvaluateXccyScript(spread, view), oracle, 1e-12);
+    const auto price = PrepareCalibrationInstrument(instrument, "Price", ScriptContext());
+    const auto plan = BuildXccyCashflowPlan(XCCY_START, XCCY_MATURITY, config);
+    ASSERT_NEAR(EvaluateXccyScript(price, view), PriceXccyContract(plan, view, MarketFixingSnapshot_(), .001, false, true), 1e-10);
+    config.domesticNotional_ = config.foreignNotional_ = 1e308;
+    const auto large = BuildXccyCashflowPlan(XCCY_START, XCCY_MATURITY, config);
+    const auto values = XccyContractValues(large, view, MarketFixingSnapshot_());
+    ASSERT_TRUE(std::isinf(values.domesticSpreadAnnuity_));
+    ASSERT_TRUE(std::isfinite(values.foreignPv_));
+    for (const auto& period : large.domesticPeriods_)
+        ASSERT_TRUE(std::isfinite(config.domesticNotional_ * period.accrual_.dcf_ * discount(XCCY_TODAY, period.schedule_.paymentDate_)));
+    ASSERT_DOUBLE_EQ(PriceXccyParSpread(large, view, MarketFixingSnapshot_()), 0.);
+}
+
+TEST(XccyScriptRepairTest, TestSmallNotionalRatioImportsAndReloads) {
+    auto config = ScriptConfig();
+    config.domesticNotional_ = 1e9;
+    config.foreignNotional_ = 100.;
+    const CrossCurrencySwap_ native(XCCY_TODAY, XCCY_START, XCCY_MATURITY, .001, config);
+    const auto instrument = NewXccyScriptInstrument(native, {"small-ratio", "USD.OIS"});
+    const auto restored = LoadCalibrationInstrumentJson(DumpCalibrationInstrumentJson(instrument));
+    ASSERT_EQ(restored->InstrumentIdentity(), instrument->InstrumentIdentity());
+    const ScriptXccyMarket_<double> market;
+    const auto plan = BuildXccyCashflowPlan(XCCY_START, XCCY_MATURITY, config);
+    const double price = PriceXccyContract(plan, market.View(), MarketFixingSnapshot_(), .001, true, true);
+    const double par = PriceXccyParSpread(plan, market.View(), MarketFixingSnapshot_());
+    ASSERT_NEAR(par, -.0029834908373643772, 1e-12);
+    ASSERT_NEAR(EvaluateXccyScript(PrepareCalibrationInstrument(restored, "Price", ScriptContext()), market.View()), price, 1e-10);
+    ASSERT_NEAR(EvaluateXccyScript(PrepareCalibrationInstrument(restored, "BasisSpread", ScriptContext()), market.View()), par, 1e-12);
+}
+
+TEST(XccyScriptRepairTest, TestExponentMagnitudeAndMantissaAcrossResetModes) {
+    const ScriptXccyMarket_<double> market;
+    for (const auto mode : {XccyNotionalMode_::Value_::FIXED, XccyNotionalMode_::Value_::RESETTABLE, XccyNotionalMode_::Value_::MARK_TO_MARKET}) {
+        for (const auto notionals : {std::pair<double, double>{1e10, 100.}, {1e9, 128.}, {1e-20, 100.}}) {
+            auto config = ScriptConfig(mode);
+            config.domesticNotional_ = notionals.first;
+            config.foreignNotional_ = notionals.second;
+            const CrossCurrencySwap_ native(XCCY_TODAY, XCCY_START, XCCY_MATURITY, .001, config);
+            const auto instrument = NewXccyScriptInstrument(native, {"ratio-range", "USD.OIS"});
+            const auto prepared = PrepareCalibrationInstrument(instrument, "BasisSpread", ScriptContext());
+            const auto& lowered = std::get<CalibrationXccy_>(prepared.Descriptor())->plan_.config_;
+            ASSERT_DOUBLE_EQ(lowered.foreignNotional_ / lowered.domesticNotional_, config.foreignNotional_ / config.domesticNotional_);
+            const auto plan = BuildXccyCashflowPlan(XCCY_START, XCCY_MATURITY, config);
+            const double price = PriceXccyContract(plan, market.View(), MarketFixingSnapshot_(), .001, true, true);
+            const double par = PriceXccyParSpread(plan, market.View(), MarketFixingSnapshot_());
+            ASSERT_NEAR(EvaluateXccyScript(prepared, market.View()), par, 1e-12);
+            ASSERT_NEAR(EvaluateXccyScript(PrepareCalibrationInstrument(instrument, "Price", ScriptContext()), market.View()), price, 1e-10);
+            const auto rebound = BindCalibrationInstrumentParameters(
+                instrument, {{{"N", 2. * config.domesticNotional_, CalibrationValueUnit_::Parse("Price:USD")}}, {}});
+            const auto restored = LoadCalibrationInstrumentJson(DumpCalibrationInstrumentJson(rebound));
+            ASSERT_EQ(restored->InstrumentIdentity(), rebound->InstrumentIdentity());
+            ASSERT_NEAR(EvaluateXccyScript(PrepareCalibrationInstrument(restored, "BasisSpread", ScriptContext()), market.View()), par, 1e-12);
+            ASSERT_NEAR(EvaluateXccyScript(PrepareCalibrationInstrument(restored, "Price", ScriptContext()), market.View()), 2. * price, 1e-10);
+        }
+    }
+}
+
+TEST(XccyScriptRepairTest, TestFullScientificMantissaRoundTripsAtOrdinaryParScale) {
+    auto config = ScriptConfig();
+    config.domesticNotional_ = 1e9;
+    config.foreignNotional_ = 123.45678901234567;
+    const CrossCurrencySwap_ native(XCCY_TODAY, XCCY_START, XCCY_MATURITY, .001, config);
+    const auto instrument = NewXccyScriptInstrument(native, {"mantissa", "USD.OIS"});
+    const auto prepared = PrepareCalibrationInstrument(instrument, "BasisSpread", ScriptContext());
+    const auto& lowered = std::get<CalibrationXccy_>(prepared.Descriptor())->plan_.config_;
+    ASSERT_EQ(lowered.foreignNotional_ / lowered.domesticNotional_, config.foreignNotional_ / config.domesticNotional_);
+    const auto restored = LoadCalibrationInstrumentJson(DumpCalibrationInstrumentJson(instrument));
+    ASSERT_EQ(restored->InstrumentIdentity(), instrument->InstrumentIdentity());
+    const ScriptXccyMarket_<double> market;
+    const auto plan = BuildXccyCashflowPlan(XCCY_START, XCCY_MATURITY, config);
+    ASSERT_NEAR(EvaluateXccyScript(PrepareCalibrationInstrument(restored, "Price", ScriptContext()), market.View()),
+                PriceXccyContract(plan, market.View(), MarketFixingSnapshot_(), .001, true, true), 1e-10);
+    ASSERT_NEAR(EvaluateXccyScript(PrepareCalibrationInstrument(restored, "BasisSpread", ScriptContext()), market.View()),
+                PriceXccyParSpread(plan, market.View(), MarketFixingSnapshot_()), 1e-12);
+}
