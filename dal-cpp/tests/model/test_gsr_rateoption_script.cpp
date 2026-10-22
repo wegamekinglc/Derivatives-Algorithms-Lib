@@ -94,6 +94,22 @@ namespace {
         }
         return NewScriptCalibrationInstrument({"accrual", NewScriptInstrumentDefinition(spec)});
     }
+    double TinyAccrualExpectedValue(int location, bool call, double libor) {
+        const double floating = (location == 2 ? 1e-7 : .25) * libor * .91;
+        const double fixed = .03 * (location == 1 ? 1e-7 : .25) * .91;
+        const double difference = location == 0 ? 1e-7 * (libor - .03) : floating - fixed;
+        return 100. * std::max(call ? difference : -difference, 0.) / 1.7;
+    }
+    AAD::Scenario_<> TinyAccrualPath(const Vector_<AAD::SampleDef_>& defLine, double libor) {
+        AAD::Scenario_<> path;
+        AAD::AllocatePath(defLine, path);
+        for (size_t sample = 0; sample < path.size(); ++sample) {
+            path[sample].numeraire_ = 1.7;
+            for (size_t i = 0; i < path[sample].observations_.size(); ++i)
+                path[sample].observations_[i] = std::string(defLine[sample].indexNames_[i].c_str()).find("LIBOR") != std::string::npos ? libor : .91;
+        }
+        return path;
+    }
     void AssertAccrualConstant(const Handle_<CalibrationInstrument_>& instrument, int location, double expected, bool call = true) {
         const auto product = instrument->Product();
         ASSERT_EQ(product->Events().size(), 1);
@@ -386,10 +402,7 @@ TEST(GSRRateOptionScriptTest, TestTinyAccrualTreeCompiledAmountsAndNumeraire) {
     for (int location : {0, 1, 2})
         for (bool call : {true, false})
             for (double libor : {0., .04, 100000.}) {
-                const double floating = (location == 2 ? 1e-7 : .25) * libor * .91;
-                const double fixed = .03 * (location == 1 ? 1e-7 : .25) * .91;
-                const double difference = location == 0 ? 1e-7 * (libor - .03) : floating - fixed;
-                const double expected = 100. * std::max(call ? difference : -difference, 0.) / 1.7;
+                const double expected = TinyAccrualExpectedValue(location, call, libor);
                 for (const auto& instrument : Vector_<Handle_<CalibrationInstrument_>>{AccrualInstrument(location, 1e-7, call),
                                                                                        DecimalAccrualInstrument(location, "0.0000001", call)}) {
                     AAD::GSR_<double> model(static_cast<const MultiFactorGSRModelData_&>(*c.model_));
@@ -397,14 +410,7 @@ TEST(GSRRateOptionScriptTest, TestTinyAccrualTreeCompiledAmountsAndNumeraire) {
                     simulation.compiled_ = true;
                     const auto prepared = Script::Detail::PrepareBoundScript(instrument->Product(), &model, c.valuation_, simulation,
                                                                              instrument->Definition()->Spec().source_.settings_);
-                    AAD::Scenario_<> path;
-                    AAD::AllocatePath(prepared.DefLine(), path);
-                    for (size_t sample = 0; sample < path.size(); ++sample) {
-                        path[sample].numeraire_ = 1.7;
-                        for (size_t i = 0; i < path[sample].observations_.size(); ++i)
-                            path[sample].observations_[i] =
-                                std::string(prepared.DefLine()[sample].indexNames_[i].c_str()).find("LIBOR") != std::string::npos ? libor : .91;
-                    }
+                    const auto path = TinyAccrualPath(prepared.DefLine(), libor);
                     auto tree = prepared.BuildEvaluator<double>();
                     prepared.Evaluate(path, tree);
                     auto compiled = prepared.BuildEvalState<double>();
