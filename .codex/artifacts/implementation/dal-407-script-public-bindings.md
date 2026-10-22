@@ -2,8 +2,11 @@
 
 ## State and controlling inputs
 
-The implementation and focused CI repair are ready for the coordinator's
-code and documentation review. The unique PR and exact head are in the handoff.
+The implementation, CI repair and three-P2 repair are ready for limited
+coordinator review and exact-head gates. The tested product head is
+`028357776143c5f314d17bb14fa347053edd08b1`; the unique PR and final record-only
+head are in the handoff manifest/comment. Existing document/public-example
+approval remains applicable; this repair changes no published documentation.
 The earlier report-scope blocker was resolved by coordinator comment
 `01a162ef-c839-7407-93d9-b408c14c9f6b`; it is no longer an implementation blocker.
 
@@ -317,3 +320,108 @@ single exact-head CI snapshot are in the handoff manifest. Native Windows,
 macOS wheels, XLL/workbook and pending cross-platform CI are not inferred from
 local Linux success. Coordinator code/doc review and current-head gates remain
 required before merge; the author performs no review dispatch or merge.
+
+## Three-P2 review repair
+
+Parent instruction `01a1636f-645f-73fa-bf27-8ad95d135ccf` and the current
+DAL-407 description authorize this serial follow-up to the completed DAL-412
+Coupon repair and DAL-408 context documentation correction. Their original
+checkouts were clean and pushed at `4a4317e8...` and `a2e48e56...` respectively
+before returning here. This original checkout started clean at reviewed head
+`79e773213a2b00ded1a201988d60b3f5528b85a8`. No sibling unmerged source is
+imported, and no preparation/XCCY/public-document window is written.
+Reviewer attachment `01a1636c-06d3-7c74-997d-73887c5a022f` was downloaded via
+Multica CLI and retained unchanged with its exact baseline/CI provenance.
+
+The product/test commit is `028357776143c5f314d17bb14fa347053edd08b1`:
+
+- Python map conversion checks the insertion result after existing typed
+  conversion. Normalized duplicates fail InvalidCalibrationPlan at the owning
+  discount_curves or forward_curves field; neither insertion order silently
+  selects a curve. The same typed/string readers and separate-input behavior
+  remain. No general prohibition on mixed typed/text input is introduced.
+- Curve report publication converts nonfinite optional summary/objective
+  values to unavailable and omits an unrepresentable initial/scales vector.
+  Per-parameter rows already report unavailable values individually; their
+  native layout and all owning observation/quote axes remain. Finite zero
+  controls remain visible as zero. Primary code, field, cause and candidate
+  survive; there is no extra evaluation to construct the report. The global
+  report constructor/finite validation remains byte-identical and still
+  rejects an explicitly invalid snapshot.
+- The MC binding reuses the existing private GilTestBarrier, armed only by
+  underscore-prefixed native test hooks. The real wrapper waits inside its
+  existing gil_scoped_release scope. A native condition notification lets the
+  Python worker await actual entry without polling/sleeps; it must reacquire
+  the GIL before releasing the barrier. The existing five-second bound makes
+  failure finite. A private held-GIL wait uses the same barrier as a negative
+  control and must time out. No public test API, simulation flag, financial
+  loop, random/path budget or normal MC execution protocol changes. The
+  shared private helper's three existing sibling barrier clients are tested.
+
+Fresh verification is **59 core / 2 public / 4 portable Excel / 15 Python**:
+
+- The unchanged reviewer probes first reproduced four Python map collisions
+  with order-dependent selected curves and the two NaN report failures with
+  empty axes. The new four Python collision cases fail with DID NOT RAISE on
+  the original extension. The new C++ owned-failure regression fails with
+  CalibrationNumericalFailure rather than InvalidCalibrationObjective on the
+  original archive. Its finite-zero control passes first. A new Python setup
+  initially omitted the already-required routes keyword; that harness error
+  is retained separately and is not counted as product RED.
+- The original macOS arm64 job `119794295496`, run `39769649496`, is the real
+  GIL regression RED (`assert 1 > 1`); its exact-head log excerpt is retained.
+  No blind workflow retry or repeated timing-dependent local probe is used.
+- `cmake --build build/Release-linux --target _dal dal_public_tests
+  dal_excel_portable_tests -j 4` passes, rebuilding the core/facade archives,
+  native extension and interface runners. The attempted whole core-test
+  target found many stale unrelated test TUs; only its verified run-owned
+  process group was stopped after focused RED had been independently
+  confirmed. That unfinished target is not claimed as validation. Instead,
+  three dedicated core test TUs are compiled with their actual CMake argv
+  and linked to the rebuilt canonical core archive/main/gtest: complete
+  ScriptCurveCalibration, CurveScriptFamily and CalibrationReport suites,
+  **59/59**. Exact commands, cancellation record, logs and XML distinguish
+  this runner from the unfinished monolithic target.
+- New core controls cover NaN and finite-zero scales/lambda, copied error
+  lifetime after input destruction, original diagnostic/cause/axes, retained
+  metadata and zero pricing/Jacobian evaluations. Separate strict snapshot
+  controls still reject nonfinite scales/lambda/fit summary. All original
+  C++ assertions remain byte-identical and in order. A small assertion-helper
+  extraction while green restores CCN<=8 without changing the cases.
+- The dedicated Python file passes all 12 cases, including four map/order
+  collisions and positive string/typed controls. Three existing shared-barrier
+  client cases also pass. The real MC handshake completes in .024 seconds;
+  the held-GIL negative control takes 5.001 seconds and raises the exact
+  expected timeout. Both paths join their worker, and the unchanged repeated
+  MC value/native axes/raw Jacobian/sampling assertions pass. No sleep,
+  scheduler interval override, retry or increased MC load remains.
+- Original reviewer probes now reject all four normalized collisions and
+  retain primary InvalidCalibrationObjective, correct field, one observation,
+  one quote and owned candidate for all four C++ controls. The freshly linked
+  public and portable Excel checks pass **2/2** and **4/4**.
+- All **16 GCC14/15** strict checks pass on eight directly affected TUs,
+  including the three existing private-barrier clients. Existing warning
+  exclusions remain unchanged. Production/test CCN<=8, formatting, Python AST,
+  diff, 88-Markdown, generated-drift and binding-boundary checks pass.
+
+The repair changes seven product/test paths and then only this record. Core
+protocol validation, wire/archive/parser, preparation/model/MC algorithms,
+facade/build/generated sources, shared guide/CHANGELOG/index and component
+dependencies are unchanged. All 231 prior CI-repair artifact hashes and
+the actual CMake cache/compile commands/flags are checked; source, submodule,
+actual archive/extension/test/probe identities are separately recorded.
+Normal report behavior and raw numerical paths retain their applicable prior
+functional evidence. The original 80/30/34, 315+7 and prior repair runs are
+historical evidence, not all executed again. The selected changed callers are
+typed map construction, report publication and the Python MC boundary; their
+direct functional checks are fresh. Historical six-caller timings remain
+historical information, with no new-head latency or regression-gate claim;
+no numerical/statistical/performance matrix is rerun. No native Windows/XLL,
+workbook or macOS success is inferred from Linux checks.
+
+The final record-only tree preserves the tested product commit. Its pushed
+head, complete focused diff, exact commands and one real current-head CI
+snapshot are in the handoff manifest. Prior successful checks do not validate
+the new head. Only these three P2s and direct effects await limited review;
+the accepted guide/public example and remaining main-review conclusions stay
+applicable. The author does not dispatch experts, merge or start downstream.
