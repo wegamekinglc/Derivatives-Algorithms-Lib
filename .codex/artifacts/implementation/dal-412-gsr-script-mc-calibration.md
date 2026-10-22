@@ -479,7 +479,7 @@ Execution causes are compared directly with the original low-level MC failure.
 An incomplete first basket exposes no candidate. After full fit, held-out
 failure retains the fitted model. A real g=0 AAD RefreshG refusal retains the
 last completed passive-price candidate, which is independently repriced; it
-does not expose an incomplete recording. All failures leave tape nodes zero
+does not expose an incomplete recording. These fresh-scope failures leave tape nodes zero
 and cleanup failure clear. Old native numerical/Brent behavior is unchanged.
 
 ### Repair verification and applicable reuse
@@ -519,6 +519,11 @@ Reproduction from the task workdir uses the recorded compiler commands and
 `dal412-r2-verify.py`; `dal412-r2-final-green.xml/log` identify the final scoped
 execution. The delivery includes exact code/doc diffs, original/corrected RED,
 final GREEN, warning/complexity/static evidence, build/configuration and binary
-identities. Guide/CHANGELOG only need the common-dimension restriction and row
+identities. Guide/CHANGELOG now specify the common-dimension restriction and row
 scope clarification; the prior independent document review remains applicable
-to all unchanged prose. CI and limited review are still external gates.
+to all unchanged prose. The pure Markdown stage follows code checkpoint
+`5e259c26e34c21a5fc03ba2b31af82b579efdcdd`; all 2,747 non-Markdown tree entries
+retain that checkpoint's identity. It adds only guide/CHANGELOG/record text and
+receives static checks, with no further product or performance execution.
+Existing guide/index links remain valid and unchanged. CI and limited review
+are still external gates.

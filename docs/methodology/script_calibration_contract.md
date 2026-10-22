@@ -424,7 +424,8 @@ General Price targets may be signed. Recognized BondOption/Caplet/Swaption
 contracts retain their original classification, domain checks and nonnegative
 Price-target preflight, including held-out observations.
 Two-payment Deposit shapes beginning with `PAYS -N` retain the native payoff
-checks; a malformed maturity payment cannot acquire the general Price rule.
+checks even with unrelated scalar assignments. Full native AST admission is
+still required; a malformed maturity payment cannot acquire the general Price rule.
 
 General admission reads the complete bound scalar AST and validates the actual
 Gaussian model, fixing snapshot and same-currency OIS/AtEvent context. It permits
@@ -476,6 +477,16 @@ passed=false, representing NotRequested.
 Held-out counts enter execution identity only when that stream is enabled;
 disabled held-out preserves the existing native-template plan identity.
 
+This driver requires every fit value/AAD and held-out plan to have the same
+actual normal-draw dimension, with complete normal coordinates. It checks the
+prepared mappings before optimizer work and rejects mixed dimensions with an
+owning Prepare error. A path seeks `path*dimension` raw draws: distinct path
+ranges at different dimensions can overlap. Common draw stride makes all fit,
+validation and held-out draw ranges disjoint across the admitted basket while
+preserving existing seeds, ranges, budgets and same-dimensional identities.
+This restriction does not allocate new global RNG substreams or establish
+identical coordinate meaning across different timelines.
+
 Solver coordinates are normalized g values, while `quoteJacobian_` remains raw
 dPrice/dNativeG with fixed bindings. Data residuals use observation error scales;
 prior and knot-gap smoothing rows have separate axes and objective subtotals.
@@ -499,7 +510,12 @@ value or gradient error budget; increasing notional with a fixed absolute Price
 scale can exhaust that budget. No automatic scale enlargement or resampling is
 performed. Budget or execution exceptions own the available observation axes,
 diagnostics and last completely evaluated candidate; no incomplete candidate
-is represented as a successful evaluation. `quoteRiskAvailable_` remains false.
+is represented as a successful evaluation. Row preparation, refresh and execution
+errors bind the actual instrument/observation/quote/measure while preserving
+the original field, source and cause. A held-out failure owns the held-out axis
+group and identifies that scope in its message; it retains the last complete
+fit candidate rather than publishing a partially executed basket.
+`quoteRiskAvailable_` remains false.
 This core driver adds no public/Python/Excel bindings, XCCY MC, early exercise,
 SLV, joint calibration, RQMC or calibrated quote-risk propagation.
 
