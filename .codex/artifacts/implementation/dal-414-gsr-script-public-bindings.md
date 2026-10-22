@@ -348,3 +348,79 @@ reports, the original Windows failure, isolated-module RED/GREEN, portable
 results, source/configuration/library/binary identities and the minimal diff.
 The handoff records the final head and one new-head CI snapshot; prior P2
 approvals remain applicable and native acceptance is not inferred from Linux.
+
+## Actual master integration after native-runtime acceptance
+
+The 2026-10-22 21:18 UTC coordinator instruction preserves accepted code and
+documentation and requires normal integration of actual master before new CI.
+Input head is `6bf224cef7362922ef5cd8105351e722d710101e`; fetched master is
+`4ed1084de1fe582d46fd38d9436021044c2e7166` (accepted DAL-419/PR624).
+Their common ancestor is `acadd8ee44fdb6a0bb2e70de9d559db59de066f8`.
+The worktree was clean. No sibling run was cancelled or restarted, and no
+unmerged 408/418 source was imported.
+
+Normal merge commit `f295f402e8771051b8c13b6347ce2ef692902933` has ordered parents
+`6bf224cef7362922ef5cd8105351e722d710101e` and
+`4ed1084de1fe582d46fd38d9436021044c2e7166`. There were no conflicts or manual
+resolutions. A full-tree audit proves an exact union of 3,023 tracked items:
+all 33 DAL-414 paths are unchanged from the input, and all six incoming paths
+equal actual master. Those incoming paths are the debugger visitor header,
+`tests/installed-consumer/main.cpp` and four DAL-419 control records. The only
+subsequent authored change is this integration section.
+
+The incoming debugger change replaces source Unicode literals with explicit
+UTF-8 bytes. All 33 Unicode and all 33 ASCII style entries have identical byte
+values under UTF-8; the installed-consumer addition checks those actual bytes.
+No GSR financial, binding, report, assertion, numerical threshold, workflow,
+target or dependency definition changes. This mechanical integration introduces
+no new behavior requiring another TDD case; accepted RED/GREEN evidence remains
+historical, rather than presenting the prior BEHIND state as a failing unit test.
+
+Fresh verification on the merged product tree, retained in the integration
+evidence archive:
+
+- `cmake --build build/Release-linux --target dal_public_tests dal_excel_portable_tests _dal gsr_script_calibration -j 4`
+  succeeds, rebuilding affected header dependants and linking actual callers.
+  Release/GCC15.2/CMake4.2.3/native AADET/Eigen/native-arch OFF and all submodule
+  pins are retained; CMake cache and compile database are byte-identical.
+- Rebuilt `dal_public_tests` with filter
+  `PublicGsrInstrumentTest.*:PublicCalibrationInstrumentTest.*`: **12/12**.
+  Rebuilt portable Excel with filter
+  `ExcelGsrInstrumentTest.*:ExcelCalibrationInstrumentTest.*`: **10/10**.
+  Existing fast/MC parity, independent held-out state, report/candidate lifetime,
+  raw Jacobian, route/validator failures and precise worksheet fields remain.
+- Rebuilt Python extension with the four existing cases selected by
+  `fast_result or mc_candidate or held_out_axes or unavailable_jacobian`:
+  **4/4**, sixteen deselected. The source file, exact pytest arguments and
+  explicit PYTHONPATH are recorded; no new GIL/full-suite execution is claimed.
+- `ctest --test-dir build/Release-linux -R '^gsr_script_calibration$' --output-on-failure`:
+  **1/1**. The inherited installed-consumer source also compiles and exits 0
+  when linked against the rebuilt workspace archives, including the new symbol
+  byte check. This is a workspace-linked smoke, not a new installed-only or
+  native Windows acceptance result. Existing component/install evidence is
+  reused for unchanged target/dependency definitions, not rerun as a matrix.
+
+Both rebuilt core/public archives and both rebuilt C++ test executables are
+byte-identical to their captured input binaries. Six of the seven captured
+configuration/binary identities match; the freshly linked Python extension
+has a different binary hash and receives the four new executions above.
+The GSR example and consumer executable have separately recorded final hashes.
+No statistical, path-budget, timing or full performance matrix was repeated.
+Earlier core25, language/GIL/strict-input, component, P0/P3 and review evidence
+remains historical and is reused only for its unchanged source/configuration
+scope. No omitted case is described as a new-head pass.
+
+The coordinator's input attachment was downloaded through Multica and its
+manifest verified. On the old 6bf head, macOS x86_64 successfully built/installed
+the wheel, then failed resolving files.pythonhosted.org while fetching test
+dependencies, before the test command. No obsolete-head retry or workflow
+change was made. Actual Windows diagnostics job `120080849743` passed all six
+Excel GSR tests and CTest **3948/3948** on that old head; this accepted native
+result is distinct from local portable checks and the new head's pending gates.
+
+The final delivery records the subsequent record-only head, full integration
+diff, source/dependency/configuration/executable identities and one exact-head
+CI snapshot. Original code/doc approvals remain applicable; only integration
+differences and direct effects need coordinator review. Required Linux/Windows
+strict gates remain for the new head. No specialist, merge or downstream task
+was dispatched.
