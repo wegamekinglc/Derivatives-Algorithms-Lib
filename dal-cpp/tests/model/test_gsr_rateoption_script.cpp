@@ -11,6 +11,7 @@
 #include <dal/model/gsrslvdata.hpp>
 #include <dal/script/calibrationmc.hpp>
 #include <dal/script/preparation.hpp>
+#include <dal/storage/json.hpp>
 
 using namespace Dal;
 
@@ -60,6 +61,59 @@ namespace {
     Handle_<CalibrationInstrument_> Instrument(bool caplet, bool call = true, double strike = .03, double notional = 100.) {
         const RateOptionScriptImportSettings_ settings{caplet ? "caplet" : "swaption", Ccy_("USD"), "USD.OIS", notional};
         return caplet ? NewCapletScriptInstrument(Caplet(call, strike), settings) : NewSwaptionScriptInstrument(Swaption(call, strike), settings);
+    }
+    EuropeanRateOption_ AccrualOption(int location, double accrual, bool call = true, double strike = .03) {
+        const Date_ payment(2028, 1, 21);
+        const double indexAccrual = Ccy::Conventions::LiborDayBasis()(Ccy_("USD"))(E, payment, nullptr);
+        const OptionType_ type(call ? "CALL" : "PUT");
+        if (location == 0)
+            return Caplet_{E, E, payment, payment, indexAccrual, accrual, "3M", strike, type};
+        return Swaption_{E,
+                         {{payment, location == 1 ? accrual : .25}},
+                         {{E, E, payment, payment, indexAccrual, location == 2 ? accrual : .25, "3M"}},
+                         strike,
+                         type};
+    }
+    Handle_<CalibrationInstrument_> AccrualInstrument(int location, double accrual, bool call = true, double strike = .03, double notional = 100.) {
+        const RateOptionScriptImportSettings_ settings{"accrual", Ccy_("USD"), "USD.OIS", notional};
+        const auto option = AccrualOption(location, accrual, call, strike);
+        return location == 0 ? NewCapletScriptInstrument(std::get<Caplet_>(option), settings)
+                             : NewSwaptionScriptInstrument(std::get<Swaption_>(option), settings);
+    }
+    Handle_<CalibrationInstrument_> DecimalAccrualInstrument(int location, const String_& decimal, bool call = true) {
+        auto spec = AccrualInstrument(location, .25, call)->Definition()->Spec();
+        const String_ libor = "FIX(IR[USD,LIBOR_3M_LCH,2027-10-21],2027-10-21)";
+        const String_ df = "FIX(IR[USD,DF,2028-01-21],2027-10-21)";
+        if (location == 0)
+            spec.source_.rows_[2].text_ = "PAY PAYS N*(" + decimal + "*MAX(" + (call ? libor + "-K" : "K-" + libor) + ",0))";
+        else {
+            const auto floating = "(" + (location == 2 ? decimal : "0.25") + "*" + libor + "*" + df + ")";
+            const auto fixed = "K*(" + (location == 1 ? decimal : "0.25") + "*" + df + ")";
+            spec.source_.rows_[2].text_ = "PAY PAYS N*(MAX(" + (call ? floating + "-" + fixed : fixed + "-" + floating) + ",0))";
+        }
+        return NewScriptCalibrationInstrument({"accrual", NewScriptInstrumentDefinition(spec)});
+    }
+    void AssertTinyAccrual(int location) {
+        const LiborBasisScope_ basis;
+        const auto c = Context();
+        for (bool call : {true, false}) {
+            const double native = std::visit(
+                [&](const auto& option) { return PriceGSREuropeanOption(static_cast<const MultiFactorGSRModelData_&>(*c.model_), option).price_; },
+                AccrualOption(location, 1e-7, call));
+            ASSERT_TRUE(std::isfinite(native));
+            const auto decimal = DecimalAccrualInstrument(location, "0.0000001", call);
+            const auto instrument = AccrualInstrument(location, 1e-7, call);
+            ASSERT_EQ(instrument->Definition()->Spec().source_.rows_[2].text_, decimal->Definition()->Spec().source_.rows_[2].text_);
+            const auto plan = PrepareCalibrationInstrument(instrument, "Price", c);
+            ASSERT_EQ(plan.Capability().ruleId_, location == 0 ? "dal.gaussian-caplet/1" : "dal.gaussian-swaption/1");
+            ASSERT_EQ(plan.Capability().backend_, CalibrationBackend_::Value_::FastGaussian);
+            const double actual = PriceGaussianRateOption(plan, instrument, c).price_;
+            ASSERT_EQ(actual, PriceGaussianRateOption(PrepareCalibrationInstrument(decimal, "Price", c), decimal, c).price_);
+            if (native == 0.)
+                ASSERT_EQ(actual, 0.);
+            else
+                ASSERT_LE(std::abs(actual / (100. * native) - 1.), 1e-12);
+        }
     }
     double Fast(const Handle_<CalibrationInstrument_>& instrument, const CalibrationPreparationContext_& context) {
         return PriceGaussianRateOption(PrepareCalibrationInstrument(instrument, "Price", context), instrument, context).price_;
@@ -171,6 +225,40 @@ TEST(GSRRateOptionScriptTest, TestCompleteCapletSourceReachesFastGaussian) {
     const auto plan = PrepareCalibrationInstrument(SourceCaplet(), "Price", Context());
     ASSERT_EQ(plan.Capability().ruleId_, "dal.gaussian-caplet/1");
     ASSERT_EQ(plan.Capability().backend_, CalibrationBackend_::Value_::FastGaussian);
+}
+
+TEST(GSRRateOptionScriptTest, TestTinyCapletAccrual) { AssertTinyAccrual(0); }
+
+TEST(GSRRateOptionScriptTest, TestTinySwaptionFixedAccrual) { AssertTinyAccrual(1); }
+
+TEST(GSRRateOptionScriptTest, TestTinySwaptionFloatingAccrual) { AssertTinyAccrual(2); }
+
+TEST(GSRRateOptionScriptTest, TestAccrualCompatibilitySnapshots) {
+    const LiborBasisScope_ basis;
+    const auto c = Context();
+    int ordinal = 0;
+    for (int location : {0, 1, 2})
+        for (bool call : {true, false})
+            for (const auto& values :
+                 Vector_<Vector_<>>{{.25, 100., .03}, {1e-6, 100., .03}, {.25, 1e-7, 1e-7}, {.25, 1e22, 1e-7}, {.25, 100., 0.}, {.25, 100., -.01}}) {
+                const auto instrument = AccrualInstrument(location, values[0], call, values[2], values[1]);
+                const auto plan = PrepareCalibrationInstrument(instrument, "Price", c);
+                const auto prefix = "case_" + std::to_string(ordinal++) + "_";
+                const auto record = [&](const char* key, const String_& value) { RecordProperty(prefix + key, std::string(value.c_str())); };
+                record("source", instrument->Definition()->SourceIdentity());
+                record("definition", instrument->Definition()->DefinitionIdentity());
+                record("binding", instrument->BindingIdentity());
+                record("instrument", instrument->InstrumentIdentity());
+                record("compiler", plan.CompilerIdentity());
+                record("context", plan.ContextIdentity());
+                record("plan", plan.PlanIdentity());
+                record("json", DumpCalibrationInstrumentJson(instrument));
+                for (size_t row = 0; row < 3; ++row) {
+                    const auto& source = instrument->Definition()->Spec().source_.rows_[row];
+                    record(("row_" + std::to_string(row) + "_key").c_str(), source.key_);
+                    record(("row_" + std::to_string(row) + "_text").c_str(), source.text_);
+                }
+            }
 }
 
 TEST(GSRRateOptionScriptTest, TestCompleteSwaptionSourceReachesFastGaussian) {
