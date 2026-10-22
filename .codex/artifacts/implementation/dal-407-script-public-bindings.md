@@ -2,8 +2,8 @@
 
 ## State and controlling inputs
 
-The implementation is ready for the coordinator's focused reviewer and
-documentation review. The unique PR and exact head are reported on DAL-407.
+The implementation and focused CI repair are ready for the coordinator's
+code and documentation review. The unique PR and exact head are in the handoff.
 The earlier report-scope blocker was resolved by coordinator comment
 `01a162ef-c839-7407-93d9-b408c14c9f6b`; it is no longer an implementation blocker.
 
@@ -226,3 +226,94 @@ and GCC checks do not replace those results. New-head CI is handed off
 without a watch/poll; it does not replace the coordinator's focused review
 or merge gates. No author merge, specialist dispatch or downstream start
 is performed.
+
+## Necessary CI repair on the delivered head
+
+The repair input is PR #621 head
+`2005597f65f7540e2c75ba752bb587f351b93520`, branch
+`agent/dal-implementer/b164bddcd2f2`, base master
+`f50db2e93eb16823190ed18b5d73a115f0e9c48f`. The coordinator's issue update and
+attachment `01a16341-9713-7ed7-b400-13517458cdf7` identify actual GCC,
+Extended-build and Linux/macOS wheel failures, plus three Codacy annotations.
+This is a source/build repair, rather than an external service or permission
+failure. All six supplied log/annotation hashes were verified.
+
+The two facade implementation files already use the shared canonical JSON and
+calibration validation helpers. Their core-private RapidJSON include directory
+was not part of the facade target's declared compilation dependencies. This
+repair makes RapidJSON an explicit **PRIVATE** dependency of `dal_public`:
+`find_path` prefers the pinned repository submodule, can take an explicit build
+dependency path, and fails configuration when unavailable. The path is not
+added to public interfaces, core dependencies or installed consumer targets.
+No report serializer, validation rule, core API or JSON/SHA implementation is
+copied or changed. This preserves the original validation/error behavior and
+canonical report serialization while closing the actual facade build closure.
+
+A first fresh standalone configure/build passed only because this host has
+RapidJSON in `/usr/local/include`. That result is retained as ambient-dependency
+evidence, not the clean RED. The controlled reproduction removes CPATH,
+CPLUS_INCLUDE_PATH and C_INCLUDE_PATH, uses `-nostdinc`, and explicitly restores
+the compiler's standard header directories except `/usr/local/include`. Both
+original facade TUs then fail on `rapidjson/document.h`, matching CI. A separate
+new build directory using the same isolated system headers and installed core
+passes after the target-private dependency is declared. Its real CMake compile
+commands select the pinned vendored include; no global system-header fallback
+is needed.
+
+The isolated public build also builds/runs the script-calibration example,
+passes its CTest entry, builds the existing installation prerequisite, and
+installs the facade. A separately configured installed consumer compiles and
+runs with only installed core/facade headers, isolated standard headers and
+`DAL::public -> DAL::cpp`. Neither the exported target file nor the consumer's
+compile command contains a RapidJSON path. The consumer's first configure
+omitted the existing harness's DAL_EXAMPLE_SOURCE variable; passing that source
+path fixes the harness without changing product or example code. Both attempts
+are retained.
+
+The Codacy changes preserve behavior:
+
+- `Fields_::Default` takes its fallback by const reference and still returns T
+  by value, with the same strict reader and unknown-key tracking.
+- `init_calibration_types` calls four local registration groups in the original
+  order. The complete concatenated registration bodies, including constructors
+  and properties, match the original body after whitespace normalization.
+  All 25 type-registration blocks and their order are retained. The longest
+  helper is 131 lines and the entry point is six lines, below the original
+  200-line gate.
+- The Excel test delegates source, parameter and measure table construction
+  to local helpers. All 30 assertion statements remain byte-identical and in
+  their original order. No formula, test input, failure expectation, tolerance,
+  threshold or quality exclusion changes. Maximum CCN across these edited
+  C++ files is seven, below the unchanged limit of eight.
+
+Actual repair validation is **2 public / 4 portable Excel / 7 Python** checks,
+all passed on the freshly linked workspace libraries/test runners/native
+extension. The workspace native build, public-disabled workspace core and
+standalone core builds and their owning-report clients pass. Machinist
+regeneration/drift and the binding-boundary CTest pass; generated content is
+unchanged. Ten GCC14/15 strict-warning checks cover the two facade TUs, the
+two Python TUs affected by the helper header, and the Excel test. Formatting
+and diff checks pass. Commands, controlled RED, successful builds, XML and
+compiler/configuration/binary identities are in the CI-repair attachment.
+
+The original 80 core/30 public/34 Excel, 315 legacy plus seven new Python,
+and subsequent 32/2/4/7 executions keep their original source/executable
+identities. They are historical evidence, not all rerun on the repair head.
+Prior numerical/statistical evidence applies to unchanged core algorithms;
+this repair writes no core source, preparation, MC/model or report publication
+path. The original six informational latency callers construct settings before
+their timed numerical loops. Those loops and algorithms are unchanged, so
+their earlier timing records remain historical information; no new numerical
+performance matrix or new-head latency result is claimed for this build/static
+repair. The direct native-build and interface tests cover the changed boundary.
+
+Only the facade CMake file, Python helper/type-registration files, dedicated
+Excel test and this record change in the repair. No DAL-408/412 unmerged
+content is imported. Shared methodology, CHANGELOG and artifact indexes remain
+byte-identical to the delivered input and stay in DAL-412's writing window.
+The final complete PR path list, exact repair diff (also ignoring whitespace),
+new head, source/dependency/configuration and actual binary identities, and a
+single exact-head CI snapshot are in the handoff manifest. Native Windows,
+macOS wheels, XLL/workbook and pending cross-platform CI are not inferred from
+local Linux success. Coordinator code/doc review and current-head gates remain
+required before merge; the author performs no review dispatch or merge.

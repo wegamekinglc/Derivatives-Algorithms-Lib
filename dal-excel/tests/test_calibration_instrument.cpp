@@ -148,59 +148,77 @@ TEST(ExcelCalibrationInstrumentTest, TestPartialReportHeadersAndAsciiChunks) {
     ASSERT_THROW(CalibrationMarketQuote_New("q", Cell_(true), "Rate", {}, nullptr), Exception_);
 }
 
+namespace {
+    Dal::Matrix_<Dal::Cell_> DefinitionSource(const Dal::ScriptInstrumentDefinitionSpec_& spec) {
+        using namespace Dal;
+        Matrix_<Cell_> source(static_cast<int>(spec.source_.rows_.size()) + 1, 3);
+        source(0, 0) = "kind";
+        source(0, 1) = "key";
+        source(0, 2) = "text";
+        for (size_t i = 0; i < spec.source_.rows_.size(); ++i) {
+            source(static_cast<int>(i) + 1, 0) = spec.source_.rows_[i].kind_.String();
+            source(static_cast<int>(i) + 1, 1) = spec.source_.rows_[i].key_;
+            source(static_cast<int>(i) + 1, 2) = spec.source_.rows_[i].text_;
+        }
+        return source;
+    }
+    Dal::Matrix_<Dal::Cell_> ParameterTable(const Dal::ScriptInstrumentDefinitionSpec_& spec) {
+        using namespace Dal;
+        Matrix_<Cell_> parameters(4, 9);
+        const char* columns[] = {"key", "type", "unit", "role", "bindable", "lower", "upper", "lower_inclusive", "upper_inclusive"};
+        for (int c = 0; c < 9; ++c)
+            parameters(0, c) = columns[c];
+        for (int i = 0; i < 3; ++i) {
+            const auto& p = spec.parameters_[i];
+            parameters(i + 1, 0) = p.key_;
+            parameters(i + 1, 1) = p.type_.String();
+            parameters(i + 1, 2) = p.unit_.Token();
+            parameters(i + 1, 3) = p.role_.String();
+            parameters(i + 1, 4) = p.bindable_;
+            if (p.lower_)
+                parameters(i + 1, 5) = *p.lower_;
+            if (p.upper_)
+                parameters(i + 1, 6) = *p.upper_;
+            parameters(i + 1, 7) = p.lowerInclusive_;
+            parameters(i + 1, 8) = p.upperInclusive_;
+        }
+        return parameters;
+    }
+    Dal::Matrix_<Dal::Cell_> MeasureTable(const Dal::ScriptInstrumentDefinitionSpec_& spec) {
+        using namespace Dal;
+        Matrix_<Cell_> measures(3, 7);
+        const char* measureColumns[] = {"id", "kind", "receiver", "parameter", "unit", "annuity_sign", "min_abs_annuity"};
+        for (int c = 0; c < 7; ++c)
+            measures(0, c) = measureColumns[c];
+        for (int i = 0; i < 2; ++i) {
+            const auto& m = spec.measures_[i];
+            measures(i + 1, 0) = m.id_;
+            measures(i + 1, 1) = m.kind_.String();
+            measures(i + 1, 2) = m.receiver_;
+            measures(i + 1, 4) = m.unit_.Token();
+            if (m.parameter_)
+                measures(i + 1, 3) = *m.parameter_;
+            if (m.annuitySign_)
+                measures(i + 1, 5) = double(*m.annuitySign_);
+            if (m.minAbsAnnuity_)
+                measures(i + 1, 6) = *m.minAbsAnnuity_;
+        }
+        return measures;
+    }
+} // namespace
+
 TEST(ExcelCalibrationInstrumentTest, TestDefinitionAndBindingTablesRoundTripAndRejectBadCells) {
     using namespace Dal;
     const Date_ today(2026, 10, 21), end(2027, 10, 21);
     const auto imported = NewDepositScriptInstrument(Deposit_(today, end, .025, DayBasis_("ACT_360")), {"reference", Ccy_("USD"), "USD.OIS", 100.});
     const auto& spec = imported->Definition()->Spec();
-    Matrix_<Cell_> source(static_cast<int>(spec.source_.rows_.size()) + 1, 3);
-    source(0, 0) = "kind";
-    source(0, 1) = "key";
-    source(0, 2) = "text";
-    for (size_t i = 0; i < spec.source_.rows_.size(); ++i) {
-        source(static_cast<int>(i) + 1, 0) = spec.source_.rows_[i].kind_.String();
-        source(static_cast<int>(i) + 1, 1) = spec.source_.rows_[i].key_;
-        source(static_cast<int>(i) + 1, 2) = spec.source_.rows_[i].text_;
-    }
+    const auto source = DefinitionSource(spec);
     const auto header = Fields({{"pay_currency", Cell_("USD")},
                                 {"result_currency", Cell_("USD")},
                                 {"collateral_currency", Cell_("USD")},
                                 {"discount_route", Cell_("USD.OIS")}});
-    Matrix_<Cell_> parameters(4, 9);
-    const char* columns[] = {"key", "type", "unit", "role", "bindable", "lower", "upper", "lower_inclusive", "upper_inclusive"};
-    for (int c = 0; c < 9; ++c)
-        parameters(0, c) = columns[c];
-    for (int i = 0; i < 3; ++i) {
-        const auto& p = spec.parameters_[i];
-        parameters(i + 1, 0) = p.key_;
-        parameters(i + 1, 1) = p.type_.String();
-        parameters(i + 1, 2) = p.unit_.Token();
-        parameters(i + 1, 3) = p.role_.String();
-        parameters(i + 1, 4) = p.bindable_;
-        if (p.lower_)
-            parameters(i + 1, 5) = *p.lower_;
-        if (p.upper_)
-            parameters(i + 1, 6) = *p.upper_;
-        parameters(i + 1, 7) = p.lowerInclusive_;
-        parameters(i + 1, 8) = p.upperInclusive_;
-    }
-    Matrix_<Cell_> measures(3, 7);
-    const char* measureColumns[] = {"id", "kind", "receiver", "parameter", "unit", "annuity_sign", "min_abs_annuity"};
-    for (int c = 0; c < 7; ++c)
-        measures(0, c) = measureColumns[c];
-    for (int i = 0; i < 2; ++i) {
-        const auto& m = spec.measures_[i];
-        measures(i + 1, 0) = m.id_;
-        measures(i + 1, 1) = m.kind_.String();
-        measures(i + 1, 2) = m.receiver_;
-        measures(i + 1, 4) = m.unit_.Token();
-        if (m.parameter_)
-            measures(i + 1, 3) = *m.parameter_;
-        if (m.annuitySign_)
-            measures(i + 1, 5) = double(*m.annuitySign_);
-        if (m.minAbsAnnuity_)
-            measures(i + 1, 6) = *m.minAbsAnnuity_;
-    }
+    auto parameters = ParameterTable(spec);
+    const auto measures = MeasureTable(spec);
     Handle_<ScriptInstrumentDefinition_> definition;
     ScriptInstrumentDefinition_New(source, header, parameters, measures, {}, &definition);
     ASSERT_EQ(definition->DefinitionIdentity(), imported->Definition()->DefinitionIdentity());

@@ -117,7 +117,7 @@ namespace Dal::Python::Calibration {
                 throw py::type_error(std::string("missing keyword: ") + key);
             return Input_<T_>::Read(values_[key], std::string("/") + key);
         }
-        template <class T_> T_ Default(const char* key, T_ fallback) {
+        template <class T_> T_ Default(const char* key, const T_& fallback) {
             used_.insert(key);
             return values_.contains(key) ? Input_<T_>::Read(values_[key], std::string("/") + key) : fallback;
         }
