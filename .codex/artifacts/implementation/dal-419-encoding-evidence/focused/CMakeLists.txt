@@ -1,0 +1,22 @@
+cmake_minimum_required(VERSION 3.21)
+project(dal419-focused LANGUAGES CXX)
+find_package(dal-cpp 1.0 CONFIG REQUIRED)
+set(CMAKE_MSVC_RUNTIME_LIBRARY "${DAL_CPP_MSVC_RUNTIME_LIBRARY}")
+set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
+add_subdirectory("${DAL419_SOURCE}/dal-cpp/externals/googletest" gtest EXCLUDE_FROM_ALL)
+add_executable(debugger_tests
+    "${DAL419_SOURCE}/dal-cpp/tests/test_main.cpp"
+    "${DAL419_SOURCE}/dal-cpp/tests/script/visitor/test_debugger.cpp"
+    "${DAL419_SOURCE}/dal-cpp/tests/script/test_exercise_parse.cpp")
+target_link_libraries(debugger_tests PRIVATE DAL::cpp GTest::gtest)
+target_include_directories(debugger_tests PRIVATE "${DAL419_SOURCE}/dal-cpp/test-support")
+dal_cpp_apply_msvc_runtime(debugger_tests)
+if(MSVC)
+    target_compile_options(debugger_tests PRIVATE /utf-8)
+endif()
+add_executable(compat ../compat.cpp)
+target_link_libraries(compat PRIVATE DAL::cpp)
+dal_cpp_apply_msvc_runtime(compat)
+if(MSVC AND DAL419_BASELINE_UTF8)
+    target_compile_options(compat PRIVATE /utf-8)
+endif()

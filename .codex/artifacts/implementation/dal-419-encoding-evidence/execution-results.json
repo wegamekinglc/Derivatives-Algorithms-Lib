@@ -1,0 +1,51 @@
+{
+  "master_build": {
+    "exit": 0
+  },
+  "master_probe": {
+    "exit": 2,
+    "expected": "debugger.hpp:308/309 C2001"
+  },
+  "original_installed_consumer_red": {
+    "exit": 1,
+    "expected": "debugger.hpp:308/309 C2001"
+  },
+  "original_installed_excel_red": {
+    "exit": 1,
+    "tests_off": "XLL build/audit passed",
+    "expected": "tests-ON debugger.hpp C2001"
+  },
+  "test_only_consumer_red": {
+    "exit": 1,
+    "expected": "debugger.hpp:308/309 C2001"
+  },
+  "baseline_focused_utf8": {
+    "exit": 0,
+    "passed": 42
+  },
+  "default_windows_consumer_green": {
+    "exit": 0,
+    "passed": 3
+  },
+  "default_windows_excel_green": {
+    "exit": 0,
+    "passed": 259,
+    "tests_off": "XLL build/audit passed",
+    "tests_on": "XLL build/audit passed"
+  },
+  "windows_focused_green": {
+    "exit": 0,
+    "passed": 42
+  },
+  "linux_build": {
+    "exit": 0
+  },
+  "linux_focused_green": {
+    "exit": 0,
+    "passed": 42
+  },
+  "linux_installed_consumer_green": {
+    "exit": 0,
+    "passed": 3
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "platform": "Linux-5.15.167.4-microsoft-standard-WSL2-x86_64-with-glibc2.43",
+  "cmake": "cmake version 4.2.3",
+  "compiler": "g++-14 (Ubuntu 14.3.0-14ubuntu1) 14.3.0"
+}

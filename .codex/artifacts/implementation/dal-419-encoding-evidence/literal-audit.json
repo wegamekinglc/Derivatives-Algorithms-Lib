@@ -1,0 +1,101 @@
+{
+  "all_literal_bytes_equal": true,
+  "nonliteral_tokens_equal": true,
+  "literal_count": 421,
+  "changed": [
+    {
+      "literal_index": 109,
+      "utf8_hex": "e2949ce29480e2948020"
+    },
+    {
+      "literal_index": 110,
+      "utf8_hex": "e29494e29480e2948020"
+    },
+    {
+      "literal_index": 111,
+      "utf8_hex": "e29482202020"
+    },
+    {
+      "literal_index": 114,
+      "utf8_hex": "e28892"
+    },
+    {
+      "literal_index": 115,
+      "utf8_hex": "c397"
+    },
+    {
+      "literal_index": 116,
+      "utf8_hex": "c3b7"
+    },
+    {
+      "literal_index": 118,
+      "utf8_hex": "e28892"
+    },
+    {
+      "literal_index": 121,
+      "utf8_hex": "e2889a"
+    },
+    {
+      "literal_index": 126,
+      "utf8_hex": "e289a5"
+    },
+    {
+      "literal_index": 127,
+      "utf8_hex": "e288a7"
+    },
+    {
+      "literal_index": 128,
+      "utf8_hex": "e288a8"
+    },
+    {
+      "literal_index": 129,
+      "utf8_hex": "c2ac"
+    },
+    {
+      "literal_index": 130,
+      "utf8_hex": "e28aa4"
+    },
+    {
+      "literal_index": 131,
+      "utf8_hex": "e28aa5"
+    },
+    {
+      "literal_index": 132,
+      "utf8_hex": "e28690"
+    },
+    {
+      "literal_index": 133,
+      "utf8_hex": "e28790"
+    },
+    {
+      "literal_index": 134,
+      "utf8_hex": "e296b620"
+    },
+    {
+      "literal_index": 135,
+      "utf8_hex": "e296b720"
+    },
+    {
+      "literal_index": 137,
+      "utf8_hex": "f09f9385"
+    },
+    {
+      "literal_index": 138,
+      "utf8_hex": "c2b7"
+    },
+    {
+      "literal_index": 139,
+      "utf8_hex": "e29fa8"
+    },
+    {
+      "literal_index": 140,
+      "utf8_hex": "e29fa9"
+    },
+    {
+      "literal_index": 141,
+      "utf8_hex": "ceb5"
+    }
+  ],
+  "baseline_sha256": "53e6c05cc86851f31e6f20dd1b7e1fbb1528b417dfab68ef045a579a4899cf81",
+  "fixed_sha256": "24d27f66ae75ecb63e02a52a821e5605e939255b743137907a7b6c61990d4004"
+}

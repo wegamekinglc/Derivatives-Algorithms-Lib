@@ -1,0 +1,19 @@
+{
+  "windows_before_after_equal": true,
+  "windows_linux_equal_after_crlf": true,
+  "windows_bytes": 3658,
+  "linux_bytes": 3456,
+  "windows_sha256": "96d36cc6aa6479f06f786fa615dd02da86f25a8052226cec38ce22fb8922fd9b",
+  "linux_sha256": "c26f900342a333236173718a246e2899915f617b6af9d8871340d8841e665d96",
+  "symbols_per_mode": 33,
+  "modes": [
+    false,
+    true
+  ],
+  "widths": [
+    1,
+    20,
+    125
+  ],
+  "empty_product_empty": true
+}
