@@ -218,6 +218,66 @@ context and explicit sampling. Existing `irn` Price admission retains derivative
 None. Executable `mrg32` admission also supports Deposit ParRate and native AAD.
 Unknown scripts never switch silently to MC.
 
+## Native curve instrument calibration
+
+`dal/curve/curveinstrumentcalibration.hpp` adds `CalibrateCurveInstruments` and
+`PreparedCurveInstruments_`. The spec separates `geometry_`, explicit `market_`
+routes, frozen `valuation_`, ordered `observations_` and `solver_`. An explicit
+valuation date and fixing snapshot are required. Preparation admits the shared
+Deposit cashflows once; candidates refresh native curves and numeric measures
+without parsing source or importing native products again. Gaussian options
+continue through their separate model adapter.
+
+The provider uses native discount/projection curves, collateral and tenor keys,
+and an optional passive base. Route IDs are case-sensitive. Missing routes,
+currency/collateral conflicts and unsupported requests fail without a global
+market lookup. Ordered multi-curve stages inherit prior curves by key; explicit
+stage bindings win; all stages share currency and valuation. Projection stages
+inherit their discount base when one is not supplied. Deposit cashflows alone do not constrain projection
+parameters; projection-product lowering belongs to the separate family adapters.
+
+LOG_DISCOUNT requires an explicit first knot at today and excludes its fixed
+zero log-DF anchor from the free vector. ZERO_RATE takes future input knots
+and excludes its implicit anchor. PWC columns are right forwards; PWLF columns
+are left/right forwards interleaved at each knot. INPUT preserves the submitted
+layout; INSTRUMENTS/AUGMENTED resolve sorted unique pillars while keeping
+observation and distinct-quote axes in their original first-use order. Pillars
+and native nodes must cover each admitted cashflow dependency.
+
+The initial native vector theta0 stays fixed. Optional positive parameter scales
+define `theta=theta0+S*z`; default S is identity. `nativeWeights_` stores the
+existing smoothing metric W_theta, and `weights_` stores `S' W_theta S`.
+EXACT accepts finite outputs with scaled infinity norm <=1. APPROXIMATE requires
+explicit finite positive `fitWeight_` (lambda) and `fitNormTolerance_` (eta).
+Each local problem uses the prior displacement and lambda-weighted squared
+scaled residuals; acceptance is scaled L2<=eta. It may accept the initial point
+and does not certify an objective minimum. Scales never determine lambda.
+
+FD is the default; explicitly requested AAD uses the same cashflows and native
+curve representation, including all log-DF schemes. Unsupported derivative or
+MC requests fail. Solve FD bumps z; independent `Evaluate(theta)` FD bumps native
+theta, using `differenceStep_` in the respective coordinates. `quoteJacobian_`
+is the raw model-measure derivative with respect to native theta, not quote risk.
+`computeQuoteJacobian_` optionally requests it after a successful fit. Solver
+evaluation/gradient counters include attempted FD work. A final value refresh
+and optional Jacobian diagnostics have separate counters and do not consume
+the fit budget. Initial-fit results report derivative None unless diagnostics run.
+
+Failures throw `CalibrationError_` with owned axes and a
+`CurveInstrumentCalibrationCandidate_` whose `Result()` retains the last valid
+candidate, coordinates, metric, norms, settings and termination reason. Plan,
+candidate and objective identities distinguish frozen geometry, bindings,
+history, routes and numeric state. These are session objects; quote-risk and
+calibration-session persistence remain unavailable.
+
+`ImportLegacyCurveObjective` records the homogeneous mapping
+`lambda=M*(tau/f)^2`, `eta=f`, with S=identity. An unrepresentable lambda is
+reported as an empty optional. `CalibrateLegacyCurve` still invokes the original
+native spec/options and preserves its defaults, strict EXACT boundary and
+APPROXIMATE last-point behavior. Algebraic mapping does not promise the new
+driver's floating-point trajectory. This entry adds no FX/XCCY instrument
+admission, generic FIX lowering, box bounds, joint solve or public bindings.
+
 ## Same-instrument Monte Carlo
 
 `dal/script/calibrationmc.hpp` provides `PrepareCalibrationMc` and its immutable

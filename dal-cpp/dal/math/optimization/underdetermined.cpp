@@ -378,6 +378,206 @@ namespace Dal {
         }
     }
 
+    namespace {
+        double FitNorm(const Vector_<>& values) {
+            double norm = 0.;
+            for (double value : values)
+                norm = std::hypot(norm, value);
+            return norm;
+        }
+        bool FitAccepted(const Vector_<>& scaled, const Underdetermined::FitSettings_& settings) {
+            double maximum = 0.;
+            for (double value : scaled)
+                maximum = std::max(maximum, std::abs(value));
+            return settings.exact_ ? maximum <= 1. : FitNorm(scaled) <= *settings.fitNormTolerance_;
+        }
+        void FiniteFitValues(const Vector_<>& values) {
+            for (double value : values)
+                REQUIRE(std::isfinite(value), "Calibration fit requires finite values");
+        }
+        void FiniteFitMatrix(const Matrix_<>& matrix) {
+            for (int row = 0; row < matrix.Rows(); ++row)
+                FiniteFitValues(Vector_<>(matrix.Row(row)));
+        }
+        void ValidateFitObjective(const Underdetermined::FitSettings_& settings) {
+            if (!settings.exact_) {
+                REQUIRE(settings.fitWeight_ && std::isfinite(*settings.fitWeight_) && *settings.fitWeight_ > 0.,
+                        "Explicit positive fitWeight required");
+                REQUIRE(settings.fitNormTolerance_ && std::isfinite(*settings.fitNormTolerance_) && *settings.fitNormTolerance_ > 0.,
+                        "Explicit positive fitNormTolerance required");
+            }
+        }
+        void ValidateFit(const Vector_<>& initial,
+                         const Vector_<>& scales,
+                         const Sparse::Square_& weights,
+                         const Underdetermined::FitSettings_& settings) {
+            REQUIRE(!initial.empty() && !scales.empty() && weights.Size() == static_cast<int>(initial.size()) && weights.IsSymmetric(),
+                    "Calibration fit requires parameters, residual scales and symmetric weights");
+            FiniteFitValues(initial);
+            for (double scale : scales)
+                REQUIRE(std::isfinite(scale) && scale > 0., "Calibration fit requires finite positive row scales");
+            REQUIRE(std::isfinite(settings.differenceStep_) && settings.differenceStep_ > 0., "Calibration fit requires a positive FD step");
+            ValidateFitObjective(settings);
+        }
+        struct FitDriver_ {
+            const Underdetermined::Function_& function_;
+            const Vector_<>& scales_;
+            const Underdetermined::Controls_& controls_;
+            const Underdetermined::FitSettings_& settings_;
+            Underdetermined::FitResult_ result_;
+
+            // Calibration owns evaluation counters and the last fully validated candidate.
+            std::optional<Vector_<>> Evaluate(const Vector_<>& x) {
+                if (result_.evaluations_ >= controls_.maxEvaluations_)
+                    return {};
+                FiniteFitValues(x);
+                ++result_.evaluations_;
+                auto raw = function_.F(x);
+                REQUIRE(raw.size() == scales_.size(), "Calibration residual dimension changed");
+                FiniteFitValues(raw);
+                return raw;
+            }
+            Vector_<> Scale(const Vector_<>& raw) const {
+                auto scaled = raw;
+                for (size_t i = 0; i < scaled.size(); ++i)
+                    scaled[i] /= scales_[i];
+                FiniteFitValues(scaled);
+                return scaled;
+            }
+            void Accept(const Vector_<>& x, const Vector_<>& raw) {
+                const auto scaled = Scale(raw);
+                result_.parameters_ = x;
+                result_.rawResiduals_ = raw;
+                result_.scaledResiduals_ = scaled;
+                result_.fitWithinTolerance_ = FitAccepted(scaled, settings_);
+            }
+            bool DifferenceGradient(Matrix_<>* dense) {
+                dense->Resize(static_cast<int>(scales_.size()), static_cast<int>(result_.parameters_.size()));
+                for (int j = 0; j < dense->Cols(); ++j) {
+                    auto up = result_.parameters_, down = up;
+                    const double step = settings_.differenceStep_;
+                    up[j] += step;
+                    down[j] -= step;
+                    REQUIRE(up[j] > down[j], "Calibration FD step is not representable");
+                    const auto u = Evaluate(up), d = Evaluate(down);
+                    if (!u || !d)
+                        return false;
+                    for (int i = 0; i < dense->Rows(); ++i)
+                        (*dense)(i, j) = ((*u)[i] - (*d)[i]) / (up[j] - down[j]);
+                }
+                return true;
+            }
+            std::unique_ptr<Underdetermined::Jacobian_> Gradient(Matrix_<>* dense) {
+                if (result_.gradients_ >= controls_.maxRestarts_)
+                    return nullptr;
+                ++result_.gradients_;
+                auto jacobian = function_.Gradient(result_.parameters_, result_.rawResiduals_);
+                if (!jacobian) {
+                    if (!DifferenceGradient(dense))
+                        return nullptr;
+                    jacobian = std::make_unique<XJDense_>(*dense);
+                }
+                REQUIRE(jacobian->Rows() == static_cast<int>(scales_.size()) && jacobian->Columns() == static_cast<int>(result_.parameters_.size()),
+                        "Calibration Jacobian dimension changed");
+                jacobian->DivideRows(scales_);
+                Matrix_<> checked;
+                StoreForwardJacobianAtSolution(*jacobian, &checked);
+                FiniteFitMatrix(checked);
+                return jacobian;
+            }
+        };
+        Vector_<> RegularizedFitStep(const Vector_<>& initial,
+                                     const Underdetermined::FitResult_& result,
+                                     const Underdetermined::Jacobian_& jacobian,
+                                     const Sparse::Square_& weights,
+                                     double weight) {
+            Matrix_<> j;
+            StoreForwardJacobianAtSolution(jacobian, &j);
+            const int n = weights.Size();
+            SquareMatrix_<> normal(n, 0.);
+            Vector_<> rhs;
+            weights.MultiplyLeft(Apply(std::minus<>(), initial, result.parameters_), &rhs);
+            const auto gradient = jacobian.MultiplyRight(result.scaledResiduals_);
+            for (int a = 0; a < n; ++a) {
+                rhs[a] -= weight * gradient[a];
+                for (int b = 0; b < n; ++b) {
+                    double value = weights(a, b);
+                    for (int i = 0; i < j.Rows(); ++i)
+                        value += weight * j(i, a) * j(i, b);
+                    REQUIRE(std::isfinite(value), "Nonfinite calibration normal matrix");
+                    normal(a, b) = value;
+                }
+            }
+            FiniteFitValues(rhs);
+            const auto decomposition = CholeskyDecomposition(normal);
+            Vector_<> step;
+            decomposition->Solve(rhs, &step);
+            return step;
+        }
+        bool AdvanceFit(FitDriver_* driver, const Vector_<>& step) {
+            FiniteFitValues(step);
+            const auto& previous = driver->result_;
+            double fraction = 1.;
+            for (int attempt = 0; attempt < driver->controls_.maxBacktrackTries_; ++attempt) {
+                auto candidate = previous.parameters_;
+                for (size_t j = 0; j < candidate.size(); ++j)
+                    candidate[j] += fraction * step[j];
+                const auto raw = driver->Evaluate(candidate);
+                if (!raw)
+                    return false;
+                const auto scaled = driver->Scale(*raw);
+                if (FitAccepted(scaled, driver->settings_) || !driver->settings_.exact_ || FitNorm(scaled) < FitNorm(previous.scaledResiduals_)) {
+                    driver->Accept(candidate, *raw);
+                    return true;
+                }
+                fraction *= .5;
+            }
+            driver->result_.termination_ = "CalibrationFitFailed";
+            return false;
+        }
+        bool TakeFitStep(const Vector_<>& initial, const Sparse::Square_& weights, FitDriver_* driver) {
+            Matrix_<> dense;
+            const auto jacobian = driver->Gradient(&dense);
+            if (!jacobian)
+                return false;
+            Vector_<> step;
+            if (driver->settings_.exact_) {
+                const std::unique_ptr<Sparse::SymmetricDecomposition_> decomposition(weights.DecomposeSymmetric());
+                SquareMatrix_<> form;
+                QPStep(driver->result_.scaledResiduals_, *jacobian, *decomposition, &form, &step);
+            } else {
+                step = RegularizedFitStep(initial, driver->result_, *jacobian, weights, *driver->settings_.fitWeight_);
+            }
+            return AdvanceFit(driver, step);
+        }
+    } // namespace
+
+    Underdetermined::FitResult_ Underdetermined::Fit(const Function_& function,
+                                                     const Vector_<>& initial,
+                                                     const Vector_<>& scales,
+                                                     const Sparse::Square_& weights,
+                                                     const Controls_& controls,
+                                                     const FitSettings_& settings) {
+        ValidateFit(initial, scales, weights, settings);
+        FitDriver_ driver{function, scales, controls, settings, {}};
+        driver.result_.termination_ = "CalibrationBudgetExceeded";
+        try {
+            const auto raw = driver.Evaluate(initial);
+            if (raw)
+                driver.Accept(initial, *raw);
+            while (raw && !driver.result_.fitWithinTolerance_) {
+                if (!TakeFitStep(initial, weights, &driver))
+                    break;
+            }
+            if (driver.result_.fitWithinTolerance_)
+                driver.result_.termination_ = "FitWithinTolerance";
+        } catch (...) {
+            driver.result_.cause_ = std::current_exception();
+            driver.result_.termination_ = "CalibrationNumericalFailure";
+        }
+        return driver.result_;
+    }
+
     Vector_<> Underdetermined::Approximate(const Function_& funcIn,
                                            const Vector_<>& guess,
                                            const Vector_<>& funcTol, // accuracy of function evaluation

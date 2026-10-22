@@ -4,7 +4,9 @@
 
 #pragma once
 
+#include <exception>
 #include <memory>
+#include <optional>
 
 #include <dal/math/vectors.hpp>
 #include <dal/string/strings.hpp>
@@ -97,6 +99,25 @@ namespace Dal {
                               double fitTol,
                               const Sparse::Square_& w,
                               const Controls_& controls);
+
+        struct FitSettings_ {
+            bool exact_ = true;
+            std::optional<double> fitWeight_, fitNormTolerance_;
+            double differenceStep_ = 1e-6;
+        };
+        struct FitResult_ {
+            Vector_<> parameters_, rawResiduals_, scaledResiduals_;
+            int evaluations_ = 0, gradients_ = 0;
+            bool fitWithinTolerance_ = false;
+            String_ termination_;
+            std::exception_ptr cause_;
+        };
+        FitResult_ Fit(const Function_& function,
+                       const Vector_<>& initial,
+                       const Vector_<>& scales,
+                       const Sparse::Square_& weights,
+                       const Controls_& controls,
+                       const FitSettings_& settings = {});
 
     } // namespace Underdetermined
 
