@@ -8,6 +8,10 @@ current-state explanations in the published docs or focused Codex references.
 
 ## Current Artifacts
 
+- [DAL-404 P0 same-source independent acceptance](validation/dal-404-p0-same-source-validation.md)
+  — Active Deposit/Gaussian BondOption acceptance, source/evidence applicability,
+  independent numerical checks and bounded capability verdict controlling P1 startup.
+
 - [DAL-403 Gaussian BondOption prototype](implementation/dal-403-bondoption-prototype.md)
   — Active one-time native export, descriptor-derived Gaussian Price,
   selected-g fitting and frozen same-contract MC/AAD verification evidence.
