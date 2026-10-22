@@ -305,8 +305,40 @@ namespace Dal::Script {
 
     inline const TreeStyle_& TreeStyle(bool ascii) {
         struct Styles_ {
-            TreeStyle_ unicode{"├── ", "└── ", "│   ", "    ", "+", "−", "×", "÷", "^",  "−",  "ln", "exp", "√", "max", "min", "=", ">",
-                               "≥",    "∧",    "∨",    "¬",    "⊤", "⊥", "←", "⇐", "▶ ", "▷ ", "? ", "📅",  "·", "⟨",   "⟩",   "ε"};
+            // Explicit UTF-8 bytes keep installed headers independent of the caller's source and execution encodings.
+            TreeStyle_ unicode{"\xe2\x94\x9c\xe2\x94\x80\xe2\x94\x80 ",
+                               "\xe2\x94\x94\xe2\x94\x80\xe2\x94\x80 ",
+                               "\xe2\x94\x82   ",
+                               "    ",
+                               "+",
+                               "\xe2\x88\x92",
+                               "\xc3\x97",
+                               "\xc3\xb7",
+                               "^",
+                               "\xe2\x88\x92",
+                               "ln",
+                               "exp",
+                               "\xe2\x88\x9a",
+                               "max",
+                               "min",
+                               "=",
+                               ">",
+                               "\xe2\x89\xa5",
+                               "\xe2\x88\xa7",
+                               "\xe2\x88\xa8",
+                               "\xc2\xac",
+                               "\xe2\x8a\xa4",
+                               "\xe2\x8a\xa5",
+                               "\xe2\x86\x90",
+                               "\xe2\x87\x90",
+                               "\xe2\x96\xb6 ",
+                               "\xe2\x96\xb7 ",
+                               "? ",
+                               "\xf0\x9f\x93\x85",
+                               "\xc2\xb7",
+                               "\xe2\x9f\xa8",
+                               "\xe2\x9f\xa9",
+                               "\xce\xb5"};
             TreeStyle_ ascii{"|-- ", "`-- ", "|   ", "    ", "+",    "-",     "*",  "/",  "^",  "-",  "ln", "exp", "sqrt", "max", "min", "=",  ">",
                              ">=",   "and",  "or",   "not",  "true", "false", "<-", "<=", "> ", ". ", "? ", "#",   "@",    "<",   ">",   "eps"};
         };
