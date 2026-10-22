@@ -1,0 +1,341 @@
+{
+  "tested_head": "696edf742f4c9024e7745f55c65923b56d98abca",
+  "results": {
+    "build-fixed": {
+      "exit": 0,
+      "native_cmake": "4.2.3",
+      "system_acp": 936,
+      "CL": null,
+      "_CL_": null
+    },
+    "consumer-default": {
+      "exit": 0,
+      "native_cmake": "4.2.3",
+      "system_acp": 936,
+      "CL": null,
+      "_CL_": null,
+      "passed": 3
+    },
+    "excel-default": {
+      "exit": 0,
+      "native_cmake": "4.2.3",
+      "system_acp": 936,
+      "CL": null,
+      "_CL_": null,
+      "passed": 259,
+      "tests_OFF_XLL_and_audit": true,
+      "tests_ON_XLL_and_audit": true,
+      "ctest_elapsed": "4.04 sec"
+    },
+    "focused-fixed": {
+      "exit": 0,
+      "native_cmake": "4.2.3",
+      "system_acp": 936,
+      "CL": null,
+      "_CL_": null,
+      "passed": 42
+    },
+    "consumer-327": {
+      "exit": 0,
+      "native_cmake": "3.27.6",
+      "system_acp": 936,
+      "CL": null,
+      "_CL_": null,
+      "passed": 3
+    },
+    "excel-327": {
+      "exit": 0,
+      "native_cmake": "3.27.6",
+      "system_acp": 936,
+      "CL": null,
+      "_CL_": null,
+      "passed": 259,
+      "tests_OFF_XLL_and_audit": true,
+      "tests_ON_XLL_and_audit": true,
+      "ctest_elapsed": "4.94 sec"
+    },
+    "independent_master_header_RED": {
+      "exit": 1,
+      "expected": "C2001",
+      "native_cmake": "4.2.3",
+      "system_acp": 936
+    },
+    "rendering": {
+      "all_66_symbols_and_widths_1_20_125_equal": true,
+      "empty_product_equal": true,
+      "bytes": 3658,
+      "sha256": "96d36cc6aa6479f06f786fa615dd02da86f25a8052226cec38ce22fb8922fd9b"
+    }
+  },
+  "default_caller_commands": {
+    "consumer-default": {
+      "compile_commands_without_encoding_override": 1,
+      "native_cmake": "4.2.3"
+    },
+    "consumer-327": {
+      "compile_commands_without_encoding_override": 1,
+      "native_cmake": "3.27.6"
+    },
+    "excel-default/tests-ON": {
+      "compile_commands_without_encoding_override": 32,
+      "native_cmake": "4.2.3"
+    },
+    "excel-327/tests-ON": {
+      "compile_commands_without_encoding_override": 32,
+      "native_cmake": "3.27.6"
+    },
+    "focused-fixed": {
+      "compile_commands_without_encoding_override": 1,
+      "native_cmake": "4.2.3"
+    }
+  },
+  "source_audit": {
+    "head": "696edf742f4c9024e7745f55c65923b56d98abca",
+    "verified_git_blobs": 5550,
+    "content_mismatches": [],
+    "eol_only": [
+      "build_windows.bat",
+      "dal-excel/tests/windows/run-script-fix-settings.ps1",
+      "dal-excel/tests/windows/test-script-fix-cleanup.ps1",
+      "dal-python/build_wheel.ps1",
+      "dal-python/run_tests.ps1"
+    ],
+    "gitlink_entries_skipped_in_tree_listing": [
+      "dal-cpp/externals/eigen",
+      "dal-cpp/externals/googletest",
+      "dal-cpp/externals/machinist",
+      "dal-cpp/externals/pybind11",
+      "dal-cpp/externals/rapidjson",
+      "dal-cpp/externals/rapidjson/thirdparty/gtest"
+    ],
+    "dependency_contents_separately_verified": [
+      "eigen",
+      "googletest",
+      "machinist",
+      "pybind11",
+      "rapidjson"
+    ],
+    "aggregate_sorted_records_sha256": "018e173d7c8e8ea5971199d5edc1e6c2a758f12684ea537d40af2331ca6c9b20"
+  },
+  "author_audit": {
+    "author_raw_hashes_verified": 125,
+    "author_metadata_hashes_verified": 7,
+    "author_binary_hashes_verified": 19,
+    "red_records_verified": 4,
+    "existing_42_case_xml_verified": 3,
+    "all_cpp_tokens_and_literal_bytes_equal": true,
+    "actual_cpp_string_literals": 384,
+    "changed_literal_representations": 23,
+    "author_windows_baseline_bytes": 3658,
+    "author_windows_baseline_sha256": "96d36cc6aa6479f06f786fa615dd02da86f25a8052226cec38ce22fb8922fd9b",
+    "parent_cache_original_hash_matches": "2d489b1c77bf2f6175d4b0f9e34ed3b73dd8114082c36c718207ca8b75bfb40e",
+    "parent_actual_native_cmake_version": "3.27.6",
+    "correction": "DAL-418 report incorrectly called native Windows CMake 4.2.3; its hashed cache proves 3.27.6. Linux used 4.2.3."
+  },
+  "snapshot": {
+    "tested_head": "696edf742f4c9024e7745f55c65923b56d98abca",
+    "source_archive_sha256": "735688ee51cc46720bbffc530565c844b7b6710c4088ac5e2d7913070db6603e",
+    "tool_url": "https://github.com/Kitware/CMake/releases/download/v4.2.3/cmake-4.2.3-windows-x86_64.zip",
+    "tool_sha256": "eb4ebf5155dbb05436d675706b2a08189430df58904257ae5e91bcba4c86933c",
+    "dependencies": {
+      "eigen": {
+        "pin": "3147391d946bb4b6c68edd901f2add6ac1f31f8c",
+        "archive_sha256": "a378af54cb5befc28cdfe409c26ec65cc3d81ac6f160a4797a2fa846f338d217"
+      },
+      "googletest": {
+        "pin": "d72f9c8aea6817cdf1ca0ac10887f328de7f3da2",
+        "archive_sha256": "1dfceb7fc2cc5bacb08027be40819fdeb71f2d9a18b3a836c65fbc9a1872a68f"
+      },
+      "machinist": {
+        "pin": "e76b0ef243ca9bd506bb2f3743d8c9b52ee8d01d",
+        "archive_sha256": "010b08f4fc88c44ef492768853edaebb98ecfff156d9a946f2eac60ef2d36375"
+      },
+      "pybind11": {
+        "pin": "8a099e44b3d5f85b20f05828d919d2332a8de841",
+        "archive_sha256": "1d825315bf9c874e5822277196b0743f810f01341e92aebb5ff71daadcb0241e"
+      },
+      "rapidjson": {
+        "pin": "ea152ded01708ff1657b275ed0bcbf0681d64519",
+        "archive_sha256": "f46793f633ccde0afa41ece3f7eb29504b4f199cf03cd013ffe85c32c284d5b8"
+      }
+    }
+  },
+  "binary_sha256": {
+    "install/lib/dal_cpp.lib": "3c9ea3854415de083ea010e42d31c93cbb5bfd84223e46498687a221c00204c5",
+    "install/lib/dal_public.lib": "03af96833cf0bb6d8e3685e04407b1ca6d2e75ff10c26d17d6c80bb5e72ab7bb",
+    "focused-fixed/debugger_tests.exe": "070241cf21b665d7007b90c93e0f01f3c2c684b1762071ad979d98ed2e549558",
+    "focused-fixed/compat.exe": "75773c4637961c368857035940e433fd9e65177f9b6e82231e408edd42cb332b",
+    "consumer-default/dal_installed_aad_consumer.exe": "4287d67b2e1d95da1ffd5d7b8a10713012696cc7ded32caf7db1730a37c0bd5b",
+    "consumer-default/dal_installed_buffer_consumer.exe": "652622b0aaefcfdae58f2143fd972a6d56d67ed2c17a8e1801cba50dae235c5a",
+    "consumer-default/dal_installed_consumer.exe": "e9550368434cfd35ffd5c95346fa24a7ac3e549ab93fedddec38118b0b38aefe",
+    "consumer-327/dal_installed_aad_consumer.exe": "985a25cddc3b3cb22990329bc1b84532f4c08fa96b35cb7b17c0c8601b7b31c7",
+    "consumer-327/dal_installed_buffer_consumer.exe": "ad5b0c27013a50970f906072fd910c089a5549a7a3b2a1120b65a797c9c54fda",
+    "consumer-327/dal_installed_consumer.exe": "b79b4ed9034fdec637223b5ed86d94a7059290d909e010adc8841154a4cdc5a6",
+    "excel-default/tests-OFF/dal_excel.xll": "0f06e189c29ddb8ff8ee82a401d53ebddf3bfca96a1d2e7b20c5710c93b0819c",
+    "excel-default/tests-ON/dal_excel.xll": "c169742ba57b1b622f12f5ffcb4ad358b7d3e558d16f66b701ab38e30a5ca60d",
+    "excel-default/tests-ON/dal_excel_tests.exe": "f746e1cd6dd41ea9dd2f500fa33b4eb0c602f5ef3989d52d28186ef5ce0ba376",
+    "excel-327/tests-OFF/dal_excel.xll": "00c1ccd1a07e01f51a2d8fe77cbb881e2a4fbf62b51908743ba786dcc3062898",
+    "excel-327/tests-ON/dal_excel.xll": "014e82e1ce84ac61eeee26efa2a793e1f339f5886b3594a959e43dea4ff5249b",
+    "excel-327/tests-ON/dal_excel_tests.exe": "ad89b649bad62cd36ac550bab674f8c12631431e77ced03b9f2e6bad797f16c8"
+  },
+  "source_header_sha256": "24d27f66ae75ecb63e02a52a821e5605e939255b743137907a7b6c61990d4004",
+  "installed_header_sha256": "24d27f66ae75ecb63e02a52a821e5605e939255b743137907a7b6c61990d4004",
+  "native_tool_sha256": {
+    "/mnt/d/multica-builds/dal419-tester-eb7d672c-696edf74/tools/cmake-4.2.3-windows-x86_64/bin/cmake.exe": "daae341e73330c9c5bf391f22d10510c0f70e5f01d2b61b0fd256cd9edd28379",
+    "/mnt/d/multica-builds/dal419-tester-eb7d672c-696edf74/tools/cmake-4.2.3-windows-x86_64/bin/ctest.exe": "0befb42121d9baf862ae21165788c08d45ca06c6ce12b9e68101a31542dd572c",
+    "/mnt/c/Program Files/CMake/bin/cmake.exe": "89500440e1fdc9e6dd4958b8cb3ca06d2628ae8559867e6aee14a0db1deb6aa7",
+    "/mnt/c/Program Files/CMake/bin/ctest.exe": "f4fdbe4be47c70e4e72889bca6e27b0cfd15118ae7049871a6d34b1c1ff76c5e",
+    "/mnt/d/dev/ninja/ninja.exe": "2df494116decdae84d74c02373119176bbfc4797a6f49a6c709d85d961d6a0d8",
+    "/mnt/c/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.44.35207/bin/Hostx64/x64/cl.exe": "88c8344236a27a6e727e0a8edc49aaa2690bdc7a9464b9d18cc7abe70a9f1c0d"
+  },
+  "raw_evidence_sha256": {
+    ".gitignore": "06653a839385b899a76ad4d3f6417ad88579b2883e52bfd7a0458296603c4a96",
+    "audit_author.py": "8abd3fff977d40c6f697da507d3d9badf3a09c6c1b487e4b22f1d40fe375f0df",
+    "audit_source.py": "90eefbfde9277da10c4fec1fa458afbca9c56250d7427ad0b71e0d3e3af8dfa9",
+    "author-audit.json": "e52687f0cf4e17a4685bb478e7131753e6f8f060935eed349c4c3f31bce6a023",
+    "author-audit.log": "e52687f0cf4e17a4685bb478e7131753e6f8f060935eed349c4c3f31bce6a023",
+    "author-windows-baseline.bin": "96d36cc6aa6479f06f786fa615dd02da86f25a8052226cec38ce22fb8922fd9b",
+    "build-fixed.cmd": "17d5c3f0013f8d04082dd8c3c92e21a40b512aa4620a028063072baa1a246a7e",
+    "capture-format-correction.json": "26ce2361ebe5af4c6d552aa820a412a9f813709ddac19eff9276db99c20812ef",
+    "capture-native.log": "8d70bf61076eaa37033d33cc16f94f3af9322571d3eef2cec498262abfee684a",
+    "capture_native.py": "cb6ddf93ca388feab00061dd91d37a58f4fced28869d267a3835789c325551fd",
+    "cmake-4.2.3-SHA-256.txt": "e47bde1d5fe4e68f548e468924a2291a1cb8656b7ad3911cefc4fdfb4583acad",
+    "consumer-327-commands.log": "b6b5bd47dd6e57947aa1b66056245eafea9e7de4470d1b0840ee8f5db3388545",
+    "consumer-327.cmd": "b5e4a12244361c79bb3743a701333d7cb00277da02f72ec589069db68743c629",
+    "consumer-default-commands.log": "b50e10dd0a708514a11ca58889485df9b4f062e8bf3325214699f83da7a2c5ad",
+    "consumer-default.cmd": "39c91b8133d4acf8701c46d30252a0785c9ba5df34989af76ddae41f9ed58559",
+    "excel-327-tests-ON-commands.log": "d539dd3c403c86dc24eaa95713acd2dfc61ea2ac1dc9e48d14d0bc02fd03616f",
+    "excel-327.cmd": "e093a92d146ce42ce4b826ab7b2ccb17a9b7552506b62f14d4d71644ccb3734b",
+    "excel-default-tests-ON-commands.log": "9a17fd35df3b7d668977efd9ba9e85b53ce429b8771126b465739b7bcd51f0d2",
+    "excel-default.cmd": "27b97e3a65ee80a5f8b96fcf0d1c5a4db6b577837b4d00931280df9cd15c1285",
+    "finalize_evidence.py": "6bff5124b9ad3fe61bf20360b70b35d3d8e093a954302bceb7627e894637c9b6",
+    "focused-fixed-commands.log": "ceae276414fc5b6a9e59437c3bfba429fe7545c6b751f1bd02a3a984f1d76acc",
+    "focused-fixed.cmd": "f89c746b2c4e9420d727be170407ecb7fce51e79f5c5b73b096209ccc28e0020",
+    "markdown-gate.log": "7b4ca5c28a4642d27611f4e55c46753f9efab7c0ec56c9ac93c6578745b52a81",
+    "master-advance.json": "ed412adb1cf4ecb82961fd39776389c4e1506319d94e5f2d1194150e1ec0d9c5",
+    "master-advance.log": "21459e48b70052dd227263c2090ad13f4c14647fdf94016c011c6ae6e34f460f",
+    "master-probe.cmd": "949a4c9898da79e98d99ad7cebdafe9b7affc5c2d174b99d9d70efa613b48294",
+    "native/build-fixed.cmd": "17d5c3f0013f8d04082dd8c3c92e21a40b512aa4620a028063072baa1a246a7e",
+    "native/build-fixed.exit.txt": "9aca8dfce962538fb8131d73f84cada05e4dc79f5a0d3612c511b1150f3e33e2",
+    "native/build-fixed.log": "0cf95c31905da6ebae829810703768b512b3368de0b082086e199d92758d77d6",
+    "native/compat-fixed.bin": "96d36cc6aa6479f06f786fa615dd02da86f25a8052226cec38ce22fb8922fd9b",
+    "native/consumer-327/CMakeCache.txt": "fa4aec7a8914edc5361e3e33e844c0e88bfbba10a7b4709074f569d3aec53912",
+    "native/consumer-327/CMakeFiles/rules.ninja": "a0d23597b8eb561d51763e77cf20de3b74bb0ab365bf083785c02eb3a1cedcfc",
+    "native/consumer-327/Testing/Temporary/LastTest.log": "63265cb15e434e60a5d9d3d3c13615986ef6c0833bc693d614f974fdbd76e9a4",
+    "native/consumer-327/build.ninja": "013efad52ccceef113cd553c137c72d3e8cfce9dc7f66de42a96f9123a24e410",
+    "native/consumer-327.cmd": "b5e4a12244361c79bb3743a701333d7cb00277da02f72ec589069db68743c629",
+    "native/consumer-327.exit.txt": "9aca8dfce962538fb8131d73f84cada05e4dc79f5a0d3612c511b1150f3e33e2",
+    "native/consumer-327.log": "33e5a6241c4f7f0927454ade0c24b7b1882fa121adf9d03b44e8afc8f1bc6d5a",
+    "native/consumer-default/CMakeCache.txt": "7027ef5408be4334ec3f6893700808452bc113f5db7cea016f267250f868386a",
+    "native/consumer-default/CMakeFiles/rules.ninja": "5abb04236e04e784d83a98c2a0f171ea313f722b1f11c4521005585130838dc2",
+    "native/consumer-default/Testing/Temporary/LastTest.log": "bea95c14bace6871dcfe64e6ed34d8aff24e7dd036acf9323ce73bf79bf3f1f9",
+    "native/consumer-default/build.ninja": "ca9cca8bcfe9ca4d8f8f2c46d8c9098c36bd42582c8d95daa218b2ddea50de1b",
+    "native/consumer-default.cmd": "39c91b8133d4acf8701c46d30252a0785c9ba5df34989af76ddae41f9ed58559",
+    "native/consumer-default.exit.txt": "9aca8dfce962538fb8131d73f84cada05e4dc79f5a0d3612c511b1150f3e33e2",
+    "native/consumer-default.log": "4e3f4495a2b0387a7336c83605ab96759de81ccb40f6edba16e2ace3d2cd6be5",
+    "native/excel-327/excel-OFF-build.log": "eb39240d8d64876ace24228c9e5ca45d9e826022c2847cb372f50cc1403637d2",
+    "native/excel-327/excel-OFF-configure.log": "06368c5210852bc62626ede70efd589f459a75e6f9ba90dd8042115e73731b4e",
+    "native/excel-327/excel-OFF-ctest.log": "fe0ab95f1dc8e2b40d6172e07ec27dff893b9ce5bb680237d372039fb49c97a2",
+    "native/excel-327/excel-ON-build.log": "de9160bac71186bd1f4813ce326aadb40de9bf0e1c8623da12e5617c0890e724",
+    "native/excel-327/excel-ON-configure.log": "e13398c03e0fd9370a460142e8cc58ccf5e85e4146397a44b7ccafa926f90b55",
+    "native/excel-327/excel-ON-ctest.log": "679b92aec3bfca6ea67d14bf1c6ef11da46d9965400cb30f91d0245bcd3aa6ca",
+    "native/excel-327/gtest-build/CMakeCache.txt": "fb1e2e188b8d7db9b5bb6f1100acf60fe26251bd5755cb063d97f0fcf1896252",
+    "native/excel-327/gtest-build/CMakeFiles/rules.ninja": "2f2564c688b674f349c2628e98dff1f1799f96b0fa6abe1d9fa8febaaf13de3f",
+    "native/excel-327/gtest-build/build.ninja": "9300411e755ba2a9af4e18d22d1be46c973ec5e5da3a823e940e0da8621884ce",
+    "native/excel-327/gtest-build.log": "98ca06e6397c7216f1cb74f1aff8c8b57f50249257cf523e987cccdce804c96a",
+    "native/excel-327/gtest-configure.log": "ffa9dcb53842b2802f7021b886652b8c690db3f4bd61431952cc4ff7cef6d60c",
+    "native/excel-327/gtest-install.log": "435b80d9dd007af2523fa637051dbaae0c09c7b1d222ebf19042fa0245f91189",
+    "native/excel-327/tests-OFF/CMakeCache.txt": "b8337630b99b6be8f6c9b80de0be737abca23141d9b98b22e5d8a51c48e0f6df",
+    "native/excel-327/tests-OFF/CMakeFiles/rules.ninja": "1f2b7aff4a059d1daf646e0a62f86ba7bf2184e477f13c372bfd39a1de0b4f7f",
+    "native/excel-327/tests-OFF/Testing/Temporary/LastTest.log": "ded519f0e9de0d302f2caeb7155745459ce113c4c22470724cf9bbd0e908fe66",
+    "native/excel-327/tests-OFF/build.ninja": "178e8ab04c825a56f97307fc416806c18c8261f19372e56e6ba97237027dd231",
+    "native/excel-327/tests-OFF/installed-audit.log": "6241294a66853fe618fa1dc85313eeb794d31488cdcfc2e1585b361d93ec0061",
+    "native/excel-327/tests-OFF/runtime-contract.txt": "cbcf26c8d91779973946a4d072ea14e8724b43e30a17b630fcb7966b31c0d0ba",
+    "native/excel-327/tests-ON/CMakeCache.txt": "675d588a05514d5c509669f091bf6b54a6a7a5265b40a7484d1b03003818d77c",
+    "native/excel-327/tests-ON/CMakeFiles/rules.ninja": "eda178d801d7b4d404e1c576669f4927d2d18a4ac44a682fa04770f20758ff00",
+    "native/excel-327/tests-ON/Testing/Temporary/LastTest.log": "d14f76a95dd7aefe526f08b705ff754c4523e21ffeff95a659d17547cf90d6db",
+    "native/excel-327/tests-ON/build.ninja": "9325a007e96961c1da553de020b296b0cf353c3219d0751966a3a8fb048ec7f2",
+    "native/excel-327/tests-ON/installed-audit.log": "8b8160b52cf0c7edaca028b15b27f0de6069ba3e32a4b556a70da902db02dca8",
+    "native/excel-327/tests-ON/runtime-contract.txt": "cbcf26c8d91779973946a4d072ea14e8724b43e30a17b630fcb7966b31c0d0ba",
+    "native/excel-327.cmd": "e093a92d146ce42ce4b826ab7b2ccb17a9b7552506b62f14d4d71644ccb3734b",
+    "native/excel-327.exit.txt": "9aca8dfce962538fb8131d73f84cada05e4dc79f5a0d3612c511b1150f3e33e2",
+    "native/excel-327.log": "8f5916fd6d1b92fb95b59746beaaff94e1c6612312090563616495c281c3b8eb",
+    "native/excel-default/excel-OFF-build.log": "1952b7a39ceaf3c242fa9cd60a0a494d0fd4ae64c5cdcd454ea019287fd8c372",
+    "native/excel-default/excel-OFF-configure.log": "28dfcde67959440abbba15791598a4f78d4e487ccdb27be34954f6ea9d0a6473",
+    "native/excel-default/excel-OFF-ctest.log": "f2b57b2662efbf52702bb99da36bfb6f392a6fb8ba32e2b38e1134c5ffad6711",
+    "native/excel-default/excel-ON-build.log": "e0fa482074e864c596c13c2933eccbf85a25e1f5d9fca400e75dd9cd97932de4",
+    "native/excel-default/excel-ON-configure.log": "5a3f203298074771a074297b2e9289e8b746cef63a017e10e71d1ab19000edea",
+    "native/excel-default/excel-ON-ctest.log": "06cfe095f0e19535d7febf8924574ecfea4b880aa73fdbf746c11ee2c37b93d1",
+    "native/excel-default/gtest-build/CMakeCache.txt": "0873f03e0de8993d5de72c230d546491b3b984590e884cea367d07636be3a6ac",
+    "native/excel-default/gtest-build/CMakeFiles/rules.ninja": "92e40c3d0b87c7aa4c11ff8858bd851a7bdcce0fa90e82f0ac209933a36cc466",
+    "native/excel-default/gtest-build/build.ninja": "daa1dd75c9d0eb9dd0e99216ea0503a5032d655674ed120ebd821297ff2bf1a2",
+    "native/excel-default/gtest-build.log": "98ca06e6397c7216f1cb74f1aff8c8b57f50249257cf523e987cccdce804c96a",
+    "native/excel-default/gtest-configure.log": "6e24206e6ad3640a64d526e71565724d2684c7f656de1793e2b866825bab9035",
+    "native/excel-default/gtest-install.log": "6dea7ebb1d446741862002f360f33bc6372991c4463a4173771fe595595eb302",
+    "native/excel-default/tests-OFF/CMakeCache.txt": "8948fd574b8353d18e27dc9295318f3ab52e8e1481722daf0b0c4502586a3cc1",
+    "native/excel-default/tests-OFF/CMakeFiles/rules.ninja": "94916b9eaf83e7e7e98debe1d345038082ca468886b5aac6c9a3cc03965de242",
+    "native/excel-default/tests-OFF/Testing/Temporary/LastTest.log": "45b0470e2eaf8851ffeeb5d1bf8fbd9d08be2f2c66ea715a8367e5d882df269f",
+    "native/excel-default/tests-OFF/build.ninja": "b5579c1495045d4cc4913efb19fa00a41723bc372dc1b80b08e52465a2432215",
+    "native/excel-default/tests-OFF/installed-audit.log": "6241294a66853fe618fa1dc85313eeb794d31488cdcfc2e1585b361d93ec0061",
+    "native/excel-default/tests-OFF/runtime-contract.txt": "cbcf26c8d91779973946a4d072ea14e8724b43e30a17b630fcb7966b31c0d0ba",
+    "native/excel-default/tests-ON/CMakeCache.txt": "0824673616494e24b063a8840c36c4a744ee6c206a3fb539d0f42e1f44c4ad6a",
+    "native/excel-default/tests-ON/CMakeFiles/rules.ninja": "f7027c030253e3db25f4d78a27a308a42fb4ad164327d22962298c924f144e88",
+    "native/excel-default/tests-ON/Testing/Temporary/LastTest.log": "8d352164263ee8cc744e973af0b21b2e3a3bd246073dba3bca7f83ec3bd5b191",
+    "native/excel-default/tests-ON/build.ninja": "3033b207eea2c244debed60223601a4c89ab8b300b04be23f5c1dc7f975ce242",
+    "native/excel-default/tests-ON/installed-audit.log": "8b8160b52cf0c7edaca028b15b27f0de6069ba3e32a4b556a70da902db02dca8",
+    "native/excel-default/tests-ON/runtime-contract.txt": "cbcf26c8d91779973946a4d072ea14e8724b43e30a17b630fcb7966b31c0d0ba",
+    "native/excel-default.cmd": "27b97e3a65ee80a5f8b96fcf0d1c5a4db6b577837b4d00931280df9cd15c1285",
+    "native/excel-default.exit.txt": "9aca8dfce962538fb8131d73f84cada05e4dc79f5a0d3612c511b1150f3e33e2",
+    "native/excel-default.log": "11aafaccf1d2e57a2ac3b4412f35e80d8f661ebe70776004b2a3b90753c007d2",
+    "native/focused-fixed/CMakeCache.txt": "b4b125bed67a552acfc427a37bde651fb3b727c15f4f799694e72372ae4acaef",
+    "native/focused-fixed/CMakeFiles/rules.ninja": "dbc8e37a150f9819e260489a575f092327df3e66c370f47409146abbdca5d0a8",
+    "native/focused-fixed/build.ninja": "0248fc52ab897f2cf88288af41438735a1394883725ab49769af8604d2702e96",
+    "native/focused-fixed.cmd": "f89c746b2c4e9420d727be170407ecb7fce51e79f5c5b73b096209ccc28e0020",
+    "native/focused-fixed.exit.txt": "9aca8dfce962538fb8131d73f84cada05e4dc79f5a0d3612c511b1150f3e33e2",
+    "native/focused-fixed.log": "fa95895ec34c9dcd282256daba46a99a57bfb8b2d7acedce4362b4450484bdfd",
+    "native/focused-fixed.xml": "93bb4f75b0712a639694844ef1c97752dae8aeec9217e7220e505975217646ad",
+    "native/master-probe.cmd": "949a4c9898da79e98d99ad7cebdafe9b7affc5c2d174b99d9d70efa613b48294",
+    "native/master-probe.cpp": "ce86d7c6bb3604d951877ee90372d209c19a2a78e9fcd4b3d6968dfc9cdae215",
+    "native/master-probe.exit.txt": "2f1c37754e38b4ac70a9559fbfbdbd28feda47f36be9cd9e3ad5bc844ee3feb6",
+    "native/master-probe.log": "03f8bb580ea86282508e3fdb20b7e12a79c6c07721114edd659795684a44849c",
+    "native/probe_environment.py": "0694c8d8a6f83cc56f48b2480a6277dfc3d261261b8a8a6ee0ed60bcf018fe63",
+    "native/source/build/native/CMakeCache.txt": "f980a7e201498cff60c8515af840fc536fc85d6c300953a04d5568aaa8dd1a01",
+    "native/source/build/native/CMakeFiles/rules.ninja": "b21d6b3d54361242a8b729a7b17b8ec05e2a2647335656a0466886bb431ca82c",
+    "native/source/build/native/build.ninja": "34246cac25082f7e9234068e4765abab5f4adfa839003d0209832adc4bfc54fd",
+    "native/source/build/native/compile_commands.json": "fa850021aa07d29a57a0cacf31aeb15dba7aa4e932e3222994427cad7cb0fd50",
+    "native-snapshot.json": "803a935a3c8abe661b8ccf168a8de773e9e03ebdcfd0e33d090b31465154e67a",
+    "prepare-native.log": "803a935a3c8abe661b8ccf168a8de773e9e03ebdcfd0e33d090b31465154e67a",
+    "prepare_327.py": "79cbc08b58998a024b5e29c65256ad394d6353df3f9efafd6e51ddeaad759ef0",
+    "prepare_native.py": "4f45165e7b0f5342bb2ecbf23194e16fe734a231694d48d5c1aadc09d31b2bee",
+    "probe_environment.py": "0694c8d8a6f83cc56f48b2480a6277dfc3d261261b8a8a6ee0ed60bcf018fe63",
+    "record_master_advance.py": "2701ad6537bd9276d4fb5c47aea56d9c0a55e373ec2a4f6e206c616645e77003",
+    "source-audit.json": "20273c853c767533f097de38c9fe19561c938fefd3efac853eb9cea190d80b57",
+    "source-audit.log": "20273c853c767533f097de38c9fe19561c938fefd3efac853eb9cea190d80b57"
+  },
+  "latest_master_observation_not_integrated": {
+    "observed_utc": "2026-10-22T17:22:42.616795+00:00",
+    "tested_head": "696edf742f4c9024e7745f55c65923b56d98abca",
+    "tested_base": "bf4cabea8575206375047e51993a5aa5aeb54c0c",
+    "latest_master_observed": "acadd8ee44fdb6a0bb2e70de9d559db59de066f8",
+    "new_commit": "acadd8ee44fdb6a0bb2e70de9d559db59de066f8 feat: expose script calibration across bindings (DAL-407) (#621)",
+    "changed_files": 132,
+    "encoding_fix_and_drivers_unchanged": [
+      "dal-cpp/dal/script/visitor/debugger.hpp",
+      "tests/installed-consumer",
+      "tests/optional-excel/windows-installed.cmake",
+      "dal-excel/CMakeLists.txt",
+      "CMakeLists.txt",
+      ".gitmodules",
+      "dal-cpp/externals"
+    ],
+    "new_product_scope": [
+      "calibration protocol/curve calibration",
+      "public CMake and new facade APIs/examples/tests",
+      "Python CMake/bindings/tests",
+      "Excel generated entries/source/tests"
+    ],
+    "integrated_locally": false,
+    "latest_master_integrated_gates_validated": false,
+    "handoff": "Coordinator must schedule normal integration and affected validation for the separate PR; specified SHA validation remains scoped to 696edf74."
+  }
+}

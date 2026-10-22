@@ -1,0 +1,26 @@
+{
+  "observed_utc": "2026-10-22T17:22:42.616795+00:00",
+  "tested_head": "696edf742f4c9024e7745f55c65923b56d98abca",
+  "tested_base": "bf4cabea8575206375047e51993a5aa5aeb54c0c",
+  "latest_master_observed": "acadd8ee44fdb6a0bb2e70de9d559db59de066f8",
+  "new_commit": "acadd8ee44fdb6a0bb2e70de9d559db59de066f8 feat: expose script calibration across bindings (DAL-407) (#621)",
+  "changed_files": 132,
+  "encoding_fix_and_drivers_unchanged": [
+    "dal-cpp/dal/script/visitor/debugger.hpp",
+    "tests/installed-consumer",
+    "tests/optional-excel/windows-installed.cmake",
+    "dal-excel/CMakeLists.txt",
+    "CMakeLists.txt",
+    ".gitmodules",
+    "dal-cpp/externals"
+  ],
+  "new_product_scope": [
+    "calibration protocol/curve calibration",
+    "public CMake and new facade APIs/examples/tests",
+    "Python CMake/bindings/tests",
+    "Excel generated entries/source/tests"
+  ],
+  "integrated_locally": false,
+  "latest_master_integrated_gates_validated": false,
+  "handoff": "Coordinator must schedule normal integration and affected validation for the separate PR; specified SHA validation remains scoped to 696edf74."
+}

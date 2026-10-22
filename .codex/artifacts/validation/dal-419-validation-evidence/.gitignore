@@ -1,0 +1,7 @@
+native/
+*.log
+*.xml
+*.txt
+*.cmd
+*.bin
+__pycache__/
