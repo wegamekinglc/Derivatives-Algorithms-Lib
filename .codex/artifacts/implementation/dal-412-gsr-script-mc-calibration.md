@@ -7,16 +7,18 @@ The required DAL-406 master integration is complete in normal merge
 `ac089b6394ef786623509870273dec969b5f73f9` and merged master
 `f50db2e93eb16823190ed18b5d73a115f0e9c48f`. Canonical CMake targets have been
 rebuilt and the exact 175 affected checks pass. The subsequent record-only
-commit preserves all 2,754 non-Markdown entries. The final section records the
-actual integration and executable evidence; the earlier draft section is
-historical preparation, not the final build.
+commit preserved all 2,754 non-Markdown entries. The later Coupon dispatch
+repair is complete at tested product head
+`a7976021d4c3d8c7765d74e427ff5effe5b32402`; its final section records the new
+72-check scope and executable evidence. The delivery manifest/comment names
+the subsequent record-only PR head and its one exact-head CI snapshot.
 
 The complete implementation at 557415ed received main review; its three requested
 repairs were accepted at ac089b63 under coordinator comment
 `01a16295-b49b-722e-ba0e-a4bc08456f32`. The original PR #618 and checkout are
-retained. This integration now awaits limited product-integration review and
-fresh exact-head CI; the author does not dispatch reviewers or merge the PR,
-and DAL-413 remains downstream.
+retained. The remaining Coupon P2 now awaits limited repair review and fresh
+exact-head CI; the author does not dispatch reviewers or merge the PR, and
+DAL-413 remains downstream.
 
 The original implementation's clean input HEAD and fetched master were
 `f2dfa8e9cb4eb8508bd3425676e90c2cb513ee86` (merged DAL-411 / PR #616), containing
@@ -708,3 +710,87 @@ The final delivery comment and manifest identify the actual pushed PR head;
 it must receive fresh checks and the coordinator's limited integration review.
 The old 36 successful checks are not used as a new-head gate. CI remains an
 external handoff, and the author does not merge or start DAL-413.
+
+## Coupon dispatch repair after integration review
+
+Parent authorization `01a16359-4752-71bb-ac53-3246df07d70b` and the new DAL-412
+description authorize only this P2 after the completed DAL-407 CI repair and
+DAL-408 Markdown handoff. DAL-408's four Markdown files were committed/pushed
+separately before returning to this original checkout. The starting PR head was
+`38b0427830659950540a311d5a4997fcfea23295`; no sibling unmerged product or public
+document was imported. Reviewer attachment
+`01a16356-92f7-714b-9764-e7db50ccedb9` was downloaded through Multica CLI.
+
+The same authoritative Coupon definition was legal but the declaration-only
+curve Candidate check forced its running-average assignments into native
+Payments. The fix reuses the existing complete curve lowerer on the collected
+plain payment source. A successful immutable family descriptor is reused for
+its metadata and deterministic-only admission. Deposit reservation remains
+independent of unrelated assignments; existing BondOption/rate-option shape
+reservations and whole-source guard remain before general MC admission.
+Only the strict probe's two structural nonmatch codes may fall through;
+MissingFixing, CalibrationContextMismatch and CalibrationNumericalFailure
+are rethrown with their owned report. The intentional matched-family MC
+refusal occurs outside that probe catch. There is no second matcher/compiler
+or change to deterministic lowering, model, driver, RNG or protocol.
+
+Production/test commit `a7976021d4c3d8c7765d74e427ff5effe5b32402` changes only
+`dal-cpp/dal/script/calibrationpreparation.cpp` and
+`dal-cpp/tests/script/test_calibration_preparation.cpp`. This record is the
+only subsequent Markdown change. The evidence identity script proves all
+original preparation assertions remain byte-identical, all ten inherited
+curve/instrument paths are unchanged, and all seven reviewed MC/driver
+source/test paths, submodule revisions, CMake cache, compile commands and
+gtest archive retain their previous identities.
+
+Fresh verification (exact commands, exit codes and XML are in
+`dal412-coupon-repair` evidence):
+
+- RED: rebuild the unchanged reviewer probe against the actual starting
+  archive. RateStrike succeeds, while Coupon returns the reported
+  UnsupportedCalibrationProduct. Their definition identities are respectively
+  `sha256:710a2f345df971e30c4048a62532b0d864851064ee076b44ce975acac2c0478d`
+  and `sha256:376fbe64f33479e5203bc2eb6191d4026d4b3b7f60633d9148da21a2de0e3ed2`.
+  The new focused Coupon/RateStrike execution test also fails on the original
+  archive with that strict Payments refusal (1/1 RED).
+- GREEN: rebuild canonical `dal_cpp` and `dal_cpp_tests` with
+  `cmake --build build/Release-linux --target dal_cpp dal_cpp_tests -j 4`.
+  `python3 dal412-coupon-repair/verify.py` passes all three new cases and the
+  final **72/72** directly affected cases: 42 preparation, 25 curve family,
+  three small independent average/oracle/gradient cases and two vanilla MC
+  parity/rebinding controls. Matching curve MC refusal, Deposit scratch,
+  receiver/full-AST guard and owned historical fixing failure are included.
+- The new average case checks both roles, tree/compiled preparation and actual
+  retained MC path execution with identical paths and finite means. Small
+  dedicated 2-batch/32-path fit and 2-batch/64-path validation settings do not
+  replace or change the frozen statistical protocol. Plain nonlinear Coupon
+  expressions test both structural nonmatch codes. The copied MissingFixing
+  failure retains report, instrument/measure, field, row/date/statement after
+  local instrument destruction. Its new harness initially expected statement
+  1; DAL-398's zero-based statement contract requires 0. Only that new harness
+  expectation was corrected; the initial failure is retained in evidence.
+- The unchanged reviewer probe now succeeds for both exact definition IDs
+  under `dal.gaussian-script-price/1`. A freshly linked identity client matches
+  all five previous Deposit/BondOption/Caplet/Swaption/general rows exactly.
+- Four fresh GCC14/15 warning-as-error checks pass on the two affected TUs.
+  Shared receiver-initialization extraction while green restores production
+  maximum CCN to 8; formatting/diff and the 88-Markdown static check pass.
+
+Before the small CCN refactor, the affected filter used the whole average
+suite once: **79/79** passed, including seven additional cases beyond the
+three intended small average controls. That run and the exact filter are
+retained separately; those seven cases were not repeated after narrowing the
+final filter. This is disclosed separately from the final 72, rather than
+claiming the broader execution never occurred. No full 175-test, repository,
+public/Windows or performance matrix was rerun. The earlier 40 actual caller
+samples remain historical accepted evidence; there is no new timing claim.
+
+MRG32 seed1024/Precise, per-view589824, scales/floors/steps/nu, N100 independent
+flags and N200/old-Swaption rejection outcomes remain unchanged. Existing
+draw-dimension, held-out, candidate/tape and numerical results are reused only
+within the documented unchanged source/configuration scope. The new artifact
+hashes the rebuilt canonical archive/test binary, both original probe binaries,
+current identity client, source, dependencies and configuration. Its manifest
+records the pushed final head and one real exact-head CI snapshot; earlier
+green checks are not a gate for this head. No shared public Markdown or new
+capability claim is needed for restoring the accepted Coupon contract.
