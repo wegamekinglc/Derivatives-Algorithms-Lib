@@ -163,8 +163,8 @@ namespace Dal {
             }
         }
         void CheckEstimate(const CalibrationMcResult_& value, const CalibrationMcReference_& reference, const CalibrationDiagnostic_& d) {
-            Check(value.validation_ && value.batches_.size() >= 2, "InvalidCalibrationPlan", "/validation", "independent validation batch result", "",
-                  d);
+            Check(value.validation_ && !value.heldOut_ && value.batches_.size() >= 2, "InvalidCalibrationPlan", "/validation",
+                  "independent validation batch result", "", d);
             Check(std::isfinite(value.mean_) && std::isfinite(reference.value_), "CalibrationNumericalFailure", "/validation/mean", "finite means",
                   "", d);
             Nonnegative(value.standardError_, "/validation/standard_error", d);

@@ -19,6 +19,7 @@ namespace Dal {
         size_t maxPathsPerView_ = 0;
         double annuitySigma_ = 3.;
         Vector_<String_> parameterLabels_;
+        int heldOutBatches_ = 0, heldOutPathsPerBatch_ = 0;
     };
     struct CalibrationMcBatch_ {
         size_t firstPath_ = 0, pathCount_ = 0;
@@ -61,6 +62,7 @@ namespace Dal {
         std::optional<CalibrationMcAffineEstimate_> affine_;
         size_t pathsPerView_ = 0, engineRuns_ = 0;
         size_t peakTapeNodes_ = 0, peakTapeBytes_ = 0;
+        bool heldOut_ = false;
     };
     struct CalibrationMcReference_ {
         double value_ = 0., standardError_ = 0., numericalError_ = 0.;
@@ -88,6 +90,10 @@ namespace Dal {
         struct Impl_;
         std::shared_ptr<const Impl_> impl_;
         explicit PreparedCalibrationMc_(std::shared_ptr<const Impl_> impl) : impl_(std::move(impl)) {}
+        [[nodiscard]] CalibrationMcResult_ EvaluateRanges(const Handle_<CalibrationInstrument_>& instrument,
+                                                          const CalibrationPreparationContext_& context,
+                                                          bool validation,
+                                                          bool heldOut) const;
         friend PreparedCalibrationMc_ PrepareCalibrationMc(const Handle_<CalibrationInstrument_>&,
                                                            const String_&,
                                                            const CalibrationPreparationContext_&,
@@ -98,8 +104,11 @@ namespace Dal {
         [[nodiscard]] const CalibrationMcMapping_& Mapping() const;
         [[nodiscard]] const String_& PlanIdentity() const;
         [[nodiscard]] const Vector_<CalibrationMcBatch_>& Batches(bool validation) const;
+        [[nodiscard]] PreparedCalibrationMc_ RefreshG(const CalibrationPreparationContext_& context) const;
         [[nodiscard]] CalibrationMcResult_
         Evaluate(const Handle_<CalibrationInstrument_>& instrument, const CalibrationPreparationContext_& context, bool validation) const;
+        [[nodiscard]] CalibrationMcResult_ EvaluateHeldOut(const Handle_<CalibrationInstrument_>& instrument,
+                                                           const CalibrationPreparationContext_& context) const;
     };
     PreparedCalibrationMc_ PrepareCalibrationMc(const Handle_<CalibrationInstrument_>& instrument,
                                                 const String_& measureId,

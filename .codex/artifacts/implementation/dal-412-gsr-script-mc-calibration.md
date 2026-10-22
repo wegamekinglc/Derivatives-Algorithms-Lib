@@ -1,0 +1,796 @@
+# DAL-412: selected-g script MC calibration
+
+## Delivery state and authority
+
+The required DAL-406 master integration is complete in normal merge
+`93fc8a53f29b9f14ea861d2ee42253697e627c96`, preserving reviewed parent
+`ac089b6394ef786623509870273dec969b5f73f9` and merged master
+`f50db2e93eb16823190ed18b5d73a115f0e9c48f`. Canonical CMake targets have been
+rebuilt and the exact 175 affected checks pass. The subsequent record-only
+commit preserved all 2,754 non-Markdown entries. The later Coupon dispatch
+repair is complete at tested product head
+`a7976021d4c3d8c7765d74e427ff5effe5b32402`; its final section records the new
+72-check scope and executable evidence. The delivery manifest/comment names
+the subsequent record-only PR head and its one exact-head CI snapshot.
+
+The complete implementation at 557415ed received main review; its three requested
+repairs were accepted at ac089b63 under coordinator comment
+`01a16295-b49b-722e-ba0e-a4bc08456f32`. The original PR #618 and checkout are
+retained. The remaining Coupon P2 now awaits limited repair review and fresh
+exact-head CI; the author does not dispatch reviewers or merge the PR, and
+DAL-413 remains downstream.
+
+The original implementation's clean input HEAD and fetched master were
+`f2dfa8e9cb4eb8508bd3425676e90c2cb513ee86` (merged DAL-411 / PR #616), containing
+DAL-401 merge `15a3b445362062e75099de3bf9b4353fa2225873` and DAL-405. The research
+baseline `0f1feabee193d0976ab7a5336c9e9e29cb2aa28d` is historical only.
+Branch: `agent/dal-implementer/e8919a25b089`, base `master`.
+
+Read before implementation: research attachment
+`01a15c20-3723-7ddd-8ef1-c0ac706cdc16` §§4–5, 7.4, 8–10 and expert critique;
+[DAL-398 API](../api-notes/dal-398-script-contract.md);
+[current methodology](../../../docs/methodology/script_calibration_contract.md);
+DAL-399–403/405/411 implementation records and DAL-404 acceptance; parent
+authorization/scheduling thread and both current issue descriptions; implementer,
+code/test/component, publication and performance references; relevant source/tests.
+Research was downloaded through `multica attachment download`.
+
+Authored product integration is limited to the authorized preparation
+`.hpp/.cpp` and preparation-test window. Other incoming instrument/curve
+product is inherited exactly from accepted merged DAL-406; the reviewed MC/
+driver files remain unchanged. The guide, CHANGELOG and artifact index retain
+both accepted contents after the serial document handoff. Unmerged DAL-407/408
+product is excluded. Existing guide links in the docs indexes and CLAUDE
+already point to the same guide and need no new link.
+
+## Design and implemented behavior
+
+`dal/model/gsrscriptcalibration.hpp` provides the separate core
+`CalibrateGSRScriptPrices` entry. It accepts native-unit Price observations,
+selected `(factor,knot)` g coordinates, explicit MC opt-in/budgets, AAD rows or
+basket FD, and optional held-out observations. Preparation still goes through
+the existing authoritative shared admission; this driver does not admit a new
+product by itself. Existing fast/native entry points and vanilla vol conversion
+are unchanged. Known vanilla option targets remain nonnegative; general signed
+Price targets are not globally prohibited. Calibrated quote risk is unavailable.
+
+The existing bounded Gauss–Newton implementation is reused unchanged. Solver
+coordinates are `x=g/parameterScale`, data rows are `(meanFit-target)/errorScale`.
+Prior and knot-gap smoothing penalize movement from the immutable initial g,
+including selected-to-unselected neighbors. Their analytic rows have a separate
+axis and objective subtotal. The returned M×N `quoteJacobian_` is populated
+directly in raw Price/g coordinates; scaling affects a separate solver matrix.
+Bounds are materialized in native units, including exact bound endpoints;
+native FD denominators use the actual feasible native distance. Rank diagnostics
+exclude penalty rows. FD columns report their feasible one-sided stencil.
+
+Each Jacobian uses M AAD row evaluations or 2N complete basket bumps. A run per
+row consists of the configured number of batch executions. Final fit,
+validation and raw-Jacobian diagnostics are also counted, including repeated
+work; these counters are not a claim of an optimized basket. Preparations,
+admission refreshes, baskets, Jacobians, AAD/double rows, batch runs, paths and
+peak tape nodes/capacity are explicit. No union timeline or multi-output
+optimization was introduced.
+
+Prepared MC scripts are immutable shared resources. `RefreshG` admits a new
+candidate/context, verifies only g values changed, checks the actual timeline
+and normal-coordinate mapping, and shares the compiled/tree structure. Curve,
+geometry, H, correlations, valuation/fixings/conventions, binding and smoothing
+are frozen. Admission is repeated and counted; this is compilation reuse, not
+a claim that all preparation/parsing work disappeared. Models, evaluators,
+historical state, numeric inputs and scalar recording scopes are fresh per run;
+no active values or writable evaluator are shared between candidates/workers.
+Execution remains synchronous on the calling thread.
+General admission also performs a fresh uncompiled bound-script/model preflight.
+This is repeated admission work, not a cached evaluator or a claim that all
+parsing has disappeared. Preparation/refresh counters count logical outer plan
+and admission calls; measured caller time includes the internal preflight.
+
+Fit uses fixed MRG32/Precise paths. Validation follows the fit reservation;
+optional held-out follows validation, in a third disjoint range. Held-out is
+marked separately and cannot be supplied to `ValidateCalibrationMc` as ordinary
+validation. It uses `abs(meanHeld-targetHeld)+sigma*SEHeld<=errorScale` and never
+updates fit values or derivatives. Missing held-out input sets requested=false,
+passed=false (NotRequested), rather than manufacturing success.
+The driver now requires a common actual normal-draw dimension across every
+fit value/AAD and held-out plan. This is a Prepare restriction, not a new RNG,
+seed, budget or plan-identity scheme. It makes the three path ranges disjoint
+at the draw level across the entire admitted basket.
+
+`converged_`, fit tolerance, numerical validation and held-out acceptance are
+independent. MaxIterations, StepStalled and NoDescent return a candidate and
+honest flags. Invalid inputs/execution and exhausted basket budgets throw owning
+reports with observation axes. Budget failure is Solve-stage and retains the
+last completely evaluated candidate model; this can be a diagnostic bump, not
+necessarily the last accepted optimizer iterate. The diagnostic records the
+completed basket count. Gradient parity/precision is requested for AAD mode;
+FD-mode statistical validation is value-only, with FD row checks separate.
+
+## Frozen verification inputs
+
+Small driver fixture, declared before its tests: USD N=100, BondOption K=.97,
+valuation=2026-10-21, expiries=2027/2028-10-21 and maturities one year later.
+Log discounts at valuation/annual nodes are 0/-.04/-.08/-.12; one factor `level`,
+H=1, g knots at valuation and 2027-10-21. Initial g=(.012,.016), fixed-fit
+reference g=(.02,.025); selected columns deliberately reverse knot order.
+MRG32 seed=1024, fit=2×64, validation=4×128, held-out=4×128, total=1152 paths/view;
+Price scale=.1, parameter scale=.01, sigma=3, nu=nuG=.25,
+epsilonV=1e-10, epsilonG=1e-8. CRN FD native h=1e-6 and h/2=5e-7 at a non-root
+regularized candidate. No numerical acceptance is inferred from this small fit
+budget. Scale=1e-5 is a separate, intentionally failing precision fixture.
+
+The numerical success/failure separation reuses the previously frozen
+BondOption protocol: fit=8×8192, validation=16×16384, same seed/scales/floors;
+held-out adds 16×16384, for an explicit total reservation of 589824. The
+independent held-out oracle uses the mathematical Gaussian bond-call formula,
+not the native pricer or lowerer. Bound-constrained fit can fail its quote
+tolerance while independent numerical validation passes; an exact fixed-path
+fit can fail its frozen numerical budget. No scale/path/SE floor was relaxed.
+The old Swaption `.0426379743 > .025` precision rejection remains a rejection.
+
+The arithmetic-average protocol freezes N=100, K=.04, two future USD
+6M Libor observations at 2027-10-21 and 2028-04-21 with weights .5/.5, and one
+payment at 2028-10-21. Valuation=2026-10-21, flat log discount -.12 at
+2029-10-21, one factor g=.02/H=1. The planned numerical protocol is the larger
+589824-path reservation above, Price scale=.1, parameter scale=.01,
+sigma=3, nu=nuG=.25, epsilonV=1e-10, epsilonG=1e-8, CRN FD h=1e-6/5e-7.
+These choices precede any admitted candidate values. The serial continuation
+uses the exact original flat curve and one constant g knot from the probe.
+Before measuring the admitted candidate, the fit check is specified as two
+Price observations: the original N=100 contract and its N=200 immutable rebind,
+both scale .1, with independent path-oracle targets at g=.02. Initial g=.012,
+one selected native g bounded [.001,.06]. Held-out targets use an independent
+mathematical expectation and retain scale .1. Non-root checks use g=.016,
+CRN h=1e-6/5e-7 and the existing raw-gradient comparison tolerance 2e-6.
+Single-fixing degeneration keeps coupon accrual 1 and the actual delayed payment
+to match the original cash amount exactly. No threshold is selected from results.
+The independent held-out expectation conditions the second lognormal Libor on
+the first Gaussian state under the payment-date measure, integrates the remaining
+standard normal on [-10,10] by Simpson with 8192 intervals, and checks 16384
+intervals at tolerance 1e-10. Its raw derivative uses the frozen h/h2 and records
+their difference separately. It does not call a script matcher, GSR pricer or
+model path generator. Pathwise oracle checks separately reconstruct the native
+Gaussian endpoint/numeraire mapping from sequential MRG32 Precise coordinates.
+
+The shared preparation window switches to DAL-412 after DAL-406's clean pushed
+handoff at `e65420120bdd9d5461c44b77791ac96123849e7f`. This checkout remains on
+merged-master f2dfa8e9 ancestry and imports no DAL-406 product. The bounded tag,
+explicit generic admission and shared tests are authorized; instrument/curve/
+compiler products stay outside this continuation. Shared publication writes
+are authorized for DAL-412 after functional/numerical validation.
+
+## Original complete-implementation RED, GREEN and verification
+
+Focused compilation REDs established missing held-out, refresh, driver and
+stencil APIs. Behavioral REDs then established:
+
+- Refreshed and rebuilt plans had different identities; both now use the same
+  execution-identity constructor, independent of refresh history.
+- Held-out could masquerade as validation; the validation boundary rejects it.
+- Vanilla negative targets and held-out Scalar measures were accepted; both
+  are now rejected at preparation, with held-out preflight before fitting.
+- Budget exhaustion was mislabeled Input and lost its candidate; Solve-stage
+  owning reports preserve the last completed candidate and axes.
+- Normalized bounds produced native .026999999999999996 below lower=.027;
+  exact endpoint materialization also covers the upper=.031 rounding case.
+- An unresolved native FD step had Input stage and no parameter label; it now
+  retains Solve stage, the exact native g label, candidate and observation axes.
+
+Each behavioral RED exited 1, was inspected, and was followed by GREEN at the
+same assertion. Tests were not weakened. A compile command's initial wrong
+gtest archive path and an unquoted zsh wildcard were harness errors, not RED
+evidence. New code was refactored while green; modified ranges are formatted.
+
+Initial PR head `5619de7bce22589714d89d36675113af55be0503` received four Codacy
+complexity findings at its stricter limit of 8: settings validation, penalty
+assembly, constructor validation and the non-root FD test. The repair separates
+validation responsibilities, copies complete matrix rows and expresses test
+bumps with a displacement vector. All original checks, assertions, paths,
+scales and tolerances remain. Local analysis of the new driver and its tests
+now meets CCN<=8; existing touched MC files retain their CCN<=10 local check.
+Current-head external CI still requires its own result; the initial failure is
+not represented as an external pass.
+
+Commands (full compile/link commands, raw logs and XML are in the evidence bundle):
+
+```sh
+cmake --preset=Release-linux -S . -B build/Release-linux -DDAL_CPP_BUILD_EXAMPLES=OFF
+cmake --build build/Release-linux --target dal_cpp -j 8
+build/Release-linux/dal412-scoped-tests --gtest_filter='GSRScriptCalibrationTest.*'
+build/Release-linux/dal412-scoped-tests --gtest_filter='CalibrationMcTest.*:CalibrationMcNumericalTest.*'
+build/Release-linux/dal412-scoped-tests --gtest_output=xml:../dal412-scoped-green.xml
+git diff --check
+lizard dal-cpp/dal/model/gsrscriptcalibration.cpp dal-cpp/dal/script/calibrationmc.cpp dal-cpp/dal/script/calibrationmcstatistics.cpp -C 10
+python3 .github/scripts/check_docs.py
+```
+
+The scoped executable links the current core archive, repository test main and
+the seven relevant test translation units: driver, European/native calibration,
+BondOption script, rate-option script, MC, preparation and Deposit caller. It is a dedicated
+binary, not an assertion that the full `dal_cpp_tests` target was built/run.
+The prior partial head passed 128 scoped checks. The complete continuation
+first rebuilt and passed **146/146**: those same 128 plus 10 arithmetic-average,
+six shared preparation and two execution-identity checks. The CI-discovered
+Deposit admission regression below then expands the final affected set to
+**168/168**, adding one preparation boundary case and all 21 existing Deposit
+caller cases. All 14 accepted driver test bodies and their
+helpers remain byte-identical. It covers tape cleanup/nested-recording recovery, exact labels, CRN path oracle,
+binding/history, original fast/native/vol behavior, frozen numerical matrices,
+and the new driver states. Final counts and immutable executable/source hashes
+are recorded with the delivery. Full repository, facade, Windows and binding
+matrices were not run; no example/build registration changed.
+
+Build: GCC 15.2.0, CMake 4.2.3, Release, native AADET, Eigen 3.4.0, native-arch
+OFF, public enabled, examples disabled; direct test/probe TUs use C++17/O2 while
+the core archive uses the preset's O3. All five submodules are exactly at their
+repository pins. Changed production TUs also pass GCC 14.3/15.2 syntax checks
+with the repository's warning-clean categories/exclusions. The continuation's
+preparation TU and both changed test TUs pass six GCC 14/15 warning-as-error
+syntax checks. This is not a full GCC-14 library rebuild. CI and focused review
+remain coordinator gates.
+The subsequent compatibility fix also checks the MC production/test TUs under
+both compilers. Final format/diff and 87 Markdown/link checks pass. All 2,853
+inherited paths outside the 14 PR paths retain merged-master Git content;
+2,848 are also raw-byte identical, with five existing CRLF checkout conversions.
+
+## Caller performance and memory
+
+Affected callers are the new Price driver and existing MC prepare/evaluate;
+native Gaussian pricing/optimizer kernels, curve/XCCY algorithms, tape allocator
+and RNG kernels are unchanged. The minimum probe compares one/two observations,
+N=2, compiled double/basket FD versus compiled scalar AAD using the small frozen
+fit budget. It measures prepare, candidate-refresh/evaluate and full Jacobian
+work separately. Both Jacobian methods include their real admission refresh;
+M AAD rows are compared with 2N basket bumps, without sharing cross-product
+paths. Ten repetitions alternate method order, pinned to CPU 4 on an Intel
+i9-13900HX; raw samples and source accompany the bundle.
+
+Historical partial-head informational medians in microseconds (prepare/evaluate/Jacobian):
+one row FD=167.619/284.759/1101.810, AAD=167.935/328.333/316.849;
+two rows FD=348.221/570.054/2305.860, AAD=362.077/665.763/642.703.
+One-row Jacobians execute FD 8 batches/512 paths versus AAD 2/128; two-row
+Jacobians execute FD 16/1024 versus AAD 4/256. AAD tape peaks are 89/96 nodes,
+1,966,080 capacity bytes. Process RSS high-water is 650208 KiB, including global
+initialization and previous operations; it is not per-call allocated memory.
+The final binary/source manifest and raw samples identify this build. No performance threshold or speedup
+acceptance is asserted; these probes are outside the nine-target regression gate.
+No basket optimization is required for correctness or proposed on this evidence.
+Those old timings are not relabeled as current runs. The continuation builds
+fresh one/two-row native controls and the real arithmetic-average caller with
+the original full sampling reservation. Its exact commands, ten alternating
+method rounds, batch/path/tape/RSS counts and source/executable hashes accompany
+the delivery. Native controls substitute the actual pre-continuation preparation
+TU compiled with the current extended header into the otherwise current archive;
+this isolates the preparation delta and is not an untouched full baseline build.
+
+Reviewed-head continuation medians in microseconds (prepare/evaluate/Jacobian), with
+the full 65536-fit-path reservation per observation:
+
+| Rows | Method | Prepare | Evaluate   | Jacobian   | Jacobian batches | Jacobian paths |
+|------|--------|---------|------------|------------|------------------|----------------|
+| 1    | FD     | 438.097 | 15215.150  | 30801.600  | 16               | 131072         |
+| 1    | AAD    | 427.657 | 64325.300  | 64589.300  | 8                | 65536          |
+| 2    | FD     | 737.511 | 30474.700  | 60735.600  | 32               | 262144         |
+| 2    | AAD    | 725.678 | 128110.500 | 127839.000 | 16               | 131072         |
+
+For this single-parameter caller AAD uses fewer paths but takes longer than
+double basket FD. No speedup is claimed. AAD peaks at 250 tape nodes and
+1,966,080 capacity bytes; process RSS high water is 13,704 KiB with one DAL
+thread, not per-call allocated memory. CPU 4 is pinned, compiler/core settings
+match the functional build, and method order alternates over ten repetitions.
+
+Native controls retain their batch/path counts and 89/96-node tape peaks.
+Final one-row before/after prepare medians are FD 170.022/171.615 and AAD
+166.747/168.797; two-row medians are FD 320.477/342.327 and AAD
+336.882/337.822. Other evaluation/Jacobian changes are mixed small differences.
+These isolated informational probes are outside the nine closed benchmarks;
+neither a regression-gate pass nor a portable no-regression verdict is claimed.
+Native pricing, optimizer, tape and RNG kernels are unchanged and outside the
+measurement expansion. Public/binding/example/build callers are unchanged.
+
+An intermediate probe exposed extra native preparation cost from source lookup.
+Additional node-location lookup is now restricted to the generic boundary;
+legacy source lookup remains on its original path. This is followed by
+**45/45 directly affected preparation/average checks**, two final production-TU
+warning checks, repeated legacy identity equality and refreshed caller binaries/
+measurements. The original complete **144/144** scoped result remains valid for
+the unchanged numerical paths. The final identity correction below then receives
+the complete 146-case affected run and refreshed caller binaries. No unrelated
+matrix is repeated. Intermediate and final timing snapshots are distinguished.
+
+## Completed generic admission and serial integration
+
+The original average RED fails at `Payments` with UnsupportedCalibrationProduct.
+The continuation appends only the empty derived `CalibrationScriptMcDescriptor_`
+tag. Explicit ScriptMC Price first runs the common complete receiver guard and
+retains recognized native-template classification. A small shape selector only
+routes known templates to the existing matchers and domain/parameter checks;
+it supplies no financial descriptor or pricing authority. Other bounded scalar
+Price programs receive `dal.gaussian-script-price/1`, AAD/None, no coefficient
+cashflows and no affine/fast/deterministic capability. There is no MC fallback.
+
+Generic admission checks exact context/model/header, opt-in, executable mrg32,
+supported same-currency DF/Libor FIX and history snapshots. The full bound tree
+rejects EXERCISE, vectors, SPOT, IF/comparison controls and ON settlement, and
+passes the actual model and fixing requests through PrepareBoundScript. The
+common receiver guard runs once before native or generic classification.
+Only the generic compiler/rule tokens advance. Its context includes actual
+Libor day basis; no key, role, wire field, enum or instrument schema changes.
+The native Vanilla negative-target preflight remains effective.
+
+A second behavioral RED proves a rejected EXERCISE in a merged event reported
+row five instead of its true row six. Source lookup now uses that node's owned
+location (and locations of the other admitted/rejected source-bearing nodes).
+The same assertion passes after repair, including statement/date/report checks.
+No shared compiler change is required. All six new preparation tests pass.
+
+The isolated old/new preparation probes preserve all nine definition/binding/
+instrument/compiler/context/fast-plan/MC-plan/mapping/quote fingerprints for
+Deposit, BondOption, Caplet and Swaption. The baseline uses the actual 4d0d53ef
+preparation with the current header layout and otherwise current archive; it
+does not pretend to be an untouched full old build.
+
+A further merged-baseline audit finds that the partial implementation had
+included zero held-out counts in every MC execution hash. A new eight-case
+golden regression from actual f2dfa8e9 preparation/MC source first fails, then
+passes after omitting those fields when held-out is disabled. Enabled held-out
+counts still contribute and remain refresh-stable. A separate four-family
+probe now matches all nine fingerprints against actual merged f2 preparation
+and MC source, compiled with the current headers and otherwise current archive.
+This restores accepted P0 identities, rather than merely preserving the partial
+PR's changed identities. No JCS/SHA algorithm, wire schema or financial inputs
+change. The two new cases and all 27 prior MC cases pass, followed by 146/146
+complete affected checks. Full before/after source and command provenance is
+attached; this remains an isolated baseline substitution, not an old full build.
+
+## Arithmetic-average evidence and honest outcomes
+
+Ten new tests verify the original bound tree, compiled execution and pathwise
+AAD against independent mathematical path/payoff/numeraire and g-derivative
+oracles on every retained fit path. Non-root direct and full driver raw rows
+match CRN FD(h,h/2); scaled penalties do not overwrite raw columns. Frozen
+independent validation also matches a conditional-lognormal expectation and
+its refined FD gradient. Simpson 8192/16384 refinement passes 1e-10. A six-time
+refined event grid passes the same independent expectation/gradient budget;
+its different dimension/mapping is not falsely called the same CRN path.
+
+Starting at g=.012 recovers g=.019999999999999987. The original N=100 candidate
+has fit mean .770221..., validation mean .772113..., SE .001646..., combined
+error indicator .015935618758735004 <= .025 and gradient indicator .679506...
+<= 2.5. Independent held-out passes scale .1. The actual optimizer reports
+StepStalled/converged=false while fit and numerical/held-out flags pass; this
+is retained as a separate outcome, not changed to convergence.
+
+The predeclared second N=200 row keeps the same absolute scale .1. It recovers
+the same g and held-out passes, but its combined error indicator .031871... >
+.025, so the two-row result correctly reports numericalValidationPassed=false
+and budgetExhausted for that row. The original harness assumption that every
+such result must converge and pass every budget was incorrect; its raw failing
+log remains attached. The committed checks assert the separate actual flags,
+and the original 14 driver tests/helpers remain byte-identical. No frozen
+sampling, scale, stopping default, tolerance or budget was enlarged to pass.
+
+Single-fixing degeneration uses coupon accrual one, actual index accrual and
+the same delayed payment as the original source. Its path values/mapping and
+AAD agree with the native caplet source, while native Gaussian Price and its
+refined FD gradient pass independent MC validation. History replacement by a
+known literal, snapshot invalidation, N rebinding, g refresh/rebuild identity,
+owned budget/numerical exceptions and post-failure tape reuse also pass.
+Two initial reference fixtures omitted required gradient uncertainty/scaling
+axes; those harness inputs were corrected without changing numerical limits.
+Enum qualification, ON syntax, Matrix comparison and shell wildcard setup
+corrections are not counted as product RED evidence.
+
+## Documentation integration
+
+The existing methodology guide now documents the bounded scalar admission,
+arithmetic source, explicit budget configuration, selected-g entry, raw rows,
+real work counts and separate outcome flags. CHANGELOG and the own artifact
+index are synchronized. Existing Deposit/curve and Gaussian rate-option text
+is retained, without importing DAL-406's unmerged capabilities. Existing docs
+indexes already link this guide. Public/bindings, XCCY MC and calibrated quote
+risk are not claimed. Pure Markdown work receives only static checks.
+
+## Exact-head CI Deposit admission repair
+
+The completed diagnostic job 119685645511 on head fc0c7231 failed the unchanged
+`DepositScriptTest.TestSourceChangesReachFastAndBothScriptBackendsWithoutNativeEdits`:
+both corrupted maturity payments were accepted as generic Price. This is a
+product admission regression, not the separate checkout-cleanup warning.
+The CI log is retained as `dal412-ci-extended-fc0.log`.
+
+One new shared preparation test covers `N*(1+K*ALPHA)+1` and
+`-N*(1+K*ALPHA)` after the existing `PAYS -N` opening payment. It and the exact
+CI-failing caller test first fail locally, recorded in
+`dal412-deposit-boundary-red.xml/log`. The minimal selector now reserves the
+two-payment Deposit shape for existing native matching even when its maturity
+formula is malformed. The full valid Deposit matcher and all identities remain
+unchanged; one-payment signed general Price and arithmetic averages remain
+admitted. No old test, instrument, compiler, Gaussian kernel or Brent code changes.
+
+RED command after compiling the two affected test TUs against the old archive:
+
+```sh
+build/Release-linux/dal412-deposit-boundary-tests --gtest_filter='CalibrationPreparationTest.TestGeneralMcCannotBypassDepositPayoffChecks:DepositScriptTest.TestSourceChangesReachFastAndBothScriptBackendsWithoutNativeEdits'
+```
+
+GREEN rebuilds the affected core archive and runs all preparation and Deposit
+caller tests: **57/57** pass. The final scoped script now includes the existing
+Deposit test TU and passes **168/168**. This CI failure justifies that caller
+expansion; unrelated matrices are not repeated. Warning/format/docs/complexity,
+legacy identity probes and caller binaries/measurements are refreshed for the
+selector delta. Raw build commands, XML, compiler logs and source hashes identify
+each execution. Exact-head external CI remains separate from local results.
+
+## Main-review repairs: draw isolation, reservation and owning rows
+
+Reviewer attachment `01a16292-5618-77f6-89c3-04340a0560a7` was obtained with
+Multica CLI. Its unmodified probe was compiled against the actual reviewed
+557415ed archive and reproduced all three blockers before repair. Raw output is
+`dal412-r2-review-red.log`. Source/build/dependency/compiler identity and the
+original attachment are retained. DAL-406's shared write stage completed at
+06a3e17f before this serial repair began; its unpublished products or text are
+not imported. Preparation and necessary guide ownership transfer back to 412.
+
+### Actual draw isolation
+
+The six-dimensional refined average and one-dimensional BondOption use the
+same small protocol, fit128/validation512/held512. Actual MRG32 calls reproduce
+both exact collisions: validation path128 equals fit path21/coordinate2,
+and held-out path640 equals fit path106/coordinate4. Merely distinct path
+ordinals are insufficient. New regression assertions retain those raw-draw
+equalities as the reason this combination must be rejected.
+
+The minimum authorized fix is in the new driver, not shared RNG/MC. Before
+optimizer work it inspects every prepared fit value/AAD and held-out mapping,
+requiring actual dimension and complete normal-coordinate count to equal the
+first fit plan's draw stride. Mixed dimensions in either fit order or held-out
+fail with an owning Prepare `InvalidCalibrationPlan` at
+`/mc/mapping/dimension`, the offending row and no candidate. No MC evaluation
+or solver work has started. This checks actual flattened normal draws, not
+factor count; changing a timeline can change the dimension with the same factor.
+
+The existing Precise normal generator consumes one uniform per normal and seeks
+path*dimension. With common stride D and unchanged shared sampling, all fit
+draws are [0,F*D), validation [F*D,(F+V)*D), and held-out thereafter across all
+rows. Different coordinate meanings/timelines are not relabeled identical CRN;
+per-row mapping identities and RefreshG checks remain unchanged. Mixed-dimension
+direct low-level MC plans retain their old behavior; this driver rejects their
+combination rather than claiming a new global stream allocator.
+
+The same-dimensional positive control retains exact range starts 0/128/640,
+draw-address ordering, values, AAD plan identity and refresh mapping. All 26
+non-statistical MC contracts, including merged-P0 golden identities, pass again.
+Shared MC/RNG/statistics source and all identity payloads remain unchanged.
+
+### Deposit reservation
+
+Both malformed maturity expressions still acquire general Price after an
+unrelated `scratch=0` on the original head; the new shared regression first
+reproduces that RED. Reservation now depends on the collected two-payment
+Deposit shape independently of the plain-statement selector. Full native AST
+admission then rejects the malformed/extra-statement program; no local shape
+grants native execution. Ordinary running-average assignments and one-payment
+signed Price remain admitted. The complete 37-case preparation set and actual
+unchanged Deposit source-mutation caller pass. Bare Product behavior is unchanged.
+
+### Per-row and held-out failures
+
+Row boundaries now wrap Prepare, RefreshG, execution and numerical-validation
+comparison. The original diagnostic's field, code, source, expected/actual and
+cause remain owned; current instrument/observation/quote/measure are bound.
+Prepare/mapping uses Prepare, optimizer baskets use Solve, validation/held-out
+execution uses Validate. Held-out scope is explicit in the message and its
+report owns held-out axes, not unrelated fit axes. Outer failure assembly
+preserves that scope and attaches only the last fully completed basket model.
+No combined wire schema, quote-ID rewrite or new public interface is introduced.
+
+New cases destroy all local inputs before checking copied exceptions, source
+row/date/statement, full quote maps and report entries. They cover second-fit
+and second-held-out preparation/execution failures and missing held-out sampling.
+Execution causes are compared directly with the original low-level MC failure.
+An incomplete first basket exposes no candidate. After full fit, held-out
+failure retains the fitted model. A real g=0 AAD RefreshG refusal retains the
+last completed passive-price candidate, which is independently repriced; it
+does not expose an incomplete recording. These fresh-scope failures leave tape nodes zero
+and cleanup failure clear. Old native numerical/Brent behavior is unchanged.
+
+### Repair verification and applicable reuse
+
+The two admission regressions and owning-row failures have real RED logs.
+Final **84/84** directly affected checks pass: seven new driver repair cases,
+13 existing driver cases, 37 preparation, 26 non-statistical MC and the actual
+Deposit source-mutation caller. Commands, XML and fresh archive/client hashes
+are retained. The original 14 driver tests/helpers remain byte-identical; the
+one frozen full-budget driver test, ten frozen average cases and three frozen
+MC numerical cases are reused within unchanged same-dimension semantics rather
+than repeated. Original 168/168 and 57/57 are historical accepted executions,
+not relabeled as current reruns. N100 StepStalled/converged=false with passing
+fit/numerical/held-out and N200's .031871>.025 rejection remain unchanged.
+
+The first new identity control compared AAD with a double plan; its sampling
+fixture was corrected to the matching AAD labels. The first unsupported-source
+fixture accidentally omitted PAYS and failed before the intended boundary; it
+was corrected to retain PAYS. These setup failures and a handle-cast compilation
+correction are not product RED and do not weaken original assertions or limits.
+The corrected pre-repair driver run records four failures and one positive;
+the same tests then pass after repair. All four affected TUs pass GCC14/15
+workflow-equivalent strict warning checks; their functions have CCN<=8.
+
+Only the actual new driver caller gets fresh informational timing: one/two
+BondOption rows, AAD/basket FD, unchanged small sampling protocol at the initial
+fit root, 20 warmup calls and ten one-call rounds, CPU4/one DAL thread. Before
+substitutes the exact reviewed driver and preparation TUs into the otherwise
+current archive with unchanged headers; it is not an untouched old full build.
+Before/after medians in us are one-row FD 3207.633/3279.724, AAD
+2066.014/2064.149; two-row FD 6532.580/6566.991, AAD 4091.650/4173.396.
+Values, per-row plan identities and actual basket/batch/path counts match
+exactly. This is not the previous direct-MC-operation timing or a portable
+regression-gate verdict. No full performance/statistical matrix is repeated.
+
+Reproduction from the task workdir uses the recorded compiler commands and
+`dal412-r2-verify.py`; `dal412-r2-final-green.xml/log` identify the final scoped
+execution. The delivery includes exact code/doc diffs, original/corrected RED,
+final GREEN, warning/complexity/static evidence, build/configuration and binary
+identities. Guide/CHANGELOG now specify the common-dimension restriction and row
+scope clarification; the prior independent document review remains applicable
+to all unchanged prose. The pure Markdown stage follows code checkpoint
+`5e259c26e34c21a5fc03ba2b31af82b579efdcdd`; all 2,747 non-Markdown tree entries
+retain that checkpoint's identity. It adds only guide/CHANGELOG/record text and
+receives static checks, with no further product or performance execution.
+Existing guide/index links remain valid and unchanged. CI and limited review
+are still external gates.
+
+## DAL-406 integration draft and serial continuation, 10:21–10:42 UTC
+
+Coordinator authorization `01a162fa-eb56-74f6-bd00-17df9f49f5da` requires a normal
+merge of actually merged master `f50db2e93eb16823190ed18b5d73a115f0e9c48f` into
+the original branch and PR #618. The reviewed input remains
+`ac089b6394ef786623509870273dec969b5f73f9`. Read-only `git merge-tree --write-tree
+HEAD origin/master` produced `d9fc08af241c81c4136e8e4593da389fa0947674` and the
+expected five conflicts. The preparation test merged automatically but needs
+the combined admission boundary verified.
+
+At 2026-10-22T10:21Z, DAL-408 had no active run and its final comment
+`01a16320-b8a2-74b5-8065-b8b4ab367673` explicitly released preparation writes.
+At 10:37Z DAL-407 run `01a162ef-c84f-77b0-b4d3-096fa3330310` remained running,
+with no shared-document handoff or final comment. Its issue remained
+in_progress. The preparation window is available; the three shared Markdown
+paths remain reserved. No other checkout or unmerged sibling product was
+imported. This run changed only this record in the canonical checkout.
+
+The exact proposal is saved outside protected repository paths in
+`dal412-master-integration-draft`, with separate product/Markdown patches and
+SHA-256 manifests in `dal412-integration-evidence`. These runtime files are
+packaged as an issue attachment rather than presented as accessible paths.
+The proposal preserves both descriptor types, the original three descriptor
+alternatives, complete source matchers, compiler tokens and descriptor-specific
+context identity. Curve candidates go through the existing authoritative
+curve lowerer and deterministic-only admission before generic MC fallback.
+It retains the generic scalar admission, Deposit reservation even with scratch
+assignments, the actual Libor convention checks and all three reviewed repairs.
+Other product changes in the proposal are inherited byte-for-byte from merged
+master. Shared protocol/report/curve publication code has no author edits.
+The guide, CHANGELOG and artifact-index draft retain both accepted contents;
+only their shared Libor-identity sentence needs a mechanical union of the three
+affected descriptor categories.
+
+One new focused regression supplies a valid DF-observing curve coupon, a matching
+Gaussian model and explicit MC opt-in. Its deterministic plan is admitted and
+compatible; the MC request must retain an owning Prepare-stage
+UnsupportedFastEvaluator at `/options/evaluation`.
+
+- RED: the mechanically combined draft kept the old generic MC dispatch;
+  `draft-tests --gtest_filter=CalibrationPreparationTest.TestCurveFamilyCannotAcquireGeneralMcRuleWithMatchingGaussianModel`
+  exited 1 because no refusal was thrown. This is a draft integration witness,
+  not a claim that either separately reviewed parent failed its own contract.
+- GREEN: adding the existing curve-candidate reservation to dispatch made the
+  full preparation and curve-family suites pass, 64/64. The final focused
+  affected run passed 175/175 across ten suites: complete preparation and
+  curve families; non-statistical driver/MC and all seven repair cases;
+  native rate-option source controls; source/binding/unit/archive controls;
+  three small average oracle/gradient/driver cases; and the Deposit source
+  mutation control. The frozen high-budget statistical cases were excluded.
+- The draft build compiled the six changed/inherited product TUs and seven test
+  TUs against the merged-header overlay, then linked the reviewed base archive.
+  Exact commands and XML/logs are attached. This is draft validation; the real
+  CMake target rebuild is still required after applying the normal merge.
+- Four GCC 14/15 warning checks passed for preparation and its test; maximum
+  CCN is 8 in production and 5 in the test. Formatting passed. An isolated
+  resolved merge snapshot passed the repository checks for all 88 Markdown
+  files without writing the three reserved canonical documents.
+- Five before/draft identity rows match exactly: Deposit, BondOption, Caplet,
+  Swaption and generic average MC. These cover source, binding, instrument,
+  compiler, context and prepared-plan identity, plus vanilla MC mapping/plan
+  identity. The inherited family compatibility and context tests pass.
+- Forty small actual CalibrateGSRScriptPrices caller samples retain exact
+  values, plan identities and basket/batch/path counts. With CPU 4, one DAL
+  thread, 20 warmups and ten samples, before/draft median microseconds are
+  one-row FD 3292.723/3236.8865, AAD 2118.7985/2097.849; two-row FD
+  6573.9025/6680.197, AAD 4087.0695/4263.7965. This is informational evidence,
+  not a performance gate or a full matrix.
+
+MRG32 seed 1024, Precise, per-view 589824, scales/floors/steps/nu and the
+accepted N100 independent flags remain unchanged. N200 `.031871 > .025` and
+the old Swaption `.0426379743 > .025` still reject under their accepted evidence;
+no frozen statistical/performance matrix was rerun. The reviewed driver/MC
+implementation and tests are unchanged.
+
+The remaining write window is a scheduling constraint, not a financial/API
+question. A once persistent condition will resume this same author when
+DAL-407 reaches in_review, with a bounded timeout. On resumption, recheck actual
+handoff/runs/head/master, perform the normal merge in this original checkout,
+apply only the three product resolutions and three mechanical documents,
+rebuild affected targets, rerun the directly affected checks, update this
+record and the same PR, and deliver a real new head for limited review and fresh
+exact-head gates. Do not treat these drafts as the completed integration or
+set in_review yet; do not merge, dispatch experts or start DAL-413.
+
+Persistent once rule `01a16331-94df-75b8-8a2a-770d293a5a07` was registered at
+10:39:16Z for DAL-407 in_review, expiring at 18:39:16Z with one timeout wake.
+It is a document-window continuation, not a duplicate CI rule. DAL-412 is
+blocked only on that write window; the next authorized run restores in_progress
+before completing the integration. No run-owned work is left running.
+
+## Completed DAL-406 master integration
+
+The once rule fired on DAL-407 in_review at 10:48:50Z and is now consumed and
+disabled. Before editing, the original author reread the current own/parent
+instructions, bounded comment threads and sibling active runs. DAL-407 final
+comment `01a1633b-12d9-7b90-b115-3a5022a8bdd4` at 10:49:38Z explicitly released
+the guide/CHANGELOG/artifact-index window; no DAL-407 run remained active.
+DAL-408's source handoff remains valid: its subsequent two-P2 repair scope
+explicitly excludes preparation, report and the public documents. The original
+checkout, reviewed head, fetched f50db2e9 master and every draft hash matched.
+DAL-412 returned to in_progress before this work. No new business/API decision
+or expert chain was opened.
+
+`git merge --no-ff --no-commit origin/master` produced exactly the five expected
+conflicts. Applying the six verified draft files resolved them and added the
+focused regression to the automatically merged preparation test. The resulting
+non-Markdown tree exactly matches the validated proposal. The normal merge
+commit is `93fc8a53f29b9f14ea861d2ee42253697e627c96`, with ordered parents
+`ac089b6394ef786623509870273dec969b5f73f9` and
+`f50db2e93eb16823190ed18b5d73a115f0e9c48f`. No history was rewritten.
+
+The only authored product integration paths are
+`dal-cpp/dal/script/calibrationpreparation.hpp`,
+`dal-cpp/dal/script/calibrationpreparation.cpp` and
+`dal-cpp/tests/script/test_calibration_preparation.cpp`. The ten other incoming
+product paths equal merged master byte-for-byte. Protocol/report and curve
+publication paths have no author edits. Both descriptors, source matchers,
+compiler/context identities and all old Deposit/vanilla classifications remain.
+Curve candidates use the original curve matcher and deterministic-only refusal
+before the generic MC path; no second matcher or product authority was added.
+The three shared Markdown conflicts are mechanical unions; this record is the
+only subsequent documentation-only change.
+
+Fresh final verification, distinguished from the earlier overlay build:
+
+- `cmake --build build/Release-linux --target dal_cpp dal_cpp_tests -j 4`
+  exited 0. Both canonical targets were rebuilt, including affected production
+  and test dependencies. Existing unrelated test TUs emitted non-fatal
+  unused-result warnings; the scoped strict checks described below passed.
+- `python3 dal412-integration-final/verify.py` ran the new focused refusal
+  regression (1/1) and the exact original 175 affected test names (175/175)
+  against `build/Release-linux/dal-cpp/dal_cpp_tests`. XML/logs and the complete
+  test command are in the final evidence. This includes complete preparation
+  and curve-family suites, projection Prepare/owning errors, all seven 412
+  repairs, old vanilla/Deposit controls and three small generic average oracle/
+  gradient/driver cases. The draft RED remains the pre-fix witness; it is not
+  relabeled as a failure of either accepted parent.
+- `DAL412_PROBE_BUILD_ONLY=1 python3 dal412-integration-final/verify.py`
+  rebuilt identity and actual-caller clients against the canonical core
+  archive, without draft objects. `python3 dal412-integration-final/measure.py`
+  confirmed all five old vanilla/generic identity rows and all 40 caller
+  value/plan/work-count rows exactly match the original-head control.
+- Informational before/after median microseconds are one-row FD
+  3374.841/3394.3765, AAD 2145.2695/2200.5885; two-row FD
+  6687.8955/6774.512, AAD 4282.3755/4316.7645. CPU 4, one DAL thread, 20
+  warmups and ten samples remain fixed. This is the smallest changed-caller
+  check, not a regression-gate verdict or a repeated performance matrix.
+- Canonical format/diff checks and the repository's 88-Markdown check pass.
+  Maximum production CCN is 8. The four GCC14/15 strict warning checks from the
+  draft are reused on identical source and dependencies. All seven reviewed
+  driver/MC source/test files remain byte-identical to ac089b63; unchanged
+  native Gaussian/RNG/statistical paths retain their accepted evidence.
+
+MRG32 seed1024/Precise, per-view589824, scales/floors/steps/nu, N100's independent
+flags and the N200/old-Swaption rejection outcomes are unchanged. Earlier
+168/168, 57/57, 84/84 and frozen numerical evidence are reused only in this
+documented scope. No unrelated public, Windows, full-repository, statistical
+or performance test matrix was run. Build scripts/options/examples and wire
+formats did not change, so no new example/component build matrix is required.
+
+Final evidence separates the full product and Markdown integration differences,
+the manual merge resolutions and the subsequent record-only diff. It contains
+the exact build/test/probe commands, original RED, final GREEN XML/logs,
+source/commit/submodule/configuration and archive/test/client SHA-256 identities.
+The final delivery comment and manifest identify the actual pushed PR head;
+it must receive fresh checks and the coordinator's limited integration review.
+The old 36 successful checks are not used as a new-head gate. CI remains an
+external handoff, and the author does not merge or start DAL-413.
+
+## Coupon dispatch repair after integration review
+
+Parent authorization `01a16359-4752-71bb-ac53-3246df07d70b` and the new DAL-412
+description authorize only this P2 after the completed DAL-407 CI repair and
+DAL-408 Markdown handoff. DAL-408's four Markdown files were committed/pushed
+separately before returning to this original checkout. The starting PR head was
+`38b0427830659950540a311d5a4997fcfea23295`; no sibling unmerged product or public
+document was imported. Reviewer attachment
+`01a16356-92f7-714b-9764-e7db50ccedb9` was downloaded through Multica CLI.
+
+The same authoritative Coupon definition was legal but the declaration-only
+curve Candidate check forced its running-average assignments into native
+Payments. The fix reuses the existing complete curve lowerer on the collected
+plain payment source. A successful immutable family descriptor is reused for
+its metadata and deterministic-only admission. Deposit reservation remains
+independent of unrelated assignments; existing BondOption/rate-option shape
+reservations and whole-source guard remain before general MC admission.
+Only the strict probe's two structural nonmatch codes may fall through;
+MissingFixing, CalibrationContextMismatch and CalibrationNumericalFailure
+are rethrown with their owned report. The intentional matched-family MC
+refusal occurs outside that probe catch. There is no second matcher/compiler
+or change to deterministic lowering, model, driver, RNG or protocol.
+
+Production/test commit `a7976021d4c3d8c7765d74e427ff5effe5b32402` changes only
+`dal-cpp/dal/script/calibrationpreparation.cpp` and
+`dal-cpp/tests/script/test_calibration_preparation.cpp`. This record is the
+only subsequent Markdown change. The evidence identity script proves all
+original preparation assertions remain byte-identical, all ten inherited
+curve/instrument paths are unchanged, and all seven reviewed MC/driver
+source/test paths, submodule revisions, CMake cache, compile commands and
+gtest archive retain their previous identities.
+
+Fresh verification (exact commands, exit codes and XML are in
+`dal412-coupon-repair` evidence):
+
+- RED: rebuild the unchanged reviewer probe against the actual starting
+  archive. RateStrike succeeds, while Coupon returns the reported
+  UnsupportedCalibrationProduct. Their definition identities are respectively
+  `sha256:710a2f345df971e30c4048a62532b0d864851064ee076b44ce975acac2c0478d`
+  and `sha256:376fbe64f33479e5203bc2eb6191d4026d4b3b7f60633d9148da21a2de0e3ed2`.
+  The new focused Coupon/RateStrike execution test also fails on the original
+  archive with that strict Payments refusal (1/1 RED).
+- GREEN: rebuild canonical `dal_cpp` and `dal_cpp_tests` with
+  `cmake --build build/Release-linux --target dal_cpp dal_cpp_tests -j 4`.
+  `python3 dal412-coupon-repair/verify.py` passes all three new cases and the
+  final **72/72** directly affected cases: 42 preparation, 25 curve family,
+  three small independent average/oracle/gradient cases and two vanilla MC
+  parity/rebinding controls. Matching curve MC refusal, Deposit scratch,
+  receiver/full-AST guard and owned historical fixing failure are included.
+- The new average case checks both roles, tree/compiled preparation and actual
+  retained MC path execution with identical paths and finite means. Small
+  dedicated 2-batch/32-path fit and 2-batch/64-path validation settings do not
+  replace or change the frozen statistical protocol. Plain nonlinear Coupon
+  expressions test both structural nonmatch codes. The copied MissingFixing
+  failure retains report, instrument/measure, field, row/date/statement after
+  local instrument destruction. Its new harness initially expected statement
+  1; DAL-398's zero-based statement contract requires 0. Only that new harness
+  expectation was corrected; the initial failure is retained in evidence.
+- The unchanged reviewer probe now succeeds for both exact definition IDs
+  under `dal.gaussian-script-price/1`. A freshly linked identity client matches
+  all five previous Deposit/BondOption/Caplet/Swaption/general rows exactly.
+- Four fresh GCC14/15 warning-as-error checks pass on the two affected TUs.
+  Shared receiver-initialization extraction while green restores production
+  maximum CCN to 8; formatting/diff and the 88-Markdown static check pass.
+
+Before the small CCN refactor, the affected filter used the whole average
+suite once: **79/79** passed, including seven additional cases beyond the
+three intended small average controls. That run and the exact filter are
+retained separately; those seven cases were not repeated after narrowing the
+final filter. This is disclosed separately from the final 72, rather than
+claiming the broader execution never occurred. No full 175-test, repository,
+public/Windows or performance matrix was rerun. The earlier 40 actual caller
+samples remain historical accepted evidence; there is no new timing claim.
+
+MRG32 seed1024/Precise, per-view589824, scales/floors/steps/nu, N100 independent
+flags and N200/old-Swaption rejection outcomes remain unchanged. Existing
+draw-dimension, held-out, candidate/tape and numerical results are reused only
+within the documented unchanged source/configuration scope. The new artifact
+hashes the rebuilt canonical archive/test binary, both original probe binaries,
+current identity client, source, dependencies and configuration. Its manifest
+records the pushed final head and one real exact-head CI snapshot; earlier
+green checks are not a gate for this head. No shared public Markdown or new
+capability claim is needed for restoring the accepted Coupon contract.

@@ -4,9 +4,11 @@
 
 #include <dal/platform/platform.hpp>
 
+#include <dal/currency/currencydata.hpp>
 #include <dal/math/distribution/black.hpp>
 #include <dal/model/gsreuropean.hpp>
 #include <dal/model/gsrmultidata.hpp>
+#include <dal/script/calibrationmc.hpp>
 #include <dal/script/calibrationpreparation.hpp>
 #include <dal/script/event.hpp>
 #include <dal/time/dateutils.hpp>
@@ -403,6 +405,175 @@ TEST(CalibrationPreparationTest, TestExplicitMcRequiresOptInSamplingAndSharedPri
     Failure([&] { PrepareCalibrationInstrument(instrument, "Price", context, options); }, "InvalidCalibrationPlan");
 }
 
+namespace {
+    ScriptInstrumentDefinitionSpec_ AverageSpec() {
+        auto spec = BondOptionSpec();
+        spec.source_.rows_ = {{ScriptSourceRowKind_::Value_::Definition, "N", "100"},
+                              {ScriptSourceRowKind_::Value_::Definition, "K", ".04"},
+                              {ScriptSourceRowKind_::Value_::Event, "2027-10-21", "avg = .5*FIX(IR[USD,LIBOR_6M_LCH,2027-10-21])"},
+                              {ScriptSourceRowKind_::Value_::Event, "2028-04-21", "avg = avg+.5*FIX(IR[USD,LIBOR_6M_LCH,2028-04-21])"},
+                              {ScriptSourceRowKind_::Value_::Event, "2028-10-21", "pay PAYS N*MAX(avg-K,0)"}};
+        spec.parameters_[1] = {"K", ScriptParameterType_::Value_::Real, CalibrationValueUnit_::Parse("Rate"),
+                               ScriptParameterRole_::Value_::RateStrike, true};
+        return spec;
+    }
+    CalibrationEvaluationOptions_ GeneralMcOptions() {
+        CalibrationEvaluationOptions_ options;
+        options.evaluation_ = CalibrationEvaluation_::Value_::ScriptMC;
+        options.derivativeMethod_ = CalibrationDerivative_::Value_::None;
+        options.allowMonteCarloCalibration_ = true;
+        options.sampling_ = CalibrationSamplingSpec_{64, 1024, "mrg32"};
+        return options;
+    }
+} // namespace
+
+TEST(CalibrationPreparationTest, TestCurveFamilyCannotAcquireGeneralMcRuleWithMatchingGaussianModel) {
+    auto spec = DepositSpec();
+    spec.parameters_.pop_back();
+    spec.source_.rows_ = {{ScriptSourceRowKind_::Value_::Definition, "N", "100"},
+                          {ScriptSourceRowKind_::Value_::Definition, "K", "0.025"},
+                          {ScriptSourceRowKind_::Value_::Event, "2027-10-21", "pay PAYS N*(K-FIX(IR[USD,DF,2028-10-21]))"}};
+    const auto instrument = Instrument(spec);
+    const auto deterministic = PrepareCalibrationInstrument(instrument, "Price", Context());
+    ASSERT_TRUE(std::holds_alternative<CalibrationCurveFamily_>(deterministic.Descriptor()));
+    ASSERT_EQ(deterministic.Capability().ruleId_, "dal.curve-affine-cashflows/1");
+    deterministic.RequireCompatible(instrument, Context());
+    std::optional<CalibrationError_> saved;
+    try {
+        static_cast<void>(PrepareCalibrationInstrument(instrument, "Price", GaussianContext(), GeneralMcOptions()));
+    } catch (const CalibrationError_& error) {
+        saved = error;
+    }
+    ASSERT_TRUE(saved);
+    const auto& diagnostic = saved->Failure().diagnostic_;
+    ASSERT_EQ(diagnostic.code_, "UnsupportedFastEvaluator");
+    ASSERT_EQ(diagnostic.stage_, CalibrationStage_::Value_::Prepare);
+    ASSERT_EQ(diagnostic.field_, std::optional<String_>("/options/evaluation"));
+    ASSERT_EQ(diagnostic.instrumentId_, std::optional<String_>(instrument->Id()));
+    ASSERT_EQ(diagnostic.measureId_, std::optional<String_>("Price"));
+    ASSERT_TRUE(saved->Failure().report_);
+    ASSERT_EQ(saved->Failure().report_->Errors().size(), 1);
+    ASSERT_EQ(saved->Failure().report_->Errors()[0].field_, diagnostic.field_);
+}
+
+TEST(CalibrationPreparationTest, TestGeneralPriceMcAdmitsBoundArithmeticAverage) {
+    const auto instrument = Instrument(AverageSpec());
+    const auto context = GaussianContext();
+    auto options = GeneralMcOptions();
+    const auto plan = PrepareCalibrationInstrument(instrument, "Price", context, options);
+    ASSERT_EQ(plan.Capability().ruleId_, "dal.gaussian-script-price/1");
+    ASSERT_EQ(plan.Capability().backend_, CalibrationBackend_::Value_::ScriptMC);
+    ASSERT_FALSE(plan.Capability().affine_);
+    ASSERT_TRUE(plan.Cashflows().empty());
+    Failure([&] { static_cast<void>(plan.Price({})); }, "UnsupportedCalibrationMeasure");
+    Failure([&] { PrepareCalibrationInstrument(instrument, "Price", context); }, "UnsupportedCalibrationProduct");
+    options.allowMonteCarloCalibration_ = false;
+    Failure([&] { PrepareCalibrationInstrument(instrument, "Price", context, options); }, "UnsupportedFastEvaluator");
+}
+
+TEST(CalibrationPreparationTest, TestGeneralMcCannotBypassDepositPayoffChecks) {
+    for (const String_ text : {"pay PAYS N*(1+K*ALPHA)+1", "pay PAYS -N*(1+K*ALPHA)"}) {
+        auto spec = DepositSpec();
+        spec.source_.rows_.back().text_ = text;
+        Failure([&] { PrepareCalibrationInstrument(Instrument(spec), "Price", GaussianContext(), GeneralMcOptions()); }, "UnsupportedFastEvaluator");
+    }
+}
+
+TEST(CalibrationPreparationTest, TestUnrelatedAssignmentCannotReleaseDepositReservation) {
+    for (const String_ payment : {"pay PAYS N*(1+K*ALPHA)+1", "pay PAYS -N*(1+K*ALPHA)"}) {
+        auto spec = DepositSpec();
+        spec.source_.rows_.back().text_ = payment;
+        spec.source_.rows_.push_back({ScriptSourceRowKind_::Value_::Event, "2027-10-21", "scratch=0"});
+        Failure([&] { PrepareCalibrationInstrument(Instrument(spec), "Price", GaussianContext(), GeneralMcOptions()); },
+                "UnsupportedCalibrationProduct");
+    }
+}
+
+TEST(CalibrationPreparationTest, TestGeneralMcWholeSourceRefusesReceiverAndUnsupportedControls) {
+    for (const String_ text : {"EXERCISE 1", "IF avg > K THEN avg = 1 END", "APPEND(v,1)", "avg = SPOT()"}) {
+        auto spec = AverageSpec();
+        spec.source_.rows_[3].text_ = text;
+        Failure([&] { PrepareCalibrationInstrument(Instrument(spec), "Price", GaussianContext(), GeneralMcOptions()); },
+                "UnsupportedCalibrationProduct");
+    }
+    for (const String_ text : {"other PAYS 1", "pay = 0"}) {
+        auto spec = AverageSpec();
+        spec.source_.rows_.push_back({ScriptSourceRowKind_::Value_::Event, "2028-10-21", text});
+        try {
+            static_cast<void>(PrepareCalibrationInstrument(Instrument(spec), "Price", GaussianContext(), GeneralMcOptions()));
+            FAIL();
+        } catch (const CalibrationError_& e) {
+            ASSERT_EQ(e.Failure().diagnostic_.code_, "InvalidCalibrationOutputBinding");
+            ASSERT_EQ(e.Failure().diagnostic_.sourceRow_, std::optional<int>(6));
+            ASSERT_EQ(e.Failure().diagnostic_.statement_, std::optional<int>(1));
+            ASSERT_TRUE(e.Failure().report_);
+        }
+    }
+}
+
+TEST(CalibrationPreparationTest, TestGeneralMcRequiresRealGaussianFixingsAndAtEventPayments) {
+    auto spec = AverageSpec();
+    spec.source_.rows_[2].text_ = "avg = FIX(IR[EUR,LIBOR_6M_LCH,2027-10-21])";
+    Failure([&] { PrepareCalibrationInstrument(Instrument(spec), "Price", GaussianContext(), GeneralMcOptions()); }, "CalibrationContextMismatch");
+    spec = AverageSpec();
+    spec.source_.rows_[2].text_ = "avg = FIX(EQ[STOCK])";
+    Failure([&] { PrepareCalibrationInstrument(Instrument(spec), "Price", GaussianContext(), GeneralMcOptions()); }, "UnsupportedCalibrationProduct");
+    spec = AverageSpec();
+    spec.source_.rows_[2].key_ = "2025-10-21";
+    Failure([&] { PrepareCalibrationInstrument(Instrument(spec), "Price", GaussianContext(), GeneralMcOptions()); }, "InvalidCalibrationPlan");
+    spec = AverageSpec();
+    spec.source_.rows_.back().text_ = "pay PAYS N*MAX(avg-K,0) ON 2029-10-21";
+    Failure([&] { PrepareCalibrationInstrument(Instrument(spec), "Price", GaussianContext(), GeneralMcOptions()); }, "UnsupportedFastEvaluator");
+}
+
+TEST(CalibrationPreparationTest, TestGeneralMcBindingAndActualLiborConventionInvalidatePlan) {
+    const auto instrument = Instrument(AverageSpec());
+    const auto context = GaussianContext();
+    const auto plan = PrepareCalibrationInstrument(instrument, "Price", context, GeneralMcOptions());
+    const auto rebound = BindCalibrationInstrumentParameters(instrument, {{{"K", .045, CalibrationValueUnit_::Parse("Rate")}}, {}});
+    Failure([&] { plan.RequireCompatible(rebound, context); }, "InvalidCalibrationPlan");
+    ASSERT_NE(plan.PlanIdentity(), PrepareCalibrationInstrument(rebound, "Price", context, GeneralMcOptions()).PlanIdentity());
+    struct Restore_ {
+        DayBasis_ saved_ = Ccy::Conventions::LiborDayBasis()(Ccy_("USD"));
+        ~Restore_() { Ccy::Conventions::LiborDayBasis().XWrite()(Ccy_("USD"), saved_); }
+    } restore;
+    const auto changed = restore.saved_ == DayBasis_("ACT_360") ? DayBasis_("ACT_365F") : DayBasis_("ACT_360");
+    Ccy::Conventions::LiborDayBasis().XWrite()(Ccy_("USD"), changed);
+    Failure([&] { plan.RequireCompatible(instrument, context); }, "CalibrationContextMismatch");
+    ASSERT_NE(plan.ContextIdentity(), PrepareCalibrationInstrument(instrument, "Price", context, GeneralMcOptions()).ContextIdentity());
+}
+
+TEST(CalibrationPreparationTest, TestGeneralMcRejectedNodeRetainsMergedRowSource) {
+    auto spec = AverageSpec();
+    spec.source_.rows_.push_back({ScriptSourceRowKind_::Value_::Event, "2028-10-21", "EXERCISE 1"});
+    try {
+        static_cast<void>(PrepareCalibrationInstrument(Instrument(spec), "Price", GaussianContext(), GeneralMcOptions()));
+        FAIL();
+    } catch (const CalibrationError_& e) {
+        const auto& d = e.Failure().diagnostic_;
+        ASSERT_EQ(d.code_, "UnsupportedCalibrationProduct");
+        ASSERT_EQ(d.sourceRow_, std::optional<int>(6));
+        ASSERT_EQ(d.eventDate_, std::optional<Date_>(Date_(2028, 10, 21)));
+        ASSERT_EQ(d.statement_, std::optional<int>(1));
+        ASSERT_TRUE(e.Failure().report_);
+    }
+}
+
+TEST(CalibrationPreparationTest, TestGeneralExpressionAndSignedPriceNeverAcquireNativeRule) {
+    auto spec = AverageSpec();
+    spec.source_.rows_ = {
+        spec.source_.rows_[0],
+        spec.source_.rows_[1],
+        {ScriptSourceRowKind_::Value_::Event, "2028-10-21",
+         "pay PAYS N*MAX(.5*FIX(IR[USD,LIBOR_6M_LCH,2027-10-21],2027-10-21)+.5*FIX(IR[USD,LIBOR_6M_LCH,2028-04-21],2028-04-21)-K,0)"}};
+    const auto context = GaussianContext();
+    ASSERT_EQ(PrepareCalibrationInstrument(Instrument(spec), "Price", context, GeneralMcOptions()).Capability().ruleId_,
+              "dal.gaussian-script-price/1");
+    spec.source_.rows_.back().text_ = "pay PAYS -N";
+    ASSERT_EQ(PrepareCalibrationInstrument(Instrument(spec), "Price", context, GeneralMcOptions()).Capability().ruleId_,
+              "dal.gaussian-script-price/1");
+}
+
 TEST(CalibrationPreparationTest, TestCoefficientOverflowFailsWithOwnedEvaluateReport) {
     const auto plan = PrepareCalibrationInstrument(Instrument(), "ParRate", Context());
     Failure([&] { static_cast<void>(plan.Coefficients({1., std::numeric_limits<double>::max()})); }, "CalibrationNumericalFailure");
@@ -591,4 +762,88 @@ TEST(CalibrationPreparationTest, TestModelNameCannotBypassStructuralAdmissionOrL
     auto context = Context();
     context.model_.reset(new NamedImpostorModel_());
     Failure([&] { PrepareCalibrationInstrument(Instrument(BondOptionSpec()), "Price", context); }, "UnsupportedFastEvaluator");
+}
+
+TEST(CalibrationPreparationTest, TestCouponAverageAndRateStrikeShareExplicitMcExecution) {
+    Vector_<> reference;
+    for (bool compiled : {false, true}) {
+        for (const auto role : {ScriptParameterRole_::Value_::RateStrike, ScriptParameterRole_::Value_::Coupon}) {
+            auto spec = AverageSpec();
+            spec.source_.rows_.back().text_ = "pay PAYS N*(avg-K)";
+            spec.parameters_[1].role_ = role;
+            const auto instrument = Instrument(spec);
+            const auto context = GaussianContext();
+            const auto prepared = PrepareCalibrationInstrument(instrument, "Price", context, GeneralMcOptions());
+            ASSERT_EQ(prepared.Capability().ruleId_, "dal.gaussian-script-price/1");
+            ASSERT_FALSE(prepared.Capability().affine_);
+            CalibrationMcSettings_ settings;
+            settings.allowMonteCarloCalibration_ = true;
+            settings.aad_ = false;
+            settings.compiled_ = compiled;
+            settings.seed_ = 1024;
+            settings.fitBatches_ = settings.validationBatches_ = 2;
+            settings.fitPathsPerBatch_ = 32;
+            settings.validationPathsPerBatch_ = 64;
+            settings.maxPathsPerView_ = 192;
+            settings.retainPaths_ = true;
+            const auto plan = PrepareCalibrationMc(instrument, "Price", context, settings);
+            const auto value = plan.Evaluate(instrument, context, false);
+            ASSERT_EQ(value.pathsPerView_, 64U);
+            ASSERT_EQ(value.pathValues_.size(), 64U);
+            ASSERT_TRUE(std::isfinite(value.mean_));
+            if (reference.empty())
+                reference = value.pathValues_;
+            ASSERT_EQ(value.pathValues_, reference);
+        }
+    }
+}
+
+TEST(CalibrationPreparationTest, TestCouponDeclarationDoesNotReserveNonAffineMcExpressions) {
+    for (const String_ expression : {"N*(K*K)", "N*EXP(K)"}) {
+        auto spec = DepositSpec();
+        spec.parameters_.pop_back();
+        spec.measures_.pop_back();
+        spec.source_.rows_ = {
+            spec.source_.rows_[0], spec.source_.rows_[1], {ScriptSourceRowKind_::Value_::Event, "2027-10-21", "pay PAYS " + expression}};
+        const auto plan = PrepareCalibrationInstrument(Instrument(spec), "Price", GaussianContext(), GeneralMcOptions());
+        ASSERT_EQ(plan.Capability().ruleId_, "dal.gaussian-script-price/1");
+        ASSERT_FALSE(plan.Capability().affine_);
+    }
+}
+
+TEST(CalibrationPreparationTest, TestCurveMatcherRetainsOwnedHistoricalFixingFailure) {
+    auto spec = DepositSpec();
+    spec.parameters_.pop_back();
+    spec.source_.rows_ = {spec.source_.rows_[0],
+                          spec.source_.rows_[1],
+                          {ScriptSourceRowKind_::Value_::Event, "2027-10-21", "pay PAYS N*(K-FIX(IR[USD,DF,2028-10-21],2026-04-21))"}};
+    std::optional<CalibrationError_> saved;
+    {
+        const auto instrument = Instrument(spec);
+        try {
+            static_cast<void>(PrepareCalibrationInstrument(instrument, "Price", GaussianContext(), GeneralMcOptions()));
+        } catch (const CalibrationError_& error) {
+            saved = error;
+        }
+    }
+    ASSERT_TRUE(saved);
+    const auto& d = saved->Failure().diagnostic_;
+    ASSERT_EQ(d.code_, "MissingFixing");
+    ASSERT_EQ(d.stage_, CalibrationStage_::Value_::Prepare);
+    ASSERT_EQ(d.field_, std::optional<String_>("/source/rows/2/text"));
+    ASSERT_EQ(d.instrumentId_, std::optional<String_>("deposit"));
+    ASSERT_EQ(d.measureId_, std::optional<String_>("Price"));
+    ASSERT_EQ(d.sourceRow_, std::optional<int>(3));
+    ASSERT_EQ(d.eventDate_, std::optional<Date_>(Date_(2027, 10, 21)));
+    ASSERT_EQ(d.statement_, std::optional<int>(0));
+    ASSERT_TRUE(saved->Failure().report_);
+    ASSERT_EQ(saved->Failure().report_->Errors().size(), 1);
+    const auto& reported = saved->Failure().report_->Errors()[0];
+    ASSERT_EQ(reported.code_, d.code_);
+    ASSERT_EQ(reported.field_, d.field_);
+    ASSERT_EQ(reported.instrumentId_, d.instrumentId_);
+    ASSERT_EQ(reported.measureId_, d.measureId_);
+    ASSERT_EQ(reported.sourceRow_, d.sourceRow_);
+    ASSERT_EQ(reported.eventDate_, d.eventDate_);
+    ASSERT_EQ(reported.statement_, d.statement_);
 }
