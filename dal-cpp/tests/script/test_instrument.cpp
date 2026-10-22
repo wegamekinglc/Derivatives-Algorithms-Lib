@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <cmath>
 #include <cstdlib>
 #include <limits>
 #include <rapidjson/document.h>
@@ -7,6 +8,7 @@
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 #include <stdexcept>
+#include <tuple>
 
 #include <dal/calibration/protocol.hpp>
 #include <dal/script/event.hpp>
@@ -102,6 +104,44 @@ namespace {
     }
     Handle_<CalibrationInstrument_> Instrument(const String_& id = "deposit") {
         return NewScriptCalibrationInstrument({id, NewScriptInstrumentDefinition(DepositDefinition())});
+    }
+    ScriptInstrumentDefinitionSpec_ RateStrikeSpec(bool caplet, double strike = .03) {
+        auto spec = DepositDefinition();
+        spec.source_.rows_ = {
+            {ScriptSourceRowKind_::Value_::Definition, "N", "100"},
+            {ScriptSourceRowKind_::Value_::Definition, "K", String_(std::to_string(strike))},
+            {ScriptSourceRowKind_::Value_::Event, caplet ? "2028-01-25" : "2027-10-21",
+             caplet ? "PAY PAYS N*0.25*MAX(FIX(IR[USD,LIBOR_3M_LCH],2027-10-21)-K,0)" : "PAY PAYS N*MAX(1-(1+K)*FIX(IR[USD,DF,2028-10-21]),0)"}};
+        spec.parameters_.pop_back();
+        spec.parameters_[1].role_ = ScriptParameterRole_("RateStrike");
+        spec.measures_.pop_back();
+        return spec;
+    }
+    Handle_<CalibrationInstrument_> RateInstrument(bool caplet = true, double strike = 0.) {
+        return NewScriptCalibrationInstrument({"rate-option", NewScriptInstrumentDefinition(RateStrikeSpec(caplet, strike))});
+    }
+    template <class F_>
+    void AssertOwnedRateFailure(
+        const F_& action, const String_& code, const String_& field, CalibrationStage_ stage, std::optional<String_> parameter = String_("K")) {
+        std::optional<CalibrationError_> saved;
+        try {
+            action();
+        } catch (const CalibrationError_& error) {
+            saved = error;
+        }
+        ASSERT_TRUE(saved);
+        const auto& failure = saved->Failure();
+        ASSERT_EQ(failure.diagnostic_.code_, code) << saved->what();
+        ASSERT_EQ(failure.diagnostic_.field_, std::optional<String_>(field)) << saved->what();
+        ASSERT_EQ(failure.diagnostic_.stage_, stage);
+        if (parameter)
+            ASSERT_EQ(failure.diagnostic_.parameterKey_, parameter);
+        ASSERT_TRUE(failure.diagnostic_.expected_);
+        ASSERT_TRUE(failure.diagnostic_.actual_);
+        ASSERT_TRUE(failure.report_);
+        ASSERT_EQ(failure.report_->Stage(), stage);
+        ASSERT_EQ(failure.report_->Errors().size(), 1);
+        ASSERT_EQ(failure.report_->Errors()[0].message_, failure.diagnostic_.message_);
     }
     template <class F_>
     void AssertFailure(const F_& action, const String_& code, const String_& field, const std::optional<String_>& parameter = std::nullopt) {
@@ -686,6 +726,196 @@ TEST(ScriptInstrumentTest, TestLiteralAccrualCouponAdmitsDeclaredNegativeAnnuity
     for (int sign : {0, 2}) {
         spec.measures_[1].annuitySign_ = sign;
         AssertFailure([&] { static_cast<void>(NewScriptInstrumentDefinition(spec)); }, "InvalidScriptInstrumentDefinition", "/measures/1");
+    }
+}
+
+TEST(ScriptInstrumentTest, TestDepositCouponCannotBorrowReservedSpreadUnit) {
+    auto spec = DepositDefinition();
+    spec.parameters_[1].unit_ = CalibrationValueUnit_::Parse("BasisSpread");
+    AssertFailure([&] { static_cast<void>(NewScriptInstrumentDefinition(spec)); }, "InvalidScriptInstrumentDefinition", "/parameters/1/unit",
+                  String_("K"));
+}
+
+TEST(ScriptInstrumentTest, TestRateStrikeCreatesAndRebindsFiniteDefaults) {
+    const auto rate = CalibrationValueUnit_::Parse("Rate");
+    for (bool caplet : {false, true})
+        for (double strike : {-.02, 0., .03}) {
+            const auto definition = NewScriptInstrumentDefinition(RateStrikeSpec(caplet, strike));
+            const auto original = NewScriptCalibrationInstrument({"rate-option", definition});
+            ASSERT_DOUBLE_EQ(original->Binding()[1].value_, strike);
+            ASSERT_EQ(definition->Spec().parameters_[1].role_.String(), String_("RateStrike"));
+            const auto changed = BindCalibrationInstrumentParameters(original, {{{"K", strike + .01, rate}}, {}});
+            ASSERT_EQ(changed->Definition().get(), definition.get());
+            ASSERT_DOUBLE_EQ(original->Binding()[1].value_, strike);
+            ASSERT_DOUBLE_EQ(changed->Binding()[1].value_, strike + .01);
+            ASSERT_NE(original->BindingIdentity(), changed->BindingIdentity());
+            ASSERT_NE(original->InstrumentIdentity(), changed->InstrumentIdentity());
+        }
+}
+
+TEST(ScriptInstrumentTest, TestRateStrikeRejectsNonfiniteBindingsAndDefaultsWithOwnedErrors) {
+    for (bool caplet : {false, true}) {
+        for (double value :
+             {std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity(), -std::numeric_limits<double>::infinity()})
+            AssertOwnedRateFailure(
+                [&] {
+                    const auto original = RateInstrument(caplet);
+                    CalibrationParameterBindings_ update{{{"K", value, CalibrationValueUnit_::Parse("Rate")}}};
+                    static_cast<void>(BindCalibrationInstrumentParameters(original, update));
+                },
+                "InvalidCalibrationParameterBinding", "/bindings/values/0/value", CalibrationStage_::Value_::Input);
+        for (const String_ text : {"nan", "inf", "-inf", "1e999"})
+            AssertOwnedRateFailure(
+                [&] {
+                    auto spec = RateStrikeSpec(caplet);
+                    spec.source_.rows_[1].text_ = text;
+                    static_cast<void>(NewScriptInstrumentDefinition(spec));
+                },
+                "InvalidScriptInstrumentDefinition", "/source/rows/1/text", CalibrationStage_::Value_::Input);
+    }
+}
+
+TEST(ScriptInstrumentTest, TestRateStrikeDomainEndpointsSingletonAndEmptyDomain) {
+    const auto rate = CalibrationValueUnit_::Parse("Rate");
+    for (bool inclusive : {false, true}) {
+        auto spec = RateStrikeSpec(true, 0.);
+        auto& k = spec.parameters_[1];
+        k.lower_ = -.01;
+        k.upper_ = .01;
+        k.lowerInclusive_ = k.upperInclusive_ = inclusive;
+        const auto original = NewScriptCalibrationInstrument({"bounds", NewScriptInstrumentDefinition(spec)});
+        ASSERT_NO_THROW(static_cast<void>(BindCalibrationInstrumentParameters(original, {{{"K", .005, rate}}})));
+        for (double value : {-.01, .01}) {
+            if (inclusive) {
+                ASSERT_DOUBLE_EQ(BindCalibrationInstrumentParameters(original, {{{"K", value, rate}}})->Binding()[1].value_, value);
+            } else {
+                AssertOwnedRateFailure([&] { static_cast<void>(BindCalibrationInstrumentParameters(original, {{{"K", value, rate}}})); },
+                                       "InvalidCalibrationParameterBinding", "/bindings/values/0/value", CalibrationStage_::Value_::Input);
+            }
+        }
+    }
+    auto spec = RateStrikeSpec(false, -.02);
+    spec.parameters_[1].lower_ = spec.parameters_[1].upper_ = -.02;
+    const auto single = NewScriptCalibrationInstrument({"single", NewScriptInstrumentDefinition(spec)});
+    ASSERT_DOUBLE_EQ(single->Binding()[1].value_, -.02);
+    AssertOwnedRateFailure([&] { static_cast<void>(BindCalibrationInstrumentParameters(single, {{{"K", 0., rate}}})); },
+                           "InvalidCalibrationParameterBinding", "/bindings/values/0/value", CalibrationStage_::Value_::Input);
+    spec.parameters_[1].lowerInclusive_ = false;
+    AssertOwnedRateFailure([&] { static_cast<void>(NewScriptInstrumentDefinition(spec)); }, "InvalidScriptInstrumentDefinition", "/parameters/1",
+                           CalibrationStage_::Value_::Input);
+}
+
+TEST(ScriptInstrumentTest, TestRateStrikeDeclarationAndBindingUnitsStayStrict) {
+    for (const auto& [role, unit, field] :
+         Vector_<std::tuple<ScriptParameterRole_, String_, String_>>{{ScriptParameterRole_("RateStrike"), "BondPrice", "/parameters/1/unit"},
+                                                                     {ScriptParameterRole_("Notional"), "Rate", "/parameters/1/role"}})
+        AssertOwnedRateFailure(
+            [&] {
+                auto spec = RateStrikeSpec(true);
+                spec.parameters_[1].role_ = role;
+                spec.parameters_[1].unit_ = CalibrationValueUnit_::Parse(unit);
+                static_cast<void>(NewScriptInstrumentDefinition(spec));
+            },
+            "InvalidScriptInstrumentDefinition", field, CalibrationStage_::Value_::Input);
+    AssertOwnedRateFailure(
+        [] { static_cast<void>(BindCalibrationInstrumentParameters(RateInstrument(), {{{"K", .03, CalibrationValueUnit_::Parse("BondPrice")}}})); },
+        "InvalidCalibrationParameterBinding", "/bindings/values/0/unit", CalibrationStage_::Value_::Input);
+    AssertOwnedRateFailure(
+        [] {
+            auto spec = RateStrikeSpec(true);
+            spec.parameters_[1].key_ = spec.source_.rows_[1].key_ = "R";
+            static_cast<void>(NewScriptInstrumentDefinition(spec));
+        },
+        "InvalidScriptInstrumentDefinition", "/parameters/1/key", CalibrationStage_::Value_::Input, String_("R"));
+    AssertOwnedRateFailure(
+        [] {
+            auto spec = RateStrikeSpec(true);
+            spec.parameters_[1].lower_ = .04;
+            static_cast<void>(NewScriptInstrumentDefinition(spec));
+        },
+        "InvalidScriptInstrumentDefinition", "/source/rows/1/text", CalibrationStage_::Value_::Input);
+}
+
+TEST(ScriptInstrumentTest, TestRateStrikeArchivesKeepSignedValuesBoundsAndProvenance) {
+    for (bool caplet : {false, true})
+        for (double value : {-.02, -0.}) {
+            auto spec = RateStrikeSpec(caplet, value);
+            spec.parameters_[1].lower_ = -.1;
+            spec.parameters_[1].upper_ = .1;
+            const auto original = NewScriptCalibrationInstrument({"archive", NewScriptInstrumentDefinition(spec)});
+            const auto quote = NewCalibrationMarketQuote("rate", value, CalibrationValueUnit_::Parse("Rate"));
+            const auto copied =
+                BindCalibrationInstrumentParameters(original, {{{"K", value, quote->Unit()}}, {{"K", quote->Id(), quote->Fingerprint()}}});
+            const auto literal = BindCalibrationInstrumentParameters(original, {{{"K", value, quote->Unit()}}});
+            for (const auto& instrument : {original, copied, literal}) {
+                const auto portable = LoadCalibrationInstrumentJson(DumpCalibrationInstrumentJson(instrument));
+                const auto archive = handle_cast<CalibrationInstrument_>(JSON::ReadString(JSON::WriteString(*instrument), false));
+                for (const auto& restored : {portable, archive}) {
+                    ASSERT_TRUE(restored);
+                    ASSERT_EQ(restored->InstrumentIdentity(), instrument->InstrumentIdentity());
+                    ASSERT_EQ(restored->Binding()[1].origin_, instrument->Binding()[1].origin_);
+                    ASSERT_EQ(restored->Binding()[1].quoteFingerprint_, instrument->Binding()[1].quoteFingerprint_);
+                    ASSERT_DOUBLE_EQ(restored->Binding()[1].value_, value);
+                    ASSERT_EQ(restored->Definition()->Spec().parameters_[1].lower_, std::optional<double>(-.1));
+                    if (value == 0.)
+                        ASSERT_FALSE(std::signbit(restored->Binding()[1].value_));
+                }
+            }
+            const auto definition = original->Definition();
+            ASSERT_EQ(LoadScriptInstrumentDefinitionJson(DumpScriptInstrumentDefinitionJson(definition))->DefinitionIdentity(),
+                      definition->DefinitionIdentity());
+            ASSERT_EQ(handle_cast<ScriptInstrumentDefinition_>(JSON::ReadString(JSON::WriteString(*definition), false))->DefinitionIdentity(),
+                      definition->DefinitionIdentity());
+        }
+}
+
+TEST(ScriptInstrumentTest, TestRateStrikeTamperedArchivesOwnLoadFailuresAndExactTokens) {
+    for (const char* role : {"UnknownRole", "ratestrike", "RATESTRIKE"})
+        AssertOwnedRateFailure(
+            [&] {
+                rapidjson::Document doc;
+                doc.Parse(DumpCalibrationInstrumentJson(RateInstrument()).c_str());
+                doc["definition"]["parameters"][1]["role"].SetString(rapidjson::StringRef(role));
+                static_cast<void>(LoadCalibrationInstrumentJson(JsonText(doc)));
+            },
+            "InvalidCalibrationArchive", "/definition/parameters/1/role", CalibrationStage_::Value_::Load, {});
+    for (const char* section : {"definition", "binding"})
+        AssertOwnedRateFailure(
+            [&] {
+                rapidjson::Document doc;
+                doc.Parse(DumpCalibrationInstrumentJson(RateInstrument()).c_str());
+                if (std::string(section) == "definition")
+                    doc["definition"]["parameters"][1]["unit"].SetString("BondPrice");
+                else
+                    doc["binding"]["values"][1]["unit"].SetString("BondPrice");
+                static_cast<void>(LoadCalibrationInstrumentJson(JsonText(doc)));
+            },
+            "InvalidCalibrationArchive", std::string(section) == "definition" ? "/definition/parameters/1/unit" : "/binding/values/1/unit",
+            CalibrationStage_::Value_::Load, {});
+    AssertOwnedRateFailure(
+        [] {
+            auto spec = RateStrikeSpec(true, 0.);
+            spec.parameters_[1].lower_ = -.01;
+            spec.parameters_[1].upper_ = .01;
+            const auto instrument = NewScriptCalibrationInstrument({"bounded", NewScriptInstrumentDefinition(spec)});
+            rapidjson::Document doc;
+            doc.Parse(DumpCalibrationInstrumentJson(instrument).c_str());
+            doc["binding"]["values"][1]["value"].SetDouble(.02);
+            static_cast<void>(LoadCalibrationInstrumentJson(JsonText(doc)));
+        },
+        "InvalidCalibrationArchive", "/binding/values/1/value", CalibrationStage_::Value_::Load);
+    AssertOwnedRateFailure(
+        [] {
+            auto spec = RateStrikeSpec(true);
+            spec.parameters_[1].lower_ = std::numeric_limits<double>::infinity();
+            static_cast<void>(NewScriptInstrumentDefinition(spec));
+        },
+        "InvalidScriptInstrumentDefinition", "/parameters/1", CalibrationStage_::Value_::Input);
+    const auto roles = ScriptParameterRoleListAll();
+    ASSERT_EQ(roles.size(), 5);
+    for (size_t i = 0; i < roles.size(); ++i) {
+        ASSERT_EQ(static_cast<int>(roles[i].Switch()), static_cast<int>(i));
+        ASSERT_EQ(String_(roles[i].String()), (Vector_<String_>{"Notional", "Coupon", "Strike", "Accrual", "RateStrike"})[i]);
     }
 }
 

@@ -14,8 +14,10 @@ namespace Dal::CurveScriptInternal {
         Check(tenor.Months() == 3 || tenor.Months() == 6, "UnsupportedCalibrationProduct", "/import/projection", "canonical 3M/6M LCH route");
         return "IR:" + String_(currency.String()) + ",LIBOR_" + (tenor.Months() == 3 ? String_("3M") : String_("6M")) + "_LCH";
     }
-    String_ ContextIdentity(const CalibrationPreparationContext_& context, const String_& base) {
-        return Fingerprint(Obj({{"base", Str(base)}, {"libor_day_basis", Str(Ccy::Conventions::LiborDayBasis()(context.currency_).String())}}));
+    String_ ContextIdentity(const CalibrationPreparationContext_& context, const String_& base, const CalibrationDiagnostic_& diagnostic) {
+        return Fingerprint(Obj({{"base", Str(base)},
+                                {"libor_day_basis", Str(Token(Ccy::Conventions::LiborDayBasis()(context.currency_), "CalibrationContextMismatch",
+                                                              "/context/conventions/libor_day_basis", diagnostic))}}));
     }
     namespace {
         CalibrationCurveObservation_

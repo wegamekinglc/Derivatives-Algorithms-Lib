@@ -9,6 +9,7 @@ public class ScriptParameterRole
 		COUPON,
 		STRIKE,
 		ACCRUAL,
+		RATESTRIKE,
         N_VALUES
     }
 }

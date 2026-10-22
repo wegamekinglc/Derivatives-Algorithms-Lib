@@ -85,7 +85,7 @@ namespace Dal::CurveScriptInternal {
     String_ ProjectionRoute(const Ccy_& currency, const PeriodLength_& tenor);
     CalibrationCurveObservation_
     Observation(const Script::NodeFix_& node, const CalibrationPreparationContext_& context, const CalibrationDiagnostic_& source);
-    String_ ContextIdentity(const CalibrationPreparationContext_& context, const String_& base);
+    String_ ContextIdentity(const CalibrationPreparationContext_& context, const String_& base, const CalibrationDiagnostic_& diagnostic);
     bool Candidate(const CalibrationInstrument_& instrument);
     std::shared_ptr<const CalibrationCurveFamilyDescriptor_> Lower(const CalibrationInstrument_& instrument,
                                                                    const CalibrationPreparationContext_& context,

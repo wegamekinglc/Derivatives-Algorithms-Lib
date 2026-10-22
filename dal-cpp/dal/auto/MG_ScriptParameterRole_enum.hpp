@@ -10,6 +10,7 @@ public:
      Coupon,
      Strike,
      Accrual,
+     RateStrike,
      _N_VALUES
     } val_;
       

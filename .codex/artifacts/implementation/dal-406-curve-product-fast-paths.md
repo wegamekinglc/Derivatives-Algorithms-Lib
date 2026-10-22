@@ -3,8 +3,10 @@
 ## State, inputs and ownership
 
 Implementation uses the original `agent/dal-implementer/c097905d2513` branch.
-Master integration and final compatibility/caller verification are in progress;
-this checkpoint is not acceptance or permission to merge/start downstream work.
+Implementation, merged-master integration and affected verification are complete.
+The unique DAL-406 PR awaits the coordinator's focused review and serial shared
+documentation window. This is not acceptance or permission to merge/start
+downstream work.
 
 The real prerequisite is merged DAL-405 / PR #617,
 `072c7da1b3071e71dac4f901451c2345957bd42a`. The initial boundary-only run had one
@@ -25,6 +27,10 @@ references and relevant native/shared source/tests.
 DAL-411 / PR #616 actually merged at 2026-10-22T04:32:14Z as
 `f2dfa8e9cb4eb8508bd3425676e90c2cb513ee86`. It is now eligible for the authorized
 minimal master integration. Its unmerged product was not used as a baseline.
+The merge preserves its RateStrike admission, Gaussian dispatch, compiler/context
+identities and tests. Four conflicts in preparation, instrument admission and
+instrument tests were resolved additively. No Gaussian/MC/model product or shared
+publication file differs from this actual merged master.
 
 ## Authority and execution
 
@@ -95,13 +101,24 @@ All new families reject ScriptMC even with opt-in. Compiler/MC/statistics/model
 product files stay outside this author's changes. Accepted Deposit P0 evidence
 is reused; zero-g is not offered as new stochastic/convexity proof.
 
-## Verification checkpoint
+## Verification and provenance
 
-Before master integration: **136 affected core checks pass**, including prior
-curve adapter, Deposit, preparation, instrument/protocol and new families.
-The latest family executable passes **20/20** cases. Final integrated counts,
-source/configuration and executable hashes will be recorded in delivery evidence.
-No old executable is relabelled as a new run.
+After master integration: **217/217 affected core** and **47/47 public
+compatibility** checks pass. The author adds 24 tests: 20 curve-family, three
+instrument admission/persistence cases and one preparation case. Core coverage
+includes the existing Deposit/curve adapter, native YCInstrument cross-family,
+preparation/instrument/protocol, BondOption, RateOption and MC contract tests.
+Public coverage includes curve instrument/protocol/spec and script archive/
+contract. Full unrelated product/frontend/statistical matrices are not rerun.
+
+The current source is compiled with GCC 14.3.0, C++17, Release `-O3 -DNDEBUG`,
+`-ffp-contract=fast`, Eigen enabled and native-architecture tuning disabled.
+The initial standalone core build has public disabled; the integrated final
+build enables public and freshly links both clients using their real CMake
+compile commands. Examples/Python/Excel/portable Excel are disabled; this PR
+does not change those components or build configuration. Exact submodule pins,
+CMake cache, source and executable hashes, test filters, commands, XML and logs
+are in the delivery attachment. No old executable is relabelled as a new run.
 
 Independent piecewise log-DF/cashflow oracles check Price/par against native rate
 calls and the original bound tree. Raw FD/AAD columns match independent native
@@ -121,9 +138,69 @@ RED/GREEN records cover spread/literal-accrual admission, fixed and observed
 cashflows, notional dimension, exporter skeleton refusals, canonical projection
 aliases, declaration order, direct nonfinite AAD and helper-token ownership.
 Skeleton RED is explicitly a new-API checkpoint, not an untouched old executable.
-Exact commands, XML and logs are retained. Compatibility, final warning/format/
-complexity checks and caller measurements are being completed after integration;
-no unrelated full matrix is claimed.
+The post-integration legacy Deposit spread-unit witness first fails at the wrong
+field; the narrow ALPHA-template guard restores the original owned parameter-unit
+error and is included in the final green suite. Exact commands, XML and logs are
+retained; setup/compiler/harness failures are identified separately from RED.
+
+Nine affected translation units pass syntax checks with GCC `-Wall -Wextra
+-Wpedantic -Werror` and the existing Linux workflow's exclusions. Changed
+production functions (68) have CCN at most eight. All 13 changed C++ files pass
+`clang-format --dry-run --Werror`; documentation/link checks and `git diff
+--check` pass. There are no author changes outside the 14 listed paths in the
+delivery manifest. All 2,857 inherited paths outside that scope retain the actual
+merged-master Git blobs. Of these, 2,852 also match raw blob bytes; the other five
+have the existing `.gitattributes` CRLF checkout conversion. All frozen product
+sources and shared publication content retain their master content.
+
+A differential preparation probe compares actual merged-master preparation with
+this preparation, using the current extended header layout and otherwise the
+same current core archive. Deposit/BondOption/Caplet/Swaption each retain nine
+byte-identical definition, binding, instrument, compiler, context, fast-plan,
+MC-plan, mapping and quote fingerprints. This isolates the preparation delta;
+it is not a claim to have run an untouched full master executable. Frozen MC
+statistics and accepted kernel performance evidence are reused only for the
+unchanged eligible paths. New curve families have no MC qualification.
+
+Reproduction entry points in the attachment, from the task workdir:
+
+```sh
+python3 evidence/build_scoped.py
+python3 evidence/verify_boundaries.py
+python3 evidence/verify_delivery.py
+```
+
+`build_scoped.py` recompiles the selected real core/public CMake test commands,
+links fresh executables and runs the documented filters. `verify_boundaries.py`
+performs the warning and isolated identity checks and builds the caller harness.
+Caller timing is a separate foreground step after compilation has finished;
+`caller-perf-environment.json` and CSV retain the exact measurement provenance.
+
+## Actual caller cost baseline
+
+These are head-only informational measurements for the new API, with no paired
+regression verdict. There is no existing closed benchmark that invokes the new
+curve-family representation. A small external harness covers preparation,
+combined Price/par evaluation and raw FD/AAD for the IRS, Basis and custom
+fixtures used by the numerical tests. Native cached-rate calls are controls,
+not equivalent prepare/evaluate operations or a claimed speedup comparison.
+
+One pinned CPU, `DAL_NUM_THREADS=1`, i9-13900HX under WSL2; 20 warmup calls and
+10 rounds. Each round uses 100 prepare, 1,000 Price/par or 100 Jacobian calls.
+Compilation and correctness checks finish before timing. Median microseconds
+per call:
+
+| Caller | Prepare | Price + par | FD | AAD |
+|--------|---------|-------------|----|-----|
+| IRS | 222.404 | 12.920 | 60.305 | 37.122 |
+| Basis | 275.542 | 16.797 | 74.494 | 38.012 |
+| Custom weighted/amortizing | 225.667 | 16.715 | 55.453 | 28.100 |
+
+Cached native IRS/Basis rate medians are 0.138/0.180 microseconds. The new
+source-owned adapter therefore has visible caller overhead; these timings do
+not imply parity with a direct native rate call. Min/median/max and raw rounds
+are attached. No portable threshold or two-build regression gate is claimed.
+Legacy numerical kernels, FD defaults and frozen budgets are unchanged.
 
 ## Shared documentation drafts
 
