@@ -8,6 +8,10 @@ current-state explanations in the published docs or focused Codex references.
 
 ## Current Artifacts
 
+- [DAL-407 public script bindings](implementation/dal-407-script-public-bindings.md)
+  — Active owning report publication, shared C++/Python/Excel interfaces,
+  lifecycle/error tests and independent component-build evidence.
+
 - [DAL-406 deterministic curve script families](implementation/dal-406-curve-product-fast-paths.md)
   — Active FRA/IRS/period-forward OIS/Basis/custom cashflow admission, independent
   value/raw-derivative evidence, projection/owned-error repairs and serial documentation.

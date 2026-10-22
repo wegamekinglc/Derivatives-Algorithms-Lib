@@ -45,6 +45,73 @@ namespace {
     }
 } // namespace
 
+TEST(ScriptCurveCalibrationTest, TestReportOwnsEvaluateAndFitAfterInputsAreDestroyed) {
+    for (const bool calibrate : {false, true}) {
+        Handle_<CalibrationReport_> report;
+        double value = 0., residual = 0., parameter = 0., jacobian = 0.;
+        int evaluations = 0, gradients = 0;
+        {
+            const auto spec = DepositSpec();
+            CurveInstrumentCalibrationOptions_ options;
+            options.computeQuoteJacobian_ = true;
+            options.jacobianMode_ = CalibrationDerivative_::Value_::AAD;
+            const PreparedCurveInstruments_ plan(spec, options);
+            const auto result = calibrate ? CalibrateCurveInstruments(spec, options) : plan.Evaluate({-.04});
+            report = result.report_;
+            value = result.modelMeasures_[0];
+            residual = result.rawResiduals_[0];
+            parameter = result.parameters_[0];
+            jacobian = result.quoteJacobian_(0, 0);
+            evaluations = result.evaluations_;
+            gradients = result.gradients_;
+        }
+        ASSERT_TRUE(report);
+        const auto& data = report->Data();
+        ASSERT_EQ(data.observations_.size(), 1u);
+        ASSERT_EQ(data.parameters_.size(), 1u);
+        ASSERT_EQ(data.observations_[0].modelValue_, std::optional<double>(value));
+        ASSERT_EQ(data.observations_[0].rawResidual_, std::optional<double>(residual));
+        ASSERT_EQ(data.observations_[0].derivativeMethod_, "AAD");
+        ASSERT_EQ(data.observations_[0].backend_, "FastDeterministic");
+        ASSERT_EQ(data.parameters_[0].id_, "LOG_DISCOUNT_FACTOR:2027-10-21");
+        ASSERT_EQ(data.parameters_[0].value_, std::optional<double>(parameter));
+        ASSERT_TRUE(data.quoteJacobian_);
+        ASSERT_DOUBLE_EQ((*data.quoteJacobian_)(0, 0), jacobian);
+        ASSERT_EQ(data.summary_.evaluations_, std::optional<int>(evaluations));
+        ASSERT_EQ(data.summary_.jacobianEvaluations_, std::optional<int>(gradients));
+        ASSERT_EQ(data.plans_.size(), 1u);
+        ASSERT_EQ(data.summary_.compilerIdentity_, data.plans_[0].compilerIdentity_);
+        ASSERT_EQ(data.summary_.contextIdentity_, data.plans_[0].contextIdentity_);
+        ASSERT_EQ(report->Axes().quoteIndex_, Vector_<int>({0}));
+        ASSERT_FALSE(report->QuoteRiskAvailable());
+    }
+}
+
+TEST(ScriptCurveCalibrationTest, TestCopiedFailureReportOwnsLastCompleteCandidate) {
+    std::optional<CalibrationError_> retained;
+    {
+        auto spec = DepositSpec();
+        spec.solver_.maxEvaluations_ = 1;
+        try {
+            static_cast<void>(CalibrateCurveInstruments(spec));
+        } catch (const CalibrationError_& error) {
+            retained = error;
+        }
+    }
+    ASSERT_TRUE(retained);
+    const auto& failure = retained->Failure();
+    const auto* candidate = dynamic_cast<const CurveInstrumentCalibrationCandidate_*>(failure.candidate_.get());
+    ASSERT_TRUE(candidate);
+    const auto& result = candidate->Result();
+    ASSERT_TRUE(result.curve_);
+    ASSERT_EQ(failure.report_->Data().summary_.status_, "Failed");
+    ASSERT_EQ(failure.report_->Data().summary_.evaluations_, std::optional<int>(result.evaluations_));
+    ASSERT_EQ(failure.report_->Data().observations_[0].modelValue_, std::optional<double>(result.modelMeasures_[0]));
+    ASSERT_EQ(failure.report_->Data().parameters_[0].value_, std::optional<double>(result.parameters_[0]));
+    ASSERT_FALSE(failure.report_->Data().quoteJacobian_);
+    ASSERT_EQ(failure.report_->Errors()[0].code_, failure.diagnostic_.code_);
+}
+
 TEST(ScriptCurveCalibrationTest, TestNativeCoordinatesAndRawJacobianAgainstCashflowOracle) {
     const auto spec = DepositSpec();
     const PreparedCurveInstruments_ plan(spec);
