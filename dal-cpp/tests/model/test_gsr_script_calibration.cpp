@@ -594,6 +594,108 @@ TEST(GSRScriptCalibrationTest, TestBudgetFailureOwnsObservationAxes) {
     ASSERT_EQ(report->Axes().observations_.size(), 2);
 }
 
+TEST(GSRScriptCalibrationTest, TestBudgetFailureReportRetainsActualWorkAfterInputsDie) {
+    std::optional<CalibrationError_> saved;
+    {
+        auto settings = FitSettings();
+        settings.maxBasketEvaluations_ = 1;
+        try {
+            static_cast<void>(CalibrateGSRScriptPrices(FitContext(), FitRows(settings), FitParameters(), settings));
+            FAIL() << "expected frozen basket budget failure";
+        } catch (const CalibrationError_& error) {
+            saved = error;
+        }
+    }
+    ASSERT_TRUE(saved);
+    const auto& failure = saved->Failure();
+    ASSERT_EQ(failure.diagnostic_.code_, "CalibrationBudgetExceeded");
+    ASSERT_EQ(failure.diagnostic_.field_, std::optional<String_>("/solver/basket_evaluations"));
+    ASSERT_TRUE(failure.candidate_);
+    ASSERT_EQ(failure.report_->Axes().observations_.size(), 2);
+    const auto& data = failure.report_->Data();
+    ASSERT_EQ(data.summary_.domain_, "GSR");
+    ASSERT_EQ(data.summary_.status_, "Failed");
+    ASSERT_EQ(data.summary_.evaluations_, std::optional<int>(1));
+    ASSERT_EQ(data.summary_.jacobianEvaluations_, std::optional<int>(1));
+    ASSERT_EQ(data.summary_.iterations_, std::optional<int>(1));
+    ASSERT_FALSE(data.summary_.objective_);
+    ASSERT_FALSE(data.summary_.numericalValidationPassed_);
+    ASSERT_FALSE(data.quoteJacobian_);
+    ASSERT_EQ(AAD::Tape()->nodes_.Size(), 0);
+}
+
+TEST(GSRScriptCalibrationTest, TestCompletedReportPreservesZeroAndOmitsInfiniteConditionEstimate) {
+    Handle_<CalibrationReport_> report;
+    {
+        const auto settings = FitSettings();
+        const auto rows = FitRows(settings, 1e6);
+        const auto result = CalibrateGSRScriptPrices(FitContext(.02, .025), {rows[0]}, FitParameters(), settings);
+        ASSERT_TRUE(result.converged_);
+        ASSERT_TRUE(result.fitWithinTolerance_);
+        ASSERT_TRUE(result.numericalValidationPassed_);
+        ASSERT_EQ(result.jacobianRank_, 1);
+        ASSERT_TRUE(std::isinf(result.jacobianConditionEstimate_));
+        report = result.report_;
+        const auto& summary = report->Data().summary_;
+        ASSERT_EQ(summary.status_, "Succeeded");
+        ASSERT_EQ(summary.evaluations_, std::optional<int>(result.evaluations_));
+        ASSERT_EQ(summary.jacobianEvaluations_, std::optional<int>(static_cast<int>(result.costs_.jacobians_)));
+        ASSERT_EQ(summary.jacobianRank_, std::optional<int>(1));
+        ASSERT_EQ(summary.terminationReason_, std::optional<String_>(result.terminationReason_));
+        ASSERT_EQ(summary.converged_, std::optional<bool>(true));
+        ASSERT_EQ(summary.fitWithinTolerance_, std::optional<bool>(true));
+        ASSERT_EQ(summary.numericalValidationPassed_, std::optional<bool>(true));
+        ASSERT_EQ(summary.objective_, std::optional<double>(0.));
+        ASSERT_EQ(summary.dataObjective_, std::optional<double>(0.));
+        ASSERT_EQ(summary.penaltyObjective_, std::optional<double>(0.));
+    }
+    ASSERT_TRUE(report);
+    ASSERT_FALSE(report->Data().summary_.jacobianConditionEstimate_);
+    ASSERT_FALSE(report->Data().quoteJacobian_);
+    ASSERT_FALSE(report->QuoteRiskAvailable());
+    ASSERT_EQ(report->Axes().observations_.size(), 1);
+}
+
+TEST(GSRScriptCalibrationTest, TestUnconvergedReportIsCandidate) {
+    auto settings = FitSettings();
+    settings.optimizer_.maxIterations_ = 1;
+    const auto result = CalibrateGSRScriptPrices(FitContext(), FitRows(settings), FitParameters(), settings);
+    ASSERT_FALSE(result.converged_);
+    const auto& summary = result.report_->Data().summary_;
+    ASSERT_EQ(summary.status_, "Candidate");
+    ASSERT_EQ(summary.converged_, std::optional<bool>(false));
+    ASSERT_EQ(summary.terminationReason_, std::optional<String_>("MaxIterations"));
+    ASSERT_EQ(summary.objective_, std::optional<double>(result.objective_));
+    ASSERT_EQ(summary.iterations_, std::optional<int>(1));
+}
+
+TEST(GSRScriptCalibrationTest, TestInvalidMetadataDoesNotReplacePrimaryFailureOrInventMetrics) {
+    std::optional<CalibrationError_> saved;
+    {
+        auto settings = FitSettings();
+        const auto rows = FitRows(settings);
+        settings.optimizer_.priorWeight_ = std::numeric_limits<double>::quiet_NaN();
+        try {
+            static_cast<void>(CalibrateGSRScriptPrices(FitContext(), rows, FitParameters(), settings));
+            FAIL() << "expected invalid prior weight";
+        } catch (const CalibrationError_& error) {
+            saved = error;
+        }
+    }
+    ASSERT_TRUE(saved);
+    ASSERT_EQ(saved->Failure().diagnostic_.code_, "InvalidCalibrationPlan");
+    ASSERT_EQ(saved->Failure().diagnostic_.field_, std::optional<String_>("/settings"));
+    ASSERT_FALSE(saved->Failure().candidate_);
+    const auto& summary = saved->Failure().report_->Data().summary_;
+    ASSERT_EQ(summary.status_, "Failed");
+    ASSERT_EQ(summary.evaluations_, std::optional<int>(0));
+    ASSERT_EQ(summary.jacobianEvaluations_, std::optional<int>(0));
+    ASSERT_EQ(summary.iterations_, std::optional<int>(0));
+    ASSERT_FALSE(summary.converged_);
+    ASSERT_FALSE(summary.objective_);
+    ASSERT_FALSE(summary.penaltyObjective_);
+}
+
 TEST(GSRScriptCalibrationTest, TestNegativeVanillaTargetIsRejected) {
     const auto settings = FitSettings();
     const auto original = FitRows(settings)[0];
@@ -976,4 +1078,38 @@ TEST(GSRScriptRepairTest, TestMissingHeldOutSamplingOwnsTheRequestedHeldOutAxis)
     AssertRepairRow(*error, "sampling-held", CalibrationStage_::Value_::Prepare, 1, 0);
     ASSERT_EQ(error->Failure().diagnostic_.field_, std::optional<String_>("/mc/held_out"));
     ASSERT_FALSE(error->Failure().candidate_);
+}
+
+TEST(GSRScriptRepairTest, TestHeldOutFailureRetainsCompletedFitSummaryAndItsOwnAxes) {
+    std::optional<CalibrationError_> saved;
+    GSRScriptCalibrationResult_ control;
+    {
+        const auto context = AverageContext();
+        const auto settings = FitSettings();
+        const auto good = AverageInstrument("summary-good");
+        const double target = PrepareCalibrationMc(good, "Price", context, settings.sampling_).Evaluate(good, context, false).mean_;
+        const auto fit = RepairRow("summary-fit", good, target);
+        control = CalibrateGSRScriptPrices(context, {fit}, {{0, 0, .001, .06}}, settings);
+        auto source = AverageDefinition();
+        source.source_.rows_.back().text_ = "pay PAYS N/(avg-avg)";
+        const auto bad = NewScriptCalibrationInstrument({"summary-bad", NewScriptInstrumentDefinition(source)});
+        saved = RepairFailure([&] {
+            static_cast<void>(CalibrateGSRScriptPrices(context, {fit}, {{0, 0, .001, .06}}, settings,
+                                                       {RepairRow("summary-held-first", good), RepairRow("summary-held-second", bad)}));
+        });
+    }
+    ASSERT_TRUE(saved);
+    AssertRepairRow(*saved, "summary-held-second", CalibrationStage_::Value_::Validate, 2, 1);
+    ASSERT_TRUE(saved->Failure().candidate_);
+    const auto& summary = saved->Failure().report_->Data().summary_;
+    ASSERT_EQ(summary.status_, "Failed");
+    ASSERT_EQ(summary.objective_, std::optional<double>(control.objective_));
+    ASSERT_EQ(summary.dataObjective_, std::optional<double>(control.dataObjective_));
+    ASSERT_EQ(summary.penaltyObjective_, std::optional<double>(control.penaltyObjective_));
+    ASSERT_EQ(summary.converged_, std::optional<bool>(control.converged_));
+    ASSERT_EQ(summary.fitWithinTolerance_, std::optional<bool>(control.fitWithinTolerance_));
+    ASSERT_EQ(summary.numericalValidationPassed_, std::optional<bool>(control.numericalValidationPassed_));
+    ASSERT_EQ(summary.evaluations_, std::optional<int>(control.evaluations_));
+    ASSERT_EQ(summary.jacobianEvaluations_, std::optional<int>(static_cast<int>(control.costs_.jacobians_)));
+    ASSERT_EQ(AAD::Tape()->nodes_.Size(), 0);
 }
