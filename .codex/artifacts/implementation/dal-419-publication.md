@@ -81,6 +81,11 @@ not claimed.
 
 ## Reproducible commands and evidence
 
+The following are historical commands from immutable commit
+`fd1996a4bfd122d9bfed0c1b4451e234d3eca7d9`. Their one-time tools and raw evidence
+have been moved out of the delivery tree; recover them as described below before
+replaying these commands in a separate checkout.
+
 ```bash
 python3 .codex/artifacts/implementation/dal-419-publication-evidence/prepare.py
 python3 .codex/artifacts/implementation/dal-419-publication-evidence/run_native.py build consumer-423 excel-423 focused consumer-327 excel-327
@@ -104,6 +109,55 @@ numerical/AAD/Monte Carlo timing case is affected; no unrelated benchmark or ful
 product matrix was repeated solely for handoff. Fresh local scope is the affected
 installation/caller path above. Final compiler, diagnostics, sanitizer and wheel
 coverage belongs to the explicitly required final-head CI.
+
+## Evidence migration and input preservation
+
+The first publication head, `fd1996a4bfd122d9bfed0c1b4451e234d3eca7d9`, completed
+all 36 checks: 35 SUCCESS and Codacy ACTION_REQUIRED, with watch exit 1. Codacy
+check-run `119992959037` reported 173 new issues against its unchanged zero
+threshold. The paginated GitHub API exposes only 50 annotations, all in this
+task's one-time evidence Python scripts. The other 123 findings are unclassified;
+this cleanup does not claim to classify or individually fix all 173.
+
+The three task-created directories below were absent from accepted master and
+are removed from the delivery tree after archiving their exact tracked bytes:
+
+- `.codex/artifacts/implementation/dal-419-encoding-evidence/`
+- `.codex/artifacts/implementation/dal-419-publication-evidence/`
+- `.codex/artifacts/validation/dal-419-validation-evidence/`
+
+The DAL-418 dispatch attachment `DAL-419-recoverable-evidence-fd1996a4.zip` contains
+all **45** tracked files at their original paths, including tools, manifests and
+the three original raw ZIPs. Its size is **1,789,961 bytes**, SHA-256
+`61bcd9157b2943d21991eb97f2c0406e5adbd1673e8812abcc583f40855711da`.
+`INVENTORY.json` records each path, Git mode/blob, size and SHA-256. All 45 members
+were read back and matched to their original Git blobs; all 72 archive members
+passed CRC checks. The archive also preserves the previous full CI watch log,
+actual exit, provider snapshots, available annotations and historical reports.
+It contains no dependency checkout, executable or build tree.
+
+Normal Git history retains the source commit. In a disposable checkout, restore
+the original directories with:
+
+```bash
+git restore --source=fd1996a4bfd122d9bfed0c1b4451e234d3eca7d9 -- .codex/artifacts/implementation/dal-419-encoding-evidence .codex/artifacts/implementation/dal-419-publication-evidence .codex/artifacts/validation/dal-419-validation-evidence
+```
+
+Alternatively extract those three subtrees from the attachment and verify them
+against `INVENTORY.json`. Paths and commands in the unchanged implementation,
+independent validation and review reports refer to this immutable evidence.
+
+This phase changes only those 45 delivery entries and this publication report.
+Every other tracked path, mode and blob matches `fd1996a4`, including all product
+code, formal tests, build/export files, configuration, workflows and dependency
+pins. The two code blobs also match approved `909d59d3` as recorded above. Thus
+the independent review and the fresh integrated default-installation/caller
+results remain applicable; no product or installation matrix is repeated for
+this evidence-only change. Recovery, scope, report/link and staged-diff checks
+are the local validation for this phase. No quality rule, exclusion, threshold,
+required check or maintained-code behavior is changed. The new publication head
+still requires its own complete foreground CI result, including Codacy; the old
+35 successes are not substituted for that result.
 
 ## Publication boundary
 

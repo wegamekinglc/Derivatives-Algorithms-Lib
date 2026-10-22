@@ -1,7 +1,0 @@
-{
-  "stage": "Post-run evidence collection, not a product test",
-  "initial_error": "Compile-command selector expected /c; CMake emitted MSVC -c",
-  "correction": "Accept both documented switch spellings and reject encoding overrides with either slash or dash",
-  "product_or_test_files_changed": false,
-  "product_test_reruns_needed": false
-}

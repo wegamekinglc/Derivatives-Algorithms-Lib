@@ -1,9 +1,0 @@
-{
-  "tested_head": "696edf742f4c9024e7745f55c65923b56d98abca",
-  "verdict": "PASS for scoped DAL-419 validation; review/PR/final-head gates pending",
-  "archive": "raw-evidence.zip",
-  "archive_sha256": "76a5ccf440ef9c52e45b5a3500ef4748727b776557b90babf2e2ca54578efe93",
-  "archive_bytes": 275273,
-  "raw_hash_count": 122,
-  "report_sha256": "fb89c37a72a562de39950d72a57e0f8eb3c99fcd8853e6699e6ea5817e1275a4"
-}

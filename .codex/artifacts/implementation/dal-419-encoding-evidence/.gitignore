@@ -1,7 +1,0 @@
-# Raw captures and generated drivers are preserved in raw-evidence.zip.
-/*.log
-/*.xml
-/*.bin
-/*.cmd
-/source-audit-*.json
-/source.patch
