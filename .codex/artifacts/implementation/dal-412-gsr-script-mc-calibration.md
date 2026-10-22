@@ -2,13 +2,23 @@
 
 ## Delivery state and authority
 
-The complete implementation at 557415ed received main review; its three requested
-repairs are implemented under coordinator comment
-`01a16295-b49b-722e-ba0e-a4bc08456f32`. The original PR #618 and checkout are
-retained. This record now awaits limited repair review and exact-head CI; no
-reviewer is dispatched by the author and DAL-413 remains downstream.
+The required DAL-406 master integration is complete in normal merge
+`93fc8a53f29b9f14ea861d2ee42253697e627c96`, preserving reviewed parent
+`ac089b6394ef786623509870273dec969b5f73f9` and merged master
+`f50db2e93eb16823190ed18b5d73a115f0e9c48f`. Canonical CMake targets have been
+rebuilt and the exact 175 affected checks pass. The subsequent record-only
+commit preserves all 2,754 non-Markdown entries. The final section records the
+actual integration and executable evidence; the earlier draft section is
+historical preparation, not the final build.
 
-Clean input HEAD and fetched master were
+The complete implementation at 557415ed received main review; its three requested
+repairs were accepted at ac089b63 under coordinator comment
+`01a16295-b49b-722e-ba0e-a4bc08456f32`. The original PR #618 and checkout are
+retained. This integration now awaits limited product-integration review and
+fresh exact-head CI; the author does not dispatch reviewers or merge the PR,
+and DAL-413 remains downstream.
+
+The original implementation's clean input HEAD and fetched master were
 `f2dfa8e9cb4eb8508bd3425676e90c2cb513ee86` (merged DAL-411 / PR #616), containing
 DAL-401 merge `15a3b445362062e75099de3bf9b4353fa2225873` and DAL-405. The research
 baseline `0f1feabee193d0976ab7a5336c9e9e29cb2aa28d` is historical only.
@@ -23,12 +33,13 @@ authorization/scheduling thread and both current issue descriptions; implementer
 code/test/component, publication and performance references; relevant source/tests.
 Research was downloaded through `multica attachment download`.
 
-After DAL-406's clean delivery, this continuation owns only the authorized
-preparation `.hpp/.cpp` and preparation-test window, plus its existing MC/driver
-scope. Instrument, curve and shared compiler products remain untouched. The
-authorized guide, CHANGELOG and own artifact-index integration is now included;
-DAL-406's unpublished content is not imported. Existing guide links in the docs
-indexes and CLAUDE already point to the same guide and need no new link.
+Authored product integration is limited to the authorized preparation
+`.hpp/.cpp` and preparation-test window. Other incoming instrument/curve
+product is inherited exactly from accepted merged DAL-406; the reviewed MC/
+driver files remain unchanged. The guide, CHANGELOG and artifact index retain
+both accepted contents after the serial document handoff. Unmerged DAL-407/408
+product is excluded. Existing guide links in the docs indexes and CLAUDE
+already point to the same guide and need no new link.
 
 ## Design and implemented behavior
 
@@ -527,3 +538,173 @@ retain that checkpoint's identity. It adds only guide/CHANGELOG/record text and
 receives static checks, with no further product or performance execution.
 Existing guide/index links remain valid and unchanged. CI and limited review
 are still external gates.
+
+## DAL-406 integration draft and serial continuation, 10:21–10:42 UTC
+
+Coordinator authorization `01a162fa-eb56-74f6-bd00-17df9f49f5da` requires a normal
+merge of actually merged master `f50db2e93eb16823190ed18b5d73a115f0e9c48f` into
+the original branch and PR #618. The reviewed input remains
+`ac089b6394ef786623509870273dec969b5f73f9`. Read-only `git merge-tree --write-tree
+HEAD origin/master` produced `d9fc08af241c81c4136e8e4593da389fa0947674` and the
+expected five conflicts. The preparation test merged automatically but needs
+the combined admission boundary verified.
+
+At 2026-10-22T10:21Z, DAL-408 had no active run and its final comment
+`01a16320-b8a2-74b5-8065-b8b4ab367673` explicitly released preparation writes.
+At 10:37Z DAL-407 run `01a162ef-c84f-77b0-b4d3-096fa3330310` remained running,
+with no shared-document handoff or final comment. Its issue remained
+in_progress. The preparation window is available; the three shared Markdown
+paths remain reserved. No other checkout or unmerged sibling product was
+imported. This run changed only this record in the canonical checkout.
+
+The exact proposal is saved outside protected repository paths in
+`dal412-master-integration-draft`, with separate product/Markdown patches and
+SHA-256 manifests in `dal412-integration-evidence`. These runtime files are
+packaged as an issue attachment rather than presented as accessible paths.
+The proposal preserves both descriptor types, the original three descriptor
+alternatives, complete source matchers, compiler tokens and descriptor-specific
+context identity. Curve candidates go through the existing authoritative
+curve lowerer and deterministic-only admission before generic MC fallback.
+It retains the generic scalar admission, Deposit reservation even with scratch
+assignments, the actual Libor convention checks and all three reviewed repairs.
+Other product changes in the proposal are inherited byte-for-byte from merged
+master. Shared protocol/report/curve publication code has no author edits.
+The guide, CHANGELOG and artifact-index draft retain both accepted contents;
+only their shared Libor-identity sentence needs a mechanical union of the three
+affected descriptor categories.
+
+One new focused regression supplies a valid DF-observing curve coupon, a matching
+Gaussian model and explicit MC opt-in. Its deterministic plan is admitted and
+compatible; the MC request must retain an owning Prepare-stage
+UnsupportedFastEvaluator at `/options/evaluation`.
+
+- RED: the mechanically combined draft kept the old generic MC dispatch;
+  `draft-tests --gtest_filter=CalibrationPreparationTest.TestCurveFamilyCannotAcquireGeneralMcRuleWithMatchingGaussianModel`
+  exited 1 because no refusal was thrown. This is a draft integration witness,
+  not a claim that either separately reviewed parent failed its own contract.
+- GREEN: adding the existing curve-candidate reservation to dispatch made the
+  full preparation and curve-family suites pass, 64/64. The final focused
+  affected run passed 175/175 across ten suites: complete preparation and
+  curve families; non-statistical driver/MC and all seven repair cases;
+  native rate-option source controls; source/binding/unit/archive controls;
+  three small average oracle/gradient/driver cases; and the Deposit source
+  mutation control. The frozen high-budget statistical cases were excluded.
+- The draft build compiled the six changed/inherited product TUs and seven test
+  TUs against the merged-header overlay, then linked the reviewed base archive.
+  Exact commands and XML/logs are attached. This is draft validation; the real
+  CMake target rebuild is still required after applying the normal merge.
+- Four GCC 14/15 warning checks passed for preparation and its test; maximum
+  CCN is 8 in production and 5 in the test. Formatting passed. An isolated
+  resolved merge snapshot passed the repository checks for all 88 Markdown
+  files without writing the three reserved canonical documents.
+- Five before/draft identity rows match exactly: Deposit, BondOption, Caplet,
+  Swaption and generic average MC. These cover source, binding, instrument,
+  compiler, context and prepared-plan identity, plus vanilla MC mapping/plan
+  identity. The inherited family compatibility and context tests pass.
+- Forty small actual CalibrateGSRScriptPrices caller samples retain exact
+  values, plan identities and basket/batch/path counts. With CPU 4, one DAL
+  thread, 20 warmups and ten samples, before/draft median microseconds are
+  one-row FD 3292.723/3236.8865, AAD 2118.7985/2097.849; two-row FD
+  6573.9025/6680.197, AAD 4087.0695/4263.7965. This is informational evidence,
+  not a performance gate or a full matrix.
+
+MRG32 seed 1024, Precise, per-view 589824, scales/floors/steps/nu and the
+accepted N100 independent flags remain unchanged. N200 `.031871 > .025` and
+the old Swaption `.0426379743 > .025` still reject under their accepted evidence;
+no frozen statistical/performance matrix was rerun. The reviewed driver/MC
+implementation and tests are unchanged.
+
+The remaining write window is a scheduling constraint, not a financial/API
+question. A once persistent condition will resume this same author when
+DAL-407 reaches in_review, with a bounded timeout. On resumption, recheck actual
+handoff/runs/head/master, perform the normal merge in this original checkout,
+apply only the three product resolutions and three mechanical documents,
+rebuild affected targets, rerun the directly affected checks, update this
+record and the same PR, and deliver a real new head for limited review and fresh
+exact-head gates. Do not treat these drafts as the completed integration or
+set in_review yet; do not merge, dispatch experts or start DAL-413.
+
+Persistent once rule `01a16331-94df-75b8-8a2a-770d293a5a07` was registered at
+10:39:16Z for DAL-407 in_review, expiring at 18:39:16Z with one timeout wake.
+It is a document-window continuation, not a duplicate CI rule. DAL-412 is
+blocked only on that write window; the next authorized run restores in_progress
+before completing the integration. No run-owned work is left running.
+
+## Completed DAL-406 master integration
+
+The once rule fired on DAL-407 in_review at 10:48:50Z and is now consumed and
+disabled. Before editing, the original author reread the current own/parent
+instructions, bounded comment threads and sibling active runs. DAL-407 final
+comment `01a1633b-12d9-7b90-b115-3a5022a8bdd4` at 10:49:38Z explicitly released
+the guide/CHANGELOG/artifact-index window; no DAL-407 run remained active.
+DAL-408's source handoff remains valid: its subsequent two-P2 repair scope
+explicitly excludes preparation, report and the public documents. The original
+checkout, reviewed head, fetched f50db2e9 master and every draft hash matched.
+DAL-412 returned to in_progress before this work. No new business/API decision
+or expert chain was opened.
+
+`git merge --no-ff --no-commit origin/master` produced exactly the five expected
+conflicts. Applying the six verified draft files resolved them and added the
+focused regression to the automatically merged preparation test. The resulting
+non-Markdown tree exactly matches the validated proposal. The normal merge
+commit is `93fc8a53f29b9f14ea861d2ee42253697e627c96`, with ordered parents
+`ac089b6394ef786623509870273dec969b5f73f9` and
+`f50db2e93eb16823190ed18b5d73a115f0e9c48f`. No history was rewritten.
+
+The only authored product integration paths are
+`dal-cpp/dal/script/calibrationpreparation.hpp`,
+`dal-cpp/dal/script/calibrationpreparation.cpp` and
+`dal-cpp/tests/script/test_calibration_preparation.cpp`. The ten other incoming
+product paths equal merged master byte-for-byte. Protocol/report and curve
+publication paths have no author edits. Both descriptors, source matchers,
+compiler/context identities and all old Deposit/vanilla classifications remain.
+Curve candidates use the original curve matcher and deterministic-only refusal
+before the generic MC path; no second matcher or product authority was added.
+The three shared Markdown conflicts are mechanical unions; this record is the
+only subsequent documentation-only change.
+
+Fresh final verification, distinguished from the earlier overlay build:
+
+- `cmake --build build/Release-linux --target dal_cpp dal_cpp_tests -j 4`
+  exited 0. Both canonical targets were rebuilt, including affected production
+  and test dependencies. Existing unrelated test TUs emitted non-fatal
+  unused-result warnings; the scoped strict checks described below passed.
+- `python3 dal412-integration-final/verify.py` ran the new focused refusal
+  regression (1/1) and the exact original 175 affected test names (175/175)
+  against `build/Release-linux/dal-cpp/dal_cpp_tests`. XML/logs and the complete
+  test command are in the final evidence. This includes complete preparation
+  and curve-family suites, projection Prepare/owning errors, all seven 412
+  repairs, old vanilla/Deposit controls and three small generic average oracle/
+  gradient/driver cases. The draft RED remains the pre-fix witness; it is not
+  relabeled as a failure of either accepted parent.
+- `DAL412_PROBE_BUILD_ONLY=1 python3 dal412-integration-final/verify.py`
+  rebuilt identity and actual-caller clients against the canonical core
+  archive, without draft objects. `python3 dal412-integration-final/measure.py`
+  confirmed all five old vanilla/generic identity rows and all 40 caller
+  value/plan/work-count rows exactly match the original-head control.
+- Informational before/after median microseconds are one-row FD
+  3374.841/3394.3765, AAD 2145.2695/2200.5885; two-row FD
+  6687.8955/6774.512, AAD 4282.3755/4316.7645. CPU 4, one DAL thread, 20
+  warmups and ten samples remain fixed. This is the smallest changed-caller
+  check, not a regression-gate verdict or a repeated performance matrix.
+- Canonical format/diff checks and the repository's 88-Markdown check pass.
+  Maximum production CCN is 8. The four GCC14/15 strict warning checks from the
+  draft are reused on identical source and dependencies. All seven reviewed
+  driver/MC source/test files remain byte-identical to ac089b63; unchanged
+  native Gaussian/RNG/statistical paths retain their accepted evidence.
+
+MRG32 seed1024/Precise, per-view589824, scales/floors/steps/nu, N100's independent
+flags and the N200/old-Swaption rejection outcomes are unchanged. Earlier
+168/168, 57/57, 84/84 and frozen numerical evidence are reused only in this
+documented scope. No unrelated public, Windows, full-repository, statistical
+or performance test matrix was run. Build scripts/options/examples and wire
+formats did not change, so no new example/component build matrix is required.
+
+Final evidence separates the full product and Markdown integration differences,
+the manual merge resolutions and the subsequent record-only diff. It contains
+the exact build/test/probe commands, original RED, final GREEN XML/logs,
+source/commit/submodule/configuration and archive/test/client SHA-256 identities.
+The final delivery comment and manifest identify the actual pushed PR head;
+it must receive fresh checks and the coordinator's limited integration review.
+The old 36 successful checks are not used as a new-head gate. CI remains an
+external handoff, and the author does not merge or start DAL-413.
