@@ -9,6 +9,7 @@
 #include <dal/math/random/pseudorandom.hpp>
 #include <dal/model/gsrcalibration.hpp>
 #include <dal/model/gsrmultidata.hpp>
+#include <dal/model/gsrscriptcalibration.hpp>
 #include <dal/script/calibrationmc.hpp>
 #include <dal/script/calibrationmc_internal.hpp>
 #include <dal/time/dateutils.hpp>
@@ -152,6 +153,79 @@ TEST(CalibrationMcTest, TestCompiledEvaluatorIsDefault) {
         ASSERT_EQ(actual.pathValues_, expected.pathValues_);
         ASSERT_EQ(actual.gradient_, expected.gradient_);
     }
+}
+
+TEST(CalibrationMcTest, TestHeldOutUsesThirdDisjointRange) {
+    const auto instrument = McInstrument(true);
+    const auto context = McContext();
+    auto settings = McSettings(true, true);
+    settings.heldOutBatches_ = 2;
+    settings.heldOutPathsPerBatch_ = 16;
+    settings.maxPathsPerView_ = 80;
+    const auto plan = PrepareCalibrationMc(instrument, "Price", context, settings);
+    const auto held = plan.EvaluateHeldOut(instrument, context);
+    ASSERT_TRUE(held.heldOut_);
+    ASSERT_EQ(held.ranges_[0].firstPath_, 48);
+    ASSERT_EQ(held.pathsPerView_, 32);
+    ASSERT_NE(held.pathValues_, plan.Evaluate(instrument, context, true).pathValues_);
+    ASSERT_EQ(held.pathValues_, plan.EvaluateHeldOut(instrument, context).pathValues_);
+    settings.maxPathsPerView_ = 79;
+    ASSERT_THROW(PrepareCalibrationMc(instrument, "Price", context, settings), CalibrationError_);
+}
+
+TEST(CalibrationMcTest, TestRefreshGReusesStructureAndRefreshesInputs) {
+    const auto instrument = McInstrument(true);
+    const auto initial = McContext();
+    const auto candidate = McContext(0.03);
+    const auto settings = McSettings(true, true);
+    const auto plan = PrepareCalibrationMc(instrument, "Price", initial, settings);
+    const auto refreshed = plan.RefreshG(candidate);
+    const auto actual = refreshed.Evaluate(instrument, candidate, false);
+    const auto rebuilt = PrepareCalibrationMc(instrument, "Price", candidate, settings).Evaluate(instrument, candidate, false);
+    ASSERT_EQ(actual.pathValues_, rebuilt.pathValues_);
+    ASSERT_EQ(actual.gradient_, rebuilt.gradient_);
+    ASSERT_EQ(actual.planIdentity_, rebuilt.planIdentity_);
+    ASSERT_EQ(plan.Mapping().identity_, refreshed.Mapping().identity_);
+    ASSERT_NE(plan.PlanIdentity(), refreshed.PlanIdentity());
+    ASSERT_NE(actual.pathValues_, plan.Evaluate(instrument, initial, false).pathValues_);
+    ASSERT_THROW(static_cast<void>(refreshed.Evaluate(instrument, initial, false)), CalibrationError_);
+    ASSERT_THROW(static_cast<void>(plan.RefreshG(McContext(0.03, -0.05))), CalibrationError_);
+    auto changed = candidate;
+    changed.smoothing_ = 0.01;
+    ASSERT_THROW(static_cast<void>(plan.RefreshG(changed)), CalibrationError_);
+    ASSERT_THROW(static_cast<void>(plan.RefreshG(McContext(0.))), CalibrationError_);
+}
+
+TEST(CalibrationMcTest, TestHeldOutCannotBeUsedAsValidation) {
+    const auto instrument = McInstrument(true);
+    const auto context = McContext();
+    auto settings = McSettings();
+    settings.heldOutBatches_ = 2;
+    settings.heldOutPathsPerBatch_ = 16;
+    settings.maxPathsPerView_ = 80;
+    const auto plan = PrepareCalibrationMc(instrument, "Price", context, settings);
+    const auto fit = plan.Evaluate(instrument, context, false);
+    const auto held = plan.EvaluateHeldOut(instrument, context);
+    CalibrationMcPrecision_ precision;
+    precision.errorScale_ = .1;
+    ASSERT_THROW(ValidateCalibrationMc(fit, held, precision), CalibrationError_);
+}
+
+TEST(CalibrationMcTest, TestPriceDriverRejectsHeldOutScalarMeasure) {
+    const auto instrument = McInstrument(true);
+    const auto context = McContext();
+    auto sampling = McSettings();
+    sampling.heldOutBatches_ = 2;
+    sampling.heldOutPathsPerBatch_ = 16;
+    sampling.maxPathsPerView_ = 80;
+    const double target = PrepareCalibrationMc(instrument, "Price", context, sampling).Evaluate(instrument, context, false).mean_;
+    const auto row = NewCalibrationObservation("fit", instrument, "Price",
+                                               NewCalibrationMarketQuote("fit", target, CalibrationValueUnit_::Parse("Price:USD")), .1);
+    const auto held = NewCalibrationObservation("held", McInstrument(), "ParRate",
+                                                NewCalibrationMarketQuote("held", .04, CalibrationValueUnit_::Parse("Rate")), .001);
+    GSRScriptCalibrationSettings_ settings;
+    settings.sampling_ = sampling;
+    ASSERT_THROW(static_cast<void>(CalibrateGSRScriptPrices(context, {row}, {{0, 0, .001, .06}}, settings, {held})), CalibrationError_);
 }
 
 TEST(CalibrationMcTest, TestSameBindingTreeAndCompiledPathPayoffs) {

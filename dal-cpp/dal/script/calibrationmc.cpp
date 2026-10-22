@@ -10,6 +10,7 @@
 #include <dal/script/calibrationmc.hpp>
 #include <dal/script/calibrationmc_internal.hpp>
 #include <dal/script/preparation.hpp>
+#include <dal/storage/json.hpp>
 
 namespace Dal {
     namespace {
@@ -36,8 +37,13 @@ namespace Dal {
             Check(s.maxPathsPerView_ <= INT_MAX, "InvalidCalibrationPlan", "/mc/max_paths_per_view", "budget within exact count range", "", d);
             const auto fit = static_cast<size_t>(s.fitBatches_) * s.fitPathsPerBatch_;
             const auto val = static_cast<size_t>(s.validationBatches_) * s.validationPathsPerBatch_;
+            Check((s.heldOutBatches_ == 0 && s.heldOutPathsPerBatch_ == 0) || (s.heldOutBatches_ >= 2 && s.heldOutPathsPerBatch_ >= 2),
+                  "InvalidCalibrationPlan", "/mc/held_out", "disabled or at least two batches of two paths", "", d);
+            const auto held = static_cast<size_t>(s.heldOutBatches_) * s.heldOutPathsPerBatch_;
             Check(val > fit && fit <= s.maxPathsPerView_ && val <= s.maxPathsPerView_ - fit, "CalibrationBudgetExceeded", "/mc/max_paths_per_view",
                   "fit plus larger independent validation within explicit budget", "", d);
+            Check(held <= s.maxPathsPerView_ - fit - val, "CalibrationBudgetExceeded", "/mc/max_paths_per_view",
+                  "fit, validation and held-out within explicit budget", "", d);
         }
         void ValidateSettings(const CalibrationMcSettings_& s, const CalibrationDiagnostic_& d) {
             Check(s.allowMonteCarloCalibration_, "UnsupportedFastEvaluator", "/mc/allow_monte_carlo_calibration", "explicit opt-in", "", d);
@@ -46,6 +52,24 @@ namespace Dal {
             Check(!s.aad_ || !s.parameterLabels_.empty(), "DerivativeUnavailable", "/mc/parameter_labels", "explicit ordered native labels", "", d);
             Check(std::isfinite(s.annuitySigma_) && s.annuitySigma_ > 0., "InvalidCalibrationPlan", "/mc/annuity_sigma", "finite positive sigma", "",
                   d);
+        }
+        String_ ExecutionIdentity(const PreparedCalibrationInstrument_& admitted,
+                                  const CalibrationMcMapping_& mapping,
+                                  const CalibrationMcSettings_& settings) {
+            return Fingerprint(Obj({{"executor", Str("dal.script-mc/1")},
+                                    {"admission", Str(admitted.PlanIdentity())},
+                                    {"mapping", Str(mapping.identity_)},
+                                    {"fit_batches", Num(settings.fitBatches_)},
+                                    {"fit_paths", Num(settings.fitPathsPerBatch_)},
+                                    {"validation_batches", Num(settings.validationBatches_)},
+                                    {"validation_paths", Num(settings.validationPathsPerBatch_)},
+                                    {"held_out_batches", Num(settings.heldOutBatches_)},
+                                    {"held_out_paths", Num(settings.heldOutPathsPerBatch_)},
+                                    {"budget", Num(static_cast<double>(settings.maxPathsPerView_))},
+                                    {"compiled", Bool(settings.compiled_)},
+                                    {"aad", Bool(settings.aad_)},
+                                    {"annuity_sigma", Num(settings.annuitySigma_)},
+                                    {"labels", Array(settings.parameterLabels_, [](const auto& label) { return Str(label); })}}));
         }
         void RequireScalarTape(bool aad, const CalibrationDiagnostic_& d) {
             Check(!aad || (!AAD::Tape()->multi_ && AAD::Tape()->numAdj_ == 1), "DerivativeUnavailable", "/mc/tape",
@@ -61,7 +85,7 @@ namespace Dal {
                   "DerivativeUnavailable", "/mc/g_coordinates", "existing factor and g knot");
         }
         CalibrationMcMapping_
-        Mapping(const Script::PreparedScript_& script, const AAD::Model_<double>& model, const Vector_<String_>& factorNames, int seed) {
+        MakeMapping(const Script::PreparedScript_& script, const AAD::Model_<double>& model, const Vector_<String_>& factorNames, int seed) {
             CalibrationMcMapping_ m;
             m.seed_ = seed;
             m.timeline_ = script.TimeLine();
@@ -346,11 +370,11 @@ namespace Dal {
 
     struct PreparedCalibrationMc_::Impl_ {
         PreparedCalibrationInstrument_ admitted_;
-        Script::PreparedScript_ script_;
-        std::optional<Script::PreparedScript_> a_;
+        std::shared_ptr<const Script::PreparedScript_> script_, a_;
+        CalibrationPreparationContext_ context_;
         CalibrationMcSettings_ settings_;
         CalibrationMcMapping_ mapping_;
-        Vector_<CalibrationMcBatch_> fit_, validation_;
+        Vector_<CalibrationMcBatch_> fit_, validation_, heldOut_;
         String_ identity_;
     };
 
@@ -384,26 +408,19 @@ namespace Dal {
                                                        instrument->Definition()->Spec().source_.settings_);
             Check(script.Product().VarNames()[script.PayOffIdx()] == instrument->Definition()->Spec().header_.receiver_,
                   "InvalidCalibrationOutputBinding", "/receiver", "admitted receiver equals prepared payoff slot", "", d);
-            auto mapping = Mapping(script, *model, FactorNames(context.model_), settings.seed_);
+            auto mapping = MakeMapping(script, *model, FactorNames(context.model_), settings.seed_);
             Check(mapping.normalCoordinates_.size() == mapping.dimension_, "InvalidCalibrationPlan", "/mc/mapping", "complete normal coordinates", "",
                   d);
             const size_t fitPaths = static_cast<size_t>(settings.fitBatches_) * settings.fitPathsPerBatch_;
-            const auto identity = Fingerprint(Obj({{"executor", Str("dal.script-mc/1")},
-                                                   {"admission", Str(admitted.PlanIdentity())},
-                                                   {"mapping", Str(mapping.identity_)},
-                                                   {"fit_batches", Num(settings.fitBatches_)},
-                                                   {"fit_paths", Num(settings.fitPathsPerBatch_)},
-                                                   {"validation_batches", Num(settings.validationBatches_)},
-                                                   {"validation_paths", Num(settings.validationPathsPerBatch_)},
-                                                   {"budget", Num(static_cast<double>(settings.maxPathsPerView_))},
-                                                   {"compiled", Bool(settings.compiled_)},
-                                                   {"aad", Bool(settings.aad_)},
-                                                   {"annuity_sigma", Num(settings.annuitySigma_)},
-                                                   {"labels", Array(settings.parameterLabels_, [](const auto& label) { return Str(label); })}}));
+            const auto identity = ExecutionIdentity(admitted, mapping, settings);
             return PreparedCalibrationMc_(std::make_shared<PreparedCalibrationMc_::Impl_>(
-                PreparedCalibrationMc_::Impl_{std::move(admitted), std::move(script), std::move(a), settings, std::move(mapping),
-                                              Ranges(0, settings.fitBatches_, settings.fitPathsPerBatch_),
-                                              Ranges(fitPaths, settings.validationBatches_, settings.validationPathsPerBatch_), identity}));
+                PreparedCalibrationMc_::Impl_{std::move(admitted), std::make_shared<const Script::PreparedScript_>(std::move(script)),
+                                              a ? std::make_shared<const Script::PreparedScript_>(std::move(*a)) : nullptr, context, settings,
+                                              std::move(mapping), Ranges(0, settings.fitBatches_, settings.fitPathsPerBatch_),
+                                              Ranges(fitPaths, settings.validationBatches_, settings.validationPathsPerBatch_),
+                                              Ranges(fitPaths + static_cast<size_t>(settings.validationBatches_) * settings.validationPathsPerBatch_,
+                                                     settings.heldOutBatches_, settings.heldOutPathsPerBatch_),
+                                              identity}));
         } catch (const CalibrationError_&) {
             throw;
         } catch (const Exception_& error) {
@@ -417,9 +434,56 @@ namespace Dal {
         return validation ? impl_->validation_ : impl_->fit_;
     }
 
+    PreparedCalibrationMc_ PreparedCalibrationMc_::RefreshG(const CalibrationPreparationContext_& context) const {
+        const auto& instrument = impl_->admitted_.Instrument();
+        const auto d = McDiagnostic(*instrument, impl_->admitted_.Measure().id_);
+        auto frozen = context;
+        frozen.model_ = impl_->context_.model_;
+        impl_->admitted_.RequireCompatible(instrument, frozen);
+        Check(context.model_ && typeid(*context.model_) == typeid(MultiFactorGSRModelData_) &&
+                  typeid(*impl_->context_.model_) == typeid(MultiFactorGSRModelData_),
+              "CalibrationContextMismatch", "/mc/candidate", "MultiFactor Gaussian g-only candidate", "", d);
+        const auto& original = static_cast<const MultiFactorGSRModelData_&>(*impl_->context_.model_);
+        const auto& candidate = static_cast<const MultiFactorGSRModelData_&>(*context.model_);
+        const auto& v = *candidate.vol_;
+        Check(v.gValues_.Rows() == original.vol_->gValues_.Rows() && v.gValues_.Cols() == original.vol_->gValues_.Cols(),
+              "CalibrationContextMismatch", "/mc/candidate/g", "unchanged g layout", "", d);
+        const Handle_<MultiFactorGSRVolData_> normalizedVol(
+            new MultiFactorGSRVolData_(v.name_, v.factorNames_, v.gKnotDates_, original.vol_->gValues_, v.hKnotDates_, v.hValues_, v.correlations_));
+        const MultiFactorGSRModelData_ normalized(candidate.name_, candidate.curve_, normalizedVol);
+        Check(Bytes(JSON::WriteString(normalized)) == Bytes(JSON::WriteString(original)), "CalibrationContextMismatch", "/mc/candidate",
+              "only g values may change; fixed curve, geometry, H and correlations", "", d);
+        CalibrationEvaluationOptions_ options;
+        options.evaluation_ = CalibrationEvaluation_::Value_::ScriptMC;
+        options.allowMonteCarloCalibration_ = true;
+        options.derivativeMethod_ = impl_->settings_.aad_ ? CalibrationDerivative_::Value_::AAD : CalibrationDerivative_::Value_::None;
+        options.sampling_ = impl_->admitted_.Sampling();
+        auto admitted = PrepareCalibrationInstrument(instrument, impl_->admitted_.Measure().id_, context, options);
+        auto model = CreateModel<double>(context.model_);
+        model->Allocate(impl_->script_->TimeLine(), impl_->script_->DefLine());
+        if (impl_->settings_.aad_)
+            DerivativeDomain(admitted, *model, impl_->settings_.parameterLabels_, context, d);
+        const auto mapping = MakeMapping(*impl_->script_, *model, FactorNames(context.model_), impl_->settings_.seed_);
+        Check(Bytes(mapping.identity_) == Bytes(impl_->mapping_.identity_), "CalibrationContextMismatch", "/mc/mapping",
+              "unchanged timeline and normal coordinates", "", d);
+        const auto identity = ExecutionIdentity(admitted, mapping, impl_->settings_);
+        return PreparedCalibrationMc_(std::make_shared<Impl_>(Impl_{std::move(admitted), impl_->script_, impl_->a_, context, impl_->settings_,
+                                                                    mapping, impl_->fit_, impl_->validation_, impl_->heldOut_, identity}));
+    }
+
     CalibrationMcResult_ PreparedCalibrationMc_::Evaluate(const Handle_<CalibrationInstrument_>& instrument,
                                                           const CalibrationPreparationContext_& context,
                                                           bool validation) const {
+        return EvaluateRanges(instrument, context, validation, false);
+    }
+    CalibrationMcResult_ PreparedCalibrationMc_::EvaluateHeldOut(const Handle_<CalibrationInstrument_>& instrument,
+                                                                 const CalibrationPreparationContext_& context) const {
+        return EvaluateRanges(instrument, context, true, true);
+    }
+    CalibrationMcResult_ PreparedCalibrationMc_::EvaluateRanges(const Handle_<CalibrationInstrument_>& instrument,
+                                                                const CalibrationPreparationContext_& context,
+                                                                bool validation,
+                                                                bool heldOut) const {
         impl_->admitted_.RequireCompatible(instrument, context);
         const auto d = McDiagnostic(*instrument, impl_->admitted_.Measure().id_, CalibrationStage_::Value_::Evaluate);
         RequireScalarTape(impl_->settings_.aad_, d);
@@ -431,11 +495,13 @@ namespace Dal {
             result.planIdentity_ = impl_->identity_;
             result.measureId_ = impl_->admitted_.Measure().id_;
             result.validation_ = validation;
+            result.heldOut_ = heldOut;
             result.parameterLabels_ = impl_->settings_.parameterLabels_;
-            result.ranges_ = Batches(validation);
+            result.ranges_ = heldOut ? impl_->heldOut_ : Batches(validation);
+            Check(!result.ranges_.empty(), "InvalidCalibrationPlan", "/mc/held_out", "explicit held-out sampling", "", d);
             result.pathsPerView_ = result.ranges_.size() * result.ranges_[0].pathCount_;
             result.engineRuns_ = result.ranges_.size();
-            RunView(impl_->script_, context.model_, impl_->settings_, &result);
+            RunView(*impl_->script_, context.model_, impl_->settings_, &result);
             if (impl_->a_) {
                 auto a = result;
                 a.batches_.clear();
