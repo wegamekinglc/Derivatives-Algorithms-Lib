@@ -113,14 +113,15 @@ namespace Dal {
                 return d.role_ == ScriptParameterRole_::Value_::Notional;
             if (Bytes(d.key_) == "ALPHA")
                 return d.role_ == ScriptParameterRole_::Value_::Accrual;
-            return d.role_ == ScriptParameterRole_::Value_::Coupon || d.role_ == ScriptParameterRole_::Value_::Strike;
+            return d.role_ == ScriptParameterRole_::Value_::Coupon || d.role_ == ScriptParameterRole_::Value_::Strike ||
+                   d.role_ == ScriptParameterRole_::Value_::RateStrike;
         }
         String_ ParameterUnit(const ScriptParameterDeclaration_& d, const ScriptInstrumentHeader_& header) {
             if (Bytes(d.key_) == "N")
                 return "Price:" + String_(header.payCurrency_.String());
             if (Bytes(d.key_) == "ALPHA")
                 return "YearFraction";
-            return d.role_ == ScriptParameterRole_::Value_::Coupon ? "Rate" : "BondPrice";
+            return d.role_ == ScriptParameterRole_::Value_::Strike ? "BondPrice" : "Rate";
         }
         bool NonemptyDomain(const ScriptParameterDeclaration_& d) {
             return !d.lower_ || !d.upper_ || *d.lower_ < *d.upper_ || (*d.lower_ == *d.upper_ && d.lowerInclusive_ && d.upperInclusive_);
@@ -290,7 +291,7 @@ namespace Dal {
             double value, const ScriptParameterDeclaration_& d, const String_& path, const CalibrationDiagnostic_& context, const String_& code) {
             const bool lower = InLowerDomain(value, d);
             const bool upper = InUpperDomain(value, d);
-            const bool positive = d.role_ != ScriptParameterRole_::Value_::Coupon;
+            const bool positive = d.role_ != ScriptParameterRole_::Value_::Coupon && d.role_ != ScriptParameterRole_::Value_::RateStrike;
             const String_ domain = DomainText(d);
             Check(std::isfinite(value) && lower && upper && (!positive || value > 0.), code, path,
                   "finite " + d.unit_.Token() + " in " + domain + (positive ? "; strictly positive" : ""), NumberText(value), context);

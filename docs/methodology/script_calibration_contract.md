@@ -3,8 +3,9 @@
 The core headers `dal/script/instrument.hpp` and `dal/calibration/protocol.hpp`
 provide immutable contract data, typed parameter binding and ordered calibration
 observations. `dal/script/calibrationpreparation.hpp` adds structural preparation
-for Deposit and Gaussian BondOption contracts. Existing Product, curve and GSR
-entry points keep their own behavior. The separate core Deposit adapter in
+for Deposit and bounded Gaussian BondOption, Caplet and Swaption contracts.
+Existing Product, curve and GSR entry points keep their own behavior.
+The separate core Deposit adapter in
 `dal/curve/depositscript.hpp` supports one-node curve fitting with Brent.
 
 A `ScriptInstrumentDefinition_` owns the exact source rows, fixed-date header,
@@ -13,6 +14,8 @@ only defaults. The header references N and PAY rather than duplicating notional
 or cashflows. The initial schema uses a single currency, OIS collateral, AtEvent
 settlement and explicit discount routing. N and K are bindable; Deposit ALPHA is
 fixed. P0 parameter roles are Notional, Coupon, Strike and Accrual.
+Caplet/Swaption add RateStrike for a finite signed K in decimal Rate units;
+the original Strike role remains a strictly positive BondPrice.
 Dates use the core Date_ range, 1970-01-01 through 2149-06-05; out-of-range
 or invalid Gregorian dates fail explicitly.
 
@@ -42,11 +45,13 @@ Preparation reads the whole bound AST before constant folding or historical
 replay. PAY must be the sole PAYS receiver. Its only ordinary assignment is
 literal-zero initialization before any payment. A payment in either branch, or
 in history, prevents subsequent receiver resets. Vector output, extra receivers,
-fees, delayed payments and unrecognized control flow fail explicitly. The bare
-Product's last-variable fallback remains available through its existing entry.
+fees, ON settlement and unrecognized control flow fail explicitly. Payment
+dates must match the admitted template, including the Caplet payment lag
+described below. The bare Product's last-variable fallback remains available
+through its existing entry.
 
 The admitted Deposit has `-N` at S and `N*(1+K*ALPHA)` at T, with valuation at S.
-The option has one payment at E, `N*MAX(FIX(IR[CCY,DF,T])-K,0)` or its put
+The BondOption has one payment at E, `N*MAX(FIX(IR[CCY,DF,T])-K,0)` or its put
 counterpart, with valuation < E < T. All dates are concrete, the currency matches
 the header and context, and settlement is AtEvent under same-currency OIS
 collateral. Product names and fingerprints never bypass these structural checks.
@@ -60,7 +65,8 @@ cannot receive the Gaussian descriptor by providing a matching name.
 
 The returned immutable plan owns its instrument, cashflow metadata, disposable
 descriptor, capability and compiler/context/plan identities. A contingent
-cashflow has no numeric `amount_`; it records its DF observation and fixing date.
+cashflow has no numeric `amount_`; its metadata retains payment/fixing dates and
+source coordinates. The descriptor carries the matched financial structure.
 Deposit amounts come from evaluating the original PAYS expressions. The plan
 retains no independently editable native product or mutable market object.
 
@@ -69,6 +75,8 @@ timestamps and values, today policy, convention state and smoothing contribute
 to identity. Sampling contributes when MC is selected. Call `RequireCompatible`
 with the current instrument and context before reusing a prepared artifact;
 changes require preparation again. No shared descriptor cache is maintained.
+The rate-option context additionally tracks the actual Libor day basis; this
+extension preserves the original Deposit/BondOption identity components.
 
 ## Native Deposit import and candidate curves
 
@@ -180,8 +188,66 @@ original instrument with explicit sampling/AAD settings. `ValidateCalibrationMc`
 compares independent validation values and native gradients with a fast
 reference, including FD refinement indicators. This statistical validation is
 separate from fitting and is not a strict probability or floating-point bound.
-The adapter is core-only; general-script fitting, caplet/swaption, SLV and
-public/Python/Excel importers remain outside its scope.
+The adapter fits BondOption only. Caplet/Swaption Price support is described
+below; general-script fitting, SLV and public/Python/Excel importers remain
+outside these core APIs.
+
+## Gaussian Caplet and Swaption Price
+
+The core `dal/model/gsrrateoption.hpp` APIs `NewCapletScriptInstrument` and
+`NewSwaptionScriptInstrument` import native options once. Import settings require
+an instrument ID, currency, explicit discount route and positive notional.
+`PriceGaussianRateOption` prices the prepared Price plan using the native double
+Black/quadrature kernels. These APIs add no script Caplet/Swaption calibrator.
+
+Both templates declare exactly bindable N and K: N is positive in the contract's
+Price unit, and K has role RateStrike, type Real and unit Rate. Zero and negative
+finite strikes are valid declarations and rebindings, subject to declared bounds
+and the evaluator's numerical domain. Coupon accruals are positive finite source
+literals, rather than an extra ALPHA parameter. The complete bound AST is the
+authority for every derived descriptor; no imported native option is retained.
+Extra arithmetic, parameters, cashflows or control flow fail full matching.
+
+The Caplet pays `N*(couponAlpha*MAX(L(E;S,T)-K,0))` at P; reversing the difference
+gives a floor. Its source explicitly fixes the Libor observation at E with a
+concrete start S. Admission requires valuation < E <= S < T <= P and a canonical
+`LIBOR_3M_LCH` or `LIBOR_6M_LCH` index. T is the native nominal 3M/6M maturity,
+without business-day adjustment, and index accrual uses the currency's actual
+Libor day basis. Import rejects mismatched native end dates or index accruals.
+The coupon accrual may differ from index accrual. Payment lag P > T is supported
+by the native payment-measure kernel; it is not replaced by expiry discounting.
+
+The European physical Swaption pays `N*MAX(floatingPV-K*annuity,0)` at exercise
+E, reversed for receiver. Its floating PV is the sum of literal coupon accrual
+times exercise-date Libor times DF(index end); its annuity is the sum of literal
+fixed accrual times DF(fixed payment). Both schedules must be nonempty, with
+positive finite accruals. Native floating fixings must lie between E and index
+start, use the same nominal 3M/6M conventions, and pay at index end. Payment=end
+makes native future-fixing convexity zero, so the exercise-date conditional PV
+mapping is exact. The exported source retains this mapping, rather than unused
+original future-fixing dates. Floating payment lag and cash settlement are
+outside the admitted template.
+
+Preparation requires a matching frozen single discount/forecast curve, exact
+one- or multi-factor GSR, same-currency OIS/AtEvent header, zero smoothing and
+curve coverage of all payments. Projection curves, SLV, conditional/early
+exercise and unsupported source shapes fail admission. Swaption quadrature
+supports at most three effective Gaussian directions; this is an effective-rank
+limit, so a rank-one four-factor model can be admitted. Preparation reuses the
+native domain/rank check. Model, convention, source or binding changes require
+a new plan, including when MC is selected.
+
+FastGaussian supports native finite differences or no derivatives; it does not
+provide fast AAD. Explicitly opted-in MC evaluates the original bound Price
+program with the existing tree/compiled engines. Hard-payoff MC/AAD admission
+additionally requires finite positive rate exposure and positive native option
+expectation, along with the shared selected-g restrictions. Zero volatility,
+zero exposure and identically zero payoffs can retain double pricing while
+failing AAD admission with DerivativeUnavailable. Independent validation still
+has to satisfy the frozen value/gradient and precision budgets; pricing support
+does not establish MC calibration convergence or sufficient sampling precision.
+Numerical failures at the fast Price boundary carry CalibrationNumericalFailure,
+the original cause, instrument/measure IDs and an owning Evaluate report.
 
 ## Affine observables and methods
 
@@ -386,6 +452,8 @@ versions and incomplete/inconsistent bindings. DAL archives store the same
 portable JSON under `ScriptInstrumentDefinition_v1` and
 `CalibrationInstrument_v1`. Legacy ScriptProductData v1/v2/v3 archives retain
 their existing readers and v3 writer.
+RateStrike uses the exact portable token `RateStrike` (Java `RATESTRIKE`) as an
+additive role; existing role ordinals and the `/1` and `_v1` versions are unchanged.
 
 Portable JSON loaders accept at most 50 MiB and 128 nested objects/arrays. The
 nesting budget is checked without recursion before building or converting the DOM;
