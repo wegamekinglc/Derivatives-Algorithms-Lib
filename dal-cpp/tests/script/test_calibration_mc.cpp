@@ -9,6 +9,7 @@
 #include <dal/math/random/pseudorandom.hpp>
 #include <dal/model/gsrcalibration.hpp>
 #include <dal/model/gsrmultidata.hpp>
+#include <dal/model/gsrscriptcalibration.hpp>
 #include <dal/script/calibrationmc.hpp>
 #include <dal/script/calibrationmc_internal.hpp>
 #include <dal/time/dateutils.hpp>
@@ -154,6 +155,79 @@ TEST(CalibrationMcTest, TestCompiledEvaluatorIsDefault) {
     }
 }
 
+TEST(CalibrationMcTest, TestHeldOutUsesThirdDisjointRange) {
+    const auto instrument = McInstrument(true);
+    const auto context = McContext();
+    auto settings = McSettings(true, true);
+    settings.heldOutBatches_ = 2;
+    settings.heldOutPathsPerBatch_ = 16;
+    settings.maxPathsPerView_ = 80;
+    const auto plan = PrepareCalibrationMc(instrument, "Price", context, settings);
+    const auto held = plan.EvaluateHeldOut(instrument, context);
+    ASSERT_TRUE(held.heldOut_);
+    ASSERT_EQ(held.ranges_[0].firstPath_, 48);
+    ASSERT_EQ(held.pathsPerView_, 32);
+    ASSERT_NE(held.pathValues_, plan.Evaluate(instrument, context, true).pathValues_);
+    ASSERT_EQ(held.pathValues_, plan.EvaluateHeldOut(instrument, context).pathValues_);
+    settings.maxPathsPerView_ = 79;
+    ASSERT_THROW(PrepareCalibrationMc(instrument, "Price", context, settings), CalibrationError_);
+}
+
+TEST(CalibrationMcTest, TestRefreshGReusesStructureAndRefreshesInputs) {
+    const auto instrument = McInstrument(true);
+    const auto initial = McContext();
+    const auto candidate = McContext(0.03);
+    const auto settings = McSettings(true, true);
+    const auto plan = PrepareCalibrationMc(instrument, "Price", initial, settings);
+    const auto refreshed = plan.RefreshG(candidate);
+    const auto actual = refreshed.Evaluate(instrument, candidate, false);
+    const auto rebuilt = PrepareCalibrationMc(instrument, "Price", candidate, settings).Evaluate(instrument, candidate, false);
+    ASSERT_EQ(actual.pathValues_, rebuilt.pathValues_);
+    ASSERT_EQ(actual.gradient_, rebuilt.gradient_);
+    ASSERT_EQ(actual.planIdentity_, rebuilt.planIdentity_);
+    ASSERT_EQ(plan.Mapping().identity_, refreshed.Mapping().identity_);
+    ASSERT_NE(plan.PlanIdentity(), refreshed.PlanIdentity());
+    ASSERT_NE(actual.pathValues_, plan.Evaluate(instrument, initial, false).pathValues_);
+    ASSERT_THROW(static_cast<void>(refreshed.Evaluate(instrument, initial, false)), CalibrationError_);
+    ASSERT_THROW(static_cast<void>(plan.RefreshG(McContext(0.03, -0.05))), CalibrationError_);
+    auto changed = candidate;
+    changed.smoothing_ = 0.01;
+    ASSERT_THROW(static_cast<void>(plan.RefreshG(changed)), CalibrationError_);
+    ASSERT_THROW(static_cast<void>(plan.RefreshG(McContext(0.))), CalibrationError_);
+}
+
+TEST(CalibrationMcTest, TestHeldOutCannotBeUsedAsValidation) {
+    const auto instrument = McInstrument(true);
+    const auto context = McContext();
+    auto settings = McSettings();
+    settings.heldOutBatches_ = 2;
+    settings.heldOutPathsPerBatch_ = 16;
+    settings.maxPathsPerView_ = 80;
+    const auto plan = PrepareCalibrationMc(instrument, "Price", context, settings);
+    const auto fit = plan.Evaluate(instrument, context, false);
+    const auto held = plan.EvaluateHeldOut(instrument, context);
+    CalibrationMcPrecision_ precision;
+    precision.errorScale_ = .1;
+    ASSERT_THROW(ValidateCalibrationMc(fit, held, precision), CalibrationError_);
+}
+
+TEST(CalibrationMcTest, TestPriceDriverRejectsHeldOutScalarMeasure) {
+    const auto instrument = McInstrument(true);
+    const auto context = McContext();
+    auto sampling = McSettings();
+    sampling.heldOutBatches_ = 2;
+    sampling.heldOutPathsPerBatch_ = 16;
+    sampling.maxPathsPerView_ = 80;
+    const double target = PrepareCalibrationMc(instrument, "Price", context, sampling).Evaluate(instrument, context, false).mean_;
+    const auto row = NewCalibrationObservation("fit", instrument, "Price",
+                                               NewCalibrationMarketQuote("fit", target, CalibrationValueUnit_::Parse("Price:USD")), .1);
+    const auto held = NewCalibrationObservation("held", McInstrument(), "ParRate",
+                                                NewCalibrationMarketQuote("held", .04, CalibrationValueUnit_::Parse("Rate")), .001);
+    GSRScriptCalibrationSettings_ settings;
+    settings.sampling_ = sampling;
+    ASSERT_THROW(static_cast<void>(CalibrateGSRScriptPrices(context, {row}, {{0, 0, .001, .06}}, settings, {held})), CalibrationError_);
+}
+
 TEST(CalibrationMcTest, TestSameBindingTreeAndCompiledPathPayoffs) {
     const auto instrument = McInstrument(true);
     const auto context = McContext();
@@ -282,6 +356,36 @@ TEST(CalibrationMcTest, TestValidationEnforcesErrorPrecisionGradientAndDisjointS
     auto bad = precision;
     bad.epsilonValue_ = 0.1;
     ASSERT_THROW(ValidateCalibrationMc(fit, validation, bad), CalibrationError_);
+}
+
+TEST(CalibrationMcTest, TestDisabledHeldOutPreservesMergedP0ExecutionIdentities) {
+    const Vector_<String_> golden = {"sha256:4838cc9937a7eba36e459179bfa5d9b5febbdfac36d8a9d2ab63ead78cef4c07",
+                                     "sha256:fdb7a5302614b129e1088a449274f60bc038d42eb17fc87971db4487e7a1d9c1",
+                                     "sha256:915051d408ac05a0cc853dbbf2965251ffa543b8453318be9404b46073b0805a",
+                                     "sha256:0194d025d5d5813a3ecfbe9abb667a338702d13473b30eb23cfddddf4ea90eeb",
+                                     "sha256:22feddd00638dc2615dc315af0af1e5076cf86832aaa0a42ecbc3cdaf06506a5",
+                                     "sha256:9bf2ea531e69f9e70c8b7e4966dff2b79def698d785621d74f4c26a74f79c880",
+                                     "sha256:1d281b5a3d647ac9d93c094344a91861fdc2ae798b825376ee5dffe04a94a046",
+                                     "sha256:2957cb0f5b76e2d7fe61bc71bf8e3fc8b394e0c6be8814ab98ceade7065bbf0d"};
+    int i = 0;
+    for (bool option : {false, true})
+        for (bool aad : {false, true})
+            for (bool compiled : {false, true})
+                ASSERT_EQ(PrepareCalibrationMc(McInstrument(option), "Price", McContext(), McSettings(aad, compiled)).PlanIdentity(), golden[i++]);
+}
+
+TEST(CalibrationMcTest, TestEnabledHeldOutHasDistinctRefreshStableIdentity) {
+    const auto instrument = McInstrument(true);
+    const auto context = McContext();
+    auto settings = McSettings();
+    settings.maxPathsPerView_ = 80;
+    const auto disabled = PrepareCalibrationMc(instrument, "Price", context, settings);
+    settings.heldOutBatches_ = 2;
+    settings.heldOutPathsPerBatch_ = 16;
+    const auto enabled = PrepareCalibrationMc(instrument, "Price", context, settings);
+    ASSERT_NE(disabled.PlanIdentity(), enabled.PlanIdentity());
+    ASSERT_EQ(enabled.PlanIdentity(), enabled.RefreshG(context).PlanIdentity());
+    ASSERT_EQ(disabled.PlanIdentity(), disabled.RefreshG(context).PlanIdentity());
 }
 
 TEST(CalibrationMcTest, TestRangesMatchSequentialNormalsAndIndependentPathOracle) {

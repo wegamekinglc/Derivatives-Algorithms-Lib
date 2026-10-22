@@ -12,6 +12,10 @@ current-state explanations in the published docs or focused Codex references.
   — Active owning report publication, shared C++/Python/Excel interfaces,
   lifecycle/error tests and independent component-build evidence.
 
+- [DAL-412 Gaussian script MC calibration](implementation/dal-412-gsr-script-mc-calibration.md)
+  — Active general Price admission, selected-g driver, frozen arithmetic-average
+  oracle/fit/validation/held-out evidence and bounded caller measurements.
+
 - [DAL-406 deterministic curve script families](implementation/dal-406-curve-product-fast-paths.md)
   — Active FRA/IRS/period-forward OIS/Basis/custom cashflow admission, independent
   value/raw-derivative evidence, projection/owned-error repairs and serial documentation.

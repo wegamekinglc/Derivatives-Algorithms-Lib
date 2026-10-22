@@ -24,6 +24,14 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   retain actual methods, native axes and failures; calibrated quote risk
   remains unavailable. See the [interface guide](docs/methodology/script_calibration_contract.md#public-c-python-and-excel-interfaces).
 
+- **Gaussian script Price MC calibration** — added an explicitly enabled core
+  selected-g driver for admitted scalar Price programs, including running
+  arithmetic averages, with raw native Jacobians, bounded fitting and separate
+  fit, numerical-validation and held-out outcomes. Fit and held-out rows require
+  a common normal-draw dimension. Existing vanilla fast paths
+  retain their checks. See the
+  [MC calibration guide](docs/methodology/script_calibration_contract.md#gaussian-script-price-mc-calibration).
+
 - **Deterministic curve script families** — added one-time FRA, IRS,
   period-forward OIS and Basis imports plus weighted/amortizing source
   cashflows, with source-derived Price/par, explicit projection binding and

@@ -502,3 +502,79 @@ The pushed head and one current-head CI snapshot are in the repair handoff.
 Native Windows/XLL, workbook and MSVC profiling GREEN remain unverified by
 this Linux run; new-head CI must establish the actual native result. The
 author does not merge, dispatch experts, restart workflows or start downstream.
+
+## Integration of accepted DAL-412 master
+
+Coordinator comment `01a163ee-202e-71f0-83bd-f9d7e3109a6d` authorizes a normal
+two-parent merge in this original checkout and PR. The first parent is
+`fe5fde13fa739803a80e2f57519d3966ee92a7ae`; fetched and rechecked master is
+`aa9ba13a338f65b66f0fc2620562abfc17736666`, the accepted DAL-412 merge.
+Their common ancestor is `f50db2e93eb16823190ed18b5d73a115f0e9c48f`.
+The initial tree is clean. No DAL-408/DAL-413 unmerged branch is fetched or
+imported, and no new author checkout/PR, rebase or force-push is used.
+
+The coordinator's initial audit and merge-tree evidence were downloaded
+through Multica CLI. The old head's 36 effective successes, including strict
+Linux/Windows gates, remain input evidence for that head alone. The older
+running Codacy record remains running, superseded by the same-head successful
+record; it is not relabeled completed. This integration requires fresh CI.
+
+`git merge --no-ff --no-commit aa9ba13a338f65b66f0fc2620562abfc17736666`
+reproduces exactly the two expected content conflicts in CHANGELOG and the
+artifact index. Each resolution concatenates the original two entries with
+a blank separator, without editing either side's wording. The methodology
+guide is byte-identical to the automatic three-way result, blob
+`96592cbb4545959eeb5b8af842ae238edcc500c9`. Both accepted sections and their
+existing anchors remain. This record's integration section is the only
+additional authored text. There is no new financial/API behavior or test
+implementation to drive with an added regression; the existing direct
+callers validate the integrated core baseline.
+
+The file audit checks all 143 paths in the union of the two parents' changes:
+128 independent DAL-407 paths retain the first parent's exact blobs; this
+record retains its original prefix and adds this section; 11 independent
+DAL-412 paths, including its seven core files, three tests and record, retain
+master's exact blobs. The three shared Markdown paths are the two resolved
+files and automatic guide. All paths outside that union retain both parents'
+common identity. Thus no product, test, build, generated file, protocol,
+curve publication or test-only bridge has a manual integration change.
+Both parent diffs, Git's remerge diff and the exact difference from the
+automatic conflict tree are retained. That last difference contains only
+the two resolved Markdown files and this activity record.
+
+Incoming preparation descriptors and the MC bridge change the actual core
+baseline used by the existing facade and language callers. The selected
+small verification therefore rebuilds their canonical dependency closure:
+
+```sh
+cmake --build build/Release-linux --target dal_public_tests dal_excel_portable_tests _dal -j 4
+./build/Release-linux/dal-public/dal_public_tests --gtest_filter='PublicCalibrationInstrumentTest.*'
+./build/Release-linux/dal-excel/dal_excel_portable_tests --gtest_filter='ExcelCalibrationInstrumentTest.*'
+PYTHONPATH=build/Release-linux/dal-python python3 -m pytest dal-python/tests/test_calibration_instrument.py -q
+python3 .github/scripts/check_docs.py
+```
+
+The build completes with the new core/facade archives, both C++ runners and
+native Python extension. Fresh smoke is **2 public / 4 portable Excel /
+12 Python**, including actual same-bound-instrument MC and curve report,
+native AAD/replay axes, bounded GIL positive/negative controls, strict typed
+inputs, owned errors and the nested repository bridge. All pass. Markdown,
+links/anchors and diff checks pass for 89 Markdown files. Exact commands,
+logs/XML, per-file source identities, dependency pins, CMake configuration,
+compiler flags and new actual binary hashes accompany this handoff.
+
+The integration changes no example or build contract, so prior accepted
+public-disabled, standalone core/public and installation closure evidence
+is reused for its unchanged structure. Earlier numerical, report, language,
+33-portable and performance evidence retains its recorded source/executable
+scope; those cohorts are not all rerun or relabeled new-head results. No
+statistical, latency or full repository matrix is executed. Accepted master
+capability does not add a DAL-407 GSR calibration interface or XCCY MC API;
+calibrated quote risk remains unavailable.
+
+The handoff identifies the normal merge commit, both exact parents and one
+new-head CI snapshot. Prior main/P2/test-bridge and document approvals remain
+applicable within scope; the coordinator still checks actual integration
+and complete new-head gates. This Linux run does not establish native
+Windows/XLL/workbook results for the merge head. The author does not merge
+the PR, dispatch specialists or start downstream work.
