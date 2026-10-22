@@ -12,6 +12,10 @@ current-state explanations in the published docs or focused Codex references.
   — Active native export, complete dual-leg/date admission, frozen timestamp
   policy, independent value/raw-derivative evidence and bounded failure checks.
 
+- [DAL-407 public script bindings](implementation/dal-407-script-public-bindings.md)
+  — Active owning report publication, shared C++/Python/Excel interfaces,
+  lifecycle/error tests and independent component-build evidence.
+
 - [DAL-412 Gaussian script MC calibration](implementation/dal-412-gsr-script-mc-calibration.md)
   — Active general Price admission, selected-g driver, frozen arithmetic-average
   oracle/fit/validation/held-out evidence and bounded caller measurements.

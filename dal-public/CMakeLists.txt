@@ -61,6 +61,13 @@ target_include_directories(dal_public PUBLIC
     "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
 target_compile_features(dal_public PUBLIC cxx_std_17)
 
+# Canonical report serialization and validation use RapidJSON only in implementation files.
+find_path(DAL_PUBLIC_RAPIDJSON_INCLUDE_DIR rapidjson/document.h
+    HINTS "${DAL_WORKSPACE_ROOT}/dal-cpp/externals/rapidjson/include"
+    REQUIRED)
+mark_as_advanced(DAL_PUBLIC_RAPIDJSON_INCLUDE_DIR)
+target_include_directories(dal_public PRIVATE "${DAL_PUBLIC_RAPIDJSON_INCLUDE_DIR}")
+
 if(MSVC)
     target_compile_options(dal_public PRIVATE /utf-8)
     target_compile_definitions(dal_public PRIVATE IS_BASE)

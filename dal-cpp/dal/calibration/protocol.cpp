@@ -167,6 +167,69 @@ namespace Dal {
     }
     CalibrationReport_::CalibrationReport_(CalibrationStage_ stage, CalibrationObservationAxes_ axes, Vector_<CalibrationDiagnostic_> errors)
         : Storable_("CalibrationReport", ""), stage_(stage), axes_(std::move(axes)), errors_(std::move(errors)) {}
+    namespace {
+        void ReportNumbers(std::initializer_list<std::optional<double>> values) {
+            for (const auto& value : values)
+                Check(!value || std::isfinite(*value), "CalibrationNumericalFailure", "/report", "finite or unavailable report number");
+        }
+        void ReportMatrix(const std::optional<Matrix_<>>& matrix) {
+            if (matrix)
+                for (int i = 0; i < matrix->Rows(); ++i)
+                    for (int j = 0; j < matrix->Cols(); ++j)
+                        ReportNumbers({(*matrix)(i, j)});
+        }
+        void ReportSummary(const CalibrationReportSummary_& s) {
+            ReportNumbers({s.rawL2_, s.scaledL2_, s.scaledInfinity_, s.fitWeight_, s.fitNormTolerance_, s.objective_, s.dataObjective_,
+                           s.penaltyObjective_, s.jacobianConditionEstimate_});
+            for (const auto& count : {s.iterations_, s.evaluations_, s.jacobianEvaluations_, s.jacobianRank_})
+                Check(!count || *count >= 0, "CalibrationNumericalFailure", "/report/summary", "nonnegative or unavailable count");
+        }
+        void ReportVector(const Vector_<>& values) {
+            for (double value : values)
+                ReportNumbers({value});
+        }
+        void ReportSampling(const std::optional<CalibrationReportSampling_>& sampling) {
+            if (!sampling)
+                return;
+            Check(sampling->seed_ >= 0 && sampling->batches_ >= 0 && sampling->pathsPerBatch_ >= 0, "CalibrationNumericalFailure",
+                  "/report/execution/sampling", "nonnegative seed and counts");
+            ReportVector(sampling->firstPaths_);
+            ReportVector(sampling->pathCounts_);
+        }
+        void ReportSnapshot(const CalibrationReportSnapshot_& data) {
+            ReportSummary(data.summary_);
+            for (const auto& row : data.observations_) {
+                Check(bool(row.instrument_), "InvalidCalibrationPlan", "/report/observations", "owning instrument");
+                ReportNumbers({row.target_, row.errorScale_, row.modelValue_, row.rawResidual_, row.scaledResidual_, row.validationValue_,
+                               row.validationError_, row.standardError_});
+            }
+            for (const auto& parameter : data.parameters_)
+                ReportNumbers({parameter.initial_, parameter.value_, parameter.scale_, parameter.lower_, parameter.upper_});
+            for (const auto& row : data.validation_)
+                ReportNumbers({row.value_, row.difference_, row.standardError_, row.absoluteTolerance_, row.sigmaMultiplier_});
+            ReportMatrix(data.quoteJacobian_);
+            ReportMatrix(data.objective_.weightMatrix_);
+            ReportVector(data.objective_.theta0_);
+            ReportVector(data.objective_.parameterScales_);
+            ReportNumbers({data.objective_.lambda_, data.objective_.eta_});
+            if (data.execution_.simulation_)
+                ReportNumbers({data.execution_.simulation_->smooth_});
+            ReportSampling(data.execution_.sampling_);
+            ReportSampling(data.execution_.validationSampling_);
+        }
+    } // namespace
+    CalibrationReport_::CalibrationReport_(CalibrationStage_ stage,
+                                           CalibrationObservationAxes_ axes,
+                                           Vector_<CalibrationDiagnostic_> errors,
+                                           const CalibrationReportSnapshot_& data)
+        : CalibrationReport_(stage, std::move(axes), std::move(errors)) {
+        ReportSnapshot(data);
+        if (data.quoteJacobian_)
+            Check(data.quoteJacobian_->Rows() == static_cast<int>(data.observations_.size()) &&
+                      data.quoteJacobian_->Cols() == static_cast<int>(data.parameters_.size()),
+                  "CalibrationNumericalFailure", "/report/quote_jacobian", "observation rows by native parameter columns");
+        data_ = data;
+    }
     void CalibrationReport_::Write(Archive::Store_&) const { Fail("CalibrationPersistenceUnsupported", "", "instrument persistence only"); }
     CalibrationError_::CalibrationError_(const std::string& file,
                                          long line,

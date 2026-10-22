@@ -25,6 +25,12 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   history and same-time policy. Stochastic XCCY and quote risk remain unavailable.
   See the [XCCY guide](docs/methodology/script_calibration_contract.md#deterministic-xccy-script-cashflows).
 
+- **Public script calibration interfaces** — added owning typed reports,
+  immutable contract/binding and native-import facades, curve calibration and
+  explicit same-instrument MC repricing in C++, Python and Excel. Reports
+  retain actual methods, native axes and failures; calibrated quote risk
+  remains unavailable. See the [interface guide](docs/methodology/script_calibration_contract.md#public-c-python-and-excel-interfaces).
+
 - **Gaussian script Price MC calibration** — added an explicitly enabled core
   selected-g driver for admitted scalar Price programs, including running
   arithmetic averages, with raw native Jacobians, bounded fitting and separate
