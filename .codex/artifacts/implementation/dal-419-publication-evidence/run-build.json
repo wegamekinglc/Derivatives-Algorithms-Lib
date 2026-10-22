@@ -1,0 +1,62 @@
+[
+  {
+    "name": "build",
+    "argv": [
+      "cmd.exe",
+      "/d",
+      "/c",
+      "D:\\multica-builds\\dal419-publication-38f7c283\\build.cmd"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "consumer-423",
+    "argv": [
+      "cmd.exe",
+      "/d",
+      "/c",
+      "D:\\multica-builds\\dal419-publication-38f7c283\\consumer-423.cmd"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "excel-423",
+    "argv": [
+      "cmd.exe",
+      "/d",
+      "/c",
+      "D:\\multica-builds\\dal419-publication-38f7c283\\excel-423.cmd"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "focused",
+    "argv": [
+      "cmd.exe",
+      "/d",
+      "/c",
+      "D:\\multica-builds\\dal419-publication-38f7c283\\focused.cmd"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "consumer-327",
+    "argv": [
+      "cmd.exe",
+      "/d",
+      "/c",
+      "D:\\multica-builds\\dal419-publication-38f7c283\\consumer-327.cmd"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "excel-327",
+    "argv": [
+      "cmd.exe",
+      "/d",
+      "/c",
+      "D:\\multica-builds\\dal419-publication-38f7c283\\excel-327.cmd"
+    ],
+    "exit": 0
+  }
+]
