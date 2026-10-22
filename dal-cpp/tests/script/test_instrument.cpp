@@ -653,6 +653,42 @@ TEST(ScriptInstrumentTest, TestBondOptionSchemaAndPositiveStrikeDomain) {
         "InvalidCalibrationParameterBinding", "/bindings/values/0/value", String_("K"));
 }
 
+TEST(ScriptInstrumentTest, TestBasisSpreadCouponBindingAndOwnedRoundTrip) {
+    auto spec = DepositDefinition();
+    spec.parameters_.pop_back();
+    spec.source_.rows_.erase(spec.source_.rows_.begin() + 2);
+    spec.source_.rows_[1].text_ = "-0.001";
+    spec.source_.rows_[2].text_ = "pay PAYS N*(K+0.02)";
+    spec.source_.rows_[3].text_ = "pay PAYS -N*0.03";
+    const auto spread = CalibrationValueUnit_::Parse("BasisSpread");
+    spec.parameters_[1].unit_ = spread;
+    spec.measures_[1] = {"BasisSpread", CalibrationMeasureKind_::Value_::ParAffineSpread, "PAY", String_("K"), spread, 1, 1e-12};
+    const auto original = NewScriptCalibrationInstrument({"basis", NewScriptInstrumentDefinition(spec)});
+    const auto quote = NewCalibrationMarketQuote("spread", -.002, spread);
+    const auto rebound = BindCalibrationInstrumentParameters(original, {{{"K", quote->Value(), spread}}, {{"K", quote->Id(), quote->Fingerprint()}}});
+    const auto restored = LoadCalibrationInstrumentJson(DumpCalibrationInstrumentJson(rebound));
+    ASSERT_EQ(restored->InstrumentIdentity(), rebound->InstrumentIdentity());
+    ASSERT_DOUBLE_EQ(restored->Binding()[1].value_, -.002);
+    ASSERT_DOUBLE_EQ(original->Binding()[1].value_, -.001);
+    AssertFailure([&] { static_cast<void>(BindCalibrationInstrumentParameters(original, {{{"K", .01, CalibrationValueUnit_::Parse("Rate")}}, {}})); },
+                  "InvalidCalibrationParameterBinding", "/bindings/values/0/unit", String_("K"));
+}
+
+TEST(ScriptInstrumentTest, TestLiteralAccrualCouponAdmitsDeclaredNegativeAnnuity) {
+    auto spec = DepositDefinition();
+    spec.parameters_.pop_back();
+    spec.source_.rows_.erase(spec.source_.rows_.begin() + 2);
+    spec.source_.rows_[2].text_ = "pay PAYS N*(0.03-K)*0.5";
+    spec.source_.rows_[3].text_ = "pay PAYS N*(0.04-K)*0.5";
+    spec.measures_[1].annuitySign_ = -1;
+    const auto instrument = NewScriptCalibrationInstrument({"literal-coupons", NewScriptInstrumentDefinition(spec)});
+    ASSERT_EQ(LoadCalibrationInstrumentJson(DumpCalibrationInstrumentJson(instrument))->InstrumentIdentity(), instrument->InstrumentIdentity());
+    for (int sign : {0, 2}) {
+        spec.measures_[1].annuitySign_ = sign;
+        AssertFailure([&] { static_cast<void>(NewScriptInstrumentDefinition(spec)); }, "InvalidScriptInstrumentDefinition", "/measures/1");
+    }
+}
+
 TEST(ScriptInstrumentTest, TestDefinitionRejectsDuplicateKeysUnitsAndNonfiniteDefaults) {
     {
         auto spec = DepositDefinition();

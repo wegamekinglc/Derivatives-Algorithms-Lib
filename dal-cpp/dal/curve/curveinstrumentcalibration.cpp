@@ -5,6 +5,7 @@
 #include <dal/calibration/validation_internal.hpp>
 #include <dal/curve/calibration_internal.hpp>
 #include <dal/curve/curveinstrumentcalibration.hpp>
+#include <dal/curve/curvescriptevaluation_internal.hpp>
 #include <dal/storage/json.hpp>
 
 namespace Dal {
@@ -64,6 +65,19 @@ namespace Dal {
             d.quoteId_ = row.Quote()->Id();
             d.measureId_ = row.MeasureId();
             return d;
+        }
+        void
+        ValidateNativeJacobian(const Matrix_<>& jacobian, const CurveInstrumentCalibrationSpec_& spec, const Vector_<CurveFreeParameter_>& labels) {
+            Check(jacobian.Rows() == static_cast<int>(spec.observations_.size()) && jacobian.Cols() == static_cast<int>(labels.size()),
+                  "CalibrationNumericalFailure", "/quote_jacobian", "raw measure rows by fixed native parameter columns");
+            for (int i = 0; i < jacobian.Rows(); ++i)
+                for (int j = 0; j < jacobian.Cols(); ++j)
+                    if (!std::isfinite(jacobian(i, j))) {
+                        auto d = RowDiagnostic(*spec.observations_[i], CalibrationStage_::Value_::Evaluate);
+                        d.parameterKey_ = String_(labels[j].component_.String()) + ":" + Date::ToString(labels[j].date_);
+                        Fail("CalibrationNumericalFailure", "/quote_jacobian/" + OrdinalText(i) + "/" + OrdinalText(j),
+                             "finite raw model-measure partial", NumberText(jacobian(i, j)), d);
+                    }
         }
         [[noreturn]] void CurveFailure(CurveInstrumentCalibrationResult_ result, CalibrationDiagnostic_ diagnostic) {
             if (!result.axes_.observations_.empty()) {
@@ -125,15 +139,37 @@ namespace Dal {
             context.curve_.reset(new GSRCurveData_("curve-structural-admission", g.today_, g.ccy_, dates, logDf, {}, {}));
             return context;
         }
+        void AdmittedObservation(const CalibrationCurveObservation_& observation,
+                                 const CurveInstrumentCalibrationSpec_& spec,
+                                 const std::optional<Date_>& pillar) {
+            if (observation.known_)
+                return;
+            const auto route = std::find_if(spec.market_.routes_.begin(), spec.market_.routes_.end(),
+                                            [&](const auto& r) { return Bytes(r.id_) == Bytes(observation.route_); });
+            Check(route != spec.market_.routes_.end() && route->projection_ == observation.projection_, "CalibrationContextMismatch",
+                  "/routes/" + observation.route_, "explicit matching observation route", observation.index_, observation.source_);
+            Check(!observation.projection_ || route->tenor_ == observation.tenor_, "CalibrationContextMismatch", "/routes/" + observation.route_,
+                  "projection tenor matching authoritative index", observation.index_, observation.source_);
+            if (pillar)
+                Check(*pillar >= observation.end_, "InvalidCalibrationPlan", "/instrument/pillar", "pillar covers every observation dependency",
+                      observation.index_, observation.source_);
+        }
+        bool CoveredCashflow(const CalibrationCashflow_& flow, const CurveInstrumentCalibrationSpec_& spec, bool family) {
+            return (family || (flow.amount_ && flow.observationIndex_.empty())) && flow.eventDate_ >= spec.geometry_.today_ &&
+                   flow.eventDate_ <= spec.geometry_.knotDates_.back();
+        }
         void AdmittedCashflows(const PreparedCalibrationInstrument_& plan, const CurveInstrumentCalibrationSpec_& spec) {
             CalibrationDiagnostic_ d;
             d.instrumentId_ = plan.Instrument()->Id();
             d.measureId_ = plan.Measure().id_;
             Check(plan.Capability().affine_, "UnsupportedFastEvaluator", "/instrument", "deterministic shared cashflows", "", d);
+            const auto* family = std::get_if<CalibrationCurveFamily_>(&plan.Descriptor());
+            if (family)
+                for (const auto& observation : (*family)->observations_)
+                    AdmittedObservation(observation, spec, plan.Instrument()->Pillar());
             for (const auto& flow : plan.Cashflows())
-                Check(flow.amount_ && flow.observationIndex_.empty() && flow.eventDate_ >= spec.geometry_.today_ &&
-                          flow.eventDate_ <= spec.geometry_.knotDates_.back(),
-                      "InvalidCalibrationPlan", "/instrument/cashflows", "live fixed cashflows covered by native curve nodes", "", d);
+                Check(CoveredCashflow(flow, spec, family != nullptr), "InvalidCalibrationPlan", "/instrument/cashflows",
+                      "live fixed cashflows covered by native curve nodes", "", d);
             if (plan.Instrument()->Pillar())
                 Check(*plan.Instrument()->Pillar() >= plan.Cashflows().back().eventDate_ &&
                           *plan.Instrument()->Pillar() <= spec.geometry_.knotDates_.back(),
@@ -141,6 +177,8 @@ namespace Dal {
         }
         template <class T_>
         T_ CashflowMeasure(const PreparedCalibrationInstrument_& plan, const CandidateCurveProvider_<T_>& provider, const Date_& today) {
+            if (std::holds_alternative<CalibrationCurveFamily_>(plan.Descriptor()))
+                return CurveScriptInternal::Measure(plan, provider, today);
             T_ a(0.), b(0.), price(0.);
             const auto& route = plan.Instrument()->Definition()->Spec().header_.discountRoute_;
             for (const auto& flow : plan.Cashflows()) {
@@ -332,10 +370,22 @@ namespace Dal {
             CurveFailure(std::move(result), d);
         }
     }
-    std::unique_ptr<Underdetermined::Jacobian_> PreparedCurveInstruments_::Jacobian(const Vector_<>& parameters) const {
+    std::unique_ptr<Underdetermined::Jacobian_> PreparedCurveInstruments_::Jacobian(const Vector_<>& parameters) const try {
         if (options_.jacobianMode_ != CalibrationDerivative_::Value_::AAD)
             return nullptr;
-        return TapeResidualJacobian(parameters, [&](const Vector_<AAD::Number_>& active) { return Measures(spec_, plans_, active); });
+        auto result = TapeResidualJacobian(parameters, [&](const Vector_<AAD::Number_>& active) { return Measures(spec_, plans_, active); });
+        ValidateNativeJacobian(static_cast<const XCurveJacobian_&>(*result).j_, spec_, DescribeCurveFreeParameters(definition_));
+        return result;
+    } catch (const CalibrationError_& error) {
+        auto d = error.Failure().diagnostic_;
+        d.stage_ = CalibrationStage_::Value_::Evaluate;
+        CurveFailure(Describe(), d);
+    } catch (const std::exception& error) {
+        auto d = RowDiagnostic(*axes_.observations_.front(), CalibrationStage_::Value_::Evaluate);
+        d.code_ = "CalibrationNumericalFailure";
+        d.field_ = "/quote_jacobian";
+        d.message_ = String_(error.what());
+        CurveFailure(Describe(), d);
     }
     CurveInstrumentCalibrationResult_ PreparedCurveInstruments_::Describe() const {
         auto result = LayoutResult(definition_, axes_);
@@ -363,11 +413,7 @@ namespace Dal {
                                              RowDiagnostic(*spec_.observations_.front(), CalibrationStage_::Value_::Evaluate),
                                              [&](const auto& x) { return Measures(spec_, plans_, x); });
             }
-            for (int i = 0; i < result.quoteJacobian_.Rows(); ++i)
-                for (int j = 0; j < result.quoteJacobian_.Cols(); ++j)
-                    Check(std::isfinite(result.quoteJacobian_(i, j)), "CalibrationNumericalFailure",
-                          "/quote_jacobian/" + OrdinalText(i) + "/" + OrdinalText(j), "finite raw model-measure partial", "",
-                          RowDiagnostic(*spec_.observations_[i], CalibrationStage_::Value_::Evaluate));
+            ValidateNativeJacobian(result.quoteJacobian_, spec_, result.freeParameters_);
         }
         result.report_.reset(new CalibrationReport_(CalibrationStage_::Value_::Evaluate, axes_));
         return result;

@@ -79,7 +79,9 @@ namespace Dal {
         bool call_ = true;
         String_ index_;
     };
-    using CalibrationFastDescriptor_ = std::variant<CalibrationDepositDescriptor_, CalibrationBondOptionDescriptor_>;
+    struct CalibrationCurveFamilyDescriptor_;
+    using CalibrationCurveFamily_ = std::shared_ptr<const CalibrationCurveFamilyDescriptor_>;
+    using CalibrationFastDescriptor_ = std::variant<CalibrationDepositDescriptor_, CalibrationBondOptionDescriptor_, CalibrationCurveFamily_>;
     struct CalibrationPreparationCapability_ {
         String_ ruleId_;
         CalibrationBackend_ backend_;

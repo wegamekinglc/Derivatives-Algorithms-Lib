@@ -149,6 +149,28 @@ namespace {
     }
 } // namespace
 
+TEST(CalibrationPreparationTest, TestLiteralCurveFamilySharesPriceAndAffineSource) {
+    auto spec = DepositSpec();
+    spec.parameters_.pop_back();
+    spec.source_.rows_ = {{ScriptSourceRowKind_::Value_::Definition, "N", "100"},
+                          {ScriptSourceRowKind_::Value_::Definition, "K", "0.025"},
+                          {ScriptSourceRowKind_::Value_::Event, "2026-10-21", "pay PAYS N*(0.5*K-0.01)"},
+                          {ScriptSourceRowKind_::Value_::Event, "2027-10-21", "pay PAYS N*(0.25*K-0.02)"},
+                          {ScriptSourceRowKind_::Value_::Event, "2028-10-21", "pay PAYS N*(0.25*K-0.03)"}};
+    const auto instrument = Instrument(spec);
+    for (const auto method : {CalibrationEvaluation_::Value_::AutoFast, CalibrationEvaluation_::Value_::GenericDeterministic}) {
+        CalibrationEvaluationOptions_ options;
+        options.evaluation_ = method;
+        const auto price = PrepareCalibrationInstrument(instrument, "Price", Context(), options);
+        const auto rate = PrepareCalibrationInstrument(instrument, "ParRate", Context(), options);
+        const auto ab = rate.Coefficients({1., .97, .93});
+        ASSERT_NEAR(ab.a_, 100. * (.5 + .25 * .97 + .25 * .93), 1e-12);
+        ASSERT_NEAR(ab.b_, -100. * (.01 + .02 * .97 + .03 * .93), 1e-12);
+        ASSERT_NEAR(price.Price({1., .97, .93}), ab.b_ + .025 * ab.a_, 1e-12);
+        ASSERT_NEAR(rate.AffineMeasure(ab).value_, -ab.b_ / ab.a_, 1e-12);
+    }
+}
+
 TEST(CalibrationPreparationTest, TestAffineCoefficientsAndIndependentQuotientOracle) {
     const auto plan = PrepareCalibrationInstrument(Instrument(), "ParRate", Context());
     ASSERT_EQ(plan.Capability().backend_, CalibrationBackend_::Value_::FastDeterministic);
