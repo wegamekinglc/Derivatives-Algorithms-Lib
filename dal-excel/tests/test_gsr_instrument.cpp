@@ -25,6 +25,7 @@ namespace {
         Matrix_<Cell_> parameters_{2, 4};
         Fixture_() {
             InitGlobalData();
+            Excel::ScriptTestInitialize(1);
             ScriptValuationSettings_ v;
             v.evaluationDate_ = today_;
             v.fixings_.reset(new MarketFixingSnapshot_());
@@ -155,7 +156,7 @@ TEST(ExcelGsrInstrumentTest, TestFastParityAndOwnedModelReportGetters) {
     GSRInstrumentCalibrationSettings_New(f.Settings(), &settings);
     Handle_<StorableCalibrationOutcome_> outcome;
     Calibrate_GSRInstruments(f.model_, f.rows_, f.parameters_, settings, &outcome);
-    ASSERT_EQ(outcome->status_, "Succeeded");
+    ASSERT_EQ(outcome->status_, "Succeeded") << DumpCalibrationReportJson(outcome->report_).c_str();
     Handle_<ModelData_> model;
     CalibrationOutcome_Get_Model(outcome, &model);
     ASSERT_TRUE(handle_cast<MultiFactorGSRModelData_>(model));
@@ -179,7 +180,7 @@ TEST(ExcelGsrInstrumentTest, TestMcCandidateAndFailedKeepIndependentFlagsAndCand
         Calibrate_GSRInstruments(f.model_, f.rows_, f.parameters_, f.Mc(), &outcome);
         Calibrate_GSRInstruments(f.model_, f.rows_, f.parameters_, f.Mc(true), &failed);
     }
-    ASSERT_NE(outcome->status_, "Failed");
+    ASSERT_NE(outcome->status_, "Failed") << DumpCalibrationReportJson(outcome->report_).c_str();
     ASSERT_EQ(outcome->report_->Data().observations_[0].backend_, "ScriptMC");
     ASSERT_TRUE(outcome->report_->Data().observations_[0].standardError_);
     ASSERT_EQ(failed->status_, "Failed");

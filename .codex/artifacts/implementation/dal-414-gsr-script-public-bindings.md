@@ -289,3 +289,62 @@ file pass, component/install rerun or numerical/performance matrix is claimed
 for this batch. Machinist markup is unchanged; source/configuration/binary
 identities, complete patch, exact commands and old/new probe outputs accompany
 the evidence. A single new-head CI snapshot and final head are in the handoff.
+
+## Native Windows test-runtime repair
+
+Input head `020fc506a9153555619378cb584e8bb4d8e62688` has accepted code and
+documentation review. The actual Windows diagnostics job `120071058825`
+(run `39849151878`) compiles successfully but exits 8 in CTest: two of
+3971 tests fail at the original fast Succeeded and MC non-Failed assertions.
+That log does not print the underlying report, so it alone does not identify
+the cause. The original job log/annotations are retained in the evidence.
+
+The Windows test executable and statically linked XLL have separate DAL
+runtime state. This new fixture initialized only the executable. Existing
+GSR SLV and calibration-risk tests also call the exported
+`Excel::ScriptTestInitialize` bridge to initialize the module that executes
+the wrapper. The GSR fixture now uses that same bridge. The two original
+status comparisons remain unchanged; their failure messages additionally
+dump the owning report so future failures expose code/field/cause directly.
+No product code, handles, parser, registry policy, CMake/test registration,
+workflow, financial setting, threshold or report behavior changes.
+
+A controlled Linux module-boundary probe establishes the runtime cause
+without assuming that portable tests exercise the Windows boundary:
+
+- Compile the actual unchanged GSR wrapper and existing runtime bridge into
+  a separate ELF module with the actual public/core static archives;
+  `-Bsymbolic`/`--exclude-libs,ALL` preserve its independent DAL state.
+  The host links its own DAL state and uses the existing store/fetch bridge,
+  typed handles and wrapper calls; there is no substitute repository.
+- Initializing only the host returns owning Failed outcomes for both fast
+  and MC. Their real diagnostic is `InvalidScriptInstrumentDefinition`,
+  Prepare, field `/source/rows/2/text`, source row 3, statement 0,
+  event `2027-10-21`, observation `obs`, quote `quote`. The preserved cause
+  is `UnknownIndex: no parser for 'IR[USD,DF,2028-10-21]'`.
+- Initializing the same module through the existing bridge, with the same
+  product archive/module bytes and inputs, yields fast Succeeded and MC
+  Candidate. Typed settings/model/outcome handles already cross the boundary
+  correctly; the missing module-local index-parser registration causes the
+  earlier failures.
+- Run the original two repository tests separately in fresh host processes,
+  reproducing CTest isolation. Before the fixture fix each exits 1 at its
+  original assertion and prints the exact diagnostic above. After the fix
+  both exit 0; all six GSR tests also pass together. The same module/library
+  identities are recorded for RED and GREEN.
+
+These module-boundary results are Linux evidence, not native Windows/XLL
+passes. The actual new-head Windows execution remains a CI gate. Local
+`dal_excel_portable_tests` GSR/shared checks pass **10/10** after rebuilding;
+the changed test TU passes both GCC14/15 repository warning policies,
+CCN<=8, clang-format and diff checks. No extra product test is added merely
+to mirror initialization: the two original failing assertions supply the
+regression. Other accepted code/doc, numerical, GIL, component and performance
+evidence is reused only for unchanged scope; no matrix is rerun.
+
+Only this record and `dal-excel/tests/test_gsr_instrument.cpp` change.
+`dal414-native-runtime-repair-evidence.zip` retains exact commands, raw owning
+reports, the original Windows failure, isolated-module RED/GREEN, portable
+results, source/configuration/library/binary identities and the minimal diff.
+The handoff records the final head and one new-head CI snapshot; prior P2
+approvals remain applicable and native acceptance is not inferred from Linux.
