@@ -93,8 +93,11 @@ logs, XML and caller rows. Exploratory failures remain separate.
   wrong nested handles, boolean/fraction/text/blank indices, exact public
   report parity, candidate/failure/model/error spills and unavailable getter.
 - Changed domains pass GCC 14/15 syntax checks with the repository's actual
-  warning-as-error policy and existing exclusions. Lizard CCN limit 10,
-  Markdown/link/diff and Machinist drift checks are scoped to this delivery.
+  warning-as-error policy and existing exclusions. The initial local Lizard
+  limit 10 was incorrect: the actual Codacy gate is CCN <=8, and rejected
+  two functions at the complete-delivery head. The correction and current
+  results are recorded below. Markdown/link/diff and Machinist drift checks
+  were scoped to the complete delivery.
   The first generated check correctly rejected not-yet-staged new files;
   they are staged with their controlling markup before the final check.
 
@@ -156,3 +159,53 @@ results. N100 StepStalled with converged=false remains separate from
 fit/numerics/held-out; N200 0.0318712375 > .025 and old Swaption
 0.0426379743 > .025 remain refusals. MRG32 seed1024/Precise, 589824 reserved
 paths/view and frozen scales/floors/FD steps are unchanged.
+
+## Complete-delivery CCN gate repair
+
+Input head `bb5e517d26430b1a744cac046d231f5d96e7bba5` failed Codacy check
+`120049463882`: `Fast` at line 100 and
+`ValidateGSRInstrumentCalibrationSettings` at line 372 each had CCN 9,
+against the actual limit 8. The earlier local limit-10 result did not
+establish this gate. The old report-foundation CI result does not cover
+the complete-delivery head.
+
+Only `dal-public/src/gsrinstrument.cpp` and this record change. Private
+`AllowMonteCarloFallback` extracts the same short-circuit predicate in
+the same evaluation order. `DerivativeSettings` performs the same check
+at its original position, after sampling checks and before backend checks.
+No diagnostic strings, route/admission rules, settings, budgets, driver
+work, reports or numerical algorithms change; original rethrows and
+owning failure/candidate publication remain in place. Tests and thresholds
+are unchanged.
+
+Actual repair verification, retained in `dal414-ccn8-repair-evidence.zip`:
+
+- RED: `lizard -C 8 dal-public/src/gsrinstrument.cpp` exits 1 and reports
+  exactly the two CCN-9 functions above, matching the actual Codacy
+  annotations saved with the evidence.
+- GREEN: the same command exits 0. `Fast` is 6, the public settings
+  validator is 7, and the new helpers are 4 and 3; the entire file's
+  maximum is 8. Formatting uses
+  `clang-format --dry-run --Werror dal-public/src/gsrinstrument.cpp`.
+- Both GCC 14 and 15 compile the changed translation unit with
+  `-fsyntax-only` and the repository warning-as-error policy, including
+  the same existing exclusions as the original delivery; both exit 0.
+  Exact argument vectors and outputs are saved, without policy changes.
+- Rebuild: `cmake --build build/Release-linux --target dal_public_tests -j 4`.
+  The actual rebuilt executable passes **11/11** with
+  `--gtest_filter='PublicGsrInstrumentTest.*:PublicCalibrationInstrumentTest.*'`.
+  These existing cases cover AutoFast fallback/RequireFast, MC FD/AAD,
+  invalid settings/methods, budgets, owned row/quote diagnostics,
+  report/candidate lifetimes and native price/partial/work parity.
+- `git diff --check` passes. Evidence records the input head, exact patch,
+  compiler commands, all function metrics and SHA-256 of the changed source,
+  build configuration and actual test executable.
+
+The previous Python/Excel, core-foundation, installed consumer/component
+closure and frozen numerical/performance evidence is reused only for its
+unchanged scope; none is a new execution or a new-head CI pass. No binding,
+header, markup, generated source, public guide or build dependency changes,
+so generation, Python/Excel suites and statistical/performance matrices
+were not rerun for these two private extractions. The final handoff records
+one actual new-head CI snapshot; full-head review and CI acceptance remain
+with the coordinator.

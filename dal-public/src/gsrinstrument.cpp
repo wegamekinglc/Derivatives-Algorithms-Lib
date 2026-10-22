@@ -97,6 +97,11 @@ namespace Dal {
             failure->report_.reset(new CalibrationReport_(d.stage_, axes, {d}, failure->report_->Data()));
             throw CalibrationError_(__FILE__, __LINE__, __func__, failure);
         }
+        bool AllowMonteCarloFallback(const GSRInstrumentCalibrationSettings_& s, const CalibrationError_& error) {
+            return s.evaluation_.evaluation_ == CalibrationEvaluation_::Value_::AutoFast && s.evaluation_.allowMonteCarloCalibration_ &&
+                   (Exact(error.Failure().diagnostic_.code_, "UnsupportedFastEvaluator") ||
+                    Exact(error.Failure().diagnostic_.code_, "UnsupportedCalibrationProduct"));
+        }
         bool Fast(const CalibrationPreparationContext_& c,
                   const Vector_<Handle_<CalibrationObservation_>>& rows,
                   const GSRInstrumentCalibrationSettings_& s) {
@@ -114,9 +119,7 @@ namespace Dal {
                     static_cast<void>(FastAdmission(c, axes, row, probe));
                 return true;
             } catch (const CalibrationError_& error) {
-                if (s.evaluation_.evaluation_ != CalibrationEvaluation_::Value_::AutoFast || !s.evaluation_.allowMonteCarloCalibration_ ||
-                    (!Exact(error.Failure().diagnostic_.code_, "UnsupportedFastEvaluator") &&
-                     !Exact(error.Failure().diagnostic_.code_, "UnsupportedCalibrationProduct")))
+                if (!AllowMonteCarloFallback(s, error))
                     throw;
                 return false;
             }
@@ -352,6 +355,12 @@ namespace Dal {
             if (s.heldOutSampling_)
                 Sampling(*s.heldOutSampling_, "/settings/held_out_sampling");
         }
+        void DerivativeSettings(const CalibrationEvaluationOptions_& options) {
+            Check(options.derivativeMethod_ == CalibrationDerivative_::Value_::Auto ||
+                      options.derivativeMethod_ == CalibrationDerivative_::Value_::FiniteDifference ||
+                      options.derivativeMethod_ == CalibrationDerivative_::Value_::AAD,
+                  "/settings/evaluation/derivative_method", "Auto, FiniteDifference or driver-supported AAD", "DerivativeUnavailable");
+        }
     } // namespace
 
     void ValidateGSRInstrumentSolverSettings(const GSRCalibrationSettings_& s) {
@@ -379,10 +388,7 @@ namespace Dal {
         Check(std::isfinite(s.epsilonValue_) && s.epsilonValue_ >= 0., "/settings/epsilon_value", "finite nonnegative epsilon");
         Check(std::isfinite(s.epsilonGradient_) && s.epsilonGradient_ >= 0., "/settings/epsilon_gradient", "finite nonnegative epsilon");
         SamplingInputs(s);
-        Check(s.evaluation_.derivativeMethod_ == CalibrationDerivative_::Value_::Auto ||
-                  s.evaluation_.derivativeMethod_ == CalibrationDerivative_::Value_::FiniteDifference ||
-                  s.evaluation_.derivativeMethod_ == CalibrationDerivative_::Value_::AAD,
-              "/settings/evaluation/derivative_method", "Auto, FiniteDifference or driver-supported AAD", "DerivativeUnavailable");
+        DerivativeSettings(s.evaluation_);
         if (s.evaluation_.evaluation_ == CalibrationEvaluation_::Value_::ScriptMC)
             McSettings(s);
         if (s.evaluation_.evaluation_ == CalibrationEvaluation_::Value_::RequireFast)
