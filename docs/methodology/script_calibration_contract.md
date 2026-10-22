@@ -60,8 +60,8 @@ counterpart, with valuation < E < T. All dates are concrete, the currency matche
 the header and context, and settlement is AtEvent under same-currency OIS
 collateral. Product names and fingerprints never bypass these structural checks.
 
-`CalibrationPreparationContext_` requires an explicit valuation date, fixing
-snapshot, currency, discount route and `GSRCurveData_` snapshot. Gaussian
+For non-XCCY preparation, `CalibrationPreparationContext_` requires an explicit
+valuation date, fixing snapshot, currency, discount route and `GSRCurveData_` snapshot. Gaussian
 preparation additionally requires an exact one- or multi-factor GSR model with
 the same curve. This fixes ACT/365 model time and the native Gaussian numeraire
 contract. The hard option requires zero smoothing. A different stochastic model
@@ -449,8 +449,10 @@ pricing authority. Preparation checks the complete bound AST and every payment
 event date against the derived cashflow plan; a template name cannot admit
 changed or moved payments. No native product remains beside the source.
 
-`PrepareCalibrationInstrument` with an explicit `XccyScriptContext_` produces
-the bounded `dal.xccy-cashflows/1` FastDeterministic capability for AutoFast or
+`PrepareCalibrationInstrument` takes the dedicated `XccyScriptContext_` through
+`context.xccy_`, with its own valuation date and fixing history. Leave the generic
+`model_`, `curve_`, `valuation_.evaluationDate_` and `valuation_.fixings_` empty.
+This produces the bounded `dal.xccy-cashflows/1` FastDeterministic capability for AutoFast or
 RequireFast. `EvaluateXccyScript<double/AAD::Number_>` consumes an explicit
 `XccyMarketView_`. Price is `B+K*A`; signed decimal BasisSpread is `-B/A`, using
 the declared annuity sign and positive floor at each evaluation. Both spread

@@ -335,3 +335,33 @@ information retain their recorded identities and applicability. Code Approve
 is reused; necessary documentation review and exact-head gates remain for
 the coordinator. DAL-408's Markdown writing is complete before the author
 returns to the separately authorized DAL-412 Coupon dispatch repair.
+
+## Dedicated XCCY context documentation correction
+
+The document review of `222de7ae689b3cfaeb8f26e3b329a37d37f85b51` accepted all
+other guide/CHANGELOG/index statements and identified one necessary context
+clarification at parent comment `01a16364-e8ae-76fc-b836-a6cb07dbe728`.
+The current issue and author instruction
+`01a16367-28c2-7bb6-aa4a-3f59a0794b34` authorize this serial correction after
+DAL-412's Coupon repair. That work was safely pushed at
+`4a4317e827684437b5720071d15ecbd8cd4e97e4` with a clean original checkout;
+its only Markdown change is its own record. The public-guide window remains
+with DAL-408, and no sibling unmerged content is imported.
+
+Only two existing guide passages change: generic valuation/fixing/GSR curve
+requirements are explicitly limited to non-XCCY preparation; the XCCY section
+directs callers to `context.xccy_` for dedicated date/history and explicitly
+leaves generic model, curve, evaluation date and fixings empty. This matches
+the existing XCCY ContextIdentity rejection boundary. The supplied/omitted
+snapshot paragraphs and all other capability, financial and numerical prose
+are byte-identical. This record is the only other changed file; CHANGELOG,
+indexes, product, tests and build/workflow paths remain unchanged.
+
+Verification consists only of the 88-Markdown static check, local link/anchor
+and diff checks, and full non-Markdown mode/type/blob comparisons against both
+`222de7ae...` and code-approved `bcd0d8ca...`: all 2,757 entries are identical.
+The documentation patch, sources, identities and one exact-new-head CI
+snapshot are in the final handoff. No product, statistical or performance
+tests are run; code Approve and all other document conclusions retain their
+recorded applicability. This one document gap awaits limited confirmation
+and current-head gates; the author does not dispatch reviewers or merge.
