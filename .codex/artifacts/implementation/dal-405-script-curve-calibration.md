@@ -1,5 +1,21 @@
 # DAL-405: native-coordinate script curve calibration
 
+## Focused review follow-up: methodology
+
+At reviewed head `8b244a0d9ac9e27e59f33f77f3424559f35aeb6a`, the documentation
+review requested two small additions. The main script calibration guide now
+publishes the new Fit driver's dense Cholesky/fresh-Jacobian choices and its
+separation from legacy CG residual-floor/secant-refresh rules. The older
+underdetermined guide explicitly scopes its gamma/CG/Broyden discussion to
+Find/Approximate and links back to the new entry. Both links are reciprocal.
+CHANGELOG and indexes need no additional entry for this correction.
+
+This first follow-up commit changes only these two Markdown guides and this
+record. Product directory tree IDs are compared with the reviewed head in the
+handoff evidence; no product or performance test is run for this prose change.
+The coordinator subsequently added three P2 code repairs to the same serial
+batch; their separate change and targeted verification are recorded below.
+
 ## Control inputs and source applicability
 
 Startup HEAD and fetched master were

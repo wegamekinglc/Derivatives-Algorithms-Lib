@@ -253,6 +253,13 @@ Each local problem uses the prior displacement and lambda-weighted squared
 scaled residuals; acceptance is scaled L2<=eta. It may accept the initial point
 and does not certify an objective minimum. Scales never determine lambda.
 
+The new `Underdetermined::Fit` regularized local solve uses dense Cholesky and
+requests a fresh Jacobian each iteration. It does not reuse the legacy CG
+absolute residual floor or Broyden/secant refresh schedule. These numerical
+choices do not promise the legacy floating-point trajectory; the
+[underdetermined search note](underdetermined_search.md) describes the original
+`Find`/`Approximate` paths, which retain their existing algorithms.
+
 FD is the default; explicitly requested AAD uses the same cashflows and native
 curve representation, including all log-DF schemes. Unsupported derivative or
 MC requests fail. Solve FD bumps z; independent `Evaluate(theta)` FD bumps native
