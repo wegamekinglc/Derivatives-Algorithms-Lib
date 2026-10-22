@@ -419,6 +419,14 @@ TEST(CalibrationPreparationTest, TestGeneralPriceMcAdmitsBoundArithmeticAverage)
     Failure([&] { PrepareCalibrationInstrument(instrument, "Price", context, options); }, "UnsupportedFastEvaluator");
 }
 
+TEST(CalibrationPreparationTest, TestGeneralMcCannotBypassDepositPayoffChecks) {
+    for (const String_ text : {"pay PAYS N*(1+K*ALPHA)+1", "pay PAYS -N*(1+K*ALPHA)"}) {
+        auto spec = DepositSpec();
+        spec.source_.rows_.back().text_ = text;
+        Failure([&] { PrepareCalibrationInstrument(Instrument(spec), "Price", GaussianContext(), GeneralMcOptions()); }, "UnsupportedFastEvaluator");
+    }
+}
+
 TEST(CalibrationPreparationTest, TestGeneralMcWholeSourceRefusesReceiverAndUnsupportedControls) {
     for (const String_ text : {"EXERCISE 1", "IF avg > K THEN avg = 1 END", "APPEND(v,1)", "avg = SPOT()"}) {
         auto spec = AverageSpec();

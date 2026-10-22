@@ -187,12 +187,15 @@ python3 .github/scripts/check_docs.py
 ```
 
 The scoped executable links the current core archive, repository test main and
-the six relevant test translation units: driver, European/native calibration,
-BondOption script, rate-option script, MC and preparation. It is a dedicated
+the seven relevant test translation units: driver, European/native calibration,
+BondOption script, rate-option script, MC, preparation and Deposit caller. It is a dedicated
 binary, not an assertion that the full `dal_cpp_tests` target was built/run.
 The prior partial head passed 128 scoped checks. The complete continuation
-freshly rebuilds and passes **146/146**: those same 128 plus 10 arithmetic-average,
-six shared preparation and two execution-identity checks. All 14 accepted driver test bodies and their
+first rebuilt and passed **146/146**: those same 128 plus 10 arithmetic-average,
+six shared preparation and two execution-identity checks. The CI-discovered
+Deposit admission regression below then expands the final affected set to
+**168/168**, adding one preparation boundary case and all 21 existing Deposit
+caller cases. All 14 accepted driver test bodies and their
 helpers remain byte-identical. It covers tape cleanup/nested-recording recovery, exact labels, CRN path oracle,
 binding/history, original fast/native/vol behavior, frozen numerical matrices,
 and the new driver states. Final counts and immutable executable/source hashes
@@ -247,21 +250,21 @@ the full 65536-fit-path reservation per observation:
 
 | Rows | Method | Prepare | Evaluate   | Jacobian   | Jacobian batches | Jacobian paths |
 |------|--------|---------|------------|------------|------------------|----------------|
-| 1    | FD     | 422.543 | 15079.600  | 30243.300  | 16               | 131072         |
-| 1    | AAD    | 421.817 | 65937.100  | 64712.600  | 8                | 65536          |
-| 2    | FD     | 718.618 | 29604.800  | 59145.250  | 32               | 262144         |
-| 2    | AAD    | 729.020 | 129284.500 | 130476.000 | 16               | 131072         |
+| 1    | FD     | 438.097 | 15215.150  | 30801.600  | 16               | 131072         |
+| 1    | AAD    | 427.657 | 64325.300  | 64589.300  | 8                | 65536          |
+| 2    | FD     | 737.511 | 30474.700  | 60735.600  | 32               | 262144         |
+| 2    | AAD    | 725.678 | 128110.500 | 127839.000 | 16               | 131072         |
 
 For this single-parameter caller AAD uses fewer paths but takes longer than
 double basket FD. No speedup is claimed. AAD peaks at 250 tape nodes and
-1,966,080 capacity bytes; process RSS high water is 13,648 KiB with one DAL
+1,966,080 capacity bytes; process RSS high water is 13,704 KiB with one DAL
 thread, not per-call allocated memory. CPU 4 is pinned, compiler/core settings
 match the functional build, and method order alternates over ten repetitions.
 
 Native controls retain their batch/path counts and 89/96-node tape peaks.
-Final one-row before/after prepare medians are FD 168.957/175.099 and AAD
-171.738/178.900; two-row medians are FD 343.505/339.238 and AAD
-360.810/339.584. Other evaluation/Jacobian changes are mixed small differences.
+Final one-row before/after prepare medians are FD 170.022/171.615 and AAD
+166.747/168.797; two-row medians are FD 320.477/342.327 and AAD
+336.882/337.822. Other evaluation/Jacobian changes are mixed small differences.
 These isolated informational probes are outside the nine closed benchmarks;
 neither a regression-gate pass nor a portable no-regression verdict is claimed.
 Native pricing, optimizer, tape and RNG kernels are unchanged and outside the
@@ -369,3 +372,34 @@ index are synchronized. Existing Deposit/curve and Gaussian rate-option text
 is retained, without importing DAL-406's unmerged capabilities. Existing docs
 indexes already link this guide. Public/bindings, XCCY MC and calibrated quote
 risk are not claimed. Pure Markdown work receives only static checks.
+
+## Exact-head CI Deposit admission repair
+
+The completed diagnostic job 119685645511 on head fc0c7231 failed the unchanged
+`DepositScriptTest.TestSourceChangesReachFastAndBothScriptBackendsWithoutNativeEdits`:
+both corrupted maturity payments were accepted as generic Price. This is a
+product admission regression, not the separate checkout-cleanup warning.
+The CI log is retained as `dal412-ci-extended-fc0.log`.
+
+One new shared preparation test covers `N*(1+K*ALPHA)+1` and
+`-N*(1+K*ALPHA)` after the existing `PAYS -N` opening payment. It and the exact
+CI-failing caller test first fail locally, recorded in
+`dal412-deposit-boundary-red.xml/log`. The minimal selector now reserves the
+two-payment Deposit shape for existing native matching even when its maturity
+formula is malformed. The full valid Deposit matcher and all identities remain
+unchanged; one-payment signed general Price and arithmetic averages remain
+admitted. No old test, instrument, compiler, Gaussian kernel or Brent code changes.
+
+RED command after compiling the two affected test TUs against the old archive:
+
+```sh
+build/Release-linux/dal412-deposit-boundary-tests --gtest_filter='CalibrationPreparationTest.TestGeneralMcCannotBypassDepositPayoffChecks:DepositScriptTest.TestSourceChangesReachFastAndBothScriptBackendsWithoutNativeEdits'
+```
+
+GREEN rebuilds the affected core archive and runs all preparation and Deposit
+caller tests: **57/57** pass. The final scoped script now includes the existing
+Deposit test TU and passes **168/168**. This CI failure justifies that caller
+expansion; unrelated matrices are not repeated. Warning/format/docs/complexity,
+legacy identity probes and caller binaries/measurements are refreshed for the
+selector delta. Raw build commands, XML, compiler logs and source hashes identify
+each execution. Exact-head external CI remains separate from local results.

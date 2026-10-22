@@ -423,9 +423,11 @@ namespace Dal {
                 return AdmitMonteCarlo(deposit, measure, context, options, d);
             return AdmitDeterministic(deposit, options, d);
         }
+        bool DepositTemplateShape(const Vector_<Payment_>& payments) {
+            return payments.size() == 2 && DepositStart(*payments[0].node_->arguments_[1]);
+        }
         bool IsDeposit(const Vector_<Payment_>& payments) {
-            return payments.size() == 2 && DepositStart(*payments[0].node_->arguments_[1]) && DepositEnd(*payments[1].node_->arguments_[1]) &&
-                   payments[0].date_ < payments[1].date_;
+            return DepositTemplateShape(payments) && DepositEnd(*payments[1].node_->arguments_[1]) && payments[0].date_ < payments[1].date_;
         }
         struct Payoff_ {
             CalibrationFastDescriptor_ descriptor_;
@@ -512,7 +514,8 @@ namespace Dal {
                            Receiver(*node.arguments_[0], instrument.Definition()->Spec().header_.receiver_) && Literal(*node.arguments_[1], 0.)))
                     plain = false;
             });
-            return plain && (IsDeposit(payments) || BondOption(payments, instrument, context, d).has_value() || RateTemplateShape(payments));
+            return plain &&
+                   (DepositTemplateShape(payments) || BondOption(payments, instrument, context, d).has_value() || RateTemplateShape(payments));
         }
         bool VectorNode(const Node_& node) {
             return dynamic_cast<const NodeVectorAssign_*>(&node) || dynamic_cast<const NodeVectorEntry_*>(&node) ||

@@ -423,6 +423,8 @@ native fast adapters and vanilla volatility conversion keep their behavior.
 General Price targets may be signed. Recognized BondOption/Caplet/Swaption
 contracts retain their original classification, domain checks and nonnegative
 Price-target preflight, including held-out observations.
+Two-payment Deposit shapes beginning with `PAYS -N` retain the native payoff
+checks; a malformed maturity payment cannot acquire the general Price rule.
 
 General admission reads the complete bound scalar AST and validates the actual
 Gaussian model, fixing snapshot and same-currency OIS/AtEvent context. It permits
