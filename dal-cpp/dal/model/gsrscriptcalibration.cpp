@@ -9,14 +9,18 @@ namespace Dal {
         using namespace CalibrationInternal;
         using namespace BoundedGaussNewton;
 
-        void Settings(const GSRScriptCalibrationSettings_& s) {
+        void Tolerances(const GSRScriptCalibrationSettings_& s) {
             const auto& o = s.optimizer_;
-            Check(o.maxIterations_ > 0 && s.maxBasketEvaluations_ > 0 && s.maxBasketEvaluations_ <= INT_MAX, "InvalidCalibrationPlan",
-                  "/settings/budget", "positive iteration and exact basket limits");
             for (double v : {o.gradientTolerance_, o.stepTolerance_, o.finiteDifferenceStep_, o.parameterScale_, s.validationSigma_})
                 Check(std::isfinite(v) && v > 0., "InvalidCalibrationPlan", "/settings", "finite positive tolerances, scales and sigma");
             for (double v : {o.priorWeight_, o.smoothingWeight_, s.epsilonValue_, s.epsilonGradient_})
                 Check(std::isfinite(v) && v >= 0., "InvalidCalibrationPlan", "/settings", "finite nonnegative weights and floors");
+        }
+        void Settings(const GSRScriptCalibrationSettings_& s) {
+            const auto& o = s.optimizer_;
+            Check(o.maxIterations_ > 0 && s.maxBasketEvaluations_ > 0 && s.maxBasketEvaluations_ <= INT_MAX, "InvalidCalibrationPlan",
+                  "/settings/budget", "positive iteration and exact basket limits");
+            Tolerances(s);
             Check(std::isfinite(o.numericalErrorFraction_) && o.numericalErrorFraction_ > 0. && o.numericalErrorFraction_ < 1.,
                   "InvalidCalibrationPlan", "/settings/numerical_error_fraction", "fraction strictly between zero and one");
             Check(s.derivativeMethod_ == CalibrationDerivative_::Value_::AAD ||
@@ -68,6 +72,12 @@ namespace Dal {
             Check(c.model_ && typeid(*c.model_) == typeid(MultiFactorGSRModelData_), "UnsupportedFastEvaluator", "/context/model",
                   "native MultiFactor Gaussian selected-g model");
             return static_cast<const MultiFactorGSRModelData_&>(*c.model_);
+        }
+        double NormalizedInitial(const GSRCalibrationParameter_& p, double g, double scale) {
+            Check(std::isfinite(p.lower_) && std::isfinite(p.upper_) && p.lower_ >= 0. && p.upper_ > p.lower_ && std::isfinite(p.upper_ / scale) &&
+                      g >= p.lower_ && g <= p.upper_,
+                  "InvalidCalibrationPlan", "/parameters", "finite resolvable bounds containing initial g");
+            return g / scale;
         }
         class Problem_ {
             const CalibrationPreparationContext_& context_;
@@ -127,8 +137,7 @@ namespace Dal {
                         }
                 penalties_ = Matrix_<>(rows.size(), parameters_.size(), 0.);
                 for (size_t i = 0; i < rows.size(); ++i)
-                    for (size_t j = 0; j < parameters_.size(); ++j)
-                        penalties_(i, j) = rows[i][j];
+                    std::copy(rows[i].begin(), rows[i].end(), penalties_.Row(i).begin());
             }
 
         public:
@@ -143,13 +152,8 @@ namespace Dal {
                 Check(!rows.empty() && !parameters.empty(), "InvalidCalibrationPlan", "/observations", "nonempty Price rows and g coordinates");
                 static_cast<void>(CalibrationMcGLabels(c.model_, parameters));
                 const auto& g = Initial(c).vol_->gValues_;
-                for (const auto& p : parameters) {
-                    Check(std::isfinite(p.lower_) && std::isfinite(p.upper_) && p.lower_ >= 0. && p.upper_ > p.lower_ &&
-                              std::isfinite(p.upper_ / settings.optimizer_.parameterScale_) && g(p.factor_, p.knot_) >= p.lower_ &&
-                              g(p.factor_, p.knot_) <= p.upper_,
-                          "InvalidCalibrationPlan", "/parameters", "finite resolvable bounds containing initial g");
-                    guess_.push_back(g(p.factor_, p.knot_) / settings.optimizer_.parameterScale_);
-                }
+                for (const auto& p : parameters)
+                    guess_.push_back(NormalizedInitial(p, g(p.factor_, p.knot_), settings.optimizer_.parameterScale_));
                 BuildPenalties();
                 valuePlans_ = Plans(false);
                 if (settings.derivativeMethod_ == CalibrationDerivative_::Value_::AAD)

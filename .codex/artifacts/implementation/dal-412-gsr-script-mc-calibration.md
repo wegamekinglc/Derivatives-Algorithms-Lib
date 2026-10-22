@@ -135,6 +135,16 @@ same assertion. Tests were not weakened. A compile command's initial wrong
 gtest archive path and an unquoted zsh wildcard were harness errors, not RED
 evidence. New code was refactored while green; modified ranges are formatted.
 
+Initial PR head `5619de7bce22589714d89d36675113af55be0503` received four Codacy
+complexity findings at its stricter limit of 8: settings validation, penalty
+assembly, constructor validation and the non-root FD test. The repair separates
+validation responsibilities, copies complete matrix rows and expresses test
+bumps with a displacement vector. All original checks, assertions, paths,
+scales and tolerances remain. Local analysis of the new driver and its tests
+now meets CCN<=8; existing touched MC files retain their CCN<=10 local check.
+Current-head external CI still requires its own result; the initial failure is
+not represented as an external pass.
+
 Commands (full compile/link commands, raw logs and XML are in the evidence bundle):
 
 ```sh
@@ -179,8 +189,8 @@ paths. Ten repetitions alternate method order, pinned to CPU 4 on an Intel
 i9-13900HX; raw samples and source accompany the bundle.
 
 Final informational medians in microseconds (prepare/evaluate/Jacobian):
-one row FD=171.680/284.701/1141.325, AAD=172.486/327.382/326.547;
-two rows FD=352.219/552.730/2233.360, AAD=339.495/704.633/658.371.
+one row FD=167.619/284.759/1101.810, AAD=167.935/328.333/316.849;
+two rows FD=348.221/570.054/2305.860, AAD=362.077/665.763/642.703.
 One-row Jacobians execute FD 8 batches/512 paths versus AAD 2/128; two-row
 Jacobians execute FD 16/1024 versus AAD 4/256. AAD tape peaks are 89/96 nodes,
 1,966,080 capacity bytes. Process RSS high-water is 650208 KiB, including global

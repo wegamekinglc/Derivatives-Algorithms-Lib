@@ -88,8 +88,10 @@ TEST(GSRScriptCalibrationTest, TestNonRootRowsMatchIndependentCrnDifferences) {
     for (size_t j = 0; j < parameters.size(); ++j) {
         Vector_<> differences;
         for (double h : {1e-6, 5e-7}) {
-            const auto up = FitContext(result.parameters_[1] + (j == 1 ? h : 0.), result.parameters_[0] + (j == 0 ? h : 0.));
-            const auto down = FitContext(result.parameters_[1] - (j == 1 ? h : 0.), result.parameters_[0] - (j == 0 ? h : 0.));
+            Vector_<> displacement(parameters.size(), 0.);
+            displacement[j] = h;
+            const auto up = FitContext(result.parameters_[1] + displacement[1], result.parameters_[0] + displacement[0]);
+            const auto down = FitContext(result.parameters_[1] - displacement[1], result.parameters_[0] - displacement[0]);
             for (size_t i = 0; i < rows.size(); ++i) {
                 const auto& instrument = rows[i]->Instrument();
                 const double high = PrepareCalibrationMc(instrument, "Price", up, settings.sampling_).Evaluate(instrument, up, false).mean_;
