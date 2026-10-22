@@ -1,185 +1,154 @@
 # DAL-414: GSR instrument public bindings
 
-## Controlling state and design
+## Control and scope
 
-Started from clean `acadd8ee44fdb6a0bb2e70de9d559db59de066f8`, merged
-DAL-407/PR621 and DAL-413/PR622. The current DAL-414 description and parent
-DAL-396 authorize this work. DAL-398 sections 6–9 control the new signatures,
-required valuation and fixed report schema; DAL-412 and DAL-413 retain their
-accepted pricing, derivative, stream and numerical acceptance semantics.
+The unique branch is `agent/dal-implementer/170e83586ef4`, PR #623, base master.
+Merged prerequisites are DAL-407/PR621 `acadd8ee44fdb6a0bb2e70de9d559db59de066f8`
+and DAL-413/PR622 `bf4cabea8575206375047e51993a5aa5aeb54c0c`.
+DAL-398 sections 6–9 and the current DAL-414 description control this work.
+The coordinator accepted the minimal domain settings decision at 2026-10-22
+18:46 UTC, resolving the earlier batching/held-out gap at input head
+`aab4016c5e5138e95a8e478e277af82677c12292`. That head's owning core report
+foundation and accepted RED/GREEN evidence remain unchanged.
 
-The facade must select existing core drivers and own all inputs before a
-Python GIL release. It must not construct a second product, invent sampling
-defaults, modify the shared protocol or import unmerged XCCY work. The
-explicitly authorized independent core change keeps the script driver's
-result alive across failure and publishes actual counters and completed
-finite summary metrics through `CalibrationReportSnapshot_`, without further evaluation.
-Failed reports retain the original diagnostic, error axes and last complete
-candidate. Unavailable metrics stay absent.
+The new four-required-argument public facade delegates to existing
+`CalibrateGaussianBondOptions` or `CalibrateGSRScriptPrices`. AutoFast probes
+existing fast admission first; only explicit opt-in and complete MC settings
+permit fallback through the existing MC AST/model guard. RequireFast never
+falls back. Fast calibration supports BondOption; Caplet/Swaption fast pricing
+does not imply a fast calibration driver. MC Auto uses AAD, fast Auto uses
+native FD, and explicit MC FD retains value-only per-view admission while
+reporting the basket's actual FD method.
 
-## Contract gap requiring coordination
+All three languages invoke the domain semantic validator. The accepted
+settings contain copied native solver, required frozen valuation, evaluation,
+three optional shared batch sampling values, held-out observations, explicit
+path budget, basket limit, sigma/floors and compiled. Sampling uses exact
+PseudoRandom/MRG32/Precise version, common seed, checked F/V/H reserves, V>F,
+and int32 budget bounds. Supplied aggregate sampling must match fit
+paths/seed/generator. Orphan held-out, unsupported derivatives, irrelevant
+nondefault controls and nondefault MC quadrature fail explicitly. No shared
+wire type, report column, archive, RNG or numerical algorithm was added.
 
-The frozen `GSRInstrumentCalibrationSettings_` in DAL-398 section 6 contains
-`solver_: GSRCalibrationSettings_`, `valuation_`, `evaluation_` and optional
-`validationSampling_`. Its four-argument facade has no held-out argument.
-Actual merged types do not supply an unambiguous mapping to DAL-412:
+Results own model/report, stable axes, raw native-g Jacobian, independent
+fit/validation/held-out values and flags. Failed reports retain stage/code/field,
+source/row context, work counts and last complete candidate. Unavailable
+quantities stay null. Report metadata admission queries real source/binding/
+compiler/context capabilities without pricing or simulation;
+`reportPreparations_` counts those admissions separately from driver work.
+Fast selection also performs a capability probe. This adds facade metadata
+overhead, not a numerical evaluation. Report composition remains in public.
+The earlier authorized core change only publishes owning summaries and saves
+completed finite summaries across failure.
 
-- `dal-cpp/dal/script/calibrationpreparation.hpp`:
-  `CalibrationEvaluationOptions_::sampling_` is
-  `optional<CalibrationSamplingSpec_>` with only `paths_`, `seed_`,
-  `generator_`. It cannot express fit batches, paths per batch or a stream
-  version. Its Python/Excel constructors faithfully expose those three fields.
-- `dal-public/src/calibrationinstrument.hpp`:
-  `CalibrationMonteCarloSampling_` has mode, paths per batch, batches, seed and
-  stream version, but is currently a different type used by MC repricing.
-- `dal-cpp/dal/model/gsrscriptcalibration.hpp`:
-  `GSRScriptCalibrationSettings_` requires separate fit/validation counts and
-  a maximum reserved path budget, plus basket budget and precision floors;
-  held-out observations are a separate fifth argument with independent counts.
-  Neither the frozen public settings nor signature supplies those observations.
+Python has keyword-only domain settings and strict selected-g factory, complete
+owning conversion before GIL release, copied getters and GSR candidates on
+CalibrationError. Old positional parameters and native defaults remain.
+The new Jacobian getter raises DerivativeUnavailable when the native driver
+has no matrix. Excel adds typed settings and solver/pricing wrappers, strict
+factor/knot/lower/upper rows, owning Succeeded/Candidate/Failed outcomes,
+model getter and five generated registrations/help files. Invalid factories
+remain worksheet errors; valid execution failures retain owning reports.
 
-No product mapping is implemented until coordination resolves this gap, as the
-launch instruction explicitly freezes existing shared types and requires a
-concrete proposal before extending their schema.
+The separate public `gsr_script_calibration` example fits and prices one
+binding with plain/AAD MC, then explicitly rebinds K with unit BondPrice.
+Core example directories, targets, tests and install names remain unchanged.
+The existing methodology guide/CHANGELOG and artifact index are updated.
+Existing docs/CLAUDE guide links remain valid; no new guide index is needed.
 
-Minimal proposed additive mapping for coordination (not a shipped API): keep
-the four required facade arguments and the specified solver/valuation/evaluation
-fields. Declare the new domain settings as follows:
+## Adapter RED/GREEN and compatibility
 
-```cpp
-struct GSRInstrumentCalibrationSettings_ {
-    GSRCalibrationSettings_ solver_;
-    Script::ScriptValuationSettings_ valuation_;
-    CalibrationEvaluationOptions_ evaluation_;
-    std::optional<CalibrationMonteCarloSampling_> fitSampling_, validationSampling_, heldOutSampling_;
-    Vector_<Handle_<CalibrationObservation_>> heldOutObservations_;
-    int maxPathsPerView_ = 0, maxBasketEvaluations_ = 1000;
-    double validationSigma_ = 3., epsilonValue_ = 1e-10, epsilonGradient_ = 1e-8;
-    bool compiled_ = Script::DEFAULT_COMPILED;
-};
-```
+`dal414-complete-evidence.zip` contains commands/configuration, source hashes,
+logs, XML and caller rows. Exploratory failures remain separate.
 
-The three sampling fields reuse the already public batching type. ScriptMC
-requires explicit fit/validation settings and a positive reserved path budget;
-held-out observations additionally require their independent sampling. Seed,
-mode and stream version must agree, and the current core retains its common
-draw-dimension checks. Existing `evaluation.sampling`, when supplied, must
-agree with the fit seed/generator/total paths; it cannot set another batch
-protocol. Fast fitting requires no MC fields and rejects unsupported choices
-rather than ignoring them. No shared type or report schema changes are proposed.
-The fixed kernel remains hard payoff, MRG32/Precise and no Brownian bridge.
-Public Auto would resolve to native FD for the existing BondOption fast driver
-or native AAD for explicit ScriptMC; explicitly unsupported derivatives fail.
-The existing `validationSampling_` slot gets the shared batching type, rather
-than another independently defined value. The additional new-domain fields
-and this mapping require acceptance under the launch's freeze instruction;
-there is no safe implicit split of the existing `paths_` into batches.
+- API surface RED: new C++ test failed for absent settings/facade, Python
+  failed for the absent constructor, Excel compilation for the absent header.
+- Behavioral RED: fast admission lost observation/quote ownership; Python
+  NaN field lacked `/settings`; inherited Python Jacobian returned an empty
+  matrix; MC FD report admission incorrectly requested a direct per-view FD.
+  Each failed before its adapter fix. The example's initial Dimensionless K
+  rebind also failed, then passed with source-declared BondPrice.
+- Actual targets built with GCC 15.2, CMake 4.2.3, native AADET/Eigen,
+  native-arch off, CPython 3.13:
+  `cmake --build build/Release-linux --target dal_public_tests dal_excel_portable_tests _dal gsr_script_calibration -j 6`.
+- `dal_public_tests --gtest_filter='PublicGsrInstrumentTest.*:PublicCalibrationInstrumentTest.*'`:
+  **11/11**, nine new and two shared. Fast/native and MC/native parameters,
+  prices, raw Jacobian and work counts match. Includes held-out, aggregate/
+  seed/overflow/budget conflicts, FD, general Price fallback and owned errors.
+- `PYTHONPATH=build/Release-linux/dal-python python3 -m pytest dal-python/tests/test_gsr_instrument.py dal-python/tests/test_calibration_instrument.py -q`:
+  **32/32**, twenty new and twelve shared. Includes strict types/values,
+  nonfinite/int32 diagnostics, copied settings, destroyed-input candidate/
+  report/held-out lifetime, unavailable matrix and actual GIL release. Both
+  GIL tests use synchronization and a held-GIL negative control, never retry
+  or load-based scheduling assumptions.
+  A final current-source rerun passes the twenty new cases; three existing
+  `test_gsr_european.py` cases also pass, including the old positional
+  Calibrate_GSRVolatility call, option parity and legacy error behavior.
+- `dal_excel_portable_tests --gtest_filter='ExcelGsrInstrumentTest.*:ExcelCalibrationInstrumentTest.*'`:
+  **8/8**, four new and four shared. Includes normalized duplicate keys,
+  wrong nested handles, boolean/fraction/text/blank indices, exact public
+  report parity, candidate/failure/model/error spills and unavailable getter.
+- Changed domains pass GCC 14/15 syntax checks with the repository's actual
+  warning-as-error policy and existing exclusions. Lizard CCN limit 10,
+  Markdown/link/diff and Machinist drift checks are scoped to this delivery.
+  The first generated check correctly rejected not-yet-staged new files;
+  they are staged with their controlling markup before the final check.
 
-## Implemented independent report change
+The original **25/25** core report-foundation tests (twenty existing, five new)
+are reused. Their real REDs were loss of work counts on budget failure and
+loss of completed fit summary during held-out failure. WorkSnapshot retains
+finite zeros, omits unavailable/nonfinite summaries and does not change solver
+or tape work. The original four GCC 14/15 policy checks pass; separate stricter
+exploratory failures in old headers are not claimed as passes. No core source
+changed after the foundation head; frozen source identity checks are included.
+Full suites/statistical matrices were not rerun.
 
-Only `dal-cpp/dal/model/gsrscriptcalibration.cpp` and its existing dedicated test
-file have production/test edits. `WorkSnapshot` publishes the current driver's
-basket and Jacobian invocation counts and iteration count in existing summary
-fields. A Jacobian invocation that reaches its basket budget is counted as
-attempted, consistently with `costs_.jacobians_`; it is not claimed completed.
-The result now outlives the catch. A marker after successful `Finalize` permits
-publishing completed fit/convergence/numerics/objective/rank metrics even when
-held-out evaluation subsequently fails. The report retains the failing row's
-held-out axes; fit observations are not substituted for them.
+## Independent component closure
 
-Finite zero metrics are preserved. Infinite rank-condition estimates become
-unavailable, and invalid input does not produce invented objective/acceptance
-values or replace the primary diagnostic. An unfinished solve publishes actual
-counts but no completed fit metrics. `Succeeded` requires convergence, fit and
-numerics plus requested held-out acceptance; other returned calibrations are
-`Candidate`, and execution errors remain `Failed`. Last complete candidate,
-exception cause and tape cleanup behavior are unchanged.
+- Public-disabled workspace, Python/Excel off, core examples on: both
+  `gsr_swap_swaption` and `gsr_slv_calibration` build; CTest **2/2** passes.
+- Independent `cmake -S dal-cpp`: both targets build and executables run.
+  Existing top-level mode with core tests off creates no CTest registration;
+  its no-tests output is retained and not counted as a pass. Workspace
+  registration above verifies unchanged names.
+- Independent dal-public against the scoped installed core package builds
+  all three public examples; CTest **3/3** passes. Public install includes
+  existing names plus the separate GSR example.
+  Workspace public example CTest also passes 2/2 for the new and existing
+  script examples; the component binding boundary test passes 1/1.
+- A fresh installed-package consumer links only DAL::public and executes
+  fast/MC calls, report/Jacobian getters and parity: CTest **1/1** passes.
+- Installed GSR example runs with explicit paths for the temporary library
+  prefixes. Without them, this machine loads unrelated old
+  `/usr/local/lib/libdal_cpp.so.1.0.0` (Adept) and fails a missing native symbol;
+  ldd diagnosis and the corrected prefix run are preserved. No system library
+  or RPATH policy changed. Broad core install encountered unbuilt unrelated
+  examples; scoped top-level core package install supplies the tested closure.
 
-This is a partial foundation for DAL-414. Detailed facade observations, selected
-g rows, plans, execution, independent fit/validation SE and raw Jacobian assembly
-remain with the public adapter once its input mapping is accepted. No new report
-schema, matrix placeholder, pricing/derivative/RNG/acceptance change, public
-entry point, Python/Excel binding or example is included. Existing public docs
-and CHANGELOG receive no feature claim for this unfinished interface.
-
-## RED, GREEN and verification
-
-Commands use a fresh Release workspace at `build/Release-linux`, GCC 15.2.0,
-CMake 4.2.3, native AADET, static core, Eigen, native-arch OFF. Public is configured
-but public tests, Python, portable Excel, examples and benchmarks are OFF. All
-five pinned top-level submodules were initialized without pointer changes.
-
-`cmake --preset Release-linux -S . -B build/Release-linux
--DDAL_CPP_BUILD_EXAMPLES=OFF -DDAL_CPP_BUILD_BENCHMARKS=OFF
--DDAL_BUILD_EXCEL_PORTABLE_TESTS=OFF -DDAL_PUBLIC_BUILD_TESTS=OFF
--DCMAKE_EXPORT_COMPILE_COMMANDS=ON` succeeds. An initial premature build before
-configure completed reported a missing cache; the subsequent configured baseline
-build succeeded. This setup failure is separate from behavioral RED.
-
-The attached `verify.py` compiles the dedicated test and canonical test main
-using their exact compile-database arguments, and links the fresh canonical
-`libdal_cpp.a` with the built `libgtest.a`. This is a scoped runner; it is not
-execution of the full `dal_cpp_tests` target.
-
-1. `cmake --build build/Release-linux --target dal_cpp -j 4` builds the baseline.
-   `python3 ../dal414-evidence/verify.py compile`, then
-   `python3 ../dal414-evidence/verify.py test red
-   GSRScriptCalibrationTest.TestBudgetFailureReportRetainsActualWorkAfterInputsDie`
-   gives **1/1 expected failure**: the previous report has no GSR summary.
-2. After minimum counter/lifetime publication, rebuild `dal_cpp` and use phase
-   `green` with the same test: **1/1 passes**.
-3. Add `GSRScriptRepairTest.TestHeldOutFailureRetainsCompletedFitSummaryAndItsOwnAxes`.
-   Recompile the runner and use phase `held-red`: **1/1 expected failure**,
-   completed objective 0 is lost. Preserve a finalized marker and completed
-   summary, rebuild core, then use phase `held-green` with both tests:
-   **2/2 pass**. The original diagnostics/axis/candidate/tape assertions remain.
-4. Add success/Candidate/nonfinite-input coverage, format, rebuild core and runner.
-   `python3 ../dal414-evidence/verify.py test final
-   'GSRScriptCalibrationTest.*:GSRScriptRepairTest.*-GSRScriptCalibrationTest.TestFrozenNumericalBudgetCanPassWhileFitFails'`
-   passes **25/25** (20 existing and five new). The new success-status test uses
-   an explicit loose synthetic scale solely to isolate report status and finite
-   zero handling; it is not new numerical acceptance evidence. All existing
-   tests/thresholds remain unchanged. Full frozen sampling matrices are excluded.
-
-Both touched translation units pass GCC 14/15 syntax checks with the exact
-warning policy from `.github/workflows/cmake-linux.yml`. An exploratory stricter
-`-Wall -Wextra -Werror` without the repository's exclusions failed in unchanged
-AAD interfaces/old test aggregates for unused parameters, sign comparisons and
-missing aggregate initializers; those four failed logs remain distinct. The
-four actual policy checks pass without editing the policy or shared headers.
-Maximum production CCN remains 8; new helper maximum is 6. Formatting, diff and
-the repository Markdown check pass. Commands, XML, source/configuration/binary
-identities and exploratory failures are preserved in the evidence archive.
+These are Linux and portable Excel results, not native Windows/XLL/workbook.
+The unique PR/branch is retained. No unmerged 408/418/419 product, specialist
+dispatch, merge or downstream start is included; coordinator owns complete-head
+review and CI gates.
 
 ## Performance and accepted numerical evidence
 
-The changed caller is the core script driver on normal return and budget error.
-The smallest measurement uses one BondOption observation and one selected g,
-both FD/AAD modes, and both successful/budget-failure calls. CPU 4, one DAL
-thread, 20 warmups and ten measured calls per case remain fixed. Baseline and
-rebuilt callers have identical prices, raw derivative, plan identity, basket/
-Jacobian/path counts and exception code/candidate availability across all 40
-measured rows. Informational before/after median microseconds are FD success
-1916.6205/1981.8915, FD failure 424.382/436.9285, AAD success
-1693.4095/1761.4440 and AAD failure 580.8205/589.6605. These separate short runs
-are not a calibrated paired regression gate or a timing-regression verdict.
-No benchmark matrix or path-budget enlargement is justified by this report-only
-change. The copied solver/pricing portion of the driver and the shared MC/model
-sources are checked against the base; no extra evaluation was added.
+The installed consumer provides minimal actual caller timing: one BondOption/
+g coordinate, fast and MC AAD, core/public, one DAL thread on CPU 4, twenty
+warmups and ten measured calls per case. All **40** rows have identical price,
+raw partial, driver work/path counts and final plan identity within each pair.
+Median microseconds: fast core/public **929.6025/1053.702**; MC core/public
+**1622.5505/1794.9415**. This measures metadata overhead and is informational,
+not a performance gate or optimization claim.
 
-Accepted P0 evidence remains in `dal-404-p0-same-source-validation.md` and P3
-evidence in `dal-413-gsr-script-numerical-validation.md`, with actual merged
-prerequisites `bf4cabea`/PR622 and `acadd8ee`/PR621. These are historical accepted
-constraints, not newly executed numerical results: N100 StepStalled with
-converged=false remains separate from fit/numerics/held-out; N200
-0.0318712375 > .025 and old Swaption 0.0426379743 > .025 remain refusals.
-MRG32 seed1024/Precise, 589824 reserved paths/view and their frozen scales,
-floors and FD steps are unchanged. No Windows/XLL/workbook, Python GIL, public
-facade parity, example build/install matrix or full-suite pass is claimed.
+The prior report-foundation before/after caller evidence remains valid for
+unchanged core: forty FD/AAD success/budget-failure rows matched price,
+partials, identities, counters and candidate presence. Median microseconds
+were FD success 1916.6205/1981.8915, FD failure 424.382/436.9285, AAD success
+1693.4095/1761.4440 and AAD failure 580.8205/589.6605, also informational.
 
-No example/CMake target or dependency changed, so public-disabled/standalone
-example build/run/install acceptance is deferred with the still-unimplemented
-public examples. The unique base-master PR remains draft and DAL-414 remains
-blocked on the precise new-domain sampling/held-out mapping. The coordinator
-owns that decision and the later reviewer handoff; no specialist or downstream
-task was dispatched, and nothing was merged.
+Accepted P0/P3 evidence remains in `dal-404-p0-same-source-validation.md` and
+`dal-413-gsr-script-numerical-validation.md`, not newly executed numerical
+results. N100 StepStalled with converged=false remains separate from
+fit/numerics/held-out; N200 0.0318712375 > .025 and old Swaption
+0.0426379743 > .025 remain refusals. MRG32 seed1024/Precise, 589824 reserved
+paths/view and frozen scales/floors/FD steps are unchanged.

@@ -1,0 +1,40 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>Calibrate_GSRInstruments</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>Calibrate_GSRInstruments (in Excel: CALIBRATE.GSRINSTRUMENTS)</h1>
+Calibrate selected native g coordinates against bound script Price observations
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>initial</td><td>handle of type ModelData</td><td></td><td>Initial native multi-factor Gaussian model</td></tr>
+<tr><td>observations</td><td>vector of handles</td><td></td><td>Ordered typed CalibrationObservation handles</td></tr>
+<tr><td>parameters</td><td>matrix of cells</td><td></td><td>Exact factor,knot,lower,upper header and numeric rows</td></tr>
+<tr><td>settings</td><td>handle of type StorableGSRInstrumentCalibrationSettings</td><td></td><td>Required owning domain settings</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>outcome</td><td>handle of type StorableCalibrationOutcome</td><td>Succeeded, Candidate or Failed with an owning report and any available model</td></tr>
+</table>
+
+
+
+
+
+

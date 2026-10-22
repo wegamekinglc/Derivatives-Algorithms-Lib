@@ -675,13 +675,18 @@ interfaces. C++ retains CamelCase names such as `NewDepositScriptInstrument`,
 `CalibrateCurveInstruments` and `ValueCalibrationInstrumentByMonteCarlo`.
 The standalone `dal-public/examples/script_calibration/` program demonstrates
 a curve fit, repricing the original fixed coupon, and explicit rebinding.
+Include `dal-public/src/gsr.hpp` for `CalibrateGSRInstruments`. The separate
+[`gsr_script_calibration` example](../../dal-public/examples/gsr_script_calibration/)
+fits native g, then prices the same binding with plain MC and AAD and queries
+an explicitly rebound strike. Existing core GSR examples retain their targets
+and purpose.
 
 Python and Excel markup use the same factory/action names:
 `ScriptInstrumentDefinition_New`, `ScriptCalibrationInstrument_New`,
 `CalibrationInstrument_BindParameters`, `DepositScriptInstrument_New`,
 `EuropeanRateOptionScriptInstrument_New`, `CalibrationMarketQuote_New`,
 `CalibrationObservation_New`, `CalibrationPlan_New`,
-`Calibrate_CurveInstruments` and
+`Calibrate_CurveInstruments`, `Calibrate_GSRInstruments` and
 `CalibrationInstrument_ValueByMonteCarlo`.
 The bounded curve importers are `FraScriptInstrument_New`,
 `SwapScriptInstrument_New`, `PeriodForwardOisScriptInstrument_New` and
@@ -693,8 +698,103 @@ The options, constructors and reports expose the merged product boundaries
 described above. FRA, IRS, period-forward OIS, Basis and custom curve
 cashflows remain deterministic. Importing an option does not certify a
 model or derivative method; preparation still checks the full bound source.
-These interfaces do not add a general GSR MC calibration driver, overnight
-compounding, futures convexity, XCCY MC or calibrated quote risk.
+The GSR facade selects the existing bounded Gaussian drivers described below.
+These interfaces do not add overnight compounding, futures convexity, XCCY MC
+or calibrated quote risk. Scalar measures remain outside GSR Price fitting.
+
+### GSR instrument calibration settings and results
+
+C++ requires all four arguments:
+`CalibrateGSRInstruments(initial, observations, parameters, settings)`.
+Python uses `Calibrate_GSRInstruments(initial, observations, parameters, *, settings)`.
+The initial model is native `MultiFactorGSRModelData_`; parameters select existing
+factor/knot g coordinates with finite nonnegative bounds containing the initial g.
+Parameter order determines the stable `g:<factorName>:<date>` column order.
+The old `Calibrate_GSRVolatility`, its positional parameters, defaults and aliases
+retain their existing behavior.
+
+Construct Python coordinates with the strict keyword-only
+`GSRCalibrationParameter_New(factor=0, knot=0, lower=0.0, upper=0.1)`.
+`GSRInstrumentCalibrationSettings_` (also `_New`) requires `valuation` with an
+explicit evaluation date and fixing snapshot, including an explicit empty
+snapshot when appropriate. The domain validator checks the same semantics in
+C++, Python and Excel; model, curve, date, currency, routes and full bound source
+remain subject to core admission.
+
+Settings fields are `solver`, `valuation`, `evaluation`, `fit_sampling`,
+`validation_sampling`, `held_out_sampling`, `held_out_observations`,
+`max_paths_per_view`, `max_basket_evaluations`, `validation_sigma`,
+`epsilon_value`, `epsilon_gradient` and `compiled`. Solver is a copied native
+`GSRCalibrationSettings_`; evaluation is `CalibrationEvaluationOptions_`.
+Basket limit defaults to 1000, sigma to 3, value/gradient floors to 1e-10/1e-8,
+and compiled to the existing script default. There is no default MC path budget
+or batching protocol. These settings are session values without archive support.
+
+AutoFast first selects the existing BondOption fast calibration driver, using
+native FiniteDifference for derivative Auto. RequireFast never falls back.
+Existing Caplet/Swaption fast *pricing* does not imply a fast basket calibration
+driver. Sampling fields do not force AutoFast to MC. An unavailable fast driver
+can fall back only with explicit MC opt-in and a complete MC configuration;
+ScriptMC requests that route explicitly. Unsupported methods fail with
+DerivativeUnavailable; they are never silently downgraded.
+
+Fast fitting requires empty sampling fields, empty held-out observations and
+zero path budget. Nondefault MC-only controls are rejected. There is no hybrid
+fast fit with MC validation. Explicit MC requires
+`evaluation.allow_monte_carlo_calibration=True`, fit and validation sampling,
+and a positive int32 `max_paths_per_view`. Each sampling is an existing
+`CalibrationMonteCarloSampling_` with at least two batches, at least two paths
+per batch, a nonnegative int32 seed and exact stream version
+`dal.mrg32-normal-paths/1`; all supplied streams share mode PseudoRandom, seed
+and version. Hard payoff, MRG32, Precise normals and no bridge remain fixed.
+Native quadrature settings must retain their defaults on MC.
+
+For fit/validation/held-out totals F, V and H, checked arithmetic requires
+V > F and F+V+H <= max_paths_per_view <= INT_MAX. Reserved path ranges are
+[0,F), [F,F+V) and [F+V,F+V+H), with the core's common draw-dimension guard.
+There is no requirement H > F. Nonempty held-out observations require their
+sampling; orphan held-out sampling is invalid. Held-out order, quote axes and
+acceptance remain independent of the fit objective and Jacobian. If
+`evaluation.sampling` is supplied, its paths/seed/generator must exactly match
+the fit total/seed/`mrg32`; it cannot supply or override batch counts.
+MC derivative Auto selects AAD; explicit FiniteDifference keeps core CRN FD.
+
+For example, with a native model, bound Price observation and explicit valuation:
+
+```python
+settings = dal.GSRInstrumentCalibrationSettings_(
+    valuation=valuation,
+    evaluation=dal.CalibrationEvaluationOptions_(
+        evaluation="ScriptMC", allow_monte_carlo_calibration=True),
+    fit_sampling=dal.CalibrationMonteCarloSampling_(
+        paths_per_batch=8192, batches=8, seed=1024,
+        stream_version="dal.mrg32-normal-paths/1"),
+    validation_sampling=dal.CalibrationMonteCarloSampling_(
+        paths_per_batch=16384, batches=16, seed=1024,
+        stream_version="dal.mrg32-normal-paths/1"),
+    max_paths_per_view=327680)
+fit = dal.Calibrate_GSRInstruments(model, [observation],
+    [dal.GSRCalibrationParameter_New(factor=0, knot=0, lower=0.001, upper=0.1)],
+    settings=settings)
+```
+
+This shows the explicit configuration shape, not an automatic numerical
+acceptance guarantee. Three-view sampling with another 16×16384 held-out paths
+requires the corresponding held-out observations and total budget 589824.
+The frozen statistical limits and independent acceptance flags still apply.
+
+Results own the model, report, parameter labels, actual backend/derivative,
+fit/validation values and SE, and independent held-out values and flags.
+Report schema remains `dal.calibration-report/1`. Raw Jacobians are M×N
+dPrice/dNativeG; the quote map is separate. Unavailable matrices raise
+DerivativeUnavailable, and unavailable metadata stays null. Fast quadrature
+errors are numerical errors, never statistical SE. Public report admission
+records source/binding/compiler/context identities without repricing; its
+preparation count is separate from unchanged driver counters.
+Convergence, fit tolerance, numerical validation and requested held-out acceptance
+are independent: a nonthrowing rejection is Candidate, while invalid inputs or
+execution failures throw owning CalibrationError. Last complete models survive
+failure and destruction of inputs. Calibrated quote risk remains unavailable.
 
 ### Python construction and ownership
 
@@ -795,10 +895,24 @@ Flags require boolean cells.
 
 New execution functions return a typed outcome. Inspect
 `CalibrationOutcome_Get_Status` and `CalibrationOutcome_Get_Report`.
-A curve failure returns Failed with its owned diagnostics and, when
-available, its last validated curve. `Get_Curve` and `Get_Mean` reject
+A curve or GSR failure returns Failed with its owned diagnostics and, when
+available, its last validated curve or complete model. `Get_Curve`, `Get_Model` and `Get_Mean` reject
 absent or wrong-kind candidates. Factory and type-conversion errors remain
 worksheet errors. No getter uses a thread-local last-error value.
+
+`CALIBRATE.GSRINSTRUMENTS(initial, observations, parameters, settings)` has four
+required inputs. Observations are a vector of typed Observation handles;
+parameters have exactly the named columns `factor,knot,lower,upper`, in any
+order. Indices require nonnegative integral numeric cells, bounds finite numeric
+cells, and neither accepts booleans or numeric text. Domain settings are built
+by `GSRInstrumentCalibrationSettings_New` from exact field/value rows;
+`GSRCalibrationSolver_New` wraps native solver values and
+`GSRPricingSettings_New` wraps quadrature settings without changing the old
+worksheet parser. Nested settings use typed handles; held-out observations use
+`CalibrationObservations_New`. Malformed factory inputs remain worksheet errors
+with function/field/row/column context. A valid typed execution returns an owning
+Succeeded, Candidate or Failed outcome; `CalibrationOutcome_Get_Model` returns
+an available model candidate.
 
 `CalibrationReport_Get_Summary`, `Get_Observations`, `Get_Quotes`,
 `Get_Parameters`, `Get_Plans` and `Get_Errors` have fixed header order.
