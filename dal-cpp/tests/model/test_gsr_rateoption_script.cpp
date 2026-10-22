@@ -93,6 +93,24 @@ namespace {
         }
         return NewScriptCalibrationInstrument({"accrual", NewScriptInstrumentDefinition(spec)});
     }
+    void AssertAccrualConstant(const Handle_<CalibrationInstrument_>& instrument, int location, double expected, bool call = true) {
+        const auto product = instrument->Product();
+        ASSERT_EQ(product->Events().size(), 1);
+        ASSERT_EQ(product->Events()[0].size(), 1);
+        const Script::Node_* node = product->Events()[0][0].get();
+        ASSERT_NE(dynamic_cast<const Script::NodePays_*>(node), nullptr);
+        const Vector_<size_t> path = location == 0   ? Vector_<size_t>{1, 1, 0}
+                                     : location == 1 ? Vector_<size_t>{1, 1, 0, call ? 1u : 0u, 1, 0}
+                                                     : Vector_<size_t>{1, 1, 0, call ? 0u : 1u, 0, 0};
+        for (const size_t child : path) {
+            ASSERT_GT(node->arguments_.size(), child);
+            node = node->arguments_[child].get();
+        }
+        const auto* constant = dynamic_cast<const Script::NodeConst_*>(node);
+        ASSERT_NE(constant, nullptr);
+        ASSERT_TRUE(constant->arguments_.empty());
+        ASSERT_EQ(constant->constVal_, expected);
+    }
     void AssertTinyAccrual(int location) {
         const LiborBasisScope_ basis;
         const auto c = Context();
@@ -103,10 +121,16 @@ namespace {
             ASSERT_TRUE(std::isfinite(native));
             const auto decimal = DecimalAccrualInstrument(location, "0.0000001", call);
             const auto instrument = AccrualInstrument(location, 1e-7, call);
+            AssertAccrualConstant(instrument, location, 1e-7, call);
             ASSERT_EQ(instrument->Definition()->Spec().source_.rows_[2].text_, decimal->Definition()->Spec().source_.rows_[2].text_);
             const auto plan = PrepareCalibrationInstrument(instrument, "Price", c);
             ASSERT_EQ(plan.Capability().ruleId_, location == 0 ? "dal.gaussian-caplet/1" : "dal.gaussian-swaption/1");
             ASSERT_EQ(plan.Capability().backend_, CalibrationBackend_::Value_::FastGaussian);
+            const auto& descriptor = std::get<CalibrationRateOptionDescriptor_>(plan.Descriptor());
+            const double accrual = location == 0   ? std::get<Caplet_>(descriptor.option_).couponAccrual_
+                                   : location == 1 ? std::get<Swaption_>(descriptor.option_).fixed_[0].accrual_
+                                                   : std::get<Swaption_>(descriptor.option_).floating_[0].couponAccrual_;
+            ASSERT_EQ(accrual, 1e-7);
             const double actual = PriceGaussianRateOption(plan, instrument, c).price_;
             ASSERT_EQ(actual, PriceGaussianRateOption(PrepareCalibrationInstrument(decimal, "Price", c), decimal, c).price_);
             if (native == 0.)
@@ -232,6 +256,165 @@ TEST(GSRRateOptionScriptTest, TestTinyCapletAccrual) { AssertTinyAccrual(0); }
 TEST(GSRRateOptionScriptTest, TestTinySwaptionFixedAccrual) { AssertTinyAccrual(1); }
 
 TEST(GSRRateOptionScriptTest, TestTinySwaptionFloatingAccrual) { AssertTinyAccrual(2); }
+
+TEST(GSRRateOptionScriptTest, TestAccrualLiteralNormalBoundariesAreExactConstants) {
+    const LiborBasisScope_ basis;
+    for (int location : {0, 1, 2})
+        for (double value :
+             {.25, 1e-6, std::nextafter(1e-6, 0.), std::nextafter(1e-6, 1.), 1e-7, 1.2345678901234567e-7, 1.2345678901234568e22, 1e20, 1e21,
+              std::nextafter(1e21, 0.), std::nextafter(1e21, 1e22), std::numeric_limits<double>::min(), std::numeric_limits<double>::max()}) {
+            SCOPED_TRACE(::testing::Message() << location << " " << value);
+            const auto instrument = AccrualInstrument(location, value);
+            AssertAccrualConstant(instrument, location, value);
+            const std::string source(instrument->Definition()->Spec().source_.rows_[2].text_.c_str());
+            const std::string marker = location == 0 ? "N*(" : location == 1 ? "K*(" : "MAX((";
+            const auto begin = source.find(marker);
+            ASSERT_NE(begin, std::string::npos);
+            const auto literal = source.substr(begin + marker.size(), source.find('*', begin + marker.size()) - begin - marker.size());
+            ASSERT_EQ(literal.find_first_not_of("0123456789."), std::string::npos);
+            ASSERT_LE(literal.size(), 512);
+        }
+}
+
+TEST(GSRRateOptionScriptTest, TestSubnormalAccrualUsesIndependentDecimalParserBoundary) {
+    const LiborBasisScope_ basis;
+    const Vector_<std::pair<double, String_>> cases{
+        {std::numeric_limits<double>::denorm_min(), String_("0." + std::string(323, '0') + "5")},
+        {std::nextafter(std::numeric_limits<double>::min(), 0.), String_("0." + std::string(307, '0') + "2225073858507201")}};
+    for (int location : {0, 1, 2})
+        for (const auto& [value, decimal] : cases) {
+            Handle_<CalibrationInstrument_> imported, independent;
+            std::optional<CalibrationError_> actualError, expectedError;
+            try {
+                independent = DecimalAccrualInstrument(location, decimal);
+            } catch (const CalibrationError_& error) {
+                expectedError = error;
+            }
+            try {
+                imported = AccrualInstrument(location, value);
+            } catch (const CalibrationError_& error) {
+                actualError = error;
+            }
+            ASSERT_EQ(actualError.has_value(), expectedError.has_value());
+            if (expectedError) {
+                const auto& actual = actualError->Failure().diagnostic_;
+                const auto& expected = expectedError->Failure().diagnostic_;
+                ASSERT_EQ(expected.code_, "InvalidScriptInstrumentDefinition");
+                ASSERT_EQ(expected.stage_, CalibrationStage_::Value_::Input);
+                ASSERT_EQ(expected.field_, "/source/rows/2/text");
+                ASSERT_EQ(actual.code_, expected.code_);
+                ASSERT_EQ(actual.stage_, expected.stage_);
+                ASSERT_EQ(actual.field_, expected.field_);
+                ASSERT_EQ(actual.actual_, expected.actual_);
+                ASSERT_EQ(actual.instrumentId_, expected.instrumentId_);
+                ASSERT_EQ(actual.sourceRow_, expected.sourceRow_);
+                ASSERT_EQ(actual.eventDate_, expected.eventDate_);
+                ASSERT_EQ(actual.statement_, expected.statement_);
+                ASSERT_TRUE(actualError->Failure().report_);
+                ASSERT_EQ(actualError->Failure().report_->Errors().size(), 1);
+            } else {
+                ASSERT_TRUE(imported);
+                AssertAccrualConstant(independent, location, value);
+                AssertAccrualConstant(imported, location, value);
+                ASSERT_EQ(imported->Definition()->SourceIdentity(), independent->Definition()->SourceIdentity());
+            }
+        }
+}
+
+TEST(GSRRateOptionScriptTest, TestInvalidAccrualRetainsOwningInputErrors) {
+    const LiborBasisScope_ basis;
+    const double inf = std::numeric_limits<double>::infinity();
+    for (int location : {0, 1, 2})
+        for (double value : {0., -0., -1e-7, std::numeric_limits<double>::quiet_NaN(), inf, -inf}) {
+            std::optional<CalibrationError_> saved;
+            try {
+                static_cast<void>(AccrualInstrument(location, value));
+            } catch (const CalibrationError_& error) {
+                saved = error;
+            }
+            ASSERT_TRUE(saved);
+            const auto& d = saved->Failure().diagnostic_;
+            ASSERT_EQ(d.code_, "UnsupportedCalibrationProduct");
+            ASSERT_EQ(d.stage_, CalibrationStage_::Value_::Input);
+            ASSERT_EQ(d.field_, location == 1 ? "/option/fixed" : "/option/coupon");
+            ASSERT_EQ(d.instrumentId_, "accrual");
+            ASSERT_TRUE(saved->Failure().report_);
+            ASSERT_EQ(saved->Failure().report_->Stage(), CalibrationStage_::Value_::Input);
+            ASSERT_EQ(saved->Failure().report_->Errors().size(), 1);
+        }
+}
+
+TEST(GSRRateOptionScriptTest, TestAccrualArchivesRebindingAndStalePlans) {
+    const LiborBasisScope_ basis;
+    const auto c = Context();
+    for (int location : {0, 1, 2})
+        for (double value : {.25, 1e-7}) {
+            const auto instrument = AccrualInstrument(location, value);
+            const auto plan = PrepareCalibrationInstrument(instrument, "Price", c);
+            const auto json = DumpCalibrationInstrumentJson(instrument);
+            const auto portable = LoadCalibrationInstrumentJson(json);
+            const auto archive = handle_cast<CalibrationInstrument_>(JSON::ReadString(JSON::WriteString(*instrument), false));
+            for (const auto& restored : Vector_<Handle_<CalibrationInstrument_>>{portable, archive}) {
+                ASSERT_TRUE(restored);
+                ASSERT_EQ(DumpCalibrationInstrumentJson(restored), json);
+                ASSERT_EQ(restored->Definition()->SourceIdentity(), instrument->Definition()->SourceIdentity());
+                ASSERT_EQ(restored->Definition()->DefinitionIdentity(), instrument->Definition()->DefinitionIdentity());
+                ASSERT_EQ(restored->BindingIdentity(), instrument->BindingIdentity());
+                ASSERT_EQ(restored->InstrumentIdentity(), instrument->InstrumentIdentity());
+                ASSERT_EQ(Fast(restored, c), Fast(instrument, c));
+            }
+            const auto rebound = BindCalibrationInstrumentParameters(
+                instrument, {{{"N", 200., CalibrationValueUnit_::Parse("Price:USD")}, {"K", -.01, CalibrationValueUnit_::Parse("Rate")}}});
+            ASSERT_EQ(DumpCalibrationInstrumentJson(instrument), json);
+            ASSERT_THROW(PriceGaussianRateOption(plan, rebound, c), CalibrationError_);
+            ASSERT_THROW(PriceGaussianRateOption(plan, AccrualInstrument(location, value == .25 ? 1e-7 : .25), c), CalibrationError_);
+            ASSERT_THROW(PriceGaussianRateOption(plan, instrument, Context(.03)), CalibrationError_);
+            const double native = std::visit(
+                [&](const auto& option) { return PriceGSREuropeanOption(static_cast<const MultiFactorGSRModelData_&>(*c.model_), option).price_; },
+                AccrualOption(location, value, true, -.01));
+            ASSERT_GT(native, 0.);
+            ASSERT_LE(std::abs(Fast(rebound, c) / (200. * native) - 1.), 1e-12);
+        }
+}
+
+TEST(GSRRateOptionScriptTest, TestTinyAccrualTreeCompiledAmountsAndNumeraire) {
+    const LiborBasisScope_ basis;
+    const auto c = Context();
+    for (int location : {0, 1, 2})
+        for (bool call : {true, false})
+            for (double libor : {0., .04, 100000.}) {
+                const double floating = (location == 2 ? 1e-7 : .25) * libor * .91;
+                const double fixed = .03 * (location == 1 ? 1e-7 : .25) * .91;
+                const double difference = location == 0 ? 1e-7 * (libor - .03) : floating - fixed;
+                const double expected = 100. * std::max(call ? difference : -difference, 0.) / 1.7;
+                for (const auto& instrument : Vector_<Handle_<CalibrationInstrument_>>{AccrualInstrument(location, 1e-7, call),
+                                                                                       DecimalAccrualInstrument(location, "0.0000001", call)}) {
+                    AAD::GSR_<double> model(static_cast<const MultiFactorGSRModelData_&>(*c.model_));
+                    Script::MonteCarloSettings_ simulation;
+                    simulation.compiled_ = true;
+                    const auto prepared = Script::Detail::PrepareBoundScript(instrument->Product(), &model, c.valuation_, simulation,
+                                                                             instrument->Definition()->Spec().source_.settings_);
+                    AAD::Scenario_<> path;
+                    AAD::AllocatePath(prepared.DefLine(), path);
+                    for (size_t sample = 0; sample < path.size(); ++sample) {
+                        path[sample].numeraire_ = 1.7;
+                        for (size_t i = 0; i < path[sample].observations_.size(); ++i)
+                            path[sample].observations_[i] =
+                                std::string(prepared.DefLine()[sample].indexNames_[i].c_str()).find("LIBOR") != std::string::npos ? libor : .91;
+                    }
+                    auto tree = prepared.BuildEvaluator<double>();
+                    prepared.Evaluate(path, tree);
+                    auto compiled = prepared.BuildEvalState<double>();
+                    prepared.CompiledProgram().Evaluate(path, compiled);
+                    for (double actual : {tree.VarVals()[prepared.PayOffIdx()], compiled.VarVals()[prepared.PayOffIdx()]}) {
+                        if (expected == 0.)
+                            ASSERT_EQ(actual, 0.);
+                        else
+                            ASSERT_LE(std::abs(actual / expected - 1.), 1e-12);
+                    }
+                }
+            }
+}
 
 TEST(GSRRateOptionScriptTest, TestAccrualCompatibilitySnapshots) {
     const LiborBasisScope_ basis;
