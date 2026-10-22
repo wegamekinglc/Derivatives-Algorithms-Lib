@@ -1,4 +1,4 @@
-# Core script calibration contracts
+# Script calibration contracts and public interfaces
 
 The core headers `dal/script/instrument.hpp` and `dal/calibration/protocol.hpp`
 provide immutable contract data, typed parameter binding and ordered calibration
@@ -666,3 +666,154 @@ the owned axes and errors needed by these data boundaries; evaluator/solver
 metrics are not populated as fabricated results. Their archive Write fails
 with CalibrationPersistenceUnsupported. Saving an instrument does not save
 a market snapshot, prepared plan, calibration session or quote-risk record.
+
+## Public C++, Python and Excel interfaces
+
+Include `dal-public/src/calibrationinstrument.hpp` for the shared definition,
+binding, import, observation, preparation, curve-fit and same-instrument MC
+interfaces. C++ retains CamelCase names such as `NewDepositScriptInstrument`,
+`CalibrateCurveInstruments` and `ValueCalibrationInstrumentByMonteCarlo`.
+The standalone `dal-public/examples/script_calibration/` program demonstrates
+a curve fit, repricing the original fixed coupon, and explicit rebinding.
+
+Python and Excel markup use the same factory/action names:
+`ScriptInstrumentDefinition_New`, `ScriptCalibrationInstrument_New`,
+`CalibrationInstrument_BindParameters`, `DepositScriptInstrument_New`,
+`EuropeanRateOptionScriptInstrument_New`, `CalibrationMarketQuote_New`,
+`CalibrationObservation_New`, `CalibrationPlan_New`,
+`Calibrate_CurveInstruments` and
+`CalibrationInstrument_ValueByMonteCarlo`.
+The bounded curve importers are `FraScriptInstrument_New`,
+`SwapScriptInstrument_New`, `PeriodForwardOisScriptInstrument_New` and
+`BasisSwapScriptInstrument_New`. FRA requires an explicit payment date.
+Excel uppercases these names and replaces underscores with dots; for example,
+`Calibrate_CurveInstruments` appears as `CALIBRATE.CURVEINSTRUMENTS`.
+
+The options, constructors and reports expose the merged product boundaries
+described above. FRA, IRS, period-forward OIS, Basis and custom curve
+cashflows remain deterministic. Importing an option does not certify a
+model or derivative method; preparation still checks the full bound source.
+These interfaces do not add a general GSR MC calibration driver, overnight
+compounding, futures convexity, XCCY MC or calibrated quote risk.
+
+### Python construction and ownership
+
+All new spec/settings constructors take keyword-only fields, reject unknown
+keywords and copy their nested values. Numbers exclude booleans; units and
+enum tokens are exact. Handles and their properties are read-only, and
+container getters return independent copies. Conversion finishes before
+calibration, preparation or MC releases the GIL. No Python callback or
+borrowed Python spec is retained by a worker.
+
+For example, using an existing native Deposit and an explicit fixing snapshot:
+
+```python
+settings = dal.ScriptInstrumentImportSettings_(
+    instrument_id="usd-deposit", currency="USD", notional=100.0,
+    discount_route="USD.OIS", min_abs_annuity=1e-12)
+instrument = dal.DepositScriptInstrument_New(native_deposit, settings)
+quote = dal.CalibrationMarketQuote_New(
+    "usd-1y", 0.035, dal.CalibrationValueUnit_(kind="Rate"))
+observation = dal.CalibrationObservation_New(
+    "fit-1y", instrument, "ParRate", quote, 1e-10)
+geometry = dal.CurveInstrumentGeometry_(
+    today=today, currency="USD", knot_dates=[today, maturity],
+    parameterization="LOG_DISCOUNT")
+market = dal.CurveInstrumentMarket_(
+    routes=[dal.CurveScriptRoute_(id="USD.OIS")])
+valuation = dal.ScriptValuationSettings_(
+    evaluation_date=today, fixings=explicit_snapshot)
+spec = dal.CurveInstrumentCalibrationSpec_(
+    geometry=geometry, market=market, valuation=valuation,
+    observations=[observation])
+fit = dal.Calibrate_CurveInstruments(
+    spec, options=dal.CurveInstrumentCalibrationOptions_(
+        jacobian_mode="AAD", compute_quote_jacobian=True))
+```
+
+The imported coupon remains fixed. A ParRate observation does not copy its
+quote into K. To change the contract, call
+`CalibrationInstrument_BindParameters` with a
+`CalibrationParameterBindings_` containing typed
+`CalibrationParameterValue_(key="K", value=..., unit=...)` rows.
+Omitted keys retain their current effective values. The old instrument and
+its report stay usable. A QuoteCopy annotation records a copied value's
+origin; it creates no live link to a quote.
+
+`CalibrationError` derives from RuntimeError and has read-only `code`,
+`diagnostic`, `report` and nullable `candidate` properties. These own their
+data after C++ unwinds and after input objects are destroyed. Argument type
+errors remain TypeError. Existing convergence exceptions, old defaults,
+aliases, Product archives and `CalibrationQuote_New` retain their meanings.
+
+### Explicit same-instrument MC requests
+
+`CalibrationMonteCarloRequest_` requires `measure_id`, `valuation` and
+`sampling=CalibrationMonteCarloSampling_(...)`. Supply
+`paths_per_batch>=2`, `batches>=2`, a nonnegative seed and
+`stream_version="dal.mrg32-normal-paths/1"`. Mode is `PseudoRandom`.
+The merged bridge supports no Brownian bridge and Precise normal precision.
+Use `CalibrationSimulationSettings_(smooth=0.0)` for these hard-payoff
+contracts; the settings type retains the established smoothing default,
+which the bounded bridge rejects when it is nonzero.
+
+Derivative method is `None` or `AAD`. AAD uses the Gaussian runtime's
+ordered native labels and retains its boundary/degeneracy refusals. The
+matched model must contain the calibrated curve and compatible currency,
+valuation and numeraire data; sharing a model name proves no equivalence.
+
+Only the requested repricing batches execute. The adapter also reserves
+the core bridge's unused, larger validation range: B batches of P+1 paths,
+after the B requested batches of P paths. The combined reservation
+B*(2P+1) must fit the core's signed 32-bit path bound. No validation run or
+numerical acceptance flag is inferred from that reservation.
+The report records actual executed ranges, mapping identity, methods and
+engine-run count. Standard error comes from independent batch means.
+No Sobol IID error or automatic MC calibration fallback is introduced.
+
+### Excel tables and outcomes
+
+New settings factories end in `_New` and take exact two-column field/value
+tables. Nested geometry, market, valuation, solver, observations and sampling
+are typed handles. `CalibrationDates_New` and `CalibrationNumbers_New`
+construct typed vectors; `CurveScriptRoutes_New` takes named columns
+`id,projection,collateral,tenor`. `CalibrationObservations_New` takes an
+ordered observation-handle vector. Discount/forward binding factories take
+`key,curve` tables. Wrong handle types, unknown or duplicate keys, nonfinite
+numbers, numeric booleans and malformed tables fail at their input field.
+
+Definition creation takes a `kind,key,text` source table, field/value
+header, and named parameter/measure tables. Parameter columns are
+`key,type,unit,role,bindable,lower,upper,lower_inclusive,upper_inclusive`;
+measure columns are
+`id,kind,receiver,parameter,unit,annuity_sign,min_abs_annuity`.
+Binding columns are `key,value,unit,quote_id,quote_fingerprint`.
+All named columns are required, in any order, with no extras or duplicates.
+Optional cells are blank. Event keys accept ISO dates or integral Excel
+date serials converted once; Definition keys and source text require text.
+Flags require boolean cells.
+
+New execution functions return a typed outcome. Inspect
+`CalibrationOutcome_Get_Status` and `CalibrationOutcome_Get_Report`.
+A curve failure returns Failed with its owned diagnostics and, when
+available, its last validated curve. `Get_Curve` and `Get_Mean` reject
+absent or wrong-kind candidates. Factory and type-conversion errors remain
+worksheet errors. No getter uses a thread-local last-error value.
+
+`CalibrationReport_Get_Summary`, `Get_Observations`, `Get_Quotes`,
+`Get_Parameters`, `Get_Plans` and `Get_Errors` have fixed header order.
+An empty table contains its header row. Unavailable metrics are blank;
+unavailable Jacobians raise an error. `Get_QuoteJacobian` is raw
+dMeasure/dNativeParameter with the report's observation and parameter axes.
+`Get_QuoteMap` is the distinct-quote mapping, not quote risk.
+Curve summary evaluation/Jacobian counters describe the solver's existing
+counters, including attempted FD work; direct Evaluate does not run that solver.
+Initial-fit results retain derivative None unless diagnostics actually run.
+
+The `Get_Json` getters for definitions, instruments and reports return
+30,000-character ASCII-escaped chunks in Excel; concatenate them without a
+separator. Python returns a single JSON string. Definition and instrument
+LoadJson functions validate the portable schema and rebuild identities.
+Plans, settings, outcomes and reports remain session objects and reject
+archives. Portable Excel tests and generated XLL registration checks do not
+establish native Windows or workbook execution.
