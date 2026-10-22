@@ -214,6 +214,19 @@ literals, rather than an extra ALPHA parameter. The complete bound AST is the
 authority for every derived descriptor; no imported native option is retained.
 Extra arithmetic, parameters, cashflows or control flow fail full matching.
 
+The importers encode Caplet coupon accruals and Swaption fixed/floating coupon
+accruals as single plain-decimal event literals. Scientific notation from numeric
+formatting is expanded without discarding significant digits (for example,
+`1e-7` is written as `0.0000001`); normal positive doubles retain their exact
+value when parsed. Already plain-decimal accrual text is preserved, along with
+source rows, identities and portable JSON for existing successful imports at
+unchanged inputs, bindings and context. N/K definition formatting, general
+`NumberText`/canonical JSON and the event DSL keep their existing contracts.
+
+Subnormal accruals follow the existing decimal parser's underflow behavior and
+may be rejected. Import and constant fidelity at normal extremes do not imply
+successful native preparation or pricing.
+
 The Caplet pays `N*(couponAlpha*MAX(L(E;S,T)-K,0))` at P; reversing the difference
 gives a floor. Its source explicitly fixes the Libor observation at E with a
 concrete start S. Admission requires valuation < E <= S < T <= P and a canonical
