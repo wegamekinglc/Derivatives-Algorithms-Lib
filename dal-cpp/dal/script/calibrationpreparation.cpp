@@ -3,6 +3,7 @@
 
 #include <dal/calibration/validation_internal.hpp>
 #include <dal/currency/currencydata.hpp>
+#include <dal/curve/curvescript_internal.hpp>
 #include <dal/indice/index/ir.hpp>
 #include <dal/model/gsrmultidata.hpp>
 #include <dal/model/gsrrateoption_internal.hpp>
@@ -87,11 +88,18 @@ namespace Dal {
                                     {"libor_day_basis", Str(Token(Ccy::Conventions::LiborDayBasis()(c.currency_), "CalibrationContextMismatch",
                                                                   "/context/conventions/libor_day_basis", d))}}));
         }
+        String_ DescriptorBindingIdentity(const CalibrationPreparationContext_& c,
+                                          const CalibrationFastDescriptor_& descriptor,
+                                          const String_& identity,
+                                          const CalibrationDiagnostic_& d) {
+            if (std::holds_alternative<CalibrationCurveFamily_>(descriptor))
+                return CurveScriptInternal::ContextIdentity(c, identity, d);
+            return std::holds_alternative<CalibrationRateOptionDescriptor_>(descriptor) ? RateContextIdentity(c, identity, d) : identity;
+        }
         String_ DescriptorContextIdentity(const CalibrationPreparationContext_& c,
                                           const CalibrationFastDescriptor_& descriptor,
                                           const CalibrationDiagnostic_& d) {
-            const auto identity = ContextIdentity(c, d);
-            return std::holds_alternative<CalibrationRateOptionDescriptor_>(descriptor) ? RateContextIdentity(c, identity, d) : identity;
+            return DescriptorBindingIdentity(c, descriptor, ContextIdentity(c, d), d);
         }
         bool Slot(const Node_& node, const String_& name) {
             const auto* slot = dynamic_cast<const NodeConstVar_*>(&node);
@@ -395,50 +403,44 @@ namespace Dal {
             return payments.size() == 2 && DepositStart(*payments[0].node_->arguments_[1]) && DepositEnd(*payments[1].node_->arguments_[1]) &&
                    payments[0].date_ < payments[1].date_;
         }
+        CalibrationCurveFamily_
+        CurveFamily(const CalibrationInstrument_& instrument, const CalibrationPreparationContext_& context, const Vector_<Payment_>& payments) {
+            if (!CurveScriptInternal::Candidate(instrument))
+                return {};
+            Vector_<const NodePays_*> nodes;
+            Vector_<CalibrationDiagnostic_> sources;
+            for (const auto& payment : payments) {
+                nodes.push_back(payment.node_);
+                sources.push_back(payment.source_);
+            }
+            return CurveScriptInternal::Lower(instrument, context, nodes, sources);
+        }
+        CalibrationPreparationCapability_
+        AdmitCurve(const CalibrationPreparationContext_& context, const CalibrationEvaluationOptions_& options, const CalibrationDiagnostic_& d) {
+            Token(options.evaluation_, "UnsupportedFastEvaluator", "/options/evaluation", d);
+            Token(options.derivativeMethod_, "DerivativeUnavailable", "/options/derivative_method", d);
+            Check(options.evaluation_ != CalibrationEvaluation_::Value_::ScriptMC, "UnsupportedFastEvaluator", "/options/evaluation",
+                  "curve-family deterministic capability; no matching MC model proof", "", d);
+            Check(!context.model_ && context.smoothing_ == 0., "UnsupportedFastEvaluator", "/context", "hard deterministic curve context", "", d);
+            const auto derivative = options.derivativeMethod_ == CalibrationDerivative_::Value_::Auto
+                                        ? CalibrationDerivative_(CalibrationDerivative_::Value_::Analytic)
+                                        : options.derivativeMethod_;
+            Check(derivative == CalibrationDerivative_::Value_::Analytic || derivative == CalibrationDerivative_::Value_::None,
+                  "DerivativeUnavailable", "/options/derivative_method", "analytic coefficient partials or None", "", d);
+            return {"dal.curve-affine-cashflows/1",
+                    options.evaluation_ == CalibrationEvaluation_::Value_::GenericDeterministic ? CalibrationBackend_::Value_::GenericDeterministic
+                                                                                                : CalibrationBackend_::Value_::FastDeterministic,
+                    derivative, true, true};
+        }
         struct Payoff_ {
             CalibrationFastDescriptor_ descriptor_;
             Vector_<CalibrationCashflow_> cashflows_;
         };
-        Payoff_ OptionPayoff(const Vector_<Payment_>& payments,
-                             const CalibrationInstrument_& instrument,
-                             const CalibrationPreparationContext_& context,
-                             const CalibrationEvaluationOptions_& options,
-                             const CalibrationMeasureSpec_& measure,
-                             const CalibrationDiagnostic_& d) {
-            const auto bond = BondOption(payments, instrument, context, d);
-            if (bond) {
-                GaussianContext(context, d);
-                return {*bond,
-                        {{bond->expiry_, {}, 0., 0., *payments[0].source_.sourceRow_, *payments[0].source_.statement_, bond->index_, bond->expiry_}}};
-            }
-            const auto rate = CalibrationRateOptionInternal::Match(payments, instrument, context);
-            Check(static_cast<bool>(rate), "UnsupportedFastEvaluator", "/source/rows", "complete Deposit, BondOption, Caplet or Swaption AST", "",
-                  payments[0].source_);
-            GaussianContext(context, d);
-            Check(measure.kind_ == CalibrationMeasureKind_::Value_::Price, "UnsupportedCalibrationMeasure", "/measure_id", "shared rate option Price",
-                  "", d);
-            GaussianRateOptionInternal::RequireDomain(*rate, context, options.derivativeMethod_ == CalibrationDerivative_::Value_::AAD,
-                                                      payments[0].source_);
-            return {*rate,
-                    {{payments[0].date_,
-                      {},
-                      0.,
-                      0.,
-                      *payments[0].source_.sourceRow_,
-                      *payments[0].source_.statement_,
-                      {},
-                      std::visit([](const auto& o) { return o.expiry_; }, rate->option_)}}};
-        }
-        Payoff_ Payoff(bool deposit,
-                       const Vector_<Payment_>& payments,
-                       ScriptProduct_* product,
-                       const CalibrationInstrument_& instrument,
-                       const CalibrationPreparationContext_& context,
-                       const CalibrationEvaluationOptions_& options,
-                       const CalibrationMeasureSpec_& measure,
-                       const CalibrationDiagnostic_& d) {
-            if (!deposit)
-                return OptionPayoff(payments, instrument, context, options, measure, d);
+        Payoff_ DepositPayoff(const Vector_<Payment_>& payments,
+                              const CalibrationInstrument_& instrument,
+                              ScriptProduct_* product,
+                              const CalibrationPreparationContext_& context,
+                              const CalibrationDiagnostic_& d) {
             Check(*context.valuation_.evaluationDate_ == payments[0].date_, "UnsupportedCalibrationMeasure", "/context/valuation_date",
                   "Deposit origination valuation", "", d);
             Payoff_ result{CalibrationDepositDescriptor_{payments[0].date_, payments[1].date_, Bound(instrument, "N"), Bound(instrument, "K"),
@@ -446,17 +448,88 @@ namespace Dal {
                            {}};
             product->IndexVariables();
             for (const auto& payment : payments) {
-                const auto coefficients = Affine(*payment.node_->arguments_[1], payment.source_);
-                result.cashflows_.push_back({payment.date_, PaymentAmount(*product, *payment.node_), coefficients.a_, coefficients.b_,
-                                             *payment.source_.sourceRow_, *payment.source_.statement_});
+                const auto ab = Affine(*payment.node_->arguments_[1], payment.source_);
+                result.cashflows_.push_back(
+                    {payment.date_, PaymentAmount(*product, *payment.node_), ab.a_, ab.b_, *payment.source_.sourceRow_, *payment.source_.statement_});
             }
             return result;
         }
-        String_ CompilerIdentity(bool rate) {
+        CalibrationCashflow_ CurveMetadata(const CalibrationCurvePayment_& flow, const CalibrationCurveFamilyDescriptor_& family) {
+            const auto fixing = std::find_if(flow.program_.begin(), flow.program_.end(), [](const auto& op) { return op.operation_ == 'f'; });
+            if (fixing == flow.program_.end()) {
+                const auto ab = CurveScriptInternal::FixedCoefficients(flow);
+                return {flow.payment_, ab.b_ + family.coupon_ * ab.a_, ab.a_, ab.b_, *flow.source_.sourceRow_, *flow.source_.statement_};
+            }
+            const auto& observation = family.observations_[fixing->left_];
+            return {flow.payment_, {}, 0., 0., *flow.source_.sourceRow_, *flow.source_.statement_, observation.index_, observation.fixing_};
+        }
+        Payoff_ RatePayoff(const CalibrationRateOptionDescriptor_& rate,
+                           const Payment_& payment,
+                           const CalibrationPreparationContext_& context,
+                           const CalibrationEvaluationOptions_& options,
+                           const CalibrationMeasureSpec_& measure,
+                           const CalibrationDiagnostic_& d) {
+            GaussianContext(context, d);
+            Check(measure.kind_ == CalibrationMeasureKind_::Value_::Price, "UnsupportedCalibrationMeasure", "/measure_id", "shared rate option Price",
+                  "", d);
+            GaussianRateOptionInternal::RequireDomain(rate, context, options.derivativeMethod_ == CalibrationDerivative_::Value_::AAD,
+                                                      payment.source_);
+            return {rate,
+                    {{payment.date_,
+                      {},
+                      0.,
+                      0.,
+                      *payment.source_.sourceRow_,
+                      *payment.source_.statement_,
+                      {},
+                      std::visit([](const auto& o) { return o.expiry_; }, rate.option_)}}};
+        }
+        Payoff_ LowerPayoff(bool deposit,
+                            const Vector_<Payment_>& payments,
+                            const CalibrationInstrument_& instrument,
+                            ScriptProduct_* product,
+                            const CalibrationPreparationContext_& context,
+                            const CalibrationEvaluationOptions_& options,
+                            const CalibrationMeasureSpec_& measure,
+                            const CalibrationDiagnostic_& d) {
+            if (deposit)
+                return DepositPayoff(payments, instrument, product, context, d);
+            if (const auto option = BondOption(payments, instrument, context, d)) {
+                GaussianContext(context, d);
+                return {*option,
+                        {{option->expiry_,
+                          {},
+                          0.,
+                          0.,
+                          *payments[0].source_.sourceRow_,
+                          *payments[0].source_.statement_,
+                          option->index_,
+                          option->expiry_}}};
+            }
+            if (const auto family = CurveFamily(instrument, context, payments)) {
+                Payoff_ result{family, {}};
+                for (const auto& flow : family->payments_)
+                    result.cashflows_.push_back(CurveMetadata(flow, *family));
+                return result;
+            }
+            const auto rate = CalibrationRateOptionInternal::Match(payments, instrument, context);
+            Check(static_cast<bool>(rate), "UnsupportedFastEvaluator", "/source/rows", "complete admitted option or bounded curve cashflows", "",
+                  payments[0].source_);
+            return RatePayoff(*rate, payments[0], context, options, measure, d);
+        }
+        void ValidatePayments(const Vector_<Payment_>& payments, bool legacyAffine) {
+            for (const auto& payment : payments) {
+                if (legacyAffine)
+                    static_cast<void>(Affine(*payment.node_->arguments_[1], payment.source_));
+                Check(!payment.node_->paymentDate_, "UnsupportedFastEvaluator", "/source/rows", "AtEvent payment without ON clause", "",
+                      payment.source_);
+            }
+        }
+        String_ CompilerIdentity(bool family, bool rate) {
             return Fingerprint(Obj({{"build", Str("dal.core/1")},
                                     {"parser", Str("typed-slots/1")},
-                                    {"lowering", Str(rate ? "rate-option-cashflows/1" : "p0-cashflows/1")},
-                                    {"matcher", Str(rate ? "rate-option-ast/1" : "p0-ast/2")},
+                                    {"lowering", Str(family ? "curve-cashflows/1" : (rate ? "rate-option-cashflows/1" : "p0-cashflows/1"))},
+                                    {"matcher", Str(family ? "curve-affine-ast/1" : (rate ? "rate-option-ast/1" : "p0-ast/2"))},
                                     {"constant_binding", Str("effective-slots/1")},
                                     {"receiver_guard", Str("whole-history/2")}}));
         }
@@ -485,24 +558,21 @@ namespace Dal {
               "CalibrationContextMismatch", "/context", "matching currency and explicit discount route", "", d);
         auto product = instrument->Product();
         const auto payments = Payments(*product, spec.header_.receiver_, d, found->kind_ != CalibrationMeasureKind_::Value_::Price);
-        if (found->kind_ != CalibrationMeasureKind_::Value_::Price)
-            for (const auto& payment : payments)
-                static_cast<void>(Affine(*payment.node_->arguments_[1], payment.source_));
         const bool deposit = IsDeposit(payments);
-        for (const auto& payment : payments)
-            Check(!payment.node_->paymentDate_, "UnsupportedFastEvaluator", "/source/rows", "AtEvent payment without ON clause", "", payment.source_);
-        auto payoff = Payoff(deposit, payments, product.get(), *instrument, context, options, result.measure_, d);
+        const bool curveCandidate = CurveScriptInternal::Candidate(*instrument);
+        ValidatePayments(payments, !curveCandidate && found->kind_ != CalibrationMeasureKind_::Value_::Price);
+        auto payoff = LowerPayoff(deposit, payments, *instrument, product.get(), context, options, result.measure_, d);
         result.descriptor_ = std::move(payoff.descriptor_);
         result.cashflows_ = std::move(payoff.cashflows_);
-        result.capability_ = Admit(deposit, result.measure_, context, options, d);
+        result.contextIdentity_ = DescriptorBindingIdentity(context, result.descriptor_, result.contextIdentity_, d);
+        const bool family = std::holds_alternative<CalibrationCurveFamily_>(result.descriptor_);
+        result.capability_ = family ? AdmitCurve(context, options, d) : Admit(deposit, result.measure_, context, options, d);
         const auto* rate = std::get_if<CalibrationRateOptionDescriptor_>(&result.descriptor_);
-        if (rate) {
+        if (rate)
             result.capability_.ruleId_ = CalibrationRateOptionInternal::Rule(*rate);
-            result.contextIdentity_ = RateContextIdentity(context, result.contextIdentity_, d);
-        }
         if (result.capability_.backend_ == CalibrationBackend_::Value_::ScriptMC)
             result.sampling_ = options.sampling_;
-        result.compilerIdentity_ = CompilerIdentity(rate != nullptr);
+        result.compilerIdentity_ = CompilerIdentity(family, rate != nullptr);
         result.planIdentity_ = Fingerprint(Obj({{"instrument", Str(instrument->InstrumentIdentity())},
                                                 {"measure", Str(measureId)},
                                                 {"compiler", Str(result.compilerIdentity_)},
@@ -534,6 +604,8 @@ namespace Dal {
               "cashflow rows by native parameter columns", "", d);
         CalibrationAffineCoefficients_ result{0., 0., Vector_<>(columns, 0.), Vector_<>(columns, 0.)};
         for (size_t i = 0; i < cashflows_.size(); ++i) {
+            Check(cashflows_[i].amount_.has_value() && cashflows_[i].observationIndex_.empty(), "UnsupportedCalibrationMeasure", "/discounts",
+                  "candidate curve provider for observed cashflows", "", d);
             result.a_ += cashflows_[i].a_ * discounts[i];
             result.b_ += cashflows_[i].b_ * discounts[i];
             for (int j = 0; j < columns; ++j) {
@@ -572,8 +644,11 @@ namespace Dal {
         Check(capability_.affine_, "UnsupportedCalibrationMeasure", "/measure_id", "deterministic cashflow Price", "", d);
         Discounts(discounts, cashflows_.size(), d);
         double result = 0.;
-        for (size_t i = 0; i < cashflows_.size(); ++i)
+        for (size_t i = 0; i < cashflows_.size(); ++i) {
+            Check(cashflows_[i].amount_.has_value(), "UnsupportedCalibrationMeasure", "/discounts", "candidate curve provider for observed cashflows",
+                  "", d);
             result += *cashflows_[i].amount_ * discounts[i];
+        }
         Check(std::isfinite(result), "CalibrationNumericalFailure", "/price", "finite cashflow Price", "", d);
         return result;
     }

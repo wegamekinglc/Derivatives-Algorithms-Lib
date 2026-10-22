@@ -84,8 +84,10 @@ namespace Dal {
         std::variant<Caplet_, Swaption_> option_;
         double notional_ = 0.;
     };
+    struct CalibrationCurveFamilyDescriptor_;
+    using CalibrationCurveFamily_ = std::shared_ptr<const CalibrationCurveFamilyDescriptor_>;
     using CalibrationFastDescriptor_ =
-        std::variant<CalibrationDepositDescriptor_, CalibrationBondOptionDescriptor_, CalibrationRateOptionDescriptor_>;
+        std::variant<CalibrationDepositDescriptor_, CalibrationBondOptionDescriptor_, CalibrationRateOptionDescriptor_, CalibrationCurveFamily_>;
     struct CalibrationPreparationCapability_ {
         String_ ruleId_;
         CalibrationBackend_ backend_;

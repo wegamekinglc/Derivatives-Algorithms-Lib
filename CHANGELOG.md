@@ -18,6 +18,13 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-22
 
+- **Deterministic curve script families** — added one-time FRA, IRS,
+  period-forward OIS and Basis imports plus weighted/amortizing source
+  cashflows, with source-derived Price/par, explicit projection binding and
+  raw native FD/AAD. New families remain deterministic and preserve explicit
+  settlement, fixing, units and annuity limits. See the
+  [curve-family guide](docs/methodology/script_calibration_contract.md#deterministic-fra-swap-basis-and-custom-cashflows).
+
 - **Gaussian Caplet/Swaption script Price** — added bounded core one-time
   exporters, source-derived native Gaussian Price fast paths and signed
   RateStrike bindings, with same-contract MC/AAD validation and explicit
