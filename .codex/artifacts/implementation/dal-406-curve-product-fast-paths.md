@@ -5,9 +5,10 @@
 Implementation uses the original `agent/dal-implementer/c097905d2513` branch.
 Implementation and merged-master integration received a focused main review at
 `e65420120bdd9d5461c44b77791ac96123849e7f`. The two requested P2 repairs and
-their affected verification are now complete on the same PR #619. Shared
-documentation is the next serial phase after DAL-412's safe handoff. The PR
-still requires limited review and exact-head CI, not author merge/downstream work.
+their affected verification are now complete on the same PR #619. Necessary
+shared documentation has been integrated after DAL-412's safe handoff. The PR
+still requires limited code/documentation review and exact-head CI, not author
+merge/downstream work.
 
 The real prerequisite is merged DAL-405 / PR #617,
 `072c7da1b3071e71dac4f901451c2345957bd42a`. The initial boundary-only run had one
@@ -220,22 +221,32 @@ not imply parity with a direct native rate call. Min/median/max and raw rounds
 are attached. No portable threshold or two-build regression gate is claimed.
 Legacy numerical kernels, FD defaults and frozen budgets are unchanged.
 
-## Shared documentation drafts
+## Shared documentation integration
 
-Public guide/CHANGELOG/index writes remain reserved to DAL-411 until the
-coordinator releases their serial window. No shared publication file is edited.
+The original drafts were integrated after the completed DAL-412 publication
+handoff at 557415ed, as authorized by the coordinator's current serial window.
+The guide documents the four exporters, bounded affine cashflows, explicit FRA
+settlement, period-forward OIS limits, signed BasisSpread/annuity, nominal
+projection mapping and the canonical route recipe, historical/today policy and
+Prepare binding/error boundary. A validated weighted/amortizing coupon illustrates
+source literals and raw native FD/AAD. Existing DAL-405/P0/411 explanations remain.
+No DAL-412 unpublished product/text, public binding, XCCY MC or calibrated quote
+risk capability is introduced.
 
-Guide draft: add the four exporters and bounded curve arithmetic to the existing
-contract guide; cover explicit FRA settlement, period-forward OIS limits,
-signed BasisSpread/annuity, nominal projection mapping and the explicit canonical
-route recipe, historic/today policy and deterministic-only admission. Show
-custom source literals and raw native FD/AAD. Retain DAL-405/P0/411 explanations;
-do not imply downstream bindings, XCCY MC or calibrated quote risk.
+CHANGELOG records the bounded new family capability. The artifact index links
+this active record. The existing docs README, methodology README and CLAUDE guide
+links already resolve and remain unchanged; no separate guide is introduced.
 
-CHANGELOG draft: bounded FRA/IRS/period-forward OIS/Basis/custom cashflow import
-and source-derived Price/par with candidate-curve FD/AAD and owned diagnostics.
-Artifact-index draft: link this active record. Existing guide entry links need
-no addition unless a separate guide is introduced.
+Product repair is commit `971d7efe46a8c31a7c579ecb6dcffac75081c67a`. Only after
+its 52-case GREEN and caller checks completed did this pure Markdown stage begin.
+The documentation diff contains only this record, the guide, CHANGELOG and the
+artifact index. Static checks verify all **2,751 non-Markdown tree entries** and
+working blobs match that code checkpoint, with 87 Markdown/link checks, format
+and diff checks passing. This does not imply the product was unchanged during
+the earlier P2 repair: that repair changed the adapter and its dedicated test.
+The final total PR scope is 17 paths (13 C++ and four Markdown). Original source,
+build, public and accepted numerical evidence is reused only as described above;
+no product or performance execution is added for this documentation stage.
 
 ## Main-review P2 repair
 
