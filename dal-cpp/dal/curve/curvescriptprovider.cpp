@@ -86,7 +86,14 @@ namespace Dal {
     T_ CandidateCurveProvider_<T_>::Forward(const String_& route, const Date_& start, const Date_& end, const DayBasis_& basis) const {
         const double accrual = basis(start, end, nullptr);
         Check(std::isfinite(accrual) && accrual > 0., "InvalidCalibrationPlan", "/routes/" + route + "/accrual", "explicit positive accrual");
-        return (T_(1.) / Discount(Route(route, true), start, end) - T_(1.)) / accrual;
+        const T_ value = (T_(1.) / Discount(Route(route, true), start, end) - T_(1.)) / accrual;
+        if (!std::isfinite(static_cast<double>(value))) {
+            CalibrationDiagnostic_ d;
+            d.stage_ = CalibrationStage_::Value_::Evaluate;
+            Fail("CalibrationNumericalFailure", "/routes/" + route + "/forward", "finite forward in native rate units",
+                 NumberText(static_cast<double>(value)), d);
+        }
+        return value;
     }
     template class CandidateCurveProvider_<double>;
     template class CandidateCurveProvider_<AAD::Number_>;

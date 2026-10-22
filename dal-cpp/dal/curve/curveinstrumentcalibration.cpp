@@ -255,6 +255,42 @@ namespace Dal {
         }
     } // namespace
 
+    namespace {
+        bool ResolvedDifference(double parameter, double lower, double upper) {
+            return std::isfinite(lower) && std::isfinite(upper) && lower < parameter && parameter < upper && std::isfinite(upper - lower) &&
+                   upper - lower > 0.;
+        }
+        std::pair<double, double> DifferencePoints(double parameter, double bump, const CurveFreeParameter_& label, CalibrationDiagnostic_ d) {
+            const double lower = parameter - bump, upper = parameter + bump;
+            d.parameterKey_ = String_(label.component_.String()) + ":" + Date::ToString(label.date_);
+            Check(ResolvedDifference(parameter, lower, upper), "CalibrationNumericalFailure", "/options/difference_step",
+                  "finite resolvable two-sided native parameter perturbations", NumberText(bump), d);
+            return {lower, upper};
+        }
+        template <class F_>
+        Matrix_<> NativeDifferenceJacobian(const Vector_<>& parameters,
+                                           int rows,
+                                           double bump,
+                                           const Vector_<CurveFreeParameter_>& labels,
+                                           const CalibrationDiagnostic_& d,
+                                           const F_& measures) {
+            Matrix_<> result(rows, static_cast<int>(parameters.size()));
+            auto up = parameters, down = parameters;
+            for (int j = 0; j < result.Cols(); ++j) {
+                const auto [lower, upper] = DifferencePoints(parameters[j], bump, labels[j], d);
+                up[j] = upper;
+                down[j] = lower;
+                const auto plus = measures(up), minus = measures(down);
+                Check(plus.size() == static_cast<size_t>(rows) && minus.size() == static_cast<size_t>(rows), "CalibrationNumericalFailure",
+                      "/quote_jacobian", "fixed raw measure row count", "", d);
+                for (int i = 0; i < rows; ++i)
+                    result(i, j) = (plus[i] - minus[i]) / (upper - lower);
+                up[j] = down[j] = parameters[j];
+            }
+            return result;
+        }
+    } // namespace
+
     PreparedCurveInstruments_::PreparedCurveInstruments_(const CurveInstrumentCalibrationSpec_& spec,
                                                          const CurveInstrumentCalibrationOptions_& options)
         : spec_(spec), options_(options), axes_(BuildCalibrationObservationAxes(spec.observations_)) {
@@ -322,9 +358,10 @@ namespace Dal {
             if (auto jacobian = Jacobian(parameters)) {
                 result.quoteJacobian_ = static_cast<XCurveJacobian_&>(*jacobian).j_;
             } else {
-                CentralDifferenceJacobian(
-                    parameters, static_cast<int>(plans_.size()), options_.differenceStep_, [&](const auto& x) { return Measures(spec_, plans_, x); },
-                    &result.quoteJacobian_);
+                result.quoteJacobian_ =
+                    NativeDifferenceJacobian(parameters, static_cast<int>(plans_.size()), options_.differenceStep_, result.freeParameters_,
+                                             RowDiagnostic(*spec_.observations_.front(), CalibrationStage_::Value_::Evaluate),
+                                             [&](const auto& x) { return Measures(spec_, plans_, x); });
             }
             for (int i = 0; i < result.quoteJacobian_.Rows(); ++i)
                 for (int j = 0; j < result.quoteJacobian_.Cols(); ++j)
@@ -413,16 +450,18 @@ namespace Dal {
             result->nativeWeights_.Resize(n, n);
             result->weights_.Resize(n, n);
             for (int i = 0; i < n; ++i)
-                for (int j = 0; j < n; ++j) {
+                for (int j = 0; j <= i; ++j) {
                     const double native = (*weights)(i, j);
                     const double value = native * result->parameterScales_[i] * result->parameterScales_[j];
                     Check(std::isfinite(value), "InvalidCalibrationObjective", "/solver/weights", "representable S'W_theta*S");
                     Check(native == 0. || value != 0., "InvalidCalibrationObjective", "/solver/weights",
                           "nonzero metric entries remain representable");
-                    result->nativeWeights_(i, j) = native;
-                    result->weights_(i, j) = value;
-                    if (std::abs(i - j) <= 1)
+                    result->nativeWeights_(i, j) = result->nativeWeights_(j, i) = native;
+                    result->weights_(i, j) = result->weights_(j, i) = value;
+                    if (i - j <= 1) {
                         weights->Set(i, j, value);
+                        weights->Set(j, i, value);
+                    }
                 }
             result->objectiveIdentity_ = Fingerprint(Obj({{"plan", Str(result->planIdentity_)},
                                                           {"mode", Str(result->solveMode_.String())},

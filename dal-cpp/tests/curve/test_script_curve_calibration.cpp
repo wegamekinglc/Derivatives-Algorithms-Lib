@@ -4,6 +4,7 @@
 #include <limits>
 
 #include <dal/curve/aadjacobian.hpp>
+#include <dal/curve/calibration_internal.hpp>
 #include <dal/curve/curveinstrumentcalibration.hpp>
 #include <dal/curve/depositscript.hpp>
 #include <dal/curve/tapeguard.hpp>
@@ -56,6 +57,119 @@ TEST(ScriptCurveCalibrationTest, TestNativeCoordinatesAndRawJacobianAgainstCashf
     ASSERT_NEAR(fit.parameters_[0], -std::log1p(.035 * alpha), 1e-10);
     ASSERT_EQ(fit.axes_.quoteIndex_, Vector_<int>({0}));
     ASSERT_EQ(fit.freeParameters_[0].component_, CurveFreeParameterComponent_::Value_::LOG_DISCOUNT_FACTOR);
+}
+
+TEST(ScriptCurveCalibrationTest, TestUnresolvedNativeDifferenceCannotPublishZeroRisk) {
+    for (bool calibrate : {false, true}) {
+        std::optional<CalibrationError_> saved;
+        {
+            auto spec = DepositSpec();
+            spec.solver_.initialGuessPerNode_ = {-.04};
+            const auto quote = NewCalibrationMarketQuote("q", std::expm1(.04) / (365. / 360.), CalibrationValueUnit_::Parse("Rate"));
+            spec.observations_ = {NewCalibrationObservation("o", spec.observations_[0]->Instrument(), "ParRate", quote, 1e-10)};
+            CurveInstrumentCalibrationOptions_ options;
+            options.differenceStep_ = 1e-20;
+            options.computeQuoteJacobian_ = true;
+            try {
+                if (calibrate)
+                    static_cast<void>(CalibrateCurveInstruments(spec, options));
+                else
+                    static_cast<void>(PreparedCurveInstruments_(spec, options).Evaluate({-.04}));
+            } catch (const CalibrationError_& error) {
+                saved = error;
+            }
+        }
+        ASSERT_TRUE(saved) << "calibrate=" << calibrate;
+        const auto& f = saved->Failure();
+        ASSERT_EQ(f.diagnostic_.code_, "CalibrationNumericalFailure");
+        ASSERT_EQ(f.diagnostic_.field_, std::optional<String_>("/options/difference_step"));
+        ASSERT_EQ(f.diagnostic_.parameterKey_, std::optional<String_>("LOG_DISCOUNT_FACTOR:2027-10-21"));
+        ASSERT_EQ(f.report_->Axes().observations_[0]->Id(), "o");
+        ASSERT_EQ(f.report_->Axes().quotes_[0]->Id(), "q");
+        ASSERT_EQ(f.report_->Errors().size(), 1);
+        ASSERT_TRUE(f.candidate_);
+    }
+    Matrix_<> legacy;
+    CentralDifferenceJacobian(Vector_<>{-.04}, 1, 1e-20, [](const auto& x) { return x; }, &legacy);
+    ASSERT_DOUBLE_EQ(legacy(0, 0), 0.);
+}
+
+TEST(ScriptCurveCalibrationTest, TestNativeDifferenceUsesActualRepresentableSpacing) {
+    auto spec = DepositSpec();
+    const auto instrument =
+        NewDepositScriptInstrument(Deposit_(TODAY, MATURITY, .025, DayBasis_("ACT_360")), {"small-annuity", Ccy_("USD"), "USD.OIS", 100., 1e-300});
+    spec.observations_ = {NewCalibrationObservation("o", instrument, "ParRate", spec.observations_[0]->Quote(), 1.)};
+    CurveInstrumentCalibrationOptions_ options;
+    options.differenceStep_ = 1e-12;
+    const auto value = PreparedCurveInstruments_(spec, options).Evaluate({-600.});
+    const double independent = -std::exp(600.) / (365. / 360.);
+    ASSERT_NEAR(value.quoteJacobian_(0, 0) / independent, 1., 1e-3);
+}
+
+TEST(ScriptCurveCalibrationTest, TestNonuniformCoordinateScalesKeepFixedSymmetricMetric) {
+    for (const auto mode : {CurveSolveMode_::Value_::EXACT, CurveSolveMode_::Value_::APPROXIMATE}) {
+        auto spec = DepositSpec();
+        const Date_ second(2028, 10, 23);
+        spec.geometry_.knotDates_.push_back(second);
+        spec.solver_.parameterScales_ = {.1, .3};
+        spec.solver_.smoothingWeight_ = .1;
+        spec.solver_.solveMode_ = mode;
+        spec.solver_.fitWeight_ = 1.;
+        spec.solver_.fitNormTolerance_ = .1;
+        const auto instrument =
+            NewDepositScriptInstrument(Deposit_(TODAY, second, .025, DayBasis_("ACT_360")), {"second", Ccy_("USD"), "USD.OIS", 100.});
+        const auto quote = NewCalibrationMarketQuote("q2", .04, CalibrationValueUnit_::Parse("Rate"));
+        spec.observations_.push_back(NewCalibrationObservation("o2", instrument, "ParRate", quote, 1e-10));
+        const auto result = CalibrateCurveInstruments(spec);
+        ASSERT_TRUE(result.fitWithinTolerance_);
+        ASSERT_GT(result.evaluations_, 0);
+        ASSERT_NEAR(result.parameters_[0], -std::log1p(.035 * (365. / 360.)), 1e-10);
+        ASSERT_NEAR(result.parameters_[1], -std::log1p(.04 * ((second - TODAY) / 360.)), 1e-10);
+        ASSERT_DOUBLE_EQ(result.weights_(0, 1), result.weights_(1, 0));
+        ASSERT_NEAR(result.weights_(0, 0), .002, 1e-18);
+        ASSERT_NEAR(result.weights_(0, 1), -.003, 1e-18);
+        ASSERT_NEAR(result.weights_(1, 1), .018, 1e-17);
+    }
+}
+
+namespace {
+    template <class T_> void AssertForwardFailure() {
+        std::optional<CalibrationError_> saved;
+        const Date_ far(2126, 10, 21);
+        const long double accrual = (far - TODAY) / 365.L;
+        const double independent = static_cast<double>(std::exp(714.L - std::log(accrual)) - 1.L / accrual);
+        ASSERT_TRUE(std::isfinite(independent));
+        ASSERT_GT(independent, 1e308);
+        {
+            TapeGuard_ guard(AAD::Tape());
+            CurveCalibrationSpec_ geometry;
+            geometry.today_ = TODAY;
+            geometry.ccy_ = "USD";
+            geometry.parameterization_ = CurveParameterization_::Value_::LOG_DISCOUNT;
+            geometry.knotDates_ = {TODAY, far};
+            geometry.calibrateDiscountCurve_ = false;
+            geometry.targetTenor_ = PeriodLength_("3M");
+            const CandidateCurveProvider_<T_> provider(geometry, {{"projection", true, CollateralType_("OIS"), PeriodLength_("3M")}}, {T_(-714.)});
+            try {
+                static_cast<void>(provider.Forward("projection", TODAY, far, DayBasis::Act365F()));
+            } catch (const CalibrationError_& error) {
+                saved = error;
+            }
+        }
+        ASSERT_TRUE(saved);
+        const auto& f = saved->Failure();
+        ASSERT_EQ(f.diagnostic_.code_, "CalibrationNumericalFailure");
+        ASSERT_EQ(f.diagnostic_.stage_, CalibrationStage_::Value_::Evaluate);
+        ASSERT_EQ(f.diagnostic_.field_, std::optional<String_>("/routes/projection/forward"));
+        ASSERT_TRUE(f.report_);
+        ASSERT_EQ(f.report_->Stage(), CalibrationStage_::Value_::Evaluate);
+        ASSERT_EQ(f.report_->Errors().size(), 1);
+    }
+} // namespace
+
+TEST(ScriptCurveCalibrationTest, TestForwardCannotReturnInfiniteIntermediate) {
+    AssertForwardFailure<double>();
+    AssertForwardFailure<AAD::Number_>();
 }
 
 TEST(ScriptCurveCalibrationTest, TestEvaluateFailureOwnsAxesAndNativeLayout) {

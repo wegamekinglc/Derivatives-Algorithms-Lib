@@ -500,12 +500,12 @@ namespace Dal {
             const auto gradient = jacobian.MultiplyRight(result.scaledResiduals_);
             for (int a = 0; a < n; ++a) {
                 rhs[a] -= weight * gradient[a];
-                for (int b = 0; b < n; ++b) {
+                for (int b = 0; b <= a; ++b) {
                     double value = weights(a, b);
                     for (int i = 0; i < j.Rows(); ++i)
                         value += weight * j(i, a) * j(i, b);
                     REQUIRE(std::isfinite(value), "Nonfinite calibration normal matrix");
-                    normal(a, b) = value;
+                    normal(a, b) = normal(b, a) = value;
                 }
             }
             FiniteFitValues(rhs);

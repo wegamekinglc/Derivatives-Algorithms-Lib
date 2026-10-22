@@ -16,6 +16,81 @@ handoff evidence; no product or performance test is run for this prose change.
 The coordinator subsequently added three P2 code repairs to the same serial
 batch; their separate change and targeted verification are recorded below.
 
+## Focused review follow-up: three P2 repairs
+
+The coordinator's subsequent comment `01a16147-c340-7727-8a80-3c1b06fd2b16`
+explicitly adds the three findings from `01a16145-a127-7899-a870-0fd291c5830d`
+to the same serial PR #617 batch. The documentation-only commit is
+`aaeffd190914cb7e54ac8a6091dfaee0dba317ca`: only the two guides and this record
+changed, and dal-cpp/dal-public/dal-python/dal-excel tree IDs are identical to
+reviewed head `8b244a0d9ac9e27e59f33f77f3424559f35aeb6a`. That identity claim
+applies to the prose commit, not to the later authorized product repairs.
+
+Work resumes in DAL-405's original clean checkout and matching build, not the
+DAL-411 checkout. Its input core archive `5aa2eb94...` and test executable
+`9068df97...` match the accepted handoff/reviewer manifests. A newly inspected
+worktree was not used for edits or linked into these binaries.
+
+Repairs stay at the new boundaries:
+
+- Prepared native-theta FD checks finite, distinct two-sided perturbations and
+  a finite actual width, then divides by that actual width. An unresolved
+  `1e-20` bump at theta=-.04 throws owned CalibrationNumericalFailure with
+  parameter label, `/options/difference_step`, observation/quote axes and report;
+  at-solution diagnostics cannot return a successful zero raw Jacobian.
+  The old CentralDifferenceJacobian helper is unchanged, including its old
+  collapsed-bump behavior. A separate -600 logDF stress test shows why actual
+  spacing matters: the old derivative has 2.325% relative error; the corrected
+  derivative meets the independent exponential oracle at unchanged 1e-3
+  relative tolerance.
+- S'W_theta*S is evaluated once per triangular entry and mirrored into dense
+  reports and the tridiagonal solve metric. The new regularized normal matrix
+  is also constructed from one triangle and mirrored. Nonuniform S={.1,.3},
+  smoothingWeight=.1 now fits in EXACT and APPROXIMATE, with the independent
+  deposit roots and symmetric [[.002,-.003],[-.003,.018]] metric. No symmetry
+  gate or frozen fit/evaluation budget is weakened.
+- Forward preserves the normal finite arithmetic path and refuses a nonfinite
+  intermediate/result at the new provider boundary. The owned Evaluate failure
+  retains `/routes/projection/forward` and the nonfinite value. Both double/AAD
+  are covered. For logDF=-714 and the 100-year accrual, the mathematical final
+  forward is representable, but this implementation explicitly reports its
+  intermediate overflow rather than returning infinity. No stable-extreme-value
+  success claim or general numerical-kernel change is made.
+
+Four focused runtime REDs against the input archive fail for the actual
+behavior defects (missing exception, inaccurate FD, nonsymmetric metric and
+nonfinite Forward). All four then pass without weakening expectations.
+The extended-precision Forward witness was written as exp(714-log(accrual))
+minus 1/accrual so the independent finite reference is portable to MSVC,
+where long double need not have a wider exponent range than double.
+
+Direct-effect verification is **48/48**: 27 ScriptCurveCalibration (4 added),
+5 new Fit and 16 legacy Underdetermined checks. This covers raw FD/AAD/layout,
+independent normal-equation/EXACT oracles, new failure ownership and legacy
+Find/Approximate compatibility. The rest of the accepted 99-test evidence is
+reused only for unchanged paths. No full product/statistical matrix or
+performance test was run. Prior native-only performance evidence remains
+applicable to the unchanged legacy execution code; no new timing claim is made
+for the repaired code.
+
+GCC14.3 core rebuild and scoped Werror syntax checks for all three production
+TUs pass under the existing warning policy. Changed functions satisfy CCN<=8.
+New curve/test files pass formatting; the new normal-matrix hunk is formatted
+without reformatting legacy solver code. Full legacy solver prefix/suffix and
+the shared legacy FD header remain byte-identical to the input source. Whole
+file formatting initially reordered legacy prerequisite includes; that unrelated
+formatting was removed before the successful rebuild. It is not a product RED.
+Links/85 Markdown/diff checks pass; no CHANGELOG/index addition was necessary.
+
+Final rebuilt core archive SHA-256:
+`c1b7fa8f9c2880ba67a55d4a702520f3ef61bfa33a205efc091cf452e78ae4f6`.
+Focused executable SHA-256:
+`e9a1e0c100bec2f078a7f14f28fb2ed871923290027dc6dad81579a913e74fa6`.
+The attached follow-up manifest/patch, doc-only product-tree comparison,
+RED/GREEN/scoped XML and static logs identify the final pushed head. External
+CI and the three-blocker reviewer recheck remain coordinator gates; no merge
+or downstream work is performed by this handoff.
+
 ## Control inputs and source applicability
 
 Startup HEAD and fetched master were
