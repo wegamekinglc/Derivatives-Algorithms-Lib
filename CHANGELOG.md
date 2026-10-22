@@ -24,6 +24,12 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   payment-measure, effective-rank and derivative admission limits. See the
   [rate-option guide](docs/methodology/script_calibration_contract.md#gaussian-caplet-and-swaption-price).
 
+- **Native-coordinate script curve calibration** — added prepared Deposit
+  observations, explicit candidate curve routing, FD/AAD raw measure Jacobians
+  and ordered curve stages. New EXACT/APPROXIMATE acceptance separates row
+  scales from fit weight and L2 tolerance; legacy native calls retain their
+  existing behavior. See the [curve instrument guide](docs/methodology/script_calibration_contract.md#native-curve-instrument-calibration).
+
 - **Compiled Monte Carlo default** — core and public C++, Python, and Excel
   Monte Carlo APIs use compiled evaluation by default, including AAD and LSMC.
   Unset C++ flags, Python `None`, and blank Excel settings select compiled

@@ -27,6 +27,132 @@ using Dal::Sparse::TriDiagonal_;
 
 namespace Underdetermined = Dal::Underdetermined;
 
+TEST(UnderdeterminedFitTest, TestExplicitWeightMatchesIndependentNormalEquation) {
+    class Linear_ : public Underdetermined::Function_ {
+    public:
+        Vector_<> F(const Vector_<>& x) const override { return {2. * x[0] + x[1] - 7., x[0] - x[1] + 1.}; }
+    } function;
+    TriDiagonal_ weights(2);
+    weights.Set(0, 0, 2.);
+    weights.Set(1, 1, 3.);
+    weights.Set(0, 1, .5);
+    weights.Set(1, 0, .5);
+    Dictionary_ dict;
+    dict.Insert("MAXEVALUATIONS", Cell_(6.));
+    dict.Insert("MAXRESTARTS", Cell_(1.));
+    Underdetermined::FitSettings_ settings;
+    settings.exact_ = false;
+    settings.fitWeight_ = 4.;
+    settings.fitNormTolerance_ = 1e-12;
+    const auto result = Underdetermined::Fit(function, {1., -1.}, {2., .5}, weights, UnderdeterminedControls_(dict), settings);
+    // W + 4 J_s'J_s = [[22,-13.5],[-13.5,20]], rhs = W*theta0 + 4*J_s'*q_s.
+    const double determinant = 22. * 20. - 13.5 * 13.5;
+    ASSERT_NEAR(result.parameters_[0], (-.5 * 20. + 20.5 * 13.5) / determinant, 1e-8);
+    ASSERT_NEAR(result.parameters_[1], (20.5 * 22. - .5 * 13.5) / determinant, 1e-8);
+    ASSERT_FALSE(result.fitWithinTolerance_);
+    ASSERT_EQ(result.evaluations_, 6);
+    ASSERT_EQ(result.gradients_, 1);
+    ASSERT_EQ(result.termination_, "CalibrationBudgetExceeded");
+}
+
+TEST(UnderdeterminedFitTest, TestMixedRatePriceFxNumericUnitsKeepFrozenWeight) {
+    class MixedUnits_ : public Underdetermined::Function_ {
+        double priceMultiplier_;
+
+    public:
+        explicit MixedUnits_(double multiplier) : priceMultiplier_(multiplier) {}
+        Vector_<> F(const Vector_<>& x) const override {
+            return {.01 * (x[0] + x[1] - 3.), priceMultiplier_ * 10000. * (x[0] - 2. * x[1] + 1.), 1.2 * (2. * x[0] + x[1] - 4.)};
+        }
+    };
+    TriDiagonal_ weights(2);
+    weights.Set(0, 0, 2.);
+    weights.Set(1, 1, 3.);
+    Dictionary_ dict;
+    dict.Insert("MAXEVALUATIONS", Cell_(6.));
+    dict.Insert("MAXRESTARTS", Cell_(1.));
+    Underdetermined::FitSettings_ settings;
+    settings.exact_ = false;
+    settings.fitWeight_ = 6.;
+    settings.fitNormTolerance_ = 1e-12;
+    for (double multiplier : {1., 1e6}) {
+        const MixedUnits_ function(multiplier);
+        const auto result =
+            Underdetermined::Fit(function, {.2, -.3}, {.01, multiplier * 10000., 1.2}, weights, UnderdeterminedControls_(dict), settings);
+        // Independently normalized rows: [1,1], [1,-2], [2,1]; W+6 J'J=[[38,6],[6,39]].
+        ASSERT_NEAR(result.parameters_[0], 2037. / 1446., 1e-8);
+        ASSERT_NEAR(result.parameters_[1], 1655.4 / 1446., 1e-8);
+        ASSERT_FALSE(result.fitWithinTolerance_);
+    }
+}
+
+TEST(UnderdeterminedFitTest, TestInclusiveExactAndL2InitialFitWithoutGradient) {
+    class Constant_ : public Underdetermined::Function_ {
+    public:
+        Vector_<> F(const Vector_<>&) const override { return {.8, .8}; }
+    } function;
+    TriDiagonal_ weights(1);
+    weights.Set(0, 0, 1.);
+    Dictionary_ dict;
+    dict.Insert("MAXEVALUATIONS", Cell_(1.));
+    dict.Insert("MAXRESTARTS", Cell_(1.));
+    const auto controls = UnderdeterminedControls_(dict);
+    const auto exact = Underdetermined::Fit(function, {0.}, {.8, .8}, weights, controls);
+    ASSERT_TRUE(exact.fitWithinTolerance_);
+    ASSERT_EQ(exact.gradients_, 0);
+    ASSERT_EQ(exact.evaluations_, 1);
+    Underdetermined::FitSettings_ settings;
+    settings.exact_ = false;
+    settings.fitWeight_ = 7.;
+    settings.fitNormTolerance_ = 1.1;
+    const auto l2 = Underdetermined::Fit(function, {0.}, {1., 1.}, weights, controls, settings);
+    ASSERT_FALSE(l2.fitWithinTolerance_);
+    ASSERT_EQ(l2.termination_, "CalibrationBudgetExceeded");
+    settings.fitNormTolerance_ = 1.2;
+    const auto initial = Underdetermined::Fit(function, {0.}, {1., 1.}, weights, controls, settings);
+    ASSERT_TRUE(initial.fitWithinTolerance_);
+    ASSERT_EQ(initial.gradients_, 0);
+}
+
+TEST(UnderdeterminedFitTest, TestExactAcceptsFeasibleStepEvenWhenL2Increases) {
+    class Curved_ : public Underdetermined::Function_ {
+    public:
+        Vector_<> F(const Vector_<>& x) const override {
+            const double quadratic = .9 * x[0] * x[0] / (1.01 * 1.01);
+            return {1.01 + x[0] + quadratic, x[1] + quadratic};
+        }
+    } function;
+    TriDiagonal_ weights(2);
+    weights.Set(0, 0, 1.);
+    weights.Set(1, 1, 1.);
+    Dictionary_ dictionary;
+    dictionary.Insert("MAXEVALUATIONS", Cell_(6.));
+    dictionary.Insert("MAXRESTARTS", Cell_(1.));
+    const auto result = Underdetermined::Fit(function, {0., 0.}, {1., 1.}, weights, UnderdeterminedControls_(dictionary));
+    ASSERT_TRUE(result.fitWithinTolerance_);
+    ASSERT_NEAR(result.parameters_[0], -1.01, 1e-8);
+    ASSERT_EQ(result.evaluations_, 6);
+}
+
+TEST(UnderdeterminedFitTest, TestExactLocalStepUsesFrozenMetric) {
+    class Sum_ : public Underdetermined::Function_ {
+    public:
+        Vector_<> F(const Vector_<>& x) const override { return {x[0] + x[1] - 3.}; }
+    } function;
+    TriDiagonal_ weights(2);
+    weights.Set(0, 0, 1.);
+    weights.Set(1, 1, 4.);
+    Dictionary_ dictionary;
+    dictionary.Insert("MAXEVALUATIONS", Cell_(6.));
+    dictionary.Insert("MAXRESTARTS", Cell_(1.));
+    const auto fit = Underdetermined::Fit(function, {0., 0.}, {1e-8}, weights, UnderdeterminedControls_(dictionary));
+    ASSERT_TRUE(fit.fitWithinTolerance_);
+    ASSERT_NEAR(fit.parameters_[0], 2.4, 1e-8);
+    ASSERT_NEAR(fit.parameters_[1], .6, 1e-8);
+    ASSERT_EQ(fit.evaluations_, 6);
+    ASSERT_EQ(fit.gradients_, 1);
+}
+
 namespace {
     UnderdeterminedControls_ MakeControls(int maxEvaluations = 20, int maxRestarts = 10) {
         Dictionary_ dict;

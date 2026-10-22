@@ -1,9 +1,16 @@
 # Underdetermined Search
 
-This note describes the optimisation method used to calibrate curves: a
+This note describes the legacy `Underdetermined::Find` and `Approximate`
+optimisation paths used to calibrate curves: a
 constrained least-change solver for nonlinear systems that have more unknowns than
 equations. The focus is the mathematics of the step and the iteration, not the
 solver's code.
+
+The gamma mapping, CG solve and Broyden/secant refresh rules below apply to
+those legacy entry points. The new `Underdetermined::Fit` driver has explicit
+lambda/eta, a dense Cholesky regularized local solve and fresh Jacobians;
+see the [script curve calibration contract](script_calibration_contract.md#native-curve-instrument-calibration)
+for its settings and acceptance rules.
 
 ## The Problem
 
