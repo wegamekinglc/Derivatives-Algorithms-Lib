@@ -49,7 +49,9 @@ Preparation reads the whole bound AST before constant folding or historical
 replay. PAY must be the sole PAYS receiver. Its only ordinary assignment is
 literal-zero initialization before any payment. A payment in either branch, or
 in history, prevents subsequent receiver resets. Vector output, extra receivers,
-ON settlement and unrecognized control flow fail explicitly. Payment
+ON settlement and unrecognized control flow fail explicitly. Native fast
+matchers additionally reject fees or other unmatched cashflows. Explicit general
+Price MC has its own bounded scalar admission described below. Payment
 dates must match the admitted template, including the Caplet payment lag
 described below. The bare Product's last-variable fallback remains available
 through its existing entry.
@@ -70,7 +72,7 @@ cannot receive the Gaussian descriptor by providing a matching name.
 The returned immutable plan owns its instrument, cashflow metadata, disposable
 descriptor, capability and compiler/context/plan identities. A contingent
 cashflow has no numeric `amount_`; its metadata retains payment/fixing dates and
-source coordinates. The descriptor carries the matched financial structure.
+source coordinates. A fast descriptor carries the matched financial structure.
 Deposit amounts come from evaluating the original PAYS expressions. The plan
 retains no independently editable native product or mutable market object.
 
@@ -79,7 +81,7 @@ timestamps and values, today policy, convention state and smoothing contribute
 to identity. Sampling contributes when MC is selected. Call `RequireCompatible`
 with the current instrument and context before reusing a prepared artifact;
 changes require preparation again. No shared descriptor cache is maintained.
-The rate-option and curve-family contexts additionally track the actual Libor day basis; this
+Rate-option, curve-family and general Price MC contexts additionally track the actual Libor day basis; this
 extension preserves the original Deposit/BondOption identity components.
 
 ## Native Deposit import and candidate curves
@@ -286,7 +288,8 @@ the derivative method.
 `ScriptMC` admission requires explicit calibration opt-in, a matching Gaussian
 context and explicit sampling. Existing `irn` Price admission retains derivative
 None. Executable `mrg32` admission also supports Deposit ParRate and native AAD.
-Unknown scripts never switch silently to MC.
+General scalar Price admission requires executable `mrg32` and an explicit
+`ScriptMC` request. Unknown scripts never switch silently to MC.
 
 ## Native curve instrument calibration
 
@@ -565,6 +568,113 @@ parity and precision tests. Floors must lie below their budgets. Failure returns
 requests or execution failures throw `CalibrationError_`. Exceeding the declared
 path budget fails explicitly. No adaptive scale enlargement or retry is applied.
 SEs, FD refinement and affine ratio errors are estimates, not strict bounds.
+
+## Gaussian script Price MC calibration
+
+`dal/model/gsrscriptcalibration.hpp` provides the separate core
+`CalibrateGSRScriptPrices` driver for native-unit Price observations and selected
+MultiFactor Gaussian g coordinates. It requires explicit MC opt-in; existing
+native fast adapters and vanilla volatility conversion keep their behavior.
+General Price targets may be signed. Recognized BondOption/Caplet/Swaption
+contracts retain their original classification, domain checks and nonnegative
+Price-target preflight, including held-out observations.
+Two-payment Deposit shapes beginning with `PAYS -N` retain the native payoff
+checks even with unrelated scalar assignments. Full native AST admission is
+still required; a malformed maturity payment cannot acquire the general Price rule.
+
+General admission reads the complete bound scalar AST and validates the actual
+Gaussian model, fixing snapshot and same-currency OIS/AtEvent context. It permits
+ordinary scalar state assignments and arithmetic with supported DF/Libor FIX,
+including a running arithmetic average. PAY remains the sole receiver, with
+no reset after historical or live payments. EXERCISE, vectors, SPOT and IF/
+comparison controls are rejected. Context smoothing must be zero. The derived
+MC descriptor contains no economic data; execution uses the original bound
+program. This path grants no fast, deterministic or affine capability.
+
+For example, N/Notional and K/RateStrike declarations with N=100 and K=.04 can
+drive these event rows:
+
+```text
+2027-10-21: avg = .5*FIX(IR[USD,LIBOR_6M_LCH,2027-10-21])
+2028-04-21: avg = avg+.5*FIX(IR[USD,LIBOR_6M_LCH,2028-04-21])
+2028-10-21: pay PAYS N*MAX(avg-K,0)
+```
+
+Concrete dates, index accrual, payment date and numeraire remain part of the
+contract. A single-fixing degeneration matches a native caplet only with the
+same coupon accrual and payment semantics; the arithmetic-average amount has
+coupon accrual one. Its multi-fixing payoff has no native European fast kernel.
+
+Freeze the Price scale, parameter scale, bounds, seed, batches, maximum paths,
+sigma and value/gradient precision settings before fitting. An explicit budget
+configuration is:
+
+```cpp
+Dal::GSRScriptCalibrationSettings_ settings;
+settings.sampling_.allowMonteCarloCalibration_ = true;
+settings.sampling_.seed_ = 1024;
+settings.sampling_.fitBatches_ = 8;
+settings.sampling_.fitPathsPerBatch_ = 8192;
+settings.sampling_.validationBatches_ = settings.sampling_.heldOutBatches_ = 16;
+settings.sampling_.validationPathsPerBatch_ = settings.sampling_.heldOutPathsPerBatch_ = 16384;
+settings.sampling_.maxPathsPerView_ = 589824;
+const auto result = Dal::CalibrateGSRScriptPrices(
+    context, {observation}, {{0, 0, .001, .06}}, settings, {heldOutObservation});
+```
+
+The reservation is per view, not the total optimizer work. Fit uses fixed CRN
+paths. Validation follows the entire fit reservation, and optional held-out
+occupies a third disjoint range. A shared seed alone does not establish CRN
+across different timelines or normal-coordinate mappings. Held-out compares its
+own mean and SE with its supplied target; it neither updates fit values nor
+becomes ordinary validation. No held-out input leaves requested=false and
+passed=false, representing NotRequested.
+Held-out counts enter execution identity only when that stream is enabled;
+disabled held-out preserves the existing native-template plan identity.
+
+This driver requires every fit value/AAD and held-out plan to have the same
+actual normal-draw dimension, with complete normal coordinates. It checks the
+prepared mappings before optimizer work and rejects mixed dimensions with an
+owning Prepare error. A path seeks `path*dimension` raw draws: distinct path
+ranges at different dimensions can overlap. Common draw stride makes all fit,
+validation and held-out draw ranges disjoint across the admitted basket while
+preserving existing seeds, ranges, budgets and same-dimensional identities.
+This restriction does not allocate new global RNG substreams or establish
+identical coordinate meaning across different timelines.
+
+Solver coordinates are normalized g values, while `quoteJacobian_` remains raw
+dPrice/dNativeG with fixed bindings. Data residuals use observation error scales;
+prior and knot-gap smoothing rows have separate axes and objective subtotals.
+Prior/smoothing penalize movement from the immutable initial g, including
+selected-to-unselected neighbors. Rank diagnostics exclude penalty rows.
+AAD evaluates M observation rows per Jacobian; the FD baseline makes 2N complete
+basket bumps. Native bounds and actual representable bump distances determine
+the stencil, with one-sided columns reported explicitly. The result reports
+the actual method, row/basket/batch/path counts and tape high-water usage.
+
+Stored compiled/tree structures can be shared across g-only candidates.
+Admission and context checks are repeated; general admission includes a fresh
+uncompiled bound-script preflight. Each execution uses a fresh model, evaluator,
+historical state and recording scope. Changed binding, curve, fixings, H,
+correlation, geometry, convention or smoothing requires a new plan.
+
+Read `converged_`, `fitWithinTolerance_`, `numericalValidationPassed_` and the
+held-out flags separately. StepStalled/NoDescent/MaxIterations may return a valid
+candidate without declaring convergence. A good fit does not override a failed
+value or gradient error budget; increasing notional with a fixed absolute Price
+scale can exhaust that budget. No automatic scale enlargement or resampling is
+performed. Budget or execution exceptions own the available observation axes,
+diagnostics and last completely evaluated candidate; no incomplete candidate
+is represented as a successful evaluation. Row preparation, refresh and execution
+errors bind the actual instrument/observation/quote/measure while preserving
+the original field, source and cause. A held-out failure owns the held-out axis
+group and identifies that scope in its message; it retains the last complete
+fit candidate rather than publishing a partially executed basket.
+`quoteRiskAvailable_` remains false.
+This core driver adds no public/Python/Excel bindings, XCCY MC, early exercise,
+SLV, joint calibration, RQMC or calibrated quote-risk propagation.
+
+## Quotes, observations and reports
 
 Quote units are exact: Rate and BasisSpread are decimal quantities, Price:USD is
 an amount for the bound contract, and FxOutright:EUR/USD is USD per EUR. Currency

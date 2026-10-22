@@ -365,3 +365,91 @@ snapshot are in the final handoff. No product, statistical or performance
 tests are run; code Approve and all other document conclusions retain their
 recorded applicability. This one document gap awaits limited confirmation
 and current-head gates; the author does not dispatch reviewers or merge.
+
+## Integration with accepted DAL-412 master
+
+The current DAL-408 description and trigger
+`01a163c6-f2f4-7cf5-bf2b-5fb0913fe643` authorize a normal merge in the
+original checkout, branch and PR #620. The clean first parent is
+`a2e48e56bc035cbe15136677c61eb9d7811a0408`; fetched master is exactly the
+accepted DAL-412 squash `aa9ba13a338f65b66f0fc2620562abfc17736666`.
+Their common base is `f50db2e93eb16823190ed18b5d73a115f0e9c48f`.
+The parent authorization, issue history/runs and actual sibling activity were
+checked: only this author and DAL-413's independent tester are active.
+No unmerged DAL-407 content is imported, and its report/public paths remain
+outside this integration's edits.
+
+The four actual conflicts are the two preparation files, CHANGELOG and the
+artifact index. Their three stage blobs and unresolved combined patch are
+preserved in the handoff. The descriptor variant contains both the general
+MC marker and the XCCY descriptor. XCCY context/header/snapshot binding and
+compiler tokens are retained; the generic branch retains DAL-412's complete
+matcher, Deposit reservation, strict-error propagation and general MC context
+identity. Dedicated XCCY preparation bypasses general MC classification and
+keeps its existing early MC refusal. Native preparation retains the XCCY
+affine-validation exception and capability dispatch. There is no new pricing
+algorithm, model, threshold, convention or executable fallback.
+
+The only new test is
+`XccyScriptIntegrationTest.TestGeneralMcAdmissionDoesNotEscapeIntoXccyContext`
+in `test_xccy_script.cpp`. It combines AutoFast/RequireFast XCCY Price and
+BasisSpread against the independent cashflow oracle with admitted Gaussian
+Coupon/RateStrike averages, incompatible prepared-context reuse, dedicated
+XCCY MC refusal and mixed-context rejection. All 37 prior XCCY tests remain
+byte-identical after removing the added include and appended test.
+
+RED: after `cmake --build build/dal408 --target dal_cpp -j 8`, the focused
+runner compiled the new test against the accepted pre-merge product and failed
+with the expected `UnsupportedCalibrationProduct` / P0-payments requirement
+on the general average. The first merged run exposed an incorrect test
+expectation: an average source with dedicated XCCY context also receives the
+existing early `MCCrossCurrencyUnsupported`, before AST matching. Correcting
+that assertion preserves production precedence; a separate incompatible-plan
+assertion was added. The final test was also recompiled against the first
+parent's preparation TU with merged declarations/dependencies and reproduced
+the same expected RED. No assertion or production boundary was relaxed.
+
+GREEN: `cmake -S . -B build/dal408` and
+`cmake --build build/dal408 --target dal_cpp -j 8` rebuilt affected core TUs,
+including imported MC/driver callers, and relinked the canonical archive.
+The focused test passes. A freshly compiled five-TU runner passes **115/115**:
+31 original XCCY, six XCCY repairs, one joint test, 42 preparation, 26 MC,
+two small average path/history checks and seven DAL-412 repair checks.
+These cover curve-family explicit MC rejection, Coupon general MC, Deposit
+scratch reservation, strict owned matcher errors, normal-coordinate/dimension
+isolation, fit/held-out axes, last complete candidate and tape cleanup.
+No frozen statistical, full product matrix or performance run is repeated.
+
+Identity probes compile both accepted parent preparation TUs against the same
+merged declarations and dependencies, then compare their outputs with the
+rebuilt merged implementation. All **32 rows** are exactly equal across source,
+definition, binding, instrument, compiler, context, plan and rule identities:
+11 master cases (including both average roles), nine first-parent non-XCCY
+cases and 12 first-parent XCCY mode/measure/empty-or-omitted cases. These are
+fresh preparation comparisons, not execution of an old binary. Every one of
+the nine other imported master files and seven independent XCCY product files
+is byte-identical to its accepted parent. Thus the frozen numerical failures,
+budgets and two accepted XCCY P2 repairs remain intact. Earlier 313 core/37
+public and numerical/performance evidence retains its historical provenance;
+it is not relabeled as a full new-head run.
+
+CHANGELOG and artifact-index conflict resolutions are the exact concatenation
+of both accepted additions. The guide is byte-identical to Git's automatic
+three-way merge, including the accepted dedicated-context correction. There
+is no new document semantics or prose expansion. All 89 Markdown checks,
+format/diff checks and two affected-TU strict-warning checks pass; maximum
+CCN remains eight. No examples, build configuration, generated enums,
+dependency pins, public/bindings or shared report implementation changes.
+
+The evidence bundle carries both-parent/final diffs, actual build/compile/link
+and RED/GREEN commands, XML, source copies and SHA-256 identities. Build is
+GCC 14.3.0, C++17 Release, static, Eigen enabled, native architecture disabled,
+with existing `-O3 -DNDEBUG -ffp-contract=fast`; configuration is unchanged.
+The rebuilt archive SHA-256 is
+`f88f1e2b429731ee86c553040fc06450e6e941d2bd806ba0b1045ccd7e1ae194`;
+the 115-check runner is
+`9c26ed6dca943ec99fad0ac6c2da2db85d655f3bc48e0e597f8f7782e896bf57`.
+The normal merge's final commit identity and one exact-head CI snapshot are
+recorded in the handoff. Original code/document acceptance is retained as
+input; actual joint integration awaits the original reviewer's limited review
+and fresh head gates. The author does not merge or start DAL-409/410.

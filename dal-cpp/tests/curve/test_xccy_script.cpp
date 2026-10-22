@@ -12,6 +12,7 @@
 #include <dal/curve/xccypricing.hpp>
 #include <dal/curve/xccyscript.hpp>
 #include <dal/indice/index/ir.hpp>
+#include <dal/model/gsrmultidata.hpp>
 #include <dal/script/calibrationmc.hpp>
 #include <dal/script/event.hpp>
 #include <dal/storage/_repository.hpp>
@@ -801,4 +802,64 @@ TEST(XccyScriptRepairTest, TestFullScientificMantissaRoundTripsAtOrdinaryParScal
                 PriceXccyContract(plan, market.View(), MarketFixingSnapshot_(), .001, true, true), 1e-10);
     ASSERT_NEAR(EvaluateXccyScript(PrepareCalibrationInstrument(restored, "BasisSpread", ScriptContext()), market.View()),
                 PriceXccyParSpread(plan, market.View(), MarketFixingSnapshot_()), 1e-12);
+}
+
+TEST(XccyScriptIntegrationTest, TestGeneralMcAdmissionDoesNotEscapeIntoXccyContext) {
+    const CrossCurrencySwap_ native(XCCY_TODAY, XCCY_START, XCCY_MATURITY, .001, ScriptConfig());
+    const auto xccy = NewXccyScriptInstrument(native, {"xccy", "USD.OIS"});
+    const ScriptXccyMarket_<double> market;
+    const auto reference = CashflowOracle({.04, .02, .003, 1.1}, XccyNotionalMode_::Value_::FIXED, true, true);
+    for (const auto method : {CalibrationEvaluation_::Value_::AutoFast, CalibrationEvaluation_::Value_::RequireFast}) {
+        CalibrationEvaluationOptions_ fast;
+        fast.evaluation_ = method;
+        const auto price = PrepareCalibrationInstrument(xccy, "Price", ScriptContext(), fast);
+        const auto spread = PrepareCalibrationInstrument(xccy, "BasisSpread", ScriptContext(), fast);
+        ASSERT_TRUE(std::holds_alternative<CalibrationXccy_>(price.Descriptor()));
+        ASSERT_EQ(price.Capability().backend_, CalibrationBackend_::Value_::FastDeterministic);
+        ASSERT_NEAR(EvaluateXccyScript(price, market.View()), reference.first, 1e-10);
+        ASSERT_NEAR(EvaluateXccyScript(spread, market.View()), reference.second, 1e-12);
+    }
+
+    CalibrationPreparationContext_ gaussian;
+    gaussian.valuation_.evaluationDate_ = XCCY_TODAY;
+    gaussian.valuation_.fixings_.reset(new MarketFixingSnapshot_());
+    gaussian.currency_ = Ccy_("USD");
+    gaussian.discountRoute_ = "USD.OIS";
+    gaussian.curve_.reset(new GSRCurveData_("curve", XCCY_TODAY, "USD", {XCCY_TODAY, XCCY_END, Date_(2028, 10, 21)}, {0., -.04, -.08}, {}, {}));
+    const Handle_<MultiFactorGSRVolData_> vol(
+        new MultiFactorGSRVolData_("vol", {"f"}, {XCCY_TODAY}, Matrix_<>(1, 1, .02), {XCCY_TODAY}, Matrix_<>(1, 1, 1.), Matrix_<>(1, 1, 1.)));
+    gaussian.model_.reset(new MultiFactorGSRModelData_("model", gaussian.curve_, vol));
+    const auto amount = CalibrationValueUnit_::Parse("Price:USD");
+    ScriptInstrumentDefinitionSpec_ spec;
+    spec.header_.payCurrency_ = spec.header_.resultCurrency_ = spec.header_.collateralCurrency_ = Ccy_("USD");
+    spec.header_.discountRoute_ = "USD.OIS";
+    spec.source_.rows_ = {{ScriptSourceRowKind_::Value_::Definition, "N", "100"},
+                          {ScriptSourceRowKind_::Value_::Definition, "K", ".04"},
+                          {ScriptSourceRowKind_::Value_::Event, "2027-10-21", "avg = .5*FIX(IR[USD,LIBOR_6M_LCH,2027-10-21])"},
+                          {ScriptSourceRowKind_::Value_::Event, "2028-04-21", "avg = avg+.5*FIX(IR[USD,LIBOR_6M_LCH,2028-04-21])"},
+                          {ScriptSourceRowKind_::Value_::Event, "2028-10-21", "pay PAYS N*MAX(avg-K,0)"}};
+    spec.parameters_ = {
+        {"N", ScriptParameterType_::Value_::Real, amount, ScriptParameterRole_::Value_::Notional, true, 0., {}, false, true},
+        {"K", ScriptParameterType_::Value_::Real, CalibrationValueUnit_::Parse("Rate"), ScriptParameterRole_::Value_::RateStrike, true}};
+    spec.measures_ = {{"Price", CalibrationMeasureKind_::Value_::Price, "PAY", {}, amount, {}, {}}};
+    CalibrationEvaluationOptions_ mc;
+    mc.evaluation_ = CalibrationEvaluation_::Value_::ScriptMC;
+    mc.derivativeMethod_ = CalibrationDerivative_::Value_::None;
+    mc.allowMonteCarloCalibration_ = true;
+    mc.sampling_ = CalibrationSamplingSpec_{64, 1024, "mrg32"};
+    for (const auto role : {ScriptParameterRole_::Value_::RateStrike, ScriptParameterRole_::Value_::Coupon}) {
+        spec.parameters_[1].role_ = role;
+        const auto average = NewScriptCalibrationInstrument({"average", NewScriptInstrumentDefinition(spec)});
+        const auto general = PrepareCalibrationInstrument(average, "Price", gaussian, mc);
+        ASSERT_EQ(general.Capability().ruleId_, "dal.gaussian-script-price/1");
+        ASSERT_EQ(general.Capability().backend_, CalibrationBackend_::Value_::ScriptMC);
+        ASSERT_FALSE(general.Capability().affine_);
+        ASSERT_NO_THROW(general.RequireCompatible(average, gaussian));
+        AssertCode([&] { general.RequireCompatible(average, ScriptContext()); }, "CalibrationContextMismatch");
+        AssertCode([&] { PrepareCalibrationInstrument(xccy, "Price", ScriptContext(), mc); }, "MCCrossCurrencyUnsupported");
+        AssertCode([&] { PrepareCalibrationInstrument(average, "Price", ScriptContext(), mc); }, "MCCrossCurrencyUnsupported");
+        auto mixed = gaussian;
+        mixed.xccy_ = ScriptContext().xccy_;
+        AssertCode([&] { PrepareCalibrationInstrument(xccy, "Price", mixed, mc); }, "InvalidCalibrationFixingPolicy");
+    }
 }
