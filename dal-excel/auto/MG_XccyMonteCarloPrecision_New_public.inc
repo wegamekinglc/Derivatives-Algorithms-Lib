@@ -10,8 +10,7 @@ ENV_SEED_TYPE(ObjectAccess_);
     {	
         Logging::Write("XccyMonteCarloPrecision_New");        
         argName = "settings (input #1)";
-        const Matrix_<Cell_> settings = Excel::ToCellMatrix(xl_settings);
-        const Excel::ScriptSettingsInput_ normalized_settings(xl_settings); xl_settings = normalized_settings.Get(); argName = "settings"; Excel::ValidateScriptSettingsRange(xl_settings, "XccyMonteCarloPrecision_New", "settings");
+        const Matrix_<Cell_> settings = Excel::ToCellMatrix_orXccy(xl_settings, Excel::XccyTableInput_("XccyMonteCarloPrecision_New", "settings", 2), false, true);
         argName = 0;
 		Handle_<StorableXccyMonteCarloPrecision_> value;
         XccyMonteCarloPrecision_New(settings, &value);

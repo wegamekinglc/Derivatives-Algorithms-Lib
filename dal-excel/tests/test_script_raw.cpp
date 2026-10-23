@@ -1,17 +1,22 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <array>
 #include <cmath>
+#include <functional>
 #include <limits>
+#include <vector>
 
 #ifdef _WIN32
 #define NOMINMAX
+#include "../../dal-cpp/tests/curve/xccygaussianmomentfixture.hpp"
 #include <dal-excel/src/__europeanpderisk.hpp>
 #include <dal-excel/src/__lsmccurvature.hpp>
 #include <dal-excel/src/__script_test_api.hpp>
 #include <dal-excel/src/__xccymontecarlo.hpp>
 #include <dal-excel/src/_excel.hpp>
 #include <dal-excel/src/_xlcall.hpp>
+#include <dal-public/src/global.hpp>
 #include <dal-public/src/script.hpp>
 
 // Parse DAL's VOID enum before Windows.h defines its VOID macro.
@@ -1682,5 +1687,195 @@ TEST(ExcelXccyMonteCarloNativeTest, TestGeneratedDynamicsPreservesNumericBoolean
     auto correlation = Multi(correlationCells, 4, 4);
     Output_ rejected(Call("xl_XccyGaussianDynamicsSpec_New", &settings, &buckets, &correlation));
     ASSERT_NO_FATAL_FAILURE(CheckError(rejected, {"XccyGaussianDynamicsSpec_New", "buckets row=2 column=3", "excluding bool"}));
+}
+
+namespace {
+    std::wstring XccyRawHandle(Storable_* value) {
+        const auto id = Excel::ScriptTestStoreRepository(Handle_<Storable_>(value));
+        return std::wstring(id.begin(), id.end());
+    }
+    struct XccyRawTables_ {
+        const XccyGaussianModelSpec_ model_ = TestXccyMoments::ModelSpec();
+        RawText_ domestic_{XccyRawHandle(new StorableCurveBlock_(model_.market_.domesticBlock_))},
+            foreign_{XccyRawHandle(new StorableCurveBlock_(model_.market_.foreignBlock_))},
+            basis_{XccyRawHandle(new StorableDiscountCurve_(model_.market_.basis_))},
+            pair_{XccyRawHandle(new StorableCurrencyPair_(*model_.market_.pair_))},
+            sampling_{XccyRawHandle(new StorableCalibrationMonteCarloSampling_({"PseudoRandom", 8, 4, 1024, "dal.mrg32-normal-paths/1"}))};
+        RawText_ measure_{L"Price"}, phase_{L"Validation"}, method_{L"derivative_method"}, none_{L"None"}, valuation_{L"valuation_time"},
+            pairKey_{L"pair"}, collateral_{L"collateral_currency"}, usd_{L"USD"}, spot_{L"fx_spot"}, routeKey_{L"discount_route"}, route_{L"USD.OIS"},
+            domesticA_{L"domestic_a"}, foreignA_{L"foreign_a"}, end_{L"end_date"}, sd_{L"sigma_domestic"}, sf_{L"sigma_foreign"}, sx_{L"sigma_fx"},
+            factor_{L"factor"}, rateUsd_{L"rate:USD"}, rateEur_{L"rate:EUR"}, fx_{L"fx:EUR/USD"}, scale_{L"error_scale"}, value_{L"value"},
+            numerical_{L"numerical_error"};
+        OPER_ bucketCells_[8]{end_.cell_,  sd_.cell_,    sf_.cell_,  sx_.cell_, Number(Date::ToExcel(model_.dynamics_.bucketEndDates_[0])),
+                              Number(.01), Number(.009), Number(.12)};
+        OPER_ correlationCells_[16]{factor_.cell_, rateUsd_.cell_, rateEur_.cell_, fx_.cell_,  rateUsd_.cell_, Number(1),
+                                    Number(.3),    Number(-.2),    rateEur_.cell_, Number(.3), Number(1),      Number(-.25),
+                                    fx_.cell_,     Number(-.2),    Number(-.25),   Number(1)};
+        OPER_ buckets_ = Multi(bucketCells_, 2, 4), correlation_ = Multi(correlationCells_, 4, 4);
+        struct Case_ {
+            const char* function_;
+            std::vector<OPER_> cells_;
+            std::function<OPER_*(const OPER_*)> call_;
+        };
+        std::vector<Case_> Cases() {
+            return {{"XccyGaussianMarketSpec_New",
+                     {valuation_.cell_, Number(Date::ToExcel(model_.market_.valuationTime_.Date())), pairKey_.cell_, pair_.cell_, collateral_.cell_,
+                      usd_.cell_, spot_.cell_, Number(1.1), routeKey_.cell_, route_.cell_},
+                     [this](const OPER_* settings) {
+                         return Call("xl_XccyGaussianMarketSpec_New", settings, &domestic_.cell_, &foreign_.cell_, &basis_.cell_);
+                     }},
+                    {"XccyGaussianDynamicsSpec_New",
+                     {domesticA_.cell_, Number(.03), foreignA_.cell_, Number(.07)},
+                     [this](const OPER_* settings) { return Call("xl_XccyGaussianDynamicsSpec_New", settings, &buckets_, &correlation_); }},
+                    {"XccyMonteCarloRequest_New",
+                     {method_.cell_, none_.cell_},
+                     [this](const OPER_* settings) {
+                         return Call("xl_XccyMonteCarloRequest_New", &measure_.cell_, &phase_.cell_, &sampling_.cell_, settings);
+                     }},
+                    {"XccyMonteCarloReference_New",
+                     {value_.cell_, Number(.1), numerical_.cell_, Number(0)},
+                     [](const OPER_* settings) { return Call("xl_XccyMonteCarloReference_New", settings); }},
+                    {"XccyMonteCarloPrecision_New", {scale_.cell_, Number(.01)}, [](const OPER_* settings) {
+                         return Call("xl_XccyMonteCarloPrecision_New", settings);
+                     }}};
+        }
+    };
+} // namespace
+
+TEST(ExcelXccyMonteCarloNativeTest, TestGeneratedSettingsKeepRowsAfterBlank) {
+    InitGlobalData(1);
+    Excel::ScriptTestInitialize(1);
+    XccyRawTables_ tables;
+    RawText_ unknown(L"unknown_after_blank");
+    for (auto test : tables.Cases()) {
+        SCOPED_TRACE(test.function_);
+        auto settings = Multi(test.cells_.data(), static_cast<int>(test.cells_.size() / 2), 2);
+        Output_ valid(test.call_(&settings));
+        ASSERT_NE(valid.Text().substr(0, 7), "#Error:") << valid.Text();
+        const auto firstKey = test.cells_[0];
+        test.cells_.insert(test.cells_.end(), {Blank(), Blank(), unknown.cell_, Number(99)});
+        settings = Multi(test.cells_.data(), static_cast<int>(test.cells_.size() / 2), 2);
+        const auto row = "settings row=" + std::to_string(settings.val.array.rows) + " column=1";
+        Output_ invalid(test.call_(&settings));
+        ASSERT_NO_FATAL_FAILURE(CheckError(invalid, {test.function_, row.c_str(), "unknown_after_blank"}));
+        std::wstring key(firstKey.val.str + 1, firstKey.val.str[0]);
+        std::transform(key.begin(), key.end(), key.begin(),
+                       [](wchar_t c) { return c >= L'a' && c <= L'z' ? static_cast<wchar_t>(c - L'a' + L'A') : c; });
+        RawText_ duplicate(key);
+        test.cells_[test.cells_.size() - 2] = duplicate.cell_;
+        Output_ repeated(test.call_(&settings));
+        ASSERT_NO_FATAL_FAILURE(CheckError(repeated, {test.function_, row.c_str(), "duplicate normalized field"}));
+        test.cells_.resize(test.cells_.size() - 2);
+        settings = Multi(test.cells_.data(), static_cast<int>(test.cells_.size() / 2), 2);
+        Output_ trailingBlank(test.call_(&settings));
+        ASSERT_NE(trailingBlank.Text().substr(0, 7), "#Error:") << trailingBlank.Text();
+        test.cells_.insert(test.cells_.begin(), {Blank(), Blank()});
+        settings = Multi(test.cells_.data(), static_cast<int>(test.cells_.size() / 2), 2);
+        Output_ leadingBlank(test.call_(&settings));
+        ASSERT_NE(leadingBlank.Text().substr(0, 7), "#Error:") << leadingBlank.Text();
+    }
+}
+
+TEST(ExcelXccyMonteCarloNativeTest, TestGeneratedSettingsRejectRawErrorBeforeConversion) {
+    InitGlobalData(1);
+    Excel::ScriptTestInitialize(1);
+    XccyRawTables_ tables;
+    OPER_ error{};
+    error.xltype = xltypeErr;
+    error.val.err = xlerrValue;
+    RawText_ key(L"error_after_blank");
+    for (auto test : tables.Cases()) {
+        SCOPED_TRACE(test.function_);
+        test.cells_.insert(test.cells_.end(), {Blank(), Blank(), key.cell_, error});
+        auto settings = Multi(test.cells_.data(), static_cast<int>(test.cells_.size() / 2), 2);
+        const auto row = "settings row=" + std::to_string(settings.val.array.rows) + " column=2";
+        Output_ invalid(test.call_(&settings));
+        ASSERT_NO_FATAL_FAILURE(CheckError(invalid, {test.function_, row.c_str(), "field=error_after_blank", "Excel type="}));
+        test.cells_[test.cells_.size() - 2] = error;
+        const auto keyRow = "settings row=" + std::to_string(settings.val.array.rows) + " column=1";
+        Output_ invalidKey(test.call_(&settings));
+        ASSERT_NO_FATAL_FAILURE(CheckError(invalidKey, {test.function_, keyRow.c_str(), "Excel type="}));
+    }
+}
+
+TEST(ExcelXccyMonteCarloNativeTest, TestGeneratedDynamicsReadsCompleteTablesAndRawErrors) {
+    InitGlobalData(1);
+    Excel::ScriptTestInitialize(1);
+    XccyRawTables_ tables;
+    auto settingsCase = tables.Cases()[1];
+    auto settings = Multi(settingsCase.cells_.data(), 2, 2);
+    OPER_ error{};
+    error.xltype = xltypeErr;
+    error.val.err = xlerrValue;
+    for (const auto column : {1, 2, 3}) {
+        const auto saved = tables.bucketCells_[4 + column];
+        tables.bucketCells_[4 + column] = error;
+        const auto position = "buckets row=2 column=" + std::to_string(column + 1);
+        Output_ invalid(settingsCase.call_(&settings));
+        ASSERT_NO_FATAL_FAILURE(CheckError(invalid, {"XccyGaussianDynamicsSpec_New", position.c_str(), "field=sigma_", "Excel type="}));
+        tables.bucketCells_[4 + column] = saved;
+    }
+    tables.correlationCells_[10] = error;
+    Output_ correlationError(settingsCase.call_(&settings));
+    ASSERT_NO_FATAL_FAILURE(CheckError(correlationError, {"XccyGaussianDynamicsSpec_New", "correlation row=3 column=3", "field=rate:EUR"}));
+    tables.correlationCells_[10] = Number(1);
+    auto bucketCells = std::vector<OPER_>(std::begin(tables.bucketCells_), std::end(tables.bucketCells_));
+    bucketCells.insert(bucketCells.end(), 4, Blank());
+    bucketCells.insert(bucketCells.end(), {Number(60000), Number(.02), Number(.015), Number(.1)});
+    tables.buckets_ = Multi(bucketCells.data(), 4, 4);
+    Output_ blankBucket(settingsCase.call_(&settings));
+    ASSERT_NO_FATAL_FAILURE(CheckError(blankBucket, {"XccyGaussianDynamicsSpec_New", "buckets row=3 column=1", "field=end_date"}));
+    tables.buckets_ = Multi(tables.bucketCells_, 2, 4);
+    auto correlationCells = std::vector<OPER_>(std::begin(tables.correlationCells_), std::end(tables.correlationCells_));
+    correlationCells.insert(correlationCells.end(), 4, Blank());
+    correlationCells.insert(correlationCells.end(), 4, Number(99));
+    tables.correlation_ = Multi(correlationCells.data(), 6, 4);
+    Output_ oversized(settingsCase.call_(&settings));
+    ASSERT_NO_FATAL_FAILURE(CheckError(oversized, {"XccyGaussianDynamicsSpec_New", "correlation", "expected named 3x3"}));
+}
+
+TEST(ExcelXccyMonteCarloNativeTest, TestGeneratedPrecisionKeepsNumericTypesAndOriginalRows) {
+    InitGlobalData(1);
+    Excel::ScriptTestInitialize(1);
+    RawText_ scale(L"error_scale"), sigma(L"sigma");
+    OPER_ integer{};
+    integer.xltype = xltypeInt;
+    integer.val.w = 4;
+    OPER_ cells[]{scale.cell_, Number(.01), Blank(), Blank(), sigma.cell_, integer};
+    auto settings = Multi(cells, 3, 2);
+    Output_ valid(Call("xl_XccyMonteCarloPrecision_New", &settings));
+    ASSERT_NE(valid.Text().substr(0, 7), "#Error:") << valid.Text();
+    OPER_ boolean{};
+    boolean.xltype = xltypeBool;
+    boolean.val.xbool = 1;
+    RawText_ text(L"4");
+    for (const auto invalid : {boolean, text.cell_, Number(std::numeric_limits<double>::infinity())}) {
+        cells[5] = invalid;
+        Output_ rejected(Call("xl_XccyMonteCarloPrecision_New", &settings));
+        ASSERT_NO_FATAL_FAILURE(CheckError(rejected, {"XccyMonteCarloPrecision_New", "settings row=3 column=2", "field=sigma", "finite number"}));
+    }
+}
+
+TEST(ExcelXccyMonteCarloNativeTest, TestGeneratedTableStorageAndOptionalBlankControls) {
+    InitGlobalData(1);
+    Excel::ScriptTestInitialize(1);
+    XccyRawTables_ tables;
+    for (const auto& test : tables.Cases()) {
+        SCOPED_TRACE(test.function_);
+        for (const auto rows : {-1, 0, 1, 1048577}) {
+            auto settings = Multi(nullptr, rows, 2);
+            Output_ rejected(test.call_(&settings));
+            ASSERT_NO_FATAL_FAILURE(CheckError(rejected, {test.function_, "settings row=1 column=1", "dimensions/storage"}));
+        }
+    }
+    const auto request = tables.Cases()[2];
+    RawText_ empty(L"");
+    auto blank = Blank(), missing = Blank();
+    missing.xltype = xltypeMissing;
+    auto scalarBlank = Multi(&blank, 1, 1);
+    for (const auto* input : {&blank, &missing, &empty.cell_, &scalarBlank}) {
+        Output_ valid(request.call_(input));
+        ASSERT_NE(valid.Text().substr(0, 7), "#Error:") << valid.Text();
+    }
 }
 #endif

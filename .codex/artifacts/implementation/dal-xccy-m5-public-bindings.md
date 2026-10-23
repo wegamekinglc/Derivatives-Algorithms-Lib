@@ -211,3 +211,99 @@ DAL-425/V1 acceptance are not supplied by these caller tests. Joint/SLV,
 volatility calibration, early exercise, PVAtQuote, RQMC and calibrated quote
 risk remain outside scope. Review/merge and downstream scheduling belong to
 the coordinator; this implementation does not self-merge or dispatch experts.
+
+## R1: complete Excel tables and validation before conversion
+
+The focused repair starts at reviewed PR632 head
+`7ad7da045f7b65d42f748b0a01b2ba44458b0b72`, on the original branch/tree.
+The original reviewer probe and bundle remain byte-for-byte intact. Its actual
+RED reproduces the three selected precision rows being trimmed to one before
+the factory, with the invalid request accepted. It deliberately exercises the
+old general converter; changing that converter is outside this repair.
+
+Seven M5 matrix inputs now use the existing Machinist alternate-conversion
+hook and greedy markup to call the XCCY-local `ToCellMatrix_orXccy` reader:
+market/dynamics/request/reference/precision settings, dated volatility buckets
+and named correlation. The reader validates original dimensions/storage and
+every raw cell before integer normalization or conversion, then converts the
+complete selected dimensions. Excel error cells retain the real function,
+argument, field where available, and original row/column. There is no new wire
+type or shared converter/generator-framework change. Five generated `.inc`
+files are regenerated from markup; generated HTML remains identical.
+
+M5 field/value settings accept fully blank rows without compacting the matrix;
+unknown/normalized duplicate and invalid numeric fields after them therefore
+retain their true positions. Partial blank rows remain invalid. The shared
+field reader's new blank-row option defaults to false, preserving the old
+XCCY factory behavior. Bucket/correlation tables retain every selected row;
+blank or extra rows do not disappear. Optional missing/nil/empty text/1x1 blank
+request settings retain the existing semantics. Bool/numeric-text/nonfinite
+numeric values remain rejected; raw integer values are normalized after checks.
+
+The five new native XLL tests in `test_script_raw.cpp` call the actual generated
+exports through the existing runtime bridge. They cover all five settings
+factories, leading/internal/trailing blank rows, unknown and normalized duplicate
+keys after blanks, raw error key/value cells, bucket/correlation positions and
+full dimensions, numeric types and original rows, malformed storage, and valid
+range/optional-blank controls. They initialize both test and XLL runtime state.
+One new portable factory test protects typed numeric positions and the old
+factory's blank-row refusal.
+
+Actual repair verification:
+
+```bash
+cmake --build build/m5-make --target dal_generate
+cmake --build build/m5-make --target dal_excel_portable_tests -j8
+ctest --test-dir build/m5-make -R \
+  'ExcelXccyMonteCarloTest.Test(RequiredPhase|NamedDynamics|NewFields)|ExcelXccyInstrumentTest.Test(StrictImport|.*ErrorsFollowActualFieldCells)' \
+  --output-on-failure --output-junit evidence-r1.xml
+python3 evidence/r1/run_generated_probe.py final
+cmake --build build/m5-make --target dal_check_generated
+```
+
+The selected CTest set passes **7/7** (six existing affected input tests plus
+one new test). On Linux, the separate probe compiles the unmodified generated
+wrapper includes and verbatim source-extracted converters/raw validators with
+a minimal storage/session/return ABI adapter, links the rebuilt real Excel
+factory objects, and executes the same two existing plus five new XLL test
+bodies: **7/7**. Before the production change, its first three new regressions
+compiled and failed, respectively exposing truncation, lost field context and
+the unlocated converter exception. Initial adapter build errors (constant
+extraction and noncopyable test handles) are retained as harness corrections,
+not product REDs. An early intermediate run linked the old factory object
+before the foreground rebuild completed; its failed result is retained and
+superseded by the complete new-object runs. The unchanged original probe is
+historical RED; its precision input is reproduced through the new generated
+entry in the GREEN tests. The general non-greedy converter remains unchanged.
+
+The local adapter is **not native Windows/XLL or workbook execution**. The
+authored native tests must execute under exact-head Windows CI. Scoped GCC14/15
+warning-as-error syntax checks include both rebuilt factory callers, both
+changed test files and the generated-entry adapter. Production CCN remains
+at most 7 in the input header and 5 in the implementation, below the limit 8.
+Generated drift, changed-line formatting, documentation and diff checks apply.
+The first warning check also found an existing value-copy range loop in the
+affected phase test; it now binds a const reference with identical inputs and
+assertions. The first generated check ran before staging the regenerated files
+and correctly reported their differences from the index; the staged check is
+the applicable drift result, with no output patched by hand.
+
+The delivered manifest records the full repair patch, unchanged original
+probe, raw commands/exit codes/XML, all changed source hashes, actual callers/
+objects/archives, dependency SHAs and five configurations. Regeneration updated
+unchanged generated-header timestamps, so the first target build rebuilt
+transitive core/public objects as well; both resulting archives are byte-identical
+to the original accepted artifacts. The new Excel runner and its objects have
+fresh identities. The original public runner, Python module, examples,
+standalone/installed libraries and consumer, and all five configurations remain
+identical. Existing unchanged C++/Python/GIL/component evidence is reused by
+content/configuration/binary applicability; those tests were not rerun.
+
+Only the Excel input path, required generated wrappers, direct regressions and
+this record change. Public guides, core financial code, RNG, compiler, solver,
+archives, report protocols and performance callers remain unchanged. No long
+MC, gradient, sanitizer, installation or performance matrix is repeated. The
+original M4 precision/combined failure and pending independent V1 acceptance
+remain exactly as described above; this repair supplies no numerical waiver.
+The handoff supplies the new commit and one nonblocking CI snapshot, leaving
+the parent in progress and review/merge/downstream scheduling to the coordinator.

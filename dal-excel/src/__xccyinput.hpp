@@ -6,9 +6,53 @@
 
 #ifdef _WIN32
 namespace Dal::Excel {
-    inline bool ValidXccyTableStorage(const OPER_* input, int columns) {
-        return input->xltype == xltypeMulti && input->val.array.rows > 0 && input->val.array.rows <= 1048576 && input->val.array.columns == columns &&
-               input->val.array.lparray;
+    struct XccyTableInput_ {
+        String_ function_, argument_;
+        int columns_;
+        XccyTableInput_(const String_& function, const String_& argument, int columns)
+            : function_(function), argument_(argument), columns_(columns) {}
+    };
+    inline String_ XccyRawField(const OPER_* cells, int row, int col, int columns) {
+        const auto& key = cells[columns == 2 ? row * columns : col];
+        return key.xltype == xltypeStr && key.val.str ? ToString(&key) : String_();
+    }
+    inline bool IsXccyRawCell(const OPER_& cell) {
+        if (cell.xltype == xltypeStr)
+            return cell.val.str != nullptr;
+        return cell.xltype == xltypeInt || IsScriptSettingCell(cell);
+    }
+    inline bool XccyRawBlank(const OPER_& cell) { return IsXccyRawCell(cell) && ScriptInputBlank(&cell); }
+    inline void ValidateXccyRawCells(const OPER_* input, const XccyTableInput_& table) {
+        const int columns = input->val.array.columns;
+        for (int row = 0; row < input->val.array.rows; ++row)
+            for (int col = 0; col < columns; ++col) {
+                const auto& cell = input->val.array.lparray[row * columns + col];
+                REQUIRE(IsXccyRawCell(cell), ScriptSettingLocation(table.function_, table.argument_, row + 1, col + 1) +
+                                                 "field=" + XccyRawField(input->val.array.lparray, row, col, columns) + "; received Excel type=" +
+                                                 String_(std::to_string(cell.xltype)) + "; expected blank, text, number or boolean");
+            }
+    }
+    inline void ValidateXccyRawInput(const OPER_* input, const XccyTableInput_& table) {
+        const auto location = ScriptSettingLocation(table.function_, table.argument_, 1, 1);
+        if (input->xltype != xltypeMulti) {
+            REQUIRE(XccyRawBlank(*input), location + "expected table or blank input");
+            return;
+        }
+        REQUIRE(input->val.array.rows > 0 && input->val.array.rows <= 1048576 && input->val.array.lparray,
+                location + "invalid table dimensions/storage");
+        if (input->val.array.rows == 1 && input->val.array.columns == 1) {
+            const auto* cell = input->val.array.lparray;
+            if (XccyRawBlank(*cell))
+                return;
+        }
+        REQUIRE(input->val.array.columns == table.columns_, location + "wrong table column count");
+        ValidateXccyRawCells(input, table);
+    }
+    inline Matrix_<Cell_> ToCellMatrix_orXccy(const OPER_* input, const XccyTableInput_& table, bool optional = false, bool greedy = false) {
+        REQUIRE(greedy, "XCCY table conversion requires complete selected dimensions");
+        ValidateXccyRawInput(input, table);
+        const ScriptSettingsInput_ normalized(input);
+        return ToCellMatrix(normalized.Get(), optional, true);
     }
     inline void ValidateXccyPhaseInput(const OPER_* input) {
         if (input->xltype == xltypeMulti)
@@ -18,16 +62,6 @@ namespace Dal::Excel {
         if (ScriptInputBlank(cell))
             CalibrationInputFailure("InvalidCalibrationPlan", "/phase", "XccyMonteCarloRequest_New; phase; Fit, Validation or HeldOut");
         REQUIRE(cell->xltype == xltypeStr, "XccyMonteCarloRequest_New; phase; expected text Fit, Validation or HeldOut");
-    }
-    inline void ValidateXccyTable(const OPER_* input, const String_& function, const String_& argument, int columns) {
-        const bool multi = input->xltype == xltypeMulti;
-        const int rows = multi ? input->val.array.rows : 1;
-        const int cols = multi ? input->val.array.columns : 1;
-        REQUIRE(ValidXccyTableStorage(input, columns), ScriptSettingLocation(function, argument, 1, 1) + "wrong table dimensions/storage");
-        for (int row = 0; row < rows; ++row)
-            for (int col = 0; col < cols; ++col)
-                REQUIRE(IsScriptSettingCell(input->val.array.lparray[row * cols + col]),
-                        ScriptSettingLocation(function, argument, row + 1, col + 1) + "unsupported Excel cell type");
     }
     inline void ValidateXccyLabels(const OPER_* input) {
         const bool multi = input->xltype == xltypeMulti;
@@ -76,7 +110,7 @@ namespace Dal::Excel::Calibration {
         }
 
     public:
-        XccyFields_(const Matrix_<Cell_>& cells, const String_& function, std::initializer_list<const char*> allowed)
+        XccyFields_(const Matrix_<Cell_>& cells, const String_& function, std::initializer_list<const char*> allowed, bool blankRows = false)
             : cells_(cells), function_(function) {
             if (Empty(cells))
                 return;
@@ -85,6 +119,8 @@ namespace Dal::Excel::Calibration {
             const std::set<std::string> keys(allowed.begin(), allowed.end());
             std::set<String_> normalized;
             for (int row = 0; row < cells.Rows(); ++row) {
+                if (blankRows && Cell::IsEmpty(cells(row, 0)) && Cell::IsEmpty(cells(row, 1)))
+                    continue;
                 const auto key = Key(row);
                 REQUIRE(normalized.insert(key).second, Location(key, row, 1) + "InvalidCalibrationInput: duplicate normalized field " + key);
                 REQUIRE(keys.count(Excel::Calibration::Bytes(key)) != 0, Location(key, row, 1) + "InvalidCalibrationInput: unknown key " + key);

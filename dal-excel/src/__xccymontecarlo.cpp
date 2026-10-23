@@ -25,10 +25,8 @@ outcome is handle StorableCalibrationOutcome
 public XccyGaussianMarketSpec_New
     XccyGaussianMarketSpec New
 &inputs
-settings is cell[][]
+settings is cell[][]+ or Xccy->Excel::XccyTableInput_("XccyGaussianMarketSpec_New", "settings", 2)
     Typed settings
-+const Excel::ScriptSettingsInput_ normalized_settings(xl_settings); xl_settings = normalized_settings.Get();
-+argName = "settings"; Excel::ValidateScriptSettingsRange(xl_settings, "XccyGaussianMarketSpec_New", "settings");
 domestic is handle StorableCurveBlock
     Typed domestic
 foreign is handle StorableCurveBlock
@@ -44,18 +42,12 @@ value is handle StorableXccyGaussianMarketSpec
 public XccyGaussianDynamicsSpec_New
     XccyGaussianDynamicsSpec New
 &inputs
-settings is cell[][]
+settings is cell[][]+ or Xccy->Excel::XccyTableInput_("XccyGaussianDynamicsSpec_New", "settings", 2)
     Typed settings
-+const Excel::ScriptSettingsInput_ normalized_settings(xl_settings); xl_settings = normalized_settings.Get();
-+argName = "settings"; Excel::ValidateScriptSettingsRange(xl_settings, "XccyGaussianDynamicsSpec_New", "settings");
-buckets is cell[][]
+buckets is cell[][]+ or Xccy->Excel::XccyTableInput_("XccyGaussianDynamicsSpec_New", "buckets", 4)
     Typed buckets
-+const Excel::ScriptSettingsInput_ normalized_buckets(xl_buckets); xl_buckets = normalized_buckets.Get();
-+argName = "buckets"; Excel::ValidateXccyTable(xl_buckets, "XccyGaussianDynamicsSpec_New", "buckets", 4);
-correlation is cell[][]
+correlation is cell[][]+ or Xccy->Excel::XccyTableInput_("XccyGaussianDynamicsSpec_New", "correlation", 4)
     Typed correlation
-+const Excel::ScriptSettingsInput_ normalized_correlation(xl_correlation); xl_correlation = normalized_correlation.Get();
-+argName = "correlation"; Excel::ValidateXccyTable(xl_correlation, "XccyGaussianDynamicsSpec_New", "correlation", 4);
 &outputs
 value is handle StorableXccyGaussianDynamicsSpec
     Typed value
@@ -124,10 +116,8 @@ phase is cell
 sampling is handle StorableCalibrationMonteCarloSampling
     Typed sampling
 &optional
-settings is cell[][]
+settings is cell[][]+ or Xccy->Excel::XccyTableInput_("XccyMonteCarloRequest_New", "settings", 2)
     Typed settings
-+const Excel::ScriptSettingsInput_ normalized_settings(xl_settings); xl_settings = normalized_settings.Get();
-+argName = "settings"; Excel::ValidateScriptSettingsRange(xl_settings, "XccyMonteCarloRequest_New", "settings");
 &outputs
 value is handle StorableXccyMonteCarloRequest
     Typed value
@@ -229,10 +219,8 @@ model is handle XccyGaussianModelData
 public XccyMonteCarloReference_New
     XccyMonteCarloReference New
 &inputs
-settings is cell[][]
+settings is cell[][]+ or Xccy->Excel::XccyTableInput_("XccyMonteCarloReference_New", "settings", 2)
     Typed settings
-+const Excel::ScriptSettingsInput_ normalized_settings(xl_settings); xl_settings = normalized_settings.Get();
-+argName = "settings"; Excel::ValidateScriptSettingsRange(xl_settings, "XccyMonteCarloReference_New", "settings");
 &outputs
 value is handle StorableXccyMonteCarloReference
     Typed value
@@ -242,10 +230,8 @@ value is handle StorableXccyMonteCarloReference
 public XccyMonteCarloPrecision_New
     XccyMonteCarloPrecision New
 &inputs
-settings is cell[][]
+settings is cell[][]+ or Xccy->Excel::XccyTableInput_("XccyMonteCarloPrecision_New", "settings", 2)
     Typed settings
-+const Excel::ScriptSettingsInput_ normalized_settings(xl_settings); xl_settings = normalized_settings.Get();
-+argName = "settings"; Excel::ValidateScriptSettingsRange(xl_settings, "XccyMonteCarloPrecision_New", "settings");
 &outputs
 value is handle StorableXccyMonteCarloPrecision
     Typed value
@@ -342,7 +328,7 @@ namespace Dal {
                                     const Handle_<StorableCurveBlock_>& foreign,
                                     const Handle_<StorableDiscountCurve_>& basis,
                                     Handle_<StorableXccyGaussianMarketSpec_>* value) {
-        XccyFields_ f(settings, "XccyGaussianMarketSpec_New", {"valuation_time", "pair", "collateral_currency", "fx_spot", "discount_route"});
+        XccyFields_ f(settings, "XccyGaussianMarketSpec_New", {"valuation_time", "pair", "collateral_currency", "fx_spot", "discount_route"}, true);
         XccyGaussianMarketSpec_ v;
         v.valuationTime_ = f.Required<DateTime_>("valuation_time");
         v.pair_ = f.Required<Handle_<StorableCurrencyPair_>>("pair")->val_;
@@ -361,7 +347,7 @@ namespace Dal {
                                       const Matrix_<Cell_>& correlation,
                                       Handle_<StorableXccyGaussianDynamicsSpec_>* value) {
         const String_ function = "XccyGaussianDynamicsSpec_New";
-        XccyFields_ f(settings, function, {"domestic_a", "foreign_a"});
+        XccyFields_ f(settings, function, {"domestic_a", "foreign_a"}, true);
         XccyGaussianDynamicsSpec_ v;
         v.domesticA_ = f.Required<double>("domestic_a");
         v.foreignA_ = f.Required<double>("foreign_a");
@@ -410,7 +396,7 @@ namespace Dal {
                                    const Handle_<StorableCalibrationMonteCarloSampling_>& sampling,
                                    const Matrix_<Cell_>& settings,
                                    Handle_<StorableXccyMonteCarloRequest_>* value) {
-        XccyFields_ f(settings, "XccyMonteCarloRequest_New", {"fixings", "simulation", "derivative_method", "parameter_labels"});
+        XccyFields_ f(settings, "XccyMonteCarloRequest_New", {"fixings", "simulation", "derivative_method", "parameter_labels"}, true);
         XccyMonteCarloRequest_ v;
         v.measureId_ = measureId;
         try {
@@ -497,7 +483,7 @@ namespace Dal {
     }
     void XccyMonteCarloReference_New(const Matrix_<Cell_>& settings, Handle_<StorableXccyMonteCarloReference_>* value) {
         XccyFields_ f(settings, "XccyMonteCarloReference_New",
-                      {"value", "numerical_error", "standard_error", "gradient", "gradient_standard_error", "finite_difference_error"});
+                      {"value", "numerical_error", "standard_error", "gradient", "gradient_standard_error", "finite_difference_error"}, true);
         CalibrationMcReference_ v;
         v.value_ = f.Required<double>("value");
         v.numericalError_ = f.Required<double>("numerical_error");
@@ -511,7 +497,8 @@ namespace Dal {
     void XccyMonteCarloPrecision_New(const Matrix_<Cell_>& settings, Handle_<StorableXccyMonteCarloPrecision_>* value) {
         XccyFields_ f(
             settings, "XccyMonteCarloPrecision_New",
-            {"error_scale", "sigma", "numerical_error_fraction", "epsilon_value", "gradient_error_fraction", "parameter_scales", "epsilon_gradient"});
+            {"error_scale", "sigma", "numerical_error_fraction", "epsilon_value", "gradient_error_fraction", "parameter_scales", "epsilon_gradient"},
+            true);
         CalibrationMcPrecision_ v;
         v.errorScale_ = f.Required<double>("error_scale");
         v.sigma_ = f.Default<double>("sigma", v.sigma_);

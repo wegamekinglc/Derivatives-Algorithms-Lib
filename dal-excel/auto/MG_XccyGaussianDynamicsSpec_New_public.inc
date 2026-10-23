@@ -10,14 +10,11 @@ ENV_SEED_TYPE(ObjectAccess_);
     {	
         Logging::Write("XccyGaussianDynamicsSpec_New");        
         argName = "settings (input #1)";
-        const Matrix_<Cell_> settings = Excel::ToCellMatrix(xl_settings);
-        const Excel::ScriptSettingsInput_ normalized_settings(xl_settings); xl_settings = normalized_settings.Get(); argName = "settings"; Excel::ValidateScriptSettingsRange(xl_settings, "XccyGaussianDynamicsSpec_New", "settings");
+        const Matrix_<Cell_> settings = Excel::ToCellMatrix_orXccy(xl_settings, Excel::XccyTableInput_("XccyGaussianDynamicsSpec_New", "settings", 2), false, true);
         argName = "buckets (input #2)";
-        const Matrix_<Cell_> buckets = Excel::ToCellMatrix(xl_buckets);
-        const Excel::ScriptSettingsInput_ normalized_buckets(xl_buckets); xl_buckets = normalized_buckets.Get(); argName = "buckets"; Excel::ValidateXccyTable(xl_buckets, "XccyGaussianDynamicsSpec_New", "buckets", 4);
+        const Matrix_<Cell_> buckets = Excel::ToCellMatrix_orXccy(xl_buckets, Excel::XccyTableInput_("XccyGaussianDynamicsSpec_New", "buckets", 4), false, true);
         argName = "correlation (input #3)";
-        const Matrix_<Cell_> correlation = Excel::ToCellMatrix(xl_correlation);
-        const Excel::ScriptSettingsInput_ normalized_correlation(xl_correlation); xl_correlation = normalized_correlation.Get(); argName = "correlation"; Excel::ValidateXccyTable(xl_correlation, "XccyGaussianDynamicsSpec_New", "correlation", 4);
+        const Matrix_<Cell_> correlation = Excel::ToCellMatrix_orXccy(xl_correlation, Excel::XccyTableInput_("XccyGaussianDynamicsSpec_New", "correlation", 4), false, true);
         argName = 0;
 		Handle_<StorableXccyGaussianDynamicsSpec_> value;
         XccyGaussianDynamicsSpec_New(settings, buckets, correlation, &value);

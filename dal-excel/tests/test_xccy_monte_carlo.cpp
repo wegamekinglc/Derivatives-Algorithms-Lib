@@ -63,7 +63,7 @@ TEST(ExcelXccyMonteCarloTest, TestRequiredPhaseSettingsAndTypedSnapshotMarkers) 
     const Handle_<StorableCalibrationMonteCarloSampling_> sampling(
         new StorableCalibrationMonteCarloSampling_({"PseudoRandom", 8, 4, 1024, "dal.mrg32-normal-paths/1"}));
     Handle_<StorableXccyMonteCarloRequest_> request;
-    for (const Cell_ phase : {Cell_(), Cell_(""), Cell_("validation")}) {
+    for (const Cell_& phase : {Cell_(), Cell_(""), Cell_("validation")}) {
         try {
             XccyMonteCarloRequest_New("Price", phase, sampling, {}, &request);
             FAIL();
@@ -127,6 +127,31 @@ TEST(ExcelXccyMonteCarloTest, TestNamedDynamicsPreciseCellAndNormalizedDuplicate
     buckets(1, 2) = .009;
     buckets(0, 2) = "SIGMA_DOMESTIC";
     ASSERT_THROW(XccyGaussianDynamicsSpec_New(fields, buckets, correlation, &dynamics), Exception_);
+}
+
+TEST(ExcelXccyMonteCarloTest, TestNewFieldsKeepOriginalRowsAndLegacyRejectsBlankRows) {
+    using namespace Dal;
+    Matrix_<Cell_> cells(3, 2);
+    cells(0, 0) = "error_scale";
+    cells(0, 1) = .01;
+    cells(2, 0) = "sigma";
+    cells(2, 1) = true;
+    Handle_<StorableXccyMonteCarloPrecision_> precision;
+    try {
+        XccyMonteCarloPrecision_New(cells, &precision);
+        FAIL();
+    } catch (const Exception_& error) {
+        const std::string message = error.what();
+        ASSERT_NE(message.find("settings row=3 column=2"), std::string::npos);
+        ASSERT_NE(message.find("field=sigma"), std::string::npos);
+        ASSERT_NE(message.find("finite number excluding bool"), std::string::npos);
+    }
+    auto old = McFields({{"instrument_id", Cell_("old")}, {"discount_route", Cell_("USD.OIS")}, {"min_abs_annuity", Cell_(1e-12)}});
+    Handle_<StorableXccyScriptImportSettings_> legacy;
+    ASSERT_NO_THROW(XccyScriptImportSettings_New(old, &legacy));
+    old(2, 0) = Cell_();
+    old(2, 1) = Cell_();
+    ASSERT_THROW(XccyScriptImportSettings_New(old, &legacy), Exception_);
 }
 
 TEST(ExcelXccyMonteCarloTest, TestUnavailablePartialsAndOwnedFailureSpillColumns) {
