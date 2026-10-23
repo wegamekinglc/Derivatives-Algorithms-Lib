@@ -517,10 +517,68 @@ normalization does not guarantee uniform absolute precision at arbitrary scales.
 Legacy native entry points keep their original behavior.
 
 GenericDeterministic is not an XCCY executor. ScriptMC, including the MC entry
-point, fails `MCCrossCurrencyUnsupported` before model execution. These core
-entry points prepare and evaluate contracts; they add no XCCY curve-calibration
-adapter, stochastic FX/quanto model or quote-risk capability. Deterministic
+point, fails `MCCrossCurrencyUnsupported` before model execution. No stochastic
+FX/quanto model or calibrated quote-risk capability is supplied. Deterministic
 PV/par and raw derivative evidence does not establish XCCY MC consistency.
+
+### Staged XCCY instrument calibration
+
+`dal/curve/xccybasiscalibration.hpp` provides `XccyInstrumentCalibrationSpec_`,
+`PreparedXccyInstruments_` and `CalibrateXccyInstruments`. A spec owns ordered
+shared observations, the dedicated XCCY context, explicit domestic and foreign
+curve blocks, positive FX spot and future, strictly increasing basis knot dates.
+Preparation clones the background curves and freezes each instrument's fixing
+snapshot; every candidate rebuilds only the domestic-currency piecewise-constant
+basis-forward curve. The native parameter axis follows those knots. Each source
+is imported once; the adapter retains no parallel native product.
+
+Observations may mix Price in its declared currency and signed decimal
+BasisSpread. Their error scales normalize residuals without changing market
+quote fingerprints. Observation rows, deduplicated quote columns and native
+parameter columns remain separate. The published `quoteJacobian_` is raw
+`d(model measure)/d(native basis parameter)`, before error or parameter scaling;
+it is available on request and does not supply calibrated quote risk.
+
+The existing `CurveInstrumentSolver_` controls this new adapter. Its initial
+basis guess defaults to zero. `initialGuessPerNode_` fixes theta0 when supplied;
+positive `parameterScales_` define theta=theta0+S*z. The native smoothing metric
+is transformed as Wz=S'Wtheta*S without inserting knot-gap weights. EXACT
+requires finite scaled infinity norm at most one. APPROXIMATE requires explicit
+positive `fitWeight_` (lambda) and `fitNormTolerance_` (eta), and accepts scaled
+L2 norm at most eta. Its reported objective is
+`0.5*(theta-theta0)'*Wtheta*(theta-theta0) + 0.5*lambda*||scaled residual||^2`.
+This acceptance condition does not certify objective optimality. Unavailable or
+nonrepresentable objective values are nullable; finite zero remains zero.
+
+The adapter uses the existing bounded `Underdetermined::Fit`. Finite-difference
+solve perturbations consume its evaluation budget in z coordinates; an AAD solve
+transforms raw native columns by S. A standalone Evaluate computes requested raw
+finite differences in native coordinates, using actual representable spacing.
+Fit counters exclude the final report refresh; C++ results separately expose
+`diagnosticEvaluations_` and `diagnosticGradients_` for that refresh. Failures
+carry an owning report and, when validated, the last candidate basis curve with
+its residuals and axes. The existing native staged/joint APIs retain their
+original raw gates, defaults and exception behavior.
+
+The public C++ facade exposes `NewXccyScriptInstrument`,
+`CalibrateXccyInstrumentMarket`, basis-curve/report getters and
+`XccyInstrumentCapabilities`. Python provides keyword-only copied settings and
+specs through `XccyScriptContext_`, `XccyScriptImportSettings_` and
+`XccyInstrumentCalibrationSpec_`, plus `Calibrate_XccyInstruments`,
+`Evaluate_XccyInstruments` and `CalibrationInstrument_Get_XccyCapabilities`.
+The three settings types also have `_New` aliases. Conversion and ownership
+complete before the wrapper releases the GIL for core work.
+
+Excel exposes corresponding typed session factories and
+`Calibrate.XccyInstruments`, returning the shared status/report/nullable-curve
+outcome. Field/value settings reject unknown or duplicate fields, wrong typed
+handles and booleans used as numbers. Instruments use the shared strict JSON
+archive; contexts, specs and failure candidates are session objects. Capability
+reports include the explicit `MCCrossCurrencyUnsupported` rejection. The
+[public XCCY example](../../dal-public/examples/xccy_script_calibration/xccy_script_calibration.cpp)
+imports once, fits BasisSpread and reprices Price from the same bound instrument.
+All native geometry, collateral, notional and NativeXccyTimestamp limits above
+continue to apply.
 
 ## Same-instrument Monte Carlo
 

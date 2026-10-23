@@ -2,11 +2,61 @@
 // Created by wegamekinglc on 2026/6/20.
 //
 
-#include <dal-public/src/xccycalibration.hpp>
 #include <dal/platform/platform.hpp>
+#include <dal-public/src/calibrationinstrument.hpp>
+#include <dal-public/src/xccycalibration.hpp>
 #include <dal/platform/strict.hpp>
 
 namespace Dal {
+
+    Handle_<CalibrationInstrument_> NewXccyScriptInstrument(const Handle_<CrossCurrencySwap_>& native, const XccyScriptImportSettings_& settings) {
+        if (!native)
+            CalibrationInputFailure("UnsupportedCalibrationProduct", "/native", "nonnull CrossCurrencySwap");
+        return NewXccyScriptInstrument(*native, settings);
+    }
+    XccyInstrumentCalibrationResult_ CalibrateXccyInstrumentMarket(const XccyInstrumentCalibrationSpec_& spec,
+                                                                   const CurveInstrumentCalibrationOptions_& options) {
+        return CalibrateXccyInstruments(spec, options);
+    }
+    const Handle_<DiscountCurve_>& XccyInstrumentResultBasisCurve(const XccyInstrumentCalibrationResult_& result) {
+        if (!result.curve_)
+            CalibrationInputFailure("CalibrationCandidateUnavailable", "/result/basis_curve", "validated basis curve");
+        return result.curve_;
+    }
+    const Handle_<CalibrationReport_>& XccyInstrumentResultReport(const XccyInstrumentCalibrationResult_& result) { return result.report_; }
+    Handle_<CalibrationReport_>
+    XccyInstrumentCapabilities(const Handle_<CalibrationInstrument_>& instrument, const String_& measure, const XccyScriptContext_& context) {
+        CalibrationReportSnapshot_ data;
+        data.summary_.domain_ = "Xccy";
+        data.summary_.status_ = "Capabilities";
+        CalibrationPreparationContext_ preparation;
+        preparation.xccy_ = std::make_shared<const XccyScriptContext_>(context);
+        for (const auto evaluation : {CalibrationEvaluation_::Value_::AutoFast, CalibrationEvaluation_::Value_::GenericDeterministic,
+                                      CalibrationEvaluation_::Value_::ScriptMC}) {
+            CalibrationReportPlan_ row;
+            row.measureId_ = measure;
+            row.backend_ = CalibrationEvaluation_(evaluation).String();
+            row.derivativeMethod_ = "None";
+            try {
+                const auto plan = PrepareCalibrationInstrument(instrument, measure, preparation, {evaluation, CalibrationDerivative_::Value_::Auto});
+                row.ruleId_ = plan.Capability().ruleId_;
+                row.backend_ = plan.Capability().backend_.String();
+                row.derivativeMethod_ = plan.Capability().derivativeMethod_.String();
+                row.planIdentity_ = plan.PlanIdentity();
+                row.contextIdentity_ = plan.ContextIdentity();
+                row.compilerIdentity_ = plan.CompilerIdentity();
+                row.sourceIdentity_ = instrument->Definition()->SourceIdentity();
+                row.definitionIdentity_ = instrument->Definition()->DefinitionIdentity();
+                row.bindingIdentity_ = instrument->BindingIdentity();
+            } catch (const CalibrationError_& error) {
+                row.admitted_ = false;
+                row.reasonCode_ = error.Failure().diagnostic_.code_;
+                row.reason_ = error.Failure().diagnostic_.message_;
+            }
+            data.plans_.push_back(row);
+        }
+        return Handle_<CalibrationReport_>(new CalibrationReport_(CalibrationStage_::Value_::Prepare, {}, {}, data));
+    }
 
     CrossCurrencyCalibrationSpec_ CrossCurrencyCalibrationSpecBuilder_::Build() const {
         CrossCurrencyCalibrationSpec_ result;
