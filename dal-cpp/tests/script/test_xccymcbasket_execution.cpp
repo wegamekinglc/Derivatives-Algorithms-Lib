@@ -1,8 +1,9 @@
 #include <gtest/gtest.h>
 
-#include "xccymcbasketfixture.hpp"
 #include <dal/curve/xccygaussianstaged.hpp>
 #include <dal/math/specialfunctions.hpp>
+
+#include "xccymcbasketfixture.hpp"
 
 using namespace Dal;
 using namespace Dal::TestXccyBasket;

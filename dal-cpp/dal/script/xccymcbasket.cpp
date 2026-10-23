@@ -1,9 +1,10 @@
+#include <set>
+
 #include <dal/platform/platform.hpp>
 
 #include <dal/calibration/validation_internal.hpp>
 #include <dal/curve/xccygaussianmoments.hpp>
 #include <dal/script/xccymcbasket_internal.hpp>
-#include <set>
 
 namespace Dal {
     namespace {
@@ -100,7 +101,6 @@ namespace Dal {
                 d.instrumentId_ = member->instrument_ ? member->instrument_->Id() : "";
                 d.measureId_ = member->measureId_;
                 d.observationId_ = member->memberId_;
-                d.sourceRow_ = static_cast<int>(index.value_or(0));
                 d.message_ += "; member=" + member->memberId_ + "; index=" + OrdinalText(index.value_or(0));
             }
             if (progress && progress->failedMember_)

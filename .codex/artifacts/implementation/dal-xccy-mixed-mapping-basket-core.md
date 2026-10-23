@@ -175,3 +175,94 @@ remain open. No new paths, VR, scales, estimator or thresholds are authorized.
 Old HeldOut is already observed; this new layout does not reset that identity,
 and its first member reuses old coordinates. This is an implementation Estimate
 checkpoint awaiting independent review, not complete V1 or parent acceptance.
+
+## R1 revision: preserve source locations
+
+Revised the same PR #637 and original author checkout from fixed
+`d2c8e25fd7910fbb37ab933d12c9456c89abbada`. Remote master was still
+`197e33df818a14f5f8fae2f0f92ec52453c7463d`; no integration or financial
+choice was required. Read the updated DAL-427 scope, bounded DAL-425/396
+threads, active/queued family, reviewer report and original probe. The tester's
+fixed-head 28/28 plus two probes and critic's limited scalar/statistics/oracle
+Looks fine are received evidence, separate from this revision's execution.
+
+The production change removes only `Own()`'s assignment of a zero-based member
+index to `diagnostic.sourceRow_`. The copied cause retains its original optional
+source row, statement, event date, code, field and other cause fields. Existing
+member IDs, instrument/measure IDs and message index still identify the member.
+There is no generic protocol/schema or model change and no design deviation.
+
+The six revision paths are the runner, `test_xccymcbasket_failures.cpp`, this
+record, and include-only edits in `test_xccymcbasket_execution.cpp`,
+`test_xccymcbasket_trace.cpp` and `xccymcbasketfixture.hpp`. Standard/DAL/local
+includes now follow the repository order. The private fault seam is unchanged.
+
+Two new tests cover members 0, 1 and 2, each with source row 23 and with absent
+source row. Through the existing private Preflight hook, each injects a cause
+with statement 4, event date 2028-05-04 and explicit diagnostic fields. After
+the plan and caught error leave scope, the retained failure, report error and
+partial member failure must retain the location and cause. They also assert
+member identity, shared report owner, zero draws/consumed scalars, null
+unvalidated candidate and restored caller tape size. These are six zero-draw
+error cases, not new Monte Carlo acceptance samples.
+
+### Revision execution and provenance
+
+The evidence package contains exact argument arrays, working directories,
+timestamps and exit codes in `commands.jsonl`, plus logs and XML. With
+`revisionEvidence` set to that directory, the focused test commands are:
+
+```bash
+cmake --build build/basket-make --target dal_cpp_tests -j 8
+build/basket-make/dal-cpp/dal_cpp_tests \
+  --gtest_filter='XccyMcBasketFailureTest.TestPreflightPreservesOriginalSourceLocation:XccyMcBasketFailureTest.TestPreflightDoesNotInventSourceRow'
+build/basket-make/dal-cpp/dal_cpp_tests \
+  --gtest_filter='XccyMcBasketFailureTest.*'
+ctest --test-dir build/basket-make \
+  -R '^XccyMcBasketFailureTest.TestPreflight(PreservesOriginalSourceLocation|DoesNotInventSourceRow)$' \
+  --output-on-failure
+python3 "$revisionEvidence/check_compilers.py" g++-14
+python3 "$revisionEvidence/check_compilers.py" g++-15
+python3 .github/scripts/check_docs.py
+```
+
+- RED build exited 0; the two new tests exited 1 for the intended source-row
+  defects: row 23 became 1, and absent became 0. The exact failing runner and
+  test source are retained separately. No test assertion was weakened.
+- Removing the overwrite made both tests pass, exit 0. After the include-only
+  refactor, the public-disabled core/test target rebuilt successfully; the full
+  affected failure suite passed **11/11**, exit 0. Discovery/execution of the
+  two new CTests passed **2/2**, exit 0.
+- The original reviewer probe source is retained unchanged. A strict contract
+  variant changes its success predicate to row 23 in error/report/partial:
+  linked against the retained original archive it prints row 1 and exits 1;
+  linked against the final archive it prints row 23 and exits 0. Both report
+  statement 4, member 1, draws 0 and consumed 0. Exact compiler/link commands
+  are recorded; original and revised binaries have separate hashes.
+- GCC14/15 each passed five affected runner/test translation units with
+  `-Wall -Wextra -Wpedantic -Werror -fsyntax-only`. Clang-format and diff checks
+  pass; Lizard's 49 inspected functions have maximum CCN 7, with the new helper
+  at 6. Documentation checks pass for 112 Markdown files.
+
+Before editing, all 1,250 source/control hashes matched the original manifest.
+The revision package supplies a new source manifest and explicit six-path delta.
+The four CMake cache/compiler/link configurations and initialized dependency
+gitlinks/clean worktrees remain byte-identical; public remains disabled. The
+original archive `1e40eace...` and runner `fc56b523...` were copied and verified
+before any incremental build. They and the original evidence ZIP remain intact.
+The final rebuilt archive SHA256 is
+`0d3c42fcd3a4edc79fab87bc4573398011d7745e36d90c760249618b63b6812a`;
+the final runner is
+`8ae878339815a76b5d5a896225ffb851dc003ddd978ec6af4b68a03c8536463d`.
+The delivery comment and package identify the enclosing commit and its one CI
+snapshot; the original binaries are not presented as execution of that commit.
+
+The unchanged scalar/range/statistics/model/single source and prior numerical
+evidence retain their original applicability. This revision does not rerun or
+claim new 109/28-suite, 23,760-normal, 24-case single, long-MC or platform results.
+No build/example wiring changed, so no new standalone/install closure is needed.
+Zero-draw diagnostic copying does not warrant an algorithm benchmark rerun;
+performance remains inconclusive. Shared docs/CHANGELOG and M5 remain with
+their scheduled owners. All frozen precision/combined, FX-sigma and binary64
+FD/eFD gaps, budgets, thresholds and observed HeldOut identity above remain.
+The revision is ready for limited review, without merging or starting downstream.

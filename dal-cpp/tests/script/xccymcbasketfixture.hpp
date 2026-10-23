@@ -1,7 +1,8 @@
 #pragma once
 
-#include "xccymcfixture.hpp"
 #include <dal/script/xccymcbasket_internal.hpp>
+
+#include "xccymcfixture.hpp"
 
 namespace Dal::TestXccyBasket {
     using namespace TestXccyMc;

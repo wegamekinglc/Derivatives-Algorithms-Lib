@@ -1,8 +1,9 @@
 #include <gtest/gtest.h>
 
+#include <dal/math/specialfunctions.hpp>
+
 #include "xccymcbasketfixture.hpp"
 #include "xccymcbasketrngoracle.hpp"
-#include <dal/math/specialfunctions.hpp>
 
 using namespace Dal;
 using namespace Dal::TestXccyBasket;

@@ -1,7 +1,8 @@
 #include <gtest/gtest.h>
 
-#include "xccymcbasketfixture.hpp"
 #include <dal/math/aad/recording.hpp>
+
+#include "xccymcbasketfixture.hpp"
 
 using namespace Dal;
 using namespace Dal::TestXccyBasket;
@@ -23,7 +24,88 @@ namespace {
     void Controlled(const String_& field = "/execution/payment") {
         CalibrationInternal::Fail("CalibrationNumericalFailure", field, "controlled private test fault");
     }
+    void CheckPreflightLocation(size_t index, std::optional<int> sourceRow) {
+        CalibrationDiagnostic_ origin;
+        origin.code_ = "CalibrationNumericalFailure";
+        origin.message_ = "original source diagnostic";
+        origin.stage_ = CalibrationStage_::Value_::Prepare;
+        origin.field_ = "/execution/payment";
+        origin.quoteId_ = "original-quote";
+        origin.parameterKey_ = "original-parameter";
+        origin.sourceRow_ = sourceRow;
+        origin.statement_ = 4;
+        origin.eventDate_ = Date_(2028, 5, 4);
+        origin.actual_ = "original actual";
+        origin.expected_ = "original expected";
+        size_t draws = 0;
+        std::optional<CalibrationFailure_> failure;
+        Handle_<XccyMcBasketPartial_> partial;
+        const auto tapeSize = AAD::Tape()->nodes_.Size();
+        {
+            const auto spec = NonflatSpec();
+            const PreparedXccyMcBasket_ plan(Members(), Context(spec, Empty()), Data(spec), AadSettings());
+            try {
+                static_cast<void>(TestAccess_::Evaluate(plan, {}, [&](const auto& stage, size_t i, size_t, size_t) {
+                    if (stage == "AfterDraw")
+                        ++draws;
+                    if (stage == "Preflight" && i == index) {
+                        const Handle_<CalibrationReport_> report(new CalibrationReport_(origin.stage_, {}, {origin}));
+                        throw CalibrationError_(__FILE__, __LINE__, __func__,
+                                                std::make_shared<const CalibrationFailure_>(CalibrationFailure_{origin, report, {}}));
+                    }
+                }));
+                FAIL() << "controlled preflight failure was not raised";
+            } catch (const XccyMcBasketError_& error) {
+                failure = error.Failure();
+                partial = error.Partial();
+            }
+        }
+        ASSERT_TRUE(failure);
+        ASSERT_TRUE(partial);
+        ASSERT_TRUE(failure->report_);
+        ASSERT_EQ(partial->Report().get(), failure->report_.get());
+        ASSERT_FALSE(failure->candidate_);
+        ASSERT_EQ(draws, 0U);
+        ASSERT_EQ(partial->Snapshot().consumedCoordinates_, 0U);
+        ASSERT_EQ(partial->Snapshot().failedMember_, index);
+        ASSERT_FALSE(partial->Snapshot().header_.candidateGeometryValidated_);
+        ASSERT_EQ(AAD::Tape()->nodes_.Size(), tapeSize);
+        ASSERT_EQ(failure->report_->Errors().size(), 1U);
+        const auto& member = partial->Snapshot().members_[index];
+        ASSERT_TRUE(member.failure_);
+        const CalibrationDiagnostic_* diagnostics[] = {&failure->diagnostic_, &failure->report_->Errors()[0], &*member.failure_};
+        for (const auto* d : diagnostics) {
+            ASSERT_EQ(d->sourceRow_, origin.sourceRow_);
+            ASSERT_EQ(d->statement_, origin.statement_);
+            ASSERT_EQ(d->eventDate_, origin.eventDate_);
+            ASSERT_EQ(d->code_, origin.code_);
+            ASSERT_EQ(d->field_, origin.field_);
+            ASSERT_EQ(d->quoteId_, origin.quoteId_);
+            ASSERT_EQ(d->parameterKey_, origin.parameterKey_);
+            ASSERT_EQ(d->actual_, origin.actual_);
+            ASSERT_EQ(d->expected_, origin.expected_);
+            ASSERT_EQ(d->stage_, CalibrationStage_::Value_::Evaluate);
+            ASSERT_EQ(d->observationId_, member.memberId_);
+            ASSERT_EQ(d->instrumentId_, Members()[index].instrument_->Id());
+            ASSERT_EQ(d->measureId_, "Price");
+            ASSERT_EQ(d->message_, origin.message_ + "; member=" + member.memberId_ + "; index=" + CalibrationInternal::OrdinalText(index));
+        }
+    }
 } // namespace
+
+TEST(XccyMcBasketFailureTest, TestPreflightPreservesOriginalSourceLocation) {
+    for (size_t index : {1U, 0U, 2U}) {
+        SCOPED_TRACE(index);
+        ASSERT_NO_FATAL_FAILURE(CheckPreflightLocation(index, 23));
+    }
+}
+
+TEST(XccyMcBasketFailureTest, TestPreflightDoesNotInventSourceRow) {
+    for (size_t index : {0U, 1U, 2U}) {
+        SCOPED_TRACE(index);
+        ASSERT_NO_FATAL_FAILURE(CheckPreflightLocation(index, std::nullopt));
+    }
+}
 
 TEST(XccyMcBasketFailureTest, TestStructuralInputsOwnEarlyErrors) {
     const auto spec = ModelSpec();
