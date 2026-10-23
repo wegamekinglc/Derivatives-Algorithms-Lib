@@ -16,6 +16,16 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-10-24
+
+- **Public stochastic XCCY** — added typed C++, Python and Excel access to
+  the domestic-collateral Gaussian model, explicit stochastic staged fitting,
+  same-source GaussianFast and phased script MC with native partials and owning
+  diagnostics. Separate result extensions retain mapping and phase ranges;
+  existing report tables and legacy defaults are unchanged. Frozen MC precision
+  acceptance remains unmet; this does not deliver calibrated quote risk. See the
+  [stochastic XCCY guide](docs/methodology/script_calibration_contract.md#stochastic-xccy-model-and-phased-mc).
+
 ## 2026-10-23
 
 - **Staged XCCY instrument calibration** — added shared Price/BasisSpread
