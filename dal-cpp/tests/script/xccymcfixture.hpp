@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cfloat>
+
 #include "../curve/xccygaussianexecutionfixture.hpp"
 #include <dal/calibration/validation_internal.hpp>
 #include <dal/script/xccymc.hpp>
@@ -51,6 +53,7 @@ namespace Dal::TestXccyMc {
         const auto bytes = CalibrationInternal::Bytes(label);
         return bytes.rfind("fxspot:", 0) == 0 || bytes.rfind("sigma:EUR/USD:", 0) == 0 ? .01 : .001;
     }
+#if LDBL_MANT_DIG > DBL_MANT_DIG
     inline long double
     WidePrice(const AAD::XccyGaussian_<long double>& model, const Vector_<AAD::XccyGaussianState_<long double>>& states, bool foreignSpread = true) {
         const auto state = [&](const Date_& date) -> const AAD::XccyGaussianState_<long double>& {
@@ -76,4 +79,5 @@ namespace Dal::TestXccyMc {
         result += (later - 110.L) / model.DomesticNumeraire(state(reset));
         return (foreignSpread ? 1.L : -1.L) * result;
     }
+#endif
 } // namespace Dal::TestXccyMc

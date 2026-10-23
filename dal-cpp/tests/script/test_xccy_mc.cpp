@@ -249,12 +249,11 @@ TEST(XccyMcTest, TestAllNativeCurveBasisAndVolPartialsThroughSnapshotMap) {
         ASSERT_NEAR(aad.estimate_.gradient_[j], NONFLAT_NATIVE[j].full_, 1e-8);
         ASSERT_NEAR(aad.estimate_.gradient_[j], NONFLAT_NATIVE[j].half_, 1e-8);
     }
+#if LDBL_MANT_DIG > DBL_MANT_DIG
     settings.aad_ = false;
     settings.parameterLabels_.clear();
     settings.retainPaths_ = true;
     const PreparedXccyMc_ plain(instrument, "Price", context, model, settings);
-    if constexpr (std::numeric_limits<long double>::digits == std::numeric_limits<double>::digits)
-        return;
     for (size_t j = 0; j < labels.size(); ++j) {
         SCOPED_TRACE(labels[j]);
         for (const double h : {1e-3 * Scale(labels[j]), 5e-4 * Scale(labels[j])}) {
@@ -281,9 +280,10 @@ TEST(XccyMcTest, TestAllNativeCurveBasisAndVolPartialsThroughSnapshotMap) {
                 return sum / path;
             };
             const long double fd = (8.L * (f(h) - f(-h)) - (f(2. * h) - f(-2. * h))) / (12.L * h);
-            ASSERT_NEAR(aad.estimate_.gradient_[j], fd, 1e-8);
+            ASSERT_NEAR(aad.estimate_.gradient_[j], static_cast<double>(fd), 1e-8);
         }
     }
+#endif
     ASSERT_EQ(AAD::Tape()->nodes_.Size(), 0);
 }
 

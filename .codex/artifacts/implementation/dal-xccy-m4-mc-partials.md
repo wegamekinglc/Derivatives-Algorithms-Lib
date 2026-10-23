@@ -288,3 +288,41 @@ retain their exact caller/archive identities: the refactor preserves their
 sampling and arithmetic, and is not presented as a new large-matrix execution
 or a new performance measurement. Current-head CI is captured separately at
 delivery and any pending result is continued through a persisted condition.
+
+## Windows test compilation repair
+
+The CI continuation inspected exact head
+`ee7db383876224de4dde016d5cbb6c33c6c980af`: Codacy succeeded, but all four
+MSVC builds failed with C4244 in the optional `long double` replay and its
+helper, and consequently the Windows gate failed. The original early return
+did not prevent compilation of the following replay or the inline helper.
+MSVC has no additional `long double` precision, so this replay was already
+intended to be unavailable there.
+
+Only `dal-cpp/tests/script/test_xccy_mc.cpp` and
+`dal-cpp/tests/script/xccymcfixture.hpp` change: both optional portions now
+compile only when `LDBL_MANT_DIG > DBL_MANT_DIG`. The existing independent
+50/80-digit reference assertions remain unconditional, as does the final empty
+tape assertion. The wider replay's conversion into Google Test's double-valued
+comparison is explicit and preserves its existing tolerance. No production
+file, reference literal, financial rule, sampling or acceptance budget changes.
+
+The actual Windows failures are retained in `ci-wakeup-msvc-*.log`. A focused
+local RED compiles the delivered source with `-Werror=float-conversion` and a
+forced equal-mantissa policy (`-include evidence/equal-precision-policy.hpp`):
+it fails on the narrowing assertions/model instantiations. The same syntax
+command on both repaired test translation units passes. This is a local policy
+simulation, not a native MSVC result.
+
+New Release runners link the unchanged core archive. The affected
+`XccyMcTest.TestAllNativeCurveBasisAndVolPartialsThroughSnapshotMap` passes
+**1/1** with the native wider replay and **1/1** with the forced equal-mantissa
+branch; the latter still executes all independent reference assertions. Raw
+commands, RED/GREEN logs, XML and source/archive/executable identities accompany
+this bounded repair. Format and diff checks pass. The earlier 21/21 Release,
+21/21 partial sanitizer, compatibility and frozen numerical observations retain
+their stated executable identities and scope; none was rerun or relabeled as
+a new execution. Test-only compilation changes require no new performance or
+large-path matrix. The x1/x2/x4 precision/combined failures and `numerics=false`
+remain unchanged. New-head CI is reported separately and cannot inherit
+old-head success.
