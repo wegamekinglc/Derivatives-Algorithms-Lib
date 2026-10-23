@@ -42,17 +42,39 @@ namespace Dal {
                                                      {"coordinate_end", Str(OrdinalText(x.coordinateEnd_))}});
                                      })}}));
         }
+        bool HeaderMatches(const XccyMcReservation_& r, const std::pair<size_t, size_t>& reserved) {
+            return Bytes(r.version_) == "dal.xccy-gaussian-phase-ranges/1" && r.reservedFirst_ == reserved.first &&
+                   r.reservedEnd_ == reserved.second && r.seed_ >= 0 && !r.mappingIdentity_.empty() && r.ranges_.size() >= 2;
+        }
+        bool RangeMatches(const XccyMcRange_& x, size_t previous, size_t count, size_t dimension, size_t end) {
+            const bool ordered = x.firstPath_ == previous && x.pathEnd_ > x.firstPath_ && x.pathEnd_ <= end;
+            const bool coordinates = x.firstCoordinate_ == Multiply(x.firstPath_, dimension) && x.coordinateEnd_ == Multiply(x.pathEnd_, dimension);
+            const size_t paths = x.pathEnd_ - x.firstPath_;
+            const bool sameCount = paths >= 2 && (count == 0 || count == paths);
+            return ordered && coordinates && sameCount;
+        }
+        bool MappingMatches(const XccyMcSettings_& s, const CalibrationMcMapping_& mapping) {
+            return mapping.seed_ == s.seed_ && Bytes(mapping.streamVersion_) == Bytes(s.streamVersion_) && !mapping.identity_.empty() &&
+                   mapping.dimension_ % 5 == 0 && Bytes(mapping.generator_) == "mrg32" && Bytes(mapping.normalPrecision_) == "Precise" &&
+                   !mapping.brownianBridge_;
+        }
+        void Sampling(const XccyMcSettings_& s, const CalibrationMcMapping_& mapping) {
+            Check(s.batches_ >= 2 && s.pathsPerBatch_ >= 2 && s.seed_ >= 0, "InvalidCalibrationPlan", "/sampling",
+                  "at least two batches of two paths and nonnegative seed",
+                  String_(std::to_string(s.batches_)) + " batches, " + String_(std::to_string(s.pathsPerBatch_)) + " paths, seed " +
+                      String_(std::to_string(s.seed_)));
+            Check(Bytes(s.streamVersion_) == "dal.mrg32-normal-paths/1", "InvalidCalibrationPlan", "/sampling", "dal.mrg32-normal-paths/1",
+                  s.streamVersion_);
+            Check(MappingMatches(s, mapping), "CalibrationContextMismatch", "/sampling/mapping",
+                  "same seed/version, five innovations, MRG32 Precise and no bridge");
+        }
         void RequireLedger(const XccyMcReservation_& r) {
             const auto reserved = Reservation(r.phase_);
-            bool valid = Bytes(r.version_) == "dal.xccy-gaussian-phase-ranges/1" && r.reservedFirst_ == reserved.first &&
-                         r.reservedEnd_ == reserved.second && r.seed_ >= 0 && !r.mappingIdentity_.empty() && r.ranges_.size() >= 2;
+            bool valid = HeaderMatches(r, reserved);
             size_t previous = reserved.first, count = 0;
             for (const auto& x : r.ranges_) {
-                valid &= x.firstPath_ == previous && x.pathEnd_ > x.firstPath_ && x.pathEnd_ <= reserved.second;
-                valid &= x.firstCoordinate_ == Multiply(x.firstPath_, r.dimension_) && x.coordinateEnd_ == Multiply(x.pathEnd_, r.dimension_);
-                const size_t paths = x.pathEnd_ - x.firstPath_;
-                valid &= paths >= 2 && (count == 0 || count == paths);
-                count = paths;
+                valid &= RangeMatches(x, previous, count, r.dimension_, reserved.second);
+                count = x.pathEnd_ - x.firstPath_;
                 previous = x.pathEnd_;
             }
             Check(valid && Bytes(r.identity_) == Bytes(Identity(r)), "CalibrationContextMismatch", "/sampling/ranges",
@@ -69,16 +91,7 @@ namespace Dal {
     XccyMcReservation_ PrepareXccyMcReservation(const XccyMcSettings_& s, const CalibrationMcMapping_& mapping) {
         using namespace CalibrationInternal;
         const auto reserved = Reservation(s.phase_);
-        Check(s.batches_ >= 2 && s.pathsPerBatch_ >= 2 && s.seed_ >= 0, "InvalidCalibrationPlan", "/sampling",
-              "at least two batches of two paths and nonnegative seed",
-              String_(std::to_string(s.batches_)) + " batches, " + String_(std::to_string(s.pathsPerBatch_)) + " paths, seed " +
-                  String_(std::to_string(s.seed_)));
-        Check(Bytes(s.streamVersion_) == "dal.mrg32-normal-paths/1", "InvalidCalibrationPlan", "/sampling", "dal.mrg32-normal-paths/1",
-              s.streamVersion_);
-        Check(mapping.seed_ == s.seed_ && Bytes(mapping.streamVersion_) == Bytes(s.streamVersion_) && !mapping.identity_.empty() &&
-                  mapping.dimension_ % 5 == 0 && Bytes(mapping.generator_) == "mrg32" && Bytes(mapping.normalPrecision_) == "Precise" &&
-                  !mapping.brownianBridge_,
-              "CalibrationContextMismatch", "/sampling/mapping", "same seed/version, five innovations, MRG32 Precise and no bridge");
+        Sampling(s, mapping);
         const size_t count = Multiply(static_cast<size_t>(s.batches_), static_cast<size_t>(s.pathsPerBatch_));
         Check(count <= reserved.second - reserved.first, "CalibrationBudgetExceeded", "/sampling", "prefix within frozen phase capacity",
               OrdinalText(count));

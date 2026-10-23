@@ -14,6 +14,11 @@ def number(value):
     return mp.mpf(str(value))
 
 
+def require(condition, message):
+    if not condition:
+        raise ValueError(message)
+
+
 class Cashflows:
     def __init__(self, case):
         self.case = case
@@ -88,18 +93,25 @@ class Cashflows:
             paths.append(samples)
         return tuple(paths)
 
-    def price(self, label="", shift=mp.mpf(0)):
+    def curve_coordinates(self, label, shift):
         curves = {}
         for curve in self.case["curves"]:
             values = [number(v) + (shift if name == label else 0) for name, v in zip(curve["labels"], curve["values"])]
-            logdf = [mp.fsum(number(w) * v for w, v in zip(row, values)) for row in curve["jacobian"]]
-            curves[curve["currency"], curve["route"]] = (tuple(number(day) / 365 for day in curve["days"]), tuple(logdf))
+            log_values = [mp.fsum(number(w) * v for w, v in zip(row, values)) for row in curve["jacobian"]]
+            curves[curve["currency"], curve["route"]] = (tuple(number(day) / 365 for day in curve["days"]), tuple(log_values))
+        return curves
+
+    def sigma_coordinates(self, label, shift):
         sigma = [list(row) for row in self.base_sigma]
         for driver, name in enumerate(("USD", "EUR", "EUR/USD")):
             for bucket, date in enumerate(self.case["bucket_dates"]):
                 if label == f"sigma:{name}:{date}":
                     sigma[driver][bucket] += shift
-        sigma = tuple(map(tuple, sigma))
+        return tuple(map(tuple, sigma))
+
+    def price(self, label="", shift=mp.mpf(0)):
+        curves = self.curve_coordinates(label, shift)
+        sigma = self.sigma_coordinates(label, shift)
         spot = number(self.case["spot"]) + (shift if label == "fxspot:EUR/USD" else 0)
 
         def logdf(currency, route, t):
@@ -187,10 +199,10 @@ def main():
         coarse, fine = evaluate(case, 50), evaluate(case, 80)
         with mp.workdps(90):
             indicator = 4 * max(abs(mp.mpf(a) - mp.mpf(b)) for ca, cb in zip(coarse["fd"], fine["fd"]) for a, b in zip(ca, cb))
-            assert indicator < mp.mpf("1e-30")
-            assert abs(mp.mpf(fine["price"]) - number(case["observed_price"])) < mp.mpf("1e-10")
+            require(indicator < mp.mpf("1e-30"), "unstable high-precision gradient reference")
+            require(abs(mp.mpf(fine["price"]) - number(case["observed_price"])) < mp.mpf("1e-10"), "independent cashflow price mismatch")
             for observed, row in zip(case["observed_aad"], fine["fd"]):
-                assert max(abs(number(observed) - mp.mpf(value)) for value in row) < mp.mpf("1e-8")
+                require(max(abs(number(observed) - mp.mpf(value)) for value in row) < mp.mpf("1e-8"), "independent native partial mismatch")
         name = case["name"].upper()
         lines.append(f"    inline constexpr double {name}_PRICE = {float(fine['price']):.17g};")
         lines.append(f"    inline constexpr std::array<NativeReference_, {len(case['labels'])}> {name}_NATIVE{{{{")

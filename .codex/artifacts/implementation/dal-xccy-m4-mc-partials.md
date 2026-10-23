@@ -223,7 +223,7 @@ SHA256, so those four results apply without a redundant rerun. Generated drift,
 format, scoped `-Wall -Wextra -Werror` syntax checks and diff checks pass. The
 warning command excludes existing unused-parameter/sign-compare diagnostics;
 it found and fixed one new test's dangling-else macro warning. The complexity
-record retains the measured functions, without claiming a new complexity gate.
+record retains the measured functions against the existing Codacy limit of 8.
 
 Reference reproduction builds `dal-cpp/test-support/xccymcreferencedata.cpp`
 against the same core, exports `reference-input-final.json`, and runs:
@@ -261,3 +261,30 @@ V1 still owns independent full numerical acceptance. Generic XCCY MC dispatch
 remains unsupported, while this dedicated core adapter is available. R/a
 partials, quote risk, joint/SLV/smile, early exercise, PVAtQuote and RQMC are
 outside this delivery.
+
+## Initial CI analysis repair
+
+PR630's initial head `a3bd466cc56343b439341af609a86e46cb9bb426` produced nine
+Codacy annotations: complexity in four new C++ functions and the independent
+Python pricer, one local/function name reuse, and three Python assertions that
+could disappear under optimized bytecode. The actual check conclusion was
+`action_required`; its raw annotations are retained rather than relabeled as
+a successful initial head.
+
+The bounded repair extracts recording/path execution, paired-summary and ledger
+validation helpers while preserving operations, row/coordinate order, fixed
+metadata and acceptance rules. All changed C++/Python functions now have measured
+CCN at most 8. The reference's coordinate preparation is split out, its local
+name is unambiguous, and its unchanged comparisons now raise explicit errors.
+An optimized-Python negative control confirms those checks remain active.
+No threshold, oracle formula, source admission, sampling or shared dependency
+was changed to resolve the static-analysis failure.
+
+After repair, the newly linked Release and partially instrumented sanitizer
+runners again pass 21/21; the independently regenerated 50/80-digit header is
+byte-identical. The compatibility relink remains identical. Those checks cover
+the actual helper/ownership/statistics delta. Earlier long-path observations
+retain their exact caller/archive identities: the refactor preserves their
+sampling and arithmetic, and is not presented as a new large-matrix execution
+or a new performance measurement. Current-head CI is captured separately at
+delivery and any pending result is continued through a persisted condition.

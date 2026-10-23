@@ -101,6 +101,94 @@ namespace Dal {
                 result += payment.discountedAmount_;
             return result;
         }
+        template <class T_> std::unique_ptr<AAD::RecordingScope_> Recording() {
+            if constexpr (std::is_same_v<T_, AAD::Number_>) {
+                Check(!AAD::Tape()->multi_ && AAD::Tape()->numAdj_ == 1, "DerivativeUnavailable", "/derivatives/tape", "scalar native tape");
+                try {
+                    auto recording = std::make_unique<AAD::RecordingScope_>();
+                    recording->StartRecording();
+                    return recording;
+                } catch (const Exception_& error) {
+                    Fail("DerivativeUnavailable", "/derivatives/tape", "available independent scalar recording", String_(error.what()));
+                }
+            }
+            return {};
+        }
+        template <class T_> class Execution_ {
+            std::unique_ptr<AAD::RecordingScope_> recording_;
+            Script::XccyScriptPathProvider_<T_> zero_, unit_;
+            std::optional<AAD::Checkpoint_> checkpoint_;
+            Matrix_<> nativeMap_;
+            Vector_<size_t> columns_;
+
+            Vector_<> Gradient(T_* root) {
+                Vector_<> values(columns_.size(), 0.);
+                if constexpr (std::is_same_v<T_, AAD::Number_>) {
+                    recording_->ClearAdjoints();
+                    Adjoint(*root) = 1.;
+                    recording_->Reverse();
+                    for (size_t j = 0; j < columns_.size(); ++j)
+                        for (size_t row = 0; row < zero_.Model().Parameters().size(); ++row)
+                            values[j] += nativeMap_(static_cast<int>(row), static_cast<int>(columns_[j])) *
+                                         (Adjoint(*zero_.Model().Parameters()[row]) + Adjoint(*unit_.Model().Parameters()[row]));
+                }
+                return values;
+            }
+            void Finish(CalibrationMcResult_* estimate) {
+                if constexpr (std::is_same_v<T_, AAD::Number_>) {
+                    recording_->FinishRecording();
+                    estimate->peakTapeNodes_ = std::max(estimate->peakTapeNodes_, static_cast<size_t>(AAD::Tape()->nodes_.Size()));
+                    estimate->peakTapeBytes_ = std::max(estimate->peakTapeBytes_, AAD::MeasureTape(*AAD::Tape()).capacityBytes_);
+                }
+            }
+
+        public:
+            Execution_(const Script::PreparedXccyScript_& zero,
+                       const Script::PreparedXccyScript_& unit,
+                       const Handle_<XccyGaussianModelData_>& data,
+                       const XccyMcSettings_& settings)
+                : recording_(Recording<T_>()), zero_(zero, data), unit_(unit, data) {
+                if constexpr (std::is_same_v<T_, AAD::Number_>) {
+                    Vector_<String_> labels;
+                    nativeMap_ = XccyGaussianMomentNativeMap(*data, &labels);
+                    Check(zero_.Model().ParameterLabels() == XccyGaussianMomentInputs(*data).labels_, "CalibrationContextMismatch",
+                          "/derivatives/mapping", "runtime and snapshot map have identical ordered axes");
+                    columns_ = CalibrationMcParameterColumns(labels, settings.parameterLabels_);
+                    checkpoint_ = recording_->MakeCheckpoint();
+                    recording_->FinishRecording();
+                }
+            }
+            void RequireMapping(size_t dimension) const {
+                Check(zero_.Model().SimDim() == dimension && zero_.Model().Grid() == unit_.Model().Grid(), "CalibrationContextMismatch",
+                      "/sampling/mapping", "unchanged prepared grid and five-slot mapping");
+            }
+            CalibrationAffineCoefficients_ Coefficients(const Script::PreparedXccyScript_& zero,
+                                                        const Script::PreparedXccyScript_& unit,
+                                                        const Vector_<>& normals,
+                                                        const CouponViews_& views,
+                                                        bool compiled,
+                                                        CalibrationMcResult_* estimate) {
+                if constexpr (std::is_same_v<T_, AAD::Number_>)
+                    recording_->Restore(*checkpoint_);
+                T_ lowRoot = Price(zero, zero_.GeneratePath(normals), compiled);
+                T_ aRoot = (Price(unit, unit_.GeneratePath(normals), compiled) - lowRoot) / (views.high_ - views.low_);
+                T_ bRoot = lowRoot - views.low_ * aRoot;
+                const double b = Value(bRoot), a = Value(aRoot);
+                Check(std::isfinite(a) && std::isfinite(b), "CalibrationNumericalFailure", "/execution/payment", "finite source A/B");
+                Finish(estimate);
+                const auto db = Gradient(&bRoot), da = Gradient(&aRoot);
+                return {a, b, da, db};
+            }
+        };
+        void Accumulate(const CalibrationAffineCoefficients_& c, size_t paths, CalibrationMcBatchValue_* batch) {
+            batch->coefficients_->a_ += c.a_ / paths;
+            batch->coefficients_->b_ += c.b_ / paths;
+            for (size_t j = 0; j < c.da_.size(); ++j) {
+                Check(std::isfinite(c.da_[j]) && std::isfinite(c.db_[j]), "CalibrationNumericalFailure", "/derivatives", "finite native partials");
+                batch->coefficients_->da_[j] += c.da_[j] / paths;
+                batch->coefficients_->db_[j] += c.db_[j] / paths;
+            }
+        }
     } // namespace
 
     struct PreparedXccyMc_::Impl_ {
@@ -136,19 +224,8 @@ namespace Dal {
                                          {"rule", Str("dal.xccy-gaussian-script-mc/1")}}));
         }
         template <class T_> [[nodiscard]] XccyMcResult_ Run(const Handle_<XccyGaussianModelData_>& data) const {
-            std::unique_ptr<AAD::RecordingScope_> recording;
-            if constexpr (std::is_same_v<T_, AAD::Number_>) {
-                Check(!AAD::Tape()->multi_ && AAD::Tape()->numAdj_ == 1, "DerivativeUnavailable", "/derivatives/tape", "scalar native tape");
-                try {
-                    recording = std::make_unique<AAD::RecordingScope_>();
-                    recording->StartRecording();
-                } catch (const Exception_& error) {
-                    Fail("DerivativeUnavailable", "/derivatives/tape", "available independent scalar recording", String_(error.what()));
-                }
-            }
-            const Script::XccyScriptPathProvider_<T_> zero(zero_, data), unit(unit_, data);
-            Check(zero.Model().SimDim() == mapping_.dimension_ && zero.Model().Grid() == unit.Model().Grid(), "CalibrationContextMismatch",
-                  "/sampling/mapping", "unchanged prepared grid and five-slot mapping");
+            Execution_<T_> execution(zero_, unit_, data, settings_);
+            execution.RequireMapping(mapping_.dimension_);
             XccyMcResult_ result;
             result.mapping_ = mapping_;
             result.reservation_ = reservation_;
@@ -164,69 +241,22 @@ namespace Dal {
             estimate.heldOut_ = settings_.phase_ == XccyMonteCarloPhase_::Value_::HeldOut;
             auto rng = New(RNGType_("MRG32"), settings_.seed_, mapping_.dimension_, true);
             Vector_<> normals(mapping_.dimension_);
-            std::optional<AAD::Checkpoint_> checkpoint;
-            Matrix_<> nativeMap;
-            Vector_<size_t> columns;
-            if constexpr (std::is_same_v<T_, AAD::Number_>) {
-                Vector_<String_> nativeLabels;
-                nativeMap = XccyGaussianMomentNativeMap(*data, &nativeLabels);
-                Check(zero.Model().ParameterLabels() == XccyGaussianMomentInputs(*data).labels_, "CalibrationContextMismatch", "/derivatives/mapping",
-                      "runtime and snapshot map have identical ordered axes");
-                columns = CalibrationMcParameterColumns(nativeLabels, settings_.parameterLabels_);
-                checkpoint = recording->MakeCheckpoint();
-                recording->FinishRecording();
-            }
             const size_t n = settings_.parameterLabels_.size();
-            const auto gradient = [&](T_* root) {
-                Vector_<> values(n, 0.);
-                if constexpr (std::is_same_v<T_, AAD::Number_>) {
-                    recording->ClearAdjoints();
-                    Adjoint(*root) = 1.;
-                    recording->Reverse();
-                    for (size_t j = 0; j < n; ++j)
-                        for (size_t row = 0; row < zero.Model().Parameters().size(); ++row)
-                            values[j] += nativeMap(static_cast<int>(row), static_cast<int>(columns[j])) *
-                                         (Adjoint(*zero.Model().Parameters()[row]) + Adjoint(*unit.Model().Parameters()[row]));
-                }
-                return values;
-            };
             for (const auto& range : reservation_.ranges_) {
                 rng->SkipNormalTo(range.firstPath_);
                 const size_t paths = range.pathEnd_ - range.firstPath_;
                 CalibrationMcBatchValue_ batch;
                 batch.coefficients_ = CalibrationAffineCoefficients_{0., 0., Vector_<>(n, 0.), Vector_<>(n, 0.)};
                 for (size_t path = 0; path < paths; ++path) {
-                    if constexpr (std::is_same_v<T_, AAD::Number_>)
-                        recording->Restore(*checkpoint);
                     if (!normals.empty()) {
                         rng->FillNormal(&normals);
                         result.consumedCoordinates_ += normals.size();
                     }
                     if (path == 0)
                         result.firstNormals_.push_back(normals);
-                    T_ lowRoot = Price(zero_, zero.GeneratePath(normals), settings_.compiled_);
-                    T_ aRoot = (Price(unit_, unit.GeneratePath(normals), settings_.compiled_) - lowRoot) / (views_.high_ - views_.low_);
-                    T_ bRoot = lowRoot - views_.low_ * aRoot;
-                    const double b = Value(bRoot), a = Value(aRoot);
-                    Check(std::isfinite(a) && std::isfinite(b), "CalibrationNumericalFailure", "/execution/payment", "finite source A/B");
-                    if constexpr (std::is_same_v<T_, AAD::Number_>) {
-                        recording->FinishRecording();
-                        result.estimate_.peakTapeNodes_ = std::max(result.estimate_.peakTapeNodes_, static_cast<size_t>(AAD::Tape()->nodes_.Size()));
-                        result.estimate_.peakTapeBytes_ = std::max(result.estimate_.peakTapeBytes_, AAD::MeasureTape(*AAD::Tape()).capacityBytes_);
-                    }
-                    const auto db = gradient(&bRoot), da = gradient(&aRoot);
-                    batch.coefficients_->a_ += a / paths;
-                    batch.coefficients_->b_ += b / paths;
-                    for (size_t j = 0; j < n; ++j) {
-                        Check(std::isfinite(da[j]) && std::isfinite(db[j]), "CalibrationNumericalFailure", "/derivatives", "finite native partials");
-                        batch.coefficients_->da_[j] += da[j] / paths;
-                        batch.coefficients_->db_[j] += db[j] / paths;
-                    }
-                    if (settings_.retainPaths_) {
-                        result.pathCoefficients_.push_back({a, b, da, db});
-                        if (admitted_.Measure().kind_ == CalibrationMeasureKind_::Value_::Price)
-                            estimate.pathValues_.push_back(b + coupon_ * a);
-                    }
+                    const auto coefficients = execution.Coefficients(zero_, unit_, normals, views_, settings_.compiled_, &estimate);
+                    Accumulate(coefficients, paths, &batch);
+                    Retain(coefficients, &result);
                 }
                 batch.value_ = batch.coefficients_->b_ + coupon_ * batch.coefficients_->a_;
                 for (size_t j = 0; j < n; ++j)
@@ -239,6 +269,13 @@ namespace Dal {
             XccyMcInternal::Summarize(&result, admitted_, coupon_);
             result.report_ = XccyMcInternal::Report(result, admitted_, *data, settings_);
             return result;
+        }
+        void Retain(const CalibrationAffineCoefficients_& coefficients, XccyMcResult_* result) const {
+            if (!settings_.retainPaths_)
+                return;
+            result->pathCoefficients_.push_back(coefficients);
+            if (admitted_.Measure().kind_ == CalibrationMeasureKind_::Value_::Price)
+                result->estimate_.pathValues_.push_back(coefficients.b_ + coupon_ * coefficients.a_);
         }
     };
 

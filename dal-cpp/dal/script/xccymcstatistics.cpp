@@ -28,6 +28,59 @@ namespace Dal::XccyMcInternal {
             Check(std::isfinite(variance), "CalibrationNumericalFailure", "/execution/covariance", "finite projected variance");
             return std::sqrt(static_cast<double>(variance / (static_cast<long double>(rows.size()) * (rows.size() - 1))));
         }
+        Vector_<> Means(const Vector_<Vector_<>>& rows, size_t size) {
+            Vector_<> means(size, 0.);
+            for (const auto& row : rows)
+                for (size_t j = 0; j < means.size(); ++j)
+                    means[j] += row[j] / rows.size();
+            return means;
+        }
+        Matrix_<> Covariance(const Vector_<Vector_<>>& rows, const Vector_<>& means) {
+            Matrix_<> covariance(static_cast<int>(means.size()), static_cast<int>(means.size()), 0.);
+            for (const auto& row : rows)
+                for (int i = 0; i < covariance.Rows(); ++i)
+                    for (int j = 0; j < covariance.Cols(); ++j)
+                        covariance(i, j) += (row[i] - means[i]) * (row[j] - means[j]) / (rows.size() - 1);
+            for (int i = 0; i < covariance.Rows(); ++i)
+                for (int j = 0; j < covariance.Cols(); ++j)
+                    Check(std::isfinite(covariance(i, j)), "CalibrationNumericalFailure", "/execution/covariance", "finite full paired covariance");
+            return covariance;
+        }
+        void PriceSummary(const Vector_<Vector_<>>& rows, const Vector_<>& means, double coupon, XccyMcResult_* result) {
+            auto& estimate = result->estimate_;
+            const size_t n = estimate.parameterLabels_.size();
+            result->coefficients_ = {means[1], means[0], Vector_<>(n), Vector_<>(n)};
+            estimate.mean_ = means[0] + coupon * means[1];
+            Vector_<> weights(means.size(), 0.);
+            weights[0] = 1.;
+            weights[1] = coupon;
+            estimate.standardError_ = Error(rows, means, weights);
+            for (size_t j = 0; j < n; ++j) {
+                const double db = means[2 + 2 * j], da = means[3 + 2 * j];
+                result->coefficients_.db_[j] = db;
+                result->coefficients_.da_[j] = da;
+                estimate.gradient_.push_back(db + coupon * da);
+                weights = Vector_<>(means.size(), 0.);
+                weights[2 + 2 * j] = 1.;
+                weights[3 + 2 * j] = coupon;
+                estimate.gradientStandardError_.push_back(Error(rows, means, weights));
+                Check(std::isfinite(estimate.gradient_.back()) && std::isfinite(estimate.gradientStandardError_.back()),
+                      "CalibrationNumericalFailure", "/derivatives/estimate", "finite native partial and gradient standard error");
+            }
+        }
+        void ParSummary(const Vector_<CalibrationAffineCoefficients_>& coefficients,
+                        const CalibrationMeasureSpec_& measure,
+                        CalibrationMcResult_* estimate) {
+            estimate->affine_ = CalibrationMcInternal::AffineEstimate(coefficients, *measure.annuitySign_, *measure.minAbsAnnuity_, 3.);
+            estimate->mean_ = estimate->affine_->value_.value_;
+            estimate->standardError_ = estimate->affine_->standardError_;
+            estimate->gradient_ = estimate->affine_->value_.derivatives_;
+            estimate->gradientStandardError_ = estimate->affine_->gradientStandardError_;
+            for (auto& batch : estimate->batches_) {
+                batch.value_ = 0.;
+                batch.derivatives_.clear();
+            }
+        }
         String_ ParameterUnit(const String_& label, const XccyGaussianMarket_& market) {
             const auto text = Bytes(label);
             if (text.rfind("fxspot:", 0) == 0)
@@ -44,55 +97,18 @@ namespace Dal::XccyMcInternal {
 
     void Summarize(XccyMcResult_* result, const PreparedCalibrationInstrument_& admitted, double coupon) {
         auto& estimate = result->estimate_;
-        const size_t n = estimate.parameterLabels_.size(), batches = estimate.batches_.size();
+        const size_t n = estimate.parameterLabels_.size();
         Vector_<CalibrationAffineCoefficients_> coefficients;
         Vector_<Vector_<>> rows;
-        Vector_<> means(2 + 2 * n, 0.);
         for (const auto& batch : estimate.batches_) {
             coefficients.push_back(*batch.coefficients_);
             rows.push_back(Row(coefficients.back()));
-            for (size_t j = 0; j < means.size(); ++j)
-                means[j] += rows.back()[j] / batches;
         }
-        result->coefficients_ = {means[1], means[0], Vector_<>(n), Vector_<>(n)};
-        auto& covariance = result->coefficientCovariance_;
-        covariance = Matrix_<>(static_cast<int>(means.size()), static_cast<int>(means.size()), 0.);
-        for (const auto& row : rows)
-            for (int i = 0; i < covariance.Rows(); ++i)
-                for (int j = 0; j < covariance.Cols(); ++j)
-                    covariance(i, j) += (row[i] - means[i]) * (row[j] - means[j]) / (batches - 1);
-        for (int i = 0; i < covariance.Rows(); ++i)
-            for (int j = 0; j < covariance.Cols(); ++j)
-                Check(std::isfinite(covariance(i, j)), "CalibrationNumericalFailure", "/execution/covariance", "finite full paired covariance");
-        estimate.mean_ = means[0] + coupon * means[1];
-        Vector_<> weights(means.size(), 0.);
-        weights[0] = 1.;
-        weights[1] = coupon;
-        estimate.standardError_ = Error(rows, means, weights);
-        for (size_t j = 0; j < n; ++j) {
-            const double db = means[2 + 2 * j], da = means[3 + 2 * j];
-            result->coefficients_.db_[j] = db;
-            result->coefficients_.da_[j] = da;
-            estimate.gradient_.push_back(db + coupon * da);
-            weights = Vector_<>(means.size(), 0.);
-            weights[2 + 2 * j] = 1.;
-            weights[3 + 2 * j] = coupon;
-            estimate.gradientStandardError_.push_back(Error(rows, means, weights));
-            Check(std::isfinite(estimate.gradient_.back()) && std::isfinite(estimate.gradientStandardError_.back()), "CalibrationNumericalFailure",
-                  "/derivatives/estimate", "finite native partial and gradient standard error");
-        }
-        if (admitted.Measure().kind_ != CalibrationMeasureKind_::Value_::Price) {
-            estimate.affine_ =
-                CalibrationMcInternal::AffineEstimate(coefficients, *admitted.Measure().annuitySign_, *admitted.Measure().minAbsAnnuity_, 3.);
-            estimate.mean_ = estimate.affine_->value_.value_;
-            estimate.standardError_ = estimate.affine_->standardError_;
-            estimate.gradient_ = estimate.affine_->value_.derivatives_;
-            estimate.gradientStandardError_ = estimate.affine_->gradientStandardError_;
-            for (auto& batch : estimate.batches_) {
-                batch.value_ = 0.;
-                batch.derivatives_.clear();
-            }
-        }
+        const auto means = Means(rows, 2 + 2 * n);
+        result->coefficientCovariance_ = Covariance(rows, means);
+        PriceSummary(rows, means, coupon, result);
+        if (admitted.Measure().kind_ != CalibrationMeasureKind_::Value_::Price)
+            ParSummary(coefficients, admitted.Measure(), &estimate);
         estimate.quoteJacobian_ = Matrix_<>(1, static_cast<int>(n));
         for (size_t j = 0; j < n; ++j)
             estimate.quoteJacobian_(0, static_cast<int>(j)) = estimate.gradient_[j];
