@@ -37,6 +37,7 @@ in `DAL_CPP_MSVC_RUNTIME_LIBRARY`; it is a no-op on other toolchains.
 | `dal-public/src/curvedata.hpp`, `dal-public/src/curvespec.hpp`                       | Curve construction and single/staged calibration             |
 | `dal-public/src/curvepricing.hpp`                                                    | Typed rate-cashflow pricing, node risk, and quote-space DV01 |
 | `dal-public/src/xccycalibration.hpp`                                                 | Cross-currency calibration                                   |
+| `dal-public/src/xccymontecarlo.hpp`                                                  | Typed stochastic XCCY model, staged candidate and phased MC  |
 | `dal-public/src/interp.hpp`                                                          | Linear interpolation helper                                  |
 | `dal-public/src/repository.hpp`                                                      | Host-environment repository operations                       |
 

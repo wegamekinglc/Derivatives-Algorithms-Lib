@@ -1,0 +1,3 @@
+add_executable(xccy_script_monte_carlo xccy_script_monte_carlo.cpp)
+target_link_libraries(xccy_script_monte_carlo PRIVATE DAL::public)
+install(TARGETS xccy_script_monte_carlo RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

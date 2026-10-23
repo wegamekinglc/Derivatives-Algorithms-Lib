@@ -1,3 +1,4 @@
+#include "../xccyexample.hpp"
 #include <iomanip>
 #include <iostream>
 
@@ -7,41 +8,13 @@
 #include <dal-public/src/xccycalibration.hpp>
 #include <dal/currency/currencydata.hpp>
 
-namespace {
-    Dal::CrossCurrencySwapConfig_ Contract() {
-        using namespace Dal;
-        CrossCurrencySwapConfig_ config;
-        config.domesticNotional_ = 110.;
-        config.foreignNotional_ = 100.;
-        auto& c = config.convention_;
-        c.initialNotionalExchange_ = c.finalNotionalExchange_ = true;
-        c.domesticLeg_.paymentFrequency_ = PeriodLength_("3M");
-        c.foreignLeg_.paymentFrequency_ = PeriodLength_("6M");
-        c.foreignLeg_.paymentLag_ = 2;
-        for (auto* leg : {&c.domesticLeg_, &c.foreignLeg_}) {
-            leg->dayBasis_ = DayBasis_("ACT_360");
-            leg->businessDayConvention_ = leg->paymentConvention_ = BizDayConvention_("Unadjusted");
-        }
-        c.domesticIndex_.forecastTenor_ = PeriodLength_("3M");
-        c.foreignIndex_.forecastTenor_ = PeriodLength_("6M");
-        for (auto* index : {&c.domesticIndex_, &c.foreignIndex_}) {
-            index->useProjectionCurve_ = true;
-            index->fixingLag_ = 2;
-            index->dayBasis_ = DayBasis_("ACT_360");
-        }
-        c.domesticIndex_.fixingHolidays_ = Ccy::Conventions::LiborFixHolidays()(Ccy_("USD"));
-        c.foreignIndex_.fixingHolidays_ = Ccy::Conventions::LiborFixHolidays()(Ccy_("EUR"));
-        config.domesticRateFixing_ = {"IR:USD,LIBOR_3M_LCH", 0, 0};
-        config.foreignRateFixing_ = {"IR:EUR,LIBOR_6M_LCH", 0, 0};
-        return config;
-    }
-} // namespace
+using Dal::Examples::XccyContract;
 
 int main() {
     using namespace Dal;
     InitGlobalData(1);
     const Date_ today(2026, 10, 21), start(2027, 5, 4), end(2027, 11, 4);
-    const Handle_<CrossCurrencySwap_> native(new CrossCurrencySwap_(today, start, end, .001, Contract()));
+    const Handle_<CrossCurrencySwap_> native(new CrossCurrencySwap_(today, start, end, .001, XccyContract()));
     const auto instrument = NewXccyScriptInstrument(native, {"eur-usd", "USD.OIS", true, 1e-12});
     const auto quote = NewCalibrationMarketQuote("eur-usd-basis", -.002983490837363863, CalibrationValueUnit_::Parse("BasisSpread"));
     XccyInstrumentCalibrationSpec_ spec;

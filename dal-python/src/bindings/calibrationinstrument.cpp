@@ -3,6 +3,7 @@
 #include "calibrationinput.hpp"
 #include "giltestbarrier.hpp"
 #include <dal-public/src/xccycalibration.hpp>
+#include <dal-public/src/xccymontecarlo.hpp>
 #include <pybind11/eval.h>
 
 using namespace Dal;
@@ -11,6 +12,7 @@ using namespace Dal::Python::Calibration;
 
 void init_calibration_types(py::module_& m);
 void init_xccy_instruments(py::module_& m);
+void init_xccy_monte_carlo(py::module_& m);
 
 namespace {
     PyObject* calibrationErrorType = nullptr;
@@ -50,6 +52,8 @@ namespace {
             const auto type = py::reinterpret_borrow<py::object>(calibrationErrorType);
             const auto instance = type(py::str(error.what()), Text(failure.diagnostic_.code_), py::cast(failure.diagnostic_), Output(failure.report_),
                                        Candidate(failure.candidate_));
+            if (const auto* candidate = dynamic_cast<const XccyInstrumentCalibrationCandidate_*>(failure.candidate_.get()))
+                instance.attr("_gaussian_model") = Output(candidate->Result().gaussianModel_);
             PyErr_SetObject(calibrationErrorType, instance.ptr());
         }
     }
@@ -97,10 +101,12 @@ class CalibrationError(RuntimeError):
         super().__init__(message)
         self._code, self._diagnostic = code, diagnostic
         self._report, self._candidate = report, candidate
+        self._gaussian_model = None
     code = property(lambda self: self._code)
     diagnostic = property(lambda self: self._diagnostic)
     report = property(lambda self: self._report)
     candidate = property(lambda self: self._candidate)
+    gaussian_model = property(lambda self: self._gaussian_model)
 )PY",
                  m.attr("__dict__"));
         calibrationErrorType = m.attr("CalibrationError").ptr();
@@ -376,6 +382,7 @@ void init_bindings_calibrationinstrument(py::module_& m) {
     Factories(m);
     Getters(m);
     init_xccy_instruments(m);
+    init_xccy_monte_carlo(m);
     for (const char* type :
          {"ScriptInstrumentImportSettings", "CurveInstrumentGeometry", "CurveInstrumentMarket", "CurveInstrumentSolver",
           "CurveInstrumentCalibrationSpec", "CurveInstrumentCalibrationOptions", "CalibrationSamplingSpec", "CalibrationEvaluationOptions",
