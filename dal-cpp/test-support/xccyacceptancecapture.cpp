@@ -551,6 +551,50 @@ namespace {
         REQUIRE(AAD::Tape()->nodes_.Size() == 0, "matrix MC recording released");
         return output;
     }
+    Json_ CaptureMetadata(Json_ data, const Handle_<CalibrationInstrument_>& instrument) {
+        data.object_["instrument"] = Str(instrument->InstrumentIdentity());
+        data.object_["binding"] = Str(instrument->BindingIdentity());
+        data.object_["measure"] = Str("Price");
+        return data;
+    }
+    Json_ CaptureMatrixRequest(int argc, char** argv) {
+        auto data = MatrixCapture(argc, argv);
+        return CaptureMetadata(std::move(data), MatrixFixture(argv[3]).instrument_);
+    }
+    Json_
+    StatisticalContext(const String_& id, const TestXccyAcceptance::Fixture_& fixture, const Handle_<CalibrationInstrument_>& alias, bool allLabels) {
+        REQUIRE(alias->Definition()->SourceIdentity() == fixture.instrument_->Definition()->SourceIdentity(), "same full economic source");
+        REQUIRE(alias->BindingIdentity() == fixture.instrument_->BindingIdentity(), "same complete effective binding");
+        const auto model = Data(fixture.spec_);
+        const PreparedXccyMc_ prepared(fixture.instrument_, "Price", Context(fixture.spec_, Empty()), model, Settings(2, 3));
+        Vector_<String_> labels;
+        static_cast<void>(XccyGaussianMomentNativeMap(*model, &labels));
+        return CaptureMetadata(
+            Obj({{"id", Str(id)},
+                 {"fixture_instrument", Str(fixture.instrument_->InstrumentIdentity())},
+                 {"instrument_aliases", Array(Vector_<String_>{fixture.instrument_->InstrumentIdentity(), alias->InstrumentIdentity()},
+                                              [](const auto& s) { return Str(s); })},
+                 {"source", Str(fixture.instrument_->Definition()->SourceIdentity())},
+                 {"model", Model(*model)},
+                 {"mapping", Str(prepared.Mapping().identity_)},
+                 {"dimension", Num(static_cast<double>(prepared.Mapping().dimension_))},
+                 {"native_labels", Array(labels, [](const auto& s) { return Str(s); })},
+                 {"selected_labels", Array(allLabels ? labels : MatrixLabels(*model), [](const auto& s) { return Str(s); })}}),
+            fixture.instrument_);
+    }
+    Json_ StatisticalContexts() {
+        const auto base = TestXccyAcceptance::Fixture("flat", XccyNotionalMode_::Value_::MARK_TO_MARKET, false, true);
+        std::vector<Json_> rows{
+            StatisticalContext("flat/MARK_TO_MARKET/domestic/receive", base, Instrument(XccyNotionalMode_::Value_::MARK_TO_MARKET), true)};
+        const std::map<String_, String_> profiles{{"fixed", "rho-df/FIXED/foreign/pay"},
+                                                  {"resettable", "negative-basis/RESETTABLE/foreign/receive"},
+                                                  {"nonflat", "nonflat/MARK_TO_MARKET/foreign/pay"}};
+        for (const auto& [profile, id] : profiles) {
+            const auto fixture = MatrixFixture(profile);
+            rows.push_back(StatisticalContext(id, fixture, fixture.instrument_, false));
+        }
+        return List(std::move(rows));
+    }
     MarketFixingSnapshot_::values_t HistoricalValues() {
         MarketFixingSnapshot_::values_t values;
         values["IR:USD,LIBOR_3M_LCH"][DateTime_(Date_(2027, 4, 30))] = .031;
@@ -598,9 +642,11 @@ namespace {
         REQUIRE(argc == 5, "explicit MC arguments");
         const String_ factor(argv[4]);
         REQUIRE(factor == "1" || factor == "2" || factor == "4", "frozen refinements");
-        return Mc(argv[3], std::stoi(argv[4]));
+        return CaptureMetadata(Mc(argv[3], std::stoi(argv[4])), Instrument(XccyNotionalMode_::Value_::MARK_TO_MARKET));
     }
     Json_ ExtendedRequest(const String_& action, int argc, char** argv) {
+        if (action == "contexts")
+            return StatisticalContexts();
         if (action == "geometry")
             return StageGeometry();
         if (action == "staged")
@@ -608,7 +654,7 @@ namespace {
         if (action == "broad")
             return BroadCapture();
         if (action == "matrix")
-            return MatrixCapture(argc, argv);
+            return CaptureMatrixRequest(argc, argv);
         REQUIRE(action == "historical", "known capture mode");
         return HistoryCapture();
     }

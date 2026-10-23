@@ -358,6 +358,99 @@ never pooled or described as independent basket observations.
 
 ## Reproduction and remaining acceptance
 
+### R3: reviewer admission repairs and M5 dependency check
+
+The consumed M5 wakeup reported an earlier in_review event. On resumption,
+PR632 was still open/unmerged; DAL-424 had returned to repair and then delivered
+its new Excel head for limited review. No unmerged M5 source is imported and
+no public/Python/Excel boundary result is claimed. The original one-shot rule
+is already disabled after firing; it is not treated as a continuing merge wait.
+
+Reviewer `59714aee` identified three private-tool P2s: unqualified selected
+gradients, an unbound base oracle and truncated covariance/partial axes. R2 had
+repaired covariance matrix dimensions, but not all three findings. R3 implements
+the remaining checks in the original scope, including the matrix caller, for
+limited review.
+Six paths are affected: the statistics and matrix tools, a new standalone
+Python regression module, private capture metadata, the extended oracle's input
+hash field, and this record. Production/build/public documentation remain frozen.
+
+Statistical references now require their actual deterministic capture SHA256
+and separately prepared contexts. The `contexts` driver mode prepares the
+four fixed reference fixtures without evaluating MC. It checks full economic
+source and complete `BindingIdentity` before admitting the base instrument's
+different display-ID identity. It exports expected source, binding, Price
+measure, complete model contents, mapping/dimension and native/selected axes.
+The loader matches these to the hashed reference capture, not the incoming MC
+argument. Thus a matching model identity alone cannot conceal changed inputs.
+
+Old base records lack explicit binding/measure fields; old R2 matrix records
+also lack instrument identity. Their use is restricted to exact whole-record
+digests from the two already-published, manifest-verified evidence archives.
+The registry is generated from those immutable archives and checked against
+the prepared reference contexts and original MC source continuity. It is not
+generated from the capture currently passed to `analyze`. Missing legacy
+provenance fails closed. Future private MC captures export instrument, binding
+and measure explicitly through metadata wrappers. No old file is rewritten or
+represented as having contained the new fields.
+
+Before statistics, each selected A/B/Price/par gradient must be present,
+uniquely labelled and directly qualified, with frozen native scale/FD step,
+finite nonnegative indicators, separate quarter budgets and combined direct
+gate. Values undergo the corresponding check. Covariance must be exactly
+`(2+2*nLabels)` square; every batch and aggregate db/da and gradient/SE axis
+must have the expected length before any zip or projection is used. The full
+covariance comparison and all existing SE formulas/tolerances remain unchanged.
+
+The first 12 focused regression tests reproduced 20 failed subtests and one
+missing-reference error on R2. They pass after repair; the final 17-test set
+also protects reference hashes, context/model-content mismatches, explicit
+binding/measure, distinct display IDs, legacy provenance and full-sized wrong
+covariance entries. Commands and RED/GREEN logs are in the R3 evidence:
+
+```sh
+python3 -m unittest discover -s dal-cpp/tests/script -p test_xccy_acceptance_statistics.py -v
+```
+
+Eleven original real-data mutations are refused. Another 28 RED-to-GREEN
+controls cover both entry points and every R2 matrix profile, including extra
+da and removal of the last expected label (the base FX-sigma failure cannot
+silently disappear). The original five reviewer
+bypass examples were re-executed against the exact `59714aee` helper source,
+then rejected by the repaired helper. Both original and R2 nine-report sets
+compare exactly, including every precision/combined failure and prefix RED.
+Non-strict analysis succeeds; both strict statistical commands still exit 1
+after retaining reports. The broad independent oracle was rerun for its new
+capture-hash metadata; its values/derivatives/refinements are unchanged.
+CCN remains at most 8 and Ruff F/C901 passes. No long MC, core/full suite or
+performance matrix is rerun for these admission-only changes. The valid R2
+8/8 C++ and earlier 96-test identities remain distinct prior execution.
+
+The original `Mc`, `MatrixCapture`, `MatrixFixture` and `MatrixLabels` bodies
+remain byte-identical to R2. The new executable is used for metadata only;
+its identity is separate from both long-run executables. The core archive
+remains `cd610b9926e54f234642e758cba12963fd0b7d7a2a8b3d46ace2001b834c3ee7`.
+
+The CRN gate map is also explicit. On original 4x8 data, 27/27 bare paired
+expectation-parity diagnostics pass, while five of nine binary64 fixed-path
+hard-floor rows remain RED. Observed raw mean h/h2/h4 movement gives at most
+`1.3145040611561853e-7` under the descriptive four-times refinement indicator,
+below the frozen Price eFD cap. This alone does not bound complete binary64
+roundoff/eFD, which remains unqualified. The 50/80-digit fourth-order control
+and raw binary64 central FD are separate; neither paired parity nor the wide
+control replaces the original hard-floor RED. No new FD samples or h changes
+were used.
+
+Original `budget_exhausted` flags are retained for exact report compatibility.
+For x1/x2 they mean the current prefix failed; only x4 consumes the full frozen
+phase reservation. No budget/VR/scale/model decision has been changed.
+
+Statistics CLI calls now additionally require `--reference-capture FILE` and
+`--contexts FILE`; old records also require `--legacy-records FILE`. These
+are qualification inputs. The legacy-registry generator and complete actual
+invocations accompany the evidence. Unqualified old CLI invocations are
+refused rather than silently selecting a base reference.
+
 Configure/build with the recorded CMake cache and command manifest. The private
 driver is compiled separately against the fresh core archive, without a build
 file change:
@@ -370,7 +463,8 @@ g++-14 -std=c++17 -O3 -pthread -Idal-cpp -Idal-cpp/test-support \
 
 Driver modes are `OUTPUT capture`, `OUTPUT controls`, `OUTPUT crn`,
 `OUTPUT mc PHASE FACTOR`, `OUTPUT geometry`, `OUTPUT staged QUOTE_FILE`,
-`OUTPUT broad`, `OUTPUT historical`, and `OUTPUT matrix PROFILE FACTOR`.
+`OUTPUT broad`, `OUTPUT historical`, `OUTPUT contexts`, and
+`OUTPUT matrix PROFILE FACTOR`.
 Matrix profiles are fixed/resettable/nonflat and use Validation only.
 The `xccy_acceptance_*.py` tools take the captured
 JSONs; their `--help` specifies arguments. The exact executed invocations,

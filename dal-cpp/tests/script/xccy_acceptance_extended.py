@@ -336,6 +336,7 @@ def check_capture(input_path, output_path, staged):
         cases = [check_case(case) for case in data]
         output = {"cases": cases}
     output["script_sha256"] = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+    output["capture_sha256"] = hashlib.sha256(input_path.read_bytes()).hexdigest()
     output_path.write_text(json.dumps(output, indent=2) + "\n")
     require_gates(cases)
 

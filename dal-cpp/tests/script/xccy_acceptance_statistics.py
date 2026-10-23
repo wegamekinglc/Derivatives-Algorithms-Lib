@@ -5,6 +5,7 @@ fed to ValidateXccyMc or relabelled as Validation by this tool.
 """
 
 import argparse
+import hashlib
 import json
 import math
 import statistics
@@ -51,6 +52,118 @@ def projected_se(rows, weights):
 
 def reference_indicator(reference):
     return float(reference["oracle_indicator"]) + float(reference["fast_indicator"])
+
+
+def legacy_fingerprint(data):
+    encoded = json.dumps(data, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def require_width(values, width, diagnostic):
+    require(isinstance(values, list) and len(values) == width, diagnostic)
+
+
+def check_axes(data, labels):
+    require(data["labels"] == labels and len(set(labels)) == len(labels), "selected gradient axis labels")
+    count = len(labels)
+    require(count > 0, "selected gradient axes nonempty")
+    for key in ("gradient", "gradient_se"):
+        require_width(data.get(key), count, "gradient output axis: " + key)
+    for row in [data["coefficients"]] + data["batches"]:
+        for key in ("db", "da"):
+            require_width(row.get(key), count, "batch coefficient axis: " + key)
+    require_width(data["covariance"], 2 + 2 * count, "complete covariance axis count")
+    for row in data["covariance"]:
+        require_width(row, 2 + 2 * count, "complete covariance row axis")
+
+
+def check_context(data, context):
+    for key in ("source", "model", "mapping", "dimension"):
+        require(data.get(key) == context[key], "reference context mismatch: " + key)
+    if "instrument" in data:
+        require(data["instrument"] in context["instrument_aliases"], "reference context mismatch: instrument binding")
+    if all(key in data for key in ("instrument", "binding", "measure")):
+        require(data["binding"] == context["binding"], "reference context mismatch: binding")
+        require(data["measure"] == context["measure"], "reference context mismatch: measure")
+    else:
+        require(legacy_fingerprint(data) in context["legacy_records"], "qualified legacy source/binding/measure provenance required")
+
+
+def qualified_direct_gate(value, budget, epsilon):
+    parts = [float(value[key]) for key in ("oracle_indicator", "fast_indicator", "error")]
+    require(value["passed"] is True, "direct gate not passed")
+    require(all(math.isfinite(x) and x >= 0 for x in parts), "finite nonnegative direct gate indicators")
+    require(max(parts[:2]) <= budget / 4, "direct gate quarter indicators")
+    require(sum(parts) <= budget + epsilon, "direct gate combined indicator")
+    require(math.isfinite(float(value["oracle"])), "finite direct reference")
+
+
+def qualify_direct_values(values, scale, diagnostic):
+    require_width(values, 4, diagnostic + ": A/B/Price/par axes")
+    try:
+        for column, value in enumerate(values):
+            budget = (1e-12 if column == 3 else 1e-10) / scale
+            qualified_direct_gate(value, budget, budget / 10)
+    except (KeyError, TypeError, ValueError) as error:
+        raise ValueError(diagnostic + ": " + str(error)) from error
+
+
+def qualify_gradients(reference, labels):
+    rows = reference.get("gradients", [])
+    indexed = {row["label"]: row for row in rows}
+    require(len(indexed) == len(rows), "gradient references must have unique labels")
+    for label in labels:
+        require(label in indexed, "selected gradient reference missing: " + label)
+        row = indexed[label]
+        scale = 0.01 if label.startswith(("fxspot:", "sigma:EUR/USD:")) else 0.001
+        require(float(row["scale"]) == scale, "direct gradient frozen native scale")
+        require(math.isclose(float(row["h"]), 0.001 * scale, rel_tol=1e-14, abs_tol=0.0), "direct gradient frozen FD step")
+        qualify_direct_values(row["values"], scale, "direct gradient qualification: " + label)
+
+
+def qualify_reference(data, reference):
+    context = reference.get("context")
+    require(isinstance(context, dict), "qualified reference context required")
+    check_axes(data, context["selected_labels"])
+    check_context(data, context)
+    qualify_direct_values(reference["values"], 1.0, "direct value qualification")
+    qualify_gradients(reference, data["labels"])
+
+
+def unique_cases(rows, diagnostic):
+    result = {row["id"]: row for row in rows}
+    require(len(result) == len(rows), diagnostic + " unique case IDs")
+    return result
+
+
+def match_fixture(context, fixture):
+    for key in ("source", "model", "mapping", "dimension"):
+        require(context[key] == fixture[key], "frozen reference fixture mismatch: " + key)
+    require(context["fixture_instrument"] == fixture["instrument"], "frozen reference fixture instrument/binding")
+    require(context["native_labels"] == fixture["labels"], "frozen reference native axes")
+    require(context["measure"] == "Price", "paired Price reference measure")
+
+
+def load_qualified_oracle(oracle_path, capture_path, contexts_path, legacy_path=None, selected_cases=None):
+    oracle = json.loads(oracle_path.read_text())
+    require(oracle.get("capture_sha256") == hashlib.sha256(capture_path.read_bytes()).hexdigest(), "oracle frozen reference capture SHA256")
+    fixtures = unique_cases(json.loads(capture_path.read_text()), "reference capture")
+    contexts = unique_cases(json.loads(contexts_path.read_text()), "reference contexts")
+    rows = unique_cases(oracle["cases"], "oracle")
+    selected = set(rows) & set(contexts) if selected_cases is None else set(selected_cases)
+    require(bool(selected) and selected <= set(rows) & set(fixtures) & set(contexts), "complete selected reference cases")
+    legacy = json.loads(legacy_path.read_text())["records"] if legacy_path else {}
+    for case_id in selected:
+        context = contexts[case_id]
+        match_fixture(context, fixtures[case_id])
+        rows[case_id]["context"] = dict(context, legacy_records=legacy.get(case_id, []))
+    return oracle
+
+
+def add_reference_arguments(parser):
+    parser.add_argument("--reference-capture", required=True, type=Path)
+    parser.add_argument("--contexts", required=True, type=Path)
+    parser.add_argument("--legacy-records", type=Path)
 
 
 def check_reservation(data, expected_dimension=30):
@@ -181,10 +294,7 @@ def gradient_summary(data, reference, rows, means, j, label):
 def analyze(data, oracle):
     check_reservation(data)
     reference = next(row for row in oracle["cases"] if row["id"] == "flat/MARK_TO_MARKET/domestic/receive")
-    require(
-        all(v["passed"] for v in reference["values"]),
-        "direct deterministic gate must precede sampling",
-    )
+    qualify_reference(data, reference)
     output, rows, means = coefficient_summary(data, reference)
     output["gradients"] = [gradient_summary(data, reference, rows, means, j, label) for j, label in enumerate(data["labels"])]
     output["numerics"] = complete_acceptance(output)
@@ -215,8 +325,9 @@ def main():
     parser.add_argument("output", type=Path)
     parser.add_argument("captures", nargs="+", type=Path)
     parser.add_argument("--strict", action="store_true")
+    add_reference_arguments(parser)
     args = parser.parse_args()
-    oracle = json.loads(args.oracle.read_text())
+    oracle = load_qualified_oracle(args.oracle, args.reference_capture, args.contexts, args.legacy_records, ["flat/MARK_TO_MARKET/domestic/receive"])
     reports = [analyze(json.loads(path.read_text()), oracle) for path in args.captures]
     args.output.write_text(json.dumps({"runs": reports, "wrong_se_control": wrong_se_control()}, indent=2) + "\n")
     for row in reports:
