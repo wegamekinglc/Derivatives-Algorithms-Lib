@@ -13,12 +13,13 @@ def literal(value):
 
 def generate(gate_path):
     raw = gate_path.read_bytes()
-    assert hashlib.sha256(raw).hexdigest() == GATE_SHA256
+    if hashlib.sha256(raw).hexdigest() != GATE_SHA256:
+        raise ValueError("Expected the original qualified M3 gate input")
     records = json.loads(raw)
     lines = ["#pragma once", "", "#include <array>", "", "namespace Dal::TestXccyExecution {",
              "    struct Expectation_ {", "        const char* mode_;", "        bool foreign_, receive_, zero_, nonflat_;",
              "        std::array<std::array<long double, 4>, 4> quantities_;", "    };",
-             "    inline const auto& Expectations() {", "        static const std::array<Expectation_, 30> result{{"]
+             "    inline constexpr std::array<Expectation_, 30> EXPECTATIONS{{"]
     for record in records:
         identity = record["id"]
         if "synthetic" in identity or identity.endswith(("small", "zero-a", "fx-only")):
@@ -31,7 +32,7 @@ def generate(gate_path):
             data = [value["oracle"][2], value["e_oracle"], value["wide"][1], replay]
             lines.append("                {{" + ", ".join(literal(x) for x in data) + "}},")
         lines.append("            }}},")
-    lines += ["        }};", "        return result;", "    }", "} // namespace Dal::TestXccyExecution", ""]
+    lines += ["    }};", "    inline const auto& Expectations() { return EXPECTATIONS; }", "} // namespace Dal::TestXccyExecution", ""]
     return "\n".join(lines)
 
 

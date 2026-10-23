@@ -398,6 +398,12 @@ no assertion or numerical threshold changes. An initial reference regeneration
 comparison used clang-format's default style outside the repository. It is
 retained as a tooling failure and corrected by selecting this repository's
 `.clang-format` explicitly. Neither is presented as a product RED.
+The first exact-head CI snapshot additionally identified two test-tooling
+Codacy findings: an optimized-away Python assert and a reference-data function
+over the line limit. The extractor now raises explicitly on a hash mismatch,
+including under `python -O`; its identical immutable table is a namespace
+constexpr array with a one-line accessor. Regeneration preserves every numeric
+entry. These corrections change no financial assertion or production code.
 
 Final commands and exact argument vectors are in the execution evidence bundle:
 
