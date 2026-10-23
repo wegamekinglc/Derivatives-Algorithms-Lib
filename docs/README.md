@@ -25,6 +25,9 @@ the dedicated Python and Excel chapters, examples use C++ by default.
 
 The [core script calibration contract guide](methodology/script_calibration_contract.md)
 covers immutable contract data, typed bindings, quote/observation axes and persistence.
+Its [stochastic XCCY section](methodology/script_calibration_contract.md#stochastic-xccy-model-and-phased-mc)
+describes the typed Gaussian model, same-source staged/MC callers, phase ranges
+and current numerical acceptance limits.
 
 The [fixed-grid European PDE example](methodology/pde/aad.md) covers complete
 call/put native adjoints and separate derivative/grid-convergence acceptance.

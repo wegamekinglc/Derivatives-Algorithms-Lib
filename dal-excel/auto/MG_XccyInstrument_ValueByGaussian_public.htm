@@ -1,0 +1,40 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>XccyInstrument_ValueByGaussian</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>XccyInstrument_ValueByGaussian (in Excel: XCCYINSTRUMENT.VALUEBYGAUSSIAN)</h1>
+Evaluate the same immutable XCCY source with Gaussian moments
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>instrument</td><td>handle of type CalibrationInstrument</td><td></td><td>Shared immutable instrument</td></tr>
+<tr><td>model</td><td>handle of type XccyGaussianModelData</td><td></td><td>Explicit Gaussian model</td></tr>
+<tr><td>measureId</td><td>string</td><td></td><td>Price or BasisSpread</td></tr>
+<tr><td>fixings</td><td>handle of type StorableMarketFixingSnapshot</td><td>yes</td><td>Omitted captures history; explicit empty remains authoritative</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>outcome</td><td>handle of type StorableCalibrationOutcome</td><td>Owning mean, report and validated model</td></tr>
+</table>
+
+
+
+
+
+

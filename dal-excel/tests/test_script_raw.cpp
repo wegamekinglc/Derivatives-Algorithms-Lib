@@ -9,6 +9,7 @@
 #include <dal-excel/src/__europeanpderisk.hpp>
 #include <dal-excel/src/__lsmccurvature.hpp>
 #include <dal-excel/src/__script_test_api.hpp>
+#include <dal-excel/src/__xccymontecarlo.hpp>
 #include <dal-excel/src/_excel.hpp>
 #include <dal-excel/src/_xlcall.hpp>
 #include <dal-public/src/script.hpp>
@@ -1642,5 +1643,44 @@ TEST(ScriptExcelRawTest, TestMarketIvGeneratedRangeInputsRejectBadStorage) {
     CheckMarketIvBadStorage("steps", [&](const OPER_* bad) {
         return Call("xl_MarketIvRefitRiskRequest_New", &name.cell_, &id.cell_, &outputs, &blank, bad);
     });
+}
+#endif
+
+#ifdef _WIN32
+TEST(ExcelXccyMonteCarloNativeTest, TestGeneratedRequestBlankPhaseAndStrictOptions) {
+    Excel::ScriptTestInitialize(1);
+    const Handle_<StorableCalibrationMonteCarloSampling_> sampling(
+        new StorableCalibrationMonteCarloSampling_({"PseudoRandom", 8, 4, 1024, "dal.mrg32-normal-paths/1"}));
+    const auto id = Excel::ScriptTestStoreRepository(handle_cast<Storable_>(sampling));
+    RawText_ measure(L"Price"), phase(L"Validation"), sample(std::wstring(id.begin(), id.end()));
+    auto blank = Blank();
+    Output_ missing(Call("xl_XccyMonteCarloRequest_New", &measure.cell_, &blank, &sample.cell_, &blank));
+    ASSERT_NO_FATAL_FAILURE(CheckError(missing, {"InvalidCalibrationPlan", "/phase"}));
+    Output_ valid(Call("xl_XccyMonteCarloRequest_New", &measure.cell_, &phase.cell_, &sample.cell_, &blank));
+    ASSERT_NE(valid.Text().substr(0, 7), "#Error:");
+    RawText_ key(L"phase");
+    OPER_ cells[]{key.cell_, phase.cell_};
+    auto options = Multi(cells, 1, 2);
+    Output_ duplicate(Call("xl_XccyMonteCarloRequest_New", &measure.cell_, &phase.cell_, &sample.cell_, &options));
+    ASSERT_NO_FATAL_FAILURE(CheckError(duplicate, {"XccyMonteCarloRequest_New", "settings row=1 column=1", "field=phase"}));
+}
+
+TEST(ExcelXccyMonteCarloNativeTest, TestGeneratedDynamicsPreservesNumericBooleanCellLocation) {
+    Excel::ScriptTestInitialize(1);
+    RawText_ domestic(L"domestic_a"), foreign(L"foreign_a");
+    OPER_ settingsCells[]{domestic.cell_, Number(.03), foreign.cell_, Number(.07)};
+    auto settings = Multi(settingsCells, 2, 2);
+    RawText_ end(L"end_date"), sd(L"sigma_domestic"), sf(L"sigma_foreign"), sx(L"sigma_fx");
+    OPER_ bad{};
+    bad.xltype = xltypeBool;
+    bad.val.xbool = 1;
+    OPER_ bucketCells[]{end.cell_, sd.cell_, sf.cell_, sx.cell_, Number(Date::ToExcel(Date_(2029, 10, 20))), Number(.01), bad, Number(.12)};
+    auto buckets = Multi(bucketCells, 2, 4);
+    RawText_ factor(L"factor"), usd(L"rate:USD"), eur(L"rate:EUR"), fx(L"fx:EUR/USD");
+    OPER_ correlationCells[]{factor.cell_, usd.cell_,  eur.cell_,  fx.cell_,     usd.cell_, Number(1.),  Number(.3),   Number(-.2),
+                             eur.cell_,    Number(.3), Number(1.), Number(-.25), fx.cell_,  Number(-.2), Number(-.25), Number(1.)};
+    auto correlation = Multi(correlationCells, 4, 4);
+    Output_ rejected(Call("xl_XccyGaussianDynamicsSpec_New", &settings, &buckets, &correlation));
+    ASSERT_NO_FATAL_FAILURE(CheckError(rejected, {"XccyGaussianDynamicsSpec_New", "buckets row=2 column=3", "excluding bool"}));
 }
 #endif
