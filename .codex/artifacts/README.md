@@ -8,6 +8,10 @@ current-state explanations in the published docs or focused Codex references.
 
 ## Current Artifacts
 
+- [DAL-409 staged XCCY instrument calibration](implementation/dal-409-script-xccy-calibration.md)
+  — Shared observation/basis adapter, frozen background markets, native raw
+  Jacobians, owning public interfaces and scoped compatibility/install evidence.
+
 - [DAL-408 deterministic XCCY script cashflows](implementation/dal-408-xccy-script-cashflows.md)
   — Active native export, complete dual-leg/date admission, frozen timestamp
   policy, independent value/raw-derivative evidence and bounded failure checks.

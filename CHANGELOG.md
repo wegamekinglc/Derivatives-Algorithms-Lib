@@ -16,6 +16,15 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-10-23
+
+- **Staged XCCY instrument calibration** — added shared Price/BasisSpread
+  observations over frozen domestic/foreign backgrounds, native basis parameters,
+  scaled EXACT/APPROXIMATE fitting and owning failure reports in C++, Python
+  and Excel. Existing native staged/joint behavior is preserved; XCCY MC and
+  calibrated quote risk remain unavailable. See the
+  [staged XCCY guide](docs/methodology/script_calibration_contract.md#staged-xccy-instrument-calibration).
+
 ## 2026-10-22
 
 - **Deterministic XCCY script cashflows** — added one-time native import,
