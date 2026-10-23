@@ -9,17 +9,17 @@ Large-sample native-gradient qualification now exists: all nine coordinates
 pass parity, eight pass precision/combined, and FX sigma fails both budgets
 even at x4. Estimates, actual batches, failures and identities are retained.
 
-This checkpoint is deliberately not final V1 acceptance. DAL-424 was still
-in progress without a linked PR when checked. Its actual merged public C++,
-Python and Excel boundaries must be tested before the issue can enter final
-review. The mixed-dimension held-out basket refusal, remaining statistical
+This checkpoint is deliberately not final V1 acceptance. DAL-424 is now accepted
+on master at `ccec714f`; the incremental M5 boundary results below pass 39
+targeted Linux cases, with one additional Windows generated-entry case registered
+but not executed locally. The mixed-dimension held-out basket refusal, remaining statistical
 combinations and boundary coverage prevent calling the core matrix complete. Parent
 DAL-396 must remain in progress. No model, financial convention, scale, epsilon,
 path reservation or variance-reduction policy was changed to obtain a pass.
 
 ## Authority and applicability
 
-Product base: `4dbdff636bcd92d2a236abe644a3e0c73b9c208a`, actual merged
+Original numerical product base: `4dbdff636bcd92d2a236abe644a3e0c73b9c208a`, actual merged
 DAL-423 / PR630, including M1/M2/M3 and DAL-409. Authority is DAL-410 section 8,
 SHA256 `c2ff68e1a696b620682b896ca9b292ec6d577bf92cadb3597991b427267733d5`.
 The parent issue, current issue/threads and active sibling runs were read.
@@ -472,7 +472,7 @@ individual exit statuses, raw outputs, identity manifest and freeze history
 are supplied with the issue delivery. A strict statistical failure is an
 expected acceptance RED, not a passing product test.
 
-Remaining work includes the same-instrument mixed-D held-out basket, the
+At R3, remaining work included the same-instrument mixed-D held-out basket, the
 unclosed coverage-ledger entries and DAL-424's actually merged public/Python/
 Excel boundaries. New independent staged/history and correlation/basis-sign
 evidence closes those deterministic dimensions, with the recovery limits above.
@@ -483,3 +483,127 @@ parent acceptance is recommended from this checkpoint.
 Preparation/evaluation timings are recorded for the actual new model/script
 caller, separately, with no isolated paired baseline. Performance is
 **inconclusive**; no speedup, nine-gate pass or formal regression is claimed.
+
+## M5 independent caller checkpoint
+
+The original branch and PR631 continue. Accepted master `ccec714f63befee9202fd5b6b324999068e88c1d`
+was normally merged at `43a2fd6077fa293ee698bbc477f321d1c50d49d8`, without
+rebasing, importing PR637, or changing a product/build/generator file.
+The two upstream commits are accepted M5 and the accepted DAL-426 design.
+GitHub and Multica's direct M5 link confirm the actual merge. PR637 was still
+unmerged at the dependency check; its successful basket terminal remains outside
+this checkpoint. Current issue reads show this run as the sole active writer.
+
+The pre-execution fixture/gap/semantics record and subsequent harness notes are
+in the delivery's `freeze.md`. New runs replay technical prefixes of already
+observed reservations; they are not fresh independent statistical evidence and
+do not reset HeldOut. Every representative uses N110, the original dated source,
+4 batches x 8 paths, seed1024, Precise normals, no bridge/VR, and an explicit
+empty snapshot. Ordered labels are FX sigma followed by FX spot.
+
+| Representative | Measure | Phase | First path | Caller checks |
+|---|---|---|---:|---|
+| FIXED | Price | Fit | 0 | Public, Python, Excel against direct core |
+| RESETTABLE | BasisSpread | Validation | 262144 | Public, Python, Excel against direct core |
+| MARK_TO_MARKET | Price | HeldOut | 1310720 | Public, Python, Excel against direct core |
+
+Complete serialized coefficients, 6x6 covariance, two raw partials and their SE,
+normal coordinates, mapping/range identities and flags match core. Public
+top-level mean/SE and Python getters also agree; phase intervals end after 32
+paths and consumed coordinates equal 32D. Public GaussianFast matches direct
+core moments on the same prepared source. These checks establish caller parity,
+not independent financial/precision acceptance.
+
+An intermediate audit found that the reused M5 Python fixture's default spread
+leg differed from the explicit C++ fixture, with different model archive names.
+Those earlier per-language results are retained as `precanonical-*`; they
+cannot establish identical-input parity. Four small immutable private archives
+now supply the exact source/full binding and model to all three representative
+callers. C++ verifies them against the unchanged native fixture/model. No second
+native product is manually synchronized. The offline comparison helper checks
+all three complete serialized payloads **byte for byte across all three
+interfaces**, and passes 3/3 phases. Final XMLs are `final-public.xml`,
+`final-excel.xml` and `new-python.xml`.
+
+| Technical case | Mean | SE |
+|---|---:|---:|
+| FIXED Price / Fit | 0.25536469142407153 | 1.025376786246393 |
+| RESETTABLE BasisSpread / Validation | -0.0663751238480813 | 0.03328067763458021 |
+| MTM Price / HeldOut | -3.79312645749916 | 5.084124755885658 |
+
+These small-prefix estimates have no precision acceptance claim. Complete raw
+gradients, gradient SE and covariance are retained in the XML and
+`cross-interface.json`. Missing phase, duplicated phase, failed caller case and
+a single corrupted partial-SE field are all refused by the comparison helper; original and mutated
+XMLs plus exact refusals are retained.
+
+Successful explicit staged evaluation feeds the resulting immutable Gaussian
+model into core/public MC and Python MC after input destruction. The public
+three-node staged spread differs from its report by about 5.13e-16, inside the
+predeclared 1e-12 spread gate. Excel additionally exercises its actual staged
+failure entry with max_evaluations=1: the last complete validated Gaussian model
+is distinct from the retained curve, survives spec/outcome destruction, and
+feeds BasisSpread MC with complete core parity. This is not fit convergence.
+
+Python's actual native entry barrier permits another thread to mutate the
+original Python label list after entry. The result preserves the copied labels.
+The held-GIL negative handshake times out as expected in the freshly run M5
+test. Results, reports, exceptions and partial getters survive external input
+destruction; returned lists cannot mutate the owning result. Unsupported and
+duplicate labels retain `/mc/parameter_labels`; invalid smoothing retains
+`/simulation`. Nested bool/text/null/nonfinite values and both int32 overflow
+endpoints are refused.
+
+Excel typed outcomes retain complete payloads and the exact ordered
+`parameter_label/native_partial/standard_error` spill after inputs are destroyed.
+The precision factory reads fields after blank rows, refuses bool/text/nonfinite
+values at original row4/column2, and refuses unknown/normalized duplicate keys at
+row4/column1. The new lifetime case creates no repository entries. A separate
+Windows-only test calls the actual generated precision export with trailing
+raw error/bool cells after two blank rows and asserts function/field/original
+location. It is registered through the existing test glob; Linux does not
+compile or execute its Windows body.
+
+### Execution and repair accounting
+
+- New tests: **2/2 public + 3/3 portable Excel + 15/15 Python pass**.
+- Existing M5 tests freshly run: **3/3 public + 7/7 portable Excel + 9/9 Python
+  pass**; the 18-case Python value-only matrix is explicitly deselected.
+  These cover required phase/nested inputs, absent/null/empty/future snapshots,
+  capacity refusal, Validation-only eligibility, retained insufficient-budget
+  estimates, absent gradients and staged failure ownership.
+- CTest discovery lists the five new Linux C++ cases. One additional native
+  Windows case has not executed locally. No full-suite run is claimed.
+- Harness repairs only: private member access changed to its getter; a
+  keyword-only Python argument and canonical input's instrument-ID assertion
+  corrected; the initial unintended bitwise staged
+  scalar assertion changed to the already frozen 1e-12 spread gate. Initial
+  compiler/test logs remain in the evidence. Interim failed-harness binary
+  hashes were not captured, so they do not establish a product RED.
+- Final Ruff, formatting/diff checks pass; the caller tests/bridge/comparison
+  helper Lizard reports 31 functions, maximum CCN7. No product behavior was repaired.
+
+The delivery includes exact commands/exit statuses, XML with raw payloads,
+initial failures, incremental patch and source/dependency/configuration/binary
+identities. Local configuration remains GCC14.3/C++17/Release/O3, AADET,
+built-in matrix kernel, native arch off; Python3.13.9 with pybind11 3.0.4 from
+the selected Anaconda environment. An initial attempt to select system
+Python3.14 lacked Development.Module and did not configure; the final configure
+uses the complete Python3.13 environment.
+
+Core source has no upstream diff since R3. Its archive remains exactly
+`cd610b9926e54f234642e758cba12963fd0b7d7a2a8b3d46ace2001b834c3ee7`.
+Thus original oracle/long-run evidence retains its recorded scope and failures.
+New public/Excel runners and Python extension have separate hashes in the
+manifest; old binaries are not attributed to new callers. Accepted M5 native
+CI remains historical evidence for unchanged production and original cases,
+not execution of the new native test. No workbook was run. No example/build
+product change calls for repeating component installation closures.
+
+Performance remains **inconclusive** without an isolated paired baseline.
+Focused review of the incremental test/helper/fixture/record delta and
+exact-head CI remain pending. PR631 stays draft and DAL425/parent396 stay
+in_progress. Successful mixed-D basket, remaining financial/statistical coverage,
+FX-sigma precision/combined, five binary64 FD RED rows and full binary64 eFD
+qualification remain open. All eighteen original reports, budgets, thresholds
+and observed HeldOut identities are unchanged.

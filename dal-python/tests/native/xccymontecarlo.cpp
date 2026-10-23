@@ -39,6 +39,10 @@ void init_xccy_mc_core_test(py::module_& m) {
         output["standard_error"] = result.estimate_.standardError_;
         output["mapping_identity"] = std::string(result.mapping_.identity_.data(), result.mapping_.identity_.size());
         output["range_identity"] = std::string(result.reservation_.identity_.data(), result.reservation_.identity_.size());
+        XccyMonteCarloResult_ serialized;
+        serialized.details_ = std::make_shared<const XccyMcResult_>(std::move(result));
+        const auto json = DumpXccyMonteCarloResultJson(serialized);
+        output["details_json"] = std::string(json.data(), json.size());
         return output;
     });
 }
