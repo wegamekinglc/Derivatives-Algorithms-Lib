@@ -88,7 +88,7 @@ Set time zero to the exact midnight valuation V and use ACT/365F for **model**
 time, with no intraday support. Coupon accrual alpha remains the exact canonical
 currency/index day basis from the source, normally ACT/360 in the fixture.
 Normalize every input discount to V. Write domestic OIS `Pd(0,T)`, foreign OIS
-`Pf(0,T)`, basis discount `B(0,T)` and tenor projections `Q[c,k](0,T)`.
+`Pf(0,T)`, basis discount `B(0,T)` and tenor projections `Q_{c,k}(0,T)`.
 All are positive finite, anchored at one; no missing-route fallback.
 
 Define the effective foreign discount under domestic collateral as
@@ -120,9 +120,9 @@ zero basis uses an explicit unit curve, not an inferred absent market field.
 For each live supported tenor define the deterministic projection multiplier
 
 ```text
-q[c,k](T) = Q[c,k](0,T) / Pc_c(0,T)
-Q[c,k](t,T) = Pc_c(t,T) * q[c,k](T)/q[c,k](t)
-L[c,k](u;S,T) = (Pc_c(u,S)/Pc_c(u,T) * q[c,k](S)/q[c,k](T) - 1)/alpha
+q_{c,k}(T) = Q_{c,k}(0,T) / Pc_c(0,T)
+Q_{c,k}(t,T) = Pc_c(t,T) * q_{c,k}(T)/q_{c,k}(t)
+L_{c,k}(u;S,T) = (Pc_c(u,S)/Pc_c(u,T) * q_{c,k}(S)/q_{c,k}(T) - 1)/alpha
 ```
 
 The model realizes this L at its fixing u, with `u <= S < T`; the realized value
@@ -247,9 +247,10 @@ zero-matrix special case. Materially negative pivots or incompatible residual
 rows fail, never receive jitter/eigenvalue clipping. AAD through a changing rank
 or zero-vol boundary is not admitted; values and one-sided FD remain possible.
 
-Grid = V + all live payment events + all live rate/FX fixings + every dynamics
-bucket boundary. Accrual endpoints and requested bond maturities additionally
-enter the curve-coverage set; they need not be random sample events unless used
+Grid = V + all live payment events + all live rate/FX fixings + dynamics
+bucket boundaries strictly before the last required live sample. Accrual
+endpoints and requested bond maturities additionally enter the curve-coverage
+set; they need not be random sample events unless used
 as observations. Reset effective-date MTM payments are explicit events.
 Deduplicate by exact Date, sort, and preserve source-to-observation slots.
 Internal innovation coordinates and observation/event coordinates are distinct.
@@ -297,8 +298,8 @@ the rate at its payment-date forward instead of its fixing-date realization is
 an error. The dedicated planner deduplicates by `(economic kind, canonical
 identity, exact timestamp)`, so PaymentFxSpot and ResetFxFixing may resolve to
 different slots at V. This internal key does not change the fixing archive's
-canonical identity/timestamp keys. Match and capture history before compilation/worker submission and
-freeze conventions once. The existing tree/compiled evaluators receive the same
+canonical identity/timestamp keys. Match and capture history before compilation
+or worker submission and freeze conventions once. The existing tree/compiled evaluators receive the same
 sealed ObservationPlan and sample definitions; no financial logic belongs in a
 simulation observer hook. Settled XCCY PAYS rows do not require global fixings
 that cannot affect outstanding cashflows.
@@ -567,8 +568,8 @@ assumptions that flat curves cannot expose.
 
 Required cases:
 
-- FX unit payout and domestic unit payout at 1Y/2Y verify all section-3
-  discounted martingales. Cross-check a Qf independent valuation. Flip each
+- FX unit payout and domestic unit payout at V+365/V+730 calendar days verify
+  all section-3 discounted martingales. Cross-check a Qf independent valuation. Flip each
   correlation sign and basis sign separately; inspect conditional FX forwards.
 - Zero all sigmas: every path and analytic coefficient equals the independent
   deterministic cashflow table, native and existing fast (Price absolute 1e-10,
