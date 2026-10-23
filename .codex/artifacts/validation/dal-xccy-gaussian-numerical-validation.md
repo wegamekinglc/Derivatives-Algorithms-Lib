@@ -607,3 +607,40 @@ in_progress. Successful mixed-D basket, remaining financial/statistical coverage
 FX-sigma precision/combined, five binary64 FD RED rows and full binary64 eFD
 qualification remain open. All eighteen original reports, budgets, thresholds
 and observed HeldOut identities are unchanged.
+
+### M5 include-order R1
+
+Focused review of `943ad20c5bc0a9353575aba261a2532c11537ac9` found one P1:
+Windows.h's `VOID` macro prevents the transitive DAL StackInfoType enum from
+parsing in the new raw test. Its include order now follows the existing
+`test_script_raw.cpp`: DAL headers precede Windows.h, with the same local
+rationale. All helpers, initialization, raw-error/bool branches, test body and
+assertions remain byte-identical. The only other tracked edit is this record.
+
+Fresh GCC14.3/C++17 `-fsyntax-only` controls extract the actual test header
+order and introduce `#define VOID void` at the first Windows-bearing include
+(Windows.h or `_xlcall.hpp`, which itself includes Windows.h on Windows).
+Original order exits **1** at the actual generated enum; repaired order exits
+**0**. The reviewer's unchanged minimal RED/GREEN sources also freshly exit
+**1/0**. Exact argument vectors, source hashes and full diagnostics accompany
+the R1 delivery. The repaired raw source SHA256 is
+`9fd8b658e3d4949394855bd551e388362bdcc15a62fb0ee06db7cc1510aab533`;
+the unchanged body after `using namespace Dal;` hashes to
+`9a63464034b1f0f4c6a1afd7165873eeb556523be5df1bb73b1c8ee27e9c0370`.
+
+This is a Linux macro/header compilation control. No local MSVC toolchain,
+native XLL or workbook execution is claimed. A fresh Windows `dal_excel_tests`
+build and actual execution of
+`ExcelXccyAcceptanceRawTest.TestGeneratedEntryChecksEntireSelectedRange`
+remain required for this P1's native platform acceptance; old M5 CI cannot
+substitute. The original 39 Linux cases and numerical reports are retained
+execution evidence, not R1 reruns. Source/dependency/configuration/binary hashes
+are checked separately in the R1 evidence; the core archive identity above and
+all original evidence files are preserved. Formatting and diff checks pass.
+
+No production, build, generator, fixture, threshold, budget or numerical
+algorithm changes are included. Prior review conclusions outside this P1 retain
+their stated scope; limited R1 review and new-head CI remain pending. PR631
+stays draft, DAL425/396 stay in_progress, and all financial/statistical gaps,
+precision/combined failures, binary64 FD RED rows and old HeldOut identities
+remain unchanged. No new statistical samples or performance claim are added.
