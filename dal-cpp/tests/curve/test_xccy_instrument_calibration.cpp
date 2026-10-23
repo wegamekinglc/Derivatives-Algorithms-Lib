@@ -103,6 +103,70 @@ TEST(XccyInstrumentCalibrationTest, TestFiniteDifferenceSolverHonorsEvaluationBu
     }
 }
 
+TEST(XccyInstrumentCalibrationTest, TestFinalJacobianFailureOwnsCompletedCandidate) {
+    Handle_<CalibrationReport_> report;
+    Handle_<XccyInstrumentCalibrationCandidate_> candidate;
+    CalibrationDiagnostic_ expected;
+    Vector_<> measures, residuals;
+    String_ planIdentity;
+    {
+        auto spec = Spec();
+        spec.solver_.initialGuess_ = .003;
+        CurveInstrumentCalibrationOptions_ options;
+        options.differenceStep_ = 1e-30;
+        const auto plain = CalibrateXccyInstruments(spec, options);
+        ASSERT_TRUE(plain.fitWithinTolerance_);
+        measures = plain.modelMeasures_;
+        residuals = plain.rawResiduals_;
+        planIdentity = plain.planIdentity_;
+        options.computeQuoteJacobian_ = true;
+        try {
+            static_cast<void>(PreparedXccyInstruments_(spec, options).Evaluate({.003}));
+            FAIL();
+        } catch (const CalibrationError_& error) {
+            ASSERT_TRUE(error.Failure().candidate_);
+            expected = error.Failure().diagnostic_;
+        }
+        try {
+            static_cast<void>(CalibrateXccyInstruments(spec, options));
+            FAIL();
+        } catch (const CalibrationError_& error) {
+            const auto& d = error.Failure().diagnostic_;
+            ASSERT_EQ(d.code_, expected.code_);
+            ASSERT_EQ(d.stage_, expected.stage_);
+            ASSERT_EQ(d.field_, expected.field_);
+            ASSERT_EQ(d.message_, expected.message_);
+            ASSERT_EQ(d.parameterKey_, expected.parameterKey_);
+            report = error.Failure().report_;
+            candidate = handle_cast<XccyInstrumentCalibrationCandidate_>(error.Failure().candidate_);
+        }
+    }
+    ASSERT_TRUE(candidate);
+    const auto& result = candidate->Result();
+    ASSERT_EQ(result.report_.get(), report.get());
+    ASSERT_EQ(result.parameters_, (Vector_<>{.003}));
+    ASSERT_EQ(result.modelMeasures_, measures);
+    ASSERT_EQ(result.rawResiduals_, residuals);
+    ASSERT_EQ(result.planIdentity_, planIdentity);
+    ASSERT_FALSE(result.candidateIdentity_.empty());
+    ASSERT_FALSE(result.objectiveIdentity_.empty());
+    ASSERT_EQ(result.evaluations_, 1);
+    ASSERT_EQ(result.gradients_, 0);
+    ASSERT_EQ(result.diagnosticEvaluations_, 1);
+    ASSERT_EQ(result.diagnosticGradients_, 1);
+    ASSERT_EQ(result.quoteJacobian_.Rows(), 0);
+    ASSERT_FALSE(report->Data().quoteJacobian_);
+    ASSERT_EQ(report->Data().parameters_[0].value_, .003);
+    ASSERT_EQ(report->Data().observations_[0].modelValue_, measures[0]);
+    ASSERT_EQ(report->Data().observations_[0].rawResidual_, residuals[0]);
+    ASSERT_EQ(report->Axes().quoteIndex_, (Vector_<int>{0}));
+    ASSERT_EQ(report->Data().summary_.evaluations_, 1);
+    ASSERT_EQ(report->Data().summary_.jacobianEvaluations_, 0);
+    ASSERT_EQ(report->Stage(), expected.stage_);
+    ASSERT_TRUE(report->Data().execution_.fixingSnapshotIdentity_);
+    ASSERT_EQ(report->Data().execution_.routeIdentities_.size(), 2);
+}
+
 TEST(XccyInstrumentCalibrationTest, TestApproximateRequiresIndependentControls) {
     auto spec = Spec();
     spec.solver_.solveMode_ = CurveSolveMode_::Value_::APPROXIMATE;

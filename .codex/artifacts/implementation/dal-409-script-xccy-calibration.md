@@ -244,3 +244,72 @@ the coordinator's required review or final merge gates. This repair is not a
 full DAL-409 code approval; the first complete focused code review and necessary
 documentation judgment remain with the coordinator. DAL-420's independent
 model run is untouched.
+
+## Focused review P2 repairs
+
+The first complete code review at `499aed87a34ebae5dcb4bfa88240afb9a5880445`
+requested two bounded repairs. Its other conclusions and the independent
+documentation approval remain applicable; this section records the new work.
+
+**Final Jacobian failure ownership.** FitState previously copied completed
+values only after the optional final Jacobian returned. When that Jacobian
+failed, Solve kept its Describe snapshot and discarded Evaluate's owning
+candidate. FitState now copies the already validated candidate from a
+`CalibrationError_` before rethrowing the original diagnostic. This reuses
+Evaluate's completed parameters, curve, model/residual vectors, report and
+candidate identity while retaining the solver's theta0/S/W, objective/plan
+identity, axes and Fit counters. It introduces no repricing or extra solve.
+Diagnostic evaluation/Jacobian attempts are counted before the call, so a
+rejected diagnostic remains visible as one attempted diagnostic evaluation
+and Jacobian, separate from Fit's one evaluation/zero gradients in the probe.
+A raw Jacobian is published only after its finite-value validation succeeds;
+an unavailable derivative is not replaced with zero or a successful matrix.
+
+The original ownership probe uses theta0=.003 and FD step=1e-30. Its original
+bytes are preserved; RED reproduces Solve losing its candidate while direct
+Evaluate retains one. GREEN retains the Solve candidate and completed numeric
+rows, with the original error code, stage, field, message and parameter key.
+The C++ regression checks values and report after local input/plan destruction,
+Fit/diagnostic counts, frozen identities, native/quote axes and unavailable
+Jacobian. The Python regression checks the exposed candidate and report after
+input deletion/collection. The original probe's only GREEN script adaptation is
+the expected rebuilt module SHA; its fixture is a frozen copy of the reviewed
+test source, with path/output adaptations recorded separately.
+
+**Excel input locations.** A private XCCY field reader retains original rows and
+uses the existing `ScriptSettingLocation` convention for all three factories.
+It delegates value conversion to the unchanged typed `Input_` readers. Type and
+typed-handle errors identify the value cell (column 2); unknown and normalized
+duplicate fields identify the offending key (column 1). Factory-local exact key
+sets are checked before reading values, so a misspelled required key cannot be
+masked by a missing-key error at an unrelated location. Unknown spelling stays
+strictly rejected. Shared Fields_, worksheet parsing, wrappers, public signatures
+and generated markup are unchanged.
+
+The original row-1/row-3 Excel probe is preserved and rerun with only source and
+output paths adapted. Three new regression cases cover 19 invalid inputs across
+the three factories: moved numeric/bool and other value types, moved wrong typed
+handles, extra/misspelled keys and normalized duplicate keys. Initial RED lacked
+function/location; an additional real RED exposed missing-key masking before
+the factory key preflight was added. All original rejection and success cases
+remain intact.
+
+Final targeted verification: five core cases (ownership, successful requested
+Jacobian, budget ownership/counting and objective), three Python cases
+(ownership, budget and candidate refresh), six portable Excel cases and the
+two canonical public fresh cases through CTest pass: 16 distinct cases. The
+original three ownership calls and two Excel row-order calls are additional
+probe executions, not additional test cases. GCC14/15 warning-policy checks,
+CCN<=8, formatting, Markdown and diff checks are retained in the repair bundle.
+Only affected TUs/libraries/runners were rebuilt; no full matrix, component
+installation, statistical or performance rerun is claimed.
+
+New library/module/runner hashes identify this repair. Prior 86-case, component
+closure and informational timing evidence is inherited only for unchanged
+behavior/dependencies; it is not presented as fresh execution or byte identity
+for rebuilt binaries. Native staged/joint bodies, provider/kernel/compiler,
+protocol/JSON identity, shared Excel parsing, settings/defaults, budgets and
+acceptance thresholds remain unchanged. The approved public guide/CHANGELOG
+remain accurate and are unchanged. DAL-420's independent checkout/run is
+untouched. New exact-head CI is handed off separately for coordinator gates;
+review after delivery is limited to these blockers and their direct effects.

@@ -113,3 +113,24 @@ def test_candidate_refresh_and_fixed_quote_identity():
     second_report = json.loads(dal.CalibrationReport_Get_Json(second.report))
     assert first_report["quotes"] == second_report["quotes"]
     assert first_report["quote_jacobian"] != second_report["quote_jacobian"]
+
+
+def test_final_jacobian_failure_owns_completed_values_after_input_destruction():
+    values, _, _ = inputs(solver=dal.CurveInstrumentSolver_(initial_guess=0.003))
+    spec = dal.XccyInstrumentCalibrationSpec_(**values)
+    options = dal.CurveInstrumentCalibrationOptions_(difference_step=1e-30, compute_quote_jacobian=True)
+    with pytest.raises(dal.CalibrationError) as raised:
+        dal.Calibrate_XccyInstruments(spec, options=options)
+    error = raised.value
+    del spec, values, options
+    gc.collect()
+    assert error.code == "CalibrationNumericalFailure"
+    assert error.candidate is not None
+    data = json.loads(dal.CalibrationReport_Get_Json(error.report))
+    assert data["parameters"][0]["value"] == 0.003
+    assert data["observations"][0]["model_value"] is not None
+    assert data["observations"][0]["raw_residual"] is not None
+    assert data["observations"][0]["observation_id"] == "row"
+    assert data["summary"]["evaluations"] == 1
+    assert data["summary"]["jacobian_evaluations"] == 0
+    assert data["quote_jacobian"] is None

@@ -809,8 +809,9 @@ namespace Dal {
             if (derivatives) {
                 const bool aad = options_.jacobianMode_ != CalibrationDerivative_::Value_::FiniteDifference;
                 result.derivativeMethod_ = aad ? CalibrationDerivative_::Value_::AAD : CalibrationDerivative_::Value_::FiniteDifference;
-                result.quoteJacobian_ = NativeJacobian(spec_, definition_, plans_, parameters, options_);
-                RequireFiniteValues(result.quoteJacobian_, "raw XCCY Jacobian");
+                auto jacobian = NativeJacobian(spec_, definition_, plans_, parameters, options_);
+                RequireFiniteValues(jacobian, "raw XCCY Jacobian");
+                result.quoteJacobian_ = std::move(jacobian);
             }
             result.report_.reset(new CalibrationReport_(CalibrationStage_::Value_::Evaluate, axes_, {}, Report(result, "Evaluated")));
             return result;
@@ -931,19 +932,7 @@ namespace Dal {
             Failure(std::move(result), d);
         }
         // Calibration assembly mutates its large result buffers in place.
-        void FitState(const PreparedXccyInstruments_& plan,
-                      const Underdetermined::FitResult_& solved,
-                      const CurveInstrumentCalibrationOptions_& options,
-                      XccyInstrumentCalibrationResult_* result) {
-            result->evaluations_ = solved.evaluations_;
-            result->gradients_ = solved.gradients_;
-            result->termination_ = solved.termination_;
-            result->fitWithinTolerance_ = solved.fitWithinTolerance_;
-            if (solved.parameters_.empty())
-                return;
-            result->coordinates_ = solved.parameters_;
-            const auto values = plan.Evaluate(Native(solved.parameters_, result->initialParameters_, result->parameterScales_),
-                                              options.computeQuoteJacobian_ && solved.fitWithinTolerance_);
+        void CandidateState(const XccyInstrumentCalibrationResult_& values, XccyInstrumentCalibrationResult_* result) {
             result->parameters_ = values.parameters_;
             result->curve_ = values.curve_;
             result->modelMeasures_ = values.modelMeasures_;
@@ -956,8 +945,30 @@ namespace Dal {
             result->report_ = values.report_;
             result->quoteJacobian_ = values.quoteJacobian_;
             result->derivativeMethod_ = values.derivativeMethod_;
+        }
+        // Calibration assembly mutates its large result buffers in place.
+        void FitState(const PreparedXccyInstruments_& plan,
+                      const Underdetermined::FitResult_& solved,
+                      const CurveInstrumentCalibrationOptions_& options,
+                      XccyInstrumentCalibrationResult_* result) {
+            result->evaluations_ = solved.evaluations_;
+            result->gradients_ = solved.gradients_;
+            result->termination_ = solved.termination_;
+            result->fitWithinTolerance_ = solved.fitWithinTolerance_;
+            if (solved.parameters_.empty())
+                return;
+            result->coordinates_ = solved.parameters_;
             result->diagnosticEvaluations_ = 1;
             result->diagnosticGradients_ = options.computeQuoteJacobian_ && solved.fitWithinTolerance_ ? 1 : 0;
+            try {
+                CandidateState(plan.Evaluate(Native(solved.parameters_, result->initialParameters_, result->parameterScales_),
+                                             result->diagnosticGradients_ != 0),
+                               result);
+            } catch (const CalibrationError_& error) {
+                if (const auto candidate = handle_cast<XccyInstrumentCalibrationCandidate_>(error.Failure().candidate_))
+                    CandidateState(candidate->Result(), result);
+                throw;
+            }
         }
     } // namespace XccyInstrumentInternal
 

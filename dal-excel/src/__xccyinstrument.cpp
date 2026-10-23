@@ -100,6 +100,69 @@ namespace Dal::Excel::Calibration {
 
 namespace Dal {
     namespace {
+        class XccyFields_ {
+            const Matrix_<Cell_>& cells_;
+            String_ function_;
+            std::map<std::string, int> rows_;
+            std::set<std::string> used_;
+
+            String_ Location(const String_& key, int row, int column) const {
+                return Excel::ScriptSettingLocation(function_, "settings", row + 1, column) + "field=" + key + "; ";
+            }
+            String_ Key(int row) const {
+                try {
+                    return Excel::Calibration::Text(cells_(row, 0));
+                } catch (const Exception_& error) {
+                    THROW(Location("", row, 1) + error.what());
+                }
+            }
+            static bool Empty(const Matrix_<Cell_>& cells) {
+                return cells.Rows() == 0 || (cells.Rows() == 1 && cells.Cols() == 1 && Cell::IsEmpty(cells(0, 0)));
+            }
+
+        public:
+            XccyFields_(const Matrix_<Cell_>& cells, const String_& function, std::initializer_list<const char*> allowed)
+                : cells_(cells), function_(function) {
+                if (Empty(cells))
+                    return;
+                REQUIRE(cells.Cols() == 2,
+                        Location("", 0, cells.Cols() < 2 ? cells.Cols() + 1 : 3) + "InvalidCalibrationInput: expected two field/value columns");
+                const std::set<std::string> keys(allowed.begin(), allowed.end());
+                std::set<String_> normalized;
+                for (int row = 0; row < cells.Rows(); ++row) {
+                    const auto key = Key(row);
+                    REQUIRE(normalized.insert(key).second, Location(key, row, 1) + "InvalidCalibrationInput: duplicate normalized field " + key);
+                    REQUIRE(keys.count(Excel::Calibration::Bytes(key)) != 0, Location(key, row, 1) + "InvalidCalibrationInput: unknown key " + key);
+                    rows_.emplace(Excel::Calibration::Bytes(key), row);
+                }
+            }
+            template <class T_> T_ Required(const char* key) {
+                used_.insert(key);
+                const auto found = rows_.find(key);
+                REQUIRE(found != rows_.end(), Location(key, 0, 2) + "InvalidCalibrationInput: missing key " + String_(key));
+                try {
+                    return Excel::Calibration::Input_<T_>::Read(cells_(found->second, 1));
+                } catch (const Exception_& error) {
+                    THROW(Location(key, found->second, 2) + "InvalidCalibrationInput: field=" + String_(key) + "; cause=" + error.what());
+                }
+            }
+            template <class T_> T_ Default(const char* key, const T_& fallback) {
+                used_.insert(key);
+                return rows_.count(key) ? Required<T_>(key) : fallback;
+            }
+            template <class T_> std::optional<T_> Maybe(const char* key) {
+                used_.insert(key);
+                const auto found = rows_.find(key);
+                if (found == rows_.end() || Cell::IsEmpty(cells_(found->second, 1)))
+                    return std::nullopt;
+                return Required<T_>(key);
+            }
+            void Finish() const {
+                for (const auto& [key, row] : rows_)
+                    REQUIRE(used_.count(key) != 0, Location(String_(key), row, 1) + "InvalidCalibrationInput: unknown key " + String_(key));
+            }
+        };
+
         template <class T_> const T_& Settings(const Handle_<StorableCalibrationValue_<T_>>& value) {
             REQUIRE(value, "InvalidCalibrationInput: nonnull typed XCCY settings");
             return value->val_;
@@ -107,7 +170,8 @@ namespace Dal {
     } // namespace
     void XccyScriptContext_New(const Matrix_<Cell_>& settings, Handle_<StorableXccyScriptContext_>* value) {
         using namespace Excel::Calibration;
-        Fields_ f(settings);
+        XccyFields_ f(settings, "XccyScriptContext_New",
+                      {"valuation_time", "pair", "collateral_currency", "discount_route", "fixings", "today_fixing_override"});
         XccyScriptContext_ v;
         v.valuationTime_ = f.Required<DateTime_>("valuation_time");
         v.pair_ = f.Required<Handle_<StorableCurrencyPair_>>("pair")->val_;
@@ -122,7 +186,8 @@ namespace Dal {
     }
     void XccyScriptImportSettings_New(const Matrix_<Cell_>& settings, Handle_<StorableXccyScriptImportSettings_>* value) {
         using namespace Excel::Calibration;
-        Fields_ f(settings);
+        XccyFields_ f(settings, "XccyScriptImportSettings_New",
+                      {"instrument_id", "discount_route", "receive_nonspread_pay_spread", "min_abs_annuity"});
         XccyScriptImportSettings_ v;
         v.instrumentId_ = f.Required<String_>("instrument_id");
         v.discountRoute_ = f.Required<String_>("discount_route");
@@ -133,7 +198,8 @@ namespace Dal {
     }
     void XccyInstrumentCalibrationSpec_New(const Matrix_<Cell_>& settings, Handle_<StorableXccyInstrumentCalibrationSpec_>* value) {
         using namespace Excel::Calibration;
-        Fields_ f(settings);
+        XccyFields_ f(settings, "XccyInstrumentCalibrationSpec_New",
+                      {"context", "domestic_curve_block", "foreign_curve_block", "fx_spot", "knot_dates", "observations", "solver"});
         XccyInstrumentCalibrationSpec_ v;
         v.context_ = f.Required<XccyScriptContext_>("context");
         v.domesticCurveBlock_ = f.Required<Handle_<StorableCurveBlock_>>("domestic_curve_block")->val_;

@@ -18,6 +18,59 @@ namespace {
         }
         return result;
     }
+    Matrix_<Cell_> ExtraXccyField(const Matrix_<Cell_>& fields, const char* key, const Cell_& value) {
+        Matrix_<Cell_> result(fields.Rows() + 1, 2);
+        for (int i = 0; i < fields.Rows(); ++i)
+            for (int j = 0; j < 2; ++j)
+                result(i, j) = fields(i, j);
+        result(fields.Rows(), 0) = key;
+        result(fields.Rows(), 1) = value;
+        return result;
+    }
+    void SwapXccyRows(Matrix_<Cell_>* fields, int first, int second) {
+        for (int j = 0; j < 2; ++j)
+            std::swap((*fields)(first, j), (*fields)(second, j));
+    }
+    template <class T_>
+    void XccyFactoryError(void (*factory)(const Matrix_<Cell_>&, Handle_<T_>*),
+                          const Matrix_<Cell_>& fields,
+                          const char* function,
+                          const char* key,
+                          int row,
+                          int column) {
+        try {
+            Handle_<T_> value;
+            factory(fields, &value);
+            FAIL() << "Expected strict worksheet input rejection";
+        } catch (const Exception_& error) {
+            const std::string text = error.what();
+            ASSERT_NE(text.find(function), std::string::npos);
+            ASSERT_NE(text.find("settings row=" + std::to_string(row) + " column=" + std::to_string(column)), std::string::npos);
+            ASSERT_NE(text.find(std::string("field=") + key), std::string::npos);
+        }
+    }
+    Matrix_<Cell_> XccyContextFields() {
+        const auto spec = TestXccy::Spec();
+        const Handle_<StorableCurrencyPair_> pair(new StorableCurrencyPair_(spec.context_.pair_));
+        return XccyFields({{"valuation_time", Cell_(spec.context_.valuationTime_)},
+                           {"pair", Cell_(StoreXccy(pair))},
+                           {"collateral_currency", Cell_("USD")},
+                           {"discount_route", Cell_("USD.OIS")}});
+    }
+    Matrix_<Cell_> XccySpecFields() {
+        const auto spec = TestXccy::Spec();
+        const Handle_<StorableXccyScriptContext_> context(new StorableXccyScriptContext_(spec.context_));
+        const Handle_<StorableCurveBlock_> domestic(new StorableCurveBlock_(spec.domesticCurveBlock_));
+        const Handle_<StorableCurveBlock_> foreign(new StorableCurveBlock_(spec.foreignCurveBlock_));
+        const Handle_<StorableCalibrationDates_> dates(new StorableCalibrationDates_(spec.knotDates_));
+        const Handle_<StorableCalibrationObservations_> rows(new StorableCalibrationObservations_(spec.observations_));
+        return XccyFields({{"context", Cell_(StoreXccy(context))},
+                           {"domestic_curve_block", Cell_(StoreXccy(domestic))},
+                           {"foreign_curve_block", Cell_(StoreXccy(foreign))},
+                           {"fx_spot", Cell_(1.1)},
+                           {"knot_dates", Cell_(StoreXccy(dates))},
+                           {"observations", Cell_(StoreXccy(rows))}});
+    }
 } // namespace
 
 TEST(ExcelXccyInstrumentTest, TestSolveAndOwnedFailureOutcomes) {
@@ -58,8 +111,6 @@ TEST(ExcelXccyInstrumentTest, TestStrictImportSettings) {
     cells(2, 0) = "unknown";
     ASSERT_THROW(XccyScriptImportSettings_New(cells, &settings), Exception_);
 }
-
-
 
 TEST(ExcelXccyInstrumentTest, TestTypedFactoryRepositoryBridgeAndContextFailure) {
     InitGlobalData();
@@ -102,4 +153,64 @@ TEST(ExcelXccyInstrumentTest, TestTypedFactoryRepositoryBridgeAndContextFailure)
     Calibrate_XccyInstruments(spec, {}, &outcome);
     ASSERT_EQ(outcome->status_, "Failed");
     ASSERT_EQ(outcome->report_->Errors()[0].code_, "UnsupportedCalibrationFixingTime");
+}
+
+TEST(ExcelXccyInstrumentTest, TestImportErrorsFollowActualFieldCells) {
+    auto fields = XccyFields({{"min_abs_annuity", Cell_(true)}, {"instrument_id", Cell_("xccy")}, {"discount_route", Cell_("USD.OIS")}});
+    XccyFactoryError(XccyScriptImportSettings_New, fields, "XccyScriptImportSettings_New", "min_abs_annuity", 1, 2);
+    SwapXccyRows(&fields, 0, 2);
+    XccyFactoryError(XccyScriptImportSettings_New, fields, "XccyScriptImportSettings_New", "min_abs_annuity", 3, 2);
+    fields(2, 1) = 1e-12;
+    const auto valid = fields;
+    fields(1, 1) = 1.;
+    XccyFactoryError(XccyScriptImportSettings_New, fields, "XccyScriptImportSettings_New", "instrument_id", 2, 2);
+    fields = valid;
+    fields(1, 0) = "typo";
+    XccyFactoryError(XccyScriptImportSettings_New, fields, "XccyScriptImportSettings_New", "typo", 2, 1);
+    XccyFactoryError(XccyScriptImportSettings_New, ExtraXccyField(valid, "unknown", Cell_(1.)), "XccyScriptImportSettings_New", "unknown", 4, 1);
+    XccyFactoryError(XccyScriptImportSettings_New, ExtraXccyField(valid, "INSTRUMENT_ID", Cell_("again")), "XccyScriptImportSettings_New",
+                     "INSTRUMENT_ID", 4, 1);
+}
+
+TEST(ExcelXccyInstrumentTest, TestContextErrorsFollowActualFieldCells) {
+    InitGlobalData();
+    Excel::ScriptTestInitialize(1);
+    auto fields = XccyContextFields();
+    const auto valid = fields;
+    const Handle_<StorableXccyScriptImportSettings_> wrong(new StorableXccyScriptImportSettings_({}));
+    fields(1, 1) = StoreXccy(wrong);
+    XccyFactoryError(XccyScriptContext_New, fields, "XccyScriptContext_New", "pair", 2, 2);
+    SwapXccyRows(&fields, 1, 3);
+    XccyFactoryError(XccyScriptContext_New, fields, "XccyScriptContext_New", "pair", 4, 2);
+    fields = valid;
+    fields(0, 1) = true;
+    XccyFactoryError(XccyScriptContext_New, fields, "XccyScriptContext_New", "valuation_time", 1, 2);
+    fields = valid;
+    fields(1, 0) = "typo";
+    XccyFactoryError(XccyScriptContext_New, fields, "XccyScriptContext_New", "typo", 2, 1);
+    XccyFactoryError(XccyScriptContext_New, ExtraXccyField(valid, "unknown", Cell_(1.)), "XccyScriptContext_New", "unknown", 5, 1);
+    XccyFactoryError(XccyScriptContext_New, ExtraXccyField(valid, "PAIR", valid(1, 1)), "XccyScriptContext_New", "PAIR", 5, 1);
+}
+
+TEST(ExcelXccyInstrumentTest, TestSpecErrorsFollowActualFieldCells) {
+    InitGlobalData();
+    Excel::ScriptTestInitialize(1);
+    auto fields = XccySpecFields();
+    const auto valid = fields;
+    fields(1, 1) = fields(4, 1);
+    XccyFactoryError(XccyInstrumentCalibrationSpec_New, fields, "XccyInstrumentCalibrationSpec_New", "domestic_curve_block", 2, 2);
+    SwapXccyRows(&fields, 1, 4);
+    XccyFactoryError(XccyInstrumentCalibrationSpec_New, fields, "XccyInstrumentCalibrationSpec_New", "domestic_curve_block", 5, 2);
+    fields = valid;
+    fields(3, 1) = true;
+    XccyFactoryError(XccyInstrumentCalibrationSpec_New, fields, "XccyInstrumentCalibrationSpec_New", "fx_spot", 4, 2);
+    SwapXccyRows(&fields, 0, 3);
+    XccyFactoryError(XccyInstrumentCalibrationSpec_New, fields, "XccyInstrumentCalibrationSpec_New", "fx_spot", 1, 2);
+    fields = valid;
+    fields(1, 0) = "typo";
+    XccyFactoryError(XccyInstrumentCalibrationSpec_New, fields, "XccyInstrumentCalibrationSpec_New", "typo", 2, 1);
+    XccyFactoryError(XccyInstrumentCalibrationSpec_New, ExtraXccyField(valid, "unknown", Cell_(1.)), "XccyInstrumentCalibrationSpec_New", "unknown",
+                     7, 1);
+    XccyFactoryError(XccyInstrumentCalibrationSpec_New, ExtraXccyField(valid, "CONTEXT", valid(0, 1)), "XccyInstrumentCalibrationSpec_New", "CONTEXT",
+                     7, 1);
 }
