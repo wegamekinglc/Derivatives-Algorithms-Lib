@@ -2,8 +2,10 @@
 
 This is an **incomplete author checkpoint**, not M3 acceptance or a complete
 XCCY MC implementation. Final source execution parity requires DAL-421's
-actual accepted merge. The tighter synthetic node-recovery assertion also
-remains failing; it has not been removed or relaxed. The PR is a draft.
+actual accepted merge. The synthetic recovery test now uses the independently
+accepted nonlinear qualification at the frozen quote resolution. Its original
+unsupported absolute-node assertion and RED logs remain historical evidence.
+The PR is a draft until the execution dependency and complete M3 scope close.
 
 ## Authority and design
 
@@ -53,8 +55,9 @@ advertised derivatives.
   remain in use.
 - `dal-cpp/tests/curve/test_xccy_gaussian_moments.cpp`,
   `test_xccy_gaussian_staged.cpp` and `xccygaussianmomentfixture.hpp`: focused
-  financial, ownership, adapter and refusal controls, including the retained
-  failing node-recovery assertion.
+  financial, ownership, adapter and refusal controls. Recovery-specific helpers
+  retain the independent cashflow reference, node consistency, nonlinear secant
+  qualification and negative controls.
 
 Two bounded adapter details are necessary and need focused review:
 
@@ -128,7 +131,7 @@ maturity 2028-11-06 is rejected by canonical import. The admitted replacement
 2028-11-04 was frozen before fit, with foreign payment 2028-11-07 and basis
 coverage through 2028-11-08. No geometry admission was weakened.
 
-## Remaining synthetic recovery failure
+## Synthetic recovery qualification
 
 The three maturities are 2027-11-04, 2028-05-04 and qualified 2028-11-04.
 The three free logB dates remain 2027-11-08, 2028-05-08 and 2028-11-08;
@@ -136,8 +139,9 @@ target logB=-.003*t, initial=target+.001, and observation errorScale=1e-4.
 Quotes come from independent moments at the frozen dynamics. EXACT accepts
 scaled infinity <=1; neither the quote scale nor solver criterion was changed.
 
-Both FD and AAD fits return within that quote criterion, but the author's
-additional 1e-5 absolute node-recovery assertion fails at the final node.
+At the original checkpoint, both FD and AAD fits returned within that quote
+criterion, but the author's additional 1e-5 absolute node-recovery assertion
+failed at the final node.
 The AAD candidate is approximately
 (-.0031477624753, -.0046486525102, -.0063053062723); the third target is
 -.0061561643836, a discrepancy of about 1.4914e-4. Raw quote residuals are
@@ -146,25 +150,59 @@ The raw Jacobian has rank 3, singular values approximately
 (2.515259, .661692, .000721622), condition 3485.56 and determinant .00120101.
 This is not an underdetermined fit or a failed raw Jacobian.
 
-The 1e-5 node assertion is a stronger author control than the note's explicit
-quote acceptance criterion; it has been retained, rather than silently
-weakened to make the suite green. A bounded coordination decision is needed on
-how to qualify parameter recovery under the frozen quote precision. No hidden
-extra Newton solve, new optimizer, post-fit curve correction or tighter
-internal residual scale has been inserted. The original failing FD and AAD
-outputs and the successful quote-fit report are retained separately.
+The independent critic's accepted qualification establishes that the frozen
+quote acceptance domain cannot imply that extra absolute-node promise. With
+all inputs unchanged, target+(0,0,.001) has scaled quote infinity .234671 and
+still passes EXACT. Full local rank does not make the quote acceptance domain
+a global parameter error bound. ErrorScale is the solver's acceptance scale,
+not rounding of synthetic quotes or a probabilistic noise model.
+
+The revised test preserves every dated node's target, initial, returned value
+and error, verifies improvement from initial on this fixture, and checks the
+returned curve, owned model snapshot and native column labels against those
+parameters. It independently reproduces target quotes, returned values and raw
+Jacobian. For e=returned-target, it integrates the independent Jacobian along
+that segment with composite Simpson rules at 4/8/16 intervals. The coupling
+Jbar*e=f_reference(returned)-f_reference(target) must satisfy the original quote
+scales, with separately controlled refinement and the existing deterministic
+par budget/floor. No per-node upper bound is qualified without a local-domain
+and curvature or interval-inversion certificate.
+
+The canonical C++ regression uses signed exponential cashflow coefficients
+computed from the checkpoint's independent explicit-cashflow oracle, without
+calling the production lowerer, descriptor terms, transition or solver.
+`xccy_gaussian_recovery_reference.py` pins both original input hashes, generates
+at 65/85 digits and requires identical 30-digit coefficient output. The supplied
+original oracle and case JSON are in the evidence bundle. After clang-format,
+regeneration must reproduce `xccygaussianrecoverycashflows.hpp` exactly.
+Basis enters only the deterministic log-linear shifts, so each cashflow's
+exponent load is constant; the frozen coefficient includes its independent
+payment/reset covariance and the original normalized source ratio.
+These are three-row test data, not a second product/pricing authority.
+
+Negative controls accept the weak-direction alternative at quote resolution
+while refusing its 1e-5 label; reject the unchanged initial (scaled infinity
+19.8417), swapped node dates/columns, mixed parameters/curve/value/Jacobian and
+an erased weak column. Raw determinant acceptance remains >1e-4, and direct
+par and native-partial reference checks remain 1e-13 and 1e-10 respectively.
+The latter is the existing par floor divided by the .001 native scale.
+No hidden extra Newton solve, optimizer, curve correction or internal residual
+scale change was inserted. The old FD/AAD failure and real CI logs are retained.
 
 Final same-instrument tree/compiled cashflow parity additionally requires
-DAL-421's actual accepted merge. At the checkpoint read, DAL-421 is still
-in_progress and has no linked PR. No M2 branch has been imported. M3 therefore
-does not earn in_review, and M4/downstream execution is not started.
+DAL-421's actual accepted merge. PR628 has code and documentation approval but
+was still open at the repair's dependency read. No unmerged M2 branch is
+imported. This independent repair does not earn M3 in_review or replace its
+first complete code review or independent V1 acceptance. The final handoff
+records the actual dependency state; downstream execution is not started here.
 
 ## Verification and identity
 
 RED/GREEN logs include the missing moment API; missing explicit staged fields;
 the hard-coded canonical tenor route and correction; logDF report unit and
-correction; and par diagnostic ownership and correction. No assertion was
-deleted or weakened. Fixture/harness errors (initial duplicate instrument IDs,
+correction; and par diagnostic ownership and correction. The recovery assertion
+was subsequently replaced by the explicitly authorized qualification above;
+all frozen direct financial and solver gates remain. Fixture/harness errors (initial duplicate instrument IDs,
 wrong spread-leg quote in the ownership probe, shell glob and compile/include
 errors) are preserved separately from product RED and accepted results.
 
@@ -191,7 +229,7 @@ P0/P3, full benchmark/statistical matrices and native Windows/XLL/workbook
 execution are not rerun or claimed. The PR's one CI snapshot is handed off
 without watching or waiting for external CI.
 
-Final checkpoint commands/results (the evidence contains the complete compiler
+Original checkpoint commands/results (the evidence contains the complete compiler
 and linker argument vectors):
 
 ```text
@@ -228,3 +266,40 @@ prefinal data and are not used as exact-final executable evidence. No required
 run-owned process is left active at handoff. Final publication SHA/CI state are
 in the issue comment and attached identity manifest, not inferred from this
 record's own Git commit.
+
+## Recovery repair verification and reuse
+
+The original executable reproduces the exact third-node RED
+`.00014914188869427029 > 1e-5`. Rebuilding only the affected staged caller with
+the unchanged core archive gives 6/6 staged tests: the four existing cases,
+including the qualified original case, and two new negative-control cases.
+This does not relabel the old 48/49 result as an old all-green run.
+
+A fresh one-fit caller returns exactly the original parameter/value/residual/
+Jacobian arrays, model/plan identities and Fit counts (2 evaluations,
+1 gradient). Diagnostic attempts remain 1/1. No timing or extra diagnostic
+solve is inserted into that call. The local independent 65/85-digit reference
+checks all three rows, averaged Jacobians and their refinement. Its secant
+error is about 1.23e-27 and indicator 1.18e-24; the ordinary C++ caller reports
+about 1.07e-19 and 1.68e-23 respectively. The single endpoint Jacobian would
+miss by 3.49e-9, above the unchanged 1e-12 par budget.
+
+GCC14/15 warning-policy syntax checks cover the changed test and all its new
+headers. CCN<=8, formatting, coefficient regeneration and Markdown/diff checks
+apply to the repair. A validation-only copy replacing the reference arithmetic
+and literals with double also passes the same six cases; this tests the
+53-bit arithmetic boundary, not a Windows compiler or additional distinct tests.
+The initial validation harness run omitted a requested
+Solve Jacobian; its failure is retained separately and corrected by explicitly
+requesting derivatives. An initial Python check likewise assumed a derivative
+on a genuinely passive column; the final check records zero for that column.
+Neither harness error is product RED or a relaxed financial test.
+
+Only test/validation helpers and this active record change. The fixture,
+production sources, solver/scales/budgets, direct numerical thresholds,
+dependencies and core archive match the original checkpoint. Thus its unchanged
+direct moment/gradient, compatibility, ownership and informational performance
+evidence retains its original scope and exact binary identity. This repair does
+not rerun the 49-case scope, 36-case/1,356-gradient oracle matrix, MC/statistical,
+performance, sanitizer or component/install matrices. It claims Linux caller
+execution, not native Windows/XLL/workbook execution or final M3 parity.

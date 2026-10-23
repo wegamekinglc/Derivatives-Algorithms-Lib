@@ -1,8 +1,12 @@
 #include <gtest/gtest.h>
 
+#include <iomanip>
+#include <iostream>
+
 #include <dal/curve/xccygaussianmoments.hpp>
 
 #include "xccygaussianmomentfixture.hpp"
+#include "xccygaussianrecovery.hpp"
 
 using namespace Dal;
 using namespace Dal::TestXccyMoments;
@@ -33,9 +37,7 @@ TEST(XccyGaussianStagedTest, TestExplicitProviderRefreshAndRawJacobian) {
 
 TEST(XccyGaussianStagedTest, TestThreeMaturityIndependentQuotesAndLogBasis) {
     const auto spec = SyntheticSpec();
-    Vector_<> target;
-    for (const auto& date : spec.knotDates_)
-        target.push_back(-.003 * (date - TestXccy::TODAY) / 365.);
+    const auto target = TestXccyRecovery::Target();
     CurveInstrumentCalibrationOptions_ options;
     options.computeQuoteJacobian_ = true;
     options.jacobianMode_ = CalibrationDerivative_::Value_::AAD;
@@ -45,15 +47,92 @@ TEST(XccyGaussianStagedTest, TestThreeMaturityIndependentQuotesAndLogBasis) {
     ASSERT_EQ(result.parameters_.size(), 3U);
     ASSERT_EQ(result.report_->Data().parameters_[0].unit_, "Dimensionless");
     ASSERT_TRUE(result.gaussianModel_);
+    const auto checks = TestXccyRecovery::Qualify(spec, result);
+    ASSERT_TRUE(checks.nodes_);
+    ASSERT_TRUE(checks.values_);
+    ASSERT_TRUE(checks.partials_);
+    ASSERT_TRUE(checks.rank_);
+    ASSERT_TRUE(checks.secant_);
+    ASSERT_TRUE(checks.quotes_);
+    std::cout << "Dimensionless logB recovery at quote scale 1e-4\nDate         Target              Initial             Returned            Error\n";
     for (size_t i = 0; i < target.size(); ++i) {
-        ASSERT_NEAR(result.parameters_[i], target[i], 1e-5);
+        const double error = result.parameters_[i] - target[i];
+        std::cout << Date::ToString(spec.knotDates_[i]) << std::setprecision(12) << std::setw(20) << target[i] << std::setw(20)
+                  << result.initialParameters_[i] << std::setw(20) << result.parameters_[i] << std::setw(20) << error << '\n';
+        ASSERT_DOUBLE_EQ(result.initialParameters_[i], spec.solver_.initialGuessPerNode_[i]);
+        ASSERT_LT(std::abs(error), std::abs(result.initialParameters_[i] - target[i]));
         ASSERT_EQ(result.report_->Axes().observations_[i]->Quote()->Fingerprint(), spec.observations_[i]->Quote()->Fingerprint());
         ASSERT_EQ(result.freeParameters_[i].component_, CurveFreeParameterComponent_::Value_::LOG_DISCOUNT_FACTOR);
     }
-    const auto& j = result.quoteJacobian_;
-    const double determinant = j(0, 0) * (j(1, 1) * j(2, 2) - j(1, 2) * j(2, 1)) - j(0, 1) * (j(1, 0) * j(2, 2) - j(1, 2) * j(2, 0)) +
-                               j(0, 2) * (j(1, 0) * j(2, 1) - j(1, 1) * j(2, 0));
-    ASSERT_GT(std::abs(determinant), 1e-4);
+    std::cout << "Secant error " << checks.secantError_ << "; refinement " << checks.refinement_ << "; scaled move " << checks.scaledMove_
+              << "; node upper bound not qualified\n";
+}
+
+TEST(XccyGaussianStagedTest, TestRecoveryQualificationRejectsFalsePrecisionAndStaleInitial) {
+    const auto spec = SyntheticSpec();
+    CurveInstrumentCalibrationOptions_ options;
+    options.jacobianMode_ = CalibrationDerivative_::Value_::AAD;
+    const PreparedXccyInstruments_ plan(spec, options);
+    auto alternative = TestXccyRecovery::Target();
+    alternative[2] += .001;
+    const auto alternativeChecks = TestXccyRecovery::Qualify(spec, plan.Evaluate(alternative));
+    ASSERT_TRUE(alternativeChecks.Accepted());
+    ASSERT_FALSE(TestXccyRecovery::RecoveredTo1eMinus5(alternative));
+    ASSERT_GT(alternativeChecks.scaledMove_, .23L);
+    ASSERT_LT(alternativeChecks.scaledMove_, .24L);
+    const auto initialChecks = TestXccyRecovery::Qualify(spec, plan.Evaluate(spec.solver_.initialGuessPerNode_));
+    ASSERT_TRUE(initialChecks.nodes_);
+    ASSERT_TRUE(initialChecks.values_);
+    ASSERT_TRUE(initialChecks.partials_);
+    ASSERT_TRUE(initialChecks.rank_);
+    ASSERT_TRUE(initialChecks.secant_);
+    ASSERT_FALSE(initialChecks.quotes_);
+    ASSERT_FALSE(initialChecks.Accepted());
+    ASSERT_GT(initialChecks.scaledMove_, 19.L);
+    std::cout << "Alternative scaled move " << alternativeChecks.scaledMove_ << "; stale initial " << initialChecks.scaledMove_ << '\n';
+}
+
+TEST(XccyGaussianStagedTest, TestRecoveryQualificationRejectsMixedCandidateAndAxes) {
+    const auto spec = SyntheticSpec();
+    CurveInstrumentCalibrationOptions_ options;
+    options.jacobianMode_ = CalibrationDerivative_::Value_::AAD;
+    options.computeQuoteJacobian_ = true;
+    const auto result = CalibrateXccyInstruments(spec, options);
+    ASSERT_TRUE(TestXccyRecovery::Qualify(spec, result).Accepted());
+    {
+        auto wrong = result;
+        std::swap(wrong.freeParameters_[1].date_, wrong.freeParameters_[2].date_);
+        ASSERT_FALSE(TestXccyRecovery::Qualify(spec, wrong).nodes_);
+    }
+    {
+        auto wrong = result;
+        wrong.parameters_[2] += .001;
+        const auto checks = TestXccyRecovery::Qualify(spec, wrong);
+        ASSERT_FALSE(checks.nodes_);
+        ASSERT_FALSE(checks.values_);
+        ASSERT_FALSE(checks.partials_);
+        ASSERT_FALSE(checks.Accepted());
+    }
+    {
+        auto wrong = result;
+        wrong.modelMeasures_[1] += 1e-4;
+        ASSERT_FALSE(TestXccyRecovery::Qualify(spec, wrong).values_);
+    }
+    {
+        auto wrong = result;
+        for (int row = 0; row < 3; ++row)
+            std::swap(wrong.quoteJacobian_(row, 1), wrong.quoteJacobian_(row, 2));
+        ASSERT_FALSE(TestXccyRecovery::Qualify(spec, wrong).partials_);
+    }
+    {
+        auto wrong = result;
+        for (int row = 0; row < 3; ++row)
+            wrong.quoteJacobian_(row, 2) = 0.;
+        const auto checks = TestXccyRecovery::Qualify(spec, wrong);
+        ASSERT_FALSE(checks.rank_);
+        ASSERT_FALSE(checks.partials_);
+        ASSERT_FALSE(checks.Accepted());
+    }
 }
 
 TEST(XccyGaussianStagedTest, TestFinalDerivativeFailureRetainsGaussianCandidate) {
