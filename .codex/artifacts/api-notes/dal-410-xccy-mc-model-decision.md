@@ -241,11 +241,29 @@ its dedicated mapping adapter enumerates the five innovation coordinates
 directly. It must not use the current GSR `MakeMapping` dimension assumption.
 
 R is strictly positive definite; C can be semidefinite at zero vol or limiting
-a. Implement a deterministic rank-aware factorization. Residual entries within
-`64*machine_epsilon*max_diagonal(C)` may be treated as roundoff zero, with a
-zero-matrix special case. Materially negative pivots or incompatible residual
-rows fail, never receive jitter/eigenvalue clipping. AAD through a changing rank
-or zero-vol boundary is not admitted; values and one-sided FD remain possible.
+a. Implement deterministic rank-aware lower-triangular factorization in the
+fixed slot order. **Every reliably computed strictly positive residual pivot
+is retained**, taking its square root and dividing subsequent cross residuals
+by it, however small relative to the largest variance. No positive-volatility
+cutoff, positive-pivot clipping, jitter or eigenvalue clipping is allowed.
+`tau=64*machine_epsilon*max_diagonal(C)` is only a roundoff allowance for
+symmetry, nonpositive residuals in `[-tau,0]`, and residual-row compatibility
+after a zero pivot has been established. It is never a positive-pivot/rank test.
+A nonpositive pivot may become zero only when the kernel/roundoff check supports
+a null direction; materially negative pivots or incompatible null rows fail.
+An uncertain cancellation must be recomputed with scaling or wider arithmetic,
+or fail `CalibrationNumericalFailure`, rather than silently erase a direction.
+An all-zero kernel covariance produces five zero innovations but consumes all
+five slots. AAD through a genuine changing-rank or zero-vol boundary remains
+unavailable; a small positive sigma alone creates no new derivative boundary.
+
+The existing `dal-cpp/dal/math/matrix/covariance.hpp:30` retains strictly positive
+residuals; `dal-cpp/tests/model/test_gsr_multifactor.cpp:141` checks a positive
+variance of 1e-30. These are source precedents, not proof of this new transition.
+The independent kernel/reconstruction control in section 8 must retain, together,
+`C[xd,xd]` approximately 9.7059110693e-17 and `C[xd,Z]` approximately
+-2.3643573161e-10 for sigma_d=1e-8, h=1 and the other base dynamics. Here tau is
+approximately 2.0463630790e-16; treating that positive pivot as zero is forbidden.
 
 Grid = V + all live payment events + all live rate/FX fixings + dynamics
 bucket boundaries strictly before the last required live sample. Accrual
@@ -335,18 +353,41 @@ In general `E[D(P)*S(R)*L(u)]` is not
 Even fixed notionals with P different from the index end T can have rate
 convexity. The correct guarantee has three explicitly different comparisons:
 
-1. **Zero dynamics:** native deterministic, current same-source deterministic
-   fast, new Gaussian fast and MC all agree for every admitted mode/history case.
+1. **Zero dynamics, common support only:** native deterministic, current
+   same-source deterministic fast, independent cashflow oracle, new Gaussian
+   fast and MC agree where **all** admit the same product/history/market/measure.
+   In particular both remaining leg spread annuities must be positive for the
+   legacy calls, even for Price; their other admission checks still apply.
 2. **Nonzero dynamics, eligible FIXED/no-lag coupons:** P=T, canonical fixing
    u<=S, deterministic projection multipliers, plus deterministic or already
    known notionals. Rate T-forward martingales and converted foreign T-forward
    valuation give native/analytic/MC price agreement. This is a useful genuine
-   three-way nonzero-volatility case.
+   three-way nonzero-volatility case within the same legacy common support.
 3. **General nonzero reset/MTM/payment-lag domain:** new same-source Gaussian
    fast agrees with an independent Gaussian cashflow oracle and script MC.
    Report `convexityAdjustment=GaussianFast-NativeDeterministic` as a comparison,
-   not a numerical failure. Native is still a zero-vol/sign/date oracle, not
-   an allegedly exact stochastic reference.
+   not a numerical failure, and only publish that comparison where native is
+   supported. Native is a sign/date/zero-vol oracle in its own admitted domain.
+
+This restriction follows `dal-cpp/dal/curve/xccypricing.cpp:419-420`:
+`XccyContractValues` requires **both** positive remaining spread annuities before
+returning, including for Price. The old script fast provider calls it at
+`dal-cpp/dal/curve/xccyscriptprovider.cpp:145`; a native assertion remains a native
+failure, while this provider owns the wrapped `CalibrationNumericalFailure`
+at `/market`. Do not widen either gate or pretend a refusal is a price.
+
+For the delayed-payment fixture moved to V=2027-11-05, domestic coupons and
+principal are settled but the foreign 2027-11-08 coupon remains. New Gaussian
+Price includes that coupon using its exact historical rate fixing, active
+payment FX and discounting. Its domestic-spread A is zero, so domestic par
+fails `InvalidCalibrationAnnuity`; foreign-spread par is available only if its
+declared sign/floor (and MC denominator confidence gate) passes. Old native/fast
+reject **both** views because the domestic annuity is zero. With V after the last
+payment, new A=B=Price=0, par fails its floor, and the legacy paths still reject.
+These cases use independent outstanding-cashflow oracle -> new moment fast ->
+same-instrument script MC, including zero dynamics. They preserve outstanding
+history dependencies and require no settled-leg history or unused projection
+route. Their Price capability does not imply par or legacy-native capability.
 
 For case 3, a deterministic basis calibration followed by stochastic MC need
 not remain at par. Full same-model **calibration -> MC** closure therefore also
@@ -407,7 +448,9 @@ knot (refine it to bound its numerical indicator) and the Gaussian exponential
 identity. Separately inspect exported source against this cashflow table, so a
 shared matcher/exporter error cannot pass both references. Keep pathwise small
 fixtures that compare the script receiver against explicit realized cashflows
-before comparing expectations. The research's one-payment FX-forward example
+before comparing expectations. Section 8's direct deterministic gate compares
+the two references before MC; neither MC agreement nor an integration indicator
+alone establishes their agreement. The research's one-payment FX-forward example
 is an additional diagnostic/oracle; do not broaden the first complete swap
 matcher to arbitrary FX scripts merely to run it.
 
@@ -451,7 +494,7 @@ Public facade and cross-language names:
 |---|---|
 | `NewXccyGaussianModel(name, spec)` -> typed model handle | `XccyGaussianModel_New(name, spec)` |
 | `ValueXccyInstrumentByMonteCarlo(instrument, model, request)` -> existing owning `CalibrationMonteCarloResult_` | `XccyInstrument_ValueByMonteCarlo(instrument, model, request)` |
-| `XccyMonteCarloRequest_` | typed settings handle; required measure and existing typed sampling, optional snapshot, derivative labels/method and simulation defaults |
+| `XccyMonteCarloRequest_` | typed settings handle; required measure, XCCY phase and existing typed sampling, optional snapshot, derivative labels/method and simulation defaults |
 | Existing staged instrument spec + explicit model-evaluation settings | Additive DAL-409 integration after its merge; preserve deterministic default and frozen solver/observation contracts |
 
 Xccy request intentionally has no generic today policy or independent valuation
@@ -465,6 +508,68 @@ The selected staged implementation uses analytic residuals, so does not add an
 MC optimizer. Existing generic MC calls retain current admission unless an
 explicit XCCY-aware dispatch is subsequently added with equivalent tests.
 
+### Explicit XCCY sampling phase
+
+`XccyMonteCarloRequest_` has required `measureId_`, `phase_` and `sampling_`,
+followed by optional fields. `phase_` is the additive domain enum
+`XccyMonteCarloPhase_`, with canonical tokens `Fit`, `Validation`, `HeldOut`.
+There is **no valid default**: an unset C++ value, omitted Python argument or
+missing/blank Excel field fails before preparation/workers. Generate the enum
+through Machinist with `_NOT_SET` as the invalid C++ default; its three
+`Value_` alternatives use the canonical tokens above. Do not add a field or
+token to the existing shared `CalibrationMonteCarloSampling_`. Existing
+mode/count/seed/version constraints remain; this domain uses
+`dal.mrg32-normal-paths/1`, Precise and no bridge.
+
+The domain range layout is `dal.xccy-gaussian-phase-ranges/1`. Its immutable
+reserved table is in section 8. There is no public offset/range override in /1:
+phase selects the reservation start, requested batch count times paths per
+batch selects its prefix, and each batch is the next contiguous subrange.
+Analytic staged fitting consumes no paths but retains the Fit reservation;
+an explicit standalone MC diagnostic may select Fit. Every result reports the
+phase, range-layout version, actual path ranges and scalar-coordinate ranges.
+
+Checked preparation validates positive integer counts (at least two batches
+of two paths), their product, phase capacity, and every add/multiply for path
+endpoints and `p*D` before allocation/seeking. Require endpoints to fit the
+actual RNG/index types as well as size_t; overflow is
+`InvalidCalibrationPlan` at `/sampling`, capacity exhaustion is
+`CalibrationBudgetExceeded` at `/sampling`. Invalid/unset phase is
+`InvalidCalibrationPlan` at `/phase`, with actual token and accepted tokens.
+Prepared-range or mapping identity mismatch is `CalibrationContextMismatch`
+at `/sampling/ranges` or `/sampling/mapping`; overlapping independent ranges
+are `InvalidCalibrationPlan` at `/sampling/ranges`. No truncation, wrap, clamping,
+hidden seed change or phase inference from call order/global state is allowed.
+For an all-expired deterministic view with D=0, retain the requested phase and
+reservation but consume/report zero random coordinates; do not divide by D or
+claim independent draws from identical empty coordinate ranges.
+
+Preparation owns a checked reservation ledger. Its sampling identity includes
+phase/layout, counts, seed, generator/stream/normal versions, D, actual ranges
+and the complete mapping hash. The enclosing prepared context also binds the
+source/measure/history/model identities. Validation and HeldOut with identical
+16x16384/seed1024 sampling therefore select different ranges and identities;
+repeating one phase is deterministic. A/B, tree/compiled and qualified AAD/CRN FD
+reuse the same range identity deliberately; independent phases may not overlap.
+Numeric model refresh may retain a compatible mapping for CRN while recording
+a new model context. A new grid/D requires a new checked mapping, not a reused
+seek offset. Across a basket require the section-8 union mapping or an explicit
+prepared disjoint coordinate allocation; if no such allocator is implemented,
+reject mixed mappings. No second freeform offset input is introduced.
+
+Python uses required keyword `phase="Validation"` and Excel's typed request
+factory uses required `phase` beside `measure_id` and `sampling`. C++ unset,
+unknown phase tokens (including generated enum parse failures), and semantic
+range errors use the owning codes/paths above. Python preserves these through
+the existing `CalibrationError` translator; omission of its required argument
+is a binding `TypeError` naming `phase`, not an invented C++ diagnostic. Excel
+maps missing/blank or invalid phase to `InvalidCalibrationPlan` at `/phase`,
+adds the factory/argument name (and row/column for table errors), and preserves
+range-error codes/paths. Phase is not also accepted in optional two-column
+options; reject that duplicate input channel as an unknown option.
+Phase/range identity must be exposed through a versioned XCCY result/report
+extension; do not silently add columns to existing /1 tables.
+
 Typical future Python use, assuming a previously imported/fitted instrument,
 market spec and dynamics; this is an API sketch, not executed code:
 
@@ -472,7 +577,8 @@ market spec and dynamics; this is an API sketch, not executed code:
 model = dal.XccyGaussianModel_New(
     "usd-eur", dal.XccyGaussianModelSpec_(market=market, dynamics=dynamics))
 request = dal.XccyMonteCarloRequest_(
-    measure_id="Price", sampling=validation_sampling, fixings=frozen_fixings)
+    measure_id="Price", phase="Validation", sampling=validation_sampling,
+    fixings=frozen_fixings)
 value = dal.XccyInstrument_ValueByMonteCarlo(instrument, model, request)
 price, standard_error = value.mean, value.standard_error
 ```
@@ -507,6 +613,8 @@ Changing K/N uses immutable rebind; changing payment/source/history/model create
 a checked new plan or an explicitly supported numeric refresh. Model and mapping
 identities must be reported separately; economic Brownian registry has size 3,
 exact innovation width is 5. The old GSR mapping identity is never reused.
+Phase/range-layout and actual range identities additionally bind the sampling
+execution as specified above; they are distinct from the economic model hash.
 If report tables need additive columns, evolve the report schema explicitly
 under DAL-398 rather than silently changing /1 columns or execution meanings.
 
@@ -572,9 +680,11 @@ Required cases:
   all section-3 discounted martingales. Cross-check a Qf independent valuation. Flip each
   correlation sign and basis sign separately; inspect conditional FX forwards.
 - Zero all sigmas: every path and analytic coefficient equals the independent
-  deterministic cashflow table, native and existing fast (Price absolute 1e-10,
-  spread 1e-12, raw partials 1e-8 at ordinary fixture scale). Do not extend
-  these absolute tolerances to arbitrarily ill-conditioned notional ratios.
+  deterministic cashflow table. Compare native and existing fast only in
+  section 5's common support (Price absolute 1e-10, spread 1e-12, raw partials
+  1e-8 at ordinary fixture scale). One-leg-settled/all-expired Price and par
+  refusal use the independent oracle/new-fast/MC chain and separately assert
+  legacy refusal. Do not extend these tolerances to ill-conditioned ratios.
 - Nonzero FIXED/no-lag: three-way native/analytic/MC comparison, at multiple
   correlations and nonzero basis. General lag/reset/MTM: independent moments vs
   analytic vs script MC, with native convexity discrepancy separately visible.
@@ -583,12 +693,23 @@ Required cases:
   missing, t=V supplied, t=V empty, t=V omitted with conflicting global same-time,
   future snapshot ignored, and payment-SPOT vs reset-FIX distinction all tested.
   Change globals after Prepare and between CRN bumps; results must stay frozen.
+  Include V=2027-11-05 and a V after 2027-11-08, with Price/par and both spread
+  legs distinguished as in section 5; do not demand an unavailable native value.
 - Reverse orientation doubles as a sign oracle; toggling either principal,
   moving a payment, mutating a reset FX identity or rebinding K/N must change
   the one source and all applicable backends, or fail complete matching.
 - Nonzero correlation/FX-only limits, a->0, zero basis, zero sigmas and covariance
   rank limits; invalid PD/currency/coverage/custom/intraday inputs fail before
   execution. Direct FX reciprocal is checked pathwise, not by reciprocal means.
+- Small positive variance with cross terms: use section 3's sigma_d=1e-8, h=1
+  control alongside ordinary/zero-vol limits. Independent high-precision kernels
+  must agree with C and L*L^T entrywise after normalization by
+  `sqrt(Ckernel[i,i]*Ckernel[j,j])`, within 1e-12. Exact kernel-zero rows must
+  remain zero; do not divide them by zero or use the largest variance as a floor.
+  Both the positive xd pivot and nonzero xd/Z cross term must survive. A mutant
+  that zeroes positive pivots below global tau must fail reconstruction or
+  admission, not redefine the fixture as unsupported. Keep all five slots;
+  interior small-sigma AD/FD remains qualified where perturbations stay positive.
 - Same-model staged synthetic calibration: generate three maturities' quotes
   from independent moments at frozen dynamics and a three-free-node log-basis
   target at 2027-11-08, 2028-05-08 and 2028-11-08, anchored at V, with target
@@ -606,20 +727,110 @@ canonical matching, record and replace the invalid fixture **before** observing
 fit/MC results; do not weaken geometry admission. This is fixture qualification,
 not a financial open question or permission to move acceptance thresholds.
 
+### Direct deterministic reference gate
+
+Before any MC comparison, compare same-source GaussianFast with the independent
+cashflow/Brownian-kernel oracle for **A and B separately**, Price at the source
+K, eligible par, and the selected native partials below. This applies to both
+spread legs, directions and all three modes, zero/nonzero dynamics and admitted
+history/lag cases. It does not require legacy pricing outside common support.
+For the ordinary N=110 USD / Nf=100 EUR fixtures, freeze these absolute budgets:
+
+| Quantity X | Unit                   | Tdet_X | epsilonDet_X |
+|------------|------------------------|--------|--------------|
+| B, Price   | USD                    | 1e-10  | 1e-11        |
+| A          | USD per decimal spread | 1e-10  | 1e-11        |
+| par        | Decimal spread         | 1e-12  | 1e-13        |
+
+These are fixed fixture tolerances, not a general notional-scaling rule.
+For each quantity retain both computed values and independently measurable
+numeric indicators in that quantity's unit:
+
+- `eOracle_X`: independently integrate each Brownian kernel at 45, 65, 85
+  decimal digits, with per-entry quadrature targets 1e-30, 1e-45, 1e-60 times
+  `max(1,abs(entry))` in that entry's native units, respectively. Bisect each
+  knot interval at each refinement. Use four times the larger successive
+  final-X difference. Record precision, targets, subdivision and all three values. Oracle
+  cashflow formulas remain independent of the exporter/lowerer/model/factorizer.
+- `eFastNumeric_X`: evaluate the fast route's source-derived terms and its own
+  closed-form kernels in wider arithmetic (50 then 80 digits). Use four times
+  the larger of double-vs-50 and 50-vs-80 final-X differences. This diagnostic
+  may reuse its lowering; it must not replace the independent cashflow oracle
+  or use the oracle difference as its numeric allowance. Cancellation belongs
+  in this indicator, not a larger MC tolerance. Wider replay/differentiation is
+  validation tooling for the fast algebra, not a public multiprecision API.
+
+Require separately `eOracle_X <= Tdet_X/4`,
+`eFastNumeric_X <= Tdet_X/4`, and
+
+```text
+abs(Xfast-Xoracle) <= eOracle_X + eFastNumeric_X + epsilonDet_X <= Tdet_X
+```
+
+These refinement indicators are observed numerical controls, not rigorous
+probability/error bounds. Failure to obtain stable indicators fails the gate;
+neither missing indicators nor an implementation without the diagnostic earns
+a pass. Freeze the oracle code, refinement policy and thresholds before running
+the implementation. Price must also equal B+K*A within its deterministic
+budget. Par uses -B/A with the same sign/floor; if either reference fails the
+annuity condition, compare that refusal and A/B/Price, not a fabricated ratio.
+An ill-conditioned par cannot borrow a looser gate from its Price budget.
+
+For each selected interior spot, discount/projection/basis logDF node and
+rate/FX-sigma coordinate, use section 8's parameterScale in its native unit.
+For X in A, B, Price and eligible par set
+`Tdet_gX=Tdet_X/parameterScale` and
+`epsilonDet_gX=epsilonDet_X/parameterScale`, with units X per native parameter.
+Compare analytic fast AD directly with independent high-precision oracle FD at
+h, h/2, h/4 (`h=1e-3*parameterScale`); its indicator includes oracle precision
+refinement and four times the larger successive FD difference. The fast
+gradient numeric indicator compares its AD at double/50/80 digits as above.
+If an interior coordinate's h crosses a domain bound, first halve h until
+both perturbations are admissible, recording that deterministic rule and h;
+keep parameterScale and thresholds fixed. Small positive sigma is not a cutoff.
+Each gradient indicator must be <=Tdet_gX/4 and the same direct inequality
+holds for gradients. Apply the complete snapshot Jacobian chain. At zero vol,
+genuine rank change, bounds or a failed annuity gate, qualify one-sided FD or
+report DerivativeUnavailable; do not assert interior two-sided equivalence.
+R/a and calibrated quote-risk are outside this selected partial qualification.
+
+The required **payment-lag-only negative control** preserves source dates,
+discounting, quanto and all other terms, but omits only the lag covariance in
+the candidate expectation. For the fixed foreign coupon, let q be its log
+projection-bond ratio at fixing and w(t)=log(S(t)/Nd(t)); replace only
+`Cov(q,w(P))` by `Cov(q,w(T))`, where P is actual payment and T the index end.
+All means, variances and other cross terms stay intact. It must fail this direct
+gate on the base foreign coupon/Price (and B at K=0). The independent design
+calculation reports about -2.3401625053e-5 USD for the 100 EUR coupon's lag
+convexity, far above 1e-10 USD but below the MC .0025 USD budget. V1 must
+qualify this mutant against the
+actual normalized source fixture; that design calculation is not a product
+test. Passing two separate MC comparisons cannot replace this assertion.
+
 ### Sampling, parity, precision and derivatives
 
 Use the existing MRG32 pseudorandom/Precise normal stream, seed 1024 and its
-versioned stream implementation. Reserve maximum phase ranges in **normal-vector
-path ordinals** before any run: fit [0,262144), independent validation
-[262144,1310720), held-out [1310720,2359296). Initially use their prefixes
-[0,65536), [262144,524288), [1310720,1572864), respectively, each divided into
-16 equal batches. Analytic fit consumes no random paths but reserves its range.
-For a mapping of
+versioned stream implementation. The request's explicit phase selects the
+maximum reserved range in **normal-vector path ordinals** before any run:
+
+| Phase token | Reserved half-open range | Initial prefix    | Initial batches x paths |
+|-------------|--------------------------|-------------------|-------------------------|
+| Fit         | [0,262144)               | [0,65536)         | 16 x 4096               |
+| Validation  | [262144,1310720)         | [262144,524288)   | 16 x 16384              |
+| HeldOut     | [1310720,2359296)        | [1310720,1572864) | 16 x 16384              |
+
+Analytic fit consumes no random paths but reserves its range. For a mapping of
 dimension D, path p occupies coordinates [pD,(p+1)D). Same instrument/mapping
 uses the same normals for A/B, tree/compiled, AAD and CRN FD; never seek by just
 path ordinal with a different D. Across a basket use one prepared union grid
 and five-slot layout, or allocate disjoint **coordinate** ranges per mapping;
 reject mixed-D reuse if neither is implemented. Report all ranges and hashes.
+First run deterministic selector tests: identical sampling with Validation and
+HeldOut must yield their different prefixes; repeats and reversed call order
+must yield identical phase-specific traces. Assert checked refusal for unknown
+phase, reservation overrun, count/coordinate overflow, overlapping independent
+ranges, and stale mapping/D. Permit only declared CRN reuse. These assertions
+operate before RNG draws and apply equally through C++, Python and Excel.
 
 Predeclare refinement with twice then four times the per-batch paths, maximum
 2,359,296 paths per mapping across all three reserved phases. Enlarging fit
@@ -628,9 +839,12 @@ range and publish the actual offsets. Do not adapt fit to validation draws.
 These are candidate budgets, not a claim they already achieve precision.
 
 At N=110 freeze `sPrice=.01 USD`, `sSpread=1e-4`, k=3, nu=nuG=.25,
-epsilonPrice=1e-10, epsilonSpread=1e-12. Numerical oracle refinement indicator
-eFast must be <=.01*s_measure, so it cannot absorb a model mismatch. For each
-comparison to analytic or independent reference enforce separately:
+epsilonPrice=1e-10, epsilonSpread=1e-12. Only after the direct deterministic gate
+passes, set eFast to the relevant reference's measured **value** numeric indicator
+above, additionally <=.01*s_measure. Gradient comparisons use their separate
+eFD indicator in gradient units below. Neither is the fast-vs-oracle discrepancy
+or a model-error allowance. For each MC comparison to analytic or independent
+reference enforce separately:
 
 ```text
 SE = sampleSD(equal-sized batch means)/sqrt(16)
@@ -669,8 +883,13 @@ not smuggled into this partial-risk qualification.
 
 Required negative controls remove the quanto drift, change Pf/B to Pf*B, merge
 payment SPOT with supplied at-V reset FIX, omit a fixing-grid date, consume an
-extra normal vector, and substitute Price SE for gradient SE. Each must fail
-its intended independent assertion without changing the real implementation.
+extra normal vector, and substitute Price SE for gradient SE. The extra-normal
+mutant must fail deterministic interval/slot/path scalar-coordinate consumption,
+range and mapping-hash trace assertions: unchanged marginal means/SE cannot
+reliably detect it. The wrong-SE mutant uses a prequalified batch-gradient
+summary whose price and gradient dispersions differ. Each must fail its intended
+independent assertion without changing the real implementation. Include the
+positive-pivot and payment-lag-only controls specified above.
 An insufficient-budget case must retain estimates and fail precision; source
 mutation tests must not manually synchronize a second product to help pass.
 
@@ -712,12 +931,12 @@ they are planning ranges, not measured performance or fixed commitments.
 
 | Task / dependencies | Safe write area and acceptance | Estimate |
 |---|---|---|
-| M1: frozen market/dynamics and exact model; this decision accepted | New `dal-cpp/dal/model/xccygaussian*`, narrow `model/factory.hpp` case, owning archive registration and model tests. Exact transition/bond/martingale tests, zero-vol/rank and a=0; no global hybrid guard change. | 5-8 days |
+| M1: frozen market/dynamics and exact model; this decision accepted | New `dal-cpp/dal/model/xccygaussian*`, narrow `model/factory.hpp` case, owning archive registration and model tests. Exact transition/bond/martingale tests, zero-vol/rank, small positive variance plus cross-term reconstruction and a=0; no global hybrid guard change. | 5-8 days |
 | M2: XCCY observations and same-source execution; M1 | Dedicated script XCCY planner/provider, minimal shared preparation hooks and tests; all section-4 policies, complete matcher/event authority, tree/compiled pathwise cashflow identity. Coordinate shared files serially with other model/script work. | 3-5 days |
-| M3: Gaussian moments and model-matched staged basis; M1, merged DAL-409; execution parity after M2 | Source-derived moment lowerer/evaluator and additive staged evaluation selection; no second solver. A/B/native basis chain, synthetic fit and convexity disclosure. New product files first; coordinator arranges narrow shared adapter window. | 4-6 days |
-| M4: MC mapping/statistics/native partials; M2, analytic reference from M3 | Five-slot innovation registry, versioned numeraire/mapping, disjoint ranges, owning results, ratio covariance and selected AAD. Reuse statistics, not GSR RefreshG/labels or identity. No MC optimizer expansion. | 3-5 days |
-| M5: public C++/Python/Excel and examples; M1-M4 contracts stable, DAL-409 merged | New typed model/spec/request, snapshot semantics, GIL/handle/report checks, explicit stochastic staged selection, separate public example and necessary current-state docs. No changes to existing core example locations/purpose. | 2-4 days |
-| V1: independent numerical acceptance; M2-M4 available, M5 for boundary checks | Independent cashflow/moment/Qf oracle, qualified negative controls, fixed-input value/gradient parity+precision, budget and historical failures. Record exact sources/dependencies/config/executable identities; no self-oracle acceptance. | 4-6 days |
+| M3: Gaussian moments and model-matched staged basis; M1, merged DAL-409; execution parity after M2 | Source-derived moment lowerer/evaluator and additive staged evaluation selection; no second solver. A/B/native basis chain, direct deterministic oracle budgets/diagnostics, synthetic fit and convexity disclosure. Native comparisons only in common support. New product files first; coordinator arranges narrow shared adapter window. | 4-6 days |
+| M4: MC mapping/statistics/native partials; M2, analytic reference from M3 | Five-slot innovation registry, explicit phase/range layout and checked identity/coordinate ledger, owning results, ratio covariance and selected AAD. Same-sampling different-phase and overflow/overlap/stale-mapping controls. Reuse statistics, not GSR RefreshG/labels or identity. No MC optimizer expansion. | 3-5 days |
+| M5: public C++/Python/Excel and examples; M1-M4 contracts stable, DAL-409 merged | New typed model/spec/request with required phase and no offset override, snapshot semantics, owning cross-language phase/range errors and versioned reports, GIL/handle checks, explicit stochastic staged selection, separate public example and necessary current-state docs. No changes to existing core example locations/purpose. | 2-4 days |
+| V1: independent numerical acceptance; M2-M4 available, M5 for boundary checks | Independent cashflow/moment/Qf oracle; direct deterministic A/B/Price/par/partial gates before MC, small-positive and lag-only mutants; phase/coordinate trace controls; common-support native checks plus one-leg-settled/all-expired Price/par/refusal cases; fixed-input MC parity+precision+combined gates, budget and historical failures. Record exact sources/dependencies/config/executable identities; no self-oracle acceptance. | 4-6 days |
 
 Total roughly 21-34 engineer days, with M2/M3 able to proceed in separate files
 after M1 and final numerical validation dependent on both. M4's shared MC hooks
