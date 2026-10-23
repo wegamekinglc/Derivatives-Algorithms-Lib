@@ -322,8 +322,10 @@ acceptance, retaining numerics=false and budget exhaustion. At x4:
 | MTM, nonflat/bucketed | -3.697739139368145 | .05588455163397504 | .06805259314427302 | .0010058798132338033 |
 
 The frozen limits remain .0025 USD and .000025. All selected spot/basis
-gradient parity, precision and combined gates pass at all three prefixes:
-2, 2 and 5 native coordinates respectively. Other native parameters and other
+gradients pass parity and precision; all pass combined at x4, with 2, 2 and 5
+native coordinates respectively. Nonflat x1 spot par-gradient combined fails:
+.002999688863758609 > .0025, despite precision .002428724569543727 passing.
+That prefix failure remains in the raw report. Other native parameters and other
 statistical combinations are not inferred from this subset. Full paired
 covariance and signed denominator confidence pass independent reconstruction.
 The strict matrix command exits 1 after preserving all estimates.
