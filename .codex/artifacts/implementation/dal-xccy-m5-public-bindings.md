@@ -119,7 +119,9 @@ not independent financial acceptance.
 
 The first direct-core Python probe was a second static extension. It could
 not share initialized convention state, including after an attempted separate
-initialization; both failed logs are retained. The final test-only native
+initialization. The original first log/XML were later overwritten by final
+verification; its tool-returned excerpt and the complete second failed log
+are supplied, with that distinction explicit. The final test-only native
 entry point lives in the tested `_dal` runtime and calls `PreparedXccyMc_`
 directly with the same copied input. All 18 mode/measure/phase cases execute;
 none is skipped. The probe is enabled when Python tests are enabled, including
