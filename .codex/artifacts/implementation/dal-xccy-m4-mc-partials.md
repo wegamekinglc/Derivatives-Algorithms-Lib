@@ -21,6 +21,9 @@ script, independent schedule, financial matcher or global lookup is retained.
 Complete admission is preserved. Canonical unbounded coupons use K=0/1;
 bounded coupons use two admissible distinct values and recover A/B by the
 affine identity. A nonrepresentable coefficient interval fails explicitly.
+Each path screens the gross-cashflow summation/subtraction rounding scale
+before accepting its coefficients. Unresolved legal bindings fail with an
+owning numerical diagnostic, preserving the admitted bounds.
 
 The dedicated mapping enumerates `xd,xf,Id,If,Z` for each advancing interval,
 using the accepted M2/M1 grid. Its numeraire is
@@ -99,6 +102,13 @@ return numerical-validation failure; there is no tolerance relaxation or
 automatic path extension. A bare estimate report makes no numerical acceptance
 claim. AAD reports own native parameter axes and the raw Jacobian; this is
 not calibrated quote risk.
+
+Validation eligibility checks the actual Validation reservation, estimator
+flags, exact ledger/mapping, recorded ranges/counts and owning source context.
+Fit and HeldOut results remain distinct. HeldOut evaluation is supported;
+this Validation-only statistical entry point retains the shared validator's
+HeldOut refusal. Same-phase par comparisons derived from the owned paired
+Price batches remain eligible without changing phase or drawing new paths.
 
 ## RED/GREEN evidence
 
@@ -326,3 +336,105 @@ a new execution. Test-only compilation changes require no new performance or
 large-path matrix. The x1/x2/x4 precision/combined failures and `numerics=false`
 remain unchanged. New-head CI is reported separately and cannot inherit
 old-head success.
+
+## First-review P2 repair
+
+The repair starts at PR630 head
+`430901129de8af531175bb4001433cab83ca3802`. The original reviewer probe is
+retained byte-for-byte, with source/output paths adapted separately for local
+execution. It reproduces both failures: adjacent legal coupon bindings publish
+finite A=0/B=-3.7225150310917972 with SE=0, and a real Fit result is accepted
+as independent Validation. Four focused regressions also reproduce RED before
+the production change, including missing Validate-stage/source ownership.
+
+### Coupon subtraction resolution
+
+The implementation retains the same two legal immutable bindings, source
+evaluations, normal vectors and A/B arithmetic. For each view, it additionally
+collects the absolute discounted-payment sum. With n payments and machine
+epsilon e, its final-summation rounding scale is `(1+2*n)*e*sum(abs(payment))`.
+The two scales plus `e*(abs(PVlow)+abs(PVhigh))` form R for the subtraction.
+Acceptance requires finite R and
+`R <= sqrt(e)*max(Khigh-Klow,abs(PVhigh-PVlow))`. This is a local floating-point
+conditioning screen; direct independent value/partial gates continue to
+qualify successful results. It changes no financial annuity floor or frozen
+Monte Carlo precision budget.
+
+Unresolved coefficients fail `CalibrationNumericalFailure` at
+`/execution/affine_coefficients`, stage Evaluate, with the actual rounding and
+resolution values and the cancellation cause. The outer execution boundary
+owns the source/measure diagnostic, report and actually validated model
+candidate. It returns no fabricated coefficient/SE or financial zero-annuity
+classification. Nonfinite A/B retain their original `/execution/payment`
+failure. The passive screen records no AAD operations or extra paths.
+
+Regressions cover both backends, `[.001,nextafter(.001,+infinity)]` and a
+distinct narrow interval, input destruction and AAD suffix cleanup. The
+ordinary `[.0005,.002]` and unbounded comparisons remain within their existing
+1e-10 value and 1e-8 native-partial/SE checks, including both AAD backends.
+Expired narrow-bound Price retains A=B=0, D=0 and zero draws; true annuity
+refusals and one-leg-settled Price remain covered.
+
+### Actual validation provenance
+
+`ValidateXccyMc` now consumes the original estimate by const reference. It
+requires phase Validation, validation=true and heldOut=false before invoking
+the shared statistics. The existing complete ledger checker validates the
+reservation using explicit identical-ledger reuse; this does not assert
+independence for D=0. Estimator ranges, batches, paths, consumed coordinates
+and engine counts must match the checked reservation and owning report.
+Source/model/plan context and mapping identities must agree as well.
+
+The existing mapping fingerprint is extracted unchanged into the M4-private
+`MappingIdentity` helper in `xccymc_internal.hpp`/`xccymcvalidation.cpp`, shared
+by production and eligibility checks. This avoids duplicating canonical
+serialization while detecting stale coordinate/timeline content. No public
+header, phase table, RNG, shared sampling type or report wire version changes.
+
+All source/reference failures preserve their code, field, expected/actual and
+cause while owning Validate stage, instrument/measure and the original report
+snapshot after input destruction. The boundary preserves any original candidate
+and fabricates none. A valid Validation comparison succeeds; real Fit,
+inconsistent flags, stale ledgers/mappings/context/counts and mixed reports
+are rejected. HeldOut evaluation retains its own flags and disjoint prefix,
+and remains ineligible for this Validation-only function. The existing paired
+Price-to-par reference comparison is explicitly retained.
+
+The controlled combined-gradient unit example now obtains its provenance from
+an actual Validation run before installing its original synthetic statistics.
+Its numerical values, precision settings and all original assertions are
+unchanged. The first combined test run exposed its formerly missing phase/
+ledger, and that failure is retained separately.
+
+### Repair checks and applicability
+
+The unchanged original probe is GREEN on the rebuilt archive: both narrow
+backends refuse numerically and Fit is rejected. The final focused runner
+passes **21/21: 17 existing directly affected cases and four new regressions**.
+This count is distinct from the predecessor's full 21-case runner. It includes
+native AAD/CRN/reference checks, paired Price/par statistics, ordinary bounds,
+history/source rebinding, true zero annuity/expiry, numerical budget failure,
+source provenance and tape/owning boundaries. The exact-coordinate/extra-normal
+control checks the shared mapping helper's direct impact.
+A prepare-only caller also matches mapping, reservation, plan, model,
+instrument and dimension against all three retained x1/x2/x4 profiles. It
+performs no Monte Carlo evaluation or resampling.
+
+GCC14/15 run the existing scoped warning exclusions with Werror on the two
+changed production TUs and two test TUs. CCN<=8, formatting, Markdown and diff
+checks apply to the repair. The equal-mantissa syntax policy retains the
+Windows test guards, unconditional independent literals and final empty-tape
+assertion; it is not native MSVC evidence. No markup/generated file changed,
+so generation is not rerun. A local first build's missing explicit conversion
+of diagnostic text to `String_` is retained as a compilation error, not product
+RED or an accepted check.
+
+The rebuilt archive and new runners have new recorded identities. Unchanged
+M1/M2/M3, statistics, RNG, fixtures, compiler configuration and dependencies
+are recorded for scoped evidence reuse. Prior x1/x2/x4 raw outputs remain
+historical observations of their actual binaries: parity true, precision/
+combined/numerics false and budgetExhausted true. No long-path sampling or
+gradient qualification is newly executed or claimed. These two fixes do not
+satisfy the frozen M4 precision/combined conditions or independent V1. No
+matrix, sanitizer, performance, install, public/binding or downstream run is
+started for this repair. Current-head CI and limited P2 review remain separate.

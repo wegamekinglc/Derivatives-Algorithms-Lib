@@ -68,17 +68,7 @@ namespace Dal {
             }
             Check(mapping.normalCoordinates_.size() == mapping.dimension_, "CalibrationContextMismatch", "/sampling/mapping",
                   "five explicit innovation coordinates per advancing interval");
-            mapping.identity_ = Fingerprint(Obj({{"layout", Str(model.LayoutVersion())},
-                                                 {"numeraire", Str(mapping.numeraire_)},
-                                                 {"clock", Str("ACT365F")},
-                                                 {"seed", Num(seed)},
-                                                 {"generator", Str(mapping.generator_)},
-                                                 {"normal", Str(mapping.normalPrecision_)},
-                                                 {"bridge", Bool(false)},
-                                                 {"stream", Str(mapping.streamVersion_)},
-                                                 {"dimension", Str(OrdinalText(mapping.dimension_))},
-                                                 {"timeline", Array(mapping.timeline_, [](double t) { return Num(t); })},
-                                                 {"coordinates", Array(mapping.normalCoordinates_, [](const auto& c) { return Str(c); })}}));
+            mapping.identity_ = XccyMcInternal::MappingIdentity(mapping);
             return mapping;
         }
         [[noreturn]] void OwnFailure(const Handle_<CalibrationInstrument_>& instrument,
@@ -95,11 +85,31 @@ namespace Dal {
                 __FILE__, __LINE__, __func__,
                 std::make_shared<const CalibrationFailure_>(CalibrationFailure_{diagnostic, report, Handle_<Storable_>(candidate)}));
         }
-        template <class T_> T_ Price(const Script::PreparedXccyScript_& script, const Script::XccyScriptPath_<T_>& path, bool compiled) {
-            T_ result(0.);
-            for (const auto& payment : script.EvaluatePayments(path, compiled))
-                result += payment.discountedAmount_;
+        template <class T_> struct PathPrice_ {
+            T_ value_{0.};
+            double roundingBound_ = 0.;
+        };
+        template <class T_> PathPrice_<T_> Price(const Script::PreparedXccyScript_& script, const Script::XccyScriptPath_<T_>& path, bool compiled) {
+            PathPrice_<T_> result;
+            const auto payments = script.EvaluatePayments(path, compiled);
+            for (const auto& payment : payments) {
+                result.value_ += payment.discountedAmount_;
+                result.roundingBound_ += std::abs(Value(payment.discountedAmount_));
+            }
+            result.roundingBound_ *= (1. + 2. * static_cast<double>(payments.size())) * std::numeric_limits<double>::epsilon();
             return result;
+        }
+        template <class T_> void RequireResolved(const PathPrice_<T_>& low, const PathPrice_<T_>& high, const CouponViews_& views) {
+            const double epsilon = std::numeric_limits<double>::epsilon();
+            const double rounding = low.roundingBound_ + high.roundingBound_ + epsilon * (std::abs(Value(low.value_)) + std::abs(Value(high.value_)));
+            const double resolution = std::sqrt(epsilon) * std::max(views.high_ - views.low_, std::abs(Value(high.value_) - Value(low.value_)));
+            CalibrationDiagnostic_ diagnostic;
+            diagnostic.message_ = "Admissible coupon price subtraction cannot resolve affine coefficients above floating-point cancellation";
+            Check(std::isfinite(rounding), "CalibrationNumericalFailure", "/execution/affine_coefficients", "finite gross cashflow rounding bound",
+                  "nonfinite rounding bound", diagnostic);
+            Check(rounding <= resolution, "CalibrationNumericalFailure", "/execution/affine_coefficients",
+                  "cashflow rounding bound within sqrt(machine epsilon) coefficient resolution",
+                  String_("rounding_bound=" + Jcs(Num(rounding)) + "; resolution=" + Jcs(Num(resolution))), diagnostic);
         }
         template <class T_> std::unique_ptr<AAD::RecordingScope_> Recording() {
             if constexpr (std::is_same_v<T_, AAD::Number_>) {
@@ -170,11 +180,13 @@ namespace Dal {
                                                         CalibrationMcResult_* estimate) {
                 if constexpr (std::is_same_v<T_, AAD::Number_>)
                     recording_->Restore(*checkpoint_);
-                T_ lowRoot = Price(zero, zero_.GeneratePath(normals), compiled);
-                T_ aRoot = (Price(unit, unit_.GeneratePath(normals), compiled) - lowRoot) / (views.high_ - views.low_);
-                T_ bRoot = lowRoot - views.low_ * aRoot;
+                const auto low = Price(zero, zero_.GeneratePath(normals), compiled);
+                const auto high = Price(unit, unit_.GeneratePath(normals), compiled);
+                T_ aRoot = (high.value_ - low.value_) / (views.high_ - views.low_);
+                T_ bRoot = low.value_ - views.low_ * aRoot;
                 const double b = Value(bRoot), a = Value(aRoot);
                 Check(std::isfinite(a) && std::isfinite(b), "CalibrationNumericalFailure", "/execution/payment", "finite source A/B");
+                RequireResolved(low, high, views);
                 Finish(estimate);
                 const auto db = Gradient(&bRoot), da = Gradient(&aRoot);
                 return {a, b, da, db};

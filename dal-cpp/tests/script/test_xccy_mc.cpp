@@ -363,9 +363,14 @@ TEST(XccyMcTest, TestExpiredZeroDimensionAndParFailureKeepOwnedDiagnostics) {
 }
 
 TEST(XccyMcTest, TestCombinedGradientBudgetIsSeparateFromParityPrecisionAndPriceSe) {
-    XccyMcResult_ value;
-    value.estimate_.validation_ = true;
-    value.estimate_.batches_ = Vector_<CalibrationMcBatchValue_>(2);
+    const auto spec = TestXccyMoments::ModelSpec();
+    auto settings = Settings(2, 2);
+    settings.aad_ = true;
+    settings.parameterLabels_ = {"fxspot:EUR/USD"};
+    auto value =
+        PreparedXccyMc_(TestXccyMoments::Instrument(), "Price", TestXccyExecution::Context(spec, TestXccyExecution::Empty()), Data(spec), settings)
+            .Evaluate();
+    value.estimate_.mean_ = 0.;
     value.estimate_.parameterLabels_ = {"fxspot:EUR/USD"};
     value.estimate_.gradient_ = {.125};
     value.estimate_.gradientStandardError_ = {.05};

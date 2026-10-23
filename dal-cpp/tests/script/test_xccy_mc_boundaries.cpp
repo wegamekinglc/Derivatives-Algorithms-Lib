@@ -14,6 +14,199 @@ using namespace Dal::TestXccyMoments;
 using namespace Dal::TestXccyExecution;
 using namespace Dal::TestXccyMc;
 
+namespace {
+    Handle_<CalibrationInstrument_> CouponBounds(const Handle_<CalibrationInstrument_>& original, double high) {
+        auto definition = original->Definition()->Spec();
+        definition.parameters_[1].lower_ = .001;
+        definition.parameters_[1].upper_ = high;
+        return NewScriptCalibrationInstrument({"narrow-coupon", NewScriptInstrumentDefinition(definition), {}, original->Pillar()});
+    }
+
+    void ValidationRejected(const XccyMcResult_& value,
+                            const CalibrationMcReference_& reference,
+                            const CalibrationMcPrecision_& precision,
+                            const String_& field) {
+        try {
+            static_cast<void>(ValidateXccyMc(value, reference, precision));
+            FAIL() << "Invalid validation provenance accepted at " << field;
+        } catch (const CalibrationError_& error) {
+            const auto& d = error.Failure().diagnostic_;
+            ASSERT_EQ(d.field_, field);
+            ASSERT_EQ(d.code_, field == "/validation" ? "InvalidCalibrationPlan" : "CalibrationContextMismatch");
+            ASSERT_EQ(d.stage_, CalibrationStage_::Value_::Validate);
+            ASSERT_EQ(d.instrumentId_, value.report_->Data().observations_[0].instrument_->Id());
+            ASSERT_EQ(d.measureId_, "Price");
+            ASSERT_TRUE(error.Failure().report_);
+            ASSERT_EQ(error.Failure().report_->Stage(), CalibrationStage_::Value_::Validate);
+            ASSERT_FALSE(error.Failure().candidate_);
+            ASSERT_EQ(error.Failure().report_->Data().execution_.modelIdentity_, value.modelIdentity_);
+        }
+    }
+} // namespace
+
+TEST(XccyMcBoundaryTest, TestUnresolvedCouponCoefficientsOwnNumericalFailure) {
+    std::optional<CalibrationFailure_> failure;
+    for (const bool compiled : {false, true}) {
+        for (const double high : {std::nextafter(.001, 1.), .001 + 1e-12}) {
+            const auto spec = ModelSpec(TestXccy::TODAY, true);
+            const auto model = Data(spec);
+            const auto instrument = CouponBounds(Instrument(XccyNotionalMode_::Value_::MARK_TO_MARKET), high);
+            auto settings = Settings(2, 2);
+            settings.compiled_ = compiled;
+            for (const String_ measure : {"Price", "BasisSpread"}) {
+                try {
+                    static_cast<void>(PreparedXccyMc_(instrument, measure, Context(spec, Empty()), model, settings).Evaluate());
+                    FAIL() << "Unresolved affine coefficients published";
+                } catch (const CalibrationError_& error) {
+                    failure = error.Failure();
+                    ASSERT_EQ(failure->diagnostic_.code_, "CalibrationNumericalFailure");
+                    ASSERT_EQ(failure->diagnostic_.field_, "/execution/affine_coefficients");
+                    ASSERT_EQ(failure->diagnostic_.instrumentId_, "narrow-coupon");
+                    ASSERT_EQ(failure->diagnostic_.measureId_, measure);
+                    ASSERT_EQ(failure->diagnostic_.stage_, CalibrationStage_::Value_::Evaluate);
+                    ASSERT_FALSE(failure->diagnostic_.actual_.value_or("").empty());
+                }
+            }
+        }
+    }
+    ASSERT_TRUE(failure);
+    ASSERT_TRUE(failure->report_);
+    ASSERT_TRUE(handle_cast<XccyGaussianModelData_>(failure->candidate_));
+    ASSERT_EQ(failure->report_->Errors()[0].code_, "CalibrationNumericalFailure");
+    ASSERT_EQ(AAD::Tape()->nodes_.Size(), 0);
+}
+
+TEST(XccyMcBoundaryTest, TestNarrowCouponAadFailureReleasesTapeAndExpiredPriceStaysZero) {
+    for (const bool compiled : {false, true}) {
+        const auto spec = ModelSpec();
+        auto settings = Settings(2, 2);
+        settings.compiled_ = compiled;
+        settings.aad_ = true;
+        settings.parameterLabels_ = {"fxspot:EUR/USD"};
+        const auto instrument = CouponBounds(Instrument(), std::nextafter(.001, 1.));
+        try {
+            static_cast<void>(PreparedXccyMc_(instrument, "Price", Context(spec, Empty()), Data(spec), settings).Evaluate());
+            FAIL();
+        } catch (const CalibrationError_& error) {
+            ASSERT_EQ(error.Failure().diagnostic_.code_, "CalibrationNumericalFailure");
+            ASSERT_EQ(error.Failure().diagnostic_.field_, "/execution/affine_coefficients");
+            ASSERT_TRUE(error.Failure().candidate_);
+        }
+        ASSERT_EQ(AAD::Tape()->nodes_.Size(), 0);
+        const auto expired = ModelSpec(Date_(2027, 11, 9));
+        settings.aad_ = false;
+        settings.parameterLabels_.clear();
+        const auto price = PreparedXccyMc_(instrument, "Price", Context(expired, Empty()), Data(expired), settings).Evaluate();
+        ASSERT_EQ(price.estimate_.mean_, 0.);
+        ASSERT_EQ(price.coefficients_.a_, 0.);
+        ASSERT_EQ(price.coefficients_.b_, 0.);
+        ASSERT_EQ(price.consumedCoordinates_, 0U);
+        ASSERT_THROW(static_cast<void>(PreparedXccyMc_(instrument, "BasisSpread", Context(expired, Empty()), Data(expired), settings).Evaluate()),
+                     CalibrationError_);
+    }
+}
+
+TEST(XccyMcBoundaryTest, TestValidationRequiresActualPhaseFlagsAndLedger) {
+    const auto spec = ModelSpec(TestXccy::TODAY, true);
+    const auto model = Data(spec);
+    const auto instrument = Instrument();
+    const auto context = Context(spec, Empty());
+    CalibrationMcReference_ reference;
+    reference.value_ = EvaluateXccyGaussianMoments<double>(PrepareMoment(instrument, context), *model).price_;
+    reference.numericalError_ = 1e-12;
+    CalibrationMcPrecision_ precision;
+    precision.errorScale_ = .01;
+    auto settings = Settings(2, 2);
+    const auto validation = PreparedXccyMc_(instrument, "Price", context, model, settings).Evaluate();
+    ASSERT_TRUE(ValidateXccyMc(validation, reference, precision).validation_.numericalValidationPassed_);
+    auto par = validation;
+    par.estimate_.measureId_ = "BasisSpread";
+    XccyMcInternal::Summarize(&par, PrepareMoment(instrument, context, "BasisSpread"), .001);
+    auto parReference = reference;
+    const auto truth = EvaluateXccyGaussianMoments<double>(PrepareMoment(instrument, context, "BasisSpread"), *model);
+    parReference.value_ = -truth.b_ / truth.a_;
+    ASSERT_TRUE(ValidateXccyMc(par, parReference, precision).validation_.numericalValidationPassed_);
+    settings.phase_ = XccyMonteCarloPhase_::Value_::Fit;
+    const auto fit = PreparedXccyMc_(instrument, "Price", context, model, settings).Evaluate();
+    ValidationRejected(fit, reference, precision, "/validation");
+    auto wrong = fit;
+    wrong.estimate_.validation_ = true;
+    ValidationRejected(wrong, reference, precision, "/validation");
+    wrong = validation;
+    wrong.estimate_.validation_ = false;
+    ValidationRejected(wrong, reference, precision, "/validation");
+    wrong = validation;
+    wrong.estimate_.heldOut_ = true;
+    ValidationRejected(wrong, reference, precision, "/validation");
+    wrong = validation;
+    wrong.reservation_.ranges_[0].firstCoordinate_++;
+    ValidationRejected(wrong, reference, precision, "/sampling/ranges");
+    wrong = validation;
+    wrong.estimate_.ranges_[0].firstPath_++;
+    ValidationRejected(wrong, reference, precision, "/validation/ranges");
+    wrong = validation;
+    wrong.mapping_.normalCoordinates_[0] += "stale";
+    ValidationRejected(wrong, reference, precision, "/sampling/mapping");
+    wrong = validation;
+    wrong.estimate_.mappingIdentity_ += "stale";
+    ValidationRejected(wrong, reference, precision, "/sampling/mapping");
+    wrong = validation;
+    wrong.reservation_.identity_ += "stale";
+    ValidationRejected(wrong, reference, precision, "/sampling/ranges");
+    wrong = validation;
+    wrong.estimate_.pathsPerView_++;
+    ValidationRejected(wrong, reference, precision, "/validation/ranges");
+    wrong = validation;
+    wrong.consumedCoordinates_++;
+    ValidationRejected(wrong, reference, precision, "/validation/ranges");
+    wrong = validation;
+    wrong.estimate_.contextIdentity_ += "stale";
+    ValidationRejected(wrong, reference, precision, "/validation/identity");
+    wrong = validation;
+    wrong.report_ = fit.report_;
+    ValidationRejected(wrong, reference, precision, "/validation/identity");
+    wrong = validation;
+    wrong.reservation_.phase_ = XccyMonteCarloPhase_();
+    ValidationRejected(wrong, reference, precision, "/validation");
+    settings.phase_ = XccyMonteCarloPhase_::Value_::HeldOut;
+    const auto held = PreparedXccyMc_(instrument, "Price", context, model, settings).Evaluate();
+    ASSERT_TRUE(held.estimate_.heldOut_);
+    ASSERT_FALSE(held.estimate_.validation_);
+    ASSERT_NE(held.reservation_.identity_, validation.reservation_.identity_);
+    ValidationRejected(held, reference, precision, "/validation");
+}
+
+TEST(XccyMcBoundaryTest, TestValidationReferenceFailureOwnsSourceAfterInputsExpire) {
+    std::optional<CalibrationFailure_> failure;
+    String_ identity;
+    {
+        const auto spec = ModelSpec(TestXccy::TODAY, true);
+        const auto model = Data(spec);
+        identity = model->Identity();
+        const auto instrument = Instrument();
+        const auto value = PreparedXccyMc_(instrument, "Price", Context(spec, Empty()), model, Settings(2, 2)).Evaluate();
+        CalibrationMcReference_ reference;
+        reference.numericalError_ = 1.;
+        CalibrationMcPrecision_ precision;
+        precision.errorScale_ = .01;
+        try {
+            static_cast<void>(ValidateXccyMc(value, reference, precision));
+            FAIL();
+        } catch (const CalibrationError_& error) {
+            failure = error.Failure();
+        }
+    }
+    ASSERT_TRUE(failure);
+    ASSERT_EQ(failure->diagnostic_.code_, "InvalidCalibrationPlan");
+    ASSERT_EQ(failure->diagnostic_.field_, "/reference/numerical_error");
+    ASSERT_EQ(failure->diagnostic_.stage_, CalibrationStage_::Value_::Validate);
+    ASSERT_EQ(failure->diagnostic_.measureId_, "Price");
+    ASSERT_TRUE(failure->diagnostic_.instrumentId_.has_value());
+    ASSERT_TRUE(failure->report_);
+    ASSERT_EQ(failure->report_->Data().execution_.modelIdentity_, identity);
+    ASSERT_TRUE(failure->report_->Data().observations_[0].instrument_);
+}
+
 TEST(XccyMcBoundaryTest, TestFrozenHistoryAndAtValuationResetRemainDistinctFromPaymentSpot) {
     const auto spec = ModelSpec(Date_(2027, 8, 4));
     const auto model = Data(spec);
@@ -154,6 +347,20 @@ TEST(XccyMcBoundaryTest, TestCoefficientViewsRespectAdmittedCouponBindingBounds)
     ASSERT_NEAR(actual.estimate_.mean_, expected.estimate_.mean_, 1e-10);
     ASSERT_NEAR(actual.coefficients_.a_, expected.coefficients_.a_, 1e-10);
     ASSERT_NEAR(actual.coefficients_.b_, expected.coefficients_.b_, 1e-10);
+    auto settings = Settings(2, 3);
+    settings.aad_ = true;
+    settings.parameterLabels_ = {"fxspot:EUR/USD", model->market_->basis_->nativeLabels_[0]};
+    for (const bool compiled : {false, true}) {
+        settings.compiled_ = compiled;
+        const auto unbounded = PreparedXccyMc_(original, "Price", context, model, settings).Evaluate();
+        const auto restricted = PreparedXccyMc_(bounded, "Price", context, model, settings).Evaluate();
+        ASSERT_NEAR(restricted.estimate_.mean_, unbounded.estimate_.mean_, 1e-10);
+        for (size_t j = 0; j < settings.parameterLabels_.size(); ++j) {
+            ASSERT_NEAR(restricted.estimate_.gradient_[j], unbounded.estimate_.gradient_[j], 1e-8);
+            ASSERT_NEAR(restricted.estimate_.gradientStandardError_[j], unbounded.estimate_.gradientStandardError_[j], 1e-8);
+        }
+        ASSERT_EQ(AAD::Tape()->nodes_.Size(), 0);
+    }
 }
 
 TEST(XccyMcBoundaryTest, TestNonfinitePartialUncertaintyCannotEscapeWithFinitePrice) {
