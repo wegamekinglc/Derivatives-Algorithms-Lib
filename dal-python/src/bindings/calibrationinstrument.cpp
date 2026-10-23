@@ -2,6 +2,7 @@
 
 #include "calibrationinput.hpp"
 #include "giltestbarrier.hpp"
+#include <dal-public/src/xccycalibration.hpp>
 #include <pybind11/eval.h>
 
 using namespace Dal;
@@ -9,6 +10,7 @@ using namespace Dal::Python;
 using namespace Dal::Python::Calibration;
 
 void init_calibration_types(py::module_& m);
+void init_xccy_instruments(py::module_& m);
 
 namespace {
     PyObject* calibrationErrorType = nullptr;
@@ -31,6 +33,8 @@ namespace {
     template <class T_> T_ DefaultInput(const py::handle& value, const char* field) { return value.is_none() ? T_() : Read<T_>(value, field); }
 
     py::object Candidate(const Handle_<Storable_>& value) {
+        if (const auto* xccy = dynamic_cast<const XccyInstrumentCalibrationCandidate_*>(value.get()))
+            return Output(xccy->Result().curve_);
         if (const auto* curve = dynamic_cast<const CurveInstrumentCalibrationCandidate_*>(value.get()))
             return Output(curve->Result().curve_);
         if (const auto model = handle_cast<ModelData_>(value))
@@ -371,6 +375,7 @@ void init_bindings_calibrationinstrument(py::module_& m) {
     ErrorType(m);
     Factories(m);
     Getters(m);
+    init_xccy_instruments(m);
     for (const char* type :
          {"ScriptInstrumentImportSettings", "CurveInstrumentGeometry", "CurveInstrumentMarket", "CurveInstrumentSolver",
           "CurveInstrumentCalibrationSpec", "CurveInstrumentCalibrationOptions", "CalibrationSamplingSpec", "CalibrationEvaluationOptions",

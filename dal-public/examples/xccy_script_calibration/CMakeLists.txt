@@ -1,0 +1,3 @@
+add_executable(xccy_script_calibration xccy_script_calibration.cpp)
+target_link_libraries(xccy_script_calibration PRIVATE DAL::public)
+install(TARGETS xccy_script_calibration RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

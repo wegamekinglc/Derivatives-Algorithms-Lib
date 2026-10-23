@@ -406,3 +406,58 @@ passing runs, independent reference results and the exact patch. New-head CI
 is reported at delivery without watching or relabeling old-head results. The
 coordinator's existing author-terminal callback owns the handoff and limited
 review; native Windows success still requires its actual new-head CI result.
+
+## Accepted master integration
+
+Normal merge parents are M1/oracle delivery
+`a94fa27bcc448c80921eb3c2dcde0199fd9f7f2d` and fetched master
+`3eaeaf86b326ca5d599f8b8b35baaa3cf0bd88d1` (accepted DAL-409 / PR626).
+Their merge base is `87d8954eefd2033a7829976a35d536ba439d4748`; the master
+side contains only that accepted squash commit. Integration uses the original
+branch and PR627, without conflicts or manual code resolutions. The staged
+mechanical merge tree is recorded in the attachment. Its only subsequent
+manual change is this appended provenance section, included in the merge
+commit. No behavioral change or new failing-test cycle is introduced here.
+
+All 21 M1 product/test/generated sources retain their `a94fa27b` bytes and
+the same `c8a5844252577289024e064eb5eb6568ca2188a46aa00af0c7765a2f536c60be`
+manifest. All 33 imported master paths match master byte-for-byte. The previous
+record is preserved as a prefix. The control API note, submodules and whitelisted
+build configuration remain unchanged. The imported methodology changes add the
+accepted deterministic staged adapter while retaining generic XCCY MC refusal.
+No merged DAL-409 implementation, public/binding, example or documentation
+content is rewritten in this integration.
+
+Dependency inspection finds the existing `xccybasiscalibration.cpp` object in
+the old M1 caller's symbol closure. Its accepted master changes therefore
+require a fresh core archive and caller link, even though the M1 headers and
+oracle implementation are unchanged. The rebuild includes the accepted
+`CalibrateXccyInstruments` symbol. The smallest selected runtime checks cover
+model creation/curve fit/preparation/five-slot state generation and empty-route
+archive restoration with identity, bond and refusal checks:
+
+```sh
+git fetch origin master
+git merge --no-ff --no-commit origin/master
+cmake --build build/Release-linux --target dal_cpp -j 8
+c++ -std=c++17 -O2 -ffp-contract=off -I dal-cpp -I dal-cpp/externals/googletest/googletest/include dal-cpp/tests/test_main.cpp dal-cpp/tests/model/test_xccy_gaussian_data.cpp build/Release-linux/dal-cpp/libdal_cpp.a build/Release-linux/lib/libgtest.a -pthread -o build/m1-integration-smoke
+build/m1-integration-smoke --gtest_filter='XccyGaussianModelTest.TestInitialCurveFitAndExactFiveSlotPath:XccyGaussianDataTest.TestArchiveRoundTripWithoutProjectionRoutes'
+```
+
+Core build and **2/2 integration smoke checks pass** on GCC 15.2.0 / C++17.
+Fresh core archive SHA256 is
+`a82da42699a2dd20359f63142b1d20bf377b6d885ff3b9b40b22b7096efdc672`;
+fresh caller is `2c05171b6f05ee2658dff7d495f6591aed5654344f7e4fd87d44ef7695b0cc9c`.
+Markdown integrity (107 files) and staged diff checks pass. There are no new
+source-format, CCN or generated-markup changes. No full selection, matrix,
+install, AAD/lifetime or performance run is repeated for this mechanical merge.
+
+The prior GCC/Clang oracle runs are two configurations of the same nine cases,
+executed at `a94fa27b`. Their binaries and source/dependency/configuration records
+are retained unchanged and are not presented as executions at this integrated
+head. Their unchanged mathematical oracle evidence, independent 85-digit
+reference values and original Windows RED bytes remain applicable within their
+documented source scope; the integrated link is covered only by the new smoke
+checks above. Native Windows and strict required CI need the new exact-head
+result. Oracle approval remains pending the coordinator's finite review; the
+merge does not change that review state or unlock downstream work.
