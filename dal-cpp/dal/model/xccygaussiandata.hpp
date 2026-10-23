@@ -37,7 +37,7 @@ discountRoute is string
 domestic is handle XccyGaussianCurveData
 foreign is handle XccyGaussianCurveData
 basis is handle XccyGaussianCurveData
-projections is +handle XccyGaussianCurveData
+projections is *handle XccyGaussianCurveData
 -IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------

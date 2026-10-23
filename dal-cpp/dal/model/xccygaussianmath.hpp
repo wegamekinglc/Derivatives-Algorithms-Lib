@@ -185,7 +185,7 @@ namespace Dal::XccyGaussianDetail {
     template <class W_, class T_>
     W_ FactorEntry(const Matrix_<T_>& covariance, const Matrix_<W_>& normalized, const std::array<W_, 5>& scales, int i, int j) {
         NumericalCheck(std::isfinite(Value(covariance(i, j))) && Value(covariance(i, j)) == Value(covariance(j, i)), "symmetry");
-        if (Value(scales[i]) == 0. || Value(scales[j]) == 0.) {
+        if (scales[i] == 0. || scales[j] == 0.) {
             NumericalCheck(Value(covariance(i, j)) == 0., "nullRow");
             return W_(0.);
         }
@@ -194,7 +194,7 @@ namespace Dal::XccyGaussianDetail {
             residual -= normalized(i, k) * normalized(j, k);
         if (i == j) {
             // Rounded covariance entries cannot certify a pivot at their own cancellation scale.
-            NumericalCheck(Value(residual) > 64. * std::numeric_limits<double>::epsilon(), "uncertainPivot");
+            NumericalCheck(residual > 64. * std::numeric_limits<double>::epsilon(), "uncertainPivot");
             return Dal::sqrt(residual);
         }
         return residual / normalized(j, j);

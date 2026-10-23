@@ -27,7 +27,6 @@ namespace XccyGaussianMarket_v1 {
             Get(src, "foreign", &foreign_, Archive::Builder_<XccyGaussianCurveData_>(share, "foreign", "XccyGaussianCurveData"));
             Get(src, "basis", &basis_, Archive::Builder_<XccyGaussianCurveData_>(share, "basis", "XccyGaussianCurveData"));
             GetMultiple(src, "projections", &projections_, Archive::Builder_<XccyGaussianCurveData_>(share, "projections", "XccyGaussianCurveData"));
-                        REQUIRE(!projections_.empty(), "Node 'projections' not found");
         }
         XccyGaussianMarket_* Build() const
         {

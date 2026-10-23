@@ -353,7 +353,7 @@ TEST(XccyGaussianModelTest, TestQuantoAndBasisSignNegativeControls) {
         model->Spot(missingQuanto) / model->DomesticNumeraire(missingQuanto) * std::exp(.5L * (c[3][3] + c[4][4] - 2.L * c[3][4]));
     const double correct = 1.1 * std::exp(-.017 * 2.);
     ASSERT_GT(std::abs(static_cast<double>(wrong) - correct), 1e-5);
-    ASSERT_NEAR(moments.meanD_[3] + c[3][4], 0.L, 1e-17);
+    ASSERT_LE(std::abs(moments.meanD_[3] + c[3][4]), 1e-17L);
     const double wrongBasis = 1.1 * std::exp((-.02 - .003) * 2.);
     ASSERT_GT(std::abs(wrongBasis - correct), 1e-3);
     AssertMartingales(spec, 730);
@@ -443,6 +443,27 @@ TEST(XccyGaussianDataTest, TestNewTypeArchiveRoundTripAndNumericGeometry) {
     candidateSpec.dynamics_.bucketEndDates_[0] = candidateSpec.dynamics_.bucketEndDates_[0].AddDays(1);
     const XccyGaussianModelData_ changed("roundtrip", candidateSpec);
     AssertError([&] { original.RequireSameGeometry(changed); }, "CalibrationContextMismatch", "/model/market/refresh/dynamics");
+}
+
+TEST(XccyGaussianDataTest, TestArchiveRoundTripWithoutProjectionRoutes) {
+    auto spec = ModelSpec();
+    spec.market_.domesticBlock_ = Handle_<CurveBlock_>(new CurveBlock_("domestic", "USD", {{CollateralType_("OIS"), Curve("USD", .04)}}));
+    spec.market_.foreignBlock_ = Handle_<CurveBlock_>(new CurveBlock_("foreign", "EUR", {{CollateralType_("OIS"), Curve("EUR", .02)}}));
+    const XccyGaussianModelData_ original("no-projections", spec);
+    ASSERT_TRUE(original.market_->projections_.empty());
+    const auto restored = handle_cast<XccyGaussianModelData_>(JSON::ReadString(JSON::WriteString(original), false));
+    ASSERT_TRUE(restored);
+    ASSERT_TRUE(restored->market_->projections_.empty());
+    ASSERT_EQ(original.Identity(), restored->Identity());
+    original.RequireSameGeometry(*restored);
+    const auto model = NewXccyGaussianModel(*restored);
+    const auto initial = model->InitialState();
+    const Date_ maturity = initial.date_.AddDays(365);
+    model->Prepare({maturity});
+    ASSERT_EQ(model->SimDim(), 5);
+    ASSERT_EQ(model->GenerateStates(Vector_<>(5, 0.)).size(), 2);
+    ASSERT_NEAR(model->Bond("EUR", initial, maturity), std::exp(-.017), 1e-15);
+    ASSERT_THROW((void)model->ProjectionBond("EUR", "6M", initial, maturity), CalibrationError_);
 }
 
 TEST(XccyGaussianDataTest, TestMarketCurrencyRouteTimeAndCoverageErrorsOwnReports) {

@@ -15,8 +15,10 @@ The new model owns normalized, dated log-linear log-discount snapshots, explicit
 projection routes and deterministic basis. Market/dynamics/model data have const
 contents. Construction never retains solver pointers or reads global dates or
 fixings. Curves are checked for exact representation rather than sampled into
-an approximate interpolation. Numeric refresh creates new data with identical
-geometry; kernels and conditional bonds are recomputed from that content.
+an approximate interpolation. `RefreshNumeric()` rebuilds kernels and conditional
+bond caches from the existing model parameters without replacing immutable data.
+Constructing new data is a separate operation; `RequireSameGeometry` checks its
+layout compatibility explicitly.
 
 The state is `(xd,xf,Id,If,Z)`. Constant-bucket exponential kernels give exact
 means and joint covariance, composed across explicit bucket boundaries. Three
@@ -136,7 +138,11 @@ threshold was relaxed. One invalid test fixture used the nonexistent LIBOR
 collateral token; it was corrected to the real GC alternative. Diagnostic-path
 assertions were corrected to the actual qualified USD:OIS route.
 
-## Final scoped verification
+## Initial delivery verification
+
+The following results and identities describe delivery head
+`ddbb2094eddac2b8abaea8a1843d3e5f43e4d7d1`. The repair below records its own
+affected checks; these initial executables are not relabeled as repair runs.
 
 GCC 15.2.0, CMake 4.2.3, C++17, Release, native AAD, portable x86_64 Linux/WSL2.
 Workspace configuration:
@@ -230,3 +236,78 @@ repairs require the directly affected checks again. Independent model-math and
 lifetime review remain necessary. M2-M5 and V1 still own actual same-source
 cashflow execution, stochastic staged fitting, MC/partials, language interfaces
 and full independent product acceptance. This checkpoint is not complete XCCY MC.
+
+## MSVC and focused review repair
+
+The completed MSVC AAD diagnostics job `120243215459` at the initial delivery
+head failed compilation with C4244 at `FactorEntry` and the quanto sign-control
+assertion. The raw job log is retained in the repair attachment. A local strict
+Clang syntax check reproduced the same four implicit long-double-to-double
+errors (exit 1):
+
+```sh
+clang++ -std=c++17 -Werror=implicit-float-conversion -fsyntax-only -I dal-cpp -I dal-cpp/externals/googletest/googletest/include dal-cpp/tests/model/test_xccy_gaussian_data.cpp
+```
+
+`FactorEntry` now compares the working scalar directly, preserving long-double
+comparisons and native AAD comparison overloads. The sign assertion compares
+the absolute long-double residual directly with the unchanged `1e-17` budget.
+No kernel, covariance, pivot, reconstruction or AD/FD acceptance budget changes.
+
+Reviewer parent comment `01a16719-f0e6-7bd4-b4dd-5c34fa26f0cd` identified a
+separate archive P2. The new
+`XccyGaussianDataTest.TestArchiveRoundTripWithoutProjectionRoutes` first failed
+with `Node 'projections' not found` (exit 1), using the delivered core archive.
+The Machinist source now declares zero-or-more projection handles, matching the
+existing constructor domain; `dal_generate` changes only the new market reader
+by removing its nonempty requirement. The regression preserves identity and
+geometry, prepares a five-slot path, checks the initial foreign bond and retains
+the missing-projection refusal. The existing nonempty archive case is retained.
+
+Doc review parent comment `01a16716-a068-7cb1-9950-14c51ab969a6` is addressed
+by correcting the opening refresh description. Immutable data construction,
+`RequireSameGeometry` and runtime `RefreshNumeric()` are explicitly distinct;
+no cache implementation changes accompany that sentence.
+
+The repair write boundary is five files: `xccygaussiandata.hpp`, its generated
+market reader, `xccygaussianmath.hpp`, `test_xccy_gaussian_data.cpp` and this
+record. Shared factories, schema, old archives, solver, RNG, public/bindings and
+DAL-409 sources remain outside the change. The numerical kernels and arithmetic
+operations are unchanged; scalar comparisons and archive cardinality add no new
+performance workload. Initial timing observations remain historical, with no
+new benchmark or full-matrix claim. Unchanged source/configuration evidence is
+reused only for the unaffected paths, not for the repaired archives or comparisons.
+
+Repair GREEN verification (GCC 15.2.0 / Clang 21.1.8, same whitelisted CMake
+configuration and submodule revisions as the initial delivery):
+
+```sh
+cmake --build build/Release-linux --target dal_cpp_tests -j 8
+ctest --test-dir build/Release-linux -R 'XccyGaussian.*\.Test(NewTypeArchiveRoundTripAndNumericGeometry|ArchiveRoundTripWithoutProjectionRoutes|SmallPositiveVarianceAndCrossTermSurviveFactorization|ZeroVolatilityRowsKeepFiveSlotsAndTrueRankFailure|UnequalBucketCompositionRetainsSymmetricFactorizableCovariance|InitialCurveFitAndExactFiveSlotPath|ZeroVolatilityValueAndDerivativeBoundaryAreSeparate|InteriorAadAndSmallPositiveSigmaMatchRefreshedCrnDifferences|QuantoAndBasisSignNegativeControls)$' --output-on-failure -j 8
+cmake --build build/m1-lifetime --target dal_cpp -j 8
+c++ -std=c++17 -O2 -DDAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS -I dal-cpp -I dal-cpp/externals/googletest/googletest/include dal-cpp/tests/test_main.cpp dal-cpp/tests/model/test_xccy_gaussian.cpp dal-cpp/tests/model/test_xccy_gaussian_data.cpp build/m1-lifetime/libdal_cpp.a build/Release-linux/lib/libgtest.a -pthread -o build/m1-repair-lifetime-focused
+build/m1-repair-lifetime-focused --gtest_filter='XccyGaussianDataTest.TestNewTypeArchiveRoundTripAndNumericGeometry:XccyGaussianDataTest.TestArchiveRoundTripWithoutProjectionRoutes:XccyGaussianModelTest.TestInteriorAadAndSmallPositiveSigmaMatchRefreshedCrnDifferences'
+clang++ -std=c++17 -DDAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS -Werror=implicit-float-conversion -fsyntax-only -I dal-cpp -I dal-cpp/externals/googletest/googletest/include dal-cpp/tests/model/test_xccy_gaussian.cpp dal-cpp/tests/model/test_xccy_gaussian_data.cpp
+```
+
+**9/9 Release CTest and 3/3 matching lifetime caller cases pass.** The strict
+syntax check passes both with and without lifetime diagnostics. Format, CCN<=8,
+generated drift, 106-file documentation integrity and the original scoped
+warning check pass. Machinist regeneration touches dependency timestamps, so
+CMake recompiles the dependent runner; only the nine selected cases execute.
+There is no full initial 30/28 selection, component install, sanitizer or
+statistical/performance rerun. Native MSVC execution awaits exact-head CI.
+
+The repair source manifest uses the same 21-path encoding as above; four source
+entries differ, plus this excluded record. Its SHA256 is
+`0234395e981033314ae3dd7729eec190e04c7d1aa91e3a4ab94e4c8a69ce101f`.
+Actual repaired executables:
+
+- Workspace tests: `a1465125a6876b7dbdeb12b9fa702dc7c2e4928d655448820388c2f02c3accf5`.
+- Lifetime caller: `9e69767391a48d93527fbda4a23ec8a0c00fa9e833d0e901de3b3f74f7e295f1`.
+
+The repair attachment retains raw RED/GREEN logs, generated/format/CCN/warning
+checks, the five-file patch, actual source/configuration/dependency identities
+and exact-head CI snapshots. Initial independent review conclusions outside
+these repairs remain for the coordinator to reuse; no new expert review or
+downstream execution was dispatched here.
