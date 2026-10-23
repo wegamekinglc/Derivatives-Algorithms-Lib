@@ -62,8 +62,8 @@ counterpart, with valuation < E < T. All dates are concrete, the currency matche
 the header and context, and settlement is AtEvent under same-currency OIS
 collateral. Product names and fingerprints never bypass these structural checks.
 
-`CalibrationPreparationContext_` requires an explicit valuation date, fixing
-snapshot, currency, discount route and `GSRCurveData_` snapshot. Gaussian
+For non-XCCY preparation, `CalibrationPreparationContext_` requires an explicit
+valuation date, fixing snapshot, currency, discount route and `GSRCurveData_` snapshot. Gaussian
 preparation additionally requires an exact one- or multi-factor GSR model with
 the same curve. This fixes ACT/365 model time and the native Gaussian numeraire
 contract. The hard option requires zero smoothing. A different stochastic model
@@ -213,6 +213,19 @@ and the evaluator's numerical domain. Coupon accruals are positive finite source
 literals, rather than an extra ALPHA parameter. The complete bound AST is the
 authority for every derived descriptor; no imported native option is retained.
 Extra arithmetic, parameters, cashflows or control flow fail full matching.
+
+The importers encode Caplet coupon accruals and Swaption fixed/floating coupon
+accruals as single plain-decimal event literals. Scientific notation from numeric
+formatting is expanded without discarding significant digits (for example,
+`1e-7` is written as `0.0000001`); normal positive doubles retain their exact
+value when parsed. Already plain-decimal accrual text is preserved, along with
+source rows, identities and portable JSON for existing successful imports at
+unchanged inputs, bindings and context. N/K definition formatting, general
+`NumberText`/canonical JSON and the event DSL keep their existing contracts.
+
+Subnormal accruals follow the existing decimal parser's underflow behavior and
+may be rejected. Import and constant fidelity at normal extremes do not imply
+successful native preparation or pricing.
 
 The Caplet pays `N*(couponAlpha*MAX(L(E;S,T)-K,0))` at P; reversing the difference
 gives a floor. Its source explicitly fixes the Libor observation at E with a
@@ -441,6 +454,73 @@ cashflows. The curve adapter supplies raw native FD/AAD Price and par partials;
 these are not calibrated quote risk. New curve families reject ScriptMC,
 including explicit opt-in. Their deterministic admission does not imply a
 matching stochastic model, XCCY support or a general script optimizer.
+
+## Deterministic XCCY script cashflows
+
+The core `dal/curve/xccyscript.hpp` provides `NewXccyScriptInstrument` for
+one-time import of a native `CrossCurrencySwap_`. Resolved coupons, signed
+spread, both currencies, principal exchanges and supported reset/MTM notional
+changes become ordinary source. The immutable definition and binding are the
+pricing authority. Preparation checks the complete bound AST and every payment
+event date against the derived cashflow plan; a template name cannot admit
+changed or moved payments. No native product remains beside the source.
+
+`PrepareCalibrationInstrument` takes the dedicated `XccyScriptContext_` through
+`context.xccy_`, with its own valuation date and fixing history. Leave the generic
+`model_`, `curve_`, `valuation_.evaluationDate_` and `valuation_.fixings_` empty.
+This produces the bounded `dal.xccy-cashflows/1` FastDeterministic capability for AutoFast or
+RequireFast. `EvaluateXccyScript<double/AAD::Number_>` consumes an explicit
+`XccyMarketView_`. Price is `B+K*A`; signed decimal BasisSpread is `-B/A`, using
+the declared annuity sign and positive floor at each evaluation. Both spread
+legs and receive/pay orientations come from the source. Native raw AAD and
+caller finite differences are supported, alongside None; they are not
+calibrated quote risk. Nonfinite A/B fail `CalibrationNumericalFailure` before
+forming either measure, with an owning Evaluate report, instrument/measure IDs,
+the coefficient field `/affine/a` or `/affine/b` and the nonfinite value.
+
+Supported contracts use domestic-currency collateral, explicit OIS discount
+routes, matching live projection tenor/currency and domestic-currency basis.
+Canonical 3M/6M LCH Libor identities, fixing-to-start/end geometry and actual
+currency accrual conventions must match exactly. Unequal leg payment dates
+and the existing fixed, FX-resettable and MTM domestic-notional mappings are
+supported. This does not introduce arbitrary amortization, stubs or collateral
+conventions; unmatched geometry and anonymous/custom fixing identities fail.
+Historical-only coupons need no unused live projection route or forecast fallback.
+
+`XccyFxForward` keeps EUR/USD as USD per EUR:
+`F=spot*foreignDF/(domesticDF*basisDF)`. The reverse quote uses the reciprocal;
+the existing basis sign is unchanged. Payment `SPOT()` is the active market
+forward conversion at its payment event, including valuation-date payments.
+Reset `FIX(FX[EUR/USD],date)` is a distinct observation: a supplied same-time
+reset fixing does not replace payment conversion.
+
+The dedicated **NativeXccyTimestamp** policy uses exact identity and timestamp:
+
+- `t<V`: require the exact historical rate/FX fixing in the frozen snapshot.
+- `t=V`: use a supplied snapshot value first, otherwise the active forward.
+- `t>V`: use the active forward, even when a snapshot contains a future entry.
+
+An explicitly supplied snapshot, including an empty one, is authoritative and
+never supplemented from globals. An omitted snapshot captures the strict-past,
+unsettled dependency closure once at Prepare. That owned snapshot stays frozen
+through evaluation and bumps; changing global history cannot alter the plan.
+Valuation and supported native rate/reset observations must be at exact
+midnight. Intraday values are never copied to midnight; intraday valuation and
+generic today-policy overrides are rejected. Canonical currency conventions,
+routes and captured snapshot contents remain part of plan compatibility.
+
+The exporter spells embedded scientific constants as equivalent plain decimal
+DSL literals, retaining their effective double ratio and significant digits.
+It does not change the bare parser or existing archives. Native notionals are
+represented by N and the floating-point foreign/domestic ratio; ill-conditioned
+normalization does not guarantee uniform absolute precision at arbitrary scales.
+Legacy native entry points keep their original behavior.
+
+GenericDeterministic is not an XCCY executor. ScriptMC, including the MC entry
+point, fails `MCCrossCurrencyUnsupported` before model execution. These core
+entry points prepare and evaluate contracts; they add no XCCY curve-calibration
+adapter, stochastic FX/quanto model or quote-risk capability. Deterministic
+PV/par and raw derivative evidence does not establish XCCY MC consistency.
 
 ## Same-instrument Monte Carlo
 

@@ -53,6 +53,7 @@ namespace Dal {
         bool allowMonteCarloCalibration_ = false;
         std::optional<CalibrationSamplingSpec_> sampling_;
     };
+    struct XccyScriptContext_;
     struct CalibrationPreparationContext_ {
         Script::ScriptValuationSettings_ valuation_;
         Ccy_ currency_;
@@ -61,6 +62,7 @@ namespace Dal {
         Handle_<ModelData_> model_;
         String_ conventionState_ = "dal.fixed-dates/1";
         double smoothing_ = 0.;
+        std::shared_ptr<const XccyScriptContext_> xccy_;
     };
     struct CalibrationCashflow_ {
         Date_ eventDate_;
@@ -86,12 +88,15 @@ namespace Dal {
     };
     struct CalibrationScriptMcDescriptor_ {};
     struct CalibrationCurveFamilyDescriptor_;
+    struct CalibrationXccyDescriptor_;
+    using CalibrationXccy_ = std::shared_ptr<const CalibrationXccyDescriptor_>;
     using CalibrationCurveFamily_ = std::shared_ptr<const CalibrationCurveFamilyDescriptor_>;
     using CalibrationFastDescriptor_ = std::variant<CalibrationDepositDescriptor_,
                                                     CalibrationBondOptionDescriptor_,
                                                     CalibrationRateOptionDescriptor_,
                                                     CalibrationScriptMcDescriptor_,
-                                                    CalibrationCurveFamily_>;
+                                                    CalibrationCurveFamily_,
+                                                    CalibrationXccy_>;
     struct CalibrationPreparationCapability_ {
         String_ ruleId_;
         CalibrationBackend_ backend_;

@@ -1,11 +1,31 @@
 #include <dal/platform/platform.hpp>
 
+#include <string>
+
 #include <dal/calibration/validation_internal.hpp>
 #include <dal/model/gsrrateoption_internal.hpp>
 
 namespace Dal {
     using namespace CalibrationInternal;
     namespace {
+        String_ AccrualLiteral(double accrual) {
+            const auto text = Bytes(NumberText(accrual));
+            const auto exponent = text.find_first_of("eE");
+            if (exponent == std::string::npos)
+                return String_(text);
+            auto digits = text.substr(0, exponent);
+            const auto point = digits.find('.');
+            const int position = static_cast<int>(point == std::string::npos ? digits.size() : point) + std::stoi(text.substr(exponent + 1));
+            if (point != std::string::npos)
+                digits.erase(point, 1);
+            if (position <= 0)
+                return String_("0." + std::string(static_cast<size_t>(-position), '0') + digits);
+            if (static_cast<size_t>(position) >= digits.size())
+                digits.append(static_cast<size_t>(position) - digits.size(), '0');
+            else
+                digits.insert(static_cast<size_t>(position), ".");
+            return String_(digits);
+        }
         String_ Libor(const String_& currency, const String_& tenor, const Date_& start, const Date_& expiry) {
             const String_ index = tenor == "3M" ? "LIBOR_3M_LCH" : "LIBOR_6M_LCH";
             return "FIX(IR[" + currency + "," + index + "," + Date::ToString(start) + "]," + Date::ToString(expiry) + ")";
@@ -46,7 +66,7 @@ namespace Dal {
             for (const auto& coupon : option.fixed_) {
                 Check(coupon.payment_.IsValid() && coupon.payment_ > option.expiry_ && std::isfinite(coupon.accrual_) && coupon.accrual_ > 0.,
                       "UnsupportedCalibrationProduct", "/option/fixed", "positive fixed accrual paid after exercise", "", d);
-                result += (result.empty() ? "" : "+") + NumberText(coupon.accrual_) + "*" + Discount(currency, coupon.payment_, option.expiry_);
+                result += (result.empty() ? "" : "+") + AccrualLiteral(coupon.accrual_) + "*" + Discount(currency, coupon.payment_, option.expiry_);
             }
             return result;
         }
@@ -57,7 +77,7 @@ namespace Dal {
                 Check(coupon.fixing_ >= option.expiry_ && coupon.payment_ == coupon.end_, "UnsupportedCalibrationProduct", "/option/floating",
                       "future fixing and floating payment at index end; no payment lag", "", d);
                 // Payment=end makes native future-fixing convexity zero: exercise-date forward PV is exact.
-                result += (result.empty() ? "" : "+") + NumberText(coupon.couponAccrual_) + "*" +
+                result += (result.empty() ? "" : "+") + AccrualLiteral(coupon.couponAccrual_) + "*" +
                           Libor(currency.String(), coupon.tenor_, coupon.start_, option.expiry_) + "*" +
                           Discount(currency.String(), coupon.end_, option.expiry_);
             }
@@ -72,7 +92,7 @@ namespace Dal {
         ValidateCoupon({option.expiry_, option.start_, option.end_, option.payment_, option.indexAccrual_, option.couponAccrual_, option.tenor_},
                        settings.currency_, d);
         const auto difference = Difference(Libor(settings.currency_.String(), option.tenor_, option.start_, option.expiry_), "K", option.type_, d);
-        return Import(option.payment_, option.strike_, NumberText(option.couponAccrual_) + "*MAX(" + difference + ",0)", settings);
+        return Import(option.payment_, option.strike_, AccrualLiteral(option.couponAccrual_) + "*MAX(" + difference + ",0)", settings);
     }
 
     Handle_<CalibrationInstrument_> NewSwaptionScriptInstrument(const Swaption_& option, const RateOptionScriptImportSettings_& settings) {

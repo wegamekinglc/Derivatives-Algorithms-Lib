@@ -49,6 +49,13 @@ namespace Dal {
         Vector_<T_> mtmDeltas_;
     };
 
+    template <class T_>
+    T_ XccyFxForward(const XccyMarketView_<T_>& market,
+                     const Date_& date,
+                     bool reverse = false,
+                     const CollateralType_& domesticCollateral = CollateralType_("OIS"),
+                     const CollateralType_& foreignCollateral = CollateralType_("OIS"));
+
     template <class T_> struct XccyContractValues_ {
         T_ domesticPv_;
         T_ foreignPv_;

@@ -18,6 +18,13 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-22
 
+- **Deterministic XCCY script cashflows** — added one-time native import,
+  complete source/AST and event-date admission, Price/signed BasisSpread and
+  native raw FD/AAD for supported dual-leg principal/reset/MTM mappings.
+  Future FX preserves the basis direction; NativeXccyTimestamp freezes exact
+  history and same-time policy. Stochastic XCCY and quote risk remain unavailable.
+  See the [XCCY guide](docs/methodology/script_calibration_contract.md#deterministic-xccy-script-cashflows).
+
 - **Public GSR script calibration** — added required frozen-valuation settings,
   selected-g fitting through existing Gaussian fast/MC drivers in C++, Python
   and Excel, owning model/report failures and separate fit, numerical and held-out
