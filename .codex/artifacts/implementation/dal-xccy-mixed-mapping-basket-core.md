@@ -266,3 +266,61 @@ performance remains inconclusive. Shared docs/CHANGELOG and M5 remain with
 their scheduled owners. All frozen precision/combined, FX-sigma and binary64
 FD/eFD gaps, budgets, thresholds and observed HeldOut identity above remain.
 The revision is ready for limited review, without merging or starting downstream.
+
+## R2: integrate accepted M5 master
+
+The normal merge `4d2d83ce46c3dcc945ba2e762b4e2605b5be7415` has first
+parent `1302c66d2f74754cb9dd5e7f1c6c5e51ca0fcd98` and second parent
+`ccec714f63befee9202fd5b6b324999068e88c1d`. It stays on the original
+`agent/dal-implementer/b3c90240203b` branch and PR637, base master, without
+rebase, force push or sibling imports. Fetching master found exactly one new
+commit since DAL-426: accepted PR632's M5 squash merge, whose parent is
+`197e33df818a14f5f8fae2f0f92ec52453c7463d`. GitHub and the direct DAL-424
+PR link both confirm its actual merge at 2026-10-23T22:11:10Z. The integration
+has no conflict. This appended provenance entry is the only author change
+beyond that accepted master; the final delivery identifies its enclosing head.
+
+The complete tree audit covers all 3,141 prior entries and all 3,199 resulting
+entries. All 16 reviewed core production/test files remain byte-identical to
+the first parent. The 69 accepted upstream paths have no intersection with
+the 17 reviewed core paths and equal accepted master exactly, including M5's
+generated wrappers, examples, build changes and documentation. No new basket
+facade or binding is added. The controlling DAL-426 and DAL-410 hashes above,
+DAL-398, core dependencies and five dependency pointers remain unchanged.
+
+Before merging, all 1,251 R1 source/control hashes matched their recorded
+manifest. Both prior evidence manifests verify: 77 original and 62 R1 entries.
+The before/after inventories preserve 156 evidence/attachment files and 599
+actual object, archive, caller, configuration and ZIP files. The four live core
+build configurations match the R1 captures. Retained original, failing and R1
+archives/runners/probes keep separate identities; no build output is refreshed
+or relabeled as execution of the integration head. The audit package supplies
+full manifests, tree identities, exact commands/exit codes and complete patches.
+
+New verification uses `python integration_audit.py prepare` before the merge
+and `python integration_audit.py audit` after publication preparation, plus
+`git diff --check` for both the integration and full PR and
+`python3 .github/scripts/check_docs.py`. The audit verifies normal ancestry,
+every tracked working-file blob, the record's unchanged original prefix,
+accepted-master equality and retained evidence/dependency/product hashes.
+No behavioral RED/GREEN is applicable to this conflict-free integration and
+record-only change. The original RED/GREEN evidence above remains intact.
+
+Core source, build inputs and dependencies do not change, so the accepted
+core tests, scalar/statistics/oracle checks and R1 diagnostic review remain
+applicable within their recorded identities. No 109/28 suite, 23,760 normals,
+24-case single comparison, long MC or numerical/platform matrix is rerun.
+Accepted M5's recorded public-disabled build/1 CTest, standalone shared-core
+build/install, standalone public build/install/2 selected CTests and installed
+consumer/1 CTest are reused within their original scope; these are not fresh
+integration-head runs. No additional performance case is warranted by this
+delta; the original performance conclusion remains inconclusive.
+
+The final handoff supplies one actual new-head CI snapshot. Old-head green
+does not clear this head; limited integration review and complete exact-head
+CI remain coordinator gates. This author neither merges PR637 nor starts
+DAL-425 basket acceptance, DAL-428 shared documentation or public wiring.
+All precision/combined, FX-sigma and binary64 FD/eFD gaps, observed HeldOut
+identity, budgets, thresholds, paths and VR restrictions above remain.
+DAL-425 and parent DAL-396 remain in progress; this grants no numerical or
+full V1 acceptance and introduces no design deviation or financial question.
