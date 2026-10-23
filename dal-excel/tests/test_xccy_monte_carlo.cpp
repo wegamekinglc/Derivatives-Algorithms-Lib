@@ -157,6 +157,7 @@ TEST(ExcelXccyMonteCarloTest, TestNewFieldsKeepOriginalRowsAndLegacyRejectsBlank
 TEST(ExcelXccyMonteCarloTest, TestUnavailablePartialsAndOwnedFailureSpillColumns) {
     using namespace Dal;
     InitGlobalData();
+    Excel::ScriptTestInitialize(1);
     const auto model = NewXccyGaussianModel("failure", TestXccyMoments::ModelSpec());
     auto instrument = TestXccyMoments::Instrument();
     XccyMonteCarloRequest_ request;
@@ -197,6 +198,7 @@ TEST(ExcelXccyMonteCarloTest, TestUnavailablePartialsAndOwnedFailureSpillColumns
 TEST(ExcelXccyMonteCarloTest, TestStagedCandidateModelLifetime) {
     using namespace Dal;
     InitGlobalData();
+    Excel::ScriptTestInitialize(1);
     auto spec = TestXccyMoments::SyntheticSpec();
     spec.solver_.maxEvaluations_ = 1;
     Handle_<StorableXccyInstrumentCalibrationSpec_> input(new StorableXccyInstrumentCalibrationSpec_(spec));
@@ -205,6 +207,7 @@ TEST(ExcelXccyMonteCarloTest, TestStagedCandidateModelLifetime) {
     input.reset();
     spec = {};
     ASSERT_EQ(outcome->status_, "Failed");
+    ASSERT_TRUE(outcome->model_) << DumpCalibrationReportJson(outcome->report_).c_str();
     Handle_<ModelData_> candidate;
     CalibrationOutcome_Get_Model(outcome, &candidate);
     ASSERT_TRUE(handle_cast<XccyGaussianModelData_>(candidate));
@@ -214,6 +217,7 @@ TEST(ExcelXccyMonteCarloTest, TestStagedCandidateModelLifetime) {
 TEST(ExcelXccyMonteCarloTest, TestValidationFlagsKeepEstimateAndRejectHeldOut) {
     using namespace Dal;
     InitGlobalData();
+    Excel::ScriptTestInitialize(1);
     const auto model = NewXccyGaussianModel("validation", TestXccyMoments::ModelSpec());
     const auto instrument = TestXccyMoments::Instrument();
     XccyMonteCarloRequest_ request;

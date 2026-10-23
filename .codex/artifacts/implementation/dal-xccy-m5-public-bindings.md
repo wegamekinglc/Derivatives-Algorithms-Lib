@@ -307,3 +307,71 @@ original M4 precision/combined failure and pending independent V1 acceptance
 remain exactly as described above; this repair supplies no numerical waiver.
 The handoff supplies the new commit and one nonblocking CI snapshot, leaving
 the parent in progress and review/merge/downstream scheduling to the coordinator.
+
+## R2: initialize the native test's callee runtime
+
+At exact head `4bda6772cc9f7b79e8996d3492324e15f8179774`, three MSVC
+configurations compiled successfully but failed the same three M5 Excel cases:
+unavailable-partials/owning spill, staged candidate lifetime, and validation
+flags/HeldOut rejection. Their full original logs remain in the delivered
+bundle. The actual failed step is CTest, not the git-cleanup annotation.
+
+Each case initialized the test executable's DAL state, but omitted the existing
+`Excel::ScriptTestInitialize(1)` that initializes the statically linked DAL
+state inside the XLL. The same-source/owning case already initializes both.
+The normal Linux portable executable shares one state and conceals that gap.
+
+A scoped Linux reproduction compiles the five unchanged Excel factory/getter/
+diagnostic/runtime source objects with PIC, links the existing public/core
+static archives into a private shared module with `-Bsymbolic`, and links the
+actual test translation unit against its own copies of those archives with
+`--exclude-libs,ALL`. No production source is rewritten or replaced by a mock.
+The local experiment separates the DAL runtime states while sharing the system
+C++ runtime. It is an ELF diagnostic, not MSVC/XLL or workbook execution.
+
+Before the initialization fix, the actual three cases each fail in a fresh
+process and the already-initialized same-source control passes. The staged
+case now also checks its owned model before the getter and includes the full
+report on failure. Its actual RED report shows `InvalidCalibrationPlan`,
+`Prepare`, `no default for 'USD'`, observation/quote `maturity-0`, zero
+evaluations, and no candidate model. The generic getter's old GSR wording was
+therefore a secondary symptom; it was not evidence of a wrong model cast.
+
+The minimal repair adds the existing callee initializer to those three cases
+before their first binding call. All original statements/assertions and the
+maxEvaluations=1 budget remain. The added model-presence assertion improves
+failure diagnostics without fabricating a candidate or changing the getter.
+The private shared module is byte-identical between RED and GREEN; only the
+driver/test source gains the three initializer calls. Each of the three cases
+and the same-source owning control now passes in its own fresh process.
+For replay from the fixed tree, the bundle reconstructs a frozen RED source
+from the reviewed baseline plus the diagnostic assertion; the original RED
+compiler commands used the normal test-source path. Those original binaries,
+commands and results retain their separate identities.
+
+```bash
+python3 evidence/r2/split_runtime.py red
+python3 evidence/r2/split_runtime.py green
+ctest --test-dir build/m5-make -R \
+  '^ExcelXccyMonteCarloTest.Test(SameCoreInputAndOwningOutcome|UnavailablePartialsAndOwnedFailureSpillColumns|StagedCandidateModelLifetime|ValidationFlagsKeepEstimateAndRejectHeldOut)$' \
+  --output-on-failure --output-junit evidence-r2.xml
+```
+
+The baseline reproduction has three exit-1 cases and one passing control;
+GREEN is 4/4 isolated cases. The refreshed ordinary portable runner also
+passes the affected four CTests, each in its usual separate process. The
+bundle supplies exact PIC/driver/portable compile/link commands, XML/exit codes,
+underlying staged report, original native logs, symbol-binding evidence and
+source/dependency/configuration/object/library/caller identities. The existing
+CMake compile/link recipes refresh only the changed test object and runner;
+no unrelated component rebuild/install is repeated.
+
+Only this Excel test file and this record change. All production sources,
+generated wrappers, shared test bridge and public documentation remain
+identical to the accepted head. Scoped GCC14/15 warning-as-error syntax,
+complexity, changed-line formatting, record/documentation and diff checks
+apply. Existing raw-input, C++/Python/GIL, component, statistical and performance
+evidence remains subject to its recorded identity/applicability; no matrix is
+rerun. The exact new-head native CI result remains a merge gate, independent
+of the local GREEN. Frozen numerical failures, independent DAL-425 and parent
+in-progress state remain unchanged.
