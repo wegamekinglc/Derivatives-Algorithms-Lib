@@ -311,3 +311,98 @@ checks, the five-file patch, actual source/configuration/dependency identities
 and exact-head CI snapshots. Initial independent review conclusions outside
 these repairs remain for the coordinator to reuse; no new expert review or
 downstream execution was dispatched here.
+
+## Portable independent kernel-oracle repair
+
+Repair input is `26615f04a761699714ebb215822c15b76086339c`. Completed MSVC
+profiling job `120250655770` compiled successfully, then failed only
+`TestExactJointTransitionAgainstBrownianKernels` out of 4015 CTest selections.
+The original 48/64-point self-refinement residual was
+`-2.2204460492503131e-16` against the frozen `1e-16` budget. The supplied raw log
+is preserved unchanged, SHA256
+`f411ba7f6f08d5f0fb26f1f5c987fd3c959d386379f0e5b752870ea0436e8933`.
+
+The local executor has binary64 double (53 mantissa bits) and 64-bit-mantissa
+long double. A diagnostic replay of the original recurrence with a double
+working scalar reproduces that exact residual for `exp(-.06*u)`. Its constant
+integral is `0.9999999999999995559` at order 48 and
+`1.000000000000000222` at order 64. These are Linux binary64 diagnostics, not
+a native MSVC run. The original helper also misses unit mass in native long
+double by `-2.710505431213761085e-19` at order 48. The new polynomial-moment
+test fails on that original helper (exit 1), providing a committed regression.
+
+The old `1e-19` Newton threshold assumes arithmetic wider than binary64, does
+not check convergence, and returns a derivative from before the final root
+update. Weight and accumulation roundoff remain material at the required
+budget: diagnostic root reevaluation plus compensated accumulation still
+produces a maximum `3.33e-16` base-kernel refinement difference; normalizing its
+constant mass still leaves `1.11e-16`. Neither diagnostic variant is delivered.
+
+The independent helper now uses two-component binary64 arithmetic, with FMA
+product residuals, for Legendre recurrence/Newton refinement, weights, pointwise
+exp/expm1, interval mapping and accumulation. Small exponentials use a pointwise
+Taylor series; larger arguments use binary halving and squaring. This remains
+numerical Brownian-kernel quadrature, independent of production integrated
+kernels, transitions and covariance/factor builders. Each 48/64 rule is computed
+separately, checked for root convergence, re-evaluates derivatives at the final
+root and is cached immutably. There is no weight normalization, clipping or
+replacement of one order by the other. Only the final integral converts to
+native long double. The conditional-bond test's point callback also uses the
+wider type so it does not narrow the quadrature coordinates prematurely.
+
+New controls cover exact polynomial moments, an exactly representable `2^-70`
+displacement, independently computed exponential literals and all 25 base-kernel
+refinements after binary64 output rounding. The latter maximum is now zero.
+An initial auxiliary decimal `1e-20` exact round-trip overclaimed preservation
+of three input components in a two-component sum; its setup was corrected to
+the exact dyadic displacement with the exact assertion retained. That initial
+8/9 result is preserved separately. All original financial fixtures, 48/64
+orders, refinement/covariance `1e-16` budgets, normalized reconstruction,
+small-positive-pivot and sign controls remain unchanged.
+
+For an additional independent arithmetic check, mpmath 1.3.0 at 85 decimal
+digits integrates point Brownian kernels using tanh-sinh. The raw two-component
+results for 250 entries (orders 48/64, all 25 slot pairs, domestic a in
+0/1e-12/.03/1/60, foreign a=.07, h=1) differ by at most
+`5.79875037072e-31` after normalization by `max(1,abs(integral))`.
+The attachment includes every value, reference, error and the calculation
+script. mpmath is used for this local diagnostic only; it is not a C++ or CI
+dependency. This is scoped oracle qualification, not the downstream V1
+cashflow/MC/partial qualification.
+
+All actual helper consumers are covered by nine selected tests: the two new
+controls, original exact transition, small-positive reconstruction, zero/near-zero
+a and split composition, bucketed moments, Qd/Qf martingales, quanto/basis negative
+controls, and conditional bonds/projections. Fresh standalone callers use the
+repository `test_main.cpp` and these two model test TUs, linked to the unchanged
+core and Google Test archives:
+
+```sh
+c++ -std=c++17 -O2 -ffp-contract=off -I dal-cpp -I dal-cpp/externals/googletest/googletest/include dal-cpp/tests/test_main.cpp dal-cpp/tests/model/test_xccy_gaussian.cpp dal-cpp/tests/model/test_xccy_gaussian_data.cpp build/Release-linux/dal-cpp/libdal_cpp.a build/Release-linux/lib/libgtest.a -pthread -o build/m1-oracle-focused
+```
+
+The same sources are compiled with Clang using `-ffp-contract=fast`. Both
+callers pass **9/9**; exact filters and RED/GREEN commands are in the attachment.
+GCC is 15.2.0 and Clang is 21.1.8. Format, CCN<=8, strict implicit-float-conversion
+and scoped warning checks pass; the previous legacy unused-parameter and signed
+comparison exclusions remain. Markdown/diff checks pass. No generated markup or
+generated bytes change, so no regeneration is needed. Product/AAD/tape, archive,
+RNG/solver, CMake/workflows, bindings and dependencies are unchanged. Consequently
+there is no AAD/lifetime, install, original full selection, statistics or
+performance rerun; unchanged evidence remains scoped to its original binaries.
+
+This repair changes three test sources and this record. The 21-source manifest
+encoding is unchanged; its current SHA256 is
+`c8a5844252577289024e064eb5eb6568ca2188a46aa00af0c7765a2f536c60be`.
+Actual fresh caller identities:
+
+- GCC: `4c9da42352d3ea1c0bf80e2092d8713896973a8afcaeb7da49c7232789f7e296`.
+- Clang: `ed86a395f581e15ceb7a23c409095265d333f2d7425dded2a55653f3d3d18bf3`.
+- Unchanged core archive: `d08f1b6847c4baecbbedcee3696b2a2b0ffd161a3d09c011d2177b3167b81380`.
+
+The attachment retains whitelisted configuration, source/dependency/binary
+identities, original Windows failure bytes, diagnostic variants, raw failed and
+passing runs, independent reference results and the exact patch. New-head CI
+is reported at delivery without watching or relabeling old-head results. The
+coordinator's existing author-terminal callback owns the handoff and limited
+review; native Windows success still requires its actual new-head CI result.

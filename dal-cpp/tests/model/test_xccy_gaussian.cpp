@@ -12,6 +12,31 @@ using Dal::Matrix_;
 using Dal::Vector_;
 using namespace XccyGaussianTestSupport;
 
+TEST(XccyGaussianTest, TestIndependentQuadraturePolynomialMoments) {
+    for (const int order : {48, 64}) {
+        ASSERT_EQ(Integrate([](auto) { return 1.L; }, 0.L, 1.L, order), 1.L);
+        ASSERT_EQ(Integrate([](auto u) { return u; }, 0.L, 1.L, order), .5L);
+        ASSERT_EQ(Integrate([](auto u) { return u * u; }, 0.L, 1.L, order), 1.L / 3.L);
+    }
+}
+
+TEST(XccyGaussianTest, TestPortableOraclePrecisionAndBinary64Refinement) {
+    const long double displacement = std::ldexp(1.L, -70);
+    ASSERT_EQ(static_cast<long double>((Wide_(1.L) + Wide_(displacement)) - Wide_(1.L)), displacement);
+    const std::pair<long double, long double> exponentials[] = {{.125L, 1.13314845306682631682900722781179387256550313174518L},
+                                                                {-.125L, .88249690258459540286489214322905073622200482499065L},
+                                                                {-120.L, 7.66764807372199963243420837527582768233983150893855e-53L}};
+    for (const auto& example : exponentials)
+        ASSERT_EQ(static_cast<long double>(Exp(Wide_(example.first))), example.second);
+    ASSERT_EQ(static_cast<long double>(Expm1(Wide_(-.125L))), -.11750309741540459713510785677094926377799517500935L);
+    for (int i = 0; i < 5; ++i)
+        for (int j = 0; j < 5; ++j) {
+            const double coarse = static_cast<double>(KernelIntegral(i, j, .03, .07, 1.L, 48));
+            const double refined = static_cast<double>(KernelIntegral(i, j, .03, .07, 1.L, 64));
+            ASSERT_NEAR(coarse, refined, 1e-16);
+        }
+}
+
 TEST(XccyGaussianTest, TestExactJointTransitionAgainstBrownianKernels) {
     const auto correlation = Correlation();
     const std::array<double, 3> sigma{.01, .009, .12};

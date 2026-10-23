@@ -376,7 +376,7 @@ TEST(XccyGaussianModelTest, TestConditionalBondsAndProjectionAgainstKernelDiscou
         const auto& curve = foreign ? data.market_->foreign_ : data.market_->domestic_;
         const double a = foreign ? spec.dynamics_.foreignA_ : spec.dynamics_.domesticA_;
         const long double integratedStateMean =
-            Integrate([&](long double s) { return state.values_[factor] * std::exp(-a * (s - t)); }, t, finalTime, 48);
+            Integrate([&](const Wide_& s) { return Wide_(state.values_[factor]) * Exp(-Wide_(a) * (s - Wide_(t))); }, t, finalTime, 48);
         long double logRatio = curve->LogDF(maturity) - curve->LogDF(state.date_);
         if (foreign)
             logRatio -= data.market_->basis_->LogDF(maturity) - data.market_->basis_->LogDF(state.date_);
