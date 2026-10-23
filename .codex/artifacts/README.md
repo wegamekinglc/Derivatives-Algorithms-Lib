@@ -12,9 +12,9 @@ current-state explanations in the published docs or focused Codex references.
   — Active native export, complete dual-leg/date admission, frozen timestamp
   policy, independent value/raw-derivative evidence and bounded failure checks.
 
-- [DAL-418 final integration and publication](implementation/dal-418-publication.md)
-  — Accepted master integration, current public/Python/Excel caller checks,
-  fresh Linux/native Windows gates and recoverable evidence provenance.
+- [DAL-418 approved integration and publication](implementation/dal-418-approved-publication.md)
+  — Accepted test complexity repair, refreshed independent core and complete
+  cross-platform/caller/default-install gates, review and recovery provenance.
 
 - [DAL-414 GSR script public bindings](implementation/dal-414-gsr-script-public-bindings.md)
   — Owning GSR C++/Python/Excel adapters, accepted explicit sampling settings,
