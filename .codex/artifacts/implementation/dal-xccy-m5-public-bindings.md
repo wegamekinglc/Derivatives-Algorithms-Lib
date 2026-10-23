@@ -375,3 +375,49 @@ evidence remains subject to its recorded identity/applicability; no matrix is
 rerun. The exact new-head native CI result remains a merge gate, independent
 of the local GREEN. Frozen numerical failures, independent DAL-425 and parent
 in-progress state remain unchanged.
+
+## R3: accepted master integration without product changes
+
+The normal merge retains reviewed M5 parent
+`b046953eeef8a6409ac17312cf2ca405754f060a` and includes accepted master
+`197e33df818a14f5f8fae2f0f92ec52453c7463d` as its second parent, on the
+original branch and PR632. Master adds only DAL-426's accepted 888-line API
+note, `.codex/artifacts/api-notes/dal-xccy-mixed-mapping-basket.md`, SHA256
+`3c5ae6eed21ed0582ef0ba70811f4692efbcead2b69a184bbe5e0b5081a140ad`.
+The merge has no conflict. This provenance entry is the only other file change.
+No basket implementation or unmerged sibling is imported; DAL-427's separate
+core implementation tree and running task are untouched.
+
+At the first parent, the coordinator's complete gate capture establishes
+36 effective successful checks, including all four actual MSVC configurations.
+The 37 raw records retain historical Codacy check 120576813224 as pending;
+only newer successful check 120577155818 with the same head/app/suite/name
+supersedes it. The accepted full code review, Excel raw-input P2 review,
+native-runtime repair review and independent documentation review still apply.
+Strict Linux/Windows branch protection required this integration because that
+otherwise green first parent was behind master. Its green CI cannot validate
+the new merge head.
+
+The integration evidence compares every tracked tree entry and all 68 M5
+product/test/documentation paths against the first parent. They remain
+byte-identical, including the native initialization repair and all generated
+outputs. All 1,221 prior local evidence files are retained with identical
+SHA256 values; 32 recorded object/caller/configuration identities and the five
+dependency SHAs also match. No binary is rebuilt or relabeled as new evidence.
+Original RED/GREEN logs and later repairs retain their separate provenance.
+
+New local verification is limited to the exact two-file incremental diff,
+parent/master ancestry, content and dependency identities, `git diff --check`
+and the repository documentation check. No new behavioral RED/GREEN is needed
+for this conflict-free document integration. The 20 CTests, 46 Python tests,
+component builds/installs, numerical and performance matrices are not rerun;
+their accepted evidence is reused within its recorded applicability. The final
+handoff supplies the exact merge head, complete incremental patch, identity
+audit and one nonblocking new-head CI snapshot. Full exact-head CI and limited
+incremental review remain coordinator merge gates.
+
+The frozen M4 precision/combined/numerics failures and budget exhaustion above,
+DAL-425's FX-sigma precision and binary64 FD/eFD gaps, and old HeldOut identities
+remain unchanged. No fixture, scale, path count, variance reduction, threshold
+or budget changes. This integration supplies no full V1 or quote-risk acceptance;
+DAL-425 and parent DAL-396 remain in progress.
