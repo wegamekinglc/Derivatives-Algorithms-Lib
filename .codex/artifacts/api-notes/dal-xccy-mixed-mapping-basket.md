@@ -57,6 +57,7 @@ They are implementation seams, not evidence that the proposed basket exists.
 | `dal-cpp/dal/curve/xccygaussianmoments.cpp:206` | Complete snapshot-to-native Jacobian; basis affects foreign collateral discount/projection/quanto inputs. Do not differentiate snapshots as if they were independent native axes. |
 | `dal-cpp/dal/script/xccymcstatistics.cpp:102` | Paired coefficient batches drive Price/par and raw-gradient statistics. Its covariance is covariance of batch means, before division by batch count for mean uncertainty. |
 | `dal-cpp/dal/script/xccymcvalidation.cpp:111` | Existing validator admits actual Validation and exact `/1` results/ledgers; never disguise a basket member as a legacy result or relabel HeldOut. |
+| `dal-cpp/dal/calibration/protocol.hpp:120` | `CalibrationReport_` is final with fixed `/1` data; `CalibrationFailure_` owns only diagnostic/report/candidate. A basket partial needs its own additive carrier, not an extension hidden in these fields. |
 | `dal-public/src/calibrationinstrument.hpp:30` | Shared typed sampling/simulation and owning scalar result; no offset or phase extension to these shared types. |
 | `dal-public/src/xccycalibration.hpp:18` | Existing stochastic staged result ownership remains distinct from the new MC basket; the basket consumes its immutable fitted model. |
 
@@ -308,7 +309,8 @@ expired par, or any failed annuity floor/sign/confidence condition, remains
 
 ## Errors, stages and owning failures
 
-Use `CalibrationError_` and its owning diagnostic/report/candidate. Include
+Use the basket-specific `XccyMcBasketError_` below, derived from
+`CalibrationError_`, with the existing owning diagnostic/report/candidate. Include
 member ID and index, instrument/measure, stage, actual/required values and
 source event/statement/index/time when applicable. Basket structural errors
 have no invented instrument. Member failures retain their existing field path
@@ -332,6 +334,8 @@ existing single paths/codes do not change.
 | Finite but unqualified par denominator | `InvalidCalibrationAnnuity` at existing `/annuity` for direct evaluation, `/mc/annuity` for MC, `/validation/annuity` for validation confidence | Prepare when structurally known, otherwise Evaluate/Validate after coefficients; retain measured A/sign/floor/SE. |
 | Extra/missing draw or provider vector dimension/cursor mismatch | `CalibrationContextMismatch /sampling/mapping` for layout; `/sampling/ranges` for actual consumption | Preflight if knowable; otherwise Evaluate at the deterministic cursor assertion, not a statistical parity test. |
 | Nonfinite path/coefficient/gradient/covariance or unresolved affine subtraction | Existing `CalibrationNumericalFailure /execution/...` or `/derivatives/...` | Evaluate when observed; retain cause and last complete results, never pad missing batches with zeros. |
+| Post-draw failure, including late-member, late-batch or summary/annuity failure | Preserve the cause's exact code/field above, with `XccyMcBasketError_::Partial()` | Evaluate; owned progress/rows/ranges survive unwind. This is a failed basket, even if some members completed. |
+| Basket outcome getter requests an absent prepared handle, result, partial or validated model | `CalibrationCandidateUnavailable /outcome/prepared`, `/outcome/result`, `/outcome/partial`, or `/outcome/model` | Input, at the new getter; name the unavailable object. Never substitute a zero, original model or empty successful result. |
 | Request to validate basket as legacy `/1`, or relabel HeldOut/ Fit as Validation | Existing `InvalidCalibrationPlan /validation/identity` or `/validation` | Validate; new ledger must be checked before applying unchanged statistical arithmetic. |
 | Frozen precision/combined budget failure | Existing numerical-validation failure flags/report, completed estimates retained | Validate; no additional paths, seed/VR/scale changes, or successful-estimate-to-acceptance conversion. |
 
@@ -341,10 +345,96 @@ Preflight all candidate providers/mappings/native axes and tape availability
 before executing the first member. Numerical path, actual-consumption and
 annuity-confidence failures necessarily can occur after drawing; the contract
 does not promise pre-draw detection of observed numerical failures. A thrown
-failure owns its partial report and only a fully geometry-validated candidate.
+failure owns its report and only a fully geometry-validated candidate.
 Preserve complete member/batch coefficients and explicit completion counts in
-the partial basket extension, not a successful full basket result. AAD scopes
-must restore the caller tape on every failure.
+the separate owned payload below. AAD scopes must restore the caller tape on
+every failure, before control reaches any facade/binding catch.
+
+### Owned partial payload and failure carrier
+
+Choose a **derived basket error with a separate immutable payload**. Do not
+put a wrapper in `CalibrationFailure_::candidate_`: that slot continues to mean
+the actual validated model, and existing translators already recognize model
+candidates. Do not change `CalibrationReport_`, its schema, the generic error
+protocol, or the old single runner. Core types belong in `xccymcbasket.hpp`:
+
+```cpp
+struct XccyMcBasketPartialSnapshot_;
+class XccyMcBasketPartial_ final {
+    struct Impl_;
+    std::shared_ptr<const Impl_> impl_;
+    explicit XccyMcBasketPartial_(std::shared_ptr<const Impl_> impl);
+    friend class PreparedXccyMcBasket_;
+    // Private core producer freezes the owned snapshot/report; no default instance.
+public:
+    const XccyMcBasketPartialSnapshot_& Snapshot() const;
+    const Handle_<CalibrationReport_>& Report() const;
+};
+class BASE_EXPORT XccyMcBasketError_ final : public CalibrationError_ {
+    Handle_<XccyMcBasketPartial_> partial_;
+public:
+    XccyMcBasketError_(const std::string& file, long line,
+                      const std::string& function,
+                      std::shared_ptr<const CalibrationFailure_> failure,
+                      Handle_<XccyMcBasketPartial_> partial);
+    const Handle_<XccyMcBasketPartial_>& Partial() const noexcept;
+    // Failure() remains the inherited diagnostic/report/validated candidate.
+};
+```
+
+`Handle_` shares immutable ownership. The producer copies the base
+`CalibrationFailure_` into its existing shared ownership and freezes the
+partial snapshot; no references point into plan, runner, tape or caught error.
+Copying the derived error preserves both owners. Catch it by const reference
+before `CalibrationError_`; rethrow with `throw;`, never reconstruct/slice it as
+the base error. Legacy C++ catches still see the original code, field, report
+and candidate. The prepared constructor and Evaluate use this basket error
+for their calibration failures. A failure before a complete prepared allocation
+exists has `Partial()==nullptr`, plus its normal owning diagnostic/report.
+Evaluate preflight already has an allocation: its partial has zero draws and
+no completed rows, including for a rejected numeric candidate.
+
+`XccyMcBasketPartialSnapshot_` is a dedicated owned data record, with const-only
+inspection through the payload. Its schema is
+`dal.xccy-gaussian-mc-basket-partial/1`, distinct from any complete result.
+All referenced record names below are new core types; their contents are fixed
+by this table, rather than an untyped report extension:
+
+| Record / accessor data | Required owned content and availability |
+|---|---|
+| `header_ : XccyMcBasketExecutionHeader_` | Plan/allocation/layout/execution/stream versions and identities; phase, seed, precision, requested batches/paths/derivative method; native labels/order/units; frozen context, policy, fixing and convention identities; prepared model identity and attempted evaluation model/content/native-map identities, with `candidateGeometryValidated_`. Missing/unreadable attempted identities are explicitly absent, never replaced by the prepared identities. |
+| `allocation_ : XccyMcBasketAllocation_` | Copy of the entire immutable member order, member IDs, instrument/measure/source/definition/binding/preparation/mapping identities, dated grids/slots/D/native-map identities, all three reserved phase blocks and selected planned batch ranges. These are planned ranges, never labeled consumed. |
+| `members_ : Vector_<XccyMcBasketMemberProgress_>` | One row for every original member, including NotStarted members. State is `NotStarted`, `InProgress`, `CoefficientsComplete`, or `Complete`; keep member identity and any observed failure location. `Complete` requires every requested batch, derivative and member summary check to succeed. A member whose complete coefficients fail annuity confidence is only `CoefficientsComplete`. |
+| Each member's `batches_ : Vector_<XccyMcBasketCompletedBatch_>` | Only committed, finite complete batch rows. Each owns original batch ordinal, path/scalar endpoints, path count, first normal vector and ordered `(B,A,dB_1,dA_1,...,dB_q,dA_q)` coefficient means/units. For None, q=0; for AAD, all requested derivative columns must finish before row commit. Never append a short row or publish an unfinished batch mean. |
+| Each member's `actualRanges_`, `consumedCoordinates_`, `completedPaths_`, `completedBatches_` | Exact generated scalar spans/cursor and count, independently of successfully evaluated full coefficient paths and committed batch rows. A generated path vector counts as consumed even if its pricing/AAD fails. Completed paths may include valid paths from an unfinished batch; those paths do not create a committed batch row. Consumed spans never include unexecuted reservations or seeks themselves. D=0 keeps exact zero consumption and the deterministic marker. |
+| Each member's `completedEstimate_` | Optional owned member estimate, coefficient means/covariance and requested raw gradients/SE, present only for a `Complete` member. Earlier completed members retain these data. Incomplete members have no finalized Price/par, gradient, covariance or SE, even if their raw coefficient rows are available. None always has absent gradient fields. |
+| Optional retained paths | When requested in the original settings, only fully evaluated finite coefficient tuples with original member/path coordinates and all requested derivative columns. No partially evaluated path or failed batch aggregate is substituted. With retention off, only the rows/counts above are retained. |
+| Snapshot completion/failure fields | `completedMembers_`, per-member completed counts, total `consumedCoordinates_`, and optional failed member/batch/path plus observed cursor. Missing location is absent for summary-stage failures. `basketComplete=false`; basket estimate, joint C_batch/cross-member projections, basket SE and acceptance flags are unavailable on every failure, even if all coefficient rows exist. No implicit resume, pooling or certification from partial rows. |
+
+Progress counters use checked integer types as in the allocation law. A batch
+commit is atomic across value and all requested raw derivatives. Already
+committed rows and completed member summaries are preserved on a later failure;
+uncommitted accumulators are discarded. Member/batch IDs retain their original
+order, including under reversed execution traversal. If actual cursor checks
+fail, publish the observed consumed spans and mismatch diagnostic, not the
+expected full range. Report completion counts separately from planned capacity
+and random replication; no total over members becomes a larger sample count.
+
+`Report()` shares the same owning `/1` report as `Failure().report_`; it contains
+the diagnostic and applicable ordinary report data, not the partial extension.
+The payload owns copied identity strings, mappings, rows, counters and optional
+completed summaries. It needs no caller input handles to remain readable.
+The failure's candidate is the **actual evaluation model** only after geometry
+and native-map checks have succeeded for every member. A rejected refresh or
+last-member geometry mismatch leaves candidate null; do not publish the
+attempted model, or silently fall back to the original prepared model. After
+full geometry validation, a later numerical/annuity failure can retain that
+model without claiming a successful basket or calibrated candidate.
+
+The core payload is a non-Storable immutable object. No archive reader, report
+extension slot, diagnostic-text encoding, double-valued coordinate table or
+external last-error/shadow store is introduced. The facade supplies explicit
+JSON export and bindings hold normal shared owners, as specified below.
 
 ## Coefficients, native partials and full covariance
 
@@ -452,12 +542,14 @@ patched reservations. Full successful results require all members complete.
 Optional retained paths contain per-member coefficients, never a common
 economic path or pathwise par ratio.
 
-Expose reports through a separate versioned basket extension/JSON,
+Expose complete-result details through a separate versioned basket JSON,
 `dal.xccy-gaussian-public-basket-result/1`, with exact integer strings for all
 ordinals and counts. Keep the existing CalibrationReport `/1` columns and
 single-result JSON untouched. The existing report can carry the ordered member
-observations/plans/model and diagnostics; the new extension is authoritative
-for member scalar ledgers, cross-covariance axes and completion. Do not encode
+observations/plans/model and diagnostics; the new result is authoritative
+for member scalar ledgers, cross-covariance axes and completion. A thrown error
+instead owns `XccyMcBasketPartial_`; it does not require a complete result to
+export partial details. Do not encode
 offsets in `firstPaths_` doubles or infer basket coordinates from old tables.
 
 After M5 actually merges, the additive facade can mirror the core:
@@ -476,12 +568,25 @@ PreparedXccyMonteCarloBasket_ PrepareXccyBasketMonteCarlo(
     const Vector_<XccyMcBasketMember_>& members,
     const Handle_<XccyGaussianModelData_>& model,
     const XccyMonteCarloBasketRequest_& request);
+String_ DumpXccyMonteCarloBasketPartialJson(
+    const Handle_<XccyMcBasketPartial_>& partial);
 ```
 
 The facade prepares its context from the explicit model and snapshot, validates
 existing shared sampling/simulation and None/AAD restrictions, and delegates
 to the core. The prepared facade exposes Evaluate(candidate={}), allocation
-inspection and a distinct owning basket result/JSON. Do not add a generic
+inspection and a distinct owning basket result/JSON. It passes
+`XccyMcBasketError_` through unchanged with `throw;`, preserving dynamic type,
+the base report/candidate and the partial's identical report owner. Function/
+argument input context is captured before delegation; no post-catch report
+rewrite can disconnect it from the payload. Facade input failure before
+preparation has no partial. The partial dump function exports
+the snapshot schema above with `status="Failed"`, `basket_complete=false`,
+all member states/rows/identities/ranges/counts and explicit unavailable fields
+as JSON null. Every ordinal/count is an exact integer string; absent rows are
+omitted, not zero-filled. A null payload gives
+`CalibrationCandidateUnavailable /outcome/partial`. No generic report dumper
+is changed. Do not add a generic
 Price wrapper, new market defaults, archive fields or alternate stochastic
 staged solver. A bare basket result has numerical acceptance unavailable.
 The existing single validator remains unchanged; the independent V1 helper
@@ -499,7 +604,30 @@ before GIL release; no worker Python callbacks. Expose read-only owned result
 members, covariance axes/matrix and details JSON; returning a member must keep
 the parent result alive or return an owning copy. Python omission of a required
 argument is TypeError naming it; typed null/invalid input uses owning
-CalibrationError with the core code/path. Existing translator remains intact.
+CalibrationError with the core code/path.
+
+Choose one local Python path: register `XccyBasketCalibrationError` in the new
+basket binding as a subclass of the existing Python `CalibrationError`, with
+the same message/code/diagnostic/report/candidate properties and a read-only
+`partial` property. Register an immutable `XccyMcBasketPartial_` binding with
+read-only `header`, `allocation`, `members`, `completed_members`,
+`consumed_coordinates`, `failure_location`, `report` and `details_json`.
+Nested progress/batch properties follow the snapshot table; return owning
+copies or shared immutable owners, never borrowed plan/error references.
+
+Both new Prepare and prepared.evaluate wrappers catch
+`XccyMcBasketError_` **locally first**, after the GIL-release scope has unwound,
+and raise this Python subclass with copied base fields and the shared partial.
+A following local catch of plain `CalibrationError_` raises the same subclass
+with `partial=None` for early facade/input failures. Create Python objects
+only with the GIL held; the worker executes no Python code. `candidate` is the
+existing typed actual model or None, never a payload wrapper. Existing
+`except CalibrationError` handlers therefore keep working with identical
+code/path/report/candidate. The old global translator, Candidate helper,
+exception constructor and all old single bindings stay unchanged; do not rely
+on that translator to discover the new payload. No new module-wide exception
+translator is registered. Missing required Python arguments still produce
+TypeError before the call, rather than a fabricated partial.
 
 Excel uses typed member-list, basket-request, prepared-basket and outcome
 handles. Proposed member factory accepts one complete three-column table
@@ -511,9 +639,46 @@ validation and duplicate-key/row diagnostics, including Excel error cells
 before coercion. Phase is not an optional settings row. No offsets or models
 are hidden in text settings. Preserve raw input row numbers, core code/path
 and function/argument/row/column context; wrong native types fail at input.
-Evaluation owns an Estimate/Failure outcome with report, validated model and
-optional complete result; failure getters must not return zero as an estimate.
-JSON export uses the new family; existing `/1` tables/getters are untouched.
+The new Excel-only `StorableXccyMonteCarloBasketOutcome_` owns a basket outcome
+value with `status` (`Prepared`, `Estimate` or `Failed`), owning diagnostic/report,
+optional prepared handle, optional geometry-validated model, optional complete
+result and `Handle_<XccyMcBasketPartial_> partial`. Prepared has only the fully
+prepared handle/report/model; Estimate requires a complete result and has no
+partial; Failed has neither prepared handle nor complete result and may have
+a partial. New Prepare/Evaluate entrypoints catch the derived error before the base error;
+the derived catch copies diagnostic/report/candidate/partial, leaving result
+and prepared absent. The base catch records a null partial for early failures.
+`XccyBasket_PrepareMonteCarlo(members,model,request)` returns this outcome;
+successful Prepare has status Prepared without claiming an estimate.
+`XccyBasket_EvaluateMonteCarlo(prepared,candidate={})` requires the prepared
+handle and returns Estimate or Failed. No generic outcome or single entrypoint
+changes.
+
+Required new getters are `XccyMonteCarloBasketOutcome_Get_Status`,
+`_Get_Report`, `_Get_Prepared`, `_Get_Model`, `_Get_Result`, `_Get_Partial`
+and `_Get_Json`.
+`_Get_Partial` returns a new typed
+`StorableXccyMonteCarloBasketPartial_` holding the same shared core payload;
+it remains readable after both the outcome and prepared handle are released.
+`XccyMonteCarloBasketPartial_Get_Json(partial)` calls the facade partial dump
+directly, without reading a complete result. `_Get_Json(outcome)` exports a
+new `dal.xccy-gaussian-public-basket-outcome/1` envelope with status,
+diagnostic/report JSON, prepared-plan identity, validated-model identity,
+`result` and `partial`; the absent alternative is null.
+The partial subtree is exactly the partial
+dump above. Use existing Excel diagnostic chunking for long JSON strings,
+preserving exact integer strings and all unavailable markers.
+
+Getters for absent prepared/result/model/partial use the owning input errors in the
+table above. Incomplete member gradients/SE are unavailable; finalized fields
+of an earlier Complete member remain explicitly member-scoped in the partial.
+No failed outcome has a basket Mean/SE getter returning zero. The Excel handle
+repository owns these normal typed values until released; each returned partial
+wrapper independently shares ownership. No hidden per-call lookup is needed.
+These are transient session handles: their Write follows existing
+`CalibrationPersistenceUnsupported` behavior, not a new archive/import/resume
+protocol. JSON is an explicit export. Existing single `/1` tables/getters,
+failure outcomes and M5 raw input entrypoints stay untouched.
 
 Happy path, assuming the original three imported immutable instruments, the
 staged fitted model, explicit frozen snapshot and sampling already exist
@@ -531,6 +696,36 @@ const auto prepared = PrepareXccyBasketMonteCarlo(
 const auto basket = prepared.Evaluate();
 // Inspect each member estimate/SE and the owned scalar ledger/covariance.
 ```
+
+Late-failure access uses the distinct carrier, without a complete result:
+
+```cpp
+Handle_<XccyMcBasketPartial_> partial;
+try {
+    const auto basket = prepared.Evaluate();
+} catch (const XccyMcBasketError_& error) {
+    partial = error.Partial(); // shared owner, independent of the error and plan
+    // error.Failure() keeps the original diagnostic/report/validated model.
+}
+if (partial) {
+    const auto json = DumpXccyMonteCarloBasketPartialJson(partial);
+}
+```
+
+```python
+try:
+    basket = prepared.evaluate()
+except XccyBasketCalibrationError as error:
+    partial = error.partial
+    # partial.details_json and partial.members survive the exception/plan.
+    diagnostic, report, validated_model = error.diagnostic, error.report, error.candidate
+```
+
+Excel's same case is `outcome = XccyBasket_EvaluateMonteCarlo(prepared)`,
+then `XccyMonteCarloBasketOutcome_Get_Partial(outcome)` and
+`XccyMonteCarloBasketPartial_Get_Json(partial)`. The outcome remains Failed;
+its result getter refuses. A preflight candidate geometry mismatch exposes a
+zero-draw partial and null candidate, not the rejected model.
 
 Rejection examples: passing the three old PreparedXccyMc_ reservations to
 `RequireXccyMcIndependent` still fails `/sampling/mapping` before draws;
@@ -555,7 +750,10 @@ before observing new samples. Keep R2 files and failures byte-identical.
 | Range failures before draws | Instrument the draw count as zero for unknown/unset phase/stream, signed counts, capacity+1, size_t and uint64 product/addition limits, matrix index/storage limits, stale ledger/hash/D/equal-D date change, forged overlap/CRN and last-member preflight failures. On 32-bit builds apply the smaller real limit. Use synthetic checked arithmetic fixtures without allocating huge vectors. |
 | Input/domain/degenerate | Empty list, duplicate ID, null model/instrument/snapshot, missing strict-past history, bad currency/route/coverage, intraday/unsupported product, invalid labels/rank/tape all refuse at the owning code/path/stage. Explicit empty snapshot with future instruments succeeds. Duplicate economic instruments with distinct IDs get separate blocks. D=0 and mixed deterministic/stochastic membership consume exactly zero for deterministic rows; all-D=0 independent claim and par refuse as specified. |
 | Same-source economics | Independently recheck the R2 canonical cashflow/index/date table and original three basis knots. Same source supplies fast/MC A,B,Price,eligible par and selected raw basis partials through the full native chain. Preserve the third-node recovery limitation; allocator does not alter analytic fitting or canonical admission. |
-| AAD/CRN/ownership | Interior raw basis/spot/sigma AAD and h/h2/h4 CRN use identical member scalar coordinates and full map, with batchwise differences. Unsupported methods/labels/rank stay unavailable. Mutate globals after preparation and between bumps; explicit snapshot and prepared results stay fixed. Drop input/plan handles, test owning success/failure and caller tape restoration, including a late runtime numerical failure. |
+| AAD/CRN/ownership | Interior raw basis/spot/sigma AAD and h/h2/h4 CRN use identical member scalar coordinates and full map, with batchwise differences. Unsupported methods/labels/rank stay unavailable. Mutate globals after preparation and between bumps; explicit snapshot and prepared results stay fixed. Drop input/plan handles and verify owning success and caller tape restoration. The explicit partial-failure cases below add no paths to the frozen numerical acceptance runs. |
+| Late-member partial failure | Inject a controlled failure in member 1 after member 0 has completed all B batches, raw partials and summary checks. Catch the derived error, retain its payload/base report/candidate, unwind and destroy prepared plan, instrument/binding/context/model caller handles and caught temporary. Assert member 0's rows/qualified summary remain readable, every original identity/reservation remains exact, later states are incomplete/NotStarted, actual consumption matches draws, and the caller AAD tape is restored. No complete basket result or joint covariance/SE/acceptance is available. |
+| Late-batch partial failure | In member 1, commit k batches (0<k<B), then fail a path/AAD operation after its vector was drawn in batch k. Assert exactly k full coefficient rows with every requested label, no row k or padded statistics, correct completed-path versus consumed-scalar counts including the failing vector, and optional retained-path commit behavior. Repeat a member-summary annuity failure after all its rows: state CoefficientsComplete, no qualified member estimate/gradient/SE. Hold payload through the same unwind/destruction check. Synthetic fault cases are ownership controls, not new numerical samples. |
+| Partial carrier projections | Public catch/rethrow preserves dynamic type, original code/path/report and payload owner. Last-member geometry rejection has zero draws and null candidate; late numerical failure after full geometry retains only the actual validated model. Python catches the new subclass via both its name and CalibrationError, inspects `error.partial.details_json`, saves payload, drops exception/plan/inputs and runs GC; all rows remain readable with the GIL correctly restored. Excel obtains typed partial then releases outcome/prepared/input handles; partial JSON still reads, while complete-result getter refuses. Early Prepare failure has null partial and owning report; getter rejects it. Old single translator/outcome regression remains unchanged. |
 | Cross-member statistics | Independently concatenate all B coefficient rows; reconstruct every element of full C_batch and all per-member Price/par/gradient SE. Prequalified wrong-SE and omitted cross-block/empty/ragged/truncated covariance mutants must fail; do not require measured independent cross-block entries to be exactly zero. Use B, never B*m, as batch count. |
 | Numerical verdict and phase provenance | Original and new parity, precision, combined and gradient gates remain distinct under DAL-410. Preserve current nine original `numerics=false`, extended profile REDs and five binary64 FD RED rows. New results cannot convert those to passes; lack of precision retains complete estimates and fails acceptance. HeldOut remains disjoint from this allocation's Fit/Validation, never relabeled to pass the Validation-only product validator. |
 | Facade/bindings after real M5 merge | Direct C++ core/public agreement, Python exact types/GIL/ownership/errors, Excel raw tables/typed handles/owning failure and range JSON. Native Windows/XLL/workbook claims require actual native execution; Linux portable checks are scoped as such. |
@@ -575,8 +773,8 @@ These are disjoint task proposals for coordinator scheduling, not assignments.
 
 | Work | Allowed paths/seams and real prerequisite |
 |---|---|
-| Core allocator/runner | New dedicated basket files under `dal-cpp/dal/script/` and new focused core tests. Starts after this design actually merges, from accepted master containing M1--M4. Narrow serial extraction from `xccymc.cpp`/`xccymc_internal.hpp` can share member preparation, coefficient execution and summary arithmetic; preserve old runner, public single types/versions and behavior. A separate basket range checker must not weaken `xccymcranges.cpp`'s old mixed guard. No M1/M2 grid/model/RNG change is required. |
-| Facade and binding projection | After core allocator and M5 both actually merge/accept: new basket facade/binding files and direct tests; only necessary registration/CMake/generated wrappers in a coordinator-approved window. Do not write PR632's current files concurrently or depend on its unmerged objects. Single request/result/dump/validator behavior remains frozen. |
+| Core allocator/runner | New dedicated basket files under `dal-cpp/dal/script/` and new focused core tests, including immutable partial snapshots/derived error and batch commit/unwind paths. Starts after this design actually merges, from accepted master containing M1--M4. Narrow serial extraction from `xccymc.cpp`/`xccymc_internal.hpp` can share member preparation, coefficient execution and summary arithmetic; preserve old runner, public single types/versions and behavior. A separate basket range checker must not weaken `xccymcranges.cpp`'s old mixed guard. No protocol.hpp, M1/M2 grid/model/RNG change is required. |
+| Facade and binding projection | After core allocator and M5 both actually merge/accept: new basket facade/binding files and direct tests, including partial dump, local Python exception/catch and Excel typed partial/failure wrappers/getters; only necessary registration/CMake/generated wrappers in a coordinator-approved window. Do not write PR632's current files concurrently or depend on its unmerged objects. Single request/result/dump/validator/error/outcome behavior remains frozen. |
 | Independent V1 continuation | Original tester retains exclusive tests/helpers and validation record, after required product merges. Its existing P2 repairs and R2 focused review continue independently. Implementation tests use new basket-specific filenames; do not edit the tester's active helper/record. Coordinator arranges integration of the independent basket acceptance against the merged allocator. |
 | Public docs/example/build | Only after the callable surface is accepted, and in an agreed window with M5/docs owner. A new facade example is a separate program under dal-public/examples. Old core examples never move or depend on public. No public guide/index/CHANGELOG edit in this design PR. |
 
@@ -599,7 +797,18 @@ to the new core; Python and Excel delegate only through that facade. Python
 needs its explicit source list in dal-python/CMakeLists.txt and a narrow
 registration call in `dal-python/src/bindings/calibrationinstrument.cpp`
 after M5's init_xccy_monte_carlo; it needs no new exception translator or
-module-wide dispatch. Public/Excel source globs already discover new files,
+module-wide dispatch. Register the new Python subclass/partial types and the
+local Prepare/Evaluate catches in the **new basket binding file**; the shared
+registration call only invokes that initializer, after CalibrationError and
+M5's model types exist. The facade partial dump is in the new basket .cpp.
+Core snapshot/error definitions and producers stay in the new basket files,
+with no protocol.hpp or single OwnFailure edits.
+
+Excel outcome/partial Storable wrappers, derived-first catch, all new getter
+declarations/definitions and Machinist function blocks belong solely in
+`__xccymontecarlobasket.hpp/.cpp`; no edit to `__xccymontecarlo.cpp`,
+`__xccyinput.hpp`, the shared converter or M5 factories is required.
+Public/Excel source globs already discover new files,
 but Excel Machinist outputs in dal-excel/auto need generation/drift checks.
 These named registration/build seams are coordinator-owned serial windows,
 not permission to edit M5's ongoing tree. Direct tests belong in each owning
@@ -629,8 +838,8 @@ compensate by increasing the frozen budgets.
 
 ## Compatibility and open questions
 
-The new layout/result families start at `/1` under **new names** because their
-coordinate meaning and member ownership are new. Existing
+The new layout/result/partial/outcome families start at `/1` under **new names**
+because their coordinate meaning and member ownership are new. Existing
 `dal.xccy-gaussian-phase-ranges/1`, `dal.xccy-gaussian-mc-result/1`, stream
 `dal.mrg32-normal-paths/1`, exact transition `/1`, seeds, Precise normals,
 single-instrument results/defaults, report columns, archive and generic
@@ -663,3 +872,17 @@ limits. The audit also verified the control SHA and both R2 staged modes'
 full grids/slot strings/mapping hashes and actual no-draw refusal. This is
 static design/captured-evidence validation, not execution of the proposed
 adapter or basket. No product executable was built or run.
+
+The partial-carrier revision adds only the owned snapshot/error, local
+three-end access paths, failure examples and directly affected handoff/scope
+above. The coordinate law, fixed reservations and statistical formulas are
+unchanged from `2905af5d4239e9b90bac6bf7d59c9132938c985a`. Reviewer report
+`01a169f8-b1ff-78e9-834c-b3089f8702cd` supplies the source/API limitation;
+its 2,565 existing-RNG comparisons are reused within their stated scope, not
+rerun or counted as basket execution. Critic conclusion
+`01a169fb-5269-7260-a16c-74bea04a7cce` found no coordinate/statistics blocker
+at that original head; it does not approve the new carrier or replace its
+necessary limited review. Revision checks are documentation, exact diff/scope
+and static ownership/API consistency only. Product implementation, lifetime
+fault controls and native Python/Excel execution remain required future GREEN
+evidence; this design supplies none of those runtime results.
