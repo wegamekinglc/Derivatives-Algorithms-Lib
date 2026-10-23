@@ -115,7 +115,7 @@ Final narrow commands/results:
 | Old staged/joint | `build/main/final-legacy-core-tests`: 27 pass |
 | Public | `build/main/final-public-tests`: 12 pass, including 10 old compatibility cases |
 | Python | `PYTHONPATH=build/main/dal-python python -m pytest dal-python/tests/test_xccy_instrument.py dal-python/tests/test_xccy_calibration.py -q`: 15 pass |
-| Old Excel staged/joint | `build/main/dal-excel/dal_excel_portable_tests --gtest_filter=ExcelApiTest.*:JointCalibrationExcelTest.*`: 11 pass |
+| Old Excel staged/joint | `build/main/dal-excel/dal_excel_portable_tests --gtest_filter=ExcelApiTest.*:JointCalibrationExcelTest.*`: 15 pass |
 | Portable Excel | `build/main/dal-excel/dal_excel_portable_tests --gtest_filter=ExcelXccyInstrumentTest.*`: 3 pass |
 | Complexity | Lizard `-C 8 -L 1000 -a 100` on affected implementation, new fixture/tests/example: no threshold exceeded |
 | Warning policy | GCC 14 and 15 `-fsyntax-only` on all five changed product TUs with repository warning-clean exclusions and `-Werror`: pass |
