@@ -1,11 +1,13 @@
-# DAL-422 Gaussian moments and staged basis checkpoint
+# DAL-422 Gaussian moments and staged basis implementation
 
-This is an **incomplete author checkpoint**, not M3 acceptance or a complete
-XCCY MC implementation. Final source execution parity requires DAL-421's
-actual accepted merge. The synthetic recovery test now uses the independently
-accepted nonlinear qualification at the frozen quote resolution. Its original
-unsupported absolute-node assertion and RED logs remain historical evidence.
-The PR is a draft until the execution dependency and complete M3 scope close.
+The author implementation now includes final same-instrument tree/compiled
+execution parity against accepted DAL-421, merged as
+`f9b8044eac76cbe622e1443cf80806569ecbbf40`. It awaits its first complete M3
+code review and independent V1 acceptance. M4 statistical estimation/partials
+and M5 language facades remain separate work; this is not complete XCCY MC.
+Synthetic recovery uses the independently accepted nonlinear qualification at
+the frozen quote resolution. The original unsupported absolute-node assertion
+and actual RED logs remain historical evidence.
 
 ## Authority and design
 
@@ -189,12 +191,10 @@ The latter is the existing par floor divided by the .001 native scale.
 No hidden extra Newton solve, optimizer, curve correction or internal residual
 scale change was inserted. The old FD/AAD failure and real CI logs are retained.
 
-Final same-instrument tree/compiled cashflow parity additionally requires
-DAL-421's actual accepted merge. PR628 has code and documentation approval but
-was still open at the repair's dependency read. No unmerged M2 branch is
-imported. This independent repair does not earn M3 in_review or replace its
-first complete code review or independent V1 acceptance. The final handoff
-records the actual dependency state; downstream execution is not started here.
+At the recovery repair's dependency read, PR628 was still open. That repair
+alone did not complete M3. The subsequent accepted merge and actual execution
+parity are documented below; no unmerged M2 branch was imported. Neither author
+result replaces the first complete code review or independent V1 acceptance.
 
 ## Verification and identity
 
@@ -303,3 +303,131 @@ evidence retains its original scope and exact binary identity. This repair does
 not rerun the 49-case scope, 36-case/1,356-gradient oracle matrix, MC/statistical,
 performance, sanitizer or component/install matrices. It claims Linux caller
 execution, not native Windows/XLL/workbook execution or final M3 parity.
+
+## Final same-source execution integration
+
+Continuation starts from `cf966f36deb892630fb428263b5bd9b391c7b479` on the
+original branch and PR629. GitHub and Multica both confirm PR628 merged at
+2026-10-23 09:46:33 UTC; fetched master is its squash commit
+`f9b8044eac76cbe622e1443cf80806569ecbbf40`. A normal merge adds exactly its
+seven accepted paths, unchanged. M1, the M3 production code, shared adapter,
+solver, fixture, scales, financial admission, RNG and bindings are unchanged.
+The resumed shell lacked a Git identity; the merge/commit commands explicitly
+reuse Cheng Li's name/email from both existing commits, without changing shared
+or global configuration.
+
+Four dedicated test/tool files are added:
+
+- `dal-cpp/tests/curve/test_xccy_gaussian_execution.cpp`: seven integration
+  tests, using the existing initialized core test main.
+- `dal-cpp/tests/curve/xccygaussianexecutionfixture.hpp`: explicit signed
+  cashflow reference, independent scalar Brownian integrals, and a pathwise
+  reader of the actual lowered terms. The reference lists the qualified
+  two-domestic/one-foreign coupon table and principal/MTM cashflows; it calls
+  neither production transition/moment kernels nor a native pricer.
+- `dal-cpp/tests/curve/xccygaussianexecutionreference.hpp`: 30 retained
+  independent expectation controls, including all 24 base combinations and
+  six nonflat/bucketed cases. Each quantity retains the oracle value/indicator,
+  80-digit fast replay and 50/80 refinement difference.
+- `dal-cpp/tests/curve/xccy_gaussian_execution_reference.py`: deterministic
+  extraction from the original qualified gate JSON, pinned to SHA256
+  `0cabea620823b1b9c061ccae69df61251d9d41b3b0cd4f90baba17791e680d97`.
+  This extracts existing evidence; it does not rerun or replace its oracle.
+
+Each base/nonflat instrument is imported once, then the same immutable handle
+and preparation context feed the M2 planner and M3 lowerer. Three fixed normal
+vectors drive the accepted model's exact state path. The tree and compiled
+receivers agree with each independently listed payment; lowered terms agree
+by payment date, so offsetting coupon/principal errors cannot pass only by
+total PV. The independent path reference uses 32/64-panel composite Simpson
+Brownian integrals, split at each volatility bucket. Their pathwise refinements
+and receiver discrepancies use the unchanged 1e-10 USD gate.
+
+Fresh M3 A/B/Price/par are compared directly with the retained independent
+Brownian expectation controls. The oracle indicator retains its original
+45/65/85-digit refinement plus the bound for representing the retained decimal
+in the caller's arithmetic. The fresh fast indicator is four times the larger
+of the new double-to-80-digit-replay difference and the stored 50/80 refinement,
+including that representation bound. The original independent budgets/floors
+and separate quarter-budget checks remain: A/B/Price 1e-10/1e-11, par
+1e-12/1e-13. The extraction retains 31 significant digits, with conversion
+covered conservatively by the arithmetic representation bound. Fast/oracle
+discrepancy is never used as either indicator. Ordinary 53-bit `long double`
+platforms use their actual epsilon in this bound.
+
+With all sigmas zero, actual tree/compiled Price equals M3 expectation. Immutable
+K=0 and K=1 bindings additionally extract script B and A and their signed par;
+these agree with moments. Nonzero paths are checked as realized cashflows,
+not equated with expectations. No sampling stream, MCSE, phase reservation,
+MC optimizer or statistical acceptance is introduced by this completion.
+
+The remaining integration tests cover all principal exchange switches and K/N
+rebinding; strict-past missing refusals; supplied/active at-V rate and reset FX;
+future snapshot entries ignored; omitted strict-past history frozen against
+later global changes; conflicting same-time globals excluded; one-leg-settled
+and expired Price/par boundaries and independent legacy refusal. The existing
+three-maturity fit is run once in the new test and its actual returned model
+drives each original source through both receivers and the lowerer's realized
+terms. Its par reproduces the independent recovery reference and owned report.
+The accepted secant qualification, node/date/raw-column checks and negative
+controls remain unchanged.
+
+## Execution parity verification and reuse
+
+The incremental public-disabled Release core build compiles only the accepted
+M2 source and relinks `libdal_cpp.a`. The new caller is freshly linked against
+that archive. Its final focused run executes **13 distinct tests: 7 new parity
+and 6 directly affected staged tests, all passing**. This is not a rerun or
+relabeling of the original 48/49 checkpoint. The new tests' JSON properties
+retain all 120 actual A/B/Price/par values and independently computed indicators.
+Their largest direct discrepancy is 1.764e-14; the largest fresh fast indicator
+is 9.840e-14 and represented-oracle indicator 5.988e-18. Each is checked in its
+own quantity's unit and against its own unchanged budget, not a pooled bound.
+
+Three validation-only copies give the required sensitivity controls. Replacing
+reset-date FX with payment-date FX, reversing MTM new-minus-old, or replacing
+delayed foreign-payment FX with index-end FX each compiles and then fails the
+focused parity test with exit 1. The unmodified caller passes. These are test
+helper mutations, not product defects or production changes. The original
+independent expectation lag-covariance mutant remains separate evidence.
+
+The first principal-switch harness run accidentally inherited the importer's
+foreign-spread default while the explicit reference requested domestic spread.
+Its failure is retained and the fixture explicitly selects domestic spread;
+no assertion or numerical threshold changes. An initial reference regeneration
+comparison used clang-format's default style outside the repository. It is
+retained as a tooling failure and corrected by selecting this repository's
+`.clang-format` explicitly. Neither is presented as a product RED.
+
+Final commands and exact argument vectors are in the execution evidence bundle:
+
+```text
+cmake --build build/m3 --target dal_cpp -j4
+  PASS: accepted M2 source added to the existing public-disabled core
+python ../execution-parity/verify_execution.py
+  Three compiled mutants fail the intended assertion (exit 1)
+python ../execution-parity/verify_execution.py --skip-mutants
+  Fresh combined caller: 13/13 PASS; GCC14/15 Werror PASS
+  CCN<=8, format, pinned reference regeneration and diff PASS
+python .github/scripts/check_docs.py
+  PASS: current Markdown set; record checked after its final edit
+```
+
+The bundle records the input head, merge parent, exact final head, unchanged
+production hashes, all seven upstream byte comparisons, dependency/configuration
+and compile-command comparisons, fresh archive/caller SHA256 and full logs.
+The previous archive identity remains attached to its original numerical
+evidence; adding M2 changes the current archive identity, so it is not called
+the old binary. Source/dependency/configuration applicability and the new
+integration/staged caller justify reuse of unchanged gradient, compatibility,
+parameter-recovery and informational performance evidence within their original
+scope. The new 120 value checks are fresh execution against retained references,
+not 120 new high-precision oracle integrations.
+
+No full 49/38/36-case/1,356-gradient, P0/P3, stochastic/performance, sanitizer,
+install/component or native Windows/XLL/workbook matrix is repeated. There are
+no build/example/enum changes beyond the accepted upstream merge; their content
+identity is checked without regenerating accepted upstream output. Local timing
+is the new caller's observed test time, not a product performance claim. The
+final exact-head CI snapshot is handed off once without waiting. Complete M3
+code review and V1 remain coordinator-owned; downstream tasks are not started.
