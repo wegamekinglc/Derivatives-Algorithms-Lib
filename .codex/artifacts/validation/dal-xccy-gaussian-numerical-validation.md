@@ -12,8 +12,8 @@ even at x4. Estimates, actual batches, failures and identities are retained.
 This checkpoint is deliberately not final V1 acceptance. DAL-424 was still
 in progress without a linked PR when checked. Its actual merged public C++,
 Python and Excel boundaries must be tested before the issue can enter final
-review. The remaining independent staged/basket and wider coverage listed
-below also prevent describing the whole core matrix as complete. Parent
+review. The mixed-dimension held-out basket refusal, remaining statistical
+combinations and boundary coverage prevent calling the core matrix complete. Parent
 DAL-396 must remain in progress. No model, financial convention, scale, epsilon,
 path reservation or variance-reduction policy was changed to obtain a pass.
 
@@ -99,7 +99,8 @@ both spread legs, signed annuity/refusal and legacy refusal. Maximum cashflow
 error is 7.583e-15 and fast indicator 4.966e-14. The supplied at-V reset is 1.17,
 while active payment spot remains 1.10. All-expired Price is zero and par is
 refused; one-leg-settled domestic-spread par is refused. These six references
-do not establish an independent historical derivative matrix.
+did not establish an independent historical derivative matrix at the original
+`59714aee` checkpoint. The R2 extension below supplies those derivatives.
 
 ## Running existing tests, authoring tests, repairing failures
 
@@ -196,6 +197,163 @@ Price-gradient combined budget; this is kept separate from Validation and
 does not change any rule. Fit/HeldOut are independent phase audits, not
 successful calls to the Validation-only product validator.
 
+## R2: complexity repair and independent core extensions
+
+The original `59714aee` remains a distinct review checkpoint. R2 changes only
+acceptance tests, private fixtures/tools and this record. It addresses all nine
+reported complexity sites by extracting named operations, retaining formulas,
+arguments, exceptions, thresholds and original RED/GREEN results. A second
+McCabe check also exposed the nested kernel helper's aggregate complexity;
+extracting its functions preserves the order of numerical operations. Local
+Lizard reports maximum CCN 8 across the acceptance files; Ruff F/C901 with
+maximum complexity 8 passes. These local checks do not claim a new Codacy
+server verdict.
+
+A focused helper audit found that `zip` silently accepted a missing covariance
+row or a shortened row. Both malformed-data probes first reproduced RED; exact
+outer and row dimensions now reject them, while the complete original matrix
+passes. This repairs validation-tool admission, not product statistics or any
+numerical threshold. Original complete-report equality is checked again.
+
+The original sixty-case JSON capture is byte-identical. Re-executed original
+oracle values, 156 derivative gates, refinement values and three mutants are
+identical, excluding changed script hashes. Kernel/Qf/history controls and all
+nine original statistical reports compare exactly. The statistical strict
+command still exits 1. The original `Mc` function is byte-identical to the
+pre-run driver, and the old executable and archive hashes above remain valid.
+R2 does not re-run or relabel those nine long samples. The new matrix uses a
+separately named `xccyacceptancecapture-r2-final` executable; its hash and compile
+command are in the R2 evidence. No old executable was overwritten.
+
+### Three-maturity qualification and staged fit
+
+The named `2028-11-06` maturity fails actual admission with
+`UnsupportedCalibrationProduct`, field `/import/rate`. An initial independent
+calendar check also rejected the mismatch, before any new fit or MC. Both RED
+records remain in the evidence. DAL's canonical period maturity is the
+unadjusted calendar-month date, including Saturday `2028-11-04`. Section 8's
+fixture-qualification rule permits correcting the invalid fixture; the matcher
+and financial rules remain unchanged.
+
+The supported independent date table freezes maturities `2027-11-04`,
+`2028-05-04`, `2028-11-04`: respectively 2/4/6 USD periods and 1/2/3 EUR periods,
+with final foreign payments `2027-11-08`, `2028-05-08`, `2028-11-07`.
+The three free basis knots remain `2027-11-08`, `2028-05-08`, `2028-11-08`,
+anchored at V, target logB=-.003*t and initial target+.001 per free node.
+Independent cashflows and 45/65/85-digit Brownian integration generate par
+quotes `-.06705259701832679`, `-.054512806033648581`,
+`-.049912191545990019`. No production expectation, native quote generator or
+moment-term replay supplies these quotes. Geometry, target, initial curve and
+quote refinements were captured before observing the fit or starting new MC.
+
+The first staged helper attempt retained an APPROXIMATE admission failure for
+missing explicit `/solver/fit_weight`. Its corrected configuration uses the
+existing staged test's lambda=1e8 and eta=.5; it does not change quote scales or
+acceptance thresholds. EXACT and APPROXIMATE both preserve original row IDs,
+scale 1e-4 and three `LOG_DISCOUNT_FACTOR` date axes. EXACT scaled infinity is
+.003981926655211021 and L2 .006624713947827545; APPROXIMATE L2 is
+.006624713953073177, below eta. Raw 3x3 Jacobian determinants are approximately
+.001201014912906. Independent financial derivatives check every raw basis
+column at the fitted curves. Both modes together pass 24 direct value and
+72 raw derivative gates, with the same refinement and quarter-indicator rules.
+
+Recovery is reported separately from quote tolerance. EXACT parameter errors
+versus the frozen target are approximately +1.8273e-7, -4.8169e-6 and
+-1.4914189e-4 logDF; APPROXIMATE is nearly the same. Raw quote residuals are
+3.6250e-7, 3.9819e-7 and 3.8588e-7. This is a ranked, tolerance-qualified fit,
+not evidence of tight node recovery or a tightened solver criterion.
+
+The same original three instruments are prepared for HeldOut, yielding D=30,
+55 and 80. `RequireXccyMcIndependent` refuses before draws with
+`CalibrationContextMismatch`, `/sampling/mapping`, expected one common mapping
+or a separate coordinate allocator. No mixed-D independent basket is claimed.
+The local regression preserves this real capability refusal. A union mapping
+or explicit disjoint scalar allocator is outside this test-only change and
+needs coordinator-owned implementation before that acceptance can close.
+
+### Broader financial and historical derivatives
+
+R2 independently checks seven scenarios across all modes, both spread legs and
+both directions: individually flipped rho-df/rho-dX/rho-fX, negative basis,
+zero basis, projection=own OIS and nonflat/bucketed curves. These are 84 cases,
+336 direct value gates. Six signed/control cases have all nine native axes;
+the nonflat MTM foreign-spread pay case has all 30 axes: 84 axes and 336 raw
+A/B/Price/par derivative gates pass. All 28 FIXED/no-lag cases agree with
+legacy native Price within 1e-10 in common support; lag/reset/MTM native
+discrepancies remain distinct. These tests do not claim legacy common-support
+native partials for every case.
+
+All six historical/settled cases now have the complete nine-axis native map,
+independently differentiated through frozen supplied history: 21 admissible
+value gates and 189 derivative gates pass. Missing par is kept absent when A
+is zero; passive all-expired outputs have exactly zero derivatives. Supplied
+at-V FX FIX=1.17 remains distinct from active payment SPOT=1.10. No global
+fixing or product behavior was repaired.
+
+Five new regressions protect selected independent signed/history values and
+all 138 associated native axes, the three-maturity quote/axis contract,
+noncanonical maturity and mixed-D refusal, D=25/30/40 five-slot coordinate/RNG
+traces, and an actual omitted rate-fixing state refused before cashflows.
+The three original acceptance tests plus these five pass 8/8 after a fresh
+targeted build. The original 96 existing tests retain their earlier XML and
+source/dependency identities; they were not re-run as a new full suite.
+An initial test-only `Vector_::Append` initializer-list compile error and a
+reversed controls CLI invocation were corrected; neither was a product failure.
+
+### Additional frozen MC profiles
+
+Three additional Validation profiles completed x1/x2/x4 with actual pathwise
+AAD, 16 batches, seed 1024, Precise and no bridge: rho-df FIXED/foreign/pay
+(no lag, D=25), negative-basis RESETTABLE/foreign/receive (D=30), and nonflat
+MTM/foreign/pay (D=40). The same original Validation reservation and
+16384/32768/65536 paths per batch apply. Direct financial/gradient gates passed
+before these new runs. The pre-run freeze records the inputs, profile labels,
+executable/archive and analyzer hashes. The later unused-import cleanup and
+covariance-shape admission repair are explicitly recorded; neither changes
+rules, estimates or financial inputs. No blind-analysis claim is made.
+
+All nine new reports pass Price/par parity and fail precision and combined
+acceptance, retaining numerics=false and budget exhaustion. At x4:
+
+| Profile | Price mean | Price 3SE + numeric indicator | Par mean | Par 3SE + numeric indicator |
+|---|---:|---:|---:|---:|
+| FIXED, flipped rho-df | .2759244776287306 | .023090588414554986 | -.003995518053232769 | .00041744344383781305 |
+| RESETTABLE, negative basis | 1.4898619356469027 | .03244383102341592 | .028148217928152135 | .0005890532493701985 |
+| MTM, nonflat/bucketed | -3.697739139368145 | .05588455163397504 | .06805259314427302 | .0010058798132338033 |
+
+The frozen limits remain .0025 USD and .000025. All selected spot/basis
+gradient parity, precision and combined gates pass at all three prefixes:
+2, 2 and 5 native coordinates respectively. Other native parameters and other
+statistical combinations are not inferred from this subset. Full paired
+covariance and signed denominator confidence pass independent reconstruction.
+The strict matrix command exits 1 after preserving all estimates.
+
+Every profile's complete interval/slot list, range endpoints, flags and
+consumption are audited. A separate direct MRG32 audit verifies all sixteen
+first-normal vectors in every run at their actual large batch offsets, using
+full-precision JSON parsing. Its initial default-parser one-ULP discrepancy is
+retained as a harness RED; the exact audit passes with no tolerance relaxation
+or captured-data change. Profiles and nested prefixes are coupled controls,
+never pooled or described as independent basket observations.
+
+### Coverage ledger against section 8
+
+| Requirement | Actual evidence / remaining limit |
+|---|---|
+| Canonical dates, directions, spread legs, all modes | Original 60 plus R2 84 independent cases; explicit calendar and payment coverage assertions. |
+| Flat/nonflat, bucketed, zero vol/a/basis, signed correlations | Independent direct gates and original five kernel/rank controls; full statistical cross-product remains incomplete. |
+| Small positive pivot and lag-only mutant | Original normalized kernel reconstruction and isolated 1e-10 lag gate reproduced unchanged. |
+| Independent Qf and martingales | Original flat/nonflat coupon and kernel controls reproduced; broader unit/conditional-forward/reciprocal matrix is not newly certified. |
+| Historical values, derivatives and par refusal | R2 nine-axis derivatives at all six cases; original refusal controls retained. |
+| Snapshot/global/at-V/future histories | Earlier 96-test evidence includes `XccyObservationTest.TestAtValuationPaymentSpotAndSuppliedResetUseDifferentSlots`, `TestAtValuationRatesSuppliedEmptyAndOmittedFreezeDifferentProvenance`, and `XccyMcBoundaryTest.TestFrozenHistoryAndAtValuationResetRemainDistinctFromPaymentSpot`; explicit global mutation between all CRN bumps remains separate work. |
+| Source/principal/rebinding authority | Earlier `XccyGaussianExecutionTest.TestPrincipalSwitchesAndImmutableRebindingReachEveryBackend` and observation stale-date/mapping tests; no product edit or second trade authority. |
+| Omitted fixing / extra normal / wrong gradient SE | New actual fixing-state omission refusal; exact coordinate/RNG traces at three more D values; original wrong-SE mutant and raw extra-normal trace retained. |
+| Three-node synthetic fit and raw axes | Independent quotes, both solve modes, rank and basis partials executed; node-recovery errors reported above. |
+| Same-instrument held-out basket | Actual mixed-D refusal before drawing; allocator capability missing, no basket acceptance. |
+| Binary64 CRN FD | Original five-row RED remains a production-path qualification gap; 50/80-digit control does not replace it. |
+| Public C++/Python/Excel ownership and flags | Await actual DAL-424 merge/acceptance, then execute; no Linux result substitutes for native Windows/XLL/workbook. |
+| Performance | Prepare/evaluate times only; no paired baseline or speedup claim. |
+
 ## Reproduction and remaining acceptance
 
 Configure/build with the recorded CMake cache and command manifest. The private
@@ -208,18 +366,20 @@ g++-14 -std=c++17 -O3 -pthread -Idal-cpp -Idal-cpp/test-support \
   build/dal425-core/dal-cpp/libdal_cpp.a -o build/dal425-core/xccyacceptancecapture
 ```
 
-Driver modes are `OUTPUT capture`, `OUTPUT controls`, `OUTPUT crn`, and
-`OUTPUT mc PHASE FACTOR`. The four `xccy_acceptance_*.py` tools take the captured
+Driver modes are `OUTPUT capture`, `OUTPUT controls`, `OUTPUT crn`,
+`OUTPUT mc PHASE FACTOR`, `OUTPUT geometry`, `OUTPUT staged QUOTE_FILE`,
+`OUTPUT broad`, `OUTPUT historical`, and `OUTPUT matrix PROFILE FACTOR`.
+Matrix profiles are fixed/resettable/nonflat and use Validation only.
+The `xccy_acceptance_*.py` tools take the captured
 JSONs; their `--help` specifies arguments. The exact executed invocations,
 individual exit statuses, raw outputs, identity manifest and freeze history
 are supplied with the issue delivery. A strict statistical failure is an
 expected acceptance RED, not a passing product test.
 
-Remaining independent work includes the three-maturity staged fit/held-out
-same-instrument basket with independent extended calendar tables, wider
-historical derivatives and correlation/basis-sign product comparisons, and
-DAL-424's actually merged public/Python/Excel boundaries. Existing selected
-staged/history tests passed but do not replace those independent dimensions.
+Remaining work includes the same-instrument mixed-D held-out basket, the
+unclosed coverage-ledger entries and DAL-424's actually merged public/Python/
+Excel boundaries. New independent staged/history and correlation/basis-sign
+evidence closes those deterministic dimensions, with the recovery limits above.
 The base nine-axis long-run result cannot certify every notional mode, spread
 leg, direction or nonflat/bucketed statistical combination. No final V1 or
 parent acceptance is recommended from this checkpoint.
