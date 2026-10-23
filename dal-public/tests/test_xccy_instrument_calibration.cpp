@@ -2,11 +2,13 @@
 
 #include <dal/platform/platform.hpp>
 #include <dal-public/src/calibrationinstrument.hpp>
+#include <dal-public/src/global.hpp>
 #include <dal-public/src/xccycalibration.hpp>
 
 #include "xccyinstrumentfixture.hpp"
 
 TEST(PublicXccyInstrumentTest, TestOwningInputFailureAndDefaults) {
+    Dal::InitGlobalData();
     Dal::XccyInstrumentCalibrationSpec_ spec;
     ASSERT_DOUBLE_EQ(spec.solver_.initialGuess_, 0.);
     try {
@@ -20,6 +22,7 @@ TEST(PublicXccyInstrumentTest, TestOwningInputFailureAndDefaults) {
 }
 
 TEST(PublicXccyInstrumentTest, TestNativeFacadeAndCapabilityGetter) {
+    Dal::InitGlobalData();
     const auto spec = Dal::TestXccy::Spec();
     const auto result = Dal::CalibrateXccyInstrumentMarket(spec);
     ASSERT_TRUE(Dal::XccyInstrumentResultBasisCurve(result));

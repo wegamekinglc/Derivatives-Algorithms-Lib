@@ -113,7 +113,7 @@ Final narrow commands/results:
 |---|---|
 | New core | `build/main/final-core-tests --gtest_filter=XccyInstrumentCalibrationTest.*`: 14 pass |
 | Old staged/joint | `build/main/final-legacy-core-tests`: 27 pass |
-| Public | `build/main/final-public-tests`: 12 pass, including 10 old compatibility cases |
+| Public | `build/main/final-public-tests`: 12 pass under the core-initialized custom runner, including 10 old compatibility cases; canonical fresh-process coverage is corrected below |
 | Python | `PYTHONPATH=build/main/dal-python python -m pytest dal-python/tests/test_xccy_instrument.py dal-python/tests/test_xccy_calibration.py -q`: 15 pass |
 | Old Excel staged/joint | `build/main/dal-excel/dal_excel_portable_tests --gtest_filter=ExcelApiTest.*:JointCalibrationExcelTest.*`: 15 pass |
 | Portable Excel | `build/main/dal-excel/dal_excel_portable_tests --gtest_filter=ExcelXccyInstrumentTest.*`: 3 pass |
@@ -185,3 +185,62 @@ Markdown files) and diff checks; exact outcomes appear
 in the attached logs. Linux portable Excel is not a native Windows XLL/workbook
 result. Windows and other platforms are left to the new PR head's real CI.
 No merge, downstream task or additional specialist was triggered by the author.
+
+## Canonical public fresh-process CI repair
+
+The initial head `b1c21036d3b6a01d2912e4b79f4cb7cb35c1a7d3` subsequently
+failed five jobs in run `39896324745`: clang-20 AADET and the four Extended
+lifetime/profiling configurations. Compilation succeeded; every failure was
+`PublicXccyInstrumentTest.TestNativeFacadeAndCapabilityGetter`, with
+`currencydata.cpp:41: no default for 'USD'`. The original custom public runner
+used the core's initialized test main. Its 12 passing tests established the
+assertions under that setup, but did not establish canonical fresh-case behavior.
+The old CI snapshot and original execution logs remain historical evidence.
+
+The actual CMake `dal_public_tests` target was built without changing its
+sources, linkage or discovery policy. Its link command contains `gtest_main`;
+the executable confirms Google's `gtest_main.cc` at startup. Before editing,
+both new cases were invoked separately in fresh processes, then as their suite
+and through the existing CTest discovery. The empty-input case passed; the
+native-facade case and suite exited 1 with the same USD error, and scoped CTest
+exited 8 with one of the two cases failing. This is a product-test RED in the
+canonical executable, rather than another custom initialized runner.
+
+The fix adds only the public `global.hpp` include and `Dal::InitGlobalData()`
+at the start of each existing case, following neighboring public fixture setup.
+Initialization now precedes `TestXccy::Spec()` and its currency convention reads
+in every fresh process. All original assertions are byte-identical. No fixture
+financial terms, production defaults, global initialization policy, CMake,
+workflow, solver, scale, schema or acceptance threshold changes.
+
+`cmake --build build/main --target dal_public_tests -j4` then recompiled only
+the affected test TU and relinked the canonical runner. Each case alone, the
+two-case suite and `ctest --test-dir build/main -R
+'^PublicXccyInstrumentTest\.' --output-on-failure` passed. The actual RED/GREEN
+commands, exit statuses, source hashes, runner hashes and CMake link/flags are
+in the repair attachment (`canonical_cases.py`, `red-results.json`,
+`green-results.json` and their logs). The first canonical-target build required
+its previously unbuilt test objects; no unrelated tests were executed.
+
+The changed TU passes the existing GCC14/15 warning policy with `-Werror`,
+CCN<=8 and formatting/diff checks. The former 86-test delivery is not presented
+as a new execution: unchanged code/dependency/configuration and all 18 recorded
+original binaries are verified byte-identical, preserving their scoped core,
+Python, Excel, component, value/derivative and performance applicability. The
+corrected two public cases have fresh canonical evidence above. No unrelated
+matrix, native Windows XLL/workbook test or performance measurement was rerun.
+
+Normal master integration brings only the already accepted DAL-410 decision
+from `87d8954eefd2033a7829976a35d536ba439d4748`. It merges without conflicts;
+the imported file SHA256 is
+`c2ff68e1a696b620682b896ca9b292ec6d577bf92cadb3597991b427267733d5`, identical
+to master. No DAL-420 unmerged model or sibling product is imported. The existing
+public guide and CHANGELOG are unchanged. The first merge command stopped for
+missing Git identity before modifying the tree; the corrected command uses
+Cheng Li's identity per command, without writing shared/global configuration.
+
+The new exact-head CI snapshot is delivered separately and does not replace
+the coordinator's required review or final merge gates. This repair is not a
+full DAL-409 code approval; the first complete focused code review and necessary
+documentation judgment remain with the coordinator. DAL-420's independent
+model run is untouched.
