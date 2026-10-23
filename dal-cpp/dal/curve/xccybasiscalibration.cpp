@@ -11,6 +11,7 @@
 #include <dal/curve/jointcalibration_internal.hpp>
 #include <dal/curve/xccybasiscalibration.hpp>
 #include <dal/curve/xccycalibration.hpp>
+#include <dal/curve/xccygaussianstaged.hpp>
 #include <dal/curve/xccypricing.hpp>
 #include <dal/curve/xccyscript_internal.hpp>
 #include <dal/math/matrix/banded.hpp>
@@ -466,7 +467,7 @@ namespace Dal {
                 row.scaledResidual_ = At(r.scaledResiduals_, i);
                 if (row.scaledResidual_)
                     row.fitRowPassed_ = std::abs(*row.scaledResidual_) <= 1.;
-                row.backend_ = "FastDeterministic";
+                row.backend_ = r.xccySpec_ && r.xccySpec_->gaussianDynamics_ ? "FastGaussian" : "FastDeterministic";
                 row.derivativeMethod_ = r.derivativeMethod_.String();
                 if (i < data.plans_.size()) {
                     row.planIdentity_ = data.plans_[i].planIdentity_.value_or("");
@@ -482,7 +483,8 @@ namespace Dal {
             for (size_t i = 0; i < r.freeParameters_.size(); ++i) {
                 const auto& p = r.freeParameters_[i];
                 const String_ id = "Basis:" + String_(p.component_.String()) + ":" + Date::ToString(p.date_);
-                data.parameters_.push_back({id, "Rate", At(r.initialParameters_, i), At(r.parameters_, i), At(r.parameterScales_, i), {}, {}, {}});
+                const String_ unit = p.component_ == CurveFreeParameterComponent_::Value_::LOG_DISCOUNT_FACTOR ? "Dimensionless" : "Rate";
+                data.parameters_.push_back({id, unit, At(r.initialParameters_, i), At(r.parameters_, i), At(r.parameterScales_, i), {}, {}, {}});
                 data.objective_.nativeLayout_.push_back(id);
             }
             data.objective_.theta0_ = FiniteValues(r.initialParameters_);
@@ -515,9 +517,25 @@ namespace Dal {
                     data.summary_.objective_ = Finite(*data.summary_.dataObjective_ + *data.summary_.penaltyObjective_);
             }
         }
+        void ReportModel(const XccyInstrumentCalibrationResult_& r, CalibrationReportSnapshot_* snapshot) {
+            auto& data = *snapshot;
+            if (r.gaussianModel_) {
+                data.execution_.modelIdentity_ = r.gaussianModel_->Identity();
+                data.execution_.modelTimeBasis_ = "ACT365F";
+                data.execution_.numeraireConvention_ = "dal.domestic-collateral-bank/1";
+                data.summary_.contextIdentity_ =
+                    Fingerprint(Obj({{"adapter", Str(r.planIdentity_)}, {"model", Str(*data.execution_.modelIdentity_)}}));
+                for (auto& plan : data.plans_) {
+                    plan.contextIdentity_ = data.summary_.contextIdentity_;
+                    plan.planIdentity_ =
+                        Fingerprint(Obj({{"context", Str(*plan.contextIdentity_)}, {"observation", Str(plan.observationId_.value_or(""))}}));
+                }
+            }
+        }
         CalibrationReportSnapshot_ Report(const XccyInstrumentCalibrationResult_& r, const String_& status) {
             auto data = r.report_ ? r.report_->Data() : CalibrationReportSnapshot_();
             ReportSummary(r, status, &data.summary_);
+            ReportModel(r, &data);
             ReportObservations(r, &data);
             ReportParameters(r, &data);
             ReportObjective(r, &data);
@@ -596,11 +614,17 @@ namespace Dal {
         }
         CurveDefinition_ Definition(const XccyInstrumentCalibrationSpec_& spec) {
             return MakeCurveDefinition(String_("xccy_basis_") + spec.context_.pair_.domestic_.String(), spec.context_.pair_.domestic_.String(),
-                                       CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD, LogDfScheme_::Value_::LOG_LINEAR, spec.knotDates_,
+                                       spec.basisParameterization_, LogDfScheme_::Value_::LOG_LINEAR, spec.knotDates_,
                                        spec.context_.valuationTime_.Date(), DayBasis::Act365F());
+        }
+        void ValidateBasisLayout(const XccyInstrumentCalibrationSpec_& spec) {
+            Check(spec.basisParameterization_ == CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD ||
+                      (spec.gaussianDynamics_ && spec.basisParameterization_ == CurveParameterization_::Value_::LOG_DISCOUNT),
+                  "InvalidCalibrationPlan", "/basis_parameterization", "legacy forward layout or explicit Gaussian logDF layout");
         }
         void Validate(const XccyInstrumentCalibrationSpec_& spec, const CurveInstrumentCalibrationOptions_& options) {
             XccyScriptInternal::ContextIdentity(spec.context_, nullptr, {});
+            ValidateBasisLayout(spec);
             Check(!spec.observations_.empty(), "InvalidCalibrationObservation", "/observations", "nonempty ordered XCCY observations");
             Check(spec.domesticCurveBlock_ && spec.foreignCurveBlock_, "CalibrationContextMismatch", "/market", "both explicit currency blocks");
             Check(spec.domesticCurveBlock_->ccy_ == spec.context_.pair_.domestic_ && spec.foreignCurveBlock_->ccy_ == spec.context_.pair_.foreign_,
@@ -628,6 +652,8 @@ namespace Dal {
                              const CurveDefinition_& definition,
                              const Vector_<PreparedCalibrationInstrument_>& plans,
                              const Vector_<T_>& parameters) {
+            if (spec.gaussianDynamics_)
+                return EvaluateXccyGaussianStaged(spec, definition, plans, parameters);
             const auto basis = BuildDiscountCurveT<T_>(definition, parameters);
             auto domestic = Background<T_>(*spec.domesticCurveBlock_), foreign = Background<T_>(*spec.foreignCurveBlock_);
             const XccyMarketView_<T_> market{spec.context_.valuationTime_,
@@ -736,20 +762,25 @@ namespace Dal {
                 }
             }
             frozenSpec_ = std::make_shared<const XccyInstrumentCalibrationSpec_>(spec_);
-            planIdentity_ = Fingerprint(Obj({{"adapter", Str("dal.staged-xccy-instruments/1")},
-                                             {"domestic", BackgroundIdentity(*spec_.domesticCurveBlock_)},
-                                             {"foreign", BackgroundIdentity(*spec_.foreignCurveBlock_)},
-                                             {"spot", Num(spec_.fxSpot_)},
-                                             {"knots", Array(spec_.knotDates_, [](const auto& d) { return Str(Date::ToString(d)); })},
-                                             {"plans", Array(plans_, [](const auto& p) { return Str(p.PlanIdentity()); })},
-                                             {"observations", Array(axes_.observations_,
-                                                                    [](const auto& r) {
-                                                                        return Obj({{"id", Str(r->Id())},
-                                                                                    {"quote", Str(r->Quote()->Fingerprint())},
-                                                                                    {"scale", Num(r->ErrorScale())}});
-                                                                    })},
-                                             {"derivative", Str(options_.jacobianMode_.String())},
-                                             {"step", Num(options_.differenceStep_)}}));
+            auto identity =
+                Obj({{"adapter", Str("dal.staged-xccy-instruments/1")},
+                     {"domestic", BackgroundIdentity(*spec_.domesticCurveBlock_)},
+                     {"foreign", BackgroundIdentity(*spec_.foreignCurveBlock_)},
+                     {"spot", Num(spec_.fxSpot_)},
+                     {"knots", Array(spec_.knotDates_, [](const auto& d) { return Str(Date::ToString(d)); })},
+                     {"plans", Array(plans_, [](const auto& p) { return Str(p.PlanIdentity()); })},
+                     {"observations",
+                      Array(axes_.observations_,
+                            [](const auto& r) {
+                                return Obj({{"id", Str(r->Id())}, {"quote", Str(r->Quote()->Fingerprint())}, {"scale", Num(r->ErrorScale())}});
+                            })},
+                     {"derivative", Str(options_.jacobianMode_.String())},
+                     {"step", Num(options_.differenceStep_)}});
+            if (spec_.gaussianDynamics_) {
+                identity.object_["gaussian_dynamics"] = Parse(JSON::WriteString(*spec_.gaussianDynamics_));
+                identity.object_["basis_parameterization"] = Str(spec_.basisParameterization_.String());
+            }
+            planIdentity_ = Fingerprint(identity);
         } catch (const CalibrationError_& error) {
             Failure(Describe(), error.Failure().diagnostic_);
         } catch (const std::exception& error) {
@@ -778,12 +809,17 @@ namespace Dal {
         for (size_t i = 0; i < plans_.size(); ++i) {
             const auto& p = plans_[i];
             const auto& instrument = *p.Instrument();
-            result.capabilities_.push_back(p.Capability());
+            auto capability = p.Capability();
+            if (spec_.gaussianDynamics_) {
+                capability.backend_ = CalibrationBackend_::Value_::FastGaussian;
+                capability.ruleId_ = "dal.xccy-gaussian-moments/1";
+            }
+            result.capabilities_.push_back(capability);
             CalibrationReportPlan_ row;
             row.observationId_ = axes_.observations_[i]->Id();
             row.measureId_ = p.Measure().id_;
-            row.ruleId_ = p.Capability().ruleId_;
-            row.backend_ = p.Capability().backend_.String();
+            row.ruleId_ = capability.ruleId_;
+            row.backend_ = capability.backend_.String();
             row.derivativeMethod_ = "None";
             row.sourceIdentity_ = instrument.Definition()->SourceIdentity();
             row.definitionIdentity_ = instrument.Definition()->DefinitionIdentity();
@@ -804,6 +840,8 @@ namespace Dal {
             Residuals(&result);
             result.parameters_ = parameters;
             result.curve_ = Handle_<DiscountCurve_>(BuildDiscountCurveT<double>(definition_, parameters));
+            if (spec_.gaussianDynamics_)
+                result.gaussianModel_ = XccyGaussianBasisCandidate(spec_, result.curve_);
             result.candidateIdentity_ =
                 Fingerprint(Obj({{"plan", Str(planIdentity_)}, {"parameters", Array(parameters, [](double x) { return Num(x); })}}));
             if (derivatives) {
@@ -935,6 +973,7 @@ namespace Dal {
         void CandidateState(const XccyInstrumentCalibrationResult_& values, XccyInstrumentCalibrationResult_* result) {
             result->parameters_ = values.parameters_;
             result->curve_ = values.curve_;
+            result->gaussianModel_ = values.gaussianModel_;
             result->modelMeasures_ = values.modelMeasures_;
             result->rawResiduals_ = values.rawResiduals_;
             result->scaledResiduals_ = values.scaledResiduals_;

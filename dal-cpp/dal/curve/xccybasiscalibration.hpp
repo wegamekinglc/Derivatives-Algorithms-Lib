@@ -5,6 +5,8 @@
 #include <dal/curve/xccyscript.hpp>
 
 namespace Dal {
+    struct XccyGaussianDynamics_;
+    struct XccyGaussianModelData_;
     struct XccyInstrumentCalibrationSpec_ {
         XccyScriptContext_ context_;
         Handle_<CurveBlock_> domesticCurveBlock_, foreignCurveBlock_;
@@ -12,11 +14,14 @@ namespace Dal {
         Vector_<Date_> knotDates_;
         Vector_<Handle_<CalibrationObservation_>> observations_;
         CurveInstrumentSolver_ solver_;
+        Handle_<XccyGaussianDynamics_> gaussianDynamics_;
+        CurveParameterization_ basisParameterization_ = CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD;
 
         XccyInstrumentCalibrationSpec_() { solver_.initialGuess_ = 0.; }
     };
     struct XccyInstrumentCalibrationResult_ : CurveInstrumentCalibrationResult_ {
         std::shared_ptr<const XccyInstrumentCalibrationSpec_> xccySpec_;
+        Handle_<XccyGaussianModelData_> gaussianModel_;
     };
     class XccyInstrumentCalibrationCandidate_ final : public Storable_ {
         XccyInstrumentCalibrationResult_ result_;
