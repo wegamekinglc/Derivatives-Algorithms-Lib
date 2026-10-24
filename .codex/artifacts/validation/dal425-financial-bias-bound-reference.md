@@ -98,11 +98,11 @@ All absolute annuity lower bounds are positive: conservatively >32.3210,
 37.1028 and 38.3098 for D30/55/80. The worst finite-input majorants are useful
 controls but not uniformly budget-small. For both fits:
 
-| D | Price bound USD, upward | par bound, upward | par FXsigma derivative bound, upward |
-|---|---:|---:|---:|
-| 30 | .0000121490 | .00000169177 | .000188345 |
-| 55 | .0000978632 | .0000536820 | .0465232 |
-| 80 | .000582327 | .00128870 | 6.79372 |
+| D  | Price bound USD, upward | par bound, upward | par FXsigma derivative bound, upward |
+|----|------------------------:|------------------:|-------------------------------------:|
+| 30 | .0000121490             | .00000169177      | .000188345                           |
+| 55 | .0000978632             | .0000536820       | .0465232                             |
+| 80 | .000582327              | .00128870         | 6.79372                              |
 
 D55 par and FXsigma-par, and D80 par plus eight native par columns, have
 majorants above their original individual budgets. These are failures of this
@@ -183,11 +183,11 @@ delta_r_native <= edb/q + |db|ea/(|a|q)
 Every q is positive, conservatively >54.7014, 108.6859 and 162.7988. Both fits
 have the following upward summaries; canonical binary endpoints are definitive:
 
-| D | Price USD | par | Price FXsigma derivative USD/sigma | par FXsigma derivative /sigma |
-|---|---:|---:|---:|---:|
-| 30 | .0000301904 | .000000553267 | .000140758 | .00000257821 |
-| 55 | .0000983239 | .000000906766 | .000439124 | .00000404919 |
-| 80 | .000203241 | .00000125122 | .000881638 | .00000542768 |
+| D  | Price USD   | par           | Price FXsigma derivative USD/sigma | par FXsigma derivative /sigma |
+|----|------------:|--------------:|-----------------------------------:|------------------------------:|
+| 30 | .0000301904 | .000000553267 | .000140758                         | .00000257821                  |
+| 55 | .0000983239 | .000000906766 | .000439124                         | .00000404919                  |
+| 80 | .000203241  | .00000125122  | .000881638                         | .00000542768                  |
 
 All six sets of Price/par and eleven native-column D2 bias-only bounds fit
 their original individual budgets. This does not certify their sum with

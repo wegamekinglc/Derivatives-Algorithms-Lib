@@ -1578,11 +1578,11 @@ not a certificate of every floating operation in a historical MC binary.
 
 Upward worst-fit summaries are:
 
-| D | Price USD | par | dpar/dFXsigma |
-|---|---:|---:|---:|
-| 30 | .0000121490 | .00000169177 | .000188345 |
-| 55 | .0000978632 | .0000536820 | .0465232 |
-| 80 | .000582327 | .00128870 | 6.79372 |
+| D  | Price USD   | par          | dpar/dFXsigma |
+|----|------------:|-------------:|--------------:|
+| 30 | .0000121490 | .00000169177 | .000188345    |
+| 55 | .0000978632 | .0000536820  | .0465232      |
+| 80 | .000582327  | .00128870    | 6.79372       |
 
 Absolute annuity lower bounds are respectively >32.3210, 37.1028 and 38.3098.
 D55 par/FXsigma-par and D80 par/eight native par columns exceed their
@@ -1605,11 +1605,11 @@ Uniform quantization is separate:
 Signed A/B centers plus absolute boxes yield positive mean denominators and
 ratios of coefficient expectations, never E[pathwise par].
 
-| D | Price USD | par | dPrice/dFXsigma USD/sigma | dpar/dFXsigma /sigma |
-|---|---:|---:|---:|---:|
-| 30 | .0000301904 | .000000553267 | .000140758 | .00000257821 |
-| 55 | .0000983239 | .000000906766 | .000439124 | .00000404919 |
-| 80 | .000203241 | .00000125122 | .000881638 | .00000542768 |
+| D  | Price USD   | par           | dPrice/dFXsigma USD/sigma | dpar/dFXsigma /sigma |
+|----|------------:|--------------:|--------------------------:|---------------------:|
+| 30 | .0000301904 | .000000553267 | .000140758                | .00000257821         |
+| 55 | .0000983239 | .000000906766 | .000439124                | .00000404919         |
+| 80 | .000203241  | .00000125122  | .000881638                | .00000542768         |
 
 These are upward summaries across both fits; canonical endpoints are in the
 certificate. Every D2 bias-only value and all eleven derivative columns fit
