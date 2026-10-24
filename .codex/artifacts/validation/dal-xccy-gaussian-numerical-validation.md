@@ -1077,3 +1077,136 @@ source/binary identities, model/fixtures, counts/budgets/reservations/scales/
 thresholds and observed oldHeldOut status are preserved. This callable-interface
 checkpoint changes no RNG, estimator or financial evidence and grants no complete
 numerical V1, quote-risk or P4 acceptance. DAL425/396 remain in_progress.
+
+## Final merged public basket example: independent execution (2026-10-24)
+
+This is the separately authorized final example checkpoint. PR631 is closed:
+its accepted squash is `cc94e80befadcbbcb958d2950e452bb8b5ab4a73`, with reviewed
+head `2d6d14cbe4ada16829c66c0a6eeac8ffda8d8b8c`. Its host accepted the original
+review and four actual MSVC configurations building `dal_excel_tests` and running
+both mandatory selected-range and basket-request raw cases. The preceding
+ledger's native-platform pending condition is therefore closed for that head;
+it does not establish workbook or native 32-bit execution.
+
+PR640 subsequently merged at 05:47:48 UTC as
+`446c48d8b117a5a445c6decdfe6dd1ad58749c27`, parent `cc94e80b`, reviewed head
+`cd410e5c2ab3a90632ee712f71452083d5af0733`. Its example/publication, limited
+code/documentation/integration reviews and merge were accepted by its own host.
+Multica's direct PR631/640 records and fetched master confirm the merges. This
+tester does not repeat those reviews or call their executions its own.
+
+The original tester ledger/evidence had no independent execution of the final
+public example. The current active/family read showed only this tester task.
+Preserved the old branch and all three private evidence directories, then created
+`feature/dal-425-public-example-validation` directly from accepted master
+`446c48d8`. Its complete source tree is
+`678ec53cb228914f3102a67f630e1bdb9db8b2ca`. There is no integration merge,
+conflict resolution or product/build/example/public-document/test/helper edit.
+The only tracked change is this record's append; the new private execution
+scripts, logs, XML, output and manifests are attached as `acceptance-public-example`.
+
+### Declared gap, execution and independent output checks
+
+Before configure/build/run, `freeze.md` declares the single final-example gap,
+ordinary unchanged caller, assertions, technical inputs and provenance/reuse
+boundaries. Reused the compatible tester GCC14.3 Release/static/PIC/native-AAD,
+Eigen-OFF build, enabling public examples without changing library options.
+The verbose log proves actual compilation of the new example translation unit
+and linking against `libdal_public.a` and `libdal_cpp.a`. Both libraries retain
+their exact prior tester archive hashes. Complete command arrays, timestamps,
+exit codes and stdout/stderr are in the attachment.
+
+```bash
+cmake -S . -B build/dal425-core -DDAL_PUBLIC_BUILD_EXAMPLES=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+cmake --build build/dal425-core --target xccy_script_monte_carlo_basket -j4 --verbose
+build/dal425-core/dal-public/examples/xccy_script_monte_carlo_basket/xccy_script_monte_carlo_basket
+ctest --test-dir build/dal425-core -R '^xccy_script_monte_carlo_basket$' --no-tests=error --output-on-failure --output-junit acceptance-public-example-ctest.xml
+python3 acceptance-public-example/check_output.py
+python3 acceptance-public-example/provenance.py
+```
+
+Configure, build, direct execution and actual CTest all exit **0**. CTest reports
+**1/1 passed**, zero skipped, with JUnit XML retained. The two program invocations
+are the direct run and that one CTest; no additional product runs or financial
+captures were needed. CTest caps successful JUnit stdout at 1024 bytes, so its
+full contemporaneous `Testing/Temporary/LastTest.log` is also preserved. The
+initial checker expected full JUnit stdout and correctly failed that harness
+assumption; its original script/log remain. Corrected only the evidence reader
+to use the complete log, without rerunning CTest or changing product code.
+This was not a product RED. The final checker exits **0**.
+
+The private checker was written independently from the published DAL426/API/
+methodology contract, without using the author's checker. Its implementation
+follows output inspection and is not claimed to be pre-observation frozen.
+It checks both complete captures, whose full result JSON is **byte-identical**:
+
+- Byte-exact `Short`, `short` member order; Price in `Price:USD`, BasisSpread in
+  decimal-spread `BasisSpread`; complete Estimate/Validation state, null numerical
+  validation and unavailable quote risk; D30/55 and distinct mapping identities.
+- Unchanged 4x64, seed1024, Precise stream1, compiled AAD/native spot axis,
+  explicit empty fixing snapshot and no bridge. The full member blocks end at
+  `70778880` and `200540160`. Validation actual prefixes are
+  `[7864320,7872000)` and `[85196800,85210880)`, with all four exact batch
+  endpoints checked independently from integer allocation arithmetic. Member
+  consumption is `7680`/`14080`, total **21760** in each exported AAD result.
+- All top-level result fields, four complete eight-column coefficient rows,
+  member batch-row concatenation, complete gradients, axes/units, full 8x8
+  C_batch/C_mean, 4x8 output Jacobian and 4x4 output covariance. Every matrix
+  entry is finite; covariance symmetry and `C_mean=C_batch/4` hold. All **144**
+  printed covariance cells, their indices and all axis tables match JSON within
+  each printed decimal's rounding interval. This is formatting/contract evidence,
+  not a new statistical or financial tolerance.
+
+AAD means are `5.980071030490578` USD and `0.0282541149071007` decimal spread.
+The program's existing same-allocation assertion passes and its plain/AAD
+differences remain visible. Plain/AAD replay and repeated smoke invocations
+provide no additional independent samples. The successful path does not exercise
+the derived/base catch branches; existing failure evidence remains separate.
+
+Six offline malformed-output controls are refused: member ID case collision,
+numeric rather than exact-string coordinate, truncated coefficient row, wrong
+C_mean scaling, wrong output-axis unit and missing output Jacobian. They mutate
+private captured data only. No permanent test/helper or production failure seam
+was added, and no failure repair was needed.
+
+### Provenance, reuse and remaining acceptance
+
+The new executable SHA256 is
+`7c165d615f31a537e192ce01a5cde5a2273ae137762b4aaf3b2fb6dbb79f6d12`;
+its fresh object, actual compiler/link commands, 268 compiler dependency files,
+1326 resolved dependencies, full source/configuration manifests and runtime/
+toolchain hashes identify this execution. The two unchanged tester archives
+match the retained PR631 runtime record, not the author's different build.
+
+Fetched DAL430 integration evidence through the authenticated attachment CLI:
+ZIP SHA256 `279bc17baa2923305aa9245e519cbe53d34127042c3cbe0c461492bdafd161ac`.
+Verified its 485 manifest entries plus the manifest itself, ZIP CRC and actual
+original files: **2053 dependencies, 404 configurations, 14 runtime/toolchain
+files, 31 artifacts and 3270 source files**, with zero missing or changed.
+Thus its accepted standalone core full build/install and built/installed MTM,
+public-disabled core, standalone public and installed-only consumer evidence
+remain applicable within those exact original identities. These are inherited
+author executions, not new tester runs. They retain their own Eigen-enabled
+configuration; this tester's smoke uses the separately identified Eigen-OFF
+build and makes no new installation/platform claim. No source/build change
+requires repeating those accepted closure matrices.
+
+All **396** retained files in `acceptance-basket`, `acceptance-bindings` and
+`acceptance-m5` are byte-unchanged. No original eighteen reports, six long basket
+profiles, 26+20 binding cases, 39 M5 cases or platform/performance matrix was
+rerun. Informational example timing has no isolated paired performance gate;
+performance remains inconclusive. This closes the final public-example direct
+execution gap only. The new record diff still requires limited reviewer review
+and the new PR's exact-head gates; the tester does not merge or dispatch others.
+
+All six numerical profiles remain overall **FAIL**, with 288/216/214 merely
+parity/precision/combined pass counts. Original eighteen reports, FXsigma
+precision/combined, D80x1 EURsigma failures, exhausted x4 reservations, five
+binary64 FD REDs, full eFD and unsampled qualifications remain unresolved.
+The ideal-Gaussian tail `6.04063e-10 > 5e-13`,
+`financial_bias_bound_qualified=false`, original M4 x4 Price/par failures,
+all original raw batches/source/dependency/config/binary identities, models/
+fixtures, seeds, counts/budgets/reservations/scales/thresholds and observed
+oldHeldOut status remain unchanged. No paths, VR, RNG, epsilon, estimator,
+pooling or relabeling changes. DAL425/396 remain **in_progress**; this checkpoint
+does not grant numerical V1, calibrated quote-risk or P4 acceptance.
