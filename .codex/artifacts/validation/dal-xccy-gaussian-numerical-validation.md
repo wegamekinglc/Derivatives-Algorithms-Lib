@@ -687,10 +687,22 @@ The pre-run manifest contains 3,881 source/dependency/configuration/artifact
 identities. The existing Release/GCC14.3/C++17/O3/AADET configuration and
 explicit supplied empty fixing snapshot are used. Compiled execution is the
 captured header's `DEFAULT_COMPILED=true`; the generator/precision/seed are
-MRG32 `/1`, Precise, 1024. Final analysis/test identities are recorded separately
-before observing long outputs; the executed capture binary and archive were not changed while
-running. Original executables, raw eighteen reports, oracle inputs and previous
-manifests remain separate evidence.
+MRG32 `/1`, Precise, 1024. The capture/source/binary/archive manifest was frozen
+at **2026-10-23T23:55:54Z**, before these requests started; the executed capture
+binary and archive were not changed while running. Original executables, raw
+eighteen reports, oracle inputs and previous manifests remain separate evidence.
+
+The separate `analysis-freeze.json` is timestamped **00:06:44 UTC** and retains
+its original declaration `statistical_long_outputs_observed=false`. The two x1
+requests had already completed at **00:06:38/42**. That declaration records the
+claimed observation state at that time, not an assertion that no long output
+existed. The x2 requests completed at **00:18:38/42**. Subsequent admission and
+defined-stream/ideal-quantile diagnostic revisions followed observation of
+outputs, including the x2 tail RED below. `final-analysis-freeze.json` records
+the final analyzer/test and extraction identities at **00:23:02 UTC**, after
+those observations. Those final identities are post-observation tooling, not
+pre-observation freezes. Both original metadata files and the pre-run manifest
+remain unchanged; neither samples nor their observation status are relabeled.
 
 The six requests are both solve modes at HeldOut B=16, n=16384 times 1/2/4.
 The seven requested axes are spot, the three fitted basis nodes, USD sigma,
@@ -881,3 +893,63 @@ model statistics compare exactly with the saved pre-extraction analyzer. No
 old eighteen-report sample or new prefix was added to improve this verdict.
 The two x4 reservation-exhausted results remain numerics-failed; no complete
 V1, quote-risk or performance acceptance is recommended.
+
+### Focused basket admission repair and accepted-master integration
+
+The original reviewer requested three P2 repairs at fixed head
+`d3a388928ebdc1817db558704a58b3f826a35a08`: incomplete oracle member contexts,
+truncated direct derivatives/unread native chains, and the analysis timeline
+claim corrected above. This checkpoint changes only the basket Python helper,
+its Python regression module and this record. The normal accepted-master merge
+is `ecb148241a9d524be726c4e2ddc2927bb58259aa`, with parents
+`d3a388928ebdc1817db558704a58b3f826a35a08` and
+`f5cf78a638806ff682772603f0d744399032bb33`. It has no conflicts and inherits
+only accepted PR638's guide/CHANGELOG changes beyond the already integrated
+core. It imports no unmerged DAL-429 bindings. Complete incremental patches,
+new source/head identities and merge audit accompany the repair delivery.
+
+The helper now independently requires all seven member-context fields
+`id/source/binding/context/mapping/instrument/measure`, then compares that fixed
+set. Before any derivative iteration, both direct and retained A/B/Price/par
+matrices must have exactly four finite full-width rows. The exported native
+chain must have the complete retained moment-input row count and native-label
+width, finite entries and exact coordinate correspondence. Its expected blocks
+are reconstructed from the original model's curve snapshot Jacobians and
+ordered spot/curve/sigma axes, including the curve valuation-row exclusion;
+the current full matrices are 4x11 and 11x11. This adds evidence admission, not
+a new economic mapping or financial tolerance.
+
+Existing Python tests first passed **4/4**. Four focused tests were added before
+the repair; the final module fails against saved d3 and passes **8/8** after
+repair. Its negative subcases cover all seven missing reference fields with
+synchronously wrong prepared/executed fields, matrix dimensions/finiteness and
+wrong native row/column coordinates; the valid control includes a nonidentity
+curve Jacobian. Separately, **21** real EXACT-x1 malformed-input probes are now
+refused. Thirteen had been admitted at d3, including all four original reviewer
+probes: missing reference binding plus wrong full binding, empty derivatives,
+missing par derivative row, and empty chain. The other eight were already
+refused and remain refused. All **16** earlier real-capture negative controls
+remain refused. Diagnostics and per-case d3/repaired outcomes are retained.
+
+Offline replay of the six original EXACT/APPROXIMATE HeldOut x1/x2/x4 captures
+admits the complete data and produces the **byte-identical entire report**,
+including audits, all financial fields and paired model comparisons. There is
+no schema or field diff. Its SHA256 remains
+`cca7aac898607d6b2eef7f5d477e259cbff7fd1f167399cb55da35bddbc51327`.
+Non-strict exits **0**; strict saves that identical complete report and exits
+**1**. The 288/216/214 parity/precision/combined pass counts and all six overall
+FAILs remain. The changed Python modules contain 59 functions, all CCN<=8;
+Ruff F/C901, Markdown and diff checks pass. No C++ rebuild, long capture,
+unchanged RNG probe, old eighteen-report/39-case matrix or broader performance
+matrix is repeated for these admission/record-only changes.
+
+Original capture and final extracted binary identities above remain distinct
+and unchanged. The ideal Gaussian tail RED, `financial_bias_bound_qualified=false`,
+all original precision/combined/FX-sigma and five binary64 FD REDs, full eFD and
+remaining coverage gaps, exhausted x4 reservations, inputs/budgets/scales/
+thresholds and already-observed HeldOut status remain. The original reviewer's
+changed-head helper/record/integration review and eventual-head Windows
+`dal_excel_tests` build plus actual selected-range raw-case execution remain
+necessary. DAL-429 boundaries require their separate serialized assignment
+after accepted merge. DAL-425/396 stay in_progress; this checkpoint grants no
+complete V1, Windows workbook, quote-risk or performance acceptance.

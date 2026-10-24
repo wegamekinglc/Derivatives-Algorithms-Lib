@@ -10,13 +10,14 @@ import statistics
 
 from xccy_acceptance_extended import gradient_gate, qualify_schedule
 from xccy_acceptance_statistics import (
-    compare, projected_se, qualify_direct_values, qualify_gradients, qualified_direct_gate, require, row_matches, sample_se,
+    compare, projected_se, qualify_direct_values, qualify_gradients, qualified_direct_gate, require, require_width, row_matches, sample_se,
 )
 
 DIMS = (30, 55, 80)
 OFFSETS = (0, 70778880, 200540160, 389283840)
 PHASES = ((0, 262144), (262144, 1310720), (1310720, 2359296))
 SLOTS = ("xd", "xf", "Id", "If", "Z")
+MEMBER_CONTEXT_FIELDS = ("id", "source", "binding", "context", "mapping", "instrument", "measure")
 
 
 def same(actual, expected, diagnostic):
@@ -34,8 +35,54 @@ def fingerprint(value):
 
 def context(capture, fit):
     return {"model": fit["cases"][0]["model"]["identity"], "archive": fingerprint(capture["model_archive"]),
-            "members": [{key: m[key] for key in ("id", "source", "binding", "context", "mapping", "instrument", "measure")}
+            "members": [{key: m[key] for key in MEMBER_CONTEXT_FIELDS}
                         for m in capture["allocation"]["members"]]}
+
+
+def finite_matrix(matrix, height, width, diagnostic):
+    require_width(matrix, height, diagnostic + " row count")
+    for row in matrix:
+        require_width(row, width, diagnostic + " row width")
+        require(all(math.isfinite(x) for x in row), diagnostic + " finite entries")
+
+
+def native_curve_rows(curve, offset, width):
+    finite_matrix(curve["jacobian"], len(curve["dates"]), len(curve["labels"]), "retained native chain curve")
+    return [[0.] * offset + row + [0.] * (width - offset - len(row)) for row in curve["jacobian"][1:]]
+
+
+def native_labels(model):
+    domestic, foreign = (curve["currency"] for curve in model["curves"][:2])
+    spot = "fxspot:" + foreign + "/" + domestic
+    sigmas = ["sigma:" + name + ":" + date for name in (domestic, foreign, foreign + "/" + domestic)
+              for date in model["bucket_dates"]]
+    return [spot] + [label for curve in model["curves"] for label in curve["labels"]] + sigmas
+
+
+def retained_native_chain(case):
+    model = case["model"]
+    labels = native_labels(model)
+    same(case["labels"], labels, "retained native chain coordinate axes")
+    width = len(labels)
+    chain, offset = [[1.] + [0.] * (width - 1)], 1
+    for curve in model["curves"]:
+        chain.extend(native_curve_rows(curve, offset, width))
+        offset += len(curve["labels"])
+    chain.extend([[float(i == j) for j in range(width)] for i in range(offset, width)])
+    return chain
+
+
+def qualify_direct(direct, case):
+    same(direct["labels"], case["labels"], "full native map axes")
+    width = len(case["labels"])
+    finite_matrix(direct.get("fast_gradient"), 4, width, "complete direct A/B/Price/par derivatives")
+    finite_matrix(case["fast_gradient"], 4, width, "complete retained A/B/Price/par derivatives")
+    require(row_matches(direct["fast"], case["fast"]), "original deterministic values")
+    for row, expected in zip(direct["fast_gradient"], case["fast_gradient"]):
+        require(row_matches(row, expected), "original full native direct derivatives")
+    chain = retained_native_chain(case)
+    finite_matrix(direct.get("native_chain"), len(chain), width, "complete native chain")
+    same(direct["native_chain"], chain, "native chain retained coordinate correspondence")
 
 
 def qualify_member(i, member, case, direct):
@@ -45,10 +92,7 @@ def qualify_member(i, member, case, direct):
     same((member["D"], member["block"]), (DIMS[i], list(OFFSETS[i:i + 2])), "original dimensions/derived blocks")
     same(member["id"], "independent-staged-" + str(i), "original member order")
     same(member["measure"], "Price", "source Price view")
-    same(direct["labels"], case["labels"], "full native map axes")
-    require(row_matches(direct["fast"], case["fast"]), "original deterministic values")
-    for row, expected in zip(direct["fast_gradient"], case["fast_gradient"]):
-        require(row_matches(row, expected), "original full native direct derivatives")
+    qualify_direct(direct, case)
     for j, (begin, end) in enumerate(PHASES):
         same(member["phases"][j], [begin, end, OFFSETS[i] + begin * DIMS[i], OFFSETS[i] + end * DIMS[i]], "all nine reserved intervals")
     coordinates = ["interval:" + left + ":" + right + ":innovation:" + slot
@@ -380,7 +424,10 @@ def qualified_fit(data, oracle):
     same(fit["context"]["model"], s["model"], "qualified oracle model")
     same(fit["context"]["archive"], fingerprint(data["model_archive"]), "qualified immutable model archive")
     for member, expected in zip(data["allocation"]["members"], fit["context"]["members"]):
-        same({key: member[key] for key in expected}, expected, "qualified source/full binding/context/measure/mapping")
+        require(all(key in expected for key in MEMBER_CONTEXT_FIELDS), "complete oracle member context")
+        require(all(key in member for key in MEMBER_CONTEXT_FIELDS), "complete prepared member context")
+        same({key: member[key] for key in MEMBER_CONTEXT_FIELDS}, {key: expected[key] for key in MEMBER_CONTEXT_FIELDS},
+             "qualified source/full binding/context/measure/mapping")
     return fit
 
 
