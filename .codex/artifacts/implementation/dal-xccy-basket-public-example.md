@@ -171,3 +171,94 @@ identities, budgets/reservations/counts, seeds/scales/thresholds and observed
 old HeldOut status are preserved. No paths/VR/RNG/estimator changes, prefix
 pooling or P4 expansion are authorized. DAL-425/396 remain in_progress; this
 issue's delivery awaits focused code and documentation review, with done human-owned.
+
+## Accepted-master integration, 2026-10-24
+
+The original code/build Approve (`01a16bd1-c744-732e-a922-92415027e6c3`)
+and public-documentation Approve (`01a16bcf-f427-7537-84e1-8d2f64015a8f`)
+apply to the original head `2b3886f0522735d06ac74bd864386188932ca1a4`.
+The coordinator accepted its 36 effective successful checks (37 raw, preserving
+the superseded same-identity Codacy history). Strict required Linux/Windows
+checks still required an up-to-date branch after accepted PR631 entered master.
+Those old green checks do not certify this integration head.
+
+Resumed in the same clean author checkout/branch and PR640. Read the latest
+issue, original delivery thread, integration attachment, role/boundary and
+complete Git/PR references; the family read showed this author alone active.
+GitHub, Multica's direct PR631 record and fetched master agree that PR631 was
+merged at 03:55:30 UTC as `cc94e80befadcbbcb958d2950e452bb8b5ab4a73`,
+parent accepted `a5da3ecf`. Its full 39-path delta consists only of independent
+tests, private fixtures/helpers and the DAL-425 validation record. No product,
+generator, build definition, example or public document changed upstream.
+
+Normal merge `89be001adf505fca7202ebbadd88b8b35220caab` has exact parents
+`2b3886f0522735d06ac74bd864386188932ca1a4` and
+`cc94e80befadcbbcb958d2950e452bb8b5ab4a73`. It needed no conflict resolution,
+rebase, force push or source repair. All original eight files were byte-identical
+immediately after the merge. This subsequent author delta appends only this
+record: the seven example/CMake/public-document files stay byte-identical to
+their approved blobs, and this record retains its original prefix. The final
+diff against accepted master remains exactly the original eight paths; the
+old-head-to-new-head diff separates the 39 accepted upstream paths from this
+single author record update. Exact patches, blob/SHA256 comparisons and parents
+are attached. No upstream test/helper/record is edited by this author.
+
+### Direct verification and reuse
+
+`build/dal430-integration/run.py` retains exact commands, exit codes, logs and
+JUnit XML separately from the original evidence. Reconfigured the existing
+workspace with its cached configuration. To require an actual example compile,
+preserved its old object outside the target directory before building:
+
+```bash
+cmake -S . -B build/dal430/workspace-make
+cmake --build build/dal430/workspace-make \
+  --target xccy_script_monte_carlo_basket dal_public_tests -j 6
+ctest --test-dir build/dal430/workspace-make \
+  -R '^(xccy_script_monte_carlo_basket|PublicXccyMonteCarlo(Basket)?Test\..*|PublicXccyAcceptanceBasketTest\..*)$' \
+  --no-tests=error --output-on-failure
+```
+
+All commands exit 0. The log confirms actual example compilation/linking and
+compilation of the two newly accepted public test translation units before
+relinking `dal_public_tests`. The real CTest result is **12/12**: the example,
+nine original public basket/single controls and two incoming tiny public basket
+integration controls. No test was added, changed, skipped or weakened here.
+The separate fresh example run and output checker also exit 0, retaining exact
+member IDs, D=30/55, 4x64 sampling, complete axes/JSON and all 144 covariance
+entries. This technical smoke execution is not frozen numerical acceptance.
+No new behavior requires a new RED; the original RED-to-GREEN evidence remains
+unchanged and no artificial product failure is introduced.
+
+Reuse is established by hashing actual files against the original attachment's
+manifests: all **2049 dependencies** and **14 runtime/toolchain files** are
+unchanged. All **273** existing product/example compile-command entries are
+identical. Of **404** configuration files, only the workspace compilation
+database and core/public test link descriptions change to include upstream
+test sources. Of **31** artifacts, only the freshly relinked public test binary
+changes; the rebuilt example/object, core/public libraries, staged executables,
+standalone and installed-consumer binaries retain their exact prior identities.
+The unused changed core unit-test link description is not a claim of rebuilding
+or executing that target. Current dependency/config/artifact identities capture
+the new public test closure separately.
+
+The original standalone core full build/install and built/installed MTM runs,
+public-disabled core CTest, standalone public build/CTest/install, installed-only
+consumer, option/include/link closure and unchanged source warning/format/CCN
+checks therefore remain applicable. Their executions are reused, not claimed as
+new runs. No second install or platform/long-MC/performance matrix was necessary.
+The original evidence ZIP remains unchanged, SHA256
+`ffa3e458e206961cd09c39701e38ec91aebc90e225d07a5d3885e7b6f576cd65`.
+
+Only this record and accepted upstream tests/fixtures/validation material affect
+Markdown discovery; current documentation and diff checks are run again. The same
+PR description is updated, followed by one nonblocking exact-new-head CI snapshot.
+The coordinator retains only necessary integration-delta review and new-head
+gates. This author does not merge, dispatch experts or restart closed PR631.
+
+All numerical failures and preserved limits above remain, including the eighteen
+reports, six overall basket FAILs, FXsigma/FD/eFD gaps, Precise ideal-tail RED,
+`financial_bias_bound_qualified=false`, observed old HeldOut and every original
+batch/identity/model/fixture/seed/budget/count/reservation/scale/threshold.
+The new timing is informational and performance remains inconclusive. DAL-425/396
+remain in_progress; this integration grants no numerical V1, quote risk or P4.
