@@ -14,6 +14,7 @@ from pathlib import Path
 
 import mpmath as mp
 
+from xccy_acceptance_interval import FixedCashflows, interval, upper_abs
 from xccy_acceptance_reference import BrownianCashflows, day, h, kernel_integral, number, require
 
 SCENARIOS = ("flat", "nonflat", "rho-df", "rho-dx", "rho-fx", "negative-basis")
@@ -64,6 +65,10 @@ def admit_conditional(case, dimension):
         normal = list(expected)
         normal[first + i] = 1
         require(row["normals"] == normal, "conditional future basis probes")
+        require(
+            row["states"][: first // 5 + 1] == conditional[0]["states"][: first // 5 + 1],
+            "conditional state prefix independent of future coordinates",
+        )
 
 
 def admit_probes(case):
@@ -74,13 +79,30 @@ def admit_probes(case):
 
 
 def reciprocal_controls(case):
+    env = FixedCashflows(case)
     errors = []
     for probe in case["probes"] + case["conditional"]:
+        states = env.states(probe["normals"])
         for row in probe["states"]:
-            error = abs(number(row["spot"]) * number(row["reciprocal"]) - 1)
-            require(error < mp.mpf("1e-12"), "pathwise reciprocal")
-            errors.append(error)
-    return max(errors)
+            spot = env.fx(states, day(row["date"])).value
+            errors.append(reciprocal_errors(row, spot))
+    maxima = [max(values) for values in zip(*errors, strict=True)]
+    return dict(
+        states=len(errors),
+        spot_max_error_usd_per_eur=mp.nstr(maxima[0], 90),
+        tree_max_error_eur_per_usd=mp.nstr(maxima[1], 90),
+        compiled_max_error_eur_per_usd=mp.nstr(maxima[2], 90),
+    )
+
+
+def reciprocal_errors(row, spot):
+    require("reciprocal_compiled" in row, "compiled reciprocal execution required")
+    expected = (spot, 1 / spot, 1 / spot)
+    actual = (row["spot"], row["reciprocal"], row["reciprocal_compiled"])
+    errors = [upper_abs(interval(value) - reference) for value, reference in zip(actual, expected, strict=True)]
+    require(max(errors) <= mp.mpf(TOLERANCE), "independent pathwise spot/reciprocal")
+    require(abs(number(row["spot"]) * number(row["reciprocal"]) - 1) < mp.mpf("1e-12"), "pathwise reciprocal arithmetic")
+    return errors
 
 
 def tilted_measure(env, slot, date):
@@ -205,7 +227,7 @@ def case_control(case):
     return dict(
         scenario=case["scenario"],
         density=rows,
-        reciprocal_max_error=mp.nstr(reciprocal_controls(case), 90),
+        reciprocal=reciprocal_controls(case),
         conditional=conditional_control(case, env),
     )
 
@@ -217,6 +239,7 @@ def main():
     args = parser.parse_args()
     data = json.loads(args.capture.read_text())
     require([case["scenario"] for case in data] == list(SCENARIOS), "complete financial scenario set")
+    mp.iv.dps = 70
     with mp.workdps(100):
         rows = [case_control(case) for case in data]
     args.output.write_text(

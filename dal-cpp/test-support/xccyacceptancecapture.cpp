@@ -6,6 +6,7 @@
 #include <dal/math/aad/aad.hpp>
 #include <dal/math/random/pseudorandom.hpp>
 #include <dal/script/calibrationmc_internal.hpp>
+#include <dal/script/event.hpp>
 #include <dal/storage/json.hpp>
 
 #include "../tests/script/xccyacceptanceextendedfixture.hpp"
@@ -447,14 +448,29 @@ namespace {
                     {"base", QualificationEndpoint(active, *model)},
                     {"rows", std::move(rows)}});
     }
+    Vector_<> FinancialReciprocals(const Date_& date, double spot) {
+        Script::ScriptProduct_ expression({Cell_(date)}, {"inverse = 1 / SPOT()"});
+        expression.PartitionEvents(TestXccy::TODAY);
+        expression.PreProcess(false, true);
+        AAD::Scenario_<double> samples(1);
+        AAD::InitializePath(samples);
+        samples[0].spot_ = spot;
+        auto tree = expression.BuildEvaluator<double>();
+        auto compiled = expression.BuildEvalState<double>();
+        expression.Evaluate(samples, tree);
+        expression.Compile().Evaluate(samples, compiled);
+        return {tree.VarVals()[expression.PayOffIdx()], compiled.VarVals()[expression.PayOffIdx()]};
+    }
     Json_ FinancialSample(const AAD::XccyGaussian_<double>& model, const Vector_<>& normals) {
         const auto states = model.GenerateStates(normals);
         return Obj({{"normals", Numbers(normals)}, {"states", Array(states, [&](const auto& state) {
                                                         const double spot = model.Spot(state);
+                                                        const auto reciprocal = FinancialReciprocals(state.date_, spot);
                                                         return Obj({{"date", Str(Date::ToString(state.date_))},
                                                                     {"values", Numbers(Vector_<>(state.values_.begin(), state.values_.end()))},
                                                                     {"spot", Num(spot)},
-                                                                    {"reciprocal", Num(1. / spot)},
+                                                                    {"reciprocal", Num(reciprocal[0])},
+                                                                    {"reciprocal_compiled", Num(reciprocal[1])},
                                                                     {"nd", Num(model.DomesticNumeraire(state))},
                                                                     {"nf", Num(model.ForeignNumeraire(state))},
                                                                     {"pd", Num(model.Bond("USD", state, TestXccy::TODAY.AddDays(730)))},

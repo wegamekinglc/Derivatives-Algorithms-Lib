@@ -1,10 +1,12 @@
 """Adversarial admission and analytic controls for finite-input FD certificates."""
 
+import copy
 import unittest
 
 import mpmath as mp
 
 from xccy_acceptance_interval import Dual, exp, interval, sqrt, upper_abs
+from xccy_acceptance_financial_qualification import admit_conditional, reciprocal_errors
 from xccy_acceptance_qualification import certify_stencil, require_axes
 
 
@@ -47,6 +49,37 @@ class XccyAcceptanceQualificationTest(unittest.TestCase):
         x = Dual(4, 1)
         self.assertTrue(interval(".25") in sqrt(x).derivative)
         self.assertTrue(interval("-.0625") in (1 / x).derivative)
+
+    def test_correlated_reciprocal_error_needs_independent_spot(self):
+        mp.iv.dps = 70
+        row = dict(spot=2., reciprocal=.5, reciprocal_compiled=.5)
+        reciprocal_errors(row, interval(2))
+        row.update(spot=2.4, reciprocal=1 / 2.4, reciprocal_compiled=1 / 2.4)
+        with self.assertRaisesRegex(ValueError, "independent pathwise"):
+            reciprocal_errors(row, interval(2))
+
+    def test_compiled_reciprocal_is_required_and_independently_checked(self):
+        mp.iv.dps = 70
+        with self.assertRaisesRegex(ValueError, "compiled reciprocal execution required"):
+            reciprocal_errors(dict(spot=2., reciprocal=.5), interval(2))
+        with self.assertRaisesRegex(ValueError, "independent pathwise"):
+            reciprocal_errors(dict(spot=2., reciprocal=.5, reciprocal_compiled=.6), interval(2))
+
+    def test_conditional_prefix_is_unchanged_by_every_future_coordinate(self):
+        base = dict(normals=[.2, -.3, .2, -.3, .2, 0, 0, 0, 0, 0], states=[dict(spot=2., reciprocal=.5) for _ in range(3)])
+        case = dict(grid=["2026-10-21", "2027-10-21", "2028-10-20"], future_first_slot=5, conditional=[base])
+        for coordinate in range(5, 10):
+            probe = copy.deepcopy(base)
+            probe["normals"][coordinate] = 1
+            probe["states"][2]["spot"] += coordinate
+            case["conditional"].append(probe)
+        admit_conditional(case, 10)
+        for index in range(1, 6):
+            with self.subTest(probe=index):
+                changed = copy.deepcopy(case)
+                changed["conditional"][index]["states"][1].update(spot=2.4, reciprocal=1 / 2.4)
+                with self.assertRaisesRegex(ValueError, "conditional state prefix"):
+                    admit_conditional(changed, 10)
 
 
 if __name__ == "__main__":

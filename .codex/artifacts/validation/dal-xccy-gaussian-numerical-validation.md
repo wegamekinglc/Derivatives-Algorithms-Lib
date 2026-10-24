@@ -1383,3 +1383,130 @@ x4 budgets. Original five hard-floor REDs, Precise ideal-tail RED and
 model/fixture/seed/reservation/count/scale/threshold remain. No paths, VR,
 pooling, epsilon, RNG or estimator change. DAL425/396 stay **in_progress**.
 This phase is not numerical V1, quote-risk, P4 or global tail-bias acceptance.
+
+## R9: PR642 reciprocal P2 repair on the original frozen probes
+
+DAL433's complete review of PR642 head
+`bc9f5694116fb17000dfbd44cec5db44f0cc2026` found one P2: R8's
+362 reciprocal results only checked capture arithmetic, since the helper
+constructed `1./spot` and the checker multiplied the two fields. That R8
+claim is corrected here; the earlier observations do not independently
+qualify a reciprocal execution path. The distinct, valid
+`E[1/S] != 1/E[S]` control remains unchanged. No earlier record is edited:
+the entire 91954-byte prefix has SHA256
+`d5d62d774b05e33a4aa8e2372333ff3716cf002e35f3aaaed2881353c43986d5`,
+including the original 80424-byte prefix identified in R8.
+
+### Actual execution and independent expected value
+
+The capture now parses the private scalar expression
+`inverse = 1 / SPOT()` with the existing `Script::ScriptProduct_`, explicitly
+partitions at the fixture valuation date, preprocesses it and executes both
+`BuildEvaluator<double>()` / `Evaluate` and `Compile()` / `Evaluate` on a
+scenario containing the actual `XccyGaussian_::Spot` for each frozen state.
+The two actual outputs are exported as `reciprocal` and
+`reciprocal_compiled`. No helper division manufactures either result.
+This exercises the existing general script expression engines, not a newly
+admitted XCCY calibration product, reciprocal observation kind or measure.
+The frozen instrument source/binding and all financial fixtures stay intact.
+Existing XCCY source admission still rejects replacing a payment conversion
+with `1/SPOT()`, as documented by
+`XccyScriptTest.TestSourceFxPrincipalAndCurrencyMutationsRejected`; this
+private expression does not change that support boundary.
+
+`reciprocal_controls` reconstructs states from the exact binary64 normals
+and model inputs using the previously reviewed independent `FixedCashflows`
+interval Brownian kernels and Cholesky. Its own reconstructed FX interval
+and its interval reciprocal supply the expected values. Neither the captured
+spot nor its reciprocal supplies the expected answer. Exact binary64 actual
+values are compared with both endpoints of those independent intervals at
+70 decimal digits, using the unchanged 1e-10 financial tolerance. The trusted
+arithmetic base remains mpmath interval/libmp, not a new global certificate.
+Results separately identify USD-per-EUR spot and EUR-per-USD inverse errors.
+
+All 362 frozen state observations pass: 362 tree and 362 compiled inverse
+comparisons, plus independent spot comparisons. Maximum spot discrepancy
+is below 2.2e-16 USD/EUR; each inverse maximum is below 2.0e-16 EUR/USD.
+Every future-coordinate conditional basis probe must also preserve the
+complete captured state prefix through the conditional start, including
+all five state values and every exported financial observation. There are
+65 such prefix-row comparisons across the six scenarios. This check derives
+the prefix from the declared coordinate boundary, not the reported bad
+number or a single state row.
+
+### Existing tests, new regressions and repair verification
+
+Before the fix, the five existing Python unit tests passed. The new private
+four-case integration regression then recorded a valid positive capture
+and three actual failures to reject bad data: the reviewer's correlated
+conditional-start spot/inverse corruption, a changed state in the same
+future-independent prefix, and a bad compiled inverse field. The original
+flat mutation changes 1.1498066498824266 to 1.379767979858912 and recomputes
+the inverse; the repaired complete checker rejects it. A separate direct
+call to the independent reciprocal control also rejects the correlated
+values, without relying on the prefix check.
+
+After repair, all four integration cases pass. Three permanent focused
+unit tests were added to the existing qualification test file: independent
+rejection of correlated spot/inverse errors; missing/bad compiled output;
+and preservation of the conditional prefix for every future coordinate,
+while allowing the future state to change. All eight unit tests pass.
+The six original financial mutant kinds were rerun across all six scenarios,
+alongside five directly relevant new kinds: all 66 reject. The initial
+expanded negative runner targeted nonflat's first bucket row rather than
+the state actually queried by density/forward; that harness scope mistake
+and its exit 1 are retained separately. Selecting the declared conditional
+boundary fixes the runner, with final exit 0; no product behavior was fixed.
+
+Exact commands, timestamps, exit codes, input hashes and raw outputs are
+in the `acceptance-reciprocal` evidence package. Principal commands:
+
+```text
+g++-14 -std=c++17 -O3 -pthread -Idal-cpp -Idal-cpp/test-support -Idal-cpp/externals/rapidjson/include -MD -MF acceptance-reciprocal/capture.d dal-cpp/test-support/xccyacceptancecapture.cpp build/dal425-core/dal-cpp/libdal_cpp.a -o build/dal425-core/xccyacceptancecapture-reciprocal
+build/dal425-core/xccyacceptancecapture-reciprocal acceptance-reciprocal/financial.json financial
+python3 dal-cpp/tests/script/xccy_acceptance_financial_qualification.py acceptance-reciprocal/financial.json acceptance-reciprocal/financial-certificate.json
+python3 -m unittest discover -s dal-cpp/tests/script -p test_xccy_acceptance_qualification.py -v
+python3 acceptance-reciprocal/regression.py acceptance-reciprocal/financial.json
+python3 acceptance-reciprocal/negative.py
+build/dal425-core/xccyacceptancecapture-reciprocal acceptance-reciprocal/capture.json qualification
+python3 acceptance-reciprocal/audit.py
+```
+
+The rebuilt GCC14/O3 helper SHA256 is
+`6e00be36be3d647750b4b3d18293c05dfb672dcc8c837ea1d855f7826246263d`;
+the unchanged core archive SHA256 is
+`fffcc05c81a462d06f5bf1a04af9ca8739f2e0628baea80dcde2b49e3b5e6559`.
+The final new financial capture SHA256 is
+`22eb5d6b6e549ff5cfece269274f43d82beefe2ba2d28de6d30798d3cebc7f2b`.
+All original financial fields are exactly unchanged after removing only the
+new compiled field. The old and new density/Qf/conditional-forward and
+reciprocal-mean results are also exactly equal. The qualification capture
+from the rebuilt helper is byte-identical to R8, so the original 408 finite
+FD/eFD results are inherited, not rerun or newly certified here. Original
+source/dependency/configuration/library/runtime identities were checked;
+only the authorized helper and analysis files differ. All 396 retained
+evidence files and both record prefixes remain unchanged.
+
+Ruff F/C901 and Lizard CCN<=8, clang-format, Markdown and diff checks pass.
+Both GCC14 and GCC15 pass syntax checks of the changed helper under the
+existing CI Wall/Wextra/Wpedantic/Werror policy and its existing exclusions;
+these are not full compiler-matrix builds. Only GCC14's rebuilt helper was
+executed. No build-system or example change requires component rebuilds.
+This private-helper repair changes no production performance path; capture
+and analysis elapsed times are information only, not a performance verdict.
+
+### Scope still open
+
+This is the single P2 repair for focused direct-diff review on the same
+PR642. It does not re-audit the other accepted review conclusions or the
+separate conditional Precise artifact. The actual libm tight-domain and
+financial total-error qualifications remain separate dependencies;
+`financial_bias_bound_qualified=false` is unchanged. No production, public,
+bindings, build, RNG, solver, model, fixture, scale, budget, threshold,
+estimator, path count, VR or pooling changes were made. Linux does not
+establish native Windows/XLL/workbook acceptance. The original eighteen
+reports and six profiles remain overall FAIL, including Price/par/FXsigma
+precision/combined, D80/x4 exhaustion, all five FD hard-floor REDs, the 25
+statistically unsampled axes and Precise ideal-tail RED. Observed HeldOut
+and all original identities/reservations remain. DAL425/396 stay
+**in_progress**; no numerical V1, quote-risk or P4 acceptance is granted.
