@@ -953,3 +953,127 @@ changed-head helper/record/integration review and eventual-head Windows
 necessary. DAL-429 boundaries require their separate serialized assignment
 after accepted merge. DAL-425/396 stay in_progress; this checkpoint grants no
 complete V1, Windows workbook, quote-risk or performance acceptance.
+
+## Accepted basket bindings: independent caller checkpoint (2026-10-24)
+
+PR639 actually merged at 02:16:03 UTC as accepted master
+`a5da3ecf37bf1dcbfa81097449ba04a63627139f`. GitHub, the direct DAL429 link
+and fetched master agree. Normal merge `ea179509f20e80bd755b825cc5fa4bcdb08dd03b`
+has parents `8daa65134bc7765dc8abb2f4d34fb2be29ef68f4` and that master, without
+conflicts. Its 37 inherited paths are accepted PR639, including product/generated/
+build files; they are not new tester edits. No core source changes were inherited.
+No reset, rebase, new tree/PR, force push or evidence cleanup was used. This run
+authors only independent tests, private fixtures/helpers and this record.
+
+### Inputs, scope and observation identity
+
+The technical input declaration in `acceptance-bindings/freeze.md` has original
+mtime **02:23:36.905207 UTC**, before new caller observations. It specifies the
+existing immutable acceptance model archive, explicit empty fixing snapshot,
+three dated MARK_TO_MARKET sources (2027-11-04, 2028-05-04, 2028-11-04), Price/
+BasisSpread/Price and byte-sensitive member IDs `A`, `a`, and an escaped quote/
+newline tail ID. The new basket fixture archives are exported from the accepted
+core test factory, then loaded unchanged by all callers. They are technical
+fixtures, not replacements for the original fitted financial profiles.
+
+All callers use compiled execution, Precise stream1, seed1024, no Brownian bridge
+or smoothing, **3 paths x4 batches**, and ordered native labels FX sigma then
+FX spot. Fit/Validation/HeldOut are explicit technical phase checks. They do not
+reclassify observed financial samples. The one 5-batch technical prefix control
+checks overlap rejection; it does not extend any original financial reservation.
+No original financial capture was rerun or pooled.
+
+The final helpers/tests were revised after initial observations. They are not
+claimed to have been frozen before observation. Initial authoring failures are
+retained: missing standalone exporter include path; missing raw-test closing
+guard; Python simulation constructor defaults did not explicitly supply the
+declared settings; preflight may retain a computed native-map identity before
+candidate geometry qualification; old report schema lives in `summary.schema`.
+These were test setup/assertion corrections, not product defects or product REDs.
+The final tools have a separate timestamped identity, and pre/final complete
+caller payloads remain byte-identical after the final helper extraction.
+
+### Existing tests, new tests and negative controls
+
+- Existing accepted basket tests were rebuilt and run independently: public
+  **6/6**, portable Excel **6/6**, Python **14/14**, exit0. The Python cases
+  include actual Prepare/Evaluate GIL handshakes and the held-GIL negative
+  timeout, required inputs, early/late errors and candidate geometry controls.
+- New tests pass: public **2/2**, portable Excel **3/3**, Python **15/15**, exit0.
+  All three phases have complete result JSON byte-identical across public C++,
+  Python and portable Excel, each also compared to a directly executed core
+  result on the same archives. This covers the full 4x18 coefficient rows,
+  18x18 batch and mean covariance, 9x18 output Jacobian, 9x9 output covariance,
+  axes/units/order/ID bytes, selected partials, source/binding/context/model/
+  report identity and actual coordinates. Python independently reconstructs all
+  covariance cells and the output projection from the captured rows; this is
+  a technical statistics check, not a new financial precision qualification.
+- Owned member/allocation/report getters survive deletion and GC. New native
+  entry handshake mutates the Python member list and label list after native
+  copy. Late-member/late-batch/last-member-preflight/early errors retain their
+  correct partial/report/candidate alternatives after all input/error owners
+  are destroyed. Last-member preflight consumes zero coordinates and exposes
+  no candidate. An actual late final-member annuity-floor failure through the
+  Excel facade retains its true candidate and two complete members, with four
+  coefficient batches but no fabricated final estimate for the failing member.
+- New Excel checks distinguish Prepared/Estimate/Failed and unavailable getters,
+  the outcome/result/partial JSON families and old report1. Nested wrong types,
+  bool/int32 overflow, trailing unknown and normalized duplicate settings refuse.
+- The new Windows raw request case and the existing mandatory selected-range
+  case run **2/2** through actual generated includes, source-extracted real raw
+  converters/validators, and freshly rebuilt real Excel factory/runtime objects
+  using the inherited Linux storage/return ABI adapter. The new case checks a
+  raw error beyond blank rows with original row4/column2, typed sampling/fixing
+  handles, all required omissions, scalar phase and table dimension limits.
+  A private copy disabling complete-range validation/truncating conversion makes
+  **both tests fail**, exit1; intact source passes, exit0. No production mutation.
+- **10/10** mutations of actual caller XML refuse: cross-member/mean/output
+  covariance, output Jacobian, axis unit, member ID bytes, incomplete status,
+  missing/duplicate phase and failed caller case. Complete positive XML admits.
+  The new tracked helpers/tests contain **35 functions, maximum CCN8**; Ruff,
+  clang-format, Markdown and diff checks pass. CTest discovers five portable
+  C++ cases; Python uses its existing test registration. No build edits needed.
+
+Primary commands (repository root; complete logs/XML and exact command/exit
+records are in the attached `acceptance-bindings` evidence):
+
+```bash
+cmake --build build/dal425-core --target dal_public_tests dal_excel_portable_tests _dal -j4
+build/dal425-core/dal-public/dal_public_tests --gtest_filter=PublicXccyMonteCarloBasketTest.*
+build/dal425-core/dal-excel/dal_excel_portable_tests --gtest_filter=ExcelXccyMonteCarloBasketTest.*
+python -S dal-python/tests/run_build_pytest.py build/dal425-core/dal-python /home/wegamekinglc/anaconda3/lib/python3.13/site-packages dal-python/tests/test_xccy_monte_carlo_basket.py -q
+python -S dal-python/tests/run_build_pytest.py build/dal425-core/dal-python /home/wegamekinglc/anaconda3/lib/python3.13/site-packages dal-python/tests/test_xccy_acceptance_basket.py -q -o junit_family=legacy --junitxml=acceptance-bindings/new-python.xml
+python3 acceptance-bindings/run-final.py
+python3 acceptance-bindings/generated_probe.py final
+python3 acceptance-bindings/generated_probe.py range-mutant
+```
+
+The last command is an intentional negative control with expected exit1. Normal
+builds, existing/new tests and comparator checks exit0. Final builds use the same
+Release configuration as the earlier caller evidence; new public/Excel/Python
+binaries and complete compiler dependency/runtime/configuration hashes are
+recorded separately. Unchanged core/math/R3/M5/8daa admission conclusions are
+inherited only within their original identities. No full suite, core example,
+performance matrix or long financial sampling was necessary for test-only writes.
+
+### Remaining acceptance ledger
+
+Linux generated-entry/portable evidence does not establish native MSVC, XLL,
+workbook or 32-bit execution. The eventual new head still needs an actual Windows
+`dal_excel_tests` build and execution of both
+`ExcelXccyAcceptanceRawTest.TestGeneratedEntryChecksEntireSelectedRange` and
+`ExcelXccyAcceptanceBasketRawTest.TestGeneratedRequestChecksEntireSelectedRangeAndTypedInputs`.
+The new tests/helper/record and integration require only the original reviewer's
+necessary changed-head review and exact-head CI/protected PR gates. No self-merge.
+DAL430's public example/documentation remains separately owned and is not imported.
+
+All six original basket profiles remain overall **FAIL**, with unchanged
+288/216/214 parity/precision/combined pass counts, original eighteen reports,
+FX-sigma precision/combined failures, D80x1 EUR-sigma combined failures, exhausted
+x4 reservations, five binary64 FD REDs, full eFD and unsampled native gaps.
+The ideal Gaussian tail RED at coordinate339476552, error `6.04063e-10 > 5e-13`,
+and `financial_bias_bound_qualified=false` remain. All old raw batches, original
+source/binary identities, model/fixtures, counts/budgets/reservations/scales/
+thresholds and observed oldHeldOut status are preserved. This callable-interface
+checkpoint changes no RNG, estimator or financial evidence and grants no complete
+numerical V1, quote-risk or P4 acceptance. DAL425/396 remain in_progress.
