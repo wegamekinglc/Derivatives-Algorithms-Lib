@@ -1,0 +1,40 @@
+
+
+extern "C" __declspec(dllexport) OPER_* xl_XccyMonteCarloBasketOutcome_Get_Report
+    (const OPER_* xl_outcome)	
+{
+    Excel::InitializeSessionIfNeeded();
+ENV_SEED_TYPE(ObjectAccess_);
+    const char* argName = 0;
+    try
+    {	
+        Logging::Write("XccyMonteCarloBasketOutcome_Get_Report");        
+        argName = "outcome (input #1)";
+        const Handle_<StorableXccyMonteCarloBasketOutcome_> outcome = Excel::ToHandle<StorableXccyMonteCarloBasketOutcome_>(_env, xl_outcome);
+        argName = 0;
+		Handle_<CalibrationReport_> report;
+        XccyMonteCarloBasketOutcome_Get_Report(outcome, &report);
+        Excel::Retval_ retval;
+        retval.Load(_env, report);
+        return retval.ToXloper();
+    }
+    catch (std::exception& e)
+    {
+        return Excel::Error(e.what(), argName);
+    }
+    catch (...)
+    {
+        return Excel::Error("Unknown error", argName);
+    }
+}
+
+struct XlRegister_XccyMonteCarloBasketOutcome_Get_Report_
+{
+    XlRegister_XccyMonteCarloBasketOutcome_Get_Report_()
+    {
+        Vector_<String_> argHelp;        
+        argHelp.push_back("Owning outcome");
+        Excel::Register("Base", "xl_XccyMonteCarloBasketOutcome_Get_Report", "XCCYMONTECARLOBASKETOUTCOME.GET.REPORT", "Inspect basket report", "QQ", "outcome", argHelp, false);
+    }
+};
+static XlRegister_XccyMonteCarloBasketOutcome_Get_Report_ The_XccyMonteCarloBasketOutcome_Get_Report_XlRegisterer;

@@ -13,6 +13,7 @@ using namespace Dal::Python::Calibration;
 void init_calibration_types(py::module_& m);
 void init_xccy_instruments(py::module_& m);
 void init_xccy_monte_carlo(py::module_& m);
+void init_xccy_monte_carlo_basket(py::module_& m);
 
 namespace {
     PyObject* calibrationErrorType = nullptr;
@@ -383,6 +384,7 @@ void init_bindings_calibrationinstrument(py::module_& m) {
     Getters(m);
     init_xccy_instruments(m);
     init_xccy_monte_carlo(m);
+    init_xccy_monte_carlo_basket(m);
     for (const char* type :
          {"ScriptInstrumentImportSettings", "CurveInstrumentGeometry", "CurveInstrumentMarket", "CurveInstrumentSolver",
           "CurveInstrumentCalibrationSpec", "CurveInstrumentCalibrationOptions", "CalibrationSamplingSpec", "CalibrationEvaluationOptions",
