@@ -18,6 +18,13 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-10-24
 
+- **Core mixed-mapping XCCY MC baskets** — added immutable prepared member
+  allocations with absolute scalar seeking, complete estimator covariance and
+  owning partial failures. Members retain their dated grids and fixed phase
+  reservations; covariance describes marginal estimation error. Basket bindings
+  are unavailable; frozen numerical acceptance remains unmet. See the
+  [core basket guide](docs/methodology/script_calibration_contract.md#prepared-core-xccy-mc-baskets).
+
 - **Public stochastic XCCY** — added typed C++, Python and Excel access to
   the domestic-collateral Gaussian model, explicit stochastic staged fitting,
   same-source GaussianFast and phased script MC with native partials and owning

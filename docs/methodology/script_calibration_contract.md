@@ -633,8 +633,10 @@ Fit reserves paths `[0,262144)`, Validation `[262144,1310720)` and HeldOut
 `[1310720,2359296)`. Counts select each phase's contiguous prefix. Capacity and
 checked path/coordinate arithmetic fail before draws; there is no offset
 override, clamping, hidden seed change or automatic budget extension. D=0
-consumes zero scalar coordinates while retaining its requested phase. Mixed
-mappings need a separate allocator and are rejected by the independence check.
+consumes zero scalar coordinates while retaining its requested phase. The
+single-instrument independence checker rejects mixed mappings. The
+[core prepared basket](#prepared-core-xccy-mc-baskets) provides a separate
+scalar allocation for members with different dated mappings.
 Only Validation estimates are eligible for `ValidateXccyMonteCarlo`; Fit and
 HeldOut retain their own flags and cannot be relabeled by a binding.
 
@@ -700,6 +702,62 @@ The [public stochastic example](../../dal-public/examples/xccy_script_monte_carl
 imports once, fits a synthetic Gaussian par observation, retrieves the candidate
 model and reprices the same source through GaussianFast and explicit HeldOut MC.
 It prints native-unit prices, batch errors and a raw spot partial.
+
+### Prepared core XCCY MC baskets
+
+`PreparedXccyMcBasket_` in `dal-cpp/dal/script/xccymcbasket.hpp` evaluates
+ordered `XccyMcBasketMember_` entries with different dated mappings under one
+immutable Gaussian model. Each member supplies a byte-exact unique ID, an
+instrument and its Price or eligible BasisSpread measure. Supply the XCCY
+preparation context, model and explicit `XccyMcSettings_`, including phase.
+The context requires an explicit nonnull fixing snapshot; an empty snapshot
+is valid subject to required history. Preparation owns the inputs and derives
+every member's grid and allocation before drawing. `Evaluate(candidate)` accepts
+a numeric model refresh only after all members pass the geometry, mapping and
+derivative checks.
+
+For member dimension `D_i`, block starts satisfy `O_0=0` and
+`O_(i+1)=O_i+2359296*D_i`. Member-local path p uses scalar coordinate
+`O_i+p*D_i+5*j+s` for zero-based interval j and innovation s=0,...,4.
+The private MRG32 Precise adapter seeks this absolute scalar position,
+including starts not divisible by D_i. Member order defines the allocation;
+each member retains the phase reservations above. D=0 consumes no random
+coordinates. Capacity checks cover full reservations and storage before execution.
+
+The owning `XccyMcBasketResult_` exposes `Snapshot()` and `Report()`.
+Its complete coefficient rows concatenate members in input order, with columns
+`B,A,dB[0],dA[0],...` for the requested native labels. With b batches, the full
+sample covariance `C_batch` retains measured cross-member blocks and
+`C_mean=C_batch/b`. Price/par and native-gradient uncertainty use the full
+corresponding Jacobian. Members are marginal estimates on disjoint scalar
+blocks; equal batch/path ordinals do not represent a common economic scenario
+or portfolio payoff. Member count adds no sampling replicates, and a singular
+sample covariance does not require inversion.
+
+`RequireXccyMcBasketIndependent` checks nonoverlapping stochastic executions
+of the same allocation. Overlapping prefixes and repeated evaluations fail
+that check; pass `commonRandomNumbers=true` explicitly for matching replay
+comparisons. Changing seed, member order or allocation does not certify
+independence. Existing single-instrument checks and `/1` streams retain their
+own mapping requirements.
+
+Catch `XccyMcBasketError_` before `CalibrationError_` to retain `Partial()`.
+The immutable `XccyMcBasketPartial_` preserves committed complete batch rows,
+completed member summaries, planned ranges and actual consumption after the
+plan and error are destroyed. Generated scalars, completed paths and committed
+batches are distinct counts. Early preparation errors have no partial; rejected
+evaluation candidates have a zero-draw partial and no candidate. Later failures
+can retain the actual model only after every member passed preflight. Diagnostics
+preserve the cause's source row or its absence, event date and statement.
+A failed basket has no complete result, joint covariance, basket SE or acceptance
+flags; unfinished rows are not padded with zeros.
+
+The basket result and partial use separate version families; the ordinary
+report remains `dal.calibration-report/1`. This core interface has no basket
+facade, Python/Excel projection, JSON export or product basket validator.
+A complete result has status Estimate. It does not establish frozen numerical
+acceptance or calibrated quote risk. Already observed HeldOut data remain
+observed; the new allocation does not create an untouched holdout.
 
 ## Same-instrument Monte Carlo
 
