@@ -229,6 +229,7 @@ pybind11_add_module(_dal
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/calibrationtypes.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/xccyinstrument.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/xccymontecarlo.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/xccymontecarlobasket.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/value.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/risk.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/weightedrisk.cpp
@@ -329,7 +330,7 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/src/dal/
 # ---------------------------------------------------------------------------
 if(DAL_PYTHON_BUILD_TESTS)
     enable_testing()
-    target_sources(_dal PRIVATE tests/native/xccymontecarlo.cpp)
+    target_sources(_dal PRIVATE tests/native/xccymontecarlo.cpp tests/native/xccymontecarlobasket.cpp)
     target_compile_definitions(_dal PRIVATE DAL_XCCY_TEST_BRIDGE)
 
     if(NOT DAL_PYTHON_IS_TOPLEVEL)
