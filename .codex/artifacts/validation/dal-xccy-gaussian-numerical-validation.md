@@ -1510,3 +1510,211 @@ precision/combined, D80/x4 exhaustion, all five FD hard-floor REDs, the 25
 statistically unsampled axes and Precise ideal-tail RED. Observed HeldOut
 and all original identities/reservations remain. DAL425/396 stay
 **in_progress**; no numerical V1, quote-risk or P4 acceptance is granted.
+
+## R10: independent propagation of the accepted scalar E
+
+This new checkpoint starts from accepted PR642 squash
+`714519fcdf0e60913cf90ae030ee0129843e0e1c`, on a new financial-bias branch;
+it does not push or reopen PR642/631/641. The entire accepted **99877-byte**
+record prefix (SHA256
+`6b4d45b3054dd70eb1cef6bc85375dc9728cd43ed68ea404d2a7fed2844de86f`),
+including both earlier prefixes and every original RED, is preserved.
+
+DAL433's accepted C1/C2 scalar/libm review permits the bound
+**E < 9.006864425e-9** for the declared MRG support and bound Linux actual
+scalar, subject to its original trusted basis and identities. The bound is
+relative to PhiInv(RN(k/4294967088)), not continuous Gaussian, and is not a
+replacement for the original 5e-13 quantile diagnostic. No normal or libm
+proof/cell matrix was repeated. The accepted review report SHA256 is
+`c11cc719c962bfcce5476dd351a461834ceaec595129b41f6ad36af94edd0a8c`;
+the original inverse source remains
+`07cedff146fd4f897e0dc95329ff6082a70345895a4caf6ce1faa465b39c69e1`.
+
+### Independent construction and strict arithmetic
+
+Four new private Python helpers, eighteen focused tests, one dedicated
+frozen-input projection and a mathematical reference are the only additions
+besides this append. The reference is
+`.codex/artifacts/validation/dal425-financial-bias-bound-reference.md`.
+No existing accepted helper, product, build, binding, example, model fixture,
+RNG, solver, budget, threshold, estimator or public document changes.
+
+The domain is exactly the original six EXACT/APPROXIMATE D30/55/80 basket
+snapshots. The original capture SHA256 is
+`c5707a03f041e50d8d24e7584ff01fe74b4d0f825f22c45282361073b7c06846`;
+its dedicated lossless projection has SHA256
+`5c2f3d48861e173185219bd32fad7cbf49a6c9e92918586b9a7bc0bd8108837a`.
+The projection excludes production moment terms. Source, instrument, mapping,
+model, native axes, five slots, calendars, fixing/reset/payment dates, passive
+N=110 and imported 100/110, K=.001, spot=1.1, positive sigma and one bucket are
+admitted before calculation. This is not the other eighteen-product domain.
+
+Independent calendars and the previously accepted independent interval
+Brownian kernels/dual Cholesky give signed exponential sums
+`sum c exp(k+ell.z)`. All eleven native columns include
+`exp(k+ell.z)[c'+c k'+c ell'.z]`; spot is outside the exponent so c' is
+explicit. Actual payment FX, reset notional, MTM exchange signs and lag
+remain separate. Captured fast values are only sanity comparisons.
+Fresh center differences are <2.6e-14 for values and <1.3e-13 for derivatives.
+
+All certificate calculations use mpmath 1.3.0 interval/libmp outward
+arithmetic at 236 binary bits. Decreasing erfc is evaluated at reversed
+endpoints with floor/ceiling rounding; a 160-step verified bracket supplies
+the tail quantile. Every summary interval retains exact binary endpoint
+tuples and exact rational decimal ceilings/floors. Affine terms and sparse
+native derivatives retain their endpoint tuples. Ordinary 65/85-digit point
+agreement is not used as a certificate. The trusted arithmetic implementation
+and the prior independent mathematical derivation remain explicit assumptions.
+
+### D1: finite-stream component, no IID premise
+
+Mills proves the exact and rounded uniform-grid quantiles are in [-6.25,6.25].
+With the actual accepted scalar E, interval exponential majorants bound
+same-uniform path/mean differences in A, B, Price, all native gradients,
+par and its quotient derivatives. A negative annuity sum proves a strictly
+positive absolute denominator lower bound for both transforms and all same-
+weight means. This is a transform-component bound on mathematical cashflows,
+not a certificate of every floating operation in a historical MC binary.
+
+Upward worst-fit summaries are:
+
+| D  | Price USD   | par          | dpar/dFXsigma |
+|----|------------:|-------------:|--------------:|
+| 30 | .0000121490 | .00000169177 | .000188345    |
+| 55 | .0000978632 | .0000536820  | .0465232      |
+| 80 | .000582327  | .00128870    | 6.79372       |
+
+Absolute annuity lower bounds are respectively >32.3210, 37.1028 and 38.3098.
+D55 par/FXsigma-par and D80 par/eight native par columns exceed their
+individual original budgets **as sufficient upper bounds**. This proves no
+actual error lower bound or business-budget conflict. The loose step is the
+absolute cashflow/derivative box quotient majorant, not a nonpositive
+denominator. A stronger signed/joint bound would be the technical route to
+a uniformly smaller D1 certificate; the implementation does not silently
+substitute the D2 expectation result for D1.
+
+### D2: conditional law, weighted moments and Gaussian tails
+
+The theorem explicitly assumes **independent uniform numerators** on 1..d-1.
+The fixed-seed MRG coordinate trace does not prove that joint probability law.
+The strict calculation includes monotone Riemann zeroth moments, total-
+variation first moments (including stationary points), both exponentially
+tilted Gaussian tails, coordinate products and their first-moment derivatives.
+Uniform quantization is separate:
+`E_U <= 2^-54/phi(6.25) < 4.224587095e-8`; coupling uses E+E_U.
+Signed A/B centers plus absolute boxes yield positive mean denominators and
+ratios of coefficient expectations, never E[pathwise par].
+
+| D  | Price USD   | par           | dPrice/dFXsigma USD/sigma | dpar/dFXsigma /sigma |
+|----|------------:|--------------:|--------------------------:|---------------------:|
+| 30 | .0000301904 | .000000553267 | .000140758                | .00000257821         |
+| 55 | .0000983239 | .000000906766 | .000439124                | .00000404919         |
+| 80 | .000203241  | .00000125122  | .000881638                | .00000542768         |
+
+These are upward summaries across both fits; canonical endpoints are in the
+certificate. Every D2 bias-only value and all eleven derivative columns fit
+their individual original budgets. Absolute mean-annuity lower bounds are
+>54.7014, 108.6859 and 162.7988. This is a useful conditional result, not
+actual-law/global qualification or a sampling-precision pass.
+
+### D3: actual applicability and unchanged total budget failures
+
+A fresh read-only audit matches all **21** accepted scalar source dependencies,
+the retained libm/libc/platform identity, and the two historical core scalar
+objects against accepted B baseline objects: complete .text, numeric constant
+sections and .rela.text semantics are identical; both exact object files occur
+in the retained core archive. The historical compiler is GCC14 -O3 with
+-ffp-contract=fast for these two objects, no -mfma. The scalar .text is 875
+bytes/SHA256
+`d7444844eac91e02173f81cd084aa2e52a5edb5c579236185969f9c5ab62adca`.
+The retained libm hash is
+`1c488db6f4fe8cecb72456bc018de000b7a9b539c2994864b0416b5e8371b3d8`.
+No product binary was run or recompiled for this audit.
+
+This static match does not reconstruct historical per-call fenv, FTZ/DAZ,
+ELF/GOT resolution or the complete linked caller, so
+`caller_binding_qualified=false`. D1 applies to the actual finite trace only
+subject to those remaining accepted-scalar runtime assumptions; production
+pipeline errors remain separate. D2 has the further unproved joint draw law.
+The minimal law dependency is **one admitted law/applicability certificate**
+for the existing coordinate geometries, specifying the randomness and
+certifying the weighted mixed zeroth/first moments used by these finite
+affine terms. Marginal/support/coordinate tests are insufficient. Actual
+historical-binary promotion additionally needs its caller/runtime binding.
+No second RNG/design review or implementation owner is dispatched here.
+
+All **288** existing six-profile value/selected-gradient rows receive an
+explicit diagnostic overlay: original 3SE + original eFast or unqualified
+eFD + new conditional systematic bias, with discrepancy added for combined,
+and the original epsilon retained separately in parity. The systematic term
+is neither MC SE nor automatically eFast. Native units and exact-decimal
+original scales are retained; original binary64 scale encodings are checked.
+Original precision and combined flags are preserved separately. Unqualified
+binary64 eFD stays unqualified, and the four unsampled native columns do not
+become sampled because their transform derivatives were bounded.
+
+For EXACT x4 D30, Price augmented precision exceeds .0583279889578528 versus
+.0025 USD and combined exceeds .0907669633921687. Par augmented precision
+exceeds .0010572530659635 versus .000025. All six overall precision/combined
+flags remain **false**, and only x4 is reservation-exhausted. These basket
+profiles are distinct from the original eighteen reports, whose original
+x4 Price 3SE=.0591749264940557 and par 3SE=.00107235954235181 are unchanged.
+The new conditional bias does not offset, erase or reclassify those REDs.
+
+The reviewable limited outcome is D1/D2 controls completed, with D1's loose
+sufficient bounds and D2's law condition explicit, while actual/global
+qualification remains unproved. A scope for different estimator/sampling,
+business precision or stream-version work requires a separate coordinator
+decision; this checkpoint does not select a changed budget, VR or algorithm.
+
+### Running existing tests, authoring tests and repairing failures
+
+**Existing tests/evidence:** no old product, 408-FD, normal/libm cell, long-MC,
+install, performance, Windows/XLL or example matrix was rerun. All **793**
+retained local evidence files match their pre-edit manifest. They remain
+inherited only within their original recorded scope, not fresh passes.
+
+**Authored and run:** eighteen focused Python tests pass. They include exact
+endpoint/decimal encoding, support/E_U separation, small exact-grid weighted
+moments and tilted tails, c' and ell' controls, a D30 deterministic mixed-path
+and native derivative comparison against the independent direct evaluator,
+mean-ratio semantics, denominator admission, units, frozen identities, separate
+precision/combined flags, hidden SE and unsupported global claims. Ten isolated
+dangerous implementation omissions each trigger intended assertion failures;
+there are zero mutation-harness errors. Six-case certificate generation and
+complete canonical endpoint replay pass. No extra MC paths are drawn.
+
+**Repair:** initial authoring had the expected missing-module ImportError;
+it was not a product failure. A later narrow new-helper integer-argument test
+captured a real 1/3-before-interval-rounding failure, exit **1**. Quotient
+arguments are now converted before arithmetic; all eighteen tests pass.
+Actual six-case inputs were already intervals, so D1/D2 bounds are unchanged
+by this repair. Initial/intermediate outputs and command exits are preserved.
+A final admission test also first fails for altered event grid, slot order and
+native Jacobian; explicit independent domain checks reject all three, without
+changing any certified financial bound or relying only on an input hash.
+
+Reproduction commands for the new scope are:
+
+```sh
+python -m unittest discover -s dal-cpp/tests/script -p test_xccy_acceptance_bias_qualification.py -v
+python dal-cpp/tests/script/xccy_acceptance_bias_qualification.py certificate.json --budget-report original-numerical-report.json
+python dal-cpp/tests/script/xccy_acceptance_bias_qualification.py certificate.json --budget-report original-numerical-report.json --verify
+```
+
+The original numerical report is supplied in the evidence package and is
+admitted by SHA256
+`cca7aac898607d6b2eef7f5d477e259cbff7fd1f167399cb55da35bddbc51327`.
+Ruff E/F/C901, format, Lizard CCN<=8, focused Markdown and diff checks cover
+the actual new paths. Private analysis timing is not formal performance.
+One new master PR carries the complete eight-path change; the coordinator
+owns its focused review and merge. Only one nonblocking exact-head CI
+snapshot is taken after publication; no watch/poll, merge or delegation.
+
+`financial_bias_bound_qualified=false`, actual-law/caller/overall numerical
+flags false, original normal 5e-13 diagnostic RED, eighteen+six overall FAILs,
+Price/par/FXsigma precision/combined, exhausted D80/x4, five FD hard-floor
+REDs, 25-axis statistical gaps, observed HeldOut and every original identity,
+model/fixture/seed/path count/reservation/scale/budget/threshold remain.
+DAL425/396 stay **in_progress**; this checkpoint grants no numerical V1,
+quote-risk, P4, platform or performance acceptance.
