@@ -5,15 +5,18 @@
 Core acceptance checkpoint; **frozen numerical acceptance fails**. This is a
 test/tooling PR, with no production repair. Price/par parity passes on the
 Validation x1/x2/x4 prefixes, but precision and combined acceptance fail.
-Large-sample native-gradient qualification now exists: all nine coordinates
+Original single-run large-sample native-gradient qualification exists: all nine coordinates
 pass parity, eight pass precision/combined, and FX sigma fails both budgets
 even at x4. Estimates, actual batches, failures and identities are retained.
 
 This checkpoint is deliberately not final V1 acceptance. DAL-424 is now accepted
 on master at `ccec714f`; the incremental M5 boundary results below pass 39
 targeted Linux cases, with one additional Windows generated-entry case registered
-but not executed locally. The mixed-dimension held-out basket refusal, remaining statistical
-combinations and boundary coverage prevent calling the core matrix complete. Parent
+but not executed locally. DAL-427 is now accepted on master at `7b250160`.
+The new prepared-basket continuation below exercises the original staged models;
+the legacy unprepared mixed-mapping refusal remains a required rejection.
+Frozen precision/combined failures, binary64 FD/eFD qualification, remaining
+statistical combinations and absent basket bindings prevent full V1 acceptance. Parent
 DAL-396 must remain in progress. No model, financial convention, scale, epsilon,
 path reservation or variance-reduction policy was changed to obtain a pass.
 
@@ -347,13 +350,13 @@ never pooled or described as independent basket observations.
 | Small positive pivot and lag-only mutant | Original normalized kernel reconstruction and isolated 1e-10 lag gate reproduced unchanged. |
 | Independent Qf and martingales | Original flat/nonflat coupon and kernel controls reproduced; broader unit/conditional-forward/reciprocal matrix is not newly certified. |
 | Historical values, derivatives and par refusal | R2 nine-axis derivatives at all six cases; original refusal controls retained. |
-| Snapshot/global/at-V/future histories | Earlier 96-test evidence includes `XccyObservationTest.TestAtValuationPaymentSpotAndSuppliedResetUseDifferentSlots`, `TestAtValuationRatesSuppliedEmptyAndOmittedFreezeDifferentProvenance`, and `XccyMcBoundaryTest.TestFrozenHistoryAndAtValuationResetRemainDistinctFromPaymentSpot`; explicit global mutation between all CRN bumps remains separate work. |
+| Snapshot/global/at-V/future histories | Earlier 96-test evidence includes `XccyObservationTest.TestAtValuationPaymentSpotAndSuppliedResetUseDifferentSlots`, `TestAtValuationRatesSuppliedEmptyAndOmittedFreezeDifferentProvenance`, and `XccyMcBoundaryTest.TestFrozenHistoryAndAtValuationResetRemainDistinctFromPaymentSpot`. The basket continuation adds global mutation between every +/- h/h2/h4 evaluation of the original historical fixture. |
 | Source/principal/rebinding authority | Earlier `XccyGaussianExecutionTest.TestPrincipalSwitchesAndImmutableRebindingReachEveryBackend` and observation stale-date/mapping tests; no product edit or second trade authority. |
 | Omitted fixing / extra normal / wrong gradient SE | New actual fixing-state omission refusal; exact coordinate/RNG traces at three more D values; original wrong-SE mutant and raw extra-normal trace retained. |
 | Three-node synthetic fit and raw axes | Independent quotes, both solve modes, rank and basis partials executed; node-recovery errors reported above. |
-| Same-instrument held-out basket | Actual mixed-D refusal before drawing; allocator capability missing, no basket acceptance. |
+| Same-instrument held-out basket | Original unprepared refusal retained. New prepared D30/55/80 execution uses the two original fitted models and frozen prefixes; complete estimates and numerical acceptance are separate, as recorded below. |
 | Binary64 CRN FD | Original five-row RED remains a production-path qualification gap; 50/80-digit control does not replace it. |
-| Public C++/Python/Excel ownership and flags | Await actual DAL-424 merge/acceptance, then execute; no Linux result substitutes for native Windows/XLL/workbook. |
+| Public C++/Python/Excel ownership and flags | Accepted single M5 has 39 independent Linux cases and the include-order repair. Eventual-head native Excel execution remains required. Basket public/Python/Excel bindings are absent and are not counted as passed. |
 | Performance | Prepare/evaluate times only; no paired baseline or speedup claim. |
 
 ## Reproduction and remaining acceptance
@@ -644,3 +647,237 @@ their stated scope; limited R1 review and new-head CI remain pending. PR631
 stays draft, DAL425/396 stay in_progress, and all financial/statistical gaps,
 precision/combined failures, binary64 FD RED rows and old HeldOut identities
 remain unchanged. No new statistical samples or performance claim are added.
+
+## Prepared original basket: independent continuation
+
+DAL-427/PR637 was actually accepted and merged as
+`7b2501603d69d4fa3ba008be1d026515ed9fe32a`. This original branch normally
+merged that accepted master in `7940d0450f551091f90e36196900899d31667b85`,
+whose parents are `2ed0581c2cb5ab6f5784f8db2bcaf2a8d82d352c` and
+`7b2501603d69d4fa3ba008be1d026515ed9fe32a`. There was no conflict, rebase,
+force push or import of an unmerged sibling. The M5 raw-test include repair
+and body are byte-identical to `2ed0581c`; its source-only limited Approve
+is retained, while its eventual-head native platform condition remains open.
+
+This continuation changes four independent core test/helper files and this
+record. No product, public API/binding, build, RNG, solver, fixture, financial
+convention, public guide or CHANGELOG is authored here. The accepted DAL-426
+and DAL-410 control hashes remain respectively
+`3c5ae6eed21ed0582ef0ba70811f4692efbcead2b69a184bbe5e0b5081a140ad` and
+`c2ff68e1a696b620682b896ca9b292ec6d577bf92cadb3597991b427267733d5`.
+
+### Freeze, reuse and actual callers
+
+Before new samples, both original EXACT and APPROXIMATE fits were reproduced
+and matched the retained R2 parameters **exactly**. Source/instrument identities,
+independent calendars/cashflows, full native labels, original direct values,
+full direct derivative arrays, dated grids and mapping hashes matched R2.
+Canonical maturities/payments/basis knots and the approximately
+`-1.4914e-4` third-node recovery error remain as originally reported. The
+invalid `2028-11-06` maturity and legacy mixed-map refusal remain real REDs.
+
+The private caller is `dal-cpp/test-support/xccyacceptancebasketcapture.cpp`.
+Its frozen source SHA256 is
+`60074a8b69a91ceaec30802e924e3c02fcd8daa7757401914c7047a5904cef8a`,
+actual capture executable SHA256
+`b4151ec3502b0e3426a77b74e3c2540094fb17430f95b53022cba22b0ade6aed`,
+and rebuilt core archive SHA256
+`fffcc05c81a462d06f5bf1a04af9ca8739f2e0628baea80dcde2b49e3b5e6559`.
+The pre-run manifest contains 3,881 source/dependency/configuration/artifact
+identities. The existing Release/GCC14.3/C++17/O3/AADET configuration and
+explicit supplied empty fixing snapshot are used. Compiled execution is the
+captured header's `DEFAULT_COMPILED=true`; the generator/precision/seed are
+MRG32 `/1`, Precise, 1024. Final analysis/test identities are recorded separately
+before observing long outputs; the executed capture binary and archive were not changed while
+running. Original executables, raw eighteen reports, oracle inputs and previous
+manifests remain separate evidence.
+
+The six requests are both solve modes at HeldOut B=16, n=16384 times 1/2/4.
+The seven requested axes are spot, the three fitted basis nodes, USD sigma,
+EUR sigma and FX sigma, in native-map order. Complete rows contain all requested
+derivatives; the full native chain is exported separately. The four other
+native curve labels are not advertised as newly sampled basket columns.
+All seven direct A/B/Price/par derivative references are qualified: 72 retained
+basis gates and **96 new spot/sigma gates**, all passing. The original 24 direct
+value gates are retained. New derivatives use the unchanged independent dated
+cashflow/Brownian integrals, three precision refinements, 50/80-digit diagnostic
+controls and h/h2/h4 scales. Wide arithmetic does not close binary64 eFD.
+
+The exact scalar blocks are `[0,70778880)`, `[70778880,200540160)` and
+`[200540160,389283840)`, T=2359296. All nine full-phase reservations, every
+selected batch's local path/absolute scalar endpoints and actual consumption
+are independently checked. The middle offset modulo 55 is 40; it is never
+rounded to a path index. The source-use test records **114 observation uses /
+570 five-slot joins** for both fitted models, with event/statement/node/source
+row, original/canonical index, fixing time, model slot and absolute coordinate.
+Every recorded batch-start normal is checked using independent Python bigint
+MRG32 recurrence/skip arithmetic and an independent inverse-normal routine.
+The first member's traces also exactly match the earlier single HeldOut traces.
+Those coordinates were already observed: this family is not untouched holdout.
+
+Accepted DAL-427 RNG/helper/lifetime/partial-failure evidence is reused within
+its exact identities and accepted R1/integration changes. The new evidence
+contains the path-by-path identity comparison: scalar adapter, range and
+statistics implementations are unchanged from the independently audited version;
+source-row/include changes retain their later limited approvals. No 23,760-normal,
+24-single-case, old R3, 39-case M5 or eighteen-report matrix is rerun. The old
+unprepared refusal alone is freshly checked with its narrow test filter.
+
+### New tests, admission controls and numerical interpretation
+
+Fresh registered C++ execution is **5/5**: four new tests plus the original
+noncanonical-maturity/unprepared-mapping refusal. New tests cover the fitted
+source trace, full par/raw-gradient Jacobian and projected covariance, genuine
+zero-sigma derivative unavailability with owned zero-draw/no-estimate payload,
+and historical global mutation between every +/- h/h2/h4 call. The history
+test initially supplied an omitted snapshot, correctly receiving
+`InvalidCalibrationPlan /context/fixings`. It now retains that rejection and
+uses the explicit original historical values required by the basket contract.
+Initial standalone include-path and enum-type compile errors were harness
+repairs only; their diagnostics are retained. No product repair was needed.
+
+New Python admission regressions pass **4/4** (with six malformed-data subcases).
+The actual capture audit additionally rejects **16** covariance/axis/summary,
+phase/offset/extra-normal, source/full-binding/model and unqualified-reference
+mutants. Three draft-tool admission bypasses were reproduced against the saved
+draft, then rejected by the final helper. Labels, units, all requested summaries,
+every square matrix dimension, frozen source/context/model and direct derivative
+scale/h qualification are checked before numerical conclusions. Ruff F/C901
+with maximum complexity 8 and C++ formatting pass.
+
+A further Lizard check found ten over-complex draft functions (maximum CCN26).
+Pure helper extraction reduces every new C++/Python function to CCN<=8. Saved
+pre-refactor sources and function/patch identities are retained. The executed
+long-run source above remains archived as `capture-executed.cpp`; its binary
+is never overwritten. The separately rebuilt final driver has byte-identical
+complete small control payloads (excluding timing), with the same core archive,
+model/input/mapping/labels and evaluation calls. Financial formulas, every
+existing report field and statistical flags compare identically before/after
+extraction. No long samples are repeated for this code-quality change.
+The final private driver source SHA256 is
+`c724cbba5fdb32cd833e4495728e1278644a29b0bafd009e113c296b241960dd`;
+its separately named rebuilt executable SHA256 is
+`65d92b31708d100ce577ebca91393584897d7c9fad154acf8b48c3ebcf949474`.
+It is used only for the small payload-equivalence controls, not relabeled as
+the executable that generated the six long captures.
+
+An initial x2 trace check against an ideal Gaussian quantile exposed a separate
+legacy transform accuracy limit. At absolute scalar coordinate **339476552**,
+independent bigint MRG32 gives u=`0.9999880110839163`; the defined `/1` Precise
+transform returns `4.224211942570607`. An independent 85-digit inverse gives
+`4.224211941966543988289141378120059465...`, discrepancy about `6.04063e-10`,
+failing the new ideal-quantile 5e-13 diagnostic. Neighboring coordinate controls
+and the accepted independent scalar oracle confirm the actual stream position
+exactly. `dal-cpp/dal/math/inversecdfscalar.cpp:58` caps the tail polishing
+exponent at 8; this is unchanged legacy RNG behavior, not an allocator offset.
+
+The initial trace RED, raw scalar probe, high-precision values and neighboring
+controls are retained. Coordinate auditing now explicitly checks the defined
+versioned transform, while **preserving ideal-quantile failures as RED** in a
+separate diagnostic. Neither tolerance was relaxed. This does not establish a
+global financial bias bound for the approximate normal transform; no RNG/model,
+financial threshold or numerical verdict is changed. The new regression keeps
+defined-stream agreement distinct from ideal Gaussian accuracy. Any product
+repair belongs to the original owner/coordinator, outside this test-only scope.
+
+For every complete result, independently concatenate the B rows in original
+member order. Reconstruct all **48x48 C_batch entries**, C_mean=C_batch/16,
+all diagonal member blocks and all measured cross-member blocks. Reconstruct
+the complete Price/raw-gradient Jacobian and its **24x24 output covariance**;
+derive the full joint par/raw-gradient Jacobian and covariance from the same
+rows. The actual core par interface is separately tested on both fitted models.
+There are 16 paired batch vectors, not 48 independent observations. Rank is
+at most 15; no inverse, economic portfolio covariance or exact-zero cross-block
+condition is imposed. Signed annuity confidence and delta-method ratio/gradient
+SE use all B/A/dB/dA cross terms. Same-factor model differences use paired rows;
+prefixes are overlapping regrouped samples and are never pooled.
+
+The two small 2x3 diagnostic captures give 54 selected Price and 54 par CRN
+comparisons, retaining paired FD-minus-AAD differences and their SE at h/h2/h4.
+Draws and absolute endpoints match for both signs and all bumps. These small
+calls are technical controls, not additional precision samples or a binary64
+roundoff certificate. All original five FD RED rows and full eFD qualification
+gaps remain, even where these controls or high-precision direct gates pass.
+
+Exact commands and exit codes, raw six result captures, complete gate flags,
+covariances/projections, frozen identities, XML source trace, draft bypasses,
+initial harness failures, ledger and applicability comparisons accompany this
+issue's basket evidence attachment. Timings come from concurrent foreground
+calls without an isolated paired baseline: performance remains inconclusive.
+
+### Coverage and retained gaps after the basket continuation
+
+| Area | Evidence / limit |
+|---|---|
+| Original staged instruments and models | Exact R2 parameters, sources, dated cashflows, mappings and full native map context; same two immutable fitted models, no HeldOut refit. |
+| Direct financial qualification | 24 value and 168 selected derivative A/B/Price/par gates; 96 spot/sigma gates are new, prior basis gates are reused. |
+| Original basket execution | Six frozen HeldOut requests, 16 complete paired rows per request, seven requested native columns per member; financial verdict is separate from completion. |
+| Scalar/phase provenance | All nine reservations and all actual batch endpoints; independent bigint MRG32 trace, source-use/slot joins and previously observed first-member coordinates. No pooling or fresh-holdout claim. |
+| Full statistics | Complete C_batch/C_mean, cross blocks, Price/par/raw-gradient Jacobians, denominator qualification and paired SE; rank bound is reported without inversion. |
+| History and derivative boundary gaps | New inter-bump global-mutation case and genuine zero-sigma owned unavailability; prior accepted owning partial, tape, candidate, arithmetic/range and phase controls retain their identity-scoped applicability. |
+| Frozen statistical acceptance | Parity, precision and combined flags are separate for every member, measure, axis and prefix; raw estimates and all failures remain available. |
+| Legacy Gaussian transform | Defined stream agrees; observed ideal-quantile diagnostic RED and unqualified global financial bias bound are retained. No RNG repair is included. |
+| Production binary64 FD/eFD | Original five RED rows/full qualification gaps persist; small CRN and 50/80-digit controls do not close them. |
+| Remaining financial/statistical matrix | Earlier signed/lag/history/mode/zero/rank cases retain their documented scope; no new exhaustive cross-product or broader Qf/conditional-forward/reciprocal certificate is claimed. |
+| Three caller boundaries | Original single M5 39-case Linux evidence remains scoped to its actual source/config/binaries. New eventual-head native Excel raw-case execution remains necessary. |
+| Basket bindings | Absent at the tested core head; DAL-429's original implementation chain is already active. This tester neither implements nor marks those boundaries passed. |
+| Published guide / performance | DAL-428's accepted public guide/CHANGELOG window is separate; neither is edited here. No isolated paired performance gate, hence inconclusive. |
+
+DAL-425 and parent DAL-396 remain in_progress. This is independent execution and
+failure-preserving evidence, not approval of complete V1 or calibrated quote risk.
+
+### Actual six-run result and frozen-budget verdict
+
+All six foreground executions exited **0**. x1 took about 644 seconds per mode,
+x2 about 1,362 seconds and x4 about 2,833--2,835 seconds. Each completed all
+three members and all 16 finite 48-column coefficient rows. Actual scalar
+consumption per mode is 43,253,760 / 86,507,520 / 173,015,040 for x1/x2/x4.
+The total generated count across repeated modes/prefixes is 605,552,640;
+overlap is explicitly retained, not interpreted as a larger independent budget.
+The largest prefix ends exactly at each HeldOut reservation end, including
+389,283,840 for D80. All **15,840** recorded batch-start normal coordinates
+match the defined stream. The ideal-quantile diagnostic RED above remains in
+both x2 captures; not observing that point at another batch start erases nothing.
+
+| Solve mode | Prefix | Complete estimate | Parity | Precision | Combined | Full reservation exhausted |
+|---|---:|---|---|---|---|---|
+| EXACT | x1 | yes | pass | FAIL | FAIL | no |
+| APPROXIMATE | x1 | yes | pass | FAIL | FAIL | no |
+| EXACT | x2 | yes | pass | FAIL | FAIL | no |
+| APPROXIMATE | x2 | yes | pass | FAIL | FAIL | no |
+| EXACT | x4 | yes | pass | FAIL | FAIL | yes |
+| APPROXIMATE | x4 | yes | pass | FAIL | FAIL | yes |
+
+There are 288 separate member/measure/selected-gradient statistical gates:
+288 parity, 216 precision and 214 combined pass. The complete report retains
+the other gate failures explicitly; no aggregate hides a selected axis.
+Every Price/par precision gate fails at every prefix. FX-sigma Price/par
+gradient precision also fails for every member/prefix in both modes. The
+minimum signed annuity confidence is 54.67885818283065, so unavailable
+denominators do not explain or mask these results.
+
+The maximum-prefix estimates are:
+
+| Mode | D | Price mean (USD) | Price 3SE | Par mean | Par 3SE |
+|---|---:|---:|---:|---:|---:|
+| EXACT | 30 | -3.690116360669866 | .0582977986057430 | -.06646643739571238 | .001056699799877131 |
+| EXACT | 55 | -6.021485844381295 | .04630961138092355 | -.05440261628807351 | .000419843718790972 |
+| EXACT | 80 | -8.269656535302552 | .04567276262235123 | -.04979993334343368 | .000271021442846936 |
+| APPROXIMATE | 30 | -3.690116360669856 | .05829779860574308 | -.06646643739571222 | .001056699799877132 |
+| APPROXIMATE | 55 | -6.021485844381334 | .04630961138092261 | -.05440261628807405 | .000419843718790966 |
+| APPROXIMATE | 80 | -8.269656535302042 | .04567276262234753 | -.04979993334343384 | .000271021442846913 |
+
+These Price 3SE values exceed the .0025 USD precision budget; par 3SE exceeds
+.000025. At EXACT x4 the FX-sigma Price 3SE values are approximately
+.497871/.383331/.427202 against .25; par values are .00902832/.00347837/.00254231
+against .0025. The raw gradients, references, indicators and all paired SE
+remain in the report. The two extra combined failures beyond precision are
+also retained rather than converted into a broader gradient pass: both modes'
+D80 x1 EUR-rate-sigma Price combined indicator is about 2.83181753 against 2.5.
+
+Non-strict complete analysis exits **0**; `--strict` writes the byte-identical
+complete report and then exits **1**. All six financial reports and paired
+model statistics compare exactly with the saved pre-extraction analyzer. No
+old eighteen-report sample or new prefix was added to improve this verdict.
+The two x4 reservation-exhausted results remain numerics-failed; no complete
+V1, quote-risk or performance acceptance is recommended.
