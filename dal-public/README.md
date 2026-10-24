@@ -38,11 +38,15 @@ in `DAL_CPP_MSVC_RUNTIME_LIBRARY`; it is a no-op on other toolchains.
 | `dal-public/src/curvepricing.hpp`                                                    | Typed rate-cashflow pricing, node risk, and quote-space DV01 |
 | `dal-public/src/xccycalibration.hpp`                                                 | Cross-currency calibration                                   |
 | `dal-public/src/xccymontecarlo.hpp`                                                  | Typed stochastic XCCY model, staged candidate and phased MC  |
+| `dal-public/src/xccymontecarlobasket.hpp`                                            | Prepared XCCY baskets, covariance and owning partials       |
 | `dal-public/src/interp.hpp`                                                          | Linear interpolation helper                                  |
 | `dal-public/src/repository.hpp`                                                      | Host-environment repository operations                       |
 
 The [public API guide](../docs/public-api.md#c) lists the entry points and gives a
 minimal valuation example.
+The [basket calling recipe](../docs/methodology/script_calibration_contract.md#calling-prepared-xccy-mc-baskets)
+covers C++, Python and Excel; the public `xccy_script_monte_carlo_basket` example
+is enabled by `DAL_PUBLIC_BUILD_EXAMPLES`.
 
 Script product and valuation settings expose named `FIX(index[,date])`
 pricing in tree/compiled and price/AAD modes. `NewScriptProduct` keeps its

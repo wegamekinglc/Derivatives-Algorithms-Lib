@@ -752,12 +752,168 @@ preserve the cause's source row or its absence, event date and statement.
 A failed basket has no complete result, joint covariance, basket SE or acceptance
 flags; unfinished rows are not padded with zeros.
 
-The basket result and partial use separate version families; the ordinary
-report remains `dal.calibration-report/1`. This core interface has no basket
-facade, Python/Excel projection, JSON export or product basket validator.
+The public C++, Python and Excel interfaces expose this prepared basket and
+owning partials through the [calling recipe below](#calling-prepared-xccy-mc-baskets).
+There is no product basket validator; the single-instrument validator does not
+accept basket results. The ordinary report remains `dal.calibration-report/1`.
 A complete result has status Estimate. It does not establish frozen numerical
 acceptance or calibrated quote risk. Already observed HeldOut data remain
 observed; the new allocation does not create an untouched holdout.
+
+### Calling prepared XCCY MC baskets
+
+Use `dal-public/src/xccymontecarlobasket.hpp` with an explicit immutable
+`XccyGaussianModelData_` model and the original imported script instruments.
+The request requires phase, sampling and a nonnull fixing snapshot. An explicit
+empty snapshot is valid when no history is required; omission/null is rejected.
+Valuation time, pair, collateral and discount route come from the model.
+The same PseudoRandom/Precise, no-bridge, zero-smoothing and phase-capacity
+rules apply. Members retain input order and byte-exact IDs (`Short` and `short`
+are distinct); each specifies its own Price or eligible BasisSpread measure.
+
+```cpp
+XccyMonteCarloBasketRequest_ request;
+request.phase_ = XccyMonteCarloPhase_::Value_::Validation;
+request.sampling_ = {"PseudoRandom", 64, 4, 1024, "dal.mrg32-normal-paths/1"};
+request.fixings_.reset(new MarketFixingSnapshot_({}));
+request.derivativeMethod_ = CalibrationDerivative_::Value_::AAD;
+request.parameterLabels_ = {"fxspot:EUR/USD"};
+const auto prepared = PrepareXccyBasketMonteCarlo(
+    {{"Short", shortInstrument, "Price"},
+     {"short", longInstrument, "BasisSpread"}}, model, request);
+const auto result = prepared.Evaluate(); // optional same-geometry candidate model
+const auto& snapshot = result.Snapshot();
+const auto json = DumpXccyMonteCarloBasketResultJson(result);
+```
+
+`prepared.Allocation()` is a const view whose lifetime depends on `prepared`.
+The complete result owns its snapshot and report independently of plan and
+caller inputs. `snapshot.members_` contains finalized member estimates/SEs;
+`coefficientAxes_` identifies every row/column of `coefficientCovariance_`
+(C_batch) and `meanCovariance_` (C_mean). `outputAxes_`, `outputJacobian_` and
+`outputCovariance_` identify the full measure/native-gradient projection.
+Raw native partials hold model curves fixed; they are not calibrated quote risk.
+
+Catch the derived error first and retain an owner before leaving the catch:
+
+```cpp
+Handle_<XccyMcBasketPartial_> partial;
+try {
+    const auto result = PrepareXccyBasketMonteCarlo(members, model, request).Evaluate();
+} catch (const XccyMcBasketError_& error) {
+    partial = error.Partial(); // may be null for early preparation failure
+    const auto report = error.Failure().report_;
+    const auto candidate = error.Failure().candidate_; // actual validated model, or null
+} catch (const CalibrationError_& error) {
+    const auto report = error.Failure().report_; // early facade/input failure; no partial
+}
+if (partial) {
+    const auto json = DumpXccyMonteCarloBasketPartialJson(partial);
+}
+```
+
+The partial and its report remain readable after the error and plan are
+destroyed. Evaluation preflight rejection has zero draws, a partial and null
+candidate; the rejected model never becomes a fallback candidate. A later
+failure may retain the actual model after every member passed preflight.
+Completed members remain member-scoped; unfinished estimates are unavailable.
+A failure has no complete basket result, joint covariance/SE or acceptance.
+
+Python uses the same required inputs; assuming `short_instrument`,
+`long_instrument` and `model` have already been constructed:
+
+```python
+import dal
+
+sampling = dal.CalibrationMonteCarloSampling_(
+    paths_per_batch=64, batches=4, seed=1024,
+    stream_version="dal.mrg32-normal-paths/1")
+fixings = dal.MarketFixingSnapshot_New({})
+request = dal.XccyMonteCarloBasketRequest_(
+    "Validation", sampling, fixings,
+    derivative_method="AAD", parameter_labels=["fxspot:EUR/USD"])
+members = [dal.XccyMcBasketMember_("Short", short_instrument, "Price"),
+           dal.XccyMcBasketMember_("short", long_instrument, "BasisSpread")]
+try:
+    prepared = dal.XccyBasket_PrepareMonteCarlo(members, model, request)
+    result = prepared.evaluate()  # optional candidate=model with matching geometry
+    details = result.details_json
+except dal.XccyBasketCalibrationError as error:
+    partial, report, candidate = error.partial, error.report, error.candidate
+    details = partial.details_json if partial is not None else None
+```
+
+Omitted required arguments raise TypeError; invalid typed inputs retain owning
+diagnostics. The error subclasses `CalibrationError`; `partial` and `candidate`
+can be None. Allocation, nested result records and partials have independent
+ownership in Python. Inspect `result.coefficient_axes`, `coefficient_covariance`,
+`mean_covariance`, `output_axes`, `output_jacobian` and `output_covariance`
+together. Native work releases the GIL after copying inputs.
+
+In Excel, pass the entire three-column range, including these exact headers,
+to `XCCYMONTECARLOBASKETMEMBERS.NEW`:
+
+| member_id | instrument                | measure_id  |
+|-----------|---------------------------|-------------|
+| Short     | typed short script handle | Price       |
+| short     | typed long script handle  | BasisSpread |
+
+Create a sampling handle with `CALIBRATIONMONTECARLOSAMPLING.NEW`, using
+field/value rows `mode=PseudoRandom`, `paths_per_batch=64`, `batches=4`,
+`seed=1024` and `stream_version=dal.mrg32-normal-paths/1`. Create the explicit
+snapshot with `MARKETFIXINGSNAPSHOT.NEW` (all three arrays blank means empty).
+Call
+`XCCYMONTECARLOBASKETREQUEST.NEW("Validation", sampling, fixings)`; optional
+field/value settings are `simulation`, `derivative_method` and `parameter_labels`.
+Then use `XCCYBASKET.PREPAREMONTECARLO(members, model, request)`, check
+`XCCYMONTECARLOBASKETOUTCOME.GET.STATUS`, extract
+`XCCYMONTECARLOBASKETOUTCOME.GET.PREPARED` and call
+`XCCYBASKET.EVALUATEMONTECARLO(prepared[, candidate])`.
+
+The `XCCYMONTECARLOBASKETOUTCOME` getters have these state-specific rules:
+
+| Status   | GET.PREPARED | GET.RESULT  | GET.PARTIAL      | GET.MODEL                           |
+|----------|--------------|-------------|------------------|-------------------------------------|
+| Prepared | available    | unavailable | unavailable      | prepared model                      |
+| Estimate | unavailable  | available   | unavailable      | actual evaluated model              |
+| Failed   | unavailable  | unavailable | only if retained | only after full candidate preflight |
+
+`GET.REPORT` and `GET.JSON` apply to every outcome. Getters for absent objects
+raise `CalibrationCandidateUnavailable`; absence is never a zero result.
+`GET.PARTIAL` returns an independent session owner readable through
+`XCCYMONTECARLOBASKETPARTIAL.GET.JSON` after the outcome is released. Early
+input failures may have no partial; malformed factory input can fail before an
+outcome exists. These typed objects are transient session handles, not archives.
+Concatenate JSON chunks without separators.
+
+The JSON export families are:
+
+| Export                         | Schema                                  |
+|--------------------------------|-----------------------------------------|
+| Complete C++/Python result      | dal.xccy-gaussian-public-basket-result/1  |
+| C++/Python/Excel failed partial | dal.xccy-gaussian-mc-basket-partial/1     |
+| Excel outcome envelope         | dal.xccy-gaussian-public-basket-outcome/1 |
+
+The complete export contains every coefficient row and full covariance/axis
+matrix; the outcome envelope nests that same result or the failed partial.
+New basket ordinals/counts are exact decimal strings, including optional
+failure locations when present. Unavailable fields are null (None in Python),
+including gradients for derivative method None and failure joint statistics.
+Nested ordinary report `/1` retains its existing format. Exporting a partial
+does not certify an estimate or resume the failed run. Estimator covariance
+does not describe joint economic scenarios or nonlinear portfolio payoffs.
+
+The [public C++ example](../../dal-public/examples/xccy_script_monte_carlo_basket/xccy_script_monte_carlo_basket.cpp)
+constructs two different dated mappings, prints exact member IDs, units,
+plain/AAD means, SEs, complete covariance tables and JSON. Its small sample
+illustrates the calls only. Build and run from the repository root:
+
+```bash
+cmake --preset=Release-linux -S . -B build/Release-linux -DDAL_PUBLIC_BUILD_EXAMPLES=ON
+cmake --build build/Release-linux --target xccy_script_monte_carlo_basket --parallel
+ctest --test-dir build/Release-linux -R '^xccy_script_monte_carlo_basket$' --output-on-failure --no-tests=error
+build/Release-linux/dal-public/examples/xccy_script_monte_carlo_basket/xccy_script_monte_carlo_basket
+```
 
 ## Same-instrument Monte Carlo
 
