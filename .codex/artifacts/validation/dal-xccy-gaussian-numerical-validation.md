@@ -1210,3 +1210,303 @@ fixtures, seeds, counts/budgets/reservations/scales/thresholds and observed
 oldHeldOut status remain unchanged. No paths, VR, RNG, epsilon, estimator,
 pooling or relabeling changes. DAL425/396 remain **in_progress**; this checkpoint
 does not grant numerical V1, calibrated quote-risk or P4 acceptance.
+
+## R8: finite-input binary64 FD certificate and remaining financial controls
+
+This continuation starts from accepted master
+`1645a10b4667113317d183fe99ca4584aac17d27` in the original safe tree, on
+`feature/dal-425-native-qualification`. PR631/641 are closed and receive no
+new commits. The entire preceding 80424-byte record is retained, SHA256
+`9679c2eef962ec9f10e0a53f022eccda15adf60017e87eeb3883a04ade43c704`.
+Only private test scripts, capture support and this append are changed.
+Production, public/bindings, build files, examples, solver, RNG, financial
+fixtures and thresholds have no diff. Independent Precise-tail bias review
+belongs to the separately assigned critic and is not implemented here.
+
+### Coverage audit before new execution
+
+`acceptance-qualification/freeze.md` records the clause-to-evidence/gap/case
+mapping before the first new product capture. The audit explicitly corrected
+an overbroad initial nonflat plan before execution: existing
+`XccyMcTest.TestAllNativeCurveBasisAndVolPartialsThroughSnapshotMap` already
+covers all 30 nonflat Price axes with 2x3 paths and the independent reference.
+It is inherited, not rerun as new coverage. The missing technical results are
+the complete binary64 FD error certificate and A/B/par for the 25 nonflat
+non-spot/non-basis axes. Statistical coverage of those 25 axes remains absent.
+
+| Clause | Inherited evidence | New finite scope |
+|---|---|---|
+| Section 8 raw binary64 CRN | Original 4x8 nine-axis Price capture, all original h/h2/h4 values and five RED rows | Same complete context, normals and reservation; expose real +/- endpoint A/B/Price/par and certify numerical error |
+| Full snapshot/native chain | 39 deterministic axes; all 30 nonflat Price axes in the accepted 2x3 test | Same nonflat MTM/foreign/receive 2x3 fixture; 25 selected rate/projection/vol axes, including inactive nodes; A/B/par and eFD |
+| Section 3 discounted units and Qf coupon | Accepted flat/nonflat V+365/V+730 domestic/converted-foreign units and Qd/Qf coupon proof | Do not repeat those controls; add missing density, conditional forward, reciprocal and signed-measure checks |
+| Signed correlations and basis | Accepted 84 direct cases and three frozen long profiles | Six separate original scenarios, no cross-product: flat, nonflat, rho-df, rho-dx, rho-fx, negative-basis |
+| Histories, ranks, staged, three interfaces, native and example | Accepted prior controls, reviews and protected merges | Preserve; no repeat matrix or new platform claim |
+
+The frozen steps remain `h=1e-3*parameterScale`, h/2 and h/4; spot/FXsigma
+scale .01 and logDF/rate-sigma scale .001. Flat has 4x8 paths at D30 and
+nonflat has 2x3 at D40, with the original Validation path origin 262144.
+All ranges, native axes, full snapshot Jacobians, source/binding/model,
+normals and bumped model snapshots are exported. No paths are pooled with
+the previous precision runs. Unsupported a/R/quote-risk axes are not added.
+
+### Complete error certificate for the captured binary64 stencil
+
+`xccy_acceptance_interval.py` is independent of DAL pricing/transition/lowering
+and production Cholesky. It uses exact binary64 rational inputs and outward
+interval elementary Brownian kernel integrals, its own positive-definite
+Cholesky, explicit cashflows and first-order interval dual arithmetic.
+The domain is precisely the two captured fixtures and finite normals, positive
+mean reversions/vols and unchanged native bumps. The trusted arithmetic base is
+mpmath 1.3.0 interval/libmp elementary arithmetic. This is not a global library
+roundoff bound or an ideal-Gaussian distribution certificate.
+
+For each captured production endpoint p+ and p-, independent intervals I+/I-
+enclose the intended exact-real path aggregate at the native +/-h input.
+D encloses its exact native derivative at the base input. The certificate uses
+
+```text
+pipeline   = (sup|p+ - I+| + sup|p- - I-|) / (2h)
+subtraction= sup|observed_binary64_FD - (exact(p+) - exact(p-))/(2h)|
+truncation = sup|(I+ - I-)/(2h) - D|
+eFD        = outward_upper(pipeline + subtraction + truncation)
+```
+
+The first term includes the entire production endpoint pipeline: input bump,
+snapshot accumulation, time/kernel/factor/state/payoff and aggregation rounding
+or discrepancy, rather than just final subtraction. The truncation enclosure
+compares an exact central stencil directly with an independently enclosed dual
+derivative; no observed adjacent drift is used as the sole certificate.
+Actual endpoint/model values, all component bounds and exact binary interval
+endpoints are retained. The result is an a posteriori finite-input bound for
+the aggregate gradient; it does not certify unseen paths, per-batch gradient
+errors, gradient SE, expectation parity, precision or combined acceptance.
+
+All **408** axis/output/step checks pass at 70 and 100 interval digits:
+9x4x3 flat and 25x4x3 nonflat. Every derivative and endpoint enclosure overlaps
+between precisions and is narrower than 1e-40. Independent AAD derivatives
+also pass the original 1e-8 fixed-path floor. Price uses s=.01 USD and par
+s=.0001 in `eFD <= .01*s/parameterScale`; A/B use the same USD diagnostic
+scale. The largest fraction of the applicable eFD cap is below 1.878e-6.
+
+| Finite fixture | Maximum Price eFD | Maximum par eFD | Maximum truncation over outputs | Maximum final subtraction/division bound |
+|---|---:|---:|---:|---:|
+| Original flat 4x8 | 6.200981e-8 | 1.125830e-9 | 2.498494e-10 | 1.210412e-14 |
+| Original nonflat 2x3, 25 axes | 9.559704e-8 | 1.877097e-9 | 1.977594e-9 | 8.422079e-15 |
+
+**The five original hard-floor RED rows remain RED.** New flat Price, all nine
+AAD values, all 27 binary64 FD values, complete model/grid/normals and mapping/
+reservation compare exactly with `dal425-crn-final.json`, SHA256
+`02666976d1d1cc2ac83cbb7496b79130ab96720b61357ee3621404306bead601`.
+The failing labels remain USD OIS, EUR OIS, USD basis, USD 3M and USD sigma
+at 2029-10-20. This certificate qualifies their finite numerical-error budget;
+it neither changes the failed 1e-8 comparison nor relabels those observations.
+
+### Missing financial controls
+
+The new `financial` capture uses zero, coordinate-basis and deterministic mixed
+normal probes, with no RNG sampling. The production source's affine Gaussian
+states and exponential-affine numeraire/FX formulas permit exact Gaussian
+integration of the extracted log loadings; the mixed probe checks extraction.
+Independent Brownian scalar formulas supply the financial answer.
+
+All six original model snapshots equal their accepted flat/broad captures.
+For V+365/V+730, 12 checks of `E_Qd[S*Nf/Nd]=S0` pass; maximum discrepancy
+is 2.036e-16. Sixty independent Qf mean/density-direction identities pass,
+including the positive domestic and negative foreign Qd quanto signs and
+the specified Qf zero foreign OU mean. Applying that density tilt to the
+production state's independently extracted mean/loadings agrees with the
+independent Qf means within 2.984e-17; an altered foreign state is rejected.
+The opposite-density direction fails.
+
+Six conditional controls at t=V+365/T=V+730 verify independently that
+`E_Qd[S(T)*Nd(t)/Nd(T) | state(t)] / Pd(t,T)` equals the actual `FxForward`.
+Maximum production/reference discrepancy is 3.293e-16; Gaussian-probe/reference
+discrepancy is at most 3.978e-16, below the unchanged 1e-10 direct control for
+a unit EUR payout. Ordinary Qd FX means fail the forward identity. All 362 captured
+state/probe reciprocal checks pass pathwise, maximum error 6.966e-17;
+reciprocal-of-mean fails the separate control. No reciprocal product capability
+or collateral/numeraire switch is inferred.
+
+### Execution, failures, identity and reproduction
+
+Running existing tests: no old 96-case, deterministic/staged/interface/native/
+example or long MC matrix is rerun. The inherited audit verifies all 396 prior
+evidence files unchanged, and the original record prefix and numeric captures.
+Authoring tests: five new standalone Python regression cases pass, protecting
+exact float/dual arithmetic, truncation versus endpoint/subtraction error,
+complete ordered axes and zero/negative/indeterminate pivot refusal.
+Sixteen additional captured-data negative controls reject altered AAD, FD,
+endpoint, normals, snapshot/chain/step/axis shapes and financial orientation.
+Repairing failures: the initial missing-module regression is retained RED;
+private interval/Dual operand interoperability was corrected before the first
+certificate. Complexity findings were refactored without numeric changes.
+No production failure was repaired. Original numeric REDs are not harness REDs.
+
+Exact commands, stdout/stderr, timestamps, exits and input hashes are in the
+attached `acceptance-qualification` bundle. Principal successful commands:
+
+```text
+cmake --build build/dal425-core --target dal_cpp -j 6
+g++-14 -std=c++17 -O3 -pthread -Idal-cpp -Idal-cpp/test-support -Idal-cpp/externals/rapidjson/include -MD -MF acceptance-qualification/capture.d dal-cpp/test-support/xccyacceptancecapture.cpp build/dal425-core/dal-cpp/libdal_cpp.a -o build/dal425-core/xccyacceptancecapture-qualification
+build/dal425-core/xccyacceptancecapture-qualification acceptance-qualification/capture.json qualification
+build/dal425-core/xccyacceptancecapture-qualification acceptance-qualification/financial.json financial
+python3 dal-cpp/tests/script/xccy_acceptance_qualification.py acceptance-qualification/capture.json acceptance-qualification/certificate.json
+python3 dal-cpp/tests/script/xccy_acceptance_financial_qualification.py acceptance-qualification/financial.json acceptance-qualification/financial-certificate.json
+python3 -m unittest discover -s dal-cpp/tests/script -p test_xccy_acceptance_qualification.py -v
+python3 acceptance-qualification/negative.py
+python3 acceptance-qualification/audit.py
+```
+
+The final capture source was rebuilt and both outputs are byte-identical to
+the initial captures. Final executable SHA256 is
+`6abc67c1cdca0e3451112eada17c95508a668d67ef33565165f4d494914ec088`;
+current core archive is
+`fffcc05c81a462d06f5bf1a04af9ca8739f2e0628baea80dcde2b49e3b5e6559`.
+Provenance records 233 dependency files, 1267 dependency contents, configuration,
+compiler, actual new source, two binaries and five runtime libraries. GCC14,
+Release/O3, Eigen-OFF and native-arch-OFF remain the previous configured domain.
+Ruff F/C901 and Lizard maximum CCN8, clang-format and diff checks pass.
+No Linux execution is advertised as a new native Windows/XLL/workbook result.
+Capture (~.9s) and interval analysis (~31s) are information timings; no production
+algorithm/performance change, speedup or new performance verdict is claimed.
+
+### Remaining overall acceptance
+
+This closes only the finite captured FD/eFD and listed financial technical
+gaps, subject to focused review of this new complex helper. The 25 statistically
+unsampled nonflat axes are now explicitly distinguished from their already
+accepted small-path Price evidence and new A/B/par/eFD controls; no expectation
+precision is inferred. Original eighteen reports and six profiles remain
+overall FAIL, including Price/par/FXsigma precision/combined, D80 and exhausted
+x4 budgets. Original five hard-floor REDs, Precise ideal-tail RED and
+`financial_bias_bound_qualified=false`, old observed HeldOut and every frozen
+model/fixture/seed/reservation/count/scale/threshold remain. No paths, VR,
+pooling, epsilon, RNG or estimator change. DAL425/396 stay **in_progress**.
+This phase is not numerical V1, quote-risk, P4 or global tail-bias acceptance.
+
+## R9: PR642 reciprocal P2 repair on the original frozen probes
+
+DAL433's complete review of PR642 head
+`bc9f5694116fb17000dfbd44cec5db44f0cc2026` found one P2: R8's
+362 reciprocal results only checked capture arithmetic, since the helper
+constructed `1./spot` and the checker multiplied the two fields. That R8
+claim is corrected here; the earlier observations do not independently
+qualify a reciprocal execution path. The distinct, valid
+`E[1/S] != 1/E[S]` control remains unchanged. No earlier record is edited:
+the entire 91954-byte prefix has SHA256
+`d5d62d774b05e33a4aa8e2372333ff3716cf002e35f3aaaed2881353c43986d5`,
+including the original 80424-byte prefix identified in R8.
+
+### Actual execution and independent expected value
+
+The capture now parses the private scalar expression
+`inverse = 1 / SPOT()` with the existing `Script::ScriptProduct_`, explicitly
+partitions at the fixture valuation date, preprocesses it and executes both
+`BuildEvaluator<double>()` / `Evaluate` and `Compile()` / `Evaluate` on a
+scenario containing the actual `XccyGaussian_::Spot` for each frozen state.
+The two actual outputs are exported as `reciprocal` and
+`reciprocal_compiled`. No helper division manufactures either result.
+This exercises the existing general script expression engines, not a newly
+admitted XCCY calibration product, reciprocal observation kind or measure.
+The frozen instrument source/binding and all financial fixtures stay intact.
+Existing XCCY source admission still rejects replacing a payment conversion
+with `1/SPOT()`, as documented by
+`XccyScriptTest.TestSourceFxPrincipalAndCurrencyMutationsRejected`; this
+private expression does not change that support boundary.
+
+`reciprocal_controls` reconstructs states from the exact binary64 normals
+and model inputs using the previously reviewed independent `FixedCashflows`
+interval Brownian kernels and Cholesky. Its own reconstructed FX interval
+and its interval reciprocal supply the expected values. Neither the captured
+spot nor its reciprocal supplies the expected answer. Exact binary64 actual
+values are compared with both endpoints of those independent intervals at
+70 decimal digits, using the unchanged 1e-10 financial tolerance. The trusted
+arithmetic base remains mpmath interval/libmp, not a new global certificate.
+Results separately identify USD-per-EUR spot and EUR-per-USD inverse errors.
+
+All 362 frozen state observations pass: 362 tree and 362 compiled inverse
+comparisons, plus independent spot comparisons. Maximum spot discrepancy
+is below 2.2e-16 USD/EUR; each inverse maximum is below 2.0e-16 EUR/USD.
+Every future-coordinate conditional basis probe must also preserve the
+complete captured state prefix through the conditional start, including
+all five state values and every exported financial observation. There are
+65 such prefix-row comparisons across the six scenarios. This check derives
+the prefix from the declared coordinate boundary, not the reported bad
+number or a single state row.
+
+### Existing tests, new regressions and repair verification
+
+Before the fix, the five existing Python unit tests passed. The new private
+four-case integration regression then recorded a valid positive capture
+and three actual failures to reject bad data: the reviewer's correlated
+conditional-start spot/inverse corruption, a changed state in the same
+future-independent prefix, and a bad compiled inverse field. The original
+flat mutation changes 1.1498066498824266 to 1.379767979858912 and recomputes
+the inverse; the repaired complete checker rejects it. A separate direct
+call to the independent reciprocal control also rejects the correlated
+values, without relying on the prefix check.
+
+After repair, all four integration cases pass. Three permanent focused
+unit tests were added to the existing qualification test file: independent
+rejection of correlated spot/inverse errors; missing/bad compiled output;
+and preservation of the conditional prefix for every future coordinate,
+while allowing the future state to change. All eight unit tests pass.
+The six original financial mutant kinds were rerun across all six scenarios,
+alongside five directly relevant new kinds: all 66 reject. The initial
+expanded negative runner targeted nonflat's first bucket row rather than
+the state actually queried by density/forward; that harness scope mistake
+and its exit 1 are retained separately. Selecting the declared conditional
+boundary fixes the runner, with final exit 0; no product behavior was fixed.
+
+Exact commands, timestamps, exit codes, input hashes and raw outputs are
+in the `acceptance-reciprocal` evidence package. Principal commands:
+
+```text
+g++-14 -std=c++17 -O3 -pthread -Idal-cpp -Idal-cpp/test-support -Idal-cpp/externals/rapidjson/include -MD -MF acceptance-reciprocal/capture.d dal-cpp/test-support/xccyacceptancecapture.cpp build/dal425-core/dal-cpp/libdal_cpp.a -o build/dal425-core/xccyacceptancecapture-reciprocal
+build/dal425-core/xccyacceptancecapture-reciprocal acceptance-reciprocal/financial.json financial
+python3 dal-cpp/tests/script/xccy_acceptance_financial_qualification.py acceptance-reciprocal/financial.json acceptance-reciprocal/financial-certificate.json
+python3 -m unittest discover -s dal-cpp/tests/script -p test_xccy_acceptance_qualification.py -v
+python3 acceptance-reciprocal/regression.py acceptance-reciprocal/financial.json
+python3 acceptance-reciprocal/negative.py
+build/dal425-core/xccyacceptancecapture-reciprocal acceptance-reciprocal/capture.json qualification
+python3 acceptance-reciprocal/audit.py
+```
+
+The rebuilt GCC14/O3 helper SHA256 is
+`6e00be36be3d647750b4b3d18293c05dfb672dcc8c837ea1d855f7826246263d`;
+the unchanged core archive SHA256 is
+`fffcc05c81a462d06f5bf1a04af9ca8739f2e0628baea80dcde2b49e3b5e6559`.
+The final new financial capture SHA256 is
+`22eb5d6b6e549ff5cfece269274f43d82beefe2ba2d28de6d30798d3cebc7f2b`.
+All original financial fields are exactly unchanged after removing only the
+new compiled field. The old and new density/Qf/conditional-forward and
+reciprocal-mean results are also exactly equal. The qualification capture
+from the rebuilt helper is byte-identical to R8, so the original 408 finite
+FD/eFD results are inherited, not rerun or newly certified here. Original
+source/dependency/configuration/library/runtime identities were checked;
+only the authorized helper and analysis files differ. All 396 retained
+evidence files and both record prefixes remain unchanged.
+
+Ruff F/C901 and Lizard CCN<=8, clang-format, Markdown and diff checks pass.
+Both GCC14 and GCC15 pass syntax checks of the changed helper under the
+existing CI Wall/Wextra/Wpedantic/Werror policy and its existing exclusions;
+these are not full compiler-matrix builds. Only GCC14's rebuilt helper was
+executed. No build-system or example change requires component rebuilds.
+This private-helper repair changes no production performance path; capture
+and analysis elapsed times are information only, not a performance verdict.
+
+### Scope still open
+
+This is the single P2 repair for focused direct-diff review on the same
+PR642. It does not re-audit the other accepted review conclusions or the
+separate conditional Precise artifact. The actual libm tight-domain and
+financial total-error qualifications remain separate dependencies;
+`financial_bias_bound_qualified=false` is unchanged. No production, public,
+bindings, build, RNG, solver, model, fixture, scale, budget, threshold,
+estimator, path count, VR or pooling changes were made. Linux does not
+establish native Windows/XLL/workbook acceptance. The original eighteen
+reports and six profiles remain overall FAIL, including Price/par/FXsigma
+precision/combined, D80/x4 exhaustion, all five FD hard-floor REDs, the 25
+statistically unsampled axes and Precise ideal-tail RED. Observed HeldOut
+and all original identities/reservations remain. DAL425/396 stay
+**in_progress**; no numerical V1, quote-risk or P4 acceptance is granted.

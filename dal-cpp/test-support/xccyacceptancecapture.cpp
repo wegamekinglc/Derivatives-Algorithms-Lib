@@ -6,6 +6,7 @@
 #include <dal/math/aad/aad.hpp>
 #include <dal/math/random/pseudorandom.hpp>
 #include <dal/script/calibrationmc_internal.hpp>
+#include <dal/script/event.hpp>
 #include <dal/storage/json.hpp>
 
 #include "../tests/script/xccyacceptanceextendedfixture.hpp"
@@ -349,6 +350,173 @@ namespace {
                     {"normals", List(std::move(draws))},
                     {"rows", List(std::move(rows))}});
     }
+    Vector_<> QualificationValues(const XccyMcResult_& result) {
+        const auto& c = result.coefficients_;
+        return {c.a_, c.b_, result.estimate_.mean_, -c.b_ / c.a_};
+    }
+    Json_ QualificationEndpoint(const XccyMcResult_& result, const XccyGaussianModelData_& model) {
+        return Obj({{"values", Numbers(QualificationValues(result))},
+                    {"model", Model(model)},
+                    {"batches", Array(result.estimate_.batches_, [](const auto& b) { return Coefficients(*b.coefficients_); })}});
+    }
+    Json_ QualificationSteps(const PreparedXccyMc_& passive, const XccyGaussianModelData_& model, const String_& label) {
+        std::vector<Json_> steps;
+        for (const double divisor : {1., 2., 4.}) {
+            const double h = .001 * Scale(label) / divisor;
+            const auto upModel = Bump(model, label, h), downModel = Bump(model, label, -h);
+            const auto up = passive.Evaluate(upModel), down = passive.Evaluate(downModel);
+            REQUIRE(up.mapping_.identity_ == down.mapping_.identity_ && up.mapping_.identity_ == passive.Mapping().identity_,
+                    "qualification complete mapping identity");
+            REQUIRE(up.reservation_.identity_ == down.reservation_.identity_ && up.reservation_.identity_ == passive.Reservation().identity_,
+                    "qualification complete reservation identity");
+            const auto u = QualificationValues(up), d = QualificationValues(down);
+            Vector_<> fd;
+            for (size_t i = 0; i < u.size(); ++i)
+                fd.push_back((u[i] - d[i]) / (2 * h));
+            steps.push_back(Obj({{"h", Num(h)},
+                                 {"fd", Numbers(fd)},
+                                 {"up", QualificationEndpoint(up, *upModel)},
+                                 {"down", QualificationEndpoint(down, *downModel)}}));
+        }
+        return List(std::move(steps));
+    }
+    Json_ QualificationRows(const PreparedXccyMc_& passive,
+                            const XccyGaussianModelData_& model,
+                            const XccyMcResult_& active,
+                            const Vector_<String_>& selected) {
+        std::vector<Json_> rows;
+        for (size_t j = 0; j < selected.size(); ++j) {
+            const auto& c = active.coefficients_;
+            const Vector_<> aad{c.da_[j], c.db_[j], active.estimate_.gradient_[j], -c.db_[j] / c.a_ + c.b_ * c.da_[j] / (c.a_ * c.a_)};
+            rows.push_back(Obj({{"label", Str(selected[j])},
+                                {"scale", Num(Scale(selected[j]))},
+                                {"aad", Numbers(aad)},
+                                {"steps", QualificationSteps(passive, model, selected[j])}}));
+        }
+        return List(std::move(rows));
+    }
+    Json_ QualificationNormals(const XccyMcResult_& active, const XccyMcSettings_& settings) {
+        std::vector<Json_> draws;
+        auto rng = New(RNGType_("MRG32"), settings.seed_, active.mapping_.dimension_, true);
+        Vector_<> normals(active.mapping_.dimension_);
+        for (const auto& range : active.reservation_.ranges_) {
+            rng->SkipNormalTo(range.firstPath_);
+            for (size_t path = range.firstPath_; path < range.pathEnd_; ++path) {
+                rng->FillNormal(&normals);
+                draws.push_back(Numbers(normals));
+            }
+        }
+        return List(std::move(draws));
+    }
+    Json_ QualificationCase(bool nonflat) {
+        const auto spec = nonflat ? NonflatSpec() : ModelSpec();
+        const auto model = Data(spec);
+        const auto instrument = Instrument(XccyNotionalMode_::Value_::MARK_TO_MARKET, nonflat);
+        const auto context = Context(spec, Empty());
+        Vector_<String_> labels, selected;
+        const auto chain = XccyGaussianMomentNativeMap(*model, &labels);
+        for (const auto& label : labels)
+            if (!nonflat || (label != "fxspot:EUR/USD" && label.find("logdf:USD:BASIS:") != 0))
+                selected.push_back(label);
+        auto settings = nonflat ? Settings(2, 3) : Settings(4, 8);
+        settings.aad_ = true;
+        settings.parameterLabels_ = selected;
+        const PreparedXccyMc_ prepared(instrument, "Price", context, model, settings);
+        const auto active = prepared.Evaluate();
+        settings.aad_ = false;
+        settings.parameterLabels_.clear();
+        const PreparedXccyMc_ passive(instrument, "Price", context, model, settings);
+        auto rows = QualificationRows(passive, *model, active, selected);
+        REQUIRE(AAD::Tape()->nodes_.Size() == 0, "qualification tape released");
+        const Script::PreparedXccyScript_ script(instrument, context, model);
+        return Obj({{"id", Str(nonflat ? "nonflat" : "flat")},
+                    {"foreign_spread", Bool(nonflat)},
+                    {"model", Model(*model)},
+                    {"source", Str(instrument->Definition()->SourceIdentity())},
+                    {"binding", Str(instrument->BindingIdentity())},
+                    {"native_labels", Array(labels, [](const auto& s) { return Str(s); })},
+                    {"chain", Matrix(chain)},
+                    {"mapping", Str(active.mapping_.identity_)},
+                    {"reservation", Str(active.reservation_.identity_)},
+                    {"ranges", Array(active.reservation_.ranges_,
+                                     [](const auto& r) {
+                                         return Numbers({static_cast<double>(r.firstPath_), static_cast<double>(r.pathEnd_),
+                                                         static_cast<double>(r.firstCoordinate_), static_cast<double>(r.coordinateEnd_)});
+                                     })},
+                    {"grid", Dates(script.SampleDates())},
+                    {"normals", QualificationNormals(active, settings)},
+                    {"base", QualificationEndpoint(active, *model)},
+                    {"rows", std::move(rows)}});
+    }
+    Vector_<> FinancialReciprocals(const Date_& date, double spot) {
+        Script::ScriptProduct_ expression({Cell_(date)}, {"inverse = 1 / SPOT()"});
+        expression.PartitionEvents(TestXccy::TODAY);
+        expression.PreProcess(false, true);
+        AAD::Scenario_<double> samples(1);
+        AAD::InitializePath(samples);
+        samples[0].spot_ = spot;
+        auto tree = expression.BuildEvaluator<double>();
+        auto compiled = expression.BuildEvalState<double>();
+        expression.Evaluate(samples, tree);
+        expression.Compile().Evaluate(samples, compiled);
+        return {tree.VarVals()[expression.PayOffIdx()], compiled.VarVals()[expression.PayOffIdx()]};
+    }
+    Json_ FinancialSample(const AAD::XccyGaussian_<double>& model, const Vector_<>& normals) {
+        const auto states = model.GenerateStates(normals);
+        return Obj({{"normals", Numbers(normals)}, {"states", Array(states, [&](const auto& state) {
+                                                        const double spot = model.Spot(state);
+                                                        const auto reciprocal = FinancialReciprocals(state.date_, spot);
+                                                        return Obj({{"date", Str(Date::ToString(state.date_))},
+                                                                    {"values", Numbers(Vector_<>(state.values_.begin(), state.values_.end()))},
+                                                                    {"spot", Num(spot)},
+                                                                    {"reciprocal", Num(reciprocal[0])},
+                                                                    {"reciprocal_compiled", Num(reciprocal[1])},
+                                                                    {"nd", Num(model.DomesticNumeraire(state))},
+                                                                    {"nf", Num(model.ForeignNumeraire(state))},
+                                                                    {"pd", Num(model.Bond("USD", state, TestXccy::TODAY.AddDays(730)))},
+                                                                    {"pf", Num(model.Bond("EUR", state, TestXccy::TODAY.AddDays(730)))},
+                                                                    {"forward", Num(model.FxForward(state, TestXccy::TODAY.AddDays(730)))}});
+                                                    })}});
+    }
+    Json_ FinancialCase(const String_& scenario) {
+        const auto spec = scenario == "nonflat" ? NonflatSpec() : TestXccyAcceptance::SignedModel(scenario);
+        const auto data = Data(spec);
+        const auto model = NewXccyGaussianModel<double>(*data);
+        model->Prepare({TestXccy::TODAY.AddDays(365), TestXccy::TODAY.AddDays(730)});
+        Vector_<> zero(model->SimDim(), 0.);
+        std::vector<Json_> probes{FinancialSample(*model, zero)}, conditional;
+        for (size_t i = 0; i < zero.size(); ++i) {
+            auto normal = zero;
+            normal[i] = 1.;
+            probes.push_back(FinancialSample(*model, normal));
+        }
+        auto mixed = zero;
+        for (size_t i = 0; i < mixed.size(); ++i)
+            mixed[i] = (i % 2 ? -1. : 1.) * (i + 1) / 10.;
+        probes.push_back(FinancialSample(*model, mixed));
+        const auto first = std::find(model->Grid().begin(), model->Grid().end(), TestXccy::TODAY.AddDays(365));
+        const size_t future = 5 * (first - model->Grid().begin());
+        for (size_t i = 0; i < future; ++i)
+            zero[i] = (i % 2 ? -.3 : .2);
+        conditional.push_back(FinancialSample(*model, zero));
+        for (size_t i = future; i < zero.size(); ++i) {
+            auto normal = zero;
+            normal[i] = 1.;
+            conditional.push_back(FinancialSample(*model, normal));
+        }
+        return Obj({{"scenario", Str(scenario)},
+                    {"model", Model(*data)},
+                    {"grid", Dates(model->Grid())},
+                    {"future_first_slot", Num(static_cast<double>(future))},
+                    {"probes", List(std::move(probes))},
+                    {"conditional", List(std::move(conditional))}});
+    }
+    Json_ FinancialControls() {
+        std::vector<Json_> rows;
+        for (const String_ scenario : {"flat", "nonflat", "rho-df", "rho-dx", "rho-fx", "negative-basis"})
+            rows.push_back(FinancialCase(scenario));
+        return List(std::move(rows));
+    }
     Json_ NamedMaturityQualification() {
         try {
             static_cast<void>(Instrument(XccyNotionalMode_::Value_::MARK_TO_MARKET, false, true, Date_(2028, 11, 6)));
@@ -666,6 +834,10 @@ namespace {
             return Obj({{"kernels", KernelControls()}, {"history", HistoryControls()}});
         if (action == "crn")
             return CrnControls();
+        if (action == "qualification")
+            return List({QualificationCase(false), QualificationCase(true)});
+        if (action == "financial")
+            return FinancialControls();
         if (action == "mc")
             return CaptureMcRequest(argc, argv);
         return ExtendedRequest(action, argc, argv);
