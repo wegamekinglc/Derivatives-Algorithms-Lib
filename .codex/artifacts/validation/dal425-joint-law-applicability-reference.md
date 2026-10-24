@@ -18,16 +18,16 @@ randomized seed, initial-state measure, random shift or random stream selector.
 The inspected retained requests contain none of those either. This audit does
 not reinterpret the design's word “independent” as an actual joint-moment proof.
 
-| Evidence at the accepted source | Established premise | Premise not established |
-|---|---|---|
-| `.codex/artifacts/api-notes/dal-410-xccy-mc-model-decision.md:812`, `:835`, `:850` | Fixed seed/stream, phase and refinement prefixes; batch-based SE and acceptance formulas | A randomized experiment realizing IID-grid outputs or independent batches |
-| `.codex/artifacts/api-notes/dal-xccy-mixed-mapping-basket.md:82`, `:135` | Disjoint scalar-block design with mapping and allocation identities | Moment factorization from nonoverlap alone |
-| `dal-cpp/dal/math/random/pseudorandom.cpp:172`, `:177`, `:182`, `:299` | Factory maps seed to `(a,b)=(unsigned(seed),unsigned(seed)+1)`; reset state is `(a,a,a,b,b,b)`; integer recurrences and output map are deterministic | A law over those initial states or numerators |
-| `dal-cpp/dal/math/random/pseudorandom.cpp:160`, `:199` | `m1=4294967087`, `m2=4294944443`; numerator `x-y` if positive, else `x-y+m1`; double division by `4294967088` | Uniformity or joint independence of these numerators under an admitted measure |
-| `dal-cpp/dal/math/random/pseudorandom.cpp:33`, `:60`, `:208`, `:216` | Absolute seek by `NDim*path`; reset and matrix powering; Precise consumes one scalar uniform per supplied entry and calls scalar inverse | A randomized seek or independent stream split; the unused `Branch` method proves nothing here |
-| `dal-cpp/dal/script/xccymcbasketscalars.cpp:22`, `:33` | New MRG32 with factory dimension1 and Precise; seek to the absolute scalar start; fill a D-vector and advance D scalars | A new independent RNG for each batch/member; all use the same seed and recurrence |
-| `dal-cpp/dal/script/xccymcranges.cpp:12`, `:115`; `xccymcbasketranges.cpp:57`, `:149`, `:203` | Capacity, mapping and nonoverlap checks, stable geometry-dependent offsets | A distributional independence theorem; these functions inspect deterministic metadata |
-| `dal-cpp/test-support/xccyacceptancebasketcapture.cpp:177`, `:191`, `:220` | Original fit, HeldOut, B16, n16384 times x1/x2/x4; imported native inputs frozen | A seed-randomization stage omitted from the retained command |
+| Evidence at the accepted source                                                                                  | Established premise                                                                                                                                  | Premise not established                                                                       |
+|------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------|
+| `.codex/artifacts/api-notes/dal-410-xccy-mc-model-decision.md:812`, `:835`, `:850`                               | Fixed seed/stream, phase and refinement prefixes; batch-based SE and acceptance formulas                                                             | A randomized experiment realizing IID-grid outputs or independent batches                     |
+| `.codex/artifacts/api-notes/dal-xccy-mixed-mapping-basket.md:82`, `:135`                                         | Disjoint scalar-block design with mapping and allocation identities                                                                                  | Moment factorization from nonoverlap alone                                                    |
+| `dal-cpp/dal/math/random/pseudorandom.cpp:172`, `:177`, `:182`, `:299`                                           | Factory maps seed to `(a,b)=(unsigned(seed),unsigned(seed)+1)`; reset state is `(a,a,a,b,b,b)`; integer recurrences and output map are deterministic | A law over those initial states or numerators                                                 |
+| `dal-cpp/dal/math/random/pseudorandom.cpp:160`, `:199`                                                           | `m1=4294967087`, `m2=4294944443`; numerator `x-y` if positive, else `x-y+m1`; double division by `4294967088`                                        | Uniformity or joint independence of these numerators under an admitted measure                |
+| `dal-cpp/dal/math/random/pseudorandom.cpp:33`, `:60`, `:208`, `:216`                                             | Absolute seek by `NDim*path`; reset and matrix powering; Precise consumes one scalar uniform per supplied entry and calls scalar inverse             | A randomized seek or independent stream split; the unused `Branch` method proves nothing here |
+| `dal-cpp/dal/script/xccymcbasketscalars.cpp:22`, `:33`                                                           | New MRG32 with factory dimension1 and Precise; seek to the absolute scalar start; fill a D-vector and advance D scalars                              | A new independent RNG for each batch/member; all use the same seed and recurrence             |
+| `dal-cpp/dal/script/xccymcranges.cpp:12`, `:115`; `dal-cpp/dal/script/xccymcbasketranges.cpp:57`, `:149`, `:203` | Capacity, mapping and nonoverlap checks, stable geometry-dependent offsets                                                                           | A distributional independence theorem; these functions inspect deterministic metadata         |
+| `dal-cpp/test-support/xccyacceptancebasketcapture.cpp:177`, `:191`, `:220`                                       | Original fit, HeldOut, B16, n16384 times x1/x2/x4; imported native inputs frozen                                                                     | A seed-randomization stage omitted from the retained command                                  |
 
 The new evidence `source-audit.json` stores exact hashes and numbered excerpts.
 `moment-ledger.json` binds the original six capture/command files, allocation,
@@ -43,11 +43,11 @@ source reads do not reestablish historical runtime binding.
 
 Let T=2359296 and H=1310720. The member blocks are:
 
-| Member | D | Scalar block | Fit / Validation / HeldOut local path reservations |
-|---|---:|---|---|
-| independent-staged-0 | 30 | [0,70778880) | [0,262144), [262144,1310720), [1310720,2359296) |
-| independent-staged-1 | 55 | [70778880,200540160) | same three local path intervals |
-| independent-staged-2 | 80 | [200540160,389283840) | same three local path intervals |
+| Member               | D  | Scalar block          | Fit / Validation / HeldOut local path reservations |
+|----------------------|----|-----------------------|----------------------------------------------------|
+| independent-staged-0 | 30 | [0,70778880)          | [0,262144), [262144,1310720), [1310720,2359296)    |
+| independent-staged-1 | 55 | [70778880,200540160)  | same three local path intervals                    |
+| independent-staged-2 | 80 | [200540160,389283840) | same three local path intervals                    |
 
 For offset O, phase path p and slot j, the scalar address is `O+D*p+j`,
 0<=j<D. Ordered j are five innovations `(xd,xf,Id,If,Z)` per dated interval,
