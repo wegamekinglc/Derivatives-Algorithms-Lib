@@ -1814,3 +1814,103 @@ DAL425/396 remain in_progress. This checkpoint grants no complete numerical
 V1, quote-risk or P4 qualification. Only one new-head CI snapshot is taken;
 no watch/poll/rerun/merge/delegation. New mathematical review belongs to the
 existing reviewer chain, coordinated after this exact-head handoff.
+
+## R12: actual-law audit and finite mixed-moment admission controls
+
+This private checkpoint starts from accepted PR644 squash
+`26fe00e3fa8426a647b9d7d2bef7c09d9b925c9b` on
+`feature/dal-425-joint-law-applicability`. It adds only the private exact-law
+helper, its tests, a focused reference and this append. No production, public
+schema/binding/build, accepted certificate or old fixture changes. Method and
+cost were frozen in `acceptance-joint-law/PLAN.md` before new calculations.
+The entire accepted 118965-byte prefix remains, SHA256
+`479de3b769a9a58326b64237f27db5efbaf0f7012ad239083f8fc27bf18d5efb`.
+All 1359 snapshotted old evidence/helper/fixture/reference files are unchanged.
+
+J1 establishes the actual deterministic seeded recurrence, absolute scalar
+seek and request identities. The original six captures retain seed1024,
+MRG32 Precise stream1, B16, n16384 times x1/x2/x4, frozen three member blocks,
+phase reservations, five-slot coordinate order and native inputs. Shared
+within-path coordinates, cross-fit/member0 reuse, disjoint addresses and
+the union-prefix versus per-batch resegmentation distinction are explicit.
+Source/contract references and numbered excerpts are in the new reference
+and `acceptance-joint-law/source-audit.json`. Gaussian model independence is
+a specified target; no randomized seed/state law bound to these requests is
+admitted by the inspected execution contract. Deterministic finite weighted
+means remain meaningful and are not substituted for the conditional experiment.
+
+J2 extracts all accepted exact coefficient/native endpoints without rerunning
+old D2. The ledger has six profiles, 156 nonconstant term-indexed exponential
+entries, 438 active term/native directional-first entries and 144 signed
+A/B/dA/dB error envelopes. These are coverage counts; repeated moment
+functions need not be proved twice. It exposes the weaker sufficient conditions
+on weighted M(ell) and F(ell,g), including all c',k',ell' terms and signed
+aggregation. D2 expectation identities need no cross-path independence; native
+and SE/confidence assumptions are distinguished. Gaussian centers and strict
+outward envelopes are copied with exact input identities, not recomputed.
+
+Actual applicability remains unproved for all six geometries. The concrete
+cut-point is an authoritative probability measure and its binding to the
+original seed/state/position requests, followed by proofs of the listed
+weighted signed moment envelopes under that measure. No distribution over
+seeds/states, random shift or independent stream experiment is invented.
+This is not a proof of an over-budget mixed-moment error or technical
+exhaustion. The minimum next step is bounded contract/premise reconciliation;
+a probability-contract change requires the coordinator's separate decision.
+No full-state enumeration, speculative symbolic expansion or extra MC is run.
+
+J3 adds a useful exact synthetic control: explicit normalized rational laws,
+integer atoms, rational exponential bases and directional first moments.
+Law/request identities bind ordered coordinates, weights, tilts, directions,
+envelopes and complete coverage; every claimed moment is independently
+replayed. Independent Bernoulli controls give M=9/4,F_x=3/2; the same-marginal
+correlated law gives M=5/2,F_x=2 and rejects copied independent answers.
+For tilt(2,1), M agrees at3/2 while F_y differs3/4 versus1. Correct dependent
+local obligations also pass. Output is explicitly synthetic local coverage;
+there is no financial/global promotion adapter or flag oracle.
+
+New tests: focused incomplete-admission RED exit1 (actual assertion failure,
+not import/harness error), then all13 new unittest cases GREEN exit0. Three
+new omission mutants independently demonstrate necessary replay, normalization
+and envelope checks, each with expected assertion failure and no harness error.
+Ruff check/format and CCN<=8 pass for the new helper/tests. Initial three
+line-length lint findings were corrected by formatting; no production repair
+or existing-test repair was needed. Synthetic certificates, mutation outputs,
+exact commands/exits, input hashes and the full obligation ledger are retained
+under the new exclusive `acceptance-joint-law/` directory.
+
+Commands (all foreground,900-second maximum; proof/control work took seconds):
+
+```text
+python3 -m unittest discover -s dal-cpp/tests/script -p test_xccy_acceptance_joint_law.py -v
+python3 acceptance-joint-law/extract.py
+python3 acceptance-joint-law/controls.py
+python3 acceptance-joint-law/mutations.py
+python3 acceptance-joint-law/audit.py
+ruff check --line-length 110 --select E,F,C901 --config lint.mccabe.max-complexity=8 dal-cpp/tests/script/xccy_acceptance_joint_law.py dal-cpp/tests/script/test_xccy_acceptance_joint_law.py
+ruff format --check --line-length 110 dal-cpp/tests/script/xccy_acceptance_joint_law.py dal-cpp/tests/script/test_xccy_acceptance_joint_law.py
+lizard -C 8 dal-cpp/tests/script/xccy_acceptance_joint_law.py dal-cpp/tests/script/test_xccy_acceptance_joint_law.py
+```
+
+Running existing tests: none this batch; accepted prior evidence is reused
+within unchanged identities. Authoring tests:13 new exact deterministic tests.
+Repairing failures: incomplete new checker replay and formatting only. No
+product execution/recompile/probe, normal/state sampling or MC; no old
+certificate/scalar/native/three-endpoint/example/performance/install matrices.
+Product performance has no affected caller because the changes are private
+offline proof controls. New Python proof runtime identities are separate from
+the inherited historical financial runtime manifest; the latter's unrecorded
+per-call fenv/MXCSR/FTZDAZ/GOT and binary pipeline gaps remain unresolved.
+
+All four global flags remain false: financial_bias_bound_qualified,
+actual_joint_law_qualified,caller_binding_qualified,original_numerical_pass.
+Accepted D1 and conditional IID-grid D2 remain within their original scopes.
+Original18+six overallFAIL,288/216/214 counts, Price/par/FXsigma
+precision/combined failures,D80-x4 exhaustion,five FD hard-floor REDs/full eFD,
+25 unsampled statistical axes,Precise ideal Gaussian6.04063e-10>5e-13,
+observed HeldOut and all original identities/financial targets/budgets/counts/
+reservations/scales/thresholds remain. M4x4 Price3SE
+0.05917492649405597>0.0025 USD and par0.001072359542351817>0.000025 remain.
+No paths/VR/pool/RNG/epsilon/estimator/relabel changes or V1/quote-risk/P4
+qualification. DAL425/396 remain in_progress; new diff review and subsequent
+CI/merge stay with the existing coordinator/reviewer chain.
