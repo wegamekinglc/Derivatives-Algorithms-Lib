@@ -1,0 +1,2465 @@
+{
+  "original_capture_sha256": "c5707a03f041e50d8d24e7584ff01fe74b4d0f825f22c45282361073b7c06846",
+  "cases": [
+    {
+      "fit": "EXACT",
+      "calendars": [
+        "",
+        "",
+        "",
+        ""
+      ],
+      "coordinates": [
+        "interval:2026-10-21:2027-04-30:innovation:xd",
+        "interval:2026-10-21:2027-04-30:innovation:xf",
+        "interval:2026-10-21:2027-04-30:innovation:Id",
+        "interval:2026-10-21:2027-04-30:innovation:If",
+        "interval:2026-10-21:2027-04-30:innovation:Z",
+        "interval:2027-04-30:2027-05-04:innovation:xd",
+        "interval:2027-04-30:2027-05-04:innovation:xf",
+        "interval:2027-04-30:2027-05-04:innovation:Id",
+        "interval:2027-04-30:2027-05-04:innovation:If",
+        "interval:2027-04-30:2027-05-04:innovation:Z",
+        "interval:2027-05-04:2027-08-02:innovation:xd",
+        "interval:2027-05-04:2027-08-02:innovation:xf",
+        "interval:2027-05-04:2027-08-02:innovation:Id",
+        "interval:2027-05-04:2027-08-02:innovation:If",
+        "interval:2027-05-04:2027-08-02:innovation:Z",
+        "interval:2027-08-02:2027-08-04:innovation:xd",
+        "interval:2027-08-02:2027-08-04:innovation:xf",
+        "interval:2027-08-02:2027-08-04:innovation:Id",
+        "interval:2027-08-02:2027-08-04:innovation:If",
+        "interval:2027-08-02:2027-08-04:innovation:Z",
+        "interval:2027-08-04:2027-11-04:innovation:xd",
+        "interval:2027-08-04:2027-11-04:innovation:xf",
+        "interval:2027-08-04:2027-11-04:innovation:Id",
+        "interval:2027-08-04:2027-11-04:innovation:If",
+        "interval:2027-08-04:2027-11-04:innovation:Z",
+        "interval:2027-11-04:2027-11-08:innovation:xd",
+        "interval:2027-11-04:2027-11-08:innovation:xf",
+        "interval:2027-11-04:2027-11-08:innovation:Id",
+        "interval:2027-11-04:2027-11-08:innovation:If",
+        "interval:2027-11-04:2027-11-08:innovation:Z"
+      ],
+      "dimension": 30,
+      "domestic_periods": [
+        {
+          "alpha": 0.25555555555555554,
+          "end": "2027-08-04",
+          "fixing": "2027-04-30",
+          "index": "IR:USD,LIBOR_3M_LCH",
+          "payment": "2027-08-04",
+          "start": "2027-05-04"
+        },
+        {
+          "alpha": 0.25555555555555554,
+          "end": "2027-11-04",
+          "fixing": "2027-08-02",
+          "index": "IR:USD,LIBOR_3M_LCH",
+          "payment": "2027-11-04",
+          "start": "2027-08-04"
+        }
+      ],
+      "fast": [
+        -54.70144164261163,
+        -3.6678538934615688,
+        -3.7225553351041802,
+        -0.06705223451742383
+      ],
+      "fast_gradient": [
+        [
+          -24.964293790493933,
+          -9.447007062437066,
+          -7.197468081880306,
+          20.57761762313038,
+          0,
+          0,
+          0,
+          0,
+          -0.09252639792022355,
+          -0.006181535486676444,
+          -0.010716988863184618
+        ],
+        [
+          -197.018455288219,
+          37.66374574788958,
+          -38.438759998487214,
+          109.8967159225679,
+          0,
+          0,
+          18.188806261888626,
+          -18.396760288221085,
+          -0.0035813193344185756,
+          -0.005201588332123364,
+          -0.0002990337936719101
+        ],
+        [
+          -197.0434195820095,
+          37.65429874082715,
+          -38.44595746656909,
+          109.91729354019104,
+          0,
+          0,
+          18.188806261888626,
+          -18.396760288221085,
+          -0.003673845732338782,
+          -0.00520776986761004,
+          -0.0003097507825350937
+        ],
+        [
+          -3.571104119754065,
+          0.7001129683407641,
+          -0.6938784891395259,
+          1.9838040355294546,
+          0,
+          0,
+          0.33251054662734536,
+          -0.33631216537975617,
+          4.794722623795806e-05,
+          -8.751327974624185e-05,
+          7.67007677135315e-06
+        ]
+      ],
+      "foreign_periods": [
+        {
+          "alpha": 0.5111111111111111,
+          "end": "2027-11-04",
+          "fixing": "2027-04-30",
+          "index": "IR:EUR,LIBOR_6M_LCH",
+          "payment": "2027-11-08",
+          "start": "2027-05-04"
+        }
+      ],
+      "foreign_spread": false,
+      "grid": [
+        "2026-10-21",
+        "2027-04-30",
+        "2027-05-04",
+        "2027-08-02",
+        "2027-08-04",
+        "2027-11-04",
+        "2027-11-08"
+      ],
+      "id": "xccy-2027-11-04",
+      "instrument": "sha256:c72a59c901e36ccdd2e55f009c37184419569cc4391099cf8e176a792e57b7c2",
+      "labels": [
+        "fxspot:EUR/USD",
+        "logdf:USD:OIS:2029-10-20",
+        "logdf:EUR:OIS:2029-10-20",
+        "logdf:USD:BASIS:EUR/USD:2027-11-08",
+        "logdf:USD:BASIS:EUR/USD:2028-05-08",
+        "logdf:USD:BASIS:EUR/USD:2028-11-08",
+        "logdf:USD:3M:2029-10-20",
+        "logdf:EUR:6M:2029-10-20",
+        "sigma:USD:2029-10-20",
+        "sigma:EUR:2029-10-20",
+        "sigma:EUR/USD:2029-10-20"
+      ],
+      "mapping": "sha256:47d8cbb515b7160dac446e6810a52cad3a0a64c0e464b21759604b8088628ece",
+      "maturity": "2027-11-04",
+      "mode": "MARK_TO_MARKET",
+      "model": {
+        "a": [
+          0.03,
+          0.07
+        ],
+        "bucket_dates": [
+          "2029-10-20"
+        ],
+        "correlation": [
+          [
+            1,
+            0.3,
+            -0.2
+          ],
+          [
+            0.3,
+            1,
+            -0.25
+          ],
+          [
+            -0.2,
+            -0.25,
+            1
+          ]
+        ],
+        "curves": [
+          {
+            "currency": "USD",
+            "dates": [
+              "2026-10-21",
+              "2029-10-20"
+            ],
+            "jacobian": [
+              [
+                0
+              ],
+              [
+                1
+              ]
+            ],
+            "labels": [
+              "logdf:USD:OIS:2029-10-20"
+            ],
+            "logdf": [
+              0,
+              -0.12000000000000001
+            ],
+            "route": "OIS",
+            "values": [
+              -0.12000000000000001
+            ]
+          },
+          {
+            "currency": "EUR",
+            "dates": [
+              "2026-10-21",
+              "2029-10-20"
+            ],
+            "jacobian": [
+              [
+                0
+              ],
+              [
+                1
+              ]
+            ],
+            "labels": [
+              "logdf:EUR:OIS:2029-10-20"
+            ],
+            "logdf": [
+              0,
+              -0.060000000000000005
+            ],
+            "route": "OIS",
+            "values": [
+              -0.060000000000000005
+            ]
+          },
+          {
+            "currency": "USD",
+            "dates": [
+              "2026-10-21",
+              "2027-11-08",
+              "2028-05-08",
+              "2028-11-08"
+            ],
+            "jacobian": [
+              [
+                0,
+                0,
+                0
+              ],
+              [
+                1,
+                0,
+                0
+              ],
+              [
+                0,
+                1,
+                0
+              ],
+              [
+                0,
+                0,
+                1
+              ]
+            ],
+            "labels": [
+              "logdf:USD:BASIS:EUR/USD:2027-11-08",
+              "logdf:USD:BASIS:EUR/USD:2028-05-08",
+              "logdf:USD:BASIS:EUR/USD:2028-11-08"
+            ],
+            "logdf": [
+              0,
+              -0.0031477624752759836,
+              -0.004648652510171327,
+              -0.006305306272259826
+            ],
+            "route": "BASIS:EUR/USD",
+            "values": [
+              -0.0031477624752759836,
+              -0.004648652510171327,
+              -0.006305306272259826
+            ]
+          },
+          {
+            "currency": "USD",
+            "dates": [
+              "2026-10-21",
+              "2029-10-20"
+            ],
+            "jacobian": [
+              [
+                0
+              ],
+              [
+                1
+              ]
+            ],
+            "labels": [
+              "logdf:USD:3M:2029-10-20"
+            ],
+            "logdf": [
+              0,
+              -0.135
+            ],
+            "route": "3M",
+            "values": [
+              -0.135
+            ]
+          },
+          {
+            "currency": "EUR",
+            "dates": [
+              "2026-10-21",
+              "2029-10-20"
+            ],
+            "jacobian": [
+              [
+                0
+              ],
+              [
+                1
+              ]
+            ],
+            "labels": [
+              "logdf:EUR:6M:2029-10-20"
+            ],
+            "logdf": [
+              0,
+              -0.078
+            ],
+            "route": "6M",
+            "values": [
+              -0.078
+            ]
+          }
+        ],
+        "identity": "sha256:7067e16d2dfeb4b95c26124853b26ef367ce8424a7676b6f8d445af510ed90ad",
+        "sigma": [
+          [
+            0.01
+          ],
+          [
+            0.009
+          ],
+          [
+            0.12
+          ]
+        ],
+        "spot": 1.1,
+        "valuation": "2026-10-21"
+      },
+      "payment_lag": 2,
+      "receive": true,
+      "scenario": "staged",
+      "source": "sha256:83d0eaf34ec4b7ced46a9d70fa46a04eaab6343a3851b0d2699b4ef770f3e4f9"
+    },
+    {
+      "fit": "EXACT",
+      "calendars": [
+        "",
+        "",
+        "",
+        ""
+      ],
+      "coordinates": [
+        "interval:2026-10-21:2027-04-30:innovation:xd",
+        "interval:2026-10-21:2027-04-30:innovation:xf",
+        "interval:2026-10-21:2027-04-30:innovation:Id",
+        "interval:2026-10-21:2027-04-30:innovation:If",
+        "interval:2026-10-21:2027-04-30:innovation:Z",
+        "interval:2027-04-30:2027-05-04:innovation:xd",
+        "interval:2027-04-30:2027-05-04:innovation:xf",
+        "interval:2027-04-30:2027-05-04:innovation:Id",
+        "interval:2027-04-30:2027-05-04:innovation:If",
+        "interval:2027-04-30:2027-05-04:innovation:Z",
+        "interval:2027-05-04:2027-08-02:innovation:xd",
+        "interval:2027-05-04:2027-08-02:innovation:xf",
+        "interval:2027-05-04:2027-08-02:innovation:Id",
+        "interval:2027-05-04:2027-08-02:innovation:If",
+        "interval:2027-05-04:2027-08-02:innovation:Z",
+        "interval:2027-08-02:2027-08-04:innovation:xd",
+        "interval:2027-08-02:2027-08-04:innovation:xf",
+        "interval:2027-08-02:2027-08-04:innovation:Id",
+        "interval:2027-08-02:2027-08-04:innovation:If",
+        "interval:2027-08-02:2027-08-04:innovation:Z",
+        "interval:2027-08-04:2027-11-02:innovation:xd",
+        "interval:2027-08-04:2027-11-02:innovation:xf",
+        "interval:2027-08-04:2027-11-02:innovation:Id",
+        "interval:2027-08-04:2027-11-02:innovation:If",
+        "interval:2027-08-04:2027-11-02:innovation:Z",
+        "interval:2027-11-02:2027-11-04:innovation:xd",
+        "interval:2027-11-02:2027-11-04:innovation:xf",
+        "interval:2027-11-02:2027-11-04:innovation:Id",
+        "interval:2027-11-02:2027-11-04:innovation:If",
+        "interval:2027-11-02:2027-11-04:innovation:Z",
+        "interval:2027-11-04:2027-11-08:innovation:xd",
+        "interval:2027-11-04:2027-11-08:innovation:xf",
+        "interval:2027-11-04:2027-11-08:innovation:Id",
+        "interval:2027-11-04:2027-11-08:innovation:If",
+        "interval:2027-11-04:2027-11-08:innovation:Z",
+        "interval:2027-11-08:2028-02-02:innovation:xd",
+        "interval:2027-11-08:2028-02-02:innovation:xf",
+        "interval:2027-11-08:2028-02-02:innovation:Id",
+        "interval:2027-11-08:2028-02-02:innovation:If",
+        "interval:2027-11-08:2028-02-02:innovation:Z",
+        "interval:2028-02-02:2028-02-04:innovation:xd",
+        "interval:2028-02-02:2028-02-04:innovation:xf",
+        "interval:2028-02-02:2028-02-04:innovation:Id",
+        "interval:2028-02-02:2028-02-04:innovation:If",
+        "interval:2028-02-02:2028-02-04:innovation:Z",
+        "interval:2028-02-04:2028-05-04:innovation:xd",
+        "interval:2028-02-04:2028-05-04:innovation:xf",
+        "interval:2028-02-04:2028-05-04:innovation:Id",
+        "interval:2028-02-04:2028-05-04:innovation:If",
+        "interval:2028-02-04:2028-05-04:innovation:Z",
+        "interval:2028-05-04:2028-05-08:innovation:xd",
+        "interval:2028-05-04:2028-05-08:innovation:xf",
+        "interval:2028-05-04:2028-05-08:innovation:Id",
+        "interval:2028-05-04:2028-05-08:innovation:If",
+        "interval:2028-05-04:2028-05-08:innovation:Z"
+      ],
+      "dimension": 55,
+      "domestic_periods": [
+        {
+          "alpha": 0.25555555555555554,
+          "end": "2027-08-04",
+          "fixing": "2027-04-30",
+          "index": "IR:USD,LIBOR_3M_LCH",
+          "payment": "2027-08-04",
+          "start": "2027-05-04"
+        },
+        {
+          "alpha": 0.25555555555555554,
+          "end": "2027-11-04",
+          "fixing": "2027-08-02",
+          "index": "IR:USD,LIBOR_3M_LCH",
+          "payment": "2027-11-04",
+          "start": "2027-08-04"
+        },
+        {
+          "alpha": 0.25555555555555554,
+          "end": "2028-02-04",
+          "fixing": "2027-11-02",
+          "index": "IR:USD,LIBOR_3M_LCH",
+          "payment": "2028-02-04",
+          "start": "2027-11-04"
+        },
+        {
+          "alpha": 0.25,
+          "end": "2028-05-04",
+          "fixing": "2028-02-02",
+          "index": "IR:USD,LIBOR_3M_LCH",
+          "payment": "2028-05-04",
+          "start": "2028-02-04"
+        }
+      ],
+      "fast": [
+        -108.68596170674887,
+        -5.924733471147732,
+        -6.0334194328544815,
+        -0.05451240784098279
+      ],
+      "fast_gradient": [
+        [
+          -74.04113021243688,
+          -13.934033550246472,
+          -28.120845090809166,
+          61.39524047082124,
+          12.881324378958405,
+          0,
+          0,
+          0,
+          -0.3066666117913235,
+          -0.0322635637449219,
+          -0.0413241803438531
+        ],
+        [
+          -199.0701639952064,
+          55.75185702289639,
+          -57.3212833133676,
+          166.94511481131045,
+          -2.076413707246715,
+          0,
+          36.13641379829002,
+          -36.43747512742654,
+          1.545108735048697,
+          0.11654041560801975,
+          0.19285647053628985
+        ],
+        [
+          -199.14420512541884,
+          55.73792298934611,
+          -57.349404158458405,
+          167.00651005178128,
+          -2.0635323828677565,
+          0,
+          36.13641379829002,
+          -36.43747512742654,
+          1.5448020684369066,
+          0.1165081520442746,
+          0.1928151463559467
+        ],
+        [
+          -1.7944728154891796,
+          0.5199515545083341,
+          -0.5132985664466003,
+          1.5052386697803974,
+          -0.025565451799760077,
+          0,
+          0.332484648714721,
+          -0.3352546598956391,
+          0.014370079133825212,
+          0.0010884494951839063,
+          0.0017951642332181502
+        ]
+      ],
+      "foreign_periods": [
+        {
+          "alpha": 0.5111111111111111,
+          "end": "2027-11-04",
+          "fixing": "2027-04-30",
+          "index": "IR:EUR,LIBOR_6M_LCH",
+          "payment": "2027-11-08",
+          "start": "2027-05-04"
+        },
+        {
+          "alpha": 0.5055555555555555,
+          "end": "2028-05-04",
+          "fixing": "2027-11-02",
+          "index": "IR:EUR,LIBOR_6M_LCH",
+          "payment": "2028-05-08",
+          "start": "2027-11-04"
+        }
+      ],
+      "foreign_spread": false,
+      "grid": [
+        "2026-10-21",
+        "2027-04-30",
+        "2027-05-04",
+        "2027-08-02",
+        "2027-08-04",
+        "2027-11-02",
+        "2027-11-04",
+        "2027-11-08",
+        "2028-02-02",
+        "2028-02-04",
+        "2028-05-04",
+        "2028-05-08"
+      ],
+      "id": "xccy-2028-05-04",
+      "instrument": "sha256:79d8093d6314c02d2224e700109b9ccb546c4c0471e5a0726ad37fe55a3cc0c8",
+      "labels": [
+        "fxspot:EUR/USD",
+        "logdf:USD:OIS:2029-10-20",
+        "logdf:EUR:OIS:2029-10-20",
+        "logdf:USD:BASIS:EUR/USD:2027-11-08",
+        "logdf:USD:BASIS:EUR/USD:2028-05-08",
+        "logdf:USD:BASIS:EUR/USD:2028-11-08",
+        "logdf:USD:3M:2029-10-20",
+        "logdf:EUR:6M:2029-10-20",
+        "sigma:USD:2029-10-20",
+        "sigma:EUR:2029-10-20",
+        "sigma:EUR/USD:2029-10-20"
+      ],
+      "mapping": "sha256:d005a08bc0a3adcea595bf0add2ac49b10b021c025fb9d8bcefb34ee023c42de",
+      "maturity": "2028-05-04",
+      "mode": "MARK_TO_MARKET",
+      "model": {
+        "a": [
+          0.03,
+          0.07
+        ],
+        "bucket_dates": [
+          "2029-10-20"
+        ],
+        "correlation": [
+          [
+            1,
+            0.3,
+            -0.2
+          ],
+          [
+            0.3,
+            1,
+            -0.25
+          ],
+          [
+            -0.2,
+            -0.25,
+            1
+          ]
+        ],
+        "curves": [
+          {
+            "currency": "USD",
+            "dates": [
+              "2026-10-21",
+              "2029-10-20"
+            ],
+            "jacobian": [
+              [
+                0
+              ],
+              [
+                1
+              ]
+            ],
+            "labels": [
+              "logdf:USD:OIS:2029-10-20"
+            ],
+            "logdf": [
+              0,
+              -0.12000000000000001
+            ],
+            "route": "OIS",
+            "values": [
+              -0.12000000000000001
+            ]
+          },
+          {
+            "currency": "EUR",
+            "dates": [
+              "2026-10-21",
+              "2029-10-20"
+            ],
+            "jacobian": [
+              [
+                0
+              ],
+              [
+                1
+              ]
+            ],
+            "labels": [
+              "logdf:EUR:OIS:2029-10-20"
+            ],
+            "logdf": [
+              0,
+              -0.060000000000000005
+            ],
+            "route": "OIS",
+            "values": [
+              -0.060000000000000005
+            ]
+          },
+          {
+            "currency": "USD",
+            "dates": [
+              "2026-10-21",
+              "2027-11-08",
+              "2028-05-08",
+              "2028-11-08"
+            ],
+            "jacobian": [
+              [
+                0,
+                0,
+                0
+              ],
+              [
+                1,
+                0,
+                0
+              ],
+              [
+                0,
+                1,
+                0
+              ],
+              [
+                0,
+                0,
+                1
+              ]
+            ],
+            "labels": [
+              "logdf:USD:BASIS:EUR/USD:2027-11-08",
+              "logdf:USD:BASIS:EUR/USD:2028-05-08",
+              "logdf:USD:BASIS:EUR/USD:2028-11-08"
+            ],
+            "logdf": [
+              0,
+              -0.0031477624752759836,
+              -0.004648652510171327,
+              -0.006305306272259826
+            ],
+            "route": "BASIS:EUR/USD",
+            "values": [
+              -0.0031477624752759836,
+              -0.004648652510171327,
+              -0.006305306272259826
+            ]
+          },
+          {
+            "currency": "USD",
+            "dates": [
+              "2026-10-21",
+              "2029-10-20"
+            ],
+            "jacobian": [
+              [
+                0
+              ],
+              [
+                1
+              ]
+            ],
+            "labels": [
+              "logdf:USD:3M:2029-10-20"
+            ],
+            "logdf": [
+              0,
+              -0.135
+            ],
+            "route": "3M",
+            "values": [
+              -0.135
+            ]
+          },
+          {
+            "currency": "EUR",
+            "dates": [
+              "2026-10-21",
+              "2029-10-20"
+            ],
+            "jacobian": [
+              [
+                0
+              ],
+              [
+                1
+              ]
+            ],
+            "labels": [
+              "logdf:EUR:6M:2029-10-20"
+            ],
+            "logdf": [
+              0,
+              -0.078
+            ],
+            "route": "6M",
+            "values": [
+              -0.078
+            ]
+          }
+        ],
+        "identity": "sha256:7067e16d2dfeb4b95c26124853b26ef367ce8424a7676b6f8d445af510ed90ad",
+        "sigma": [
+          [
+            0.01
+          ],
+          [
+            0.009
+          ],
+          [
+            0.12
+          ]
+        ],
+        "spot": 1.1,
+        "valuation": "2026-10-21"
+      },
+      "payment_lag": 2,
+      "receive": true,
+      "scenario": "staged",
+      "source": "sha256:57e51dc0b4e5c2e7428ccd6adc3b8e86e9de0e5c01b399d33b68c72f93cba67d"
+    },
+    {
+      "fit": "EXACT",
+      "calendars": [
+        "",
+        "",
+        "",
+        ""
+      ],
+      "coordinates": [
+        "interval:2026-10-21:2027-04-30:innovation:xd",
+        "interval:2026-10-21:2027-04-30:innovation:xf",
+        "interval:2026-10-21:2027-04-30:innovation:Id",
+        "interval:2026-10-21:2027-04-30:innovation:If",
+        "interval:2026-10-21:2027-04-30:innovation:Z",
+        "interval:2027-04-30:2027-05-04:innovation:xd",
+        "interval:2027-04-30:2027-05-04:innovation:xf",
+        "interval:2027-04-30:2027-05-04:innovation:Id",
+        "interval:2027-04-30:2027-05-04:innovation:If",
+        "interval:2027-04-30:2027-05-04:innovation:Z",
+        "interval:2027-05-04:2027-08-02:innovation:xd",
+        "interval:2027-05-04:2027-08-02:innovation:xf",
+        "interval:2027-05-04:2027-08-02:innovation:Id",
+        "interval:2027-05-04:2027-08-02:innovation:If",
+        "interval:2027-05-04:2027-08-02:innovation:Z",
+        "interval:2027-08-02:2027-08-04:innovation:xd",
+        "interval:2027-08-02:2027-08-04:innovation:xf",
+        "interval:2027-08-02:2027-08-04:innovation:Id",
+        "interval:2027-08-02:2027-08-04:innovation:If",
+        "interval:2027-08-02:2027-08-04:innovation:Z",
+        "interval:2027-08-04:2027-11-02:innovation:xd",
+        "interval:2027-08-04:2027-11-02:innovation:xf",
+        "interval:2027-08-04:2027-11-02:innovation:Id",
+        "interval:2027-08-04:2027-11-02:innovation:If",
+        "interval:2027-08-04:2027-11-02:innovation:Z",
+        "interval:2027-11-02:2027-11-04:innovation:xd",
+        "interval:2027-11-02:2027-11-04:innovation:xf",
+        "interval:2027-11-02:2027-11-04:innovation:Id",
+        "interval:2027-11-02:2027-11-04:innovation:If",
+        "interval:2027-11-02:2027-11-04:innovation:Z",
+        "interval:2027-11-04:2027-11-08:innovation:xd",
+        "interval:2027-11-04:2027-11-08:innovation:xf",
+        "interval:2027-11-04:2027-11-08:innovation:Id",
+        "interval:2027-11-04:2027-11-08:innovation:If",
+        "interval:2027-11-04:2027-11-08:innovation:Z",
+        "interval:2027-11-08:2028-02-02:innovation:xd",
+        "interval:2027-11-08:2028-02-02:innovation:xf",
+        "interval:2027-11-08:2028-02-02:innovation:Id",
+        "interval:2027-11-08:2028-02-02:innovation:If",
+        "interval:2027-11-08:2028-02-02:innovation:Z",
+        "interval:2028-02-02:2028-02-04:innovation:xd",
+        "interval:2028-02-02:2028-02-04:innovation:xf",
+        "interval:2028-02-02:2028-02-04:innovation:Id",
+        "interval:2028-02-02:2028-02-04:innovation:If",
+        "interval:2028-02-02:2028-02-04:innovation:Z",
+        "interval:2028-02-04:2028-05-02:innovation:xd",
+        "interval:2028-02-04:2028-05-02:innovation:xf",
+        "interval:2028-02-04:2028-05-02:innovation:Id",
+        "interval:2028-02-04:2028-05-02:innovation:If",
+        "interval:2028-02-04:2028-05-02:innovation:Z",
+        "interval:2028-05-02:2028-05-04:innovation:xd",
+        "interval:2028-05-02:2028-05-04:innovation:xf",
+        "interval:2028-05-02:2028-05-04:innovation:Id",
+        "interval:2028-05-02:2028-05-04:innovation:If",
+        "interval:2028-05-02:2028-05-04:innovation:Z",
+        "interval:2028-05-04:2028-05-08:innovation:xd",
+        "interval:2028-05-04:2028-05-08:innovation:xf",
+        "interval:2028-05-04:2028-05-08:innovation:Id",
+        "interval:2028-05-04:2028-05-08:innovation:If",
+        "interval:2028-05-04:2028-05-08:innovation:Z",
+        "interval:2028-05-08:2028-08-02:innovation:xd",
+        "interval:2028-05-08:2028-08-02:innovation:xf",
+        "interval:2028-05-08:2028-08-02:innovation:Id",
+        "interval:2028-05-08:2028-08-02:innovation:If",
+        "interval:2028-05-08:2028-08-02:innovation:Z",
+        "interval:2028-08-02:2028-08-04:innovation:xd",
+        "interval:2028-08-02:2028-08-04:innovation:xf",
+        "interval:2028-08-02:2028-08-04:innovation:Id",
+        "interval:2028-08-02:2028-08-04:innovation:If",
+        "interval:2028-08-02:2028-08-04:innovation:Z",
+        "interval:2028-08-04:2028-11-04:innovation:xd",
+        "interval:2028-08-04:2028-11-04:innovation:xf",
+        "interval:2028-08-04:2028-11-04:innovation:Id",
+        "interval:2028-08-04:2028-11-04:innovation:If",
+        "interval:2028-08-04:2028-11-04:innovation:Z",
+        "interval:2028-11-04:2028-11-07:innovation:xd",
+        "interval:2028-11-04:2028-11-07:innovation:xf",
+        "interval:2028-11-04:2028-11-07:innovation:Id",
+        "interval:2028-11-04:2028-11-07:innovation:If",
+        "interval:2028-11-04:2028-11-07:innovation:Z"
+      ],
+      "dimension": 80,
+      "domestic_periods": [
+        {
+          "alpha": 0.25555555555555554,
+          "end": "2027-08-04",
+          "fixing": "2027-04-30",
+          "index": "IR:USD,LIBOR_3M_LCH",
+          "payment": "2027-08-04",
+          "start": "2027-05-04"
+        },
+        {
+          "alpha": 0.25555555555555554,
+          "end": "2027-11-04",
+          "fixing": "2027-08-02",
+          "index": "IR:USD,LIBOR_3M_LCH",
+          "payment": "2027-11-04",
+          "start": "2027-08-04"
+        },
+        {
+          "alpha": 0.25555555555555554,
+          "end": "2028-02-04",
+          "fixing": "2027-11-02",
+          "index": "IR:USD,LIBOR_3M_LCH",
+          "payment": "2028-02-04",
+          "start": "2027-11-04"
+        },
+        {
+          "alpha": 0.25,
+          "end": "2028-05-04",
+          "fixing": "2028-02-02",
+          "index": "IR:USD,LIBOR_3M_LCH",
+          "payment": "2028-05-04",
+          "start": "2028-02-04"
+        },
+        {
+          "alpha": 0.25555555555555554,
+          "end": "2028-08-04",
+          "fixing": "2028-05-02",
+          "index": "IR:USD,LIBOR_3M_LCH",
+          "payment": "2028-08-04",
+          "start": "2028-05-04"
+        },
+        {
+          "alpha": 0.25555555555555554,
+          "end": "2028-11-04",
+          "fixing": "2028-08-02",
+          "index": "IR:USD,LIBOR_3M_LCH",
+          "payment": "2028-11-04",
+          "start": "2028-08-04"
+        }
+      ],
+      "fast": [
+        -162.79890827317826,
+        -8.125587472224609,
+        -8.288386380497787,
+        -0.04991180566512024
+      ],
+      "fast_gradient": [
+        [
+          -123.23471800009995,
+          -18.48050942614739,
+          -58.112918706058466,
+          61.991139538948424,
+          53.48554889321416,
+          12.91282298404644,
+          0,
+          0,
+          -0.5236653380099757,
+          -0.08498823166746794,
+          -0.08539633138524039
+        ],
+        [
+          -201.07094035982172,
+          73.10498657231608,
+          -75.81347463963364,
+          59.273485336914604,
+          111.00677396761284,
+          -3.2107041993867824,
+          54.128596122481696,
+          -54.5268165561848,
+          3.2787814091226037,
+          0.406492911760585,
+          0.4848814805520103
+        ],
+        [
+          -201.19417507782177,
+          73.08650606288994,
+          -75.87158755833971,
+          59.33547647645356,
+          111.06025951650605,
+          -3.197791376402736,
+          54.128596122481696,
+          -54.5268165561848,
+          3.278257743784593,
+          0.40640792352891664,
+          0.48479608422062553
+        ],
+        [
+          -1.1973057751513119,
+          0.4547166989791345,
+          -0.4478712708084949,
+          0.34508459683905046,
+          0.665466462855952,
+          -0.023680788474855975,
+          0.3324874638081317,
+          -0.33493355167153976,
+          0.020300618270493745,
+          0.002522958121894656,
+          0.003004588733653248
+        ]
+      ],
+      "foreign_periods": [
+        {
+          "alpha": 0.5111111111111111,
+          "end": "2027-11-04",
+          "fixing": "2027-04-30",
+          "index": "IR:EUR,LIBOR_6M_LCH",
+          "payment": "2027-11-08",
+          "start": "2027-05-04"
+        },
+        {
+          "alpha": 0.5055555555555555,
+          "end": "2028-05-04",
+          "fixing": "2027-11-02",
+          "index": "IR:EUR,LIBOR_6M_LCH",
+          "payment": "2028-05-08",
+          "start": "2027-11-04"
+        },
+        {
+          "alpha": 0.5111111111111111,
+          "end": "2028-11-04",
+          "fixing": "2028-05-02",
+          "index": "IR:EUR,LIBOR_6M_LCH",
+          "payment": "2028-11-07",
+          "start": "2028-05-04"
+        }
+      ],
+      "foreign_spread": false,
+      "grid": [
+        "2026-10-21",
+        "2027-04-30",
+        "2027-05-04",
+        "2027-08-02",
+        "2027-08-04",
+        "2027-11-02",
+        "2027-11-04",
+        "2027-11-08",
+        "2028-02-02",
+        "2028-02-04",
+        "2028-05-02",
+        "2028-05-04",
+        "2028-05-08",
+        "2028-08-02",
+        "2028-08-04",
+        "2028-11-04",
+        "2028-11-07"
+      ],
+      "id": "xccy-2028-11-04",
+      "instrument": "sha256:6695fad584f9dc1b71acff7b55210d6d8a788d5fa48d8446b50c7f823d1a280c",
+      "labels": [
+        "fxspot:EUR/USD",
+        "logdf:USD:OIS:2029-10-20",
+        "logdf:EUR:OIS:2029-10-20",
+        "logdf:USD:BASIS:EUR/USD:2027-11-08",
+        "logdf:USD:BASIS:EUR/USD:2028-05-08",
+        "logdf:USD:BASIS:EUR/USD:2028-11-08",
+        "logdf:USD:3M:2029-10-20",
+        "logdf:EUR:6M:2029-10-20",
+        "sigma:USD:2029-10-20",
+        "sigma:EUR:2029-10-20",
+        "sigma:EUR/USD:2029-10-20"
+      ],
+      "mapping": "sha256:dd9895f992c4abfc5047d51a65f90ddf0b1871027c2a1c167b3612d9805122ae",
+      "maturity": "2028-11-04",
+      "mode": "MARK_TO_MARKET",
+      "model": {
+        "a": [
+          0.03,
+          0.07
+        ],
+        "bucket_dates": [
+          "2029-10-20"
+        ],
+        "correlation": [
+          [
+            1,
+            0.3,
+            -0.2
+          ],
+          [
+            0.3,
+            1,
+            -0.25
+          ],
+          [
+            -0.2,
+            -0.25,
+            1
+          ]
+        ],
+        "curves": [
+          {
+            "currency": "USD",
+            "dates": [
+              "2026-10-21",
+              "2029-10-20"
+            ],
+            "jacobian": [
+              [
+                0
+              ],
+              [
+                1
+              ]
+            ],
+            "labels": [
+              "logdf:USD:OIS:2029-10-20"
+            ],
+            "logdf": [
+              0,
+              -0.12000000000000001
+            ],
+            "route": "OIS",
+            "values": [
+              -0.12000000000000001
+            ]
+          },
+          {
+            "currency": "EUR",
+            "dates": [
+              "2026-10-21",
+              "2029-10-20"
+            ],
+            "jacobian": [
+              [
+                0
+              ],
+              [
+                1
+              ]
+            ],
+            "labels": [
+              "logdf:EUR:OIS:2029-10-20"
+            ],
+            "logdf": [
+              0,
+              -0.060000000000000005
+            ],
+            "route": "OIS",
+            "values": [
+              -0.060000000000000005
+            ]
+          },
+          {
+            "currency": "USD",
+            "dates": [
+              "2026-10-21",
+              "2027-11-08",
+              "2028-05-08",
+              "2028-11-08"
+            ],
+            "jacobian": [
+              [
+                0,
+                0,
+                0
+              ],
+              [
+                1,
+                0,
+                0
+              ],
+              [
+                0,
+                1,
+                0
+              ],
+              [
+                0,
+                0,
+                1
+              ]
+            ],
+            "labels": [
+              "logdf:USD:BASIS:EUR/USD:2027-11-08",
+              "logdf:USD:BASIS:EUR/USD:2028-05-08",
+              "logdf:USD:BASIS:EUR/USD:2028-11-08"
+            ],
+            "logdf": [
+              0,
+              -0.0031477624752759836,
+              -0.004648652510171327,
+              -0.006305306272259826
+            ],
+            "route": "BASIS:EUR/USD",
+            "values": [
+              -0.0031477624752759836,
+              -0.004648652510171327,
+              -0.006305306272259826
+            ]
+          },
+          {
+            "currency": "USD",
+            "dates": [
+              "2026-10-21",
+              "2029-10-20"
+            ],
+            "jacobian": [
+              [
+                0
+              ],
+              [
+                1
+              ]
+            ],
+            "labels": [
+              "logdf:USD:3M:2029-10-20"
+            ],
+            "logdf": [
+              0,
+              -0.135
+            ],
+            "route": "3M",
+            "values": [
+              -0.135
+            ]
+          },
+          {
+            "currency": "EUR",
+            "dates": [
+              "2026-10-21",
+              "2029-10-20"
+            ],
+            "jacobian": [
+              [
+                0
+              ],
+              [
+                1
+              ]
+            ],
+            "labels": [
+              "logdf:EUR:6M:2029-10-20"
+            ],
+            "logdf": [
+              0,
+              -0.078
+            ],
+            "route": "6M",
+            "values": [
+              -0.078
+            ]
+          }
+        ],
+        "identity": "sha256:7067e16d2dfeb4b95c26124853b26ef367ce8424a7676b6f8d445af510ed90ad",
+        "sigma": [
+          [
+            0.01
+          ],
+          [
+            0.009
+          ],
+          [
+            0.12
+          ]
+        ],
+        "spot": 1.1,
+        "valuation": "2026-10-21"
+      },
+      "payment_lag": 2,
+      "receive": true,
+      "scenario": "staged",
+      "source": "sha256:7211026ba8c52eee8e6f81419ece2ca7f4e321fa03566deb7f02e56166d56900"
+    },
+    {
+      "fit": "APPROXIMATE",
+      "calendars": [
+        "",
+        "",
+        "",
+        ""
+      ],
+      "coordinates": [
+        "interval:2026-10-21:2027-04-30:innovation:xd",
+        "interval:2026-10-21:2027-04-30:innovation:xf",
+        "interval:2026-10-21:2027-04-30:innovation:Id",
+        "interval:2026-10-21:2027-04-30:innovation:If",
+        "interval:2026-10-21:2027-04-30:innovation:Z",
+        "interval:2027-04-30:2027-05-04:innovation:xd",
+        "interval:2027-04-30:2027-05-04:innovation:xf",
+        "interval:2027-04-30:2027-05-04:innovation:Id",
+        "interval:2027-04-30:2027-05-04:innovation:If",
+        "interval:2027-04-30:2027-05-04:innovation:Z",
+        "interval:2027-05-04:2027-08-02:innovation:xd",
+        "interval:2027-05-04:2027-08-02:innovation:xf",
+        "interval:2027-05-04:2027-08-02:innovation:Id",
+        "interval:2027-05-04:2027-08-02:innovation:If",
+        "interval:2027-05-04:2027-08-02:innovation:Z",
+        "interval:2027-08-02:2027-08-04:innovation:xd",
+        "interval:2027-08-02:2027-08-04:innovation:xf",
+        "interval:2027-08-02:2027-08-04:innovation:Id",
+        "interval:2027-08-02:2027-08-04:innovation:If",
+        "interval:2027-08-02:2027-08-04:innovation:Z",
+        "interval:2027-08-04:2027-11-04:innovation:xd",
+        "interval:2027-08-04:2027-11-04:innovation:xf",
+        "interval:2027-08-04:2027-11-04:innovation:Id",
+        "interval:2027-08-04:2027-11-04:innovation:If",
+        "interval:2027-08-04:2027-11-04:innovation:Z",
+        "interval:2027-11-04:2027-11-08:innovation:xd",
+        "interval:2027-11-04:2027-11-08:innovation:xf",
+        "interval:2027-11-04:2027-11-08:innovation:Id",
+        "interval:2027-11-04:2027-11-08:innovation:If",
+        "interval:2027-11-04:2027-11-08:innovation:Z"
+      ],
+      "dimension": 30,
+      "domestic_periods": [
+        {
+          "alpha": 0.25555555555555554,
+          "end": "2027-08-04",
+          "fixing": "2027-04-30",
+          "index": "IR:USD,LIBOR_3M_LCH",
+          "payment": "2027-08-04",
+          "start": "2027-05-04"
+        },
+        {
+          "alpha": 0.25555555555555554,
+          "end": "2027-11-04",
+          "fixing": "2027-08-02",
+          "index": "IR:USD,LIBOR_3M_LCH",
+          "payment": "2027-11-04",
+          "start": "2027-08-04"
+        }
+      ],
+      "fast": [
+        -54.70144164261163,
+        -3.6678538934615403,
+        -3.722555335104152,
+        -0.06705223451742331
+      ],
+      "fast_gradient": [
+        [
+          -24.964293790493933,
+          -9.447007062437066,
+          -7.197468081880306,
+          20.57761762313038,
+          0,
+          0,
+          0,
+          0,
+          -0.09252639792022355,
+          -0.006181535486676444,
+          -0.010716988863184618
+        ],
+        [
+          -197.018455288219,
+          37.66374574788958,
+          -38.438759998487214,
+          109.8967159225679,
+          0,
+          0,
+          18.188806261888626,
+          -18.396760288221085,
+          -0.0035813193344185756,
+          -0.0052015883321229195,
+          -0.0002990337936719101
+        ],
+        [
+          -197.0434195820095,
+          37.65429874082715,
+          -38.44595746656909,
+          109.91729354019104,
+          0,
+          0,
+          18.188806261888626,
+          -18.396760288221085,
+          -0.003673845732338782,
+          -0.005207769867609596,
+          -0.0003097507825350937
+        ],
+        [
+          -3.5711041197540645,
+          0.7001129683407636,
+          -0.6938784891395259,
+          1.9838040355294548,
+          0,
+          0,
+          0.33251054662734536,
+          -0.33631216537975617,
+          4.7947226237957195e-05,
+          -8.7513279746235e-05,
+          7.67007677140866e-06
+        ]
+      ],
+      "foreign_periods": [
+        {
+          "alpha": 0.5111111111111111,
+          "end": "2027-11-04",
+          "fixing": "2027-04-30",
+          "index": "IR:EUR,LIBOR_6M_LCH",
+          "payment": "2027-11-08",
+          "start": "2027-05-04"
+        }
+      ],
+      "foreign_spread": false,
+      "grid": [
+        "2026-10-21",
+        "2027-04-30",
+        "2027-05-04",
+        "2027-08-02",
+        "2027-08-04",
+        "2027-11-04",
+        "2027-11-08"
+      ],
+      "id": "xccy-2027-11-04",
+      "instrument": "sha256:c72a59c901e36ccdd2e55f009c37184419569cc4391099cf8e176a792e57b7c2",
+      "labels": [
+        "fxspot:EUR/USD",
+        "logdf:USD:OIS:2029-10-20",
+        "logdf:EUR:OIS:2029-10-20",
+        "logdf:USD:BASIS:EUR/USD:2027-11-08",
+        "logdf:USD:BASIS:EUR/USD:2028-05-08",
+        "logdf:USD:BASIS:EUR/USD:2028-11-08",
+        "logdf:USD:3M:2029-10-20",
+        "logdf:EUR:6M:2029-10-20",
+        "sigma:USD:2029-10-20",
+        "sigma:EUR:2029-10-20",
+        "sigma:EUR/USD:2029-10-20"
+      ],
+      "mapping": "sha256:47d8cbb515b7160dac446e6810a52cad3a0a64c0e464b21759604b8088628ece",
+      "maturity": "2027-11-04",
+      "mode": "MARK_TO_MARKET",
+      "model": {
+        "a": [
+          0.03,
+          0.07
+        ],
+        "bucket_dates": [
+          "2029-10-20"
+        ],
+        "correlation": [
+          [
+            1,
+            0.3,
+            -0.2
+          ],
+          [
+            0.3,
+            1,
+            -0.25
+          ],
+          [
+            -0.2,
+            -0.25,
+            1
+          ]
+        ],
+        "curves": [
+          {
+            "currency": "USD",
+            "dates": [
+              "2026-10-21",
+              "2029-10-20"
+            ],
+            "jacobian": [
+              [
+                0
+              ],
+              [
+                1
+              ]
+            ],
+            "labels": [
+              "logdf:USD:OIS:2029-10-20"
+            ],
+            "logdf": [
+              0,
+              -0.12000000000000001
+            ],
+            "route": "OIS",
+            "values": [
+              -0.12000000000000001
+            ]
+          },
+          {
+            "currency": "EUR",
+            "dates": [
+              "2026-10-21",
+              "2029-10-20"
+            ],
+            "jacobian": [
+              [
+                0
+              ],
+              [
+                1
+              ]
+            ],
+            "labels": [
+              "logdf:EUR:OIS:2029-10-20"
+            ],
+            "logdf": [
+              0,
+              -0.060000000000000005
+            ],
+            "route": "OIS",
+            "values": [
+              -0.060000000000000005
+            ]
+          },
+          {
+            "currency": "USD",
+            "dates": [
+              "2026-10-21",
+              "2027-11-08",
+              "2028-05-08",
+              "2028-11-08"
+            ],
+            "jacobian": [
+              [
+                0,
+                0,
+                0
+              ],
+              [
+                1,
+                0,
+                0
+              ],
+              [
+                0,
+                1,
+                0
+              ],
+              [
+                0,
+                0,
+                1
+              ]
+            ],
+            "labels": [
+              "logdf:USD:BASIS:EUR/USD:2027-11-08",
+              "logdf:USD:BASIS:EUR/USD:2028-05-08",
+              "logdf:USD:BASIS:EUR/USD:2028-11-08"
+            ],
+            "logdf": [
+              0,
+              -0.003147762475275851,
+              -0.004648652510145932,
+              -0.006305306271536386
+            ],
+            "route": "BASIS:EUR/USD",
+            "values": [
+              -0.003147762475275851,
+              -0.004648652510145932,
+              -0.006305306271536386
+            ]
+          },
+          {
+            "currency": "USD",
+            "dates": [
+              "2026-10-21",
+              "2029-10-20"
+            ],
+            "jacobian": [
+              [
+                0
+              ],
+              [
+                1
+              ]
+            ],
+            "labels": [
+              "logdf:USD:3M:2029-10-20"
+            ],
+            "logdf": [
+              0,
+              -0.135
+            ],
+            "route": "3M",
+            "values": [
+              -0.135
+            ]
+          },
+          {
+            "currency": "EUR",
+            "dates": [
+              "2026-10-21",
+              "2029-10-20"
+            ],
+            "jacobian": [
+              [
+                0
+              ],
+              [
+                1
+              ]
+            ],
+            "labels": [
+              "logdf:EUR:6M:2029-10-20"
+            ],
+            "logdf": [
+              0,
+              -0.078
+            ],
+            "route": "6M",
+            "values": [
+              -0.078
+            ]
+          }
+        ],
+        "identity": "sha256:1a9a66c1f002ae3a43a13dacbed7e64a45ca9120367a36b1228c9eb0565cbed0",
+        "sigma": [
+          [
+            0.01
+          ],
+          [
+            0.009
+          ],
+          [
+            0.12
+          ]
+        ],
+        "spot": 1.1,
+        "valuation": "2026-10-21"
+      },
+      "payment_lag": 2,
+      "receive": true,
+      "scenario": "staged",
+      "source": "sha256:83d0eaf34ec4b7ced46a9d70fa46a04eaab6343a3851b0d2699b4ef770f3e4f9"
+    },
+    {
+      "fit": "APPROXIMATE",
+      "calendars": [
+        "",
+        "",
+        "",
+        ""
+      ],
+      "coordinates": [
+        "interval:2026-10-21:2027-04-30:innovation:xd",
+        "interval:2026-10-21:2027-04-30:innovation:xf",
+        "interval:2026-10-21:2027-04-30:innovation:Id",
+        "interval:2026-10-21:2027-04-30:innovation:If",
+        "interval:2026-10-21:2027-04-30:innovation:Z",
+        "interval:2027-04-30:2027-05-04:innovation:xd",
+        "interval:2027-04-30:2027-05-04:innovation:xf",
+        "interval:2027-04-30:2027-05-04:innovation:Id",
+        "interval:2027-04-30:2027-05-04:innovation:If",
+        "interval:2027-04-30:2027-05-04:innovation:Z",
+        "interval:2027-05-04:2027-08-02:innovation:xd",
+        "interval:2027-05-04:2027-08-02:innovation:xf",
+        "interval:2027-05-04:2027-08-02:innovation:Id",
+        "interval:2027-05-04:2027-08-02:innovation:If",
+        "interval:2027-05-04:2027-08-02:innovation:Z",
+        "interval:2027-08-02:2027-08-04:innovation:xd",
+        "interval:2027-08-02:2027-08-04:innovation:xf",
+        "interval:2027-08-02:2027-08-04:innovation:Id",
+        "interval:2027-08-02:2027-08-04:innovation:If",
+        "interval:2027-08-02:2027-08-04:innovation:Z",
+        "interval:2027-08-04:2027-11-02:innovation:xd",
+        "interval:2027-08-04:2027-11-02:innovation:xf",
+        "interval:2027-08-04:2027-11-02:innovation:Id",
+        "interval:2027-08-04:2027-11-02:innovation:If",
+        "interval:2027-08-04:2027-11-02:innovation:Z",
+        "interval:2027-11-02:2027-11-04:innovation:xd",
+        "interval:2027-11-02:2027-11-04:innovation:xf",
+        "interval:2027-11-02:2027-11-04:innovation:Id",
+        "interval:2027-11-02:2027-11-04:innovation:If",
+        "interval:2027-11-02:2027-11-04:innovation:Z",
+        "interval:2027-11-04:2027-11-08:innovation:xd",
+        "interval:2027-11-04:2027-11-08:innovation:xf",
+        "interval:2027-11-04:2027-11-08:innovation:Id",
+        "interval:2027-11-04:2027-11-08:innovation:If",
+        "interval:2027-11-04:2027-11-08:innovation:Z",
+        "interval:2027-11-08:2028-02-02:innovation:xd",
+        "interval:2027-11-08:2028-02-02:innovation:xf",
+        "interval:2027-11-08:2028-02-02:innovation:Id",
+        "interval:2027-11-08:2028-02-02:innovation:If",
+        "interval:2027-11-08:2028-02-02:innovation:Z",
+        "interval:2028-02-02:2028-02-04:innovation:xd",
+        "interval:2028-02-02:2028-02-04:innovation:xf",
+        "interval:2028-02-02:2028-02-04:innovation:Id",
+        "interval:2028-02-02:2028-02-04:innovation:If",
+        "interval:2028-02-02:2028-02-04:innovation:Z",
+        "interval:2028-02-04:2028-05-04:innovation:xd",
+        "interval:2028-02-04:2028-05-04:innovation:xf",
+        "interval:2028-02-04:2028-05-04:innovation:Id",
+        "interval:2028-02-04:2028-05-04:innovation:If",
+        "interval:2028-02-04:2028-05-04:innovation:Z",
+        "interval:2028-05-04:2028-05-08:innovation:xd",
+        "interval:2028-05-04:2028-05-08:innovation:xf",
+        "interval:2028-05-04:2028-05-08:innovation:Id",
+        "interval:2028-05-04:2028-05-08:innovation:If",
+        "interval:2028-05-04:2028-05-08:innovation:Z"
+      ],
+      "dimension": 55,
+      "domestic_periods": [
+        {
+          "alpha": 0.25555555555555554,
+          "end": "2027-08-04",
+          "fixing": "2027-04-30",
+          "index": "IR:USD,LIBOR_3M_LCH",
+          "payment": "2027-08-04",
+          "start": "2027-05-04"
+        },
+        {
+          "alpha": 0.25555555555555554,
+          "end": "2027-11-04",
+          "fixing": "2027-08-02",
+          "index": "IR:USD,LIBOR_3M_LCH",
+          "payment": "2027-11-04",
+          "start": "2027-08-04"
+        },
+        {
+          "alpha": 0.25555555555555554,
+          "end": "2028-02-04",
+          "fixing": "2027-11-02",
+          "index": "IR:USD,LIBOR_3M_LCH",
+          "payment": "2028-02-04",
+          "start": "2027-11-04"
+        },
+        {
+          "alpha": 0.25,
+          "end": "2028-05-04",
+          "fixing": "2028-02-02",
+          "index": "IR:USD,LIBOR_3M_LCH",
+          "payment": "2028-05-04",
+          "start": "2028-02-04"
+        }
+      ],
+      "fast": [
+        -108.68596170674853,
+        -5.924733471147775,
+        -6.033419432854523,
+        -0.05451240784098335
+      ],
+      "fast_gradient": [
+        [
+          -74.04113021243657,
+          -13.934033550246443,
+          -28.120845090809024,
+          61.395240470821065,
+          12.881324378958249,
+          0,
+          0,
+          0,
+          -0.30666661179132215,
+          -0.032263563744921675,
+          -0.041324180343855765
+        ],
+        [
+          -199.07016399520646,
+          55.75185702289653,
+          -57.32128331336783,
+          166.9451148113091,
+          -2.076413707245351,
+          0,
+          36.13641379828991,
+          -36.4374751274261,
+          1.5451087350486996,
+          0.11654041560801953,
+          0.19285647053628274
+        ],
+        [
+          -199.1442051254189,
+          55.73792298934625,
+          -57.34940415845863,
+          167.00651005177994,
+          -2.0635323828663927,
+          0,
+          36.13641379828991,
+          -36.4374751274261,
+          1.5448020684369084,
+          0.11650815204427438,
+          0.1928151463559396
+        ],
+        [
+          -1.794472815489185,
+          0.5199515545083367,
+          -0.5132985664466045,
+          1.5052386697803897,
+          -0.02556545179974787,
+          0,
+          0.33248464871472116,
+          -0.33525465989563585,
+          0.014370079133825278,
+          0.0010884494951838915,
+          0.0017951642332182213
+        ]
+      ],
+      "foreign_periods": [
+        {
+          "alpha": 0.5111111111111111,
+          "end": "2027-11-04",
+          "fixing": "2027-04-30",
+          "index": "IR:EUR,LIBOR_6M_LCH",
+          "payment": "2027-11-08",
+          "start": "2027-05-04"
+        },
+        {
+          "alpha": 0.5055555555555555,
+          "end": "2028-05-04",
+          "fixing": "2027-11-02",
+          "index": "IR:EUR,LIBOR_6M_LCH",
+          "payment": "2028-05-08",
+          "start": "2027-11-04"
+        }
+      ],
+      "foreign_spread": false,
+      "grid": [
+        "2026-10-21",
+        "2027-04-30",
+        "2027-05-04",
+        "2027-08-02",
+        "2027-08-04",
+        "2027-11-02",
+        "2027-11-04",
+        "2027-11-08",
+        "2028-02-02",
+        "2028-02-04",
+        "2028-05-04",
+        "2028-05-08"
+      ],
+      "id": "xccy-2028-05-04",
+      "instrument": "sha256:79d8093d6314c02d2224e700109b9ccb546c4c0471e5a0726ad37fe55a3cc0c8",
+      "labels": [
+        "fxspot:EUR/USD",
+        "logdf:USD:OIS:2029-10-20",
+        "logdf:EUR:OIS:2029-10-20",
+        "logdf:USD:BASIS:EUR/USD:2027-11-08",
+        "logdf:USD:BASIS:EUR/USD:2028-05-08",
+        "logdf:USD:BASIS:EUR/USD:2028-11-08",
+        "logdf:USD:3M:2029-10-20",
+        "logdf:EUR:6M:2029-10-20",
+        "sigma:USD:2029-10-20",
+        "sigma:EUR:2029-10-20",
+        "sigma:EUR/USD:2029-10-20"
+      ],
+      "mapping": "sha256:d005a08bc0a3adcea595bf0add2ac49b10b021c025fb9d8bcefb34ee023c42de",
+      "maturity": "2028-05-04",
+      "mode": "MARK_TO_MARKET",
+      "model": {
+        "a": [
+          0.03,
+          0.07
+        ],
+        "bucket_dates": [
+          "2029-10-20"
+        ],
+        "correlation": [
+          [
+            1,
+            0.3,
+            -0.2
+          ],
+          [
+            0.3,
+            1,
+            -0.25
+          ],
+          [
+            -0.2,
+            -0.25,
+            1
+          ]
+        ],
+        "curves": [
+          {
+            "currency": "USD",
+            "dates": [
+              "2026-10-21",
+              "2029-10-20"
+            ],
+            "jacobian": [
+              [
+                0
+              ],
+              [
+                1
+              ]
+            ],
+            "labels": [
+              "logdf:USD:OIS:2029-10-20"
+            ],
+            "logdf": [
+              0,
+              -0.12000000000000001
+            ],
+            "route": "OIS",
+            "values": [
+              -0.12000000000000001
+            ]
+          },
+          {
+            "currency": "EUR",
+            "dates": [
+              "2026-10-21",
+              "2029-10-20"
+            ],
+            "jacobian": [
+              [
+                0
+              ],
+              [
+                1
+              ]
+            ],
+            "labels": [
+              "logdf:EUR:OIS:2029-10-20"
+            ],
+            "logdf": [
+              0,
+              -0.060000000000000005
+            ],
+            "route": "OIS",
+            "values": [
+              -0.060000000000000005
+            ]
+          },
+          {
+            "currency": "USD",
+            "dates": [
+              "2026-10-21",
+              "2027-11-08",
+              "2028-05-08",
+              "2028-11-08"
+            ],
+            "jacobian": [
+              [
+                0,
+                0,
+                0
+              ],
+              [
+                1,
+                0,
+                0
+              ],
+              [
+                0,
+                1,
+                0
+              ],
+              [
+                0,
+                0,
+                1
+              ]
+            ],
+            "labels": [
+              "logdf:USD:BASIS:EUR/USD:2027-11-08",
+              "logdf:USD:BASIS:EUR/USD:2028-05-08",
+              "logdf:USD:BASIS:EUR/USD:2028-11-08"
+            ],
+            "logdf": [
+              0,
+              -0.003147762475275851,
+              -0.004648652510145932,
+              -0.006305306271536386
+            ],
+            "route": "BASIS:EUR/USD",
+            "values": [
+              -0.003147762475275851,
+              -0.004648652510145932,
+              -0.006305306271536386
+            ]
+          },
+          {
+            "currency": "USD",
+            "dates": [
+              "2026-10-21",
+              "2029-10-20"
+            ],
+            "jacobian": [
+              [
+                0
+              ],
+              [
+                1
+              ]
+            ],
+            "labels": [
+              "logdf:USD:3M:2029-10-20"
+            ],
+            "logdf": [
+              0,
+              -0.135
+            ],
+            "route": "3M",
+            "values": [
+              -0.135
+            ]
+          },
+          {
+            "currency": "EUR",
+            "dates": [
+              "2026-10-21",
+              "2029-10-20"
+            ],
+            "jacobian": [
+              [
+                0
+              ],
+              [
+                1
+              ]
+            ],
+            "labels": [
+              "logdf:EUR:6M:2029-10-20"
+            ],
+            "logdf": [
+              0,
+              -0.078
+            ],
+            "route": "6M",
+            "values": [
+              -0.078
+            ]
+          }
+        ],
+        "identity": "sha256:1a9a66c1f002ae3a43a13dacbed7e64a45ca9120367a36b1228c9eb0565cbed0",
+        "sigma": [
+          [
+            0.01
+          ],
+          [
+            0.009
+          ],
+          [
+            0.12
+          ]
+        ],
+        "spot": 1.1,
+        "valuation": "2026-10-21"
+      },
+      "payment_lag": 2,
+      "receive": true,
+      "scenario": "staged",
+      "source": "sha256:57e51dc0b4e5c2e7428ccd6adc3b8e86e9de0e5c01b399d33b68c72f93cba67d"
+    },
+    {
+      "fit": "APPROXIMATE",
+      "calendars": [
+        "",
+        "",
+        "",
+        ""
+      ],
+      "coordinates": [
+        "interval:2026-10-21:2027-04-30:innovation:xd",
+        "interval:2026-10-21:2027-04-30:innovation:xf",
+        "interval:2026-10-21:2027-04-30:innovation:Id",
+        "interval:2026-10-21:2027-04-30:innovation:If",
+        "interval:2026-10-21:2027-04-30:innovation:Z",
+        "interval:2027-04-30:2027-05-04:innovation:xd",
+        "interval:2027-04-30:2027-05-04:innovation:xf",
+        "interval:2027-04-30:2027-05-04:innovation:Id",
+        "interval:2027-04-30:2027-05-04:innovation:If",
+        "interval:2027-04-30:2027-05-04:innovation:Z",
+        "interval:2027-05-04:2027-08-02:innovation:xd",
+        "interval:2027-05-04:2027-08-02:innovation:xf",
+        "interval:2027-05-04:2027-08-02:innovation:Id",
+        "interval:2027-05-04:2027-08-02:innovation:If",
+        "interval:2027-05-04:2027-08-02:innovation:Z",
+        "interval:2027-08-02:2027-08-04:innovation:xd",
+        "interval:2027-08-02:2027-08-04:innovation:xf",
+        "interval:2027-08-02:2027-08-04:innovation:Id",
+        "interval:2027-08-02:2027-08-04:innovation:If",
+        "interval:2027-08-02:2027-08-04:innovation:Z",
+        "interval:2027-08-04:2027-11-02:innovation:xd",
+        "interval:2027-08-04:2027-11-02:innovation:xf",
+        "interval:2027-08-04:2027-11-02:innovation:Id",
+        "interval:2027-08-04:2027-11-02:innovation:If",
+        "interval:2027-08-04:2027-11-02:innovation:Z",
+        "interval:2027-11-02:2027-11-04:innovation:xd",
+        "interval:2027-11-02:2027-11-04:innovation:xf",
+        "interval:2027-11-02:2027-11-04:innovation:Id",
+        "interval:2027-11-02:2027-11-04:innovation:If",
+        "interval:2027-11-02:2027-11-04:innovation:Z",
+        "interval:2027-11-04:2027-11-08:innovation:xd",
+        "interval:2027-11-04:2027-11-08:innovation:xf",
+        "interval:2027-11-04:2027-11-08:innovation:Id",
+        "interval:2027-11-04:2027-11-08:innovation:If",
+        "interval:2027-11-04:2027-11-08:innovation:Z",
+        "interval:2027-11-08:2028-02-02:innovation:xd",
+        "interval:2027-11-08:2028-02-02:innovation:xf",
+        "interval:2027-11-08:2028-02-02:innovation:Id",
+        "interval:2027-11-08:2028-02-02:innovation:If",
+        "interval:2027-11-08:2028-02-02:innovation:Z",
+        "interval:2028-02-02:2028-02-04:innovation:xd",
+        "interval:2028-02-02:2028-02-04:innovation:xf",
+        "interval:2028-02-02:2028-02-04:innovation:Id",
+        "interval:2028-02-02:2028-02-04:innovation:If",
+        "interval:2028-02-02:2028-02-04:innovation:Z",
+        "interval:2028-02-04:2028-05-02:innovation:xd",
+        "interval:2028-02-04:2028-05-02:innovation:xf",
+        "interval:2028-02-04:2028-05-02:innovation:Id",
+        "interval:2028-02-04:2028-05-02:innovation:If",
+        "interval:2028-02-04:2028-05-02:innovation:Z",
+        "interval:2028-05-02:2028-05-04:innovation:xd",
+        "interval:2028-05-02:2028-05-04:innovation:xf",
+        "interval:2028-05-02:2028-05-04:innovation:Id",
+        "interval:2028-05-02:2028-05-04:innovation:If",
+        "interval:2028-05-02:2028-05-04:innovation:Z",
+        "interval:2028-05-04:2028-05-08:innovation:xd",
+        "interval:2028-05-04:2028-05-08:innovation:xf",
+        "interval:2028-05-04:2028-05-08:innovation:Id",
+        "interval:2028-05-04:2028-05-08:innovation:If",
+        "interval:2028-05-04:2028-05-08:innovation:Z",
+        "interval:2028-05-08:2028-08-02:innovation:xd",
+        "interval:2028-05-08:2028-08-02:innovation:xf",
+        "interval:2028-05-08:2028-08-02:innovation:Id",
+        "interval:2028-05-08:2028-08-02:innovation:If",
+        "interval:2028-05-08:2028-08-02:innovation:Z",
+        "interval:2028-08-02:2028-08-04:innovation:xd",
+        "interval:2028-08-02:2028-08-04:innovation:xf",
+        "interval:2028-08-02:2028-08-04:innovation:Id",
+        "interval:2028-08-02:2028-08-04:innovation:If",
+        "interval:2028-08-02:2028-08-04:innovation:Z",
+        "interval:2028-08-04:2028-11-04:innovation:xd",
+        "interval:2028-08-04:2028-11-04:innovation:xf",
+        "interval:2028-08-04:2028-11-04:innovation:Id",
+        "interval:2028-08-04:2028-11-04:innovation:If",
+        "interval:2028-08-04:2028-11-04:innovation:Z",
+        "interval:2028-11-04:2028-11-07:innovation:xd",
+        "interval:2028-11-04:2028-11-07:innovation:xf",
+        "interval:2028-11-04:2028-11-07:innovation:Id",
+        "interval:2028-11-04:2028-11-07:innovation:If",
+        "interval:2028-11-04:2028-11-07:innovation:Z"
+      ],
+      "dimension": 80,
+      "domestic_periods": [
+        {
+          "alpha": 0.25555555555555554,
+          "end": "2027-08-04",
+          "fixing": "2027-04-30",
+          "index": "IR:USD,LIBOR_3M_LCH",
+          "payment": "2027-08-04",
+          "start": "2027-05-04"
+        },
+        {
+          "alpha": 0.25555555555555554,
+          "end": "2027-11-04",
+          "fixing": "2027-08-02",
+          "index": "IR:USD,LIBOR_3M_LCH",
+          "payment": "2027-11-04",
+          "start": "2027-08-04"
+        },
+        {
+          "alpha": 0.25555555555555554,
+          "end": "2028-02-04",
+          "fixing": "2027-11-02",
+          "index": "IR:USD,LIBOR_3M_LCH",
+          "payment": "2028-02-04",
+          "start": "2027-11-04"
+        },
+        {
+          "alpha": 0.25,
+          "end": "2028-05-04",
+          "fixing": "2028-02-02",
+          "index": "IR:USD,LIBOR_3M_LCH",
+          "payment": "2028-05-04",
+          "start": "2028-02-04"
+        },
+        {
+          "alpha": 0.25555555555555554,
+          "end": "2028-08-04",
+          "fixing": "2028-05-02",
+          "index": "IR:USD,LIBOR_3M_LCH",
+          "payment": "2028-08-04",
+          "start": "2028-05-04"
+        },
+        {
+          "alpha": 0.25555555555555554,
+          "end": "2028-11-04",
+          "fixing": "2028-08-02",
+          "index": "IR:USD,LIBOR_3M_LCH",
+          "payment": "2028-11-04",
+          "start": "2028-08-04"
+        }
+      ],
+      "fast": [
+        -162.79890827316754,
+        -8.125587472224154,
+        -8.288386380497322,
+        -0.04991180566512073
+      ],
+      "fast_gradient": [
+        [
+          -123.23471800009023,
+          -18.480509426146494,
+          -58.1129187060522,
+          61.99113953894823,
+          53.48554889320829,
+          12.912822984041801,
+          0,
+          0,
+          -0.5236653380099341,
+          -0.08498823166745623,
+          -0.08539633138523328
+        ],
+        [
+          -201.07094035982132,
+          73.10498657231906,
+          -75.81347463963976,
+          59.27348533691454,
+          111.00677396757445,
+          -3.210704199348797,
+          54.12859612247814,
+          -54.52681655617134,
+          3.278781409122571,
+          0.4064929117605879,
+          0.48488148055202096
+        ],
+        [
+          -201.19417507782143,
+          73.08650606289295,
+          -75.87158755834584,
+          59.335476476453486,
+          111.06025951646764,
+          -3.197791376364755,
+          54.12859612247814,
+          -54.52681655617134,
+          3.27825774378456,
+          0.4064079235289204,
+          0.4847960842206362
+        ],
+        [
+          -1.1973057751513916,
+          0.45471669897918154,
+          -0.44787127080856404,
+          0.345084596839073,
+          0.6654664628557609,
+          -0.02368078847462293,
+          0.3324874638081318,
+          -0.334933551671479,
+          0.02030061827049485,
+          0.0025229581218947903,
+          0.0030045887336536082
+        ]
+      ],
+      "foreign_periods": [
+        {
+          "alpha": 0.5111111111111111,
+          "end": "2027-11-04",
+          "fixing": "2027-04-30",
+          "index": "IR:EUR,LIBOR_6M_LCH",
+          "payment": "2027-11-08",
+          "start": "2027-05-04"
+        },
+        {
+          "alpha": 0.5055555555555555,
+          "end": "2028-05-04",
+          "fixing": "2027-11-02",
+          "index": "IR:EUR,LIBOR_6M_LCH",
+          "payment": "2028-05-08",
+          "start": "2027-11-04"
+        },
+        {
+          "alpha": 0.5111111111111111,
+          "end": "2028-11-04",
+          "fixing": "2028-05-02",
+          "index": "IR:EUR,LIBOR_6M_LCH",
+          "payment": "2028-11-07",
+          "start": "2028-05-04"
+        }
+      ],
+      "foreign_spread": false,
+      "grid": [
+        "2026-10-21",
+        "2027-04-30",
+        "2027-05-04",
+        "2027-08-02",
+        "2027-08-04",
+        "2027-11-02",
+        "2027-11-04",
+        "2027-11-08",
+        "2028-02-02",
+        "2028-02-04",
+        "2028-05-02",
+        "2028-05-04",
+        "2028-05-08",
+        "2028-08-02",
+        "2028-08-04",
+        "2028-11-04",
+        "2028-11-07"
+      ],
+      "id": "xccy-2028-11-04",
+      "instrument": "sha256:6695fad584f9dc1b71acff7b55210d6d8a788d5fa48d8446b50c7f823d1a280c",
+      "labels": [
+        "fxspot:EUR/USD",
+        "logdf:USD:OIS:2029-10-20",
+        "logdf:EUR:OIS:2029-10-20",
+        "logdf:USD:BASIS:EUR/USD:2027-11-08",
+        "logdf:USD:BASIS:EUR/USD:2028-05-08",
+        "logdf:USD:BASIS:EUR/USD:2028-11-08",
+        "logdf:USD:3M:2029-10-20",
+        "logdf:EUR:6M:2029-10-20",
+        "sigma:USD:2029-10-20",
+        "sigma:EUR:2029-10-20",
+        "sigma:EUR/USD:2029-10-20"
+      ],
+      "mapping": "sha256:dd9895f992c4abfc5047d51a65f90ddf0b1871027c2a1c167b3612d9805122ae",
+      "maturity": "2028-11-04",
+      "mode": "MARK_TO_MARKET",
+      "model": {
+        "a": [
+          0.03,
+          0.07
+        ],
+        "bucket_dates": [
+          "2029-10-20"
+        ],
+        "correlation": [
+          [
+            1,
+            0.3,
+            -0.2
+          ],
+          [
+            0.3,
+            1,
+            -0.25
+          ],
+          [
+            -0.2,
+            -0.25,
+            1
+          ]
+        ],
+        "curves": [
+          {
+            "currency": "USD",
+            "dates": [
+              "2026-10-21",
+              "2029-10-20"
+            ],
+            "jacobian": [
+              [
+                0
+              ],
+              [
+                1
+              ]
+            ],
+            "labels": [
+              "logdf:USD:OIS:2029-10-20"
+            ],
+            "logdf": [
+              0,
+              -0.12000000000000001
+            ],
+            "route": "OIS",
+            "values": [
+              -0.12000000000000001
+            ]
+          },
+          {
+            "currency": "EUR",
+            "dates": [
+              "2026-10-21",
+              "2029-10-20"
+            ],
+            "jacobian": [
+              [
+                0
+              ],
+              [
+                1
+              ]
+            ],
+            "labels": [
+              "logdf:EUR:OIS:2029-10-20"
+            ],
+            "logdf": [
+              0,
+              -0.060000000000000005
+            ],
+            "route": "OIS",
+            "values": [
+              -0.060000000000000005
+            ]
+          },
+          {
+            "currency": "USD",
+            "dates": [
+              "2026-10-21",
+              "2027-11-08",
+              "2028-05-08",
+              "2028-11-08"
+            ],
+            "jacobian": [
+              [
+                0,
+                0,
+                0
+              ],
+              [
+                1,
+                0,
+                0
+              ],
+              [
+                0,
+                1,
+                0
+              ],
+              [
+                0,
+                0,
+                1
+              ]
+            ],
+            "labels": [
+              "logdf:USD:BASIS:EUR/USD:2027-11-08",
+              "logdf:USD:BASIS:EUR/USD:2028-05-08",
+              "logdf:USD:BASIS:EUR/USD:2028-11-08"
+            ],
+            "logdf": [
+              0,
+              -0.003147762475275851,
+              -0.004648652510145932,
+              -0.006305306271536386
+            ],
+            "route": "BASIS:EUR/USD",
+            "values": [
+              -0.003147762475275851,
+              -0.004648652510145932,
+              -0.006305306271536386
+            ]
+          },
+          {
+            "currency": "USD",
+            "dates": [
+              "2026-10-21",
+              "2029-10-20"
+            ],
+            "jacobian": [
+              [
+                0
+              ],
+              [
+                1
+              ]
+            ],
+            "labels": [
+              "logdf:USD:3M:2029-10-20"
+            ],
+            "logdf": [
+              0,
+              -0.135
+            ],
+            "route": "3M",
+            "values": [
+              -0.135
+            ]
+          },
+          {
+            "currency": "EUR",
+            "dates": [
+              "2026-10-21",
+              "2029-10-20"
+            ],
+            "jacobian": [
+              [
+                0
+              ],
+              [
+                1
+              ]
+            ],
+            "labels": [
+              "logdf:EUR:6M:2029-10-20"
+            ],
+            "logdf": [
+              0,
+              -0.078
+            ],
+            "route": "6M",
+            "values": [
+              -0.078
+            ]
+          }
+        ],
+        "identity": "sha256:1a9a66c1f002ae3a43a13dacbed7e64a45ca9120367a36b1228c9eb0565cbed0",
+        "sigma": [
+          [
+            0.01
+          ],
+          [
+            0.009
+          ],
+          [
+            0.12
+          ]
+        ],
+        "spot": 1.1,
+        "valuation": "2026-10-21"
+      },
+      "payment_lag": 2,
+      "receive": true,
+      "scenario": "staged",
+      "source": "sha256:7211026ba8c52eee8e6f81419ece2ca7f4e321fa03566deb7f02e56166d56900"
+    }
+  ]
+}
