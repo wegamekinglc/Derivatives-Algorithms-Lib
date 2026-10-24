@@ -1718,3 +1718,99 @@ REDs, 25-axis statistical gaps, observed HeldOut and every original identity,
 model/fixture/seed/path count/reservation/scale/budget/threshold remain.
 DAL425/396 stay **in_progress**; this checkpoint grants no numerical V1,
 quote-risk, P4, platform or performance acceptance.
+
+## DAL-425 signed finite-stream component checkpoint, 2026-10-24
+
+This section appends to the complete accepted 112298-byte prefix (SHA256
+`4ad38c2a36975bd7a21d92776439d10f03955c2b2941ce4932cf2ae4c31c55bd`).
+The original safety tree and all 1009 pre-existing non-record evidence files
+are preserved. The new branch starts at accepted PR643 squash
+`32e9a68869ac5ecb8ff677f0e147d862b783ce85`; no closed PR or accepted helper
+is modified. The initially created runtime checkout was left unused; all
+proof work and publication use the named original preserved tree.
+
+The new private reference is `dal425-finite-stream-bias-reference.md` in
+this directory. Two new helpers and one new test module under
+`dal-cpp/tests/script/` implement signed exponential-polynomial pairing,
+a common annuity AM-GM anchor and a homotopy bound for the ratio of
+coefficient means. The derivation retains coefficient/deterministic/loading
+native derivatives, common coordinates, positive denominator, identical
+nonnegative fixed mean weights, both denominator movements and all eleven
+native columns. It assumes no IID law. No model, production, build, public,
+fixture, RNG, sampling, estimator, budget or threshold changes occur.
+
+The pre-execution PLAN freezes the method, six original geometries, support
+M=6.25, scalar E=9.006864425e-9, trusted 236-bit mpmath1.3.0 interval/libmp
+arithmetic and 900-second per-command cost cap. There is no subdivision or
+domain search. A bounded cache of exact exponent/anchor/radius/precision
+keys removes repeated identical arithmetic; it changes no endpoint formula.
+Initial generation took 584.03s, and final-source canonical replay took
+264.11s, both exit0. Every field and binary endpoint is identical. These
+private proof CPU timings are not product performance evidence. Initial
+source was not separately snapshotted before style/cache changes; final
+source/dependency identities and exact replay qualify the shipped code.
+
+Across six fits/geometries, 230 of 288 raw majorants tighten; the other 58
+retain accepted old D1 via an explicit minimum. All 144 raw new Price/par
+value/native transform-component bounds fit the original individual budgets;
+22 old sufficient bounds exceeded them. For EXACT D80, Price falls from
+0.0005823268854153046 to <0.000085316932651948 USD; par from
+0.001288694284698725 to <0.000000177204225505; par FXsigma from
+6.793714939462238 to <0.000019926127895808 per sigma. Strict absolute
+annuity minima exceed 32.3210431/37.1028799/38.3098836 for both fits.
+The package contains canonical old/raw/selected endpoints, every native
+unit/budget and denominator control, and a 288-row CSV. This is solely a
+mathematical transform component conditional on scalar applicability.
+
+New deterministic verification: fourteen unit tests pass, including all
+eleven native polynomials against the independent direct cashflow evaluator
+and an analytic rational control needing all five native quotient terms.
+Fourteen isolated omissions produce assertion failures, zero harness errors.
+New-only commands (all final positive commands exit0):
+
+```bash
+python -m unittest discover -s dal-cpp/tests/script -p test_xccy_acceptance_finite_bias.py -v
+python dal-cpp/tests/script/xccy_acceptance_finite_bias.py acceptance-finite-bias/certificate-initial.json --accepted acceptance-bias/certificate-final.json
+python dal-cpp/tests/script/xccy_acceptance_finite_bias.py acceptance-finite-bias/certificate-initial.json --accepted acceptance-bias/certificate-final.json --verify
+python acceptance-finite-bias/mutations.py
+ruff check --line-length 110 --select E,F,C901 --config 'lint.mccabe.max-complexity=8' dal-cpp/tests/script/xccy_acceptance_finite_math.py dal-cpp/tests/script/xccy_acceptance_finite_bias.py dal-cpp/tests/script/test_xccy_acceptance_finite_bias.py
+ruff format --check --line-length 110 dal-cpp/tests/script/xccy_acceptance_finite_math.py dal-cpp/tests/script/xccy_acceptance_finite_bias.py dal-cpp/tests/script/test_xccy_acceptance_finite_bias.py
+lizard -C 8 dal-cpp/tests/script/xccy_acceptance_finite_math.py dal-cpp/tests/script/xccy_acceptance_finite_bias.py dal-cpp/tests/script/test_xccy_acceptance_finite_bias.py
+```
+
+The corrected signed-pair control fails before the factorization and passes
+after it; its first overly trivial version had passed and is retained.
+Initial mutation-substitution, style/CCN, empty objdump symbol selections
+and one audit filename error remain separate from corrected final evidence.
+No production behavior was repaired. Existing accepted 18 tests, six D1/D2/D3
+certificates, 408FD, scalar/libm cells, old MC, native/install/three-platform
+and product performance matrices are inherited only, not rerun.
+
+The bounded read-only caller audit adds retained linked adapter/MRG/scalar
+instruction evidence and actual log/exp relocation identities. It does not
+repeat the accepted 21-source/object/libm audit. The retained executable
+still hashes `b4151ec3502b0e3426a77b74e3c2540094fb17430f95b53022cba22b0ade6aed`.
+Source/config and linked static instructions select the intended Precise
+scalar route, conditional on the instantiated object flag. Historical
+per-call rounding/MXCSR/FTZ/DAZ, resolved GOT implementations and the complete
+virtual caller/pipeline are not reconstructed. A new probe cannot recreate
+those historical facts; minimal contemporaneous evidence is listed in the
+new reference. The actual joint-law dependency also remains independent.
+
+No remaining transform-component bound exceeds its budget in the stated
+domain, but actual caller applicability and total numerical qualification
+are still missing. `financial_bias_bound_qualified`,
+`actual_joint_law_qualified`, `caller_binding_qualified` and
+`original_numerical_pass` remain false. Accepted conditional D2 and original
+288-row total-error overlay are unchanged and not recalculated. All original
+18+six overall FAILs, 288/216/214 counts, Price/par/FXsigma precision/combined,
+D80-x4 exhaustion, five FD hard-floor REDs/full eFD, 25-axis sampling gaps,
+Precise ideal RED 6.04063e-10>5e-13, observed HeldOut, original
+source/config/binary/model/fixture/seed/B16/n16384/factor/count/reservation/
+scale/budget/threshold identities remain. Original M4x4 Price3SE
+0.05917492649405597>0.0025 USD and par0.001072359542351817>0.000025 remain.
+Zero new MC/paths, VR, pool/RNG, epsilon or estimator changes; no relabeling.
+DAL425/396 remain in_progress. This checkpoint grants no complete numerical
+V1, quote-risk or P4 qualification. Only one new-head CI snapshot is taken;
+no watch/poll/rerun/merge/delegation. New mathematical review belongs to the
+existing reviewer chain, coordinated after this exact-head handoff.
