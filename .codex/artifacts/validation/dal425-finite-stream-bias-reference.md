@@ -19,7 +19,7 @@ K=.001, spot1.1, sigma, bucket, dates, curves and native Jacobian are admitted.
 All eleven native axes retain their original identities and units.
 
 For rounded-grid ideal normals z, accepted Mills/support arithmetic gives
-| z_j | <=M=25/4. Subject to the accepted scalar's caller assumptions, |
+`|z_j|<=M=25/4`. Subject to the accepted scalar's caller assumptions,
 the corresponding scalar normals are z+e with |e_j|<=E=9.006864425e-9.
 E is the same rational upper bound, never a sampled error or a replacement
 5e-13 target. The entire homotopy z(t)=z+t e, 0<=t<=1, lies in
@@ -92,7 +92,7 @@ box proves a strictly positive absolute lower bound m for D and every
 coefficient mean throughout the homotopy.
 
 For any signed S, |S(z)|<=C D(z) implies
-| sum_i w_i S(z_i) | <=C sum_i w_i D(z_i). It is enough to enclose S/J, since |
+`|sum_i w_i S(z_i)|<=C sum_i w_i D(z_i)`. It is enough to enclose S/J, since
 J<=D. This establishes the same normalized bound for every legal finite
 weighted mean without dividing a separate global numerator maximum by a
 separate global denominator minimum. It does not replace the ratio of
@@ -127,12 +127,12 @@ cashflow or a fixed denominator assumption.
 
 Let r=bar(B)/bar(D)=-bar(B)/bar(A). For a dot denoting t differentiation,
 the mean-value bound and |e_ij|<=E imply
-| dot(bar(B)) | /bar(D)<=E V and |
-|-------------|------------------|
+`|dot(bar(B))|/bar(D)<=E V` and
+`|dot(bar(B_theta))|/bar(D)<=E Vt`. This uses the absolute directional
 derivative on each path before summing weights; path perturbations may
 differ, and are not factored out of a signed mean. Similarly,
-| dot(bar(D)) | /bar(D)<=E L and |
-|-------------|------------------|
+`|dot(bar(D))|/bar(D)<=E L` and
+`|dot(bar(D_theta))|/bar(D)<=E W`.
 
 The exact mean-quotient identities are
 
