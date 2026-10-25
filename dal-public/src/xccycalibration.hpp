@@ -4,13 +4,23 @@
 
 #pragma once
 
+#include <dal/platform/platform.hpp>
+
+#include <dal/curve/xccybasiscalibration.hpp>
 #include <dal/curve/xccycalibration.hpp>
 #include <dal/curve/xccyjointcalibration.hpp>
-#include <dal/platform/platform.hpp>
 
 #include <dal-public/src/curvespec.hpp>
 
 namespace Dal {
+
+    Handle_<CalibrationInstrument_> NewXccyScriptInstrument(const Handle_<CrossCurrencySwap_>& native, const XccyScriptImportSettings_& settings);
+    XccyInstrumentCalibrationResult_ CalibrateXccyInstrumentMarket(const XccyInstrumentCalibrationSpec_& spec,
+                                                                   const CurveInstrumentCalibrationOptions_& options = {});
+    Handle_<CalibrationReport_>
+    XccyInstrumentCapabilities(const Handle_<CalibrationInstrument_>& instrument, const String_& measure, const XccyScriptContext_& context);
+    [[nodiscard]] const Handle_<DiscountCurve_>& XccyInstrumentResultBasisCurve(const XccyInstrumentCalibrationResult_& result);
+    [[nodiscard]] const Handle_<CalibrationReport_>& XccyInstrumentResultReport(const XccyInstrumentCalibrationResult_& result);
 
     struct CrossCurrencyCalibrationSpecBuilder_ {
         Date_ today_;

@@ -16,7 +16,87 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-10-24
+
+- **Core mixed-mapping XCCY MC baskets** — added immutable prepared member
+  allocations with absolute scalar seeking, complete estimator covariance and
+  owning partial failures. Members retain their dated grids and fixed phase
+  reservations; covariance describes marginal estimation error. Frozen numerical
+  acceptance remains unmet. See the
+  [core basket guide](docs/methodology/script_calibration_contract.md#prepared-core-xccy-mc-baskets).
+
+- **Public mixed-mapping XCCY baskets** — added C++, Python and Excel
+  Prepare/Evaluate calls with required phase, sampling and fixing snapshot,
+  owning partial failures and separate complete/partial/outcome JSON exports.
+  A public C++ example demonstrates member estimates and full estimator
+  covariance. No product basket validator or calibrated quote risk is provided;
+  frozen numerical acceptance remains unmet. See the
+  [basket calling recipe](docs/methodology/script_calibration_contract.md#calling-prepared-xccy-mc-baskets).
+
+- **Public stochastic XCCY** — added typed C++, Python and Excel access to
+  the domestic-collateral Gaussian model, explicit stochastic staged fitting,
+  same-source GaussianFast and phased script MC with native partials and owning
+  diagnostics. Separate result extensions retain mapping and phase ranges;
+  existing report tables and legacy defaults are unchanged. Frozen MC precision
+  acceptance remains unmet; this does not deliver calibrated quote risk. See the
+  [stochastic XCCY guide](docs/methodology/script_calibration_contract.md#stochastic-xccy-model-and-phased-mc).
+
+## 2026-10-23
+
+- **Staged XCCY instrument calibration** — added shared Price/BasisSpread
+  observations over frozen domestic/foreign backgrounds, native basis parameters,
+  scaled EXACT/APPROXIMATE fitting and owning failure reports in C++, Python
+  and Excel. Existing native staged/joint behavior is preserved; XCCY MC and
+  calibrated quote risk remain unavailable. See the
+  [staged XCCY guide](docs/methodology/script_calibration_contract.md#staged-xccy-instrument-calibration).
+
 ## 2026-10-22
+
+- **Deterministic XCCY script cashflows** — added one-time native import,
+  complete source/AST and event-date admission, Price/signed BasisSpread and
+  native raw FD/AAD for supported dual-leg principal/reset/MTM mappings.
+  Future FX preserves the basis direction; NativeXccyTimestamp freezes exact
+  history and same-time policy. Stochastic XCCY and quote risk remain unavailable.
+  See the [XCCY guide](docs/methodology/script_calibration_contract.md#deterministic-xccy-script-cashflows).
+
+- **Public GSR script calibration** — added required frozen-valuation settings,
+  selected-g fitting through existing Gaussian fast/MC drivers in C++, Python
+  and Excel, owning model/report failures and separate fit, numerical and held-out
+  outcomes. The same bound instrument supports subsequent MC repricing; calibrated
+  quote risk remains unavailable. See the [GSR interface guide](docs/methodology/script_calibration_contract.md#gsr-instrument-calibration-settings-and-results).
+
+- **Public script calibration interfaces** — added owning typed reports,
+  immutable contract/binding and native-import facades, curve calibration and
+  explicit same-instrument MC repricing in C++, Python and Excel. Reports
+  retain actual methods, native axes and failures; calibrated quote risk
+  remains unavailable. See the [interface guide](docs/methodology/script_calibration_contract.md#public-c-python-and-excel-interfaces).
+
+- **Gaussian script Price MC calibration** — added an explicitly enabled core
+  selected-g driver for admitted scalar Price programs, including running
+  arithmetic averages, with raw native Jacobians, bounded fitting and separate
+  fit, numerical-validation and held-out outcomes. Fit and held-out rows require
+  a common normal-draw dimension. Existing vanilla fast paths
+  retain their checks. See the
+  [MC calibration guide](docs/methodology/script_calibration_contract.md#gaussian-script-price-mc-calibration).
+
+- **Deterministic curve script families** — added one-time FRA, IRS,
+  period-forward OIS and Basis imports plus weighted/amortizing source
+  cashflows, with source-derived Price/par, explicit projection binding and
+  raw native FD/AAD. New families remain deterministic and preserve explicit
+  settlement, fixing, units and annuity limits. See the
+  [curve-family guide](docs/methodology/script_calibration_contract.md#deterministic-fra-swap-basis-and-custom-cashflows).
+
+- **Gaussian Caplet/Swaption script Price** — added bounded core one-time
+  exporters, source-derived native Gaussian Price fast paths and signed
+  RateStrike bindings, with same-contract MC/AAD validation and explicit
+  payment-measure, effective-rank and derivative admission limits. See the
+  [rate-option guide](docs/methodology/script_calibration_contract.md#gaussian-caplet-and-swaption-price).
+
+- **Native-coordinate script curve calibration** — added prepared Deposit
+  observations, explicit candidate curve routing, FD/AAD raw measure Jacobians
+  and ordered curve stages. New EXACT/APPROXIMATE acceptance separates row
+  scales from fit weight and L2 tolerance; legacy native calls retain their
+  existing behavior. See the [curve instrument guide](docs/methodology/script_calibration_contract.md#native-curve-instrument-calibration).
 
 - **Compiled Monte Carlo default** — core and public C++, Python, and Excel
   Monte Carlo APIs use compiled evaluation by default, including AAD and LSMC.

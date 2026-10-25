@@ -1,6 +1,7 @@
 #include <cmath>
 #include <iostream>
 #include <numeric>
+#include <sstream>
 
 #include <dal-public/src/calendar.hpp>
 #include <dal-public/src/dupirecurvature.hpp>
@@ -20,9 +21,35 @@
 #include <dal/model/ivs.hpp>
 #include <dal/script/lsmccurvature.hpp>
 #include <dal/script/simulation.hpp>
+#include <dal/script/visitor/debugger.hpp>
 #include <dal/utilities/numerics.hpp>
 
 namespace {
+    bool CheckDebuggerTreeEncoding() {
+        const std::string expected[] = {
+            "\xe2\x94\x9c\xe2\x94\x80\xe2\x94\x80 \n\xe2\x94\x94\xe2\x94\x80\xe2\x94\x80 \n\xe2\x94\x82   \n    \n+\n"
+            "\xe2\x88\x92\n\xc3\x97\n\xc3\xb7\n^\n\xe2\x88\x92\nln\nexp\n\xe2\x88\x9a\nmax\nmin\n=\n>\n"
+            "\xe2\x89\xa5\n\xe2\x88\xa7\n\xe2\x88\xa8\n\xc2\xac\n\xe2\x8a\xa4\n\xe2\x8a\xa5\n\xe2\x86\x90\n\xe2\x87\x90\n"
+            "\xe2\x96\xb6 \n\xe2\x96\xb7 \n? \n\xf0\x9f\x93\x85\n\xc2\xb7\n\xe2\x9f\xa8\n\xe2\x9f\xa9\n\xce\xb5\n",
+            "|-- \n`-- \n|   \n    \n+\n-\n*\n/\n^\n-\nln\nexp\nsqrt\nmax\nmin\n=\n>\n>=\nand\nor\nnot\ntrue\nfalse\n<-\n<=\n> \n. \n? "
+            "\n#\n@\n<\n>\neps\n"};
+        for (const bool ascii : {false, true}) {
+            const auto& style = Dal::Script::TreeStyle(ascii);
+            std::ostringstream actual;
+            for (const auto* symbol :
+                 {style.tee,    style.elbow,  style.pipe, style.blank, style.plus,   style.minus,   style.times, style.over,  style.power,
+                  style.negate, style.logS,   style.expS, style.sqrtS, style.maxS,   style.minS,    style.eqS,   style.gtS,   style.geS,
+                  style.andS,   style.orS,    style.notS, style.trueS, style.falseS, style.assignS, style.paysS, style.thenS, style.elseS,
+                  style.condS,  style.eventS, style.dotS, style.lAng,  style.rAng,   style.epsS})
+                actual << symbol << '\n';
+            if (actual.str() != expected[ascii]) {
+                std::cerr << "Installed debugger tree symbol bytes differ; ascii=" << ascii << '\n';
+                return false;
+            }
+        }
+        return true;
+    }
+
     bool CheckOwningEuropeanPdeBoundary() {
         Dal::EuropeanPdeRiskRequest_ request;
         request.settings_.gridPoints_ = 9;
@@ -226,6 +253,8 @@ namespace {
 } // namespace
 
 int main() {
+    if (!CheckDebuggerTreeEncoding())
+        return 18;
     if (!CheckOwningEuropeanPdeBoundary())
         return 17;
     if (!CheckSmoothCurvature())

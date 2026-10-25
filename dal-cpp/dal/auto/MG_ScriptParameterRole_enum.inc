@@ -12,6 +12,7 @@ Vector_<ScriptParameterRole_> ScriptParameterRoleListAll() {
         TheScriptParameterRoleList().emplace_back(ScriptParameterRole_::Value_::Coupon);
         TheScriptParameterRoleList().emplace_back(ScriptParameterRole_::Value_::Strike);
         TheScriptParameterRoleList().emplace_back(ScriptParameterRole_::Value_::Accrual);
+        TheScriptParameterRoleList().emplace_back(ScriptParameterRole_::Value_::RateStrike);
    }
    return TheScriptParameterRoleList();
 }
@@ -31,6 +32,8 @@ const char* ScriptParameterRole_::String() const {
         return "Strike";
     case Value_::Accrual:
         return "Accrual";
+    case Value_::RateStrike:
+        return "RateStrike";
         
     }}
 
@@ -56,6 +59,9 @@ struct ReadStringScriptParameterRole_
 
 	else if (String::Equivalent(src, "ACCRUAL"))
         *val = ScriptParameterRole_::Value_::Accrual;
+
+	else if (String::Equivalent(src, "RATESTRIKE"))
+        *val = ScriptParameterRole_::Value_::RateStrike;
         else
             ret_val = false;
         return ret_val;

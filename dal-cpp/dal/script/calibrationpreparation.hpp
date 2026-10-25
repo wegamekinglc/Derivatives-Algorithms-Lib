@@ -4,6 +4,7 @@
 
 #include <dal/calibration/protocol.hpp>
 #include <dal/model/gsrdata.hpp>
+#include <dal/protocol/rateoption.hpp>
 #include <dal/script/instrument.hpp>
 
 /*IF--------------------------------------------------------------------------
@@ -52,6 +53,7 @@ namespace Dal {
         bool allowMonteCarloCalibration_ = false;
         std::optional<CalibrationSamplingSpec_> sampling_;
     };
+    struct XccyScriptContext_;
     struct CalibrationPreparationContext_ {
         Script::ScriptValuationSettings_ valuation_;
         Ccy_ currency_;
@@ -60,6 +62,7 @@ namespace Dal {
         Handle_<ModelData_> model_;
         String_ conventionState_ = "dal.fixed-dates/1";
         double smoothing_ = 0.;
+        std::shared_ptr<const XccyScriptContext_> xccy_;
     };
     struct CalibrationCashflow_ {
         Date_ eventDate_;
@@ -79,7 +82,21 @@ namespace Dal {
         bool call_ = true;
         String_ index_;
     };
-    using CalibrationFastDescriptor_ = std::variant<CalibrationDepositDescriptor_, CalibrationBondOptionDescriptor_>;
+    struct CalibrationRateOptionDescriptor_ {
+        std::variant<Caplet_, Swaption_> option_;
+        double notional_ = 0.;
+    };
+    struct CalibrationScriptMcDescriptor_ {};
+    struct CalibrationCurveFamilyDescriptor_;
+    struct CalibrationXccyDescriptor_;
+    using CalibrationXccy_ = std::shared_ptr<const CalibrationXccyDescriptor_>;
+    using CalibrationCurveFamily_ = std::shared_ptr<const CalibrationCurveFamilyDescriptor_>;
+    using CalibrationFastDescriptor_ = std::variant<CalibrationDepositDescriptor_,
+                                                    CalibrationBondOptionDescriptor_,
+                                                    CalibrationRateOptionDescriptor_,
+                                                    CalibrationScriptMcDescriptor_,
+                                                    CalibrationCurveFamily_,
+                                                    CalibrationXccy_>;
     struct CalibrationPreparationCapability_ {
         String_ ruleId_;
         CalibrationBackend_ backend_;

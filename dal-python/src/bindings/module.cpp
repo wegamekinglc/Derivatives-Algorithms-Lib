@@ -86,6 +86,8 @@ PYBIND11_MODULE(_dal, m) {
     init_bindings_script(m);
 
     init_bindings_value(m);
+    init_bindings_calibrationinstrument(m);
+    init_bindings_gsrinstrument(m);
 
     init_bindings_risk(m);
 

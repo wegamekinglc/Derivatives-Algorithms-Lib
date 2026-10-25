@@ -1,1 +1,1 @@
-"""Optional DAL/QuantLib/rateslib comparison; no dependency on these at import."""
+"""DAL/QuantLib/rateslib/InFine comparison; backends are loaded only for execution."""

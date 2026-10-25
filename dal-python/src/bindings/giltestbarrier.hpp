@@ -26,7 +26,13 @@ namespace Dal::Python {
             *armed = false;
             std::unique_lock<std::mutex> lock(mutex_);
             entered_ = true;
+            condition_.notify_all();
             REQUIRE(condition_.wait_for(lock, std::chrono::seconds(5), [this] { return released_; }), timeoutMessage);
+        }
+
+        bool AwaitEntry() {
+            std::unique_lock<std::mutex> lock(mutex_);
+            return condition_.wait_for(lock, std::chrono::seconds(5), [this] { return entered_; });
         }
 
         bool Release() {

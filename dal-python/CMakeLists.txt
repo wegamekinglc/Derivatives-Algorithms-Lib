@@ -221,9 +221,15 @@ pybind11_add_module(_dal
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/curve.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/global.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/gsr.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/gsrinstrument.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/models.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/random.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/script.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/calibrationinstrument.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/calibrationtypes.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/xccyinstrument.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/xccymontecarlo.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/xccymontecarlobasket.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/value.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/risk.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/weightedrisk.cpp
@@ -324,6 +330,8 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/src/dal/
 # ---------------------------------------------------------------------------
 if(DAL_PYTHON_BUILD_TESTS)
     enable_testing()
+    target_sources(_dal PRIVATE tests/native/xccymontecarlo.cpp tests/native/xccymontecarlobasket.cpp)
+    target_compile_definitions(_dal PRIVATE DAL_XCCY_TEST_BRIDGE)
 
     if(NOT DAL_PYTHON_IS_TOPLEVEL)
         pybind11_add_module(_dal_quote_risk_test tests/native/jointquoterisk.cpp)

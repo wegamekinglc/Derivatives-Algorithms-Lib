@@ -18,6 +18,10 @@ C++ implementation. Model and curve-specific mathematics lives in the
 
 - [Automatic adjoint differentiation](aad.md) — tape ownership, recording,
   derivatives, parallel evaluation, and curve-calibration primitives.
+- [Structural Jacobians](aad-sparsity.md) — conservative supports, compressed
+  native execution, and complete rate-trade Jacobians.
+- [Scoped passive constants](passive-constants.md) — core GSR Monte Carlo opt-in,
+  recording ownership, and memory limits.
 - [Script engine](script_engine.md) — syntax, preparation, FIX observations,
   evaluator passes, and diagnostics.
 - [Core script calibration contracts](script_calibration_contract.md) — immutable

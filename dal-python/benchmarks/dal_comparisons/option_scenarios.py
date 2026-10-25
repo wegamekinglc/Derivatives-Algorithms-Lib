@@ -17,10 +17,10 @@ CONVENTIONS = {
     "dates": [TODAY.isoformat(), MATURITY.isoformat()],
     "day_count": DAY_COUNT,
     "barrier": "up-and-out call, H=130, zero rebate; 52 weekly observations including maturity",
-    "sampling": "Sobol: DAL initial point 0, QuantLib seed 42; no Brownian bridge or antithetics; generators restart per valuation",
+    "sampling": "Sobol: DAL initial point 0, QuantLib seed 42, InFine point 1; no Brownian bridge or antithetics; generators restart per valuation",
     "greeks": "PV, Delta, Vega, Rho; derivatives per unit spot/decimal vol/decimal rate",
     "bumps": list(BUMPS),
-    "methods": "DAL vanilla: reverse AAD; other Greeks: central differences with common random numbers; barrier reference uses identical finite bumps",
+    "methods": "DAL vanilla: reverse AAD; InFine vanilla: hand-written reverse adjoint; other Greeks: central differences with common random numbers; barrier reference uses identical finite bumps",
     "boundary": "fresh product/model/engine construction, preprocessing, simulation and output conversion; oracle excluded",
     "oracle": "vanilla analytic Black-Scholes; discrete barrier Gaussian transition quadrature; field-specific MC tolerances",
 }

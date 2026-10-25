@@ -85,6 +85,28 @@ namespace {
         r.finiteDifferenceError_ = {std::abs(fine - coarse)};
         return r;
     }
+    void RecordMcMatrixRow(const std::string& key, double g, const CalibrationMcReference_& fast, const CalibrationMcResult_& result) {
+        const auto record = [&](const std::string& field, const auto& value) { ::testing::Test::RecordProperty(key + "_" + field, value); };
+        record("g", g);
+        record("fast", fast.value_);
+        record("fd_fine", fast.gradient_[0]);
+        record("fd_refinement", fast.finiteDifferenceError_[0]);
+        record("mean", result.mean_);
+        record("se", result.standardError_);
+        record("gradient", result.gradient_[0]);
+        record("gradient_se", result.gradientStandardError_[0]);
+        record("instrument", std::string(result.instrumentIdentity_.c_str()));
+        record("context", std::string(result.contextIdentity_.c_str()));
+        record("mapping", std::string(result.mappingIdentity_.c_str()));
+        record("plan", std::string(result.planIdentity_.c_str()));
+        for (size_t i = 0; i < result.batches_.size(); ++i) {
+            const auto batch = "batch_" + std::to_string(i) + "_";
+            record(batch + "first", static_cast<int>(result.ranges_[i].firstPath_));
+            record(batch + "paths", static_cast<int>(result.ranges_[i].pathCount_));
+            record(batch + "value", result.batches_[i].value_);
+            record(batch + "gradient", result.batches_[i].derivatives_[0]);
+        }
+    }
 } // namespace
 
 TEST(GSRBondOptionScriptTest, TestExporterOwnsSourceAndRebinding) {
@@ -528,7 +550,16 @@ TEST(GSRBondOptionScriptTest, TestExportedTreeCompiledAndCrnPathwiseAad) {
 TEST(GSRBondOptionNumericalTest, TestFrozenOracleFastAndSameBindingMcAtInitialNonrootAndFit) {
     for (bool call : {true, false}) {
         const auto instrument = Instrument(call);
-        for (double g : {0.012, 0.016, 0.02}) {
+        const auto fit = CalibrateGaussianBondOptions(Context(0.012), {Observation(instrument, Oracle(0.02, call))}, {{0, 0, 0., 0.1}});
+        ASSERT_TRUE(fit.fitWithinTolerance_);
+        const double fitted = fit.parameters_[0];
+        const std::string side = call ? "call" : "put";
+        RecordProperty(side + "_definition", std::string(instrument->Definition()->DefinitionIdentity().c_str()));
+        RecordProperty(side + "_binding", std::string(instrument->BindingIdentity().c_str()));
+        RecordProperty(side + "_fitted_g", fitted);
+        int ordinal = 0;
+        for (double g : {0.012, 0.016, fitted, fitted + 1e-4, fitted - 1e-4, fitted + 5e-5, fitted - 5e-5}) {
+            SCOPED_TRACE(g);
             const auto c = Context(g);
             const auto reference = Reference(instrument, g);
             ASSERT_NEAR(reference.value_, Oracle(g, call), 1e-10);
@@ -536,14 +567,15 @@ TEST(GSRBondOptionNumericalTest, TestFrozenOracleFastAndSameBindingMcAtInitialNo
             const auto plan = PrepareCalibrationMc(instrument, "Price", c, McSettings());
             ASSERT_EQ(plan.Mapping().numeraire_, "dal.native-gsr/1");
             const auto result = plan.Evaluate(instrument, c, true);
+            ASSERT_EQ(result.instrumentIdentity_, instrument->InstrumentIdentity());
+            const CalibrationMcReference_ oracle{Oracle(g, call), 0., 0., {Vega(g)}, {0.}, {0.}};
+            ASSERT_TRUE(ValidateCalibrationMc(result, oracle, Precision()).numericalValidationPassed_);
             const auto acceptance = ValidateCalibrationMc(result, reference, Precision());
             ASSERT_TRUE(acceptance.numericalValidationPassed_)
                 << "g=" << g << " call=" << call << " value=" << result.mean_ << " SE=" << result.standardError_;
             ASSERT_EQ(result.pathsPerView_, 262144);
             ASSERT_EQ(result.engineRuns_, 16);
-            const auto key = std::string(call ? "call_" : "put_") + std::to_string(g);
-            RecordProperty(key, std::to_string(result.mean_) + "," + std::to_string(result.standardError_) + "," +
-                                    std::to_string(result.gradient_[0]) + "," + std::to_string(result.gradientStandardError_[0]));
+            RecordMcMatrixRow(side + "_" + std::to_string(ordinal++), g, reference, result);
         }
     }
 }

@@ -3,9 +3,11 @@
 
 #include <dal-excel/src/__script_test_api.hpp>
 #include <dal-public/src/global.hpp>
+#include <dal-public/src/repository.hpp>
 #include <dal/concurrency/threadpool.hpp>
 #include <dal/indice/detail/fixingobserver.hpp>
 #include <dal/script/detail/simulationobserver.hpp>
+#include <dal/storage/_repository.hpp>
 #include <dal/storage/globals.hpp>
 
 #if defined(DAL_EXCEL_TEST_API_EXPORTS) || defined(DAL_EXCEL_API_TESTS_PORTABLE)
@@ -30,6 +32,10 @@ namespace Dal::Excel {
         return previous;
     }
     void ScriptTestStoreFixings(const String_& name, const FixHistory_& history) { XGLOBAL::StoreFixings(name, history, false); }
+    String_ ScriptTestStoreRepository(const Handle_<Storable_>& object) {
+        ENV_SEED_TYPE(ObjectAccess_);
+        return StoreRepository(_env, object);
+    }
     Detail::FixingReadObserver_*& ScriptTestFixingObserver() { return Detail::FixingReadObserver(); }
     Script::Detail::SimulationObserver_*& ScriptTestSimulationObserver() { return Script::Detail::SimulationObserver(); }
     void ScriptTestWithRecording(const std::function<void(size_t)>& action, bool finishBeforeAction, double* adjoint) {

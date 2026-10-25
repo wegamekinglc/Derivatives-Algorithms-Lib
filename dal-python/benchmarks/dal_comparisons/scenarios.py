@@ -4,7 +4,13 @@ from bisect import bisect_left
 from datetime import datetime, timedelta
 import math
 
-from . import calibration_scenarios, exercise_scenarios, gsr_scenarios, option_scenarios
+from . import (
+    calibration_scenarios,
+    exercise_scenarios,
+    gsr_scenarios,
+    infine,
+    option_scenarios,
+)
 from .constants import DAY_COUNT, TODAY
 
 NODES = [datetime(2025 + year, 1, 15) for year in range(22)]
@@ -16,6 +22,7 @@ RISK_METHODS = {
     "dal": "reverse AAD",
     "quantlib": "central finite difference",
     "rateslib": "forward AD (Dual)",
+    "infine": "central finite difference",
 }
 CONVENTIONS = {
     "valuation_date": TODAY.isoformat(),
@@ -47,6 +54,7 @@ CONVENTIONS = {
     "early_exercise": exercise_scenarios.CONVENTIONS,
     "calibration": calibration_scenarios.CONVENTIONS,
     "gaussian_short_rate": gsr_scenarios.CONVENTIONS,
+    "infine": infine.CONVENTIONS,
 }
 
 
@@ -79,6 +87,8 @@ def cases(smoke=False):
 
 
 def unsupported_reason(backend, case):
+    if backend == "infine":
+        return infine.unsupported_reason(case)
     if backend == "rateslib" and case["operation"] in gsr_scenarios.SWAPTION_OPERATIONS:
         return "rateslib has no GSR short-rate swaption pricing engine"
     if backend == "rateslib" and case["operation"].startswith("mc_"):
@@ -157,6 +167,8 @@ def node_dv01(trade):
 
 
 def method(backend, case):
+    if backend == "infine":
+        return infine.method(case)
     if case["operation"].startswith("gsr_"):
         return gsr_scenarios.method(backend, case)
     if case["operation"].startswith("mc_"):

@@ -17,7 +17,7 @@ from .scenarios import (
     validate,
 )
 
-SCHEMA = "dal.python-comparisons/7"
+SCHEMA = "dal.python-comparisons/8"
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -33,6 +33,12 @@ def source_hashes():
     paths = list((ROOT / "dal_comparisons").glob("*.py"))
     paths += list((ROOT / "dal_benchmarks").glob("*.py"))
     paths += [ROOT / "run_comparisons.py", ROOT / "requirements-comparisons.txt"]
+    paths += [ROOT / "prepare_infine.py"]
+    paths += [
+        p
+        for p in (ROOT / "infine").iterdir()
+        if p.suffix in (".cs", ".csproj") or p.name == "packages.lock.json"
+    ]
     return {path.relative_to(ROOT).as_posix(): sha256(path) for path in sorted(paths)}
 
 
