@@ -11,9 +11,7 @@
 namespace Dal {
     namespace {
         using namespace CalibrationInternal;
-        struct CouponViews_ {
-            double low_, high_;
-        };
+        using XccyMcInternal::CouponViews_;
         CouponViews_ CouponViews(const PreparedCalibrationInstrument_& admitted) {
             Check(std::holds_alternative<CalibrationXccy_>(admitted.Descriptor()), "MCCrossCurrencyUnsupported", "/instrument",
                   "complete admitted XCCY source");
@@ -192,49 +190,90 @@ namespace Dal {
                 return {a, b, da, db};
             }
         };
-        void Accumulate(const CalibrationAffineCoefficients_& c, size_t paths, CalibrationMcBatchValue_* batch) {
-            batch->coefficients_->a_ += c.a_ / paths;
-            batch->coefficients_->b_ += c.b_ / paths;
-            for (size_t j = 0; j < c.da_.size(); ++j) {
-                Check(std::isfinite(c.da_[j]) && std::isfinite(c.db_[j]), "CalibrationNumericalFailure", "/derivatives", "finite native partials");
-                batch->coefficients_->da_[j] += c.da_[j] / paths;
-                batch->coefficients_->db_[j] += c.db_[j] / paths;
-            }
-        }
     } // namespace
 
-    struct PreparedXccyMc_::Impl_ {
-        PreparedCalibrationInstrument_ admitted_;
-        CouponViews_ views_;
-        Script::PreparedXccyScript_ zero_, unit_;
-        Handle_<XccyGaussianModelData_> model_;
-        XccyMcSettings_ settings_;
-        CalibrationMcMapping_ mapping_;
-        XccyMcReservation_ reservation_;
-        String_ identity_;
-        double coupon_;
-
-        Impl_(const Handle_<CalibrationInstrument_>& instrument,
-              const String_& measure,
-              const CalibrationPreparationContext_& context,
-              const Handle_<XccyGaussianModelData_>& model,
-              const XccyMcSettings_& settings)
-            : admitted_(PrepareCalibrationInstrument(instrument, measure, context)), views_(CouponViews(admitted_)),
-              zero_(Rebind(instrument, views_.low_), Freeze(admitted_, context), model),
-              unit_(Rebind(instrument, views_.high_), Freeze(admitted_, context), model), model_(model), settings_(settings),
-              coupon_(std::get<CalibrationXccy_>(admitted_.Descriptor())->coupon_) {
-            const Script::XccyScriptPathProvider_<> provider(zero_);
-            mapping_ = Dal::Mapping(provider.Model(), settings.seed_);
-            reservation_ = PrepareXccyMcReservation(settings, mapping_);
-            identity_ = Fingerprint(Obj({{"admission", Str(admitted_.PlanIdentity())},
-                                         {"model", Str(model->Identity())},
-                                         {"mapping", Str(mapping_.identity_)},
-                                         {"reservation", Str(reservation_.identity_)},
-                                         {"compiled", Bool(settings.compiled_)},
-                                         {"aad", Bool(settings.aad_)},
-                                         {"labels", Array(settings.parameterLabels_, [](const auto& x) { return Str(x); })},
-                                         {"rule", Str("dal.xccy-gaussian-script-mc/1")}}));
+    void XccyMcInternal::Accumulate(const CalibrationAffineCoefficients_& c, size_t paths, CalibrationMcBatchValue_* batch) {
+        batch->coefficients_->a_ += c.a_ / paths;
+        batch->coefficients_->b_ += c.b_ / paths;
+        for (size_t j = 0; j < c.da_.size(); ++j) {
+            Check(std::isfinite(c.da_[j]) && std::isfinite(c.db_[j]), "CalibrationNumericalFailure", "/derivatives", "finite native partials");
+            batch->coefficients_->da_[j] += c.da_[j] / paths;
+            batch->coefficients_->db_[j] += c.db_[j] / paths;
         }
+    }
+    void XccyMcInternal::FinishBatch(double coupon, CalibrationMcBatchValue_* batch) {
+        batch->value_ = batch->coefficients_->b_ + coupon * batch->coefficients_->a_;
+        for (size_t j = 0; j < batch->coefficients_->db_.size(); ++j)
+            batch->derivatives_.push_back(batch->coefficients_->db_[j] + coupon * batch->coefficients_->da_[j]);
+    }
+    XccyMcInternal::Member_::Member_(const Handle_<CalibrationInstrument_>& instrument,
+                                     const String_& measure,
+                                     const CalibrationPreparationContext_& context,
+                                     const Handle_<XccyGaussianModelData_>& model,
+                                     const XccyMcSettings_& settings)
+        : admitted_(PrepareCalibrationInstrument(instrument, measure, context)), views_(CouponViews(admitted_)),
+          frozenContext_(Freeze(admitted_, context)), zero_(Rebind(instrument, views_.low_), frozenContext_, model),
+          unit_(Rebind(instrument, views_.high_), frozenContext_, model), model_(model), settings_(settings),
+          coupon_(std::get<CalibrationXccy_>(admitted_.Descriptor())->coupon_) {
+        const Script::XccyScriptPathProvider_<> provider(zero_);
+        mapping_ = Dal::Mapping(provider.Model(), settings.seed_);
+        reservation_ = PrepareXccyMcReservation(settings, mapping_);
+        identity_ = Fingerprint(Obj({{"admission", Str(admitted_.PlanIdentity())},
+                                     {"model", Str(model->Identity())},
+                                     {"mapping", Str(mapping_.identity_)},
+                                     {"reservation", Str(reservation_.identity_)},
+                                     {"compiled", Bool(settings.compiled_)},
+                                     {"aad", Bool(settings.aad_)},
+                                     {"labels", Array(settings.parameterLabels_, [](const auto& x) { return Str(x); })},
+                                     {"rule", Str("dal.xccy-gaussian-script-mc/1")}}));
+    }
+
+    namespace {
+        template <class T_> class BoundExecution_ final : public XccyMcInternal::CoefficientExecution_ {
+            const XccyMcInternal::Member_& member_;
+            Execution_<T_> execution_;
+
+        public:
+            BoundExecution_(const XccyMcInternal::Member_& member, const Handle_<XccyGaussianModelData_>& data)
+                : member_(member), execution_(member.zero_, member.unit_, data, member.settings_) {
+                execution_.RequireMapping(member.mapping_.dimension_);
+            }
+            CalibrationAffineCoefficients_ Next(const Vector_<>& normals, CalibrationMcResult_* estimate) override {
+                return execution_.Coefficients(member_.zero_, member_.unit_, normals, member_.views_, member_.settings_.compiled_, estimate);
+            }
+        };
+    } // namespace
+    void XccyMcInternal::RequireDerivatives(const XccyGaussianModelData_& model, const XccyMcSettings_& settings) {
+        Check(settings.aad_ != settings.parameterLabels_.empty(), "DerivativeUnavailable", "/derivatives",
+              "AAD with explicit native labels, or None without labels");
+        if (!settings.aad_)
+            return;
+        const auto inputs = XccyGaussianMomentInputs(model);
+        Vector_<String_> labels;
+        static_cast<void>(XccyGaussianMomentNativeMap(model, &labels));
+        static_cast<void>(CalibrationMcParameterColumns(labels, settings.parameterLabels_));
+        for (size_t i = inputs.sigmaOffsets_[0]; i < inputs.values_.size(); ++i)
+            Check(inputs.values_[i] > 0., "DerivativeUnavailable", "/derivatives/sigma", "interior nonzero-rank volatility configuration");
+    }
+    void XccyMcInternal::Member_::Preflight(const Handle_<XccyGaussianModelData_>& data) const {
+        model_->RequireSameGeometry(*data);
+        RequireDerivatives(*data, settings_);
+        const Script::XccyScriptPathProvider_<> low(zero_, data), high(unit_, data);
+        const auto mapping = Dal::Mapping(low.Model(), settings_.seed_);
+        Check(Bytes(mapping.identity_) == Bytes(mapping_.identity_) && mapping.dimension_ == mapping_.dimension_ &&
+                  low.Model().Grid() == high.Model().Grid(),
+              "CalibrationContextMismatch", "/sampling/mapping", "unchanged full dated mapping");
+        // Each independent recording is destroyed here, before the next member is preflighted.
+        static_cast<void>(Execution(data));
+    }
+    std::unique_ptr<XccyMcInternal::CoefficientExecution_> XccyMcInternal::Member_::Execution(const Handle_<XccyGaussianModelData_>& data) const {
+        if (settings_.aad_)
+            return std::make_unique<BoundExecution_<AAD::Number_>>(*this, data);
+        return std::make_unique<BoundExecution_<double>>(*this, data);
+    }
+
+    struct PreparedXccyMc_::Impl_ : XccyMcInternal::Member_ {
+        using Member_::Member_;
         template <class T_> [[nodiscard]] XccyMcResult_ Run(const Handle_<XccyGaussianModelData_>& data) const {
             Execution_<T_> execution(zero_, unit_, data, settings_);
             execution.RequireMapping(mapping_.dimension_);
@@ -267,12 +306,10 @@ namespace Dal {
                     if (path == 0)
                         result.firstNormals_.push_back(normals);
                     const auto coefficients = execution.Coefficients(zero_, unit_, normals, views_, settings_.compiled_, &estimate);
-                    Accumulate(coefficients, paths, &batch);
+                    XccyMcInternal::Accumulate(coefficients, paths, &batch);
                     Retain(coefficients, &result);
                 }
-                batch.value_ = batch.coefficients_->b_ + coupon_ * batch.coefficients_->a_;
-                for (size_t j = 0; j < n; ++j)
-                    batch.derivatives_.push_back(batch.coefficients_->db_[j] + coupon_ * batch.coefficients_->da_[j]);
+                XccyMcInternal::FinishBatch(coupon_, &batch);
                 estimate.batches_.push_back(batch);
                 estimate.ranges_.push_back({range.firstPath_, paths});
                 estimate.pathsPerView_ += paths;
@@ -301,16 +338,7 @@ namespace Dal {
         preliminary.seed_ = settings.seed_;
         preliminary.identity_ = "preflight";
         static_cast<void>(PrepareXccyMcReservation(settings, preliminary));
-        Check(settings.aad_ != settings.parameterLabels_.empty(), "DerivativeUnavailable", "/derivatives",
-              "AAD with explicit native labels, or None without labels");
-        if (settings.aad_) {
-            const auto inputs = XccyGaussianMomentInputs(*model);
-            Vector_<String_> labels;
-            static_cast<void>(XccyGaussianMomentNativeMap(*model, &labels));
-            static_cast<void>(CalibrationMcParameterColumns(labels, settings.parameterLabels_));
-            for (size_t i = inputs.sigmaOffsets_[0]; i < inputs.values_.size(); ++i)
-                Check(inputs.values_[i] > 0., "DerivativeUnavailable", "/derivatives/sigma", "interior nonzero-rank volatility configuration");
-        }
+        XccyMcInternal::RequireDerivatives(*model, settings);
         impl_ = std::make_shared<const Impl_>(instrument, measure, context, model, settings);
     } catch (const CalibrationError_& error) {
         OwnFailure(instrument, measure, model, error, CalibrationStage_::Value_::Prepare);

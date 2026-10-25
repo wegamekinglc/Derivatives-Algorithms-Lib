@@ -2,6 +2,8 @@
 #include "__calibrationinstrumentinput.hpp"
 #include "__platform.hpp"
 #include "__scriptinput.hpp"
+#include "__xccyinput.hpp"
+#include <dal-public/src/xccymontecarlo.hpp>
 
 /*IF--------------------------------------------------------------------------
 public XccyScriptContext_New
@@ -84,85 +86,8 @@ report is handle CalibrationReport
     Plan attempts including the MC unsupported reason
 -IF-------------------------------------------------------------------------*/
 
-namespace Dal::Excel::Calibration {
-    template <> struct Input_<DateTime_> {
-        static DateTime_ Read(const Cell_& cell) {
-            if (Cell::IsDateTime(cell))
-                return Cell::ToDateTime(cell);
-            if (Cell::IsDate(cell) || Cell::IsString(cell))
-                return DateTime_(Input_<Date_>::Read(cell));
-            const double serial = Input_<double>::Read(cell), day = std::floor(serial);
-            REQUIRE(day >= 0. && day <= INT_MAX, "InvalidCalibrationInput: valuation_time outside date range");
-            return DateTime_(Date::FromExcel(static_cast<int>(day)), serial - day);
-        }
-    };
-} // namespace Dal::Excel::Calibration
-
 namespace Dal {
     namespace {
-        class XccyFields_ {
-            const Matrix_<Cell_>& cells_;
-            String_ function_;
-            std::map<std::string, int> rows_;
-            std::set<std::string> used_;
-
-            String_ Location(const String_& key, int row, int column) const {
-                return Excel::ScriptSettingLocation(function_, "settings", row + 1, column) + "field=" + key + "; ";
-            }
-            String_ Key(int row) const {
-                try {
-                    return Excel::Calibration::Text(cells_(row, 0));
-                } catch (const Exception_& error) {
-                    THROW(Location("", row, 1) + error.what());
-                }
-            }
-            static bool Empty(const Matrix_<Cell_>& cells) {
-                return cells.Rows() == 0 || (cells.Rows() == 1 && cells.Cols() == 1 && Cell::IsEmpty(cells(0, 0)));
-            }
-
-        public:
-            XccyFields_(const Matrix_<Cell_>& cells, const String_& function, std::initializer_list<const char*> allowed)
-                : cells_(cells), function_(function) {
-                if (Empty(cells))
-                    return;
-                REQUIRE(cells.Cols() == 2,
-                        Location("", 0, cells.Cols() < 2 ? cells.Cols() + 1 : 3) + "InvalidCalibrationInput: expected two field/value columns");
-                const std::set<std::string> keys(allowed.begin(), allowed.end());
-                std::set<String_> normalized;
-                for (int row = 0; row < cells.Rows(); ++row) {
-                    const auto key = Key(row);
-                    REQUIRE(normalized.insert(key).second, Location(key, row, 1) + "InvalidCalibrationInput: duplicate normalized field " + key);
-                    REQUIRE(keys.count(Excel::Calibration::Bytes(key)) != 0, Location(key, row, 1) + "InvalidCalibrationInput: unknown key " + key);
-                    rows_.emplace(Excel::Calibration::Bytes(key), row);
-                }
-            }
-            template <class T_> T_ Required(const char* key) {
-                used_.insert(key);
-                const auto found = rows_.find(key);
-                REQUIRE(found != rows_.end(), Location(key, 0, 2) + "InvalidCalibrationInput: missing key " + String_(key));
-                try {
-                    return Excel::Calibration::Input_<T_>::Read(cells_(found->second, 1));
-                } catch (const Exception_& error) {
-                    THROW(Location(key, found->second, 2) + "InvalidCalibrationInput: field=" + String_(key) + "; cause=" + error.what());
-                }
-            }
-            template <class T_> T_ Default(const char* key, const T_& fallback) {
-                used_.insert(key);
-                return rows_.count(key) ? Required<T_>(key) : fallback;
-            }
-            template <class T_> std::optional<T_> Maybe(const char* key) {
-                used_.insert(key);
-                const auto found = rows_.find(key);
-                if (found == rows_.end() || Cell::IsEmpty(cells_(found->second, 1)))
-                    return std::nullopt;
-                return Required<T_>(key);
-            }
-            void Finish() const {
-                for (const auto& [key, row] : rows_)
-                    REQUIRE(used_.count(key) != 0, Location(String_(key), row, 1) + "InvalidCalibrationInput: unknown key " + String_(key));
-            }
-        };
-
         template <class T_> const T_& Settings(const Handle_<StorableCalibrationValue_<T_>>& value) {
             REQUIRE(value, "InvalidCalibrationInput: nonnull typed XCCY settings");
             return value->val_;
@@ -199,7 +124,8 @@ namespace Dal {
     void XccyInstrumentCalibrationSpec_New(const Matrix_<Cell_>& settings, Handle_<StorableXccyInstrumentCalibrationSpec_>* value) {
         using namespace Excel::Calibration;
         XccyFields_ f(settings, "XccyInstrumentCalibrationSpec_New",
-                      {"context", "domestic_curve_block", "foreign_curve_block", "fx_spot", "knot_dates", "observations", "solver"});
+                      {"context", "domestic_curve_block", "foreign_curve_block", "fx_spot", "knot_dates", "observations", "solver",
+                       "gaussian_dynamics", "basis_parameterization"});
         XccyInstrumentCalibrationSpec_ v;
         v.context_ = f.Required<XccyScriptContext_>("context");
         v.domesticCurveBlock_ = f.Required<Handle_<StorableCurveBlock_>>("domestic_curve_block")->val_;
@@ -208,6 +134,8 @@ namespace Dal {
         v.knotDates_ = f.Required<Vector_<Date_>>("knot_dates");
         v.observations_ = f.Required<Vector_<Handle_<CalibrationObservation_>>>("observations");
         v.solver_ = f.Default<CurveInstrumentSolver_>("solver", v.solver_);
+        v.gaussianDynamics_ = f.Maybe<Handle_<XccyGaussianDynamics_>>("gaussian_dynamics").value_or(Handle_<XccyGaussianDynamics_>());
+        v.basisParameterization_ = f.Default<CurveParameterization_>("basis_parameterization", v.basisParameterization_);
         f.Finish();
         value->reset(new StorableXccyInstrumentCalibrationSpec_(v));
     }
@@ -224,11 +152,13 @@ namespace Dal {
         const auto configuration = options ? options->val_ : CurveInstrumentCalibrationOptions_();
         try {
             const auto result = CalibrateXccyInstrumentMarket(input, configuration);
-            outcome->reset(new StorableCalibrationOutcome_("Succeeded", result.report_, result.curve_));
+            outcome->reset(
+                new StorableCalibrationOutcome_("Succeeded", result.report_, result.curve_, {}, handle_cast<ModelData_>(result.gaussianModel_)));
         } catch (const CalibrationError_& error) {
             const auto candidate = handle_cast<XccyInstrumentCalibrationCandidate_>(error.Failure().candidate_);
-            outcome->reset(new StorableCalibrationOutcome_("Failed", error.Failure().report_,
-                                                           candidate ? candidate->Result().curve_ : Handle_<DiscountCurve_>()));
+            outcome->reset(
+                new StorableCalibrationOutcome_("Failed", error.Failure().report_, candidate ? candidate->Result().curve_ : Handle_<DiscountCurve_>(),
+                                                {}, candidate ? handle_cast<ModelData_>(candidate->Result().gaussianModel_) : Handle_<ModelData_>()));
         }
     }
     void CalibrationInstrument_Get_XccyCapabilities(const Handle_<CalibrationInstrument_>& instrument,
