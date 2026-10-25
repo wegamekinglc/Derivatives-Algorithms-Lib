@@ -2028,3 +2028,99 @@ Original M4x4 Price3SE.05917492649405597>.0025USD and par
 claim of technical exhaustion; no new paths/VR/pooling/RNG/epsilon/estimator
 or business decision. DAL425/396 remain in_progress. New finite proof/helper
 and direct impact go back to the original coordinator/reviewer chain.
+
+## PR647 accepted-master integration, 2026-10-25
+
+This delivery integrates accepted documentation only and repairs the new
+saved-output helper's exact source admission. It does not independently
+review the new mathematical certificate or change its numerical conclusions.
+
+Original head bcdf21eddb86b40ebd8677f2de73c0bbeb41b19c and accepted master
+1a295ead5b53810cdb89e665e5fdf1f2be0d7b76 are the ordered parents of normal
+merge 4c7a7162d5a8f9f7a84887ab596fcd0867d4b9ac. Master has unique parent
+accepted645 dd6ddc3e9dd1637634287bcbe8dd8d5bc7fc49a4. Its 11 documentation
+paths, +747/-974, are inherited unchanged, including four retired records.
+There is no upstream product/build/RNG/model delta. The same safe tree,
+feature/dal-425-fixed-output-error and PR647 are retained.
+
+### Source admission and numerical preservation
+
+Frozen C410 remains 67450bytes/SHA256
+c2ff68e1a696b620682b896ca9b292ec6d577bf92cadb3597991b427267733d5.
+Accepted C410 is 67796bytes/SHA256
+6f1231c60cd1667601a84c1bf1d5c00b855a3bae81b9a88e0d115fc637e6e1f4.
+The entire body from section1 onward is byte-identical; only the status
+header changed. C398's separate accepted header is outside this input set.
+The old helper genuinely rejects current C410 after merge, exit1. The new
+helper admits exactly these two full hashes at the exact C410 relative path;
+all other21 input/source checks retain their original hashes. No filename,
+arbitrary header/body or general compatibility override is accepted.
+
+The original input_sha256 map remains the frozen dependency identity. The
+only added certificate field, model_decision_admission, records the actual
+root's admitted digest separately, the frozen digest, exact compatible
+status digest and accepted commit. All original top-level fields and all
+36 complete row structures are exactly equal to bcdf, including every
+Gaussian/reference/signed/absolute/annuity/budget/directpayload value.
+Current/frozen roots differ only in this new identity object. All36 report
+and18 directPrice REDs and four globalfalse flags remain unchanged.
+All financial arithmetic function/class ASTs match bcdf; only read_inputs
+and certify gain source metadata, with one new identity admission function.
+
+Source freeze 2026-10-25T09:32:00.372462Z is a new integration freeze;
+the original post-observation method and execution timing remain recorded.
+New helper SHA256 4afdcbd9f9151f46f6cd16af7bf92ce02456ad36d777e253e4d904cad8139c25,
+test SHA256 90d1c42b6d24c08bc68dad00cb88d58fdcb3850e0ad48db66877bb76965d032a.
+New certificate generation starts09:32:00.404430Z, ends09:32:00.567766Z,
+exit0/CPU0.162484s. Runtime-verify records the actual new helper/interpreter,
+loaded modules/libraries and unchanged inherited financial manifests
+separately; no current financial execution or historical-runtime claim.
+
+### Existing tests, new controls and failure repair
+
+Existing focused13 tests plus2 new identity tests pass,15 total. The new
+accepted-header case first fails through the actual source-identity
+ValueError; exact registered admission repairs that failure. An initial
+format check required formatting; final Ruff/format and CCN<=8 pass.
+Six complete-loader real-input controls reject changed status header,
+modelbody, emptydocument, registeredmodel at another source path,
+changedothersource and changedfrozenfixture through intended ValueErrors.
+
+Exact commands, each foreground/bounded at120seconds, are captured under
+acceptance-fixed-output-integration with real stdout/stderr/exit/timing:
+
+```text
+python -B -m unittest discover -s dal-cpp/tests/script -p test_xccy_acceptance_fixed_output.py -k accepted_model_header -v  # RED before fix, exit1
+python -B -m unittest discover -s dal-cpp/tests/script -p test_xccy_acceptance_fixed_output.py -v  # 15 pass, exit0
+python -B dal-cpp/tests/script/xccy_acceptance_fixed_output.py .codex/artifacts/validation/dal425-fixed-output-certificate.json --verify  # current root exit0
+python -B acceptance-fixed-output-integration/check_admission.py  # 36 unchanged, both roots, six refusals, exit0
+python -B dal-cpp/tests/script/xccy_acceptance_fixed_output.py acceptance-fixed-output-integration/frozen-root-certificate.json --root acceptance-fixed-output/isolated --verify  # frozen root exit0
+python -B acceptance-fixed-output-integration/verify_runtime.py  # canonical verify plus real runtime identities, exit0
+ruff check dal-cpp/tests/script/xccy_acceptance_fixed_output.py dal-cpp/tests/script/test_xccy_acceptance_fixed_output.py  # exit0
+ruff format --check dal-cpp/tests/script/xccy_acceptance_fixed_output.py dal-cpp/tests/script/test_xccy_acceptance_fixed_output.py  # exit0
+lizard -C 8 dal-cpp/tests/script/xccy_acceptance_fixed_output.py dal-cpp/tests/script/test_xccy_acceptance_fixed_output.py  # exit0
+```
+
+The full132608-byte bcdf record prefix retains SHA256
+22ec56833e7a893d2e1f9659c3037dc7f1658b9fc5502239ab44343be6736b27,
+including accepted125526-byte prefix/SHA256
+c788971185a3306718bb25f18823a878e8c322d06c69a5271755ab4e761036b9.
+The historical4825-file inventory is checked with only exact11 inherited
+documentation changes and this ownrecord append permitted. All1883 retained
+acceptance files captured at this integration's start remain byte-identical;
+original acceptance-fixed-output package/source/freeze/commands/isolated
+replay and every older evidence directory are preserved. Retired upstream
+tracked records are not restored to satisfy an obsolete all-tree identity.
+
+The reference gives current-root and frozen-root commands and certificate
+identity restrictions. The integration ZIP retains exact current inputs,
+frozen C410, original bcdf source/certificate, new sources/commands/results
+and scope/preservation identities for independent review and replay.
+Zero new MC/product execution/recompile/probe/state sampling; no old
+D2/normal/libm/financial proof, native/install/performance matrix rerun.
+No production/performance callers change, so benchmark selection is empty.
+Financial calculations, fixtures, original model/seed/budgets/thresholds,
+all18+six FAILs,288/216/214,full eFD/fivefloorRED/25axes/PreciseidealRED,
+observedHeldOut and all four globalfalse flags retain their previous limits.
+New math/full five ownpaths and this integration await independent review;
+DAL425 remains in_progress, without self-dispatching review or merging PR647.

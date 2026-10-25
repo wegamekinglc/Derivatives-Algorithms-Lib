@@ -9,8 +9,13 @@ from dataclasses import dataclass
 from fractions import Fraction as F
 from pathlib import Path
 
+MODEL_DECISION = ".codex/artifacts/api-notes/dal-410-xccy-mc-model-decision.md"
+ACCEPTED_MODEL_STATUS = (
+    "6f1231c60cd1667601a84c1bf1d5c00b855a3bae81b9a88e0d115fc637e6e1f4"
+)
+MODEL_STATUS_COMMIT = "1a295ead5b53810cdb89e665e5fdf1f2be0d7b76"
 INPUTS = {
-    ".codex/artifacts/api-notes/dal-410-xccy-mc-model-decision.md": "c2ff68e1a696b620682b896ca9b292ec6d577bf92cadb3597991b427267733d5",
+    MODEL_DECISION: "c2ff68e1a696b620682b896ca9b292ec6d577bf92cadb3597991b427267733d5",
     "dal-cpp/tests/script/fixtures/xccy_bias_frozen_inputs.json": "5c2f3d48861e173185219bd32fad7cbf49a6c9e92918586b9a7bc0bd8108837a",
     "acceptance-basket/APPROXIMATE-x1.command.json": "0671ffaf92d4236bd18480fbc2e369aad0086806c99154f0c68a7c2f19649736",
     "acceptance-basket/APPROXIMATE-x1.json": "a5c25f86fcb8e182ec8577f154b19b325c8a54475003a5edd95ccddc9f9e5adf",
@@ -177,11 +182,27 @@ def load_bound_json(path, expected):
     return json.loads(raw, parse_float=str)
 
 
+def model_decision_identity(raw):
+    digest = hashlib.sha256(raw).hexdigest()
+    require(
+        digest in (INPUTS[MODEL_DECISION], ACCEPTED_MODEL_STATUS),
+        "inherited source identity: " + MODEL_DECISION,
+    )
+    return {
+        "frozen_sha256": INPUTS[MODEL_DECISION],
+        "admitted_sha256": digest,
+        "compatible_status_sha256": ACCEPTED_MODEL_STATUS,
+        "status_commit": MODEL_STATUS_COMMIT,
+    }
+
+
 def read_inputs(root):
     data = {}
     for name, digest in INPUTS.items():
         path = root / name
-        if name.endswith(".json"):
+        if name == MODEL_DECISION:
+            data[name] = model_decision_identity(path.read_bytes())
+        elif name.endswith(".json"):
             data[name] = load_bound_json(path, digest)
         else:
             require(
@@ -428,6 +449,7 @@ def certify(root):
             "reference_trust": "inherited PR643 outward Gaussian coefficient expectations, not its IID-grid error theorem",
             "arithmetic": "exact CPython Fraction; display floors/ceilings at 35 decimal places",
             "input_sha256": INPUTS,
+            "model_decision_admission": data[MODEL_DECISION],
             "global_flags": dict.fromkeys(GLOBAL_FLAGS, False),
             "summary": summarize(rows),
             "rows": rows,

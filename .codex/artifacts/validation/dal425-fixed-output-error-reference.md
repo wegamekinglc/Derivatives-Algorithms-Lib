@@ -184,6 +184,75 @@ The current driver and CMake cache differ from the original frozen versions
 after intervening accepted work; they are not passed off as the old build
 or rerun. The original accepted build provenance remains the input identity.
 
+## Accepted documentation integration and exact source admission
+
+PR647 merges accepted documentation master
+`1a295ead5b53810cdb89e665e5fdf1f2be0d7b76` into original proof head
+`bcdf21eddb86b40ebd8677f2de73c0bbeb41b19c`. Merge commit
+`4c7a7162d5a8f9f7a84887ab596fcd0867d4b9ac` has those two parents,
+in that order. Its 11 documentation paths are inherited upstream changes;
+the proof does not restore retired records or modify those documents.
+
+The original certificate used C410's frozen 67,450 bytes, SHA256
+`c2ff68e1a696b620682b896ca9b292ec6d577bf92cadb3597991b427267733d5`.
+Accepted master's C410 has 67,796 bytes, SHA256
+`6f1231c60cd1667601a84c1bf1d5c00b855a3bae81b9a88e0d115fc637e6e1f4`.
+Its status header now records the accepted decision and current capability;
+the complete body from `## 1. Audience` onward is byte-identical. The model,
+formulas, parameters, numerical budgets and acceptance requirements remain
+the same. C398's inherited header update is outside this helper's input set.
+
+The helper registers exactly these two full-file C410 hashes at its exact
+relative path. No arbitrary header, body change or basename is accepted;
+all other 21 frozen input/source admissions retain their original hashes.
+`input_sha256` continues to identify the original frozen dependencies.
+The added `model_decision_admission` object records the actual root's
+`admitted_sha256`, the original `frozen_sha256`, the exact compatible status
+hash and its accepted master commit. It does not claim a historical execution
+used the new document. A different admitted document produces different
+identity metadata, so a certificate for one root cannot silently verify
+against the other. No mathematical certificate field changes.
+
+Integration source froze at **2026-10-25 09:32:00.372462 UTC**, after the
+original post-observation proof. New generation at 09:32:00.404430 UTC
+finished at 09:32:00.567766 UTC, exit 0, 0.162484 CPU seconds. This is a new
+source/metadata replay, without a new timing, holdout or mathematical-review
+claim. The integration package retains original bcdf source/certificate,
+both C410 files, the original execution evidence, and new command/runtime
+identities separately. The old evidence package remains unchanged.
+
+From the designated safe checkout, with its retained input directories:
+
+```text
+python -B dal-cpp/tests/script/xccy_acceptance_fixed_output.py .codex/artifacts/validation/dal425-fixed-output-certificate.json --verify
+python -B acceptance-fixed-output-integration/check_admission.py
+python -B dal-cpp/tests/script/xccy_acceptance_fixed_output.py acceptance-fixed-output-integration/frozen-root-certificate.json --root acceptance-fixed-output/isolated --verify
+```
+
+The first command verifies the new accepted-header root and new certificate.
+The second checks the actual old/new input roots, all original certificate
+fields, and six real-input refusals, then writes a new metadata certificate
+for the untouched frozen input root. The third verifies that frozen-root
+certificate using the new helper. For the unchanged original replay, use the
+original helper, certificate and input root together in
+`acceptance-fixed-output/isolated`; do not mix its certificate with new
+source metadata. The small integration ZIP includes all current admitted
+inputs, original bcdf source/certificate and the frozen C410 for independent
+replay. A Git-only checkout lacks the historical captures and accepted
+Gaussian endpoint certificate; `--root` must name an extracted evidence root.
+
+Two additional focused tests exercise accepted-header admission and rejection
+of unregistered header/body edits; all 15 tests pass. The focused initial
+test fails through the original source-identity ValueError before the fix.
+Six complete-loader controls admit neither altered header/body/empty model,
+the registered model bytes at another source path, another changed source,
+nor a changed frozen fixture. All 36 complete row structures and every other
+original certificate field are exactly equal to bcdf; only the new admission
+object is added. Existing 36/36 report and 18/18 direct Price REDs remain.
+The new verification interpreter/modules/libraries are captured separately
+from the five unchanged inherited financial identity manifests. No old
+financial certificate, product, MC, build, scalar/libm or native matrix is run.
+
 ## Scope of the conclusion
 
 This proves errors of the identified saved payloads relative to the existing

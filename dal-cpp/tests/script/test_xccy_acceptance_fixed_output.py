@@ -6,6 +6,7 @@ from fractions import Fraction as F
 from pathlib import Path
 
 from xccy_acceptance_fixed_output import (
+    MODEL_DECISION,
     Bounds,
     binary_endpoint,
     compare_payload,
@@ -13,11 +14,36 @@ from xccy_acceptance_fixed_output import (
     gaussian_measures,
     inherited_bounds,
     load_bound_json,
+    model_decision_identity,
     rational_text,
 )
 
 
 class XccyAcceptanceFixedOutputTest(unittest.TestCase):
+    def test_accepted_model_header_retains_frozen_identity_and_records_actual_source(
+        self,
+    ):
+        raw = (Path(__file__).resolve().parents[3] / MODEL_DECISION).read_bytes()
+        identity = model_decision_identity(raw)
+        self.assertEqual(
+            identity["admitted_sha256"],
+            "6f1231c60cd1667601a84c1bf1d5c00b855a3bae81b9a88e0d115fc637e6e1f4",
+        )
+        self.assertEqual(
+            identity["frozen_sha256"],
+            "c2ff68e1a696b620682b896ca9b292ec6d577bf92cadb3597991b427267733d5",
+        )
+
+    def test_unregistered_model_body_and_header_changes_are_rejected(self):
+        raw = (Path(__file__).resolve().parents[3] / MODEL_DECISION).read_bytes()
+        for changed in (
+            raw.replace(b"Status: accepted", b"Status: unregistered", 1),
+            raw.replace(b"## 1. Audience", b"## 1. Changed", 1),
+        ):
+            self.assertNotEqual(changed, raw)
+            with self.assertRaisesRegex(ValueError, "inherited source identity"):
+                model_decision_identity(changed)
+
     def test_exact_gaussian_constant_cashflows_have_price_and_mean_quotient(self):
         reference = gaussian_measures(Bounds(F(-2), F(-2)), Bounds(F(1), F(1)), F(1, 4))
         self.assertEqual(reference["Price"], Bounds(F(1, 2), F(1, 2)))

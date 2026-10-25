@@ -27,6 +27,12 @@
     "dal-cpp/tests/script/xccy_acceptance_extended.py": "9e4d1df79bed00be9c9930a590bd53e5f498aecf58f84f18948b9361211a1b84",
     "dal-cpp/tests/script/xccy_acceptance_bias_intervals.py": "968a69f73f8886d35dade06a14a2740ec8b5bd651499f6e39390b2f783b97985"
   },
+  "model_decision_admission": {
+    "frozen_sha256": "c2ff68e1a696b620682b896ca9b292ec6d577bf92cadb3597991b427267733d5",
+    "admitted_sha256": "6f1231c60cd1667601a84c1bf1d5c00b855a3bae81b9a88e0d115fc637e6e1f4",
+    "compatible_status_sha256": "6f1231c60cd1667601a84c1bf1d5c00b855a3bae81b9a88e0d115fc637e6e1f4",
+    "status_commit": "1a295ead5b53810cdb89e665e5fdf1f2be0d7b76"
+  },
   "global_flags": {
     "financial_bias_bound_qualified": false,
     "actual_joint_law_qualified": false,
