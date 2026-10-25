@@ -1,3 +1,5 @@
+Current worker-free startup/outer candidate: see [dal425-controlled-profile.md](dal425-controlled-profile.md). The inner-tool revision below retains its reviewed scope and historical limitations.
+
 DAL-451 / DAL-425: private support repair candidate
 
 Status: PARTIAL / UNQUALIFIED. Product, compiler, CMake, DAL, MC, RNG and historical-binary execution remain disabled. No author test sets a facility gate, H_exact, H_exclude or any of the four financial global flags true. The G2 JSON is unchanged at 412568 bytes, SHA256 406e11c66fb34041cbcdb9bf1c93dfcf28f59d45ed8efd4962baca28d11ef3cd.
