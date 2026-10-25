@@ -9,7 +9,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from dal_comparisons import infine, native_queries, scenarios
+from dal_comparisons import calibration_scenarios, infine, native_queries, scenarios
 
 
 def test_native_fixture_exactly_matches_infine_inputs():
@@ -96,10 +96,10 @@ def test_native_cpp_worker_enforces_shared_tolerance(tmp_path, backend):
 
 def native_row(backend, payload):
     return {
-        "schema": native_queries.WORKER_SCHEMA,
+        "schema": native_queries.WORKER_SCHEMAS[payload["workload"]["name"]],
         "backend": backend,
         "workload": payload["workload"],
-        "method": native_queries.METHODS[backend],
+        "method": native_queries.METHODS[payload["workload"]["name"]][backend],
         "samples_ns": [100],
         "values": list(payload["reference"]),
     }
@@ -237,3 +237,29 @@ def test_native_git_identity_ignores_only_dirty_submodules(tmp_path, monkeypatch
     assert identity["revision"] == "revision"
     assert identity["submodule_policy"] == "ignore dirty worktrees"
     assert "--ignore-submodules=dirty" in commands[1]
+
+
+def test_native_calibration_fixture_and_case_arguments(tmp_path):
+    shared = infine.fixtures(False, ["calibration_single_15"])
+    payload = native_queries.fixture(shared, "calibration_single_15")
+    case = shared["cases"][0]
+    assert payload["schema"] == "dal.native-calibration-fixture/1"
+    assert payload["workload"] == case["workload"]
+    assert payload["dates"] == [value.isoformat() for value in calibration_scenarios.dates(15)]
+    assert payload["queries"] == case["queries"]
+    assert payload["quotes"] == case["quotes"]["usd_discount"]
+    assert payload["reference"] == case["reference"]
+    assert len(payload["reference"]) == 30
+    assert payload["absolute_tolerance"] == 2e-8
+    root = tmp_path / "build"
+    root.mkdir()
+    (root / "CMakeCache.txt").write_text("CMAKE_BUILD_TYPE:STRING=Release\n")
+    worker = root / "worker"
+    worker.touch()
+    args = native_queries.arguments([
+        "--native-worker", str(worker), "--native-build-root", str(root),
+        "--infine-build", str(tmp_path), "--output-dir", str(tmp_path / "out"),
+        "--case", "calibration_single_15",
+    ])
+    assert args.case == "calibration_single_15"
+    assert native_queries.SCHEMAS[args.case] == "dal.native-calibration-comparison/1"

@@ -11,32 +11,57 @@ import sys
 from types import SimpleNamespace
 
 from dal_benchmarks.harness import require
-from . import infine, scenarios
+from . import calibration_scenarios, infine, scenarios
 from .evidence import sha256, write_json
 
 SCHEMA = "dal.native-query-comparison/1"
 FIXTURE_SCHEMA = "dal.native-query-fixture/1"
 WORKER_SCHEMA = "dal.native-query-worker/1"
 BACKENDS = ("dal", "quantlib", "infine")
+CASES = ("discount_queries", "calibration_single_15")
+SCHEMAS = {CASES[0]: SCHEMA, CASES[1]: "dal.native-calibration-comparison/1"}
+FIXTURE_SCHEMAS = {CASES[0]: FIXTURE_SCHEMA, CASES[1]: "dal.native-calibration-fixture/1"}
+WORKER_SCHEMAS = {CASES[0]: WORKER_SCHEMA, CASES[1]: "dal.native-calibration-worker/1"}
 METHODS = {
-    "dal": "DAL C++ DiscountLogDF",
-    "quantlib": "QuantLib C++ DiscountCurve",
-    "infine": "InFine C# InterpolatedDiscountCurve",
+    "discount_queries": {
+        "dal": "DAL C++ DiscountLogDF",
+        "quantlib": "QuantLib C++ DiscountCurve",
+        "infine": "InFine C# InterpolatedDiscountCurve",
+    },
+    "calibration_single_15": {
+        "dal": "DAL C++ analytic single-curve solve (tol 1e-12, fit 1e-10, diagnostics off)",
+        "quantlib": "QuantLib C++ PiecewiseYieldCurve<Discount, LogLinear> (accuracy 1e-12)",
+        "infine": "InFine C# native Brent log-linear bootstrap (tolerance 1e-12)",
+    },
 }
 QUANTLIB_REVISION = "6b57206e04598f092efee66e3b367efc84771995"
 ROOT = Path(__file__).resolve().parents[1]
 REPO = Path(__file__).resolve().parents[3]
 
 
-def fixture(shared=None):
-    shared = shared if shared is not None else infine.fixtures(False, ["discount_queries"])
+def fixture(shared=None, case_name="discount_queries"):
+    require(case_name in CASES, "unsupported native comparison case")
+    shared = shared if shared is not None else infine.fixtures(False, [case_name])
     require(len(shared["cases"]) == 1, "native comparison requires one case")
     case = shared["cases"][0]
-    require(case["workload"]["name"] == "discount_queries", "wrong native query case")
+    require(case["workload"]["name"] == case_name, "wrong native comparison case")
     tolerances = set(case["tolerance"])
+    if case_name == "calibration_single_15":
+        require(tolerances == {2e-8}, "native calibration tolerance changed")
+        return {
+            "schema": FIXTURE_SCHEMAS[case_name],
+            "workload": case["workload"],
+            "anchor": shared["rates"]["today"],
+            "dates": [value.isoformat() for value in calibration_scenarios.dates(15)],
+            "queries": case["queries"],
+            "quotes": case["quotes"]["usd_discount"],
+            "reference": case["reference"],
+            "absolute_tolerance": 2e-8,
+            "relative_tolerance": 1e-10,
+        }
     require(tolerances == {2e-12}, "native query tolerance changed")
     return {
-        "schema": FIXTURE_SCHEMA,
+        "schema": FIXTURE_SCHEMAS[case_name],
         "workload": case["workload"],
         "anchor": shared["rates"]["today"],
         "dates": [shared["rates"]["today"], *shared["rates"]["dates"]],
@@ -54,6 +79,7 @@ def arguments(argv=None):
     parser.add_argument("--native-build-root", type=Path, required=True)
     parser.add_argument("--infine-build", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--case", choices=CASES, default="discount_queries")
     parser.add_argument("--samples", type=int, default=10)
     parser.add_argument("--rounds", type=int, default=2)
     parser.add_argument("--timeout", type=int, default=60)
@@ -76,8 +102,11 @@ def native_source_hashes():
         ROOT / "run_native_queries.py",
         ROOT / "dal_comparisons/native_queries.py",
         ROOT / "dal_comparisons/scenarios.py",
+        ROOT / "dal_comparisons/calibration_scenarios.py",
         ROOT / "dal_comparisons/infine.py",
         ROOT / "dal_comparisons/evidence.py",
+        ROOT / "infine/Rates.cs",
+        ROOT / "infine/Program.cs",
         REPO / "dal-cpp/benchmarks/native_query_comparison/queryworker.cpp",
         REPO / "dal-cpp/benchmarks/native_query_comparison/CMakeLists.txt",
         REPO / "dal-cpp/benchmarks/CMakeLists.txt",
@@ -93,10 +122,11 @@ def backend_order(sample, round_index):
 
 
 def check_worker(row, backend, payload):
-    require(row["schema"] == WORKER_SCHEMA, "unexpected native worker schema")
+    case_name = payload["workload"]["name"]
+    require(row["schema"] == WORKER_SCHEMAS[case_name], "unexpected native worker schema")
     require(row["backend"] == backend, "wrong native worker backend")
     require(row["workload"] == payload["workload"], "native workload changed")
-    require(row["method"] == METHODS[backend], "native query method changed")
+    require(row["method"] == METHODS[case_name][backend], "native query method changed")
     durations = row["samples_ns"]
     require(len(durations) == 1, "native worker must return one sample")
     require(type(durations[0]) is int and durations[0] > 0, "invalid native timing")
@@ -110,6 +140,7 @@ def invoke_cpp(args, backend, directory, payload):
     source = directory / "native-fixture.json"
     output = directory / "worker.json"
     write_json(source, payload)
+    case_name = getattr(args, "case", "discount_queries")
     command = [
         str(args.native_worker),
         "--backend",
@@ -118,6 +149,8 @@ def invoke_cpp(args, backend, directory, payload):
         str(source),
         "--output",
         str(output),
+        "--case",
+        case_name,
     ]
     environment = dict(
         os.environ,
@@ -154,27 +187,28 @@ def invoke_cpp(args, backend, directory, payload):
 
 
 def invoke_infine(args, directory, shared):
+    case_name = getattr(args, "case", "discount_queries")
     worker_args = SimpleNamespace(
         infine_build=args.infine_build,
         output_dir=directory,
         smoke=False,
-        case=["discount_queries"],
+        case=[case_name],
         timeout=args.timeout,
     )
     rows, files, metadata = infine.measure_cases(worker_args, shared)
     require(len(rows) == 1, "InFine native query case count changed")
     native = rows[0]
     row = {
-        "schema": WORKER_SCHEMA,
+        "schema": WORKER_SCHEMAS[case_name],
         "backend": "infine",
         "workload": native["workload"],
-        "method": METHODS["infine"],
+        "method": METHODS[case_name]["infine"],
         "samples_ns": native["samples_ns"],
         "values": native["values"],
         "native_method": native["method"],
         "identity": {"files": files, "version": metadata},
     }
-    check_worker(row, "infine", fixture(shared))
+    check_worker(row, "infine", fixture(shared, case_name))
     return row
 
 
@@ -271,14 +305,26 @@ def aggregate(reports):
 
 
 def summary(report):
+    calibration = report.get("workload", {}).get("name", "discount_queries") == "calibration_single_15"
+    title = "# Native C++/.NET curve-calibration comparison" if calibration else "# Native C++/.NET discount-query comparison"
+    boundary = (
+        "DAL C++ and QuantLib C++ construct and bootstrap native instruments directly; InFine C# builds and solves native .NET instruments. Python/JSON/IPC/startup are outside timing."
+        if calibration
+        else "DAL C++ and QuantLib C++ call native curves directly; InFine C# calls its native .NET curve directly. Python/JSON/IPC/startup are outside timing."
+    )
+    measurement = (
+        "Each process performs three checked warmups, then one native sample. Fresh instrument construction, initial curves, solving, 30 DF conversions, and native array/vector creation are included. Raw quotes, reference values, validation, and serialization are outside timing."
+        if calibration
+        else "Each process performs three checked warmups, then one native sample. Curves and query containers are prepared before timing; native array/vector creation is included. Validation and serialization are outside timing."
+    )
     lines = [
-        "# Native C++/.NET discount-query comparison",
+        title,
         "",
         f"Status: {report['status']}.",
         "",
-        "DAL C++ and QuantLib C++ call native curves directly; InFine C# calls its native .NET curve directly. Python/JSON/IPC/startup are outside timing.",
+        boundary,
         "",
-        "Each process performs three checked warmups, then one native sample. Curves and query containers are prepared before timing; native array/vector creation is included. Validation and serialization are outside timing.",
+        measurement,
         "",
         "Ratios are third-party minimum / DAL minimum and are informational, not a performance gate. C++ and .NET remain different runtimes.",
         "",
@@ -305,8 +351,9 @@ def summary(report):
 
 def run(args):
     args.output_dir.mkdir(parents=True, exist_ok=False)
+    case_name = getattr(args, "case", "discount_queries")
     report = {
-        "schema": SCHEMA,
+        "schema": SCHEMAS[case_name],
         "status": "running",
         "samples_per_round": args.samples,
         "warmups": 3,
@@ -315,8 +362,8 @@ def run(args):
         "rounds": [],
     }
     try:
-        shared = infine.fixtures(False, ["discount_queries"])
-        payload = fixture(shared)
+        shared = infine.fixtures(False, [case_name])
+        payload = fixture(shared, case_name)
         report.update(
             workload=payload["workload"],
             fixture_sha256=hashlib.sha256(
