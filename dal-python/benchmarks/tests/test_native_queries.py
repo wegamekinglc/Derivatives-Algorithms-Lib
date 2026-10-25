@@ -177,6 +177,8 @@ runpy.run_path(sys.argv[0], run_name="__main__")
     )
     assert result.returncode == 0, result.stderr
     assert "--native-worker" in result.stdout
+    assert "--quantlib-source" in result.stdout
+    assert "curve comparisons" in result.stdout
 
 
 def test_native_run_retains_workers_and_rechecks_cmake(tmp_path, monkeypatch):
@@ -237,6 +239,18 @@ def test_native_run_retains_workers_and_rechecks_cmake(tmp_path, monkeypatch):
     )
     with pytest.raises(ValueError, match="native QuantLib provenance changed during run"):
         native_queries.verify_provenance(args, report)
+    monkeypatch.setattr(
+        native_queries,
+        "quantlib_identity",
+        lambda path: {"revision": "ql-test", "dirty": False},
+    )
+    monkeypatch.setattr(
+        native_queries,
+        "git_identity",
+        lambda: {"revision": "changed", "dirty": False},
+    )
+    with pytest.raises(ValueError, match="native DAL Git provenance changed during run"):
+        native_queries.verify_provenance(args, report)
 
 
 def test_native_git_identity_ignores_only_dirty_submodules(tmp_path, monkeypatch):
@@ -253,6 +267,19 @@ def test_native_git_identity_ignores_only_dirty_submodules(tmp_path, monkeypatch
     assert identity["revision"] == "revision"
     assert identity["submodule_policy"] == "ignore dirty worktrees"
     assert "--ignore-submodules=dirty" in commands[1]
+
+
+@pytest.mark.parametrize(
+    "identity,error",
+    [
+        ({"revision": "test", "dirty": True}, "native DAL source is not clean"),
+        ({"revision": "unavailable", "error": "missing"}, "native DAL Git identity unavailable"),
+    ],
+)
+def test_native_clean_git_identity_rejects_invalid_provenance(monkeypatch, identity, error):
+    monkeypatch.setattr(native_queries, "git_identity", lambda: identity)
+    with pytest.raises(ValueError, match=error):
+        native_queries.clean_git_identity()
 
 
 def test_native_quantlib_source_identity_is_pinned_and_clean(tmp_path, monkeypatch):

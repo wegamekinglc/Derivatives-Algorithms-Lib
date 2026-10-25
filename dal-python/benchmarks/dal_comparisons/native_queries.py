@@ -1,4 +1,4 @@
-"""Direct C++/.NET discount-query comparison; Python never enters native timers."""
+"""Direct C++/.NET curve comparisons; Python never enters native timers."""
 
 import argparse
 import hashlib
@@ -346,6 +346,13 @@ def git_identity():
         return {"revision": "unavailable", "error": f"{type(error).__name__}: {error}"}
 
 
+def clean_git_identity():
+    identity = git_identity()
+    require(identity.get("revision") != "unavailable", "native DAL Git identity unavailable")
+    require(not identity.get("dirty", True), "native DAL source is not clean")
+    return identity
+
+
 def aggregate(reports):
     measurements = {}
     for backend in BACKENDS:
@@ -474,6 +481,10 @@ def verify_provenance(args, report):
         quantlib_identity(args.quantlib_source) == report["quantlib"],
         "native QuantLib provenance changed during run",
     )
+    require(
+        clean_git_identity() == report["git"],
+        "native DAL Git provenance changed during run",
+    )
 
 
 def verify_single(args, report):
@@ -510,7 +521,7 @@ def run_single(args, case_name):
             native_worker_sha256=sha256(args.native_worker),
             cmake=cmake_identity(args.native_build_root),
             quantlib=quantlib_identity(args.quantlib_source),
-            git=git_identity(),
+            git=clean_git_identity(),
             thread_environment={
                 "DAL_NUM_THREADS": "1",
                 "OMP_NUM_THREADS": "1",

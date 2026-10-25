@@ -363,9 +363,9 @@ python dal-python/benchmarks/prepare_infine.py \
 The helper requires a clean pinned checkout and locked NuGet dependencies from
 [`infine/packages.lock.json`](infine/packages.lock.json). The manifest records
 source, adapter, binary, SDK, and runtime hashes. Workers reject changed
-adapters, libraries, or runtimes. `DAL_INFINE_BUILD` selects the published
-worker for native integration tests and the native controller; it is not an
-argument to `run_comparisons.py`.
+adapters, libraries, or runtimes. `DAL_INFINE_BUILD` enables the real native
+integration tests; pass the same directory explicitly through `--infine-build`
+to the native controller. It is not an argument to `run_comparisons.py`.
 
 The native C# timer includes valuation, required setup, and managed array
 creation. Process startup, JSON, Python communication, and oracle checks stay
@@ -465,7 +465,9 @@ independent reference values before a successful report can be written.
 
 Reports retain raw native durations and values, binary/source hashes, CMake and
 compiler settings, QuantLib/Boost versions, InFine runtime identity, Git identity,
-and backend order. Ratios are informational rather than a performance gate. C++
+and backend order. A clean DAL checkout is required, and both DAL and QuantLib
+Git identities are rechecked before a report can pass. Ratios are informational
+rather than a performance gate. C++
 and .NET remain different runtimes; these native ratios and the Python API ratios
 answer different questions and must not be used interchangeably.
 
