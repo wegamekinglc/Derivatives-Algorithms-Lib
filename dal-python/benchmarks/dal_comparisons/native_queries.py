@@ -230,12 +230,17 @@ def git_identity():
             shell=False,
         ).strip()
         status = subprocess.check_output(  # nosec B603  # nosemgrep
-            ["git", *prefix, "status", "--porcelain"],
+            ["git", *prefix, "status", "--porcelain", "--ignore-submodules=dirty"],
             text=True,
             stderr=subprocess.STDOUT,
             shell=False,
         ).strip()
-        return {"revision": revision, "dirty": bool(status), "status": status}
+        return {
+            "revision": revision,
+            "dirty": bool(status),
+            "status": status,
+            "submodule_policy": "ignore dirty worktrees",
+        }
     except (OSError, ValueError, subprocess.SubprocessError) as error:
         return {"revision": "unavailable", "error": f"{type(error).__name__}: {error}"}
 
@@ -353,8 +358,12 @@ def run(args):
                     )
                     reports[backend].append(row)
             report["rounds"].append(
-                {"order": order, "cases": [aggregate(reports)]}
+                {"order": order, "workers": reports, "cases": [aggregate(reports)]}
             )
+        require(
+            cmake_identity(args.native_build_root) == report["cmake"],
+            "native CMake configuration changed during run",
+        )
         require(native_source_hashes() == report["source_hashes"], "native source changed during run")
         require(
             sha256(args.native_worker) == report["native_worker_sha256"],

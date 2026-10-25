@@ -175,3 +175,65 @@ runpy.run_path(sys.argv[0], run_name="__main__")
     )
     assert result.returncode == 0, result.stderr
     assert "--native-worker" in result.stdout
+
+
+def test_native_run_retains_workers_and_rechecks_cmake(tmp_path, monkeypatch):
+    payload = native_queries.fixture()
+    worker = tmp_path / "worker"
+    worker.touch()
+    args = SimpleNamespace(
+        native_worker=worker,
+        native_build_root=tmp_path,
+        infine_build=tmp_path,
+        output_dir=tmp_path / "out",
+        samples=1,
+        rounds=1,
+        timeout=30,
+    )
+    monkeypatch.setattr(native_queries, "native_source_hashes", lambda: {"source": "hash"})
+    monkeypatch.setattr(native_queries, "sha256", lambda path: "binary")
+    monkeypatch.setattr(native_queries, "git_identity", lambda: {"revision": "test", "dirty": False})
+    cmake_calls = []
+
+    def cmake(build_root):
+        cmake_calls.append(build_root)
+        return {"CMAKE_BUILD_TYPE": "Release"}
+
+    monkeypatch.setattr(native_queries, "cmake_identity", cmake)
+
+    def cpp(_args, backend, _directory, _payload):
+        row = native_row(backend, payload)
+        row["identity"] = {"worker": backend}
+        return row
+
+    def managed(_args, _directory, _shared):
+        row = native_row("infine", payload)
+        row["identity"] = {"infine": "identity"}
+        return row
+
+    monkeypatch.setattr(native_queries, "invoke_cpp", cpp)
+    monkeypatch.setattr(native_queries, "invoke_infine", managed)
+    assert native_queries.run(args) == 0
+    assert len(cmake_calls) == 2
+    report = json.loads((args.output_dir / "results.json").read_text())
+    workers = report["rounds"][0]["workers"]
+    assert set(workers) == set(native_queries.BACKENDS)
+    for backend in native_queries.BACKENDS:
+        assert workers[backend][0]["values"] == payload["reference"]
+        assert workers[backend][0]["samples_ns"] == [100]
+
+
+def test_native_git_identity_ignores_only_dirty_submodules(tmp_path, monkeypatch):
+    monkeypatch.setattr(native_queries, "REPO", tmp_path)
+    (tmp_path / ".git").mkdir()
+    commands = []
+
+    def execute(command, **kwargs):
+        commands.append(command)
+        return "revision\n" if "rev-parse" in command else ""
+
+    monkeypatch.setattr(native_queries.subprocess, "check_output", execute)
+    identity = native_queries.git_identity()
+    assert identity["revision"] == "revision"
+    assert identity["submodule_policy"] == "ignore dirty worktrees"
+    assert "--ignore-submodules=dirty" in commands[1]
