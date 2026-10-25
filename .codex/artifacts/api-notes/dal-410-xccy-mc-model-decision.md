@@ -1,10 +1,14 @@
 # DAL-410: domestic-collateral XCCY Gaussian model decision
 
-Status: proposed implementation contract, ready for focused review. No stochastic
-XCCY implementation or numerical acceptance is delivered by this note.
-`MCCrossCurrencyUnsupported` remains the current capability. This decision
-controls the model, integration and independent acceptance tasks in section 10;
-DAL-409's deterministic delivery proceeds independently.
+Status: accepted model decision; DAL-410 is complete. The dedicated stochastic
+model, Gaussian evaluator, phased MC and public interfaces are implemented; see
+the [current capability guide](../../../docs/methodology/script_calibration_contract.md#stochastic-xccy-model-and-phased-mc).
+Independent numerical acceptance remains with DAL-425. This decision still
+controls its model and acceptance requirements. Proposed APIs, source evidence,
+unsupported-path statements and the follow-up plan below describe the inspected
+design baseline, before those implementations; this note itself supplies no
+product or statistical acceptance evidence. Generic XCCY MC entry points retain
+their separate rejection boundary.
 
 ## 1. Audience, baseline and decision
 

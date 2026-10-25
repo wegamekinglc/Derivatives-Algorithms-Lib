@@ -47,6 +47,8 @@ The [structural Jacobian guide](methodology/aad-sparsity.md) describes conservat
 row supports, compressed direction recovery, numeric payload admission and
 rate-trade dependency capture with complete structural identity, and
 [complete rate-trade Jacobian execution](methodology/aad-sparsity.md#complete-rate-trade-jacobians).
+The [scoped passive-constant guide](methodology/passive-constants.md) covers the
+core GSR Monte Carlo opt-in, recording ownership and memory limits.
 
 ## Component Guides
 
