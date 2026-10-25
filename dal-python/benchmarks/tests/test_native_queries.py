@@ -39,7 +39,7 @@ def test_native_arguments_validate_build_identity(tmp_path):
     args = native_queries.arguments([
         "--native-worker", str(worker),
         "--native-build-root", str(root),
-        "--infine-build", str(infine_build),
+        "--quantlib-source", str(tmp_path), "--infine-build", str(infine_build),
         "--output-dir", str(tmp_path / "out"),
     ])
     assert args.samples == 10 and args.rounds == 2
@@ -48,7 +48,7 @@ def test_native_arguments_validate_build_identity(tmp_path):
         native_queries.arguments([
             "--native-worker", str(outside),
             "--native-build-root", str(root),
-            "--infine-build", str(infine_build),
+            "--quantlib-source", str(tmp_path), "--infine-build", str(infine_build),
             "--output-dir", str(tmp_path / "other"),
         ])
 
@@ -186,6 +186,7 @@ def test_native_run_retains_workers_and_rechecks_cmake(tmp_path, monkeypatch):
     args = SimpleNamespace(
         native_worker=worker,
         native_build_root=tmp_path,
+        quantlib_source=tmp_path,
         infine_build=tmp_path,
         output_dir=tmp_path / "out",
         samples=1,
@@ -195,6 +196,11 @@ def test_native_run_retains_workers_and_rechecks_cmake(tmp_path, monkeypatch):
     monkeypatch.setattr(native_queries, "native_source_hashes", lambda: {"source": "hash"})
     monkeypatch.setattr(native_queries, "sha256", lambda path: "binary")
     monkeypatch.setattr(native_queries, "git_identity", lambda: {"revision": "test", "dirty": False})
+    monkeypatch.setattr(
+        native_queries,
+        "quantlib_identity",
+        lambda path: {"revision": "ql-test", "dirty": False},
+    )
     cmake_calls = []
 
     def cmake(build_root):
@@ -218,11 +224,19 @@ def test_native_run_retains_workers_and_rechecks_cmake(tmp_path, monkeypatch):
     assert native_queries.run(args) == 0
     assert len(cmake_calls) == 2
     report = json.loads((args.output_dir / "results.json").read_text())
+    assert report["quantlib"] == {"revision": "ql-test", "dirty": False}
     workers = report["rounds"][0]["workers"]
     assert set(workers) == set(native_queries.BACKENDS)
     for backend in native_queries.BACKENDS:
         assert workers[backend][0]["values"] == payload["reference"]
         assert workers[backend][0]["samples_ns"] == [100]
+    monkeypatch.setattr(
+        native_queries,
+        "quantlib_identity",
+        lambda path: {"revision": "changed", "dirty": False},
+    )
+    with pytest.raises(ValueError, match="native QuantLib provenance changed during run"):
+        native_queries.verify_provenance(args, report)
 
 
 def test_native_git_identity_ignores_only_dirty_submodules(tmp_path, monkeypatch):
@@ -239,6 +253,51 @@ def test_native_git_identity_ignores_only_dirty_submodules(tmp_path, monkeypatch
     assert identity["revision"] == "revision"
     assert identity["submodule_policy"] == "ignore dirty worktrees"
     assert "--ignore-submodules=dirty" in commands[1]
+
+
+def test_native_quantlib_source_identity_is_pinned_and_clean(tmp_path, monkeypatch):
+    commands = []
+    outputs = iter((native_queries.QUANTLIB_REVISION + "\n", ""))
+    monkeypatch.setattr(native_queries.shutil, "which", lambda name: "/usr/bin/git")
+
+    def execute(command, **kwargs):
+        commands.append(command)
+        assert kwargs["shell"] is False
+        return next(outputs)
+
+    monkeypatch.setattr(native_queries.subprocess, "check_output", execute)
+    identity = native_queries.quantlib_identity(tmp_path)
+    assert identity == {"revision": native_queries.QUANTLIB_REVISION, "dirty": False}
+    assert commands == [
+        ["/usr/bin/git", "-C", str(tmp_path), "rev-parse", "HEAD"],
+        [
+            "/usr/bin/git",
+            "-C",
+            str(tmp_path),
+            "status",
+            "--porcelain",
+            "--ignore-submodules=dirty",
+        ],
+    ]
+
+
+@pytest.mark.parametrize(
+    "revision,status,error",
+    [
+        ("0" * 40, "", "native QuantLib source revision changed"),
+        (native_queries.QUANTLIB_REVISION, " M ql/version.hpp", "native QuantLib source is not clean"),
+    ],
+)
+def test_native_quantlib_source_identity_rejects_drift(tmp_path, monkeypatch, revision, status, error):
+    outputs = iter((revision + "\n", status))
+    monkeypatch.setattr(native_queries.shutil, "which", lambda name: "/usr/bin/git")
+    monkeypatch.setattr(
+        native_queries.subprocess,
+        "check_output",
+        lambda *_args, **_kwargs: next(outputs),
+    )
+    with pytest.raises(ValueError, match=error):
+        native_queries.quantlib_identity(tmp_path)
 
 
 @pytest.mark.parametrize(
@@ -271,7 +330,7 @@ def test_native_calibration_fixture_and_case_arguments(tmp_path, case_name, kind
     worker.touch()
     args = native_queries.arguments([
         "--native-worker", str(worker), "--native-build-root", str(root),
-        "--infine-build", str(tmp_path), "--output-dir", str(tmp_path / "out"),
+        "--quantlib-source", str(tmp_path), "--infine-build", str(tmp_path), "--output-dir", str(tmp_path / "out"),
         "--case", case_name,
     ])
     assert args.case == [case_name]
@@ -315,7 +374,7 @@ def native_cli_args(tmp_path, *extra):
     worker.touch()
     return [
         "--native-worker", str(worker), "--native-build-root", str(root),
-        "--infine-build", str(tmp_path), "--output-dir", str(tmp_path / "out"),
+        "--quantlib-source", str(tmp_path), "--infine-build", str(tmp_path), "--output-dir", str(tmp_path / "out"),
         *extra,
     ]
 
@@ -340,6 +399,7 @@ def test_native_multi_case_controller(tmp_path, monkeypatch):
     args = SimpleNamespace(
         native_worker=worker,
         native_build_root=tmp_path,
+        quantlib_source=tmp_path,
         infine_build=tmp_path,
         output_dir=tmp_path / "out",
         samples=1,
@@ -350,6 +410,11 @@ def test_native_multi_case_controller(tmp_path, monkeypatch):
     monkeypatch.setattr(native_queries, "native_source_hashes", lambda: {"source": "hash"})
     monkeypatch.setattr(native_queries, "sha256", lambda path: "binary")
     monkeypatch.setattr(native_queries, "git_identity", lambda: {"revision": "test", "dirty": False})
+    monkeypatch.setattr(
+        native_queries,
+        "quantlib_identity",
+        lambda path: {"revision": "ql-test", "dirty": False},
+    )
     cmake_calls = []
 
     def cmake(build_root):

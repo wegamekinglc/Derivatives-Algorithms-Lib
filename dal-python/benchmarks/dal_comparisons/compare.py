@@ -143,6 +143,26 @@ def collect_round(args, round_index, hashes, identities):
     return {"order": order, "cases": aggregate(reports, args.smoke, args.backends, args.case)}
 
 
+def backend_measurement(reports, backend, case):
+    reason = unsupported_reason(backend, case)
+    if reason:
+        return dict(status="unsupported", reason=reason)
+    return dict(
+        timings(reports[backend], case["name"]),
+        method=method(backend, case),
+        values=returned_values(reports[backend][0], case["name"]),
+    )
+
+
+def third_party_ratios(backends, case, measurements):
+    dal_time = measurements["dal"]["min_ns"]
+    return {
+        backend: measurements[backend]["min_ns"] / dal_time
+        for backend in backends[1:]
+        if not unsupported_reason(backend, case)
+    }
+
+
 def aggregate(reports, smoke, selected_backends=None, selected_case_names=None):
     backends = selected_backends or BACKENDS
     inventory = cases(smoke)
@@ -151,29 +171,14 @@ def aggregate(reports, smoke, selected_backends=None, selected_case_names=None):
         inventory = [case for case in inventory if case["name"] in selected]
     rows = []
     for case in inventory:
-        measurements = {}
-        for backend in backends:
-            reason = unsupported_reason(backend, case)
-            measurements[backend] = (
-                dict(status="unsupported", reason=reason)
-                if reason
-                else dict(
-                    timings(reports[backend], case["name"]),
-                    method=method(backend, case),
-                    values=returned_values(reports[backend][0], case["name"]),
-                )
-            )
-        dal_time = measurements["dal"]["min_ns"]
-        ratios = {
-            backend: measurements[backend]["min_ns"] / dal_time
-            for backend in backends[1:]
-            if not unsupported_reason(backend, case)
+        measurements = {
+            backend: backend_measurement(reports, backend, case) for backend in backends
         }
         rows.append(
             {
                 "workload": case,
                 "backends": measurements,
-                "third_party_over_dal": ratios,
+                "third_party_over_dal": third_party_ratios(backends, case, measurements),
                 "reference": expected(case),
             }
         )

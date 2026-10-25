@@ -107,14 +107,7 @@ namespace {
         return result;
     }
 
-    Fixture_ ReadFixture(const std::string& path) {
-        std::ifstream stream(path);
-        REQUIRE(stream.good(), "Cannot open native fixture: " + path);
-        const std::string json((std::istreambuf_iterator<char>(stream)), std::istreambuf_iterator<char>());
-        rapidjson::Document document;
-        document.Parse(json.c_str());
-        REQUIRE(!document.HasParseError(), rapidjson::GetParseError_En(document.GetParseError()));
-        const std::string schema = Text(Get(document, "schema"));
+    Fixture_ ParseFixture(const rapidjson::Document& document) {
         const auto& workload = Get(document, "workload");
         Fixture_ fixture;
         fixture.caseName_ = Text(Get(workload, "name"));
@@ -128,50 +121,74 @@ namespace {
         fixture.absoluteTolerance_ = Number(Get(document, "absolute_tolerance"));
         fixture.relativeTolerance_ = Number(Get(document, "relative_tolerance"));
         REQUIRE(fixture.relativeTolerance_ == 1.0e-10, "Native relative tolerance changed");
-        if (schema == "dal.native-query-fixture/1") {
-            fixture.dfs_ = ParseNumbers(Get(document, "dfs"));
-            REQUIRE(fixture.caseName_ == "discount_queries" && fixture.operation_ == "discount" && fixture.size_ == 4096,
-                    "Unexpected native discount workload");
-            REQUIRE(fixture.dates_.size() == 22 && fixture.dfs_.size() == 22, "Native curve must have 22 nodes");
-            REQUIRE(fixture.queries_.size() == 4096 && fixture.reference_.size() == 4096, "Native query width changed");
-            REQUIRE(fixture.absoluteTolerance_ == 2.0e-12, "Native query tolerance changed");
-        } else if (schema == "dal.native-calibration-fixture/1") {
-            fixture.quotes_ = ParseNumbers(Get(document, "quotes"));
-            const bool single = fixture.caseName_ == "calibration_single_5" || fixture.caseName_ == "calibration_single_15";
-            const bool staged = fixture.caseName_ == "calibration_multi_staged_5" || fixture.caseName_ == "calibration_multi_staged_15";
-            REQUIRE((single || staged) && fixture.operation_ == "calibration", "Unexpected native calibration workload");
-            REQUIRE(fixture.size_ == 5 || fixture.size_ == 15, "Unexpected native calibration size");
-            REQUIRE(fixture.kind_ == (staged ? "multi_staged" : "single"), "Unexpected native calibration kind");
-            REQUIRE(fixture.dates_.size() == static_cast<size_t>(fixture.size_ + 1) && fixture.quotes_.size() == fixture.size_,
-                    "Native calibration input width changed");
-            REQUIRE(fixture.queries_.size() == static_cast<size_t>(2 * fixture.size_) &&
-                        fixture.reference_.size() == static_cast<size_t>((staged ? 4 : 2) * fixture.size_),
-                    "Native calibration output width changed");
-            if (staged) {
-                fixture.forwardQuotes_ = ParseNumbers(Get(document, "forward_quotes"));
-                REQUIRE(fixture.forwardQuotes_.size() == fixture.size_, "Native forward quote width changed");
-            }
-            REQUIRE(fixture.absoluteTolerance_ == 2.0e-8, "Native calibration tolerance changed");
-        } else {
-            REQUIRE(false, "Unexpected native fixture schema");
+        return fixture;
+    }
+
+    void ReadDiscountFixture(const rapidjson::Document& document, Fixture_* fixture) {
+        fixture->dfs_ = ParseNumbers(Get(document, "dfs"));
+        REQUIRE(fixture->caseName_ == "discount_queries" && fixture->operation_ == "discount" && fixture->size_ == 4096,
+                "Unexpected native discount workload");
+        REQUIRE(fixture->dates_.size() == 22 && fixture->dfs_.size() == 22, "Native curve must have 22 nodes");
+        REQUIRE(fixture->queries_.size() == 4096 && fixture->reference_.size() == 4096, "Native query width changed");
+        REQUIRE(fixture->absoluteTolerance_ == 2.0e-12, "Native query tolerance changed");
+    }
+
+    void CheckCalibrationMetadata(const Fixture_& fixture, bool single, bool staged) {
+        REQUIRE((single || staged) && fixture.operation_ == "calibration", "Unexpected native calibration workload");
+        REQUIRE(fixture.size_ == 5 || fixture.size_ == 15, "Unexpected native calibration size");
+        REQUIRE(fixture.kind_ == (staged ? "multi_staged" : "single"), "Unexpected native calibration kind");
+    }
+
+    void ReadCalibrationShape(const rapidjson::Document& document, Fixture_* fixture, bool staged) {
+        REQUIRE(fixture->dates_.size() == static_cast<size_t>(fixture->size_ + 1) && fixture->quotes_.size() == fixture->size_,
+                "Native calibration input width changed");
+        REQUIRE(fixture->queries_.size() == static_cast<size_t>(2 * fixture->size_) &&
+                    fixture->reference_.size() == static_cast<size_t>((staged ? 4 : 2) * fixture->size_),
+                "Native calibration output width changed");
+        if (staged) {
+            fixture->forwardQuotes_ = ParseNumbers(Get(document, "forward_quotes"));
+            REQUIRE(fixture->forwardQuotes_.size() == fixture->size_, "Native forward quote width changed");
         }
+    }
+
+    void ReadCalibrationFixture(const rapidjson::Document& document, Fixture_* fixture) {
+        fixture->quotes_ = ParseNumbers(Get(document, "quotes"));
+        const bool single = fixture->caseName_ == "calibration_single_5" || fixture->caseName_ == "calibration_single_15";
+        const bool staged = fixture->caseName_ == "calibration_multi_staged_5" || fixture->caseName_ == "calibration_multi_staged_15";
+        CheckCalibrationMetadata(*fixture, single, staged);
+        ReadCalibrationShape(document, fixture, staged);
+        REQUIRE(fixture->absoluteTolerance_ == 2.0e-8, "Native calibration tolerance changed");
+    }
+
+    Fixture_ ReadFixture(const std::string& path) {
+        std::ifstream stream(path);
+        REQUIRE(stream.good(), "Cannot open native fixture: " + path);
+        const std::string json((std::istreambuf_iterator<char>(stream)), std::istreambuf_iterator<char>());
+        rapidjson::Document document;
+        document.Parse(json.c_str());
+        REQUIRE(!document.HasParseError(), rapidjson::GetParseError_En(document.GetParseError()));
+        const std::string schema = Text(Get(document, "schema"));
+        Fixture_ fixture = ParseFixture(document);
+        if (schema == "dal.native-query-fixture/1")
+            ReadDiscountFixture(document, &fixture);
+        else if (schema == "dal.native-calibration-fixture/1")
+            ReadCalibrationFixture(document, &fixture);
+        else
+            REQUIRE(false, "Unexpected native fixture schema");
         return fixture;
     }
 
     Date_ DalDate(const IsoDate_& date) { return Date_(date.year_, date.month_, date.day_); }
 
-    QuantLib::Date QuantLibDate(const IsoDate_& date) {
-        return QuantLib::Date(date.day_, static_cast<QuantLib::Month>(date.month_), date.year_);
-    }
+    QuantLib::Date QuantLibDate(const IsoDate_& date) { return QuantLib::Date(date.day_, static_cast<QuantLib::Month>(date.month_), date.year_); }
 
     void Check(const std::vector<double>& values, const Fixture_& fixture) {
         REQUIRE(values.size() == fixture.reference_.size(), "Native result width mismatch");
         for (size_t i = 0; i < values.size(); ++i) {
             REQUIRE(std::isfinite(values[i]), "Nonfinite native query result");
-            const double tolerance = std::max(
-                fixture.absoluteTolerance_, fixture.relativeTolerance_ * std::max(std::abs(values[i]), std::abs(fixture.reference_[i])));
-            REQUIRE(std::abs(values[i] - fixture.reference_[i]) <= tolerance,
-                    "Native query correctness failed at index " + std::to_string(i));
+            const double tolerance =
+                std::max(fixture.absoluteTolerance_, fixture.relativeTolerance_ * std::max(std::abs(values[i]), std::abs(fixture.reference_[i])));
+            REQUIRE(std::abs(values[i] - fixture.reference_[i]) <= tolerance, "Native query correctness failed at index " + std::to_string(i));
         }
     }
 
@@ -190,8 +207,8 @@ namespace {
                 queries.push_back(DalDate(query));
             const Date_ anchor = DalDate(fixture.anchor_);
             const DayBasis_ dayCount("ACT_365F");
-            auto curve = std::make_shared<Tape::DiscountLogDF_<double>>(
-                "native_queries", "USD", nodes, logDfs, dayCount, LogDfScheme_::Value_::LOG_LINEAR);
+            auto curve =
+                std::make_shared<Tape::DiscountLogDF_<double>>("native_queries", "USD", nodes, logDfs, dayCount, LogDfScheme_::Value_::LOG_LINEAR);
             return [curve, anchor, queries]() {
                 std::vector<double> values;
                 values.reserve(queries.size());
@@ -219,6 +236,65 @@ namespace {
         };
     }
 
+    CurveCalibrationSpec_ MakeDalCalibrationSpec(const std::string& key,
+                                                 const std::vector<double>& quotes,
+                                                 const Date_& today,
+                                                 const Vector_<Date_>& nodes,
+                                                 const Handle_<DiscountCurve_>& discount) {
+        RateLegConvention_ leg;
+        leg.paymentLag_ = 0;
+        leg.paymentFrequency_ = PeriodLength_("12M");
+        leg.dayBasis_ = DayBasis_("ACT_365F");
+        leg.accrualHolidays_ = Holidays::None();
+        leg.paymentHolidays_ = Holidays::None();
+        leg.businessDayConvention_ = BizDayConvention_("Unadjusted");
+        leg.paymentConvention_ = BizDayConvention_("Unadjusted");
+        RateIndexConvention_ index;
+        index.forecastTenor_ = PeriodLength_("12M");
+        index.dayBasis_ = DayBasis_("ACT_365F");
+        index.fixingLag_ = 0;
+        index.spotLag_ = 0;
+        index.fixingHolidays_ = Holidays::None();
+        index.accrualHolidays_ = Holidays::None();
+        index.businessDayConvention_ = BizDayConvention_("Unadjusted");
+        index.useProjectionCurve_ = key == "usd_forward";
+        CurveCalibrationSpec_ spec;
+        spec.today_ = today;
+        spec.ccy_ = "USD";
+        spec.curveName_ = String_(key.c_str());
+        spec.targetCollateral_ = CollateralType_(CollateralType_::Value_::OIS);
+        spec.targetTenor_ = PeriodLength_("12M");
+        spec.calibrateDiscountCurve_ = key == "usd_discount";
+        spec.liborBasis_ = DayBasis_("ACT_365F");
+        spec.parameterization_ = CurveParameterization_(CurveParameterization_::Value_::LOG_DISCOUNT);
+        spec.knotPolicy_ = CurveKnotPolicy_::Value_::INPUT;
+        spec.solveMode_ = CurveSolveMode_::Value_::EXACT;
+        spec.tolerance_ = 1.0e-12;
+        spec.fitTolerance_ = 1.0e-10;
+        spec.initialGuess_ = 0.025;
+        spec.logDfScheme_ = LogDfScheme_(LogDfScheme_::Value_::LOG_LINEAR);
+        spec.knotDates_ = nodes;
+        if (key == "usd_forward")
+            spec.discountCurves_.emplace(CollateralType_(CollateralType_::Value_::OIS), discount);
+        spec.instruments_.reserve(quotes.size());
+        for (size_t i = 0; i < quotes.size(); ++i)
+            spec.instruments_.emplace_back(new Swap_(today, today, nodes[i + 1], quotes[i], leg, index, leg));
+        return spec;
+    }
+
+    CurveCalibrationResult_ SolveDalCalibration(const std::string& key,
+                                                const std::vector<double>& quotes,
+                                                const Date_& today,
+                                                const Vector_<Date_>& nodes,
+                                                const Handle_<DiscountCurve_>& discount) {
+        auto spec = MakeDalCalibrationSpec(key, quotes, today, nodes, discount);
+        CurveCalibrationOptions_ options;
+        options.jacobianMode_ = CurveJacobianMode_(CurveJacobianMode_::Value_::ANALYTIC);
+        options.computeEffJacobianInverse_ = false;
+        options.computeForwardJacobian_ = false;
+        return CalibrateYieldCurve(spec, options);
+    }
+
     std::function<std::vector<double>()> PrepareDalCalibration(const Fixture_& fixture) {
         Dal::RegisterAll_::Init();
         const Date_ today = DalDate(fixture.anchor_);
@@ -232,60 +308,14 @@ namespace {
         const auto forwardQuotes = fixture.forwardQuotes_;
         const bool staged = fixture.kind_ == "multi_staged";
         return [today, nodes, queries, quotes, forwardQuotes, staged]() {
-            const auto solve = [&](const std::string& key, const std::vector<double>& keyQuotes,
-                                   const Handle_<DiscountCurve_>& discount) -> CurveCalibrationResult_ {
-                RateLegConvention_ leg;
-                leg.paymentLag_ = 0;
-                leg.paymentFrequency_ = PeriodLength_("12M");
-                leg.dayBasis_ = DayBasis_("ACT_365F");
-                leg.accrualHolidays_ = Holidays::None();
-                leg.paymentHolidays_ = Holidays::None();
-                leg.businessDayConvention_ = BizDayConvention_("Unadjusted");
-                leg.paymentConvention_ = BizDayConvention_("Unadjusted");
-                RateIndexConvention_ index;
-                index.forecastTenor_ = PeriodLength_("12M");
-                index.dayBasis_ = DayBasis_("ACT_365F");
-                index.fixingLag_ = 0;
-                index.spotLag_ = 0;
-                index.fixingHolidays_ = Holidays::None();
-                index.accrualHolidays_ = Holidays::None();
-                index.businessDayConvention_ = BizDayConvention_("Unadjusted");
-                index.useProjectionCurve_ = key == "usd_forward";
-                CurveCalibrationSpec_ spec;
-                spec.today_ = today;
-                spec.ccy_ = "USD";
-                spec.curveName_ = String_(key.c_str());
-                spec.targetCollateral_ = CollateralType_(CollateralType_::Value_::OIS);
-                spec.targetTenor_ = PeriodLength_("12M");
-                spec.calibrateDiscountCurve_ = key == "usd_discount";
-                spec.liborBasis_ = DayBasis_("ACT_365F");
-                spec.parameterization_ = CurveParameterization_(CurveParameterization_::Value_::LOG_DISCOUNT);
-                spec.knotPolicy_ = CurveKnotPolicy_::Value_::INPUT;
-                spec.solveMode_ = CurveSolveMode_::Value_::EXACT;
-                spec.tolerance_ = 1.0e-12;
-                spec.fitTolerance_ = 1.0e-10;
-                spec.initialGuess_ = 0.025;
-                spec.logDfScheme_ = LogDfScheme_(LogDfScheme_::Value_::LOG_LINEAR);
-                spec.knotDates_ = nodes;
-                if (key == "usd_forward")
-                    spec.discountCurves_.emplace(CollateralType_(CollateralType_::Value_::OIS), discount);
-                spec.instruments_.reserve(keyQuotes.size());
-                for (size_t i = 0; i < keyQuotes.size(); ++i)
-                    spec.instruments_.emplace_back(new Swap_(today, today, nodes[i + 1], keyQuotes[i], leg, index, leg));
-                CurveCalibrationOptions_ options;
-                options.jacobianMode_ = CurveJacobianMode_(CurveJacobianMode_::Value_::ANALYTIC);
-                options.computeEffJacobianInverse_ = false;
-                options.computeForwardJacobian_ = false;
-                return CalibrateYieldCurve(spec, options);
-            };
-            auto discountResult = solve("usd_discount", quotes, {});
+            auto discountResult = SolveDalCalibration("usd_discount", quotes, today, nodes, {});
             std::vector<double> values;
             values.reserve((staged ? 2 : 1) * queries.size());
             for (const auto& query : queries)
                 values.push_back((*discountResult.curve_)(today, query));
             if (staged) {
                 Handle_<DiscountCurve_> discount(std::move(discountResult.curve_));
-                auto forwardResult = solve("usd_forward", forwardQuotes, discount);
+                auto forwardResult = SolveDalCalibration("usd_forward", forwardQuotes, today, nodes, discount);
                 for (const auto& query : queries)
                     values.push_back((*forwardResult.curve_)(today, query));
             }
@@ -305,20 +335,18 @@ namespace {
         const bool staged = fixture.kind_ == "multi_staged";
         return [today, queries, quotes, forwardQuotes, staged]() {
             using Curve = QuantLib::PiecewiseYieldCurve<QuantLib::Discount, QuantLib::LogLinear>;
-            const auto solve = [&](const std::vector<double>& keyQuotes,
-                                   QuantLib::Handle<QuantLib::YieldTermStructure> discountingCurve) {
+            const auto solve = [&](const std::vector<double>& keyQuotes, QuantLib::Handle<QuantLib::YieldTermStructure> discountingCurve) {
                 auto index = QuantLib::ext::make_shared<QuantLib::IborIndex>(
-                    "calibration-usd", QuantLib::Period(12, QuantLib::Months), 0, QuantLib::USDCurrency(),
-                    QuantLib::NullCalendar(), QuantLib::Unadjusted, false, QuantLib::Actual365Fixed(),
-                    QuantLib::Handle<QuantLib::YieldTermStructure>());
+                    "calibration-usd", QuantLib::Period(12, QuantLib::Months), 0, QuantLib::USDCurrency(), QuantLib::NullCalendar(),
+                    QuantLib::Unadjusted, false, QuantLib::Actual365Fixed(), QuantLib::Handle<QuantLib::YieldTermStructure>());
                 std::vector<QuantLib::ext::shared_ptr<QuantLib::Discount::helper>> helpers;
                 helpers.reserve(keyQuotes.size());
                 for (size_t i = 0; i < keyQuotes.size(); ++i) {
                     const int year = static_cast<int>(i) + 1;
                     helpers.push_back(QuantLib::ext::make_shared<QuantLib::SwapRateHelper>(
-                        keyQuotes[i], QuantLib::Period(year, QuantLib::Years), QuantLib::NullCalendar(), QuantLib::Annual,
-                        QuantLib::Unadjusted, QuantLib::Actual365Fixed(), index, QuantLib::Handle<QuantLib::Quote>(),
-                        QuantLib::Period(0, QuantLib::Days), discountingCurve, 0));
+                        keyQuotes[i], QuantLib::Period(year, QuantLib::Years), QuantLib::NullCalendar(), QuantLib::Annual, QuantLib::Unadjusted,
+                        QuantLib::Actual365Fixed(), index, QuantLib::Handle<QuantLib::Quote>(), QuantLib::Period(0, QuantLib::Days), discountingCurve,
+                        0));
                 }
                 auto curve = QuantLib::ext::make_shared<Curve>(today, helpers, QuantLib::Actual365Fixed());
                 curve->discount(helpers.back()->latestDate());
@@ -354,51 +382,68 @@ namespace {
         REQUIRE(false, "Unknown native case: " + fixture.caseName_);
     }
 
-    void WriteReport(const std::string& path,
-                     const std::string& backend,
-                     const Fixture_& fixture,
-                     const std::vector<double>& values,
-                     long long elapsed) {
+    std::string WorkerMethod(const std::string& backend, const Fixture_& fixture) {
+        if (fixture.operation_ != "calibration")
+            return backend == "dal" ? "DAL C++ DiscountLogDF" : "QuantLib C++ DiscountCurve";
+        if (backend != "dal")
+            return "QuantLib C++ PiecewiseYieldCurve<Discount, LogLinear> (accuracy 1e-12)";
+        if (fixture.kind_ == "multi_staged")
+            return "DAL C++ analytic staged two-curve solve (tol 1e-12, fit 1e-10, diagnostics off)";
+        return "DAL C++ analytic single-curve solve (tol 1e-12, fit 1e-10, diagnostics off)";
+    }
+
+    void WriteWorkload(std::ofstream& output, const Fixture_& fixture) {
+        output << "{\"name\":\"" << fixture.caseName_ << "\",\"operation\":\"" << fixture.operation_ << "\",\"size\":" << fixture.size_;
+        if (!fixture.kind_.empty())
+            output << ",\"kind\":\"" << fixture.kind_ << "\"";
+        output << "}";
+    }
+
+    void
+    WriteReport(const std::string& path, const std::string& backend, const Fixture_& fixture, const std::vector<double>& values, long long elapsed) {
         std::ofstream output(path);
         REQUIRE(output.good(), "Cannot create native report: " + path);
         const bool calibration = fixture.operation_ == "calibration";
         const char* schema = calibration ? "dal.native-calibration-worker/1" : "dal.native-query-worker/1";
-        std::string method;
-        if (!calibration)
-            method = backend == "dal" ? "DAL C++ DiscountLogDF" : "QuantLib C++ DiscountCurve";
-        else if (backend == "dal" && fixture.kind_ == "multi_staged")
-            method = "DAL C++ analytic staged two-curve solve (tol 1e-12, fit 1e-10, diagnostics off)";
-        else if (backend == "dal")
-            method = "DAL C++ analytic single-curve solve (tol 1e-12, fit 1e-10, diagnostics off)";
-        else
-            method = "QuantLib C++ PiecewiseYieldCurve<Discount, LogLinear> (accuracy 1e-12)";
         output << std::setprecision(17);
-        output << "{\"schema\":\"" << schema << "\",\"backend\":\"" << backend << "\",\"method\":\"" << method
-               << "\",\"workload\":{\"name\":\"" << fixture.caseName_ << "\",\"operation\":\"" << fixture.operation_
-               << "\",\"size\":" << fixture.size_;
-        if (!fixture.kind_.empty())
-            output << ",\"kind\":\"" << fixture.kind_ << "\"";
-        output << "},\"quantlib_version\":\"" << QL_VERSION << "\",\"boost_version\":\"" << BOOST_LIB_VERSION
-               << "\",\"samples_ns\":[" << elapsed << "],\"values\":[";
+        output << "{\"schema\":\"" << schema << "\",\"backend\":\"" << backend << "\",\"method\":\"" << WorkerMethod(backend, fixture)
+               << "\",\"workload\":";
+        WriteWorkload(output, fixture);
+        output << ",\"quantlib_version\":\"" << QL_VERSION << "\",\"boost_version\":\"" << BOOST_LIB_VERSION << "\",\"samples_ns\":[" << elapsed
+               << "],\"values\":[";
         for (size_t i = 0; i < values.size(); ++i)
             output << (i == 0 ? "" : ",") << values[i];
         output << "]}\n";
         REQUIRE(output.good(), "Failed to write native report");
     }
-} // namespace
 
-int main(int argc, char** argv) {
-    try {
+    struct WorkerArguments_ {
+        std::string backend_;
+        std::string input_;
+        std::string output_;
+        std::string caseName_;
+    };
+
+    WorkerArguments_ ParseArguments(int argc, char** argv) {
         REQUIRE(argc == 7 || argc == 9,
                 "Usage: native_query_comparison --backend dal|quantlib --input fixture.json --output report.json [--case name]");
         REQUIRE(std::string(argv[1]) == "--backend" && std::string(argv[3]) == "--input" && std::string(argv[5]) == "--output",
                 "Invalid native worker arguments");
-        const std::string backend = argv[2];
-        const std::string caseName = argc == 9 && std::string(argv[7]) == "--case" ? argv[8] : "discount_queries";
-        REQUIRE(argc == 7 || std::string(argv[7]) == "--case", "Invalid native case arguments");
-        const Fixture_ fixture = ReadFixture(argv[4]);
-        REQUIRE(caseName == fixture.caseName_, "Native case selection does not match fixture");
-        std::function<std::vector<double>()> run = Prepare(backend, fixture);
+        WorkerArguments_ args{argv[2], argv[4], argv[6], "discount_queries"};
+        if (argc == 9) {
+            REQUIRE(std::string(argv[7]) == "--case", "Invalid native case arguments");
+            args.caseName_ = argv[8];
+        }
+        return args;
+    }
+} // namespace
+
+int main(int argc, char** argv) {
+    try {
+        const WorkerArguments_ args = ParseArguments(argc, argv);
+        const Fixture_ fixture = ReadFixture(args.input_);
+        REQUIRE(args.caseName_ == fixture.caseName_, "Native case selection does not match fixture");
+        std::function<std::vector<double>()> run = Prepare(args.backend_, fixture);
         for (int i = 0; i < 3; ++i)
             Check(run(), fixture);
         const auto start = std::chrono::steady_clock::now();
@@ -407,7 +452,7 @@ int main(int argc, char** argv) {
         Check(values, fixture);
         const long long elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
         REQUIRE(elapsed > 0, "Nonpositive native timing");
-        WriteReport(argv[6], backend, fixture, values, elapsed);
+        WriteReport(args.output_, args.backend_, fixture, values, elapsed);
         return 0;
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

@@ -283,6 +283,7 @@ jobs:
           python3 dal-python/benchmarks/run_native_queries.py \
             --native-worker "$DAL_NATIVE_QUERY_WORKER" \
             --native-build-root build/Release-native-queries \
+            --quantlib-source benchmark-results/quantlib-source \
             --infine-build "$DAL_INFINE_BUILD" \
             --output-dir benchmark-results/native-curve-suite \
             --case discount_queries \

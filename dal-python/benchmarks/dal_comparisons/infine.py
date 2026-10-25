@@ -64,36 +64,40 @@ def method(case):
     }.get(op, "passive (direct C#)")
 
 
+def fixture_case(case):
+    from . import calibration_scenarios, scenarios
+
+    reason = unsupported_reason(case)
+    row = {"workload": case}
+    if reason:
+        row["unsupported"] = reason
+        return row
+    reference = scenarios.expected(case)
+    bounds = scenarios.tolerance(case, "infine")
+    row.update(
+        reference=reference,
+        method=method(case),
+        tolerance=(
+            list(bounds)
+            if isinstance(bounds, (list, tuple))
+            else [bounds] * len(reference)
+        ),
+    )
+    if case["operation"] == "discount":
+        row["queries"] = scenarios.queries(case["size"])
+    elif case["operation"] == "calibration":
+        row["queries"] = calibration_scenarios.queries(case["size"])
+        row["quotes"] = calibration_scenarios.quotes(case["size"])
+    elif case["name"].startswith("irs_"):
+        row["trades"] = scenarios.trades(case["size"])
+    return row
+
+
 def fixtures(smoke, case_names=None):
-    from . import calibration_scenarios, gsr_scenarios, option_scenarios, scenarios
+    from . import gsr_scenarios, option_scenarios, scenarios
     from .evidence import SCHEMA
 
-    rows = []
-    for case in scenarios.cases(smoke):
-        reason = unsupported_reason(case)
-        row = {"workload": case}
-        if reason:
-            row["unsupported"] = reason
-        else:
-            reference = scenarios.expected(case)
-            bounds = scenarios.tolerance(case, "infine")
-            row.update(
-                reference=reference,
-                method=method(case),
-                tolerance=(
-                    list(bounds)
-                    if isinstance(bounds, (list, tuple))
-                    else [bounds] * len(reference)
-                ),
-            )
-            if case["operation"] == "discount":
-                row["queries"] = scenarios.queries(case["size"])
-            elif case["operation"] == "calibration":
-                row["queries"] = calibration_scenarios.queries(case["size"])
-                row["quotes"] = calibration_scenarios.quotes(case["size"])
-            elif case["name"].startswith("irs_"):
-                row["trades"] = scenarios.trades(case["size"])
-        rows.append(row)
+    rows = [fixture_case(case) for case in scenarios.cases(smoke)]
     if case_names:
         selected = set(case_names)
         rows = [row for row in rows if row["workload"]["name"] in selected]

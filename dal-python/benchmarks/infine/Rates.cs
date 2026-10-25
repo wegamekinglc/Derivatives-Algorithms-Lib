@@ -10,6 +10,15 @@ internal static class Rates
     private static readonly SwapConventions Annual = new(WeekendsOnlyCalendar.Instance, 0,
         BusinessDayConvention.Unadjusted, Frequency.Annual, Dc, Frequency.Annual, Dc);
 
+    private static JsonElement Required(JsonElement parent, string name)
+    {
+        if (parent.ValueKind != JsonValueKind.Object || !parent.TryGetProperty(name, out var value))
+        {
+            throw new InvalidOperationException("Missing JSON field: " + name);
+        }
+        return value;
+    }
+
     internal static Func<double[]> Prepare(JsonElement inputs, JsonElement fixture)
     {
         var workload = fixture.GetProperty("workload"); // nosemgrep: codacy.csharp.security.null-dereference
@@ -19,9 +28,9 @@ internal static class Rates
         {
             int size = workload.GetProperty("size").GetInt32();
             string kind = workload.GetProperty("kind").GetString()!;
-            var quotes = fixture.GetProperty("quotes").EnumerateObject()
+            var quotes = Required(fixture, "quotes").EnumerateObject()
                 .ToDictionary(property => property.Name, property => Program.Numbers(property.Value));
-            var queries = Program.Dates(fixture.GetProperty("queries"));
+            var queries = Program.Dates(Required(fixture, "queries"));
             return () => Calibration(today, size, kind, quotes, queries);
         }
         var dates = Program.Dates(inputs.GetProperty("dates")); // nosemgrep: codacy.csharp.security.null-dereference

@@ -332,6 +332,7 @@ InFine, use the native controller:
 python dal-python/benchmarks/run_native_queries.py \
   --native-worker build/Release-native-queries/dal-cpp/benchmarks/native_query_comparison/native_query_comparison \
   --native-build-root build/Release-native-queries \
+  --quantlib-source benchmark-results/quantlib-source \
   --infine-build benchmark-results/infine-build \
   --output-dir benchmark-results/native-query-comparison \
   --case discount_queries \
@@ -399,8 +400,10 @@ nine-target regression gate.
 The acceptance source is QuantLib v1.43 commit
 `6b57206e04598f092efee66e3b367efc84771995` (the commit peeled from the
 annotated tag). QuantLib requires Boost headers. On Ubuntu, the following local
-Boost 1.83 preparation needs no sudo or system package installation. Run all
-commands from the repository root:
+Boost 1.83 preparation needs no sudo or system package installation. The native
+controller requires this checkout through `--quantlib-source` and verifies the
+pinned commit and clean worktree before and after sampling. Run all commands
+from the repository root:
 
 ```bash
 mkdir -p benchmark-results/tools/boost-deb benchmark-results/tools/boost
@@ -444,6 +447,7 @@ each of two rounds:
 python dal-python/benchmarks/run_native_queries.py \
   --native-worker build/Release-native-queries/dal-cpp/benchmarks/native_query_comparison/native_query_comparison \
   --native-build-root build/Release-native-queries \
+  --quantlib-source benchmark-results/quantlib-source \
   --infine-build benchmark-results/infine-build \
   --output-dir benchmark-results/native-cxx-query-comparison \
   --samples 10 --rounds 2
@@ -506,6 +510,7 @@ python dal-python/benchmarks/prepare_infine.py \
 python dal-python/benchmarks/run_native_queries.py \
   --native-worker build/Release-native-queries/dal-cpp/benchmarks/native_query_comparison/native_query_comparison \
   --native-build-root build/Release-native-queries \
+  --quantlib-source benchmark-results/quantlib-source \
   --infine-build benchmark-results/infine-build-native-calibration \
   --output-dir benchmark-results/native-curve-suite \
   --case discount_queries \
@@ -749,11 +754,11 @@ Four cases reproduce the [GSR example](../examples/014.gsr_swap_swaption.py) on
 2026-09-28 with unit notional, a 2.5% continuously compounded input OIS curve,
 `g = 0.02`, `H = 1`, a 3% fixed strike, and a one-year forward start:
 
-| Case                           | Timed operation                                                                                 | Backends                        |
-|--------------------------------|-------------------------------------------------------------------------------------------------|---------------------------------|
-| `gsr_swap_reused_cashflows_32` | Price 32 standard IRS trades with cashflows and instruments prepared before timing | DAL, QuantLib, rateslib |
+| Case                           | Timed operation                                                                      | Backends                |
+|--------------------------------|--------------------------------------------------------------------------------------|-------------------------|
+| `gsr_swap_reused_cashflows_32` | Price 32 standard IRS trades with cashflows and instruments prepared before timing   | DAL, QuantLib, rateslib |
 | `gsr_swap_fresh_cashflows_32`  | Price the same 32 IRS trades while rebuilding cashflows or instruments inside timing | DAL, QuantLib, rateslib |
-| `gsr_swaption_price_65536`     | Reprice the European option with 65,536 Sobol paths in each MC backend                 | DAL, QuantLib           |
+| `gsr_swaption_price_65536`     | Reprice the European option with 65,536 Sobol paths in each MC backend               | DAL, QuantLib           |
 | `gsr_swaption_gaussian1d_128`  | DAL's 65,536-path MC and QuantLib's 128-point Gaussian1d integration                 | DAL, QuantLib           |
 
 Smoke mode uses four swaps and 4,096 Monte Carlo paths for each MC backend.

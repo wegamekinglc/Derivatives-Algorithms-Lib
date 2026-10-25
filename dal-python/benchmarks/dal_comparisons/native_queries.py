@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import shutil
 import statistics
 import subprocess  # nosec B404
 import sys
@@ -100,6 +101,7 @@ def arguments(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--native-worker", type=Path, required=True)
     parser.add_argument("--native-build-root", type=Path, required=True)
+    parser.add_argument("--quantlib-source", type=Path, required=True)
     parser.add_argument("--infine-build", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--case", action="append", choices=CASES, default=[])
@@ -109,6 +111,7 @@ def arguments(argv=None):
     args = parser.parse_args(argv)
     args.native_worker = args.native_worker.resolve()
     args.native_build_root = args.native_build_root.resolve()
+    args.quantlib_source = args.quantlib_source.resolve()
     args.infine_build = args.infine_build.resolve()
     args.output_dir = args.output_dir.resolve()
     require(args.samples >= 10 and args.rounds >= 2, "native comparison needs >=10 samples and >=2 rounds")
@@ -116,6 +119,7 @@ def arguments(argv=None):
     require(args.native_worker.is_file(), "native query worker missing")
     require((args.native_build_root / "CMakeCache.txt").is_file(), "native CMake cache missing")
     require(args.native_worker.is_relative_to(args.native_build_root), "worker escaped native build root")
+    require(args.quantlib_source.is_dir(), "QuantLib source directory missing")
     require(args.infine_build.is_dir(), "InFine build directory missing")
     selected_cases(args)
     return args
@@ -281,28 +285,53 @@ def cmake_identity(build_root):
     return {name: settings[name] for name in names if name in settings}
 
 
+def quantlib_identity(source):
+    git = shutil.which("git")
+    require(git is not None, "git executable missing")
+    prefix = [git, "-C", str(Path(source).resolve())]
+    revision = subprocess.check_output(  # nosec B603  # nosemgrep
+        [*prefix, "rev-parse", "HEAD"],
+        text=True,
+        stderr=subprocess.STDOUT,
+        shell=False,
+    ).strip()
+    require(revision == QUANTLIB_REVISION, "native QuantLib source revision changed")
+    status = subprocess.check_output(  # nosec B603  # nosemgrep
+        [*prefix, "status", "--porcelain", "--ignore-submodules=dirty"],
+        text=True,
+        stderr=subprocess.STDOUT,
+        shell=False,
+    ).strip()
+    require(not status, "native QuantLib source is not clean")
+    return {"revision": revision, "dirty": False}
+
+
 def git_identity():
     try:
+        git = shutil.which("git")
+        require(git is not None, "git executable missing")
         marker = REPO / ".git"
         if marker.is_dir():
-            prefix = ["git", "-C", str(REPO)]
+            prefix = ["-C", str(REPO)]
         else:
             declaration = marker.read_text(encoding="utf-8").strip()
             require(declaration.startswith("gitdir:"), "invalid git worktree marker")
             git_dir = declaration.split(":", 1)[1].strip()
             if sys.platform != "win32" and len(git_dir) > 1 and git_dir[1] == ":":
+                wslpath = shutil.which("wslpath")
+                require(wslpath is not None, "wslpath executable missing")
                 git_dir = subprocess.check_output(  # nosec B603  # nosemgrep
-                    ["wslpath", git_dir], text=True, stderr=subprocess.STDOUT, shell=False
+                    [wslpath, git_dir], text=True, stderr=subprocess.STDOUT, shell=False
                 ).strip()
             prefix = [f"--git-dir={git_dir}", f"--work-tree={REPO}"]
         revision = subprocess.check_output(  # nosec B603  # nosemgrep
-            ["git", *prefix, "rev-parse", "HEAD"],
+            [git, *prefix, "rev-parse", "HEAD"],
             text=True,
             stderr=subprocess.STDOUT,
             shell=False,
         ).strip()
         status = subprocess.check_output(  # nosec B603  # nosemgrep
-            ["git", *prefix, "status", "--porcelain", "--ignore-submodules=dirty"],
+            [git, *prefix, "status", "--porcelain", "--ignore-submodules=dirty"],
             text=True,
             stderr=subprocess.STDOUT,
             shell=False,
@@ -342,7 +371,7 @@ def aggregate(reports):
     }
 
 
-def summary(report):
+def summary_style(report):
     suite = len(report.get("case", [])) > 1
     case_name = report.get("workload", {}).get("name", "discount_queries")
     calibration = case_name in CALIBRATION_CASES and not suite
@@ -364,7 +393,7 @@ def summary(report):
             if calibration
             else "Each process performs three checked warmups, then one native sample. Curves and query containers are prepared before timing; native array/vector creation is included. Validation and serialization are outside timing."
         )
-    lines = [
+    return [
         title,
         "",
         f"Status: {report['status']}.",
@@ -376,10 +405,10 @@ def summary(report):
         "Ratios are third-party minimum / DAL minimum and are informational, not a performance gate. C++ and .NET remain different runtimes.",
         "",
     ]
-    if report["status"] != "passed":
-        lines += [f"Error: {report.get('error', 'unknown error')}", ""]
-        return "\n".join(lines) + "\n"
-    lines += [
+
+
+def summary_rows(report):
+    lines = [
         "| Round | Case | DAL C++ min ms | QuantLib C++ min ms | InFine C# min ms | QL / DAL | InFine / DAL |",
         "| ----- | ---- | -------------- | ------------------- | ---------------- | -------- | ------------ |",
     ]
@@ -393,7 +422,68 @@ def summary(report):
                 + " | ".join(f"{ratios[backend]:.6g}" for backend in BACKENDS[1:])
                 + " |"
             )
-    return "\n".join(lines) + "\n"
+    return lines
+
+
+def summary(report):
+    lines = summary_style(report)
+    if report["status"] != "passed":
+        lines += [f"Error: {report.get('error', 'unknown error')}", ""]
+        return "\n".join(lines) + "\n"
+    return "\n".join(lines + summary_rows(report)) + "\n"
+
+
+def collect_round(args, case_name, shared, payload, identities, round_index):
+    reports = {backend: [] for backend in BACKENDS}
+    order = []
+    for sample in range(args.samples):
+        backends = backend_order(sample, round_index)
+        order.append(backends)
+        for backend in backends:
+            directory = (
+                args.output_dir
+                / f"round-{round_index + 1}"
+                / f"sample-{sample + 1}-{backend}"
+            )
+            directory.mkdir(parents=True, exist_ok=False)
+            row = (
+                invoke_infine(args, directory, shared, case_name)
+                if backend == "infine"
+                else invoke_cpp(args, backend, directory, payload, case_name)
+            )
+            identity = row.pop("identity")
+            require(
+                identities.setdefault(backend, identity) == identity,
+                f"native provenance changed for {backend}",
+            )
+            reports[backend].append(row)
+    return {"order": order, "workers": reports, "cases": [aggregate(reports)]}
+
+
+def verify_provenance(args, report):
+    require(
+        cmake_identity(args.native_build_root) == report["cmake"],
+        "native CMake configuration changed during run",
+    )
+    require(native_source_hashes() == report["source_hashes"], "native source changed during run")
+    require(
+        sha256(args.native_worker) == report["native_worker_sha256"],
+        "native worker changed during run",
+    )
+    require(
+        quantlib_identity(args.quantlib_source) == report["quantlib"],
+        "native QuantLib provenance changed during run",
+    )
+
+
+def verify_single(args, report):
+    verify_provenance(args, report)
+    for backend in BACKENDS:
+        count = sum(
+            len(result["cases"][0]["backends"][backend]["samples_ns"])
+            for result in report["rounds"]
+        )
+        require(count == args.samples * args.rounds, f"incomplete native samples for {backend}")
 
 
 def run_single(args, case_name):
@@ -419,6 +509,7 @@ def run_single(args, case_name):
             source_hashes=native_source_hashes(),
             native_worker_sha256=sha256(args.native_worker),
             cmake=cmake_identity(args.native_build_root),
+            quantlib=quantlib_identity(args.quantlib_source),
             git=git_identity(),
             thread_environment={
                 "DAL_NUM_THREADS": "1",
@@ -428,47 +519,12 @@ def run_single(args, case_name):
             },
         )
         for round_index in range(args.rounds):
-            reports = {backend: [] for backend in BACKENDS}
-            order = []
-            for sample in range(args.samples):
-                backends = backend_order(sample, round_index)
-                order.append(backends)
-                for backend in backends:
-                    directory = (
-                        args.output_dir
-                        / f"round-{round_index + 1}"
-                        / f"sample-{sample + 1}-{backend}"
-                    )
-                    directory.mkdir(parents=True, exist_ok=False)
-                    row = (
-                        invoke_infine(args, directory, shared, case_name)
-                        if backend == "infine"
-                        else invoke_cpp(args, backend, directory, payload, case_name)
-                    )
-                    identity = row.pop("identity")
-                    require(
-                        report["identities"].setdefault(backend, identity) == identity,
-                        f"native provenance changed for {backend}",
-                    )
-                    reports[backend].append(row)
             report["rounds"].append(
-                {"order": order, "workers": reports, "cases": [aggregate(reports)]}
+                collect_round(
+                    args, case_name, shared, payload, report["identities"], round_index
+                )
             )
-        require(
-            cmake_identity(args.native_build_root) == report["cmake"],
-            "native CMake configuration changed during run",
-        )
-        require(native_source_hashes() == report["source_hashes"], "native source changed during run")
-        require(
-            sha256(args.native_worker) == report["native_worker_sha256"],
-            "native worker changed during run",
-        )
-        for backend in BACKENDS:
-            count = sum(
-                len(result["cases"][0]["backends"][backend]["samples_ns"])
-                for result in report["rounds"]
-            )
-            require(count == args.samples * args.rounds, f"incomplete native samples for {backend}")
+        verify_single(args, report)
         report["status"] = "passed"
     except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as error:
         report["status"] = "failed"
@@ -478,6 +534,51 @@ def run_single(args, case_name):
     (args.output_dir / "summary.md").write_text(markdown, encoding="utf-8")
     print(markdown)
     return 0 if report["status"] == "passed" else 1
+
+
+def merge_child_provenance(report, child, case_name):
+    for key in ("source_hashes", "native_worker_sha256", "cmake", "quantlib", "git", "thread_environment"):
+        require(
+            report.setdefault(key, child[key]) == child[key],
+            f"native provenance changed for {case_name}",
+        )
+    for backend, identity in child["identities"].items():
+        require(
+            report["identities"].setdefault(backend, identity) == identity,
+            f"native provenance changed for {backend}",
+        )
+    report["fixture_sha256"][case_name] = child["fixture_sha256"]
+
+
+def merge_child_rounds(report, child, case_name, payload):
+    for round_index, child_round in enumerate(child["rounds"]):
+        if len(report["rounds"]) <= round_index:
+            report["rounds"].append({"order": {}, "workers": {}, "cases": []})
+        target = report["rounds"][round_index]
+        target["order"][case_name] = child_round["order"]
+        target["workers"][case_name] = child_round["workers"]
+        target["cases"].extend(child_round["cases"])
+        for backend, rows in child_round["workers"].items():
+            for row in rows:
+                check_worker(row, backend, payload)
+
+
+def merge_child_report(report, child, case_name):
+    merge_child_provenance(report, child, case_name)
+    merge_child_rounds(report, child, case_name, fixture(case_name=case_name))
+
+
+def check_suite_samples(args, report, case_names):
+    for case_name in case_names:
+        for backend in BACKENDS:
+            count = sum(
+                len(result["workers"][case_name][backend])
+                for result in report["rounds"]
+            )
+            require(
+                count == args.samples * args.rounds,
+                f"incomplete native samples for {case_name}/{backend}",
+            )
 
 
 def run_suite(args, case_names):
@@ -503,47 +604,9 @@ def run_suite(args, case_names):
             child = json.loads((case_args.output_dir / "results.json").read_text(encoding="utf-8"))
             require(child["status"] == "passed", f"native case failed: {case_name}")
             require(len(child["rounds"]) == args.rounds, f"incomplete rounds for {case_name}")
-            payload = fixture(case_name=case_name)
-            for key in ("source_hashes", "native_worker_sha256", "cmake", "git", "thread_environment"):
-                require(
-                    report.setdefault(key, child[key]) == child[key],
-                    f"native provenance changed for {case_name}",
-                )
-            for backend, identity in child["identities"].items():
-                require(
-                    report["identities"].setdefault(backend, identity) == identity,
-                    f"native provenance changed for {backend}",
-                )
-            report["fixture_sha256"][case_name] = child["fixture_sha256"]
-            for round_index, child_round in enumerate(child["rounds"]):
-                if len(report["rounds"]) <= round_index:
-                    report["rounds"].append({"order": {}, "workers": {}, "cases": []})
-                target = report["rounds"][round_index]
-                target["order"][case_name] = child_round["order"]
-                target["workers"][case_name] = child_round["workers"]
-                target["cases"].extend(child_round["cases"])
-                for backend, rows in child_round["workers"].items():
-                    for row in rows:
-                        check_worker(row, backend, payload)
-        for case_name in case_names:
-            for backend in BACKENDS:
-                count = sum(
-                    len(result["workers"][case_name][backend])
-                    for result in report["rounds"]
-                )
-                require(
-                    count == args.samples * args.rounds,
-                    f"incomplete native samples for {case_name}/{backend}",
-                )
-        require(
-            cmake_identity(args.native_build_root) == report["cmake"],
-            "native CMake configuration changed during run",
-        )
-        require(native_source_hashes() == report["source_hashes"], "native source changed during run")
-        require(
-            sha256(args.native_worker) == report["native_worker_sha256"],
-            "native worker changed during run",
-        )
+            merge_child_report(report, child, case_name)
+        check_suite_samples(args, report, case_names)
+        verify_provenance(args, report)
         report["status"] = "passed"
     except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as error:
         report["status"] = "failed"
