@@ -203,12 +203,12 @@ def test_native_run_retains_workers_and_rechecks_cmake(tmp_path, monkeypatch):
 
     monkeypatch.setattr(native_queries, "cmake_identity", cmake)
 
-    def cpp(_args, backend, _directory, _payload):
+    def cpp(_args, backend, _directory, _payload, _case_name=None):
         row = native_row(backend, payload)
         row["identity"] = {"worker": backend}
         return row
 
-    def managed(_args, _directory, _shared):
+    def managed(_args, _directory, _shared, _case_name=None):
         row = native_row("infine", payload)
         row["identity"] = {"infine": "identity"}
         return row
@@ -274,8 +274,8 @@ def test_native_calibration_fixture_and_case_arguments(tmp_path, case_name, kind
         "--infine-build", str(tmp_path), "--output-dir", str(tmp_path / "out"),
         "--case", case_name,
     ])
-    assert args.case == case_name
-    assert native_queries.SCHEMAS[case_name] == "dal.native-calibration-comparison/1"
+    assert args.case == [case_name]
+    assert native_queries.SCHEMAS[args.case[0]] == "dal.native-calibration-comparison/1"
 
 
 @pytest.mark.parametrize("backend", ["dal", "quantlib"])
@@ -305,3 +305,88 @@ def test_native_cpp_calibration_matches_shared_oracle(tmp_path, backend, case_na
     assert len(report["samples_ns"]) == 1 and report["samples_ns"][0] > 0
     assert len(report["values"]) == expected_width
     scenarios.validate(report["values"], payload["reference"], abs_tol=2e-8)
+
+
+def native_cli_args(tmp_path, *extra):
+    root = tmp_path / "build"
+    root.mkdir(exist_ok=True)
+    (root / "CMakeCache.txt").write_text("CMAKE_BUILD_TYPE:STRING=Release\n")
+    worker = root / "worker"
+    worker.touch()
+    return [
+        "--native-worker", str(worker), "--native-build-root", str(root),
+        "--infine-build", str(tmp_path), "--output-dir", str(tmp_path / "out"),
+        *extra,
+    ]
+
+
+def test_native_repeated_case_validation_and_default(tmp_path):
+    with pytest.raises(ValueError, match="duplicate comparison case"):
+        native_queries.arguments(native_cli_args(
+            tmp_path, "--case", "calibration_single_5", "--case", "calibration_single_5"
+        ))
+    args = native_queries.arguments(native_cli_args(tmp_path))
+    assert args.case == []
+    assert native_queries.selected_cases(args) == ["discount_queries"]
+    assert native_queries.selected_cases(SimpleNamespace(case="calibration_single_5")) == [
+        "calibration_single_5"
+    ]
+
+
+def test_native_multi_case_controller(tmp_path, monkeypatch):
+    case_names = ["calibration_single_5", "calibration_multi_staged_5"]
+    worker = tmp_path / "worker"
+    worker.touch()
+    args = SimpleNamespace(
+        native_worker=worker,
+        native_build_root=tmp_path,
+        infine_build=tmp_path,
+        output_dir=tmp_path / "out",
+        samples=1,
+        rounds=1,
+        timeout=30,
+        case=case_names,
+    )
+    monkeypatch.setattr(native_queries, "native_source_hashes", lambda: {"source": "hash"})
+    monkeypatch.setattr(native_queries, "sha256", lambda path: "binary")
+    monkeypatch.setattr(native_queries, "git_identity", lambda: {"revision": "test", "dirty": False})
+    cmake_calls = []
+
+    def cmake(build_root):
+        cmake_calls.append(build_root)
+        return {"CMAKE_BUILD_TYPE": "Release"}
+
+    monkeypatch.setattr(native_queries, "cmake_identity", cmake)
+    calls = []
+
+    def cpp(_args, backend, _directory, payload, case_name=None):
+        calls.append((backend, case_name, _directory))
+        row = native_row(backend, payload)
+        row["identity"] = {"worker": backend}
+        return row
+
+    def managed(_args, _directory, _shared, case_name=None):
+        calls.append(("infine", case_name, _directory))
+        row = native_row("infine", native_queries.fixture(_shared, case_name))
+        row["identity"] = {"infine": "identity"}
+        return row
+
+    monkeypatch.setattr(native_queries, "invoke_cpp", cpp)
+    monkeypatch.setattr(native_queries, "invoke_infine", managed)
+    assert native_queries.run(args) == 0
+    assert len(cmake_calls) == 5
+    assert len(calls) == 6
+    report = json.loads((args.output_dir / "results.json").read_text())
+    assert report["schema"] == "dal.native-curve-comparison/1"
+    assert report["case"] == case_names
+    assert len(report["rounds"][0]["cases"]) == 2
+    for case_name in case_names:
+        payload = native_queries.fixture(case_name=case_name)
+        for backend in native_queries.BACKENDS:
+            rows = report["rounds"][0]["workers"][case_name][backend]
+            assert len(rows) == 1
+            assert rows[0]["values"] == payload["reference"]
+            assert rows[0]["samples_ns"] == [100]
+            assert (args.output_dir / case_name / "round-1" / f"sample-1-{backend}").is_dir()
+    summary = (args.output_dir / "summary.md").read_text()
+    assert "Native C++/.NET curve suite" in summary

@@ -102,7 +102,7 @@ def arguments(argv=None):
     parser.add_argument("--native-build-root", type=Path, required=True)
     parser.add_argument("--infine-build", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
-    parser.add_argument("--case", choices=CASES, default="discount_queries")
+    parser.add_argument("--case", action="append", choices=CASES, default=[])
     parser.add_argument("--samples", type=int, default=10)
     parser.add_argument("--rounds", type=int, default=2)
     parser.add_argument("--timeout", type=int, default=60)
@@ -117,7 +117,18 @@ def arguments(argv=None):
     require((args.native_build_root / "CMakeCache.txt").is_file(), "native CMake cache missing")
     require(args.native_worker.is_relative_to(args.native_build_root), "worker escaped native build root")
     require(args.infine_build.is_dir(), "InFine build directory missing")
+    selected_cases(args)
     return args
+
+
+def selected_cases(args):
+    raw = getattr(args, "case", [])
+    if isinstance(raw, str):
+        raw = [raw]
+    selected = list(raw) if raw else ["discount_queries"]
+    require(all(case in CASES for case in selected), "unsupported native comparison case")
+    require(len(set(selected)) == len(selected), "duplicate comparison case")
+    return selected
 
 
 def native_source_hashes():
@@ -158,12 +169,14 @@ def check_worker(row, backend, payload):
     )
 
 
-def invoke_cpp(args, backend, directory, payload):
+def invoke_cpp(args, backend, directory, payload, case_name=None):
     before = sha256(args.native_worker)
     source = directory / "native-fixture.json"
     output = directory / "worker.json"
     write_json(source, payload)
-    case_name = getattr(args, "case", "discount_queries")
+    case_name = case_name or getattr(args, "case", "discount_queries")
+    if isinstance(case_name, list):
+        case_name = case_name[0] if case_name else "discount_queries"
     command = [
         str(args.native_worker),
         "--backend",
@@ -209,8 +222,10 @@ def invoke_cpp(args, backend, directory, payload):
     return row
 
 
-def invoke_infine(args, directory, shared):
-    case_name = getattr(args, "case", "discount_queries")
+def invoke_infine(args, directory, shared, case_name=None):
+    case_name = case_name or getattr(args, "case", "discount_queries")
+    if isinstance(case_name, list):
+        case_name = case_name[0] if case_name else "discount_queries"
     worker_args = SimpleNamespace(
         infine_build=args.infine_build,
         output_dir=directory,
@@ -328,21 +343,27 @@ def aggregate(reports):
 
 
 def summary(report):
+    suite = len(report.get("case", [])) > 1
     case_name = report.get("workload", {}).get("name", "discount_queries")
-    calibration = case_name in CALIBRATION_CASES
-    title = "# Native C++/.NET curve-calibration comparison" if calibration else "# Native C++/.NET discount-query comparison"
-    boundary = (
-        "DAL C++ and QuantLib C++ construct and bootstrap native instruments directly; InFine C# builds and solves native .NET instruments. Python/JSON/IPC/startup are outside timing."
-        if calibration
-        else "DAL C++ and QuantLib C++ call native curves directly; InFine C# calls its native .NET curve directly. Python/JSON/IPC/startup are outside timing."
-    )
-    kind, size = CALIBRATION_CASES.get(case_name, (None, None))
-    output_width = (2 if kind == "single" else 4) * size if calibration else 4096
-    measurement = (
-        f"Each process performs three checked warmups, then one native sample. Fresh instrument construction, initial curves, solving, {output_width} DF conversions, and native array/vector creation are included. Raw quotes, reference values, validation, and serialization are outside timing."
-        if calibration
-        else "Each process performs three checked warmups, then one native sample. Curves and query containers are prepared before timing; native array/vector creation is included. Validation and serialization are outside timing."
-    )
+    calibration = case_name in CALIBRATION_CASES and not suite
+    if suite:
+        title = "# Native C++/.NET curve suite"
+        boundary = "DAL C++, QuantLib C++, and InFine C# run native discount and single/staged calibration cases independently. Python/JSON/IPC/startup are outside timing."
+        measurement = "Each process performs three checked warmups, then one native sample with complete per-case evidence. Fresh instruments, curves, solves, DF conversion, and native allocation are included."
+    else:
+        title = "# Native C++/.NET curve-calibration comparison" if calibration else "# Native C++/.NET discount-query comparison"
+        boundary = (
+            "DAL C++ and QuantLib C++ construct and bootstrap native instruments directly; InFine C# builds and solves native .NET instruments. Python/JSON/IPC/startup are outside timing."
+            if calibration
+            else "DAL C++ and QuantLib C++ call native curves directly; InFine C# calls its native .NET curve directly. Python/JSON/IPC/startup are outside timing."
+        )
+        kind, size = CALIBRATION_CASES.get(case_name, (None, None))
+        output_width = (2 if kind == "single" else 4) * size if calibration else 4096
+        measurement = (
+            f"Each process performs three checked warmups, then one native sample. Fresh instrument construction, initial curves, solving, {output_width} DF conversions, and native array/vector creation are included. Raw quotes, reference values, validation, and serialization are outside timing."
+            if calibration
+            else "Each process performs three checked warmups, then one native sample. Curves and query containers are prepared before timing; native array/vector creation is included. Validation and serialization are outside timing."
+        )
     lines = [
         title,
         "",
@@ -375,12 +396,12 @@ def summary(report):
     return "\n".join(lines) + "\n"
 
 
-def run(args):
+def run_single(args, case_name):
     args.output_dir.mkdir(parents=True, exist_ok=False)
-    case_name = getattr(args, "case", "discount_queries")
     report = {
         "schema": SCHEMAS[case_name],
         "status": "running",
+        "case": [case_name],
         "samples_per_round": args.samples,
         "warmups": 3,
         "backends": list(BACKENDS),
@@ -420,9 +441,9 @@ def run(args):
                     )
                     directory.mkdir(parents=True, exist_ok=False)
                     row = (
-                        invoke_infine(args, directory, shared)
+                        invoke_infine(args, directory, shared, case_name)
                         if backend == "infine"
-                        else invoke_cpp(args, backend, directory, payload)
+                        else invoke_cpp(args, backend, directory, payload, case_name)
                     )
                     identity = row.pop("identity")
                     require(
@@ -457,6 +478,88 @@ def run(args):
     (args.output_dir / "summary.md").write_text(markdown, encoding="utf-8")
     print(markdown)
     return 0 if report["status"] == "passed" else 1
+
+
+def run_suite(args, case_names):
+    args.output_dir.mkdir(parents=True, exist_ok=False)
+    report = {
+        "schema": "dal.native-curve-comparison/1",
+        "status": "running",
+        "case": list(case_names),
+        "workload": {"name": "native_curve_suite"},
+        "samples_per_round": args.samples,
+        "warmups": 3,
+        "backends": list(BACKENDS),
+        "fixture_sha256": {},
+        "identities": {},
+        "rounds": [],
+    }
+    try:
+        for case_name in case_names:
+            case_args = SimpleNamespace(**vars(args))
+            case_args.output_dir = args.output_dir / case_name
+            case_args.case = case_name
+            require(run_single(case_args, case_name) == 0, f"native case failed: {case_name}")
+            child = json.loads((case_args.output_dir / "results.json").read_text(encoding="utf-8"))
+            require(child["status"] == "passed", f"native case failed: {case_name}")
+            require(len(child["rounds"]) == args.rounds, f"incomplete rounds for {case_name}")
+            payload = fixture(case_name=case_name)
+            for key in ("source_hashes", "native_worker_sha256", "cmake", "git", "thread_environment"):
+                require(
+                    report.setdefault(key, child[key]) == child[key],
+                    f"native provenance changed for {case_name}",
+                )
+            for backend, identity in child["identities"].items():
+                require(
+                    report["identities"].setdefault(backend, identity) == identity,
+                    f"native provenance changed for {backend}",
+                )
+            report["fixture_sha256"][case_name] = child["fixture_sha256"]
+            for round_index, child_round in enumerate(child["rounds"]):
+                if len(report["rounds"]) <= round_index:
+                    report["rounds"].append({"order": {}, "workers": {}, "cases": []})
+                target = report["rounds"][round_index]
+                target["order"][case_name] = child_round["order"]
+                target["workers"][case_name] = child_round["workers"]
+                target["cases"].extend(child_round["cases"])
+                for backend, rows in child_round["workers"].items():
+                    for row in rows:
+                        check_worker(row, backend, payload)
+        for case_name in case_names:
+            for backend in BACKENDS:
+                count = sum(
+                    len(result["workers"][case_name][backend])
+                    for result in report["rounds"]
+                )
+                require(
+                    count == args.samples * args.rounds,
+                    f"incomplete native samples for {case_name}/{backend}",
+                )
+        require(
+            cmake_identity(args.native_build_root) == report["cmake"],
+            "native CMake configuration changed during run",
+        )
+        require(native_source_hashes() == report["source_hashes"], "native source changed during run")
+        require(
+            sha256(args.native_worker) == report["native_worker_sha256"],
+            "native worker changed during run",
+        )
+        report["status"] = "passed"
+    except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as error:
+        report["status"] = "failed"
+        report["error"] = f"{type(error).__name__}: {error}"
+    write_json(args.output_dir / "results.json", report)
+    markdown = summary(report)
+    (args.output_dir / "summary.md").write_text(markdown, encoding="utf-8")
+    print(markdown)
+    return 0 if report["status"] == "passed" else 1
+
+
+def run(args):
+    case_names = selected_cases(args)
+    if len(case_names) > 1:
+        return run_suite(args, case_names)
+    return run_single(args, case_names[0])
 
 
 def main(argv=None):
