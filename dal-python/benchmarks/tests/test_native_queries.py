@@ -146,7 +146,9 @@ def test_native_worker_rejects_binary_drift(tmp_path, monkeypatch):
     monkeypatch.setattr(native_queries, "sha256", lambda path: next(hashes))
 
     def execute(command, **kwargs):
-        Path(command[-1]).write_text(json.dumps(native_row("dal", payload)))
+        output = Path(command[command.index("--output") + 1])
+        assert output == directory / "worker.json"
+        output.write_text(json.dumps(native_row("dal", payload)))
 
     monkeypatch.setattr(native_queries.subprocess, "run", execute)
     with pytest.raises(ValueError, match="native worker changed during execution"):
