@@ -12,12 +12,15 @@
 // Mirrors the instrument set from
 // examples/curves/yield_curve_jacobian/yield_curve_jacobian.cpp.
 
+#include <algorithm>
+#include <cmath>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 #include <dal/platform/platform.hpp>
 #include <dal/platform/initall.hpp>
+#include <dal/platform/strict.hpp>
 #include <dal/curve/calibration.hpp>
 #include <dal/curve/curveblock.hpp>
 #include <dal/curve/ycinstrument.hpp>
@@ -135,6 +138,104 @@ namespace {
         Bench::Print(result);
         Bench::DoNotOptimize(&sink);
     }
+
+    struct LogDfFixture_ {
+        Date_ anchor_{2025, 1, 15};
+        Date_ nonAnchor_{2026, 1, 15};
+        DayBasis_ dayCount_{"ACT_365F"};
+        Vector_<Date_> nodes_;
+        Vector_<> logDf_;
+        Vector_<> baseLogDf_;
+        Vector_<> times_;
+        Vector_<Date_> queries_;
+
+        LogDfFixture_() {
+            for (int i = 0; i <= 21; ++i) {
+                nodes_.push_back(Date_(2025 + i, 1, 15));
+                const double t = dayCount_(anchor_, nodes_.back(), nullptr);
+                times_.push_back(t);
+                logDf_.push_back(-(0.02 + 0.0005 * i) * t);
+                baseLogDf_.push_back(-(0.005 + 0.0002 * i) * t);
+            }
+            for (int i = 0; i < 4096; ++i)
+                queries_.push_back(anchor_.AddDays(1 + (i * 1777) % 7665));
+        }
+    };
+
+    double ExpectedLogDf(double query, const Vector_<>& times, const Vector_<>& values) {
+        const auto knot = std::lower_bound(times.begin(), times.end(), query);
+        if (knot != times.end() && *knot == query)
+            return values[knot - times.begin()];
+        if (query > times.back()) {
+            const int n = static_cast<int>(times.size());
+            const double excess = (query - times[n - 1]) / (times[n - 1] - times[n - 2]);
+            return -excess * values[n - 2] + (1.0 + excess) * values[n - 1];
+        }
+        if (knot == times.begin())
+            return values[0];
+        const int upper = static_cast<int>(knot - times.begin());
+        const int lower = upper - 1;
+        const double weight = (query - times[lower]) / (times[upper] - times[lower]);
+        return (1.0 - weight) * values[lower] + weight * values[upper];
+    }
+
+    double ExpectedDf(const LogDfFixture_& fixture, const Date_& from, const Date_& to, bool withBase) {
+        const double fromTime = fixture.dayCount_(fixture.anchor_, from, nullptr);
+        const double toTime = fixture.dayCount_(fixture.anchor_, to, nullptr);
+        double logDf = ExpectedLogDf(toTime, fixture.times_, fixture.logDf_) - ExpectedLogDf(fromTime, fixture.times_, fixture.logDf_);
+        if (withBase)
+            logDf += ExpectedLogDf(toTime, fixture.times_, fixture.baseLogDf_) - ExpectedLogDf(fromTime, fixture.times_, fixture.baseLogDf_);
+        return std::exp(logDf);
+    }
+
+    void RunLogDfCase(const std::string& name,
+                      const LogDfFixture_& fixture,
+                      const Tape::DiscountLogDF_<double>& curve,
+                      const Vector_<Date_>& from,
+                      const Vector_<Date_>& to,
+                      bool withBase) {
+        double expectedSum = 0.0;
+        for (int i = 0; i < static_cast<int>(from.size()); ++i) {
+            const double expected = ExpectedDf(fixture, from[i], to[i], withBase);
+            REQUIRE(std::abs(curve(from[i], to[i]) - expected) <= 2.0e-12, "Log-DF query correctness check failed");
+            expectedSum += expected;
+        }
+        double sink = 0.0;
+        const auto result = Bench::Run(
+            name,
+            [&]() {
+                for (int i = 0; i < static_cast<int>(from.size()); ++i)
+                    sink += curve(from[i], to[i]);
+            },
+            2,
+            10,
+            20);
+        REQUIRE(std::abs(sink - 202.0 * expectedSum) <= 1.0e-6, "Log-DF timed query sum mismatch");
+        Bench::Print(result);
+        Bench::DoNotOptimize(&sink);
+    }
+
+    Vector_<Date_> Repeat(const Date_& date, size_t count) { return Vector_<Date_>(count, date); }
+
+    void RunLogDfQueries() {
+        const LogDfFixture_ fixture;
+        const Tape::DiscountLogDF_<double> curve(
+            "queries", "USD", fixture.nodes_, fixture.logDf_, fixture.dayCount_, LogDfScheme_::Value_::LOG_LINEAR);
+        const Handle_<DiscountCurve_> base(
+            new Tape::DiscountLogDF_<double>("base", "USD", fixture.nodes_, fixture.baseLogDf_, fixture.dayCount_, LogDfScheme_::Value_::LOG_LINEAR));
+        const Tape::DiscountLogDF_<double> withBase(
+            "with_base", "USD", fixture.nodes_, fixture.logDf_, fixture.dayCount_, LogDfScheme_::Value_::LOG_LINEAR, base);
+        const auto anchors = Repeat(fixture.anchor_, fixture.queries_.size());
+        const auto nonAnchors = Repeat(fixture.nonAnchor_, fixture.queries_.size());
+
+        RunLogDfCase("LogDF anchor -> 4096 queries", fixture, curve, anchors, fixture.queries_, false);
+        RunLogDfCase("LogDF 4096 queries -> anchor", fixture, curve, fixture.queries_, anchors, false);
+        RunLogDfCase("LogDF non-anchor -> 4096 queries", fixture, curve, nonAnchors, fixture.queries_, false);
+        RunLogDfCase("LogDF non-anchor -> same non-anchor", fixture, curve, nonAnchors, nonAnchors, false);
+        RunLogDfCase("LogDF anchor -> anchor", fixture, curve, anchors, anchors, false);
+        RunLogDfCase("LogDF anchor -> 4096 queries with base", fixture, withBase, anchors, fixture.queries_, true);
+        RunLogDfCase("LogDF non-anchor -> 4096 queries with base", fixture, withBase, nonAnchors, fixture.queries_, true);
+    }
 } // namespace
 
 int main() {
@@ -144,6 +245,7 @@ int main() {
 
     for (const int nodeCount : {8, 24, 64, 256})
         RunPwlQueries(nodeCount);
+    RunLogDfQueries();
 
     const auto optsAnalytic = OptionsFor(CurveJacobianMode_::Value_::ANALYTIC);
     const auto optsAnalyticSolveOnly = OptionsFor(CurveJacobianMode_::Value_::ANALYTIC, false, false);
