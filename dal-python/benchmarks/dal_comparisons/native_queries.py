@@ -18,21 +18,40 @@ SCHEMA = "dal.native-query-comparison/1"
 FIXTURE_SCHEMA = "dal.native-query-fixture/1"
 WORKER_SCHEMA = "dal.native-query-worker/1"
 BACKENDS = ("dal", "quantlib", "infine")
-CASES = ("discount_queries", "calibration_single_15")
-SCHEMAS = {CASES[0]: SCHEMA, CASES[1]: "dal.native-calibration-comparison/1"}
-FIXTURE_SCHEMAS = {CASES[0]: FIXTURE_SCHEMA, CASES[1]: "dal.native-calibration-fixture/1"}
-WORKER_SCHEMAS = {CASES[0]: WORKER_SCHEMA, CASES[1]: "dal.native-calibration-worker/1"}
+CASES = (
+    "discount_queries",
+    "calibration_single_5",
+    "calibration_single_15",
+    "calibration_multi_staged_5",
+    "calibration_multi_staged_15",
+)
+CALIBRATION_CASES = {
+    "calibration_single_5": ("single", 5),
+    "calibration_single_15": ("single", 15),
+    "calibration_multi_staged_5": ("multi_staged", 5),
+    "calibration_multi_staged_15": ("multi_staged", 15),
+}
+SCHEMAS = {CASES[0]: SCHEMA, **{case: "dal.native-calibration-comparison/1" for case in CALIBRATION_CASES}}
+FIXTURE_SCHEMAS = {CASES[0]: FIXTURE_SCHEMA, **{case: "dal.native-calibration-fixture/1" for case in CALIBRATION_CASES}}
+WORKER_SCHEMAS = {CASES[0]: WORKER_SCHEMA, **{case: "dal.native-calibration-worker/1" for case in CALIBRATION_CASES}}
+
+
+def calibration_methods(kind):
+    structure = "single-curve" if kind == "single" else "staged two-curve"
+    return {
+        "dal": f"DAL C++ analytic {structure} solve (tol 1e-12, fit 1e-10, diagnostics off)",
+        "quantlib": "QuantLib C++ PiecewiseYieldCurve<Discount, LogLinear> (accuracy 1e-12)",
+        "infine": "InFine C# native Brent log-linear bootstrap (tolerance 1e-12)",
+    }
+
+
 METHODS = {
     "discount_queries": {
         "dal": "DAL C++ DiscountLogDF",
         "quantlib": "QuantLib C++ DiscountCurve",
         "infine": "InFine C# InterpolatedDiscountCurve",
     },
-    "calibration_single_15": {
-        "dal": "DAL C++ analytic single-curve solve (tol 1e-12, fit 1e-10, diagnostics off)",
-        "quantlib": "QuantLib C++ PiecewiseYieldCurve<Discount, LogLinear> (accuracy 1e-12)",
-        "infine": "InFine C# native Brent log-linear bootstrap (tolerance 1e-12)",
-    },
+    **{case: calibration_methods(kind) for case, (kind, _) in CALIBRATION_CASES.items()},
 }
 QUANTLIB_REVISION = "6b57206e04598f092efee66e3b367efc84771995"
 ROOT = Path(__file__).resolve().parents[1]
@@ -46,19 +65,23 @@ def fixture(shared=None, case_name="discount_queries"):
     case = shared["cases"][0]
     require(case["workload"]["name"] == case_name, "wrong native comparison case")
     tolerances = set(case["tolerance"])
-    if case_name == "calibration_single_15":
+    if case_name in CALIBRATION_CASES:
+        kind, size = CALIBRATION_CASES[case_name]
         require(tolerances == {2e-8}, "native calibration tolerance changed")
-        return {
+        result = {
             "schema": FIXTURE_SCHEMAS[case_name],
             "workload": case["workload"],
             "anchor": shared["rates"]["today"],
-            "dates": [value.isoformat() for value in calibration_scenarios.dates(15)],
+            "dates": [value.isoformat() for value in calibration_scenarios.dates(size)],
             "queries": case["queries"],
             "quotes": case["quotes"]["usd_discount"],
             "reference": case["reference"],
             "absolute_tolerance": 2e-8,
             "relative_tolerance": 1e-10,
         }
+        if kind == "multi_staged":
+            result["forward_quotes"] = case["quotes"]["usd_forward"]
+        return result
     require(tolerances == {2e-12}, "native query tolerance changed")
     return {
         "schema": FIXTURE_SCHEMAS[case_name],
@@ -305,15 +328,18 @@ def aggregate(reports):
 
 
 def summary(report):
-    calibration = report.get("workload", {}).get("name", "discount_queries") == "calibration_single_15"
+    case_name = report.get("workload", {}).get("name", "discount_queries")
+    calibration = case_name in CALIBRATION_CASES
     title = "# Native C++/.NET curve-calibration comparison" if calibration else "# Native C++/.NET discount-query comparison"
     boundary = (
         "DAL C++ and QuantLib C++ construct and bootstrap native instruments directly; InFine C# builds and solves native .NET instruments. Python/JSON/IPC/startup are outside timing."
         if calibration
         else "DAL C++ and QuantLib C++ call native curves directly; InFine C# calls its native .NET curve directly. Python/JSON/IPC/startup are outside timing."
     )
+    kind, size = CALIBRATION_CASES.get(case_name, (None, None))
+    output_width = (2 if kind == "single" else 4) * size if calibration else 4096
     measurement = (
-        "Each process performs three checked warmups, then one native sample. Fresh instrument construction, initial curves, solving, 30 DF conversions, and native array/vector creation are included. Raw quotes, reference values, validation, and serialization are outside timing."
+        f"Each process performs three checked warmups, then one native sample. Fresh instrument construction, initial curves, solving, {output_width} DF conversions, and native array/vector creation are included. Raw quotes, reference values, validation, and serialization are outside timing."
         if calibration
         else "Each process performs three checked warmups, then one native sample. Curves and query containers are prepared before timing; native array/vector creation is included. Validation and serialization are outside timing."
     )

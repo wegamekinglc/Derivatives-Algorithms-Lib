@@ -241,18 +241,29 @@ def test_native_git_identity_ignores_only_dirty_submodules(tmp_path, monkeypatch
     assert "--ignore-submodules=dirty" in commands[1]
 
 
-def test_native_calibration_fixture_and_case_arguments(tmp_path):
-    shared = infine.fixtures(False, ["calibration_single_15"])
-    payload = native_queries.fixture(shared, "calibration_single_15")
+@pytest.mark.parametrize(
+    "case_name,kind,size",
+    [
+        ("calibration_single_5", "single", 5),
+        ("calibration_single_15", "single", 15),
+        ("calibration_multi_staged_5", "multi_staged", 5),
+        ("calibration_multi_staged_15", "multi_staged", 15),
+    ],
+)
+def test_native_calibration_fixture_and_case_arguments(tmp_path, case_name, kind, size):
+    shared = infine.fixtures(False, [case_name])
+    payload = native_queries.fixture(shared, case_name)
     case = shared["cases"][0]
     assert payload["schema"] == "dal.native-calibration-fixture/1"
     assert payload["workload"] == case["workload"]
-    assert payload["dates"] == [value.isoformat() for value in calibration_scenarios.dates(15)]
+    assert payload["dates"] == [value.isoformat() for value in calibration_scenarios.dates(size)]
     assert payload["queries"] == case["queries"]
     assert payload["quotes"] == case["quotes"]["usd_discount"]
     assert payload["reference"] == case["reference"]
-    assert len(payload["reference"]) == 30
+    assert len(payload["reference"]) == (2 if kind == "single" else 4) * size
     assert payload["absolute_tolerance"] == 2e-8
+    if kind == "multi_staged":
+        assert payload["forward_quotes"] == case["quotes"]["usd_forward"]
     root = tmp_path / "build"
     root.mkdir()
     (root / "CMakeCache.txt").write_text("CMAKE_BUILD_TYPE:STRING=Release\n")
@@ -261,27 +272,36 @@ def test_native_calibration_fixture_and_case_arguments(tmp_path):
     args = native_queries.arguments([
         "--native-worker", str(worker), "--native-build-root", str(root),
         "--infine-build", str(tmp_path), "--output-dir", str(tmp_path / "out"),
-        "--case", "calibration_single_15",
+        "--case", case_name,
     ])
-    assert args.case == "calibration_single_15"
-    assert native_queries.SCHEMAS[args.case] == "dal.native-calibration-comparison/1"
+    assert args.case == case_name
+    assert native_queries.SCHEMAS[case_name] == "dal.native-calibration-comparison/1"
 
 
 @pytest.mark.parametrize("backend", ["dal", "quantlib"])
-def test_native_cpp_calibration_matches_shared_oracle(tmp_path, backend):
+@pytest.mark.parametrize(
+    "case_name,expected_width",
+    [
+        ("calibration_single_5", 10),
+        ("calibration_single_15", 30),
+        ("calibration_multi_staged_5", 20),
+        ("calibration_multi_staged_15", 60),
+    ],
+)
+def test_native_cpp_calibration_matches_shared_oracle(tmp_path, backend, case_name, expected_width):
     worker = os.environ.get("DAL_NATIVE_QUERY_WORKER")
     if not worker:
         pytest.skip("set DAL_NATIVE_QUERY_WORKER to run C++ native integration tests")
-    payload = native_queries.fixture(case_name="calibration_single_15")
+    payload = native_queries.fixture(case_name=case_name)
     source, output = tmp_path / "fixture.json", tmp_path / "worker.json"
     source.write_text(json.dumps(payload))
     subprocess.run([
         worker, "--backend", backend, "--input", str(source), "--output", str(output),
-        "--case", "calibration_single_15",
+        "--case", case_name,
     ], check=True, timeout=30, env=dict(os.environ, DAL_NUM_THREADS="1"))
     report = json.loads(output.read_text())
     assert report["schema"] == "dal.native-calibration-worker/1"
     assert report["workload"] == payload["workload"]
     assert len(report["samples_ns"]) == 1 and report["samples_ns"][0] > 0
-    assert len(report["values"]) == 30
+    assert len(report["values"]) == expected_width
     scenarios.validate(report["values"], payload["reference"], abs_tol=2e-8)
