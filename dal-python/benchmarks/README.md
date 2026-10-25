@@ -408,13 +408,14 @@ To intentionally update NuGet resolution, use the pinned source and SDK and run
 `--artifacts-path`. Review and commit the regenerated lock, then create a new
 published worker with `prepare_infine.py`.
 
-### Native C++/.NET discount-query comparison
+### Native C++/.NET curve comparisons
 
-The native `discount_queries` report is separate from the Python API comparison
-above. DAL and QuantLib call C++ curves directly; InFine calls its C# curve
-directly. No Python backend is imported by the native controller. Python only
-creates shared fixtures, rotates fresh processes, and aggregates native reports.
-Its output uses schema `dal.native-query-comparison/1`, not
+The native `discount_queries` and `calibration_single_15` reports are separate
+from the Python API comparison above. DAL and QuantLib call C++ curves directly;
+InFine calls its C# curve directly. No Python backend is imported by the native
+controller. Python only creates shared fixtures, rotates fresh processes, and
+aggregates native reports. Their output schemas are
+`dal.native-query-comparison/1` and `dal.native-calibration-comparison/1`, not
 `dal.python-comparisons/8`.
 
 The opt-in `DAL_CPP_BUILD_NATIVE_COMPARISONS` option defaults to `OFF`, so an
@@ -495,6 +496,51 @@ answer different questions and must not be used interchangeably.
 Set `DAL_NATIVE_QUERY_WORKER` to the worker path and `DAL_INFINE_BUILD` to the
 published InFine directory to enable the real native integration tests in
 `tests/test_native_queries.py`.
+
+#### Native single-curve calibration
+
+`--case` defaults to `discount_queries`. Select `calibration_single_15` to
+measure 15 annual fixed/float USD IRS with ACT/365F, unadjusted dates, no
+holidays, zero lags, and the same discount/forecast curve. The solved log-linear
+curve returns 15 annual node DFs followed by 15 mid-year DFs.
+
+DAL uses analytic Jacobian mode, tolerance `1e-12`, fit tolerance `1e-10`,
+initial guess `0.025`, and no optional Jacobian/inverse diagnostics. QuantLib
+uses `PiecewiseYieldCurve<Discount, LogLinear>` with bootstrap accuracy `1e-12`.
+InFine uses its native Brent log-linear bootstrap with tolerance `1e-12`. These
+are different algorithms and initial states, not claims of identical iterations
+or equal accuracy-cost tradeoffs.
+
+Every timed invocation constructs fresh instruments and initial curves, solves,
+converts all 30 DFs, and creates the native output array/vector. Raw quote
+generation, the independent oracle, Python, JSON, IPC, startup, and result
+validation are outside timing. InFine's adapter parses quote arrays and query
+dates before entering its native calibration lambda; its builder, swaps, solve,
+and DF conversion remain inside timing. Every result is checked with `2e-8`
+absolute and `1e-10` relative tolerance.
+
+After changing the C# adapter, publish a new worker so its manifest matches the
+updated source. Then run the calibration acceptance command:
+
+```bash
+python dal-python/benchmarks/prepare_infine.py \
+  --source benchmark-results/infine-source \
+  --output benchmark-results/infine-build-native-calibration \
+  --dotnet benchmark-results/tools/dotnet/dotnet
+
+python dal-python/benchmarks/run_native_queries.py \
+  --native-worker build/Release-native-queries/dal-cpp/benchmarks/native_query_comparison/native_query_comparison \
+  --native-build-root build/Release-native-queries \
+  --infine-build benchmark-results/infine-build-native-calibration \
+  --output-dir benchmark-results/native-cxx-calibration-comparison \
+  --case calibration_single_15 \
+  --samples 10 --rounds 2
+```
+
+The calibration report uses `dal.native-calibration-comparison/1` and retains
+the same process rotation, full worker evidence, and provenance checks as the
+discount report. Multi-curve, joint, staged, and XCCY calibrations are outside
+this entry point.
 
 ### Discount and IRS pricing
 
