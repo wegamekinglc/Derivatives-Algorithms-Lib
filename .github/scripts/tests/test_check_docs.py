@@ -7,6 +7,7 @@ import tempfile
 import tomllib
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / "check_docs.py"
@@ -227,6 +228,29 @@ class SemanticConsistencyTest(unittest.TestCase):
 
 
 class PythonReleaseContractTest(unittest.TestCase):
+    def release_action_errors(self, reference: str) -> list[str]:
+        workflow = (
+            CHECK_DOCS.ROOT / ".github/workflows/dal-python-release.yml"
+        ).read_text(encoding="utf-8")
+        workflow = re.sub(r"pypa/cibuildwheel@\S+", reference, workflow)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            target = root / ".github/workflows/dal-python-release.yml"
+            target.parent.mkdir(parents=True)
+            target.write_text(workflow, encoding="utf-8")
+            errors: list[str] = []
+            with mock.patch.object(CHECK_DOCS, "ROOT", root):
+                CHECK_DOCS.check_python_release_action(errors)
+        return errors
+
+    def test_release_action_accepts_updated_full_cibuildwheel_pin(self):
+        self.assertEqual(self.release_action_errors("pypa/cibuildwheel@" + "a" * 40), [])
+
+    def test_release_action_rejects_unpinned_or_missing_cibuildwheel(self):
+        for reference in ("pypa/cibuildwheel@v4.3.2", "other/build@" + "a" * 40):
+            with self.subTest(reference=reference):
+                self.assertNotEqual(self.release_action_errors(reference), [])
+
     def metadata(self) -> dict:
         with (CHECK_DOCS.ROOT / "dal-python/pyproject.toml").open("rb") as stream:
             return tomllib.load(stream)

@@ -636,7 +636,7 @@ def check_python_release_action(errors: list[str]) -> None:
         "--dist-dir wheelhouse",
         "--check-pypi",
         "dal-python/scripts/verify_release.py",
-        "pypa/cibuildwheel@adba99c781d3746d38b3a09b1cf797965bcb7fe6",
+        "pypa/cibuildwheel@",
         'test "$(git rev-parse FETCH_HEAD)" = "${GITHUB_SHA}"',
         'git cat-file -t "${GITHUB_REF}"',
     )
