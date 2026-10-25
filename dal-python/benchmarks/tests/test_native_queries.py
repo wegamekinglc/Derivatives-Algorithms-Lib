@@ -2,7 +2,10 @@
 
 import json
 import os
+from pathlib import Path
 import subprocess
+import sys
+from types import SimpleNamespace
 
 import pytest
 
@@ -67,3 +70,108 @@ def test_native_cpp_worker_matches_shared_oracle(tmp_path, backend):
     assert report["backend"] == backend
     assert len(report["samples_ns"]) == 1 and report["samples_ns"][0] > 0
     scenarios.validate(report["values"], payload["reference"], abs_tol=2e-12)
+
+
+@pytest.mark.parametrize("backend", ["dal", "quantlib"])
+def test_native_cpp_worker_enforces_shared_tolerance(tmp_path, backend):
+    worker = os.environ.get("DAL_NATIVE_QUERY_WORKER")
+    if not worker:
+        pytest.skip("set DAL_NATIVE_QUERY_WORKER to run C++ native integration tests")
+    payload = native_queries.fixture()
+    source = tmp_path / "fixture.json"
+    output = tmp_path / "worker.json"
+    command = [worker, "--backend", backend, "--input", str(source), "--output", str(output)]
+    environment = dict(os.environ, DAL_NUM_THREADS="1")
+    source.write_text(json.dumps(payload))
+    subprocess.run(command, check=True, timeout=30, env=environment)
+    actual = json.loads(output.read_text())["values"]
+    payload["reference"][0] = actual[0] + 1.01e-10
+    source.write_text(json.dumps(payload))
+    output.unlink()
+    result = subprocess.run(command, capture_output=True, text=True, timeout=30, check=False, env=environment)
+    assert result.returncode != 0
+    assert "correctness failed" in result.stderr
+    assert not output.exists()
+
+
+def native_row(backend, payload):
+    return {
+        "schema": native_queries.WORKER_SCHEMA,
+        "backend": backend,
+        "workload": payload["workload"],
+        "method": native_queries.METHODS[backend],
+        "samples_ns": [100],
+        "values": list(payload["reference"]),
+    }
+
+
+def test_native_rotation_aggregation_and_boundary_summary():
+    assert native_queries.backend_order(0, 0) == ["dal", "quantlib", "infine"]
+    assert native_queries.backend_order(1, 0) == ["quantlib", "infine", "dal"]
+    assert native_queries.backend_order(2, 0) == ["infine", "dal", "quantlib"]
+    assert native_queries.backend_order(0, 1) == ["infine", "quantlib", "dal"]
+    payload = native_queries.fixture()
+    reports = {backend: [native_row(backend, payload)] for backend in native_queries.BACKENDS}
+    row = native_queries.aggregate(reports)
+    assert row["workload"]["name"] == "discount_queries"
+    assert row["third_party_over_dal"] == {"quantlib": 1.0, "infine": 1.0}
+    text = native_queries.summary({"status": "passed", "rounds": []})
+    assert "DAL C++" in text and "QuantLib C++" in text and "InFine C#" in text
+    assert "Python/JSON/IPC/startup are outside timing" in text
+
+
+def test_native_worker_rejects_wrong_backend_values_and_timings():
+    payload = native_queries.fixture()
+    row = native_row("dal", payload)
+    native_queries.check_worker(row, "dal", payload)
+    for mutate in (
+        lambda value: value.update(backend="quantlib"),
+        lambda value: value.update(samples_ns=[]),
+        lambda value: value.update(samples_ns=[0]),
+        lambda value: value["values"].__setitem__(0, value["values"][0] + 1.0),
+    ):
+        changed = native_row("dal", payload)
+        mutate(changed)
+        with pytest.raises(ValueError):
+            native_queries.check_worker(changed, "dal", payload)
+
+
+def test_native_worker_rejects_binary_drift(tmp_path, monkeypatch):
+    payload = native_queries.fixture()
+    args = SimpleNamespace(native_worker=tmp_path / "worker", timeout=30)
+    args.native_worker.touch()
+    directory = tmp_path / "sample"
+    directory.mkdir()
+    hashes = iter(("before", "after"))
+    monkeypatch.setattr(native_queries, "sha256", lambda path: next(hashes))
+
+    def execute(command, **kwargs):
+        Path(command[-1]).write_text(json.dumps(native_row("dal", payload)))
+
+    monkeypatch.setattr(native_queries.subprocess, "run", execute)
+    with pytest.raises(ValueError, match="native worker changed during execution"):
+        native_queries.invoke_cpp(args, "dal", directory, payload)
+
+
+def test_native_cli_help_does_not_import_python_backends():
+    benchmarks = Path(__file__).resolve().parents[1]
+    launcher = '''import importlib.abc
+import runpy
+import sys
+from pathlib import Path
+class Reject(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname.split(".")[0] in ("dal", "QuantLib", "rateslib"):
+            raise RuntimeError("Python backend imported")
+sys.meta_path.insert(0, Reject())
+root = Path(sys.argv.pop(1))
+sys.path.insert(0, str(root))
+sys.argv = [str(root / "run_native_queries.py"), "--help"]
+runpy.run_path(sys.argv[0], run_name="__main__")
+'''
+    result = subprocess.run(
+        [sys.executable, "-s", "-c", launcher, str(benchmarks)],
+        capture_output=True, text=True, timeout=30, check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "--native-worker" in result.stdout

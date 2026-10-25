@@ -125,8 +125,8 @@ namespace {
         REQUIRE(values.size() == fixture.reference_.size(), "Native result width mismatch");
         for (size_t i = 0; i < values.size(); ++i) {
             REQUIRE(std::isfinite(values[i]), "Nonfinite native query result");
-            const double tolerance = fixture.absoluteTolerance_ +
-                                     fixture.relativeTolerance_ * std::max(std::abs(values[i]), std::abs(fixture.reference_[i]));
+            const double tolerance = std::max(
+                fixture.absoluteTolerance_, fixture.relativeTolerance_ * std::max(std::abs(values[i]), std::abs(fixture.reference_[i])));
             REQUIRE(std::abs(values[i] - fixture.reference_[i]) <= tolerance,
                     "Native query correctness failed at index " + std::to_string(i));
         }

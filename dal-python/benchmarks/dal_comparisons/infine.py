@@ -186,13 +186,14 @@ def load_build(build):
     return manifest, identities
 
 
-def measure_cases(args):
+def measure_cases(args, payload=None):
     from .evidence import SCHEMA, source_hashes, write_json
 
     before, identities = load_build(args.infine_build)
     build = Path(args.infine_build).resolve()
     hashes = source_hashes()
-    write_json(args.output_dir / "infine-input.json", fixtures(args.smoke, getattr(args, "case", None)))
+    selected = payload if payload is not None else fixtures(args.smoke, getattr(args, "case", None))
+    write_json(args.output_dir / "infine-input.json", selected)
     output = args.output_dir / "infine-native.json"
     command = [
         before["dotnet"],
