@@ -332,6 +332,7 @@ jobs:
       - name: Check links, anchors, tables, metadata, and commands
         run: |
           python3 .github/scripts/check_docs.py
+          python3 -m unittest discover -s .github/scripts/tests -p test_check_docs.py -v
           python3 -m unittest discover -s .github/scripts/tests -p test_checkout_dependencies.py
           python3 -m unittest discover -s .github/scripts/tests -p test_check_benchmark_regressions.py -v
           # Gate-contract tests must run on PRs, not only in the scheduled
