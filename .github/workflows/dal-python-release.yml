@@ -54,7 +54,7 @@ jobs:
         run: python .github/scripts/checkout_dependencies.py
 
       - name: Build and test wheels
-        uses: pypa/cibuildwheel@adba99c781d3746d38b3a09b1cf797965bcb7fe6 # v4.3.0
+        uses: pypa/cibuildwheel@f11181315571b24e4a3c67f1a828532793f2df55 # v4.3.2
         with:
           package-dir: dal-python
           output-dir: wheelhouse
@@ -98,6 +98,6 @@ jobs:
             --dist-dir wheelhouse --tag "${GITHUB_REF_NAME}" --check-pypi
 
       - name: Publish exact wheel artifacts
-        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # release/v1
         with:
           packages-dir: wheelhouse
