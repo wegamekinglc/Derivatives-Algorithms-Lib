@@ -1,6 +1,12 @@
 # DAL-398: Script contract, binding and calibration error API v1
 
-Status: proposed implementation contract for DAL-399 onward; no product implementation in this PR.
+Status: accepted upstream design for the DAL-396 implementation chain. DAL-398
+and its P0/P1 implementation issues are complete. The P0 restrictions, proposed
+signatures, source citations and implementation questions below describe the
+design baseline named here; they are not the current capability inventory.
+The [current script calibration guide](../../../docs/methodology/script_calibration_contract.md)
+documents the implemented contract, later product families and language interfaces.
+Retain this decision as a control for the remaining DAL-396 acceptance work.
 Audience: core/compiler, curve/GSR, public C++, Python and Excel implementers, and reviewers.
 Research input: DAL-396 latest attachment `01a15c20-3723-7ddd-8ef1-c0ac706cdc16`, §§3–4, 6, 9, 11.
 Research baseline, actual checkout HEAD and fetched `origin/master` at design start:
