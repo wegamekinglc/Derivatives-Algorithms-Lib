@@ -17,7 +17,12 @@ internal static class Rates
         var today = Program.Date(inputs.GetProperty("today")); // nosemgrep: codacy.csharp.security.null-dereference
         if (operation == "calibration")
         {
-            return () => Calibration(today, fixture);
+            int size = workload.GetProperty("size").GetInt32();
+            string kind = workload.GetProperty("kind").GetString()!;
+            var quotes = fixture.GetProperty("quotes").EnumerateObject()
+                .ToDictionary(property => property.Name, property => Program.Numbers(property.Value));
+            var queries = Program.Dates(fixture.GetProperty("queries"));
+            return () => Calibration(today, size, kind, quotes, queries);
         }
         var dates = Program.Dates(inputs.GetProperty("dates")); // nosemgrep: codacy.csharp.security.null-dereference
         var dfs = Program.Numbers(inputs.GetProperty("dfs")); // nosemgrep: codacy.csharp.security.null-dereference
@@ -103,11 +108,10 @@ internal static class Rates
         public double ImpliedRate(IYieldCurve forecast) => swap.ParRate(discount, forecast);
     }
 
-    private static double[] Calibration(DateOnly today, JsonElement fixture)
+    private static double[] Calibration(
+        DateOnly today, int size, string kind,
+        IReadOnlyDictionary<string, double[]> quotes, DateOnly[] queries)
     {
-        var workload = fixture.GetProperty("workload"); // nosemgrep: codacy.csharp.security.null-dereference
-        int size = workload.GetProperty("size").GetInt32();
-        var quotes = fixture.GetProperty("quotes"); // nosemgrep: codacy.csharp.security.null-dereference
         IYieldCurve Solve(string key, IYieldCurve? discount)
         {
             var builder = new PiecewiseYieldCurveBuilder(today, Dc)
@@ -116,17 +120,16 @@ internal static class Rates
             {
                 var swap = VanillaSwap.FromDates(today, today.AddYears(i), Annual); // nosemgrep: codacy.csharp.security.null-dereference
                 ICurveInstrument instrument = discount is null ? swap : new ForecastInstrument(swap, discount);
-                builder.Add(instrument, quotes.GetProperty(key)[i - 1].GetDouble());
+                builder.Add(instrument, quotes[key][i - 1]);
             }
             return builder.Build();
         }
         var discount = Solve("usd_discount", null);
         var curves = new List<IYieldCurve> { discount };
-        if (workload.GetProperty("kind").GetString() == "multi_staged")
+        if (kind == "multi_staged")
         {
             curves.Add(Solve("usd_forward", discount));
         }
-        var queries = Program.Dates(fixture.GetProperty("queries")); // nosemgrep: codacy.csharp.security.null-dereference
         return curves.SelectMany(curve => queries.Select(d => curve.DiscountFactor(d))).ToArray();
     }
 }
