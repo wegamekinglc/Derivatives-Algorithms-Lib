@@ -64,7 +64,7 @@ def method(case):
     }.get(op, "passive (direct C#)")
 
 
-def fixtures(smoke):
+def fixtures(smoke, case_names=None):
     from . import calibration_scenarios, gsr_scenarios, option_scenarios, scenarios
     from .evidence import SCHEMA
 
@@ -94,6 +94,9 @@ def fixtures(smoke):
             elif case["name"].startswith("irs_"):
                 row["trades"] = scenarios.trades(case["size"])
         rows.append(row)
+    if case_names is not None:
+        selected = set(case_names)
+        rows = [row for row in rows if row["workload"]["name"] in selected]
     payload = {
         "schema": SCHEMA,
         "cases": rows,
@@ -189,7 +192,7 @@ def measure_cases(args):
     before, identities = load_build(args.infine_build)
     build = Path(args.infine_build).resolve()
     hashes = source_hashes()
-    write_json(args.output_dir / "infine-input.json", fixtures(args.smoke))
+    write_json(args.output_dir / "infine-input.json", fixtures(args.smoke, getattr(args, "case", None)))
     output = args.output_dir / "infine-native.json"
     command = [
         before["dotnet"],

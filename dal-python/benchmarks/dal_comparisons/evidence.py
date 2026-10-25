@@ -89,7 +89,7 @@ def check_row(row, case, backend):
     validate(row["values"], expected(case), abs_tol=tolerance(case, backend))
 
 
-def check_report(report, backend, smoke, hashes):
+def check_report(report, backend, smoke, hashes, case_names=None):
     require(report["schema"] == SCHEMA, "unexpected comparison schema")
     require(report["backend"] == backend, "wrong comparison backend")
     require(report["status"] == "passed", "comparison worker failed")
@@ -99,6 +99,9 @@ def check_report(report, backend, smoke, hashes):
     )
     require(report["conventions"] == CONVENTIONS, "comparison conventions changed")
     inventory = cases(smoke)
+    if case_names:
+        selected = set(case_names)
+        inventory = [case for case in inventory if case["name"] in selected]
     require(
         [row["name"] for row in report["results"]]
         == [case["name"] for case in inventory],

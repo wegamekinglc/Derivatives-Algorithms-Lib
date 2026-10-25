@@ -317,3 +317,12 @@ def test_native_oracle_failure_exits_nonzero_without_success_report(tmp_path):
     assert result.returncode == 1
     assert "discount_queries" in result.stderr
     assert not output.exists()
+
+
+def test_infine_fixtures_respect_case_filter():
+    from dal_comparisons.infine import fixtures
+
+    payload = fixtures(False, ["discount_queries"])
+    assert [row["workload"]["name"] for row in payload["cases"]] == ["discount_queries"]
+    assert payload["rates"]["dates"]
+    assert payload["schema"] == "dal.python-comparisons/8"

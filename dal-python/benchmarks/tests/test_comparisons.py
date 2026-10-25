@@ -346,3 +346,62 @@ def test_provenance_drift_fails_between_samples(tmp_path, monkeypatch):
     args.samples = 2
     assert compare.run(args) == 1
     assert "provenance changed" in (args.output_dir / "results.json").read_text()
+
+
+def test_backend_and_case_filters_validate_and_preserve_defaults():
+    args = compare.arguments([
+        "--dal-package", ".", "--output-dir", "unused",
+        "--backends", "dal", "quantlib", "infine", "--case", "discount_queries",
+    ])
+    assert args.backends == ["dal", "quantlib", "infine"]
+    assert args.case == ["discount_queries"]
+    defaults = compare.arguments(["--dal-package", ".", "--output-dir", "unused"])
+    assert defaults.backends == list(compare.BACKENDS)
+    assert defaults.case == []
+    with pytest.raises(ValueError, match="duplicate backend"):
+        compare.arguments(["--dal-package", ".", "--output-dir", "unused", "--backends", "dal", "dal"])
+    with pytest.raises(ValueError, match="unknown comparison case"):
+        compare.arguments(["--dal-package", ".", "--output-dir", "unused", "--case", "missing_case"])
+    with pytest.raises(ValueError, match="DAL backend is required"):
+        compare.arguments(["--dal-package", ".", "--output-dir", "unused", "--backends", "quantlib"])
+
+
+def test_filtered_comparison_executes_only_selected_backends_and_case(tmp_path, monkeypatch):
+    selected = ["dal", "quantlib", "infine"]
+    calls = []
+
+    def invoke(_args, backend, _directory, _hashes):
+        calls.append(backend)
+        case = cases(smoke=True)[0]
+        report = worker_report(backend)
+        report["results"] = [worker_row(backend, case, 100)]
+        return report
+
+    monkeypatch.setattr(compare, "invoke", invoke)
+    args = smoke_args(tmp_path)
+    args.backends, args.case = selected, ["discount_queries"]
+    assert compare.run(args) == 0
+    assert set(calls) == set(selected)
+    report = json.loads((args.output_dir / "results.json").read_text())
+    rows = report["rounds"][0]["cases"]
+    assert [row["workload"]["name"] for row in rows] == ["discount_queries"]
+    assert set(rows[0]["backends"]) == set(selected)
+    summary = (args.output_dir / "summary.md").read_text()
+    assert "InFine min ms" in summary
+    assert "rateslib min ms" not in summary
+
+
+def test_filtered_worker_forwards_case_names(tmp_path, monkeypatch):
+    args = smoke_args(tmp_path)
+    args.case = ["discount_queries"]
+    directory = tmp_path / "worker"
+
+    def execute(command, **kwargs):
+        assert command[command.index("--case") + 1] == "discount_queries"
+        report = worker_report()
+        report["results"] = report["results"][:1]
+        (directory / "worker.json").write_text(json.dumps(report))
+
+    monkeypatch.setattr(compare.subprocess, "run", execute)
+    report = compare.invoke(args, "dal", directory, source_hashes())
+    assert report["status"] == "passed"

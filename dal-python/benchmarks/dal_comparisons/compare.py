@@ -33,9 +33,17 @@ def arguments(argv=None):
     parser.add_argument("--rounds", type=int, default=2)
     parser.add_argument("--timeout", type=int, default=600)
     parser.add_argument("--smoke", action="store_true")
+    parser.add_argument("--backends", nargs="+", choices=BACKENDS, default=list(BACKENDS))
+    parser.add_argument("--case", action="append", default=[])
     parser.add_argument("--worker", choices=BACKENDS, help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
     require(args.timeout > 0, "timeout must be positive")
+    require(len(set(args.backends)) == len(args.backends), "duplicate backend")
+    require("dal" in args.backends, "DAL backend is required")
+    require(len(set(args.case)) == len(args.case), "duplicate comparison case")
+    inventory = {case["name"]: case for case in cases(args.smoke)}
+    unknown = set(args.case) - set(inventory)
+    require(not unknown, f"unknown comparison case: {sorted(unknown)}")
     if args.smoke:
         args.samples, args.rounds = 1, 1
     else:
@@ -82,6 +90,8 @@ def invoke(args, backend, directory, hashes):
         command.append("--smoke")
     if backend == "infine" and args.infine_build is not None:
         command += ["--infine-build", str(args.infine_build)]
+    for case_name in args.case:
+        command += ["--case", case_name]
     command += ["--timeout", str(args.timeout)]
     # Fixed interpreter and local entry point; backend is from BACKENDS, paths
     # are literal arguments and never interpreted by a shell.
@@ -97,7 +107,7 @@ def invoke(args, backend, directory, hashes):
             timeout=args.timeout,
         )
     report = json.loads((directory / "worker.json").read_text(encoding="utf-8"))
-    check_report(report, backend, args.smoke, hashes)
+    check_report(report, backend, args.smoke, hashes, args.case)
     return report
 
 
@@ -114,12 +124,12 @@ def stable_provenance(report):
 
 
 def collect_round(args, round_index, hashes, identities):
-    reports = {backend: [] for backend in BACKENDS}
+    reports = {backend: [] for backend in args.backends}
     order = []
     for sample in range(args.samples):
         # Rotate backends and reverse alternate rounds.
-        offset = sample % len(BACKENDS)
-        backends = BACKENDS[offset:] + BACKENDS[:offset]
+        offset = sample % len(args.backends)
+        backends = args.backends[offset:] + args.backends[:offset]
         if round_index % 2:
             backends = backends[::-1]
         order.append(list(backends))
@@ -136,14 +146,19 @@ def collect_round(args, round_index, hashes, identities):
                 "backend provenance changed during sampling",
             )
             reports[backend].append(report)
-    return {"order": order, "cases": aggregate(reports, args.smoke)}
+    return {"order": order, "cases": aggregate(reports, args.smoke, args.backends, args.case)}
 
 
-def aggregate(reports, smoke):
+def aggregate(reports, smoke, selected_backends=None, selected_case_names=None):
+    backends = selected_backends or BACKENDS
+    inventory = cases(smoke)
+    if selected_case_names:
+        selected = set(selected_case_names)
+        inventory = [case for case in inventory if case["name"] in selected]
     rows = []
-    for case in cases(smoke):
+    for case in inventory:
         measurements = {}
-        for backend in BACKENDS:
+        for backend in backends:
             reason = unsupported_reason(backend, case)
             measurements[backend] = (
                 dict(status="unsupported", reason=reason)
@@ -157,7 +172,7 @@ def aggregate(reports, smoke):
         dal_time = measurements["dal"]["min_ns"]
         ratios = {
             backend: measurements[backend]["min_ns"] / dal_time
-            for backend in BACKENDS[1:]
+            for backend in backends[1:]
             if not unsupported_reason(backend, case)
         }
         rows.append(
@@ -261,13 +276,16 @@ def summary(report):
     if report["status"] != "passed":
         lines += [f"Error: {report['error']}", "See the retained worker logs.", ""]
         return "\n".join(lines)
+    backends = report.get("backends", BACKENDS)
+    labels = {"dal": "DAL", "quantlib": "QuantLib", "rateslib": "rateslib", "infine": "InFine"}
+    ratio_labels = {"quantlib": "QL", "rateslib": "RL", "infine": "InFine"}
+    columns = [f"{labels[backend]} min ms" for backend in backends]
+    columns += [f"{ratio_labels[backend]} / DAL" for backend in backends[1:]]
     lines += [
         "Ratio = third-party minimum / DAL minimum; >1 means DAL took less time.",
         "",
-        "| Round | Case | Pricing N | Training M | DAL min ms | QuantLib min ms | rateslib min ms | InFine min ms "
-        "| QL / DAL | RL / DAL | InFine / DAL |",
-        "| ----- | ---- | --------: | ---------: | ---------: | --------------: | --------------: "
-        "| -------------: | -------: | -------: | -----------: |",
+        "| Round | Case | Pricing N | Training M | " + " | ".join(columns) + " |",
+        "| ----- | ---- | --------: | ---------: | " + " | ".join(["---------:"] * len(columns)) + " |",
     ]
     for index, result in enumerate(report["rounds"], 1):
         for row in result["cases"]:
@@ -278,12 +296,12 @@ def summary(report):
                     if "min_ns" in values[backend]
                     else "N/A"
                 )
-                for backend in BACKENDS
+                for backend in backends
             )
             ratios = row["third_party_over_dal"]
             ratio_text = " | ".join(
                 f"{ratios[backend]:.4g}" if backend in ratios else "N/A"
-                for backend in BACKENDS[1:]
+                for backend in backends[1:]
             )
             lines.append(
                 f"| {index} | {row['workload']['name']} | {path_counts(row['workload'])} | {times} | {ratio_text} |"
@@ -331,6 +349,8 @@ def run(args):
         "samples_per_round": args.samples,
         "warmups": 2,
         "conventions": CONVENTIONS,
+        "backends": list(args.backends),
+        "case": list(args.case),
         "source_hashes": source_hashes(),
         "identities": {},
         "rounds": [],

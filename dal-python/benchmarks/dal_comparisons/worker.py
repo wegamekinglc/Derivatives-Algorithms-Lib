@@ -65,7 +65,9 @@ def run(args):
         results, files, metadata = measure_cases(args)
         versions["infine"] = metadata
     else:
-        results = list(map(partial(measured_case, args.worker), cases(args.smoke)))
+        selected = set(args.case)
+        selected_cases = [case for case in cases(args.smoke) if not selected or case["name"] in selected]
+        results = list(map(partial(measured_case, args.worker), selected_cases))
         files = backend_files(args.worker)
     report = {
         "schema": SCHEMA,
@@ -81,6 +83,6 @@ def run(args):
     }
     from .evidence import check_report
 
-    check_report(report, args.worker, args.smoke, report["source_hashes"])
+    check_report(report, args.worker, args.smoke, report["source_hashes"], args.case)
     write_json(args.output_dir / "worker.json", report)
     return 0
