@@ -16,6 +16,31 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-10-24
+
+- **Core mixed-mapping XCCY MC baskets** — added immutable prepared member
+  allocations with absolute scalar seeking, complete estimator covariance and
+  owning partial failures. Members retain their dated grids and fixed phase
+  reservations; covariance describes marginal estimation error. Frozen numerical
+  acceptance remains unmet. See the
+  [core basket guide](docs/methodology/script_calibration_contract.md#prepared-core-xccy-mc-baskets).
+
+- **Public mixed-mapping XCCY baskets** — added C++, Python and Excel
+  Prepare/Evaluate calls with required phase, sampling and fixing snapshot,
+  owning partial failures and separate complete/partial/outcome JSON exports.
+  A public C++ example demonstrates member estimates and full estimator
+  covariance. No product basket validator or calibrated quote risk is provided;
+  frozen numerical acceptance remains unmet. See the
+  [basket calling recipe](docs/methodology/script_calibration_contract.md#calling-prepared-xccy-mc-baskets).
+
+- **Public stochastic XCCY** — added typed C++, Python and Excel access to
+  the domestic-collateral Gaussian model, explicit stochastic staged fitting,
+  same-source GaussianFast and phased script MC with native partials and owning
+  diagnostics. Separate result extensions retain mapping and phase ranges;
+  existing report tables and legacy defaults are unchanged. Frozen MC precision
+  acceptance remains unmet; this does not deliver calibrated quote risk. See the
+  [stochastic XCCY guide](docs/methodology/script_calibration_contract.md#stochastic-xccy-model-and-phased-mc).
+
 ## 2026-10-23
 
 - **Staged XCCY instrument calibration** — added shared Price/BasisSpread
