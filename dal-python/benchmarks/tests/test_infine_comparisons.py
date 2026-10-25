@@ -326,3 +326,13 @@ def test_infine_fixtures_respect_case_filter():
     assert [row["workload"]["name"] for row in payload["cases"]] == ["discount_queries"]
     assert payload["rates"]["dates"]
     assert payload["schema"] == "dal.python-comparisons/8"
+
+
+def test_infine_empty_case_selection_preserves_default_fixtures():
+    from dal_comparisons import scenarios
+    from dal_comparisons.infine import fixtures
+
+    payload = fixtures(True, [])
+    assert [row["workload"]["name"] for row in payload["cases"]] == [
+        case["name"] for case in scenarios.cases(True)
+    ]

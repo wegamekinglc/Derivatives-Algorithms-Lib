@@ -94,7 +94,7 @@ def fixtures(smoke, case_names=None):
             elif case["name"].startswith("irs_"):
                 row["trades"] = scenarios.trades(case["size"])
         rows.append(row)
-    if case_names is not None:
+    if case_names:
         selected = set(case_names)
         rows = [row for row in rows if row["workload"]["name"] in selected]
     payload = {

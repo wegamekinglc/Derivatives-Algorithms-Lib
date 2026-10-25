@@ -40,6 +40,7 @@ def arguments(argv=None):
     require(args.timeout > 0, "timeout must be positive")
     require(len(set(args.backends)) == len(args.backends), "duplicate backend")
     require("dal" in args.backends, "DAL backend is required")
+    args.backends = ["dal"] + [backend for backend in args.backends if backend != "dal"]
     require(len(set(args.case)) == len(args.case), "duplicate comparison case")
     inventory = {case["name"]: case for case in cases(args.smoke)}
     unknown = set(args.case) - set(inventory)
@@ -319,19 +320,23 @@ def path_counts(case):
 
 
 def exercise_values_summary(report):
+    has_quantlib = "quantlib" in report.get("backends", BACKENDS)
+    value_backends = ("dal", "quantlib") if has_quantlib else ("dal",)
+    headers = "DAL | QuantLib" if has_quantlib else "DAL"
+    separators = "--- | --------" if has_quantlib else "---"
     lines = [
         "",
         "Early-exercise values from the first checked sample of each round "
         "(all samples validated): price rows show PV; Greek rows show "
         "[PV, Delta, Vega, Rho]. Reference is the matching discrete-exercise PDE.",
         "",
-        "| Round | Case | DAL | QuantLib | PDE reference |",
-        "| ----- | ---- | --- | -------- | ------------- |",
+        f"| Round | Case | {headers} | PDE reference |",
+        f"| ----- | ---- | {separators} | ------------- |",
     ]
     for index, result in enumerate(report["rounds"], 1):
         for row in result["cases"]:
             if "training_paths" in row["workload"]:
-                numbers = [row["backends"][b]["values"] for b in ("dal", "quantlib")]
+                numbers = [row["backends"][b]["values"] for b in value_backends]
                 numbers.append(row["reference"])
                 cells = " | ".join(
                     ", ".join(f"{value:.6f}" for value in values) for values in numbers

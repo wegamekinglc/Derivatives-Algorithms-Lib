@@ -355,6 +355,11 @@ def test_backend_and_case_filters_validate_and_preserve_defaults():
     ])
     assert args.backends == ["dal", "quantlib", "infine"]
     assert args.case == ["discount_queries"]
+    reordered = compare.arguments([
+        "--dal-package", ".", "--output-dir", "unused",
+        "--backends", "quantlib", "dal", "infine",
+    ])
+    assert reordered.backends == ["dal", "quantlib", "infine"]
     defaults = compare.arguments(["--dal-package", ".", "--output-dir", "unused"])
     assert defaults.backends == list(compare.BACKENDS)
     assert defaults.case == []
@@ -389,6 +394,24 @@ def test_filtered_comparison_executes_only_selected_backends_and_case(tmp_path, 
     summary = (args.output_dir / "summary.md").read_text()
     assert "InFine min ms" in summary
     assert "rateslib min ms" not in summary
+
+
+def test_filtered_early_exercise_summary_does_not_require_quantlib(tmp_path, monkeypatch):
+    case = next(case for case in cases(smoke=True) if "training_paths" in case)
+    selected = ["dal", "infine"]
+
+    def invoke(_args, backend, _directory, _hashes):
+        report = worker_report(backend)
+        report["results"] = [worker_row(backend, case, 100)]
+        return report
+
+    monkeypatch.setattr(compare, "invoke", invoke)
+    args = smoke_args(tmp_path)
+    args.backends, args.case = selected, [case["name"]]
+    assert compare.run(args) == 0
+    summary = (args.output_dir / "summary.md").read_text()
+    assert "| Round | Case | DAL | PDE reference |" in summary
+    assert "| Round | Case | DAL | QuantLib | PDE reference |" not in summary
 
 
 def test_filtered_worker_forwards_case_names(tmp_path, monkeypatch):
