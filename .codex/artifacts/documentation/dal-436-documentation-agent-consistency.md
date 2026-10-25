@@ -5,7 +5,8 @@
 本轮完成文档维护和获准的配置核对，保留单一交付分支
 `agent/dal-doc-writer/b82e0f16995e`，PR base 为 `master`。
 DAL-436 保持 `in_progress`，后续独立审查由协调器安排；本轮未触发其他成员或合并。
-PR 的实际链接和交付提交见同线程最终评论。
+单一 PR：`https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/646`。
+主文档提交：`58aa9fd94981651768c4c9cc5c6e61ad4ddc6560`；后续提交仅登记本发布证据。
 
 实际执行检出初始干净，`HEAD = origin/master = git ls-remote origin refs/heads/master`：
 `dd6ddc3e9dd1637634287bcbe8dd8d5bc7fc49a4`。
