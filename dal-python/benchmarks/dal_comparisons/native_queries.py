@@ -10,7 +10,7 @@ SCHEMA = "dal.native-query-comparison/1"
 FIXTURE_SCHEMA = "dal.native-query-fixture/1"
 WORKER_SCHEMA = "dal.native-query-worker/1"
 BACKENDS = ("dal", "quantlib", "infine")
-QUANTLIB_REVISION = "1139fefe63bfb36695448337c1367b73ff215353"
+QUANTLIB_REVISION = "6b57206e04598f092efee66e3b367efc84771995"
 
 
 def fixture(shared=None):

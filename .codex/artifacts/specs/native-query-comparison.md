@@ -45,7 +45,7 @@ Add `DAL_CPP_BUILD_NATIVE_COMPARISONS`, default `OFF`. It requires `DAL_CPP_BUIL
 
 Add `dal-cpp/benchmarks/native_query_comparison/` with a worker accepting `--backend dal|quantlib`, `--input`, and `--output`. The worker is not added to the DAL benchmark inventory or the nine-target regression gate.
 
-The acceptance build uses QuantLib v1.43 source revision `1139fefe63bfb36695448337c1367b73ff215353`. Boost headers may be installed locally inside the workspace; no system package change is required.
+The acceptance build uses QuantLib v1.43 source revision `6b57206e04598f092efee66e3b367efc84771995`. Boost headers may be installed locally inside the workspace; no system package change is required.
 
 ### R2: direct native operations
 

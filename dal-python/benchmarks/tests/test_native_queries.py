@@ -1,8 +1,12 @@
 """Native C++/.NET discount-query comparison tests."""
 
+import json
+import os
+import subprocess
+
 import pytest
 
-from dal_comparisons import infine, native_queries
+from dal_comparisons import infine, native_queries, scenarios
 
 
 def test_native_fixture_exactly_matches_infine_inputs():
@@ -44,3 +48,22 @@ def test_native_arguments_validate_build_identity(tmp_path):
             "--infine-build", str(infine_build),
             "--output-dir", str(tmp_path / "other"),
         ])
+
+
+@pytest.mark.parametrize("backend", ["dal", "quantlib"])
+def test_native_cpp_worker_matches_shared_oracle(tmp_path, backend):
+    worker = os.environ.get("DAL_NATIVE_QUERY_WORKER")
+    if not worker:
+        pytest.skip("set DAL_NATIVE_QUERY_WORKER to run C++ native integration tests")
+    payload = native_queries.fixture()
+    source = tmp_path / "fixture.json"
+    output = tmp_path / "worker.json"
+    source.write_text(json.dumps(payload))
+    subprocess.run([
+        worker, "--backend", backend, "--input", str(source), "--output", str(output)
+    ], check=True, timeout=30, env=dict(os.environ, DAL_NUM_THREADS="1"))
+    report = json.loads(output.read_text())
+    assert report["schema"] == native_queries.WORKER_SCHEMA
+    assert report["backend"] == backend
+    assert len(report["samples_ns"]) == 1 and report["samples_ns"][0] > 0
+    scenarios.validate(report["values"], payload["reference"], abs_tol=2e-12)
