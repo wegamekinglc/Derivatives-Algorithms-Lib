@@ -408,6 +408,94 @@ To intentionally update NuGet resolution, use the pinned source and SDK and run
 `--artifacts-path`. Review and commit the regenerated lock, then create a new
 published worker with `prepare_infine.py`.
 
+### Native C++/.NET discount-query comparison
+
+The native `discount_queries` report is separate from the Python API comparison
+above. DAL and QuantLib call C++ curves directly; InFine calls its C# curve
+directly. No Python backend is imported by the native controller. Python only
+creates shared fixtures, rotates fresh processes, and aggregates native reports.
+Its output uses schema `dal.native-query-comparison/1`, not
+`dal.python-comparisons/8`.
+
+The opt-in `DAL_CPP_BUILD_NATIVE_COMPARISONS` option defaults to `OFF`, so an
+ordinary DAL configuration does not search for QuantLib. When enabled, it
+requires `DAL_CPP_BUILD_BENCHMARKS=ON` and an exact QuantLib 1.43 CMake package.
+The native worker is not part of the ordinary benchmark inventory or the
+nine-target regression gate.
+
+The acceptance source is QuantLib v1.43 commit
+`6b57206e04598f092efee66e3b367efc84771995` (the commit peeled from the
+annotated tag). QuantLib requires Boost headers. On Ubuntu, the following local
+Boost 1.83 preparation needs no sudo or system package installation. Run all
+commands from the repository root:
+
+```bash
+mkdir -p benchmark-results/tools/boost-deb benchmark-results/tools/boost
+(cd benchmark-results/tools/boost-deb && apt-get download libboost1.83-dev)
+dpkg-deb -x benchmark-results/tools/boost-deb/*.deb benchmark-results/tools/boost
+
+git clone --depth 1 --branch v1.43 https://github.com/lballabio/QuantLib.git \
+  benchmark-results/quantlib-source
+git -C benchmark-results/quantlib-source checkout --detach \
+  6b57206e04598f092efee66e3b367efc84771995
+
+cmake -S benchmark-results/quantlib-source -B benchmark-results/quantlib-build \
+  -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF \
+  -DQL_BUILD_EXAMPLES=OFF -DQL_BUILD_TEST_SUITE=OFF \
+  -DQL_INSTALL_BENCHMARK=OFF -DQL_INSTALL_EXAMPLES=OFF \
+  -DQL_INSTALL_TEST_SUITE=OFF \
+  -DBoost_NO_BOOST_CMAKE=ON -DBoost_NO_SYSTEM_PATHS=ON \
+  -DBoost_ROOT="$PWD/benchmark-results/tools/boost/usr" \
+  -DCMAKE_INSTALL_PREFIX="$PWD/benchmark-results/quantlib-install"
+cmake --build benchmark-results/quantlib-build --target install --parallel 12
+```
+
+An existing Boost installation can be used instead by omitting the local
+extraction and the two `Boost_NO_*`/`Boost_ROOT` options. Prepare the pinned
+InFine worker as described above, then configure and build the native DAL worker:
+
+```bash
+cmake --preset=Release-linux -S . -B build/Release-native-queries \
+  -DDAL_CPP_BUILD_BENCHMARKS=ON -DDAL_CPP_BUILD_NATIVE_COMPARISONS=ON \
+  -DQuantLib_DIR="$PWD/benchmark-results/quantlib-install/lib/cmake/QuantLib" \
+  -DDAL_BUILD_PUBLIC=OFF -DDAL_BUILD_PYTHON=OFF -DDAL_BUILD_EXCEL=OFF \
+  -DDAL_BUILD_EXCEL_PORTABLE_TESTS=OFF
+cmake --build build/Release-native-queries \
+  --target native_query_comparison --parallel 12
+```
+
+Run the native acceptance comparison with ten fresh processes per backend in
+each of two rounds:
+
+```bash
+python dal-python/benchmarks/run_native_queries.py \
+  --native-worker build/Release-native-queries/dal-cpp/benchmarks/native_query_comparison/native_query_comparison \
+  --native-build-root build/Release-native-queries \
+  --infine-build benchmark-results/infine-build \
+  --output-dir benchmark-results/native-cxx-query-comparison \
+  --samples 10 --rounds 2
+```
+
+Backend order rotates and reverses in the second round. Each process performs
+three checked warmups, then one native sample. `DAL_NUM_THREADS`, OMP, OpenBLAS,
+and MKL are set to one thread. The output directory must be new.
+
+DAL C++ and QuantLib C++ call native curves directly; InFine C# calls its native
+.NET curve directly. Python/JSON/IPC/startup are outside timing. Curve and query
+container construction is also outside timing, while native array/vector creation
+is included. Every warmup and measured result is checked against all 4,096
+independent reference values before a successful report can be written.
+
+Reports retain raw native durations and values, binary/source hashes, CMake and
+compiler settings, QuantLib/Boost versions, InFine runtime identity, Git identity,
+and backend order. Ratios are informational rather than a performance gate. C++
+and .NET remain different runtimes; these native ratios and the Python API ratios
+answer different questions and must not be used interchangeably.
+
+Set `DAL_NATIVE_QUERY_WORKER` to the worker path and `DAL_INFINE_BUILD` to the
+published InFine directory to enable the real native integration tests in
+`tests/test_native_queries.py`.
+
 ### Discount and IRS pricing
 
 | Case                | Full workload                                                   |
