@@ -59,16 +59,10 @@ def run(args):
         "comparison requires a Release DAL build",
     )
     versions = package_versions()
-    if args.worker == "infine":
-        from .infine import measure_cases
-
-        results, files, metadata = measure_cases(args)
-        versions["infine"] = metadata
-    else:
-        selected = set(args.case)
-        selected_cases = [case for case in cases(args.smoke) if not selected or case["name"] in selected]
-        results = list(map(partial(measured_case, args.worker), selected_cases))
-        files = backend_files(args.worker)
+    selected = set(args.case)
+    selected_cases = [case for case in cases(args.smoke) if not selected or case["name"] in selected]
+    results = list(map(partial(measured_case, args.worker), selected_cases))
+    files = backend_files(args.worker)
     report = {
         "schema": SCHEMA,
         "status": "passed",

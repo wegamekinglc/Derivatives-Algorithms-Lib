@@ -13,7 +13,7 @@ from .scenarios import (
     validate,
 )
 
-BACKENDS = ("dal", "quantlib", "rateslib", "infine")
+BACKENDS = ("dal", "quantlib", "rateslib")
 
 
 def prepare(backend, case):
@@ -22,8 +22,6 @@ def prepare(backend, case):
     reason = unsupported_reason(backend, case)
     if reason:
         raise ValueError(reason)
-    if backend == "infine":
-        raise ValueError("InFine timings require the native process worker")
     reference = expected(case)
     if (
         case["operation"].startswith(("mc_", "gsr_"))

@@ -24,9 +24,6 @@ from .suite import BACKENDS
 def arguments(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dal-package", type=Path, required=True)
-    parser.add_argument(
-        "--infine-build", type=Path, default=os.environ.get("DAL_INFINE_BUILD")
-    )
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--summary-file", type=Path)
     parser.add_argument("--samples", type=int, default=10)
@@ -55,8 +52,6 @@ def arguments(argv=None):
         )
     args.dal_package = args.dal_package.resolve()
     args.output_dir = args.output_dir.resolve()
-    if args.infine_build is not None:
-        args.infine_build = args.infine_build.resolve()
     return args
 
 
@@ -89,8 +84,6 @@ def invoke(args, backend, directory, hashes):
     ]
     if args.smoke:
         command.append("--smoke")
-    if backend == "infine" and args.infine_build is not None:
-        command += ["--infine-build", str(args.infine_build)]
     for case_name in args.case:
         command += ["--case", case_name]
     command += ["--timeout", str(args.timeout)]
@@ -197,7 +190,7 @@ def summary(report):
         "informational; DAL base/head regression remains a separate 4% gate.",
         "",
         "Node DV01: DAL reverse AAD; rateslib forward AD (Dual); "
-        "QuantLib and InFine central finite difference (0.01bp step). "
+        "QuantLib central finite difference (0.01bp step). "
         "Each returns all 21 non-anchor buckets per trade, in USD/bp. "
         "Curve construction is excluded; differentiation, conversion and "
         "QuantLib relinking/repricing are timed.",
@@ -215,8 +208,7 @@ def summary(report):
         "",
         "European/barrier MC: PV, Delta, Vega, Rho; Sobol paths, fixed seeds, identical "
         "weekly discrete barrier monitoring. DAL vanilla uses reverse AAD; "
-        "InFine vanilla uses a hand-written reverse adjoint; "
-        "other MC Greeks use common-random-number central differences. "
+        "QuantLib vanilla and barrier Greeks use common-random-number central differences. "
         "Analytic vanilla and deterministic Gaussian quadrature barrier oracles "
         "validate every output with explicit MC tolerances.",
         "",
@@ -241,7 +233,7 @@ def summary(report):
         "QuantLib bootstrap accuracy 1e-12, rateslib func/conv 1e-20, grad 1e-16.",
         "",
         "GSR example: static coupon-paying IRS uses the same USD input curve "
-        "across all four libraries (32 trades full; four smoke). Reused mode "
+        "across DAL, QuantLib, and rateslib (32 trades full; four smoke). Reused mode "
         "prepares DAL cashflows and third-party swaps before timing; fresh mode "
         "rebuilds them inside timing. The European swaption retains both "
         "QuantLib Gsr-process Sobol MC (65,536 paths full; 4,096 smoke) and "
@@ -254,32 +246,17 @@ def summary(report):
         "These prices use independent curve and Gaussian option oracles; "
         "different APIs and pricing methods make raw speed ratios informational.",
         "",
-        "InFine runs direct C# CPU APIs in a native .NET process. Its native timer "
-        "excludes process startup, JSON and Python communication, while DAL's "
-        "Python/native conversions remain timed. InFine host MC is sequential; "
-        "DAL uses four threads. InFine uses Sobol starting at point 1, native "
-        "hand-written reverse adjoints for vanilla Greeks, central differences "
-        "for barrier Greeks, and native Brent calibration. Staged two-curve "
-        "calibration delegates to native ParRate(discount, forecast). GSR MC "
-        "uses exact a=0 state/integral kernels with stochastic discounting. "
-        "The gaussian1d_128 row uses InFine analytic Jamshidian, without "
-        "128-point quadrature or MC, against DAL MC; its ratio measures "
-        "different algorithms. InFine LSM cannot match separate M/N and "
-        "cubic regression; joint/XCCY calibration is also unsupported. "
-        "No GPU is measured; equal path counts do not imply equal accuracy.",
-        "",
         "N/A: declared unsupported capabilities only (rateslib equity MC and "
-        "GSR swaption; QuantLib simultaneous joint calibration; InFine matching "
-        "LSM and joint/XCCY calibration). Missing packages, native builds or failed "
-        "supported cases fail the comparison.",
+        "GSR swaption; QuantLib simultaneous joint calibration). Missing packages, "
+        "native builds or failed supported cases fail the comparison.",
         "",
     ]
     if report["status"] != "passed":
         lines += [f"Error: {report['error']}", "See the retained worker logs.", ""]
         return "\n".join(lines)
     backends = report.get("backends", BACKENDS)
-    labels = {"dal": "DAL", "quantlib": "QuantLib", "rateslib": "rateslib", "infine": "InFine"}
-    ratio_labels = {"quantlib": "QL", "rateslib": "RL", "infine": "InFine"}
+    labels = {"dal": "DAL", "quantlib": "QuantLib", "rateslib": "rateslib"}
+    ratio_labels = {"quantlib": "QL", "rateslib": "RL"}
     columns = [f"{labels[backend]} min ms" for backend in backends]
     columns += [f"{ratio_labels[backend]} / DAL" for backend in backends[1:]]
     lines += [

@@ -262,38 +262,33 @@ def test_rotates_processes_and_reports_minimum_without_relative_speed_gate(
     def invoke(_args, backend, _directory, _hashes):
         calls.append(backend)
         # DAL deliberately slower: relative speed is evidence, not an invented gate.
-        duration = {"dal": 200, "quantlib": 100, "rateslib": 50, "infine": 400}[backend]
+        duration = {"dal": 200, "quantlib": 100, "rateslib": 50}[backend]
         return worker_report(backend, duration)
 
     monkeypatch.setattr(compare, "invoke", invoke)
     args = smoke_args(tmp_path)
     args.samples, args.rounds = 4, 2
     assert compare.run(args) == 0
-    assert calls[:16] == [
+    assert calls[:12] == [
         "dal",
         "quantlib",
         "rateslib",
-        "infine",
         "quantlib",
         "rateslib",
-        "infine",
         "dal",
         "rateslib",
-        "infine",
         "dal",
         "quantlib",
-        "infine",
         "dal",
         "quantlib",
         "rateslib",
     ]
-    assert calls[16:20] == ["infine", "rateslib", "quantlib", "dal"]
+    assert calls[12:15] == ["rateslib", "quantlib", "dal"]
     report = json.loads((args.output_dir / "results.json").read_text())
     row = report["rounds"][0]["cases"][0]
     assert row["third_party_over_dal"] == {
         "quantlib": 0.5,
         "rateslib": 0.25,
-        "infine": 2.0,
     }
     risk = report["rounds"][0]["cases"][6]
     assert risk["backends"]["dal"]["method"] == "reverse AAD"
@@ -302,8 +297,8 @@ def test_rotates_processes_and_reports_minimum_without_relative_speed_gate(
     assert "Node DV01: DAL reverse AAD" in (args.output_dir / "summary.md").read_text()
     summary = (args.output_dir / "summary.md").read_text()
     assert "Pricing N | Training M" in summary
-    assert "InFine min ms" in summary
-    assert "native Jamshidian" in summary or "analytic Jamshidian" in summary
+    assert "InFine min ms" not in summary
+    assert "gaussian1d_128" in summary
     assert "mc_bermudan_price_16384 | 4096 | 2048 |" in summary
     assert "PDE reference" in summary
     exercise = next(
@@ -320,8 +315,6 @@ def test_unsupported_capabilities_have_no_aggregate_timing_or_ratio():
     for name, backend in (
         ("mc_barrier_greeks_65536", "rateslib"),
         ("calibration_xccy_joint_15", "quantlib"),
-        ("calibration_xccy_joint_15", "infine"),
-        ("mc_american_price_65536", "infine"),
     ):
         row = rows[name]
         assert row["backends"][backend] == {
@@ -351,15 +344,16 @@ def test_provenance_drift_fails_between_samples(tmp_path, monkeypatch):
 def test_backend_and_case_filters_validate_and_preserve_defaults():
     args = compare.arguments([
         "--dal-package", ".", "--output-dir", "unused",
-        "--backends", "dal", "quantlib", "infine", "--case", "discount_queries",
+        "--backends", "dal", "quantlib", "rateslib", "--case", "discount_queries",
     ])
-    assert args.backends == ["dal", "quantlib", "infine"]
+    assert args.backends == ["dal", "quantlib", "rateslib"]
     assert args.case == ["discount_queries"]
     reordered = compare.arguments([
         "--dal-package", ".", "--output-dir", "unused",
-        "--backends", "quantlib", "dal", "infine",
+        "--backends", "quantlib", "dal", "rateslib",
     ])
-    assert reordered.backends == ["dal", "quantlib", "infine"]
+    assert reordered.backends == ["dal", "quantlib", "rateslib"]
+    assert compare.BACKENDS == ("dal", "quantlib", "rateslib")
     defaults = compare.arguments(["--dal-package", ".", "--output-dir", "unused"])
     assert defaults.backends == list(compare.BACKENDS)
     assert defaults.case == []
@@ -372,7 +366,7 @@ def test_backend_and_case_filters_validate_and_preserve_defaults():
 
 
 def test_filtered_comparison_executes_only_selected_backends_and_case(tmp_path, monkeypatch):
-    selected = ["dal", "quantlib", "infine"]
+    selected = ["dal", "quantlib", "rateslib"]
     calls = []
 
     def invoke(_args, backend, _directory, _hashes):
@@ -392,13 +386,13 @@ def test_filtered_comparison_executes_only_selected_backends_and_case(tmp_path, 
     assert [row["workload"]["name"] for row in rows] == ["discount_queries"]
     assert set(rows[0]["backends"]) == set(selected)
     summary = (args.output_dir / "summary.md").read_text()
-    assert "InFine min ms" in summary
-    assert "rateslib min ms" not in summary
+    assert "rateslib min ms" in summary
+    assert "InFine min ms" not in summary
 
 
 def test_filtered_early_exercise_summary_does_not_require_quantlib(tmp_path, monkeypatch):
     case = next(case for case in cases(smoke=True) if "training_paths" in case)
-    selected = ["dal", "infine"]
+    selected = ["dal", "rateslib"]
 
     def invoke(_args, backend, _directory, _hashes):
         report = worker_report(backend)

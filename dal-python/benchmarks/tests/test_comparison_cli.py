@@ -52,7 +52,7 @@ class ComparisonCliTest(unittest.TestCase):
     def test_controller_and_workers_reject_missing_selected_build(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            for backend in (None, "dal", "quantlib", "rateslib", "infine"):
+            for backend in (None, "dal", "quantlib", "rateslib"):
                 with self.subTest(backend=backend):
                     output = root / str(backend)
                     arguments = [

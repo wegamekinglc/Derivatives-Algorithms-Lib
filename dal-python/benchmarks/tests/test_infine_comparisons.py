@@ -8,7 +8,6 @@ from types import SimpleNamespace
 
 import pytest
 
-from dal_comparisons import compare
 from dal_comparisons.evidence import SCHEMA, check_row, source_hashes
 from dal_comparisons.scenarios import (
     cases,
@@ -21,7 +20,7 @@ from dal_comparisons.suite import BACKENDS
 
 
 def test_infine_covers_the_full_inventory_with_explicit_capabilities():
-    assert BACKENDS == ("dal", "quantlib", "rateslib", "infine")
+    assert BACKENDS == ("dal", "quantlib", "rateslib")
     supported = [c for c in cases() if unsupported_reason("infine", c) is None]
     assert len(supported) == 29
     unsupported = [c for c in cases() if unsupported_reason("infine", c)]
@@ -101,34 +100,6 @@ def test_infine_supported_failure_cannot_be_relabelled_unsupported():
     )
     with pytest.raises(ValueError, match="worker case failed"):
         check_row(row, case, "infine")
-
-
-def test_infine_cli_forwards_build_path_without_shell_interpretation(
-    tmp_path, monkeypatch
-):
-    args = compare.arguments(
-        [
-            "--dal-package",
-            str(tmp_path),
-            "--output-dir",
-            str(tmp_path / "output"),
-            "--infine-build",
-            str(tmp_path / "native $(literal); build"),
-            "--smoke",
-        ]
-    )
-    captured = []
-
-    def execute(command, **kwargs):
-        captured.append(command)
-        assert command[command.index("--infine-build") + 1] == str(args.infine_build)
-        assert kwargs["shell"] is False
-        raise FileNotFoundError("native build unavailable")
-
-    monkeypatch.setattr(compare.subprocess, "run", execute)
-    with pytest.raises(FileNotFoundError, match="native build unavailable"):
-        compare.invoke(args, "infine", tmp_path / "worker", {})
-    assert len(captured) == 1
 
 
 @pytest.fixture
@@ -255,31 +226,28 @@ def test_native_process_timing_is_retained_without_python_transport(
 
 @pytest.mark.parametrize("smoke", [True, False])
 def test_native_worker_matches_all_supported_oracles(tmp_path, smoke):
-    from dal_comparisons import worker
+    from dal_comparisons import infine
     from dal_comparisons.evidence import check_report
+    from dal_comparisons.scenarios import CONVENTIONS
 
     build = os.environ.get("DAL_INFINE_BUILD")
     if not build:
         pytest.skip("set DAL_INFINE_BUILD to run native .NET integration tests")
-    import dal
-
-    package = Path(dal._dal.__file__).resolve().parents[1]
-    arguments = [
-        "--dal-package",
-        str(package),
-        "--infine-build",
-        build,
-        "--output-dir",
-        str(tmp_path),
-        "--worker",
-        "infine",
-    ]
-    if smoke:
-        arguments.append("--smoke")
-    args = compare.arguments(arguments)
-    assert worker.run(args) == 0
-    report = json.loads((tmp_path / "worker.json").read_text())
+    args = SimpleNamespace(
+        infine_build=build, output_dir=tmp_path, smoke=smoke, case=[], timeout=60
+    )
+    rows, _, metadata = infine.measure_cases(args)
+    report = {
+        "schema": SCHEMA,
+        "status": "passed",
+        "backend": "infine",
+        "smoke": smoke,
+        "conventions": CONVENTIONS,
+        "source_hashes": source_hashes(),
+        "results": rows,
+    }
     check_report(report, "infine", smoke, source_hashes())
+    assert metadata["revision"] == infine.REVISION
     assert len([r for r in report["results"] if r["status"] == "passed"]) == 29
     assert len([r for r in report["results"] if r["status"] == "unsupported"]) == 14
 
