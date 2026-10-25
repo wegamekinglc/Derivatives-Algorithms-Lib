@@ -1,0 +1,3 @@
+add_executable(xccy_script_monte_carlo_basket xccy_script_monte_carlo_basket.cpp)
+target_link_libraries(xccy_script_monte_carlo_basket PRIVATE DAL::public)
+install(TARGETS xccy_script_monte_carlo_basket RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

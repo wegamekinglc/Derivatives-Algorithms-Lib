@@ -107,7 +107,7 @@ The dependency graph is `dal-cpp ← dal-public ← {dal-python, dal-excel}`. Ea
 
 **Core library (`dal-cpp/`)** — built as the `dal_cpp` target (alias `DAL::cpp`):
 - `dal-cpp/dal/math/` — numerical algorithms: interpolation, optimization, PDE solvers, random number generation, matrix ops, root finding, AAD
-- `dal-cpp/dal/script/` — expression scripting engine using visitor pattern (parser → AST nodes → simulation/evaluation), with tree-walk evaluation as the default, a compiled flat-stream evaluator behind the `compiled` flag, and legacy-text, JSON, and Unicode-tree debug dumps
+- `dal-cpp/dal/script/` — expression scripting engine using visitor pattern (parser → AST nodes → simulation/evaluation), with compiled evaluation by default, explicit `compiled=false` for tree-walk evaluation, and legacy-text, JSON, and Unicode-tree debug dumps
 - `dal-cpp/dal/model/` — financial models
 - `dal-cpp/dal/curve/` — yield/discount curve handling
 - `dal-cpp/dal/time/` — dates, calendars, schedules, and day-count bases
@@ -161,6 +161,8 @@ The dependency graph is `dal-cpp ← dal-public ← {dal-python, dal-excel}`. Ea
 Detailed documentation of the quantitative methods implemented in this library:
 
 - **Automatic Adjoint Differentiation (AAD)** — [AAD methodology](docs/methodology/aad.md)
+- **Structural Jacobians** — [Support plans and native rate-trade execution](docs/methodology/aad-sparsity.md)
+- **Scoped Passive Constants** — [Core GSR Monte Carlo opt-in and limits](docs/methodology/passive-constants.md)
 - **Yield Curve Construction** — [Yield curve construction](docs/yield-curves/construction.md)
 - **Underdetermined Search** — [Underdetermined search](docs/methodology/underdetermined_search.md)
 - **Cross-Currency Calibration** — [Cross-currency calibration](docs/ccy-curves/pricing-calibration.md)

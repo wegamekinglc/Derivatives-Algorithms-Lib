@@ -2,6 +2,7 @@
 
 #include "calibrationinput.hpp"
 #include <dal-public/src/xccycalibration.hpp>
+#include <dal-public/src/xccymontecarlo.hpp>
 
 using namespace Dal;
 using namespace Dal::Python;
@@ -48,6 +49,8 @@ namespace {
             v.knotDates_ = f.Required<Vector_<Date_>>("knot_dates");
             v.observations_ = f.Required<Vector_<Handle_<CalibrationObservation_>>>("observations");
             v.solver_ = f.Default<CurveInstrumentSolver_>("solver", v.solver_);
+            v.gaussianDynamics_ = f.Maybe<Handle_<XccyGaussianDynamics_>>("gaussian_dynamics").value_or(Handle_<XccyGaussianDynamics_>());
+            v.basisParameterization_ = f.Default<CurveParameterization_>("basis_parameterization", v.basisParameterization_);
             return v;
         });
         Property(spec, "context", &XccyInstrumentCalibrationSpec_::context_);
@@ -57,8 +60,12 @@ namespace {
         Property(spec, "knot_dates", &XccyInstrumentCalibrationSpec_::knotDates_);
         Property(spec, "observations", &XccyInstrumentCalibrationSpec_::observations_);
         Property(spec, "solver", &XccyInstrumentCalibrationSpec_::solver_);
+        Property(spec, "gaussian_dynamics", &XccyInstrumentCalibrationSpec_::gaussianDynamics_);
+        Property(spec, "basis_parameterization", &XccyInstrumentCalibrationSpec_::basisParameterization_);
         py::class_<XccyInstrumentCalibrationResult_, CurveInstrumentCalibrationResult_>(m, "XccyInstrumentCalibrationResult_")
-            .def_property_readonly("basis_curve", [](const XccyInstrumentCalibrationResult_& r) { return Output(r.curve_); });
+            .def_property_readonly("basis_curve", [](const XccyInstrumentCalibrationResult_& r) { return Output(r.curve_); })
+            .def_property_readonly("gaussian_model",
+                                   [](const XccyInstrumentCalibrationResult_& r) { return Output(XccyInstrumentResultGaussianModel(r)); });
     }
 } // namespace
 
