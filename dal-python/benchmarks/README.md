@@ -71,6 +71,13 @@ of full native case parity.
 Native-only PWL query microbenchmarks additionally isolate integral reuse at
 8/24/64/256 knots in `curve_calibration_perf`.
 
+Native-only log-DF query microbenchmarks use the same 22-node curve and 4,096
+permuted dates as `discount_queries`. They cover `LogDF anchor -> 4096 queries`,
+`LogDF 4096 queries -> anchor`, `LogDF non-anchor -> 4096 queries`,
+`LogDF non-anchor -> same non-anchor`, `LogDF anchor -> anchor`,
+`LogDF anchor -> 4096 queries with base`, and
+`LogDF non-anchor -> 4096 queries with base`.
+
 `Product_New` only stores events; the timed `Product_DebugJson` call is needed to
 execute the native preprocessor/parser. Its indexing and serialization cost is
 also included. Python's MRG32 constructor fixes `precise=true`, while the legacy
@@ -324,6 +331,24 @@ validation and returned-float-list destruction are outside timing. Instrument
 construction/destruction is timed in the explicit cold cases, MC option cases and
 calibration cases. GC stays enabled, DAL uses
 four threads, and OMP/OpenBLAS/MKL use one thread.
+
+For a focused discount-factor query comparison across DAL, QuantLib and InFine,
+run:
+
+```bash
+python dal-python/benchmarks/run_comparisons.py \
+  --dal-package build/Release-linux/dal-python \
+  --infine-build benchmark-results/infine-build \
+  --output-dir benchmark-results/native-query-comparison \
+  --backends dal quantlib infine \
+  --case discount_queries \
+  --samples 10 --rounds 2
+```
+
+Omitting `--backends` and `--case` retains the default four-backend, 43-case
+suite. Repeat `--case` to select additional cases. Filtering changes only the
+execution and reporting selection; every selected backend/case pair retains the
+same numerical oracle and evidence checks.
 
 ### InFine CPU backend
 
