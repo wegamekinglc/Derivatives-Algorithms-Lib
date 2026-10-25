@@ -14,11 +14,23 @@
 #include <dal/platform/platform.hpp>
 #include <dal/platform/initall.hpp>
 #include <dal/platform/strict.hpp>
+#include <dal/curve/calibration.hpp>
 #include <dal/curve/yclogdf.hpp>
+#include <dal/curve/ycinstrument.hpp>
 #include <dal/time/date.hpp>
 #include <dal/time/daybasis.hpp>
+#include <dal/time/holidays.hpp>
+#include <dal/time/periodlength.hpp>
+#include <ql/indexes/iborindex.hpp>
+#include <ql/math/interpolations/loginterpolation.hpp>
+#include <ql/settings.hpp>
+#include <ql/termstructures/yield/bootstraptraits.hpp>
 #include <ql/termstructures/yield/discountcurve.hpp>
+#include <ql/termstructures/yield/piecewiseyieldcurve.hpp>
+#include <ql/termstructures/yield/ratehelpers.hpp>
+#include <ql/time/calendars/nullcalendar.hpp>
 #include <ql/time/daycounters/actual365fixed.hpp>
+#include <ql/currencies/america.hpp>
 #include <ql/version.hpp>
 #include <boost/version.hpp>
 #include <rapidjson/document.h>
@@ -34,10 +46,15 @@ namespace {
     };
 
     struct Fixture_ {
+        std::string caseName_;
+        std::string operation_;
+        std::string kind_;
+        int size_ = 0;
         IsoDate_ anchor_;
         std::vector<IsoDate_> dates_;
         std::vector<IsoDate_> queries_;
         std::vector<double> dfs_;
+        std::vector<double> quotes_;
         std::vector<double> reference_;
         double absoluteTolerance_;
         double relativeTolerance_;
@@ -96,22 +113,38 @@ namespace {
         rapidjson::Document document;
         document.Parse(json.c_str());
         REQUIRE(!document.HasParseError(), rapidjson::GetParseError_En(document.GetParseError()));
-        REQUIRE(Text(Get(document, "schema")) == "dal.native-query-fixture/1", "Unexpected native fixture schema");
+        const std::string schema = Text(Get(document, "schema"));
         const auto& workload = Get(document, "workload");
-        REQUIRE(Text(Get(workload, "name")) == "discount_queries" && Text(Get(workload, "operation")) == "discount" &&
-                    Get(workload, "size").GetInt() == 4096,
-                "Unexpected native workload");
-        Fixture_ fixture{ParseDate(Get(document, "anchor")),
-                         ParseDates(Get(document, "dates")),
-                         ParseDates(Get(document, "queries")),
-                         ParseNumbers(Get(document, "dfs")),
-                         ParseNumbers(Get(document, "reference")),
-                         Number(Get(document, "absolute_tolerance")),
-                         Number(Get(document, "relative_tolerance"))};
-        REQUIRE(fixture.dates_.size() == 22 && fixture.dfs_.size() == 22, "Native curve must have 22 nodes");
-        REQUIRE(fixture.queries_.size() == 4096 && fixture.reference_.size() == 4096, "Native query width changed");
-        REQUIRE(fixture.absoluteTolerance_ == 2.0e-12 && fixture.relativeTolerance_ == 1.0e-10,
-                "Native query tolerance changed");
+        Fixture_ fixture;
+        fixture.caseName_ = Text(Get(workload, "name"));
+        fixture.operation_ = Text(Get(workload, "operation"));
+        fixture.kind_ = workload.HasMember("kind") ? Text(workload["kind"]) : "";
+        fixture.size_ = Get(workload, "size").GetInt();
+        fixture.anchor_ = ParseDate(Get(document, "anchor"));
+        fixture.dates_ = ParseDates(Get(document, "dates"));
+        fixture.queries_ = ParseDates(Get(document, "queries"));
+        fixture.reference_ = ParseNumbers(Get(document, "reference"));
+        fixture.absoluteTolerance_ = Number(Get(document, "absolute_tolerance"));
+        fixture.relativeTolerance_ = Number(Get(document, "relative_tolerance"));
+        REQUIRE(fixture.relativeTolerance_ == 1.0e-10, "Native relative tolerance changed");
+        if (schema == "dal.native-query-fixture/1") {
+            fixture.dfs_ = ParseNumbers(Get(document, "dfs"));
+            REQUIRE(fixture.caseName_ == "discount_queries" && fixture.operation_ == "discount" && fixture.size_ == 4096,
+                    "Unexpected native discount workload");
+            REQUIRE(fixture.dates_.size() == 22 && fixture.dfs_.size() == 22, "Native curve must have 22 nodes");
+            REQUIRE(fixture.queries_.size() == 4096 && fixture.reference_.size() == 4096, "Native query width changed");
+            REQUIRE(fixture.absoluteTolerance_ == 2.0e-12, "Native query tolerance changed");
+        } else if (schema == "dal.native-calibration-fixture/1") {
+            fixture.quotes_ = ParseNumbers(Get(document, "quotes"));
+            REQUIRE(fixture.caseName_ == "calibration_single_15" && fixture.operation_ == "calibration" &&
+                        fixture.kind_ == "single" && fixture.size_ == 15,
+                    "Unexpected native calibration workload");
+            REQUIRE(fixture.dates_.size() == 16 && fixture.quotes_.size() == 15, "Native calibration input width changed");
+            REQUIRE(fixture.queries_.size() == 30 && fixture.reference_.size() == 30, "Native calibration output width changed");
+            REQUIRE(fixture.absoluteTolerance_ == 2.0e-8, "Native calibration tolerance changed");
+        } else {
+            REQUIRE(false, "Unexpected native fixture schema");
+        }
         return fixture;
     }
 
@@ -132,7 +165,8 @@ namespace {
         }
     }
 
-    std::function<std::vector<double>()> Prepare(const std::string& backend, const Fixture_& fixture) {
+    std::function<std::vector<double>()> PrepareDiscount(const std::string& backend, const Fixture_& fixture) {
+        REQUIRE(fixture.caseName_ == "discount_queries", "Invalid discount-query fixture");
         if (backend == "dal") {
             Dal::RegisterAll_::Init();
             Vector_<Date_> nodes;
@@ -175,14 +209,138 @@ namespace {
         };
     }
 
-    void WriteReport(const std::string& path, const std::string& backend, const std::vector<double>& values, long long elapsed) {
+    std::function<std::vector<double>()> PrepareDalCalibration(const Fixture_& fixture) {
+        Dal::RegisterAll_::Init();
+        const Date_ today = DalDate(fixture.anchor_);
+        Vector_<Date_> nodes;
+        Vector_<Date_> queries;
+        for (const auto& date : fixture.dates_)
+            nodes.push_back(DalDate(date));
+        for (const auto& query : fixture.queries_)
+            queries.push_back(DalDate(query));
+        const auto quotes = fixture.quotes_;
+        return [today, nodes, queries, quotes]() {
+            RateLegConvention_ leg;
+            leg.paymentLag_ = 0;
+            leg.paymentFrequency_ = PeriodLength_("12M");
+            leg.dayBasis_ = DayBasis_("ACT_365F");
+            leg.accrualHolidays_ = Holidays::None();
+            leg.paymentHolidays_ = Holidays::None();
+            leg.businessDayConvention_ = BizDayConvention_("Unadjusted");
+            leg.paymentConvention_ = BizDayConvention_("Unadjusted");
+            RateIndexConvention_ index;
+            index.forecastTenor_ = PeriodLength_("12M");
+            index.dayBasis_ = DayBasis_("ACT_365F");
+            index.fixingLag_ = 0;
+            index.spotLag_ = 0;
+            index.fixingHolidays_ = Holidays::None();
+            index.accrualHolidays_ = Holidays::None();
+            index.businessDayConvention_ = BizDayConvention_("Unadjusted");
+            index.useProjectionCurve_ = false;
+            CurveCalibrationSpec_ spec;
+            spec.today_ = today;
+            spec.ccy_ = "USD";
+            spec.curveName_ = "usd_discount";
+            spec.targetCollateral_ = CollateralType_(CollateralType_::Value_::OIS);
+            spec.targetTenor_ = PeriodLength_("12M");
+            spec.calibrateDiscountCurve_ = true;
+            spec.liborBasis_ = DayBasis_("ACT_365F");
+            spec.parameterization_ = CurveParameterization_(CurveParameterization_::Value_::LOG_DISCOUNT);
+            spec.knotPolicy_ = CurveKnotPolicy_::Value_::INPUT;
+            spec.solveMode_ = CurveSolveMode_::Value_::EXACT;
+            spec.tolerance_ = 1.0e-12;
+            spec.fitTolerance_ = 1.0e-10;
+            spec.initialGuess_ = 0.025;
+            spec.logDfScheme_ = LogDfScheme_(LogDfScheme_::Value_::LOG_LINEAR);
+            spec.knotDates_ = nodes;
+            spec.instruments_.reserve(quotes.size());
+            for (size_t i = 0; i < quotes.size(); ++i)
+                spec.instruments_.emplace_back(new Swap_(today, today, nodes[i + 1], quotes[i], leg, index, leg));
+            CurveCalibrationOptions_ options;
+            options.jacobianMode_ = CurveJacobianMode_(CurveJacobianMode_::Value_::ANALYTIC);
+            options.computeEffJacobianInverse_ = false;
+            options.computeForwardJacobian_ = false;
+            auto result = CalibrateYieldCurve(spec, options);
+            std::vector<double> values;
+            values.reserve(queries.size());
+            for (const auto& query : queries)
+                values.push_back((*result.curve_)(today, query));
+            return values;
+        };
+    }
+
+    std::function<std::vector<double>()> PrepareQuantLibCalibration(const Fixture_& fixture) {
+        const QuantLib::Date today = QuantLibDate(fixture.anchor_);
+        QuantLib::Settings::instance().evaluationDate() = today;
+        std::vector<QuantLib::Date> queries;
+        queries.reserve(fixture.queries_.size());
+        for (const auto& query : fixture.queries_)
+            queries.push_back(QuantLibDate(query));
+        const auto quotes = fixture.quotes_;
+        return [today, queries, quotes]() {
+            auto index = QuantLib::ext::make_shared<QuantLib::IborIndex>(
+                "calibration-usd", QuantLib::Period(12, QuantLib::Months), 0, QuantLib::USDCurrency(),
+                QuantLib::NullCalendar(), QuantLib::Unadjusted, false, QuantLib::Actual365Fixed(),
+                QuantLib::Handle<QuantLib::YieldTermStructure>());
+            using Curve = QuantLib::PiecewiseYieldCurve<QuantLib::Discount, QuantLib::LogLinear>;
+            std::vector<QuantLib::ext::shared_ptr<QuantLib::Discount::helper>> helpers;
+            helpers.reserve(quotes.size());
+            for (size_t i = 0; i < quotes.size(); ++i) {
+                const int year = static_cast<int>(i) + 1;
+                helpers.push_back(QuantLib::ext::make_shared<QuantLib::SwapRateHelper>(
+                    quotes[i], QuantLib::Period(year, QuantLib::Years), QuantLib::NullCalendar(), QuantLib::Annual,
+                    QuantLib::Unadjusted, QuantLib::Actual365Fixed(), index, QuantLib::Handle<QuantLib::Quote>(),
+                    QuantLib::Period(0, QuantLib::Days), QuantLib::Handle<QuantLib::YieldTermStructure>(), 0));
+            }
+            auto curve = QuantLib::ext::make_shared<Curve>(today, helpers, QuantLib::Actual365Fixed());
+            curve->discount(helpers.back()->latestDate());
+            std::vector<double> values;
+            values.reserve(queries.size());
+            for (const auto& query : queries)
+                values.push_back(curve->discount(query));
+            return values;
+        };
+    }
+
+    std::function<std::vector<double>()> PrepareCalibration(const std::string& backend, const Fixture_& fixture) {
+        REQUIRE(fixture.caseName_ == "calibration_single_15", "Invalid calibration fixture");
+        if (backend == "dal")
+            return PrepareDalCalibration(fixture);
+        REQUIRE(backend == "quantlib", "Unknown native backend: " + backend);
+        return PrepareQuantLibCalibration(fixture);
+    }
+
+    std::function<std::vector<double>()> Prepare(const std::string& backend, const Fixture_& fixture) {
+        if (fixture.caseName_ == "discount_queries")
+            return PrepareDiscount(backend, fixture);
+        if (fixture.caseName_ == "calibration_single_15")
+            return PrepareCalibration(backend, fixture);
+        REQUIRE(false, "Unknown native case: " + fixture.caseName_);
+    }
+
+    void WriteReport(const std::string& path,
+                     const std::string& backend,
+                     const Fixture_& fixture,
+                     const std::vector<double>& values,
+                     long long elapsed) {
         std::ofstream output(path);
         REQUIRE(output.good(), "Cannot create native report: " + path);
-        const char* method = backend == "dal" ? "DAL C++ DiscountLogDF" : "QuantLib C++ DiscountCurve";
+        const bool calibration = fixture.caseName_ == "calibration_single_15";
+        const char* schema = calibration ? "dal.native-calibration-worker/1" : "dal.native-query-worker/1";
+        std::string method;
+        if (!calibration)
+            method = backend == "dal" ? "DAL C++ DiscountLogDF" : "QuantLib C++ DiscountCurve";
+        else if (backend == "dal")
+            method = "DAL C++ analytic single-curve solve (tol 1e-12, fit 1e-10, diagnostics off)";
+        else
+            method = "QuantLib C++ PiecewiseYieldCurve<Discount, LogLinear> (accuracy 1e-12)";
         output << std::setprecision(17);
-        output << "{\"schema\":\"dal.native-query-worker/1\",\"backend\":\"" << backend << "\",\"method\":\"" << method
-               << "\",\"workload\":{\"name\":\"discount_queries\",\"operation\":\"discount\",\"size\":4096}"
-               << ",\"quantlib_version\":\"" << QL_VERSION << "\",\"boost_version\":\"" << BOOST_LIB_VERSION
+        output << "{\"schema\":\"" << schema << "\",\"backend\":\"" << backend << "\",\"method\":\"" << method
+               << "\",\"workload\":{\"name\":\"" << fixture.caseName_ << "\",\"operation\":\"" << fixture.operation_
+               << "\",\"size\":" << fixture.size_;
+        if (!fixture.kind_.empty())
+            output << ",\"kind\":\"" << fixture.kind_ << "\"";
+        output << "},\"quantlib_version\":\"" << QL_VERSION << "\",\"boost_version\":\"" << BOOST_LIB_VERSION
                << "\",\"samples_ns\":[" << elapsed << "],\"values\":[";
         for (size_t i = 0; i < values.size(); ++i)
             output << (i == 0 ? "" : ",") << values[i];
@@ -193,11 +351,15 @@ namespace {
 
 int main(int argc, char** argv) {
     try {
-        REQUIRE(argc == 7, "Usage: native_query_comparison --backend dal|quantlib --input fixture.json --output report.json");
+        REQUIRE(argc == 7 || argc == 9,
+                "Usage: native_query_comparison --backend dal|quantlib --input fixture.json --output report.json [--case name]");
         REQUIRE(std::string(argv[1]) == "--backend" && std::string(argv[3]) == "--input" && std::string(argv[5]) == "--output",
                 "Invalid native worker arguments");
         const std::string backend = argv[2];
+        const std::string caseName = argc == 9 && std::string(argv[7]) == "--case" ? argv[8] : "discount_queries";
+        REQUIRE(argc == 7 || std::string(argv[7]) == "--case", "Invalid native case arguments");
         const Fixture_ fixture = ReadFixture(argv[4]);
+        REQUIRE(caseName == fixture.caseName_, "Native case selection does not match fixture");
         std::function<std::vector<double>()> run = Prepare(backend, fixture);
         for (int i = 0; i < 3; ++i)
             Check(run(), fixture);
@@ -207,7 +369,7 @@ int main(int argc, char** argv) {
         Check(values, fixture);
         const long long elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
         REQUIRE(elapsed > 0, "Nonpositive native timing");
-        WriteReport(argv[6], backend, values, elapsed);
+        WriteReport(argv[6], backend, fixture, values, elapsed);
         return 0;
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

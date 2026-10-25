@@ -263,3 +263,23 @@ def test_native_calibration_fixture_and_case_arguments(tmp_path):
     ])
     assert args.case == "calibration_single_15"
     assert native_queries.SCHEMAS[args.case] == "dal.native-calibration-comparison/1"
+
+
+@pytest.mark.parametrize("backend", ["dal", "quantlib"])
+def test_native_cpp_calibration_matches_shared_oracle(tmp_path, backend):
+    worker = os.environ.get("DAL_NATIVE_QUERY_WORKER")
+    if not worker:
+        pytest.skip("set DAL_NATIVE_QUERY_WORKER to run C++ native integration tests")
+    payload = native_queries.fixture(case_name="calibration_single_15")
+    source, output = tmp_path / "fixture.json", tmp_path / "worker.json"
+    source.write_text(json.dumps(payload))
+    subprocess.run([
+        worker, "--backend", backend, "--input", str(source), "--output", str(output),
+        "--case", "calibration_single_15",
+    ], check=True, timeout=30, env=dict(os.environ, DAL_NUM_THREADS="1"))
+    report = json.loads(output.read_text())
+    assert report["schema"] == "dal.native-calibration-worker/1"
+    assert report["workload"] == payload["workload"]
+    assert len(report["samples_ns"]) == 1 and report["samples_ns"][0] > 0
+    assert len(report["values"]) == 30
+    scenarios.validate(report["values"], payload["reference"], abs_tol=2e-8)
