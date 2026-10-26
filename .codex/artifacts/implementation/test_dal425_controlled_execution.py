@@ -63,7 +63,7 @@ class StaticTests(unittest.TestCase):
         self.assertEqual(result["child_cpu"], .003)
         proc.stdout.close.assert_called_once()
 
-    def execute_fake(self, *, stat_error=False, kill_error=None, wait_error=False, close_error=False, exited=False, interrupted=False):
+    def execute_fake(self, *, stat_error=False, kill_error=None, wait_error=False, close_error=False, exited=False, interrupted=False, action="burn"):
         usage = SimpleNamespace(ru_utime=.001, ru_stime=.002, ru_maxrss=1234)
         proc = Mock(pid=999999)
         proc.stdout.fileno.return_value = 11
@@ -86,8 +86,12 @@ class StaticTests(unittest.TestCase):
             stack.enter_context(patch.object(TOOL, "_drain", return_value=False))
             stop = stack.enter_context(patch.object(TOOL, "_stop", side_effect=kill_error))
             wait = stack.enter_context(patch.object(TOOL.os, "wait4", side_effect=responses))
-            result = TOOL._execute(self.root, "burn", 0, .1, 1, TOOL.time.monotonic(), TOOL.time.process_time())
+            result = TOOL._execute(self.root, action, 0, .1, 1, TOOL.time.monotonic(), TOOL.time.process_time())
         return result, stop, wait, proc
+
+    def test_nonfixed_action_rejected_at_dispatch_boundary(self):
+        with self.assertRaisesRegex(ValueError, "action disabled"):
+            self.execute_fake(action="compile")
 
     def test_first_stat_failure_still_reaps_and_preserves_error(self):
         result, stop, _, _ = self.execute_fake(stat_error=True)

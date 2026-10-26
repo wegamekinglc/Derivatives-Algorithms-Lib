@@ -17,7 +17,7 @@ def collect_reaped(raw, persist, drain):
         return None
 
 
-def validate_allocation(grant, ledger, guard, task, owner):
+def _validate_grant(grant, task, owner):
     required = {"schema": 1, "kind": "actual_coordinator_engineering_allocation",
                 "ledger_revision": REVISION, "attempt_serial": 1, "attempts_max": 1,
                 "status": "DEBITED_HELD_NO_REFUND_BEFORE_DISPATCH", "owner_agent_id": owner,
@@ -27,6 +27,10 @@ def validate_allocation(grant, ledger, guard, task, owner):
     if (not isinstance(grant, dict) or any(type(grant.get(k)) is not type(v) or grant[k] != v for k, v in required.items())
             or not task or not owner):
         raise ValueError("shared allocation missing or invalid")
+
+
+def validate_allocation(grant, ledger, guard, task, owner):
+    _validate_grant(grant, task, owner)
     entry = ledger.get("next_S0L_actual_caller_binding", {})
     if entry.get("grant") != grant or entry.get("grant_sha256") != GRANT_SHA256:
         raise ValueError("shared allocation ledger mismatch")
@@ -55,6 +59,41 @@ def _exclusive(path, data):
         os.close(directory)
 
 
+def _private_root(root):
+    root = Path(root).resolve()
+    info = root.lstat()
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+        raise ValueError("private caller root required")
+    return root
+
+
+def _claim(root, anchor, grant, task, owner):
+    claim = json.loads(Path(anchor).read_bytes())
+    expected = {"grant_sha256": GRANT_SHA256, "allocation_id": grant["allocation_id"],
+                "ledger_revision": REVISION, "task_id": task, "owner": owner,
+                "attempt_serial": 1, "root": str(root), "state": "PENDING_NO_REFUND"}
+    if any(claim.get(k) != v for k, v in expected.items()):
+        raise ValueError("shared allocation consumed root/attempt mismatch")
+    return expected
+
+
+def _validate_identities(identities):
+    if (set(identities) != {"source", "observer", "profile", "argv", "env", "cwd"}
+            or not all(identities[k] for k in identities)):
+        raise ValueError("fixed caller identities required")
+
+
+def _invalid_slot(name, size):
+    return type(size) is not int or size <= 0 or Path(name).name != name
+
+
+def _validate_slots(slots, grant):
+    if (type(slots) is not dict or "caller.pending" not in slots
+            or any(_invalid_slot(k, v) for k, v in slots.items())
+            or sum(slots.values()) > grant["new_stage_byte_subcap"] or len(slots) > grant["new_stage_file_subcap"]):
+        raise ValueError("fixed output predebit invalid")
+
+
 class HeldAttempt:
     """Attach once to an already consumed real grant in one trusted private root."""
     def __init__(self, root, anchor, grant_bytes, ledger_bytes, guard_bytes, task, owner, identities, slots):
@@ -62,23 +101,10 @@ class HeldAttempt:
         if hashlib.sha256(grant_bytes).hexdigest() != GRANT_SHA256:
             raise ValueError("shared allocation hash mismatch")
         validate_allocation(grant, json.loads(ledger_bytes), json.loads(guard_bytes), task, owner)
-        self.root = Path(root).resolve()
-        info = self.root.lstat()
-        if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
-            raise ValueError("private caller root required")
-        claim = json.loads(Path(anchor).read_bytes())
-        expected = {"grant_sha256": GRANT_SHA256, "allocation_id": grant["allocation_id"],
-                    "ledger_revision": REVISION, "task_id": task, "owner": owner,
-                    "attempt_serial": 1, "root": str(self.root), "state": "PENDING_NO_REFUND"}
-        if any(claim.get(k) != v for k, v in expected.items()):
-            raise ValueError("shared allocation consumed root/attempt mismatch")
-        if (set(identities) != {"source", "observer", "profile", "argv", "env", "cwd"}
-                or not all(identities[k] for k in identities)):
-            raise ValueError("fixed caller identities required")
-        if (type(slots) is not dict or "caller.pending" not in slots
-                or any(type(v) is not int or v <= 0 or Path(k).name != k for k, v in slots.items())
-                or sum(slots.values()) > grant["new_stage_byte_subcap"] or len(slots) > grant["new_stage_file_subcap"]):
-            raise ValueError("fixed output predebit invalid")
+        self.root = _private_root(root)
+        expected = _claim(self.root, anchor, grant, task, owner)
+        _validate_identities(identities)
+        _validate_slots(slots, grant)
         self.slots = dict(slots)
         self.spent = set()
         self.failed = False

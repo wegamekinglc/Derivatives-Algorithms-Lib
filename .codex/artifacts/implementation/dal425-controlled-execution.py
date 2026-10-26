@@ -26,7 +26,7 @@ SOURCE_BYTES = globals().get("_SOURCE_BYTES") or SOURCE.read_bytes()
 FRESH_ENTRY = globals().get("_FRESH_ENTRY", False)
 
 
-def _runtime():
+def _module_files():
     files = {}
     for module in tuple(sys.modules.values()):
         name = getattr(module, "__file__", None)
@@ -34,15 +34,27 @@ def _runtime():
             path = Path(name).resolve()
             if path.is_file():
                 files[str(path)] = None
+    return files
+
+
+def _mapped_file(line):
+    fields = line.split(maxsplit=5)
+    if len(fields) != 6 or not fields[5].startswith("/"):
+        return None
+    path = Path(fields[5])
+    info = path.stat()
+    device = "%02x:%02x" % (os.major(info.st_dev), os.minor(info.st_dev))
+    if str(info.st_ino) != fields[4] or device != fields[3]:
+        raise ValueError("mapped runtime identity changed")
+    return str(path)
+
+
+def _runtime():
+    files = _module_files()
     for line in Path("/proc/self/maps").read_text().splitlines():
-        fields = line.split(maxsplit=5)
-        if len(fields) == 6 and fields[5].startswith("/"):
-            path = Path(fields[5])
-            info = path.stat()
-            device = "%02x:%02x" % (os.major(info.st_dev), os.minor(info.st_dev))
-            if str(info.st_ino) != fields[4] or device != fields[3]:
-                raise ValueError("mapped runtime identity changed")
-            files[str(path)] = None
+        path = _mapped_file(line)
+        if path is not None:
+            files[path] = None
     total = 0
     for name in files:
         total += Path(name).stat().st_size
@@ -110,78 +122,132 @@ def _pairs(pairs):
     return result
 
 
+def _exact(row, expected):
+    return all(type(row[k]) is type(value) and row[k] == value for k, value in expected.items())
+
+
+def _allocation_identity(allocation):
+    _keys(allocation["identity"], "source loaded_code runtime")
+    if not all(type(value) is str and len(value) == 64 and all(c in "0123456789abcdef" for c in value)
+               for value in allocation["identity"].values()):
+        raise ValueError("allocation identity digest")
+
+
+def _allocation_budget(allocation, size):
+    if (not all(_positive(allocation[k]) for k in ("wall", "cpu", "bytes", "units"))
+            or type(allocation["bytes"]) is not int or allocation["bytes"] > 1048576
+            or type(allocation["units"]) is not int or size > allocation["bytes"]):
+        raise ValueError("invalid allocation")
+
+
+def _allocation(allocation, size):
+    _keys(allocation, "kind schema domain product_actual wall cpu bytes units original_allocation identity cwd env action")
+    _allocation_identity(allocation)
+    fixed = {"kind": "allocation", "schema": 2, "domain": "synthetic", "product_actual": 0, "original_allocation": "UNKNOWN"}
+    if not _exact(allocation, fixed):
+        raise ValueError("invalid allocation")
+    _allocation_budget(allocation, size)
+    if allocation["env"] != ENV or type(allocation["cwd"]) is not str or allocation["action"] not in ACTIONS:
+        raise ValueError("invalid allocation")
+
+
+def _reservation(row, allocation, used, attempts):
+    _keys(row, "kind id wall cpu units identity cwd env action output_bytes")
+    if type(row["id"]) is not int or row["id"] != attempts + 1:
+        raise ValueError("reservation order")
+    _binding(row, allocation)
+    _reservation_parameters(row)
+    reserved = dict(used)
+    for key in used:
+        if not _positive(row[key]):
+            raise ValueError("bad reservation")
+        reserved[key] += row[key]
+    return reserved
+
+
+def _reservation_parameters(row):
+    if (row["action"] not in ACTIONS or type(row["output_bytes"]) is not int
+            or not 0 <= row["output_bytes"] <= 4096 or type(row["units"]) is not int):
+        raise ValueError("reservation parameters")
+
+
+def _receipt_process(row):
+    if not _exact(row, {"reaped": True, "exit": 0, "wait_status": 0}):
+        raise ValueError("invalid actual wait4 receipt")
+    if (type(row["pid"]) is not int or row["pid"] <= 0
+            or type(row["starttime"]) is not str or not row["starttime"].isdecimal()):
+        raise ValueError("invalid actual wait4 receipt")
+
+
+def _receipt_usage(row, pending):
+    if (not all(_number(row[k]) for k in ("child_cpu", "supervisor_cpu", "wall"))
+            or not _number(row["maxrss_kib"], integer=True) or not 0 < row["maxrss_kib"] <= AS_BYTES // 1024
+            or row["wall"] > pending["wall"]
+            or row["child_cpu"] + row["supervisor_cpu"] > pending["cpu"]):
+        raise ValueError("invalid actual wait4 receipt")
+
+
+def _receipt_output(row, pending):
+    if (type(row["stdout"]) is not str or len(row["stdout"].encode()) > pending["output_bytes"]
+            or not _valid_argv(row["argv"], pending["action"])):
+        raise ValueError("invalid actual wait4 receipt")
+
+
+def _settlement(row, allocation, pending):
+    _keys(row, "kind id status reason errors pid starttime argv reaped exit wait_status child_cpu supervisor_cpu wall maxrss_kib stdout product_actual identity cwd env action")
+    _binding(row, allocation)
+    if type(row["id"]) is not int or row["id"] != pending["id"] or row["action"] != pending["action"]:
+        raise ValueError("settlement binding")
+    if row["status"] != "complete":
+        raise ValueError("partial ledger; UNKNOWN successor")
+    _receipt_process(row)
+    if not _exact(row, {"reason": "exit", "errors": [], "product_actual": 0}):
+        raise ValueError("invalid actual wait4 receipt")
+    _receipt_usage(row, pending)
+    _receipt_output(row, pending)
+
+
+def _transition(row, allocation, used, pending, attempts):
+    if row.get("kind") == "reserve" and pending is None:
+        reserved = _reservation(row, allocation, used, attempts)
+        return row, attempts + 1, reserved
+    if row.get("kind") == "settle" and pending is not None:
+        _settlement(row, allocation, pending)
+        return None, attempts, used
+    raise ValueError("invalid ledger transition")
+
+
+def _rows(fd, size):
+    os.lseek(fd, 0, os.SEEK_SET)
+    data = os.read(fd, size + 1)
+    if not data.endswith(b"\n") or len(data) != size:
+        raise ValueError("torn ledger")
+    return [json.loads(line, object_pairs_hook=_pairs) for line in data.splitlines()]
+
+
 def _load(fd):
     size = os.fstat(fd).st_size
     if size > 1048576:
         raise ValueError("ledger size")
-    os.lseek(fd, 0, os.SEEK_SET)
-    data = os.read(fd, size + 1)
     try:
-        if not data.endswith(b"\n") or len(data) != size:
-            raise ValueError("torn ledger")
-        rows = [json.loads(line, object_pairs_hook=_pairs) for line in data.splitlines()]
+        rows = _rows(fd, size)
         allocation = rows[0]
-        _keys(allocation, "kind schema domain product_actual wall cpu bytes units original_allocation identity cwd env action")
-        _keys(allocation["identity"], "source loaded_code runtime")
-        if not all(type(value) is str and len(value) == 64 and all(c in "0123456789abcdef" for c in value)
-                   for value in allocation["identity"].values()):
-            raise ValueError("allocation identity digest")
-        if (allocation["kind"] != "allocation" or type(allocation["schema"]) is not int or allocation["schema"] != 2
-                or allocation["domain"] != "synthetic" or type(allocation["product_actual"]) is not int
-                or allocation["product_actual"] != 0 or allocation["original_allocation"] != "UNKNOWN"
-                or not all(_positive(allocation[k]) for k in ("wall", "cpu", "bytes", "units"))
-                or type(allocation["bytes"]) is not int or allocation["bytes"] > 1048576
-                or type(allocation["units"]) is not int or size > allocation["bytes"]
-                or type(allocation["identity"]) is not dict or not allocation["identity"]
-                or allocation["env"] != ENV or type(allocation["cwd"]) is not str or allocation["action"] not in ACTIONS):
-            raise ValueError("invalid allocation")
+        _allocation(allocation, size)
         used = {"wall": 0., "cpu": 0., "units": 0}
         pending, attempts = None, 0
         for row in rows[1:]:
-            if row.get("kind") == "reserve" and pending is None:
-                _keys(row, "kind id wall cpu units identity cwd env action output_bytes")
-                if type(row["id"]) is not int or row["id"] != attempts + 1:
-                    raise ValueError("reservation order")
-                _binding(row, allocation)
-                if (row["action"] not in ACTIONS or type(row["output_bytes"]) is not int
-                        or not 0 <= row["output_bytes"] <= 4096 or type(row["units"]) is not int):
-                    raise ValueError("reservation parameters")
-                for key in used:
-                    if not _positive(row[key]):
-                        raise ValueError("bad reservation")
-                    used[key] += row[key]
-                attempts += 1
-                pending = row
-            elif row.get("kind") == "settle" and pending is not None:
-                _keys(row, "kind id status reason errors pid starttime argv reaped exit wait_status child_cpu supervisor_cpu wall maxrss_kib stdout product_actual identity cwd env action")
-                _binding(row, allocation)
-                if type(row["id"]) is not int or row["id"] != pending["id"] or row["action"] != pending["action"]:
-                    raise ValueError("settlement binding")
-                if row["status"] != "complete":
-                    raise ValueError("partial ledger; UNKNOWN successor")
-                if (row["reaped"] is not True or row["exit"] != 0 or type(row["exit"]) is not int
-                        or type(row["wait_status"]) is not int or row["wait_status"] != 0
-                        or type(row["pid"]) is not int or row["pid"] <= 0
-                        or type(row["starttime"]) is not str or not row["starttime"].isdecimal()
-                        or row["reason"] != "exit" or row["errors"] != []
-                        or type(row["product_actual"]) is not int or row["product_actual"] != 0
-                        or not all(_number(row[k]) for k in ("child_cpu", "supervisor_cpu", "wall"))
-                        or not _number(row["maxrss_kib"], integer=True) or not 0 < row["maxrss_kib"] <= AS_BYTES // 1024
-                        or row["wall"] > pending["wall"]
-                        or row["child_cpu"] + row["supervisor_cpu"] > pending["cpu"]
-                        or type(row["stdout"]) is not str or len(row["stdout"].encode()) > pending["output_bytes"]
-                        or not _valid_argv(row["argv"], pending["action"])):
-                    raise ValueError("invalid actual wait4 receipt")
-                pending = None
-            else:
-                raise ValueError("invalid ledger transition")
-        if pending is not None:
-            raise ValueError("UNKNOWN pending reservation")
-        if any(used[k] > allocation[k] for k in used):
-            raise ValueError("overdrawn ledger")
+            pending, attempts, used = _transition(row, allocation, used, pending, attempts)
+        _ledger_balance(allocation, used, pending)
         return allocation, used, attempts
     except (KeyError, IndexError, TypeError, AttributeError, json.JSONDecodeError, ValueError) as error:
         raise ValueError("ledger: " + str(error)) from error
+
+
+def _ledger_balance(allocation, used, pending):
+    if pending is not None:
+        raise ValueError("UNKNOWN pending reservation")
+    if any(used[k] > allocation[k] for k in used):
+        raise ValueError("overdrawn ledger")
 
 
 def _argv(action, fd=3):
@@ -302,8 +368,7 @@ def _stop(pid, starttime, pidfd):
     os.kill(pid, signal.SIGKILL)
 
 
-def _execute(root, action, wall, cpu, output_bytes, started, own_started):
-    _checkpoint(started, own_started, wall, cpu)
+def _spawn(root, action, cpu):
     snapshot = _snapshot()
     argv = _argv(action, snapshot)
     try:
@@ -316,143 +381,217 @@ def _execute(root, action, wall, cpu, output_bytes, started, own_started):
         except BaseException as close_error:
             error.add_note("snapshot close: " + str(close_error))
         raise
-    pid, pidfd, starttime = proc.pid, None, None
-    captured, errors = bytearray(), []
-    reason, receipt = "exit", None
+    return proc, snapshot, argv
 
-    def collect():
-        nonlocal receipt
+
+class _ChildExecution:
+    def __init__(self, proc, snapshot, argv):
+        self.proc, self.snapshot, self.argv = proc, snapshot, argv
+        self.pid, self.pidfd, self.starttime = proc.pid, None, None
+        self.captured, self.errors = bytearray(), []
+        self.reason, self.receipt = "exit", None
+
+    def collect(self):
         try:
-            got, status, usage = os.wait4(pid, os.WNOHANG)
+            got, status, usage = os.wait4(self.pid, os.WNOHANG)
         except InterruptedError:
             return
-        if got == pid:
-            if receipt is not None:
+        if got == self.pid:
+            if self.receipt is not None:
                 raise RuntimeError("duplicate wait4")
-            receipt = (status, usage)
+            self.receipt = (status, usage)
         elif got != 0:
             raise RuntimeError("unexpected wait4 PID")
 
-    def preserve(error):
-        if len(errors) < 16:
-            errors.append(type(error).__name__ + ": " + str(error)[:256])
+    def preserve(self, error):
+        if len(self.errors) < 16:
+            self.errors.append(type(error).__name__ + ": " + str(error)[:256])
 
-    try:
+    def open_pidfd(self):
         if hasattr(os, "pidfd_open") and hasattr(signal, "pidfd_send_signal"):
             try:
-                pidfd = os.pidfd_open(pid)
+                self.pidfd = os.pidfd_open(self.pid)
             except OSError:
                 pass
-        starttime = _stat(pid)[0]
-        os.set_blocking(proc.stdout.fileno(), False)
+
+    def observe(self, wall, cpu, output_bytes, started, own_started):
+        self.open_pidfd()
+        self.starttime = _stat(self.pid)[0]
+        os.set_blocking(self.proc.stdout.fileno(), False)
         while True:
-            collect()
-            if _drain(proc.stdout.fileno(), captured, output_bytes):
-                reason = "output"
-                break
-            if receipt is not None:
-                break
+            self.collect()
+            if _drain(self.proc.stdout.fileno(), self.captured, output_bytes):
+                self.reason = "output"
+                return
+            if self.receipt is not None:
+                return
             if time.monotonic() - started >= wall:
-                reason = "wall"
-                break
-            if _child_cpu(pid) + time.process_time() - own_started >= cpu:
-                reason = "cpu"
-                break
-            select.select([proc.stdout], [], [], .001)
-    except BaseException as error:
-        preserve(error)
-    finally:
-        deadline = _CLEANUP_CLOCK() + MARGIN
-        if receipt is None:
-            for _ in range(3):
+                self.reason = "wall"
+                return
+            if _child_cpu(self.pid) + time.process_time() - own_started >= cpu:
+                self.reason = "cpu"
+                return
+            select.select([self.proc.stdout], [], [], .001)
+
+    def request_stop(self):
+        for _ in range(3):
+            try:
+                _stop(self.pid, self.starttime, self.pidfd)
+                return
+            except InterruptedError as error:
+                self.preserve(error)
+            except ProcessLookupError:
+                return
+            except BaseException as error:
+                self.preserve(error)
+                return
+
+    def await_cleanup(self, deadline):
+        while self.receipt is None and _CLEANUP_CLOCK() < deadline:
+            try:
+                self.collect()
+            except BaseException as error:
+                self.preserve(error)
+                if not isinstance(error, InterruptedError):
+                    return
+            if self.receipt is None:
                 try:
-                    _stop(pid, starttime, pidfd)
-                    break
-                except InterruptedError as error:
-                    preserve(error)
-                except ProcessLookupError:
-                    break
+                    select.select([], [], [], .001)
                 except BaseException as error:
-                    preserve(error)
-                    break
-            while receipt is None and _CLEANUP_CLOCK() < deadline:
-                try:
-                    collect()
-                except BaseException as error:
-                    preserve(error)
-                    if not isinstance(error, InterruptedError):
-                        break
-                if receipt is None:
-                    try:
-                        select.select([], [], [], .001)
-                    except BaseException as error:
-                        preserve(error)
-        # Each close is attempted even if another cleanup operation failed.
-        for close in (proc.stdout.close, lambda: os.close(snapshot), (lambda: os.close(pidfd)) if pidfd is not None else (lambda: None)):
+                    self.preserve(error)
+
+    def close(self):
+        closes = [self.proc.stdout.close, lambda: os.close(self.snapshot)]
+        if self.pidfd is not None:
+            closes.append(lambda: os.close(self.pidfd))
+        for close in closes:
             try:
                 close()
             except BaseException as error:
-                preserve(error)
-        if receipt is not None:
-            proc.returncode = os.waitstatus_to_exitcode(receipt[0])
-    status, usage = receipt if receipt is not None else (None, None)
-    return {"kind": "settle", "status": "complete" if receipt is not None and not errors and reason == "exit" and proc.returncode == 0 else "partial",
-            "reason": "UNKNOWN" if errors or receipt is None else reason, "errors": errors,
-            "pid": pid, "starttime": starttime, "argv": argv, "reaped": receipt is not None,
-            "exit": proc.returncode if receipt is not None else None, "wait_status": status,
+                self.preserve(error)
+
+    def cleanup(self):
+        deadline = _CLEANUP_CLOCK() + MARGIN
+        if self.receipt is None:
+            self.request_stop()
+            self.await_cleanup(deadline)
+        self.close()
+        if self.receipt is not None:
+            self.proc.returncode = os.waitstatus_to_exitcode(self.receipt[0])
+
+    def completion_status(self):
+        complete = self.receipt is not None and not self.errors and self.reason == "exit" and self.proc.returncode == 0
+        return "complete" if complete else "partial"
+
+    def result(self, started, own_started):
+        status, usage = self.receipt if self.receipt is not None else (None, None)
+        return {"kind": "settle", "status": self.completion_status(),
+                "reason": "UNKNOWN" if self.errors or self.receipt is None else self.reason, "errors": self.errors,
+                "pid": self.pid, "starttime": self.starttime, "argv": self.argv, "reaped": self.receipt is not None,
+                "exit": self.proc.returncode if self.receipt is not None else None, "wait_status": status,
+                **_usage_result(usage, started, own_started),
+                "stdout": self.captured.decode("ascii", errors="replace"), "product_actual": 0}
+
+
+def _usage_result(usage, started, own_started):
+    return {
             "child_cpu": usage.ru_utime + usage.ru_stime if usage is not None else None,
             "supervisor_cpu": time.process_time() - own_started, "wall": time.monotonic() - started,
-            "maxrss_kib": usage.ru_maxrss if usage is not None else None,
-            "stdout": captured.decode("ascii", errors="replace"), "product_actual": 0}
+            "maxrss_kib": usage.ru_maxrss if usage is not None else None}
 
 
-def run(root, identity, action="ok", *, wall=.4, cpu=.2, output_bytes=128, units=1, products=0):
-    started, own_started = time.monotonic(), time.process_time()
+def _execute(root, action, wall, cpu, output_bytes, started, own_started):
+    if action not in ACTIONS:
+        raise ValueError("action disabled")
+    _checkpoint(started, own_started, wall, cpu)
+    execution = _ChildExecution(*_spawn(root, action, cpu))
+    try:
+        execution.observe(wall, cpu, output_bytes, started, own_started)
+    except BaseException as error:
+        execution.preserve(error)
+    finally:
+        execution.cleanup()
+    return execution.result(started, own_started)
+
+
+def _run_parameters(identity, action, wall, cpu, output_bytes, units, products):
     if not identity or identity != globals()["identity"]():
         raise ValueError("identity missing or mismatched")
     if action not in ACTIONS:
         raise ValueError("action disabled")
     if type(products) is not int or products != 0:
         raise ValueError("product execution disabled")
-    if not (_positive(wall) and wall <= 2 and _positive(cpu) and cpu <= 2
-            and type(output_bytes) is int and 0 <= output_bytes <= 4096
+    _time_parameters(wall, cpu)
+    _output_parameters(output_bytes, units)
+
+
+def _time_parameters(wall, cpu):
+    if not (_positive(wall) and wall <= 2 and _positive(cpu) and cpu <= 2):
+        raise ValueError("invalid budget")
+
+
+def _output_parameters(output_bytes, units):
+    if not (type(output_bytes) is int and 0 <= output_bytes <= 4096
             and type(units) is int and 0 < units <= 100):
         raise ValueError("invalid budget")
-    _entry_check()
-    _checkpoint(started, own_started, wall, cpu)
+
+
+def _run_root(root):
     root = Path(root).absolute()
     info = root.lstat()
     if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
         raise ValueError("private fixed directory required")
+    return root
+
+
+def _run_allocation(fd, root, identity, action, started, own_started, wall, cpu):
+    _lock(fd, started, own_started, wall, cpu)
+    if (root / "pending").exists():
+        raise ValueError("UNKNOWN pending guard; no successor")
+    allocation, used, attempts = _load(fd)
+    _checkpoint(started, own_started, wall, cpu)
+    if allocation["identity"] != identity or allocation["cwd"] != str(root) or allocation["action"] != action:
+        raise ValueError("ledger identity binding")
+    if attempts:
+        raise ValueError("UNKNOWN prior attempt; no automatic restart")
+    return allocation, used, attempts
+
+
+def _reserve_run(fd, root, allocation, used, reservation, started, own_started, wall, cpu):
+    if any(used[k] + reservation[k] > allocation[k] for k in used):
+        raise ValueError("ledger budget exhausted")
+    if os.fstat(fd).st_size + RECORD_BYTES + SETTLEMENT_BYTES > allocation["bytes"]:
+        raise ValueError("ledger byte budget: settlement reserve")
+    _checkpoint(started, own_started, wall, cpu)
+    _guard(root)
+    _append(fd, reservation, allocation["bytes"])
+    _checkpoint(started, own_started, wall, cpu)
+
+
+def _settle_run(fd, result, reservation, allocation):
+    result.update(id=reservation["id"], identity=reservation["identity"], cwd=reservation["cwd"], env=ENV, action=reservation["action"])
+    if (result["wall"] > reservation["wall"] or
+            not result.get("reaped", False) or result["child_cpu"] + result["supervisor_cpu"] > reservation["cpu"]):
+        result.update(status="partial", reason="UNKNOWN reservation exceeded")
+    _append(fd, result, allocation["bytes"])
+    return result
+
+
+def run(root, identity, action="ok", *, wall=.4, cpu=.2, output_bytes=128, units=1, products=0):
+    started, own_started = time.monotonic(), time.process_time()
+    _run_parameters(identity, action, wall, cpu, output_bytes, units, products)
+    _entry_check()
+    _checkpoint(started, own_started, wall, cpu)
+    root = _run_root(root)
     fd = _open_ledger(root)
     try:
-        _lock(fd, started, own_started, wall, cpu)
-        if (root / "pending").exists():
-            raise ValueError("UNKNOWN pending guard; no successor")
-        allocation, used, attempts = _load(fd)
-        _checkpoint(started, own_started, wall, cpu)
-        if allocation["identity"] != identity or allocation["cwd"] != str(root) or allocation["action"] != action:
-            raise ValueError("ledger identity binding")
-        if attempts:
-            raise ValueError("UNKNOWN prior attempt; no automatic restart")
+        allocation, used, attempts = _run_allocation(fd, root, identity, action, started, own_started, wall, cpu)
         reservation = {"kind": "reserve", "id": attempts + 1, "wall": wall + MARGIN,
                        "cpu": cpu + MARGIN, "units": units, "identity": identity,
                        "cwd": str(root), "env": ENV, "action": action, "output_bytes": output_bytes}
-        if any(used[k] + reservation[k] > allocation[k] for k in used):
-            raise ValueError("ledger budget exhausted")
-        if os.fstat(fd).st_size + RECORD_BYTES + SETTLEMENT_BYTES > allocation["bytes"]:
-            raise ValueError("ledger byte budget: settlement reserve")
-        _checkpoint(started, own_started, wall, cpu)
-        _guard(root)
-        _append(fd, reservation, allocation["bytes"])
-        _checkpoint(started, own_started, wall, cpu)
+        _reserve_run(fd, root, allocation, used, reservation, started, own_started, wall, cpu)
         result = _execute(root, action, wall, cpu, output_bytes, started, own_started)
-        result.update(id=reservation["id"], identity=identity, cwd=str(root), env=ENV, action=action)
-        if (result["wall"] > reservation["wall"] or
-                not result.get("reaped", False) or result["child_cpu"] + result["supervisor_cpu"] > reservation["cpu"]):
-            result.update(status="partial", reason="UNKNOWN reservation exceeded")
-        _append(fd, result, allocation["bytes"])
-        return result
+        return _settle_run(fd, result, reservation, allocation)
     finally:
         os.close(fd)
 
@@ -468,31 +607,21 @@ def _worker(action):
     return 0
 
 
-def _command(mode, root, control):
-    root = Path(root).absolute()
-    os.chdir(root)
-    fixed = {"ok": ("ok", .5, .3, 128), "nonzero": ("nonzero", .5, .3, 128),
-             "burn": ("burn", 1., .12, 128), "deadline": ("burn", .12, .6, 128),
-             "flood": ("flood", .5, .3, 1)}
-    if control not in fixed:
-        raise ValueError("control disabled")
-    _entry_check()
-    if mode == "init":
-        info = root.lstat()
-        if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
-            raise ValueError("private directory required")
-        fd = os.open(root / "ledger.jsonl", os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
-        try:
-            _append(fd, {"kind":"allocation", "schema":2, "domain":"synthetic", "product_actual":0,
-                         "wall":10., "cpu":10., "bytes":1048576, "units":100, "original_allocation":"UNKNOWN",
-                         "identity":identity(), "cwd":str(root), "env":ENV, "action":fixed[control][0]}, 1048576)
-        finally:
-            os.close(fd)
-        print(json.dumps({"initialized":True, "identity":identity(), "runtime_manifest":_runtime()}, sort_keys=True))
-        return
-    if mode != "run":
-        raise ValueError("mode disabled")
-    action, wall, cpu, output = fixed[control]
+def _initialize(root, action):
+    info = root.lstat()
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+        raise ValueError("private directory required")
+    fd = os.open(root / "ledger.jsonl", os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    try:
+        _append(fd, {"kind":"allocation", "schema":2, "domain":"synthetic", "product_actual":0,
+                     "wall":10., "cpu":10., "bytes":1048576, "units":100, "original_allocation":"UNKNOWN",
+                     "identity":identity(), "cwd":str(root), "env":ENV, "action":action}, 1048576)
+    finally:
+        os.close(fd)
+    print(json.dumps({"initialized":True, "identity":identity(), "runtime_manifest":_runtime()}, sort_keys=True))
+
+
+def _timed_run(root, action, wall, cpu, output):
     def exhausted(signum, frame):
         raise ValueError("supervisor CPU timer exhausted")
     signal.signal(signal.SIGPROF, exhausted)
@@ -504,10 +633,36 @@ def _command(mode, root, control):
     print(json.dumps(result, sort_keys=True, allow_nan=False))
 
 
+def _command(mode, root, control):
+    root = Path(root).absolute()
+    os.chdir(root)
+    fixed = {"ok": ("ok", .5, .3, 128), "nonzero": ("nonzero", .5, .3, 128),
+             "burn": ("burn", 1., .12, 128), "deadline": ("burn", .12, .6, 128),
+             "flood": ("flood", .5, .3, 1)}
+    if control not in fixed:
+        raise ValueError("control disabled")
+    _entry_check()
+    if mode == "init":
+        _initialize(root, fixed[control][0])
+        return
+    if mode != "run":
+        raise ValueError("mode disabled")
+    _timed_run(root, *fixed[control])
+
+
+def _loaded_codes():
+    for key, value in sorted(globals().items()):
+        if hasattr(value, "__code__"):
+            yield value.__code__
+        elif isinstance(value, type) and value.__module__ == __name__:
+            for name, method in sorted(vars(value).items()):
+                if hasattr(method, "__code__"):
+                    yield method.__code__
+
+
 _IS_WORKER = len(sys.argv) == 3 and sys.argv[1] == "--worker" and sys.argv[2] in ACTIONS
 _IDENTITY = None if _IS_WORKER else {"source":hashlib.sha256(SOURCE_BYTES).hexdigest(),
-             "loaded_code":hashlib.sha256(b"".join(marshal.dumps(value.__code__)
-                             for key, value in sorted(globals().items()) if hasattr(value, "__code__"))).hexdigest(),
+             "loaded_code":hashlib.sha256(b"".join(marshal.dumps(code) for code in _loaded_codes())).hexdigest(),
              "runtime":hashlib.sha256(json.dumps(_runtime(), sort_keys=True).encode()).hexdigest()}
 
 if __name__ == "__main__":
