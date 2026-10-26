@@ -6,7 +6,6 @@ from pathlib import Path
 import signal
 import sys
 import tempfile
-from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
 
@@ -17,6 +16,36 @@ spec.loader.exec_module(execution)
 
 
 class DispatchTest(unittest.TestCase):
+    def test_receipt_binds_native_command_bootstrap_and_payload(self):
+        packet = execution._process.recorded_argv(execution._argv('ok'), 'a' * 64)
+        self.assertTrue(execution._valid_argv(packet, 'ok'))
+        for field, value in [('process', ['shell']), ('intent', ['shell']),
+                             ('bootstrap_sha256', 'b' * 64), ('payload_sha256', None),
+                             ('payload_sha256', 'not-a-digest')]:
+            changed = dict(packet, **{field: value})
+            with self.subTest(field=field, value=value):
+                self.assertFalse(execution._valid_argv(changed, 'ok'))
+        self.assertFalse(execution._valid_argv(dict(packet, extra='unbound'), 'ok'))
+
+    def test_native_command_contains_no_runtime_arguments(self):
+        process = execution._process
+        previous = Path.cwd()
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
+            root = Path(directory)
+            source = execution._snapshot()
+            child = None
+            try:
+                os.chdir(root)
+                with patch.object(process.os, 'posix_spawn', return_value=999999) as spawn:
+                    child = process.spawn_worker(execution._argv('ok', source), root, source)
+                self.assertEqual(spawn.call_args.args[1],
+                    ['/usr/bin/python3', '-I', '-S', '-B', '/proc/self/fd/3'])
+            finally:
+                if child is not None:
+                    child.stdout.close()
+                os.close(source)
+                os.chdir(previous)
+
     def test_worker_interpreter_is_fixed_even_if_current_executable_changes(self):
         with patch.object(sys, 'executable', '/untrusted/python'):
             self.assertEqual(execution._argv('ok')[0], '/usr/bin/python3')
@@ -57,6 +86,7 @@ class DispatchTest(unittest.TestCase):
                 patch.object(process.os, 'open', return_value=33), \
                 patch.object(process.os, 'close', side_effect=close), \
                 patch.object(process, '_file_actions', return_value=[]), \
+                patch.object(process, '_native_inputs', return_value=({}, {})), \
                 patch.object(process.os, 'posix_spawn', return_value=999999), \
                 patch.object(process.os, 'kill') as kill, \
                 patch.object(process.os, 'wait4', return_value=(999999, 9, (0,) * 16)) as wait:
@@ -98,28 +128,25 @@ class DispatchTest(unittest.TestCase):
     def test_sealed_launcher_initializes_without_an_extra_exec(self):
         with tempfile.TemporaryDirectory(dir=ROOT) as directory:
             root = Path(directory)
-            log = (root / 'launcher.log').open('xb')
-            child = SimpleNamespace(pid=None, stdout=log)
+            child = None
             old_handler = signal.signal(signal.SIGALRM, self.timeout)
             reaped = False
             try:
-                argv = ['/usr/bin/python3', '-I', '-S', '-B', str(ROOT / 'dal425-controlled-launch.py'), 'init', str(root), 'ok']
-                actions = [(os.POSIX_SPAWN_DUP2, log.fileno(), 1), (os.POSIX_SPAWN_DUP2, log.fileno(), 2)]
-                child.pid = os.posix_spawn('/usr/bin/python3', argv, execution.ENV, file_actions=actions)
+                child = execution._process.spawn_initializer(root)
                 signal.setitimer(signal.ITIMER_REAL, 3)
+                output = child.stdout.read(65537)
                 raw = os.wait4(child.pid, 0)
                 reaped = True
                 signal.setitimer(signal.ITIMER_REAL, 0)
-                self.assertEqual(raw[1], 0, (root / 'launcher.log').read_text())
-                record = json.loads((root / 'launcher.log').read_bytes())
+                self.assertEqual(raw[1], 0, output.decode())
+                self.assertLess(len(output), 65536)
+                record = json.loads(output)
                 self.assertIs(record['initialized'], True)
                 self.assertTrue((root / 'ledger.jsonl').is_file())
                 print('sealed-launcher-init raw-wait4', (raw[0], raw[1], tuple(raw[2])))
             finally:
-                if child.pid is not None:
+                if child is not None:
                     self.close_worker(child, None, reaped)
-                else:
-                    log.close()
                 signal.setitimer(signal.ITIMER_REAL, 0)
                 signal.signal(signal.SIGALRM, old_handler)
 

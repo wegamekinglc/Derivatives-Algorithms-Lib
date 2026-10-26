@@ -15,6 +15,15 @@ Worker source bytes must match the fixed source file; helper tickets bind the
 parent PID, mode, root and source hash before any spawn. No interpreter path is
 selected from `sys.executable`, PATH or an input command.
 
+The native command is a literal interpreter/flag vector and fixed descriptor3
+script path. An immutable bootstrap and JSON payload use separate sealed
+descriptors; the selected fixed source and helper ticket have fixed descriptor
+slots. Staging duplicates above those slots prevents overlap while remapping.
+The bootstrap verifies seals, source digest, parent and cwd, then loads only the
+factory-selected source in the same child. It adds no process layer. Receipts
+separate the actual OS vector from logical intent and bind bootstrap/payload
+hashes; missing or changed bindings reject ledger recovery.
+
 `posix_spawn` receives explicit descriptor actions: null stdin, a bounded pipe
 for stdout/stderr, only declared sealed inputs retained, and other open
 descriptors closed. The worker applies AS, CPU, file-size and core limits before
@@ -38,7 +47,7 @@ fingerprint implementation; their support source is loaded without cached code.
 Focused RED witnesses cover the inherited interpreter path, missing canonical
 fingerprint, a forged sealed helper ticket and lost child ownership after a
 parent close failure. GREEN includes the existing execution/profile/caller
-controls and eight new dispatch controls. The latter run the fixed zero/nonzero
+controls and ten new dispatch controls. The latter run the fixed zero/nonzero
 workers and sealed launcher init in fresh synthetic test fixtures, retaining
 their complete final wait4 values. These are regression tests, not a real shared
 allocation, profile acceptance or financial qualification.

@@ -404,6 +404,7 @@ def _record_helper(attempt, helper, output, started, observer_profile):
     attempt.write("manifest.json", _json({"slots": OUTPUTS, "held_bytes": sum(OUTPUTS.values()),
                                           "written_before_manifest": sorted(attempt.written)}))
     attempt.write("outer.receipt.json", _json({"status": "bounded complete; no successor", "argv": helper.argv,
+        "dispatch": helper.child.recorded_argv,
         "pid": helper.child.pid, "wait_status": helper.status, "wait4": True, "child_cpu": usage.ru_utime + usage.ru_stime,
         "child_rss_kib": usage.ru_maxrss, "observer_cpu_before_tail": time.process_time(),
         "wall_before_tail": wall, "tail_wall_bound": .25, "remaining_observer_cpu_bound": 3,

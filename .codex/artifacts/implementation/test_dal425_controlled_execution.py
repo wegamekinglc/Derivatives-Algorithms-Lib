@@ -45,7 +45,7 @@ class StaticTests(unittest.TestCase):
 
     def receipt(self):
         return {"kind":"settle", "id":1, "status":"complete", "reason":"exit", "errors":[],
-                "pid":999999, "starttime":"1234", "argv":TOOL._argv("ok"), "reaped":True,
+                "pid":999999, "starttime":"1234", "argv":TOOL._process.recorded_argv(TOOL._argv("ok"), 'a' * 64), "reaped":True,
                 "exit":0, "wait_status":0, "child_cpu":.001, "supervisor_cpu":.002,
                 "wall":.01, "maxrss_kib":1234, "stdout":"ok\n", "product_actual":0,
                 "identity":self.identity, "cwd":str(self.root), "env":TOOL.ENV, "action":"ok"}
@@ -65,7 +65,7 @@ class StaticTests(unittest.TestCase):
 
     def execute_fake(self, *, stat_error=False, kill_error=None, wait_error=False, close_error=False, exited=False, interrupted=False, action="burn"):
         usage = SimpleNamespace(ru_utime=.001, ru_stime=.002, ru_maxrss=1234)
-        proc = Mock(pid=999999)
+        proc = Mock(pid=999999, recorded_argv=TOOL._process.recorded_argv(TOOL._argv(action), 'a' * 64))
         proc.stdout.fileno.return_value = 11
         if close_error:
             proc.stdout.close.side_effect = OSError("close injection")
@@ -267,7 +267,7 @@ class StaticTests(unittest.TestCase):
 
     def test_reservation_action_cannot_escape_allocation(self):
         self.write_rows([self.allocation, dict(self.reservation(),action="burn"),
-                         dict(self.receipt(),action="burn",argv=TOOL._argv("burn"))])
+                         dict(self.receipt(),action="burn",argv=TOOL._process.recorded_argv(TOOL._argv("burn"), 'a' * 64))])
         with self.assertRaisesRegex(ValueError,"ledger"):
             self.load()
 

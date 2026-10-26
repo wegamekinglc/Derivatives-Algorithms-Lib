@@ -289,6 +289,20 @@ def _argv(action, fd=3, cpu=.2):
 
 
 def _valid_argv(argv, action):
+    if type(argv) is not dict or set(argv) != {'process', 'intent', 'payload_sha256', 'bootstrap_sha256'}:
+        return False
+    if argv['process'] != _process.native_argv() or argv['bootstrap_sha256'] != _process.BOOTSTRAP_SHA256:
+        return False
+    if not _valid_digest(argv['payload_sha256']):
+        return False
+    return _valid_intent_argv(argv['intent'], action)
+
+
+def _valid_digest(digest):
+    return type(digest) is str and len(digest) == 64 and all(c in '0123456789abcdef' for c in digest)
+
+
+def _valid_intent_argv(argv, action):
     if type(argv) is not list or len(argv) != 8 or type(argv[4]) is not str:
         return False
     prefix = "/proc/self/fd/"
@@ -516,7 +530,7 @@ class _ChildExecution:
         status, usage = self.receipt if self.receipt is not None else (None, None)
         return {"kind": "settle", "status": self.completion_status(),
                 "reason": "UNKNOWN" if self.errors or self.receipt is None else self.reason, "errors": self.errors,
-                "pid": self.pid, "starttime": self.starttime, "argv": self.argv, "reaped": self.receipt is not None,
+                "pid": self.pid, "starttime": self.starttime, "argv": self.proc.recorded_argv, "reaped": self.receipt is not None,
                 "exit": self.proc.returncode if self.receipt is not None else None, "wait_status": status,
                 **_usage_result(usage, started, own_started),
                 "stdout": self.captured.decode("ascii", errors="replace"), "product_actual": 0}

@@ -17,7 +17,10 @@ fixed-host, faithful-loader and no-concurrent-mutation assumptions.
 The supervisor creates at most one fixed worker using the shared process module.
 That module validates its sealed source, fixed absolute interpreter/flags,
 action, CPU request and inherited cwd. Explicit spawn actions pass only the
-sealed source and standard streams; other file descriptors are closed. The
+sealed bootstrap, bounded JSON payload, source and standard streams; other
+file descriptors are closed. The OS vector is literal and runtime arguments
+never enter it. Receipts separately bind that vector, logical intent and the
+bootstrap/payload hashes. The
 worker lowers AS/CPU/file/core limits before ordinary imports. There is no shell,
 arbitrary script, inherited interpreter selection or Python pre-exec callback.
 The conditional two-process address-space sum remains 256 MiB; this is not a proof

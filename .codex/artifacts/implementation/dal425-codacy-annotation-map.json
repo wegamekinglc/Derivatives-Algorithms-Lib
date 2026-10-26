@@ -3,7 +3,7 @@
   "issue": "DAL-451",
   "starting_head": "24879647cdc086c7e8a34394896400c21ff081cf",
   "threshold": 8,
-  "current_head_Codacy_result": "pending_after_push",
+  "current_head_Codacy_result": "pending_after_literal_command_followup_push",
   "no_rule_or_path_suppression": true,
   "annotations": [
     {
@@ -762,5 +762,40 @@
     "bandit": "1.9.4: five old findings, zero on revised production files",
     "semgrep": "1.180.0 p/python 151 rules: zero on old and revised source; not an exact Codacy critical-rule reproduction",
     "complexity_limit": 8
-  }
+  },
+  "followup_source_head": "08e971b36b3f0a8771659b635ff96a8673cdaba5",
+  "followup_annotations": [
+    {
+      "original": {
+        "path": ".codex/artifacts/implementation/dal425-controlled-process.py",
+        "blob_href": "https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/08e971b36b3f0a8771659b635ff96a8673cdaba5/.codex/artifacts/implementation/dal425-controlled-process.py",
+        "start_line": 126,
+        "start_column": null,
+        "end_line": 126,
+        "end_column": null,
+        "annotation_level": "failure",
+        "title": ".codex/artifacts/implementation/dal425-controlled-process.py#L126",
+        "message": "Found dynamic content when spawning a process.",
+        "raw_details": null
+      },
+      "disposition": "literal_native_vector_runtime_arguments_in_sealed_payload",
+      "verification": "native command RED/GREEN, recorded OS/intent/bootstrap/payload binding, unchanged scanner rules"
+    },
+    {
+      "original": {
+        "path": ".codex/artifacts/implementation/test_dal425_controlled_dispatch.py",
+        "blob_href": "https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/08e971b36b3f0a8771659b635ff96a8673cdaba5/.codex/artifacts/implementation/test_dal425_controlled_dispatch.py",
+        "start_line": 108,
+        "start_column": null,
+        "end_line": 108,
+        "end_column": null,
+        "annotation_level": "failure",
+        "title": ".codex/artifacts/implementation/test_dal425_controlled_dispatch.py#L108",
+        "message": "Found dynamic content when spawning a process.",
+        "raw_details": null
+      },
+      "disposition": "literal_native_vector_runtime_arguments_in_sealed_payload",
+      "verification": "native command RED/GREEN, recorded OS/intent/bootstrap/payload binding, unchanged scanner rules"
+    }
+  ]
 }

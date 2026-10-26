@@ -31,7 +31,10 @@ and provenance of inputs and the new immutable shared process source.
 The observer has 128 MiB AS and a 2 second hard CPU limit; the helper inherits AS
 and lowers hard CPU to 1 second. Shared dispatch fixes `/usr/bin/python3 -I -S -B`, the exact
 profile source, mode/root and sealed parent/source-bound ticket before spawning.
-Explicit file actions close unrelated descriptors. It uses no shell, inherited
+The native argument vector is literal; sealed bootstrap/config/source/ticket
+descriptors carry the selected invocation, with explicit source/hash, parent
+and cwd checks. Receipts retain both the OS vector and logical intent with
+bootstrap/config hashes. Explicit file actions close unrelated descriptors. It uses no shell, inherited
 interpreter or Python pre-exec callback. The original observer owns the helper's
 PID, pipe and final wait4. The conditional address-space sum remains 256 MiB;
 startup, allocator/observer ancestry and complete RSS/resource closure remain
