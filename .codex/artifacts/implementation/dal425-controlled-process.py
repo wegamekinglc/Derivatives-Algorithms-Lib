@@ -9,6 +9,7 @@ from pathlib import Path
 import stat
 import signal
 import sys
+import time
 from types import CodeType
 
 ENV = {"LC_ALL": "C", "TZ": "UTC"}
@@ -250,27 +251,47 @@ def _close_fds(descriptors):
 
 
 def _abort_child(child, error):
+    if child.pid is not None:
+        _reap_failed_spawn(child, error)
     if child.stdout is not None:
         try:
             child.stdout.close()
         except OSError as close_error:
             error.add_note('pipe close: ' + str(close_error))
-    if child.pid is not None:
-        _reap_failed_spawn(child, error)
 
 
 def _reap_failed_spawn(child, error):
+    evidence = dict(pid=child.pid, raw_wait4=None, reaped=False, errors=[])
+    error.owned_spawn_failure = evidence
+    error.add_note('owned spawn failure PID: ' + str(child.pid))
     try:
         os.kill(child.pid, signal.SIGKILL)
-    except ProcessLookupError:
-        pass
-    while True:
+    except BaseException as stop_error:
+        evidence['errors'].append(('stop', repr(stop_error)))
+        error.add_note('owned stop: ' + repr(stop_error))
+    try:
+        raw = _bounded_spawn_wait(child.pid, time.monotonic() + 1)
+        evidence.update(raw_wait4=raw, reaped=True)
+        error.add_note('owned spawn failure wait4: ' + repr(raw))
+    except BaseException as wait_error:
+        evidence['errors'].append(('wait4', repr(wait_error)))
+        error.add_note('owned wait4 UNKNOWN: ' + repr(wait_error))
+
+
+def _bounded_spawn_wait(pid, deadline):
+    for _ in range(64):
         try:
-            raw = os.wait4(child.pid, 0)
-            error.add_note('owned spawn failure wait4: ' + repr((raw[0], raw[1], tuple(raw[2]))))
-            return
+            raw = os.wait4(pid, os.WNOHANG)
         except InterruptedError:
             continue
+        if raw[0] == pid:
+            return raw[0], raw[1], tuple(raw[2])
+        if raw[0] != 0:
+            raise ChildProcessError('unexpected owned wait4 PID')
+        if time.monotonic() >= deadline:
+            break
+        time.sleep(.01)
+    raise TimeoutError('owned child unreaped at cleanup deadline')
 
 
 def _spawn_pipe(argv, cwd, keep):

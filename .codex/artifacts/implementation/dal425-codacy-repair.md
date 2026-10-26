@@ -30,8 +30,10 @@ for stdout/stderr, only declared sealed inputs retained, and other open
 descriptors closed, a fixed environment and standard source finders. The worker applies AS, CPU, file-size and core limits before
 its ordinary imports. There is no Python `preexec_fn`. The original parent owns
 the child PID and its final wait4; process creation adds no observer layer. If
-closing parent descriptors fails after spawn, the dispatcher closes the pipe,
-stops and reaps that owned child, retaining the raw wait result in the exception.
+closing parent descriptors fails after spawn, the dispatcher attempts stop and
+bounded nonblocking reaping independently before closing the pipe. The original failure
+retains the owned PID, separate cleanup diagnostics and any complete raw wait
+result before pipe close; unsuccessful reaping remains explicitly UNKNOWN.
 
 The isolated launcher loads its sealed source with the standard source-loader
 protocol in the same limited interpreter. It does not build an exec command or

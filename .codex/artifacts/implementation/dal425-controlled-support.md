@@ -43,9 +43,13 @@ no durable successor acknowledgment or real allocation transfer.
 
 Only `got == owned_pid` establishes a final wait4. WNOHANG zeroes are not usage
 receipts. Cleanup retains known results, closes owned resources independently
-and refuses a changed captured PID identity. The dispatcher also reaps a child
-if parent descriptor cleanup fails immediately after creation. Output, CPU and
-wall stopping retain their finite scheduling, tick and I/O assumptions; inner
+and refuses a changed captured PID identity. The dispatcher attempts reaping
+if parent descriptor cleanup fails immediately after creation. Stop and wait
+errors preserve the original failure and owned PID; cleanup uses nonblocking
+wait4 for at most one second and 64 attempts. A known full tuple is attached to
+the exception before pipe close; otherwise the final receipt remains UNKNOWN.
+This assumes a single parent reaper and no external concurrent reaping.
+Output, CPU and wall stopping retain their finite scheduling, tick and I/O assumptions; inner
 receipts exclude the final outer publication/exit tail.
 
 Code identity uses recursive deterministic JSON code data, including nested code

@@ -114,8 +114,81 @@ class DispatchTest(unittest.TestCase):
             with self.assertRaisesRegex(OSError, 'close injection'):
                 process._spawn_pipe(['/usr/bin/python3'], Path.cwd(), ())
             kill.assert_called_once_with(999999, signal.SIGKILL)
-            wait.assert_called_once_with(999999, 0)
+            wait.assert_called_once_with(999999, os.WNOHANG)
             stream.close.assert_called_once()
+
+    def test_parent_close_and_stop_failures_retain_original_and_raw_wait(self):
+        error = OSError('parent close failure')
+        child = SimpleNamespace(pid=999999, stdout=Mock())
+        raw = (999999, 9, (0,) * 16)
+        def close():
+            self.assertEqual(error.owned_spawn_failure['raw_wait4'], raw)
+            raise OSError('pipe close failure')
+        child.stdout.close.side_effect = close
+        process = execution._process
+        with patch.object(process.os, 'kill', side_effect=PermissionError('stop failure')), \
+                patch.object(process.os, 'wait4', return_value=raw) as wait:
+            process._abort_child(child, error)
+        wait.assert_called_once_with(999999, os.WNOHANG)
+        self.assertTrue(error.owned_spawn_failure['reaped'])
+        self.assertIn('stop failure', str(error.__notes__))
+        self.assertIn('pipe close failure', str(error.__notes__))
+
+    def test_failed_stop_and_wait_leave_owned_pid_unknown(self):
+        process = execution._process
+        error = OSError('parent close failure')
+        child = SimpleNamespace(pid=999999, stdout=Mock())
+        with patch.object(process.os, 'kill', side_effect=PermissionError('stop failure')), \
+                patch.object(process.os, 'wait4', side_effect=ChildProcessError('wait failure')) as wait:
+            process._abort_child(child, error)
+        wait.assert_called_once_with(999999, os.WNOHANG)
+        self.assertEqual(error.owned_spawn_failure['pid'], 999999)
+        self.assertIsNone(error.owned_spawn_failure['raw_wait4'])
+        self.assertFalse(error.owned_spawn_failure['reaped'])
+        self.assertIn('stop failure', str(error.__notes__))
+        self.assertIn('wait failure', str(error.__notes__))
+        child.stdout.close.assert_called_once()
+
+    def test_failed_spawn_wait_is_bounded_and_zero_is_not_a_receipt(self):
+        process = execution._process
+        error = OSError('parent close failure')
+        child = SimpleNamespace(pid=999999, stdout=Mock())
+        with patch.object(process.os, 'kill'), \
+                patch.object(process.os, 'wait4', return_value=(0, 0, (0,) * 16)) as wait, \
+                patch.object(process.time, 'monotonic', side_effect=[0, 2]):
+            process._abort_child(child, error)
+        wait.assert_called_once_with(999999, os.WNOHANG)
+        self.assertIsNone(error.owned_spawn_failure['raw_wait4'])
+        self.assertFalse(error.owned_spawn_failure['reaped'])
+        self.assertIn('UNKNOWN', str(error.__notes__))
+
+    def test_failed_spawn_interruption_cannot_make_wait_unbounded(self):
+        process = execution._process
+        with patch.object(process.os, 'wait4', side_effect=InterruptedError) as wait:
+            with self.assertRaises(TimeoutError):
+                process._bounded_spawn_wait(999999, 0)
+        self.assertEqual(wait.call_count, 64)
+
+    def test_failed_spawn_wait_retries_interruption_and_rejects_foreign_pid(self):
+        process = execution._process
+        raw = (999999, 9, (0,) * 16)
+        with patch.object(process.os, 'wait4', side_effect=[InterruptedError(), raw]) as wait:
+            self.assertEqual(process._bounded_spawn_wait(999999, 0), raw)
+        self.assertEqual(wait.call_count, 2)
+        with patch.object(process.os, 'wait4', return_value=(777777, 0, (0,) * 16)):
+            with self.assertRaises(ChildProcessError):
+                process._bounded_spawn_wait(999999, 0)
+
+    def test_failed_spawn_stop_interruption_does_not_skip_wait(self):
+        process = execution._process
+        error = OSError('parent close failure')
+        raw = (999999, 9, (0,) * 16)
+        with patch.object(process.os, 'kill', side_effect=KeyboardInterrupt('stop interrupted')), \
+                patch.object(process.os, 'wait4', return_value=raw) as wait:
+            process._abort_child(SimpleNamespace(pid=999999, stdout=Mock()), error)
+        wait.assert_called_once_with(999999, os.WNOHANG)
+        self.assertEqual(error.owned_spawn_failure['raw_wait4'], raw)
+        self.assertIn('stop interrupted', str(error.__notes__))
 
     def test_file_actions_close_unrelated_inheritable_descriptor(self):
         process = execution._process
