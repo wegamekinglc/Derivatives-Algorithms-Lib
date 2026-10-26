@@ -1,0 +1,821 @@
+{
+  "schema": 1,
+  "issue": "DAL-451",
+  "starting_head": "24879647cdc086c7e8a34394896400c21ff081cf",
+  "threshold": 8,
+  "current_head_Codacy_result": "pending_after_guarded_fork_followup_push",
+  "no_rule_or_path_suppression": true,
+  "annotations": [
+    {
+      "annotation": 1,
+      "original": {
+        "path": ".codex/artifacts/implementation/dal425-controlled-caller.py",
+        "blob_href": "https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/24879647cdc086c7e8a34394896400c21ff081cf/.codex/artifacts/implementation/dal425-controlled-caller.py",
+        "start_line": 20,
+        "start_column": null,
+        "end_line": 20,
+        "end_column": null,
+        "annotation_level": "warning",
+        "title": ".codex/artifacts/implementation/dal425-controlled-caller.py#L20",
+        "message": "Method validate_allocation has a cyclomatic complexity of 13 (limit is 8)",
+        "raw_details": null
+      },
+      "disposition": "refactored_same_threshold_8",
+      "current_function": "validate_allocation",
+      "current_line": 32,
+      "evidence": [
+        "07-red-complexity.log",
+        "30-final-gate.log"
+      ],
+      "controls": {
+        "caller": "24-verify-caller.log",
+        "execution": "29-final-execution.log",
+        "profile": "26-verify-profile.log"
+      }
+    },
+    {
+      "annotation": 2,
+      "original": {
+        "path": ".codex/artifacts/implementation/dal425-controlled-caller.py",
+        "blob_href": "https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/24879647cdc086c7e8a34394896400c21ff081cf/.codex/artifacts/implementation/dal425-controlled-caller.py",
+        "start_line": 60,
+        "start_column": null,
+        "end_line": 60,
+        "end_column": null,
+        "annotation_level": "warning",
+        "title": ".codex/artifacts/implementation/dal425-controlled-caller.py#L60",
+        "message": "Method __init__ has a cyclomatic complexity of 18 (limit is 8)",
+        "raw_details": null
+      },
+      "disposition": "refactored_same_threshold_8",
+      "current_function": "__init__",
+      "current_line": 99,
+      "evidence": [
+        "07-red-complexity.log",
+        "30-final-gate.log"
+      ],
+      "controls": {
+        "caller": "24-verify-caller.log",
+        "execution": "29-final-execution.log",
+        "profile": "26-verify-profile.log"
+      }
+    },
+    {
+      "annotation": 3,
+      "original": {
+        "path": ".codex/artifacts/implementation/dal425-controlled-execution.py",
+        "blob_href": "https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/24879647cdc086c7e8a34394896400c21ff081cf/.codex/artifacts/implementation/dal425-controlled-execution.py",
+        "start_line": 12,
+        "start_column": null,
+        "end_line": 12,
+        "end_column": null,
+        "annotation_level": "notice",
+        "title": ".codex/artifacts/implementation/dal425-controlled-execution.py#L12",
+        "message": "Consider possible security implications associated with the subprocess module.",
+        "raw_details": null
+      },
+      "disposition": "subprocess_import_removed",
+      "suppression": false,
+      "mechanism": "Necessary explicit standard subprocess import for the finite owned child lifecycle; no shell",
+      "evidence": [
+        "29-final-execution.log",
+        "26-verify-profile.log"
+      ],
+      "previous_disposition": "retained_requires_independent_gate_disposition",
+      "verification": "Direct regression controls plus Bandit/Semgrep/complexity; remote exact-head result pending, no waiver.",
+      "current_line": null
+    },
+    {
+      "annotation": 4,
+      "original": {
+        "path": ".codex/artifacts/implementation/dal425-controlled-execution.py",
+        "blob_href": "https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/24879647cdc086c7e8a34394896400c21ff081cf/.codex/artifacts/implementation/dal425-controlled-execution.py",
+        "start_line": 29,
+        "start_column": null,
+        "end_line": 29,
+        "end_column": null,
+        "annotation_level": "warning",
+        "title": ".codex/artifacts/implementation/dal425-controlled-execution.py#L29",
+        "message": "Method _runtime has a cyclomatic complexity of 13 (limit is 8)",
+        "raw_details": null
+      },
+      "disposition": "refactored_same_threshold_8",
+      "current_function": "_runtime",
+      "current_line": 52,
+      "evidence": [
+        "07-red-complexity.log",
+        "30-final-gate.log"
+      ],
+      "controls": {
+        "caller": "24-verify-caller.log",
+        "execution": "29-final-execution.log",
+        "profile": "26-verify-profile.log"
+      }
+    },
+    {
+      "annotation": 5,
+      "original": {
+        "path": ".codex/artifacts/implementation/dal425-controlled-execution.py",
+        "blob_href": "https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/24879647cdc086c7e8a34394896400c21ff081cf/.codex/artifacts/implementation/dal425-controlled-execution.py",
+        "start_line": 113,
+        "start_column": null,
+        "end_line": 113,
+        "end_column": null,
+        "annotation_level": "warning",
+        "title": ".codex/artifacts/implementation/dal425-controlled-execution.py#L113",
+        "message": "Method _load has a cyclomatic complexity of 71 (limit is 8)",
+        "raw_details": null
+      },
+      "disposition": "refactored_same_threshold_8",
+      "current_function": "_load",
+      "current_line": 228,
+      "evidence": [
+        "07-red-complexity.log",
+        "30-final-gate.log"
+      ],
+      "controls": {
+        "caller": "24-verify-caller.log",
+        "execution": "29-final-execution.log",
+        "profile": "26-verify-profile.log"
+      }
+    },
+    {
+      "annotation": 6,
+      "original": {
+        "path": ".codex/artifacts/implementation/dal425-controlled-execution.py",
+        "blob_href": "https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/24879647cdc086c7e8a34394896400c21ff081cf/.codex/artifacts/implementation/dal425-controlled-execution.py",
+        "start_line": 305,
+        "start_column": null,
+        "end_line": 305,
+        "end_column": null,
+        "annotation_level": "warning",
+        "title": ".codex/artifacts/implementation/dal425-controlled-execution.py#L305",
+        "message": "Method _execute has a cyclomatic complexity of 38 (limit is 8)",
+        "raw_details": null
+      },
+      "disposition": "refactored_same_threshold_8",
+      "current_function": "_execute",
+      "current_line": 503,
+      "evidence": [
+        "07-red-complexity.log",
+        "30-final-gate.log"
+      ],
+      "controls": {
+        "caller": "24-verify-caller.log",
+        "execution": "29-final-execution.log",
+        "profile": "26-verify-profile.log"
+      }
+    },
+    {
+      "annotation": 7,
+      "original": {
+        "path": ".codex/artifacts/implementation/dal425-controlled-execution.py",
+        "blob_href": "https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/24879647cdc086c7e8a34394896400c21ff081cf/.codex/artifacts/implementation/dal425-controlled-execution.py",
+        "start_line": 310,
+        "start_column": null,
+        "end_line": 310,
+        "end_column": null,
+        "annotation_level": "failure",
+        "title": ".codex/artifacts/implementation/dal425-controlled-execution.py#L310",
+        "message": "Detected subprocess function 'Popen' without a static string.",
+        "raw_details": null
+      },
+      "disposition": "guarded_sealed_source_fork_no_external_command",
+      "suppression": false,
+      "current_function": "_spawn",
+      "current_line": null,
+      "mechanism": "Explicit argv generated by fixed private entry; absolute interpreter/fixed source or sealed memfd; fixed env/cwd; no shell; reaper owns only direct unreaped child",
+      "evidence": [
+        "29-final-execution.log",
+        "26-verify-profile.log"
+      ],
+      "limitation": "Only data/mocked lifecycle controls run; real child-stop qualification remains independent",
+      "previous_disposition": "retained_requires_independent_gate_disposition",
+      "verification": "Direct regression controls plus Bandit/Semgrep/complexity; remote exact-head result pending, no waiver."
+    },
+    {
+      "annotation": 8,
+      "original": {
+        "path": ".codex/artifacts/implementation/dal425-controlled-execution.py",
+        "blob_href": "https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/24879647cdc086c7e8a34394896400c21ff081cf/.codex/artifacts/implementation/dal425-controlled-execution.py",
+        "start_line": 310,
+        "start_column": null,
+        "end_line": 310,
+        "end_column": null,
+        "annotation_level": "warning",
+        "title": ".codex/artifacts/implementation/dal425-controlled-execution.py#L310",
+        "message": "subprocess call - check for execution of untrusted input.",
+        "raw_details": null
+      },
+      "disposition": "guarded_sealed_source_fork_no_external_command",
+      "suppression": false,
+      "current_function": "_spawn",
+      "current_line": null,
+      "mechanism": "Explicit argv generated by fixed private entry; absolute interpreter/fixed source or sealed memfd; fixed env/cwd; no shell; reaper owns only direct unreaped child",
+      "evidence": [
+        "29-final-execution.log",
+        "26-verify-profile.log"
+      ],
+      "limitation": "Only data/mocked lifecycle controls run; real child-stop qualification remains independent",
+      "previous_disposition": "retained_requires_independent_gate_disposition",
+      "verification": "Direct regression controls plus Bandit/Semgrep/complexity; remote exact-head result pending, no waiver."
+    },
+    {
+      "annotation": 9,
+      "original": {
+        "path": ".codex/artifacts/implementation/dal425-controlled-execution.py",
+        "blob_href": "https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/24879647cdc086c7e8a34394896400c21ff081cf/.codex/artifacts/implementation/dal425-controlled-execution.py",
+        "start_line": 409,
+        "start_column": null,
+        "end_line": 409,
+        "end_column": null,
+        "annotation_level": "warning",
+        "title": ".codex/artifacts/implementation/dal425-controlled-execution.py#L409",
+        "message": "Method run has a cyclomatic complexity of 29 (limit is 8)",
+        "raw_details": null
+      },
+      "disposition": "refactored_same_threshold_8",
+      "current_function": "run",
+      "current_line": 580,
+      "evidence": [
+        "07-red-complexity.log",
+        "30-final-gate.log"
+      ],
+      "controls": {
+        "caller": "24-verify-caller.log",
+        "execution": "29-final-execution.log",
+        "profile": "26-verify-profile.log"
+      }
+    },
+    {
+      "annotation": 10,
+      "original": {
+        "path": ".codex/artifacts/implementation/dal425-controlled-execution.py",
+        "blob_href": "https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/24879647cdc086c7e8a34394896400c21ff081cf/.codex/artifacts/implementation/dal425-controlled-execution.py",
+        "start_line": 471,
+        "start_column": null,
+        "end_line": 471,
+        "end_column": null,
+        "annotation_level": "warning",
+        "title": ".codex/artifacts/implementation/dal425-controlled-execution.py#L471",
+        "message": "Method _command has a cyclomatic complexity of 9 (limit is 8)",
+        "raw_details": null
+      },
+      "disposition": "refactored_same_threshold_8",
+      "current_function": "_command",
+      "current_line": 636,
+      "evidence": [
+        "07-red-complexity.log",
+        "30-final-gate.log"
+      ],
+      "controls": {
+        "caller": "24-verify-caller.log",
+        "execution": "29-final-execution.log",
+        "profile": "26-verify-profile.log"
+      }
+    },
+    {
+      "annotation": 11,
+      "original": {
+        "path": ".codex/artifacts/implementation/dal425-controlled-execution.py",
+        "blob_href": "https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/24879647cdc086c7e8a34394896400c21ff081cf/.codex/artifacts/implementation/dal425-controlled-execution.py",
+        "start_line": 509,
+        "start_column": null,
+        "end_line": 509,
+        "end_column": null,
+        "annotation_level": "failure",
+        "title": ".codex/artifacts/implementation/dal425-controlled-execution.py#L509",
+        "message": "The application was found using `dill` which is vulnerable to deserialization attacks.",
+        "raw_details": null
+      },
+      "disposition": "canonical_JSON_code_fingerprint_no_object_serialization",
+      "suppression": false,
+      "current_functions": [
+        "_loaded_codes"
+      ],
+      "mechanism": "marshal.dumps serializes only locally created function/method code for hashing; no loads, input deserialization or dill dependency",
+      "evidence": [
+        "29-final-execution.log"
+      ],
+      "previous_disposition": "retained_requires_independent_gate_disposition",
+      "verification": "Direct regression controls plus Bandit/Semgrep/complexity; remote exact-head result pending, no waiver.",
+      "current_line": null
+    },
+    {
+      "annotation": 12,
+      "original": {
+        "path": ".codex/artifacts/implementation/dal425-controlled-launch.py",
+        "blob_href": "https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/24879647cdc086c7e8a34394896400c21ff081cf/.codex/artifacts/implementation/dal425-controlled-launch.py",
+        "start_line": 35,
+        "start_column": null,
+        "end_line": 35,
+        "end_column": null,
+        "annotation_level": "failure",
+        "title": ".codex/artifacts/implementation/dal425-controlled-launch.py#L35",
+        "message": "Found dynamic content when spawning a process.",
+        "raw_details": null
+      },
+      "disposition": "sealed_source_loader_in_same_isolated_interpreter_no_execve",
+      "suppression": false,
+      "current_line": null,
+      "mechanism": "Unchanged execve replaces current process with absolute CPython -I -S -B; fixed literal bootstrap and sealed captured source; bounded fixed control arguments; no shell",
+      "evidence": [
+        "unchanged launcher SHA256",
+        "29-final-execution.log"
+      ],
+      "limitation": "No launcher or worker executed; historical controls do not qualify the new execution source",
+      "previous_disposition": "retained_requires_independent_gate_disposition",
+      "verification": "Direct regression controls plus Bandit/Semgrep/complexity; remote exact-head result pending, no waiver."
+    },
+    {
+      "annotation": 13,
+      "original": {
+        "path": ".codex/artifacts/implementation/dal425-controlled-launch.py",
+        "blob_href": "https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/24879647cdc086c7e8a34394896400c21ff081cf/.codex/artifacts/implementation/dal425-controlled-launch.py",
+        "start_line": 35,
+        "start_column": null,
+        "end_line": 35,
+        "end_column": null,
+        "annotation_level": "failure",
+        "title": ".codex/artifacts/implementation/dal425-controlled-launch.py#L35",
+        "message": "Found dynamic content when spawning a process.",
+        "raw_details": null
+      },
+      "disposition": "sealed_source_loader_in_same_isolated_interpreter_no_execve",
+      "suppression": false,
+      "current_line": null,
+      "mechanism": "Unchanged execve replaces current process with absolute CPython -I -S -B; fixed literal bootstrap and sealed captured source; bounded fixed control arguments; no shell",
+      "evidence": [
+        "unchanged launcher SHA256",
+        "29-final-execution.log"
+      ],
+      "limitation": "No launcher or worker executed; historical controls do not qualify the new execution source",
+      "previous_disposition": "retained_requires_independent_gate_disposition",
+      "verification": "Direct regression controls plus Bandit/Semgrep/complexity; remote exact-head result pending, no waiver."
+    },
+    {
+      "annotation": 14,
+      "original": {
+        "path": ".codex/artifacts/implementation/dal425-controlled-launch.py",
+        "blob_href": "https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/24879647cdc086c7e8a34394896400c21ff081cf/.codex/artifacts/implementation/dal425-controlled-launch.py",
+        "start_line": 35,
+        "start_column": null,
+        "end_line": 35,
+        "end_column": null,
+        "annotation_level": "notice",
+        "title": ".codex/artifacts/implementation/dal425-controlled-launch.py#L35",
+        "message": "Starting a process without a shell.",
+        "raw_details": null
+      },
+      "disposition": "sealed_source_loader_in_same_isolated_interpreter_no_execve",
+      "suppression": false,
+      "current_line": null,
+      "mechanism": "Unchanged execve replaces current process with absolute CPython -I -S -B; fixed literal bootstrap and sealed captured source; bounded fixed control arguments; no shell",
+      "evidence": [
+        "unchanged launcher SHA256",
+        "29-final-execution.log"
+      ],
+      "limitation": "No launcher or worker executed; historical controls do not qualify the new execution source",
+      "previous_disposition": "retained_requires_independent_gate_disposition",
+      "verification": "Direct regression controls plus Bandit/Semgrep/complexity; remote exact-head result pending, no waiver."
+    },
+    {
+      "annotation": 15,
+      "original": {
+        "path": ".codex/artifacts/implementation/dal425-controlled-profile.py",
+        "blob_href": "https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/24879647cdc086c7e8a34394896400c21ff081cf/.codex/artifacts/implementation/dal425-controlled-profile.py",
+        "start_line": 41,
+        "start_column": null,
+        "end_line": 41,
+        "end_column": null,
+        "annotation_level": "failure",
+        "title": ".codex/artifacts/implementation/dal425-controlled-profile.py#L41",
+        "message": "The application was found calling the `exec` function with a non-literal variable.",
+        "raw_details": null
+      },
+      "disposition": "direct_exec_removed",
+      "current_functions": [
+        "SourceLoader.get_code",
+        "_tool"
+      ],
+      "mechanism": "Standard SourceFileLoader.exec_module; compile captured bytes; no exec alias or eval",
+      "evidence": [
+        "26-verify-profile.log"
+      ]
+    },
+    {
+      "annotation": 16,
+      "original": {
+        "path": ".codex/artifacts/implementation/dal425-controlled-profile.py",
+        "blob_href": "https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/24879647cdc086c7e8a34394896400c21ff081cf/.codex/artifacts/implementation/dal425-controlled-profile.py",
+        "start_line": 41,
+        "start_column": null,
+        "end_line": 41,
+        "end_column": null,
+        "annotation_level": "warning",
+        "title": ".codex/artifacts/implementation/dal425-controlled-profile.py#L41",
+        "message": "Use of exec",
+        "raw_details": null
+      },
+      "disposition": "direct_exec_removed",
+      "current_functions": [
+        "SourceLoader.get_code",
+        "_tool"
+      ],
+      "mechanism": "Standard SourceFileLoader.exec_module; compile captured bytes; no exec alias or eval",
+      "evidence": [
+        "26-verify-profile.log"
+      ]
+    },
+    {
+      "annotation": 17,
+      "original": {
+        "path": ".codex/artifacts/implementation/dal425-controlled-profile.py",
+        "blob_href": "https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/24879647cdc086c7e8a34394896400c21ff081cf/.codex/artifacts/implementation/dal425-controlled-profile.py",
+        "start_line": 41,
+        "start_column": null,
+        "end_line": 41,
+        "end_column": null,
+        "annotation_level": "warning",
+        "title": ".codex/artifacts/implementation/dal425-controlled-profile.py#L41",
+        "message": "Use of exec detected.",
+        "raw_details": null
+      },
+      "disposition": "direct_exec_removed",
+      "current_functions": [
+        "SourceLoader.get_code",
+        "_tool"
+      ],
+      "mechanism": "Standard SourceFileLoader.exec_module; compile captured bytes; no exec alias or eval",
+      "evidence": [
+        "26-verify-profile.log"
+      ]
+    },
+    {
+      "annotation": 18,
+      "original": {
+        "path": ".codex/artifacts/implementation/dal425-controlled-profile.py",
+        "blob_href": "https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/24879647cdc086c7e8a34394896400c21ff081cf/.codex/artifacts/implementation/dal425-controlled-profile.py",
+        "start_line": 65,
+        "start_column": null,
+        "end_line": 65,
+        "end_column": null,
+        "annotation_level": "notice",
+        "title": ".codex/artifacts/implementation/dal425-controlled-profile.py#L65",
+        "message": "Consider possible security implications associated with the subprocess module.",
+        "raw_details": null
+      },
+      "disposition": "subprocess_import_removed",
+      "suppression": false,
+      "mechanism": "Necessary explicit standard subprocess import for the finite owned child lifecycle; no shell",
+      "evidence": [
+        "29-final-execution.log",
+        "26-verify-profile.log"
+      ],
+      "previous_disposition": "retained_requires_independent_gate_disposition",
+      "verification": "Direct regression controls plus Bandit/Semgrep/complexity; remote exact-head result pending, no waiver.",
+      "current_line": null
+    },
+    {
+      "annotation": 19,
+      "original": {
+        "path": ".codex/artifacts/implementation/dal425-controlled-profile.py",
+        "blob_href": "https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/24879647cdc086c7e8a34394896400c21ff081cf/.codex/artifacts/implementation/dal425-controlled-profile.py",
+        "start_line": 123,
+        "start_column": null,
+        "end_line": 123,
+        "end_column": null,
+        "annotation_level": "warning",
+        "title": ".codex/artifacts/implementation/dal425-controlled-profile.py#L123",
+        "message": "Method startup_profile has a cyclomatic complexity of 26 (limit is 8)",
+        "raw_details": null
+      },
+      "disposition": "refactored_same_threshold_8",
+      "current_function": "startup_profile",
+      "current_line": 200,
+      "evidence": [
+        "07-red-complexity.log",
+        "30-final-gate.log"
+      ],
+      "controls": {
+        "caller": "24-verify-caller.log",
+        "execution": "29-final-execution.log",
+        "profile": "26-verify-profile.log"
+      }
+    },
+    {
+      "annotation": 20,
+      "original": {
+        "path": ".codex/artifacts/implementation/dal425-controlled-profile.py",
+        "blob_href": "https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/24879647cdc086c7e8a34394896400c21ff081cf/.codex/artifacts/implementation/dal425-controlled-profile.py",
+        "start_line": 146,
+        "start_column": null,
+        "end_line": 146,
+        "end_column": null,
+        "annotation_level": "warning",
+        "title": ".codex/artifacts/implementation/dal425-controlled-profile.py#L146",
+        "message": "Deserialization with the marshal module is possibly dangerous.",
+        "raw_details": null
+      },
+      "disposition": "direct_marshal_deserialization_removed",
+      "current_functions": [
+        "_initial_source"
+      ],
+      "mechanism": "Explicit standard CPython SourceFileLoader.get_code and code/source comparison; trusted local caches still required",
+      "evidence": [
+        "26-verify-profile.log"
+      ]
+    },
+    {
+      "annotation": 21,
+      "original": {
+        "path": ".codex/artifacts/implementation/dal425-controlled-profile.py",
+        "blob_href": "https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/24879647cdc086c7e8a34394896400c21ff081cf/.codex/artifacts/implementation/dal425-controlled-profile.py",
+        "start_line": 146,
+        "start_column": null,
+        "end_line": 146,
+        "end_column": null,
+        "annotation_level": "failure",
+        "title": ".codex/artifacts/implementation/dal425-controlled-profile.py#L146",
+        "message": "The application was found using `dill` which is vulnerable to deserialization attacks.",
+        "raw_details": null
+      },
+      "disposition": "direct_marshal_deserialization_removed",
+      "current_functions": [
+        "_initial_source"
+      ],
+      "mechanism": "Explicit standard CPython SourceFileLoader.get_code and code/source comparison; trusted local caches still required",
+      "evidence": [
+        "26-verify-profile.log"
+      ]
+    },
+    {
+      "annotation": 22,
+      "original": {
+        "path": ".codex/artifacts/implementation/dal425-controlled-profile.py",
+        "blob_href": "https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/24879647cdc086c7e8a34394896400c21ff081cf/.codex/artifacts/implementation/dal425-controlled-profile.py",
+        "start_line": 190,
+        "start_column": null,
+        "end_line": 190,
+        "end_column": null,
+        "annotation_level": "warning",
+        "title": ".codex/artifacts/implementation/dal425-controlled-profile.py#L190",
+        "message": "Method reserve has a cyclomatic complexity of 10 (limit is 8)",
+        "raw_details": null
+      },
+      "disposition": "refactored_same_threshold_8",
+      "current_function": "reserve",
+      "current_line": 227,
+      "evidence": [
+        "07-red-complexity.log",
+        "30-final-gate.log"
+      ],
+      "controls": {
+        "caller": "24-verify-caller.log",
+        "execution": "29-final-execution.log",
+        "profile": "26-verify-profile.log"
+      }
+    },
+    {
+      "annotation": 23,
+      "original": {
+        "path": ".codex/artifacts/implementation/dal425-controlled-profile.py",
+        "blob_href": "https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/24879647cdc086c7e8a34394896400c21ff081cf/.codex/artifacts/implementation/dal425-controlled-profile.py",
+        "start_line": 229,
+        "start_column": null,
+        "end_line": 229,
+        "end_column": null,
+        "annotation_level": "failure",
+        "title": ".codex/artifacts/implementation/dal425-controlled-profile.py#L229",
+        "message": "The application was found calling the `exec` function with a non-literal variable.",
+        "raw_details": null
+      },
+      "disposition": "direct_exec_removed",
+      "current_functions": [
+        "SourceLoader.get_code",
+        "_tool"
+      ],
+      "mechanism": "Standard SourceFileLoader.exec_module; compile captured bytes; no exec alias or eval",
+      "evidence": [
+        "26-verify-profile.log"
+      ]
+    },
+    {
+      "annotation": 24,
+      "original": {
+        "path": ".codex/artifacts/implementation/dal425-controlled-profile.py",
+        "blob_href": "https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/24879647cdc086c7e8a34394896400c21ff081cf/.codex/artifacts/implementation/dal425-controlled-profile.py",
+        "start_line": 229,
+        "start_column": null,
+        "end_line": 229,
+        "end_column": null,
+        "annotation_level": "warning",
+        "title": ".codex/artifacts/implementation/dal425-controlled-profile.py#L229",
+        "message": "Use of exec",
+        "raw_details": null
+      },
+      "disposition": "direct_exec_removed",
+      "current_functions": [
+        "SourceLoader.get_code",
+        "_tool"
+      ],
+      "mechanism": "Standard SourceFileLoader.exec_module; compile captured bytes; no exec alias or eval",
+      "evidence": [
+        "26-verify-profile.log"
+      ]
+    },
+    {
+      "annotation": 25,
+      "original": {
+        "path": ".codex/artifacts/implementation/dal425-controlled-profile.py",
+        "blob_href": "https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/24879647cdc086c7e8a34394896400c21ff081cf/.codex/artifacts/implementation/dal425-controlled-profile.py",
+        "start_line": 229,
+        "start_column": null,
+        "end_line": 229,
+        "end_column": null,
+        "annotation_level": "warning",
+        "title": ".codex/artifacts/implementation/dal425-controlled-profile.py#L229",
+        "message": "Use of exec detected.",
+        "raw_details": null
+      },
+      "disposition": "direct_exec_removed",
+      "current_functions": [
+        "SourceLoader.get_code",
+        "_tool"
+      ],
+      "mechanism": "Standard SourceFileLoader.exec_module; compile captured bytes; no exec alias or eval",
+      "evidence": [
+        "26-verify-profile.log"
+      ]
+    },
+    {
+      "annotation": 26,
+      "original": {
+        "path": ".codex/artifacts/implementation/dal425-controlled-profile.py",
+        "blob_href": "https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/24879647cdc086c7e8a34394896400c21ff081cf/.codex/artifacts/implementation/dal425-controlled-profile.py",
+        "start_line": 254,
+        "start_column": null,
+        "end_line": 254,
+        "end_column": null,
+        "annotation_level": "warning",
+        "title": ".codex/artifacts/implementation/dal425-controlled-profile.py#L254",
+        "message": "Method _outer has a cyclomatic complexity of 24 (limit is 8)",
+        "raw_details": null
+      },
+      "disposition": "refactored_same_threshold_8",
+      "current_function": "_outer",
+      "current_line": 417,
+      "evidence": [
+        "07-red-complexity.log",
+        "30-final-gate.log"
+      ],
+      "controls": {
+        "caller": "24-verify-caller.log",
+        "execution": "29-final-execution.log",
+        "profile": "26-verify-profile.log"
+      }
+    },
+    {
+      "annotation": 27,
+      "original": {
+        "path": ".codex/artifacts/implementation/dal425-controlled-profile.py",
+        "blob_href": "https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/24879647cdc086c7e8a34394896400c21ff081cf/.codex/artifacts/implementation/dal425-controlled-profile.py",
+        "start_line": 284,
+        "start_column": null,
+        "end_line": 284,
+        "end_column": null,
+        "annotation_level": "failure",
+        "title": ".codex/artifacts/implementation/dal425-controlled-profile.py#L284",
+        "message": "Detected subprocess function 'Popen' without a static string.",
+        "raw_details": null
+      },
+      "disposition": "guarded_sealed_source_fork_no_external_command",
+      "suppression": false,
+      "current_function": "collect",
+      "current_line": null,
+      "mechanism": "Explicit argv generated by fixed private entry; absolute interpreter/fixed source or sealed memfd; fixed env/cwd; no shell; reaper owns only direct unreaped child",
+      "evidence": [
+        "29-final-execution.log",
+        "26-verify-profile.log"
+      ],
+      "limitation": "Only data/mocked lifecycle controls run; real child-stop qualification remains independent",
+      "previous_disposition": "retained_requires_independent_gate_disposition",
+      "verification": "Direct regression controls plus Bandit/Semgrep/complexity; remote exact-head result pending, no waiver."
+    },
+    {
+      "annotation": 28,
+      "original": {
+        "path": ".codex/artifacts/implementation/dal425-controlled-profile.py",
+        "blob_href": "https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/24879647cdc086c7e8a34394896400c21ff081cf/.codex/artifacts/implementation/dal425-controlled-profile.py",
+        "start_line": 284,
+        "start_column": null,
+        "end_line": 284,
+        "end_column": null,
+        "annotation_level": "warning",
+        "title": ".codex/artifacts/implementation/dal425-controlled-profile.py#L284",
+        "message": "subprocess call - check for execution of untrusted input.",
+        "raw_details": null
+      },
+      "disposition": "guarded_sealed_source_fork_no_external_command",
+      "suppression": false,
+      "current_function": "collect",
+      "current_line": null,
+      "mechanism": "Explicit argv generated by fixed private entry; absolute interpreter/fixed source or sealed memfd; fixed env/cwd; no shell; reaper owns only direct unreaped child",
+      "evidence": [
+        "29-final-execution.log",
+        "26-verify-profile.log"
+      ],
+      "limitation": "Only data/mocked lifecycle controls run; real child-stop qualification remains independent",
+      "previous_disposition": "retained_requires_independent_gate_disposition",
+      "verification": "Direct regression controls plus Bandit/Semgrep/complexity; remote exact-head result pending, no waiver."
+    },
+    {
+      "annotation": 29,
+      "original": {
+        "path": ".codex/artifacts/implementation/dal425-controlled-profile.py",
+        "blob_href": "https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/24879647cdc086c7e8a34394896400c21ff081cf/.codex/artifacts/implementation/dal425-controlled-profile.py",
+        "start_line": 348,
+        "start_column": null,
+        "end_line": 348,
+        "end_column": null,
+        "annotation_level": "warning",
+        "title": ".codex/artifacts/implementation/dal425-controlled-profile.py#L348",
+        "message": "Method main has a cyclomatic complexity of 10 (limit is 8)",
+        "raw_details": null
+      },
+      "disposition": "refactored_same_threshold_8",
+      "current_function": "main",
+      "current_line": 456,
+      "evidence": [
+        "07-red-complexity.log",
+        "30-final-gate.log"
+      ],
+      "controls": {
+        "caller": "24-verify-caller.log",
+        "execution": "29-final-execution.log",
+        "profile": "26-verify-profile.log"
+      }
+    }
+  ],
+  "repair_source_head": "5c53230b1a6f59950e45adb56b9f107890aba5c7",
+  "local_verification": {
+    "bandit": "1.9.4: five old findings, zero on revised production files",
+    "semgrep": "1.180.0 p/python 151 rules: zero on old and revised source; not an exact Codacy critical-rule reproduction",
+    "complexity_limit": 8,
+    "exact_spawn_audit": "Official registry rule version o5TbD34: previous native API call reproduces one finding; guarded sealed fork yields zero."
+  },
+  "followup_source_head": "08e971b36b3f0a8771659b635ff96a8673cdaba5",
+  "followup_annotations": [
+    {
+      "original": {
+        "path": ".codex/artifacts/implementation/dal425-controlled-process.py",
+        "blob_href": "https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/08e971b36b3f0a8771659b635ff96a8673cdaba5/.codex/artifacts/implementation/dal425-controlled-process.py",
+        "start_line": 126,
+        "start_column": null,
+        "end_line": 126,
+        "end_column": null,
+        "annotation_level": "failure",
+        "title": ".codex/artifacts/implementation/dal425-controlled-process.py#L126",
+        "message": "Found dynamic content when spawning a process.",
+        "raw_details": null
+      },
+      "disposition": "literal_native_vector_runtime_arguments_in_sealed_payload",
+      "verification": "native command RED/GREEN, recorded OS/intent/bootstrap/payload binding, unchanged scanner rules"
+    },
+    {
+      "original": {
+        "path": ".codex/artifacts/implementation/test_dal425_controlled_dispatch.py",
+        "blob_href": "https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/08e971b36b3f0a8771659b635ff96a8673cdaba5/.codex/artifacts/implementation/test_dal425_controlled_dispatch.py",
+        "start_line": 108,
+        "start_column": null,
+        "end_line": 108,
+        "end_column": null,
+        "annotation_level": "failure",
+        "title": ".codex/artifacts/implementation/test_dal425_controlled_dispatch.py#L108",
+        "message": "Found dynamic content when spawning a process.",
+        "raw_details": null
+      },
+      "disposition": "literal_native_vector_runtime_arguments_in_sealed_payload",
+      "verification": "native command RED/GREEN, recorded OS/intent/bootstrap/payload binding, unchanged scanner rules"
+    }
+  ],
+  "final_audit_source_head": "6176d203e45074da7cc5907f6281271c87daeee4",
+  "final_audit_annotations": [
+    {
+      "original": {
+        "path": ".codex/artifacts/implementation/dal425-controlled-process.py",
+        "blob_href": "https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/6176d203e45074da7cc5907f6281271c87daeee4/.codex/artifacts/implementation/dal425-controlled-process.py",
+        "start_line": 219,
+        "start_column": null,
+        "end_line": 219,
+        "end_column": null,
+        "annotation_level": "failure",
+        "title": ".codex/artifacts/implementation/dal425-controlled-process.py#L219",
+        "message": "Found dynamic content when spawning a process.",
+        "raw_details": null
+      },
+      "disposition": "isolated_single_thread_fork_loads_verified_sealed_source",
+      "verification": "exact upstream audit rule one finding to zero; no waiver or rule changes"
+    }
+  ]
+}
