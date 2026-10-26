@@ -39,7 +39,7 @@ def test_native_arguments_validate_build_identity(tmp_path):
     args = native_queries.arguments([
         "--native-worker", str(worker),
         "--native-build-root", str(root),
-        "--quantlib-source", str(tmp_path), "--infine-build", str(infine_build),
+        "--quantlib-source", str(tmp_path), "--quantlib-build-root", str(root), "--infine-build", str(infine_build),
         "--output-dir", str(tmp_path / "out"),
     ])
     assert args.samples == 10 and args.rounds == 2
@@ -48,9 +48,76 @@ def test_native_arguments_validate_build_identity(tmp_path):
         native_queries.arguments([
             "--native-worker", str(outside),
             "--native-build-root", str(root),
-            "--quantlib-source", str(tmp_path), "--infine-build", str(infine_build),
+            "--quantlib-source", str(tmp_path), "--quantlib-build-root", str(root), "--infine-build", str(infine_build),
             "--output-dir", str(tmp_path / "other"),
         ])
+
+
+def native_quantlib_tree(tmp_path):
+    source = tmp_path / "quantlib-source"
+    build = tmp_path / "quantlib-build"
+    prefix = tmp_path / "quantlib-install"
+    quantlib_dir = prefix / "lib" / "cmake" / "QuantLib"
+    library = prefix / "lib" / "libQuantLib.a"
+    quantlib_dir.mkdir(parents=True)
+    build.mkdir()
+    library.write_bytes(b"quantlib")
+    (build / "CMakeCache.txt").write_text(
+        "CMAKE_BUILD_TYPE:STRING=Release\n"
+        f"CMAKE_HOME_DIRECTORY:INTERNAL={source}\n"
+        f"CMAKE_INSTALL_PREFIX:PATH={prefix}\n"
+    )
+    return source, build, prefix, library
+
+
+def test_quantlib_build_identity_binds_source_prefix_and_artifact(tmp_path):
+    source, build, prefix, library = native_quantlib_tree(tmp_path)
+    quantlib_dir = prefix / "lib" / "cmake" / "QuantLib"
+    identity = native_queries.quantlib_build_identity(build, source, quantlib_dir)
+    assert identity["source"] == str(source)
+    assert identity["install_prefix"] == str(prefix)
+    assert identity["library_sha256"] == native_queries.sha256(library)
+    cache = build / "CMakeCache.txt"
+    cache.write_text(cache.read_text().replace(str(source), str(tmp_path / "other")))
+    with pytest.raises(ValueError, match="native QuantLib build source mismatch"):
+        native_queries.quantlib_build_identity(build, source, quantlib_dir)
+
+
+def test_native_rebuild_is_clean_first(tmp_path, monkeypatch):
+    source, quantlib_build, prefix, _ = native_quantlib_tree(tmp_path)
+    repo = tmp_path / "repo"
+    dal_build = tmp_path / "dal-build"
+    repo.mkdir()
+    dal_build.mkdir()
+    monkeypatch.setattr(native_queries, "REPO", repo)
+    quantlib_dir = prefix / "lib" / "cmake" / "QuantLib"
+    (dal_build / "CMakeCache.txt").write_text(
+        "CMAKE_BUILD_TYPE:STRING=Release\n"
+        "DAL_CPP_BUILD_BENCHMARKS:BOOL=ON\n"
+        "DAL_CPP_BUILD_NATIVE_COMPARISONS:BOOL=ON\n"
+        f"QuantLib_DIR:PATH={quantlib_dir}\n"
+        f"CMAKE_HOME_DIRECTORY:INTERNAL={repo}\n"
+    )
+    commands = []
+    monkeypatch.setattr(native_queries.shutil, "which", lambda name: "/usr/bin/cmake")
+
+    def execute(command, **kwargs):
+        commands.append(command)
+        assert kwargs["shell"] is False
+        assert kwargs["timeout"] == native_queries.BUILD_TIMEOUT
+
+    monkeypatch.setattr(native_queries.subprocess, "run", execute)
+    args = SimpleNamespace(
+        native_build_root=dal_build,
+        quantlib_build_root=quantlib_build,
+        quantlib_source=source,
+    )
+    native_queries.rebuild_native(args)
+    assert [command[command.index("--target") + 1] for command in commands] == [
+        "install",
+        "native_query_comparison",
+    ]
+    assert all("--clean-first" in command for command in commands)
 
 
 def test_native_cmake_identity_rejects_foreign_checkout(tmp_path, monkeypatch):
@@ -205,6 +272,7 @@ runpy.run_path(sys.argv[0], run_name="__main__")
     assert result.returncode == 0, result.stderr
     assert "--native-worker" in result.stdout
     assert "--quantlib-source" in result.stdout
+    assert "--quantlib-build-root" in result.stdout
     assert "curve comparisons" in result.stdout
 
 
@@ -215,6 +283,7 @@ def test_native_run_retains_workers_and_rechecks_cmake(tmp_path, monkeypatch):
     args = SimpleNamespace(
         native_worker=worker,
         native_build_root=tmp_path,
+        quantlib_build_root=tmp_path,
         quantlib_source=tmp_path,
         infine_build=tmp_path,
         output_dir=tmp_path / "out",
@@ -230,11 +299,16 @@ def test_native_run_retains_workers_and_rechecks_cmake(tmp_path, monkeypatch):
         "quantlib_identity",
         lambda path: {"revision": "ql-test", "dirty": False},
     )
+    monkeypatch.setattr(
+        native_queries,
+        "quantlib_build_identity",
+        lambda *_args: {"library": "ql", "library_sha256": "hash"},
+    )
     cmake_calls = []
 
     def cmake(build_root):
         cmake_calls.append(build_root)
-        return {"CMAKE_BUILD_TYPE": "Release"}
+        return {"CMAKE_BUILD_TYPE": "Release", "QuantLib_DIR": "/tmp/quantlib"}
 
     monkeypatch.setattr(native_queries, "cmake_identity", cmake)
 
@@ -249,6 +323,7 @@ def test_native_run_retains_workers_and_rechecks_cmake(tmp_path, monkeypatch):
         return row
 
     monkeypatch.setattr(native_queries, "invoke_cpp", cpp)
+    monkeypatch.setattr(native_queries, "rebuild_native", lambda args: None)
     monkeypatch.setattr(native_queries, "invoke_infine", managed)
     assert native_queries.run(args) == 0
     assert len(cmake_calls) == 2
@@ -270,6 +345,11 @@ def test_native_run_retains_workers_and_rechecks_cmake(tmp_path, monkeypatch):
         native_queries,
         "quantlib_identity",
         lambda path: {"revision": "ql-test", "dirty": False},
+    )
+    monkeypatch.setattr(
+        native_queries,
+        "quantlib_build_identity",
+        lambda *_args: {"library": "ql", "library_sha256": "hash"},
     )
     monkeypatch.setattr(
         native_queries,
@@ -395,7 +475,7 @@ def test_native_calibration_fixture_and_case_arguments(tmp_path, case_name, kind
     worker.touch()
     args = native_queries.arguments([
         "--native-worker", str(worker), "--native-build-root", str(root),
-        "--quantlib-source", str(tmp_path), "--infine-build", str(tmp_path), "--output-dir", str(tmp_path / "out"),
+        "--quantlib-source", str(tmp_path), "--quantlib-build-root", str(root), "--infine-build", str(tmp_path), "--output-dir", str(tmp_path / "out"),
         "--case", case_name,
     ])
     assert args.case == [case_name]
@@ -439,7 +519,7 @@ def native_cli_args(tmp_path, *extra):
     worker.touch()
     return [
         "--native-worker", str(worker), "--native-build-root", str(root),
-        "--quantlib-source", str(tmp_path), "--infine-build", str(tmp_path), "--output-dir", str(tmp_path / "out"),
+        "--quantlib-source", str(tmp_path), "--quantlib-build-root", str(root), "--infine-build", str(tmp_path), "--output-dir", str(tmp_path / "out"),
         *extra,
     ]
 
@@ -464,6 +544,7 @@ def test_native_multi_case_controller(tmp_path, monkeypatch):
     args = SimpleNamespace(
         native_worker=worker,
         native_build_root=tmp_path,
+        quantlib_build_root=tmp_path,
         quantlib_source=tmp_path,
         infine_build=tmp_path,
         output_dir=tmp_path / "out",
@@ -480,11 +561,16 @@ def test_native_multi_case_controller(tmp_path, monkeypatch):
         "quantlib_identity",
         lambda path: {"revision": "ql-test", "dirty": False},
     )
+    monkeypatch.setattr(
+        native_queries,
+        "quantlib_build_identity",
+        lambda *_args: {"library": "ql", "library_sha256": "hash"},
+    )
     cmake_calls = []
 
     def cmake(build_root):
         cmake_calls.append(build_root)
-        return {"CMAKE_BUILD_TYPE": "Release"}
+        return {"CMAKE_BUILD_TYPE": "Release", "QuantLib_DIR": "/tmp/quantlib"}
 
     monkeypatch.setattr(native_queries, "cmake_identity", cmake)
     calls = []
@@ -502,6 +588,7 @@ def test_native_multi_case_controller(tmp_path, monkeypatch):
         return row
 
     monkeypatch.setattr(native_queries, "invoke_cpp", cpp)
+    monkeypatch.setattr(native_queries, "rebuild_native", lambda args: None)
     monkeypatch.setattr(native_queries, "invoke_infine", managed)
     assert native_queries.run(args) == 0
     assert len(cmake_calls) == 5

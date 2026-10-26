@@ -101,6 +101,7 @@ def arguments(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--native-worker", type=Path, required=True)
     parser.add_argument("--native-build-root", type=Path, required=True)
+    parser.add_argument("--quantlib-build-root", type=Path, required=True)
     parser.add_argument("--quantlib-source", type=Path, required=True)
     parser.add_argument("--infine-build", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
@@ -111,6 +112,7 @@ def arguments(argv=None):
     args = parser.parse_args(argv)
     args.native_worker = args.native_worker.resolve()
     args.native_build_root = args.native_build_root.resolve()
+    args.quantlib_build_root = args.quantlib_build_root.resolve()
     args.quantlib_source = args.quantlib_source.resolve()
     args.infine_build = args.infine_build.resolve()
     args.output_dir = args.output_dir.resolve()
@@ -118,6 +120,7 @@ def arguments(argv=None):
     require(args.timeout > 0, "timeout must be positive")
     require(args.native_worker.is_file(), "native query worker missing")
     require((args.native_build_root / "CMakeCache.txt").is_file(), "native CMake cache missing")
+    require((args.quantlib_build_root / "CMakeCache.txt").is_file(), "QuantLib CMake cache missing")
     require(args.native_worker.is_relative_to(args.native_build_root), "worker escaped native build root")
     require(args.quantlib_source.is_dir(), "QuantLib source directory missing")
     require(args.infine_build.is_dir(), "InFine build directory missing")
@@ -256,13 +259,22 @@ def invoke_infine(args, directory, shared, case_name=None):
     return row
 
 
-def cmake_identity(build_root):
+BUILD_TIMEOUT = 1800
+BUILD_JOBS = 4
+
+
+def cmake_settings(build_root):
     settings = {}
     for line in (build_root / "CMakeCache.txt").read_text(encoding="utf-8").splitlines():
         if not line or line.startswith("//") or ":" not in line or "=" not in line:
             continue
         key = line.split(":", 1)[0]
         settings[key] = line.split("=", 1)[1]
+    return settings
+
+
+def cmake_identity(build_root):
+    settings = cmake_settings(build_root)
     require(settings.get("CMAKE_BUILD_TYPE") == "Release", "native comparison requires Release")
     require(settings.get("DAL_CPP_BUILD_BENCHMARKS") == "ON", "native benchmarks are disabled")
     require(
@@ -291,6 +303,69 @@ def cmake_identity(build_root):
         "QuantLib_DIR",
     )
     return {name: settings[name] for name in names if name in settings}
+
+
+def quantlib_build_configuration(build_root, source, quantlib_dir):
+    source = Path(source).resolve()
+    prefix = Path(quantlib_dir).resolve().parents[2]
+    settings = cmake_settings(build_root)
+    require(settings.get("CMAKE_BUILD_TYPE") == "Release", "native QuantLib comparison requires Release")
+    require("CMAKE_HOME_DIRECTORY" in settings, "native QuantLib build source directory missing")
+    require(
+        Path(settings["CMAKE_HOME_DIRECTORY"]).resolve() == source,
+        "native QuantLib build source mismatch",
+    )
+    require("CMAKE_INSTALL_PREFIX" in settings, "native QuantLib install prefix missing")
+    require(
+        Path(settings["CMAKE_INSTALL_PREFIX"]).resolve() == prefix,
+        "native QuantLib install prefix mismatch",
+    )
+    return {"source": str(source), "install_prefix": str(prefix)}
+
+
+def quantlib_build_identity(build_root, source, quantlib_dir):
+    identity = quantlib_build_configuration(build_root, source, quantlib_dir)
+    prefix = Path(identity["install_prefix"])
+    libraries = sorted({*prefix.glob("lib*/libQuantLib.*"), *prefix.glob("lib*/QuantLib.*")})
+    require(len(libraries) == 1, "native QuantLib library missing or ambiguous")
+    library = libraries[0]
+    return dict(identity, library=str(library), library_sha256=sha256(library))
+
+
+def clean_build(cmake, build_root, target):
+    subprocess.run(  # nosec B603  # nosemgrep
+        [
+            cmake,
+            "--build",
+            str(build_root),
+            "--target",
+            target,
+            "--clean-first",
+            "--parallel",
+            str(BUILD_JOBS),
+        ],
+        shell=False,
+        check=True,
+        timeout=BUILD_TIMEOUT,
+    )
+
+
+def rebuild_native(args):
+    cmake = shutil.which("cmake")
+    require(cmake is not None, "cmake executable missing")
+    cmake_identity(args.native_build_root)
+    quantlib_build_configuration(
+        args.quantlib_build_root,
+        args.quantlib_source,
+        cmake_identity(args.native_build_root)["QuantLib_DIR"],
+    )
+    clean_build(cmake, args.quantlib_build_root, "install")
+    clean_build(cmake, args.native_build_root, "native_query_comparison")
+    quantlib_build_identity(
+        args.quantlib_build_root,
+        args.quantlib_source,
+        cmake_identity(args.native_build_root)["QuantLib_DIR"],
+    )
 
 
 def quantlib_identity(source):
@@ -490,6 +565,15 @@ def verify_provenance(args, report):
         "native QuantLib provenance changed during run",
     )
     require(
+        quantlib_build_identity(
+            args.quantlib_build_root,
+            args.quantlib_source,
+            report["cmake"]["QuantLib_DIR"],
+        )
+        == report["quantlib_build"],
+        "native QuantLib build provenance changed during run",
+    )
+    require(
         clean_git_identity() == report["git"],
         "native DAL Git provenance changed during run",
     )
@@ -537,6 +621,11 @@ def run_single(args, case_name):
                 "MKL_NUM_THREADS": "1",
             },
         )
+        report["quantlib_build"] = quantlib_build_identity(
+            args.quantlib_build_root,
+            args.quantlib_source,
+            report["cmake"]["QuantLib_DIR"],
+        )
         for round_index in range(args.rounds):
             report["rounds"].append(
                 collect_round(
@@ -556,7 +645,15 @@ def run_single(args, case_name):
 
 
 def merge_child_provenance(report, child, case_name):
-    for key in ("source_hashes", "native_worker_sha256", "cmake", "quantlib", "git", "thread_environment"):
+    for key in (
+        "source_hashes",
+        "native_worker_sha256",
+        "cmake",
+        "quantlib",
+        "quantlib_build",
+        "git",
+        "thread_environment",
+    ):
         require(
             report.setdefault(key, child[key]) == child[key],
             f"native provenance changed for {case_name}",
@@ -639,6 +736,7 @@ def run_suite(args, case_names):
 
 def run(args):
     case_names = selected_cases(args)
+    rebuild_native(args)
     if len(case_names) > 1:
         return run_suite(args, case_names)
     return run_single(args, case_names[0])

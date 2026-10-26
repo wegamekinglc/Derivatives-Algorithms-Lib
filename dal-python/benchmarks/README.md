@@ -332,6 +332,7 @@ InFine, use the native controller:
 python dal-python/benchmarks/run_native_queries.py \
   --native-worker build/Release-native-queries/dal-cpp/benchmarks/native_query_comparison/native_query_comparison \
   --native-build-root build/Release-native-queries \
+  --quantlib-build-root benchmark-results/quantlib-build \
   --quantlib-source benchmark-results/quantlib-source \
   --infine-build benchmark-results/infine-build \
   --output-dir benchmark-results/native-query-comparison \
@@ -447,11 +448,16 @@ each of two rounds:
 python dal-python/benchmarks/run_native_queries.py \
   --native-worker build/Release-native-queries/dal-cpp/benchmarks/native_query_comparison/native_query_comparison \
   --native-build-root build/Release-native-queries \
+  --quantlib-build-root benchmark-results/quantlib-build \
   --quantlib-source benchmark-results/quantlib-source \
   --infine-build benchmark-results/infine-build \
   --output-dir benchmark-results/native-cxx-query-comparison \
   --samples 10 --rounds 2
 ```
+
+Before sampling, the controller clean-first rebuilds the QuantLib install and
+native DAL worker, verifies their source and install identities, and records the
+QuantLib library hash. Build time is outside the native timers.
 
 Backend order rotates and reverses in the second round. Each process performs
 three checked warmups, then one native sample. `DAL_NUM_THREADS`, OMP, OpenBLAS,
@@ -513,6 +519,7 @@ python dal-python/benchmarks/prepare_infine.py \
 python dal-python/benchmarks/run_native_queries.py \
   --native-worker build/Release-native-queries/dal-cpp/benchmarks/native_query_comparison/native_query_comparison \
   --native-build-root build/Release-native-queries \
+  --quantlib-build-root benchmark-results/quantlib-build \
   --quantlib-source benchmark-results/quantlib-source \
   --infine-build benchmark-results/infine-build-native-calibration \
   --output-dir benchmark-results/native-curve-suite \
