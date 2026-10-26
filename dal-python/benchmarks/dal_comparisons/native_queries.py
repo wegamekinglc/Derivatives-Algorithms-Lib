@@ -385,7 +385,7 @@ def summary_style(report):
     if suite:
         title = "# Native C++/.NET curve suite"
         boundary = "DAL C++, QuantLib C++, and InFine C# run native discount and single/staged calibration cases independently. Python/JSON/IPC/startup are outside timing."
-        measurement = "Each process performs three checked warmups, then one native sample with complete per-case evidence. Fresh instruments, curves, solves, DF conversion, and native allocation are included."
+        measurement = "Each process performs three checked warmups, then one native sample with complete per-case evidence. Discount queries use prebuilt curves and include query evaluation and native output allocation; calibration cases include fresh instruments, initial curves, solves, DF conversion, and native allocation."
     else:
         title = "# Native C++/.NET curve-calibration comparison" if calibration else "# Native C++/.NET discount-query comparison"
         boundary = (

@@ -493,3 +493,5 @@ def test_native_multi_case_controller(tmp_path, monkeypatch):
             assert (args.output_dir / case_name / "round-1" / f"sample-1-{backend}").is_dir()
     summary = (args.output_dir / "summary.md").read_text()
     assert "Native C++/.NET curve suite" in summary
+    assert "Discount queries use prebuilt curves" in summary
+    assert "calibration cases include fresh instruments" in summary
