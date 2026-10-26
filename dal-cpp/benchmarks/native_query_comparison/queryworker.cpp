@@ -10,6 +10,7 @@
 #include <memory>
 #include <string>
 #include <system_error>
+#include <utility>
 #include <vector>
 #include <dal/platform/platform.hpp>
 #include <dal/platform/initall.hpp>
@@ -380,6 +381,7 @@ namespace {
         if (fixture.operation_ == "calibration")
             return PrepareCalibration(backend, fixture);
         REQUIRE(false, "Unknown native case: " + fixture.caseName_);
+        return {};
     }
 
     std::string WorkerMethod(const std::string& backend, const Fixture_& fixture) {
