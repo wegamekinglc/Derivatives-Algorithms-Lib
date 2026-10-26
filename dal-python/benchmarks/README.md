@@ -466,8 +466,9 @@ independent reference values before a successful report can be written.
 Reports retain raw native durations and values, binary/source hashes, CMake and
 compiler settings, QuantLib/Boost versions, InFine runtime identity, Git identity,
 and backend order. A clean DAL checkout is required, and both DAL and QuantLib
-Git identities are rechecked before a report can pass. Ratios are informational
-rather than a performance gate. C++
+Git identities are rechecked before a report can pass. The CMake home directory
+must resolve to that DAL checkout, and algorithm implementation sources are
+hashed as well. Ratios are informational rather than a performance gate. C++
 and .NET remain different runtimes; these native ratios and the Python API ratios
 answer different questions and must not be used interchangeably.
 

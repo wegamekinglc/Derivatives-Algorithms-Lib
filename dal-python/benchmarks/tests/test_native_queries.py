@@ -53,6 +53,33 @@ def test_native_arguments_validate_build_identity(tmp_path):
         ])
 
 
+def test_native_cmake_identity_rejects_foreign_checkout(tmp_path, monkeypatch):
+    repo = tmp_path / "repo"
+    build = tmp_path / "build"
+    repo.mkdir()
+    build.mkdir()
+    monkeypatch.setattr(native_queries, "REPO", repo)
+    cache = build / "CMakeCache.txt"
+    cache.write_text(
+        "CMAKE_BUILD_TYPE:STRING=Release\n"
+        "DAL_CPP_BUILD_BENCHMARKS:BOOL=ON\n"
+        "DAL_CPP_BUILD_NATIVE_COMPARISONS:BOOL=ON\n"
+        "QuantLib_DIR:PATH=/tmp/quantlib\n"
+        f"CMAKE_HOME_DIRECTORY:INTERNAL={repo}\n"
+    )
+    identity = native_queries.cmake_identity(build)
+    assert identity["CMAKE_HOME_DIRECTORY"] == str(repo)
+    cache.write_text(cache.read_text().replace(str(repo), str(tmp_path / "other")))
+    with pytest.raises(ValueError, match="native build source does not match current DAL checkout"):
+        native_queries.cmake_identity(build)
+
+
+def test_native_source_hashes_include_algorithm_inputs():
+    hashes = native_queries.native_source_hashes()
+    assert "dal-cpp/dal/curve/yclogdf.cpp" in hashes
+    assert "dal-cpp/dal/curve/calibration.cpp" in hashes
+
+
 @pytest.mark.parametrize("backend", ["dal", "quantlib"])
 def test_native_cpp_worker_matches_shared_oracle(tmp_path, backend):
     worker = os.environ.get("DAL_NATIVE_QUERY_WORKER")

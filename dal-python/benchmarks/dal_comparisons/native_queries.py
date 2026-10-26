@@ -145,6 +145,8 @@ def native_source_hashes():
         ROOT / "dal_comparisons/evidence.py",
         ROOT / "infine/Rates.cs",
         ROOT / "infine/Program.cs",
+        REPO / "dal-cpp/dal/curve/yclogdf.cpp",
+        REPO / "dal-cpp/dal/curve/calibration.cpp",
         REPO / "dal-cpp/benchmarks/native_query_comparison/queryworker.cpp",
         REPO / "dal-cpp/benchmarks/native_query_comparison/CMakeLists.txt",
         REPO / "dal-cpp/benchmarks/CMakeLists.txt",
@@ -268,8 +270,14 @@ def cmake_identity(build_root):
         "native comparisons are disabled",
     )
     require("QuantLib_DIR" in settings, "native QuantLib package path missing")
+    require("CMAKE_HOME_DIRECTORY" in settings, "native CMake source directory missing")
+    require(
+        Path(settings["CMAKE_HOME_DIRECTORY"]).resolve() == REPO,
+        "native build source does not match current DAL checkout",
+    )
     names = (
         "CMAKE_BUILD_TYPE",
+        "CMAKE_HOME_DIRECTORY",
         "CMAKE_CXX_COMPILER",
         "CMAKE_GENERATOR",
         "CMAKE_CXX_STANDARD",
