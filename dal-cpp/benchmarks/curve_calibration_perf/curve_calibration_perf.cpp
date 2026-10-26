@@ -141,7 +141,7 @@ namespace {
 
     struct LogDfFixture_ {
         Date_ anchor_{2025, 1, 15};
-        Date_ nonAnchor_{2026, 1, 15};
+        Date_ nonAnchor_{2025, 7, 15};
         DayBasis_ dayCount_{"ACT_365F"};
         Vector_<Date_> nodes_;
         Vector_<> logDf_;
@@ -159,6 +159,7 @@ namespace {
             }
             for (int i = 0; i < 4096; ++i)
                 queries_.push_back(anchor_.AddDays(1 + (i * 1777) % 7665));
+            REQUIRE(std::find(nodes_.begin(), nodes_.end(), nonAnchor_) == nodes_.end(), "Non-anchor fixture must not be a curve node");
         }
     };
 
