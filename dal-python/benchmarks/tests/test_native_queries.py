@@ -273,6 +273,7 @@ runpy.run_path(sys.argv[0], run_name="__main__")
     assert "--native-worker" in result.stdout
     assert "--quantlib-source" in result.stdout
     assert "--quantlib-build-root" in result.stdout
+    assert "--summary-file" in result.stdout
     assert "curve comparisons" in result.stdout
 
 
@@ -287,6 +288,7 @@ def test_native_run_retains_workers_and_rechecks_cmake(tmp_path, monkeypatch):
         quantlib_source=tmp_path,
         infine_build=tmp_path,
         output_dir=tmp_path / "out",
+        summary_file=tmp_path / "step-summary.md",
         samples=1,
         rounds=1,
         timeout=30,
@@ -334,6 +336,7 @@ def test_native_run_retains_workers_and_rechecks_cmake(tmp_path, monkeypatch):
     for backend in native_queries.BACKENDS:
         assert workers[backend][0]["values"] == payload["reference"]
         assert workers[backend][0]["samples_ns"] == [100]
+    assert args.summary_file.read_text() == (args.output_dir / "summary.md").read_text()
     monkeypatch.setattr(
         native_queries,
         "quantlib_identity",
@@ -548,6 +551,7 @@ def test_native_multi_case_controller(tmp_path, monkeypatch):
         quantlib_source=tmp_path,
         infine_build=tmp_path,
         output_dir=tmp_path / "out",
+        summary_file=tmp_path / "step-summary.md",
         samples=1,
         rounds=1,
         timeout=30,
@@ -609,3 +613,4 @@ def test_native_multi_case_controller(tmp_path, monkeypatch):
     assert "Native C++/.NET curve suite" in summary
     assert "Discount queries use prebuilt curves" in summary
     assert "calibration cases include fresh instruments" in summary
+    assert args.summary_file.read_text() == summary

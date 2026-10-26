@@ -211,6 +211,8 @@ class CiWorkflowFastPathTest(unittest.TestCase):
         self.assertIn("prepare_infine.py", linux)
         self.assertIn("--infine-build", linux)
         self.assertIn("run_native_queries.py", linux)
+        native_comparison = linux.split("run_native_queries.py", 1)[1].split("- name:", 1)[0]
+        self.assertIn('--summary-file "$GITHUB_STEP_SUMMARY"', native_comparison)
         self.assertIn("--quantlib-source benchmark-results/quantlib-source", linux)
         self.assertIn("--quantlib-build-root benchmark-results/quantlib-build", linux)
         self.assertIn("repository: lballabio/QuantLib", linux)

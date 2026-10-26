@@ -533,8 +533,10 @@ python dal-python/benchmarks/run_native_queries.py \
 
 The suite uses `dal.native-curve-comparison/1`, keeps per-case evidence and
 provenance, and includes 300 worker invocations and 252,960 validated values.
-Single-case schemas remain unchanged. Joint and XCCY calibrations are outside
-this entry point.
+`--summary-file <path>` appends a standalone case summary or, for a multi-case
+run, only the merged suite summary. The scheduled Linux workflow uses this to
+show the native table in the GitHub Actions step summary. Single-case schemas
+remain unchanged. Joint and XCCY calibrations are outside this entry point.
 
 ### Discount and IRS pricing
 

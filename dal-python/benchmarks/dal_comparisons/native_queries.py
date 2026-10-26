@@ -105,6 +105,7 @@ def arguments(argv=None):
     parser.add_argument("--quantlib-source", type=Path, required=True)
     parser.add_argument("--infine-build", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--summary-file", type=Path)
     parser.add_argument("--case", action="append", choices=CASES, default=[])
     parser.add_argument("--samples", type=int, default=10)
     parser.add_argument("--rounds", type=int, default=2)
@@ -523,6 +524,15 @@ def summary(report):
     return "\n".join(lines + summary_rows(report)) + "\n"
 
 
+def emit_summary(args, markdown):
+    (args.output_dir / "summary.md").write_text(markdown, encoding="utf-8")
+    summary_file = getattr(args, "summary_file", None)
+    if summary_file:
+        with summary_file.open("a", encoding="utf-8") as stream:
+            stream.write(markdown)
+    print(markdown)
+
+
 def collect_round(args, case_name, shared, payload, identities, round_index):
     reports = {backend: [] for backend in BACKENDS}
     order = []
@@ -638,9 +648,7 @@ def run_single(args, case_name):
         report["status"] = "failed"
         report["error"] = f"{type(error).__name__}: {error}"
     write_json(args.output_dir / "results.json", report)
-    markdown = summary(report)
-    (args.output_dir / "summary.md").write_text(markdown, encoding="utf-8")
-    print(markdown)
+    emit_summary(args, summary(report))
     return 0 if report["status"] == "passed" else 1
 
 
@@ -716,6 +724,7 @@ def run_suite(args, case_names):
             case_args = SimpleNamespace(**vars(args))
             case_args.output_dir = args.output_dir / case_name
             case_args.case = case_name
+            case_args.summary_file = None
             require(run_single(case_args, case_name) == 0, f"native case failed: {case_name}")
             child = json.loads((case_args.output_dir / "results.json").read_text(encoding="utf-8"))
             require(child["status"] == "passed", f"native case failed: {case_name}")
@@ -728,9 +737,7 @@ def run_suite(args, case_names):
         report["status"] = "failed"
         report["error"] = f"{type(error).__name__}: {error}"
     write_json(args.output_dir / "results.json", report)
-    markdown = summary(report)
-    (args.output_dir / "summary.md").write_text(markdown, encoding="utf-8")
-    print(markdown)
+    emit_summary(args, summary(report))
     return 0 if report["status"] == "passed" else 1
 
 

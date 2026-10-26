@@ -287,6 +287,7 @@ jobs:
             --quantlib-source benchmark-results/quantlib-source \
             --infine-build "$DAL_INFINE_BUILD" \
             --output-dir benchmark-results/native-curve-suite \
+            --summary-file "$GITHUB_STEP_SUMMARY" \
             --case discount_queries \
             --case calibration_single_5 \
             --case calibration_single_15 \
