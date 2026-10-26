@@ -14,7 +14,7 @@ VOLATILITY = 0.02
 SWAP_OPERATIONS = ("gsr_swap_reused", "gsr_swap_fresh")
 SWAPTION_OPERATIONS = ("gsr_swaption_mc", "gsr_swaption_gaussian1d")
 
-CONVENTIONS = {
+PYTHON_CONVENTIONS = {
     "valuation_date": TODAY.isoformat(),
     "currency": "USD",
     "input_curve": "2.5% continuously compounded ACT/365F; log-linear discount factors",
@@ -28,10 +28,17 @@ CONVENTIONS = {
     "swaption_payoff": "max(value of underlying payer swap at expiry, 0)",
     "timing_boundary": "curves and models prepared; reused swaps or freshly constructed cashflows are separate cases",
     "pricing_methods": {
+        "swap": "DAL, QuantLib and rateslib deterministic single-curve IRS pricing with and without cashflow reuse",
+        "swaption": "DAL script MC, QuantLib Gsr MC/Gaussian1d; rateslib unsupported",
+    },
+}
+CONVENTIONS = dict(
+    PYTHON_CONVENTIONS,
+    pricing_methods={
         "swap": "DAL, QuantLib, rateslib and InFine deterministic single-curve IRS pricing with and without cashflow reuse",
         "swaption": "DAL script MC, QuantLib Gsr MC/Gaussian1d, InFine a=0 kernel MC/Jamshidian; rateslib unsupported",
     },
-}
+)
 
 
 def cases(smoke=False):

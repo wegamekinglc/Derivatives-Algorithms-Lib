@@ -17,25 +17,31 @@ from .evidence import (
     timings,
     write_json,
 )
-from .scenarios import CONVENTIONS, cases, expected, method, unsupported_reason
+from .scenarios import PYTHON_CONVENTIONS, cases, expected, method, unsupported_reason
 from .suite import BACKENDS
 
 
 def arguments(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dal-package", type=Path, required=True)
-    parser.add_argument(
-        "--infine-build", type=Path, default=os.environ.get("DAL_INFINE_BUILD")
-    )
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--summary-file", type=Path)
     parser.add_argument("--samples", type=int, default=10)
     parser.add_argument("--rounds", type=int, default=2)
     parser.add_argument("--timeout", type=int, default=600)
     parser.add_argument("--smoke", action="store_true")
+    parser.add_argument("--backends", nargs="+", choices=BACKENDS, default=list(BACKENDS))
+    parser.add_argument("--case", action="append", default=[])
     parser.add_argument("--worker", choices=BACKENDS, help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
     require(args.timeout > 0, "timeout must be positive")
+    require(len(set(args.backends)) == len(args.backends), "duplicate backend")
+    require("dal" in args.backends, "DAL backend is required")
+    args.backends = ["dal"] + [backend for backend in args.backends if backend != "dal"]
+    require(len(set(args.case)) == len(args.case), "duplicate comparison case")
+    inventory = {case["name"]: case for case in cases(args.smoke)}
+    unknown = set(args.case) - set(inventory)
+    require(not unknown, f"unknown comparison case: {sorted(unknown)}")
     if args.smoke:
         args.samples, args.rounds = 1, 1
     else:
@@ -46,8 +52,6 @@ def arguments(argv=None):
         )
     args.dal_package = args.dal_package.resolve()
     args.output_dir = args.output_dir.resolve()
-    if args.infine_build is not None:
-        args.infine_build = args.infine_build.resolve()
     return args
 
 
@@ -80,8 +84,8 @@ def invoke(args, backend, directory, hashes):
     ]
     if args.smoke:
         command.append("--smoke")
-    if backend == "infine" and args.infine_build is not None:
-        command += ["--infine-build", str(args.infine_build)]
+    for case_name in args.case:
+        command += ["--case", case_name]
     command += ["--timeout", str(args.timeout)]
     # Fixed interpreter and local entry point; backend is from BACKENDS, paths
     # are literal arguments and never interpreted by a shell.
@@ -97,7 +101,7 @@ def invoke(args, backend, directory, hashes):
             timeout=args.timeout,
         )
     report = json.loads((directory / "worker.json").read_text(encoding="utf-8"))
-    check_report(report, backend, args.smoke, hashes)
+    check_report(report, backend, args.smoke, hashes, args.case)
     return report
 
 
@@ -114,12 +118,12 @@ def stable_provenance(report):
 
 
 def collect_round(args, round_index, hashes, identities):
-    reports = {backend: [] for backend in BACKENDS}
+    reports = {backend: [] for backend in args.backends}
     order = []
     for sample in range(args.samples):
         # Rotate backends and reverse alternate rounds.
-        offset = sample % len(BACKENDS)
-        backends = BACKENDS[offset:] + BACKENDS[:offset]
+        offset = sample % len(args.backends)
+        backends = args.backends[offset:] + args.backends[:offset]
         if round_index % 2:
             backends = backends[::-1]
         order.append(list(backends))
@@ -136,35 +140,45 @@ def collect_round(args, round_index, hashes, identities):
                 "backend provenance changed during sampling",
             )
             reports[backend].append(report)
-    return {"order": order, "cases": aggregate(reports, args.smoke)}
+    return {"order": order, "cases": aggregate(reports, args.smoke, args.backends, args.case)}
 
 
-def aggregate(reports, smoke):
+def backend_measurement(reports, backend, case):
+    reason = unsupported_reason(backend, case)
+    if reason:
+        return dict(status="unsupported", reason=reason)
+    return dict(
+        timings(reports[backend], case["name"]),
+        method=method(backend, case),
+        values=returned_values(reports[backend][0], case["name"]),
+    )
+
+
+def third_party_ratios(backends, case, measurements):
+    dal_time = measurements["dal"]["min_ns"]
+    return {
+        backend: measurements[backend]["min_ns"] / dal_time
+        for backend in backends[1:]
+        if not unsupported_reason(backend, case)
+    }
+
+
+def aggregate(reports, smoke, selected_backends=None, selected_case_names=None):
+    backends = selected_backends or BACKENDS
+    inventory = cases(smoke)
+    if selected_case_names:
+        selected = set(selected_case_names)
+        inventory = [case for case in inventory if case["name"] in selected]
     rows = []
-    for case in cases(smoke):
-        measurements = {}
-        for backend in BACKENDS:
-            reason = unsupported_reason(backend, case)
-            measurements[backend] = (
-                dict(status="unsupported", reason=reason)
-                if reason
-                else dict(
-                    timings(reports[backend], case["name"]),
-                    method=method(backend, case),
-                    values=returned_values(reports[backend][0], case["name"]),
-                )
-            )
-        dal_time = measurements["dal"]["min_ns"]
-        ratios = {
-            backend: measurements[backend]["min_ns"] / dal_time
-            for backend in BACKENDS[1:]
-            if not unsupported_reason(backend, case)
+    for case in inventory:
+        measurements = {
+            backend: backend_measurement(reports, backend, case) for backend in backends
         }
         rows.append(
             {
                 "workload": case,
                 "backends": measurements,
-                "third_party_over_dal": ratios,
+                "third_party_over_dal": third_party_ratios(backends, case, measurements),
                 "reference": expected(case),
             }
         )
@@ -181,7 +195,7 @@ def summary(report):
         "informational; DAL base/head regression remains a separate 4% gate.",
         "",
         "Node DV01: DAL reverse AAD; rateslib forward AD (Dual); "
-        "QuantLib and InFine central finite difference (0.01bp step). "
+        "QuantLib central finite difference (0.01bp step). "
         "Each returns all 21 non-anchor buckets per trade, in USD/bp. "
         "Curve construction is excluded; differentiation, conversion and "
         "QuantLib relinking/repricing are timed.",
@@ -199,8 +213,7 @@ def summary(report):
         "",
         "European/barrier MC: PV, Delta, Vega, Rho; Sobol paths, fixed seeds, identical "
         "weekly discrete barrier monitoring. DAL vanilla uses reverse AAD; "
-        "InFine vanilla uses a hand-written reverse adjoint; "
-        "other MC Greeks use common-random-number central differences. "
+        "QuantLib vanilla and barrier Greeks use common-random-number central differences. "
         "Analytic vanilla and deterministic Gaussian quadrature barrier oracles "
         "validate every output with explicit MC tolerances.",
         "",
@@ -225,7 +238,7 @@ def summary(report):
         "QuantLib bootstrap accuracy 1e-12, rateslib func/conv 1e-20, grad 1e-16.",
         "",
         "GSR example: static coupon-paying IRS uses the same USD input curve "
-        "across all four libraries (32 trades full; four smoke). Reused mode "
+        "across DAL, QuantLib, and rateslib (32 trades full; four smoke). Reused mode "
         "prepares DAL cashflows and third-party swaps before timing; fresh mode "
         "rebuilds them inside timing. The European swaption retains both "
         "QuantLib Gsr-process Sobol MC (65,536 paths full; 4,096 smoke) and "
@@ -238,36 +251,24 @@ def summary(report):
         "These prices use independent curve and Gaussian option oracles; "
         "different APIs and pricing methods make raw speed ratios informational.",
         "",
-        "InFine runs direct C# CPU APIs in a native .NET process. Its native timer "
-        "excludes process startup, JSON and Python communication, while DAL's "
-        "Python/native conversions remain timed. InFine host MC is sequential; "
-        "DAL uses four threads. InFine uses Sobol starting at point 1, native "
-        "hand-written reverse adjoints for vanilla Greeks, central differences "
-        "for barrier Greeks, and native Brent calibration. Staged two-curve "
-        "calibration delegates to native ParRate(discount, forecast). GSR MC "
-        "uses exact a=0 state/integral kernels with stochastic discounting. "
-        "The gaussian1d_128 row uses InFine analytic Jamshidian, without "
-        "128-point quadrature or MC, against DAL MC; its ratio measures "
-        "different algorithms. InFine LSM cannot match separate M/N and "
-        "cubic regression; joint/XCCY calibration is also unsupported. "
-        "No GPU is measured; equal path counts do not imply equal accuracy.",
-        "",
         "N/A: declared unsupported capabilities only (rateslib equity MC and "
-        "GSR swaption; QuantLib simultaneous joint calibration; InFine matching "
-        "LSM and joint/XCCY calibration). Missing packages, native builds or failed "
-        "supported cases fail the comparison.",
+        "GSR swaption; QuantLib simultaneous joint calibration). Missing packages, "
+        "native builds or failed supported cases fail the comparison.",
         "",
     ]
     if report["status"] != "passed":
         lines += [f"Error: {report['error']}", "See the retained worker logs.", ""]
         return "\n".join(lines)
+    backends = report.get("backends", BACKENDS)
+    labels = {"dal": "DAL", "quantlib": "QuantLib", "rateslib": "rateslib"}
+    ratio_labels = {"quantlib": "QL", "rateslib": "RL"}
+    columns = [f"{labels[backend]} min ms" for backend in backends]
+    columns += [f"{ratio_labels[backend]} / DAL" for backend in backends[1:]]
     lines += [
         "Ratio = third-party minimum / DAL minimum; >1 means DAL took less time.",
         "",
-        "| Round | Case | Pricing N | Training M | DAL min ms | QuantLib min ms | rateslib min ms | InFine min ms "
-        "| QL / DAL | RL / DAL | InFine / DAL |",
-        "| ----- | ---- | --------: | ---------: | ---------: | --------------: | --------------: "
-        "| -------------: | -------: | -------: | -----------: |",
+        "| Round | Case | Pricing N | Training M | " + " | ".join(columns) + " |",
+        "| ----- | ---- | --------: | ---------: | " + " | ".join(["---------:"] * len(columns)) + " |",
     ]
     for index, result in enumerate(report["rounds"], 1):
         for row in result["cases"]:
@@ -278,12 +279,12 @@ def summary(report):
                     if "min_ns" in values[backend]
                     else "N/A"
                 )
-                for backend in BACKENDS
+                for backend in backends
             )
             ratios = row["third_party_over_dal"]
             ratio_text = " | ".join(
                 f"{ratios[backend]:.4g}" if backend in ratios else "N/A"
-                for backend in BACKENDS[1:]
+                for backend in backends[1:]
             )
             lines.append(
                 f"| {index} | {row['workload']['name']} | {path_counts(row['workload'])} | {times} | {ratio_text} |"
@@ -301,19 +302,23 @@ def path_counts(case):
 
 
 def exercise_values_summary(report):
+    has_quantlib = "quantlib" in report.get("backends", BACKENDS)
+    value_backends = ("dal", "quantlib") if has_quantlib else ("dal",)
+    headers = "DAL | QuantLib" if has_quantlib else "DAL"
+    separators = "--- | --------" if has_quantlib else "---"
     lines = [
         "",
         "Early-exercise values from the first checked sample of each round "
         "(all samples validated): price rows show PV; Greek rows show "
         "[PV, Delta, Vega, Rho]. Reference is the matching discrete-exercise PDE.",
         "",
-        "| Round | Case | DAL | QuantLib | PDE reference |",
-        "| ----- | ---- | --- | -------- | ------------- |",
+        f"| Round | Case | {headers} | PDE reference |",
+        f"| ----- | ---- | {separators} | ------------- |",
     ]
     for index, result in enumerate(report["rounds"], 1):
         for row in result["cases"]:
             if "training_paths" in row["workload"]:
-                numbers = [row["backends"][b]["values"] for b in ("dal", "quantlib")]
+                numbers = [row["backends"][b]["values"] for b in value_backends]
                 numbers.append(row["reference"])
                 cells = " | ".join(
                     ", ".join(f"{value:.6f}" for value in values) for values in numbers
@@ -330,7 +335,9 @@ def run(args):
         "smoke": args.smoke,
         "samples_per_round": args.samples,
         "warmups": 2,
-        "conventions": CONVENTIONS,
+        "conventions": PYTHON_CONVENTIONS,
+        "backends": list(args.backends),
+        "case": list(args.case),
         "source_hashes": source_hashes(),
         "identities": {},
         "rounds": [],

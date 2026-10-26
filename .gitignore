@@ -43,6 +43,10 @@ CMakeUserPresets.json
 # Coverage and benchmark artifacts produced by the CI workflows at repo root
 coverage_filtered.info
 benchmark-results/
+/benchmark-base/
+/benchmark-baseline-aa/
+/benchmark-head-aa/
+/benchmark-infine-source/
 
 # Visual Studio / CMake Tools default build tree
 out/

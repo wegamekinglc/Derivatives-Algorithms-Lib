@@ -7,7 +7,7 @@ import sys
 
 from dal_benchmarks.harness import Case, Workload, measure, require
 from .evidence import SCHEMA, backend_files, package_versions, source_hashes, write_json
-from .scenarios import CONVENTIONS, cases, method, unsupported_reason
+from .scenarios import PYTHON_CONVENTIONS, cases, method, unsupported_reason
 from .suite import prepare
 
 
@@ -59,20 +59,16 @@ def run(args):
         "comparison requires a Release DAL build",
     )
     versions = package_versions()
-    if args.worker == "infine":
-        from .infine import measure_cases
-
-        results, files, metadata = measure_cases(args)
-        versions["infine"] = metadata
-    else:
-        results = list(map(partial(measured_case, args.worker), cases(args.smoke)))
-        files = backend_files(args.worker)
+    selected = set(args.case)
+    selected_cases = [case for case in cases(args.smoke) if not selected or case["name"] in selected]
+    results = list(map(partial(measured_case, args.worker), selected_cases))
+    files = backend_files(args.worker)
     report = {
         "schema": SCHEMA,
         "status": "passed",
         "backend": args.worker,
         "smoke": args.smoke,
-        "conventions": CONVENTIONS,
+        "conventions": PYTHON_CONVENTIONS,
         "source_hashes": source_hashes(),
         "versions": versions,
         "backend_files": files,
@@ -81,6 +77,6 @@ def run(args):
     }
     from .evidence import check_report
 
-    check_report(report, args.worker, args.smoke, report["source_hashes"])
+    check_report(report, args.worker, args.smoke, report["source_hashes"], args.case)
     write_json(args.output_dir / "worker.json", report)
     return 0
