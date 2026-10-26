@@ -66,7 +66,6 @@ import resource
 import select
 import signal
 import stat
-import subprocess
 import time
 
 ENV = {"LC_ALL": "C", "TZ": "UTC"}
@@ -85,19 +84,18 @@ def verify_loaded_code(code, source, filename):
         raise ValueError("loaded code/source mismatch")
 
 
-def _code_data(code):
-    def constant(value):
-        if isinstance(value, type(code)):
-            return _code_data(value)
-        if isinstance(value, (tuple, frozenset)):
-            values = [constant(item) for item in value]
-            return [type(value).__name__, sorted(values, key=repr) if isinstance(value, frozenset) else values]
-        return [type(value).__name__, repr(value)]
-    return [code.co_code.hex(), [constant(v) for v in code.co_consts], code.co_names,
-            code.co_varnames, code.co_freevars, code.co_cellvars, code.co_flags,
-            code.co_argcount, code.co_posonlyargcount, code.co_kwonlyargcount,
-            code.co_name, code.co_qualname, code.co_filename, code.co_firstlineno,
-            code.co_linetable.hex(), code.co_exceptiontable.hex()]
+def _load_process():
+    path = Path(__file__).with_name('dal425-controlled-process.py')
+    loader = SourceLoader('dal425_profile_process', str(path))
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[loader.name] = module
+    loader.exec_module(module)
+    return module
+
+
+_process = _load_process()
+_code_data = _process.code_data
 
 
 def _json(value):
@@ -322,7 +320,7 @@ def _observer_inputs(mode, root):
 
 
 def _helper_argv(mode, root, ticket):
-    return [str(Path(sys.executable).resolve()), "-I", "-S", "-B", str(Path(__file__).resolve()), "--child", mode, str(root), str(ticket)]
+    return ['/usr/bin/python3', "-I", "-S", "-B", str(Path(__file__).resolve()), "--child", mode, str(root), str(ticket)]
 
 
 def _helper_output(child):
@@ -350,8 +348,7 @@ class _OuterHelper:
     def collect(self, mode, root, ticket):
         if mode not in ("profile", "verify", "init") or self.argv != _helper_argv(mode, root, ticket):
             raise ValueError("fixed helper command required")
-        self.child = subprocess.Popen(self.argv, env=ENV, cwd=Path(__file__).resolve().parent, stdout=subprocess.PIPE,
-                                      stderr=subprocess.STDOUT, close_fds=True, pass_fds=(ticket,))
+        self.child = _process.spawn_helper(self.argv, root, ticket)
         os.set_blocking(self.child.stdout.fileno(), False)
         output = _helper_output(self.child)
         got, self.status, self.usage = os.wait4(self.child.pid, 0)

@@ -1,17 +1,28 @@
 """Linux-only finite Python worker candidate; all product execution is disabled."""
+import os
+import resource
+import sys
+import math
+
+_IS_WORKER = len(sys.argv) == 4 and sys.argv[1] == '--worker'
+if __name__ == '__main__' and _IS_WORKER:
+    _worker_cpu = float(sys.argv[3])
+    if not 0 < _worker_cpu <= 2:
+        raise SystemExit('fixed worker CPU required')
+    resource.setrlimit(resource.RLIMIT_AS, (128 * 1024 * 1024,) * 2)
+    resource.setrlimit(resource.RLIMIT_CPU, (math.ceil(_worker_cpu + .25),) * 2)
+    resource.setrlimit(resource.RLIMIT_FSIZE, (0, 0))
+    resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+
 import fcntl
 import hashlib
+import importlib.machinery
+import importlib.util
 import json
-import math
-import marshal
-import os
 from pathlib import Path
-import resource
 import select
 import signal
-import subprocess
 import stat
-import sys
 import time
 
 AS_BYTES = 128 * 1024 * 1024
@@ -24,6 +35,29 @@ ACTIONS = ("ok", "nonzero", "burn", "flood")
 SOURCE = Path(__file__).absolute()
 SOURCE_BYTES = globals().get("_SOURCE_BYTES") or SOURCE.read_bytes()
 FRESH_ENTRY = globals().get("_FRESH_ENTRY", False)
+
+
+class _SupportLoader(importlib.machinery.SourceFileLoader):
+    def get_code(self, fullname):
+        data = Path(self.path).read_bytes()
+        if len(data) > 65536:
+            raise ValueError('fixed support source cap')
+        return compile(data, self.path, 'exec', dont_inherit=True, optimize=sys.flags.optimize)
+
+
+def _load_support():
+    path = SOURCE.with_name('dal425-controlled-process.py')
+    loader = _SupportLoader('dal425_fixed_process', str(path))
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[loader.name] = module
+    loader.exec_module(module)
+    return module
+
+
+if not _IS_WORKER:
+    _process = _load_support()
+    _code_data = _process.code_data
 
 
 def _module_files():
@@ -250,16 +284,20 @@ def _ledger_balance(allocation, used, pending):
         raise ValueError("overdrawn ledger")
 
 
-def _argv(action, fd=3):
-    return [str(Path(sys.executable).resolve()), "-I", "-S", "-B", "/proc/self/fd/" + str(fd), "--worker", action]
+def _argv(action, fd=3, cpu=.2):
+    return ['/usr/bin/python3', "-I", "-S", "-B", "/proc/self/fd/" + str(fd), "--worker", action, str(cpu)]
 
 
 def _valid_argv(argv, action):
-    if type(argv) is not list or len(argv) != 7 or type(argv[4]) is not str:
+    if type(argv) is not list or len(argv) != 8 or type(argv[4]) is not str:
         return False
     prefix = "/proc/self/fd/"
     suffix = argv[4].removeprefix(prefix)
-    return suffix.isdecimal() and int(suffix) >= 3 and argv == _argv(action, int(suffix))
+    try:
+        cpu = float(argv[7])
+    except (TypeError, ValueError):
+        return False
+    return suffix.isdecimal() and int(suffix) >= 3 and 0 < cpu <= 2 and argv == _argv(action, int(suffix), cpu)
 
 
 def _snapshot():
@@ -332,13 +370,6 @@ def _child_cpu(pid):
     return _stat(pid)[1]
 
 
-def _limits(cpu):
-    resource.setrlimit(resource.RLIMIT_AS, (AS_BYTES, AS_BYTES))
-    resource.setrlimit(resource.RLIMIT_CPU, (math.ceil(cpu + MARGIN), math.ceil(cpu + MARGIN)))
-    resource.setrlimit(resource.RLIMIT_FSIZE, (0, 0))
-    resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
-
-
 def _drain(fd, captured, cap):
     while True:
         try:
@@ -370,11 +401,9 @@ def _stop(pid, starttime, pidfd):
 
 def _spawn(root, action, cpu):
     snapshot = _snapshot()
-    argv = _argv(action, snapshot)
+    argv = _argv(action, snapshot, cpu)
     try:
-        proc = subprocess.Popen(argv, cwd=root, env=ENV, stdin=subprocess.DEVNULL,
-                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                preexec_fn=lambda: _limits(cpu), close_fds=True, pass_fds=(snapshot,))
+        proc = _process.spawn_worker(argv, root, snapshot)
     except BaseException as error:
         try:
             os.close(snapshot)
@@ -660,12 +689,11 @@ def _loaded_codes():
                     yield method.__code__
 
 
-_IS_WORKER = len(sys.argv) == 3 and sys.argv[1] == "--worker" and sys.argv[2] in ACTIONS
 _IDENTITY = None if _IS_WORKER else {"source":hashlib.sha256(SOURCE_BYTES).hexdigest(),
-             "loaded_code":hashlib.sha256(b"".join(marshal.dumps(code) for code in _loaded_codes())).hexdigest(),
+             "loaded_code":hashlib.sha256(json.dumps([_code_data(code) for code in _loaded_codes()], sort_keys=True).encode()).hexdigest(),
              "runtime":hashlib.sha256(json.dumps(_runtime(), sort_keys=True).encode()).hexdigest()}
 
 if __name__ == "__main__":
-    if len(sys.argv) == 3 and sys.argv[1] == "--worker" and sys.argv[2] in ACTIONS:
+    if _IS_WORKER and sys.argv[2] in ACTIONS:
         raise SystemExit(_worker(sys.argv[2]))
     raise SystemExit("Use the fixed private launcher; product/compiler modes disabled")

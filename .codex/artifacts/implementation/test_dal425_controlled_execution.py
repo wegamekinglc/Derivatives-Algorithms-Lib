@@ -78,7 +78,7 @@ class StaticTests(unittest.TestCase):
         if wait_error:
             responses = [OSError("wait injection"), OSError("wait cleanup injection")]
         with ExitStack() as stack:
-            stack.enter_context(patch.object(TOOL.subprocess, "Popen", return_value=proc))
+            stack.enter_context(patch.object(TOOL._process, "spawn_worker", return_value=proc))
             stack.enter_context(patch.object(TOOL, "_stat", side_effect=OSError("stat injection") if stat_error else None, return_value=("1234",0.)))
             stack.enter_context(patch.object(TOOL.os, "pidfd_open", side_effect=OSError("pidfd unavailable"), create=True))
             stack.enter_context(patch.object(TOOL.os, "set_blocking"))

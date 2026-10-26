@@ -87,7 +87,7 @@ class ProfileTest(unittest.TestCase):
             with patch.dict(TOOL.os.environ, TOOL.ENV, clear=True), \
                     patch.object(TOOL, "startup_profile", return_value={}), \
                     patch.object(TOOL.time, "monotonic", return_value=0), \
-                    patch.object(TOOL.subprocess, "Popen", side_effect=OSError("observer interrupted")) as launch:
+                    patch.object(TOOL._process, "spawn_helper", side_effect=OSError("observer interrupted")) as launch:
                 with self.assertRaisesRegex(OSError, "observer interrupted"):
                     TOOL._outer("profile", root)
                 self.assertEqual(launch.call_count, 1)
@@ -117,7 +117,7 @@ class ProfileTest(unittest.TestCase):
                         patch.object(TOOL.time, "monotonic", return_value=0), \
                         patch.object(TOOL, "OneShot") as attempt, \
                         patch.object(TOOL.os, "memfd_create", side_effect=capture), \
-                        patch.object(TOOL.subprocess, "Popen") as launch:
+                        patch.object(TOOL._process, "spawn_helper") as launch:
                     attempt.return_value.write.side_effect = OSError("ticket persistence")
                     with self.assertRaisesRegex(OSError, "ticket persistence"):
                         TOOL._outer("profile", root)
@@ -160,7 +160,7 @@ class ProfileTest(unittest.TestCase):
 
     def test_nonfixed_helper_argv_is_zero_dispatch(self):
         helper = TOOL._OuterHelper(["shell"])
-        with patch.object(TOOL.subprocess, "Popen") as launch:
+        with patch.object(TOOL._process, "spawn_helper") as launch:
             with self.assertRaisesRegex(ValueError, "fixed helper command"):
                 helper.collect("profile", Path("/unused"), 3)
             launch.assert_not_called()
@@ -199,7 +199,7 @@ class ProfileTest(unittest.TestCase):
             with patch.dict(TOOL.os.environ, TOOL.ENV, clear=True), \
                     patch.object(TOOL, "startup_profile", return_value={}), \
                     patch.object(TOOL.time, "monotonic", return_value=0), \
-                    patch.object(TOOL.subprocess, "Popen", return_value=child), \
+                    patch.object(TOOL._process, "spawn_helper", return_value=child), \
                     patch.object(TOOL.os, "set_blocking"), \
                     patch.object(TOOL, "_helper_output", return_value=b'{"profile":{}}'), \
                     patch.object(TOOL.signal, "signal"), patch.object(TOOL.signal, "setitimer"), \

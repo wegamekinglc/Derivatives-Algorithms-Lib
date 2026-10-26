@@ -1,40 +1,56 @@
-Current worker-free startup/outer candidate: see [dal425-controlled-profile.md](dal425-controlled-profile.md). The inner-tool revision below retains its reviewed scope and historical limitations.
+# DAL-451 finite synthetic execution support
 
-DAL-451 / DAL-425: private support repair candidate
+This private candidate permits fixed synthetic controls only. Product, compiler,
+DAL, MC and RNG entry points are disabled. A local completion never authorizes a
+successor or establishes facility, H_exact/H_exclude or financial qualification.
+Historical failures, missing receipts, held allocations and G2 evidence remain
+historical; no reservation is refunded or reconstructed.
 
-Status: PARTIAL / UNQUALIFIED. Product, compiler, CMake, DAL, MC, RNG and historical-binary execution remain disabled. No author test sets a facility gate, H_exact, H_exclude or any of the four financial global flags true. The G2 JSON is unchanged at 412568 bytes, SHA256 406e11c66fb34041cbcdb9bf1c93dfcf28f59d45ed8efd4962baca28d11ef3cd.
+The launcher installs 128 MiB AS, CPU 2/3, one MiB file, zero core and 32 descriptor
+limits before loading sealed source in the same fresh isolated interpreter.
+Use literal `/usr/bin/python3 -I -S -B`, the fixed environment
+`{LC_ALL:C,TZ:UTC}` and a private 0700 root. It accepts only `init`/`run` and
+`ok`, `nonzero`, `burn`, `deadline`, `flood`. The captured source and loaded code
+have separate identities. Imports and mapped runtime files retain the ordinary
+fixed-host, faithful-loader and no-concurrent-mutation assumptions.
 
-This revision repairs the private tool from 88a29dbc10c3fa385a12b24637493c916487930b. The original S0f failures, two missing final worker receipts and full 120/120 hold remain historical UNKNOWN. Their logs/report remain in the original issue attachments and Git history. New controls do not repair those past receipts.
+The supervisor creates at most one fixed worker using the shared process module.
+That module validates its sealed source, fixed absolute interpreter/flags,
+action, CPU request and inherited cwd. Explicit spawn actions pass only the
+sealed source and standard streams; other file descriptors are closed. The
+worker lowers AS/CPU/file/core limits before ordinary imports. There is no shell,
+arbitrary script, inherited interpreter selection or Python pre-exec callback.
+The conditional two-process address-space sum remains 256 MiB; this is not a proof
+of total RSS, startup cost or cumulative tree consumption.
 
-The only added program is dal425-controlled-launch.py in this directory. It installs AS, hard CPU, file-size, core and descriptor limits before re-executing a fresh isolated supervisor from sealed memfd source. The supervisor launches at most one fixed Python worker from a second sealed source snapshot. No shell, arbitrary script, plugin, subprocess tree or compiler mode is accepted. The source hash describes the immutable bytes used for both executions; loaded supervisor bytecode also has a digest. The runtime manifest covers the interpreter, loaded module files and inode/device-checked mapped libraries. Only the fixed entry may call run; importing into an existing interpreter does not qualify it.
+Initialization writes one exclusive LF-terminated schema 2 synthetic allocation.
+Its exact keys and limits remain enforced by the execution module. The run path
+validates allocation/reserve/settle order, exact integer/finite types, complete
+identity/cwd/environment/action bindings, output bounds and real wait status.
+Ledgers are private regular owner files with stable lstat/fstat identity.
+Nonblocking locks are bounded by the reservation deadline.
 
-Usage is limited to synthetic qualification controls under an independent foreground guard. With an existing private directory owned by the caller (mode 0700), initialize exactly once:
+A permanent pending marker is fsynced before reservation or dispatch. It is never
+removed after failure or success; prior attempts prevent recovery even if a
+marker goes missing. Short writes, fsync/parse/meter failures and partial records
+cannot grant restart. Preserve old roots, ledgers and markers. The tool provides
+no durable successor acknowledgment or real allocation transfer.
 
-```sh
-python3 -I -S -B .codex/artifacts/implementation/dal425-controlled-launch.py init <private-directory> ok
-python3 -I -S -B .codex/artifacts/implementation/dal425-controlled-launch.py run <same-directory> ok
-```
+Only `got == owned_pid` establishes a final wait4. WNOHANG zeroes are not usage
+receipts. Cleanup retains known results, closes owned resources independently
+and refuses a changed captured PID identity. The dispatcher also reaps a child
+if parent descriptor cleanup fails immediately after creation. Output, CPU and
+wall stopping retain their finite scheduling, tick and I/O assumptions; inner
+receipts exclude the final outer publication/exit tail.
 
-Other fixed control names are nonzero, burn, deadline and flood. Initialize each independent synthetic fixture for its selected control; never create a fresh ledger to retry or evade a real reservation. The init command uses O_EXCL and cannot overwrite a ledger. These commands are candidate controls, not authorization for subsequent engineering/product work.
+Code identity uses recursive deterministic JSON code data, including nested code
+and canonical frozensets, rather than executable-object serialization. The
+shared process source is a dependency and requires independent acceptance along
+with the revised launcher/execution/profile sources. Previous profiles and
+compiled/live inventories cannot be reused as current identities.
 
-Initialization writes one LF-terminated JSON allocation row with exactly these fields: kind="allocation", schema=2, domain="synthetic", product_actual=0, wall=10.0 seconds, cpu=10.0 core-seconds, bytes=1048576, units=100, original_allocation="UNKNOWN", identity={source,loaded_code,runtime} (three 64-character SHA256 strings), cwd=<absolute private directory>, env={LC_ALL:"C",TZ:"UTC"}, action=<selected worker action>. deadline selects action burn. The init output retains the expanded runtime manifest. Synthetic units are unrelated to the real 10000-product allocation. The fixed caller/outer engineering window must separately hold initialization, hashing, launch, final persistence and packaging costs before invoking this mode.
-
-Reservations never refund wall, CPU, units or bytes. The tool verifies allocation/reserve/settle order, exact keys, finite nonnegative actuals, integer fields, identity/cwd/env/action binding, output limits, real exit/wait status, unique final wait4 and actual CPU/wall/RSS within the reservation. Missing fields, duplicated JSON keys/records, malformed identities, reordered rows, pending/partial records and excessive actuals reject recovery. Ledgers must be private ordinary files with matching lstat/fstat device/inode, owner, mode and link count; FIFO, symlink and other nonregular paths are rejected before open. O_NONBLOCK/O_NOFOLLOW protect the open race. Trust boundary: one trusted writer in the private directory; this is not a sandbox against a malicious same-UID writer.
-
-Before any reservation or child launch, the tool creates and fsyncs a permanent pending marker and fsyncs its directory. Reserve and settle writes occur only afterwards. Short writes, fsync errors, meter exceptions and process exits therefore cannot turn a visible complete row into restart permission. The marker is deliberately never cleared, including after success. The candidate also refuses any prior attempt even if the marker is missing. Preserve the directory/ledger/marker and failure evidence; do not truncate, delete, reconstruct or clear them to retry. A safe durable acknowledgement/continuation protocol is NOT implemented. Complete means this child exited successfully with a receipt; it does not grant a successor.
-
-Lifecycle uses got==pid as the sole reaping condition. WNOHANG zero-usage values are not receipts. First-stat failure, early exit, unavailable pidfd, interrupted wait, stop/close exceptions and unreaped states retain explicit errors/UNKNOWN; cleanup attempts bounded kill/reap and independent pipe/source/pidfd closes. Only the unreaped direct child owned by this single-thread supervisor may be signalled; a captured starttime mismatch refuses signalling, while pidfd or unreaped-child ownership covers first-stat failure. No executable-name kill or daemon/foreign-process scan is used. Missing final wait4 prevents continuation.
-
-Lock acquisition is nonblocking and bounded by the attempt deadline. CPU/wall checks surround preparation, ledger parsing, reserve persistence and Popen. The supervisor has a CPU timer and hard CPU limit; polling sums supervisor process_time plus live child ticks, and settlement uses the single final child wait4 without adding RUSAGE_CHILDREN again. Normal scheduling, 1 ms polling, kernel tick granularity and .25-second cleanup/persistence allowance are explicit assumptions, not an OS real-time theorem. The standalone launcher/root overhead is separate from the inner receipt and must remain charged to the outer allocation. The inner receipt is taken before final append/fsync/printing; it is not a full outer cost certificate.
-
-The launcher uses 128 MiB RLIMIT_AS before fresh supervisor exec and checks existing mapping size, hard limits, single thread and no existing children before spawning. The worker receives the same AS limit before exec. Conditional on the fixed startup/dependency closure, the two fresh processes then have a 256 MiB address-space sum; this is NOT a proof of total run RSS or an assertion that lowering AS reclaims old mappings. The outer observer and interpreter/stdlib startup before the launcher are still outside that proof. Recorded worker RSS and sampler values are observations only.
-
-Inner byte checks prehold one 8192-byte reserve row, 16384 bytes for settlement/partial, a bounded marker and at most 4096 captured pipe bytes; worker regular-file/core output is zero. The repair harness later preheld 256 MiB for 40 numbered source/log pairs, at most 64 one-MiB synthetic fixtures, fixed source/docs, metadata and a bounded package, with no overwrite/deletion refunds. Its earlier source/fixture writes were not under that same byte protocol. Complete original-source generation/outer log/meter/package write-before-byte accounting is therefore still UNQUALIFIED; this candidate does not establish the whole 2 GiB closure.
-
-Data-only verification: python3 -I -S -B .codex/artifacts/implementation/test_dal425_controlled_execution.py -v, 22 tests pass. Focused RED witnesses preceded fixes for zero-usage reaping, forged complete, settlement fsync recovery, malformed allocation identity and an action escaping its allocation. Fault tests never start workers; injected wait4 tuples are synthetic fixtures, not actual usage evidence. unittest fails fast. The old unsafe 9-worker suite was not rerun.
-
-Real worker qualification controls are executed one at a time under a separate subreaper with a finite foreground deadline. The outer guard owns the test process group, reaps every direct/adopted child and permanently stops subsequent legs on escaped-child collection or timeout. Each case preserves fixed argv, identity, worker exit/wait4/wall/CPU/RSS and outer wait4. The final-source controls are ok=>exit0/complete; nonzero=>exit7/partial; burn=>CPU stop/-9; deadline=>wall stop/-9; flood=>output stop/-9 with one byte retained. Burn/deadline must retain ready\n before stopping, proving the loop was entered. Earlier bounded controls and failures remain separate evidence and charged to the same allocation.
-
-Remaining cut-point: there is no durable successor acknowledgement, and module-file/runtime hashes do not yet prove immutable loaded stdlib/pyc/startup closure. The fresh source/entry checks narrow this gap but do not close it. Full observer/bootstrap/serialization/exit-tail and cumulative bytes also remain UNKNOWN. Do not run a successor, compiler or product mode based on these controls. A reviewer must assess direct deltas; current-head required repository CI remains a coordinator dependency. No native/product/performance matrix is appropriate to these private support files. No CI scan/watch, merge or review submission occurred. All original financial thresholds, six intervals, seeds, fixtures, models and old FAILs remain unchanged.
-
-Resources: the new repair allocation retains all 120 wall/120 core seconds, zero products. Parent unallocated balance remains 240 wall/core and 10000 products. All historical holds/UNKNOWN remain; original cumulative 5-hour compliance is not asserted. Per-leg observations are subsets and cannot refund held allocation or certify the complete boundary.
+Run the direct execution and dispatch tests for affected behavior. Ordinary
+fault controls mock process state; the dispatch tests additionally observe only
+fixed worker exit 0/7 and synthetic launcher initialization. Their receipts do not
+qualify products, future profiles or the whole resource boundary. No native or
+financial performance matrix applies to these private Python changes.

@@ -1,63 +1,51 @@
-# DAL-451 controlled support: Codacy repair candidate
+# DAL-451 controlled dispatch repair
 
-The private caller, execution and profile tools separate allocation validation,
-ledger transitions, process observation and cleanup into focused operations.
-The complexity limit remains 8. No checks, analyzed paths or scanner rules are
-disabled. The caller's refusal order, permanent pending markers, held allocations
-and one-shot output slots remain in force.
+The ten security annotations on PR #648 head `5c53230b` are addressed in source.
+No rule, threshold, analyzed path or repository gate is disabled. Local Bandit
+reproduces the five import/process warnings on that head and reports zero on
+the revised four production modules. Semgrep's public Python rules report zero
+on the revised modules; that rule bundle also reports zero on the old source,
+so it is additional checking, not reproduction of Codacy's five critical rules.
+The new remote Codacy result remains a separate exact-head check after push.
 
-Profile imports use a `SourceFileLoader` subclass that returns code compiled from
-bounded captured source bytes. Standard `exec_module` performs module loading;
-there are no direct `exec` calls in the profile tool. The fixed execution module
-uses the same captured bytes for its loaded source and identity. Imported source
-bypasses bytecode caches, and a valid stale cache control checks this behavior.
-Initial startup modules use the explicit standard CPython loader to check cache
-code against source, with the existing fixed-host, faithful-loader and no
-concurrent mutation assumptions. That standard loader still interprets trusted
-local bytecode internally; this does not make untrusted caches safe.
+Worker and profile-helper creation share a fixed dispatch module. Both factories
+require literal `/usr/bin/python3`, isolated startup flags, the fixed worker
+source or profile entry, permitted modes, a private root and sealed descriptors.
+Worker source bytes must match the fixed source file; helper tickets bind the
+parent PID, mode, root and source hash before any spawn. No interpreter path is
+selected from `sys.executable`, PATH or an input command.
 
-The execution identity includes methods of its local lifecycle class as well as
-module functions. New sources require new identity/profile evidence; older
-worker results cannot qualify this implementation. Product and compiler entry
-points remain disabled. This repair executes no synthetic worker, DAL product,
-RNG, MC, normal or probe, and does not consume the historical S0L grant.
+`posix_spawn` receives explicit descriptor actions: null stdin, a bounded pipe
+for stdout/stderr, only declared sealed inputs retained, and other open
+descriptors closed. The worker applies AS, CPU, file-size and core limits before
+its ordinary imports. There is no Python `preexec_fn`. The original parent owns
+the child PID and its final wait4; process creation adds no observer layer. If
+closing parent descriptors fails after spawn, the dispatcher closes the pipe,
+stops and reaps that owned child, retaining the raw wait result in the exception.
 
-The worker dispatch boundary now rejects nonfixed actions itself. The profile
-helper validates its exact generated argv before `Popen`. Failed ticket
-persistence closes its owned descriptor before any dispatch. A reaped profile
-helper is not waited for again after logging fails; when the partial slot remains
-writable its known wait4 values are included in that partial record. Persistent
-I/O failure can still prevent a receipt from reaching disk and remains UNKNOWN.
+The isolated launcher loads its sealed source with the standard source-loader
+protocol in the same limited interpreter. It does not build an exec command or
+start an additional supervisor process. The existing single-thread, mapping,
+identity and two-process limits still apply. It requires `-I -S -B` and the fixed
+environment explicitly.
 
-The original 29 annotations are mapped individually in
-`dal425-codacy-annotation-map.json`. Eleven complexity findings have local
-same-tool, same-threshold RED and GREEN evidence. Eight annotations refer to the
-removed profile `exec`/direct `marshal.loads` calls. Ten annotations remain for
-review: subprocess imports, two fixed `Popen` sites, the fixed launcher `execve`
-and `marshal.dumps` of locally created code objects. Serialization does not read
-or deserialize an input and does not use dill. The launcher's unchanged literal
-bootstrap executes the sealed fixed source; it still contains an explicit exec.
-No waiver, security-rule exemption or current-head Codacy success is asserted.
+Code identity uses a shared recursive JSON fingerprint of bytecode, constants,
+names, argument/local/free/cell variables, flags, filename/line metadata and
+exception tables. Frozensets have canonical ordering. No marshal/dill/pickle
+serialization or deserialization remains. Profile and execution use the same
+fingerprint implementation; their support source is loaded without cached code.
 
-The remaining process calls serve the existing finite lifecycle and limit
-protocol. They use explicit argv, absolute interpreter/fixed source paths,
-explicit environment and cwd, no shell, bounded output, owned-child reaping and
-sealed source or ticket descriptors. The caller assumes a trusted private root,
-fixed host and single writer. This is not a general untrusted-code sandbox.
+Focused RED witnesses cover the inherited interpreter path, missing canonical
+fingerprint, a forged sealed helper ticket and lost child ownership after a
+parent close failure. GREEN includes the existing execution/profile/caller
+controls and eight new dispatch controls. The latter run the fixed zero/nonzero
+workers and sealed launcher init in fresh synthetic test fixtures, retaining
+their complete final wait4 values. These are regression tests, not a real shared
+allocation, profile acceptance or financial qualification.
 
-Verification selects all three affected data/mock suites: caller 8, execution 23,
-profile 15. The unchanged caller fixture retains both separate 0700 root checks
-and the 0755 permission rejection, with its markers preserved. Tests inject
-process and wait4 results; those values are fixtures, not observed worker usage.
-The outer timeout, GNU time receipts, initial RED output, intermediate failures,
-final commands and source/tool identities are delivered with the issue report.
-
-No public API or financial behavior changed, so no public documentation, native
-build, numerical or benchmark matrix is selected. The changed process lifecycle
-needs independent review to select any permitted minimal real-worker control;
-mock GREEN does not confer runtime qualification. Complete resource closure,
-current allocation integration, history exclusion and product experiments remain
-separate obligations. H_exact/H_exclude, facility qualification and all four
-financial qualification flags remain false. All historical holds and UNKNOWNs
-remain without refund. Current-head CI and gate disposition belong to the
-coordinator after independent review.
+The revised source and runtime identities require fresh independent acceptance;
+old compiled/live/profile evidence does not qualify this head. Permanent old
+markers, G2 history, allocations, FAIL and UNKNOWN are preserved. Facility,
+H_exact/H_exclude and all financial flags remain false. No public API, DAL build,
+numerical experiment or performance algorithm changes, so native/MC/benchmark
+matrices are outside this private Python repair.
