@@ -282,6 +282,17 @@ def test_native_clean_git_identity_rejects_invalid_provenance(monkeypatch, ident
         native_queries.clean_git_identity()
 
 
+def test_ci_checkouts_are_ignored_for_native_provenance():
+    gitignore = (native_queries.REPO / ".gitignore").read_text(encoding="utf-8")
+    for directory in (
+        "benchmark-base",
+        "benchmark-baseline-aa",
+        "benchmark-head-aa",
+        "benchmark-infine-source",
+    ):
+        assert f"/{directory}/" in gitignore
+
+
 def test_native_quantlib_source_identity_is_pinned_and_clean(tmp_path, monkeypatch):
     commands = []
     outputs = iter((native_queries.QUANTLIB_REVISION + "\n", ""))
