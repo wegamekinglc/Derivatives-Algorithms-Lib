@@ -9,6 +9,7 @@ import statistics
 from dal_benchmarks.harness import require
 from .scenarios import (
     CONVENTIONS,
+    PYTHON_CONVENTIONS,
     cases,
     expected,
     method,
@@ -97,7 +98,8 @@ def check_report(report, backend, smoke, hashes, case_names=None):
     require(
         report["source_hashes"] == hashes, "comparison source changed during sampling"
     )
-    require(report["conventions"] == CONVENTIONS, "comparison conventions changed")
+    conventions = CONVENTIONS if backend == "infine" else PYTHON_CONVENTIONS
+    require(report["conventions"] == conventions, "comparison conventions changed")
     inventory = cases(smoke)
     if case_names:
         selected = set(case_names)

@@ -17,7 +17,7 @@ from .evidence import (
     timings,
     write_json,
 )
-from .scenarios import CONVENTIONS, cases, expected, method, unsupported_reason
+from .scenarios import PYTHON_CONVENTIONS, cases, expected, method, unsupported_reason
 from .suite import BACKENDS
 
 
@@ -335,7 +335,7 @@ def run(args):
         "smoke": args.smoke,
         "samples_per_round": args.samples,
         "warmups": 2,
-        "conventions": CONVENTIONS,
+        "conventions": PYTHON_CONVENTIONS,
         "backends": list(args.backends),
         "case": list(args.case),
         "source_hashes": source_hashes(),

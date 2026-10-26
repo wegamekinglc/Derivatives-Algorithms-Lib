@@ -24,7 +24,7 @@ RISK_METHODS = {
     "rateslib": "forward AD (Dual)",
     "infine": "central finite difference",
 }
-CONVENTIONS = {
+PYTHON_CONVENTIONS = {
     "valuation_date": TODAY.isoformat(),
     "currency": "USD",
     "day_count": DAY_COUNT,
@@ -37,7 +37,9 @@ CONVENTIONS = {
     "risk": "(PV(zero + 1bp) - PV(zero - 1bp)) / 2",
     "risk_curve_construction": "excluded; both shifted curves prepared before timing",
     "node_risk": "dPV/dzero_i * 1bp; 21 non-anchor nodes; trade-major/node-date order",
-    "node_risk_methods": RISK_METHODS,
+    "node_risk_methods": {
+        backend: method for backend, method in RISK_METHODS.items() if backend != "infine"
+    },
     "node_risk_fd_step": NODE_BUMP,
     "node_risk_construction": "excluded; AD curve or 42 shifted curves prepared before timing",
     "cache_policy": "QuantLib swap NPV forced recalculation; unchanged floating coupons may stay cached; rateslib curve_caching=False",
@@ -50,12 +52,18 @@ CONVENTIONS = {
     "output": "one float per query/trade; node risk: 21 floats per trade, in node-date order",
     "node_dates": [date.isoformat() for date in NODES],
     "node_log_dfs": LOG_DFS,
-    "monte_carlo": option_scenarios.CONVENTIONS,
+    "monte_carlo": option_scenarios.PYTHON_CONVENTIONS,
     "early_exercise": exercise_scenarios.CONVENTIONS,
     "calibration": calibration_scenarios.CONVENTIONS,
-    "gaussian_short_rate": gsr_scenarios.CONVENTIONS,
-    "infine": infine.CONVENTIONS,
+    "gaussian_short_rate": gsr_scenarios.PYTHON_CONVENTIONS,
 }
+CONVENTIONS = dict(
+    PYTHON_CONVENTIONS,
+    node_risk_methods=RISK_METHODS,
+    monte_carlo=option_scenarios.CONVENTIONS,
+    gaussian_short_rate=gsr_scenarios.CONVENTIONS,
+    infine=infine.CONVENTIONS,
+)
 
 
 def cases(smoke=False):

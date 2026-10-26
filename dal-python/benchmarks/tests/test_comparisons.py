@@ -17,7 +17,7 @@ from dal_comparisons.scenarios import (
 from dal_comparisons.suite import prepare
 from dal_comparisons import compare
 from dal_comparisons.evidence import SCHEMA, check_report, source_hashes
-from dal_comparisons.scenarios import CONVENTIONS
+from dal_comparisons.scenarios import CONVENTIONS, PYTHON_CONVENTIONS
 
 
 @pytest.mark.parametrize("backend", ["dal", "quantlib", "rateslib"])
@@ -113,14 +113,15 @@ def worker_row(backend, case, duration):
     )
 
 
-def worker_report(backend="dal", duration=100):
+def worker_report(backend="dal", duration=100, inventory=None):
+    selected = cases(smoke=True) if inventory is None else inventory
     return {
         "schema": SCHEMA,
         "backend": backend,
         "status": "passed",
         "smoke": True,
         "source_hashes": source_hashes(),
-        "conventions": copy.deepcopy(CONVENTIONS),
+        "conventions": copy.deepcopy(PYTHON_CONVENTIONS),
         "versions": {"version": "fixed"},
         "backend_files": {"library": backend},
         "environment": {
@@ -129,7 +130,7 @@ def worker_report(backend="dal", duration=100):
             "python": "3.13",
             "thread_environment": {},
         },
-        "results": [worker_row(backend, case, duration) for case in cases(smoke=True)],
+        "results": [worker_row(backend, case, duration) for case in selected],
     }
 
 
@@ -158,6 +159,25 @@ def test_invalid_worker_evidence_fails(mutate):
     mutate(report)
     with pytest.raises(ValueError):
         check_report(report, "dal", True, source_hashes())
+
+
+def test_python_reports_exclude_native_only_infine_conventions(tmp_path, monkeypatch):
+    inventory = cases(smoke=True)[:1]
+
+    def invoke(_args, backend, _directory, _hashes):
+        return worker_report(backend, inventory=inventory)
+
+    monkeypatch.setattr(compare, "invoke", invoke)
+    args = smoke_args(tmp_path)
+    args.case = ["discount_queries"]
+    assert compare.run(args) == 0
+    report = json.loads((args.output_dir / "results.json").read_text())
+    assert "infine" not in json.dumps(report["conventions"]).lower()
+
+    stale = worker_report(inventory=inventory)
+    stale["conventions"] = copy.deepcopy(CONVENTIONS)
+    with pytest.raises(ValueError, match="conventions"):
+        check_report(stale, "dal", True, source_hashes(), args.case)
 
 
 @pytest.mark.parametrize("option", ["--samples", "--rounds"])

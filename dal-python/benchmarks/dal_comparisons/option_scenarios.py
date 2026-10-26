@@ -12,18 +12,23 @@ SPOT, VOL, RATE, DIVIDEND = 100.0, 0.2, 0.03, 0.01
 STRIKE, BARRIER = 100.0, 130.0
 YEARS = 364 / 365
 BUMPS = (1.0, 0.01, 0.01)
-CONVENTIONS = {
+PYTHON_CONVENTIONS = {
     "model": "Black-Scholes; S=K=100, vol=0.2, r=0.03, q=0.01",
     "dates": [TODAY.isoformat(), MATURITY.isoformat()],
     "day_count": DAY_COUNT,
     "barrier": "up-and-out call, H=130, zero rebate; 52 weekly observations including maturity",
-    "sampling": "Sobol: DAL initial point 0, QuantLib seed 42, InFine point 1; no Brownian bridge or antithetics; generators restart per valuation",
+    "sampling": "Sobol: DAL initial point 0, QuantLib seed 42; no Brownian bridge or antithetics; generators restart per valuation",
     "greeks": "PV, Delta, Vega, Rho; derivatives per unit spot/decimal vol/decimal rate",
     "bumps": list(BUMPS),
-    "methods": "DAL vanilla: reverse AAD; InFine vanilla: hand-written reverse adjoint; other Greeks: central differences with common random numbers; barrier reference uses identical finite bumps",
+    "methods": "DAL vanilla: reverse AAD; other Greeks: central differences with common random numbers; barrier reference uses identical finite bumps",
     "boundary": "fresh product/model/engine construction, preprocessing, simulation and output conversion; oracle excluded",
     "oracle": "vanilla analytic Black-Scholes; discrete barrier Gaussian transition quadrature; field-specific MC tolerances",
 }
+CONVENTIONS = dict(
+    PYTHON_CONVENTIONS,
+    sampling="Sobol: DAL initial point 0, QuantLib seed 42, InFine point 1; no Brownian bridge or antithetics; generators restart per valuation",
+    methods="DAL vanilla: reverse AAD; InFine vanilla: hand-written reverse adjoint; other Greeks: central differences with common random numbers; barrier reference uses identical finite bumps",
+)
 
 
 def cases(smoke=False):

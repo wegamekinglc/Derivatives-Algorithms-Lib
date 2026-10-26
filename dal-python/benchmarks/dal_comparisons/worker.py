@@ -7,7 +7,7 @@ import sys
 
 from dal_benchmarks.harness import Case, Workload, measure, require
 from .evidence import SCHEMA, backend_files, package_versions, source_hashes, write_json
-from .scenarios import CONVENTIONS, cases, method, unsupported_reason
+from .scenarios import PYTHON_CONVENTIONS, cases, method, unsupported_reason
 from .suite import prepare
 
 
@@ -68,7 +68,7 @@ def run(args):
         "status": "passed",
         "backend": args.worker,
         "smoke": args.smoke,
-        "conventions": CONVENTIONS,
+        "conventions": PYTHON_CONVENTIONS,
         "source_hashes": source_hashes(),
         "versions": versions,
         "backend_files": files,
