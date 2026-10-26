@@ -18,11 +18,13 @@ The supervisor creates at most one fixed worker using the shared process module.
 That module validates its sealed source, fixed absolute interpreter/flags,
 action, CPU request and inherited cwd. Explicit spawn actions pass only the
 sealed bootstrap, bounded JSON payload, source and standard streams; other
-file descriptors are closed. The OS vector is literal and runtime arguments
-never enter it. Receipts separately bind that vector, logical intent and the
-bootstrap/payload hashes. The
+file descriptors are closed. A single-thread guard verifies the isolated fixed
+parent interpreter and mapping bound before fork. Receipts bind this inherited
+runtime contract, logical intent and bootstrap/payload hashes. The
 worker lowers AS/CPU/file/core limits before ordinary imports. There is no shell,
 arbitrary script, inherited interpreter selection or Python pre-exec callback.
+The child inherits the verified parent runtime and starts a newly loaded sealed
+entry. Its startup profile needs independent acceptance for this fork context.
 The conditional two-process address-space sum remains 256 MiB; this is not a proof
 of total RSS, startup cost or cumulative tree consumption.
 

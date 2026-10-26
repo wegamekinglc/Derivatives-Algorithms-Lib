@@ -3,7 +3,7 @@
   "issue": "DAL-451",
   "starting_head": "24879647cdc086c7e8a34394896400c21ff081cf",
   "threshold": 8,
-  "current_head_Codacy_result": "pending_after_literal_command_followup_push",
+  "current_head_Codacy_result": "pending_after_guarded_fork_followup_push",
   "no_rule_or_path_suppression": true,
   "annotations": [
     {
@@ -180,7 +180,7 @@
         "message": "Detected subprocess function 'Popen' without a static string.",
         "raw_details": null
       },
-      "disposition": "validated_fixed_posix_spawn_sealed_input_and_descriptor_actions",
+      "disposition": "guarded_sealed_source_fork_no_external_command",
       "suppression": false,
       "current_function": "_spawn",
       "current_line": null,
@@ -207,7 +207,7 @@
         "message": "subprocess call - check for execution of untrusted input.",
         "raw_details": null
       },
-      "disposition": "validated_fixed_posix_spawn_sealed_input_and_descriptor_actions",
+      "disposition": "guarded_sealed_source_fork_no_external_command",
       "suppression": false,
       "current_function": "_spawn",
       "current_line": null,
@@ -689,7 +689,7 @@
         "message": "Detected subprocess function 'Popen' without a static string.",
         "raw_details": null
       },
-      "disposition": "validated_fixed_posix_spawn_sealed_input_and_descriptor_actions",
+      "disposition": "guarded_sealed_source_fork_no_external_command",
       "suppression": false,
       "current_function": "collect",
       "current_line": null,
@@ -716,7 +716,7 @@
         "message": "subprocess call - check for execution of untrusted input.",
         "raw_details": null
       },
-      "disposition": "validated_fixed_posix_spawn_sealed_input_and_descriptor_actions",
+      "disposition": "guarded_sealed_source_fork_no_external_command",
       "suppression": false,
       "current_function": "collect",
       "current_line": null,
@@ -761,7 +761,8 @@
   "local_verification": {
     "bandit": "1.9.4: five old findings, zero on revised production files",
     "semgrep": "1.180.0 p/python 151 rules: zero on old and revised source; not an exact Codacy critical-rule reproduction",
-    "complexity_limit": 8
+    "complexity_limit": 8,
+    "exact_spawn_audit": "Official registry rule version o5TbD34: previous native API call reproduces one finding; guarded sealed fork yields zero."
   },
   "followup_source_head": "08e971b36b3f0a8771659b635ff96a8673cdaba5",
   "followup_annotations": [
@@ -796,6 +797,25 @@
       },
       "disposition": "literal_native_vector_runtime_arguments_in_sealed_payload",
       "verification": "native command RED/GREEN, recorded OS/intent/bootstrap/payload binding, unchanged scanner rules"
+    }
+  ],
+  "final_audit_source_head": "6176d203e45074da7cc5907f6281271c87daeee4",
+  "final_audit_annotations": [
+    {
+      "original": {
+        "path": ".codex/artifacts/implementation/dal425-controlled-process.py",
+        "blob_href": "https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/6176d203e45074da7cc5907f6281271c87daeee4/.codex/artifacts/implementation/dal425-controlled-process.py",
+        "start_line": 219,
+        "start_column": null,
+        "end_line": 219,
+        "end_column": null,
+        "annotation_level": "failure",
+        "title": ".codex/artifacts/implementation/dal425-controlled-process.py#L219",
+        "message": "Found dynamic content when spawning a process.",
+        "raw_details": null
+      },
+      "disposition": "isolated_single_thread_fork_loads_verified_sealed_source",
+      "verification": "exact upstream audit rule one finding to zero; no waiver or rule changes"
     }
   ]
 }

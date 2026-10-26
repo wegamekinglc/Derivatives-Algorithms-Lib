@@ -1,11 +1,14 @@
 import errno
 import fcntl
 import hashlib
+import importlib.machinery
+import importlib.util
 import json
 import os
 from pathlib import Path
 import stat
 import signal
+import sys
 from types import CodeType
 
 ENV = {"LC_ALL": "C", "TZ": "UTC"}
@@ -53,13 +56,80 @@ loader.exec_module(module)
 BOOTSTRAP_SHA256 = hashlib.sha256(BOOTSTRAP).hexdigest()
 
 
-def native_argv():
-    return ['/usr/bin/python3', '-I', '-S', '-B', '/proc/self/fd/3']
+def entry_contract():
+    return dict(method='sealed-source-fork', interpreter=str(Path('/usr/bin/python3').resolve()), isolated=True)
 
 
 def recorded_argv(intent, payload_sha256):
-    return dict(process=native_argv(), intent=intent, payload_sha256=payload_sha256,
+    return dict(process=entry_contract(), intent=intent, payload_sha256=payload_sha256,
                 bootstrap_sha256=BOOTSTRAP_SHA256)
+
+
+def _thread_count():
+    return len(os.listdir('/proc/self/task'))
+
+
+def _fork_guard():
+    if not (sys.flags.isolated and sys.flags.no_site and sys.dont_write_bytecode and _thread_count() == 1):
+        raise ValueError('isolated single-thread parent required')
+    if Path(sys.executable).resolve() != Path('/usr/bin/python3').resolve():
+        raise ValueError('fixed parent interpreter required')
+    mapped = int(Path('/proc/self/statm').read_text().split()[0]) * os.sysconf('SC_PAGE_SIZE')
+    if mapped > 128 * 1024 * 1024:
+        raise ValueError('parent mapping exceeds fixed child AS limit')
+
+
+class _BootstrapLoader(importlib.machinery.SourceFileLoader):
+    def get_code(self, fullname):
+        data = os.pread(3, 8193, 0)
+        if len(data) > 8192 or hashlib.sha256(data).hexdigest() != BOOTSTRAP_SHA256:
+            raise ValueError('fixed bootstrap identity required')
+        return compile(data, '<dal425-fixed-bootstrap>', 'exec', dont_inherit=True, optimize=0)
+
+
+def _run_bootstrap():
+    loader = _BootstrapLoader('__main__', '/proc/self/fd/3')
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[loader.name] = module
+    loader.exec_module(module)
+
+
+def _child_state(actions):
+    for action in actions:
+        if action[0] == os.POSIX_SPAWN_DUP2:
+            os.dup2(action[1], action[2], inheritable=True)
+        elif action[0] == os.POSIX_SPAWN_CLOSE:
+            os.close(action[1])
+        else:
+            raise ValueError('fixed descriptor action required')
+    signal.pthread_sigmask(signal.SIG_SETMASK, [])
+    os.environ.clear()
+    os.environ.update(ENV)
+    sys.meta_path[:] = [importlib.machinery.BuiltinImporter, importlib.machinery.FrozenImporter,
+                        importlib.machinery.PathFinder]
+    sys.stdin = os.fdopen(0, 'r', encoding='utf-8', closefd=False)
+    sys.stdout = os.fdopen(1, 'w', encoding='utf-8', buffering=1, closefd=False)
+    sys.stderr = os.fdopen(2, 'w', encoding='utf-8', buffering=1, closefd=False)
+
+
+def _fork_entry(actions):
+    _inherited_stdio = (sys.stdin, sys.stdout, sys.stderr)
+    status = 0
+    try:
+        _child_state(actions)
+        _run_bootstrap()
+        sys.stdout.flush()
+        sys.stderr.flush()
+    except SystemExit as error:
+        status = error.code if type(error.code) is int else 1
+    except BaseException as error:
+        status = 1
+        try:
+            os.write(2, (repr(error)[:2048] + '\n').encode())
+        except OSError:
+            pass
+    os._exit(status)
 
 
 def _constant(value):
@@ -215,10 +285,11 @@ def _spawn_pipe(argv, cwd, keep):
         null_fd = os.open('/dev/null', os.O_RDONLY | os.O_CLOEXEC)
         owned.append(null_fd)
         bindings, child.recorded_argv = _native_inputs(argv, cwd, keep, owned)
-        # Keep the OS command literal; runtime data travels through sealed FDs.
-        child.pid = os.posix_spawn('/usr/bin/python3',
-            ['/usr/bin/python3', '-I', '-S', '-B', '/proc/self/fd/3'], {'LC_ALL': 'C', 'TZ': 'UTC'},
-            file_actions=_file_actions(write_fd, null_fd, bindings), setsigmask=())
+        actions = _file_actions(write_fd, null_fd, bindings)
+        _fork_guard()
+        child.pid = os.fork()
+        if child.pid == 0:
+            _fork_entry(actions)
         _close_fds(owned)
         return child
     except BaseException as error:

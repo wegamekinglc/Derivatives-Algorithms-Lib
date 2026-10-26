@@ -6,6 +6,7 @@ from pathlib import Path
 import signal
 import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
 
@@ -16,7 +17,26 @@ spec.loader.exec_module(execution)
 
 
 class DispatchTest(unittest.TestCase):
-    def test_receipt_binds_native_command_bootstrap_and_payload(self):
+    def test_nonisolated_or_multithreaded_parent_is_zero_dispatch(self):
+        process = execution._process
+        for isolated, threads in [(False, 1), (True, 2)]:
+            flags = SimpleNamespace(isolated=isolated, no_site=True)
+            runtime = SimpleNamespace(flags=flags, dont_write_bytecode=True, executable='/usr/bin/python3')
+            child = None
+            try:
+                with patch.object(process, 'sys', runtime, create=True), \
+                        patch.object(process, '_thread_count', return_value=threads, create=True), \
+                        patch.object(process, '_native_inputs', return_value=({}, {})), \
+                        patch.object(process, '_file_actions', return_value=[]), \
+                        patch.object(process.os, 'fork') as fork:
+                    with self.assertRaisesRegex(ValueError, 'isolated single-thread'):
+                        child = process._spawn_pipe(['/usr/bin/python3'], Path.cwd(), ())
+                    fork.assert_not_called()
+            finally:
+                if child is not None:
+                    child.stdout.close()
+
+    def test_receipt_binds_entry_bootstrap_and_payload(self):
         packet = execution._process.recorded_argv(execution._argv('ok'), 'a' * 64)
         self.assertTrue(execution._valid_argv(packet, 'ok'))
         for field, value in [('process', ['shell']), ('intent', ['shell']),
@@ -27,7 +47,7 @@ class DispatchTest(unittest.TestCase):
                 self.assertFalse(execution._valid_argv(changed, 'ok'))
         self.assertFalse(execution._valid_argv(dict(packet, extra='unbound'), 'ok'))
 
-    def test_native_command_contains_no_runtime_arguments(self):
+    def test_dispatch_executes_no_external_command(self):
         process = execution._process
         previous = Path.cwd()
         with tempfile.TemporaryDirectory(dir=ROOT) as directory:
@@ -36,10 +56,11 @@ class DispatchTest(unittest.TestCase):
             child = None
             try:
                 os.chdir(root)
-                with patch.object(process.os, 'posix_spawn', return_value=999999) as spawn:
+                with patch.object(process.os, 'fork', return_value=999999) as fork, \
+                        patch.object(process.os, 'posix_spawn') as spawn:
                     child = process.spawn_worker(execution._argv('ok', source), root, source)
-                self.assertEqual(spawn.call_args.args[1],
-                    ['/usr/bin/python3', '-I', '-S', '-B', '/proc/self/fd/3'])
+                fork.assert_called_once_with()
+                spawn.assert_not_called()
             finally:
                 if child is not None:
                     child.stdout.close()
@@ -87,7 +108,7 @@ class DispatchTest(unittest.TestCase):
                 patch.object(process.os, 'close', side_effect=close), \
                 patch.object(process, '_file_actions', return_value=[]), \
                 patch.object(process, '_native_inputs', return_value=({}, {})), \
-                patch.object(process.os, 'posix_spawn', return_value=999999), \
+                patch.object(process.os, 'fork', return_value=999999), \
                 patch.object(process.os, 'kill') as kill, \
                 patch.object(process.os, 'wait4', return_value=(999999, 9, (0,) * 16)) as wait:
             with self.assertRaisesRegex(OSError, 'close injection'):

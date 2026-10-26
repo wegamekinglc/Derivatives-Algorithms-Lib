@@ -291,7 +291,7 @@ def _argv(action, fd=3, cpu=.2):
 def _valid_argv(argv, action):
     if type(argv) is not dict or set(argv) != {'process', 'intent', 'payload_sha256', 'bootstrap_sha256'}:
         return False
-    if argv['process'] != _process.native_argv() or argv['bootstrap_sha256'] != _process.BOOTSTRAP_SHA256:
+    if argv['process'] != _process.entry_contract() or argv['bootstrap_sha256'] != _process.BOOTSTRAP_SHA256:
         return False
     if not _valid_digest(argv['payload_sha256']):
         return False
