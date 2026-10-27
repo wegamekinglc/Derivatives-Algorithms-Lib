@@ -87,6 +87,15 @@ class DiagnosticWorkflowTest(unittest.TestCase):
 
 
 class DiagnosticCommandTest(unittest.TestCase):
+    def test_invalid_command_shapes_are_rejected_before_launch(self):
+        diagnostic = load_diagnostic()
+        for argv in ("python3 -c 'touch injected'", [], [""], [sys.executable, None]):
+            with self.subTest(argv=argv), tempfile.TemporaryDirectory() as directory, \
+                    mock.patch.object(diagnostic.subprocess, "run", return_value=SimpleNamespace(returncode=0)) as launch:
+                with self.assertRaisesRegex(ValueError, "literal argv"):
+                    diagnostic.run_command(argv, Path(directory) / "invalid.log")
+                launch.assert_not_called()
+
     def test_nonmanual_or_unknown_modes_fail_before_running_commands(self):
         diagnostic = load_diagnostic()
         for event, mode in (("schedule", "dal-469"), ("workflow_dispatch", "scheduled"),
@@ -127,6 +136,19 @@ class DiagnosticCommandTest(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "unsafe archive"):
                     diagnostic.unpack_package(archive, root / "package")
                 self.assertFalse((root / "escaped").exists())
+
+    def test_python_or_artifact_unavailability_rebuilds_both_sides_without_probes(self):
+        diagnostic = load_diagnostic()
+        for version, reason in (((3, 13, 9), "Python"), ((3, 13, 17), "artifact")):
+            with self.subTest(version=version), tempfile.TemporaryDirectory() as directory, \
+                    mock.patch.object(diagnostic, "run_command") as run:
+                root = Path(directory)
+                with mock.patch.dict(os.environ, {"RUNNER_TEMP": str(root)}):
+                    selection = diagnostic.choose_packages(root, root / "evidence", diagnostic.REQUIRED_ISA, version)
+                self.assertEqual(selection["python_mode"], "rebuild")
+                self.assertEqual(set(selection["packages"]), {"base", "head"})
+                self.assertIn(reason, selection["reason"])
+                run.assert_not_called()
 
     def test_missing_isa_selects_paired_rebuild_without_executing_original_modules(self):
         diagnostic = load_diagnostic()
@@ -216,6 +238,80 @@ class DiagnosticCommandTest(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "head module hash mismatch"):
                     diagnostic.choose_packages(root, root / "evidence", diagnostic.REQUIRED_ISA, (3, 13, 17))
                 run.assert_not_called()
+
+
+class DiagnosticStageContractTest(unittest.TestCase):
+    def test_prepare_retains_environment_differences_original_evidence_and_task_output(self):
+        diagnostic = load_diagnostic()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            original = root / "dal469-original"
+            (original / "python-paired").mkdir(parents=True)
+            (original / "environment.json").write_text('{"original":true}\n')
+            (original / "python-paired/results.json").write_text('{"status":"failed"}\n')
+            selection = {"python_mode": "rebuild", "packages": {"base": "base", "head": "head"}}
+            output = root / "evidence"
+            versions = {"gcc-14": "gcc 14.3.0", "cmake": "cmake 3.31.6"}
+            with mock.patch.dict(os.environ, {"RUNNER_TEMP": str(root), "GITHUB_OUTPUT": str(root / "job-output")}), \
+                    mock.patch.object(diagnostic, "cpu_model", return_value="Fixture CPU"), \
+                    mock.patch.object(diagnostic.os, "cpu_count", return_value=2), \
+                    mock.patch.object(diagnostic, "command_version", side_effect=versions.get), \
+                    mock.patch.object(diagnostic, "source_identity", side_effect=lambda path, sha: {"sha": sha}), \
+                    mock.patch.object(diagnostic, "choose_packages", return_value=selection) as choose, \
+                    mock.patch.object(diagnostic, "run_command", return_value=0):
+                self.assertEqual(diagnostic.prepare(root, output), 0)
+            environment = json.loads((output / "environment.json").read_text())
+            self.assertEqual(environment["original_ci_exit_status"], 1)
+            self.assertEqual(environment["differences_from_original"]["gcc"], {"expected": "14.2.0", "actual": "gcc 14.3.0"})
+            self.assertEqual(environment["differences_from_original"]["cpu_count"], {"expected": 4, "actual": 2})
+            self.assertNotIn("cmake", environment["differences_from_original"])
+            self.assertEqual((root / "job-output").read_text(), "python_mode=rebuild\n")
+            self.assertEqual(json.loads((output / "selection.json").read_text()), selection)
+            self.assertEqual(json.loads((output / "sources.json").read_text()), {
+                "base": {"sha": diagnostic.BASE_SHA}, "head": {"sha": diagnostic.HEAD_SHA},
+            })
+            self.assertEqual((output / "original-evidence/environment.json").read_bytes(), (original / "environment.json").read_bytes())
+            self.assertEqual((output / "original-evidence/python-paired/results.json").read_bytes(),
+                             (original / "python-paired/results.json").read_bytes())
+            self.assertEqual(choose.call_args.args[2], set(environment["isa"]))
+
+    def test_profiles_retain_sigill_and_optional_failures_without_changing_gate_status(self):
+        diagnostic = load_diagnostic()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            diagnostic.write_json(root / "selection.json", {
+                "packages": {"base": "base", "head": "head"}, "original_probe_status": {"base": -4, "head": 0},
+            })
+            diagnostic.write_json(root / "measurement-status.json", {"tape": 0, "python-prefix": 1, "original_ci_exit_status": 1})
+            def command(argv, log, **kwargs):
+                return {"resources.txt": 7, "perf-record.txt": 255, "allocations.txt": 23}.get(log.name, 0)
+            with mock.patch.object(diagnostic, "run_command", side_effect=command) as run, \
+                    mock.patch.object(diagnostic.shutil, "which", return_value="available"), \
+                    mock.patch.object(diagnostic.Path, "is_file", return_value=True):
+                self.assertEqual(diagnostic.profile(root, root), 0)
+            statuses = json.loads((root / "profiles/status.json").read_text())
+            self.assertEqual(statuses["base-original-sigill"], 0)
+            self.assertNotIn("head-original-sigill", statuses)
+            self.assertEqual(run.call_args_list[0].args[0][0], "gdb")
+            self.assertIn("x/12i $pc-16", run.call_args_list[0].args[0])
+            for side in ("base", "head"):
+                for target in ("tape", "prefix"):
+                    self.assertEqual(statuses[f"{side}-{target}-resources"], 7)
+                    self.assertEqual(statuses[f"{side}-{target}-perf"], 255)
+                    self.assertEqual(statuses[f"{side}-{target}-allocations"], 23)
+            self.assertFalse(any(call.args[0][:2] == ["perf", "report"] for call in run.call_args_list))
+            self.assertEqual(json.loads((root / "measurement-status.json").read_text())["python-prefix"], 1)
+
+    def test_successful_perf_record_collects_report_and_missing_allocator_is_explicit(self):
+        diagnostic = load_diagnostic()
+        with tempfile.TemporaryDirectory() as directory, \
+                mock.patch.object(diagnostic, "run_command", return_value=0) as run, \
+                mock.patch.object(diagnostic.shutil, "which", return_value="perf"), \
+                mock.patch.object(diagnostic.Path, "is_file", return_value=False):
+            result = diagnostic.profile_command([sys.executable, "literal ; argument"], Path(directory))
+            self.assertEqual(result, {"resources": 0, "perf": 0, "allocations": "libmemusage unavailable"})
+            self.assertEqual(run.call_args_list[1].args[0][-1], "literal ; argument")
+            self.assertEqual(run.call_args_list[2].args[0][0:3], ["perf", "report", "--stdio"])
 
 
 class DiagnosticFailureEvidenceTest(unittest.TestCase):

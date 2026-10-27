@@ -1,10 +1,113 @@
 # DAL-469 benchmark investigation
 
-Status: the first remote diagnostic stopped during apt setup with zero samples.
-A scoped setup repair is implemented for reviewer revalidation before another
-remote run. The performance root cause remains inconclusive and the original
-CI failures remain valid. Algorithms and gate policy are unchanged; the issue
-remains `in_progress`. Earlier sections retain their original handoff context.
+Status: the second remote diagnostic completed setup/build and failed the Python
+vanilla performance gate; its script identities remained stable. The six PR
+analysis findings are addressed locally for focused reviewer revalidation.
+Final-head CI/Codacy must be reported from their own snapshot; local analysis
+does not establish remote policy clearance. The performance root cause remains
+inconclusive and the original CI failures remain valid. Algorithms and gate
+policy are unchanged; the issue remains `in_progress`. Earlier sections retain
+their original handoff context.
+
+## PR analysis findings and remote-result classification
+
+The latest handoff explicitly includes all six Codacy findings on
+`485faeb7ce5382e1d55c97413ff25203467b09c2` (check `122027191528`). Its ordinary
+Linux/Windows CI passed and no unresolved review thread was reported. This
+change is limited to two private diagnostic scripts, their targeted tests and
+this record; it does not dispatch a workflow or merge the PR.
+
+Five findings were reproduced with Lizard 1.23.0, matching Codacy's complexity
+values and unchanged limit 8. Helpers now separate original-package verification
+from probes, environment collection from evidence copying, numerical preflights
+from measurement summaries, SIGILL investigation from per-command profiles,
+and compiler inventory/installation from actual-version verification.
+
+| Function         | Before | After |
+|------------------|--------|-------|
+| choose_packages  | 9      | 7     |
+| prepare          | 11     | 4     |
+| measure          | 9      | 4     |
+| profile          | 9      | 4     |
+| select_compilers | 16     | 5     |
+
+Every function in both production scripts and the changed test file is at most
+7. Order and evidence contracts remain: verify both original hashes before
+either probe; snapshot both sides before identity/preflight checks; run both
+measurement targets and retain failures; check post-sampling identity; profile
+after gate timing. Compiler failure/fallback behavior and each profiler's status
+keys/output paths are unchanged.
+
+The sixth finding is the Semgrep audit rule
+[`dangerous-subprocess-use-audit`](https://github.com/semgrep/semgrep-rules/blob/develop/python/lang/security/audit/dangerous-subprocess-use-audit.yaml).
+The rule flags the shared runner's variable argv and asks for a caller audit.
+All production callers supply repository-owned argument lists: fixed metadata
+and installer commands, the current interpreter with fixed private workers/gate
+scripts, validated build paths, or fixed profiler wrappers. The manual dispatch
+input selects only a mode; it never supplies commands, source refs or flags.
+Original package/source validation and literal profiler arguments remain intact.
+
+`literal_argv()` now rejects command strings, empty lists/executables and
+non-string/path elements before child launch. Actual execution retains
+`shell=False`, timeout handling, stdout/stderr and exact return-code recording.
+The existing real-child test proves shell metacharacters remain literal; the
+new regression verifies invalid shapes cannot invoke `subprocess.run`. The
+dynamic-call audit finding is therefore handled as a verified false positive
+with **one line's rule-specific** `# nosemgrep: dangerous-subprocess-use-audit`.
+No configuration, file exclusion, analyzer-wide suppression or threshold changes.
+
+Semgrep 1.180.0 with that upstream rule reproduces one original finding. The
+corrected scripts produce zero findings with the precise exception; rerunning
+with `--disable-nosem` exposes exactly that same audited call, exit 1 under
+`--error`. The rule source and its SHA-256, all three JSON outputs and caller
+evidence are included in the handoff archive; this does not assert equivalence
+to every remote Codacy rule.
+
+Targeted RED/GREEN and verification:
+
+```sh
+python3 -m unittest discover -s .github/scripts/tests \
+  -p test_dal469_diagnostics.py -k invalid_command_shapes -v
+PYTHONPATH=.github/scripts/tests:.github/scripts python3 -W error::ResourceWarning -m unittest -v \
+  test_dal469_diagnostics test_dal469_setup
+python3 -m py_compile .github/scripts/diagnose_dal469.py \
+  .github/scripts/setup_dal469_toolchain.py .github/scripts/tests/test_dal469_diagnostics.py
+ruff check --isolated .github/scripts/diagnose_dal469.py \
+  .github/scripts/setup_dal469_toolchain.py .github/scripts/tests/test_dal469_diagnostics.py
+semgrep --metrics=off --disable-version-check --error \
+  --config ../dal-469-dangerous-subprocess-use-audit.yaml --json \
+  .github/scripts/diagnose_dal469.py .github/scripts/setup_dal469_toolchain.py
+git diff --check
+```
+
+The invalid-argv test failed before validation and passed afterward. A separate
+immutable-baseline replay of the final test against `485faeb7` confirms all four
+invalid forms fail because the expected rejection is absent. The final scoped
+suite passes **34 tests**, including the three prior evidence-loss fixtures,
+all ten installer branches, original-hash/probe ordering, literal subprocess
+arguments, environment differences/original-evidence copying, and available/
+unavailable/failing profiler branches. Python compilation, Ruff, Semgrep and
+whitespace checks pass. Lizard's original five violations become zero without
+raising the limit. Prior actionlint remains applicable because the workflow is
+unchanged. No product matrix, core-build or DAL timing was repeated.
+
+The completed [run 40455954661](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/runs/40455954661)
+at `485faeb7` was inspected for script defects only. Downloaded artifact
+`12713533699` matches GitHub SHA-256
+`0b08c4ab27057b5c95776a9208c6fa04b956db7187c5d29cb3eb5fe3664470f2`.
+Setup/build/preflights/profile/upload completed; measurement status is tape 0,
+Python-prefix 1, original-CI 1. Before/after identities are equal, all 40 Python
+raw reports exist, and no stage error file exists. Re-evaluating those retained
+reports with the unchanged evaluator reproduces the exact serialized comparison
+records and failure: `mc.vanilla.double.default`, rounds +8.24%/+10.93%, paired
+support 9/10 and 10/10. This is a performance-gate failure, not a discovered
+controller error. Perf permission failures (255) remain recorded separately.
+No new measurement was run; performance attribution remains with performancer.
+
+Original failures and hosted CPU/ISA/toolchain/profile limitations remain.
+Final-head CI/Codacy can still be pending in the one requested snapshot; do not
+claim all PR checks clear until that exact head reports them. Reviewer validation
+and the user's requested benchmark rerun remain orchestrator-controlled.
 
 ## Remote setup repair
 

@@ -37,13 +37,20 @@ def write_json(path, value):
     path.write_text(json.dumps(value, indent=2, allow_nan=False) + "\n", encoding="utf-8")
 
 
+def literal_argv(argv):
+    require(isinstance(argv, (list, tuple)) and bool(argv), "command requires a nonempty literal argv list")
+    require(all(isinstance(arg, (str, Path)) for arg in argv) and bool(str(argv[0])),
+            "command requires nonempty executable and string/path literal argv elements")
+    return [str(arg) for arg in argv]
+
+
 def run_command(argv, log, *, env=None, timeout=600):
-    argv = [str(arg) for arg in argv]
+    argv = literal_argv(argv)
     log.parent.mkdir(parents=True, exist_ok=True)
     try:
         with log.open("w", encoding="utf-8") as stream:
-            # Fixed executables and literal argument lists; dispatch inputs never become shell code.
-            status = subprocess.run(
+            # Audited fixed callers; validated argv and shell=False keep metacharacters literal.
+            status = subprocess.run(  # nosemgrep: dangerous-subprocess-use-audit
                 argv, cwd=log.parent, env=env, shell=False, check=False,
                 stdout=stream, stderr=subprocess.STDOUT, timeout=timeout,
             ).returncode
@@ -97,6 +104,26 @@ def worker_environment():
             "PYTHONDONTWRITEBYTECODE": "1", "DAL_NUM_THREADS": "4"}
 
 
+def verified_original_packages(original, output):
+    packages = {}
+    for side in ("base", "head"):
+        package = output / "original-packages" / side
+        unpack_package(original / f"{side}-package.tar.gz", package)
+        require(sha256(native_module(package)) == ORIGINAL_HASHES[side], f"original {side} module hash mismatch")
+        packages[side] = str(package)
+    return packages
+
+
+def probe_original_packages(suite, packages, output):
+    probes = {}
+    for side in ("base", "head"):
+        probe = output / "original-probe" / side
+        probes[side] = run_command(prefix_command(suite, packages[side], probe),
+                                   probe / "worker.log", env=worker_environment())
+        require(probes[side] in (0, -4, 78), f"original {side} correctness/probe failed: {probes[side]}")
+    return probes
+
+
 def choose_packages(workspace, output, flags, python_version):
     builds = layout(workspace)
     fallback = {"python_mode": "rebuild", "packages": {
@@ -109,17 +136,8 @@ def choose_packages(workspace, output, flags, python_version):
     original = Path(os.environ.get("RUNNER_TEMP", workspace)) / "dal469-original/python-reproduction"
     if not all((original / f"{side}-package.tar.gz").is_file() for side in builds):
         return {**fallback, "reason": "Original artifact unavailable; both sides will be rebuilt"}
-    packages, probes = {}, {}
-    for side in ("base", "head"):
-        package = output / "original-packages" / side
-        unpack_package(original / f"{side}-package.tar.gz", package)
-        require(sha256(native_module(package)) == ORIGINAL_HASHES[side], f"original {side} module hash mismatch")
-        packages[side] = str(package)
-    for side in ("base", "head"):
-        probe = output / "original-probe" / side
-        probes[side] = run_command(prefix_command(builds["head"]["source"] / "dal-python/benchmarks",
-                                                  packages[side], probe), probe / "worker.log", env=worker_environment())
-        require(probes[side] in (0, -4, 78), f"original {side} correctness/probe failed: {probes[side]}")
+    packages = verified_original_packages(original, output)
+    probes = probe_original_packages(builds["head"]["source"] / "dal-python/benchmarks", packages, output)
     if any(probes.values()):
         return {**fallback, "reason": "Original binary cannot execute (SIGILL or import/ABI failure)",
                 "original_probe_status": probes}
@@ -141,7 +159,18 @@ def source_identity(source, expected):
             "dependencies": dependencies, "source": str(source)}
 
 
-def prepare(workspace, output):
+def environment_differences(environment):
+    expected = {"cpu": "AMD EPYC 9V74 80-Core Processor", "gcc": "14.2.0", "cmake": "3.31.6", "python": "3.13.17"}
+    differences = {
+        key: {"expected": value, "actual": environment[key]}
+        for key, value in expected.items() if value not in environment[key]
+    }
+    if environment["cpu_count"] != 4:
+        differences["cpu_count"] = {"expected": 4, "actual": environment["cpu_count"]}
+    return differences
+
+
+def diagnostic_environment():
     flags = next((set(line.split(":", 1)[1].split()) for line in Path("/proc/cpuinfo").read_text().splitlines()
                   if line.startswith("flags")), set())
     environment = {
@@ -150,30 +179,33 @@ def prepare(workspace, output):
         "runner_image": f"{os.getenv('ImageOS', 'unknown')}/{os.getenv('ImageVersion', 'unknown')}",
         "controller_sha": os.getenv("GITHUB_SHA"), "controller_ref": os.getenv("GITHUB_REF"),
     }
-    expected = {"cpu": "AMD EPYC 9V74 80-Core Processor", "gcc": "14.2.0", "cmake": "3.31.6", "python": "3.13.17"}
-    environment["differences_from_original"] = {
-        key: {"expected": value, "actual": environment[key]}
-        for key, value in expected.items() if value not in environment[key]
-    }
-    if environment["cpu_count"] != 4:
-        environment["differences_from_original"]["cpu_count"] = {"expected": 4, "actual": environment["cpu_count"]}
+    environment["differences_from_original"] = environment_differences(environment)
     environment["dal_num_threads"] = 4
     environment["original_ci_exit_status"] = 1
     environment["original_ci_run"] = 40411137529
     environment["original_module_sha256"] = ORIGINAL_HASHES
-    write_json(output / "environment.json", environment)
-    run_command(["lscpu", "--json"], output / "lscpu.json")
+    return environment
+
+
+def copy_original_evidence(workspace, output):
     original = Path(os.environ.get("RUNNER_TEMP", workspace)) / "dal469-original"
     for name in ("environment.json", "python-paired/results.json"):
         if (original / name).is_file():
             destination = output / "original-evidence" / name
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(original / name, destination)
+
+
+def prepare(workspace, output):
+    environment = diagnostic_environment()
+    write_json(output / "environment.json", environment)
+    run_command(["lscpu", "--json"], output / "lscpu.json")
+    copy_original_evidence(workspace, output)
     builds = layout(workspace)
     sources = {side: source_identity(info["source"], BASE_SHA if side == "base" else HEAD_SHA)
                for side, info in builds.items()}
     write_json(output / "sources.json", sources)
-    selection = choose_packages(workspace, output, flags, sys.version_info[:3])
+    selection = choose_packages(workspace, output, set(environment["isa"]), sys.version_info[:3])
     write_json(output / "selection.json", selection)
     if os.getenv("GITHUB_OUTPUT"):
         with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as stream:
@@ -263,6 +295,28 @@ def preserve_replay_evidence(builds, packages, output):
             archive.add(packages[side] / "dal", arcname="dal")
 
 
+def numerical_preflights(builds, packages, mode, output):
+    for side, info in builds.items():
+        require(run_command([native_gate.benchmark_binary(info["build"], "tape_perf"), "--diagnostics"],
+                            output / "preflight" / f"{side}-tape.log", env=worker_environment()) == 0,
+                f"{side} tape correctness failed")
+        if mode == "rebuild":
+            destination = output / "preflight" / f"{side}-prefix"
+            require(run_command(prefix_command(builds["head"]["source"] / "dal-python/benchmarks",
+                                               packages[side], destination), destination / "worker.log",
+                                env=worker_environment()) == 0, f"{side} prefix correctness failed")
+
+
+def append_measurement_summary(output, mode, status):
+    if os.getenv("GITHUB_STEP_SUMMARY"):
+        with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a", encoding="utf-8") as stream:
+            stream.write(f"## DAL-469 diagnostic\n\nMode: {mode}. Sampler exit: {status}. "
+                         "Original CI remains failed; a diagnostic pass does not clear it.\n\n")
+            for summary in (output / "tape/summary.md", output / "python-prefix/summary.md"):
+                if summary.exists():
+                    stream.write(summary.read_text() + "\n")
+
+
 def measure(workspace, output):
     builds = layout(workspace)
     selection = json.loads((output / "selection.json").read_text())
@@ -273,32 +327,16 @@ def measure(workspace, output):
     if selection["python_mode"] == "original":
         require(all(before[side]["python_sha256"] == ORIGINAL_HASHES[side] for side in builds),
                 "original package changed after compatibility probe")
-    for side, info in builds.items():
-        require(run_command([native_gate.benchmark_binary(info["build"], "tape_perf"), "--diagnostics"],
-                            output / "preflight" / f"{side}-tape.log", env=worker_environment()) == 0,
-                f"{side} tape correctness failed")
-        if selection["python_mode"] == "rebuild":
-            destination = output / "preflight" / f"{side}-prefix"
-            require(run_command(prefix_command(builds["head"]["source"] / "dal-python/benchmarks",
-                                               packages[side], destination), destination / "worker.log",
-                                env=worker_environment()) == 0, f"{side} prefix correctness failed")
+    numerical_preflights(builds, packages, selection["python_mode"], output)
     status = measure_targets(output, builds, packages)
     after = identities(builds, packages)
     write_json(output / "identities-after.json", after)
     require(before == after, "diagnostic source/configuration/binary identity changed during sampling")
-    if os.getenv("GITHUB_STEP_SUMMARY"):
-        with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a", encoding="utf-8") as stream:
-            stream.write(f"## DAL-469 diagnostic\n\nMode: {selection['python_mode']}. Sampler exit: {status}. "
-                         "Original CI remains failed; a diagnostic pass does not clear it.\n\n")
-            for summary in (output / "tape/summary.md", output / "python-prefix/summary.md"):
-                if summary.exists():
-                    stream.write(summary.read_text() + "\n")
+    append_measurement_summary(output, selection["python_mode"], status)
     return status
 
 
-def profile(workspace, output):
-    builds = layout(workspace)
-    selection = json.loads((output / "selection.json").read_text())
+def profile_sigill(builds, selection, output):
     statuses = {}
     for side, status in selection.get("original_probe_status", {}).items():
         if status == -4 and shutil.which("gdb"):
@@ -309,6 +347,34 @@ def profile(workspace, output):
                 "gdb", "--batch", "-ex", "set pagination off", "-ex", "run",
                 "-ex", "x/12i $pc-16", "-ex", "thread apply all bt 8", "--args", *command,
             ], destination / "gdb.txt", env=worker_environment())
+    return statuses
+
+
+def profile_command(command, destination):
+    statuses = {"resources": run_command(
+        ["/usr/bin/time", "--verbose", *command], destination / "resources.txt", env=worker_environment())}
+    if shutil.which("perf"):
+        status = run_command(["perf", "record", "-o", destination / "perf.data", "-g", "--", *command],
+                             destination / "perf-record.txt", env=worker_environment())
+        statuses["perf"] = status
+        if status == 0:
+            run_command(["perf", "report", "--stdio", "-i", destination / "perf.data"], destination / "perf-report.txt")
+    else:
+        statuses["perf"] = "unavailable"
+    allocator = Path("/usr/lib/x86_64-linux-gnu/libmemusage.so")
+    if allocator.is_file():
+        statuses["allocations"] = run_command(command, destination / "allocations.txt", env={
+            **worker_environment(), "LD_PRELOAD": str(allocator), "MEMUSAGE_OUTPUT": str(destination / "memusage.data"),
+        })
+    else:
+        statuses["allocations"] = "libmemusage unavailable"
+    return statuses
+
+
+def profile(workspace, output):
+    builds = layout(workspace)
+    selection = json.loads((output / "selection.json").read_text())
+    statuses = profile_sigill(builds, selection, output)
     for side, info in builds.items():
         commands = {
             "tape": [native_gate.benchmark_binary_path(info["build"], "tape_perf")],
@@ -317,23 +383,7 @@ def profile(workspace, output):
         }
         for name, command in commands.items():
             destination = output / "profiles" / side / name
-            statuses[f"{side}-{name}-resources"] = run_command(
-                ["/usr/bin/time", "--verbose", *command], destination / "resources.txt", env=worker_environment())
-            if shutil.which("perf"):
-                status = run_command(["perf", "record", "-o", destination / "perf.data", "-g", "--", *command],
-                                     destination / "perf-record.txt", env=worker_environment())
-                statuses[f"{side}-{name}-perf"] = status
-                if status == 0:
-                    run_command(["perf", "report", "--stdio", "-i", destination / "perf.data"], destination / "perf-report.txt")
-            else:
-                statuses[f"{side}-{name}-perf"] = "unavailable"
-            allocator = Path("/usr/lib/x86_64-linux-gnu/libmemusage.so")
-            if allocator.is_file():
-                statuses[f"{side}-{name}-allocations"] = run_command(command, destination / "allocations.txt", env={
-                    **worker_environment(), "LD_PRELOAD": str(allocator), "MEMUSAGE_OUTPUT": str(destination / "memusage.data"),
-                })
-            else:
-                statuses[f"{side}-{name}-allocations"] = "libmemusage unavailable"
+            statuses.update({f"{side}-{name}-{key}": value for key, value in profile_command(command, destination).items()})
     write_json(output / "profiles/status.json", statuses)
     return 0
 

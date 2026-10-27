@@ -34,28 +34,40 @@ def compiler_versions(output, label):
     return versions
 
 
+def original_packages_available(output):
+    checked_command(["apt-cache", "madison", *COMPILERS], output, "apt-compiler-versions")
+    available = {
+        fields[0].strip() for line in (output / "apt-compiler-versions.log").read_text().splitlines()
+        if len(fields := line.split("|")) >= 2 and fields[1].strip() == ORIGINAL_PACKAGE
+    }
+    return all(compiler in available for compiler in COMPILERS)
+
+
+def install_compilers(output, state):
+    exact = original_packages_available(output)
+    state["selection"] = "install-original" if exact else "available-gcc-14"
+    if not exact:
+        state["fallback_reason"] = f"Original compiler package {ORIGINAL_PACKAGE} unavailable in refreshed index"
+        print(f"::warning::{state['fallback_reason']}; actual compiler versions will be retained.")
+    packages = [f"{compiler}={ORIGINAL_PACKAGE}" if exact else compiler for compiler in COMPILERS]
+    # Installation/network failures are fatal; only version availability selects fallback.
+    checked_command(["sudo", "apt-get", "install", "-y", *packages], output, "apt-install-compilers")
+
+
+def verify_compilers(versions):
+    values = tuple(versions.values())
+    require(all(value and value.startswith("14.") for value in values) and len(set(values)) == 1,
+            f"GCC/G++ 14 verification failed: {versions}")
+
+
 def select_compilers(output, state):
     state["before"] = compiler_versions(output, "before")
     if all(value == ORIGINAL_VERSION for value in state["before"].values()):
         state["selection"] = "installed-original"
     else:
-        checked_command(["apt-cache", "madison", *COMPILERS], output, "apt-compiler-versions")
-        available = {
-            fields[0].strip() for line in (output / "apt-compiler-versions.log").read_text().splitlines()
-            if len(fields := line.split("|")) >= 2 and fields[1].strip() == ORIGINAL_PACKAGE
-        }
-        exact = all(compiler in available for compiler in COMPILERS)
-        state["selection"] = "install-original" if exact else "available-gcc-14"
-        if not exact:
-            state["fallback_reason"] = f"Original compiler package {ORIGINAL_PACKAGE} unavailable in refreshed index"
-            print(f"::warning::{state['fallback_reason']}; actual compiler versions will be retained.")
-        packages = [f"{compiler}={ORIGINAL_PACKAGE}" if exact else compiler for compiler in COMPILERS]
-        # Installation/network failures are fatal; only version availability selects fallback.
-        checked_command(["sudo", "apt-get", "install", "-y", *packages], output, "apt-install-compilers")
+        install_compilers(output, state)
     state["actual"] = compiler_versions(output, "actual")
-    values = tuple(state["actual"].values())
-    require(all(value and value.startswith("14.") for value in values) and len(set(values)) == 1,
-            f"GCC/G++ 14 verification failed: {state['actual']}")
+    verify_compilers(state["actual"])
     state["differences_from_original"] = {
         compiler: {"expected": ORIGINAL_VERSION, "actual": value}
         for compiler, value in state["actual"].items() if value != ORIGINAL_VERSION
