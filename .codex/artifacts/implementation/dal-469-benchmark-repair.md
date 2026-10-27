@@ -1,9 +1,98 @@
 # DAL-469 benchmark investigation
 
-Status: a manual remote diagnostic entry is implemented for review; it has not
-been dispatched. The performance root cause remains inconclusive and the
-original CI failures remain valid. Algorithms and gate policy are unchanged;
-the issue remains `in_progress`.
+Status: the first remote diagnostic stopped during apt setup with zero samples.
+A scoped setup repair is implemented for reviewer revalidation before another
+remote run. The performance root cause remains inconclusive and the original
+CI failures remain valid. Algorithms and gate policy are unchanged; the issue
+remains `in_progress`. Earlier sections retain their original handoff context.
+
+## Remote setup repair
+
+Performer evidence for [run 40442839473](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/runs/40442839473)
+at `15260e2f7c61477cb517bb21259d340f432d932a` establishes a setup failure, not a
+performance result. `linux-tools-generic_6.8.0-146.146` returned HTTP 404 and
+apt exited 100. The apt policy and install logs show GCC/G++ 14.2 already
+installed. The workflow combined those compilers with optional profilers and
+misreported this failure as compiler unavailability, then repeated the failing
+combined install. No compatibility inspection, build or measurement ran.
+
+Reused source: performer's `dal-469-remote-results-evidence.zip`, attachment
+`01a17bc9-fd6b-76c4-ae97-57b2fc44adeb`, including both apt logs and the complete
+job log. `tests/fixtures/dal469-profiler-404.txt` is the exact original
+`artifact/apt-install.txt`, without edits. The accompanying performer report
+is attachment `01a17bc9-f96d-7ef3-af8a-bc2a4a2a49e1`. No remote run was started
+by this repair.
+
+Only the diagnostic workflow setup command, private installer, related tests,
+the log fixture and this active record change:
+
+- Refresh the apt index first with strict update-error handling; retain its
+  output and return code before policy inspection or installation.
+- Probe GCC and G++ versions. Reuse installed 14.2.0; otherwise query the
+  refreshed index for the exact original compiler packages. Use generic GCC 14
+  only when that original version is unavailable. Failed compiler installation
+  is fatal and never triggers a generic retry.
+- Verify both compiler versions are GCC 14 and agree; record original-version
+  differences. Install and verify required make/time separately. Any required
+  install failure retains its actual exit (including apt 100) and fails setup.
+- Install optional GDB and perf independently afterward. Record each install
+  and version-probe status, including missing/kernel-incompatible tools. Such
+  capability gaps warn and allow the subsequent build/gate steps to run.
+- Reuse the reviewed literal-argument command runner. All setup stdout/stderr,
+  command identities, return codes and summary JSON live in
+  `diagnostic-results/setup`, covered by the unchanged `always()` upload.
+  Original CI exit status 1 remains separate from current setup status.
+
+The first regression test executes the actual workflow setup block with
+isolated command fixtures, an installed GCC 14.2 pair, and the original apt
+404 output. It fails before the repair: exit 100 plus the inaccurate original
+GCC warning. The identical test passes after the repair: setup exit 0, perf
+install exit 100/version exit 1 retained, no compiler install or fallback.
+
+RED and GREEN command:
+
+```sh
+python3 -m unittest discover -s .github/scripts/tests -p test_dal469_setup.py -v
+```
+
+Then the smallest affected checks run:
+
+```sh
+PYTHONPATH=.github/scripts/tests:.github/scripts python3 -W error::ResourceWarning -m unittest -v \
+  test_dal469_setup.DiagnosticSetupTest \
+  test_dal469_diagnostics.DiagnosticWorkflowTest \
+  test_dal469_diagnostics.DiagnosticCommandTest.test_command_arguments_are_literal_and_status_and_output_are_retained
+ruff check --isolated .github/scripts/setup_dal469_toolchain.py .github/scripts/tests/test_dal469_setup.py
+../dal-469-tools/actionlint -shellcheck= -pyflakes= .github/workflows/benchmarks.yml
+git diff --check
+```
+
+Results: all 14 targeted tests pass (10 setup cases plus four existing workflow
+and command-safety contracts); Ruff, actionlint v1.7.12 and whitespace checks
+exit 0. Shellcheck remains unavailable. Setup cases cover strict index ordering
+and refresh failure, installed compilers plus profiler 404, required-tool
+failure, missing compilers/exact install, unavailable-original fallback and
+version differences, compiler-install failure without retry, invalid actual
+versions, optional GDB failure, and manual-mode/argument isolation. The fixture
+commands replace apt/sudo/compiler/profiler executables; they do not install
+packages or execute DAL. Persistent per-scenario result trees, command traces,
+RED/GREEN logs and a SHA-256 inventory accompany the handoff.
+
+Case selection follows changed setup paths only. No sampler, numerical check,
+threshold, measured source, build configuration or profiling implementation
+changes; the prior applicable checks remain evidence for those paths. Full
+product tests, core-build and local performance comparisons were not repeated.
+Scheduled/default manual job definitions are untouched. No workflow dispatch
+or merge is authorized in this turn.
+
+Remaining risks: a fresh runner must still verify CPU/ISA, exact Python/CMake,
+dependencies/binaries and profiler permissions. The latest remote attempt has
+zero samples for both original failing targets; neither verdict is cleared.
+The previous PR head's Codacy `ACTION_REQUIRED` is retained as outstanding;
+maintenance findings are not suppressed or expanded into this repair. Report
+the new commit's policy snapshot separately without inferring success from
+local tests. Reviewer revalidation and another remote run remain orchestrator
+decisions; DAL-469 stays `in_progress`.
 
 ## Reviewer evidence-retention blocker correction
 

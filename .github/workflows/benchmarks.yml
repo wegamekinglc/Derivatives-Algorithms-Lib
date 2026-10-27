@@ -503,12 +503,7 @@ jobs:
 
       - name: Set up diagnostic toolchain
         run: |
-          mkdir -p diagnostic-results
-          apt-cache policy gcc-14 g++-14 > diagnostic-results/apt-policy.txt
-          if ! sudo apt-get install -y gcc-14=14.2.0-4ubuntu2~24.04.1 g++-14=14.2.0-4ubuntu2~24.04.1 gdb time linux-tools-generic > diagnostic-results/apt-install.txt 2>&1; then
-            echo '::warning::Original GCC package unavailable; actual toolchain differences will be recorded.'
-            sudo apt-get install -y gcc-14 g++-14 gdb time linux-tools-generic
-          fi
+          python3 .github/scripts/setup_dal469_toolchain.py
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # @v10.3.0
       - name: Set up diagnostic Python and CMake
         run: |

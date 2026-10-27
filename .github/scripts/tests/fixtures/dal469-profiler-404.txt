@@ -1,0 +1,39 @@
+Reading package lists...
+Building dependency tree...
+Reading state information...
+gcc-14 is already the newest version (14.2.0-4ubuntu2~24.04.1).
+gcc-14 set to manually installed.
+g++-14 is already the newest version (14.2.0-4ubuntu2~24.04.1).
+time is already the newest version (1.9-0.2build1).
+The following additional packages will be installed:
+  libbabeltrace1 libc6-dbg libdebuginfod-common libdebuginfod1t64 libipt2
+  libsource-highlight-common libsource-highlight4t64 linux-tools-6.8.0-146
+  linux-tools-6.8.0-146-generic
+Suggested packages:
+  gdb-doc gdbserver
+The following NEW packages will be installed:
+  gdb libbabeltrace1 libc6-dbg libdebuginfod-common libdebuginfod1t64 libipt2
+  libsource-highlight-common libsource-highlight4t64 linux-tools-6.8.0-146
+  linux-tools-6.8.0-146-generic linux-tools-generic
+0 upgraded, 11 newly installed, 0 to remove and 6 not upgraded.
+Need to get 17.4 MB of archives.
+After this operation, 44.3 MB of additional disk space will be used.
+Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
+Get:2 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 libdebuginfod-common all 0.190-1.1ubuntu0.1 [14.6 kB]
+Get:3 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libbabeltrace1 amd64 1.5.11-3build3 [164 kB]
+Get:4 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 libdebuginfod1t64 amd64 0.190-1.1ubuntu0.1 [17.1 kB]
+Get:5 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libipt2 amd64 2.0.6-1build1 [45.7 kB]
+Get:6 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libsource-highlight-common all 3.1.9-4.3build1 [64.2 kB]
+Get:7 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libsource-highlight4t64 amd64 3.1.9-4.3build1 [258 kB]
+Get:8 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 gdb amd64 15.1-1ubuntu1~24.04.1 [4083 kB]
+Get:9 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 linux-tools-6.8.0-146 amd64 6.8.0-146.146 [5263 kB]
+Get:10 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 linux-tools-6.8.0-146-generic amd64 6.8.0-146.146 [1816 B]
+Ign:11 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 linux-tools-generic amd64 6.8.0-146.146
+Get:12 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 libc6-dbg amd64 2.39-0ubuntu8.9 [7474 kB]
+Ign:11 https://archive.ubuntu.com/ubuntu noble-updates/main amd64 linux-tools-generic amd64 6.8.0-146.146
+Ign:11 https://security.ubuntu.com/ubuntu noble-updates/main amd64 linux-tools-generic amd64 6.8.0-146.146
+Err:11 mirror+file:/etc/apt/apt-mirrors.txt noble-updates/main amd64 linux-tools-generic amd64 6.8.0-146.146
+  404  Not Found [IP: 52.147.219.192 80]
+Fetched 17.4 MB in 1s (16.7 MB/s)
+E: Failed to fetch mirror+file:/etc/apt/apt-mirrors.txt/pool/main/l/linux-meta/linux-tools-generic_6.8.0-146.146_amd64.deb  404  Not Found [IP: 52.147.219.192 80]
+E: Unable to fetch some archives, maybe run apt-get update or try with --fix-missing?
