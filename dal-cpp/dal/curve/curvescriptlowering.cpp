@@ -21,6 +21,15 @@ namespace Dal::CurveScriptInternal {
             flow->program_.push_back(instruction);
             return flow->program_.size() - 1;
         }
+        bool IsOne(const Script::Node_& node) {
+            const auto* literal = dynamic_cast<const Script::NodeConst_*>(&node);
+            return literal && literal->constVal_ == 1.;
+        }
+        const Script::NodeFix_* ReciprocalFixing(const Script::Node_& node) {
+            if (!dynamic_cast<const Script::NodeDiv_*>(&node) || !IsOne(*node.arguments_[0]))
+                return nullptr;
+            return dynamic_cast<const Script::NodeFix_*>(node.arguments_[1].get());
+        }
         class Lowerer_ {
             CalibrationCurvePayment_* flow_;
             CalibrationCurveFamilyDescriptor_* descriptor_;
@@ -45,16 +54,9 @@ namespace Dal::CurveScriptInternal {
                 const auto& numerator = *node.arguments_[0];
                 if (!dynamic_cast<const Script::NodeSub_*>(&numerator))
                     return {};
-                const auto& reciprocal = *numerator.arguments_[0];
-                if (!dynamic_cast<const Script::NodeDiv_*>(&reciprocal))
-                    return {};
-                const auto* fixing = dynamic_cast<const Script::NodeFix_*>(reciprocal.arguments_[1].get());
+                const auto* fixing = ReciprocalFixing(*numerator.arguments_[0]);
                 const auto* alpha = dynamic_cast<const Script::NodeConst_*>(node.arguments_[1].get());
-                const auto one = [](const Script::Node_& value) {
-                    const auto* literal = dynamic_cast<const Script::NodeConst_*>(&value);
-                    return literal && literal->constVal_ == 1.;
-                };
-                if (!fixing || !alpha || !one(*reciprocal.arguments_[0]) || !one(*numerator.arguments_[1]))
+                if (!fixing || !alpha || !IsOne(*numerator.arguments_[1]))
                     return {};
                 descriptor_->observations_.push_back(Observation(*fixing, context_, flow_->source_));
                 return Append(flow_, {'r', descriptor_->observations_.size() - 1, 0, alpha->constVal_, false});

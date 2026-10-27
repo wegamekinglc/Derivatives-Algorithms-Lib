@@ -53,15 +53,23 @@ namespace Dal::CurveScriptInternal {
     inline void RequireNumerical(bool valid, const CalibrationDiagnostic_& source, const char* expected) {
         Require(valid, "CalibrationNumericalFailure", source, expected);
     }
-    template <class T_> Affine_<T_> Binary(char operation, const Affine_<T_>& left, const Affine_<T_>& right, const CalibrationDiagnostic_& source) {
+    template <class T_> T_ Binary(char operation, const T_& left, const T_& right, const CalibrationDiagnostic_& source) {
         if (operation == '*')
-            return {left.a_ * right.b_ + left.b_ * right.a_, left.b_ * right.b_};
+            return left * right;
         if (operation == '/') {
-            RequireNumerical(static_cast<double>(right.b_) != 0., source, "nonzero coupon denominator");
-            return {left.a_ / right.b_, left.b_ / right.b_};
+            RequireNumerical(static_cast<double>(right) != 0., source, "nonzero coupon denominator");
+            return left / right;
         }
         const double sign = operation == '+' ? 1. : -1.;
-        return {left.a_ + sign * right.a_, left.b_ + sign * right.b_};
+        return left + sign * right;
+    }
+    template <class T_> Affine_<T_> Binary(char operation, const Affine_<T_>& left, const Affine_<T_>& right, const CalibrationDiagnostic_& source) {
+        const T_ independent = Binary(operation, left.b_, right.b_, source);
+        if (operation == '*')
+            return {left.a_ * right.b_ + left.b_ * right.a_, independent};
+        if (operation == '/')
+            return {left.a_ / right.b_, independent};
+        return {Binary(operation, left.a_, right.a_, source), independent};
     }
     template <class T_, class F_>
     T_ ForwardRate(const CalibrationCurveInstruction_& instruction, const F_& fixing, const CalibrationDiagnostic_& source) {
@@ -148,16 +156,7 @@ namespace Dal::CurveScriptInternal {
             else if (instruction.operation_ == 'k') {
                 CalibrationInternal::Check(false, "UnsupportedCalibrationMeasure", Field(source), "K-independent cashflow program", "", source);
             } else {
-                const auto &left = values[instruction.left_], &right = values[instruction.right_];
-                if (instruction.operation_ == '*')
-                    value = left * right;
-                else if (instruction.operation_ == '/') {
-                    RequireNumerical(static_cast<double>(right) != 0., source, "nonzero coupon denominator");
-                    value = left / right;
-                } else {
-                    const double sign = instruction.operation_ == '+' ? 1. : -1.;
-                    value = left + sign * right;
-                }
+                value = Binary(instruction.operation_, values[instruction.left_], values[instruction.right_], source);
             }
             values.Push(value);
         }

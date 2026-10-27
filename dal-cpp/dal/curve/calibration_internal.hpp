@@ -211,6 +211,27 @@ namespace Dal {
         Vector_<> coordinates_, rawResiduals_;
         int evaluations_ = 0, gradients_ = 0;
     };
+    inline String_ CurveSolveFailure(const std::exception_ptr& cause) {
+        if (!cause)
+            return "CalibrationBudgetExceeded";
+        try {
+            std::rethrow_exception(cause);
+        } catch (const Underdetermined::ConvergenceError_&) {
+            return "CalibrationBudgetExceeded";
+        } catch (...) {
+            return "CalibrationNumericalFailure";
+        }
+    }
+    inline bool CurveFitWithinTolerance(const Vector_<>& residuals, bool exact, const std::optional<double>& fitNormTolerance) {
+        if (exact)
+            return std::all_of(residuals.begin(), residuals.end(), [](double value) { return std::abs(value) <= 1.; });
+        REQUIRE(fitNormTolerance && std::isfinite(*fitNormTolerance) && *fitNormTolerance > 0.,
+                "Approximate fit requires a finite positive norm tolerance");
+        double norm = 0.;
+        for (const double value : residuals)
+            norm = std::hypot(norm, value);
+        return norm <= *fitNormTolerance;
+    }
     inline Underdetermined::FitResult_ CompleteCurveSolve(const CurveSolverTrack_& track,
                                                           const Vector_<>& coordinates,
                                                           const Vector_<>& scales,
@@ -222,15 +243,7 @@ namespace Dal {
         result.evaluations_ = track.evaluations_;
         result.gradients_ = track.gradients_;
         result.cause_ = cause;
-        String_ termination = "CalibrationBudgetExceeded";
-        if (cause) {
-            try {
-                std::rethrow_exception(cause);
-            } catch (const Underdetermined::ConvergenceError_&) {
-            } catch (...) {
-                termination = "CalibrationNumericalFailure";
-            }
-        }
+        const auto termination = CurveSolveFailure(cause);
         if (result.parameters_.empty()) {
             result.termination_ = termination;
             return result;
@@ -242,16 +255,8 @@ namespace Dal {
             REQUIRE(i < scales.size(), "Calibration residual scale count changed");
             result.scaledResiduals_.push_back(result.rawResiduals_[i] / scales[i]);
         }
-        bool accepted = true;
-        double norm = 0.;
-        for (const double value : result.scaledResiduals_) {
-            if (exact)
-                accepted = accepted && std::abs(value) <= 1.;
-            norm = std::hypot(norm, value);
-        }
-        REQUIRE(exact || (fitNormTolerance && std::isfinite(*fitNormTolerance) && *fitNormTolerance > 0.),
-                "Approximate fit requires a finite positive norm tolerance");
-        result.fitWithinTolerance_ = !cause && (exact ? accepted : norm <= *fitNormTolerance);
+        const bool accepted = CurveFitWithinTolerance(result.scaledResiduals_, exact, fitNormTolerance);
+        result.fitWithinTolerance_ = !cause && accepted;
         result.termination_ = result.fitWithinTolerance_ ? "FitWithinTolerance" : termination;
         return result;
     }

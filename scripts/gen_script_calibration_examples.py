@@ -51,8 +51,7 @@ THIN_BORDER = Border(*(Side(style="thin", color="D0D0D0"),) * 4)
 
 
 def number_text(value):
-    text = repr(float(value))
-    return text[:-2] if text.endswith(".0") else text
+    return repr(float(value)).removesuffix(".0")
 
 
 def annual_periods(start, end):
@@ -395,6 +394,16 @@ def add_curve_scheme(wb, scheme):
     ws.freeze_panes = "A4"
 
 
+def format_workbook(wb, source_sheet):
+    for sheet in wb.worksheets:
+        for cells in sheet.columns:
+            letter = get_column_letter(cells[0].column)
+            width = min(max(len(str(cell.value or "")) for cell in cells) + 2, 115)
+            sheet.column_dimensions[letter].width = max(12, width)
+        sheet.sheet_view.zoomScale = 85
+    wb[source_sheet].column_dimensions["C"].width = 115
+
+
 def generate_yield_workbook():
     wb = Workbook()
     ws = wb.active
@@ -435,13 +444,7 @@ def generate_yield_workbook():
             "Observation and parameter tables are spilled from the typed report. This file contains formulas, not cached results; generating it does not execute Excel.",
         ],
     )
-    for sheet in wb.worksheets:
-        for cells in sheet.columns:
-            letter = get_column_letter(cells[0].column)
-            width = min(max(len(str(cell.value or "")) for cell in cells) + 2, 115)
-            sheet.column_dimensions[letter].width = max(12, width)
-        sheet.sheet_view.zoomScale = 85
-    ws.column_dimensions["C"].width = 115
+    format_workbook(wb, "Instruments")
     return wb
 
 
@@ -566,14 +569,13 @@ def generate_xccy_workbook():
             "This file contains formulas, not cached results; generating it does not execute Excel.",
         ],
     )
-    for sheet in wb.worksheets:
-        for cells in sheet.columns:
-            letter = get_column_letter(cells[0].column)
-            width = min(max(len(str(cell.value or "")) for cell in cells) + 2, 115)
-            sheet.column_dimensions[letter].width = max(12, width)
-        sheet.sheet_view.zoomScale = 85
-    wb["Script Instrument"].column_dimensions["C"].width = 115
+    format_workbook(wb, "Script Instrument")
     return wb
+
+
+def require_valid_result(condition, message):
+    if not condition:
+        raise RuntimeError(message)
 
 
 def validate_examples():
@@ -698,8 +700,14 @@ def validate_examples():
             ),
         )
         fit = dal.Calibrate_CurveInstruments(spec, options=options)
-        assert fit.fit_within_tolerance and len(fit.parameters) == 13
-        assert max(map(abs, fit.raw_residuals)) < 1e-8
+        require_valid_result(
+            fit.fit_within_tolerance and len(fit.parameters) == 13,
+            f"{scheme} yield calibration failed or returned an unexpected parameter count",
+        )
+        require_valid_result(
+            max(map(abs, fit.raw_residuals)) < 1e-8,
+            f"{scheme} yield residuals exceed the validation tolerance",
+        )
     definition = xccy_instrument()
     today, end = dal_date(date(2026, 10, 21)), dal_date(date(2027, 11, 4))
     blocks = []
@@ -738,7 +746,10 @@ def validate_examples():
             compute_quote_jacobian=True,
         ),
     )
-    assert fit.fit_within_tolerance and abs(fit.parameters[0] - 0.003) < 1e-10
+    require_valid_result(
+        fit.fit_within_tolerance and abs(fit.parameters[0] - 0.003) < 1e-10,
+        "XCCY calibration failed or returned an unexpected basis forward",
+    )
     print(
         "Validated three 13-quote yield calibrations and the XCCY basis fit through DAL."
     )

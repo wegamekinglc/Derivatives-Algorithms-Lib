@@ -71,6 +71,21 @@ namespace Dal::CurveScriptInternal {
         const CurveScriptRoute_* route_ = nullptr;
         typename CandidateCurveProvider_<T_>::CurveBinding_ curve_;
     };
+    template <class T_>
+    void BindObservations(const CalibrationCurveFamilyDescriptor_& descriptor,
+                          const CandidateCurveProvider_<T_>& provider,
+                          Vector_<ObservationBinding_<T_>>* bindings) {
+        bindings->clear();
+        bindings->reserve(descriptor.observations_.size());
+        for (const auto& observation : descriptor.observations_) {
+            if (observation.known_)
+                bindings->push_back({});
+            else {
+                const auto& route = provider.Route(observation.route_, observation.projection_);
+                bindings->push_back({&route, provider.Bind(route)});
+            }
+        }
+    }
     template <class T_> struct EvaluationScratch_ {
         ProgramValues_<Affine_<T_>> affine_;
         ProgramValues_<T_> independent_;
@@ -102,16 +117,7 @@ namespace Dal::CurveScriptInternal {
         const auto& route = provider.Route(plan.Instrument()->Definition()->Spec().header_.discountRoute_, false);
         const auto curve = provider.Bind(route);
         auto& observations = workspace.observations_;
-        observations.clear();
-        observations.reserve(descriptor.observations_.size());
-        for (const auto& observation : descriptor.observations_) {
-            if (observation.known_)
-                observations.push_back({});
-            else {
-                const auto& observationRoute = provider.Route(observation.route_, observation.projection_);
-                observations.push_back({&observationRoute, provider.Bind(observationRoute)});
-            }
-        }
+        BindObservations(descriptor, provider, &observations);
         for (const auto& flow : descriptor.payments_) {
             const auto fixing = [&](size_t index) -> T_ {
                 const auto& observation = descriptor.observations_[index];
