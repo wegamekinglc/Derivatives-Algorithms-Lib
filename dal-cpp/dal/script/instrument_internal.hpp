@@ -4,6 +4,7 @@
 #include <dal/script/instrument.hpp>
 
 namespace Dal::CalibrationInternal {
+    std::shared_ptr<const Script::ScriptProduct_> PreparationProduct(const CalibrationInstrument_& instrument);
     Json_ SourceJson(const ScriptInstrumentSource_& source);
     Json_ DefinitionJson(const ScriptInstrumentDefinitionSpec_& spec);
     Json_ BindingValuesJson(const Vector_<CalibrationEffectiveParameter_>& binding, bool provenance);

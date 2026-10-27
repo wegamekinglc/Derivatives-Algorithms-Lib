@@ -4,15 +4,15 @@
 
 #include <functional>
 
-#include <dal/platform/platform.hpp>
-#include <dal/platform/strict.hpp>
-#include <dal/math/optimization/underdetermined.hpp>
 #include <dal/math/matrix/bcg.hpp>
 #include <dal/math/matrix/cholesky.hpp>
 #include <dal/math/matrix/matrixarithmetic.hpp>
 #include <dal/math/matrix/matrixs.hpp>
 #include <dal/math/matrix/sparse.hpp>
 #include <dal/math/matrix/squarematrix.hpp>
+#include <dal/math/optimization/underdetermined.hpp>
+#include <dal/platform/platform.hpp>
+#include <dal/platform/strict.hpp>
 #include <dal/utilities/functionals.hpp>
 #include <dal/utilities/numerics.hpp>
 
@@ -67,9 +67,7 @@ namespace Dal {
                 return retVal;
             }
 
-            void QForm(const Sparse::SymmetricDecomposition_& w, SquareMatrix_<>* form) const override {
-                w.QForm(j_, form);
-            }
+            void QForm(const Sparse::SymmetricDecomposition_& w, SquareMatrix_<>* form) const override { w.QForm(j_, form); }
 
             void SecantUpdate(const Vector_<>& dx, const Vector_<>& df) override {
                 const auto nf = df.size();
@@ -91,9 +89,7 @@ namespace Dal {
             int nRestarts_;
             Matrix_<> jDense_;
 
-            XScaledFunc_(const Vector_<>& tol,
-                         const Underdetermined::Function_& func,
-                         const Underdetermined::Controls_& controls)
+            XScaledFunc_(const Vector_<>& tol, const Underdetermined::Function_& func, const Underdetermined::Controls_& controls)
                 : tol_(tol), func_(func), nEvals_(controls.maxEvaluations_), nRestarts_(controls.maxRestarts_) {}
 
             Vector_<> F(const Vector_<>& x) {
@@ -128,11 +124,8 @@ namespace Dal {
             }
         };
 
-        void QPStep(const Vector_<>& f,
-                    const Underdetermined::Jacobian_& j,
-                    const Sparse::SymmetricDecomposition_& w,
-                    SquareMatrix_<>* q,
-                    Vector_<>* s) {
+        void
+        QPStep(const Vector_<>& f, const Underdetermined::Jacobian_& j, const Sparse::SymmetricDecomposition_& w, SquareMatrix_<>* q, Vector_<>* s) {
             j.QForm(w, q);
             Vector_<Vector_<>> qf(1, f);
             qf[0] *= -1.0;
@@ -141,9 +134,7 @@ namespace Dal {
             w.Solve(ws, s);
         }
 
-        void StoreEffectiveJacobianInverse(const Underdetermined::Jacobian_& j,
-                                           const Sparse::SymmetricDecomposition_& w,
-                                           Matrix_<>* effJInv) {
+        void StoreEffectiveJacobianInverse(const Underdetermined::Jacobian_& j, const Sparse::SymmetricDecomposition_& w, Matrix_<>* effJInv) {
             if (!effJInv)
                 return;
             SquareMatrix_<> q;
@@ -194,17 +185,12 @@ namespace Dal {
 
             [[nodiscard]] std::unique_ptr<SquareMatrixDecomposition_> Decompose() const override;
 
-            const double& operator()(int iRow, int iCol) const override {
-                THROW("Penalty weight element access is not supported");
-            }
+            const double& operator()(int iRow, int iCol) const override { THROW("Penalty weight element access is not supported"); }
 
-            void Set(int iRow, int iCol, double val) override {
-                THROW("Penalty weight element setting is not possible");
-            }
+            void Set(int iRow, int iCol, double val) override { THROW("Penalty weight element setting is not possible"); }
 
         public:
-            XPenaltyWeight_(const Sparse::Square_& W, const Underdetermined::Jacobian_& J, double j_weight)
-                : W_(W), J_(J), jWeight_(j_weight) {}
+            XPenaltyWeight_(const Sparse::Square_& W, const Underdetermined::Jacobian_& J, double j_weight) : W_(W), J_(J), jWeight_(j_weight) {}
         };
 
         class XDecompByCG_ : public Sparse::SymmetricDecomposition_ {
@@ -263,7 +249,7 @@ namespace Dal {
             bool tookStep_ = false;
         };
 
-        bool IsFindSolution(const Vector_<>& f) { return *MaxElement(f) < 1.0 && *MinElement(f) > -1.0; }
+        bool IsFindSolution(const Vector_<>& f) { return *MaxElement(f) <= 1.0 && *MinElement(f) >= -1.0; }
 
         // Fail-closed inverse validation: the tolerance-scaled solution Jacobian must map each
         // inverse column back to the identity to 1e-7; a finite-but-wrong inverse fails closed.
@@ -361,6 +347,10 @@ namespace Dal {
                                     Matrix_<>* fwdJacobianAtSolution) {
         XScaledFunc_ func(tol, funcIn, controls);
         FindState_ state(guess, &func);
+        if (IsFindSolution(state.fOld_)) {
+            StoreFindDiagnostics(&func, funcIn, state.xOld_, state.fOld_, tol, w, effJInv, fwdJacobianAtSolution);
+            return state.xOld_;
+        }
         SquareMatrix_<> q;
 
         for (;;) {
@@ -583,7 +573,9 @@ namespace Dal {
                                            const Vector_<>& funcTol, // accuracy of function evaluation
                                            double fitTol,            // accuracy of approximate fit
                                            const Sparse::Square_& w,
-                                           const Controls_& controls) {
+                                           const Controls_& controls,
+                                           const std::optional<double>& fitWeight) {
+        REQUIRE(!fitWeight || (std::isfinite(*fitWeight) && *fitWeight > 0.), "Approximate fit weight must be finite and positive");
         XScaledFunc_ func(funcTol, funcIn, controls);
         Vector_<> xOld(guess);
         Vector_<> fOld = func.F(xOld);
@@ -592,7 +584,7 @@ namespace Dal {
         std::unique_ptr<Jacobian_> j;
         Vector_<> xNew(xOld.size());
         SquareMatrix_<> q;
-        const double jWeight = InnerProduct(funcTol, funcTol) / Square(fitTol);
+        const double jWeight = fitWeight ? *fitWeight : InnerProduct(funcTol, funcTol) / Square(fitTol);
 
         for (int ie = 3, ticker = 0; ie < controls.maxEvaluations_; ++ie, ticker -= controls.maxRestarts_) {
             if (ticker <= 0) {

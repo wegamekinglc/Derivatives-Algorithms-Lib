@@ -50,6 +50,27 @@ namespace Dal {
             Check(product->HasPays(), "NoSharedPriceDefinition", "/source/rows", "shared PAYS cashflows", "", context);
             return product;
         }
+        std::map<String_, double> BindingSlots(const Vector_<CalibrationEffectiveParameter_>& binding) {
+            std::map<String_, double> slots;
+            for (const auto& value : binding)
+                slots.emplace(value.key_, value.value_);
+            return slots;
+        }
+        std::shared_ptr<const Script::ScriptProduct_> SharedBoundProduct(const ScriptInstrumentDefinitionSpec_& spec,
+                                                                         const std::map<String_, double>& slots,
+                                                                         const CalibrationDiagnostic_& context) {
+            return BoundProduct(spec, slots, context);
+        }
+        bool HasDefaultValues(const ScriptInstrumentDefinition_& definition, const Vector_<CalibrationEffectiveParameter_>& binding) {
+            const auto& defaults = definition.Defaults();
+            const auto& declarations = definition.Spec().parameters_;
+            if (binding.size() != defaults.size())
+                return false;
+            for (size_t i = 0; i < binding.size(); ++i)
+                if (binding[i].key_ != declarations[i].key_ || binding[i].value_ != defaults[i])
+                    return false;
+            return true;
+        }
         double SourceNumber(const String_& text, const String_& path, const CalibrationDiagnostic_& context) {
             double result = 0.;
             try {
@@ -327,7 +348,7 @@ namespace Dal {
         std::map<String_, double> defaults;
         for (size_t i = 0; i < spec_.parameters_.size(); ++i)
             defaults.emplace(spec_.parameters_[i].key_, defaults_[i]);
-        static_cast<void>(BoundProduct(spec_, defaults, {}));
+        defaultProduct_ = SharedBoundProduct(spec_, defaults, {});
         sourceIdentity_ = Fingerprint(SourceJson(spec_.source_));
         definitionIdentity_ = Fingerprint(DefinitionJson(spec_));
     }
@@ -348,6 +369,12 @@ namespace Dal {
         Check(ValidId(id_), BIND_ERROR, "/instrument_id", "a stable case-sensitive ID", id_, context);
         Check(bool(definition_), BIND_ERROR, "/definition", "nonnull immutable definition", "", context);
         Check(!pillar_ || pillar_->IsValid(), BIND_ERROR, "/pillar", "valid date or null", "", context);
+        if (HasDefaultValues(*definition_, binding_))
+            preparationProduct_ = definition_->defaultProduct_;
+        else {
+            context.stage_ = CalibrationStage_::Value_::Prepare;
+            preparationProduct_ = SharedBoundProduct(definition_->Spec(), BindingSlots(binding_), context);
+        }
         bindingIdentity_ =
             Fingerprint(Obj({{"definition_identity", Str(definition_->DefinitionIdentity())}, {"values", BindingValuesJson(binding_, false)}}));
         instrumentIdentity_ = Fingerprint(Obj({{"instrument_id", Str(id_)},
@@ -380,12 +407,14 @@ namespace Dal {
         return std::unique_ptr<CalibrationInstrument_>(new CalibrationInstrument_(id_, definition_, binding_, pillar_));
     }
     std::unique_ptr<Script::ScriptProduct_> CalibrationInstrument_::Product() const {
-        std::map<String_, double> slots;
-        for (const auto& value : binding_)
-            slots.emplace(value.key_, value.value_);
         CalibrationDiagnostic_ context;
         context.instrumentId_ = id_;
         context.stage_ = CalibrationStage_::Value_::Prepare;
-        return BoundProduct(definition_->Spec(), slots, context);
+        return BoundProduct(definition_->Spec(), BindingSlots(binding_), context);
     }
+    namespace CalibrationInternal {
+        std::shared_ptr<const Script::ScriptProduct_> PreparationProduct(const CalibrationInstrument_& instrument) {
+            return instrument.preparationProduct_;
+        }
+    } // namespace CalibrationInternal
 } // namespace Dal

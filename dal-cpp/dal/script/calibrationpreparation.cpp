@@ -1,6 +1,9 @@
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 
+#include <map>
+#include <mutex>
+
 #include <dal/calibration/validation_internal.hpp>
 #include <dal/currency/currencydata.hpp>
 #include <dal/curve/curvescript_internal.hpp>
@@ -23,7 +26,6 @@ namespace Dal {
 
     using namespace CalibrationInternal;
     namespace {
-        using Script::Evaluator_;
         using Script::FindNode;
         using Script::Node_;
         using Script::NodeAdd_;
@@ -179,30 +181,43 @@ namespace Dal {
             return d.sourceRow_ && *d.sourceRow_ > 0 ? "/source/rows/" + OrdinalText(*d.sourceRow_ - 1) + "/text" : String_("/source/rows");
         }
         void GuardAssignment(const Node_& node, bool paid, const String_& receiver, const CalibrationDiagnostic_& d) {
-            if (dynamic_cast<const NodeAssign_*>(&node) && Receiver(*node.arguments_[0], receiver))
-                Check(!paid && Literal(*node.arguments_[1], 0.), "InvalidCalibrationOutputBinding", SourceField(d),
-                      "literal-zero receiver initialization before every historical or live PAYS", "", d);
+            if (dynamic_cast<const NodeAssign_*>(&node) && Receiver(*node.arguments_[0], receiver) && !(!paid && Literal(*node.arguments_[1], 0.)))
+                Fail("InvalidCalibrationOutputBinding", SourceField(d), "literal-zero receiver initialization before every historical or live PAYS",
+                     "", d);
             if (const auto* vector = dynamic_cast<const NodeVectorAssign_*>(&node)) {
                 const auto* entry = dynamic_cast<const NodeVectorEntry_*>(vector->arguments_[0].get());
-                Check(!entry || entry->name_ != receiver, "InvalidCalibrationOutputBinding", SourceField(d), "scalar Price receiver", "", d);
+                if (entry && entry->name_ == receiver)
+                    Fail("InvalidCalibrationOutputBinding", SourceField(d), "scalar Price receiver", "", d);
             }
         }
-        bool Guard(const Node_& node, bool paid, const String_& receiver, const CalibrationDiagnostic_& d) {
+        struct GuardBranch_ {
+            const NodeIf_* branch_;
+            const Node_* statement_;
+            CalibrationDiagnostic_ source_;
+        };
+        bool Guard(const Node_& node,
+                   bool paid,
+                   const String_& receiver,
+                   const CalibrationDiagnostic_& d,
+                   Vector_<GuardBranch_>* branches = nullptr,
+                   const Node_* statement = nullptr) {
             const auto source = WithNodeSource(node, d);
             const auto visit = [&](size_t first, size_t last, bool state) {
                 for (size_t i = first; i < last; ++i)
-                    state = Guard(*node.arguments_[i], state, receiver, source);
+                    state = Guard(*node.arguments_[i], state, receiver, source, branches, statement);
                 return state;
             };
             if (const auto* branch = dynamic_cast<const NodeIf_*>(&node)) {
+                if (branches)
+                    branches->push_back({branch, statement, source});
                 const auto firstElse = branch->LastTrueIndex() + 1;
                 const bool thenPaid = visit(1, firstElse, paid);
                 const bool elsePaid = visit(firstElse, node.arguments_.size(), paid);
                 return thenPaid || elsePaid;
             }
             if (dynamic_cast<const NodePays_*>(&node)) {
-                Check(Receiver(*node.arguments_[0], receiver), "InvalidCalibrationOutputBinding", SourceField(source), "one declared PAYS receiver",
-                      "", source);
+                if (!Receiver(*node.arguments_[0], receiver))
+                    Fail("InvalidCalibrationOutputBinding", SourceField(source), "one declared PAYS receiver", "", source);
                 return true;
             }
             GuardAssignment(node, paid, receiver, source);
@@ -246,6 +261,35 @@ namespace Dal {
                           "UnsupportedCalibrationProduct", "/source/rows", "P0 payments with optional leading receiver initialization", "", source);
                 }
             });
+            Check(!result.empty(), "NoSharedPriceDefinition", "/source/rows", "shared PAYS cashflows", "", d);
+            return result;
+        }
+        Vector_<Payment_> InspectNativeProduct(const ScriptProduct_& product, const String_& receiver, const CalibrationDiagnostic_& d, bool affine) {
+            Vector_<GuardBranch_> branches;
+            bool paid = false;
+            ForStatements(product, d, [&](const Node_& node, const auto& source) {
+                paid = Guard(node, paid, receiver, source, affine ? &branches : nullptr, &node);
+            });
+            static_cast<void>(paid);
+            size_t nextBranch = 0;
+            Vector_<Payment_> result;
+            ForStatements(product, d, [&](const Node_& node, CalibrationDiagnostic_ source) {
+                while (nextBranch < branches.size() && branches[nextBranch].statement_ == &node) {
+                    const auto& branch = *branches[nextBranch].branch_;
+                    const auto* parameter = FindNode(*branch.arguments_[0], [](const Node_& n) { return Slot(n, "K"); });
+                    Check(parameter == nullptr, "UnsupportedCalibrationMeasure", "/source/rows", "K-independent branch conditions", "",
+                          branches[nextBranch].source_);
+                    ++nextBranch;
+                }
+                if (const auto* payment = dynamic_cast<const NodePays_*>(&node)) {
+                    source.sourceRow_ = static_cast<int>(payment->source_.row_);
+                    result.push_back({payment, *source.eventDate_, source});
+                } else {
+                    Check(dynamic_cast<const NodeAssign_*>(&node) && Receiver(*node.arguments_[0], receiver) && Literal(*node.arguments_[1], 0.),
+                          "UnsupportedCalibrationProduct", "/source/rows", "P0 payments with optional leading receiver initialization", "", source);
+                }
+            });
+            REQUIRE(nextBranch == branches.size(), "native inspection must consume every collected branch");
             Check(!result.empty(), "NoSharedPriceDefinition", "/source/rows", "shared PAYS cashflows", "", d);
             return result;
         }
@@ -320,16 +364,6 @@ namespace Dal {
             BondOptionParameter(instrument, "N", ScriptParameterRole_::Value_::Notional,
                                 "Price:" + String_(instrument.Definition()->Spec().header_.payCurrency_.String()), d);
             BondOptionParameter(instrument, "K", ScriptParameterRole_::Value_::Strike, "BondPrice", d);
-        }
-        double PaymentAmount(const ScriptProduct_& product, const NodePays_& payment) {
-            Evaluator_<double> evaluator(Vector_<>(product.VarNames().size(), 0.), product.ConstVarValues(), product.VectorCapacities());
-            AAD::Scenario_<> scenario(1);
-            scenario[0].numeraire_ = 1.;
-            evaluator.SetScenario(&scenario);
-            evaluator.Init();
-            evaluator.SetCurEvt(0);
-            payment.Accept(evaluator);
-            return evaluator.VarVals()[product.PayOffIdx()];
         }
         const Node_* OptionDifference(const Node_& amount) {
             if (!dynamic_cast<const NodeMulti_*>(&amount) || !Slot(*amount.arguments_[0], "N"))
@@ -486,24 +520,23 @@ namespace Dal {
         };
         Payoff_ DepositPayoff(const Vector_<Payment_>& payments,
                               const CalibrationInstrument_& instrument,
-                              ScriptProduct_* product,
                               const CalibrationPreparationContext_& context,
                               const CalibrationDiagnostic_& d) {
             Check(*context.valuation_.evaluationDate_ == payments[0].date_, "UnsupportedCalibrationMeasure", "/context/valuation_date",
                   "Deposit origination valuation", "", d);
-            Payoff_ result{CalibrationDepositDescriptor_{payments[0].date_, payments[1].date_, Bound(instrument, "N"), Bound(instrument, "K"),
-                                                         Bound(instrument, "ALPHA")},
-                           {}};
-            product->IndexVariables();
-            for (const auto& payment : payments) {
+            const double notional = Bound(instrument, "N"), coupon = Bound(instrument, "K"), accrual = Bound(instrument, "ALPHA");
+            const double amounts[] = {-notional, notional * (1. + coupon * accrual)};
+            Payoff_ result{CalibrationDepositDescriptor_{payments[0].date_, payments[1].date_, notional, coupon, accrual}, {}};
+            for (size_t i = 0; i < payments.size(); ++i) {
+                const auto& payment = payments[i];
                 const auto ab = Affine(*payment.node_->arguments_[1], payment.source_);
-                result.cashflows_.push_back(
-                    {payment.date_, PaymentAmount(*product, *payment.node_), ab.a_, ab.b_, *payment.source_.sourceRow_, *payment.source_.statement_});
+                result.cashflows_.push_back({payment.date_, amounts[i], ab.a_, ab.b_, *payment.source_.sourceRow_, *payment.source_.statement_});
             }
             return result;
         }
         CalibrationCashflow_ CurveMetadata(const CalibrationCurvePayment_& flow, const CalibrationCurveFamilyDescriptor_& family) {
-            const auto fixing = std::find_if(flow.program_.begin(), flow.program_.end(), [](const auto& op) { return op.operation_ == 'f'; });
+            const auto fixing =
+                std::find_if(flow.program_.begin(), flow.program_.end(), [](const auto& op) { return op.operation_ == 'f' || op.operation_ == 'r'; });
             if (fixing == flow.program_.end()) {
                 const auto ab = CurveScriptInternal::FixedCoefficients(flow);
                 return {flow.payment_, ab.b_ + family.coupon_ * ab.a_, ab.a_, ab.b_, *flow.source_.sourceRow_, *flow.source_.statement_};
@@ -541,7 +574,6 @@ namespace Dal {
         Payoff_ LowerPayoff(bool deposit,
                             const Vector_<Payment_>& payments,
                             const CalibrationInstrument_& instrument,
-                            ScriptProduct_* product,
                             const CalibrationPreparationContext_& context,
                             const CalibrationEvaluationOptions_& options,
                             const CalibrationMeasureSpec_& measure,
@@ -559,7 +591,7 @@ namespace Dal {
                 return result;
             }
             if (deposit)
-                return DepositPayoff(payments, instrument, product, context, d);
+                return DepositPayoff(payments, instrument, context, d);
             if (const auto option = BondOption(payments, instrument, context, d)) {
                 GaussianContext(context, d);
                 return {*option,
@@ -583,8 +615,8 @@ namespace Dal {
             for (const auto& payment : payments) {
                 if (legacyAffine)
                     static_cast<void>(Affine(*payment.node_->arguments_[1], payment.source_));
-                Check(!payment.node_->paymentDate_, "UnsupportedFastEvaluator", "/source/rows", "AtEvent payment without ON clause", "",
-                      payment.source_);
+                if (payment.node_->paymentDate_)
+                    Fail("UnsupportedFastEvaluator", "/source/rows", "AtEvent payment without ON clause", "", payment.source_);
             }
         }
         bool RateTemplateShape(const Vector_<Payment_>& payments) {
@@ -697,33 +729,40 @@ namespace Dal {
             Payoff_ payoff_;
             CalibrationPreparationCapability_ capability_;
         };
-        Preparation_ NativePreparation(ScriptProduct_* product,
+        Preparation_ NativePreparation(const ScriptProduct_* product,
                                        const CalibrationInstrument_& instrument,
                                        const CalibrationMeasureSpec_& measure,
                                        const CalibrationPreparationContext_& context,
                                        const CalibrationEvaluationOptions_& options,
-                                       const CalibrationDiagnostic_& d) {
-            const auto payments =
-                Payments(*product, instrument.Definition()->Spec().header_.receiver_, d, measure.kind_ != CalibrationMeasureKind_::Value_::Price);
+                                       const CalibrationDiagnostic_& d,
+                                       const Vector_<Payment_>* inspected = nullptr) {
+            Vector_<Payment_> gathered;
+            if (!inspected)
+                gathered =
+                    Payments(*product, instrument.Definition()->Spec().header_.receiver_, d, measure.kind_ != CalibrationMeasureKind_::Value_::Price);
+            const auto& payments = inspected ? *inspected : gathered;
             const bool deposit = IsDeposit(payments);
             ValidatePayments(payments, !context.xccy_ && !CurveScriptInternal::Candidate(instrument) &&
                                            measure.kind_ != CalibrationMeasureKind_::Value_::Price);
-            auto payoff = LowerPayoff(deposit, payments, instrument, product, context, options, measure, d);
+            auto payoff = LowerPayoff(deposit, payments, instrument, context, options, measure, d);
             const bool family = std::holds_alternative<CalibrationCurveFamily_>(payoff.descriptor_);
             auto capability = context.xccy_ ? XccyScriptInternal::Admit(options, d)
                                             : (family ? AdmitCurve(context, options, d) : Admit(deposit, measure, context, options, d));
             return {std::move(payoff), std::move(capability)};
         }
-        Preparation_ LowerForExecution(ScriptProduct_* product,
+        Preparation_ LowerForExecution(const ScriptProduct_* product,
                                        const CalibrationInstrument_& instrument,
                                        const CalibrationMeasureSpec_& measure,
                                        const CalibrationPreparationContext_& context,
                                        const CalibrationEvaluationOptions_& options,
                                        const CalibrationDiagnostic_& d) {
-            const bool paid = GuardProduct(*product, instrument.Definition()->Spec().header_.receiver_, d);
             if (context.xccy_ || options.evaluation_ != CalibrationEvaluation_::Value_::ScriptMC ||
-                measure.kind_ != CalibrationMeasureKind_::Value_::Price)
-                return NativePreparation(product, instrument, measure, context, options, d);
+                measure.kind_ != CalibrationMeasureKind_::Value_::Price) {
+                auto payments = InspectNativeProduct(*product, instrument.Definition()->Spec().header_.receiver_, d,
+                                                     measure.kind_ != CalibrationMeasureKind_::Value_::Price);
+                return NativePreparation(product, instrument, measure, context, options, d, &payments);
+            }
+            const bool paid = GuardProduct(*product, instrument.Definition()->Spec().header_.receiver_, d);
             const auto matched = NativeTemplate(*product, instrument, context, d);
             if (matched.native_)
                 return NativePreparation(product, instrument, measure, context, options, d);
@@ -750,7 +789,7 @@ namespace Dal {
                 Obj({{"build", Str("dal.core/1")},
                      {"parser", Str("typed-slots/1")},
                      {"lowering",
-                      Str(xccy ? "xccy-cashflows/1" : (family ? "curve-cashflows/1" : (rate ? "rate-option-cashflows/1" : "p0-cashflows/1")))},
+                      Str(xccy ? "xccy-cashflows/1" : (family ? "curve-cashflows/2" : (rate ? "rate-option-cashflows/1" : "p0-cashflows/1")))},
                      {"matcher", Str(xccy ? "xccy-complete-ast/1" : (family ? "curve-affine-ast/1" : (rate ? "rate-option-ast/1" : "p0-ast/2")))},
                      {"constant_binding", Str("effective-slots/1")},
                      {"receiver_guard", Str("whole-history/2")}}));
@@ -762,10 +801,35 @@ namespace Dal {
         }
     } // namespace
 
-    PreparedCalibrationInstrument_ PrepareCalibrationInstrument(const Handle_<CalibrationInstrument_>& instrument,
-                                                                const String_& measureId,
-                                                                const CalibrationPreparationContext_& context,
-                                                                const CalibrationEvaluationOptions_& options) {
+    struct CalibrationPreparationCache_::Impl_ {
+        std::mutex mutex_;
+        std::map<std::string, PreparedCalibrationInstrument_> plans_;
+    };
+    CalibrationPreparationCache_::CalibrationPreparationCache_() : impl_(std::make_shared<Impl_>()) {}
+    namespace {
+        String_ PreparationCacheKey(const CalibrationInstrument_& instrument,
+                                    const String_& measureId,
+                                    const String_& contextIdentity,
+                                    const CalibrationEvaluationOptions_& options) {
+            return Fingerprint(Obj({{"adapter", Str("dal.calibration-preparation/1")},
+                                    {"instrument", Str(instrument.InstrumentIdentity())},
+                                    {"measure", Str(measureId)},
+                                    {"context", Str(contextIdentity)},
+                                    {"evaluation", Str(options.evaluation_.String())},
+                                    {"derivative", Str(options.derivativeMethod_.String())},
+                                    {"monte_carlo", Bool(options.allowMonteCarloCalibration_)},
+                                    {"sampling", Optional(options.sampling_, [](const auto& s) {
+                                         return Obj({{"paths", Num(s.paths_)}, {"seed", Num(s.seed_)}, {"generator", Str(s.generator_)}});
+                                     })}}));
+        }
+    } // namespace
+
+    PreparedCalibrationInstrument_ CalibrationInternal::PrepareCalibrationInstrumentAtContext(const Handle_<CalibrationInstrument_>& instrument,
+                                                                                              const String_& measureId,
+                                                                                              const CalibrationPreparationContext_& context,
+                                                                                              const String_& contextIdentity,
+                                                                                              const CalibrationEvaluationOptions_& options,
+                                                                                              std::shared_ptr<CalibrationPreparationCache_> cache) {
         Check(static_cast<bool>(instrument), "InvalidCalibrationPlan", "/instrument", "nonnull instrument");
         auto d = Diagnostic(*instrument, measureId);
         PreparedCalibrationInstrument_ result;
@@ -775,11 +839,23 @@ namespace Dal {
             std::find_if(spec.measures_.begin(), spec.measures_.end(), [&](const auto& m) { return Bytes(m.id_) == Bytes(measureId); });
         Check(found != spec.measures_.end(), "UnsupportedCalibrationMeasure", "/measure_id", "declared measure ID", measureId, d);
         result.measure_ = *found;
-        result.contextIdentity_ = ContextIdentity(context, d);
+        result.contextIdentity_ = contextIdentity;
+        String_ cacheKey;
+        if (cache) {
+            cacheKey = PreparationCacheKey(*instrument, measureId, result.contextIdentity_, options);
+            std::lock_guard<std::mutex> lock(cache->impl_->mutex_);
+            const auto found = cache->impl_->plans_.find(Bytes(cacheKey));
+            if (found != cache->impl_->plans_.end()) {
+                auto cached = found->second;
+                cached.instrument_ = instrument;
+                cached.measure_ = result.measure_;
+                return cached;
+            }
+        }
         HeaderContext(context, spec.header_, d);
         if (context.xccy_)
             static_cast<void>(XccyScriptInternal::Admit(options, d));
-        auto product = instrument->Product();
+        const auto product = CalibrationInternal::PreparationProduct(*instrument);
         auto lowered = LowerForExecution(product.get(), *instrument, result.measure_, context, options, d);
         result.descriptor_ = std::move(lowered.payoff_.descriptor_);
         result.cashflows_ = std::move(lowered.payoff_.cashflows_);
@@ -804,7 +880,28 @@ namespace Dal {
                                                 {"sampling", Optional(result.sampling_, [](const auto& s) {
                                                      return Obj({{"paths", Num(s.paths_)}, {"seed", Num(s.seed_)}, {"generator", Str(s.generator_)}});
                                                  })}}));
+        if (cache) {
+            std::lock_guard<std::mutex> lock(cache->impl_->mutex_);
+            cache->impl_->plans_.insert_or_assign(Bytes(cacheKey), result);
+        }
         return result;
+    }
+    String_ CalibrationInternal::PreparationContextIdentity(const CalibrationPreparationContext_& context, const CalibrationDiagnostic_& diagnostic) {
+        return ContextIdentity(context, diagnostic);
+    }
+    PreparedCalibrationInstrument_ PrepareCalibrationInstrument(const Handle_<CalibrationInstrument_>& instrument,
+                                                                const String_& measureId,
+                                                                const CalibrationPreparationContext_& context,
+                                                                const CalibrationEvaluationOptions_& options,
+                                                                std::shared_ptr<CalibrationPreparationCache_> cache) {
+        Check(static_cast<bool>(instrument), "InvalidCalibrationPlan", "/instrument", "nonnull instrument");
+        auto d = Diagnostic(*instrument, measureId);
+        const auto& spec = instrument->Definition()->Spec();
+        const auto found =
+            std::find_if(spec.measures_.begin(), spec.measures_.end(), [&](const auto& m) { return Bytes(m.id_) == Bytes(measureId); });
+        Check(found != spec.measures_.end(), "UnsupportedCalibrationMeasure", "/measure_id", "declared measure ID", measureId, d);
+        return CalibrationInternal::PrepareCalibrationInstrumentAtContext(
+            instrument, measureId, context, CalibrationInternal::PreparationContextIdentity(context, d), options, std::move(cache));
     }
     void PreparedCalibrationInstrument_::RequireCompatible(const Handle_<CalibrationInstrument_>& instrument,
                                                            const CalibrationPreparationContext_& context) const {

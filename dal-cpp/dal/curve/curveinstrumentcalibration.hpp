@@ -17,13 +17,20 @@ namespace Dal {
         Vector_<CurveScriptRoute_> routes_;
         std::shared_ptr<Tape::DiscountCurve_<T_>> target_;
 
-        [[nodiscard]] const CurveScriptRoute_& Route(const String_& id, bool projection) const;
-        [[nodiscard]] T_ Discount(const CurveScriptRoute_& route, const Date_& from, const Date_& to) const;
-
     public:
+        struct CurveBinding_ {
+            const Tape::DiscountCurve_<T_>* target_ = nullptr;
+            const DiscountCurve_* background_ = nullptr;
+        };
+        [[nodiscard]] const CurveScriptRoute_& Route(const String_& id, bool projection) const;
+        [[nodiscard]] CurveBinding_ Bind(const CurveScriptRoute_& route) const;
+        [[nodiscard]] T_ Discount(const CurveScriptRoute_& route, const Date_& from, const Date_& to) const;
+        [[nodiscard]] T_ Discount(const CurveBinding_& binding, const CurveScriptRoute_& route, const Date_& from, const Date_& to) const;
         CandidateCurveProvider_(const CurveCalibrationSpec_& geometry, const Vector_<CurveScriptRoute_>& routes, const Vector_<T_>& parameters);
         [[nodiscard]] T_ Discount(const String_& route, const Date_& from, const Date_& to) const;
         [[nodiscard]] T_ Forward(const String_& route, const Date_& start, const Date_& end, const DayBasis_& basis) const;
+        [[nodiscard]] T_
+        Forward(const CurveBinding_& binding, const CurveScriptRoute_& route, const Date_& start, const Date_& end, const DayBasis_& basis) const;
         [[nodiscard]] const std::shared_ptr<Tape::DiscountCurve_<T_>>& Target() const { return target_; }
     };
 
@@ -65,6 +72,7 @@ namespace Dal {
         CalibrationDerivative_ jacobianMode_ = CalibrationDerivative_::Value_::FiniteDifference;
         double differenceStep_ = 1e-6;
         bool computeQuoteJacobian_ = false;
+        std::shared_ptr<CalibrationPreparationCache_> preparationCache_;
     };
     struct CurveInstrumentCalibrationResult_ {
         Handle_<DiscountCurve_> curve_;
@@ -110,6 +118,7 @@ namespace Dal {
         [[nodiscard]] const CurveInstrumentCalibrationSpec_& Spec() const { return spec_; }
         [[nodiscard]] CurveInstrumentCalibrationResult_ Describe() const;
         [[nodiscard]] CurveInstrumentCalibrationResult_ Evaluate(const Vector_<>& parameters, bool derivatives = true) const;
+        [[nodiscard]] Vector_<> Residuals(const Vector_<>& parameters) const;
         [[nodiscard]] std::unique_ptr<Underdetermined::Jacobian_> Jacobian(const Vector_<>& parameters) const;
     };
     CurveInstrumentCalibrationResult_ CalibrateCurveInstruments(const CurveInstrumentCalibrationSpec_& spec,

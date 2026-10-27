@@ -1,0 +1,41 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>CurveBlock_New</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>CurveBlock_New (in Excel: CURVEBLOCK.NEW)</h1>
+Build a curve block with explicit discount and projection curves
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>name</td><td>string</td><td></td><td>A name for the curve block</td></tr>
+<tr><td>ccy</td><td>string</td><td></td><td>Currency code (e.g. "USD")</td></tr>
+<tr><td>discounts</td><td>handle of type StorableCalibrationDiscountCurves</td><td></td><td>Collateral-keyed discount curve bindings</td></tr>
+<tr><td>forwards</td><td>handle of type StorableCalibrationForwardCurves</td><td></td><td>Tenor-keyed projection curve bindings</td></tr>
+<tr><td>liborBasis</td><td>string</td><td>yes</td><td>Libor day basis name (default "ACT_365F")</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>block</td><td>handle of type StorableCurveBlock</td><td>The curve block</td></tr>
+</table>
+
+
+
+
+
+

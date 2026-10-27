@@ -1,5 +1,6 @@
 #include <dal/platform/platform.hpp>
 
+#include <map>
 #include <set>
 
 #include <dal/calibration/validation_internal.hpp>
@@ -244,16 +245,20 @@ namespace Dal {
             CalibrationPreparationContext_ script_;
             CandidateCurveProvider_<double> curves_;
         };
-        RowContext_ StructuralContext(const CurveInstrumentCalibrationSpec_& spec, const CalibrationObservation_& observation) {
-            const auto& g = spec.geometry_;
+        const CurveScriptRoute_& DiscountRoute(const CurveInstrumentCalibrationSpec_& spec, const CalibrationObservation_& observation) {
             const auto& header = observation.Instrument()->Definition()->Spec().header_;
             const auto route = std::find_if(spec.market_.routes_.begin(), spec.market_.routes_.end(),
                                             [&](const auto& entry) { return Bytes(entry.id_) == Bytes(header.discountRoute_); });
             const auto diagnostic = RowDiagnostic(observation, CalibrationStage_::Value_::Prepare);
-            Check(route != spec.market_.routes_.end(), "CalibrationContextMismatch", "/routes/" + header.discountRoute_, "bound discount route", "",
-                  diagnostic);
-            Check(!route->projection_ && route->collateral_ == header.collateralType_, "CalibrationContextMismatch",
-                  "/routes/" + header.discountRoute_, "discount route with contract collateral", "", diagnostic);
+            if (route == spec.market_.routes_.end())
+                Fail("CalibrationContextMismatch", "/routes/" + header.discountRoute_, "bound discount route", "", diagnostic);
+            if (route->projection_ || route->collateral_ != header.collateralType_)
+                Fail("CalibrationContextMismatch", "/routes/" + header.discountRoute_, "discount route with contract collateral", "", diagnostic);
+            return *route;
+        }
+        RowContext_ StructuralContext(const CurveInstrumentCalibrationSpec_& spec, const CalibrationObservation_& observation) {
+            const auto& g = spec.geometry_;
+            const auto& route = DiscountRoute(spec, observation);
             const auto geometry = NativeGeometry(spec);
             const auto initial = ResolveCurveCalibrationInitialGuess(geometry);
             CandidateCurveProvider_<double> provider(geometry, spec.market_.routes_, initial);
@@ -263,11 +268,11 @@ namespace Dal {
                     dates.push_back(date);
             Vector_<> logDf;
             for (const auto& date : dates)
-                logDf.push_back(std::log(provider.Discount(header.discountRoute_, g.today_, date)));
+                logDf.push_back(std::log(provider.Discount(route.id_, g.today_, date)));
             CalibrationPreparationContext_ context;
             context.valuation_ = spec.valuation_;
             context.currency_ = Ccy_(g.ccy_);
-            context.discountRoute_ = header.discountRoute_;
+            context.discountRoute_ = route.id_;
             context.curve_.reset(new GSRCurveData_("curve-structural-admission", g.today_, g.ccy_, dates, logDf, {}, {}));
             return {std::move(context), std::move(provider)};
         }
@@ -279,15 +284,17 @@ namespace Dal {
                 return;
             const auto route = std::find_if(spec.market_.routes_.begin(), spec.market_.routes_.end(),
                                             [&](const auto& r) { return Bytes(r.id_) == Bytes(observation.route_); });
-            Check(route != spec.market_.routes_.end() && route->projection_ == observation.projection_, "CalibrationContextMismatch",
-                  "/routes/" + observation.route_, "explicit matching observation route", observation.index_, observation.source_);
-            Check(!observation.projection_ || route->tenor_ == observation.tenor_, "CalibrationContextMismatch", "/routes/" + observation.route_,
-                  "projection tenor matching authoritative index", observation.index_, observation.source_);
+            if (route == spec.market_.routes_.end() || route->projection_ != observation.projection_)
+                Fail("CalibrationContextMismatch", "/routes/" + observation.route_, "explicit matching observation route", observation.index_,
+                     observation.source_);
+            if (observation.projection_ && route->tenor_ != observation.tenor_)
+                Fail("CalibrationContextMismatch", "/routes/" + observation.route_, "projection tenor matching authoritative index",
+                     observation.index_, observation.source_);
             if (observation.projection_)
                 static_cast<void>(CurveScriptInternal::Observe(observation, provider));
-            if (pillar)
-                Check(*pillar >= observation.end_, "InvalidCalibrationPlan", "/instrument/pillar", "pillar covers every observation dependency",
-                      observation.index_, observation.source_);
+            if (pillar && *pillar < observation.end_)
+                Fail("InvalidCalibrationPlan", "/instrument/pillar", "pillar covers every observation dependency", observation.index_,
+                     observation.source_);
         }
         bool CoveredCashflow(const CalibrationCashflow_& flow, const CurveInstrumentCalibrationSpec_& spec, bool family) {
             return (family || (flow.amount_ && flow.observationIndex_.empty())) && flow.eventDate_ >= spec.geometry_.today_ &&
@@ -299,40 +306,52 @@ namespace Dal {
             CalibrationDiagnostic_ d;
             d.instrumentId_ = plan.Instrument()->Id();
             d.measureId_ = plan.Measure().id_;
-            Check(plan.Capability().affine_, "UnsupportedFastEvaluator", "/instrument", "deterministic shared cashflows", "", d);
+            if (!plan.Capability().affine_)
+                Fail("UnsupportedFastEvaluator", "/instrument", "deterministic shared cashflows", "", d);
             const auto* family = std::get_if<CalibrationCurveFamily_>(&plan.Descriptor());
             if (family)
                 for (const auto& observation : (*family)->observations_)
                     AdmittedObservation(observation, spec, plan.Instrument()->Pillar(), provider);
             for (const auto& flow : plan.Cashflows())
-                Check(CoveredCashflow(flow, spec, family != nullptr), "InvalidCalibrationPlan", "/instrument/cashflows",
-                      "live fixed cashflows covered by native curve nodes", "", d);
-            if (plan.Instrument()->Pillar())
-                Check(*plan.Instrument()->Pillar() >= plan.Cashflows().back().eventDate_ &&
-                          *plan.Instrument()->Pillar() <= spec.geometry_.knotDates_.back(),
-                      "InvalidCalibrationPlan", "/instrument/pillar", "pillar covers cashflow dependency within curve layout", "", d);
+                if (!CoveredCashflow(flow, spec, family != nullptr))
+                    Fail("InvalidCalibrationPlan", "/instrument/cashflows", "live fixed cashflows covered by native curve nodes", "", d);
+            if (plan.Instrument()->Pillar() && (*plan.Instrument()->Pillar() < plan.Cashflows().back().eventDate_ ||
+                                                *plan.Instrument()->Pillar() > spec.geometry_.knotDates_.back()))
+                Fail("InvalidCalibrationPlan", "/instrument/pillar", "pillar covers cashflow dependency within curve layout", "", d);
         }
         PreparedCalibrationInstrument_ PrepareObservation(const CalibrationObservation_& observation,
                                                           const CurveInstrumentCalibrationSpec_& spec,
-                                                          const CurveInstrumentCalibrationOptions_& options) try {
+                                                          const RowContext_& structural,
+                                                          const CurveInstrumentCalibrationOptions_& options,
+                                                          std::map<String_, String_>* contextIdentities) try {
             CalibrationEvaluationOptions_ preparation;
             preparation.evaluation_ = options.evaluation_;
             preparation.derivativeMethod_ = CalibrationDerivative_::Value_::None;
-            const auto context = StructuralContext(spec, observation);
-            auto plan = PrepareCalibrationInstrument(observation.Instrument(), observation.MeasureId(), context.script_, preparation);
-            AdmittedCashflows(plan, spec, context.curves_);
+            auto context = structural.script_;
+            context.discountRoute_ = DiscountRoute(spec, observation).id_;
+            auto [identity, inserted] = contextIdentities->try_emplace(context.discountRoute_);
+            if (inserted)
+                identity->second =
+                    CalibrationInternal::PreparationContextIdentity(context, RowDiagnostic(observation, CalibrationStage_::Value_::Prepare));
+            auto plan = CalibrationInternal::PrepareCalibrationInstrumentAtContext(observation.Instrument(), observation.MeasureId(), context,
+                                                                                   identity->second, preparation, options.preparationCache_);
+            AdmittedCashflows(plan, spec, structural.curves_);
             return plan;
         } catch (const CalibrationError_& error) {
             CurveFailure({}, RowDiagnostic(observation, CalibrationStage_::Value_::Prepare, error.Failure().diagnostic_));
         }
         template <class T_>
-        T_ CashflowMeasure(const PreparedCalibrationInstrument_& plan, const CandidateCurveProvider_<T_>& provider, const Date_& today) {
+        T_ CashflowMeasure(const PreparedCalibrationInstrument_& plan,
+                           const CandidateCurveProvider_<T_>& provider,
+                           const Date_& today,
+                           CurveScriptInternal::EvaluationScratch_<T_>* scratch) {
             if (std::holds_alternative<CalibrationCurveFamily_>(plan.Descriptor()))
-                return CurveScriptInternal::Measure(plan, provider, today);
+                return CurveScriptInternal::Measure(plan, provider, today, scratch);
             T_ a(0.), b(0.), price(0.);
-            const auto& route = plan.Instrument()->Definition()->Spec().header_.discountRoute_;
+            const auto& route = provider.Route(plan.Instrument()->Definition()->Spec().header_.discountRoute_, false);
+            const auto curve = provider.Bind(route);
             for (const auto& flow : plan.Cashflows()) {
-                const T_ discount = provider.Discount(route, today, flow.eventDate_);
+                const T_ discount = provider.Discount(curve, route, today, flow.eventDate_);
                 a += flow.a_ * discount;
                 b += flow.b_ * discount;
                 price += *flow.amount_ * discount;
@@ -348,13 +367,15 @@ namespace Dal {
             return -b / a;
         }
         template <class T_>
-        Vector_<T_>
-        Measures(const CurveInstrumentCalibrationSpec_& spec, const Vector_<PreparedCalibrationInstrument_>& plans, const Vector_<T_>& parameters) {
-            const CandidateCurveProvider_<T_> provider(NativeGeometry(spec), spec.market_.routes_, parameters);
+        Vector_<T_> Measures(const CurveInstrumentCalibrationSpec_& spec,
+                             const Vector_<PreparedCalibrationInstrument_>& plans,
+                             const CandidateCurveProvider_<T_>& provider) {
             Vector_<T_> result;
+            result.reserve(plans.size());
+            CurveScriptInternal::EvaluationScratch_<T_> scratch;
             for (size_t i = 0; i < plans.size(); ++i) {
                 try {
-                    const T_ value = CashflowMeasure(plans[i], provider, spec.geometry_.today_);
+                    const T_ value = CashflowMeasure(plans[i], provider, spec.geometry_.today_, &scratch);
                     Check(std::isfinite(static_cast<double>(value)), "CalibrationNumericalFailure", "/measure", "finite raw measure");
                     result.push_back(value);
                 } catch (const CalibrationError_& error) {
@@ -362,6 +383,12 @@ namespace Dal {
                 }
             }
             return result;
+        }
+        template <class T_>
+        Vector_<T_>
+        Measures(const CurveInstrumentCalibrationSpec_& spec, const Vector_<PreparedCalibrationInstrument_>& plans, const Vector_<T_>& parameters) {
+            const CandidateCurveProvider_<T_> provider(NativeGeometry(spec), spec.market_.routes_, parameters);
+            return Measures(spec, plans, provider);
         }
         double L2(const Vector_<>& values) {
             double result = 0.;
@@ -396,9 +423,8 @@ namespace Dal {
         }
         String_ CurvePlanIdentity(const CurveInstrumentCalibrationSpec_& spec,
                                   const Vector_<PreparedCalibrationInstrument_>& plans,
-                                  const CurveInstrumentCalibrationOptions_& options) {
-            const auto geometry = NativeGeometry(spec);
-            const CandidateCurveProvider_<double> provider(geometry, spec.market_.routes_, ResolveCurveCalibrationInitialGuess(geometry));
+                                  const CurveInstrumentCalibrationOptions_& options,
+                                  const CandidateCurveProvider_<double>& provider) {
             return Fingerprint(Obj({{"adapter", Str("dal.native-curve-instruments/1")},
                                     {"curve", Parse(JSON::WriteString(*provider.Target()))},
                                     {"discount_target", Bool(spec.geometry_.calibrateDiscountCurve_)},
@@ -418,21 +444,34 @@ namespace Dal {
         String_ CandidateIdentity(const String_& plan, const Vector_<>& parameters) {
             return Fingerprint(Obj({{"plan", Str(plan)}, {"parameters", Array(parameters, [](double value) { return Num(value); })}}));
         }
-        void Residuals(CurveInstrumentCalibrationResult_* result) {
-            for (size_t i = 0; i < result->modelMeasures_.size(); ++i) {
-                const auto& row = result->axes_.observations_[i];
-                const double raw = result->modelMeasures_[i] - row->Quote()->Value(), scaled = raw / row->ErrorScale();
+        struct ResidualValues_ {
+            Vector_<> raw_, scaled_;
+            double rawNorm_ = 0., scaledNorm_ = 0., maxAbsScaled_ = 0.;
+        };
+        ResidualValues_ CalculateResiduals(const CalibrationObservationAxes_& axes, const Vector_<>& measures) {
+            ResidualValues_ result;
+            for (size_t i = 0; i < measures.size(); ++i) {
+                const auto& row = axes.observations_[i];
+                const double raw = measures[i] - row->Quote()->Value(), scaled = raw / row->ErrorScale();
                 Check(std::isfinite(raw) && std::isfinite(scaled), "CalibrationNumericalFailure", "/residuals", "finite raw and scaled residuals", "",
                       RowDiagnostic(*row, CalibrationStage_::Value_::Evaluate));
-                result->rawResiduals_.push_back(raw);
-                result->scaledResiduals_.push_back(scaled);
-                result->maxAbsScaledResidual_ = std::max(result->maxAbsScaledResidual_, std::abs(scaled));
+                result.raw_.push_back(raw);
+                result.scaled_.push_back(scaled);
+                result.maxAbsScaled_ = std::max(result.maxAbsScaled_, std::abs(scaled));
             }
-            result->rawNorm_ = L2(result->rawResiduals_);
-            result->scaledNorm_ = L2(result->scaledResiduals_);
-            Check(std::isfinite(result->rawNorm_) && std::isfinite(result->scaledNorm_), "CalibrationNumericalFailure", "/residual_norms",
-                  "representable raw and scaled L2 norms", "",
-                  RowDiagnostic(*result->axes_.observations_.front(), CalibrationStage_::Value_::Evaluate));
+            result.rawNorm_ = L2(result.raw_);
+            result.scaledNorm_ = L2(result.scaled_);
+            Check(std::isfinite(result.rawNorm_) && std::isfinite(result.scaledNorm_), "CalibrationNumericalFailure", "/residual_norms",
+                  "representable raw and scaled L2 norms", "", RowDiagnostic(*axes.observations_.front(), CalibrationStage_::Value_::Evaluate));
+            return result;
+        }
+        void ApplyResiduals(CurveInstrumentCalibrationResult_* result) {
+            auto values = CalculateResiduals(result->axes_, result->modelMeasures_);
+            result->rawResiduals_ = std::move(values.raw_);
+            result->scaledResiduals_ = std::move(values.scaled_);
+            result->rawNorm_ = values.rawNorm_;
+            result->scaledNorm_ = values.scaledNorm_;
+            result->maxAbsScaledResidual_ = values.maxAbsScaled_;
         }
     } // namespace
 
@@ -480,8 +519,10 @@ namespace Dal {
             PreparationSettings(spec, options);
             spec_ = ResolveKnots(spec_);
             definition_ = Dal::Definition(spec_);
+            const auto structural = StructuralContext(spec_, *spec_.observations_.front());
+            std::map<String_, String_> contextIdentities;
             for (const auto& observation : spec_.observations_) {
-                auto plan = PrepareObservation(*observation, spec_, options);
+                auto plan = PrepareObservation(*observation, spec_, structural, options, &contextIdentities);
                 auto capability = plan.Capability();
                 capability.derivativeMethod_ = options_.jacobianMode_ == CalibrationDerivative_::Value_::AAD
                                                    ? CalibrationDerivative_::Value_::AAD
@@ -489,7 +530,7 @@ namespace Dal {
                 capabilities_.push_back(capability);
                 plans_.push_back(std::move(plan));
             }
-            planIdentity_ = CurvePlanIdentity(spec_, plans_, options_);
+            planIdentity_ = CurvePlanIdentity(spec_, plans_, options_, structural.curves_);
             frozenSpec_ = std::make_shared<const CurveInstrumentCalibrationSpec_>(spec_);
         } catch (const CalibrationError_& error) {
             auto d = error.Failure().diagnostic_;
@@ -532,13 +573,26 @@ namespace Dal {
         result.planIdentity_ = planIdentity_;
         return result;
     }
+    Vector_<> PreparedCurveInstruments_::Residuals(const Vector_<>& parameters) const try {
+        return CalculateResiduals(axes_, Measures(spec_, plans_, parameters)).raw_;
+    } catch (const CalibrationError_& error) {
+        auto d = error.Failure().diagnostic_;
+        d.stage_ = CalibrationStage_::Value_::Evaluate;
+        CurveFailure(Describe(), d);
+    } catch (const std::exception& error) {
+        auto d = RowDiagnostic(*axes_.observations_.front(), CalibrationStage_::Value_::Evaluate);
+        d.code_ = "CalibrationNumericalFailure";
+        d.message_ = String_(error.what());
+        CurveFailure(Describe(), d);
+    }
     CurveInstrumentCalibrationResult_ PreparedCurveInstruments_::Evaluate(const Vector_<>& parameters, bool derivatives) const try {
         auto result = Describe();
         result.parameters_ = parameters;
-        result.modelMeasures_ = Measures(spec_, plans_, parameters);
+        const CandidateCurveProvider_<double> provider(NativeGeometry(spec_), spec_.market_.routes_, parameters);
+        result.modelMeasures_ = Measures(spec_, plans_, provider);
         result.candidateIdentity_ = CandidateIdentity(planIdentity_, parameters);
-        result.curve_ = Handle_<DiscountCurve_>(CandidateCurveProvider_<double>(NativeGeometry(spec_), spec_.market_.routes_, parameters).Target());
-        Residuals(&result);
+        result.curve_ = Handle_<DiscountCurve_>(provider.Target());
+        ApplyResiduals(&result);
         if (derivatives) {
             result.derivativeMethod_ = options_.jacobianMode_ == CalibrationDerivative_::Value_::AAD
                                            ? CalibrationDerivative_::Value_::AAD
@@ -584,14 +638,26 @@ namespace Dal {
             const PreparedCurveInstruments_& plan_;
             const Vector_<>& initial_;
             const Vector_<>& scales_;
+            CurveSolverTrack_* track_;
+            double differenceStep_;
 
         public:
-            CurveFitFunction_(const PreparedCurveInstruments_& plan, const Vector_<>& initial, const Vector_<>& scales)
-                : plan_(plan), initial_(initial), scales_(scales) {}
+            CurveFitFunction_(const PreparedCurveInstruments_& plan,
+                              const Vector_<>& initial,
+                              const Vector_<>& scales,
+                              double differenceStep,
+                              CurveSolverTrack_* track)
+                : plan_(plan), initial_(initial), scales_(scales), track_(track), differenceStep_(differenceStep) {}
+            [[nodiscard]] double BumpSize() const override { return differenceStep_; }
             Vector_<> F(const Vector_<>& coordinates) const override {
-                return plan_.Evaluate(NativeParameters(coordinates, initial_, scales_), false).rawResiduals_;
+                ++track_->evaluations_;
+                auto raw = plan_.Residuals(NativeParameters(coordinates, initial_, scales_));
+                track_->coordinates_ = coordinates;
+                track_->rawResiduals_ = raw;
+                return raw;
             }
             std::unique_ptr<Underdetermined::Jacobian_> Gradient(const Vector_<>& coordinates, const Vector_<>&) const override {
+                ++track_->gradients_;
                 auto result = plan_.Jacobian(NativeParameters(coordinates, initial_, scales_));
                 if (result) {
                     auto& j = static_cast<XCurveJacobian_&>(*result).j_;
@@ -600,6 +666,23 @@ namespace Dal {
                             j(i, k) *= scales_[k];
                 }
                 return result;
+            }
+            void Gradient(const Vector_<>& coordinates, const Vector_<>&, Matrix_<>* jacobian) const override {
+                const auto layout = plan_.Describe();
+                jacobian->Resize(static_cast<int>(plan_.Axes().observations_.size()), static_cast<int>(coordinates.size()));
+                auto up = coordinates, down = coordinates;
+                for (int j = 0; j < jacobian->Cols(); ++j) {
+                    const auto [lower, upper] =
+                        DifferencePoints(coordinates[j], differenceStep_, layout.freeParameters_[j],
+                                         RowDiagnostic(*plan_.Spec().observations_.front(), CalibrationStage_::Value_::Evaluate));
+                    up[j] = upper;
+                    down[j] = lower;
+                    const auto plus = F(up), minus = F(down);
+                    for (int i = 0; i < jacobian->Rows(); ++i)
+                        (*jacobian)(i, j) = (plus[i] - minus[i]) / (upper - lower) * scales_[j];
+                    up[j] = down[j] = coordinates[j];
+                }
+                ValidateNativeJacobian(*jacobian, plan_.Spec(), layout.freeParameters_);
             }
         };
         void ApproximateSettings(const CurveInstrumentSolver_& solver) {
@@ -738,20 +821,23 @@ namespace Dal {
             result.initialParameters_ = ResolveCurveCalibrationInitialGuess(NativeGeometry(plan.Spec()));
             SolverSettings(spec.solver_, &result);
             const auto weights = FitWeights(spec.solver_, &result);
-            const CurveFitFunction_ function(plan, result.initialParameters_, result.parameterScales_);
+            CurveSolverTrack_ track;
+            const CurveFitFunction_ function(plan, result.initialParameters_, result.parameterScales_, options.differenceStep_, &track);
             Vector_<> scales;
             for (const auto& row : result.axes_.observations_)
                 scales.push_back(row->ErrorScale());
-            Dictionary_ dictionary;
-            dictionary.Insert(KEY_MAX_EVALUATIONS, Cell_(static_cast<double>(spec.solver_.maxEvaluations_)));
-            dictionary.Insert(KEY_MAX_RESTARTS, Cell_(static_cast<double>(spec.solver_.maxRestarts_)));
-            Underdetermined::FitSettings_ settings;
-            settings.exact_ = spec.solver_.solveMode_ == CurveSolveMode_::Value_::EXACT;
-            settings.fitWeight_ = spec.solver_.fitWeight_;
-            settings.fitNormTolerance_ = spec.solver_.fitNormTolerance_;
-            settings.differenceStep_ = options.differenceStep_;
-            const auto solved = Underdetermined::Fit(function, Vector_<>(result.initialParameters_.size(), 0.), scales, *weights,
-                                                     UnderdeterminedControls_(dictionary), settings);
+            Underdetermined::FitResult_ solved;
+            try {
+                const auto legacy = RunCurveCalibration(function, Vector_<>(result.initialParameters_.size(), 0.), scales,
+                                                        spec.solver_.solveMode_ == CurveSolveMode_::Value_::EXACT, false, false,
+                                                        spec.solver_.fitNormTolerance_.value_or(1e-6), *weights, spec.solver_.maxEvaluations_,
+                                                        spec.solver_.maxRestarts_, spec.solver_.fitWeight_);
+                solved = CompleteCurveSolve(track, legacy.parameters_, scales, spec.solver_.solveMode_ == CurveSolveMode_::Value_::EXACT,
+                                            spec.solver_.fitNormTolerance_);
+            } catch (...) {
+                solved = CompleteCurveSolve(track, {}, scales, spec.solver_.solveMode_ == CurveSolveMode_::Value_::EXACT,
+                                            spec.solver_.fitNormTolerance_, std::current_exception());
+            }
             FitState(plan, solved, options, &result);
             if (!solved.fitWithinTolerance_)
                 UnsuccessfulFit(solved, result);

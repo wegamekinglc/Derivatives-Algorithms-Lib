@@ -2,9 +2,50 @@
 // Created by wegam on 2026/6/20.
 //
 
+#include "__curvedata.hpp"
 #include "__platform.hpp"
-#include "__curve_storable.hpp"
 #include <dal-public/src/curvedata.hpp>
+
+/*IF--------------------------------------------------------------------------
+public DiscountPWC_New
+    Build a discount curve from knot dates and piecewise-constant right-forward rates
+&inputs
+name is string
+    A name for the curve
+ccy is string
+    Currency code (e.g. "USD")
+knotDates is date[]
+    Knot dates for the curve
+rightForwards is number[]
+    &$.size() == knotDates.size()\must have one right-forward rate per knot date
+    Piecewise-constant right-forward rates at each knot date
+&optional
+base is handle StorableDiscountCurve
+    Optional base discount curve
+&outputs
+curve is handle StorableDiscountCurve
+    The discount curve
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+public CurveBlock_New
+    Build a curve block with explicit discount and projection curves
+&inputs
+name is string
+    A name for the curve block
+ccy is string
+    Currency code (e.g. "USD")
+discounts is handle StorableCalibrationDiscountCurves
+    Collateral-keyed discount curve bindings
+forwards is handle StorableCalibrationForwardCurves
+    Tenor-keyed projection curve bindings
+&optional
+liborBasis is string
+    Libor day basis name (default "ACT_365F")
+&outputs
+block is handle StorableCurveBlock
+    The curve block
+-IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------
 public DiscountPWLF_New
@@ -69,6 +110,29 @@ block is handle StorableCurveBlock
 -IF-------------------------------------------------------------------------*/
 
 namespace Dal {
+    void DiscountPWC_New(const String_& name,
+                         const String_& ccy,
+                         const Vector_<Date_>& knotDates,
+                         const Vector_<>& rightForwards,
+                         const Handle_<StorableDiscountCurve_>& base,
+                         Handle_<StorableDiscountCurve_>* curve) {
+        Handle_<DiscountCurve_> baseCurve;
+        if (!base.IsEmpty())
+            baseCurve = base->val_;
+        curve->reset(new StorableDiscountCurve_(DiscountPWCNew(name, ccy, knotDates, rightForwards, baseCurve)));
+    }
+
+    void CurveBlock_New(const String_& name,
+                        const String_& ccy,
+                        const Handle_<StorableCalibrationDiscountCurves_>& discounts,
+                        const Handle_<StorableCalibrationForwardCurves_>& forwards,
+                        const String_& liborBasis,
+                        Handle_<StorableCurveBlock_>* block) {
+        REQUIRE(discounts && forwards, "InvalidCalibrationInput: expected explicit discount and projection curve bindings");
+        block->reset(new StorableCurveBlock_(
+            CurveBlockNew(name, ccy, discounts->val_, forwards->val_, DayBasis_(liborBasis.empty() ? "ACT_365F" : liborBasis))));
+    }
+
     namespace {
         void DiscountPWLF_New(const String_& name,
                               const String_& ccy,
@@ -101,18 +165,18 @@ namespace Dal {
             curve->reset(new StorableDiscountCurve_(result));
         }
 
-        void CurveBlock_New_Simple(const Handle_<StorableDiscountCurve_>& dc,
-                                  const String_& liborBasis,
-                                  Handle_<StorableCurveBlock_>* block) {
+        void CurveBlock_New_Simple(const Handle_<StorableDiscountCurve_>& dc, const String_& liborBasis, Handle_<StorableCurveBlock_>* block) {
             REQUIRE(dc, "Invalid discount curve handle");
             const DayBasis_ basis(liborBasis.empty() ? "ACT_365F" : liborBasis);
             auto result = Dal::CurveBlockNew(dc->val_, basis);
             block->reset(new StorableCurveBlock_(result));
         }
-    }
+    } // namespace
 #ifdef _WIN32
+#include <dal-excel/auto/MG_CurveBlock_New_Simple_public.inc>
+#include <dal-excel/auto/MG_CurveBlock_New_public.inc>
+#include <dal-excel/auto/MG_DiscountPWC_New_public.inc>
 #include <dal-excel/auto/MG_DiscountPWLF_New_public.inc>
 #include <dal-excel/auto/MG_DiscountZeroRate_New_public.inc>
-#include <dal-excel/auto/MG_CurveBlock_New_Simple_public.inc>
 #endif
-}
+} // namespace Dal

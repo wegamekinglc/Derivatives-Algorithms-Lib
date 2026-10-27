@@ -1,4 +1,4 @@
-#include "../xccyexample.hpp"
+#include <cmath>
 #include <iomanip>
 #include <iostream>
 
@@ -7,15 +7,41 @@
 #include <dal-public/src/global.hpp>
 #include <dal-public/src/xccycalibration.hpp>
 #include <dal/currency/currencydata.hpp>
+#include <dal/script/instrument.hpp>
 
-using Dal::Examples::XccyContract;
+namespace {
+    Dal::ScriptInstrumentDefinitionSpec_ XccyScriptDefinition() {
+        using namespace Dal;
+        const auto price = CalibrationValueUnit_::Parse("Price:USD");
+        const auto spread = CalibrationValueUnit_::Parse("BasisSpread");
+        ScriptInstrumentDefinitionSpec_ spec;
+        spec.header_.payCurrency_ = spec.header_.resultCurrency_ = spec.header_.collateralCurrency_ = Ccy_("USD");
+        spec.header_.discountRoute_ = "USD.OIS";
+        spec.source_.rows_ = {
+            {ScriptSourceRowKind_::Value_::Definition, "N", "110"},
+            {ScriptSourceRowKind_::Value_::Definition, "K", "0.001"},
+            {ScriptSourceRowKind_::Value_::Event, "2027-08-04", "PAY PAYS N*(1*1*0.25555555555555554*(FIX(IR[USD,LIBOR_3M_LCH],2027-04-30)+0)*1)"},
+            {ScriptSourceRowKind_::Value_::Event, "2027-11-04", "PAY PAYS N*(1*1*0.25555555555555554*(FIX(IR[USD,LIBOR_3M_LCH],2027-08-02)+0)*1)"},
+            {ScriptSourceRowKind_::Value_::Event, "2027-11-08",
+             "PAY PAYS N*(-1*0.9090909090909091*0.5111111111111111*(FIX(IR[EUR,LIBOR_6M_LCH],2027-04-30)+K)*SPOT())"},
+            {ScriptSourceRowKind_::Value_::Event, "2027-05-04", "PAY PAYS N*(-1*1*1)"},
+            {ScriptSourceRowKind_::Value_::Event, "2027-05-04", "PAY PAYS N*(1*0.9090909090909091*SPOT())"},
+            {ScriptSourceRowKind_::Value_::Event, "2027-11-04", "PAY PAYS N*(1*1*1)"},
+            {ScriptSourceRowKind_::Value_::Event, "2027-11-04", "PAY PAYS N*(-1*0.9090909090909091*SPOT())"},
+        };
+        spec.parameters_ = {{"N", ScriptParameterType_::Value_::Real, price, ScriptParameterRole_::Value_::Notional, true, 0., {}, false, true},
+                            {"K", ScriptParameterType_::Value_::Real, spread, ScriptParameterRole_::Value_::Coupon, true}};
+        spec.measures_ = {{"Price", CalibrationMeasureKind_::Value_::Price, "PAY", {}, price},
+                          {"BasisSpread", CalibrationMeasureKind_::Value_::ParAffineSpread, "PAY", String_("K"), spread, -1, 1e-12}};
+        return spec;
+    }
+} // namespace
 
 int main() {
     using namespace Dal;
     InitGlobalData(1);
-    const Date_ today(2026, 10, 21), start(2027, 5, 4), end(2027, 11, 4);
-    const Handle_<CrossCurrencySwap_> native(new CrossCurrencySwap_(today, start, end, .001, XccyContract()));
-    const auto instrument = NewXccyScriptInstrument(native, {"eur-usd", "USD.OIS", true, 1e-12});
+    const Date_ today(2026, 10, 21), end(2027, 11, 4);
+    const auto instrument = NewScriptCalibrationInstrument({"eur-usd", NewScriptInstrumentDefinition(XccyScriptDefinition()), {}, end});
     const auto quote = NewCalibrationMarketQuote("eur-usd-basis", -.002983490837363863, CalibrationValueUnit_::Parse("BasisSpread"));
     XccyInstrumentCalibrationSpec_ spec;
     spec.context_ = {DateTime_(today), CurrencyPair_(Ccy_("USD"), Ccy_("EUR")), Ccy_("USD"), "USD.OIS"};
@@ -39,6 +65,8 @@ int main() {
     const auto priceQuote = NewCalibrationMarketQuote("contract-price", 0., CalibrationValueUnit_::Parse("Price:USD"));
     spec.observations_ = {NewCalibrationObservation("price", instrument, "Price", priceQuote, 1e-8)};
     const auto price = PreparedXccyInstruments_(spec, options).Evaluate(fit.parameters_);
+    REQUIRE(std::abs(fit.parameters_[0] - .003) < 1e-10, "XCCY basis parameter differs from the original fixture");
+    REQUIRE(std::abs(price.modelMeasures_[0] - -.22000103820950934) < 1e-10, "XCCY price differs from the original fixture");
     std::cout << "XCCY script calibration (decimal spread; basis forward in Rate)\n"
               << std::left << std::setw(18) << "Observation" << std::right << std::setw(18) << "Market" << std::setw(18) << "Fitted" << std::setw(18)
               << "Raw residual" << '\n'

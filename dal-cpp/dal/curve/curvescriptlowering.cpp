@@ -30,8 +30,7 @@ namespace Dal::CurveScriptInternal {
                 if (const auto* literal = dynamic_cast<const Script::NodeConst_*>(&node))
                     return Append(flow_, {'c', 0, 0, literal->constVal_, false});
                 if (const auto* slot = dynamic_cast<const Script::NodeConstVar_*>(&node)) {
-                    Check(slot->name_ == "K", "UnsupportedFastEvaluator", Field(flow_->source_), "N occurs once as the outer notional factor", "",
-                          flow_->source_);
+                    Require(slot->name_ == "K", "UnsupportedFastEvaluator", flow_->source_, "N occurs once as the outer notional factor");
                     return Append(flow_, {'k', 0, 0, slot->constVal_, true});
                 }
                 if (const auto* fixing = dynamic_cast<const Script::NodeFix_*>(&node)) {
@@ -40,14 +39,33 @@ namespace Dal::CurveScriptInternal {
                 }
                 return {};
             }
+            std::optional<size_t> Forward(const Script::Node_& node) {
+                if (!dynamic_cast<const Script::NodeDiv_*>(&node))
+                    return {};
+                const auto& numerator = *node.arguments_[0];
+                if (!dynamic_cast<const Script::NodeSub_*>(&numerator))
+                    return {};
+                const auto& reciprocal = *numerator.arguments_[0];
+                if (!dynamic_cast<const Script::NodeDiv_*>(&reciprocal))
+                    return {};
+                const auto* fixing = dynamic_cast<const Script::NodeFix_*>(reciprocal.arguments_[1].get());
+                const auto* alpha = dynamic_cast<const Script::NodeConst_*>(node.arguments_[1].get());
+                const auto one = [](const Script::Node_& value) {
+                    const auto* literal = dynamic_cast<const Script::NodeConst_*>(&value);
+                    return literal && literal->constVal_ == 1.;
+                };
+                if (!fixing || !alpha || !one(*reciprocal.arguments_[0]) || !one(*numerator.arguments_[1]))
+                    return {};
+                descriptor_->observations_.push_back(Observation(*fixing, context_, flow_->source_));
+                return Append(flow_, {'r', descriptor_->observations_.size() - 1, 0, alpha->constVal_, false});
+            }
             size_t Binary(const Script::Node_& node) {
                 const char operation = Operation(node);
-                Check(operation != 0, "UnsupportedFastEvaluator", Field(flow_->source_), "bounded affine coupon arithmetic and admitted FIX", "",
-                      flow_->source_);
+                Require(operation != 0, "UnsupportedFastEvaluator", flow_->source_, "bounded affine coupon arithmetic and admitted FIX");
                 const size_t left = Lower(*node.arguments_[0]), right = Lower(*node.arguments_[1]);
                 const bool a = flow_->program_[left].dependent_, b = flow_->program_[right].dependent_;
-                Check(!(operation == '*' && a && b) && !(operation == '/' && b), "UnsupportedCalibrationMeasure", Field(flow_->source_),
-                      "structurally affine K with K-independent divisors", "", flow_->source_);
+                Require(!(operation == '*' && a && b) && !(operation == '/' && b), "UnsupportedCalibrationMeasure", flow_->source_,
+                        "structurally affine K with K-independent divisors");
                 return Append(flow_, {operation, left, right, 0., a || b});
             }
 
@@ -57,6 +75,8 @@ namespace Dal::CurveScriptInternal {
             size_t Lower(const Script::Node_& node) {
                 if (const auto leaf = Leaf(node))
                     return *leaf;
+                if (const auto forward = Forward(node))
+                    return *forward;
                 if (dynamic_cast<const Script::NodeUPlus_*>(&node))
                     return Lower(*node.arguments_[0]);
                 if (dynamic_cast<const Script::NodeUMinus_*>(&node)) {
@@ -71,12 +91,12 @@ namespace Dal::CurveScriptInternal {
                                          const CalibrationPreparationContext_& context,
                                          CalibrationCurveFamilyDescriptor_* descriptor) {
             CalibrationCurvePayment_ flow{*source.eventDate_, {}, source};
-            Check(flow.payment_ >= *context.valuation_.evaluationDate_ && flow.payment_ <= context.curve_->nodeDates_.back(),
-                  "UnsupportedFastEvaluator", Field(source), "live payment covered by frozen curve layout", "", source);
+            Require(flow.payment_ >= *context.valuation_.evaluationDate_ && flow.payment_ <= context.curve_->nodeDates_.back(),
+                    "UnsupportedFastEvaluator", source, "live payment covered by frozen curve layout");
             const auto& amount = *node.arguments_[1];
             const auto* notional = amount.arguments_.empty() ? nullptr : dynamic_cast<const Script::NodeConstVar_*>(amount.arguments_[0].get());
-            Check(dynamic_cast<const Script::NodeMulti_*>(&amount) && notional && notional->name_ == "N", "UnsupportedFastEvaluator", Field(source),
-                  "complete N*(coupon expression) in contract Price units", "", source);
+            Require(dynamic_cast<const Script::NodeMulti_*>(&amount) && notional && notional->name_ == "N", "UnsupportedFastEvaluator", source,
+                    "complete N*(coupon expression) in contract Price units");
             const auto left = Append(&flow, {'c', 0, 0, notional->constVal_});
             const auto right = Lowerer_(&flow, descriptor, context).Lower(*amount.arguments_[1]);
             static_cast<void>(Append(&flow, {'*', left, right, 0., flow.program_[right].dependent_}));

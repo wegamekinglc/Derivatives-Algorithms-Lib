@@ -207,6 +207,55 @@ namespace Dal {
     constexpr const char* KEY_MAX_EVALUATIONS = "MAXEVALUATIONS";
     constexpr const char* KEY_MAX_RESTARTS = "MAXRESTARTS";
 
+    struct CurveSolverTrack_ {
+        Vector_<> coordinates_, rawResiduals_;
+        int evaluations_ = 0, gradients_ = 0;
+    };
+    inline Underdetermined::FitResult_ CompleteCurveSolve(const CurveSolverTrack_& track,
+                                                          const Vector_<>& coordinates,
+                                                          const Vector_<>& scales,
+                                                          bool exact,
+                                                          const std::optional<double>& fitNormTolerance,
+                                                          const std::exception_ptr& cause = {}) {
+        Underdetermined::FitResult_ result;
+        result.parameters_ = coordinates.empty() ? track.coordinates_ : coordinates;
+        result.evaluations_ = track.evaluations_;
+        result.gradients_ = track.gradients_;
+        result.cause_ = cause;
+        String_ termination = "CalibrationBudgetExceeded";
+        if (cause) {
+            try {
+                std::rethrow_exception(cause);
+            } catch (const Underdetermined::ConvergenceError_&) {
+            } catch (...) {
+                termination = "CalibrationNumericalFailure";
+            }
+        }
+        if (result.parameters_.empty()) {
+            result.termination_ = termination;
+            return result;
+        }
+        REQUIRE(result.parameters_ == track.coordinates_, "Legacy solver returned coordinates without a matching residual evaluation");
+        result.rawResiduals_ = track.rawResiduals_;
+        result.scaledResiduals_.reserve(result.rawResiduals_.size());
+        for (size_t i = 0; i < result.rawResiduals_.size(); ++i) {
+            REQUIRE(i < scales.size(), "Calibration residual scale count changed");
+            result.scaledResiduals_.push_back(result.rawResiduals_[i] / scales[i]);
+        }
+        bool accepted = true;
+        double norm = 0.;
+        for (const double value : result.scaledResiduals_) {
+            if (exact)
+                accepted = accepted && std::abs(value) <= 1.;
+            norm = std::hypot(norm, value);
+        }
+        REQUIRE(exact || (fitNormTolerance && std::isfinite(*fitNormTolerance) && *fitNormTolerance > 0.),
+                "Approximate fit requires a finite positive norm tolerance");
+        result.fitWithinTolerance_ = !cause && (exact ? accepted : norm <= *fitNormTolerance);
+        result.termination_ = result.fitWithinTolerance_ ? "FitWithinTolerance" : termination;
+        return result;
+    }
+
     // Shared underdetermined-solver driver: exact solves decompose the smoothing weights and call
     // Find; everything else uses the approximate fit. The exact flag (not the solve mode) is passed
     // so each call site keeps its own EXACT-vs-APPROXIMATE branching semantics.
@@ -219,7 +268,8 @@ namespace Dal {
                                     int maxEvaluations,
                                     int maxRestarts,
                                     Matrix_<>* effJacobianInverse = nullptr,
-                                    Matrix_<>* fwdJacobian = nullptr) {
+                                    Matrix_<>* fwdJacobian = nullptr,
+                                    const std::optional<double>& fitWeight = std::nullopt) {
         Dictionary_ ctrlDict;
         ctrlDict.Insert(KEY_MAX_EVALUATIONS, Cell_(static_cast<double>(maxEvaluations)));
         ctrlDict.Insert(KEY_MAX_RESTARTS, Cell_(static_cast<double>(maxRestarts)));
@@ -228,7 +278,7 @@ namespace Dal {
             std::unique_ptr<Sparse::SymmetricDecomposition_> wDecomp(weights.DecomposeSymmetric());
             return Underdetermined::Find(func, guess, tol, *wDecomp, controls, effJacobianInverse, fwdJacobian);
         }
-        return Underdetermined::Approximate(func, guess, tol, fitTolerance, weights, controls);
+        return Underdetermined::Approximate(func, guess, tol, fitTolerance, weights, controls, fitWeight);
     }
 
     // Shared solve result for the curve-calibration drivers: solved parameters plus the
@@ -244,7 +294,8 @@ namespace Dal {
 
     // Shared calibration solve driver on top of RunCurveSolver: the three real difference
     // axes (exact vs approximate solve, effective-inverse request, forward-Jacobian request)
-    // stay call-site parameters.
+    // stay call-site parameters. An explicit approximate fit weight overrides the
+    // tolerance-derived default while fitTolerance remains the acceptance eta.
     inline CurveSolveOutput_ RunCurveCalibration(const Underdetermined::Function_& func,
                                                  const Vector_<>& guess,
                                                  const Vector_<>& tolerance,
@@ -254,14 +305,15 @@ namespace Dal {
                                                  double fitTolerance,
                                                  const Sparse::TriDiagonal_& weights,
                                                  int maxEvaluations,
-                                                 int maxRestarts) {
+                                                 int maxRestarts,
+                                                 const std::optional<double>& fitWeight = std::nullopt) {
         CurveSolveOutput_ result;
         result.approximate_ = !exact;
         result.hasEffJacobianInverse_ = exact && wantEffJacobianInverse;
         const bool forwardJacobian = exact && wantForwardJacobian;
         result.parameters_ = RunCurveSolver(func, guess, tolerance, exact, fitTolerance, weights, maxEvaluations, maxRestarts,
                                             result.hasEffJacobianInverse_ ? &result.effJacobianInverse_ : nullptr,
-                                            forwardJacobian ? &result.forwardJacobian_ : nullptr);
+                                            forwardJacobian ? &result.forwardJacobian_ : nullptr, fitWeight);
         return result;
     }
 

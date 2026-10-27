@@ -77,13 +77,15 @@ def test_budget_failure_owns_candidate_and_report():
     with pytest.raises(dal.CalibrationError) as raised:
         dal.Calibrate_XccyInstruments(dal.XccyInstrumentCalibrationSpec_(**values))
     error = raised.value
+    data = json.loads(dal.CalibrationReport_Get_Json(error.report))
+    refreshed = dal.Evaluate_XccyInstruments(dal.XccyInstrumentCalibrationSpec_(**values), [data["parameters"][0]["value"]])
     del values
     gc.collect()
     assert error.code == "CalibrationBudgetExceeded"
     assert error.candidate is not None
-    data = json.loads(dal.CalibrationReport_Get_Json(error.report))
     assert data["observations"][0]["observation_id"] == "row"
-    assert data["parameters"][0]["value"] == 0.0
+    assert data["observations"][0]["model_value"] == refreshed.model_measures[0]
+    assert data["observations"][0]["raw_residual"] == refreshed.raw_residuals[0]
 
 
 def test_strict_types_and_timestamp_refusal():

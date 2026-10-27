@@ -10,21 +10,21 @@
 
 #include <dal/math/vectors.hpp>
 #include <dal/string/strings.hpp>
-#include <dal/utilities/exceptions.hpp>
 #include <dal/utilities/dictionary.hpp>
+#include <dal/utilities/exceptions.hpp>
 
 /*IF--------------------------------------------------------------------------
 settings UnderdeterminedControls
-	controls for underdetermined search
+        controls for underdetermined search
 &members
 maxEvaluations is integer
-	Give up after this many point evaluations
+        Give up after this many point evaluations
 maxRestarts is integer
-	Give up after this many gradient calculations
+        Give up after this many gradient calculations
 maxBacktrackTries is integer default 5
-	Iteration limit during backtracking linesearch
+        Iteration limit during backtracking linesearch
 restartTolerance is number default 0.4
-	Restart when k_min is above this limit
+        Restart when k_min is above this limit
 backtrackTolerance is number default 0.1
    Don't start backtracking until k_min exceeds this
 maxBacktrack is number default 0.8
@@ -35,7 +35,6 @@ maxRestarts_ > 0
 restartTolerance_ >= 0.0 && restartTolerance_ <= 1.0
 maxBacktrack_ > backtrackTolerance_ && maxBacktrack_ < 1.0
 -IF-------------------------------------------------------------------------*/
-
 
 namespace Dal {
 #include <dal/auto/MG_UnderdeterminedControls_object.hpp>
@@ -68,16 +67,12 @@ namespace Dal {
 
         class Function_ {
             [[nodiscard]] virtual double BumpSize() const { return 1.0e-4; };
-            virtual void FFast(const Vector_<>& x, Vector_<>* f) const {
-                *f = F(x);
-            }
+            virtual void FFast(const Vector_<>& x, Vector_<>* f) const { *f = F(x); }
 
         public:
             virtual ~Function_() = default;
             [[nodiscard]] virtual Vector_<> F(const Vector_<>& x) const = 0;
-            [[nodiscard]] virtual std::unique_ptr<Jacobian_> Gradient(const Vector_<>& x, const Vector_<>& f) const {
-                return nullptr;
-            }
+            [[nodiscard]] virtual std::unique_ptr<Jacobian_> Gradient(const Vector_<>& x, const Vector_<>& f) const { return nullptr; }
             virtual void Gradient(const Vector_<>& x, const Vector_<>& f, Matrix_<>* j) const;
         };
 
@@ -98,7 +93,8 @@ namespace Dal {
                               const Vector_<>& funcTol,
                               double fitTol,
                               const Sparse::Square_& w,
-                              const Controls_& controls);
+                              const Controls_& controls,
+                              const std::optional<double>& fitWeight = std::nullopt);
 
         struct FitSettings_ {
             bool exact_ = true;

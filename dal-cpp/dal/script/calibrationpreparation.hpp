@@ -111,6 +111,17 @@ namespace Dal {
         double value_ = 0.;
         Vector_<> derivatives_;
     };
+    class CalibrationPreparationCache_;
+    class PreparedCalibrationInstrument_;
+    namespace CalibrationInternal {
+        String_ PreparationContextIdentity(const CalibrationPreparationContext_& context, const CalibrationDiagnostic_& diagnostic);
+        PreparedCalibrationInstrument_ PrepareCalibrationInstrumentAtContext(const Handle_<CalibrationInstrument_>& instrument,
+                                                                             const String_& measureId,
+                                                                             const CalibrationPreparationContext_& context,
+                                                                             const String_& contextIdentity,
+                                                                             const CalibrationEvaluationOptions_& options,
+                                                                             std::shared_ptr<CalibrationPreparationCache_> cache);
+    } // namespace CalibrationInternal
     class PreparedCalibrationInstrument_ {
         Handle_<CalibrationInstrument_> instrument_;
         CalibrationMeasureSpec_ measure_;
@@ -125,7 +136,15 @@ namespace Dal {
         friend PreparedCalibrationInstrument_ PrepareCalibrationInstrument(const Handle_<CalibrationInstrument_>&,
                                                                            const String_&,
                                                                            const CalibrationPreparationContext_&,
-                                                                           const CalibrationEvaluationOptions_&);
+                                                                           const CalibrationEvaluationOptions_&,
+                                                                           std::shared_ptr<CalibrationPreparationCache_>);
+        friend PreparedCalibrationInstrument_
+        CalibrationInternal::PrepareCalibrationInstrumentAtContext(const Handle_<CalibrationInstrument_>&,
+                                                                   const String_&,
+                                                                   const CalibrationPreparationContext_&,
+                                                                   const String_&,
+                                                                   const CalibrationEvaluationOptions_&,
+                                                                   std::shared_ptr<CalibrationPreparationCache_>);
 
     public:
         [[nodiscard]] const Handle_<CalibrationInstrument_>& Instrument() const { return instrument_; }
@@ -142,8 +161,29 @@ namespace Dal {
         [[nodiscard]] CalibrationMeasureValue_ AffineMeasure(const CalibrationAffineCoefficients_& coefficients) const;
         [[nodiscard]] double Price(const Vector_<>& discounts) const;
     };
+    class CalibrationPreparationCache_ {
+        struct Impl_;
+        std::shared_ptr<Impl_> impl_;
+
+        friend PreparedCalibrationInstrument_ PrepareCalibrationInstrument(const Handle_<CalibrationInstrument_>&,
+                                                                           const String_&,
+                                                                           const CalibrationPreparationContext_&,
+                                                                           const CalibrationEvaluationOptions_&,
+                                                                           std::shared_ptr<CalibrationPreparationCache_>);
+        friend PreparedCalibrationInstrument_
+        CalibrationInternal::PrepareCalibrationInstrumentAtContext(const Handle_<CalibrationInstrument_>&,
+                                                                   const String_&,
+                                                                   const CalibrationPreparationContext_&,
+                                                                   const String_&,
+                                                                   const CalibrationEvaluationOptions_&,
+                                                                   std::shared_ptr<CalibrationPreparationCache_>);
+
+    public:
+        CalibrationPreparationCache_();
+    };
     PreparedCalibrationInstrument_ PrepareCalibrationInstrument(const Handle_<CalibrationInstrument_>& instrument,
                                                                 const String_& measureId,
                                                                 const CalibrationPreparationContext_& context,
-                                                                const CalibrationEvaluationOptions_& options = {});
+                                                                const CalibrationEvaluationOptions_& options = {},
+                                                                std::shared_ptr<CalibrationPreparationCache_> cache = {});
 } // namespace Dal

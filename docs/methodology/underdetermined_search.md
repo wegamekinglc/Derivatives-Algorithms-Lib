@@ -7,10 +7,12 @@ equations. The focus is the mathematics of the step and the iteration, not the
 solver's code.
 
 The gamma mapping, CG solve and Broyden/secant refresh rules below apply to
-those legacy entry points. The new `Underdetermined::Fit` driver has explicit
-lambda/eta, a dense Cholesky regularized local solve and fresh Jacobians;
+those legacy entry points. Typed curve and XCCY calibration invokes them through
+`RunCurveCalibration`, sharing the native iteration rather than maintaining a
+separate typed solver. The public `Underdetermined::Fit` driver remains a
+separate API with dense Cholesky regularized local steps and fresh Jacobians;
 see the [script curve calibration contract](script_calibration_contract.md#native-curve-instrument-calibration)
-for its settings and acceptance rules.
+for the typed settings and acceptance rules.
 
 ## The Problem
 
@@ -92,8 +94,9 @@ subspace for underdetermined systems; see
 
 The solver is a scaled quasi-Newton loop with a backtracking line search:
 
-1. Evaluate scaled residuals $f = \tilde r(x)$.
-2. Build or refresh the Jacobian $J$ (see below).
+1. Evaluate scaled residuals $f = \tilde r(x)$. Return the initial point
+   immediately if every component already lies in the inclusive $[-1,1]$ band.
+2. Otherwise, build or refresh the Jacobian $J$ (see below).
 3. Compute the least-change step $s$ from the boxed formula.
 4. Trial point $x_{\text{new}} = x + s$.
 5. **Convergence test (componentwise):** stop if every scaled residual lies in
@@ -272,9 +275,13 @@ $$
 \qquad \gamma = \frac{\|\tau\|^2}{\text{fitTol}^2}.
 $$
 
-The penalty weight $\gamma$ is set so that the relative importance of fitting
-versus staying near $x_0$ is governed by the ratio of the instrument tolerances to
-the desired fit tolerance. Setting the gradient to zero gives the normal
+The default penalty weight $\gamma$ is set so that the relative importance of
+fitting versus staying near $x_0$ is governed by the ratio of the instrument
+tolerances to the desired fit tolerance. A caller may instead supply an explicit
+finite positive fit weight; this overrides the default formula while `fitTol`
+remains the independent scaled-L2 acceptance tolerance eta. Typed calibration
+uses that option to preserve independent lambda/eta controls through the same
+`Approximate` implementation. Setting the gradient to zero gives the normal
 equations
 
 $$
@@ -312,7 +319,9 @@ Before the solver loop, the raw residual function `funcIn` is wrapped in
 tolerance $\tau_j$ passed to `Find` as `tol` (or to `Approximate` as `funcTol`). This normalises
 the convergence test
 to $|f_j| \le 1$ per component (exact mode) or $\|f\| \le \texttt{fitTol}$ (approximate
-mode). The wrapper also caps the evaluation budget and tracks `nEvals_`.
+mode). The wrapper also caps point evaluations and tracks `nEvals_`. Residual
+calls made inside a caller's finite-difference `Gradient` are additional to that
+point budget; typed result counters include those raw evaluations.
 
 The wrapper's Jacobian factory `XScaledFunc_::J` first queries the raw function's
 `Gradient` method. If it returns a sparse Jacobian, the tol-divided sparse is used

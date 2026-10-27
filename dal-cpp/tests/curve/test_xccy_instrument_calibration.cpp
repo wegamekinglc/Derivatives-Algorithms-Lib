@@ -2,6 +2,8 @@
 
 #include <limits>
 
+#include <dal/curve/ycconst.hpp>
+
 #include "xccyinstrumentfixture.hpp"
 
 using namespace Dal;
@@ -19,6 +21,64 @@ TEST(XccyInstrumentCalibrationTest, TestNativeImportFitsBasis) {
     ASSERT_EQ(result.report_->Data().summary_.domain_, "Xccy");
     ASSERT_EQ(result.report_->Axes().observations_[0]->Id(), "basis-row");
     ASSERT_FALSE(result.report_->QuoteRiskAvailable());
+}
+
+namespace {
+    CrossCurrencyCalibrationSpec_ NativeCalibrationSpec(const XccyInstrumentCalibrationSpec_& spec) {
+        CrossCurrencyCalibrationSpec_ result;
+        result.today_ = spec.context_.valuationTime_.Date();
+        result.valuationTime_ = spec.context_.valuationTime_;
+        result.collateralCurrency_ = spec.context_.collateralCurrency_;
+        result.fixings_ = spec.context_.fixings_;
+        result.basisPair_ = spec.context_.pair_;
+        result.domesticCurveBlock_ = spec.domesticCurveBlock_;
+        result.foreignCurveBlock_ = spec.foreignCurveBlock_;
+        result.fxSpot_ = spec.fxSpot_;
+        result.knotDates_ = spec.knotDates_;
+        result.smoothingWeight_ = spec.solver_.smoothingWeight_;
+        result.tolerance_ = spec.observations_.front()->ErrorScale();
+        result.initialGuess_ = spec.solver_.initialGuess_;
+        result.initialGuessPerNode_ = spec.solver_.initialGuessPerNode_;
+        result.maxEvaluations_ = spec.solver_.maxEvaluations_;
+        result.maxRestarts_ = spec.solver_.maxRestarts_;
+        result.solveMode_ = spec.solver_.solveMode_;
+        result.instruments_ = {
+            Handle_<CrossCurrencySwap_>(new CrossCurrencySwap_(TODAY, START, END, spec.observations_.front()->Quote()->Value(), Config()))};
+        return result;
+    }
+} // namespace
+
+TEST(XccyInstrumentCalibrationTest, TestNativeSolverDrivesTypedBasisCalibration) {
+    const auto spec = Spec();
+    CurveInstrumentCalibrationOptions_ options;
+    options.jacobianMode_ = CalibrationDerivative_::Value_::AAD;
+    const auto actual = CalibrateXccyInstruments(spec, options);
+    CrossCurrencyCalibrationOptions_ nativeOptions;
+    nativeOptions.computeEffJacobianInverse_ = false;
+    nativeOptions.computeForwardJacobian_ = false;
+    const auto expected = CalibrateCrossCurrencyMarket(NativeCalibrationSpec(spec), nativeOptions);
+    const auto* basis = dynamic_cast<const Tape::DiscountPWC_<double>*>(expected.basisCurves_.at(spec.context_.pair_).get());
+    ASSERT_TRUE(basis);
+    ASSERT_EQ(actual.parameters_.size(), 1u);
+    ASSERT_EQ(basis->FRight().size(), 1u);
+    ASSERT_NEAR(actual.parameters_[0], basis->FRight()[0], 1e-12);
+    ASSERT_NEAR(actual.modelMeasures_[0], expected.diagnostics_.modelRates_[0], 1e-12);
+}
+
+TEST(XccyInstrumentCalibrationTest, TestPreparedPlanCacheReusesXccyDescriptor) {
+    const auto spec = Spec();
+    const auto& row = spec.observations_[0];
+    CalibrationPreparationContext_ context;
+    context.xccy_ = std::make_shared<const XccyScriptContext_>(spec.context_);
+    CalibrationEvaluationOptions_ options;
+    options.derivativeMethod_ = CalibrationDerivative_::Value_::AAD;
+    auto cache = std::make_shared<CalibrationPreparationCache_>();
+    const auto first = PrepareCalibrationInstrument(row->Instrument(), "BasisSpread", context, options, cache);
+    const auto cached = PrepareCalibrationInstrument(row->Instrument(), "BasisSpread", context, options, cache);
+    ASSERT_EQ(std::get<CalibrationXccy_>(first.Descriptor()).get(), std::get<CalibrationXccy_>(cached.Descriptor()).get());
+    ASSERT_EQ(cached.Instrument().get(), row->Instrument().get());
+    ASSERT_EQ(first.PlanIdentity(), cached.PlanIdentity());
+    ASSERT_NO_THROW(cached.RequireCompatible(row->Instrument(), context));
 }
 
 TEST(XccyInstrumentCalibrationTest, TestResetAndMtmFitKnownBasis) {
@@ -47,6 +107,8 @@ TEST(XccyInstrumentCalibrationTest, TestRawMixedAxesAndCandidateRefresh) {
     const PreparedXccyInstruments_ fd(spec, options);
     const auto value = aad.Evaluate({.003, .003}), bumped = aad.Evaluate({.004, .002});
     const auto finite = fd.Evaluate({.003, .003});
+    ASSERT_EQ(aad.Residuals({.003, .003}), value.rawResiduals_);
+    ASSERT_EQ(fd.Residuals({.003, .003}), finite.rawResiduals_);
     ASSERT_NEAR(value.modelMeasures_[0], price->Value(), 1e-10);
     ASSERT_EQ(value.axes_.quotes_.size(), 2);
     ASSERT_EQ(value.axes_.quoteIndex_, (Vector_<int>{0, 1, 1}));
@@ -87,19 +149,21 @@ TEST(XccyInstrumentCalibrationTest, TestBudgetFailureOwnsValidatedCandidate) {
     ASSERT_FALSE(typed->Result().fitWithinTolerance_);
 }
 
-TEST(XccyInstrumentCalibrationTest, TestFiniteDifferenceSolverHonorsEvaluationBudget) {
+TEST(XccyInstrumentCalibrationTest, TestFiniteDifferenceSolverUsesLegacyEvaluationAccounting) {
     auto spec = Spec();
     spec.solver_.maxEvaluations_ = 2;
     try {
         static_cast<void>(CalibrateXccyInstruments(spec));
-        FAIL() << "FD perturbations must consume the existing Fit evaluation budget";
+        FAIL() << "The legacy point-evaluation budget must be exhausted";
     } catch (const CalibrationError_& error) {
         ASSERT_EQ(error.Failure().diagnostic_.code_, "CalibrationBudgetExceeded");
         const auto candidate = handle_cast<XccyInstrumentCalibrationCandidate_>(error.Failure().candidate_);
         ASSERT_TRUE(candidate);
-        ASSERT_EQ(candidate->Result().evaluations_, 2);
+        ASSERT_EQ(candidate->Result().evaluations_, 4);
         ASSERT_EQ(candidate->Result().gradients_, 1);
-        ASSERT_DOUBLE_EQ(candidate->Result().parameters_[0], 0.);
+        const auto refreshed = PreparedXccyInstruments_(spec).Evaluate(candidate->Result().parameters_, false);
+        ASSERT_EQ(candidate->Result().modelMeasures_, refreshed.modelMeasures_);
+        ASSERT_EQ(candidate->Result().rawResiduals_, refreshed.rawResiduals_);
     }
 }
 

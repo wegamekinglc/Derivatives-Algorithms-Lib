@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "xccyinstrumentfixture.hpp"
+#include <dal-excel/src/__curvedata.hpp>
 #include <dal-excel/src/__script_test_api.hpp>
 #include <dal-excel/src/__xccyinstrument.hpp>
 #include <dal-public/src/global.hpp>
@@ -213,4 +214,42 @@ TEST(ExcelXccyInstrumentTest, TestSpecErrorsFollowActualFieldCells) {
                      7, 1);
     XccyFactoryError(XccyInstrumentCalibrationSpec_New, ExtraXccyField(valid, "CONTEXT", valid(0, 1)), "XccyInstrumentCalibrationSpec_New", "CONTEXT",
                      7, 1);
+}
+
+TEST(ExcelXccyInstrumentTest, TestDirectScriptCalibrationWithWorksheetCurveBlocks) {
+    InitGlobalData();
+    Excel::ScriptTestInitialize(1);
+    const auto block = [](const String_& ccy, double rate, const String_& tenor) {
+        Handle_<StorableDiscountCurve_> curve;
+        DiscountPWC_New(ccy, ccy, {TestXccy::TODAY, TestXccy::END}, {rate, rate}, {}, &curve);
+        Matrix_<Cell_> discountBindings(2, 2), forwardBindings(2, 2);
+        for (int col = 0; col < 2; ++col) {
+            discountBindings(0, col) = forwardBindings(0, col) = col == 0 ? Cell_("key") : Cell_("curve");
+            discountBindings(1, col) = forwardBindings(1, col) = col == 0 ? Cell_("OIS") : Cell_(StoreXccy(curve));
+        }
+        forwardBindings(1, 0) = tenor;
+        Handle_<StorableCalibrationDiscountCurves_> discounts;
+        Handle_<StorableCalibrationForwardCurves_> forwards;
+        CalibrationDiscountCurves_New(discountBindings, &discounts);
+        CalibrationForwardCurves_New(forwardBindings, &forwards);
+        Handle_<StorableCurveBlock_> result;
+        CurveBlock_New(ccy, ccy, discounts, forwards, "ACT_365F", &result);
+        return result;
+    };
+    const auto usd = block("USD", .04, "QUARTERLY"), eur = block("EUR", .02, "SEMIANNUAL");
+    const auto nativeUsd = TestXccy::Flat("USD", .04), nativeEur = TestXccy::Flat("EUR", .02);
+    ASSERT_NEAR(usd->val_->Forward(PeriodLength_("3M"), CollateralType_("OIS"))(TestXccy::TODAY, TestXccy::END),
+                (*nativeUsd)(TestXccy::TODAY, TestXccy::END), 1e-14);
+    ASSERT_NEAR(eur->val_->Forward(PeriodLength_("6M"), CollateralType_("OIS"))(TestXccy::TODAY, TestXccy::END),
+                (*nativeEur)(TestXccy::TODAY, TestXccy::END), 1e-14);
+    auto fields = XccySpecFields();
+    fields(1, 1) = StoreXccy(usd);
+    fields(2, 1) = StoreXccy(eur);
+    Handle_<StorableXccyInstrumentCalibrationSpec_> spec;
+    XccyInstrumentCalibrationSpec_New(fields, &spec);
+    Handle_<StorableCalibrationOutcome_> outcome;
+    Calibrate_XccyInstruments(spec, {}, &outcome);
+    ASSERT_EQ(outcome->status_, "Succeeded");
+    const auto expected = TestXccy::Flat("USD", .003);
+    ASSERT_NEAR((*outcome->curve_)(TestXccy::TODAY, TestXccy::END), (*expected)(TestXccy::TODAY, TestXccy::END), 1e-12);
 }

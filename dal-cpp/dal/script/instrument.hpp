@@ -1,5 +1,7 @@
 #pragma once
 
+#include <memory>
+
 #include <dal/calibration/types.hpp>
 #include <dal/script/settings.hpp>
 #include <dal/storage/storable.hpp>
@@ -8,6 +10,11 @@ namespace Dal {
     namespace Script {
         class ScriptProduct_;
     } // namespace Script
+
+    class CalibrationInstrument_;
+    namespace CalibrationInternal {
+        std::shared_ptr<const Script::ScriptProduct_> PreparationProduct(const CalibrationInstrument_& instrument);
+    } // namespace CalibrationInternal
 
     struct ScriptSourceRow_ {
         ScriptSourceRowKind_ kind_;
@@ -43,9 +50,11 @@ namespace Dal {
     class ScriptInstrumentDefinition_ final : public Storable_ {
         ScriptInstrumentDefinitionSpec_ spec_;
         Vector_<> defaults_;
+        std::shared_ptr<const Script::ScriptProduct_> defaultProduct_;
         String_ sourceIdentity_, definitionIdentity_;
         explicit ScriptInstrumentDefinition_(ScriptInstrumentDefinitionSpec_ spec);
         friend Handle_<ScriptInstrumentDefinition_> NewScriptInstrumentDefinition(const ScriptInstrumentDefinitionSpec_&);
+        friend class CalibrationInstrument_;
 
     public:
         [[nodiscard]] const ScriptInstrumentDefinitionSpec_& Spec() const { return spec_; }
@@ -82,6 +91,7 @@ namespace Dal {
         Handle_<ScriptInstrumentDefinition_> definition_;
         Vector_<CalibrationEffectiveParameter_> binding_;
         std::optional<Date_> pillar_;
+        std::shared_ptr<const Script::ScriptProduct_> preparationProduct_;
         String_ bindingIdentity_, instrumentIdentity_;
         CalibrationInstrument_(String_ id,
                                Handle_<ScriptInstrumentDefinition_> definition,
@@ -91,6 +101,7 @@ namespace Dal {
         friend Handle_<CalibrationInstrument_> BindCalibrationInstrumentParameters(const Handle_<CalibrationInstrument_>&,
                                                                                    const CalibrationParameterBindings_&);
         friend Handle_<CalibrationInstrument_> LoadCalibrationInstrumentJson(const String_&);
+        friend std::shared_ptr<const Script::ScriptProduct_> CalibrationInternal::PreparationProduct(const CalibrationInstrument_&);
 
     public:
         [[nodiscard]] const String_& Id() const { return id_; }

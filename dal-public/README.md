@@ -88,9 +88,12 @@ See [the financial contract](../docs/methodology/pde/aad.md#owning-financial-req
 ## Build and Test
 
 Facade examples live in `examples/` and link `DAL::public`. Enable
-`DAL_PUBLIC_BUILD_EXAMPLES` to build `aad_public_risk`;
-see the [example catalog](../docs/examples.md). Core examples remain under
-`dal-cpp/examples/` and depend only on `DAL::cpp`.
+`DAL_PUBLIC_BUILD_EXAMPLES` to build `aad_public_risk` and the script calibration
+programs. `interpolate_curve_script` constructs 13 dated swap/FRA definitions
+directly from DAL script rows and calibrates all three log-discount schemes;
+`xccy_script_calibration` likewise passes direct XCCY source cashflows to the
+shared staged calibrator. Core examples remain under `dal-cpp/examples/`, use
+native instruments, and depend only on `DAL::cpp`.
 
 The standard core profile builds and tests this component:
 

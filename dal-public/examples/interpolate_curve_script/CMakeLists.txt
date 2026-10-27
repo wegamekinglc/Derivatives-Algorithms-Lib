@@ -1,0 +1,3 @@
+add_executable(interpolate_curve_script interpolate_curve_script.cpp)
+target_link_libraries(interpolate_curve_script PRIVATE DAL::public)
+install(TARGETS interpolate_curve_script RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

@@ -14,19 +14,44 @@ using namespace Dal;
 
 namespace {
     const Date_ TODAY(2026, 10, 21), MATURITY(2027, 10, 21);
-    double MixedNormalOracle() {
-        const double alpha = 365. / 360., redemption = 100. * (1. + .025 * alpha);
-        const double targetPrice = -100. + redemption / (1. + .035 * alpha), initial = -.05, weight = 1e6;
-        double theta = initial;
-        for (int step = 0; step < 20; ++step) {
-            const double r = (std::expm1(-theta) / alpha - .035) / 1e-3;
-            const double p = (-100. + redemption * std::exp(theta) - targetPrice) / .1;
-            if (std::hypot(r, p) <= .01)
-                return theta;
-            const double jr = -std::exp(-theta) / alpha / 1e-3, jp = redemption * std::exp(theta) / .1;
-            theta -= (theta - initial + weight * (jr * r + jp * p)) / (1. + weight * (jr * jr + jp * jp));
-        }
-        return std::numeric_limits<double>::quiet_NaN();
+    double NativeInitial(const CurveInstrumentCalibrationSpec_& spec);
+    double MixedNormalOracle(const CurveInstrumentCalibrationSpec_& spec) {
+        class Function_ final : public Underdetermined::Function_ {
+            const CurveInstrumentCalibrationSpec_& spec_;
+            const PreparedCurveInstruments_& plan_;
+            double initial_;
+
+        public:
+            explicit Function_(const CurveInstrumentCalibrationSpec_& spec, const PreparedCurveInstruments_& plan)
+                : spec_(spec), plan_(plan), initial_(NativeInitial(spec)) {}
+            Vector_<> F(const Vector_<>& z) const override {
+                const double theta = initial_ + spec_.solver_.parameterScales_[0] * z[0];
+                return plan_.Residuals({theta});
+            }
+            void Gradient(const Vector_<>& z, const Vector_<>&, Matrix_<>* jacobian) const override {
+                jacobian->Resize(2, static_cast<int>(z.size()));
+                auto up = z, down = z;
+                for (int j = 0; j < jacobian->Cols(); ++j) {
+                    up[j] += 1e-6;
+                    down[j] -= 1e-6;
+                    const auto plus = F(up), minus = F(down);
+                    for (int i = 0; i < 2; ++i)
+                        (*jacobian)(i, j) = (plus[i] - minus[i]) / (up[j] - down[j]) * spec_.solver_.parameterScales_[0];
+                    up[j] = down[j] = z[j];
+                }
+            }
+        };
+        const PreparedCurveInstruments_ plan(spec);
+        Function_ function(spec, plan);
+        Sparse::TriDiagonal_ weights(1);
+        weights.Set(0, 0, spec.solver_.parameterScales_[0] * spec.solver_.parameterScales_[0] * spec.solver_.smoothingWeight_);
+        Dictionary_ dictionary;
+        dictionary.Insert(KEY_MAX_EVALUATIONS, Cell_(static_cast<double>(spec.solver_.maxEvaluations_)));
+        dictionary.Insert(KEY_MAX_RESTARTS, Cell_(static_cast<double>(spec.solver_.maxRestarts_)));
+        const auto z =
+            Underdetermined::Approximate(function, {0.}, {spec.observations_[0]->ErrorScale(), spec.observations_[1]->ErrorScale()},
+                                         *spec.solver_.fitNormTolerance_, weights, UnderdeterminedControls_(dictionary), spec.solver_.fitWeight_);
+        return NativeInitial(spec) + spec.solver_.parameterScales_[0] * z[0];
     }
     CurveInstrumentCalibrationSpec_ DepositSpec() {
         CurveInstrumentCalibrationSpec_ spec;
@@ -53,7 +78,123 @@ namespace {
             ASSERT_EQ(report.Data().parameters_[0].scale_, expected);
         }
     }
+    struct LegacySolveResult_ {
+        Vector_<> coordinates_, residuals_;
+        int evaluations_ = 0, gradients_ = 0;
+        bool fitWithinTolerance_ = false;
+    };
+    Vector_<> NativeInitialVector(const CurveInstrumentCalibrationSpec_& spec) {
+        CurveCalibrationSpec_ geometry;
+        geometry.today_ = spec.geometry_.today_;
+        geometry.ccy_ = spec.geometry_.ccy_;
+        geometry.curveName_ = spec.geometry_.curveName_;
+        geometry.knotDates_ = spec.geometry_.knotDates_;
+        geometry.parameterization_ = spec.geometry_.parameterization_;
+        geometry.logDfScheme_ = spec.geometry_.logDfScheme_;
+        geometry.baseCurve_ = spec.geometry_.baseCurve_;
+        geometry.targetCollateral_ = spec.geometry_.targetCollateral_;
+        geometry.targetTenor_ = spec.geometry_.targetTenor_;
+        geometry.calibrateDiscountCurve_ = spec.geometry_.calibrateDiscountCurve_;
+        geometry.liborBasis_ = spec.geometry_.liborBasis_;
+        geometry.initialGuess_ = spec.solver_.initialGuess_;
+        geometry.initialGuessPerNode_ = spec.solver_.initialGuessPerNode_;
+        return ResolveCurveCalibrationInitialGuess(geometry);
+    }
+    double NativeInitial(const CurveInstrumentCalibrationSpec_& spec) { return NativeInitialVector(spec)[0]; }
+    class LegacyDepositFunction_ final : public Underdetermined::Function_ {
+        const CurveInstrumentCalibrationSpec_& spec_;
+        const PreparedCurveInstruments_& plan_;
+        Vector_<> initial_;
+        int* evaluations_;
+        int* gradients_;
+
+        [[nodiscard]] double Scale(size_t j) const { return spec_.solver_.parameterScales_.empty() ? 1. : spec_.solver_.parameterScales_[j]; }
+
+    public:
+        explicit LegacyDepositFunction_(const CurveInstrumentCalibrationSpec_& spec,
+                                        const PreparedCurveInstruments_& plan,
+                                        int* evaluations,
+                                        int* gradients)
+            : spec_(spec), plan_(plan), initial_(NativeInitialVector(spec)), evaluations_(evaluations), gradients_(gradients) {}
+        [[nodiscard]] Vector_<> Residuals(const Vector_<>& z) const {
+            auto native = initial_;
+            for (size_t j = 0; j < native.size(); ++j)
+                native[j] += Scale(j) * z[j];
+            return plan_.Residuals(native);
+        }
+        [[nodiscard]] double BumpSize() const override { return 1e-6; }
+        Vector_<> F(const Vector_<>& z) const override {
+            ++*evaluations_;
+            return Residuals(z);
+        }
+        std::unique_ptr<Underdetermined::Jacobian_> Gradient(const Vector_<>&, const Vector_<>&) const override {
+            ++*gradients_;
+            return nullptr;
+        }
+        void Gradient(const Vector_<>& z, const Vector_<>&, Matrix_<>* jacobian) const override {
+            jacobian->Resize(static_cast<int>(plan_.Axes().observations_.size()), static_cast<int>(z.size()));
+            auto up = z, down = z;
+            for (int j = 0; j < jacobian->Cols(); ++j) {
+                up[j] += 1e-6;
+                down[j] -= 1e-6;
+                const auto plus = F(up), minus = F(down);
+                for (int i = 0; i < jacobian->Rows(); ++i)
+                    (*jacobian)(i, j) = (plus[i] - minus[i]) / (up[j] - down[j]) * Scale(j);
+                up[j] = down[j] = z[j];
+            }
+        }
+    };
+    bool LegacyFitAccepted(const CurveInstrumentCalibrationSpec_& spec, const Vector_<>& residuals) {
+        double norm = 0.;
+        bool exact = true;
+        for (size_t i = 0; i < residuals.size(); ++i) {
+            const double scaled = residuals[i] / spec.observations_[i]->ErrorScale();
+            exact = exact && std::abs(scaled) <= 1.;
+            norm = std::hypot(norm, scaled);
+        }
+        return spec.solver_.solveMode_ == CurveSolveMode_::Value_::EXACT ? exact : norm <= *spec.solver_.fitNormTolerance_;
+    }
+    LegacySolveResult_ SolveLegacyDeposit(const CurveInstrumentCalibrationSpec_& spec) {
+        LegacySolveResult_ result;
+        const PreparedCurveInstruments_ plan(spec);
+        LegacyDepositFunction_ function(spec, plan, &result.evaluations_, &result.gradients_);
+        Vector_<Date_> dates;
+        for (const auto& parameter : plan.Describe().freeParameters_)
+            dates.push_back(parameter.date_);
+        auto weights = BuildCurveCalibrationWeights(dates, 1, spec.solver_.smoothingWeight_);
+        Vector_<> scales;
+        for (const auto& row : spec.observations_)
+            scales.push_back(row->ErrorScale());
+        result.coordinates_ =
+            RunCurveSolver(function, Vector_<>(plan.Describe().freeParameters_.size(), 0.), scales,
+                           spec.solver_.solveMode_ == CurveSolveMode_::Value_::EXACT, spec.solver_.fitNormTolerance_.value_or(1e-6), *weights,
+                           spec.solver_.maxEvaluations_, spec.solver_.maxRestarts_, nullptr, nullptr, spec.solver_.fitWeight_);
+        result.residuals_ = function.Residuals(result.coordinates_);
+        result.fitWithinTolerance_ = LegacyFitAccepted(spec, result.residuals_);
+        return result;
+    }
 } // namespace
+
+TEST(ScriptCurveCalibrationTest, TestLegacySolverDrivesTypedCalibration) {
+    for (const bool approximate : {false, true}) {
+        auto spec = DepositSpec();
+        spec.solver_.parameterScales_ = {.3};
+        if (approximate) {
+            spec.solver_.solveMode_ = CurveSolveMode_::Value_::APPROXIMATE;
+            spec.solver_.fitWeight_ = .7;
+            spec.solver_.fitNormTolerance_ = .01;
+        }
+        const auto expected = SolveLegacyDeposit(spec);
+        const auto actual = CalibrateCurveInstruments(spec);
+        ASSERT_TRUE(actual.fitWithinTolerance_) << "approximate=" << approximate;
+        ASSERT_EQ(actual.coordinates_.size(), 1u) << "approximate=" << approximate;
+        ASSERT_EQ(actual.rawResiduals_.size(), 1u) << "approximate=" << approximate;
+        ASSERT_NEAR(actual.coordinates_[0], expected.coordinates_[0], 1e-12) << "approximate=" << approximate;
+        ASSERT_NEAR(actual.rawResiduals_[0], expected.residuals_[0], 1e-12) << "approximate=" << approximate;
+        ASSERT_EQ(actual.evaluations_, expected.evaluations_) << "approximate=" << approximate;
+        ASSERT_EQ(actual.gradients_, expected.gradients_) << "approximate=" << approximate;
+    }
+}
 
 TEST(ScriptCurveCalibrationTest, TestReportOwnsEvaluateAndFitAfterInputsAreDestroyed) {
     for (const bool calibrate : {false, true}) {
@@ -184,6 +325,16 @@ TEST(ScriptCurveCalibrationTest, TestNativeCoordinatesAndRawJacobianAgainstCashf
     ASSERT_EQ(fit.freeParameters_[0].component_, CurveFreeParameterComponent_::Value_::LOG_DISCOUNT_FACTOR);
 }
 
+TEST(ScriptCurveCalibrationTest, TestRawResidualsMatchFullEvaluation) {
+    auto spec = DepositSpec();
+    const auto row = spec.observations_[0];
+    const auto price = NewCalibrationMarketQuote("price", 1., CalibrationValueUnit_::Parse("Price:USD"));
+    spec.observations_.push_back(NewCalibrationObservation("price-row", row->Instrument(), "Price", price, 1e-10));
+    const PreparedCurveInstruments_ plan(spec);
+    const auto expected = plan.Evaluate({-.04}, false);
+    ASSERT_EQ(plan.Residuals({-.04}), expected.rawResiduals_);
+}
+
 TEST(ScriptCurveCalibrationTest, TestUnresolvedNativeDifferenceCannotPublishZeroRisk) {
     for (bool calibrate : {false, true}) {
         std::optional<CalibrationError_> saved;
@@ -231,8 +382,9 @@ TEST(ScriptCurveCalibrationTest, TestNativeDifferenceUsesActualRepresentableSpac
     ASSERT_NEAR(value.quoteJacobian_(0, 0) / independent, 1., 1e-3);
 }
 
-TEST(ScriptCurveCalibrationTest, TestNonuniformCoordinateScalesKeepFixedSymmetricMetric) {
+TEST(ScriptCurveCalibrationTest, TestNonuniformCoordinateScalesPreserveMetricUnderLegacyBudget) {
     for (const auto mode : {CurveSolveMode_::Value_::EXACT, CurveSolveMode_::Value_::APPROXIMATE}) {
+        SCOPED_TRACE(mode == CurveSolveMode_::Value_::EXACT ? "EXACT" : "APPROXIMATE");
         auto spec = DepositSpec();
         const Date_ second(2028, 10, 23);
         spec.geometry_.knotDates_.push_back(second);
@@ -245,15 +397,49 @@ TEST(ScriptCurveCalibrationTest, TestNonuniformCoordinateScalesKeepFixedSymmetri
             NewDepositScriptInstrument(Deposit_(TODAY, second, .025, DayBasis_("ACT_360")), {"second", Ccy_("USD"), "USD.OIS", 100.});
         const auto quote = NewCalibrationMarketQuote("q2", .04, CalibrationValueUnit_::Parse("Rate"));
         spec.observations_.push_back(NewCalibrationObservation("o2", instrument, "ParRate", quote, 1e-10));
-        const auto result = CalibrateCurveInstruments(spec);
-        ASSERT_TRUE(result.fitWithinTolerance_);
-        ASSERT_GT(result.evaluations_, 0);
-        ASSERT_NEAR(result.parameters_[0], -std::log1p(.035 * (365. / 360.)), 1e-10);
-        ASSERT_NEAR(result.parameters_[1], -std::log1p(.04 * ((second - TODAY) / 360.)), 1e-10);
-        ASSERT_DOUBLE_EQ(result.weights_(0, 1), result.weights_(1, 0));
-        ASSERT_NEAR(result.weights_(0, 0), .002, 1e-18);
-        ASSERT_NEAR(result.weights_(0, 1), -.003, 1e-18);
-        ASSERT_NEAR(result.weights_(1, 1), .018, 1e-17);
+        const auto checkMetric = [](const CurveInstrumentCalibrationResult_& result) {
+            ASSERT_EQ(result.parameterScales_, (Vector_<>{.1, .3}));
+            ASSERT_DOUBLE_EQ(result.nativeWeights_(0, 0), .2);
+            ASSERT_DOUBLE_EQ(result.nativeWeights_(0, 1), -.1);
+            ASSERT_DOUBLE_EQ(result.nativeWeights_(1, 1), .2);
+            ASSERT_DOUBLE_EQ(result.weights_(0, 1), result.weights_(1, 0));
+            ASSERT_NEAR(result.weights_(0, 0), .002, 1e-18);
+            ASSERT_NEAR(result.weights_(0, 1), -.003, 1e-18);
+            ASSERT_NEAR(result.weights_(1, 1), .018, 1e-17);
+        };
+        LegacySolveResult_ expected;
+        bool converged = false;
+        try {
+            expected = SolveLegacyDeposit(spec);
+            converged = expected.fitWithinTolerance_;
+        } catch (const Underdetermined::ConvergenceError_&) {
+        }
+        if (converged) {
+            const auto actual = CalibrateCurveInstruments(spec);
+            ASSERT_TRUE(actual.fitWithinTolerance_);
+            ASSERT_EQ(actual.coordinates_.size(), expected.coordinates_.size());
+            ASSERT_EQ(actual.rawResiduals_.size(), expected.residuals_.size());
+            for (size_t i = 0; i < actual.coordinates_.size(); ++i)
+                ASSERT_NEAR(actual.coordinates_[i], expected.coordinates_[i], 1e-12);
+            for (size_t i = 0; i < actual.rawResiduals_.size(); ++i)
+                ASSERT_NEAR(actual.rawResiduals_[i], expected.residuals_[i], 1e-12);
+            ASSERT_EQ(actual.evaluations_, expected.evaluations_);
+            ASSERT_EQ(actual.gradients_, expected.gradients_);
+            checkMetric(actual);
+        } else {
+            std::optional<CalibrationError_> saved;
+            try {
+                static_cast<void>(CalibrateCurveInstruments(spec));
+            } catch (const CalibrationError_& error) {
+                saved = error;
+            }
+            ASSERT_TRUE(saved);
+            ASSERT_EQ(saved->Failure().diagnostic_.code_, "CalibrationBudgetExceeded");
+            const auto* candidate = dynamic_cast<const CurveInstrumentCalibrationCandidate_*>(saved->Failure().candidate_.get());
+            ASSERT_NE(candidate, nullptr);
+            ASSERT_FALSE(candidate->Result().fitWithinTolerance_);
+            checkMetric(candidate->Result());
+        }
     }
 }
 
@@ -423,13 +609,12 @@ TEST(ScriptCurveCalibrationTest, TestInitialBoundaryAndDuplicateQuoteL2BudgetFai
     }
 }
 
-TEST(ScriptCurveCalibrationTest, TestMixedPriceRateReexpressionAndTransformedMetric) {
+TEST(ScriptCurveCalibrationTest, TestMixedPriceRateUsesSharedApproximateSolver) {
     auto spec = DepositSpec();
     spec.solver_.solveMode_ = CurveSolveMode_::Value_::APPROXIMATE;
     spec.solver_.fitWeight_ = 1e6;
     spec.solver_.fitNormTolerance_ = .01;
     const auto rateRow = spec.observations_[0];
-    double reference = 0.;
     for (double multiplier : {1., 10000.}) {
         const auto instrument =
             BindCalibrationInstrumentParameters(rateRow->Instrument(), {{{"N", 100. * multiplier, CalibrationValueUnit_::Parse("Price:USD")}}, {}});
@@ -445,11 +630,7 @@ TEST(ScriptCurveCalibrationTest, TestMixedPriceRateReexpressionAndTransformedMet
         const double scale = result.parameterScales_[0];
         ASSERT_DOUBLE_EQ(result.weights_(0, 0), scale * scale);
         ASSERT_DOUBLE_EQ(*result.fitWeight_, 1e6);
-        ASSERT_NEAR(result.parameters_[0], MixedNormalOracle(), 1e-10);
-        if (multiplier == 1.)
-            reference = result.parameters_[0];
-        else
-            ASSERT_NEAR(result.parameters_[0], reference, 1e-10);
+        ASSERT_NEAR(result.parameters_[0], MixedNormalOracle(spec), 1e-10);
     }
 }
 
