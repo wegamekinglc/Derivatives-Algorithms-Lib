@@ -134,12 +134,18 @@ in the build configuration.
 | `DAL_CPP_BUILD_EXAMPLES`              | `ON`         | Build core C++ examples independently of the public facade                            |
 | `DAL_PUBLIC_BUILD_EXAMPLES`           | `ON`         | Build separate public-facade examples; see initial default below                      |
 | `DAL_CPP_BUILD_BENCHMARKS`            | `OFF`        | Build benchmarks                                                                      |
+| `DAL_CPP_BUILD_NATIVE_COMPARISONS`    | `OFF`        | Build native third-party comparison workers; requires benchmarks and QuantLib         |
 | `DAL_ENABLE_NATIVE_ARCH`              | `OFF`        | Tune Release code for the build machine                                               |
 | `DAL_ENABLE_SANITIZERS`               | `""`         | Semicolon-separated sanitizer list for all targets (GCC/Clang only)                   |
 | `DAL_USE_EIGEN`                       | `ON`         | Use Eigen for dense matrix products; `OFF` selects the built-in kernel                |
 | `DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS` | `OFF`        | Check native active-number ownership, recording epochs and reused slots               |
 | `DAL_ENABLE_AAD_PROFILING`            | `OFF`        | Enable explicit native request, task, phase and storage profiling                     |
 | `MSVC_RUNTIME`                        | `dynamic`    | MSVC-only C++ runtime: `static` for `/MT` (`/MTd` in Debug), otherwise `/MD` (`/MDd`) |
+
+`DAL_CPP_BUILD_NATIVE_COMPARISONS=ON` additionally requires
+`DAL_CPP_BUILD_BENCHMARKS=ON` and a QuantLib CMake package. Set `QuantLib_DIR`
+to the directory containing `QuantLibConfig.cmake` and satisfy QuantLib's own
+Boost dependency. Ordinary DAL builds and benchmarks leave this option `OFF`.
 
 On first configuration, `DAL_PUBLIC_BUILD_EXAMPLES` defaults to the current
 `DAL_CPP_BUILD_EXAMPLES` value when available, or `OFF` in a standalone public

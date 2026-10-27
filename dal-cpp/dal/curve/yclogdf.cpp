@@ -65,10 +65,10 @@ namespace Dal {
         }
 
         template <class T_, class B_> T_ DiscountLogDF_<T_, B_>::operator()(const Date_& from, const Date_& to) const {
-            const double yfFrom = dayCount_(nodeDates_.front(), from, nullptr);
-            const double yfTo = dayCount_(nodeDates_.front(), to, nullptr);
-            const T_ logDfFrom = LogDfAt(yfFrom);
-            const T_ logDfTo = LogDfAt(yfTo);
+            if (from == to)
+                return DiscountFromLogDf(T_(0.0), this->base_, from, to);
+            const T_ logDfFrom = from == nodeDates_.front() ? logDF_[0] : LogDfAt(dayCount_(nodeDates_.front(), from, nullptr));
+            const T_ logDfTo = to == nodeDates_.front() ? logDF_[0] : LogDfAt(dayCount_(nodeDates_.front(), to, nullptr));
             const T_ logDf = logDfTo - logDfFrom;
             return DiscountFromLogDf(logDf, this->base_, from, to);
         }

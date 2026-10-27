@@ -17,7 +17,7 @@ from dal_comparisons.scenarios import (
 from dal_comparisons.suite import prepare
 from dal_comparisons import compare
 from dal_comparisons.evidence import SCHEMA, check_report, source_hashes
-from dal_comparisons.scenarios import CONVENTIONS
+from dal_comparisons.scenarios import CONVENTIONS, PYTHON_CONVENTIONS
 
 
 @pytest.mark.parametrize("backend", ["dal", "quantlib", "rateslib"])
@@ -113,14 +113,15 @@ def worker_row(backend, case, duration):
     )
 
 
-def worker_report(backend="dal", duration=100):
+def worker_report(backend="dal", duration=100, inventory=None):
+    selected = cases(smoke=True) if inventory is None else inventory
     return {
         "schema": SCHEMA,
         "backend": backend,
         "status": "passed",
         "smoke": True,
         "source_hashes": source_hashes(),
-        "conventions": copy.deepcopy(CONVENTIONS),
+        "conventions": copy.deepcopy(PYTHON_CONVENTIONS),
         "versions": {"version": "fixed"},
         "backend_files": {"library": backend},
         "environment": {
@@ -129,7 +130,7 @@ def worker_report(backend="dal", duration=100):
             "python": "3.13",
             "thread_environment": {},
         },
-        "results": [worker_row(backend, case, duration) for case in cases(smoke=True)],
+        "results": [worker_row(backend, case, duration) for case in selected],
     }
 
 
@@ -158,6 +159,25 @@ def test_invalid_worker_evidence_fails(mutate):
     mutate(report)
     with pytest.raises(ValueError):
         check_report(report, "dal", True, source_hashes())
+
+
+def test_python_reports_exclude_native_only_infine_conventions(tmp_path, monkeypatch):
+    inventory = cases(smoke=True)[:1]
+
+    def invoke(_args, backend, _directory, _hashes):
+        return worker_report(backend, inventory=inventory)
+
+    monkeypatch.setattr(compare, "invoke", invoke)
+    args = smoke_args(tmp_path)
+    args.case = ["discount_queries"]
+    assert compare.run(args) == 0
+    report = json.loads((args.output_dir / "results.json").read_text())
+    assert "infine" not in json.dumps(report["conventions"]).lower()
+
+    stale = worker_report(inventory=inventory)
+    stale["conventions"] = copy.deepcopy(CONVENTIONS)
+    with pytest.raises(ValueError, match="conventions"):
+        check_report(stale, "dal", True, source_hashes(), args.case)
 
 
 @pytest.mark.parametrize("option", ["--samples", "--rounds"])
@@ -262,38 +282,33 @@ def test_rotates_processes_and_reports_minimum_without_relative_speed_gate(
     def invoke(_args, backend, _directory, _hashes):
         calls.append(backend)
         # DAL deliberately slower: relative speed is evidence, not an invented gate.
-        duration = {"dal": 200, "quantlib": 100, "rateslib": 50, "infine": 400}[backend]
+        duration = {"dal": 200, "quantlib": 100, "rateslib": 50}[backend]
         return worker_report(backend, duration)
 
     monkeypatch.setattr(compare, "invoke", invoke)
     args = smoke_args(tmp_path)
     args.samples, args.rounds = 4, 2
     assert compare.run(args) == 0
-    assert calls[:16] == [
+    assert calls[:12] == [
         "dal",
         "quantlib",
         "rateslib",
-        "infine",
         "quantlib",
         "rateslib",
-        "infine",
         "dal",
         "rateslib",
-        "infine",
         "dal",
         "quantlib",
-        "infine",
         "dal",
         "quantlib",
         "rateslib",
     ]
-    assert calls[16:20] == ["infine", "rateslib", "quantlib", "dal"]
+    assert calls[12:15] == ["rateslib", "quantlib", "dal"]
     report = json.loads((args.output_dir / "results.json").read_text())
     row = report["rounds"][0]["cases"][0]
     assert row["third_party_over_dal"] == {
         "quantlib": 0.5,
         "rateslib": 0.25,
-        "infine": 2.0,
     }
     risk = report["rounds"][0]["cases"][6]
     assert risk["backends"]["dal"]["method"] == "reverse AAD"
@@ -302,8 +317,8 @@ def test_rotates_processes_and_reports_minimum_without_relative_speed_gate(
     assert "Node DV01: DAL reverse AAD" in (args.output_dir / "summary.md").read_text()
     summary = (args.output_dir / "summary.md").read_text()
     assert "Pricing N | Training M" in summary
-    assert "InFine min ms" in summary
-    assert "native Jamshidian" in summary or "analytic Jamshidian" in summary
+    assert "InFine min ms" not in summary
+    assert "gaussian1d_128" in summary
     assert "mc_bermudan_price_16384 | 4096 | 2048 |" in summary
     assert "PDE reference" in summary
     exercise = next(
@@ -320,8 +335,6 @@ def test_unsupported_capabilities_have_no_aggregate_timing_or_ratio():
     for name, backend in (
         ("mc_barrier_greeks_65536", "rateslib"),
         ("calibration_xccy_joint_15", "quantlib"),
-        ("calibration_xccy_joint_15", "infine"),
-        ("mc_american_price_65536", "infine"),
     ):
         row = rows[name]
         assert row["backends"][backend] == {
@@ -346,3 +359,86 @@ def test_provenance_drift_fails_between_samples(tmp_path, monkeypatch):
     args.samples = 2
     assert compare.run(args) == 1
     assert "provenance changed" in (args.output_dir / "results.json").read_text()
+
+
+def test_backend_and_case_filters_validate_and_preserve_defaults():
+    args = compare.arguments([
+        "--dal-package", ".", "--output-dir", "unused",
+        "--backends", "dal", "quantlib", "rateslib", "--case", "discount_queries",
+    ])
+    assert args.backends == ["dal", "quantlib", "rateslib"]
+    assert args.case == ["discount_queries"]
+    reordered = compare.arguments([
+        "--dal-package", ".", "--output-dir", "unused",
+        "--backends", "quantlib", "dal", "rateslib",
+    ])
+    assert reordered.backends == ["dal", "quantlib", "rateslib"]
+    assert compare.BACKENDS == ("dal", "quantlib", "rateslib")
+    defaults = compare.arguments(["--dal-package", ".", "--output-dir", "unused"])
+    assert defaults.backends == list(compare.BACKENDS)
+    assert defaults.case == []
+    with pytest.raises(ValueError, match="duplicate backend"):
+        compare.arguments(["--dal-package", ".", "--output-dir", "unused", "--backends", "dal", "dal"])
+    with pytest.raises(ValueError, match="unknown comparison case"):
+        compare.arguments(["--dal-package", ".", "--output-dir", "unused", "--case", "missing_case"])
+    with pytest.raises(ValueError, match="DAL backend is required"):
+        compare.arguments(["--dal-package", ".", "--output-dir", "unused", "--backends", "quantlib"])
+
+
+def test_filtered_comparison_executes_only_selected_backends_and_case(tmp_path, monkeypatch):
+    selected = ["dal", "quantlib", "rateslib"]
+    calls = []
+
+    def invoke(_args, backend, _directory, _hashes):
+        calls.append(backend)
+        case = cases(smoke=True)[0]
+        report = worker_report(backend)
+        report["results"] = [worker_row(backend, case, 100)]
+        return report
+
+    monkeypatch.setattr(compare, "invoke", invoke)
+    args = smoke_args(tmp_path)
+    args.backends, args.case = selected, ["discount_queries"]
+    assert compare.run(args) == 0
+    assert set(calls) == set(selected)
+    report = json.loads((args.output_dir / "results.json").read_text())
+    rows = report["rounds"][0]["cases"]
+    assert [row["workload"]["name"] for row in rows] == ["discount_queries"]
+    assert set(rows[0]["backends"]) == set(selected)
+    summary = (args.output_dir / "summary.md").read_text()
+    assert "rateslib min ms" in summary
+    assert "InFine min ms" not in summary
+
+
+def test_filtered_early_exercise_summary_does_not_require_quantlib(tmp_path, monkeypatch):
+    case = next(case for case in cases(smoke=True) if "training_paths" in case)
+    selected = ["dal", "rateslib"]
+
+    def invoke(_args, backend, _directory, _hashes):
+        report = worker_report(backend)
+        report["results"] = [worker_row(backend, case, 100)]
+        return report
+
+    monkeypatch.setattr(compare, "invoke", invoke)
+    args = smoke_args(tmp_path)
+    args.backends, args.case = selected, [case["name"]]
+    assert compare.run(args) == 0
+    summary = (args.output_dir / "summary.md").read_text()
+    assert "| Round | Case | DAL | PDE reference |" in summary
+    assert "| Round | Case | DAL | QuantLib | PDE reference |" not in summary
+
+
+def test_filtered_worker_forwards_case_names(tmp_path, monkeypatch):
+    args = smoke_args(tmp_path)
+    args.case = ["discount_queries"]
+    directory = tmp_path / "worker"
+
+    def execute(command, **kwargs):
+        assert command[command.index("--case") + 1] == "discount_queries"
+        report = worker_report()
+        report["results"] = report["results"][:1]
+        (directory / "worker.json").write_text(json.dumps(report))
+
+    monkeypatch.setattr(compare.subprocess, "run", execute)
+    report = compare.invoke(args, "dal", directory, source_hashes())
+    assert report["status"] == "passed"

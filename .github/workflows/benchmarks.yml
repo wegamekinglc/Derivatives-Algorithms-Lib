@@ -4,17 +4,27 @@ on:
     - cron: '0 6,18 * * *'
       timezone: Asia/Shanghai
   workflow_dispatch:
+    inputs:
+      mode:
+        description: Scheduled suite or the fixed DAL-469 diagnostic
+        type: choice
+        required: true
+        default: scheduled
+        options:
+          - scheduled
+          - dal-469
 
 permissions:
   contents: read
 
 concurrency:
-  group: scheduled-benchmarks
+  group: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'dal-469' && format('dal-469-diagnostic-{0}', github.ref) || 'scheduled-benchmarks' }}
   cancel-in-progress: false
 
 jobs:
   # Paired Linux measurements run outside pull-request and push CI.
   linux:
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.mode == 'scheduled' }}
     name: Linux benchmarks
     runs-on: ubuntu-latest
     # No ccache here: this job builds with -march=native, and cached objects
@@ -230,22 +240,70 @@ jobs:
             --source benchmark-infine-source \
             --output benchmark-results/infine-build
 
-      - name: Compare pricing and risk with QuantLib, rateslib and InFine
-        if: ${{ !cancelled() && steps.infine-build.outcome == 'success' }}
+      - name: Check out pinned QuantLib source
+        id: quantlib-source
+        if: ${{ !cancelled() && steps.python-comparison-dependencies.outcome == 'success' }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: lballabio/QuantLib
+          ref: 6b57206e04598f092efee66e3b367efc84771995
+          path: benchmark-results/quantlib-source
+          persist-credentials: false
+
+      - name: Build native QuantLib and DAL comparison workers
+        id: native-workers
+        if: ${{ !cancelled() && steps.infine-build.outcome == 'success' && steps.quantlib-source.outcome == 'success' }}
+        run: |
+          mkdir -p benchmark-results/tools/boost-deb benchmark-results/tools/boost
+          (cd benchmark-results/tools/boost-deb && apt-get download libboost1.83-dev)
+          dpkg-deb -x benchmark-results/tools/boost-deb/*.deb benchmark-results/tools/boost
+          cmake -S benchmark-results/quantlib-source -B benchmark-results/quantlib-build \
+            -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF \
+            -DQL_BUILD_EXAMPLES=OFF -DQL_BUILD_TEST_SUITE=OFF \
+            -DQL_INSTALL_BENCHMARK=OFF -DQL_INSTALL_EXAMPLES=OFF \
+            -DQL_INSTALL_TEST_SUITE=OFF \
+            -DBoost_NO_BOOST_CMAKE=ON -DBoost_NO_SYSTEM_PATHS=ON \
+            -DBoost_ROOT="$PWD/benchmark-results/tools/boost/usr" \
+            -DCMAKE_INSTALL_PREFIX="$PWD/benchmark-results/quantlib-install"
+          cmake --build benchmark-results/quantlib-build --target install --parallel 4
+          cmake --preset=Release-linux -S . -B build/Release-native-queries \
+            -DDAL_CPP_BUILD_BENCHMARKS=ON -DDAL_CPP_BUILD_NATIVE_COMPARISONS=ON \
+            -DQuantLib_DIR="$PWD/benchmark-results/quantlib-install/lib/cmake/QuantLib" \
+            -DDAL_BUILD_PUBLIC=OFF -DDAL_BUILD_PYTHON=OFF -DDAL_BUILD_EXCEL=OFF \
+            -DDAL_BUILD_EXCEL_PORTABLE_TESTS=OFF
+          cmake --build build/Release-native-queries \
+            --target native_query_comparison --parallel 4
+
+      - name: Compare Python APIs and native curve suite
+        if: ${{ !cancelled() && steps.native-workers.outcome == 'success' }}
         env:
           DAL_NUM_THREADS: 4
           MPLCONFIGDIR: ${{ runner.temp }}/dal-comparison-matplotlib
           DAL_INFINE_BUILD: ${{ github.workspace }}/benchmark-results/infine-build
+          DAL_NATIVE_QUERY_WORKER: ${{ github.workspace }}/build/Release-native-queries/dal-cpp/benchmarks/native_query_comparison/native_query_comparison
         run: |
           PYTHONPATH="$PWD/build/benchmark-head/dal-python" \
             python3 -m pytest dal-python/benchmarks/tests -q
           python3 dal-python/benchmarks/run_comparisons.py \
             --dal-package build/benchmark-head/dal-python \
-            --infine-build benchmark-results/infine-build \
             --output-dir benchmark-results/python-third-party \
             --summary-file "$GITHUB_STEP_SUMMARY" \
             --samples 10 \
             --rounds 2
+          python3 dal-python/benchmarks/run_native_queries.py \
+            --native-worker "$DAL_NATIVE_QUERY_WORKER" \
+            --native-build-root build/Release-native-queries \
+            --quantlib-build-root benchmark-results/quantlib-build \
+            --quantlib-source benchmark-results/quantlib-source \
+            --infine-build "$DAL_INFINE_BUILD" \
+            --output-dir benchmark-results/native-curve-suite \
+            --summary-file "$GITHUB_STEP_SUMMARY" \
+            --case discount_queries \
+            --case calibration_single_5 \
+            --case calibration_single_15 \
+            --case calibration_multi_staged_5 \
+            --case calibration_multi_staged_15 \
+            --samples 10 --rounds 2
 
       - name: Compare base and head performance
         if: ${{ !cancelled() && steps.python-workloads.outcome == 'success' }}
@@ -317,6 +375,7 @@ jobs:
 
   # Representative MSVC/AADet run, independent of the Windows CI gate.
   windows:
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.mode == 'scheduled' }}
     name: Windows benchmarks
     runs-on: windows-latest
     # Keep the benchmark build independent of the CI compiler cache.
@@ -414,4 +473,104 @@ jobs:
           name: benchmark-windows-${{ github.run_id }}-${{ github.run_attempt }}
           path: benchmark-results
           if-no-files-found: warn
+          retention-days: 30
+
+  diagnostic:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'dal-469' }}
+    name: DAL-469 fixed-comparison diagnostic
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      actions: read
+    env:
+      DAL469_MODE: ${{ inputs.mode }}
+      DAL_NUM_THREADS: 4
+      CMAKE_BUILD_PARALLEL_LEVEL: 2
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Check out original head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: d7eaefb7808ba32aecc870b7babc7cc9e7fc650a
+          path: diagnostic-workspace
+      - name: Check out original base
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 72b3d15e04a9a42859b3f3b264b0f4ea635ddb20
+          path: diagnostic-workspace/benchmark-base
+
+      - name: Set up diagnostic toolchain
+        run: |
+          python3 .github/scripts/setup_dal469_toolchain.py
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # @v10.3.0
+      - name: Set up diagnostic Python and CMake
+        run: |
+          uv venv .diagnostic-venv --python 3.13.17
+          export VIRTUAL_ENV="$PWD/.diagnostic-venv"
+          uv pip install cmake==3.31.6 pytest numpy
+          echo "$VIRTUAL_ENV/bin" >> "$GITHUB_PATH"
+          echo "VIRTUAL_ENV=$VIRTUAL_ENV" >> "$GITHUB_ENV"
+      - name: Check out diagnostic dependencies
+        run: |
+          python3 .github/scripts/checkout_dependencies.py --worktree diagnostic-workspace
+          python3 .github/scripts/checkout_dependencies.py --worktree diagnostic-workspace/benchmark-base
+      - name: Fetch original diagnostic binaries
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh run download 40411137529 --name benchmark-linux-40411137529-1 --dir "$RUNNER_TEMP/dal469-original" > diagnostic-results/artifact-download.txt 2>&1; then
+            echo 0 > diagnostic-results/artifact-download.status
+          else
+            echo "$?" > diagnostic-results/artifact-download.status
+            echo '::warning::Original artifact unavailable; using same-runner paired rebuilds.'
+          fi
+      - name: Inspect diagnostic compatibility
+        id: diagnostic-prepare
+        run: python3 .github/scripts/diagnose_dal469.py prepare
+      - name: Build only diagnostic targets
+        env:
+          CC: gcc-14
+          CXX: g++-14
+          DAL469_PYTHON_MODE: ${{ steps.diagnostic-prepare.outputs.python_mode }}
+        run: |
+          set -o pipefail
+          head_source="$PWD/diagnostic-workspace"
+          base_source="$head_source/benchmark-base"
+          targets=(tape_perf)
+          if [ "$DAL469_PYTHON_MODE" = rebuild ]; then
+            targets+=(_dal)
+          fi
+          for side in head base; do
+            source_root="$head_source"
+            build_root="$head_source/build/benchmark-head"
+            if [ "$side" = base ]; then
+              source_root="$base_source"
+              build_root="$base_source/build/benchmark-base"
+            fi
+            cmake -S "$source_root" -B "$build_root" \
+              -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF \
+              -DDAL_BUILD_PUBLIC=ON -DDAL_BUILD_PYTHON=ON \
+              -DDAL_PUBLIC_BUILD_TESTS=OFF -DDAL_CPP_BUILD_TESTS=OFF \
+              -DDAL_CPP_BUILD_EXAMPLES=OFF -DDAL_CPP_BUILD_BENCHMARKS=ON \
+              -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+              -DPython3_EXECUTABLE="$(command -v python3)" \
+              "-DCMAKE_CXX_FLAGS=-ffile-prefix-map=$head_source=$PWD -ffile-prefix-map=$base_source=$PWD" \
+              -DDAL_ENABLE_NATIVE_ARCH=ON 2>&1 | tee "diagnostic-results/$side-configure.txt"
+            cmake --build "$build_root" --target "${targets[@]}" --parallel "$CMAKE_BUILD_PARALLEL_LEVEL" \
+              2>&1 | tee "diagnostic-results/$side-build.txt"
+          done
+      - name: Measure fixed diagnostic comparison
+        run: python3 .github/scripts/diagnose_dal469.py measure
+      - name: Collect separate diagnostic profiles
+        if: ${{ !cancelled() && steps.diagnostic-prepare.outcome == 'success' }}
+        run: python3 .github/scripts/diagnose_dal469.py profile
+      - name: Upload diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dal-469-diagnostic-${{ github.run_id }}-${{ github.run_attempt }}
+          path: diagnostic-results
+          if-no-files-found: error
           retention-days: 30

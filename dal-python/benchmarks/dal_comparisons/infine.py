@@ -64,36 +64,43 @@ def method(case):
     }.get(op, "passive (direct C#)")
 
 
-def fixtures(smoke):
-    from . import calibration_scenarios, gsr_scenarios, option_scenarios, scenarios
+def fixture_case(case):
+    from . import calibration_scenarios, scenarios
+
+    reason = unsupported_reason(case)
+    row = {"workload": case}
+    if reason:
+        row["unsupported"] = reason
+        return row
+    reference = scenarios.expected(case)
+    bounds = scenarios.tolerance(case, "infine")
+    row.update(
+        reference=reference,
+        method=method(case),
+        tolerance=(
+            list(bounds)
+            if isinstance(bounds, (list, tuple))
+            else [bounds] * len(reference)
+        ),
+    )
+    if case["operation"] == "discount":
+        row["queries"] = scenarios.queries(case["size"])
+    elif case["operation"] == "calibration":
+        row["queries"] = calibration_scenarios.queries(case["size"])
+        row["quotes"] = calibration_scenarios.quotes(case["size"])
+    elif case["name"].startswith("irs_"):
+        row["trades"] = scenarios.trades(case["size"])
+    return row
+
+
+def fixtures(smoke, case_names=None):
+    from . import gsr_scenarios, option_scenarios, scenarios
     from .evidence import SCHEMA
 
-    rows = []
-    for case in scenarios.cases(smoke):
-        reason = unsupported_reason(case)
-        row = {"workload": case}
-        if reason:
-            row["unsupported"] = reason
-        else:
-            reference = scenarios.expected(case)
-            bounds = scenarios.tolerance(case, "infine")
-            row.update(
-                reference=reference,
-                method=method(case),
-                tolerance=(
-                    list(bounds)
-                    if isinstance(bounds, (list, tuple))
-                    else [bounds] * len(reference)
-                ),
-            )
-            if case["operation"] == "discount":
-                row["queries"] = scenarios.queries(case["size"])
-            elif case["operation"] == "calibration":
-                row["queries"] = calibration_scenarios.queries(case["size"])
-                row["quotes"] = calibration_scenarios.quotes(case["size"])
-            elif case["name"].startswith("irs_"):
-                row["trades"] = scenarios.trades(case["size"])
-        rows.append(row)
+    rows = [fixture_case(case) for case in scenarios.cases(smoke)]
+    if case_names:
+        selected = set(case_names)
+        rows = [row for row in rows if row["workload"]["name"] in selected]
     payload = {
         "schema": SCHEMA,
         "cases": rows,
@@ -183,13 +190,14 @@ def load_build(build):
     return manifest, identities
 
 
-def measure_cases(args):
+def measure_cases(args, payload=None):
     from .evidence import SCHEMA, source_hashes, write_json
 
     before, identities = load_build(args.infine_build)
     build = Path(args.infine_build).resolve()
     hashes = source_hashes()
-    write_json(args.output_dir / "infine-input.json", fixtures(args.smoke))
+    selected = payload if payload is not None else fixtures(args.smoke, getattr(args, "case", None))
+    write_json(args.output_dir / "infine-input.json", selected)
     output = args.output_dir / "infine-native.json"
     command = [
         before["dotnet"],
