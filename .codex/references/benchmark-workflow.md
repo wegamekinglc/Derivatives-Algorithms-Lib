@@ -273,6 +273,54 @@ diagnostic: its output and exit status are retained in `python-baseline-tests/`,
 emits a warning. Historical defects outside the shared workloads do not block measuring a fix;
 head-suite failures and either build's shared-workload failures still stop the comparisons.
 
+## Manual DAL-469 Diagnostic
+
+The existing `benchmarks.yml` workflow also provides a closed manual mode for
+the historical DAL-469 comparison. After review, invoke its version on the
+task branch without merging it:
+
+```bash
+gh workflow run benchmarks.yml --ref agent/dal-implementer/ae51bbf718d9 -f mode=dal-469
+```
+
+The workflow is already registered on the default branch; [`--ref` selects the
+branch containing the workflow version](https://cli.github.com/manual/gh_workflow_run).
+This command starts remote work; do not run it as a local validation check.
+Scheduled runs and manual `mode=scheduled` retain the full Linux/Windows jobs.
+The diagnostic job runs separately on `ubuntu-24.04` and fixes both sources to
+`72b3d15e04a9a42859b3f3b264b0f4ea635ddb20` and
+`d7eaefb7808ba32aecc870b7babc7cc9e7fc650a`; there are no arbitrary SHA, case,
+command, sampling or threshold inputs.
+
+The job attempts GCC 14.2.0's original Ubuntu package and selects Python 3.13.17
+and CMake 3.31.6. Actual CPU/ISA, toolchain and differences are retained. Hosted
+Ubuntu does not guarantee the original EPYC model. The original artifact from
+run `40411137529` is optional: missing/expired evidence, missing AVX-512, an
+interpreter mismatch, or a SIGILL/import failure selects same-runner rebuilds
+for both Python sides. Both original module hashes must match before execution;
+a numerical correctness failure fails preparation instead of triggering fallback.
+The original tape binaries were not retained, so tape always uses paired rebuilds.
+
+Only `tape_perf` and the first eight head Python cases are measured. The native
+executable has no case selector, so its existing cases and assertions remain
+intact. The Python prefix preserves four RNG cases, script parsing and all three
+vanilla-double evaluator modes, at full scale. Both comparisons retain two
+best-of-ten rounds and the strict 4% rule; Python retains its 90% paired-support
+condition. The existing samplers/evaluator and identical-binary retry policy are
+unchanged. Correctness preflights precede sampling. Target failures remain job
+failures even when the other target or subsequent profiles succeed.
+
+The `dal-469-diagnostic-<run>-<attempt>` artifact uploads even after failure and
+contains source/dependency identities, actual environment, caches/compile commands,
+binary hashes before/after sampling, replayable binaries/packages, raw process
+outputs and per-target exit codes. Profiling runs follow all gate samples and
+retain GNU time resource counters, optional perf hotspots and libmemusage
+allocation totals. SIGILL probes can additionally retain a GDB instruction/stack
+record. Missing profiler access is recorded rather than changing permissions or
+clearing a gate failure. Profiling is process-wide and intrusive; its timings are
+not gate samples. A diagnostic pass on different hardware never clears the
+historical CI failure.
+
 ## Threshold And Verdict
 
 The repository's calibrated policy is a strict +4% threshold in every one of two independent
