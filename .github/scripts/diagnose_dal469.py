@@ -250,20 +250,30 @@ def identities(builds, packages):
     return identities
 
 
+def preserve_replay_evidence(builds, packages, output):
+    for side, info in builds.items():
+        shutil.copy2(info["build"] / "CMakeCache.txt", output / f"{side}-CMakeCache.txt")
+        commands = info["build"] / "compile_commands.json"
+        if commands.is_file():
+            shutil.copy2(commands, output / f"{side}-compile_commands.json")
+        binaries = output / "binaries" / side
+        binaries.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(native_gate.benchmark_binary(info["build"], "tape_perf"), binaries / "tape_perf")
+        with tarfile.open(binaries / "python-package.tar.gz", "w:gz") as archive:
+            archive.add(packages[side] / "dal", arcname="dal")
+
+
 def measure(workspace, output):
     builds = layout(workspace)
     selection = json.loads((output / "selection.json").read_text())
     packages = {side: Path(package) for side, package in selection["packages"].items()}
+    preserve_replay_evidence(builds, packages, output)
     before = identities(builds, packages)
     write_json(output / "identities-before.json", before)
     if selection["python_mode"] == "original":
         require(all(before[side]["python_sha256"] == ORIGINAL_HASHES[side] for side in builds),
                 "original package changed after compatibility probe")
     for side, info in builds.items():
-        shutil.copy2(info["build"] / "CMakeCache.txt", output / f"{side}-CMakeCache.txt")
-        commands = info["build"] / "compile_commands.json"
-        if commands.is_file():
-            shutil.copy2(commands, output / f"{side}-compile_commands.json")
         require(run_command([native_gate.benchmark_binary(info["build"], "tape_perf"), "--diagnostics"],
                             output / "preflight" / f"{side}-tape.log", env=worker_environment()) == 0,
                 f"{side} tape correctness failed")
@@ -276,13 +286,6 @@ def measure(workspace, output):
     after = identities(builds, packages)
     write_json(output / "identities-after.json", after)
     require(before == after, "diagnostic source/configuration/binary identity changed during sampling")
-    for side, info in builds.items():
-        binaries = output / "binaries" / side
-        binaries.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(native_gate.benchmark_binary(info["build"], "tape_perf"), binaries / "tape_perf")
-        if selection["python_mode"] == "rebuild":
-            with tarfile.open(binaries / "python-package.tar.gz", "w:gz") as archive:
-                archive.add(packages[side] / "dal", arcname="dal")
     if os.getenv("GITHUB_STEP_SUMMARY"):
         with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a", encoding="utf-8") as stream:
             stream.write(f"## DAL-469 diagnostic\n\nMode: {selection['python_mode']}. Sampler exit: {status}. "

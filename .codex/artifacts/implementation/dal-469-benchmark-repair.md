@@ -5,6 +5,70 @@ been dispatched. The performance root cause remains inconclusive and the
 original CI failures remain valid. Algorithms and gate policy are unchanged;
 the issue remains `in_progress`.
 
+## Reviewer evidence-retention blocker correction
+
+Review of `1d0c17384169c181ff45360bdd114de60601c20d` found that the replay copy
+ran after numerical preflights and the final identity check. The reviewer
+attachment `dal-469-benchmark-diagnostic.md` supplied three fixture scenarios:
+head tape preflight failure, head prefix preflight failure, and post-sampling
+identity drift. All had lost both replayable executables/packages; the first
+two also lacked the base configuration.
+
+The correction changes only the diagnostic controller, its related tests and
+this record. `preserve_replay_evidence()` now saves both CMake caches, available
+compile commands, tape executables and complete selected Python packages before
+the measurement stage's first identity validation or numerical preflight. Python archives are saved
+for both original-package and rebuild selection. Later checks do not overwrite
+these original copies. Existing before/after identity reports, numerical logs,
+command return codes, sampling-status file and exception-status handling remain
+unchanged; the workflow's existing unconditional evidence upload is reused.
+
+The three regression fixtures call the actual manual `main(['measure'])` path
+with mocked source identities and child commands, matching the review method.
+They verify both sides' binary bytes, Python native module and wrapper bytes,
+caches and compile commands; each stage exits 1. Numerical failures retain
+preflight exit 23 and never start sampling. The drift fixture modifies the live
+head executable, retains different before/after hashes and sampler exit 7,
+while the saved executable remains the original. Original CI exit status 1 is
+retained throughout. These are synthetic fixtures, not new DAL measurements.
+
+RED command (before the controller correction):
+
+```sh
+python3 -m unittest discover -s .github/scripts/tests \
+  -p test_dal469_diagnostics.py -k DiagnosticFailureEvidenceTest -v
+```
+
+Result: exit 1, all three fixtures fail with missing saved replay files.
+The same command after correction exits 0: three tests pass. Then only these
+fixtures and four directly affected contracts were checked:
+
+```sh
+PYTHONPATH=.github/scripts/tests:.github/scripts python3 -W error::ResourceWarning -m unittest -v \
+  test_dal469_diagnostics.DiagnosticFailureEvidenceTest \
+  test_dal469_diagnostics.PrefixDiagnosticTest.test_measurement_stage_retains_gate_failures_and_binary_evidence \
+  test_dal469_diagnostics.DiagnosticWorkflowTest.test_task_ref_controller_fixed_sources_and_always_upload_are_retained \
+  test_dal469_diagnostics.DiagnosticCommandTest.test_sampling_failure_is_retained_while_the_other_target_still_runs \
+  test_dal469_diagnostics.DiagnosticCommandTest.test_profiles_do_not_replace_failed_measurement_status
+```
+
+Result: exit 0, seven tests pass. Ruff on the two changed Python files and
+`git diff --check` also pass. Full script tests, core-build, actionlint and local
+performance comparisons were not repeated; the prior exact-head evidence is
+retained with its original provenance. No workflow was started or merged.
+
+Persistent fixture evidence under the task-owned `dal-469-blocker-evidence/`
+directory contains each scenario's exact uploaded-result tree and a SHA-256
+inventory, alongside RED/GREEN and affected-check logs in the delivery archive.
+The failure and drift paths can therefore be inspected without a live runner.
+
+Codacy remains a separate outstanding policy result. The inspected original
+head has `ACTION_REQUIRED`, five annotations: dynamic subprocess plus four
+complexity notices. This correction does not suppress them or undertake the
+deferred maintenance refactor. The new head's checks must be reported from its
+own snapshot; no policy clearance is inferred from these local tests. Remote
+execution and focused reviewer revalidation remain orchestrator decisions.
+
 ## Remote diagnostic patch
 
 The current handoff authorizes workflow/private diagnostic helpers, effective

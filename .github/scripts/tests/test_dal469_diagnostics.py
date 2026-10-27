@@ -1,6 +1,7 @@
 """Contracts for the manual, fixed-comparison DAL-469 diagnostic job."""
 
 import importlib.util
+import contextlib
 import io
 import json
 import os
@@ -215,6 +216,96 @@ class DiagnosticCommandTest(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "head module hash mismatch"):
                     diagnostic.choose_packages(root, root / "evidence", diagnostic.REQUIRED_ISA, (3, 13, 17))
                 run.assert_not_called()
+
+
+class DiagnosticFailureEvidenceTest(unittest.TestCase):
+    def run_failure_fixture(self, root, failure):
+        diagnostic = load_diagnostic()
+        output = root / "diagnostic-results"
+        builds = diagnostic.layout(root)
+        packages, originals, before = {}, {}, {}
+        for side, info in builds.items():
+            info["source"].mkdir(parents=True, exist_ok=True)
+            info["build"].mkdir(parents=True)
+            cache = f"complete {side} cache\n"
+            commands = json.dumps([{"directory": str(info["build"]), "command": f"compile {side}"}])
+            (info["build"] / "CMakeCache.txt").write_text(cache)
+            (info["build"] / "compile_commands.json").write_text(commands)
+            binary = info["build"] / "dal-cpp/benchmarks/tape_perf/tape_perf"
+            binary.parent.mkdir(parents=True)
+            binary.write_bytes(f"original {side} executable".encode())
+            binary.chmod(0o755)
+            package = info["build"] / "dal-python"
+            (package / "dal").mkdir(parents=True)
+            module = package / "dal/_dal.cpython-313-x86_64-linux-gnu.so"
+            module.write_bytes(f"original {side} module".encode())
+            (package / "dal/__init__.py").write_bytes(b"original package wrapper")
+            packages[side] = str(package)
+            originals[side] = {"tape": binary.read_bytes(), "python": module.read_bytes(),
+                               "cache": cache, "commands": commands}
+            before[side] = {"tape_sha256": diagnostic.sha256(binary), "python_sha256": diagnostic.sha256(module)}
+        diagnostic.write_json(output / "selection.json", {"python_mode": "rebuild", "packages": packages})
+
+        def command(argv, log, **kwargs):
+            status = 23 if (failure == "tape" and log.name == "head-tape.log") or (
+                failure == "prefix" and log.parent.name == "head-prefix") else 0
+            log.parent.mkdir(parents=True, exist_ok=True)
+            log.write_text(f"fixture numerical preflight exit {status}\n")
+            diagnostic.write_json(log.with_suffix(".command.json"), {"argv": [str(arg) for arg in argv], "returncode": status})
+            return status
+
+        def sampled(*args):
+            binary = builds["head"]["build"] / "dal-cpp/benchmarks/tape_perf/tape_perf"
+            binary.write_bytes(b"drifted executable")
+            diagnostic.write_json(output / "measurement-status.json", {
+                "original_ci_exit_status": 1, "tape": 7, "python-prefix": 0,
+            })
+            return 7
+
+        after = {**before, "head": {**before["head"], "tape_sha256": diagnostic.hashlib.sha256(b"drifted executable").hexdigest()}}
+        with contextlib.chdir(root), contextlib.redirect_stderr(io.StringIO()), mock.patch.dict(
+            os.environ, {"GITHUB_EVENT_NAME": "workflow_dispatch", "DAL469_MODE": "dal-469"}
+        ), mock.patch.object(diagnostic, "identities", side_effect=[before, after]), \
+                mock.patch.object(diagnostic, "run_command", side_effect=command), \
+                mock.patch.object(diagnostic, "measure_targets", side_effect=sampled) as sampler:
+            self.assertEqual(diagnostic.main(["measure"]), 1)
+        error = json.loads((output / "measure-error.json").read_text())
+        expected = "identity changed during sampling" if failure == "identity-after" else f"head {failure} correctness failed"
+        self.assertIn(expected, error["error"])
+        self.assertEqual(error["original_ci_exit_status"], 1)
+        self.assertEqual(json.loads((output / "identities-before.json").read_text()), before)
+        for side in ("base", "head"):
+            saved = output / "binaries" / side
+            self.assertEqual((saved / "tape_perf").read_bytes(), originals[side]["tape"])
+            self.assertEqual((output / f"{side}-CMakeCache.txt").read_text(), originals[side]["cache"])
+            self.assertEqual((output / f"{side}-compile_commands.json").read_text(), originals[side]["commands"])
+            with tarfile.open(saved / "python-package.tar.gz") as archive:
+                with archive.extractfile("dal/_dal.cpython-313-x86_64-linux-gnu.so") as stream:
+                    self.assertEqual(stream.read(), originals[side]["python"])
+                with archive.extractfile("dal/__init__.py") as stream:
+                    self.assertEqual(stream.read(), b"original package wrapper")
+        if failure == "identity-after":
+            sampler.assert_called_once()
+            self.assertEqual(json.loads((output / "identities-after.json").read_text()), after)
+            self.assertEqual(json.loads((output / "measurement-status.json").read_text())["tape"], 7)
+        else:
+            sampler.assert_not_called()
+            log = output / "preflight" / ("head-tape.log" if failure == "tape" else "head-prefix/worker.log")
+            self.assertEqual(json.loads(log.with_suffix(".command.json").read_text())["returncode"], 23)
+            self.assertIn("exit 23", log.read_text())
+        return output
+
+    def test_tape_preflight_failure_preserves_both_replay_packages_and_configs(self):
+        with tempfile.TemporaryDirectory(prefix="dal tape evidence ") as directory:
+            self.run_failure_fixture(Path(directory), "tape")
+
+    def test_prefix_preflight_failure_preserves_both_replay_packages_and_configs(self):
+        with tempfile.TemporaryDirectory(prefix="dal prefix evidence ") as directory:
+            self.run_failure_fixture(Path(directory), "prefix")
+
+    def test_identity_drift_preserves_original_replay_and_failed_sampling_status(self):
+        with tempfile.TemporaryDirectory(prefix="dal identity evidence ") as directory:
+            self.run_failure_fixture(Path(directory), "identity-after")
 
 
 class PrefixDiagnosticTest(unittest.TestCase):
