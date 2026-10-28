@@ -3,7 +3,7 @@
 #include <set>
 
 #include <dal/calibration/validation_internal.hpp>
-#include <dal/curve/curveinstrumentcalibration.hpp>
+#include <dal/curve/curvescriptevaluation_internal.hpp>
 
 namespace Dal {
     using namespace CalibrationInternal;
@@ -62,38 +62,25 @@ namespace Dal {
                   "projection collateral matching the native market binding");
         return *found;
     }
+    template <class T_> typename CandidateCurveProvider_<T_>::CurveBinding_ CandidateCurveProvider_<T_>::Bind(const CurveScriptRoute_& route) const {
+        if (IsTarget(geometry_, route))
+            return {target_.get(), nullptr};
+        const auto background =
+            route.projection_ ? BoundCurve(geometry_.forwardCurves_, route.tenor_) : BoundCurve(geometry_.discountCurves_, route.collateral_);
+        Check(background && background->ccy_ == Ccy_(geometry_.ccy_), "CalibrationContextMismatch", "/routes/" + route.id_,
+              "explicit same-currency background curve; no market fallback");
+        return {nullptr, background.get()};
+    }
     template <class T_> T_ CandidateCurveProvider_<T_>::Discount(const CurveScriptRoute_& route, const Date_& from, const Date_& to) const {
-        Check(from.IsValid() && to.IsValid() && from >= geometry_.today_ && to >= from, "CalibrationContextMismatch", "/candidate/dates",
-              "ordered dates on or after valuation; history is resolved before evaluation");
-        T_ value;
-        if (IsTarget(geometry_, route)) {
-            value = (*target_)(from, to);
-        } else {
-            const auto background =
-                route.projection_ ? BoundCurve(geometry_.forwardCurves_, route.tenor_) : BoundCurve(geometry_.discountCurves_, route.collateral_);
-            Check(background && background->ccy_ == Ccy_(geometry_.ccy_), "CalibrationContextMismatch", "/routes/" + route.id_,
-                  "explicit same-currency background curve; no market fallback");
-            value = T_((*background)(from, to));
-        }
-        Check(std::isfinite(static_cast<double>(value)) && static_cast<double>(value) > 0., "CalibrationNumericalFailure", "/routes/" + route.id_,
-              "finite positive discount factor");
-        return value;
+        return Discount(Bind(route), route, from, to);
     }
     template <class T_> T_ CandidateCurveProvider_<T_>::Discount(const String_& route, const Date_& from, const Date_& to) const {
         return Discount(Route(route, false), from, to);
     }
     template <class T_>
     T_ CandidateCurveProvider_<T_>::Forward(const String_& route, const Date_& start, const Date_& end, const DayBasis_& basis) const {
-        const double accrual = basis(start, end, nullptr);
-        Check(std::isfinite(accrual) && accrual > 0., "InvalidCalibrationPlan", "/routes/" + route + "/accrual", "explicit positive accrual");
-        const T_ value = (T_(1.) / Discount(Route(route, true), start, end) - T_(1.)) / accrual;
-        if (!std::isfinite(static_cast<double>(value))) {
-            CalibrationDiagnostic_ d;
-            d.stage_ = CalibrationStage_::Value_::Evaluate;
-            Fail("CalibrationNumericalFailure", "/routes/" + route + "/forward", "finite forward in native rate units",
-                 NumberText(static_cast<double>(value)), d);
-        }
-        return value;
+        const auto& boundRoute = Route(route, true);
+        return Forward(Bind(boundRoute), boundRoute, start, end, basis);
     }
     template class CandidateCurveProvider_<double>;
     template class CandidateCurveProvider_<AAD::Number_>;

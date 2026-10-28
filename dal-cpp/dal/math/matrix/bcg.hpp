@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <dal/platform/platform.hpp>
+
 namespace Dal {
 
     class HasPreConditioner_ {
@@ -15,10 +17,8 @@ namespace Dal {
     namespace Sparse {
         class Square_;
 
-        void CGSolve(const Sparse::Square_& A,
-                     const Vector_<>& b, double tolRel, double tolAbs, int maxIterations, Vector_<>* x);
+        void CGSolve(const Sparse::Square_& A, const Vector_<>& b, double tolRel, double tolAbs, int maxIterations, Vector_<>* x);
 
-        void BCGSolve(const Sparse::Square_& A,
-                      const Vector_<>& b, double tolRel, double tolAbs, int maxIterations, Vector_<>* x);
+        void BCGSolve(const Sparse::Square_& A, const Vector_<>& b, double tolRel, double tolAbs, int maxIterations, Vector_<>* x);
     } // namespace Sparse
 } // namespace Dal

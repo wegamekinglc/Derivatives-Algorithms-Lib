@@ -51,6 +51,46 @@ joint XCCY as described below. The
 [Excel interface chapter](../docs/excel/README.md) lists the primary worksheet
 families.
 
+## Direct-Script Curve Calibration Examples
+
+[012.interpolate_curve_script.xlsx](examples/012.interpolate_curve_script.xlsx)
+constructs 13 swap/FRA definitions from visible source tables and shares them
+across log-linear, log-cubic-natural and mixed calibration sheets.
+[013.xccy_script_calibration.xlsx](examples/013.xccy_script_calibration.xlsx)
+constructs a fixed-notional USD/EUR swap, including principal exchanges and the
+foreign spread, directly from script cashflows. Neither workbook creates or
+imports a native swap. Quotes, knots, solver controls and typed report outputs
+remain visible in the worksheets.
+
+Settings ranges contain data rows only; typed row tables retain their named
+headers. Handle-valued cells contain reference formulas. The fixed-size report
+arrays are reserved below the input tables and recalculate with the calibration.
+
+`DISCOUNTPWC.NEW` constructs piecewise-constant right-forward curves.
+`CURVEBLOCK.NEW` combines typed collateral-discount and tenor-projection maps
+from `CALIBRATIONDISCOUNTCURVES.NEW` and
+`CALIBRATIONFORWARDCURVES.NEW`. Use canonical period tokens such as
+`QUARTERLY` and `SEMIANNUAL` in these typed tables. The existing
+`CURVEBLOCK.NEW.SIMPLE` function is unchanged.
+
+Regenerate both workbooks with `python3 scripts/gen_script_calibration_examples.py`.
+Its optional `--validate` flag also executes the fixtures through a built DAL
+Python module. Generation and portable binding tests do not evaluate formulas
+in Microsoft Excel; native workbook verification requires the Windows XLL.
+
+The generator requires openpyxl 3.1 or later. Portable workbook checks also
+require defusedxml for safe XML parsing. Run them
+with `python -m unittest discover -s scripts/tests -p test_script_calibration_workbooks.py -v`.
+On Windows with Excel and pywin32 installed, verify the committed workbooks:
+
+```powershell
+python dal-excel/tests/windows/run-script-calibration-examples.py --xll build/Release-windows/dal-excel/dal_excel.xll --output build/script-calibration-examples.json
+```
+
+The runner opens both files read-only, checks every observation and fitted
+parameter, tests a 1 bp quote change, restores the input, and closes its own
+Excel process without saving either source workbook.
+
 ## Script FIX Settings and Diagnostics
 
 `SCRIPTPRODUCTSETTINGS.NEW`, `SCRIPTVALUATIONSETTINGS.NEW`, and

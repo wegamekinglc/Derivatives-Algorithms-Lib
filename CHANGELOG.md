@@ -16,6 +16,31 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-10-27
+
+- **Typed calibration preparation** — added raw-only residual evaluation and
+  optional caller-owned preparation caches for core curve and XCCY calibration.
+  Compatible repeated calibrations avoid report assembly and repeated script
+  lowering without changing instrument settings or preparation defaults.
+  Default-bound products are parsed once and reused for read-only deterministic
+  preparation. Deterministic curve evaluation uses compact forward lowering,
+  bound curves and small scratch storage, with diagnostics built on failure
+  rather than success. No evaluation state is shared. See the
+  [calibration contract](docs/methodology/script_calibration_contract.md#native-curve-instrument-calibration).
+
+- **Unified curve calibration drivers** — typed curve and XCCY calibration now
+  shares the native `RunCurveCalibration` and its `Find`/`Approximate` paths,
+  with optional explicit approximate fit weight, preserved parameter scaling,
+  inclusive initial-fit acceptance and owning failure state. Scripted
+  instruments no longer use a separate solver for these paths. See the
+  [calibration contract](docs/methodology/script_calibration_contract.md#native-curve-instrument-calibration).
+
+- **Excel curve construction and script examples** — added `DISCOUNTPWC.NEW`
+  and explicit discount/projection `CURVEBLOCK.NEW`, with script-first public
+  and worksheet yield/XCCY calibration examples that construct dated script
+  definitions directly. See the
+  [Excel examples](dal-excel/README.md#direct-script-curve-calibration-examples).
+
 ## 2026-10-24
 
 - **Core mixed-mapping XCCY MC baskets** — added immutable prepared member

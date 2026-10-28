@@ -43,6 +43,14 @@ The returned raw core tree is not an admitted calibration execution plan. Use
 `PrepareCalibrationInstrument` for receiver, complete template, context and
 execution-method admission.
 
+For deterministic preparation, a definition also owns its parsed default bound
+product. Default-valued instruments share that immutable tree; an instrument
+with different effective values owns a separately parsed tree. Only this
+read-only structure is shared, never evaluator or AAD state. Each newly prepared
+plan still performs whole-tree guards, structural admission and complete context
+identity checks. Public `Product()` and all MC preparation and execution continue
+to build fresh mutable trees.
+
 ## Structural preparation
 
 Preparation reads the whole bound AST before constant folding or historical
@@ -73,14 +81,16 @@ The returned immutable plan owns its instrument, cashflow metadata, disposable
 descriptor, capability and compiler/context/plan identities. A contingent
 cashflow has no numeric `amount_`; its metadata retains payment/fixing dates and
 source coordinates. A fast descriptor carries the matched financial structure.
-Deposit amounts come from evaluating the original PAYS expressions. The plan
-retains no independently editable native product or mutable market object.
+Deposit amounts use the two admitted PAYS cashflows with their effective N, K and
+ALPHA constants. The plan retains no independently editable native product or
+mutable market object.
 
 Source, header, effective bindings, actual curve/model data, exact fixing
 timestamps and values, today policy, convention state and smoothing contribute
 to identity. Sampling contributes when MC is selected. Call `RequireCompatible`
 with the current instrument and context before reusing a prepared artifact;
-changes require preparation again. No shared descriptor cache is maintained.
+changes require preparation again. No process-global descriptor cache is
+maintained; explicit caller-owned caches are described below.
 Rate-option, curve-family and general Price MC contexts additionally track the actual Libor day basis; this
 extension preserves the original Deposit/BondOption identity components.
 
@@ -314,6 +324,22 @@ Deposit or bounded curve-family cashflows once; candidates refresh native curves
 without parsing source or importing native products again. Gaussian options
 continue through their separate model adapter.
 
+`Residuals(parameters)` on `PreparedCurveInstruments_` and
+`PreparedXccyInstruments_` is the raw-only counterpart to `Evaluate`: it applies
+the same measure, residual and norm validation without assembling descriptive
+results, publishing a candidate or computing a Jacobian. Solver trials use this
+entry point. Full evaluation retains the existing candidate, metadata, report
+and optional diagnostic behavior.
+
+`CalibrationPreparationCache_` is an optional caller-owned, process-local cache.
+Pass it as the final argument to `PrepareCalibrationInstrument`, or set
+`CurveInstrumentCalibrationOptions_::preparationCache_` for curve and XCCY
+calibration. Entries are reused only when the complete instrument identity,
+measure, frozen context identity and every evaluation setting match. A cache
+hit preserves the caller's current instrument handle while reusing the immutable
+prepared state. Failed preparations are not cached, and lookup/insertion are
+mutex-protected. The default is no cache; uncached behavior is unchanged.
+
 The provider uses native discount/projection curves, collateral and tenor keys,
 and an optional passive base. Route IDs are case-sensitive. Missing routes,
 currency/collateral conflicts and unsupported requests fail without a global
@@ -339,22 +365,30 @@ Each local problem uses the prior displacement and lambda-weighted squared
 scaled residuals; acceptance is scaled L2<=eta. It may accept the initial point
 and does not certify an objective minimum. Scales never determine lambda.
 
-The new `Underdetermined::Fit` regularized local solve uses dense Cholesky and
-requests a fresh Jacobian each iteration. It does not reuse the legacy CG
-absolute residual floor or Broyden/secant refresh schedule. These numerical
-choices do not promise the legacy floating-point trajectory; the
-[underdetermined search note](underdetermined_search.md) describes the original
-`Find`/`Approximate` paths, which retain their existing algorithms.
+Typed curve and XCCY calibration now share `RunCurveCalibration` with the native
+drivers. EXACT uses the legacy `Find` iteration and APPROXIMATE uses the legacy
+`Approximate` iteration, including its secant refresh schedule and budget
+accounting. An optional explicit fit weight carries the typed lambda into
+`Approximate`; native callers retain the tolerance-derived default. The separate
+public `Underdetermined::Fit` driver remains available for other callers. The
+[underdetermined search note](underdetermined_search.md) describes the shared
+algorithm and the optional weight.
 
 FD is the default; explicitly requested AAD uses the same cashflows and native
 curve representation, including all log-DF schemes. Unsupported derivative or
-MC requests fail. Solve FD bumps z; independent `Evaluate(theta)` FD bumps native
-theta, using `differenceStep_` in the respective coordinates. `quoteJacobian_`
-is the raw model-measure derivative with respect to native theta, not quote risk.
+MC requests fail. Solve FD uses central differences in z; independent
+`Evaluate(theta)` FD uses central differences in native theta, with
+`differenceStep_` in the respective coordinates. `quoteJacobian_` is the raw
+model-measure derivative with respect to native theta, not quote risk.
+The solve finite difference already differentiates through `theta0+S*z`;
+its columns require no additional multiplication by S. AAD differentiates
+native theta and applies S once when building the solver Jacobian.
 `computeQuoteJacobian_` optionally requests it after a successful fit. Solver
-evaluation/gradient counters include attempted FD work. A final value refresh
-and optional Jacobian diagnostics have separate counters and do not consume
-the fit budget. Initial-fit results report derivative None unless diagnostics run.
+evaluation/gradient counters include attempted FD work. The legacy point
+budget does not include additional FD residual evaluations, so reported
+`evaluations_` can exceed `maxEvaluations_`. A final value refresh and optional
+Jacobian diagnostics have separate counters and do not consume the fit budget.
+Initial-fit results report derivative None unless diagnostics run.
 
 Failures throw `CalibrationError_` with owned axes and a
 `CurveInstrumentCalibrationCandidate_` whose `Result()` retains the last valid
@@ -366,9 +400,9 @@ calibration-session persistence remain unavailable.
 `ImportLegacyCurveObjective` records the homogeneous mapping
 `lambda=M*(tau/f)^2`, `eta=f`, with S=identity. An unrepresentable lambda is
 reported as an empty optional. `CalibrateLegacyCurve` still invokes the original
-native spec/options and preserves its defaults, strict EXACT boundary and
-APPROXIMATE last-point behavior. Algebraic mapping does not promise the new
-driver's floating-point trajectory. This entry adds no FX/XCCY instrument
+native spec/options and preserves its defaults, inclusive EXACT boundary and
+APPROXIMATE last-point behavior. Algebraic mapping does not promise a particular
+trajectory through the typed adapter. This entry adds no FX/XCCY instrument
 admission, generic FIX lowering, box bounds, joint solve or public bindings.
 
 ## Deterministic FRA, swap, basis and custom cashflows
@@ -380,6 +414,11 @@ Settings reuse the instrument ID, currency, explicit discount route, positive
 notional and annuity floor from Deposit import. The resolved native schedule
 becomes concrete source dates, accruals and payments. No native product remains
 as a second pricing authority; future candidate values come from the bound source.
+Callers can instead construct `ScriptInstrumentDefinitionSpec_` directly from
+dated script rows and pass it to `NewScriptCalibrationInstrument`, without
+creating a native instrument first. The public `interpolate_curve_script`
+example uses this construction for its swaps and feeds them to the same curve
+calibrator; the core `interpolate_curve` example retains native instruments.
 
 - FRA requires an explicit payment date. Arrears payment can be at or after the
   accrual end. Advance payment must be at the start and retains the native
@@ -448,6 +487,14 @@ Each row's owning report retains its instrument/observation/quote/measure IDs,
 original field and cause, one-based source row, date and zero-based statement,
 including after the input spec leaves scope. Failed admission consumes no Solve
 evaluations and publishes no failed capability.
+
+Curve preparation computes generic context identity once per discount route in
+each batch. Lowering recognizes the exact `(1/FIX-1)/alpha` algebraic form as a
+forward-rate instruction; other admitted arithmetic remains generic. Candidate
+evaluation binds validated target/background curves per instrument and
+observation, reuses caller-local small-program scratch with a heap fallback,
+and builds diagnostic strings only on failure. No evaluator or AAD state is
+shared across candidates or threads.
 
 AutoFast/RequireFast and GenericDeterministic consume the same complete lowered
 cashflows. The curve adapter supplies raw native FD/AAD Price and par partials;
@@ -551,15 +598,18 @@ L2 norm at most eta. Its reported objective is
 This acceptance condition does not certify objective optimality. Unavailable or
 nonrepresentable objective values are nullable; finite zero remains zero.
 
-The adapter uses the existing bounded `Underdetermined::Fit`. Finite-difference
-solve perturbations consume its evaluation budget in z coordinates; an AAD solve
-transforms raw native columns by S. A standalone Evaluate computes requested raw
-finite differences in native coordinates, using actual representable spacing.
-Fit counters exclude the final report refresh; C++ results separately expose
-`diagnosticEvaluations_` and `diagnosticGradients_` for that refresh. Failures
-carry an owning report and, when validated, the last candidate basis curve with
-its residuals and axes. The existing native staged/joint APIs retain their
-original raw gates, defaults and exception behavior.
+The adapter shares `RunCurveCalibration` with the native staged XCCY driver:
+EXACT uses legacy `Find`, while APPROXIMATE uses legacy `Approximate` with the
+optional explicit fit weight. Typed FD callbacks use central differences in z;
+an AAD solve transforms raw native columns by S. A standalone Evaluate computes
+raw central differences in native coordinates, using actual representable
+spacing. Legacy point-evaluation budgets do not include additional FD residual
+calls; reported evaluation counters include them. Fit counters exclude the final
+report refresh; C++ results separately expose `diagnosticEvaluations_` and
+`diagnosticGradients_` for that refresh. Failures carry an owning report and,
+when validated, the last candidate basis curve with its residuals and axes. The
+existing native staged/joint APIs retain their original raw gates, defaults and
+exception behavior.
 
 The public C++ facade exposes `NewXccyScriptInstrument`,
 `CalibrateXccyInstrumentMarket`, basis-curve/report getters and
@@ -578,7 +628,8 @@ archive; contexts, specs and failure candidates are session objects. Capability
 reports for the deterministic context include the explicit generic
 `MCCrossCurrencyUnsupported` rejection. The
 [public XCCY example](../../dal-public/examples/xccy_script_calibration/xccy_script_calibration.cpp)
-imports once, fits BasisSpread and reprices Price from the same bound instrument.
+constructs dated script cashflows directly, fits BasisSpread and reprices Price
+from the same bound instrument without importing a native swap.
 All native geometry, collateral, notional and NativeXccyTimestamp limits above
 continue to apply.
 

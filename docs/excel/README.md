@@ -854,6 +854,18 @@ Primary worksheet families are:
 | Rate risk       | `RATETRADEHEADER.NEW`, `RATEFIXINGIDENTITY.NEW`, `RATEDEPOSITTRADE.NEW`, `RATEFRATRADE.NEW`, `RATEFUTURETRADE.NEW`, `RATEFIXEDFLOATTRADE.NEW`, `RATEBASISTRADE.NEW`, `RATEXCCYTRADE.NEW`, `RATEPRICINGMARKET.NEW`, `RATETRADENODESENSITIVITIESBATCH.SPILL`, `RATEPORTFOLIONODERISK.SPILL` |
 | Repository      | `REPOSITORY.FIND`, `REPOSITORY.ERASE`, `REPOSITORY.SIZE`                                                                                                                                                                                                                                  |
 
+For direct script calibration, `SCRIPTINSTRUMENTDEFINITION.NEW` reads visible
+source/header/parameter/measure tables, `SCRIPTCALIBRATIONINSTRUMENT.NEW`
+constructs the instrument, and `CALIBRATE.CURVEINSTRUMENTS` or
+`CALIBRATE.XCCYINSTRUMENTS` returns an owning outcome. The complete
+[interpolation](../../dal-excel/examples/012.interpolate_curve_script.xlsx) and
+[XCCY](../../dal-excel/examples/013.xccy_script_calibration.xlsx) workbooks use
+this path without native-swap import. `DISCOUNTPWC.NEW` constructs
+piecewise-constant right-forward curves; `CURVEBLOCK.NEW` combines explicit
+collateral-discount and tenor-projection maps from the typed calibration curve
+binding factories. Use canonical period tokens such as `QUARTERLY` and
+`SEMIANNUAL` in those maps.
+
 `DISCOUNTZERORATE.NEW` takes name, currency, anchor, future dates, and continuously
 compounded decimal zero rates, with optional day count, log-DF scheme, and base handle.
 `CALIBRATE.SINGLECURVE` accepts a two-column optional settings range. Supported keys

@@ -42,8 +42,11 @@ namespace Dal {
 
     public:
         explicit PreparedXccyInstruments_(const XccyInstrumentCalibrationSpec_& spec, const CurveInstrumentCalibrationOptions_& options = {});
+        [[nodiscard]] const CurveDefinition_& Definition() const { return definition_; }
+        [[nodiscard]] const CalibrationObservationAxes_& Axes() const { return axes_; }
         [[nodiscard]] XccyInstrumentCalibrationResult_ Describe() const;
         [[nodiscard]] XccyInstrumentCalibrationResult_ Evaluate(const Vector_<>& parameters, bool derivatives = true) const;
+        [[nodiscard]] Vector_<> Residuals(const Vector_<>& parameters) const;
         [[nodiscard]] std::unique_ptr<Underdetermined::Jacobian_> Jacobian(const Vector_<>& parameters) const;
     };
     XccyInstrumentCalibrationResult_ CalibrateXccyInstruments(const XccyInstrumentCalibrationSpec_& spec,

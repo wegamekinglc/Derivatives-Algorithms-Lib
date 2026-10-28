@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <limits>
 #include <memory>
 
 #include <dal/platform/platform.hpp>
@@ -394,6 +395,18 @@ TEST(UnderdeterminedTest, TestApproximateBalancesFitAndDistance) {
     ASSERT_NEAR(func.F(calculated)[0], -1.0, 1e-10);
 }
 
+TEST(UnderdeterminedTest, TestApproximateExplicitWeightMatchesLegacyDefault) {
+    LinearSumFunc_ func(3.0);
+    const Vector_<> guess = {0.0, 0.0}, funcTol = {1.0};
+    TriDiagonal_ weights(2);
+    SetDiagonalWeights(&weights, 1.0, 1.0);
+    const auto controls = MakeControls();
+    const auto legacy = Underdetermined::Approximate(func, guess, funcTol, 1.0, weights, controls);
+    const auto explicitWeight = Underdetermined::Approximate(func, guess, funcTol, 1.0, weights, controls, 1.0);
+    ASSERT_EQ(explicitWeight, legacy);
+    ASSERT_THROW(static_cast<void>(Underdetermined::Approximate(func, guess, funcTol, 1.0, weights, controls, 0.0)), Exception_);
+}
+
 TEST(UnderdeterminedTest, TestFindWithCustomJacobianAndMultipleResiduals) {
     MultiResidualFunc_ func;
     Vector_<> guess = {0.0, 0.0, 0.0};
@@ -464,6 +477,43 @@ TEST(UnderdeterminedTest, TestFindPopulatesEffectiveJacobianInverse) {
     ASSERT_EQ(effJacobianInverse.Cols(), 1);
     ASSERT_NEAR(effJacobianInverse(0, 0), 8.0e-11, 1e-18);
     ASSERT_NEAR(effJacobianInverse(1, 0), 2.0e-11, 1e-18);
+}
+
+TEST(UnderdeterminedTest, TestFindInitialFitRetainsSolutionDiagnostics) {
+    class InitialFitAnalyticFunc_ final : public Underdetermined::Function_ {
+    public:
+        Vector_<> F(const Vector_<>&) const override { return {0.}; }
+        std::unique_ptr<Underdetermined::Jacobian_> Gradient(const Vector_<>&, const Vector_<>&) const override {
+            Matrix_<> jacobian(1, 2);
+            jacobian(0, 0) = jacobian(0, 1) = 1.;
+            return std::make_unique<DenseJacobian_>(jacobian);
+        }
+    } function;
+    TriDiagonal_ weights(2);
+    SetDiagonalWeights(&weights, 1.0, 1.0);
+    std::unique_ptr<SymmetricDecomposition_> decomposition(weights.DecomposeSymmetric());
+    Matrix_<> inverse, forward;
+    const auto solved = Underdetermined::Find(function, {0., 0.}, {1e-10}, *decomposition, MakeControls(), &inverse, &forward);
+    ASSERT_EQ(solved, (Vector_<>{0., 0.}));
+    ASSERT_EQ(inverse.Rows(), 2);
+    ASSERT_EQ(inverse.Cols(), 1);
+    ASSERT_NEAR(inverse(0, 0), .5e-10, 1e-18);
+    ASSERT_NEAR(inverse(1, 0), .5e-10, 1e-18);
+    ASSERT_EQ(forward.Rows(), 1);
+    ASSERT_EQ(forward.Cols(), 2);
+    ASSERT_NEAR(forward(0, 0), 1., 1e-12);
+    ASSERT_NEAR(forward(0, 1), 1., 1e-12);
+}
+
+TEST(UnderdeterminedTest, TestFindCannotAcceptAnInitialNanResidual) {
+    class NonfiniteFunction_ final : public Underdetermined::Function_ {
+    public:
+        Vector_<> F(const Vector_<>&) const override { return {0., std::numeric_limits<double>::quiet_NaN()}; }
+    } function;
+    TriDiagonal_ weights(1);
+    weights.Set(0, 0, 1.);
+    std::unique_ptr<SymmetricDecomposition_> decomposition(weights.DecomposeSymmetric());
+    ASSERT_THROW(Underdetermined::Find(function, {0.}, {1., 1.}, *decomposition, MakeControls(1, 1)), Exception_);
 }
 
 TEST(UnderdeterminedTest, TestEffectiveInverseUsesFreshAnalyticJacobianAndUnscaledResidualAtSolution) {

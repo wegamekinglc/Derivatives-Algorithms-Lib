@@ -232,8 +232,7 @@ namespace Dal {
             FdScheme_ fdScheme_;
             int* evaluationCount_;
 
-            template <class T_>
-            void BuildBlocks(Vector_<TypedBlockStorage_<T_>>& domestic, Vector_<TypedBlockStorage_<T_>>& foreign) const {
+            template <class T_> void BuildBlocks(Vector_<TypedBlockStorage_<T_>>& domestic, Vector_<TypedBlockStorage_<T_>>& foreign) const {
                 domestic.reserve(plans_.size());
                 foreign.reserve(plans_.size());
                 for (const auto& plan : plans_) {
@@ -320,8 +319,8 @@ namespace Dal {
             }
 
             void Gradient(const Vector_<>& x, const Vector_<>& f, Matrix_<>* jacobian) const override {
-                FiniteDifferenceGradient(*this, fdScheme_, bumpSize_, x, f, [&](const Vector_<>& parameters) { return Residuals<double>(parameters); },
-                                         jacobian);
+                FiniteDifferenceGradient(
+                    *this, fdScheme_, bumpSize_, x, f, [&](const Vector_<>& parameters) { return Residuals<double>(parameters); }, jacobian);
             }
 
             [[nodiscard]] std::unique_ptr<Underdetermined::Jacobian_> Gradient(const Vector_<>& x, const Vector_<>&) const override {
@@ -651,19 +650,27 @@ namespace Dal {
         Vector_<T_> Measures(const XccyInstrumentCalibrationSpec_& spec,
                              const CurveDefinition_& definition,
                              const Vector_<PreparedCalibrationInstrument_>& plans,
-                             const Vector_<T_>& parameters) {
+                             const Vector_<T_>& parameters,
+                             std::shared_ptr<Tape::DiscountCurve_<T_>>* candidate = nullptr,
+                             const TypedBlockStorage_<T_>* domestic = nullptr,
+                             const TypedBlockStorage_<T_>* foreign = nullptr) {
             if (spec.gaussianDynamics_)
                 return EvaluateXccyGaussianStaged(spec, definition, plans, parameters);
-            const auto basis = BuildDiscountCurveT<T_>(definition, parameters);
-            auto domestic = Background<T_>(*spec.domesticCurveBlock_), foreign = Background<T_>(*spec.foreignCurveBlock_);
+            auto basis = BuildDiscountCurveT<T_>(definition, parameters);
+            std::optional<TypedBlockStorage_<T_>> localDomestic, localForeign;
+            if (!domestic)
+                domestic = &localDomestic.emplace(Background<T_>(*spec.domesticCurveBlock_));
+            if (!foreign)
+                foreign = &localForeign.emplace(Background<T_>(*spec.foreignCurveBlock_));
             const XccyMarketView_<T_> market{spec.context_.valuationTime_,
                                              spec.context_.pair_,
                                              spec.context_.collateralCurrency_,
                                              T_(spec.fxSpot_),
-                                             &domestic.block_,
-                                             &foreign.block_,
+                                             &domestic->block_,
+                                             &foreign->block_,
                                              basis.get()};
             Vector_<T_> values;
+            values.reserve(plans.size());
             for (size_t i = 0; i < plans.size(); ++i) {
                 try {
                     const auto& descriptor = *std::get<CalibrationXccy_>(plans[i].Descriptor());
@@ -675,6 +682,8 @@ namespace Dal {
                     Fail(d.code_, d.field_.value_or("/market"), d.expected_.value_or("valid XCCY measure"), d.actual_.value_or(""), d);
                 }
             }
+            if (candidate)
+                *candidate = std::move(basis);
             return values;
         }
         double Norm(const Vector_<>& values) {
@@ -689,19 +698,33 @@ namespace Dal {
                 theta[j] += z[j] * scales[j];
             return theta;
         }
-        // Calibration assembly mutates its large result buffers in place.
-        void Residuals(XccyInstrumentCalibrationResult_* result) {
-            for (size_t i = 0; i < result->modelMeasures_.size(); ++i) {
-                const auto& row = *result->axes_.observations_[i];
-                const double raw = result->modelMeasures_[i] - row.Quote()->Value(), scaled = raw / row.ErrorScale();
+        struct ResidualValues_ {
+            Vector_<> raw_, scaled_;
+            double rawNorm_ = 0., scaledNorm_ = 0., maxAbsScaled_ = 0.;
+        };
+        ResidualValues_ CalculateResiduals(const CalibrationObservationAxes_& axes, const Vector_<>& measures) {
+            ResidualValues_ result;
+            for (size_t i = 0; i < measures.size(); ++i) {
+                const auto& row = *axes.observations_[i];
+                const double raw = measures[i] - row.Quote()->Value(), scaled = raw / row.ErrorScale();
                 Check(std::isfinite(raw) && std::isfinite(scaled), "CalibrationNumericalFailure", "/residuals", "finite residuals", "", Row(row));
-                result->rawResiduals_.push_back(raw);
-                result->scaledResiduals_.push_back(scaled);
-                result->maxAbsScaledResidual_ = std::max(result->maxAbsScaledResidual_, std::abs(scaled));
+                result.raw_.push_back(raw);
+                result.scaled_.push_back(scaled);
+                result.maxAbsScaled_ = std::max(result.maxAbsScaled_, std::abs(scaled));
             }
-            result->rawNorm_ = Norm(result->rawResiduals_);
-            result->scaledNorm_ = Norm(result->scaledResiduals_);
-            Check(std::isfinite(result->scaledNorm_), "CalibrationNumericalFailure", "/residual_norms", "finite scaled norm");
+            result.rawNorm_ = Norm(result.raw_);
+            result.scaledNorm_ = Norm(result.scaled_);
+            Check(std::isfinite(result.scaledNorm_), "CalibrationNumericalFailure", "/residual_norms", "finite scaled norm");
+            return result;
+        }
+        // Calibration assembly mutates its large result buffers in place.
+        void ApplyResiduals(XccyInstrumentCalibrationResult_* result) {
+            auto values = CalculateResiduals(result->axes_, result->modelMeasures_);
+            result->rawResiduals_ = std::move(values.raw_);
+            result->scaledResiduals_ = std::move(values.scaled_);
+            result->rawNorm_ = values.rawNorm_;
+            result->scaledNorm_ = values.scaledNorm_;
+            result->maxAbsScaledResidual_ = values.maxAbsScaled_;
         }
         std::pair<double, double> DifferencePoints(double theta, double step, const CurveFreeParameter_& label) {
             const double lower = theta - step, upper = theta + step;
@@ -719,12 +742,20 @@ namespace Dal {
                                      double step) {
             Matrix_<> jacobian(static_cast<int>(plans.size()), static_cast<int>(parameters.size()));
             const auto labels = DescribeCurveFreeParameters(definition);
+            std::optional<TypedBlockStorage_<double>> domestic, foreign;
+            if (!spec.gaussianDynamics_) {
+                domestic.emplace(Background<double>(*spec.domesticCurveBlock_));
+                foreign.emplace(Background<double>(*spec.foreignCurveBlock_));
+            }
+            const auto* domesticPtr = domestic ? &*domestic : nullptr;
+            const auto* foreignPtr = foreign ? &*foreign : nullptr;
             for (size_t j = 0; j < parameters.size(); ++j) {
                 auto up = parameters, down = parameters;
                 const auto [lower, upper] = DifferencePoints(parameters[j], step, labels[j]);
                 up[j] = upper;
                 down[j] = lower;
-                const auto plus = Measures(spec, definition, plans, up), minus = Measures(spec, definition, plans, down);
+                const auto plus = Measures<double>(spec, definition, plans, up, nullptr, domesticPtr, foreignPtr);
+                const auto minus = Measures<double>(spec, definition, plans, down, nullptr, domesticPtr, foreignPtr);
                 for (size_t i = 0; i < plans.size(); ++i)
                     jacobian(static_cast<int>(i), static_cast<int>(j)) = (plus[i] - minus[i]) / (upper - lower);
             }
@@ -750,13 +781,13 @@ namespace Dal {
             Validate(spec_, options_);
             spec_.domesticCurveBlock_ = Freeze(spec_.domesticCurveBlock_, "/market/domestic");
             spec_.foreignCurveBlock_ = Freeze(spec_.foreignCurveBlock_, "/market/foreign");
-            definition_ = Definition(spec_);
+            definition_ = XccyInstrumentInternal::Definition(spec_);
+            CalibrationPreparationContext_ context;
+            context.xccy_ = std::make_shared<const XccyScriptContext_>(spec_.context_);
             for (const auto& row : axes_.observations_) {
-                CalibrationPreparationContext_ context;
-                context.xccy_ = std::make_shared<const XccyScriptContext_>(spec_.context_);
                 try {
-                    plans_.push_back(
-                        PrepareCalibrationInstrument(row->Instrument(), row->MeasureId(), context, {options.evaluation_, options.jacobianMode_}));
+                    plans_.push_back(PrepareCalibrationInstrument(row->Instrument(), row->MeasureId(), context,
+                                                                  {options.evaluation_, options.jacobianMode_}, options.preparationCache_));
                 } catch (const CalibrationError_& error) {
                     Failure(Describe(), Row(*row, error.Failure().diagnostic_));
                 }
@@ -832,14 +863,36 @@ namespace Dal {
         result.report_.reset(new CalibrationReport_(CalibrationStage_::Value_::Prepare, axes_, {}, data));
         return result;
     }
+    Vector_<> PreparedXccyInstruments_::Residuals(const Vector_<>& parameters) const {
+        using namespace XccyInstrumentInternal;
+        Vector_<> measures;
+        try {
+            measures = Measures(spec_, definition_, plans_, parameters);
+            return CalculateResiduals(axes_, measures).raw_;
+        } catch (const CalibrationError_& error) {
+            auto result = Describe();
+            result.modelMeasures_ = std::move(measures);
+            Failure(std::move(result), error.Failure().diagnostic_);
+        } catch (const std::exception& error) {
+            CalibrationDiagnostic_ d;
+            d.code_ = "CalibrationNumericalFailure";
+            d.stage_ = CalibrationStage_::Value_::Evaluate;
+            d.message_ = d.code_ + ": " + String_(error.what());
+            auto result = Describe();
+            result.modelMeasures_ = std::move(measures);
+            Failure(std::move(result), d);
+        }
+    }
     XccyInstrumentCalibrationResult_ PreparedXccyInstruments_::Evaluate(const Vector_<>& parameters, bool derivatives) const {
         using namespace XccyInstrumentInternal;
         auto result = Describe();
         try {
-            result.modelMeasures_ = Measures(spec_, definition_, plans_, parameters);
-            Residuals(&result);
+            std::shared_ptr<Tape::DiscountCurve_<double>> candidate;
+            result.modelMeasures_ = Measures(spec_, definition_, plans_, parameters, spec_.gaussianDynamics_ ? nullptr : &candidate);
+            ApplyResiduals(&result);
             result.parameters_ = parameters;
-            result.curve_ = Handle_<DiscountCurve_>(BuildDiscountCurveT<double>(definition_, parameters));
+            result.curve_ = candidate ? Handle_<DiscountCurve_>(std::move(candidate))
+                                      : Handle_<DiscountCurve_>(BuildDiscountCurveT<double>(definition_, parameters));
             if (spec_.gaussianDynamics_)
                 result.gaussianModel_ = XccyGaussianBasisCandidate(spec_, result.curve_);
             result.candidateIdentity_ =
@@ -874,12 +927,26 @@ namespace Dal {
         class FitFunction_ final : public Underdetermined::Function_ {
             const PreparedXccyInstruments_& plan_;
             Vector_<> initial_, scales_;
+            CurveSolverTrack_* track_;
+            double differenceStep_;
 
         public:
-            FitFunction_(const PreparedXccyInstruments_& plan, const Vector_<>& initial, const Vector_<>& scales)
-                : plan_(plan), initial_(initial), scales_(scales) {}
-            Vector_<> F(const Vector_<>& z) const override { return plan_.Evaluate(Native(z, initial_, scales_), false).rawResiduals_; }
+            FitFunction_(const PreparedXccyInstruments_& plan,
+                         const Vector_<>& initial,
+                         const Vector_<>& scales,
+                         double differenceStep,
+                         CurveSolverTrack_* track)
+                : plan_(plan), initial_(initial), scales_(scales), track_(track), differenceStep_(differenceStep) {}
+            [[nodiscard]] double BumpSize() const override { return differenceStep_; }
+            Vector_<> F(const Vector_<>& z) const override {
+                ++track_->evaluations_;
+                auto raw = plan_.Residuals(Native(z, initial_, scales_));
+                track_->coordinates_ = z;
+                track_->rawResiduals_ = raw;
+                return raw;
+            }
             std::unique_ptr<Underdetermined::Jacobian_> Gradient(const Vector_<>& z, const Vector_<>&) const override {
+                ++track_->gradients_;
                 auto result = plan_.Jacobian(Native(z, initial_, scales_));
                 if (result) {
                     auto& j = static_cast<XCurveJacobian_&>(*result).j_;
@@ -888,6 +955,21 @@ namespace Dal {
                             j(i, k) *= scales_[k];
                 }
                 return result;
+            }
+            void Gradient(const Vector_<>& z, const Vector_<>&, Matrix_<>* jacobian) const override {
+                const auto labels = DescribeCurveFreeParameters(plan_.Definition());
+                jacobian->Resize(static_cast<int>(plan_.Axes().observations_.size()), static_cast<int>(z.size()));
+                auto up = z, down = z;
+                for (int j = 0; j < jacobian->Cols(); ++j) {
+                    const auto [lower, upper] = DifferencePoints(z[j], differenceStep_, labels[j]);
+                    up[j] = upper;
+                    down[j] = lower;
+                    const auto plus = F(up), minus = F(down);
+                    for (int i = 0; i < jacobian->Rows(); ++i)
+                        (*jacobian)(i, j) = (plus[i] - minus[i]) / (upper - lower);
+                    up[j] = down[j] = z[j];
+                }
+                RequireFiniteValues(*jacobian, "raw XCCY Jacobian");
             }
         };
         void ApproximateControls(const CurveInstrumentSolver_& s) {
@@ -1025,20 +1107,23 @@ namespace Dal {
             const PreparedXccyInstruments_ plan(spec, options);
             result = plan.Describe();
             const auto weights = Solver(spec.solver_, &result);
-            const FitFunction_ function(plan, result.initialParameters_, result.parameterScales_);
+            CurveSolverTrack_ track;
+            const FitFunction_ function(plan, result.initialParameters_, result.parameterScales_, options.differenceStep_, &track);
             Vector_<> scales;
             for (const auto& row : result.axes_.observations_)
                 scales.push_back(row->ErrorScale());
-            Dictionary_ dict;
-            dict.Insert(KEY_MAX_EVALUATIONS, Cell_(static_cast<double>(spec.solver_.maxEvaluations_)));
-            dict.Insert(KEY_MAX_RESTARTS, Cell_(static_cast<double>(spec.solver_.maxRestarts_)));
-            Underdetermined::FitSettings_ settings;
-            settings.exact_ = spec.solver_.solveMode_ == CurveSolveMode_::Value_::EXACT;
-            settings.fitWeight_ = spec.solver_.fitWeight_;
-            settings.fitNormTolerance_ = spec.solver_.fitNormTolerance_;
-            settings.differenceStep_ = options.differenceStep_;
-            const auto solved = Underdetermined::Fit(function, Vector_<>(result.initialParameters_.size(), 0.), scales, *weights,
-                                                     UnderdeterminedControls_(dict), settings);
+            Underdetermined::FitResult_ solved;
+            try {
+                const auto legacy = RunCurveCalibration(function, Vector_<>(result.initialParameters_.size(), 0.), scales,
+                                                        spec.solver_.solveMode_ == CurveSolveMode_::Value_::EXACT, false, false,
+                                                        spec.solver_.fitNormTolerance_.value_or(1e-6), *weights, spec.solver_.maxEvaluations_,
+                                                        spec.solver_.maxRestarts_, spec.solver_.fitWeight_);
+                solved = CompleteCurveSolve(track, legacy.parameters_, scales, spec.solver_.solveMode_ == CurveSolveMode_::Value_::EXACT,
+                                            spec.solver_.fitNormTolerance_);
+            } catch (...) {
+                solved = CompleteCurveSolve(track, {}, scales, spec.solver_.solveMode_ == CurveSolveMode_::Value_::EXACT,
+                                            spec.solver_.fitNormTolerance_, std::current_exception());
+            }
             FitState(plan, solved, options, &result);
             if (!solved.fitWithinTolerance_)
                 FailedFit(solved, result);
@@ -1080,7 +1165,8 @@ namespace Dal {
                 const XccyCashflowPlan_ plan = BuildXccyCashflowPlan(span.first, span.second, spec.instruments_[i]->Config());
                 ValidateStagedPlan(spec, plan, i, &report);
             } catch (const std::exception& error) {
-                AddEligibilityIssue(&report, AnalyticIneligibilityReason_::Value_::CASHFLOW_PLAN_UNSUPPORTED, "staged", -1, i, -1, String_(error.what()));
+                AddEligibilityIssue(&report, AnalyticIneligibilityReason_::Value_::CASHFLOW_PLAN_UNSUPPORTED, "staged", -1, i, -1,
+                                    String_(error.what()));
             }
         }
         return report;

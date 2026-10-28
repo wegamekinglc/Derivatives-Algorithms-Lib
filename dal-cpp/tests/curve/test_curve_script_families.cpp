@@ -5,6 +5,8 @@
 #include <dal/curve/curveblock.hpp>
 #include <dal/curve/curveinstrumentcalibration.hpp>
 #include <dal/curve/curvescript.hpp>
+#include <dal/curve/curvescript_internal.hpp>
+#include <dal/curve/curvescriptevaluation_internal.hpp>
 #include <dal/curve/yclogdf.hpp>
 #include <dal/indice/index/ir.hpp>
 #include <dal/math/aad/recording.hpp>
@@ -203,6 +205,38 @@ TEST(CurveScriptFamilyTest, TestExplicitDfCouponHasRawNativeJacobian) {
         ASSERT_NEAR(value.quoteJacobian_(1, 0), -100. * std::exp(-.03), 1e-8);
         ASSERT_NEAR(value.quoteJacobian_(1, 1), 102.5 * discount, 1e-8);
     }
+}
+
+TEST(CurveScriptFamilyTest, TestPreparedPlanCacheReusesOnlyCompleteIdentity) {
+    const auto instrument =
+        NewScriptCalibrationInstrument({"cached-coupon", NewScriptInstrumentDefinition(ExplicitCouponDefinition()), {}, FAMILY_END});
+    CalibrationPreparationContext_ context;
+    context.valuation_.evaluationDate_ = FAMILY_TODAY;
+    context.valuation_.fixings_.reset(new MarketFixingSnapshot_());
+    context.currency_ = Ccy_("USD");
+    context.discountRoute_ = "USD.OIS";
+    context.curve_.reset(new GSRCurveData_("curve", FAMILY_TODAY, "USD", {FAMILY_TODAY, FAMILY_START, FAMILY_END}, {0., -.05, -.1}, {}, {}));
+    auto cache = std::make_shared<CalibrationPreparationCache_>();
+    const auto first = PrepareCalibrationInstrument(instrument, "ParRate", context, {}, cache);
+    const auto cached = PrepareCalibrationInstrument(instrument, "ParRate", context, {}, cache);
+    const auto& descriptor = std::get<CalibrationCurveFamily_>(first.Descriptor());
+    ASSERT_EQ(descriptor.get(), std::get<CalibrationCurveFamily_>(cached.Descriptor()).get());
+    ASSERT_EQ(cached.Instrument().get(), instrument.get());
+    ASSERT_NO_THROW(cached.RequireCompatible(instrument, context));
+
+    auto changed = context;
+    changed.conventionState_ = "frozen-conventions/2";
+    const auto otherContext = PrepareCalibrationInstrument(instrument, "ParRate", changed, {}, cache);
+    ASSERT_NE(descriptor.get(), std::get<CalibrationCurveFamily_>(otherContext.Descriptor()).get());
+    ASSERT_THROW(cached.RequireCompatible(instrument, changed), CalibrationError_);
+
+    CalibrationEvaluationOptions_ analytic;
+    analytic.derivativeMethod_ = CalibrationDerivative_::Value_::Analytic;
+    const auto otherOptions = PrepareCalibrationInstrument(instrument, "ParRate", context, analytic, cache);
+    ASSERT_NE(descriptor.get(), std::get<CalibrationCurveFamily_>(otherOptions.Descriptor()).get());
+    const auto rebound = BindCalibrationInstrumentParameters(instrument, {{{"K", .03, CalibrationValueUnit_::Parse("Rate")}}, {}});
+    const auto otherBinding = PrepareCalibrationInstrument(rebound, "ParRate", context, {}, cache);
+    ASSERT_NE(descriptor.get(), std::get<CalibrationCurveFamily_>(otherBinding.Descriptor()).get());
 }
 
 TEST(CurveScriptFamilyTest, TestAmountMustRetainDeclaredNotionalDimension) {
@@ -675,6 +709,37 @@ namespace {
         ASSERT_EQ(failure.report_->Errors().size(), 1);
     }
 } // namespace
+
+TEST(CurveScriptFamilyTest, TestKIndependentScalarEvaluationMatchesAffineProgram) {
+    auto definition = ExplicitCouponDefinition();
+    definition.source_.rows_[2].text_ = "PAY PAYS N*(-0.25*((1/FIX(IR[USD,DF,2028-10-21,2027-10-21],2027-10-21)-1)/0.25))";
+    const auto instrument = NewScriptCalibrationInstrument({"independent", NewScriptInstrumentDefinition(definition), {}, FAMILY_END});
+    const auto plan = PrepareCalibrationInstrument(instrument, "Price", FamilyContext());
+    const auto& descriptor = *std::get<CalibrationCurveFamily_>(plan.Descriptor());
+    ASSERT_EQ(descriptor.payments_.size(), 1);
+    const auto& flow = descriptor.payments_.front();
+    ASSERT_EQ(flow.program_.size(), 7);
+    ASSERT_EQ(flow.program_[4].operation_, 'r');
+    ASSERT_FALSE(flow.program_.back().dependent_);
+    const auto fixing = [](size_t) { return .91; };
+    const auto affine = CurveScriptInternal::Evaluate<double>(flow, fixing);
+    const double scalar = CurveScriptInternal::EvaluateIndependent<double>(flow, fixing);
+    ASSERT_DOUBLE_EQ(affine.a_, 0.);
+    ASSERT_DOUBLE_EQ(affine.b_, scalar);
+}
+
+TEST(CurveScriptFamilyTest, TestLargeProgramScratchFallback) {
+    CalibrationCurvePayment_ flow;
+    flow.source_.sourceRow_ = 3;
+    flow.source_.eventDate_ = FAMILY_END;
+    flow.source_.statement_ = 0;
+    for (int i = 0; i < 17; ++i)
+        flow.program_.push_back({'c', 0, 0, static_cast<double>(i), false});
+    CurveScriptInternal::EvaluationScratch_<double> scratch;
+    const auto ab = CurveScriptInternal::EvaluatePayment<double>(flow, [](size_t) { return .91; }, &scratch);
+    ASSERT_DOUBLE_EQ(ab.a_, 0.);
+    ASSERT_DOUBLE_EQ(ab.b_, 16.);
+}
 
 TEST(CurveScriptFamilyTest, TestWholeSourceRejectsNonlinearUnsupportedAndLookAheadObservations) {
     for (const String_ source : {"N*(K*K)", "N*(K/(1+K))", "N*((K-K)*K)"})

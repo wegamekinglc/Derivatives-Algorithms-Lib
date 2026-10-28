@@ -11,6 +11,7 @@
 #include <dal/script/calibrationmc.hpp>
 #include <dal/script/calibrationpreparation.hpp>
 #include <dal/script/event.hpp>
+#include <dal/script/instrument_internal.hpp>
 #include <dal/time/dateutils.hpp>
 
 using namespace Dal;
@@ -181,6 +182,28 @@ namespace {
         ASSERT_EQ(saved->Failure().report_->Errors()[0].field_, d.field_);
     }
 } // namespace
+
+TEST(CalibrationPreparationTest, TestBoundProductArtifactIsSharedOnlyByEqualValues) {
+    const auto definition = NewScriptInstrumentDefinition(DepositSpec());
+    const auto first = NewScriptCalibrationInstrument({"first", definition});
+    const auto second = NewScriptCalibrationInstrument({"second", definition});
+    const auto shared = CalibrationInternal::PreparationProduct(*first);
+    ASSERT_TRUE(shared);
+    ASSERT_EQ(shared.get(), CalibrationInternal::PreparationProduct(*second).get());
+
+    const auto sameValues = BindCalibrationInstrumentParameters(first, {{{"K", .025, CalibrationValueUnit_::Parse("Rate")}}, {}});
+    ASSERT_EQ(shared.get(), CalibrationInternal::PreparationProduct(*sameValues).get());
+    const auto rebound = BindCalibrationInstrumentParameters(first, {{{"N", 500., CalibrationValueUnit_::Parse("Price:USD")}}, {}});
+    const auto changed = CalibrationInternal::PreparationProduct(*rebound);
+    ASSERT_NE(shared.get(), changed.get());
+
+    auto fresh = first->Product();
+    ASSERT_NE(shared.get(), fresh.get());
+    fresh->PartitionEvents(*Context().valuation_.evaluationDate_);
+    ASSERT_FALSE(shared->EvaluationDate());
+    const auto price = PrepareCalibrationInstrument(rebound, "Price", Context()).Price({1., .94});
+    ASSERT_DOUBLE_EQ(price, -500. + 500. * (1. + .025 * 1.2) * .94);
+}
 
 TEST(CalibrationPreparationTest, TestLiteralCurveFamilySharesPriceAndAffineSource) {
     auto spec = DepositSpec();
