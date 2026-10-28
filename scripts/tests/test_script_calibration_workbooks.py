@@ -1,5 +1,6 @@
 """Check workbook inputs and reserved array outputs without executing the XLL."""
 
+import hashlib
 import importlib.util
 import io
 import re
@@ -7,6 +8,7 @@ import unittest
 import zipfile
 from pathlib import Path
 
+from defusedxml.ElementTree import fromstring
 from openpyxl.utils.cell import range_boundaries
 from openpyxl.worksheet.formula import ArrayFormula
 
@@ -28,13 +30,54 @@ class ScriptCalibrationWorkbooksTest(unittest.TestCase):
         ]
 
     @staticmethod
+    def xml_content(element):
+        return (
+            element.tag,
+            tuple(sorted(element.attrib.items())),
+            element.text,
+            element.tail,
+            tuple(
+                ScriptCalibrationWorkbooksTest.xml_content(child) for child in element
+            ),
+        )
+
+    @staticmethod
     def package_parts(source):
         with zipfile.ZipFile(source) as package:
-            return {
-                name: package.read(name)
-                for name in package.namelist()
-                if name != "docProps/core.xml"
-            }
+            parts = {}
+            for name in package.namelist():
+                if name == "docProps/core.xml":
+                    continue
+                content = package.read(name)
+                if name.endswith((".xml", ".rels")):
+                    content = repr(
+                        ScriptCalibrationWorkbooksTest.xml_content(fromstring(content))
+                    ).encode("utf-8")
+                parts[name] = hashlib.sha256(content).hexdigest()
+            return parts
+
+    @staticmethod
+    def xml_package(xml):
+        package = io.BytesIO()
+        with zipfile.ZipFile(package, "w") as archive:
+            archive.writestr("xl/worksheets/sheet1.xml", xml)
+        return package
+
+    def test_package_comparison_ignores_xml_serialization_choices(self):
+        first = self.xml_package('<r xmlns="urn:test"><v b="2" a="1" /></r>')
+        second = self.xml_package(
+            '<x:r xmlns:x="urn:test"><x:v a="1" b="2"></x:v></x:r>'
+        )
+        self.assertEqual(self.package_parts(first), self.package_parts(second))
+
+    def test_package_comparison_detects_formula_changes(self):
+        first = self.xml_package(
+            '<worksheet><c r="A1"><f>SUM(A2:A3)</f></c></worksheet>'
+        )
+        second = self.xml_package(
+            '<worksheet><c r="A1"><f>SUM(A2:A4)</f></c></worksheet>'
+        )
+        self.assertNotEqual(self.package_parts(first), self.package_parts(second))
 
     def test_committed_workbooks_match_generator(self):
         directory = Path(__file__).resolve().parents[2] / "dal-excel" / "examples"

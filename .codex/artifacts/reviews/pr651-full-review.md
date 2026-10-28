@@ -74,8 +74,14 @@ needed for an elementwise acceptance check.
 - **306/306** Windows Excel binding tests pass against the rebuilt XLL.
 - **5/5** combined-workspace curve examples pass; **3/3** core curve examples
   pass in a separate `DAL_BUILD_PUBLIC=OFF` configuration.
-- **5/5** workbook contracts pass, including a ZIP/XML comparison proving that
+- **7/7** workbook contracts pass, including a ZIP/XML comparison proving that
   the committed files match the generator apart from timestamp properties.
+  XML is safely parsed and normalized before hashing so lxml and the standard
+  library agree on equivalent empty tags, attribute order and namespace prefixes.
+  Expanded tags, sorted attributes, text/tails and ordered children are retained.
+  Regression checks accept equivalent serialization and reject changed formulas.
+  The suite passes with both XML backends; this repairs the documentation CI
+  failure that exposed their different byte serialization.
 - Python validation controls pass **3/3** normally and **3/3** with `python -O`
   and disabled site packages.
 - CI classification tests pass (21, two platform-specific skips); documentation

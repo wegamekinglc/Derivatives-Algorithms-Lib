@@ -78,7 +78,8 @@ Its optional `--validate` flag also executes the fixtures through a built DAL
 Python module. Generation and portable binding tests do not evaluate formulas
 in Microsoft Excel; native workbook verification requires the Windows XLL.
 
-The generator requires openpyxl 3.1 or later. Run the portable workbook checks
+The generator requires openpyxl 3.1 or later. Portable workbook checks also
+require defusedxml for safe XML parsing. Run them
 with `python -m unittest discover -s scripts/tests -p test_script_calibration_workbooks.py -v`.
 On Windows with Excel and pywin32 installed, verify the committed workbooks:
 
