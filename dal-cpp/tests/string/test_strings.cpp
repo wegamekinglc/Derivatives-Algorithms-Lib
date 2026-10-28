@@ -102,8 +102,7 @@ TEST(StringsTest, TestSplit) {
     Vector_<String_> ret_val = Split(s1, ',', true);
     Vector_<String_> exp_val = {String_("1"), String_(""), String_("2"), String_("3")};
 
-    for(auto i = 0; i != ret_val.size(); ++i)
-        ASSERT_EQ(ret_val[i], exp_val[i]);
+    ASSERT_EQ(ret_val, exp_val);
 }
 
 TEST(StringsTest, TestSplitWithEmptyRemoved) {
@@ -111,8 +110,7 @@ TEST(StringsTest, TestSplitWithEmptyRemoved) {
     Vector_<String_> ret_val = Split(s1, ',', false);
     Vector_<String_> exp_val = {String_("1"), String_("2"), String_("3")};
 
-    for(auto i = 0; i != ret_val.size(); ++i)
-        ASSERT_EQ(ret_val[i], exp_val[i]);
+    ASSERT_EQ(ret_val, exp_val);
 }
 
 TEST(StringsTest, TestStringIsNumber) {

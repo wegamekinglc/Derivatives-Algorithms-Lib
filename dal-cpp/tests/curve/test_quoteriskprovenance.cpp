@@ -1070,12 +1070,6 @@ namespace {
     }
 } // namespace
 
-TEST(QuoteRiskProvenanceTest, TestCoreHeaderFactorySignatures) {
-    Dal::RateQuoteRiskProvenanceConfig_ config;
-    config.calibrationId_ = "header-isolation";
-    ASSERT_EQ(config.calibrationId_, "header-isolation");
-}
-
 TEST(QuoteRiskProvenanceTest, TestOptInRecordPreservesTheExistingSingleCurveState) {
     for (const auto mode : {Dal::CurveJacobianMode_::Value_::ANALYTIC, Dal::CurveJacobianMode_::Value_::BUMPED}) {
         const auto input = MakeSingleInput(mode);

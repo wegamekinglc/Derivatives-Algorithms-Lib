@@ -12,9 +12,19 @@ namespace Dal {
         PeriodLength_ tenor_;
     };
 
-    template <class T_> class CandidateCurveProvider_ {
+    class CandidateCurveGeometry_ {
         CurveCalibrationSpec_ geometry_;
         Vector_<CurveScriptRoute_> routes_;
+        CurveDefinition_ definition_;
+        template <class T_> friend class CandidateCurveProvider_;
+
+    public:
+        CandidateCurveGeometry_(const CurveCalibrationSpec_& geometry, const Vector_<CurveScriptRoute_>& routes);
+        CandidateCurveGeometry_& operator=(const CandidateCurveGeometry_&) = delete;
+    };
+
+    template <class T_> class CandidateCurveProvider_ {
+        std::shared_ptr<const CandidateCurveGeometry_> geometry_;
         std::shared_ptr<Tape::DiscountCurve_<T_>> target_;
 
     public:
@@ -27,6 +37,7 @@ namespace Dal {
         [[nodiscard]] T_ Discount(const CurveScriptRoute_& route, const Date_& from, const Date_& to) const;
         [[nodiscard]] T_ Discount(const CurveBinding_& binding, const CurveScriptRoute_& route, const Date_& from, const Date_& to) const;
         CandidateCurveProvider_(const CurveCalibrationSpec_& geometry, const Vector_<CurveScriptRoute_>& routes, const Vector_<T_>& parameters);
+        CandidateCurveProvider_(std::shared_ptr<const CandidateCurveGeometry_> geometry, const Vector_<T_>& parameters);
         [[nodiscard]] T_ Discount(const String_& route, const Date_& from, const Date_& to) const;
         [[nodiscard]] T_ Forward(const String_& route, const Date_& start, const Date_& end, const DayBasis_& basis) const;
         [[nodiscard]] T_
@@ -109,6 +120,7 @@ namespace Dal {
         Vector_<PreparedCalibrationInstrument_> plans_;
         Vector_<CalibrationPreparationCapability_> capabilities_;
         std::shared_ptr<const CurveInstrumentCalibrationSpec_> frozenSpec_;
+        std::shared_ptr<const CandidateCurveGeometry_> geometry_;
         String_ planIdentity_;
 
     public:

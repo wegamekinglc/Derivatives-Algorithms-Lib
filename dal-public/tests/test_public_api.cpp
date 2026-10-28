@@ -33,12 +33,6 @@ TEST(PublicApiTest, TestEvaluationDateRoundTrip) {
     ASSERT_EQ(Dal::Date::Day(d), Dal::Date::Day(result));
 }
 
-TEST(PublicApiTest, TestPublicHeaderIncludeLinks) {
-    // This test simply verifies the public types compile and link.
-    // If we get here, the test binary linked against dal_public successfully.
-    ASSERT_TRUE(true);
-}
-
 TEST(PublicApiTest, TestSobolNormalPrecisionPolicy) {
     constexpr int iPath = (1 << 20) - 2;
     const auto defaultRsg = Dal::NewSobolRSG(Dal::String_("default"), iPath);

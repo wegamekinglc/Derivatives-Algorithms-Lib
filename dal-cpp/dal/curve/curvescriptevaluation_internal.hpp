@@ -6,7 +6,7 @@
 namespace Dal {
     template <class T_>
     T_ CandidateCurveProvider_<T_>::Discount(const CurveBinding_& binding, const CurveScriptRoute_& route, const Date_& from, const Date_& to) const {
-        if (!(from.IsValid() && to.IsValid() && from >= geometry_.today_ && to >= from))
+        if (!(from.IsValid() && to.IsValid() && from >= geometry_->geometry_.today_ && to >= from))
             CalibrationInternal::Fail("CalibrationContextMismatch", "/candidate/dates",
                                       "ordered dates on or after valuation; history is resolved before evaluation");
         const T_ value = binding.target_ ? (*binding.target_)(from, to) : T_((*binding.background_)(from, to));

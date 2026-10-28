@@ -10,11 +10,19 @@
 #include <dal/model/gsrcalibration.hpp>
 #include <dal/model/gsrmultidata.hpp>
 #include <dal/model/gsrscriptcalibration.hpp>
+#include <dal/script/batchstatistics_internal.hpp>
 #include <dal/script/calibrationmc.hpp>
 #include <dal/script/calibrationmc_internal.hpp>
 #include <dal/time/dateutils.hpp>
 
 using namespace Dal;
+
+TEST(CalibrationMcTest, TestProjectedErrorKeepsRepresentableDoubleScale) {
+    const Vector_<Vector_<>> rows{{1e308}, {-1e308}, {1e308}, {-1e308}};
+    const double error = BatchStatisticsInternal::ProjectedError(rows, {0.}, {1.});
+    ASSERT_TRUE(std::isfinite(error));
+    ASSERT_NEAR(error / 1e308, 1. / std::sqrt(3.), 1e-12);
+}
 
 namespace {
     ScriptInstrumentDefinitionSpec_ McSpec(bool option = false) {

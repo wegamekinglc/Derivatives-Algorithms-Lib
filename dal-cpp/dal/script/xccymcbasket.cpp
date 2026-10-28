@@ -227,7 +227,7 @@ namespace Dal {
             Vector_<> first;
             for (size_t path = range.firstPath_; path < range.pathEnd_; ++path) {
                 p->failedPath_ = path;
-                const auto normals = adapter.Next();
+                const auto& normals = adapter.Next();
                 Consumed(path, adapter.Cursor(), p);
                 if (path == range.firstPath_)
                     first = normals;

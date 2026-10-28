@@ -322,6 +322,28 @@ namespace Dal {
         return result;
     }
 
+    template <class A_, class S_>
+    Underdetermined::FitResult_ RunTrackedCurveCalibration(const Underdetermined::Function_& function,
+                                                           size_t parameterCount,
+                                                           const A_& axes,
+                                                           const S_& solver,
+                                                           const Sparse::TriDiagonal_& weights,
+                                                           const CurveSolverTrack_& track) {
+        Vector_<> scales;
+        scales.reserve(axes.observations_.size());
+        for (const auto& row : axes.observations_)
+            scales.push_back(row->ErrorScale());
+        const bool exact = solver.solveMode_ == CurveSolveMode_::Value_::EXACT;
+        try {
+            const auto solved =
+                RunCurveCalibration(function, Vector_<>(parameterCount, 0.), scales, exact, false, false, solver.fitNormTolerance_.value_or(1e-6),
+                                    weights, solver.maxEvaluations_, solver.maxRestarts_, solver.fitWeight_);
+            return CompleteCurveSolve(track, solved.parameters_, scales, exact, solver.fitNormTolerance_);
+        } catch (...) {
+            return CompleteCurveSolve(track, {}, scales, exact, solver.fitNormTolerance_, std::current_exception());
+        }
+    }
+
     template <class ResidualFunction_>
     void CentralDifferenceJacobian(
         const Vector_<>& parameters, int residualCount, double bump, const ResidualFunction_& residualFunction, Matrix_<>* jacobian) {

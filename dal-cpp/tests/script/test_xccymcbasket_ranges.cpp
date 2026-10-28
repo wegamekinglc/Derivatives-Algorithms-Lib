@@ -7,6 +7,18 @@
 
 using namespace Dal;
 
+TEST(XccyMcBasketRangeTest, TestScalarAdapterReusesPathStorage) {
+    XccyMcBasketInternal::ScalarNormals_ adapter(1024, 5, {0, 2, 0, 10});
+    const auto& first = adapter.Next();
+    const auto* storage = first.data();
+    const auto firstValues = first;
+    const auto& second = adapter.Next();
+    ASSERT_EQ(second.data(), storage);
+    ASSERT_NE(second, firstValues);
+    ASSERT_EQ(adapter.Cursor(), 10U);
+    ASSERT_NO_THROW(adapter.Finish());
+}
+
 TEST(XccyMcBasketRangeTest, TestScalarAdapterSeeksNonAlignedAbsoluteCoordinate) {
     const size_t first = 70778880;
     ASSERT_EQ(first % 55, 40U);

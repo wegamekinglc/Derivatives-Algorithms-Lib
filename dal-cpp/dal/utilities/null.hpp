@@ -12,7 +12,7 @@ namespace Dal {
 
         template <bool> struct FloatingPointNull;
 
-        // null value for floating-point types
+        // The legacy sentinel must fit both float and double storage.
         template <> struct FloatingPointNull<true> {
             constexpr static float nullvalue() {
                 // a specific values that should fit into any Real

@@ -29,6 +29,13 @@ safe.
 
 ## Development Loop
 
+Use `double` for real-valued calculations. Other floating-point types require a
+specific numerical-range, accuracy, or external-format need, documented near the
+implementation. Validate user inputs and immutable structure at their entry or
+preparation boundary; keep checks for newly computed non-finite values and
+stateful AAD lifetimes where those values and states arise. Construct expensive
+diagnostic text only on the failure path.
+
 For C++ behavior, prefer red-green-refactor:
 
 1. Add or tighten a focused Google Test that fails for the missing behavior.

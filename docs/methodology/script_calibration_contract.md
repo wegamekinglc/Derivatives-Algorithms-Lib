@@ -6,6 +6,11 @@ observations. `dal/script/calibrationpreparation.hpp` adds structural preparatio
 for Deposit, bounded deterministic curve families and Gaussian BondOption,
 Caplet and Swaption contracts.
 Existing Product, curve and GSR entry points keep their own behavior.
+Batch means, covariance matrices and error propagation use `double` throughout
+the MC calibration paths. Projected standard errors use a scaled Euclidean norm
+to avoid overflowing the sum of squared influences. Curve plans retain validated
+geometry and route declarations; candidate evaluations check new parameter and
+result values without repeating structural admission.
 The separate core Deposit adapter in
 `dal/curve/depositscript.hpp` supports one-node curve fitting with Brent.
 

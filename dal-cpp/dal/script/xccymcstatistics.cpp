@@ -1,6 +1,7 @@
 #include <dal/platform/platform.hpp>
 
 #include <dal/calibration/validation_internal.hpp>
+#include <dal/script/batchstatistics_internal.hpp>
 #include <dal/script/calibrationmc_internal.hpp>
 #include <dal/script/xccymc_internal.hpp>
 
@@ -18,33 +19,10 @@ namespace Dal::XccyMcInternal {
             return result;
         }
         double Error(const Vector_<Vector_<>>& rows, const Vector_<>& means, const Vector_<>& weights) {
-            long double variance = 0.L;
-            for (const auto& row : rows) {
-                long double influence = 0.L;
-                for (size_t j = 0; j < weights.size(); ++j)
-                    influence += static_cast<long double>(weights[j]) * (row[j] - means[j]);
-                variance += influence * influence;
-            }
-            Check(std::isfinite(variance), "CalibrationNumericalFailure", "/execution/covariance", "finite projected variance");
-            return std::sqrt(static_cast<double>(variance / (static_cast<long double>(rows.size()) * (rows.size() - 1))));
-        }
-        Vector_<> Means(const Vector_<Vector_<>>& rows, size_t size) {
-            Vector_<> means(size, 0.);
-            for (const auto& row : rows)
-                for (size_t j = 0; j < means.size(); ++j)
-                    means[j] += row[j] / rows.size();
-            return means;
-        }
-        Matrix_<> Covariance(const Vector_<Vector_<>>& rows, const Vector_<>& means) {
-            Matrix_<> covariance(static_cast<int>(means.size()), static_cast<int>(means.size()), 0.);
-            for (const auto& row : rows)
-                for (int i = 0; i < covariance.Rows(); ++i)
-                    for (int j = 0; j < covariance.Cols(); ++j)
-                        covariance(i, j) += (row[i] - means[i]) * (row[j] - means[j]) / (rows.size() - 1);
-            for (int i = 0; i < covariance.Rows(); ++i)
-                for (int j = 0; j < covariance.Cols(); ++j)
-                    Check(std::isfinite(covariance(i, j)), "CalibrationNumericalFailure", "/execution/covariance", "finite full paired covariance");
-            return covariance;
+            const double error = BatchStatisticsInternal::ProjectedError(rows, means, weights);
+            if (!std::isfinite(error))
+                Fail("CalibrationNumericalFailure", "/execution/covariance", "finite projected variance");
+            return error;
         }
         void PriceSummary(const Vector_<Vector_<>>& rows, const Vector_<>& means, double coupon, XccyMcResult_* result) {
             auto& estimate = result->estimate_;
@@ -104,8 +82,8 @@ namespace Dal::XccyMcInternal {
             coefficients.push_back(*batch.coefficients_);
             rows.push_back(Row(coefficients.back()));
         }
-        const auto means = Means(rows, 2 + 2 * n);
-        result->coefficientCovariance_ = Covariance(rows, means);
+        const auto means = BatchStatisticsInternal::Means(rows, 2 + 2 * n);
+        result->coefficientCovariance_ = BatchStatisticsInternal::Covariance(rows, means, "/execution/covariance", "finite full paired covariance");
         PriceSummary(rows, means, coupon, result);
         if (admitted.Measure().kind_ != CalibrationMeasureKind_::Value_::Price)
             ParSummary(coefficients, admitted.Measure(), &estimate);

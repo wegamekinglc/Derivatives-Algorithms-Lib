@@ -31,11 +31,13 @@ namespace Dal::XccyMcBasketInternal {
 
     class ScalarNormals_ {
         std::unique_ptr<PseudoRandom_> rng_;
+        Vector_<> normals_;
         size_t dimension_, cursor_, end_, pathsLeft_;
 
     public:
         ScalarNormals_(int seed, size_t dimension, const XccyMcRange_& range);
-        [[nodiscard]] Vector_<> Next();
+        // Borrowed until the next draw or adapter destruction.
+        [[nodiscard]] const Vector_<>& Next();
         [[nodiscard]] size_t Cursor() const { return cursor_; }
         void Finish() const;
     };

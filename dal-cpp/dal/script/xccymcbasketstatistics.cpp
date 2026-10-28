@@ -1,6 +1,7 @@
 #include <dal/platform/platform.hpp>
 
 #include <dal/calibration/validation_internal.hpp>
+#include <dal/script/batchstatistics_internal.hpp>
 #include <dal/script/xccymcbasket_internal.hpp>
 
 namespace Dal::XccyMcBasketInternal {
@@ -23,25 +24,6 @@ namespace Dal::XccyMcBasketInternal {
                 axes->push_back({m.memberId_, "dB/" + label, bUnit + "/(" + unit + ")"});
                 axes->push_back({m.memberId_, "dA/" + label, aUnit + "/(" + unit + ")"});
             }
-        }
-        Vector_<> Means(const Vector_<Vector_<>>& rows, size_t width) {
-            Vector_<> means(width, 0.);
-            for (const auto& row : rows)
-                for (size_t i = 0; i < width; ++i)
-                    means[i] += row[i] / rows.size();
-            Finite(means);
-            return means;
-        }
-        Matrix_<> Covariance(const Vector_<Vector_<>>& rows, const Vector_<>& means) {
-            Matrix_<> covariance(static_cast<int>(means.size()), static_cast<int>(means.size()), 0.);
-            for (const auto& row : rows)
-                for (int i = 0; i < covariance.Rows(); ++i)
-                    for (int j = 0; j < covariance.Cols(); ++j)
-                        covariance(i, j) += (row[i] - means[i]) * (row[j] - means[j]) / (rows.size() - 1);
-            for (int i = 0; i < covariance.Rows(); ++i)
-                for (int j = 0; j < covariance.Cols(); ++j)
-                    Check(std::isfinite(covariance(i, j)), "CalibrationNumericalFailure", "/execution/covariance", "finite full covariance");
-            return covariance;
         }
         void PriceJacobian(double coupon, int row, int col, size_t q, Matrix_<>* jacobian) {
             (*jacobian)(row, col) = 1.;
@@ -78,10 +60,10 @@ namespace Dal::XccyMcBasketInternal {
             Matrix_<> influences(static_cast<int>(result.coefficientRows_.size()), j.Rows(), 0.);
             for (int b = 0; b < influences.Rows(); ++b)
                 for (int i = 0; i < j.Rows(); ++i) {
-                    long double value = 0.L;
+                    double value = 0.;
                     for (int k = 0; k < j.Cols(); ++k)
-                        value += static_cast<long double>(j(i, k)) * (result.coefficientRows_[b][k] - result.coefficientMeans_[k]);
-                    influences(b, i) = static_cast<double>(value);
+                        value += j(i, k) * (result.coefficientRows_[b][k] - result.coefficientMeans_[k]);
+                    influences(b, i) = value;
                     Check(std::isfinite(influences(b, i)), "CalibrationNumericalFailure", "/execution/covariance", "finite full Jacobian influence");
                 }
             return influences;
@@ -91,10 +73,10 @@ namespace Dal::XccyMcBasketInternal {
             Matrix_<> covariance(influences.Cols(), influences.Cols(), 0.);
             for (int i = 0; i < covariance.Rows(); ++i)
                 for (int j = 0; j < covariance.Cols(); ++j) {
-                    long double value = 0.L;
+                    double value = 0.;
                     for (int b = 0; b < influences.Rows(); ++b)
-                        value += static_cast<long double>(influences(b, i)) * influences(b, j);
-                    covariance(i, j) = static_cast<double>(value / (static_cast<long double>(influences.Rows()) * (influences.Rows() - 1)));
+                        value += influences(b, i) * influences(b, j);
+                    covariance(i, j) = value / (static_cast<double>(influences.Rows()) * (influences.Rows() - 1));
                     Check(std::isfinite(covariance(i, j)), "CalibrationNumericalFailure", "/execution/covariance", "finite output covariance");
                 }
             return covariance;
@@ -128,8 +110,10 @@ namespace Dal::XccyMcBasketInternal {
     }
     void JointStatistics(const Vector_<XccyMcInternal::Member_>& members, XccyMcBasketSnapshot_* result) {
         JointRows(result);
-        result->coefficientMeans_ = Means(result->coefficientRows_, result->coefficientAxes_.size());
-        result->coefficientCovariance_ = Covariance(result->coefficientRows_, result->coefficientMeans_);
+        result->coefficientMeans_ = BatchStatisticsInternal::Means(result->coefficientRows_, result->coefficientAxes_.size());
+        Finite(result->coefficientMeans_);
+        result->coefficientCovariance_ = BatchStatisticsInternal::Covariance(result->coefficientRows_, result->coefficientMeans_,
+                                                                             "/execution/covariance", "finite full covariance");
         result->meanCovariance_ = result->coefficientCovariance_;
         for (int i = 0; i < result->meanCovariance_.Rows(); ++i)
             for (int j = 0; j < result->meanCovariance_.Cols(); ++j)

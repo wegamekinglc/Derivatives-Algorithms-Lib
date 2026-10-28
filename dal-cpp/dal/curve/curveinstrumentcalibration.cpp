@@ -385,9 +385,11 @@ namespace Dal {
             return result;
         }
         template <class T_>
-        Vector_<T_>
-        Measures(const CurveInstrumentCalibrationSpec_& spec, const Vector_<PreparedCalibrationInstrument_>& plans, const Vector_<T_>& parameters) {
-            const CandidateCurveProvider_<T_> provider(NativeGeometry(spec), spec.market_.routes_, parameters);
+        Vector_<T_> Measures(const CurveInstrumentCalibrationSpec_& spec,
+                             const Vector_<PreparedCalibrationInstrument_>& plans,
+                             const Vector_<T_>& parameters,
+                             const std::shared_ptr<const CandidateCurveGeometry_>& geometry) {
+            const CandidateCurveProvider_<T_> provider(geometry, parameters);
             return Measures(spec, plans, provider);
         }
         double L2(const Vector_<>& values) {
@@ -519,6 +521,7 @@ namespace Dal {
             PreparationSettings(spec, options);
             spec_ = ResolveKnots(spec_);
             definition_ = Dal::Definition(spec_);
+            geometry_ = std::make_shared<const CandidateCurveGeometry_>(NativeGeometry(spec_), spec_.market_.routes_);
             const auto structural = StructuralContext(spec_, *spec_.observations_.front());
             std::map<std::string, String_> contextIdentities;
             for (const auto& observation : spec_.observations_) {
@@ -552,7 +555,8 @@ namespace Dal {
     std::unique_ptr<Underdetermined::Jacobian_> PreparedCurveInstruments_::Jacobian(const Vector_<>& parameters) const try {
         if (options_.jacobianMode_ != CalibrationDerivative_::Value_::AAD)
             return nullptr;
-        auto result = TapeResidualJacobian(parameters, [&](const Vector_<AAD::Number_>& active) { return Measures(spec_, plans_, active); });
+        auto result =
+            TapeResidualJacobian(parameters, [&](const Vector_<AAD::Number_>& active) { return Measures(spec_, plans_, active, geometry_); });
         ValidateNativeJacobian(static_cast<const XCurveJacobian_&>(*result).j_, spec_, DescribeCurveFreeParameters(definition_));
         return result;
     } catch (const CalibrationError_& error) {
@@ -574,7 +578,7 @@ namespace Dal {
         return result;
     }
     Vector_<> PreparedCurveInstruments_::Residuals(const Vector_<>& parameters) const try {
-        return CalculateResiduals(axes_, Measures(spec_, plans_, parameters)).raw_;
+        return CalculateResiduals(axes_, Measures(spec_, plans_, parameters, geometry_)).raw_;
     } catch (const CalibrationError_& error) {
         auto d = error.Failure().diagnostic_;
         d.stage_ = CalibrationStage_::Value_::Evaluate;
@@ -588,7 +592,7 @@ namespace Dal {
     CurveInstrumentCalibrationResult_ PreparedCurveInstruments_::Evaluate(const Vector_<>& parameters, bool derivatives) const try {
         auto result = Describe();
         result.parameters_ = parameters;
-        const CandidateCurveProvider_<double> provider(NativeGeometry(spec_), spec_.market_.routes_, parameters);
+        const CandidateCurveProvider_<double> provider(geometry_, parameters);
         result.modelMeasures_ = Measures(spec_, plans_, provider);
         result.candidateIdentity_ = CandidateIdentity(planIdentity_, parameters);
         result.curve_ = Handle_<DiscountCurve_>(provider.Target());
@@ -603,9 +607,9 @@ namespace Dal {
                 result.quoteJacobian_ =
                     NativeDifferenceJacobian(parameters, static_cast<int>(plans_.size()), options_.differenceStep_, result.freeParameters_,
                                              RowDiagnostic(*spec_.observations_.front(), CalibrationStage_::Value_::Evaluate),
-                                             [&](const auto& x) { return Measures(spec_, plans_, x); });
+                                             [&](const auto& x) { return Measures(spec_, plans_, x, geometry_); });
+                ValidateNativeJacobian(result.quoteJacobian_, spec_, result.freeParameters_);
             }
-            ValidateNativeJacobian(result.quoteJacobian_, spec_, result.freeParameters_);
         }
         result.report_.reset(new CalibrationReport_(CalibrationStage_::Value_::Evaluate, axes_, {}, CurveReportData(result, "Evaluated", &plans_)));
         return result;
@@ -823,21 +827,7 @@ namespace Dal {
             const auto weights = FitWeights(spec.solver_, &result);
             CurveSolverTrack_ track;
             const CurveFitFunction_ function(plan, result.initialParameters_, result.parameterScales_, options.differenceStep_, &track);
-            Vector_<> scales;
-            for (const auto& row : result.axes_.observations_)
-                scales.push_back(row->ErrorScale());
-            Underdetermined::FitResult_ solved;
-            try {
-                const auto legacy = RunCurveCalibration(function, Vector_<>(result.initialParameters_.size(), 0.), scales,
-                                                        spec.solver_.solveMode_ == CurveSolveMode_::Value_::EXACT, false, false,
-                                                        spec.solver_.fitNormTolerance_.value_or(1e-6), *weights, spec.solver_.maxEvaluations_,
-                                                        spec.solver_.maxRestarts_, spec.solver_.fitWeight_);
-                solved = CompleteCurveSolve(track, legacy.parameters_, scales, spec.solver_.solveMode_ == CurveSolveMode_::Value_::EXACT,
-                                            spec.solver_.fitNormTolerance_);
-            } catch (...) {
-                solved = CompleteCurveSolve(track, {}, scales, spec.solver_.solveMode_ == CurveSolveMode_::Value_::EXACT,
-                                            spec.solver_.fitNormTolerance_, std::current_exception());
-            }
+            const auto solved = RunTrackedCurveCalibration(function, result.initialParameters_.size(), result.axes_, spec.solver_, *weights, track);
             FitState(plan, solved, options, &result);
             if (!solved.fitWithinTolerance_)
                 UnsuccessfulFit(solved, result);

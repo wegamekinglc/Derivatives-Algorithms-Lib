@@ -1,6 +1,7 @@
 #include "__calibrationinstrumentinput.hpp"
 #include "__platform.hpp"
 #include "__scriptinput.hpp"
+#include <dal-public/src/calibrationfieldsinternal.hpp>
 
 /*IF--------------------------------------------------------------------------
 public ScriptInstrumentImportSettings_New
@@ -174,19 +175,7 @@ namespace Dal {
     }
     void CurveInstrumentGeometry_New(const Matrix_<Cell_>& settings, Handle_<StorableCurveInstrumentGeometry_>* value) {
         Fields_ f(settings);
-        CurveInstrumentGeometry_ v;
-        v.today_ = f.Required<Date_>("today");
-        v.ccy_ = f.Required<String_>("currency");
-        v.curveName_ = f.Default<String_>("curve_name", v.curveName_);
-        v.knotDates_ = f.Required<Vector_<Date_>>("knot_dates");
-        v.parameterization_ = f.Default<CurveParameterization_>("parameterization", v.parameterization_);
-        v.knotPolicy_ = f.Default<CurveKnotPolicy_>("knot_policy", v.knotPolicy_);
-        v.logDfScheme_ = f.Default<LogDfScheme_>("log_df_scheme", v.logDfScheme_);
-        v.baseCurve_ = f.Maybe<Handle_<DiscountCurve_>>("base_curve").value_or(Handle_<DiscountCurve_>());
-        v.calibrateDiscountCurve_ = f.Default<bool>("calibrate_discount_curve", v.calibrateDiscountCurve_);
-        v.targetCollateral_ = f.Default<CollateralType_>("target_collateral", v.targetCollateral_);
-        v.targetTenor_ = f.Default<PeriodLength_>("target_tenor", v.targetTenor_);
-        v.liborBasis_ = f.Default<DayBasis_>("libor_basis", v.liborBasis_);
+        const auto v = BindingInternal::ReadCurveInstrumentGeometry(f);
         f.Finish();
         value->reset(new StorableCurveInstrumentGeometry_(v));
     }

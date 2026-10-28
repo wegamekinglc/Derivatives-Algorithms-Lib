@@ -86,6 +86,9 @@ These rules apply to every development task in this repository.
 - Follow the red-green-refactor cycle.
 - Use `apply_patch` for manual edits.
 - Follow `.clang-format`.
+- Use `double` for real-valued calculations. Use `float` or `long double` only
+  with a concrete numerical-range, accuracy, or external-format requirement;
+  document that reason near the exceptional implementation.
 - Keep code comments brief and limited to local constraints or non-obvious reasons. Do not
   reference documentation files from code; documentation may reference source files.
 - For reviews, lead with findings and file/line references.

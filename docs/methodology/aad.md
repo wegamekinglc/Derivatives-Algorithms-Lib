@@ -1145,9 +1145,11 @@ value. Future fuzzy weights remain live through optimization; compare AAD primal
 values with fuzzy double using the same epsilon, not exact double at a future
 discontinuity.
 
-The result is the full gradient of the Monte Carlo price — every Greek for every
-parameter — for the cost of roughly one extra simulation, regardless of how many
-parameters there are. Because each thread keeps its own tape and the per-path
+One reverse sweep computes the gradient for all registered inputs. Its cost
+depends on the recorded graph, adjoint width and memory traffic; it does not
+require a separate simulation for each input. Measure the complete valuation
+for the intended model and path budget rather than assuming a fixed runtime
+multiple. Because each thread keeps its own tape and the per-path
 work is independent, the scheme parallelises with no synchronisation during the
 forward or reverse passes. Ordinary scalar and weighted simulation retains the
 prefix for each worker and reduces bounded numeric chunks in fixed path order,
