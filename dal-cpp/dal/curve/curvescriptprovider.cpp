@@ -34,14 +34,24 @@ namespace Dal {
         }
     } // namespace
 
+    CandidateCurveGeometry_::CandidateCurveGeometry_(const CurveCalibrationSpec_& geometry, const Vector_<CurveScriptRoute_>& routes)
+        : geometry_(geometry), routes_(routes) {
+        ProviderRoutes(geometry_, routes_);
+        definition_ = MakeCurveDefinition(geometry.curveName_, geometry.ccy_, geometry.parameterization_, geometry.logDfScheme_, geometry.knotDates_,
+                                          geometry.today_, geometry.liborBasis_);
+    }
+
     template <class T_>
     CandidateCurveProvider_<T_>::CandidateCurveProvider_(const CurveCalibrationSpec_& geometry,
                                                          const Vector_<CurveScriptRoute_>& routes,
                                                          const Vector_<T_>& parameters)
-        : geometry_(geometry), routes_(routes) {
-        ProviderRoutes(geometry, routes);
-        const auto definition = MakeCurveDefinition(geometry.curveName_, geometry.ccy_, geometry.parameterization_, geometry.logDfScheme_,
-                                                    geometry.knotDates_, geometry.today_, geometry.liborBasis_);
+        : CandidateCurveProvider_(std::make_shared<const CandidateCurveGeometry_>(geometry, routes), parameters) {}
+
+    template <class T_>
+    CandidateCurveProvider_<T_>::CandidateCurveProvider_(std::shared_ptr<const CandidateCurveGeometry_> geometry, const Vector_<T_>& parameters)
+        : geometry_(std::move(geometry)) {
+        REQUIRE(geometry_, "Candidate curve geometry is required");
+        const auto& definition = geometry_->definition_;
         for (size_t j = 0; j < parameters.size(); ++j)
             if (!std::isfinite(static_cast<double>(parameters[j]))) {
                 const auto labels = DescribeCurveFreeParameters(definition);
@@ -51,23 +61,28 @@ namespace Dal {
                 Fail("CalibrationNumericalFailure", "/candidate/parameters/" + OrdinalText(j), "finite native parameter",
                      NumberText(static_cast<double>(parameters[j])), d);
             }
-        target_ = BuildDiscountCurveT<T_>(definition, parameters, geometry.baseCurve_);
+        target_ = BuildDiscountCurveT<T_>(definition, parameters, geometry_->geometry_.baseCurve_);
     }
     template <class T_> const CurveScriptRoute_& CandidateCurveProvider_<T_>::Route(const String_& id, bool projection) const {
-        const auto found = std::find_if(routes_.begin(), routes_.end(), [&](const auto& route) { return Bytes(route.id_) == Bytes(id); });
-        Check(found != routes_.end(), "CalibrationContextMismatch", "/routes/" + id, "explicitly bound curve route");
+        const auto& routes = geometry_->routes_;
+        const auto found = std::find_if(routes.begin(), routes.end(), [&](const auto& route) {
+            return route.id_.size() == id.size() && std::equal(route.id_.begin(), route.id_.end(), id.begin());
+        });
+        if (found == routes.end())
+            Fail("CalibrationContextMismatch", "/routes/" + id, "explicitly bound curve route");
         Check(found->projection_ == projection, "CalibrationContextMismatch", "/routes/" + id, "matching discount/projection role");
         if (projection)
-            Check(found->collateral_ == geometry_.targetCollateral_, "CalibrationContextMismatch", "/routes/" + id,
+            Check(found->collateral_ == geometry_->geometry_.targetCollateral_, "CalibrationContextMismatch", "/routes/" + id,
                   "projection collateral matching the native market binding");
         return *found;
     }
     template <class T_> typename CandidateCurveProvider_<T_>::CurveBinding_ CandidateCurveProvider_<T_>::Bind(const CurveScriptRoute_& route) const {
-        if (IsTarget(geometry_, route))
+        const auto& geometry = geometry_->geometry_;
+        if (IsTarget(geometry, route))
             return {target_.get(), nullptr};
         const auto background =
-            route.projection_ ? BoundCurve(geometry_.forwardCurves_, route.tenor_) : BoundCurve(geometry_.discountCurves_, route.collateral_);
-        Check(background && background->ccy_ == Ccy_(geometry_.ccy_), "CalibrationContextMismatch", "/routes/" + route.id_,
+            route.projection_ ? BoundCurve(geometry.forwardCurves_, route.tenor_) : BoundCurve(geometry.discountCurves_, route.collateral_);
+        Check(background && background->ccy_ == Ccy_(geometry.ccy_), "CalibrationContextMismatch", "/routes/" + route.id_,
               "explicit same-currency background curve; no market fallback");
         return {nullptr, background.get()};
     }

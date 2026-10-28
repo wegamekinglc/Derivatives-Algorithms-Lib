@@ -2,6 +2,7 @@
 #include <dal/platform/strict.hpp>
 
 #include <dal/calibration/validation_internal.hpp>
+#include <dal/script/batchstatistics_internal.hpp>
 #include <dal/script/calibrationmc_internal.hpp>
 
 namespace Dal::CalibrationMcInternal {
@@ -19,35 +20,7 @@ namespace Dal::CalibrationMcInternal {
                 Check(std::isfinite(value), "CalibrationNumericalFailure", "/mc/coefficients", "finite paired batch coefficients", "", d);
             return x;
         }
-        Vector_<> Means(const Vector_<Vector_<>>& rows) {
-            Vector_<> result(rows[0].size(), 0.);
-            for (const auto& row : rows)
-                for (size_t j = 0; j < row.size(); ++j)
-                    result[j] += row[j] / rows.size();
-            return result;
-        }
-        Matrix_<> Covariance(const Vector_<Vector_<>>& rows, const Vector_<>& means, const CalibrationDiagnostic_& d) {
-            const int n = static_cast<int>(means.size());
-            Matrix_<> covariance(n, n, 0.);
-            for (const auto& row : rows)
-                for (int i = 0; i < n; ++i)
-                    for (int j = 0; j < n; ++j)
-                        covariance(i, j) += (row[i] - means[i]) * (row[j] - means[j]) / (rows.size() - 1);
-            for (int i = 0; i < n; ++i)
-                for (int j = 0; j < n; ++j)
-                    Check(std::isfinite(covariance(i, j)), "CalibrationNumericalFailure", "/mc/covariance", "finite batch covariance", "", d);
-            return covariance;
-        }
-        double ProjectedError(const Vector_<Vector_<>>& rows, const Vector_<>& means, const Vector_<>& weights) {
-            double variance = 0.;
-            for (const auto& row : rows) {
-                double influence = 0.;
-                for (size_t j = 0; j < weights.size(); ++j)
-                    influence += weights[j] * (row[j] - means[j]);
-                variance += influence * influence / (static_cast<double>(rows.size()) * (rows.size() - 1));
-            }
-            return std::sqrt(variance);
-        }
+        using BatchStatisticsInternal::ProjectedError;
         void AffineInputs(size_t batches, int sign, double minimum, double sigma, const CalibrationDiagnostic_& d) {
             Check(batches >= 2 && (sign == 1 || sign == -1), "InvalidCalibrationPlan", "/mc/affine", "paired batches and declared direction", "", d);
             Check(std::isfinite(minimum) && minimum > 0. && std::isfinite(sigma) && sigma > 0., "InvalidCalibrationPlan", "/mc/affine",
@@ -82,11 +55,11 @@ namespace Dal::CalibrationMcInternal {
         Vector_<Vector_<>> rows;
         for (const auto& c : batches)
             rows.push_back(CoefficientVector(c, n, d));
-        const auto means = Means(rows);
+        const auto means = BatchStatisticsInternal::Means(rows, rows.front().size());
         CalibrationMcAffineEstimate_ result;
         result.annuitySign_ = sign;
         result.minAbsAnnuity_ = minimum;
-        result.coefficientCovariance_ = Covariance(rows, means, d);
+        result.coefficientCovariance_ = BatchStatisticsInternal::Covariance(rows, means, "/mc/covariance", "finite batch covariance", d);
         const double b = means[0], a = means[1];
         Vector_<> weights(means.size(), 0.);
         weights[1] = 1.;

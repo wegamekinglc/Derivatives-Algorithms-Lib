@@ -3,13 +3,16 @@
 //
 
 #include <gtest/gtest.h>
+
 #include <dal/platform/platform.hpp>
+
 #include <dal/currency/currency.hpp>
 #include <dal/currency/currencydata.hpp>
 #include <dal/protocol/collateraltype.hpp>
 #include <dal/time/daybasis.hpp>
 #include <dal/time/holidays.hpp>
 #include <dal/time/periodlength.hpp>
+#include <dal/utilities/factsinternal.hpp>
 
 using namespace Dal;
 
@@ -85,25 +88,27 @@ TEST(CurrencyFactTest, TestLiborFixHolidaysPreInitialized) {
 //  Write/read tests on facts that are not pre-initialized
 
 TEST(CurrencyFactTest, TestSwapPayHolidaysWriteRead) {
-    Ccy::Conventions::SwapPayHolidays().XWrite()(Ccy_("CNY"), Holidays_("CN.IB"));
-    ASSERT_EQ(Ccy::Conventions::SwapPayHolidays()(Ccy_("CNY")).String(), "CN.IB");
-}
-
-TEST(CurrencyFactTest, TestSwapFixedDayBasisSetDefault) {
-    Ccy::Conventions::SwapFixedDayBasis().XWrite().SetDefault(DayBasis_("ACT_360"));
-    ASSERT_TRUE(Ccy::Conventions::SwapFixedDayBasis()(Ccy_("USD")) == DayBasis_("ACT_360"));
+    FactInternal::StoredFact_<Ccy_, Holidays_> fact;
+    ASSERT_THROW(static_cast<void>(fact(Ccy_("USD"))), Exception_);
+    fact.XWrite()(Ccy_("CNY"), Holidays_("CN.IB"));
+    ASSERT_EQ(fact(Ccy_("CNY")).String(), "CN.IB");
 }
 
 TEST(CurrencyFactTest, TestSwapFixedDayBasisSpecificOverride) {
-    Ccy::Conventions::SwapFixedDayBasis().XWrite().SetDefault(DayBasis_("ACT_365F"));
-    Ccy::Conventions::SwapFixedDayBasis().XWrite()(Ccy_("GBP"), DayBasis_("ACT_360"));
-    ASSERT_TRUE(Ccy::Conventions::SwapFixedDayBasis()(Ccy_("USD")) == DayBasis_("ACT_365F"));
-    ASSERT_TRUE(Ccy::Conventions::SwapFixedDayBasis()(Ccy_("GBP")) == DayBasis_("ACT_360"));
+    FactInternal::StoredFact_<Ccy_, DayBasis_> fact;
+    fact.XWrite().SetDefault(DayBasis_("ACT_365F"));
+    fact.XWrite()(Ccy_("GBP"), DayBasis_("ACT_360"));
+    fact.XWrite().SetDefault(DayBasis_("30_360"));
+    ASSERT_EQ(fact(Ccy_("USD")), DayBasis_("30_360"));
+    ASSERT_EQ(fact(Ccy_("GBP")), DayBasis_("ACT_360"));
 }
 
 TEST(CurrencyFactTest, TestLiborDayBasisSetDefault) {
-    Ccy::Conventions::LiborDayBasis().XWrite().SetDefault(DayBasis_("ACT_365F"));
-    ASSERT_TRUE(Ccy::Conventions::LiborDayBasis()(Ccy_("USD")) == DayBasis_("ACT_365F"));
+    const auto original = Ccy::Conventions::LiborDayBasis()(Ccy_("USD"));
+    FactInternal::StoredFact_<Ccy_, DayBasis_> fact;
+    fact.XWrite().SetDefault(DayBasis_("ACT_365F"));
+    ASSERT_EQ(fact(Ccy_("USD")), DayBasis_("ACT_365F"));
+    ASSERT_EQ(Ccy::Conventions::LiborDayBasis()(Ccy_("USD")), original);
 }
 
 TEST(CurrencyFactTest, TestDefaultRateConventionsAreInitialized) {

@@ -3,6 +3,7 @@
 //
 
 #include <gtest/gtest.h>
+
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -15,6 +16,7 @@
 #include <new>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 #if defined(__SSE2__) || defined(_M_X64)
@@ -236,6 +238,8 @@ TEST(MatrixTest, TestBCGSolveAsymmetricLowResidual) {
 
 namespace {
     using SolveFunction_ = void (*)(const Sparse::Square_&, const Vector_<>&, double, double, int, Vector_<>*);
+    static_assert(std::is_same_v<decltype(&Sparse::CGSolve), SolveFunction_>);
+    static_assert(std::is_same_v<decltype(&Sparse::BCGSolve), SolveFunction_>);
 
     struct CallbackCounts_ {
         int left_ = 0;
@@ -1828,13 +1832,6 @@ TEST(MatrixTest, TestCGSolveAndBCGSolveRemainScaleMetamorphic) {
         ASSERT_NEAR(scale * unitX[1], scaledX[1], scale * 1e-12);
         ASSERT_TRUE(CommonExponentConverged(DiagonalResidual(diagonal, scaledX, scaledB), scaledB, 1e-12, 0.0));
     }
-}
-
-TEST(MatrixTest, TestCGSolveAndBCGSolvePublicSignaturesRemainExact) {
-    SolveFunction_ cg = &Sparse::CGSolve;
-    SolveFunction_ bcg = &Sparse::BCGSolve;
-    ASSERT_NE(nullptr, cg);
-    ASSERT_NE(nullptr, bcg);
 }
 
 TEST(MatrixTest, TestCGSolveScaledAlphaOverflow) {

@@ -72,24 +72,12 @@ ScriptSimulation_Explain(product, modelData, num_path, *, valuation=None, simula
 
 `settings`, `valuation`, and `simulation` take `ScriptProductSettings_`,
 `ScriptValuationSettings_`, and `MonteCarloSettings_` respectively, or `None`
-for fresh defaults. Their constructors use keyword-only fields. Product settings
-provide `default_index` and `regression_features`; valuation settings provide `evaluation_date`,
-`today_fixing` and `fixings`; simulation settings provide
-`method`, `use_bb`, `enable_aad`, `smooth`, `compiled`, `lsmc_basis_degree`,
-`lsmc_training_paths`, `lsmc_validation_paths`, `lsmc_rqmc_replicates`,
-`lsmc_training_seed`, `lsmc_pricing_seed`, `lsmc_policy_risk_mode`,
-`lsmc_policy_bump_relative`, `lsmc_checkpoint_block_events`,
-`lsmc_training_memory_mb`, and `normal_precision`. The latter accepts exact
-`Default`, `Fast`, or `Precise` strings. `Default` uses fast conversion for all
-three generators; use `MonteCarloSettings_(method="mrg32", normal_precision="Precise")`
-to use CDF-polished MRG32 normals. See [normal precision](../methodology/monte-carlo/sampling.md#monte-carlo-normal-precision)
-for the numerical tradeoff. `Frozen` is the default AAD sensitivity mode;
-`RetrainedBump` adds a common-path policy-retraining secant to model-parameter
-and script-constant risks. RQMC pricing uses one fitted
-policy and reports conditional replicate-mean uncertainty through
-`ScriptSimulation_Explain`.
-Checkpoint settings default to `None`; see the supported domain, MiB budget
-and fallback contract under [training checkpoints](../methodology/monte-carlo/lsm.md#opt-in-training-checkpoints).
+for fresh defaults. Their constructors use keyword-only fields. The
+[Python settings reference](../../dal-python/README.md#script-settings-and-copies)
+owns the complete field list, defaults, accepted Python types and copy semantics.
+For numerical behavior, see [normal precision](../methodology/monte-carlo/sampling.md#monte-carlo-normal-precision),
+[exercise-policy risks](../methodology/monte-carlo/lsm.md#early-exercise-aad) and
+[training checkpoints](../methodology/monte-carlo/lsm.md#opt-in-training-checkpoints).
 
 For multi-asset `EXERCISE`, pass a list of at most three state names, such as
 `ScriptProductSettings_(regression_features=["EQ[A]", "VAR[runningAverage]"])`.
@@ -102,13 +90,7 @@ Rate-only GSR exercise requires an explicit list, such as
 `ScriptProductSettings_(regression_features=["IR[USD,SWAP,5Y]"])`; see
 [GSR Bermudan products](../models/gaussian-short-rate.md#bermudan-products).
 
-`today_fixing` accepts `TodayFixingPolicy_.MODEL` / `.REQUIREHISTORICAL` or exact,
-case-sensitive `Model` / `RequireHistorical` strings. The three settings fields `default_index`,
-`method`, and `today_fixing` reject foreign enums, including string-derived enum
-members, with `TypeError` on construction or assignment. Ordinary string
-subclasses, DAL `String_`, and the native today-policy members remain supported.
-Event text accepts string-derived enum members. Dates require a valid DAL
-`Date_`; snapshot keys require `DateTime_(date, 0)` for exact midnight.
+Snapshot keys require `DateTime_(date, 0)` for exact midnight.
 `fixings=None` captures current global history; an explicit empty snapshot
 never falls back to it. Global capture is sequential, not atomic across
 sequences, and requires callers to exclude concurrent fixing writes.

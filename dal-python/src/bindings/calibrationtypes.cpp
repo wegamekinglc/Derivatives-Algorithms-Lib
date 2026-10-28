@@ -1,5 +1,6 @@
 #include "bindings.h"
 #include "calibrationinput.hpp"
+#include <dal-public/src/calibrationfieldsinternal.hpp>
 
 using namespace Dal;
 using namespace Dal::Python;
@@ -221,22 +222,8 @@ namespace {
             Property(cls, "tenor", &CurveScriptRoute_::tenor_);
         }
         {
-            auto cls = Struct<CurveInstrumentGeometry_>(m, "CurveInstrumentGeometry_", [](Fields_& f) {
-                CurveInstrumentGeometry_ v;
-                v.today_ = f.Required<Date_>("today");
-                v.ccy_ = f.Required<String_>("currency");
-                v.curveName_ = f.Default<String_>("curve_name", v.curveName_);
-                v.knotDates_ = f.Required<Vector_<Date_>>("knot_dates");
-                v.parameterization_ = f.Default<CurveParameterization_>("parameterization", v.parameterization_);
-                v.knotPolicy_ = f.Default<CurveKnotPolicy_>("knot_policy", v.knotPolicy_);
-                v.logDfScheme_ = f.Default<LogDfScheme_>("log_df_scheme", v.logDfScheme_);
-                v.baseCurve_ = f.Maybe<Handle_<DiscountCurve_>>("base_curve").value_or(Handle_<DiscountCurve_>());
-                v.calibrateDiscountCurve_ = f.Default<bool>("calibrate_discount_curve", v.calibrateDiscountCurve_);
-                v.targetCollateral_ = f.Default<CollateralType_>("target_collateral", v.targetCollateral_);
-                v.targetTenor_ = f.Default<PeriodLength_>("target_tenor", v.targetTenor_);
-                v.liborBasis_ = f.Default<DayBasis_>("libor_basis", v.liborBasis_);
-                return v;
-            });
+            auto cls = Struct<CurveInstrumentGeometry_>(m, "CurveInstrumentGeometry_",
+                                                        [](Fields_& f) { return BindingInternal::ReadCurveInstrumentGeometry(f); });
             Property(cls, "today", &CurveInstrumentGeometry_::today_);
             Property(cls, "currency", &CurveInstrumentGeometry_::ccy_);
             Property(cls, "curve_name", &CurveInstrumentGeometry_::curveName_);

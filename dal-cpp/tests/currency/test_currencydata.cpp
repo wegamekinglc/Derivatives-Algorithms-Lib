@@ -12,6 +12,7 @@
 #include <dal/time/holidays.hpp>
 #include <dal/time/periodlength.hpp>
 #include <dal/time/schedules.hpp>
+#include <dal/utilities/factsinternal.hpp>
 
 using namespace Dal;
 
@@ -34,19 +35,12 @@ namespace {
     }
 } // namespace
 
-TEST(CurrencyTest, TestFactRead) {
-    ASSERT_EQ(Ccy::Conventions::LiborFixDays()(Ccy_("CNY")), 1);
-    ASSERT_EQ(Ccy::Conventions::LiborFixDays()(Ccy_("USD")), 2);
-
-    ASSERT_EQ(Ccy::Conventions::LiborFixHolidays()(Ccy_("CNY")).String(), "CN.IB");
-}
-
 TEST(CurrencyDataTest, TestFactWrite) {
-    Ccy::Conventions::LiborFixDays().XWrite()(Ccy_("EUR"), 1);
-    ASSERT_EQ(Ccy::Conventions::LiborFixDays()(Ccy_("EUR")), 1);
-
-    Ccy::Conventions::LiborFixHolidays().XWrite()(Ccy_("CNY"), Holidays_("CN.SSE"));
-    ASSERT_EQ(Ccy::Conventions::LiborFixHolidays()(Ccy_("CNY")).String(), "CN.SSE");
+    FactInternal::StoredFact_<Ccy_, int> fact;
+    fact.XWrite().SetDefault(2);
+    fact.XWrite()(Ccy_("EUR"), 1);
+    ASSERT_EQ(fact(Ccy_("EUR")), 1);
+    ASSERT_EQ(fact(Ccy_("USD")), 2);
 }
 
 TEST(CurrencyDataTest, TestXcsDefaultConventionHasNoNotionalModeBooleans) {

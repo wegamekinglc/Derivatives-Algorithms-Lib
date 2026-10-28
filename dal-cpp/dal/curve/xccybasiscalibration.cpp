@@ -493,13 +493,12 @@ namespace Dal {
             const auto n = r.parameters_.size();
             if (r.initialParameters_.size() != n || r.nativeWeights_.Rows() != static_cast<int>(n))
                 return std::nullopt;
-            long double value = 0.;
+            double value = 0.;
             for (size_t i = 0; i < n; ++i)
                 for (size_t j = 0; j < n; ++j)
-                    value += .5L * (static_cast<long double>(r.parameters_[i]) - r.initialParameters_[i]) *
-                             r.nativeWeights_(static_cast<int>(i), static_cast<int>(j)) *
-                             (static_cast<long double>(r.parameters_[j]) - r.initialParameters_[j]);
-            return Finite(static_cast<double>(value));
+                    value += .5 * (r.parameters_[i] - r.initialParameters_[i]) * r.nativeWeights_(static_cast<int>(i), static_cast<int>(j)) *
+                             (r.parameters_[j] - r.initialParameters_[j]);
+            return Finite(value);
         }
         void ReportObjective(const XccyInstrumentCalibrationResult_& r, CalibrationReportSnapshot_* snapshot) {
             auto& data = *snapshot;
@@ -1109,21 +1108,7 @@ namespace Dal {
             const auto weights = Solver(spec.solver_, &result);
             CurveSolverTrack_ track;
             const FitFunction_ function(plan, result.initialParameters_, result.parameterScales_, options.differenceStep_, &track);
-            Vector_<> scales;
-            for (const auto& row : result.axes_.observations_)
-                scales.push_back(row->ErrorScale());
-            Underdetermined::FitResult_ solved;
-            try {
-                const auto legacy = RunCurveCalibration(function, Vector_<>(result.initialParameters_.size(), 0.), scales,
-                                                        spec.solver_.solveMode_ == CurveSolveMode_::Value_::EXACT, false, false,
-                                                        spec.solver_.fitNormTolerance_.value_or(1e-6), *weights, spec.solver_.maxEvaluations_,
-                                                        spec.solver_.maxRestarts_, spec.solver_.fitWeight_);
-                solved = CompleteCurveSolve(track, legacy.parameters_, scales, spec.solver_.solveMode_ == CurveSolveMode_::Value_::EXACT,
-                                            spec.solver_.fitNormTolerance_);
-            } catch (...) {
-                solved = CompleteCurveSolve(track, {}, scales, spec.solver_.solveMode_ == CurveSolveMode_::Value_::EXACT,
-                                            spec.solver_.fitNormTolerance_, std::current_exception());
-            }
+            const auto solved = RunTrackedCurveCalibration(function, result.initialParameters_.size(), result.axes_, spec.solver_, *weights, track);
             FitState(plan, solved, options, &result);
             if (!solved.fitWithinTolerance_)
                 FailedFit(solved, result);

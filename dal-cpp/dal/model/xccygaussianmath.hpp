@@ -18,6 +18,7 @@ namespace Dal::XccyGaussianDetail {
         Check(valid, "CalibrationNumericalFailure", "/model/transition/" + field, "finite, reliably positive Gaussian kernels");
     }
 
+    // Wider intermediates protect cancellation in small-reversion covariance kernels.
     inline long double ExpIntegral(long double x) { return x == 0.L ? 1.L : -std::expm1(-x) / x; }
 
     // Integral of u^n exp(-x*u), u in [0,1]. The positive series avoids subtractive recurrence near zero.

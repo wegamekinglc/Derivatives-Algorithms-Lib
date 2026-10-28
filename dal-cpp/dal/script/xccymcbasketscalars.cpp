@@ -7,13 +7,15 @@ namespace Dal::XccyMcBasketInternal {
     using namespace CalibrationInternal;
 
     size_t Add(size_t a, size_t b, size_t limit) {
-        Check(a <= limit && b <= limit - a, "InvalidCalibrationPlan", "/sampling", "checked endpoint addition",
-              OrdinalText(a) + "+" + OrdinalText(b) + "; limit=" + OrdinalText(limit));
+        if (!(a <= limit && b <= limit - a))
+            Fail("InvalidCalibrationPlan", "/sampling", "checked endpoint addition",
+                 OrdinalText(a) + "+" + OrdinalText(b) + "; limit=" + OrdinalText(limit));
         return a + b;
     }
     size_t Multiply(size_t a, size_t b, size_t limit) {
-        Check(b == 0 || a <= limit / b, "InvalidCalibrationPlan", "/sampling", "checked count multiplication",
-              OrdinalText(a) + "*" + OrdinalText(b) + "; limit=" + OrdinalText(limit));
+        if (!(b == 0 || a <= limit / b))
+            Fail("InvalidCalibrationPlan", "/sampling", "checked count multiplication",
+                 OrdinalText(a) + "*" + OrdinalText(b) + "; limit=" + OrdinalText(limit));
         return a * b;
     }
     void Storage(size_t count, size_t width) {
@@ -25,21 +27,21 @@ namespace Dal::XccyMcBasketInternal {
         Check(Add(cursor_, Multiply(pathsLeft_, dimension_)) == end_, "CalibrationContextMismatch", "/sampling/ranges",
               "exact scalar span for all requested path vectors");
         Storage(dimension_, sizeof(double));
+        normals_.Resize(dimension_);
         if (dimension_ > 0) {
             rng_ = New(RNGType_("MRG32"), seed, 1, true);
             rng_->SkipNormalTo(cursor_);
         }
     }
-    Vector_<> ScalarNormals_::Next() {
-        Check(pathsLeft_ > 0, "CalibrationContextMismatch", "/sampling/ranges", "no extra normal vectors");
-        Vector_<> normals(dimension_);
+    const Vector_<>& ScalarNormals_::Next() {
+        if (pathsLeft_ == 0)
+            Fail("CalibrationContextMismatch", "/sampling/ranges", "no extra normal vectors");
         if (rng_)
-            rng_->FillNormal(&normals);
-        Check(normals.size() == dimension_, "CalibrationContextMismatch", "/sampling/mapping", "exact member normal dimension");
-        cursor_ = Add(cursor_, dimension_);
+            rng_->FillNormal(&normals_);
+        // Constructor admission proves the complete scalar span cannot overflow.
+        cursor_ += dimension_;
         --pathsLeft_;
-        Check(cursor_ <= end_, "CalibrationContextMismatch", "/sampling/ranges", "cursor within checked batch endpoint");
-        return normals;
+        return normals_;
     }
     void ScalarNormals_::Finish() const {
         Check(pathsLeft_ == 0 && cursor_ == end_, "CalibrationContextMismatch", "/sampling/ranges", "no missing normals; exact end cursor");
