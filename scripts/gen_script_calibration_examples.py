@@ -8,6 +8,7 @@ from pathlib import Path
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.formula import ArrayFormula
 
 ROOT = Path(__file__).resolve().parents[1]
 TODAY = date(2022, 1, 1)
@@ -48,6 +49,10 @@ BODY_FONT = Font(name="Calibri", size=11)
 MONO_FONT = Font(name="Consolas", size=10)
 GRAY_FILL = PatternFill(start_color="F0F0F0", end_color="F0F0F0", fill_type="solid")
 THIN_BORDER = Border(*(Side(style="thin", color="D0D0D0"),) * 4)
+
+
+class CellReference(str):
+    pass
 
 
 def number_text(value):
@@ -144,7 +149,7 @@ def xccy_instrument():
     }
 
 
-def write_table(ws, row, col, headers, rows):
+def write_table(ws, row, col, headers, rows, include_header=True):
     for offset, header in enumerate(headers):
         cell = ws.cell(row, col + offset, header)
         cell.font = HEADER_FONT
@@ -152,19 +157,24 @@ def write_table(ws, row, col, headers, rows):
         cell.border = THIN_BORDER
     for i, values in enumerate(rows, 1):
         for j, value in enumerate(values):
-            cell = ws.cell(row + i, col + j, value)
+            cell = ws.cell(
+                row + i,
+                col + j,
+                f"={value}" if isinstance(value, CellReference) else value,
+            )
             cell.font = BODY_FONT
             cell.border = THIN_BORDER
             if isinstance(value, date):
                 cell.number_format = "YYYY-MM-DD"
     last_row = row + len(rows)
     last_col = col + len(headers) - 1
-    return f"${get_column_letter(col)}${row}:${get_column_letter(last_col)}${last_row}"
+    first_row = row if include_header else row + 1
+    return f"${get_column_letter(col)}${first_row}:${get_column_letter(last_col)}${last_row}"
 
 
 def cell_ref(ws, row, col):
     title = f"'{ws.title}'" if " " in ws.title else ws.title
-    return f"{title}!${get_column_letter(col)}${row}"
+    return CellReference(f"{title}!${get_column_letter(col)}${row}")
 
 
 def write_definition(ws, row, definition):
@@ -187,6 +197,7 @@ def write_definition(ws, row, definition):
             ("discount_route", "USD.OIS"),
             ("convention_set", "dal.fixed-dates/1"),
         ],
+        include_header=False,
     )
     unit = "Price:USD"
     parameters = write_table(
@@ -275,11 +286,13 @@ def factory_layout(ws, label_col=1, value_col=2, field_col=4):
         row = 4 + len(handles)
         ws.cell(row, label_col, label).font = HEADER_FONT
         ws.cell(row, value_col, formula).font = MONO_FONT
-        handles[label] = f"${get_column_letter(value_col)}${row}"
+        handles[label] = CellReference(f"${get_column_letter(value_col)}${row}")
         return handles[label]
 
     def fields(label, function, rows, suffix="", prefix=""):
-        source = write_table(ws, cursor[0], field_col, ["field", "value"], rows)
+        source = write_table(
+            ws, cursor[0], field_col, ["field", "value"], rows, include_header=False
+        )
         cursor[0] += len(rows) + 3
         return direct(label, f"={function}({prefix}{source}{suffix})")
 
@@ -303,6 +316,34 @@ def add_notes(wb, title, lines):
     ws.column_dimensions["B"].width = 28
 
 
+def write_report(ws, row, report, selector, count, columns):
+    area = f"A{row}:{get_column_letter(columns)}{row + count}"
+    for cells in ws.iter_rows(min_row=row, max_row=row + count, max_col=columns):
+        for cell in cells:
+            if cell.value is not None:
+                raise ValueError(f"Report range overlaps {ws.title}!{cell.coordinate}")
+            cell.font = HEADER_FONT if cell.row == row else BODY_FONT
+            cell.border = THIN_BORDER
+            cell.alignment = Alignment(wrap_text=cell.row == row, vertical="top")
+            if selector == "OBSERVATIONS" and cell.column in (12, 14, 15):
+                cell.number_format = "0.000E+00"
+    ws.row_dimensions[row].height = 32
+    ws.cell(
+        row,
+        1,
+        ArrayFormula(ref=area, text=f"=CALIBRATIONREPORT.GET.{selector}({report})"),
+    )
+
+
+def add_reports(ws, report, observations, parameters):
+    row = ws.max_row + 4
+    ws.cell(row, 1, "Observation report").font = TITLE_FONT
+    write_report(ws, row + 1, report, "OBSERVATIONS", observations, 22)
+    row += observations + 5
+    ws.cell(row, 1, "Fitted parameters").font = TITLE_FONT
+    write_report(ws, row + 1, report, "PARAMETERS", parameters, 9)
+
+
 def add_curve_scheme(wb, scheme):
     ws = wb.create_sheet(scheme)
     ws.cell(1, 1, f"Script yield calibration — {scheme}").font = TITLE_FONT
@@ -310,8 +351,8 @@ def add_curve_scheme(wb, scheme):
         2, 1, "13 scripted instruments, 14 knots, EXACT solve, AAD Jacobian"
     ).font = BODY_FONT
     handles, direct, fields, table = factory_layout(ws)
-    write_table(ws, 4, 7, ["index", "knot_date"], list(enumerate(KNOTS, 1)))
-    knot_values = f"$H$5:$H${4 + len(KNOTS)}"
+    write_table(ws, 4, 11, ["index", "knot_date"], list(enumerate(KNOTS, 1)))
+    knot_values = f"$L$5:$L${4 + len(KNOTS)}"
     knot_handle = direct("Knot dates", f"=CALIBRATIONDATES.NEW({knot_values})")
     fields(
         "Geometry",
@@ -387,10 +428,7 @@ def add_curve_scheme(wb, scheme):
     direct("Status", f"=CALIBRATIONOUTCOME.GET.STATUS({outcome})")
     report = direct("Report", f"=CALIBRATIONOUTCOME.GET.REPORT({outcome})")
     direct("Curve", f"=CALIBRATIONOUTCOME.GET.CURVE({outcome})")
-    ws.cell(22, 1, "Observation report").font = TITLE_FONT
-    ws.cell(23, 1, f"=CALIBRATIONREPORT.GET.OBSERVATIONS({report})").font = MONO_FONT
-    ws.cell(40, 1, "Fitted parameters").font = TITLE_FONT
-    ws.cell(41, 1, f"=CALIBRATIONREPORT.GET.PARAMETERS({report})").font = MONO_FONT
+    add_reports(ws, report, len(SWAPS), len(KNOTS) - 1)
     ws.freeze_panes = "A4"
 
 
@@ -398,7 +436,14 @@ def format_workbook(wb, source_sheet):
     for sheet in wb.worksheets:
         for cells in sheet.columns:
             letter = get_column_letter(cells[0].column)
-            width = min(max(len(str(cell.value or "")) for cell in cells) + 2, 115)
+            width = min(
+                max(
+                    len(str(getattr(cell.value, "text", cell.value) or ""))
+                    for cell in cells
+                )
+                + 2,
+                60,
+            )
             sheet.column_dimensions[letter].width = max(12, width)
         sheet.sheet_view.zoomScale = 85
     wb[source_sheet].column_dimensions["C"].width = 115
@@ -441,7 +486,7 @@ def generate_yield_workbook():
             "ACT/365F accruals are unadjusted; the fixing date is the accrual start. N=100 and each K equals the original instrument's decimal par quote.",
             "The solver uses EXACT, initial guess 0.05, smoothing weight 1, 200 evaluations, 20 restarts and fit_norm_tolerance 1e-8. AAD is selected explicitly.",
             "Run INIT.GLOBALDATA(1), then recalculate the workbook. CALIBRATIONOUTCOME.GET.STATUS should return Succeeded on all three sheets.",
-            "Observation and parameter tables are spilled from the typed report. This file contains formulas, not cached results; generating it does not execute Excel.",
+            "Observation and parameter tables use reserved array ranges below the input tables. This file contains formulas, not cached results; generating it does not execute Excel.",
         ],
     )
     format_workbook(wb, "Instruments")
@@ -552,10 +597,7 @@ def generate_xccy_workbook():
     direct("Status", f"=CALIBRATIONOUTCOME.GET.STATUS({outcome})")
     report = direct("Report", f"=CALIBRATIONOUTCOME.GET.REPORT({outcome})")
     direct("Basis curve", f"=CALIBRATIONOUTCOME.GET.CURVE({outcome})")
-    ws.cell(27, 1, "Observation report").font = TITLE_FONT
-    ws.cell(28, 1, f"=CALIBRATIONREPORT.GET.OBSERVATIONS({report})").font = MONO_FONT
-    ws.cell(32, 1, "Fitted basis forward").font = TITLE_FONT
-    ws.cell(33, 1, f"=CALIBRATIONREPORT.GET.PARAMETERS({report})").font = MONO_FONT
+    add_reports(ws, report, 1, 1)
     ws.freeze_panes = "A4"
     add_notes(
         wb,

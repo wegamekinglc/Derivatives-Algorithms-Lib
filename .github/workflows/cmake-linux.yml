@@ -329,6 +329,14 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # @v10.3.0
+
+      - name: Verify scripted calibration workbook contracts
+        run: |
+          uv run --no-project --python 3.11 --with openpyxl==3.1.5 python -m unittest discover -s scripts/tests -p test_script_calibration_workbooks.py -v
+          python3 -S -m unittest discover -s .github/scripts/tests -p test_script_calibration_examples.py -v
+          python3 -S -O -m unittest discover -s .github/scripts/tests -p test_script_calibration_examples.py -v
+
       - name: Check links, anchors, tables, metadata, and commands
         run: |
           python3 .github/scripts/check_docs.py

@@ -68,11 +68,11 @@ int main() {
     REQUIRE(std::abs(fit.parameters_[0] - .003) < 1e-10, "XCCY basis parameter differs from the original fixture");
     REQUIRE(std::abs(price.modelMeasures_[0] - -.22000103820950934) < 1e-10, "XCCY price differs from the original fixture");
     std::cout << "XCCY script calibration (decimal spread; basis forward in Rate)\n"
-              << std::left << std::setw(18) << "Observation" << std::right << std::setw(18) << "Market" << std::setw(18) << "Fitted" << std::setw(18)
+              << std::left << std::setw(18) << "Observation" << std::right << std::setw(18) << "Market" << std::setw(18) << "Fitted" << std::setw(26)
               << "Raw residual" << '\n'
-              << std::string(72, '-') << '\n'
+              << std::string(80, '-') << '\n'
               << std::left << std::setw(18) << "fit-basis" << std::right << std::setw(18) << ExampleFloat(quote->Value()) << std::setw(18)
-              << ExampleFloat(fit.modelMeasures_[0]) << std::setw(18) << ExampleFloat(fit.rawResiduals_[0]) << '\n'
+              << ExampleFloat(fit.modelMeasures_[0]) << std::setw(26) << ExampleFloat(fit.rawResiduals_[0]) << '\n'
               << "Basis forward: " << ExampleFloat(fit.parameters_[0]) << "; fit accepted: " << fit.fitWithinTolerance_ << '\n'
               << "Same bound Price:USD: " << ExampleFloat(price.modelMeasures_[0])
               << "; raw dPrice/dBasisForward: " << ExampleFloat(price.quoteJacobian_(0, 0)) << '\n';

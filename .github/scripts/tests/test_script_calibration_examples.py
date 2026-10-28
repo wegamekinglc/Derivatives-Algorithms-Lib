@@ -64,6 +64,8 @@ class ScriptCalibrationExamplesTest(unittest.TestCase):
             "openpyxl": MagicMock(),
             "openpyxl.styles": MagicMock(),
             "openpyxl.utils": MagicMock(),
+            "openpyxl.worksheet": MagicMock(),
+            "openpyxl.worksheet.formula": MagicMock(),
         }
         with patch.dict("sys.modules", worksheet_modules):
             spec.loader.exec_module(module)
