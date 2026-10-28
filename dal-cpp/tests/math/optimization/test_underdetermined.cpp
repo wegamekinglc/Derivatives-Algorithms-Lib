@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <limits>
 #include <memory>
 
 #include <dal/platform/platform.hpp>
@@ -502,6 +503,17 @@ TEST(UnderdeterminedTest, TestFindInitialFitRetainsSolutionDiagnostics) {
     ASSERT_EQ(forward.Cols(), 2);
     ASSERT_NEAR(forward(0, 0), 1., 1e-12);
     ASSERT_NEAR(forward(0, 1), 1., 1e-12);
+}
+
+TEST(UnderdeterminedTest, TestFindCannotAcceptAnInitialNanResidual) {
+    class NonfiniteFunction_ final : public Underdetermined::Function_ {
+    public:
+        Vector_<> F(const Vector_<>&) const override { return {0., std::numeric_limits<double>::quiet_NaN()}; }
+    } function;
+    TriDiagonal_ weights(1);
+    weights.Set(0, 0, 1.);
+    std::unique_ptr<SymmetricDecomposition_> decomposition(weights.DecomposeSymmetric());
+    ASSERT_THROW(Underdetermined::Find(function, {0.}, {1., 1.}, *decomposition, MakeControls(1, 1)), Exception_);
 }
 
 TEST(UnderdeterminedTest, TestEffectiveInverseUsesFreshAnalyticJacobianAndUnscaledResidualAtSolution) {

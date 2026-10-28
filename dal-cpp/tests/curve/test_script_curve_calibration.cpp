@@ -36,7 +36,7 @@ namespace {
                     down[j] -= 1e-6;
                     const auto plus = F(up), minus = F(down);
                     for (int i = 0; i < 2; ++i)
-                        (*jacobian)(i, j) = (plus[i] - minus[i]) / (up[j] - down[j]) * spec_.solver_.parameterScales_[0];
+                        (*jacobian)(i, j) = (plus[i] - minus[i]) / (up[j] - down[j]);
                     up[j] = down[j] = z[j];
                 }
             }
@@ -139,7 +139,7 @@ namespace {
                 down[j] -= 1e-6;
                 const auto plus = F(up), minus = F(down);
                 for (int i = 0; i < jacobian->Rows(); ++i)
-                    (*jacobian)(i, j) = (plus[i] - minus[i]) / (up[j] - down[j]) * Scale(j);
+                    (*jacobian)(i, j) = (plus[i] - minus[i]) / (up[j] - down[j]);
                 up[j] = down[j] = z[j];
             }
         }
@@ -194,6 +194,38 @@ TEST(ScriptCurveCalibrationTest, TestLegacySolverDrivesTypedCalibration) {
         ASSERT_EQ(actual.evaluations_, expected.evaluations_) << "approximate=" << approximate;
         ASSERT_EQ(actual.gradients_, expected.gradients_) << "approximate=" << approximate;
     }
+}
+
+TEST(ScriptCurveCalibrationTest, TestFiniteDifferenceFitMatchesDepositOracleAcrossCoordinateScales) {
+    const double expected = -std::log(1. + .035 * (365. / 360.));
+    for (const auto mode : {CurveSolveMode_::Value_::EXACT, CurveSolveMode_::Value_::APPROXIMATE}) {
+        for (const double scale : {1., .3, .001, .0001, 10.}) {
+            SCOPED_TRACE(scale);
+            auto spec = DepositSpec();
+            spec.solver_.parameterScales_ = {scale};
+            spec.solver_.solveMode_ = mode;
+            spec.solver_.fitWeight_ = .7;
+            spec.solver_.fitNormTolerance_ = .01;
+            const auto fit = CalibrateCurveInstruments(spec);
+            ASSERT_TRUE(fit.fitWithinTolerance_);
+            ASSERT_NEAR(fit.parameters_[0], expected, 1e-10);
+            ASSERT_LE(std::abs(fit.rawResiduals_[0]), 1e-10);
+        }
+    }
+}
+
+TEST(ScriptCurveCalibrationTest, TestCaseSensitiveRoutesKeepDistinctPreparationContexts) {
+    auto spec = DepositSpec();
+    auto definition = spec.observations_[0]->Instrument()->Definition()->Spec();
+    definition.header_.discountRoute_ = "usd.ois";
+    const auto instrument = NewScriptCalibrationInstrument({"lower-route", NewScriptInstrumentDefinition(definition), {}, MATURITY});
+    spec.market_.routes_.push_back({"usd.ois"});
+    spec.observations_.push_back(NewCalibrationObservation("lower-observation", instrument, "ParRate", spec.observations_[0]->Quote(), 1e-10));
+    const auto result = PreparedCurveInstruments_(spec).Evaluate({-.04}, false);
+    const auto& plans = result.report_->Data().plans_;
+    ASSERT_EQ(plans.size(), 2u);
+    ASSERT_NE(plans[0].contextIdentity_, plans[1].contextIdentity_);
+    ASSERT_DOUBLE_EQ(result.modelMeasures_[0], result.modelMeasures_[1]);
 }
 
 TEST(ScriptCurveCalibrationTest, TestReportOwnsEvaluateAndFitAfterInputsAreDestroyed) {

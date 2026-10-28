@@ -323,13 +323,13 @@ namespace Dal {
                                                           const CurveInstrumentCalibrationSpec_& spec,
                                                           const RowContext_& structural,
                                                           const CurveInstrumentCalibrationOptions_& options,
-                                                          std::map<String_, String_>* contextIdentities) try {
+                                                          std::map<std::string, String_>* contextIdentities) try {
             CalibrationEvaluationOptions_ preparation;
             preparation.evaluation_ = options.evaluation_;
             preparation.derivativeMethod_ = CalibrationDerivative_::Value_::None;
             auto context = structural.script_;
             context.discountRoute_ = DiscountRoute(spec, observation).id_;
-            auto [identity, inserted] = contextIdentities->try_emplace(context.discountRoute_);
+            auto [identity, inserted] = contextIdentities->try_emplace(Bytes(context.discountRoute_));
             if (inserted)
                 identity->second =
                     CalibrationInternal::PreparationContextIdentity(context, RowDiagnostic(observation, CalibrationStage_::Value_::Prepare));
@@ -520,7 +520,7 @@ namespace Dal {
             spec_ = ResolveKnots(spec_);
             definition_ = Dal::Definition(spec_);
             const auto structural = StructuralContext(spec_, *spec_.observations_.front());
-            std::map<String_, String_> contextIdentities;
+            std::map<std::string, String_> contextIdentities;
             for (const auto& observation : spec_.observations_) {
                 auto plan = PrepareObservation(*observation, spec_, structural, options, &contextIdentities);
                 auto capability = plan.Capability();
@@ -679,7 +679,7 @@ namespace Dal {
                     down[j] = lower;
                     const auto plus = F(up), minus = F(down);
                     for (int i = 0; i < jacobian->Rows(); ++i)
-                        (*jacobian)(i, j) = (plus[i] - minus[i]) / (upper - lower) * scales_[j];
+                        (*jacobian)(i, j) = (plus[i] - minus[i]) / (upper - lower);
                     up[j] = down[j] = coordinates[j];
                 }
                 ValidateNativeJacobian(*jacobian, plan_.Spec(), layout.freeParameters_);

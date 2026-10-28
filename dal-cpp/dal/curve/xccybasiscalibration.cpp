@@ -966,7 +966,7 @@ namespace Dal {
                     down[j] = lower;
                     const auto plus = F(up), minus = F(down);
                     for (int i = 0; i < jacobian->Rows(); ++i)
-                        (*jacobian)(i, j) = (plus[i] - minus[i]) / (upper - lower) * scales_[j];
+                        (*jacobian)(i, j) = (plus[i] - minus[i]) / (upper - lower);
                     up[j] = down[j] = z[j];
                 }
                 RequireFiniteValues(*jacobian, "raw XCCY Jacobian");

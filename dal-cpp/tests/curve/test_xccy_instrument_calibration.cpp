@@ -23,6 +23,23 @@ TEST(XccyInstrumentCalibrationTest, TestNativeImportFitsBasis) {
     ASSERT_FALSE(result.report_->QuoteRiskAvailable());
 }
 
+TEST(XccyInstrumentCalibrationTest, TestFiniteDifferenceFitMatchesNativeBasisAcrossCoordinateScales) {
+    for (const auto mode : {CurveSolveMode_::Value_::EXACT, CurveSolveMode_::Value_::APPROXIMATE}) {
+        for (const double scale : {1., .3, .001, .0001, 10.}) {
+            SCOPED_TRACE(scale);
+            auto spec = Spec();
+            spec.solver_.parameterScales_ = {scale};
+            spec.solver_.solveMode_ = mode;
+            spec.solver_.fitWeight_ = .7;
+            spec.solver_.fitNormTolerance_ = .01;
+            const auto fit = CalibrateXccyInstruments(spec);
+            ASSERT_TRUE(fit.fitWithinTolerance_);
+            ASSERT_NEAR(fit.parameters_[0], .003, 1e-10);
+            ASSERT_LE(std::abs(fit.rawResiduals_[0]), 1e-10);
+        }
+    }
+}
+
 namespace {
     CrossCurrencyCalibrationSpec_ NativeCalibrationSpec(const XccyInstrumentCalibrationSpec_& spec) {
         CrossCurrencyCalibrationSpec_ result;

@@ -380,6 +380,9 @@ MC requests fail. Solve FD uses central differences in z; independent
 `Evaluate(theta)` FD uses central differences in native theta, with
 `differenceStep_` in the respective coordinates. `quoteJacobian_` is the raw
 model-measure derivative with respect to native theta, not quote risk.
+The solve finite difference already differentiates through `theta0+S*z`;
+its columns require no additional multiplication by S. AAD differentiates
+native theta and applies S once when building the solver Jacobian.
 `computeQuoteJacobian_` optionally requests it after a successful fit. Solver
 evaluation/gradient counters include attempted FD work. The legacy point
 budget does not include additional FD residual evaluations, so reported

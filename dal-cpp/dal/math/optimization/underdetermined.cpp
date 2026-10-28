@@ -2,6 +2,7 @@
 // Created by wegam on 2022/12/10.
 //
 
+#include <algorithm>
 #include <functional>
 
 #include <dal/math/matrix/bcg.hpp>
@@ -249,7 +250,9 @@ namespace Dal {
             bool tookStep_ = false;
         };
 
-        bool IsFindSolution(const Vector_<>& f) { return *MaxElement(f) <= 1.0 && *MinElement(f) >= -1.0; }
+        bool IsFindSolution(const Vector_<>& f) {
+            return std::all_of(f.begin(), f.end(), [](double value) { return std::abs(value) <= 1.; });
+        }
 
         // Fail-closed inverse validation: the tolerance-scaled solution Jacobian must map each
         // inverse column back to the identity to 1e-7; a finite-but-wrong inverse fails closed.
