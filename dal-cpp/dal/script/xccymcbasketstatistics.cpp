@@ -69,14 +69,20 @@ namespace Dal::XccyMcBasketInternal {
             return influences;
         }
         Matrix_<> OutputCovariance(const XccyMcBasketSnapshot_& result) {
-            const auto influences = Influences(result);
+            auto influences = Influences(result);
+            const double batches = static_cast<double>(influences.Rows());
+            const double scale = std::sqrt(batches * (batches - 1.));
+            // Scale both factors before multiplication to avoid intermediate overflow.
+            for (int b = 0; b < influences.Rows(); ++b)
+                for (int i = 0; i < influences.Cols(); ++i)
+                    influences(b, i) /= scale;
             Matrix_<> covariance(influences.Cols(), influences.Cols(), 0.);
             for (int i = 0; i < covariance.Rows(); ++i)
                 for (int j = 0; j < covariance.Cols(); ++j) {
                     double value = 0.;
                     for (int b = 0; b < influences.Rows(); ++b)
                         value += influences(b, i) * influences(b, j);
-                    covariance(i, j) = value / (static_cast<double>(influences.Rows()) * (influences.Rows() - 1));
+                    covariance(i, j) = value;
                     Check(std::isfinite(covariance(i, j)), "CalibrationNumericalFailure", "/execution/covariance", "finite output covariance");
                 }
             return covariance;

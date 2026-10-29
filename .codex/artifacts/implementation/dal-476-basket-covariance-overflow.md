@@ -50,6 +50,50 @@ set -o pipefail
 
 实际 exit 1：12项中9项通过，3项失败：`TestFiniteLargeCovarianceBeforeNormalization`、`TestSignedAndZeroCovarianceBeforeProductsOverflow`、`TestPublicLargeNotionalCovarianceMatchesHomogeneousScaling`。三者均为运行期 `CalibrationNumericalFailure: /execution/covariance; expected finite output covariance`，不是编译或链接失败。R1 用例先检查普通尺度，再在大尺度 J=[2,-1,0] 首次失败，能直接约束乘法前缩放。独立完整矩阵 oracle、真溢出及非有限 influence 控制已在旧算法上通过。
 
+RED 本地提交：`24b2c6ea14e4a76faf2eb93ea7d5b0fd55ce6312`。对应正式测试二进制 SHA-256：`9264f7684dda04c0f4e7f1f0f8056a9af1923ebfa1a10dc4a0c45ce2861d36dd`。checkout 未配置提交身份导致第一次 commit 失败；随后使用本轮明确身份的命令级 Git 参数（与基线提交身份相同），未改全局或共享配置。
+
+## GREEN 与定向验证
+
+在 RED 提交之后，生产函数仅改8行、删2行：保留未缩放 influence 检查，增加局部预缩放，删除最终再除分母。回归未改动；无需额外重构。
+
+```bash
+cmake --build build/dal-476-implementer-make --target dal_cpp_tests -j8
+set -o pipefail
+./build/dal-476-implementer-make/dal-cpp/dal_cpp_tests \
+  --gtest_filter='XccyMcBasket*.*' \
+  --gtest_output=xml:build/dal-476-implementer-make/green.xml \
+  | tee build/dal-476-implementer-make/green.log
+```
+
+重建 exit 0，无警告；执行 exit 0，36/36通过（篮子6、失败11、范围4、统计12、轨迹3）。原12项统计回归全部 GREEN，包含 A1/A2/A3/R1 和错误诊断。XML 实测 `numeric_limits<double>::max_exponent=1024`、`numeric_limits<long double>::max_exponent=16384`；修复和大尺度 oracle 未使用较宽类型。
+
+```bash
+cmake --build build/dal-476-implementer-make --target dal_public_tests xccy_script_monte_carlo_basket -j8
+set -o pipefail
+./build/dal-476-implementer-make/dal-public/dal_public_tests \
+  --gtest_filter='PublicXccyMonteCarloBasketTest.*' \
+  --gtest_output=xml:build/dal-476-implementer-make/public.xml \
+  | tee build/dal-476-implementer-make/public.log
+./build/dal-476-implementer-make/dal-public/examples/xccy_script_monte_carlo_basket/xccy_script_monte_carlo_basket \
+  > build/dal-476-implementer-make/example.log 2>&1
+git diff --check
+clang-format --dry-run --Werror dal-cpp/tests/script/test_xccymcbasket_statistics.cpp
+```
+
+全部 exit 0。facade 6/6通过，包含 core parity、完整 owning JSON、早期/晚期错误及 partial 生命周期；示例成功退出。两者为独立进程并行执行，示例原有 informational timing 为 prepare=14.48ms、evaluate=358.96ms、format/JSON/output=2.150ms；非隔离计时，不作性能比较或数值验收结论。机器为 x86_64、Intel i9-13900HX。
+
+GREEN 测试二进制 SHA-256：
+
+- core：`726ad775260498d1e6e050ca3dee402f5d0c9918c7e90574a03486a5ccc400f3`
+- facade：`0f3c544765b4bae88cc45730207bade58c80bc689ad398f2b94e776cba368d85`
+- 示例：`aace62c686452e7a0c5ebd21fbdfaba3d79c3e14a85cc0733e76c11f6bd90995`
+
+原始构建日志、RED/GREEN/public 的日志及 XML、示例输出保留于独立构建目录，并打包随 Issue 交付。本阶段共42项定向测试与1项示例 smoke 成功，未运行完整矩阵。
+
+## 变更文件与设计偏离
+
+变更仅四个文件：`dal-cpp/dal/script/xccymcbasketstatistics.cpp`（最小数值修复和转发定义）、`dal-cpp/dal/script/xccymcbasket_internal.hpp`（一行内部声明）、`dal-cpp/tests/script/test_xccymcbasket_statistics.cpp`（正式回归和独立完整矩阵 oracle）、本实现记录。未修改 `Run/Own`、public headers、绑定、生成枚举、共享统计 helper 或其他质量候选。采用已接纳的 R2 缩放方案，无设计偏离。
+
 ## 性能 case 选择
 
 调用链为 `OutputCovariance <- JointStatistics <- PreparedXccyMcBasket_::Evaluate`，facade、Python、Excel 委托该 core。扫描 `dal-cpp/benchmarks` 未发现篮子 MC 或该统计路径的调用；九项 paired gate 均不在此调用闭包，`xccy_perf` 的 basket 是原生 rate-pricing 篮子，`script_mc_perf` 也不调用该 prepared basket。因此不选择无关 benchmark，不新增任意计时阈值或改变既有采样/噪声规则。
