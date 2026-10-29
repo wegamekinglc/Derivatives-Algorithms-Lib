@@ -25,6 +25,7 @@ namespace Dal::XccyMcBasketInternal {
     };
     using Hook_ = std::function<void(const String_&, size_t, size_t, size_t)>;
     struct TestAccess_ {
+        [[nodiscard]] static Matrix_<> OutputCovariance(const XccyMcBasketSnapshot_& snapshot);
         [[nodiscard]] static XccyMcBasketResult_
         Evaluate(const PreparedXccyMcBasket_& prepared, const Handle_<XccyGaussianModelData_>& candidate, const Hook_& hook, bool reverse = false);
     };
