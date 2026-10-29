@@ -98,6 +98,9 @@ namespace Dal::XccyMcBasketInternal {
             }
         }
     } // namespace
+    Matrix_<> TestAccess_::OutputCovariance(const XccyMcBasketSnapshot_& snapshot) {
+        return XccyMcBasketInternal::OutputCovariance(snapshot);
+    }
     Vector_<> Row(const CalibrationAffineCoefficients_& c) {
         Check(c.db_.size() == c.da_.size(), "CalibrationContextMismatch", "/derivatives", "complete matching coefficient axes");
         Vector_<> row{c.b_, c.a_};
