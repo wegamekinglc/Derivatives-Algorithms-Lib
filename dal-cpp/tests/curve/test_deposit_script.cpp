@@ -261,7 +261,7 @@ TEST(DepositScriptTest, TestExplicitQuoteCopyRepricesNewMcBindingAndLeavesOldPla
     const auto after = PrepareCalibrationMc(changed, "Price", context, settings).Evaluate(changed, context, true);
     ASSERT_NEAR(before.mean_, Oracle(theta, false).value_, 1e-10);
     ASSERT_NEAR(after.mean_, 0., 1e-10);
-    ASSERT_THROW(old.Evaluate(changed, context, true), CalibrationError_);
+    ASSERT_THROW(static_cast<void>(old.Evaluate(changed, context, true)), CalibrationError_);
     ASSERT_EQ(before.pathValues_, old.Evaluate(instrument, context, true).pathValues_);
 }
 
@@ -381,16 +381,16 @@ TEST(DepositScriptTest, TestIndependentNativeAadAndMultipleInterpolationWeights)
 TEST(DepositScriptTest, TestCandidateRejectsChangedLayoutRoutesAndUncoveredDates) {
     const auto instrument = ImportedDeposit();
     const PreparedDepositCurve_ plan(instrument, CurveContext());
-    ASSERT_THROW(plan.Evaluate({}), CalibrationError_);
+    ASSERT_THROW(static_cast<void>(plan.Evaluate({})), CalibrationError_);
     const Handle_<GSRCurveData_> foreign(new GSRCurveData_("foreign", VALUE_DATE, "EUR", {VALUE_DATE, END_DATE}, {0., -.04}, {}, {}));
-    ASSERT_THROW(plan.Evaluate(foreign), CalibrationError_);
+    ASSERT_THROW(static_cast<void>(plan.Evaluate(foreign)), CalibrationError_);
     auto changed = CurveContext();
     changed.curve_.reset(new GSRCurveData_("changed", VALUE_DATE, "USD", {VALUE_DATE, Date_(2027, 4, 21)}, {0., -.02}, {}, {}));
-    ASSERT_THROW(plan.Evaluate(changed.curve_), CalibrationError_);
+    ASSERT_THROW(static_cast<void>(plan.Evaluate(changed.curve_)), CalibrationError_);
     ASSERT_THROW(PreparedDepositCurve_(instrument, changed), CalibrationError_);
     changed = CurveContext();
     changed.curve_.reset(new GSRCurveData_("projection", VALUE_DATE, "USD", {VALUE_DATE, END_DATE}, {0., -.04}, {"3M"}, Matrix_<>(1, 2, 0.)));
-    ASSERT_THROW(plan.Evaluate(changed.curve_), CalibrationError_);
+    ASSERT_THROW(static_cast<void>(plan.Evaluate(changed.curve_)), CalibrationError_);
     changed = CurveContext();
     changed.discountRoute_ = "EUR.OIS";
     ASSERT_THROW(PreparedDepositCurve_(instrument, changed), CalibrationError_);
@@ -410,7 +410,7 @@ TEST(DepositScriptTest, TestFastKernelCannotReturnNonfiniteRateForFiniteAffineVa
     const auto shared = PrepareCalibrationInstrument(instrument, "ParRate", context);
     ASSERT_TRUE(std::isfinite(shared.AffineMeasure(shared.Coefficients({1., std::exp(-710.)})).value_));
     const PreparedDepositCurve_ plan(instrument, context);
-    ASSERT_THROW(plan.Evaluate(context.curve_), CalibrationError_);
+    ASSERT_THROW(static_cast<void>(plan.Evaluate(context.curve_)), CalibrationError_);
 }
 
 TEST(DepositScriptTest, TestCancellationOverflowCannotReturnNonfinitePricePartial) {
@@ -423,7 +423,12 @@ TEST(DepositScriptTest, TestCancellationOverflowCannotReturnNonfinitePricePartia
         ASSERT_TRUE(std::isfinite(cashflowPartial));
         ASSERT_TRUE(std::isfinite(-5.8e307 + cashflowPartial));
         try {
-            static_cast<void>(plan.Evaluate(Candidate(std::log(2.))));
+            // FP contraction can avoid the intermediate overflow; never expose a non-finite partial.
+            const auto value = plan.Evaluate(Candidate(std::log(2.)));
+            ASSERT_EQ(value.price_.derivatives_.size(), 1);
+            for (const double derivative : value.price_.derivatives_)
+                ASSERT_TRUE(std::isfinite(derivative));
+            return;
         } catch (const CalibrationError_& error) {
             saved = error;
         }
@@ -582,7 +587,7 @@ TEST(DepositScriptTest, TestSmallBudgetAndRatioDenominatorCannotPassNumerics) {
     auto settings = SmallSettings();
     settings.annuitySigma_ = 1e9;
     const auto plan = PrepareCalibrationMc(instrument, "ParRate", context, settings);
-    ASSERT_THROW(plan.Evaluate(instrument, context, true), CalibrationError_);
+    ASSERT_THROW(static_cast<void>(plan.Evaluate(instrument, context, true)), CalibrationError_);
     settings = SmallSettings();
     settings.maxPathsPerView_ = 47;
     ASSERT_THROW(PrepareCalibrationMc(instrument, "Price", context, settings), CalibrationError_);

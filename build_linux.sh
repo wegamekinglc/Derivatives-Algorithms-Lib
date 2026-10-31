@@ -171,11 +171,11 @@ if [[ $COVERAGE == true ]]; then
             --print-summary --sort-percentage --decisions
     elif command -v lcov >/dev/null 2>&1; then
         lcov --capture --directory "$BUILD_DIR" --output-file "$DAL_DIR/coverage.info" \
-            --rc lcov_branch_coverage=1 --ignore-errors mismatch,gcov,empty,source,negative
+            --rc lcov_branch_coverage=1 --ignore-errors mismatch,gcov,empty,source,negative,inconsistent
         lcov --remove "$DAL_DIR/coverage.info" '*/externals/*' '*/tests/*' '*/build/*' '*/auto/*' '/usr/*' \
-            --output-file "$DAL_DIR/coverage_filtered.info" --ignore-errors empty,unused
+            --output-file "$DAL_DIR/coverage_filtered.info" --ignore-errors empty,unused,inconsistent
         genhtml "$DAL_DIR/coverage_filtered.info" --output-directory "$DAL_DIR/coverage" \
-            --branch-coverage --ignore-errors empty,corrupt
+            --branch-coverage --ignore-errors empty,corrupt,inconsistent
         echo "HTML report saved to $DAL_DIR/coverage/index.html"
     else
         echo "No coverage tool found (llvm-cov, gcovr, or lcov)."
