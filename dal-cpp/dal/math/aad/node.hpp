@@ -116,21 +116,29 @@ namespace Dal::AAD {
             adjoint_ = 0.0;
         }
 
-        template <size_t R_ = 0> void PropagateAll(size_t numAdj) {
+        template <size_t R_ = 0> void PropagateAll(size_t numAdj, bool knownActive = false) {
             if constexpr (R_ != 0)
                 numAdj = R_;
             if (!n_)
                 return;
-            bool any = false;
+            bool any = knownActive;
             if constexpr (R_ > 16) {
-                size_t active[R_];
                 size_t count = 0;
                 for (size_t j = 0; j < numAdj; ++j) {
-                    if (IsNonZero(pAdjoints_[j]))
-                        active[count++] = j;
+                    if (IsNonZero(pAdjoints_[j])) {
+                        ++count;
+                        if (count > R_ / 4)
+                            break;
+                    }
                 }
-                any = count != 0;
+                any = any || count != 0;
                 if (any && count <= R_ / 4) {
+                    size_t active[R_];
+                    size_t used = 0;
+                    for (size_t j = 0; j < numAdj; ++j) {
+                        if (IsNonZero(pAdjoints_[j]))
+                            active[used++] = j;
+                    }
                     double** destinations = pAdjPtrs_;
                     const double* derivatives = pDerivatives_;
                     const double* source = pAdjoints_;
@@ -147,13 +155,13 @@ namespace Dal::AAD {
                 }
                 if constexpr (R_ == 64) {
                     if (count > R_ / 4) {
-                        // Avoid fixed-width code bloat on dense 64-lane sweeps; sparse lanes retain the specialized path.
-                        PropagateAll<0>(numAdj);
+                        // Avoid fixed-width code bloat and a second activity scan on dense 64-lane sweeps.
+                        PropagateAll<0>(numAdj, true);
                         return;
                     }
                 }
             } else {
-                any = std::any_of(pAdjoints_, pAdjoints_ + numAdj, IsNonZero);
+                any = any || std::any_of(pAdjoints_, pAdjoints_ + numAdj, IsNonZero);
             }
             if (any) {
                 double** destinations = pAdjPtrs_;
