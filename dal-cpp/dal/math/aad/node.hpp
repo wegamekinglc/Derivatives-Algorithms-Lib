@@ -89,8 +89,25 @@ namespace Dal::AAD {
             if (!n_)
                 return;
             if (IsNonZero(adjoint_)) {
-                for (size_t i = 0; i < n_; ++i)
-                    *(pAdjPtrs_[i]) += adjoint_ * pDerivatives_[i];
+                double** destinations = pAdjPtrs_;
+                const double* derivatives = pDerivatives_;
+                switch (n_) {
+                case 1:
+                    *destinations[0] += adjoint_ * derivatives[0];
+                    break;
+                case 2:
+                    *destinations[0] += adjoint_ * derivatives[0];
+                    *destinations[1] += adjoint_ * derivatives[1];
+                    break;
+                case 3:
+                    *destinations[0] += adjoint_ * derivatives[0];
+                    *destinations[1] += adjoint_ * derivatives[1];
+                    *destinations[2] += adjoint_ * derivatives[2];
+                    break;
+                default:
+                    for (size_t i = 0; i < n_; ++i)
+                        *destinations[i] += adjoint_ * derivatives[i];
+                }
             }
             // Zero the consumed adjoint inline so the next propagation sweep starts
             // clean; this makes a separate ZeroAdjoints pass before each Jacobian
@@ -104,7 +121,34 @@ namespace Dal::AAD {
                 numAdj = R_;
             if (!n_)
                 return;
-            if (std::any_of(pAdjoints_, pAdjoints_ + numAdj, IsNonZero)) {
+            bool any = false;
+            if constexpr (R_ > 16) {
+                size_t active[R_];
+                size_t count = 0;
+                for (size_t j = 0; j < numAdj; ++j) {
+                    if (IsNonZero(pAdjoints_[j]))
+                        active[count++] = j;
+                }
+                any = count != 0;
+                if (any && count <= R_ / 4) {
+                    double** destinations = pAdjPtrs_;
+                    const double* derivatives = pDerivatives_;
+                    const double* source = pAdjoints_;
+                    for (size_t i = 0; i < n_; ++i) {
+                        const double derivative = derivatives[i];
+                        // Every selected lane is nonzero, so finite and non-finite derivatives share the same update.
+                        for (size_t k = 0; k < count; ++k) {
+                            const size_t j = active[k];
+                            destinations[i][j] += derivative * source[j];
+                        }
+                    }
+                    std::fill_n(pAdjoints_, numAdj, 0.0);
+                    return;
+                }
+            } else {
+                any = std::any_of(pAdjoints_, pAdjoints_ + numAdj, IsNonZero);
+            }
+            if (any) {
                 double** destinations = pAdjPtrs_;
                 const double* derivatives = pDerivatives_;
                 const double* source = pAdjoints_;

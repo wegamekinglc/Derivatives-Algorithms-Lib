@@ -240,7 +240,7 @@ namespace Dal::AAD {
             if (propagateEnd != propagateTo) {
                 const auto propagateFrom = std::prev(propagateEnd);
                 if (tape.multi_)
-                    PropagateMulti<1, 2, 4, 8, 10, 16>(tape, propagateFrom, propagateTo);
+                    PropagateMulti<1, 2, 4, 8, 10, 16, 32, 64>(tape, propagateFrom, propagateTo);
                 else
                     PropagateAdjoints<false>(tape, propagateFrom, propagateTo);
             }
