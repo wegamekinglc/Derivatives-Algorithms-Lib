@@ -21,6 +21,7 @@ namespace Dal {
 namespace Dal::Script {
     struct ExprNode_ : public Node_ {
         bool isConst_ = false;
+        bool isLiteral_ = false;
         double constVal_ = 0.0;
     };
 
@@ -120,6 +121,7 @@ namespace Dal::Script {
     struct NodeConst_ : public Visitable_<ExprNode_, NodeConst_, VISITORS> {
         explicit NodeConst_(double val) {
             ExprNode_::isConst_ = true;
+            ExprNode_::isLiteral_ = true;
             ExprNode_::constVal_ = val;
         }
     };

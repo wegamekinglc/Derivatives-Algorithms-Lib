@@ -53,6 +53,14 @@ namespace Dal::Script {
             return true;
         }
 
+        static bool LiteralArgs(const Node_& node) {
+            for (const auto& argument : node.arguments_) {
+                if (!Downcast<const ExprNode_>(argument)->isLiteral_)
+                    return false;
+            }
+            return true;
+        }
+
     public:
         using Visitor_<ConstProcessor_>::Visit;
 
@@ -69,8 +77,10 @@ namespace Dal::Script {
         template <class OP_> void VisitBinary(ExprNode_& node, const OP_& op) {
             VisitArguments(node);
             node.isConst_ = false;
+            node.isLiteral_ = false;
             if (ConstArgs(node)) {
                 node.isConst_ = true;
+                node.isLiteral_ = LiteralArgs(node);
                 const double lhs = Downcast<ExprNode_>(node.arguments_[0])->constVal_;
                 const double rhs = Downcast<ExprNode_>(node.arguments_[1])->constVal_;
                 node.constVal_ = op(lhs, rhs);
@@ -103,8 +113,10 @@ namespace Dal::Script {
         template <class OP_> void VisitUnary(ExprNode_& node, const OP_& op) {
             VisitArguments(node);
             node.isConst_ = false;
+            node.isLiteral_ = false;
             if (ConstArgs(node)) {
                 node.isConst_ = true;
+                node.isLiteral_ = LiteralArgs(node);
                 const auto arg = Downcast<ExprNode_>(node.arguments_[0])->constVal_;
                 node.constVal_ = op(arg);
             }
