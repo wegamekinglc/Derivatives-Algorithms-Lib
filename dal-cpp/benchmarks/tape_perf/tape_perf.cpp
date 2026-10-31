@@ -83,7 +83,7 @@ namespace {
         Bench::DoNotOptimize(&sink);
     }
 
-    void RunVectorCase(size_t width, const char* name, int repeats, bool diagnostics) {
+    void RunVectorCase(size_t width, const char* name, int repeats, bool diagnostics, bool sparse = false) {
         Clear(*Tape());
         auto resetter = SetNumResultsForAAD(true, width);
         Number_ seed(1.0);
@@ -99,13 +99,13 @@ namespace {
             name,
             [&]() {
                 for (size_t j = 0; j < width; ++j)
-                    topNode->Adjoint(j) = 1.0;
+                    topNode->Adjoint(j) = sparse && j != 0 ? 0.0 : 1.0;
                 PropagateToStart(*Tape());
                 sink += seedNode->Adjoint(0);
             },
             3, repeats));
         for (size_t j = 0; j < width; ++j)
-            Bench::VerifyAadResult(seedNode->Adjoint(j), ExpectedDerivative() * (repeats + 3));
+            Bench::VerifyAadResult(seedNode->Adjoint(j), sparse && j != 0 ? 0.0 : ExpectedDerivative() * (repeats + 3));
         Bench::DoNotOptimize(&sink);
         Clear(*Tape());
     }
@@ -194,7 +194,10 @@ int main(int argc, char** argv) {
     RunVectorCase(1, "PropagateToStart multi-mode (50K steps, 1 result)", kRepeats, diagnostics);
     RunVectorCase(4, "PropagateToStart multi-mode (50K steps, 4 results)", kRepeats, diagnostics);
     RunVectorCase(16, "PropagateToStart multi-mode (50K steps, 16 results)", kRepeats, diagnostics);
+    RunVectorCase(32, "PropagateToStart multi-mode (50K steps, 32 results)", kRepeats, diagnostics);
+    RunVectorCase(32, "PropagateToStart multi-mode sparse (50K steps, 32 results)", kRepeats, diagnostics, true);
     RunVectorCase(64, "PropagateToStart multi-mode (50K steps, 64 results)", kRepeats, diagnostics);
+    RunVectorCase(64, "PropagateToStart multi-mode sparse (50K steps, 64 results)", kRepeats, diagnostics, true);
     Clear(*Tape());
 
     return RunSegmentedPathBenchmarks(1, argv);

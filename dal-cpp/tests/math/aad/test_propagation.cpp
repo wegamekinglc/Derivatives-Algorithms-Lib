@@ -95,7 +95,7 @@ TEST(AADPropagationTest, TestSubnormalAndSignedZeroSeeds) {
 
 TEST(AADPropagationTest, TestVectorWidthsConsumeIntermediatesAndAccumulateAliasedInputs) {
     using namespace Dal::AAD;
-    for (size_t width : {1U, 2U, 3U, 4U, 5U, 7U, 8U, 10U, 15U, 16U, 17U, 33U}) {
+    for (size_t width : {1U, 2U, 3U, 4U, 5U, 7U, 8U, 10U, 15U, 16U, 17U, 32U, 33U, 64U}) {
         SCOPED_TRACE(::testing::Message() << "width=" << width);
         Clear(*Tape());
         {
@@ -199,4 +199,61 @@ TEST(AADPropagationTest, TestVectorNaNSeedIsNotDiscarded) {
         ASSERT_DOUBLE_EQ(inputNode->Adjoint(1), 0.0);
     }
     Clear(*Tape());
+}
+
+TEST(AADPropagationTest, TestWideSparseSeedsPreserveEveryChannel) {
+    using namespace Dal::AAD;
+    for (size_t width : {32U, 64U}) {
+        SCOPED_TRACE(width);
+        Clear(*Tape());
+        {
+            auto mode = SetNumResultsForAAD(true, width);
+            Number_ x = 2.0;
+            auto* inputNode = &*std::prev(Tape()->nodes_.End());
+            Number_ y = 3.0 * x * x + 5.0;
+            auto* outputNode = &*std::prev(Tape()->nodes_.End());
+            outputNode->Adjoint(1) = std::numeric_limits<double>::infinity();
+            outputNode->Adjoint(width / 2) = std::numeric_limits<double>::quiet_NaN();
+            outputNode->Adjoint(width - 1) = 2.0;
+            PropagateToStart(*Tape());
+            for (size_t j = 0; j < width; ++j) {
+                SCOPED_TRACE(j);
+                if (j == 1)
+                    ASSERT_EQ(inputNode->Adjoint(j), std::numeric_limits<double>::infinity());
+                else if (j == width / 2)
+                    ASSERT_TRUE(std::isnan(inputNode->Adjoint(j)));
+                else if (j == width - 1)
+                    ASSERT_DOUBLE_EQ(inputNode->Adjoint(j), 24.0);
+                else
+                    ASSERT_DOUBLE_EQ(inputNode->Adjoint(j), 0.0);
+                ASSERT_DOUBLE_EQ(outputNode->Adjoint(j), 0.0);
+            }
+        }
+        Clear(*Tape());
+    }
+}
+
+TEST(AADPropagationTest, TestWideSparseZeroSeedsSkipInfiniteDerivatives) {
+    using namespace Dal::AAD;
+    for (size_t width : {32U, 64U}) {
+        SCOPED_TRACE(width);
+        Clear(*Tape());
+        {
+            auto mode = SetNumResultsForAAD(true, width);
+            Number_ x = 0.0;
+            auto* inputNode = &*std::prev(Tape()->nodes_.End());
+            Number_ y = sqrt(x);
+            auto* outputNode = &*std::prev(Tape()->nodes_.End());
+            outputNode->Adjoint(width - 1) = 1.0;
+            PropagateToStart(*Tape());
+            for (size_t j = 0; j < width; ++j) {
+                SCOPED_TRACE(j);
+                if (j == width - 1)
+                    ASSERT_EQ(inputNode->Adjoint(j), std::numeric_limits<double>::infinity());
+                else
+                    ASSERT_DOUBLE_EQ(inputNode->Adjoint(j), 0.0);
+            }
+        }
+        Clear(*Tape());
+    }
 }
