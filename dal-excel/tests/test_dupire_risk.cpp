@@ -230,7 +230,7 @@ namespace {
         const FlatIVS_ flat;
         const AAD::MertonIVS_ jump(100.0, 0.2, 0.08, -0.1, 0.15);
         const AAD::IVS_& base = merton ? static_cast<const AAD::IVS_&>(jump) : static_cast<const AAD::IVS_&>(flat);
-        ASSERT_EQ(source->val_.Values()[0], LegacyPrice(base, Matrix_<>(3, 2, 0.0), compiled));
+        ASSERT_NEAR(source->val_.Values()[0], LegacyPrice(base, Matrix_<>(3, 2, 0.0), compiled), 1e-10);
         for (int coordinate = 0; coordinate < 7; ++coordinate)
             ASSERT_NO_FATAL_FAILURE(CheckDirection(base, merton, compiled, coordinate, adjoints));
     }

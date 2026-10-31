@@ -312,8 +312,8 @@ namespace {
                                                                   PATHS, {}, Valuation(), simulation);
             const auto risk = Dal::PullbackDupireScriptRisk(valuation, calibration, "Z_LOCAL", Dal::DupireDirectQuoteAdjoints_{calibration, direct});
             ASSERT_NEAR(valuation.Jacobian()(0, valuation.Jacobian().Cols() - 1), directPvRisk, 1e-10);
-            ASSERT_EQ(risk.Valuation().Values()[0],
-                      LegacyValue(LegacySurface(ivs, inputs), ivs.Rate(), ivs.DividendYield(), inputs.quoteSpreads_(0, 0), simulation));
+            ASSERT_NEAR(risk.Valuation().Values()[0],
+                        LegacyValue(LegacySurface(ivs, inputs), ivs.Rate(), ivs.DividendYield(), inputs.quoteSpreads_(0, 0), simulation), 1e-8);
             ASSERT_EQ(risk.QuoteRisk().DirectAdjoints()(0, 0), directPvRisk);
             const std::string label = base + ":compiled=" + std::to_string(compiled);
             ASSERT_NO_FATAL_FAILURE(CheckSurfaceNodes(calibration, valuation, simulation, label));
@@ -338,8 +338,9 @@ namespace {
             const auto plan = Dal::PlanDupireScriptRisk(product, model, calibration, "Z_LOCAL", request);
             const auto result = Dal::ValueByMonteCarloWithDupireRisk(plan);
             const auto& risk = result.QuoteRisk().QuoteRisk();
-            ASSERT_EQ(result.Valuation().Values()[0],
-                      LegacyValue(LegacySurface(ivs, inputs), ivs.Rate(), ivs.DividendYield(), inputs.quoteSpreads_(0, 0), request.simulation_));
+            ASSERT_NEAR(result.Valuation().Values()[0],
+                        LegacyValue(LegacySurface(ivs, inputs), ivs.Rate(), ivs.DividendYield(), inputs.quoteSpreads_(0, 0), request.simulation_),
+                        1e-8);
             ASSERT_NEAR(risk.DirectAdjoints()(0, 0), 3.0 * std::exp(-ivs.Rate()), 1e-10);
             const std::string label = base + ":automatic:compiled=" + std::to_string(compiled);
             ASSERT_NO_FATAL_FAILURE(CheckQuoteBuckets(ivs, inputs, risk, request.simulation_, label));

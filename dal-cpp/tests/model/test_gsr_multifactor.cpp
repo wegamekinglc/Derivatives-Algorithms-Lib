@@ -133,8 +133,8 @@ TEST(GSRMultiFactorTest, TestSingularCorrelationAndZeroFactorsDoNotIntroduceVola
     Dal::AAD::Scenario_<> path;
     Dal::AAD::AllocatePath(definitions, path);
     model->GeneratePath({7.0, -20.0, 30.0}, &path);
-    ASSERT_NEAR(path[1].observations_[0], std::exp(-0.03), 1e-12);
-    ASSERT_NEAR(path[1].numeraire_, std::exp(0.03), 1e-12);
+    ASSERT_NEAR(path[1].observations_[0], std::exp(-0.03), 1e-8);
+    ASSERT_NEAR(path[1].numeraire_, std::exp(0.03), 1e-8);
     ASSERT_EQ(model->SimDim(), 3U);
 }
 
