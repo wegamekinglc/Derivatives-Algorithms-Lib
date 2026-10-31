@@ -73,12 +73,14 @@ namespace Dal::Script {
                                      bool lsmc = false) {
             Vector_<Vector_<int>> nodes;
             Vector_<Vector_<>> constants;
+            nodes.reserve(events.size());
+            constants.reserve(events.size());
             for (const auto& event : events) {
                 Compiler_ compiler(fuzzy, observations.get(), historical, lsmc);
                 for (const auto& statement : event)
                     statement->Accept(compiler);
-                nodes.push_back(compiler.NodeStream());
-                constants.push_back(compiler.ConstStream());
+                nodes.push_back(compiler.TakeNodeStream());
+                constants.push_back(compiler.TakeConstStream());
             }
             ScriptCompiled_ result(std::move(nodes), std::move(constants));
             result.observations_ = std::move(observations);

@@ -55,8 +55,7 @@ namespace Dal::Script {
             return end;
         }
 
-        size_t IndexLiteralEnd(const String_& str, size_t start, const SourceLocation_& source) {
-            const auto open = WordEnd(str, start);
+        size_t IndexLiteralEnd(const String_& str, size_t start, size_t open, const SourceLocation_& source) {
             if (open == start || open == str.size() || str[open] != '[')
                 return start;
             return IndexSuffixEnd(str, IndexBodyEnd(str, open + 1, source), source);
@@ -156,15 +155,14 @@ namespace Dal::Script {
         SourceLocation_ source;
         for (size_t pos = 0; pos < str.size();) {
             AdvanceSource(str, pos, &source);
-            const auto end = IndexLiteralEnd(str, pos, source);
+            const auto wordEnd = WordEnd(str, pos);
+            const auto end = IndexLiteralEnd(str, pos, wordEnd, source);
             if (end != pos) {
                 result.emplace_back(pos, end);
                 pos = end;
-            } else if (IsWord(str[pos])) {
-                do {
-                    ++pos;
-                } while (pos < str.size() && IsWord(str[pos]));
-            } else
+            } else if (wordEnd != pos)
+                pos = wordEnd;
+            else
                 ++pos;
         }
         return result;
@@ -185,13 +183,14 @@ namespace Dal::Script {
             ApplyOrigins(origins, pos, &origin, &source);
             if (failureSource)
                 *failureSource = source;
-            const auto literalEnd = IndexLiteralEnd(str, pos, source);
+            const auto wordEnd = WordEnd(str, pos);
+            const auto literalEnd = IndexLiteralEnd(str, pos, wordEnd, source);
             if (literalEnd != pos) {
                 result.push_back({source, IndexLiteral_{str.substr(pos, literalEnd - pos)}});
                 pos = literalEnd;
                 continue;
             }
-            const auto end = ScriptTokenEnd(str, pos, source);
+            const auto end = wordEnd != pos ? wordEnd : ScriptTokenEnd(str, pos, source);
             result.push_back({source, String_(str.substr(pos, end - pos))});
             pos = end;
         }

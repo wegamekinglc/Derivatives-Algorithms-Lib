@@ -14,7 +14,7 @@ namespace Dal::Script::Detail::CompiledSoa {
     struct Instruction_ {
         int op_;
         size_t dst_ = 0, left_ = 0, right_ = 0;
-        double constant_ = 0.0;
+        double constant_ = 0.0, constant2_ = 0.0;
         size_t trueEnd_ = 0, end_ = 0;
     };
 
@@ -87,6 +87,10 @@ namespace Dal::Script::Detail::CompiledSoa {
             } else if (IsOneOf(op, {AddConst, SubConst, ConstSub, MultiConst, DivConst, ConstDiv, Max2Const, Min2Const, ConstMax2, ConstMin2})) {
                 item->dst_ = Top(*doubles);
                 item->constant_ = Constant(event, last, pc);
+            } else if (op == MultiAddConst) {
+                item->dst_ = Top(*doubles);
+                item->constant_ = Constant(event, last, pc);
+                item->constant2_ = Constant(event, last, pc);
             } else if (IsOneOf(op, {Sup, SupEqual, Equal})) {
                 item->left_ = Pop(doubles);
                 item->dst_ = (*booleans)++;
@@ -232,7 +236,7 @@ namespace Dal::Script::Detail::CompiledSoa {
             auto& b = state->booleans_;
             auto& v = state->variables_;
             const size_t x = i.dst_, y = i.right_;
-            const double k = i.constant_;
+            const double k = i.constant_, k2 = i.constant2_;
             // Dispatch once per opcode; the full-mask loop has contiguous lane storage.
 #define SOA_CASE(OP, EXPR)                                                                                                                           \
     case OP:                                                                                                                                         \
@@ -258,6 +262,7 @@ namespace Dal::Script::Detail::CompiledSoa {
                 SOA_CASE(SubConst, d[x][lane] -= k);
                 SOA_CASE(ConstSub, d[x][lane] = k - d[x][lane]);
                 SOA_CASE(MultiConst, d[x][lane] *= k);
+                SOA_CASE(MultiAddConst, d[x][lane] = d[x][lane] * k + k2);
                 SOA_CASE(DivConst, d[x][lane] /= k);
                 SOA_CASE(ConstDiv, d[x][lane] = k / d[x][lane]);
                 SOA_CASE(Max2Const, d[x][lane] = std::max(d[x][lane], k));

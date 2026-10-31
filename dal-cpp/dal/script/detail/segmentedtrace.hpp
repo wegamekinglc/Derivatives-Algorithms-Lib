@@ -25,15 +25,15 @@ namespace Dal::Script::Detail {
         Vector_<Vector_<size_t>> schedule_;
         size_t maximum_ = 0;
 
-        static std::array<size_t, ConstMin2 + 1> InstructionWidths() {
-            std::array<size_t, ConstMin2 + 1> result{};
+        static std::array<size_t, MultiAddConst + 1> InstructionWidths() {
+            std::array<size_t, MultiAddConst + 1> result{};
             for (const int op : {Add,  Sub, Multi, Div, Pow,    Max2, Min2,  Spot,     Equal,   Sup,      SupEqual,  And,        Or,
                                  Sqrt, Log, Exp,   Not, UMinus, True, False, FuzzyAnd, FuzzyOr, FuzzyNot, FuzzyTrue, FuzzyFalse, Discard})
                 result[op] = 1;
             for (const int op : {AddConst, SubConst, ConstSub, MultiConst, DivConst, ConstDiv, PowConst,   ConstPow,  Max2Const,       Min2Const,
                                  Var,      Const,    Assign,   Pays,       If,       ConstVar, FuzzyEqual, FuzzyComp, LoadObservation, VectorAppend})
                 result[op] = 2;
-            for (const int op : {AssignConst, PaysConst, PaysOn, IfElse, FuzzyEqualDiscrete, FuzzyCompDiscrete, VectorAssign})
+            for (const int op : {AssignConst, PaysConst, PaysOn, IfElse, FuzzyEqualDiscrete, FuzzyCompDiscrete, VectorAssign, MultiAddConst})
                 result[op] = 3;
             result[PaysOnConst] = 4;
             result[VectorRead] = result[VectorReduce] = 6;
@@ -88,7 +88,7 @@ namespace Dal::Script::Detail {
             size_t pc = 0;
             while (pc < stream.size()) {
                 const int op = stream[pc];
-                REQUIRE2(op >= 0 && op <= ConstMin2, "SegmentedTrace: unknown instruction", ScriptError_);
+                REQUIRE2(op >= 0 && op <= MultiAddConst, "SegmentedTrace: unknown instruction", ScriptError_);
                 const size_t width = op == FuzzyIf ? FuzzyWidth(stream, pc) : widths[op];
                 REQUIRE2(width && width <= stream.size() - pc, "SegmentedTrace: unsupported or truncated instruction", ScriptError_);
                 const size_t words = op == VectorReduce ? VectorWords(stream, pc, bounds) : static_cast<size_t>(ScalarTrace(op));

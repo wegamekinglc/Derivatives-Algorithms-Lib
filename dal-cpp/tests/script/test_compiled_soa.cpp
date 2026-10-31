@@ -61,6 +61,16 @@ TEST(CompiledSoaTest, TestRequestsLanesTailsAndSmallScalarBypass) {
     CheckRequests<64>();
 }
 
+TEST(CompiledSoaTest, TestMultiplyAddFusionMatchesScalar) {
+    const SingleWorker_ worker;
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2024, 1, 1));
+    ScriptProduct_ product({Cell_(Date_(2025, 1, 1))}, {"pay pays 2 * spot() + 3"});
+    product.PreProcess(false, false);
+    AAD::BlackScholes_<double> model(100.0, 0.2, 0.05, 0.02);
+    const auto expected = MCDoubleSimulation(product, &model, 129, "sobol", false, true);
+    ASSERT_DOUBLE_EQ(MCDoubleSimulationSoa<32>(product, &model, 129).aggregated_, expected.aggregated_);
+}
+
 TEST(CompiledSoaTest, TestPreparedHistoryObservationGridRngAndPrecision) {
     const SingleWorker_ worker;
     const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2024, 1, 1));

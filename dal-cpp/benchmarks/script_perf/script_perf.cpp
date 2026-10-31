@@ -90,6 +90,18 @@ namespace {
         Bench::DoNotOptimize(&sink);
         Report(label, timer.Elapsed<microseconds>(), ITERATIONS);
     }
+
+    void BenchmarkCompilation(const ScriptProduct_& product) {
+        constexpr size_t ITERATIONS = 2000;
+        size_t sink = 0;
+        Timer_ timer;
+        for (size_t i = 0; i < ITERATIONS; ++i) {
+            const auto program = product.Compile();
+            sink += program.NodeStreams().size();
+        }
+        Bench::DoNotOptimize(&sink);
+        Report("compile (lowering)", timer.Elapsed<microseconds>(), ITERATIONS);
+    }
 } // namespace
 
 int main() {
@@ -145,12 +157,21 @@ int main() {
 
     ScriptProduct_ scalar({Cell_(Date_(2022, 10, 25))}, {"pay PAYS SPOT() + 2 * SPOT()"});
     ScriptProduct_ vector({Cell_(Date_(2022, 10, 25))}, {"APPEND(v, SPOT()) APPEND(v, 2 * SPOT()) pay PAYS SUM(v)"});
+    ScriptProduct_ constant({Cell_(Date_(2022, 10, 25))}, {"pay PAYS 2 * 3 + 4"});
+    ScriptProduct_ fused({Cell_(Date_(2022, 10, 25))}, {"pay PAYS 2 * SPOT() + 3"});
+    ScriptProduct_ scheduled(dates, events);
     scalar.PreProcess(false, true);
     vector.PreProcess(false, true);
+    constant.PreProcess(false, true);
+    fused.PreProcess(false, true);
+    scheduled.PreProcess(false, true);
     BenchmarkEvaluation("scalar tree evaluation", scalar, false);
     BenchmarkEvaluation("vector tree evaluation", vector, false);
     BenchmarkEvaluation("scalar compiled evaluation", scalar, true);
     BenchmarkEvaluation("vector compiled evaluation", vector, true);
+    BenchmarkEvaluation("constant tree evaluation", constant, false);
+    BenchmarkEvaluation("fused compiled evaluation", fused, true);
+    BenchmarkCompilation(scheduled);
 
     return 0;
 }
