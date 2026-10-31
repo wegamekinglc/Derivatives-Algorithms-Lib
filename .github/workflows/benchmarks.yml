@@ -58,7 +58,7 @@ jobs:
           sudo apt install -y gcc-14 g++-14 make cmake time \
             libc++-dev autotools-dev autoconf libtool
 
-      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # @v10.3.0
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # @v10.3.2
 
       - name: Set up benchmark Python
         run: |
@@ -504,7 +504,7 @@ jobs:
       - name: Set up diagnostic toolchain
         run: |
           python3 .github/scripts/setup_dal469_toolchain.py
-      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # @v10.3.0
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # @v10.3.2
       - name: Set up diagnostic Python and CMake
         run: |
           uv venv .diagnostic-venv --python 3.13.17
