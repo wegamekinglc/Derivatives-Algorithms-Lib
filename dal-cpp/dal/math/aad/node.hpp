@@ -145,6 +145,13 @@ namespace Dal::AAD {
                     std::fill_n(pAdjoints_, numAdj, 0.0);
                     return;
                 }
+                if constexpr (R_ == 64) {
+                    if (count > R_ / 4) {
+                        // Avoid fixed-width code bloat on dense 64-lane sweeps; sparse lanes retain the specialized path.
+                        PropagateAll<0>(numAdj);
+                        return;
+                    }
+                }
             } else {
                 any = std::any_of(pAdjoints_, pAdjoints_ + numAdj, IsNonZero);
             }
