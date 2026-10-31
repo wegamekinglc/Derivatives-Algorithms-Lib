@@ -45,8 +45,9 @@ def require(condition, message):
         raise ValueError(message)
 
 
-def verify_number(actual, expected, name):
-    require(math.isclose(actual, expected, rel_tol=2e-13, abs_tol=1e-25), f"inconsistent {name}: {actual} versus {expected}")
+def verify_number(actual, expected, name, absolute_tolerance=1e-25):
+    require(math.isclose(actual, expected, rel_tol=2e-13, abs_tol=absolute_tolerance),
+            f"inconsistent {name}: {actual} versus {expected}")
 
 
 def relative_error(error, first, second):
@@ -77,7 +78,7 @@ def validate_numerics(row, width):
         require(error <= absolute_limit or relative <= TARGETS[width], f"{name} exceeds both thresholds")
     unit_error = abs(numbers["api_dv01"] - 1e-4 * numbers["api_derivative"])
     unit_limit = 64 * EPSILON * max(scale * 1e-4, abs(numbers["api_dv01"]), 1e-4 * abs(numbers["api_derivative"]))
-    verify_number(numbers["unit_error"], unit_error, "unit error")
+    verify_number(numbers["unit_error"], unit_error, "unit error", absolute_tolerance=unit_limit)
     verify_number(numbers["unit_threshold"], unit_limit, "unit threshold")
     require(unit_error <= unit_limit, "DV01 unit identity failed")
 

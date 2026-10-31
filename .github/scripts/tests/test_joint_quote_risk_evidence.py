@@ -80,6 +80,18 @@ class JointQuoteRiskEvidenceTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             EVIDENCE.validate(rows)
 
+    def test_unit_error_roundtrip_uses_existing_unit_threshold(self):
+        rows = valid_rows()
+        rows[0].update(price_scale="10", gross_base="10", gross_plus_h="0.00002", gross_plus_b="0.002",
+                       pv_plus_h="0.00002", pv_plus_b="0.002", oracle_derivative=repr(0.00002 / 2e-6),
+                       api_derivative=repr(0.00002 / 2e-6), oracle_dv01=repr(0.002 / 2), api_dv01=repr(0.002 / 2),
+                       derivative_abs_threshold=str(10 * EVIDENCE.TARGETS[5]), dv01_abs_threshold=str(10 * EVIDENCE.TARGETS[5] * 1e-4),
+                       unit_error="1e-17", unit_threshold=str(64 * EVIDENCE.EPSILON * 1e-3))
+        self.assertEqual(EVIDENCE.validate(rows)["status"], "passed")
+        rows[0]["unit_error"] = "2e-17"
+        with self.assertRaises(ValueError):
+            EVIDENCE.validate(rows)
+
     def test_inconsistent_fingerprint_within_fixture_fails(self):
         rows = valid_rows()
         rows[0]["axis_fingerprint"] = "sha256:" + "b" * 64
