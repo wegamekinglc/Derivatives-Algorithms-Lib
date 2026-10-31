@@ -121,42 +121,7 @@ namespace Dal::AAD {
                 numAdj = R_;
             if (!n_)
                 return;
-            bool any = false;
-            if constexpr (R_ == 32) {
-                size_t count = 0;
-                for (size_t j = 0; j < numAdj; ++j) {
-                    if (IsNonZero(pAdjoints_[j])) {
-                        ++count;
-                        if (count > R_ / 4)
-                            break;
-                    }
-                }
-                any = count != 0;
-                if (any && count <= R_ / 4) {
-                    size_t active[R_];
-                    size_t used = 0;
-                    for (size_t j = 0; j < numAdj; ++j) {
-                        if (IsNonZero(pAdjoints_[j]))
-                            active[used++] = j;
-                    }
-                    double** destinations = pAdjPtrs_;
-                    const double* derivatives = pDerivatives_;
-                    const double* source = pAdjoints_;
-                    for (size_t i = 0; i < n_; ++i) {
-                        const double derivative = derivatives[i];
-                        // Every selected lane is nonzero, so finite and non-finite derivatives share the same update.
-                        for (size_t k = 0; k < count; ++k) {
-                            const size_t j = active[k];
-                            destinations[i][j] += derivative * source[j];
-                        }
-                    }
-                    std::fill_n(pAdjoints_, numAdj, 0.0);
-                    return;
-                }
-            } else {
-                any = std::any_of(pAdjoints_, pAdjoints_ + numAdj, IsNonZero);
-            }
-            if (any) {
+            if (std::any_of(pAdjoints_, pAdjoints_ + numAdj, IsNonZero)) {
                 double** destinations = pAdjPtrs_;
                 const double* derivatives = pDerivatives_;
                 const double* source = pAdjoints_;
