@@ -423,7 +423,12 @@ TEST(DepositScriptTest, TestCancellationOverflowCannotReturnNonfinitePricePartia
         ASSERT_TRUE(std::isfinite(cashflowPartial));
         ASSERT_TRUE(std::isfinite(-5.8e307 + cashflowPartial));
         try {
-            static_cast<void>(plan.Evaluate(Candidate(std::log(2.))));
+            // FP contraction can avoid the intermediate overflow; never expose a non-finite partial.
+            const auto value = plan.Evaluate(Candidate(std::log(2.)));
+            ASSERT_EQ(value.price_.derivatives_.size(), 1);
+            for (const double derivative : value.price_.derivatives_)
+                ASSERT_TRUE(std::isfinite(derivative));
+            return;
         } catch (const CalibrationError_& error) {
             saved = error;
         }
