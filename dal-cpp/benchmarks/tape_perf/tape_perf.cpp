@@ -195,6 +195,7 @@ int main(int argc, char** argv) {
     RunVectorCase(4, "PropagateToStart multi-mode (50K steps, 4 results)", kRepeats, diagnostics);
     RunVectorCase(16, "PropagateToStart multi-mode (50K steps, 16 results)", kRepeats, diagnostics);
     RunVectorCase(32, "PropagateToStart multi-mode (50K steps, 32 results)", kRepeats, diagnostics);
+    RunVectorCase(32, "PropagateToStart multi-mode sparse (50K steps, 32 results)", kRepeats, diagnostics, true);
     RunVectorCase(64, "PropagateToStart multi-mode (50K steps, 64 results)", kRepeats, diagnostics);
     RunVectorCase(64, "PropagateToStart multi-mode sparse (50K steps, 64 results)", kRepeats, diagnostics, true);
     Clear(*Tape());
