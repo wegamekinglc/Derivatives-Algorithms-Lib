@@ -300,7 +300,9 @@ TEST(PortfolioAdmissionTest, TestJacobianNarrowingPreservesResultsUnderTheSameFi
         const auto explicitWidth = ValuePortfolioByMonteCarloWithJacobianRisk(data, 257, request, valuation, simulation);
         const auto reference = ValueByMonteCarloWithRisk(data->Products()[0], data->Models()[0], 257, {}, valuation, simulation);
         ASSERT_EQ(narrowed.Values(), explicitWidth.Values());
-        ASSERT_EQ(narrowed.Values(), Vector_<double>(2, reference.Values()[0]));
+        ASSERT_EQ(narrowed.Values().size(), 2);
+        for (const double value : narrowed.Values())
+            ASSERT_DOUBLE_EQ(value, reference.Values()[0]);
         const auto matrix = narrowed.Jacobian();
         const auto explicitMatrix = explicitWidth.Jacobian();
         for (int row = 0; row < 2; ++row) {
@@ -341,7 +343,9 @@ TEST(PortfolioAdmissionTest, TestPassiveJacobianPrivateHistoryAdmissionAndZeroTa
         request.scratchCapacityBudgetBytes_ = 64 * 1024 * 1024;
         const auto result = ValuePortfolioByMonteCarloWithJacobianRisk(data, 257, request, valuation, simulation);
         const auto reference = ValueByMonteCarloWithRisk(data->Products()[0], data->Models()[0], 257, {}, valuation, simulation);
-        ASSERT_EQ(result.Values(), Vector_<double>(2, reference.Values()[0]));
+        ASSERT_EQ(result.Values().size(), 2);
+        for (const double value : result.Values())
+            ASSERT_DOUBLE_EQ(value, reference.Values()[0]);
         ASSERT_EQ(result.Jacobian().Rows(), 2);
         ASSERT_EQ(result.Jacobian().Cols(), 0);
         ASSERT_EQ(result.Execution().peakRecordingBytes_, 0);
