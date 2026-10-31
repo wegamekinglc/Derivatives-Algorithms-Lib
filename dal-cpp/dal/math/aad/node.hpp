@@ -116,13 +116,13 @@ namespace Dal::AAD {
             adjoint_ = 0.0;
         }
 
-        template <size_t R_ = 0> void PropagateAll(size_t numAdj, bool knownActive = false) {
+        template <size_t R_ = 0> void PropagateAll(size_t numAdj) {
             if constexpr (R_ != 0)
                 numAdj = R_;
             if (!n_)
                 return;
-            bool any = knownActive;
-            if constexpr (R_ > 16) {
+            bool any = false;
+            if constexpr (R_ == 32) {
                 size_t count = 0;
                 for (size_t j = 0; j < numAdj; ++j) {
                     if (IsNonZero(pAdjoints_[j])) {
@@ -131,7 +131,7 @@ namespace Dal::AAD {
                             break;
                     }
                 }
-                any = any || count != 0;
+                any = count != 0;
                 if (any && count <= R_ / 4) {
                     size_t active[R_];
                     size_t used = 0;
@@ -153,15 +153,8 @@ namespace Dal::AAD {
                     std::fill_n(pAdjoints_, numAdj, 0.0);
                     return;
                 }
-                if constexpr (R_ == 64) {
-                    if (count > R_ / 4) {
-                        // Avoid fixed-width code bloat and a second activity scan on dense 64-lane sweeps.
-                        PropagateAll<0>(numAdj, true);
-                        return;
-                    }
-                }
             } else {
-                any = any || std::any_of(pAdjoints_, pAdjoints_ + numAdj, IsNonZero);
+                any = std::any_of(pAdjoints_, pAdjoints_ + numAdj, IsNonZero);
             }
             if (any) {
                 double** destinations = pAdjPtrs_;
