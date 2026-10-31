@@ -450,6 +450,13 @@ TEST(SegmentedScriptStateTest, TestVectorTraceKeepsLengthsIndividualChoicesAndSa
     ASSERT_TRUE(std::equal(first.begin(), first.begin() + 12, trace.begin()));
 }
 
+TEST(SegmentedScriptStateTest, TestMultiplyAddTracePlanAcceptsFusedInstruction) {
+    using namespace Script;
+    const ScriptCompiled_ program(Vector_<Vector_<int>>{{Spot, MultiAddConst, 0, 1, Assign, 0}}, Vector_<Vector_<>>{{2.0, 3.0}});
+    const Detail::SegmentedTracePlan_ plan(program, {}, {0}, 1);
+    ASSERT_EQ(plan.MaxWords(), 0U);
+}
+
 TEST(SegmentedScriptStateTest, TestTraceRejectsMalformedProgramsAndStorage) {
     using namespace Script;
     using Dal::ScriptError_;

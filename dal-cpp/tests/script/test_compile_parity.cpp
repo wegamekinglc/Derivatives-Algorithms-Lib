@@ -6,6 +6,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <map>
 #include <set>
 #include <string>
@@ -37,6 +38,52 @@ TEST(ScriptCompiledParityTest, TestParameterConditionRemainsLive) {
     state.ConstVarVals()[0] = -2.0;
     product.Compile().Evaluate(path, state);
     ASSERT_DOUBLE_EQ(state.VarVals()[product.PayOffIdx()], -4.0);
+}
+
+TEST(ScriptCompiledParityTest, TestConstantExpressionMatchesTreeAndCompiled) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    ScriptProduct_ product({Cell_(Date_(2026, 9, 22))}, {"pay PAYS 2 * 3 + 4"});
+    product.PreProcess(false, false);
+    Scenario_<double> path(1);
+    path[0].numeraire_ = 1.0;
+    auto tree = product.BuildEvaluator<double>();
+    product.Evaluate(path, tree);
+    ASSERT_DOUBLE_EQ(tree.VarVals()[product.PayOffIdx()], 10.0);
+    auto compiled = product.BuildEvalState<double>();
+    product.Compile().Evaluate(path, compiled);
+    ASSERT_DOUBLE_EQ(compiled.VarVals()[product.PayOffIdx()], 10.0);
+}
+
+TEST(ScriptCompiledParityTest, TestMultiplyAddFusionMatchesTreeAndPreservesRisk) {
+    const auto date = XGLOBAL::SetEvaluationDateInScope(Date_(2026, 9, 12));
+    const Vector_<Cell_> dates = {Cell_(Date_(2026, 9, 22))};
+    ScriptProduct_ product(dates, {"pay PAYS 2 * SPOT() + 3"});
+    product.PreProcess(false, false);
+    Scenario_<double> path(1);
+    path[0].spot_ = 100.0;
+    path[0].numeraire_ = 1.0;
+    auto tree = product.BuildEvaluator<double>();
+    product.Evaluate(path, tree);
+    ASSERT_DOUBLE_EQ(tree.VarVals()[product.PayOffIdx()], 203.0);
+    const auto program = product.Compile();
+    ASSERT_EQ(program.NodeStreams().size(), 1);
+    const auto& stream = program.NodeStreams()[0];
+    ASSERT_EQ(std::count(stream.begin(), stream.end(), MultiAddConst), 1);
+    ASSERT_EQ(std::count(stream.begin(), stream.end(), MultiConst), 0);
+    auto compiled = product.BuildEvalState<double>();
+    program.Evaluate(path, compiled);
+    ASSERT_DOUBLE_EQ(compiled.VarVals()[product.PayOffIdx()], 203.0);
+
+    const ScriptProductData_ data("", dates, {"pay PAYS 2 * SPOT() + 3"});
+    const Handle_<ModelData_> model(new BSModelData_("", 100.0, 0.0, 0.0, 0.0));
+    for (const bool useCompiled : {false, true}) {
+        MonteCarloSettings_ settings;
+        settings.compiled_ = useCompiled;
+        const auto result = MCSimulation<AAD::Number_>(data, model, 1, {}, settings);
+        ASSERT_DOUBLE_EQ(result.aggregated_, 203.0);
+        ASSERT_EQ(result.risks_.size(), 4);
+        ASSERT_DOUBLE_EQ(result.risks_[0], 2.0);
+    }
 }
 
 TEST(ScriptCompiledParityTest, TestVectorAverageMatchesTreeAndCompiled) {
@@ -774,7 +821,8 @@ namespace {
 
     bool IsTwoOperandOpcode(int op) {
         static const std::set<int> ops = {AssignConst,  PaysConst,    IfElse,           FuzzyEqualDiscrete, FuzzyCompDiscrete,
-                                          LsmcPaysConst, VectorAssign, PaysOn,          LsmcPaysOn,         LsmcFuzzyPaysOn};
+                                          LsmcPaysConst, VectorAssign, PaysOn,          LsmcPaysOn,         LsmcFuzzyPaysOn,
+                                          MultiAddConst};
         return ops.count(op) != 0;
     }
 
@@ -1145,9 +1193,10 @@ TEST(ScriptCompiledParityTest, TestOpcodeCoverage_AllReachableOpcodesExercised) 
     for (int op : {VectorRead, VectorAssign, VectorAppend, VectorReduce})
         ASSERT_EQ(fuzzyVectorSeen.count(op), 1u) << "missing vector opcode " << op;
     seen.insert(fuzzyVectorSeen.begin(), fuzzyVectorSeen.end());
+    MergeProductOpcodes("out pays 2 * spot() + 3", &seen);
 
     const std::set<int> unreachable = {};
-    for (const int op : {FuzzySub, FuzzySubConst, FuzzyConstSub, ConstMax2, ConstMin2})
+    for (const int op : {FuzzySub, FuzzySubConst, FuzzyConstSub, ConstMax2, ConstMin2, MultiAddConst})
         ASSERT_EQ(seen.count(op), 1U) << "missing extended opcode " << op;
     for (int op = Add; op <= FuzzyIf; ++op) {
         if (unreachable.count(op)) {
