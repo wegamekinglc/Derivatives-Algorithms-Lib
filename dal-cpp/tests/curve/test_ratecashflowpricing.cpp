@@ -274,7 +274,7 @@ namespace {
         ASSERT_TRUE(aad.eligible_);
         ASSERT_EQ(static_cast<int>(aad.gradient_.size()), expectedParameterCount);
         ASSERT_TRUE(passive.succeeded_);
-        ASSERT_NEAR(aad.pv_, passive.pv_, 1e-10);
+        ASSERT_NEAR(aad.pv_, passive.pv_, 1e-12 * std::max(1.0, std::abs(passive.pv_)));
         const auto preparedRisk = prepared.NodeSensitivities(market, {componentKey});
         ASSERT_EQ(preparedRisk.size(), 1);
         ASSERT_TRUE(preparedRisk[0].result_.eligible_);
@@ -3720,7 +3720,7 @@ TEST(RateCashflowPricingTest, TestIrsNodeAADBaseCurveIsolationOnLayeredCurves) {
         ASSERT_EQ(static_cast<int>(aad.gradient_.size()), 3);
         // The overlay is the active layer: matching PV, nonzero gradient on every overlay
         // node, while the double base stays passive and out of the tape.
-        ASSERT_NEAR(aad.pv_, passive.pv_, 1e-10);
+        ASSERT_NEAR(aad.pv_, passive.pv_, 1e-12 * std::max(1.0, std::abs(passive.pv_)));
         for (const double column : aad.gradient_)
             ASSERT_NE(column, 0.0);
 
