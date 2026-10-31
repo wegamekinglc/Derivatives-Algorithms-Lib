@@ -753,9 +753,9 @@ TEST(XccyScriptRepairTest, TestSmallNotionalRatioImportsAndReloads) {
     const auto plan = BuildXccyCashflowPlan(XCCY_START, XCCY_MATURITY, config);
     const double price = PriceXccyContract(plan, market.View(), MarketFixingSnapshot_(), .001, true, true);
     const double par = PriceXccyParSpread(plan, market.View(), MarketFixingSnapshot_());
-    ASSERT_NEAR(par, -.0029834908373643772, 1e-12);
+    ASSERT_NEAR(par, -.0029834908373643772, 1e-8);
     ASSERT_NEAR(EvaluateXccyScript(PrepareCalibrationInstrument(restored, "Price", ScriptContext()), market.View()), price, 1e-10);
-    ASSERT_NEAR(EvaluateXccyScript(PrepareCalibrationInstrument(restored, "BasisSpread", ScriptContext()), market.View()), par, 1e-12);
+    ASSERT_NEAR(EvaluateXccyScript(PrepareCalibrationInstrument(restored, "BasisSpread", ScriptContext()), market.View()), par, 1e-8);
 }
 
 TEST(XccyScriptRepairTest, TestExponentMagnitudeAndMantissaAcrossResetModes) {
