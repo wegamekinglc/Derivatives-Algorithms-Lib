@@ -91,6 +91,10 @@ namespace Dal::Script {
         }
 
         template <class OP_> FORCE_INLINE void VisitArithmetic(const ExprNode_& node, OP_ op) {
+            if (node.isConst_) {
+                dStack_.Push(T_(node.constVal_));
+                return;
+            }
             if constexpr (!std::is_same_v<T_, double>) {
                 const auto* left = Literal(node.arguments_[0]);
                 const auto* right = Literal(node.arguments_[1]);
@@ -141,6 +145,10 @@ namespace Dal::Script {
         FORCE_INLINE void Visit(const NodeMin_& node) { VisitExtremum(node, std::greater<>()); }
 
         template <class OP> FORCE_INLINE void VisitUnary(const ExprNode_& node, OP op) {
+            if (node.isConst_) {
+                dStack_.Push(T_(node.constVal_));
+                return;
+            }
             VisitNode(*node.arguments_[0]);
             op(dStack_.Top());
         }

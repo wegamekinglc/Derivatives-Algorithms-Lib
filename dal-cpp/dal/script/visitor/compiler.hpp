@@ -170,7 +170,9 @@ namespace Dal::Script {
         FuzzySubConst = 68,
         FuzzyConstSub = 69,
         ConstMax2 = 70,
-        ConstMin2 = 71
+        ConstMin2 = 71,
+        //  operands: multiplicative const index, additive const index
+        MultiAddConst = 72
     };
 
     class Compiler_ : public ConstVisitor_<Compiler_> {
@@ -190,6 +192,8 @@ namespace Dal::Script {
         using ConstVisitor_<Compiler_>::Visit;
         [[nodiscard]] const Vector_<int>& NodeStream() const { return nodeStream_; }
         [[nodiscard]] const Vector_<double>& ConstStream() const { return constStream_; }
+        Vector_<int> TakeNodeStream() { return std::move(nodeStream_); }
+        Vector_<double> TakeConstStream() { return std::move(constStream_); }
 
         void EmitVectorSource(const SourceLocation_& source) {
             nodeStream_.emplace_back(static_cast<int>(source.line_));
@@ -213,6 +217,18 @@ namespace Dal::Script {
                     constStream_.emplace_back(lhs->constVal_);
                 } else if (rhs->isConst_) {
                     node.arguments_[0]->Accept(*this);
+                    if constexpr (IfConstRight == AddConst) {
+                        const size_t size = nodeStream_.size();
+                        if (size >= 2 && nodeStream_[size - 2] == MultiConst) {
+                            const int multiplier = nodeStream_[size - 1];
+                            nodeStream_.Resize(size - 2);
+                            nodeStream_.emplace_back(MultiAddConst);
+                            nodeStream_.emplace_back(multiplier);
+                            nodeStream_.emplace_back(int(constStream_.size()));
+                            constStream_.emplace_back(rhs->constVal_);
+                            return;
+                        }
+                    }
                     nodeStream_.emplace_back(IfConstRight);
                     nodeStream_.emplace_back(int(constStream_.size()));
                     constStream_.emplace_back(rhs->constVal_);
@@ -1451,6 +1467,13 @@ namespace Dal::Script {
             const int op = event.nodeStream_[i];
             if (op == ConstMax2 || op == ConstMin2)
                 return EvalCompiledExtremum(event, i, statePtr);
+            if (op == MultiAddConst) {
+                auto& value = statePtr->dStack_.Top();
+                const double multiplier = event.constStream_[event.nodeStream_[i + 1]];
+                const double addend = event.constStream_[event.nodeStream_[i + 2]];
+                value = value * multiplier + addend;
+                return i + 3;
+            }
             // Keep vector dispatch off the hot path for scalar-only scripts.
             if (op >= VectorRead && op <= VectorReduce)
                 return EvalCompiledVector(event, i, statePtr);
