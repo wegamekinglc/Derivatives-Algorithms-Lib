@@ -89,8 +89,25 @@ namespace Dal::AAD {
             if (!n_)
                 return;
             if (IsNonZero(adjoint_)) {
-                for (size_t i = 0; i < n_; ++i)
-                    *(pAdjPtrs_[i]) += adjoint_ * pDerivatives_[i];
+                double** destinations = pAdjPtrs_;
+                const double* derivatives = pDerivatives_;
+                switch (n_) {
+                case 1:
+                    *destinations[0] += adjoint_ * derivatives[0];
+                    break;
+                case 2:
+                    *destinations[0] += adjoint_ * derivatives[0];
+                    *destinations[1] += adjoint_ * derivatives[1];
+                    break;
+                case 3:
+                    *destinations[0] += adjoint_ * derivatives[0];
+                    *destinations[1] += adjoint_ * derivatives[1];
+                    *destinations[2] += adjoint_ * derivatives[2];
+                    break;
+                default:
+                    for (size_t i = 0; i < n_; ++i)
+                        *destinations[i] += adjoint_ * derivatives[i];
+                }
             }
             // Zero the consumed adjoint inline so the next propagation sweep starts
             // clean; this makes a separate ZeroAdjoints pass before each Jacobian
