@@ -1,18 +1,25 @@
 # Active Codex Artifacts
 
-This directory holds decisions and evidence that still control ongoing work.
+This directory holds active decisions and evidence required by reproducible checks.
 Keep completed delivery records in Git and pull-request history; reusable
 current-state explanations belong in the published docs or focused references.
 
 ## Status and Evidence Scope
 
-DAL-425's independent stochastic XCCY acceptance remains in progress. Its
-implementation checkpoints and accepted upstream DAL-398–414, DAL-418 and
-DAL-419 controls are retained for the remaining DAL-396 acceptance work.
-Those predecessor issues are complete; their original “pending”, “blocked”,
-branch, CI and handoff statements describe the named checkpoint, not live
-issue status or the current master. Reuse requires the recorded source,
-dependency, configuration and executable provenance.
+DAL-396 and DAL-425 are closed. Their final handoff follows the user's
+unit-test/performance-gate scope; it does not qualify the full stochastic XCCY
+numerical matrix. Historical financial FAIL results and unqualified flags
+retain their original meaning. The controlled-execution and identity-collection
+continuation is stopped, not a pending instruction to start more work.
+
+Retained script/XCCY decisions, implementation checkpoints and private proof
+references bind frozen source identities and saved numerical evidence. They
+remain available for reproducibility, including exact-hash admission by
+`dal-cpp/tests/script/xccy_acceptance_fixed_output.py`; task closure does not
+make those inputs interchangeable with current source. Their original
+“pending”, “blocked”, branch, CI and handoff statements describe the named
+checkpoint, not live issue status or the current master. Reuse requires the
+recorded source, dependency, configuration and executable provenance.
 
 The API decisions preserve their design-baseline vocabulary and proposed
 signatures. The [script calibration guide](../../docs/methodology/script_calibration_contract.md)
@@ -23,7 +30,7 @@ An implemented interface does not establish full numerical acceptance.
 
 ## Current Maintenance
 
-- [DAL-436 documentation and agent consistency](documentation/dal-436-documentation-agent-consistency.md)
+- [DAL-479 documentation and agent consistency](documentation/dal-479-documentation-agent-consistency.md)
   — Complete tracked-file inventory, current-source corrections, agent equality
   evidence and reproducible documentation checks.
 
@@ -47,10 +54,22 @@ An implemented interface does not establish full numerical acceptance.
 - [Financial bias reference](validation/dal425-financial-bias-bound-reference.md).
 - [Finite-stream transform reference](validation/dal425-finite-stream-bias-reference.md).
 - [Joint-law applicability reference](validation/dal425-joint-law-applicability-reference.md).
+- [Saved fixed-output error reference](validation/dal425-fixed-output-error-reference.md).
 
 The independent acceptance record and references retain their bounded verdicts.
 Do not turn a passed control, a bias indicator or a completed implementation
 checkpoint into acceptance of the entire advertised matrix.
+
+## Retained Private Execution Controls
+
+- [Controlled execution support](implementation/dal425-controlled-support.md).
+- [Fixed profile and outer candidate](implementation/dal425-controlled-profile.md).
+- [Fixed caller allocation binding](implementation/dal425-controlled-caller.md).
+- [Codacy repair scope](implementation/dal425-codacy-repair.md).
+
+These notes describe the private tools and their limitations. They grant no
+product execution, new allocation or successor run; the stopped collection
+chain is not resumed by keeping its source and evidence.
 
 ## Upstream Implementation Controls
 
@@ -86,6 +105,21 @@ checkpoint into acceptance of the entire advertised matrix.
 - [DAL-419 installed encoding review](reviews/dal-419-installed-windows-encoding.md).
 
 ## Retired Records and Recovery
+
+Completed DAL-436 documentation maintenance, DAL-469 diagnostic repair,
+DAL-476 covariance repair and PR #651 review receipts are retired. Their
+current behavior is described in the documentation audit above, the
+[benchmark workflow](../references/benchmark-workflow.md), the
+[script calibration guide](../../docs/methodology/script_calibration_contract.md)
+and the [public example catalog](../../dal-public/README.md#examples).
+Exact receipts remain in [master snapshot 2ee93eff](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/tree/2ee93eff5026b3d7e9f297017f6d4e352e675888/.codex/artifacts):
+
+```bash
+git show 2ee93eff5026b3d7e9f297017f6d4e352e675888:.codex/artifacts/documentation/dal-436-documentation-agent-consistency.md
+git show 2ee93eff5026b3d7e9f297017f6d4e352e675888:.codex/artifacts/implementation/dal-469-benchmark-repair.md
+git show 2ee93eff5026b3d7e9f297017f6d4e352e675888:.codex/artifacts/implementation/dal-476-basket-covariance-overflow.md
+git show 2ee93eff5026b3d7e9f297017f6d4e352e675888:.codex/artifacts/reviews/pr651-full-review.md
+```
 
 DAL-379 market-IV delivery and DAL-387 benchmark-startup repair are complete.
 Their implementation, validation and review receipts are retired from this
