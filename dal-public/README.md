@@ -85,15 +85,44 @@ price/rate/volatility/strike-risk request. It shares the full native financial
 program with the example and reports detached per-step solve diagnostics.
 See [the financial contract](../docs/methodology/pde/aad.md#owning-financial-request).
 
-## Build and Test
+## Examples
 
-Facade examples live in `examples/` and link `DAL::public`. Enable
-`DAL_PUBLIC_BUILD_EXAMPLES` to build `aad_public_risk` and the script calibration
-programs. `interpolate_curve_script` constructs 13 dated swap/FRA definitions
-directly from DAL script rows and calibrates all three log-discount schemes;
-`xccy_script_calibration` likewise passes direct XCCY source cashflows to the
-shared staged calibrator. Core examples remain under `dal-cpp/examples/`, use
-native instruments, and depend only on `DAL::cpp`.
+Facade examples live in `examples/`, link `DAL::public`, and are enabled by
+`DAL_PUBLIC_BUILD_EXAMPLES` when `DAL_BUILD_PUBLIC` is on. Each directory below
+contains a program whose build target, CTest name and installed executable name
+match the directory name.
+
+| Program                                                                    | Shows                                                                      |
+|----------------------------------------------------------------------------|----------------------------------------------------------------------------|
+| [aad_public_risk](examples/aad_public_risk/)                               | Owning weighted-risk results and reporting coordinates                     |
+| [script_calibration](examples/script_calibration/)                         | Deposit calibration, fixed coupon pricing and explicit parameter rebinding |
+| [interpolate_curve_script](examples/interpolate_curve_script/)             | Thirteen direct swap/FRA scripts fitted with three log-discount schemes    |
+| [gsr_script_calibration](examples/gsr_script_calibration/)                 | Gaussian BondOption fit, same-path plain/AAD prices and native partials    |
+| [xccy_script_calibration](examples/xccy_script_calibration/)               | Direct XCCY source cashflows fitted by the staged curve calibrator         |
+| [xccy_script_monte_carlo](examples/xccy_script_monte_carlo/)               | Same-source stochastic XCCY fit, phased MC and a raw spot partial          |
+| [xccy_script_monte_carlo_basket](examples/xccy_script_monte_carlo_basket/) | Prepared mixed-mapping basket, covariance, owning partials and JSON        |
+
+From the repository root, build and run the deterministic curve examples:
+
+```bash
+cmake --preset core-dev -DDAL_BUILD_PUBLIC=ON -DDAL_PUBLIC_BUILD_EXAMPLES=ON
+cmake --build build/core-dev --target script_calibration interpolate_curve_script xccy_script_calibration --parallel
+ctest --test-dir build/core-dev -R '^(script_calibration|interpolate_curve_script|xccy_script_calibration)$' --output-on-failure
+```
+
+For example, run the interpolation program directly at
+`build/core-dev/dal-public/examples/interpolate_curve_script/interpolate_curve_script`;
+installation places it in `bin/`. Multi-configuration generators add the
+configuration directory, such as `Release`, to the build-tree run path.
+All seven programs are CTest `examples` smoke tests. Their small stochastic
+budgets demonstrate interfaces; they do not establish full numerical acceptance
+or calibrated quote risk. See the [script calibration guide](../docs/methodology/script_calibration_contract.md)
+for supported execution modes and statistical limits, and the
+[native AAD guide](../docs/examples.md#public-facade-and-owning-results) for the risk example.
+The [core examples](../dal-cpp/examples/README.md) retain their locations and
+depend only on `DAL::cpp`.
+
+## Build and Test
 
 The standard core profile builds and tests this component:
 

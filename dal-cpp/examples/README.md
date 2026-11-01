@@ -2,7 +2,7 @@
 
 Examples are grouped by their primary purpose. Every program uses core DAL APIs
 and links `DAL::cpp` (or its legacy `dal_library` alias). Public-facade examples
-have their own [guide](../../docs/examples.md#public-facade-and-owning-results) and build option.
+have their own [catalog](../../dal-public/README.md#examples) and build option.
 
 ## Products
 

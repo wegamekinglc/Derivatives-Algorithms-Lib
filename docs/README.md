@@ -12,6 +12,7 @@ the dedicated Python and Excel chapters, examples use C++ by default.
 - [Python interface](python/README.md) — bindings, settings, examples, and package usage.
 - [Excel interface](excel/README.md) — worksheet functions, handles, and examples.
 - [Native AAD examples](examples.md) — runnable operators, financial risk and worksheet recipes.
+- [Public C++ examples](../dal-public/README.md#examples) — script curve/GSR/XCCY calibration, phased MC and prepared baskets.
 - [Contributing](../CONTRIBUTING.md) — build, test, and review workflow.
 
 ## Quantitative Methods
