@@ -10,6 +10,7 @@ Structured payoffs and their script representation, pricing and sensitivities.
 
 | Program                                                  | Build target                  | Shows                                                                |
 |----------------------------------------------------------|-------------------------------|----------------------------------------------------------------------|
+| [autocallables](products/autocallables/)                 | `autocallables` (builds ten)  | Ten autocallable structures, double prices and smoothed AAD risk     |
 | [average_option_script](products/average_option_script/) | `average_option_script`       | Arithmetic-average call: conditional quadrature, Monte Carlo and AAD |
 | [basket_mc](products/basket_mc/)                         | `basket_mc`                   | Two-asset basket call and a conditional Black reference              |
 | [digital](products/digital/)                             | `digital`                     | Digital option pricing and sensitivities                             |

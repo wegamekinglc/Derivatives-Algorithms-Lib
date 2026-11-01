@@ -22,6 +22,7 @@ public/lib/*
 *.xlsx
 !dal-excel/examples/012.interpolate_curve_script.xlsx
 !dal-excel/examples/013.xccy_script_calibration.xlsx
+!dal-excel/examples/autocallables/*.xlsx
 notebooks
 share
 public/python/dal/dal.py
