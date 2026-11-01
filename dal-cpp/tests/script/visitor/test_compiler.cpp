@@ -813,3 +813,46 @@ TEST(CompilerTest, TestDirectFuzzyComparisonUsesDefaultEpsilon) {
         ASSERT_TRUE(state.dStack_.IsEmpty());
     }
 }
+
+TEST(CompilerTest, TestMultiplyAddFusionKeepsConstantIndicesAsOperands) {
+    for (const String_ expression : {"SPOT() * (SPOT() + 2) + 3", "(SPOT() + (SPOT() + 2)) + 3"}) {
+        Parser_ parser;
+        auto event = parser.Parse("a = 1 b = 2 c = 3 d = 4 e = 5 f = 6 result = " + expression);
+        VarIndexer_ indexer;
+        for (auto& statement : event)
+            statement->Accept(indexer);
+        ConstProcessor_ constants(indexer.VarNames().size());
+        Compiler_ compiler;
+        for (auto& statement : event) {
+            statement->Accept(constants);
+            statement->Accept(compiler);
+        }
+        EvalState_<double> state(Vector_<>(indexer.VarNames().size(), 0.0));
+        AAD::Sample_<double> sample;
+        sample.spot_ = 2.0;
+        EvalCompiled(compiler.NodeStream(), compiler.ConstStream(), sample, state);
+        ASSERT_DOUBLE_EQ(state.VarVals().back(), expression.front() == '(' ? 9.0 : 11.0);
+        ASSERT_TRUE(state.dStack_.IsEmpty());
+    }
+}
+
+TEST(CompilerTest, TestMultiplyAddFusionResetsWhenTakingStream) {
+    Parser_ parser;
+    Compiler_ compiler;
+    for (const String_ expression : {"2 * SPOT()", "SPOT() * SPOT() + 1"}) {
+        auto event = parser.Parse("result = " + expression);
+        VarIndexer_ indexer;
+        event[0]->Accept(indexer);
+        ConstProcessor_ constants(indexer.VarNames().size());
+        event[0]->Accept(constants);
+        event[0]->Accept(compiler);
+        const auto stream = compiler.TakeNodeStream();
+        const auto scalars = compiler.TakeConstStream();
+        EvalState_<double> state(Vector_<>{0.0});
+        AAD::Sample_<double> sample;
+        sample.spot_ = 2.0;
+        EvalCompiled(stream, scalars, sample, state);
+        ASSERT_DOUBLE_EQ(state.VarVals()[0], expression.front() == '2' ? 4.0 : 5.0);
+        ASSERT_TRUE(state.dStack_.IsEmpty());
+    }
+}

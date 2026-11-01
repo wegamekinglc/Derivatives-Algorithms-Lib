@@ -185,6 +185,16 @@ namespace Dal::Script {
         //  reads the recorded payments and exercise triples through LsmcSinks_
         const bool lsmc_;
 
+        size_t constantMultiplyEnd_ = static_cast<size_t>(-1);
+
+        template <NodeType_ Op_> void EmitBinaryConstant(double value) {
+            nodeStream_.emplace_back(Op_);
+            nodeStream_.emplace_back(int(constStream_.size()));
+            constStream_.emplace_back(value);
+            if constexpr (Op_ == MultiConst)
+                constantMultiplyEnd_ = nodeStream_.size();
+        }
+
     public:
         explicit Compiler_(bool fuzzy = false, const ObservationPlan_* observations = nullptr, bool historical = false, bool lsmc = false)
             : fuzzy_(fuzzy && !historical), observations_(observations), historical_(historical), lsmc_(lsmc && !historical) {}
@@ -192,7 +202,10 @@ namespace Dal::Script {
         using ConstVisitor_<Compiler_>::Visit;
         [[nodiscard]] const Vector_<int>& NodeStream() const { return nodeStream_; }
         [[nodiscard]] const Vector_<double>& ConstStream() const { return constStream_; }
-        Vector_<int> TakeNodeStream() { return std::move(nodeStream_); }
+        Vector_<int> TakeNodeStream() {
+            constantMultiplyEnd_ = static_cast<size_t>(-1);
+            return std::move(nodeStream_);
+        }
         Vector_<double> TakeConstStream() { return std::move(constStream_); }
 
         void EmitVectorSource(const SourceLocation_& source) {
@@ -212,14 +225,13 @@ namespace Dal::Script {
 
                 if (lhs->isConst_) {
                     node.arguments_[1]->Accept(*this);
-                    nodeStream_.emplace_back(IfConstLeft);
-                    nodeStream_.emplace_back(int(constStream_.size()));
-                    constStream_.emplace_back(lhs->constVal_);
+                    EmitBinaryConstant<IfConstLeft>(lhs->constVal_);
                 } else if (rhs->isConst_) {
                     node.arguments_[0]->Accept(*this);
                     if constexpr (IfConstRight == AddConst) {
-                        const size_t size = nodeStream_.size();
-                        if (size >= 2 && nodeStream_[size - 2] == MultiConst) {
+                        // Operand indices can have the same integer value as opcodes.
+                        if (constantMultiplyEnd_ == nodeStream_.size()) {
+                            const size_t size = nodeStream_.size();
                             const int multiplier = nodeStream_[size - 1];
                             nodeStream_.Resize(size - 2);
                             nodeStream_.emplace_back(MultiAddConst);
@@ -229,9 +241,7 @@ namespace Dal::Script {
                             return;
                         }
                     }
-                    nodeStream_.emplace_back(IfConstRight);
-                    nodeStream_.emplace_back(int(constStream_.size()));
-                    constStream_.emplace_back(rhs->constVal_);
+                    EmitBinaryConstant<IfConstRight>(rhs->constVal_);
                 } else {
                     node.arguments_[0]->Accept(*this);
                     node.arguments_[1]->Accept(*this);
