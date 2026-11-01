@@ -1,5 +1,11 @@
 # DAL-479：全量文档与 agent 契约一致性证据
 
+## 交付
+
+[PR #660](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/pull/660)，base `master`。
+主文档提交 `8b6378394f6f38e580026140826bd0f007a957bc`；后续提交仅登记本发布证据。
+Multica 已按 PR title 自动关联本 issue；外部 CI 运行中，由协调器安排独立验收。
+
 ## 基线与范围
 
 本轮实际执行 `multica repo checkout` 创建独立干净分支
@@ -97,7 +103,7 @@ roster 部分 role 摘要（如“不强制逐步 TDD”）不等同于 TOML 行
 
 - `python3 .github/scripts/check_docs.py`：121 个默认范围文件通过；其范围之外的文件同样参加下面全量检查。
 - `python3 -m unittest discover -s .github/scripts/tests -p test_check_docs.py -v`：34/34 通过。
-- 扩展程序：159 个交付 Markdown、8,174 个解析链接、673 个当前 DAL 名称；零结构/名称错误。
+- 扩展程序：159 个交付 Markdown、8,175 个解析链接、673 个当前 DAL 名称；零结构/名称错误。
 - 十个 TOML、十个 Claude frontmatter/body、五个 SKILL、一个 skill YAML、三对规则镜像全部通过。
 - 十个 Multica agent 契约一致，description/instructions 写入零；前后 roster 与受保护字段相同。
 - 七个 public 示例与 CMake 注册逐项一致；全部 49 个现存 Markdown 产物均已登记到索引。
