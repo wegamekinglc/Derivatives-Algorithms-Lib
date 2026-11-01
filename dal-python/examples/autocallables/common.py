@@ -47,6 +47,35 @@ VOL = 0.20
 SMOOTH = 0.001
 
 
+def coupon_or_knock_in(case, period):
+    if not case.phoenix:
+        return [f"if performance < {case.knock_in:.12f} then is_ki = 1 end"]
+    coupon = case.coupon * period
+    script = [f"unpaid = unpaid + {coupon:.12f}"] if case.memory else []
+    amount = "unpaid" if case.memory else f"{coupon:.12f}"
+    payment = f"pay PAYS alive * {amount}"
+    if case.memory:
+        payment += " unpaid = 0"
+    script.append(payment if case.protected else f"if performance >= 0.8 then {payment} end")
+    return script
+
+
+def maturity_events(case, accrued):
+    script = []
+    if case.protected:
+        redemption = "1"
+    elif case.phoenix:
+        script.append(f"is_ki = 0 if performance < {case.knock_in:.12f} then is_ki = 1 end")
+        redemption = "1 - is_ki + is_ki * MIN(performance, 1)"
+    else:
+        downside = f"MIN(performance / {case.knock_in:.12f}, 1)" if case.airbag else "MIN(performance, 1)"
+        redemption = f"(1 - is_ki) * {1.0 + case.coupon * accrued:.12f} + is_ki * {downside}"
+        if case.participation:
+            redemption += f" + {case.participation:.12f} * MAX(performance - 1, 0)"
+    script.append(f"pay PAYS alive * ({redemption})")
+    return script
+
+
 def build_events(case):
     dates = [TODAY, *OBSERVATIONS]
     events = ["alive = 1 is_ki = 0 unpaid = 0"]
@@ -55,37 +84,13 @@ def build_events(case):
         accrued = (observation - TODAY).days / 365.0
         period = (observation - previous).days / 365.0
         performance = "MIN(FIX(EQ[A]) / 100, FIX(EQ[B]) / 120)" if case.worst_of else "SPOT()"
-        script = [f"performance = {performance}"]
-        if not case.phoenix:
-            script.append(f"if performance < {case.knock_in:.12f} then is_ki = 1 end")
-        else:
-            coupon = case.coupon * period
-            if case.memory:
-                script.append(f"unpaid = unpaid + {coupon:.12f}")
-            amount = "unpaid" if case.memory else f"{coupon:.12f}"
-            payment = f"pay PAYS alive * {amount}"
-            if case.memory:
-                payment += " unpaid = 0"
-            if case.protected:
-                script.append(payment)
-            else:
-                script.append(f"if performance >= 0.8 then {payment} end")
+        script = [f"performance = {performance}", *coupon_or_knock_in(case, period)]
         if month >= case.first_call:
             barrier = max(0.85, case.knock_out - case.step_down * (month - 1))
             redemption = 1.0 if case.phoenix else 1.0 + case.coupon * accrued
             script.append(f"if performance >= {barrier:.12f} then pay PAYS alive * {redemption:.12f} alive = 0 end")
         if month == 12:
-            if case.protected:
-                redemption = "1"
-            elif case.phoenix:
-                script.append(f"is_ki = 0 if performance < {case.knock_in:.12f} then is_ki = 1 end")
-                redemption = "1 - is_ki + is_ki * MIN(performance, 1)"
-            else:
-                downside = f"MIN(performance / {case.knock_in:.12f}, 1)" if case.airbag else "MIN(performance, 1)"
-                redemption = f"(1 - is_ki) * {1.0 + case.coupon * accrued:.12f} + is_ki * {downside}"
-                if case.participation:
-                    redemption += f" + {case.participation:.12f} * MAX(performance - 1, 0)"
-            script.append(f"pay PAYS alive * ({redemption})")
+            script.extend(maturity_events(case, accrued))
         events.append("\n".join(script))
         previous = observation
     return dates, events

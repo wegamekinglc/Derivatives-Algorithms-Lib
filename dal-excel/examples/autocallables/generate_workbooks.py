@@ -16,10 +16,7 @@ sys.modules[SPEC.name] = examples
 SPEC.loader.exec_module(examples)
 
 
-def workbook(case):
-    book = Workbook()
-    book.remove(book.active)
-    book.calculation = CalcProperties(calcMode="auto", fullCalcOnLoad=True)
+def add_notes(book, case):
     notes = book.create_sheet("Read me")
     for row in (
         (case.title,),
@@ -38,6 +35,8 @@ def workbook(case):
         notes.append(row)
     notes.column_dimensions["A"].width = 115
 
+
+def add_inputs(book, case):
     inputs = book.create_sheet("Inputs")
     for row in (
         ("Model / simulation input", "Value"),
@@ -66,14 +65,22 @@ def workbook(case):
             inputs[f"{key_column}{row}"] = key
             inputs[f"{value_column}{row}"] = value
     if case.worst_of:
-        for cell, value in {
-            "E14": "Index", "F14": "Spot", "G14": "Vol", "H14": "Div",
-            "E15": "EQ[A]", "F15": "=$B$5", "G15": "=$B$6", "H15": "=$B$8",
-            "E16": "EQ[B]", "F16": "=$B$9", "G16": "=$B$10", "H16": "=$B$11",
-            "K13": "Correlation", "K14": 1.0, "L14": "=$B$12", "K15": "=$B$12", "L15": 1.0,
-        }.items():
-            inputs[cell] = value
+        add_correlated_inputs(inputs)
+    for column in "EFGHIJKL":
+        inputs.column_dimensions[column].width = 23
 
+
+def add_correlated_inputs(inputs):
+    for cell, value in {
+        "E14": "Index", "F14": "Spot", "G14": "Vol", "H14": "Div",
+        "E15": "EQ[A]", "F15": "=$B$5", "G15": "=$B$6", "H15": "=$B$8",
+        "E16": "EQ[B]", "F16": "=$B$9", "G16": "=$B$10", "H16": "=$B$11",
+        "K13": "Correlation", "K14": 1.0, "L14": "=$B$12", "K15": "=$B$12", "L15": 1.0,
+    }.items():
+        inputs[cell] = value
+
+
+def add_events(book, case):
     events = book.create_sheet("Events")
     events.append(("Event date", "Script (editable contract terms)"))
     dates, scripts = examples.build_events(case)
@@ -83,7 +90,10 @@ def workbook(case):
         events.cell(events.max_row, 2).alignment = Alignment(wrap_text=True, vertical="top")
         events.row_dimensions[events.max_row].height = 16 * (script.count("\n") + 1)
     events.column_dimensions["B"].width = 125
+    return len(dates)
 
+
+def add_pricing(book, case, event_count):
     pricing = book.create_sheet("Pricing")
     pricing.append((case.title,))
     model = (
@@ -91,7 +101,7 @@ def workbook(case):
         if case.worst_of else 'BSMODELDATA.NEW("model",Inputs!B5,Inputs!B6,Inputs!B7,Inputs!B8)'
     )
     for row, (label, formula) in enumerate((
-        ("Product", f'PRODUCT.NEW("{case.slug}",Events!A2:A{len(dates) + 1},Events!B2:B{len(dates) + 1})'),
+        ("Product", f'PRODUCT.NEW("{case.slug}",Events!A2:A{event_count + 1},Events!B2:B{event_count + 1})'),
         ("Model", model),
         ("Valuation", 'SCRIPTVALUATIONSETTINGS.NEW("valuation",Inputs!E2:F3)'),
         ("Plain settings", 'MONTECARLOSETTINGS.NEW("plain",Inputs!E6:F10)'),
@@ -110,17 +120,28 @@ def workbook(case):
         pricing.cell(row, 2).number_format = "0.000000"
     pricing["B10"].number_format = "0.000000"
 
+
+def format_sheets(book):
     for sheet in book:
         sheet.freeze_panes = "B2"
-        if sheet != notes:
+        if sheet.title != "Read me":
             sheet.column_dimensions["A"].width = 40
-            if sheet != events:
+            if sheet.title != "Events":
                 sheet.column_dimensions["B"].width = 30
         for cell in sheet[1]:
             cell.font = Font(color="FFFFFF", bold=True)
             cell.fill = PatternFill("solid", fgColor="203864")
-    for column in "EFGHIJKL":
-        inputs.column_dimensions[column].width = 23
+
+
+def workbook(case):
+    book = Workbook()
+    book.remove(book.active)
+    book.calculation = CalcProperties(calcMode="auto", fullCalcOnLoad=True)
+    add_notes(book, case)
+    add_inputs(book, case)
+    event_count = add_events(book, case)
+    add_pricing(book, case, event_count)
+    format_sheets(book)
     return book
 
 

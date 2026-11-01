@@ -1,13 +1,15 @@
 import importlib.util
 from pathlib import Path
+import sys
 
 import dal
 import pytest
 
 
 EXAMPLES = Path(__file__).resolve().parents[1] / "examples" / "autocallables"
-SPEC = importlib.util.spec_from_file_location("autocallable_examples", EXAMPLES / "common.py")
+SPEC = importlib.util.spec_from_file_location("autocallable_python_examples", EXAMPLES / "common.py")
 examples = importlib.util.module_from_spec(SPEC)
+sys.modules[SPEC.name] = examples
 SPEC.loader.exec_module(examples)
 
 

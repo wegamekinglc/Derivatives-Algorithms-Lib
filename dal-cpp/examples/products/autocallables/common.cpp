@@ -28,6 +28,36 @@ namespace Dal::Examples::Autocallables {
         return String_(out.str());
     }
 
+    String_ CouponOrKnockIn(const Case_& terms, double period) {
+        if (!terms.phoenix_)
+            return "if performance < " + Literal(terms.knockIn_) + " then is_ki = 1 end\n";
+        const double coupon = terms.coupon_ * period;
+        String_ script;
+        if (terms.memory_)
+            script += "unpaid = unpaid + " + Literal(coupon) + "\n";
+        const String_ amount = terms.memory_ ? String_("unpaid") : Literal(coupon);
+        String_ payment = "pay PAYS alive * " + amount;
+        if (terms.memory_)
+            payment += " unpaid = 0";
+        return script + (terms.protected_ ? payment + "\n" : "if performance >= 0.8 then " + payment + " end\n");
+    }
+
+    String_ MaturityEvents(const Case_& terms, double accrued) {
+        String_ script, redemption;
+        if (terms.protected_) {
+            redemption = "1";
+        } else if (terms.phoenix_) {
+            script = "is_ki = 0 if performance < " + Literal(terms.knockIn_) + " then is_ki = 1 end\n";
+            redemption = "1 - is_ki + is_ki * MIN(performance, 1)";
+        } else {
+            const String_ downside = terms.airbag_ ? "MIN(performance / " + Literal(terms.knockIn_) + ", 1)" : String_("MIN(performance, 1)");
+            redemption = "(1 - is_ki) * " + Literal(1.0 + terms.coupon_ * accrued) + " + is_ki * " + downside;
+            if (terms.participation_ != 0.0)
+                redemption += " + " + Literal(terms.participation_) + " * MAX(performance - 1, 0)";
+        }
+        return script + "pay PAYS alive * (" + redemption + ")\n";
+    }
+
     Script::ScriptProductData_ Product(const Case_& terms) {
         const Date_ today(2026, 1, 2);
         Vector_<Cell_> dates = {Cell_(today)};
@@ -39,38 +69,14 @@ namespace Dal::Examples::Autocallables {
             const double period = (observation - previous) / 365.0;
             String_ script = "performance = ";
             script += terms.worstOf_ ? "MIN(FIX(EQ[A]) / 100, FIX(EQ[B]) / 120)\n" : "SPOT()\n";
-            if (!terms.phoenix_) {
-                script += "if performance < " + Literal(terms.knockIn_) + " then is_ki = 1 end\n";
-            } else {
-                const double coupon = terms.coupon_ * period;
-                if (terms.memory_)
-                    script += "unpaid = unpaid + " + Literal(coupon) + "\n";
-                const String_ amount = terms.memory_ ? String_("unpaid") : Literal(coupon);
-                String_ payment = "pay PAYS alive * " + amount;
-                if (terms.memory_)
-                    payment += " unpaid = 0";
-                script += terms.protected_ ? payment + "\n" : "if performance >= 0.8 then " + payment + " end\n";
-            }
+            script += CouponOrKnockIn(terms, period);
             if (month >= terms.firstCall_) {
                 const double barrier = std::max(0.85, terms.knockOut_ - terms.stepDown_ * (month - 1));
                 const double redemption = terms.phoenix_ ? 1.0 : 1.0 + terms.coupon_ * accrued;
                 script += "if performance >= " + Literal(barrier) + " then pay PAYS alive * " + Literal(redemption) + " alive = 0 end\n";
             }
-            if (month == 12) {
-                String_ redemption;
-                if (terms.protected_) {
-                    redemption = "1";
-                } else if (terms.phoenix_) {
-                    script += "is_ki = 0 if performance < " + Literal(terms.knockIn_) + " then is_ki = 1 end\n";
-                    redemption = "1 - is_ki + is_ki * MIN(performance, 1)";
-                } else {
-                    const String_ downside = terms.airbag_ ? "MIN(performance / " + Literal(terms.knockIn_) + ", 1)" : String_("MIN(performance, 1)");
-                    redemption = "(1 - is_ki) * " + Literal(1.0 + terms.coupon_ * accrued) + " + is_ki * " + downside;
-                    if (terms.participation_ != 0.0)
-                        redemption += " + " + Literal(terms.participation_) + " * MAX(performance - 1, 0)";
-                }
-                script += "pay PAYS alive * (" + redemption + ")\n";
-            }
+            if (month == 12)
+                script += MaturityEvents(terms, accrued);
             dates.emplace_back(observation);
             events.push_back(script);
             previous = observation;

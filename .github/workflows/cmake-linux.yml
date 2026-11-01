@@ -334,6 +334,7 @@ jobs:
       - name: Verify scripted calibration workbook contracts
         run: |
           uv run --no-project --python 3.11 --with openpyxl==3.1.5 --with defusedxml==0.7.1 python -m unittest discover -s scripts/tests -p test_script_calibration_workbooks.py -v
+          uv run --no-project --python 3.11 --with openpyxl==3.1.5 --with defusedxml==0.7.1 --with pytest python -m pytest dal-excel/tests/test_autocallable_workbooks.py -q
           python3 -S -m unittest discover -s .github/scripts/tests -p test_script_calibration_examples.py -v
           python3 -S -O -m unittest discover -s .github/scripts/tests -p test_script_calibration_examples.py -v
 

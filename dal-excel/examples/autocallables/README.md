@@ -41,3 +41,23 @@ array contracts with:
 ```bash
 python -m pytest dal-excel/tests/test_autocallable_workbooks.py -q
 ```
+
+These checks also regenerate each workbook in memory and compare its package
+contents, excluding creation/modification timestamps. They require `pytest`,
+`openpyxl>=3.1` and `defusedxml` and run in the documentation CI job.
+
+For native recalculation, build the XLL and Python bindings from the same
+checkout, and install `pytest` and `pywin32` into that Python environment.
+From PowerShell at the repository root:
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path build/Release-windows/dal-python).Path
+$env:DAL_EXCEL_XLL = (Resolve-Path build/Release-windows/dal-excel/dal_excel.xll).Path
+python -m pytest dal-excel/tests/test_autocallable_excel.py -q
+```
+
+The test opens all ten committed workbooks read-only in a separate Excel
+instance, recalculates their default 16384 paths, and compares every double/AAD
+output with Python to an absolute tolerance of `1e-10`. It checks worksheet
+errors, bumps and restores spot A, and verifies that source file hashes stay
+unchanged. Without Windows and `DAL_EXCEL_XLL`, this opt-in test is skipped.
