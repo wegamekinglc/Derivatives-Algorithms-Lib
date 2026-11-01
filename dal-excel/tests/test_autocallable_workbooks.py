@@ -16,6 +16,17 @@ sys.modules[SPEC.name] = examples
 SPEC.loader.exec_module(examples)
 
 
+def xml_content(element, ignore_timestamps=False):
+    timestamps = {"{http://purl.org/dc/terms/}created", "{http://purl.org/dc/terms/}modified"}
+    return (
+        element.tag,
+        tuple(sorted(element.attrib.items())),
+        element.text,
+        element.tail,
+        tuple(xml_content(child, ignore_timestamps) for child in element if not (ignore_timestamps and child.tag in timestamps)),
+    )
+
+
 @pytest.mark.parametrize("number,case", list(enumerate(examples.CASES.values(), start=1)), ids=lambda item: getattr(item, "slug", str(item)))
 def test_committed_excel_contracts_match_python(number, case):
     path = ROOT / "dal-excel/examples/autocallables" / f"{number:03d}.{case.slug}.xlsx"
@@ -48,5 +59,9 @@ def test_generator_reproduces_committed_workbooks(number, case):
     with ZipFile(directory / f"{number:03d}.{case.slug}.xlsx") as committed, ZipFile(output) as generated:
         assert set(committed.namelist()) == set(generated.namelist())
         for name in committed.namelist():
-            if name != "docProps/core.xml":
-                assert committed.read(name) == generated.read(name), name
+            original, rebuilt = committed.read(name), generated.read(name)
+            if name.endswith((".xml", ".rels")):
+                ignore_timestamps = name == "docProps/core.xml"
+                assert xml_content(fromstring(original), ignore_timestamps) == xml_content(fromstring(rebuilt), ignore_timestamps), name
+            else:
+                assert original == rebuilt, name
