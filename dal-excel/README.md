@@ -51,6 +51,13 @@ joint XCCY as described below. The
 [Excel interface chapter](../docs/excel/README.md) lists the primary worksheet
 families.
 
+## Autocallable Examples
+
+Ten [autocallable workbooks](examples/autocallables/README.md) provide matching
+snowball, Phoenix, memory-coupon, airbag, principal-protected, participation and
+two-asset worst-of examples. Each has editable payoff scripts and model inputs,
+plus worksheet formulas for double and smoothed AAD valuation.
+
 ## Direct-Script Curve Calibration Examples
 
 [012.interpolate_curve_script.xlsx](examples/012.interpolate_curve_script.xlsx)

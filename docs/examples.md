@@ -1,5 +1,10 @@
 # Native AAD Examples
 
+The matching [C++](../dal-cpp/examples/products/autocallables/README.md),
+[Python](../dal-python/examples/autocallables/README.md) and
+[Excel](../dal-excel/examples/autocallables/README.md) autocallable collections
+cover ten contract structures with double prices and smoothed AAD derivatives.
+
 These programs use DAL's built-in native AAD. Start with the workflow below;
 each link points to executable source or a complete worksheet recipe. The
 [installation guide](installation.md#native-aad-configuration) owns build options,

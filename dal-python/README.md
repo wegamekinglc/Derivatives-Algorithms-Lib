@@ -233,6 +233,10 @@ deployment only; their output is not a PyPI release artifact.
 
 ## Usage
 
+Ten matching [autocallable examples](examples/autocallables/README.md) cover
+snowball, Phoenix, coupon memory, airbag, capital protection, participation and
+two-asset worst-of contracts, with double prices and smoothed AAD derivatives.
+
 ### Basic Pricing Example
 
 ```python

@@ -1,3 +1,4 @@
+add_subdirectory(autocallables)
 add_subdirectory(average_option_script)
 add_subdirectory(basket_mc)
 add_subdirectory(digital)
