@@ -250,10 +250,12 @@ use build-tree binaries on both platforms, retain each test's output and exit st
 continue through remaining cases after a process failure before failing the step.
 
 The scheduled native gate enables `--retry-identical-binaries`. It records executable
-SHA-256 identities before and after sampling. When every selected base/head executable
-is byte-identical, both CMake caches confirm `BUILD_SHARED_LIBS=OFF`, and all
-failures concern relative timing, it retries only failing
-targets once with the same sample count, rounds and thresholds. Changed executables,
+SHA-256 identities before and after sampling. When both CMake caches confirm
+`BUILD_SHARED_LIBS=OFF` and all failures concern relative timing, it retries each
+failing target whose base/head executables are byte-identical once with the same
+sample count, rounds and thresholds. Other targets' executable changes do not
+affect its eligibility; their original measurements and failures remain in the
+combined result. Changed executables,
 missing or shared build modes, missing coverage, process errors and head-only
 absolute cost failures are not eligible.
 Identity drift is a hard error. A repeated timing failure still fails the job.
