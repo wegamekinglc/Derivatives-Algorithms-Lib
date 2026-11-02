@@ -617,13 +617,16 @@ def relative_timing_failures(comparisons: dict, threshold_percent: float) -> dic
 def retry_targets(comparisons: dict, failures: list[str], identities: dict, threshold_percent: float) -> list[str]:
     if not failures or not identities:
         return []
-    if not all(item["identical"] and item["static_build"] for item in identities.values()):
-        return []
     relative = relative_timing_failures(comparisons, threshold_percent)
     # Structural failures and head-only absolute cost checks must never be retried.
     if set(failures) != set().union(*relative.values()):
         return []
-    return list(relative)
+    targets = []
+    for benchmark in relative:
+        identity = identities.get(benchmark, {})
+        if identity.get("identical") and identity.get("static_build"):
+            targets.append(benchmark)
+    return targets
 
 
 def verify_binary_identity(args: argparse.Namespace, identities: dict, output_dir: Path) -> None:

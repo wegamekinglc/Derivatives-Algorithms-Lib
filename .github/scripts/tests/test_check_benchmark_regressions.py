@@ -72,6 +72,14 @@ class BenchmarkRegressionTest(unittest.TestCase):
             retry_identical_binaries=retry,
         )
 
+    @classmethod
+    def _mixed_args(cls, root):
+        for side in ("base", "head"):
+            for benchmark in ("pde_perf", "tape_perf"):
+                cls._create_benchmark_binary(root / side, benchmark)
+        (root / "head/dal-cpp/benchmarks/tape_perf/tape_perf").write_text("#!/bin/sh\nexit 1\n")
+        return cls._args(root, ("pde_perf", "tape_perf"))
+
     def test_main_never_retries_changed_binaries_or_a_disabled_retry(self):
         samples = {"pde_perf": {"base": {"case": [100.0] * 20}, "head": {"case": [105.0] * 20}}}
         for changed, enabled in ((True, True), (False, False)):
@@ -180,22 +188,83 @@ class BenchmarkRegressionTest(unittest.TestCase):
                 identity = json.loads(evidence.read_text())
                 self.assertNotEqual(identity["before"], identity["after"])
 
-    def test_main_mixed_changed_and_identical_targets_are_not_retried(self):
+    def test_main_changed_failure_among_identical_targets_is_not_retried(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            for side in ("base", "head"):
-                for benchmark in ("pde_perf", "tape_perf"):
-                    self._create_benchmark_binary(root / side, benchmark)
-            (root / "head/dal-cpp/benchmarks/tape_perf/tape_perf").write_text("#!/bin/sh\nexit 1\n")
+            args = self._mixed_args(root)
             samples = {
-                "pde_perf": {"base": {"case": [100.0] * 20}, "head": {"case": [105.0] * 20}},
-                "tape_perf": {"base": {"case": [100.0] * 20}, "head": {"case": [100.0] * 20}},
+                "pde_perf": {"base": {"case": [100.0] * 20}, "head": {"case": [100.0] * 20}},
+                "tape_perf": {"base": {"case": [100.0] * 20}, "head": {"case": [105.0] * 20}},
             }
-            with mock.patch.object(BENCHMARKS, "parse_args", return_value=self._args(root, samples)), \
+            with mock.patch.object(BENCHMARKS, "parse_args", return_value=args), \
                     mock.patch.object(BENCHMARKS, "collect_samples", return_value=samples) as collect, \
                     mock.patch("sys.stdout", new_callable=io.StringIO):
                 self.assertEqual(BENCHMARKS.main(), 1)
             collect.assert_called_once()
+
+    def test_main_retries_identical_failure_despite_unrelated_changed_target(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            args = self._mixed_args(root)
+            initial = {
+                "pde_perf": {"base": {"case": [100.0] * 20}, "head": {"case": [105.0] * 20}},
+                "tape_perf": {"base": {"case": [100.0] * 20}, "head": {"case": [100.0] * 20}},
+            }
+            retry = {"pde_perf": {"base": {"case": [100.0] * 20}, "head": {"case": [100.0] * 20}}}
+            with mock.patch.object(BENCHMARKS, "parse_args", return_value=args), \
+                    mock.patch.object(BENCHMARKS, "collect_samples", side_effect=[initial, retry]) as collect, \
+                    mock.patch("sys.stdout", new_callable=io.StringIO):
+                self.assertEqual(BENCHMARKS.main(), 0)
+            self.assertEqual(collect.call_count, 2)
+            self.assertEqual(collect.call_args.args[2:4], (["pde_perf"], 20))
+            final = json.loads((root / "results/results.json").read_text())
+            self.assertEqual(final["retry_benchmarks"], ["pde_perf"])
+            self.assertFalse(final["binary_identity"]["tape_perf"]["identical"])
+            self.assertEqual(final["samples"]["tape_perf"], initial["tape_perf"])
+            self.assertEqual(len(json.loads((root / "results/initial-results.json").read_text())["failures"]), 1)
+
+    def test_main_identical_retry_keeps_changed_target_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            args = self._mixed_args(root)
+            failing = {"base": {"case": [100.0] * 20}, "head": {"case": [105.0] * 20}}
+            initial = {"pde_perf": failing, "tape_perf": failing}
+            retry = {"pde_perf": {"base": {"case": [100.0] * 20}, "head": {"case": [100.0] * 20}}}
+            with mock.patch.object(BENCHMARKS, "parse_args", return_value=args), \
+                    mock.patch.object(BENCHMARKS, "collect_samples", side_effect=[initial, retry]) as collect, \
+                    mock.patch("sys.stdout", new_callable=io.StringIO):
+                self.assertEqual(BENCHMARKS.main(), 1)
+            self.assertEqual(collect.call_count, 2)
+            self.assertEqual(collect.call_args.args[2:4], (["pde_perf"], 20))
+            final = json.loads((root / "results/results.json").read_text())
+            self.assertEqual(len(final["failures"]), 1)
+            self.assertTrue(final["failures"][0].startswith("tape_perf / case:"))
+            self.assertEqual(final["samples"]["tape_perf"], initial["tape_perf"])
+            self.assertEqual(final["retry_benchmarks"], ["pde_perf"])
+
+    def test_main_retry_rejects_drift_in_an_unretried_changed_target(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            args = self._mixed_args(root)
+            initial = {
+                "pde_perf": {"base": {"case": [100.0] * 20}, "head": {"case": [105.0] * 20}},
+                "tape_perf": {"base": {"case": [100.0] * 20}, "head": {"case": [100.0] * 20}},
+            }
+            calls = []
+
+            def sample(*_):
+                calls.append(None)
+                if len(calls) == 1:
+                    return initial
+                (root / "head/dal-cpp/benchmarks/tape_perf/tape_perf").write_text("#!/bin/sh\nexit 2\n")
+                return {"pde_perf": initial["pde_perf"]}
+
+            with mock.patch.object(BENCHMARKS, "parse_args", return_value=args), \
+                    mock.patch.object(BENCHMARKS, "collect_samples", side_effect=sample), \
+                    mock.patch("sys.stdout", new_callable=io.StringIO):
+                with self.assertRaisesRegex(RuntimeError, "identity changed"):
+                    BENCHMARKS.main()
+            self.assertEqual(len(calls), 2)
 
     def test_main_sampling_errors_are_never_retried(self):
         failing = {"pde_perf": {"base": {"case": [100.0] * 20}, "head": {"case": [105.0] * 20}}}
