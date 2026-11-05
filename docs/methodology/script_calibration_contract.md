@@ -410,6 +410,55 @@ APPROXIMATE last-point behavior. Algebraic mapping does not promise a particular
 trajectory through the typed adapter. This entry adds no FX/XCCY instrument
 admission, generic FIX lowering, box bounds, joint solve or public bindings.
 
+## Script curve quote-risk snapshots
+
+The core `dal/curve/scriptcurvequoterisk.hpp` provides
+`NewScriptCurveQuoteRiskSnapshot(fit, accuracy)` for structural validation of a
+single-target EXACT calibration. `StructureValid()` checks the resolved native
+layout, square observation/quote/parameter dimensions, decimal Rate/BasisSpread
+units, distinct case-sensitive quote IDs, actual candidate curve and successful
+Solve report. Preparation checks the source and binding against the report's
+original compiler and context identities, then rebuilds the composite plan
+identity with the fit's owned `resolvedOptions_`. These options retain the
+original evaluation and derivative settings without retaining a preparation
+cache. A mutable fit's success flag alone does not establish this contract.
+
+The snapshot copies the resolved spec, native parameters, accuracy and axes.
+Base and background curves are archived into independent owned copies;
+instrument definitions, bindings and fixing snapshots have immutable ownership.
+Quote and observation ordinals preserve input order; native parameter ordinals
+preserve the curve layout. Rejected duplicate IDs retain every submitted quote
+row so the conflicting values remain inspectable. Snapshot data contains no AAD
+numbers, tape positions or evaluator scratch.
+
+`ScriptCurveQuoteRiskAccuracy_` requires an absolute residual limit per
+observation, a minimum reciprocal condition in `(0,1]` and an explicit positive
+response backward-error limit. Its relative pivot tolerance defaults to
+`64*epsilon`. These numerical limits are stored and validated as configuration;
+the snapshot does not yet evaluate their numerical gates.
+
+`snapshot.ValidateContext(context)` returns an owning validation result with
+`Passed()`, `Axes()` and `Diagnostics()`. It compares actual resolved content,
+including valuation/fixings, source/binding, target and background curves,
+routes, quote values/order, geometry and solver settings. Non-input knot
+policies are resolved through preparation. Compatibility checks do not run a
+calibration optimizer. Changes require rebuilding the snapshot from a fit with
+the new context.
+
+Structural validation does **not** certify root accuracy, rank, conditioning or
+PV risk. `RiskAvailable()` currently returns false for every snapshot. An
+otherwise valid snapshot reports `ScriptCurveQuoteRiskNumericsUnavailable` at
+`/risk`; no PV, raw quote sensitivity or DV01 values are published. Unsupported
+modes/units/products, non-square systems, conflicting IDs and stale contexts
+retain axes and diagnostics. Malformed required inputs or accuracy settings
+throw the existing owning `CalibrationError_`. Diagnostics include a field,
+expected/actual values and relevant observation, quote, parameter or source
+coordinates.
+
+Existing `quoteJacobian_` remains `dMeasure/dNativeParameter`;
+`CalibrationReport_::QuoteRiskAvailable()`, report schema `/1`, native rate-risk
+provenance and public/Python/Excel interfaces retain their existing semantics.
+
 ## Deterministic FRA, swap, basis and custom cashflows
 
 The core `dal/curve/curvescript.hpp` provides one-time

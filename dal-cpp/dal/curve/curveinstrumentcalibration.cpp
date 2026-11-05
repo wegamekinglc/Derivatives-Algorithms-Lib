@@ -535,6 +535,9 @@ namespace Dal {
             }
             planIdentity_ = CurvePlanIdentity(spec_, plans_, options_, structural.curves_);
             frozenSpec_ = std::make_shared<const CurveInstrumentCalibrationSpec_>(spec_);
+            auto frozenOptions = options_;
+            frozenOptions.preparationCache_.reset();
+            frozenOptions_ = std::make_shared<const CurveInstrumentCalibrationOptions_>(std::move(frozenOptions));
         } catch (const CalibrationError_& error) {
             auto d = error.Failure().diagnostic_;
             d.stage_ = CalibrationStage_::Value_::Prepare;
@@ -573,6 +576,7 @@ namespace Dal {
     CurveInstrumentCalibrationResult_ PreparedCurveInstruments_::Describe() const {
         auto result = LayoutResult(definition_, axes_);
         result.resolvedSpec_ = frozenSpec_;
+        result.resolvedOptions_ = frozenOptions_;
         result.capabilities_ = capabilities_;
         result.planIdentity_ = planIdentity_;
         return result;

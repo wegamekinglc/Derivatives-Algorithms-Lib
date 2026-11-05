@@ -89,6 +89,7 @@ namespace Dal {
         Handle_<DiscountCurve_> curve_;
         Handle_<CalibrationReport_> report_;
         std::shared_ptr<const CurveInstrumentCalibrationSpec_> resolvedSpec_;
+        std::shared_ptr<const CurveInstrumentCalibrationOptions_> resolvedOptions_;
         CalibrationObservationAxes_ axes_;
         Vector_<CalibrationPreparationCapability_> capabilities_;
         CurveDefinition_ definition_;
@@ -120,6 +121,7 @@ namespace Dal {
         Vector_<PreparedCalibrationInstrument_> plans_;
         Vector_<CalibrationPreparationCapability_> capabilities_;
         std::shared_ptr<const CurveInstrumentCalibrationSpec_> frozenSpec_;
+        std::shared_ptr<const CurveInstrumentCalibrationOptions_> frozenOptions_;
         std::shared_ptr<const CandidateCurveGeometry_> geometry_;
         String_ planIdentity_;
 
@@ -127,6 +129,7 @@ namespace Dal {
         explicit PreparedCurveInstruments_(const CurveInstrumentCalibrationSpec_& spec, const CurveInstrumentCalibrationOptions_& options = {});
         [[nodiscard]] const CurveDefinition_& Definition() const { return definition_; }
         [[nodiscard]] const CalibrationObservationAxes_& Axes() const { return axes_; }
+        [[nodiscard]] const Vector_<PreparedCalibrationInstrument_>& Plans() const { return plans_; }
         [[nodiscard]] const CurveInstrumentCalibrationSpec_& Spec() const { return spec_; }
         [[nodiscard]] CurveInstrumentCalibrationResult_ Describe() const;
         [[nodiscard]] CurveInstrumentCalibrationResult_ Evaluate(const Vector_<>& parameters, bool derivatives = true) const;
