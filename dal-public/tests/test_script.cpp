@@ -3,6 +3,7 @@
 //
 
 #include <gtest/gtest.h>
+#include <rapidjson/document.h>
 
 #include <dal/indice/detail/fixingobserver.hpp>
 #include <dal/indice/index.hpp>
@@ -14,6 +15,7 @@
 #include <dal-public/src/script.hpp>
 
 #include "script_test_observers.hpp"
+#include "scriptbudgetjson.hpp"
 
 using Dal::Cell_;
 using Dal::Date_;
@@ -54,6 +56,22 @@ TEST(ScriptTest, TestProductTableAcceptsNumericVectorsAndFor) {
                                                {"[0.25, 0.75]", "FOR(i, 0, 2) pay PAYS WEIGHTS[i] * SPOT() END"});
     const String_ debug = Dal::DebugScriptProduct(product);
     ASSERT_NE(debug.find("PAYS"), String_::npos);
+}
+
+TEST(ScriptTest, TestDescribeParserBudgetIsIndependentPerDate) {
+    using namespace Dal::Script::TestSupport;
+    const auto product = Dal::NewScriptProduct("budget", BudgetDates(), BudgetEvents());
+    const auto text = Dal::DescribeScriptProduct(product);
+    rapidjson::Document json;
+    json.Parse(text.data(), text.size());
+    ASSERT_FALSE(json.HasParseError());
+    AssertBudgetDescription(json);
+}
+
+TEST(ScriptTest, TestDescribeParserBudgetCombinesSameDateRows) {
+    using namespace Dal::Script::TestSupport;
+    const auto product = Dal::NewScriptProduct("merged-budget", BudgetDates(true), BudgetEvents());
+    AssertScriptError([&] { Dal::DescribeScriptProduct(product); }, MergedBudgetErrorFields());
 }
 
 TEST(ScriptTest, TestDebugIsRepeatable) {
