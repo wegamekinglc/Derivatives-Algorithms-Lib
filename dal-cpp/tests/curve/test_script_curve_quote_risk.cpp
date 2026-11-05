@@ -385,6 +385,85 @@ TEST(ScriptCurveQuoteRiskTest, TestReportObjectiveMustMatchOriginalSolveEvidence
     }
 }
 
+TEST(ScriptCurveQuoteRiskTest, TestJointMetricEditsCannotReuseOriginalSolveEvidence) {
+    const auto fit = CalibrateCurveInstruments(DepositSpec());
+    ASSERT_DOUBLE_EQ(fit.nativeWeights_(0, 0), 1.);
+    for (const double weight : {-1., 2.}) {
+        SCOPED_TRACE(weight);
+        auto changed = fit;
+        auto report = fit.report_->Data();
+        changed.nativeWeights_(0, 0) = weight;
+        (*report.objective_.weightMatrix_)(0, 0) = weight;
+        changed.report_.reset(new CalibrationReport_(CalibrationStage_::Value_::Solve, fit.axes_, {}, report));
+        ASSERT_EQ(changed.evidence_, fit.evidence_);
+        ASSERT_EQ(changed.objectiveIdentity_, fit.objectiveIdentity_);
+        const auto snapshot = NewScriptCurveQuoteRiskSnapshot(changed, Accuracy());
+        ASSERT_FALSE(snapshot.StructureValid());
+        ASSERT_FALSE(snapshot.RiskAvailable());
+        ASSERT_EQ(snapshot.Diagnostics()[0].code_, "ScriptCurveQuoteRiskIdentityMismatch");
+        ASSERT_EQ(snapshot.Diagnostics()[0].field_, "/fit/native_weights");
+        ASSERT_EQ(snapshot.QuoteAxis()[0].id_, "q");
+    }
+}
+
+TEST(ScriptCurveQuoteRiskTest, TestEachMetricCopyIsCheckedAgainstOriginalSolveEvidence) {
+    const auto fit = CalibrateCurveInstruments(DepositSpec());
+    for (const bool reportOnly : {false, true}) {
+        SCOPED_TRACE(reportOnly);
+        auto changed = fit;
+        auto report = fit.report_->Data();
+        auto& metric = reportOnly ? *report.objective_.weightMatrix_ : changed.nativeWeights_;
+        metric(0, 0) = 2.;
+        changed.report_.reset(new CalibrationReport_(CalibrationStage_::Value_::Solve, fit.axes_, {}, report));
+        const auto snapshot = NewScriptCurveQuoteRiskSnapshot(changed, Accuracy());
+        ASSERT_FALSE(snapshot.StructureValid());
+        ASSERT_EQ(snapshot.Diagnostics()[0].code_, "ScriptCurveQuoteRiskIdentityMismatch");
+        ASSERT_EQ(snapshot.Diagnostics()[0].field_, reportOnly ? "/fit/report/objective" : "/fit/native_weights");
+    }
+}
+
+TEST(ScriptCurveQuoteRiskTest, TestMetricShapeAndNonFiniteEditsCannotReuseSolveEvidence) {
+    const auto fit = CalibrateCurveInstruments(TwoDepositSpec());
+    using Change_ = std::function<void(Matrix_<>*)>;
+    const Vector_<Change_> changes = {[](auto* metric) {
+                                          Matrix_<> reshaped(1, 4);
+                                          for (int j = 0; j < 4; ++j)
+                                              reshaped(0, j) = (*metric)(j / 2, j % 2);
+                                          *metric = std::move(reshaped);
+                                      },
+                                      [](auto* metric) { (*metric)(0, 0) = std::numeric_limits<double>::quiet_NaN(); },
+                                      [](auto* metric) { (*metric)(0, 0) = std::numeric_limits<double>::infinity(); }};
+    for (size_t i = 0; i < changes.size(); ++i) {
+        SCOPED_TRACE(i);
+        auto changed = fit;
+        changes[i](&changed.nativeWeights_);
+        auto report = fit.report_->Data();
+        report.objective_.weightMatrix_ = changed.nativeWeights_;
+        if (std::isfinite(changed.nativeWeights_(0, 0)))
+            changed.report_.reset(new CalibrationReport_(CalibrationStage_::Value_::Solve, fit.axes_, {}, report));
+        else
+            ASSERT_THROW(CalibrationReport_(CalibrationStage_::Value_::Solve, fit.axes_, {}, report), CalibrationError_);
+        const auto snapshot = NewScriptCurveQuoteRiskSnapshot(changed, {{1e-12, 1e-12}, 1e-10, 1e-12});
+        ASSERT_FALSE(snapshot.StructureValid());
+        ASSERT_EQ(snapshot.Diagnostics()[0].code_, "ScriptCurveQuoteRiskIdentityMismatch");
+        ASSERT_EQ(snapshot.Diagnostics()[0].field_, "/fit/native_weights");
+    }
+}
+
+TEST(ScriptCurveQuoteRiskTest, TestOriginalMetricWithNegativeOffDiagonalRemainsValid) {
+    auto spec = TwoDepositSpec();
+    spec.solver_.smoothingWeight_ = .1;
+    const auto fit = CalibrateCurveInstruments(spec);
+    ASSERT_DOUBLE_EQ(fit.nativeWeights_(0, 0), .2);
+    ASSERT_DOUBLE_EQ(fit.nativeWeights_(0, 1), -.1);
+    ASSERT_DOUBLE_EQ(fit.nativeWeights_(1, 0), -.1);
+    ASSERT_DOUBLE_EQ(fit.nativeWeights_(1, 1), .2);
+    const auto snapshot = NewScriptCurveQuoteRiskSnapshot(fit, {{1e-12, 1e-12}, 1e-10, 1e-12});
+    ASSERT_TRUE(snapshot.StructureValid());
+    ASSERT_TRUE(snapshot.ValidateContext(spec).Passed());
+    ASSERT_FALSE(snapshot.RiskAvailable());
+}
+
 TEST(ScriptCurveQuoteRiskTest, TestMalformedAccuracyUsesOwnedCalibrationError) {
     const auto fit = CalibrateCurveInstruments(DepositSpec());
     using Change_ = std::function<void(ScriptCurveQuoteRiskAccuracy_*)>;

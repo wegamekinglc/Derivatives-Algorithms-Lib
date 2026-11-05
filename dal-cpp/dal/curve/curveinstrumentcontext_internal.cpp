@@ -126,4 +126,14 @@ namespace Dal::CurveInstrumentInternal {
                                 {"lambda", Optional(result.fitWeight_, [](double value) { return Num(value); })},
                                 {"eta", Optional(result.fitNormTolerance_, [](double value) { return Num(value); })}}));
     }
+    String_ MetricIdentity(const Matrix_<>& metric) {
+        auto values = Json_::Array();
+        for (int i = 0; i < metric.Rows(); ++i)
+            for (int j = 0; j < metric.Cols(); ++j) {
+                if (!std::isfinite(metric(i, j)))
+                    return "";
+                values.array_.push_back(Num(metric(i, j)));
+            }
+        return Fingerprint(Obj({{"rows", Num(metric.Rows())}, {"columns", Num(metric.Cols())}, {"values", values}}));
+    }
 } // namespace Dal::CurveInstrumentInternal

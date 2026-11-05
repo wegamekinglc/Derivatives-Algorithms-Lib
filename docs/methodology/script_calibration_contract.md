@@ -425,7 +425,11 @@ cache. Preparation also binds the complete resolved context and options,
 including every solver setting, to immutable evidence. A successful solve binds
 its plan, candidate and objective to that original evidence. The factory checks
 this evidence and the report's initial parameters, scales, native layout,
-smoothing metric and fitted values. Replacing a fit's resolved spec, options or
+smoothing metric and fitted values. The native metric's dimensions and every
+element are fingerprinted before the solver runs and retained in immutable
+solve evidence. Both the fit and report matrices must separately match that
+original fingerprint; agreement between two editable copies is insufficient.
+Replacing a fit's resolved spec, options or
 objective metadata cannot relabel an earlier solve. The snapshot identity
 includes the original configuration; plan identities and report `/1` retain
 their existing meanings. A mutable fit's success flag alone does not establish

@@ -826,6 +826,7 @@ namespace Dal {
             result.initialParameters_ = ResolveCurveCalibrationInitialGuess(NativeGeometry(plan.Spec()));
             SolverSettings(spec.solver_, &result);
             const auto weights = FitWeights(spec.solver_, &result);
+            const auto metricIdentity = CurveInstrumentInternal::MetricIdentity(result.nativeWeights_);
             CurveSolverTrack_ track;
             const CurveFitFunction_ function(plan, result.initialParameters_, result.parameterScales_, options.differenceStep_, &track);
             const auto solved = RunTrackedCurveCalibration(function, result.initialParameters_.size(), result.axes_, spec.solver_, *weights, track);
@@ -837,7 +838,7 @@ namespace Dal {
             data.summary_.converged_ = result.fitWithinTolerance_;
             result.report_.reset(new CalibrationReport_(CalibrationStage_::Value_::Solve, result.axes_, {}, data));
             result.evidence_.reset(new CurveInstrumentCalibrationEvidence_(result.evidence_->ConfigurationIdentity(), result.planIdentity_,
-                                                                           result.candidateIdentity_, result.objectiveIdentity_));
+                                                                           result.candidateIdentity_, result.objectiveIdentity_, metricIdentity));
             return result;
         } catch (const CalibrationError_& error) {
             CurveFailure(std::move(result), error.Failure().diagnostic_);

@@ -5,10 +5,10 @@
 
 namespace Dal {
     class CurveInstrumentCalibrationEvidence_ {
-        const String_ configurationIdentity_, planIdentity_, candidateIdentity_, objectiveIdentity_;
-        CurveInstrumentCalibrationEvidence_(String_ configuration, String_ plan, String_ candidate = "", String_ objective = "")
+        const String_ configurationIdentity_, planIdentity_, candidateIdentity_, objectiveIdentity_, metricIdentity_;
+        CurveInstrumentCalibrationEvidence_(String_ configuration, String_ plan, String_ candidate = "", String_ objective = "", String_ metric = "")
             : configurationIdentity_(std::move(configuration)), planIdentity_(std::move(plan)), candidateIdentity_(std::move(candidate)),
-              objectiveIdentity_(std::move(objective)) {}
+              objectiveIdentity_(std::move(objective)), metricIdentity_(std::move(metric)) {}
         friend class PreparedCurveInstruments_;
         friend CurveInstrumentCalibrationResult_ CalibrateCurveInstruments(const CurveInstrumentCalibrationSpec_&,
                                                                            const CurveInstrumentCalibrationOptions_&);
@@ -18,6 +18,7 @@ namespace Dal {
         [[nodiscard]] const String_& PlanIdentity() const { return planIdentity_; }
         [[nodiscard]] const String_& CandidateIdentity() const { return candidateIdentity_; }
         [[nodiscard]] const String_& ObjectiveIdentity() const { return objectiveIdentity_; }
+        [[nodiscard]] const String_& MetricIdentity() const { return metricIdentity_; }
     };
 
     namespace CurveInstrumentInternal {
@@ -28,5 +29,6 @@ namespace Dal {
         CanonicalJson::Json_ ContextJson(const CurveInstrumentCalibrationSpec_& spec, bool validateSolver = true);
         String_ ConfigurationIdentity(const CurveInstrumentCalibrationSpec_& spec, const CurveInstrumentCalibrationOptions_& options);
         String_ ObjectiveIdentity(const CurveInstrumentCalibrationResult_& result, const CurveInstrumentSolver_& solver);
+        String_ MetricIdentity(const Matrix_<>& metric);
     } // namespace CurveInstrumentInternal
 } // namespace Dal

@@ -224,12 +224,8 @@ namespace Dal {
                       Bytes(fit.evidence_->ObjectiveIdentity()) == Bytes(fit.objectiveIdentity_) && !fit.objectiveIdentity_.empty(),
                   MISMATCH, "/fit/evidence", "plan, candidate and objective bound at original solve");
         }
-        void ValidateReportWeights(const Matrix_<>& actual, const Matrix_<>& expected) {
-            Check(actual.Rows() == expected.Rows() && actual.Cols() == expected.Cols(), MISMATCH, "/fit/report/objective",
-                  "original native smoothing metric dimensions");
-            for (int i = 0; i < actual.Rows(); ++i)
-                for (int j = 0; j < actual.Cols(); ++j)
-                    Check(actual(i, j) == expected(i, j), MISMATCH, "/fit/report/objective", "original native smoothing metric");
+        void ValidateMetric(const Matrix_<>& actual, const String_& identity, const String_& field) {
+            Check(!identity.empty() && Bytes(MetricIdentity(actual)) == Bytes(identity), MISMATCH, field, "metric captured before original solve");
         }
         void ValidateReportParameters(const CurveInstrumentCalibrationResult_& fit) {
             const auto& report = fit.report_->Data();
@@ -252,7 +248,8 @@ namespace Dal {
             Check(objective.lambda_ == fit.fitWeight_ && objective.eta_ == fit.fitNormTolerance_, MISMATCH, "/fit/report/objective",
                   "original objective settings");
             Check(bool(objective.weightMatrix_), MISMATCH, "/fit/report/objective", "original native smoothing metric");
-            ValidateReportWeights(*objective.weightMatrix_, fit.nativeWeights_);
+            ValidateMetric(fit.nativeWeights_, fit.evidence_->MetricIdentity(), "/fit/native_weights");
+            ValidateMetric(*objective.weightMatrix_, fit.evidence_->MetricIdentity(), "/fit/report/objective");
             ValidateReportParameters(fit);
         }
         void ValidateFit(const CurveInstrumentCalibrationResult_& fit, const PreparedCurveInstruments_& prepared) {
