@@ -7,7 +7,7 @@
 #include <dal/curve/calibration_internal.hpp>
 #include <dal/curve/curveinstrumentcalibration.hpp>
 #include <dal/curve/curveinstrumentcontext_internal.hpp>
-#include <dal/curve/curvescriptevaluation_internal.hpp>
+#include <dal/curve/curveinstrumentevaluation_internal.hpp>
 #include <dal/storage/json.hpp>
 
 namespace Dal {
@@ -342,32 +342,6 @@ namespace Dal {
             CurveFailure({}, RowDiagnostic(observation, CalibrationStage_::Value_::Prepare, error.Failure().diagnostic_));
         }
         template <class T_>
-        T_ CashflowMeasure(const PreparedCalibrationInstrument_& plan,
-                           const CandidateCurveProvider_<T_>& provider,
-                           const Date_& today,
-                           CurveScriptInternal::EvaluationScratch_<T_>* scratch) {
-            if (std::holds_alternative<CalibrationCurveFamily_>(plan.Descriptor()))
-                return CurveScriptInternal::Measure(plan, provider, today, scratch);
-            T_ a(0.), b(0.), price(0.);
-            const auto& route = provider.Route(plan.Instrument()->Definition()->Spec().header_.discountRoute_, false);
-            const auto curve = provider.Bind(route);
-            for (const auto& flow : plan.Cashflows()) {
-                const T_ discount = provider.Discount(curve, route, today, flow.eventDate_);
-                a += flow.a_ * discount;
-                b += flow.b_ * discount;
-                price += *flow.amount_ * discount;
-            }
-            if (plan.Measure().kind_ == CalibrationMeasureKind_::Value_::Price)
-                return price;
-            const auto& measure = plan.Measure();
-            Check(std::isfinite(static_cast<double>(a)) && std::isfinite(static_cast<double>(b)), "CalibrationNumericalFailure", "/coefficients",
-                  "finite affine coefficients");
-            Check(measure.annuitySign_ && measure.minAbsAnnuity_, "UnsupportedCalibrationMeasure", "/measure", "affine measure controls");
-            Check(static_cast<double>(a) * *measure.annuitySign_ >= *measure.minAbsAnnuity_, "InvalidCalibrationAnnuity", "/annuity",
-                  "finite annuity with declared sign and minimum magnitude");
-            return -b / a;
-        }
-        template <class T_>
         Vector_<T_> Measures(const CurveInstrumentCalibrationSpec_& spec,
                              const Vector_<PreparedCalibrationInstrument_>& plans,
                              const CandidateCurveProvider_<T_>& provider) {
@@ -376,7 +350,7 @@ namespace Dal {
             CurveScriptInternal::EvaluationScratch_<T_> scratch;
             for (size_t i = 0; i < plans.size(); ++i) {
                 try {
-                    const T_ value = CashflowMeasure(plans[i], provider, spec.geometry_.today_, &scratch);
+                    const T_ value = CurveInstrumentInternal::CashflowMeasure(plans[i], provider, spec.geometry_.today_, &scratch);
                     Check(std::isfinite(static_cast<double>(value)), "CalibrationNumericalFailure", "/measure", "finite raw measure");
                     result.push_back(value);
                 } catch (const CalibrationError_& error) {
@@ -513,6 +487,19 @@ namespace Dal {
             return result;
         }
     } // namespace
+
+    CurveInstrumentInternal::PreparedCurvePrice_ CurveInstrumentInternal::PrepareCurvePrice(const CurveInstrumentCalibrationSpec_& spec,
+                                                                                            const Handle_<CalibrationInstrument_>& instrument,
+                                                                                            const String_& measureId) {
+        const auto quote = NewCalibrationMarketQuote(
+            "pv-preparation", 0.,
+            CalibrationValueUnit_::Parse(String_("Price:") + instrument->Definition()->Spec().header_.resultCurrency_.String()));
+        const auto row = NewCalibrationObservation("pv-preparation", instrument, measureId, quote, 1.);
+        const auto structural = StructuralContext(spec, *row);
+        std::map<std::string, String_> identities;
+        return {PrepareObservation(*row, spec, structural, {}, &identities),
+                std::make_shared<const CandidateCurveGeometry_>(NativeGeometry(spec), spec.market_.routes_)};
+    }
 
     PreparedCurveInstruments_::PreparedCurveInstruments_(const CurveInstrumentCalibrationSpec_& spec,
                                                          const CurveInstrumentCalibrationOptions_& options)

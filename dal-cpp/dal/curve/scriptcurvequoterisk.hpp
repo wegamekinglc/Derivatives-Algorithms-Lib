@@ -7,6 +7,17 @@
 #include <dal/curve/curveinstrumentcalibration.hpp>
 
 namespace Dal {
+    class ScriptCurveQuoteRiskSnapshot_;
+    class ScriptCurveQuoteRiskResult_;
+    struct ScriptCurveQuoteRiskRequest_ {
+        Vector_<String_> quoteIds_;
+        String_ measureId_ = "Price";
+        bool liveQuotePayoff_ = false;
+    };
+    ScriptCurveQuoteRiskResult_ ValueCalibrationInstrumentWithQuoteRisk(const Handle_<CalibrationInstrument_>& instrument,
+                                                                        const ScriptCurveQuoteRiskSnapshot_& snapshot,
+                                                                        const CurveInstrumentCalibrationSpec_& context,
+                                                                        const ScriptCurveQuoteRiskRequest_& request = {});
     struct ScriptCurveQuoteRiskAccuracy_ {
         Vector_<> residualAbsoluteLimits_;
         double minReciprocalCondition_ = 0.;
@@ -42,6 +53,36 @@ namespace Dal {
         std::optional<double> reciprocalCondition_;
         Vector_<> transposeBackwardErrors_, responseBackwardErrors_;
         int factorizationCount_ = 0;
+    };
+    class ScriptCurveQuoteRiskResult_ {
+        ScriptCurveQuoteRiskAxes_ axes_;
+        ScriptCurveQuoteRiskNumerics_ numerics_;
+        Vector_<CalibrationDiagnostic_> diagnostics_;
+        std::optional<double> pv_;
+        Ccy_ currency_;
+        Vector_<> nativeGradient_, raw_, dv01_;
+        String_ snapshotIdentity_, contextIdentity_, sourceIdentity_, definitionIdentity_, bindingIdentity_;
+        friend ScriptCurveQuoteRiskResult_ ValueCalibrationInstrumentWithQuoteRisk(const Handle_<CalibrationInstrument_>&,
+                                                                                   const ScriptCurveQuoteRiskSnapshot_&,
+                                                                                   const CurveInstrumentCalibrationSpec_&,
+                                                                                   const ScriptCurveQuoteRiskRequest_&);
+
+    public:
+        [[nodiscard]] bool Available() const { return pv_.has_value(); }
+        [[nodiscard]] const ScriptCurveQuoteRiskAxes_& Axes() const { return axes_; }
+        [[nodiscard]] const ScriptCurveQuoteRiskNumerics_& Numerics() const { return numerics_; }
+        [[nodiscard]] const Vector_<CalibrationDiagnostic_>& Diagnostics() const { return diagnostics_; }
+        [[nodiscard]] double PV() const;
+        [[nodiscard]] const Vector_<>& NativeGradient() const;
+        [[nodiscard]] const Vector_<>& RawSensitivity() const;
+        [[nodiscard]] const Vector_<>& DV01() const;
+        [[nodiscard]] const Ccy_& Currency() const { return currency_; }
+        [[nodiscard]] String_ Method() const { return "NativeAADImplicitTranspose"; }
+        [[nodiscard]] const String_& SnapshotIdentity() const { return snapshotIdentity_; }
+        [[nodiscard]] const String_& ContextIdentity() const { return contextIdentity_; }
+        [[nodiscard]] const String_& SourceIdentity() const { return sourceIdentity_; }
+        [[nodiscard]] const String_& DefinitionIdentity() const { return definitionIdentity_; }
+        [[nodiscard]] const String_& BindingIdentity() const { return bindingIdentity_; }
     };
     class ScriptCurveQuoteMapping_ {
         std::shared_ptr<const ScriptCurveQuoteRiskAxes_> axes_;
@@ -84,11 +125,15 @@ namespace Dal {
         explicit ScriptCurveQuoteRiskSnapshot_(std::shared_ptr<const Data_> data);
         friend ScriptCurveQuoteRiskSnapshot_ NewScriptCurveQuoteRiskSnapshot(const CurveInstrumentCalibrationResult_&,
                                                                              const ScriptCurveQuoteRiskAccuracy_&);
+        friend ScriptCurveQuoteRiskResult_ ValueCalibrationInstrumentWithQuoteRisk(const Handle_<CalibrationInstrument_>&,
+                                                                                   const ScriptCurveQuoteRiskSnapshot_&,
+                                                                                   const CurveInstrumentCalibrationSpec_&,
+                                                                                   const ScriptCurveQuoteRiskRequest_&);
 
     public:
         [[nodiscard]] bool StructureValid() const;
         [[nodiscard]] bool MappingAvailable() const;
-        [[nodiscard]] bool RiskAvailable() const { return false; }
+        [[nodiscard]] bool RiskAvailable() const { return MappingAvailable(); }
         [[nodiscard]] const ScriptCurveQuoteRiskNumerics_& Numerics() const;
         [[nodiscard]] const Vector_<CalibrationDiagnostic_>& Diagnostics() const;
         [[nodiscard]] const ScriptCurveQuoteRiskAccuracy_& Accuracy() const;

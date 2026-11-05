@@ -18,6 +18,9 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-11-06
 
+- Script curve risk: add deterministic PV quote risk from admitted EXACT snapshots,
+  with native AAD gradients, cached checked transpose solves and decimal raw/DV01 outputs.
+
 - **Script curve quote mapping** — added passive core native-parameter responses
   with raw-root, pivot, condition and backward-error admission, one cached
   factorization and owning unavailable results. Full-rank admission rejects
