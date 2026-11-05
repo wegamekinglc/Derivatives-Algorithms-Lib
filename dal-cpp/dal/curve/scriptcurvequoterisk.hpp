@@ -36,6 +36,31 @@ namespace Dal {
         Vector_<ScriptCurveQuoteRiskObservation_> observations_;
         Vector_<ScriptCurveQuoteRiskParameter_> parameters_;
     };
+    struct ScriptCurveQuoteRiskNumerics_ {
+        Vector_<> modelMeasures_, rawResiduals_;
+        Matrix_<> nativeJacobian_;
+        std::optional<double> reciprocalCondition_;
+        Vector_<> transposeBackwardErrors_, responseBackwardErrors_;
+        int factorizationCount_ = 0;
+    };
+    class ScriptCurveQuoteMapping_ {
+        std::shared_ptr<const ScriptCurveQuoteRiskAxes_> axes_;
+        ScriptCurveQuoteRiskNumerics_ numerics_;
+        Vector_<CalibrationDiagnostic_> diagnostics_;
+        std::optional<Matrix_<>> response_;
+        ScriptCurveQuoteMapping_(std::shared_ptr<const ScriptCurveQuoteRiskAxes_> axes,
+                                 ScriptCurveQuoteRiskNumerics_ numerics,
+                                 Vector_<CalibrationDiagnostic_> diagnostics,
+                                 std::optional<Matrix_<>> response);
+        friend class ScriptCurveQuoteRiskSnapshot_;
+
+    public:
+        [[nodiscard]] bool Available() const { return response_.has_value(); }
+        [[nodiscard]] const ScriptCurveQuoteRiskAxes_& Axes() const { return *axes_; }
+        [[nodiscard]] const ScriptCurveQuoteRiskNumerics_& Numerics() const { return numerics_; }
+        [[nodiscard]] const Vector_<CalibrationDiagnostic_>& Diagnostics() const { return diagnostics_; }
+        [[nodiscard]] const Matrix_<>& ParameterResponse() const;
+    };
     class ScriptCurveQuoteRiskValidation_ {
         bool passed_;
         std::shared_ptr<const ScriptCurveQuoteRiskAxes_> axes_;
@@ -62,7 +87,9 @@ namespace Dal {
 
     public:
         [[nodiscard]] bool StructureValid() const;
+        [[nodiscard]] bool MappingAvailable() const;
         [[nodiscard]] bool RiskAvailable() const { return false; }
+        [[nodiscard]] const ScriptCurveQuoteRiskNumerics_& Numerics() const;
         [[nodiscard]] const Vector_<CalibrationDiagnostic_>& Diagnostics() const;
         [[nodiscard]] const ScriptCurveQuoteRiskAccuracy_& Accuracy() const;
         [[nodiscard]] const Vector_<ScriptCurveQuoteRiskQuote_>& QuoteAxis() const;
@@ -73,6 +100,7 @@ namespace Dal {
         [[nodiscard]] const String_& ContextIdentity() const;
         [[nodiscard]] const String_& Identity() const;
         [[nodiscard]] ScriptCurveQuoteRiskValidation_ ValidateContext(const CurveInstrumentCalibrationSpec_& context) const;
+        [[nodiscard]] ScriptCurveQuoteMapping_ ParameterQuoteMapping(const CurveInstrumentCalibrationSpec_& context) const;
     };
     ScriptCurveQuoteRiskSnapshot_ NewScriptCurveQuoteRiskSnapshot(const CurveInstrumentCalibrationResult_& fit,
                                                                   const ScriptCurveQuoteRiskAccuracy_& accuracy);
