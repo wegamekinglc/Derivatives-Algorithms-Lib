@@ -16,6 +16,14 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-11-06
+
+- **Script curve risk snapshots** — added owned core snapshots with explicit
+  accuracy, native/quote axes, structural admission and context identity checks.
+  Numerical quote risk remains unavailable; structural success does not certify
+  rank or root accuracy. See the
+  [snapshot contract](docs/methodology/script_calibration_contract.md#script-curve-quote-risk-snapshots).
+
 ## 2026-10-27
 
 - **Typed calibration preparation** — added raw-only residual evaluation and
