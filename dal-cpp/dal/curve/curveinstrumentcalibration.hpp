@@ -5,6 +5,7 @@
 #include <dal/script/calibrationpreparation.hpp>
 
 namespace Dal {
+    class CurveInstrumentCalibrationEvidence_;
     struct CurveScriptRoute_ {
         String_ id_;
         bool projection_ = false;
@@ -90,6 +91,7 @@ namespace Dal {
         Handle_<CalibrationReport_> report_;
         std::shared_ptr<const CurveInstrumentCalibrationSpec_> resolvedSpec_;
         std::shared_ptr<const CurveInstrumentCalibrationOptions_> resolvedOptions_;
+        std::shared_ptr<const CurveInstrumentCalibrationEvidence_> evidence_;
         CalibrationObservationAxes_ axes_;
         Vector_<CalibrationPreparationCapability_> capabilities_;
         CurveDefinition_ definition_;
@@ -123,6 +125,7 @@ namespace Dal {
         std::shared_ptr<const CurveInstrumentCalibrationSpec_> frozenSpec_;
         std::shared_ptr<const CurveInstrumentCalibrationOptions_> frozenOptions_;
         std::shared_ptr<const CandidateCurveGeometry_> geometry_;
+        std::shared_ptr<const CurveInstrumentCalibrationEvidence_> evidence_;
         String_ planIdentity_;
 
     public:

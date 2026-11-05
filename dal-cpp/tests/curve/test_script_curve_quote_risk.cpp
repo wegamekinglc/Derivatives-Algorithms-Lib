@@ -67,6 +67,39 @@ TEST(ScriptCurveQuoteRiskTest, TestOwnedStructureIsSeparateFromNumericalAvailabi
     ASSERT_EQ(snapshot.ResolvedSpec()->observations_.size(), 1u);
 }
 
+TEST(ScriptCurveQuoteRiskTest, TestWritableObservationAliasCannotChangeSnapshot) {
+    auto spec = DepositSpec();
+    const auto alias = std::make_shared<CalibrationObservation_>(*spec.observations_[0]);
+    spec.observations_[0] = Handle_<CalibrationObservation_>(alias);
+    const auto snapshot = NewScriptCurveQuoteRiskSnapshot(CalibrateCurveInstruments(spec), Accuracy());
+    ASSERT_TRUE(snapshot.StructureValid());
+    const auto identity = snapshot.Identity();
+    *alias = *NewCalibrationObservation("changed", alias->Instrument(), "ParRate",
+                                        NewCalibrationMarketQuote("changed-q", .07, CalibrationValueUnit_::Parse("Rate")), 1e-8);
+    ASSERT_EQ(snapshot.ResolvedSpec()->observations_[0]->Id(), "o");
+    ASSERT_DOUBLE_EQ(snapshot.ResolvedSpec()->observations_[0]->Quote()->Value(), .035);
+    ASSERT_DOUBLE_EQ(snapshot.QuoteAxis()[0].value_, .035);
+    ASSERT_EQ(snapshot.Identity(), identity);
+    ASSERT_TRUE(snapshot.ValidateContext(*snapshot.ResolvedSpec()).Passed());
+    ASSERT_FALSE(snapshot.ValidateContext(spec).Passed());
+}
+
+TEST(ScriptCurveQuoteRiskTest, TestWritableQuoteAliasCannotChangeSnapshot) {
+    auto spec = DepositSpec();
+    const auto alias = std::make_shared<CalibrationMarketQuote_>(*spec.observations_[0]->Quote());
+    spec.observations_[0] =
+        NewCalibrationObservation("o", spec.observations_[0]->Instrument(), "ParRate", Handle_<CalibrationMarketQuote_>(alias), 1e-10);
+    const auto snapshot = NewScriptCurveQuoteRiskSnapshot(CalibrateCurveInstruments(spec), Accuracy());
+    ASSERT_TRUE(snapshot.StructureValid());
+    const auto identity = snapshot.Identity();
+    *alias = *NewCalibrationMarketQuote("q", .08, CalibrationValueUnit_::Parse("Rate"));
+    ASSERT_DOUBLE_EQ(snapshot.ResolvedSpec()->observations_[0]->Quote()->Value(), .035);
+    ASSERT_DOUBLE_EQ(snapshot.QuoteAxis()[0].value_, .035);
+    ASSERT_EQ(snapshot.Identity(), identity);
+    ASSERT_TRUE(snapshot.ValidateContext(*snapshot.ResolvedSpec()).Passed());
+    ASSERT_FALSE(snapshot.ValidateContext(spec).Passed());
+}
+
 TEST(ScriptCurveQuoteRiskTest, TestRepeatedQuoteIdIsRejectedWithoutChangingCalibration) {
     auto spec = DepositSpec();
     const Date_ later(2028, 10, 23);
@@ -193,6 +226,110 @@ TEST(ScriptCurveQuoteRiskTest, TestEveryContextComponentInvalidatesSnapshot) {
     }
 }
 
+TEST(ScriptCurveQuoteRiskTest, TestReplacedParameterScalesCannotReuseSolveEvidence) {
+    auto fit = CalibrateCurveInstruments(DepositSpec());
+    auto changed = std::make_shared<CurveInstrumentCalibrationSpec_>(*fit.resolvedSpec_);
+    changed->solver_.parameterScales_ = {10.};
+    fit.resolvedSpec_ = changed;
+    ASSERT_DOUBLE_EQ(fit.parameterScales_[0], 1.);
+    const auto snapshot = NewScriptCurveQuoteRiskSnapshot(fit, Accuracy());
+    ASSERT_FALSE(snapshot.StructureValid());
+    ASSERT_FALSE(snapshot.RiskAvailable());
+    ASSERT_EQ(snapshot.Diagnostics()[0].code_, "ScriptCurveQuoteRiskIdentityMismatch");
+    ASSERT_EQ(snapshot.Diagnostics()[0].field_, "/fit/configuration_identity");
+    ASSERT_EQ(snapshot.QuoteAxis()[0].id_, "q");
+}
+
+TEST(ScriptCurveQuoteRiskTest, TestReplacedBudgetCannotReuseSolveEvidence) {
+    auto fit = CalibrateCurveInstruments(DepositSpec());
+    auto changed = std::make_shared<CurveInstrumentCalibrationSpec_>(*fit.resolvedSpec_);
+    changed->solver_.maxEvaluations_ = 1;
+    fit.resolvedSpec_ = changed;
+    const auto snapshot = NewScriptCurveQuoteRiskSnapshot(fit, Accuracy());
+    ASSERT_FALSE(snapshot.StructureValid());
+    ASSERT_FALSE(snapshot.RiskAvailable());
+    ASSERT_EQ(snapshot.Diagnostics()[0].code_, "ScriptCurveQuoteRiskIdentityMismatch");
+    ASSERT_EQ(snapshot.Diagnostics()[0].field_, "/fit/configuration_identity");
+    ASSERT_EQ(snapshot.QuoteAxis()[0].id_, "q");
+}
+
+TEST(ScriptCurveQuoteRiskTest, TestEverySolverSettingIsBoundToPreparationEvidence) {
+    const auto fit = CalibrateCurveInstruments(DepositSpec());
+    using Change_ = std::function<void(CurveInstrumentSolver_*)>;
+    const Vector_<Change_> changes = {[](auto* s) { s->initialGuess_ = .06; },     [](auto* s) { s->initialGuessPerNode_ = {-.04}; },
+                                      [](auto* s) { s->parameterScales_ = {.3}; }, [](auto* s) { s->smoothingWeight_ = .2; },
+                                      [](auto* s) { s->maxEvaluations_ = 201; },   [](auto* s) { s->maxRestarts_ = 21; },
+                                      [](auto* s) { s->fitWeight_ = 1.; },         [](auto* s) { s->fitNormTolerance_ = .01; }};
+    for (size_t i = 0; i < changes.size(); ++i) {
+        SCOPED_TRACE(i);
+        auto changed = fit;
+        auto spec = std::make_shared<CurveInstrumentCalibrationSpec_>(*fit.resolvedSpec_);
+        changes[i](&spec->solver_);
+        changed.resolvedSpec_ = spec;
+        const auto snapshot = NewScriptCurveQuoteRiskSnapshot(changed, Accuracy());
+        ASSERT_FALSE(snapshot.StructureValid());
+        ASSERT_EQ(snapshot.Diagnostics()[0].code_, "ScriptCurveQuoteRiskIdentityMismatch");
+    }
+}
+
+TEST(ScriptCurveQuoteRiskTest, TestEveryOptionIsBoundToPreparationEvidence) {
+    const auto fit = CalibrateCurveInstruments(DepositSpec());
+    using Change_ = std::function<void(CurveInstrumentCalibrationOptions_*)>;
+    const Vector_<Change_> changes = {[](auto* o) { o->evaluation_ = CalibrationEvaluation_::Value_::GenericDeterministic; },
+                                      [](auto* o) { o->jacobianMode_ = CalibrationDerivative_::Value_::AAD; },
+                                      [](auto* o) { o->differenceStep_ = 2e-5; }, [](auto* o) { o->computeQuoteJacobian_ = true; }};
+    for (size_t i = 0; i < changes.size(); ++i) {
+        SCOPED_TRACE(i);
+        auto changed = fit;
+        auto options = std::make_shared<CurveInstrumentCalibrationOptions_>(*fit.resolvedOptions_);
+        changes[i](options.get());
+        changed.resolvedOptions_ = options;
+        const auto snapshot = NewScriptCurveQuoteRiskSnapshot(changed, Accuracy());
+        ASSERT_FALSE(snapshot.StructureValid());
+        ASSERT_EQ(snapshot.Diagnostics()[0].code_, "ScriptCurveQuoteRiskIdentityMismatch");
+    }
+}
+
+TEST(ScriptCurveQuoteRiskTest, TestNonDefaultSolverOptionsAndInstrumentKnotsRemainValid) {
+    for (const double scale : {1e-4, 1., 10.}) {
+        SCOPED_TRACE(scale);
+        auto spec = DepositSpec();
+        spec.geometry_.knotPolicy_ = CurveKnotPolicy_::Value_::INSTRUMENTS;
+        spec.solver_.parameterScales_ = {scale};
+        spec.solver_.maxEvaluations_ = 250;
+        spec.solver_.maxRestarts_ = 25;
+        CurveInstrumentCalibrationOptions_ options;
+        options.evaluation_ = CalibrationEvaluation_::Value_::GenericDeterministic;
+        options.jacobianMode_ = CalibrationDerivative_::Value_::AAD;
+        options.differenceStep_ = 2e-5;
+        options.computeQuoteJacobian_ = true;
+        options.preparationCache_ = std::make_shared<CalibrationPreparationCache_>();
+        const auto fit = CalibrateCurveInstruments(spec, options);
+        const auto snapshot = NewScriptCurveQuoteRiskSnapshot(fit, Accuracy());
+        ASSERT_TRUE(snapshot.StructureValid());
+        ASSERT_TRUE(snapshot.ValidateContext(spec).Passed());
+        ASSERT_TRUE(snapshot.ValidateContext(*snapshot.ResolvedSpec()).Passed());
+        ASSERT_FALSE(snapshot.RiskAvailable());
+        ASSERT_DOUBLE_EQ(fit.parameterScales_[0], scale);
+        ASSERT_FALSE(fit.resolvedOptions_->preparationCache_);
+        ASSERT_FALSE(fit.quoteJacobian_.Empty());
+    }
+}
+
+TEST(ScriptCurveQuoteRiskTest, TestSnapshotIdentityIncludesOriginalOptions) {
+    const auto spec = DepositSpec();
+    const auto firstFit = CalibrateCurveInstruments(spec);
+    CurveInstrumentCalibrationOptions_ options;
+    options.computeQuoteJacobian_ = true;
+    const auto secondFit = CalibrateCurveInstruments(spec, options);
+    ASSERT_EQ(firstFit.parameters_, secondFit.parameters_);
+    const auto first = NewScriptCurveQuoteRiskSnapshot(firstFit, Accuracy());
+    const auto second = NewScriptCurveQuoteRiskSnapshot(secondFit, Accuracy());
+    ASSERT_TRUE(first.StructureValid());
+    ASSERT_TRUE(second.StructureValid());
+    ASSERT_NE(first.Identity(), second.Identity());
+}
+
 TEST(ScriptCurveQuoteRiskTest, TestNonFiniteFitValuesAreUnavailable) {
     const auto fit = CalibrateCurveInstruments(DepositSpec());
     for (const bool parameter : {true, false}) {
@@ -204,6 +341,47 @@ TEST(ScriptCurveQuoteRiskTest, TestNonFiniteFitValuesAreUnavailable) {
         ASSERT_EQ(snapshot.Diagnostics()[0].code_, "ScriptCurveQuoteRiskNonFinite");
         ASSERT_EQ(snapshot.Diagnostics()[0].field_, parameter ? "/fit/parameters/0" : "/fit/model_measures/0");
         ASSERT_EQ(snapshot.QuoteAxis()[0].id_, "q");
+    }
+}
+
+TEST(ScriptCurveQuoteRiskTest, TestObjectiveValuesMustMatchOriginalSolveEvidence) {
+    const auto fit = CalibrateCurveInstruments(DepositSpec());
+    using Change_ = std::function<void(CurveInstrumentCalibrationResult_*)>;
+    const Vector_<Change_> changes = {[](auto* f) { f->parameterScales_[0] = 10.; }, [](auto* f) { f->initialParameters_[0] += .01; },
+                                      [](auto* f) { f->fitWeight_ = 2.; }, [](auto* f) { f->fitNormTolerance_ = .01; }};
+    for (size_t i = 0; i < changes.size(); ++i) {
+        SCOPED_TRACE(i);
+        auto changed = fit;
+        changes[i](&changed);
+        const auto snapshot = NewScriptCurveQuoteRiskSnapshot(changed, Accuracy());
+        ASSERT_FALSE(snapshot.StructureValid());
+        ASSERT_EQ(snapshot.Diagnostics()[0].code_, "ScriptCurveQuoteRiskIdentityMismatch");
+        ASSERT_EQ(snapshot.Diagnostics()[0].field_, "/fit/objective_identity");
+    }
+}
+
+TEST(ScriptCurveQuoteRiskTest, TestReportObjectiveMustMatchOriginalSolveEvidence) {
+    const auto fit = CalibrateCurveInstruments(DepositSpec());
+    using Change_ = std::function<void(CalibrationReportSnapshot_*)>;
+    const Vector_<Change_> changes = {[](auto* r) { r->objective_.parameterScales_[0] = 10.; },
+                                      [](auto* r) { r->objective_.theta0_[0] += .01; },
+                                      [](auto* r) { r->objective_.lambda_ = 2.; },
+                                      [](auto* r) { r->objective_.eta_ = .01; },
+                                      [](auto* r) { (*r->objective_.weightMatrix_)(0, 0) *= 2.; },
+                                      [](auto* r) { r->objective_.nativeLayout_[0] = "other"; },
+                                      [](auto* r) { r->parameters_[0].scale_ = 10.; },
+                                      [](auto* r) { r->parameters_[0].initial_ = .01; },
+                                      [](auto* r) { r->parameters_[0].value_ = .01; }};
+    for (size_t i = 0; i < changes.size(); ++i) {
+        SCOPED_TRACE(i);
+        auto changed = fit;
+        auto report = fit.report_->Data();
+        changes[i](&report);
+        changed.report_.reset(new CalibrationReport_(CalibrationStage_::Value_::Solve, fit.axes_, {}, report));
+        const auto snapshot = NewScriptCurveQuoteRiskSnapshot(changed, Accuracy());
+        ASSERT_FALSE(snapshot.StructureValid());
+        ASSERT_EQ(snapshot.Diagnostics()[0].code_, "ScriptCurveQuoteRiskIdentityMismatch");
+        ASSERT_EQ(snapshot.Diagnostics()[0].field_, "/fit/report/objective");
     }
 }
 

@@ -421,11 +421,22 @@ Solve report. Preparation checks the source and binding against the report's
 original compiler and context identities, then rebuilds the composite plan
 identity with the fit's owned `resolvedOptions_`. These options retain the
 original evaluation and derivative settings without retaining a preparation
-cache. A mutable fit's success flag alone does not establish this contract.
+cache. Preparation also binds the complete resolved context and options,
+including every solver setting, to immutable evidence. A successful solve binds
+its plan, candidate and objective to that original evidence. The factory checks
+this evidence and the report's initial parameters, scales, native layout,
+smoothing metric and fitted values. Replacing a fit's resolved spec, options or
+objective metadata cannot relabel an earlier solve. The snapshot identity
+includes the original configuration; plan identities and report `/1` retain
+their existing meanings. A mutable fit's success flag alone does not establish
+this contract.
 
 The snapshot copies the resolved spec, native parameters, accuracy and axes.
-Base and background curves are archived into independent owned copies;
-instrument definitions, bindings and fixing snapshots have immutable ownership.
+Observations and quotes are copied into independent owned objects, including
+quote values, units and conventions, so assignment through a caller's writable
+alias cannot change the snapshot. Base and background curves are archived into
+independent owned copies. Instrument definitions and bindings are noncopyable
+immutable objects; fixing snapshots contain immutable values and may be shared.
 Quote and observation ordinals preserve input order; native parameter ordinals
 preserve the curve layout. Rejected duplicate IDs retain every submitted quote
 row so the conflicting values remain inspectable. Snapshot data contains no AAD

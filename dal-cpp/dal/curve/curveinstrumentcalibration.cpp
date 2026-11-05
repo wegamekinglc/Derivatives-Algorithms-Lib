@@ -6,6 +6,7 @@
 #include <dal/calibration/validation_internal.hpp>
 #include <dal/curve/calibration_internal.hpp>
 #include <dal/curve/curveinstrumentcalibration.hpp>
+#include <dal/curve/curveinstrumentcontext_internal.hpp>
 #include <dal/curve/curvescriptevaluation_internal.hpp>
 #include <dal/storage/json.hpp>
 
@@ -534,6 +535,7 @@ namespace Dal {
                 plans_.push_back(std::move(plan));
             }
             planIdentity_ = CurvePlanIdentity(spec_, plans_, options_, structural.curves_);
+            evidence_.reset(new CurveInstrumentCalibrationEvidence_(CurveInstrumentInternal::ConfigurationIdentity(spec_, options_), planIdentity_));
             frozenSpec_ = std::make_shared<const CurveInstrumentCalibrationSpec_>(spec_);
             auto frozenOptions = options_;
             frozenOptions.preparationCache_.reset();
@@ -577,6 +579,7 @@ namespace Dal {
         auto result = LayoutResult(definition_, axes_);
         result.resolvedSpec_ = frozenSpec_;
         result.resolvedOptions_ = frozenOptions_;
+        result.evidence_ = evidence_;
         result.capabilities_ = capabilities_;
         result.planIdentity_ = planIdentity_;
         return result;
@@ -738,13 +741,7 @@ namespace Dal {
                         weights->Set(j, i, value);
                     }
                 }
-            result->objectiveIdentity_ = Fingerprint(Obj({{"plan", Str(result->planIdentity_)},
-                                                          {"mode", Str(result->solveMode_.String())},
-                                                          {"theta0", Array(result->initialParameters_, [](double value) { return Num(value); })},
-                                                          {"scales", Array(result->parameterScales_, [](double value) { return Num(value); })},
-                                                          {"smoothing_weight", Num(solver.smoothingWeight_)},
-                                                          {"lambda", Optional(result->fitWeight_, [](double value) { return Num(value); })},
-                                                          {"eta", Optional(result->fitNormTolerance_, [](double value) { return Num(value); })}}));
+            result->objectiveIdentity_ = CurveInstrumentInternal::ObjectiveIdentity(*result, solver);
             return weights;
         }
         void FitState(const PreparedCurveInstruments_& plan,
@@ -839,6 +836,8 @@ namespace Dal {
             auto data = CurveReportData(result, "Succeeded");
             data.summary_.converged_ = result.fitWithinTolerance_;
             result.report_.reset(new CalibrationReport_(CalibrationStage_::Value_::Solve, result.axes_, {}, data));
+            result.evidence_.reset(new CurveInstrumentCalibrationEvidence_(result.evidence_->ConfigurationIdentity(), result.planIdentity_,
+                                                                           result.candidateIdentity_, result.objectiveIdentity_));
             return result;
         } catch (const CalibrationError_& error) {
             CurveFailure(std::move(result), error.Failure().diagnostic_);
