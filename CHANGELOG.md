@@ -18,6 +18,13 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-11-06
 
+- **Script curve quote mapping** — added passive core native-parameter responses
+  with raw-root, pivot, condition and backward-error admission, one cached
+  factorization and owning unavailable results. Full-rank admission rejects
+  unobserved forward coordinates; PV quote risk and language projections remain
+  unavailable. See the
+  [snapshot contract](docs/methodology/script_calibration_contract.md#script-curve-quote-risk-snapshots).
+
 - **Script curve risk snapshots** — added owned core snapshots with explicit
   accuracy, native/quote axes, structural admission and context identity checks.
   Numerical quote risk remains unavailable; structural success does not certify

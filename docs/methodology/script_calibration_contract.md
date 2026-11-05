@@ -449,8 +449,49 @@ numbers, tape positions or evaluator scratch.
 `ScriptCurveQuoteRiskAccuracy_` requires an absolute residual limit per
 observation, a minimum reciprocal condition in `(0,1]` and an explicit positive
 response backward-error limit. Its relative pivot tolerance defaults to
-`64*epsilon`. These numerical limits are stored and validated as configuration;
-the snapshot does not yet evaluate their numerical gates.
+`64*epsilon`; the response limit must be in `(0,1]`. At the supplied fitted native
+parameters the factory reevaluates the raw measures and native AAD Jacobian
+through `PreparedCurveInstruments_`. It does not depend on the optional
+`fit.quoteJacobian_`, differentiate the optimizer, or refit a loose candidate.
+Native derivatives already exclude parameter and observation scaling, so neither
+scale is applied again.
+
+For $R(\theta,q)=F(\theta)-Qq$, the parameter response $M$ satisfies
+$R_\theta M=Q$. One passive `ImplicitRootLinearization_` caches the checked LU
+factorization. Transpose solves with native coordinate basis seeds produce the
+rows of $M$ without constructing an inverse. Every raw residual, relative pivot,
+reciprocal condition, transpose backward error and final response equation
+backward error must pass its own gate. The capture retains measured errors before
+applying the supplied response limit. Repeated const mapping requests reuse the
+same factorization with fresh passive results and scratch.
+
+`snapshot.MappingAvailable()` reports numerical map admission separately from
+`StructureValid()`. `snapshot.ParameterQuoteMapping(context)` checks the explicit
+context and returns an owning `ScriptCurveQuoteMapping_`. Read `Available()`,
+`Axes()`, `Diagnostics()` and `Numerics()` before `ParameterResponse()`. The matrix
+has native parameter rows and decimal quote columns and represents
+$d\theta/dq$. An unavailable matrix getter throws; it never returns a zero
+substitute. Numerical evidence retains available raw measures/residuals, native
+Jacobian, reciprocal condition, transpose/response errors and successful
+factorization count, including on rejection. Results survive the snapshot and
+original input lifetimes. No active AAD objects enter the cache.
+
+For the unit-notional 1/5/15-quote Deposit, IRS and Basis samples, recommended
+explicit limits are `1e-12` for each raw residual, `1e-10` for the minimum
+reciprocal condition and `1e-12` for backward errors. The independent full
+recalibrations use center differences at `1e-4` and `5e-5`, with both response
+error and reference stability bounded by `1e-7 + 1e-5*abs(reference)`. These
+sample recommendations do not replace explicit caller accuracy or certify PV
+risk. Ordinary fit acceptance alone can leave a residual above the risk limit.
+
+All four native layouts undergo the same numerical gates. The existing
+cashflow/observation horizon ends at the final knot. PWLF's final right-forward
+coordinate affects only dates beyond that knot and is therefore unobservable;
+its native Jacobian is rejected as singular. Multi-knot PWC has an analogous
+unused last right-forward coordinate; single-knot PWC can be full rank.
+Log-discount and zero-rate square samples, and single-knot PWC, support admitted
+maps. Scaling cannot make an unobserved coordinate identifiable. Removing a
+coordinate or extending the admission horizon requires a separate layout change.
 
 `snapshot.ValidateContext(context)` returns an owning validation result with
 `Passed()`, `Axes()` and `Diagnostics()`. It compares actual resolved content,
@@ -460,10 +501,9 @@ policies are resolved through preparation. Compatibility checks do not run a
 calibration optimizer. Changes require rebuilding the snapshot from a fit with
 the new context.
 
-Structural validation does **not** certify root accuracy, rank, conditioning or
-PV risk. `RiskAvailable()` currently returns false for every snapshot. An
-otherwise valid snapshot reports `ScriptCurveQuoteRiskNumericsUnavailable` at
-`/risk`; no PV, raw quote sensitivity or DV01 values are published. Unsupported
+Structural validation alone does **not** certify root accuracy, rank, conditioning
+or PV risk. `RiskAvailable()` still returns false for every snapshot: the
+parameter map is not $dPV/dq$, and no PV or DV01 values are published. Unsupported
 modes/units/products, non-square systems, conflicting IDs and stale contexts
 retain axes and diagnostics. Malformed required inputs or accuracy settings
 throw the existing owning `CalibrationError_`. Diagnostics include a field,

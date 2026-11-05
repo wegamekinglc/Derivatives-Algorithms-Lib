@@ -4,7 +4,9 @@
 
 #include <dal/calibration/validation_internal.hpp>
 #include <dal/curve/curveinstrumentcontext_internal.hpp>
+#include <dal/curve/curvejacobian.hpp>
 #include <dal/curve/scriptcurvequoterisk.hpp>
+#include <dal/math/optimization/implicitroot.hpp>
 #include <dal/storage/json.hpp>
 
 namespace Dal {
@@ -20,6 +22,9 @@ namespace Dal {
         Vector_<CalibrationDiagnostic_> diagnostics_;
         Json_ context_;
         String_ contextIdentity_, identity_;
+        ScriptCurveQuoteRiskNumerics_ numerics_;
+        Matrix_<> quoteMap_;
+        std::shared_ptr<const ImplicitRootLinearization_> linearization_;
     };
 
     namespace {
@@ -78,6 +83,10 @@ namespace Dal {
             }
             return result;
         }
+        void ValidateResponseLimit(double limit) {
+            Check(std::isfinite(limit) && limit > 0. && limit <= 1., INPUT_ERROR, "/accuracy/response_backward_error_limit",
+                  "explicit finite backward error limit in (0,1]");
+        }
         void ValidateAccuracy(const ScriptCurveQuoteRiskAccuracy_& accuracy, size_t rows) {
             Check(accuracy.residualAbsoluteLimits_.size() == rows, INPUT_ERROR, "/accuracy/residual_absolute_limits",
                   "one raw residual limit per observation");
@@ -87,8 +96,7 @@ namespace Dal {
                       NumberText(accuracy.residualAbsoluteLimits_[i]));
             Check(std::isfinite(accuracy.minReciprocalCondition_) && accuracy.minReciprocalCondition_ > 0. && accuracy.minReciprocalCondition_ <= 1.,
                   INPUT_ERROR, "/accuracy/min_reciprocal_condition", "finite value in (0,1]");
-            Check(std::isfinite(accuracy.responseBackwardErrorLimit_) && accuracy.responseBackwardErrorLimit_ > 0., INPUT_ERROR,
-                  "/accuracy/response_backward_error_limit", "explicit finite positive backward error limit");
+            ValidateResponseLimit(accuracy.responseBackwardErrorLimit_);
             Check(std::isfinite(accuracy.relativePivotTolerance_) && accuracy.relativePivotTolerance_ > 0. && accuracy.relativePivotTolerance_ < 1.,
                   INPUT_ERROR, "/accuracy/relative_pivot_tolerance", "finite value in (0,1)");
         }
@@ -288,6 +296,104 @@ namespace Dal {
                   "native curve matching parameters and frozen base");
             ValidateObjective(fit, spec.solver_);
         }
+
+        SquareMatrix_<> SquareJacobian(const Matrix_<>& matrix) {
+            SquareMatrix_<> result(matrix.Rows());
+            for (int i = 0; i < matrix.Rows(); ++i)
+                for (int j = 0; j < matrix.Cols(); ++j)
+                    result(i, j) = matrix(i, j);
+            return result;
+        }
+        class QuoteEquation_ final : public ImplicitRootEquation_ {
+            ImplicitRootEvaluation_ evaluation_;
+
+        public:
+            QuoteEquation_(const ScriptCurveQuoteRiskNumerics_& numerics, const Matrix_<>& quoteMap)
+                : evaluation_{numerics.rawResiduals_, SquareJacobian(numerics.nativeJacobian_), quoteMap} {
+                for (int i = 0; i < quoteMap.Rows(); ++i)
+                    for (int j = 0; j < quoteMap.Cols(); ++j)
+                        evaluation_.inputJacobian_(i, j) = -quoteMap(i, j);
+            }
+            [[nodiscard]] ImplicitRootEvaluation_ Evaluate(const Vector_<>&, const Vector_<>&) const override { return evaluation_; }
+        };
+        Matrix_<> IdentityMatrix(int n) {
+            Matrix_<> result(n, n, 0.);
+            for (int i = 0; i < n; ++i)
+                result(i, i) = 1.;
+            return result;
+        }
+        void ValidateRoot(const ScriptCurveQuoteRiskSnapshot_::Data_& data) {
+            for (size_t i = 0; i < data.numerics_.rawResiduals_.size(); ++i) {
+                const auto residual = data.numerics_.rawResiduals_[i];
+                Check(std::isfinite(residual), "ScriptCurveQuoteRiskNonFinite", "/mapping/residuals/" + OrdinalText(i), "finite raw root residual",
+                      NumberText(residual), RowDiagnostic(*data.spec_->observations_[i]));
+                Check(std::abs(residual) <= data.accuracy_.residualAbsoluteLimits_[i], "ScriptCurveQuoteRiskRootResidual",
+                      "/mapping/residuals/" + OrdinalText(i), NumberText(data.accuracy_.residualAbsoluteLimits_[i]), NumberText(residual),
+                      RowDiagnostic(*data.spec_->observations_[i]));
+            }
+        }
+        void ValidateResponseErrors(const Vector_<>& errors, const ScriptCurveQuoteRiskSnapshot_::Data_& data, bool transpose) {
+            for (size_t i = 0; i < errors.size(); ++i) {
+                auto d = Diagnostic("ScriptCurveQuoteRiskResponseAccuracy", transpose ? "/mapping/transpose_error/" : "/mapping/response_error/",
+                                    NumberText(data.accuracy_.responseBackwardErrorLimit_), NumberText(errors[i]));
+                *d.field_ += OrdinalText(i);
+                if (transpose)
+                    d.parameterKey_ = data.axes_->parameters_[i].id_;
+                else
+                    d.quoteId_ = data.axes_->quotes_[i].id_;
+                Check(std::isfinite(errors[i]) && errors[i] <= data.accuracy_.responseBackwardErrorLimit_, d.code_, *d.field_, *d.expected_,
+                      *d.actual_, d);
+            }
+        }
+        Matrix_<> ParameterResponse(const ScriptCurveQuoteRiskSnapshot_::Data_& data, ScriptCurveQuoteRiskNumerics_* numerics) try {
+            const auto reverse = data.linearization_->Reverse(IdentityMatrix(static_cast<int>(data.parameters_.size())));
+            Matrix_<> response(reverse.inputs_.Cols(), reverse.inputs_.Rows());
+            for (int i = 0; i < response.Rows(); ++i)
+                for (int j = 0; j < response.Cols(); ++j)
+                    response(i, j) = reverse.inputs_(j, i);
+            numerics->transposeBackwardErrors_ = reverse.transposeBackwardErrors_;
+            numerics->responseBackwardErrors_ = LinearSolveBackwardErrors(SquareJacobian(data.numerics_.nativeJacobian_), data.quoteMap_, response);
+            ValidateResponseErrors(numerics->transposeBackwardErrors_, data, true);
+            ValidateResponseErrors(numerics->responseBackwardErrors_, data, false);
+            return response;
+        } catch (const CalibrationError_&) {
+            throw;
+        } catch (const std::exception& error) {
+            Fail("ScriptCurveQuoteRiskResponseAccuracy", "/mapping/response", "checked finite response", error.what());
+        }
+        std::shared_ptr<const ImplicitRootLinearization_> CaptureRoot(const ScriptCurveQuoteRiskSnapshot_::Data_& data) {
+            Vector_<> quotes;
+            for (const auto& quote : data.axes_->quotes_)
+                quotes.push_back(quote.value_);
+            try {
+                // Retain measured errors before applying the caller's stricter response gate.
+                return std::make_shared<const ImplicitRootLinearization_>(QuoteEquation_(data.numerics_, data.quoteMap_), data.parameters_, quotes,
+                                                                          ImplicitRootAccuracyPolicy_{data.accuracy_.residualAbsoluteLimits_, 1.},
+                                                                          data.accuracy_.relativePivotTolerance_);
+            } catch (const std::exception& error) {
+                Fail("ScriptCurveQuoteRiskJacobianRejected", "/mapping/jacobian", "finite full-rank Jacobian with accepted pivots", error.what());
+            }
+        }
+        void CaptureNumerics(ScriptCurveQuoteRiskSnapshot_::Data_* data, CurveInstrumentCalibrationOptions_ options) {
+            options.jacobianMode_ = CalibrationDerivative_::Value_::AAD;
+            options.preparationCache_.reset();
+            const PreparedCurveInstruments_ prepared(*data->spec_, options);
+            const auto evaluation = prepared.Evaluate(data->parameters_, false);
+            data->numerics_.modelMeasures_ = evaluation.modelMeasures_;
+            data->numerics_.rawResiduals_ = evaluation.rawResiduals_;
+            const auto jacobian = prepared.Jacobian(data->parameters_);
+            Check(bool(jacobian), "ScriptCurveQuoteRiskDerivativeUnavailable", "/mapping/jacobian", "native AAD Jacobian");
+            data->numerics_.nativeJacobian_ = static_cast<const XCurveJacobian_&>(*jacobian).j_;
+            data->quoteMap_ = prepared.Axes().quoteMap_;
+            ValidateRoot(*data);
+            data->linearization_ = CaptureRoot(*data);
+            data->numerics_.factorizationCount_ = 1;
+            const double rcond = data->linearization_->ReciprocalJacobianConditionInfinity();
+            data->numerics_.reciprocalCondition_ = rcond;
+            Check(std::isfinite(rcond) && rcond >= data->accuracy_.minReciprocalCondition_, "ScriptCurveQuoteRiskConditionRejected",
+                  "/mapping/reciprocal_condition", NumberText(data->accuracy_.minReciprocalCondition_), NumberText(rcond));
+            static_cast<void>(ParameterResponse(*data, &data->numerics_));
+        }
     } // namespace
 
     ScriptCurveQuoteRiskValidation_::ScriptCurveQuoteRiskValidation_(bool passed,
@@ -296,6 +402,8 @@ namespace Dal {
         : passed_(passed), axes_(std::move(axes)), diagnostics_(std::move(diagnostics)) {}
     ScriptCurveQuoteRiskSnapshot_::ScriptCurveQuoteRiskSnapshot_(std::shared_ptr<const Data_> data) : data_(std::move(data)) {}
     bool ScriptCurveQuoteRiskSnapshot_::StructureValid() const { return data_->structureValid_; }
+    bool ScriptCurveQuoteRiskSnapshot_::MappingAvailable() const { return data_->structureValid_ && data_->diagnostics_.empty(); }
+    const ScriptCurveQuoteRiskNumerics_& ScriptCurveQuoteRiskSnapshot_::Numerics() const { return data_->numerics_; }
     const Vector_<CalibrationDiagnostic_>& ScriptCurveQuoteRiskSnapshot_::Diagnostics() const { return data_->diagnostics_; }
     const ScriptCurveQuoteRiskAccuracy_& ScriptCurveQuoteRiskSnapshot_::Accuracy() const { return data_->accuracy_; }
     const Vector_<ScriptCurveQuoteRiskQuote_>& ScriptCurveQuoteRiskSnapshot_::QuoteAxis() const { return data_->axes_->quotes_; }
@@ -343,14 +451,42 @@ namespace Dal {
                                                                  {"response_error", Num(accuracy.responseBackwardErrorLimit_)},
                                                                  {"pivot", Num(accuracy.relativePivotTolerance_)}})}}));
             data->structureValid_ = true;
-            data->diagnostics_.push_back(Diagnostic("ScriptCurveQuoteRiskNumericsUnavailable", "/risk", "validated implicit mapping and PV gradient",
-                                                    "structural validation only"));
+            CaptureNumerics(data.get(), *fit.resolvedOptions_);
         } catch (const CalibrationError_& error) {
             data->diagnostics_.push_back(error.Failure().diagnostic_);
         } catch (const std::exception& error) {
             data->diagnostics_.push_back(Diagnostic("ScriptCurveQuoteRiskUnavailable", "/fit", "supported deterministic structure", error.what()));
         }
         return ScriptCurveQuoteRiskSnapshot_(std::move(data));
+    }
+
+    ScriptCurveQuoteMapping_::ScriptCurveQuoteMapping_(std::shared_ptr<const ScriptCurveQuoteRiskAxes_> axes,
+                                                       ScriptCurveQuoteRiskNumerics_ numerics,
+                                                       Vector_<CalibrationDiagnostic_> diagnostics,
+                                                       std::optional<Matrix_<>> response)
+        : axes_(std::move(axes)), numerics_(std::move(numerics)), diagnostics_(std::move(diagnostics)), response_(std::move(response)) {}
+    const Matrix_<>& ScriptCurveQuoteMapping_::ParameterResponse() const {
+        REQUIRE(Available(), "Script curve parameter quote mapping is unavailable; inspect diagnostics");
+        return *response_;
+    }
+    ScriptCurveQuoteMapping_ ScriptCurveQuoteRiskSnapshot_::ParameterQuoteMapping(const CurveInstrumentCalibrationSpec_& context) const {
+        const auto validation = ValidateContext(context);
+        if (!validation.Passed())
+            return {data_->axes_, data_->numerics_, validation.Diagnostics(), std::nullopt};
+        if (!MappingAvailable())
+            return {data_->axes_, data_->numerics_, data_->diagnostics_, std::nullopt};
+        auto numerics = data_->numerics_;
+        try {
+            auto response = ParameterResponse(*data_, &numerics);
+            return {data_->axes_, std::move(numerics), {}, std::move(response)};
+        } catch (const CalibrationError_& error) {
+            return {data_->axes_, std::move(numerics), {error.Failure().diagnostic_}, std::nullopt};
+        } catch (const std::exception& error) {
+            return {data_->axes_,
+                    std::move(numerics),
+                    {Diagnostic("ScriptCurveQuoteRiskResponseAccuracy", "/mapping/response", "checked finite response", error.what())},
+                    std::nullopt};
+        }
     }
 
     ScriptCurveQuoteRiskValidation_ ScriptCurveQuoteRiskSnapshot_::ValidateContext(const CurveInstrumentCalibrationSpec_& context) const {
