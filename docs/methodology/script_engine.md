@@ -138,12 +138,22 @@ half-open range `[start, end)`. Bounds resolve to nonnegative integer literals,
 defined numeric constants, or enclosing loop counters; a decreasing range is
 invalid, and equal bounds execute zero times. Nested loops work. The parser
 expands the loop body into the existing statement AST, replacing counter reads
-with numeric literals. A single loop may have at most 10,000 iterations, and
-one event may expand at most 100,000 statements. Both bounds and vector indices
-must be at most 1,000,000. The counter cannot be assigned or reused as a nested
-counter. Vector names and loop counters start with an ASCII letter and may
-contain ASCII letters, digits, underscores, and dots. `EXERCISE` remains a
-top-level event statement and is rejected inside `FOR`.
+with numeric literals. A single loop may have at most 10,000 iterations.
+Loop expansion permits at most 100,000 loop-body statement parses per event.
+Each statement parsed directly in a `FOR` body counts on every iteration;
+nested `FOR` statements and their body parses both count. An empty range still
+validates its body once and consumes this budget, despite emitting no body
+statements. This limit measures parsing work rather than final AST size.
+
+The budget resets at the start of each top-level `Parser_::Parse` call,
+including calls after an earlier error. In a product, different preprocessed
+event dates have separate budgets; rows merged onto the same date share one
+budget.
+
+Both bounds and vector indices must be at most 1,000,000. The counter cannot
+be assigned or reused as a nested counter. Vector names and loop counters start
+with an ASCII letter and may contain ASCII letters, digits, underscores, and
+dots. `EXERCISE` remains a top-level event statement and is rejected inside `FOR`.
 
 ```text
 STRIKES  [80, 100, 120]
