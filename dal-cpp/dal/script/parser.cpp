@@ -777,6 +777,7 @@ namespace Dal::Script {
         ifLevel_ = 0;
         forLevel_ = 0;
         expandedStatements_ = 0;
+        parsedStatements_ = 0;
         loopIndices_.clear();
         Event_ e;
         if (context)
