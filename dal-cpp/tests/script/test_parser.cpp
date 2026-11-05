@@ -8,8 +8,11 @@
 #include <dal/script/node.hpp>
 #include <dal/script/visitor/all.hpp>
 
+#include "scriptbudget.hpp"
+
 using namespace Dal;
 using namespace Dal::Script;
+using namespace Dal::Script::TestSupport;
 
 namespace {
     // Validate the operand order of the NodeSub_ inside a comparison node.
@@ -162,6 +165,158 @@ TEST(ScriptTest, TestParseForUnrollsConstantBounds) {
         const auto* index = dynamic_cast<const NodeConst_*>(add->arguments_[1].get());
         ASSERT_NE(index, nullptr);
         ASSERT_DOUBLE_EQ(index->constVal_, static_cast<double>(i));
+    }
+}
+
+TEST(ScriptTest, TestParserBudgetResetsAcrossOverloads) {
+    for (bool withContext : {false, true}) {
+        Parser_ parser;
+        ParseContext_ context;
+        for (int i = 0; i < 10; ++i) {
+            const auto event = i % 2 ? parser.Parse(BUDGET_LOOP, {}, &context) : parser.Parse(BUDGET_LOOP);
+            ASSERT_EQ(event.size(), 1);
+            AssertBudgetLoop(*event[0], 10000);
+        }
+        const Vector_<SourceOrigin_> origins{{0, 42, Date_(2027, 1, 11)}};
+        const auto event = withContext ? parser.Parse(SMALL_BUDGET_LOOP, origins, &context) : parser.Parse(SMALL_BUDGET_LOOP, origins);
+        ASSERT_EQ(event.size(), 1);
+        AssertBudgetLoop(*event[0], 1);
+        Parser_ fresh;
+        const auto control = fresh.Parse(SMALL_BUDGET_LOOP);
+        ASSERT_EQ(control.size(), 1);
+        AssertBudgetLoop(*control[0], 1);
+        if (withContext) {
+            ASSERT_EQ(context.statement_, 0);
+            ASSERT_EQ(context.source_.row_, 42);
+            ASSERT_EQ(context.source_.eventDate_, Date_(2027, 1, 11));
+        }
+    }
+}
+
+TEST(ScriptTest, TestParserBudgetRecoversAfterParseErrors) {
+    for (const String_ failed : {String_(NESTED_BUDGET_LOOP), String_(FullEventBudget() + "x =")}) {
+        Parser_ parser;
+        AssertScriptError([&] { parser.Parse(failed); }, {failed == NESTED_BUDGET_LOOP ? BUDGET_ERROR : "unexpected end"});
+        const auto small = parser.Parse(SMALL_BUDGET_LOOP);
+        ASSERT_EQ(small.size(), 1);
+        AssertBudgetLoop(*small[0], 1);
+        const auto full = parser.Parse(FullEventBudget());
+        ASSERT_EQ(full.size(), 10);
+        for (const auto& node : full)
+            AssertBudgetLoop(*node, 10000);
+    }
+}
+
+TEST(ScriptTest, TestParserBudgetRecoveryPreservesFixedBindings) {
+    const std::map<String_, double> scalars{{"COUNT", 2.}, {"K", 7.}};
+    const std::map<String_, Vector_<>> vectors{{"WEIGHTS", {0.25, 0.75}}};
+    Parser_ parser(scalars, vectors), fresh(scalars, vectors);
+    AssertScriptError([&] { parser.Parse(NESTED_BUDGET_LOOP); }, {BUDGET_ERROR});
+    const String_ input = "FOR(i, 0, COUNT) x = WEIGHTS[i] + K END";
+    const auto recovered = parser.Parse(input);
+    const auto control = fresh.Parse(input);
+    for (const auto* event : {&recovered, &control}) {
+        ASSERT_EQ(event->size(), 1);
+        const auto* collection = dynamic_cast<const NodeCollect_*>((*event)[0].get());
+        ASSERT_NE(collection, nullptr);
+        ASSERT_EQ(collection->arguments_.size(), 2);
+        for (size_t i = 0; i < 2; ++i) {
+            const auto* assignment = dynamic_cast<const NodeAssign_*>(collection->arguments_[i].get());
+            ASSERT_NE(assignment, nullptr);
+            const auto* addition = dynamic_cast<const NodeAdd_*>(assignment->arguments_[1].get());
+            ASSERT_NE(addition, nullptr);
+            const auto* weight = dynamic_cast<const NodeConst_*>(addition->arguments_[0].get());
+            const auto* parameter = dynamic_cast<const NodeConstVar_*>(addition->arguments_[1].get());
+            ASSERT_NE(weight, nullptr);
+            ASSERT_NE(parameter, nullptr);
+            ASSERT_DOUBLE_EQ(weight->constVal_, i == 0 ? 0.25 : 0.75);
+            ASSERT_EQ(parameter->name_, "K");
+            ASSERT_DOUBLE_EQ(parameter->constVal_, 7.);
+        }
+    }
+}
+
+TEST(ScriptTest, TestParserBudgetRecoveryKeepsCurrentOriginsAndContext) {
+    Parser_ parser;
+    parser.Parse(FullEventBudget());
+    ParseContext_ context;
+    const Date_ oldDate(2027, 1, 1), currentDate(2027, 1, 2);
+    const Vector_<SourceOrigin_> oldOrigins{{0, 90, oldDate}}, currentOrigins{{0, 42, currentDate}};
+    AssertScriptError([&] { parser.Parse("x = 1\n@", oldOrigins, &context); },
+                      {"InvalidScript", "row=90", "event=2027-01-01", "line=2", "column=1", "offset=6"});
+    ASSERT_EQ(context.source_.row_, 90);
+    ASSERT_EQ(context.source_.offset_, 6);
+    const auto event = parser.Parse(SMALL_BUDGET_LOOP, currentOrigins, &context);
+    ASSERT_EQ(event.size(), 1);
+    AssertBudgetLoop(*event[0], 1);
+    Parser_ fresh;
+    ParseContext_ control;
+    fresh.Parse(SMALL_BUDGET_LOOP, currentOrigins, &control);
+    ASSERT_EQ(context.statement_, control.statement_);
+    ASSERT_EQ(context.source_.row_, control.source_.row_);
+    ASSERT_EQ(context.source_.eventDate_, control.source_.eventDate_);
+    ASSERT_EQ(context.source_.line_, control.source_.line_);
+    ASSERT_EQ(context.source_.column_, control.source_.column_);
+    ASSERT_EQ(context.source_.offset_, control.source_.offset_);
+    AssertScriptError([&] { parser.Parse("FOR(i, 0, 10001) x = i END", currentOrigins, &context); },
+                      {"InvalidFor: range must contain at most 10000 iterations", "row=42", "event=2027-01-02"});
+    ASSERT_EQ(context.source_.row_, 42);
+    ASSERT_EQ(context.source_.eventDate_, currentDate);
+}
+
+TEST(ScriptTest, TestParserBudgetIsIndependentPerInstance) {
+    Parser_ first, second;
+    ASSERT_EQ(first.Parse(FullEventBudget()).size(), 10);
+    ASSERT_EQ(second.Parse(FullEventBudget()).size(), 10);
+    AssertScriptError([&] { first.Parse(NESTED_BUDGET_LOOP); }, {BUDGET_ERROR});
+    const auto event = second.Parse(SMALL_BUDGET_LOOP);
+    ASSERT_EQ(event.size(), 1);
+    AssertBudgetLoop(*event[0], 1);
+}
+
+TEST(ScriptTest, TestParserBudgetAllowsExactSingleEventLimit) {
+    Parser_ parser;
+    const auto event = parser.Parse(FullEventBudget());
+    ASSERT_EQ(event.size(), 10);
+    for (const auto& node : event)
+        AssertBudgetLoop(*node, 10000);
+}
+
+TEST(ScriptTest, TestParserBudgetRejectsSingleEventOverflow) {
+    Parser_ parser;
+    const auto full = FullEventBudget();
+    const Vector_<SourceOrigin_> origins{{0, 1, Date_(2027, 1, 1)}, {full.size(), 11, Date_(2027, 1, 1)}};
+    AssertScriptError([&] { parser.Parse(full + SMALL_BUDGET_LOOP, origins); }, MergedBudgetErrorFields());
+}
+
+TEST(ScriptTest, TestParserBudgetCountsNestedAndDiscardedWork) {
+    for (const String_ text : {String_(NESTED_BUDGET_LOOP), String_("FOR(z, 0, 0) " + String_(NESTED_BUDGET_LOOP) + " END")}) {
+        Parser_ parser;
+        AssertScriptError([&] { parser.Parse(text); }, {BUDGET_ERROR, "line=1", "column=", "offset="});
+    }
+}
+
+TEST(ScriptTest, TestParserBudgetRetainsEmptyAndRangeLimits) {
+    {
+        Parser_ parser;
+        const auto event = parser.Parse("FOR(z, 0, 0) x = z END");
+        ASSERT_EQ(event.size(), 1);
+        AssertBudgetLoop(*event[0], 0);
+    }
+    {
+        Parser_ parser;
+        AssertScriptError([&] { parser.Parse(FullEventBudget() + "FOR(z, 0, 0) x = z END"); }, {BUDGET_ERROR, "line=11", "column=1"});
+    }
+    {
+        Parser_ parser;
+        const auto event = parser.Parse(BUDGET_LOOP);
+        ASSERT_EQ(event.size(), 1);
+        AssertBudgetLoop(*event[0], 10000);
+    }
+    {
+        Parser_ parser;
+        AssertScriptError([&] { parser.Parse("FOR(i, 0, 10001) x = i END"); },
+                          {"InvalidFor: range must contain at most 10000 iterations", "line=1", "column=1", "offset=0"});
     }
 }
 

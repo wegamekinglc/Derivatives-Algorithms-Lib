@@ -13,9 +13,34 @@
 #include <dal/time/dateincrement.hpp>
 #include <dal/storage/globals.hpp>
 
+#include "scriptbudget.hpp"
+
 using namespace Dal;
 using namespace Dal::AAD;
 using namespace Dal::Script;
+
+TEST(ScriptTest, TestEventParserBudgetIsIndependentPerDate) {
+    using namespace Dal::Script::TestSupport;
+    const auto dates = BudgetDates();
+    const ScriptProduct_ product(dates, BudgetEvents());
+    ASSERT_EQ(product.Events().size(), 11);
+    for (size_t i = 0; i < 11; ++i) {
+        const auto date = Date_(2027, 1, static_cast<int>(i) + 1);
+        ASSERT_EQ(product.EventDates()[i], date);
+        ASSERT_EQ(product.Events()[i].size(), 1);
+        AssertBudgetLoop(*product.Events()[i][0], i == 10 ? 1 : 10000);
+        const auto& origins = product.ParsedEventSources()[i];
+        ASSERT_EQ(origins.size(), 1);
+        ASSERT_EQ(origins[0].row_, i + 1);
+        ASSERT_EQ(origins[0].offset_, 0);
+        ASSERT_EQ(origins[0].eventDate_, date);
+    }
+}
+
+TEST(ScriptTest, TestEventParserBudgetCombinesSameDateRows) {
+    using namespace Dal::Script::TestSupport;
+    AssertScriptError([] { ScriptProduct_ product(BudgetDates(true), BudgetEvents()); }, MergedBudgetErrorFields());
+}
 
 TEST(ScriptTest, TestEventWithMacro) {
     Vector_<Cell_> dates;

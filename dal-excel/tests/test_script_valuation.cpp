@@ -10,6 +10,7 @@
 #include <dal/storage/globals.hpp>
 
 #include "script_test_observers.hpp"
+#include "scriptbudgetjson.hpp"
 
 using namespace Dal;
 
@@ -138,6 +139,29 @@ TEST(ScriptExcelContractTest, TestBlankSimulationUsesCompiledEvaluator) {
     MonteCarloSettings_New("tree", Setting("compiled", Cell_(false)), &simulation);
     ScriptSimulation_Explain(product, model, 257, {}, simulation, &chunks);
     ASSERT_FALSE(Json(chunks)["simulation"]["compiled"].GetBool());
+}
+
+TEST(ScriptExcelContractTest, TestDescribeParserBudgetIsIndependentPerDate) {
+    using namespace Dal::Script::TestSupport;
+    auto dates = BudgetDates();
+    for (auto& date : dates)
+        date = Cell_(double(Date::ToExcel(Cell::ToDate(date))));
+    Handle_<ScriptProductData_> product;
+    Product_New("budget", dates, BudgetEvents(), &product);
+    Vector_<String_> chunks;
+    Product_Describe(product, &chunks);
+    ASSERT_GT(chunks.size(), 1);
+    const auto json = Json(chunks);
+    AssertBudgetDescription(json);
+}
+
+TEST(ScriptExcelContractTest, TestDescribeParserBudgetCombinesSameDateRows) {
+    using namespace Dal::Script::TestSupport;
+    const Vector_<Cell_> dates(11, Cell_(double(Date::ToExcel(Date_(2027, 1, 1)))));
+    Handle_<ScriptProductData_> product;
+    Product_New("merged-budget", dates, BudgetEvents(), &product);
+    Vector_<String_> chunks;
+    AssertScriptError([&] { Product_Describe(product, &chunks); }, MergedBudgetErrorFields());
 }
 
 TEST(ScriptExcelContractTest, TestHistoricalPriceAndAadOracle) {

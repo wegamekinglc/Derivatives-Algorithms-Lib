@@ -1,5 +1,7 @@
 """Tests for script product creation and debug."""
 
+import json
+
 import pytest
 
 import dal
@@ -22,6 +24,45 @@ def test_product_new_accepts_numeric_vectors_and_for():
         ["[0.25, 0.75]", "FOR(i, 0, 2) pay PAYS WEIGHTS[i] * SPOT() END"],
     )
     assert "PAYS" in dal.Product_Debug(product)  # nosec B101
+
+
+def _parser_budget_table(same_date=False):
+    dates = [dal.Date_(2027, 1, 1 if same_date else day) for day in range(1, 12)]
+    events = ["FOR(i, 0, 10000) x = i END"] * 10 + ["FOR(i, 0, 1) x = i END"]
+    return dates, events
+
+
+def test_parser_budget_debug_is_independent_per_date():
+    product = dal.Product_New(*_parser_budget_table())
+    description = json.loads(dal.Product_DebugJson(product))
+    assert description["schema"] == "dal.script-product/1"
+    events = description["events"]
+    assert [event["date"] for event in events] == [f"2027-01-{day:02d}" for day in range(1, 12)]
+    for i, event in enumerate(events):
+        assert event["phase"] == "future"
+        assert len(event["statements"]) == 1
+        collection = event["statements"][0]
+        assert collection["kind"] == "collect"
+        children = collection["children"]
+        assert len(children) == (1 if i == 10 else 10000)
+        for j in (0, len(children) - 1):
+            assert children[j]["kind"] == "assign"
+            assert children[j]["target"]["name"] == "x"
+            assert children[j]["value"]["kind"] == "const"
+            assert children[j]["value"]["value"] == j
+
+
+def test_parser_budget_debug_combines_same_date_rows():
+    dates, events = _parser_budget_table(same_date=True)
+    product = dal.Product_New(dates, events)
+    with pytest.raises(RuntimeError) as caught:
+        dal.Product_DebugJson(product)
+    for field in (
+        "InvalidFor: expanded program exceeds 100000 parsed statements",
+        "row=11", "event=2027-01-01", "line=11", "column=1",
+        f"offset={10 * (len(events[0]) + 1)}",
+    ):
+        assert field in str(caught.value)
 
 
 def test_product_new_european_put():

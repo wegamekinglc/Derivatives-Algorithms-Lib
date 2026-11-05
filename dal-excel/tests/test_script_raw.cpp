@@ -19,6 +19,8 @@
 #include <dal-public/src/global.hpp>
 #include <dal-public/src/script.hpp>
 
+#include "scriptbudgetjson.hpp"
+
 // Parse DAL's VOID enum before Windows.h defines its VOID macro.
 #include <Windows.h>
 
@@ -86,6 +88,45 @@ namespace {
         for (const auto* field : fields)
             ASSERT_NE(text.find(field), std::string::npos) << text;
     }
+
+    void CheckRawBudgetDescription(const Output_& output) {
+        ASSERT_TRUE(output.value_->xltype & xltypeMulti);
+        ASSERT_EQ(output.value_->val.array.columns, 1);
+        ASSERT_GT(output.value_->val.array.rows, 1);
+        std::string text;
+        for (int i = 0; i < output.value_->val.array.rows; ++i) {
+            const auto& cell = output.value_->val.array.lparray[i];
+            ASSERT_EQ(cell.xltype, xltypeStr);
+            ASSERT_LE(cell.val.str[0], 30000);
+            for (int j = 1; j <= cell.val.str[0]; ++j) {
+                ASSERT_LT(static_cast<unsigned>(cell.val.str[j]), 128u);
+                text.push_back(static_cast<char>(cell.val.str[j]));
+            }
+        }
+        rapidjson::Document json;
+        json.Parse(text.data(), text.size());
+        ASSERT_FALSE(json.HasParseError());
+        Dal::Script::TestSupport::AssertBudgetDescription(json);
+    }
+
+    struct RawBudgetTable_ {
+        RawText_ name_{L"raw-budget"};
+        std::vector<RawText_> text_;
+        std::array<OPER_, 11> dates_{}, scripts_{};
+        OPER_ dateRange_{}, scriptRange_{};
+
+        explicit RawBudgetTable_(bool sameDate) {
+            const auto events = Script::TestSupport::BudgetEvents();
+            text_.reserve(events.size());
+            for (size_t i = 0; i < events.size(); ++i) {
+                text_.emplace_back(std::wstring(events[i].begin(), events[i].end()));
+                scripts_[i] = text_.back().cell_;
+                dates_[i] = Number(Date::ToExcel(Date_(2027, 1, sameDate ? 1 : static_cast<int>(i) + 1)));
+            }
+            dateRange_ = Multi(dates_.data(), 11, 1);
+            scriptRange_ = Multi(scripts_.data(), 11, 1);
+        }
+    };
 
     void CheckText(const OPER_& cell, const wchar_t* expected) {
         ASSERT_EQ(cell.xltype, xltypeStr);
@@ -1648,6 +1689,27 @@ TEST(ScriptExcelRawTest, TestMarketIvGeneratedRangeInputsRejectBadStorage) {
     CheckMarketIvBadStorage("steps", [&](const OPER_* bad) {
         return Call("xl_MarketIvRefitRiskRequest_New", &name.cell_, &id.cell_, &outputs, &blank, bad);
     });
+}
+
+TEST(ScriptExcelRawTest, TestDescribeParserBudgetIsIndependentPerDate) {
+    Excel::ScriptTestInitialize(1);
+    RawBudgetTable_ table(false);
+    Output_ product(Call("xl_Product_New", &table.name_.cell_, &table.dateRange_, &table.scriptRange_));
+    ASSERT_NE(product.Text().find("#Error:"), 0);
+    Output_ description(Call("xl_Product_Describe", product.Scalar()));
+    CheckRawBudgetDescription(description);
+}
+
+TEST(ScriptExcelRawTest, TestDescribeParserBudgetCombinesSameDateRows) {
+    Excel::ScriptTestInitialize(1);
+    RawBudgetTable_ table(true);
+    Output_ product(Call("xl_Product_New", &table.name_.cell_, &table.dateRange_, &table.scriptRange_));
+    ASSERT_NE(product.Text().find("#Error:"), 0);
+    Output_ description(Call("xl_Product_Describe", product.Scalar()));
+    const auto text = description.Text();
+    ASSERT_EQ(text.substr(0, 7), "#Error:");
+    for (const auto& field : Script::TestSupport::MergedBudgetErrorFields())
+        ASSERT_NE(text.find(field.c_str()), std::string::npos) << text;
 }
 #endif
 
