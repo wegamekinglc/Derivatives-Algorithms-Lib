@@ -520,6 +520,11 @@ factorization solves $R_\theta^T\lambda=V_\theta^T$, and the decimal quote
 gradient is $Q^T\lambda$. The PV-specific transpose backward error must pass
 the snapshot's accuracy limit. No optimizer runs during valuation.
 
+Malformed required context inputs throw `CalibrationError_` with
+`InvalidScriptCurveQuoteRiskInput`, consistently with `ParameterQuoteMapping`.
+Valid but stale contexts or rejected snapshot numerics return owning unavailable
+results with diagnostics.
+
 The owning `ScriptCurveQuoteRiskResult_` exposes `Available()`, `Diagnostics()`,
 `Axes()`, `Numerics()`, `Currency()` and snapshot/context/source/definition/binding
 identities. After checking availability, read `PV()`, `NativeGradient()`,

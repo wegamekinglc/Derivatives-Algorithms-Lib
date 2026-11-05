@@ -161,6 +161,127 @@ namespace {
     }
 } // namespace
 
+namespace {
+    template <class F_> std::optional<CalibrationDiagnostic_> InputDiagnostic(const F_& action) {
+        try {
+            action();
+        } catch (const CalibrationError_& error) {
+            return error.Failure().diagnostic_;
+        }
+        return std::nullopt;
+    }
+    void AssertMalformedPvContext(const std::function<void(CurveInstrumentCalibrationSpec_*)>& change, const String_& field) {
+        const auto spec = TightFitSpec(DepositSpec());
+        const auto snapshot = NewScriptCurveQuoteRiskSnapshot(CalibrateCurveInstruments(spec, AadOptions()), Accuracy());
+        ASSERT_TRUE(snapshot.MappingAvailable());
+        auto invalid = spec;
+        change(&invalid);
+        const auto mode = AAD::SetNumResultsForAAD(true, 3);
+        const auto mappingError = InputDiagnostic([&] { static_cast<void>(snapshot.ParameterQuoteMapping(invalid)); });
+        const auto pvError = InputDiagnostic(
+            [&] { static_cast<void>(ValueCalibrationInstrumentWithQuoteRisk(spec.observations_[0]->Instrument(), snapshot, invalid)); });
+        ASSERT_TRUE(mappingError);
+        ASSERT_EQ(mappingError->code_, "InvalidScriptCurveQuoteRiskInput");
+        ASSERT_EQ(mappingError->field_, field);
+        ASSERT_TRUE(pvError);
+        ASSERT_EQ(pvError->code_, mappingError->code_);
+        ASSERT_EQ(pvError->field_, mappingError->field_);
+        ASSERT_EQ(pvError->stage_, mappingError->stage_);
+        ASSERT_TRUE(AAD::Tape()->multi_);
+        ASSERT_EQ(AAD::Tape()->numAdj_, 3u);
+        ASSERT_EQ(AAD::MeasureTape(*AAD::Tape()).nodes_, 0u);
+        ASSERT_FALSE(AAD::LastRecordingCleanupFailure());
+        ASSERT_TRUE(ValueCalibrationInstrumentWithQuoteRisk(spec.observations_[0]->Instrument(), snapshot, spec).Available());
+    }
+} // namespace
+
+TEST(ScriptCurveQuoteRiskTest, TestPvAndMappingRejectMissingFixingContext) {
+    AssertMalformedPvContext([](auto* spec) { spec->valuation_.fixings_.reset(); }, "/context/valuation/fixings");
+}
+
+TEST(ScriptCurveQuoteRiskTest, TestPvAndMappingRejectMissingValuationDateContext) {
+    AssertMalformedPvContext([](auto* spec) { spec->valuation_.evaluationDate_.reset(); }, "/context/valuation/evaluation_date");
+}
+
+TEST(ScriptCurveQuoteRiskTest, TestPvAndMappingRejectNanSolverInitialGuessContext) {
+    AssertMalformedPvContext([](auto* spec) { spec->solver_.initialGuess_ = std::numeric_limits<double>::quiet_NaN(); },
+                             "/context/solver/initial_guess");
+}
+
+TEST(ScriptCurveQuoteRiskTest, TestMalformedPvContextPreservesOuterRecording) {
+    const auto spec = TightFitSpec(DepositSpec());
+    const auto snapshot = NewScriptCurveQuoteRiskSnapshot(CalibrateCurveInstruments(spec, AadOptions()), Accuracy());
+    auto invalid = spec;
+    invalid.valuation_.fixings_.reset();
+    AAD::RecordingScope_ outer;
+    AAD::Number_ x;
+    outer.RegisterInput(x, 2.);
+    outer.StartRecording();
+    const auto nodes = AAD::MeasureTape(*AAD::Tape()).nodes_;
+    const auto multi = AAD::Tape()->multi_;
+    const auto width = AAD::Tape()->numAdj_;
+    const auto mappingError = InputDiagnostic([&] { static_cast<void>(snapshot.ParameterQuoteMapping(invalid)); });
+    const auto pvError =
+        InputDiagnostic([&] { static_cast<void>(ValueCalibrationInstrumentWithQuoteRisk(spec.observations_[0]->Instrument(), snapshot, invalid)); });
+    ASSERT_TRUE(mappingError);
+    ASSERT_TRUE(pvError);
+    ASSERT_EQ(pvError->code_, "InvalidScriptCurveQuoteRiskInput");
+    ASSERT_EQ(pvError->field_, mappingError->field_);
+    ASSERT_EQ(AAD::MeasureTape(*AAD::Tape()).nodes_, nodes);
+    ASSERT_EQ(AAD::Tape()->multi_, multi);
+    ASSERT_EQ(AAD::Tape()->numAdj_, width);
+    auto y = AAD::Number_(x * x);
+    outer.FinishRecording();
+    AAD::Adjoint(y) = 1.;
+    outer.Reverse();
+    ASSERT_DOUBLE_EQ(AAD::Adjoint(x), 4.);
+    outer.Close();
+    ASSERT_EQ(AAD::MeasureTape(*AAD::Tape()).nodes_, 0u);
+    ASSERT_FALSE(AAD::LastRecordingCleanupFailure());
+    ASSERT_TRUE(ValueCalibrationInstrumentWithQuoteRisk(spec.observations_[0]->Instrument(), snapshot, spec).Available());
+}
+
+TEST(ScriptCurveQuoteRiskTest, TestStaleAndNumericalContextsKeepOwnedUnavailableResults) {
+    const auto multi = AAD::Tape()->multi_;
+    const auto width = AAD::Tape()->numAdj_;
+    for (const bool numerical : {false, true}) {
+        SCOPED_TRACE(numerical);
+        std::optional<ScriptCurveQuoteMapping_> mapping;
+        std::optional<ScriptCurveQuoteRiskResult_> pv;
+        {
+            const auto spec = numerical ? ReplaceQuote(DepositSpec(), 0, .035, .1) : TightFitSpec(DepositSpec());
+            const auto snapshot = NewScriptCurveQuoteRiskSnapshot(CalibrateCurveInstruments(spec, AadOptions()), Accuracy());
+            ASSERT_TRUE(snapshot.StructureValid());
+            ASSERT_EQ(snapshot.MappingAvailable(), !numerical);
+            auto context = spec;
+            if (!numerical)
+                ++context.solver_.maxEvaluations_;
+            const auto mode = AAD::SetNumResultsForAAD(true, 3);
+            mapping = snapshot.ParameterQuoteMapping(context);
+            pv = ValueCalibrationInstrumentWithQuoteRisk(spec.observations_[0]->Instrument(), snapshot, context);
+            ASSERT_TRUE(AAD::Tape()->multi_);
+            ASSERT_EQ(AAD::Tape()->numAdj_, 3u);
+            ASSERT_EQ(AAD::MeasureTape(*AAD::Tape()).nodes_, 0u);
+        }
+        const auto code = numerical ? "ScriptCurveQuoteRiskRootResidual" : "ScriptCurveQuoteRiskIdentityMismatch";
+        ASSERT_TRUE(mapping);
+        ASSERT_TRUE(pv);
+        ASSERT_FALSE(mapping->Available());
+        ASSERT_FALSE(pv->Available());
+        ASSERT_EQ(mapping->Diagnostics()[0].code_, code);
+        ASSERT_EQ(pv->Diagnostics()[0].code_, code);
+        ASSERT_EQ(pv->Diagnostics()[0].field_, mapping->Diagnostics()[0].field_);
+        ASSERT_EQ(mapping->Axes().quotes_[0].id_, "q");
+        ASSERT_EQ(pv->Axes().quotes_[0].id_, "q");
+        ASSERT_THROW(static_cast<void>(mapping->ParameterResponse()), Exception_);
+        ASSERT_THROW(static_cast<void>(pv->PV()), Exception_);
+        ASSERT_EQ(AAD::Tape()->multi_, multi);
+        ASSERT_EQ(AAD::Tape()->numAdj_, width);
+        ASSERT_EQ(AAD::MeasureTape(*AAD::Tape()).nodes_, 0u);
+        ASSERT_FALSE(AAD::LastRecordingCleanupFailure());
+    }
+}
+
 TEST(ScriptCurveQuoteRiskTest, TestDepositPvRiskPreservesFixedCouponNotionalAndSign) {
     const auto spec = TightFitSpec(DepositSpec());
     const auto snapshot = NewScriptCurveQuoteRiskSnapshot(CalibrateCurveInstruments(spec, AadOptions()), Accuracy());

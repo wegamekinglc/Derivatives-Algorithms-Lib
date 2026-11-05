@@ -498,12 +498,12 @@ namespace Dal {
         result.definitionIdentity_ = instrument->Definition()->DefinitionIdentity();
         result.bindingIdentity_ = instrument->BindingIdentity();
         result.currency_ = instrument->Definition()->Spec().header_.resultCurrency_;
+        const auto validation = snapshot.ValidateContext(context);
+        if (!validation.Passed()) {
+            result.diagnostics_ = validation.Diagnostics();
+            return result;
+        }
         try {
-            const auto validation = snapshot.ValidateContext(context);
-            if (!validation.Passed()) {
-                result.diagnostics_ = validation.Diagnostics();
-                return result;
-            }
             if (!snapshot.MappingAvailable()) {
                 result.diagnostics_ = data.diagnostics_;
                 return result;
