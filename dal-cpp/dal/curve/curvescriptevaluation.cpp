@@ -131,6 +131,21 @@ namespace Dal {
             }
             return result;
         }
+        Vector_<> ObservationDetails(const CalibrationCurveFamilyDescriptor_& family,
+                                     const CandidateCurveProvider_<double>& provider,
+                                     CurveScriptEvaluationResult_* result) {
+            Vector_<> rates;
+            for (const auto& observation : family.observations_) {
+                const auto rate = CurveScriptInternal::Observe(observation, provider);
+                rates.push_back(rate);
+                if (observation.overnight_) {
+                    auto& row = result->observations_[observation.tableRow_];
+                    row.rate_ = rate;
+                    row.source_ = observation.known_ ? "Historical" : "Projection";
+                }
+            }
+            return rates;
+        }
         void Details(const EvaluationPlan_& plan, const CandidateCurveProvider_<double>& provider, CurveScriptEvaluationResult_* result) {
             const auto& first = plan.measures_.front();
             const auto* family = std::get_if<CalibrationCurveFamily_>(&first.Descriptor());
@@ -143,17 +158,7 @@ namespace Dal {
             const auto& route = provider.Route(first.Instrument()->Definition()->Spec().header_.discountRoute_, false);
             const auto binding = provider.Bind(route);
             CurveScriptInternal::EvaluationScratch_<double> scratch;
-            Vector_<> rates;
-            if (family)
-                for (const auto& observation : (*family)->observations_) {
-                    const auto rate = CurveScriptInternal::Observe(observation, provider);
-                    rates.push_back(rate);
-                    if (observation.overnight_) {
-                        auto& row = result->observations_[observation.tableRow_];
-                        row.rate_ = rate;
-                        row.source_ = observation.known_ ? "Historical" : "Projection";
-                    }
-                }
+            const auto rates = family ? ObservationDetails(**family, provider, result) : Vector_<>();
             for (size_t i = 0; i < first.Cashflows().size(); ++i) {
                 const auto& flow = first.Cashflows()[i];
                 double amount = flow.amount_.value_or(0.);

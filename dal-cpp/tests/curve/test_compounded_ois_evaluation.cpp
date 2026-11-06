@@ -109,6 +109,46 @@ namespace {
         }
         return {floating - .023 * annuity, floating / annuity};
     }
+    template <class F_> void AssertNativePartials(const Matrix_<>& partials, const Vector_<>& parameters, const F_& oracle) {
+        for (int j = 0; j < 2; ++j) {
+            Vector_<> previous;
+            for (const double h : {1e-4, 5e-5}) {
+                auto up = parameters, down = parameters;
+                up[j] += h;
+                down[j] -= h;
+                const auto plus = oracle(up), minus = oracle(down);
+                Vector_<> fd(2);
+                for (int i = 0; i < 2; ++i) {
+                    fd[i] = (plus[i] - minus[i]) / (2. * h);
+                    if (!previous.empty())
+                        ASSERT_NEAR(fd[i], previous[i], 1e-7 + 1e-5 * std::abs(fd[i]));
+                    ASSERT_NEAR(partials(i, j), fd[i], 1e-7 + 1e-5 * std::abs(fd[i]));
+                }
+                previous = fd;
+            }
+        }
+    }
+    void AssertZeroPartials(const Matrix_<>& partials) {
+        for (int i = 0; i < 2; ++i)
+            for (int j = 0; j < 2; ++j)
+                ASSERT_DOUBLE_EQ(partials(i, j), 0.);
+    }
+    void AssertBoundaryBackends(const CurveInstrumentCalibrationSpec_& spec, bool historicalToday, bool shared, const Vector_<>& background) {
+        const auto today = spec.geometry_.today_;
+        auto request = Request(spec);
+        const auto oracle = [&](const Vector_<>& theta) { return BoundaryOracle(today, historicalToday, theta, shared ? theta : background); };
+        const auto expected = oracle(request.parameters_);
+        for (const auto backend : {CalibrationEvaluation_("AutoFast"), CalibrationEvaluation_("GenericDeterministic")}) {
+            request.evaluation_ = backend;
+            request.derivativeMethod_ = CalibrationDerivative_::Value_::AAD;
+            const auto result = EvaluateCurveScriptInstrument(spec.observations_[0]->Instrument(), request);
+            for (int i = 0; i < 2; ++i)
+                ASSERT_NEAR(result.values_[i], expected[i], 1e-10);
+            ASSERT_NO_FATAL_FAILURE(AssertNativePartials(result.nativePartials_, request.parameters_, oracle));
+            if (!shared && today > Date_(2024, 3, 5))
+                ASSERT_NO_FATAL_FAILURE(AssertZeroPartials(result.nativePartials_));
+        }
+    }
 } // namespace
 
 TEST(CompoundedOisEvaluationTest, TestExplicitOvernightTargetHasNoTenorFallback) {
@@ -137,23 +177,7 @@ TEST(CompoundedOisEvaluationTest, TestFutureCashflowsSharePriceParAndNativeAad) 
     const auto result = PreparedCurveInstruments_(spec, options).Evaluate(theta);
     ASSERT_NEAR(result.modelMeasures_[0], expected[0], 1e-10);
     ASSERT_NEAR(result.modelMeasures_[1], expected[1], 1e-10);
-    for (int j = 0; j < 2; ++j) {
-        Vector_<> previous;
-        for (const double h : {1e-4, 5e-5}) {
-            auto up = theta, down = theta;
-            up[j] += h;
-            down[j] -= h;
-            const auto plus = FutureOracle(up), minus = FutureOracle(down);
-            Vector_<> fd(2);
-            for (int i = 0; i < 2; ++i) {
-                fd[i] = (plus[i] - minus[i]) / (2. * h);
-                if (!previous.empty())
-                    ASSERT_NEAR(fd[i], previous[i], 1e-7 + 1e-5 * std::abs(fd[i]));
-                ASSERT_NEAR(result.quoteJacobian_(i, j), fd[i], 1e-7 + 1e-5 * std::abs(fd[i]));
-            }
-            previous = fd;
-        }
-    }
+    ASSERT_NO_FATAL_FAILURE(AssertNativePartials(result.quoteJacobian_, theta, FutureOracle));
 }
 
 TEST(CompoundedOisEvaluationTest, TestDirectEvaluationOwnsMeasuresFlowsAndSourcesWithoutQuotes) {
@@ -305,39 +329,7 @@ TEST(CompoundedOisEvaluationTest, TestIndependentOracleAcrossFixingPaymentAndNat
                                                                                                   {0., background[0], background[1]},
                                                                                                   DayBasis_("ACT_365F"), LogDfScheme_("LOG_LINEAR")));
                 }
-                auto request = Request(spec);
-                const auto oracle = [&](const Vector_<>& theta) {
-                    return BoundaryOracle(today, historicalToday, theta, shared ? theta : background);
-                };
-                const auto expected = oracle(request.parameters_);
-                for (const auto backend : {CalibrationEvaluation_("AutoFast"), CalibrationEvaluation_("GenericDeterministic")}) {
-                    request.evaluation_ = backend;
-                    request.derivativeMethod_ = CalibrationDerivative_::Value_::AAD;
-                    const auto result = EvaluateCurveScriptInstrument(spec.observations_[0]->Instrument(), request);
-                    for (int i = 0; i < 2; ++i)
-                        ASSERT_NEAR(result.values_[i], expected[i], 1e-10);
-                    for (int j = 0; j < 2; ++j) {
-                        Vector_<> previous;
-                        for (const double h : {1e-4, 5e-5}) {
-                            auto up = request.parameters_, down = request.parameters_;
-                            up[j] += h;
-                            down[j] -= h;
-                            const auto plus = oracle(up), minus = oracle(down);
-                            Vector_<> fd(2);
-                            for (int i = 0; i < 2; ++i) {
-                                fd[i] = (plus[i] - minus[i]) / (2. * h);
-                                if (!previous.empty())
-                                    ASSERT_NEAR(fd[i], previous[i], 1e-7 + 1e-5 * std::abs(fd[i]));
-                                ASSERT_NEAR(result.nativePartials_(i, j), fd[i], 1e-7 + 1e-5 * std::abs(fd[i]));
-                            }
-                            previous = fd;
-                        }
-                    }
-                    if (!shared && today > Date_(2024, 3, 5))
-                        for (int i = 0; i < 2; ++i)
-                            for (int j = 0; j < 2; ++j)
-                                ASSERT_DOUBLE_EQ(result.nativePartials_(i, j), 0.);
-                }
+                ASSERT_NO_FATAL_FAILURE(AssertBoundaryBackends(spec, historicalToday, shared, background));
             }
 }
 
