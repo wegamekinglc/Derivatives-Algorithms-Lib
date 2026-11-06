@@ -1,0 +1,40 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>CalibrationInstrument_ValueWithQuoteRisk</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>CalibrationInstrument_ValueWithQuoteRisk (in Excel: CALIBRATIONINSTRUMENT.VALUEWITHQUOTERISK)</h1>
+Value fixed script payments with implicit quote risk
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>instrument</td><td>handle of type CalibrationInstrument</td><td></td><td>Fixed bound contract</td></tr>
+<tr><td>snapshot</td><td>handle of type StorableScriptCurveQuoteRiskSnapshot</td><td></td><td>Owning fitted snapshot</td></tr>
+<tr><td>context</td><td>handle of type StorableCurveInstrumentCalibrationSpec</td><td></td><td>Explicit current context</td></tr>
+<tr><td>request</td><td>handle of type StorableScriptCurveQuoteRiskRequest</td><td>yes</td><td>Optional quote selection and Price measure</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>value</td><td>handle of type StorableScriptCurveQuoteRiskResult</td><td>Owning result; unavailable table metrics remain blank</td></tr>
+</table>
+
+
+
+
+
+
