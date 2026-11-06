@@ -16,6 +16,14 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-11-07
+
+- Add core structural preparation for explicit compounded OIS tables, with
+  frozen calendar provenance, strict date/accrual rules, payment statuses,
+  owning diagnostics and a separate JSON identity. This does not enable
+  compounded OIS pricing or calibration. See the
+  [contract](docs/methodology/script_calibration_contract.md#explicit-compounded-ois-table-preparation).
+
 ## 2026-11-06
 
 - Add the independent `DAL::public` script curve quote-risk example and align
