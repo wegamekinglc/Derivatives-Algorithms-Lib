@@ -1,6 +1,7 @@
 add_executable(quote_risk_perf quote_risk_perf.cpp dupirecurvatureperf.cpp marketivperf.cpp scriptcurveperf.cpp ../rate_risk_perf/quoteriskbenchfixtures.cpp)
 
 target_link_libraries(quote_risk_perf dal_library)
+target_include_directories(quote_risk_perf PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../externals/rapidjson/include")
 
 
 if(MSVC)

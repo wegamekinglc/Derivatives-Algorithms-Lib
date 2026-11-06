@@ -6,6 +6,7 @@ import io
 import json
 import os
 from pathlib import Path
+import shlex
 import tempfile
 import unittest
 from unittest import mock
@@ -19,6 +20,17 @@ SPEC.loader.exec_module(BENCHMARKS)
 
 
 class BenchmarkRegressionTest(unittest.TestCase):
+    def test_baseline_build_covers_the_gate_and_python_without_other_benchmarks(self):
+        workflow = SCRIPT.parents[1] / "workflows/benchmarks.yml"
+        text = workflow.read_text(encoding="utf-8")
+        block = text.split("- name: Build base benchmarks", 1)[1].split("- name: Verify Python workloads", 1)[0]
+        command = next(line.strip() for line in block.replace("\\\n", " ").splitlines() if line.strip().startswith("cmake --build"))
+        arguments = shlex.split(command)
+        self.assertIn("--target", arguments)
+        first = arguments.index("--target") + 1
+        last = next((i for i in range(first, len(arguments)) if arguments[i].startswith("--")), len(arguments))
+        self.assertEqual(set(arguments[first:last]), set(BENCHMARKS.BENCHMARKS) | {"_dal"})
+
     @staticmethod
     def _create_benchmark_binary(build_root, benchmark="pde_perf", mode=0o755):
         binary = build_root / "dal-cpp" / "benchmarks" / benchmark / benchmark
