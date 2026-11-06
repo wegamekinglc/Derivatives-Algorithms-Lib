@@ -109,6 +109,25 @@ TEST(CompoundedOisScriptTest, TestHistoricalBoundSourceAndBothBackendsAgainstSca
     }
 }
 
+TEST(CompoundedOisScriptTest, TestTinyAccruedInterestSurvivesProductCancellation) {
+    auto s = Spec();
+    s.coupon_ = 0.;
+    auto v = Valuation();
+    v.fixings_.reset(new MarketFixingSnapshot_({{"USD-SOFR", {{DateTime_(Date_(2024, 3, 1)), 1e-15}, {DateTime_(Date_(2024, 3, 4)), 2e-15}}}}));
+    const double expected = s.notional_ * std::expm1(std::log1p(3. / 360. * 1e-15) + std::log1p(1. / 360. * 2e-15));
+    for (const auto backend : {CalibrationEvaluation_::Value_::RequireFast, CalibrationEvaluation_::Value_::GenericDeterministic})
+        ASSERT_NEAR(Price(s, v, backend), expected, expected * 1e-12);
+}
+
+TEST(CompoundedOisScriptTest, TestHistoricalDiscountOnlyPriceRetainsAnnuityFloor) {
+    auto spec = Spec();
+    spec.minAbsAnnuity_ = .1;
+    const auto tables = PrepareCompoundedOis(spec, Valuation());
+    const auto instrument = CompoundedOisInternal::BuildSource(tables).instrument_;
+    const auto plan = PrepareCalibrationInstrument(instrument, "Price", Context(tables));
+    ASSERT_THROW(static_cast<void>(plan.Price({.01, .01})), CalibrationError_);
+}
+
 TEST(CompoundedOisScriptTest, TestSourceJsonCloneAndTableRowLocations) {
     const auto tables = PrepareCompoundedOis(Spec(), Valuation());
     const auto source = CompoundedOisInternal::BuildSource(tables);

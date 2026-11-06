@@ -8,6 +8,7 @@
 #include <dal/currency/currencydata.hpp>
 #include <dal/curve/compoundedois_internal.hpp>
 #include <dal/curve/compoundedoisscript_internal.hpp>
+#include <dal/curve/curveinstrumentcalibration.hpp>
 #include <dal/curve/curvescript_internal.hpp>
 #include <dal/curve/xccyscript_internal.hpp>
 #include <dal/indice/index/ir.hpp>
@@ -96,7 +97,8 @@ namespace Dal {
             const auto base = c.xccy_ ? XccyScriptInternal::ContextIdentity(c, d) : GenericContextIdentity(c, d);
             return c.compoundedOis_ ? Fingerprint(Obj({{"base", Str(base)},
                                                        {"compounded_ois", Str(c.compoundedOis_->PreparationIdentity())},
-                                                       {"valuation", CompoundedOisInternal::ValuationJson(c.valuation_)}}))
+                                                       {"valuation", CompoundedOisInternal::ValuationJson(c.valuation_)},
+                                                       {"candidate_curves", c.candidateCurves_ ? Str(c.candidateCurves_->Identity()) : Json_()}}))
                                     : base;
         }
         String_ RateContextIdentity(const CalibrationPreparationContext_& c, const String_& identity, const CalibrationDiagnostic_& d) {
@@ -545,6 +547,12 @@ namespace Dal {
         }
         CalibrationCashflow_ CurveMetadata(const CalibrationCurvePayment_& flow, const CalibrationCurveFamilyDescriptor_& family) {
             if (family.compounded_) {
+                for (const auto& instruction : flow.program_)
+                    if (CurveScriptInternal::IsObservation(instruction.operation_) && !family.observations_[instruction.left_].known_) {
+                        const auto& observation = family.observations_[instruction.left_];
+                        return {flow.payment_,      {}, 0., 0., *flow.source_.sourceRow_, *flow.source_.statement_, observation.index_,
+                                observation.fixing_};
+                    }
                 const auto ab = CurveScriptInternal::Evaluate<double>(
                     flow, [&](size_t i) { return *family.observations_[i].known_; }, CalibrationStage_::Value_::Prepare);
                 const double amount = ab.b_ + family.coupon_ * ab.a_;
@@ -841,9 +849,9 @@ namespace Dal {
                      {"matcher", Str(xccy ? "xccy-complete-ast/1" : (family ? "curve-affine-ast/1" : (rate ? "rate-option-ast/1" : "p0-ast/2")))},
                      {"constant_binding", Str("effective-slots/1")},
                      {"receiver_guard", Str("whole-history/2")}}));
-            return compounded
-                       ? Fingerprint(Obj({{"base", Str(base)}, {"lowering", Str("checked-on-product/1")}, {"matcher", Str("frozen-ois-tables/1")}}))
-                       : base;
+            return compounded ? Fingerprint(Obj(
+                                    {{"base", Str(base)}, {"lowering", Str("checked-on-log-product/2")}, {"matcher", Str("frozen-ois-tables/1")}}))
+                              : base;
         }
         void Discounts(const Vector_<>& discounts, size_t size, const CalibrationDiagnostic_& d) {
             Check(discounts.size() == size, "InvalidCalibrationPlan", "/discounts", "one discount per live cashflow", "", d);
@@ -1012,12 +1020,18 @@ namespace Dal {
         d.stage_ = CalibrationStage_::Value_::Evaluate;
         Check(capability_.affine_, "UnsupportedCalibrationMeasure", "/measure_id", "deterministic cashflow Price", "", d);
         Discounts(discounts, cashflows_.size(), d);
-        double result = 0.;
+        const auto* family = std::get_if<CalibrationCurveFamily_>(&descriptor_);
+        const bool compounded = family && (*family)->compounded_;
+        double result = 0., annuity = 0.;
         for (size_t i = 0; i < cashflows_.size(); ++i) {
             Check(cashflows_[i].amount_.has_value(), "UnsupportedCalibrationMeasure", "/discounts", "candidate curve provider for observed cashflows",
                   "", d);
             result += *cashflows_[i].amount_ * discounts[i];
+            if (compounded)
+                annuity += cashflows_[i].a_ * discounts[i];
         }
+        if (compounded)
+            CurveScriptInternal::CheckCompoundedAnnuity(**family, annuity);
         Check(std::isfinite(result), "CalibrationNumericalFailure", "/price", "finite cashflow Price", "", d);
         return result;
     }

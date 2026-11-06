@@ -55,6 +55,7 @@ namespace Dal {
     };
     struct XccyScriptContext_;
     class PreparedCompoundedOis_;
+    class CandidateCurveGeometry_;
     struct CalibrationPreparationContext_ {
         Script::ScriptValuationSettings_ valuation_;
         Ccy_ currency_;
@@ -65,6 +66,7 @@ namespace Dal {
         double smoothing_ = 0.;
         std::shared_ptr<const XccyScriptContext_> xccy_;
         Handle_<PreparedCompoundedOis_> compoundedOis_;
+        std::shared_ptr<const CandidateCurveGeometry_> candidateCurves_;
     };
     struct CalibrationCashflow_ {
         Date_ eventDate_;

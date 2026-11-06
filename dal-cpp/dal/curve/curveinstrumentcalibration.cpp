@@ -5,14 +5,16 @@
 
 #include <dal/calibration/validation_internal.hpp>
 #include <dal/curve/calibration_internal.hpp>
+#include <dal/curve/compoundedois.hpp>
 #include <dal/curve/curveinstrumentcalibration.hpp>
 #include <dal/curve/curveinstrumentcontext_internal.hpp>
 #include <dal/curve/curveinstrumentevaluation_internal.hpp>
+#include <dal/curve/curvenativepartials_internal.hpp>
 #include <dal/storage/json.hpp>
 
 namespace Dal {
     using namespace CalibrationInternal;
-    namespace {
+    namespace CurveInstrumentInternal {
         CurveCalibrationSpec_ NativeGeometry(const CurveInstrumentCalibrationSpec_& spec) {
             const auto& g = spec.geometry_;
             CurveCalibrationSpec_ result;
@@ -33,6 +35,9 @@ namespace Dal {
             result.initialGuessPerNode_ = spec.solver_.initialGuessPerNode_;
             return result;
         }
+    } // namespace CurveInstrumentInternal
+    namespace {
+        using CurveInstrumentInternal::NativeGeometry;
         CurveDefinition_ Definition(const CurveInstrumentCalibrationSpec_& spec) {
             const auto& g = spec.geometry_;
             return MakeCurveDefinition(g.curveName_, g.ccy_, g.parameterization_, g.logDfScheme_, g.knotDates_, g.today_, g.liborBasis_);
@@ -246,23 +251,27 @@ namespace Dal {
             CalibrationPreparationContext_ script_;
             CandidateCurveProvider_<double> curves_;
         };
-        const CurveScriptRoute_& DiscountRoute(const CurveInstrumentCalibrationSpec_& spec, const CalibrationObservation_& observation) {
-            const auto& header = observation.Instrument()->Definition()->Spec().header_;
+        const CurveScriptRoute_& DiscountRoute(const CurveInstrumentCalibrationSpec_& spec,
+                                               const CalibrationInstrument_& instrument,
+                                               const CalibrationDiagnostic_& diagnostic) {
+            const auto& header = instrument.Definition()->Spec().header_;
             const auto route = std::find_if(spec.market_.routes_.begin(), spec.market_.routes_.end(),
                                             [&](const auto& entry) { return Bytes(entry.id_) == Bytes(header.discountRoute_); });
-            const auto diagnostic = RowDiagnostic(observation, CalibrationStage_::Value_::Prepare);
             if (route == spec.market_.routes_.end())
                 Fail("CalibrationContextMismatch", "/routes/" + header.discountRoute_, "bound discount route", "", diagnostic);
             if (route->projection_ || route->collateral_ != header.collateralType_)
                 Fail("CalibrationContextMismatch", "/routes/" + header.discountRoute_, "discount route with contract collateral", "", diagnostic);
             return *route;
         }
-        RowContext_ StructuralContext(const CurveInstrumentCalibrationSpec_& spec, const CalibrationObservation_& observation) {
+        RowContext_ StructuralContext(const CurveInstrumentCalibrationSpec_& spec,
+                                      const CalibrationInstrument_& instrument,
+                                      const CalibrationDiagnostic_& diagnostic) {
             const auto& g = spec.geometry_;
-            const auto& route = DiscountRoute(spec, observation);
+            const auto& route = DiscountRoute(spec, instrument, diagnostic);
             const auto geometry = NativeGeometry(spec);
             const auto initial = ResolveCurveCalibrationInitialGuess(geometry);
-            CandidateCurveProvider_<double> provider(geometry, spec.market_.routes_, initial);
+            const auto candidateGeometry = std::make_shared<const CandidateCurveGeometry_>(spec);
+            CandidateCurveProvider_<double> provider(candidateGeometry, initial);
             Vector_<Date_> dates = {g.today_};
             for (const auto& date : Definition(spec).nodeDates_)
                 if (date > g.today_)
@@ -274,6 +283,7 @@ namespace Dal {
             context.valuation_ = spec.valuation_;
             context.currency_ = Ccy_(g.ccy_);
             context.discountRoute_ = route.id_;
+            context.candidateCurves_ = candidateGeometry;
             context.curve_.reset(new GSRCurveData_("curve-structural-admission", g.today_, g.ccy_, dates, logDf, {}, {}));
             return {std::move(context), std::move(provider)};
         }
@@ -288,7 +298,8 @@ namespace Dal {
             if (route == spec.market_.routes_.end() || route->projection_ != observation.projection_)
                 Fail("CalibrationContextMismatch", "/routes/" + observation.route_, "explicit matching observation route", observation.index_,
                      observation.source_);
-            if (observation.projection_ && route->tenor_ != observation.tenor_)
+            if (observation.projection_ &&
+                (route->overnight_ != observation.overnight_ || (!observation.overnight_ && route->tenor_ != observation.tenor_)))
                 Fail("CalibrationContextMismatch", "/routes/" + observation.route_, "projection tenor matching authoritative index",
                      observation.index_, observation.source_);
             if (observation.projection_)
@@ -316,28 +327,49 @@ namespace Dal {
             for (const auto& flow : plan.Cashflows())
                 if (!CoveredCashflow(flow, spec, family != nullptr))
                     Fail("InvalidCalibrationPlan", "/instrument/cashflows", "live fixed cashflows covered by native curve nodes", "", d);
-            if (plan.Instrument()->Pillar() && (*plan.Instrument()->Pillar() < plan.Cashflows().back().eventDate_ ||
-                                                *plan.Instrument()->Pillar() > spec.geometry_.knotDates_.back()))
+            if (!plan.Cashflows().empty() && plan.Instrument()->Pillar() &&
+                (*plan.Instrument()->Pillar() < plan.Cashflows().back().eventDate_ ||
+                 *plan.Instrument()->Pillar() > spec.geometry_.knotDates_.back()))
                 Fail("InvalidCalibrationPlan", "/instrument/pillar", "pillar covers cashflow dependency within curve layout", "", d);
+        }
+        PreparedCalibrationInstrument_ PrepareInstrument(const Handle_<CalibrationInstrument_>& instrument,
+                                                         const String_& measureId,
+                                                         const CurveInstrumentCalibrationSpec_& spec,
+                                                         const RowContext_& structural,
+                                                         const CurveInstrumentCalibrationOptions_& options,
+                                                         std::map<std::string, String_>* contextIdentities,
+                                                         const CalibrationDiagnostic_& diagnostic) {
+            CalibrationEvaluationOptions_ preparation;
+            preparation.evaluation_ = options.evaluation_;
+            preparation.derivativeMethod_ = CalibrationDerivative_::Value_::None;
+            auto context = structural.script_;
+            context.discountRoute_ = DiscountRoute(spec, *instrument, diagnostic).id_;
+            for (const auto& tables : spec.compoundedOis_) {
+                Check(bool(tables), "InvalidCompoundedOis", "/compounded_ois", "nonnull frozen OIS tables");
+                if (Bytes(tables->Spec().instrumentId_) == Bytes(instrument->Id())) {
+                    Check(!context.compoundedOis_, "InvalidCompoundedOis", "/compounded_ois", "unique frozen tables per instrument");
+                    const auto& route = structural.curves_.Route(tables->Spec().projectionRoute_, true);
+                    Check(route.overnight_ && route.collateral_ == tables->Spec().collateralType_, "CalibrationContextMismatch",
+                          "/routes/" + route.id_, "explicit ON route with contract collateral", "", diagnostic);
+                    context.compoundedOis_ = tables;
+                }
+            }
+            const auto key = Bytes(context.discountRoute_) + (context.compoundedOis_ ? Bytes(context.compoundedOis_->PreparationIdentity()) : "");
+            auto [identity, inserted] = contextIdentities->try_emplace(key);
+            if (inserted)
+                identity->second = CalibrationInternal::PreparationContextIdentity(context, diagnostic);
+            auto plan = CalibrationInternal::PrepareCalibrationInstrumentAtContext(instrument, measureId, context, identity->second, preparation,
+                                                                                   options.preparationCache_);
+            AdmittedCashflows(plan, spec, structural.curves_);
+            return plan;
         }
         PreparedCalibrationInstrument_ PrepareObservation(const CalibrationObservation_& observation,
                                                           const CurveInstrumentCalibrationSpec_& spec,
                                                           const RowContext_& structural,
                                                           const CurveInstrumentCalibrationOptions_& options,
                                                           std::map<std::string, String_>* contextIdentities) try {
-            CalibrationEvaluationOptions_ preparation;
-            preparation.evaluation_ = options.evaluation_;
-            preparation.derivativeMethod_ = CalibrationDerivative_::Value_::None;
-            auto context = structural.script_;
-            context.discountRoute_ = DiscountRoute(spec, observation).id_;
-            auto [identity, inserted] = contextIdentities->try_emplace(Bytes(context.discountRoute_));
-            if (inserted)
-                identity->second =
-                    CalibrationInternal::PreparationContextIdentity(context, RowDiagnostic(observation, CalibrationStage_::Value_::Prepare));
-            auto plan = CalibrationInternal::PrepareCalibrationInstrumentAtContext(observation.Instrument(), observation.MeasureId(), context,
-                                                                                   identity->second, preparation, options.preparationCache_);
-            AdmittedCashflows(plan, spec, structural.curves_);
-            return plan;
+            return PrepareInstrument(observation.Instrument(), observation.MeasureId(), spec, structural, options, contextIdentities,
+                                     RowDiagnostic(observation, CalibrationStage_::Value_::Prepare));
         } catch (const CalibrationError_& error) {
             CurveFailure({}, RowDiagnostic(observation, CalibrationStage_::Value_::Prepare, error.Failure().diagnostic_));
         }
@@ -381,42 +413,43 @@ namespace Dal {
             return result;
         }
         Json_ FrozenMarket(const CurveInstrumentMarket_& market) {
-            auto discounts = Json_::Array(), forwards = Json_::Array();
             for (const auto& [collateral, curve] : market.discountCurves_) {
                 Check(static_cast<bool>(curve), "InvalidCalibrationPlan", "/market/discounts", "nonnull frozen background curve");
-                discounts.array_.push_back(Obj({{"collateral", Str(collateral.String())}, {"curve", Parse(JSON::WriteString(*curve))}}));
             }
             for (const auto& [tenor, curve] : market.forwardCurves_) {
                 Check(static_cast<bool>(curve), "InvalidCalibrationPlan", "/market/projections", "nonnull frozen background curve");
-                forwards.array_.push_back(Obj({{"tenor", Str(tenor.String())}, {"curve", Parse(JSON::WriteString(*curve))}}));
             }
-            return Obj({{"discounts", discounts}, {"projections", forwards}, {"routes", Array(market.routes_, [](const auto& route) {
-                                                                                  return Obj({{"id", Str(route.id_)},
-                                                                                              {"projection", Bool(route.projection_)},
-                                                                                              {"collateral", Str(route.collateral_.String())},
-                                                                                              {"tenor", route.projection_ ? Str(route.tenor_.String())
-                                                                                                                          : Json_()}});
-                                                                              })}});
+            auto result = CurveInstrumentInternal::MarketJson(market);
+            result.object_["projections"] = result.object_.at("forwards");
+            result.object_.erase("forwards");
+            for (size_t i = 0; i < market.routes_.size(); ++i)
+                if (!market.routes_[i].projection_)
+                    result.object_["routes"].array_[i].object_["tenor"] = Json_();
+            return result;
         }
         String_ CurvePlanIdentity(const CurveInstrumentCalibrationSpec_& spec,
                                   const Vector_<PreparedCalibrationInstrument_>& plans,
                                   const CurveInstrumentCalibrationOptions_& options,
                                   const CandidateCurveProvider_<double>& provider) {
-            return Fingerprint(Obj({{"adapter", Str("dal.native-curve-instruments/1")},
-                                    {"curve", Parse(JSON::WriteString(*provider.Target()))},
-                                    {"discount_target", Bool(spec.geometry_.calibrateDiscountCurve_)},
-                                    {"collateral", Str(spec.geometry_.targetCollateral_.String())},
-                                    {"tenor", spec.geometry_.calibrateDiscountCurve_ ? Json_() : Str(spec.geometry_.targetTenor_.String())},
-                                    {"market", FrozenMarket(spec.market_)},
-                                    {"plans", Array(plans, [](const auto& plan) { return Str(plan.PlanIdentity()); })},
-                                    {"observations", Array(spec.observations_,
-                                                           [](const auto& row) {
-                                                               return Obj({{"id", Str(row->Id())},
-                                                                           {"quote", Str(row->Quote()->Fingerprint())},
-                                                                           {"scale", Num(row->ErrorScale())}});
-                                                           })},
-                                    {"derivative", Str(options.jacobianMode_.String())},
-                                    {"difference_step", Num(options.differenceStep_)}}));
+            auto result = Obj(
+                {{"adapter", Str("dal.native-curve-instruments/1")},
+                 {"curve", Parse(JSON::WriteString(*provider.Target()))},
+                 {"discount_target", Bool(spec.geometry_.calibrateDiscountCurve_)},
+                 {"collateral", Str(spec.geometry_.targetCollateral_.String())},
+                 {"tenor", !spec.geometry_.calibrateDiscountCurve_ && spec.geometry_.targetTenor_.String() ? Str(spec.geometry_.targetTenor_.String())
+                                                                                                           : Json_()},
+                 {"market", FrozenMarket(spec.market_)},
+                 {"plans", Array(plans, [](const auto& plan) { return Str(plan.PlanIdentity()); })},
+                 {"observations",
+                  Array(spec.observations_,
+                        [](const auto& row) {
+                            return Obj({{"id", Str(row->Id())}, {"quote", Str(row->Quote()->Fingerprint())}, {"scale", Num(row->ErrorScale())}});
+                        })},
+                 {"derivative", Str(options.jacobianMode_.String())},
+                 {"difference_step", Num(options.differenceStep_)}});
+            if (!spec.geometry_.targetOvernightRoute_.empty())
+                result.object_["overnight_target"] = Str(spec.geometry_.targetOvernightRoute_);
+            return Fingerprint(result);
         }
         String_ CandidateIdentity(const String_& plan, const Vector_<>& parameters) {
             return Fingerprint(Obj({{"plan", Str(plan)}, {"parameters", Array(parameters, [](double value) { return Num(value); })}}));
@@ -452,53 +485,19 @@ namespace Dal {
         }
     } // namespace
 
-    namespace {
-        bool ResolvedDifference(double parameter, double lower, double upper) {
-            return std::isfinite(lower) && std::isfinite(upper) && lower < parameter && parameter < upper && std::isfinite(upper - lower) &&
-                   upper - lower > 0.;
-        }
-        std::pair<double, double> DifferencePoints(double parameter, double bump, const CurveFreeParameter_& label, CalibrationDiagnostic_ d) {
-            const double lower = parameter - bump, upper = parameter + bump;
-            d.parameterKey_ = String_(label.component_.String()) + ":" + Date::ToString(label.date_);
-            Check(ResolvedDifference(parameter, lower, upper), "CalibrationNumericalFailure", "/options/difference_step",
-                  "finite resolvable two-sided native parameter perturbations", NumberText(bump), d);
-            return {lower, upper};
-        }
-        template <class F_>
-        Matrix_<> NativeDifferenceJacobian(const Vector_<>& parameters,
-                                           int rows,
-                                           double bump,
-                                           const Vector_<CurveFreeParameter_>& labels,
-                                           const CalibrationDiagnostic_& d,
-                                           const F_& measures) {
-            Matrix_<> result(rows, static_cast<int>(parameters.size()));
-            auto up = parameters, down = parameters;
-            for (int j = 0; j < result.Cols(); ++j) {
-                const auto [lower, upper] = DifferencePoints(parameters[j], bump, labels[j], d);
-                up[j] = upper;
-                down[j] = lower;
-                const auto plus = measures(up), minus = measures(down);
-                Check(plus.size() == static_cast<size_t>(rows) && minus.size() == static_cast<size_t>(rows), "CalibrationNumericalFailure",
-                      "/quote_jacobian", "fixed raw measure row count", "", d);
-                for (int i = 0; i < rows; ++i)
-                    result(i, j) = (plus[i] - minus[i]) / (upper - lower);
-                up[j] = down[j] = parameters[j];
-            }
-            return result;
-        }
-    } // namespace
+    using CurveInstrumentInternal::DifferencePoints;
+    using CurveInstrumentInternal::NativeDifferenceJacobian;
 
     CurveInstrumentInternal::PreparedCurvePrice_ CurveInstrumentInternal::PrepareCurvePrice(const CurveInstrumentCalibrationSpec_& spec,
                                                                                             const Handle_<CalibrationInstrument_>& instrument,
-                                                                                            const String_& measureId) {
-        const auto quote = NewCalibrationMarketQuote(
-            "pv-preparation", 0.,
-            CalibrationValueUnit_::Parse(String_("Price:") + instrument->Definition()->Spec().header_.resultCurrency_.String()));
-        const auto row = NewCalibrationObservation("pv-preparation", instrument, measureId, quote, 1.);
-        const auto structural = StructuralContext(spec, *row);
+                                                                                            const String_& measureId,
+                                                                                            const CurveInstrumentCalibrationOptions_& options) {
+        Check(bool(instrument), "InvalidCalibrationPlan", "/instrument", "nonnull instrument");
+        PreparationSettings(spec, options);
+        const auto diagnostic = Diagnostic(*instrument, measureId);
+        const auto structural = StructuralContext(spec, *instrument, diagnostic);
         std::map<std::string, String_> identities;
-        return {PrepareObservation(*row, spec, structural, {}, &identities),
-                std::make_shared<const CandidateCurveGeometry_>(NativeGeometry(spec), spec.market_.routes_)};
+        return {PrepareInstrument(instrument, measureId, spec, structural, options, &identities, diagnostic), structural.script_.candidateCurves_};
     }
 
     PreparedCurveInstruments_::PreparedCurveInstruments_(const CurveInstrumentCalibrationSpec_& spec,
@@ -507,10 +506,13 @@ namespace Dal {
         try {
             Check(!spec.observations_.empty(), "InvalidCalibrationObservation", "/observations", "nonempty ordered observations");
             PreparationSettings(spec, options);
+            spec_ = CurveInstrumentInternal::FreezeOvernightContext(spec_);
+            axes_ = BuildCalibrationObservationAxes(spec_.observations_);
             spec_ = ResolveKnots(spec_);
             definition_ = Dal::Definition(spec_);
-            geometry_ = std::make_shared<const CandidateCurveGeometry_>(NativeGeometry(spec_), spec_.market_.routes_);
-            const auto structural = StructuralContext(spec_, *spec_.observations_.front());
+            geometry_ = std::make_shared<const CandidateCurveGeometry_>(spec_);
+            const auto structural = StructuralContext(spec_, *spec_.observations_.front()->Instrument(),
+                                                      RowDiagnostic(*spec_.observations_.front(), CalibrationStage_::Value_::Prepare));
             std::map<std::string, String_> contextIdentities;
             for (const auto& observation : spec_.observations_) {
                 auto plan = PrepareObservation(*observation, spec_, structural, options, &contextIdentities);
@@ -777,6 +779,9 @@ namespace Dal {
         }
         void ValidateStageContexts(const MultiCurveInstrumentCalibrationSpec_& spec) {
             Check(!spec.stages_.empty(), "InvalidCalibrationPlan", "/stages", "nonempty ordered curve stages");
+            for (const auto& stage : spec.stages_)
+                Check(!CurveInstrumentInternal::HasOvernightContext(stage), "UnsupportedCompoundedOisExecution", "/stages",
+                      "single-context ON calibration; legacy tenor staging is not admitted");
             const auto& first = spec.stages_.front().geometry_;
             for (size_t i = 1; i < spec.stages_.size(); ++i) {
                 const auto& geometry = spec.stages_[i].geometry_;

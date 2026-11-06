@@ -92,7 +92,8 @@ namespace Dal::CurveScriptInternal {
         if (IsHistorical(result.fixing_, context)) {
             result.known_ = Historical(result, context);
         } else {
-            Require(!result.overnight_, "UnsupportedCompoundedOisProjection", source, "candidate ON provider is not admitted");
+            Require(!result.overnight_ || bool(context.candidateCurves_), "UnsupportedCompoundedOisProjection", source,
+                    "explicit candidate ON provider");
             if (!(result.start_ >= *context.valuation_.evaluationDate_ && result.end_ <= context.curve_->nodeDates_.back()))
                 Fail("CalibrationContextMismatch", Field(source), "live observation dates covered by frozen curve layout", result.index_, source);
         }

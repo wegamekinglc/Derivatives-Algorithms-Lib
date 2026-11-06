@@ -79,10 +79,11 @@ namespace Dal::CompoundedOisInternal {
                 const auto& fix = Factor(*node, s, row, d);
                 if (included) {
                     descriptor->observations_.push_back(CurveScriptInternal::Observation(fix, context, d));
+                    descriptor->observations_.back().tableRow_ = row;
                     flow->locations_.push_back(d);
                     const size_t factor =
-                        Append(flow, {'g', descriptor->observations_.size() - 1, 0, s.observations_[row].accrual_, false, flow->locations_.size()});
-                    cumulative = Append(flow, {'p', cumulative, factor, 0., false, flow->locations_.size()});
+                        Append(flow, {'l', descriptor->observations_.size() - 1, 0, s.observations_[row].accrual_, false, flow->locations_.size()});
+                    cumulative = Append(flow, {'s', cumulative, factor, 0., false, flow->locations_.size()});
                 }
                 ++row;
             }
@@ -110,7 +111,7 @@ namespace Dal::CompoundedOisInternal {
             Match(dynamic_cast<const Script::NodeSub_*>(&term) && Literal(*term.arguments_[1], 1.), flow->source_);
             Factors(*term.arguments_[0], s, range, context, included, descriptor, flow);
             const size_t product = flow->program_.size() - 1;
-            Append(flow, {'-', receive ? 0 : product, receive ? product : 0});
+            Append(flow, {'e', product, 0});
         }
         CalibrationCurvePayment_ Payment(const Script::NodePays_& payment,
                                          const CalibrationDiagnostic_& source,
@@ -129,14 +130,15 @@ namespace Dal::CompoundedOisInternal {
                     "live OIS payment within curve horizon");
             const auto& amount = *payment.arguments_[1];
             Match(dynamic_cast<const Script::NodeMulti_*>(&amount) && Slot(*amount.arguments_[0], "N", s.notional_), source);
-            CalibrationCurvePayment_ flow{date, {{'c', 0, 0, 1.}}, source, {}};
+            CalibrationCurvePayment_ flow{date, {{'c', 0, 0, fixed ? 1. : 0.}}, source, {}};
             const auto& term = *amount.arguments_[1];
             if (fixed)
                 Fixed(term, s, row, &flow);
             else
                 Floating(term, s, ranges[row], context, included, descriptor, &flow);
             const size_t coefficient = flow.program_.size() - 1;
-            const size_t n = Append(&flow, {'c', 0, 0, s.notional_});
+            const double notional = !fixed && s.direction_ == "ReceiveFixed" ? -s.notional_ : s.notional_;
+            const size_t n = Append(&flow, {'c', 0, 0, notional});
             Append(&flow, {'*', n, coefficient, 0., fixed});
             return flow;
         }
@@ -170,6 +172,8 @@ namespace Dal::CompoundedOisInternal {
         auto result = std::make_shared<CalibrationCurveFamilyDescriptor_>();
         result->compounded_ = true;
         result->coupon_ = s.coupon_;
+        result->annuitySign_ = s.direction_ == "PayFixed" ? -1 : 1;
+        result->minAbsAnnuity_ = s.minAbsAnnuity_;
         for (size_t i = 0; i < payments.size(); ++i) {
             const auto& d = sources[i];
             Match(d.sourceRow_ && *d.sourceRow_ >= 3 && *d.sourceRow_ <= static_cast<int>(count + 2), d);

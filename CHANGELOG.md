@@ -18,10 +18,16 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-11-07
 
+- Add core compounded OIS Price/ParRate evaluation, owning cashflow/source
+  reports, native FD/AAD partials and calibration through explicit ON routes.
+  Stable checked log-products retain small accrued interest; historical,
+  future and mixed coupons share one source. P1 quote risk remains excluded.
+  See [direct native evaluation](docs/methodology/script_calibration_contract.md#direct-native-evaluation-and-calibration).
+
 - Add ON literals and internal table-bound compounded OIS source execution,
   with checked chronological products, historical fixing keys, source locations
   and explicit rejection of future projection, general MC and P1 quote risk.
-  See the [controlled kernel](docs/methodology/script_calibration_contract.md#controlled-historical-source-execution).
+  See the [controlled kernel](docs/methodology/script_calibration_contract.md#controlled-source-execution).
 
 - Add core structural preparation for explicit compounded OIS tables, with
   frozen calendar provenance, strict date/accrual rules, payment statuses,

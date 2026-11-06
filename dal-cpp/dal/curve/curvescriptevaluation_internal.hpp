@@ -9,6 +9,9 @@ namespace Dal {
         if (!(from.IsValid() && to.IsValid() && from >= geometry_->geometry_.today_ && to >= from))
             CalibrationInternal::Fail("CalibrationContextMismatch", "/candidate/dates",
                                       "ordered dates on or after valuation; history is resolved before evaluation");
+        if (binding.domain_ && (from < binding.domain_->first || to > binding.domain_->second))
+            CalibrationInternal::Fail("CalibrationContextMismatch", "/routes/" + route.id_ + "/horizon",
+                                      "live ON rate intervals and actual payments within explicit curve coverage");
         const T_ value = binding.target_ ? (*binding.target_)(from, to) : T_((*binding.background_)(from, to));
         if (!(std::isfinite(static_cast<double>(value)) && static_cast<double>(value) > 0.))
             CalibrationInternal::Fail("CalibrationNumericalFailure", "/routes/" + route.id_, "finite positive discount factor");
@@ -131,6 +134,7 @@ namespace Dal::CurveScriptInternal {
             total.a_ += ab.a_ * discount;
             total.b_ += ab.b_ * discount;
         }
+        CheckCompoundedAnnuity(descriptor, static_cast<double>(total.a_));
         if (plan.Measure().kind_ == CalibrationMeasureKind_::Value_::Price)
             return total.b_ + descriptor.coupon_ * total.a_;
         const auto& measure = plan.Measure();
