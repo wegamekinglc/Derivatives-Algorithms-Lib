@@ -18,6 +18,9 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-11-06
 
+- Script curve risk interfaces: expose owning snapshots and deterministic PV/raw/DV01
+  through public C++, Python and typed Excel handles with numerical rejection diagnostics.
+
 - Script curve risk: add deterministic PV quote risk from admitted EXACT snapshots,
   with native AAD gradients, cached checked transpose solves and decimal raw/DV01 outputs.
 

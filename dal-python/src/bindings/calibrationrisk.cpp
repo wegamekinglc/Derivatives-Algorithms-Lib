@@ -8,13 +8,28 @@
 #include <pybind11/stl.h>
 
 #include <dal-public/src/calibrationrisk.hpp>
+#include <dal-public/src/scriptcurvequoterisk.hpp>
 
+#include "calibrationinput.hpp"
+#include "giltestbarrier.hpp"
 #include "scriptsettings.hpp"
 
 using namespace Dal;
 using namespace Dal::Python;
 
 namespace {
+    thread_local bool scriptRiskBarrierArmed = false;
+    GilTestBarrier_ scriptRiskBarrier;
+    constexpr const char* SCRIPT_RISK_GIL_TIMEOUT = "ScriptQuoteRisk: Python GIL test barrier timed out";
+    void ScriptRiskGilHooks(py::module_& m) {
+        m.def("_ScriptQuoteRiskGilBarrier_ArmForTesting", [] { scriptRiskBarrier.Arm(&scriptRiskBarrierArmed); });
+        m.def("_ScriptQuoteRiskGilBarrier_AwaitEntryForTesting", [] {
+            py::gil_scoped_release release;
+            return scriptRiskBarrier.AwaitEntry();
+        });
+        m.def("_ScriptQuoteRiskGilBarrier_ReleaseForTesting", [] { return scriptRiskBarrier.Release(); });
+        m.def("_ScriptQuoteRiskGilBarrier_BlockWithGilForTesting", [] { scriptRiskBarrier.Wait(&scriptRiskBarrierArmed, SCRIPT_RISK_GIL_TIMEOUT); });
+    }
     template <class T_> T_ RequiredInput(const py::handle& value, const std::string& field, const char* type) {
         if (!py::isinstance<T_>(value))
             throw py::type_error(InputContext(value, field, type, "InvalidCalibrationPullback"));
@@ -91,9 +106,167 @@ namespace {
                                 : std::optional<CalibrationDirectQuoteAdjoints_>(RequiredInput<CalibrationDirectQuoteAdjoints_>(
                                       direct, "PullbackCalibration; direct", "CalibrationDirectQuoteAdjoints_ or None"));
     }
+
+    void ScriptRiskSettings(py::module_& m) {
+        using namespace Dal::Python::Calibration;
+        auto accuracy = Struct<ScriptCurveQuoteRiskAccuracy_>(m, "ScriptCurveQuoteRiskAccuracy_", [](Fields_& fields) {
+            ScriptCurveQuoteRiskAccuracy_ value;
+            value.residualAbsoluteLimits_ = fields.Required<Vector_<>>("residual_absolute_limits");
+            value.minReciprocalCondition_ = fields.Required<double>("min_reciprocal_condition");
+            value.responseBackwardErrorLimit_ = fields.Required<double>("response_backward_error_limit");
+            value.relativePivotTolerance_ = fields.Default<double>("relative_pivot_tolerance", value.relativePivotTolerance_);
+            return value;
+        });
+        Property(accuracy, "residual_absolute_limits", &ScriptCurveQuoteRiskAccuracy_::residualAbsoluteLimits_);
+        Property(accuracy, "min_reciprocal_condition", &ScriptCurveQuoteRiskAccuracy_::minReciprocalCondition_);
+        Property(accuracy, "response_backward_error_limit", &ScriptCurveQuoteRiskAccuracy_::responseBackwardErrorLimit_);
+        Property(accuracy, "relative_pivot_tolerance", &ScriptCurveQuoteRiskAccuracy_::relativePivotTolerance_);
+        auto request = Struct<ScriptCurveQuoteRiskRequest_>(m, "ScriptCurveQuoteRiskRequest_", [](Fields_& fields) {
+            return ScriptCurveQuoteRiskRequest_{fields.Default<Vector_<String_>>("quote_ids", {}), fields.Default<String_>("measure_id", "Price"),
+                                                fields.Default<bool>("live_quote_payoff", false)};
+        });
+        Property(request, "quote_ids", &ScriptCurveQuoteRiskRequest_::quoteIds_);
+        Property(request, "measure_id", &ScriptCurveQuoteRiskRequest_::measureId_);
+        Property(request, "live_quote_payoff", &ScriptCurveQuoteRiskRequest_::liveQuotePayoff_);
+        m.attr("ScriptCurveQuoteRiskAccuracy_New") = m.attr("ScriptCurveQuoteRiskAccuracy_");
+        m.attr("ScriptCurveQuoteRiskRequest_New") = m.attr("ScriptCurveQuoteRiskRequest_");
+    }
+    void ScriptRiskAxes(py::module_& m) {
+        using namespace Dal::Python::Calibration;
+        auto quote = py::class_<ScriptCurveQuoteRiskQuote_>(m, "ScriptCurveQuoteRiskQuote_");
+        Property(quote, "ordinal", &ScriptCurveQuoteRiskQuote_::ordinal_);
+        Property(quote, "id", &ScriptCurveQuoteRiskQuote_::id_);
+        Property(quote, "value", &ScriptCurveQuoteRiskQuote_::value_);
+        Property(quote, "unit", &ScriptCurveQuoteRiskQuote_::unit_);
+        Property(quote, "convention", &ScriptCurveQuoteRiskQuote_::convention_);
+        auto observation = py::class_<ScriptCurveQuoteRiskObservation_>(m, "ScriptCurveQuoteRiskObservation_");
+        Property(observation, "ordinal", &ScriptCurveQuoteRiskObservation_::ordinal_);
+        Property(observation, "quote_ordinal", &ScriptCurveQuoteRiskObservation_::quoteOrdinal_);
+        Property(observation, "id", &ScriptCurveQuoteRiskObservation_::id_);
+        Property(observation, "instrument_id", &ScriptCurveQuoteRiskObservation_::instrumentId_);
+        Property(observation, "measure_id", &ScriptCurveQuoteRiskObservation_::measureId_);
+        Property(observation, "source_identity", &ScriptCurveQuoteRiskObservation_::sourceIdentity_);
+        Property(observation, "definition_identity", &ScriptCurveQuoteRiskObservation_::definitionIdentity_);
+        Property(observation, "binding_identity", &ScriptCurveQuoteRiskObservation_::bindingIdentity_);
+        Property(observation, "error_scale", &ScriptCurveQuoteRiskObservation_::errorScale_);
+        auto parameter = py::class_<ScriptCurveQuoteRiskParameter_>(m, "ScriptCurveQuoteRiskParameter_");
+        Property(parameter, "ordinal", &ScriptCurveQuoteRiskParameter_::ordinal_);
+        Property(parameter, "id", &ScriptCurveQuoteRiskParameter_::id_);
+        Property(parameter, "unit", &ScriptCurveQuoteRiskParameter_::unit_);
+        Property(parameter, "coordinate", &ScriptCurveQuoteRiskParameter_::coordinate_);
+        Property(parameter, "value", &ScriptCurveQuoteRiskParameter_::value_);
+        auto numerics = py::class_<ScriptCurveQuoteRiskNumerics_>(m, "ScriptCurveQuoteRiskNumerics_");
+        Property(numerics, "model_measures", &ScriptCurveQuoteRiskNumerics_::modelMeasures_);
+        Property(numerics, "raw_residuals", &ScriptCurveQuoteRiskNumerics_::rawResiduals_);
+        Property(numerics, "native_jacobian", &ScriptCurveQuoteRiskNumerics_::nativeJacobian_);
+        Property(numerics, "reciprocal_condition", &ScriptCurveQuoteRiskNumerics_::reciprocalCondition_);
+        Property(numerics, "transpose_backward_errors", &ScriptCurveQuoteRiskNumerics_::transposeBackwardErrors_);
+        Property(numerics, "response_backward_errors", &ScriptCurveQuoteRiskNumerics_::responseBackwardErrors_);
+        Property(numerics, "factorization_count", &ScriptCurveQuoteRiskNumerics_::factorizationCount_);
+    }
+    void ScriptRiskSnapshot(py::module_& m) {
+        using namespace Dal::Python::Calibration;
+        WithCopies(py::class_<ScriptCurveQuoteRiskSnapshot_>(m, "ScriptCurveQuoteRiskSnapshot_"))
+            .def_property_readonly("structure_valid", &ScriptCurveQuoteRiskSnapshot_::StructureValid)
+            .def_property_readonly("mapping_available", &ScriptCurveQuoteRiskSnapshot_::MappingAvailable)
+            .def_property_readonly("risk_available", &ScriptCurveQuoteRiskSnapshot_::RiskAvailable)
+            .def_property_readonly("status", [](const ScriptCurveQuoteRiskSnapshot_& v) { return v.RiskAvailable() ? "Available" : "Unavailable"; })
+            .def_property_readonly("identity", [](const ScriptCurveQuoteRiskSnapshot_& v) { return Text(v.Identity()); })
+            .def_property_readonly("context_identity", [](const ScriptCurveQuoteRiskSnapshot_& v) { return Text(v.ContextIdentity()); })
+            .def_property_readonly("accuracy", [](const ScriptCurveQuoteRiskSnapshot_& v) { return v.Accuracy(); })
+            .def_property_readonly("quote_axis", [](const ScriptCurveQuoteRiskSnapshot_& v) { return Output(v.QuoteAxis()); })
+            .def_property_readonly("observation_axis", [](const ScriptCurveQuoteRiskSnapshot_& v) { return Output(v.ObservationAxis()); })
+            .def_property_readonly("parameter_axis", [](const ScriptCurveQuoteRiskSnapshot_& v) { return Output(v.ParameterAxis()); })
+            .def_property_readonly("numerics", [](const ScriptCurveQuoteRiskSnapshot_& v) { return v.Numerics(); })
+            .def_property_readonly("diagnostics", [](const ScriptCurveQuoteRiskSnapshot_& v) { return Output(v.Diagnostics()); });
+        m.def(
+            "ScriptCurveQuoteRiskSnapshot_New",
+            [](const py::object& calibration, const py::object& accuracy) {
+                const auto fit = Input_<CurveInstrumentCalibrationResult_>::Read(calibration, "ScriptCurveQuoteRiskSnapshot_New; calibration");
+                const auto limits = Input_<ScriptCurveQuoteRiskAccuracy_>::Read(accuracy, "ScriptCurveQuoteRiskSnapshot_New; accuracy");
+                py::gil_scoped_release release;
+                scriptRiskBarrier.Wait(&scriptRiskBarrierArmed, SCRIPT_RISK_GIL_TIMEOUT);
+                return NewScriptCurveQuoteRiskSnapshot(fit, limits);
+            },
+            py::arg("calibration"), py::arg("accuracy"));
+    }
+    void ScriptRiskResult(py::module_& m) {
+        using namespace Dal::Python::Calibration;
+        WithCopies(py::class_<ScriptCurveQuoteRiskResult_>(m, "ScriptCurveQuoteRiskResult_"))
+            .def_property_readonly("available", &ScriptCurveQuoteRiskResult_::Available)
+            .def_property_readonly("status", [](const ScriptCurveQuoteRiskResult_& v) { return v.Available() ? "Available" : "Unavailable"; })
+            .def_property_readonly("currency", [](const ScriptCurveQuoteRiskResult_& v) { return v.Currency().String(); })
+            .def_property_readonly("pv", &ScriptCurveQuoteRiskResult_::PV)
+            .def_property_readonly("raw_sensitivity", [](const ScriptCurveQuoteRiskResult_& v) { return Output(v.RawSensitivity()); })
+            .def_property_readonly("dv01", [](const ScriptCurveQuoteRiskResult_& v) { return Output(v.DV01()); })
+            .def_property_readonly("native_gradient", [](const ScriptCurveQuoteRiskResult_& v) { return Output(v.NativeGradient()); })
+            .def_property_readonly("quote_axis", [](const ScriptCurveQuoteRiskResult_& v) { return Output(v.Axes().quotes_); })
+            .def_property_readonly("observation_axis", [](const ScriptCurveQuoteRiskResult_& v) { return Output(v.Axes().observations_); })
+            .def_property_readonly("parameter_axis", [](const ScriptCurveQuoteRiskResult_& v) { return Output(v.Axes().parameters_); })
+            .def_property_readonly("diagnostics", [](const ScriptCurveQuoteRiskResult_& v) { return Output(v.Diagnostics()); })
+            .def_property_readonly("numerics", [](const ScriptCurveQuoteRiskResult_& v) { return v.Numerics(); })
+            .def_property_readonly("method", [](const ScriptCurveQuoteRiskResult_& v) { return Text(v.Method()); })
+            .def_property_readonly("snapshot_identity", [](const ScriptCurveQuoteRiskResult_& v) { return Text(v.SnapshotIdentity()); })
+            .def_property_readonly("context_identity", [](const ScriptCurveQuoteRiskResult_& v) { return Text(v.ContextIdentity()); })
+            .def_property_readonly("source_identity", [](const ScriptCurveQuoteRiskResult_& v) { return Text(v.SourceIdentity()); })
+            .def_property_readonly("definition_identity", [](const ScriptCurveQuoteRiskResult_& v) { return Text(v.DefinitionIdentity()); })
+            .def_property_readonly("binding_identity", [](const ScriptCurveQuoteRiskResult_& v) { return Text(v.BindingIdentity()); });
+        m.def(
+            "CalibrationInstrument_ValueWithQuoteRisk",
+            [](const py::object& instrument, const py::object& snapshot, const py::object& context, const py::object& request) {
+                const auto contract =
+                    Input_<Handle_<CalibrationInstrument_>>::Read(instrument, "CalibrationInstrument_ValueWithQuoteRisk; instrument");
+                const auto source = Input_<ScriptCurveQuoteRiskSnapshot_>::Read(snapshot, "CalibrationInstrument_ValueWithQuoteRisk; snapshot");
+                const auto spec = Input_<CurveInstrumentCalibrationSpec_>::Read(context, "CalibrationInstrument_ValueWithQuoteRisk; context");
+                const auto selection = request.is_none()
+                                           ? ScriptCurveQuoteRiskRequest_()
+                                           : Input_<ScriptCurveQuoteRiskRequest_>::Read(request, "CalibrationInstrument_ValueWithQuoteRisk; request");
+                py::gil_scoped_release release;
+                scriptRiskBarrier.Wait(&scriptRiskBarrierArmed, SCRIPT_RISK_GIL_TIMEOUT);
+                return ValueCalibrationInstrumentWithQuoteRisk(contract, source, spec, selection);
+            },
+            py::arg("instrument"), py::arg("snapshot"), py::arg("context"), py::kw_only(), py::arg("request") = py::none());
+    }
+    template <class T_> void ScriptRiskGetters(py::module_& m, const char* prefix) {
+        using namespace Dal::Python::Calibration;
+        const std::string type(prefix);
+        m.def((type + "_Get_Diagnostics").c_str(), [](const T_& v) { return Output(v.Diagnostics()); }, py::arg("value"));
+        m.def((type + "_Get_Status").c_str(),
+              [](const T_& v) {
+                  if constexpr (std::is_same_v<T_, ScriptCurveQuoteRiskSnapshot_>)
+                      return v.RiskAvailable() ? "Available" : "Unavailable";
+                  else
+                      return v.Available() ? "Available" : "Unavailable";
+              },
+              py::arg("value"));
+        m.def((type + "_Get_QuoteAxis").c_str(),
+              [](const T_& v) {
+                  if constexpr (std::is_same_v<T_, ScriptCurveQuoteRiskSnapshot_>)
+                      return Output(v.QuoteAxis());
+                  else
+                      return Output(v.Axes().quotes_);
+              },
+              py::arg("value"));
+    }
+    void ScriptRiskValueGetters(py::module_& m) {
+        using namespace Dal::Python::Calibration;
+        m.def("ScriptCurveQuoteRiskResult_Get_PV", &ScriptCurveQuoteRiskResult_::PV, py::arg("result"));
+        m.def(
+            "ScriptCurveQuoteRiskResult_Get_RawSensitivity", [](const ScriptCurveQuoteRiskResult_& v) { return Output(v.RawSensitivity()); },
+            py::arg("result"));
+        m.def("ScriptCurveQuoteRiskResult_Get_DV01", [](const ScriptCurveQuoteRiskResult_& v) { return Output(v.DV01()); }, py::arg("result"));
+    }
 } // namespace
 
 void init_bindings_calibrationrisk(py::module_& m) {
+    ScriptRiskSettings(m);
+    ScriptRiskAxes(m);
+    ScriptRiskSnapshot(m);
+    ScriptRiskResult(m);
+    ScriptRiskGilHooks(m);
+    ScriptRiskGetters<ScriptCurveQuoteRiskSnapshot_>(m, "ScriptCurveQuoteRiskSnapshot");
+    ScriptRiskGetters<ScriptCurveQuoteRiskResult_>(m, "ScriptCurveQuoteRiskResult");
+    ScriptRiskValueGetters(m);
     WithCopies(py::class_<CalibrationPullback_>(m, "CalibrationPullback_"))
         .def_property_readonly("source",
                                [](const CalibrationPullback_& value) {

@@ -728,7 +728,8 @@ namespace Dal {
         const auto configuration = options ? options->val_ : CurveInstrumentCalibrationOptions_();
         try {
             const auto result = CalibrateCurveInstruments(input, configuration);
-            outcome->reset(new StorableCalibrationOutcome_("Succeeded", result.report_, result.curve_));
+            outcome->reset(new StorableCalibrationOutcome_("Succeeded", result.report_, result.curve_, {}, {},
+                                                           std::make_shared<const CurveInstrumentCalibrationResult_>(result)));
         } catch (const CalibrationError_& error) {
             *outcome = FailureOutcome(error);
         }

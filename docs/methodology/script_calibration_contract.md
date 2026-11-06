@@ -541,7 +541,38 @@ bindings. Repricing never rebinds a coupon from a bumped calibration quote.
 Each call compares the full explicit context and retains no active AAD values.
 An active outer recording is rejected before changing its tape or adjoint mode;
 successful and failed independent evaluations restore ownership and mode.
-These core types are not yet projected through public, Python or Excel.
+Include `dal-public/src/scriptcurvequoterisk.hpp` for these core owning types
+and `ScriptCurveQuoteRiskTable(value, table)`. Tables expose `Summary`,
+`QuoteAxis`, `ObservationAxis`, `ParameterAxis`, `Diagnostics`, and result-only
+`Sensitivity`; unavailable metrics are empty cells.
+
+Python registers independent read-only risk types in `calibrationrisk.cpp`.
+Create explicit `ScriptCurveQuoteRiskAccuracy_` settings with
+`residual_absolute_limits`, `min_reciprocal_condition` and
+`response_backward_error_limit`. `relative_pivot_tolerance` retains the core
+default. Call `ScriptCurveQuoteRiskSnapshot_New(fit, accuracy)`, then
+`CalibrationInstrument_ValueWithQuoteRisk(instrument, snapshot, context,
+request=...)`. Optional `ScriptCurveQuoteRiskRequest_` fields are `quote_ids`,
+`measure_id` and `live_quote_payoff`. Input conversion completes before releasing
+the GIL. Properties return passive copies; `available`/`status`, diagnostics,
+axes, identities and numerical admission evidence survive all inputs.
+`pv`, `raw_sensitivity` and `dv01` remain guarded numeric getters. The
+corresponding `ScriptCurveQuoteRiskResult_Get_*` functions provide the same
+values. Missing optional diagnostics and numerical metrics are `None`.
+
+Excel uses the same factory/action names with uppercase dotted registration.
+Accuracy and request factories require exact field/value tables. Accuracy's
+`residual_absolute_limits` value is a `CalibrationNumbers_New` handle; request's
+`quote_ids` value is a `ScriptCurveQuoteIds_New` handle constructed from ordered
+text cells. Omit the request for all quotes and `Price`. Curve calibration
+outcomes retain the complete read-only fit for snapshot construction; an older
+report/curve-only or wrong-kind outcome cannot supply that context. Snapshot
+and result `Get_Status`, `Get_Summary`, `Get_QuoteAxis` and `Get_Diagnostics`
+operate on typed handles. Result `Get_Sensitivity` displays signed raw/DV01
+with units and currency, leaving unavailable metrics blank; numeric `Get_PV`,
+`Get_RawSensitivity` and `Get_DV01` reject unavailable results. Malformed
+contexts remain worksheet input errors; valid stale or numerically rejected
+requests return inspectable `Unavailable` handles.
 
 Existing `quoteJacobian_` remains `dMeasure/dNativeParameter`;
 `CalibrationReport_::QuoteRiskAvailable()`, report schema `/1`, native rate-risk
