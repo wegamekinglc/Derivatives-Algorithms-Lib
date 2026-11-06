@@ -86,6 +86,85 @@ def read(sheet):
             "diagnostics": diagnostics, "guarded_pv_error": sheet.Range("I23").Value2}
 
 
+def write_settings_rows(sheet, start, rows):
+    for offset, (key, value) in enumerate(rows):
+        if key is None:
+            continue
+        sheet.Range(f"L{start+offset}").Value2 = key
+        cell = sheet.Range(f"M{start+offset}")
+        if isinstance(value, str) and value.startswith("="):
+            cell.Formula2 = value
+        else:
+            cell.Value2 = value
+
+
+def populate_settings_probe(sheet, kind, gap, field, start):
+    rows = [("measure_id", "Price")] if kind == "request" else [
+        ("residual_absolute_limits", "=I10"), ("min_reciprocal_condition", 1e-10),
+        ("response_backward_error_limit", 1e-12)]
+    if gap:
+        rows.append((None, None))
+    value = {"live_quote_payoff": True, "measure_id": "ParRate", "relative_pivot_tolerance": .99}.get(field, 1e-10)
+    rows.append((field, value))
+    write_settings_rows(sheet, start, rows)
+    sheet.Range(f"I{start}").Formula2 = f"=SCRIPTCURVEQUOTERISK{kind.upper()}.NEW(L{start}:M{start+len(rows)-1})"
+    if field in ("live_quote_payoff", "relative_pivot_tolerance"):
+        prefix = "RESULT" if kind == "request" else "SNAPSHOT"
+        formula = f"=CALIBRATIONINSTRUMENT.VALUEWITHQUOTERISK(B5,I12,I8,I{start})" if kind == "request" else (
+            f"=SCRIPTCURVEQUOTERISKSNAPSHOT.NEW(I9,I{start})")
+        sheet.Range(f"I{start+1}").Formula2 = formula
+        sheet.Range(f"I{start+2}").Formula2 = f"=SCRIPTCURVEQUOTERISK{prefix}.GET.STATUS(I{start+1})"
+        sheet.Range(f"R{start}").Formula2 = f"=SCRIPTCURVEQUOTERISK{prefix}.GET.DIAGNOSTICS(I{start+1})"
+    return kind, gap, field, start, len(rows)
+
+
+def populate_settings_probes(sheet):
+    cases = []
+    fields = {"request": ("live_quote_payoff", "Unknown", "measure_id"),
+              "accuracy": ("relative_pivot_tolerance", "Unknown", "min_reciprocal_condition")}
+    for kind, names in fields.items():
+        for gap in (False, True):
+            for field in names:
+                cases.append(populate_settings_probe(sheet, kind, gap, field, 60 + len(cases) * 8))
+    return cases
+
+
+def read_settings_probe(sheet, case):
+    kind, gap, field, start, rows = case
+    factory = sheet.Range(f"I{start}").Value2
+    item = {"kind": kind, "gap": gap, "field": field, "factory": factory}
+    require(isinstance(factory, str), f"Missing {kind} factory output: {item}")
+    if field in ("live_quote_payoff", "relative_pivot_tolerance"):
+        require(not factory.startswith("#Error:"), f"Valid {kind} settings rejected: {factory}")
+        item["status"] = sheet.Range(f"I{start+2}").Value2
+        item["diagnostic"] = sheet.Range(f"R{start+1}").Value2
+        expected = "ScriptCurveQuoteRiskLiveQuoteUnsupported" if kind == "request" else "ScriptCurveQuoteRiskJacobianRejected"
+        require(item["status"] == "Unavailable", f"Explicit {field} was ignored: {item}")
+        require(item["diagnostic"] == expected, f"Wrong {field} rejection evidence: {item}")
+    else:
+        column, reason = (2, "unknown field") if field == "Unknown" else (1, "duplicate key")
+        require(factory.startswith("#Error:"), f"Invalid {kind} settings admitted: {item}")
+        require(reason in factory and field in factory, f"Missing field diagnostic: {item}")
+        require(f"row={rows} column={column}" in factory, f"Wrong original input position: {item}")
+    return item
+
+
+def loaded_xll_identity(excel, expected):
+    import win32api
+    import win32process
+
+    _, pid = win32process.GetWindowThreadProcessId(excel.Hwnd)
+    process = win32api.OpenProcess(0x0400 | 0x0010, False, pid)
+    try:
+        paths = [Path(win32process.GetModuleFileNameEx(process, module))
+                 for module in win32process.EnumProcessModules(process)]
+    finally:
+        process.Close()
+    loaded = [path for path in paths if path.resolve() == expected.resolve()]
+    require(len(loaded) == 1, "The requested XLL is not loaded in this Excel process")
+    return {"excel_pid": pid, "path": str(loaded[0]), "sha256": hashlib.sha256(loaded[0].read_bytes()).hexdigest()}
+
+
 def run(args):
     import win32com.client
 
@@ -96,12 +175,15 @@ def run(args):
     book = None
     try:
         require(excel.RegisterXLL(str(args.xll.resolve())), "Native XLL registration failed")
+        loaded_xll = loaded_xll_identity(excel, args.xll)
         book = excel.Workbooks.Add()
         sheet = book.Worksheets(1)
         sheet.Name = "ScriptQuoteRisk"
         populate(sheet, fixture)
+        settings_cases = populate_settings_probes(sheet)
         excel.CalculateFullRebuild()
         before = read(sheet)
+        settings_evidence = [read_settings_probe(sheet, case) for case in settings_cases]
         accrual = 365. / 360.
         denominator = 1. + .035 * accrual
         require(abs(before["pv"] - (-100. + 100. * (1. + .025 * accrual) / denominator)) < 1e-9, "PV differs from independent oracle")
@@ -114,9 +196,9 @@ def run(args):
         args.output.parent.mkdir(parents=True, exist_ok=True)
         workbook = args.output.with_suffix(".xlsx")
         book.SaveAs(str(workbook.resolve()), FileFormat=51)
-        evidence = {"excel_version": excel.Version, "xll_sha256": hashlib.sha256(args.xll.read_bytes()).hexdigest(),
+        evidence = {"excel_version": excel.Version, "xll_sha256": hashlib.sha256(args.xll.read_bytes()).hexdigest(), "loaded_xll": loaded_xll,
                     "fixture_sha256": hashlib.sha256(args.fixture.read_bytes()).hexdigest(),
-                    "before": before, "after_plus_1bp": after, "workbook": workbook.name}
+                    "before": before, "after_plus_1bp": after, "settings_probes": settings_evidence, "workbook": workbook.name}
         args.output.write_text(json.dumps(evidence, indent=2), encoding="utf-8")
     finally:
         if book is not None:

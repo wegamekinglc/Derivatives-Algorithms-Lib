@@ -13,11 +13,13 @@
 #include <dal-excel/src/__europeanpderisk.hpp>
 #include <dal-excel/src/__lsmccurvature.hpp>
 #include <dal-excel/src/__script_test_api.hpp>
+#include <dal-excel/src/__scriptcurvequoterisk.hpp>
 #include <dal-excel/src/__xccymontecarlo.hpp>
 #include <dal-excel/src/_excel.hpp>
 #include <dal-excel/src/_xlcall.hpp>
 #include <dal-public/src/global.hpp>
 #include <dal-public/src/script.hpp>
+#include <dal-public/tests/scriptquoteriskfixture.hpp>
 
 #include "scriptbudgetjson.hpp"
 
@@ -88,6 +90,28 @@ namespace {
         for (const auto* field : fields)
             ASSERT_NE(text.find(field), std::string::npos) << text;
     }
+
+    template <class T_> RawText_ RawHandle(const Handle_<T_>& object) {
+        const auto tag = Excel::ScriptTestStoreRepository(Handle_<Storable_>(object));
+        return RawText_(std::wstring(tag.begin(), tag.end()));
+    }
+
+    Handle_<StorableCalibrationOutcome_> ScriptQuoteRiskCalibration() {
+        Excel::ScriptTestInitialize(1);
+        const Handle_<StorableCurveInstrumentCalibrationSpec_> context(new StorableCurveInstrumentCalibrationSpec_(Test::ScriptQuoteRiskSpec()));
+        Handle_<StorableCalibrationOutcome_> fit;
+        Calibrate_CurveInstruments(context, {}, &fit);
+        return fit;
+    }
+
+    struct RawScriptQuoteRiskAccuracy_ {
+        RawText_ residual_{L"residual_absolute_limits"}, condition_{L"min_reciprocal_condition"}, response_{L"response_backward_error_limit"};
+        OPER_ limitCells_[2]{Number(1e-12), Number(1e-12)}, limitRange_ = Multi(limitCells_, 2, 1);
+        Output_ limits_{Call("xl_CalibrationNumbers_New", &limitRange_)};
+        std::vector<OPER_> Fields() const {
+            return {residual_.cell_, *limits_.Scalar(), condition_.cell_, Number(1e-10), response_.cell_, Number(1e-12)};
+        }
+    };
 
     void CheckRawBudgetDescription(const Output_& output) {
         ASSERT_TRUE(output.value_->xltype & xltypeMulti);
@@ -1710,6 +1734,107 @@ TEST(ScriptExcelRawTest, TestDescribeParserBudgetCombinesSameDateRows) {
     ASSERT_EQ(text.substr(0, 7), "#Error:");
     for (const auto& field : Script::TestSupport::MergedBudgetErrorFields())
         ASSERT_NE(text.find(field.c_str()), std::string::npos) << text;
+}
+
+TEST(ScriptExcelRawTest, TestScriptQuoteRiskRequestReadsFieldsAfterBlankRows) {
+    Excel::ScriptTestInitialize(1);
+    RawText_ measure(L"measure_id"), price(L"Price"), unknown(L"Unknown");
+    for (const auto gap : {false, true}) {
+        for (const auto duplicate : {false, true}) {
+            std::vector<OPER_> cells{measure.cell_, price.cell_};
+            if (gap)
+                cells.insert(cells.end(), {Blank(), Blank()});
+            cells.insert(cells.end(), {duplicate ? measure.cell_ : unknown.cell_, price.cell_});
+            auto settings = Multi(cells.data(), static_cast<int>(cells.size() / 2), 2);
+            Output_ rejected(Call("xl_ScriptCurveQuoteRiskRequest_New", &settings));
+            const auto row = "settings row=" + std::to_string(settings.val.array.rows);
+            ASSERT_NO_FATAL_FAILURE(CheckError(
+                rejected, {"ScriptCurveQuoteRiskRequest_New", row.c_str(), duplicate ? "duplicate key measure_id" : "Unknown; unknown field"}));
+        }
+    }
+}
+
+TEST(ScriptExcelRawTest, TestScriptQuoteRiskLivePayoffAfterBlankRows) {
+    const auto fit = ScriptQuoteRiskCalibration();
+    const auto& spec = *fit->curveFit_->resolvedSpec_;
+    const Handle_<StorableScriptCurveQuoteRiskSnapshot_> snapshot(
+        new StorableScriptCurveQuoteRiskSnapshot_(NewScriptCurveQuoteRiskSnapshot(*fit->curveFit_, {{1e-12, 1e-12}, 1e-10, 1e-12})));
+    ASSERT_TRUE(snapshot->val_.MappingAvailable());
+    const auto context = RawHandle(Handle_<Storable_>(new StorableCurveInstrumentCalibrationSpec_(spec)));
+    const auto instrument = RawHandle(spec.observations_[0]->Instrument()), saved = RawHandle(snapshot);
+    RawText_ measure(L"measure_id"), price(L"Price"), liveKey(L"live_quote_payoff");
+    for (const auto gap : {false, true}) {
+        for (const auto live : {false, true}) {
+            OPER_ flag{};
+            flag.xltype = xltypeBool;
+            flag.val.xbool = live;
+            std::vector<OPER_> cells{measure.cell_, price.cell_};
+            if (gap)
+                cells.insert(cells.end(), {Blank(), Blank()});
+            cells.insert(cells.end(), {liveKey.cell_, flag});
+            auto settings = Multi(cells.data(), static_cast<int>(cells.size() / 2), 2);
+            Output_ request(Call("xl_ScriptCurveQuoteRiskRequest_New", &settings));
+            ASSERT_NE(request.Text().substr(0, 7), "#Error:") << request.Text();
+            Output_ result(Call("xl_CalibrationInstrument_ValueWithQuoteRisk", &instrument.cell_, &saved.cell_, &context.cell_, request.Scalar()));
+            Output_ status(Call("xl_ScriptCurveQuoteRiskResult_Get_Status", result.Scalar()));
+            ASSERT_EQ(status.Text(), live ? "Unavailable" : "Available");
+            Output_ pv(Call("xl_ScriptCurveQuoteRiskResult_Get_PV", result.Scalar()));
+            if (live) {
+                ASSERT_NO_FATAL_FAILURE(CheckError(pv, {"unavailable"}));
+                Output_ diagnostics(Call("xl_ScriptCurveQuoteRiskResult_Get_Diagnostics", result.Scalar()));
+                ASSERT_GT(diagnostics.value_->val.array.rows, 1);
+                CheckText(diagnostics.value_->val.array.lparray[diagnostics.value_->val.array.columns], L"ScriptCurveQuoteRiskLiveQuoteUnsupported");
+            } else {
+                ASSERT_EQ(pv.Scalar()->xltype, xltypeNum);
+                ASSERT_NEAR(pv.Scalar()->val.num, -.9791429146240347, 1e-10);
+            }
+        }
+    }
+}
+
+TEST(ScriptExcelRawTest, TestScriptQuoteRiskAccuracyReadsFieldsAfterBlankRows) {
+    Excel::ScriptTestInitialize(1);
+    RawScriptQuoteRiskAccuracy_ accuracy;
+    RawText_ unknown(L"Unknown");
+    for (const auto gap : {false, true}) {
+        for (const auto duplicate : {false, true}) {
+            auto cells = accuracy.Fields();
+            if (gap)
+                cells.insert(cells.end(), {Blank(), Blank()});
+            cells.insert(cells.end(), {duplicate ? accuracy.condition_.cell_ : unknown.cell_, Number(1e-10)});
+            auto settings = Multi(cells.data(), static_cast<int>(cells.size() / 2), 2);
+            Output_ rejected(Call("xl_ScriptCurveQuoteRiskAccuracy_New", &settings));
+            const auto row = "settings row=" + std::to_string(settings.val.array.rows);
+            ASSERT_NO_FATAL_FAILURE(CheckError(rejected, {"ScriptCurveQuoteRiskAccuracy_New", row.c_str(),
+                                                          duplicate ? "duplicate key min_reciprocal_condition" : "Unknown; unknown field"}));
+        }
+    }
+}
+
+TEST(ScriptExcelRawTest, TestScriptQuoteRiskExplicitPivotAfterBlankRows) {
+    const auto fit = RawHandle(ScriptQuoteRiskCalibration());
+    RawScriptQuoteRiskAccuracy_ accuracy;
+    RawText_ pivot(L"relative_pivot_tolerance");
+    for (const auto gap : {false, true}) {
+        for (const auto strict : {false, true}) {
+            auto cells = accuracy.Fields();
+            if (gap)
+                cells.insert(cells.end(), {Blank(), Blank()});
+            if (strict)
+                cells.insert(cells.end(), {pivot.cell_, Number(.99)});
+            auto settings = Multi(cells.data(), static_cast<int>(cells.size() / 2), 2);
+            Output_ configured(Call("xl_ScriptCurveQuoteRiskAccuracy_New", &settings));
+            ASSERT_NE(configured.Text().substr(0, 7), "#Error:") << configured.Text();
+            Output_ snapshot(Call("xl_ScriptCurveQuoteRiskSnapshot_New", &fit.cell_, configured.Scalar()));
+            Output_ status(Call("xl_ScriptCurveQuoteRiskSnapshot_Get_Status", snapshot.Scalar()));
+            ASSERT_EQ(status.Text(), strict ? "Unavailable" : "Available");
+            if (strict) {
+                Output_ diagnostics(Call("xl_ScriptCurveQuoteRiskSnapshot_Get_Diagnostics", snapshot.Scalar()));
+                ASSERT_GT(diagnostics.value_->val.array.rows, 1);
+                CheckText(diagnostics.value_->val.array.lparray[diagnostics.value_->val.array.columns], L"ScriptCurveQuoteRiskJacobianRejected");
+            }
+        }
+    }
 }
 #endif
 

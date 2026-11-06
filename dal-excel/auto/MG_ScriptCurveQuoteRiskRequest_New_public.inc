@@ -10,7 +10,7 @@ ENV_SEED_TYPE(ObjectAccess_);
     {	
         Logging::Write("ScriptCurveQuoteRiskRequest_New");        
         argName = "settings (input #1)";
-        const Matrix_<Cell_> settings = Excel::ToCellMatrix(xl_settings);
+        const Matrix_<Cell_> settings = Excel::ToCellMatrix(xl_settings, false, true);
         const Excel::ScriptSettingsInput_ normalized_settings(xl_settings); xl_settings = normalized_settings.Get(); argName = "settings"; Excel::ValidateScriptSettingsRange(xl_settings, "ScriptCurveQuoteRiskRequest_New", "settings");
         argName = 0;
 		Handle_<StorableScriptCurveQuoteRiskRequest_> value;

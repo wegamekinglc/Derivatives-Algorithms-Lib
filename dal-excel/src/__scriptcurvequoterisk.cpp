@@ -11,7 +11,7 @@
 public ScriptCurveQuoteRiskAccuracy_New
     Create explicit script curve risk accuracy
 &inputs
-settings is cell[][]
+settings is cell[][]+
     Exact field/value table; residual_absolute_limits is a CalibrationNumbers handle
 +const Excel::ScriptSettingsInput_ normalized_settings(xl_settings); xl_settings = normalized_settings.Get();
 +argName = "settings"; Excel::ValidateScriptSettingsRange(xl_settings, "ScriptCurveQuoteRiskAccuracy_New", "settings");
@@ -24,7 +24,7 @@ value is handle StorableScriptCurveQuoteRiskAccuracy
 public ScriptCurveQuoteRiskRequest_New
     Create a script curve risk request
 &inputs
-settings is cell[][]
+settings is cell[][]+
     Exact optional fields; quote_ids is a ScriptCurveQuoteIds handle
 +const Excel::ScriptSettingsInput_ normalized_settings(xl_settings); xl_settings = normalized_settings.Get();
 +argName = "settings"; Excel::ValidateScriptSettingsRange(xl_settings, "ScriptCurveQuoteRiskRequest_New", "settings");

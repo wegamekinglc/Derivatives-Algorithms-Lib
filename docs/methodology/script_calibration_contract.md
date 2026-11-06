@@ -561,7 +561,9 @@ corresponding `ScriptCurveQuoteRiskResult_Get_*` functions provide the same
 values. Missing optional diagnostics and numerical metrics are `None`.
 
 Excel uses the same factory/action names with uppercase dotted registration.
-Accuracy and request factories require exact field/value tables. Accuracy's
+Accuracy and request factories read the entire selected field/value range;
+blank rows are skipped, and every remaining field is validated, including
+unknown and duplicate keys. Accuracy's
 `residual_absolute_limits` value is a `CalibrationNumbers_New` handle; request's
 `quote_ids` value is a `ScriptCurveQuoteIds_New` handle constructed from ordered
 text cells. Omit the request for all quotes and `Price`. Curve calibration
