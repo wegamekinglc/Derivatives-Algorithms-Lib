@@ -27,20 +27,22 @@ namespace Dal {
                 return {};
             return String_(found->second.string_);
         }
-        template <class T_, class F_> Vector_<T_> ReadRows(const Json_& v, const String_& p, const F_& read) {
+        template <class T_, class F_> Vector_<T_> ReadRows(const Json_& v, const String_& p, const F_& parseRow) {
             CheckArray(v, p);
             Vector_<T_> rows;
-            for (size_t i = 0; i < v.array_.size(); ++i) {
+            size_t rowIndex = 0;
+            for (const auto& row : v.array_) {
                 try {
-                    rows.push_back(read(v.array_[i], p + "/" + OrdinalText(i)));
+                    rows.push_back(parseRow(row, p + "/" + OrdinalText(rowIndex)));
                 } catch (const CalibrationError_& error) {
                     auto d = error.Failure().diagnostic_;
                     if (!d.sourceRow_)
-                        d.sourceRow_ = static_cast<int>(i + 1);
+                        d.sourceRow_ = static_cast<int>(rowIndex + 1);
                     if (!d.observationId_)
-                        d.observationId_ = CouponId(v.array_[i]);
+                        d.observationId_ = CouponId(row);
                     Fail(d.code_, d.field_.value_or(p), d.expected_.value_or("valid table row"), d.actual_.value_or(""), d);
                 }
+                ++rowIndex;
             }
             return rows;
         }

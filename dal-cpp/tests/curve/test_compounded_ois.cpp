@@ -398,6 +398,37 @@ TEST(CompoundedOisContractTest, TestJsonRejectsDuplicateFixingRowsBeforeMapInser
     ASSERT_THROW(LoadPreparedCompoundedOisJson(String_(Jcs(invalid))), CalibrationError_);
 }
 
+TEST(CompoundedOisContractTest, TestJsonBoundaryRowErrorsKeepOwnedLocations) {
+    using namespace CalibrationInternal;
+    const auto json = DumpPreparedCompoundedOisJson(PrepareCompoundedOis(LeapSpec(), Valuation()));
+    for (const auto index : {0u, 1u}) {
+        for (const auto* field : {"accrual", "coupon_id"}) {
+            CalibrationFailure_ failure;
+            {
+                auto invalid = Parse(json);
+                invalid.object_.at("spec").object_.at("observations").array_.at(index).object_.at(field) = Bool(true);
+                try {
+                    LoadPreparedCompoundedOisJson(String_(Jcs(invalid)));
+                    FAIL() << "Invalid boundary row accepted";
+                } catch (const CalibrationError_& error) {
+                    failure = error.Failure();
+                }
+            }
+            ASSERT_EQ(failure.diagnostic_.code_, "InvalidCalibrationArchive");
+            ASSERT_EQ(failure.diagnostic_.stage_, CalibrationStage_::Value_::Load);
+            ASSERT_EQ(failure.diagnostic_.field_, "/spec/observations/" + OrdinalText(index) + "/" + field);
+            ASSERT_EQ(failure.diagnostic_.sourceRow_, static_cast<int>(index + 1));
+            ASSERT_EQ(failure.diagnostic_.instrumentId_, "weekend");
+            if (std::string(field) == "coupon_id")
+                ASSERT_FALSE(failure.diagnostic_.observationId_);
+            else
+                ASSERT_EQ(failure.diagnostic_.observationId_, "c1");
+            ASSERT_EQ(failure.report_->Errors()[0].field_, failure.diagnostic_.field_);
+            ASSERT_EQ(failure.report_->Errors()[0].sourceRow_, failure.diagnostic_.sourceRow_);
+        }
+    }
+}
+
 TEST(CompoundedOisContractTest, TestIdentityIncludesEveryEffectiveContractField) {
     using Edit = std::function<void(CompoundedOisScriptSpec_&)>;
     const std::vector<Edit> edits = {[](auto& s) { s.instrumentId_ = "other"; },
