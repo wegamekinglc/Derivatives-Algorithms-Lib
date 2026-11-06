@@ -49,6 +49,7 @@ namespace Dal {
 } // namespace Dal
 
 namespace Dal::CurveScriptInternal {
+    Date_ Horizon(const CalibrationPreparationContext_& context);
     inline void CheckCompoundedAnnuity(const CalibrationCurveFamilyDescriptor_& descriptor, double annuity) {
         if (!descriptor.compounded_ || descriptor.payments_.empty())
             return;

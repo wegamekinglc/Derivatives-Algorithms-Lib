@@ -62,14 +62,28 @@ namespace Dal {
             Check(!c.model_ || GaussianCurve(c.model_) != nullptr, "UnsupportedFastEvaluator", "/context/model",
                   "native one- or multi-factor Gaussian model; type names are not capability proofs", "", d);
         }
+        struct ContextCurve_ {
+            Date_ today_;
+            String_ currency_;
+            Json_ identity_;
+        };
+        ContextCurve_ ContextCurve(const CalibrationPreparationContext_& c, const CalibrationDiagnostic_& d) {
+            if (c.curve_)
+                return {c.curve_->evaluationDate_, c.curve_->currency_, ObjectData(*c.curve_)};
+            Check(c.candidateCurves_ && c.candidateCurves_->HasOvernightContext() && !c.model_, "CalibrationContextMismatch", "/context",
+                  "explicit curve snapshot or deterministic native ON context", "", d);
+            const auto& definition = c.candidateCurves_->Definition();
+            return {definition.anchorDate_, definition.ccy_, Obj({{"candidate_curves", Str(c.candidateCurves_->Identity())}})};
+        }
         String_ GenericContextIdentity(const CalibrationPreparationContext_& c, const CalibrationDiagnostic_& d) {
             const String_ code = "CalibrationContextMismatch";
             Check(c.valuation_.evaluationDate_ && c.valuation_.evaluationDate_->IsValid(), code, "/context/valuation_date",
                   "explicit valid valuation date", "", d);
-            Check(c.valuation_.fixings_ && c.curve_, code, "/context", "explicit curve and fixing snapshot", "", d);
-            Check(Token(c.currency_, code, "/context/currency", d) == c.curve_->currency_, code, "/context/currency", "curve currency",
-                  c.curve_->currency_, d);
-            Check(*c.valuation_.evaluationDate_ == c.curve_->evaluationDate_, code, "/context/valuation_date", "curve evaluation date", "", d);
+            Check(bool(c.valuation_.fixings_), code, "/context", "explicit fixing snapshot", "", d);
+            const auto curve = ContextCurve(c, d);
+            Check(Token(c.currency_, code, "/context/currency", d) == curve.currency_, code, "/context/currency", "curve currency", curve.currency_,
+                  d);
+            Check(*c.valuation_.evaluationDate_ == curve.today_, code, "/context/valuation_date", "curve evaluation date", "", d);
             Token(c.valuation_.todayFixingPolicy_, code, "/context/today_fixing_policy", d);
             Check(!c.discountRoute_.empty() && !c.conventionState_.empty(), code, "/context", "explicit route and convention state", "", d);
             Check(std::isfinite(c.smoothing_) && c.smoothing_ >= 0., code, "/context/smoothing", "finite nonnegative smoothing", "", d);
@@ -86,7 +100,7 @@ namespace Dal {
                                     {"fixings", fixings},
                                     {"currency", Str(c.currency_.String())},
                                     {"route", Str(c.discountRoute_)},
-                                    {"curve", ObjectData(*c.curve_)},
+                                    {"curve", curve.identity_},
                                     {"model", c.model_ ? ObjectData(*c.model_) : Json_()},
                                     {"conventions", Str(c.conventionState_)},
                                     {"smoothing", Num(c.smoothing_)}}));

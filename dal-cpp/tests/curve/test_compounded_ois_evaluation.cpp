@@ -98,6 +98,42 @@ namespace {
             "passive", "USD", {today, discountEnd}, {0., -.0001 * (discountEnd - today)}, DayBasis_("ACT_365F"), LogDfScheme_("LOG_LINEAR")));
         return spec;
     }
+    CurveInstrumentCalibrationSpec_ BaseHorizonCalibration(Date_ baseEnd) {
+        auto spec = HorizonCalibration(Date_(2024, 3, 20));
+        const auto today = spec.geometry_.today_;
+        spec.geometry_.baseCurve_.reset(new DiscountLogDF_("target-base", "USD", {today, baseEnd}, {0., -.00005 * (baseEnd - today)},
+                                                           DayBasis_("ACT_365F"), LogDfScheme_("LOG_LINEAR")));
+        return spec;
+    }
+    void AssertHorizonContexts(const Vector_<CurveInstrumentCalibrationSpec_>& specs, double floating) {
+        const double annuity = 4. / 365., df = std::exp(-.0008);
+        const Vector_<> expected{(floating - .02 * annuity) * df, floating / annuity};
+        String_ contextIdentity, planIdentity;
+        for (const auto& spec : specs) {
+            auto request = Request(spec);
+            request.parameters_ = spec.solver_.initialGuessPerNode_;
+            const auto direct = EvaluateCurveScriptInstrument(spec.observations_[0]->Instrument(), request);
+            const PreparedCurveInstruments_ prepared(spec);
+            const auto calibrated = prepared.Evaluate(request.parameters_, false);
+            ASSERT_FALSE(direct.contextIdentity_.empty());
+            ASSERT_FALSE(prepared.Describe().planIdentity_.empty());
+            ASSERT_EQ(direct.values_.size(), 2u);
+            ASSERT_EQ(calibrated.modelMeasures_.size(), 2u);
+            for (int i = 0; i < 2; ++i) {
+                ASSERT_NEAR(direct.values_[i], expected[i], 1e-10);
+                ASSERT_NEAR(calibrated.modelMeasures_[i], expected[i], 1e-10);
+            }
+            ASSERT_EQ(direct.cashflows_.size(), 2u);
+            for (const auto& flow : direct.cashflows_)
+                ASSERT_NEAR(*flow.discount_, df, 1e-14);
+            if (!contextIdentity.empty()) {
+                ASSERT_NE(direct.contextIdentity_, contextIdentity);
+                ASSERT_NE(prepared.Describe().planIdentity_, planIdentity);
+            }
+            contextIdentity = direct.contextIdentity_;
+            planIdentity = prepared.Describe().planIdentity_;
+        }
+    }
     Vector_<> FutureOracle(const Vector_<>& theta) {
         const Date_ today(2024, 2, 27), a(2024, 2, 28), b(2024, 2, 29), c(2024, 3, 1), e(2024, 3, 5), f(2024, 3, 6), p(2024, 3, 8);
         const auto rate = [&](Date_ start, Date_ end) {
@@ -265,34 +301,65 @@ TEST(CompoundedOisEvaluationTest, TestBackgroundHorizonRejectsExtrapolatedOisPay
 }
 
 TEST(CompoundedOisEvaluationTest, TestPassiveDiscountHorizonOnlyCoversActualPayments) {
-    const double floating = std::expm1(.0004), annuity = 4. / 365., df = std::exp(-.0008);
-    const Vector_<> expected{(floating - .02 * annuity) * df, floating / annuity};
-    String_ contextIdentity, planIdentity;
-    for (const auto end : {Date_(2024, 3, 20), Date_(2024, 3, 10)}) {
-        const auto spec = HorizonCalibration(end);
-        auto request = Request(spec);
-        request.parameters_ = spec.solver_.initialGuessPerNode_;
-        const auto direct = EvaluateCurveScriptInstrument(spec.observations_[0]->Instrument(), request);
-        const PreparedCurveInstruments_ prepared(spec);
-        const auto calibrated = prepared.Evaluate(request.parameters_, false);
-        ASSERT_FALSE(direct.contextIdentity_.empty());
-        ASSERT_FALSE(prepared.Describe().planIdentity_.empty());
-        ASSERT_EQ(direct.values_.size(), 2u);
-        ASSERT_EQ(calibrated.modelMeasures_.size(), 2u);
-        for (int i = 0; i < 2; ++i) {
-            ASSERT_NEAR(direct.values_[i], expected[i], 1e-10);
-            ASSERT_NEAR(calibrated.modelMeasures_[i], expected[i], 1e-10);
+    ASSERT_NO_FATAL_FAILURE(
+        AssertHorizonContexts({HorizonCalibration(Date_(2024, 3, 20)), HorizonCalibration(Date_(2024, 3, 10))}, std::expm1(.0004)));
+}
+
+TEST(CompoundedOisEvaluationTest, TestPassiveBaseHorizonOnlyCoversActualPrediction) {
+    ASSERT_NO_FATAL_FAILURE(
+        AssertHorizonContexts({BaseHorizonCalibration(Date_(2024, 3, 20)), BaseHorizonCalibration(Date_(2024, 3, 10))}, std::expm1(.0006)));
+}
+
+TEST(CompoundedOisEvaluationTest, TestPassiveBaseRejectsRealPredictionWithOwningError) {
+    for (const bool direct : {true, false}) {
+        CalibrationFailure_ failure;
+        {
+            const auto spec = BaseHorizonCalibration(Date_(2024, 3, 3));
+            auto request = Request(spec);
+            request.parameters_ = spec.solver_.initialGuessPerNode_;
+            try {
+                if (direct)
+                    EvaluateCurveScriptInstrument(spec.observations_[0]->Instrument(), request);
+                else
+                    static_cast<void>(PreparedCurveInstruments_(spec).Evaluate(request.parameters_, false));
+                FAIL() << "Real base horizon violation accepted";
+            } catch (const CalibrationError_& error) {
+                failure = error.Failure();
+            }
         }
-        ASSERT_EQ(direct.cashflows_.size(), 2u);
-        for (const auto& flow : direct.cashflows_)
-            ASSERT_NEAR(*flow.discount_, df, 1e-14);
-        if (!contextIdentity.empty()) {
-            ASSERT_NE(direct.contextIdentity_, contextIdentity);
-            ASSERT_NE(prepared.Describe().planIdentity_, planIdentity);
-        }
-        contextIdentity = direct.contextIdentity_;
-        planIdentity = prepared.Describe().planIdentity_;
+        ASSERT_EQ(failure.diagnostic_.code_, "CalibrationContextMismatch");
+        ASSERT_EQ(failure.diagnostic_.field_, "/routes/USD.SOFR/horizon");
+        ASSERT_TRUE(failure.report_);
+        ASSERT_FALSE(failure.report_->Errors().empty());
+        ASSERT_EQ(failure.report_->Errors()[0].code_, failure.diagnostic_.code_);
     }
+}
+
+TEST(CompoundedOisEvaluationTest, TestNativeStructuralContextRetainsValidationAndCompatibility) {
+    const auto spec = BaseHorizonCalibration(Date_(2024, 3, 10));
+    const auto instrument = spec.observations_[0]->Instrument();
+    CalibrationPreparationContext_ context;
+    context.valuation_ = spec.valuation_;
+    context.currency_ = Ccy_(spec.geometry_.ccy_);
+    context.discountRoute_ = "USD.OIS";
+    context.compoundedOis_ = spec.compoundedOis_[0];
+    context.candidateCurves_ = std::make_shared<const CandidateCurveGeometry_>(spec);
+    const auto cache = std::make_shared<CalibrationPreparationCache_>();
+    const auto plan = PrepareCalibrationInstrument(instrument, "Price", context, {}, cache);
+    ASSERT_NO_THROW(plan.RequireCompatible(instrument, context));
+    ASSERT_EQ(PrepareCalibrationInstrument(instrument, "Price", context, {}, cache).PlanIdentity(), plan.PlanIdentity());
+    auto changed = context;
+    changed.candidateCurves_ = std::make_shared<const CandidateCurveGeometry_>(BaseHorizonCalibration(Date_(2024, 3, 20)));
+    ASSERT_THROW(plan.RequireCompatible(instrument, changed), CalibrationError_);
+    ASSERT_NE(PrepareCalibrationInstrument(instrument, "Price", changed, {}, cache).ContextIdentity(), plan.ContextIdentity());
+    ASSERT_NE(PrepareCalibrationInstrument(instrument, "Price", changed, {}, cache).PlanIdentity(), plan.PlanIdentity());
+    auto missingCurve = context, missingFixings = context, currency = context, date = context;
+    missingCurve.candidateCurves_.reset();
+    missingFixings.valuation_.fixings_.reset();
+    currency.currency_ = Ccy_("EUR");
+    date.valuation_.evaluationDate_ = Date_(2024, 3, 1);
+    for (const auto& invalid : {missingCurve, missingFixings, currency, date})
+        ASSERT_THROW(PrepareCalibrationInstrument(instrument, "Price", invalid), CalibrationError_);
 }
 
 TEST(CompoundedOisEvaluationTest, TestRealPaymentAndFullPredictionHorizonsStillReject) {

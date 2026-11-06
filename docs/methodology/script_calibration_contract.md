@@ -864,6 +864,10 @@ share the direct evaluator's cashflow and FD/AAD kernels. Frozen native market
 curves, complete fixing snapshots (including empty series), ON target/routes
 and prepared tables enter preparation and solve evidence. Writable input
 aliases cannot change a prepared ON context or its published results.
+Native ON structural preparation reads the frozen candidate geometry and complete
+market identity without sampling curves at target knots. The declared knot layout
+still bounds live payments and full prediction intervals; each actual numerical
+query separately checks the bound curve's coverage, including any passive base.
 AAD uses the current thread's existing recording-scope contract, including
 nested-recording rejection and mode restoration after failure.
 

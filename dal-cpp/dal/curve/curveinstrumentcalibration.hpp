@@ -30,6 +30,8 @@ namespace Dal {
         explicit CandidateCurveGeometry_(const CurveInstrumentCalibrationSpec_& spec);
         CandidateCurveGeometry_& operator=(const CandidateCurveGeometry_&) = delete;
         [[nodiscard]] const String_& Identity() const { return identity_; }
+        [[nodiscard]] const CurveDefinition_& Definition() const { return definition_; }
+        [[nodiscard]] bool HasOvernightContext() const { return targetDomain_.has_value(); }
     };
 
     template <class T_> class CandidateCurveProvider_ {

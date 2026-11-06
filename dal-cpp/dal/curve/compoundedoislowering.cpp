@@ -113,6 +113,19 @@ namespace Dal::CompoundedOisInternal {
             const size_t product = flow->program_.size() - 1;
             Append(flow, {'e', product, 0});
         }
+        struct PaymentRow_ {
+            bool fixed_;
+            size_t row_;
+            Date_ date_;
+            bool included_;
+        };
+        PaymentRow_ PaymentRow(const PreparedCompoundedOis_& tables, size_t ordinal) {
+            const auto& s = tables.Spec();
+            const bool fixed = ordinal < s.fixedLeg_.size();
+            const size_t row = fixed ? ordinal : ordinal - s.fixedLeg_.size();
+            return {fixed, row, fixed ? s.fixedLeg_[row].payment_ : s.coupons_[row].payment_,
+                    fixed ? tables.FixedPayments()[row].included_ : tables.CouponPayments()[row].included_};
+        }
         CalibrationCurvePayment_ Payment(const Script::NodePays_& payment,
                                          const CalibrationDiagnostic_& source,
                                          size_t ordinal,
@@ -121,25 +134,22 @@ namespace Dal::CompoundedOisInternal {
                                          const Vector_<std::pair<size_t, size_t>>& ranges,
                                          CalibrationCurveFamilyDescriptor_* descriptor) {
             const auto& s = tables.Spec();
-            const bool fixed = ordinal < s.fixedLeg_.size();
-            const size_t row = fixed ? ordinal : ordinal - s.fixedLeg_.size();
-            const Date_ date = fixed ? s.fixedLeg_[row].payment_ : s.coupons_[row].payment_;
-            const bool included = fixed ? tables.FixedPayments()[row].included_ : tables.CouponPayments()[row].included_;
-            Match(source.eventDate_ == date && !payment.paymentDate_, source);
-            Require(!included || date <= context.curve_->nodeDates_.back(), "CalibrationContextMismatch", source,
+            const auto row = PaymentRow(tables, ordinal);
+            Match(source.eventDate_ == row.date_ && !payment.paymentDate_, source);
+            Require(!row.included_ || row.date_ <= CurveScriptInternal::Horizon(context), "CalibrationContextMismatch", source,
                     "live OIS payment within curve horizon");
             const auto& amount = *payment.arguments_[1];
             Match(dynamic_cast<const Script::NodeMulti_*>(&amount) && Slot(*amount.arguments_[0], "N", s.notional_), source);
-            CalibrationCurvePayment_ flow{date, {{'c', 0, 0, fixed ? 1. : 0.}}, source, {}};
+            CalibrationCurvePayment_ flow{row.date_, {{'c', 0, 0, row.fixed_ ? 1. : 0.}}, source, {}};
             const auto& term = *amount.arguments_[1];
-            if (fixed)
-                Fixed(term, s, row, &flow);
+            if (row.fixed_)
+                Fixed(term, s, row.row_, &flow);
             else
-                Floating(term, s, ranges[row], context, included, descriptor, &flow);
+                Floating(term, s, ranges[row.row_], context, row.included_, descriptor, &flow);
             const size_t coefficient = flow.program_.size() - 1;
-            const double notional = !fixed && s.direction_ == "ReceiveFixed" ? -s.notional_ : s.notional_;
+            const double notional = !row.fixed_ && s.direction_ == "ReceiveFixed" ? -s.notional_ : s.notional_;
             const size_t n = Append(&flow, {'c', 0, 0, notional});
-            Append(&flow, {'*', n, coefficient, 0., fixed});
+            Append(&flow, {'*', n, coefficient, 0., row.fixed_});
             return flow;
         }
         void Context(const CalibrationInstrument_& instrument, const CalibrationPreparationContext_& c) {
