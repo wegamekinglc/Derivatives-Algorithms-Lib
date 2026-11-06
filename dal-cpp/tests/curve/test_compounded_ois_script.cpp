@@ -8,6 +8,7 @@
 #include <dal/curve/curvescript_internal.hpp>
 #include <dal/curve/depositscript.hpp>
 #include <dal/curve/scriptcurvequoterisk.hpp>
+#include <dal/curve/xccyscript.hpp>
 #include <dal/indice/indexparse.hpp>
 #include <dal/math/aad/recording.hpp>
 #include <dal/math/aad/statistics.hpp>
@@ -307,6 +308,21 @@ TEST(CompoundedOisScriptTest, TestEmptyFixingSeriesCannotBypassCompoundedContext
             }
         }
     }
+}
+
+TEST(CompoundedOisScriptTest, TestMixedXccyContextIsRejectedBeforeOisValuationFingerprint) {
+    const auto tables = PrepareCompoundedOis(Spec(), Valuation());
+    const auto source = CompoundedOisInternal::BuildSource(tables);
+    auto xccy = std::make_shared<XccyScriptContext_>();
+    xccy->valuationTime_ = DateTime_(Date_(2024, 3, 5));
+    xccy->pair_ = {Ccy_("USD"), Ccy_("EUR")};
+    xccy->collateralCurrency_ = Ccy_("USD");
+    xccy->discountRoute_ = "USD.OIS";
+    CalibrationPreparationContext_ context;
+    context.compoundedOis_ = tables;
+    context.xccy_ = xccy;
+    ASSERT_EQ(Failure([&] { PrepareCalibrationInstrument(source.instrument_, "Price", context); }).diagnostic_.code_,
+              "UnsupportedCompoundedOisExecution");
 }
 
 TEST(CompoundedOisScriptTest, TestSettledSourceStillValidatedWithoutHistoricalDependency) {

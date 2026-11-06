@@ -91,6 +91,8 @@ namespace Dal {
                                     {"smoothing", Num(c.smoothing_)}}));
         }
         String_ ContextIdentity(const CalibrationPreparationContext_& c, const CalibrationDiagnostic_& d) {
+            if (c.compoundedOis_)
+                Check(!c.xccy_, "UnsupportedCompoundedOisExecution", "/context", "compounded OIS context without XCCY valuation", "", d);
             const auto base = c.xccy_ ? XccyScriptInternal::ContextIdentity(c, d) : GenericContextIdentity(c, d);
             return c.compoundedOis_ ? Fingerprint(Obj({{"base", Str(base)},
                                                        {"compounded_ois", Str(c.compoundedOis_->PreparationIdentity())},
