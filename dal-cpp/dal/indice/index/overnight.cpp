@@ -67,7 +67,7 @@ namespace Dal::Index {
                            const DayBasis_& basis)
         : ccy_(ccy), fixingKey_(std::move(fixingKey)), route_(std::move(route)), start_(start), end_(end), rateStart_(rateStart), rateEnd_(rateEnd),
           basis_(basis) {
-        static_cast<void>(ccy_.String());
+        REQUIRE(ccy_.String() != nullptr, "InvalidIndex: ON requires a supported currency");
         Identifier(fixingKey_);
         Identifier(route_);
         REQUIRE(start_.IsValid() && end_.IsValid() && rateStart_.IsValid() && rateEnd_.IsValid(), "InvalidIndex: valid ON dates required");

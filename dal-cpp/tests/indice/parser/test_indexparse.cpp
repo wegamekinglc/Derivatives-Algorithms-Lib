@@ -69,6 +69,38 @@ TEST(IndexParseTest, TestOvernightLiteralCanonicalAndCloneRoundTrip) {
     ASSERT_EQ(clone->Name(), name);
 }
 
+TEST(IndexParseTest, TestOvernightTypedConstructorRejectsUnsupportedCurrency) {
+    for (const auto& currency : {Ccy_(), Ccy_(static_cast<Ccy_::Value_>(-2))}) {
+        std::exception_ptr failure;
+        {
+            const String_ fixing = "USD-SOFR", route = "USD.SOFR";
+            try {
+                const Index::Overnight_ index(currency, fixing, route, Date_(2024, 3, 1), Date_(2024, 3, 4), Date_(2024, 3, 1), Date_(2024, 3, 4),
+                                              DayBasis_("ACT_360"));
+                FAIL() << "Unsupported currency accepted at typed construction";
+            } catch (const Exception_&) {
+                failure = std::current_exception();
+            }
+        }
+        ASSERT_TRUE(failure);
+        try {
+            std::rethrow_exception(failure);
+        } catch (const Exception_& error) {
+            ASSERT_NE(std::string(error.what()).find("InvalidIndex"), std::string::npos);
+        }
+    }
+}
+
+TEST(IndexParseTest, TestOvernightTypedCurrencyNameAndClone) {
+    for (const auto& currency : CcyListAll()) {
+        const Index::Overnight_ index(currency, "fixing", "route", Date_(2024, 3, 1), Date_(2024, 3, 4), Date_(2024, 3, 1), Date_(2024, 3, 4),
+                                      DayBasis_("ACT_365F"));
+        const auto clone = Index::Clone(index);
+        ASSERT_EQ(clone->Name(), index.Name());
+        ASSERT_EQ(index.Name(), "IR[" + String_(currency.String()) + ",ON,fixing,route,2024-03-01,2024-03-04,2024-03-01,2024-03-04,ACT_365F]");
+    }
+}
+
 TEST(IndexParseTest, TestOvernightRejectsInvalidIntervalsAndBasis) {
     for (const auto* text : {"IR[USD,ON,SOFR,route,2024-03-04,2024-03-01,2024-03-01,2024-03-04,ACT_360]",
                              "IR[USD,ON,SOFR,route,2024-02-29,2024-03-04,2024-03-01,2024-03-04,ACT_360]",

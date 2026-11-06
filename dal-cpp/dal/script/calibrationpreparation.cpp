@@ -6,6 +6,7 @@
 
 #include <dal/calibration/validation_internal.hpp>
 #include <dal/currency/currencydata.hpp>
+#include <dal/curve/compoundedois_internal.hpp>
 #include <dal/curve/compoundedoisscript_internal.hpp>
 #include <dal/curve/curvescript_internal.hpp>
 #include <dal/curve/xccyscript_internal.hpp>
@@ -91,7 +92,9 @@ namespace Dal {
         }
         String_ ContextIdentity(const CalibrationPreparationContext_& c, const CalibrationDiagnostic_& d) {
             const auto base = c.xccy_ ? XccyScriptInternal::ContextIdentity(c, d) : GenericContextIdentity(c, d);
-            return c.compoundedOis_ ? Fingerprint(Obj({{"base", Str(base)}, {"compounded_ois", Str(c.compoundedOis_->PreparationIdentity())}}))
+            return c.compoundedOis_ ? Fingerprint(Obj({{"base", Str(base)},
+                                                       {"compounded_ois", Str(c.compoundedOis_->PreparationIdentity())},
+                                                       {"valuation", CompoundedOisInternal::ValuationJson(c.valuation_)}}))
                                     : base;
         }
         String_ RateContextIdentity(const CalibrationPreparationContext_& c, const String_& identity, const CalibrationDiagnostic_& d) {
@@ -788,7 +791,7 @@ namespace Dal {
             Check(!context.xccy_ && options.evaluation_ != CalibrationEvaluation_::Value_::ScriptMC, "UnsupportedCompoundedOisExecution",
                   "/options/evaluation", "deterministic compounded OIS only; no MC or general fallback", "", d);
             ForStatements(product, d, [&](const Node_& node, const auto& source) {
-                Check(dynamic_cast<const NodePays_*>(&node), "CompoundedOisSourceMismatch", "/source/rows",
+                Check(dynamic_cast<const NodePays_*>(&node) != nullptr, "CompoundedOisSourceMismatch", "/source/rows",
                       "one unconditional payment per frozen OIS row", "", GeneralSource(node, source));
             });
         }

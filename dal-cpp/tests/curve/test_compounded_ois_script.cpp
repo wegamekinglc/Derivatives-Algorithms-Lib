@@ -262,6 +262,53 @@ TEST(CompoundedOisScriptTest, TestContextIdentityOwnsTablesAndRejectsStaleValuat
     ASSERT_EQ(Failure([&] { PrepareCalibrationInstrument(source.instrument_, "Price", stale); }).diagnostic_.code_, "CalibrationContextMismatch");
 }
 
+TEST(CompoundedOisScriptTest, TestEmptyFixingSeriesCannotBypassCompoundedContext) {
+    for (const auto backend : {CalibrationEvaluation_::Value_::RequireFast, CalibrationEvaluation_::Value_::GenericDeterministic}) {
+        for (const bool withEmpty : {false, true}) {
+            Vector_<CalibrationFailure_> failures;
+            {
+                auto valuation = Valuation();
+                auto values = valuation.fixings_->Values();
+                if (withEmpty)
+                    values.emplace("unused-empty", MarketFixingSnapshot_::history_t{});
+                valuation.fixings_.reset(new MarketFixingSnapshot_(values));
+                const auto tables = PrepareCompoundedOis(Spec(), valuation);
+                const auto source = CompoundedOisInternal::BuildSource(tables);
+                const auto context = Context(tables);
+                const auto cache = std::make_shared<CalibrationPreparationCache_>();
+                CalibrationEvaluationOptions_ options;
+                options.evaluation_ = backend;
+                const auto plan = PrepareCalibrationInstrument(source.instrument_, "Price", context, options, cache);
+                auto same = context;
+                same.valuation_.fixings_.reset(new MarketFixingSnapshot_(values));
+                ASSERT_NO_THROW(plan.RequireCompatible(source.instrument_, same));
+                ASSERT_EQ(PrepareCalibrationInstrument(source.instrument_, "Price", same, options).PlanIdentity(), plan.PlanIdentity());
+                ASSERT_EQ(PrepareCalibrationInstrument(source.instrument_, "Price", same, options, cache).PlanIdentity(), plan.PlanIdentity());
+                if (withEmpty)
+                    values.erase("unused-empty");
+                else
+                    values.emplace("unused-empty", MarketFixingSnapshot_::history_t{});
+                auto changed = context;
+                changed.valuation_.fixings_.reset(new MarketFixingSnapshot_(values));
+                failures = {Failure([&] { PrepareCalibrationInstrument(source.instrument_, "Price", changed, options); }),
+                            Failure([&] { PrepareCalibrationInstrument(source.instrument_, "Price", changed, options, cache); }),
+                            Failure([&] { plan.RequireCompatible(source.instrument_, changed); })};
+                const auto rebuilt = Context(PrepareCompoundedOis(Spec(), changed.valuation_));
+                const auto fresh = PrepareCalibrationInstrument(source.instrument_, "Price", rebuilt, options, cache);
+                ASSERT_NE(fresh.ContextIdentity(), plan.ContextIdentity());
+                ASSERT_DOUBLE_EQ(fresh.Price({1., 1.}), plan.Price({1., 1.}));
+                ASSERT_EQ(PrepareCalibrationInstrument(source.instrument_, "Price", context, options, cache).PlanIdentity(), plan.PlanIdentity());
+            }
+            for (const auto& failure : failures) {
+                ASSERT_EQ(failure.diagnostic_.code_, "CalibrationContextMismatch");
+                ASSERT_TRUE(failure.report_);
+                ASSERT_EQ(failure.report_->Errors().size(), 1u);
+                ASSERT_EQ(failure.report_->Errors()[0].field_, failure.diagnostic_.field_);
+            }
+        }
+    }
+}
+
 TEST(CompoundedOisScriptTest, TestSettledSourceStillValidatedWithoutHistoricalDependency) {
     auto v = Valuation();
     v.evaluationDate_ = Date_(2024, 3, 7);
