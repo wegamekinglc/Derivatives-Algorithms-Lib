@@ -61,6 +61,35 @@ TEST(IndexParseTest, TestCloneRoundTripsThroughName) {
     ASSERT_EQ(cloned->Name(), String_("FX[USD/JPY]"));
 }
 
+TEST(IndexParseTest, TestOvernightLiteralCanonicalAndCloneRoundTrip) {
+    const String_ name = "IR[USD,ON,USD-SOFR,USD.SOFR,2024-03-02,2024-03-04,2024-03-01,2024-03-04,ACT_360]";
+    const std::unique_ptr<Index_> index(Index::Parse(name));
+    ASSERT_EQ(index->Name(), name);
+    const auto clone = Index::Clone(*index);
+    ASSERT_EQ(clone->Name(), name);
+}
+
+TEST(IndexParseTest, TestOvernightRejectsInvalidIntervalsAndBasis) {
+    for (const auto* text : {"IR[USD,ON,SOFR,route,2024-03-04,2024-03-01,2024-03-01,2024-03-04,ACT_360]",
+                             "IR[USD,ON,SOFR,route,2024-02-29,2024-03-04,2024-03-01,2024-03-04,ACT_360]",
+                             "IR[USD,ON,SOFR,route,2024-03-01,2024-03-05,2024-03-01,2024-03-04,ACT_360]",
+                             "IR[USD,ON,SOFR,route,2024-03-01,2024-03-04,2024-03-01,2024-03-04,ACT_ACT]"}) {
+        SCOPED_TRACE(text);
+        ASSERT_THROW(Index::Parse(text), Exception_);
+    }
+}
+
+TEST(IndexParseTest, TestOvernightEscapedIdsPreserveExactBytes) {
+    const Index::Overnight_ index(Ccy_("USD"), "Mixed,Fix%键", "route] x", Date_(2024, 3, 1), Date_(2024, 3, 4), Date_(2024, 3, 1), Date_(2024, 3, 4),
+                                  DayBasis_("ACT_360"));
+    const auto clone = Index::Clone(index);
+    const auto* on = dynamic_cast<const Index::Overnight_*>(clone.get());
+    ASSERT_NE(on, nullptr);
+    ASSERT_EQ(std::string(on->fixingKey_.c_str()), "Mixed,Fix%键");
+    ASSERT_EQ(std::string(on->route_.c_str()), "route] x");
+    ASSERT_EQ(on->Name(), index.Name());
+}
+
 TEST(IndexParseTest, TestIrDiscountWithExplicitStartPreservesDateOrder) {
     const DateTime_ fixing(Date_(2026, 9, 28));
     for (const String_& name : {String_("IR[DF]:USD,2027-09-28,2028-09-28"), String_("IR[USD,DF,2028-09-28,2027-09-28]")}) {
