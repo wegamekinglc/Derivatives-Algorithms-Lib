@@ -272,13 +272,14 @@ namespace Dal {
             const auto initial = ResolveCurveCalibrationInitialGuess(geometry);
             const auto candidateGeometry = std::make_shared<const CandidateCurveGeometry_>(spec);
             CandidateCurveProvider_<double> provider(candidateGeometry, initial);
+            const auto& structuralRoute = g.targetOvernightRoute_.empty() ? route : provider.Route(g.targetOvernightRoute_, true);
             Vector_<Date_> dates = {g.today_};
             for (const auto& date : Definition(spec).nodeDates_)
                 if (date > g.today_)
                     dates.push_back(date);
             Vector_<> logDf;
             for (const auto& date : dates)
-                logDf.push_back(std::log(provider.Discount(route.id_, g.today_, date)));
+                logDf.push_back(std::log(provider.Discount(structuralRoute, g.today_, date)));
             CalibrationPreparationContext_ context;
             context.valuation_ = spec.valuation_;
             context.currency_ = Ccy_(g.ccy_);

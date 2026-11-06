@@ -78,6 +78,26 @@ namespace {
         result.parameters_ = {-.0003, -.0016};
         return result;
     }
+    CurveInstrumentCalibrationSpec_ HorizonCalibration(Date_ discountEnd,
+                                                       Date_ couponEnd = Date_(2024, 3, 5),
+                                                       Date_ payment = Date_(2024, 3, 8),
+                                                       Date_ targetEnd = Date_(2024, 3, 20)) {
+        const Date_ today(2024, 2, 29), start(2024, 3, 1), rateEnd(2024, 3, 5);
+        auto contract = OisSpec();
+        contract.coupon_ = .02;
+        contract.fixedLeg_ = {{start, couponEnd, payment, (couponEnd - start) / 365.}};
+        contract.coupons_ = {{"coupon", start, couponEnd, payment}};
+        contract.observations_ = {{start, couponEnd, DateTime_(start), (couponEnd - start) / 360., "coupon", start, rateEnd}};
+        auto valuation = OisValuation(today);
+        valuation.fixings_.reset(new MarketFixingSnapshot_());
+        auto spec = OisCalibration(contract, valuation);
+        spec.geometry_.knotDates_ = {today, Date_(2024, 3, 2), targetEnd};
+        spec.solver_.initialGuessPerNode_ = {-.0002, -.0001 * (targetEnd - today)};
+        spec.market_.routes_[0].useTargetCurve_ = false;
+        spec.market_.discountCurves_[CollateralType_("OIS")].reset(new DiscountLogDF_(
+            "passive", "USD", {today, discountEnd}, {0., -.0001 * (discountEnd - today)}, DayBasis_("ACT_365F"), LogDfScheme_("LOG_LINEAR")));
+        return spec;
+    }
     Vector_<> FutureOracle(const Vector_<>& theta) {
         const Date_ today(2024, 2, 27), a(2024, 2, 28), b(2024, 2, 29), c(2024, 3, 1), e(2024, 3, 5), f(2024, 3, 6), p(2024, 3, 8);
         const auto rate = [&](Date_ start, Date_ end) {
@@ -242,6 +262,62 @@ TEST(CompoundedOisEvaluationTest, TestBackgroundHorizonRejectsExtrapolatedOisPay
     spec.market_.discountCurves_[CollateralType_("OIS")].reset(
         new DiscountLogDF_("short", "USD", {today, today.AddDays(2)}, {0., -.0002}, DayBasis_("ACT_365F"), LogDfScheme_("LOG_LINEAR")));
     ASSERT_THROW(static_cast<void>(PreparedCurveInstruments_(spec).Evaluate({-.0003, -.0016})), CalibrationError_);
+}
+
+TEST(CompoundedOisEvaluationTest, TestPassiveDiscountHorizonOnlyCoversActualPayments) {
+    const double floating = std::expm1(.0004), annuity = 4. / 365., df = std::exp(-.0008);
+    const Vector_<> expected{(floating - .02 * annuity) * df, floating / annuity};
+    String_ contextIdentity, planIdentity;
+    for (const auto end : {Date_(2024, 3, 20), Date_(2024, 3, 10)}) {
+        const auto spec = HorizonCalibration(end);
+        auto request = Request(spec);
+        request.parameters_ = spec.solver_.initialGuessPerNode_;
+        const auto direct = EvaluateCurveScriptInstrument(spec.observations_[0]->Instrument(), request);
+        const PreparedCurveInstruments_ prepared(spec);
+        const auto calibrated = prepared.Evaluate(request.parameters_, false);
+        ASSERT_FALSE(direct.contextIdentity_.empty());
+        ASSERT_FALSE(prepared.Describe().planIdentity_.empty());
+        ASSERT_EQ(direct.values_.size(), 2u);
+        ASSERT_EQ(calibrated.modelMeasures_.size(), 2u);
+        for (int i = 0; i < 2; ++i) {
+            ASSERT_NEAR(direct.values_[i], expected[i], 1e-10);
+            ASSERT_NEAR(calibrated.modelMeasures_[i], expected[i], 1e-10);
+        }
+        ASSERT_EQ(direct.cashflows_.size(), 2u);
+        for (const auto& flow : direct.cashflows_)
+            ASSERT_NEAR(*flow.discount_, df, 1e-14);
+        if (!contextIdentity.empty()) {
+            ASSERT_NE(direct.contextIdentity_, contextIdentity);
+            ASSERT_NE(prepared.Describe().planIdentity_, planIdentity);
+        }
+        contextIdentity = direct.contextIdentity_;
+        planIdentity = prepared.Describe().planIdentity_;
+    }
+}
+
+TEST(CompoundedOisEvaluationTest, TestRealPaymentAndFullPredictionHorizonsStillReject) {
+    const auto payment = HorizonCalibration(Date_(2024, 3, 6));
+    const auto prediction = HorizonCalibration(Date_(2024, 3, 10), Date_(2024, 3, 4), Date_(2024, 3, 4), Date_(2024, 3, 4));
+    for (const auto& input : {std::make_pair(payment, "/routes/USD.OIS/horizon"), std::make_pair(prediction, "/source/rows/3/text")}) {
+        const auto& spec = input.first;
+        auto request = Request(spec);
+        request.parameters_ = spec.solver_.initialGuessPerNode_;
+        for (const bool direct : {true, false}) {
+            CalibrationFailure_ failure;
+            try {
+                if (direct)
+                    EvaluateCurveScriptInstrument(spec.observations_[0]->Instrument(), request);
+                else
+                    static_cast<void>(PreparedCurveInstruments_(spec).Evaluate(request.parameters_, false));
+                FAIL() << "Real curve horizon violation accepted";
+            } catch (const CalibrationError_& error) {
+                failure = error.Failure();
+            }
+            ASSERT_EQ(failure.diagnostic_.code_, "CalibrationContextMismatch");
+            ASSERT_EQ(failure.diagnostic_.field_, input.second);
+            ASSERT_TRUE(failure.report_);
+        }
+    }
 }
 
 TEST(CompoundedOisEvaluationTest, TestOvernightTargetRejectsAmbiguousGeometryAndCollateral) {
