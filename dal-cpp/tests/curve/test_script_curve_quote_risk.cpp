@@ -67,6 +67,12 @@ namespace {
         return result;
     }
     ScriptCurveQuoteRiskAccuracy_ MappingAccuracy(int count) { return {Vector_<>(count, 1e-12), 1e-10, 1e-12}; }
+    void AssertDecimalSpreadQuote(const ScriptCurveQuoteRiskQuote_& quote, const String_& id, double value) {
+        ASSERT_EQ(quote.id_, id);
+        ASSERT_DOUBLE_EQ(quote.value_, value);
+        ASSERT_EQ(quote.unit_.Token(), "BasisSpread");
+        ASSERT_EQ(quote.convention_.id_, CalibrationQuoteConventionId_::Value_::DecimalSpread);
+    }
     RateIndexConvention_ MappingIndex(bool projected = false, const String_& tenor = "3M") {
         RateIndexConvention_ result;
         result.dayBasis_ = DayBasis_("ACT_360");
@@ -1639,9 +1645,75 @@ TEST(ScriptCurveQuoteRiskTest, TestDecimalBasisSpreadIsStructurallyAdmitted) {
                                                     NewCalibrationMarketQuote("basis-q", 0., CalibrationValueUnit_::Parse("BasisSpread")), 1e-10)};
     const auto snapshot = NewScriptCurveQuoteRiskSnapshot(CalibrateCurveInstruments(spec), Accuracy());
     ASSERT_TRUE(snapshot.StructureValid());
-    ASSERT_FALSE(snapshot.RiskAvailable());
-    ASSERT_EQ(snapshot.QuoteAxis()[0].unit_.Token(), "BasisSpread");
-    ASSERT_EQ(snapshot.QuoteAxis()[0].convention_.id_, CalibrationQuoteConventionId_::Value_::DecimalSpread);
+    ASSERT_EQ(snapshot.QuoteAxis().size(), 1u);
+    AssertDecimalSpreadQuote(snapshot.QuoteAxis()[0], "basis-q", 0.);
+    const auto mapping = snapshot.ParameterQuoteMapping(spec);
+    ASSERT_EQ(snapshot.RiskAvailable(), snapshot.MappingAvailable());
+    ASSERT_EQ(mapping.Available(), snapshot.RiskAvailable());
+    if (mapping.Available()) {
+        const auto& n = mapping.Numerics();
+        ASSERT_TRUE(mapping.Diagnostics().empty());
+        ASSERT_EQ(n.factorizationCount_, 1);
+        ASSERT_EQ(n.rawResiduals_.size(), 1u);
+        ASSERT_LE(std::abs(n.rawResiduals_[0]), snapshot.Accuracy().residualAbsoluteLimits_[0]);
+        ASSERT_TRUE(n.reciprocalCondition_);
+        ASSERT_TRUE(std::isfinite(*n.reciprocalCondition_));
+        ASSERT_GE(*n.reciprocalCondition_, snapshot.Accuracy().minReciprocalCondition_);
+        ASSERT_EQ(n.transposeBackwardErrors_.size(), 1u);
+        ASSERT_EQ(n.responseBackwardErrors_.size(), 1u);
+        ASSERT_GE(n.transposeBackwardErrors_[0], 0.);
+        ASSERT_GE(n.responseBackwardErrors_[0], 0.);
+        ASSERT_LE(n.transposeBackwardErrors_[0], snapshot.Accuracy().responseBackwardErrorLimit_);
+        ASSERT_LE(n.responseBackwardErrors_[0], snapshot.Accuracy().responseBackwardErrorLimit_);
+        ASSERT_TRUE(std::isfinite(mapping.ParameterResponse()(0, 0)));
+    } else {
+        ASSERT_FALSE(snapshot.Diagnostics().empty());
+        ASSERT_FALSE(mapping.Diagnostics().empty());
+        ASSERT_EQ(mapping.Diagnostics()[0].code_, snapshot.Diagnostics()[0].code_);
+        ASSERT_THROW(static_cast<void>(mapping.ParameterResponse()), Exception_);
+    }
+}
+
+TEST(ScriptCurveQuoteRiskTest, TestDecimalBasisSpreadRiskRequiresNumericalAdmission) {
+    const auto spec = MappingSample("Basis", 1);
+    const auto fit = CalibrateCurveInstruments(spec, AadOptions());
+    const auto snapshot = NewScriptCurveQuoteRiskSnapshot(fit, MappingAccuracy(1));
+    ASSERT_TRUE(snapshot.StructureValid());
+    ASSERT_TRUE(snapshot.MappingAvailable());
+    ASSERT_TRUE(snapshot.RiskAvailable());
+    ASSERT_TRUE(snapshot.Diagnostics().empty());
+    AssertDecimalSpreadQuote(snapshot.QuoteAxis()[0], "q0", -.001);
+    const auto risk = ValueCalibrationInstrumentWithQuoteRisk(spec.observations_[0]->Instrument(), snapshot, spec);
+    ASSERT_TRUE(risk.Available());
+    ASSERT_EQ(risk.Currency(), Ccy_("USD"));
+    ASSERT_EQ(risk.Axes().quotes_.size(), 1u);
+    AssertDecimalSpreadQuote(risk.Axes().quotes_[0], "q0", -.001);
+    ASSERT_TRUE(std::isfinite(risk.PV()));
+    ASSERT_TRUE(std::isfinite(risk.RawSensitivity()[0]));
+    ASSERT_NE(risk.RawSensitivity()[0], 0.);
+    ASSERT_DOUBLE_EQ(risk.DV01()[0], risk.RawSensitivity()[0] * 1e-4);
+
+    const auto loose = ReplaceQuote(spec, 0, .05, 1.);
+    const auto looseFit = CalibrateCurveInstruments(loose, AadOptions());
+    ASSERT_TRUE(looseFit.fitWithinTolerance_);
+    ASSERT_EQ(looseFit.evaluations_, 1);
+    const auto rejected = NewScriptCurveQuoteRiskSnapshot(looseFit, MappingAccuracy(1));
+    ASSERT_TRUE(rejected.StructureValid());
+    ASSERT_FALSE(rejected.MappingAvailable());
+    ASSERT_FALSE(rejected.RiskAvailable());
+    ASSERT_EQ(rejected.Diagnostics()[0].code_, "ScriptCurveQuoteRiskRootResidual");
+    ASSERT_EQ(rejected.Diagnostics()[0].field_, "/mapping/residuals/0");
+    ASSERT_EQ(rejected.Diagnostics()[0].quoteId_, "q0");
+    ASSERT_GT(std::abs(rejected.Numerics().rawResiduals_[0]), rejected.Accuracy().residualAbsoluteLimits_[0]);
+    ASSERT_EQ(rejected.Numerics().factorizationCount_, 0);
+    AssertDecimalSpreadQuote(rejected.QuoteAxis()[0], "q0", .05);
+    ASSERT_FALSE(rejected.ParameterQuoteMapping(loose).Available());
+    const auto unavailable = ValueCalibrationInstrumentWithQuoteRisk(loose.observations_[0]->Instrument(), rejected, loose);
+    ASSERT_FALSE(unavailable.Available());
+    ASSERT_EQ(unavailable.Diagnostics()[0].code_, "ScriptCurveQuoteRiskRootResidual");
+    AssertDecimalSpreadQuote(unavailable.Axes().quotes_[0], "q0", .05);
+    ASSERT_THROW(static_cast<void>(unavailable.PV()), Exception_);
+    ASSERT_THROW(static_cast<void>(unavailable.RawSensitivity()), Exception_);
 }
 
 TEST(ScriptCurveQuoteRiskTest, TestFailedFitSnapshotOutlivesCalibrationException) {
