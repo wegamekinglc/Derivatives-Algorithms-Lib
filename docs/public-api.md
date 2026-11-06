@@ -96,6 +96,38 @@ the environment, row-reader, and conversion contracts used by host adapters.
 earlier tags, including objects with the same type and name, preserving the
 Excel adapter's current generated-default policy.
 
+### Same-source script curve quote risk
+
+Include `<dal-public/src/calibrationinstrument.hpp>` for script contract/import
+and fit builders, and `<dal-public/src/scriptcurvequoterisk.hpp>` for the owning
+snapshot/result types and table projections. Link `DAL::public`.
+
+From an existing `CalibrateCurveInstruments(spec)` result, call
+`NewScriptCurveQuoteRiskSnapshot(fit, accuracy)` with explicit
+`ScriptCurveQuoteRiskAccuracy_`. After `snapshot.RiskAvailable()`, call
+`ValueCalibrationInstrumentWithQuoteRisk(instrument, snapshot, spec, request)`
+on the same fixed bound contract. Check `result.Available()` before `PV()`,
+`RawSensitivity()` or `DV01()`. The snapshot caches one checked factorization;
+multiple deterministic PV calls reuse it without recalibration.
+
+The request defaults to all quotes and `Price`; `quoteIds_` selects exact,
+case-sensitive IDs in output order while retaining original ordinals. Signed
+raw values are price per decimal Rate/BasisSpread; `DV01=raw*1e-4` preserves
+the contract's currency and notional. No coupon is rebound to the market quote.
+
+`ScriptCurveQuoteRiskTable(value, table)` provides `Summary`, `QuoteAxis`,
+`ObservationAxis`, `ParameterAxis`, `Diagnostics` and result-only `Sensitivity`.
+Unavailable table metrics are empty; unavailable numeric getters throw.
+Malformed required inputs throw owning `CalibrationError_`; valid requests
+that fail identity, numerical or supported-scope admission return owning
+unavailable results. Snapshot availability does not certify every PV.
+
+See the [complete accuracy/ownership contract](methodology/script_calibration_contract.md#script-curve-quote-risk-snapshots)
+and runnable [facade example](../dal-public/examples/script_curve_quote_risk/script_curve_quote_risk.cpp).
+This entry admits only single-target, square full-rank EXACT deterministic
+fits with fixed background curves. It leaves the old report, native provenance
+and common `CalibrationPullback_` semantics intact.
+
 ### European PDE financial risk
 
 `dal-public/src/europeanpderisk.hpp` exposes `EuropeanPdeRiskRequest_`,

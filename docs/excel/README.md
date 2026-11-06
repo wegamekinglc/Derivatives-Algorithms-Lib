@@ -8,6 +8,73 @@ workflow, and [FIX settings](script-settings.md) for complete worksheet
 matrices and the executable workbook. The numerical methods have C++ examples
 in the [method chapters](../README.md#quantitative-methods).
 
+## Same-source script curve quote risk
+
+Start with the typed outcome from `CALIBRATE.CURVEINSTRUMENTS` and its original
+`CurveInstrumentCalibrationSpec` handle. The outcome must retain a complete
+curve fit; a report/curve-only or model outcome is insufficient. The bounded
+entry supports single-target, square full-rank EXACT deterministic curves with
+fixed background curves. Ordinary fit acceptance does not certify risk accuracy.
+
+For a two-observation fit, put `1e-12` in A1:A2 and construct the limits handle
+in C1 with `=CALIBRATIONNUMBERS.NEW(A1:A2)`. Put these rows in E1:F3, without a
+header, then put `=SCRIPTCURVEQUOTERISKACCURACY.NEW(E1:F3)` in H1:
+
+| E                             | F     |
+|-------------------------------|-------|
+| residual_absolute_limits      | =C1   |
+| min_reciprocal_condition      | 1e-10 |
+| response_backward_error_limit | 1e-12 |
+
+Supply one residual limit per observation, in its raw measure unit. These are
+sample thresholds; `relative_pivot_tolerance` is optional and defaults to
+`64*epsilon`. Both accuracy and request factories parse the entire selected
+two-column range, skipping blank rows. Fields after a blank row are still
+validated. Unknown/duplicate fields and invalid types are worksheet errors
+with the original function, field, row and column. Flags require Boolean cells.
+
+Using named cells `fit`, `instrument` and `context` for the typed inputs:
+
+```text
+H2: =SCRIPTCURVEQUOTERISKSNAPSHOT.NEW(fit,H1)
+H3: =SCRIPTCURVEQUOTERISKSNAPSHOT.GET.STATUS(H2)
+H4: =CALIBRATIONINSTRUMENT.VALUEWITHQUOTERISK(instrument,H2,context)
+H5: =SCRIPTCURVEQUOTERISKRESULT.GET.STATUS(H4)
+```
+
+Inspect H3 for snapshot mapping availability and H5 for this PV's `Available`
+status before using numeric getters:
+
+```text
+=SCRIPTCURVEQUOTERISKRESULT.GET.PV(H4)
+=SCRIPTCURVEQUOTERISKRESULT.GET.RAWSENSITIVITY(H4)
+=SCRIPTCURVEQUOTERISKRESULT.GET.DV01(H4)
+```
+
+For either typed handle, the
+respective `SCRIPTCURVEQUOTERISKSNAPSHOT.GET.*` or
+`SCRIPTCURVEQUOTERISKRESULT.GET.*` family provides `SUMMARY`, `QUOTEAXIS` and
+`DIAGNOSTICS`. Result `GET.SENSITIVITY` shows signed raw/DV01, unit and currency;
+unavailable table metrics are blank. Numeric getters reject unavailable values.
+
+Omitting the request selects every quote and `Price`. For selection, build
+`selected_quotes` as a named cell containing `=SCRIPTCURVEQUOTEIDS.NEW(J1:J2)`
+from exact quote IDs, then pass that handle as the `quote_ids` value in a
+`SCRIPTCURVEQUOTERISKREQUEST.NEW` field/value table. Its other optional fields
+are `measure_id` (default `Price`) and Boolean `live_quote_payoff` (default
+FALSE). Pass the request handle as the fourth valuation argument. Output order
+matches selection; ordinals retain their original snapshot positions.
+Unknown/duplicate IDs, non-Price measures and live quote payoffs return owning
+Unavailable handles with diagnostics. Valid stale contexts and numerical
+rejection also return Unavailable; malformed required contexts remain input errors.
+
+Raw is signed price per decimal Rate/BasisSpread, and `DV01=raw*1e-4` in the
+contract's currency and actual notional. Coupons remain fixed. Handles retain
+passive owning data; no thread-local last error is used. The old calibration
+report and native quote-risk provenance keep their meanings. See the
+[complete contract](../methodology/script_calibration_contract.md#script-curve-quote-risk-snapshots)
+and [facade example](../../dal-public/examples/script_curve_quote_risk/script_curve_quote_risk.cpp).
+
 ## Bermudan and American PDE pricing
 
 The `EARLYEXERCISEPDE*` family prices deterministic-carry BS vanilla calls/puts

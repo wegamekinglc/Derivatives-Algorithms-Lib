@@ -413,9 +413,9 @@ admission, generic FIX lowering, box bounds, joint solve or public bindings.
 ## Script curve quote-risk snapshots
 
 The core `dal/curve/scriptcurvequoterisk.hpp` provides
-`NewScriptCurveQuoteRiskSnapshot(fit, accuracy)` for structural validation of a
-single-target EXACT calibration. `StructureValid()` checks the resolved native
-layout, square observation/quote/parameter dimensions, decimal Rate/BasisSpread
+`NewScriptCurveQuoteRiskSnapshot(fit, accuracy)` to capture a single-target,
+full-rank EXACT calibration for deterministic Price risk. `StructureValid()`
+checks the resolved native layout, square observation/quote/parameter dimensions, decimal Rate/BasisSpread
 units, distinct case-sensitive quote IDs, actual candidate curve and successful
 Solve report. Preparation checks the source and binding against the report's
 original compiler and context identities, then rebuilds the composite plan
@@ -483,6 +483,38 @@ recalibrations use center differences at `1e-4` and `5e-5`, with both response
 error and reference stability bounded by `1e-7 + 1e-5*abs(reference)`. These
 sample recommendations do not replace explicit caller accuracy or certify PV
 risk. Ordinary fit acceptance alone can leave a residual above the risk limit.
+
+The independent facade example
+[`script_curve_quote_risk`](../../dal-public/examples/script_curve_quote_risk/script_curve_quote_risk.cpp)
+builds a two-quote Deposit fit, checks explicit numerical admission and values
+the original fixed-coupon contract. Given an existing `fit`, its `spec` and
+the bound `instrument`, the C++ sequence is:
+
+```cpp
+#include <dal-public/src/scriptcurvequoterisk.hpp>
+
+const ScriptCurveQuoteRiskAccuracy_ accuracy{
+    Vector_<>(spec.observations_.size(), 1e-12), 1e-10, 1e-12};
+const auto snapshot = NewScriptCurveQuoteRiskSnapshot(fit, accuracy);
+if (snapshot.RiskAvailable()) {
+    const auto result = ValueCalibrationInstrumentWithQuoteRisk(instrument, snapshot, spec);
+    if (result.Available()) {
+        const auto pv = result.PV();
+        const auto raw = result.RawSensitivity();
+        const auto dv01 = result.DV01();
+    } else {
+        const auto diagnostics = result.Diagnostics();
+    }
+} else {
+    const auto diagnostics = snapshot.Diagnostics();
+}
+```
+
+These thresholds are sample choices, in raw observation units. The snapshot
+does not turn an ordinary accepted fit into an accurate mathematical root.
+Reuse it for multiple PVs with the same explicit context; each PV still needs
+its own availability check. The example also reads a rejected live-quote
+request's diagnostics after the fit, context and snapshot leave scope.
 
 All four native layouts undergo the same numerical gates. The existing
 cashflow/observation horizon ends at the final knot. PWLF's final right-forward
@@ -579,6 +611,12 @@ requests return inspectable `Unavailable` handles.
 Existing `quoteJacobian_` remains `dMeasure/dNativeParameter`;
 `CalibrationReport_::QuoteRiskAvailable()`, report schema `/1`, native rate-risk
 provenance and public/Python/Excel interfaces retain their existing semantics.
+The separate snapshot/result types carry this Price risk; it is not a new
+source for `CalibrationPullback_`. APPROXIMATE, non-square or rank-deficient
+fits, GSR/XCCY/MC propagation and second-order quote risk are outside this
+entry's admission. See the [Jacobian comparison](../yield-curves/jacobian-risk.md#same-source-script-curve-price-risk)
+and the [Python](../python/README.md#same-source-script-curve-quote-risk) and
+[Excel](../excel/README.md#same-source-script-curve-quote-risk) calling sequences.
 
 ## Deterministic FRA, swap, basis and custom cashflows
 
@@ -1398,8 +1436,10 @@ described above. FRA, IRS, period-forward OIS, Basis and custom curve
 cashflows remain deterministic. Importing an option does not certify a
 model or derivative method; preparation still checks the full bound source.
 The GSR facade selects the existing bounded Gaussian drivers described below.
-These interfaces do not add overnight compounding, futures convexity, XCCY MC
-or calibrated quote risk. Scalar measures remain outside GSR Price fitting.
+These importers do not add overnight compounding or futures convexity.
+Deterministic curve quote risk uses the separate
+[snapshot workflow](#script-curve-quote-risk-snapshots); GSR quote propagation
+and scalar measures in GSR Price fitting remain outside these interfaces.
 
 ### GSR instrument calibration settings and results
 

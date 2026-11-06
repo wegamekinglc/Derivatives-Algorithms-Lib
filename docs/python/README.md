@@ -58,6 +58,52 @@ rsg = dal.SobolRSG_New(i_path=0, ndim=3, precise=True, polish=True)
 normals = dal.SobolRSG_Get_Normal(rsg, 1024)
 ```
 
+## Same-source script curve quote risk
+
+Given an existing `fit = dal.Calibrate_CurveInstruments(spec)` and its fixed
+bound `instrument`, capture a snapshot with explicit numerical limits:
+
+```python
+accuracy = dal.ScriptCurveQuoteRiskAccuracy_(
+    residual_absolute_limits=[1e-12] * len(spec.observations),
+    min_reciprocal_condition=1e-10,
+    response_backward_error_limit=1e-12)
+snapshot = dal.ScriptCurveQuoteRiskSnapshot_New(fit, accuracy)
+if snapshot.risk_available:
+    result = dal.CalibrationInstrument_ValueWithQuoteRisk(instrument, snapshot, spec)
+    if result.available:
+        pv, raw, dv01 = result.pv, result.raw_sensitivity, result.dv01
+    else:
+        diagnostics = result.diagnostics
+else:
+    diagnostics = snapshot.diagnostics
+```
+
+These are sample limits in raw observation units, not a universal accuracy
+default. An accepted ordinary fit can still fail risk admission. The entry
+supports single-target, square full-rank EXACT deterministic fits with fixed
+background curves; GSR, XCCY and MC propagation are outside this entry.
+
+Pass `request=dal.ScriptCurveQuoteRiskRequest_(quote_ids=[...])` for selected
+case-sensitive IDs in that order. Empty selection means all quotes; the
+result's `quote_axis` retains original ordinals, quote values, units and
+conventions. Defaults are `measure_id="Price"` and `live_quote_payoff=False`.
+Unknown/duplicate IDs, a non-Price measure or a live-quote payoff return owning
+Unavailable results. Coupons stay fixed. Raw sensitivities are signed price
+per decimal Rate/BasisSpread; `dv01` multiplies by `1e-4` once, preserving
+currency and notional. Read `result.currency` with the price.
+
+Settings are strict keyword-only values; numeric fields reject booleans and
+unknown fields raise TypeError. Input conversion completes before native work
+releases the GIL. Properties return passive copies and survive input deletion.
+Malformed required contexts throw `dal.CalibrationError`; valid stale contexts
+or numerical rejection return inspectable `status="Unavailable"` results.
+Numeric getters then raise RuntimeError. Missing optional evidence is `None`.
+The matching `ScriptCurveQuoteRiskSnapshot_Get_*` and
+`ScriptCurveQuoteRiskResult_Get_*` functions provide status, axes, diagnostics
+and result values. See the [full contract and fit construction](../methodology/script_calibration_contract.md#script-curve-quote-risk-snapshots)
+and [runnable C++ facade example](../../dal-public/examples/script_curve_quote_risk/script_curve_quote_risk.cpp).
+
 ## Python FIX settings and diagnostics
 
 The settings entry points are:

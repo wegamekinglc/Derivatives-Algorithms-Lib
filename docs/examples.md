@@ -91,6 +91,13 @@ product/model handles and then reads the owning value, raw/report Jacobians,
 axes and execution snapshot. Analytic checks distinguish coordinate order from
 reporting units. This example complements the core preparation/batch workflows.
 
+[`script_curve_quote_risk.cpp`](../dal-public/examples/script_curve_quote_risk/script_curve_quote_risk.cpp)
+calibrates two Deposit quotes, captures explicit accuracy in an owning snapshot
+and values the original fixed-coupon contract. It checks snapshot and per-PV
+availability, displays signed USD PV/raw/DV01 in requested quote order and reads
+a live-quote rejection after the inputs leave scope. See the
+[script curve risk contract](methodology/script_calibration_contract.md#script-curve-quote-risk-snapshots).
+
 ## Python
 
 After installing or building `dal`, run from the repository root:
