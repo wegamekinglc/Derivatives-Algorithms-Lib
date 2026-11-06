@@ -6,6 +6,8 @@
 
 #include <dal/calibration/validation_internal.hpp>
 #include <dal/currency/currencydata.hpp>
+#include <dal/curve/compoundedois_internal.hpp>
+#include <dal/curve/compoundedoisscript_internal.hpp>
 #include <dal/curve/curvescript_internal.hpp>
 #include <dal/curve/xccyscript_internal.hpp>
 #include <dal/indice/index/ir.hpp>
@@ -89,7 +91,13 @@ namespace Dal {
                                     {"smoothing", Num(c.smoothing_)}}));
         }
         String_ ContextIdentity(const CalibrationPreparationContext_& c, const CalibrationDiagnostic_& d) {
-            return c.xccy_ ? XccyScriptInternal::ContextIdentity(c, d) : GenericContextIdentity(c, d);
+            if (c.compoundedOis_)
+                Check(!c.xccy_, "UnsupportedCompoundedOisExecution", "/context", "compounded OIS context without XCCY valuation", "", d);
+            const auto base = c.xccy_ ? XccyScriptInternal::ContextIdentity(c, d) : GenericContextIdentity(c, d);
+            return c.compoundedOis_ ? Fingerprint(Obj({{"base", Str(base)},
+                                                       {"compounded_ois", Str(c.compoundedOis_->PreparationIdentity())},
+                                                       {"valuation", CompoundedOisInternal::ValuationJson(c.valuation_)}}))
+                                    : base;
         }
         String_ RateContextIdentity(const CalibrationPreparationContext_& c, const String_& identity, const CalibrationDiagnostic_& d) {
             return Fingerprint(Obj({{"context", Str(identity)},
@@ -104,8 +112,8 @@ namespace Dal {
                 Check(c.xccy_ && *xccy, "CalibrationContextMismatch", "/context", "dedicated XCCY context", "", d);
                 return XccyScriptInternal::ContextIdentity(*c.xccy_, (*xccy)->fixings_.get(), d);
             }
-            if (std::holds_alternative<CalibrationCurveFamily_>(descriptor))
-                return CurveScriptInternal::ContextIdentity(c, identity, d);
+            if (const auto* family = std::get_if<CalibrationCurveFamily_>(&descriptor))
+                return (*family)->compounded_ ? identity : CurveScriptInternal::ContextIdentity(c, identity, d);
             return std::holds_alternative<CalibrationRateOptionDescriptor_>(descriptor) ||
                            std::holds_alternative<CalibrationScriptMcDescriptor_>(descriptor)
                        ? RateContextIdentity(c, identity, d)
@@ -487,7 +495,7 @@ namespace Dal {
         }
         CalibrationCurveFamily_
         CurveFamily(const CalibrationInstrument_& instrument, const CalibrationPreparationContext_& context, const Vector_<Payment_>& payments) {
-            if (!CurveScriptInternal::Candidate(instrument))
+            if (!context.compoundedOis_ && !CurveScriptInternal::Candidate(instrument))
                 return {};
             Vector_<const NodePays_*> nodes;
             Vector_<CalibrationDiagnostic_> sources;
@@ -495,7 +503,8 @@ namespace Dal {
                 nodes.push_back(payment.node_);
                 sources.push_back(payment.source_);
             }
-            return CurveScriptInternal::Lower(instrument, context, nodes, sources);
+            return context.compoundedOis_ ? CompoundedOisInternal::Lower(instrument, context, nodes, sources)
+                                          : CurveScriptInternal::Lower(instrument, context, nodes, sources);
         }
         CalibrationPreparationCapability_
         AdmitCurve(const CalibrationPreparationContext_& context, const CalibrationEvaluationOptions_& options, const CalibrationDiagnostic_& d) {
@@ -535,6 +544,13 @@ namespace Dal {
             return result;
         }
         CalibrationCashflow_ CurveMetadata(const CalibrationCurvePayment_& flow, const CalibrationCurveFamilyDescriptor_& family) {
+            if (family.compounded_) {
+                const auto ab = CurveScriptInternal::Evaluate<double>(
+                    flow, [&](size_t i) { return *family.observations_[i].known_; }, CalibrationStage_::Value_::Prepare);
+                const double amount = ab.b_ + family.coupon_ * ab.a_;
+                CurveScriptInternal::RequireNumerical(std::isfinite(amount), flow.source_, "finite bound OIS cashflow amount");
+                return {flow.payment_, amount, ab.a_, ab.b_, *flow.source_.sourceRow_, *flow.source_.statement_};
+            }
             const auto fixing =
                 std::find_if(flow.program_.begin(), flow.program_.end(), [](const auto& op) { return op.operation_ == 'f' || op.operation_ == 'r'; });
             if (fixing == flow.program_.end()) {
@@ -578,6 +594,8 @@ namespace Dal {
                             const CalibrationEvaluationOptions_& options,
                             const CalibrationMeasureSpec_& measure,
                             const CalibrationDiagnostic_& d) {
+            if (context.compoundedOis_)
+                return CurvePayoff(CurveFamily(instrument, context, payments));
             if (context.xccy_) {
                 Vector_<const NodePays_*> nodes;
                 Vector_<CalibrationDiagnostic_> sources;
@@ -729,6 +747,22 @@ namespace Dal {
             Payoff_ payoff_;
             CalibrationPreparationCapability_ capability_;
         };
+        CalibrationPreparationCapability_ NativeCapability(const Payoff_& payoff,
+                                                           bool deposit,
+                                                           const CalibrationMeasureSpec_& measure,
+                                                           const CalibrationPreparationContext_& context,
+                                                           const CalibrationEvaluationOptions_& options,
+                                                           const CalibrationDiagnostic_& d) {
+            if (context.xccy_)
+                return XccyScriptInternal::Admit(options, d);
+            const auto* family = std::get_if<CalibrationCurveFamily_>(&payoff.descriptor_);
+            if (!family)
+                return Admit(deposit, measure, context, options, d);
+            auto capability = AdmitCurve(context, options, d);
+            if ((*family)->compounded_)
+                capability.ruleId_ = "dal.compounded-ois-cashflows/1";
+            return capability;
+        }
         Preparation_ NativePreparation(const ScriptProduct_* product,
                                        const CalibrationInstrument_& instrument,
                                        const CalibrationMeasureSpec_& measure,
@@ -745,10 +779,23 @@ namespace Dal {
             ValidatePayments(payments, !context.xccy_ && !CurveScriptInternal::Candidate(instrument) &&
                                            measure.kind_ != CalibrationMeasureKind_::Value_::Price);
             auto payoff = LowerPayoff(deposit, payments, instrument, context, options, measure, d);
-            const bool family = std::holds_alternative<CalibrationCurveFamily_>(payoff.descriptor_);
-            auto capability = context.xccy_ ? XccyScriptInternal::Admit(options, d)
-                                            : (family ? AdmitCurve(context, options, d) : Admit(deposit, measure, context, options, d));
+            auto capability = NativeCapability(payoff, deposit, measure, context, options, d);
             return {std::move(payoff), std::move(capability)};
+        }
+        void GuardCompounded(const ScriptProduct_& product,
+                             const CalibrationPreparationContext_& context,
+                             const CalibrationEvaluationOptions_& options,
+                             const CalibrationDiagnostic_& d) {
+            if (!CompoundedOisInternal::ContainsOvernight(product) && !context.compoundedOis_)
+                return;
+            Check(bool(context.compoundedOis_), "UnsupportedCompoundedOisContext", "/context/compounded_ois", "explicit frozen compounded OIS tables",
+                  "", d);
+            Check(!context.xccy_ && options.evaluation_ != CalibrationEvaluation_::Value_::ScriptMC, "UnsupportedCompoundedOisExecution",
+                  "/options/evaluation", "deterministic compounded OIS only; no MC or general fallback", "", d);
+            ForStatements(product, d, [&](const Node_& node, const auto& source) {
+                Check(dynamic_cast<const NodePays_*>(&node) != nullptr, "CompoundedOisSourceMismatch", "/source/rows",
+                      "one unconditional payment per frozen OIS row", "", GeneralSource(node, source));
+            });
         }
         Preparation_ LowerForExecution(const ScriptProduct_* product,
                                        const CalibrationInstrument_& instrument,
@@ -756,6 +803,7 @@ namespace Dal {
                                        const CalibrationPreparationContext_& context,
                                        const CalibrationEvaluationOptions_& options,
                                        const CalibrationDiagnostic_& d) {
+            GuardCompounded(*product, context, options, d);
             if (context.xccy_ || options.evaluation_ != CalibrationEvaluation_::Value_::ScriptMC ||
                 measure.kind_ != CalibrationMeasureKind_::Value_::Price) {
                 auto payments = InspectNativeProduct(*product, instrument.Definition()->Spec().header_.receiver_, d,
@@ -784,8 +832,8 @@ namespace Dal {
                                     {"constant_binding", Str("effective-slots/1")},
                                     {"receiver_guard", Str("whole-history/2")}}));
         }
-        String_ CompilerIdentity(bool family, bool rate, bool xccy) {
-            return Fingerprint(
+        String_ CompilerIdentity(bool family, bool rate, bool xccy, bool compounded) {
+            const auto base = Fingerprint(
                 Obj({{"build", Str("dal.core/1")},
                      {"parser", Str("typed-slots/1")},
                      {"lowering",
@@ -793,6 +841,9 @@ namespace Dal {
                      {"matcher", Str(xccy ? "xccy-complete-ast/1" : (family ? "curve-affine-ast/1" : (rate ? "rate-option-ast/1" : "p0-ast/2")))},
                      {"constant_binding", Str("effective-slots/1")},
                      {"receiver_guard", Str("whole-history/2")}}));
+            return compounded
+                       ? Fingerprint(Obj({{"base", Str(base)}, {"lowering", Str("checked-on-product/1")}, {"matcher", Str("frozen-ois-tables/1")}}))
+                       : base;
         }
         void Discounts(const Vector_<>& discounts, size_t size, const CalibrationDiagnostic_& d) {
             Check(discounts.size() == size, "InvalidCalibrationPlan", "/discounts", "one discount per live cashflow", "", d);
@@ -869,7 +920,7 @@ namespace Dal {
             result.sampling_ = options.sampling_;
         result.compilerIdentity_ = generic ? GenericCompilerIdentity()
                                            : CompilerIdentity(std::holds_alternative<CalibrationCurveFamily_>(result.descriptor_), rate != nullptr,
-                                                              static_cast<bool>(context.xccy_));
+                                                              static_cast<bool>(context.xccy_), static_cast<bool>(context.compoundedOis_));
         result.planIdentity_ = Fingerprint(Obj({{"instrument", Str(instrument->InstrumentIdentity())},
                                                 {"measure", Str(measureId)},
                                                 {"compiler", Str(result.compilerIdentity_)},

@@ -17,11 +17,13 @@ namespace Dal {
         size_t left_ = 0, right_ = 0;
         double value_ = 0.;
         bool dependent_ = false;
+        size_t source_ = 0;
     };
     struct CalibrationCurvePayment_ {
         Date_ payment_;
         Vector_<CalibrationCurveInstruction_> program_;
         CalibrationDiagnostic_ source_;
+        Vector_<CalibrationDiagnostic_> locations_;
     };
     struct CalibrationCurveObservation_ {
         String_ index_, route_;
@@ -31,11 +33,14 @@ namespace Dal {
         DayBasis_ basis_ = DayBasis::Act365F();
         std::optional<double> known_;
         CalibrationDiagnostic_ source_;
+        bool overnight_ = false;
+        String_ fixingKey_;
     };
     struct CalibrationCurveFamilyDescriptor_ {
         Vector_<CalibrationCurvePayment_> payments_;
         Vector_<CalibrationCurveObservation_> observations_;
         double coupon_ = 0.;
+        bool compounded_ = false;
     };
 } // namespace Dal
 
@@ -48,12 +53,27 @@ namespace Dal::CurveScriptInternal {
     }
     inline void Require(bool valid, const char* code, const CalibrationDiagnostic_& source, const char* expected) {
         if (!valid)
-            CalibrationInternal::Fail(code, Field(source), expected, "", source);
+            CalibrationInternal::Fail(code, source.field_.value_or(Field(source)), expected, "", source);
     }
     inline void RequireNumerical(bool valid, const CalibrationDiagnostic_& source, const char* expected) {
         Require(valid, "CalibrationNumericalFailure", source, expected);
     }
-    template <class T_> T_ Binary(char operation, const T_& left, const T_& right, const CalibrationDiagnostic_& source) {
+    template <class T_> T_ CheckedGrowth(const T_& value, const CalibrationDiagnostic_& source, CalibrationStage_ stage) {
+        if (!(std::isfinite(static_cast<double>(value)) && static_cast<double>(value) > 0.)) {
+            auto diagnostic = source;
+            diagnostic.stage_ = stage;
+            RequireNumerical(false, diagnostic, "finite positive overnight factor and cumulative product");
+        }
+        return value;
+    }
+    template <class T_>
+    T_ Binary(char operation,
+              const T_& left,
+              const T_& right,
+              const CalibrationDiagnostic_& source,
+              CalibrationStage_ stage = CalibrationStage_::Value_::Evaluate) {
+        if (operation == 'p')
+            return CheckedGrowth<T_>(left * right, source, stage);
         if (operation == '*')
             return left * right;
         if (operation == '/') {
@@ -63,9 +83,14 @@ namespace Dal::CurveScriptInternal {
         const double sign = operation == '+' ? 1. : -1.;
         return left + sign * right;
     }
-    template <class T_> Affine_<T_> Binary(char operation, const Affine_<T_>& left, const Affine_<T_>& right, const CalibrationDiagnostic_& source) {
-        const T_ independent = Binary(operation, left.b_, right.b_, source);
-        if (operation == '*')
+    template <class T_>
+    Affine_<T_> Binary(char operation,
+                       const Affine_<T_>& left,
+                       const Affine_<T_>& right,
+                       const CalibrationDiagnostic_& source,
+                       CalibrationStage_ stage = CalibrationStage_::Value_::Evaluate) {
+        const T_ independent = Binary(operation, left.b_, right.b_, source, stage);
+        if (operation == '*' || operation == 'p')
             return {left.a_ * right.b_ + left.b_ * right.a_, independent};
         if (operation == '/')
             return {left.a_ / right.b_, independent};
@@ -77,6 +102,18 @@ namespace Dal::CurveScriptInternal {
         RequireNumerical(static_cast<double>(discount) != 0., source, "nonzero coupon denominator");
         RequireNumerical(instruction.value_ != 0., source, "nonzero coupon denominator");
         return (T_(1.) / discount - T_(1.)) / instruction.value_;
+    }
+    inline bool IsObservation(char operation) { return operation == 'f' || operation == 'r' || operation == 'g'; }
+    template <class T_, class F_>
+    T_ ObservationValue(const CalibrationCurveInstruction_& instruction,
+                        const F_& fixing,
+                        const CalibrationDiagnostic_& source,
+                        CalibrationStage_ stage) {
+        if (instruction.operation_ == 'g')
+            return CheckedGrowth<T_>(T_(1.) + instruction.value_ * fixing(instruction.left_), source, stage);
+        if (instruction.operation_ == 'f')
+            return fixing(instruction.left_);
+        return ForwardRate<T_>(instruction, fixing, source);
     }
     template <class T_> struct ProgramValues_ {
         static constexpr size_t LOCAL_SIZE = 16;
@@ -120,13 +157,12 @@ namespace Dal::CurveScriptInternal {
         auto& values = *scratch;
         values.Reset(flow.program_.size());
         for (const auto& instruction : flow.program_) {
+            const auto& location = instruction.source_ ? flow.locations_[instruction.source_ - 1] : source;
             auto value = instruction.operation_ == 'k' ? Affine_<T_>{T_(1.), T_(0.)} : Affine_<T_>{T_(0.), T_(instruction.value_)};
-            if (instruction.operation_ == 'f')
-                value.b_ = fixing(instruction.left_);
-            else if (instruction.operation_ == 'r')
-                value.b_ = ForwardRate<T_>(instruction, fixing, source);
+            if (IsObservation(instruction.operation_))
+                value.b_ = ObservationValue<T_>(instruction, fixing, location, stage);
             else if (instruction.operation_ != 'c' && instruction.operation_ != 'k')
-                value = Binary(instruction.operation_, values[instruction.left_], values[instruction.right_], source);
+                value = Binary(instruction.operation_, values[instruction.left_], values[instruction.right_], location, stage);
             values.Push(value);
         }
         const auto result = values.Back();
@@ -146,17 +182,16 @@ namespace Dal::CurveScriptInternal {
         auto& values = *scratch;
         values.Reset(flow.program_.size());
         for (const auto& instruction : flow.program_) {
+            const auto& location = instruction.source_ ? flow.locations_[instruction.source_ - 1] : source;
             T_ value = T_(0.);
             if (instruction.operation_ == 'c')
                 value = T_(instruction.value_);
-            else if (instruction.operation_ == 'f')
-                value = fixing(instruction.left_);
-            else if (instruction.operation_ == 'r')
-                value = ForwardRate<T_>(instruction, fixing, source);
+            else if (IsObservation(instruction.operation_))
+                value = ObservationValue<T_>(instruction, fixing, location, stage);
             else if (instruction.operation_ == 'k') {
                 CalibrationInternal::Check(false, "UnsupportedCalibrationMeasure", Field(source), "K-independent cashflow program", "", source);
             } else {
-                value = Binary(instruction.operation_, values[instruction.left_], values[instruction.right_], source);
+                value = Binary(instruction.operation_, values[instruction.left_], values[instruction.right_], location, stage);
             }
             values.Push(value);
         }

@@ -776,6 +776,54 @@ throw owning `CalibrationError_` reports, which survive their input and
 exception. Prepared tables, calendar, valuation and snapshot are copied and
 exposed through const getters.
 
+### Controlled historical source execution
+
+The internal `CompoundedOisInternal::BuildSource` in
+`dal/curve/compoundedoisscript_internal.hpp` converts prepared tables into one
+immutable calibration instrument. N and K definitions precede fixed payment
+rows, then floating coupon rows. Each floating row contains a balanced product
+of `1+alpha*FIX(...)` factors, followed by subtraction of one; each payment has
+one outer N. The owned source map identifies table, table row, source row,
+statement and text offset. Source rows and settled coupons remain in the
+instrument, and the existing instrument JSON and clone interfaces preserve them.
+
+The ON literal is
+`IR[ccy,ON,fixing_key,route,start,end,rate_start,rate_end,basis]`.
+Its name contains both the actual accrual interval and full rate interval.
+Fixing keys and route IDs use percent encoding for bytes outside ASCII letters,
+digits, dot, underscore and hyphen. Parsing and cloning preserve the original
+UTF-8 identifiers. Historical lookup uses only the separate fixing key and
+explicit midnight fixing date, never the full projection literal.
+
+Preparation requires the matching frozen tables in
+`CalibrationPreparationContext_::compoundedOis_`. It checks the complete bound
+AST against those tables, including settled rows, dates, weights, routes,
+direction and N/K binding. Handwritten definitions use the same row layout and
+admission as generated source; they may regroup the product without changing
+factor order. Extra declarations, payments, K-dependent factors, control flow,
+unknown observations and unsupported operations fail with owning diagnostics.
+Observation failures identify the table row and the script row/statement.
+
+The lowerer scans factors in chronological order and emits a linear program.
+Every growth factor and cumulative product must be finite and strictly positive;
+ordinary negative rates are allowed. Non-finite bound amounts fail before a
+plan can enter the preparation cache. FastDeterministic and
+GenericDeterministic use the same admitted program. For all-history live
+coupons, Price and affine coefficients can consume explicit payment discounts;
+this is a controlled cashflow kernel, not a candidate ON curve provider.
+Settled payments need no fixing data and contribute zero. With no live annuity,
+ParRate fails explicitly.
+
+The internal builder does not publish a facade factory. Future fixings and
+Model-today fixings return `UnsupportedCompoundedOisProjection`, even when the
+snapshot contains a value for that date. ON source without its frozen tables,
+general script/MC preparation, P1 quote-risk snapshots and per-PV quote risk
+are explicitly unsupported. Source or numerical failure never falls back to
+legacy affine or general execution. The capability is
+`dal.compounded-ois-cashflows/1`; its plan identity includes the frozen table,
+calendar, valuation and snapshot identity. Native curve Price/ParRate partials
+and candidate curve calibration are not provided by this internal capability.
+
 ## Deterministic XCCY script cashflows
 
 The core `dal/curve/xccyscript.hpp` provides `NewXccyScriptInstrument` for
