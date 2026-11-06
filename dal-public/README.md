@@ -92,22 +92,23 @@ Facade examples live in `examples/`, link `DAL::public`, and are enabled by
 contains a program whose build target, CTest name and installed executable name
 match the directory name.
 
-| Program                                                                    | Shows                                                                      |
-|----------------------------------------------------------------------------|----------------------------------------------------------------------------|
-| [aad_public_risk](examples/aad_public_risk/)                               | Owning weighted-risk results and reporting coordinates                     |
-| [script_calibration](examples/script_calibration/)                         | Deposit calibration, fixed coupon pricing and explicit parameter rebinding |
-| [interpolate_curve_script](examples/interpolate_curve_script/)             | Thirteen direct swap/FRA scripts fitted with three log-discount schemes    |
-| [gsr_script_calibration](examples/gsr_script_calibration/)                 | Gaussian BondOption fit, same-path plain/AAD prices and native partials    |
-| [xccy_script_calibration](examples/xccy_script_calibration/)               | Direct XCCY source cashflows fitted by the staged curve calibrator         |
-| [xccy_script_monte_carlo](examples/xccy_script_monte_carlo/)               | Same-source stochastic XCCY fit, phased MC and a raw spot partial          |
-| [xccy_script_monte_carlo_basket](examples/xccy_script_monte_carlo_basket/) | Prepared mixed-mapping basket, covariance, owning partials and JSON        |
+| Program                                                                    | Shows                                                                          |
+|----------------------------------------------------------------------------|--------------------------------------------------------------------------------|
+| [aad_public_risk](examples/aad_public_risk/)                               | Owning weighted-risk results and reporting coordinates                         |
+| [script_calibration](examples/script_calibration/)                         | Deposit calibration, fixed coupon pricing and explicit parameter rebinding     |
+| [script_curve_quote_risk](examples/script_curve_quote_risk/)               | Explicit snapshot admission, fixed-contract Price/raw/DV01 and owning failures |
+| [interpolate_curve_script](examples/interpolate_curve_script/)             | Thirteen direct swap/FRA scripts fitted with three log-discount schemes        |
+| [gsr_script_calibration](examples/gsr_script_calibration/)                 | Gaussian BondOption fit, same-path plain/AAD prices and native partials        |
+| [xccy_script_calibration](examples/xccy_script_calibration/)               | Direct XCCY source cashflows fitted by the staged curve calibrator             |
+| [xccy_script_monte_carlo](examples/xccy_script_monte_carlo/)               | Same-source stochastic XCCY fit, phased MC and a raw spot partial              |
+| [xccy_script_monte_carlo_basket](examples/xccy_script_monte_carlo_basket/) | Prepared mixed-mapping basket, covariance, owning partials and JSON            |
 
 From the repository root, build and run the deterministic curve examples:
 
 ```bash
 cmake --preset core-dev -DDAL_BUILD_PUBLIC=ON -DDAL_PUBLIC_BUILD_EXAMPLES=ON
-cmake --build build/core-dev --target script_calibration interpolate_curve_script xccy_script_calibration --parallel
-ctest --test-dir build/core-dev -R '^(script_calibration|interpolate_curve_script|xccy_script_calibration)$' --output-on-failure
+cmake --build build/core-dev --target script_calibration script_curve_quote_risk interpolate_curve_script xccy_script_calibration --parallel
+ctest --test-dir build/core-dev -R '^(script_calibration|script_curve_quote_risk|interpolate_curve_script|xccy_script_calibration)$' --output-on-failure
 ```
 
 For example, run the interpolation program directly at

@@ -1,0 +1,3 @@
+add_executable(script_curve_quote_risk script_curve_quote_risk.cpp)
+target_link_libraries(script_curve_quote_risk PRIVATE DAL::public)
+install(TARGETS script_curve_quote_risk RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

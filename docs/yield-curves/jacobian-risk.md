@@ -801,6 +801,29 @@ Jacobian pass to produce the same diagnostic. `CurveCalibrationOptions_` can now
 disable `computeForwardJacobian_` and `computeEffJacobianInverse_` for solve-only
 benchmarking.
 
+## Same-source script curve Price risk
+
+`NewScriptCurveQuoteRiskSnapshot` and `ValueCalibrationInstrumentWithQuoteRisk`
+apply a separate checked implicit mapping to a single-target, full-rank EXACT
+script curve fit. With raw native $J=R_\theta$ and $R=F(\theta)-Qq$, the
+same bound contract supplies its own AAD $V_\theta$. A cached factorization
+solves $J^T\lambda=V_\theta^T$ and returns $dPV/dq=Q^T\lambda$.
+Native derivatives already exclude solver parameter/error scaling; the native
+`effJacobianInverse_ / tolerance_` correction above does not apply here.
+
+Accuracy is explicit: raw root residuals, rank/pivots, reciprocal condition and
+response backward errors each gate availability. Check the snapshot's
+`RiskAvailable()` and then each PV result's `Available()` before numeric getters.
+Coupon and notional remain fixed; raw risk is signed price per decimal Rate or
+BasisSpread, and `DV01=raw*1e-4` in the contract's currency and notional.
+The existing script `quoteJacobian_` remains raw `dMeasure/dNativeParameter`.
+The old report and common pullback/provenance contracts retain their meanings.
+
+See the [snapshot and failure contract](../methodology/script_calibration_contract.md#script-curve-quote-risk-snapshots)
+for identity, ownership, unsupported layouts and AAD cleanup, and run
+[`script_curve_quote_risk`](../../dal-public/examples/script_curve_quote_risk/script_curve_quote_risk.cpp)
+for the facade workflow. Its checks use a fixed deterministic Deposit contract.
+
 ## See Also
 
 - [Yield Curve Construction](construction.md) — the calibration that produces

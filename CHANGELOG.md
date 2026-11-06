@@ -18,6 +18,12 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-11-06
 
+- Add the independent `DAL::public` script curve quote-risk example and align
+  C++/Python/Excel guides with explicit snapshot accuracy, fixed-contract
+  signed PV/raw/DV01, ordered quote axes and owning rejection diagnostics.
+  See the [example](dal-public/examples/script_curve_quote_risk/script_curve_quote_risk.cpp)
+  and [contract](docs/methodology/script_calibration_contract.md#script-curve-quote-risk-snapshots).
+
 - Script curve risk interfaces: expose owning snapshots and deterministic PV/raw/DV01
   through public C++, Python and typed Excel handles with numerical rejection diagnostics.
 
