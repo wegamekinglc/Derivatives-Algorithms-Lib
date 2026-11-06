@@ -502,13 +502,46 @@ calibration optimizer. Changes require rebuilding the snapshot from a fit with
 the new context.
 
 Structural validation alone does **not** certify root accuracy, rank, conditioning
-or PV risk. `RiskAvailable()` still returns false for every snapshot: the
-parameter map is not $dPV/dq$, and no PV or DV01 values are published. Unsupported
+or PV risk. `RiskAvailable()` reports admission of the cached mapping for
+deterministic Price risk. Every contract valuation has its own availability
+and diagnostics. Unsupported
 modes/units/products, non-square systems, conflicting IDs and stale contexts
 retain axes and diagnostics. Malformed required inputs or accuracy settings
 throw the existing owning `CalibrationError_`. Diagnostics include a field,
 expected/actual values and relevant observation, quote, parameter or source
 coordinates.
+
+`ValueCalibrationInstrumentWithQuoteRisk(instrument, snapshot, context, request)`
+prepares the supplied bound contract's `Price` measure on every call. It uses
+the same deterministic cashflow evaluator as curve calibration and preserves
+the contract's signed payments, currency and actual notional. Only native
+curve parameters are registered on a local AAD recording. The passive cached
+factorization solves $R_\theta^T\lambda=V_\theta^T$, and the decimal quote
+gradient is $Q^T\lambda$. The PV-specific transpose backward error must pass
+the snapshot's accuracy limit. No optimizer runs during valuation.
+
+Malformed required context inputs throw `CalibrationError_` with
+`InvalidScriptCurveQuoteRiskInput`, consistently with `ParameterQuoteMapping`.
+Valid but stale contexts or rejected snapshot numerics return owning unavailable
+results with diagnostics.
+
+The owning `ScriptCurveQuoteRiskResult_` exposes `Available()`, `Diagnostics()`,
+`Axes()`, `Numerics()`, `Currency()` and snapshot/context/source/definition/binding
+identities. After checking availability, read `PV()`, `NativeGradient()`,
+`RawSensitivity()` and `DV01()`. Unavailable numeric getters throw.
+`DV01=raw*1e-4`, with no absolute value or notional normalization.
+`ScriptCurveQuoteRiskRequest_::quoteIds_` selects case-sensitive IDs in output
+order; an empty list selects all quotes. Unknown or repeated IDs and any
+measure other than `Price` are rejected. Selected quote ordinals retain their
+original snapshot positions.
+
+Contract coupons remain fixed, so $V_q=0$. A request with `liveQuotePayoff_`
+is rejected; existing frozen `quoteCopies_` annotations remain ordinary fixed
+bindings. Repricing never rebinds a coupon from a bumped calibration quote.
+Each call compares the full explicit context and retains no active AAD values.
+An active outer recording is rejected before changing its tape or adjoint mode;
+successful and failed independent evaluations restore ownership and mode.
+These core types are not yet projected through public, Python or Excel.
 
 Existing `quoteJacobian_` remains `dMeasure/dNativeParameter`;
 `CalibrationReport_::QuoteRiskAvailable()`, report schema `/1`, native rate-risk

@@ -13,6 +13,7 @@
 #include "../rate_risk_perf/quoteriskbenchfixtures.hpp"
 #include "dupirecurvatureperf.hpp"
 #include "marketivperf.hpp"
+#include "scriptcurveperf.hpp"
 
 using namespace Dal;
 
@@ -52,6 +53,8 @@ namespace {
 } // namespace
 
 int main(int argc, char** argv) {
+    if (argc == 2 && std::string(argv[1]) == "--script-curve-quote-risk")
+        return RunScriptCurveQuoteRiskBenchmarks();
     if (argc > 1 && std::string(argv[1]) == "--market-iv")
         return RunMarketIvBenchmarks();
     if (argc > 1)

@@ -6,11 +6,13 @@
 #include <iostream>
 #include <limits>
 
+#include <dal/curve/curveinstrumentevaluation_internal.hpp>
 #include <dal/curve/curvescript.hpp>
 #include <dal/curve/depositscript.hpp>
 #include <dal/curve/scriptcurvequoterisk.hpp>
 #include <dal/curve/ycconst.hpp>
 #include <dal/math/aad/recording.hpp>
+#include <dal/math/aad/statistics.hpp>
 #include <dal/time/dateutils.hpp>
 
 using namespace Dal;
@@ -65,6 +67,12 @@ namespace {
         return result;
     }
     ScriptCurveQuoteRiskAccuracy_ MappingAccuracy(int count) { return {Vector_<>(count, 1e-12), 1e-10, 1e-12}; }
+    void AssertDecimalSpreadQuote(const ScriptCurveQuoteRiskQuote_& quote, const String_& id, double value) {
+        ASSERT_EQ(quote.id_, id);
+        ASSERT_DOUBLE_EQ(quote.value_, value);
+        ASSERT_EQ(quote.unit_.Token(), "BasisSpread");
+        ASSERT_EQ(quote.convention_.id_, CalibrationQuoteConventionId_::Value_::DecimalSpread);
+    }
     RateIndexConvention_ MappingIndex(bool projected = false, const String_& tenor = "3M") {
         RateIndexConvention_ result;
         result.dayBasis_ = DayBasis_("ACT_360");
@@ -158,6 +166,382 @@ namespace {
                   << " response_error=" << PeakAbsolute(snapshot.Numerics().responseBackwardErrors_) << '\n';
     }
 } // namespace
+
+namespace {
+    template <class F_> std::optional<CalibrationDiagnostic_> InputDiagnostic(const F_& action) {
+        try {
+            action();
+        } catch (const CalibrationError_& error) {
+            return error.Failure().diagnostic_;
+        }
+        return std::nullopt;
+    }
+    void AssertMalformedPvContext(const std::function<void(CurveInstrumentCalibrationSpec_*)>& change, const String_& field) {
+        const auto spec = TightFitSpec(DepositSpec());
+        const auto snapshot = NewScriptCurveQuoteRiskSnapshot(CalibrateCurveInstruments(spec, AadOptions()), Accuracy());
+        ASSERT_TRUE(snapshot.MappingAvailable());
+        auto invalid = spec;
+        change(&invalid);
+        const auto mode = AAD::SetNumResultsForAAD(true, 3);
+        const auto mappingError = InputDiagnostic([&] { static_cast<void>(snapshot.ParameterQuoteMapping(invalid)); });
+        const auto pvError = InputDiagnostic(
+            [&] { static_cast<void>(ValueCalibrationInstrumentWithQuoteRisk(spec.observations_[0]->Instrument(), snapshot, invalid)); });
+        ASSERT_TRUE(mappingError);
+        ASSERT_EQ(mappingError->code_, "InvalidScriptCurveQuoteRiskInput");
+        ASSERT_EQ(mappingError->field_, field);
+        ASSERT_TRUE(pvError);
+        ASSERT_EQ(pvError->code_, mappingError->code_);
+        ASSERT_EQ(pvError->field_, mappingError->field_);
+        ASSERT_EQ(pvError->stage_, mappingError->stage_);
+        ASSERT_TRUE(AAD::Tape()->multi_);
+        ASSERT_EQ(AAD::Tape()->numAdj_, 3u);
+        ASSERT_EQ(AAD::MeasureTape(*AAD::Tape()).nodes_, 0u);
+        ASSERT_FALSE(AAD::LastRecordingCleanupFailure());
+        ASSERT_TRUE(ValueCalibrationInstrumentWithQuoteRisk(spec.observations_[0]->Instrument(), snapshot, spec).Available());
+    }
+} // namespace
+
+TEST(ScriptCurveQuoteRiskTest, TestPvAndMappingRejectMissingFixingContext) {
+    AssertMalformedPvContext([](auto* spec) { spec->valuation_.fixings_.reset(); }, "/context/valuation/fixings");
+}
+
+TEST(ScriptCurveQuoteRiskTest, TestPvAndMappingRejectMissingValuationDateContext) {
+    AssertMalformedPvContext([](auto* spec) { spec->valuation_.evaluationDate_.reset(); }, "/context/valuation/evaluation_date");
+}
+
+TEST(ScriptCurveQuoteRiskTest, TestPvAndMappingRejectNanSolverInitialGuessContext) {
+    AssertMalformedPvContext([](auto* spec) { spec->solver_.initialGuess_ = std::numeric_limits<double>::quiet_NaN(); },
+                             "/context/solver/initial_guess");
+}
+
+TEST(ScriptCurveQuoteRiskTest, TestMalformedPvContextPreservesOuterRecording) {
+    const auto spec = TightFitSpec(DepositSpec());
+    const auto snapshot = NewScriptCurveQuoteRiskSnapshot(CalibrateCurveInstruments(spec, AadOptions()), Accuracy());
+    auto invalid = spec;
+    invalid.valuation_.fixings_.reset();
+    AAD::RecordingScope_ outer;
+    AAD::Number_ x;
+    outer.RegisterInput(x, 2.);
+    outer.StartRecording();
+    const auto nodes = AAD::MeasureTape(*AAD::Tape()).nodes_;
+    const auto multi = AAD::Tape()->multi_;
+    const auto width = AAD::Tape()->numAdj_;
+    const auto mappingError = InputDiagnostic([&] { static_cast<void>(snapshot.ParameterQuoteMapping(invalid)); });
+    const auto pvError =
+        InputDiagnostic([&] { static_cast<void>(ValueCalibrationInstrumentWithQuoteRisk(spec.observations_[0]->Instrument(), snapshot, invalid)); });
+    ASSERT_TRUE(mappingError);
+    ASSERT_TRUE(pvError);
+    ASSERT_EQ(pvError->code_, "InvalidScriptCurveQuoteRiskInput");
+    ASSERT_EQ(pvError->field_, mappingError->field_);
+    ASSERT_EQ(AAD::MeasureTape(*AAD::Tape()).nodes_, nodes);
+    ASSERT_EQ(AAD::Tape()->multi_, multi);
+    ASSERT_EQ(AAD::Tape()->numAdj_, width);
+    auto y = AAD::Number_(x * x);
+    outer.FinishRecording();
+    AAD::Adjoint(y) = 1.;
+    outer.Reverse();
+    ASSERT_DOUBLE_EQ(AAD::Adjoint(x), 4.);
+    outer.Close();
+    ASSERT_EQ(AAD::MeasureTape(*AAD::Tape()).nodes_, 0u);
+    ASSERT_FALSE(AAD::LastRecordingCleanupFailure());
+    ASSERT_TRUE(ValueCalibrationInstrumentWithQuoteRisk(spec.observations_[0]->Instrument(), snapshot, spec).Available());
+}
+
+TEST(ScriptCurveQuoteRiskTest, TestStaleAndNumericalContextsKeepOwnedUnavailableResults) {
+    const auto multi = AAD::Tape()->multi_;
+    const auto width = AAD::Tape()->numAdj_;
+    for (const bool numerical : {false, true}) {
+        SCOPED_TRACE(numerical);
+        std::optional<ScriptCurveQuoteMapping_> mapping;
+        std::optional<ScriptCurveQuoteRiskResult_> pv;
+        {
+            const auto spec = numerical ? ReplaceQuote(DepositSpec(), 0, .035, .1) : TightFitSpec(DepositSpec());
+            const auto snapshot = NewScriptCurveQuoteRiskSnapshot(CalibrateCurveInstruments(spec, AadOptions()), Accuracy());
+            ASSERT_TRUE(snapshot.StructureValid());
+            ASSERT_EQ(snapshot.MappingAvailable(), !numerical);
+            auto context = spec;
+            if (!numerical)
+                ++context.solver_.maxEvaluations_;
+            const auto mode = AAD::SetNumResultsForAAD(true, 3);
+            mapping = snapshot.ParameterQuoteMapping(context);
+            pv = ValueCalibrationInstrumentWithQuoteRisk(spec.observations_[0]->Instrument(), snapshot, context);
+            ASSERT_TRUE(AAD::Tape()->multi_);
+            ASSERT_EQ(AAD::Tape()->numAdj_, 3u);
+            ASSERT_EQ(AAD::MeasureTape(*AAD::Tape()).nodes_, 0u);
+        }
+        const auto code = numerical ? "ScriptCurveQuoteRiskRootResidual" : "ScriptCurveQuoteRiskIdentityMismatch";
+        ASSERT_TRUE(mapping);
+        ASSERT_TRUE(pv);
+        ASSERT_FALSE(mapping->Available());
+        ASSERT_FALSE(pv->Available());
+        ASSERT_EQ(mapping->Diagnostics()[0].code_, code);
+        ASSERT_EQ(pv->Diagnostics()[0].code_, code);
+        ASSERT_EQ(pv->Diagnostics()[0].field_, mapping->Diagnostics()[0].field_);
+        ASSERT_EQ(mapping->Axes().quotes_[0].id_, "q");
+        ASSERT_EQ(pv->Axes().quotes_[0].id_, "q");
+        ASSERT_THROW(static_cast<void>(mapping->ParameterResponse()), Exception_);
+        ASSERT_THROW(static_cast<void>(pv->PV()), Exception_);
+        ASSERT_EQ(AAD::Tape()->multi_, multi);
+        ASSERT_EQ(AAD::Tape()->numAdj_, width);
+        ASSERT_EQ(AAD::MeasureTape(*AAD::Tape()).nodes_, 0u);
+        ASSERT_FALSE(AAD::LastRecordingCleanupFailure());
+    }
+}
+
+TEST(ScriptCurveQuoteRiskTest, TestDepositPvRiskPreservesFixedCouponNotionalAndSign) {
+    const auto spec = TightFitSpec(DepositSpec());
+    const auto snapshot = NewScriptCurveQuoteRiskSnapshot(CalibrateCurveInstruments(spec, AadOptions()), Accuracy());
+    const auto result = ValueCalibrationInstrumentWithQuoteRisk(spec.observations_[0]->Instrument(), snapshot, spec);
+    ASSERT_TRUE(result.Available());
+    const double alpha = (MATURITY - TODAY) / 360.;
+    const double df = 1. / (1. + .035 * alpha);
+    ASSERT_NEAR(result.PV(), 100. * ((1. + .025 * alpha) * df - 1.), 1e-10);
+    ASSERT_NEAR(result.RawSensitivity()[0], -100. * (1. + .025 * alpha) * alpha * df * df, 1e-10);
+    ASSERT_DOUBLE_EQ(result.DV01()[0], result.RawSensitivity()[0] * 1e-4);
+    ASSERT_EQ(result.Currency(), Ccy_("USD"));
+    ASSERT_TRUE(snapshot.RiskAvailable());
+}
+
+namespace {
+    double
+    FixedContractPrice(const Handle_<CalibrationInstrument_>& instrument, const CurveInstrumentCalibrationSpec_& spec, const Vector_<>& parameters) {
+        const auto prepared = CurveInstrumentInternal::PrepareCurvePrice(spec, instrument, "Price");
+        const CandidateCurveProvider_<double> provider(prepared.geometry_, parameters);
+        CurveScriptInternal::EvaluationScratch_<double> scratch;
+        return CurveInstrumentInternal::CashflowMeasure(prepared.plan_, provider, spec.geometry_.today_, &scratch);
+    }
+    Vector_<> RecalibratedPriceRisk(const Handle_<CalibrationInstrument_>& instrument, const CurveInstrumentCalibrationSpec_& spec, double step) {
+        Vector_<> result;
+        for (int j = 0; j < static_cast<int>(spec.observations_.size()); ++j) {
+            const double quote = spec.observations_[j]->Quote()->Value();
+            const auto up = ReplaceQuote(spec, j, quote + step), down = ReplaceQuote(spec, j, quote - step);
+            const auto plus = CalibrateCurveInstruments(up, AadOptions()), minus = CalibrateCurveInstruments(down, AadOptions());
+            result.push_back((FixedContractPrice(instrument, up, plus.parameters_) - FixedContractPrice(instrument, down, minus.parameters_)) /
+                             (2. * step));
+        }
+        return result;
+    }
+    void AssertPriceReference(const CurveInstrumentCalibrationSpec_& spec, const String_& label) {
+        const auto fit = CalibrateCurveInstruments(spec, AadOptions());
+        const auto snapshot = NewScriptCurveQuoteRiskSnapshot(fit, MappingAccuracy(static_cast<int>(spec.observations_.size())));
+        const auto instrument = spec.observations_.back()->Instrument();
+        const auto binding = instrument->BindingIdentity(), identity = snapshot.Identity(), context = snapshot.ContextIdentity();
+        const auto result = ValueCalibrationInstrumentWithQuoteRisk(instrument, snapshot, spec);
+        ASSERT_TRUE(result.Available()) << result.Diagnostics().front().message_;
+        const auto coarse = RecalibratedPriceRisk(instrument, spec, 1e-4), fine = RecalibratedPriceRisk(instrument, spec, 5e-5);
+        double maxError = 0., maxStability = 0.;
+        for (size_t j = 0; j < fine.size(); ++j) {
+            ASSERT_TRUE(std::isfinite(fine[j]));
+            ASSERT_TRUE(std::isfinite(coarse[j]));
+            const double limit = 1e-7 + 1e-5 * std::abs(fine[j]);
+            maxStability = std::max(maxStability, std::abs(coarse[j] - fine[j]) / limit);
+            maxError = std::max(maxError, std::abs(result.RawSensitivity()[j] - fine[j]) / limit);
+            ASSERT_DOUBLE_EQ(result.DV01()[j], result.RawSensitivity()[j] * 1e-4);
+        }
+        ASSERT_LE(maxStability, 1.) << label;
+        ASSERT_LE(maxError, 1.) << label;
+        ASSERT_EQ(instrument->BindingIdentity(), binding);
+        ASSERT_EQ(snapshot.Identity(), identity);
+        ASSERT_EQ(snapshot.ContextIdentity(), context);
+        ASSERT_TRUE(snapshot.ValidateContext(spec).Passed());
+        ASSERT_EQ(result.SourceIdentity(), instrument->Definition()->SourceIdentity());
+        ASSERT_EQ(result.BindingIdentity(), binding);
+        ASSERT_EQ(result.Numerics().factorizationCount_, 1);
+        ASSERT_LE(result.Numerics().transposeBackwardErrors_[0], snapshot.Accuracy().responseBackwardErrorLimit_);
+        ASSERT_NEAR(result.PV(), FixedContractPrice(instrument, spec, fit.parameters_), 1e-10);
+        std::cout << "pv-reference " << label << " n=" << fine.size() << " error/limit=" << maxError << " stability/limit=" << maxStability << '\n';
+    }
+} // namespace
+
+TEST(ScriptCurveQuoteRiskTest, TestPvRiskAgainstIndependentFullRecalibration) {
+    for (const auto& family : {"Deposit", "IRS", "Basis"})
+        for (const int count : {1, 5, 15}) {
+            SCOPED_TRACE(String_(family) + String::FromInt(count));
+            AssertPriceReference(MappingSample(family, count), family);
+        }
+}
+
+TEST(ScriptCurveQuoteRiskTest, TestPvRiskRejectsInvalidRequestsAndOwnsDiagnostics) {
+    const auto spec = MappingSample("IRS", 5);
+    const auto snapshot = NewScriptCurveQuoteRiskSnapshot(CalibrateCurveInstruments(spec, AadOptions()), MappingAccuracy(5));
+    const auto instrument = spec.observations_.back()->Instrument();
+    const Vector_<ScriptCurveQuoteRiskRequest_> requests = {{{"q0", "q0"}}, {{"Q0"}}, {{}, "ParRate"}, {{}, "price"}, {{}, "Price", true}};
+    const Vector_<String_> codes = {"ScriptCurveQuoteRiskDuplicateSelection", "ScriptCurveQuoteRiskUnknownSelection",
+                                    "ScriptCurveQuoteRiskUnsupportedMeasure", "ScriptCurveQuoteRiskUnsupportedMeasure",
+                                    "ScriptCurveQuoteRiskLiveQuoteUnsupported"};
+    for (size_t i = 0; i < requests.size(); ++i) {
+        const auto result = ValueCalibrationInstrumentWithQuoteRisk(instrument, snapshot, spec, requests[i]);
+        ASSERT_FALSE(result.Available());
+        ASSERT_EQ(result.Diagnostics()[0].code_, codes[i]);
+        ASSERT_EQ(result.Diagnostics()[0].instrumentId_, instrument->Id());
+        ASSERT_TRUE(result.Diagnostics()[0].field_);
+        ASSERT_THROW(static_cast<void>(result.PV()), Exception_);
+        ASSERT_THROW(static_cast<void>(result.RawSensitivity()), Exception_);
+        ASSERT_THROW(static_cast<void>(result.DV01()), Exception_);
+        ASSERT_THROW(static_cast<void>(result.NativeGradient()), Exception_);
+        ASSERT_EQ(result.Axes().quotes_.size(), 5u);
+    }
+    const auto selected = ValueCalibrationInstrumentWithQuoteRisk(instrument, snapshot, spec, {{"q4", "q0"}});
+    const auto all = ValueCalibrationInstrumentWithQuoteRisk(instrument, snapshot, spec);
+    ASSERT_TRUE(selected.Available());
+    ASSERT_EQ(selected.Axes().quotes_[0].ordinal_, 4);
+    ASSERT_EQ(selected.Axes().quotes_[1].ordinal_, 0);
+    ASSERT_DOUBLE_EQ(selected.RawSensitivity()[0], all.RawSensitivity()[4]);
+    ASSERT_DOUBLE_EQ(selected.RawSensitivity()[1], all.RawSensitivity()[0]);
+}
+
+TEST(ScriptCurveQuoteRiskTest, TestPvRiskNestedRecordingHasExplicitDiagnosticAndPreservesOuterTape) {
+    const auto spec = TightFitSpec(DepositSpec());
+    const auto snapshot = NewScriptCurveQuoteRiskSnapshot(CalibrateCurveInstruments(spec, AadOptions()), Accuracy());
+    AAD::RecordingScope_ outer;
+    AAD::Number_ x;
+    outer.RegisterInput(x, 2.);
+    outer.StartRecording();
+    const auto before = AAD::MeasureTape(*AAD::Tape()).nodes_;
+    const auto result = ValueCalibrationInstrumentWithQuoteRisk(spec.observations_[0]->Instrument(), snapshot, spec);
+    ASSERT_FALSE(result.Available());
+    ASSERT_EQ(result.Diagnostics()[0].code_, "ScriptCurveQuoteRiskNestedRecording");
+    ASSERT_EQ(AAD::MeasureTape(*AAD::Tape()).nodes_, before);
+    auto y = AAD::Number_(x * x);
+    outer.FinishRecording();
+    AAD::Adjoint(y) = 1.;
+    outer.Reverse();
+    ASSERT_DOUBLE_EQ(AAD::Adjoint(x), 4.);
+    outer.Close();
+}
+
+TEST(ScriptCurveQuoteRiskTest, TestPvRiskScalingAndRebuiltQuotePermutation) {
+    const auto spec = MappingSample("IRS", 5);
+    const auto fit = CalibrateCurveInstruments(spec, AadOptions());
+    const auto snapshot = NewScriptCurveQuoteRiskSnapshot(fit, MappingAccuracy(5));
+    const auto instrument = spec.observations_.back()->Instrument();
+    const auto original = ValueCalibrationInstrumentWithQuoteRisk(instrument, snapshot, spec);
+    ASSERT_TRUE(original.Available());
+    const auto contract = DumpCalibrationInstrumentJson(instrument);
+    for (const double scale : {1e-4, 1., 10.}) {
+        auto changed = spec;
+        changed.solver_.parameterScales_ = Vector_<>(5, scale);
+        changed.solver_.initialGuessPerNode_ = fit.parameters_;
+        for (int i = 0; i < 5; ++i)
+            changed = ReplaceQuote(changed, i, changed.observations_[i]->Quote()->Value(), .01 * (i + 1));
+        const auto scaled = NewScriptCurveQuoteRiskSnapshot(CalibrateCurveInstruments(changed, AadOptions()), MappingAccuracy(5));
+        const auto risk = ValueCalibrationInstrumentWithQuoteRisk(instrument, scaled, changed);
+        ASSERT_TRUE(risk.Available());
+        for (int j = 0; j < 5; ++j)
+            ASSERT_NEAR(risk.RawSensitivity()[j], original.RawSensitivity()[j], 1e-10);
+    }
+    auto reordered = spec;
+    std::reverse(reordered.observations_.begin(), reordered.observations_.end());
+    const auto stale = ValueCalibrationInstrumentWithQuoteRisk(instrument, snapshot, reordered);
+    ASSERT_FALSE(stale.Available());
+    ASSERT_EQ(stale.Diagnostics()[0].code_, "ScriptCurveQuoteRiskIdentityMismatch");
+    const auto rebuilt = NewScriptCurveQuoteRiskSnapshot(CalibrateCurveInstruments(reordered, AadOptions()), MappingAccuracy(5));
+    const auto risk = ValueCalibrationInstrumentWithQuoteRisk(instrument, rebuilt, reordered);
+    ASSERT_TRUE(risk.Available());
+    for (int j = 0; j < 5; ++j) {
+        ASSERT_EQ(risk.Axes().quotes_[j].id_, original.Axes().quotes_[4 - j].id_);
+        ASSERT_NEAR(risk.RawSensitivity()[j], original.RawSensitivity()[4 - j], 1e-10);
+    }
+    ASSERT_EQ(DumpCalibrationInstrumentJson(instrument), contract);
+    ASSERT_TRUE(snapshot.ValidateContext(spec).Passed());
+}
+
+TEST(ScriptCurveQuoteRiskTest, TestPvRiskFrozenQuoteCopyIsNotLiveDependence) {
+    const auto spec = TightFitSpec(DepositSpec());
+    const auto& quote = spec.observations_[0]->Quote();
+    const auto instrument = BindCalibrationInstrumentParameters(spec.observations_[0]->Instrument(),
+                                                                {{{"K", quote->Value(), quote->Unit()}}, {{"K", quote->Id(), quote->Fingerprint()}}});
+    const auto before = DumpCalibrationInstrumentJson(instrument);
+    const auto snapshot = NewScriptCurveQuoteRiskSnapshot(CalibrateCurveInstruments(spec, AadOptions()), Accuracy());
+    const auto risk = ValueCalibrationInstrumentWithQuoteRisk(instrument, snapshot, spec);
+    ASSERT_TRUE(risk.Available());
+    ASSERT_NEAR(risk.PV(), 0., 1e-10);
+    ASSERT_LT(risk.RawSensitivity()[0], -90.);
+    const auto fd = RecalibratedPriceRisk(instrument, spec, 5e-5);
+    ASSERT_NEAR(risk.RawSensitivity()[0], fd[0], 1e-7 + 1e-5 * std::abs(fd[0]));
+    ASSERT_FALSE(ValueCalibrationInstrumentWithQuoteRisk(instrument, snapshot, spec, {{}, "Price", true}).Available());
+    ASSERT_EQ(DumpCalibrationInstrumentJson(instrument), before);
+}
+
+TEST(ScriptCurveQuoteRiskTest, TestPvRiskSuccessFailureRestoreModeAndActiveNodes) {
+    auto spec = TightFitSpec(DepositSpec());
+    spec = ReplaceQuote(spec, 0, -.4);
+    const auto snapshot = NewScriptCurveQuoteRiskSnapshot(CalibrateCurveInstruments(spec, AadOptions()), Accuracy());
+    ASSERT_TRUE(snapshot.RiskAvailable());
+    const auto instrument = spec.observations_[0]->Instrument();
+    const auto huge = BindCalibrationInstrumentParameters(instrument, {{{"N", 1.4e308, CalibrationValueUnit_::Parse("Price:USD")}}, {}});
+    const auto mode = AAD::SetNumResultsForAAD(true, 3);
+    const auto good = ValueCalibrationInstrumentWithQuoteRisk(instrument, snapshot, spec);
+    ASSERT_TRUE(good.Available());
+    ASSERT_TRUE(AAD::Tape()->multi_);
+    ASSERT_EQ(AAD::Tape()->numAdj_, 3u);
+    ASSERT_EQ(AAD::MeasureTape(*AAD::Tape()).nodes_, 0u);
+    const auto bad = ValueCalibrationInstrumentWithQuoteRisk(huge, snapshot, spec);
+    ASSERT_FALSE(bad.Available());
+    ASSERT_EQ(bad.Diagnostics()[0].code_, "ScriptCurveQuoteRiskNonFinite");
+    ASSERT_TRUE(AAD::Tape()->multi_);
+    ASSERT_EQ(AAD::Tape()->numAdj_, 3u);
+    ASSERT_EQ(AAD::MeasureTape(*AAD::Tape()).nodes_, 0u);
+    ASSERT_TRUE(ValueCalibrationInstrumentWithQuoteRisk(instrument, snapshot, spec).Available());
+    ASSERT_FALSE(AAD::LastRecordingCleanupFailure());
+}
+
+TEST(ScriptCurveQuoteRiskTest, TestPvRiskOwnsResultsAndReusesSnapshotConcurrently) {
+    const auto spec = MappingSample("Deposit", 5);
+    const auto snapshot = NewScriptCurveQuoteRiskSnapshot(CalibrateCurveInstruments(spec, AadOptions()), MappingAccuracy(5));
+    const auto instrument = spec.observations_.back()->Instrument();
+    auto future = std::async(std::launch::async, [&] { return ValueCalibrationInstrumentWithQuoteRisk(instrument, snapshot, spec); });
+    const auto expected = ValueCalibrationInstrumentWithQuoteRisk(instrument, snapshot, spec);
+    for (int i = 0; i < 100; ++i) {
+        const auto result = ValueCalibrationInstrumentWithQuoteRisk(instrument, snapshot, spec);
+        ASSERT_TRUE(result.Available());
+        ASSERT_EQ(result.RawSensitivity(), expected.RawSensitivity());
+        ASSERT_EQ(result.Numerics().factorizationCount_, 1);
+    }
+    const auto other = future.get();
+    ASSERT_TRUE(other.Available());
+    ASSERT_EQ(other.RawSensitivity(), expected.RawSensitivity());
+    const auto owned = [] {
+        const auto s = TightFitSpec(DepositSpec());
+        const auto snapshot = NewScriptCurveQuoteRiskSnapshot(CalibrateCurveInstruments(s, AadOptions()), Accuracy());
+        return ValueCalibrationInstrumentWithQuoteRisk(s.observations_[0]->Instrument(), snapshot, s);
+    }();
+    ASSERT_TRUE(owned.Available());
+    ASSERT_EQ(owned.Axes().quotes_[0].id_, "q");
+    ASSERT_FALSE(owned.BindingIdentity().empty());
+    ASSERT_EQ(AAD::MeasureTape(*AAD::Tape()).nodes_, 0u);
+}
+
+TEST(ScriptCurveQuoteRiskTest, TestPvFixedBackgroundProducesZeroNativeAndQuoteRisk) {
+    const auto spec = MappingSample("Basis", 5);
+    const auto snapshot = NewScriptCurveQuoteRiskSnapshot(CalibrateCurveInstruments(spec, AadOptions()), MappingAccuracy(5));
+    const auto instrument = MappingInstrument("Deposit", spec.geometry_.knotDates_.back(), "background-only");
+    const auto result = ValueCalibrationInstrumentWithQuoteRisk(instrument, snapshot, spec);
+    ASSERT_TRUE(result.Available());
+    for (const double g : result.NativeGradient())
+        ASSERT_DOUBLE_EQ(g, 0.);
+    for (const double g : result.RawSensitivity())
+        ASSERT_DOUBLE_EQ(g, 0.);
+}
+
+TEST(ScriptCurveQuoteRiskTest, TestPvRiskPropagatesRejectedSnapshotAndUnsupportedContract) {
+    const auto spec = DepositSpec();
+    const auto snapshot = NewScriptCurveQuoteRiskSnapshot(CalibrateCurveInstruments(spec), Accuracy());
+    const auto unavailable = ValueCalibrationInstrumentWithQuoteRisk(spec.observations_[0]->Instrument(), snapshot, spec);
+    ASSERT_FALSE(unavailable.Available());
+    ASSERT_EQ(unavailable.Diagnostics()[0].code_, "ScriptCurveQuoteRiskRootResidual");
+    ASSERT_EQ(unavailable.Axes().quotes_[0].id_, "q");
+    const auto tight = TightFitSpec(spec);
+    const auto admitted = NewScriptCurveQuoteRiskSnapshot(CalibrateCurveInstruments(tight, AadOptions()), Accuracy());
+    auto definition = spec.observations_[0]->Instrument()->Definition()->Spec();
+    definition.source_.rows_.back().text_ = "PAY PAYS N*MAX(1+K*ALPHA,0)";
+    const auto instrument = NewScriptCalibrationInstrument({"unsupported", NewScriptInstrumentDefinition(definition), {}, MATURITY});
+    const auto rejected = ValueCalibrationInstrumentWithQuoteRisk(instrument, admitted, tight);
+    ASSERT_FALSE(rejected.Available());
+    ASSERT_EQ(rejected.Diagnostics()[0].instrumentId_, "unsupported");
+    ASSERT_TRUE(rejected.Diagnostics()[0].sourceRow_);
+    ASSERT_TRUE(ValueCalibrationInstrumentWithQuoteRisk(spec.observations_[0]->Instrument(), admitted, tight).Available());
+}
 
 TEST(ScriptCurveQuoteRiskTest, TestOneFiveFifteenDepositResponsesAgainstFullRecalibration) {
     for (const int count : {1, 5, 15})
@@ -431,7 +815,8 @@ TEST(ScriptCurveQuoteRiskTest, TestNativeLayoutsGiveTheSamePhysicalDepositRespon
         const auto spec = LayoutSpec(mode);
         const auto fit = CalibrateCurveInstruments(spec, AadOptions());
         const int n = static_cast<int>(spec.observations_.size());
-        const auto map = NewScriptCurveQuoteRiskSnapshot(fit, MappingAccuracy(n)).ParameterQuoteMapping(spec);
+        const auto snapshot = NewScriptCurveQuoteRiskSnapshot(fit, MappingAccuracy(n));
+        const auto map = snapshot.ParameterQuoteMapping(spec);
         ASSERT_TRUE(map.Available());
         Matrix_<> logDfJacobian(n, n);
         for (int row = 0; row < n; ++row) {
@@ -446,11 +831,16 @@ TEST(ScriptCurveQuoteRiskTest, TestNativeLayoutsGiveTheSamePhysicalDepositRespon
         }
         for (int i = 0; i < n; ++i) {
             const double alpha = (*spec.observations_[i]->Instrument()->Pillar() - TODAY) / 360.;
+            const auto risk = ValueCalibrationInstrumentWithQuoteRisk(spec.observations_[i]->Instrument(), snapshot, spec);
+            ASSERT_TRUE(risk.Available());
+            const double df = 1. / (1. + alpha * spec.observations_[i]->Quote()->Value());
             for (int j = 0; j < n; ++j) {
                 double actual = 0.;
                 for (int parameter = 0; parameter < n; ++parameter)
                     actual += logDfJacobian(i, parameter) * map.ParameterResponse()(parameter, j);
-                ASSERT_NEAR(actual, i == j ? -alpha / (1. + alpha * spec.observations_[i]->Quote()->Value()) : 0., 1e-9);
+                const double expected = i == j ? -alpha * df : 0.;
+                ASSERT_NEAR(actual, expected, 1e-9);
+                ASSERT_NEAR(risk.RawSensitivity()[j], 100. * (1. + .025 * alpha) * df * expected, 1e-9);
             }
         }
     }
@@ -503,6 +893,7 @@ TEST(ScriptCurveQuoteRiskTest, TestFraAndPeriodForwardOisParameterResponses) {
         spec.observations_[1] = NewCalibrationObservation("forward-o", instrument, "ParRate",
                                                           NewCalibrationMarketQuote("forward-q", .04, CalibrationValueUnit_::Parse("Rate")), 1e-13);
         AssertMappingReference(spec, i == 0 ? "FRA" : "PeriodForwardOIS");
+        AssertPriceReference(spec, i == 0 ? "FRA" : "PeriodForwardOIS");
     }
 }
 
@@ -984,7 +1375,8 @@ TEST(ScriptCurveQuoteRiskTest, TestOriginalMetricWithNegativeOffDiagonalRemainsV
     const auto snapshot = NewScriptCurveQuoteRiskSnapshot(fit, {{1e-12, 1e-12}, 1e-10, 1e-12});
     ASSERT_TRUE(snapshot.StructureValid());
     ASSERT_TRUE(snapshot.ValidateContext(spec).Passed());
-    ASSERT_FALSE(snapshot.RiskAvailable());
+    ASSERT_TRUE(snapshot.RiskAvailable());
+    ASSERT_TRUE(ValueCalibrationInstrumentWithQuoteRisk(spec.observations_[0]->Instrument(), snapshot, spec).Available());
 }
 
 TEST(ScriptCurveQuoteRiskTest, TestMalformedAccuracyUsesOwnedCalibrationError) {
@@ -1253,9 +1645,75 @@ TEST(ScriptCurveQuoteRiskTest, TestDecimalBasisSpreadIsStructurallyAdmitted) {
                                                     NewCalibrationMarketQuote("basis-q", 0., CalibrationValueUnit_::Parse("BasisSpread")), 1e-10)};
     const auto snapshot = NewScriptCurveQuoteRiskSnapshot(CalibrateCurveInstruments(spec), Accuracy());
     ASSERT_TRUE(snapshot.StructureValid());
-    ASSERT_FALSE(snapshot.RiskAvailable());
-    ASSERT_EQ(snapshot.QuoteAxis()[0].unit_.Token(), "BasisSpread");
-    ASSERT_EQ(snapshot.QuoteAxis()[0].convention_.id_, CalibrationQuoteConventionId_::Value_::DecimalSpread);
+    ASSERT_EQ(snapshot.QuoteAxis().size(), 1u);
+    AssertDecimalSpreadQuote(snapshot.QuoteAxis()[0], "basis-q", 0.);
+    const auto mapping = snapshot.ParameterQuoteMapping(spec);
+    ASSERT_EQ(snapshot.RiskAvailable(), snapshot.MappingAvailable());
+    ASSERT_EQ(mapping.Available(), snapshot.RiskAvailable());
+    if (mapping.Available()) {
+        const auto& n = mapping.Numerics();
+        ASSERT_TRUE(mapping.Diagnostics().empty());
+        ASSERT_EQ(n.factorizationCount_, 1);
+        ASSERT_EQ(n.rawResiduals_.size(), 1u);
+        ASSERT_LE(std::abs(n.rawResiduals_[0]), snapshot.Accuracy().residualAbsoluteLimits_[0]);
+        ASSERT_TRUE(n.reciprocalCondition_);
+        ASSERT_TRUE(std::isfinite(*n.reciprocalCondition_));
+        ASSERT_GE(*n.reciprocalCondition_, snapshot.Accuracy().minReciprocalCondition_);
+        ASSERT_EQ(n.transposeBackwardErrors_.size(), 1u);
+        ASSERT_EQ(n.responseBackwardErrors_.size(), 1u);
+        ASSERT_GE(n.transposeBackwardErrors_[0], 0.);
+        ASSERT_GE(n.responseBackwardErrors_[0], 0.);
+        ASSERT_LE(n.transposeBackwardErrors_[0], snapshot.Accuracy().responseBackwardErrorLimit_);
+        ASSERT_LE(n.responseBackwardErrors_[0], snapshot.Accuracy().responseBackwardErrorLimit_);
+        ASSERT_TRUE(std::isfinite(mapping.ParameterResponse()(0, 0)));
+    } else {
+        ASSERT_FALSE(snapshot.Diagnostics().empty());
+        ASSERT_FALSE(mapping.Diagnostics().empty());
+        ASSERT_EQ(mapping.Diagnostics()[0].code_, snapshot.Diagnostics()[0].code_);
+        ASSERT_THROW(static_cast<void>(mapping.ParameterResponse()), Exception_);
+    }
+}
+
+TEST(ScriptCurveQuoteRiskTest, TestDecimalBasisSpreadRiskRequiresNumericalAdmission) {
+    const auto spec = MappingSample("Basis", 1);
+    const auto fit = CalibrateCurveInstruments(spec, AadOptions());
+    const auto snapshot = NewScriptCurveQuoteRiskSnapshot(fit, MappingAccuracy(1));
+    ASSERT_TRUE(snapshot.StructureValid());
+    ASSERT_TRUE(snapshot.MappingAvailable());
+    ASSERT_TRUE(snapshot.RiskAvailable());
+    ASSERT_TRUE(snapshot.Diagnostics().empty());
+    AssertDecimalSpreadQuote(snapshot.QuoteAxis()[0], "q0", -.001);
+    const auto risk = ValueCalibrationInstrumentWithQuoteRisk(spec.observations_[0]->Instrument(), snapshot, spec);
+    ASSERT_TRUE(risk.Available());
+    ASSERT_EQ(risk.Currency(), Ccy_("USD"));
+    ASSERT_EQ(risk.Axes().quotes_.size(), 1u);
+    AssertDecimalSpreadQuote(risk.Axes().quotes_[0], "q0", -.001);
+    ASSERT_TRUE(std::isfinite(risk.PV()));
+    ASSERT_TRUE(std::isfinite(risk.RawSensitivity()[0]));
+    ASSERT_NE(risk.RawSensitivity()[0], 0.);
+    ASSERT_DOUBLE_EQ(risk.DV01()[0], risk.RawSensitivity()[0] * 1e-4);
+
+    const auto loose = ReplaceQuote(spec, 0, .05, 1.);
+    const auto looseFit = CalibrateCurveInstruments(loose, AadOptions());
+    ASSERT_TRUE(looseFit.fitWithinTolerance_);
+    ASSERT_EQ(looseFit.evaluations_, 1);
+    const auto rejected = NewScriptCurveQuoteRiskSnapshot(looseFit, MappingAccuracy(1));
+    ASSERT_TRUE(rejected.StructureValid());
+    ASSERT_FALSE(rejected.MappingAvailable());
+    ASSERT_FALSE(rejected.RiskAvailable());
+    ASSERT_EQ(rejected.Diagnostics()[0].code_, "ScriptCurveQuoteRiskRootResidual");
+    ASSERT_EQ(rejected.Diagnostics()[0].field_, "/mapping/residuals/0");
+    ASSERT_EQ(rejected.Diagnostics()[0].quoteId_, "q0");
+    ASSERT_GT(std::abs(rejected.Numerics().rawResiduals_[0]), rejected.Accuracy().residualAbsoluteLimits_[0]);
+    ASSERT_EQ(rejected.Numerics().factorizationCount_, 0);
+    AssertDecimalSpreadQuote(rejected.QuoteAxis()[0], "q0", .05);
+    ASSERT_FALSE(rejected.ParameterQuoteMapping(loose).Available());
+    const auto unavailable = ValueCalibrationInstrumentWithQuoteRisk(loose.observations_[0]->Instrument(), rejected, loose);
+    ASSERT_FALSE(unavailable.Available());
+    ASSERT_EQ(unavailable.Diagnostics()[0].code_, "ScriptCurveQuoteRiskRootResidual");
+    AssertDecimalSpreadQuote(unavailable.Axes().quotes_[0], "q0", .05);
+    ASSERT_THROW(static_cast<void>(unavailable.PV()), Exception_);
+    ASSERT_THROW(static_cast<void>(unavailable.RawSensitivity()), Exception_);
 }
 
 TEST(ScriptCurveQuoteRiskTest, TestFailedFitSnapshotOutlivesCalibrationException) {

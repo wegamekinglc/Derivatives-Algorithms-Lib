@@ -4,8 +4,10 @@
 
 #include <dal/calibration/validation_internal.hpp>
 #include <dal/curve/curveinstrumentcontext_internal.hpp>
+#include <dal/curve/curveinstrumentevaluation_internal.hpp>
 #include <dal/curve/curvejacobian.hpp>
 #include <dal/curve/scriptcurvequoterisk.hpp>
+#include <dal/math/aad/recording.hpp>
 #include <dal/math/optimization/implicitroot.hpp>
 #include <dal/storage/json.hpp>
 
@@ -401,6 +403,145 @@ namespace Dal {
                                                                      Vector_<CalibrationDiagnostic_> diagnostics)
         : passed_(passed), axes_(std::move(axes)), diagnostics_(std::move(diagnostics)) {}
     ScriptCurveQuoteRiskSnapshot_::ScriptCurveQuoteRiskSnapshot_(std::shared_ptr<const Data_> data) : data_(std::move(data)) {}
+    double ScriptCurveQuoteRiskResult_::PV() const {
+        REQUIRE(Available(), "Script curve PV quote risk is unavailable; inspect diagnostics");
+        return *pv_;
+    }
+    const Vector_<>& ScriptCurveQuoteRiskResult_::NativeGradient() const {
+        REQUIRE(Available(), "Script curve PV quote risk is unavailable; inspect diagnostics");
+        return nativeGradient_;
+    }
+    const Vector_<>& ScriptCurveQuoteRiskResult_::RawSensitivity() const {
+        REQUIRE(Available(), "Script curve PV quote risk is unavailable; inspect diagnostics");
+        return raw_;
+    }
+    const Vector_<>& ScriptCurveQuoteRiskResult_::DV01() const {
+        REQUIRE(Available(), "Script curve PV quote risk is unavailable; inspect diagnostics");
+        return dv01_;
+    }
+    namespace {
+        Vector_<int> SelectedQuotes(const ScriptCurveQuoteRiskRequest_& request, const ScriptCurveQuoteRiskAxes_& axes) {
+            Vector_<int> result;
+            if (request.quoteIds_.empty()) {
+                for (size_t i = 0; i < axes.quotes_.size(); ++i)
+                    result.push_back(static_cast<int>(i));
+                return result;
+            }
+            std::set<std::string> seen;
+            for (size_t i = 0; i < request.quoteIds_.size(); ++i) {
+                const auto& id = request.quoteIds_[i];
+                const auto field = "/request/quote_ids/" + OrdinalText(i);
+                Check(seen.insert(Bytes(id)).second, "ScriptCurveQuoteRiskDuplicateSelection", field, "unique quote ID", id);
+                const auto quote = std::find_if(axes.quotes_.begin(), axes.quotes_.end(), [&](const auto& q) { return Bytes(q.id_) == Bytes(id); });
+                Check(quote != axes.quotes_.end(), "ScriptCurveQuoteRiskUnknownSelection", field, "snapshot quote ID (case sensitive)", id);
+                result.push_back(static_cast<int>(quote - axes.quotes_.begin()));
+            }
+            return result;
+        }
+        struct NativePrice_ {
+            double value_;
+            Vector_<> gradient_;
+        };
+        NativePrice_ NativePrice(const PreparedCurvePrice_& prepared, const Vector_<>& theta, const Date_& today) {
+            try {
+                AAD::RequireRecordingModeChangeAllowed();
+            } catch (const std::exception& error) {
+                Fail("ScriptCurveQuoteRiskNestedRecording", "/pv/recording", "no active independent recording", error.what());
+            }
+            const auto mode = AAD::SetNumResultsForAAD(false, 1);
+            AAD::RecordingScope_ recording;
+            Vector_<AAD::Number_> active(theta.size());
+            for (size_t i = 0; i < theta.size(); ++i)
+                recording.RegisterInput(active[i], theta[i]);
+            recording.StartRecording();
+            const CandidateCurveProvider_<AAD::Number_> provider(prepared.geometry_, active);
+            CurveScriptInternal::EvaluationScratch_<AAD::Number_> scratch;
+            auto price = CashflowMeasure(prepared.plan_, provider, today, &scratch);
+            Check(std::isfinite(static_cast<double>(price)), "ScriptCurveQuoteRiskNonFinite", "/pv", "finite Price");
+            recording.FinishRecording();
+            recording.ClearAdjoints();
+            AAD::Adjoint(price) = 1.;
+            recording.Reverse();
+            NativePrice_ result{static_cast<double>(price), Vector_<>(theta.size())};
+            for (size_t i = 0; i < theta.size(); ++i) {
+                result.gradient_[i] = AAD::Adjoint(active[i]);
+                Check(std::isfinite(result.gradient_[i]), "ScriptCurveQuoteRiskNonFinite", "/pv/native_gradient/" + OrdinalText(i),
+                      "finite native gradient", NumberText(result.gradient_[i]));
+            }
+            recording.Close();
+            return result;
+        }
+        ImplicitRootAdjoints_ PriceResponse(const ScriptCurveQuoteRiskSnapshot_::Data_& data, const Vector_<>& gradient) {
+            Matrix_<> seed(static_cast<int>(gradient.size()), 1);
+            for (int i = 0; i < seed.Rows(); ++i)
+                seed(i, 0) = gradient[i];
+            const auto reverse = data.linearization_->Reverse(seed);
+            const double error = reverse.transposeBackwardErrors_[0];
+            Check(std::isfinite(error) && error <= data.accuracy_.responseBackwardErrorLimit_, "ScriptCurveQuoteRiskResponseAccuracy",
+                  "/pv/transpose_error", NumberText(data.accuracy_.responseBackwardErrorLimit_), NumberText(error));
+            return reverse;
+        }
+    } // namespace
+
+    ScriptCurveQuoteRiskResult_ ValueCalibrationInstrumentWithQuoteRisk(const Handle_<CalibrationInstrument_>& instrument,
+                                                                        const ScriptCurveQuoteRiskSnapshot_& snapshot,
+                                                                        const CurveInstrumentCalibrationSpec_& context,
+                                                                        const ScriptCurveQuoteRiskRequest_& request) {
+        Check(bool(instrument), INPUT_ERROR, "/instrument", "bound calibration instrument");
+        ScriptCurveQuoteRiskResult_ result;
+        const auto& data = *snapshot.data_;
+        result.axes_ = *data.axes_;
+        result.numerics_ = data.numerics_;
+        result.snapshotIdentity_ = data.identity_;
+        result.contextIdentity_ = data.contextIdentity_;
+        result.sourceIdentity_ = instrument->Definition()->SourceIdentity();
+        result.definitionIdentity_ = instrument->Definition()->DefinitionIdentity();
+        result.bindingIdentity_ = instrument->BindingIdentity();
+        result.currency_ = instrument->Definition()->Spec().header_.resultCurrency_;
+        const auto validation = snapshot.ValidateContext(context);
+        if (!validation.Passed()) {
+            result.diagnostics_ = validation.Diagnostics();
+            return result;
+        }
+        try {
+            if (!snapshot.MappingAvailable()) {
+                result.diagnostics_ = data.diagnostics_;
+                return result;
+            }
+            Check(!request.liveQuotePayoff_, "ScriptCurveQuoteRiskLiveQuoteUnsupported", "/request/live_quote_payoff", "fixed contract; V_q=0",
+                  "true");
+            Check(Bytes(request.measureId_) == "Price", "ScriptCurveQuoteRiskUnsupportedMeasure", "/request/measure_id", "Price", request.measureId_);
+            const auto selected = SelectedQuotes(request, *data.axes_);
+            const auto prepared = PrepareCurvePrice(*data.spec_, instrument, request.measureId_);
+            Check(prepared.plan_.Measure().kind_ == CalibrationMeasureKind_::Value_::Price, "ScriptCurveQuoteRiskUnsupportedMeasure",
+                  "/request/measure_id", "Price kind", request.measureId_);
+            const auto price = NativePrice(prepared, data.parameters_, data.spec_->geometry_.today_);
+            const auto reverse = PriceResponse(data, price.gradient_);
+            result.numerics_.transposeBackwardErrors_ = reverse.transposeBackwardErrors_;
+            result.axes_.quotes_.clear();
+            for (const int i : selected) {
+                const double raw = reverse.inputs_(i, 0), dv01 = raw * 1e-4;
+                Check(std::isfinite(raw) && std::isfinite(dv01), "ScriptCurveQuoteRiskNonFinite", "/pv/raw", "finite quote risk");
+                result.axes_.quotes_.push_back(data.axes_->quotes_[i]);
+                result.raw_.push_back(raw);
+                result.dv01_.push_back(dv01);
+            }
+            result.nativeGradient_ = price.gradient_;
+            result.pv_ = price.value_;
+        } catch (const CalibrationError_& error) {
+            auto d = error.Failure().diagnostic_;
+            d.instrumentId_ = instrument->Id();
+            d.measureId_ = request.measureId_;
+            result.diagnostics_.push_back(std::move(d));
+        } catch (const std::exception& error) {
+            auto d = Diagnostic("ScriptCurveQuoteRiskEvaluationUnavailable", "/pv", "independent finite deterministic Price and checked response",
+                                error.what());
+            d.instrumentId_ = instrument->Id();
+            d.measureId_ = request.measureId_;
+            result.diagnostics_.push_back(std::move(d));
+        }
+        return result;
+    }
     bool ScriptCurveQuoteRiskSnapshot_::StructureValid() const { return data_->structureValid_; }
     bool ScriptCurveQuoteRiskSnapshot_::MappingAvailable() const { return data_->structureValid_ && data_->diagnostics_.empty(); }
     const ScriptCurveQuoteRiskNumerics_& ScriptCurveQuoteRiskSnapshot_::Numerics() const { return data_->numerics_; }
