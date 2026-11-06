@@ -715,6 +715,67 @@ these are not calibrated quote risk. New curve families reject ScriptMC,
 including explicit opt-in. Their deterministic admission does not imply a
 matching stochastic model, XCCY support or a general script optimizer.
 
+## Explicit compounded OIS table preparation
+
+The core `dal/curve/compoundedois.hpp` provides `CompoundedOisScriptSpec_`
+and `PrepareCompoundedOis(spec, valuation)`. This is structural table
+preparation only. The returned `PreparedCompoundedOis_` has no Price,
+ParRate, source builder, calibration, MC or quote-risk entry point.
+
+Supply fixed rows `(start,end,payment,accrual)`, floating coupons
+`(coupon_id,start,end,payment)` and observation rows
+`(start,end,fixing_time,accrual,coupon_id,rate_start,rate_end)`.
+Notional is a finite positive currency amount; coupon is a finite decimal
+rate. Direction is exactly `PayFixed` or `ReceiveFixed`. Currency,
+same-currency OIS collateral, fixing index, discount and projection route
+IDs are explicit. Each leg independently covers contiguous periods in input
+order, and each payment is at or after its period end. Coupon IDs compare
+case-sensitively. Fixed accruals use `fixedBasis_`; observations use
+`observationBasis_`. Each basis must be ACT/360 or ACT/365F.
+
+`calendar_` is a required, resolved `HolidayCenterData_` value with an explicit
+ID, sorted unique holidays and sorted unique working-weekend exceptions.
+It is copied into the prepared contract; its name never resolves global
+calendar data. Weekends are closed unless explicitly working. Holiday and
+working-weekend exceptions cannot conflict. There is no currency calendar
+default or automatic schedule generation.
+
+Rule `dal.compounded-ois-cashflows/1` requires a business-day `rate_start`,
+the next business day as `rate_end`, and midnight at `rate_start` as
+`fixing_time`. The actual accrual interval is the intersection of that full
+rate interval and its coupon. Observations cover each coupon exactly once
+without gaps, overlap or reordering. Friday to Monday therefore uses one
+fixing and `3/360`, not three daily factors. A coupon starting on Sunday
+uses the same full Friday-to-Monday rate interval with only `1/360` weight.
+The prepared observation metadata also records the full rate accrual.
+Lookback, lockout, observation shift and intraday times are unsupported.
+
+Valuation requires an explicit evaluation date and immutable fixing snapshot,
+including an explicit empty snapshot. The existing same-day default is Model;
+RequireHistorical marks same-day dependencies as historical. Preparation
+classifies historical dependencies for included coupons; it does not fetch
+missing fixings or evaluate rates. All input rows remain available. Payment
+statuses follow IncludeUnsettledAtValuation: before today is settled, today
+and later are included. Settled coupons have no historical dependency.
+
+`ContractIdentity()` fingerprints every spec field, including N/K, complete
+tables, rules and calendar contents. `CalendarIdentity()` fingerprints the
+calendar; `PreparationIdentity()` additionally includes evaluation date,
+today policy and the complete fixing snapshot. These are preparation
+identities, separate from executable definition/source/binding identities.
+`DumpPreparedCompoundedOisJson` and `LoadPreparedCompoundedOisJson` use strict
+schema `dal.compounded-ois-preparation/1`, recomputing identities and derived
+statuses on load. Existing instrument and report wire schemas are unchanged.
+
+Observation `sourceKey_` is the stable zero-based `observations/<row>` table
+key; `couponRow_` is the zero-based coupon ordinal. No script statement
+location is claimed before source exists. Invalid table diagnostics use
+zero-based JSON field paths, one-based `sourceRow_` within that table,
+instrument ID and coupon ID in `observationId_` where applicable. Failures
+throw owning `CalibrationError_` reports, which survive their input and
+exception. Prepared tables, calendar, valuation and snapshot are copied and
+exposed through const getters.
+
 ## Deterministic XCCY script cashflows
 
 The core `dal/curve/xccyscript.hpp` provides `NewXccyScriptInstrument` for
