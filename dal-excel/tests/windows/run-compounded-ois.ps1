@@ -19,11 +19,13 @@ function Invoke-GitRead {
 
 $head = ((Invoke-GitRead -GitArguments @("rev-parse", "HEAD")) -join "`n").Trim()
 $tracked = Invoke-GitRead -GitArguments @("status", "--porcelain", "--untracked-files=no")
-if ($tracked) { throw "Tracked source changes prevent a single-SHA acceptance claim" }
+Invoke-GitRead -GitArguments @("diff", "--ignore-cr-at-eol", "--quiet", "HEAD", "--") | Out-Null
 $manifest = @{
     source_head = $head
     source_root = $sourceRoot
     clean_tracked = $true
+    line_ending_normalization = "CRLF-to-LF only"
+    raw_tracked_status = @($tracked)
     git_executable = $gitPath
     dependencies = (Invoke-GitRead -GitArguments @("submodule", "status", "--recursive")) -join "`n"
     xll_sha256 = (Get-FileHash -LiteralPath $Xll -Algorithm SHA256).Hash
