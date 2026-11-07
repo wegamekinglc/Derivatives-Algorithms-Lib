@@ -97,6 +97,7 @@ match the directory name.
 | [aad_public_risk](examples/aad_public_risk/)                               | Owning weighted-risk results and reporting coordinates                         |
 | [script_calibration](examples/script_calibration/)                         | Deposit calibration, fixed coupon pricing and explicit parameter rebinding     |
 | [script_curve_quote_risk](examples/script_curve_quote_risk/)               | Explicit snapshot admission, fixed-contract Price/raw/DV01 and owning failures |
+| [compounded_ois_script](examples/compounded_ois_script/)                   | Mixed historical/future OIS, explicit holiday, delayed payment and native AAD |
 | [interpolate_curve_script](examples/interpolate_curve_script/)             | Thirteen direct swap/FRA scripts fitted with three log-discount schemes        |
 | [gsr_script_calibration](examples/gsr_script_calibration/)                 | Gaussian BondOption fit, same-path plain/AAD prices and native partials        |
 | [xccy_script_calibration](examples/xccy_script_calibration/)               | Direct XCCY source cashflows fitted by the staged curve calibrator             |
@@ -107,21 +108,25 @@ From the repository root, build and run the deterministic curve examples:
 
 ```bash
 cmake --preset core-dev -DDAL_BUILD_PUBLIC=ON -DDAL_PUBLIC_BUILD_EXAMPLES=ON
-cmake --build build/core-dev --target script_calibration script_curve_quote_risk interpolate_curve_script xccy_script_calibration --parallel
-ctest --test-dir build/core-dev -R '^(script_calibration|script_curve_quote_risk|interpolate_curve_script|xccy_script_calibration)$' --output-on-failure
+cmake --build build/core-dev --target script_calibration script_curve_quote_risk compounded_ois_script interpolate_curve_script xccy_script_calibration --parallel
+ctest --test-dir build/core-dev -R '^(script_calibration|script_curve_quote_risk|compounded_ois_script|interpolate_curve_script|xccy_script_calibration)$' --output-on-failure
 ```
 
 For example, run the interpolation program directly at
 `build/core-dev/dal-public/examples/interpolate_curve_script/interpolate_curve_script`;
 installation places it in `bin/`. Multi-configuration generators add the
 configuration directory, such as `Release`, to the build-tree run path.
-All seven programs are CTest `examples` smoke tests. Their small stochastic
+All nine programs are CTest `examples` smoke tests. Their small stochastic
 budgets demonstrate interfaces; they do not establish full numerical acceptance
 or calibrated quote risk. See the [script calibration guide](../docs/methodology/script_calibration_contract.md)
 for supported execution modes and statistical limits, and the
 [native AAD guide](../docs/examples.md#public-facade-and-owning-results) for the risk example.
 The [core examples](../dal-cpp/examples/README.md) retain their locations and
 depend only on `DAL::cpp`.
+
+The [compounded OIS guide](../docs/ccy-curves/compounded-ois.md) gives the
+explicit table and route recipe. Its raw native partials are distinct from
+the quote DV01 shown by `script_curve_quote_risk`.
 
 ## Build and Test
 

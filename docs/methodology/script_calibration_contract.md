@@ -717,6 +717,10 @@ matching stochastic model, XCCY support or a general script optimizer.
 
 ## Explicit compounded OIS table preparation
 
+The [calling and resource guide](../ccy-curves/compounded-ois.md) supplies a
+public example, interface recipes and scoped benchmark commands. Native
+partials preserve their parameter axis, currency, actual N and direction.
+
 The core `dal/curve/compoundedois.hpp` provides `CompoundedOisScriptSpec_`
 and `PrepareCompoundedOis(spec, valuation)` for structural table preparation.
 Pass the returned frozen tables to `NewCompoundedOisScriptInstrument` in
