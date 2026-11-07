@@ -23,6 +23,18 @@ namespace {
         r.settings_.rannacherIntervals_ = 1;
         return r;
     }
+    void AssertDatedAnchors(const EarlyExercisePdeInternal::Plan_& plan, const EarlyExercisePdeRequest_& r) {
+        size_t dated = 0;
+        for (const auto& node : plan.TimeGrid()) {
+            if (!node.calendarDate_)
+                continue;
+            ++dated;
+            ASSERT_DOUBLE_EQ(node.timeYears_, (*node.calendarDate_ - r.contract_.evaluationDate_) / 365.0);
+            ASSERT_EQ(node.isExerciseDate_, *node.calendarDate_ == Date_(2027, 4, 18) || *node.calendarDate_ == r.contract_.maturityDate_);
+            ASSERT_EQ(node.isCarryKnot_, *node.calendarDate_ == Date_(2027, 3, 4) || *node.calendarDate_ == r.contract_.maturityDate_);
+        }
+        ASSERT_EQ(dated, 4);
+    }
 } // namespace
 
 TEST(EarlyExercisePlanTest, TestAllScenariosUseStableActualSubstepsAndFixedGeometry) {
@@ -39,16 +51,7 @@ TEST(EarlyExercisePlanTest, TestAllScenariosUseStableActualSubstepsAndFixedGeome
     ASSERT_EQ(plan.Counts().base_, 6);
     ASSERT_EQ(plan.Counts().damping_, 2);
     ASSERT_EQ(plan.BasePlannedSteps(), single.Execution().plannedSteps_);
-    size_t dated = 0;
-    for (const auto& node : plan.TimeGrid()) {
-        if (!node.calendarDate_)
-            continue;
-        ++dated;
-        ASSERT_DOUBLE_EQ(node.timeYears_, (*node.calendarDate_ - r.contract_.evaluationDate_) / 365.0);
-        ASSERT_EQ(node.isExerciseDate_, *node.calendarDate_ == Date_(2027, 4, 18) || *node.calendarDate_ == r.contract_.maturityDate_);
-        ASSERT_EQ(node.isCarryKnot_, *node.calendarDate_ == Date_(2027, 3, 4) || *node.calendarDate_ == r.contract_.maturityDate_);
-    }
-    ASSERT_EQ(dated, 4);
+    AssertDatedAnchors(plan, r);
     for (const auto& market : {r.market_, bumped}) {
         auto scenario = r;
         scenario.market_ = market;

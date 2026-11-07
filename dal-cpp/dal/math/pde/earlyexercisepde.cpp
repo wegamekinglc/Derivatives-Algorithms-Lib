@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstring>
 #include <sstream>
+#include <string_view>
 
 #include <dal/math/pde/earlyexercisepdeinternal.hpp>
 #include <dal/storage/canonicaljson_internal.hpp>
@@ -148,6 +149,18 @@ namespace Dal::PDE {
             }
             return {target, source, damped ? 1.0 : theta, carry, damped, std::nullopt};
         }
+        struct StabilityBounds_ {
+            double rate_, diagonal_;
+        };
+        StabilityBounds_
+        SegmentBounds(const EarlyExercisePdeRequest_& r, int carry, const Vector_<EarlyExercisePdeMarket_>& extraMarkets, PlanCounts_* counts) {
+            StabilityBounds_ bounds{r.market_.carry_[carry].rate_, SegmentDiagonal(r.market_, r.settings_.gridPoints_, carry, counts)};
+            for (const auto& market : extraMarkets) {
+                bounds.diagonal_ = std::max(bounds.diagonal_, SegmentDiagonal(market, r.settings_.gridPoints_, carry, counts));
+                bounds.rate_ = std::min(bounds.rate_, market.carry_[carry].rate_);
+            }
+            return bounds;
+        }
         template <class F_> PlanCounts_ Plan(const EarlyExercisePdeRequest_& r, F_ emit, const Vector_<EarlyExercisePdeMarket_>& extraMarkets = {}) {
             PlanCounts_ counts;
             const auto& c = r.contract_;
@@ -160,17 +173,12 @@ namespace Dal::PDE {
                 PreviousExercise(c, right, &exercise);
                 PreviousCarry(r.market_, right, &carry);
                 const Date_ left = LeftAnchor(r, carry, exercise);
-                double maxDiagonal = SegmentDiagonal(r.market_, s.gridPoints_, carry, &counts);
-                double rate = r.market_.carry_[carry].rate_;
-                for (const auto& market : extraMarkets) {
-                    maxDiagonal = std::max(maxDiagonal, SegmentDiagonal(market, s.gridPoints_, carry, &counts));
-                    rate = std::min(rate, market.carry_[carry].rate_);
-                }
+                const auto bounds = SegmentBounds(r, carry, extraMarkets, &counts);
                 const int base = IntervalSteps(r, left, right, &counts);
                 const double lo = Years(left, c.evaluationDate_), hi = Years(right, c.evaluationDate_);
                 for (int b = 0; b < base; ++b) {
                     const auto step = BaseStep(lo, hi, b, base, carry, &damping, &counts, s.theta_);
-                    EmitParts(r, step, rate, maxDiagonal, b + 1 == base ? std::optional<Date_>(left) : std::nullopt, &counts, emit);
+                    EmitParts(r, step, bounds.rate_, bounds.diagonal_, b + 1 == base ? std::optional<Date_>(left) : std::nullopt, &counts, emit);
                 }
                 right = left;
                 if (s.theta_ == 0.5 && exercise >= 0 && c.exerciseDates_[exercise] == left)
@@ -838,12 +846,12 @@ namespace Dal::PDE {
                     if (date)
                         Integer(static_cast<uint64_t>(static_cast<int64_t>(Dal::Date::ToExcel(*date))));
                 }
-                void Text(const char* value) {
-                    const size_t length = std::strlen(value);
+                void Text(std::string_view value) {
+                    const size_t length = value.size();
                     Integer(length);
                     bytes_ = Add(bytes_, length);
                     if (output_)
-                        output_->append(value, length);
+                        output_->append(value.data(), length);
                 }
             };
             size_t CanonicalPlan(const Plan_& plan, std::string* output) {
@@ -898,20 +906,65 @@ namespace Dal::PDE {
                 for (size_t i = 0; i < market.carry_.size(); ++i)
                     Check(market.carry_[i].endDate_ == base.carry_[i].endDate_, "plan.carry", "scenario must preserve carry dates");
             }
-            void CheckPlanRequest(const EarlyExercisePdeRequest_& r, const EarlyExercisePdeRequest_& base) {
-                const auto& c = r.contract_;
-                const auto& b = base.contract_;
-                const auto& s = r.settings_;
-                const auto& t = base.settings_;
+            void CheckPlanContract(const EarlyExercisePdeContract_& c, const EarlyExercisePdeContract_& b) {
                 Check(c.evaluationDate_ == b.evaluationDate_ && c.maturityDate_ == b.maturityDate_ && c.strike_ == b.strike_ &&
                           c.optionType_ == b.optionType_ && c.exerciseStyle_ == b.exerciseStyle_ && c.exerciseDates_ == b.exerciseDates_,
                       "plan.contract", "scenario must preserve contract");
+            }
+            void CheckPlanSettings(const EarlyExercisePdeSettings_& s, const EarlyExercisePdeSettings_& t) {
                 Check(s.gridPoints_ == t.gridPoints_ && s.ordinarySteps_ == t.ordinarySteps_ && s.theta_ == t.theta_ &&
-                          s.rannacherIntervals_ == t.rannacherIntervals_ && s.penaltyFactor_ == t.penaltyFactor_ &&
-                          s.absoluteTolerance_ == t.absoluteTolerance_ && s.relativeTolerance_ == t.relativeTolerance_ &&
-                          s.maxIterationsPerStep_ == t.maxIterationsPerStep_ && s.linearBackwardErrorLimit_ == t.linearBackwardErrorLimit_,
+                          s.rannacherIntervals_ == t.rannacherIntervals_,
+                      "plan.settings", "scenario must preserve grid settings");
+                Check(s.penaltyFactor_ == t.penaltyFactor_ && s.absoluteTolerance_ == t.absoluteTolerance_ &&
+                          s.relativeTolerance_ == t.relativeTolerance_ && s.maxIterationsPerStep_ == t.maxIterationsPerStep_ &&
+                          s.linearBackwardErrorLimit_ == t.linearBackwardErrorLimit_,
                       "plan.settings", "scenario must preserve numerical settings");
+            }
+            void CheckPlanRequest(const EarlyExercisePdeRequest_& r, const EarlyExercisePdeRequest_& base) {
+                CheckPlanContract(r.contract_, base.contract_);
+                CheckPlanSettings(r.settings_, base.settings_);
                 CheckCarryLayout(r.market_, base.market_);
+            }
+            PlanCounts_ ScenarioCounts(const EarlyExercisePdeRequest_& r, const Plan_* fixed) {
+                if (!fixed) {
+                    ValidateEarlyExercisePdeRequest(r);
+                    return Plan(r, [](const PlanStep_&) {});
+                }
+                auto counts = fixed->Counts();
+                counts.upwind_ = 0;
+                for (size_t i = 0; i < r.market_.carry_.size(); ++i)
+                    SegmentDiagonal(r.market_, r.settings_.gridPoints_, static_cast<int>(i), &counts);
+                return counts;
+            }
+            EarlyExercisePdeRequest_ ResultRequest(const EarlyExercisePdeRequest_& input, const Plan_* fixed) {
+                auto r = input;
+                r.settings_.upper_ = fixed ? fixed->Upper() : Upper(input);
+                if (fixed)
+                    ValidateEarlyExercisePdeRequest(r);
+                return r;
+            }
+            EarlyExercisePdeExecution_
+            Execution(const EarlyExercisePdeRequest_& r, const PlanCounts_& counts, const StorageLayout_& layout, double epsilon) {
+                EarlyExercisePdeExecution_ e;
+                e.plannedSteps_ = counts.steps_;
+                e.baseSteps_ = counts.base_;
+                e.dampingAddedSteps_ = counts.damping_;
+                e.stabilityAddedSteps_ = counts.steps_ - counts.base_ - counts.damping_;
+                e.upwindRows_ = counts.upwind_;
+                e.effectiveRannacherIntervals_ = r.settings_.theta_ == 0.5 ? r.settings_.rannacherIntervals_ : 0;
+                e.plannedRegionCapacity_ = layout.regions_;
+                e.plannedNumericPayloadBytes_ = layout.payload_;
+                e.plannedWorkspaceBytes_ = layout.workspace_;
+                e.epsilon_ = epsilon;
+                return e;
+            }
+            Vector_<PlanStep_> SinglePlan(const EarlyExercisePdeRequest_& r, int steps, bool fixed) {
+                Vector_<PlanStep_> plan;
+                if (!fixed) {
+                    plan.reserve(steps);
+                    Plan(r, [&](const PlanStep_& step) { plan.push_back(step); });
+                }
+                return plan;
             }
         } // namespace
 
@@ -968,44 +1021,20 @@ namespace Dal::PDE {
     } // namespace EarlyExercisePdeInternal
 
     EarlyExercisePdeResult_ EarlyExercisePdeInternal::ResultAccess_::Run(const EarlyExercisePdeRequest_& input, const Plan_* fixed) {
-        if (!fixed)
-            ValidateEarlyExercisePdeRequest(input);
-        const auto counts = fixed ? fixed->counts_ : Plan(input, [](const PlanStep_&) {});
+        const auto counts = ScenarioCounts(input, fixed);
         Budget(counts.steps_, input.settings_.maxActualSteps_, "max_actual_steps");
         const size_t n = input.settings_.gridPoints_, m = counts.steps_;
         const bool american = American(input);
         const auto layout = AdmitStorage(input, counts);
-        const size_t levels = layout.levels_, regions = layout.regions_, payload = layout.payload_, workspace = layout.workspace_;
+        const size_t levels = layout.levels_, regions = layout.regions_, payload = layout.payload_;
         EarlyExercisePdeResult_ result;
-        result.request_ = input;
-        result.request_.settings_.upper_ = fixed ? fixed->Upper() : Upper(input);
+        result.request_ = ResultRequest(input, fixed);
         const auto& r = result.request_;
-        if (fixed)
-            ValidateEarlyExercisePdeRequest(r);
         const auto& s = r.settings_;
         auto& e = result.execution_;
-        e.plannedSteps_ = counts.steps_;
-        e.baseSteps_ = counts.base_;
-        e.dampingAddedSteps_ = counts.damping_;
-        e.stabilityAddedSteps_ = counts.steps_ - counts.base_ - counts.damping_;
-        e.upwindRows_ = counts.upwind_;
-        if (fixed) {
-            PlanCounts_ scenarioCounts;
-            for (size_t i = 0; i < r.market_.carry_.size(); ++i)
-                SegmentDiagonal(r.market_, s.gridPoints_, static_cast<int>(i), &scenarioCounts);
-            e.upwindRows_ = scenarioCounts.upwind_;
-        }
-        e.effectiveRannacherIntervals_ = s.theta_ == 0.5 ? s.rannacherIntervals_ : 0;
-        e.plannedRegionCapacity_ = regions;
-        e.plannedNumericPayloadBytes_ = payload;
-        e.plannedWorkspaceBytes_ = workspace;
         const double scale = std::max(r.market_.spot_, r.contract_.strike_);
-        e.epsilon_ = fixed ? fixed->epsilon_ : s.absoluteTolerance_ + s.relativeTolerance_ * scale;
-        Vector_<PlanStep_> singlePlan;
-        if (!fixed) {
-            singlePlan.reserve(m);
-            Plan(r, [&](const PlanStep_& step) { singlePlan.push_back(step); });
-        }
+        e = Execution(r, counts, layout, fixed ? fixed->Epsilon() : s.absoluteTolerance_ + s.relativeTolerance_ * scale);
+        const auto singlePlan = SinglePlan(r, counts.steps_, fixed != nullptr);
         const auto& plan = fixed ? fixed->steps_ : singlePlan;
         const auto carry = CarryIntegrals(r);
         result.grid_.Resize(n);
