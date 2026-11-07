@@ -377,6 +377,49 @@ def arguments(argv):
     return args
 
 
+def retry_identical_native(args, result, suite, packages):
+    environments = result["environments"]
+    if environments["base"]["native_sha256"] != environments["head"]["native_sha256"]:
+        return
+    result["initial_failures"] = result["failures"].copy()
+    write_report(args.output_dir, result)
+    (args.output_dir / "initial-results.json").write_bytes(
+        (args.output_dir / "results.json").read_bytes()
+    )
+    (args.output_dir / "initial-summary.md").write_bytes(
+        (args.output_dir / "summary.md").read_bytes()
+    )
+    print(
+        "::warning::Relative timing failed for byte-identical native modules; "
+        "retrying once with unchanged sampling and thresholds. Initial evidence is retained.",
+        flush=True,
+    )
+    retry_dir = args.output_dir / "retry"
+    result["retried_identical_binaries"] = True
+    result["retry_directory"] = "retry"
+    retry = collect(
+        suite, packages, args.samples * args.confirmation_rounds, retry_dir
+    )
+    for side in ("base", "head"):
+        initial_environment = environments[side]
+        retry_environment = retry[side][0]["environment"]
+        for key in ("native_sha256", "python", "thread_environment"):
+            require(
+                retry_environment.get(key) == initial_environment.get(key),
+                f"{side} {key} changed between identical-binary attempts",
+            )
+    result["comparisons"], result["failures"] = evaluate(
+        retry["base"],
+        retry["head"],
+        args.samples,
+        args.confirmation_rounds,
+        args.threshold_percent,
+    )
+    result["raw_samples_ns"] = comparable_samples(retry["base"], retry["head"])
+    result["status"] = "failed" if result["failures"] else "passed"
+    write_report(retry_dir, result)
+
+
 def run_gate(args, result):
     builds = {"base": args.base_root.resolve(), "head": args.head_root.resolve()}
     sources = {"base": args.base_source.resolve(), "head": args.head_source.resolve()}
@@ -438,51 +481,8 @@ def run_gate(args, result):
     result["raw_samples_ns"] = comparable_samples(collected["base"], collected["head"])
     result["status"] = "failed" if result["failures"] else "passed"
     result["retried_identical_binaries"] = False
-    identical = (
-        result["environments"]["base"]["native_sha256"]
-        == result["environments"]["head"]["native_sha256"]
-    )
-    if args.retry_identical_binaries and result["failures"] and identical:
-        result["initial_failures"] = result["failures"].copy()
-        write_report(args.output_dir, result)
-        (args.output_dir / "initial-results.json").write_bytes(
-            (args.output_dir / "results.json").read_bytes()
-        )
-        (args.output_dir / "initial-summary.md").write_bytes(
-            (args.output_dir / "summary.md").read_bytes()
-        )
-        print(
-            "::warning::Relative timing failed for byte-identical native modules; "
-            "retrying once with unchanged sampling and thresholds. Initial evidence is retained.",
-            flush=True,
-        )
-        retry_dir = args.output_dir / "retry"
-        result["retried_identical_binaries"] = True
-        result["retry_directory"] = "retry"
-        retry = collect(
-            suite,
-            packages,
-            args.samples * args.confirmation_rounds,
-            retry_dir,
-        )
-        for side in ("base", "head"):
-            initial_environment = result["environments"][side]
-            retry_environment = retry[side][0]["environment"]
-            for key in ("native_sha256", "python", "thread_environment"):
-                require(
-                    retry_environment.get(key) == initial_environment.get(key),
-                    f"{side} {key} changed between identical-binary attempts",
-                )
-        result["comparisons"], result["failures"] = evaluate(
-            retry["base"],
-            retry["head"],
-            args.samples,
-            args.confirmation_rounds,
-            args.threshold_percent,
-        )
-        result["raw_samples_ns"] = comparable_samples(retry["base"], retry["head"])
-        result["status"] = "failed" if result["failures"] else "passed"
-        write_report(retry_dir, result)
+    if args.retry_identical_binaries and result["failures"]:
+        retry_identical_native(args, result, suite, packages)
 
 
 def main(argv=None):
