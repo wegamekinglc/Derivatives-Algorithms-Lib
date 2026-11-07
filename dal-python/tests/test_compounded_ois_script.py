@@ -110,6 +110,8 @@ def test_ois_direction_notional_and_readonly_copies():
     assert len(spec.observations) == 3
     assert request.evaluation == "AutoFast" and request.difference_step == 1e-6
     assert request.market.routes[1].overnight
+    assert request.market.routes[1].tenor is None
+    assert request.geometry.target_tenor is None
     assert request.geometry.target_overnight_route == "USD.SOFR"
 
 

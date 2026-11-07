@@ -80,7 +80,8 @@ reject unavailable values; optional settled amounts/DFs/rates are `None`.
 
 ON routing uses `CurveScriptRoute_(..., projection=True, overnight=True)`,
 `geometry.target_overnight_route`, `market.overnight_curves` and the explicit
-`use_target_curve` flag. Calibration specs accept `compounded_ois=[tables]`.
+`use_target_curve` flag. Unset tenors read as `None`.
+Calibration specs accept `compounded_ois=[tables]`.
 These native derivatives do not admit ON contracts to P1 quote risk or MC.
 The [shared contract](../methodology/script_calibration_contract.md#explicit-compounded-ois-table-preparation)
 defines the financial rules and defaults.

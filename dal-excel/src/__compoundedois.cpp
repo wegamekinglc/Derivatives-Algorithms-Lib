@@ -217,13 +217,9 @@ namespace Dal {
     void CurveScriptOvernightRoutes_New(const Matrix_<Cell_>& cells, Handle_<StorableCurveScriptRoutes_>* value) {
         const OisRows_ rows(cells, "CurveScriptOvernightRoutes_New", {"id", "projection", "collateral", "tenor", "overnight", "use_target_curve"});
         value->reset(new StorableCurveScriptRoutes_(rows.Read<CurveScriptRoute_>([&](int i) {
-            const auto tenor = rows.Get<String_>(i, "tenor");
-            return CurveScriptRoute_{rows.Get<String_>(i, "id"),
-                                     rows.Get<bool>(i, "projection"),
-                                     rows.Get<CollateralType_>(i, "collateral"),
-                                     tenor.empty() ? PeriodLength_() : PeriodLength_(tenor),
-                                     rows.Get<bool>(i, "overnight"),
-                                     rows.Get<bool>(i, "use_target_curve")};
+            const auto tenor = rows.Maybe<PeriodLength_>(i, "tenor");
+            return CurveScriptRoute_{rows.Get<String_>(i, "id"),      rows.Get<bool>(i, "projection"), rows.Get<CollateralType_>(i, "collateral"),
+                                     tenor.value_or(PeriodLength_()), rows.Get<bool>(i, "overnight"),  rows.Get<bool>(i, "use_target_curve")};
         })));
     }
     void CalibrationOvernightCurves_New(const Matrix_<Cell_>& cells, Handle_<StorableCalibrationOvernightCurves_>* value) {

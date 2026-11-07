@@ -140,9 +140,10 @@ namespace Dal::Python::Calibration {
         }
     };
     template <class T_> py::object Output(const T_& value) {
-        if constexpr (HasToken_<T_>::value)
-            return py::str(value.String());
-        else
+        if constexpr (HasToken_<T_>::value) {
+            const auto* token = value.String();
+            return token ? py::object(py::str(token)) : py::object(py::none());
+        } else
             return py::cast(value, py::return_value_policy::copy);
     }
     inline py::object Output(const String_& value) { return py::str(Text(value)); }

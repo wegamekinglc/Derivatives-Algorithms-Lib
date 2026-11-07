@@ -279,6 +279,24 @@ TEST(CompoundedOisScriptExcelTest, TestCalibrationTableListAndP1AdmissionStaySep
     ASSERT_EQ(risk->val_.Diagnostics()[0].code_, "ScriptCurveQuoteRiskUnsupportedCapability");
 }
 
+TEST(CompoundedOisScriptExcelTest, TestOvernightRoutesRequireTenorColumnButAcceptBlankCell) {
+    Matrix_<Cell_> cells(2, 6);
+    const char* columns[] = {"id", "projection", "collateral", "tenor", "overnight", "use_target_curve"};
+    for (int j = 0; j < 6; ++j)
+        cells(0, j) = columns[j];
+    cells(1, 0) = "USD.SOFR";
+    cells(1, 1) = true;
+    cells(1, 2) = "OIS";
+    cells(1, 4) = true;
+    cells(1, 5) = false;
+    Handle_<StorableCurveScriptRoutes_> routes;
+    CurveScriptOvernightRoutes_New(cells, &routes);
+    ASSERT_EQ(routes->val_.size(), 1u);
+    ASSERT_EQ(routes->val_[0].tenor_, PeriodLength_());
+    cells(1, 3) = "3m";
+    ASSERT_THROW(CurveScriptOvernightRoutes_New(cells, &routes), Exception_);
+}
+
 TEST(CompoundedOisScriptExcelTest, TestNamedColumnsAndStrictDates) {
     auto cells = Observations();
     Handle_<StorableCompoundedOisObservations_> result;

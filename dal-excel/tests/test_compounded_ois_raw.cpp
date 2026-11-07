@@ -3,6 +3,7 @@
 #ifdef _WIN32
 #define NOMINMAX
 #include <dal-excel/src/__compoundedois.hpp>
+#include <dal-excel/src/__excel_test_api.hpp>
 #include <dal-excel/src/__script_test_api.hpp>
 #include <dal-excel/src/_excel.hpp>
 #include <dal-excel/src/_xlcall.hpp>
@@ -71,6 +72,7 @@ namespace {
 
 TEST(CompoundedOisNativeExcelTest, TestGeneratedExportsAndRequiredReorderedTable) {
     Excel::ScriptTestInitialize(1);
+    const auto registrations = RegisteredFunctionsForTest();
     for (const auto* function : {"CompoundedOisFixedLeg_New", "CompoundedOisCoupons_New", "CompoundedOisObservations_New",
                                  "CompoundedOisCalendar_New", "CompoundedOisScriptSpec_New", "CompoundedOis_Prepare", "CompoundedOisPreparations_New",
                                  "CompoundedOisScriptInstrument_New", "CurveScriptEvaluationRequest_New", "CurveScriptInstrument_Evaluate",
@@ -78,6 +80,11 @@ TEST(CompoundedOisNativeExcelTest, TestGeneratedExportsAndRequiredReorderedTable
                                  "CalibrationOvernightCurves_New", "CurveScriptOvernightRoutes_New", "CalibrationStrings_New"}) {
         const auto name = std::string("xl_") + function;
         ASSERT_NE(GetProcAddress(GetModuleHandleA("dal_excel.xll"), name.c_str()), nullptr) << name;
+        const auto found = std::find_if(registrations.begin(), registrations.end(), [&](const auto& item) { return item.cName_ == String_(name); });
+        ASSERT_NE(found, registrations.end()) << name;
+        ASSERT_FALSE(found->volatile_);
+        ASSERT_FALSE(found->argNames_.empty());
+        ASSERT_FALSE(found->help_.empty());
     }
     OisRawTable_ table(2, 7);
     OisRawHeaders(&table);
@@ -92,6 +99,23 @@ TEST(CompoundedOisNativeExcelTest, TestGeneratedExportsAndRequiredReorderedTable
     const auto fractional = OisRawCall("xl_CompoundedOisObservations_New", &table.range_);
     ASSERT_EQ(fractional.substr(0, 7), "#Error:");
     ASSERT_NE(fractional.find("row=2 column=3"), std::string::npos);
+}
+
+TEST(CompoundedOisNativeExcelTest, TestOvernightRouteBlankTenorSurvivesOperConversion) {
+    Excel::ScriptTestInitialize(1);
+    OisRawTable_ table(2, 6);
+    const wchar_t* headers[] = {L"id", L"projection", L"collateral", L"tenor", L"overnight", L"use_target_curve"};
+    for (int j = 0; j < 6; ++j)
+        table.Text(0, j, headers[j]);
+    table.Text(1, 0, L"USD.SOFR");
+    table.Text(1, 2, L"OIS");
+    for (const int j : {1, 4, 5}) {
+        auto& cell = table.cells_[6 + j];
+        cell.xltype = xltypeBool;
+        cell.val.xbool = j != 5;
+    }
+    const auto result = OisRawCall("xl_CurveScriptOvernightRoutes_New", &table.range_);
+    ASSERT_NE(result.substr(0, 7), "#Error:") << result;
 }
 
 TEST(CompoundedOisNativeExcelTest, TestFullSelectionRawErrorAndTypedErrorAfterBlank) {

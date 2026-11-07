@@ -48,6 +48,9 @@ namespace Dal::Excel::Calibration {
                 THROW(Excel::ScriptSettingLocation(function_, "rows", i + 2, j + 1) + "field=" + column + "; " + error.what());
             }
         }
+        template <class T_> std::optional<T_> Maybe(int i, const char* column) const {
+            return Cell::IsEmpty(cells_(i + 1, columns_.at(column))) ? std::nullopt : std::optional<T_>(Get<T_>(i, column));
+        }
         template <class T_, class F_> Vector_<T_> Read(F_ construct) const {
             Vector_<T_> result;
             int blank = -1;
