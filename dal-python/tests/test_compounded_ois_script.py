@@ -259,7 +259,8 @@ def test_ois_explicit_passive_curve_maps_accept_short_real_dependency_horizons(d
     assert result.values == pytest.approx(expected, abs=1e-10)
     if discount_target:
         assert result.native_partials[0, 0] == pytest.approx(expected[0] * 7 / 20, abs=1e-10)
-        assert result.native_partials[1, 0] == 0.0
+        # The common payment DF cancels analytically; AAD subtraction can retain roundoff.
+        assert result.native_partials[1, 0] == pytest.approx(0.0, rel=0, abs=1e-14)
     assert len(market.overnight_curves if discount_target else market.discount_curves) == 1
 
 
