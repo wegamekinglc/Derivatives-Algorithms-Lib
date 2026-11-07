@@ -18,6 +18,7 @@
 #include <dal/curve/ycinstrument.hpp>
 #include <dal/platform/initall.hpp>
 #include <dal/protocol/collateraltype.hpp>
+#include <dal/script/xccymcbasket_internal.hpp>
 #include <dal/storage/globals.hpp>
 #include <dal/time/date.hpp>
 #include <dal/time/daybasis.hpp>
@@ -591,10 +592,39 @@ namespace {
         REQUIRE(std::isfinite(checksum) && std::fabs(checksum) > 0.0, "Joint XCCY CALIBRATION checksum must be finite and non-zero");
         Bench::Print(timing);
     }
+    void RunBasketStatistics() {
+        constexpr int batches = 16, coefficients = 48, outputs = 48;
+        XccyMcBasketSnapshot_ snapshot;
+        snapshot.coefficientRows_ = Vector_<Vector_<>>(batches, Vector_<>(coefficients));
+        snapshot.coefficientMeans_ = Vector_<>(coefficients);
+        snapshot.outputJacobian_ = Matrix_<>(outputs, coefficients);
+        for (int b = 0; b < batches; ++b)
+            for (int c = 0; c < coefficients; ++c) {
+                snapshot.coefficientRows_[b][c] = ((b + 1) * (c + 3) % 19 - 9) / 17.;
+                snapshot.coefficientMeans_[c] = (c - coefficients / 2) / 31.;
+            }
+        for (int o = 0; o < outputs; ++o)
+            for (int c = 0; c < coefficients; ++c)
+                snapshot.outputJacobian_(o, c) = ((o + 2) * (c + 1) % 13 - 6) / 23.;
+        const auto expected = XccyMcBasketInternal::TestAccess_::OutputCovariance(snapshot);
+        double sink = expected(0, 0);
+        Bench::PrintHeader();
+        Bench::Print(Bench::Run(
+            "XCCY MC basket output covariance B=16 C=48 O=48", [&]() { sink += XccyMcBasketInternal::TestAccess_::OutputCovariance(snapshot)(0, 0); },
+            2, 10, 20));
+        Bench::DoNotOptimize(&sink);
+        for (int i = 0; i < outputs; ++i)
+            for (int j = 0; j < outputs; ++j)
+                REQUIRE(std::isfinite(expected(i, j)) && expected(i, j) == expected(j, i), "XCCY covariance benchmark symmetry check");
+    }
 } // namespace
 
-int main() {
+int main(int argc, char** argv) {
     RegisterAll_::Init();
+    if (argc == 2 && std::string(argv[1]) == "--basket-statistics") {
+        RunBasketStatistics();
+        return 0;
+    }
     const Fixture_ fixture = MakeFixture();
     XGLOBAL::SetEvaluationDate(fixture.today_);
 
