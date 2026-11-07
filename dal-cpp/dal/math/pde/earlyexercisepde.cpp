@@ -1109,8 +1109,7 @@ namespace Dal::PDE {
         if (result.IsSuccess())
             result.price_ = InterpolatedPrice(result.grid_, result.values_, r.market_.spot_);
         // The fixed plan owns its steps; only singlePlan belongs to this rollback.
-        if (fixed)
-            e.peakWorkspaceBytes_ -= CapacityBytes(plan);
+        e.peakWorkspaceBytes_ -= CapacityBytes(plan) - CapacityBytes(singlePlan);
         e.numericPayloadBytes_ = sizeof(result) + CapacityBytes(r.market_.carry_) + CapacityBytes(r.contract_.exerciseDates_) +
                                  CapacityBytes(result.grid_) + CapacityBytes(result.values_) + CapacityBytes(result.timeGrid_) +
                                  CapacityBytes(result.steps_) + CapacityBytes(result.levels_) + CapacityBytes(result.regions_);
