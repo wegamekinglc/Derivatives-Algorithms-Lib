@@ -74,6 +74,7 @@ namespace Dal::CanonicalJson {
     std::string JcsNumber(double value);
     std::string Jcs(const Json_& value);
     String_ FingerprintCanonical(const std::string& canonical);
+    String_ FingerprintCanonical(const std::string& canonical, size_t* peakDynamicBytes);
     String_ Fingerprint(const Json_& value);
     Json_ FromRapidJson(const rapidjson::Value& value);
 } // namespace Dal::CanonicalJson

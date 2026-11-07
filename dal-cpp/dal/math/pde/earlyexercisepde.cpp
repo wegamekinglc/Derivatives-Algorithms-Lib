@@ -493,7 +493,14 @@ namespace Dal::PDE {
             double *minus_, *plus_, *rhs_, *correction_, *current_, *iterate_;
         };
         static_assert(sizeof(AssemblyArrays_) <= 8 * sizeof(double)); // Within the fixed scalar workspace allowance.
-        template <bool AMERICAN> struct Rollback_ {
+        template <bool TEST_SEAM> struct ControlState_ {
+            explicit ControlState_(const EarlyExercisePdeInternal::RollbackControl_*) {}
+        };
+        template <> struct ControlState_<true> {
+            const EarlyExercisePdeInternal::RollbackControl_* control_;
+            explicit ControlState_(const EarlyExercisePdeInternal::RollbackControl_* control) : control_(control) {}
+        };
+        template <bool AMERICAN, bool TEST_SEAM = false> struct Rollback_ : ControlState_<TEST_SEAM> {
             const EarlyExercisePdeRequest_& r_;
             const Vector_<CarryIntegral_>& carry_;
             const RollbackOutput_ out_;
@@ -501,9 +508,13 @@ namespace Dal::PDE {
             const double scale_;
             Scratch_ a_;
 
-            Rollback_(const EarlyExercisePdeRequest_& r, const Vector_<CarryIntegral_>& carry, RollbackOutput_ output, size_t regionCapacity)
-                : r_(r), carry_(carry), out_(output), regionCapacity_(regionCapacity), scale_(std::max(r.market_.spot_, r.contract_.strike_)),
-                  a_(r.settings_.gridPoints_) {}
+            Rollback_(const EarlyExercisePdeRequest_& r,
+                      const Vector_<CarryIntegral_>& carry,
+                      RollbackOutput_ output,
+                      size_t regionCapacity,
+                      const EarlyExercisePdeInternal::RollbackControl_* control)
+                : ControlState_<TEST_SEAM>(control), r_(r), carry_(carry), out_(output), regionCapacity_(regionCapacity),
+                  scale_(std::max(r.market_.spot_, r.contract_.strike_)), a_(r.settings_.gridPoints_) {}
             bool IsSuccess() const { return *out_.status_ == Status_::SUCCESS; }
             void Fail(Status_ status,
                       const EarlyExercisePdeStepDiagnostic_* step,
@@ -644,6 +655,12 @@ namespace Dal::PDE {
                 if (!IsSuccess())
                     return false;
                 CheckSolveResiduals(penalty, step);
+                if constexpr (TEST_SEAM)
+                    if (this->control_->failFirstSolve_ && e.totalSolves_ == 1) {
+                        step->linearBackwardError_ = 2.0 * r_.settings_.linearBackwardErrorLimit_;
+                        Fail(Status_::LINEAR_SOLVE_FAILURE, step, "private solver test seam", std::nullopt, step->linearBackwardError_,
+                             r_.settings_.linearBackwardErrorLimit_);
+                    }
                 return true;
             }
             bool NeedsSolve(const EarlyExercisePdeStepDiagnostic_& step) const {
@@ -660,6 +677,9 @@ namespace Dal::PDE {
                 while (IsSuccess() && NeedsSolve(*step) && step->solveCount_ < limit) {
                     if (!SolveOnce(step))
                         break;
+                    if constexpr (TEST_SEAM)
+                        if (IsSuccess() && this->control_->extraFirstSolve_ && out_.execution_->totalSolves_ == 1)
+                            SolveOnce(step);
                 }
                 CheckConvergence(step);
             }
@@ -790,7 +810,7 @@ namespace Dal::PDE {
                 (*values)[i] = a->payoff_[i];
             }
         }
-        template <bool AMERICAN>
+        template <bool AMERICAN, bool TEST_SEAM = false>
         FORCE_INLINE void RunRollback(const EarlyExercisePdeRequest_& r,
                                       const Vector_<CarryIntegral_>& carry,
                                       const Vector_<PlanStep_>& plan,
@@ -798,12 +818,13 @@ namespace Dal::PDE {
                                       RollbackOutput_ output,
                                       Vector_<>* grid,
                                       Vector_<EarlyExercisePdeStepDiagnostic_>* steps,
-                                      size_t regions) {
+                                      size_t regions,
+                                      const EarlyExercisePdeInternal::RollbackControl_* control = nullptr) {
             const size_t m = plan.size();
-            Rollback_<AMERICAN> rollback(r, carry, output, regions);
+            Rollback_<AMERICAN, TEST_SEAM> rollback(r, carry, output, regions, control);
             InitializeGrid(r, grid, output.values_, &rollback.a_);
-            constexpr size_t fixedWorkspace = sizeof(Rollback_<AMERICAN>) + sizeof(plan) + sizeof(carry) + sizeof(counts) + sizeof(PlanStep_) +
-                                              sizeof(EarlyExercisePdeStepDiagnostic_) + sizeof(EarlyExercisePdeExerciseLevel_) +
+            constexpr size_t fixedWorkspace = sizeof(Rollback_<AMERICAN, TEST_SEAM>) + sizeof(plan) + sizeof(carry) + sizeof(counts) +
+                                              sizeof(PlanStep_) + sizeof(EarlyExercisePdeStepDiagnostic_) + sizeof(EarlyExercisePdeExerciseLevel_) +
                                               sizeof(EarlyExercisePdeFailure_) + sizeof(Coefficients_) + 32 * sizeof(double) + 16 * sizeof(int);
             static_assert(fixedWorkspace <= 4096);
             output.execution_->peakWorkspaceBytes_ = fixedWorkspace + rollback.a_.Bytes() + CapacityBytes(plan) + CapacityBytes(carry);
@@ -931,6 +952,14 @@ namespace Dal::PDE {
                 CheckPlanSettings(r.settings_, base.settings_);
                 CheckCarryLayout(r.market_, base.market_);
             }
+            void CheckFixedPlan(const EarlyExercisePdeRequest_& input, const Plan_& plan) {
+                Check(!input.settings_.upper_ || *input.settings_.upper_ == plan.Upper(), "plan.upper", "scenario must use fixed upper");
+                const auto r = ResolvedScenario(input, plan.Upper());
+                CheckPlanRequest(r, plan.Request());
+                Check(plan.Epsilon() <=
+                          r.settings_.absoluteTolerance_ + r.settings_.relativeTolerance_ * std::max(r.market_.spot_, r.contract_.strike_),
+                      "plan.epsilon", "fixed tolerance must not relax scenario tolerance");
+            }
             PlanCounts_ ScenarioCounts(const EarlyExercisePdeRequest_& r, const Plan_* fixed) {
                 if (!fixed) {
                     ValidateEarlyExercisePdeRequest(r);
@@ -974,6 +1003,16 @@ namespace Dal::PDE {
             }
         } // namespace
 
+        PlanLayout_ PreviewPlan(const EarlyExercisePdeRequest_& r, const Vector_<EarlyExercisePdeMarket_>& extraMarkets) {
+            const auto counts = Plan(r, [](const PlanStep_&) {}, extraMarkets);
+            const auto storage = AdmitStorage(r, counts);
+            const size_t n = r.settings_.gridPoints_, m = counts.steps_;
+            const size_t plan = Add(Add(Add(Add(4096, Multiply(8, n)), Multiply(128, m + 1)), Multiply(32, r.market_.carry_.size())),
+                                    Multiply(8, r.contract_.exerciseDates_.size()));
+            const size_t canonical = Add(Add(256, Multiply(8, n)), Multiply(128, m + 1));
+            return {counts, storage.payload_, storage.workspace_, plan, Add(4096, Multiply(4, Add(canonical, 72)))};
+        }
+
         Plan_ BuildPlan(const EarlyExercisePdeRequest_& input, const Vector_<EarlyExercisePdeMarket_>& extraMarkets) {
             ValidateEarlyExercisePdeRequest(input);
             Plan_ result;
@@ -1003,14 +1042,15 @@ namespace Dal::PDE {
             result.timeGrid_.Resize(m + 1);
             InitializeTimeGrid(r, result.steps_, &result.timeGrid_);
             result.canonicalBytes_ = CanonicalPlan(result, nullptr);
-            result.canonicalWorkspaceBytes_ = Add(4096, Multiply(3, Add(result.canonicalBytes_, 72)));
+            result.canonicalWorkspaceBytes_ = Add(4096, Multiply(4, Add(result.canonicalBytes_, 72)));
             Budget(result.canonicalWorkspaceBytes_, r.settings_.workspaceBudgetBytes_, "workspace_budget_bytes");
             std::string canonical;
             canonical.reserve(result.canonicalBytes_);
             Budget(Add(4096, Add(canonical.capacity(), Multiply(2, Add(result.canonicalBytes_, 72)))), result.canonicalWorkspaceBytes_,
                    "canonical_storage_layout");
             CanonicalPlan(result, &canonical);
-            result.id_ = "p3v1:" + CanonicalJson::FingerprintCanonical(canonical);
+            size_t hashPeak = 0;
+            result.id_ = "p3v1:" + CanonicalJson::FingerprintCanonical(canonical, &hashPeak);
             result.storageBytes_ =
                 Add(Add(Add(Add(Add(Add(sizeof(result), CapacityBytes(r.market_.carry_)), CapacityBytes(r.contract_.exerciseDates_)),
                                 CapacityBytes(result.grid_)),
@@ -1018,15 +1058,19 @@ namespace Dal::PDE {
                         CapacityBytes(result.steps_)),
                     Add(result.id_.capacity(), 1));
             Budget(result.storageBytes_, envelope, "plan_storage_layout");
+            const size_t canonicalPeak = Add(Add(canonical.capacity(), 1), hashPeak);
+            result.peakTemporaryBytes_ = Add(result.storageBytes_ - Add(result.id_.capacity(), 1), canonicalPeak);
             return result;
         }
 
         struct ResultAccess_ {
-            static EarlyExercisePdeResult_ Run(const EarlyExercisePdeRequest_& input, const Plan_* fixed);
+            static EarlyExercisePdeResult_ Run(const EarlyExercisePdeRequest_& input, const Plan_* fixed, const RollbackControl_* control = nullptr);
+            static void SanitizePrice(EarlyExercisePdeResult_* result, const RollbackControl_* control);
         };
     } // namespace EarlyExercisePdeInternal
 
-    EarlyExercisePdeResult_ EarlyExercisePdeInternal::ResultAccess_::Run(const EarlyExercisePdeRequest_& input, const Plan_* fixed) {
+    EarlyExercisePdeResult_
+    EarlyExercisePdeInternal::ResultAccess_::Run(const EarlyExercisePdeRequest_& input, const Plan_* fixed, const RollbackControl_* control) {
         const auto counts = ScenarioCounts(input, fixed);
         Budget(counts.steps_, input.settings_.maxActualSteps_, "max_actual_steps");
         const size_t n = input.settings_.gridPoints_, m = counts.steps_;
@@ -1052,7 +1096,11 @@ namespace Dal::PDE {
         e.regionCapacity_ = result.regions_.capacity();
         InitializeTimeGrid(r, plan, &result.timeGrid_);
         const RollbackOutput_ output{result.timeGrid_, &result.values_, &result.levels_, &result.regions_, &e, &result.status_, &result.failure_};
-        if (american)
+        if (american && control)
+            RunRollback<true, true>(r, carry, plan, counts, output, &result.grid_, &result.steps_, regions, control);
+        else if (control)
+            RunRollback<false, true>(r, carry, plan, counts, output, &result.grid_, &result.steps_, regions, control);
+        else if (american)
             RunRollback<true>(r, carry, plan, counts, output, &result.grid_, &result.steps_, regions);
         else
             RunRollback<false>(r, carry, plan, counts, output, &result.grid_, &result.steps_, regions);
@@ -1072,14 +1120,36 @@ namespace Dal::PDE {
     }
 
     EarlyExercisePdeResult_ EarlyExercisePdeInternal::Rollback(const EarlyExercisePdeRequest_& input, const Plan_& plan) {
-        Check(!input.settings_.upper_ || *input.settings_.upper_ == plan.Upper(), "plan.upper", "scenario must use fixed upper");
-        {
-            const auto r = ResolvedScenario(input, plan.Upper());
-            CheckPlanRequest(r, plan.Request());
-            Check(plan.Epsilon() <= r.settings_.absoluteTolerance_ + r.settings_.relativeTolerance_ * std::max(r.market_.spot_, r.contract_.strike_),
-                  "plan.epsilon", "fixed tolerance must not relax scenario tolerance");
-        }
+        CheckFixedPlan(input, plan);
         return ResultAccess_::Run(input, &plan);
+    }
+
+    void EarlyExercisePdeInternal::ResultAccess_::SanitizePrice(EarlyExercisePdeResult_* result, const RollbackControl_* control) {
+        if (!result->IsSuccess())
+            return;
+        if (control && control->nonfinitePrice_)
+            result->price_ = std::numeric_limits<double>::infinity();
+        if (result->price_ && std::isfinite(*result->price_))
+            return;
+        result->status_ = EarlyExercisePdeStatus_(EarlyExercisePdeStatus_::Value_::NONFINITE);
+        result->price_.reset();
+        result->failure_ = EarlyExercisePdeFailure_{result->status_,
+                                                    0,
+                                                    0,
+                                                    result->request_.contract_.evaluationDate_,
+                                                    {},
+                                                    {},
+                                                    {},
+                                                    result->execution_.workUnits_,
+                                                    "nonfinite interpolated price"};
+    }
+
+    EarlyExercisePdeResult_
+    EarlyExercisePdeInternal::RollbackForRisk(const EarlyExercisePdeRequest_& input, const Plan_& plan, const RollbackControl_* control) {
+        CheckFixedPlan(input, plan);
+        auto result = ResultAccess_::Run(input, &plan, control);
+        ResultAccess_::SanitizePrice(&result, control);
+        return result;
     }
 
     double EarlyExercisePdeResult_::Price() const {
