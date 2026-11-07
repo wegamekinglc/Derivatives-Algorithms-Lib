@@ -41,6 +41,9 @@ namespace Dal {
 } // namespace Dal
 
 namespace Dal::PDE {
+    namespace EarlyExercisePdeInternal {
+        struct ResultAccess_;
+    } // namespace EarlyExercisePdeInternal
     struct EarlyExercisePdeCarrySegment_ {
         Date_ endDate_;
         double rate_ = std::numeric_limits<double>::quiet_NaN();
@@ -137,6 +140,7 @@ namespace Dal::PDE {
         EarlyExercisePdeExecution_ execution_;
         std::optional<EarlyExercisePdeFailure_> failure_;
         friend EarlyExercisePdeResult_ EvaluateEarlyExercisePde(const EarlyExercisePdeRequest_&);
+        friend struct EarlyExercisePdeInternal::ResultAccess_;
 
     public:
         [[nodiscard]] EarlyExercisePdeStatus_ Status() const { return status_; }
