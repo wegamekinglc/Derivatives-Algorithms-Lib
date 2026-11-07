@@ -14,26 +14,28 @@
 
 #include <algorithm>
 #include <cmath>
-#include <memory>
-#include <string>
-#include <utility>
-#include <vector>
-#include <dal/platform/platform.hpp>
-#include <dal/platform/initall.hpp>
-#include <dal/platform/strict.hpp>
+#include <dal/benchmarks/bench.hpp>
 #include <dal/curve/calibration.hpp>
 #include <dal/curve/curveblock.hpp>
 #include <dal/curve/ycinstrument.hpp>
 #include <dal/curve/yclogdf.hpp>
 #include <dal/curve/ycpwlf.hpp>
 #include <dal/math/vectors.hpp>
+#include <dal/platform/initall.hpp>
+#include <dal/platform/platform.hpp>
+#include <dal/platform/strict.hpp>
 #include <dal/protocol/collateraltype.hpp>
 #include <dal/string/strings.hpp>
 #include <dal/time/date.hpp>
 #include <dal/time/daybasis.hpp>
 #include <dal/time/holidays.hpp>
 #include <dal/time/periodlength.hpp>
-#include <dal/benchmarks/bench.hpp>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "compoundedois.hpp"
 
 using namespace Dal;
 
@@ -131,10 +133,13 @@ namespace {
             queries.push_back(anchor.AddDays((17 * i) % (31 * nodeCount + 60) - 30));
         double sink = 0.0;
         const std::string name = "PWL DF queries (4096 x " + std::to_string(nodeCount) + " nodes)";
-        const auto result = Bench::Run(name.c_str(), [&]() {
-            for (const auto& date : queries)
-                sink += curve(anchor, date);
-        }, 1, 10);
+        const auto result = Bench::Run(
+            name.c_str(),
+            [&]() {
+                for (const auto& date : queries)
+                    sink += curve(anchor, date);
+            },
+            1, 10);
         Bench::Print(result);
         Bench::DoNotOptimize(&sink);
     }
@@ -208,9 +213,7 @@ namespace {
                 for (int i = 0; i < static_cast<int>(from.size()); ++i)
                     sink += curve(from[i], to[i]);
             },
-            2,
-            10,
-            20);
+            2, 10, 20);
         REQUIRE(std::abs(sink - 202.0 * expectedSum) <= 1.0e-6, "Log-DF timed query sum mismatch");
         Bench::Print(result);
         Bench::DoNotOptimize(&sink);
@@ -220,12 +223,12 @@ namespace {
 
     void RunLogDfQueries() {
         const LogDfFixture_ fixture;
-        const Tape::DiscountLogDF_<double> curve(
-            "queries", "USD", fixture.nodes_, fixture.logDf_, fixture.dayCount_, LogDfScheme_::Value_::LOG_LINEAR);
+        const Tape::DiscountLogDF_<double> curve("queries", "USD", fixture.nodes_, fixture.logDf_, fixture.dayCount_,
+                                                 LogDfScheme_::Value_::LOG_LINEAR);
         const Handle_<DiscountCurve_> base(
             new Tape::DiscountLogDF_<double>("base", "USD", fixture.nodes_, fixture.baseLogDf_, fixture.dayCount_, LogDfScheme_::Value_::LOG_LINEAR));
-        const Tape::DiscountLogDF_<double> withBase(
-            "with_base", "USD", fixture.nodes_, fixture.logDf_, fixture.dayCount_, LogDfScheme_::Value_::LOG_LINEAR, base);
+        const Tape::DiscountLogDF_<double> withBase("with_base", "USD", fixture.nodes_, fixture.logDf_, fixture.dayCount_,
+                                                    LogDfScheme_::Value_::LOG_LINEAR, base);
         const auto anchors = Repeat(fixture.anchor_, fixture.queries_.size());
         const auto nonAnchors = Repeat(fixture.nonAnchor_, fixture.queries_.size());
 
@@ -239,14 +242,14 @@ namespace {
     }
 } // namespace
 
-int main() {
+int main(int argc, char** argv) {
     RegisterAll_::Init();
+    if (argc == 2 && std::string(argv[1]) == "--compounded-ois") {
+        RunCompoundedOis();
+        return 0;
+    }
     constexpr int kRepeats = 5;
     Bench::PrintHeader();
-
-    for (const int nodeCount : {8, 24, 64, 256})
-        RunPwlQueries(nodeCount);
-    RunLogDfQueries();
 
     const auto optsAnalytic = OptionsFor(CurveJacobianMode_::Value_::ANALYTIC);
     const auto optsAnalyticSolveOnly = OptionsFor(CurveJacobianMode_::Value_::ANALYTIC, false, false);
@@ -265,6 +268,17 @@ int main() {
         Bench::Print(r);
         Bench::DoNotOptimize(&sink);
     };
+
+    if (argc == 2 && std::string(argv[1]) == "--ois-neighbor") {
+        const auto spec = BuildCalibrationSpec(CurveParameterization_::Value_::LOG_DISCOUNT);
+        runCase("CalibrateYieldCurve LOG_LINEAR ANALYTIC +DIAG (23 swaps)", spec, optsAnalytic);
+        runCase("CalibrateYieldCurve LOG_LINEAR BUMPED +DIAG (23 swaps)", spec, optsBumped);
+        return 0;
+    }
+
+    for (const int nodeCount : {8, 24, 64, 256})
+        RunPwlQueries(nodeCount);
+    RunLogDfQueries();
 
     struct CurveCase_ {
         std::string name;

@@ -132,6 +132,11 @@ generic equation callbacks and the smooth prototype remain C++ interfaces.
 
 ## Excel
 
+The independent public [compounded OIS program](../dal-public/examples/compounded_ois_script/compounded_ois_script.cpp)
+demonstrates mixed historical/future rates, a weekend/holiday factor and
+delayed payment. Its [calling guide](ccy-curves/compounded-ois.md) includes
+Python/Excel recipes and explains the native partial axis.
+
 Follow the [segmented MC and LSMC worksheet recipe](../dal-excel/examples/011.native_aad_risk.md).
 It gives exact cell locations, input matrices, handle dependencies and result
 queries. The [Excel interface](excel/README.md) documents all function signatures,

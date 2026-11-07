@@ -3,6 +3,7 @@
 #include <set>
 
 #include <dal/calibration/validation_internal.hpp>
+#include <dal/curve/compoundedoisscript_internal.hpp>
 #include <dal/curve/curveinstrumentcontext_internal.hpp>
 #include <dal/curve/curveinstrumentevaluation_internal.hpp>
 #include <dal/curve/curvejacobian.hpp>
@@ -512,6 +513,8 @@ namespace Dal {
                   "true");
             Check(Bytes(request.measureId_) == "Price", "ScriptCurveQuoteRiskUnsupportedMeasure", "/request/measure_id", "Price", request.measureId_);
             const auto selected = SelectedQuotes(request, *data.axes_);
+            Check(!CompoundedOisInternal::ContainsOvernight(*instrument), "ScriptCurveQuoteRiskUnsupportedCapability", "/instrument",
+                  "separately admitted quote-risk capability; compounded OIS is unsupported");
             const auto prepared = PrepareCurvePrice(*data.spec_, instrument, request.measureId_);
             Check(prepared.plan_.Measure().kind_ == CalibrationMeasureKind_::Value_::Price, "ScriptCurveQuoteRiskUnsupportedMeasure",
                   "/request/measure_id", "Price kind", request.measureId_);
@@ -581,6 +584,9 @@ namespace Dal {
         try {
             data->spec_ = std::make_shared<const CurveInstrumentCalibrationSpec_>(CopySpec(*fit.resolvedSpec_));
             ValidateQuotes(*data->spec_);
+            for (const auto& observation : data->spec_->observations_)
+                Check(!CompoundedOisInternal::ContainsOvernight(*observation->Instrument()), "ScriptCurveQuoteRiskUnsupportedCapability",
+                      "/fit/observations", "separately admitted quote-risk capability; compounded OIS is unsupported");
             const PreparedCurveInstruments_ prepared(*data->spec_, *fit.resolvedOptions_);
             ValidateFit(fit, prepared);
             data->parameters_ = fit.parameters_;

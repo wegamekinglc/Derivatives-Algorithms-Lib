@@ -3,11 +3,15 @@
 #include <dal-public/src/script.hpp>
 #include <dal/curve/curveinstrumentcalibration.hpp>
 #include <dal/curve/curvescript.hpp>
+#include <dal/curve/curvescriptevaluation.hpp>
 #include <dal/model/gsrrateoption.hpp>
 #include <dal/script/calibrationmc.hpp>
 #include <dal/time/dateutils.hpp>
 
 namespace Dal {
+    double CurveScriptEvaluationValue(const CurveScriptEvaluationResult_& result, const String_& measureId);
+    Matrix_<> CurveScriptEvaluationPartials(const CurveScriptEvaluationResult_& result);
+    Matrix_<Cell_> CurveScriptEvaluationTable(const CurveScriptEvaluationResult_& result, const String_& table);
     struct ScriptInstrumentImportSettings_ {
         String_ instrumentId_;
         Ccy_ currency_;
