@@ -21,6 +21,10 @@ reports but have no price dependency. Live payments and complete rate intervals
 must fit their bound curves. Short discount or passive base curves are valid
 when they cover every actual query.
 
+Native ON preparation can omit the auxiliary curve snapshot only with frozen
+candidate geometry and no model; this does not remove the explicit fixing
+snapshot requirement.
+
 ## C++ example
 
 [`compounded_ois_script.cpp`](../../dal-public/examples/compounded_ois_script/compounded_ois_script.cpp)

@@ -872,6 +872,9 @@ Native ON structural preparation reads the frozen candidate geometry and complet
 market identity without sampling curves at target knots. The declared knot layout
 still bounds live payments and full prediction intervals; each actual numerical
 query separately checks the bound curve's coverage, including any passive base.
+The preparation context may omit its auxiliary `GSRCurveData_` snapshot only
+with a frozen native ON candidate context and no model. The explicit valuation
+fixing snapshot remains required, including when empty.
 AAD uses the current thread's existing recording-scope contract, including
 nested-recording rejection and mode restoration after failure.
 
