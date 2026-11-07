@@ -5,14 +5,34 @@
 #pragma once
 
 #include <utility>
+
+#include <dal/currency/currency.hpp>
 #include <dal/indice/index.hpp>
 #include <dal/math/cell.hpp>
 #include <dal/protocol/collateraltype.hpp>
 #include <dal/protocol/couponrate.hpp>
-#include <dal/currency/currency.hpp>
+#include <dal/time/daybasis.hpp>
 #include <dal/utilities/functionals.hpp>
 
 namespace Dal::Index {
+    class Overnight_ final : public Index_ {
+    public:
+        const Ccy_ ccy_;
+        const String_ fixingKey_, route_;
+        const Date_ start_, end_, rateStart_, rateEnd_;
+        const DayBasis_ basis_;
+
+        Overnight_(const Ccy_& ccy,
+                   String_ fixingKey,
+                   String_ route,
+                   const Date_& start,
+                   const Date_& end,
+                   const Date_& rateStart,
+                   const Date_& rateEnd,
+                   const DayBasis_& basis);
+        [[nodiscard]] String_ Name() const override;
+    };
+
     class IRForward_ : public Index_ {
     public:
         const Ccy_ ccy_;

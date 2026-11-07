@@ -72,6 +72,8 @@ namespace Dal::Index {
 
         std::unique_ptr<Index_> Bracketed(const Vector_<String_>& values) {
             REQUIRE(values.size() >= 2, "InvalidIndex: incomplete IR index");
+            if (values[1] == "ON")
+                return OvernightParser(values);
             if (values[1] == "DF")
                 return BracketedDiscount(values);
             if (values[1] == "SWAP")

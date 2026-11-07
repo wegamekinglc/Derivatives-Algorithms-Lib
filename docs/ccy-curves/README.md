@@ -1,5 +1,8 @@
 # Currency Curves
 
+[Explicit compounded OIS scripts](compounded-ois.md) covers mixed historical
+and projected coupons, public/Python/Excel calls and resource measurement.
+
 [Cross-currency pricing and calibration](pricing-calibration.md) covers FX-forward
 conventions, fixed and resettable notionals, market-fixing snapshots, staged
 basis calibration, and the joint domestic/foreign/basis solve. Its examples use

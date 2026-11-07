@@ -4,6 +4,7 @@
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 
+#include <dal/curve/compoundedoisscript_internal.hpp>
 #include <dal/indice/detail/fixingobserver.hpp>
 #include <dal/indice/detail/snapshoterror.hpp>
 #include <dal/indice/index/equity.hpp>
@@ -600,6 +601,8 @@ namespace Dal::Script {
             }
             const auto contract = ResolveContract(data.Settings(), legacyContract);
             auto product = std::make_unique<ScriptProduct_>(data.Product());
+            REQUIRE2(!CompoundedOisInternal::ContainsOvernight(*product),
+                     "UnsupportedCompoundedOisExecution: ON requires controlled deterministic table preparation", ScriptError_);
             REQUIRE2(!product->Events().empty(), "InvalidScriptStructure: script has no dated events", ScriptError_);
             Collector_ collector(evaluationDate, settings, contract, model);
             collector.Collect(*product);

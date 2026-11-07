@@ -6,22 +6,32 @@
 
 namespace Dal {
     class CurveInstrumentCalibrationEvidence_;
+    struct CurveInstrumentCalibrationSpec_;
     struct CurveScriptRoute_ {
         String_ id_;
         bool projection_ = false;
         CollateralType_ collateral_ = CollateralType_::Value_::OIS;
         PeriodLength_ tenor_;
+        bool overnight_ = false, useTargetCurve_ = false;
     };
 
     class CandidateCurveGeometry_ {
         CurveCalibrationSpec_ geometry_;
         Vector_<CurveScriptRoute_> routes_;
         CurveDefinition_ definition_;
+        String_ targetOvernightRoute_, identity_;
+        std::map<std::string, Handle_<DiscountCurve_>> overnightCurves_;
+        std::optional<std::pair<Date_, Date_>> targetDomain_;
+        std::map<const DiscountCurve_*, std::pair<Date_, Date_>> backgroundDomains_;
         template <class T_> friend class CandidateCurveProvider_;
 
     public:
         CandidateCurveGeometry_(const CurveCalibrationSpec_& geometry, const Vector_<CurveScriptRoute_>& routes);
+        explicit CandidateCurveGeometry_(const CurveInstrumentCalibrationSpec_& spec);
         CandidateCurveGeometry_& operator=(const CandidateCurveGeometry_&) = delete;
+        [[nodiscard]] const String_& Identity() const { return identity_; }
+        [[nodiscard]] const CurveDefinition_& Definition() const { return definition_; }
+        [[nodiscard]] bool HasOvernightContext() const { return targetDomain_.has_value(); }
     };
 
     template <class T_> class CandidateCurveProvider_ {
@@ -32,6 +42,7 @@ namespace Dal {
         struct CurveBinding_ {
             const Tape::DiscountCurve_<T_>* target_ = nullptr;
             const DiscountCurve_* background_ = nullptr;
+            std::optional<std::pair<Date_, Date_>> domain_;
         };
         [[nodiscard]] const CurveScriptRoute_& Route(const String_& id, bool projection) const;
         [[nodiscard]] CurveBinding_ Bind(const CurveScriptRoute_& route) const;
@@ -58,11 +69,13 @@ namespace Dal {
         CollateralType_ targetCollateral_ = CollateralType_::Value_::OIS;
         PeriodLength_ targetTenor_;
         DayBasis_ liborBasis_ = DayBasis::Act365F();
+        String_ targetOvernightRoute_;
     };
     struct CurveInstrumentMarket_ {
         std::map<CollateralType_, Handle_<DiscountCurve_>> discountCurves_;
         std::map<PeriodLength_, Handle_<DiscountCurve_>> forwardCurves_;
         Vector_<CurveScriptRoute_> routes_;
+        std::map<std::string, Handle_<DiscountCurve_>> overnightCurves_;
     };
     struct CurveInstrumentSolver_ {
         CurveSolveMode_ solveMode_ = CurveSolveMode_::Value_::EXACT;
@@ -78,6 +91,7 @@ namespace Dal {
         Script::ScriptValuationSettings_ valuation_;
         Vector_<Handle_<CalibrationObservation_>> observations_;
         CurveInstrumentSolver_ solver_;
+        Vector_<Handle_<PreparedCompoundedOis_>> compoundedOis_;
     };
     struct CurveInstrumentCalibrationOptions_ {
         CalibrationEvaluation_ evaluation_ = CalibrationEvaluation_::Value_::AutoFast;

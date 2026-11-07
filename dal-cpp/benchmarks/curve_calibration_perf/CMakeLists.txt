@@ -17,3 +17,8 @@ install(TARGETS curve_calibration_perf
 
 add_test(NAME curve_calibration_perf COMMAND curve_calibration_perf)
 set_tests_properties(curve_calibration_perf PROPERTIES LABELS "benchmark")
+
+add_test(NAME compounded_ois_perf_contract COMMAND curve_calibration_perf --compounded-ois)
+set_tests_properties(compounded_ois_perf_contract PROPERTIES
+    LABELS "benchmark"
+    PASS_REGULAR_EXPRESSION "Compounded OIS contract verified: D=30,365,1825")

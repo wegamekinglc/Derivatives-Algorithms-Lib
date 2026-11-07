@@ -715,6 +715,189 @@ these are not calibrated quote risk. New curve families reject ScriptMC,
 including explicit opt-in. Their deterministic admission does not imply a
 matching stochastic model, XCCY support or a general script optimizer.
 
+## Explicit compounded OIS table preparation
+
+The [calling and resource guide](../ccy-curves/compounded-ois.md) supplies a
+public example, interface recipes and scoped benchmark commands. Native
+partials preserve their parameter axis, currency, actual N and direction.
+
+The core `dal/curve/compoundedois.hpp` provides `CompoundedOisScriptSpec_`
+and `PrepareCompoundedOis(spec, valuation)` for structural table preparation.
+Pass the returned frozen tables to `NewCompoundedOisScriptInstrument` in
+`dal/curve/curvescript.hpp`, then evaluate the resulting source instrument or
+use it as an observation in native curve calibration.
+
+Supply fixed rows `(start,end,payment,accrual)`, floating coupons
+`(coupon_id,start,end,payment)` and observation rows
+`(start,end,fixing_time,accrual,coupon_id,rate_start,rate_end)`.
+Notional is a finite positive currency amount; coupon is a finite decimal
+rate. Direction is exactly `PayFixed` or `ReceiveFixed`. Currency,
+same-currency OIS collateral, fixing index, discount and projection route
+IDs are explicit. Each leg independently covers contiguous periods in input
+order, and each payment is at or after its period end. Coupon IDs compare
+case-sensitively. Fixed accruals use `fixedBasis_`; observations use
+`observationBasis_`. Each basis must be ACT/360 or ACT/365F.
+
+`calendar_` is a required, resolved `HolidayCenterData_` value with an explicit
+ID, sorted unique holidays and sorted unique working-weekend exceptions.
+It is copied into the prepared contract; its name never resolves global
+calendar data. Weekends are closed unless explicitly working. Holiday and
+working-weekend exceptions cannot conflict. There is no currency calendar
+default or automatic schedule generation.
+
+Rule `dal.compounded-ois-cashflows/1` requires a business-day `rate_start`,
+the next business day as `rate_end`, and midnight at `rate_start` as
+`fixing_time`. The actual accrual interval is the intersection of that full
+rate interval and its coupon. Observations cover each coupon exactly once
+without gaps, overlap or reordering. Friday to Monday therefore uses one
+fixing and `3/360`, not three daily factors. A coupon starting on Sunday
+uses the same full Friday-to-Monday rate interval with only `1/360` weight.
+The prepared observation metadata also records the full rate accrual.
+Lookback, lockout, observation shift and intraday times are unsupported.
+
+Valuation requires an explicit evaluation date and immutable fixing snapshot,
+including an explicit empty snapshot. The existing same-day default is Model;
+RequireHistorical marks same-day dependencies as historical. Preparation
+classifies historical dependencies for included coupons; it does not fetch
+missing fixings or evaluate rates. All input rows remain available. Payment
+statuses follow IncludeUnsettledAtValuation: before today is settled, today
+and later are included. Settled coupons have no historical dependency.
+
+`ContractIdentity()` fingerprints every spec field, including N/K, complete
+tables, rules and calendar contents. `CalendarIdentity()` fingerprints the
+calendar; `PreparationIdentity()` additionally includes evaluation date,
+today policy and the complete fixing snapshot. These are preparation
+identities, separate from executable definition/source/binding identities.
+`DumpPreparedCompoundedOisJson` and `LoadPreparedCompoundedOisJson` use strict
+schema `dal.compounded-ois-preparation/1`, recomputing identities and derived
+statuses on load. Existing instrument and report wire schemas are unchanged.
+
+Observation `sourceKey_` is the stable zero-based `observations/<row>` table
+key; `couponRow_` is the zero-based coupon ordinal. No script statement
+location is claimed before source exists. Invalid table diagnostics use
+zero-based JSON field paths, one-based `sourceRow_` within that table,
+instrument ID and coupon ID in `observationId_` where applicable. Failures
+throw owning `CalibrationError_` reports, which survive their input and
+exception. Prepared tables, calendar, valuation and snapshot are copied and
+exposed through const getters.
+
+### Controlled source execution
+
+`NewCompoundedOisScriptInstrument(tables)` converts prepared tables into one
+immutable calibration instrument. N and K definitions precede fixed payment
+rows, then floating coupon rows. Each floating row contains a balanced product
+of `1+alpha*FIX(...)` factors, followed by subtraction of one; each payment has
+one outer N. The owned source map identifies table, table row, source row,
+statement and text offset. Source rows and settled coupons remain in the
+instrument, and the existing instrument JSON and clone interfaces preserve them.
+
+The ON literal is
+`IR[ccy,ON,fixing_key,route,start,end,rate_start,rate_end,basis]`.
+Its name contains both the actual accrual interval and full rate interval.
+Fixing keys and route IDs use percent encoding for bytes outside ASCII letters,
+digits, dot, underscore and hyphen. Parsing and cloning preserve the original
+UTF-8 identifiers. Historical lookup uses only the separate fixing key and
+explicit midnight fixing date, never the full projection literal.
+
+Preparation requires the matching frozen tables in
+`CalibrationPreparationContext_::compoundedOis_`. It checks the complete bound
+AST against those tables, including settled rows, dates, weights, routes,
+direction and N/K binding. Handwritten definitions use the same row layout and
+admission as generated source; they may regroup the product without changing
+factor order. Extra declarations, payments, K-dependent factors, control flow,
+unknown observations and unsupported operations fail with owning diagnostics.
+Observation failures identify the table row and the script row/statement.
+
+The lowerer scans factors in chronological order and emits a linear program.
+Every growth factor and cumulative product must be finite and strictly positive;
+ordinary negative rates are allowed. The evaluator accumulates `log1p(alpha*L)`
+in observation order, checks each cumulative product for representability, and
+uses `expm1` to preserve small accrued interest. Native AAD differentiates the
+same stable operations. Non-finite bound amounts fail before a
+plan can enter the preparation cache. FastDeterministic and
+GenericDeterministic use the same admitted program. For all-history live
+coupons, Price and affine coefficients can consume explicit payment discounts;
+the candidate provider uses the same program for historical, future and mixed coupons.
+Settled payments need no fixing data and contribute zero. With no live annuity,
+ParRate fails explicitly.
+
+Future and Model-today observations use only the explicitly bound ON curve,
+even when the snapshot contains a value for that date. Each rate uses the full
+`rate_start`/`rate_end` discount-factor ratio and full basis accrual; the
+coupon product uses the intersection weight from its observation row.
+Historical rates and background curves are passive. Every live rate interval
+and actual payment must fit within the explicit native curve horizon.
+
+### Direct native evaluation and calibration
+
+`CurveScriptEvaluationRequest_` in `dal/curve/curvescriptevaluation.hpp` contains
+explicit INPUT geometry, market, valuation, native parameters and the matching
+`compoundedOis_` tables. `EvaluateCurveScriptInstrument(instrument, request)`
+defaults to ordered measures `Price,ParRate` and derivative method `None`.
+It constructs no market quotes. Set `derivativeMethod_` to `AAD` or
+`FiniteDifference` for raw native partials; `Auto` selects finite differences.
+Finite differences require both perturbed candidates to be admissible.
+
+`CurveScriptRoute_::overnight_` marks an explicit ON projection route and
+requires an empty tenor. Background ON curves live in
+`CurveInstrumentMarket_::overnightCurves_`, keyed by case-sensitive route ID.
+To fit the ON curve, set `geometry_.calibrateDiscountCurve_=false`, leave
+`targetTenor_` empty and set `targetOvernightRoute_`. To fit the discount curve,
+leave `targetOvernightRoute_` empty and set `calibrateDiscountCurve_=true`.
+For a curve serving both purposes, declare both routes and mark the additional
+use with `useTargetCurve_=true`; there is no ON-to-3M/6M fallback.
+Routes must match the contract currency and collateral.
+
+The owning result includes measure IDs/units, native parameter labels, values,
+raw partials, the candidate curve and a quote-free evaluation report.
+`cashflows_` records each fixed payment and floating coupon's source location,
+payment date, included/settled flags, amount, DF and PV. `observations_` records
+table/source locations, full rate intervals, accrual weights, rates and
+Historical/Projection/Settled provenance. Settled amounts and rates remain
+unavailable rather than invented. No partial matrix is returned for `None`.
+
+Price is `B+K*A` and ParRate is `-B/A`. Live evaluations check the signed
+annuity against the contract's positive `minAbsAnnuity_`, including Price.
+All-settled Price is zero; ParRate is unavailable. Partials retain native units
+and notional scaling: they are neither quote risk nor basis-point-scaled risk.
+
+For calibration, place the same tables in
+`CurveInstrumentCalibrationSpec_::compoundedOis_` and the source instrument in
+its observation list. `PreparedCurveInstruments_` and `CalibrateCurveInstruments`
+share the direct evaluator's cashflow and FD/AAD kernels. Frozen native market
+curves, complete fixing snapshots (including empty series), ON target/routes
+and prepared tables enter preparation and solve evidence. Writable input
+aliases cannot change a prepared ON context or its published results.
+Native ON structural preparation reads the frozen candidate geometry and complete
+market identity without sampling curves at target knots. The declared knot layout
+still bounds live payments and full prediction intervals; each actual numerical
+query separately checks the bound curve's coverage, including any passive base.
+The preparation context may omit its auxiliary `GSRCurveData_` snapshot only
+with a frozen native ON candidate context and no model. The explicit valuation
+fixing snapshot remains required, including when empty.
+AAD uses the current thread's existing recording-scope contract, including
+nested-recording rejection and mode restoration after failure.
+
+The capability remains `dal.compounded-ois-cashflows/1`; compiler identity
+separately identifies the stable product lowering. ON source without matching
+tables or candidate context, general script/MC preparation, P1 quote-risk
+snapshots (including ON fitting observations) and per-PV quote risk are
+explicitly unsupported. Source or numerical failure never falls back to
+legacy affine or general execution. The public facade exposes the same preparation,
+source construction and direct evaluation APIs through
+`dal-public/src/calibrationinstrument.hpp`. Python projects these as
+`CompoundedOis_Prepare`, `CompoundedOisScriptInstrument_New` and
+`CurveScriptInstrument_Evaluate`; inputs and results are read-only values or
+immutable handles, with independent container getters. All Python conversion
+finishes before core preparation, construction or evaluation releases the GIL.
+Excel uses typed tables and session handles for the same operations. See the
+[public](../public-api.md#explicit-compounded-ois),
+[Python](../python/README.md#explicit-compounded-ois) and
+[Excel](../excel/README.md#explicit-compounded-ois) contracts.
+The legacy `MultiCurveInstrumentCalibrationSpec_` tenor-staging wrapper rejects
+ON contexts explicitly. Fit each ON context with the single-context overload
+and bind other curves as explicit passive inputs.
+
 ## Deterministic XCCY script cashflows
 
 The core `dal/curve/xccyscript.hpp` provides `NewXccyScriptInstrument` for

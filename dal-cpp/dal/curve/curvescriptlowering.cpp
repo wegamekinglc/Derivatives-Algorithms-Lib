@@ -93,8 +93,8 @@ namespace Dal::CurveScriptInternal {
                                          const CalibrationPreparationContext_& context,
                                          CalibrationCurveFamilyDescriptor_* descriptor) {
             CalibrationCurvePayment_ flow{*source.eventDate_, {}, source};
-            Require(flow.payment_ >= *context.valuation_.evaluationDate_ && flow.payment_ <= context.curve_->nodeDates_.back(),
-                    "UnsupportedFastEvaluator", source, "live payment covered by frozen curve layout");
+            Require(flow.payment_ >= *context.valuation_.evaluationDate_ && flow.payment_ <= Horizon(context), "UnsupportedFastEvaluator", source,
+                    "live payment covered by frozen curve layout");
             const auto& amount = *node.arguments_[1];
             const auto* notional = amount.arguments_.empty() ? nullptr : dynamic_cast<const Script::NodeConstVar_*>(amount.arguments_[0].get());
             Require(dynamic_cast<const Script::NodeMulti_*>(&amount) && notional && notional->name_ == "N", "UnsupportedFastEvaluator", source,

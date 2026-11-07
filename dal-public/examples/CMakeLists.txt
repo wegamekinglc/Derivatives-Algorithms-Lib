@@ -3,13 +3,14 @@ include("${CMAKE_CURRENT_SOURCE_DIR}/../../dal-cpp/cmake/Platform.cmake")
 add_subdirectory(aad_public_risk)
 add_subdirectory(script_calibration)
 add_subdirectory(script_curve_quote_risk)
+add_subdirectory(compounded_ois_script)
 add_subdirectory(interpolate_curve_script)
 add_subdirectory(gsr_script_calibration)
 add_subdirectory(xccy_script_calibration)
 add_subdirectory(xccy_script_monte_carlo)
 add_subdirectory(xccy_script_monte_carlo_basket)
 
-foreach(example_target IN ITEMS aad_public_risk script_calibration script_curve_quote_risk interpolate_curve_script gsr_script_calibration xccy_script_calibration xccy_script_monte_carlo xccy_script_monte_carlo_basket)
+foreach(example_target IN ITEMS aad_public_risk script_calibration script_curve_quote_risk compounded_ois_script interpolate_curve_script gsr_script_calibration xccy_script_calibration xccy_script_monte_carlo xccy_script_monte_carlo_basket)
     dal_apply_platform_options(${example_target})
     if(COMMAND dal_cpp_apply_msvc_runtime)
         dal_cpp_apply_msvc_runtime(${example_target})
@@ -20,3 +21,5 @@ endforeach()
 
 set_tests_properties(script_curve_quote_risk PROPERTIES
     PASS_REGULAR_EXPRESSION "ScriptCurveQuoteRiskLiveQuoteUnsupported")
+set_tests_properties(compounded_ois_script PROPERTIES
+    PASS_REGULAR_EXPRESSION "Owning missing-fixing report")

@@ -58,6 +58,9 @@ namespace Dal::Python::Calibration {
     template <> struct Input_<String_> {
         static String_ Read(const py::handle& value, const std::string& field) { return RawText(value, field); }
     };
+    template <> struct Input_<std::string> {
+        static std::string Read(const py::handle& value, const std::string& field) { return Text(RawText(value, field)); }
+    };
     template <> struct Input_<double> {
         static double Read(const py::handle& value, const std::string& field) { return Number(value, field); }
     };
@@ -137,9 +140,10 @@ namespace Dal::Python::Calibration {
         }
     };
     template <class T_> py::object Output(const T_& value) {
-        if constexpr (HasToken_<T_>::value)
-            return py::str(value.String());
-        else
+        if constexpr (HasToken_<T_>::value) {
+            const auto* token = value.String();
+            return token ? py::object(py::str(token)) : py::object(py::none());
+        } else
             return py::cast(value, py::return_value_policy::copy);
     }
     inline py::object Output(const String_& value) { return py::str(Text(value)); }
