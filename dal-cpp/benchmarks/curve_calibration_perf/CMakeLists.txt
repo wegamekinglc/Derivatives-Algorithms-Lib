@@ -3,6 +3,7 @@ file(GLOB_RECURSE CURVE_CALIBRATION_PERF_FILES CONFIGURE_DEPENDS "*.hpp" "*.cpp"
 add_executable(curve_calibration_perf ${CURVE_CALIBRATION_PERF_FILES})
 
 target_link_libraries(curve_calibration_perf dal_library)
+target_include_directories(curve_calibration_perf PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../externals/rapidjson/include")
 
 
 if(MSVC)

@@ -241,6 +241,11 @@ contain `environment.json` with source SHAs, runner and CPU identity, toolchain,
 thread settings. Linux additionally retains each smoke run's `/usr/bin/time --verbose` resource
 record and the paired gate's raw outputs, `results.json`, and `summary.md`.
 
+Linux builds the full head benchmark inventory for smoke coverage. The historical
+baseline builds only the nine gated native targets and `_dal`, which supply the
+native and Python comparisons. Non-gated native benchmarks are smoke-tested on
+the head; their historical build dependencies do not enter the paired comparison.
+
 Both jobs use `.github/scripts/run_benchmarks.py` to discover smoke cases through CTest's
 JSON inventory and execute each registered command, including its arguments and working
 directory. Test names identify evidence files; they need not match executable names. The

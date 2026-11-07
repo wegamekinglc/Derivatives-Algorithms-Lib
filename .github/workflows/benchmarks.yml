@@ -58,7 +58,7 @@ jobs:
           sudo apt install -y gcc-14 g++-14 make cmake time \
             libc++-dev autotools-dev autoconf libtool
 
-      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # @v10.3.2
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # @v10.3.3
 
       - name: Set up benchmark Python
         run: |
@@ -141,7 +141,11 @@ jobs:
             -DPython3_EXECUTABLE="$(command -v python3)" \
             -DCMAKE_CXX_FLAGS=-ffile-prefix-map=$PWD/benchmark-base=$PWD \
             -DDAL_ENABLE_NATIVE_ARCH=ON
-          cmake --build benchmark-base/build/benchmark-base --parallel "$CMAKE_BUILD_PARALLEL_LEVEL"
+          # Only these executables and the Python module participate in base/head comparisons.
+          cmake --build benchmark-base/build/benchmark-base \
+            --target tape_perf jacobian_perf pde_perf rng_perf interp_perf \
+              krylov_perf banded_perf cholesky_perf rate_risk_perf _dal \
+            --parallel "$CMAKE_BUILD_PARALLEL_LEVEL"
 
       - name: Verify Python workloads on both native builds
         id: python-workloads
@@ -218,7 +222,7 @@ jobs:
       - name: Set up InFine .NET SDK
         id: infine-sdk
         if: ${{ !cancelled() && steps.python-comparison-dependencies.outcome == 'success' }}
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # @v6.0.0
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # @v6.1.0
         with:
           dotnet-version: '8.0.426'
 
@@ -504,7 +508,7 @@ jobs:
       - name: Set up diagnostic toolchain
         run: |
           python3 .github/scripts/setup_dal469_toolchain.py
-      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # @v10.3.2
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # @v10.3.3
       - name: Set up diagnostic Python and CMake
         run: |
           uv venv .diagnostic-venv --python 3.13.17
