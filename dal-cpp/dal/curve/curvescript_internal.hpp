@@ -3,6 +3,7 @@
 #include <array>
 
 #include <dal/calibration/validation_internal.hpp>
+#include <dal/curve/compoundedoisnumerics_internal.hpp>
 #include <dal/script/calibrationpreparation.hpp>
 #include <dal/time/daybasis.hpp>
 
@@ -35,16 +36,29 @@ namespace Dal {
         CalibrationDiagnostic_ source_;
         bool overnight_ = false;
         String_ fixingKey_;
+        size_t tableRow_ = 0;
     };
     struct CalibrationCurveFamilyDescriptor_ {
         Vector_<CalibrationCurvePayment_> payments_;
         Vector_<CalibrationCurveObservation_> observations_;
         double coupon_ = 0.;
         bool compounded_ = false;
+        int annuitySign_ = 0;
+        double minAbsAnnuity_ = 0.;
     };
 } // namespace Dal
 
 namespace Dal::CurveScriptInternal {
+    Date_ Horizon(const CalibrationPreparationContext_& context);
+    inline void CheckCompoundedAnnuity(const CalibrationCurveFamilyDescriptor_& descriptor, double annuity) {
+        if (!descriptor.compounded_ || descriptor.payments_.empty())
+            return;
+        auto diagnostic = descriptor.payments_.front().source_;
+        diagnostic.stage_ = CalibrationStage_::Value_::Evaluate;
+        CalibrationInternal::Check(std::isfinite(annuity) && annuity * descriptor.annuitySign_ >= descriptor.minAbsAnnuity_,
+                                   "InvalidCalibrationAnnuity", "/annuity", "actual finite annuity with frozen sign and minimum magnitude", "",
+                                   diagnostic);
+    }
     template <class T_> struct Affine_ {
         T_ a_ = T_(0.), b_ = T_(0.);
     };
@@ -74,6 +88,13 @@ namespace Dal::CurveScriptInternal {
               CalibrationStage_ stage = CalibrationStage_::Value_::Evaluate) {
         if (operation == 'p')
             return CheckedGrowth<T_>(left * right, source, stage);
+        if (operation == 's') {
+            const T_ value = left + right;
+            CheckedGrowth(std::exp(static_cast<double>(value)), source, stage);
+            return value;
+        }
+        if (operation == 'e')
+            return CompoundedOisInternal::ExpMinusOne(left);
         if (operation == '*')
             return left * right;
         if (operation == '/') {
@@ -90,6 +111,8 @@ namespace Dal::CurveScriptInternal {
                        const CalibrationDiagnostic_& source,
                        CalibrationStage_ stage = CalibrationStage_::Value_::Evaluate) {
         const T_ independent = Binary(operation, left.b_, right.b_, source, stage);
+        if (operation == 'e')
+            return {T_(0.), independent};
         if (operation == '*' || operation == 'p')
             return {left.a_ * right.b_ + left.b_ * right.a_, independent};
         if (operation == '/')
@@ -103,7 +126,7 @@ namespace Dal::CurveScriptInternal {
         RequireNumerical(instruction.value_ != 0., source, "nonzero coupon denominator");
         return (T_(1.) / discount - T_(1.)) / instruction.value_;
     }
-    inline bool IsObservation(char operation) { return operation == 'f' || operation == 'r' || operation == 'g'; }
+    inline bool IsObservation(char operation) { return operation == 'f' || operation == 'r' || operation == 'g' || operation == 'l'; }
     template <class T_, class F_>
     T_ ObservationValue(const CalibrationCurveInstruction_& instruction,
                         const F_& fixing,
@@ -111,6 +134,11 @@ namespace Dal::CurveScriptInternal {
                         CalibrationStage_ stage) {
         if (instruction.operation_ == 'g')
             return CheckedGrowth<T_>(T_(1.) + instruction.value_ * fixing(instruction.left_), source, stage);
+        if (instruction.operation_ == 'l') {
+            const T_ increment = instruction.value_ * fixing(instruction.left_);
+            CheckedGrowth(1. + static_cast<double>(increment), source, stage);
+            return CompoundedOisInternal::LogOnePlus(increment);
+        }
         if (instruction.operation_ == 'f')
             return fixing(instruction.left_);
         return ForwardRate<T_>(instruction, fixing, source);

@@ -1,6 +1,7 @@
 #include <dal/platform/platform.hpp>
 
 #include <dal/currency/currencydata.hpp>
+#include <dal/curve/curveinstrumentcalibration.hpp>
 #include <dal/curve/curvescript_internal.hpp>
 #include <dal/indice/index/ir.hpp>
 #include <dal/script/event.hpp>
@@ -84,6 +85,9 @@ namespace Dal::CurveScriptInternal {
             return *value;
         }
     } // namespace
+    Date_ Horizon(const CalibrationPreparationContext_& context) {
+        return context.curve_ ? context.curve_->nodeDates_.back() : context.candidateCurves_->Definition().nodeDates_.back();
+    }
     CalibrationCurveObservation_
     Observation(const Script::NodeFix_& node, const CalibrationPreparationContext_& context, const CalibrationDiagnostic_& source) {
         auto result = IndexGeometry(node, context, source);
@@ -92,8 +96,9 @@ namespace Dal::CurveScriptInternal {
         if (IsHistorical(result.fixing_, context)) {
             result.known_ = Historical(result, context);
         } else {
-            Require(!result.overnight_, "UnsupportedCompoundedOisProjection", source, "candidate ON provider is not admitted");
-            if (!(result.start_ >= *context.valuation_.evaluationDate_ && result.end_ <= context.curve_->nodeDates_.back()))
+            Require(!result.overnight_ || bool(context.candidateCurves_), "UnsupportedCompoundedOisProjection", source,
+                    "explicit candidate ON provider");
+            if (!(result.start_ >= *context.valuation_.evaluationDate_ && result.end_ <= Horizon(context)))
                 Fail("CalibrationContextMismatch", Field(source), "live observation dates covered by frozen curve layout", result.index_, source);
         }
         return result;

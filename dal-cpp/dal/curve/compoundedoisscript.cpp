@@ -1,6 +1,7 @@
 #include <dal/platform/platform.hpp>
 
 #include <dal/curve/compoundedoisscript_internal.hpp>
+#include <dal/curve/curvescript.hpp>
 #include <dal/script/event.hpp>
 #include <dal/script/instrument_internal.hpp>
 
@@ -94,3 +95,9 @@ namespace Dal::CompoundedOisInternal {
     }
     bool ContainsOvernight(const CalibrationInstrument_& instrument) { return ContainsOvernight(*PreparationProduct(instrument)); }
 } // namespace Dal::CompoundedOisInternal
+
+namespace Dal {
+    Handle_<CalibrationInstrument_> NewCompoundedOisScriptInstrument(const Handle_<PreparedCompoundedOis_>& tables) {
+        return CompoundedOisInternal::BuildSource(tables).instrument_;
+    }
+} // namespace Dal
