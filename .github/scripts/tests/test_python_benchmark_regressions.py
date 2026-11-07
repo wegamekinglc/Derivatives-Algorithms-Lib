@@ -357,6 +357,68 @@ python3() {
                     )
                 )
 
+    def test_relative_failure_retries_only_byte_identical_native_modules(self):
+        for identical, drift in ((True, False), (False, False), (True, True)):
+            with self.subTest(identical=identical, drift=drift), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                calls = []
+
+                def measured(package, output):
+                    retry = "retry" in output.parts
+                    value = 100 if retry or package.parent.name == "base-build" else 105
+                    result = report(value)
+                    if package.parent.name == "head-build" and (not identical or (drift and retry)):
+                        result["environment"]["native_sha256"] = "changed"
+                    return result
+
+                def worker(suite, package, output, inventory=False):
+                    calls.append(output)
+                    if not inventory:
+                        return measured(package, output)
+                    row = report()["results"][0]
+                    return [
+                        {key: row[key] for key in ("name", "cpp_target", "workload")}
+                    ]
+
+                argv = [
+                    "--base-root",
+                    str(root / "base-build"),
+                    "--head-root",
+                    str(root / "head-build"),
+                    "--base-source",
+                    str(root / "base-source"),
+                    "--head-source",
+                    str(root / "head-source"),
+                    "--output-dir",
+                    str(root / "results"),
+                    "--retry-identical-binaries",
+                ]
+                with (
+                    mock.patch.object(GATE, "build_configuration", return_value={}),
+                    mock.patch.object(GATE, "source_sha", return_value="commit"),
+                    mock.patch.object(GATE, "run_worker", side_effect=worker),
+                    contextlib.redirect_stdout(io.StringIO()),
+                    contextlib.redirect_stderr(io.StringIO()),
+                ):
+                    self.assertEqual(GATE.main(argv), 0 if identical and not drift else 1)
+                result = json.loads((root / "results/results.json").read_text())
+                self.assertEqual(result["retried_identical_binaries"], identical)
+                self.assertEqual(len(calls), 81 if identical else 41)
+                if identical:
+                    initial = json.loads((root / "results/initial-results.json").read_text())
+                    self.assertEqual(initial["status"], "failed")
+                    self.assertTrue(result["initial_failures"])
+                    self.assertIn("retry was attempted", (root / "results/summary.md").read_text())
+                    if drift:
+                        self.assertTrue(
+                            any("changed between identical-binary attempts" in failure for failure in result["failures"])
+                        )
+                    else:
+                        retry = json.loads((root / "results/retry/results.json").read_text())
+                        self.assertEqual(retry["status"], "passed")
+                else:
+                    self.assertFalse((root / "results/initial-results.json").exists())
+
     def test_invalid_cli_sampling_and_thresholds_are_rejected(self):
         required = [
             "--base-root",
@@ -452,6 +514,7 @@ python3() {
             "--samples 10",
             "--confirmation-rounds 2",
             "--threshold-percent 4",
+            "--retry-identical-binaries",
             "--output-dir benchmark-results/python-paired",
         ):
             self.assertIn(flag, gate)
