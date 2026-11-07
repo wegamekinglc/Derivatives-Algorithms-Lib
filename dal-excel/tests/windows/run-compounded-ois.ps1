@@ -7,8 +7,8 @@ param(
 )
 $ErrorActionPreference = "Stop"
 $sourceRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
-$gitPath = (Get-Command git.exe -CommandType Application).Source
-$pythonPath = (Get-Command python.exe -CommandType Application).Source
+$gitPath = (Get-Command git.exe -CommandType Application | Select-Object -First 1).Source
+$pythonPath = (Get-Command python.exe -CommandType Application | Select-Object -First 1).Source
 
 function Invoke-GitRead {
     param([string[]]$GitArguments)
