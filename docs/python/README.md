@@ -60,6 +60,9 @@ normals = dal.SobolRSG_Get_Normal(rsg, 1024)
 
 ## Explicit compounded OIS
 
+See the [complete mixed-coupon recipe](../ccy-curves/compounded-ois.md#python-calling-recipe)
+for a fixed-coupon trade with an explicit holiday, past fixing and native AAD.
+
 Construct keyword-only `CompoundedOisFixedRow_`, `CompoundedOisCouponRow_`,
 `CompoundedOisObservationRow_` and `HolidayCenterData_` values, then assemble
 `CompoundedOisScriptSpec_`. There is no inferred calendar. Dates use `Date_`;

@@ -98,6 +98,9 @@ Excel adapter's current generated-default policy.
 
 ### Explicit compounded OIS
 
+The [calling guide](ccy-curves/compounded-ois.md) includes the executable facade
+example, Python/Excel recipes and scoped resource measurement commands.
+
 Include `<dal-public/src/calibrationinstrument.hpp>` and link `DAL::public`.
 Pass an explicit `CompoundedOisScriptSpec_` and valuation to
 `PrepareCompoundedOis`, construct the source with

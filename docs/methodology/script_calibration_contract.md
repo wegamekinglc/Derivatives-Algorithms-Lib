@@ -717,6 +717,10 @@ matching stochastic model, XCCY support or a general script optimizer.
 
 ## Explicit compounded OIS table preparation
 
+The [calling and resource guide](../ccy-curves/compounded-ois.md) supplies a
+public example, interface recipes and scoped benchmark commands. Native
+partials preserve their parameter axis, currency, actual N and direction.
+
 The core `dal/curve/compoundedois.hpp` provides `CompoundedOisScriptSpec_`
 and `PrepareCompoundedOis(spec, valuation)` for structural table preparation.
 Pass the returned frozen tables to `NewCompoundedOisScriptInstrument` in
@@ -868,6 +872,9 @@ Native ON structural preparation reads the frozen candidate geometry and complet
 market identity without sampling curves at target knots. The declared knot layout
 still bounds live payments and full prediction intervals; each actual numerical
 query separately checks the bound curve's coverage, including any passive base.
+The preparation context may omit its auxiliary `GSRCurveData_` snapshot only
+with a frozen native ON candidate context and no model. The explicit valuation
+fixing snapshot remains required, including when empty.
 AAD uses the current thread's existing recording-scope contract, including
 nested-recording rejection and mode restoration after failure.
 

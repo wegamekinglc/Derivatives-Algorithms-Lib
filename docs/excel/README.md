@@ -10,6 +10,9 @@ in the [method chapters](../README.md#quantitative-methods).
 
 ## Explicit compounded OIS
 
+The [calling recipe](../ccy-curves/compounded-ois.md#excel-calling-recipe)
+specifies mixed-coupon dates, calendar, ON route rows and outcome checks.
+
 `COMPOUNDEDOISFIXEDLEG.NEW`, `COMPOUNDEDOISCOUPONS.NEW` and
 `COMPOUNDEDOISOBSERVATIONS.NEW` consume complete selected tables. Required
 columns are respectively `start,end,payment,accrual`,

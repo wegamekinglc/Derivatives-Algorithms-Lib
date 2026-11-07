@@ -18,6 +18,11 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-11-07
 
+- Add a runnable public compounded OIS example with mixed history/projection,
+  holiday weights, delayed payment, raw native partials and owning errors;
+  publish complete interface recipes and scoped product/resource benchmarks.
+  See the [calling guide](docs/ccy-curves/compounded-ois.md).
+
 - Expose the same explicit compounded OIS preparation, source construction and
   direct native evaluation through public C++, read-only Python and strict typed
   Excel tables, with owning diagnostics and absent-value getters. See the
