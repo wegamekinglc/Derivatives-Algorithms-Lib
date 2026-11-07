@@ -26,7 +26,7 @@ namespace Dal {
         Json_ context_;
         String_ contextIdentity_, identity_;
         ScriptCurveQuoteRiskNumerics_ numerics_;
-        Matrix_<> quoteMap_;
+        Matrix_<> quoteMap_, response_;
         std::shared_ptr<const ImplicitRootLinearization_> linearization_;
     };
 
@@ -50,6 +50,8 @@ namespace Dal {
             for (auto& [key, curve] : spec.market_.discountCurves_)
                 curve = CopyCurve(curve);
             for (auto& [key, curve] : spec.market_.forwardCurves_)
+                curve = CopyCurve(curve);
+            for (auto& [key, curve] : spec.market_.overnightCurves_)
                 curve = CopyCurve(curve);
             return spec;
         }
@@ -395,7 +397,7 @@ namespace Dal {
             data->numerics_.reciprocalCondition_ = rcond;
             Check(std::isfinite(rcond) && rcond >= data->accuracy_.minReciprocalCondition_, "ScriptCurveQuoteRiskConditionRejected",
                   "/mapping/reciprocal_condition", NumberText(data->accuracy_.minReciprocalCondition_), NumberText(rcond));
-            static_cast<void>(ParameterResponse(*data, &data->numerics_));
+            data->response_ = ParameterResponse(*data, &data->numerics_);
         }
     } // namespace
 
@@ -622,18 +624,7 @@ namespace Dal {
             return {data_->axes_, data_->numerics_, validation.Diagnostics(), std::nullopt};
         if (!MappingAvailable())
             return {data_->axes_, data_->numerics_, data_->diagnostics_, std::nullopt};
-        auto numerics = data_->numerics_;
-        try {
-            auto response = ParameterResponse(*data_, &numerics);
-            return {data_->axes_, std::move(numerics), {}, std::move(response)};
-        } catch (const CalibrationError_& error) {
-            return {data_->axes_, std::move(numerics), {error.Failure().diagnostic_}, std::nullopt};
-        } catch (const std::exception& error) {
-            return {data_->axes_,
-                    std::move(numerics),
-                    {Diagnostic("ScriptCurveQuoteRiskResponseAccuracy", "/mapping/response", "checked finite response", error.what())},
-                    std::nullopt};
-        }
+        return {data_->axes_, data_->numerics_, {}, data_->response_};
     }
 
     ScriptCurveQuoteRiskValidation_ ScriptCurveQuoteRiskSnapshot_::ValidateContext(const CurveInstrumentCalibrationSpec_& context) const {
