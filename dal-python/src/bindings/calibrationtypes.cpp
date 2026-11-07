@@ -214,12 +214,16 @@ namespace {
                 v.projection_ = f.Default<bool>("projection", v.projection_);
                 v.collateral_ = f.Default<CollateralType_>("collateral", v.collateral_);
                 v.tenor_ = f.Default<PeriodLength_>("tenor", v.tenor_);
+                v.overnight_ = f.Default<bool>("overnight", v.overnight_);
+                v.useTargetCurve_ = f.Default<bool>("use_target_curve", v.useTargetCurve_);
                 return v;
             });
             Property(cls, "id", &CurveScriptRoute_::id_);
             Property(cls, "projection", &CurveScriptRoute_::projection_);
             Property(cls, "collateral", &CurveScriptRoute_::collateral_);
             Property(cls, "tenor", &CurveScriptRoute_::tenor_);
+            Property(cls, "overnight", &CurveScriptRoute_::overnight_);
+            Property(cls, "use_target_curve", &CurveScriptRoute_::useTargetCurve_);
         }
         {
             auto cls = Struct<CurveInstrumentGeometry_>(m, "CurveInstrumentGeometry_",
@@ -235,6 +239,7 @@ namespace {
             Property(cls, "calibrate_discount_curve", &CurveInstrumentGeometry_::calibrateDiscountCurve_);
             Property(cls, "target_collateral", &CurveInstrumentGeometry_::targetCollateral_);
             Property(cls, "target_tenor", &CurveInstrumentGeometry_::targetTenor_);
+            Property(cls, "target_overnight_route", &CurveInstrumentGeometry_::targetOvernightRoute_);
             Property(cls, "libor_basis", &CurveInstrumentGeometry_::liborBasis_);
         }
         {
@@ -243,11 +248,13 @@ namespace {
                 v.routes_ = f.Required<Vector_<CurveScriptRoute_>>("routes");
                 v.discountCurves_ = f.Default<std::map<CollateralType_, Handle_<DiscountCurve_>>>("discount_curves", v.discountCurves_);
                 v.forwardCurves_ = f.Default<std::map<PeriodLength_, Handle_<DiscountCurve_>>>("forward_curves", v.forwardCurves_);
+                v.overnightCurves_ = f.Default<std::map<std::string, Handle_<DiscountCurve_>>>("overnight_curves", v.overnightCurves_);
                 return v;
             });
             Property(cls, "routes", &CurveInstrumentMarket_::routes_);
             Property(cls, "discount_curves", &CurveInstrumentMarket_::discountCurves_);
             Property(cls, "forward_curves", &CurveInstrumentMarket_::forwardCurves_);
+            Property(cls, "overnight_curves", &CurveInstrumentMarket_::overnightCurves_);
         }
         {
             auto cls = Struct<CurveInstrumentSolver_>(m, "CurveInstrumentSolver_", [](Fields_& f) {
@@ -281,6 +288,7 @@ namespace {
                 v.valuation_ = f.Required<ScriptValuationSettings_>("valuation");
                 v.observations_ = f.Required<Vector_<Handle_<CalibrationObservation_>>>("observations");
                 v.solver_ = f.Default<CurveInstrumentSolver_>("solver", v.solver_);
+                v.compoundedOis_ = f.Default<Vector_<Handle_<PreparedCompoundedOis_>>>("compounded_ois", v.compoundedOis_);
                 return v;
             });
             Property(cls, "geometry", &CurveInstrumentCalibrationSpec_::geometry_);
@@ -288,6 +296,7 @@ namespace {
             Property(cls, "valuation", &CurveInstrumentCalibrationSpec_::valuation_);
             Property(cls, "observations", &CurveInstrumentCalibrationSpec_::observations_);
             Property(cls, "solver", &CurveInstrumentCalibrationSpec_::solver_);
+            Property(cls, "compounded_ois", &CurveInstrumentCalibrationSpec_::compoundedOis_);
         }
     }
     void RegisterExecutionTypes(py::module_& m) {

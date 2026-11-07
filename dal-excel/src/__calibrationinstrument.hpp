@@ -50,14 +50,16 @@ namespace Dal {
         const std::optional<double> mean_;
         const Handle_<ModelData_> model_;
         const std::shared_ptr<const CurveInstrumentCalibrationResult_> curveFit_;
+        const std::shared_ptr<const CurveScriptEvaluationResult_> curveScript_;
         StorableCalibrationOutcome_(String_ status,
                                     Handle_<CalibrationReport_> report,
                                     Handle_<DiscountCurve_> curve = {},
                                     std::optional<double> mean = {},
                                     Handle_<ModelData_> model = {},
-                                    std::shared_ptr<const CurveInstrumentCalibrationResult_> curveFit = {})
+                                    std::shared_ptr<const CurveInstrumentCalibrationResult_> curveFit = {},
+                                    std::shared_ptr<const CurveScriptEvaluationResult_> curveScript = {})
             : Storable_("CalibrationOutcome", ""), status_(std::move(status)), report_(std::move(report)), curve_(std::move(curve)), mean_(mean),
-              model_(std::move(model)), curveFit_(std::move(curveFit)) {}
+              model_(std::move(model)), curveFit_(std::move(curveFit)), curveScript_(std::move(curveScript)) {}
         void Write(Archive::Store_&) const override {
             CalibrationInputFailure("CalibrationPersistenceUnsupported", "/outcome", "instrument or definition persistence only");
         }

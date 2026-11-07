@@ -8,6 +8,53 @@ workflow, and [FIX settings](script-settings.md) for complete worksheet
 matrices and the executable workbook. The numerical methods have C++ examples
 in the [method chapters](../README.md#quantitative-methods).
 
+## Explicit compounded OIS
+
+`COMPOUNDEDOISFIXEDLEG.NEW`, `COMPOUNDEDOISCOUPONS.NEW` and
+`COMPOUNDEDOISOBSERVATIONS.NEW` consume complete selected tables. Required
+columns are respectively `start,end,payment,accrual`,
+`coupon_id,start,end,payment` and
+`start,end,fixing_time,accrual,coupon_id,rate_start,rate_end`. Columns may be
+reordered; unknown/duplicate/missing names fail. Blank data rows fail after
+validating the remaining selected rows. Diagnostics retain original row/column
+positions. Dates accept ISO dates or integral Excel serials; fixing times must
+be midnight. Boolean numbers and nonfinite values fail.
+
+`COMPOUNDEDOISCALENDAR.NEW` takes field/value rows `center`, `holidays`
+(a `CALIBRATIONDATES.NEW` handle), and optional `work_weekends`.
+`COMPOUNDEDOISSCRIPTSPEC.NEW` takes the shared spec fields in snake case,
+including `calendar`, `fixed_leg`, `coupons` and `observations` typed handles.
+Call `COMPOUNDEDOIS.PREPARE(spec,valuation)` then
+`COMPOUNDEDOISSCRIPTINSTRUMENT.NEW(tables)`.
+
+Use `CURVESCRIPTOVERNIGHTROUTES.NEW` with all six named columns
+`id,projection,collateral,tenor,overnight,use_target_curve`; ON tenors are blank.
+`CALIBRATIONOVERNIGHTCURVES.NEW` takes `key,curve` columns. The existing market
+factory accepts `overnight_curves`, geometry accepts `target_overnight_route`,
+and calibration specs accept `compounded_ois` from
+`COMPOUNDEDOISPREPARATIONS.NEW`. The legacy four-column route factory is retained.
+
+`CURVESCRIPTEVALUATIONREQUEST.NEW` takes field/value rows for `geometry`,
+`market`, `valuation`, `parameters` and `compounded_ois`, with optional
+`measure_ids` (`CALIBRATIONSTRINGS.NEW`, column `value`), `evaluation`,
+`derivative_method` and `difference_step`. Defaults match the
+[core contract](../methodology/script_calibration_contract.md#direct-native-evaluation-and-calibration).
+Call `CURVESCRIPTINSTRUMENT.EVALUATE(instrument,request)` and inspect
+`CALIBRATIONOUTCOME.GET.STATUS/REPORT`. Numerical and missing-fixing failures
+return `Failed` with owning reports; malformed context inputs raise worksheet
+errors. `CURVESCRIPTEVALUATION.GET.VALUE`, `.GET.NATIVEPARTIALS` and `.GET.TABLE`
+reject unavailable results. Table names are `summary`, `measures`, `parameters`,
+`cashflows` and `observations`; absent amounts, DFs and rates stay blank.
+Partials have raw native units; ON quote risk and MC remain unsupported.
+
+The native OPER tests are `CompoundedOisNativeExcelTest.*`. For real Excel,
+run `dal-excel/tests/windows/run-compounded-ois.py` with `--xll`,
+`--build-cache`, `--python-evidence` and `--output`. The Python identity JSON
+must contain the same `source_head` as the clean Windows checkout. The runner
+records the actual loaded modules, Excel version, source/dependencies/configuration
+identities, both same-day policies, scalar/derivative oracles and owning/tail
+errors. Portable tests exercise typed adapters separately from these checks.
+
 ## Same-source script curve quote risk
 
 Start with the typed outcome from `CALIBRATE.CURVEINSTRUMENTS` and its original

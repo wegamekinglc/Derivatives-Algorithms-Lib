@@ -18,6 +18,11 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 
 ## 2026-11-07
 
+- Expose the same explicit compounded OIS preparation, source construction and
+  direct native evaluation through public C++, read-only Python and strict typed
+  Excel tables, with owning diagnostics and absent-value getters. See the
+  [interface contract](docs/public-api.md#explicit-compounded-ois).
+
 - Add core compounded OIS Price/ParRate evaluation, owning cashflow/source
   reports, native FD/AAD partials and calibration through explicit ON routes.
   Stable checked log-products retain small accrued interest; historical,

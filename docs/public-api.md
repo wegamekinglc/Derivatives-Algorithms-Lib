@@ -96,6 +96,25 @@ the environment, row-reader, and conversion contracts used by host adapters.
 earlier tags, including objects with the same type and name, preserving the
 Excel adapter's current generated-default policy.
 
+### Explicit compounded OIS
+
+Include `<dal-public/src/calibrationinstrument.hpp>` and link `DAL::public`.
+Pass an explicit `CompoundedOisScriptSpec_` and valuation to
+`PrepareCompoundedOis`, construct the source with
+`NewCompoundedOisScriptInstrument(tables)`, and call
+`EvaluateCurveScriptInstrument(instrument, request)`. The request contains those
+same frozen tables, native geometry, market, valuation and parameters. Defaults
+are `Price,ParRate`, `AutoFast`, `None` derivatives and a `1e-6` FD step.
+
+The owning result retains measure units, native axes, source locations,
+cashflows and observations. `CurveScriptEvaluationValue` rejects unrequested
+measures; `CurveScriptEvaluationPartials` rejects absent partials.
+`CurveScriptEvaluationTable` accepts `summary`, `measures`, `parameters`,
+`cashflows` or `observations`, preserving missing amounts, discounts and rates
+as empty cells. Partials are raw native derivatives. See the
+[table and route contract](methodology/script_calibration_contract.md#explicit-compounded-ois-table-preparation)
+for explicit calendar, fixing, settlement and ON routing requirements.
+
 ### Same-source script curve quote risk
 
 Include `<dal-public/src/calibrationinstrument.hpp>` for script contract/import

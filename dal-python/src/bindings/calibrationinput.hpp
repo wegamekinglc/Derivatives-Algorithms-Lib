@@ -58,6 +58,9 @@ namespace Dal::Python::Calibration {
     template <> struct Input_<String_> {
         static String_ Read(const py::handle& value, const std::string& field) { return RawText(value, field); }
     };
+    template <> struct Input_<std::string> {
+        static std::string Read(const py::handle& value, const std::string& field) { return Text(RawText(value, field)); }
+    };
     template <> struct Input_<double> {
         static double Read(const py::handle& value, const std::string& field) { return Number(value, field); }
     };
