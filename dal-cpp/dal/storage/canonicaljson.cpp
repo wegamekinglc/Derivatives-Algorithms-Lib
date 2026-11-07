@@ -309,15 +309,27 @@ namespace Dal::CanonicalJson {
 
         std::uint32_t RotateRight(std::uint32_t value, int bits) { return (value >> bits) | (value << (32 - bits)); }
 
-        std::array<unsigned char, 32> Sha256(const std::string& value) {
+        std::vector<unsigned char> PaddedShaBytes(const std::string& value, size_t* peakBytes) {
             std::vector<unsigned char> bytes(value.begin(), value.end());
+            size_t peak = bytes.capacity();
+            const auto append = [&](unsigned char byte) {
+                const size_t previous = bytes.capacity();
+                bytes.push_back(byte);
+                peak = std::max(peak, bytes.capacity() + (previous != bytes.capacity() ? previous : 0));
+            };
             const std::uint64_t bitLength = static_cast<std::uint64_t>(bytes.size()) * 8U;
-            bytes.push_back(0x80U);
+            append(0x80U);
             while (bytes.size() % 64U != 56U)
-                bytes.push_back(0U);
+                append(0U);
             for (int shift = 56; shift >= 0; shift -= 8)
-                bytes.push_back(static_cast<unsigned char>((bitLength >> shift) & 0xFFU));
+                append(static_cast<unsigned char>((bitLength >> shift) & 0xFFU));
+            if (peakBytes)
+                *peakBytes = peak;
+            return bytes;
+        }
 
+        std::array<unsigned char, 32> Sha256(const std::string& value, size_t* peakBytes = nullptr) {
+            const auto bytes = PaddedShaBytes(value, peakBytes);
             std::array<std::uint32_t, 8> state = {
                 0x6a09e667U, 0xbb67ae85U, 0x3c6ef372U, 0xa54ff53aU, 0x510e527fU, 0x9b05688cU, 0x1f83d9abU, 0x5be0cd19U,
             };
@@ -378,16 +390,19 @@ namespace Dal::CanonicalJson {
             return result;
         }
 
-        String_ FingerprintCanonicalImpl(const std::string& canonical) {
+        String_ FingerprintCanonicalImpl(const std::string& canonical, size_t* peakBytes = nullptr) {
             static constexpr char HEX[] = "0123456789abcdef";
-            const auto digest = Sha256(canonical);
+            const auto digest = Sha256(canonical, peakBytes);
             std::string result = "sha256:";
             result.reserve(71);
             for (const unsigned char byte : digest) {
                 result.push_back(HEX[(byte >> 4U) & 0x0FU]);
                 result.push_back(HEX[byte & 0x0FU]);
             }
-            return String_(result);
+            String_ output(result);
+            if (peakBytes)
+                *peakBytes = std::max(*peakBytes, result.capacity() + 1 + output.capacity() + 1);
+            return output;
         }
 
         String_ FingerprintImpl(const Json_& value) { return FingerprintCanonicalImpl(JcsImpl(value)); }
@@ -422,6 +437,7 @@ namespace Dal::CanonicalJson {
     std::string JcsNumber(double value) { return JcsNumberImpl(value); }
     std::string Jcs(const Json_& value) { return JcsImpl(value); }
     String_ FingerprintCanonical(const std::string& value) { return FingerprintCanonicalImpl(value); }
+    String_ FingerprintCanonical(const std::string& value, size_t* peakBytes) { return FingerprintCanonicalImpl(value, peakBytes); }
     String_ Fingerprint(const Json_& value) { return FingerprintImpl(value); }
     Json_ FromRapidJson(const rapidjson::Value& value) { return FromRapidJsonImpl(value); }
 } // namespace Dal::CanonicalJson

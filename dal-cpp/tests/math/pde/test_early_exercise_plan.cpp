@@ -291,3 +291,29 @@ TEST(EarlyExercisePlanTest, TestCanonicalizationWorkspaceIsAdmittedAtItsExactBou
     --r.settings_.workspaceBudgetBytes_;
     ASSERT_THROW(static_cast<void>(EarlyExercisePdeInternal::BuildPlan(r)), Exception_);
 }
+
+TEST(EarlyExercisePlanTest, TestBorrowedStepsAreExcludedFromRollbackWorkspace) {
+    std::optional<size_t> rollbackBytes;
+    for (int steps : {2, 500, 2000}) {
+        auto r = Request();
+        r.market_ = {100, 0, {{r.contract_.maturityDate_, .05, .03}}};
+        r.contract_.exerciseDates_ = {r.contract_.maturityDate_};
+        r.settings_.gridPoints_ = 5;
+        r.settings_.upper_ = 400;
+        r.settings_.theta_ = 1;
+        r.settings_.ordinarySteps_ = steps;
+        r.settings_.rannacherIntervals_ = 0;
+        const auto plan = EarlyExercisePdeInternal::BuildPlan(r);
+        const auto owned = EvaluateEarlyExercisePde(r);
+        const auto borrowed = EarlyExercisePdeInternal::RollbackForRisk(r, plan);
+        const size_t sharedBytes = plan.Steps().capacity() * sizeof(EarlyExercisePdeInternal::PlanStep_);
+        ASSERT_EQ(borrowed.Execution().peakWorkspaceBytes_, owned.Execution().peakWorkspaceBytes_ - sharedBytes);
+        if (rollbackBytes)
+            ASSERT_EQ(borrowed.Execution().peakWorkspaceBytes_, *rollbackBytes);
+        rollbackBytes = borrowed.Execution().peakWorkspaceBytes_;
+        ASSERT_EQ(borrowed.Execution().numericPayloadBytes_, owned.Execution().numericPayloadBytes_);
+        ASSERT_EQ(borrowed.Execution().workUnits_, owned.Execution().workUnits_);
+        ASSERT_DOUBLE_EQ(borrowed.Price(), owned.Price());
+        ASSERT_EQ(borrowed.Values(), owned.Values());
+    }
+}
