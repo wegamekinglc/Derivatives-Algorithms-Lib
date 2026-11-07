@@ -717,6 +717,12 @@ namespace Dal::PDE {
                 for (size_t i = 0; i < a_.current_.size(); ++i)
                     (*out_.values_)[i] = static_cast<double>(a_.current_[i]);
             }
+            // Keep the step kernel separate from request setup to limit register pressure.
+#if defined(_MSC_VER)
+            __declspec(noinline)
+#elif defined(__GNUC__) || defined(__clang__)
+            __attribute__((noinline))
+#endif
             EarlyExercisePdeStepDiagnostic_ RunStep(const PlanStep_& p, int rollbackStep, int target) {
                 EarlyExercisePdeStepDiagnostic_ step;
                 step.rollbackStep_ = rollbackStep;
