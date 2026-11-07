@@ -6,7 +6,6 @@ import hashlib
 import json
 import math
 from pathlib import Path
-import subprocess
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -110,32 +109,37 @@ def build(sheet, policy, missing=False):
     return call("CURVESCRIPTINSTRUMENT.EVALUATE", instrument, request)
 
 
-def verify(sheet, policy):
-    outcome = build(sheet, policy)
-    status, _ = sheet.call("CALIBRATIONOUTCOME.GET.STATUS", outcome)
-    require(status == "Evaluated", f"evaluation status {status}")
-    price, _ = sheet.call("CURVESCRIPTEVALUATION.GET.VALUE", outcome, "Price")
-    par, _ = sheet.call("CURVESCRIPTEVALUATION.GET.VALUE", outcome, "ParRate")
-    middle = 1 + 4 * 0.021 / 360 if policy == "RequireHistorical" else math.exp(0.0004)
-    floating = (1 - 0.012 / 360) * middle * math.exp(0.0001) - 1
-    require(abs(price - 100 * (floating - 0.02 * 6 / 365) * math.exp(-0.0007)) <= 1e-10, "Price oracle mismatch")
-    require(abs(par - floating / (6 / 365)) <= 1e-10, "ParRate oracle mismatch")
-    _, partial_address = sheet.call("CURVESCRIPTEVALUATION.GET.NATIVEPARTIALS", outcome)
-    partials = sheet.result_block(partial_address, 2, 1)
+def native_oracle(theta, policy):
+    middle = 1 + 4 * 0.021 / 360 if policy == "RequireHistorical" else math.exp(-theta * 4 / 20)
+    floating = (1 - 0.012 / 360) * middle * math.exp(-theta / 20) - 1
+    return [100 * (floating - 0.02 * 6 / 365) * math.exp(theta * 7 / 20), floating / (6 / 365)]
+
+
+def verify_partials(partials, policy):
     require(all(isinstance(row[0], (int, float)) and math.isfinite(row[0]) for row in partials), "Missing native partials")
-    def oracle(theta):
-        middle = 1 + 4 * 0.021 / 360 if policy == "RequireHistorical" else math.exp(-theta * 4 / 20)
-        floating = (1 - 0.012 / 360) * middle * math.exp(-theta / 20) - 1
-        return [100 * (floating - 0.02 * 6 / 365) * math.exp(theta * 7 / 20), floating / (6 / 365)]
     previous = None
     for h in [1e-4, 5e-5]:
-        up, down = oracle(-0.002 + h), oracle(-0.002 - h)
+        up, down = native_oracle(-0.002 + h, policy), native_oracle(-0.002 - h, policy)
         reference = [(a - b) / (2 * h) for a, b in zip(up, down)]
         for i, value in enumerate(reference):
             require(abs(partials[i][0] - value) <= 1e-7 + 1e-5 * abs(value), "Native derivative oracle mismatch")
             if previous is not None:
                 require(abs(previous[i] - value) <= 1e-7 + 1e-5 * abs(value), "Unstable FD reference")
         previous = reference
+
+
+def verify(sheet, policy):
+    outcome = build(sheet, policy)
+    status, _ = sheet.call("CALIBRATIONOUTCOME.GET.STATUS", outcome)
+    require(status == "Evaluated", f"evaluation status {status}")
+    price, _ = sheet.call("CURVESCRIPTEVALUATION.GET.VALUE", outcome, "Price")
+    par, _ = sheet.call("CURVESCRIPTEVALUATION.GET.VALUE", outcome, "ParRate")
+    expected = native_oracle(-0.002, policy)
+    require(abs(price - expected[0]) <= 1e-10, "Price oracle mismatch")
+    require(abs(par - expected[1]) <= 1e-10, "ParRate oracle mismatch")
+    _, partial_address = sheet.call("CURVESCRIPTEVALUATION.GET.NATIVEPARTIALS", outcome)
+    partials = sheet.result_block(partial_address, 2, 1)
+    verify_partials(partials, policy)
     _, cashflow_address = sheet.call("CURVESCRIPTEVALUATION.GET.TABLE", outcome, "cashflows")
     cashflows = sheet.result_block(cashflow_address, 3, 11)
     require(abs(sum(row[10] for row in cashflows[1:]) - price) <= 1e-10, "Cashflow amounts differ from Price")
@@ -165,11 +169,14 @@ def loaded_binaries(excel, expected):
 
 def run(args):
     import win32com.client
-    head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+    manifest = json.loads(args.build_manifest.read_text(encoding="utf-8-sig"))
+    head = manifest["source_head"]
     python_evidence = json.loads(args.python_evidence.read_text(encoding="utf-8"))
     require(python_evidence["source_head"] == head, "Installed Python evidence uses another source SHA")
-    require(not subprocess.check_output(["git", "status", "--porcelain", "--untracked-files=no"], cwd=ROOT, text=True),
-            "Tracked source changes prevent a single-SHA acceptance claim")
+    require(manifest["clean_tracked"] and Path(manifest["source_root"]).resolve() == ROOT, "Expected clean source build manifest")
+    require(manifest["xll_sha256"].lower() == sha256(args.xll), "Build manifest XLL differs")
+    require(manifest["build_cache_sha256"].lower() == sha256(args.build_cache), "Build manifest configuration differs")
+    require(python_evidence["pytest_exit_code"] == 0, "Installed Python verification failed")
     excel = win32com.client.DispatchEx("Excel.Application")
     excel.Visible, excel.DisplayAlerts = False, False
     book = None
@@ -200,7 +207,7 @@ def run(args):
         book.SaveAs(str(workbook.resolve()), FileFormat=51)
         evidence = {"source_head": head, "excel_version": excel.Version, "excel_build": excel.Build,
                     "loaded_binaries": loaded, "xll_requested_sha256": sha256(args.xll), "build_cache_sha256": sha256(args.build_cache),
-                    "dependencies": subprocess.check_output(["git", "submodule", "status", "--recursive"], cwd=ROOT, text=True),
+                    "dependencies": manifest["dependencies"], "build_manifest_sha256": sha256(args.build_manifest),
                     "python_evidence_sha256": sha256(args.python_evidence), "values": values, "missing_fixing_code": code,
                     "tail_error": error, "workbook": workbook.name}
         args.output.write_text(json.dumps(evidence, indent=2), encoding="utf-8")
@@ -215,5 +222,6 @@ if __name__ == "__main__":
     parser.add_argument("--xll", required=True, type=Path)
     parser.add_argument("--python-evidence", required=True, type=Path)
     parser.add_argument("--build-cache", required=True, type=Path)
+    parser.add_argument("--build-manifest", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     run(parser.parse_args())

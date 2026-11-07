@@ -16,6 +16,36 @@ namespace Dal {
                     result(static_cast<int>(i) + 1, j) = rows[i][j];
             return result;
         }
+        Matrix_<Cell_> CashflowTable(const CurveScriptEvaluationResult_& result) {
+            Vector_<Vector_<Cell_>> rows;
+            for (const auto& r : result.cashflows_)
+                rows.push_back(Row(r.table_, r.couponId_, double(r.row_), double(r.sourceRow_), double(r.statement_), r.payment_, r.included_,
+                                   r.settled_, Optional(r.amount_), Optional(r.discount_), r.pv_));
+            return Table({"table", "coupon_id", "row", "source_row", "statement", "payment", "included", "settled", "amount", "discount", "pv"},
+                         rows);
+        }
+        Matrix_<Cell_> ObservationTable(const CurveScriptEvaluationResult_& result) {
+            Vector_<Vector_<Cell_>> rows;
+            for (const auto& r : result.observations_)
+                rows.push_back(Row(double(r.row_), double(r.sourceRow_), double(r.statement_), r.couponId_, r.fixingIndex_, r.projectionRoute_,
+                                   r.source_, r.fixingTime_, r.start_, r.end_, r.rateStart_, r.rateEnd_, r.accrual_, r.rateAccrual_,
+                                   Optional(r.rate_)));
+            return Table({"row", "source_row", "statement", "coupon_id", "fixing_index", "projection_route", "source", "fixing_time", "start", "end",
+                          "rate_start", "rate_end", "accrual", "rate_accrual", "rate"},
+                         rows);
+        }
+        Matrix_<Cell_> MeasureTable(const CurveScriptEvaluationResult_& result) {
+            Vector_<Vector_<Cell_>> rows;
+            for (size_t i = 0; i < result.measureIds_.size(); ++i)
+                rows.push_back(Row(result.measureIds_[i], result.measureUnits_[i], CurveScriptEvaluationValue(result, result.measureIds_[i])));
+            return Table({"measure_id", "unit", "value"}, rows);
+        }
+        Matrix_<Cell_> ParameterTable(const CurveScriptEvaluationResult_& result) {
+            Vector_<Vector_<Cell_>> rows;
+            for (size_t i = 0; i < result.freeParameters_.size(); ++i)
+                rows.push_back(Row(result.freeParameters_[i].date_, String_(result.freeParameters_[i].component_.String()), result.parameters_[i]));
+            return Table({"date", "component", "value"}, rows);
+        }
     } // namespace
 
     double CurveScriptEvaluationValue(const CurveScriptEvaluationResult_& result, const String_& measureId) {
@@ -32,37 +62,18 @@ namespace Dal {
         return result.nativePartials_;
     }
     Matrix_<Cell_> CurveScriptEvaluationTable(const CurveScriptEvaluationResult_& result, const String_& table) {
-        Vector_<Vector_<Cell_>> rows;
         if (table == "summary")
             return Table({"field", "value"}, {Row("instrument_id", result.instrument_->Id()), Row("context_identity", result.contextIdentity_),
                                               Row("candidate_identity", result.candidateIdentity_),
                                               Row("derivative_method", String_(result.derivativeMethod_.String()))});
-        if (table == "cashflows") {
-            for (const auto& r : result.cashflows_)
-                rows.push_back(Row(r.table_, r.couponId_, double(r.row_), double(r.sourceRow_), double(r.statement_), r.payment_, r.included_,
-                                   r.settled_, Optional(r.amount_), Optional(r.discount_), r.pv_));
-            return Table({"table", "coupon_id", "row", "source_row", "statement", "payment", "included", "settled", "amount", "discount", "pv"},
-                         rows);
-        }
-        if (table == "observations") {
-            for (const auto& r : result.observations_)
-                rows.push_back(Row(double(r.row_), double(r.sourceRow_), double(r.statement_), r.couponId_, r.fixingIndex_, r.projectionRoute_,
-                                   r.source_, r.fixingTime_, r.start_, r.end_, r.rateStart_, r.rateEnd_, r.accrual_, r.rateAccrual_,
-                                   Optional(r.rate_)));
-            return Table({"row", "source_row", "statement", "coupon_id", "fixing_index", "projection_route", "source", "fixing_time", "start", "end",
-                          "rate_start", "rate_end", "accrual", "rate_accrual", "rate"},
-                         rows);
-        }
-        if (table == "measures") {
-            for (size_t i = 0; i < result.measureIds_.size(); ++i)
-                rows.push_back(Row(result.measureIds_[i], result.measureUnits_[i], CurveScriptEvaluationValue(result, result.measureIds_[i])));
-            return Table({"measure_id", "unit", "value"}, rows);
-        }
-        if (table == "parameters") {
-            for (size_t i = 0; i < result.freeParameters_.size(); ++i)
-                rows.push_back(Row(result.freeParameters_[i].date_, String_(result.freeParameters_[i].component_.String()), result.parameters_[i]));
-            return Table({"date", "component", "value"}, rows);
-        }
+        if (table == "cashflows")
+            return CashflowTable(result);
+        if (table == "observations")
+            return ObservationTable(result);
+        if (table == "measures")
+            return MeasureTable(result);
+        if (table == "parameters")
+            return ParameterTable(result);
         THROW("CurveScriptEvaluation: unknown table");
     }
 } // namespace Dal

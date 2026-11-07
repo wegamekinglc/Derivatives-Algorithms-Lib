@@ -48,8 +48,9 @@ reject unavailable results. Table names are `summary`, `measures`, `parameters`,
 Partials have raw native units; ON quote risk and MC remain unsupported.
 
 The native OPER tests are `CompoundedOisNativeExcelTest.*`. For real Excel,
-run `dal-excel/tests/windows/run-compounded-ois.py` with `--xll`,
-`--build-cache`, `--python-evidence` and `--output`. The Python identity JSON
+run `dal-excel/tests/windows/run-compounded-ois.ps1` with `-Xll`,
+`-BuildCache`, `-PythonEvidence` and `-Output`. The wrapper captures the clean
+Git build identity for the Python runner. The Python identity JSON
 must contain the same `source_head` as the clean Windows checkout. The runner
 records the actual loaded modules, Excel version, source/dependencies/configuration
 identities, both same-day policies, scalar/derivative oracles and owning/tail
