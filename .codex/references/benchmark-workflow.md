@@ -270,6 +270,11 @@ results identify retried targets and combine their new samples with unchanged ta
 initial samples. The summary and workflow warning explicitly disclose the first failure.
 The command-line default keeps the original single-attempt behavior.
 
+The Python gate exposes the same opt-in retry for relative timing failures when both native
+modules have identical SHA-256 hashes. It preserves the initial verdict and raw reports, repeats
+the original interleaved sampling and paired-support checks, and rejects native, interpreter or
+thread-configuration drift between attempts. Changed modules and repeated failures remain fatal.
+
 Linux also retains any historical timing-assertion adjustment in
 `baseline-timing-adjustment/`. Smoke runs retain numerical and operation-counter checks;
 the generic joint timing ceiling is enforced by the paired Linux gate.

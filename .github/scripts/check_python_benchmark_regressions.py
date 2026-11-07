@@ -316,6 +316,13 @@ def write_report(output, result, summary_file=None):
         "",
         "Both native builds run the same head benchmark suite at full scale. Every current case is compared, including on first introduction.",
         "",
+        *(
+            [
+                "A byte-identical native-module retry was attempted. Initial failure evidence is retained in `initial-*`; retry raw outputs are under `retry/`."
+            ]
+            if result.get("retried_identical_binaries")
+            else []
+        ),
         "| Case | Base min (ms) | Head min (ms) | Round changes | Paired support | Result |",
         "|---|---:|---:|---|---|---|",
     ]
@@ -357,6 +364,11 @@ def arguments(argv):
     parser.add_argument("--samples", type=int, default=10)
     parser.add_argument("--confirmation-rounds", type=int, default=2)
     parser.add_argument("--threshold-percent", type=float, default=4)
+    parser.add_argument(
+        "--retry-identical-binaries",
+        action="store_true",
+        help="Retry relative timing failures once when both native modules are byte-identical.",
+    )
     args = parser.parse_args(argv)
     if args.samples < 10 or args.confirmation_rounds < 2:
         parser.error("at least 10 samples and 2 confirmation rounds are required")
@@ -425,6 +437,52 @@ def run_gate(args, result):
     }
     result["raw_samples_ns"] = comparable_samples(collected["base"], collected["head"])
     result["status"] = "failed" if result["failures"] else "passed"
+    result["retried_identical_binaries"] = False
+    identical = (
+        result["environments"]["base"]["native_sha256"]
+        == result["environments"]["head"]["native_sha256"]
+    )
+    if args.retry_identical_binaries and result["failures"] and identical:
+        result["initial_failures"] = result["failures"].copy()
+        write_report(args.output_dir, result)
+        (args.output_dir / "initial-results.json").write_bytes(
+            (args.output_dir / "results.json").read_bytes()
+        )
+        (args.output_dir / "initial-summary.md").write_bytes(
+            (args.output_dir / "summary.md").read_bytes()
+        )
+        print(
+            "::warning::Relative timing failed for byte-identical native modules; "
+            "retrying once with unchanged sampling and thresholds. Initial evidence is retained.",
+            flush=True,
+        )
+        retry_dir = args.output_dir / "retry"
+        result["retried_identical_binaries"] = True
+        result["retry_directory"] = "retry"
+        retry = collect(
+            suite,
+            packages,
+            args.samples * args.confirmation_rounds,
+            retry_dir,
+        )
+        for side in ("base", "head"):
+            initial_environment = result["environments"][side]
+            retry_environment = retry[side][0]["environment"]
+            for key in ("native_sha256", "python", "thread_environment"):
+                require(
+                    retry_environment.get(key) == initial_environment.get(key),
+                    f"{side} {key} changed between identical-binary attempts",
+                )
+        result["comparisons"], result["failures"] = evaluate(
+            retry["base"],
+            retry["head"],
+            args.samples,
+            args.confirmation_rounds,
+            args.threshold_percent,
+        )
+        result["raw_samples_ns"] = comparable_samples(retry["base"], retry["head"])
+        result["status"] = "failed" if result["failures"] else "passed"
+        write_report(retry_dir, result)
 
 
 def main(argv=None):
