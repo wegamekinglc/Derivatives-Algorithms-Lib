@@ -457,6 +457,25 @@ TEST(CompoundedOisEvaluationTest, TestPriceEnforcesLiveAnnuityFloorAndSettledPri
     ASSERT_THROW(EvaluateCurveScriptInstrument(settled.observations_[0]->Instrument(), request), CalibrationError_);
 }
 
+TEST(CompoundedOisEvaluationTest, TestPreparedPriceParSharingRetainsCommonAnnuityFailure) {
+    auto contract = OisSpec();
+    contract.minAbsAnnuity_ = .1;
+    const auto spec = OisCalibration(contract, OisValuation());
+    const PreparedCurveInstruments_ prepared(spec);
+    try {
+        static_cast<void>(prepared.Evaluate({-.0003, -.0016}, false));
+        FAIL() << "Invalid shared annuity accepted";
+    } catch (const CalibrationError_& error) {
+        const auto& diagnostic = error.Failure().diagnostic_;
+        ASSERT_EQ(diagnostic.code_, "InvalidCalibrationAnnuity");
+        ASSERT_EQ(diagnostic.field_, "/annuity");
+        ASSERT_TRUE(diagnostic.observationId_);
+        ASSERT_EQ(*diagnostic.observationId_, "pv");
+        ASSERT_TRUE(diagnostic.measureId_);
+        ASSERT_EQ(*diagnostic.measureId_, "Price");
+    }
+}
+
 TEST(CompoundedOisEvaluationTest, TestIndependentOracleAcrossFixingPaymentAndNativeGradientBoundaries) {
     for (const auto today : {Date_(2024, 2, 27), Date_(2024, 2, 28), Date_(2024, 3, 1), Date_(2024, 3, 5), Date_(2024, 3, 7), Date_(2024, 3, 8)})
         for (const bool historicalToday : {false, true})

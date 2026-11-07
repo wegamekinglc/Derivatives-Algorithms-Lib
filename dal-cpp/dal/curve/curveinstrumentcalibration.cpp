@@ -387,13 +387,26 @@ namespace Dal {
             Vector_<T_> result;
             result.reserve(plans.size());
             CurveScriptInternal::EvaluationScratch_<T_> scratch;
-            for (size_t i = 0; i < plans.size(); ++i) {
-                try {
-                    const T_ value = CurveInstrumentInternal::CashflowMeasure(plans[i], provider, spec.geometry_.today_, &scratch);
-                    Check(std::isfinite(static_cast<double>(value)), "CalibrationNumericalFailure", "/measure", "finite raw measure");
-                    result.push_back(value);
-                } catch (const CalibrationError_& error) {
-                    CurveFailure({}, RowDiagnostic(*spec.observations_[i], CalibrationStage_::Value_::Evaluate, error.Failure().diagnostic_));
+            for (size_t i = 0; i < plans.size();) {
+                std::optional<CurveScriptInternal::Affine_<T_>> coefficients;
+                const bool shared = i + 1 < plans.size() && CurveScriptInternal::CanShareCoefficients(plans[i], plans[i + 1]);
+                if (shared) {
+                    try {
+                        coefficients = CurveScriptInternal::Coefficients(plans[i], provider, spec.geometry_.today_, &scratch);
+                    } catch (const CalibrationError_& error) {
+                        CurveFailure({}, RowDiagnostic(*spec.observations_[i], CalibrationStage_::Value_::Evaluate, error.Failure().diagnostic_));
+                    }
+                }
+                const size_t end = i + (shared ? 2 : 1);
+                for (; i < end; ++i) {
+                    try {
+                        const T_ value = coefficients ? CurveScriptInternal::Measure(plans[i], *coefficients)
+                                                      : CurveInstrumentInternal::CashflowMeasure(plans[i], provider, spec.geometry_.today_, &scratch);
+                        Check(std::isfinite(static_cast<double>(value)), "CalibrationNumericalFailure", "/measure", "finite raw measure");
+                        result.push_back(value);
+                    } catch (const CalibrationError_& error) {
+                        CurveFailure({}, RowDiagnostic(*spec.observations_[i], CalibrationStage_::Value_::Evaluate, error.Failure().diagnostic_));
+                    }
                 }
             }
             return result;
