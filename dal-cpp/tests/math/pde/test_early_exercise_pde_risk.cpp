@@ -67,6 +67,100 @@ namespace {
         ASSERT_LE(e.peakWorkspaceBytes_, e.plannedWorkspaceBytes_);
         ASSERT_LE(e.peakNativeBytes_, e.plannedPeakNativeBytes_);
     }
+    void IncompleteWorkResult(const EarlyExercisePdeRiskResult_& result, size_t cap, const EarlyExercisePdeRiskResult_& control) {
+        if (cap < 78) {
+            ASSERT_EQ(result.Status(), EarlyExercisePdeRiskStatus_("BASE_FAILED"));
+            ASSERT_FALSE(result.PriceAvailable());
+            ASSERT_EQ(result.Execution().workLimitScenarioIndex_, 0);
+            for (const auto& risk : result.Risks())
+                ASSERT_EQ(risk.status_, EarlyExercisePdeRiskAvailability_("UNAVAILABLE_BASE_FAILED"));
+            ASSERT_NO_FATAL_FAILURE(Error([&]() { static_cast<void>(result.Price()); }, "EarlyExercisePdeRiskPriceUnavailable", "WORK_LIMIT"));
+            return;
+        }
+        ASSERT_EQ(result.Status(), EarlyExercisePdeRiskStatus_("WORK_LIMIT"));
+        ASSERT_TRUE(result.PriceAvailable());
+        if (cap == 1325) {
+            ASSERT_EQ(result.Scenarios().back().status_, EarlyExercisePdeRiskScenarioStatus_("NUMERICAL_FAILURE"));
+            ASSERT_EQ(result.Scenarios().back().solverStatus_, EarlyExercisePdeStatus_("WORK_LIMIT"));
+            ASSERT_EQ(result.Scenarios().back().workLimitSource_, EarlyExercisePdeRiskWorkLimitSource_("GLOBAL"));
+            ASSERT_EQ(result.Scenarios().back().workUnits_, 39);
+        } else {
+            const size_t stopped = cap / 78;
+            ASSERT_EQ(result.Scenarios()[stopped].status_, EarlyExercisePdeRiskScenarioStatus_("NOT_RUN_WORK_LIMIT"));
+            ASSERT_EQ(result.Scenarios()[stopped].workLimitSource_, EarlyExercisePdeRiskWorkLimitSource_("GLOBAL"));
+        }
+        if (cap == 390)
+            for (size_t i : {0, 1}) {
+                ASSERT_EQ(result.Risks()[i].status_, control.Risks()[i].status_);
+                ASSERT_EQ(result.Risks()[i].fineEstimate_, control.Risks()[i].fineEstimate_);
+            }
+    }
+    void ScenarioCap(int axes) {
+        namespace I = EarlyExercisePdeRiskInternal;
+        auto r = RiskRequest();
+        if (axes == 1)
+            r.valuation_.market_.carry_ = {{Date_(2027, 3, 4), .02, .01}, {Date_(2027, 10, 18), .06, .03}};
+        else if (axes == 2)
+            r.risk_.vega_ = r.risk_.carryRisk_ = false;
+        const size_t count = axes == 0 ? 17 : (axes == 1 ? 25 : 5);
+        r.risk_.maxScenarios_ = count;
+        const auto result = EvaluateEarlyExercisePdeRisk(r);
+        ASSERT_EQ(result.Scenarios().size(), count);
+        size_t rollbacks = 0;
+        I::TestControl_ seam;
+        seam.rollbacksStarted_ = &rollbacks;
+        --r.risk_.maxScenarios_;
+        ASSERT_NO_FATAL_FAILURE(Error([&]() { static_cast<void>(I::Evaluate(r, seam)); }, "EarlyExercisePdeRiskBudgetExceeded", "max_scenarios"));
+        ASSERT_EQ(rollbacks, 0);
+    }
+    void InvalidSwitchAndBump(int field, EarlyExercisePdeRiskRequest_* r) {
+        const double nan = std::numeric_limits<double>::quiet_NaN();
+        if (field == 0)
+            r->risk_.delta_ = r->risk_.gamma_ = r->risk_.vega_ = r->risk_.carryRisk_ = false;
+        else if (field == 1)
+            r->risk_.rateBumps_ = {1e-4, 1e-4};
+        else if (field == 2) {
+            r->risk_.vega_ = false;
+            r->risk_.volatilityBump_ = nan;
+        } else if (field == 3) {
+            r->risk_.carryRisk_ = false;
+            r->risk_.dividendYieldBumps_ = {nan};
+        } else if (field == 4)
+            r->risk_.spotBump_ = 10;
+    }
+    void InvalidPrecision(int field, EarlyExercisePdeRiskRequest_* r) {
+        if (field == 5)
+            r->risk_.spotBump_ = 20.1;
+        else if (field == 6)
+            r->risk_.rateBumps_ = {std::numeric_limits<double>::denorm_min()};
+        else if (field == 7)
+            r->risk_.gammaStabilityTolerance_ = std::numeric_limits<double>::quiet_NaN();
+        else
+            r->valuation_.market_.carry_[0].rate_ = 1e100;
+    }
+    EarlyExercisePdeMarket_ ScenarioMarket(const EarlyExercisePdeMarket_& base, const EarlyExercisePdeRiskScenario_& row) {
+        auto market = base;
+        if (*row.parameterId_ == "Spot")
+            market.spot_ = *row.parameterValue_;
+        else if (*row.parameterId_ == "Volatility")
+            market.volatility_ = *row.parameterValue_;
+        else if (std::string(row.parameterId_->data(), row.parameterId_->size()).find("Rate[") == 0)
+            market.carry_[*row.segmentIndex_].rate_ = *row.parameterValue_;
+        else
+            market.carry_[*row.segmentIndex_].dividendYield_ = *row.parameterValue_;
+        return market;
+    }
+    void CarryMetadata(const EarlyExercisePdeRiskResult_& result, const EarlyExercisePdeRiskRequest_& r) {
+        for (size_t j = 0; j < 2; ++j)
+            for (size_t k = 0; k < 2; ++k) {
+                const auto& risk = result.Risks()[3 + 2 * j + k];
+                ASSERT_EQ(risk.riskIndex_, 3 + 2 * j + k);
+                ASSERT_EQ(risk.segmentIndex_, j);
+                ASSERT_EQ(risk.startDate_, j == 0 ? r.valuation_.contract_.evaluationDate_ : r.valuation_.market_.carry_[0].endDate_);
+                ASSERT_EQ(risk.endDate_, r.valuation_.market_.carry_[j].endDate_);
+                ASSERT_EQ(risk.riskId_, String_(k == 0 ? "Rate[" : "DividendYield[") + String_(std::to_string(j)) + "]");
+            }
+    }
 } // namespace
 
 TEST(EarlyExercisePdeRiskTest, TestCompleteRepricingSharesSpotScenariosAndRecordsStencils) {
@@ -145,31 +239,8 @@ TEST(EarlyExercisePdeRiskTest, TestExactCumulativeWorkBoundariesAndPreservedComp
         ASSERT_NO_FATAL_FAILURE(Counts(result));
         const size_t expected = cap == 1326 ? 1326 : (cap == 1325 ? 1287 : (cap == 77 ? 39 : cap));
         ASSERT_EQ(result.Execution().workUnits_, expected);
-        if (cap < 78) {
-            ASSERT_EQ(result.Status(), EarlyExercisePdeRiskStatus_("BASE_FAILED"));
-            ASSERT_FALSE(result.PriceAvailable());
-            ASSERT_EQ(result.Execution().workLimitScenarioIndex_, 0);
-            for (const auto& risk : result.Risks())
-                ASSERT_EQ(risk.status_, EarlyExercisePdeRiskAvailability_("UNAVAILABLE_BASE_FAILED"));
-            ASSERT_NO_FATAL_FAILURE(Error([&]() { static_cast<void>(result.Price()); }, "EarlyExercisePdeRiskPriceUnavailable", "WORK_LIMIT"));
-        } else if (cap < 1326) {
-            ASSERT_EQ(result.Status(), EarlyExercisePdeRiskStatus_("WORK_LIMIT"));
-            ASSERT_TRUE(result.PriceAvailable());
-            if (cap == 1325) {
-                ASSERT_EQ(result.Scenarios().back().status_, EarlyExercisePdeRiskScenarioStatus_("NUMERICAL_FAILURE"));
-                ASSERT_EQ(result.Scenarios().back().solverStatus_, EarlyExercisePdeStatus_("WORK_LIMIT"));
-                ASSERT_EQ(result.Scenarios().back().workLimitSource_, EarlyExercisePdeRiskWorkLimitSource_("GLOBAL"));
-                ASSERT_EQ(result.Scenarios().back().workUnits_, 39);
-            } else {
-                const size_t stopped = cap / 78;
-                ASSERT_EQ(result.Scenarios()[stopped].status_, EarlyExercisePdeRiskScenarioStatus_("NOT_RUN_WORK_LIMIT"));
-                ASSERT_EQ(result.Scenarios()[stopped].workLimitSource_, EarlyExercisePdeRiskWorkLimitSource_("GLOBAL"));
-            }
-            if (cap == 390)
-                for (size_t i : {0, 1}) {
-                    ASSERT_EQ(result.Risks()[i].status_, control.Risks()[i].status_);
-                    ASSERT_EQ(result.Risks()[i].fineEstimate_, control.Risks()[i].fineEstimate_);
-                }
+        if (cap < 1326) {
+            ASSERT_NO_FATAL_FAILURE(IncompleteWorkResult(result, cap, control));
         } else {
             ASSERT_NE(result.Status(), EarlyExercisePdeRiskStatus_("WORK_LIMIT"));
             ASSERT_FALSE(result.Execution().workLimitScenarioIndex_);
@@ -210,24 +281,8 @@ TEST(EarlyExercisePdeRiskTest, TestGlobalWinsWhenBothRemainingCapsBlockTheSameSo
 
 TEST(EarlyExercisePdeRiskTest, TestPreflightExactScenarioAndByteEnvelopesAndOverflow) {
     namespace I = EarlyExercisePdeRiskInternal;
-    for (int axes = 0; axes < 3; ++axes) {
-        auto r = RiskRequest();
-        if (axes == 1) {
-            r.valuation_.market_.carry_ = {{Date_(2027, 3, 4), .02, .01}, {Date_(2027, 10, 18), .06, .03}};
-        } else if (axes == 2) {
-            r.risk_.vega_ = r.risk_.carryRisk_ = false;
-        }
-        const size_t count = axes == 0 ? 17 : (axes == 1 ? 25 : 5);
-        r.risk_.maxScenarios_ = count;
-        const auto result = EvaluateEarlyExercisePdeRisk(r);
-        ASSERT_EQ(result.Scenarios().size(), count);
-        size_t rollbacks = 0;
-        I::TestControl_ seam;
-        seam.rollbacksStarted_ = &rollbacks;
-        --r.risk_.maxScenarios_;
-        ASSERT_NO_FATAL_FAILURE(Error([&]() { static_cast<void>(I::Evaluate(r, seam)); }, "EarlyExercisePdeRiskBudgetExceeded", "max_scenarios"));
-        ASSERT_EQ(rollbacks, 0);
-    }
+    for (int axes = 0; axes < 3; ++axes)
+        ASSERT_NO_FATAL_FAILURE(ScenarioCap(axes));
     auto r = RiskRequest();
     const auto reference = EvaluateEarlyExercisePdeRisk(r);
     for (bool payload : {true, false}) {
@@ -335,27 +390,10 @@ TEST(EarlyExercisePdeRiskTest, TestNonfinitePriceAndOriginalLcpFailuresNeverPubl
 TEST(EarlyExercisePdeRiskTest, TestStrictValidationAlsoCoversDisabledFields) {
     for (int field = 0; field < 9; ++field) {
         auto r = RiskRequest();
-        const double nan = std::numeric_limits<double>::quiet_NaN();
-        if (field == 0)
-            r.risk_.delta_ = r.risk_.gamma_ = r.risk_.vega_ = r.risk_.carryRisk_ = false;
-        else if (field == 1)
-            r.risk_.rateBumps_ = {1e-4, 1e-4};
-        else if (field == 2) {
-            r.risk_.vega_ = false;
-            r.risk_.volatilityBump_ = nan;
-        } else if (field == 3) {
-            r.risk_.carryRisk_ = false;
-            r.risk_.dividendYieldBumps_ = {nan};
-        } else if (field == 4)
-            r.risk_.spotBump_ = 10;
-        else if (field == 5)
-            r.risk_.spotBump_ = 20.1;
-        else if (field == 6)
-            r.risk_.rateBumps_ = {std::numeric_limits<double>::denorm_min()};
-        else if (field == 7)
-            r.risk_.gammaStabilityTolerance_ = nan;
+        if (field < 5)
+            InvalidSwitchAndBump(field, &r);
         else
-            r.valuation_.market_.carry_[0].rate_ = 1e100;
+            InvalidPrecision(field, &r);
         ASSERT_NO_FATAL_FAILURE(Error([&]() { ValidateEarlyExercisePdeRiskRequest(r); }, "InvalidEarlyExercisePdeRiskRequest", "risk."));
     }
     auto r = RiskRequest();
@@ -507,19 +545,8 @@ TEST(EarlyExercisePdeRiskTest, TestTwoCarryAxesOwnDatesAndUseActualCommonCnPlan)
     ASSERT_EQ(result.Plan().dividendYieldBumpOrigins_[0], EarlyExercisePdeRiskBumpOrigin_("DEFAULT"));
     ASSERT_EQ(result.Plan().volatilityBumpOrigin_, EarlyExercisePdeRiskBumpOrigin_("EXPLICIT"));
     Vector_<EarlyExercisePdeMarket_> markets;
-    for (size_t i = 1; i < result.Scenarios().size(); ++i) {
-        const auto& row = result.Scenarios()[i];
-        auto market = r.valuation_.market_;
-        if (*row.parameterId_ == "Spot")
-            market.spot_ = *row.parameterValue_;
-        else if (*row.parameterId_ == "Volatility")
-            market.volatility_ = *row.parameterValue_;
-        else if (std::string(row.parameterId_->data(), row.parameterId_->size()).find("Rate[") == 0)
-            market.carry_[*row.segmentIndex_].rate_ = *row.parameterValue_;
-        else
-            market.carry_[*row.segmentIndex_].dividendYield_ = *row.parameterValue_;
-        markets.push_back(std::move(market));
-    }
+    for (size_t i = 1; i < result.Scenarios().size(); ++i)
+        markets.push_back(ScenarioMarket(r.valuation_.market_, result.Scenarios()[i]));
     const auto plan = EarlyExercisePdeInternal::BuildPlan(r.valuation_, markets);
     ASSERT_EQ(plan.Id(), result.Plan().planId_);
     ASSERT_EQ(plan.Grid(), result.Plan().grid_);
@@ -531,15 +558,7 @@ TEST(EarlyExercisePdeRiskTest, TestTwoCarryAxesOwnDatesAndUseActualCommonCnPlan)
         ASSERT_EQ(result.Scenarios()[i].price_, independent.Price());
         ASSERT_EQ(result.Scenarios()[i].workUnits_, independent.Execution().workUnits_);
     }
-    for (size_t j = 0; j < 2; ++j)
-        for (size_t k = 0; k < 2; ++k) {
-            const auto& risk = result.Risks()[3 + 2 * j + k];
-            ASSERT_EQ(risk.riskIndex_, 3 + 2 * j + k);
-            ASSERT_EQ(risk.segmentIndex_, j);
-            ASSERT_EQ(risk.startDate_, j == 0 ? r.valuation_.contract_.evaluationDate_ : r.valuation_.market_.carry_[0].endDate_);
-            ASSERT_EQ(risk.endDate_, r.valuation_.market_.carry_[j].endDate_);
-            ASSERT_EQ(risk.riskId_, String_(k == 0 ? "Rate[" : "DividendYield[") + String_(std::to_string(j)) + "]");
-        }
+    ASSERT_NO_FATAL_FAILURE(CarryMetadata(result, r));
     ASSERT_EQ(result.Plan().timeGrid_.size(), result.Plan().steps_.size() + 1);
     for (size_t i = 0; i < result.Plan().steps_.size(); ++i) {
         const auto& step = result.Plan().steps_[i];
@@ -589,47 +608,69 @@ TEST(EarlyExercisePdeRiskTest, TestClosedExerciseBoundaryBracketsAndDeepExercise
 }
 
 namespace {
-    double SmallLcpPrice(double volatility) {
+    struct SmallLcp_ {
+        std::array<std::array<double, 3>, 3> matrix_{};
+        std::array<double, 3> rhs_{110, 10, 0};
+    };
+    SmallLcp_ SmallLcp(double volatility) {
         const double dt = 1.0 / 365.0;
-        double matrix[3][3]{}, rhs[3]{110, 10, 0}, payoff[3]{110, 10, 0};
+        SmallLcp_ system;
         for (int i = 0; i < 3; ++i) {
             const double node = i + 1, diffusion = .5 * volatility * volatility * node * node, drift = .03 * node;
-            matrix[i][i] = 1 + dt * (2 * diffusion + .1);
+            system.matrix_[i][i] = 1 + dt * (2 * diffusion + .1);
             if (i > 0)
-                matrix[i][i - 1] = -dt * (diffusion - drift);
+                system.matrix_[i][i - 1] = -dt * (diffusion - drift);
             else
-                rhs[i] += dt * (diffusion - drift) * 210;
+                system.rhs_[i] += dt * (diffusion - drift) * 210;
             if (i < 2)
-                matrix[i][i + 1] = -dt * (diffusion + drift);
+                system.matrix_[i][i + 1] = -dt * (diffusion + drift);
         }
+        return system;
+    }
+    using SmallDense_ = std::array<std::array<double, 4>, 3>;
+    SmallDense_ ActiveSystem(const SmallLcp_& system, int mask) {
+        const double payoff[3]{110, 10, 0};
+        SmallDense_ a{};
+        for (int i = 0; i < 3; ++i) {
+            const bool exercise = mask & (1 << i);
+            for (int j = 0; j < 3; ++j)
+                a[i][j] = exercise ? double(i == j) : system.matrix_[i][j];
+            a[i][3] = exercise ? payoff[i] : system.rhs_[i];
+        }
+        return a;
+    }
+    std::array<double, 3> SolveSmall(SmallDense_ a) {
+        std::array<double, 3> value{};
+        for (int i = 0; i < 3; ++i)
+            for (int j = i + 1; j < 3; ++j) {
+                const double factor = a[j][i] / a[i][i];
+                for (int k = i; k < 4; ++k)
+                    a[j][k] -= factor * a[i][k];
+            }
+        for (int i = 2; i >= 0; --i) {
+            value[i] = a[i][3];
+            for (int j = i + 1; j < 3; ++j)
+                value[i] -= a[i][j] * value[j];
+            value[i] /= a[i][i];
+        }
+        return value;
+    }
+    bool Feasible(const SmallLcp_& system, const std::array<double, 3>& value) {
+        const double payoff[3]{110, 10, 0};
+        bool valid = true;
+        for (int i = 0; i < 3; ++i) {
+            double dual = -system.rhs_[i];
+            for (int j = 0; j < 3; ++j)
+                dual += system.matrix_[i][j] * value[j];
+            valid = valid && value[i] >= payoff[i] - 1e-10 && dual >= -1e-10 && std::abs(std::min(value[i] - payoff[i], dual)) < 1e-10;
+        }
+        return valid;
+    }
+    double SmallLcpPrice(double volatility) {
+        const auto system = SmallLcp(volatility);
         for (int mask = 0; mask < 8; ++mask) {
-            double a[3][4]{}, value[3]{};
-            for (int i = 0; i < 3; ++i) {
-                const bool exercise = mask & (1 << i);
-                for (int j = 0; j < 3; ++j)
-                    a[i][j] = exercise ? double(i == j) : matrix[i][j];
-                a[i][3] = exercise ? payoff[i] : rhs[i];
-            }
-            for (int i = 0; i < 3; ++i)
-                for (int j = i + 1; j < 3; ++j) {
-                    const double factor = a[j][i] / a[i][i];
-                    for (int k = i; k < 4; ++k)
-                        a[j][k] -= factor * a[i][k];
-                }
-            for (int i = 2; i >= 0; --i) {
-                value[i] = a[i][3];
-                for (int j = i + 1; j < 3; ++j)
-                    value[i] -= a[i][j] * value[j];
-                value[i] /= a[i][i];
-            }
-            bool valid = true;
-            for (int i = 0; i < 3; ++i) {
-                double dual = -rhs[i];
-                for (int j = 0; j < 3; ++j)
-                    dual += matrix[i][j] * value[j];
-                valid = valid && value[i] >= payoff[i] - 1e-10 && dual >= -1e-10 && std::abs(std::min(value[i] - payoff[i], dual)) < 1e-10;
-            }
-            if (valid)
+            const auto value = SolveSmall(ActiveSystem(system, mask));
+            if (Feasible(system, value))
                 return value[0];
         }
         throw std::runtime_error("small independent LCP has no feasible active set");

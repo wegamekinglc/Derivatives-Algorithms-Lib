@@ -497,7 +497,7 @@ namespace Dal::PDE {
             explicit ControlState_(const EarlyExercisePdeInternal::RollbackControl_*) {}
         };
         template <> struct ControlState_<true> {
-            const EarlyExercisePdeInternal::RollbackControl_* control_;
+            const EarlyExercisePdeInternal::RollbackControl_* control_ = nullptr;
             explicit ControlState_(const EarlyExercisePdeInternal::RollbackControl_* control) : control_(control) {}
         };
         template <bool AMERICAN, bool TEST_SEAM = false> struct Rollback_ : ControlState_<TEST_SEAM> {

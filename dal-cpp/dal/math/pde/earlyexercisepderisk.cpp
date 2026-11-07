@@ -131,37 +131,52 @@ namespace Dal::PDE {
                 axes = Add(axes, Mul(2, r.valuation_.market_.carry_.size()));
             return Add(1, Mul(4, axes));
         }
+        Axis_ SpotAxis(const EarlyExercisePdeRiskRequest_& r) {
+            return {"Spot",
+                    {},
+                    0,
+                    r.valuation_.market_.spot_,
+                    2.0 * SpotBump(r),
+                    Origin_(r.risk_.spotBump_ ? Origin_::EXPLICIT : Origin_::DEFAULT),
+                    SpotLegal(r) ? Availability_::AVAILABLE : Availability_::UNAVAILABLE_DOMAIN_BOUNDARY};
+        }
+        Axis_ VolatilityAxis(const EarlyExercisePdeRiskRequest_& r) {
+            return {"Volatility",
+                    {},
+                    1,
+                    r.valuation_.market_.volatility_,
+                    r.risk_.volatilityBump_,
+                    Origin_(r.risk_.volatilityBump_ == 1e-3 ? Origin_::DEFAULT : Origin_::EXPLICIT),
+                    r.valuation_.market_.volatility_ >= r.risk_.volatilityBump_ ? Availability_::AVAILABLE
+                                                                                : Availability_::UNAVAILABLE_DOMAIN_BOUNDARY};
+        }
+        Axis_ CarryAxis(const EarlyExercisePdeRiskRequest_& r, size_t i, int kind) {
+            const bool rate = kind == 2;
+            const auto& bumps = rate ? r.risk_.rateBumps_ : r.risk_.dividendYieldBumps_;
+            return {Indexed(rate ? "Rate" : "DividendYield", i),
+                    i,
+                    kind,
+                    rate ? r.valuation_.market_.carry_[i].rate_ : r.valuation_.market_.carry_[i].dividendYield_,
+                    CarryBump(bumps, i),
+                    Origin_(bumps.empty() ? Origin_::DEFAULT : Origin_::EXPLICIT)};
+        }
+        void AppendCarryAxes(const EarlyExercisePdeRiskRequest_& r, Vector_<Axis_>* axes) {
+            if (!r.risk_.carryRisk_)
+                return;
+            for (size_t i = 0; i < r.valuation_.market_.carry_.size(); ++i)
+                for (int kind : {2, 3})
+                    axes->push_back(CarryAxis(r, i, kind));
+        }
         Vector_<Axis_> Axes(const EarlyExercisePdeRiskRequest_& r) {
             Vector_<Axis_> result;
             const auto& v = r.valuation_;
             const auto& s = r.risk_;
             result.reserve(Add(2, Mul(2, v.market_.carry_.size())));
             if (s.delta_ || s.gamma_)
-                result.push_back({"Spot",
-                                  {},
-                                  0,
-                                  v.market_.spot_,
-                                  2.0 * SpotBump(r),
-                                  Origin_(s.spotBump_ ? Origin_::EXPLICIT : Origin_::DEFAULT),
-                                  SpotLegal(r) ? Availability_::AVAILABLE : Availability_::UNAVAILABLE_DOMAIN_BOUNDARY});
+                result.push_back(SpotAxis(r));
             if (s.vega_)
-                result.push_back(
-                    {"Volatility",
-                     {},
-                     1,
-                     v.market_.volatility_,
-                     s.volatilityBump_,
-                     Origin_(s.volatilityBump_ == 1e-3 ? Origin_::DEFAULT : Origin_::EXPLICIT),
-                     v.market_.volatility_ >= s.volatilityBump_ ? Availability_::AVAILABLE : Availability_::UNAVAILABLE_DOMAIN_BOUNDARY});
-            if (s.carryRisk_)
-                for (size_t i = 0; i < v.market_.carry_.size(); ++i)
-                    for (int kind : {2, 3}) {
-                        const bool rate = kind == 2;
-                        const auto& bumps = rate ? s.rateBumps_ : s.dividendYieldBumps_;
-                        result.push_back({Indexed(rate ? "Rate" : "DividendYield", i), i, kind,
-                                          rate ? v.market_.carry_[i].rate_ : v.market_.carry_[i].dividendYield_, CarryBump(bumps, i),
-                                          Origin_(bumps.empty() ? Origin_::DEFAULT : Origin_::EXPLICIT)});
-                    }
+                result.push_back(VolatilityAxis(r));
+            AppendCarryAxes(r, &result);
             if (v.market_.volatility_ == 0.0)
                 for (auto& axis : result)
                     axis.admission_ = Availability_::UNAVAILABLE_DEGENERATE_DIFFUSION;
@@ -194,18 +209,26 @@ namespace Dal::PDE {
                 entries.push_back({0, -2.0 * weight});
             entries.push_back({minus + 1, weight});
         }
+        String_ RiskId(const Axis_& axis, int order) {
+            if (axis.kind_ == 0)
+                return order == 2 ? "Gamma" : "Delta";
+            return axis.kind_ == 1 ? "Vega" : axis.id_;
+        }
+        void RecordSegment(const EarlyExercisePdeRiskRequest_& r, const Axis_& axis, EarlyExercisePdeRiskRecord_* record) {
+            record->segmentIndex_ = axis.segment_;
+            if (axis.segment_) {
+                record->startDate_ =
+                    *axis.segment_ == 0 ? r.valuation_.contract_.evaluationDate_ : r.valuation_.market_.carry_[*axis.segment_ - 1].endDate_;
+                record->endDate_ = r.valuation_.market_.carry_[*axis.segment_].endDate_;
+            }
+        }
         EarlyExercisePdeRiskRecord_ Record(const EarlyExercisePdeRiskRequest_& r, const Axis_& axis, int order, size_t index) {
             EarlyExercisePdeRiskRecord_ record;
             record.riskIndex_ = index;
-            record.riskId_ = axis.kind_ == 0 ? (order == 2 ? "Gamma" : "Delta") : (axis.kind_ == 1 ? "Vega" : axis.id_);
+            record.riskId_ = RiskId(axis, order);
             record.parameterId_ = axis.id_;
             record.derivativeOrder_ = order;
-            record.segmentIndex_ = axis.segment_;
-            if (axis.segment_) {
-                record.startDate_ =
-                    *axis.segment_ == 0 ? r.valuation_.contract_.evaluationDate_ : r.valuation_.market_.carry_[*axis.segment_ - 1].endDate_;
-                record.endDate_ = r.valuation_.market_.carry_[*axis.segment_].endDate_;
-            }
+            RecordSegment(r, axis, &record);
             record.parameterValue_ = axis.value_;
             static const char* units[] = {"price per spot price unit", "price per decimal volatility", "price per decimal rate",
                                           "price per decimal dividend yield"};
@@ -251,6 +274,21 @@ namespace Dal::PDE {
             Budget(temporary, r.risk_.workspaceBudgetBytes_, "risk.workspace_budget_bytes");
             return {payload, temporary, Add(payload, temporary)};
         }
+        void ResolveRiskConfiguration(const EarlyExercisePdeRiskRequest_& r, EarlyExercisePdeRiskPlan_* p) {
+            p->resolvedRisk_ = r.risk_;
+            p->resolvedRisk_.spotBump_ = SpotBump(r);
+            p->spotBumpOrigin_ = Origin_(r.risk_.spotBump_ ? Origin_::EXPLICIT : Origin_::DEFAULT);
+            p->volatilityBumpOrigin_ = Origin_(r.risk_.volatilityBump_ == 1e-3 ? Origin_::DEFAULT : Origin_::EXPLICIT);
+            const size_t m = r.valuation_.market_.carry_.size();
+            p->rateBumpOrigins_ =
+                Vector_<EarlyExercisePdeRiskBumpOrigin_>(m, Origin_(r.risk_.rateBumps_.empty() ? Origin_::DEFAULT : Origin_::EXPLICIT));
+            p->dividendYieldBumpOrigins_ =
+                Vector_<EarlyExercisePdeRiskBumpOrigin_>(m, Origin_(r.risk_.dividendYieldBumps_.empty() ? Origin_::DEFAULT : Origin_::EXPLICIT));
+            if (p->resolvedRisk_.rateBumps_.empty())
+                p->resolvedRisk_.rateBumps_ = Vector_<double>(m, 1e-4);
+            if (p->resolvedRisk_.dividendYieldBumps_.empty())
+                p->resolvedRisk_.dividendYieldBumps_ = Vector_<double>(m, 1e-4);
+        }
         EarlyExercisePdeRiskPlan_
         ExportPlan(const EarlyExercisePdeRiskRequest_& r, const Internal::Plan_& plan, size_t scenarios, const Envelope_& envelope) {
             EarlyExercisePdeRiskPlan_ p;
@@ -275,19 +313,7 @@ namespace Dal::PDE {
             p.penaltyFactor_ = v.settings_.penaltyFactor_;
             p.maxIterationsPerStep_ = v.settings_.maxIterationsPerStep_;
             p.linearBackwardErrorLimit_ = v.settings_.linearBackwardErrorLimit_;
-            p.resolvedRisk_ = r.risk_;
-            p.resolvedRisk_.spotBump_ = SpotBump(r);
-            p.spotBumpOrigin_ = Origin_(r.risk_.spotBump_ ? Origin_::EXPLICIT : Origin_::DEFAULT);
-            p.volatilityBumpOrigin_ = Origin_(r.risk_.volatilityBump_ == 1e-3 ? Origin_::DEFAULT : Origin_::EXPLICIT);
-            const size_t m = v.market_.carry_.size();
-            p.rateBumpOrigins_ =
-                Vector_<EarlyExercisePdeRiskBumpOrigin_>(m, Origin_(r.risk_.rateBumps_.empty() ? Origin_::DEFAULT : Origin_::EXPLICIT));
-            p.dividendYieldBumpOrigins_ =
-                Vector_<EarlyExercisePdeRiskBumpOrigin_>(m, Origin_(r.risk_.dividendYieldBumps_.empty() ? Origin_::DEFAULT : Origin_::EXPLICIT));
-            if (p.resolvedRisk_.rateBumps_.empty())
-                p.resolvedRisk_.rateBumps_ = Vector_<double>(m, 1e-4);
-            if (p.resolvedRisk_.dividendYieldBumps_.empty())
-                p.resolvedRisk_.dividendYieldBumps_ = Vector_<double>(m, 1e-4);
+            ResolveRiskConfiguration(r, &p);
             p.plannedScenarios_ = scenarios;
             p.basePlannedSteps_ = plan.BasePlannedSteps();
             p.plannedSteps_ = static_cast<int>(plan.Steps().size());
@@ -296,33 +322,58 @@ namespace Dal::PDE {
             p.plannedPeakNativeBytes_ = envelope.peak_;
             return p;
         }
+        bool HasEvaluationExercise(const EarlyExercisePdeResult_& result) {
+            return !result.ExerciseLevels().empty() && result.ExerciseLevels().front().timeIndex_ == 0;
+        }
+        bool Contains(const EarlyExercisePdeExerciseRegion_& region, int low, int high) {
+            return low >= region.firstNode_ && high <= region.lastNode_;
+        }
+        Membership_ ContactMembership(const EarlyExercisePdeResult_& result, int low, int high) {
+            const auto& level = result.ExerciseLevels().front();
+            bool contact = false;
+            for (size_t j = 0; j < level.regionCount_; ++j) {
+                const auto& region = result.ExerciseRegions()[level.regionOffset_ + j];
+                if (Contains(region, low, high))
+                    return Membership_::EXERCISE;
+                contact = contact || Contains(region, low, low) || Contains(region, high, high);
+            }
+            return contact ? Membership_::BOUNDARY : Membership_::CONTINUATION;
+        }
         Membership_ Membership(const EarlyExercisePdeResult_& result) {
-            if (result.ExerciseLevels().empty() || result.ExerciseLevels().front().timeIndex_ != 0)
+            if (!HasEvaluationExercise(result))
                 return Membership_::NOT_EXERCISABLE;
             const auto& grid = result.Grid();
             const double spot = result.Request().market_.spot_;
             const auto it = std::lower_bound(grid.begin(), grid.end(), spot);
             const int high = static_cast<int>(it - grid.begin()), low = *it == spot ? high : high - 1;
-            const auto& level = result.ExerciseLevels().front();
-            bool contact = false;
-            for (size_t j = 0; j < level.regionCount_; ++j) {
-                const auto& region = result.ExerciseRegions()[level.regionOffset_ + j];
-                if (low >= region.firstNode_ && high <= region.lastNode_)
-                    return Membership_::EXERCISE;
-                contact = contact || (low >= region.firstNode_ && low <= region.lastNode_) || (high >= region.firstNode_ && high <= region.lastNode_);
-            }
-            return contact ? Membership_::BOUNDARY : Membership_::CONTINUATION;
+            return ContactMembership(result, low, high);
+        }
+        bool ClosedIntersection(double a, double b, double low, double high) { return b >= low && a <= high; }
+        bool RegionIntersects(const EarlyExercisePdeExerciseRegion_& region, const Vector_<double>& grid, double low, double high) {
+            return (!region.leftClipped_ && ClosedIntersection(grid[region.firstNode_ - 1], grid[region.firstNode_], low, high)) ||
+                   (!region.rightClipped_ && ClosedIntersection(grid[region.lastNode_], grid[region.lastNode_ + 1], low, high));
         }
         bool BoundaryIntersects(const EarlyExercisePdeResult_& result, double low, double high) {
-            if (result.ExerciseLevels().empty() || result.ExerciseLevels().front().timeIndex_ != 0)
+            if (!HasEvaluationExercise(result))
                 return false;
             const auto& level = result.ExerciseLevels().front();
             const auto& grid = result.Grid();
             for (size_t i = 0; i < level.regionCount_; ++i) {
                 const auto& region = result.ExerciseRegions()[level.regionOffset_ + i];
-                if (!region.leftClipped_ && grid[region.firstNode_] >= low && grid[region.firstNode_ - 1] <= high)
+                if (RegionIntersects(region, grid, low, high))
                     return true;
-                if (!region.rightClipped_ && grid[region.lastNode_ + 1] >= low && grid[region.lastNode_] <= high)
+            }
+            return false;
+        }
+        bool LevelChanged(const EarlyExercisePdeResult_& a, const EarlyExercisePdeResult_& b, size_t index) {
+            const auto& x = a.ExerciseLevels()[index];
+            const auto& y = b.ExerciseLevels()[index];
+            if (x.regionCount_ != y.regionCount_)
+                return true;
+            for (size_t k = 0; k < x.regionCount_; ++k) {
+                const auto& p = a.ExerciseRegions()[x.regionOffset_ + k];
+                const auto& q = b.ExerciseRegions()[y.regionOffset_ + k];
+                if (p.firstNode_ != q.firstNode_ || p.lastNode_ != q.lastNode_)
                     return true;
             }
             return false;
@@ -335,14 +386,8 @@ namespace Dal::PDE {
             for (size_t j = 0; j < x.size(); ++j) {
                 if (x[j].timeIndex_ == 0 || x[j].kind_ == EarlyExercisePdeLevelKind_::Value_::TERMINAL)
                     continue;
-                if (x[j].regionCount_ != y[j].regionCount_)
+                if (LevelChanged(a, b, j))
                     return true;
-                for (size_t k = 0; k < x[j].regionCount_; ++k) {
-                    const auto& p = a.ExerciseRegions()[x[j].regionOffset_ + k];
-                    const auto& q = b.ExerciseRegions()[y[j].regionOffset_ + k];
-                    if (p.firstNode_ != q.firstNode_ || p.lastNode_ != q.lastNode_)
-                        return true;
-                }
             }
             return false;
         }
@@ -364,6 +409,48 @@ namespace Dal::PDE {
                 --bytes;
             return String_(reason.begin(), reason.begin() + bytes);
         }
+        void SummarizeFailure(std::optional<EarlyExercisePdeFailure_>* failure) {
+            if (!*failure)
+                return;
+            (*failure)->reason_ = BoundedReason((*failure)->reason_);
+            (*failure)->residual_ = Finite((*failure)->residual_);
+            (*failure)->threshold_ = Finite((*failure)->threshold_);
+        }
+        std::optional<double> MaxIterationChange(const EarlyExercisePdeResult_& result) {
+            std::optional<double> change;
+            for (const auto& step : result.StepDiagnostics())
+                if (std::isfinite(step.iterationChange_))
+                    change = std::max(change.value_or(0.0), step.iterationChange_);
+            return change;
+        }
+        bool PublishPrice(EarlyExercisePdeRiskScenario_* row, const EarlyExercisePdeResult_& result, const EarlyExercisePdeRiskRequest_& r) {
+            row->status_ = EarlyExercisePdeRiskScenarioStatus_(ScenarioStatus_::NUMERICAL_FAILURE);
+            if (!result.IsSuccess())
+                return false;
+            const double price = result.Price();
+            if (!std::isfinite(price)) {
+                row->solverStatus_ = EarlyExercisePdeStatus_(EarlyExercisePdeStatus_::Value_::NONFINITE);
+                row->failure_ = EarlyExercisePdeFailure_{
+                    *row->solverStatus_,           0, 0, r.valuation_.contract_.evaluationDate_, {}, {}, {}, result.Execution().workUnits_,
+                    "nonfinite interpolated price"};
+                return false;
+            }
+            row->status_ = EarlyExercisePdeRiskScenarioStatus_(ScenarioStatus_::SUCCESS);
+            row->priceAvailable_ = true;
+            row->price_ = price;
+            return true;
+        }
+        void SummarizeContact(EarlyExercisePdeRiskScenario_* row,
+                              const EarlyExercisePdeResult_& result,
+                              const EarlyExercisePdeRiskRequest_& r,
+                              const EarlyExercisePdeResult_* base) {
+            row->evaluationMembership_ = EarlyExercisePdeRiskMembership_(Membership(result));
+            if (r.risk_.delta_ || r.risk_.gamma_)
+                row->evaluationBoundaryIntersectsSpotStencil_ =
+                    BoundaryIntersects(result, r.valuation_.market_.spot_ - 2.0 * SpotBump(r), r.valuation_.market_.spot_ + 2.0 * SpotBump(r));
+            row->futureContactChanged_ = base ? FutureChanged(*base, result) : false;
+            row->upwindChanged_ = base ? UpwindChanged(base->Request().market_, result.Request().market_, r.valuation_.settings_.gridPoints_) : false;
+        }
         void Summarize(EarlyExercisePdeRiskScenario_* row,
                        const EarlyExercisePdeResult_& result,
                        const EarlyExercisePdeRiskRequest_& r,
@@ -380,34 +467,12 @@ namespace Dal::PDE {
             row->maxObstacleViolation_ = Finite(e.maxObstacleViolation_);
             row->maxDualViolation_ = Finite(e.maxDualViolation_);
             row->maxComplementarityResidual_ = Finite(e.maxComplementarityResidual_);
-            for (const auto& step : result.StepDiagnostics())
-                if (std::isfinite(step.iterationChange_))
-                    row->maxIterationChange_ = std::max(row->maxIterationChange_.value_or(0.0), step.iterationChange_);
+            row->maxIterationChange_ = MaxIterationChange(result);
             row->failure_ = result.Failure();
-            if (row->failure_) {
-                row->failure_->reason_ = BoundedReason(row->failure_->reason_);
-                row->failure_->residual_ = Finite(row->failure_->residual_);
-                row->failure_->threshold_ = Finite(row->failure_->threshold_);
-            }
-            row->status_ = EarlyExercisePdeRiskScenarioStatus_(ScenarioStatus_::NUMERICAL_FAILURE);
-            if (!result.IsSuccess())
+            SummarizeFailure(&row->failure_);
+            if (!PublishPrice(row, result, r))
                 return;
-            const double price = result.Price();
-            if (!std::isfinite(price)) {
-                row->solverStatus_ = EarlyExercisePdeStatus_(EarlyExercisePdeStatus_::Value_::NONFINITE);
-                row->failure_ = EarlyExercisePdeFailure_{
-                    *row->solverStatus_, 0, 0, r.valuation_.contract_.evaluationDate_, {}, {}, {}, e.workUnits_, "nonfinite interpolated price"};
-                return;
-            }
-            row->status_ = EarlyExercisePdeRiskScenarioStatus_(ScenarioStatus_::SUCCESS);
-            row->priceAvailable_ = true;
-            row->price_ = price;
-            row->evaluationMembership_ = EarlyExercisePdeRiskMembership_(Membership(result));
-            if (r.risk_.delta_ || r.risk_.gamma_)
-                row->evaluationBoundaryIntersectsSpotStencil_ =
-                    BoundaryIntersects(result, r.valuation_.market_.spot_ - 2.0 * SpotBump(r), r.valuation_.market_.spot_ + 2.0 * SpotBump(r));
-            row->futureContactChanged_ = base ? FutureChanged(*base, result) : false;
-            row->upwindChanged_ = base ? UpwindChanged(base->Request().market_, result.Request().market_, r.valuation_.settings_.gridPoints_) : false;
+            SummarizeContact(row, result, r, base);
         }
         bool Available(const EarlyExercisePdeRiskRecord_& r) {
             return r.status_ == Availability_::AVAILABLE || r.status_ == Availability_::AVAILABLE_EXERCISE_REGION;
@@ -424,8 +489,7 @@ namespace Dal::PDE {
             }
             return Finite(sum);
         }
-        void Qualify(EarlyExercisePdeRiskRecord_* record, const Vector_<EarlyExercisePdeRiskScenario_>& scenarios, double strike) {
-            const auto& base = scenarios[0];
+        void EstimatePair(EarlyExercisePdeRiskRecord_* record, const Vector_<EarlyExercisePdeRiskScenario_>& scenarios, double strike) {
             record->fineEstimate_ = Estimate(record->fineStencil_, scenarios);
             record->coarseEstimate_ = Estimate(record->coarseStencil_, scenarios);
             if (record->fineEstimate_ && record->coarseEstimate_) {
@@ -435,38 +499,60 @@ namespace Dal::PDE {
                     record->normalizedStepDifference_ = Finite(std::abs(*record->stepDifference_) * scale);
                 }
             }
-            auto status = record->status_.Switch();
-            bool blocked = false, failed = false, boundary = base.evaluationBoundaryIntersectsSpotStencil_.value_or(false);
-            bool exerciseSwitch = base.evaluationMembership_ == EarlyExercisePdeRiskMembership_(Membership_::BOUNDARY);
-            bool exercise = base.evaluationMembership_ == EarlyExercisePdeRiskMembership_(Membership_::EXERCISE);
-            for (const auto* stencil : {&record->coarseStencil_, &record->fineStencil_})
+        }
+        struct Qualification_ {
+            bool blocked_ = false, failed_ = false, boundary_ = false, exerciseSwitch_ = false, exercise_ = false;
+            void Observe(const EarlyExercisePdeRiskScenario_& row, const EarlyExercisePdeRiskScenario_& base) {
+                blocked_ = blocked_ || row.status_ == ScenarioStatus_::NOT_RUN_WORK_LIMIT || row.workLimitSource_ == Source_::GLOBAL;
+                failed_ = failed_ || row.status_ == ScenarioStatus_::NUMERICAL_FAILURE;
+                boundary_ = boundary_ || row.evaluationBoundaryIntersectsSpotStencil_.value_or(false);
+                exerciseSwitch_ = exerciseSwitch_ || row.evaluationMembership_ != base.evaluationMembership_ ||
+                                  row.evaluationMembership_ == EarlyExercisePdeRiskMembership_(Membership_::BOUNDARY);
+                exercise_ = exercise_ && row.evaluationMembership_ == EarlyExercisePdeRiskMembership_(Membership_::EXERCISE);
+            }
+        };
+        Qualification_ CollectQualification(const EarlyExercisePdeRiskRecord_& record, const Vector_<EarlyExercisePdeRiskScenario_>& scenarios) {
+            const auto& base = scenarios[0];
+            Qualification_ q{false, false, base.evaluationBoundaryIntersectsSpotStencil_.value_or(false),
+                             base.evaluationMembership_ == EarlyExercisePdeRiskMembership_(Membership_::BOUNDARY),
+                             base.evaluationMembership_ == EarlyExercisePdeRiskMembership_(Membership_::EXERCISE)};
+            for (const auto* stencil : {&record.coarseStencil_, &record.fineStencil_})
                 for (const auto& entry : *stencil) {
                     const auto& row = scenarios[entry.scenarioIndex_];
-                    blocked = blocked || row.status_ == ScenarioStatus_::NOT_RUN_WORK_LIMIT || row.workLimitSource_ == Source_::GLOBAL;
-                    failed = failed || row.status_ == ScenarioStatus_::NUMERICAL_FAILURE;
-                    boundary = boundary || row.evaluationBoundaryIntersectsSpotStencil_.value_or(false);
-                    exerciseSwitch = exerciseSwitch || row.evaluationMembership_ != base.evaluationMembership_ ||
-                                     row.evaluationMembership_ == EarlyExercisePdeRiskMembership_(Membership_::BOUNDARY);
-                    exercise = exercise && row.evaluationMembership_ == EarlyExercisePdeRiskMembership_(Membership_::EXERCISE);
+                    q.Observe(row, base);
                 }
+            return q;
+        }
+        Availability_
+        FailureAdmission(const EarlyExercisePdeRiskRecord_& record, const EarlyExercisePdeRiskScenario_& base, const Qualification_& q) {
             if (!base.priceAvailable_)
-                status = Availability_::UNAVAILABLE_BASE_FAILED;
-            else if (blocked)
-                status = Availability_::UNAVAILABLE_WORK_LIMIT;
-            else if (failed)
-                status = Availability_::UNAVAILABLE_SCENARIO_FAILED;
-            else if (status == Availability_::AVAILABLE) {
-                if (record->parameterId_ == "Spot" && boundary)
-                    status = Availability_::UNAVAILABLE_NEAR_EXERCISE_BOUNDARY;
-                else if (exerciseSwitch)
-                    status = Availability_::UNAVAILABLE_EXERCISE_SWITCH;
-                else if (!record->fineEstimate_ || !record->coarseEstimate_ || !record->normalizedStepDifference_)
-                    status = Availability_::UNAVAILABLE_NONFINITE;
-                else if (*record->normalizedStepDifference_ > record->stabilityTolerance_)
-                    status = Availability_::UNAVAILABLE_STEP_UNSTABLE;
-                else
-                    status = exercise ? Availability_::AVAILABLE_EXERCISE_REGION : Availability_::AVAILABLE;
-            }
+                return Availability_::UNAVAILABLE_BASE_FAILED;
+            if (q.blocked_)
+                return Availability_::UNAVAILABLE_WORK_LIMIT;
+            if (q.failed_)
+                return Availability_::UNAVAILABLE_SCENARIO_FAILED;
+            return record.status_.Switch();
+        }
+        bool FiniteEstimates(const EarlyExercisePdeRiskRecord_& record) {
+            return record.fineEstimate_ && record.coarseEstimate_ && record.normalizedStepDifference_;
+        }
+        Availability_ ScreenAdmission(const EarlyExercisePdeRiskRecord_& record, const Qualification_& q) {
+            if (record.parameterId_ == "Spot" && q.boundary_)
+                return Availability_::UNAVAILABLE_NEAR_EXERCISE_BOUNDARY;
+            if (q.exerciseSwitch_)
+                return Availability_::UNAVAILABLE_EXERCISE_SWITCH;
+            if (!FiniteEstimates(record))
+                return Availability_::UNAVAILABLE_NONFINITE;
+            if (*record.normalizedStepDifference_ > record.stabilityTolerance_)
+                return Availability_::UNAVAILABLE_STEP_UNSTABLE;
+            return q.exercise_ ? Availability_::AVAILABLE_EXERCISE_REGION : Availability_::AVAILABLE;
+        }
+        void Qualify(EarlyExercisePdeRiskRecord_* record, const Vector_<EarlyExercisePdeRiskScenario_>& scenarios, double strike) {
+            EstimatePair(record, scenarios, strike);
+            const auto q = CollectQualification(*record, scenarios);
+            auto status = FailureAdmission(*record, scenarios[0], q);
+            if (status == Availability_::AVAILABLE)
+                status = ScreenAdmission(*record, q);
             record->status_ = EarlyExercisePdeRiskAvailability_(status);
             if (Available(*record))
                 record->value_ = record->fineEstimate_;
@@ -519,6 +605,151 @@ namespace Dal::PDE {
             }
             return bytes;
         }
+
+        Vector_<EarlyExercisePdeMarket_> ScenarioMarkets(const EarlyExercisePdeRiskRequest_& input, Vector_<Axis_>* axes, size_t count) {
+            Vector_<EarlyExercisePdeMarket_> markets;
+            markets.reserve(count - 1);
+            for (auto& axis : *axes) {
+                axis.firstScenario_ = markets.size() + 1;
+                if (axis.admission_ != Availability_::AVAILABLE)
+                    continue;
+                for (size_t k = 0; k < 4; ++k) {
+                    auto market = input.valuation_.market_;
+                    SetParameter(&market, axis, axis.value_ + AxisOffset(axis, k));
+                    markets.push_back(std::move(market));
+                }
+            }
+            return markets;
+        }
+        EarlyExercisePdeRiskScenario_ ScenarioRow(const Axis_& axis, size_t offsetIndex, size_t index) {
+            static const char* suffix[] = {":C-", ":C+", ":F-", ":F+"};
+            EarlyExercisePdeRiskScenario_ row;
+            const double value = axis.value_ + AxisOffset(axis, offsetIndex);
+            row.scenarioIndex_ = index;
+            row.scenarioId_ = axis.id_ + suffix[offsetIndex];
+            row.parameterId_ = axis.id_;
+            row.segmentIndex_ = axis.segment_;
+            row.parameterValue_ = value;
+            row.offset_ = value - axis.value_;
+            return row;
+        }
+        Vector_<EarlyExercisePdeRiskScenario_> ScenarioRows(const Vector_<Axis_>& axes, size_t count, const Internal::Plan_& plan) {
+            Vector_<EarlyExercisePdeRiskScenario_> rows;
+            rows.reserve(count);
+            rows.push_back({});
+            rows.back().scenarioId_ = "Base";
+            for (const auto& axis : axes)
+                if (axis.admission_ == Availability_::AVAILABLE)
+                    for (size_t k = 0; k < 4; ++k)
+                        rows.push_back(ScenarioRow(axis, k, rows.size()));
+            for (auto& row : rows) {
+                row.planId_ = plan.Id();
+                row.epsilon_ = plan.Epsilon();
+                row.plannedSteps_ = static_cast<int>(plan.Steps().size());
+            }
+            return rows;
+        }
+        Vector_<EarlyExercisePdeRiskRecord_> RiskRecords(const EarlyExercisePdeRiskRequest_& input, const Vector_<Axis_>& axes) {
+            Vector_<EarlyExercisePdeRiskRecord_> records;
+            records.reserve(Add(3, Mul(2, input.valuation_.market_.carry_.size())));
+            for (const auto& axis : axes) {
+                if (axis.kind_ == 0) {
+                    if (input.risk_.delta_)
+                        records.push_back(Record(input, axis, 1, records.size()));
+                    if (input.risk_.gamma_)
+                        records.push_back(Record(input, axis, 2, records.size()));
+                } else
+                    records.push_back(Record(input, axis, 1, records.size()));
+            }
+            return records;
+        }
+        void MarkNotRun(EarlyExercisePdeRiskScenario_* row, bool baseFailed) {
+            row->status_ =
+                EarlyExercisePdeRiskScenarioStatus_(baseFailed ? ScenarioStatus_::NOT_RUN_BASE_FAILED : ScenarioStatus_::NOT_RUN_WORK_LIMIT);
+            row->workLimitSource_ = EarlyExercisePdeRiskWorkLimitSource_(baseFailed ? Source_::NONE : Source_::GLOBAL);
+        }
+        void ClearUnattemptedObservations(EarlyExercisePdeRiskScenario_* row) {
+            row->status_ = EarlyExercisePdeRiskScenarioStatus_(ScenarioStatus_::NOT_RUN_WORK_LIMIT);
+            row->solverStatus_.reset();
+            row->failure_.reset();
+            row->actualSteps_ = row->completedSteps_ = 0;
+            row->numericPayloadBytes_ = row->peakWorkspaceBytes_ = 0;
+            row->maxIterationChange_.reset();
+            row->maxLinearBackwardError_.reset();
+            row->maxObstacleViolation_.reset();
+            row->maxDualViolation_.reset();
+            row->maxComplementarityResidual_.reset();
+        }
+        bool UnattemptedBump(const EarlyExercisePdeRiskScenario_& row, size_t index, bool global) {
+            return index != 0 && global && row.totalSolves_ == 0 && row.completedSteps_ == 0;
+        }
+        bool
+        AccountWorkLimit(EarlyExercisePdeRiskScenario_* row, size_t remaining, size_t index, int nodes, EarlyExercisePdeRiskExecution_* execution) {
+            if (row->solverStatus_ != EarlyExercisePdeStatus_(EarlyExercisePdeStatus_::Value_::WORK_LIMIT))
+                return false;
+            const bool global = static_cast<size_t>(nodes - 2) > remaining - row->workUnits_;
+            row->workLimitSource_ = EarlyExercisePdeRiskWorkLimitSource_(global ? Source_::GLOBAL : Source_::SCENARIO);
+            if (!execution->workLimitScenarioIndex_) {
+                execution->workLimitScenarioIndex_ = index;
+                execution->workLimitSource_ = row->workLimitSource_;
+            }
+            if (UnattemptedBump(*row, index, global))
+                ClearUnattemptedObservations(row);
+            return global;
+        }
+        void AccountScenario(const EarlyExercisePdeRiskScenario_& row, EarlyExercisePdeRiskExecution_* execution) {
+            execution->totalSolves_ = Add(execution->totalSolves_, row.totalSolves_);
+            execution->workUnits_ = Add(execution->workUnits_, row.workUnits_);
+            if (row.status_ == ScenarioStatus_::NOT_RUN_WORK_LIMIT) {
+                ++execution->notRunScenarios_;
+                return;
+            }
+            ++execution->attemptedScenarios_;
+            if (row.priceAvailable_)
+                ++execution->successfulScenarios_;
+            else
+                ++execution->failedScenarios_;
+        }
+        EarlyExercisePdeRequest_ ScenarioRequest(const EarlyExercisePdeRiskRequest_& input, const EarlyExercisePdeMarket_* market, size_t remaining) {
+            auto scenario = input.valuation_;
+            if (market)
+                scenario.market_ = *market;
+            scenario.settings_.maxWorkUnits_ = std::min(remaining, input.valuation_.settings_.maxWorkUnits_);
+            return scenario;
+        }
+        EarlyExercisePdeResult_ ExecuteScenario(const EarlyExercisePdeRequest_& scenario,
+                                                const Internal::Plan_& plan,
+                                                size_t index,
+                                                const EarlyExercisePdeRiskInternal::TestControl_* control) {
+            Internal::RollbackControl_ solverControl;
+            const bool controlled = control && control->scenarioIndex_ == index;
+            if (controlled)
+                solverControl = {control->failFirstSolve_, control->extraFirstSolve_, control->nonfinitePrice_};
+            if (control && control->rollbacksStarted_)
+                ++*control->rollbacksStarted_;
+            return PriceCall([&]() { return Internal::RollbackForRisk(scenario, plan, controlled ? &solverControl : nullptr); });
+        }
+        void ObserveMemory(const EarlyExercisePdeRiskResult_& result,
+                           EarlyExercisePdeRiskExecution_* execution,
+                           const EarlyExercisePdeRequest_& scenario,
+                           const EarlyExercisePdeResult_& observed,
+                           bool base,
+                           const Internal::Plan_& plan,
+                           size_t setupBytes) {
+            size_t temporary = Add(Add(setupBytes, plan.StorageBytes()),
+                                   Add(sizeof(scenario), Add(Bytes(scenario.market_.carry_), Bytes(scenario.contract_.exerciseDates_))));
+            temporary = Add(temporary, observed.Execution().peakWorkspaceBytes_);
+            temporary = Add(temporary, base ? sizeof(observed) : Add(observed.Execution().numericPayloadBytes_, FailureBytes(observed.Failure())));
+            execution->peakWorkspaceBytes_ = std::max(execution->peakWorkspaceBytes_, temporary);
+            execution->peakNativeBytes_ = std::max(execution->peakNativeBytes_, Add(Payload(result), temporary));
+        }
+        Status_ AggregateStatus(bool baseFailed, bool globalStop, bool complete) {
+            if (baseFailed)
+                return Status_::BASE_FAILED;
+            if (globalStop)
+                return Status_::WORK_LIMIT;
+            return complete ? Status_::COMPLETE : Status_::PARTIAL;
+        }
     } // namespace
 
     void ValidateEarlyExercisePdeRiskSettings(const EarlyExercisePdeRiskSettings_& s) {
@@ -543,6 +774,67 @@ namespace Dal::PDE {
         PriceCall([&]() { ValidateEarlyExercisePdeRequest(r.valuation_); });
         ValidateBumps(r);
     }
+    struct EarlyExercisePdeRiskInternal::Evaluator_::State_ {
+        const EarlyExercisePdeRiskRequest_& input_;
+        const Internal::Plan_& plan_;
+        const Vector_<Axis_>& axes_;
+        const Vector_<EarlyExercisePdeMarket_>& markets_;
+        const Envelope_& envelope_;
+        const TestControl_* control_;
+        bool globalStop_ = false, baseFailed_ = false;
+    };
+    void EarlyExercisePdeRiskInternal::Evaluator_::Initialize(EarlyExercisePdeRiskResult_* result, const State_& state) {
+        const size_t count = state.markets_.size() + 1;
+        result->request_ = state.input_;
+        result->scenarios_ = ScenarioRows(state.axes_, count, state.plan_);
+        result->risks_ = RiskRecords(state.input_, state.axes_);
+        result->plan_ = ExportPlan(state.input_, state.plan_, count, state.envelope_);
+        auto& e = result->execution_;
+        e.plannedScenarios_ = count;
+        e.plannedNumericPayloadBytes_ = state.envelope_.payload_;
+        e.plannedWorkspaceBytes_ = state.envelope_.workspace_;
+        e.plannedPeakNativeBytes_ = state.envelope_.peak_;
+        e.peakWorkspaceBytes_ = Add(SetupBytes(state.axes_, state.markets_), state.plan_.PeakTemporaryBytes());
+        e.peakNativeBytes_ = e.peakWorkspaceBytes_;
+    }
+    void EarlyExercisePdeRiskInternal::Evaluator_::RunScenario(EarlyExercisePdeRiskResult_* result, State_* state, size_t index) {
+        auto& row = result->scenarios_[index];
+        auto& e = result->execution_;
+        const size_t remaining = state->input_.risk_.maxWorkUnits_ - e.workUnits_;
+        const auto scenario = ScenarioRequest(state->input_, index == 0 ? nullptr : &state->markets_[index - 1], remaining);
+        auto evaluated = ExecuteScenario(scenario, state->plan_, index, state->control_);
+        Summarize(&row, evaluated, state->input_, index == 0 ? nullptr : &*result->base_);
+        state->globalStop_ = AccountWorkLimit(&row, remaining, index, scenario.settings_.gridPoints_, &e);
+        AccountScenario(row, &e);
+        if (index == 0) {
+            state->baseFailed_ = !row.priceAvailable_;
+            result->base_ = std::move(evaluated);
+        }
+        const auto& observed = index == 0 ? result->BaseResult() : evaluated;
+        ObserveMemory(*result, &e, scenario, observed, index == 0, state->plan_, SetupBytes(state->axes_, state->markets_));
+    }
+    void EarlyExercisePdeRiskInternal::Evaluator_::RunAll(EarlyExercisePdeRiskResult_* result, State_* state) {
+        for (size_t i = 0; i < result->scenarios_.size(); ++i) {
+            if (state->baseFailed_ || state->globalStop_) {
+                MarkNotRun(&result->scenarios_[i], state->baseFailed_);
+                ++result->execution_.notRunScenarios_;
+            } else
+                RunScenario(result, state, i);
+        }
+    }
+    void EarlyExercisePdeRiskInternal::Evaluator_::Finish(EarlyExercisePdeRiskResult_* result, const State_& state) {
+        for (auto& record : result->risks_)
+            Qualify(&record, result->scenarios_, state.input_.valuation_.contract_.strike_);
+        const bool complete = std::all_of(result->risks_.begin(), result->risks_.end(), Available);
+        result->status_ = EarlyExercisePdeRiskStatus_(AggregateStatus(state.baseFailed_, state.globalStop_, complete));
+        auto& e = result->execution_;
+        e.numericPayloadBytes_ = Payload(*result);
+        Budget(e.numericPayloadBytes_, state.envelope_.payload_, "retained_storage_layout");
+        e.peakNativeBytes_ =
+            std::max(e.peakNativeBytes_, Add(e.numericPayloadBytes_, Add(SetupBytes(state.axes_, state.markets_), state.plan_.StorageBytes())));
+        Budget(e.peakWorkspaceBytes_, state.envelope_.workspace_, "temporary_storage_layout");
+        Budget(e.peakNativeBytes_, state.envelope_.peak_, "peak_storage_layout");
+    }
     EarlyExercisePdeRiskResult_ EarlyExercisePdeRiskInternal::Evaluator_::Run(const EarlyExercisePdeRiskRequest_& input,
                                                                               const TestControl_* control) {
         ValidateEarlyExercisePdeRiskRequest(input);
@@ -550,144 +842,15 @@ namespace Dal::PDE {
         Budget(count, input.risk_.maxScenarios_, "risk.max_scenarios");
         Budget(SetupEnvelope(input, count), input.risk_.workspaceBudgetBytes_, "risk.workspace_budget_bytes.setup");
         auto axes = Axes(input);
-        Vector_<EarlyExercisePdeMarket_> markets;
-        markets.reserve(count - 1);
-        for (auto& axis : axes) {
-            axis.firstScenario_ = markets.size() + 1;
-            if (axis.admission_ != Availability_::AVAILABLE)
-                continue;
-            for (size_t k = 0; k < 4; ++k) {
-                auto market = input.valuation_.market_;
-                const double offset = AxisOffset(axis, k);
-                SetParameter(&market, axis, axis.value_ + offset);
-                markets.push_back(std::move(market));
-            }
-        }
+        const auto markets = ScenarioMarkets(input, &axes, count);
         const auto layout = PriceCall([&]() { return Internal::PreviewPlan(input.valuation_, markets); });
         const auto envelope = Admit(input, count, layout);
-        const auto fixed = PriceCall([&]() { return Internal::BuildPlan(input.valuation_, markets); });
+        const auto plan = PriceCall([&]() { return Internal::BuildPlan(input.valuation_, markets); });
+        State_ state{input, plan, axes, markets, envelope, control};
         EarlyExercisePdeRiskResult_ result;
-        result.request_ = input;
-        result.scenarios_.reserve(count);
-        result.risks_.reserve(Add(3, Mul(2, input.valuation_.market_.carry_.size())));
-        result.scenarios_.push_back({});
-        result.scenarios_.back().scenarioId_ = "Base";
-        static const char* suffix[] = {":C-", ":C+", ":F-", ":F+"};
-        for (auto& axis : axes) {
-            if (axis.admission_ == Availability_::AVAILABLE)
-                for (size_t k = 0; k < 4; ++k) {
-                    const double offset = AxisOffset(axis, k);
-                    const double value = axis.value_ + offset;
-                    EarlyExercisePdeRiskScenario_ row;
-                    row.scenarioIndex_ = result.scenarios_.size();
-                    row.scenarioId_ = axis.id_ + suffix[k];
-                    row.parameterId_ = axis.id_;
-                    row.segmentIndex_ = axis.segment_;
-                    row.parameterValue_ = value;
-                    row.offset_ = value - axis.value_;
-                    result.scenarios_.push_back(std::move(row));
-                }
-            if (axis.kind_ == 0) {
-                if (input.risk_.delta_)
-                    result.risks_.push_back(Record(input, axis, 1, result.risks_.size()));
-                if (input.risk_.gamma_)
-                    result.risks_.push_back(Record(input, axis, 2, result.risks_.size()));
-            } else
-                result.risks_.push_back(Record(input, axis, 1, result.risks_.size()));
-        }
-        result.plan_ = ExportPlan(input, fixed, count, envelope);
-        auto& execution = result.execution_;
-        execution.plannedScenarios_ = count;
-        execution.plannedNumericPayloadBytes_ = envelope.payload_;
-        execution.plannedWorkspaceBytes_ = envelope.workspace_;
-        execution.plannedPeakNativeBytes_ = envelope.peak_;
-        execution.peakWorkspaceBytes_ = Add(SetupBytes(axes, markets), fixed.PeakTemporaryBytes());
-        execution.peakNativeBytes_ = execution.peakWorkspaceBytes_;
-        for (auto& row : result.scenarios_) {
-            row.planId_ = fixed.Id();
-            row.epsilon_ = fixed.Epsilon();
-            row.plannedSteps_ = result.plan_.plannedSteps_;
-        }
-        bool globalStop = false, baseFailed = false;
-        for (size_t i = 0; i < count; ++i) {
-            auto& row = result.scenarios_[i];
-            if (baseFailed || globalStop) {
-                row.status_ =
-                    EarlyExercisePdeRiskScenarioStatus_(baseFailed ? ScenarioStatus_::NOT_RUN_BASE_FAILED : ScenarioStatus_::NOT_RUN_WORK_LIMIT);
-                row.workLimitSource_ = EarlyExercisePdeRiskWorkLimitSource_(baseFailed ? Source_::NONE : Source_::GLOBAL);
-                ++execution.notRunScenarios_;
-                continue;
-            }
-            auto scenario = input.valuation_;
-            if (i != 0)
-                scenario.market_ = markets[i - 1];
-            const size_t remaining = input.risk_.maxWorkUnits_ - execution.workUnits_;
-            scenario.settings_.maxWorkUnits_ = std::min(remaining, input.valuation_.settings_.maxWorkUnits_);
-            Internal::RollbackControl_ solverControl;
-            const bool controlled = control && control->scenarioIndex_ == i;
-            if (controlled)
-                solverControl = {control->failFirstSolve_, control->extraFirstSolve_, control->nonfinitePrice_};
-            if (control && control->rollbacksStarted_)
-                ++*control->rollbacksStarted_;
-            auto evaluated = PriceCall([&]() { return Internal::RollbackForRisk(scenario, fixed, controlled ? &solverControl : nullptr); });
-            Summarize(&row, evaluated, input, i == 0 ? nullptr : &*result.base_);
-            if (row.solverStatus_ == EarlyExercisePdeStatus_(EarlyExercisePdeStatus_::Value_::WORK_LIMIT)) {
-                const bool global = static_cast<size_t>(scenario.settings_.gridPoints_ - 2) > remaining - row.workUnits_;
-                row.workLimitSource_ = EarlyExercisePdeRiskWorkLimitSource_(global ? Source_::GLOBAL : Source_::SCENARIO);
-                if (!execution.workLimitScenarioIndex_) {
-                    execution.workLimitScenarioIndex_ = i;
-                    execution.workLimitSource_ = row.workLimitSource_;
-                }
-                globalStop = global;
-                if (i != 0 && global && row.totalSolves_ == 0 && row.completedSteps_ == 0) {
-                    row.status_ = EarlyExercisePdeRiskScenarioStatus_(ScenarioStatus_::NOT_RUN_WORK_LIMIT);
-                    row.solverStatus_.reset();
-                    row.failure_.reset();
-                    row.actualSteps_ = row.completedSteps_ = 0;
-                    row.numericPayloadBytes_ = row.peakWorkspaceBytes_ = 0;
-                    row.maxIterationChange_.reset();
-                    row.maxLinearBackwardError_.reset();
-                    row.maxObstacleViolation_.reset();
-                    row.maxDualViolation_.reset();
-                    row.maxComplementarityResidual_.reset();
-                }
-            }
-            execution.totalSolves_ = Add(execution.totalSolves_, row.totalSolves_);
-            execution.workUnits_ = Add(execution.workUnits_, row.workUnits_);
-            if (row.status_ == ScenarioStatus_::NOT_RUN_WORK_LIMIT)
-                ++execution.notRunScenarios_;
-            else {
-                ++execution.attemptedScenarios_;
-                if (row.priceAvailable_)
-                    ++execution.successfulScenarios_;
-                else
-                    ++execution.failedScenarios_;
-            }
-            if (i == 0) {
-                baseFailed = !row.priceAvailable_;
-                result.base_ = std::move(evaluated);
-            }
-            const auto& observed = i == 0 ? result.BaseResult() : evaluated;
-            size_t temporary = Add(Add(SetupBytes(axes, markets), fixed.StorageBytes()),
-                                   Add(sizeof(scenario), Add(Bytes(scenario.market_.carry_), Bytes(scenario.contract_.exerciseDates_))));
-            temporary = Add(temporary, observed.Execution().peakWorkspaceBytes_);
-            temporary = Add(temporary, i == 0 ? sizeof(evaluated) : Add(observed.Execution().numericPayloadBytes_, FailureBytes(observed.Failure())));
-            execution.peakWorkspaceBytes_ = std::max(execution.peakWorkspaceBytes_, temporary);
-            execution.peakNativeBytes_ = std::max(execution.peakNativeBytes_, Add(Payload(result), temporary));
-        }
-        bool complete = true;
-        for (auto& record : result.risks_) {
-            Qualify(&record, result.scenarios_, input.valuation_.contract_.strike_);
-            complete = complete && Available(record);
-        }
-        result.status_ = EarlyExercisePdeRiskStatus_(
-            baseFailed ? Status_::BASE_FAILED : (globalStop ? Status_::WORK_LIMIT : (complete ? Status_::COMPLETE : Status_::PARTIAL)));
-        execution.numericPayloadBytes_ = Payload(result);
-        Budget(execution.numericPayloadBytes_, envelope.payload_, "retained_storage_layout");
-        execution.peakNativeBytes_ =
-            std::max(execution.peakNativeBytes_, Add(execution.numericPayloadBytes_, Add(SetupBytes(axes, markets), fixed.StorageBytes())));
-        Budget(execution.peakWorkspaceBytes_, envelope.workspace_, "temporary_storage_layout");
-        Budget(execution.peakNativeBytes_, envelope.peak_, "peak_storage_layout");
+        Initialize(&result, state);
+        RunAll(&result, &state);
+        Finish(&result, state);
         return result;
     }
     EarlyExercisePdeRiskResult_ EvaluateEarlyExercisePdeRisk(const EarlyExercisePdeRiskRequest_& input) {

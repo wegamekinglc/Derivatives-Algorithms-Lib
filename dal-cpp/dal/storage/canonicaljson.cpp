@@ -309,7 +309,7 @@ namespace Dal::CanonicalJson {
 
         std::uint32_t RotateRight(std::uint32_t value, int bits) { return (value >> bits) | (value << (32 - bits)); }
 
-        std::array<unsigned char, 32> Sha256(const std::string& value, size_t* peakBytes = nullptr) {
+        std::vector<unsigned char> PaddedShaBytes(const std::string& value, size_t* peakBytes) {
             std::vector<unsigned char> bytes(value.begin(), value.end());
             size_t peak = bytes.capacity();
             const auto append = [&](unsigned char byte) {
@@ -325,7 +325,11 @@ namespace Dal::CanonicalJson {
                 append(static_cast<unsigned char>((bitLength >> shift) & 0xFFU));
             if (peakBytes)
                 *peakBytes = peak;
+            return bytes;
+        }
 
+        std::array<unsigned char, 32> Sha256(const std::string& value, size_t* peakBytes = nullptr) {
+            const auto bytes = PaddedShaBytes(value, peakBytes);
             std::array<std::uint32_t, 8> state = {
                 0x6a09e667U, 0xbb67ae85U, 0x3c6ef372U, 0xa54ff53aU, 0x510e527fU, 0x9b05688cU, 0x1f83d9abU, 0x5be0cd19U,
             };

@@ -9,7 +9,12 @@ namespace Dal::PDE::EarlyExercisePdeRiskInternal {
         size_t* rollbacksStarted_ = nullptr;
     };
     struct Evaluator_ {
+        struct State_;
         static EarlyExercisePdeRiskResult_ Run(const EarlyExercisePdeRiskRequest_&, const TestControl_*);
+        static void Initialize(EarlyExercisePdeRiskResult_*, const State_&);
+        static void RunScenario(EarlyExercisePdeRiskResult_*, State_*, size_t);
+        static void RunAll(EarlyExercisePdeRiskResult_*, State_*);
+        static void Finish(EarlyExercisePdeRiskResult_*, const State_&);
     };
     [[nodiscard]] EarlyExercisePdeRiskResult_ Evaluate(const EarlyExercisePdeRiskRequest_&, const TestControl_&);
     [[nodiscard]] size_t CheckedAdd(size_t, size_t);
