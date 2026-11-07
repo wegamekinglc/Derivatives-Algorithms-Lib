@@ -1,4 +1,5 @@
 #include "__calibrationinstrumentinput.hpp"
+#include "__compoundedoisinput.hpp"
 #include "__platform.hpp"
 #include "__scriptinput.hpp"
 #include <dal-public/src/calibrationfieldsinternal.hpp>
@@ -20,7 +21,7 @@ value is handle StorableScriptInstrumentImportSettings
 public CurveInstrumentGeometry_New
     Create immutable typed calibration settings
 &inputs
-settings is cell[][]
+settings is cell[][]+ or Xccy->Excel::XccyTableInput_("CurveInstrumentGeometry_New", "settings", 2)
     Exact field/value rows; nested values are typed handles
 +const Excel::ScriptSettingsInput_ normalized_settings(xl_settings); xl_settings = normalized_settings.Get();
 +argName = "settings"; Excel::ValidateScriptSettingsRange(xl_settings, "CurveInstrumentGeometry_New", "settings");
@@ -33,7 +34,7 @@ value is handle StorableCurveInstrumentGeometry
 public CurveInstrumentMarket_New
     Create immutable typed calibration settings
 &inputs
-settings is cell[][]
+settings is cell[][]+ or Xccy->Excel::XccyTableInput_("CurveInstrumentMarket_New", "settings", 2)
     Exact field/value rows; nested values are typed handles
 +const Excel::ScriptSettingsInput_ normalized_settings(xl_settings); xl_settings = normalized_settings.Get();
 +argName = "settings"; Excel::ValidateScriptSettingsRange(xl_settings, "CurveInstrumentMarket_New", "settings");
@@ -59,7 +60,7 @@ value is handle StorableCurveInstrumentSolver
 public CurveInstrumentCalibrationSpec_New
     Create immutable typed calibration settings
 &inputs
-settings is cell[][]
+settings is cell[][]+ or Xccy->Excel::XccyTableInput_("CurveInstrumentCalibrationSpec_New", "settings", 2)
     Exact field/value rows; nested values are typed handles
 +const Excel::ScriptSettingsInput_ normalized_settings(xl_settings); xl_settings = normalized_settings.Get();
 +argName = "settings"; Excel::ValidateScriptSettingsRange(xl_settings, "CurveInstrumentCalibrationSpec_New", "settings");
@@ -174,17 +175,23 @@ namespace Dal {
         value->reset(new StorableScriptInstrumentImportSettings_(v));
     }
     void CurveInstrumentGeometry_New(const Matrix_<Cell_>& settings, Handle_<StorableCurveInstrumentGeometry_>* value) {
-        Fields_ f(settings);
+        Excel::Calibration::XccyFields_ f(settings, "CurveInstrumentGeometry_New",
+                                          {"today", "currency", "curve_name", "knot_dates", "parameterization", "knot_policy", "log_df_scheme",
+                                           "base_curve", "calibrate_discount_curve", "target_collateral", "target_tenor", "target_overnight_route",
+                                           "libor_basis"},
+                                          true);
         const auto v = BindingInternal::ReadCurveInstrumentGeometry(f);
         f.Finish();
         value->reset(new StorableCurveInstrumentGeometry_(v));
     }
     void CurveInstrumentMarket_New(const Matrix_<Cell_>& settings, Handle_<StorableCurveInstrumentMarket_>* value) {
-        Fields_ f(settings);
+        Excel::Calibration::XccyFields_ f(settings, "CurveInstrumentMarket_New", {"routes", "discount_curves", "forward_curves", "overnight_curves"},
+                                          true);
         CurveInstrumentMarket_ v;
         v.routes_ = f.Required<Vector_<CurveScriptRoute_>>("routes");
         v.discountCurves_ = f.Default<std::map<CollateralType_, Handle_<DiscountCurve_>>>("discount_curves", v.discountCurves_);
         v.forwardCurves_ = f.Default<std::map<PeriodLength_, Handle_<DiscountCurve_>>>("forward_curves", v.forwardCurves_);
+        v.overnightCurves_ = f.Default<std::map<std::string, Handle_<DiscountCurve_>>>("overnight_curves", v.overnightCurves_);
         f.Finish();
         value->reset(new StorableCurveInstrumentMarket_(v));
     }
@@ -204,13 +211,15 @@ namespace Dal {
         value->reset(new StorableCurveInstrumentSolver_(v));
     }
     void CurveInstrumentCalibrationSpec_New(const Matrix_<Cell_>& settings, Handle_<StorableCurveInstrumentCalibrationSpec_>* value) {
-        Fields_ f(settings);
+        Excel::Calibration::XccyFields_ f(settings, "CurveInstrumentCalibrationSpec_New",
+                                          {"geometry", "market", "valuation", "observations", "solver", "compounded_ois"}, true);
         CurveInstrumentCalibrationSpec_ v;
         v.geometry_ = f.Required<CurveInstrumentGeometry_>("geometry");
         v.market_ = f.Required<CurveInstrumentMarket_>("market");
         v.valuation_ = f.Required<ScriptValuationSettings_>("valuation");
         v.observations_ = f.Required<Vector_<Handle_<CalibrationObservation_>>>("observations");
         v.solver_ = f.Default<CurveInstrumentSolver_>("solver", v.solver_);
+        v.compoundedOis_ = f.Default<Vector_<Handle_<PreparedCompoundedOis_>>>("compounded_ois", v.compoundedOis_);
         f.Finish();
         value->reset(new StorableCurveInstrumentCalibrationSpec_(v));
     }

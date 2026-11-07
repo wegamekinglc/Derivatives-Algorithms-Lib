@@ -876,8 +876,17 @@ separately identifies the stable product lowering. ON source without matching
 tables or candidate context, general script/MC preparation, P1 quote-risk
 snapshots (including ON fitting observations) and per-PV quote risk are
 explicitly unsupported. Source or numerical failure never falls back to
-legacy affine or general execution. The direct API is core-only; public,
-Python and Excel compounded-OIS factories are not exposed.
+legacy affine or general execution. The public facade exposes the same preparation,
+source construction and direct evaluation APIs through
+`dal-public/src/calibrationinstrument.hpp`. Python projects these as
+`CompoundedOis_Prepare`, `CompoundedOisScriptInstrument_New` and
+`CurveScriptInstrument_Evaluate`; inputs and results are read-only values or
+immutable handles, with independent container getters. All Python conversion
+finishes before core preparation, construction or evaluation releases the GIL.
+Excel uses typed tables and session handles for the same operations. See the
+[public](../public-api.md#explicit-compounded-ois),
+[Python](../python/README.md#explicit-compounded-ois) and
+[Excel](../excel/README.md#explicit-compounded-ois) contracts.
 The legacy `MultiCurveInstrumentCalibrationSpec_` tenor-staging wrapper rejects
 ON contexts explicitly. Fit each ON context with the single-context overload
 and bind other curves as explicit passive inputs.

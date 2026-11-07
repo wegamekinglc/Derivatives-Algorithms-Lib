@@ -11,6 +11,7 @@ using namespace Dal::Python;
 using namespace Dal::Python::Calibration;
 
 void init_calibration_types(py::module_& m);
+void init_compounded_ois(py::module_& m);
 void init_xccy_instruments(py::module_& m);
 void init_xccy_monte_carlo(py::module_& m);
 void init_xccy_monte_carlo_basket(py::module_& m);
@@ -380,6 +381,7 @@ void init_bindings_calibrationinstrument(py::module_& m) {
     init_calibration_types(m);
     Handles(m);
     ErrorType(m);
+    init_compounded_ois(m);
     Factories(m);
     Getters(m);
     init_xccy_instruments(m);
