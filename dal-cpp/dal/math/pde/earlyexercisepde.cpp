@@ -968,7 +968,8 @@ namespace Dal::PDE {
     } // namespace EarlyExercisePdeInternal
 
     EarlyExercisePdeResult_ EarlyExercisePdeInternal::ResultAccess_::Run(const EarlyExercisePdeRequest_& input, const Plan_* fixed) {
-        ValidateEarlyExercisePdeRequest(input);
+        if (!fixed)
+            ValidateEarlyExercisePdeRequest(input);
         const auto counts = fixed ? fixed->counts_ : Plan(input, [](const PlanStep_&) {});
         Budget(counts.steps_, input.settings_.maxActualSteps_, "max_actual_steps");
         const size_t n = input.settings_.gridPoints_, m = counts.steps_;
@@ -979,6 +980,8 @@ namespace Dal::PDE {
         result.request_ = input;
         result.request_.settings_.upper_ = fixed ? fixed->Upper() : Upper(input);
         const auto& r = result.request_;
+        if (fixed)
+            ValidateEarlyExercisePdeRequest(r);
         const auto& s = r.settings_;
         auto& e = result.execution_;
         e.plannedSteps_ = counts.steps_;
@@ -1035,11 +1038,13 @@ namespace Dal::PDE {
 
     EarlyExercisePdeResult_ EarlyExercisePdeInternal::Rollback(const EarlyExercisePdeRequest_& input, const Plan_& plan) {
         Check(!input.settings_.upper_ || *input.settings_.upper_ == plan.Upper(), "plan.upper", "scenario must use fixed upper");
-        const auto r = ResolvedScenario(input, plan.Upper());
-        CheckPlanRequest(r, plan.Request());
-        Check(plan.Epsilon() <= r.settings_.absoluteTolerance_ + r.settings_.relativeTolerance_ * std::max(r.market_.spot_, r.contract_.strike_),
-              "plan.epsilon", "fixed tolerance must not relax scenario tolerance");
-        return ResultAccess_::Run(r, &plan);
+        {
+            const auto r = ResolvedScenario(input, plan.Upper());
+            CheckPlanRequest(r, plan.Request());
+            Check(plan.Epsilon() <= r.settings_.absoluteTolerance_ + r.settings_.relativeTolerance_ * std::max(r.market_.spot_, r.contract_.strike_),
+                  "plan.epsilon", "fixed tolerance must not relax scenario tolerance");
+        }
+        return ResultAccess_::Run(input, &plan);
     }
 
     double EarlyExercisePdeResult_::Price() const {
