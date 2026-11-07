@@ -80,6 +80,17 @@ namespace {
         return fixture;
     }
 
+    CurveInstrumentCalibrationSpec_ PreparedSpec(const Fixture_& fixture) {
+        auto result = fixture.context_;
+        result.compoundedOis_ = {PrepareCompoundedOis(fixture.contract_, result.valuation_)};
+        const auto instrument = NewCompoundedOisScriptInstrument(result.compoundedOis_[0]);
+        result.observations_ = {NewCalibrationObservation("pv", instrument, "Price",
+                                                          NewCalibrationMarketQuote("pv", 0., CalibrationValueUnit_::Parse("Price:USD")), 1e-10),
+                                NewCalibrationObservation("par", instrument, "ParRate",
+                                                          NewCalibrationMarketQuote("par", .03, CalibrationValueUnit_::Parse("Rate")), 1e-10)};
+        return result;
+    }
+
     // Independent scalar reference: no builder, descriptor, provider or cashflow helper.
     double LogDiscount(Date_ date, Date_ today, const Vector_<>& theta) {
         const double position = (date - today) / 400.;
@@ -144,8 +155,12 @@ namespace {
     Vector_<T_> Values(const Plan_& plan, const Vector_<T_>& theta, Date_ today, CurveScriptInternal::EvaluationScratch_<T_>* scratch) {
         const CandidateCurveProvider_<T_> provider(plan.geometry_, theta);
         Vector_<T_> values;
+        std::optional<CurveScriptInternal::Affine_<T_>> coefficients;
+        if (plan.measures_.size() == 2 && CurveScriptInternal::CanShareCoefficients(plan.measures_[0], plan.measures_[1]))
+            coefficients = CurveScriptInternal::Coefficients(plan.measures_[0], provider, today, scratch);
         for (const auto& measure : plan.measures_)
-            values.push_back(CurveInstrumentInternal::CashflowMeasure(measure, provider, today, scratch));
+            values.push_back(coefficients ? CurveScriptInternal::Measure(measure, *coefficients)
+                                          : CurveInstrumentInternal::CashflowMeasure(measure, provider, today, scratch));
         return values;
     }
 
@@ -241,6 +256,16 @@ namespace {
         const auto passiveStart = Clock_::now();
         const auto passive = Values(plan, fixture.theta_, fixture.context_.geometry_.today_, &scratch);
         const auto passiveColdNs = std::chrono::duration_cast<std::chrono::nanoseconds>(Clock_::now() - passiveStart).count();
+        CurveInstrumentCalibrationOptions_ preparedOptions;
+        preparedOptions.jacobianMode_ = CalibrationDerivative_::Value_::AAD;
+        const PreparedCurveInstruments_ prepared(PreparedSpec(fixture), preparedOptions);
+        const auto preparedResult = prepared.Evaluate(fixture.theta_);
+        const auto expected = Scalar(fixture, fixture.theta_);
+        for (int i = 0; i < 2; ++i) {
+            REQUIRE(std::abs(preparedResult.modelMeasures_[i] - expected[i]) <= 1e-10, "prepared calibration Price/ParRate oracle");
+            for (int j = 0; j < preparedResult.quoteJacobian_.Cols(); ++j)
+                REQUIRE(std::abs(preparedResult.quoteJacobian_(i, j) - partials(i, j)) <= 1e-10, "prepared calibration AAD oracle");
+        }
         const std::string prefix = "OIS D=" + std::to_string(count) + " ";
         const auto rssBefore = RssKb("VmRSS:"), hwmBefore = RssKb("VmHWM:");
         double sink = passive[0] + partials(0, 0);
@@ -249,6 +274,8 @@ namespace {
             prefix + "prepared passive warm scratch", [&]() { sink += Values(plan, fixture.theta_, fixture.context_.geometry_.today_, &scratch)[0]; },
             10);
         Timed(prefix + "prepared AAD two reverse seeds", [&]() { sink += Partials(plan, fixture)(0, 0); }, 10);
+        Timed(prefix + "prepared calibration residuals", [&]() { sink += prepared.Residuals(fixture.theta_)[0]; }, 10);
+        Timed(prefix + "prepared calibration AAD evaluate", [&]() { sink += prepared.Evaluate(fixture.theta_).quoteJacobian_(0, 0); });
         Timed(prefix + "independent scalar product", [&]() { sink += Scalar(fixture, fixture.theta_)[0]; }, 100);
         const CandidateCurveProvider_<double> provider(plan.geometry_, fixture.theta_);
         Timed(
