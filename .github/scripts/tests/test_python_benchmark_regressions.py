@@ -363,19 +363,22 @@ python3() {
                 root = Path(directory)
                 calls = []
 
-                def worker(suite, package, output, inventory=False):
-                    calls.append(output)
-                    if inventory:
-                        row = report()["results"][0]
-                        return [
-                            {key: row[key] for key in ("name", "cpp_target", "workload")}
-                        ]
+                def measured(package, output):
                     retry = "retry" in output.parts
                     value = 100 if retry or package.parent.name == "base-build" else 105
                     result = report(value)
                     if package.parent.name == "head-build" and (not identical or (drift and retry)):
                         result["environment"]["native_sha256"] = "changed"
                     return result
+
+                def worker(suite, package, output, inventory=False):
+                    calls.append(output)
+                    if not inventory:
+                        return measured(package, output)
+                    row = report()["results"][0]
+                    return [
+                        {key: row[key] for key in ("name", "cpp_target", "workload")}
+                    ]
 
                 argv = [
                     "--base-root",
