@@ -1435,6 +1435,7 @@ TEST(ScriptCurveQuoteRiskTest, TestSnapshotOwnsMutableCurveAndResolvedSpecAliase
     auto background = std::make_shared<Tape::DiscountPWC_<double>>("background", "USD", Vector_<Date_>{MATURITY}, Vector_<>{.01});
     spec.market_.forwardCurves_[PeriodLength_("3M")] = Handle_<DiscountCurve_>(background);
     spec.market_.discountCurves_[CollateralType_::Value_::GC] = Handle_<DiscountCurve_>(background);
+    spec.market_.overnightCurves_["USD.SOFR"] = Handle_<DiscountCurve_>(background);
     spec.geometry_.baseCurve_ = Handle_<DiscountCurve_>(background);
     auto fit = CalibrateCurveInstruments(spec);
     auto alias = std::make_shared<CurveInstrumentCalibrationSpec_>(*fit.resolvedSpec_);
@@ -1442,11 +1443,16 @@ TEST(ScriptCurveQuoteRiskTest, TestSnapshotOwnsMutableCurveAndResolvedSpecAliase
     const auto snapshot = NewScriptCurveQuoteRiskSnapshot(fit, Accuracy());
     ASSERT_TRUE(snapshot.StructureValid());
     const auto frozen = snapshot.ResolvedSpec()->market_.forwardCurves_.at(PeriodLength_("3M"));
+    const auto frozenOvernight = snapshot.ResolvedSpec()->market_.overnightCurves_.at("USD.SOFR");
     const auto expected = (*frozen)(TODAY, MATURITY);
     ASSERT_NE(frozen.get(), background.get());
+    ASSERT_NE(frozenOvernight.get(), alias->market_.overnightCurves_.at("USD.SOFR").get());
     background->ApplyDX(Vector_<>{.02}.begin(), 1.);
+    const auto mutableAlias = std::const_pointer_cast<DiscountCurve_>(alias->market_.overnightCurves_.at("USD.SOFR"));
+    std::static_pointer_cast<Tape::DiscountPWC_<double>>(mutableAlias)->ApplyDX(Vector_<>{.02}.begin(), 1.);
     alias->market_.routes_.clear();
     ASSERT_DOUBLE_EQ((*frozen)(TODAY, MATURITY), expected);
+    ASSERT_DOUBLE_EQ((*frozenOvernight)(TODAY, MATURITY), expected);
     ASSERT_DOUBLE_EQ((*snapshot.ResolvedSpec()->geometry_.baseCurve_)(TODAY, MATURITY), expected);
     ASSERT_DOUBLE_EQ((*snapshot.ResolvedSpec()->market_.discountCurves_.at(CollateralType_::Value_::GC))(TODAY, MATURITY), expected);
     ASSERT_EQ(snapshot.ResolvedSpec()->market_.routes_.size(), 1u);
