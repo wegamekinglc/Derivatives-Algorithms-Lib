@@ -37,6 +37,10 @@ class Sheet:
         self.row = end + 3
         return Ref(address)
 
+    def result_block(self, address, rows, columns):
+        first = int(address[1:])
+        return self.sheet.Range(f"J{first}:{chr(ord('J') + columns - 1)}{first + rows - 1}").Value2
+
     def call(self, name, *args, error=False):
         def argument(value):
             if isinstance(value, Ref):
@@ -117,7 +121,7 @@ def verify(sheet, policy):
     require(abs(price - 100 * (floating - 0.02 * 6 / 365) * math.exp(-0.0007)) <= 1e-10, "Price oracle mismatch")
     require(abs(par - floating / (6 / 365)) <= 1e-10, "ParRate oracle mismatch")
     _, partial_address = sheet.call("CURVESCRIPTEVALUATION.GET.NATIVEPARTIALS", outcome)
-    partials = sheet.sheet.Range(partial_address).Resize(2, 1).Value2
+    partials = sheet.result_block(partial_address, 2, 1)
     require(all(isinstance(row[0], (int, float)) and math.isfinite(row[0]) for row in partials), "Missing native partials")
     def oracle(theta):
         middle = 1 + 4 * 0.021 / 360 if policy == "RequireHistorical" else math.exp(-theta * 4 / 20)
@@ -133,10 +137,10 @@ def verify(sheet, policy):
                 require(abs(previous[i] - value) <= 1e-7 + 1e-5 * abs(value), "Unstable FD reference")
         previous = reference
     _, cashflow_address = sheet.call("CURVESCRIPTEVALUATION.GET.TABLE", outcome, "cashflows")
-    cashflows = sheet.sheet.Range(cashflow_address).Resize(3, 11).Value2
+    cashflows = sheet.result_block(cashflow_address, 3, 11)
     require(abs(sum(row[10] for row in cashflows[1:]) - price) <= 1e-10, "Cashflow amounts differ from Price")
     _, observation_address = sheet.call("CURVESCRIPTEVALUATION.GET.TABLE", outcome, "observations")
-    observations = sheet.sheet.Range(observation_address).Resize(4, 15).Value2
+    observations = sheet.result_block(observation_address, 4, 15)
     require(observations[1][6] == "Historical" and observations[3][6] == "Projection", "Fixing provenance missing")
     require(observations[2][6] == ("Historical" if policy == "RequireHistorical" else "Projection"), "Same-day policy ignored")
     require(observations[2][12:14] == (4 / 360, 4 / 360), "Holiday weights changed")
@@ -181,7 +185,7 @@ def run(args):
         report = sheet.call("CALIBRATIONOUTCOME.GET.REPORT", failed)[0]
         sheet.sheet.Range("A:I").ClearContents()
         _, error_address = sheet.call("CALIBRATIONREPORT.GET.ERRORS", report)
-        code = sheet.sheet.Range(error_address).Offset(1, 0).Value2
+        code = sheet.result_block(error_address, 2, 1)[1][0]
         require(code == "MissingFixing", "Owning missing-fixing diagnostic was lost")
         for name in ["CURVESCRIPTEVALUATIONREQUEST.NEW", "COMPOUNDEDOISSCRIPTSPEC.NEW"]:
             ref = sheet.table([[None, None], [None, None], ["unknown_after_blank", True]])
