@@ -109,10 +109,10 @@ namespace Dal::CurveScriptInternal {
         return {T_(0.), EvaluateIndependent<T_>(flow, fixing, CalibrationStage_::Value_::Evaluate, &scratch->independent_)};
     }
     template <class T_>
-    T_ Measure(const PreparedCalibrationInstrument_& plan,
-               const CandidateCurveProvider_<T_>& provider,
-               const Date_& today,
-               EvaluationScratch_<T_>* scratch = nullptr) {
+    Affine_<T_> Coefficients(const PreparedCalibrationInstrument_& plan,
+                             const CandidateCurveProvider_<T_>& provider,
+                             const Date_& today,
+                             EvaluationScratch_<T_>* scratch = nullptr) {
         const auto& descriptor = *std::get<CalibrationCurveFamily_>(plan.Descriptor());
         Affine_<T_> total;
         EvaluationScratch_<T_> local;
@@ -135,6 +135,10 @@ namespace Dal::CurveScriptInternal {
             total.b_ += ab.b_ * discount;
         }
         CheckCompoundedAnnuity(descriptor, static_cast<double>(total.a_));
+        return total;
+    }
+    template <class T_> T_ Measure(const PreparedCalibrationInstrument_& plan, const Affine_<T_>& total) {
+        const auto& descriptor = *std::get<CalibrationCurveFamily_>(plan.Descriptor());
         if (plan.Measure().kind_ == CalibrationMeasureKind_::Value_::Price)
             return total.b_ + descriptor.coupon_ * total.a_;
         const auto& measure = plan.Measure();
@@ -142,5 +146,19 @@ namespace Dal::CurveScriptInternal {
                                        static_cast<double>(total.a_) * *measure.annuitySign_ >= *measure.minAbsAnnuity_,
                                    "InvalidCalibrationAnnuity", "/annuity", "actual finite annuity with declared sign and minimum magnitude");
         return -total.b_ / total.a_;
+    }
+    template <class T_>
+    T_ Measure(const PreparedCalibrationInstrument_& plan,
+               const CandidateCurveProvider_<T_>& provider,
+               const Date_& today,
+               EvaluationScratch_<T_>* scratch = nullptr) {
+        return Measure(plan, Coefficients(plan, provider, today, scratch));
+    }
+    inline bool CanShareCoefficients(const PreparedCalibrationInstrument_& left, const PreparedCalibrationInstrument_& right) {
+        const auto* lhs = std::get_if<CalibrationCurveFamily_>(&left.Descriptor());
+        const auto* rhs = std::get_if<CalibrationCurveFamily_>(&right.Descriptor());
+        return lhs && rhs && (*lhs)->compounded_ && (*rhs)->compounded_ &&
+               left.Instrument()->InstrumentIdentity() == right.Instrument()->InstrumentIdentity() &&
+               left.ContextIdentity() == right.ContextIdentity() && left.CompilerIdentity() == right.CompilerIdentity();
     }
 } // namespace Dal::CurveScriptInternal

@@ -55,8 +55,12 @@ namespace Dal {
         template <class T_> Vector_<T_> Values(const EvaluationPlan_& plan, const CandidateCurveProvider_<T_>& provider) {
             Vector_<T_> result;
             CurveScriptInternal::EvaluationScratch_<T_> scratch;
+            std::optional<CurveScriptInternal::Affine_<T_>> coefficients;
+            if (plan.measures_.size() == 2 && CurveScriptInternal::CanShareCoefficients(plan.measures_[0], plan.measures_[1]))
+                coefficients = CurveScriptInternal::Coefficients(plan.measures_[0], provider, plan.spec_.geometry_.today_, &scratch);
             for (const auto& measure : plan.measures_) {
-                const T_ value = CashflowMeasure(measure, provider, plan.spec_.geometry_.today_, &scratch);
+                const T_ value = coefficients ? CurveScriptInternal::Measure(measure, *coefficients)
+                                              : CashflowMeasure(measure, provider, plan.spec_.geometry_.today_, &scratch);
                 Check(std::isfinite(static_cast<double>(value)), "CalibrationNumericalFailure", "/measure", "finite raw measure", "",
                       Diagnostic(*measure.Instrument(), measure.Measure().id_));
                 result.push_back(value);
