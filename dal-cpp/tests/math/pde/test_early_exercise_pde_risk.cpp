@@ -202,6 +202,27 @@ TEST(EarlyExercisePdeRiskTest, TestPeakCountsSimultaneousLifetimesInsteadOfUnrel
     ASSERT_LE(e.peakNativeBytes_, e.plannedPeakNativeBytes_);
 }
 
+TEST(EarlyExercisePdeRiskTest, TestSharedPlanIsChargedOnceInActualNativePeak) {
+    std::optional<size_t> previousNative, previousPayload, previousPlan;
+    for (int steps : {2, 500, 2000}) {
+        auto r = RiskRequest();
+        r.valuation_.settings_.gridPoints_ = 5;
+        r.valuation_.settings_.ordinarySteps_ = steps;
+        r.valuation_.market_.volatility_ = 0;
+        const auto plan = EarlyExercisePdeInternal::BuildPlan(r.valuation_);
+        const auto result = EvaluateEarlyExercisePdeRisk(r);
+        const auto& e = result.Execution();
+        ASSERT_EQ(result.Scenarios().size(), 1);
+        if (previousNative) {
+            const size_t uniqueGrowth = e.numericPayloadBytes_ - *previousPayload + plan.StorageBytes() - *previousPlan;
+            ASSERT_EQ(e.peakNativeBytes_ - *previousNative, uniqueGrowth);
+        }
+        previousNative = e.peakNativeBytes_;
+        previousPayload = e.numericPayloadBytes_;
+        previousPlan = plan.StorageBytes();
+    }
+}
+
 TEST(EarlyExercisePdeRiskTest, TestPrivateFirstSolveFailurePreservesIndependentRisks) {
     const auto r = RiskRequest();
     const auto control = EvaluateEarlyExercisePdeRisk(r);
