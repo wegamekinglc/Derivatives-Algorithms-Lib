@@ -15,3 +15,8 @@ install(TARGETS xccy_perf
 
 add_test(NAME xccy_perf COMMAND xccy_perf)
 set_tests_properties(xccy_perf PROPERTIES LABELS "benchmark")
+
+add_test(NAME xccy_basket_statistics_perf COMMAND xccy_perf --basket-statistics)
+set_tests_properties(xccy_basket_statistics_perf PROPERTIES
+    LABELS "benchmark"
+    PASS_REGULAR_EXPRESSION "XCCY MC basket output covariance B=16 C=48 O=48")
