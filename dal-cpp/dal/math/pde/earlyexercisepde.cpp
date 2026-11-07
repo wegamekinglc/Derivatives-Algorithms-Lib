@@ -3,9 +3,12 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <sstream>
+#include <string_view>
 
-#include <dal/math/pde/earlyexercisepde.hpp>
+#include <dal/math/pde/earlyexercisepdeinternal.hpp>
+#include <dal/storage/canonicaljson_internal.hpp>
 
 namespace Dal {
 #include <dal/auto/MG_EarlyExercisePdeLevelKind_enum.inc>
@@ -17,6 +20,8 @@ namespace Dal::PDE {
     namespace {
         using Status_ = EarlyExercisePdeStatus_::Value_;
         using Kind_ = EarlyExercisePdeLevelKind_::Value_;
+        using EarlyExercisePdeInternal::PlanCounts_;
+        using EarlyExercisePdeInternal::PlanStep_;
 
         void Check(bool valid, const String_& field, const char* constraint) {
             REQUIRE(valid, "InvalidEarlyExercisePdeRequest; " + field + "; " + constraint);
@@ -54,16 +59,6 @@ namespace Dal::PDE {
             const bool upwind = diffusion < 0.5 * std::abs(drift);
             return {diffusion + (upwind ? std::max(-drift, 0.0) : -0.5 * drift), diffusion + (upwind ? std::max(drift, 0.0) : 0.5 * drift), upwind};
         }
-        struct PlanStep_ {
-            double target_, source_, theta_;
-            int carry_;
-            bool damped_;
-            std::optional<Date_> date_;
-        };
-        struct PlanCounts_ {
-            int steps_ = 0, base_ = 0, damping_ = 0, upwind_ = 0;
-        };
-
         double PlanPoint(double low, double high, size_t j, size_t subdivisions) {
             return j == subdivisions ? low : high - (high - low) * j / subdivisions;
         }
@@ -100,12 +95,12 @@ namespace Dal::PDE {
                 left = r.contract_.exerciseDates_[exercise];
             return left;
         }
-        double SegmentDiagonal(const EarlyExercisePdeRequest_& r, int carry, PlanCounts_* counts) {
-            const auto& segment = r.market_.carry_[carry];
+        double SegmentDiagonal(const EarlyExercisePdeMarket_& market, int nodes, int carry, PlanCounts_* counts) {
+            const auto& segment = market.carry_[carry];
             double maxDiagonal = segment.rate_;
             int upwind = 0;
-            for (int i = 1; i < r.settings_.gridPoints_ - 1; ++i) {
-                const auto a = Coefficients(r.market_.volatility_, segment.rate_, segment.dividendYield_, i);
+            for (int i = 1; i < nodes - 1; ++i) {
+                const auto a = Coefficients(market.volatility_, segment.rate_, segment.dividendYield_, i);
                 Check(std::isfinite(a.minus_) && std::isfinite(a.plus_) && std::isfinite(a.minus_ + a.plus_ + segment.rate_), Indexed("operator", i),
                       "coefficients must be finite");
                 maxDiagonal = std::max(maxDiagonal, a.minus_ + a.plus_ + segment.rate_);
@@ -123,15 +118,20 @@ namespace Dal::PDE {
             return static_cast<int>(base);
         }
         template <class F_>
-        void
-        EmitParts(const EarlyExercisePdeRequest_& r, PlanStep_ step, double maxDiagonal, std::optional<Date_> date, PlanCounts_* counts, F_ emit) {
+        void EmitParts(const EarlyExercisePdeRequest_& r,
+                       PlanStep_ step,
+                       double rate,
+                       double maxDiagonal,
+                       std::optional<Date_> date,
+                       PlanCounts_* counts,
+                       F_ emit) {
             const int parts = step.damped_ ? 2 : 1;
             for (int part = 0; part < parts; ++part) {
                 const double high = part == 0 ? step.source_ : step.target_ + (step.source_ - step.target_) * 0.5;
                 const double low = part + 1 == parts ? step.target_ : step.target_ + (step.source_ - step.target_) * 0.5;
                 const auto endpoint = part + 1 == parts ? date : std::nullopt;
-                const size_t subdivisions = StableSubdivisions(low, high, step.theta_, r.market_.carry_[step.carry_].rate_, maxDiagonal,
-                                                               counts->steps_, r.settings_.maxActualSteps_);
+                const size_t subdivisions =
+                    StableSubdivisions(low, high, step.theta_, rate, maxDiagonal, counts->steps_, r.settings_.maxActualSteps_);
                 for (size_t j = 0; j < subdivisions; ++j) {
                     emit(PlanStep_{PlanPoint(low, high, j + 1, subdivisions), PlanPoint(low, high, j, subdivisions), step.theta_, step.carry_,
                                    step.damped_, j + 1 == subdivisions ? endpoint : std::nullopt});
@@ -149,7 +149,19 @@ namespace Dal::PDE {
             }
             return {target, source, damped ? 1.0 : theta, carry, damped, std::nullopt};
         }
-        template <class F_> PlanCounts_ Plan(const EarlyExercisePdeRequest_& r, F_ emit) {
+        struct StabilityBounds_ {
+            double rate_, diagonal_;
+        };
+        StabilityBounds_
+        SegmentBounds(const EarlyExercisePdeRequest_& r, int carry, const Vector_<EarlyExercisePdeMarket_>& extraMarkets, PlanCounts_* counts) {
+            StabilityBounds_ bounds{r.market_.carry_[carry].rate_, SegmentDiagonal(r.market_, r.settings_.gridPoints_, carry, counts)};
+            for (const auto& market : extraMarkets) {
+                bounds.diagonal_ = std::max(bounds.diagonal_, SegmentDiagonal(market, r.settings_.gridPoints_, carry, counts));
+                bounds.rate_ = std::min(bounds.rate_, market.carry_[carry].rate_);
+            }
+            return bounds;
+        }
+        template <class F_> PlanCounts_ Plan(const EarlyExercisePdeRequest_& r, F_ emit, const Vector_<EarlyExercisePdeMarket_>& extraMarkets = {}) {
             PlanCounts_ counts;
             const auto& c = r.contract_;
             const auto& s = r.settings_;
@@ -161,12 +173,12 @@ namespace Dal::PDE {
                 PreviousExercise(c, right, &exercise);
                 PreviousCarry(r.market_, right, &carry);
                 const Date_ left = LeftAnchor(r, carry, exercise);
-                const double maxDiagonal = SegmentDiagonal(r, carry, &counts);
+                const auto bounds = SegmentBounds(r, carry, extraMarkets, &counts);
                 const int base = IntervalSteps(r, left, right, &counts);
                 const double lo = Years(left, c.evaluationDate_), hi = Years(right, c.evaluationDate_);
                 for (int b = 0; b < base; ++b) {
                     const auto step = BaseStep(lo, hi, b, base, carry, &damping, &counts, s.theta_);
-                    EmitParts(r, step, maxDiagonal, b + 1 == base ? std::optional<Date_>(left) : std::nullopt, &counts, emit);
+                    EmitParts(r, step, bounds.rate_, bounds.diagonal_, b + 1 == base ? std::optional<Date_>(left) : std::nullopt, &counts, emit);
                 }
                 right = left;
                 if (s.theta_ == 0.5 && exercise >= 0 && c.exerciseDates_[exercise] == left)
@@ -330,6 +342,23 @@ namespace Dal::PDE {
             return maximum;
         }
         template <class T_> size_t CapacityBytes(const Vector_<T_>& x) { return Multiply(x.capacity(), sizeof(T_)); }
+
+        struct StorageLayout_ {
+            size_t levels_, regions_, payload_, workspace_;
+        };
+        StorageLayout_ AdmitStorage(const EarlyExercisePdeRequest_& r, const PlanCounts_& counts) {
+            const size_t n = r.settings_.gridPoints_, m = counts.steps_, c = r.market_.carry_.size(), d = r.contract_.exerciseDates_.size();
+            const size_t levels = American(r) ? Add(m, 1) : d;
+            const size_t regions = Multiply(levels - 1, (n + 1) / 2);
+            const size_t payload =
+                Add(Add(Add(Add(Add(Add(Add(4096, Multiply(32, c)), Multiply(8, d)), Multiply(16, n)), Multiply(64, m + 1)), Multiply(256, m)),
+                        Multiply(64, levels)),
+                    Multiply(32, regions));
+            const size_t workspace = Add(Add(Add(Add(4096, Multiply(256, n)), Multiply(64, m + 1)), Multiply(64, c)), Multiply(16, d));
+            Budget(payload, r.settings_.numericPayloadBudgetBytes_, "numeric_payload_budget_bytes");
+            Budget(workspace, r.settings_.workspaceBudgetBytes_, "workspace_budget_bytes");
+            return {levels, regions, payload, workspace};
+        }
     } // namespace
 
     namespace {
@@ -688,6 +717,12 @@ namespace Dal::PDE {
                 for (size_t i = 0; i < a_.current_.size(); ++i)
                     (*out_.values_)[i] = static_cast<double>(a_.current_[i]);
             }
+            // Keep the step kernel separate from request setup to limit register pressure.
+#if defined(_MSC_VER)
+            __declspec(noinline)
+#elif defined(__GNUC__) || defined(__clang__)
+            __attribute__((noinline))
+#endif
             EarlyExercisePdeStepDiagnostic_ RunStep(const PlanStep_& p, int rollbackStep, int target) {
                 EarlyExercisePdeStepDiagnostic_ step;
                 step.rollbackStep_ = rollbackStep;
@@ -794,40 +829,219 @@ namespace Dal::PDE {
     static_assert(sizeof(EarlyExercisePdeStepDiagnostic_) <= 256 && sizeof(EarlyExercisePdeExerciseLevel_) <= 64);
     static_assert(sizeof(EarlyExercisePdeExerciseRegion_) <= 32 && sizeof(EarlyExercisePdeResult_) <= 4096);
 
-    EarlyExercisePdeResult_ EvaluateEarlyExercisePde(const EarlyExercisePdeRequest_& input) {
-        ValidateEarlyExercisePdeRequest(input);
-        const auto counts = Plan(input, [](const PlanStep_&) {});
-        const size_t n = input.settings_.gridPoints_, m = counts.steps_, c = input.market_.carry_.size(), d = input.contract_.exerciseDates_.size();
+    namespace EarlyExercisePdeInternal {
+        namespace {
+            struct CanonicalWriter_ {
+                std::string* output_;
+                size_t bytes_ = 0;
+                void Integer(uint64_t value, int width = 8) {
+                    bytes_ = Add(bytes_, width);
+                    if (output_)
+                        for (int i = 0; i < width; ++i)
+                            output_->push_back(static_cast<char>((value >> (8 * i)) & 0xff));
+                }
+                void Real(double value) {
+                    static_assert(sizeof(double) == sizeof(uint64_t) && std::numeric_limits<double>::is_iec559);
+                    uint64_t bits = 0;
+                    if (value != 0.0)
+                        std::memcpy(&bits, &value, sizeof(bits));
+                    Integer(bits);
+                }
+                void Date(std::optional<Date_> date) {
+                    Integer(date.has_value(), 1);
+                    if (date)
+                        Integer(static_cast<uint64_t>(static_cast<int64_t>(Dal::Date::ToExcel(*date))));
+                }
+                void Text(std::string_view value) {
+                    const size_t length = value.size();
+                    Integer(length);
+                    bytes_ = Add(bytes_, length);
+                    if (output_)
+                        output_->append(value.data(), length);
+                }
+            };
+            size_t CanonicalPlan(const Plan_& plan, std::string* output) {
+                CanonicalWriter_ w{output};
+                const auto& r = plan.Request();
+                const auto& s = r.settings_;
+                w.Integer(1, 4);
+                w.Date(r.contract_.evaluationDate_);
+                w.Date(r.contract_.maturityDate_);
+                w.Real(plan.Upper());
+                w.Integer(s.gridPoints_);
+                w.Real(plan.Upper() / (s.gridPoints_ - 1));
+                w.Integer(plan.Grid().size());
+                for (double node : plan.Grid())
+                    w.Real(node);
+                w.Integer(plan.TimeGrid().size());
+                for (const auto& node : plan.TimeGrid()) {
+                    w.Real(node.timeYears_);
+                    w.Date(node.calendarDate_);
+                    w.Integer(node.isExerciseDate_, 1);
+                    w.Integer(node.isCarryKnot_, 1);
+                    w.Integer(node.isMaturity_, 1);
+                }
+                w.Integer(plan.Steps().size());
+                for (size_t i = 0; i < plan.Steps().size(); ++i) {
+                    const auto& step = plan.Steps()[plan.Steps().size() - 1 - i];
+                    w.Integer(i + 1);
+                    w.Integer(i);
+                    w.Real(step.source_ - step.target_);
+                    w.Real(step.theta_);
+                    w.Integer(step.carry_);
+                    w.Integer(step.damped_, 1);
+                    w.Integer(!American(r) && plan.TimeGrid()[i].isExerciseDate_, 1);
+                }
+                w.Real(plan.Epsilon());
+                w.Real(s.theta_);
+                w.Integer(s.theta_ == 0.5 ? s.rannacherIntervals_ : 0);
+                w.Real(s.penaltyFactor_);
+                w.Integer(s.maxIterationsPerStep_);
+                w.Real(s.linearBackwardErrorLimit_);
+                w.Text("LINEAR_SPOT");
+                return w.bytes_;
+            }
+            EarlyExercisePdeRequest_ ResolvedScenario(const EarlyExercisePdeRequest_& input, double upper) {
+                auto result = input;
+                result.settings_.upper_ = upper;
+                ValidateEarlyExercisePdeRequest(result);
+                return result;
+            }
+            void CheckCarryLayout(const EarlyExercisePdeMarket_& market, const EarlyExercisePdeMarket_& base) {
+                Check(market.carry_.size() == base.carry_.size(), "plan.carry", "scenario must preserve carry layout");
+                for (size_t i = 0; i < market.carry_.size(); ++i)
+                    Check(market.carry_[i].endDate_ == base.carry_[i].endDate_, "plan.carry", "scenario must preserve carry dates");
+            }
+            void CheckPlanContract(const EarlyExercisePdeContract_& c, const EarlyExercisePdeContract_& b) {
+                Check(c.evaluationDate_ == b.evaluationDate_ && c.maturityDate_ == b.maturityDate_ && c.strike_ == b.strike_ &&
+                          c.optionType_ == b.optionType_ && c.exerciseStyle_ == b.exerciseStyle_ && c.exerciseDates_ == b.exerciseDates_,
+                      "plan.contract", "scenario must preserve contract");
+            }
+            void CheckPlanSettings(const EarlyExercisePdeSettings_& s, const EarlyExercisePdeSettings_& t) {
+                Check(s.gridPoints_ == t.gridPoints_ && s.ordinarySteps_ == t.ordinarySteps_ && s.theta_ == t.theta_ &&
+                          s.rannacherIntervals_ == t.rannacherIntervals_,
+                      "plan.settings", "scenario must preserve grid settings");
+                Check(s.penaltyFactor_ == t.penaltyFactor_ && s.absoluteTolerance_ == t.absoluteTolerance_ &&
+                          s.relativeTolerance_ == t.relativeTolerance_ && s.maxIterationsPerStep_ == t.maxIterationsPerStep_ &&
+                          s.linearBackwardErrorLimit_ == t.linearBackwardErrorLimit_,
+                      "plan.settings", "scenario must preserve numerical settings");
+            }
+            void CheckPlanRequest(const EarlyExercisePdeRequest_& r, const EarlyExercisePdeRequest_& base) {
+                CheckPlanContract(r.contract_, base.contract_);
+                CheckPlanSettings(r.settings_, base.settings_);
+                CheckCarryLayout(r.market_, base.market_);
+            }
+            PlanCounts_ ScenarioCounts(const EarlyExercisePdeRequest_& r, const Plan_* fixed) {
+                if (!fixed) {
+                    ValidateEarlyExercisePdeRequest(r);
+                    return Plan(r, [](const PlanStep_&) {});
+                }
+                auto counts = fixed->Counts();
+                counts.upwind_ = 0;
+                for (size_t i = 0; i < r.market_.carry_.size(); ++i)
+                    SegmentDiagonal(r.market_, r.settings_.gridPoints_, static_cast<int>(i), &counts);
+                return counts;
+            }
+            EarlyExercisePdeRequest_ ResultRequest(const EarlyExercisePdeRequest_& input, const Plan_* fixed) {
+                auto r = input;
+                r.settings_.upper_ = fixed ? fixed->Upper() : Upper(input);
+                if (fixed)
+                    ValidateEarlyExercisePdeRequest(r);
+                return r;
+            }
+            EarlyExercisePdeExecution_
+            Execution(const EarlyExercisePdeRequest_& r, const PlanCounts_& counts, const StorageLayout_& layout, double epsilon) {
+                EarlyExercisePdeExecution_ e;
+                e.plannedSteps_ = counts.steps_;
+                e.baseSteps_ = counts.base_;
+                e.dampingAddedSteps_ = counts.damping_;
+                e.stabilityAddedSteps_ = counts.steps_ - counts.base_ - counts.damping_;
+                e.upwindRows_ = counts.upwind_;
+                e.effectiveRannacherIntervals_ = r.settings_.theta_ == 0.5 ? r.settings_.rannacherIntervals_ : 0;
+                e.plannedRegionCapacity_ = layout.regions_;
+                e.plannedNumericPayloadBytes_ = layout.payload_;
+                e.plannedWorkspaceBytes_ = layout.workspace_;
+                e.epsilon_ = epsilon;
+                return e;
+            }
+            Vector_<PlanStep_> SinglePlan(const EarlyExercisePdeRequest_& r, int steps, bool fixed) {
+                Vector_<PlanStep_> plan;
+                if (!fixed) {
+                    plan.reserve(steps);
+                    Plan(r, [&](const PlanStep_& step) { plan.push_back(step); });
+                }
+                return plan;
+            }
+        } // namespace
+
+        Plan_ BuildPlan(const EarlyExercisePdeRequest_& input, const Vector_<EarlyExercisePdeMarket_>& extraMarkets) {
+            ValidateEarlyExercisePdeRequest(input);
+            Plan_ result;
+            result.request_ = ResolvedScenario(input, Upper(input));
+            const auto& r = result.request_;
+            result.epsilon_ = r.settings_.absoluteTolerance_ + r.settings_.relativeTolerance_ * std::max(r.market_.spot_, r.contract_.strike_);
+            for (const auto& market : extraMarkets) {
+                CheckCarryLayout(market, r.market_);
+                auto scenario = r;
+                scenario.market_ = market;
+                ValidateEarlyExercisePdeRequest(scenario);
+                result.epsilon_ = std::min(result.epsilon_, r.settings_.absoluteTolerance_ +
+                                                                r.settings_.relativeTolerance_ * std::max(market.spot_, r.contract_.strike_));
+            }
+            result.basePlannedSteps_ = Plan(r, [](const PlanStep_&) {}).steps_;
+            result.counts_ = Plan(r, [](const PlanStep_&) {}, extraMarkets);
+            AdmitStorage(r, result.counts_);
+            const size_t n = r.settings_.gridPoints_, m = result.counts_.steps_;
+            const size_t envelope = Add(Add(Add(Add(4096, Multiply(8, n)), Multiply(128, m + 1)), Multiply(32, r.market_.carry_.size())),
+                                        Multiply(8, r.contract_.exerciseDates_.size()));
+            Budget(envelope, r.settings_.numericPayloadBudgetBytes_, "numeric_payload_budget_bytes");
+            result.grid_.Resize(n);
+            for (size_t i = 0; i < n; ++i)
+                result.grid_[i] = i + 1 == n ? *r.settings_.upper_ : *r.settings_.upper_ * (double(i) / (n - 1));
+            result.steps_.reserve(m);
+            Plan(r, [&](const PlanStep_& step) { result.steps_.push_back(step); }, extraMarkets);
+            result.timeGrid_.Resize(m + 1);
+            InitializeTimeGrid(r, result.steps_, &result.timeGrid_);
+            result.canonicalBytes_ = CanonicalPlan(result, nullptr);
+            result.canonicalWorkspaceBytes_ = Add(4096, Multiply(3, Add(result.canonicalBytes_, 72)));
+            Budget(result.canonicalWorkspaceBytes_, r.settings_.workspaceBudgetBytes_, "workspace_budget_bytes");
+            std::string canonical;
+            canonical.reserve(result.canonicalBytes_);
+            Budget(Add(4096, Add(canonical.capacity(), Multiply(2, Add(result.canonicalBytes_, 72)))), result.canonicalWorkspaceBytes_,
+                   "canonical_storage_layout");
+            CanonicalPlan(result, &canonical);
+            result.id_ = "p3v1:" + CanonicalJson::FingerprintCanonical(canonical);
+            result.storageBytes_ =
+                Add(Add(Add(Add(Add(Add(sizeof(result), CapacityBytes(r.market_.carry_)), CapacityBytes(r.contract_.exerciseDates_)),
+                                CapacityBytes(result.grid_)),
+                            CapacityBytes(result.timeGrid_)),
+                        CapacityBytes(result.steps_)),
+                    Add(result.id_.capacity(), 1));
+            Budget(result.storageBytes_, envelope, "plan_storage_layout");
+            return result;
+        }
+
+        struct ResultAccess_ {
+            static EarlyExercisePdeResult_ Run(const EarlyExercisePdeRequest_& input, const Plan_* fixed);
+        };
+    } // namespace EarlyExercisePdeInternal
+
+    EarlyExercisePdeResult_ EarlyExercisePdeInternal::ResultAccess_::Run(const EarlyExercisePdeRequest_& input, const Plan_* fixed) {
+        const auto counts = ScenarioCounts(input, fixed);
+        Budget(counts.steps_, input.settings_.maxActualSteps_, "max_actual_steps");
+        const size_t n = input.settings_.gridPoints_, m = counts.steps_;
         const bool american = American(input);
-        const size_t levels = american ? Add(m, 1) : d;
-        const size_t regions = Multiply(levels - 1, (n + 1) / 2);
-        const size_t payload =
-            Add(Add(Add(Add(Add(Add(Add(4096, Multiply(32, c)), Multiply(8, d)), Multiply(16, n)), Multiply(64, m + 1)), Multiply(256, m)),
-                    Multiply(64, levels)),
-                Multiply(32, regions));
-        const size_t workspace = Add(Add(Add(Add(4096, Multiply(256, n)), Multiply(64, m + 1)), Multiply(64, c)), Multiply(16, d));
-        Budget(payload, input.settings_.numericPayloadBudgetBytes_, "numeric_payload_budget_bytes");
-        Budget(workspace, input.settings_.workspaceBudgetBytes_, "workspace_budget_bytes");
+        const auto layout = AdmitStorage(input, counts);
+        const size_t levels = layout.levels_, regions = layout.regions_, payload = layout.payload_;
         EarlyExercisePdeResult_ result;
-        result.request_ = input;
-        result.request_.settings_.upper_ = Upper(input);
+        result.request_ = ResultRequest(input, fixed);
         const auto& r = result.request_;
         const auto& s = r.settings_;
         auto& e = result.execution_;
-        e.plannedSteps_ = counts.steps_;
-        e.baseSteps_ = counts.base_;
-        e.dampingAddedSteps_ = counts.damping_;
-        e.stabilityAddedSteps_ = counts.steps_ - counts.base_ - counts.damping_;
-        e.upwindRows_ = counts.upwind_;
-        e.effectiveRannacherIntervals_ = s.theta_ == 0.5 ? s.rannacherIntervals_ : 0;
-        e.plannedRegionCapacity_ = regions;
-        e.plannedNumericPayloadBytes_ = payload;
-        e.plannedWorkspaceBytes_ = workspace;
         const double scale = std::max(r.market_.spot_, r.contract_.strike_);
-        e.epsilon_ = s.absoluteTolerance_ + s.relativeTolerance_ * scale;
-        Vector_<PlanStep_> plan;
-        plan.reserve(m);
-        Plan(r, [&](const PlanStep_& step) { plan.push_back(step); });
+        e = Execution(r, counts, layout, fixed ? fixed->Epsilon() : s.absoluteTolerance_ + s.relativeTolerance_ * scale);
+        const auto singlePlan = SinglePlan(r, counts.steps_, fixed != nullptr);
+        const auto& plan = fixed ? fixed->steps_ : singlePlan;
         const auto carry = CarryIntegrals(r);
         result.grid_.Resize(n);
         result.values_.Resize(n);
@@ -851,6 +1065,21 @@ namespace Dal::PDE {
                                  CapacityBytes(result.steps_) + CapacityBytes(result.levels_) + CapacityBytes(result.regions_);
         Budget(e.numericPayloadBytes_, payload, "numeric_payload_storage_layout");
         return result;
+    }
+
+    EarlyExercisePdeResult_ EvaluateEarlyExercisePde(const EarlyExercisePdeRequest_& input) {
+        return EarlyExercisePdeInternal::ResultAccess_::Run(input, nullptr);
+    }
+
+    EarlyExercisePdeResult_ EarlyExercisePdeInternal::Rollback(const EarlyExercisePdeRequest_& input, const Plan_& plan) {
+        Check(!input.settings_.upper_ || *input.settings_.upper_ == plan.Upper(), "plan.upper", "scenario must use fixed upper");
+        {
+            const auto r = ResolvedScenario(input, plan.Upper());
+            CheckPlanRequest(r, plan.Request());
+            Check(plan.Epsilon() <= r.settings_.absoluteTolerance_ + r.settings_.relativeTolerance_ * std::max(r.market_.spot_, r.contract_.strike_),
+                  "plan.epsilon", "fixed tolerance must not relax scenario tolerance");
+        }
+        return ResultAccess_::Run(input, &plan);
     }
 
     double EarlyExercisePdeResult_::Price() const {
