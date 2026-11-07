@@ -36,9 +36,23 @@ An implemented interface does not establish full numerical acceptance.
 
 ## Controlling API Decisions
 
+- [DAL-497 owning early-exercise PDE risk](api-notes/dal-497-early-exercise-pde-risk.md)
+  — Active S0 schema, defaults, availability and C++/Python/Excel projections;
+  implementation and qualification remain pending.
 - [DAL-398 shared script contract](api-notes/dal-398-script-contract.md).
 - [DAL-410 domestic-collateral Gaussian model](api-notes/dal-410-xccy-mc-model-decision.md).
 - [Prepared mixed-mapping XCCY basket allocation](api-notes/dal-xccy-mixed-mapping-basket.md).
+
+## Early-Exercise PDE Risk Controls
+
+- [DAL-497 R1–R11 contract](specs/dal-497-early-exercise-pde-risk.md)
+  — Fixed-plan full repricing, finite-scale Gamma, ownership, cumulative budgets
+  and compatibility controlling S1–S5.
+- [DAL-497 acceptance fixtures and gates](specs/dal-497-pde-risk-acceptance.md)
+  — Frozen N1–N12 inputs/thresholds, B1–B10 and scoped performance acceptance.
+
+These are active requirements, not product validation evidence. Historical
+early-exercise #602 evidence below does not qualify DAL-497 risk.
 
 ## XCCY Implementation and Acceptance Controls
 
