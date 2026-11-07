@@ -78,12 +78,13 @@ namespace Dal::XccyMcBasketInternal {
                     influences(b, i) /= scale;
             Matrix_<> covariance(influences.Cols(), influences.Cols(), 0.);
             for (int i = 0; i < covariance.Rows(); ++i)
-                for (int j = 0; j < covariance.Cols(); ++j) {
+                for (int j = i; j < covariance.Cols(); ++j) {
                     double value = 0.;
                     for (int b = 0; b < influences.Rows(); ++b)
                         value += influences(b, i) * influences(b, j);
                     covariance(i, j) = value;
-                    Check(std::isfinite(covariance(i, j)), "CalibrationNumericalFailure", "/execution/covariance", "finite output covariance");
+                    covariance(j, i) = value;
+                    Check(std::isfinite(value), "CalibrationNumericalFailure", "/execution/covariance", "finite output covariance");
                 }
             return covariance;
         }
@@ -104,9 +105,7 @@ namespace Dal::XccyMcBasketInternal {
             }
         }
     } // namespace
-    Matrix_<> TestAccess_::OutputCovariance(const XccyMcBasketSnapshot_& snapshot) {
-        return XccyMcBasketInternal::OutputCovariance(snapshot);
-    }
+    Matrix_<> TestAccess_::OutputCovariance(const XccyMcBasketSnapshot_& snapshot) { return XccyMcBasketInternal::OutputCovariance(snapshot); }
     Vector_<> Row(const CalibrationAffineCoefficients_& c) {
         Check(c.db_.size() == c.da_.size(), "CalibrationContextMismatch", "/derivatives", "complete matching coefficient axes");
         Vector_<> row{c.b_, c.a_};
