@@ -16,6 +16,35 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-11-07
+
+- Add a runnable public compounded OIS example with mixed history/projection,
+  holiday weights, delayed payment, raw native partials and owning errors;
+  publish complete interface recipes and scoped product/resource benchmarks.
+  See the [calling guide](docs/ccy-curves/compounded-ois.md).
+
+- Expose the same explicit compounded OIS preparation, source construction and
+  direct native evaluation through public C++, read-only Python and strict typed
+  Excel tables, with owning diagnostics and absent-value getters. See the
+  [interface contract](docs/public-api.md#explicit-compounded-ois).
+
+- Add core compounded OIS Price/ParRate evaluation, owning cashflow/source
+  reports, native FD/AAD partials and calibration through explicit ON routes.
+  Stable checked log-products retain small accrued interest; historical,
+  future and mixed coupons share one source. P1 quote risk remains excluded.
+  See [direct native evaluation](docs/methodology/script_calibration_contract.md#direct-native-evaluation-and-calibration).
+
+- Add ON literals and internal table-bound compounded OIS source execution,
+  with checked chronological products, historical fixing keys, source locations
+  and explicit rejection of future projection, general MC and P1 quote risk.
+  See the [controlled kernel](docs/methodology/script_calibration_contract.md#controlled-source-execution).
+
+- Add core structural preparation for explicit compounded OIS tables, with
+  frozen calendar provenance, strict date/accrual rules, payment statuses,
+  owning diagnostics and a separate JSON identity. This does not enable
+  compounded OIS pricing or calibration. See the
+  [contract](docs/methodology/script_calibration_contract.md#explicit-compounded-ois-table-preparation).
+
 ## 2026-11-06
 
 - Add the independent `DAL::public` script curve quote-risk example and align

@@ -58,6 +58,37 @@ rsg = dal.SobolRSG_New(i_path=0, ndim=3, precise=True, polish=True)
 normals = dal.SobolRSG_Get_Normal(rsg, 1024)
 ```
 
+## Explicit compounded OIS
+
+See the [complete mixed-coupon recipe](../ccy-curves/compounded-ois.md#python-calling-recipe)
+for a fixed-coupon trade with an explicit holiday, past fixing and native AAD.
+
+Construct keyword-only `CompoundedOisFixedRow_`, `CompoundedOisCouponRow_`,
+`CompoundedOisObservationRow_` and `HolidayCenterData_` values, then assemble
+`CompoundedOisScriptSpec_`. There is no inferred calendar. Dates use `Date_`;
+fixing times use `DateTime_(date, 0)` and must be midnight. Call
+`CompoundedOis_Prepare(spec, valuation)` with an explicit fixing snapshot,
+then `CompoundedOisScriptInstrument_New(tables)`.
+
+`CurveScriptEvaluationRequest_` takes `geometry`, `market`, `valuation`,
+`parameters` and `compounded_ois=tables`. Optional `measure_ids` default to
+`["Price", "ParRate"]`, `evaluation` to `AutoFast`, `derivative_method` to
+`None` and `difference_step` to `1e-6`. Use `AAD` or `FiniteDifference` for raw
+native partials. `CurveScriptInstrument_Evaluate(instrument, request)` returns
+read-only owning values with independent container getters, including
+`cashflows`, `observations`, `free_parameters`, `measure_units` and report.
+`CurveScriptEvaluation_Get_Value` and `CurveScriptEvaluation_Get_NativePartials`
+reject unavailable values; optional settled amounts/DFs/rates are `None`.
+`CalibrationError` retains its diagnostic and report after input destruction.
+
+ON routing uses `CurveScriptRoute_(..., projection=True, overnight=True)`,
+`geometry.target_overnight_route`, `market.overnight_curves` and the explicit
+`use_target_curve` flag. Unset tenors read as `None`.
+Calibration specs accept `compounded_ois=[tables]`.
+These native derivatives do not admit ON contracts to P1 quote risk or MC.
+The [shared contract](../methodology/script_calibration_contract.md#explicit-compounded-ois-table-preparation)
+defines the financial rules and defaults.
+
 ## Same-source script curve quote risk
 
 Given an existing `fit = dal.Calibrate_CurveInstruments(spec)` and its fixed

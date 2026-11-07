@@ -3,12 +3,21 @@
 #include <dal/curve/curvescriptevaluation_internal.hpp>
 
 namespace Dal::CurveInstrumentInternal {
+    inline CalibrationDiagnostic_ Diagnostic(const CalibrationInstrument_& instrument, const String_& measureId) {
+        CalibrationDiagnostic_ result;
+        result.stage_ = CalibrationStage_::Value_::Prepare;
+        result.instrumentId_ = instrument.Id();
+        result.measureId_ = measureId;
+        return result;
+    }
     struct PreparedCurvePrice_ {
         PreparedCalibrationInstrument_ plan_;
         std::shared_ptr<const CandidateCurveGeometry_> geometry_;
     };
-    PreparedCurvePrice_
-    PrepareCurvePrice(const CurveInstrumentCalibrationSpec_& spec, const Handle_<CalibrationInstrument_>& instrument, const String_& measureId);
+    PreparedCurvePrice_ PrepareCurvePrice(const CurveInstrumentCalibrationSpec_& spec,
+                                          const Handle_<CalibrationInstrument_>& instrument,
+                                          const String_& measureId,
+                                          const CurveInstrumentCalibrationOptions_& options = {});
 
     template <class T_>
     T_ CashflowMeasure(const PreparedCalibrationInstrument_& plan,

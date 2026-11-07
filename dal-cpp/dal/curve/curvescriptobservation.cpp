@@ -1,6 +1,7 @@
 #include <dal/platform/platform.hpp>
 
 #include <dal/currency/currencydata.hpp>
+#include <dal/curve/curveinstrumentcalibration.hpp>
 #include <dal/curve/curvescript_internal.hpp>
 #include <dal/indice/index/ir.hpp>
 #include <dal/script/event.hpp>
@@ -50,6 +51,16 @@ namespace Dal::CurveScriptInternal {
             result.route_ = context.discountRoute_;
             result.fixing_ = node.fixingDate_.value_or(*source.eventDate_);
             result.source_ = source;
+            if (const auto* on = dynamic_cast<const Index::Overnight_*>(node.index_.get())) {
+                Require(bool(context.compoundedOis_), "UnsupportedCompoundedOisContext", source, "explicit frozen compounded OIS tables");
+                result.projection_ = result.overnight_ = true;
+                result.fixingKey_ = on->fixingKey_;
+                result.route_ = on->route_;
+                result.start_ = on->rateStart_;
+                result.end_ = on->rateEnd_;
+                result.basis_ = on->basis_;
+                return result;
+            }
             const auto* df = dynamic_cast<const Index::DF_*>(node.index_.get());
             if (df)
                 return DiscountGeometry(*df, context, std::move(result));
@@ -62,20 +73,32 @@ namespace Dal::CurveScriptInternal {
             const auto today = *context.valuation_.evaluationDate_;
             return fixing < today || (fixing == today && context.valuation_.todayFixingPolicy_ == TodayFixingPolicy_::Value_::REQUIREHISTORICAL);
         }
+        double Historical(const CalibrationCurveObservation_& observation, const CalibrationPreparationContext_& context) {
+            const auto& source = observation.source_;
+            const auto& key = observation.overnight_ ? observation.fixingKey_ : observation.index_;
+            const auto value = context.valuation_.fixings_->Find(key, DateTime_(observation.fixing_, 0.));
+            if (!value)
+                Fail("MissingFixing", source.field_.value_or(Field(source)), "explicit historical fixing " + key, Date::ToString(observation.fixing_),
+                     source);
+            if (!(std::isfinite(*value) && (observation.projection_ || *value > 0.)))
+                Fail("CalibrationNumericalFailure", Field(source), "finite historical rate or positive DF", NumberText(*value), source);
+            return *value;
+        }
     } // namespace
+    Date_ Horizon(const CalibrationPreparationContext_& context) {
+        return context.curve_ ? context.curve_->nodeDates_.back() : context.candidateCurves_->Definition().nodeDates_.back();
+    }
     CalibrationCurveObservation_
     Observation(const Script::NodeFix_& node, const CalibrationPreparationContext_& context, const CalibrationDiagnostic_& source) {
         auto result = IndexGeometry(node, context, source);
         if (!(result.fixing_ <= *source.eventDate_ && result.fixing_ <= result.start_ && result.start_ < result.end_))
             Fail("UnsupportedFastEvaluator", Field(source), "fixing <= payment and fixing <= concrete start < end", result.index_, source);
         if (IsHistorical(result.fixing_, context)) {
-            result.known_ = context.valuation_.fixings_->Find(result.index_, DateTime_(result.fixing_, 0.));
-            if (!result.known_)
-                Fail("MissingFixing", Field(source), "explicit historical fixing " + result.index_, Date::ToString(result.fixing_), source);
-            if (!(std::isfinite(*result.known_) && (result.projection_ || *result.known_ > 0.)))
-                Fail("CalibrationNumericalFailure", Field(source), "finite historical rate or positive DF", NumberText(*result.known_), source);
+            result.known_ = Historical(result, context);
         } else {
-            if (!(result.start_ >= *context.valuation_.evaluationDate_ && result.end_ <= context.curve_->nodeDates_.back()))
+            Require(!result.overnight_ || bool(context.candidateCurves_), "UnsupportedCompoundedOisProjection", source,
+                    "explicit candidate ON provider");
+            if (!(result.start_ >= *context.valuation_.evaluationDate_ && result.end_ <= Horizon(context)))
                 Fail("CalibrationContextMismatch", Field(source), "live observation dates covered by frozen curve layout", result.index_, source);
         }
         return result;

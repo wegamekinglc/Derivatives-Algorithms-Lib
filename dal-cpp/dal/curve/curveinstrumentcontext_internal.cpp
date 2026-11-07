@@ -1,6 +1,7 @@
 #include <dal/platform/platform.hpp>
 
 #include <dal/calibration/validation_internal.hpp>
+#include <dal/curve/compoundedois_internal.hpp>
 #include <dal/curve/curveinstrumentcontext_internal.hpp>
 #include <dal/storage/json.hpp>
 
@@ -8,7 +9,40 @@ namespace Dal::CurveInstrumentInternal {
     using namespace CalibrationInternal;
     namespace {
         constexpr const char* INPUT_ERROR = "InvalidScriptCurveQuoteRiskInput";
+        Handle_<DiscountCurve_> CopyCurve(const Handle_<DiscountCurve_>& curve) {
+            if (!curve)
+                return {};
+            const auto copy = handle_cast<DiscountCurve_>(JSON::ReadString(JSON::WriteString(*curve), false));
+            Check(bool(copy), "InvalidCalibrationPlan", "/market", "owned native curve snapshot");
+            return copy;
+        }
     } // namespace
+
+    bool HasOvernightContext(const CurveInstrumentCalibrationSpec_& spec) {
+        return !spec.compoundedOis_.empty() || !spec.geometry_.targetOvernightRoute_.empty() || !spec.market_.overnightCurves_.empty() ||
+               std::any_of(spec.market_.routes_.begin(), spec.market_.routes_.end(),
+                           [](const auto& route) { return route.overnight_ || route.useTargetCurve_; });
+    }
+    CurveInstrumentCalibrationSpec_ FreezeOvernightContext(CurveInstrumentCalibrationSpec_ spec) {
+        if (!HasOvernightContext(spec))
+            return spec;
+        spec.geometry_.baseCurve_ = CopyCurve(spec.geometry_.baseCurve_);
+        for (auto& [key, curve] : spec.market_.discountCurves_)
+            curve = CopyCurve(curve);
+        for (auto& [key, curve] : spec.market_.forwardCurves_)
+            curve = CopyCurve(curve);
+        for (auto& [key, curve] : spec.market_.overnightCurves_)
+            curve = CopyCurve(curve);
+        if (spec.valuation_.fixings_)
+            spec.valuation_.fixings_.reset(new MarketFixingSnapshot_(spec.valuation_.fixings_->Values()));
+        for (auto& observation : spec.observations_) {
+            Check(bool(observation), "InvalidCalibrationObservation", "/observations", "nonnull typed observation");
+            observation = NewCalibrationObservation(observation->Id(), observation->Instrument(), observation->MeasureId(),
+                                                    Handle_<CalibrationMarketQuote_>(new CalibrationMarketQuote_(*observation->Quote())),
+                                                    observation->ErrorScale());
+        }
+        return spec;
+    }
 
     Json_ CurveJson(const Handle_<DiscountCurve_>& curve) { return curve ? Parse(JSON::WriteString(*curve)) : Json_(); }
     Json_ Dates(const Vector_<Date_>& dates) {
@@ -19,33 +53,46 @@ namespace Dal::CurveInstrumentInternal {
     }
     Json_ GeometryJson(const CurveInstrumentGeometry_& g) {
         Check(g.today_.IsValid(), INPUT_ERROR, "/context/geometry/today", "valid valuation date");
-        return Obj({{"today", Str(Date::ToString(g.today_))},
-                    {"currency", Str(g.ccy_)},
-                    {"curve_name", Str(g.curveName_)},
-                    {"knot_dates", Dates(g.knotDates_)},
-                    {"knot_policy", Str(Token(g.knotPolicy_, INPUT_ERROR, "/context/geometry/knot_policy"))},
-                    {"parameterization", Str(Token(g.parameterization_, INPUT_ERROR, "/context/geometry/parameterization"))},
-                    {"log_df_scheme", Str(Token(g.logDfScheme_, INPUT_ERROR, "/context/geometry/log_df_scheme"))},
-                    {"base_curve", CurveJson(g.baseCurve_)},
-                    {"discount_target", Bool(g.calibrateDiscountCurve_)},
-                    {"target_collateral", Str(Token(g.targetCollateral_, INPUT_ERROR, "/context/geometry/target_collateral"))},
-                    {"target_tenor", g.targetTenor_.String() ? Str(g.targetTenor_.String()) : Json_()},
-                    {"libor_basis", Str(Token(g.liborBasis_, INPUT_ERROR, "/context/geometry/libor_basis"))}});
+        auto result = Obj({{"today", Str(Date::ToString(g.today_))},
+                           {"currency", Str(g.ccy_)},
+                           {"curve_name", Str(g.curveName_)},
+                           {"knot_dates", Dates(g.knotDates_)},
+                           {"knot_policy", Str(Token(g.knotPolicy_, INPUT_ERROR, "/context/geometry/knot_policy"))},
+                           {"parameterization", Str(Token(g.parameterization_, INPUT_ERROR, "/context/geometry/parameterization"))},
+                           {"log_df_scheme", Str(Token(g.logDfScheme_, INPUT_ERROR, "/context/geometry/log_df_scheme"))},
+                           {"base_curve", CurveJson(g.baseCurve_)},
+                           {"discount_target", Bool(g.calibrateDiscountCurve_)},
+                           {"target_collateral", Str(Token(g.targetCollateral_, INPUT_ERROR, "/context/geometry/target_collateral"))},
+                           {"target_tenor", g.targetTenor_.String() ? Str(g.targetTenor_.String()) : Json_()},
+                           {"libor_basis", Str(Token(g.liborBasis_, INPUT_ERROR, "/context/geometry/libor_basis"))}});
+        if (!g.targetOvernightRoute_.empty())
+            result.object_["target_overnight_route"] = Str(g.targetOvernightRoute_);
+        return result;
     }
     Json_ MarketJson(const CurveInstrumentMarket_& market) {
-        auto discounts = Json_::Array(), forwards = Json_::Array();
+        auto discounts = Json_::Array(), forwards = Json_::Array(), overnight = Json_::Array();
         for (const auto& [key, curve] : market.discountCurves_)
             discounts.array_.push_back(Obj({{"collateral", Str(Token(key, INPUT_ERROR, "/context/market/discounts"))}, {"curve", CurveJson(curve)}}));
         for (const auto& [key, curve] : market.forwardCurves_)
             forwards.array_.push_back(Obj({{"tenor", Str(Token(key, INPUT_ERROR, "/context/market/forwards"))}, {"curve", CurveJson(curve)}}));
-        return Obj({{"discounts", discounts},
-                    {"forwards", forwards},
-                    {"routes", Array(market.routes_, [](const auto& route) {
-                         return Obj({{"id", Str(route.id_)},
-                                     {"projection", Bool(route.projection_)},
-                                     {"collateral", Str(Token(route.collateral_, INPUT_ERROR, "/context/market/routes"))},
-                                     {"tenor", route.tenor_.String() ? Str(route.tenor_.String()) : Json_()}});
-                     })}});
+        for (const auto& [key, curve] : market.overnightCurves_)
+            overnight.array_.push_back(Obj({{"route", Str(String_(key))}, {"curve", CurveJson(curve)}}));
+        auto result = Obj({{"discounts", discounts},
+                           {"forwards", forwards},
+                           {"routes", Array(market.routes_, [](const auto& route) {
+                                auto row = Obj({{"id", Str(route.id_)},
+                                                {"projection", Bool(route.projection_)},
+                                                {"collateral", Str(Token(route.collateral_, INPUT_ERROR, "/context/market/routes"))},
+                                                {"tenor", route.tenor_.String() ? Str(route.tenor_.String()) : Json_()}});
+                                if (route.overnight_ || route.useTargetCurve_) {
+                                    row.object_["overnight"] = Bool(route.overnight_);
+                                    row.object_["use_target_curve"] = Bool(route.useTargetCurve_);
+                                }
+                                return row;
+                            })}});
+        if (!market.overnightCurves_.empty())
+            result.object_["overnight"] = overnight;
+        return result;
     }
     Json_ ValuationJson(const Script::ScriptValuationSettings_& valuation) {
         Check(valuation.evaluationDate_ && valuation.evaluationDate_->IsValid(), INPUT_ERROR, "/context/valuation/evaluation_date",
@@ -103,11 +150,18 @@ namespace Dal::CurveInstrumentInternal {
                      })}});
     }
     Json_ ContextJson(const CurveInstrumentCalibrationSpec_& spec, bool validateSolver) {
-        return Obj({{"geometry", GeometryJson(spec.geometry_)},
-                    {"market", MarketJson(spec.market_)},
-                    {"valuation", ValuationJson(spec.valuation_)},
-                    {"observations", Array(spec.observations_, ObservationJson)},
-                    {"solver", SolverJson(spec.solver_, validateSolver)}});
+        const auto valuation = ValuationJson(spec.valuation_);
+        auto result = Obj({{"geometry", GeometryJson(spec.geometry_)},
+                           {"market", MarketJson(spec.market_)},
+                           {"valuation", HasOvernightContext(spec) ? CompoundedOisInternal::ValuationJson(spec.valuation_) : valuation},
+                           {"observations", Array(spec.observations_, ObservationJson)},
+                           {"solver", SolverJson(spec.solver_, validateSolver)}});
+        if (!spec.compoundedOis_.empty())
+            result.object_["compounded_ois"] = Array(spec.compoundedOis_, [](const auto& tables) {
+                Check(bool(tables), INPUT_ERROR, "/context/compounded_ois", "nonnull frozen OIS tables");
+                return Str(tables->PreparationIdentity());
+            });
+        return result;
     }
     String_ ConfigurationIdentity(const CurveInstrumentCalibrationSpec_& spec, const CurveInstrumentCalibrationOptions_& options) {
         // Capture invalid solver values without replacing the solver's primary diagnostic.

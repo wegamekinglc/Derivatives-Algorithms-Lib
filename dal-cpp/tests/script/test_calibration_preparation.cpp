@@ -566,6 +566,21 @@ TEST(CalibrationPreparationTest, TestGeneralMcBindingAndActualLiborConventionInv
     ASSERT_NE(plan.ContextIdentity(), PrepareCalibrationInstrument(instrument, "Price", context, GeneralMcOptions()).ContextIdentity());
 }
 
+TEST(CalibrationPreparationTest, TestLegacyEmptyFixingSeriesKeepsIdentity) {
+    const auto instrument = Instrument();
+    const auto context = Context();
+    const auto cache = std::make_shared<CalibrationPreparationCache_>();
+    const auto plan = PrepareCalibrationInstrument(instrument, "Price", context, {}, cache);
+    auto changed = context;
+    changed.valuation_.fixings_.reset(new MarketFixingSnapshot_({{"unused-empty", {}}}));
+    ASSERT_NO_THROW(plan.RequireCompatible(instrument, changed));
+    for (const auto& selected : {std::shared_ptr<CalibrationPreparationCache_>(), cache}) {
+        const auto other = PrepareCalibrationInstrument(instrument, "Price", changed, {}, selected);
+        ASSERT_EQ(other.ContextIdentity(), plan.ContextIdentity());
+        ASSERT_EQ(other.PlanIdentity(), plan.PlanIdentity());
+    }
+}
+
 TEST(CalibrationPreparationTest, TestGeneralMcRejectedNodeRetainsMergedRowSource) {
     auto spec = AverageSpec();
     spec.source_.rows_.push_back({ScriptSourceRowKind_::Value_::Event, "2028-10-21", "EXERCISE 1"});

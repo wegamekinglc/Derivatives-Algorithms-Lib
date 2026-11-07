@@ -141,7 +141,11 @@ jobs:
             -DPython3_EXECUTABLE="$(command -v python3)" \
             -DCMAKE_CXX_FLAGS=-ffile-prefix-map=$PWD/benchmark-base=$PWD \
             -DDAL_ENABLE_NATIVE_ARCH=ON
-          cmake --build benchmark-base/build/benchmark-base --parallel "$CMAKE_BUILD_PARALLEL_LEVEL"
+          # Only these executables and the Python module participate in base/head comparisons.
+          cmake --build benchmark-base/build/benchmark-base \
+            --target tape_perf jacobian_perf pde_perf rng_perf interp_perf \
+              krylov_perf banded_perf cholesky_perf rate_risk_perf _dal \
+            --parallel "$CMAKE_BUILD_PARALLEL_LEVEL"
 
       - name: Verify Python workloads on both native builds
         id: python-workloads
