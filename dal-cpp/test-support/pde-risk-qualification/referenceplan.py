@@ -5,7 +5,16 @@ import math
 from fixtures import BASE
 from qualify import bumped, differences, normalize_reference, required_vector, within
 
-PHYSICAL = ("evaluation", "days", "spot", "vol", "call", "american", "carry", "exercise")
+PHYSICAL = (
+    "evaluation",
+    "days",
+    "spot",
+    "vol",
+    "call",
+    "american",
+    "carry",
+    "exercise",
+)
 
 
 def physical(request):
@@ -19,7 +28,9 @@ def physical(request):
 
 
 def fingerprint(value):
-    return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    return hashlib.sha256(
+        json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
 
 
 def binding(request):
@@ -32,7 +43,9 @@ def scales(request):
 
 
 def axes(request):
-    return ["spot", "vol"] + [[family, i] for i in range(len(request["carry"])) for family in [1, 2]]
+    return ["spot", "vol"] + [
+        [family, i] for i in range(len(request["carry"])) for family in [1, 2]
+    ]
 
 
 def offsets(request):
@@ -49,7 +62,9 @@ def price_spec(base, axis, offset, mode, level):
     if axis != "base":
         request = bumped(request, axis, offset)
     selector = dict(tree_steps=level) if mode == "tree" else dict(level=level)
-    return dict(mode=mode, request=dict(request, **selector), axis=axis, offset=float(offset))
+    return dict(
+        mode=mode, request=dict(request, **selector), axis=axis, offset=float(offset)
+    )
 
 
 def price_key(spec, identity):
@@ -83,15 +98,19 @@ def finite_values(values):
 def self_qualification(levels, mode):
     last = levels[-1]
     mesh = differences(last["mean"][2], levels[-2]["mean"][2])
+    scale_mesh = [differences(last["mean"][s], levels[-2]["mean"][s]) for s in range(3)]
     bump = differences(last["mean"][2], last["mean"][1])
     parity = []
     if mode == "tree":
-        parity = [differences(last["members"][0][s], last["members"][1][s]) for s in range(3)]
-    passed = all(within(diff, 0.25, True) for diff in [mesh, bump] + parity)
+        parity = [
+            differences(last["members"][0][s], last["members"][1][s]) for s in range(3)
+        ]
+    passed = all(within(diff, 0.25, True) for diff in scale_mesh + [bump] + parity)
     return dict(
         status="PASS" if passed else "INCOMPLETE",
         levels=levels,
         mesh_difference=mesh,
+        scale_mesh_differences=scale_mesh,
         bump_difference=bump,
         parity_differences=parity,
         normalized=last["mean"][2],
@@ -100,6 +119,9 @@ def self_qualification(levels, mode):
 
 def mean_members(members):
     return [
-        [sum(member[s][i] for member in members) / len(members) for i in range(len(members[0][s]))]
+        [
+            sum(member[s][i] for member in members) / len(members)
+            for i in range(len(members[0][s]))
+        ]
         for s in range(3)
     ]

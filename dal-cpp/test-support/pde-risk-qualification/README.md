@@ -74,6 +74,9 @@ Both paired levels are mandatory. Only if the latest full vector still fails
 may 131072 be appended. The tool rejects extensions before the preceding pair
 is complete, any unapproved level, and an unnecessary extension after success.
 The cumulative TREE node cap is 3e12; all original quarter limits are strict.
+Admission checks the full vector at each coarse/fine/extra-half mesh and each
+raw parity, plus fine/extra-half agreement. The original extra-half mesh field
+is retained alongside the three explicit mesh differences.
 Four processes run under a 128 MiB address-space bound each; actual RSS is
 recorded per result. The ledger stores the 90-minute deadline, output cap,
 charged misses and completed results. Missing, failed or nonfinite prices never
@@ -103,3 +106,37 @@ Read numerical results and contract/directional audits together. An estimate
 can meet a hard product error while its reference or refinement is incomplete.
 A changed production library needs new applicable product captures; old
 captures never acquire a new executable identity.
+
+Scoped product continuation is independent of reference scheduling:
+
+```bash
+python3 dal-cpp/test-support/pde-risk-qualification/products.py prepare \
+  --output build/dal502-followup/products
+xargs -n1 -P2 ./build/dal502-tools/dal502_driver --batchfile \
+  < build/dal502-followup/products/workers.txt
+python3 dal-cpp/test-support/pde-risk-qualification/products.py collect \
+  --output build/dal502-followup/products
+```
+
+The `complete`, `supplement` and `observed` phases prepare separate worker
+lists. Completion fills N1/N2; supplements capture N2 contacts, N10a brackets
+and N12 parallel differences. Prepare `observed` with `--driver` pointing to
+`dal502_observed`, then execute its sole job with `DAL502_LAYER_FILE` pointing
+to a new N9a trace. Collect before running `observe.py collect`. Keep at most
+four numerical processes across concurrent product and reference work.
+
+`integrate.py prepare --directory PRODUCTS` explicitly imports the original
+independent N12 parallel references with their hashes; it does not import old
+product results as current. After supplements, run `supplement.py`, then
+`integrate.py analyze --directory PRODUCTS --references REFERENCES`. Integration
+replays every audit in a separate view, records its input dependencies, and
+marks any dependency on an old product capture INCOMPLETE. N9 failure/work
+controls cite the accepted repair's direct tests and matching library, rather
+than relabeling historical captures. American direction sequences remain
+deferred while their mandatory final TREE binding is unqualified.
+
+Native batches refuse to overwrite existing result files. The reference TREE
+exception path emits a valid error object before any price key is published.
+These wrapper checks do not change successful reference arithmetic. When a
+wrapper changes after a run, retain that run's actual source and executable
+identity; a later build is not its producer.

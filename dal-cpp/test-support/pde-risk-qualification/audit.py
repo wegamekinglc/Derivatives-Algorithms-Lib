@@ -6,7 +6,15 @@ import math
 import pathlib
 from functools import partial
 
-from qualify import differences, fixtures, load, normalized, scalar_price, within, write_json
+from qualify import (
+    differences,
+    fixtures,
+    load,
+    normalized,
+    scalar_price,
+    within,
+    write_json,
+)
 
 
 def optional_json(path):
@@ -32,10 +40,20 @@ def nullable_limit(value, limit):
 def residual_conditions(s, epsilon, american):
     original = [
         nullable_limit(s[key], epsilon)
-        for key in ["maxObstacleViolation_", "maxDualViolation_", "maxComplementarityResidual_"]
+        for key in [
+            "maxObstacleViolation_",
+            "maxDualViolation_",
+            "maxComplementarityResidual_",
+        ]
     ]
-    iteration = not american or s["maxIterationChange_"] is not None and s["maxIterationChange_"] <= epsilon
-    return [nullable_limit(s["maxLinearBackwardError_"], 1e-12)] + original + [iteration]
+    iteration = (
+        not american
+        or s["maxIterationChange_"] is not None
+        and s["maxIterationChange_"] <= epsilon
+    )
+    return (
+        [nullable_limit(s["maxLinearBackwardError_"], 1e-12)] + original + [iteration]
+    )
 
 
 def residuals(check, name, r, request):
@@ -43,7 +61,9 @@ def residuals(check, name, r, request):
         if s["status_"] == "SUCCESS":
             check(
                 name + "-residual-" + s["scenarioId_"],
-                residual_conditions(s, r["plan"]["epsilon_"], request.get("american", False)),
+                residual_conditions(
+                    s, r["plan"]["epsilon_"], request.get("american", False)
+                ),
                 scenario_evidence(s),
             )
 
@@ -53,8 +73,10 @@ def capacities(check, name, r):
         name + "-capacity",
         [
             r["execution"]["workUnits_"] <= r["original"]["risk_"]["maxWorkUnits_"],
-            r["execution"]["numericPayloadBytes_"] <= r["plan"]["plannedNumericPayloadBytes_"],
-            r["execution"]["peakWorkspaceBytes_"] <= r["plan"]["plannedWorkspaceBytes_"],
+            r["execution"]["numericPayloadBytes_"]
+            <= r["plan"]["plannedNumericPayloadBytes_"],
+            r["execution"]["peakWorkspaceBytes_"]
+            <= r["plan"]["plannedWorkspaceBytes_"],
             r["execution"]["peakNativeBytes_"] <= r["plan"]["plannedPeakNativeBytes_"],
         ],
         r["execution"],
@@ -80,15 +102,21 @@ def step_conditions(p, knot, step):
 
 def event_case(check, name, p, request):
     anchors = {
-        round(node["timeYears_"] * 365): node for node in p["timeGrid_"] if node["calendarDate_"] is not None
+        round(node["timeYears_"] * 365): node
+        for node in p["timeGrid_"]
+        if node["calendarDate_"] is not None
     }
     knot = request["carry"][0][0]
     conditions = [
         anchors[knot]["isCarryKnot_"],
         anchors[182]["isExerciseDate_"],
         anchors[365]["isMaturity_"],
-        all(b["timeYears_"] > a["timeYears_"] for a, b in zip(p["timeGrid_"], p["timeGrid_"][1:])),
-        sum(abs(node["timeYears_"] * 365 - knot) < 1e-10 for node in p["timeGrid_"]) == 1,
+        all(
+            b["timeYears_"] > a["timeYears_"]
+            for a, b in zip(p["timeGrid_"], p["timeGrid_"][1:])
+        ),
+        sum(abs(node["timeYears_"] * 365 - knot) < 1e-10 for node in p["timeGrid_"])
+        == 1,
     ]
     if knot == 182:
         conditions.append(anchors[182]["isCarryKnot_"])
@@ -108,7 +136,11 @@ def deterministic_expected(name):
     return (
         20 * math.exp(0.2 * (365 - 2 * 137) / 365)
         if maturity and swapped
-        else 20 * math.exp(-0.2 * (365 - 2 * 137) / 365) if maturity else 20 * math.exp(0.2 * 137 / 365)
+        else (
+            20 * math.exp(-0.2 * (365 - 2 * 137) / 365)
+            if maturity
+            else 20 * math.exp(0.2 * 137 / 365)
+        )
     )
 
 
@@ -116,7 +148,11 @@ def refinement_meshes(run, i):
     run(f"N6-{i}-space", [f"N6-{i}-space-{n}" for n in [401, 801, 1601]])
     run(f"N6-{i}-time", [f"N6-{i}-time-{n}" for n in [1000, 2000, 4000]])
     run(f"N7-{i}-domain", [f"N7-{i}-domain-{n}" for n in [400, 600, 800]])
-    run(f"N7-{i}-penalty", [f"N7-{i}-penalty-{p}" for p in [1e7, 1e8, 1e9]], equal=i in [0, 3])
+    run(
+        f"N7-{i}-penalty",
+        [f"N7-{i}-penalty-{p}" for p in [1e7, 1e8, 1e9]],
+        equal=i in [0, 3],
+    )
 
 
 def refinement_bumps(run, i):
@@ -126,7 +162,10 @@ def refinement_bumps(run, i):
 
 
 def extra_audits(directory, checks):
-    for filename, name in [("n9a-audit.json", "N9a-layers"), ("supplement.json", "supplement")]:
+    for filename, name in [
+        ("n9a-audit.json", "N9a-layers"),
+        ("supplement.json", "supplement"),
+    ]:
         value = optional_json(directory / filename)
         if value is not None:
             checks[name] = value
@@ -152,8 +191,13 @@ def premiums(check, outputs, requests):
 def empty_regions(check, outputs, checks, supplement):
     for name in [n for n in outputs if n.startswith("N2-")]:
         r = outputs[name]
-        nonterminal = [level for level in r["base_levels"] if level["kind_"] != "TERMINAL"]
-        check(name + "-base-empty-regions", [all(level["regionCount_"] == 0 for level in nonterminal)])
+        nonterminal = [
+            level for level in r["base_levels"] if level["kind_"] != "TERMINAL"
+        ]
+        check(
+            name + "-base-empty-regions",
+            [all(level["regionCount_"] == 0 for level in nonterminal)],
+        )
         checks[name + "-scenario-empty-regions"] = (
             supplement["checks"][name]
             if supplement
@@ -172,7 +216,10 @@ def deterministic(check, outputs):
             name,
             [
                 r["price"] is not None and abs(r["price"] - expected) / 100 <= 1e-4,
-                all(row["status_"] == "UNAVAILABLE_DEGENERATE_DIFFUSION" for row in r["risks"]),
+                all(
+                    row["status_"] == "UNAVAILABLE_DEGENERATE_DIFFUSION"
+                    for row in r["risks"]
+                ),
             ],
             dict(expected=expected, actual=r["price"]),
         )
@@ -187,7 +234,9 @@ def deep_exercise(check, outputs):
             [
                 r["status"] == "COMPLETE",
                 within(differences(normalized(r), expected)),
-                all(row["status_"] == "AVAILABLE_EXERCISE_REGION" for row in r["risks"]),
+                all(
+                    row["status_"] == "AVAILABLE_EXERCISE_REGION" for row in r["risks"]
+                ),
             ],
             normalized(r),
         )
@@ -199,7 +248,11 @@ def sequence(check, outputs, name, names, equal=False):
     available = all(all(v is not None for v in value) for value in values)
     check(
         name,
-        [available, within(diff, 0.5), not equal or all(v == values[0] for v in values)],
+        [
+            available,
+            within(diff, 0.5),
+            not equal or all(v == values[0] for v in values),
+        ],
         dict(fixtures=names, values=values, last_difference=diff),
     )
 
@@ -208,12 +261,21 @@ def cn(check, outputs):
     for i, base in enumerate(["N1-0-100-0.03", "N3-0-100"]):
         check(
             f"N8-{i}-implicit-comparison",
-            [within(differences(normalized(outputs[f"N8-{i}"]), normalized(outputs[base])))],
+            [
+                within(
+                    differences(
+                        normalized(outputs[f"N8-{i}"]), normalized(outputs[base])
+                    )
+                )
+            ],
         )
 
 
 def failures(check, outputs):
-    for name, expected in [("N9b-1-100", "LCP_RESIDUAL_LIMIT"), ("N9b-100000000.0-1", "MAX_ITERATIONS")]:
+    for name, expected in [
+        ("N9b-1-100", "LCP_RESIDUAL_LIMIT"),
+        ("N9b-100000000.0-1", "MAX_ITERATIONS"),
+    ]:
         r = outputs[name]
         check(
             name,
@@ -251,7 +313,11 @@ def work_limits(check, outputs):
         r = outputs[f"N9d-{cap}"]
         # Coarse grids can be PARTIAL from the stability screen at the unlimited cap.
         statuses = ["COMPLETE", "PARTIAL"] if cap == 1326 else [status]
-        check(f"N9d-{cap}", [r["status"] in statuses, r["execution"]["workUnits_"] == work], r["execution"])
+        check(
+            f"N9d-{cap}",
+            [r["status"] in statuses, r["execution"]["workUnits_"] == work],
+            r["execution"],
+        )
 
 
 def degeneracy(check, outputs):
@@ -261,18 +327,32 @@ def degeneracy(check, outputs):
         [
             r["status"] == "PARTIAL",
             len(r["scenarios"]) == 1,
-            all(row["status_"] == "UNAVAILABLE_DEGENERATE_DIFFUSION" for row in r["risks"]),
+            all(
+                row["status_"] == "UNAVAILABLE_DEGENERATE_DIFFUSION"
+                for row in r["risks"]
+            ),
         ],
     )
-    check("N10b-small", [outputs["N10b-1e-08"]["risks"][2]["status_"] == "UNAVAILABLE_DOMAIN_BOUNDARY"])
+    check(
+        "N10b-small",
+        [outputs["N10b-1e-08"]["risks"][2]["status_"] == "UNAVAILABLE_DOMAIN_BOUNDARY"],
+    )
     for spot in [0.25, 399.75]:
         r = outputs[f"N10c-{spot}"]
         check(
             f"N10c-{spot}",
-            [all(row["status_"] == "UNAVAILABLE_DOMAIN_BOUNDARY" for row in r["risks"][:2])],
+            [
+                all(
+                    row["status_"] == "UNAVAILABLE_DOMAIN_BOUNDARY"
+                    for row in r["risks"][:2]
+                )
+            ],
             r["risks"],
         )
-    check("N10-upwind", [any(row["upwindChanged_"] for row in outputs["N10-upwind"]["scenarios"])])
+    check(
+        "N10-upwind",
+        [any(row["upwindChanged_"] for row in outputs["N10-upwind"]["scenarios"])],
+    )
 
 
 def gamma_sequences(check, outputs):
@@ -282,7 +362,10 @@ def gamma_sequences(check, outputs):
         diff = differences(values[-1], values[-2])
         check(
             f"N11-space-{half}",
-            [all(value[2] is not None for value in values), diff[2] is not None and diff[2] <= 0.01],
+            [
+                all(value[2] is not None for value in values),
+                diff[2] is not None and diff[2] <= 0.01,
+            ],
             dict(fixtures=names, values=values, last_difference=diff),
         )
 
@@ -307,7 +390,15 @@ def gamma_methods(check, outputs):
 def carry_axes(check, outputs, requests):
     for name in [n for n in outputs if n.startswith("N12-")]:
         r = outputs[name]
-        expected = ["Delta", "Gamma", "Vega", "Rate[0]", "DividendYield[0]", "Rate[1]", "DividendYield[1]"]
+        expected = [
+            "Delta",
+            "Gamma",
+            "Vega",
+            "Rate[0]",
+            "DividendYield[0]",
+            "Rate[1]",
+            "DividendYield[1]",
+        ]
         conditions = [[row["riskId_"] for row in r["risks"]] == expected]
         evaluation = datetime.date(2026, 10, 18)
         for i, segment in enumerate(requests[name]["carry"]):
@@ -317,8 +408,10 @@ def carry_axes(check, outputs, requests):
                 conditions += [
                     row["segmentIndex_"] == i,
                     row["parameterValue_"] == segment[1 + j],
-                    row["startDate_"] == (evaluation + datetime.timedelta(days=start)).isoformat(),
-                    row["endDate_"] == (evaluation + datetime.timedelta(days=segment[0])).isoformat(),
+                    row["startDate_"]
+                    == (evaluation + datetime.timedelta(days=start)).isoformat(),
+                    row["endDate_"]
+                    == (evaluation + datetime.timedelta(days=segment[0])).isoformat(),
                 ]
         check(name + "-axes", conditions, r["risks"])
 
@@ -330,7 +423,9 @@ def summarize(directory):
     supplement = optional_json(directory / "supplement.json")
 
     def check(name, conditions, evidence=None):
-        checks[name] = dict(status="PASS" if all(conditions) else "FAIL", evidence=evidence)
+        checks[name] = dict(
+            status="PASS" if all(conditions) else "FAIL", evidence=evidence
+        )
 
     general(check, outputs, requests)
     events(check, outputs, requests)

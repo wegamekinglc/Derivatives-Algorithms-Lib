@@ -42,7 +42,9 @@ def solve(matrix, rhs):
             a[j] = [x - factor * y for x, y in zip(a[j], a[i])]
     result = [0.0] * n
     for i in reversed(range(n)):
-        result[i] = (a[i][-1] - sum(a[i][j] * result[j] for j in range(i + 1, n))) / a[i][i]
+        result[i] = (a[i][-1] - sum(a[i][j] * result[j] for j in range(i + 1, n))) / a[
+            i
+        ][i]
     return result
 
 
@@ -80,7 +82,10 @@ def residual(matrix, rhs, obstacle, value):
 def enumerate_lcp(matrix, rhs, obstacle):
     feasible = []
     for mask in itertools.product([False, True], repeat=5):
-        active = [[float(i == j) for j in range(5)] if mask[i] else matrix[i] for i in range(5)]
+        active = [
+            [float(i == j) for j in range(5)] if mask[i] else matrix[i]
+            for i in range(5)
+        ]
         target = [obstacle[i] if mask[i] else rhs[i] for i in range(5)]
         candidate = solve(active, target)
         if max(residual(matrix, rhs, obstacle, candidate)) < 1e-10:
@@ -96,7 +101,9 @@ def linear_error(layer, matrix, rhs, obstacle, value):
         terms[i] += penalty * value[i]
         target = rhs[i] + penalty * obstacle[i]
         denominator = abs(target) + sum(abs(v) for v in terms)
-        linear = max(linear, abs(sum(terms) - target) / denominator if denominator else 0.0)
+        linear = max(
+            linear, abs(sum(terms) - target) / denominator if denominator else 0.0
+        )
     return linear
 
 
@@ -119,7 +126,10 @@ def layer_details(layer):
     feasible = enumerate_lcp(matrix, rhs, obstacle)
     value = layer["current"][1:-1]
     original = residual(matrix, rhs, obstacle, value)
-    change = max(abs(a - b) for a, b in zip(layer["correction"][1:-1], layer["previous_correction"][1:-1]))
+    change = max(
+        abs(a - b)
+        for a, b in zip(layer["correction"][1:-1], layer["previous_correction"][1:-1])
+    )
     error = max(abs(v - r) for v, r in zip(value, feasible[0])) if feasible else None
     linear = linear_error(layer, matrix, rhs, obstacle, value)
     return matrix, rhs, feasible, value, original, change, error, linear
@@ -134,9 +144,14 @@ def diagnostic_match(original, recorded, change, diagnostics):
 
 def audit(layer, diagnostics, epsilon):
     matrix, rhs, feasible, value, original, change, error, linear = layer_details(layer)
-    recorded = [diagnostics[k] for k in ["obstacleViolation_", "dualViolation_", "complementarityResidual_"]]
+    recorded = [
+        diagnostics[k]
+        for k in ["obstacleViolation_", "dualViolation_", "complementarityResidual_"]
+    ]
     matched = diagnostic_match(original, recorded, change, diagnostics)
-    passed = admitted(layer, feasible, error, original, change, linear, epsilon) and matched
+    passed = (
+        admitted(layer, feasible, error, original, change, linear, epsilon) and matched
+    )
     return dict(
         vol=layer["vol"],
         time=layer["time"],
@@ -169,7 +184,13 @@ def audit_layer(layer, diagnostics, epsilon):
     if layer["vol"] == 0.2:
         return audit(layer, diagnostics[layer["time"]], epsilon)
     dummy = dict.fromkeys(
-        ["obstacleViolation_", "dualViolation_", "complementarityResidual_", "iterationChange_"], 0.0
+        [
+            "obstacleViolation_",
+            "dualViolation_",
+            "complementarityResidual_",
+            "iterationChange_",
+        ],
+        0.0,
     )
     result = audit(layer, dummy, epsilon)
     good = admitted(
@@ -187,7 +208,10 @@ def audit_layer(layer, diagnostics, epsilon):
 
 def collect(build, evidence):
     trace = evidence / "N9a-layers.jsonl"
-    observed = json.loads((evidence / "N9a-observed.json").read_text())
+    with gzip.open(evidence / "N9a-observed.json.gz", "rt") as stream:
+        observed = json.load(stream)
+    observed.pop("elapsed_seconds", None)
+    observed.pop("returncode", None)
     with gzip.open(evidence / "N9a.json.gz", "rt") as stream:
         original = json.load(stream)
     original.pop("elapsed_seconds", None)
@@ -195,8 +219,13 @@ def collect(build, evidence):
     identical = original == observed
     layers = [json.loads(line) for line in trace.read_text().splitlines()]
     diagnostics = {d["timeIndex_"]: d for d in original["base_steps"]}
-    rows = [audit_layer(layer, diagnostics, original["plan"]["epsilon_"]) for layer in layers]
-    passed = identical and len(layers) == 40 and all(r["status"] == "PASS" for r in rows)
+    rows = [
+        audit_layer(layer, diagnostics, original["plan"]["epsilon_"])
+        for layer in layers
+    ]
+    passed = (
+        identical and len(layers) == 40 and all(r["status"] == "PASS" for r in rows)
+    )
     result = dict(
         status="PASS" if passed else "FAIL",
         identical_uninstrumented_result=identical,
@@ -207,7 +236,9 @@ def collect(build, evidence):
         rows=rows,
     )
     write_json(evidence / "n9a-audit.json", result)
-    print(result["status"], "layers", len(layers), "ordinary result identical", identical)
+    print(
+        result["status"], "layers", len(layers), "ordinary result identical", identical
+    )
 
 
 def main():

@@ -33,7 +33,9 @@ def initialize(directory, executable):
     if path.exists():
         ledger = json.loads(path.read_text())
         if ledger["identity"] != current:
-            raise RuntimeError("reference executable/source identity changed; prior ledger cannot be reset")
+            raise RuntimeError(
+                "reference executable/source identity changed; prior ledger cannot be reset"
+            )
         return ledger
     ledger = dict(
         identity=current,
@@ -83,7 +85,9 @@ def enqueue(ledger, spec):
 def schedule_checked(directory, ledger, specs, phase):
     guard(directory, ledger)
     if (directory / f"{phase}-0.jsonl").exists():
-        raise RuntimeError("phase already recorded; raw jobs/results must not be overwritten")
+        raise RuntimeError(
+            "phase already recorded; raw jobs/results must not be overwritten"
+        )
     jobs = []
     for spec in specs:
         job = enqueue(ledger, spec)
@@ -96,7 +100,9 @@ def schedule_checked(directory, ledger, specs, phase):
         files.append(str(path.resolve()))
     (directory / "workers.txt").write_text("\n".join(files) + "\n")
     write_json(directory / "ledger.json", ledger)
-    print(phase, "misses", len(jobs), "cumulative charged nodes", ledger["charged_nodes"])
+    print(
+        phase, "misses", len(jobs), "cumulative charged nodes", ledger["charged_nodes"]
+    )
 
 
 def schedule(directory, ledger, specs, phase):

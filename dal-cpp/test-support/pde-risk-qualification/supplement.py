@@ -29,14 +29,22 @@ def intersects(regions, spot, h, dx):
             (region["leftClipped_"], region["firstNode_"] - 1, region["firstNode_"]),
             (region["rightClipped_"], region["lastNode_"], region["lastNode_"] + 1),
         ]:
-            if not clipped and max(spot - 2 * h, left * dx) <= min(spot + 2 * h, right * dx):
+            if not clipped and max(spot - 2 * h, left * dx) <= min(
+                spot + 2 * h, right * dx
+            ):
                 return True
     return False
 
 
 def contact_case(driver, directory, name, request):
     original = load(directory, name)
-    observed = invoke(driver, directory, name + "-contacts", "audit", dict(request, audit_contacts=True))
+    observed = invoke(
+        driver,
+        directory,
+        name + "-contacts",
+        "audit",
+        dict(request, audit_contacts=True),
+    )
     eligible = [
         row
         for row in observed["contact_audit"]
@@ -77,7 +85,9 @@ def spot_status(risk, indices, memberships, intersections):
         return "UNAVAILABLE_NEAR_EXERCISE_BOUNDARY"
     stable = risk["normalizedStepDifference_"] <= risk["stabilityTolerance_"]
     expected = (
-        "AVAILABLE_EXERCISE_REGION" if all(memberships[i] == "EXERCISE" for i in indices) else "AVAILABLE"
+        "AVAILABLE_EXERCISE_REGION"
+        if all(memberships[i] == "EXERCISE" for i in indices)
+        else "AVAILABLE"
     )
     return expected if stable else "UNAVAILABLE_STEP_UNSTABLE"
 
@@ -85,10 +95,19 @@ def spot_status(risk, indices, memberships, intersections):
 def risk_conditions(r, memberships, intersections):
     conditions = []
     for risk in r["risks"]:
-        indices = {entry["scenarioIndex_"] for entry in risk["fineStencil_"] + risk["coarseStencil_"]} | {0}
+        indices = {
+            entry["scenarioIndex_"]
+            for entry in risk["fineStencil_"] + risk["coarseStencil_"]
+        } | {0}
         if risk["riskId_"] in ["Delta", "Gamma"]:
-            conditions.append(risk["status_"] == spot_status(risk, indices, memberships, intersections))
-        elif any(memberships[i] == "BOUNDARY" or memberships[i] != memberships[0] for i in indices):
+            conditions.append(
+                risk["status_"]
+                == spot_status(risk, indices, memberships, intersections)
+            )
+        elif any(
+            memberships[i] == "BOUNDARY" or memberships[i] != memberships[0]
+            for i in indices
+        ):
             conditions.append(risk["status_"] == "UNAVAILABLE_EXERCISE_SWITCH")
     return conditions
 
@@ -103,10 +122,17 @@ def boundary_case(driver, directory, request, control, midpoint, shift, record):
         r["plan"]["planId_"] == r["audit_plan_id"],
         all(row["same_price"] for row in rows),
     ]
-    observed, memberships, intersections = observe_boundaries(r, request, control["plan"]["gridSpacing_"])
+    observed, memberships, intersections = observe_boundaries(
+        r, request, control["plan"]["gridSpacing_"]
+    )
     conditions += observed + risk_conditions(r, memberships, intersections)
     if shift == 0:
-        conditions.append(all(row["status_"] == "UNAVAILABLE_NEAR_EXERCISE_BOUNDARY" for row in r["risks"][:2]))
+        conditions.append(
+            all(
+                row["status_"] == "UNAVAILABLE_NEAR_EXERCISE_BOUNDARY"
+                for row in r["risks"][:2]
+            )
+        )
     record(
         name,
         conditions,
@@ -131,11 +157,15 @@ def boundary(driver, directory, requests, record):
         None,
     )
     if run is None:
-        record("N10a", [False], "No specified positive intrinsic unclipped evaluation run")
+        record(
+            "N10a", [False], "No specified positive intrinsic unclipped evaluation run"
+        )
         return
     midpoint = (run["lastNode_"] + 0.5) * control["plan"]["gridSpacing_"]
     for shift in [0, -2, 2]:
-        request = dict(requests["N3-0-100"], spot=midpoint + shift, h=0.5, audit_contacts=True)
+        request = dict(
+            requests["N3-0-100"], spot=midpoint + shift, h=0.5, audit_contacts=True
+        )
         boundary_case(driver, directory, request, control, midpoint, shift, record)
 
 
@@ -144,16 +174,27 @@ def parallel_products(driver, directory, requests, record):
         for bump in [1e-4, 5e-5]:
             name = f"N12-{knot}-{bump}"
             r = invoke(
-                driver, directory, name + "-parallel", "audit", dict(requests[name], audit_parallel=True)
+                driver,
+                directory,
+                name + "-parallel",
+                "audit",
+                dict(requests[name], audit_parallel=True),
             )
             comparisons = []
             for parallel in r["parallel_audit"]:
                 family = "Rate[" if parallel["rate"] else "DividendYield["
-                total = sum(row["value_"] for row in r["risks"] if row["riskId_"].startswith(family))
+                total = sum(
+                    row["value_"]
+                    for row in r["risks"]
+                    if row["riskId_"].startswith(family)
+                )
                 comparisons.append(abs(total - parallel["partial"]) / 100)
             record(
                 name,
-                [all(value <= 0.003 for value in comparisons), r["plan"]["planId_"] == r["audit_plan_id"]],
+                [
+                    all(value <= 0.003 for value in comparisons),
+                    r["plan"]["planId_"] == r["audit_plan_id"],
+                ],
                 dict(differences=comparisons, parallel=r["parallel_audit"]),
             )
 
@@ -168,9 +209,15 @@ def reference(driver, directory, requests, knot):
             for bump in [5e-5, 2.5e-5, 1.25e-5]:
                 sides = []
                 for side in [-1, 1]:
-                    request = dict(bumped(base, (family, "parallel"), side * bump), level=level)
+                    request = dict(
+                        bumped(base, (family, "parallel"), side * bump), level=level
+                    )
                     raw = invoke(
-                        driver, directory, f"N12ref-{knot}-{level}-{family}-{bump}-{side}", "log", request
+                        driver,
+                        directory,
+                        f"N12ref-{knot}-{level}-{family}-{bump}-{side}",
+                        "log",
+                        request,
                     )
                     if "error" in raw:
                         raise RuntimeError(raw["error"])
@@ -179,7 +226,9 @@ def reference(driver, directory, requests, knot):
             estimates.append(values)
         levels.append(estimates)
     bump_diff = [abs(family[-1] - family[-2]) for family in levels[-1]]
-    level_diff = [abs(levels[-1][family][-1] - levels[-2][family][-1]) for family in range(2)]
+    level_diff = [
+        abs(levels[-1][family][-1] - levels[-2][family][-1]) for family in range(2)
+    ]
     return levels, bump_diff, level_diff
 
 
@@ -193,7 +242,9 @@ def main():
     results = {}
 
     def record(name, conditions, evidence):
-        results[name] = dict(status="PASS" if all(conditions) else "FAIL", evidence=evidence)
+        results[name] = dict(
+            status="PASS" if all(conditions) else "FAIL", evidence=evidence
+        )
 
     contacts(driver, directory, requests, record)
     boundary(driver, directory, requests, record)
@@ -203,12 +254,20 @@ def main():
         record(
             f"N12ref-{knot}",
             [all(value < 7.5e-4 for value in bump_diff + level_diff)],
-            dict(levels=levels, bump_difference=bump_diff, refinement_difference=level_diff),
+            dict(
+                levels=levels,
+                bump_difference=bump_diff,
+                refinement_difference=level_diff,
+            ),
         )
     write_json(
         directory / "supplement.json",
         dict(
-            status="PASS" if all(row["status"] == "PASS" for row in results.values()) else "FAIL",
+            status=(
+                "PASS"
+                if all(row["status"] == "PASS" for row in results.values())
+                else "FAIL"
+            ),
             checks=results,
         ),
     )

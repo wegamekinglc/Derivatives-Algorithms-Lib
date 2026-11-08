@@ -17,7 +17,12 @@ def european(add):
     for call in [False, True]:
         for spot in [80, 100, 120]:
             for q in [0, 0.03]:
-                add(f"N1-{int(call)}-{spot}-{q}", call=call, spot=spot, carry=[[365, 0.05, q]])
+                add(
+                    f"N1-{int(call)}-{spot}-{q}",
+                    call=call,
+                    spot=spot,
+                    carry=[[365, 0.05, q]],
+                )
     add(
         "N1-default",
         call=True,
@@ -32,8 +37,21 @@ def european(add):
 
 def non_dividend(add):
     for spot in [80, 100, 120]:
-        add(f"N2-{spot}", call=True, spot=spot, carry=[[365, 0.05, 0]], american=True, exercise=[])
-    add("N2-piecewise", call=True, american=True, exercise=[], carry=[[137, 0.02, 0], [365, 0.06, 0]])
+        add(
+            f"N2-{spot}",
+            call=True,
+            spot=spot,
+            carry=[[365, 0.05, 0]],
+            american=True,
+            exercise=[],
+        )
+    add(
+        "N2-piecewise",
+        call=True,
+        american=True,
+        exercise=[],
+        carry=[[137, 0.02, 0], [365, 0.06, 0]],
+    )
 
 
 def exercise(add):
@@ -68,7 +86,11 @@ def deterministic(add):
                 vol=0,
                 carry=[[137, rate, rate], [365, -rate, -rate]],
                 american=style == "american",
-                exercise=[] if style == "american" else [365] if style == "terminal" else [137, 365],
+                exercise=(
+                    []
+                    if style == "american"
+                    else [365] if style == "terminal" else [137, 365]
+                ),
             )
 
 
@@ -159,13 +181,20 @@ def gamma(add):
         add(f"N11-admit-{spot}", spot=spot, h=0.5)
     for half in [False, True]:
         for nodes in [401, 801, 1601]:
-            add(f"N11-space-{int(half)}-{nodes}", nodes=nodes, spot=100 + (200 / (nodes - 1) if half else 0))
+            add(
+                f"N11-space-{int(half)}-{nodes}",
+                nodes=nodes,
+                spot=100 + (200 / (nodes - 1) if half else 0),
+            )
 
 
 def carry(add, result):
     for knot in [137, 182]:
         for bump in [0.0001, 5e-05]:
-            add(f"N12-{knot}-{bump}", **dict(result[f"N4-0-100-{knot}"], carry_bump=bump))
+            add(
+                f"N12-{knot}-{bump}",
+                **dict(result[f"N4-0-100-{knot}"], carry_bump=bump),
+            )
 
 
 def mesh(add, base, i):
@@ -182,9 +211,15 @@ def bumps(add, base, i):
         add(f"N7-{i}-penalty-{penalty}", **dict(base, penalty=penalty))
     for nodes in [801, 1601]:
         for cells in [4, 2]:
-            add(f"N7-{i}-spot-{nodes}-{cells}", **dict(base, nodes=nodes, h=cells * 400 / (nodes - 1)))
+            add(
+                f"N7-{i}-spot-{nodes}-{cells}",
+                **dict(base, nodes=nodes, h=cells * 400 / (nodes - 1)),
+            )
     for scale in [1, 0.5, 0.25]:
-        add(f"N7-{i}-parameter-{scale}", **dict(base, vol_bump=0.001 * scale, carry_bump=0.0001 * scale))
+        add(
+            f"N7-{i}-parameter-{scale}",
+            **dict(base, vol_bump=0.001 * scale, carry_bump=0.0001 * scale),
+        )
 
 
 def refinements(add, result):

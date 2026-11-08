@@ -38,14 +38,22 @@ def normalized(output):
         (
             None
             if r["value_"] is None
-            else r["value_"] * (100 if r["riskId_"] == "Gamma" else 1 if r["riskId_"] == "Delta" else 0.01)
+            else r["value_"]
+            * (
+                100
+                if r["riskId_"] == "Gamma"
+                else 1 if r["riskId_"] == "Delta" else 0.01
+            )
         )
         for r in output.get("risks", [])
     ]
 
 
 def normalize_reference(values):
-    return [v * (0.01 if i == 0 or i >= 3 else 100 if i == 2 else 1) for i, v in enumerate(values)]
+    return [
+        v * (0.01 if i == 0 or i >= 3 else 100 if i == 2 else 1)
+        for i, v in enumerate(values)
+    ]
 
 
 def limits(count):
@@ -79,7 +87,10 @@ def scalar_price(request):
     d1 = d2 + sd
     sign = 1 if request.get("call", False) else -1
     cdf = lambda x: (1 + math.erf(x / math.sqrt(2))) / 2
-    return sign * (spot * math.exp(-dividend) * cdf(sign * d1) - 100 * math.exp(-rate) * cdf(sign * d2))
+    return sign * (
+        spot * math.exp(-dividend) * cdf(sign * d1)
+        - 100 * math.exp(-rate) * cdf(sign * d2)
+    )
 
 
 def bumped(request, axis, offset):
@@ -99,12 +110,19 @@ def bumped(request, axis, offset):
 def derivatives(price, request, spot_bump, parameter_bump, carry_bump):
     base = price(request)
     result = [base]
-    low, high = price(bumped(request, "spot", -spot_bump)), price(bumped(request, "spot", spot_bump))
+    low, high = price(bumped(request, "spot", -spot_bump)), price(
+        bumped(request, "spot", spot_bump)
+    )
     result += [(high - low) / (2 * spot_bump), (high - 2 * base + low) / spot_bump**2]
     for axis, bump in [("vol", parameter_bump)] + [
-        (family_index, carry_bump) for i in range(len(request["carry"])) for family_index in [(1, i), (2, i)]
+        (family_index, carry_bump)
+        for i in range(len(request["carry"]))
+        for family_index in [(1, i), (2, i)]
     ]:
-        result.append((price(bumped(request, axis, bump)) - price(bumped(request, axis, -bump))) / (2 * bump))
+        result.append(
+            (price(bumped(request, axis, bump)) - price(bumped(request, axis, -bump)))
+            / (2 * bump)
+        )
     return result
 
 
@@ -113,7 +131,11 @@ def required_vector(request):
     if request.get("default_upper", False):
         upper = 4 * max(request.get("spot", 100), 100)
     return [
-        upper / (request.get("nodes", 1601) - 1) * 2 if "h" not in request else request["h"],
+        (
+            upper / (request.get("nodes", 1601) - 1) * 2
+            if "h" not in request
+            else request["h"]
+        ),
         request.get("vol_bump", 0.001),
         request.get("carry_bump", 0.0001),
     ]
@@ -127,25 +149,50 @@ def reference_name(name):
 
 def numerical_verdict(output, reference):
     if output.get("status") != "COMPLETE":
-        return dict(status="FAIL", reason="mandatory smooth risk unavailable or base/preflight failed")
+        return dict(
+            status="FAIL",
+            reason="mandatory smooth risk unavailable or base/preflight failed",
+        )
     if reference is None or reference["status"] != "PASS":
-        return dict(status="INCOMPLETE", reason="independent reference not qualified for actual bump scales")
+        return dict(
+            status="INCOMPLETE",
+            reason="independent reference not qualified for actual bump scales",
+        )
     diff = differences(normalized(output), reference["normalized"])
     return dict(difference=diff, status="PASS" if within(diff) else "FAIL")
 
 
 def is_numerical(name):
     return name.startswith(
-        ("N1-", "N2-", "N3-", "N4-", "N5b-", "N6-", "N7-", "N8-", "N10d-", "N11-admit", "N11-space", "N12-")
+        (
+            "N1-",
+            "N2-",
+            "N3-",
+            "N4-",
+            "N5b-",
+            "N6-",
+            "N7-",
+            "N8-",
+            "N10d-",
+            "N11-admit",
+            "N11-space",
+            "N12-",
+        )
     )
 
 
 def special_verdict(name, output, refs):
     if name == "N1-default":
-        return dict(status="PASS" if output.get("plan", {}).get("upper_") == 480 else "FAIL")
+        return dict(
+            status="PASS" if output.get("plan", {}).get("upper_") == 480 else "FAIL"
+        )
     if name.startswith("N11-reject"):
         return dict(
-            status="PASS" if "InvalidEarlyExercisePdeRiskRequest" in output.get("error", "") else "FAIL"
+            status=(
+                "PASS"
+                if "InvalidEarlyExercisePdeRiskRequest" in output.get("error", "")
+                else "FAIL"
+            )
         )
     if is_numerical(name):
         key = reference_name(name)
@@ -160,7 +207,11 @@ def analyze_case(directory, name, refs):
     if not path.exists():
         return dict(status="INCOMPLETE", reason="not executed on this identity")
     output = load(directory, name)
-    row = dict(normalized=normalized(output), aggregate=output.get("status"), error=output.get("error"))
+    row = dict(
+        normalized=normalized(output),
+        aggregate=output.get("status"),
+        error=output.get("error"),
+    )
     if "risks" in output:
         row.update(
             risks=output["risks"],

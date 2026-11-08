@@ -424,8 +424,10 @@ namespace {
             return;
         }
         if (mode == "tree") {
+            const double price =
+                PdeRiskReference::Tree(r, j["tree_steps"].GetInt(), Number(j, "deadline_epoch", 0));
             w.Key("price");
-            Write(w, PdeRiskReference::Tree(r, j["tree_steps"].GetInt(), Number(j, "deadline_epoch", 0)));
+            Write(w, price);
             return;
         }
         if (mode != "log")
@@ -505,9 +507,15 @@ namespace {
         output << '\n';
         output.flush();
     }
+    std::ofstream BatchOutput(const std::filesystem::path& path) {
+        const auto output = path.string() + ".results.jsonl";
+        if (std::filesystem::exists(output))
+            throw std::runtime_error("batch output already exists; preserve the original evidence");
+        return std::ofstream(output);
+    }
     int Batch(const std::filesystem::path& path) {
         std::ifstream input(path);
-        std::ofstream output(path.string() + ".results.jsonl");
+        auto output = BatchOutput(path);
         if (!input || !output)
             throw std::runtime_error("cannot open batch input/output");
         uint64_t charged = 0;

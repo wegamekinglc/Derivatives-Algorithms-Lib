@@ -42,7 +42,11 @@ def engine(name):
 
 
 def controls():
-    return {name: r for name, r in fixtures().items() if is_numerical(name) and name != "N1-default"}
+    return {
+        name: r
+        for name, r in fixtures().items()
+        if is_numerical(name) and name != "N1-default"
+    }
 
 
 def unique_controls(mode):
@@ -78,13 +82,19 @@ def legacy_index(old):
     for path in old.glob("*-ref-L*-P*-*.input.json"):
         request = json.loads(path.read_text())
         mode = "tree" if path.name.startswith("N3-") else "log"
-        selector = {"tree_steps": request["tree_steps"]} if mode == "tree" else {"level": request["level"]}
+        selector = (
+            {"tree_steps": request["tree_steps"]}
+            if mode == "tree"
+            else {"level": request["level"]}
+        )
         normalized = dict(physical(request), **selector)
         output = old / path.name.replace(".input.json", ".json.gz")
         if digest(output) != manifest[output.name]["sha256"]:
             raise RuntimeError("legacy reference checksum mismatch: " + output.name)
         key = fingerprint(dict(mode=mode, request=normalized))
-        result[key] = dict(result=raw_result(output), path=str(output.resolve()), sha256=digest(output))
+        result[key] = dict(
+            result=raw_result(output), path=str(output.resolve()), sha256=digest(output)
+        )
     return result
 
 
@@ -95,7 +105,9 @@ def equivalence_specs(old):
         specs += list(specs_for(requests[name], "tree", [4096]))
     specs += list(specs_for(requests["N4-0-100-137"], "log", [0, 1, 2]))
     refs = json.loads((old / "references.json").read_text())
-    specs += [analytic_spec(requests[name]) for name, row in refs.items() if "values" in row]
+    specs += [
+        analytic_spec(requests[name]) for name, row in refs.items() if "values" in row
+    ]
     return specs
 
 
@@ -117,7 +129,9 @@ def expected_result(spec, index, old):
     for name, request in fixtures().items():
         path = old / (name + "-ref.json.gz")
         if path.exists() and physical(request) == physical(spec["request"]):
-            return dict(result=raw_result(path), path=str(path.resolve()), sha256=digest(path))
+            return dict(
+                result=raw_result(path), path=str(path.resolve()), sha256=digest(path)
+            )
     raise RuntimeError("missing analytic equivalence witness")
 
 
@@ -126,7 +140,12 @@ def check_equivalence(ledger):
     for key, expected in ledger["equivalence_expected"].items():
         actual = ledger["cache"].get(key)
         comparisons.append(
-            dict(id=key, path=expected["path"], sha256=expected["sha256"], equal=actual == expected["result"])
+            dict(
+                id=key,
+                path=expected["path"],
+                sha256=expected["sha256"],
+                equal=actual == expected["result"],
+            )
         )
     if not all(row["equal"] for row in comparisons):
         raise RuntimeError("reference price equivalence failed or has missing rows")
@@ -176,7 +195,9 @@ def level_estimates(ledger, request, mode, level):
     for parity in range(2 if mode == "tree" else 1):
 
         def price(axis, offset):
-            return read_price(ledger, price_spec(request, axis, offset, mode, level + parity))
+            return read_price(
+                ledger, price_spec(request, axis, offset, mode, level + parity)
+            )
 
         members.append(estimates(request, price))
     return dict(members=members, mean=mean_members(members))
@@ -199,7 +220,14 @@ def verify_self_equivalence(directory, ledger, old):
         mode = engine(name)
         levels = OLD_LEVELS if mode == "tree" else [0, 1, 2]
         actual = tree_or_log(ledger, fixtures()[name], mode, levels)
-        fields = ["levels", "mesh_difference", "bump_difference", "parity_differences", "normalized", "status"]
+        fields = [
+            "levels",
+            "mesh_difference",
+            "bump_difference",
+            "parity_differences",
+            "normalized",
+            "status",
+        ]
         result[name] = all(actual.get(k) == expected[name].get(k) for k in fields)
     write_json(directory / "self-equivalence.json", result)
     if not all(result.values()):
@@ -225,14 +253,20 @@ def prepare_initial(directory):
 def successful_reference_job(row):
     result = row.get("result", {})
     price = result.get("price")
-    return row["state"] == "COMPLETE" and "error" not in result and price is not None and math.isfinite(price)
+    return (
+        row["state"] == "COMPLETE"
+        and "error" not in result
+        and price is not None
+        and math.isfinite(price)
+    )
 
 
 def completed_level(ledger, n):
     jobs = [
         row
         for row in ledger["jobs"].values()
-        if row["spec"]["mode"] == "tree" and row["spec"]["request"]["tree_steps"] in [n, n + 1]
+        if row["spec"]["mode"] == "tree"
+        and row["spec"]["request"]["tree_steps"] in [n, n + 1]
     ]
     return bool(jobs) and all(successful_reference_job(row) for row in jobs)
 
@@ -245,7 +279,9 @@ def extension_guard(directory, ledger, n):
         latest = json.loads((directory / "references-65536.json").read_text())
         tree = [row for row in latest.values() if row["engine"] == "tree"]
         if all(row["status"] == "PASS" for row in tree):
-            raise RuntimeError("latest level qualified; further extension is not approved")
+            raise RuntimeError(
+                "latest level qualified; further extension is not approved"
+            )
 
 
 def prepare_level(directory, n):
@@ -282,22 +318,41 @@ def qualify(directory, top):
         if mode == "analytic":
             row = analytic(ledger, request)
         else:
-            levels = [0, 1, 2] if mode == "log" else [n for n in OLD_LEVELS + NEW_LEVELS if n <= top]
+            levels = (
+                [0, 1, 2]
+                if mode == "log"
+                else [n for n in OLD_LEVELS + NEW_LEVELS if n <= top]
+            )
             row = tree_or_log(ledger, request, mode, levels)
-        row.update(engine=mode, binding=binding(request), execution_identity=ledger["identity"])
+        row.update(
+            engine=mode, binding=binding(request), execution_identity=ledger["identity"]
+        )
         if "budget_stop" in ledger:
             row.update(status="INCOMPLETE", reason=ledger["budget_stop"])
         result[binding(request)] = row
     write_json(directory / ("references-" + str(top) + ".json"), result)
-    print("reference bindings", len(result), "incomplete", sum(v["status"] != "PASS" for v in result.values()))
+    print(
+        "reference bindings",
+        len(result),
+        "incomplete",
+        sum(v["status"] != "PASS" for v in result.values()),
+    )
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("phase", choices=["equivalence", "accept", "initial", "level", "qualify"])
+    parser.add_argument(
+        "phase", choices=["equivalence", "accept", "initial", "level", "qualify"]
+    )
     parser.add_argument("--output", required=True, type=pathlib.Path)
-    parser.add_argument("--old", type=pathlib.Path, default=pathlib.Path("build/dal502-evidence"))
-    parser.add_argument("--driver", type=pathlib.Path, default=pathlib.Path("build/dal502-tools/dal502_driver"))
+    parser.add_argument(
+        "--old", type=pathlib.Path, default=pathlib.Path("build/dal502-evidence")
+    )
+    parser.add_argument(
+        "--driver",
+        type=pathlib.Path,
+        default=pathlib.Path("build/dal502-tools/dal502_driver"),
+    )
     parser.add_argument("--level", type=int, default=16384)
     args = parser.parse_args()
     actions = dict(
