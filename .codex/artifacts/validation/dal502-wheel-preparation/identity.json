@@ -1,6 +1,7 @@
 {
   "baseline": "f51471f224d2cd3c37f04b28e49e948174b55bdc",
   "implementation_commit": "ba8f909125da683d2afe1ae024f37c6ab7dd7286",
+  "test_validation_commit": "e228a0d1bb5c631d8e0e82ac6407dc8fd7c0a3eb",
   "cibuildwheel_revision": "f9b966cfadf4109556cadc5bb39ddb72d0ce664e",
   "upstream": {
     "cibuildwheel/venv.py": {
@@ -35,7 +36,7 @@
   },
   "source_sha256": {
     ".github/scripts/prepare_wheel_virtualenv.py": "4e2340c2c0202e895a52e37d4eec6763f4bdde6a39293723152d0b94700481d9",
-    ".github/scripts/tests/test_prepare_wheel_virtualenv.py": "c48ba7cd3c9af2345918b60d5a5f95267e7c17747ef40465a42b1ec0f95d6cf3",
+    ".github/scripts/tests/test_prepare_wheel_virtualenv.py": "5caeb137084529e77f09ca9417ebf640927a2f24c93feda896588db5a00304e6",
     ".github/workflows/dal-python-ci.yml": "7c82e71f7d615ebbcc4b8489bf572a265346d5aac57e7bb4655c1c858f9ef394",
     ".github/workflows/dal-python-release.yml": "5ca14f53f01a7032c775374069627910ed45d35f4ea89ba7fa48b9b980178e20",
     "dal-python/pyproject.toml": "d6bd9025e5924c03a97151c921d4da462fe808cb9e2348862952d8050b71f89c"

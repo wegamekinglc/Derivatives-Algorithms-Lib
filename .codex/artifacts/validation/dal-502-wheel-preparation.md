@@ -87,6 +87,11 @@ Existing helpers: 11 PASS and six Windows/pwsh/.NET-only skips, with no failure.
 Those executable Windows checks remain enabled in the Windows CI job; local
 skips are not claimed as Windows execution evidence.
 
+A macOS-style aliased temporary directory also passes all 11 tests under
+Python 3.9. Its first run exposed three lexical-versus-resolved path assertions;
+the test assertions now compare canonical paths without changing the download
+helper. Both RED and GREEN logs are retained.
+
 The real helper CLI then encountered an actual canonical-URL HTTP 504 and
 recovered through the official API route. The resulting 12,474,880-byte file
 passes the pinned checksum, and the exported environment points at its cache.

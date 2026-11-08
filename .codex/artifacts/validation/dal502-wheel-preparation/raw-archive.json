@@ -1,8 +1,16 @@
 {
   "filename": "dal502-wheel-preparation-raw.tar.gz",
-  "sha256": "2111b1645b460158fe647c59ae24306cc37c96a33b908fc6fe70fb2ae683c81b",
-  "bytes": 65934,
+  "sha256": "e3fcc7c6407c9ffca72a2caa17b2c8df2c41e7c8c63432bdc30102c7548cda71",
+  "bytes": 67138,
   "members": {
+    "build/dal502-wheel-prepare/alias-green.log": {
+      "sha256": "55e2b84a976cf05b1e180be1c6ce339ae26e632f811fb22e3eb454b8a3832135",
+      "bytes": 2283
+    },
+    "build/dal502-wheel-prepare/alias-red.log": {
+      "sha256": "31da73af8c2f38ad2c0c5f154cb9fd2d3403b63b57a30a783dc373bc67cb621c",
+      "bytes": 5180
+    },
     "build/dal502-wheel-prepare/asset-api-probe.json": {
       "sha256": "14f68d50de2fa527bdcfe023a7a4b4507d57c789e2a75efc20c09d14b561f932",
       "bytes": 427
@@ -20,8 +28,8 @@
       "bytes": 131758
     },
     "build/dal502-wheel-prepare/collect.py": {
-      "sha256": "0c52655f72c18101b080ae9ec2787e07d32cbd2e9d5933578b45e26af4d914cd",
-      "bytes": 3048
+      "sha256": "c469c0461b93305658d128ebaf7a084f0746b5eea59a5b3407c9966b8d243596",
+      "bytes": 3105
     },
     "build/dal502-wheel-prepare/complete-tests.log": {
       "sha256": "4117e757f195b3eacd9672f2a5fe82648e49031b202467496adc439d1643107d",
