@@ -10,12 +10,11 @@ ENV_SEED_TYPE(ObjectAccess_);
     {	
         Logging::Write("EarlyExercisePdeRiskSettings_New");        
         argName = "name (input #1)";
-        const String_ name = Excel::ToString(xl_name);
-        argName = "name"; Excel::ValidateEarlyExercisePdeRiskName(xl_name); const Excel::ScriptSettingsInput_ normalized(xl_settings); xl_settings = normalized.Get(); argName = "settings"; Excel::ValidateEarlyExercisePdeRiskRange(xl_settings, "settings"); const Excel::ScriptSettingsInput_ normalized_bumps(xl_carry_bumps); xl_carry_bumps = normalized_bumps.Get(); argName = "carry_bumps"; Excel::ValidateEarlyExercisePdeRiskRange(xl_carry_bumps, "carry_bumps");
+        const String_ name = Excel::ToString_orEarlyExerciseRisk(xl_name, "name");
         argName = "settings (input #2)";
-        const Matrix_<Cell_> settings = Excel::ToCellMatrix(xl_settings, true, true);
+        const Matrix_<Cell_> settings = Excel::ToCellMatrix_orEarlyExerciseRisk(xl_settings, "settings", true, true);
         argName = "carry_bumps (input #3)";
-        const Matrix_<Cell_> carry_bumps = Excel::ToCellMatrix(xl_carry_bumps, true, true);
+        const Matrix_<Cell_> carry_bumps = Excel::ToCellMatrix_orEarlyExerciseRisk(xl_carry_bumps, "carry_bumps", true, true);
         argName = 0;
 		Handle_<StorableEarlyExercisePdeRiskSettings_> settingsHandle;
         EarlyExercisePdeRiskSettings_New(name, settings, carry_bumps, &settingsHandle);

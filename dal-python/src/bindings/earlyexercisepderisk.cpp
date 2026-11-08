@@ -14,28 +14,33 @@ using namespace Dal::Python;
 namespace {
     constexpr const char* IDENTIFIER = "InvalidEarlyExercisePdeRiskRequest";
 
-    template <class F_> auto Input(F_ read) {
+    template <class F_> auto Input(F_ convert) {
         try {
-            return read();
+            return convert();
         } catch (const Exception_& error) {
             throw py::value_error(error.what());
         }
     }
-    py::dict Arguments(const py::args& args, const py::kwargs& kwargs, py::dict defaults, const char* required = nullptr) {
-        if (args.size() > (required ? 1u : 0u))
+    const char* BindPositional(const py::args& args, py::dict* values, const char* required) {
+        if (args.empty())
+            return nullptr;
+        if (!required || args.size() != 1)
             throw py::type_error(std::string(IDENTIFIER) + "; " + (required ? required : "settings") +
                                  "; unexpected positional arguments; settings are keyword-only");
-        bool supplied = false;
-        if (required && !args.empty()) {
-            defaults[required] = args[0];
-            supplied = true;
-        }
+        (*values)[required] = args[0];
+        return required;
+    }
+    void BindKeywords(const py::kwargs& kwargs, py::dict* values, const char* positional) {
         for (const auto& item : kwargs) {
             const auto key = py::cast<std::string>(item.first);
-            if (!defaults.contains(item.first) || (supplied && key == required))
+            if (!values->contains(item.first) || (positional && key == positional))
                 throw py::type_error(std::string(IDENTIFIER) + "; " + key + "; unknown or duplicate keyword");
-            defaults[item.first] = item.second;
+            (*values)[item.first] = item.second;
         }
+    }
+    py::dict Arguments(const py::args& args, const py::kwargs& kwargs, py::dict defaults, const char* required = nullptr) {
+        const auto* positional = BindPositional(args, &defaults, required);
+        BindKeywords(kwargs, &defaults, positional);
         if (required && defaults[required].is_none())
             throw py::type_error(std::string(IDENTIFIER) + "; " + required + "; required typed argument");
         return defaults;
@@ -139,44 +144,47 @@ namespace {
             return s;
         });
     }
+    void BindEnums(py::module_& m) {
+        py::enum_<EarlyExercisePdeRiskStatus_::Value_>(m, "EarlyExercisePdeRiskStatus_")
+            .value("COMPLETE", EarlyExercisePdeRiskStatus_::Value_::COMPLETE)
+            .value("PARTIAL", EarlyExercisePdeRiskStatus_::Value_::PARTIAL)
+            .value("BASE_FAILED", EarlyExercisePdeRiskStatus_::Value_::BASE_FAILED)
+            .value("WORK_LIMIT", EarlyExercisePdeRiskStatus_::Value_::WORK_LIMIT);
+        py::enum_<EarlyExercisePdeRiskAvailability_::Value_>(m, "EarlyExercisePdeRiskAvailability_")
+            .value("AVAILABLE", EarlyExercisePdeRiskAvailability_::Value_::AVAILABLE)
+            .value("AVAILABLE_EXERCISE_REGION", EarlyExercisePdeRiskAvailability_::Value_::AVAILABLE_EXERCISE_REGION)
+            .value("UNAVAILABLE_BASE_FAILED", EarlyExercisePdeRiskAvailability_::Value_::UNAVAILABLE_BASE_FAILED)
+            .value("UNAVAILABLE_WORK_LIMIT", EarlyExercisePdeRiskAvailability_::Value_::UNAVAILABLE_WORK_LIMIT)
+            .value("UNAVAILABLE_SCENARIO_FAILED", EarlyExercisePdeRiskAvailability_::Value_::UNAVAILABLE_SCENARIO_FAILED)
+            .value("UNAVAILABLE_DEGENERATE_DIFFUSION", EarlyExercisePdeRiskAvailability_::Value_::UNAVAILABLE_DEGENERATE_DIFFUSION)
+            .value("UNAVAILABLE_DOMAIN_BOUNDARY", EarlyExercisePdeRiskAvailability_::Value_::UNAVAILABLE_DOMAIN_BOUNDARY)
+            .value("UNAVAILABLE_NEAR_EXERCISE_BOUNDARY", EarlyExercisePdeRiskAvailability_::Value_::UNAVAILABLE_NEAR_EXERCISE_BOUNDARY)
+            .value("UNAVAILABLE_EXERCISE_SWITCH", EarlyExercisePdeRiskAvailability_::Value_::UNAVAILABLE_EXERCISE_SWITCH)
+            .value("UNAVAILABLE_NONFINITE", EarlyExercisePdeRiskAvailability_::Value_::UNAVAILABLE_NONFINITE)
+            .value("UNAVAILABLE_STEP_UNSTABLE", EarlyExercisePdeRiskAvailability_::Value_::UNAVAILABLE_STEP_UNSTABLE);
+        py::enum_<EarlyExercisePdeRiskScenarioStatus_::Value_>(m, "EarlyExercisePdeRiskScenarioStatus_")
+            .value("PLANNED", EarlyExercisePdeRiskScenarioStatus_::Value_::PLANNED)
+            .value("SUCCESS", EarlyExercisePdeRiskScenarioStatus_::Value_::SUCCESS)
+            .value("NUMERICAL_FAILURE", EarlyExercisePdeRiskScenarioStatus_::Value_::NUMERICAL_FAILURE)
+            .value("NOT_RUN_WORK_LIMIT", EarlyExercisePdeRiskScenarioStatus_::Value_::NOT_RUN_WORK_LIMIT)
+            .value("NOT_RUN_BASE_FAILED", EarlyExercisePdeRiskScenarioStatus_::Value_::NOT_RUN_BASE_FAILED);
+        py::enum_<EarlyExercisePdeRiskWorkLimitSource_::Value_>(m, "EarlyExercisePdeRiskWorkLimitSource_")
+            .value("NONE", EarlyExercisePdeRiskWorkLimitSource_::Value_::NONE)
+            .value("SCENARIO", EarlyExercisePdeRiskWorkLimitSource_::Value_::SCENARIO)
+            .value("GLOBAL", EarlyExercisePdeRiskWorkLimitSource_::Value_::GLOBAL);
+        py::enum_<EarlyExercisePdeRiskMembership_::Value_>(m, "EarlyExercisePdeRiskMembership_")
+            .value("NOT_EXERCISABLE", EarlyExercisePdeRiskMembership_::Value_::NOT_EXERCISABLE)
+            .value("CONTINUATION", EarlyExercisePdeRiskMembership_::Value_::CONTINUATION)
+            .value("EXERCISE", EarlyExercisePdeRiskMembership_::Value_::EXERCISE)
+            .value("BOUNDARY", EarlyExercisePdeRiskMembership_::Value_::BOUNDARY);
+        py::enum_<EarlyExercisePdeRiskBumpOrigin_::Value_>(m, "EarlyExercisePdeRiskBumpOrigin_")
+            .value("DEFAULT", EarlyExercisePdeRiskBumpOrigin_::Value_::DEFAULT)
+            .value("EXPLICIT", EarlyExercisePdeRiskBumpOrigin_::Value_::EXPLICIT);
+    }
 } // namespace
 
 void init_bindings_earlyexercisepderisk(py::module_& m) {
-    py::enum_<EarlyExercisePdeRiskStatus_::Value_>(m, "EarlyExercisePdeRiskStatus_")
-        .value("COMPLETE", EarlyExercisePdeRiskStatus_::Value_::COMPLETE)
-        .value("PARTIAL", EarlyExercisePdeRiskStatus_::Value_::PARTIAL)
-        .value("BASE_FAILED", EarlyExercisePdeRiskStatus_::Value_::BASE_FAILED)
-        .value("WORK_LIMIT", EarlyExercisePdeRiskStatus_::Value_::WORK_LIMIT);
-    py::enum_<EarlyExercisePdeRiskAvailability_::Value_>(m, "EarlyExercisePdeRiskAvailability_")
-        .value("AVAILABLE", EarlyExercisePdeRiskAvailability_::Value_::AVAILABLE)
-        .value("AVAILABLE_EXERCISE_REGION", EarlyExercisePdeRiskAvailability_::Value_::AVAILABLE_EXERCISE_REGION)
-        .value("UNAVAILABLE_BASE_FAILED", EarlyExercisePdeRiskAvailability_::Value_::UNAVAILABLE_BASE_FAILED)
-        .value("UNAVAILABLE_WORK_LIMIT", EarlyExercisePdeRiskAvailability_::Value_::UNAVAILABLE_WORK_LIMIT)
-        .value("UNAVAILABLE_SCENARIO_FAILED", EarlyExercisePdeRiskAvailability_::Value_::UNAVAILABLE_SCENARIO_FAILED)
-        .value("UNAVAILABLE_DEGENERATE_DIFFUSION", EarlyExercisePdeRiskAvailability_::Value_::UNAVAILABLE_DEGENERATE_DIFFUSION)
-        .value("UNAVAILABLE_DOMAIN_BOUNDARY", EarlyExercisePdeRiskAvailability_::Value_::UNAVAILABLE_DOMAIN_BOUNDARY)
-        .value("UNAVAILABLE_NEAR_EXERCISE_BOUNDARY", EarlyExercisePdeRiskAvailability_::Value_::UNAVAILABLE_NEAR_EXERCISE_BOUNDARY)
-        .value("UNAVAILABLE_EXERCISE_SWITCH", EarlyExercisePdeRiskAvailability_::Value_::UNAVAILABLE_EXERCISE_SWITCH)
-        .value("UNAVAILABLE_NONFINITE", EarlyExercisePdeRiskAvailability_::Value_::UNAVAILABLE_NONFINITE)
-        .value("UNAVAILABLE_STEP_UNSTABLE", EarlyExercisePdeRiskAvailability_::Value_::UNAVAILABLE_STEP_UNSTABLE);
-    py::enum_<EarlyExercisePdeRiskScenarioStatus_::Value_>(m, "EarlyExercisePdeRiskScenarioStatus_")
-        .value("PLANNED", EarlyExercisePdeRiskScenarioStatus_::Value_::PLANNED)
-        .value("SUCCESS", EarlyExercisePdeRiskScenarioStatus_::Value_::SUCCESS)
-        .value("NUMERICAL_FAILURE", EarlyExercisePdeRiskScenarioStatus_::Value_::NUMERICAL_FAILURE)
-        .value("NOT_RUN_WORK_LIMIT", EarlyExercisePdeRiskScenarioStatus_::Value_::NOT_RUN_WORK_LIMIT)
-        .value("NOT_RUN_BASE_FAILED", EarlyExercisePdeRiskScenarioStatus_::Value_::NOT_RUN_BASE_FAILED);
-    py::enum_<EarlyExercisePdeRiskWorkLimitSource_::Value_>(m, "EarlyExercisePdeRiskWorkLimitSource_")
-        .value("NONE", EarlyExercisePdeRiskWorkLimitSource_::Value_::NONE)
-        .value("SCENARIO", EarlyExercisePdeRiskWorkLimitSource_::Value_::SCENARIO)
-        .value("GLOBAL", EarlyExercisePdeRiskWorkLimitSource_::Value_::GLOBAL);
-    py::enum_<EarlyExercisePdeRiskMembership_::Value_>(m, "EarlyExercisePdeRiskMembership_")
-        .value("NOT_EXERCISABLE", EarlyExercisePdeRiskMembership_::Value_::NOT_EXERCISABLE)
-        .value("CONTINUATION", EarlyExercisePdeRiskMembership_::Value_::CONTINUATION)
-        .value("EXERCISE", EarlyExercisePdeRiskMembership_::Value_::EXERCISE)
-        .value("BOUNDARY", EarlyExercisePdeRiskMembership_::Value_::BOUNDARY);
-    py::enum_<EarlyExercisePdeRiskBumpOrigin_::Value_>(m, "EarlyExercisePdeRiskBumpOrigin_")
-        .value("DEFAULT", EarlyExercisePdeRiskBumpOrigin_::Value_::DEFAULT)
-        .value("EXPLICIT", EarlyExercisePdeRiskBumpOrigin_::Value_::EXPLICIT);
+    BindEnums(m);
     auto settings = WithCopies(py::class_<EarlyExercisePdeRiskSettings_>(m, "EarlyExercisePdeRiskSettings_"));
     settings.def(py::init(&NewSettings));
     ReadOnly(&settings, "delta", &EarlyExercisePdeRiskSettings_::delta_);

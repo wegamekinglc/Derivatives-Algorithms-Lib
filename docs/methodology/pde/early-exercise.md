@@ -11,7 +11,8 @@ Requests and results own their passive data. The implementation is in
 This price interface returns `double` prices and diagnostics. The separate
 [core risk request](#owning-core-risk-request) adds fixed-plan full-repricing
 Delta, finite-scale Gamma, Vega and carry partials. Early-exercise risk is
-currently available through core C++ only. Neither interface provides AAD,
+available through core/public C++, Python and Excel projections described
+[below](#public-python-and-excel-risk-projections). Neither interface provides AAD,
 local volatility, stochastic carry, discrete cash dividends, barriers or arbitrary
 script payoffs. The separate [European risk interface](aad.md) and
 [LSMC exercise engine](../monte-carlo/lsm.md) retain their own contracts.
@@ -236,8 +237,9 @@ for the same contract and owning result access.
 `EarlyExercisePdeRiskRequest_`: an existing price request in `valuation_`
 and `EarlyExercisePdeRiskSettings_` in `risk_`. Include
 `<dal/math/pde/earlyexercisepderisk.hpp>` and link `DAL::cpp`.
-The public facade, Python and Excel currently expose the price interface above;
-their early-exercise risk projections remain planned.
+The public facade aliases the same risk types; Python and Excel project these
+owning records through the [binding interfaces](#public-python-and-excel-risk-projections).
+Windows XLL registration and worksheet acceptance still require separate evidence.
 
 The evaluator uses passive full repricing and preserves caller AAD state,
 including a nonempty tape or active recording. `Method()` returns

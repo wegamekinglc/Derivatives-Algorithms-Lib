@@ -14,17 +14,12 @@
 public EarlyExercisePdeRiskSettings_New
     Create owning early exercise risk settings and cumulative budgets
 &inputs
-name is string
+name is string or EarlyExerciseRisk->"name"
     Object name
-+argName = "name"; Excel::ValidateEarlyExercisePdeRiskName(xl_name);
-+const Excel::ScriptSettingsInput_ normalized(xl_settings); xl_settings = normalized.Get();
-+argName = "settings"; Excel::ValidateEarlyExercisePdeRiskRange(xl_settings, "settings");
-+const Excel::ScriptSettingsInput_ normalized_bumps(xl_carry_bumps); xl_carry_bumps = normalized_bumps.Get();
-+argName = "carry_bumps"; Excel::ValidateEarlyExercisePdeRiskRange(xl_carry_bumps, "carry_bumps");
 &optional
-settings is cell[][]+
+settings is cell[][]+ or EarlyExerciseRisk->"settings"
     Headerless canonical scalar key/value rows; blank uses defaults
-carry_bumps is cell[][]+
+carry_bumps is cell[][]+ or EarlyExerciseRisk->"carry_bumps"
     Headerless rate/yield bump columns; each blank column defaults independently
 &outputs
 settingsHandle is handle StorableEarlyExercisePdeRiskSettings
@@ -37,7 +32,7 @@ settingsHandle is handle StorableEarlyExercisePdeRiskSettings
 public EarlyExercisePdeRiskSettings_Get_Configuration
     Copy early exercise risk Configuration without native solves
 &inputs
-settings is handle StorableEarlyExercisePdeRiskSettings
+settings is handle StorableEarlyExercisePdeRiskSettings or EarlyExerciseRisk->"settings"
     Owning handle
 &outputs
 configuration is cell[][]
@@ -50,7 +45,7 @@ configuration is cell[][]
 public EarlyExercisePdeRiskSettings_Get_CarryBumps
     Copy early exercise risk CarryBumps without native solves
 &inputs
-settings is handle StorableEarlyExercisePdeRiskSettings
+settings is handle StorableEarlyExercisePdeRiskSettings or EarlyExerciseRisk->"settings"
     Owning handle
 &outputs
 bumps is cell[][]
@@ -63,14 +58,12 @@ bumps is cell[][]
 public EarlyExercisePdeRiskRequest_New
     Copy a price request and optional risk settings
 &inputs
-name is string
+name is string or EarlyExerciseRisk->"name"
     Object name
-+argName = "name"; Excel::ValidateEarlyExercisePdeRiskName(xl_name);
-+xl_risk = Excel::ScriptScalarInput(xl_risk);
-valuation is handle StorableEarlyExercisePdeRequest
+valuation is handle StorableEarlyExercisePdeRequest or EarlyExerciseRisk->"valuation"
     Existing price request
 &optional
-risk is handle StorableEarlyExercisePdeRiskSettings
+risk is handle StorableEarlyExercisePdeRiskSettings or EarlyExerciseRisk->"risk"
     Blank uses default risk settings
 &outputs
 request is handle StorableEarlyExercisePdeRiskRequest
@@ -83,7 +76,7 @@ request is handle StorableEarlyExercisePdeRiskRequest
 public EarlyExercisePdeRiskRequest_Get_Valuation
     Copy early exercise risk Valuation without native solves
 &inputs
-request is handle StorableEarlyExercisePdeRiskRequest
+request is handle StorableEarlyExercisePdeRiskRequest or EarlyExerciseRisk->"request"
     Owning handle
 &outputs
 valuation is handle StorableEarlyExercisePdeRequest
@@ -96,7 +89,7 @@ valuation is handle StorableEarlyExercisePdeRequest
 public EarlyExercisePdeRiskRequest_Get_Settings
     Copy early exercise risk Settings without native solves
 &inputs
-request is handle StorableEarlyExercisePdeRiskRequest
+request is handle StorableEarlyExercisePdeRiskRequest or EarlyExerciseRisk->"request"
     Owning handle
 &outputs
 settings is handle StorableEarlyExercisePdeRiskSettings
@@ -109,10 +102,9 @@ settings is handle StorableEarlyExercisePdeRiskSettings
 public EarlyExercisePdeRiskResult_New
     Evaluate fixed-plan passive early exercise risks; inspect availability
 &inputs
-name is string
+name is string or EarlyExerciseRisk->"name"
     Object name
-+argName = "name"; Excel::ValidateEarlyExercisePdeRiskName(xl_name);
-request is handle StorableEarlyExercisePdeRiskRequest
+request is handle StorableEarlyExercisePdeRiskRequest or EarlyExerciseRisk->"request"
     Owning risk request
 &outputs
 result is handle StorableEarlyExercisePdeRiskResult
@@ -125,7 +117,7 @@ result is handle StorableEarlyExercisePdeRiskResult
 public EarlyExercisePdeRiskResult_Get_Request
     Copy early exercise risk Request without native solves
 &inputs
-result is handle StorableEarlyExercisePdeRiskResult
+result is handle StorableEarlyExercisePdeRiskResult or EarlyExerciseRisk->"result"
     Owning handle
 &outputs
 request is handle StorableEarlyExercisePdeRiskRequest
@@ -138,7 +130,7 @@ request is handle StorableEarlyExercisePdeRiskRequest
 public EarlyExercisePdeRiskResult_Get_BaseResult
     Copy early exercise risk BaseResult without native solves
 &inputs
-result is handle StorableEarlyExercisePdeRiskResult
+result is handle StorableEarlyExercisePdeRiskResult or EarlyExerciseRisk->"result"
     Owning handle
 &outputs
 base is handle StorableEarlyExercisePdeResult
@@ -151,7 +143,7 @@ base is handle StorableEarlyExercisePdeResult
 public EarlyExercisePdeRiskResult_Get_ResolvedSettings
     Copy early exercise risk ResolvedSettings without native solves
 &inputs
-result is handle StorableEarlyExercisePdeRiskResult
+result is handle StorableEarlyExercisePdeRiskResult or EarlyExerciseRisk->"result"
     Owning handle
 &outputs
 settings is handle StorableEarlyExercisePdeRiskSettings
@@ -164,7 +156,7 @@ settings is handle StorableEarlyExercisePdeRiskSettings
 public EarlyExercisePdeRiskResult_Get_Price
     Copy early exercise risk Price without native solves
 &inputs
-result is handle StorableEarlyExercisePdeRiskResult
+result is handle StorableEarlyExercisePdeRiskResult or EarlyExerciseRisk->"result"
     Owning handle
 &outputs
 price is number
@@ -177,11 +169,10 @@ price is number
 public EarlyExercisePdeRiskResult_Get_RiskValue
     Copy early exercise risk RiskValue without native solves
 &inputs
-result is handle StorableEarlyExercisePdeRiskResult
+result is handle StorableEarlyExercisePdeRiskResult or EarlyExerciseRisk->"result"
     Owning handle
-risk_id is string
+risk_id is string or EarlyExerciseRisk->"risk_id"
     Exact canonical case-sensitive risk ID
-+argName = "risk_id"; Excel::ValidateEarlyExercisePdeRiskName(xl_risk_id, "risk_id");
 &outputs
 value is number
     Finite qualified partial; unavailable or unknown ID raises Error text
@@ -193,7 +184,7 @@ value is number
 public EarlyExercisePdeRiskResult_Get_Summary
     Copy early exercise risk Summary without native solves
 &inputs
-result is handle StorableEarlyExercisePdeRiskResult
+result is handle StorableEarlyExercisePdeRiskResult or EarlyExerciseRisk->"result"
     Owning handle
 &outputs
 table is cell[][]
@@ -206,7 +197,7 @@ table is cell[][]
 public EarlyExercisePdeRiskResult_Get_Plan
     Copy early exercise risk Plan without native solves
 &inputs
-result is handle StorableEarlyExercisePdeRiskResult
+result is handle StorableEarlyExercisePdeRiskResult or EarlyExerciseRisk->"result"
     Owning handle
 &outputs
 table is cell[][]
@@ -219,7 +210,7 @@ table is cell[][]
 public EarlyExercisePdeRiskResult_Get_PlanGrid
     Copy early exercise risk PlanGrid without native solves
 &inputs
-result is handle StorableEarlyExercisePdeRiskResult
+result is handle StorableEarlyExercisePdeRiskResult or EarlyExerciseRisk->"result"
     Owning handle
 &outputs
 table is cell[][]
@@ -232,7 +223,7 @@ table is cell[][]
 public EarlyExercisePdeRiskResult_Get_PlanTimeGrid
     Copy early exercise risk PlanTimeGrid without native solves
 &inputs
-result is handle StorableEarlyExercisePdeRiskResult
+result is handle StorableEarlyExercisePdeRiskResult or EarlyExerciseRisk->"result"
     Owning handle
 &outputs
 table is cell[][]
@@ -245,7 +236,7 @@ table is cell[][]
 public EarlyExercisePdeRiskResult_Get_PlanSteps
     Copy early exercise risk PlanSteps without native solves
 &inputs
-result is handle StorableEarlyExercisePdeRiskResult
+result is handle StorableEarlyExercisePdeRiskResult or EarlyExerciseRisk->"result"
     Owning handle
 &outputs
 table is cell[][]
@@ -258,7 +249,7 @@ table is cell[][]
 public EarlyExercisePdeRiskResult_Get_BumpOrigins
     Copy early exercise risk BumpOrigins without native solves
 &inputs
-result is handle StorableEarlyExercisePdeRiskResult
+result is handle StorableEarlyExercisePdeRiskResult or EarlyExerciseRisk->"result"
     Owning handle
 &outputs
 table is cell[][]
@@ -271,7 +262,7 @@ table is cell[][]
 public EarlyExercisePdeRiskResult_Get_Risks
     Copy early exercise risk Risks without native solves
 &inputs
-result is handle StorableEarlyExercisePdeRiskResult
+result is handle StorableEarlyExercisePdeRiskResult or EarlyExerciseRisk->"result"
     Owning handle
 &outputs
 table is cell[][]
@@ -284,7 +275,7 @@ table is cell[][]
 public EarlyExercisePdeRiskResult_Get_Stencils
     Copy early exercise risk Stencils without native solves
 &inputs
-result is handle StorableEarlyExercisePdeRiskResult
+result is handle StorableEarlyExercisePdeRiskResult or EarlyExerciseRisk->"result"
     Owning handle
 &outputs
 table is cell[][]
@@ -297,7 +288,7 @@ table is cell[][]
 public EarlyExercisePdeRiskResult_Get_Scenarios
     Copy early exercise risk Scenarios without native solves
 &inputs
-result is handle StorableEarlyExercisePdeRiskResult
+result is handle StorableEarlyExercisePdeRiskResult or EarlyExerciseRisk->"result"
     Owning handle
 &outputs
 table is cell[][]
@@ -310,7 +301,7 @@ table is cell[][]
 public EarlyExercisePdeRiskResult_Get_Execution
     Copy early exercise risk Execution without native solves
 &inputs
-result is handle StorableEarlyExercisePdeRiskResult
+result is handle StorableEarlyExercisePdeRiskResult or EarlyExerciseRisk->"result"
     Owning handle
 &outputs
 table is cell[][]
@@ -395,6 +386,23 @@ namespace Dal {
             }
             return false;
         }
+        std::optional<double> SpotBumpCell(const Cell_& cell, const String_& context) {
+            if (Cell::IsEmpty(cell))
+                return std::nullopt;
+            const double bump = Number(cell, context);
+            REQUIRE(bump > 0.0 && std::isfinite(2.0 * bump),
+                    context + "; value=" + String_(std::to_string(bump)) + "; expected positive finite fine/coarse bump");
+            return bump;
+        }
+        void ScalarValue(const std::string& key, const Cell_& cell, const String_& context, EarlyExercisePdeRiskSettings_* value) {
+            if (key == "spot_bump") {
+                value->spotBump_ = SpotBumpCell(cell, context);
+                return;
+            }
+            REQUIRE(Set(key, cell, context, BOOL_FIELDS, value) || Set(key, cell, context, REAL_FIELDS, value) ||
+                        Set(key, cell, context, SIZE_FIELDS, value),
+                    context + "; unknown canonical key");
+        }
         void Scalars(const Matrix_<Cell_>& rows, EarlyExercisePdeRiskSettings_* value) {
             if (Empty(rows))
                 return;
@@ -407,17 +415,7 @@ namespace Dal {
                 const std::string key(text->data(), text->size());
                 REQUIRE(seen.insert(key).second, context + "; duplicate key " + *text);
                 const auto field = Location("settings", i, 1) + "; risk." + *text;
-                if (key == "spot_bump") {
-                    if (!Cell::IsEmpty(rows(i, 1))) {
-                        const double bump = Number(rows(i, 1), field);
-                        REQUIRE(bump > 0.0 && std::isfinite(2.0 * bump),
-                                field + "; value=" + String_(std::to_string(bump)) + "; expected positive finite fine/coarse bump");
-                        value->spotBump_ = bump;
-                    }
-                } else
-                    REQUIRE(Set(key, rows(i, 1), field, BOOL_FIELDS, value) || Set(key, rows(i, 1), field, REAL_FIELDS, value) ||
-                                Set(key, rows(i, 1), field, SIZE_FIELDS, value),
-                            field + "; unknown canonical key");
+                ScalarValue(key, rows(i, 1), field, value);
             }
         }
         void Carry(const Matrix_<Cell_>& rows, EarlyExercisePdeRiskSettings_* value) {
@@ -453,6 +451,9 @@ namespace Dal {
                 return Cell_(value);
         }
         template <class T_> Cell_ ValueCell(const std::optional<T_>& value) { return value ? ValueCell(*value) : Cell_(); }
+        template <class T_, class V_> Cell_ OptionalMember(const std::optional<T_>& value, V_ T_::* member) {
+            return value ? ValueCell((*value).*member) : Cell_();
+        }
         Matrix_<Cell_> Table(size_t rows, std::initializer_list<const char*> headers) {
             REQUIRE(rows < 1048576, "EarlyExercisePdeRisk getter; table plus header exceeds worksheet rows");
             Matrix_<Cell_> result(static_cast<int>(rows) + 1, static_cast<int>(headers.size()));
@@ -754,15 +755,15 @@ namespace Dal {
                  ValueCell(value.maxObstacleViolation_),
                  ValueCell(value.maxDualViolation_),
                  ValueCell(value.maxComplementarityResidual_),
-                 value.failure_ ? ValueCell(value.failure_->status_) : Cell_(),
-                 value.failure_ ? ValueCell(value.failure_->timeIndex_) : Cell_(),
-                 value.failure_ ? ValueCell(value.failure_->iteration_) : Cell_(),
-                 value.failure_ ? ValueCell(value.failure_->calendarDate_) : Cell_(),
-                 value.failure_ ? ValueCell(value.failure_->node_) : Cell_(),
-                 value.failure_ ? ValueCell(value.failure_->residual_) : Cell_(),
-                 value.failure_ ? ValueCell(value.failure_->threshold_) : Cell_(),
-                 value.failure_ ? ValueCell(value.failure_->workUnits_) : Cell_(),
-                 value.failure_ ? ValueCell(value.failure_->reason_) : Cell_(),
+                 OptionalMember(value.failure_, &EarlyExercisePdeFailure_::status_),
+                 OptionalMember(value.failure_, &EarlyExercisePdeFailure_::timeIndex_),
+                 OptionalMember(value.failure_, &EarlyExercisePdeFailure_::iteration_),
+                 OptionalMember(value.failure_, &EarlyExercisePdeFailure_::calendarDate_),
+                 OptionalMember(value.failure_, &EarlyExercisePdeFailure_::node_),
+                 OptionalMember(value.failure_, &EarlyExercisePdeFailure_::residual_),
+                 OptionalMember(value.failure_, &EarlyExercisePdeFailure_::threshold_),
+                 OptionalMember(value.failure_, &EarlyExercisePdeFailure_::workUnits_),
+                 OptionalMember(value.failure_, &EarlyExercisePdeFailure_::reason_),
                  ValueCell(value.evaluationMembership_),
                  ValueCell(value.evaluationBoundaryIntersectsSpotStencil_),
                  ValueCell(value.futureContactChanged_),

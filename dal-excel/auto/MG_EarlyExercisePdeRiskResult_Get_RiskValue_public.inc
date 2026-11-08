@@ -10,10 +10,9 @@ ENV_SEED_TYPE(ObjectAccess_);
     {	
         Logging::Write("EarlyExercisePdeRiskResult_Get_RiskValue");        
         argName = "result (input #1)";
-        const Handle_<StorableEarlyExercisePdeRiskResult_> result = Excel::ToHandle<StorableEarlyExercisePdeRiskResult_>(_env, xl_result);
+        const Handle_<StorableEarlyExercisePdeRiskResult_> result = Excel::ToHandle_orEarlyExerciseRisk<StorableEarlyExercisePdeRiskResult_>(_env, xl_result, "result");
         argName = "risk_id (input #2)";
-        const String_ risk_id = Excel::ToString(xl_risk_id);
-        argName = "risk_id"; Excel::ValidateEarlyExercisePdeRiskName(xl_risk_id, "risk_id");
+        const String_ risk_id = Excel::ToString_orEarlyExerciseRisk(xl_risk_id, "risk_id");
         argName = 0;
 		double value;
         EarlyExercisePdeRiskResult_Get_RiskValue(result, risk_id, &value);

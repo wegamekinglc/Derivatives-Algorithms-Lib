@@ -10,7 +10,7 @@ ENV_SEED_TYPE(ObjectAccess_);
     {	
         Logging::Write("EarlyExercisePdeRiskSettings_Get_Configuration");        
         argName = "settings (input #1)";
-        const Handle_<StorableEarlyExercisePdeRiskSettings_> settings = Excel::ToHandle<StorableEarlyExercisePdeRiskSettings_>(_env, xl_settings);
+        const Handle_<StorableEarlyExercisePdeRiskSettings_> settings = Excel::ToHandle_orEarlyExerciseRisk<StorableEarlyExercisePdeRiskSettings_>(_env, xl_settings, "settings");
         argName = 0;
 		Matrix_<Cell_> configuration;
         EarlyExercisePdeRiskSettings_Get_Configuration(settings, &configuration);

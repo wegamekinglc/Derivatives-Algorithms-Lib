@@ -10,7 +10,7 @@ ENV_SEED_TYPE(ObjectAccess_);
     {	
         Logging::Write("EarlyExercisePdeRiskRequest_Get_Valuation");        
         argName = "request (input #1)";
-        const Handle_<StorableEarlyExercisePdeRiskRequest_> request = Excel::ToHandle<StorableEarlyExercisePdeRiskRequest_>(_env, xl_request);
+        const Handle_<StorableEarlyExercisePdeRiskRequest_> request = Excel::ToHandle_orEarlyExerciseRisk<StorableEarlyExercisePdeRiskRequest_>(_env, xl_request, "request");
         argName = 0;
 		Handle_<StorableEarlyExercisePdeRequest_> valuation;
         EarlyExercisePdeRiskRequest_Get_Valuation(request, &valuation);

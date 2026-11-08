@@ -10,17 +10,109 @@
 #include <dal/math/pde/earlyexercisepderiskinternal.hpp>
 #include <dal/storage/json.hpp>
 
+#ifdef _WIN32
+#include <Windows.h>
+#include <dal-excel/src/__script_test_api.hpp>
+#endif
+
 using namespace Dal;
 
 #ifdef _WIN32
-TEST(ExcelEarlyExercisePdeRiskTest, TestNativeRiskIdRejectsNumericAndBooleanCells) {
-    OPER_ cell{};
-    cell.xltype = xltypeNum;
-    cell.val.num = 1.;
-    ASSERT_THROW(Excel::ValidateEarlyExercisePdeRiskName(&cell, "risk_id"), Exception_);
-    cell.xltype = xltypeBool;
-    cell.val.xbool = true;
-    ASSERT_THROW(Excel::ValidateEarlyExercisePdeRiskName(&cell, "risk_id"), Exception_);
+namespace {
+    EarlyExercisePdeRequest_ Valuation();
+    struct NativeRiskText_ {
+        std::vector<wchar_t> text_;
+        OPER_ cell_{};
+        explicit NativeRiskText_(const std::wstring& value) : text_(1, wchar_t(value.size())) {
+            text_.insert(text_.end(), value.begin(), value.end());
+            cell_.xltype = xltypeStr;
+            cell_.val.str = text_.data();
+        }
+    };
+    template <class T_> NativeRiskText_ NativeRiskHandle(const Handle_<T_>& value) {
+        const auto tag = Excel::ScriptTestStoreRepository(Handle_<Storable_>(value));
+        return NativeRiskText_(std::wstring(tag.begin(), tag.end()));
+    }
+    template <class... A_> OPER_* NativeRiskCall(const char* name, A_... args) {
+        const auto address = GetProcAddress(GetModuleHandleA("dal_excel.xll"), name);
+        REQUIRE(address, "missing generated risk export");
+        return reinterpret_cast<OPER_* (*)(A_...)>(address)(args...);
+    }
+    std::string NativeRiskOutput(OPER_* value) {
+        const auto release = reinterpret_cast<void (*)(OPER_*)>(GetProcAddress(GetModuleHandleA("dal_excel.xll"), "xlAutoFree12"));
+        REQUIRE(value && release, "missing native result/release");
+        const std::unique_ptr<OPER_, decltype(release)> owned(value, release);
+        REQUIRE((value->xltype & xltypeMulti) && value->val.array.rows == 1 && value->val.array.columns == 1, "expected scalar");
+        const auto& scalar = value->val.array.lparray[0];
+        REQUIRE(scalar.xltype == xltypeStr, "expected text output");
+        std::string result;
+        for (int i = 0; i < scalar.val.str[0]; ++i)
+            result += static_cast<char>(scalar.val.str[i + 1]);
+        return result;
+    }
+    void NativeRiskError(const std::string& message, const char* field) {
+        ASSERT_EQ(message.substr(0, 7), "#Error:") << message;
+        ASSERT_NE(message.find("InvalidEarlyExercisePdeRiskRequest"), std::string::npos) << message;
+        ASSERT_NE(message.find(field), std::string::npos) << message;
+    }
+    Handle_<StorableEarlyExercisePdeRiskResult_> NativeRiskResult() {
+        auto price = Valuation();
+        price.settings_.gridPoints_ = 401;
+        price.settings_.ordinarySteps_ = 500;
+        return Handle_<StorableEarlyExercisePdeRiskResult_>(new StorableEarlyExercisePdeRiskResult_("", EvaluateEarlyExercisePdeRisk({price, {}})));
+    }
+} // namespace
+
+TEST(ExcelEarlyExercisePdeRiskTest, TestGeneratedNativeEntriesRejectNonAsciiCanonicalText) {
+    Excel::ScriptTestInitialize(1);
+    NativeRiskText_ name(L"raw-risk"), key(L"\u0164elta"), id(L"\u0144elta");
+    OPER_ blank{}, cells[2]{key.cell_, {}}, table{};
+    blank.xltype = xltypeNil;
+    cells[1].xltype = xltypeBool;
+    cells[1].val.xbool = 0;
+    table.xltype = xltypeMulti;
+    table.val.array.lparray = cells;
+    table.val.array.rows = 1;
+    table.val.array.columns = 2;
+    ASSERT_NO_FATAL_FAILURE(
+        NativeRiskError(NativeRiskOutput(NativeRiskCall("xl_EarlyExercisePdeRiskSettings_New", &name.cell_, &table, &blank)), "row=1"));
+    const auto handle = NativeRiskHandle(NativeRiskResult());
+    ASSERT_NO_FATAL_FAILURE(
+        NativeRiskError(NativeRiskOutput(NativeRiskCall("xl_EarlyExercisePdeRiskResult_Get_RiskValue", &handle.cell_, &id.cell_)), "risk_id"));
+}
+
+TEST(ExcelEarlyExercisePdeRiskTest, TestGeneratedNativeEntriesPreserveConversionErrorContext) {
+    Excel::ScriptTestInitialize(1);
+    const auto result = NativeRiskHandle(NativeRiskResult());
+    NativeRiskText_ name(L"raw-risk"), id(L"Delta");
+    OPER_ blank{}, numeric{}, boolean{}, error{};
+    blank.xltype = xltypeNil;
+    numeric.xltype = xltypeNum;
+    numeric.val.num = 1.;
+    boolean.xltype = xltypeBool;
+    boolean.val.xbool = 1;
+    error.xltype = xltypeErr;
+    error.val.err = xlerrNA;
+    for (const auto* invalid : {&numeric, &boolean, &error}) {
+        ASSERT_NO_FATAL_FAILURE(
+            NativeRiskError(NativeRiskOutput(NativeRiskCall("xl_EarlyExercisePdeRiskSettings_New", invalid, &blank, &blank)), "name"));
+        ASSERT_NO_FATAL_FAILURE(
+            NativeRiskError(NativeRiskOutput(NativeRiskCall("xl_EarlyExercisePdeRiskResult_Get_RiskValue", &result.cell_, invalid)), "risk_id"));
+    }
+    Handle_<StorableEarlyExercisePdeRiskSettings_> settings(new StorableEarlyExercisePdeRiskSettings_("", {}));
+    const auto wrong = NativeRiskHandle(settings);
+    const Handle_<StorableEarlyExercisePdeRequest_> valuation(new StorableEarlyExercisePdeRequest_("", Valuation()));
+    const auto price = NativeRiskHandle(valuation);
+    ASSERT_NO_FATAL_FAILURE(
+        NativeRiskError(NativeRiskOutput(NativeRiskCall("xl_EarlyExercisePdeRiskResult_Get_RiskValue", &wrong.cell_, &id.cell_)), "result"));
+    ASSERT_NO_FATAL_FAILURE(
+        NativeRiskError(NativeRiskOutput(NativeRiskCall("xl_EarlyExercisePdeRiskResult_New", &name.cell_, &wrong.cell_)), "request"));
+    ASSERT_NO_FATAL_FAILURE(
+        NativeRiskError(NativeRiskOutput(NativeRiskCall("xl_EarlyExercisePdeRiskSettings_Get_Configuration", &result.cell_)), "settings"));
+    ASSERT_NO_FATAL_FAILURE(
+        NativeRiskError(NativeRiskOutput(NativeRiskCall("xl_EarlyExercisePdeRiskRequest_New", &name.cell_, &wrong.cell_, &blank)), "valuation"));
+    ASSERT_NO_FATAL_FAILURE(
+        NativeRiskError(NativeRiskOutput(NativeRiskCall("xl_EarlyExercisePdeRiskRequest_New", &name.cell_, &price.cell_, &result.cell_)), "risk"));
 }
 #endif
 
@@ -97,7 +189,13 @@ namespace {
         if (value)
             Same(cell, *value);
     }
-    void Parity(const Handle_<StorableEarlyExercisePdeRiskResult_>& result, const EarlyExercisePdeRiskResult_& expected) {
+    template <class T_, class V_> void SameMember(const Cell_& cell, const std::optional<T_>& value, V_ T_::* member) {
+        if (value)
+            ASSERT_NO_FATAL_FAILURE(Same(cell, (*value).*member));
+        else
+            ASSERT_TRUE(Cell::IsEmpty(cell));
+    }
+    void RisksParity(const Handle_<StorableEarlyExercisePdeRiskResult_>& result, const EarlyExercisePdeRiskResult_& expected) {
         Matrix_<Cell_> table;
         EarlyExercisePdeRiskResult_Get_Risks(result, &table);
         ASSERT_NO_FATAL_FAILURE(Header(
@@ -132,6 +230,9 @@ namespace {
             ASSERT_NO_FATAL_FAILURE(Same(table(static_cast<int>(i) + 1, 20), value.normalizedStepDifference_));
             ASSERT_NO_FATAL_FAILURE(Same(table(static_cast<int>(i) + 1, 21), value.stabilityTolerance_));
         }
+    }
+    void ScenariosParity(const Handle_<StorableEarlyExercisePdeRiskResult_>& result, const EarlyExercisePdeRiskResult_& expected) {
+        Matrix_<Cell_> table;
         EarlyExercisePdeRiskResult_Get_Scenarios(result, &table);
         ASSERT_NO_FATAL_FAILURE(Header(table, {"ScenarioIndex",
                                                "ScenarioId",
@@ -199,47 +300,23 @@ namespace {
             ASSERT_NO_FATAL_FAILURE(Same(table(static_cast<int>(i) + 1, 22), value.maxObstacleViolation_));
             ASSERT_NO_FATAL_FAILURE(Same(table(static_cast<int>(i) + 1, 23), value.maxDualViolation_));
             ASSERT_NO_FATAL_FAILURE(Same(table(static_cast<int>(i) + 1, 24), value.maxComplementarityResidual_));
-            if (value.failure_) {
-                ASSERT_NO_FATAL_FAILURE(Same(table(static_cast<int>(i) + 1, 25), value.failure_->status_));
-            } else
-                ASSERT_TRUE(Cell::IsEmpty(table(static_cast<int>(i) + 1, 25)));
-            if (value.failure_) {
-                ASSERT_NO_FATAL_FAILURE(Same(table(static_cast<int>(i) + 1, 26), value.failure_->timeIndex_));
-            } else
-                ASSERT_TRUE(Cell::IsEmpty(table(static_cast<int>(i) + 1, 26)));
-            if (value.failure_) {
-                ASSERT_NO_FATAL_FAILURE(Same(table(static_cast<int>(i) + 1, 27), value.failure_->iteration_));
-            } else
-                ASSERT_TRUE(Cell::IsEmpty(table(static_cast<int>(i) + 1, 27)));
-            if (value.failure_) {
-                ASSERT_NO_FATAL_FAILURE(Same(table(static_cast<int>(i) + 1, 28), value.failure_->calendarDate_));
-            } else
-                ASSERT_TRUE(Cell::IsEmpty(table(static_cast<int>(i) + 1, 28)));
-            if (value.failure_) {
-                ASSERT_NO_FATAL_FAILURE(Same(table(static_cast<int>(i) + 1, 29), value.failure_->node_));
-            } else
-                ASSERT_TRUE(Cell::IsEmpty(table(static_cast<int>(i) + 1, 29)));
-            if (value.failure_) {
-                ASSERT_NO_FATAL_FAILURE(Same(table(static_cast<int>(i) + 1, 30), value.failure_->residual_));
-            } else
-                ASSERT_TRUE(Cell::IsEmpty(table(static_cast<int>(i) + 1, 30)));
-            if (value.failure_) {
-                ASSERT_NO_FATAL_FAILURE(Same(table(static_cast<int>(i) + 1, 31), value.failure_->threshold_));
-            } else
-                ASSERT_TRUE(Cell::IsEmpty(table(static_cast<int>(i) + 1, 31)));
-            if (value.failure_) {
-                ASSERT_NO_FATAL_FAILURE(Same(table(static_cast<int>(i) + 1, 32), value.failure_->workUnits_));
-            } else
-                ASSERT_TRUE(Cell::IsEmpty(table(static_cast<int>(i) + 1, 32)));
-            if (value.failure_) {
-                ASSERT_NO_FATAL_FAILURE(Same(table(static_cast<int>(i) + 1, 33), value.failure_->reason_));
-            } else
-                ASSERT_TRUE(Cell::IsEmpty(table(static_cast<int>(i) + 1, 33)));
+            ASSERT_NO_FATAL_FAILURE(SameMember(table(static_cast<int>(i) + 1, 25), value.failure_, &EarlyExercisePdeFailure_::status_));
+            ASSERT_NO_FATAL_FAILURE(SameMember(table(static_cast<int>(i) + 1, 26), value.failure_, &EarlyExercisePdeFailure_::timeIndex_));
+            ASSERT_NO_FATAL_FAILURE(SameMember(table(static_cast<int>(i) + 1, 27), value.failure_, &EarlyExercisePdeFailure_::iteration_));
+            ASSERT_NO_FATAL_FAILURE(SameMember(table(static_cast<int>(i) + 1, 28), value.failure_, &EarlyExercisePdeFailure_::calendarDate_));
+            ASSERT_NO_FATAL_FAILURE(SameMember(table(static_cast<int>(i) + 1, 29), value.failure_, &EarlyExercisePdeFailure_::node_));
+            ASSERT_NO_FATAL_FAILURE(SameMember(table(static_cast<int>(i) + 1, 30), value.failure_, &EarlyExercisePdeFailure_::residual_));
+            ASSERT_NO_FATAL_FAILURE(SameMember(table(static_cast<int>(i) + 1, 31), value.failure_, &EarlyExercisePdeFailure_::threshold_));
+            ASSERT_NO_FATAL_FAILURE(SameMember(table(static_cast<int>(i) + 1, 32), value.failure_, &EarlyExercisePdeFailure_::workUnits_));
+            ASSERT_NO_FATAL_FAILURE(SameMember(table(static_cast<int>(i) + 1, 33), value.failure_, &EarlyExercisePdeFailure_::reason_));
             ASSERT_NO_FATAL_FAILURE(Same(table(static_cast<int>(i) + 1, 34), value.evaluationMembership_));
             ASSERT_NO_FATAL_FAILURE(Same(table(static_cast<int>(i) + 1, 35), value.evaluationBoundaryIntersectsSpotStencil_));
             ASSERT_NO_FATAL_FAILURE(Same(table(static_cast<int>(i) + 1, 36), value.futureContactChanged_));
             ASSERT_NO_FATAL_FAILURE(Same(table(static_cast<int>(i) + 1, 37), value.upwindChanged_));
         }
+    }
+    void PlanStepsParity(const Handle_<StorableEarlyExercisePdeRiskResult_>& result, const EarlyExercisePdeRiskResult_& expected) {
+        Matrix_<Cell_> table;
         EarlyExercisePdeRiskResult_Get_PlanSteps(result, &table);
         ASSERT_NO_FATAL_FAILURE(Header(table, {"SourceTimeIndex", "TimeIndex", "Dt", "Theta", "CarryIndex", "Damped", "Projection"}));
         ASSERT_EQ(table.Rows(), expected.Plan().steps_.size() + 1);
@@ -253,6 +330,9 @@ namespace {
             ASSERT_NO_FATAL_FAILURE(Same(table(static_cast<int>(i) + 1, 5), value.damped_));
             ASSERT_NO_FATAL_FAILURE(Same(table(static_cast<int>(i) + 1, 6), value.projection_));
         }
+    }
+    void PlanTimeGridParity(const Handle_<StorableEarlyExercisePdeRiskResult_>& result, const EarlyExercisePdeRiskResult_& expected) {
+        Matrix_<Cell_> table;
         EarlyExercisePdeRiskResult_Get_PlanTimeGrid(result, &table);
         ASSERT_NO_FATAL_FAILURE(Header(table, {"TimeIndex", "TimeYears", "CalendarDate", "IsExerciseDate", "IsCarryKnot", "IsMaturity"}));
         ASSERT_EQ(table.Rows(), expected.Plan().timeGrid_.size() + 1);
@@ -265,6 +345,9 @@ namespace {
             ASSERT_NO_FATAL_FAILURE(Same(table(static_cast<int>(i) + 1, 4), value.isCarryKnot_));
             ASSERT_NO_FATAL_FAILURE(Same(table(static_cast<int>(i) + 1, 5), value.isMaturity_));
         }
+    }
+    void PlanGridParity(const Handle_<StorableEarlyExercisePdeRiskResult_>& result, const EarlyExercisePdeRiskResult_& expected) {
+        Matrix_<Cell_> table;
         EarlyExercisePdeRiskResult_Get_PlanGrid(result, &table);
         ASSERT_NO_FATAL_FAILURE(Header(table, {"NodeIndex", "Spot"}));
         ASSERT_EQ(table.Rows(), expected.Plan().grid_.size() + 1);
@@ -273,6 +356,9 @@ namespace {
             ASSERT_NO_FATAL_FAILURE(Same(table(static_cast<int>(i) + 1, 0), i));
             ASSERT_NO_FATAL_FAILURE(Same(table(static_cast<int>(i) + 1, 1), value));
         }
+    }
+    void PlanParity(const Handle_<StorableEarlyExercisePdeRiskResult_>& result, const EarlyExercisePdeRiskResult_& expected) {
+        Matrix_<Cell_> table;
         EarlyExercisePdeRiskResult_Get_Plan(result, &table);
         ASSERT_NO_FATAL_FAILURE(Header(table, {"Field", "Value"}));
         ASSERT_EQ(table.Rows(), 23);
@@ -320,6 +406,9 @@ namespace {
         ASSERT_NO_FATAL_FAILURE(Same(table(21, 1), expected.Plan().plannedWorkspaceBytes_));
         ASSERT_EQ(Cell::ToString(table(22, 0)), "PlannedPeakNativeBytes");
         ASSERT_NO_FATAL_FAILURE(Same(table(22, 1), expected.Plan().plannedPeakNativeBytes_));
+    }
+    void ExecutionParity(const Handle_<StorableEarlyExercisePdeRiskResult_>& result, const EarlyExercisePdeRiskResult_& expected) {
+        Matrix_<Cell_> table;
         EarlyExercisePdeRiskResult_Get_Execution(result, &table);
         ASSERT_NO_FATAL_FAILURE(Header(table, {"Field", "Value"}));
         ASSERT_EQ(table.Rows(), 16);
@@ -353,6 +442,9 @@ namespace {
         ASSERT_NO_FATAL_FAILURE(Same(table(14, 1), expected.Execution().workLimitScenarioIndex_));
         ASSERT_EQ(Cell::ToString(table(15, 0)), "WorkLimitSource");
         ASSERT_NO_FATAL_FAILURE(Same(table(15, 1), expected.Execution().workLimitSource_));
+    }
+    void StencilsParity(const Handle_<StorableEarlyExercisePdeRiskResult_>& result, const EarlyExercisePdeRiskResult_& expected) {
+        Matrix_<Cell_> table;
         EarlyExercisePdeRiskResult_Get_Stencils(result, &table);
         ASSERT_NO_FATAL_FAILURE(Header(table, {"RiskIndex", "RiskId", "Scale", "EntryIndex", "ScenarioIndex", "Weight"}));
         int row = 1;
@@ -370,6 +462,9 @@ namespace {
             }
         }
         ASSERT_EQ(table.Rows(), row);
+    }
+    void SummaryParity(const Handle_<StorableEarlyExercisePdeRiskResult_>& result, const EarlyExercisePdeRiskResult_& expected) {
+        Matrix_<Cell_> table;
         EarlyExercisePdeRiskResult_Get_Summary(result, &table);
         ASSERT_EQ(table.Rows(), 11);
         const std::array<const char*, 10> summary = {"SchemaVersion", "Status", "PriceAvailable", "RiskComplete", "Price",
@@ -384,6 +479,9 @@ namespace {
         ASSERT_NO_FATAL_FAILURE(Same(table(7, 1), expected.Method()));
         ASSERT_NO_FATAL_FAILURE(Same(table(8, 1), expected.RiskBasis()));
         ASSERT_NO_FATAL_FAILURE(Same(table(9, 1), expected.AadUsed()));
+    }
+    void BumpOriginsParity(const Handle_<StorableEarlyExercisePdeRiskResult_>& result, const EarlyExercisePdeRiskResult_& expected) {
+        Matrix_<Cell_> table;
         EarlyExercisePdeRiskResult_Get_BumpOrigins(result, &table);
         ASSERT_NO_FATAL_FAILURE(Header(table, {"ParameterId", "Origin"}));
         const auto& plan = expected.Plan();
@@ -400,6 +498,19 @@ namespace {
             ASSERT_NO_FATAL_FAILURE(Same(table(4 + 2 * i, 1), plan.dividendYieldBumpOrigins_[i]));
         }
     }
+    void Parity(const Handle_<StorableEarlyExercisePdeRiskResult_>& result, const EarlyExercisePdeRiskResult_& expected) {
+        ASSERT_NO_FATAL_FAILURE(RisksParity(result, expected));
+        ASSERT_NO_FATAL_FAILURE(ScenariosParity(result, expected));
+        ASSERT_NO_FATAL_FAILURE(PlanStepsParity(result, expected));
+        ASSERT_NO_FATAL_FAILURE(PlanTimeGridParity(result, expected));
+        ASSERT_NO_FATAL_FAILURE(PlanGridParity(result, expected));
+        ASSERT_NO_FATAL_FAILURE(PlanParity(result, expected));
+        ASSERT_NO_FATAL_FAILURE(ExecutionParity(result, expected));
+        ASSERT_NO_FATAL_FAILURE(StencilsParity(result, expected));
+        ASSERT_NO_FATAL_FAILURE(SummaryParity(result, expected));
+        ASSERT_NO_FATAL_FAILURE(BumpOriginsParity(result, expected));
+    }
+
 } // namespace
 
 TEST(ExcelEarlyExercisePdeRiskTest, TestEverySchemaCellMatchesCoreAcrossFourStates) {

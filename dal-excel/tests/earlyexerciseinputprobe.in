@@ -1,0 +1,168 @@
+#include <algorithm>
+#include <functional>
+#include <iostream>
+#include <map>
+#include <string>
+#include <vector>
+
+#include <dal-excel/src/__earlyexercisepderisk.hpp>
+
+#define __declspec(...)
+#undef _ENV
+#undef ENV_SEED_TYPE
+#define _ENV int _env
+#define ENV_SEED_TYPE(...) int _env = 0
+constexpr unsigned xltypeNum = 1, xltypeStr = 2, xltypeBool = 4, xltypeErr = 16,
+                   xltypeMulti = 64, xltypeMissing = 128, xltypeNil = 256, xltypeInt = 2048;
+
+namespace Dal {
+    struct OPER_ {
+        union Value_ {
+            double num;
+            wchar_t* str;
+            int xbool, w;
+            struct { OPER_* lparray; int rows, columns; } array;
+            Value_() : num(0) {}
+        } val;
+        unsigned xltype = xltypeNil;
+        std::string output_;
+    };
+    @CONVERTER@
+    namespace Logging { void Write(const char*) {} }
+    namespace Excel {
+        inline std::map<String_, Handle_<Storable_>> handles;
+        inline OPER_ output;
+        void InitializeSessionIfNeeded() {}
+        String_ ToString(const OPER_*, bool optional = false);
+        Matrix_<Cell_> ToCellMatrix(const OPER_*, bool optional = false, bool greedy = false);
+        Handle_<Storable_> ToHandleBase(_ENV, const OPER_* input, bool optional = false) {
+            if (optional && (input->xltype == xltypeNil || input->xltype == xltypeMissing))
+                return {};
+            const auto name = ToString(input);
+            REQUIRE(handles.count(name), "Unknown object handle");
+            return handles.at(name);
+        }
+        @HELPERS@
+        Matrix_<Cell_> ToCellMatrix(const OPER_* input, bool, bool) {
+            const bool multi = input->xltype == xltypeMulti;
+            if (!multi && ScriptInputBlank(input))
+                return {};
+            const int rows = multi ? input->val.array.rows : 1, cols = multi ? input->val.array.columns : 1;
+            Matrix_<Cell_> result(rows, cols);
+            for (int row = 0; row < rows; ++row)
+                for (int col = 0; col < cols; ++col) {
+                    const auto& cell = multi ? input->val.array.lparray[row * cols + col] : *input;
+                    if (cell.xltype == xltypeStr)
+                        result(row, col) = FromPascalString(cell.val.str);
+                    if (cell.xltype == xltypeNum)
+                        result(row, col) = cell.val.num;
+                    if (cell.xltype == xltypeBool)
+                        result(row, col) = bool(cell.val.xbool);
+                }
+            return result;
+        }
+        OPER_* Error(const char* message, const char* argument) {
+            output.output_ = std::string(message) + "; argument=" + (argument ? argument : "");
+            return &output;
+        }
+        struct Retval_ {
+            template <class T_> void Load(int, const Handle_<T_>& value) {
+                handles["returned"] = Handle_<Storable_>(value);
+                output.output_ = "OK handle";
+            }
+            template <class T_> void Load(const T_&) { output.output_ = "OK value"; }
+            OPER_* ToXloper() { return &output; }
+        };
+        void Register(const char*, const char*, const char*, const char*, const char*, const char*, const Vector_<String_>&, bool) {}
+    } // namespace Excel
+    @STRING_INPUT@
+    @GENERATED@
+} // namespace Dal
+
+using namespace Dal;
+
+namespace {
+    struct Text_ {
+        std::vector<wchar_t> storage_;
+        OPER_ cell_;
+        explicit Text_(const std::wstring& value) : storage_(1, wchar_t(value.size())) {
+            storage_.insert(storage_.end(), value.begin(), value.end());
+            cell_.xltype = xltypeStr;
+            cell_.val.str = storage_.data();
+        }
+    };
+    void Fixtures() {
+        EarlyExercisePdeRequest_ price;
+        const Date_ today(2026, 10, 18), maturity(2027, 10, 18);
+        price.contract_ = {today, maturity, 100., OptionType_("PUT"), EarlyExerciseStyle_("BERMUDAN"), {maturity}};
+        price.market_ = {100., .2, {{maturity, .05, .03}}};
+        price.settings_.upper_ = 400.;
+        price.settings_.rannacherIntervals_ = 0;
+        Excel::handles["price"].reset(new StorableEarlyExercisePdeRequest_("", price));
+        Excel::handles["settings"].reset(new StorableEarlyExercisePdeRiskSettings_("", {}));
+        const EarlyExercisePdeRiskRequest_ request{price, {}};
+        Excel::handles["request"].reset(new StorableEarlyExercisePdeRiskRequest_("", request));
+        Excel::handles["result"].reset(new StorableEarlyExercisePdeRiskResult_("", EvaluateEarlyExercisePdeRisk(request)));
+    }
+    std::string Key(const std::wstring& key) {
+        Text_ name(L"probe"), text(key);
+        OPER_ cells[2] = {text.cell_, {}}, table, blank;
+        cells[1].xltype = xltypeBool;
+        cells[1].val.xbool = false;
+        table.xltype = xltypeMulti;
+        table.val.array = {cells, 1, 2};
+        auto* result = xl_EarlyExercisePdeRiskSettings_New(&name.cell_, &table, &blank);
+        return result->output_;
+    }
+    std::string Id(const OPER_* id) {
+        Text_ result(L"result");
+        return xl_EarlyExercisePdeRiskResult_Get_RiskValue(&result.cell_, id)->output_;
+    }
+    std::string Name(const OPER_* name) {
+        OPER_ blank;
+        return xl_EarlyExercisePdeRiskSettings_New(name, &blank, &blank)->output_;
+    }
+    std::string WrongHandle(const std::string& field) {
+        Text_ name(L"probe"), price(L"price"), request(L"request"), result(L"result"), settings(L"settings"), id(L"Delta");
+        if (field == "wrong_result")
+            return xl_EarlyExercisePdeRiskResult_Get_RiskValue(&settings.cell_, &id.cell_)->output_;
+        if (field == "wrong_request")
+            return xl_EarlyExercisePdeRiskResult_New(&name.cell_, &settings.cell_)->output_;
+        if (field == "wrong_settings")
+            return xl_EarlyExercisePdeRiskSettings_Get_Configuration(&result.cell_)->output_;
+        const auto* valuation = field == "wrong_valuation" ? &settings.cell_ : &price.cell_;
+        return xl_EarlyExercisePdeRiskRequest_New(&name.cell_, valuation, &result.cell_)->output_;
+    }
+} // namespace
+
+int main(int argc, char** argv) {
+    REQUIRE(argc == 2, "expected one probe case");
+    Fixtures();
+    const std::string name(argv[1]);
+    Text_ id(name == "unicode_id" ? L"\u0144elta" : L"Delta");
+    OPER_ numeric, boolean, error;
+    numeric.xltype = xltypeNum;
+    numeric.val.num = 1.;
+    boolean.xltype = xltypeBool;
+    boolean.val.xbool = 1;
+    error.xltype = xltypeErr;
+    const std::map<std::string, std::function<std::string()>> cases = {
+        {"unicode_key", [] { return Key(L"\u0164elta"); }},
+        {"nul_key", [] { return Key(std::wstring(L"delta\0", 6)); }},
+        {"valid_key", [] { return Key(L"delta"); }},
+        {"unicode_id", [&] { return Id(&id.cell_); }},
+        {"valid_id", [&] { return Id(&id.cell_); }},
+        {"numeric_id", [&] { return Id(&numeric); }},
+        {"boolean_id", [&] { return Id(&boolean); }},
+        {"error_id", [&] { return Id(&error); }},
+        {"numeric_name", [&] { return Name(&numeric); }},
+        {"boolean_name", [&] { return Name(&boolean); }},
+        {"error_name", [&] { return Name(&error); }},
+        {"valid_factory", [] {
+            Text_ name(L"probe"), request(L"request");
+            return xl_EarlyExercisePdeRiskResult_New(&name.cell_, &request.cell_)->output_;
+        }},
+    };
+    const auto found = cases.find(name);
+    std::cout << (found == cases.end() ? WrongHandle(name) : found->second()) << '\n';
+}

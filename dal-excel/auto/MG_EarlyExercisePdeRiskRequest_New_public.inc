@@ -10,12 +10,11 @@ ENV_SEED_TYPE(ObjectAccess_);
     {	
         Logging::Write("EarlyExercisePdeRiskRequest_New");        
         argName = "name (input #1)";
-        const String_ name = Excel::ToString(xl_name);
-        argName = "name"; Excel::ValidateEarlyExercisePdeRiskName(xl_name); xl_risk = Excel::ScriptScalarInput(xl_risk);
+        const String_ name = Excel::ToString_orEarlyExerciseRisk(xl_name, "name");
         argName = "valuation (input #2)";
-        const Handle_<StorableEarlyExercisePdeRequest_> valuation = Excel::ToHandle<StorableEarlyExercisePdeRequest_>(_env, xl_valuation);
+        const Handle_<StorableEarlyExercisePdeRequest_> valuation = Excel::ToHandle_orEarlyExerciseRisk<StorableEarlyExercisePdeRequest_>(_env, xl_valuation, "valuation");
         argName = "risk (input #3)";
-        const Handle_<StorableEarlyExercisePdeRiskSettings_> risk = Excel::ToHandle<StorableEarlyExercisePdeRiskSettings_>(_env, xl_risk, true);
+        const Handle_<StorableEarlyExercisePdeRiskSettings_> risk = Excel::ToHandle_orEarlyExerciseRisk<StorableEarlyExercisePdeRiskSettings_>(_env, xl_risk, "risk", true);
         argName = 0;
 		Handle_<StorableEarlyExercisePdeRiskRequest_> request;
         EarlyExercisePdeRiskRequest_New(name, valuation, risk, &request);
