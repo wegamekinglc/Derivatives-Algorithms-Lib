@@ -1,0 +1,238 @@
+{
+  "schema_version": 1,
+  "raw_archive": {"filename":"dal-503-bindings-evidence.tar.gz","sha256":"7a715733eda770dc9c4e623169a6226bb6dce05e6f918e34fe701f01e628cf68","bytes":59626,"log_files":55},
+  "baseline": "cf0895477e6b9ddefdd2ef41865d3213c24aaeec",
+  "implementation_commit": "7b3e5e0b309867c6d388d7c2c8f483fba36e8053",
+  "platform": "Linux-5.15.167.4-microsoft-standard-WSL2-x86_64-with-glibc2.43",
+  "compiler": "g++-15 (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+  "cmake": "cmake version 4.2.3",
+  "python": "3.13.9 | packaged by Anaconda, Inc. | (main, Oct 21 2025, 19:16:10) [GCC 11.2.0]",
+  "python_executable": "/home/wegamekinglc/anaconda3/bin/python3",
+  "selected_pybind11": "3.0.4",
+  "submodules": [
+    "3147391d946bb4b6c68edd901f2add6ac1f31f8c dal-cpp/externals/eigen (3.4.0)",
+    " d72f9c8aea6817cdf1ca0ac10887f328de7f3da2 dal-cpp/externals/googletest (release-1.8.0-3627-gd72f9c8a)",
+    " e76b0ef243ca9bd506bb2f3743d8c9b52ee8d01d dal-cpp/externals/machinist (heads/master)",
+    " 8a099e44b3d5f85b20f05828d919d2332a8de841 dal-cpp/externals/pybind11 (v2.11.1)",
+    " ea152ded01708ff1657b275ed0bcbf0681d64519 dal-cpp/externals/rapidjson (heads/master)",
+    " ba96d0b1161f540656efdaed035b3c062b60e006 dal-cpp/externals/rapidjson/thirdparty/gtest (release-1.8.0-1003-gba96d0b1)"
+  ],
+  "configurations": {
+    "s4": {
+      "CMAKE_BUILD_TYPE": "Release",
+      "CMAKE_CXX_COMPILER": "/usr/bin/g++-15",
+      "CMAKE_CXX_COMPILER_AR": "/usr/bin/gcc-ar-15",
+      "CMAKE_CXX_COMPILER_RANLIB": "/usr/bin/gcc-ranlib-15",
+      "CMAKE_CXX_FLAGS": "",
+      "CMAKE_CXX_FLAGS_DEBUG": "-g",
+      "CMAKE_CXX_FLAGS_MINSIZEREL": "-Os -DNDEBUG",
+      "CMAKE_CXX_FLAGS_RELEASE": "-O3 -DNDEBUG",
+      "CMAKE_CXX_FLAGS_RELWITHDEBINFO": "-O2 -g -DNDEBUG",
+      "DAL_BUILD_EXCEL": "OFF",
+      "DAL_BUILD_EXCEL_PORTABLE_TESTS": "ON",
+      "DAL_BUILD_PUBLIC": "ON",
+      "DAL_BUILD_PYTHON": "ON",
+      "DAL_CPP_BUILD_BENCHMARKS": "ON",
+      "DAL_CPP_BUILD_EXAMPLES": "ON",
+      "DAL_CPP_BUILD_NATIVE_COMPARISONS": "OFF",
+      "DAL_CPP_BUILD_TESTS": "ON",
+      "DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS": "OFF",
+      "DAL_ENABLE_AAD_PROFILING": "OFF",
+      "DAL_ENABLE_NATIVE_ARCH": "OFF",
+      "DAL_ENABLE_SANITIZERS": "",
+      "DAL_EXCEL_BUILD_TESTS": "ON",
+      "DAL_INSTALL_PREFIX": "",
+      "DAL_PUBLIC_BUILD_EXAMPLES": "OFF",
+      "DAL_PUBLIC_BUILD_TESTS": "ON",
+      "DAL_PUBLIC_RAPIDJSON_INCLUDE_DIR": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib/dal-cpp/externals/rapidjson/include",
+      "DAL_PUBLIC_TEST_FIXTURE_DIR": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib/dal-cpp/tests/curve",
+      "DAL_PUBLIC_TEST_QUOTE_RISK_FIXTURE_SOURCE": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib/dal-cpp/benchmarks/rate_risk_perf/quoteriskbenchfixtures.cpp",
+      "DAL_PUBLIC_TEST_RAPIDJSON_INCLUDE_DIR": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib/dal-cpp/externals/rapidjson/include",
+      "DAL_PUBLIC_TEST_SUPPORT_DIR": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib/dal-cpp/test-support",
+      "DAL_PYTHON_BUILD_TESTS": "ON",
+      "DAL_PYTHON_BUILD_WHEEL": "OFF",
+      "DAL_USE_EIGEN": "ON",
+      "Python3_EXECUTABLE": "/home/wegamekinglc/anaconda3/bin/python3"
+    },
+    "s4-core-only": {
+      "CMAKE_BUILD_TYPE": "Release",
+      "CMAKE_CXX_COMPILER": "/usr/bin/g++-15",
+      "CMAKE_CXX_COMPILER_AR": "/usr/bin/gcc-ar-15",
+      "CMAKE_CXX_COMPILER_RANLIB": "/usr/bin/gcc-ranlib-15",
+      "CMAKE_CXX_FLAGS": "",
+      "CMAKE_CXX_FLAGS_DEBUG": "-g",
+      "CMAKE_CXX_FLAGS_MINSIZEREL": "-Os -DNDEBUG",
+      "CMAKE_CXX_FLAGS_RELEASE": "-O3 -DNDEBUG",
+      "CMAKE_CXX_FLAGS_RELWITHDEBINFO": "-O2 -g -DNDEBUG",
+      "DAL_BUILD_EXCEL": "OFF",
+      "DAL_BUILD_EXCEL_PORTABLE_TESTS": "OFF",
+      "DAL_BUILD_PUBLIC": "OFF",
+      "DAL_BUILD_PYTHON": "OFF",
+      "DAL_CPP_BUILD_BENCHMARKS": "ON",
+      "DAL_CPP_BUILD_EXAMPLES": "ON",
+      "DAL_CPP_BUILD_NATIVE_COMPARISONS": "OFF",
+      "DAL_CPP_BUILD_TESTS": "OFF",
+      "DAL_ENABLE_AAD_LIFETIME_DIAGNOSTICS": "OFF",
+      "DAL_ENABLE_AAD_PROFILING": "OFF",
+      "DAL_ENABLE_NATIVE_ARCH": "OFF",
+      "DAL_ENABLE_SANITIZERS": "",
+      "DAL_USE_EIGEN": "ON"
+    },
+    "s4-consumer": {
+      "CMAKE_BUILD_TYPE": "Release",
+      "CMAKE_CXX_COMPILER": "/usr/bin/g++-15",
+      "CMAKE_CXX_COMPILER_AR": "/usr/bin/gcc-ar-15",
+      "CMAKE_CXX_COMPILER_RANLIB": "/usr/bin/gcc-ranlib-15",
+      "CMAKE_CXX_FLAGS": "",
+      "CMAKE_CXX_FLAGS_DEBUG": "-g",
+      "CMAKE_CXX_FLAGS_MINSIZEREL": "-Os -DNDEBUG",
+      "CMAKE_CXX_FLAGS_RELEASE": "-O3 -DNDEBUG",
+      "CMAKE_CXX_FLAGS_RELWITHDEBINFO": "-O2 -g -DNDEBUG"
+    }
+  },
+  "flags": {
+    "build/s4/dal-cpp/CMakeFiles/dal_cpp.dir/flags.make": "# CMAKE generated file: DO NOT EDIT!\n# Generated by \"Unix Makefiles\" Generator, CMake Version 4.2\n\n# compile CXX with /usr/bin/g++-15\nCXX_DEFINES = -DDAL_USE_EIGEN -DEIGEN_DONT_PARALLELIZE -Ddal_cpp_EXPORTS\n\nCXX_INCLUDES = -I/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib/dal-cpp -I/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib/dal-cpp/externals/rapidjson/include -I/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib/dal-cpp/externals/eigen\n\nCXX_FLAGS = -O3 -DNDEBUG -std=c++17 -fPIC -ffp-contract=fast -O3\n\n# Custom options: dal-cpp/CMakeFiles/dal_cpp.dir/dal/math/inversenormal.cpp.o_OPTIONS = -ffp-contract=off\n\n# Custom defines: dal-cpp/CMakeFiles/dal_cpp.dir/dal/math/inversenormal.cpp.o_DEFINES = DAL_NORMAL_AVX2\n\n# Custom options: dal-cpp/CMakeFiles/dal_cpp.dir/dal/math/inversenormalavx2.cpp.o_OPTIONS = -ffp-contract=off;-mavx2;-mno-fma\n\n# Custom defines: dal-cpp/CMakeFiles/dal_cpp.dir/dal/math/inversenormalavx2.cpp.o_DEFINES = DAL_NORMAL_AVX2\n\n# Custom options: dal-cpp/CMakeFiles/dal_cpp.dir/dal/math/inversenormalfma.cpp.o_OPTIONS = -ffp-contract=off;-mavx2;-mfma\n\n# Custom defines: dal-cpp/CMakeFiles/dal_cpp.dir/dal/math/inversenormalfma.cpp.o_DEFINES = DAL_NORMAL_AVX2\n\n",
+    "build/s4/dal-public/CMakeFiles/dal_public.dir/flags.make": "# CMAKE generated file: DO NOT EDIT!\n# Generated by \"Unix Makefiles\" Generator, CMake Version 4.2\n\n# compile CXX with /usr/bin/g++-15\nCXX_DEFINES = \n\nCXX_INCLUDES = -I/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib -I/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib/dal-cpp/externals/rapidjson/include -I/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib/dal-cpp\n\nCXX_FLAGS = -O3 -DNDEBUG -std=c++17 -fPIC\n\n",
+    "build/s4/dal-python/CMakeFiles/_dal.dir/flags.make": "# CMAKE generated file: DO NOT EDIT!\n# Generated by \"Unix Makefiles\" Generator, CMake Version 4.2\n\n# compile CXX with /usr/bin/g++-15\nCXX_DEFINES = -DDAL_XCCY_TEST_BRIDGE -D_dal_EXPORTS\n\nCXX_INCLUDES = -I/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib -I/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib/dal-cpp -isystem /home/wegamekinglc/anaconda3/include/python3.13 -isystem /home/wegamekinglc/anaconda3/lib/python3.13/site-packages/pybind11/include\n\nCXX_FLAGS = -O3 -DNDEBUG -std=c++17 -fPIC -fvisibility=hidden -flto=auto -fno-fat-lto-objects\n\n",
+    "build/s4/dal-python/CMakeFiles/_dal_pde_risk_test.dir/flags.make": "# CMAKE generated file: DO NOT EDIT!\n# Generated by \"Unix Makefiles\" Generator, CMake Version 4.2\n\n# compile CXX with /usr/bin/g++-15\nCXX_DEFINES = -D_dal_pde_risk_test_EXPORTS\n\nCXX_INCLUDES = -I/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib -I/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib/dal-cpp -isystem /home/wegamekinglc/anaconda3/include/python3.13 -isystem /home/wegamekinglc/anaconda3/lib/python3.13/site-packages/pybind11/include\n\nCXX_FLAGS = -O3 -DNDEBUG -std=c++17 -fPIC -fvisibility=default\n\n",
+    "build/s4/dal-excel/CMakeFiles/dal_excel_portable_tests.dir/flags.make": "# CMAKE generated file: DO NOT EDIT!\n# Generated by \"Unix Makefiles\" Generator, CMake Version 4.2\n\n# compile CXX with /usr/bin/g++-15\nCXX_DEFINES = -DDAL_EXCEL_API_TESTS_PORTABLE -DGTEST_LINKED_AS_SHARED_LIBRARY=1\n\nCXX_INCLUDES = -I/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib/dal-excel/.. -I/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib/dal-excel/../dal-cpp -I/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib/dal-excel/../dal-cpp/externals/rapidjson/include -I/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib/dal-excel/../dal-cpp/test-support -I/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib -I/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib/dal-cpp -isystem /home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib/dal-cpp/externals/googletest/googletest/include -isystem /home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib/dal-cpp/externals/googletest/googletest\n\nCXX_FLAGS = -O3 -DNDEBUG -std=c++17 -fPIE\n\n",
+    "build/s4-consumer/CMakeFiles/dal_installed_core_pde_risk.dir/flags.make": "# CMAKE generated file: DO NOT EDIT!\n# Generated by \"Unix Makefiles\" Generator, CMake Version 4.2\n\n# compile CXX with /usr/bin/g++-15\nCXX_DEFINES = \n\nCXX_INCLUDES = -isystem /home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/s4-stage/include\n\nCXX_FLAGS = -O3 -DNDEBUG\n\n",
+    "build/s4-consumer/CMakeFiles/dal_installed_public_pde_risk.dir/flags.make": "# CMAKE generated file: DO NOT EDIT!\n# Generated by \"Unix Makefiles\" Generator, CMake Version 4.2\n\n# compile CXX with /usr/bin/g++-15\nCXX_DEFINES = -DDAL_TEST_PUBLIC_PDE_RISK\n\nCXX_INCLUDES = -isystem /home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/s4-stage/include\n\nCXX_FLAGS = -O3 -DNDEBUG\n\n"
+  },
+  "source_sha256": {
+    "dal-excel/auto/MG_EarlyExercisePdeRiskRequest_Get_Settings_public.inc": "df62b5cdf125b9d50aedd1fc608b06704c723e161f09c04cadb99308efbbc41d",
+    "dal-excel/auto/MG_EarlyExercisePdeRiskRequest_Get_Valuation_public.inc": "a2894ed463ad195adf1af9f4e9b184c64d79312bbc31280ad6a3993de7a0136b",
+    "dal-excel/auto/MG_EarlyExercisePdeRiskRequest_New_public.inc": "893d64abedd5d724e98a133a909e92e3fd36ad13d8f63b7549937e0268d6f39e",
+    "dal-excel/auto/MG_EarlyExercisePdeRiskResult_Get_BaseResult_public.inc": "80375ae4d1853981528704af9be2bf6b8a193bd119246025e2732e177c0c0f21",
+    "dal-excel/auto/MG_EarlyExercisePdeRiskResult_Get_BumpOrigins_public.inc": "f1c356f48805a61c31edd5e85c042e51b43c4e091f3bc8758ab21a3dbb6eb59e",
+    "dal-excel/auto/MG_EarlyExercisePdeRiskResult_Get_Execution_public.inc": "73748612337996ba04bb2e7d43db379a236b055de54a687177f324683a895e23",
+    "dal-excel/auto/MG_EarlyExercisePdeRiskResult_Get_PlanGrid_public.inc": "be850c4162c0e80b8b654e0a4452afd0dfa46c33178ab3576c77ba61c6cb8b26",
+    "dal-excel/auto/MG_EarlyExercisePdeRiskResult_Get_PlanSteps_public.inc": "49fbc815a7bda1b58da388887b96dd9e5dfd90fa19a45cc964677f7cd9c3b932",
+    "dal-excel/auto/MG_EarlyExercisePdeRiskResult_Get_PlanTimeGrid_public.inc": "e0bb70ed7ed395133fd2ec802dcc8043e075a9f930cd691b9f0b071be964bcf2",
+    "dal-excel/auto/MG_EarlyExercisePdeRiskResult_Get_Plan_public.inc": "30aa3abaf90040343739e89ae4d8d60e479b3ff9f0815060319af71a4432aa42",
+    "dal-excel/auto/MG_EarlyExercisePdeRiskResult_Get_Price_public.inc": "6035ba72bb2244f5c8988b0bf264e2c56b023367998eb06374cd4f362ff7cccd",
+    "dal-excel/auto/MG_EarlyExercisePdeRiskResult_Get_Request_public.inc": "e4040ff7167ba2fcbbc585ac6d41e301b96b735713d11cc4067d74f3bd197b5b",
+    "dal-excel/auto/MG_EarlyExercisePdeRiskResult_Get_ResolvedSettings_public.inc": "5b0c1ad376146b02a44b28f490ff64f722a004a46cfb72b86516380774573591",
+    "dal-excel/auto/MG_EarlyExercisePdeRiskResult_Get_RiskValue_public.inc": "059c80037996ceade12ca1bf66d9586c82ef1f268b908130eee790aa98a06b1c",
+    "dal-excel/auto/MG_EarlyExercisePdeRiskResult_Get_Risks_public.inc": "27ca117ad8a7d40eff816c17f3b23cdb22b2f3e76cc2c578c1885818e77a9755",
+    "dal-excel/auto/MG_EarlyExercisePdeRiskResult_Get_Scenarios_public.inc": "608de82f784b777dba2334379794cfaec04db3ac4a4f35114c5b554adc5c8d50",
+    "dal-excel/auto/MG_EarlyExercisePdeRiskResult_Get_Stencils_public.inc": "f708898f3ce9b00b94da0c6136c08b12480ed291da88411a92dbf871bbc5d856",
+    "dal-excel/auto/MG_EarlyExercisePdeRiskResult_Get_Summary_public.inc": "b6cc6a8ad66e34c0700f126c2b3131170ab3d2bdd77400aacba87f56b8c36581",
+    "dal-excel/auto/MG_EarlyExercisePdeRiskResult_New_public.inc": "3d26469a02d46dfd1e2f5320817f4286595bb512005ed7409d1746f8a764d5cc",
+    "dal-excel/auto/MG_EarlyExercisePdeRiskSettings_Get_CarryBumps_public.inc": "db9fbf7c73c5f5c3d3aa921d7874f220de9b68b17d509e86270b598abc0a7464",
+    "dal-excel/auto/MG_EarlyExercisePdeRiskSettings_Get_Configuration_public.inc": "3251092ad02bc1a79a3013baaee2126b1ec07b3c0330de025609477abc1e8046",
+    "dal-excel/auto/MG_EarlyExercisePdeRiskSettings_New_public.inc": "f072781b6791ebe38190f2f252f96cd1265275da91b3cc0ffae40b50958ccf99",
+    "dal-excel/src/__earlyexercisepderisk.cpp": "ec5eba23c08b0a042c7045e26a51e90b6602a200e13e6946a9e9819b9c2f78bd",
+    "dal-excel/src/__earlyexercisepderisk.hpp": "e21662f0aa36f2d76b9af342d561f99d00ec90d4555c4a42ab84be3647937d63",
+    "dal-excel/src/__earlyexercisepderiskinput.hpp": "8a9c2225447688f0195758332746b7405e5c33ce17f3ef85c2b10e4af7271717",
+    "dal-excel/tests/test_early_exercise_pde_risk.cpp": "fad26a5d7b3a4309c6c94924f9d2eabaa8d2b2a01de9d774fc728b9b44ed69e5",
+    "dal-public/src/earlyexercisepderisk.hpp": "e508d48e462660f0d0e87876527a7c17dc09fe73955f8ce5aa4a2e6b8f9a13e8",
+    "dal-public/tests/test_early_exercise_pde_risk.cpp": "ed7d9cc15861f71d400c2e2ca6e13666d7feb94a3a9df092104767576d7a83ea",
+    "dal-python/CMakeLists.txt": "1e13b0aed48ed10671c3126cafde814e720d92e6e523968fa6acc01d5a1a35a5",
+    "dal-python/src/bindings/bindings.h": "a09074e2d87f6c55daffd89a95dd88a36ba95dd004bfff4884a6379d3e66fa41",
+    "dal-python/src/bindings/earlyexercisepderisk.cpp": "f1fa53d6352c7951f5164077289536c6f52e2d2048c28d46c47ede295928982b",
+    "dal-python/src/bindings/module.cpp": "3b3f1e7d553e6e1061091deb3b54c4157dc72c4cabbbe88977e6cd4b3ca5d2ea",
+    "dal-python/tests/native/earlyexercisepderisk.cpp": "fec5719d5189e12c48f66a17da4bd31fce9e924e10ed5e03f229f5e6d530235a",
+    "dal-python/tests/test_early_exercise_pde_risk.py": "0bf5e682c8efd9f3ebe6d993aefa902478f566c67c6893d15586e50a91e7f2a1",
+    "tests/installed-consumer/CMakeLists.txt": "7f2a93c73d995e57379dd63eccb1735d7828033fe2e451bf65958cb404927776",
+    "tests/installed-consumer/pderisk.cpp": "3994f536a309cd7b4f86b71c04bd3e8ddb42e52c27257c28f918bf132b7aae8a"
+  },
+  "unchanged_pde_source_sha256": {
+    "dal-cpp/dal/math/pde/earlyexercisepde.cpp": "042e96814fbd83dbd57515a033fc0d7ea56f90520a488a0ab0be9eaf5a473cc4",
+    "dal-cpp/dal/math/pde/earlyexercisepde.hpp": "65846d3d7bdd22bb66417ef18d3dcdb5dfffd08b2d9d3a80db49e6401f13d34b",
+    "dal-cpp/dal/math/pde/earlyexercisepdeinternal.hpp": "99bad1ba829df4cb2a56ba7e0b94de06eb938dd458060c212c9da61f77c00461",
+    "dal-cpp/dal/math/pde/earlyexercisepderisk.cpp": "4b7d977e8f76aebc2ee1d006cbf8851401baca4c229ca7d08ccc22169cc0f335",
+    "dal-cpp/dal/math/pde/earlyexercisepderisk.hpp": "7158fb39723192bc5e6a2f65e5d5068fca69d625d116b5d659c5f10567842bc2",
+    "dal-cpp/dal/math/pde/earlyexercisepderiskinternal.hpp": "9367e770d3a58314a5cb41c0084dab3bf250667f19050e3ee041d39363d62813",
+    "dal-cpp/dal/math/pde/pde.cpp": "fbbf9bfca03abb430911b7dab1e5474d20603e5356161e8ed04c8a53f76cf033",
+    "dal-cpp/dal/math/pde/pde.hpp": "6faaa1ae9d897f836e528d801aab0f5ad3485d119370b37936ded6122ab503fd",
+    "dal-cpp/dal/math/pde/pdegrid.cpp": "e7bbb844ccd213203e9e66a910ab90eedd3be75d9f87032a4551f718462dda62",
+    "dal-cpp/dal/math/pde/pdegrid.hpp": "7c0d7e1b3a67b37c8e6e743c51ce65c7098c75b1d3241c993692894adf0c4e05",
+    "dal-cpp/dal/math/pde/pdeoperators.cpp": "670dfb72f4cb9f8bd1993e6f0294e40b28e3e218f8c57fbfb75c99ca8b7fd309",
+    "dal-cpp/dal/math/pde/pdeoperators.hpp": "30103484df213b5d37f5543e5b98e3225893c297eac91a6f7d5cd63fd7608a8b",
+    "dal-cpp/dal/math/pde/sampledthetastep.cpp": "09ad57bd2add4cf8039837e8511b6d526b55034cd514340d73d5a9ad6dbb5e00",
+    "dal-cpp/dal/math/pde/sampledthetastep.hpp": "0f7f631d56d2ee02dd591d2853548600f9f3f2090f94db290472b0198a4e78ce",
+    "dal-cpp/dal/math/pde/sampledthetastepinternal.hpp": "f3d3bd3a1a77100d68d081d5c5c5da00a8a65994d672cc2c7cd785ad34831bb8",
+    "dal-cpp/dal/math/pde/sampledtridiagonal.cpp": "8c5208a36ec1b86b799d6d2af2e9cd4e79f0cbb7ca3e00b21dd528c6be641e43",
+    "dal-cpp/dal/math/pde/thetascheme.cpp": "284469a74510a2d386728d53e46f1269b3a164d6f672d5acd3eced1836ccf414",
+    "dal-cpp/dal/math/pde/thetascheme.hpp": "66e1b7fa1468ccb6f4543c6d49770a9ea7479bb589404b9307c81b27431bf88c"
+  },
+  "binaries": {
+    "build/s4/dal-cpp/libdal_cpp.so.1.0.0": {
+      "sha256": "6e4279ffd6b7ef31835951471eeba9bd68381e66e58c3f452ec7e7aef6f63dae",
+      "bytes": 22745464
+    },
+    "build/s4/dal-public/libdal_public.a": {
+      "sha256": "6802e1053138eb159fcbc74504d92f64455915ba0ffae1b878f2cf247e543155",
+      "bytes": 16749496
+    },
+    "build/s4/dal-public/dal_public_tests": {
+      "sha256": "8ed2d10aba9b82f76de4914df1118aff31bb81a7f97f9711f91217ef71ecab77",
+      "bytes": 11645352
+    },
+    "build/s4/dal-excel/dal_excel_portable_tests": {
+      "sha256": "90700449917d6e9abf1b444dce268162851faa4eaeeedcd5fdcceb14b507da0c",
+      "bytes": 13266088
+    },
+    "build/s4/dal-python/dal/_dal.cpython-313-x86_64-linux-gnu.so": {
+      "sha256": "14da01d395ed725cead2eb553455e89ba958216792df598251398c80c599c169",
+      "bytes": 11112880
+    },
+    "build/s4/dal-python/_dal_pde_risk_test.cpython-313-x86_64-linux-gnu.so": {
+      "sha256": "57273571e722aef83c4e2f2f58945bf82ad8db3f004a2af4f1217b5484dc47a3",
+      "bytes": 300056
+    },
+    "build/s4-core-only/dal-cpp/libdal_cpp.so.1.0.0": {
+      "sha256": "6e4279ffd6b7ef31835951471eeba9bd68381e66e58c3f452ec7e7aef6f63dae",
+      "bytes": 22745464
+    },
+    "build/s4-consumer/dal_installed_core_pde_risk": {
+      "sha256": "2ea5605c6de4597fac59f3f916af39a7885d95bdd97f8f5f318a0dc7004b5047",
+      "bytes": 17928
+    },
+    "build/s4-consumer/dal_installed_public_pde_risk": {
+      "sha256": "2ea5605c6de4597fac59f3f916af39a7885d95bdd97f8f5f318a0dc7004b5047",
+      "bytes": 17928
+    },
+    "../s4-stage/lib/libdal_cpp.so.1.0.0": {
+      "sha256": "6e4279ffd6b7ef31835951471eeba9bd68381e66e58c3f452ec7e7aef6f63dae",
+      "bytes": 22745464
+    },
+    "build/s4-core-only/dal-cpp/examples/methods/european_fd/european_fd": {
+      "sha256": "a2ff773e620fe92a7d0e3b67ae2e2daf2d276824d23c171e989908fb37bce581",
+      "bytes": 57160
+    },
+    "build/s4-core-only/dal-cpp/examples/methods/european_aad_fd/european_aad_fd": {
+      "sha256": "4e19947a2c0c39aeb530f5c11ad31489cffd14e55a673127d6cc201ee06623d1",
+      "bytes": 86376
+    }
+  },
+  "linkage": {
+    "build/s4/dal-excel/dal_excel_portable_tests": "linux-vdso.so.1 (0x00007ffefcd01000)\n\tlibgtest_main.so.1.16.0 => /home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib/build/s4/lib/libgtest_main.so.1.16.0 (0x00007f24ea53e000)\n\tlibdal_cpp.so.1.0.0 => /home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib/build/s4/dal-cpp/libdal_cpp.so.1.0.0 (0x00007f24e92db000)\n\tlibgtest.so.1.16.0 => /home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib/build/s4/lib/libgtest.so.1.16.0 (0x00007f24e9256000)\n\tlibstdc++.so.6 => /usr/lib/x86_64-linux-gnu/libstdc++.so.6 (0x00007f24e8faa000)\n\tlibm.so.6 => /usr/lib/x86_64-linux-gnu/libm.so.6 (0x00007f24e8e84000)\n\tlibgcc_s.so.1 => /usr/lib/x86_64-linux-gnu/libgcc_s.so.1 (0x00007f24e8e56000)\n\tlibc.so.6 => /usr/lib/x86_64-linux-gnu/libc.so.6 (0x00007f24e8c35000)\n\t/lib64/ld-linux-x86-64.so.2 (0x00007f24eafed000)",
+    "build/s4/dal-python/dal/_dal.cpython-313-x86_64-linux-gnu.so": "linux-vdso.so.1 (0x00007ffd06a58000)\n\tlibdal_cpp.so.1.0.0 => /home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib/build/s4/dal-cpp/libdal_cpp.so.1.0.0 (0x00007f9f0bbf0000)\n\tlibstdc++.so.6 => /usr/lib/x86_64-linux-gnu/libstdc++.so.6 (0x00007f9f0b946000)\n\tlibm.so.6 => /usr/lib/x86_64-linux-gnu/libm.so.6 (0x00007f9f0b820000)\n\tlibgcc_s.so.1 => /usr/lib/x86_64-linux-gnu/libgcc_s.so.1 (0x00007f9f0b7f0000)\n\tlibc.so.6 => /usr/lib/x86_64-linux-gnu/libc.so.6 (0x00007f9f0b5cf000)\n\t/lib64/ld-linux-x86-64.so.2 (0x00007f9f0d8ef000)",
+    "build/s4/dal-python/_dal_pde_risk_test.cpython-313-x86_64-linux-gnu.so": "linux-vdso.so.1 (0x00007fff425df000)\n\tlibdal_cpp.so.1.0.0 => /home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib/build/s4/dal-cpp/libdal_cpp.so.1.0.0 (0x00007f369f371000)\n\tlibstdc++.so.6 => /usr/lib/x86_64-linux-gnu/libstdc++.so.6 (0x00007f369f0c7000)\n\tlibgcc_s.so.1 => /usr/lib/x86_64-linux-gnu/libgcc_s.so.1 (0x00007f369f099000)\n\tlibc.so.6 => /usr/lib/x86_64-linux-gnu/libc.so.6 (0x00007f369ee78000)\n\t/lib64/ld-linux-x86-64.so.2 (0x00007f36a0614000)\n\tlibm.so.6 => /usr/lib/x86_64-linux-gnu/libm.so.6 (0x00007f369ed50000)",
+    "build/s4-consumer/dal_installed_public_pde_risk": "linux-vdso.so.1 (0x00007ffdcdbf4000)\n\tlibdal_cpp.so.1.0.0 => /home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/s4-stage/lib/libdal_cpp.so.1.0.0 (0x00007fb752081000)\n\tlibstdc++.so.6 => /usr/lib/x86_64-linux-gnu/libstdc++.so.6 (0x00007fb751dd7000)\n\tlibgcc_s.so.1 => /usr/lib/x86_64-linux-gnu/libgcc_s.so.1 (0x00007fb751da9000)\n\tlibc.so.6 => /usr/lib/x86_64-linux-gnu/libc.so.6 (0x00007fb751b88000)\n\tlibm.so.6 => /usr/lib/x86_64-linux-gnu/libm.so.6 (0x00007fb751a60000)\n\t/lib64/ld-linux-x86-64.so.2 (0x00007fb7532eb000)"
+  },
+  "results": {
+    "python_selected": {
+      "passed": 130,
+      "failed": 0,
+      "skipped": 0
+    },
+    "ctest_projection_and_price": {
+      "passed": 17,
+      "failed": 0
+    },
+    "standalone_core_examples": {
+      "passed": 2,
+      "failed": 0
+    },
+    "installed_pde_consumers": {
+      "passed": 2,
+      "failed": 0
+    },
+    "generated": "PASS",
+    "windows_msvc_xll": "NOT_EXECUTED",
+    "s5_performance_and_full_examples": "NOT_EXECUTED"
+  }
+}

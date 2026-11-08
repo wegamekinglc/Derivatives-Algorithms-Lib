@@ -4,14 +4,16 @@ Status: active, frozen for schema version 1. Core C++ fixed-plan repricing is
 implemented; S3 numerical qualification is **12 PASS / 0 FAIL / 0 INCOMPLETE**
 under the explicit bounded BBS adoption. The
 [final S3 entry](../validation/dal-502-pde-risk-final.md) binds its evidence
-and limits. Public-facade/Python/Excel risk projections and S5 release acceptance
-remain pending. Audience: core/public C++ implementers, Python and
+and limits. Public-facade/Python/Excel risk projections are implemented in S4;
+Windows XLL evidence, S4 review and S5 release acceptance remain pending.
+Audience: core/public C++ implementers, Python and
 Excel binding authors, independent numerical testers and risk consumers.
 The [R1–R11 contract](../specs/dal-497-early-exercise-pde-risk.md) owns semantics;
 the [acceptance contract](../specs/dal-497-pde-risk-acceptance.md) owns fixed
 fixtures and thresholds. This decision owns names, types, field order and
-three-end projections. Core declarations are implemented; the other projections
-remain proposed. The [published guide](../../../docs/methodology/pde/early-exercise.md#owning-core-risk-request)
+three-end projections. The [S4 evidence](../validation/dal-503-pde-risk-bindings.md)
+records projection checks and remaining environment gaps.
+The [published guide](../../../docs/methodology/pde/early-exercise.md#owning-core-risk-request)
 owns current calling and availability guidance.
 
 ## Design baseline and decision
@@ -42,7 +44,7 @@ DV01. Active-set/implicit AAD remains a later design.
 Core declarations are in `dal-cpp/dal/math/pde/earlyexercisepderisk.hpp`.
 Numerical types live in `Dal::PDE`. Machinist enum classes live in `Dal` like
 the existing price enums; never handwritten enum classes. Public header
-proposed `dal-public/src/earlyexercisepderisk.hpp` aliases every numerical type
+`dal-public/src/earlyexercisepderisk.hpp` aliases every numerical type
 and all three validation/evaluation functions below into `Dal`. Existing price
 types are used directly, not wrapped in a second incompatible definition.
 

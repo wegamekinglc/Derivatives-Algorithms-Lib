@@ -367,3 +367,39 @@ Independent financial/refinement qualification covers fixed fixtures, bump
 scales and refinement levels. It does not establish a rigorous continuous-model
 error bound or qualification for arbitrary inputs. The deterministic core checks
 and numerical qualification do not establish cross-interface or release acceptance.
+
+### Public, Python and Excel Risk Projections
+
+The public C++ header `dal-public/src/earlyexercisepderisk.hpp` exports the
+same owning types and validation/evaluation functions into `Dal`; it adds no
+second pricing implementation. Link public consumers against `DAL::public`.
+
+Python accepts `EarlyExercisePdeRiskRequest_(valuation, *, risk=None)`, where
+`valuation` is an existing price request and `risk` is optional typed
+`EarlyExercisePdeRiskSettings_`. All settings arguments are keyword-only.
+Evaluate with `EarlyExercisePdeRiskResult_New(request)`. Read `price_available`
+before `price`, and inspect each `risks` row's `status`, `value`, `unit`
+and `interpretation`. `risk_value("Gamma")` raises if unavailable; it does
+not turn absence into zero. Numbers reject Boolean and enum coercion, counts
+require nonnegative integers, and bump vectors require lists or tuples of
+positive finite numbers. Results support copy/deepcopy; nested records and
+lists detach on access and their properties are readonly. Native evaluation
+releases the GIL after copying inputs and preserves the caller's AAD tape.
+
+Excel adds `EARLYEXERCISEPDERISKSETTINGS.NEW`,
+`EARLYEXERCISEPDERISKREQUEST.NEW` and `EARLYEXERCISEPDERISKRESULT.NEW`.
+Settings take headerless canonical snake_case key/value rows and optional
+headerless rate/yield bump columns. An entirely blank bump column defaults
+that family; a hole in a populated column is invalid. The request copies an
+existing price-request handle and optional risk-settings handle. Result
+`GET.SUMMARY`, `GET.PLAN`, `GET.RISKS`, `GET.STENCILS`,
+`GET.SCENARIOS` and `GET.EXECUTION` expose the shared schema and cumulative
+resource account; separate grid, time-grid, step and origin getters expose
+the plan arrays. Unavailable optionals are blank and scalar getters raise
+Error text. Handle getters return detached anonymous objects. Malformed
+input/preflight rejection preserves an existing output handle; numerical
+failure creates an inspectable result. Risk handles cannot be archived.
+
+These projections preserve native market-parameter partials and finite-scale
+Gamma interpretation. Portable binding tests do not establish Windows XLL
+registration or worksheet acceptance.

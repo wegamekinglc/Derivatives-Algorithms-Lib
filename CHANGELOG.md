@@ -28,7 +28,9 @@ Only add a heading when a qualifying change ships. Do not create empty future he
 - Add owning core C++ early-exercise PDE risk on a shared fixed numerical plan:
   Delta, finite-scale Gamma, Vega and native carry partials, with per-risk
   unavailability, passive caller-tape preservation and cumulative work/storage
-  budgets. Public-facade/Python/Excel projections remain pending. See the
+  budgets. Public C++ aliases, strict owning Python bindings and Excel
+  risk handles/tables project the same records, with detached getters and
+  cumulative resource diagnostics. See the
   [risk contract](docs/methodology/pde/early-exercise.md#owning-core-risk-request).
 
 ## 2026-11-07
