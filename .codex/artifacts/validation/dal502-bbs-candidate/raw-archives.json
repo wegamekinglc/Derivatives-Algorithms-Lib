@@ -1,0 +1,336 @@
+{
+  "archive": "dal502-bbs-candidate.tar.gz",
+  "sha256": "41cf687928201e0189a95a77d6c9a1d48359521a70d31c8adc156674776e6098",
+  "bytes": 525020,
+  "members": {
+    "build/dal502-bbs-candidate/audit.log": {
+      "sha256": "bc5ac173da8493c95c0676e7109a49806afc28c4b5978f8167dcefa08ebd679a",
+      "bytes": 805
+    },
+    "build/dal502-bbs-candidate/complexity.log": {
+      "sha256": "fb36f3ecc0b423ba3fe95696da971dd468968d0fc8d47b8e032cb59a6c1cea54",
+      "bytes": 6456
+    },
+    "build/dal502-bbs-candidate/data/all-raw.json": {
+      "sha256": "47a3c3659d67d28dd06e456f0ab2b65b48c030f4be9bdf191ce7c45452572d70",
+      "bytes": 465926
+    },
+    "build/dal502-bbs-candidate/data/execution.json": {
+      "sha256": "23cce11292a4177dbb738cb403b78e1e6b078153b88af0f43aafaf5bae1c83a9",
+      "bytes": 56943
+    },
+    "build/dal502-bbs-candidate/data/prices-0.jsonl": {
+      "sha256": "470c59b4fdd88c18e66fdf95d40bae45e143504dcc1daf17fa3b8f1340a30ad6",
+      "bytes": 26582
+    },
+    "build/dal502-bbs-candidate/data/prices-0.jsonl.results.jsonl": {
+      "sha256": "9a736a64218f1bff6377619148a560ff0d1d2cddd6445aa31ee3f0c084063260",
+      "bytes": 28669
+    },
+    "build/dal502-bbs-candidate/data/prices-0.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "build/dal502-bbs-candidate/data/prices-1.jsonl": {
+      "sha256": "978d172129bdae6ba403e2c299dab075e92757e558e369bc134a8b207e59a6c6",
+      "bytes": 26502
+    },
+    "build/dal502-bbs-candidate/data/prices-1.jsonl.results.jsonl": {
+      "sha256": "1dafc42c8ce386353ab11dda3790fe6ea8ce2258bd2de0bae73d3a0b9d471477",
+      "bytes": 28663
+    },
+    "build/dal502-bbs-candidate/data/prices-1.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "build/dal502-bbs-candidate/data/prices-2.jsonl": {
+      "sha256": "0605f1c91c75f30ecc71f12086629861a67bb1fd25724c0137631875f2fd443d",
+      "bytes": 26696
+    },
+    "build/dal502-bbs-candidate/data/prices-2.jsonl.results.jsonl": {
+      "sha256": "21019bfd55c55fde086138d48642e059b051c4f28ee0d044cf49b2566fe2822c",
+      "bytes": 28666
+    },
+    "build/dal502-bbs-candidate/data/prices-2.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "build/dal502-bbs-candidate/data/prices-3.jsonl": {
+      "sha256": "673c7f2b0621227612080fc8668f26395366704862d4ecc5e80c0c3c8b62ce55",
+      "bytes": 26561
+    },
+    "build/dal502-bbs-candidate/data/prices-3.jsonl.results.jsonl": {
+      "sha256": "62b5af022233d974508176a95125083501367bba787885023809e54d69b8a3d7",
+      "bytes": 28665
+    },
+    "build/dal502-bbs-candidate/data/prices-3.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "build/dal502-bbs-candidate/data/prices-4.jsonl": {
+      "sha256": "d2b32685cdf31f59bab92d02b394f4348ab0177cb5af7200d62fd2636de4f17f",
+      "bytes": 27372
+    },
+    "build/dal502-bbs-candidate/data/prices-4.jsonl.results.jsonl": {
+      "sha256": "db66d36a13dec6d2008aec98c833ab3194a3d37d83b4a1af82119a251f633c38",
+      "bytes": 29473
+    },
+    "build/dal502-bbs-candidate/data/prices-4.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "build/dal502-bbs-candidate/data/prices-5.jsonl": {
+      "sha256": "ad4a626c9802bb08fba1f76d79059183996b700501716c8bf8dbbbc215c06141",
+      "bytes": 27296
+    },
+    "build/dal502-bbs-candidate/data/prices-5.jsonl.results.jsonl": {
+      "sha256": "0be9c0bf630abec8f241d3f3d4a0c483a58b18718d57eaad27c1563426fd5a91",
+      "bytes": 29487
+    },
+    "build/dal502-bbs-candidate/data/prices-5.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "build/dal502-bbs-candidate/data/prices-6.jsonl": {
+      "sha256": "94b8e45e374c52db078bcafafc7a58b0309811c14497387201560772e34ab855",
+      "bytes": 27337
+    },
+    "build/dal502-bbs-candidate/data/prices-6.jsonl.results.jsonl": {
+      "sha256": "65dfa53e86f3ea31b38f89e0600391331598c0ad5a68f7e05277899eb6a23784",
+      "bytes": 29487
+    },
+    "build/dal502-bbs-candidate/data/prices-6.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "build/dal502-bbs-candidate/data/prices-7.jsonl": {
+      "sha256": "f656da1f9b3d2d454a48ad30ed4ea9094122a126ad92f4391c9bb6618b0d382b",
+      "bytes": 27321
+    },
+    "build/dal502-bbs-candidate/data/prices-7.jsonl.results.jsonl": {
+      "sha256": "6be9c8cc14fc52246d979c4e5c8adf08208f9c95d464e65eb9d08763fe10bcdb",
+      "bytes": 29487
+    },
+    "build/dal502-bbs-candidate/data/prices-7.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "build/dal502-bbs-candidate/data/prices-8.jsonl": {
+      "sha256": "37e9f3aef3ad5f0961fbd9696831cd9ad388ace7a431269758d7bab011051769",
+      "bytes": 26625
+    },
+    "build/dal502-bbs-candidate/data/prices-8.jsonl.results.jsonl": {
+      "sha256": "2c266f9e2362d1ca58a29de362839e402c4a7e5f23754840eb246a6cd8339bdc",
+      "bytes": 28667
+    },
+    "build/dal502-bbs-candidate/data/prices-8.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "build/dal502-bbs-candidate/data/prices-9.jsonl": {
+      "sha256": "778cb88d89ca10b59850fa565ac3332175e18362255f4c6f73a3208b819fb700",
+      "bytes": 26560
+    },
+    "build/dal502-bbs-candidate/data/prices-9.jsonl.results.jsonl": {
+      "sha256": "5d9d500cf40e5413b1a48adb599d99e09c65a1dcdc10705328ce54ced8ee95e9",
+      "bytes": 28637
+    },
+    "build/dal502-bbs-candidate/data/prices-9.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "build/dal502-bbs-candidate/data/products-candidate.json": {
+      "sha256": "bc79039863c9cf4f32e331b043a24ff47f244f9080c8f3c23212d5a9699a8778",
+      "bytes": 457440
+    },
+    "build/dal502-bbs-candidate/data/result-qualified.json": {
+      "sha256": "c2d9e2878cb1781c1f69448a6c4dfa62ea552a03f3fa1f892765d00fd587cb8e",
+      "bytes": 118376
+    },
+    "build/dal502-bbs-candidate/data/result.json": {
+      "sha256": "4404ddd55865e4002beb9f1b40b463da7c06a164186ed5b515e5017f23f93730",
+      "bytes": 118362
+    },
+    "build/dal502-bbs-candidate/evidence-records/analysis-correction.json": {
+      "sha256": "17844b34a87ad47935a1b29ee5e8975632c73f1eafd2055a304eb24f99b4cf98",
+      "bytes": 7094
+    },
+    "build/dal502-bbs-candidate/evidence-records/binding-summary.json": {
+      "sha256": "c448338431344e2a9c3971365f389aff78c146d9e9ade0cf7c1cb6e94cf046ff",
+      "bytes": 5814
+    },
+    "build/dal502-bbs-candidate/evidence-records/execution.json": {
+      "sha256": "23cce11292a4177dbb738cb403b78e1e6b078153b88af0f43aafaf5bae1c83a9",
+      "bytes": 56943
+    },
+    "build/dal502-bbs-candidate/evidence-records/final-source-replay.json": {
+      "sha256": "aa176683642b3222c899713e1f002596786faf6ddfb5fd12c3d03f6d61e920e1",
+      "bytes": 287
+    },
+    "build/dal502-bbs-candidate/evidence-records/first-analysis.json": {
+      "sha256": "4404ddd55865e4002beb9f1b40b463da7c06a164186ed5b515e5017f23f93730",
+      "bytes": 118362
+    },
+    "build/dal502-bbs-candidate/evidence-records/identity.json": {
+      "sha256": "572c9a0ddd33a7e2498d3726ebe0775e3bef90469d13aef4e540533c80541576",
+      "bytes": 35359
+    },
+    "build/dal502-bbs-candidate/evidence-records/local-checks.json": {
+      "sha256": "8e61308552777b0fd17f544281e9251eb41ed88319419b767eaef366a8bb9e2f",
+      "bytes": 589
+    },
+    "build/dal502-bbs-candidate/evidence-records/plan.json": {
+      "sha256": "6cafbf7845d250c19e4c902501162bcc3a382926557b14d9481979afc21d0449",
+      "bytes": 963535
+    },
+    "build/dal502-bbs-candidate/evidence-records/prior-review.json": {
+      "sha256": "ca74d7fff8dc28290018815766bdefacb9779bd335e2dcca0a10008fe0a7d252",
+      "bytes": 270
+    },
+    "build/dal502-bbs-candidate/evidence-records/products-candidate.json": {
+      "sha256": "bc79039863c9cf4f32e331b043a24ff47f244f9080c8f3c23212d5a9699a8778",
+      "bytes": 457440
+    },
+    "build/dal502-bbs-candidate/evidence-records/resources.json": {
+      "sha256": "f28d06ff209aaccfcecca9adba75194d2579dfc3c3b4364304e96e5e38420f3f",
+      "bytes": 1114
+    },
+    "build/dal502-bbs-candidate/evidence-records/result-qualified.json": {
+      "sha256": "c2d9e2878cb1781c1f69448a6c4dfa62ea552a03f3fa1f892765d00fd587cb8e",
+      "bytes": 118376
+    },
+    "build/dal502-bbs-candidate/execution-contract.md": {
+      "sha256": "ae47b44c72dce155e31a0a558985a93b86ac55c5a1f691d94a8f7c2d20d89b99",
+      "bytes": 45646
+    },
+    "build/dal502-bbs-candidate/execution-tools/bbscandidate.py": {
+      "sha256": "402899d22919e3f8ef3ad648ddac30d38cb55a2b7c905036820409c480465c01",
+      "bytes": 9124
+    },
+    "build/dal502-bbs-candidate/execution-tools/bbscandidate_run.py": {
+      "sha256": "3cb03a1b24d764d42e58449e98e85a206e10c8c5a31b57e0249d03252e12bcc5",
+      "bytes": 10369
+    },
+    "build/dal502-bbs-candidate/execution-tools/test_bbscandidate.py": {
+      "sha256": "86afa9c836bad5b91076fe57f501946909c3e9d80720e5929307db7f2592f82c",
+      "bytes": 3684
+    },
+    "build/dal502-bbs-candidate/execution.log": {
+      "sha256": "aff4aaf366d628fdc10a1a9728be833f07d4f2b4a2c53b2723bb80fd85d5b758",
+      "bytes": 806
+    },
+    "build/dal502-bbs-candidate/final-tools/audit.py": {
+      "sha256": "fa26e458d48ce83dd5f60af34401f3ee6df5ea1b24c052a8a49ab25c96212b32",
+      "bytes": 14067
+    },
+    "build/dal502-bbs-candidate/final-tools/batchplan.py": {
+      "sha256": "f57eea3deb8d02e2276621bea339b8b0d37e14e693d1ee9559262984138436e6",
+      "bytes": 4797
+    },
+    "build/dal502-bbs-candidate/final-tools/bbscandidate.py": {
+      "sha256": "a1f7e9ab46f0952f47111de7290d1e8de0a5007653755127983d7ab2f7b338c1",
+      "bytes": 9460
+    },
+    "build/dal502-bbs-candidate/final-tools/bbscandidate_products.py": {
+      "sha256": "4209ec4d63eb521ab3711b092493c806275553abcaa0ac8289c5674e26827a04",
+      "bytes": 10047
+    },
+    "build/dal502-bbs-candidate/final-tools/bbscandidate_run.py": {
+      "sha256": "43f080ac5b7ffd2d276f2b561d2b22a4aa31318208b1fa9c258d270334f02a91",
+      "bytes": 11313
+    },
+    "build/dal502-bbs-candidate/final-tools/bbsplan.py": {
+      "sha256": "b6cd108ca9e337801f778dae9b6e29b7d16d90a08b38dc32e5d2af86c0d4ba6c",
+      "bytes": 6944
+    },
+    "build/dal502-bbs-candidate/final-tools/bbsverify.py": {
+      "sha256": "ab80cd073ae4c62d8aba8d03ac7aedd0c050046e61a6008b5ac15958798d9cbe",
+      "bytes": 10474
+    },
+    "build/dal502-bbs-candidate/final-tools/campaign.py": {
+      "sha256": "054baa8a8e8f96ec1204896cf659b376ab1b388beff2b6893ef0b6202b9cc56c",
+      "bytes": 12357
+    },
+    "build/dal502-bbs-candidate/final-tools/fixtures.py": {
+      "sha256": "63b81a14493c4e5f64530f7c729eb83b57273d3c0dd6e05bf08bed2c22e830bc",
+      "bytes": 6963
+    },
+    "build/dal502-bbs-candidate/final-tools/qualify.py": {
+      "sha256": "0edbdd969f57daee8ac062490aa34ffd4a050e6253438b917eaa7b93d6706223",
+      "bytes": 6957
+    },
+    "build/dal502-bbs-candidate/final-tools/referenceplan.py": {
+      "sha256": "07a1ab6f80cb9d8c568a33433391cf8c5383fdaa84eabf5e5c94ae665d854bb6",
+      "bytes": 3705
+    },
+    "build/dal502-bbs-candidate/final-tools/test_bbscandidate.py": {
+      "sha256": "08b6fddbc818b1968005e81127d865ea53fc200400e103ab39ad57c3180015dd",
+      "bytes": 4780
+    },
+    "build/dal502-bbs-candidate/producer/CMakeCache.txt": {
+      "sha256": "4eea84d21d1e98de6afafec079ba56eeafcfc6bbbe2ad92106b3efdfa3bad9f9",
+      "bytes": 13766
+    },
+    "build/dal502-bbs-candidate/producer/CMakeLists.txt": {
+      "sha256": "bf71be6381e799e0056a683d98204bf4b6cf342263fa961a7841b31f75887690",
+      "bytes": 1723
+    },
+    "build/dal502-bbs-candidate/producer/bbs.hpp": {
+      "sha256": "748b35652a8fb0ef9d4a20d3c9832dab1708d55816840e8269feb5d1f8500955",
+      "bytes": 6480
+    },
+    "build/dal502-bbs-candidate/producer/bbs_driver.cpp": {
+      "sha256": "93ecd2e623bb0122a203af29c5309e90b3e266ff8b4de8d1c19aa1779253dceb",
+      "bytes": 5739
+    },
+    "build/dal502-bbs-candidate/producer/compile_commands.json": {
+      "sha256": "d9b4482847e7be093ff51c987fdd4f8e24d7525ef7164c7e7bb5fcfe0dd45943",
+      "bytes": 4781
+    },
+    "build/dal502-bbs-candidate/producer/dal502_bbs": {
+      "sha256": "f6a72ce4dc17ac5bd62562ff33e73a21db4cac94aae0e36d5ff26a4bf5b8b518",
+      "bytes": 77864
+    },
+    "build/dal502-bbs-candidate/producer/reference.hpp": {
+      "sha256": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+      "bytes": 11792
+    },
+    "build/dal502-bbs-candidate/products-red.log": {
+      "sha256": "5a842532061cf4e1005f15708e49878f27a4340c9e04d5051997602f41f8b276",
+      "bytes": 1046
+    },
+    "build/dal502-bbs-candidate/scales-green.log": {
+      "sha256": "e8fbbcedca042af8c345718aebe20dc8a70e20081ad79d11f95d69aceb1c2cc8",
+      "bytes": 104
+    },
+    "build/dal502-bbs-candidate/scales-red.log": {
+      "sha256": "e9556fabc030ea349218bacc6212d67a52841b11821d0418cdf48f7a0632c432",
+      "bytes": 1410
+    },
+    "build/dal502-bbs-candidate/semgrep.json": {
+      "sha256": "8acb5eb8e87e61ade84d60e3517988ec6ff3ea99228e243543a964a2269fb39f",
+      "bytes": 1633
+    },
+    "build/dal502-bbs-candidate/semgrep.log": {
+      "sha256": "0f80f447978450b5e14e22de2b54b25742861a2027b714425b15599d2a4d7eca",
+      "bytes": 886
+    },
+    "build/dal502-bbs-candidate/tests-final.log": {
+      "sha256": "b896ec92bef469338ebf5e6ce5c1d48adaac4acf693e80b6e5c5d8aef366f633",
+      "bytes": 105
+    },
+    "build/dal502-bbs-candidate/tests-green.log": {
+      "sha256": "3482044e398953e598477174c7b2d2b6525d3a9515a60000ea89c44f8e7edf7c",
+      "bytes": 103
+    },
+    "build/dal502-bbs-candidate/tests-red.log": {
+      "sha256": "e6eb37b3421e190e6ca173ec88b510eaf599980659ede00531bebab48f3c9b55",
+      "bytes": 1065
+    }
+  },
+  "member_count": 81,
+  "payload_bytes": 3848234,
+  "archive_tree_bs_evaluations": 0,
+  "extract_from_repository_root": true,
+  "original_product_raw": "prior immutable DAL-502 followup and American-direction archives; exact input/output hashes recorded in identity"
+}

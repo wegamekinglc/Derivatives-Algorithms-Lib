@@ -180,7 +180,8 @@ The facade remains price-only. Core C++ additionally provides
 full-repricing Delta, finite-scale Gamma, Vega and native carry partials.
 See the [core risk contract](methodology/pde/early-exercise.md#owning-core-risk-request)
 for availability, units and cumulative budgets. Public-facade, Python and Excel
-risk projections and full independent numerical qualification remain pending.
+risk projections remain pending. Numerical qualification is limited to fixed
+fixtures, bump scales and refinement levels.
 Neither interface adds local volatility. See the
 [method and result contract](methodology/pde/early-exercise.md), and the
 [Python](python/README.md#bermudan-and-american-pde-pricing) /

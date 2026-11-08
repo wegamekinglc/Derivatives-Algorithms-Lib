@@ -1,8 +1,11 @@
 # DAL-497 owning PDE risk API decision
 
 Status: active, frozen for schema version 1. Core C++ fixed-plan repricing is
-implemented; public-facade/Python/Excel risk projections and full independent
-numerical qualification remain pending. Audience: core/public C++ implementers, Python and
+implemented; S3 numerical qualification is **12 PASS / 0 FAIL / 0 INCOMPLETE**
+under the explicit bounded BBS adoption. The
+[final S3 entry](../validation/dal-502-pde-risk-final.md) binds its evidence
+and limits. Public-facade/Python/Excel risk projections and S5 release acceptance
+remain pending. Audience: core/public C++ implementers, Python and
 Excel binding authors, independent numerical testers and risk consumers.
 The [R1–R11 contract](../specs/dal-497-early-exercise-pde-risk.md) owns semantics;
 the [acceptance contract](../specs/dal-497-pde-risk-acceptance.md) owns fixed
@@ -449,8 +452,10 @@ required and limit. Partial results always preserve readable records and failure
 
 No blocking public-interface choice remains for S1. All method/availability,
 default, schema, unit, budget and acceptance choices above are frozen. Windows
-XLL availability and independent reference convergence are later evidence
-dependencies, not permission to weaken the schema or claim acceptance.
+XLL availability, projection checks and S5 delivery remain evidence dependencies.
+S3 reference admission is resolved for the reviewed fixed fixtures/scales/levels;
+it does not qualify arbitrary inputs or the pending release exits.
 Any failed smooth qualification or unavoidable old-price incompatibility must
 return to DAL-497 with concrete evidence for an explicit decision. Keep the
-current published price documentation until the implemented surfaces exist.
+published core price/risk guidance current; document the other projections
+only when their implemented surfaces exist.

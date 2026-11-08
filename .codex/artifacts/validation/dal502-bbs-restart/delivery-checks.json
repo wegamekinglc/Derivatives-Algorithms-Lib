@@ -1,0 +1,20 @@
+{
+  "baseline": "8c90d53bd7eb5630554698e346b474ce5b710e39",
+  "source_test_build_diff_empty": true,
+  "production_core_sha256": "7317377c982fd132c20bc8f74634feeb0ad422aa8d1d9dd424deb41077daa125",
+  "historical_artifact_diff_empty": true,
+  "all_writes": "active reference resource control and new restart evidence only",
+  "docs": {
+    "command": "python .github/scripts/check_docs.py",
+    "result": "PASS",
+    "markdown_files": 132
+  },
+  "whitespace": "PASS",
+  "new_tests": 0,
+  "existing_test_reruns": 0,
+  "new_builds": 0,
+  "ledger_arithmetic": "PASS",
+  "raw_native_vector_reconstruction": "PASS",
+  "numeric_children_remaining": 0,
+  "review": "fixed-source method/repair Approved; new controls/evidence await targeted review"
+}

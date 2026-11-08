@@ -1,10 +1,16 @@
 # DAL-497 fixed acceptance fixtures and performance gates
 
-Status: active S0 acceptance contract, version 1. All product checks below
-are **NOT EXECUTED** at S0. These are requirements, not measured results.
-Core risk implementation now has deterministic coverage in
-`dal-cpp/tests/math/pde/test_early_exercise_pde_risk.cpp`; it does not complete
-this independent financial/refinement and cross-interface qualification matrix.
+Status: active acceptance contract, version 1, with explicit bounded-reference
+decisions below. S0 froze requirements without executing product checks.
+S3 now qualifies N1–N12 as **12 PASS / 0 FAIL / 0 INCOMPLETE** under the
+[final reference adoption](#adopted-bounded-bbs-tree-reference-dal-502).
+The [final qualification entry](../validation/dal-502-pde-risk-final.md)
+owns the applicable evidence and remaining S4/S5 gates. Requirements below
+do not by themselves establish binding, performance or release acceptance.
+Core deterministic coverage in
+`dal-cpp/tests/math/pde/test_early_exercise_pde_risk.cpp` is distinct from
+the accepted independent financial/refinement evidence and does not complete
+the pending cross-interface qualification matrix.
 Read together with the [R1–R11 contract](dal-497-early-exercise-pde-risk.md)
 and [API schema](../api-notes/dal-497-early-exercise-pde-risk.md).
 Source baseline is `4e9eb5eb7cae770826e6f4e0a05aeb9bf4c4c44e`.
@@ -140,6 +146,276 @@ piecewise smooth stress. Shared `dal-cpp/test-support/bermudan_pde.hpp` may
 cross-check but cannot be the sole independent oracle. Fixed reference levels
 that fail self-qualification stop that qualification; expansion requires
 recorded evidence and an explicit follow-up decision, not a hidden retry.
+The original pure-CRR construction above and the bounded decisions below
+retain their checkpoint scopes. The final BBS adoption below controls current
+TREE admission for its explicitly enumerated bindings only.
+
+### Approved bounded TREE continuation (DAL-502)
+
+Coordinator decision `01a1b884-3818-7d26-bb9a-2493636a2df9` authorizes an
+append-only continuation after the original TREE INCOMPLETE result. Keep all
+4096/8192/16384 evidence. Append paired 32768/32769 and 65536/65537 in order;
+both are mandatory. If the latest level still fails self-qualification, only
+131072/131073 may follow, then stop. No favorable intermediate level/parity
+selection, smoothing, replacement oracle, fixture change or threshold change.
+
+The independent reference budget is cumulative 3e12 TREE terminal/rollback
+node calculations, at most four workers, RSS 128 MiB per worker / 512 MiB
+total, raw output 64 MiB and wall time 90 minutes. A tree with n steps costs
+(n+1)(n+2)/2 nodes. Charge every actual cache miss, including equivalence
+witnesses and missing old-level scales; do not reset the budget per stage.
+Product Q/C/L caps remain unchanged. Cache identities include physical inputs,
+axis, absolute offset, n/parity, source, configuration and executable. Reuse of
+an older identity needs an explicit recorded equivalence bridge, preserving
+the original result's source identity.
+
+Each actual product coarse/fine/extra-half triple needs its own full-vector
+self-qualification, including Vega. At the latest layer, all three raw parity
+differences, the last adjacent pair-mean refinement and fine/extra-half
+difference must be strictly below the original quarter limits before a product
+comparison can pass. Missing/nonfinite rows, any exhausted resource budget or
+failure at the maximum level remain INCOMPLETE with the raw data retained.
+No further layer or budget increase is implicit in this decision.
+
+### Approved BBS diagnostic pilot (DAL-502)
+
+Decision `01a1b8ef-6fc2-7ebd-bda6-d984fc11b161`, after the direction/P2
+delivery `d96a89e8d438eb06c69ac3a4b1884ce64b286099`, permits one opt-in
+`BBS-last-step-v1` diagnostic. Preserve CRR u/d/p and discount. At layer n-1,
+initialize each node with independent scalar European BS for remaining dt,
+then max with intrinsic for American; apply the usual American obstacle in
+all remaining rollback layers. European controls omit the obstacle. No
+Richardson, new pure-CRR run, production change or old-price identity bridge.
+The original CRR implementation, values, maximum and INCOMPLETE stand.
+
+The method follows the penultimate-node construction in
+[Chung--Shackleton (2002), pp.145,149](https://scholars.lib.ntu.edu.tw/bitstreams/7e27fcda-7bd5-4c3d-baff-5e2dcfff545e/download).
+That study evaluates European Greeks; it does not qualify these American
+fixtures. This is not authorization to replace mandatory S3 TREE evidence.
+
+Freeze before any new numerical execution: K=100, sigma=.2, T=365/365,
+r=.05 throughout. Pilot markets are N3 S=100 American PUT q=0 and CALL q=.08.
+Use spots 100, 100±1, 100±.5, 100±.25 independently at n=4096/4097,
+8192/8193,16384/16385 (84 jobs). European price controls use the same two
+markets with American disabled at those six n (12 jobs), checked against
+independent Python scalar BS with normalized price error strictly <2.5e-5.
+
+Freeze formula witnesses: n=1 American PUT S=100 and S=50, American CALL
+S=150 q=.08, European PUT S=50 and CALL S=150 q=.08; n=2 American PUT/CALL
+at S=50/150 respectively and both at S=100 (nine jobs). One-layer values
+must match max(intrinsic, scalar BS(T)) for American and scalar BS(T) for
+European. Two-layer values must match the explicit discounted u/d weighted
+penultimate formula followed by the root obstacle. Normalized formula
+difference <=1e-12. Preserve terminal/root exercise witnesses, and positive
+premium/strict continuation for each unbumped pilot price at every n.
+
+Freeze eight expected-failure witnesses: n=0, n=16386; n=1 spot=0, vol=0,
+two carry segments, invalid probability (vol=.01,r=1), expired deadline=1;
+n=2 CALL spot=1.75e308 for a nonfinite penultimate spot. Other parameters
+are the PUT pilot defaults except that CALL uses q=.08. Expected failures
+publish no price and retain partial operation counts; they cannot supply
+reference values. Unexpected errors/nonfinite/missing results stop admission.
+
+New limits: 6e9 conservatively charged nodes, 2e6 BS evaluations (including
+scalar verification), four workers, RSS128 MiB each/512 MiB total, raw64 MiB,
+numerical wall600 s. Charge (n+1)(n+2)/2 for each valid-range tree invocation
+and reserve n terminal BS calls, including early-failure witnesses; invalid-n
+preflight witnesses cost zero. Also record actual visited nodes/BS calls.
+Reserve 100 scalar verification calls and count each actual call. The fixed
+native plan reserves 5,638,979,836 nodes and 917,572 BS calls; no native
+pricing occurs outside it. Compile-only tests cost zero. Old consumed work
+2,997,881,833,992 remains separate and immutable: total upper bound
+3,003,881,833,992. No old residual allocation may restart pure CRR.
+
+At the final 16384 pair, all three scales' normalized price/Delta/K*Gamma
+raw parity and last adjacent pair-mean mesh differences, plus fine to
+extra-half differences, must be strictly below [2.5e-5,5e-4,5e-3]. Preserve
+both raw members, fixed arithmetic means and every level. Any resource
+exhaustion or final lack of self-qualification is INCOMPLETE and stops this
+pilot without another level or favorable intermediate selection. Witness
+failure is FAIL and prevents admission. PASS establishes pilot feasibility
+only; full risk vectors/all bindings and S3 substitution need another decision.
+
+### Approved bounded BBS initialization repair (DAL-502)
+
+Decision `01a1b92b-3d68-7e7e-bfd4-db090418b92d` temporarily releases the
+failed-pilot stop solely for initialization diagnosis, private scalar arithmetic
+repair, error detail and focused regressions, starting from `e0e4c275`.
+Replay only the three saved rejected initialization prefixes or their scalar
+nodes and fixed neighboring/normal witnesses. Recover actual spot/dt,
+d1/d2, probability/discount terms and rejected values before choosing a repair;
+use independent high-precision scalar checks. Preserve finite/nonnegative
+admission; any zero from underflow requires a representability proof.
+
+Additional limits for this batch, including diagnosis and every failed attempt:
+1,000,000 visited/charged initialization nodes, 100,000 BS evaluations,
+60 seconds cumulative numerical execution, at most two workers. Existing
+128 MiB per-worker / 512 MiB aggregate RSS and 64 MiB total raw-output caps
+remain. Maintain an append-only batch ledger and the original BBS totals:
+3,230,701,750 conservatively charged nodes / 3,028,789,320 visited nodes /
+544,860 BS calls already consumed; the complete original reservations of
+5,638,979,836 nodes / 917,672 BS calls are not reset or reassigned. Additional
+use must also fit the original BBS 6e9-node / 2e6-BS limits and the old-CRR
+plus-BBS combined cap 3,003,881,833,992, retaining old CRR cost 2,997,881,833,992.
+Initialization-only work is charged by every actually visited node, not a
+claim of running a complete tree. Count independent scalar checks as BS calls.
+
+This batch does not restart the 84-job pilot, fill unexecuted prices, add
+levels, change the BBS terminal mathematics or replace mandatory TREE. Preserve
+the three old failures and 49 successful old prices with their original
+producer identities. A changed kernel gets a new source/config/executable
+identity and cannot relabel those old prices. Production, ANALYTIC/CRR/LOG-LCP,
+fixtures, thresholds and Q/C/L caps remain unchanged. New-method/repair review
+and any pilot restart remain separate coordinator decisions; N3/N6/N7 stay
+INCOMPLETE, S4 paused, PR #685 draft without auto merge.
+
+### Approved single repaired-producer BBS restart (DAL-502)
+
+Decision `01a1b947-09c0-7561-aea5-6d61b118c7de` authorizes exactly one
+complete restart after repair delivery `8c90d53bd7eb5630554698e346b474ce5b710e39`.
+Freeze the delivered native kernel/source/configuration/executable identity;
+reuse its 4/4 and 41 high-precision witnesses without rerunning them. Generate
+all original 113 requests anew: 84 spot prices, 12 European controls, nine
+explicit formulas and eight expected failures, with the same original inputs,
+paired levels, scales, thresholds and stop rules. No old producer value or
+identity bridge may fill a new result. Old successes, failures and reservations
+remain historical evidence and are not relabeled.
+
+This decision releases the previous stop only for this restart. Round caps
+are 5.7e9 charged nodes and 1e6 BS calls; numerical window600 s, four workers,
+RSS128 MiB each/512 MiB total, raw64 MiB. Every failed attempt and independent
+verification call counts. Reserve the original 5,638,979,836 nodes and 917,572
+native BS calls, plus 100 scalar verification slots (917,672 total). The
+unchanged node formula and expected-failure preflight accounting still apply.
+
+Retain prior BBS consumption 3,230,750,980 charged nodes and 594,267 BS calls,
+including the bounded repair. Explicitly increase cumulative BBS caps to
+9e9 nodes and 2e6 BS calls; old CRR consumption remains 2,997,881,833,992.
+The combined node cap becomes 3,006,881,833,992. Full round reservations imply
+8,869,730,816 cumulative BBS nodes, 1,511,939 cumulative BS calls, and
+3,006,751,564,808 old-CRR-plus-BBS nodes. Validate round and cumulative caps
+before execution and admission; reaching any limit stops further work.
+
+Witnesses must pass before American execution. Unexpected failure stops its
+worker, preserves in-flight data and prevents admission; missing or final
+unqualified results remain INCOMPLETE. Evaluate only the final16384 pair's
+three price/Delta/K*Gamma scale vectors against the original strict quarter
+mesh, raw parity and fine-to-extra-half gates. No intermediate selection,
+kernel repair, extra level or retry is authorized. A concurrent substantive
+review blocker holds qualification pending the coordinator's decision.
+
+This remains a diagnostic pilot: no full-risk/all-binding expansion, mandatory
+TREE replacement or N3/N6/N7 upgrade. Product fixtures/budgets, pure CRR cap
+and all error thresholds are unchanged. S3 remains unqualified, S4 paused,
+DAL-502 in progress and PR #685 draft without auto merge.
+
+Accounting addendum from review `01a1b94d-d29c-7480-97e6-8d6b4e64ab41`
+and coordinator `01a1b94f-073d-73e7-ad1c-071cf7df68d2`: separately append
+six already executed BS calls (two native, four independent scalar), zero
+tree nodes, from the saved switch-boundary review receipts. Reuse these
+results without reevaluation. The corrected full-plan BS expectation is
+1,511,945, while actual cumulative BS must use actual restart consumption
+plus six. Preserve original reservations and execution receipts separately;
+all caps, inputs, method and qualification rules above remain unchanged.
+
+### Approved BBS full-risk candidate stage (DAL-502)
+
+Decision `01a1b95b-ac6f-7cd2-8896-f5662f183e8b`, baseline
+`9af285a8971d34d7d74bf04288f60a527b10ec0a`, authorizes one candidate
+qualification of all twelve existing actual TREE bump bindings and four N3
+markets, at the unchanged 4096/4097, 8192/8193, 16384/16385 pairs. Freeze and
+commit this control and the exact plan before numerical execution. The native
+kernel stays `f6a72ce4dc17ac5bd62562ff33e73a21db4cac94aae0e36d5ff26a4bf5b8b518`;
+no source/configuration/executable change or CRR/old-producer bridge is allowed.
+
+The 132 physical-input union requires 792 prices. Reuse only the repaired
+producer restart's 84 American spot rows after checking physical input,
+axis/offset use, n, method/source/configuration/executable, original job ID,
+raw-file hash and payload hash. Reuse its complete 29-row witness receipt,
+4/4 repair regression and 41 high-precision proofs without evaluation.
+The remaining **708 prices reserve 41,587,475,848 nodes / 6,766,946 BS**.
+There are no new scalar/witness evaluations in this plan; any new computation
+would require reservation and accounting within the same limits, never an
+unrecorded follow-up. An identity miss must stop planning if the resulting
+reservation exceeds the caps; it cannot reset old consumption.
+
+New-stage limits: 42e9 charged nodes / 7e6 BS, 600 seconds for the complete
+numerical window, at most four native workers, RSS128 MiB each / total512 MiB,
+raw64 MiB. Split the frozen jobs into ten deterministic balanced shards,
+each within the unchanged native per-batch 6e9-node / 2e6-BS admission cap;
+run at most four concurrently under address-space limits. One failed worker
+prevents launching further shards; collect all in-flight results before exit.
+Preserve every raw failure/partial output. Missing/nonfinite rows, exhausted
+resources or final self-qualification failure stop the stage: no retry,
+new level, favorable intermediate selection or automatic kernel repair.
+
+Retain BBS actual consumption **8,869,730,816 nodes / 1,511,876 BS**, including
+the six imported review BS calls. Explicitly raise independent BBS cumulative
+caps to **51e9 nodes / 9e6 BS**, with expected cumulative totals
+**50,457,206,664 nodes / 8,278,822 BS**. Original CRR cost remains
+**2,997,881,833,992** and the combined node hard cap is
+**3,048,881,833,992**. Keep prior actual, new reserved and new actual work
+separate. Charge all executed/failed work, conservatively reserving unknown
+partial work; never spend unused reservations on another attempt.
+
+For every binding retain all three actual coarse/fine/extra-half scales and
+the complete six-component vector [Price/K, Delta, K*Gamma, Vega/K, Rate[0]/K,
+DividendYield[0]/K]. Each scale's final mesh and raw parity, plus final
+fine-to-extra-half, must strictly satisfy the original quarter limits
+[2.5e-5, 5e-4, 5e-3, 7.5e-4, 7.5e-4, 7.5e-4]. All three paired levels and
+both raw members remain visible. A truncated/nonfinite vector cannot pass.
+
+Only after reference admission, read the already reviewed owning captures
+and fourteen American direction sequences without changing them or rerunning
+product pricing. Recompute candidate N3/N6/N7 errors against each actual
+binding, keep mandatory smooth/status/residual/budget predicates, and reuse
+source-bound recorded premium/continuation controls without fresh scalar BS.
+Unqualified bindings cannot publish an error PASS. This remains a candidate:
+mandatory TREE substitution requires the complete proof, affected product
+hard gates, independent review and explicit coordinator adoption. The current
+9 PASS / 3 INCOMPLETE, N3/N6/N7 gaps, draft/no-auto-merge PR, in-progress
+DAL-502 and paused S4 remain unchanged until then.
+
+### Adopted bounded BBS TREE reference (DAL-502)
+
+Coordinator decision `01a1ba61-8784-74fe-89bf-29c603550a07` explicitly adopts
+the reviewed `BBS-last-step-v1`, including stable tail arithmetic from
+`8607092c8ccd6c9c1c2df1a08387577112e9570b`, as a qualified independent TREE
+reference for the twelve frozen constant-carry actual bump bindings in
+[binding-summary.json](../validation/dal502-bbs-candidate/binding-summary.json).
+Native executable SHA256 is
+`f6a72ce4dc17ac5bd62562ff33e73a21db4cac94aae0e36d5ff26a4bf5b8b518`.
+
+Adoption uses the corrected full-vector proof at
+`8c3e272e2b2e94140642dfc054fe54a4701ab599` and required-layer failure
+propagation / same-raw replay at `179f50c6f3f7a6ca9f7dfcfdac808ba3d505f3f7`.
+Independent review `01a1ba5e-e528-78af-84d9-418441d1b104` closes the last
+P2; preceding production, method, pilot and candidate reviews remain applicable.
+This decision releases the earlier candidate-only / no-substitution restriction
+for this set and accepts N3/N6/N7. N1–N12 therefore total **12 PASS / 0 FAIL /
+0 INCOMPLETE**, as mapped in the final qualification entry.
+
+Every binding retains all six normalized components, its actual coarse/fine/
+extra-half scales, and paired 4096/4097, 8192/8193, 16384/16385 levels.
+Final mesh, raw parity and fine-to-extra-half differences still satisfy the
+original strict quarter limits. Every required product layer must pass its
+existing mandatory-smooth, solver-residual and capacity predicates; these
+failures propagate through direction and N6/N7 summaries, including cached
+direction results. Reference accuracy remains a finest-product-layer gate;
+an intermediate reference-accuracy failure alone does not tighten that rule.
+
+Product hard limits, fixtures, Q/C/L caps and all resource accounts remain
+unchanged. Pure-CRR FAIL/INCOMPLETE, old-producer values and superseded analyses
+retain their original identities and verdicts. This adoption authorizes no
+new computation, layer, retry or allocation. It establishes measured
+qualification only for the reviewed fixtures/scales/levels, not a rigorous
+continuous-model error bound or arbitrary-input qualification.
+
+S3 numerical/code blockers are closed. PR #685 stays draft without auto merge;
+DAL-502 and DAL-497 stay in progress pending coordinator delivery confirmation
+and final-head gates. S4 still requires actual S3 merge. Binding projections,
+S5 performance/installed consumers/examples and real Windows XLL evidence
+remain separate exits; the N result does not accept the whole feature.
 
 ## N1 — European degeneration
 

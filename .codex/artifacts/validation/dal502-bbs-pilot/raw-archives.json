@@ -1,0 +1,248 @@
+{
+  "dal502-bbs-pilot.tar.gz": {
+    "bytes": 100722,
+    "sha256": "4db1c4cddd31d980d4bebea86bc701ed448065d38ad211072fe7a6e51f1b7a9e",
+    "members": {
+      "build/dal502-bbs/black-receipt.log": {
+        "bytes": 186,
+        "sha256": "72ac0ecd96a518216623bfb844d7345e87170e1565b08b66294fbd00952ebb50"
+      },
+      "build/dal502-bbs/black-stopped.log": {
+        "bytes": 115,
+        "sha256": "050fe0b68e0e7ec7c7bf3b2c3351112e3f46b705e2c9e19be3e447be08d05512"
+      },
+      "build/dal502-bbs/black.log": {
+        "bytes": 186,
+        "sha256": "72ac0ecd96a518216623bfb844d7345e87170e1565b08b66294fbd00952ebb50"
+      },
+      "build/dal502-bbs/build.log": {
+        "bytes": 142,
+        "sha256": "f574356ac4cf82f6b27a2e1d372655910553206d6f06b2e5cee5e4eee0daa851"
+      },
+      "build/dal502-bbs/codacy-final-source.json": {
+        "bytes": 384,
+        "sha256": "0f7f0cb3807d90a73c9fd6bd70cd7efee21cf3bd3531cb9bea2b664c5efe15d9"
+      },
+      "build/dal502-bbs/codacy-source.json": {
+        "bytes": 384,
+        "sha256": "366db422d2644952cdaceee2d914915d6731f7d52b6870c0ab69f4422d4e0fa2"
+      },
+      "build/dal502-bbs/compile-red.log": {
+        "bytes": 688,
+        "sha256": "25757c67b43bd4983af4e976c1200bbff8e88c39ff998ffc44cd00461f8f8c11"
+      },
+      "build/dal502-bbs/configure.log": {
+        "bytes": 602,
+        "sha256": "e28f5b4317ddc73454abe485b39d0ee3e377c31d562624c97bbe2e785ce2ac10"
+      },
+      "build/dal502-bbs/core-build.log": {
+        "bytes": 28,
+        "sha256": "33c38426b37f2d5ae5c09ec21ef308d62d13c275beecc2a9dea78d494254d502"
+      },
+      "build/dal502-bbs/core-configure.log": {
+        "bytes": 581,
+        "sha256": "37f98d2d4ecd7eb7f8644f80e0e6fa1415d447e2ebd31f56652fd2608d957214"
+      },
+      "build/dal502-bbs/data/ledger.json": {
+        "bytes": 217125,
+        "sha256": "44e1c80a80b1f9427285535fef988b020bd5b2ca9f5b75a396604838a6a14e48"
+      },
+      "build/dal502-bbs/data/partial-proof.json": {
+        "bytes": 25730,
+        "sha256": "06c8580d06ed85a0dbebc10a28b8f11cdde30d928aa67f750b3f62b2485d47a4"
+      },
+      "build/dal502-bbs/data/pilot-0.jsonl": {
+        "bytes": 7865,
+        "sha256": "8e6209dd3d25c3c56e48b530f4c916ab9a9b63d9da0cc70902f810428bfb1e6f"
+      },
+      "build/dal502-bbs/data/pilot-0.jsonl.results.jsonl": {
+        "bytes": 8574,
+        "sha256": "6fbd975d199423d34fde190f25babdd2e89191dbd3750a6da5f4f3028e3be8bf"
+      },
+      "build/dal502-bbs/data/pilot-1.jsonl": {
+        "bytes": 7865,
+        "sha256": "7e3d08e0ffb6e9789a7e6901ede78928e0467b50e9b6dbf04f5cbc85d03a031a"
+      },
+      "build/dal502-bbs/data/pilot-1.jsonl.results.jsonl": {
+        "bytes": 2764,
+        "sha256": "0ce326d901dace69ffee113d28d6f97495ecd77c5d24b50833de362945e0ae70"
+      },
+      "build/dal502-bbs/data/pilot-2.jsonl": {
+        "bytes": 7865,
+        "sha256": "9d7a05c5a5d4be534813c5926dccf8c51cd1fe980737e098798e09583b14a73a"
+      },
+      "build/dal502-bbs/data/pilot-2.jsonl.results.jsonl": {
+        "bytes": 8073,
+        "sha256": "275c7b50cc9d130d7c6ee4521422be19a5ceba630551f47857ee9c6e747375c4"
+      },
+      "build/dal502-bbs/data/pilot-3.jsonl": {
+        "bytes": 7865,
+        "sha256": "a61690825823096bb2f2bfe7262192a9755efd85755f833c00bfb04ceef76ba2"
+      },
+      "build/dal502-bbs/data/pilot-3.jsonl.results.jsonl": {
+        "bytes": 1544,
+        "sha256": "3d5a20ba671d2ec6543e27b32142519d946f5ee72060fa783786a5f2f31417fd"
+      },
+      "build/dal502-bbs/data/pilot-result.json": {
+        "bytes": 105,
+        "sha256": "f5e16b086c10832f052beaf6e3d076cbd787dc3a3e283f83ae069fbce4efffda"
+      },
+      "build/dal502-bbs/data/pilot.workers.txt": {
+        "bytes": 588,
+        "sha256": "4f5f5003da2e6f53edfe006913515df29fb141a7ec2d06d2b3b772eec4944d05"
+      },
+      "build/dal502-bbs/data/witness-0.jsonl": {
+        "bytes": 2935,
+        "sha256": "2745b91865dc0e50129e90a77704a4cafb29b2bfb1e0906312659623158e1183"
+      },
+      "build/dal502-bbs/data/witness-0.jsonl.results.jsonl": {
+        "bytes": 3020,
+        "sha256": "c7018836e6d4e02cf13689001f51d8af9938a2adf60cb4f966e932737311d9fe"
+      },
+      "build/dal502-bbs/data/witness-1.jsonl": {
+        "bytes": 2587,
+        "sha256": "9adc31f75d67ec5255e9b99fb517351724bfd5f1125b08848da44971d2ca141b"
+      },
+      "build/dal502-bbs/data/witness-1.jsonl.results.jsonl": {
+        "bytes": 2617,
+        "sha256": "cf9f7bf6e1e7448e3f132b80fbc38771b680b9306fc1554afd4740c66e1ff4bb"
+      },
+      "build/dal502-bbs/data/witness-2.jsonl": {
+        "bytes": 2573,
+        "sha256": "c9316912fe5404956365fcd182f7578ff5adcfd8bf7fa2a949544ac11cf057e0"
+      },
+      "build/dal502-bbs/data/witness-2.jsonl.results.jsonl": {
+        "bytes": 2581,
+        "sha256": "b50462c468c3bde8fe0e48d424c1a8c4e0b65e029eef6b9921365cf5b07bf6be"
+      },
+      "build/dal502-bbs/data/witness-3.jsonl": {
+        "bytes": 2552,
+        "sha256": "f5af959d00e205ca9a955126abc1fbfa5fbda7a470ad55fc7675cba9d9f9c5c0"
+      },
+      "build/dal502-bbs/data/witness-3.jsonl.results.jsonl": {
+        "bytes": 2628,
+        "sha256": "de38cde7faa799eb92dec5f328d0e3146f6b4f053e459bb6c162f71c5cdaf274"
+      },
+      "build/dal502-bbs/data/witness.workers.txt": {
+        "bytes": 596,
+        "sha256": "cdfa8121bd9b85a7844838bc2c7c16e057223de32c2817b56fd1048af52f6bc8"
+      },
+      "build/dal502-bbs/data/witnesses.json": {
+        "bytes": 27156,
+        "sha256": "279082ed91f441b64572205b21fbdd03b05e20b6bfa78534e1955957debc08a6"
+      },
+      "build/dal502-bbs/dependencies.txt": {
+        "bytes": 543,
+        "sha256": "8166ee3dc0595f09012ac6e286d7880b9d64c4f78fbe0fa1684d8e4a3be4bfd0"
+      },
+      "build/dal502-bbs/lizard-final.log": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "build/dal502-bbs/lizard.log": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "build/dal502-bbs/pack.py": {
+        "bytes": 1270,
+        "sha256": "8037855c7412ba30d0950d2ec8dd8a4567806c7e5c2e7faf749fdc99624dfe01"
+      },
+      "build/dal502-bbs/plan-final-green.log": {
+        "bytes": 1053,
+        "sha256": "fe56fc1624edc8559dbb0e5d11d6e4670d51c7b28da2832832defcc226af4861"
+      },
+      "build/dal502-bbs/plan-green.log": {
+        "bytes": 906,
+        "sha256": "1864a55f8c2409cf7f2acc242a180b790d7f501c2abab76b570239b5680fe796"
+      },
+      "build/dal502-bbs/plan-red.log": {
+        "bytes": 1107,
+        "sha256": "1f7b8120ce1852a8b7f169b8e4b433acded56af76bb04c274fc172378505433b"
+      },
+      "build/dal502-bbs/producer/CMakeCache.txt": {
+        "bytes": 13738,
+        "sha256": "c1f7cad7515ab1a65f39c0deacbfcc0d3eb595b7c0bd25009a644b27e752a153"
+      },
+      "build/dal502-bbs/producer/bbs.hpp": {
+        "bytes": 4668,
+        "sha256": "272b7c5789320623217314c6b1d42350171e7f3229593fb02e07acab76772d19"
+      },
+      "build/dal502-bbs/producer/bbs_driver.cpp": {
+        "bytes": 5739,
+        "sha256": "93ecd2e623bb0122a203af29c5309e90b3e266ff8b4de8d1c19aa1779253dceb"
+      },
+      "build/dal502-bbs/producer/bbs_stopped.py": {
+        "bytes": 5994,
+        "sha256": "eed8a928263770aae0101ec42f6b076c32deca797a515a4a7695e399a44a6962"
+      },
+      "build/dal502-bbs/producer/bbsplan.py": {
+        "bytes": 6944,
+        "sha256": "b6cd108ca9e337801f778dae9b6e29b7d16d90a08b38dc32e5d2af86c0d4ba6c"
+      },
+      "build/dal502-bbs/producer/bbsverify.py": {
+        "bytes": 10474,
+        "sha256": "ab80cd073ae4c62d8aba8d03ac7aedd0c050046e61a6008b5ac15958798d9cbe"
+      },
+      "build/dal502-bbs/producer/compile_commands.json": {
+        "bytes": 1765,
+        "sha256": "51de225be0379283fef03736d2672b4046845215719e6659778f8b299207a3fe"
+      },
+      "build/dal502-bbs/producer/dal502_bbs": {
+        "bytes": 73040,
+        "sha256": "399f2b1e784f6e8d92937b5395948d7ceac49c54e3cf3a6928d74643431c5bec"
+      },
+      "build/dal502-bbs/producer/link.txt": {
+        "bytes": 138,
+        "sha256": "dddc460bf656c4d101854db069c2e1badc87bac42d79ca2a8b12f199ab570bfd"
+      },
+      "build/dal502-bbs/producer/reference.hpp": {
+        "bytes": 11792,
+        "sha256": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110"
+      },
+      "build/dal502-bbs/producer/test_bbsplan.py": {
+        "bytes": 3291,
+        "sha256": "9f0f031317e1058eb2d5950ec3164710323d7c779a8ae603b925b5ac5b81829b"
+      },
+      "build/dal502-bbs/receipt-red.log": {
+        "bytes": 1285,
+        "sha256": "0f8d0bfb55e8ec349ff611d58d69b68804bbc673e0eed5fd3039655a151f22dc"
+      },
+      "build/dal502-bbs/record.py": {
+        "bytes": 3463,
+        "sha256": "fc6071d8717c3b14509550b33901f9cf94877d4ea6e99b89e8f48f9a07849792"
+      },
+      "build/dal502-bbs/resource-report.log": {
+        "bytes": 513,
+        "sha256": "38b76f1418ab961ff7f74fdd89fb49782b6b6960e6790c906cefa2da67a03b54"
+      },
+      "build/dal502-bbs/scalar-producer.py": {
+        "bytes": 9582,
+        "sha256": "1b04f549e459d4e25ff1c9642ce1a307097555ae13126556792ff0cfd5285961"
+      },
+      "build/dal502-bbs/semgrep-final.json": {
+        "bytes": 1495,
+        "sha256": "e0fed92ba1031756efe19808679d7f3a1072a34bf8a4dcc6bbb7ac46296709f8"
+      },
+      "build/dal502-bbs/semgrep-final.log": {
+        "bytes": 886,
+        "sha256": "392970fc4f508b783c2b4a12641beffdc0fdc5dafdc9eb2b593a8d87071df908"
+      },
+      "build/dal502-bbs/semgrep.json": {
+        "bytes": 1611,
+        "sha256": "d73bf7409b3874afd7469e407fbb54fbbfe8bf1d4630cc460f82897428348e44"
+      },
+      "build/dal502-bbs/semgrep.log": {
+        "bytes": 886,
+        "sha256": "0f80f447978450b5e14e22de2b54b25742861a2027b714425b15599d2a4d7eca"
+      },
+      "build/dal502-bbs/stopped.log": {
+        "bytes": 1766,
+        "sha256": "d10e97aab450b3507ed400304aafbf8560d56f1bcd54cdcfc25785daf896e8bd"
+      },
+      "build/dal502-make/CMakeCache.txt": {
+        "bytes": 24483,
+        "sha256": "90969611775378aba8a2c78a25ef3017592185061671fc8229559acbbde6c96c"
+      }
+    }
+  }
+}

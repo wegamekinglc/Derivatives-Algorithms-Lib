@@ -1,0 +1,2817 @@
+{
+  "N5a-0-bermudan-residual-Base": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Base",
+      "status": "SUCCESS",
+      "iteration": 0.0026879272512303487,
+      "linear": 0.0,
+      "obstacle": 0.0,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N5a-0-bermudan-capacity": {
+    "status": "PASS",
+    "evidence": {
+      "plannedScenarios_": 1,
+      "attemptedScenarios_": 1,
+      "successfulScenarios_": 1,
+      "failedScenarios_": 0,
+      "notRunScenarios_": 0,
+      "totalSolves_": 8001,
+      "workUnits_": 12793599,
+      "plannedNumericPayloadBytes_": 3718768,
+      "plannedWorkspaceBytes_": 5215128,
+      "plannedPeakNativeBytes_": 8933896,
+      "numericPayloadBytes_": 2109002,
+      "peakWorkspaceBytes_": 2242051,
+      "peakNativeBytes_": 2700930,
+      "workLimitScenarioIndex_": null,
+      "workLimitSource_": "NONE"
+    }
+  },
+  "N5a-0-american-residual-Base": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Base",
+      "status": "SUCCESS",
+      "iteration": 0.0,
+      "linear": 0.0,
+      "obstacle": 0.0,
+      "dual": 0.0,
+      "complementarity": 0.0
+    }
+  },
+  "N5a-0-american-capacity": {
+    "status": "PASS",
+    "evidence": {
+      "plannedScenarios_": 1,
+      "attemptedScenarios_": 1,
+      "successfulScenarios_": 1,
+      "failedScenarios_": 0,
+      "notRunScenarios_": 0,
+      "totalSolves_": 6006,
+      "workUnits_": 9603594,
+      "plannedNumericPayloadBytes_": 209286744,
+      "plannedWorkspaceBytes_": 210171560,
+      "plannedPeakNativeBytes_": 419458304,
+      "numericPayloadBytes_": 130588994,
+      "peakWorkspaceBytes_": 2242047,
+      "peakNativeBytes_": 131180914,
+      "workLimitScenarioIndex_": null,
+      "workLimitSource_": "NONE"
+    }
+  },
+  "N5a-0-terminal-residual-Base": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Base",
+      "status": "SUCCESS",
+      "iteration": 0.0024933185902540345,
+      "linear": 0.0,
+      "obstacle": null,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N5a-0-terminal-capacity": {
+    "status": "PASS",
+    "evidence": {
+      "plannedScenarios_": 1,
+      "attemptedScenarios_": 1,
+      "successfulScenarios_": 1,
+      "failedScenarios_": 0,
+      "notRunScenarios_": 0,
+      "totalSolves_": 8001,
+      "workUnits_": 12793599,
+      "plannedNumericPayloadBytes_": 3693060,
+      "plannedWorkspaceBytes_": 5215112,
+      "plannedPeakNativeBytes_": 8908172,
+      "numericPayloadBytes_": 2092938,
+      "peakWorkspaceBytes_": 2242049,
+      "peakNativeBytes_": 2684862,
+      "workLimitScenarioIndex_": null,
+      "workLimitSource_": "NONE"
+    }
+  },
+  "N5a-1-bermudan-residual-Base": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Base",
+      "status": "SUCCESS",
+      "iteration": 0.0028252843018208296,
+      "linear": 0.0,
+      "obstacle": 0.0,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N5a-1-bermudan-capacity": {
+    "status": "PASS",
+    "evidence": {
+      "plannedScenarios_": 1,
+      "attemptedScenarios_": 1,
+      "successfulScenarios_": 1,
+      "failedScenarios_": 0,
+      "notRunScenarios_": 0,
+      "totalSolves_": 8001,
+      "workUnits_": 12793599,
+      "plannedNumericPayloadBytes_": 3718768,
+      "plannedWorkspaceBytes_": 5215128,
+      "plannedPeakNativeBytes_": 8933896,
+      "numericPayloadBytes_": 2109002,
+      "peakWorkspaceBytes_": 2242051,
+      "peakNativeBytes_": 2700930,
+      "workLimitScenarioIndex_": null,
+      "workLimitSource_": "NONE"
+    }
+  },
+  "N5a-1-american-residual-Base": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Base",
+      "status": "SUCCESS",
+      "iteration": 0.0,
+      "linear": 0.0,
+      "obstacle": 0.0,
+      "dual": 0.0,
+      "complementarity": 0.0
+    }
+  },
+  "N5a-1-american-capacity": {
+    "status": "PASS",
+    "evidence": {
+      "plannedScenarios_": 1,
+      "attemptedScenarios_": 1,
+      "successfulScenarios_": 1,
+      "failedScenarios_": 0,
+      "notRunScenarios_": 0,
+      "totalSolves_": 16002,
+      "workUnits_": 25587198,
+      "plannedNumericPayloadBytes_": 209286744,
+      "plannedWorkspaceBytes_": 210171560,
+      "plannedPeakNativeBytes_": 419458304,
+      "numericPayloadBytes_": 130588994,
+      "peakWorkspaceBytes_": 2242047,
+      "peakNativeBytes_": 131180914,
+      "workLimitScenarioIndex_": null,
+      "workLimitSource_": "NONE"
+    }
+  },
+  "N5a-1-terminal-residual-Base": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Base",
+      "status": "SUCCESS",
+      "iteration": 0.0028252843018208296,
+      "linear": 0.0,
+      "obstacle": null,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N5a-1-terminal-capacity": {
+    "status": "PASS",
+    "evidence": {
+      "plannedScenarios_": 1,
+      "attemptedScenarios_": 1,
+      "successfulScenarios_": 1,
+      "failedScenarios_": 0,
+      "notRunScenarios_": 0,
+      "totalSolves_": 8001,
+      "workUnits_": 12793599,
+      "plannedNumericPayloadBytes_": 3693060,
+      "plannedWorkspaceBytes_": 5215112,
+      "plannedPeakNativeBytes_": 8908172,
+      "numericPayloadBytes_": 2092938,
+      "peakWorkspaceBytes_": 2242049,
+      "peakNativeBytes_": 2684862,
+      "workLimitScenarioIndex_": null,
+      "workLimitSource_": "NONE"
+    }
+  },
+  "N5c-0-residual-Base": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Base",
+      "status": "SUCCESS",
+      "iteration": 0.06170451143006307,
+      "linear": 2.3364113311788224e-16,
+      "obstacle": 0.0,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N5c-0-residual-Spot:C-": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Spot:C-",
+      "status": "SUCCESS",
+      "iteration": 0.06170451143006307,
+      "linear": 2.3364113311788224e-16,
+      "obstacle": 0.0,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N5c-0-residual-Spot:C+": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Spot:C+",
+      "status": "SUCCESS",
+      "iteration": 0.06170451143006307,
+      "linear": 2.3364113311788224e-16,
+      "obstacle": 0.0,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N5c-0-residual-Spot:F-": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Spot:F-",
+      "status": "SUCCESS",
+      "iteration": 0.06170451143006307,
+      "linear": 2.3364113311788224e-16,
+      "obstacle": 0.0,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N5c-0-residual-Spot:F+": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Spot:F+",
+      "status": "SUCCESS",
+      "iteration": 0.06170451143006307,
+      "linear": 2.3364113311788224e-16,
+      "obstacle": 0.0,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N5c-0-residual-Volatility:C-": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Volatility:C-",
+      "status": "SUCCESS",
+      "iteration": 0.06127521320948894,
+      "linear": 2.3500774226311533e-16,
+      "obstacle": 0.0,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N5c-0-residual-Volatility:C+": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Volatility:C+",
+      "status": "SUCCESS",
+      "iteration": 0.062133901412651855,
+      "linear": 2.1351133047284692e-16,
+      "obstacle": 0.0,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N5c-0-residual-Volatility:F-": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Volatility:F-",
+      "status": "SUCCESS",
+      "iteration": 0.061489850531019304,
+      "linear": 2.1356877488081481e-16,
+      "obstacle": 0.0,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N5c-0-residual-Volatility:F+": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Volatility:F+",
+      "status": "SUCCESS",
+      "iteration": 0.06191919526776823,
+      "linear": 2.261828639628062e-16,
+      "obstacle": 0.0,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N5c-0-residual-Rate[0]:C-": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Rate[0]:C-",
+      "status": "SUCCESS",
+      "iteration": 0.06170513543359799,
+      "linear": 2.398527303148616e-16,
+      "obstacle": 0.0,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N5c-0-residual-Rate[0]:C+": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Rate[0]:C+",
+      "status": "SUCCESS",
+      "iteration": 0.06170388742982342,
+      "linear": 2.5793374850663375e-16,
+      "obstacle": 0.0,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N5c-0-residual-Rate[0]:F-": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Rate[0]:F-",
+      "status": "SUCCESS",
+      "iteration": 0.06170482343141867,
+      "linear": 2.1333191925931166e-16,
+      "obstacle": 0.0,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N5c-0-residual-Rate[0]:F+": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Rate[0]:F+",
+      "status": "SUCCESS",
+      "iteration": 0.06170419942953137,
+      "linear": 2.479950209758565e-16,
+      "obstacle": 0.0,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N5c-0-residual-DividendYield[0]:C-": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "DividendYield[0]:C-",
+      "status": "SUCCESS",
+      "iteration": 0.061703888733882065,
+      "linear": 2.2392458559630367e-16,
+      "obstacle": 0.0,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N5c-0-residual-DividendYield[0]:C+": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "DividendYield[0]:C+",
+      "status": "SUCCESS",
+      "iteration": 0.061705134129508225,
+      "linear": 2.2290259932283106e-16,
+      "obstacle": 0.0,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N5c-0-residual-DividendYield[0]:F-": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "DividendYield[0]:F-",
+      "status": "SUCCESS",
+      "iteration": 0.061704200081564554,
+      "linear": 2.1750759225350478e-16,
+      "obstacle": 0.0,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N5c-0-residual-DividendYield[0]:F+": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "DividendYield[0]:F+",
+      "status": "SUCCESS",
+      "iteration": 0.06170482277937765,
+      "linear": 2.37466809017702e-16,
+      "obstacle": 0.0,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N5c-0-capacity": {
+    "status": "PASS",
+    "evidence": {
+      "plannedScenarios_": 17,
+      "attemptedScenarios_": 17,
+      "successfulScenarios_": 17,
+      "failedScenarios_": 0,
+      "notRunScenarios_": 0,
+      "totalSolves_": 136017,
+      "workUnits_": 217491183,
+      "plannedNumericPayloadBytes_": 3801676,
+      "plannedWorkspaceBytes_": 5222544,
+      "plannedPeakNativeBytes_": 9024220,
+      "numericPayloadBytes_": 2132375,
+      "peakWorkspaceBytes_": 2314936,
+      "peakNativeBytes_": 4447311,
+      "workLimitScenarioIndex_": null,
+      "workLimitSource_": "NONE"
+    }
+  },
+  "N5c-1-residual-Base": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Base",
+      "status": "SUCCESS",
+      "iteration": 0.0,
+      "linear": 2.3907543027609887e-16,
+      "obstacle": 6.252776074688882e-12,
+      "dual": 2.5266247427602195e-15,
+      "complementarity": 6.252776074688882e-12
+    }
+  },
+  "N5c-1-residual-Spot:C-": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Spot:C-",
+      "status": "SUCCESS",
+      "iteration": 0.0,
+      "linear": 2.3907543027609887e-16,
+      "obstacle": 6.252776074688882e-12,
+      "dual": 2.5266247427602195e-15,
+      "complementarity": 6.252776074688882e-12
+    }
+  },
+  "N5c-1-residual-Spot:C+": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Spot:C+",
+      "status": "SUCCESS",
+      "iteration": 0.0,
+      "linear": 2.3907543027609887e-16,
+      "obstacle": 6.252776074688882e-12,
+      "dual": 2.5266247427602195e-15,
+      "complementarity": 6.252776074688882e-12
+    }
+  },
+  "N5c-1-residual-Spot:F-": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Spot:F-",
+      "status": "SUCCESS",
+      "iteration": 0.0,
+      "linear": 2.3907543027609887e-16,
+      "obstacle": 6.252776074688882e-12,
+      "dual": 2.5266247427602195e-15,
+      "complementarity": 6.252776074688882e-12
+    }
+  },
+  "N5c-1-residual-Spot:F+": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Spot:F+",
+      "status": "SUCCESS",
+      "iteration": 0.0,
+      "linear": 2.3907543027609887e-16,
+      "obstacle": 6.252776074688882e-12,
+      "dual": 2.5266247427602195e-15,
+      "complementarity": 6.252776074688882e-12
+    }
+  },
+  "N5c-1-residual-Volatility:C-": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Volatility:C-",
+      "status": "SUCCESS",
+      "iteration": 5.200541361909323e-09,
+      "linear": 2.1808202765883987e-16,
+      "obstacle": 6.252776074688882e-12,
+      "dual": 2.454416878072685e-15,
+      "complementarity": 6.252776074688882e-12
+    }
+  },
+  "N5c-1-residual-Volatility:C+": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Volatility:C+",
+      "status": "SUCCESS",
+      "iteration": 0.0,
+      "linear": 2.269656181978715e-16,
+      "obstacle": 6.252776074688882e-12,
+      "dual": 2.5849548196399397e-15,
+      "complementarity": 6.252776074688882e-12
+    }
+  },
+  "N5c-1-residual-Volatility:F-": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Volatility:F-",
+      "status": "SUCCESS",
+      "iteration": 8.208736700134455e-09,
+      "linear": 2.301396546305171e-16,
+      "obstacle": 6.252776074688882e-12,
+      "dual": 2.5088438271314573e-15,
+      "complementarity": 6.252776074688882e-12
+    }
+  },
+  "N5c-1-residual-Volatility:F+": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Volatility:F+",
+      "status": "SUCCESS",
+      "iteration": 0.0,
+      "linear": 2.3029841846271885e-16,
+      "obstacle": 6.252776074688882e-12,
+      "dual": 2.7356589216154248e-15,
+      "complementarity": 6.252776074688882e-12
+    }
+  },
+  "N5c-1-residual-Rate[0]:C-": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Rate[0]:C-",
+      "status": "SUCCESS",
+      "iteration": 0.0,
+      "linear": 2.5004919047972573e-16,
+      "obstacle": 6.23856521997368e-12,
+      "dual": 2.5656560209696977e-15,
+      "complementarity": 6.23856521997368e-12
+    }
+  },
+  "N5c-1-residual-Rate[0]:C+": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Rate[0]:C+",
+      "status": "SUCCESS",
+      "iteration": 1.0828265809688402e-08,
+      "linear": 2.261177453458072e-16,
+      "obstacle": 6.266986929404084e-12,
+      "dual": 2.555898201417328e-15,
+      "complementarity": 6.266986929404084e-12
+    }
+  },
+  "N5c-1-residual-Rate[0]:F-": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Rate[0]:F-",
+      "status": "SUCCESS",
+      "iteration": 1.2105422535049236e-08,
+      "linear": 2.377112333470572e-16,
+      "obstacle": 6.23856521997368e-12,
+      "dual": 2.626588183063383e-15,
+      "complementarity": 6.23856521997368e-12
+    }
+  },
+  "N5c-1-residual-Rate[0]:F+": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Rate[0]:F+",
+      "status": "SUCCESS",
+      "iteration": 0.0,
+      "linear": 2.3256593647388937e-16,
+      "obstacle": 6.252776074688882e-12,
+      "dual": 2.6036030970066903e-15,
+      "complementarity": 6.252776074688882e-12
+    }
+  },
+  "N5c-1-residual-DividendYield[0]:C-": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "DividendYield[0]:C-",
+      "status": "SUCCESS",
+      "iteration": 0.0,
+      "linear": 2.3275510419242283e-16,
+      "obstacle": 6.252776074688882e-12,
+      "dual": 2.5886411070263904e-15,
+      "complementarity": 6.252776074688882e-12
+    }
+  },
+  "N5c-1-residual-DividendYield[0]:C+": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "DividendYield[0]:C+",
+      "status": "SUCCESS",
+      "iteration": 0.0,
+      "linear": 2.2008638215723124e-16,
+      "obstacle": 6.252776074688882e-12,
+      "dual": 2.6894719090675423e-15,
+      "complementarity": 6.252776074688882e-12
+    }
+  },
+  "N5c-1-residual-DividendYield[0]:F-": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "DividendYield[0]:F-",
+      "status": "SUCCESS",
+      "iteration": 0.0,
+      "linear": 2.1774895069862498e-16,
+      "obstacle": 6.252776074688882e-12,
+      "dual": 2.6248534595874062e-15,
+      "complementarity": 6.252776074688882e-12
+    }
+  },
+  "N5c-1-residual-DividendYield[0]:F+": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "DividendYield[0]:F+",
+      "status": "SUCCESS",
+      "iteration": 0.0,
+      "linear": 2.331286498398767e-16,
+      "obstacle": 6.252776074688882e-12,
+      "dual": 2.5992662883167483e-15,
+      "complementarity": 6.252776074688882e-12
+    }
+  },
+  "N5c-1-capacity": {
+    "status": "PASS",
+    "evidence": {
+      "plannedScenarios_": 17,
+      "attemptedScenarios_": 17,
+      "successfulScenarios_": 17,
+      "failedScenarios_": 0,
+      "notRunScenarios_": 0,
+      "totalSolves_": 418030,
+      "workUnits_": 668429970,
+      "plannedNumericPayloadBytes_": 209317800,
+      "plannedWorkspaceBytes_": 210152656,
+      "plannedPeakNativeBytes_": 419470456,
+      "numericPayloadBytes_": 130579987,
+      "peakWorkspaceBytes_": 130762534,
+      "peakNativeBytes_": 261342521,
+      "workLimitScenarioIndex_": null,
+      "workLimitSource_": "NONE"
+    }
+  },
+  "N9b-1-100-capacity": {
+    "status": "PASS",
+    "evidence": {
+      "plannedScenarios_": 1,
+      "attemptedScenarios_": 1,
+      "successfulScenarios_": 0,
+      "failedScenarios_": 1,
+      "notRunScenarios_": 0,
+      "totalSolves_": 788,
+      "workUnits_": 30732,
+      "plannedNumericPayloadBytes_": 664344,
+      "plannedWorkspaceBytes_": 669800,
+      "plannedPeakNativeBytes_": 1334144,
+      "numericPayloadBytes_": 366001,
+      "peakWorkspaceBytes_": 139647,
+      "peakNativeBytes_": 400704,
+      "workLimitScenarioIndex_": null,
+      "workLimitSource_": "NONE"
+    }
+  },
+  "N9b-100000000.0-100-residual-Base": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Base",
+      "status": "SUCCESS",
+      "iteration": 0.0,
+      "linear": 0.0,
+      "obstacle": 1.2737189081235556e-10,
+      "dual": 0.0,
+      "complementarity": 1.2737189081235556e-10
+    }
+  },
+  "N9b-100000000.0-100-capacity": {
+    "status": "PASS",
+    "evidence": {
+      "plannedScenarios_": 1,
+      "attemptedScenarios_": 1,
+      "successfulScenarios_": 1,
+      "failedScenarios_": 0,
+      "notRunScenarios_": 0,
+      "totalSolves_": 691,
+      "workUnits_": 26949,
+      "plannedNumericPayloadBytes_": 664344,
+      "plannedWorkspaceBytes_": 669800,
+      "plannedPeakNativeBytes_": 1334144,
+      "numericPayloadBytes_": 365954,
+      "peakWorkspaceBytes_": 139647,
+      "peakNativeBytes_": 400594,
+      "workLimitScenarioIndex_": null,
+      "workLimitSource_": "NONE"
+    }
+  },
+  "N9b-100000000.0-1-capacity": {
+    "status": "PASS",
+    "evidence": {
+      "plannedScenarios_": 1,
+      "attemptedScenarios_": 1,
+      "successfulScenarios_": 0,
+      "failedScenarios_": 1,
+      "notRunScenarios_": 0,
+      "totalSolves_": 1,
+      "workUnits_": 39,
+      "plannedNumericPayloadBytes_": 664344,
+      "plannedWorkspaceBytes_": 669800,
+      "plannedPeakNativeBytes_": 1334144,
+      "numericPayloadBytes_": 366001,
+      "peakWorkspaceBytes_": 139647,
+      "peakNativeBytes_": 400704,
+      "workLimitScenarioIndex_": null,
+      "workLimitSource_": "NONE"
+    }
+  },
+  "N9c-capacity": {
+    "status": "PASS",
+    "evidence": {
+      "plannedScenarios_": 17,
+      "attemptedScenarios_": 1,
+      "successfulScenarios_": 0,
+      "failedScenarios_": 1,
+      "notRunScenarios_": 16,
+      "totalSolves_": 1,
+      "workUnits_": 399,
+      "plannedNumericPayloadBytes_": 361012,
+      "plannedWorkspaceBytes_": 408696,
+      "plannedPeakNativeBytes_": 769708,
+      "numericPayloadBytes_": 151385,
+      "peakWorkspaceBytes_": 154552,
+      "peakNativeBytes_": 218507,
+      "workLimitScenarioIndex_": null,
+      "workLimitSource_": "NONE"
+    }
+  },
+  "N9d-1326-residual-Base": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Base",
+      "status": "SUCCESS",
+      "iteration": 3.865743311920807,
+      "linear": 1.300559113195156e-16,
+      "obstacle": null,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N9d-1326-residual-Spot:C-": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Spot:C-",
+      "status": "SUCCESS",
+      "iteration": 3.865743311920807,
+      "linear": 1.300559113195156e-16,
+      "obstacle": null,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N9d-1326-residual-Spot:C+": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Spot:C+",
+      "status": "SUCCESS",
+      "iteration": 3.865743311920807,
+      "linear": 1.300559113195156e-16,
+      "obstacle": null,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N9d-1326-residual-Spot:F-": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Spot:F-",
+      "status": "SUCCESS",
+      "iteration": 3.865743311920807,
+      "linear": 1.300559113195156e-16,
+      "obstacle": null,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N9d-1326-residual-Spot:F+": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Spot:F+",
+      "status": "SUCCESS",
+      "iteration": 3.865743311920807,
+      "linear": 1.300559113195156e-16,
+      "obstacle": null,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N9d-1326-residual-Volatility:C-": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Volatility:C-",
+      "status": "SUCCESS",
+      "iteration": 3.8398239945324733,
+      "linear": 1.3429632125900244e-16,
+      "obstacle": null,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N9d-1326-residual-Volatility:C+": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Volatility:C+",
+      "status": "SUCCESS",
+      "iteration": 3.8916537250760985,
+      "linear": 1.4242191455380637e-16,
+      "obstacle": null,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N9d-1326-residual-Volatility:F-": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Volatility:F-",
+      "status": "SUCCESS",
+      "iteration": 3.8527847653052474,
+      "linear": 1.301863487074319e-16,
+      "obstacle": null,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N9d-1326-residual-Volatility:F+": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Volatility:F+",
+      "status": "SUCCESS",
+      "iteration": 3.878699632442507,
+      "linear": 1.2818788746388073e-16,
+      "obstacle": null,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N9d-1326-residual-Rate[0]:C-": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Rate[0]:C-",
+      "status": "SUCCESS",
+      "iteration": 3.8681235325358907,
+      "linear": 1.2650367546279086e-16,
+      "obstacle": null,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N9d-1326-residual-Rate[0]:C+": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Rate[0]:C+",
+      "status": "SUCCESS",
+      "iteration": 3.86336416364711,
+      "linear": 1.3279591819429517e-16,
+      "obstacle": null,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N9d-1326-residual-Rate[0]:F-": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Rate[0]:F-",
+      "status": "SUCCESS",
+      "iteration": 3.866933288171081,
+      "linear": 1.0448116065190532e-16,
+      "obstacle": null,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N9d-1326-residual-Rate[0]:F+": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Rate[0]:F+",
+      "status": "SUCCESS",
+      "iteration": 3.864553603755881,
+      "linear": 1.5703089981106044e-16,
+      "obstacle": null,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N9d-1326-residual-DividendYield[0]:C-": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "DividendYield[0]:C-",
+      "status": "SUCCESS",
+      "iteration": 3.8636585944563437,
+      "linear": 1.8051123842979776e-16,
+      "obstacle": null,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N9d-1326-residual-DividendYield[0]:C+": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "DividendYield[0]:C+",
+      "status": "SUCCESS",
+      "iteration": 3.867828673267379,
+      "linear": 1.4708369761361176e-16,
+      "obstacle": null,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N9d-1326-residual-DividendYield[0]:F-": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "DividendYield[0]:F-",
+      "status": "SUCCESS",
+      "iteration": 3.8647008726979233,
+      "linear": 1.4375406056660477e-16,
+      "obstacle": null,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N9d-1326-residual-DividendYield[0]:F+": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "DividendYield[0]:F+",
+      "status": "SUCCESS",
+      "iteration": 3.8667859121142216,
+      "linear": 1.1927086946051014e-16,
+      "obstacle": null,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N9d-1326-capacity": {
+    "status": "PASS",
+    "evidence": {
+      "plannedScenarios_": 17,
+      "attemptedScenarios_": 17,
+      "successfulScenarios_": 17,
+      "failedScenarios_": 0,
+      "notRunScenarios_": 0,
+      "totalSolves_": 34,
+      "workUnits_": 1326,
+      "plannedNumericPayloadBytes_": 129268,
+      "plannedWorkspaceBytes_": 52920,
+      "plannedPeakNativeBytes_": 182188,
+      "numericPayloadBytes_": 15115,
+      "peakWorkspaceBytes_": 8828,
+      "peakNativeBytes_": 23891,
+      "workLimitScenarioIndex_": null,
+      "workLimitSource_": "NONE"
+    }
+  },
+  "N9d-1325-residual-Base": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Base",
+      "status": "SUCCESS",
+      "iteration": 3.865743311920807,
+      "linear": 1.300559113195156e-16,
+      "obstacle": null,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N9d-1325-residual-Spot:C-": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Spot:C-",
+      "status": "SUCCESS",
+      "iteration": 3.865743311920807,
+      "linear": 1.300559113195156e-16,
+      "obstacle": null,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N9d-1325-residual-Spot:C+": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Spot:C+",
+      "status": "SUCCESS",
+      "iteration": 3.865743311920807,
+      "linear": 1.300559113195156e-16,
+      "obstacle": null,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N9d-1325-residual-Spot:F-": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Spot:F-",
+      "status": "SUCCESS",
+      "iteration": 3.865743311920807,
+      "linear": 1.300559113195156e-16,
+      "obstacle": null,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N9d-1325-residual-Spot:F+": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Spot:F+",
+      "status": "SUCCESS",
+      "iteration": 3.865743311920807,
+      "linear": 1.300559113195156e-16,
+      "obstacle": null,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N9d-1325-residual-Volatility:C-": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Volatility:C-",
+      "status": "SUCCESS",
+      "iteration": 3.8398239945324733,
+      "linear": 1.3429632125900244e-16,
+      "obstacle": null,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N9d-1325-residual-Volatility:C+": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Volatility:C+",
+      "status": "SUCCESS",
+      "iteration": 3.8916537250760985,
+      "linear": 1.4242191455380637e-16,
+      "obstacle": null,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N9d-1325-residual-Volatility:F-": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Volatility:F-",
+      "status": "SUCCESS",
+      "iteration": 3.8527847653052474,
+      "linear": 1.301863487074319e-16,
+      "obstacle": null,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N9d-1325-residual-Volatility:F+": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Volatility:F+",
+      "status": "SUCCESS",
+      "iteration": 3.878699632442507,
+      "linear": 1.2818788746388073e-16,
+      "obstacle": null,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N9d-1325-residual-Rate[0]:C-": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Rate[0]:C-",
+      "status": "SUCCESS",
+      "iteration": 3.8681235325358907,
+      "linear": 1.2650367546279086e-16,
+      "obstacle": null,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N9d-1325-residual-Rate[0]:C+": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Rate[0]:C+",
+      "status": "SUCCESS",
+      "iteration": 3.86336416364711,
+      "linear": 1.3279591819429517e-16,
+      "obstacle": null,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N9d-1325-residual-Rate[0]:F-": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Rate[0]:F-",
+      "status": "SUCCESS",
+      "iteration": 3.866933288171081,
+      "linear": 1.0448116065190532e-16,
+      "obstacle": null,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N9d-1325-residual-Rate[0]:F+": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Rate[0]:F+",
+      "status": "SUCCESS",
+      "iteration": 3.864553603755881,
+      "linear": 1.5703089981106044e-16,
+      "obstacle": null,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N9d-1325-residual-DividendYield[0]:C-": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "DividendYield[0]:C-",
+      "status": "SUCCESS",
+      "iteration": 3.8636585944563437,
+      "linear": 1.8051123842979776e-16,
+      "obstacle": null,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N9d-1325-residual-DividendYield[0]:C+": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "DividendYield[0]:C+",
+      "status": "SUCCESS",
+      "iteration": 3.867828673267379,
+      "linear": 1.4708369761361176e-16,
+      "obstacle": null,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N9d-1325-residual-DividendYield[0]:F-": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "DividendYield[0]:F-",
+      "status": "SUCCESS",
+      "iteration": 3.8647008726979233,
+      "linear": 1.4375406056660477e-16,
+      "obstacle": null,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N9d-1325-capacity": {
+    "status": "PASS",
+    "evidence": {
+      "plannedScenarios_": 17,
+      "attemptedScenarios_": 17,
+      "successfulScenarios_": 16,
+      "failedScenarios_": 1,
+      "notRunScenarios_": 0,
+      "totalSolves_": 33,
+      "workUnits_": 1287,
+      "plannedNumericPayloadBytes_": 129268,
+      "plannedWorkspaceBytes_": 52920,
+      "plannedPeakNativeBytes_": 182188,
+      "numericPayloadBytes_": 15183,
+      "peakWorkspaceBytes_": 8873,
+      "peakNativeBytes_": 23981,
+      "workLimitScenarioIndex_": 16,
+      "workLimitSource_": "GLOBAL"
+    }
+  },
+  "N9d-390-residual-Base": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Base",
+      "status": "SUCCESS",
+      "iteration": 3.865743311920807,
+      "linear": 1.300559113195156e-16,
+      "obstacle": null,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N9d-390-residual-Spot:C-": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Spot:C-",
+      "status": "SUCCESS",
+      "iteration": 3.865743311920807,
+      "linear": 1.300559113195156e-16,
+      "obstacle": null,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N9d-390-residual-Spot:C+": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Spot:C+",
+      "status": "SUCCESS",
+      "iteration": 3.865743311920807,
+      "linear": 1.300559113195156e-16,
+      "obstacle": null,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N9d-390-residual-Spot:F-": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Spot:F-",
+      "status": "SUCCESS",
+      "iteration": 3.865743311920807,
+      "linear": 1.300559113195156e-16,
+      "obstacle": null,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N9d-390-residual-Spot:F+": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Spot:F+",
+      "status": "SUCCESS",
+      "iteration": 3.865743311920807,
+      "linear": 1.300559113195156e-16,
+      "obstacle": null,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N9d-390-capacity": {
+    "status": "PASS",
+    "evidence": {
+      "plannedScenarios_": 17,
+      "attemptedScenarios_": 5,
+      "successfulScenarios_": 5,
+      "failedScenarios_": 0,
+      "notRunScenarios_": 12,
+      "totalSolves_": 10,
+      "workUnits_": 390,
+      "plannedNumericPayloadBytes_": 129268,
+      "plannedWorkspaceBytes_": 52920,
+      "plannedPeakNativeBytes_": 182188,
+      "numericPayloadBytes_": 15184,
+      "peakWorkspaceBytes_": 8873,
+      "peakNativeBytes_": 23936,
+      "workLimitScenarioIndex_": 5,
+      "workLimitSource_": "GLOBAL"
+    }
+  },
+  "N9d-78-residual-Base": {
+    "status": "PASS",
+    "evidence": {
+      "scenario": "Base",
+      "status": "SUCCESS",
+      "iteration": 3.865743311920807,
+      "linear": 1.300559113195156e-16,
+      "obstacle": null,
+      "dual": null,
+      "complementarity": null
+    }
+  },
+  "N9d-78-capacity": {
+    "status": "PASS",
+    "evidence": {
+      "plannedScenarios_": 17,
+      "attemptedScenarios_": 1,
+      "successfulScenarios_": 1,
+      "failedScenarios_": 0,
+      "notRunScenarios_": 16,
+      "totalSolves_": 2,
+      "workUnits_": 78,
+      "plannedNumericPayloadBytes_": 129268,
+      "plannedWorkspaceBytes_": 52920,
+      "plannedPeakNativeBytes_": 182188,
+      "numericPayloadBytes_": 15178,
+      "peakWorkspaceBytes_": 8873,
+      "peakNativeBytes_": 23936,
+      "workLimitScenarioIndex_": 1,
+      "workLimitSource_": "GLOBAL"
+    }
+  },
+  "N9d-77-capacity": {
+    "status": "PASS",
+    "evidence": {
+      "plannedScenarios_": 17,
+      "attemptedScenarios_": 1,
+      "successfulScenarios_": 0,
+      "failedScenarios_": 1,
+      "notRunScenarios_": 16,
+      "totalSolves_": 1,
+      "workUnits_": 39,
+      "plannedNumericPayloadBytes_": 129268,
+      "plannedWorkspaceBytes_": 52920,
+      "plannedPeakNativeBytes_": 182188,
+      "numericPayloadBytes_": 15273,
+      "peakWorkspaceBytes_": 7674,
+      "peakNativeBytes_": 22827,
+      "workLimitScenarioIndex_": 0,
+      "workLimitSource_": "GLOBAL"
+    }
+  },
+  "N5a-0-bermudan": {
+    "status": "PASS",
+    "evidence": {
+      "expected": 21.559159621892043,
+      "actual": 21.559179850652754
+    }
+  },
+  "N5a-0-american": {
+    "status": "PASS",
+    "evidence": {
+      "expected": 21.559159621892043,
+      "actual": 21.559179850652754
+    }
+  },
+  "N5a-0-terminal": {
+    "status": "PASS",
+    "evidence": {
+      "expected": 19.02719477653531,
+      "actual": 19.02724233843912
+    }
+  },
+  "N5a-1-bermudan": {
+    "status": "PASS",
+    "evidence": {
+      "expected": 21.022541930000497,
+      "actual": 21.022594480075107
+    }
+  },
+  "N5a-1-american": {
+    "status": "PASS",
+    "evidence": {
+      "expected": 21.022541930000497,
+      "actual": 21.022594480075107
+    }
+  },
+  "N5a-1-terminal": {
+    "status": "PASS",
+    "evidence": {
+      "expected": 21.022541930000497,
+      "actual": 21.022594480075107
+    }
+  },
+  "N5c-0": {
+    "status": "PASS",
+    "evidence": [
+      0.5,
+      -1.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  "N5c-1": {
+    "status": "PASS",
+    "evidence": [
+      0.49999999999994793,
+      -0.9999999999999716,
+      0.0,
+      1.4551915228366852e-13,
+      -1.1641532182693482e-12,
+      0.0
+    ]
+  },
+  "N6-0-space": {
+    "status": "PASS",
+    "evidence": {
+      "fixtures": [
+        "N6-0-space-401",
+        "N6-0-space-801",
+        "N6-0-space-1601"
+      ],
+      "values": [
+        [
+          0.06728412233404087,
+          -0.4085439395595514,
+          1.8972615692106398,
+          0.37960213513300006,
+          -0.47561213464286994,
+          0.4083247061562725
+        ],
+        [
+          0.0673019217789804,
+          -0.4083662203921494,
+          1.8974580494387716,
+          0.37950942527505505,
+          -0.4756118955333659,
+          0.4083066688499821
+        ],
+        [
+          0.06730636973379744,
+          -0.40832175802748605,
+          1.8975070359456225,
+          0.37948627734599544,
+          -0.4756118357561354,
+          0.40830216141592246
+        ]
+      ],
+      "last_difference": [
+        4.447954817049515e-06,
+        4.446236466337794e-05,
+        4.8986506850923206e-05,
+        2.3147929059608163e-05,
+        5.977723049888084e-08,
+        4.507434059664028e-06
+      ]
+    }
+  },
+  "N6-0-time": {
+    "status": "PASS",
+    "evidence": {
+      "fixtures": [
+        "N6-0-time-1000",
+        "N6-0-time-2000",
+        "N6-0-time-4000"
+      ],
+      "values": [
+        [
+          0.06729709997884362,
+          -0.40833155265197885,
+          1.8981735378030606,
+          0.3794368918381952,
+          -0.4755915489811741,
+          0.4082680343433458
+        ],
+        [
+          0.06730239683300321,
+          -0.40832595587549747,
+          1.8977926066817474,
+          0.37946511130077853,
+          -0.475603141203901,
+          0.4082875343906926
+        ],
+        [
+          0.06730504540875402,
+          -0.40832315733539826,
+          1.8976022140417825,
+          0.37947922186234795,
+          -0.4756089375306328,
+          0.40829728553319
+        ]
+      ],
+      "last_difference": [
+        2.648575750816007e-06,
+        2.7985400992136533e-06,
+        0.00019039263996489808,
+        1.4110561569413704e-05,
+        5.79632673181063e-06,
+        9.751142497405052e-06
+      ]
+    }
+  },
+  "N7-0-domain": {
+    "status": "FAIL",
+    "evidence": {
+      "fixtures": [
+        "N7-0-domain-400",
+        "N7-0-domain-600",
+        "N7-0-domain-800"
+      ],
+      "values": [
+        [
+          0.06730636973379744,
+          -0.40832175802748605,
+          1.8975070359456225,
+          0.37948627734599544,
+          -0.4756118357561354,
+          0.40830216141592246
+        ],
+        [
+          0.06730636973379744,
+          -0.4083217580274807,
+          1.8975070359477542,
+          0.37948627734599544,
+          -0.4756118357561354,
+          0.40830216141592246
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      ],
+      "last_difference": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    }
+  },
+  "N7-0-penalty": {
+    "status": "PASS",
+    "evidence": {
+      "fixtures": [
+        "N7-0-penalty-10000000.0",
+        "N7-0-penalty-100000000.0",
+        "N7-0-penalty-1000000000.0"
+      ],
+      "values": [
+        [
+          0.06730636973379744,
+          -0.40832175802748605,
+          1.8975070359456225,
+          0.37948627734599544,
+          -0.4756118357561354,
+          0.40830216141592246
+        ],
+        [
+          0.06730636973379744,
+          -0.40832175802748605,
+          1.8975070359456225,
+          0.37948627734599544,
+          -0.4756118357561354,
+          0.40830216141592246
+        ],
+        [
+          0.06730636973379744,
+          -0.40832175802748605,
+          1.8975070359456225,
+          0.37948627734599544,
+          -0.4756118357561354,
+          0.40830216141592246
+        ]
+      ],
+      "last_difference": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "N7-0-spot-801": {
+    "status": "PASS",
+    "evidence": {
+      "fixtures": [
+        "N7-0-spot-801-4",
+        "N7-0-spot-801-2"
+      ],
+      "values": [
+        [
+          0.0673019217789804,
+          -0.40855556043313634,
+          1.8965562229223965,
+          0.37950942527505505,
+          -0.4756118955333659,
+          0.4083066688499821
+        ],
+        [
+          0.0673019217789804,
+          -0.4083662203921494,
+          1.8974580494387716,
+          0.37950942527505505,
+          -0.4756118955333659,
+          0.4083066688499821
+        ]
+      ],
+      "last_difference": [
+        0.0,
+        0.00018934004098691837,
+        0.0009018265163751593,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "N7-0-spot-1601": {
+    "status": "PASS",
+    "evidence": {
+      "fixtures": [
+        "N7-0-spot-1601-4",
+        "N7-0-spot-1601-2"
+      ],
+      "values": [
+        [
+          0.06730636973379744,
+          -0.4083691703330161,
+          1.8972816304807516,
+          0.37948627734599544,
+          -0.4756118357561354,
+          0.40830216141592246
+        ],
+        [
+          0.06730636973379744,
+          -0.40832175802748605,
+          1.8975070359456225,
+          0.37948627734599544,
+          -0.4756118357561354,
+          0.40830216141592246
+        ]
+      ],
+      "last_difference": [
+        0.0,
+        4.741230553007014e-05,
+        0.00022540546487093138,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "N7-0-parameter": {
+    "status": "PASS",
+    "evidence": {
+      "fixtures": [
+        "N7-0-parameter-1",
+        "N7-0-parameter-0.5",
+        "N7-0-parameter-0.25"
+      ],
+      "values": [
+        [
+          0.06730636973379744,
+          -0.40832175802748605,
+          1.8975070359456225,
+          0.37948627734599544,
+          -0.4756118357561354,
+          0.40830216141592246
+        ],
+        [
+          0.06730636973379744,
+          -0.40832175802748605,
+          1.8975070359456225,
+          0.37948628915139127,
+          -0.47561183400131996,
+          0.40830216192844093
+        ],
+        [
+          0.06730636973379744,
+          -0.40832175802748605,
+          1.8975070359456225,
+          0.37948629210361107,
+          -0.4756118348229211,
+          0.40830216198926794
+        ]
+      ],
+      "last_difference": [
+        0.0,
+        0.0,
+        0.0,
+        2.952219801954925e-09,
+        8.216011204709162e-10,
+        6.082701009546554e-11
+      ]
+    }
+  },
+  "N6-1-space": {
+    "status": "PASS",
+    "evidence": {
+      "fixtures": [
+        "N6-1-space-401",
+        "N6-1-space-801",
+        "N6-1-space-1601"
+      ],
+      "values": [
+        [
+          0.060873121167894964,
+          -0.41159486429538417,
+          2.2998067166739578,
+          0.37497123154555084,
+          -0.30210568148453604,
+          0.2686070745078905
+        ],
+        [
+          0.06089461869180937,
+          -0.41119412164189084,
+          2.299210747231495,
+          0.3749036060660819,
+          -0.3021611791886244,
+          0.26862733798981936
+        ],
+        [
+          0.0608999975328288,
+          -0.4110931833530831,
+          2.2990361190672104,
+          0.37487576382175575,
+          -0.3021630696779175,
+          0.2686221189010394
+        ]
+      ],
+      "last_difference": [
+        5.378841019428038e-06,
+        0.00010093828880775035,
+        0.0001746281642844849,
+        2.784224432617055e-05,
+        1.89048929311042e-06,
+        5.219088779984116e-06
+      ]
+    }
+  },
+  "N6-1-time": {
+    "status": "PASS",
+    "evidence": {
+      "fixtures": [
+        "N6-1-time-1000",
+        "N6-1-time-2000",
+        "N6-1-time-4000"
+      ],
+      "values": [
+        [
+          0.06088723982630626,
+          -0.4110952653446889,
+          2.2997855543625434,
+          0.37479305299403676,
+          -0.3020978928634577,
+          0.2685655669194239
+        ],
+        [
+          0.060894457244686805,
+          -0.4110941749062018,
+          2.2993603136001184,
+          0.3748426704550184,
+          -0.3021380258889985,
+          0.26860018101004246
+        ],
+        [
+          0.06089813596373204,
+          -0.4110935342037001,
+          2.299144797030195,
+          0.3748649711125108,
+          -0.3021554848235974,
+          0.26861562952275564
+        ]
+      ],
+      "last_difference": [
+        3.678719045233092e-06,
+        6.407025017196588e-07,
+        0.00021551656992357948,
+        2.230065749242449e-05,
+        1.7458934598868492e-05,
+        1.5448512713178708e-05
+      ]
+    }
+  },
+  "N7-1-domain": {
+    "status": "FAIL",
+    "evidence": {
+      "fixtures": [
+        "N7-1-domain-400",
+        "N7-1-domain-600",
+        "N7-1-domain-800"
+      ],
+      "values": [
+        [
+          0.0608999975328288,
+          -0.4110931833530831,
+          2.2990361190672104,
+          0.37487576382175575,
+          -0.3021630696779175,
+          0.2686221189010394
+        ],
+        [
+          0.06089999753282853,
+          -0.4110931833530742,
+          2.299036119070763,
+          0.3748757638217285,
+          -0.3021630696737702,
+          0.2686221188997297
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      ],
+      "last_difference": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    }
+  },
+  "N7-1-penalty": {
+    "status": "PASS",
+    "evidence": {
+      "fixtures": [
+        "N7-1-penalty-10000000.0",
+        "N7-1-penalty-100000000.0",
+        "N7-1-penalty-1000000000.0"
+      ],
+      "values": [
+        [
+          0.06089999753274851,
+          -0.41109318335266387,
+          2.2990361190657893,
+          0.374875763821974,
+          -0.3021630696784268,
+          0.2686221189008938
+        ],
+        [
+          0.0608999975328288,
+          -0.4110931833530831,
+          2.2990361190672104,
+          0.37487576382175575,
+          -0.3021630696779175,
+          0.2686221189010394
+        ],
+        [
+          0.060899997532836814,
+          -0.4110931833531257,
+          2.299036119067921,
+          0.37487576382175575,
+          -0.30216306967697165,
+          0.2686221189004573
+        ]
+      ],
+      "last_difference": [
+        8.014422459012849e-15,
+        4.263256414560601e-14,
+        7.105427357601002e-13,
+        0.0,
+        9.458545058294021e-13,
+        5.820899318109696e-13
+      ]
+    }
+  },
+  "N7-1-spot-801": {
+    "status": "PASS",
+    "evidence": {
+      "fixtures": [
+        "N7-1-spot-801-4",
+        "N7-1-spot-801-2"
+      ],
+      "values": [
+        [
+          0.06089461869180937,
+          -0.4116272723130614,
+          2.2991950978558995,
+          0.3749036060660819,
+          -0.3021611791886244,
+          0.26862733798981936
+        ],
+        [
+          0.06089461869180937,
+          -0.41119412164189084,
+          2.299210747231495,
+          0.3749036060660819,
+          -0.3021611791886244,
+          0.26862733798981936
+        ]
+      ],
+      "last_difference": [
+        0.0,
+        0.00043315067117055683,
+        1.5649375595394588e-05,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "N7-1-spot-1601": {
+    "status": "PASS",
+    "evidence": {
+      "fixtures": [
+        "N7-1-spot-1601-4",
+        "N7-1-spot-1601-2"
+      ],
+      "values": [
+        [
+          0.0608999975328288,
+          -0.41120151407113203,
+          2.299032337158824,
+          0.37487576382175575,
+          -0.3021630696779175,
+          0.2686221189010394
+        ],
+        [
+          0.0608999975328288,
+          -0.4110931833530831,
+          2.2990361190672104,
+          0.37487576382175575,
+          -0.3021630696779175,
+          0.2686221189010394
+        ]
+      ],
+      "last_difference": [
+        0.0,
+        0.00010833071804894345,
+        3.781908386457644e-06,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "N7-1-parameter": {
+    "status": "PASS",
+    "evidence": {
+      "fixtures": [
+        "N7-1-parameter-1",
+        "N7-1-parameter-0.5",
+        "N7-1-parameter-0.25"
+      ],
+      "values": [
+        [
+          0.0608999975328288,
+          -0.4110931833530831,
+          2.2990361190672104,
+          0.37487576382175575,
+          -0.3021630696779175,
+          0.2686221189010394
+        ],
+        [
+          0.0608999975328288,
+          -0.4110931833530831,
+          2.2990361190672104,
+          0.374875683823484,
+          -0.30216305651221775,
+          0.2686220893180871
+        ],
+        [
+          0.0608999975328288,
+          -0.4110931833530831,
+          2.2990361190672104,
+          0.37487564363273124,
+          -0.30216301933280193,
+          0.2686219853552757
+        ]
+      ],
+      "last_difference": [
+        0.0,
+        0.0,
+        0.0,
+        4.0190752781388284e-08,
+        3.717941582381812e-08,
+        1.0396281141522579e-07
+      ]
+    }
+  },
+  "N6-2-space": {
+    "status": "PASS",
+    "evidence": {
+      "fixtures": [
+        "N6-2-space-401",
+        "N6-2-space-801",
+        "N6-2-space-1601"
+      ],
+      "values": [
+        [
+          0.0653926724463566,
+          0.48382061880833827,
+          2.160736781905981,
+          0.37276702510417636,
+          0.29140248183444784,
+          -0.3299851933883474
+        ],
+        [
+          0.0654123452824556,
+          0.4838073769549882,
+          2.1609844288412283,
+          0.37266253426564616,
+          0.29136899296936464,
+          -0.3299731473140855
+        ],
+        [
+          0.06541729039189932,
+          0.4838039898546036,
+          2.1610444679282637,
+          0.3726364717222077,
+          0.2913617150267237,
+          -0.3299714547742042
+        ]
+      ],
+      "last_difference": [
+        4.945109443724172e-06,
+        3.387100384610875e-06,
+        6.0039087035335115e-05,
+        2.6062543438454266e-05,
+        7.277942640937507e-06,
+        1.6925398813039116e-06
+      ]
+    }
+  },
+  "N6-2-time": {
+    "status": "PASS",
+    "evidence": {
+      "fixtures": [
+        "N6-2-time-1000",
+        "N6-2-time-2000",
+        "N6-2-time-4000"
+      ],
+      "values": [
+        [
+          0.06540389772935044,
+          0.48379119340988375,
+          2.161781504043603,
+          0.37256480514531176,
+          0.29133374567005377,
+          -0.3299389922447881
+        ],
+        [
+          0.06541147993621854,
+          0.48379851916247585,
+          2.161362954156587,
+          0.37260471897910974,
+          0.2913478852721164,
+          -0.3299554731330864
+        ],
+        [
+          0.06541533767764164,
+          0.4838021700149282,
+          2.161151218001933,
+          0.37262536454362816,
+          0.29135810568506715,
+          -0.32996724454184007
+        ]
+      ],
+      "last_difference": [
+        3.85774142309947e-06,
+        3.6508524523526376e-06,
+        0.0002117361546538632,
+        2.0645564518417814e-05,
+        1.0220412950734392e-05,
+        1.1771408753691315e-05
+      ]
+    }
+  },
+  "N7-2-domain": {
+    "status": "PASS",
+    "evidence": {
+      "fixtures": [
+        "N7-2-domain-400",
+        "N7-2-domain-600",
+        "N7-2-domain-800"
+      ],
+      "values": [
+        [
+          0.06541729039189932,
+          0.4838039898546036,
+          2.1610444679282637,
+          0.3726364717222077,
+          0.2913617150267237,
+          -0.3299714547742042
+        ],
+        [
+          0.06541729039190025,
+          0.4838039898546098,
+          2.1610444679243557,
+          0.3726364717225533,
+          0.2913617150367645,
+          -0.32997145477042067
+        ],
+        [
+          0.06541729039189932,
+          0.4838039898546036,
+          2.1610444679282637,
+          0.3726364717222077,
+          0.2913617150267237,
+          -0.3299714547742042
+        ]
+      ],
+      "last_difference": [
+        9.298117831235686e-16,
+        6.217248937900877e-15,
+        3.907985046680551e-12,
+        3.4561242756581123e-13,
+        1.0040801523558684e-11,
+        3.783529045620071e-12
+      ]
+    }
+  },
+  "N7-2-penalty": {
+    "status": "PASS",
+    "evidence": {
+      "fixtures": [
+        "N7-2-penalty-10000000.0",
+        "N7-2-penalty-100000000.0",
+        "N7-2-penalty-1000000000.0"
+      ],
+      "values": [
+        [
+          0.06541729039185268,
+          0.4838039898543407,
+          2.1610444679268426,
+          0.37263647172258973,
+          0.2913617150278878,
+          -0.32997145477565937
+        ],
+        [
+          0.06541729039189932,
+          0.4838039898546036,
+          2.1610444679282637,
+          0.3726364717222077,
+          0.2913617150267237,
+          -0.3299714547742042
+        ],
+        [
+          0.06541729039190403,
+          0.48380398985462936,
+          2.1610444679279084,
+          0.3726364717220804,
+          0.2913617150249775,
+          -0.32997145477391315
+        ]
+      ],
+      "last_difference": [
+        4.704570066849101e-15,
+        2.5757174171303632e-14,
+        3.552713678800501e-13,
+        1.272870697732742e-13,
+        1.7462142842816775e-12,
+        2.910449659054848e-13
+      ]
+    }
+  },
+  "N7-2-spot-801": {
+    "status": "PASS",
+    "evidence": {
+      "fixtures": [
+        "N7-2-spot-801-4",
+        "N7-2-spot-801-2"
+      ],
+      "values": [
+        [
+          0.0654123452824556,
+          0.4838239975233667,
+          2.1599760140158075,
+          0.37266253426564616,
+          0.29136899296936464,
+          -0.3299731473140855
+        ],
+        [
+          0.0654123452824556,
+          0.4838073769549882,
+          2.1609844288412283,
+          0.37266253426564616,
+          0.29136899296936464,
+          -0.3299731473140855
+        ]
+      ],
+      "last_difference": [
+        0.0,
+        1.662056837847814e-05,
+        0.0010084148254208003,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "N7-2-spot-1601": {
+    "status": "PASS",
+    "evidence": {
+      "fixtures": [
+        "N7-2-spot-1601-4",
+        "N7-2-spot-1601-2"
+      ],
+      "values": [
+        [
+          0.06541729039189932,
+          0.4838080999816383,
+          2.1607923004689944,
+          0.3726364717222077,
+          0.2913617150267237,
+          -0.3299714547742042
+        ],
+        [
+          0.06541729039189932,
+          0.4838039898546036,
+          2.1610444679282637,
+          0.3726364717222077,
+          0.2913617150267237,
+          -0.3299714547742042
+        ]
+      ],
+      "last_difference": [
+        0.0,
+        4.110127034717692e-06,
+        0.0002521674592692591,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "N7-2-parameter": {
+    "status": "PASS",
+    "evidence": {
+      "fixtures": [
+        "N7-2-parameter-1",
+        "N7-2-parameter-0.5",
+        "N7-2-parameter-0.25"
+      ],
+      "values": [
+        [
+          0.06541729039189932,
+          0.4838039898546036,
+          2.1610444679282637,
+          0.3726364717222077,
+          0.2913617150267237,
+          -0.3299714547742042
+        ],
+        [
+          0.06541729039189932,
+          0.4838039898546036,
+          2.1610444679282637,
+          0.3726365512251505,
+          0.29136160162466695,
+          -0.3299713425752998
+        ],
+        [
+          0.06541729039189932,
+          0.4838039898546036,
+          2.1610444679282637,
+          0.37263649439544677,
+          0.291362099754333,
+          -0.32997169179929187
+        ]
+      ],
+      "last_difference": [
+        0.0,
+        0.0,
+        0.0,
+        5.682970372067331e-08,
+        4.98129666071101e-07,
+        3.4922399205772336e-07
+      ]
+    }
+  },
+  "N6-3-space": {
+    "status": "PASS",
+    "evidence": {
+      "fixtures": [
+        "N6-3-space-401",
+        "N6-3-space-801",
+        "N6-3-space-1601"
+      ],
+      "values": [
+        [
+          0.06852864166858139,
+          -0.4294314119621856,
+          2.1182995991797293,
+          0.38006074461844946,
+          -0.18680706097482472,
+          0.16108362872342696,
+          -0.21335173892308376,
+          0.18820060359372293
+        ],
+        [
+          0.06854513675724391,
+          -0.42918910265107524,
+          2.1186610922987015,
+          0.38098179653321496,
+          -0.18679715728576413,
+          0.16106753414016567,
+          -0.21542120169702686,
+          0.18994659831063473
+        ],
+        [
+          0.06854922916085743,
+          -0.42912811634255377,
+          2.118749353919469,
+          0.38042676003233283,
+          -0.1867945440488984,
+          0.16106338494442754,
+          -0.21435142098504004,
+          0.18903460163375713
+        ]
+      ],
+      "last_difference": [
+        4.092403613514817e-06,
+        6.0986308521471244e-05,
+        8.826162076758237e-05,
+        0.0005550365008821223,
+        2.6132368657338922e-06,
+        4.149195738128997e-06,
+        0.001069780711986823,
+        0.0009119966768776078
+      ]
+    }
+  },
+  "N6-3-time": {
+    "status": "PASS",
+    "evidence": {
+      "fixtures": [
+        "N6-3-time-1000",
+        "N6-3-time-2000",
+        "N6-3-time-4000"
+      ],
+      "values": [
+        [
+          0.06853838321704052,
+          -0.4291142116311706,
+          2.119398655446858,
+          0.38037801780738845,
+          -0.18679468917194755,
+          0.16105557125789347,
+          -0.21439325161336456,
+          0.18906184800885967
+        ],
+        [
+          0.0685445724902024,
+          -0.42912214610176047,
+          2.1190281657791132,
+          0.38040583559031804,
+          -0.18679460470069897,
+          0.16106002962958882,
+          -0.21436939427396284,
+          0.1890463098725013
+        ],
+        [
+          0.06854767721626794,
+          -0.42912612664822714,
+          2.1188422729995438,
+          0.3804197867585481,
+          -0.1867945641865663,
+          0.16106226659030654,
+          -0.21435741133987904,
+          0.18903850409697043
+        ]
+      ],
+      "last_difference": [
+        3.104726065530916e-06,
+        3.9805464666642365e-06,
+        0.00018589277956948536,
+        1.3951168230053046e-05,
+        4.0514132687574644e-08,
+        2.2369607177163964e-06,
+        1.198293408380402e-05,
+        7.80577553086137e-06
+      ]
+    }
+  },
+  "N7-3-domain": {
+    "status": "FAIL",
+    "evidence": {
+      "fixtures": [
+        "N7-3-domain-400",
+        "N7-3-domain-600",
+        "N7-3-domain-800"
+      ],
+      "values": [
+        [
+          0.06854922916085743,
+          -0.42912811634255377,
+          2.118749353919469,
+          0.38042676003233283,
+          -0.1867945440488984,
+          0.16106338494442754,
+          -0.21435142098504004,
+          0.18903460163375713
+        ],
+        [
+          0.06854922916085743,
+          -0.42912811634254755,
+          2.118749353921956,
+          0.3804267600322237,
+          -0.1867945440488984,
+          0.16106338494442754,
+          -0.21435142098504004,
+          0.18903460163375713
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      ],
+      "last_difference": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    }
+  },
+  "N7-3-penalty": {
+    "status": "PASS",
+    "evidence": {
+      "fixtures": [
+        "N7-3-penalty-10000000.0",
+        "N7-3-penalty-100000000.0",
+        "N7-3-penalty-1000000000.0"
+      ],
+      "values": [
+        [
+          0.06854922916085743,
+          -0.42912811634255377,
+          2.118749353919469,
+          0.38042676003233283,
+          -0.1867945440488984,
+          0.16106338494442754,
+          -0.21435142098504004,
+          0.18903460163375713
+        ],
+        [
+          0.06854922916085743,
+          -0.42912811634255377,
+          2.118749353919469,
+          0.38042676003233283,
+          -0.1867945440488984,
+          0.16106338494442754,
+          -0.21435142098504004,
+          0.18903460163375713
+        ],
+        [
+          0.06854922916085743,
+          -0.42912811634255377,
+          2.118749353919469,
+          0.38042676003233283,
+          -0.1867945440488984,
+          0.16106338494442754,
+          -0.21435142098504004,
+          0.18903460163375713
+        ]
+      ],
+      "last_difference": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "N7-3-spot-801": {
+    "status": "PASS",
+    "evidence": {
+      "fixtures": [
+        "N7-3-spot-801-4",
+        "N7-3-spot-801-2"
+      ],
+      "values": [
+        [
+          0.06854513675724391,
+          -0.42944423193968184,
+          2.117608394142234,
+          0.38098179653321496,
+          -0.18679715728576413,
+          0.16106753414016567,
+          -0.21542120169702686,
+          0.18994659831063473
+        ],
+        [
+          0.06854513675724391,
+          -0.42918910265107524,
+          2.1186610922987015,
+          0.38098179653321496,
+          -0.18679715728576413,
+          0.16106753414016567,
+          -0.21542120169702686,
+          0.18994659831063473
+        ]
+      ],
+      "last_difference": [
+        0.0,
+        0.00025512928860660367,
+        0.0010526981564673576,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "N7-3-spot-1601": {
+    "status": "PASS",
+    "evidence": {
+      "fixtures": [
+        "N7-3-spot-1601-4",
+        "N7-3-spot-1601-2"
+      ],
+      "values": [
+        [
+          0.06854922916085743,
+          -0.42919203290609653,
+          2.118486387409302,
+          0.38042676003233283,
+          -0.1867945440488984,
+          0.16106338494442754,
+          -0.21435142098504004,
+          0.18903460163375713
+        ],
+        [
+          0.06854922916085743,
+          -0.42912811634255377,
+          2.118749353919469,
+          0.38042676003233283,
+          -0.1867945440488984,
+          0.16106338494442754,
+          -0.21435142098504004,
+          0.18903460163375713
+        ]
+      ],
+      "last_difference": [
+        0.0,
+        6.39165635427652e-05,
+        0.0002629665101672174,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "N7-3-parameter": {
+    "status": "PASS",
+    "evidence": {
+      "fixtures": [
+        "N7-3-parameter-1",
+        "N7-3-parameter-0.5",
+        "N7-3-parameter-0.25"
+      ],
+      "values": [
+        [
+          0.06854922916085743,
+          -0.42912811634255377,
+          2.118749353919469,
+          0.38042676003233283,
+          -0.1867945440488984,
+          0.16106338494442754,
+          -0.21435142098504004,
+          0.18903460163375713
+        ],
+        [
+          0.06854922916085743,
+          -0.42912811634255377,
+          2.118749353919469,
+          0.3804267223502211,
+          -0.18679454372788315,
+          0.16106338493234945,
+          -0.21435142065776747,
+          0.18903460173052736
+        ],
+        [
+          0.06854922916085743,
+          -0.42912811634255377,
+          2.118749353919469,
+          0.3804267129005893,
+          -0.18679454378783703,
+          0.16106338498706463,
+          -0.21435142136877403,
+          0.18903460175322834
+        ]
+      ],
+      "last_difference": [
+        0.0,
+        0.0,
+        0.0,
+        9.449631799274272e-09,
+        5.995387519774908e-11,
+        5.471517683375282e-11,
+        7.11006559184213e-10,
+        2.2700979984691116e-11
+      ]
+    }
+  },
+  "N9b-1-100": {
+    "status": "PASS",
+    "evidence": {
+      "scenarioIndex_": 0,
+      "scenarioId_": "Base",
+      "planId_": "p3v1:sha256:79ce1e6535aa8ef9214c41220870b334a771ab4b46913243574157c332949236",
+      "parameterId_": null,
+      "segmentIndex_": null,
+      "parameterValue_": null,
+      "offset_": null,
+      "status_": "NUMERICAL_FAILURE",
+      "solverStatus_": "LCP_RESIDUAL_LIMIT",
+      "workLimitSource_": "NONE",
+      "priceAvailable_": false,
+      "price_": null,
+      "epsilon_": 2e-08,
+      "plannedSteps_": 501,
+      "actualSteps_": 345,
+      "completedSteps_": 344,
+      "totalSolves_": 788,
+      "workUnits_": 30732,
+      "numericPayloadBytes_": 336076,
+      "peakWorkspaceBytes_": 4472,
+      "maxIterationChange_": 0.0,
+      "maxLinearBackwardError_": 0.0,
+      "maxObstacleViolation_": 0.00636851514117609,
+      "maxDualViolation_": 0.0,
+      "maxComplementarityResidual_": 0.00636851514117609,
+      "failure_": {
+        "status_": "LCP_RESIDUAL_LIMIT",
+        "timeIndex_": 156,
+        "iteration_": 100,
+        "calendarDate_": null,
+        "node_": null,
+        "residual_": 0.00636851514117609,
+        "threshold_": 2e-08,
+        "workUnits_": 30732,
+        "reason_": "original LCP or iteration-change tolerance not reached"
+      },
+      "evaluationMembership_": null,
+      "evaluationBoundaryIntersectsSpotStencil_": null,
+      "futureContactChanged_": null,
+      "upwindChanged_": null
+    }
+  },
+  "N9b-100000000.0-1": {
+    "status": "PASS",
+    "evidence": {
+      "scenarioIndex_": 0,
+      "scenarioId_": "Base",
+      "planId_": "p3v1:sha256:017d6347465c297ce878be5952587e1414033ea3263bad756a5ecde00b599caa",
+      "parameterId_": null,
+      "segmentIndex_": null,
+      "parameterValue_": null,
+      "offset_": null,
+      "status_": "NUMERICAL_FAILURE",
+      "solverStatus_": "MAX_ITERATIONS",
+      "workLimitSource_": "NONE",
+      "priceAvailable_": false,
+      "price_": null,
+      "epsilon_": 2e-08,
+      "plannedSteps_": 501,
+      "actualSteps_": 1,
+      "completedSteps_": 0,
+      "totalSolves_": 1,
+      "workUnits_": 39,
+      "numericPayloadBytes_": 336076,
+      "peakWorkspaceBytes_": 4472,
+      "maxIterationChange_": 0.0017961757213100782,
+      "maxLinearBackwardError_": 0.0,
+      "maxObstacleViolation_": 0.0,
+      "maxDualViolation_": 0.0,
+      "maxComplementarityResidual_": 0.0,
+      "failure_": {
+        "status_": "MAX_ITERATIONS",
+        "timeIndex_": 500,
+        "iteration_": 1,
+        "calendarDate_": null,
+        "node_": null,
+        "residual_": 0.0,
+        "threshold_": 2e-08,
+        "workUnits_": 39,
+        "reason_": "original LCP or iteration-change tolerance not reached"
+      },
+      "evaluationMembership_": null,
+      "evaluationBoundaryIntersectsSpotStencil_": null,
+      "futureContactChanged_": null,
+      "upwindChanged_": null
+    }
+  },
+  "N9b-control": {
+    "status": "PASS",
+    "evidence": null
+  },
+  "N9c-measured-failure": {
+    "status": "PASS",
+    "evidence": {
+      "scenarioIndex_": 0,
+      "scenarioId_": "Base",
+      "planId_": "p3v1:sha256:38cb1362981b1d88edd4ed40b0a7cd862803c3c7139176ae8554c1040fa56bc8",
+      "parameterId_": null,
+      "segmentIndex_": null,
+      "parameterValue_": null,
+      "offset_": null,
+      "status_": "NUMERICAL_FAILURE",
+      "solverStatus_": "LINEAR_SOLVE_FAILURE",
+      "workLimitSource_": "NONE",
+      "priceAvailable_": false,
+      "price_": null,
+      "epsilon_": 2e-08,
+      "plannedSteps_": 500,
+      "actualSteps_": 1,
+      "completedSteps_": 0,
+      "totalSolves_": 1,
+      "workUnits_": 399,
+      "numericPayloadBytes_": 111146,
+      "peakWorkspaceBytes_": 33232,
+      "maxIterationChange_": 0.2460402065707678,
+      "maxLinearBackwardError_": 1.5117550917645433e-16,
+      "maxObstacleViolation_": null,
+      "maxDualViolation_": null,
+      "maxComplementarityResidual_": null,
+      "failure_": {
+        "status_": "LINEAR_SOLVE_FAILURE",
+        "timeIndex_": 499,
+        "iteration_": 1,
+        "calendarDate_": null,
+        "node_": null,
+        "residual_": 1.5117550917645433e-16,
+        "threshold_": 9.999999999999999e-31,
+        "workUnits_": 399,
+        "reason_": "linear backward-error limit exceeded"
+      },
+      "evaluationMembership_": null,
+      "evaluationBoundaryIntersectsSpotStencil_": null,
+      "futureContactChanged_": null,
+      "upwindChanged_": null
+    }
+  },
+  "N9d-1326": {
+    "status": "PASS",
+    "evidence": {
+      "plannedScenarios_": 17,
+      "attemptedScenarios_": 17,
+      "successfulScenarios_": 17,
+      "failedScenarios_": 0,
+      "notRunScenarios_": 0,
+      "totalSolves_": 34,
+      "workUnits_": 1326,
+      "plannedNumericPayloadBytes_": 129268,
+      "plannedWorkspaceBytes_": 52920,
+      "plannedPeakNativeBytes_": 182188,
+      "numericPayloadBytes_": 15115,
+      "peakWorkspaceBytes_": 8828,
+      "peakNativeBytes_": 23891,
+      "workLimitScenarioIndex_": null,
+      "workLimitSource_": "NONE"
+    }
+  },
+  "N9d-1325": {
+    "status": "PASS",
+    "evidence": {
+      "plannedScenarios_": 17,
+      "attemptedScenarios_": 17,
+      "successfulScenarios_": 16,
+      "failedScenarios_": 1,
+      "notRunScenarios_": 0,
+      "totalSolves_": 33,
+      "workUnits_": 1287,
+      "plannedNumericPayloadBytes_": 129268,
+      "plannedWorkspaceBytes_": 52920,
+      "plannedPeakNativeBytes_": 182188,
+      "numericPayloadBytes_": 15183,
+      "peakWorkspaceBytes_": 8873,
+      "peakNativeBytes_": 23981,
+      "workLimitScenarioIndex_": 16,
+      "workLimitSource_": "GLOBAL"
+    }
+  },
+  "N9d-390": {
+    "status": "PASS",
+    "evidence": {
+      "plannedScenarios_": 17,
+      "attemptedScenarios_": 5,
+      "successfulScenarios_": 5,
+      "failedScenarios_": 0,
+      "notRunScenarios_": 12,
+      "totalSolves_": 10,
+      "workUnits_": 390,
+      "plannedNumericPayloadBytes_": 129268,
+      "plannedWorkspaceBytes_": 52920,
+      "plannedPeakNativeBytes_": 182188,
+      "numericPayloadBytes_": 15184,
+      "peakWorkspaceBytes_": 8873,
+      "peakNativeBytes_": 23936,
+      "workLimitScenarioIndex_": 5,
+      "workLimitSource_": "GLOBAL"
+    }
+  },
+  "N9d-78": {
+    "status": "PASS",
+    "evidence": {
+      "plannedScenarios_": 17,
+      "attemptedScenarios_": 1,
+      "successfulScenarios_": 1,
+      "failedScenarios_": 0,
+      "notRunScenarios_": 16,
+      "totalSolves_": 2,
+      "workUnits_": 78,
+      "plannedNumericPayloadBytes_": 129268,
+      "plannedWorkspaceBytes_": 52920,
+      "plannedPeakNativeBytes_": 182188,
+      "numericPayloadBytes_": 15178,
+      "peakWorkspaceBytes_": 8873,
+      "peakNativeBytes_": 23936,
+      "workLimitScenarioIndex_": 1,
+      "workLimitSource_": "GLOBAL"
+    }
+  },
+  "N9d-77": {
+    "status": "PASS",
+    "evidence": {
+      "plannedScenarios_": 17,
+      "attemptedScenarios_": 1,
+      "successfulScenarios_": 0,
+      "failedScenarios_": 1,
+      "notRunScenarios_": 16,
+      "totalSolves_": 1,
+      "workUnits_": 39,
+      "plannedNumericPayloadBytes_": 129268,
+      "plannedWorkspaceBytes_": 52920,
+      "plannedPeakNativeBytes_": 182188,
+      "numericPayloadBytes_": 15273,
+      "peakWorkspaceBytes_": 7674,
+      "peakNativeBytes_": 22827,
+      "workLimitScenarioIndex_": 0,
+      "workLimitSource_": "GLOBAL"
+    }
+  }
+}

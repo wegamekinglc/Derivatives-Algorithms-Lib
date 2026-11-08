@@ -41,6 +41,7 @@ def checkout_eigen(root):
             if remote == EIGEN_MIRROR:
                 raise
             print("Eigen primary download failed; retrying the same pinned commit from its mirror", flush=True)
+    git(destination, "config", "--local", "remote.origin.url", remote)
     git(destination, "checkout", "--detach", pin)
     if git(destination, "rev-parse", "HEAD", capture=True).strip() != pin:
         raise RuntimeError("Eigen checkout does not match the requested submodule commit")

@@ -12,7 +12,7 @@ The separate [owning core risk request](early-exercise.md#owning-core-risk-reque
 uses fixed-plan full repricing for Delta, finite-scale Gamma, Vega and native
 carry partials, with explicit per-risk availability and cumulative budgets.
 Risk projections to the public facade, Python and Excel remain planned;
-full independent numerical qualification is pending.
+numerical qualification covers fixed fixtures, bump scales and refinement levels.
 
 [Fixed-grid European prices and adjoints](aad.md) demonstrates complete native
 AAD rollback with terminal/boundary risks and separate derivative/convergence

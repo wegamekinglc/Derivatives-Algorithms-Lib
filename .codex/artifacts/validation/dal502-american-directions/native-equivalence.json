@@ -1,0 +1,313 @@
+{
+  "status": "PASS",
+  "count": 37,
+  "tree_nodes": 0,
+  "native_files": {
+    "american-0.jsonl.results.jsonl": {
+      "sha256": "05c87df66270e0b0fcceb5f41e1bbcdb02c77a6e5258d37bd3bb6c5aa3d602a6",
+      "bytes": 151054643
+    },
+    "american-1.jsonl.results.jsonl": {
+      "sha256": "b08ea1be85efbe68546f0b962dd18d6cb6a65648f8df4682f62c0a3b54bd1fe2",
+      "bytes": 131682276
+    }
+  },
+  "jobs": {
+    "13e5279a69502ee3af26d5d45fbaaf28670b9b21ea3c827a3ba647958dbd3b7f": {
+      "fixture": "N6-1-space-1601",
+      "elapsed_seconds": 15.765561595,
+      "max_rss_kib": 27496,
+      "nodes": 0,
+      "canonical_sha256": "b61deefccd181e30c90b39f7fee0a8be76f42c4cdd066a2222fd2cb86e8ffe00",
+      "exact_payload": true
+    },
+    "e805347030e9632742dd822e8a497afce021496fdf02b3ca6f45958078a1119a": {
+      "fixture": "N6-1-space-801",
+      "elapsed_seconds": 7.954665195,
+      "max_rss_kib": 34004,
+      "nodes": 0,
+      "canonical_sha256": "a584361d102a86bac7c3777727f9f69bb54c5c9a6300253237f222dfd0683413",
+      "exact_payload": true
+    },
+    "029648ec1063dc216d30da96310a64e388d29c53700273fb032eecb726951a76": {
+      "fixture": "N6-1-time-2000",
+      "elapsed_seconds": 4.169624252,
+      "max_rss_kib": 34004,
+      "nodes": 0,
+      "canonical_sha256": "8e3096d0cd02b5f992ead3584649ae565f1880ab77625908e3d8609e1c44e2e7",
+      "exact_payload": true
+    },
+    "07c0f3945b3dea727f2a64024ad96f22f94d464d5f2bff4140a300fa371407da": {
+      "fixture": "N6-2-space-1601",
+      "elapsed_seconds": 16.243253087,
+      "max_rss_kib": 34100,
+      "nodes": 0,
+      "canonical_sha256": "3354fbd47c5d1de7926f5dc3bad6e3a38522107fe8884d471c0420a89edd3aca",
+      "exact_payload": true
+    },
+    "2950068e8812382ad846b2ea4b0d9a09810363b019bb119e7150c35af40d6593": {
+      "fixture": "N6-2-space-801",
+      "elapsed_seconds": 8.100595292,
+      "max_rss_kib": 34204,
+      "nodes": 0,
+      "canonical_sha256": "5d539f952345717321b523931624a1cbd1eacef1c7e7aa7d8b822c3fff48b43d",
+      "exact_payload": true
+    },
+    "58ef97da01eff9b61256f2423b8140848ba24e5011d942cad6024a285e45f38e": {
+      "fixture": "N6-2-time-2000",
+      "elapsed_seconds": 4.999736454,
+      "max_rss_kib": 39748,
+      "nodes": 0,
+      "canonical_sha256": "fa071b334463553fcbf1282a022e52210a67ba65a67c1e68282dee494103017b",
+      "exact_payload": true
+    },
+    "146814b0aa495569fc770e73e1e46a96802d73a36b0c56e3a44a90a475b6129e": {
+      "fixture": "N7-1-domain-400",
+      "elapsed_seconds": 16.238873261,
+      "max_rss_kib": 39748,
+      "nodes": 0,
+      "canonical_sha256": "cefa300b23130b4c0935ce908c79f1b4519b9677c59845c6d531087f4d53568f",
+      "exact_payload": true
+    },
+    "b2d0ec8aa79401104de4a47c645a0c81f04fce9708a52c93218cfa2b46c83320": {
+      "fixture": "N7-1-parameter-0.25",
+      "elapsed_seconds": 16.844612299,
+      "max_rss_kib": 39748,
+      "nodes": 0,
+      "canonical_sha256": "5b882bd99b80075af21e0b00440f79c3cf9c2bd9f5facb6986f57168d5abf6f7",
+      "exact_payload": true
+    },
+    "b8b87015b2f5f9b38fcbe6bef335f2e2fd13764fe8b61b76594adf86069ea701": {
+      "fixture": "N7-1-parameter-1",
+      "elapsed_seconds": 16.298663818,
+      "max_rss_kib": 39748,
+      "nodes": 0,
+      "canonical_sha256": "c635fb339edea777b5adad702ba333d59e5be879809ee8e81c8397938e855810",
+      "exact_payload": true
+    },
+    "731eb8b8176f7ae7279532596f626c1fad3c93518f686ceb5d902f9f1407849e": {
+      "fixture": "N7-1-penalty-100000000.0",
+      "elapsed_seconds": 16.504235558,
+      "max_rss_kib": 39748,
+      "nodes": 0,
+      "canonical_sha256": "aebd5fc0bf2c703d39218b595cb0f9c6ca91e5a893835fa018fd195dab72b045",
+      "exact_payload": true
+    },
+    "69435594ec8b2bcb67acb35a379f1db32c2023f15d8676f562a9036a245d961c": {
+      "fixture": "N7-1-spot-1601-2",
+      "elapsed_seconds": 16.642086603,
+      "max_rss_kib": 39748,
+      "nodes": 0,
+      "canonical_sha256": "bee6c8f844a34b3a2eb2b20aa5492071f5ffdd19dea7e60e268ba12915f3de64",
+      "exact_payload": true
+    },
+    "7b0cd5bd9c3274c73b50fb4dc963d930df5e07c51e1789527bd1370f5ea4c4f0": {
+      "fixture": "N7-1-spot-801-2",
+      "elapsed_seconds": 7.972554163,
+      "max_rss_kib": 39748,
+      "nodes": 0,
+      "canonical_sha256": "68570614b60aa855b302b2c50309a67a4f014021aa79f1109c02703e3d16e112",
+      "exact_payload": true
+    },
+    "62e5dda3b43a976c3ab08da3643af27cf91a2b1a9c7e129dda6d7566d8d898db": {
+      "fixture": "N7-2-domain-400",
+      "elapsed_seconds": 16.236600812,
+      "max_rss_kib": 39748,
+      "nodes": 0,
+      "canonical_sha256": "ebab901bbb29c512a29860f159140500102592da57747194fce4dca4be5d8b62",
+      "exact_payload": true
+    },
+    "b5651b3db652a0a83d9cbce6c7bd4b1e15495120c5ab1b1bb6a30355cd294087": {
+      "fixture": "N7-2-domain-800",
+      "elapsed_seconds": 32.910043009,
+      "max_rss_kib": 39748,
+      "nodes": 0,
+      "canonical_sha256": "94405196299e69b5a5c471fbb4ff9d216cbe82167de3677a8c509fe3e50f5422",
+      "exact_payload": true
+    },
+    "a88ae7c5c14ac16f810c8787dbf34e5dc195cac1c184a5335f2e35a8bbc18a15": {
+      "fixture": "N7-2-parameter-0.5",
+      "elapsed_seconds": 17.224949667,
+      "max_rss_kib": 39748,
+      "nodes": 0,
+      "canonical_sha256": "332c51844e953ebc1f04e149ea94569e622cef4d018a5d5e8dac9bf074279eb0",
+      "exact_payload": true
+    },
+    "3ca8f9eb21380861a0ff9260e33da79e6651e3b54988c6819b1c0a6b53a52ef4": {
+      "fixture": "N7-2-penalty-10000000.0",
+      "elapsed_seconds": 17.800468991,
+      "max_rss_kib": 39748,
+      "nodes": 0,
+      "canonical_sha256": "38576b60dc434792a9bfe7e79ed799787fa2c35b826e77a21430aef1ae7428fe",
+      "exact_payload": true
+    },
+    "084bec4d637ea5f19cf709e4c62c3292837fd44ce4093cca6f8e91754d12e854": {
+      "fixture": "N7-2-penalty-1000000000.0",
+      "elapsed_seconds": 17.052051639,
+      "max_rss_kib": 39748,
+      "nodes": 0,
+      "canonical_sha256": "8101d64c5bf5a765dae00de10d0545c4f6e0685016627f5bcfddc0935fd74dd4",
+      "exact_payload": true
+    },
+    "6d5d82ab6e7276c5e3ce4bd2c26b4a1a2981464da64ad699f8ae9e30d4cebbf8": {
+      "fixture": "N7-2-spot-1601-4",
+      "elapsed_seconds": 17.0227629,
+      "max_rss_kib": 39748,
+      "nodes": 0,
+      "canonical_sha256": "41b72209740a335ccdac4ec562ee6879beb9561554e9ed3a2425e9bc76bc2afc",
+      "exact_payload": true
+    },
+    "2538c0b93ee938c99903d2ac06a1049a27ff197a59e57fe28f17a4f3a5af1dfd": {
+      "fixture": "N7-2-spot-801-4",
+      "elapsed_seconds": 8.083964203,
+      "max_rss_kib": 39748,
+      "nodes": 0,
+      "canonical_sha256": "f8f2f7a709e4842f64787745f29ea6cb8ecbf4c6c4d5adbc0f17fafadff13d37",
+      "exact_payload": true
+    },
+    "8a51b60906e77576c5d2e8b773ea3cc727c4589bae1a4a56e55a2e47ec233839": {
+      "fixture": "N6-1-space-401",
+      "elapsed_seconds": 4.070849218,
+      "max_rss_kib": 32944,
+      "nodes": 0,
+      "canonical_sha256": "d85763d35fdae101cc789b27a1dc1325300c7d49fca6431cbc7dbbd73750a26a",
+      "exact_payload": true
+    },
+    "0520f288cface7d218592b1c181770ca74c9cb8c460eab60024479ef83455c80": {
+      "fixture": "N6-1-time-1000",
+      "elapsed_seconds": 2.292527579,
+      "max_rss_kib": 33444,
+      "nodes": 0,
+      "canonical_sha256": "13e86f24184b5c97d1c0dcf5c83f491c6f9aba67eed819b43e956396646f41ae",
+      "exact_payload": true
+    },
+    "028dd1bf64a469edf7d7e67922de5f2fe615135b245286b69d0541cb8013c9d6": {
+      "fixture": "N6-1-time-4000",
+      "elapsed_seconds": 8.088720696,
+      "max_rss_kib": 33528,
+      "nodes": 0,
+      "canonical_sha256": "fe7316916afbc4ed2f4b0d1247cd6f6cb5ee5532af474f6c295423ee61a93c51",
+      "exact_payload": true
+    },
+    "84ed6d5e9c723afdada4709301de7e2c6a38f37bb0bd58f8340195589519b782": {
+      "fixture": "N6-2-space-401",
+      "elapsed_seconds": 3.961344341,
+      "max_rss_kib": 60392,
+      "nodes": 0,
+      "canonical_sha256": "9990694f05f06eadc9a0e7f88ea576ae69a0550e4180831f94777215cf81fe5c",
+      "exact_payload": true
+    },
+    "b2d70cc30fb910ee26bc4f56488530fd4288fd1c4671bfd3fe8f95d01a9de6e1": {
+      "fixture": "N6-2-time-1000",
+      "elapsed_seconds": 2.50322405,
+      "max_rss_kib": 60392,
+      "nodes": 0,
+      "canonical_sha256": "e1e2f35b6e8427a450f2ff63731b7a88661160d067af9d91aab36b6e72d32b8a",
+      "exact_payload": true
+    },
+    "d5a20d4377e81154b92756d3d5301fefc35d38c19e0f79fc95911f93ec25af81": {
+      "fixture": "N6-2-time-4000",
+      "elapsed_seconds": 8.62759642,
+      "max_rss_kib": 60392,
+      "nodes": 0,
+      "canonical_sha256": "96546a0a895db6117b95064749ec3b0a9c03ca1ccbabd9d82e2bb9aaa43a21f7",
+      "exact_payload": true
+    },
+    "fb196c70333bae41c245bf17f45a7b77d7782883a6fea7f8019fab6b5f55392d": {
+      "fixture": "N7-1-domain-600",
+      "elapsed_seconds": 24.662112195,
+      "max_rss_kib": 60392,
+      "nodes": 0,
+      "canonical_sha256": "bbda484125293c257ebb0bec18d287e75e7b466cabbbc4600b6fcfd1ca2cf564",
+      "exact_payload": true
+    },
+    "2056c0bb84ef7e2f53c08b45984e51512f881e8f92c0a3da306b8f164f4cc0ec": {
+      "fixture": "N7-1-parameter-0.5",
+      "elapsed_seconds": 16.423306409,
+      "max_rss_kib": 60392,
+      "nodes": 0,
+      "canonical_sha256": "c6d2af196fe050a5ceaf637e43e65e70b3bbc546d6839aab46a45bf2be004859",
+      "exact_payload": true
+    },
+    "bc8b014b9552386c90ff7da57c8f6b67fc6fae51a2e7d9c7e83be1864bf339b7": {
+      "fixture": "N7-1-penalty-10000000.0",
+      "elapsed_seconds": 16.328350223,
+      "max_rss_kib": 60392,
+      "nodes": 0,
+      "canonical_sha256": "20dd900b9d1327f4ea0259c6f86d17ad418669fc5f162b194f7a9b21fa6c72ff",
+      "exact_payload": true
+    },
+    "b659ac0903e0ab0441c69e5c7f51b5ea3ea22fb0248bed2cf54854ac593655df": {
+      "fixture": "N7-1-penalty-1000000000.0",
+      "elapsed_seconds": 16.76705025,
+      "max_rss_kib": 60392,
+      "nodes": 0,
+      "canonical_sha256": "a4e5f0eef3644e34a501b77e01df69ab154cb42dc56a7af55a8e11b7ff948476",
+      "exact_payload": true
+    },
+    "4ecd049024eca56840d79005f60d6a34ae8d102fcd4ea4ba1261f1f9dcde7990": {
+      "fixture": "N7-1-spot-1601-4",
+      "elapsed_seconds": 16.783420697,
+      "max_rss_kib": 60392,
+      "nodes": 0,
+      "canonical_sha256": "a85ff221bd0f5fee30907c01752dd41207589292578e264fa59977e6b5aca621",
+      "exact_payload": true
+    },
+    "391085fef5201b283f9fecc8e6ab5e49784a99ce689c5523eced82d34f30ec12": {
+      "fixture": "N7-1-spot-801-4",
+      "elapsed_seconds": 8.314621258,
+      "max_rss_kib": 60392,
+      "nodes": 0,
+      "canonical_sha256": "8391feb8c36ea7ee0063388f1502925bc31509fd2c79a919bdb08c2ee5fbdba7",
+      "exact_payload": true
+    },
+    "8a826794cccab59fc1bc8b2d5bfe83785a3ab5ed3352e2b8bae9525da2a705fa": {
+      "fixture": "N7-2-domain-600",
+      "elapsed_seconds": 25.281109655,
+      "max_rss_kib": 60392,
+      "nodes": 0,
+      "canonical_sha256": "1dffc5dc497d6d88991b9c6c79cff1f313ee68944bc4f8b332bab423cce7db2c",
+      "exact_payload": true
+    },
+    "b8e11ede3bb267eb61c2da642524530b42144764a9fd5f7566cbd0fe4a29d13e": {
+      "fixture": "N7-2-parameter-0.25",
+      "elapsed_seconds": 15.82021213,
+      "max_rss_kib": 60392,
+      "nodes": 0,
+      "canonical_sha256": "4f7f39f1592a381b668d4361c430d4b5e87797b1b543e2de25bd9dbacb369825",
+      "exact_payload": true
+    },
+    "d0cefbe8a91957d9aaf341f9d37fc6624a1429afa12fb2f19cf27592a2299805": {
+      "fixture": "N7-2-parameter-1",
+      "elapsed_seconds": 16.832423239,
+      "max_rss_kib": 60392,
+      "nodes": 0,
+      "canonical_sha256": "4f040270e45747adf357a14a143e06e80b9efe66745efe071c749aa9eb00ed74",
+      "exact_payload": true
+    },
+    "785cf82ed2d787087515be8568b95051be8fce332d6acf436f7b0b7f9b103280": {
+      "fixture": "N7-2-penalty-100000000.0",
+      "elapsed_seconds": 17.268128627,
+      "max_rss_kib": 60392,
+      "nodes": 0,
+      "canonical_sha256": "f96114f6e7089f7cf9a3e974357417bec0b99ae7cb3566bc9c220f945a5866b3",
+      "exact_payload": true
+    },
+    "d525c42e0771e9a7c34fa9f86a3331ca15d29955721cccdf630cbe556062778d": {
+      "fixture": "N7-2-spot-1601-2",
+      "elapsed_seconds": 17.456184634,
+      "max_rss_kib": 60392,
+      "nodes": 0,
+      "canonical_sha256": "15f49dd8499f238b630afb7a5f7cc5369b70ff7c3a776e3f3c8915785d7c0544",
+      "exact_payload": true
+    },
+    "ddd2c6e71162fc3637a38829877dfea804f1e38434f50d0e57ecc4a1bb1b18ed": {
+      "fixture": "N7-2-spot-801-2",
+      "elapsed_seconds": 8.556069461,
+      "max_rss_kib": 60392,
+      "nodes": 0,
+      "canonical_sha256": "34a6eeadad9a8fc9117486b03f39f2fc59aad6de95bbb59b88b13c295156d9cb",
+      "exact_payload": true
+    }
+  }
+}

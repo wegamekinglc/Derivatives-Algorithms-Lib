@@ -123,6 +123,15 @@ acceptance certifies the discrete step, not the error to a continuous-model
 price. Grid spacing, time stepping, payoff interpolation, upwinding and finite
 domain error remain separate.
 
+The private tridiagonal solve retains binary64 significands with separate
+integer exponents when a diffusion tail exceeds the range of one common
+scale. Triangular substitution reuses the same factors, and componentwise
+linear residuals use a common exponent per physical row so that tiny residuals
+and denominators do not underflow together. Every solve still obeys the
+configured linear backward-error limit, alongside the original LCP checks.
+Exponent scratch is included in workspace capacity; solve-work remains
+charged per interior node for each system and penalty iteration.
+
 ## Budgets and Failure
 
 Planning checks the full result and workspace envelopes before rollback,
@@ -354,5 +363,7 @@ No particular request is guaranteed to return every requested Greek.
 Core deterministic tests in
 `dal-cpp/tests/math/pde/test_early_exercise_pde_risk.cpp` cover stencils,
 availability, ownership, tape preservation and cumulative resources.
-The full independent financial/refinement qualification matrix remains
-pending; these core checks do not establish acceptance across that matrix.
+Independent financial/refinement qualification covers fixed fixtures, bump
+scales and refinement levels. It does not establish a rigorous continuous-model
+error bound or qualification for arbitrary inputs. The deterministic core checks
+and numerical qualification do not establish cross-interface or release acceptance.

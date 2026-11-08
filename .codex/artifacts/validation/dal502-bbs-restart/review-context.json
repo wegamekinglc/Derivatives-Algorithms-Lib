@@ -1,0 +1,28 @@
+{
+  "verdict": "Approve",
+  "scope": "BBS method/private repair at fixed 8c90d53b only; new controls/evidence not covered",
+  "source_head": "8c90d53bd7eb5630554698e346b474ce5b710e39",
+  "review_comment": "01a1b94d-d29c-7480-97e6-8d6b4e64ab41",
+  "accounting_comment": "01a1b94f-073d-73e7-ad1c-071cf7df68d2",
+  "extra_bs": 6,
+  "extra_nodes": 0,
+  "reevaluated": false,
+  "attachments": {
+    "switch_check.cpp": {
+      "sha256": "e99ab273fd9f3223dee64cab96c6676af01ebe7d2b9c49f36e7cfbb51d5ee566",
+      "bytes": 1093
+    },
+    "switch_oracle.py": {
+      "sha256": "025af8a3424d72d666258867d5e63ef686e3a10adfbc0723604fc7fcda695a02",
+      "bytes": 1199
+    },
+    "switch-check.json": {
+      "sha256": "e53e9806f6d71c8fdae80cdc63ae2e77db32f439bf8e825a844722c3ed19d794",
+      "bytes": 1140
+    },
+    "switch-check-complete.json": {
+      "sha256": "29d6bff7df4e28b739a3468116666c8c1890d3bd7aa8fdcde8f14b4751b73dad",
+      "bytes": 2330
+    }
+  }
+}

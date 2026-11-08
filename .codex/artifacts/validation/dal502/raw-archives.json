@@ -1,0 +1,20 @@
+{
+  "dal502-raw-n1-n5.tar.gz": {
+    "sha256": "0a1f792a7428e984c3fb7f2bbf5229d683cd26125087347d2f70bef4d096e9d6",
+    "bytes": 14161849,
+    "files": 3124,
+    "file_manifest": "raw-file-manifest.json in metadata archive"
+  },
+  "dal502-raw-n6-n7.tar.gz": {
+    "sha256": "a79db66e09b32f79b660b1d5259ec1a67ac5a04a7bd48d35c99d00ba4a65b3a7",
+    "bytes": 19922866,
+    "files": 152,
+    "file_manifest": "raw-file-manifest.json in metadata archive"
+  },
+  "dal502-raw-n8-n12-and-metadata.tar.gz": {
+    "sha256": "e06c7a96fd3da77f455f8b147519c4a357f8c7291229c32d93320e92fbc7401b",
+    "bytes": 11967145,
+    "files": 321,
+    "file_manifest": "raw-file-manifest.json in metadata archive"
+  }
+}

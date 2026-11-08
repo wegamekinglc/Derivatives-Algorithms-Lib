@@ -1,0 +1,224 @@
+{
+  "archive": "dal502-bbs-restart.tar.gz",
+  "sha256": "be95769ba0ba00164d9012b21019f1a60fad1808a45e4ea6a85ed5637cebc05c",
+  "bytes": 146784,
+  "members": {
+    "build/dal502-bbs-restart/data/ledger.json": {
+      "sha256": "e0f1f3c33af7575b2a47a0b181c3f296feb80bb821dea35ed7967a1e54a03bc3",
+      "bytes": 248858
+    },
+    "build/dal502-bbs-restart/data/pilot-0.jsonl": {
+      "sha256": "11315e145f592fab60358806b4269b7bbec088ddb4b1dfb82b248483d01f9a9b",
+      "bytes": 7844
+    },
+    "build/dal502-bbs-restart/data/pilot-0.jsonl.results.jsonl": {
+      "sha256": "d481718c0fd339a4b0ac53121dc54e2e49e7d6046e2fd7fdaf9061fa705370ef",
+      "bytes": 8576
+    },
+    "build/dal502-bbs-restart/data/pilot-1.jsonl": {
+      "sha256": "302f0e364c6dcd1ef0420223b2568c15bca8a3b5d846eeb7a16e9dcff02a00e8",
+      "bytes": 7844
+    },
+    "build/dal502-bbs-restart/data/pilot-1.jsonl.results.jsonl": {
+      "sha256": "f1098c394a06b4f8e479179b8227ecd1898fdd6ce0e0684d26213cd590e2be0e",
+      "bytes": 8565
+    },
+    "build/dal502-bbs-restart/data/pilot-2.jsonl": {
+      "sha256": "af82593c63e46ffc96c20de99dc267fe6b484564b1408e6f197e3f0188312a4e",
+      "bytes": 7844
+    },
+    "build/dal502-bbs-restart/data/pilot-2.jsonl.results.jsonl": {
+      "sha256": "fd838a9d76d0ce66ceaa6d032880f26c92a306f728262f4d930175ea3943872a",
+      "bytes": 8565
+    },
+    "build/dal502-bbs-restart/data/pilot-3.jsonl": {
+      "sha256": "69c02520133c0a72abf221acfea645eebac0840538d5e9fb5455f6c130cad7be",
+      "bytes": 7844
+    },
+    "build/dal502-bbs-restart/data/pilot-3.jsonl.results.jsonl": {
+      "sha256": "5b973ebbc7024ed7dc750d3b0be791429869b4cf4c85cdf2ec4062c4e25ab799",
+      "bytes": 8557
+    },
+    "build/dal502-bbs-restart/data/pilot.workers.txt": {
+      "sha256": "5b651b53eaf67a66cbde2f81c642d162290cb322be51f8fe26f9288d952b2779",
+      "bytes": 620
+    },
+    "build/dal502-bbs-restart/data/restart-control.json": {
+      "sha256": "27caffd68dc412fb91bd4ccb8ab6f6ad32f916ecaf13ee4c413b9ae892ceec1e",
+      "bytes": 726
+    },
+    "build/dal502-bbs-restart/data/restart-result.json": {
+      "sha256": "a037852adf5672fa6d62c9e4d17420c081a4034e4caf7fdccff9e2c0caa0fc99",
+      "bytes": 17164
+    },
+    "build/dal502-bbs-restart/data/witness-0.jsonl": {
+      "sha256": "d25c16980d845b425193c121c2683de90241cc1fd93bc352d13928c5a7fefc36",
+      "bytes": 2927
+    },
+    "build/dal502-bbs-restart/data/witness-0.jsonl.results.jsonl": {
+      "sha256": "deed509de50bb6c0487fe677f3c4225eef86c2429ebf1cd2815af5ce230648a0",
+      "bytes": 3017
+    },
+    "build/dal502-bbs-restart/data/witness-1.jsonl": {
+      "sha256": "587fc802c18b36d6a70cf114ee98b6294bcb96654685b3939720918db41cebd5",
+      "bytes": 2580
+    },
+    "build/dal502-bbs-restart/data/witness-1.jsonl.results.jsonl": {
+      "sha256": "385f9c8e472a7a566b55f99ac34256b2c35d5854a4a7d83fb835c4a378189089",
+      "bytes": 2619
+    },
+    "build/dal502-bbs-restart/data/witness-2.jsonl": {
+      "sha256": "a9de3495cab65210149240d016bcea16d853f9d3afceb4c695d3f910886ced56",
+      "bytes": 2566
+    },
+    "build/dal502-bbs-restart/data/witness-2.jsonl.results.jsonl": {
+      "sha256": "03942168a23c171f7d6c9fe6aa3e76cc294ba073ef082193fa63ce575fecc2f0",
+      "bytes": 2583
+    },
+    "build/dal502-bbs-restart/data/witness-3.jsonl": {
+      "sha256": "6566b4bbd4347be9efbe6fc34d5c35da878752e6caa89a4e47787b2ae840b570",
+      "bytes": 2546
+    },
+    "build/dal502-bbs-restart/data/witness-3.jsonl.results.jsonl": {
+      "sha256": "220f20d76146b82b3779ca9ad342d97280f1dac28dedfd8bc062ce27b6f2b927",
+      "bytes": 2627
+    },
+    "build/dal502-bbs-restart/data/witness.workers.txt": {
+      "sha256": "41a4e474cb18041d17073a82efd0499944c602e590a86ae99de1fee337aa0c73",
+      "bytes": 628
+    },
+    "build/dal502-bbs-restart/data/witnesses.json": {
+      "sha256": "0349a0d563536855cadc1499213f701addacd36c4bd711347493dfbc16d9407c",
+      "bytes": 27156
+    },
+    "build/dal502-bbs-restart/execution-contract.md": {
+      "sha256": "f2260c21a1bf31f1e48576861ae238cf39223e19ac72faff214efc044d5a60a5",
+      "bytes": 41327
+    },
+    "build/dal502-bbs-restart/producer/CMakeCache.txt": {
+      "sha256": "4eea84d21d1e98de6afafec079ba56eeafcfc6bbbe2ad92106b3efdfa3bad9f9",
+      "bytes": 13766
+    },
+    "build/dal502-bbs-restart/producer/CMakeLists.txt": {
+      "sha256": "bf71be6381e799e0056a683d98204bf4b6cf342263fa961a7841b31f75887690",
+      "bytes": 1723
+    },
+    "build/dal502-bbs-restart/producer/bbs.hpp": {
+      "sha256": "748b35652a8fb0ef9d4a20d3c9832dab1708d55816840e8269feb5d1f8500955",
+      "bytes": 6480
+    },
+    "build/dal502-bbs-restart/producer/bbs_driver.cpp": {
+      "sha256": "93ecd2e623bb0122a203af29c5309e90b3e266ff8b4de8d1c19aa1779253dceb",
+      "bytes": 5739
+    },
+    "build/dal502-bbs-restart/producer/bbsplan.py": {
+      "sha256": "b6cd108ca9e337801f778dae9b6e29b7d16d90a08b38dc32e5d2af86c0d4ba6c",
+      "bytes": 6944
+    },
+    "build/dal502-bbs-restart/producer/bbsverify.py": {
+      "sha256": "ab80cd073ae4c62d8aba8d03ac7aedd0c050046e61a6008b5ac15958798d9cbe",
+      "bytes": 10474
+    },
+    "build/dal502-bbs-restart/producer/compile_commands.json": {
+      "sha256": "d9b4482847e7be093ff51c987fdd4f8e24d7525ef7164c7e7bb5fcfe0dd45943",
+      "bytes": 4781
+    },
+    "build/dal502-bbs-restart/producer/dal502_bbs": {
+      "sha256": "f6a72ce4dc17ac5bd62562ff33e73a21db4cac94aae0e36d5ff26a4bf5b8b518",
+      "bytes": 77864
+    },
+    "build/dal502-bbs-restart/producer/link.txt": {
+      "sha256": "dddc460bf656c4d101854db069c2e1badc87bac42d79ca2a8b12f199ab570bfd",
+      "bytes": 138
+    },
+    "build/dal502-bbs-restart/producer/qualify.py": {
+      "sha256": "0edbdd969f57daee8ac062490aa34ffd4a050e6253438b917eaa7b93d6706223",
+      "bytes": 6957
+    },
+    "build/dal502-bbs-restart/producer/reference.hpp": {
+      "sha256": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+      "bytes": 11792
+    },
+    "build/dal502-bbs-restart/producer/repair-identity.json": {
+      "sha256": "737ada88a2e4669803db3725da5cc517c53b2082f30edcdaf9976aa709cb9055",
+      "bytes": 9031
+    },
+    "build/dal502-bbs-restart/producer/repair-resources.json": {
+      "sha256": "fb7517f4511e4fb2837aed3f9c359dd10f92d4286d550e2c5e119b9095f4b20f",
+      "bytes": 3716
+    },
+    "build/dal502-bbs-restart/reconcile.py": {
+      "sha256": "70c6386e1286218f4602623232d8e833a1e77dc78fa17de0d85b6783a56cd43a",
+      "bytes": 3472
+    },
+    "build/dal502-bbs-restart/record.py": {
+      "sha256": "022d9b7073c6bd490494e7c672b8a2a59494e7b829359929a44b525cb1c5c806",
+      "bytes": 3935
+    },
+    "build/dal502-bbs-restart/records/identity.json": {
+      "sha256": "fa4247e5815859e749bdc71c5b3ad5f5d5fde2ba8d0d131b75a406779e0d4461",
+      "bytes": 6945
+    },
+    "build/dal502-bbs-restart/records/ledger.json": {
+      "sha256": "e0f1f3c33af7575b2a47a0b181c3f296feb80bb821dea35ed7967a1e54a03bc3",
+      "bytes": 248858
+    },
+    "build/dal502-bbs-restart/records/raw-reconstruction.json": {
+      "sha256": "874cadb83fd35960471d23c22859731e12fb4557388d1eaccaa9ea591a283427",
+      "bytes": 10126
+    },
+    "build/dal502-bbs-restart/records/resource-account.json": {
+      "sha256": "82d4573197f685db43dbdf1e223625ee647eab16bb2e297d23bb13be2ce13074",
+      "bytes": 1178
+    },
+    "build/dal502-bbs-restart/records/restart-control.json": {
+      "sha256": "27caffd68dc412fb91bd4ccb8ab6f6ad32f916ecaf13ee4c413b9ae892ceec1e",
+      "bytes": 726
+    },
+    "build/dal502-bbs-restart/records/restart-result.json": {
+      "sha256": "a037852adf5672fa6d62c9e4d17420c081a4034e4caf7fdccff9e2c0caa0fc99",
+      "bytes": 17164
+    },
+    "build/dal502-bbs-restart/records/review-context.json": {
+      "sha256": "4376ac8b7d32924f132fe858bae7ff4574686ba800142f517c292501e63e28f9",
+      "bytes": 953
+    },
+    "build/dal502-bbs-restart/records/switch-check-complete.json": {
+      "sha256": "29d6bff7df4e28b739a3468116666c8c1890d3bd7aa8fdcde8f14b4751b73dad",
+      "bytes": 2330
+    },
+    "build/dal502-bbs-restart/records/switch-check.json": {
+      "sha256": "e53e9806f6d71c8fdae80cdc63ae2e77db32f439bf8e825a844722c3ed19d794",
+      "bytes": 1140
+    },
+    "build/dal502-bbs-restart/records/witnesses.json": {
+      "sha256": "0349a0d563536855cadc1499213f701addacd36c4bd711347493dfbc16d9407c",
+      "bytes": 27156
+    },
+    "build/dal502-bbs-restart/reviewer/switch-check-complete.json": {
+      "sha256": "29d6bff7df4e28b739a3468116666c8c1890d3bd7aa8fdcde8f14b4751b73dad",
+      "bytes": 2330
+    },
+    "build/dal502-bbs-restart/reviewer/switch-check.json": {
+      "sha256": "e53e9806f6d71c8fdae80cdc63ae2e77db32f439bf8e825a844722c3ed19d794",
+      "bytes": 1140
+    },
+    "build/dal502-bbs-restart/reviewer/switch_check.cpp": {
+      "sha256": "e99ab273fd9f3223dee64cab96c6676af01ebe7d2b9c49f36e7cfbb51d5ee566",
+      "bytes": 1093
+    },
+    "build/dal502-bbs-restart/reviewer/switch_oracle.py": {
+      "sha256": "025af8a3424d72d666258867d5e63ef686e3a10adfbc0723604fc7fcda695a02",
+      "bytes": 1199
+    },
+    "build/dal502-bbs-restart/run.py": {
+      "sha256": "af0a09fd4e5abc133ae18a17cc675d8dfb0cda404ee2ec7d744af4e16e127b13",
+      "bytes": 6701
+    }
+  },
+  "members_count": 53,
+  "final_raw_execution_bytes": 382256,
+  "native_evaluations_for_packaging": 0,
+  "scalar_evaluations_for_packaging": 0,
+  "extract_from_repository_root": true
+}

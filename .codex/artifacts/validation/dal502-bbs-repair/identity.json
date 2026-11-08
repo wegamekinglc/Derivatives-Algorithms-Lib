@@ -1,0 +1,70 @@
+{
+  "baseline": "e0e4c275764ff698da68ea14736338eee8ae53a9",
+  "control_commit": "61f92f52c955d9cb57f5c70a5ce574bddb4f1391",
+  "implementation_commit": "8607092c8ccd6c9c1c2df1a08387577112e9570b",
+  "method": "BBS-last-step-v1",
+  "arithmetic": "64-level scaled Mills difference quotient for tail x>=8",
+  "compiler": "g++ (Ubuntu 15.2.0-16ubuntu1) 15.2.0\nCopyright (C) 2025 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.",
+  "cmake": "cmake version 4.2.3\n\nCMake suite maintained and supported by Kitware (kitware.com/cmake).",
+  "host": "Linux-5.15.167.4-microsoft-standard-WSL2-x86_64-with-glibc2.43",
+  "dependencies": "3147391d946bb4b6c68edd901f2add6ac1f31f8c dal-cpp/externals/eigen (3.4.0)\n d72f9c8aea6817cdf1ca0ac10887f328de7f3da2 dal-cpp/externals/googletest (release-1.8.0-3627-gd72f9c8a)\n e76b0ef243ca9bd506bb2f3743d8c9b52ee8d01d dal-cpp/externals/machinist (heads/master)\n 8a099e44b3d5f85b20f05828d919d2332a8de841 dal-cpp/externals/pybind11 (v2.11.1)\n ea152ded01708ff1657b275ed0bcbf0681d64519 dal-cpp/externals/rapidjson (heads/master)\n ba96d0b1161f540656efdaed035b3c062b60e006 dal-cpp/externals/rapidjson/thirdparty/gtest (release-1.8.0-1003-gba96d0b1)",
+  "mpmath_version": "1.3.0",
+  "source_config_executable_sha256": {
+    "dal-cpp/test-support/pde-risk-qualification/bbs.hpp": "748b35652a8fb0ef9d4a20d3c9832dab1708d55816840e8269feb5d1f8500955",
+    "dal-cpp/test-support/pde-risk-qualification/bbs_driver.cpp": "93ecd2e623bb0122a203af29c5309e90b3e266ff8b4de8d1c19aa1779253dceb",
+    "dal-cpp/test-support/pde-risk-qualification/reference.hpp": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+    "dal-cpp/test-support/pde-risk-qualification/CMakeLists.txt": "bf71be6381e799e0056a683d98204bf4b6cf342263fa961a7841b31f75887690",
+    "dal-cpp/test-support/pde-risk-qualification/test_bbs.cpp": "92406da086c372b81d28f4f65fe2fb3ca65d3ab6e46548e9a099670f0f6a1a29",
+    "dal-cpp/test-support/pde-risk-qualification/bbs_scalar_cases.json": "037de0649ff5f18e5eee9765acd68a91bafeba9f8bb356ab028a41d4c2f845da",
+    "build/dal502-bbs-repair-tools/CMakeCache.txt": "4eea84d21d1e98de6afafec079ba56eeafcfc6bbbe2ad92106b3efdfa3bad9f9",
+    "build/dal502-bbs-repair-tools/compile_commands.json": "d9b4482847e7be093ff51c987fdd4f8e24d7525ef7164c7e7bb5fcfe0dd45943",
+    "build/dal502-bbs-repair-tools/dal502_bbs": "f6a72ce4dc17ac5bd62562ff33e73a21db4cac94aae0e36d5ff26a4bf5b8b518",
+    "build/dal502-bbs-repair-tools/dal502_bbs_tests": "7ad9daee3102bf3888fcbf64d603ef13980ba5d796adbfdd766bb540626ffa58",
+    "build/dal502-bbs-tools/dal502_bbs": "399f2b1e784f6e8d92937b5395948d7ceac49c54e3cf3a6928d74643431c5bec",
+    "build/dal502-bbs-repair/diagnose": "61934bfe73ecc796e43fe1e812c100d0259801ee86d7ac2ebef8ceeb6baa59bd",
+    "build/dal502-bbs-repair/old-bbs.hpp": "272b7c5789320623217314c6b1d42350171e7f3229593fb02e07acab76772d19",
+    "build/dal502-bbs-repair/oracle.py": "e41a1976459c55d0fd4f47639c87a3792a6a1fd6ae46451a8943739e4e18fa53",
+    "build/dal502-bbs-repair/budget.py": "501fe2e3b685059c2973d329bb497e63eb58db5f25c4a157c05f0a6113dc344d",
+    "build/dal502-make/dal-cpp/libdal_cpp.a": "7317377c982fd132c20bc8f74634feeb0ad422aa8d1d9dd424deb41077daa125"
+  },
+  "compile_commands": [
+    {
+      "directory": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-bbs-repair-tools",
+      "command": "/usr/bin/c++  -isystem /home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/dal-cpp -isystem /home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/dal-cpp/externals/rapidjson/include -O3 -DNDEBUG -std=c++17 -o CMakeFiles/dal502_driver.dir/driver.cpp.o -c /home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/dal-cpp/test-support/pde-risk-qualification/driver.cpp",
+      "file": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/dal-cpp/test-support/pde-risk-qualification/driver.cpp",
+      "output": "CMakeFiles/dal502_driver.dir/driver.cpp.o"
+    },
+    {
+      "directory": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-bbs-repair-tools",
+      "command": "/usr/bin/c++  -I/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/dal-cpp/externals/rapidjson/include -O3 -DNDEBUG -std=c++17 -o CMakeFiles/dal502_bbs.dir/bbs_driver.cpp.o -c /home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/dal-cpp/test-support/pde-risk-qualification/bbs_driver.cpp",
+      "file": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/dal-cpp/test-support/pde-risk-qualification/bbs_driver.cpp",
+      "output": "CMakeFiles/dal502_bbs.dir/bbs_driver.cpp.o"
+    },
+    {
+      "directory": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-bbs-repair-tools",
+      "command": "/usr/bin/c++ -DDAL502_BBS_CASES=\\\"/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/dal-cpp/test-support/pde-risk-qualification/bbs_scalar_cases.json\\\" -I/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/dal-cpp/externals/googletest/googletest -I/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/dal-cpp/externals/googletest/googletest/include -I/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/dal-cpp/externals/rapidjson/include -O3 -DNDEBUG -std=c++17 -o CMakeFiles/dal502_bbs_tests.dir/test_bbs.cpp.o -c /home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/dal-cpp/test-support/pde-risk-qualification/test_bbs.cpp",
+      "file": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/dal-cpp/test-support/pde-risk-qualification/test_bbs.cpp",
+      "output": "CMakeFiles/dal502_bbs_tests.dir/test_bbs.cpp.o"
+    },
+    {
+      "directory": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-bbs-repair-tools",
+      "command": "/usr/bin/c++ -DDAL502_BBS_CASES=\\\"/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/dal-cpp/test-support/pde-risk-qualification/bbs_scalar_cases.json\\\" -I/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/dal-cpp/externals/googletest/googletest -I/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/dal-cpp/externals/googletest/googletest/include -I/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/dal-cpp/externals/rapidjson/include -O3 -DNDEBUG -std=c++17 -o CMakeFiles/dal502_bbs_tests.dir/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/dal-cpp/externals/googletest/googletest/src/gtest-all.cc.o -c /home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/dal-cpp/externals/googletest/googletest/src/gtest-all.cc",
+      "file": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/dal-cpp/externals/googletest/googletest/src/gtest-all.cc",
+      "output": "CMakeFiles/dal502_bbs_tests.dir/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/dal-cpp/externals/googletest/googletest/src/gtest-all.cc.o"
+    }
+  ],
+  "final_tests": {
+    "tests": "4",
+    "failures": "0",
+    "disabled": "0",
+    "errors": "0",
+    "time": "0.004",
+    "timestamp": "2026-11-08T11:33:25.556",
+    "name": "AllTests"
+  },
+  "standalone_links": {
+    "dal502_bbs": "/usr/bin/c++ -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/dal502_bbs.dir/link.d CMakeFiles/dal502_bbs.dir/bbs_driver.cpp.o -o dal502_bbs\n",
+    "dal502_bbs_tests": "/usr/bin/c++ -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/dal502_bbs_tests.dir/link.d CMakeFiles/dal502_bbs_tests.dir/test_bbs.cpp.o \"CMakeFiles/dal502_bbs_tests.dir/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/dal-cpp/externals/googletest/googletest/src/gtest-all.cc.o\" -o dal502_bbs_tests\n"
+  },
+  "protected_source_diff": ""
+}

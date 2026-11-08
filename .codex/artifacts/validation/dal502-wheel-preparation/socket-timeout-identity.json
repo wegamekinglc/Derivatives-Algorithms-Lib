@@ -1,0 +1,95 @@
+{
+  "baseline": "e6a07eafba78b1d49f907e90b6125a4d006a51bf",
+  "implementation_commit": "29f030e070e52863207fedf49db80e871c89cf0c",
+  "source_sha256": {
+    ".github/scripts/prepare_wheel_virtualenv.py": "28ac5ac74e9a8e4e9c90f3fb3be92a38e0114bd53fa7707b9eb3222ea7f18fe6",
+    ".github/scripts/tests/test_prepare_wheel_virtualenv.py": "58318cadf447d4f0e29fa7fd985d1982f5592cfbb28f25f3b55e6808700eaf00",
+    ".github/workflows/dal-python-ci.yml": "7c82e71f7d615ebbcc4b8489bf572a265346d5aac57e7bb4655c1c858f9ef394",
+    ".github/workflows/dal-python-release.yml": "5ca14f53f01a7032c775374069627910ed45d35f4ea89ba7fa48b9b980178e20"
+  },
+  "before_helper_sha256": "4e2340c2c0202e895a52e37d4eec6763f4bdde6a39293723152d0b94700481d9",
+  "interpreters": {
+    "python39": {
+      "version": "3.9.25 (main, Oct 31 2025, 23:00:23) \n[Clang 21.1.4 ]",
+      "platform": "Linux-5.15.167.4-microsoft-standard-WSL2-x86_64-with-glibc2.43",
+      "executable": {
+        "path": "/home/wegamekinglc/.local/share/uv/python/cpython-3.9.25-linux-x86_64-gnu/bin/python3.9",
+        "sha256": "84c920f304e265c53096e42d83309c6f7b829988f937a7dd15c24eebcb63f59a"
+      },
+      "socket_module": {
+        "path": "/home/wegamekinglc/.local/share/uv/python/cpython-3.9.25-linux-x86_64-gnu/lib/python3.9/socket.py",
+        "sha256": "b5da4dbf86b34acc7507ebb684c03fffd805c1b4d6c46b600ec3fef003e616e3"
+      },
+      "socket_extension": {
+        "origin": "built-in",
+        "binary": {
+          "path": "/home/wegamekinglc/.local/share/uv/python/cpython-3.9.25-linux-x86_64-gnu/bin/python3.9",
+          "sha256": "84c920f304e265c53096e42d83309c6f7b829988f937a7dd15c24eebcb63f59a"
+        }
+      },
+      "socket_timeout_is_builtin_timeout": false,
+      "socket_timeout_subclasses_builtin_timeout": false
+    },
+    "python313": {
+      "version": "3.13.9 | packaged by Anaconda, Inc. | (main, Oct 21 2025, 19:16:10) [GCC 11.2.0]",
+      "platform": "Linux-5.15.167.4-microsoft-standard-WSL2-x86_64-with-glibc2.43",
+      "executable": {
+        "path": "/home/wegamekinglc/anaconda3/bin/python3.13",
+        "sha256": "c061d599e256eea644a26974999b5f154ded2dd1b066e90b4b6e6a8d24dec955"
+      },
+      "socket_module": {
+        "path": "/home/wegamekinglc/anaconda3/lib/python3.13/socket.py",
+        "sha256": "6d5e10b5bcd75b7a6a883a1819e3b47dda3f00621e8e7db365b96782fcf59ac3"
+      },
+      "socket_extension": {
+        "path": "/home/wegamekinglc/anaconda3/lib/python3.13/lib-dynload/_socket.cpython-313-x86_64-linux-gnu.so",
+        "sha256": "bdd8ba2c2873242752fdd09d8ce46b77171ffdec44cceba7f1edfc1b1bd8e06a"
+      },
+      "socket_timeout_is_builtin_timeout": true,
+      "socket_timeout_subclasses_builtin_timeout": true
+    }
+  },
+  "reviewer_input_sha256": {
+    "wheel_socket_timeout_current.log": "a7dcdf0ee84464e26059b946cbef9eeabd500289a4454c7abe9a02f3e24d58f1",
+    "wheel_socket_timeout_python39.log": "294b7383d2e671bd5f4c2b28b4e2169c616486ece2bdd38710a762e06a4d38b8",
+    "wheel_socket_timeout_regression.py": "23342b4d6c06083c12fc92b3e7aa5783a67c6a66951e23ba64845f30172287fc"
+  },
+  "tests": {
+    "reviewer_before_python39": "1 FAIL; download called once; socket.timeout is not TimeoutError",
+    "reviewer_before_python313": "1 PASS; socket.timeout aliases TimeoutError",
+    "contracts_before_python39": "14 tests; 1 ERROR recovery, 1 FAIL exhaustion; 12 PASS",
+    "reviewer_after_python39": "1 PASS",
+    "reviewer_after_python313": "1 PASS",
+    "contracts_after_python39": "14 PASS",
+    "contracts_after_python313": "14 PASS",
+    "contracts_after_python39_aliased_tmpdir": "14 PASS",
+    "complexity": "0 warnings at CCN <= 8",
+    "git_diff_check": "PASS"
+  },
+  "baseline_ci_snapshot": {
+    "total": 33,
+    "success": 19,
+    "pending": 14,
+    "other_conclusions": []
+  },
+  "reused_evidence": {
+    "record_commit": "e6a07eafba78b1d49f907e90b6125a4d006a51bf",
+    "original_identity_sha256": "0cf21621d504ed3237c96b5d01414c8774a4606ae98899994ceb54e3781bf6c9",
+    "raw_archive_sha256": "e3fcc7c6407c9ffca72a2caa17b2c8df2c41e7c8c63432bdc30102c7548cda71",
+    "scope": "Same pins, asset, checksum, selectors, file acquisition/verification/commit code and workflows. No downloads, product/numerical/performance/full matrix reruns."
+  },
+  "protected_source_and_workflow_diff": "",
+  "log_sha256": {
+    "complexity.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "contracts-green-python313.log": "0a7234c3275e2dd15cd3f898b15248866a243332f9c26bb5210ab1305e72fd0f",
+    "contracts-green-python39-aliased.log": "bdbc01ab76acb1f2595e64901611593632f41b8a7395dc6c5add832f89651f89",
+    "contracts-green-python39.log": "19ed71c9aa6f8814d95d963be691317d9731d67c71078659134a3776788ad33f",
+    "contracts-red-python39.log": "c2198ffdd296f66e4b2e55f74485f7b0ad4fda298c0282908af509ae4e28a24e",
+    "reviewer/wheel_socket_timeout_current.log": "a7dcdf0ee84464e26059b946cbef9eeabd500289a4454c7abe9a02f3e24d58f1",
+    "reviewer/wheel_socket_timeout_python39.log": "294b7383d2e671bd5f4c2b28b4e2169c616486ece2bdd38710a762e06a4d38b8",
+    "reviewer-before-python313.log": "12287a29bef522a4464d0b5d72967f7b4d2632e7c032b6296720dd49024d0cda",
+    "reviewer-green-python313.log": "8a190f115d82b078eef00e6a4c388edf31fd10c04b82a4476eb3a9375aea743b",
+    "reviewer-green-python39.log": "b4f0cd903857b7283697b99062e61fde475b98d81f1bfcdea9c7014d0a1b1b71",
+    "reviewer-red-python39.log": "fb981db943623ad44141e44fca99cdf9e4f597244547667d83544e012059e524"
+  }
+}

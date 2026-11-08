@@ -1,0 +1,724 @@
+{
+  "N6-1-space-1601": {
+    "declared_origin": "current",
+    "files": {
+      ".json.gz": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-space-1601.json.gz",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-space-1601.json.gz",
+        "actual_sha256": "b61deefccd181e30c90b39f7fee0a8be76f42c4cdd066a2222fd2cb86e8ffe00",
+        "expected_current_sha256": "b61deefccd181e30c90b39f7fee0a8be76f42c4cdd066a2222fd2cb86e8ffe00",
+        "matches": true
+      },
+      ".input.json": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-space-1601.input.json",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-space-1601.input.json",
+        "actual_sha256": "a48b1de74dcbd8b0da2244ee8d06f693f3e56857e4c6ed00fd2a80c1405aeb0c",
+        "expected_current_sha256": "a48b1de74dcbd8b0da2244ee8d06f693f3e56857e4c6ed00fd2a80c1405aeb0c",
+        "matches": true
+      }
+    }
+  },
+  "N6-1-space-401": {
+    "declared_origin": "current",
+    "files": {
+      ".json.gz": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-space-401.json.gz",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-space-401.json.gz",
+        "actual_sha256": "d85763d35fdae101cc789b27a1dc1325300c7d49fca6431cbc7dbbd73750a26a",
+        "expected_current_sha256": "d85763d35fdae101cc789b27a1dc1325300c7d49fca6431cbc7dbbd73750a26a",
+        "matches": true
+      },
+      ".input.json": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-space-401.input.json",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-space-401.input.json",
+        "actual_sha256": "2a0b070592316b827184e108ca9b0163df72014240de155211ee63b4754a735e",
+        "expected_current_sha256": "2a0b070592316b827184e108ca9b0163df72014240de155211ee63b4754a735e",
+        "matches": true
+      }
+    }
+  },
+  "N6-1-space-801": {
+    "declared_origin": "current",
+    "files": {
+      ".json.gz": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-space-801.json.gz",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-space-801.json.gz",
+        "actual_sha256": "a584361d102a86bac7c3777727f9f69bb54c5c9a6300253237f222dfd0683413",
+        "expected_current_sha256": "a584361d102a86bac7c3777727f9f69bb54c5c9a6300253237f222dfd0683413",
+        "matches": true
+      },
+      ".input.json": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-space-801.input.json",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-space-801.input.json",
+        "actual_sha256": "e0306e7cd4cc7f6282c7303aa152b9ee40c6869505e019533a1487e435c2e725",
+        "expected_current_sha256": "e0306e7cd4cc7f6282c7303aa152b9ee40c6869505e019533a1487e435c2e725",
+        "matches": true
+      }
+    }
+  },
+  "N6-1-time-1000": {
+    "declared_origin": "current",
+    "files": {
+      ".json.gz": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-time-1000.json.gz",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-time-1000.json.gz",
+        "actual_sha256": "13e86f24184b5c97d1c0dcf5c83f491c6f9aba67eed819b43e956396646f41ae",
+        "expected_current_sha256": "13e86f24184b5c97d1c0dcf5c83f491c6f9aba67eed819b43e956396646f41ae",
+        "matches": true
+      },
+      ".input.json": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-time-1000.input.json",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-time-1000.input.json",
+        "actual_sha256": "ed20954248f0b30d3fd62e88ff5292394ae4bc718d45708bfd720b89ba18c569",
+        "expected_current_sha256": "ed20954248f0b30d3fd62e88ff5292394ae4bc718d45708bfd720b89ba18c569",
+        "matches": true
+      }
+    }
+  },
+  "N6-1-time-2000": {
+    "declared_origin": "current",
+    "files": {
+      ".json.gz": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-time-2000.json.gz",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-time-2000.json.gz",
+        "actual_sha256": "8e3096d0cd02b5f992ead3584649ae565f1880ab77625908e3d8609e1c44e2e7",
+        "expected_current_sha256": "8e3096d0cd02b5f992ead3584649ae565f1880ab77625908e3d8609e1c44e2e7",
+        "matches": true
+      },
+      ".input.json": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-time-2000.input.json",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-time-2000.input.json",
+        "actual_sha256": "f91c97a16ddff3f58b93ad3e9f34a6d024b6b139b543d5f5c71189f5b9a21e78",
+        "expected_current_sha256": "f91c97a16ddff3f58b93ad3e9f34a6d024b6b139b543d5f5c71189f5b9a21e78",
+        "matches": true
+      }
+    }
+  },
+  "N6-1-time-4000": {
+    "declared_origin": "current",
+    "files": {
+      ".json.gz": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-time-4000.json.gz",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-time-4000.json.gz",
+        "actual_sha256": "fe7316916afbc4ed2f4b0d1247cd6f6cb5ee5532af474f6c295423ee61a93c51",
+        "expected_current_sha256": "fe7316916afbc4ed2f4b0d1247cd6f6cb5ee5532af474f6c295423ee61a93c51",
+        "matches": true
+      },
+      ".input.json": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-time-4000.input.json",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-time-4000.input.json",
+        "actual_sha256": "6f8a8dda82a69f3909727009d695b049e36f2a5362fc7a253a0b032aa77841c1",
+        "expected_current_sha256": "6f8a8dda82a69f3909727009d695b049e36f2a5362fc7a253a0b032aa77841c1",
+        "matches": true
+      }
+    }
+  },
+  "N6-2-space-1601": {
+    "declared_origin": "current",
+    "files": {
+      ".json.gz": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-2-space-1601.json.gz",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-2-space-1601.json.gz",
+        "actual_sha256": "3354fbd47c5d1de7926f5dc3bad6e3a38522107fe8884d471c0420a89edd3aca",
+        "expected_current_sha256": "3354fbd47c5d1de7926f5dc3bad6e3a38522107fe8884d471c0420a89edd3aca",
+        "matches": true
+      },
+      ".input.json": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-2-space-1601.input.json",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-2-space-1601.input.json",
+        "actual_sha256": "51ac7dff6718c798f8d1c13db232406cf52f88c7e3d39a78ca12725909298e12",
+        "expected_current_sha256": "51ac7dff6718c798f8d1c13db232406cf52f88c7e3d39a78ca12725909298e12",
+        "matches": true
+      }
+    }
+  },
+  "N6-2-space-401": {
+    "declared_origin": "current",
+    "files": {
+      ".json.gz": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-2-space-401.json.gz",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-2-space-401.json.gz",
+        "actual_sha256": "9990694f05f06eadc9a0e7f88ea576ae69a0550e4180831f94777215cf81fe5c",
+        "expected_current_sha256": "9990694f05f06eadc9a0e7f88ea576ae69a0550e4180831f94777215cf81fe5c",
+        "matches": true
+      },
+      ".input.json": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-2-space-401.input.json",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-2-space-401.input.json",
+        "actual_sha256": "1627f6362503c93d06888a66198ea7e8f35712c6295baa61fac0d45bab573046",
+        "expected_current_sha256": "1627f6362503c93d06888a66198ea7e8f35712c6295baa61fac0d45bab573046",
+        "matches": true
+      }
+    }
+  },
+  "N6-2-space-801": {
+    "declared_origin": "current",
+    "files": {
+      ".json.gz": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-2-space-801.json.gz",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-2-space-801.json.gz",
+        "actual_sha256": "5d539f952345717321b523931624a1cbd1eacef1c7e7aa7d8b822c3fff48b43d",
+        "expected_current_sha256": "5d539f952345717321b523931624a1cbd1eacef1c7e7aa7d8b822c3fff48b43d",
+        "matches": true
+      },
+      ".input.json": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-2-space-801.input.json",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-2-space-801.input.json",
+        "actual_sha256": "b7a7e4961e6d73f7827335afb02886e6d49c992936e1286cca832ae0908d32c2",
+        "expected_current_sha256": "b7a7e4961e6d73f7827335afb02886e6d49c992936e1286cca832ae0908d32c2",
+        "matches": true
+      }
+    }
+  },
+  "N6-2-time-1000": {
+    "declared_origin": "current",
+    "files": {
+      ".json.gz": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-2-time-1000.json.gz",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-2-time-1000.json.gz",
+        "actual_sha256": "e1e2f35b6e8427a450f2ff63731b7a88661160d067af9d91aab36b6e72d32b8a",
+        "expected_current_sha256": "e1e2f35b6e8427a450f2ff63731b7a88661160d067af9d91aab36b6e72d32b8a",
+        "matches": true
+      },
+      ".input.json": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-2-time-1000.input.json",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-2-time-1000.input.json",
+        "actual_sha256": "ce00a41db3a882ddce11fad779fb315f491eddebdaa40d038ae1734207b37e7e",
+        "expected_current_sha256": "ce00a41db3a882ddce11fad779fb315f491eddebdaa40d038ae1734207b37e7e",
+        "matches": true
+      }
+    }
+  },
+  "N6-2-time-2000": {
+    "declared_origin": "current",
+    "files": {
+      ".json.gz": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-2-time-2000.json.gz",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-2-time-2000.json.gz",
+        "actual_sha256": "fa071b334463553fcbf1282a022e52210a67ba65a67c1e68282dee494103017b",
+        "expected_current_sha256": "fa071b334463553fcbf1282a022e52210a67ba65a67c1e68282dee494103017b",
+        "matches": true
+      },
+      ".input.json": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-2-time-2000.input.json",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-2-time-2000.input.json",
+        "actual_sha256": "a1f4e83067686e1883e11ca83a4af0742c98bcd60e1847189f2c4bfd1552684a",
+        "expected_current_sha256": "a1f4e83067686e1883e11ca83a4af0742c98bcd60e1847189f2c4bfd1552684a",
+        "matches": true
+      }
+    }
+  },
+  "N6-2-time-4000": {
+    "declared_origin": "current",
+    "files": {
+      ".json.gz": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-2-time-4000.json.gz",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-2-time-4000.json.gz",
+        "actual_sha256": "96546a0a895db6117b95064749ec3b0a9c03ca1ccbabd9d82e2bb9aaa43a21f7",
+        "expected_current_sha256": "96546a0a895db6117b95064749ec3b0a9c03ca1ccbabd9d82e2bb9aaa43a21f7",
+        "matches": true
+      },
+      ".input.json": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-2-time-4000.input.json",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-2-time-4000.input.json",
+        "actual_sha256": "45d6d2cf7cca1cc27ad9d197e8a7107ca5fb51eb466c3f5e177458a1038e72fd",
+        "expected_current_sha256": "45d6d2cf7cca1cc27ad9d197e8a7107ca5fb51eb466c3f5e177458a1038e72fd",
+        "matches": true
+      }
+    }
+  },
+  "N7-1-domain-400": {
+    "declared_origin": "current",
+    "files": {
+      ".json.gz": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-domain-400.json.gz",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-domain-400.json.gz",
+        "actual_sha256": "cefa300b23130b4c0935ce908c79f1b4519b9677c59845c6d531087f4d53568f",
+        "expected_current_sha256": "cefa300b23130b4c0935ce908c79f1b4519b9677c59845c6d531087f4d53568f",
+        "matches": true
+      },
+      ".input.json": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-domain-400.input.json",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-domain-400.input.json",
+        "actual_sha256": "fb197b1124f156f7afc344b8703adf0c4bc5aac3ad3bcad0b3f500ac6f3fa372",
+        "expected_current_sha256": "fb197b1124f156f7afc344b8703adf0c4bc5aac3ad3bcad0b3f500ac6f3fa372",
+        "matches": true
+      }
+    }
+  },
+  "N7-1-domain-600": {
+    "declared_origin": "current",
+    "files": {
+      ".json.gz": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-domain-600.json.gz",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-domain-600.json.gz",
+        "actual_sha256": "bbda484125293c257ebb0bec18d287e75e7b466cabbbc4600b6fcfd1ca2cf564",
+        "expected_current_sha256": "bbda484125293c257ebb0bec18d287e75e7b466cabbbc4600b6fcfd1ca2cf564",
+        "matches": true
+      },
+      ".input.json": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-domain-600.input.json",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-domain-600.input.json",
+        "actual_sha256": "0fffea9bd2ab6db510b8739d0b072bf4380fb641ad1bd8221edfae95073ee250",
+        "expected_current_sha256": "0fffea9bd2ab6db510b8739d0b072bf4380fb641ad1bd8221edfae95073ee250",
+        "matches": true
+      }
+    }
+  },
+  "N7-1-domain-800": {
+    "declared_origin": "current",
+    "files": {
+      ".json.gz": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-1-domain-800.json.gz",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-1-domain-800.json.gz",
+        "actual_sha256": "afe6681c1a51f31e72a7abc5db141d94a820c6d56b9a14ea8cd783a82fb41f36",
+        "expected_current_sha256": "afe6681c1a51f31e72a7abc5db141d94a820c6d56b9a14ea8cd783a82fb41f36",
+        "matches": true
+      },
+      ".input.json": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-1-domain-800.input.json",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-1-domain-800.input.json",
+        "actual_sha256": "c5d1cb2c91e6c030a69290fff5044988a5817491dbf507b8924b61e2fc976dd2",
+        "expected_current_sha256": "c5d1cb2c91e6c030a69290fff5044988a5817491dbf507b8924b61e2fc976dd2",
+        "matches": true
+      }
+    }
+  },
+  "N7-1-parameter-0.25": {
+    "declared_origin": "current",
+    "files": {
+      ".json.gz": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-parameter-0.25.json.gz",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-parameter-0.25.json.gz",
+        "actual_sha256": "5b882bd99b80075af21e0b00440f79c3cf9c2bd9f5facb6986f57168d5abf6f7",
+        "expected_current_sha256": "5b882bd99b80075af21e0b00440f79c3cf9c2bd9f5facb6986f57168d5abf6f7",
+        "matches": true
+      },
+      ".input.json": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-parameter-0.25.input.json",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-parameter-0.25.input.json",
+        "actual_sha256": "a03c380468a18839f702670f8f635f52c5497d724c8a8901f52e490183a25ebe",
+        "expected_current_sha256": "a03c380468a18839f702670f8f635f52c5497d724c8a8901f52e490183a25ebe",
+        "matches": true
+      }
+    }
+  },
+  "N7-1-parameter-0.5": {
+    "declared_origin": "current",
+    "files": {
+      ".json.gz": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-parameter-0.5.json.gz",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-parameter-0.5.json.gz",
+        "actual_sha256": "c6d2af196fe050a5ceaf637e43e65e70b3bbc546d6839aab46a45bf2be004859",
+        "expected_current_sha256": "c6d2af196fe050a5ceaf637e43e65e70b3bbc546d6839aab46a45bf2be004859",
+        "matches": true
+      },
+      ".input.json": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-parameter-0.5.input.json",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-parameter-0.5.input.json",
+        "actual_sha256": "a8ad864703e23eec071a05b3e82823143d6de0b58b645b391a97ef3be7fd9d78",
+        "expected_current_sha256": "a8ad864703e23eec071a05b3e82823143d6de0b58b645b391a97ef3be7fd9d78",
+        "matches": true
+      }
+    }
+  },
+  "N7-1-parameter-1": {
+    "declared_origin": "current",
+    "files": {
+      ".json.gz": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-parameter-1.json.gz",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-parameter-1.json.gz",
+        "actual_sha256": "c635fb339edea777b5adad702ba333d59e5be879809ee8e81c8397938e855810",
+        "expected_current_sha256": "c635fb339edea777b5adad702ba333d59e5be879809ee8e81c8397938e855810",
+        "matches": true
+      },
+      ".input.json": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-parameter-1.input.json",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-parameter-1.input.json",
+        "actual_sha256": "ce01c1d820d91c23daee1aa1dd05f05f6290fa98819070fa86211f95c98619fa",
+        "expected_current_sha256": "ce01c1d820d91c23daee1aa1dd05f05f6290fa98819070fa86211f95c98619fa",
+        "matches": true
+      }
+    }
+  },
+  "N7-1-penalty-10000000.0": {
+    "declared_origin": "current",
+    "files": {
+      ".json.gz": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-penalty-10000000.0.json.gz",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-penalty-10000000.0.json.gz",
+        "actual_sha256": "20dd900b9d1327f4ea0259c6f86d17ad418669fc5f162b194f7a9b21fa6c72ff",
+        "expected_current_sha256": "20dd900b9d1327f4ea0259c6f86d17ad418669fc5f162b194f7a9b21fa6c72ff",
+        "matches": true
+      },
+      ".input.json": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-penalty-10000000.0.input.json",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-penalty-10000000.0.input.json",
+        "actual_sha256": "de55977658e023d5da5ecd8d655c826e92a10896981ef1a3b6e77390e533a8f2",
+        "expected_current_sha256": "de55977658e023d5da5ecd8d655c826e92a10896981ef1a3b6e77390e533a8f2",
+        "matches": true
+      }
+    }
+  },
+  "N7-1-penalty-100000000.0": {
+    "declared_origin": "current",
+    "files": {
+      ".json.gz": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-penalty-100000000.0.json.gz",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-penalty-100000000.0.json.gz",
+        "actual_sha256": "aebd5fc0bf2c703d39218b595cb0f9c6ca91e5a893835fa018fd195dab72b045",
+        "expected_current_sha256": "aebd5fc0bf2c703d39218b595cb0f9c6ca91e5a893835fa018fd195dab72b045",
+        "matches": true
+      },
+      ".input.json": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-penalty-100000000.0.input.json",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-penalty-100000000.0.input.json",
+        "actual_sha256": "faf15367eadb119df9d77d3171ed6f7bfce1ab2286a0ae036e6d4e33aa4b5cf3",
+        "expected_current_sha256": "faf15367eadb119df9d77d3171ed6f7bfce1ab2286a0ae036e6d4e33aa4b5cf3",
+        "matches": true
+      }
+    }
+  },
+  "N7-1-penalty-1000000000.0": {
+    "declared_origin": "current",
+    "files": {
+      ".json.gz": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-penalty-1000000000.0.json.gz",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-penalty-1000000000.0.json.gz",
+        "actual_sha256": "a4e5f0eef3644e34a501b77e01df69ab154cb42dc56a7af55a8e11b7ff948476",
+        "expected_current_sha256": "a4e5f0eef3644e34a501b77e01df69ab154cb42dc56a7af55a8e11b7ff948476",
+        "matches": true
+      },
+      ".input.json": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-penalty-1000000000.0.input.json",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-penalty-1000000000.0.input.json",
+        "actual_sha256": "64388e87e8138fc71f66d79f206e14b3b721842868b277a89e28dec636363b2a",
+        "expected_current_sha256": "64388e87e8138fc71f66d79f206e14b3b721842868b277a89e28dec636363b2a",
+        "matches": true
+      }
+    }
+  },
+  "N7-1-spot-1601-2": {
+    "declared_origin": "current",
+    "files": {
+      ".json.gz": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-spot-1601-2.json.gz",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-spot-1601-2.json.gz",
+        "actual_sha256": "bee6c8f844a34b3a2eb2b20aa5492071f5ffdd19dea7e60e268ba12915f3de64",
+        "expected_current_sha256": "bee6c8f844a34b3a2eb2b20aa5492071f5ffdd19dea7e60e268ba12915f3de64",
+        "matches": true
+      },
+      ".input.json": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-spot-1601-2.input.json",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-spot-1601-2.input.json",
+        "actual_sha256": "924bb19d65ecafc0f492df7c44bcb6732c8c2c3d8759ff43e3c10e9ce37b6de9",
+        "expected_current_sha256": "924bb19d65ecafc0f492df7c44bcb6732c8c2c3d8759ff43e3c10e9ce37b6de9",
+        "matches": true
+      }
+    }
+  },
+  "N7-1-spot-1601-4": {
+    "declared_origin": "current",
+    "files": {
+      ".json.gz": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-spot-1601-4.json.gz",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-spot-1601-4.json.gz",
+        "actual_sha256": "a85ff221bd0f5fee30907c01752dd41207589292578e264fa59977e6b5aca621",
+        "expected_current_sha256": "a85ff221bd0f5fee30907c01752dd41207589292578e264fa59977e6b5aca621",
+        "matches": true
+      },
+      ".input.json": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-spot-1601-4.input.json",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-spot-1601-4.input.json",
+        "actual_sha256": "79a818f6547606846b2463bed3e511af9e00ddd51c0b0c019770f5acfe81bdae",
+        "expected_current_sha256": "79a818f6547606846b2463bed3e511af9e00ddd51c0b0c019770f5acfe81bdae",
+        "matches": true
+      }
+    }
+  },
+  "N7-1-spot-801-2": {
+    "declared_origin": "current",
+    "files": {
+      ".json.gz": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-spot-801-2.json.gz",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-spot-801-2.json.gz",
+        "actual_sha256": "68570614b60aa855b302b2c50309a67a4f014021aa79f1109c02703e3d16e112",
+        "expected_current_sha256": "68570614b60aa855b302b2c50309a67a4f014021aa79f1109c02703e3d16e112",
+        "matches": true
+      },
+      ".input.json": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-spot-801-2.input.json",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-spot-801-2.input.json",
+        "actual_sha256": "9903d4767c8f3bb95f0f6a81990ae21957cd8bf0c1278492b5b0ef05e2ed5315",
+        "expected_current_sha256": "9903d4767c8f3bb95f0f6a81990ae21957cd8bf0c1278492b5b0ef05e2ed5315",
+        "matches": true
+      }
+    }
+  },
+  "N7-1-spot-801-4": {
+    "declared_origin": "current",
+    "files": {
+      ".json.gz": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-spot-801-4.json.gz",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-spot-801-4.json.gz",
+        "actual_sha256": "8391feb8c36ea7ee0063388f1502925bc31509fd2c79a919bdb08c2ee5fbdba7",
+        "expected_current_sha256": "8391feb8c36ea7ee0063388f1502925bc31509fd2c79a919bdb08c2ee5fbdba7",
+        "matches": true
+      },
+      ".input.json": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-spot-801-4.input.json",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-spot-801-4.input.json",
+        "actual_sha256": "051a0ecc17376438a8650e02d678192157b1c53f110708bd1f0aa67c14e325ee",
+        "expected_current_sha256": "051a0ecc17376438a8650e02d678192157b1c53f110708bd1f0aa67c14e325ee",
+        "matches": true
+      }
+    }
+  },
+  "N7-2-domain-400": {
+    "declared_origin": "current",
+    "files": {
+      ".json.gz": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-domain-400.json.gz",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-domain-400.json.gz",
+        "actual_sha256": "ebab901bbb29c512a29860f159140500102592da57747194fce4dca4be5d8b62",
+        "expected_current_sha256": "ebab901bbb29c512a29860f159140500102592da57747194fce4dca4be5d8b62",
+        "matches": true
+      },
+      ".input.json": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-domain-400.input.json",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-domain-400.input.json",
+        "actual_sha256": "e27f0f1126587ce8e9446d62128477b4fc22b87d81fafc6db077828f24f65910",
+        "expected_current_sha256": "e27f0f1126587ce8e9446d62128477b4fc22b87d81fafc6db077828f24f65910",
+        "matches": true
+      }
+    }
+  },
+  "N7-2-domain-600": {
+    "declared_origin": "current",
+    "files": {
+      ".json.gz": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-domain-600.json.gz",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-domain-600.json.gz",
+        "actual_sha256": "1dffc5dc497d6d88991b9c6c79cff1f313ee68944bc4f8b332bab423cce7db2c",
+        "expected_current_sha256": "1dffc5dc497d6d88991b9c6c79cff1f313ee68944bc4f8b332bab423cce7db2c",
+        "matches": true
+      },
+      ".input.json": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-domain-600.input.json",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-domain-600.input.json",
+        "actual_sha256": "ee9ad713aa8597e88e8f3bb995625be4a8b5e37ca9075e50b20a8ef4c6b52ed0",
+        "expected_current_sha256": "ee9ad713aa8597e88e8f3bb995625be4a8b5e37ca9075e50b20a8ef4c6b52ed0",
+        "matches": true
+      }
+    }
+  },
+  "N7-2-domain-800": {
+    "declared_origin": "current",
+    "files": {
+      ".json.gz": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-domain-800.json.gz",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-domain-800.json.gz",
+        "actual_sha256": "94405196299e69b5a5c471fbb4ff9d216cbe82167de3677a8c509fe3e50f5422",
+        "expected_current_sha256": "94405196299e69b5a5c471fbb4ff9d216cbe82167de3677a8c509fe3e50f5422",
+        "matches": true
+      },
+      ".input.json": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-domain-800.input.json",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-domain-800.input.json",
+        "actual_sha256": "689df9926888efd3fd8aab4f08e8dfe9b7f2b9f1d5f2d9a40cc388a9728c080d",
+        "expected_current_sha256": "689df9926888efd3fd8aab4f08e8dfe9b7f2b9f1d5f2d9a40cc388a9728c080d",
+        "matches": true
+      }
+    }
+  },
+  "N7-2-parameter-0.25": {
+    "declared_origin": "current",
+    "files": {
+      ".json.gz": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-parameter-0.25.json.gz",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-parameter-0.25.json.gz",
+        "actual_sha256": "4f7f39f1592a381b668d4361c430d4b5e87797b1b543e2de25bd9dbacb369825",
+        "expected_current_sha256": "4f7f39f1592a381b668d4361c430d4b5e87797b1b543e2de25bd9dbacb369825",
+        "matches": true
+      },
+      ".input.json": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-parameter-0.25.input.json",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-parameter-0.25.input.json",
+        "actual_sha256": "615be9a4e5b652650caaced4b3f07f25981648d1127e0a9d6c1fdd84a067cb77",
+        "expected_current_sha256": "615be9a4e5b652650caaced4b3f07f25981648d1127e0a9d6c1fdd84a067cb77",
+        "matches": true
+      }
+    }
+  },
+  "N7-2-parameter-0.5": {
+    "declared_origin": "current",
+    "files": {
+      ".json.gz": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-parameter-0.5.json.gz",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-parameter-0.5.json.gz",
+        "actual_sha256": "332c51844e953ebc1f04e149ea94569e622cef4d018a5d5e8dac9bf074279eb0",
+        "expected_current_sha256": "332c51844e953ebc1f04e149ea94569e622cef4d018a5d5e8dac9bf074279eb0",
+        "matches": true
+      },
+      ".input.json": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-parameter-0.5.input.json",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-parameter-0.5.input.json",
+        "actual_sha256": "455d376332b9e771c762b342376e971a39cc6b0f61d56bab72710776dfb7981b",
+        "expected_current_sha256": "455d376332b9e771c762b342376e971a39cc6b0f61d56bab72710776dfb7981b",
+        "matches": true
+      }
+    }
+  },
+  "N7-2-parameter-1": {
+    "declared_origin": "current",
+    "files": {
+      ".json.gz": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-parameter-1.json.gz",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-parameter-1.json.gz",
+        "actual_sha256": "4f040270e45747adf357a14a143e06e80b9efe66745efe071c749aa9eb00ed74",
+        "expected_current_sha256": "4f040270e45747adf357a14a143e06e80b9efe66745efe071c749aa9eb00ed74",
+        "matches": true
+      },
+      ".input.json": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-parameter-1.input.json",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-parameter-1.input.json",
+        "actual_sha256": "af5e2d50471b5b6a516744320d65bd7d5e3acea670d7f68893675f65327e7093",
+        "expected_current_sha256": "af5e2d50471b5b6a516744320d65bd7d5e3acea670d7f68893675f65327e7093",
+        "matches": true
+      }
+    }
+  },
+  "N7-2-penalty-10000000.0": {
+    "declared_origin": "current",
+    "files": {
+      ".json.gz": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-penalty-10000000.0.json.gz",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-penalty-10000000.0.json.gz",
+        "actual_sha256": "38576b60dc434792a9bfe7e79ed799787fa2c35b826e77a21430aef1ae7428fe",
+        "expected_current_sha256": "38576b60dc434792a9bfe7e79ed799787fa2c35b826e77a21430aef1ae7428fe",
+        "matches": true
+      },
+      ".input.json": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-penalty-10000000.0.input.json",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-penalty-10000000.0.input.json",
+        "actual_sha256": "05ac56d89807c35ad5ead193c2d0277ee0d7902e3f849fba1198c5566528aee2",
+        "expected_current_sha256": "05ac56d89807c35ad5ead193c2d0277ee0d7902e3f849fba1198c5566528aee2",
+        "matches": true
+      }
+    }
+  },
+  "N7-2-penalty-100000000.0": {
+    "declared_origin": "current",
+    "files": {
+      ".json.gz": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-penalty-100000000.0.json.gz",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-penalty-100000000.0.json.gz",
+        "actual_sha256": "f96114f6e7089f7cf9a3e974357417bec0b99ae7cb3566bc9c220f945a5866b3",
+        "expected_current_sha256": "f96114f6e7089f7cf9a3e974357417bec0b99ae7cb3566bc9c220f945a5866b3",
+        "matches": true
+      },
+      ".input.json": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-penalty-100000000.0.input.json",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-penalty-100000000.0.input.json",
+        "actual_sha256": "b77fa3cbd4dac2e8e51aec4e9d3a7131ab8ce83e97eaa2f04c15e04dde961d8b",
+        "expected_current_sha256": "b77fa3cbd4dac2e8e51aec4e9d3a7131ab8ce83e97eaa2f04c15e04dde961d8b",
+        "matches": true
+      }
+    }
+  },
+  "N7-2-penalty-1000000000.0": {
+    "declared_origin": "current",
+    "files": {
+      ".json.gz": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-penalty-1000000000.0.json.gz",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-penalty-1000000000.0.json.gz",
+        "actual_sha256": "8101d64c5bf5a765dae00de10d0545c4f6e0685016627f5bcfddc0935fd74dd4",
+        "expected_current_sha256": "8101d64c5bf5a765dae00de10d0545c4f6e0685016627f5bcfddc0935fd74dd4",
+        "matches": true
+      },
+      ".input.json": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-penalty-1000000000.0.input.json",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-penalty-1000000000.0.input.json",
+        "actual_sha256": "89a54ee3338a81d56fb378aced3bb18f963dc79869382b688458a4e4738cf111",
+        "expected_current_sha256": "89a54ee3338a81d56fb378aced3bb18f963dc79869382b688458a4e4738cf111",
+        "matches": true
+      }
+    }
+  },
+  "N7-2-spot-1601-2": {
+    "declared_origin": "current",
+    "files": {
+      ".json.gz": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-spot-1601-2.json.gz",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-spot-1601-2.json.gz",
+        "actual_sha256": "15f49dd8499f238b630afb7a5f7cc5369b70ff7c3a776e3f3c8915785d7c0544",
+        "expected_current_sha256": "15f49dd8499f238b630afb7a5f7cc5369b70ff7c3a776e3f3c8915785d7c0544",
+        "matches": true
+      },
+      ".input.json": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-spot-1601-2.input.json",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-spot-1601-2.input.json",
+        "actual_sha256": "21848d8d7ffc59f341b6f586675cada383a3e90a9257a6c76a26b2347f9c42d3",
+        "expected_current_sha256": "21848d8d7ffc59f341b6f586675cada383a3e90a9257a6c76a26b2347f9c42d3",
+        "matches": true
+      }
+    }
+  },
+  "N7-2-spot-1601-4": {
+    "declared_origin": "current",
+    "files": {
+      ".json.gz": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-spot-1601-4.json.gz",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-spot-1601-4.json.gz",
+        "actual_sha256": "41b72209740a335ccdac4ec562ee6879beb9561554e9ed3a2425e9bc76bc2afc",
+        "expected_current_sha256": "41b72209740a335ccdac4ec562ee6879beb9561554e9ed3a2425e9bc76bc2afc",
+        "matches": true
+      },
+      ".input.json": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-spot-1601-4.input.json",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-spot-1601-4.input.json",
+        "actual_sha256": "04eac80a23b6a30157cf1764173b24678df8f2efd1f44ebfcd0080844b9e7cd7",
+        "expected_current_sha256": "04eac80a23b6a30157cf1764173b24678df8f2efd1f44ebfcd0080844b9e7cd7",
+        "matches": true
+      }
+    }
+  },
+  "N7-2-spot-801-2": {
+    "declared_origin": "current",
+    "files": {
+      ".json.gz": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-spot-801-2.json.gz",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-spot-801-2.json.gz",
+        "actual_sha256": "34a6eeadad9a8fc9117486b03f39f2fc59aad6de95bbb59b88b13c295156d9cb",
+        "expected_current_sha256": "34a6eeadad9a8fc9117486b03f39f2fc59aad6de95bbb59b88b13c295156d9cb",
+        "matches": true
+      },
+      ".input.json": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-spot-801-2.input.json",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-spot-801-2.input.json",
+        "actual_sha256": "078fefdcfb7de69859eaa9609aa29b14c6cf64f0442b8807b6b2fa2a045ee7fe",
+        "expected_current_sha256": "078fefdcfb7de69859eaa9609aa29b14c6cf64f0442b8807b6b2fa2a045ee7fe",
+        "matches": true
+      }
+    }
+  },
+  "N7-2-spot-801-4": {
+    "declared_origin": "current",
+    "files": {
+      ".json.gz": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-spot-801-4.json.gz",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-spot-801-4.json.gz",
+        "actual_sha256": "f8f2f7a709e4842f64787745f29ea6cb8ecbf4c6c4d5adbc0f17fafadff13d37",
+        "expected_current_sha256": "f8f2f7a709e4842f64787745f29ea6cb8ecbf4c6c4d5adbc0f17fafadff13d37",
+        "matches": true
+      },
+      ".input.json": {
+        "actual_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-spot-801-4.input.json",
+        "expected_current_path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-spot-801-4.input.json",
+        "actual_sha256": "f82045d6d7bc555b8ba46417ce2a92d54663331ada59efaf83653d2b16037407",
+        "expected_current_sha256": "f82045d6d7bc555b8ba46417ce2a92d54663331ada59efaf83653d2b16037407",
+        "matches": true
+      }
+    }
+  }
+}

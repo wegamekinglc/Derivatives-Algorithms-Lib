@@ -1,0 +1,1871 @@
+{
+  "N1-0-80-0": {
+    "binding": "47e30a64b9bd29c1bbcf8c3a8594df6d5c6c263de6d52f7f4211574b74b13c50",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N1-0-80-0.03": {
+    "binding": "6fce17857300be68f7d8ee4af891d851ad6e57eef8199befcd535dd163f2cade",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N1-0-100-0": {
+    "binding": "30ab3f54264fb3bca93fa32160e6eb7a190ceb65b1912387a6c23801ec06f76d",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N1-0-100-0.03": {
+    "binding": "47059a82716476237a94a5e958a87d6fc58bab1d2ef9e880689adb7bc0ffae01",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N1-0-120-0": {
+    "binding": "33b5a5b5556a4b9c6933178a1bcb8f7b71326e530e31d09f7dd39ff47b5b164d",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N1-0-120-0.03": {
+    "binding": "c53f14a1035cfe7a7d2ffdab534d8e57129394900a88ac8e4d3e7c5f14db9d47",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N1-1-80-0": {
+    "binding": "ced9cb348b2c1a0afa81f53d34f5f9d6167c9a5f91df49ba7585bd263e400d3f",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N1-1-80-0.03": {
+    "binding": "2bc60b7159f753c09007fcf7d0c4b70794eb897709e5e4605113f7d3d5b05232",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N1-1-100-0": {
+    "binding": "db6a008677a5e66c1dca9f9ac23c6c7e384ce4206cee34500f11c406b01bfd4b",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N1-1-100-0.03": {
+    "binding": "3319914f20d9ee1304cc005250835c99ada9c75fed5143740a5b2b75c373ef75",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N1-1-120-0": {
+    "binding": "37a3750e7bbefee9729bbb8a960a62486f2a48c80d786715a389eb4bf050e7a1",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N1-1-120-0.03": {
+    "binding": "c48c6abf179c5213e7452edf57a2b458f8a6ead7f82d45415bdf981543d9ce7a",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N1-default": {
+    "binding": "70bac4632c865f784309fc1f4312a6e90a9651fc6b09fa2adf914fe4714c1b00",
+    "actual_scales": null,
+    "reference_status": "INCOMPLETE"
+  },
+  "N2-80": {
+    "binding": "202576c4aa26e8520bc4d043389bdcb182bf36a37ce7632656c416919798afc6",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N2-100": {
+    "binding": "a5c4b8116273ac2179b7e54293679a6c87756ff15e7cb2dfc9d37da96be70d05",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N2-120": {
+    "binding": "a986830785e26e31223b455f88c77ec3ec23081ed9610ebb470369d6bcecdfd5",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N2-piecewise": {
+    "binding": "2b1020f59dd899f8c82e4fdc273cfb3a437d4973c5dcb7126dc172e6517ec835",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N3-0-100": {
+    "binding": "b1166a77cf17fede072f019ec4ed1263113a78e7f47895fd4c7623a20709225c",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "INCOMPLETE"
+  },
+  "N3-0-120": {
+    "binding": "277665fdbaad28b24e5ff120a2f714774b42715abc11c4de70a8434ec9b006f6",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "INCOMPLETE"
+  },
+  "N4-0-100-137": {
+    "binding": "945906ea570c764ec1bafaa93426094e78176cec94bf6a447362ea872649c03c",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "PASS"
+  },
+  "N4-0-100-182": {
+    "binding": "f79e3cc4d0842f9b0c6d13e905300e534981ce708f7f866e283584361c6de63a",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "PASS"
+  },
+  "N4-0-120-137": {
+    "binding": "b9af66e6559f7d1b3be157f095adad92208ab96bede6b1854bbd8592cd41ec46",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "PASS"
+  },
+  "N4-0-120-182": {
+    "binding": "8fad7e8fa850e7db5a1f7f0507d01579e2f3ecceed596b188a7541db996124b4",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "PASS"
+  },
+  "N3-1-100": {
+    "binding": "325c81055c47fb160d2c79592ca886f47fcc8cffb3c6df9b069108e82ccf48c6",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "INCOMPLETE"
+  },
+  "N3-1-120": {
+    "binding": "e2a7ca0f1d61e85485d3f7a4b06153d3d5b6e637e5636d9db0d5ec65a69145b8",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "INCOMPLETE"
+  },
+  "N4-1-100-137": {
+    "binding": "b99dcee6635d05348bccb1ea70c1c0f28a4c6fe398a36cea5f201978e1ee99f5",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "PASS"
+  },
+  "N4-1-100-182": {
+    "binding": "5d71279792763715db9f0fc4a1c2ed161489825da1ab178df5920bc1ae9fb00c",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "PASS"
+  },
+  "N4-1-120-137": {
+    "binding": "c7a9f5a4e2f487ba27a7591de54e13b8e614aca16e6a04dc15fff3bf0b164597",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "PASS"
+  },
+  "N4-1-120-182": {
+    "binding": "cf96824c14495b2719ee20926e7a4680d80c2873e5b787fc78c5c2d6bf9d3371",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "PASS"
+  },
+  "N5b-2028-0-100": {
+    "binding": "f8543216ff298d259680a0af99e1f9254273406ce813000494ec94b50508550e",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N5b-2028-0-100.0125": {
+    "binding": "59fe9680b7dc7d8651c295741cc4631687cf9a290c03f373929d7d6b9be7e92c",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N5b-2028-1-100": {
+    "binding": "c650d867088438d4913a3229a211d95c5aa857aff7bb54470fbe67a68f4dd7a3",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N5b-2028-1-100.0125": {
+    "binding": "8efc1c97435d22f1907377e36004e6f862675fb203794f935045a6c4e0ccdba5",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N5b-2027-0-100": {
+    "binding": "2af48352f56d708659a5ad2b55bdb48a84816588b79828eb896291a68e28fbb5",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N5b-2027-0-100.0125": {
+    "binding": "2dbc7422da0ff437617886b0ae364f8531848474557f2d938161c5846e9dcbd1",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N5b-2027-1-100": {
+    "binding": "8eeb5fc9c590b6a10c5e0a02a59efa88f3e129bf727141ac4682ea938bda9789",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N5b-2027-1-100.0125": {
+    "binding": "da695c16733a9eaf613bd5bcf66fa9bedf77da634fb2919a61bf3e57cab4e43f",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N6-0-space-401": {
+    "binding": "8df5b9571ad1a7db0d4252b2f10eb326520af99e13bee6cde551e8982deda186",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N6-0-space-801": {
+    "binding": "ddaa158be693efe490360e8b28d13b7713e6ecb2dc5439ea4d64fe15cec88900",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N6-0-space-1601": {
+    "binding": "47059a82716476237a94a5e958a87d6fc58bab1d2ef9e880689adb7bc0ffae01",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N6-0-time-1000": {
+    "binding": "47059a82716476237a94a5e958a87d6fc58bab1d2ef9e880689adb7bc0ffae01",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N6-0-time-2000": {
+    "binding": "47059a82716476237a94a5e958a87d6fc58bab1d2ef9e880689adb7bc0ffae01",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N6-0-time-4000": {
+    "binding": "47059a82716476237a94a5e958a87d6fc58bab1d2ef9e880689adb7bc0ffae01",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N7-0-domain-400": {
+    "binding": "47059a82716476237a94a5e958a87d6fc58bab1d2ef9e880689adb7bc0ffae01",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N7-0-domain-600": {
+    "binding": "47059a82716476237a94a5e958a87d6fc58bab1d2ef9e880689adb7bc0ffae01",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N7-0-domain-800": {
+    "binding": "47059a82716476237a94a5e958a87d6fc58bab1d2ef9e880689adb7bc0ffae01",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N7-0-penalty-10000000.0": {
+    "binding": "47059a82716476237a94a5e958a87d6fc58bab1d2ef9e880689adb7bc0ffae01",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N7-0-penalty-100000000.0": {
+    "binding": "47059a82716476237a94a5e958a87d6fc58bab1d2ef9e880689adb7bc0ffae01",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N7-0-penalty-1000000000.0": {
+    "binding": "47059a82716476237a94a5e958a87d6fc58bab1d2ef9e880689adb7bc0ffae01",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N7-0-spot-801-4": {
+    "binding": "8df5b9571ad1a7db0d4252b2f10eb326520af99e13bee6cde551e8982deda186",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N7-0-spot-801-2": {
+    "binding": "ddaa158be693efe490360e8b28d13b7713e6ecb2dc5439ea4d64fe15cec88900",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N7-0-spot-1601-4": {
+    "binding": "ddaa158be693efe490360e8b28d13b7713e6ecb2dc5439ea4d64fe15cec88900",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N7-0-spot-1601-2": {
+    "binding": "47059a82716476237a94a5e958a87d6fc58bab1d2ef9e880689adb7bc0ffae01",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N7-0-parameter-1": {
+    "binding": "47059a82716476237a94a5e958a87d6fc58bab1d2ef9e880689adb7bc0ffae01",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N7-0-parameter-0.5": {
+    "binding": "deecfab91f1a322584110461ffd8dbf6780f04847a314aa82712696c1d8d2baa",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N7-0-parameter-0.25": {
+    "binding": "6ed8faecd4920b3469a87a565a5e303f746110a4416817a455c3f66f1bc26981",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N6-1-space-401": {
+    "binding": "ba5f3ed1040cdf3a27a79e0436abef40ffde10df136c68643a60484c566216c9",
+    "actual_scales": [
+      [
+        4.0,
+        0.001,
+        0.0001
+      ],
+      [
+        2.0,
+        0.0005,
+        5e-05
+      ],
+      [
+        1.0,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "PASS"
+  },
+  "N6-1-space-801": {
+    "binding": "6b0637d9a47b2acbdd61c3760b05d1dc03a40cb08b7e3cdb2c46f16d3b67a983",
+    "actual_scales": [
+      [
+        2.0,
+        0.001,
+        0.0001
+      ],
+      [
+        1.0,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.5,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "INCOMPLETE"
+  },
+  "N6-1-space-1601": {
+    "binding": "b1166a77cf17fede072f019ec4ed1263113a78e7f47895fd4c7623a20709225c",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "INCOMPLETE"
+  },
+  "N6-1-time-1000": {
+    "binding": "b1166a77cf17fede072f019ec4ed1263113a78e7f47895fd4c7623a20709225c",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "INCOMPLETE"
+  },
+  "N6-1-time-2000": {
+    "binding": "b1166a77cf17fede072f019ec4ed1263113a78e7f47895fd4c7623a20709225c",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "INCOMPLETE"
+  },
+  "N6-1-time-4000": {
+    "binding": "b1166a77cf17fede072f019ec4ed1263113a78e7f47895fd4c7623a20709225c",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "INCOMPLETE"
+  },
+  "N7-1-domain-400": {
+    "binding": "b1166a77cf17fede072f019ec4ed1263113a78e7f47895fd4c7623a20709225c",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "INCOMPLETE"
+  },
+  "N7-1-domain-600": {
+    "binding": "b1166a77cf17fede072f019ec4ed1263113a78e7f47895fd4c7623a20709225c",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "INCOMPLETE"
+  },
+  "N7-1-domain-800": {
+    "binding": "b1166a77cf17fede072f019ec4ed1263113a78e7f47895fd4c7623a20709225c",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "INCOMPLETE"
+  },
+  "N7-1-penalty-10000000.0": {
+    "binding": "b1166a77cf17fede072f019ec4ed1263113a78e7f47895fd4c7623a20709225c",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "INCOMPLETE"
+  },
+  "N7-1-penalty-100000000.0": {
+    "binding": "b1166a77cf17fede072f019ec4ed1263113a78e7f47895fd4c7623a20709225c",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "INCOMPLETE"
+  },
+  "N7-1-penalty-1000000000.0": {
+    "binding": "b1166a77cf17fede072f019ec4ed1263113a78e7f47895fd4c7623a20709225c",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "INCOMPLETE"
+  },
+  "N7-1-spot-801-4": {
+    "binding": "ba5f3ed1040cdf3a27a79e0436abef40ffde10df136c68643a60484c566216c9",
+    "actual_scales": [
+      [
+        4.0,
+        0.001,
+        0.0001
+      ],
+      [
+        2.0,
+        0.0005,
+        5e-05
+      ],
+      [
+        1.0,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "PASS"
+  },
+  "N7-1-spot-801-2": {
+    "binding": "6b0637d9a47b2acbdd61c3760b05d1dc03a40cb08b7e3cdb2c46f16d3b67a983",
+    "actual_scales": [
+      [
+        2.0,
+        0.001,
+        0.0001
+      ],
+      [
+        1.0,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.5,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "INCOMPLETE"
+  },
+  "N7-1-spot-1601-4": {
+    "binding": "6b0637d9a47b2acbdd61c3760b05d1dc03a40cb08b7e3cdb2c46f16d3b67a983",
+    "actual_scales": [
+      [
+        2.0,
+        0.001,
+        0.0001
+      ],
+      [
+        1.0,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.5,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "INCOMPLETE"
+  },
+  "N7-1-spot-1601-2": {
+    "binding": "b1166a77cf17fede072f019ec4ed1263113a78e7f47895fd4c7623a20709225c",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "INCOMPLETE"
+  },
+  "N7-1-parameter-1": {
+    "binding": "b1166a77cf17fede072f019ec4ed1263113a78e7f47895fd4c7623a20709225c",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "INCOMPLETE"
+  },
+  "N7-1-parameter-0.5": {
+    "binding": "52bbede0ef0da358c56600115d277940ad2b1aedb846aa1152c73443a6d6230b",
+    "actual_scales": [
+      [
+        1.0,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.5,
+        0.00025,
+        2.5e-05
+      ],
+      [
+        0.25,
+        0.000125,
+        1.25e-05
+      ]
+    ],
+    "reference_status": "INCOMPLETE"
+  },
+  "N7-1-parameter-0.25": {
+    "binding": "c087fe5f6f459fcb4d5c44c6d68fec372670e84329a306b7651b179b91629f65",
+    "actual_scales": [
+      [
+        1.0,
+        0.00025,
+        2.5e-05
+      ],
+      [
+        0.5,
+        0.000125,
+        1.25e-05
+      ],
+      [
+        0.25,
+        6.25e-05,
+        6.25e-06
+      ]
+    ],
+    "reference_status": "INCOMPLETE"
+  },
+  "N6-2-space-401": {
+    "binding": "cb29dc3178a804fda2721cb4b0292798408b9a5d7da9f70fc7821cc47ab0160d",
+    "actual_scales": [
+      [
+        4.0,
+        0.001,
+        0.0001
+      ],
+      [
+        2.0,
+        0.0005,
+        5e-05
+      ],
+      [
+        1.0,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "PASS"
+  },
+  "N6-2-space-801": {
+    "binding": "f51dd42acec1467796629fc19683366aafdafc1906c93b3f472c012a0d61c58b",
+    "actual_scales": [
+      [
+        2.0,
+        0.001,
+        0.0001
+      ],
+      [
+        1.0,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.5,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "INCOMPLETE"
+  },
+  "N6-2-space-1601": {
+    "binding": "325c81055c47fb160d2c79592ca886f47fcc8cffb3c6df9b069108e82ccf48c6",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "INCOMPLETE"
+  },
+  "N6-2-time-1000": {
+    "binding": "325c81055c47fb160d2c79592ca886f47fcc8cffb3c6df9b069108e82ccf48c6",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "INCOMPLETE"
+  },
+  "N6-2-time-2000": {
+    "binding": "325c81055c47fb160d2c79592ca886f47fcc8cffb3c6df9b069108e82ccf48c6",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "INCOMPLETE"
+  },
+  "N6-2-time-4000": {
+    "binding": "325c81055c47fb160d2c79592ca886f47fcc8cffb3c6df9b069108e82ccf48c6",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "INCOMPLETE"
+  },
+  "N7-2-domain-400": {
+    "binding": "325c81055c47fb160d2c79592ca886f47fcc8cffb3c6df9b069108e82ccf48c6",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "INCOMPLETE"
+  },
+  "N7-2-domain-600": {
+    "binding": "325c81055c47fb160d2c79592ca886f47fcc8cffb3c6df9b069108e82ccf48c6",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "INCOMPLETE"
+  },
+  "N7-2-domain-800": {
+    "binding": "325c81055c47fb160d2c79592ca886f47fcc8cffb3c6df9b069108e82ccf48c6",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "INCOMPLETE"
+  },
+  "N7-2-penalty-10000000.0": {
+    "binding": "325c81055c47fb160d2c79592ca886f47fcc8cffb3c6df9b069108e82ccf48c6",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "INCOMPLETE"
+  },
+  "N7-2-penalty-100000000.0": {
+    "binding": "325c81055c47fb160d2c79592ca886f47fcc8cffb3c6df9b069108e82ccf48c6",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "INCOMPLETE"
+  },
+  "N7-2-penalty-1000000000.0": {
+    "binding": "325c81055c47fb160d2c79592ca886f47fcc8cffb3c6df9b069108e82ccf48c6",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "INCOMPLETE"
+  },
+  "N7-2-spot-801-4": {
+    "binding": "cb29dc3178a804fda2721cb4b0292798408b9a5d7da9f70fc7821cc47ab0160d",
+    "actual_scales": [
+      [
+        4.0,
+        0.001,
+        0.0001
+      ],
+      [
+        2.0,
+        0.0005,
+        5e-05
+      ],
+      [
+        1.0,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "PASS"
+  },
+  "N7-2-spot-801-2": {
+    "binding": "f51dd42acec1467796629fc19683366aafdafc1906c93b3f472c012a0d61c58b",
+    "actual_scales": [
+      [
+        2.0,
+        0.001,
+        0.0001
+      ],
+      [
+        1.0,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.5,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "INCOMPLETE"
+  },
+  "N7-2-spot-1601-4": {
+    "binding": "f51dd42acec1467796629fc19683366aafdafc1906c93b3f472c012a0d61c58b",
+    "actual_scales": [
+      [
+        2.0,
+        0.001,
+        0.0001
+      ],
+      [
+        1.0,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.5,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "INCOMPLETE"
+  },
+  "N7-2-spot-1601-2": {
+    "binding": "325c81055c47fb160d2c79592ca886f47fcc8cffb3c6df9b069108e82ccf48c6",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "INCOMPLETE"
+  },
+  "N7-2-parameter-1": {
+    "binding": "325c81055c47fb160d2c79592ca886f47fcc8cffb3c6df9b069108e82ccf48c6",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "INCOMPLETE"
+  },
+  "N7-2-parameter-0.5": {
+    "binding": "b60c5b84eb0ead96ba7f6d8d243b67edcdf2ac076ef7b85bc49d645be1bd15b6",
+    "actual_scales": [
+      [
+        1.0,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.5,
+        0.00025,
+        2.5e-05
+      ],
+      [
+        0.25,
+        0.000125,
+        1.25e-05
+      ]
+    ],
+    "reference_status": "INCOMPLETE"
+  },
+  "N7-2-parameter-0.25": {
+    "binding": "1a799dc2b79909020c8e0f5353ee67fe38fd5ec4b0e425fdfd24eb9b0ddef435",
+    "actual_scales": [
+      [
+        1.0,
+        0.00025,
+        2.5e-05
+      ],
+      [
+        0.5,
+        0.000125,
+        1.25e-05
+      ],
+      [
+        0.25,
+        6.25e-05,
+        6.25e-06
+      ]
+    ],
+    "reference_status": "INCOMPLETE"
+  },
+  "N6-3-space-401": {
+    "binding": "11fc8b48bd24a3bac5326cb3362b8c80e86e3f9f21056daea43ba1771957e403",
+    "actual_scales": [
+      [
+        4.0,
+        0.001,
+        0.0001
+      ],
+      [
+        2.0,
+        0.0005,
+        5e-05
+      ],
+      [
+        1.0,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "PASS"
+  },
+  "N6-3-space-801": {
+    "binding": "5505e9af261fa3bd016dcec5ac0f230db0e2ac63344b2ae0e5def2e7bec1a485",
+    "actual_scales": [
+      [
+        2.0,
+        0.001,
+        0.0001
+      ],
+      [
+        1.0,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.5,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "PASS"
+  },
+  "N6-3-space-1601": {
+    "binding": "945906ea570c764ec1bafaa93426094e78176cec94bf6a447362ea872649c03c",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "PASS"
+  },
+  "N6-3-time-1000": {
+    "binding": "945906ea570c764ec1bafaa93426094e78176cec94bf6a447362ea872649c03c",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "PASS"
+  },
+  "N6-3-time-2000": {
+    "binding": "945906ea570c764ec1bafaa93426094e78176cec94bf6a447362ea872649c03c",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "PASS"
+  },
+  "N6-3-time-4000": {
+    "binding": "945906ea570c764ec1bafaa93426094e78176cec94bf6a447362ea872649c03c",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "PASS"
+  },
+  "N7-3-domain-400": {
+    "binding": "945906ea570c764ec1bafaa93426094e78176cec94bf6a447362ea872649c03c",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "PASS"
+  },
+  "N7-3-domain-600": {
+    "binding": "945906ea570c764ec1bafaa93426094e78176cec94bf6a447362ea872649c03c",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "PASS"
+  },
+  "N7-3-domain-800": {
+    "binding": "945906ea570c764ec1bafaa93426094e78176cec94bf6a447362ea872649c03c",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "PASS"
+  },
+  "N7-3-penalty-10000000.0": {
+    "binding": "945906ea570c764ec1bafaa93426094e78176cec94bf6a447362ea872649c03c",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "PASS"
+  },
+  "N7-3-penalty-100000000.0": {
+    "binding": "945906ea570c764ec1bafaa93426094e78176cec94bf6a447362ea872649c03c",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "PASS"
+  },
+  "N7-3-penalty-1000000000.0": {
+    "binding": "945906ea570c764ec1bafaa93426094e78176cec94bf6a447362ea872649c03c",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "PASS"
+  },
+  "N7-3-spot-801-4": {
+    "binding": "11fc8b48bd24a3bac5326cb3362b8c80e86e3f9f21056daea43ba1771957e403",
+    "actual_scales": [
+      [
+        4.0,
+        0.001,
+        0.0001
+      ],
+      [
+        2.0,
+        0.0005,
+        5e-05
+      ],
+      [
+        1.0,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "PASS"
+  },
+  "N7-3-spot-801-2": {
+    "binding": "5505e9af261fa3bd016dcec5ac0f230db0e2ac63344b2ae0e5def2e7bec1a485",
+    "actual_scales": [
+      [
+        2.0,
+        0.001,
+        0.0001
+      ],
+      [
+        1.0,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.5,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "PASS"
+  },
+  "N7-3-spot-1601-4": {
+    "binding": "5505e9af261fa3bd016dcec5ac0f230db0e2ac63344b2ae0e5def2e7bec1a485",
+    "actual_scales": [
+      [
+        2.0,
+        0.001,
+        0.0001
+      ],
+      [
+        1.0,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.5,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "PASS"
+  },
+  "N7-3-spot-1601-2": {
+    "binding": "945906ea570c764ec1bafaa93426094e78176cec94bf6a447362ea872649c03c",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "PASS"
+  },
+  "N7-3-parameter-1": {
+    "binding": "945906ea570c764ec1bafaa93426094e78176cec94bf6a447362ea872649c03c",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "PASS"
+  },
+  "N7-3-parameter-0.5": {
+    "binding": "78c05b9b0042a87057975bf9fc930aacacc403453a8a30c13c04bdf0fb90f9a5",
+    "actual_scales": [
+      [
+        1.0,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.5,
+        0.00025,
+        2.5e-05
+      ],
+      [
+        0.25,
+        0.000125,
+        1.25e-05
+      ]
+    ],
+    "reference_status": "PASS"
+  },
+  "N7-3-parameter-0.25": {
+    "binding": "93c5f5922eb386b8b589fd4b8077c337b097cb90b4ee57cbb8209e1704734579",
+    "actual_scales": [
+      [
+        1.0,
+        0.00025,
+        2.5e-05
+      ],
+      [
+        0.5,
+        0.000125,
+        1.25e-05
+      ],
+      [
+        0.25,
+        6.25e-05,
+        6.25e-06
+      ]
+    ],
+    "reference_status": "PASS"
+  },
+  "N8-0": {
+    "binding": "8df5b9571ad1a7db0d4252b2f10eb326520af99e13bee6cde551e8982deda186",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N8-1": {
+    "binding": "ba5f3ed1040cdf3a27a79e0436abef40ffde10df136c68643a60484c566216c9",
+    "actual_scales": [
+      [
+        4.0,
+        0.001,
+        0.0001
+      ],
+      [
+        2.0,
+        0.0005,
+        5e-05
+      ],
+      [
+        1.0,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "PASS"
+  },
+  "N10d-0-0": {
+    "binding": "8e15b364f33269237fd9e6ee147d6201486db05e512664630e78ae51af8e6d0a",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N10d-0-1": {
+    "binding": "b3e2925e675927468cc1d1395ed1dd2c41b4e19baace69b3b1665e72c3141c10",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N10d-0-2": {
+    "binding": "21904b58bdbf20fc09b319bc744e910165b528723a9d0b4ca7829018400c6d23",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N10d-0-3": {
+    "binding": "2ddd8a02893da1e14f09b58fb4f487e32d392d1bbdc917605047ed1795f4686f",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N10d-0-4": {
+    "binding": "5a0570f88e400334ef3c3e4b0bc6b200ecf9534fb2c271b69459c20bf0e64e85",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N10d-1-0": {
+    "binding": "7320ccf9978e1386b97955c9548880e0fb47e1e18b6f1d51cbf5cb926c461d1a",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N10d-1-1": {
+    "binding": "18f8fe535d7322fa499e9ae3f1c0fda7eb0271a447e666e314b5d81f077d3f62",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N10d-1-2": {
+    "binding": "078b666d5c86aa291245b96cfaedc9e7de89d1f7fc330157e224dfb845d9a6a4",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N10d-1-3": {
+    "binding": "5029614a4ec9869752c52f2345a99840b6db5db17db8493f4f9af397e14a7d84",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N10d-1-4": {
+    "binding": "c62edeb8f34cb240863814ddadc9c893b0681e841b526b761db11e325fca3c32",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N11-admit-100": {
+    "binding": "47059a82716476237a94a5e958a87d6fc58bab1d2ef9e880689adb7bc0ffae01",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N11-admit-100.125": {
+    "binding": "0012e77187108ad02f665c928cbcf2ab2993092d0eef37467e36de3bc117b459",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N11-space-0-401": {
+    "binding": "8df5b9571ad1a7db0d4252b2f10eb326520af99e13bee6cde551e8982deda186",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N11-space-0-801": {
+    "binding": "ddaa158be693efe490360e8b28d13b7713e6ecb2dc5439ea4d64fe15cec88900",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N11-space-0-1601": {
+    "binding": "47059a82716476237a94a5e958a87d6fc58bab1d2ef9e880689adb7bc0ffae01",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N11-space-1-401": {
+    "binding": "8e5b18ae030d4c81072e3877006d9fc0f52439a7e00a835296ce0d1ee845900e",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N11-space-1-801": {
+    "binding": "9dd4e6427236f3d4229b9d3b071a9cffb978294ed1ea525cca193fe80e636e0e",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N11-space-1-1601": {
+    "binding": "0012e77187108ad02f665c928cbcf2ab2993092d0eef37467e36de3bc117b459",
+    "actual_scales": null,
+    "reference_status": "PASS"
+  },
+  "N12-137-0.0001": {
+    "binding": "945906ea570c764ec1bafaa93426094e78176cec94bf6a447362ea872649c03c",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "PASS"
+  },
+  "N12-137-5e-05": {
+    "binding": "10b384227e422763ea6603297ca6dfb41e8b847852d4f84b8717a43804c1f0b7",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        5e-05
+      ],
+      [
+        0.5,
+        0.0005,
+        2.5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        1.25e-05
+      ]
+    ],
+    "reference_status": "PASS"
+  },
+  "N12-182-0.0001": {
+    "binding": "f79e3cc4d0842f9b0c6d13e905300e534981ce708f7f866e283584361c6de63a",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        0.0001
+      ],
+      [
+        0.5,
+        0.0005,
+        5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        2.5e-05
+      ]
+    ],
+    "reference_status": "PASS"
+  },
+  "N12-182-5e-05": {
+    "binding": "768b7d59fef5955854a611b0d075e9524c7f89ecb2dd0c53c2e4be4f72a2c804",
+    "actual_scales": [
+      [
+        1.0,
+        0.001,
+        5e-05
+      ],
+      [
+        0.5,
+        0.0005,
+        2.5e-05
+      ],
+      [
+        0.25,
+        0.00025,
+        1.25e-05
+      ]
+    ],
+    "reference_status": "PASS"
+  }
+}

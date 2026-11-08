@@ -1,0 +1,2279 @@
+{
+  "status": "PASS",
+  "checks": {
+    "N2-80": {
+      "status": "PASS",
+      "evidence": [
+        {
+          "scenario": "Base",
+          "same_price": true,
+          "market": {
+            "spot_": 80.0,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.05,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Spot:C-",
+          "same_price": true,
+          "market": {
+            "spot_": 79.0,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.05,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Spot:C+",
+          "same_price": true,
+          "market": {
+            "spot_": 81.0,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.05,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Spot:F-",
+          "same_price": true,
+          "market": {
+            "spot_": 79.5,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.05,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Spot:F+",
+          "same_price": true,
+          "market": {
+            "spot_": 80.5,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.05,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Volatility:C-",
+          "same_price": true,
+          "market": {
+            "spot_": 80.0,
+            "volatility_": 0.199,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.05,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Volatility:C+",
+          "same_price": true,
+          "market": {
+            "spot_": 80.0,
+            "volatility_": 0.201,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.05,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Volatility:F-",
+          "same_price": true,
+          "market": {
+            "spot_": 80.0,
+            "volatility_": 0.1995,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.05,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Volatility:F+",
+          "same_price": true,
+          "market": {
+            "spot_": 80.0,
+            "volatility_": 0.2005,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.05,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Rate[0]:C-",
+          "same_price": true,
+          "market": {
+            "spot_": 80.0,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.0499,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Rate[0]:C+",
+          "same_price": true,
+          "market": {
+            "spot_": 80.0,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.050100000000000006,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Rate[0]:F-",
+          "same_price": true,
+          "market": {
+            "spot_": 80.0,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.04995,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Rate[0]:F+",
+          "same_price": true,
+          "market": {
+            "spot_": 80.0,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.050050000000000004,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "DividendYield[0]:C-",
+          "same_price": true,
+          "market": {
+            "spot_": 80.0,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.05,
+                "dividendYield_": -0.0001
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "DividendYield[0]:F-",
+          "same_price": true,
+          "market": {
+            "spot_": 80.0,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.05,
+                "dividendYield_": -5e-05
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        }
+      ]
+    },
+    "N2-100": {
+      "status": "PASS",
+      "evidence": [
+        {
+          "scenario": "Base",
+          "same_price": true,
+          "market": {
+            "spot_": 100.0,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.05,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Spot:C-",
+          "same_price": true,
+          "market": {
+            "spot_": 99.0,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.05,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Spot:C+",
+          "same_price": true,
+          "market": {
+            "spot_": 101.0,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.05,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Spot:F-",
+          "same_price": true,
+          "market": {
+            "spot_": 99.5,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.05,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Spot:F+",
+          "same_price": true,
+          "market": {
+            "spot_": 100.5,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.05,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Volatility:C-",
+          "same_price": true,
+          "market": {
+            "spot_": 100.0,
+            "volatility_": 0.199,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.05,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Volatility:C+",
+          "same_price": true,
+          "market": {
+            "spot_": 100.0,
+            "volatility_": 0.201,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.05,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Volatility:F-",
+          "same_price": true,
+          "market": {
+            "spot_": 100.0,
+            "volatility_": 0.1995,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.05,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Volatility:F+",
+          "same_price": true,
+          "market": {
+            "spot_": 100.0,
+            "volatility_": 0.2005,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.05,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Rate[0]:C-",
+          "same_price": true,
+          "market": {
+            "spot_": 100.0,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.0499,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Rate[0]:C+",
+          "same_price": true,
+          "market": {
+            "spot_": 100.0,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.050100000000000006,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Rate[0]:F-",
+          "same_price": true,
+          "market": {
+            "spot_": 100.0,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.04995,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Rate[0]:F+",
+          "same_price": true,
+          "market": {
+            "spot_": 100.0,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.050050000000000004,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "DividendYield[0]:C-",
+          "same_price": true,
+          "market": {
+            "spot_": 100.0,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.05,
+                "dividendYield_": -0.0001
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "DividendYield[0]:F-",
+          "same_price": true,
+          "market": {
+            "spot_": 100.0,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.05,
+                "dividendYield_": -5e-05
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        }
+      ]
+    },
+    "N2-120": {
+      "status": "PASS",
+      "evidence": [
+        {
+          "scenario": "Base",
+          "same_price": true,
+          "market": {
+            "spot_": 120.0,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.05,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Spot:C-",
+          "same_price": true,
+          "market": {
+            "spot_": 119.0,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.05,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Spot:C+",
+          "same_price": true,
+          "market": {
+            "spot_": 121.0,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.05,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Spot:F-",
+          "same_price": true,
+          "market": {
+            "spot_": 119.5,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.05,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Spot:F+",
+          "same_price": true,
+          "market": {
+            "spot_": 120.5,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.05,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Volatility:C-",
+          "same_price": true,
+          "market": {
+            "spot_": 120.0,
+            "volatility_": 0.199,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.05,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Volatility:C+",
+          "same_price": true,
+          "market": {
+            "spot_": 120.0,
+            "volatility_": 0.201,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.05,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Volatility:F-",
+          "same_price": true,
+          "market": {
+            "spot_": 120.0,
+            "volatility_": 0.1995,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.05,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Volatility:F+",
+          "same_price": true,
+          "market": {
+            "spot_": 120.0,
+            "volatility_": 0.2005,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.05,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Rate[0]:C-",
+          "same_price": true,
+          "market": {
+            "spot_": 120.0,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.0499,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Rate[0]:C+",
+          "same_price": true,
+          "market": {
+            "spot_": 120.0,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.050100000000000006,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Rate[0]:F-",
+          "same_price": true,
+          "market": {
+            "spot_": 120.0,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.04995,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Rate[0]:F+",
+          "same_price": true,
+          "market": {
+            "spot_": 120.0,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.050050000000000004,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "DividendYield[0]:C-",
+          "same_price": true,
+          "market": {
+            "spot_": 120.0,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.05,
+                "dividendYield_": -0.0001
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "DividendYield[0]:F-",
+          "same_price": true,
+          "market": {
+            "spot_": 120.0,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.05,
+                "dividendYield_": -5e-05
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        }
+      ]
+    },
+    "N2-piecewise": {
+      "status": "PASS",
+      "evidence": [
+        {
+          "scenario": "Base",
+          "same_price": true,
+          "market": {
+            "spot_": 100.0,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-03-04",
+                "rate_": 0.02,
+                "dividendYield_": 0.0
+              },
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.06,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Spot:C-",
+          "same_price": true,
+          "market": {
+            "spot_": 99.0,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-03-04",
+                "rate_": 0.02,
+                "dividendYield_": 0.0
+              },
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.06,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Spot:C+",
+          "same_price": true,
+          "market": {
+            "spot_": 101.0,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-03-04",
+                "rate_": 0.02,
+                "dividendYield_": 0.0
+              },
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.06,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Spot:F-",
+          "same_price": true,
+          "market": {
+            "spot_": 99.5,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-03-04",
+                "rate_": 0.02,
+                "dividendYield_": 0.0
+              },
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.06,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Spot:F+",
+          "same_price": true,
+          "market": {
+            "spot_": 100.5,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-03-04",
+                "rate_": 0.02,
+                "dividendYield_": 0.0
+              },
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.06,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Volatility:C-",
+          "same_price": true,
+          "market": {
+            "spot_": 100.0,
+            "volatility_": 0.199,
+            "carry_": [
+              {
+                "endDate_": "2027-03-04",
+                "rate_": 0.02,
+                "dividendYield_": 0.0
+              },
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.06,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Volatility:C+",
+          "same_price": true,
+          "market": {
+            "spot_": 100.0,
+            "volatility_": 0.201,
+            "carry_": [
+              {
+                "endDate_": "2027-03-04",
+                "rate_": 0.02,
+                "dividendYield_": 0.0
+              },
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.06,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Volatility:F-",
+          "same_price": true,
+          "market": {
+            "spot_": 100.0,
+            "volatility_": 0.1995,
+            "carry_": [
+              {
+                "endDate_": "2027-03-04",
+                "rate_": 0.02,
+                "dividendYield_": 0.0
+              },
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.06,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Volatility:F+",
+          "same_price": true,
+          "market": {
+            "spot_": 100.0,
+            "volatility_": 0.2005,
+            "carry_": [
+              {
+                "endDate_": "2027-03-04",
+                "rate_": 0.02,
+                "dividendYield_": 0.0
+              },
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.06,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Rate[0]:C-",
+          "same_price": true,
+          "market": {
+            "spot_": 100.0,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-03-04",
+                "rate_": 0.0199,
+                "dividendYield_": 0.0
+              },
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.06,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Rate[0]:C+",
+          "same_price": true,
+          "market": {
+            "spot_": 100.0,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-03-04",
+                "rate_": 0.0201,
+                "dividendYield_": 0.0
+              },
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.06,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Rate[0]:F-",
+          "same_price": true,
+          "market": {
+            "spot_": 100.0,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-03-04",
+                "rate_": 0.01995,
+                "dividendYield_": 0.0
+              },
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.06,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Rate[0]:F+",
+          "same_price": true,
+          "market": {
+            "spot_": 100.0,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-03-04",
+                "rate_": 0.020050000000000002,
+                "dividendYield_": 0.0
+              },
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.06,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "DividendYield[0]:C-",
+          "same_price": true,
+          "market": {
+            "spot_": 100.0,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-03-04",
+                "rate_": 0.02,
+                "dividendYield_": -0.0001
+              },
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.06,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "DividendYield[0]:F-",
+          "same_price": true,
+          "market": {
+            "spot_": 100.0,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-03-04",
+                "rate_": 0.02,
+                "dividendYield_": -5e-05
+              },
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.06,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Rate[1]:C-",
+          "same_price": true,
+          "market": {
+            "spot_": 100.0,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-03-04",
+                "rate_": 0.02,
+                "dividendYield_": 0.0
+              },
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.059899999999999995,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Rate[1]:C+",
+          "same_price": true,
+          "market": {
+            "spot_": 100.0,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-03-04",
+                "rate_": 0.02,
+                "dividendYield_": 0.0
+              },
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.0601,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Rate[1]:F-",
+          "same_price": true,
+          "market": {
+            "spot_": 100.0,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-03-04",
+                "rate_": 0.02,
+                "dividendYield_": 0.0
+              },
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.059949999999999996,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "Rate[1]:F+",
+          "same_price": true,
+          "market": {
+            "spot_": 100.0,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-03-04",
+                "rate_": 0.02,
+                "dividendYield_": 0.0
+              },
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.06005,
+                "dividendYield_": 0.0
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "DividendYield[1]:C-",
+          "same_price": true,
+          "market": {
+            "spot_": 100.0,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-03-04",
+                "rate_": 0.02,
+                "dividendYield_": 0.0
+              },
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.06,
+                "dividendYield_": -0.0001
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        },
+        {
+          "scenario": "DividendYield[1]:F-",
+          "same_price": true,
+          "market": {
+            "spot_": 100.0,
+            "volatility_": 0.2,
+            "carry_": [
+              {
+                "endDate_": "2027-03-04",
+                "rate_": 0.02,
+                "dividendYield_": 0.0
+              },
+              {
+                "endDate_": "2027-10-18",
+                "rate_": 0.06,
+                "dividendYield_": -5e-05
+              }
+            ]
+          },
+          "nonterminal_regions": 0,
+          "evaluation_regions": []
+        }
+      ]
+    },
+    "N10a-0": {
+      "status": "PASS",
+      "evidence": {
+        "midpoint": 80.875,
+        "query": 80.875,
+        "memberships": [
+          "BOUNDARY",
+          "EXERCISE",
+          "CONTINUATION",
+          "EXERCISE",
+          "CONTINUATION",
+          "EXERCISE",
+          "BOUNDARY",
+          "EXERCISE",
+          "BOUNDARY",
+          "BOUNDARY",
+          "EXERCISE",
+          "BOUNDARY",
+          "EXERCISE",
+          "EXERCISE",
+          "BOUNDARY",
+          "EXERCISE",
+          "BOUNDARY"
+        ],
+        "intersections": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        "risks": [
+          {
+            "riskIndex_": 0,
+            "riskId_": "Delta",
+            "parameterId_": "Spot",
+            "derivativeOrder_": 1,
+            "segmentIndex_": null,
+            "startDate_": null,
+            "endDate_": null,
+            "parameterValue_": 80.875,
+            "unit_": "price per spot price unit",
+            "value_": null,
+            "status_": "UNAVAILABLE_NEAR_EXERCISE_BOUNDARY",
+            "reason_": "UNAVAILABLE_NEAR_EXERCISE_BOUNDARY",
+            "method_": "FiniteScaleCentralDifference",
+            "interpretation_": "FINITE_SCALE_FIRST_DERIVATIVE",
+            "fineBump_": 0.5,
+            "coarseBump_": 1.0,
+            "bumpOrigin_": "EXPLICIT",
+            "fineEstimate_": -0.9951806428583971,
+            "coarseEstimate_": -0.9904646776499817,
+            "stepDifference_": -0.00471596520841544,
+            "normalizedStepDifference_": 0.00471596520841544,
+            "stabilityTolerance_": 0.002,
+            "fineStencil_": [
+              {
+                "scenarioIndex_": 3,
+                "weight_": -1.0
+              },
+              {
+                "scenarioIndex_": 4,
+                "weight_": 1.0
+              }
+            ],
+            "coarseStencil_": [
+              {
+                "scenarioIndex_": 1,
+                "weight_": -0.5
+              },
+              {
+                "scenarioIndex_": 2,
+                "weight_": 0.5
+              }
+            ]
+          },
+          {
+            "riskIndex_": 1,
+            "riskId_": "Gamma",
+            "parameterId_": "Spot",
+            "derivativeOrder_": 2,
+            "segmentIndex_": null,
+            "startDate_": null,
+            "endDate_": null,
+            "parameterValue_": 80.875,
+            "unit_": "price per squared spot price unit",
+            "value_": null,
+            "status_": "UNAVAILABLE_NEAR_EXERCISE_BOUNDARY",
+            "reason_": "UNAVAILABLE_NEAR_EXERCISE_BOUNDARY",
+            "method_": "FiniteScaleCentralDifference",
+            "interpretation_": "FINITE_SCALE_MODEL_APPROXIMATION",
+            "fineBump_": 0.5,
+            "coarseBump_": 1.0,
+            "bumpOrigin_": "EXPLICIT",
+            "fineEstimate_": 0.01918621409093646,
+            "coarseEstimate_": 0.01904784108113944,
+            "stepDifference_": 0.0001383730097970215,
+            "normalizedStepDifference_": 0.01383730097970215,
+            "stabilityTolerance_": 0.02,
+            "fineStencil_": [
+              {
+                "scenarioIndex_": 3,
+                "weight_": 4.0
+              },
+              {
+                "scenarioIndex_": 0,
+                "weight_": -8.0
+              },
+              {
+                "scenarioIndex_": 4,
+                "weight_": 4.0
+              }
+            ],
+            "coarseStencil_": [
+              {
+                "scenarioIndex_": 1,
+                "weight_": 1.0
+              },
+              {
+                "scenarioIndex_": 0,
+                "weight_": -2.0
+              },
+              {
+                "scenarioIndex_": 2,
+                "weight_": 1.0
+              }
+            ]
+          },
+          {
+            "riskIndex_": 2,
+            "riskId_": "Vega",
+            "parameterId_": "Volatility",
+            "derivativeOrder_": 1,
+            "segmentIndex_": null,
+            "startDate_": null,
+            "endDate_": null,
+            "parameterValue_": 0.2,
+            "unit_": "price per decimal volatility",
+            "value_": null,
+            "status_": "UNAVAILABLE_EXERCISE_SWITCH",
+            "reason_": "UNAVAILABLE_EXERCISE_SWITCH",
+            "method_": "FiniteScaleCentralDifference",
+            "interpretation_": "FINITE_SCALE_FIRST_DERIVATIVE",
+            "fineBump_": 0.0005,
+            "coarseBump_": 0.001,
+            "bumpOrigin_": "DEFAULT",
+            "fineEstimate_": 0.27434889449432376,
+            "coarseEstimate_": 0.28084840734481986,
+            "stepDifference_": -0.006499512850496103,
+            "normalizedStepDifference_": 6.499512850496104e-05,
+            "stabilityTolerance_": 0.003,
+            "fineStencil_": [
+              {
+                "scenarioIndex_": 7,
+                "weight_": -1000.0
+              },
+              {
+                "scenarioIndex_": 8,
+                "weight_": 1000.0
+              }
+            ],
+            "coarseStencil_": [
+              {
+                "scenarioIndex_": 5,
+                "weight_": -500.0
+              },
+              {
+                "scenarioIndex_": 6,
+                "weight_": 500.0
+              }
+            ]
+          },
+          {
+            "riskIndex_": 3,
+            "riskId_": "Rate[0]",
+            "parameterId_": "Rate[0]",
+            "derivativeOrder_": 1,
+            "segmentIndex_": 0,
+            "startDate_": "2026-10-18",
+            "endDate_": "2027-10-18",
+            "parameterValue_": 0.05,
+            "unit_": "price per decimal rate",
+            "value_": null,
+            "status_": "UNAVAILABLE_EXERCISE_SWITCH",
+            "reason_": "UNAVAILABLE_EXERCISE_SWITCH",
+            "method_": "FiniteScaleCentralDifference",
+            "interpretation_": "FINITE_SCALE_FIRST_DERIVATIVE",
+            "fineBump_": 5e-05,
+            "coarseBump_": 0.0001,
+            "bumpOrigin_": "DEFAULT",
+            "fineEstimate_": -0.3981920411461033,
+            "coarseEstimate_": -0.35716737496841233,
+            "stepDifference_": -0.04102466617769096,
+            "normalizedStepDifference_": 0.0004102466617769096,
+            "stabilityTolerance_": 0.003,
+            "fineStencil_": [
+              {
+                "scenarioIndex_": 11,
+                "weight_": -10000.0
+              },
+              {
+                "scenarioIndex_": 12,
+                "weight_": 10000.0
+              }
+            ],
+            "coarseStencil_": [
+              {
+                "scenarioIndex_": 9,
+                "weight_": -5000.0
+              },
+              {
+                "scenarioIndex_": 10,
+                "weight_": 5000.0
+              }
+            ]
+          },
+          {
+            "riskIndex_": 4,
+            "riskId_": "DividendYield[0]",
+            "parameterId_": "DividendYield[0]",
+            "derivativeOrder_": 1,
+            "segmentIndex_": 0,
+            "startDate_": "2026-10-18",
+            "endDate_": "2027-10-18",
+            "parameterValue_": 0.0,
+            "unit_": "price per decimal dividend yield",
+            "value_": null,
+            "status_": "UNAVAILABLE_EXERCISE_SWITCH",
+            "reason_": "UNAVAILABLE_EXERCISE_SWITCH",
+            "method_": "FiniteScaleCentralDifference",
+            "interpretation_": "FINITE_SCALE_FIRST_DERIVATIVE",
+            "fineBump_": 5e-05,
+            "coarseBump_": 0.0001,
+            "bumpOrigin_": "DEFAULT",
+            "fineEstimate_": 0.3522511228802614,
+            "coarseEstimate_": 0.30824987684900407,
+            "stepDifference_": 0.044001246031257324,
+            "normalizedStepDifference_": 0.00044001246031257326,
+            "stabilityTolerance_": 0.003,
+            "fineStencil_": [
+              {
+                "scenarioIndex_": 15,
+                "weight_": -10000.0
+              },
+              {
+                "scenarioIndex_": 16,
+                "weight_": 10000.0
+              }
+            ],
+            "coarseStencil_": [
+              {
+                "scenarioIndex_": 13,
+                "weight_": -5000.0
+              },
+              {
+                "scenarioIndex_": 14,
+                "weight_": 5000.0
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "N10a--2": {
+      "status": "PASS",
+      "evidence": {
+        "midpoint": 80.875,
+        "query": 78.875,
+        "memberships": [
+          "EXERCISE",
+          "EXERCISE",
+          "EXERCISE",
+          "EXERCISE",
+          "EXERCISE",
+          "EXERCISE",
+          "EXERCISE",
+          "EXERCISE",
+          "EXERCISE",
+          "EXERCISE",
+          "EXERCISE",
+          "EXERCISE",
+          "EXERCISE",
+          "EXERCISE",
+          "EXERCISE",
+          "EXERCISE",
+          "EXERCISE"
+        ],
+        "intersections": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "risks": [
+          {
+            "riskIndex_": 0,
+            "riskId_": "Delta",
+            "parameterId_": "Spot",
+            "derivativeOrder_": 1,
+            "segmentIndex_": null,
+            "startDate_": null,
+            "endDate_": null,
+            "parameterValue_": 78.875,
+            "unit_": "price per spot price unit",
+            "value_": -0.9999999999999645,
+            "status_": "AVAILABLE_EXERCISE_REGION",
+            "reason_": "",
+            "method_": "FiniteScaleCentralDifference",
+            "interpretation_": "FINITE_SCALE_FIRST_DERIVATIVE",
+            "fineBump_": 0.5,
+            "coarseBump_": 1.0,
+            "bumpOrigin_": "EXPLICIT",
+            "fineEstimate_": -0.9999999999999645,
+            "coarseEstimate_": -0.9999999999999645,
+            "stepDifference_": 0.0,
+            "normalizedStepDifference_": 0.0,
+            "stabilityTolerance_": 0.002,
+            "fineStencil_": [
+              {
+                "scenarioIndex_": 3,
+                "weight_": -1.0
+              },
+              {
+                "scenarioIndex_": 4,
+                "weight_": 1.0
+              }
+            ],
+            "coarseStencil_": [
+              {
+                "scenarioIndex_": 1,
+                "weight_": -0.5
+              },
+              {
+                "scenarioIndex_": 2,
+                "weight_": 0.5
+              }
+            ]
+          },
+          {
+            "riskIndex_": 1,
+            "riskId_": "Gamma",
+            "parameterId_": "Spot",
+            "derivativeOrder_": 2,
+            "segmentIndex_": null,
+            "startDate_": null,
+            "endDate_": null,
+            "parameterValue_": 78.875,
+            "unit_": "price per squared spot price unit",
+            "value_": -2.842170943040401e-14,
+            "status_": "AVAILABLE_EXERCISE_REGION",
+            "reason_": "",
+            "method_": "FiniteScaleCentralDifference",
+            "interpretation_": "FINITE_SCALE_MODEL_APPROXIMATION",
+            "fineBump_": 0.5,
+            "coarseBump_": 1.0,
+            "bumpOrigin_": "EXPLICIT",
+            "fineEstimate_": -2.842170943040401e-14,
+            "coarseEstimate_": 0.0,
+            "stepDifference_": -2.842170943040401e-14,
+            "normalizedStepDifference_": 2.8421709430404007e-12,
+            "stabilityTolerance_": 0.02,
+            "fineStencil_": [
+              {
+                "scenarioIndex_": 3,
+                "weight_": 4.0
+              },
+              {
+                "scenarioIndex_": 0,
+                "weight_": -8.0
+              },
+              {
+                "scenarioIndex_": 4,
+                "weight_": 4.0
+              }
+            ],
+            "coarseStencil_": [
+              {
+                "scenarioIndex_": 1,
+                "weight_": 1.0
+              },
+              {
+                "scenarioIndex_": 0,
+                "weight_": -2.0
+              },
+              {
+                "scenarioIndex_": 2,
+                "weight_": 1.0
+              }
+            ]
+          },
+          {
+            "riskIndex_": 2,
+            "riskId_": "Vega",
+            "parameterId_": "Volatility",
+            "derivativeOrder_": 1,
+            "segmentIndex_": null,
+            "startDate_": null,
+            "endDate_": null,
+            "parameterValue_": 0.2,
+            "unit_": "price per decimal volatility",
+            "value_": 1.0913936421275139e-11,
+            "status_": "AVAILABLE_EXERCISE_REGION",
+            "reason_": "",
+            "method_": "FiniteScaleCentralDifference",
+            "interpretation_": "FINITE_SCALE_FIRST_DERIVATIVE",
+            "fineBump_": 0.0005,
+            "coarseBump_": 0.001,
+            "bumpOrigin_": "DEFAULT",
+            "fineEstimate_": 1.0913936421275139e-11,
+            "coarseEstimate_": 1.2732925824820995e-11,
+            "stepDifference_": -1.8189894035458565e-12,
+            "normalizedStepDifference_": 1.8189894035458565e-14,
+            "stabilityTolerance_": 0.003,
+            "fineStencil_": [
+              {
+                "scenarioIndex_": 7,
+                "weight_": -1000.0
+              },
+              {
+                "scenarioIndex_": 8,
+                "weight_": 1000.0
+              }
+            ],
+            "coarseStencil_": [
+              {
+                "scenarioIndex_": 5,
+                "weight_": -500.0
+              },
+              {
+                "scenarioIndex_": 6,
+                "weight_": 500.0
+              }
+            ]
+          },
+          {
+            "riskIndex_": 3,
+            "riskId_": "Rate[0]",
+            "parameterId_": "Rate[0]",
+            "derivativeOrder_": 1,
+            "segmentIndex_": 0,
+            "startDate_": "2026-10-18",
+            "endDate_": "2027-10-18",
+            "parameterValue_": 0.05,
+            "unit_": "price per decimal rate",
+            "value_": -8.731149137020111e-11,
+            "status_": "AVAILABLE_EXERCISE_REGION",
+            "reason_": "",
+            "method_": "FiniteScaleCentralDifference",
+            "interpretation_": "FINITE_SCALE_FIRST_DERIVATIVE",
+            "fineBump_": 5e-05,
+            "coarseBump_": 0.0001,
+            "bumpOrigin_": "DEFAULT",
+            "fineEstimate_": -8.731149137020111e-11,
+            "coarseEstimate_": -8.731149137020111e-11,
+            "stepDifference_": 0.0,
+            "normalizedStepDifference_": 0.0,
+            "stabilityTolerance_": 0.003,
+            "fineStencil_": [
+              {
+                "scenarioIndex_": 11,
+                "weight_": -10000.0
+              },
+              {
+                "scenarioIndex_": 12,
+                "weight_": 10000.0
+              }
+            ],
+            "coarseStencil_": [
+              {
+                "scenarioIndex_": 9,
+                "weight_": -5000.0
+              },
+              {
+                "scenarioIndex_": 10,
+                "weight_": 5000.0
+              }
+            ]
+          },
+          {
+            "riskIndex_": 4,
+            "riskId_": "DividendYield[0]",
+            "parameterId_": "DividendYield[0]",
+            "derivativeOrder_": 1,
+            "segmentIndex_": 0,
+            "startDate_": "2026-10-18",
+            "endDate_": "2027-10-18",
+            "parameterValue_": 0.0,
+            "unit_": "price per decimal dividend yield",
+            "value_": 8.731149137020111e-11,
+            "status_": "AVAILABLE_EXERCISE_REGION",
+            "reason_": "",
+            "method_": "FiniteScaleCentralDifference",
+            "interpretation_": "FINITE_SCALE_FIRST_DERIVATIVE",
+            "fineBump_": 5e-05,
+            "coarseBump_": 0.0001,
+            "bumpOrigin_": "DEFAULT",
+            "fineEstimate_": 8.731149137020111e-11,
+            "coarseEstimate_": 5.820766091346741e-11,
+            "stepDifference_": 2.9103830456733704e-11,
+            "normalizedStepDifference_": 2.9103830456733704e-13,
+            "stabilityTolerance_": 0.003,
+            "fineStencil_": [
+              {
+                "scenarioIndex_": 15,
+                "weight_": -10000.0
+              },
+              {
+                "scenarioIndex_": 16,
+                "weight_": 10000.0
+              }
+            ],
+            "coarseStencil_": [
+              {
+                "scenarioIndex_": 13,
+                "weight_": -5000.0
+              },
+              {
+                "scenarioIndex_": 14,
+                "weight_": 5000.0
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "N10a-2": {
+      "status": "PASS",
+      "evidence": {
+        "midpoint": 80.875,
+        "query": 82.875,
+        "memberships": [
+          "CONTINUATION",
+          "CONTINUATION",
+          "CONTINUATION",
+          "CONTINUATION",
+          "CONTINUATION",
+          "CONTINUATION",
+          "CONTINUATION",
+          "CONTINUATION",
+          "CONTINUATION",
+          "CONTINUATION",
+          "CONTINUATION",
+          "CONTINUATION",
+          "CONTINUATION",
+          "CONTINUATION",
+          "CONTINUATION",
+          "CONTINUATION",
+          "CONTINUATION"
+        ],
+        "intersections": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "risks": [
+          {
+            "riskIndex_": 0,
+            "riskId_": "Delta",
+            "parameterId_": "Spot",
+            "derivativeOrder_": 1,
+            "segmentIndex_": null,
+            "startDate_": null,
+            "endDate_": null,
+            "parameterValue_": 82.875,
+            "unit_": "price per spot price unit",
+            "value_": -0.9252107911107998,
+            "status_": "AVAILABLE",
+            "reason_": "",
+            "method_": "FiniteScaleCentralDifference",
+            "interpretation_": "FINITE_SCALE_FIRST_DERIVATIVE",
+            "fineBump_": 0.5,
+            "coarseBump_": 1.0,
+            "bumpOrigin_": "EXPLICIT",
+            "fineEstimate_": -0.9252107911107998,
+            "coarseEstimate_": -0.9253030268285585,
+            "stepDifference_": 9.223571775862638e-05,
+            "normalizedStepDifference_": 9.223571775862638e-05,
+            "stabilityTolerance_": 0.002,
+            "fineStencil_": [
+              {
+                "scenarioIndex_": 3,
+                "weight_": -1.0
+              },
+              {
+                "scenarioIndex_": 4,
+                "weight_": 1.0
+              }
+            ],
+            "coarseStencil_": [
+              {
+                "scenarioIndex_": 1,
+                "weight_": -0.5
+              },
+              {
+                "scenarioIndex_": 2,
+                "weight_": 0.5
+              }
+            ]
+          },
+          {
+            "riskIndex_": 1,
+            "riskId_": "Gamma",
+            "parameterId_": "Spot",
+            "derivativeOrder_": 2,
+            "segmentIndex_": null,
+            "startDate_": null,
+            "endDate_": null,
+            "parameterValue_": 82.875,
+            "unit_": "price per squared spot price unit",
+            "value_": 0.03658007354897563,
+            "status_": "AVAILABLE",
+            "reason_": "",
+            "method_": "FiniteScaleCentralDifference",
+            "interpretation_": "FINITE_SCALE_MODEL_APPROXIMATION",
+            "fineBump_": 0.5,
+            "coarseBump_": 1.0,
+            "bumpOrigin_": "EXPLICIT",
+            "fineEstimate_": 0.03658007354897563,
+            "coarseEstimate_": 0.036580555819782035,
+            "stepDifference_": -4.822708064011749e-07,
+            "normalizedStepDifference_": 4.822708064011749e-05,
+            "stabilityTolerance_": 0.02,
+            "fineStencil_": [
+              {
+                "scenarioIndex_": 3,
+                "weight_": 4.0
+              },
+              {
+                "scenarioIndex_": 0,
+                "weight_": -8.0
+              },
+              {
+                "scenarioIndex_": 4,
+                "weight_": 4.0
+              }
+            ],
+            "coarseStencil_": [
+              {
+                "scenarioIndex_": 1,
+                "weight_": 1.0
+              },
+              {
+                "scenarioIndex_": 0,
+                "weight_": -2.0
+              },
+              {
+                "scenarioIndex_": 2,
+                "weight_": 1.0
+              }
+            ]
+          },
+          {
+            "riskIndex_": 2,
+            "riskId_": "Vega",
+            "parameterId_": "Volatility",
+            "derivativeOrder_": 1,
+            "segmentIndex_": null,
+            "startDate_": null,
+            "endDate_": null,
+            "parameterValue_": 0.2,
+            "unit_": "price per decimal volatility",
+            "value_": 8.469696944375755,
+            "status_": "AVAILABLE",
+            "reason_": "",
+            "method_": "FiniteScaleCentralDifference",
+            "interpretation_": "FINITE_SCALE_FIRST_DERIVATIVE",
+            "fineBump_": 0.0005,
+            "coarseBump_": 0.001,
+            "bumpOrigin_": "DEFAULT",
+            "fineEstimate_": 8.469696944375755,
+            "coarseEstimate_": 8.528044615581166,
+            "stepDifference_": -0.058347671205410734,
+            "normalizedStepDifference_": 0.0005834767120541074,
+            "stabilityTolerance_": 0.003,
+            "fineStencil_": [
+              {
+                "scenarioIndex_": 7,
+                "weight_": -1000.0
+              },
+              {
+                "scenarioIndex_": 8,
+                "weight_": 1000.0
+              }
+            ],
+            "coarseStencil_": [
+              {
+                "scenarioIndex_": 5,
+                "weight_": -500.0
+              },
+              {
+                "scenarioIndex_": 6,
+                "weight_": 500.0
+              }
+            ]
+          },
+          {
+            "riskIndex_": 3,
+            "riskId_": "Rate[0]",
+            "parameterId_": "Rate[0]",
+            "derivativeOrder_": 1,
+            "segmentIndex_": 0,
+            "startDate_": "2026-10-18",
+            "endDate_": "2027-10-18",
+            "parameterValue_": 0.05,
+            "unit_": "price per decimal rate",
+            "value_": -10.158923211245565,
+            "status_": "AVAILABLE",
+            "reason_": "",
+            "method_": "FiniteScaleCentralDifference",
+            "interpretation_": "FINITE_SCALE_FIRST_DERIVATIVE",
+            "fineBump_": 5e-05,
+            "coarseBump_": 0.0001,
+            "bumpOrigin_": "DEFAULT",
+            "fineEstimate_": -10.158923211245565,
+            "coarseEstimate_": -10.170559817561298,
+            "stepDifference_": 0.011636606315732934,
+            "normalizedStepDifference_": 0.00011636606315732933,
+            "stabilityTolerance_": 0.003,
+            "fineStencil_": [
+              {
+                "scenarioIndex_": 11,
+                "weight_": -10000.0
+              },
+              {
+                "scenarioIndex_": 12,
+                "weight_": 10000.0
+              }
+            ],
+            "coarseStencil_": [
+              {
+                "scenarioIndex_": 9,
+                "weight_": -5000.0
+              },
+              {
+                "scenarioIndex_": 10,
+                "weight_": 5000.0
+              }
+            ]
+          },
+          {
+            "riskIndex_": 4,
+            "riskId_": "DividendYield[0]",
+            "parameterId_": "DividendYield[0]",
+            "derivativeOrder_": 1,
+            "segmentIndex_": 0,
+            "startDate_": "2026-10-18",
+            "endDate_": "2027-10-18",
+            "parameterValue_": 0.0,
+            "unit_": "price per decimal dividend yield",
+            "value_": 8.669857844215585,
+            "status_": "AVAILABLE",
+            "reason_": "",
+            "method_": "FiniteScaleCentralDifference",
+            "interpretation_": "FINITE_SCALE_FIRST_DERIVATIVE",
+            "fineBump_": 5e-05,
+            "coarseBump_": 0.0001,
+            "bumpOrigin_": "DEFAULT",
+            "fineEstimate_": 8.669857844215585,
+            "coarseEstimate_": 8.677382827430847,
+            "stepDifference_": -0.007524983215262182,
+            "normalizedStepDifference_": 7.524983215262182e-05,
+            "stabilityTolerance_": 0.003,
+            "fineStencil_": [
+              {
+                "scenarioIndex_": 15,
+                "weight_": -10000.0
+              },
+              {
+                "scenarioIndex_": 16,
+                "weight_": 10000.0
+              }
+            ],
+            "coarseStencil_": [
+              {
+                "scenarioIndex_": 13,
+                "weight_": -5000.0
+              },
+              {
+                "scenarioIndex_": 14,
+                "weight_": 5000.0
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "N12-137-0.0001": {
+      "status": "PASS",
+      "evidence": {
+        "differences": [
+          1.2701890739208466e-09,
+          1.6510067268882268e-09
+        ],
+        "parallel": [
+          {
+            "rate": true,
+            "bump": 5e-05,
+            "minus": 6.856928820951837,
+            "plus": 6.8529173613142,
+            "partial": -40.114596376374934
+          },
+          {
+            "rate": false,
+            "bump": 5e-05,
+            "minus": 6.853172532251044,
+            "plus": 6.856673512100316,
+            "partial": 35.00979849271779
+          }
+        ]
+      }
+    },
+    "N12-137-5e-05": {
+      "status": "PASS",
+      "evidence": {
+        "differences": [
+          3.1716723469799035e-10,
+          4.10980760534585e-10
+        ],
+        "parallel": [
+          {
+            "rate": true,
+            "bump": 2.5e-05,
+            "minus": 6.855925824759472,
+            "plus": 6.85392009493913,
+            "partial": -40.114596406848335
+          },
+          {
+            "rate": false,
+            "bump": 2.5e-05,
+            "minus": 6.854047697642621,
+            "plus": 6.85579818757388,
+            "partial": 35.0097986251896
+          }
+        ]
+      }
+    },
+    "N12-182-0.0001": {
+      "status": "PASS",
+      "evidence": {
+        "differences": [
+          1.5641278139355564e-09,
+          1.8308642779629735e-09
+        ],
+        "parallel": [
+          {
+            "rate": true,
+            "bump": 5e-05,
+            "minus": 6.997689443208017,
+            "plus": 6.993629726531007,
+            "partial": -40.597166770099946
+          },
+          {
+            "rate": false,
+            "bump": 5e-05,
+            "minus": 6.993889107343496,
+            "plus": 6.997429923486901,
+            "partial": 35.40816143404513
+          }
+        ]
+      }
+    },
+    "N12-182-5e-05": {
+      "status": "PASS",
+      "evidence": {
+        "differences": [
+          3.9158209119705133e-10,
+          4.613602300196362e-10
+        ],
+        "parallel": [
+          {
+            "rate": true,
+            "bump": 2.5e-05,
+            "minus": 6.996674383274498,
+            "plus": 6.994644524935055,
+            "partial": -40.597166788867156
+          },
+          {
+            "rate": false,
+            "bump": 2.5e-05,
+            "minus": 6.994774232699732,
+            "plus": 6.996544640778357,
+            "partial": 35.40816157249438
+          }
+        ]
+      }
+    },
+    "N12ref-137": {
+      "status": "PASS",
+      "evidence": {
+        "levels": [
+          [
+            [
+              -0.40147557823466684,
+              -0.40147557882619367,
+              -0.40147557886882623
+            ],
+            [
+              0.35037625378375736,
+              0.3503762552195866,
+              0.3503762550767675
+            ]
+          ],
+          [
+            [
+              -0.4013793906015195,
+              -0.4013793862849724,
+              -0.40137939351581053
+            ],
+            [
+              0.35029566544038104,
+              0.3502956652603473,
+              0.35029566500490716
+            ]
+          ],
+          [
+            [
+              -0.401559644156535,
+              -0.4015596389908893,
+              -0.4015596703787594
+            ],
+            [
+              0.35044942432342907,
+              0.35044941848809685,
+              0.3504494188845797
+            ]
+          ]
+        ],
+        "bump_difference": [
+          3.1387870080834546e-08,
+          3.964828465541359e-10
+        ],
+        "refinement_difference": [
+          0.00018027686294885825,
+          0.00015375387967253573
+        ]
+      }
+    },
+    "N12ref-182": {
+      "status": "PASS",
+      "evidence": {
+        "levels": [
+          [
+            [
+              -0.40630813937081456,
+              -0.40630813970921054,
+              -0.4063081391478818
+            ],
+            [
+              0.35436568127122925,
+              0.3543656822019514,
+              0.35436568254567646
+            ]
+          ],
+          [
+            [
+              -0.40620970656615185,
+              -0.40620970254696687,
+              -0.40620971373641623
+            ],
+            [
+              0.3542832435780241,
+              0.354283243272846,
+              0.354283241751574
+            ]
+          ],
+          [
+            [
+              -0.40639340001380475,
+              -0.4063933987614732,
+              -0.40639343479966783
+            ],
+            [
+              0.35443995392805405,
+              0.35443994737338613,
+              0.3544399504406215
+            ]
+          ]
+        ],
+        "bump_difference": [
+          3.603819465070046e-08,
+          3.0672353545924125e-09
+        ],
+        "refinement_difference": [
+          0.0001837210632515962,
+          0.00015670868904749113
+        ]
+      }
+    }
+  }
+}
