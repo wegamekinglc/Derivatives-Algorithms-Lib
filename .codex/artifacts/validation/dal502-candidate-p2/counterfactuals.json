@@ -1,0 +1,723 @@
+{
+  "new_tree_nodes": 0,
+  "new_bs_calls": 0,
+  "new_product_calls": 0,
+  "results": [
+    {
+      "name": "N7-1-penalty-10000000.0",
+      "direction": "N7-1-penalty",
+      "path": [
+        "scenarios",
+        0,
+        "maxLinearBackwardError_"
+      ],
+      "value": 1e-08,
+      "mutated_input_sha256": "8d6b4e18f30e02a0792a78584bca25892a9726fd71c96703365b65a45cc73c31",
+      "original_source": {
+        "origin": "current",
+        "files": {
+          ".json.gz": {
+            "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-penalty-10000000.0.json.gz",
+            "sha256": "20dd900b9d1327f4ea0259c6f86d17ad418669fc5f162b194f7a9b21fa6c72ff"
+          },
+          ".input.json": {
+            "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-penalty-10000000.0.input.json",
+            "sha256": "de55977658e023d5da5ecd8d655c826e92a10896981ef1a3b6e77390e533a8f2"
+          }
+        }
+      },
+      "before": {
+        "case": "FAIL",
+        "mandatory_smooth": "PASS",
+        "failed_hard_checks": [
+          "N7-1-penalty-10000000.0-residual-Base"
+        ],
+        "direction": "PASS",
+        "group": "PASS",
+        "finest_comparison": "PASS",
+        "output_payload_sha256": "d0e8758e6dfacdcf60f7d6df571650d9b5641e6a185b7357a4ef9095fe70f9b2"
+      },
+      "after": {
+        "case": "FAIL",
+        "mandatory_smooth": "PASS",
+        "failed_hard_checks": [
+          "N7-1-penalty-10000000.0-residual-Base"
+        ],
+        "direction": "FAIL",
+        "group": "FAIL",
+        "finest_comparison": "PASS",
+        "output_payload_sha256": "7a60125f8bf3694f39c191573f41e32eed224e6d6808ff70dbd25be92472e8ea"
+      }
+    },
+    {
+      "name": "N6-1-time-2000",
+      "direction": "N6-1-time",
+      "path": [
+        "scenarios",
+        0,
+        "maxObstacleViolation_"
+      ],
+      "value": 1.0,
+      "mutated_input_sha256": "07a7342873dc2230d2021da7f412fa7ca9969272dff14f300283018036513926",
+      "original_source": {
+        "origin": "current",
+        "files": {
+          ".json.gz": {
+            "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-time-2000.json.gz",
+            "sha256": "8e3096d0cd02b5f992ead3584649ae565f1880ab77625908e3d8609e1c44e2e7"
+          },
+          ".input.json": {
+            "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-time-2000.input.json",
+            "sha256": "f91c97a16ddff3f58b93ad3e9f34a6d024b6b139b543d5f5c71189f5b9a21e78"
+          }
+        }
+      },
+      "before": {
+        "case": "FAIL",
+        "mandatory_smooth": "PASS",
+        "failed_hard_checks": [
+          "N6-1-time-2000-residual-Base"
+        ],
+        "direction": "PASS",
+        "group": "PASS",
+        "finest_comparison": "PASS",
+        "output_payload_sha256": "53886dea81bffd8f158d0128a9e9904e7ccd8f2a1810d38636020da844d18f24"
+      },
+      "after": {
+        "case": "FAIL",
+        "mandatory_smooth": "PASS",
+        "failed_hard_checks": [
+          "N6-1-time-2000-residual-Base"
+        ],
+        "direction": "FAIL",
+        "group": "FAIL",
+        "finest_comparison": "PASS",
+        "output_payload_sha256": "ce5140529e51a0b7e10fcf8da5c25134382f59d44160b2149eb011be7840d3ea"
+      }
+    },
+    {
+      "name": "N6-1-time-2000",
+      "direction": "N6-1-time",
+      "path": [
+        "scenarios",
+        0,
+        "maxDualViolation_"
+      ],
+      "value": 1.0,
+      "mutated_input_sha256": "53955cd2fc148fe7593e1495afcda494a81df28fbca033df3d99cdd867ae952d",
+      "original_source": {
+        "origin": "current",
+        "files": {
+          ".json.gz": {
+            "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-time-2000.json.gz",
+            "sha256": "8e3096d0cd02b5f992ead3584649ae565f1880ab77625908e3d8609e1c44e2e7"
+          },
+          ".input.json": {
+            "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-time-2000.input.json",
+            "sha256": "f91c97a16ddff3f58b93ad3e9f34a6d024b6b139b543d5f5c71189f5b9a21e78"
+          }
+        }
+      },
+      "before": {
+        "case": "FAIL",
+        "mandatory_smooth": "PASS",
+        "failed_hard_checks": [
+          "N6-1-time-2000-residual-Base"
+        ],
+        "direction": "PASS",
+        "group": "PASS",
+        "finest_comparison": "PASS",
+        "output_payload_sha256": "9e86aa9af693baac5418174f3f4c8ed89a1cc0f1e3908f50060aa5b79fcbcaac"
+      },
+      "after": {
+        "case": "FAIL",
+        "mandatory_smooth": "PASS",
+        "failed_hard_checks": [
+          "N6-1-time-2000-residual-Base"
+        ],
+        "direction": "FAIL",
+        "group": "FAIL",
+        "finest_comparison": "PASS",
+        "output_payload_sha256": "bacdff9e25e55d047e04d654e2057dbe309abb1298f09d0a25caa07af208ca07"
+      }
+    },
+    {
+      "name": "N6-1-time-2000",
+      "direction": "N6-1-time",
+      "path": [
+        "scenarios",
+        0,
+        "maxComplementarityResidual_"
+      ],
+      "value": 1.0,
+      "mutated_input_sha256": "ca1b37c887f77bc9bda110883394d6f355efacefc1aa150daf683aaabf85e551",
+      "original_source": {
+        "origin": "current",
+        "files": {
+          ".json.gz": {
+            "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-time-2000.json.gz",
+            "sha256": "8e3096d0cd02b5f992ead3584649ae565f1880ab77625908e3d8609e1c44e2e7"
+          },
+          ".input.json": {
+            "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-time-2000.input.json",
+            "sha256": "f91c97a16ddff3f58b93ad3e9f34a6d024b6b139b543d5f5c71189f5b9a21e78"
+          }
+        }
+      },
+      "before": {
+        "case": "FAIL",
+        "mandatory_smooth": "PASS",
+        "failed_hard_checks": [
+          "N6-1-time-2000-residual-Base"
+        ],
+        "direction": "PASS",
+        "group": "PASS",
+        "finest_comparison": "PASS",
+        "output_payload_sha256": "57d2850b47f485f9d41593b6712af17e05934e282af5d0bfb29366e911939ce3"
+      },
+      "after": {
+        "case": "FAIL",
+        "mandatory_smooth": "PASS",
+        "failed_hard_checks": [
+          "N6-1-time-2000-residual-Base"
+        ],
+        "direction": "FAIL",
+        "group": "FAIL",
+        "finest_comparison": "PASS",
+        "output_payload_sha256": "0b3dc3bff46479ab25ef0b1f4be5798aad7090aa9005f327d35f8a44a430660a"
+      }
+    },
+    {
+      "name": "N6-1-time-2000",
+      "direction": "N6-1-time",
+      "path": [
+        "scenarios",
+        0,
+        "maxIterationChange_"
+      ],
+      "value": 1.0,
+      "mutated_input_sha256": "a0664098d2bb1cc8f8886117eeb47b627bebab651fa2ec85c050462de8fa172a",
+      "original_source": {
+        "origin": "current",
+        "files": {
+          ".json.gz": {
+            "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-time-2000.json.gz",
+            "sha256": "8e3096d0cd02b5f992ead3584649ae565f1880ab77625908e3d8609e1c44e2e7"
+          },
+          ".input.json": {
+            "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-time-2000.input.json",
+            "sha256": "f91c97a16ddff3f58b93ad3e9f34a6d024b6b139b543d5f5c71189f5b9a21e78"
+          }
+        }
+      },
+      "before": {
+        "case": "FAIL",
+        "mandatory_smooth": "PASS",
+        "failed_hard_checks": [
+          "N6-1-time-2000-residual-Base"
+        ],
+        "direction": "PASS",
+        "group": "PASS",
+        "finest_comparison": "PASS",
+        "output_payload_sha256": "232a2eeda9d2c6512f8853566aac86bc7bb8c35acc0fd01e76450f99bcfa0619"
+      },
+      "after": {
+        "case": "FAIL",
+        "mandatory_smooth": "PASS",
+        "failed_hard_checks": [
+          "N6-1-time-2000-residual-Base"
+        ],
+        "direction": "FAIL",
+        "group": "FAIL",
+        "finest_comparison": "PASS",
+        "output_payload_sha256": "372763570824a9d655b78d6e44e44054ba951e9f8f492e75c9c8286cec23e033"
+      }
+    },
+    {
+      "name": "N6-1-time-2000",
+      "direction": "N6-1-time",
+      "path": [
+        "risks",
+        2,
+        "status_"
+      ],
+      "value": "UNAVAILABLE",
+      "mutated_input_sha256": "cd1cd56f73255ca0cdb119459f3fd7c90de37d9b112298448dd527bcba843c2e",
+      "original_source": {
+        "origin": "current",
+        "files": {
+          ".json.gz": {
+            "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-time-2000.json.gz",
+            "sha256": "8e3096d0cd02b5f992ead3584649ae565f1880ab77625908e3d8609e1c44e2e7"
+          },
+          ".input.json": {
+            "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-time-2000.input.json",
+            "sha256": "f91c97a16ddff3f58b93ad3e9f34a6d024b6b139b543d5f5c71189f5b9a21e78"
+          }
+        }
+      },
+      "before": {
+        "case": "FAIL",
+        "mandatory_smooth": "FAIL",
+        "failed_hard_checks": [],
+        "direction": "PASS",
+        "group": "PASS",
+        "finest_comparison": "PASS",
+        "output_payload_sha256": "095e919f4d2ce5547174638fe1f1574e7da98f3fe847ec00c8ec5da664fde582"
+      },
+      "after": {
+        "case": "FAIL",
+        "mandatory_smooth": "FAIL",
+        "failed_hard_checks": [],
+        "direction": "FAIL",
+        "group": "FAIL",
+        "finest_comparison": "PASS",
+        "output_payload_sha256": "adbfd4f31971ff15b6001461da502af0d3706d30b382bf977bc7f4ed5fd1f0bc"
+      }
+    },
+    {
+      "name": "N6-1-time-2000",
+      "direction": "N6-1-time",
+      "path": [
+        "execution",
+        "workUnits_"
+      ],
+      "value": "original corresponding limit + 1",
+      "mutated_input_sha256": "008bf39cb472bf0b9e3b3dfe618ab1232c2cc68314f1e598d834737f47b5f457",
+      "original_source": {
+        "origin": "current",
+        "files": {
+          ".json.gz": {
+            "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-time-2000.json.gz",
+            "sha256": "8e3096d0cd02b5f992ead3584649ae565f1880ab77625908e3d8609e1c44e2e7"
+          },
+          ".input.json": {
+            "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-time-2000.input.json",
+            "sha256": "f91c97a16ddff3f58b93ad3e9f34a6d024b6b139b543d5f5c71189f5b9a21e78"
+          }
+        }
+      },
+      "before": {
+        "case": "FAIL",
+        "mandatory_smooth": "PASS",
+        "failed_hard_checks": [
+          "N6-1-time-2000-capacity"
+        ],
+        "direction": "PASS",
+        "group": "PASS",
+        "finest_comparison": "PASS",
+        "output_payload_sha256": "cdde4123376d05728ef3381f403f7172ae3e145bcf00da07e7f63e1eb81c16e4"
+      },
+      "after": {
+        "case": "FAIL",
+        "mandatory_smooth": "PASS",
+        "failed_hard_checks": [
+          "N6-1-time-2000-capacity"
+        ],
+        "direction": "FAIL",
+        "group": "FAIL",
+        "finest_comparison": "PASS",
+        "output_payload_sha256": "fa69fae930a7e00c3056815b53425adba2ac29d5c772152cd66d081bbe7c9a63"
+      }
+    },
+    {
+      "name": "N6-1-time-2000",
+      "direction": "N6-1-time",
+      "path": [
+        "execution",
+        "numericPayloadBytes_"
+      ],
+      "value": "original corresponding limit + 1",
+      "mutated_input_sha256": "7af973d13948b8386dbd505d15c60430a7731141e0a6eb105656c50620d84352",
+      "original_source": {
+        "origin": "current",
+        "files": {
+          ".json.gz": {
+            "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-time-2000.json.gz",
+            "sha256": "8e3096d0cd02b5f992ead3584649ae565f1880ab77625908e3d8609e1c44e2e7"
+          },
+          ".input.json": {
+            "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-time-2000.input.json",
+            "sha256": "f91c97a16ddff3f58b93ad3e9f34a6d024b6b139b543d5f5c71189f5b9a21e78"
+          }
+        }
+      },
+      "before": {
+        "case": "FAIL",
+        "mandatory_smooth": "PASS",
+        "failed_hard_checks": [
+          "N6-1-time-2000-capacity"
+        ],
+        "direction": "PASS",
+        "group": "PASS",
+        "finest_comparison": "PASS",
+        "output_payload_sha256": "07a4b3958303e6d94c31003dd33854af8e0b09d525c00aeba1a9174f0dc1cf9e"
+      },
+      "after": {
+        "case": "FAIL",
+        "mandatory_smooth": "PASS",
+        "failed_hard_checks": [
+          "N6-1-time-2000-capacity"
+        ],
+        "direction": "FAIL",
+        "group": "FAIL",
+        "finest_comparison": "PASS",
+        "output_payload_sha256": "0cc5347fdd74053ff60e22bc39ba84f24f073a22035e45e30dc8951b3a511019"
+      }
+    },
+    {
+      "name": "N6-1-time-2000",
+      "direction": "N6-1-time",
+      "path": [
+        "execution",
+        "peakWorkspaceBytes_"
+      ],
+      "value": "original corresponding limit + 1",
+      "mutated_input_sha256": "6e77116b7578f09e4abf18ed3fa47f5cb24e045ea23cfa0251b7fe914cd3e2f3",
+      "original_source": {
+        "origin": "current",
+        "files": {
+          ".json.gz": {
+            "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-time-2000.json.gz",
+            "sha256": "8e3096d0cd02b5f992ead3584649ae565f1880ab77625908e3d8609e1c44e2e7"
+          },
+          ".input.json": {
+            "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-time-2000.input.json",
+            "sha256": "f91c97a16ddff3f58b93ad3e9f34a6d024b6b139b543d5f5c71189f5b9a21e78"
+          }
+        }
+      },
+      "before": {
+        "case": "FAIL",
+        "mandatory_smooth": "PASS",
+        "failed_hard_checks": [
+          "N6-1-time-2000-capacity"
+        ],
+        "direction": "PASS",
+        "group": "PASS",
+        "finest_comparison": "PASS",
+        "output_payload_sha256": "72b3ed3de4a9c8dcf7e40ebce990471ee9d9deec1b5f4b71f8634e973cbf4255"
+      },
+      "after": {
+        "case": "FAIL",
+        "mandatory_smooth": "PASS",
+        "failed_hard_checks": [
+          "N6-1-time-2000-capacity"
+        ],
+        "direction": "FAIL",
+        "group": "FAIL",
+        "finest_comparison": "PASS",
+        "output_payload_sha256": "0aea55f5e5e035cfb4d45c783f6b5898f14df36100d3d8ff358c7179897c6e07"
+      }
+    },
+    {
+      "name": "N6-1-time-2000",
+      "direction": "N6-1-time",
+      "path": [
+        "execution",
+        "peakNativeBytes_"
+      ],
+      "value": "original corresponding limit + 1",
+      "mutated_input_sha256": "9fa65672066810d96888c2144e34a1589ea5d2788fc134316822ba44c6a5e41a",
+      "original_source": {
+        "origin": "current",
+        "files": {
+          ".json.gz": {
+            "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-time-2000.json.gz",
+            "sha256": "8e3096d0cd02b5f992ead3584649ae565f1880ab77625908e3d8609e1c44e2e7"
+          },
+          ".input.json": {
+            "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-time-2000.input.json",
+            "sha256": "f91c97a16ddff3f58b93ad3e9f34a6d024b6b139b543d5f5c71189f5b9a21e78"
+          }
+        }
+      },
+      "before": {
+        "case": "FAIL",
+        "mandatory_smooth": "PASS",
+        "failed_hard_checks": [
+          "N6-1-time-2000-capacity"
+        ],
+        "direction": "PASS",
+        "group": "PASS",
+        "finest_comparison": "PASS",
+        "output_payload_sha256": "e45f90df45f1c5c5a7a37813f1d4e1de7b4191f428a2e64a31468319493ce057"
+      },
+      "after": {
+        "case": "FAIL",
+        "mandatory_smooth": "PASS",
+        "failed_hard_checks": [
+          "N6-1-time-2000-capacity"
+        ],
+        "direction": "FAIL",
+        "group": "FAIL",
+        "finest_comparison": "PASS",
+        "output_payload_sha256": "870388a5f35a7a14d73087768e955111b86544f35ad0fc669c9ed780ab0b340c"
+      }
+    },
+    {
+      "name": "N7-2-domain-600",
+      "direction": "N7-2-domain",
+      "path": [
+        "risks",
+        2,
+        "status_"
+      ],
+      "value": "UNAVAILABLE",
+      "mutated_input_sha256": "66b6069ba12739841eebaae302bf72a81c9e47538e2c7379bbc0985e3f1e1501",
+      "original_source": {
+        "origin": "current",
+        "files": {
+          ".json.gz": {
+            "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-domain-600.json.gz",
+            "sha256": "1dffc5dc497d6d88991b9c6c79cff1f313ee68944bc4f8b332bab423cce7db2c"
+          },
+          ".input.json": {
+            "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-domain-600.input.json",
+            "sha256": "ee9ad713aa8597e88e8f3bb995625be4a8b5e37ca9075e50b20a8ef4c6b52ed0"
+          }
+        }
+      },
+      "before": {
+        "case": "FAIL",
+        "mandatory_smooth": "FAIL",
+        "failed_hard_checks": [],
+        "direction": "PASS",
+        "group": "PASS",
+        "finest_comparison": "PASS",
+        "output_payload_sha256": "545505014c93da4aeec17b86e628a1e8b38914acc04912659700cbaf72c13084"
+      },
+      "after": {
+        "case": "FAIL",
+        "mandatory_smooth": "FAIL",
+        "failed_hard_checks": [],
+        "direction": "FAIL",
+        "group": "FAIL",
+        "finest_comparison": "PASS",
+        "output_payload_sha256": "acc325627463dcdbdf1ec2a7ba5e9f2a52825976f4861647fb00010292665796"
+      }
+    },
+    {
+      "name": "N7-2-domain-600",
+      "direction": "N7-2-domain",
+      "path": [
+        "execution",
+        "workUnits_"
+      ],
+      "value": "original corresponding limit + 1",
+      "mutated_input_sha256": "bc7426106926df106be674946a0002c5a69a1c71442b0f79cd35bf49afe76290",
+      "original_source": {
+        "origin": "current",
+        "files": {
+          ".json.gz": {
+            "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-domain-600.json.gz",
+            "sha256": "1dffc5dc497d6d88991b9c6c79cff1f313ee68944bc4f8b332bab423cce7db2c"
+          },
+          ".input.json": {
+            "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-domain-600.input.json",
+            "sha256": "ee9ad713aa8597e88e8f3bb995625be4a8b5e37ca9075e50b20a8ef4c6b52ed0"
+          }
+        }
+      },
+      "before": {
+        "case": "FAIL",
+        "mandatory_smooth": "PASS",
+        "failed_hard_checks": [
+          "N7-2-domain-600-capacity"
+        ],
+        "direction": "PASS",
+        "group": "PASS",
+        "finest_comparison": "PASS",
+        "output_payload_sha256": "5dc420f5670fcdb0d8e3f8f6282b9a5dc7e330e8470edcd07b31da843385ba18"
+      },
+      "after": {
+        "case": "FAIL",
+        "mandatory_smooth": "PASS",
+        "failed_hard_checks": [
+          "N7-2-domain-600-capacity"
+        ],
+        "direction": "FAIL",
+        "group": "FAIL",
+        "finest_comparison": "PASS",
+        "output_payload_sha256": "9891e5195f58a3e930fe321b77136d8fc1f408a5c1f57fe768b615405c08a0f7"
+      }
+    },
+    {
+      "name": "N7-2-domain-600",
+      "direction": "N7-2-domain",
+      "path": [
+        "execution",
+        "numericPayloadBytes_"
+      ],
+      "value": "original corresponding limit + 1",
+      "mutated_input_sha256": "1bd3ef6d044c8ddbdd68926dc9d3c6d1e8611ebb97304b410a10a45c32419df7",
+      "original_source": {
+        "origin": "current",
+        "files": {
+          ".json.gz": {
+            "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-domain-600.json.gz",
+            "sha256": "1dffc5dc497d6d88991b9c6c79cff1f313ee68944bc4f8b332bab423cce7db2c"
+          },
+          ".input.json": {
+            "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-domain-600.input.json",
+            "sha256": "ee9ad713aa8597e88e8f3bb995625be4a8b5e37ca9075e50b20a8ef4c6b52ed0"
+          }
+        }
+      },
+      "before": {
+        "case": "FAIL",
+        "mandatory_smooth": "PASS",
+        "failed_hard_checks": [
+          "N7-2-domain-600-capacity"
+        ],
+        "direction": "PASS",
+        "group": "PASS",
+        "finest_comparison": "PASS",
+        "output_payload_sha256": "bf1c38cb8d51de7b6a54c0babf2b92c9b2e3bc50d3113e5b00ca28d3e9ef4fb0"
+      },
+      "after": {
+        "case": "FAIL",
+        "mandatory_smooth": "PASS",
+        "failed_hard_checks": [
+          "N7-2-domain-600-capacity"
+        ],
+        "direction": "FAIL",
+        "group": "FAIL",
+        "finest_comparison": "PASS",
+        "output_payload_sha256": "f8848e9ecbca346853bfcd1379e9cee99d67e0e75ef59c84e04c9cb4d422d2e7"
+      }
+    },
+    {
+      "name": "N7-2-domain-600",
+      "direction": "N7-2-domain",
+      "path": [
+        "execution",
+        "peakWorkspaceBytes_"
+      ],
+      "value": "original corresponding limit + 1",
+      "mutated_input_sha256": "72d41e2031f8dab407b578b431d0ebbee16ee5f9eb80025043afdf0fac8a8ab7",
+      "original_source": {
+        "origin": "current",
+        "files": {
+          ".json.gz": {
+            "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-domain-600.json.gz",
+            "sha256": "1dffc5dc497d6d88991b9c6c79cff1f313ee68944bc4f8b332bab423cce7db2c"
+          },
+          ".input.json": {
+            "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-domain-600.input.json",
+            "sha256": "ee9ad713aa8597e88e8f3bb995625be4a8b5e37ca9075e50b20a8ef4c6b52ed0"
+          }
+        }
+      },
+      "before": {
+        "case": "FAIL",
+        "mandatory_smooth": "PASS",
+        "failed_hard_checks": [
+          "N7-2-domain-600-capacity"
+        ],
+        "direction": "PASS",
+        "group": "PASS",
+        "finest_comparison": "PASS",
+        "output_payload_sha256": "c16e90cf2347d9dda0e54c70e643cfcacb0eb33eb36194fd144926dc65cbde45"
+      },
+      "after": {
+        "case": "FAIL",
+        "mandatory_smooth": "PASS",
+        "failed_hard_checks": [
+          "N7-2-domain-600-capacity"
+        ],
+        "direction": "FAIL",
+        "group": "FAIL",
+        "finest_comparison": "PASS",
+        "output_payload_sha256": "d12be49a4f14a32176d3194a389c707b53eeae31c36b561de08fa2a8ce8d3ad6"
+      }
+    },
+    {
+      "name": "N7-2-domain-600",
+      "direction": "N7-2-domain",
+      "path": [
+        "execution",
+        "peakNativeBytes_"
+      ],
+      "value": "original corresponding limit + 1",
+      "mutated_input_sha256": "91b724916c99f4df4184aebe330f14a06fcd045201a54eaeb1446d4ab15ad1c8",
+      "original_source": {
+        "origin": "current",
+        "files": {
+          ".json.gz": {
+            "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-domain-600.json.gz",
+            "sha256": "1dffc5dc497d6d88991b9c6c79cff1f313ee68944bc4f8b332bab423cce7db2c"
+          },
+          ".input.json": {
+            "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-domain-600.input.json",
+            "sha256": "ee9ad713aa8597e88e8f3bb995625be4a8b5e37ca9075e50b20a8ef4c6b52ed0"
+          }
+        }
+      },
+      "before": {
+        "case": "FAIL",
+        "mandatory_smooth": "PASS",
+        "failed_hard_checks": [
+          "N7-2-domain-600-capacity"
+        ],
+        "direction": "PASS",
+        "group": "PASS",
+        "finest_comparison": "PASS",
+        "output_payload_sha256": "dadbd329671dfc29ab72fb24589ec6ab59065a0aec3659da774546cbebbf336c"
+      },
+      "after": {
+        "case": "FAIL",
+        "mandatory_smooth": "PASS",
+        "failed_hard_checks": [
+          "N7-2-domain-600-capacity"
+        ],
+        "direction": "FAIL",
+        "group": "FAIL",
+        "finest_comparison": "PASS",
+        "output_payload_sha256": "65eb2428687603165d797d092cf1638f5e21bd97fe2483a8caeff3e68deedbb5"
+      }
+    },
+    {
+      "name": "N6-1-time-2000",
+      "direction": "N6-1-time",
+      "path": [
+        "scenarios",
+        0,
+        "solverStatus_"
+      ],
+      "value": "FAILED",
+      "mutated_input_sha256": "ffbbbe9d0c6d8b7dfd5153f20cafe8520a52919f88b5f3cecb727b88925eeaa4",
+      "original_source": {
+        "origin": "current",
+        "files": {
+          ".json.gz": {
+            "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-time-2000.json.gz",
+            "sha256": "8e3096d0cd02b5f992ead3584649ae565f1880ab77625908e3d8609e1c44e2e7"
+          },
+          ".input.json": {
+            "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-time-2000.input.json",
+            "sha256": "f91c97a16ddff3f58b93ad3e9f34a6d024b6b139b543d5f5c71189f5b9a21e78"
+          }
+        }
+      },
+      "before": {
+        "case": "FAIL",
+        "mandatory_smooth": "FAIL",
+        "failed_hard_checks": [],
+        "direction": "PASS",
+        "group": "PASS",
+        "finest_comparison": "PASS",
+        "output_payload_sha256": "095e919f4d2ce5547174638fe1f1574e7da98f3fe847ec00c8ec5da664fde582"
+      },
+      "after": {
+        "case": "FAIL",
+        "mandatory_smooth": "FAIL",
+        "failed_hard_checks": [],
+        "direction": "FAIL",
+        "group": "FAIL",
+        "finest_comparison": "PASS",
+        "output_payload_sha256": "adbfd4f31971ff15b6001461da502af0d3706d30b382bf977bc7f4ed5fd1f0bc"
+      }
+    }
+  ]
+}

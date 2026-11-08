@@ -1,0 +1,22 @@
+[
+  {
+    "case_status": "FAIL",
+    "mandatory_smooth": "PASS",
+    "hard_statuses": [
+      "PASS"
+    ],
+    "direction": "PASS",
+    "group": "PASS",
+    "output_sha256": "e35bdf9365183d4fee667574f2bf9f3808e5a2d2e623a3d40328ce5745bc3d3a"
+  },
+  {
+    "case_status": "INCOMPLETE",
+    "mandatory_smooth": "PASS",
+    "hard_statuses": [
+      "PASS"
+    ],
+    "direction": "PASS",
+    "group": "PASS",
+    "output_sha256": "c31c0180a16a604e0903e79ba35f1d3f8265cd1a6fc7caea56f28ddbeedeaa56"
+  }
+]

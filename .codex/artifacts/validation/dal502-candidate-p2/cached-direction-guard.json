@@ -1,0 +1,17 @@
+{
+  "scope": "cached direction guard",
+  "before": {
+    "N3": "PASS",
+    "N6": "PASS",
+    "N7": "PASS"
+  },
+  "after": {
+    "N3": "PASS",
+    "N6": "PASS",
+    "N7": "FAIL"
+  },
+  "input_case_sha256": "fa5e66dee63537c5a6fa5c59dbd22f308da95e9e1eb23ed94d99e51eaf496306",
+  "new_tree_nodes": 0,
+  "new_bs_calls": 0,
+  "new_product_calls": 0
+}

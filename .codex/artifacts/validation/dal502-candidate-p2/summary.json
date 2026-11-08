@@ -1,0 +1,24 @@
+{
+  "counterfactual_failures": 16,
+  "before_false_pass": 16,
+  "after_fail": 16,
+  "real_cases": 42,
+  "real_hard_checks": {
+    "PASS": 756
+  },
+  "real_directions": {
+    "PASS": 14
+  },
+  "real_candidate_groups": {
+    "N3": "PASS",
+    "N6": "PASS",
+    "N7": "PASS"
+  },
+  "case_outputs_exact": true,
+  "premium_outputs_exact": true,
+  "direction_values_and_comparisons_exact": true,
+  "unchanged_files": 146,
+  "new_tree_nodes": 0,
+  "new_bs_calls": 0,
+  "new_product_calls": 0
+}
