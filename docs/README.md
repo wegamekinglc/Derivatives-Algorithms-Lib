@@ -41,7 +41,9 @@ residuals, owning exercise regions and resource limits. Its separate
 [core risk request](methodology/pde/early-exercise.md#owning-core-risk-request)
 adds fixed-plan full-repricing Delta, finite-scale Gamma, Vega and native carry
 partials, with numerical qualification limited to fixed fixtures, bump scales
-and refinement levels. Public/Python/Excel risk projections remain pending.
+and refinement levels. Public C++, Python and Excel expose the same owning
+records; the [runnable examples](methodology/pde/early-exercise.md#runnable-risk-examples)
+show per-row availability and PARTIAL results.
 
 The [market implied-volatility surface guide](models/market-iv-surface.md)
 covers constrained SSVI quote fitting, global static certificates, analytic

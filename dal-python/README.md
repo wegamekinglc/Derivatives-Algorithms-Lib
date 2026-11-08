@@ -7,6 +7,7 @@ Python bindings for the Derivatives Algorithms Library (DAL) — a high-performa
 - **Black-Scholes, correlated BS, GSR, and hybrid local-vol models** for derivatives pricing
 - **Monte Carlo simulation** with pseudo-random and Sobol sequence generators
 - **AAD Greeks** — compute pathwise sensitivities (delta, vega, rho, etc.) in a single simulation
+- **Owning early-exercise PDE risk** — finite-scale Delta/Gamma, Vega and carry partials with per-row availability; see the [runnable example](examples/019.early_exercise_pde_risk.py)
 - **Script engine** — define exotic payoffs using a domain-specific language
 - **Named FIX valuation** — explicit dates, immutable history snapshots, and contract/valuation diagnostics
 - **Curve calibration** — single-curve, multi-curve, staged XCCY, and joint domestic/foreign/basis calibration with resettable and MTM instruments plus AAD analytic Jacobians

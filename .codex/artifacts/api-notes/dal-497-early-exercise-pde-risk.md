@@ -6,7 +6,9 @@ under the explicit bounded BBS adoption. The
 [final S3 entry](../validation/dal-502-pde-risk-final.md) binds its evidence
 and limits. Public-facade/Python/Excel risk projections are implemented in S4;
 S4 repair review is approved and native Windows B10 evidence is PASS;
-final CI/acceptance and S5 release delivery remain separate.
+S4 is merged as PR #687 at `1216e03a`. S5 author performance/build/example
+evidence is [delivered for focused review](../validation/dal-504-pde-risk-delivery.md);
+release acceptance remains separate.
 Audience: core/public C++ implementers, Python and
 Excel binding authors, independent numerical testers and risk consumers.
 The [R1–R11 contract](../specs/dal-497-early-exercise-pde-risk.md) owns semantics;
