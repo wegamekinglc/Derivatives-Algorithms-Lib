@@ -1,5 +1,11 @@
 # DAL-503 S4 owning PDE risk projections
 
+Successor state: PR #687 is merged at
+`1216e03aaf71071e8e36aef1f24082a1255380f8`, from final PR head
+`0e2a66453c7a411e607160a63a711473749e0f1b`.
+The checkpoint Draft/CI/acceptance wording below is historical. Product
+sources match producer `20401a29`; the merge is not a new executable producer.
+
 Initial implementation source: `7b3e5e0b309867c6d388d7c2c8f483fba36e8053`,
 on baseline `cf0895477e6b9ddefdd2ef41865d3213c24aaeec` (merged S2/S3).
 This record accompanies the same dedicated S4 branch/PR. The review repair below

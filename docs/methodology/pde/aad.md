@@ -7,6 +7,10 @@ Two price layers share rate, volatility and strike inputs. Two reverse channels
 return each price's rho, vega and strike derivative, including the terminal
 payoff and discounted boundary contributions.
 
+For Bermudan/American exercise, use the separate passive
+[owning full-repricing risk interface](early-exercise.md#owning-core-risk-request),
+with finite-scale Gamma and per-risk availability.
+
 ## Discrete Financial Program
 
 The fixed physical grid spans $S\in[0,400]$, with evaluation spot $S_0=100$,

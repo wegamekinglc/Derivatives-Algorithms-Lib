@@ -32,6 +32,9 @@ Only add a heading when a qualifying change ships. Do not create empty future he
   risk handles/tables project the same records, with detached getters and
   cumulative resource diagnostics. See the
   [risk contract](docs/methodology/pde/early-exercise.md#owning-core-risk-request).
+  Runnable core/public/Python examples and an Excel worksheet recipe show
+  full-risk tables, per-row availability and PARTIAL handling; see the
+  [example entry points](docs/methodology/pde/early-exercise.md#runnable-risk-examples).
 
 ## 2026-11-07
 

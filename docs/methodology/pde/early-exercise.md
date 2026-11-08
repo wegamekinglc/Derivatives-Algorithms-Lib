@@ -338,6 +338,14 @@ Numerical or work failure returns an owning inspectable result.
 unavailable selected risk, or `EarlyExercisePdeRiskUnknownRiskId` for an
 unknown/unrequested ID. IDs are case-sensitive.
 
+For all admitted full-axis requests, `m` carry segments require `9+8*m`
+rollbacks (17 for one segment, 25 for two); Delta/Gamma share spot work.
+Retained storage is the full base diagnostics, shared plan and scenario/risk
+summaries. Peak storage additionally includes one full bump and scratch.
+American worst-case exercise-region capacity can grow as nodes × time steps;
+the complete interface does not have an O(nodes) memory bound. Detached
+getter copies are caller-owned and are released independently.
+
 ### Core C++ Risk Usage
 
 Given the price request in the complete example above:
@@ -404,3 +412,22 @@ failure creates an inspectable result. Risk handles cannot be archived.
 These projections preserve native market-parameter partials and finite-scale
 Gamma interpretation. Portable binding tests do not establish Windows XLL
 registration or worksheet acceptance.
+
+### Runnable Risk Examples
+
+The [core example](../../../dal-cpp/examples/methods/early_exercise_pde_risk/early_exercise_pde_risk.cpp)
+links only `DAL::cpp`; the separate [public example](../../../dal-public/examples/early_exercise_pde_risk/early_exercise_pde_risk.cpp)
+links `DAL::public`. Both show smooth Bermudan/American full-risk tables and
+a query at an evaluation exercise-boundary bracket with PARTIAL risk.
+They inspect each row before reading its value, and retain status and units.
+
+```bash
+cmake --build build/Release-linux --target early_exercise_pde_risk early_exercise_pde_risk_public
+ctest --test-dir build/Release-linux -R "^early_exercise_pde_risk(_public)?$" --output-on-failure
+```
+
+The [Python program](../../../dal-python/examples/019.early_exercise_pde_risk.py)
+uses the same contracts and boundary construction. The
+[Excel worksheet](../../../dal-excel/examples/012.early_exercise_pde_risk.md)
+provides explicit inputs, handle dependencies and COMPLETE/PARTIAL examples
+with unavailable blanks and scalar errors.

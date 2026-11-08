@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.21)
+project(pde-risk-excel-projection LANGUAGES CXX)
+find_package(dal-public CONFIG REQUIRED)
+add_executable(pde_risk_excel_projection pde_risk_excel_projection.cpp ../../src/__earlyexercisepderisk.cpp)
+target_compile_features(pde_risk_excel_projection PRIVATE cxx_std_17)
+target_link_libraries(pde_risk_excel_projection PRIVATE DAL::public)
+dal_cpp_apply_msvc_runtime(pde_risk_excel_projection)

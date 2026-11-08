@@ -51,20 +51,21 @@ Complex model construction, calibration and pricing with GSR, SLV and hybrid com
 
 Numerical methods and comparison results: Monte Carlo, PDEs, AAD, sampling and parallel execution. The Excel writer supports exporting numerical results.
 
-| Program                                     | Build target      | Shows                                                                         |
-|---------------------------------------------|-------------------|-------------------------------------------------------------------------------|
-| [aad](methods/aad/)                         | `aad`             | Native AAD and analytic Black Greeks                                          |
-| [aad_financial](methods/aad_financial/)     | `aad_financial`   | Weighted and blocked risk, shared portfolios, segmented MC and LSMC curvature |
-| [aad_operators](methods/aad_operators/)     | `aad_operators`   | Recorded solves and roots, structural Jacobians and HVPs                      |
-| [american_put_mc](methods/american_put_mc/) | `american_put_mc` | Compare LSMC early exercise with European and PDE references                  |
-| [concurrency](methods/concurrency/)         | `concurrency`     | Compare serial and parallel execution                                         |
-| [european_aad_fd](methods/european_aad_fd/) | `european_aad_fd` | Fixed-grid PDE risk with native AAD                                           |
-| [european_fd](methods/european_fd/)         | `european_fd`     | Compare explicit, Crank-Nicolson and implicit PDE schemes                     |
-| [european_mc](methods/european_mc/)         | `european_mc`     | Monte Carlo pricing and Greek estimators                                      |
-| [excelwriter](methods/excelwriter/)         | `excelwriter`     | Export numerical results to Excel (MSVC and Office only)                      |
-| [fix_mc](methods/fix_mc/)                   | `fix_mc`          | Monte Carlo scenarios with historical and simulated fixings                   |
-| [sobol](methods/sobol/)                     | `sobol`           | Sobol quasi-random sampling                                                   |
-| [vanilla](methods/vanilla/)                 | `vanilla`         | Compare analytic, Monte Carlo, finite-difference and AAD results              |
+| Program                                                     | Build target              | Shows                                                                         |
+|-------------------------------------------------------------|---------------------------|-------------------------------------------------------------------------------|
+| [aad](methods/aad/)                                         | `aad`                     | Native AAD and analytic Black Greeks                                          |
+| [aad_financial](methods/aad_financial/)                     | `aad_financial`           | Weighted and blocked risk, shared portfolios, segmented MC and LSMC curvature |
+| [aad_operators](methods/aad_operators/)                     | `aad_operators`           | Recorded solves and roots, structural Jacobians and HVPs                      |
+| [american_put_mc](methods/american_put_mc/)                 | `american_put_mc`         | Compare LSMC early exercise with European and PDE references                  |
+| [concurrency](methods/concurrency/)                         | `concurrency`             | Compare serial and parallel execution                                         |
+| [european_aad_fd](methods/european_aad_fd/)                 | `european_aad_fd`         | Fixed-grid PDE risk with native AAD                                           |
+| [european_fd](methods/european_fd/)                         | `european_fd`             | Compare explicit, Crank-Nicolson and implicit PDE schemes                     |
+| [early_exercise_pde_risk](methods/early_exercise_pde_risk/) | `early_exercise_pde_risk` | Owning Bermudan/American finite-scale risk and boundary PARTIAL               |
+| [european_mc](methods/european_mc/)                         | `european_mc`             | Monte Carlo pricing and Greek estimators                                      |
+| [excelwriter](methods/excelwriter/)                         | `excelwriter`             | Export numerical results to Excel (MSVC and Office only)                      |
+| [fix_mc](methods/fix_mc/)                                   | `fix_mc`                  | Monte Carlo scenarios with historical and simulated fixings                   |
+| [sobol](methods/sobol/)                                     | `sobol`                   | Sobol quasi-random sampling                                                   |
+| [vanilla](methods/vanilla/)                                 | `vanilla`                 | Compare analytic, Monte Carlo, finite-difference and AAD results              |
 
 ## Build and run
 

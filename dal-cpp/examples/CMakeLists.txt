@@ -52,6 +52,7 @@ set(DAL_EXAMPLE_TARGETS
     basket_mc
     european_mc
     european_fd
+    early_exercise_pde_risk
     european_aad_fd
     fix_mc
     gsr_swap_swaption

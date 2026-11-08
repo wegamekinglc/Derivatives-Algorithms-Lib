@@ -204,6 +204,26 @@ This interface has no Greeks or local volatility. The
 discretization error and resource limits; native budgets exclude worksheet
 cells, handles and getter copies.
 
+## Owning early-exercise PDE risk
+
+`EARLYEXERCISEPDERISKREQUEST.NEW(name,valuation,risk)` copies a price-request
+handle and optional `EARLYEXERCISEPDERISKSETTINGS.NEW` handle.
+`EARLYEXERCISEPDERISKRESULT.NEW` evaluates once; `GET.RISKS`, `GET.SCENARIOS`,
+`GET.STENCILS`, `GET.PLAN` and `GET.EXECUTION` return detached tables.
+The [complete worksheet recipe](../../dal-excel/examples/012.early_exercise_pde_risk.md)
+gives input cells, bump tables, handle order, and COMPLETE/PARTIAL cases.
+
+Risk settings keys and risk IDs are case-sensitive canonical ASCII, unlike
+the existing price-settings key comparison. Flags require Boolean cells;
+counts require nonnegative exact integers. Each carry bump column defaults
+independently when entirely blank; holes in a populated column reject.
+Unavailable values spill as blanks; scalar getters return contextual Error
+text. Read each row Status before Value, independently of base price success.
+Gamma retains its finite-scale interpretation. Decimal carry partials do not
+provide calibrated quote DV01. Budgets apply to native owning storage/work,
+excluding spills; getters add no solves and handles reject serialization.
+See the [risk method](../methodology/pde/early-exercise.md#owning-core-risk-request).
+
 ## European PDE risk
 
 Use immutable settings, request and result handles for a fixed-grid European

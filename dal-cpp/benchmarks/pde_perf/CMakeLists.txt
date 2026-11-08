@@ -1,6 +1,7 @@
 file(GLOB_RECURSE PDE_PERF_FILES CONFIGURE_DEPENDS "*.hpp" "*.cpp")
 
 add_executable(pde_perf ${PDE_PERF_FILES})
+target_sources(pde_perf PRIVATE ../pde_risk_perf/pde_risk_perf.cpp)
 
 target_link_libraries(pde_perf dal_library)
 
@@ -19,3 +20,5 @@ add_test(NAME pde_perf COMMAND pde_perf)
 set_tests_properties(pde_perf PROPERTIES LABELS "benchmark")
 add_test(NAME pde_early_exercise_perf COMMAND pde_perf --early-exercise)
 set_tests_properties(pde_early_exercise_perf PROPERTIES LABELS "benchmark")
+add_test(NAME pde_risk_perf_identity COMMAND pde_perf --risk Bermudan17 verify 1)
+set_tests_properties(pde_risk_perf_identity PROPERTIES LABELS "benchmark")
