@@ -30,7 +30,7 @@ An implemented interface does not establish full numerical acceptance.
 
 ## Current Maintenance
 
-- [DAL-479 documentation and agent consistency](documentation/dal-479-documentation-agent-consistency.md)
+- [DAL-506 documentation and agent consistency](documentation/dal-506-documentation-agent-consistency.md)
   — Complete tracked-file inventory, current-source corrections, agent equality
   evidence and reproducible documentation checks.
 
@@ -38,7 +38,8 @@ An implemented interface does not establish full numerical acceptance.
 
 - [DAL-497 owning early-exercise PDE risk](api-notes/dal-497-early-exercise-pde-risk.md)
   — Active S0 schema, defaults, availability and C++/Python/Excel projections;
-  implementation and qualification remain pending.
+  core implementation is present, while language projections and full
+  independent numerical qualification remain pending.
 - [DAL-398 shared script contract](api-notes/dal-398-script-contract.md).
 - [DAL-410 domestic-collateral Gaussian model](api-notes/dal-410-xccy-mc-model-decision.md).
 - [Prepared mixed-mapping XCCY basket allocation](api-notes/dal-xccy-mixed-mapping-basket.md).
@@ -53,6 +54,8 @@ An implemented interface does not establish full numerical acceptance.
 
 These are active requirements, not product validation evidence. Historical
 early-exercise #602 evidence below does not qualify DAL-497 risk.
+The [current core risk guide](../../docs/methodology/pde/early-exercise.md#owning-core-risk-request)
+describes the implemented fixed-plan repricing surface.
 
 ## XCCY Implementation and Acceptance Controls
 
@@ -119,6 +122,12 @@ chain is not resumed by keeping its source and evidence.
 - [DAL-419 installed encoding review](reviews/dal-419-installed-windows-encoding.md).
 
 ## Retired Records and Recovery
+
+The completed DAL-479 documentation audit is retired from the active surface.
+Its original inventory, agent fingerprints and embedded checker remain in
+[master snapshot 1b8c92e8](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/1b8c92e8f23320b2723628fd37b399455c918e23/.codex/artifacts/documentation/dal-479-documentation-agent-consistency.md).
+DAL-506 regenerates the inventory and live agent evidence instead of reusing
+that audit's results.
 
 Completed DAL-436 documentation maintenance, DAL-469 diagnostic repair,
 DAL-476 covariance repair and PR #651 review receipts are retired. Their
