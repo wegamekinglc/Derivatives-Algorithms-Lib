@@ -7,6 +7,10 @@ S3 now qualifies N1–N12 as **12 PASS / 0 FAIL / 0 INCOMPLETE** under the
 The [final qualification entry](../validation/dal-502-pde-risk-final.md)
 owns the applicable evidence and remaining S4/S5 gates. Requirements below
 do not by themselves establish binding, performance or release acceptance.
+Core deterministic coverage in
+`dal-cpp/tests/math/pde/test_early_exercise_pde_risk.cpp` is distinct from
+the accepted independent financial/refinement evidence and does not complete
+the pending cross-interface qualification matrix.
 Read together with the [R1–R11 contract](dal-497-early-exercise-pde-risk.md)
 and [API schema](../api-notes/dal-497-early-exercise-pde-risk.md).
 Source baseline is `4e9eb5eb7cae770826e6f4e0a05aeb9bf4c4c44e`.

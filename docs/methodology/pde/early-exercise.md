@@ -8,10 +8,13 @@ Requests and results own their passive data. The implementation is in
 `dal-cpp/dal/math/pde/earlyexercisepde.hpp` and
 `dal-cpp/dal/math/pde/earlyexercisepde.cpp`.
 
-This interface returns `double` prices and diagnostics. It does not provide
-Greeks, AAD, local volatility, stochastic carry, discrete cash dividends,
-barriers or arbitrary script payoffs. The separate [European risk interface](aad.md)
-and [LSMC exercise engine](../monte-carlo/lsm.md) retain their own contracts.
+This price interface returns `double` prices and diagnostics. The separate
+[core risk request](#owning-core-risk-request) adds fixed-plan full-repricing
+Delta, finite-scale Gamma, Vega and carry partials. Early-exercise risk is
+currently available through core C++ only. Neither interface provides AAD,
+local volatility, stochastic carry, discrete cash dividends, barriers or arbitrary
+script payoffs. The separate [European risk interface](aad.md) and
+[LSMC exercise engine](../monte-carlo/lsm.md) retain their own contracts.
 
 ## Dates, Carry and Units
 
@@ -225,3 +228,142 @@ existing locations and core dependencies.
 See the [Python example](../../python/README.md#bermudan-and-american-pde-pricing)
 and [Excel worksheet recipe](../../excel/README.md#bermudan-and-american-pde-pricing)
 for the same contract and owning result access.
+
+## Owning Core Risk Request
+
+`PDE::EvaluateEarlyExercisePdeRisk` in
+`dal-cpp/dal/math/pde/earlyexercisepderisk.hpp` accepts an owning
+`EarlyExercisePdeRiskRequest_`: an existing price request in `valuation_`
+and `EarlyExercisePdeRiskSettings_` in `risk_`. Include
+`<dal/math/pde/earlyexercisepderisk.hpp>` and link `DAL::cpp`.
+The public facade, Python and Excel currently expose the price interface above;
+their early-exercise risk projections remain planned.
+
+The evaluator uses passive full repricing and preserves caller AAD state,
+including a nonempty tape or active recording. `Method()` returns
+`BlackScholesEarlyExerciseFullRepriceFixedPlan`, `RiskBasis()` returns
+`NATIVE_MARKET_PARAMETER_PARTIAL`, and `AadUsed()` is false.
+Schema version 1 owns the original request, base result, resolved plan,
+named risk rows, scenario summaries and cumulative execution diagnostics.
+Getters perform no new solves.
+
+### Axes, Bumps and Fixed Plan
+
+The four switches `delta_`, `gamma_`, `vega_` and `carryRisk_` default to true;
+at least one must be enabled. Requested rows retain the order
+`Delta, Gamma, Vega, Rate[0], DividendYield[0], ...`, with zero-based carry
+indices. Carry risk requests both families for every input segment, including
+adjacent segments with equal values. These are native parameter partials:
+Vega is per decimal volatility, and each carry partial is per decimal rate or
+dividend yield. Multiplying Vega by 0.01 gives a volatility-point exposure;
+multiplying a rate partial by 1e-4 gives that carry parameter's first-order
+one-basis-point P&L. It does not supply calibrated quote DV01.
+
+Resolve the upper bound from the original price request and keep it fixed.
+With spatial spacing `dx`, the default fine spot bump is `h=2*dx`;
+the coarse bump is `2*h`. An explicit `spotBump_` must be an integer number
+of cells, at least two and at most 2^53-1. The ratio `h/dx` may differ
+from that integer by at most `8*epsilon64*max(1,abs(h/dx))`.
+The complete coarse spot stencil must remain strictly inside the domain.
+Volatility's coarse bump defaults to 1e-3; each segment's rate and dividend
+yield coarse bump defaults to 1e-4. Their fine bumps are half those values.
+Each carry vector is independently empty for defaults or has exactly one
+positive finite bump per segment. Disabled-axis fields are still validated.
+
+All admitted scenarios share one grid, dated time grid, step subdivision,
+theta/damping schedule, residual tolerance and interpolation policy
+(`LINEAR_SPOT`). Planning checks monotonicity across base and admitted bumps
+before rollback. Each scenario rebuilds coefficients, discounted boundaries
+and exercise decisions. It does not reuse the base contact mask.
+
+For a parameter bump `a`, the first derivative estimate is
+`(V(x+a)-V(x-a))/(2*a)`. Gamma uses
+`(V(S+a)-2*V(S)+V(S-a))/(a*a)`. Delta and Gamma share four spot scenarios;
+each other admitted axis has four scenarios for coarse/fine central estimates.
+The base runs first, followed by Spot, Volatility, then Rate/DividendYield
+per segment; each axis runs coarse minus/plus then fine minus/plus.
+In a nondegenerate, fully admitted request with all switches enabled and
+`m` carry segments, the count is `1+4*(2+2*m)`.
+
+Gamma is a finite-scale model approximation, not the local second derivative
+of a linearly interpolated grid price. The published value is the fine
+estimate only after screening. Coarse/fine disagreement is normalized by 1
+for Delta, by strike for Gamma, and by inverse strike for Vega/carry.
+Default tolerances are 2e-3, 2e-2 and 3e-3, respectively; equality passes.
+This is a bump-stability test, not proof of continuum convergence.
+
+### Availability and Resource Limits
+
+`PriceAvailable()` concerns the base price independently of `IsComplete()`.
+Risk `value_` is present only for `AVAILABLE` or
+`AVAILABLE_EXERCISE_REGION`. A failed base, exhausted cumulative work,
+failed required scenario, zero diffusion, invalid central domain, evaluation
+exercise boundary/switch, nonfinite arithmetic or unstable bump comparison
+leaves the affected value absent with a named status and reason.
+Unavailable values are not zero or NaN.
+
+Zero volatility executes the base only and marks requested risks
+`UNAVAILABLE_DEGENERATE_DIFFUSION`. A volatility coarse bump reaching zero
+is admissible; one crossing below zero makes Vega unavailable.
+Contact screening concerns evaluation-time membership and, for spot risks,
+the complete coarse interval's intersection with an exercise-boundary bracket.
+Future contact and upwind changes remain diagnostics; they alone do not
+reject a risk. A stable stencil wholly in the exercise region may publish
+`AVAILABLE_EXERCISE_REGION`.
+
+Aggregate status is `BASE_FAILED` when base pricing fails, otherwise
+`WORK_LIMIT` on a cumulative-work stop, otherwise `COMPLETE` when all
+requested risks are available, or `PARTIAL`. A scenario-local work failure
+can leave independent later risks available. Global exhaustion preserves
+completed rows and marks later scenarios not run; it does not silently
+reduce the selected axes or bump scales.
+
+Risk defaults are `maxScenarios_=129`, `maxWorkUnits_=100000000`,
+`numericPayloadBudgetBytes_=67108864` and
+`workspaceBudgetBytes_=268435456`. The valuation's own work/byte limits
+also apply. Risk work is cumulative over every solve in every attempted
+scenario, including American penalty iterations. Count and byte envelopes
+are admitted before rollback; zero is a real cap. Only the base's full
+rollback result is retained; bumped results are summarized and released.
+The shared plan is charged once to its owner, and reported actual native
+peak measures simultaneously live storage. Allocator bookkeeping, process
+RSS and caller-owned copies are outside these byte budgets.
+
+Malformed requests raise `InvalidEarlyExercisePdeRiskRequest`; preflight
+count/byte rejection raises `EarlyExercisePdeRiskBudgetExceeded`.
+Numerical or work failure returns an owning inspectable result.
+`Price()` throws `EarlyExercisePdeRiskPriceUnavailable` if absent;
+`RiskValue(id)` throws `EarlyExercisePdeRiskValueUnavailable` for an
+unavailable selected risk, or `EarlyExercisePdeRiskUnknownRiskId` for an
+unknown/unrequested ID. IDs are case-sensitive.
+
+### Core C++ Risk Usage
+
+Given the price request in the complete example above:
+
+```cpp
+#include <dal/math/pde/earlyexercisepderisk.hpp>
+
+Dal::PDE::EarlyExercisePdeRiskRequest_ riskRequest;
+riskRequest.valuation_ = request;
+const auto riskResult = Dal::PDE::EvaluateEarlyExercisePdeRisk(riskRequest);
+if (riskResult.PriceAvailable())
+    std::cout << "Price: " << riskResult.Price() << '\n';
+for (const auto& risk : riskResult.Risks()) {
+    std::cout << risk.riskId_ << ": " << risk.status_.String();
+    if (risk.value_)
+        std::cout << " = " << *risk.value_ << " " << risk.unit_;
+    std::cout << '\n';
+}
+```
+
+The include belongs with the other headers; the statements reuse `request`
+inside `main`. Inspect row status even when the base price is available.
+No particular request is guaranteed to return every requested Greek.
+Core deterministic tests in
+`dal-cpp/tests/math/pde/test_early_exercise_pde_risk.cpp` cover stencils,
+availability, ownership, tape preservation and cumulative resources.
+Independent financial/refinement qualification covers fixed fixtures, bump
+scales and refinement levels. It does not establish a rigorous continuous-model
+error bound or qualification for arbitrary inputs. The deterministic core checks
+and numerical qualification do not establish cross-interface or release acceptance.

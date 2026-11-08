@@ -1,11 +1,13 @@
 # DAL-497 early-exercise PDE risk contract
 
 Status: active S0 contract, schema version 1. Controls S1–S5 of DAL-497.
-S1/S2 implement the core; S3 numerical qualification is **12 PASS / 0 FAIL /
+S1/S2 implement core fixed-plan extraction and owning repricing risk.
+S3 numerical qualification is **12 PASS / 0 FAIL /
 0 INCOMPLETE** under the explicit bounded BBS adoption in the acceptance
 contract. The [final S3 entry](../validation/dal-502-pde-risk-final.md) binds
 evidence and review identities. Public/Python/Excel risk projections and full
 S5 release acceptance remain pending; S0 itself executed no product checks.
+This contract establishes requirements; the linked records establish evidence.
 
 Authority: accepted P3 plan, attachment `01a1b747-5bcd-777f-ba24-cbcabee04578`,
 and execution authorization in comment `01a1b749-b0bc-7cea-aa9f-ca21159a276d`.
@@ -38,8 +40,11 @@ Source contracts examined:
   `dal-cpp/benchmarks/pde_perf/pde_perf.cpp` and component-owned examples.
 
 Existing #602 evidence is historical, not qualification for this feature.
-The published method guide describes the existing price interface and solver
-arithmetic. Full risk-interface documentation and examples remain S4/S5 work.
+The [published method guide](../../../docs/methodology/pde/early-exercise.md#owning-core-risk-request)
+describes the implemented core risk surface and price solver arithmetic.
+Public/Python/Excel risk projections, their calling recipes and complete
+release examples remain S4/S5 work; numerical qualification has the bounded
+scope fixed by the adoption decision.
 
 Scope is one-dimensional BS vanilla CALL/PUT, constant decimal volatility,
 piecewise deterministic continuously compounded rate/dividend yield,

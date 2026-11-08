@@ -1,14 +1,20 @@
 # DAL-497 owning PDE risk API decision
 
-Status: active, frozen for schema version 1; product implementation and
-qualification pending. Audience: core/public C++ implementers, Python and
+Status: active, frozen for schema version 1. Core C++ fixed-plan repricing is
+implemented; S3 numerical qualification is **12 PASS / 0 FAIL / 0 INCOMPLETE**
+under the explicit bounded BBS adoption. The
+[final S3 entry](../validation/dal-502-pde-risk-final.md) binds its evidence
+and limits. Public-facade/Python/Excel risk projections and S5 release acceptance
+remain pending. Audience: core/public C++ implementers, Python and
 Excel binding authors, independent numerical testers and risk consumers.
 The [R1–R11 contract](../specs/dal-497-early-exercise-pde-risk.md) owns semantics;
 the [acceptance contract](../specs/dal-497-pde-risk-acceptance.md) owns fixed
 fixtures and thresholds. This decision owns names, types, field order and
-three-end projections. Declaration blocks below specify future APIs only.
+three-end projections. Core declarations are implemented; the other projections
+remain proposed. The [published guide](../../../docs/methodology/pde/early-exercise.md#owning-core-risk-request)
+owns current calling and availability guidance.
 
-## Current surface and decision
+## Design baseline and decision
 
 At master `4e9eb5eb7cae770826e6f4e0a05aeb9bf4c4c44e`,
 `PDE::EvaluateEarlyExercisePde` and its public aliases provide owning prices
@@ -33,7 +39,7 @@ DV01. Active-set/implicit AAD remains a later design.
 
 ## Settings and request
 
-Core declarations go in proposed `dal-cpp/dal/math/pde/earlyexercisepderisk.hpp`.
+Core declarations are in `dal-cpp/dal/math/pde/earlyexercisepderisk.hpp`.
 Numerical types live in `Dal::PDE`. Machinist enum classes live in `Dal` like
 the existing price enums; never handwritten enum classes. Public header
 proposed `dal-public/src/earlyexercisepderisk.hpp` aliases every numerical type
@@ -446,8 +452,10 @@ required and limit. Partial results always preserve readable records and failure
 
 No blocking public-interface choice remains for S1. All method/availability,
 default, schema, unit, budget and acceptance choices above are frozen. Windows
-XLL availability and independent reference convergence are later evidence
-dependencies, not permission to weaken the schema or claim acceptance.
+XLL availability, projection checks and S5 delivery remain evidence dependencies.
+S3 reference admission is resolved for the reviewed fixed fixtures/scales/levels;
+it does not qualify arbitrary inputs or the pending release exits.
 Any failed smooth qualification or unavoidable old-price incompatibility must
 return to DAL-497 with concrete evidence for an explicit decision. Keep the
-current published price documentation until the implemented surfaces exist.
+published core price/risk guidance current; document the other projections
+only when their implemented surfaces exist.

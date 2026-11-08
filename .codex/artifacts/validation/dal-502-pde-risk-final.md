@@ -167,12 +167,15 @@ evaluations**. No unused allocation authorizes another attempt.
 The production significand/exponent solve and per-row residual measurement
 are a significant numerical-method change affecting the existing price API.
 The published [early-exercise guide](../../../docs/methodology/pde/early-exercise.md#original-lcp-residuals)
-therefore gains a small current-state solver explanation, with one
-[CHANGELOG entry](../../../CHANGELOG.md#2026-11-08). The private BBS reference,
+therefore includes a small current-state solver explanation, with one tail-repair
+[CHANGELOG entry](../../../CHANGELOG.md#2026-11-08). Baseline integration
+preserves DAL-506's core risk calling guide, catalog entries and separate
+core-capability CHANGELOG entry, with numerical status reconciled to this
+bounded qualification. The private BBS reference,
 adoption history and qualification tables stay in active artifacts. No new
 methodology file is added or renamed, so the docs and CLAUDE methodology
-catalogs require no structural update. Formal risk API recipes and complete
-examples remain S4/S5 deliverables.
+catalogs retain DAL-506's core-risk coverage. Public/Python/Excel risk API
+recipes and complete release examples remain S4/S5 deliverables.
 
 The accepted production RED/GREEN, 51/51 direct tests, four independent
 80-digit row audits and scoped old-price performance remain applicable.
@@ -187,9 +190,14 @@ source hashes and the production source hash match their accepted identities.
 The reviewed code head `179f50c6` had **36/36 checks passed**; that snapshot
 does not certify a later documentation head. Final-head gate inspection and
 actual merge belong to the coordinator. PR #685 remains draft / no auto merge;
-DAL-502 and parent DAL-497 remain in progress for this handoff. GitHub reports
-the PR conflicting with master at closeout intake; integration must be resolved
-before merge, without treating prior green checks as final-head acceptance.
+DAL-502 and parent DAL-497 remain in progress for this handoff. Baseline
+`cd90d13e6f43c716a06b676bf394d97ef256071f` (DAL-506 / PR #686) is integrated
+by an ordinary merge retaining reviewed commit identities. Four Markdown
+conflicts are reconciled alongside automatically merged status prose;
+DAL-506's documentation-record rename and core calling guide are retained.
+All non-Markdown tracked entries, including code/tests/build/dependencies/CI,
+remain identical to `716a98c23ade677a5d51470b28a9c5314a042709`. Final-head gates
+remain separate from prior green snapshots.
 
 S4 / DAL-503 still waits for actual S3 merge and must implement and validate
 public C++ / Python / Excel projections, strict inputs, copy/lifetime, GIL,

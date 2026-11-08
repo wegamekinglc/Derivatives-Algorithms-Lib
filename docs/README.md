@@ -37,7 +37,11 @@ The [fixed-grid European PDE example](methodology/pde/aad.md) covers complete
 call/put native adjoints and separate derivative/grid-convergence acceptance.
 The [Bermudan/American PDE guide](methodology/pde/early-exercise.md) covers
 deterministic-carry BS vanilla prices, exact dated events, original LCP
-residuals, owning exercise regions and resource limits; this interface has no Greeks.
+residuals, owning exercise regions and resource limits. Its separate
+[core risk request](methodology/pde/early-exercise.md#owning-core-risk-request)
+adds fixed-plan full-repricing Delta, finite-scale Gamma, Vega and native carry
+partials, with numerical qualification limited to fixed fixtures, bump scales
+and refinement levels. Public/Python/Excel risk projections remain pending.
 
 The [market implied-volatility surface guide](models/market-iv-surface.md)
 covers constrained SSVI quote fitting, global static certificates, analytic
