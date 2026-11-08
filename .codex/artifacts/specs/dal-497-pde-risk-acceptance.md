@@ -224,6 +224,39 @@ pilot without another level or favorable intermediate selection. Witness
 failure is FAIL and prevents admission. PASS establishes pilot feasibility
 only; full risk vectors/all bindings and S3 substitution need another decision.
 
+### Approved bounded BBS initialization repair (DAL-502)
+
+Decision `01a1b92b-3d68-7e7e-bfd4-db090418b92d` temporarily releases the
+failed-pilot stop solely for initialization diagnosis, private scalar arithmetic
+repair, error detail and focused regressions, starting from `e0e4c275`.
+Replay only the three saved rejected initialization prefixes or their scalar
+nodes and fixed neighboring/normal witnesses. Recover actual spot/dt,
+d1/d2, probability/discount terms and rejected values before choosing a repair;
+use independent high-precision scalar checks. Preserve finite/nonnegative
+admission; any zero from underflow requires a representability proof.
+
+Additional limits for this batch, including diagnosis and every failed attempt:
+1,000,000 visited/charged initialization nodes, 100,000 BS evaluations,
+60 seconds cumulative numerical execution, at most two workers. Existing
+128 MiB per-worker / 512 MiB aggregate RSS and 64 MiB total raw-output caps
+remain. Maintain an append-only batch ledger and the original BBS totals:
+3,230,701,750 conservatively charged nodes / 3,028,789,320 visited nodes /
+544,860 BS calls already consumed; the complete original reservations of
+5,638,979,836 nodes / 917,672 BS calls are not reset or reassigned. Additional
+use must also fit the original BBS 6e9-node / 2e6-BS limits and the old-CRR
+plus-BBS combined cap 3,003,881,833,992, retaining old CRR cost 2,997,881,833,992.
+Initialization-only work is charged by every actually visited node, not a
+claim of running a complete tree. Count independent scalar checks as BS calls.
+
+This batch does not restart the 84-job pilot, fill unexecuted prices, add
+levels, change the BBS terminal mathematics or replace mandatory TREE. Preserve
+the three old failures and 49 successful old prices with their original
+producer identities. A changed kernel gets a new source/config/executable
+identity and cannot relabel those old prices. Production, ANALYTIC/CRR/LOG-LCP,
+fixtures, thresholds and Q/C/L caps remain unchanged. New-method/repair review
+and any pilot restart remain separate coordinator decisions; N3/N6/N7 stay
+INCOMPLETE, S4 paused, PR #685 draft without auto merge.
+
 ## N1 — European degeneration
 
 Cross product: PUT/CALL; S=80,100,120; q=0,0.03; r=0.05; D0/D1;
