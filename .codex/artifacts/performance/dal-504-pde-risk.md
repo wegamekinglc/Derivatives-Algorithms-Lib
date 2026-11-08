@@ -1,5 +1,9 @@
 # DAL-504 scoped PDE risk performance
 
+Successor: [targeted Codacy repair](../validation/dal-504-codacy-repair.md)
+has its own producer and P2/P3 measurements. Original tables and producer
+`66702eb0` below remain unchanged; affected build-tree binaries have been replaced.
+
 **No regression under frozen P1; all four P2 cases pass both 15% gates.**
 Maximum P2 overhead is **0.944672%**. P3 adds zero native solves/work,
 retains constant native payload and fixed peak detached capacities.

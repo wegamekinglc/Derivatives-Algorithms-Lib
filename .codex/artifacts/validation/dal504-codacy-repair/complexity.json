@@ -1,0 +1,458 @@
+{
+  "engine": "lizard",
+  "version": "1.23.0",
+  "initial": [
+    {
+      "file": ".github/scripts/measure_pde_risk.py",
+      "function": "digest",
+      "ccn": 1
+    },
+    {
+      "file": ".github/scripts/measure_pde_risk.py",
+      "function": "timing_row",
+      "ccn": 1
+    },
+    {
+      "file": ".github/scripts/measure_pde_risk.py",
+      "function": "main.run",
+      "ccn": 4
+    },
+    {
+      "file": ".github/scripts/measure_pde_risk.py",
+      "function": "main.save",
+      "ccn": 1
+    },
+    {
+      "file": ".github/scripts/measure_pde_risk.py",
+      "function": "main",
+      "ccn": 46
+    },
+    {
+      "file": "dal-cpp/benchmarks/pde_risk_perf/pde_risk_perf.cpp",
+      "function": "RunPdeRiskBenchmark",
+      "ccn": 12
+    },
+    {
+      "file": "dal-cpp/benchmarks/pde_risk_perf/reference.hpp",
+      "function": "Dal::PdeRiskBench::Request",
+      "ccn": 9
+    },
+    {
+      "file": "dal-cpp/benchmarks/pde_risk_perf/reference.hpp",
+      "function": "Dal::PdeRiskBench::Membership",
+      "ccn": 12
+    },
+    {
+      "file": "dal-cpp/benchmarks/pde_risk_perf/reference.hpp",
+      "function": "Dal::PdeRiskBench::Boundary",
+      "ccn": 10
+    },
+    {
+      "file": "dal-cpp/benchmarks/pde_risk_perf/reference.hpp",
+      "function": "Dal::PdeRiskBench::FutureChanged",
+      "ccn": 9
+    },
+    {
+      "file": "dal-cpp/benchmarks/pde_risk_perf/reference.hpp",
+      "function": "Dal::PdeRiskBench::UpwindChanged",
+      "ccn": 4
+    },
+    {
+      "file": "dal-cpp/benchmarks/pde_risk_perf/reference.hpp",
+      "function": "Dal::PdeRiskBench::Observe",
+      "ccn": 6
+    },
+    {
+      "file": "dal-cpp/benchmarks/pde_risk_perf/reference.hpp",
+      "function": "Dal::PdeRiskBench::Reference",
+      "ccn": 27
+    },
+    {
+      "file": "dal-cpp/benchmarks/pde_risk_perf/reference.hpp",
+      "function": "Dal::PdeRiskBench::CheckIdentity",
+      "ccn": 18
+    },
+    {
+      "file": "dal-excel/benchmarks/pde_risk_projection/pde_risk_excel_projection.cpp",
+      "function": "Capacity",
+      "ccn": 3
+    },
+    {
+      "file": "dal-excel/benchmarks/pde_risk_projection/pde_risk_excel_projection.cpp",
+      "function": "Nanoseconds",
+      "ccn": 1
+    },
+    {
+      "file": "dal-excel/benchmarks/pde_risk_projection/pde_risk_excel_projection.cpp",
+      "function": "main",
+      "ccn": 10
+    },
+    {
+      "file": "dal-python/benchmarks/pde_risk_projection.py",
+      "function": "request",
+      "ccn": 4
+    },
+    {
+      "file": "dal-python/benchmarks/pde_risk_projection.py",
+      "function": "counters",
+      "ccn": 1
+    },
+    {
+      "file": "dal-python/benchmarks/pde_risk_projection.py",
+      "function": "copies",
+      "ccn": 2
+    },
+    {
+      "file": "dal-python/benchmarks/pde_risk_projection.py",
+      "function": "main",
+      "ccn": 4
+    },
+    {
+      "file": "dal-python/examples/019.early_exercise_pde_risk.py",
+      "function": "valuation",
+      "ccn": 2
+    },
+    {
+      "file": "dal-python/examples/019.early_exercise_pde_risk.py",
+      "function": "display",
+      "ccn": 3
+    },
+    {
+      "file": "dal-python/examples/019.early_exercise_pde_risk.py",
+      "function": "main",
+      "ccn": 2
+    }
+  ],
+  "current": [
+    {
+      "file": ".github/scripts/measure_pde_risk.py",
+      "function": "digest",
+      "ccn": 1
+    },
+    {
+      "file": ".github/scripts/measure_pde_risk.py",
+      "function": "timing_row",
+      "ccn": 1
+    },
+    {
+      "file": ".github/scripts/measure_pde_risk.py",
+      "function": "valid_repeats",
+      "ccn": 3
+    },
+    {
+      "file": ".github/scripts/measure_pde_risk.py",
+      "function": "validated_arguments",
+      "ccn": 7
+    },
+    {
+      "file": ".github/scripts/measure_pde_risk.py",
+      "function": "__init__",
+      "ccn": 1
+    },
+    {
+      "file": ".github/scripts/measure_pde_risk.py",
+      "function": "run",
+      "ccn": 3
+    },
+    {
+      "file": ".github/scripts/measure_pde_risk.py",
+      "function": "save",
+      "ccn": 1
+    },
+    {
+      "file": ".github/scripts/measure_pde_risk.py",
+      "function": "arguments",
+      "ccn": 1
+    },
+    {
+      "file": ".github/scripts/measure_pde_risk.py",
+      "function": "initial_report",
+      "ccn": 2
+    },
+    {
+      "file": ".github/scripts/measure_pde_risk.py",
+      "function": "paired_round",
+      "ccn": 5
+    },
+    {
+      "file": ".github/scripts/measure_pde_risk.py",
+      "function": "p1_sample",
+      "ccn": 8
+    },
+    {
+      "file": ".github/scripts/measure_pde_risk.py",
+      "function": "p1_result",
+      "ccn": 7
+    },
+    {
+      "file": ".github/scripts/measure_pde_risk.py",
+      "function": "measure_p1",
+      "ccn": 3
+    },
+    {
+      "file": ".github/scripts/measure_pde_risk.py",
+      "function": "risk_row",
+      "ccn": 1
+    },
+    {
+      "file": ".github/scripts/measure_pde_risk.py",
+      "function": "calibrate",
+      "ccn": 4
+    },
+    {
+      "file": ".github/scripts/measure_pde_risk.py",
+      "function": "p2_sample",
+      "ccn": 3
+    },
+    {
+      "file": ".github/scripts/measure_pde_risk.py",
+      "function": "p2_result",
+      "ccn": 5
+    },
+    {
+      "file": ".github/scripts/measure_pde_risk.py",
+      "function": "measure_case",
+      "ccn": 2
+    },
+    {
+      "file": ".github/scripts/measure_pde_risk.py",
+      "function": "measure_p2",
+      "ccn": 3
+    },
+    {
+      "file": ".github/scripts/measure_pde_risk.py",
+      "function": "failed_cases",
+      "ccn": 5
+    },
+    {
+      "file": ".github/scripts/measure_pde_risk.py",
+      "function": "finish",
+      "ccn": 6
+    },
+    {
+      "file": ".github/scripts/measure_pde_risk.py",
+      "function": "main",
+      "ccn": 3
+    },
+    {
+      "file": "dal-cpp/benchmarks/pde_risk_perf/pde_risk_perf.cpp",
+      "function": "RepeatCount",
+      "ccn": 3
+    },
+    {
+      "file": "dal-cpp/benchmarks/pde_risk_perf/pde_risk_perf.cpp",
+      "function": "PrintIdentity",
+      "ccn": 2
+    },
+    {
+      "file": "dal-cpp/benchmarks/pde_risk_perf/pde_risk_perf.cpp",
+      "function": "Measure",
+      "ccn": 4
+    },
+    {
+      "file": "dal-cpp/benchmarks/pde_risk_perf/pde_risk_perf.cpp",
+      "function": "RunPdeRiskBenchmark",
+      "ccn": 6
+    },
+    {
+      "file": "dal-cpp/benchmarks/pde_risk_perf/reference.hpp",
+      "function": "Dal::PdeRiskBench::BoundarySpot",
+      "ccn": 3
+    },
+    {
+      "file": "dal-cpp/benchmarks/pde_risk_perf/reference.hpp",
+      "function": "Dal::PdeRiskBench::Request",
+      "ccn": 7
+    },
+    {
+      "file": "dal-cpp/benchmarks/pde_risk_perf/reference.hpp",
+      "function": "Dal::PdeRiskBench::EvaluationExercise",
+      "ccn": 2
+    },
+    {
+      "file": "dal-cpp/benchmarks/pde_risk_perf/reference.hpp",
+      "function": "Dal::PdeRiskBench::Contains",
+      "ccn": 2
+    },
+    {
+      "file": "dal-cpp/benchmarks/pde_risk_perf/reference.hpp",
+      "function": "Dal::PdeRiskBench::ContactMembership",
+      "ccn": 7
+    },
+    {
+      "file": "dal-cpp/benchmarks/pde_risk_perf/reference.hpp",
+      "function": "Dal::PdeRiskBench::Membership",
+      "ccn": 3
+    },
+    {
+      "file": "dal-cpp/benchmarks/pde_risk_perf/reference.hpp",
+      "function": "Dal::PdeRiskBench::RegionBoundary",
+      "ccn": 6
+    },
+    {
+      "file": "dal-cpp/benchmarks/pde_risk_perf/reference.hpp",
+      "function": "Dal::PdeRiskBench::Boundary",
+      "ccn": 4
+    },
+    {
+      "file": "dal-cpp/benchmarks/pde_risk_perf/reference.hpp",
+      "function": "Dal::PdeRiskBench::LevelChanged",
+      "ccn": 5
+    },
+    {
+      "file": "dal-cpp/benchmarks/pde_risk_perf/reference.hpp",
+      "function": "Dal::PdeRiskBench::FutureChanged",
+      "ccn": 6
+    },
+    {
+      "file": "dal-cpp/benchmarks/pde_risk_perf/reference.hpp",
+      "function": "Dal::PdeRiskBench::UpwindChanged",
+      "ccn": 4
+    },
+    {
+      "file": "dal-cpp/benchmarks/pde_risk_perf/reference.hpp",
+      "function": "Dal::PdeRiskBench::Observe",
+      "ccn": 6
+    },
+    {
+      "file": "dal-cpp/benchmarks/pde_risk_perf/reference.hpp",
+      "function": "Dal::PdeRiskBench::CoarseSpot",
+      "ccn": 6
+    },
+    {
+      "file": "dal-cpp/benchmarks/pde_risk_perf/reference.hpp",
+      "function": "Dal::PdeRiskBench::AxisId",
+      "ccn": 4
+    },
+    {
+      "file": "dal-cpp/benchmarks/pde_risk_perf/reference.hpp",
+      "function": "Dal::PdeRiskBench::AxisBump",
+      "ccn": 5
+    },
+    {
+      "file": "dal-cpp/benchmarks/pde_risk_perf/reference.hpp",
+      "function": "Dal::PdeRiskBench::AxisParameter",
+      "ccn": 4
+    },
+    {
+      "file": "dal-cpp/benchmarks/pde_risk_perf/reference.hpp",
+      "function": "Dal::PdeRiskBench::AppendScenario",
+      "ccn": 4
+    },
+    {
+      "file": "dal-cpp/benchmarks/pde_risk_perf/reference.hpp",
+      "function": "Dal::PdeRiskBench::ScenarioMarkets",
+      "ccn": 5
+    },
+    {
+      "file": "dal-cpp/benchmarks/pde_risk_perf/reference.hpp",
+      "function": "Dal::PdeRiskBench::RunScenarios",
+      "ccn": 5
+    },
+    {
+      "file": "dal-cpp/benchmarks/pde_risk_perf/reference.hpp",
+      "function": "Dal::PdeRiskBench::Reference",
+      "ccn": 1
+    },
+    {
+      "file": "dal-cpp/benchmarks/pde_risk_perf/reference.hpp",
+      "function": "Dal::PdeRiskBench::CheckTimeGrid",
+      "ccn": 6
+    },
+    {
+      "file": "dal-cpp/benchmarks/pde_risk_perf/reference.hpp",
+      "function": "Dal::PdeRiskBench::CheckStep",
+      "ccn": 7
+    },
+    {
+      "file": "dal-cpp/benchmarks/pde_risk_perf/reference.hpp",
+      "function": "Dal::PdeRiskBench::CheckPlan",
+      "ccn": 3
+    },
+    {
+      "file": "dal-cpp/benchmarks/pde_risk_perf/reference.hpp",
+      "function": "Dal::PdeRiskBench::CheckScenario",
+      "ccn": 2
+    },
+    {
+      "file": "dal-cpp/benchmarks/pde_risk_perf/reference.hpp",
+      "function": "Dal::PdeRiskBench::CheckIdentity",
+      "ccn": 3
+    },
+    {
+      "file": "dal-excel/benchmarks/pde_risk_projection/pde_risk_excel_projection.cpp",
+      "function": "Capacity",
+      "ccn": 3
+    },
+    {
+      "file": "dal-excel/benchmarks/pde_risk_projection/pde_risk_excel_projection.cpp",
+      "function": "Nanoseconds",
+      "ccn": 1
+    },
+    {
+      "file": "dal-excel/benchmarks/pde_risk_projection/pde_risk_excel_projection.cpp",
+      "function": "Prepare",
+      "ccn": 1
+    },
+    {
+      "file": "dal-excel/benchmarks/pde_risk_projection/pde_risk_excel_projection.cpp",
+      "function": "CopyTemplates",
+      "ccn": 2
+    },
+    {
+      "file": "dal-excel/benchmarks/pde_risk_projection/pde_risk_excel_projection.cpp",
+      "function": "ReadTables",
+      "ccn": 3
+    },
+    {
+      "file": "dal-excel/benchmarks/pde_risk_projection/pde_risk_excel_projection.cpp",
+      "function": "Measure",
+      "ccn": 5
+    },
+    {
+      "file": "dal-excel/benchmarks/pde_risk_projection/pde_risk_excel_projection.cpp",
+      "function": "main",
+      "ccn": 3
+    },
+    {
+      "file": "dal-python/benchmarks/pde_risk_projection.py",
+      "function": "request",
+      "ccn": 4
+    },
+    {
+      "file": "dal-python/benchmarks/pde_risk_projection.py",
+      "function": "counters",
+      "ccn": 1
+    },
+    {
+      "file": "dal-python/benchmarks/pde_risk_projection.py",
+      "function": "copies",
+      "ccn": 2
+    },
+    {
+      "file": "dal-python/benchmarks/pde_risk_projection.py",
+      "function": "validate_projection",
+      "ccn": 6
+    },
+    {
+      "file": "dal-python/benchmarks/pde_risk_projection.py",
+      "function": "main",
+      "ccn": 4
+    },
+    {
+      "file": "dal-python/examples/019.early_exercise_pde_risk.py",
+      "function": "valuation",
+      "ccn": 2
+    },
+    {
+      "file": "dal-python/examples/019.early_exercise_pde_risk.py",
+      "function": "display",
+      "ccn": 5
+    },
+    {
+      "file": "dal-python/examples/019.early_exercise_pde_risk.py",
+      "function": "main",
+      "ccn": 7
+    }
+  ]
+}

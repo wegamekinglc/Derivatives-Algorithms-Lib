@@ -1,0 +1,11 @@
+{
+  "commands": 212,
+  "same_order_and_arguments": true,
+  "identical_reductions": [
+    "P1",
+    "P2",
+    "calibration",
+    "preflight"
+  ],
+  "initial_commands_sha256": "f9ce999b1c6a7907401447c08dc4ca70d6af4f39958f5566a2fc107b947a66e8"
+}

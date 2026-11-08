@@ -1,5 +1,9 @@
 # DAL-504 S5 owning PDE risk delivery
 
+Successor: the accepted main scope at `2cca0bf6` is retained. The
+[targeted Codacy repair](dal-504-codacy-repair.md) records new tool producer
+`6497255a` and affected P2/P3 evidence. Receipts below retain original identities.
+
 S5 supplies component-owned examples, standalone core/installed consumer
 checks and scoped [performance evidence](../performance/dal-504-pde-risk.md):
 P1/P2 pass both frozen rounds and P3 preserves native counters/payload.
