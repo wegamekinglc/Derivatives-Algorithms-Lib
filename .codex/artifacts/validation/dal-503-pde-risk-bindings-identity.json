@@ -1,6 +1,219 @@
 {
   "schema_version": 1,
-  "raw_archive": {"filename":"dal-503-bindings-evidence.tar.gz","sha256":"7a715733eda770dc9c4e623169a6226bb6dce05e6f918e34fe701f01e628cf68","bytes":59626,"log_files":55},
+  "review_repair": {
+    "reviewed_head": "a795e679b1e19bbaac9898f8ef64ec16ef654c0a",
+    "source_commit": "bfe35d7cae7a32700609e2a61c466c1e217fa824",
+    "source_sha256": {
+      "dal-excel/auto/MG_EarlyExercisePdeRiskRequest_Get_Settings_public.inc": "5422cbc240e8e47de2de0bbe3eb223cc73746483d8430ba5de837aeadc4a2cd3",
+      "dal-excel/auto/MG_EarlyExercisePdeRiskRequest_Get_Valuation_public.inc": "f200374b7167e062ab1606d8cb2b2939a1da39ff1d96aa62bbc4b9c15fbe13ab",
+      "dal-excel/auto/MG_EarlyExercisePdeRiskRequest_New_public.inc": "647d907ef19e4ebb1481dfceb6949f49488c3eb3981d7fbc34baf7878c38757d",
+      "dal-excel/auto/MG_EarlyExercisePdeRiskResult_Get_BaseResult_public.inc": "fdd1689cad7b46efa43abc2ad0e9561b572de520878a424d9bef9f31a407e607",
+      "dal-excel/auto/MG_EarlyExercisePdeRiskResult_Get_BumpOrigins_public.inc": "a3002fd9961798af6003cd57775811731ecdaeb9a9662f5605017c741940a243",
+      "dal-excel/auto/MG_EarlyExercisePdeRiskResult_Get_Execution_public.inc": "4e0d0581fbefe86804bcc1122ad57f67404156eef9cd4e2dd58a42e66fe8c4f2",
+      "dal-excel/auto/MG_EarlyExercisePdeRiskResult_Get_PlanGrid_public.inc": "3130339a42bb5a1dba97fd33c4001fe0fd3dd3b65ee5b445ab0ca1e24527cfa1",
+      "dal-excel/auto/MG_EarlyExercisePdeRiskResult_Get_PlanSteps_public.inc": "635aa1ab2c3f9bab364c11a98369ce5c6e62a2d420ae1000b9d12465ae45b223",
+      "dal-excel/auto/MG_EarlyExercisePdeRiskResult_Get_PlanTimeGrid_public.inc": "143377eafa2ddd16cb23b031f5a322e6c6fc0cda7133d679fc04f5937edf1d2d",
+      "dal-excel/auto/MG_EarlyExercisePdeRiskResult_Get_Plan_public.inc": "e3e9d3e2c3b51fa061be5c5cbe73196db3b393cc0dde48fb7f84e6dad0236a7f",
+      "dal-excel/auto/MG_EarlyExercisePdeRiskResult_Get_Price_public.inc": "79d1fd7326434953752f310af686cfb41f815080ec5946001d3878daa9177c71",
+      "dal-excel/auto/MG_EarlyExercisePdeRiskResult_Get_Request_public.inc": "d9aabeb06df8da4c57936d660a890107124311935ea05577fd8af7f573e2eeb2",
+      "dal-excel/auto/MG_EarlyExercisePdeRiskResult_Get_ResolvedSettings_public.inc": "de6745d941a3f793e342340096e4becd6d8d70f2e450526d3afd7efc4466fa85",
+      "dal-excel/auto/MG_EarlyExercisePdeRiskResult_Get_RiskValue_public.inc": "6aaf154d01533c6976a4e67aff19cc2b6d520b38a2ea902b86b2e626b70fa675",
+      "dal-excel/auto/MG_EarlyExercisePdeRiskResult_Get_Risks_public.inc": "5d3be1b576a127abc32d8e50f3ecf1d0093007617f8c75f9e8b437b1f161afe3",
+      "dal-excel/auto/MG_EarlyExercisePdeRiskResult_Get_Scenarios_public.inc": "164c9886a3c85b3e68287274d7b87e6acd71e2734fb447a3eb3e71092043bd7d",
+      "dal-excel/auto/MG_EarlyExercisePdeRiskResult_Get_Stencils_public.inc": "358b97481737117eb3f5bc1e654fcab8ec42e3357dd5deef629976fdd7b19749",
+      "dal-excel/auto/MG_EarlyExercisePdeRiskResult_Get_Summary_public.inc": "c164b846ac194805f89db8fe97c4b55897794fb9f7df7b9c2ba804bd62c2a1d8",
+      "dal-excel/auto/MG_EarlyExercisePdeRiskResult_New_public.inc": "d082c274eefaa874d7262bcfa98284ab1a95c7e6a70a6e1b73361e94ad35c9f9",
+      "dal-excel/auto/MG_EarlyExercisePdeRiskSettings_Get_CarryBumps_public.inc": "926886fb167352399085863cd23d004da18be616272409717fc6799ca05f3ee0",
+      "dal-excel/auto/MG_EarlyExercisePdeRiskSettings_Get_Configuration_public.inc": "d084541ce413e71ce535e079e7a2adc957209ed9152f20b96f15433790cbd97b",
+      "dal-excel/auto/MG_EarlyExercisePdeRiskSettings_New_public.inc": "4646c6e51437e52d4ef4f37a8a7e1602ca49e3bd0dfcdae1b8e86753afcd966b",
+      "dal-excel/src/__earlyexercisepderisk.cpp": "fcec2ff238ce8289f260a116b0fd406765c7dda24284fa81ff2d2730b148e854",
+      "dal-excel/src/__earlyexercisepderiskinput.hpp": "1baf7b2d813959bd99230e672956dcba513d45affc3de4b861804a4f573b578c",
+      "dal-excel/tests/earlyexerciseinputprobe.in": "71a3dc63627ce7c9f0f78909fdc11cb09d144bf23dbd437fd2918b49481fc5ad",
+      "dal-excel/tests/test_early_exercise_pde_risk.cpp": "05c68d7bee0930fdd796d9012cedd4e510956403be7ef6b1723808e9d61b522e",
+      "dal-excel/tests/test_early_exercise_pde_risk_input.py": "2a538b9a292cbf8923c414007748fa5b66271fcd21365596dc3547ac9f246433",
+      "dal-python/src/bindings/earlyexercisepderisk.cpp": "a69dbe59759643018a63cba8376c619eacb087efe704e6f237a667b51cee14b7",
+      "docs/methodology/pde/early-exercise.md": "f6707571f50bb2ad0352188744b58e30b3fb6a1f40d91a8764c4b78f64d64ed8"
+    },
+    "binaries": {
+      "build/s4/dal-excel/dal_excel_portable_tests": {
+        "sha256": "fec632962c3f2b8d8cf4420c05a02078b542f8a529ce488ee9e3307161176c0e",
+        "bytes": 13271872
+      },
+      "build/s4/dal-python/dal/_dal.cpython-313-x86_64-linux-gnu.so": {
+        "sha256": "5f7153e8d1093727445e8a2b730762bd293e1e3edb145d939d4685dc8c030e68",
+        "bytes": 15559416
+      },
+      "build/s4/dal-cpp/libdal_cpp.so.1.0.0": {
+        "sha256": "6e4279ffd6b7ef31835951471eeba9bd68381e66e58c3f452ec7e7aef6f63dae",
+        "bytes": 22745464
+      },
+      "build/s4/dal-python/_dal_pde_risk_test.cpython-313-x86_64-linux-gnu.so": {
+        "sha256": "57273571e722aef83c4e2f2f58945bf82ad8db3f004a2af4f1217b5484dc47a3",
+        "bytes": 300056
+      },
+      "build/s4/dal-excel/CMakeFiles/dal_excel_portable_tests.dir/src/__earlyexercisepderisk.cpp.o": {
+        "sha256": "21ca8399abd85f52633f8686e3d9080c2eedc945f121029cb3cdc965d08fbea8",
+        "bytes": 250000
+      },
+      "build/s4/dal-excel/CMakeFiles/dal_excel_portable_tests.dir/tests/test_early_exercise_pde_risk.cpp.o": {
+        "sha256": "073baf7d82a262b9494e191514d68bafba3fc357116cd06ada250927ae9c1249",
+        "bytes": 705424
+      },
+      "build/s4/dal-python/CMakeFiles/_dal.dir/src/bindings/earlyexercisepderisk.cpp.o": {
+        "sha256": "b0ce543f42eefa047d9bb1db12ce99aff1f52cd73a4c83d6ed255e848c00523a",
+        "bytes": 10841144
+      },
+      "../s4-repair-probe-red/probe": {
+        "sha256": "80a53c5ffdd72684fbaba9e089dbb2a4be5bcac2b287727ad68ef28e08de7f63",
+        "bytes": 282840
+      },
+      "../s4-repair-probe-final/probe": {
+        "sha256": "8a89ded8e5963897ee68b6a82cad90ad3696c4ed3863e66d2af9ee6a5312068a",
+        "bytes": 288064
+      }
+    },
+    "original_flags_equal": {
+      "build/s4/dal-cpp/CMakeFiles/dal_cpp.dir/flags.make": true,
+      "build/s4/dal-public/CMakeFiles/dal_public.dir/flags.make": true,
+      "build/s4/dal-python/CMakeFiles/_dal.dir/flags.make": true,
+      "build/s4/dal-python/CMakeFiles/_dal_pde_risk_test.dir/flags.make": true,
+      "build/s4/dal-excel/CMakeFiles/dal_excel_portable_tests.dir/flags.make": true,
+      "build/s4-consumer/CMakeFiles/dal_installed_core_pde_risk.dir/flags.make": true,
+      "build/s4-consumer/CMakeFiles/dal_installed_public_pde_risk.dir/flags.make": true
+    },
+    "submodules": [
+      "3147391d946bb4b6c68edd901f2add6ac1f31f8c dal-cpp/externals/eigen (3.4.0)",
+      " d72f9c8aea6817cdf1ca0ac10887f328de7f3da2 dal-cpp/externals/googletest (release-1.8.0-3627-gd72f9c8a)",
+      " e76b0ef243ca9bd506bb2f3743d8c9b52ee8d01d dal-cpp/externals/machinist (heads/master)",
+      " 8a099e44b3d5f85b20f05828d919d2332a8de841 dal-cpp/externals/pybind11 (v2.11.1)",
+      " ea152ded01708ff1657b275ed0bcbf0681d64519 dal-cpp/externals/rapidjson (heads/master)",
+      " ba96d0b1161f540656efdaed035b3c062b60e006 dal-cpp/externals/rapidjson/thirdparty/gtest (release-1.8.0-1003-gba96d0b1)"
+    ],
+    "selected_pybind11": "3.0.4",
+    "reused_binary_match": {
+      "build/s4/dal-cpp/libdal_cpp.so.1.0.0": true,
+      "build/s4/dal-public/libdal_public.a": true,
+      "build/s4/dal-public/dal_public_tests": true,
+      "build/s4/dal-python/_dal_pde_risk_test.cpython-313-x86_64-linux-gnu.so": true,
+      "build/s4-core-only/dal-cpp/libdal_cpp.so.1.0.0": true,
+      "build/s4-consumer/dal_installed_core_pde_risk": true,
+      "build/s4-consumer/dal_installed_public_pde_risk": true,
+      "../s4-stage/lib/libdal_cpp.so.1.0.0": true,
+      "build/s4-core-only/dal-cpp/examples/methods/european_fd/european_fd": true,
+      "build/s4-core-only/dal-cpp/examples/methods/european_aad_fd/european_aad_fd": true
+    },
+    "red_probe": {
+      "compile_command": [
+        "g++-15",
+        "-std=c++17",
+        "-O2",
+        "-I/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib",
+        "-I/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib/dal-cpp",
+        "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib/../s4-repair-probe-red/probe.cpp",
+        "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib/build/s4/dal-excel/CMakeFiles/dal_excel_portable_tests.dir/src/__earlyexercisepderisk.cpp.o",
+        "-L/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib/build/s4/dal-cpp",
+        "-Wl,-rpath,/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib/build/s4/dal-cpp",
+        "-ldal_cpp",
+        "-o",
+        "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib/../s4-repair-probe-red/probe"
+      ],
+      "source_sha256": "126a99f2eda1dffb3e0786540378e5a8c2074f0df2c34a16c3fafaf8a1087fa1",
+      "executable_sha256": "80a53c5ffdd72684fbaba9e089dbb2a4be5bcac2b287727ad68ef28e08de7f63",
+      "generated_sha256": {
+        "MG_EarlyExercisePdeRiskRequest_Get_Settings_public.inc": "df62b5cdf125b9d50aedd1fc608b06704c723e161f09c04cadb99308efbbc41d",
+        "MG_EarlyExercisePdeRiskRequest_Get_Valuation_public.inc": "a2894ed463ad195adf1af9f4e9b184c64d79312bbc31280ad6a3993de7a0136b",
+        "MG_EarlyExercisePdeRiskRequest_New_public.inc": "893d64abedd5d724e98a133a909e92e3fd36ad13d8f63b7549937e0268d6f39e",
+        "MG_EarlyExercisePdeRiskResult_Get_BaseResult_public.inc": "80375ae4d1853981528704af9be2bf6b8a193bd119246025e2732e177c0c0f21",
+        "MG_EarlyExercisePdeRiskResult_Get_BumpOrigins_public.inc": "f1c356f48805a61c31edd5e85c042e51b43c4e091f3bc8758ab21a3dbb6eb59e",
+        "MG_EarlyExercisePdeRiskResult_Get_Execution_public.inc": "73748612337996ba04bb2e7d43db379a236b055de54a687177f324683a895e23",
+        "MG_EarlyExercisePdeRiskResult_Get_PlanGrid_public.inc": "be850c4162c0e80b8b654e0a4452afd0dfa46c33178ab3576c77ba61c6cb8b26",
+        "MG_EarlyExercisePdeRiskResult_Get_PlanSteps_public.inc": "49fbc815a7bda1b58da388887b96dd9e5dfd90fa19a45cc964677f7cd9c3b932",
+        "MG_EarlyExercisePdeRiskResult_Get_PlanTimeGrid_public.inc": "e0bb70ed7ed395133fd2ec802dcc8043e075a9f930cd691b9f0b071be964bcf2",
+        "MG_EarlyExercisePdeRiskResult_Get_Plan_public.inc": "30aa3abaf90040343739e89ae4d8d60e479b3ff9f0815060319af71a4432aa42",
+        "MG_EarlyExercisePdeRiskResult_Get_Price_public.inc": "6035ba72bb2244f5c8988b0bf264e2c56b023367998eb06374cd4f362ff7cccd",
+        "MG_EarlyExercisePdeRiskResult_Get_Request_public.inc": "e4040ff7167ba2fcbbc585ac6d41e301b96b735713d11cc4067d74f3bd197b5b",
+        "MG_EarlyExercisePdeRiskResult_Get_ResolvedSettings_public.inc": "5b0c1ad376146b02a44b28f490ff64f722a004a46cfb72b86516380774573591",
+        "MG_EarlyExercisePdeRiskResult_Get_RiskValue_public.inc": "059c80037996ceade12ca1bf66d9586c82ef1f268b908130eee790aa98a06b1c",
+        "MG_EarlyExercisePdeRiskResult_Get_Risks_public.inc": "27ca117ad8a7d40eff816c17f3b23cdb22b2f3e76cc2c578c1885818e77a9755",
+        "MG_EarlyExercisePdeRiskResult_Get_Scenarios_public.inc": "608de82f784b777dba2334379794cfaec04db3ac4a4f35114c5b554adc5c8d50",
+        "MG_EarlyExercisePdeRiskResult_Get_Stencils_public.inc": "f708898f3ce9b00b94da0c6136c08b12480ed291da88411a92dbf871bbc5d856",
+        "MG_EarlyExercisePdeRiskResult_Get_Summary_public.inc": "b6cc6a8ad66e34c0700f126c2b3131170ab3d2bdd77400aacba87f56b8c36581",
+        "MG_EarlyExercisePdeRiskResult_New_public.inc": "3d26469a02d46dfd1e2f5320817f4286595bb512005ed7409d1746f8a764d5cc",
+        "MG_EarlyExercisePdeRiskSettings_Get_CarryBumps_public.inc": "db9fbf7c73c5f5c3d3aa921d7874f220de9b68b17d509e86270b598abc0a7464",
+        "MG_EarlyExercisePdeRiskSettings_Get_Configuration_public.inc": "3251092ad02bc1a79a3013baaee2126b1ec07b3c0330de025609477abc1e8046",
+        "MG_EarlyExercisePdeRiskSettings_New_public.inc": "f072781b6791ebe38190f2f252f96cd1265275da91b3cc0ffae40b50958ccf99"
+      },
+      "scope": "Production generated bodies and input helpers with isolated OPER/registry/return adapters; not Windows ABI."
+    },
+    "green_probe": {
+      "compile_command": [
+        "g++-15",
+        "-std=c++17",
+        "-O2",
+        "-I/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib",
+        "-I/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib/dal-cpp",
+        "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib/../s4-repair-probe-final/probe.cpp",
+        "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib/build/s4/dal-excel/CMakeFiles/dal_excel_portable_tests.dir/src/__earlyexercisepderisk.cpp.o",
+        "-L/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib/build/s4/dal-cpp",
+        "-Wl,-rpath,/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib/build/s4/dal-cpp",
+        "-ldal_cpp",
+        "-o",
+        "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-503-492264c3588c/workdir/Derivatives-Algorithms-Lib/../s4-repair-probe-final/probe"
+      ],
+      "source_sha256": "343eb0920da80b26809b442e002982debe2b6ecde8007639e0acec552018056f",
+      "executable_sha256": "8a89ded8e5963897ee68b6a82cad90ad3696c4ed3863e66d2af9ee6a5312068a",
+      "generated_sha256": {
+        "MG_EarlyExercisePdeRiskRequest_Get_Settings_public.inc": "5422cbc240e8e47de2de0bbe3eb223cc73746483d8430ba5de837aeadc4a2cd3",
+        "MG_EarlyExercisePdeRiskRequest_Get_Valuation_public.inc": "f200374b7167e062ab1606d8cb2b2939a1da39ff1d96aa62bbc4b9c15fbe13ab",
+        "MG_EarlyExercisePdeRiskRequest_New_public.inc": "647d907ef19e4ebb1481dfceb6949f49488c3eb3981d7fbc34baf7878c38757d",
+        "MG_EarlyExercisePdeRiskResult_Get_BaseResult_public.inc": "fdd1689cad7b46efa43abc2ad0e9561b572de520878a424d9bef9f31a407e607",
+        "MG_EarlyExercisePdeRiskResult_Get_BumpOrigins_public.inc": "a3002fd9961798af6003cd57775811731ecdaeb9a9662f5605017c741940a243",
+        "MG_EarlyExercisePdeRiskResult_Get_Execution_public.inc": "4e0d0581fbefe86804bcc1122ad57f67404156eef9cd4e2dd58a42e66fe8c4f2",
+        "MG_EarlyExercisePdeRiskResult_Get_PlanGrid_public.inc": "3130339a42bb5a1dba97fd33c4001fe0fd3dd3b65ee5b445ab0ca1e24527cfa1",
+        "MG_EarlyExercisePdeRiskResult_Get_PlanSteps_public.inc": "635aa1ab2c3f9bab364c11a98369ce5c6e62a2d420ae1000b9d12465ae45b223",
+        "MG_EarlyExercisePdeRiskResult_Get_PlanTimeGrid_public.inc": "143377eafa2ddd16cb23b031f5a322e6c6fc0cda7133d679fc04f5937edf1d2d",
+        "MG_EarlyExercisePdeRiskResult_Get_Plan_public.inc": "e3e9d3e2c3b51fa061be5c5cbe73196db3b393cc0dde48fb7f84e6dad0236a7f",
+        "MG_EarlyExercisePdeRiskResult_Get_Price_public.inc": "79d1fd7326434953752f310af686cfb41f815080ec5946001d3878daa9177c71",
+        "MG_EarlyExercisePdeRiskResult_Get_Request_public.inc": "d9aabeb06df8da4c57936d660a890107124311935ea05577fd8af7f573e2eeb2",
+        "MG_EarlyExercisePdeRiskResult_Get_ResolvedSettings_public.inc": "de6745d941a3f793e342340096e4becd6d8d70f2e450526d3afd7efc4466fa85",
+        "MG_EarlyExercisePdeRiskResult_Get_RiskValue_public.inc": "6aaf154d01533c6976a4e67aff19cc2b6d520b38a2ea902b86b2e626b70fa675",
+        "MG_EarlyExercisePdeRiskResult_Get_Risks_public.inc": "5d3be1b576a127abc32d8e50f3ecf1d0093007617f8c75f9e8b437b1f161afe3",
+        "MG_EarlyExercisePdeRiskResult_Get_Scenarios_public.inc": "164c9886a3c85b3e68287274d7b87e6acd71e2734fb447a3eb3e71092043bd7d",
+        "MG_EarlyExercisePdeRiskResult_Get_Stencils_public.inc": "358b97481737117eb3f5bc1e654fcab8ec42e3357dd5deef629976fdd7b19749",
+        "MG_EarlyExercisePdeRiskResult_Get_Summary_public.inc": "c164b846ac194805f89db8fe97c4b55897794fb9f7df7b9c2ba804bd62c2a1d8",
+        "MG_EarlyExercisePdeRiskResult_New_public.inc": "d082c274eefaa874d7262bcfa98284ab1a95c7e6a70a6e1b73361e94ad35c9f9",
+        "MG_EarlyExercisePdeRiskSettings_Get_CarryBumps_public.inc": "926886fb167352399085863cd23d004da18be616272409717fc6799ca05f3ee0",
+        "MG_EarlyExercisePdeRiskSettings_Get_Configuration_public.inc": "d084541ce413e71ce535e079e7a2adc957209ed9152f20b96f15433790cbd97b",
+        "MG_EarlyExercisePdeRiskSettings_New_public.inc": "4646c6e51437e52d4ef4f37a8a7e1602ca49e3bd0dfcdae1b8e86753afcd966b"
+      },
+      "scope": "Production generated bodies and input helpers with isolated OPER/registry/return adapters; not Windows ABI."
+    },
+    "results": {
+      "red_probe": {
+        "failed": 13,
+        "passed": 4
+      },
+      "green_probe": {
+        "passed": 17
+      },
+      "python_risk": {
+        "passed": 119,
+        "skipped": 0
+      },
+      "excel_risk_portable": {
+        "passed": 8
+      },
+      "native_windows_generated_entries": "NOT_EXECUTED",
+      "codacy_new_head": "PENDING_ACTUAL_CHECK"
+    },
+    "scope": "Only three affected translation units rebuilt and existing targets relinked with CMake commands; unchanged core, public, installed, S3 evidence reused."
+  },
+  "raw_archive": {
+    "filename": "dal-503-bindings-evidence.tar.gz",
+    "sha256": "7a715733eda770dc9c4e623169a6226bb6dce05e6f918e34fe701f01e628cf68",
+    "bytes": 59626,
+    "log_files": 55
+  },
   "baseline": "cf0895477e6b9ddefdd2ef41865d3213c24aaeec",
   "implementation_commit": "7b3e5e0b309867c6d388d7c2c8f483fba36e8053",
   "platform": "Linux-5.15.167.4-microsoft-standard-WSL2-x86_64-with-glibc2.43",

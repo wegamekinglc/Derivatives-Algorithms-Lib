@@ -1,15 +1,106 @@
 # DAL-503 S4 owning PDE risk projections
 
-Implementation source: `7b3e5e0b309867c6d388d7c2c8f483fba36e8053`,
+Initial implementation source: `7b3e5e0b309867c6d388d7c2c8f483fba36e8053`,
 on baseline `cf0895477e6b9ddefdd2ef41865d3213c24aaeec` (merged S2/S3).
-This record accompanies the same dedicated S4 branch/PR. Subsequent documentation
-commits do not change that implementation. The
+This record accompanies the same dedicated S4 branch/PR. The review repair below
+updates the bindings; the initial receipt and producer identities remain intact. The
 [identity manifest](dal-503-pde-risk-bindings-identity.json) binds source files,
 dependencies, configurations, linked libraries and executables.
 
 Local projection checks pass. **Windows/MSVC/XLL remains NOT EXECUTED**;
 this is an implementation handoff for focused review, not full feature
 acceptance. S5 examples/performance/release work remains separate.
+
+## Review repair
+
+Repair source: `bfe35d7cae7a32700609e2a61c466c1e217fa824`; reviewed head:
+`a795e679b1e19bbaac9898f8ef64ec16ef654c0a`. The `review_repair` object in the
+identity manifest records this batch separately from the initial receipt.
+Review findings are from comment `01a1bb47-1a48-7501-b1ab-db6ebbeb8e3b`;
+original annotations/probes are attachment `01a1bb47-1910-778a-b0e5-8040ce6d7a19`.
+
+1. Raw settings keys and risk IDs now require exact ASCII before the shared
+   wide-to-narrow converter runs. U+0164 + elta and U+0144 + elta cannot
+   impersonate canonical keys/IDs. Names retain their existing text policy.
+2. Every S4 generated input uses an S4-specific Machinist translator.
+   String/table validation precedes conversion; typed handle failures retain
+   `InvalidEarlyExercisePdeRiskRequest`, the argument and original error.
+   The previous post-conversion insert statements are removed. The shared
+   converter, generator templates, signatures, schema and numerical source
+   are unchanged.
+3. The seven original Codacy annotations map to these bounded extractions:
+   Python's local `read()` callback is renamed `convert()`;
+   `Arguments` delegates positional/keyword binding;
+   enum registration moves to `BindEnums`;
+   `Scalars` delegates scalar/spot value parsing;
+   scenario optional fields use `OptionalMember`;
+   the long `Parity` becomes per-table comparisons;
+   its repeated failure branches use `SameMember`. Original cell/field
+   assertions and all admission thresholds remain. No ignore rule is added.
+   These are source repairs; Codacy acceptance still requires the new head's
+   actual check result.
+4. The guide's introduction and owning-risk section now agree with its
+   implemented public/Python/Excel section, while retaining the Windows gap.
+
+New isolated regression compiles the **actual 22 generated entry bodies**,
+production raw guards, production string conversion and typed-handle cast.
+Only OPER storage, registry lookup, cell-matrix mapping, registration and return
+adapters are isolated. It checks original wide characters, non-string
+name/risk_id, and wrong result/request/valuation/risk/settings handle types.
+This is not a Windows ABI or live-Excel test.
+
+- RED at the reviewed source: **13 FAIL / 4 PASS**, including the two
+  non-ASCII collisions and eleven conversion-context paths.
+- After raw-input repair: **17/17 PASS**; after extraction/refactor:
+  **17/17 PASS** again.
+- Rebuilt affected Excel translation units and relinked: **8/8 portable risk
+  tests PASS**, preserving all table/schema/failure comparisons.
+- Rebuilt the Python binding translation unit and relinked: **119/119 risk
+  tests PASS**, zero skips, including strict arguments, enums, ownership,
+  GIL, tape and direct-core comparisons.
+- Generated drift check, 138-file documentation check and whitespace checks
+  pass. No unrelated unit matrix, core/example/installed rebuild, S3 numerical
+  qualification or S5 performance is repeated.
+
+```bash
+DAL_S4_PROBE_DIR="$PWD/../s4-repair-probe-red" python3 -m pytest \
+  dal-excel/tests/test_early_exercise_pde_risk_input.py -q
+cmake --build build/s4 --target dal_generate -j 4
+make -C build/s4 -f dal-excel/CMakeFiles/dal_excel_portable_tests.dir/build.make \
+  dal-excel/CMakeFiles/dal_excel_portable_tests.dir/src/__earlyexercisepderisk.cpp.o \
+  dal-excel/CMakeFiles/dal_excel_portable_tests.dir/tests/test_early_exercise_pde_risk.cpp.o -j 2
+make -C build/s4 -f dal-python/CMakeFiles/_dal.dir/build.make \
+  dal-python/CMakeFiles/_dal.dir/src/bindings/earlyexercisepderisk.cpp.o -j 2
+```
+
+Then run `cmake -E cmake_link_script CMakeFiles/<target>.dir/link.txt` from
+the corresponding `build/s4/dal-excel` and `build/s4/dal-python` directories.
+The targets are `dal_excel_portable_tests` and `_dal`. Final commands:
+
+```bash
+DAL_S4_PROBE_DIR="$PWD/../s4-repair-probe-final" python3 -m pytest \
+  dal-excel/tests/test_early_exercise_pde_risk_input.py -q
+build/s4/dal-excel/dal_excel_portable_tests --gtest_filter='ExcelEarlyExercisePdeRiskTest.*'
+python3 -S dal-python/tests/run_build_pytest.py build/s4/dal-python \
+  /home/wegamekinglc/anaconda3/lib/python3.13/site-packages \
+  dal-python/tests/test_early_exercise_pde_risk.py -q
+cmake --build build/s4 --target dal_check_generated -j 4
+python3 .github/scripts/check_docs.py
+git diff --check
+```
+
+The original compiler/dependencies/configuration are retained, including
+pybind11 3.0.4. All recorded flags match the initial receipt; unchanged core,
+public/native-observer, installed-consumer and example binary hashes match.
+The core SHA256 remains `6e4279ffd6b7ef31835951471eeba9bd68381e66e58c3f452ec7e7aef6f63dae`.
+
+Two Windows-only tests now call actual generated XLL exports through
+`GetProcAddress` with raw Unicode, numeric/Boolean/error cells and wrong
+typed repository handles. They replace the old direct-validator-only test.
+**Neither new native test has executed on this Linux host.** Actual
+Windows/MSVC/XLL build, registration/help and workbook COMPLETE/PARTIAL
+remain separate pending evidence. The new-head CI/Codacy snapshot is delivered
+with the issue handoff; pending evidence is not relabeled PASS.
 
 ## Implementation and scope
 
