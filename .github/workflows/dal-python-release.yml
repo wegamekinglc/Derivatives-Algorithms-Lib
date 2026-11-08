@@ -53,6 +53,12 @@ jobs:
       - name: Check out pinned dependencies
         run: python .github/scripts/checkout_dependencies.py
 
+      - name: Prepare pinned wheel virtualenv
+        if: runner.os != 'Linux'
+        run: >-
+          python .github/scripts/prepare_wheel_virtualenv.py
+          --cache-dir "${{ runner.temp }}/dal-cibuildwheel"
+
       - name: Build and test wheels
         uses: pypa/cibuildwheel@f9b966cfadf4109556cadc5bb39ddb72d0ce664e # v4.3.5
         with:

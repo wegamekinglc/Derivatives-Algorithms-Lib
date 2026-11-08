@@ -5,11 +5,13 @@ on:
     paths:
       - .github/scripts/check_dal_python_syntax.py
       - .github/scripts/check_docs.py
+      - .github/scripts/prepare_wheel_virtualenv.py
       - .github/scripts/tests/test_check_docs.py
       - .github/scripts/tests/test_python_helpers*.py
       - .github/scripts/tests/test_python_release.py
       - .github/scripts/tests/test_python_smoke.py
       - .github/scripts/tests/test_python_syntax.py
+      - .github/scripts/tests/test_prepare_wheel_virtualenv.py
       - .github/workflows/dal-python-ci.yml
       - .github/scripts/checkout_dependencies.py
       - .github/workflows/dal-python-release.yml
@@ -49,6 +51,12 @@ jobs:
           uv run --isolated --no-project --python 3.9 python
           .github/scripts/check_dal_python_syntax.py
 
+      - name: Test verified wheel preparation
+        run: >-
+          uv run --isolated --no-project --python 3.9 python
+          -m unittest discover -s .github/scripts/tests
+          -p test_prepare_wheel_virtualenv.py -v
+
   wheels:
     name: ${{ matrix.platform }} wheels
     needs: prepare
@@ -87,6 +95,12 @@ jobs:
         run: >-
           uv run --isolated --no-project --python 3.13 python
           .github/scripts/tests/test_python_helpers.py -v
+
+      - name: Prepare pinned wheel virtualenv
+        if: runner.os != 'Linux'
+        run: >-
+          python .github/scripts/prepare_wheel_virtualenv.py
+          --cache-dir "${{ runner.temp }}/dal-cibuildwheel"
 
       - name: Build and test wheels
         uses: pypa/cibuildwheel@f9b966cfadf4109556cadc5bb39ddb72d0ce664e # v4.3.5
