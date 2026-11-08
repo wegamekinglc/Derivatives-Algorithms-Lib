@@ -38,7 +38,7 @@ class WheelVirtualenvTest(unittest.TestCase):
             self.assertEqual(target.name, "virtualenv-21.14.13.pyz")
             self.assertEqual(target.read_bytes(), PAYLOAD)
             self.assertEqual([call.args[0].full_url for call in download.call_args_list], list(PREPARE.URLS))
-            self.assertEqual(list(Path(temporary).iterdir()), [target])
+            self.assertEqual(list(Path(temporary).resolve().iterdir()), [target])
             self.sleep.assert_called_once_with(3)
             self.assertEqual(download.call_args.kwargs["timeout"], PREPARE.TIMEOUT)
             self.assertEqual(download.call_args.args[0].get_header("Accept"), "application/octet-stream")
@@ -79,7 +79,7 @@ class WheelVirtualenvTest(unittest.TestCase):
         ) as download:
             target = Path(temporary) / ("virtualenv-%s.pyz" % PREPARE.VIRTUALENV_VERSION)
             target.write_bytes(PAYLOAD)
-            self.assertEqual(PREPARE.prepare(Path(temporary)), target)
+            self.assertEqual(PREPARE.prepare(Path(temporary)), target.resolve())
             download.assert_not_called()
 
     def test_corrupt_existing_cache_fails_without_relabeling_or_refetch(self):
@@ -119,7 +119,7 @@ class WheelVirtualenvTest(unittest.TestCase):
             target = PREPARE.prepare(Path(temporary))
             self.assertEqual(download.call_count, 2)
             self.assertEqual(target.read_bytes(), PAYLOAD)
-            self.assertEqual(list(Path(temporary).iterdir()), [target])
+            self.assertEqual(list(Path(temporary).resolve().iterdir()), [target])
 
     def test_success_exports_exact_cache_to_following_action(self):
         with tempfile.TemporaryDirectory() as temporary, patch.object(PREPARE, "VIRTUALENV_SHA256", DIGEST), patch.object(
