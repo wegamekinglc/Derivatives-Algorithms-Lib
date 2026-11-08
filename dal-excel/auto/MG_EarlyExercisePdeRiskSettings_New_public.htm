@@ -1,0 +1,39 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>EarlyExercisePdeRiskSettings_New</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>EarlyExercisePdeRiskSettings_New (in Excel: EARLYEXERCISEPDERISKSETTINGS.NEW)</h1>
+Create owning early exercise risk settings and cumulative budgets
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>name</td><td>string</td><td></td><td>Object name</td></tr>
+<tr><td>settings</td><td>matrix of cells</td><td>yes</td><td>Headerless canonical scalar key/value rows; blank uses defaults</td></tr>
+<tr><td>carry_bumps</td><td>matrix of cells</td><td>yes</td><td>Headerless rate/yield bump columns; each blank column defaults independently</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>settingsHandle</td><td>handle of type StorableEarlyExercisePdeRiskSettings</td><td>Owning settings</td></tr>
+</table>
+
+
+
+
+
+

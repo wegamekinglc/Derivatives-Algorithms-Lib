@@ -246,6 +246,7 @@ pybind11_add_module(_dal
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/lsmccurvature.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/europeanpderisk.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/earlyexercisepde.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/earlyexercisepderisk.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/marketivsurface.cpp)
 
 if(DAL_PYTHON_USES_INSTALLED_PUBLIC)
@@ -333,6 +334,18 @@ if(DAL_PYTHON_BUILD_TESTS)
     enable_testing()
     target_sources(_dal PRIVATE tests/native/xccymontecarlo.cpp tests/native/xccymontecarlobasket.cpp)
     target_compile_definitions(_dal PRIVATE DAL_XCCY_TEST_BRIDGE)
+    pybind11_add_module(_dal_pde_risk_test NO_EXTRAS tests/native/earlyexercisepderisk.cpp)
+    # A separate module with core visibility shares the shared library's inline TLS tape.
+    set_target_properties(_dal_pde_risk_test PROPERTIES CXX_VISIBILITY_PRESET default VISIBILITY_INLINES_HIDDEN OFF)
+    target_link_libraries(_dal_pde_risk_test PRIVATE ${DAL_PUBLIC_TARGET})
+    if(DAL_PYTHON_USES_INSTALLED_PUBLIC)
+        dal_cpp_apply_msvc_runtime(_dal_pde_risk_test)
+    endif()
+    set_target_properties(_dal_pde_risk_test PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+    add_custom_command(TARGET _dal_pde_risk_test POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:_dal_pde_risk_test>" "${CMAKE_CURRENT_BINARY_DIR}/")
+    add_dependencies(_dal _dal_pde_risk_test)
 
     if(NOT DAL_PYTHON_IS_TOPLEVEL)
         pybind11_add_module(_dal_quote_risk_test tests/native/jointquoterisk.cpp)

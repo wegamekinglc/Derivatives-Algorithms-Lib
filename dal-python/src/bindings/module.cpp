@@ -111,5 +111,6 @@ PYBIND11_MODULE(_dal, m) {
     init_bindings_lsmccurvature(m);
     init_bindings_europeanpderisk(m);
     init_bindings_earlyexercisepde(m);
+    init_bindings_earlyexercisepderisk(m);
     init_bindings_marketivsurface(m);
 }
