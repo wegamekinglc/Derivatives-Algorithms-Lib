@@ -5,6 +5,7 @@ import importlib.util
 import io
 import os
 from pathlib import Path
+import socket
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -22,6 +23,18 @@ DIGEST = hashlib.sha256(PAYLOAD).hexdigest()
 
 def http_error(code):
     return urllib.error.HTTPError(PREPARE.URLS[0], code, "test failure", {}, None)
+
+
+class BodyTimeout(io.BytesIO):
+    def __init__(self, error):
+        super().__init__(b"partial body")
+        self.error = error
+
+    def read(self, count=-1):
+        chunk = super().read(count)
+        if chunk:
+            return chunk
+        raise self.error
 
 
 class WheelVirtualenvTest(unittest.TestCase):
@@ -93,7 +106,7 @@ class WheelVirtualenvTest(unittest.TestCase):
             download.assert_not_called()
             self.assertEqual(target.read_bytes(), b"old corrupt bytes")
 
-    def test_socket_timeout_recovers_but_certificate_failure_does_not_retry(self):
+    def test_builtin_timeout_recovers_but_certificate_failure_does_not_retry(self):
         with tempfile.TemporaryDirectory() as temporary, patch.object(PREPARE, "VIRTUALENV_SHA256", DIGEST), patch.object(
             PREPARE.urllib.request, "urlopen", side_effect=[TimeoutError("timed out"), io.BytesIO(PAYLOAD)]
         ):
@@ -104,6 +117,65 @@ class WheelVirtualenvTest(unittest.TestCase):
             with self.assertRaises(urllib.error.URLError):
                 PREPARE.prepare(Path(temporary))
             self.assertEqual(download.call_count, 1)
+
+    def test_socket_body_timeout_cleans_partial_before_recovery_and_export(self):
+        interrupted = BodyTimeout(socket.timeout("timed out reading response body"))
+        with tempfile.TemporaryDirectory() as temporary, patch.object(PREPARE, "VIRTUALENV_SHA256", DIGEST), patch.object(
+            PREPARE.urllib.request, "urlopen", side_effect=[interrupted, io.BytesIO(PAYLOAD)]
+        ) as download:
+            root = Path(temporary)
+            cache = root / "cache"
+            environment = root / "github.env"
+            environment.write_text("EXISTING=preserved\n", encoding="utf-8")
+            self.sleep.side_effect = lambda delay: self.assertEqual(list(cache.iterdir()), [])
+            with patch.dict(os.environ, {"GITHUB_ENV": str(environment)}):
+                PREPARE.main(["--cache-dir", str(cache)])
+            target = cache / ("virtualenv-%s.pyz" % PREPARE.VIRTUALENV_VERSION)
+            self.assertTrue(interrupted.closed)
+            self.assertEqual(target.read_bytes(), PAYLOAD)
+            self.assertEqual(list(cache.iterdir()), [target])
+            self.assertEqual([call.args[0].full_url for call in download.call_args_list], list(PREPARE.URLS))
+            self.sleep.assert_called_once_with(3)
+            self.assertEqual(environment.read_text(encoding="utf-8"), "EXISTING=preserved\nCIBW_CACHE_PATH=%s\n" % cache.resolve())
+
+    def test_socket_body_timeout_exhaustion_cleans_partial_and_never_exports(self):
+        errors = [socket.timeout("body timeout %d" % attempt) for attempt in range(PREPARE.ATTEMPTS)]
+        responses = [BodyTimeout(error) for error in errors]
+        with tempfile.TemporaryDirectory() as temporary, patch.object(
+            PREPARE.urllib.request, "urlopen", side_effect=responses
+        ) as download:
+            root = Path(temporary)
+            cache = root / "cache"
+            environment = root / "github.env"
+            environment.write_text("EXISTING=preserved\n", encoding="utf-8")
+            self.sleep.side_effect = lambda delay: self.assertEqual(list(cache.iterdir()), [])
+            with patch.dict(os.environ, {"GITHUB_ENV": str(environment)}), self.assertRaises(socket.timeout) as raised:
+                PREPARE.main(["--cache-dir", str(cache)])
+            self.assertIs(raised.exception, errors[-1])
+            self.assertEqual(download.call_count, PREPARE.ATTEMPTS)
+            self.assertEqual([call.args[0].full_url for call in download.call_args_list], list(PREPARE.URLS) * 3)
+            self.assertEqual([call.args[0] for call in self.sleep.call_args_list], [3, 6, 12, 24, 48])
+            self.assertTrue(all(response.closed for response in responses))
+            self.assertEqual(list(cache.iterdir()), [])
+            self.assertEqual(environment.read_text(encoding="utf-8"), "EXISTING=preserved\n")
+
+    def test_ordinary_file_failure_propagates_without_retry_or_export(self):
+        with tempfile.TemporaryDirectory() as temporary, patch.object(PREPARE, "VIRTUALENV_SHA256", DIGEST):
+            root = Path(temporary)
+            environment = root / "github.env"
+            environment.write_text("EXISTING=preserved\n", encoding="utf-8")
+            for error in (OSError("disk failure"), PermissionError("read-only destination")):
+                with self.subTest(error=type(error).__name__), patch.object(
+                    PREPARE.urllib.request, "urlopen", return_value=io.BytesIO(PAYLOAD)
+                ) as download, patch.object(Path, "replace", side_effect=error), patch.dict(
+                    os.environ, {"GITHUB_ENV": str(environment)}
+                ), self.assertRaises(type(error)) as raised:
+                    PREPARE.main(["--cache-dir", str(root / "cache")])
+                self.assertIs(raised.exception, error)
+                self.assertEqual(download.call_count, 1)
+                self.sleep.assert_not_called()
+                self.assertEqual(list((root / "cache").iterdir()), [])
+                self.assertEqual(environment.read_text(encoding="utf-8"), "EXISTING=preserved\n")
 
     def test_interrupted_body_is_removed_before_retry(self):
         class Interrupted(io.BytesIO):

@@ -6,6 +6,7 @@ import http.client
 import os
 from pathlib import Path
 import shutil
+import socket
 import ssl
 import sys
 import tempfile
@@ -67,7 +68,7 @@ def prepare(cache):
         try:
             fetch(target, URLS[attempt % len(URLS)])
             return target
-        except (urllib.error.URLError, TimeoutError, ConnectionError, http.client.IncompleteRead) as error:
+        except (urllib.error.URLError, socket.timeout, TimeoutError, ConnectionError, http.client.IncompleteRead) as error:
             if not transient(error) or attempt == ATTEMPTS - 1:
                 raise
             delay = 3 * 2 ** attempt
