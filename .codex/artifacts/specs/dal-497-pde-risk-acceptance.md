@@ -1,7 +1,12 @@
 # DAL-497 fixed acceptance fixtures and performance gates
 
-Status: active S0 acceptance contract, version 1. All product checks below
-are **NOT EXECUTED** at S0. These are requirements, not measured results.
+Status: active acceptance contract, version 1, with explicit bounded-reference
+decisions below. S0 froze requirements without executing product checks.
+S3 now qualifies N1–N12 as **12 PASS / 0 FAIL / 0 INCOMPLETE** under the
+[final reference adoption](#adopted-bounded-bbs-tree-reference-dal-502).
+The [final qualification entry](../validation/dal-502-pde-risk-final.md)
+owns the applicable evidence and remaining S4/S5 gates. Requirements below
+do not by themselves establish binding, performance or release acceptance.
 Read together with the [R1–R11 contract](dal-497-early-exercise-pde-risk.md)
 and [API schema](../api-notes/dal-497-early-exercise-pde-risk.md).
 Source baseline is `4e9eb5eb7cae770826e6f4e0a05aeb9bf4c4c44e`.
@@ -137,6 +142,9 @@ piecewise smooth stress. Shared `dal-cpp/test-support/bermudan_pde.hpp` may
 cross-check but cannot be the sole independent oracle. Fixed reference levels
 that fail self-qualification stop that qualification; expansion requires
 recorded evidence and an explicit follow-up decision, not a hidden retry.
+The original pure-CRR construction above and the bounded decisions below
+retain their checkpoint scopes. The final BBS adoption below controls current
+TREE admission for its explicitly enumerated bindings only.
 
 ### Approved bounded TREE continuation (DAL-502)
 
@@ -363,6 +371,47 @@ mandatory TREE substitution requires the complete proof, affected product
 hard gates, independent review and explicit coordinator adoption. The current
 9 PASS / 3 INCOMPLETE, N3/N6/N7 gaps, draft/no-auto-merge PR, in-progress
 DAL-502 and paused S4 remain unchanged until then.
+
+### Adopted bounded BBS TREE reference (DAL-502)
+
+Coordinator decision `01a1ba61-8784-74fe-89bf-29c603550a07` explicitly adopts
+the reviewed `BBS-last-step-v1`, including stable tail arithmetic from
+`8607092c8ccd6c9c1c2df1a08387577112e9570b`, as a qualified independent TREE
+reference for the twelve frozen constant-carry actual bump bindings in
+[binding-summary.json](../validation/dal502-bbs-candidate/binding-summary.json).
+Native executable SHA256 is
+`f6a72ce4dc17ac5bd62562ff33e73a21db4cac94aae0e36d5ff26a4bf5b8b518`.
+
+Adoption uses the corrected full-vector proof at
+`8c3e272e2b2e94140642dfc054fe54a4701ab599` and required-layer failure
+propagation / same-raw replay at `179f50c6f3f7a6ca9f7dfcfdac808ba3d505f3f7`.
+Independent review `01a1ba5e-e528-78af-84d9-418441d1b104` closes the last
+P2; preceding production, method, pilot and candidate reviews remain applicable.
+This decision releases the earlier candidate-only / no-substitution restriction
+for this set and accepts N3/N6/N7. N1–N12 therefore total **12 PASS / 0 FAIL /
+0 INCOMPLETE**, as mapped in the final qualification entry.
+
+Every binding retains all six normalized components, its actual coarse/fine/
+extra-half scales, and paired 4096/4097, 8192/8193, 16384/16385 levels.
+Final mesh, raw parity and fine-to-extra-half differences still satisfy the
+original strict quarter limits. Every required product layer must pass its
+existing mandatory-smooth, solver-residual and capacity predicates; these
+failures propagate through direction and N6/N7 summaries, including cached
+direction results. Reference accuracy remains a finest-product-layer gate;
+an intermediate reference-accuracy failure alone does not tighten that rule.
+
+Product hard limits, fixtures, Q/C/L caps and all resource accounts remain
+unchanged. Pure-CRR FAIL/INCOMPLETE, old-producer values and superseded analyses
+retain their original identities and verdicts. This adoption authorizes no
+new computation, layer, retry or allocation. It establishes measured
+qualification only for the reviewed fixtures/scales/levels, not a rigorous
+continuous-model error bound or arbitrary-input qualification.
+
+S3 numerical/code blockers are closed. PR #685 stays draft without auto merge;
+DAL-502 and DAL-497 stay in progress pending coordinator delivery confirmation
+and final-head gates. S4 still requires actual S3 merge. Binding projections,
+S5 performance/installed consumers/examples and real Windows XLL evidence
+remain separate exits; the N result does not accept the whole feature.
 
 ## N1 — European degeneration
 

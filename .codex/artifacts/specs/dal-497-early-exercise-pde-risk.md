@@ -1,8 +1,11 @@
 # DAL-497 early-exercise PDE risk contract
 
 Status: active S0 contract, schema version 1. Controls S1–S5 of DAL-497.
-This specifies future behavior; it establishes no implemented capability or
-numerical qualification. Product tests, builds and benchmarks are not part of S0.
+S1/S2 implement the core; S3 numerical qualification is **12 PASS / 0 FAIL /
+0 INCOMPLETE** under the explicit bounded BBS adoption in the acceptance
+contract. The [final S3 entry](../validation/dal-502-pde-risk-final.md) binds
+evidence and review identities. Public/Python/Excel risk projections and full
+S5 release acceptance remain pending; S0 itself executed no product checks.
 
 Authority: accepted P3 plan, attachment `01a1b747-5bcd-777f-ba24-cbcabee04578`,
 and execution authorization in comment `01a1b749-b0bc-7cea-aa9f-ca21159a276d`.
@@ -35,7 +38,8 @@ Source contracts examined:
   `dal-cpp/benchmarks/pde_perf/pde_perf.cpp` and component-owned examples.
 
 Existing #602 evidence is historical, not qualification for this feature.
-The published method guide continues to describe price-only behavior until S5.
+The published method guide describes the existing price interface and solver
+arithmetic. Full risk-interface documentation and examples remain S4/S5 work.
 
 Scope is one-dimensional BS vanilla CALL/PUT, constant decimal volatility,
 piecewise deterministic continuously compounded rate/dividend yield,

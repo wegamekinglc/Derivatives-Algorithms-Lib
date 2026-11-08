@@ -16,6 +16,15 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-11-08
+
+- **Early-exercise PDE diffusion tails** — retain binary64 significands with
+  separate integer exponents during private triangular solves and measure
+  physical componentwise residuals per row. Short-expiry and wide-domain
+  tails avoid loss of significant digits and residual underflow while keeping
+  the original linear/LCP limits and resource contracts. See the
+  [solver method](docs/methodology/pde/early-exercise.md#original-lcp-residuals).
+
 ## 2026-11-07
 
 - Add a runnable public compounded OIS example with mixed history/projection,

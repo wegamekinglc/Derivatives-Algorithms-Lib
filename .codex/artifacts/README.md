@@ -37,8 +37,8 @@ An implemented interface does not establish full numerical acceptance.
 ## Controlling API Decisions
 
 - [DAL-497 owning early-exercise PDE risk](api-notes/dal-497-early-exercise-pde-risk.md)
-  — Active S0 schema, defaults, availability and C++/Python/Excel projections;
-  implementation and qualification remain pending.
+  — Frozen schema, defaults, availability and projection contract; core
+  implemented and S3 numerically qualified, S4 bindings / S5 delivery pending.
 - [DAL-398 shared script contract](api-notes/dal-398-script-contract.md).
 - [DAL-410 domestic-collateral Gaussian model](api-notes/dal-410-xccy-mc-model-decision.md).
 - [Prepared mixed-mapping XCCY basket allocation](api-notes/dal-xccy-mixed-mapping-basket.md).
@@ -49,7 +49,11 @@ An implemented interface does not establish full numerical acceptance.
   — Fixed-plan full repricing, finite-scale Gamma, ownership, cumulative budgets
   and compatibility controlling S1–S5.
 - [DAL-497 acceptance fixtures and gates](specs/dal-497-pde-risk-acceptance.md)
-  — Frozen N1–N12 inputs/thresholds, B1–B10 and scoped performance acceptance.
+  — Frozen N1–N12 inputs/thresholds, explicit bounded BBS adoption, B1–B10
+  and scoped performance acceptance.
+- [DAL-502 final S3 qualification](validation/dal-502-pde-risk-final.md)
+  — Single current qualification entry: 12 PASS / 0 FAIL / 0 INCOMPLETE,
+  applicable identities/reviews, final resources and remaining release gates.
 - [DAL-502 numerical qualification](validation/dal-502-pde-risk-qualification.md)
   — Original S3 product FAIL/CRR INCOMPLETE checkpoint, preserved with its
   original source identities.
@@ -57,10 +61,23 @@ An implemented interface does not establish full numerical acceptance.
   — Accepted production repair, strict RED/GREEN, direct tests, independent
   row audit and scoped performance.
 - [DAL-502 bounded reference follow-up](validation/dal-502-pde-risk-followup.md)
-  — Current affected qualification: 9 PASS / 0 FAIL / 3 INCOMPLETE; mandatory
-  TREE remains unqualified at the approved maximum. S4 stays paused.
+  — Preserved 9 PASS / 3 INCOMPLETE checkpoint and pure-CRR stop; analytic,
+  LOG-LCP and current-library evidence reused only within recorded provenance.
+- [DAL-502 American directions / view repair](validation/dal-502-american-directions.md)
+  — Completed captures, fourteen separated directions and source-bound audit
+  repair; original finest-CRR INCOMPLETE results retained.
+- [DAL-502 original BBS pilot](validation/dal-502-bbs-pilot.md),
+  [initialization repair](validation/dal-502-bbs-initialization-repair.md) and
+  [repaired-producer restart](validation/dal-502-bbs-restart.md)
+  — Distinct producers, failed/stopped evidence, arithmetic witnesses and
+  bounded spot-only controls with separate resource accounts.
+- [DAL-502 full-risk BBS candidate](validation/dal-502-bbs-candidate.md) and
+  [required-layer propagation repair](validation/dal-502-candidate-p2.md)
+  — Twelve actual-scale full-vector proofs and same-raw affected product
+  replay, adopted only by the final decision; checkpoint verdicts unchanged.
 
-The DAL-497 controls are active requirements, not product validation evidence.
+The DAL-497 specifications are requirements; the final entry maps S3 validation
+evidence without accepting pending binding, performance or release controls.
 Historical early-exercise #602 evidence below does not qualify DAL-497 risk.
 
 ## XCCY Implementation and Acceptance Controls
