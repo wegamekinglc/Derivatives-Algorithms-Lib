@@ -306,6 +306,64 @@ results without reevaluation. The corrected full-plan BS expectation is
 plus six. Preserve original reservations and execution receipts separately;
 all caps, inputs, method and qualification rules above remain unchanged.
 
+### Approved BBS full-risk candidate stage (DAL-502)
+
+Decision `01a1b95b-ac6f-7cd2-8896-f5662f183e8b`, baseline
+`9af285a8971d34d7d74bf04288f60a527b10ec0a`, authorizes one candidate
+qualification of all twelve existing actual TREE bump bindings and four N3
+markets, at the unchanged 4096/4097, 8192/8193, 16384/16385 pairs. Freeze and
+commit this control and the exact plan before numerical execution. The native
+kernel stays `f6a72ce4dc17ac5bd62562ff33e73a21db4cac94aae0e36d5ff26a4bf5b8b518`;
+no source/configuration/executable change or CRR/old-producer bridge is allowed.
+
+The 132 physical-input union requires 792 prices. Reuse only the repaired
+producer restart's 84 American spot rows after checking physical input,
+axis/offset use, n, method/source/configuration/executable, original job ID,
+raw-file hash and payload hash. Reuse its complete 29-row witness receipt,
+4/4 repair regression and 41 high-precision proofs without evaluation.
+The remaining **708 prices reserve 41,587,475,848 nodes / 6,766,946 BS**.
+There are no new scalar/witness evaluations in this plan; any new computation
+would require reservation and accounting within the same limits, never an
+unrecorded follow-up. An identity miss must stop planning if the resulting
+reservation exceeds the caps; it cannot reset old consumption.
+
+New-stage limits: 42e9 charged nodes / 7e6 BS, 600 seconds for the complete
+numerical window, at most four native workers, RSS128 MiB each / total512 MiB,
+raw64 MiB. Split the frozen jobs into ten deterministic balanced shards,
+each within the unchanged native per-batch 6e9-node / 2e6-BS admission cap;
+run at most four concurrently under address-space limits. One failed worker
+prevents launching further shards; collect all in-flight results before exit.
+Preserve every raw failure/partial output. Missing/nonfinite rows, exhausted
+resources or final self-qualification failure stop the stage: no retry,
+new level, favorable intermediate selection or automatic kernel repair.
+
+Retain BBS actual consumption **8,869,730,816 nodes / 1,511,876 BS**, including
+the six imported review BS calls. Explicitly raise independent BBS cumulative
+caps to **51e9 nodes / 9e6 BS**, with expected cumulative totals
+**50,457,206,664 nodes / 8,278,822 BS**. Original CRR cost remains
+**2,997,881,833,992** and the combined node hard cap is
+**3,048,881,833,992**. Keep prior actual, new reserved and new actual work
+separate. Charge all executed/failed work, conservatively reserving unknown
+partial work; never spend unused reservations on another attempt.
+
+For every binding retain all three actual coarse/fine/extra-half scales and
+the complete six-component vector [Price/K, Delta, K*Gamma, Vega/K, Rate[0]/K,
+DividendYield[0]/K]. Each scale's final mesh and raw parity, plus final
+fine-to-extra-half, must strictly satisfy the original quarter limits
+[2.5e-5, 5e-4, 5e-3, 7.5e-4, 7.5e-4, 7.5e-4]. All three paired levels and
+both raw members remain visible. A truncated/nonfinite vector cannot pass.
+
+Only after reference admission, read the already reviewed owning captures
+and fourteen American direction sequences without changing them or rerunning
+product pricing. Recompute candidate N3/N6/N7 errors against each actual
+binding, keep mandatory smooth/status/residual/budget predicates, and reuse
+source-bound recorded premium/continuation controls without fresh scalar BS.
+Unqualified bindings cannot publish an error PASS. This remains a candidate:
+mandatory TREE substitution requires the complete proof, affected product
+hard gates, independent review and explicit coordinator adoption. The current
+9 PASS / 3 INCOMPLETE, N3/N6/N7 gaps, draft/no-auto-merge PR, in-progress
+DAL-502 and paused S4 remain unchanged until then.
+
 ## N1 — European degeneration
 
 Cross product: PUT/CALL; S=80,100,120; q=0,0.03; r=0.05; D0/D1;
