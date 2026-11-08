@@ -1,0 +1,114 @@
+{
+  "baseline": "f51471f224d2cd3c37f04b28e49e948174b55bdc",
+  "implementation_commit": "ba8f909125da683d2afe1ae024f37c6ab7dd7286",
+  "cibuildwheel_revision": "f9b966cfadf4109556cadc5bb39ddb72d0ce664e",
+  "upstream": {
+    "cibuildwheel/venv.py": {
+      "url": "https://raw.githubusercontent.com/pypa/cibuildwheel/f9b966cfadf4109556cadc5bb39ddb72d0ce664e/cibuildwheel/venv.py",
+      "sha256": "f10e4479b8312514e56dba604ff9f7c7173142636ccc13b378b7507e86370729"
+    },
+    "cibuildwheel/util/file.py": {
+      "url": "https://raw.githubusercontent.com/pypa/cibuildwheel/f9b966cfadf4109556cadc5bb39ddb72d0ce664e/cibuildwheel/util/file.py",
+      "sha256": "a56be9761b7ec08d2d0e2c04ac64a9f484171c2ab7702bb1fdfeb744793f10df"
+    },
+    "cibuildwheel/resources/virtualenv.toml": {
+      "url": "https://raw.githubusercontent.com/pypa/cibuildwheel/f9b966cfadf4109556cadc5bb39ddb72d0ce664e/cibuildwheel/resources/virtualenv.toml",
+      "sha256": "18c11cc27959e262ae8ddf797daca7199074c53bb87ab2fc410301cb4f3a1439"
+    },
+    "action.yml": {
+      "url": "https://raw.githubusercontent.com/pypa/cibuildwheel/f9b966cfadf4109556cadc5bb39ddb72d0ce664e/action.yml",
+      "sha256": "3e84938b5b9383737f288aedaa865f93bfcdeb400e39de63b355cff00d9d93cc"
+    }
+  },
+  "upstream_asset": {
+    "assets": [
+      {
+        "browser_download_url": "https://github.com/pypa/get-virtualenv/releases/download/21.14.13/virtualenv.pyz",
+        "digest": "sha256:215e29d6c8e2a4bf5f509828368629bbe7eddb847dcfee862db0f84e6df40047",
+        "id": 666956820,
+        "name": "virtualenv.pyz",
+        "size": 12474880,
+        "url": "https://api.github.com/repos/pypa/get-virtualenv/releases/assets/666956820"
+      }
+    ],
+    "tag_name": "21.14.13"
+  },
+  "source_sha256": {
+    ".github/scripts/prepare_wheel_virtualenv.py": "4e2340c2c0202e895a52e37d4eec6763f4bdde6a39293723152d0b94700481d9",
+    ".github/scripts/tests/test_prepare_wheel_virtualenv.py": "c48ba7cd3c9af2345918b60d5a5f95267e7c17747ef40465a42b1ec0f95d6cf3",
+    ".github/workflows/dal-python-ci.yml": "7c82e71f7d615ebbcc4b8489bf572a265346d5aac57e7bb4655c1c858f9ef394",
+    ".github/workflows/dal-python-release.yml": "5ca14f53f01a7032c775374069627910ed45d35f4ea89ba7fa48b9b980178e20",
+    "dal-python/pyproject.toml": "d6bd9025e5924c03a97151c921d4da462fe808cb9e2348862952d8050b71f89c"
+  },
+  "protected_product_diff": "",
+  "python": {
+    "current": "3.13.9",
+    "executable_sha256": "c061d599e256eea644a26974999b5f154ded2dd1b066e90b4b6e6a8d24dec955",
+    "python39": "Python 3.9.25",
+    "python39_executable_sha256": "84c920f304e265c53096e42d83309c6f7b829988f937a7dd15c24eebcb63f59a"
+  },
+  "platform": "Linux-5.15.167.4-microsoft-standard-WSL2-x86_64-with-glibc2.43",
+  "uv": "uv 0.11.19 (x86_64-unknown-linux-gnu)",
+  "baseline_failure_logs": {
+    "macos-arm64": {
+      "sha256": "72b7ab775d12d796c41e81be66d73e677b399ce301ca47b4ab2e93ad4dd737b3",
+      "bytes": 251223
+    },
+    "windows-amd64": {
+      "sha256": "cb22dbe0e5692ecbf29d7404560b105891821f12753ec97624db3a3ef6d2f183",
+      "bytes": 131758
+    }
+  },
+  "live_archive": {
+    "bytes": 12474880,
+    "sha256": "215e29d6c8e2a4bf5f509828368629bbe7eddb847dcfee862db0f84e6df40047"
+  },
+  "verification": {
+    "status": "PASS",
+    "upstream_cache_getter": [
+      {
+        "python": "3.9",
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-wheel-prepare/live-cache/virtualenv-21.14.13.pyz",
+        "version": "21.14.13",
+        "sha256": "215e29d6c8e2a4bf5f509828368629bbe7eddb847dcfee862db0f84e6df40047",
+        "network_calls": 0
+      },
+      {
+        "python": "3.14",
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-wheel-prepare/live-cache/virtualenv-21.14.13.pyz",
+        "version": "21.14.13",
+        "sha256": "215e29d6c8e2a4bf5f509828368629bbe7eddb847dcfee862db0f84e6df40047",
+        "network_calls": 0
+      }
+    ],
+    "workflows": [
+      {
+        "path": ".github/workflows/dal-python-ci.yml",
+        "matrix_identical": true,
+        "build_step_identical": true,
+        "existing_steps_identical": true
+      },
+      {
+        "path": ".github/workflows/dal-python-release.yml",
+        "matrix_identical": true,
+        "build_step_identical": true,
+        "existing_steps_identical": true
+      }
+    ],
+    "contract": "Original pinned AST functions with real FileLock/Version; network disabled; no wheel or product build."
+  },
+  "tests": {
+    "bootstrap_python39": {
+      "tests": 11,
+      "failures": 0
+    },
+    "existing_helpers": {
+      "tests": 17,
+      "passed": 11,
+      "skipped": 6
+    },
+    "python39_package_syntax_files": 157
+  },
+  "local_limits": "PowerShell executable/.NET/Windows-only runtime tests unavailable locally; unchanged Windows CI steps retained.",
+  "policy": "Only preparation retries network failures; cache SHA pinned; existing build/test steps and selectors preserved."
+}
