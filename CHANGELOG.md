@@ -16,6 +16,15 @@ Each entry is a short bullet under a dated heading, in the form:
 
 Only add a heading when a qualifying change ships. Do not create empty future headings.
 
+## 2026-11-08
+
+- Add owning core C++ early-exercise PDE risk on a shared fixed numerical plan:
+  Delta, finite-scale Gamma, Vega and native carry partials, with per-risk
+  unavailability, passive caller-tape preservation and cumulative work/storage
+  budgets. Public-facade/Python/Excel projections and full independent numerical
+  qualification remain pending. See the
+  [risk contract](docs/methodology/pde/early-exercise.md#owning-core-risk-request).
+
 ## 2026-11-07
 
 - Add a runnable public compounded OIS example with mixed history/projection,

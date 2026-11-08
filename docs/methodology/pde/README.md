@@ -8,6 +8,12 @@ carry Black–Scholes requests, prices, exercise regions and failure diagnostics
 through core C++, the public facade, Python and Excel. The separate Bermudan
 helper used to validate [LSM](../monte-carlo/lsm.md) remains test support.
 
+The separate [owning core risk request](early-exercise.md#owning-core-risk-request)
+uses fixed-plan full repricing for Delta, finite-scale Gamma, Vega and native
+carry partials, with explicit per-risk availability and cumulative budgets.
+Risk projections to the public facade, Python and Excel remain planned;
+full independent numerical qualification is pending.
+
 [Fixed-grid European prices and adjoints](aad.md) demonstrates complete native
 AAD rollback with terminal/boundary risks and separate derivative/convergence
 acceptance.

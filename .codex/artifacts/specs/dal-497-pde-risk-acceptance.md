@@ -2,6 +2,9 @@
 
 Status: active S0 acceptance contract, version 1. All product checks below
 are **NOT EXECUTED** at S0. These are requirements, not measured results.
+Core risk implementation now has deterministic coverage in
+`dal-cpp/tests/math/pde/test_early_exercise_pde_risk.cpp`; it does not complete
+this independent financial/refinement and cross-interface qualification matrix.
 Read together with the [R1–R11 contract](dal-497-early-exercise-pde-risk.md)
 and [API schema](../api-notes/dal-497-early-exercise-pde-risk.md).
 Source baseline is `4e9eb5eb7cae770826e6f4e0a05aeb9bf4c4c44e`.
