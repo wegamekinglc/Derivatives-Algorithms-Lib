@@ -1,0 +1,2134 @@
+{
+  "N1-0-80-0": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N1-0-80-0.json.gz",
+        "sha256": "a73348993785b726a9857dfa3073b65fc936cca104d99b35044d11326878a151"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N1-0-80-0.input.json",
+        "sha256": "1d036eab659fe1df6001089d31924211f5fb9d2dd8c45941641f9d71b08bb916"
+      }
+    }
+  },
+  "N1-0-80-0.03": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N1-0-80-0.03.json.gz",
+        "sha256": "05cc1d54b0a8ee309bf58afaaae52d06e116f3a89929f5506c443754c749ff05"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N1-0-80-0.03.input.json",
+        "sha256": "51c59e469374ceea396b03f0252c77d7cb5afadadd53e2f42266445e59d0e05d"
+      }
+    }
+  },
+  "N1-0-100-0": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N1-0-100-0.json.gz",
+        "sha256": "43b0d68c192c1a6aa109ec54cccc192d6d23197ee8c853d078bd7eece9019b35"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N1-0-100-0.input.json",
+        "sha256": "3c37674c0ce80e85a4cc808e18569b060467405a87fc5c66358e88f383d9cd89"
+      }
+    }
+  },
+  "N1-0-100-0.03": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N1-0-100-0.03.json.gz",
+        "sha256": "f107a9432cb0426071a0faad689968b99f4666e2e89bb502b0fe4019a5a022bb"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N1-0-100-0.03.input.json",
+        "sha256": "8c3ee455ba24a9f8395ea4d30b2b406a0a8f6ccc8a44ed916f9928fb034dce57"
+      }
+    }
+  },
+  "N1-0-120-0": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N1-0-120-0.json.gz",
+        "sha256": "487db1b19d47031fde7af4f0458e85386d9cac42e2d9283201dfce4fcb5c3a14"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N1-0-120-0.input.json",
+        "sha256": "2783e62ed99ff0851479978747082e3708383095c12dd8c76b45e2020de905c1"
+      }
+    }
+  },
+  "N1-0-120-0.03": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N1-0-120-0.03.json.gz",
+        "sha256": "b7ee2e2bd403fe097367189c851e4c3d1eed96bdbc7243c2d94b441f85322f01"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N1-0-120-0.03.input.json",
+        "sha256": "27f1445501d296d0ba3d7f66de869888f038d34f7fd2c474197cae347264f9d6"
+      }
+    }
+  },
+  "N1-1-80-0": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N1-1-80-0.json.gz",
+        "sha256": "ca96af6942e15548f6e6bc355f39d8d657086f7121fc7609f1a0a9a3ea6b3d5e"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N1-1-80-0.input.json",
+        "sha256": "e9094f6a00cbc7cb3ecb615217803d58e619607a6f8e29f981e32d306ded25f7"
+      }
+    }
+  },
+  "N1-1-80-0.03": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N1-1-80-0.03.json.gz",
+        "sha256": "fe2b3f48e49192e9b6d5276f465fbedaa3804f9fa0beb0213c6b466a66b20caf"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N1-1-80-0.03.input.json",
+        "sha256": "b319b9fd77363d8aa4060ab9152e25cd4d378ef36bc9ff9d3fa93927eee204ba"
+      }
+    }
+  },
+  "N1-1-100-0": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N1-1-100-0.json.gz",
+        "sha256": "a60e4adabefd285cd93206035b9a84d3aaaac2a0ea40b33e8ec70620e96085ca"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N1-1-100-0.input.json",
+        "sha256": "ed888af09ba320509d3041bb811145296313e66344b440260d612f67b2669c3f"
+      }
+    }
+  },
+  "N1-1-100-0.03": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N1-1-100-0.03.json.gz",
+        "sha256": "51d434e3a63c4808cbf31e5c26530212f535d3a70af41c4e9f3c352d719a7751"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N1-1-100-0.03.input.json",
+        "sha256": "4fae4716bbd861c211ff4207222f2401353f96ec30f8b562c2cedc8dcb3a210e"
+      }
+    }
+  },
+  "N1-1-120-0": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N1-1-120-0.json.gz",
+        "sha256": "f97dff2ca983d28ea3a01819589cac2fd949b7a46a2f9b3adec7b775c1db1bff"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N1-1-120-0.input.json",
+        "sha256": "484c976b7fb8d93cca63adb26ae2159b5d81a13900ccd895ffe4329741a30838"
+      }
+    }
+  },
+  "N1-1-120-0.03": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N1-1-120-0.03.json.gz",
+        "sha256": "bf3e0dbc5157a0a76b2f3943f2ee6e266c84a4b37d40afd478d270a54a6b01af"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N1-1-120-0.03.input.json",
+        "sha256": "8fd63cfb64720d44a730120d45d4a1fe4b987b3c5bd7ad7ae9c11599c20ecbfc"
+      }
+    }
+  },
+  "N1-default": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N1-default.json.gz",
+        "sha256": "099c207f4a18bfcd675b4edc5e28e41f075a4b2d76bef5460bf1e0ccf9e06296"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N1-default.input.json",
+        "sha256": "3ba5c2b824fcfba70136598cb31152f09a4c8e45c3e86a66ecd7bf2791ff37d4"
+      }
+    }
+  },
+  "N2-80": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N2-80.json.gz",
+        "sha256": "adf9b3f5a78f4775ffa0f59c275360e1aa0d1a156a538b508803d812a427c428"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N2-80.input.json",
+        "sha256": "7b542a428e17b288cf898865557a77c7ff17b81e72ef071e0cae17715f2b416d"
+      }
+    }
+  },
+  "N2-100": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N2-100.json.gz",
+        "sha256": "ff4957b0f3f1b2461b859e95e76e5f7eb25fe3d39b2f6168696bbdfb378ed298"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N2-100.input.json",
+        "sha256": "726e74819f7ecaaa8d17bd0feab98de72d56c06c1f4d2604189f981a5e4850a2"
+      }
+    }
+  },
+  "N2-120": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N2-120.json.gz",
+        "sha256": "9b77f9fbf22029566410e2afe619effe59a4790c5931c9a0ca39ce7a7159af8a"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N2-120.input.json",
+        "sha256": "34b4c5367324ef3d28db7992d9a8224285bb48fa40d2e90989b5969e3837b35b"
+      }
+    }
+  },
+  "N2-piecewise": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N2-piecewise.json.gz",
+        "sha256": "e8dd059907da5f6a8648fe84d7742f8e6cecd0726ad9486b51784c59affa1642"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N2-piecewise.input.json",
+        "sha256": "c593f1b8038421d22c8d698f25032ce91018158bbb6c11298f3ecc355ec97c72"
+      }
+    }
+  },
+  "N3-0-100": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N3-0-100.json.gz",
+        "sha256": "5f8fffbcfdafbf5a92575eb9f8e86741c3d7057c87cca4754a1e692bc44f75c7"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N3-0-100.input.json",
+        "sha256": "a1dd38f9fefcecff431da16b9c2109698a62caf13e381e595230741bf4e27973"
+      }
+    }
+  },
+  "N3-0-120": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N3-0-120.json.gz",
+        "sha256": "073009413f60955f31b2b6f983729331ff474189ed4421980c62cc01d77961b4"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N3-0-120.input.json",
+        "sha256": "c19be8be15e52fcd1a5dcc1f40af8df0108ee607b5599101490b69eec5a8be2a"
+      }
+    }
+  },
+  "N4-0-100-137": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N4-0-100-137.json.gz",
+        "sha256": "b25cff35248c83903d721b1e31c6a51d6a1f75e6602e1eda50e91af8cfbb2457"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N4-0-100-137.input.json",
+        "sha256": "12b99e241858b19315c9b0cb801cc46c1373379764d8c6f7fadc862b088c6218"
+      }
+    }
+  },
+  "N4-0-100-182": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N4-0-100-182.json.gz",
+        "sha256": "31bfd965816005ecea7965d3c5fce928ba1637cdf3f9d219e5f9ac7636d62208"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N4-0-100-182.input.json",
+        "sha256": "cdc9b73922f69114803fb663bdbcc01d56a58fde7bbc28fc793beed7547f0131"
+      }
+    }
+  },
+  "N4-0-120-137": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N4-0-120-137.json.gz",
+        "sha256": "d370e58adc95e9022af5bea2d150efe8f8573a1fa7fea86393929c4422524300"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N4-0-120-137.input.json",
+        "sha256": "a327fad27e2b0f2dcb03b9bde41900276f6346b7c3ae9a319c16b6da7c861b1f"
+      }
+    }
+  },
+  "N4-0-120-182": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N4-0-120-182.json.gz",
+        "sha256": "1b8c559e53b92bd68f9903a7ca2e735e09fc1608ab9b3c16270ecdb6382efbe4"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N4-0-120-182.input.json",
+        "sha256": "be5ed69c283e108540868426707982f623f30f54c27b61025b2854dd2ddf282c"
+      }
+    }
+  },
+  "N3-1-100": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N3-1-100.json.gz",
+        "sha256": "579ba8d470af8b331ec19abacc86af9a543d7c4a21a9990b364a8c5f26dbfc16"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N3-1-100.input.json",
+        "sha256": "384acbaf748b47d2b9426968fd992599bc356be87bd3dee1cb10a40843a2d158"
+      }
+    }
+  },
+  "N3-1-120": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N3-1-120.json.gz",
+        "sha256": "3b9c854dc9d5c40a87e2e05263c8bcb9576b6d4f9cc2dda017e707eb5945aafc"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N3-1-120.input.json",
+        "sha256": "8370249a957cb0745a0aa6c069e6a5156e670b587da7bbff6526dc01a39fc4d0"
+      }
+    }
+  },
+  "N4-1-100-137": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N4-1-100-137.json.gz",
+        "sha256": "2a1d5f736edacc0757b6aed03e057ffa06040e46ff7343acc026dd0cbcc6602f"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N4-1-100-137.input.json",
+        "sha256": "65e16609a5025b06a7c3daaa72903ac593a771f1de3f508a979de67be1d44d06"
+      }
+    }
+  },
+  "N4-1-100-182": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N4-1-100-182.json.gz",
+        "sha256": "fead0bd7799510d4cffd3338ffc77c4ec8c5fbd061244c233578105f597eb3af"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N4-1-100-182.input.json",
+        "sha256": "9fd2c243f29977cdd70d3f512bda497c2a350cebd311120fb677d581137f69de"
+      }
+    }
+  },
+  "N4-1-120-137": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N4-1-120-137.json.gz",
+        "sha256": "08287d96e834467715fc4671fccfa48bef833f118f7508fefb8f3aa89cf14608"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N4-1-120-137.input.json",
+        "sha256": "5990f4654c0d46d481ed36fab6bf06ed2587a4e2576bf4c1ac86d1c5c0fe69ac"
+      }
+    }
+  },
+  "N4-1-120-182": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N4-1-120-182.json.gz",
+        "sha256": "fa978b611b0797c785a0f5c6fa29cf98e9f8715a943cb4fed0c292f92a652000"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N4-1-120-182.input.json",
+        "sha256": "5450ae8e003a4bdde10e664aa66fc161c8cbd1052089bee0fb86a2b03c3e4951"
+      }
+    }
+  },
+  "N5a-0-bermudan": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N5a-0-bermudan.json.gz",
+        "sha256": "c5ed0a1646992753f65d5a38f9b7318e865f92f36277fede60fe2bec7a6f6748"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N5a-0-bermudan.input.json",
+        "sha256": "a5c495926f3fb29051434511ac039f8bf8245ff6861b6b07b6f854f8e8d6370b"
+      }
+    }
+  },
+  "N5a-0-american": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N5a-0-american.json.gz",
+        "sha256": "f08e8790197ae3476c5a59a8d60884d28bee866584d5ce88c5eb55266a6fe0b7"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N5a-0-american.input.json",
+        "sha256": "3d3e1a1ceebcc35d19696b7ebc03e6a24c70ff11b8c7673cb0ef2a2150a34cca"
+      }
+    }
+  },
+  "N5a-0-terminal": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N5a-0-terminal.json.gz",
+        "sha256": "fdc61279860144691ca43216e6321cb8ee352c73e9a8449f86f47e46a80a3188"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N5a-0-terminal.input.json",
+        "sha256": "47cc89336d93936531e4162a29c07d6cf56d35df1d1070be82a5f85779029bb4"
+      }
+    }
+  },
+  "N5a-1-bermudan": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N5a-1-bermudan.json.gz",
+        "sha256": "b9f780717297efcdea977facd2594f7da13d29a09253bf38904cca1dfd4059a5"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N5a-1-bermudan.input.json",
+        "sha256": "c357516ad3a07826386e4032092f345b5f44df87beb2c5489f34289f5129c9b9"
+      }
+    }
+  },
+  "N5a-1-american": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N5a-1-american.json.gz",
+        "sha256": "b6c279eed91a1d0ec3ed3d23f81fc6f7d4e6b2c2f3b08bafc8519251dfb8fc0b"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N5a-1-american.input.json",
+        "sha256": "704fd402234cedef58cf0af5dfc279906796242eb6240def2dafce6819efc3a0"
+      }
+    }
+  },
+  "N5a-1-terminal": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N5a-1-terminal.json.gz",
+        "sha256": "4ce1b877eb8b3ba364fd885245c06d64983eb85a6340edb3f64b6bb48e8642a4"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N5a-1-terminal.input.json",
+        "sha256": "7bd439b8ad3a6a3f74af2a92d65cc9f20071178442173b2d4c6bb4ce299c8b81"
+      }
+    }
+  },
+  "N5b-2028-0-100": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N5b-2028-0-100.json.gz",
+        "sha256": "5238f4c2c9b70f8ef0d78523f377da9a522f23640470d1d97e6c31531c434940"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N5b-2028-0-100.input.json",
+        "sha256": "4b39d8f927f1361418af30b229cc94a3e653312f1ad6eb93b11494900bec7ca2"
+      }
+    }
+  },
+  "N5b-2028-0-100.0125": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N5b-2028-0-100.0125.json.gz",
+        "sha256": "46c7e0a75c3764eb256230b074d4be299ab9a60aa1b3d8c6da3e6f1962aa1344"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N5b-2028-0-100.0125.input.json",
+        "sha256": "4ad5adbc7f82fa4b5daa04d5b65019ae2674615ddd0afa57cbe091b821ad87c1"
+      }
+    }
+  },
+  "N5b-2028-1-100": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N5b-2028-1-100.json.gz",
+        "sha256": "9f9992a488bbed879570078c3dd68f214042c788e758b66058d128cfbbb87bd8"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N5b-2028-1-100.input.json",
+        "sha256": "585b831633697cb05811cefc2dae0f727561372ed52689d88bf4998a735e7193"
+      }
+    }
+  },
+  "N5b-2028-1-100.0125": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N5b-2028-1-100.0125.json.gz",
+        "sha256": "650b5de9605206101c4ee7a93c68a44d437a00e49f4651f388f0f785dfd7f411"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N5b-2028-1-100.0125.input.json",
+        "sha256": "224e1c17b87407489df2de958a35f791bfd3c6126fded3348aa6b58501a38936"
+      }
+    }
+  },
+  "N5b-2027-0-100": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N5b-2027-0-100.json.gz",
+        "sha256": "420eb4e4c23f9ec0583546f752fda62e34019e262d6abcb2ae7f952b62b9a515"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N5b-2027-0-100.input.json",
+        "sha256": "759650845e6fc860838b36ed09487f992d9bfc576af469df2f8823a603767506"
+      }
+    }
+  },
+  "N5b-2027-0-100.0125": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N5b-2027-0-100.0125.json.gz",
+        "sha256": "340642642d929b5385bbb5ddd79f23d2399e864070634c608a72595657decd48"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N5b-2027-0-100.0125.input.json",
+        "sha256": "14e582e99bed3c9b35bc475f3065dda807d89891414c4fc1cebe7c114629bc74"
+      }
+    }
+  },
+  "N5b-2027-1-100": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N5b-2027-1-100.json.gz",
+        "sha256": "4b9c88889f62ff1536455f30d2769b4a6397ba30dcbe09cccdc613d21efb2c17"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N5b-2027-1-100.input.json",
+        "sha256": "f6ba877ac33567466b6d71629b8eb9f54731aec94b01c3c1fb67c822a7c4a470"
+      }
+    }
+  },
+  "N5b-2027-1-100.0125": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N5b-2027-1-100.0125.json.gz",
+        "sha256": "1448337e8e2986bf6ebc347ac9ac543836f7e76f8cd6df0a994f10bed7dd393b"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N5b-2027-1-100.0125.input.json",
+        "sha256": "0e3c179ad7e920680162db6332b86be51115f7c47a9643d0ef36fce234dcd6e2"
+      }
+    }
+  },
+  "N5c-0": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N5c-0.json.gz",
+        "sha256": "f755dca802da01c14f18b4658a4da5a30315d836be1dc88509b984eb0083d620"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N5c-0.input.json",
+        "sha256": "71bb0c32fb3780b3dc15f01ea713ec1d79b8c2e50b161d1cc5c86ebadd2c6441"
+      }
+    }
+  },
+  "N5c-1": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N5c-1.json.gz",
+        "sha256": "d65d867809e87d9b7e5ac2792430bcd02f8dcb750154b7b503598e978a883333"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N5c-1.input.json",
+        "sha256": "1653b630b37274030364ed203bad916ff0db9e569eeba57d40bfd88a20ffa948"
+      }
+    }
+  },
+  "N6-0-space-401": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N6-0-space-401.json.gz",
+        "sha256": "1ec370212f0af068ff3b7e7550f14a900eae19eb4610dad96c5b1cb525666714"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N6-0-space-401.input.json",
+        "sha256": "91e80dbb621f576320a72a3cbfc1c0a454d127fb20a2931ef5e0ebd0b939a179"
+      }
+    }
+  },
+  "N6-0-space-801": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N6-0-space-801.json.gz",
+        "sha256": "dcb13b04c1c20c8880d828e6e6ab64a2f59bd75c0c14b324a145cab5a82d816e"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N6-0-space-801.input.json",
+        "sha256": "0c1a7f87e153f88253a9569fbeae58f0de2e1b85743b3258fa1160a35a164cf6"
+      }
+    }
+  },
+  "N6-0-space-1601": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N6-0-space-1601.json.gz",
+        "sha256": "5cd743f5420a38ff26dc4cd3a6a118460785c7c74b0a468afc692f2ddd0dc266"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N6-0-space-1601.input.json",
+        "sha256": "3604df439f6b8dbce7dd16405c19ace7adb53a5d46b8aa18089c3016273bc63e"
+      }
+    }
+  },
+  "N6-0-time-1000": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N6-0-time-1000.json.gz",
+        "sha256": "d0e816b4c1b95795de5fe7c5ebaa1f67e11faf42bdee2445cd31b0da33caf6d9"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N6-0-time-1000.input.json",
+        "sha256": "d1a4015b0b3e4f33de2ac08d25327b90131bccb109c05d761c8e3f14d600a484"
+      }
+    }
+  },
+  "N6-0-time-2000": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N6-0-time-2000.json.gz",
+        "sha256": "a6eb9b8e148ba778f94c6beb3966e411fb9b7899cfa6b7ecf9e50143b7586914"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N6-0-time-2000.input.json",
+        "sha256": "af69ee140a38b4565f93bd5137c4e4acda1892ea8abdab2f4f533b197797076e"
+      }
+    }
+  },
+  "N6-0-time-4000": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N6-0-time-4000.json.gz",
+        "sha256": "19735886c46192407ae42a41879a95726bf15beb4fd6197f4d4be1887436b4ee"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N6-0-time-4000.input.json",
+        "sha256": "8db377f462e2dfaace5f9756cd18194b88b8ba85aebbeb6dd3569de881fc7357"
+      }
+    }
+  },
+  "N7-0-domain-400": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-0-domain-400.json.gz",
+        "sha256": "e35530e564d6700cf7c2fb469a4c85ea942f6e47b85d607dc979c686c0493c23"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-0-domain-400.input.json",
+        "sha256": "a52d80204d9dba72d3afc885a060bc9229ea3ddd7269a01de49ca19d36e52e9f"
+      }
+    }
+  },
+  "N7-0-domain-600": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-0-domain-600.json.gz",
+        "sha256": "4a888f01d49fb56931eeaa3a8badfd86d001f185e335e5823a16d8b280d2371c"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-0-domain-600.input.json",
+        "sha256": "fe1758cba189184bd1d8b157acc23fb19920f48b30d5f14e4de38ec67bddd022"
+      }
+    }
+  },
+  "N7-0-domain-800": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-0-domain-800.json.gz",
+        "sha256": "42e7889cd3eec93d601f5552581b8fa2a86e1a1fdb03bd512d38fd4759756957"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-0-domain-800.input.json",
+        "sha256": "a8307aa11aee6eacd7c88f5ddaa69620fb96b64d61438ccbf45a607380dc8983"
+      }
+    }
+  },
+  "N7-0-penalty-10000000.0": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-0-penalty-10000000.0.json.gz",
+        "sha256": "07b0a00fd9dd89647625549c2b720a9274b8f9486b0edaf72c86345fb608376c"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-0-penalty-10000000.0.input.json",
+        "sha256": "78bbaaacceda12efe985cbc690eb5869455d8e306a371db206bf01ba1477683b"
+      }
+    }
+  },
+  "N7-0-penalty-100000000.0": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-0-penalty-100000000.0.json.gz",
+        "sha256": "2dfc0d068dd558026f1f847d16e1c18b4cc1eb74cb264abee3f4934b1d3980d3"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-0-penalty-100000000.0.input.json",
+        "sha256": "3a9c0972ae73a8ee3ec0ebd4ecae842ad1d72215f109044a2d6650a83046d9d9"
+      }
+    }
+  },
+  "N7-0-penalty-1000000000.0": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-0-penalty-1000000000.0.json.gz",
+        "sha256": "3a20eaecede52c193f7a0dd9c8085bd437d8acba15e7b9dc9c976a02a2d1d253"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-0-penalty-1000000000.0.input.json",
+        "sha256": "471f7205b3fcc4e9380b6821b2579b161380893a1036031888f0d90b94c9f94e"
+      }
+    }
+  },
+  "N7-0-spot-801-4": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-0-spot-801-4.json.gz",
+        "sha256": "c0c1d912ad5b68425fc8347d4a8c8d5f89505349c5d1ef684f95c39227195ea7"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-0-spot-801-4.input.json",
+        "sha256": "d3e1f4c4a2252547a5922091e444506ebf9aea5dbb7b1f89c37e1d07079e8ede"
+      }
+    }
+  },
+  "N7-0-spot-801-2": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-0-spot-801-2.json.gz",
+        "sha256": "6cfb5ee42da9b2ca0e70c972a372dfd29a1811d5e61c93c11a9ae50675183bd1"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-0-spot-801-2.input.json",
+        "sha256": "9591839da6b29ea10b4fe43cdb5d8acbd47cbc8120a7f38634ff7580d1973e3e"
+      }
+    }
+  },
+  "N7-0-spot-1601-4": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-0-spot-1601-4.json.gz",
+        "sha256": "c4d9a383470bfa7d4fd320a289607db102927f0de9fcf1e698e4b7b71eef3678"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-0-spot-1601-4.input.json",
+        "sha256": "0bc3fe9575c2f1893a63385dd7ee5cd0b83f378bffbcc593173d0cb8785f689e"
+      }
+    }
+  },
+  "N7-0-spot-1601-2": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-0-spot-1601-2.json.gz",
+        "sha256": "5a1b2c14b851eb1871e90e6a875d1bd07e4dc66e296e09a62be368b74e1eb3f5"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-0-spot-1601-2.input.json",
+        "sha256": "a243042a128d77369ca8ec06b1575e600c56d0ae87e72971fba532a7e29985de"
+      }
+    }
+  },
+  "N7-0-parameter-1": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-0-parameter-1.json.gz",
+        "sha256": "7589a883f777240b07ea662875c644809f8f8b14d92997111c6e61077d8561fa"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-0-parameter-1.input.json",
+        "sha256": "17cd6346420cc573f3e3ad483ebaa2d068cf7f707f61959b5d9abff629f911a5"
+      }
+    }
+  },
+  "N7-0-parameter-0.5": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-0-parameter-0.5.json.gz",
+        "sha256": "9d255b78965d00ec5766422616734bc566cd96dc7ea137093c2601be574e3df7"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-0-parameter-0.5.input.json",
+        "sha256": "8d80107790c6a3d5129a68f164a929e0ec7dddd545b96730b898c726e49dd701"
+      }
+    }
+  },
+  "N7-0-parameter-0.25": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-0-parameter-0.25.json.gz",
+        "sha256": "703f5ff4672b00d673ce2ef86e6b388a6435b3c0b117865c344746e8a8b977a2"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-0-parameter-0.25.input.json",
+        "sha256": "663193ab26a9e84710a87403f5b7e8ffc02ba8dc2da27ad922f2c26c3a266e45"
+      }
+    }
+  },
+  "N6-1-space-401": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-space-401.json.gz",
+        "sha256": "d85763d35fdae101cc789b27a1dc1325300c7d49fca6431cbc7dbbd73750a26a"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-space-401.input.json",
+        "sha256": "2a0b070592316b827184e108ca9b0163df72014240de155211ee63b4754a735e"
+      }
+    }
+  },
+  "N6-1-space-801": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-space-801.json.gz",
+        "sha256": "a584361d102a86bac7c3777727f9f69bb54c5c9a6300253237f222dfd0683413"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-space-801.input.json",
+        "sha256": "e0306e7cd4cc7f6282c7303aa152b9ee40c6869505e019533a1487e435c2e725"
+      }
+    }
+  },
+  "N6-1-space-1601": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-space-1601.json.gz",
+        "sha256": "b61deefccd181e30c90b39f7fee0a8be76f42c4cdd066a2222fd2cb86e8ffe00"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-space-1601.input.json",
+        "sha256": "a48b1de74dcbd8b0da2244ee8d06f693f3e56857e4c6ed00fd2a80c1405aeb0c"
+      }
+    }
+  },
+  "N6-1-time-1000": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-time-1000.json.gz",
+        "sha256": "13e86f24184b5c97d1c0dcf5c83f491c6f9aba67eed819b43e956396646f41ae"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-time-1000.input.json",
+        "sha256": "ed20954248f0b30d3fd62e88ff5292394ae4bc718d45708bfd720b89ba18c569"
+      }
+    }
+  },
+  "N6-1-time-2000": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-time-2000.json.gz",
+        "sha256": "8e3096d0cd02b5f992ead3584649ae565f1880ab77625908e3d8609e1c44e2e7"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-time-2000.input.json",
+        "sha256": "f91c97a16ddff3f58b93ad3e9f34a6d024b6b139b543d5f5c71189f5b9a21e78"
+      }
+    }
+  },
+  "N6-1-time-4000": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-time-4000.json.gz",
+        "sha256": "fe7316916afbc4ed2f4b0d1247cd6f6cb5ee5532af474f6c295423ee61a93c51"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-1-time-4000.input.json",
+        "sha256": "6f8a8dda82a69f3909727009d695b049e36f2a5362fc7a253a0b032aa77841c1"
+      }
+    }
+  },
+  "N7-1-domain-400": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-domain-400.json.gz",
+        "sha256": "cefa300b23130b4c0935ce908c79f1b4519b9677c59845c6d531087f4d53568f"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-domain-400.input.json",
+        "sha256": "fb197b1124f156f7afc344b8703adf0c4bc5aac3ad3bcad0b3f500ac6f3fa372"
+      }
+    }
+  },
+  "N7-1-domain-600": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-domain-600.json.gz",
+        "sha256": "bbda484125293c257ebb0bec18d287e75e7b466cabbbc4600b6fcfd1ca2cf564"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-domain-600.input.json",
+        "sha256": "0fffea9bd2ab6db510b8739d0b072bf4380fb641ad1bd8221edfae95073ee250"
+      }
+    }
+  },
+  "N7-1-domain-800": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-1-domain-800.json.gz",
+        "sha256": "afe6681c1a51f31e72a7abc5db141d94a820c6d56b9a14ea8cd783a82fb41f36"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-1-domain-800.input.json",
+        "sha256": "c5d1cb2c91e6c030a69290fff5044988a5817491dbf507b8924b61e2fc976dd2"
+      }
+    }
+  },
+  "N7-1-penalty-10000000.0": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-penalty-10000000.0.json.gz",
+        "sha256": "20dd900b9d1327f4ea0259c6f86d17ad418669fc5f162b194f7a9b21fa6c72ff"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-penalty-10000000.0.input.json",
+        "sha256": "de55977658e023d5da5ecd8d655c826e92a10896981ef1a3b6e77390e533a8f2"
+      }
+    }
+  },
+  "N7-1-penalty-100000000.0": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-penalty-100000000.0.json.gz",
+        "sha256": "aebd5fc0bf2c703d39218b595cb0f9c6ca91e5a893835fa018fd195dab72b045"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-penalty-100000000.0.input.json",
+        "sha256": "faf15367eadb119df9d77d3171ed6f7bfce1ab2286a0ae036e6d4e33aa4b5cf3"
+      }
+    }
+  },
+  "N7-1-penalty-1000000000.0": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-penalty-1000000000.0.json.gz",
+        "sha256": "a4e5f0eef3644e34a501b77e01df69ab154cb42dc56a7af55a8e11b7ff948476"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-penalty-1000000000.0.input.json",
+        "sha256": "64388e87e8138fc71f66d79f206e14b3b721842868b277a89e28dec636363b2a"
+      }
+    }
+  },
+  "N7-1-spot-801-4": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-spot-801-4.json.gz",
+        "sha256": "8391feb8c36ea7ee0063388f1502925bc31509fd2c79a919bdb08c2ee5fbdba7"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-spot-801-4.input.json",
+        "sha256": "051a0ecc17376438a8650e02d678192157b1c53f110708bd1f0aa67c14e325ee"
+      }
+    }
+  },
+  "N7-1-spot-801-2": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-spot-801-2.json.gz",
+        "sha256": "68570614b60aa855b302b2c50309a67a4f014021aa79f1109c02703e3d16e112"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-spot-801-2.input.json",
+        "sha256": "9903d4767c8f3bb95f0f6a81990ae21957cd8bf0c1278492b5b0ef05e2ed5315"
+      }
+    }
+  },
+  "N7-1-spot-1601-4": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-spot-1601-4.json.gz",
+        "sha256": "a85ff221bd0f5fee30907c01752dd41207589292578e264fa59977e6b5aca621"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-spot-1601-4.input.json",
+        "sha256": "79a818f6547606846b2463bed3e511af9e00ddd51c0b0c019770f5acfe81bdae"
+      }
+    }
+  },
+  "N7-1-spot-1601-2": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-spot-1601-2.json.gz",
+        "sha256": "bee6c8f844a34b3a2eb2b20aa5492071f5ffdd19dea7e60e268ba12915f3de64"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-spot-1601-2.input.json",
+        "sha256": "924bb19d65ecafc0f492df7c44bcb6732c8c2c3d8759ff43e3c10e9ce37b6de9"
+      }
+    }
+  },
+  "N7-1-parameter-1": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-parameter-1.json.gz",
+        "sha256": "c635fb339edea777b5adad702ba333d59e5be879809ee8e81c8397938e855810"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-parameter-1.input.json",
+        "sha256": "ce01c1d820d91c23daee1aa1dd05f05f6290fa98819070fa86211f95c98619fa"
+      }
+    }
+  },
+  "N7-1-parameter-0.5": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-parameter-0.5.json.gz",
+        "sha256": "c6d2af196fe050a5ceaf637e43e65e70b3bbc546d6839aab46a45bf2be004859"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-parameter-0.5.input.json",
+        "sha256": "a8ad864703e23eec071a05b3e82823143d6de0b58b645b391a97ef3be7fd9d78"
+      }
+    }
+  },
+  "N7-1-parameter-0.25": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-parameter-0.25.json.gz",
+        "sha256": "5b882bd99b80075af21e0b00440f79c3cf9c2bd9f5facb6986f57168d5abf6f7"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-1-parameter-0.25.input.json",
+        "sha256": "a03c380468a18839f702670f8f635f52c5497d724c8a8901f52e490183a25ebe"
+      }
+    }
+  },
+  "N6-2-space-401": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-2-space-401.json.gz",
+        "sha256": "9990694f05f06eadc9a0e7f88ea576ae69a0550e4180831f94777215cf81fe5c"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-2-space-401.input.json",
+        "sha256": "1627f6362503c93d06888a66198ea7e8f35712c6295baa61fac0d45bab573046"
+      }
+    }
+  },
+  "N6-2-space-801": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-2-space-801.json.gz",
+        "sha256": "5d539f952345717321b523931624a1cbd1eacef1c7e7aa7d8b822c3fff48b43d"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-2-space-801.input.json",
+        "sha256": "b7a7e4961e6d73f7827335afb02886e6d49c992936e1286cca832ae0908d32c2"
+      }
+    }
+  },
+  "N6-2-space-1601": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-2-space-1601.json.gz",
+        "sha256": "3354fbd47c5d1de7926f5dc3bad6e3a38522107fe8884d471c0420a89edd3aca"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-2-space-1601.input.json",
+        "sha256": "51ac7dff6718c798f8d1c13db232406cf52f88c7e3d39a78ca12725909298e12"
+      }
+    }
+  },
+  "N6-2-time-1000": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-2-time-1000.json.gz",
+        "sha256": "e1e2f35b6e8427a450f2ff63731b7a88661160d067af9d91aab36b6e72d32b8a"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-2-time-1000.input.json",
+        "sha256": "ce00a41db3a882ddce11fad779fb315f491eddebdaa40d038ae1734207b37e7e"
+      }
+    }
+  },
+  "N6-2-time-2000": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-2-time-2000.json.gz",
+        "sha256": "fa071b334463553fcbf1282a022e52210a67ba65a67c1e68282dee494103017b"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-2-time-2000.input.json",
+        "sha256": "a1f4e83067686e1883e11ca83a4af0742c98bcd60e1847189f2c4bfd1552684a"
+      }
+    }
+  },
+  "N6-2-time-4000": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-2-time-4000.json.gz",
+        "sha256": "96546a0a895db6117b95064749ec3b0a9c03ca1ccbabd9d82e2bb9aaa43a21f7"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N6-2-time-4000.input.json",
+        "sha256": "45d6d2cf7cca1cc27ad9d197e8a7107ca5fb51eb466c3f5e177458a1038e72fd"
+      }
+    }
+  },
+  "N7-2-domain-400": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-domain-400.json.gz",
+        "sha256": "ebab901bbb29c512a29860f159140500102592da57747194fce4dca4be5d8b62"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-domain-400.input.json",
+        "sha256": "e27f0f1126587ce8e9446d62128477b4fc22b87d81fafc6db077828f24f65910"
+      }
+    }
+  },
+  "N7-2-domain-600": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-domain-600.json.gz",
+        "sha256": "1dffc5dc497d6d88991b9c6c79cff1f313ee68944bc4f8b332bab423cce7db2c"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-domain-600.input.json",
+        "sha256": "ee9ad713aa8597e88e8f3bb995625be4a8b5e37ca9075e50b20a8ef4c6b52ed0"
+      }
+    }
+  },
+  "N7-2-domain-800": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-domain-800.json.gz",
+        "sha256": "94405196299e69b5a5c471fbb4ff9d216cbe82167de3677a8c509fe3e50f5422"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-domain-800.input.json",
+        "sha256": "689df9926888efd3fd8aab4f08e8dfe9b7f2b9f1d5f2d9a40cc388a9728c080d"
+      }
+    }
+  },
+  "N7-2-penalty-10000000.0": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-penalty-10000000.0.json.gz",
+        "sha256": "38576b60dc434792a9bfe7e79ed799787fa2c35b826e77a21430aef1ae7428fe"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-penalty-10000000.0.input.json",
+        "sha256": "05ac56d89807c35ad5ead193c2d0277ee0d7902e3f849fba1198c5566528aee2"
+      }
+    }
+  },
+  "N7-2-penalty-100000000.0": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-penalty-100000000.0.json.gz",
+        "sha256": "f96114f6e7089f7cf9a3e974357417bec0b99ae7cb3566bc9c220f945a5866b3"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-penalty-100000000.0.input.json",
+        "sha256": "b77fa3cbd4dac2e8e51aec4e9d3a7131ab8ce83e97eaa2f04c15e04dde961d8b"
+      }
+    }
+  },
+  "N7-2-penalty-1000000000.0": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-penalty-1000000000.0.json.gz",
+        "sha256": "8101d64c5bf5a765dae00de10d0545c4f6e0685016627f5bcfddc0935fd74dd4"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-penalty-1000000000.0.input.json",
+        "sha256": "89a54ee3338a81d56fb378aced3bb18f963dc79869382b688458a4e4738cf111"
+      }
+    }
+  },
+  "N7-2-spot-801-4": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-spot-801-4.json.gz",
+        "sha256": "f8f2f7a709e4842f64787745f29ea6cb8ecbf4c6c4d5adbc0f17fafadff13d37"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-spot-801-4.input.json",
+        "sha256": "f82045d6d7bc555b8ba46417ce2a92d54663331ada59efaf83653d2b16037407"
+      }
+    }
+  },
+  "N7-2-spot-801-2": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-spot-801-2.json.gz",
+        "sha256": "34a6eeadad9a8fc9117486b03f39f2fc59aad6de95bbb59b88b13c295156d9cb"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-spot-801-2.input.json",
+        "sha256": "078fefdcfb7de69859eaa9609aa29b14c6cf64f0442b8807b6b2fa2a045ee7fe"
+      }
+    }
+  },
+  "N7-2-spot-1601-4": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-spot-1601-4.json.gz",
+        "sha256": "41b72209740a335ccdac4ec562ee6879beb9561554e9ed3a2425e9bc76bc2afc"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-spot-1601-4.input.json",
+        "sha256": "04eac80a23b6a30157cf1764173b24678df8f2efd1f44ebfcd0080844b9e7cd7"
+      }
+    }
+  },
+  "N7-2-spot-1601-2": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-spot-1601-2.json.gz",
+        "sha256": "15f49dd8499f238b630afb7a5f7cc5369b70ff7c3a776e3f3c8915785d7c0544"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-spot-1601-2.input.json",
+        "sha256": "21848d8d7ffc59f341b6f586675cada383a3e90a9257a6c76a26b2347f9c42d3"
+      }
+    }
+  },
+  "N7-2-parameter-1": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-parameter-1.json.gz",
+        "sha256": "4f040270e45747adf357a14a143e06e80b9efe66745efe071c749aa9eb00ed74"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-parameter-1.input.json",
+        "sha256": "af5e2d50471b5b6a516744320d65bd7d5e3acea670d7f68893675f65327e7093"
+      }
+    }
+  },
+  "N7-2-parameter-0.5": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-parameter-0.5.json.gz",
+        "sha256": "332c51844e953ebc1f04e149ea94569e622cef4d018a5d5e8dac9bf074279eb0"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-parameter-0.5.input.json",
+        "sha256": "455d376332b9e771c762b342376e971a39cc6b0f61d56bab72710776dfb7981b"
+      }
+    }
+  },
+  "N7-2-parameter-0.25": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-parameter-0.25.json.gz",
+        "sha256": "4f7f39f1592a381b668d4361c430d4b5e87797b1b543e2de25bd9dbacb369825"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/N7-2-parameter-0.25.input.json",
+        "sha256": "615be9a4e5b652650caaced4b3f07f25981648d1127e0a9d6c1fdd84a067cb77"
+      }
+    }
+  },
+  "N6-3-space-401": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N6-3-space-401.json.gz",
+        "sha256": "50ba3f04c956294fc74854b82cbb378f2598b98373c610638030e1a3880f3cfb"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N6-3-space-401.input.json",
+        "sha256": "e444e2f7d90139863ba008578aaf5740babafa837fa10ec48fe56e671643ef94"
+      }
+    }
+  },
+  "N6-3-space-801": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N6-3-space-801.json.gz",
+        "sha256": "53b60afd74b8e3e60b30ff7515450fa3ee0481903453f6d1b92fe0e09a402bd1"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N6-3-space-801.input.json",
+        "sha256": "f310d5c3c2738431efba02ea2118b94a5a0a30be80ec6d4d4b6046ac0ce1761d"
+      }
+    }
+  },
+  "N6-3-space-1601": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N6-3-space-1601.json.gz",
+        "sha256": "040d0bea6c613c015c69ab1d8ffdaf34ecdbf0427444bc10e28a6238ded12b8e"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N6-3-space-1601.input.json",
+        "sha256": "e79e6ee37fc29ee7b28b23d5f3af369b816924323c015564c1e17006099bea75"
+      }
+    }
+  },
+  "N6-3-time-1000": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N6-3-time-1000.json.gz",
+        "sha256": "19cd0231ce2b9206c81322dd595100d386894500d8f00b50b7730a04705ef4c0"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N6-3-time-1000.input.json",
+        "sha256": "8f28940a0e46aee536cad8bc637a240d9f687e97cb1f49c9d307073e93c82c2d"
+      }
+    }
+  },
+  "N6-3-time-2000": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N6-3-time-2000.json.gz",
+        "sha256": "95b64bd324024af77e4a2d8e08055f9faad9b7dfa45e8408d6df13d5525c6814"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N6-3-time-2000.input.json",
+        "sha256": "51516678dc6fc92bea3694620d12e165ec08969c290ce664ac4c43591fb6f9f0"
+      }
+    }
+  },
+  "N6-3-time-4000": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N6-3-time-4000.json.gz",
+        "sha256": "20ad77dda68dce6db9f24dda953eb9a30f26a2b8b78a943e3ba2cfdcbfe59683"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N6-3-time-4000.input.json",
+        "sha256": "28bd30803e7023c9c74d6716918cbaa4516abba7c007e7b93b3821a8b2395211"
+      }
+    }
+  },
+  "N7-3-domain-400": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-3-domain-400.json.gz",
+        "sha256": "986f83674321d1271f7a41953cff92ce084b378e3cbeb587e59b8cd8e899a7fe"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-3-domain-400.input.json",
+        "sha256": "dbd3ad0598b60baaa8d606347a6c1a44cb8357122de5bb2f96b4b1d13774601d"
+      }
+    }
+  },
+  "N7-3-domain-600": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-3-domain-600.json.gz",
+        "sha256": "c4b1b25b5225f48b8034725336ebf8563ca149aa302b25711fb484e92961ca0d"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-3-domain-600.input.json",
+        "sha256": "23eec28a5524cd2b948218dad21cd0906dacd606448c24fe9e71b9cd0e75ea74"
+      }
+    }
+  },
+  "N7-3-domain-800": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-3-domain-800.json.gz",
+        "sha256": "51c219603e65ff03c422324635e3198b8f75adb38c792b42d0c5738e430362ea"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-3-domain-800.input.json",
+        "sha256": "726e08825ce120b257f509eb6282e78d33ae1dfac5cb2917250d1c37b910573b"
+      }
+    }
+  },
+  "N7-3-penalty-10000000.0": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-3-penalty-10000000.0.json.gz",
+        "sha256": "250f8487f7d164c577a4caed8a347d55b0314af4424e5cf94b2142778eefe0c8"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-3-penalty-10000000.0.input.json",
+        "sha256": "716aeb94a34ab5b6b24647e5f9a31f8626cb2eed36e1c0f0c150e1ee3dedc8ab"
+      }
+    }
+  },
+  "N7-3-penalty-100000000.0": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-3-penalty-100000000.0.json.gz",
+        "sha256": "7b98f861d0b6e99eb35bb24a83cf166b6be85bd319bf035b98037080bcfd465a"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-3-penalty-100000000.0.input.json",
+        "sha256": "b413ab449faefdd1c3b7419ae73470f11c19bdfcc874741ba17a0e111ec0d4b4"
+      }
+    }
+  },
+  "N7-3-penalty-1000000000.0": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-3-penalty-1000000000.0.json.gz",
+        "sha256": "054c32ebd7c0923e8ec00fe60722e67e0fc6531dcae7fac75b73b2b2ec5dbb7d"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-3-penalty-1000000000.0.input.json",
+        "sha256": "44513f637d2b61a9081ddbd76a1d384c276ec3afe4a675b03185af36737e53b7"
+      }
+    }
+  },
+  "N7-3-spot-801-4": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-3-spot-801-4.json.gz",
+        "sha256": "5357a1ea4542330f54fde326f9605dcb8f1027831255512231bbdf9e0f1ccdd0"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-3-spot-801-4.input.json",
+        "sha256": "4d6d48f3a39736db4802296d3bfcbe2741b80400c197bdacc19da6ba1318f2d6"
+      }
+    }
+  },
+  "N7-3-spot-801-2": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-3-spot-801-2.json.gz",
+        "sha256": "eb30b62a331b723236b3307ba4c1af10596ca8c7b192c289bb2c019e47ba66d5"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-3-spot-801-2.input.json",
+        "sha256": "59cb88f080292734032169d49e8272740bb8945be34e70a028abbb7e8ec63860"
+      }
+    }
+  },
+  "N7-3-spot-1601-4": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-3-spot-1601-4.json.gz",
+        "sha256": "fbf43590bae7375662bbc4919459fb063af0c3896f563476753bc14575184449"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-3-spot-1601-4.input.json",
+        "sha256": "7f359055d19ab42cc9be53f9b9f80820bba9c123283ed8ee213d810a01b6e725"
+      }
+    }
+  },
+  "N7-3-spot-1601-2": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-3-spot-1601-2.json.gz",
+        "sha256": "3c2952790ee5dcd0a8da0440ea8472e6e99853765bd3231ba65a23e1db9748bd"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-3-spot-1601-2.input.json",
+        "sha256": "e02c981fcfa4b0b142ebf701197b7249c68009f59ffc36a8f04535c71e9ee472"
+      }
+    }
+  },
+  "N7-3-parameter-1": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-3-parameter-1.json.gz",
+        "sha256": "988b9dede1ba46a2a15faaa0d791ed25180247dbc77f3f106c7066f79d7030f6"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-3-parameter-1.input.json",
+        "sha256": "5de2d9c590556be05aad8ffdef59544f73e4e325827e662277a09f38c15e011e"
+      }
+    }
+  },
+  "N7-3-parameter-0.5": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-3-parameter-0.5.json.gz",
+        "sha256": "a52954aa066d50e1d900dc41fc2f64ff60220363be9a29effc3523ae51deb56c"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-3-parameter-0.5.input.json",
+        "sha256": "f8ac179dfe3934eb2e114a9052caeee11ec9eb4750b0d6e496f98f3a10ae1eaa"
+      }
+    }
+  },
+  "N7-3-parameter-0.25": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-3-parameter-0.25.json.gz",
+        "sha256": "7bea4bc626b5adca64ec0c3229cc5f447a9dfbdaa19b0924e5d46f42b11544be"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N7-3-parameter-0.25.input.json",
+        "sha256": "ebccdb1d9e5efd777aca7a725cfc4b3656307f71c3f8aedbb6d7e077c2e4a8c3"
+      }
+    }
+  },
+  "N8-0": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N8-0.json.gz",
+        "sha256": "7ea2247b528801d9777fe3c6af7f6d8f531fa543991d0eef9917de9216e3b27f"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N8-0.input.json",
+        "sha256": "ebccdd5ae3b777bd8f86ff2641b693ad7fb1657bc2118d93069fb27ff9d7ff16"
+      }
+    }
+  },
+  "N8-1": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N8-1.json.gz",
+        "sha256": "2d2bbbe19ead8ac033e5f1fa68c758eb1419a474c84eefecce22fbe516c69fb9"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N8-1.input.json",
+        "sha256": "c83e9f14f04e174eed27bc3def9bc69aa8acbb80f9f9d46543cb596ba36dc6ae"
+      }
+    }
+  },
+  "N9a": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N9a.json.gz",
+        "sha256": "1f17564030c8ceb3eefa7c11b525f1ebaa730e9aa24a5217f6a1c278f6d01b37"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N9a.input.json",
+        "sha256": "2e616a5c3ea6f23f224d1f2b8124080087f885c8d94cdecf3be8c4f245e52b50"
+      }
+    }
+  },
+  "N9b-1-100": {
+    "origin": "historical",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-evidence/N9b-1-100.json.gz",
+        "sha256": "2c59951951c15e71d5e17686c294810f26a3bd5e1ba09e2059bb5ab7c285295b"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-evidence/N9b-1-100.input.json",
+        "sha256": "5dd3dfff8840acf683f7e606b8411ec207168ec0a32ba4c73923d29e7462bbcc"
+      }
+    }
+  },
+  "N9b-100000000.0-100": {
+    "origin": "historical",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-evidence/N9b-100000000.0-100.json.gz",
+        "sha256": "4054442720b9a8eda812c8471e5a1620d5417ffa9f0e88e0499a99aaea1b152e"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-evidence/N9b-100000000.0-100.input.json",
+        "sha256": "5559de8bde07ead1650bf008c1f2e7e203e43b47d754677f7e1d21a485cec3b6"
+      }
+    }
+  },
+  "N9b-100000000.0-1": {
+    "origin": "historical",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-evidence/N9b-100000000.0-1.json.gz",
+        "sha256": "81a89e502ff91fdec36313938c915e3c5776d355150c1d7263ca8c40a895d68c"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-evidence/N9b-100000000.0-1.input.json",
+        "sha256": "d8e874e18c2cf0b04752baa64b03214394ddece1d8275d237329f3eb37633f9e"
+      }
+    }
+  },
+  "N9c": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N9c.json.gz",
+        "sha256": "00592a1613770a5e7b7a17136d995662aae05ec865b93e56576e3e90ec1bcb0e"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N9c.input.json",
+        "sha256": "820f6680c404c53f17bb7de6a676473324d3ab9f6a15b3bb9d701a413a360bf1"
+      }
+    }
+  },
+  "N9d-1326": {
+    "origin": "historical",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-evidence/N9d-1326.json.gz",
+        "sha256": "b906c6e772cb6f6f747c490ca2e7bc8934b910781585366d11fc5d2f75c4974b"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-evidence/N9d-1326.input.json",
+        "sha256": "be5a43885f975e06b14c6de821820ec4d999d1632b2398ebdee4f4bdcd585fe8"
+      }
+    }
+  },
+  "N9d-1325": {
+    "origin": "historical",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-evidence/N9d-1325.json.gz",
+        "sha256": "52a2a6dd1413b5a3790219c84d6fcaea5ea345aacb1c289bb22263b999738f24"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-evidence/N9d-1325.input.json",
+        "sha256": "abfec5a310723bd8f87f1d8a11805886456096174a7ca2bb4b18db479d9b96c6"
+      }
+    }
+  },
+  "N9d-390": {
+    "origin": "historical",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-evidence/N9d-390.json.gz",
+        "sha256": "dfd7e2b8e77b5f89e75a01e0a87f798cd6bf34d9452971e4cc5ad6a58a38d99f"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-evidence/N9d-390.input.json",
+        "sha256": "25b5103d2eeef642189824e0625d6744e441bf58f1dbf29eeef344842892f3ac"
+      }
+    }
+  },
+  "N9d-78": {
+    "origin": "historical",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-evidence/N9d-78.json.gz",
+        "sha256": "5a45d85eb5f41a5708cc6fc680a05419cb969ae20e76360c2a780b01b2c152ad"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-evidence/N9d-78.input.json",
+        "sha256": "4bf3172419785a6c3be767f743a8163d52c815557bb95b335325f70a4171fc51"
+      }
+    }
+  },
+  "N9d-77": {
+    "origin": "historical",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-evidence/N9d-77.json.gz",
+        "sha256": "9115ed8c59175629e13f2ea7c2c832ab4208b69dfa3706c72b6515d58a0c0446"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-evidence/N9d-77.input.json",
+        "sha256": "ed8875d6f10a358b88c2cb4de4bd3a549bd63a859f420112db127a13a3ca8b44"
+      }
+    }
+  },
+  "N10b-0": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N10b-0.json.gz",
+        "sha256": "638019e81d01849c944ebbf6a65e795a5ad7ecceff914fa78da9508a9f86624e"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N10b-0.input.json",
+        "sha256": "e347f94166f916384a1da84942cb85163982f30e43b4aa398b5acf3f8157c007"
+      }
+    }
+  },
+  "N10b-1e-08": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N10b-1e-08.json.gz",
+        "sha256": "b6b4fa1c5ba1ac75e2f45a8154ad4fb50be8daba799432833a836558f8f9e84a"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N10b-1e-08.input.json",
+        "sha256": "c1a5dd75f8e5732222d3f0710588d9a93cb2f2794de2d72e26bd59b90d528a79"
+      }
+    }
+  },
+  "N10c-0.25": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N10c-0.25.json.gz",
+        "sha256": "0c5bbd32ffca4ffcc04587214c072506a8de62008ab2b7f87061d3b090048e83"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N10c-0.25.input.json",
+        "sha256": "6110df63643ec55d7a9446561e1499a4f2dabf443b3fac9f1052d641f078eba4"
+      }
+    }
+  },
+  "N10c-399.75": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N10c-399.75.json.gz",
+        "sha256": "61f9981da04df9f52963a1963d0d5783c9f21e8c8c8828ef8c47c3958247567e"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N10c-399.75.input.json",
+        "sha256": "77802a97056a74f46b1e015b5703bb1acdfe35ffdb3f4942f5eb5d2233583cd2"
+      }
+    }
+  },
+  "N10d-0-0": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N10d-0-0.json.gz",
+        "sha256": "6490855858b25287d824f36afcfdd92b6b6bb725315e602d493adb6152d069ae"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N10d-0-0.input.json",
+        "sha256": "1377cbd8d9349f85f21c6b142e6d3c9bab2390bdcb0685f9b848307b1966f3b0"
+      }
+    }
+  },
+  "N10d-0-1": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N10d-0-1.json.gz",
+        "sha256": "7724dde0150f6f6cc2a2d78c3e51e5a4ecd9f4cc5dcae4959d7289c75bd56722"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N10d-0-1.input.json",
+        "sha256": "8b7697426367f24915c41316d0c3a431f885d84e02ba08d9bd14e3ba1483a0a0"
+      }
+    }
+  },
+  "N10d-0-2": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N10d-0-2.json.gz",
+        "sha256": "3901d09ac2d789e03a22d269b1ca6890f8016b55b4ea564bdd044895a290cc7f"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N10d-0-2.input.json",
+        "sha256": "4593e3bbbc1ff08e5e9f3093769d7ed7135e7467e62b3e57b42e2f8a2d5c28fd"
+      }
+    }
+  },
+  "N10d-0-3": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N10d-0-3.json.gz",
+        "sha256": "75ad035f046070c222103187366f109a031c003313e4eb19fbfc04ee6cb0812c"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N10d-0-3.input.json",
+        "sha256": "88bf32dce714191e116a863bb58c691aa9d186cb7e56f3a6e866145889990d01"
+      }
+    }
+  },
+  "N10d-0-4": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N10d-0-4.json.gz",
+        "sha256": "317f193a39bcfc76d8ff816fb3d8476e1e6171bc09899517a6512cf090cf14ab"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N10d-0-4.input.json",
+        "sha256": "e5a6115e86693a089f633dbbb4f0f0f2219c30e8b4826b6cce5ffcbeedcf9849"
+      }
+    }
+  },
+  "N10d-1-0": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N10d-1-0.json.gz",
+        "sha256": "df79711b0e39ef80d5fcbf4ec22a5141ff195770b47f4db41c796a325fe6f245"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N10d-1-0.input.json",
+        "sha256": "8f94f966a4d52a92201f5f8221740b72a77582cb7fbf6209f044a43e5504d7d3"
+      }
+    }
+  },
+  "N10d-1-1": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N10d-1-1.json.gz",
+        "sha256": "8868726920337d67fea758e9c68d0b2849bc9f56c50a058dfa0b8851d13f923e"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N10d-1-1.input.json",
+        "sha256": "05e99af3f275bd806ba1d9b1042353979fc8f8b2d1667ba8056299f277032e1a"
+      }
+    }
+  },
+  "N10d-1-2": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N10d-1-2.json.gz",
+        "sha256": "68665c6fba6d87df4ec34271f48d94b0d82e2531c111e25a109ef4a518926211"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N10d-1-2.input.json",
+        "sha256": "cbc2e62b80cc2921ea1a4fda3ed6556d9180ce1168b162e41566dd553fd15ead"
+      }
+    }
+  },
+  "N10d-1-3": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N10d-1-3.json.gz",
+        "sha256": "a00ad75b4922cf02c2b0a6458a2d4f501bbc0cfedb9629b050ce9e5ae8159467"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N10d-1-3.input.json",
+        "sha256": "0bd73e0c61fb117cdef0e8bf1777503967657627e931a75ec946d77f1f3db2a0"
+      }
+    }
+  },
+  "N10d-1-4": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N10d-1-4.json.gz",
+        "sha256": "8f0a88f3777be9c7a81519938320d2fdc5e86c092a6f58529527f36ccb7ab273"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N10d-1-4.input.json",
+        "sha256": "1204acd2c1e7664308f4c02dd2c1b250f4d268893247506c59c0034f42937ea3"
+      }
+    }
+  },
+  "N10-upwind": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N10-upwind.json.gz",
+        "sha256": "0ea9692eb93581fc0bc72fb1b272261d6a315ec0e822061bee5c4c5bf5da7fc1"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N10-upwind.input.json",
+        "sha256": "6ec8b59dc9ad30d81ef71ff649c01554f9a196ea40b2dfe4b416a5f900c9cfbb"
+      }
+    }
+  },
+  "N11-reject-100": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N11-reject-100.json.gz",
+        "sha256": "340959d658d35dcf50f2175a029849586ca1404465a26fa51192a0a5125748a6"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N11-reject-100.input.json",
+        "sha256": "4aece1664c399fd60cd5f4792cb260dcc5567a2fc605fa14bea05298bb4138e3"
+      }
+    }
+  },
+  "N11-admit-100": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N11-admit-100.json.gz",
+        "sha256": "e62273a7e08a93a1491ac144a1cfccf508beb5b5542197cc02f5c4fde6141c2c"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N11-admit-100.input.json",
+        "sha256": "e0904d515d9bdd918c66d6d33d0281806fcc9bbf3de1cad61d044ac7df1ac50f"
+      }
+    }
+  },
+  "N11-reject-100.125": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N11-reject-100.125.json.gz",
+        "sha256": "e5ef8d4d5880e986acbc0a3d902ffe539593d3646fe91b0bbbdcecdc4d33c2b0"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N11-reject-100.125.input.json",
+        "sha256": "ab4438e57965ac99dd8905deaeb4b547ca6f961fd0689f190a65b1ddfb0d56c2"
+      }
+    }
+  },
+  "N11-admit-100.125": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N11-admit-100.125.json.gz",
+        "sha256": "8f91ddc32916893938c9d81a90aad21579cdf7ab14d921aa01f3c8001089053a"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N11-admit-100.125.input.json",
+        "sha256": "c4b3af9ef40121fb83872b6f018a5cb054b10a74371a47f3d37c8dde03eed7f1"
+      }
+    }
+  },
+  "N11-space-0-401": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N11-space-0-401.json.gz",
+        "sha256": "d908fb7dd2786df388b6ddf649c9fc4895aa24a6e5cb6a3d58a1a0b149d11b81"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N11-space-0-401.input.json",
+        "sha256": "54b9e481165262fb7785557a7b9904e211a8f64e8d53818de5cffdd733a35d5b"
+      }
+    }
+  },
+  "N11-space-0-801": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N11-space-0-801.json.gz",
+        "sha256": "1db54c625a091293a73610e19fdcb9f2ceda1f549f6aa161e8dc61ecf7d3067b"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N11-space-0-801.input.json",
+        "sha256": "6cf7e1004a25cbd13bc0c6411cb39d91a68b585adeb7705abd1f2354c4514066"
+      }
+    }
+  },
+  "N11-space-0-1601": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N11-space-0-1601.json.gz",
+        "sha256": "76d92cd3683a8bfab68d42eb7b70ed65cfda40dacc87852e0b93dc0736412fa1"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N11-space-0-1601.input.json",
+        "sha256": "108809dac27d18857186a29b6e6c9cffca6c35651cb944de0def25b0ddc588f0"
+      }
+    }
+  },
+  "N11-space-1-401": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N11-space-1-401.json.gz",
+        "sha256": "e8a9f083f3d67704acb4150ec8920df70d20dce13c99ec28047575c244a93061"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N11-space-1-401.input.json",
+        "sha256": "eadf032ed9887231dbd724585419670381fcbf7246268b620233e3fa909ef81e"
+      }
+    }
+  },
+  "N11-space-1-801": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N11-space-1-801.json.gz",
+        "sha256": "a453cdd1c18a3061c2dbd955bac9d127e2d02c1076e3bec2e690d58d3e7ccfe6"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N11-space-1-801.input.json",
+        "sha256": "395d071da7127f8c33226309d354cfa290cb746acb1c6cc0f086e7b5be0427dd"
+      }
+    }
+  },
+  "N11-space-1-1601": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N11-space-1-1601.json.gz",
+        "sha256": "d9e8481d6c0d8f9c078b9a99bef5e0c354ba01dcd1064fc1d85c38ab2f5bf8ec"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N11-space-1-1601.input.json",
+        "sha256": "653c1dd5798a44c1f1695e5b91cba38d9a3f3b789fd711502a050ece69f1eba5"
+      }
+    }
+  },
+  "N12-137-0.0001": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N12-137-0.0001.json.gz",
+        "sha256": "61d5d62beba43b7c63a252b09a996c561dc653b1bf261e7b37c4461a6e03814f"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N12-137-0.0001.input.json",
+        "sha256": "71b3cbff2270f2bc8affe6267d2b7bacd0941d9f0c2142db3609a1167b44e15f"
+      }
+    }
+  },
+  "N12-137-5e-05": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N12-137-5e-05.json.gz",
+        "sha256": "71a4fd153b3004a94f9456f5c0cbcf48d7559798e51bf8a066238c73b1f95ed8"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N12-137-5e-05.input.json",
+        "sha256": "d240e4cd1470b801d77856ef529a8bc21a87ef1299339a259872d890c28435a0"
+      }
+    }
+  },
+  "N12-182-0.0001": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N12-182-0.0001.json.gz",
+        "sha256": "dd840995f8baffc37fb560a213e23984a2ee4457a82a749b8f15aefd24c2cb80"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N12-182-0.0001.input.json",
+        "sha256": "3d9c77988daa16b66260f6f71bade363f0a9774a3502b86b8f5196bd9979f29f"
+      }
+    }
+  },
+  "N12-182-5e-05": {
+    "origin": "current",
+    "files": {
+      ".json.gz": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N12-182-5e-05.json.gz",
+        "sha256": "17e22d554add26aa62cea9480065181b501766ada65e29e60908f6c31ac444c1"
+      },
+      ".input.json": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/N12-182-5e-05.input.json",
+        "sha256": "a0b95f2dd01a5c4be1b0160011bde8a39f31233c5e5bf96c19bbd4b2b81cac05"
+      }
+    }
+  },
+  "supplement.json": {
+    "origin": "current",
+    "files": {
+      "": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/view-replay/fresh-view/supplement.json",
+        "sha256": "b9eca414357837fe3d9e977556ccf6d3b178c0308c04dea301d9f4ed47eb4fe9"
+      }
+    },
+    "copied_from": {
+      "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/supplement.json",
+      "sha256": "b9eca414357837fe3d9e977556ccf6d3b178c0308c04dea301d9f4ed47eb4fe9"
+    }
+  },
+  "n9a-audit.json": {
+    "origin": "current",
+    "files": {
+      "": {
+        "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-american-directions/view-replay/fresh-view/n9a-audit.json",
+        "sha256": "5b82f7615f6e1255e8596429d9f475fc734f41ac9f3598b0dae2ba00ccbe3f3c"
+      }
+    },
+    "copied_from": {
+      "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-502-3b3505efc344/workdir/Derivatives-Algorithms-Lib/build/dal502-followup/products/n9a-audit.json",
+      "sha256": "5b82f7615f6e1255e8596429d9f475fc734f41ac9f3598b0dae2ba00ccbe3f3c"
+    }
+  }
+}

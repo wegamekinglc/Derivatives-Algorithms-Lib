@@ -1,0 +1,158 @@
+{
+  "N1": {
+    "status": "PASS",
+    "previous_evidence": "dal502-followup/groups.json",
+    "previous_evidence_sha256": "b5d526ee24dcbea3b9c5d84710c57c720deebf984875e78984de4b87d963540a",
+    "current_directions": {},
+    "remaining_gap": null
+  },
+  "N2": {
+    "status": "PASS",
+    "previous_evidence": "dal502-followup/groups.json",
+    "previous_evidence_sha256": "b5d526ee24dcbea3b9c5d84710c57c720deebf984875e78984de4b87d963540a",
+    "current_directions": {},
+    "remaining_gap": null
+  },
+  "N3": {
+    "status": "INCOMPLETE",
+    "previous_evidence": "dal502-followup/groups.json",
+    "previous_evidence_sha256": "b5d526ee24dcbea3b9c5d84710c57c720deebf984875e78984de4b87d963540a",
+    "current_directions": {},
+    "remaining_gap": "mandatory TREE finest-reference unqualified"
+  },
+  "N4": {
+    "status": "PASS",
+    "previous_evidence": "dal502-followup/groups.json",
+    "previous_evidence_sha256": "b5d526ee24dcbea3b9c5d84710c57c720deebf984875e78984de4b87d963540a",
+    "current_directions": {},
+    "remaining_gap": null
+  },
+  "N5": {
+    "status": "PASS",
+    "previous_evidence": "dal502-followup/groups.json",
+    "previous_evidence_sha256": "b5d526ee24dcbea3b9c5d84710c57c720deebf984875e78984de4b87d963540a",
+    "current_directions": {},
+    "remaining_gap": null
+  },
+  "N6": {
+    "status": "INCOMPLETE",
+    "previous_evidence": "dal502-followup/groups.json",
+    "previous_evidence_sha256": "b5d526ee24dcbea3b9c5d84710c57c720deebf984875e78984de4b87d963540a",
+    "current_directions": {
+      "N6-1-space": {
+        "direction_status": "PASS",
+        "finest_reference_status": "INCOMPLETE",
+        "qualification_status": "INCOMPLETE"
+      },
+      "N6-1-time": {
+        "direction_status": "PASS",
+        "finest_reference_status": "INCOMPLETE",
+        "qualification_status": "INCOMPLETE"
+      },
+      "N6-2-space": {
+        "direction_status": "PASS",
+        "finest_reference_status": "INCOMPLETE",
+        "qualification_status": "INCOMPLETE"
+      },
+      "N6-2-time": {
+        "direction_status": "PASS",
+        "finest_reference_status": "INCOMPLETE",
+        "qualification_status": "INCOMPLETE"
+      }
+    },
+    "remaining_gap": "mandatory TREE finest-reference unqualified"
+  },
+  "N7": {
+    "status": "INCOMPLETE",
+    "previous_evidence": "dal502-followup/groups.json",
+    "previous_evidence_sha256": "b5d526ee24dcbea3b9c5d84710c57c720deebf984875e78984de4b87d963540a",
+    "current_directions": {
+      "N7-1-domain": {
+        "direction_status": "PASS",
+        "finest_reference_status": "INCOMPLETE",
+        "qualification_status": "INCOMPLETE"
+      },
+      "N7-1-penalty": {
+        "direction_status": "PASS",
+        "finest_reference_status": "INCOMPLETE",
+        "qualification_status": "INCOMPLETE"
+      },
+      "N7-1-spot-801": {
+        "direction_status": "PASS",
+        "finest_reference_status": "INCOMPLETE",
+        "qualification_status": "INCOMPLETE"
+      },
+      "N7-1-spot-1601": {
+        "direction_status": "PASS",
+        "finest_reference_status": "INCOMPLETE",
+        "qualification_status": "INCOMPLETE"
+      },
+      "N7-1-parameter": {
+        "direction_status": "PASS",
+        "finest_reference_status": "INCOMPLETE",
+        "qualification_status": "INCOMPLETE"
+      },
+      "N7-2-domain": {
+        "direction_status": "PASS",
+        "finest_reference_status": "INCOMPLETE",
+        "qualification_status": "INCOMPLETE"
+      },
+      "N7-2-penalty": {
+        "direction_status": "PASS",
+        "finest_reference_status": "INCOMPLETE",
+        "qualification_status": "INCOMPLETE"
+      },
+      "N7-2-spot-801": {
+        "direction_status": "PASS",
+        "finest_reference_status": "INCOMPLETE",
+        "qualification_status": "INCOMPLETE"
+      },
+      "N7-2-spot-1601": {
+        "direction_status": "PASS",
+        "finest_reference_status": "INCOMPLETE",
+        "qualification_status": "INCOMPLETE"
+      },
+      "N7-2-parameter": {
+        "direction_status": "PASS",
+        "finest_reference_status": "INCOMPLETE",
+        "qualification_status": "INCOMPLETE"
+      }
+    },
+    "remaining_gap": "mandatory TREE finest-reference unqualified"
+  },
+  "N8": {
+    "status": "PASS",
+    "previous_evidence": "dal502-followup/groups.json",
+    "previous_evidence_sha256": "b5d526ee24dcbea3b9c5d84710c57c720deebf984875e78984de4b87d963540a",
+    "current_directions": {},
+    "remaining_gap": null
+  },
+  "N9": {
+    "status": "PASS",
+    "previous_evidence": "dal502-followup/groups.json",
+    "previous_evidence_sha256": "b5d526ee24dcbea3b9c5d84710c57c720deebf984875e78984de4b87d963540a",
+    "current_directions": {},
+    "remaining_gap": null
+  },
+  "N10": {
+    "status": "PASS",
+    "previous_evidence": "dal502-followup/groups.json",
+    "previous_evidence_sha256": "b5d526ee24dcbea3b9c5d84710c57c720deebf984875e78984de4b87d963540a",
+    "current_directions": {},
+    "remaining_gap": null
+  },
+  "N11": {
+    "status": "PASS",
+    "previous_evidence": "dal502-followup/groups.json",
+    "previous_evidence_sha256": "b5d526ee24dcbea3b9c5d84710c57c720deebf984875e78984de4b87d963540a",
+    "current_directions": {},
+    "remaining_gap": null
+  },
+  "N12": {
+    "status": "PASS",
+    "previous_evidence": "dal502-followup/groups.json",
+    "previous_evidence_sha256": "b5d526ee24dcbea3b9c5d84710c57c720deebf984875e78984de4b87d963540a",
+    "current_directions": {},
+    "remaining_gap": null
+  }
+}

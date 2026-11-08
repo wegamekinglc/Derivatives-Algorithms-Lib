@@ -1,0 +1,1750 @@
+{
+  "N6-1-space-401": {
+    "status": "PASS",
+    "reference_binding": "ba5f3ed1040cdf3a27a79e0436abef40ffde10df136c68643a60484c566216c9",
+    "rows": [
+      {
+        "risk_id": "Delta",
+        "observed_coarse": 4.0,
+        "observed_fine": 2.0,
+        "expected_coarse": 4.0,
+        "expected_fine": 2.0,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Gamma",
+        "observed_coarse": 4.0,
+        "observed_fine": 2.0,
+        "expected_coarse": 4.0,
+        "expected_fine": 2.0,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Vega",
+        "observed_coarse": 0.001,
+        "observed_fine": 0.0005,
+        "expected_coarse": 0.001,
+        "expected_fine": 0.0005,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Rate[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "DividendYield[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      }
+    ]
+  },
+  "N7-2-penalty-100000000.0": {
+    "status": "PASS",
+    "reference_binding": "325c81055c47fb160d2c79592ca886f47fcc8cffb3c6df9b069108e82ccf48c6",
+    "rows": [
+      {
+        "risk_id": "Delta",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Gamma",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Vega",
+        "observed_coarse": 0.001,
+        "observed_fine": 0.0005,
+        "expected_coarse": 0.001,
+        "expected_fine": 0.0005,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Rate[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "DividendYield[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      }
+    ]
+  },
+  "N6-2-time-2000": {
+    "status": "PASS",
+    "reference_binding": "325c81055c47fb160d2c79592ca886f47fcc8cffb3c6df9b069108e82ccf48c6",
+    "rows": [
+      {
+        "risk_id": "Delta",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Gamma",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Vega",
+        "observed_coarse": 0.001,
+        "observed_fine": 0.0005,
+        "expected_coarse": 0.001,
+        "expected_fine": 0.0005,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Rate[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "DividendYield[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      }
+    ]
+  },
+  "N7-2-penalty-1000000000.0": {
+    "status": "PASS",
+    "reference_binding": "325c81055c47fb160d2c79592ca886f47fcc8cffb3c6df9b069108e82ccf48c6",
+    "rows": [
+      {
+        "risk_id": "Delta",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Gamma",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Vega",
+        "observed_coarse": 0.001,
+        "observed_fine": 0.0005,
+        "expected_coarse": 0.001,
+        "expected_fine": 0.0005,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Rate[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "DividendYield[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      }
+    ]
+  },
+  "N6-2-space-401": {
+    "status": "PASS",
+    "reference_binding": "cb29dc3178a804fda2721cb4b0292798408b9a5d7da9f70fc7821cc47ab0160d",
+    "rows": [
+      {
+        "risk_id": "Delta",
+        "observed_coarse": 4.0,
+        "observed_fine": 2.0,
+        "expected_coarse": 4.0,
+        "expected_fine": 2.0,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Gamma",
+        "observed_coarse": 4.0,
+        "observed_fine": 2.0,
+        "expected_coarse": 4.0,
+        "expected_fine": 2.0,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Vega",
+        "observed_coarse": 0.001,
+        "observed_fine": 0.0005,
+        "expected_coarse": 0.001,
+        "expected_fine": 0.0005,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Rate[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "DividendYield[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      }
+    ]
+  },
+  "N7-2-domain-400": {
+    "status": "PASS",
+    "reference_binding": "325c81055c47fb160d2c79592ca886f47fcc8cffb3c6df9b069108e82ccf48c6",
+    "rows": [
+      {
+        "risk_id": "Delta",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Gamma",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Vega",
+        "observed_coarse": 0.001,
+        "observed_fine": 0.0005,
+        "expected_coarse": 0.001,
+        "expected_fine": 0.0005,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Rate[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "DividendYield[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      }
+    ]
+  },
+  "N7-1-parameter-1": {
+    "status": "PASS",
+    "reference_binding": "b1166a77cf17fede072f019ec4ed1263113a78e7f47895fd4c7623a20709225c",
+    "rows": [
+      {
+        "risk_id": "Delta",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Gamma",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Vega",
+        "observed_coarse": 0.001,
+        "observed_fine": 0.0005,
+        "expected_coarse": 0.001,
+        "expected_fine": 0.0005,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Rate[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "DividendYield[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      }
+    ]
+  },
+  "N7-1-spot-1601-4": {
+    "status": "PASS",
+    "reference_binding": "6b0637d9a47b2acbdd61c3760b05d1dc03a40cb08b7e3cdb2c46f16d3b67a983",
+    "rows": [
+      {
+        "risk_id": "Delta",
+        "observed_coarse": 2.0,
+        "observed_fine": 1.0,
+        "expected_coarse": 2.0,
+        "expected_fine": 1.0,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Gamma",
+        "observed_coarse": 2.0,
+        "observed_fine": 1.0,
+        "expected_coarse": 2.0,
+        "expected_fine": 1.0,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Vega",
+        "observed_coarse": 0.001,
+        "observed_fine": 0.0005,
+        "expected_coarse": 0.001,
+        "expected_fine": 0.0005,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Rate[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "DividendYield[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      }
+    ]
+  },
+  "N7-1-spot-801-2": {
+    "status": "PASS",
+    "reference_binding": "6b0637d9a47b2acbdd61c3760b05d1dc03a40cb08b7e3cdb2c46f16d3b67a983",
+    "rows": [
+      {
+        "risk_id": "Delta",
+        "observed_coarse": 2.0,
+        "observed_fine": 1.0,
+        "expected_coarse": 2.0,
+        "expected_fine": 1.0,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Gamma",
+        "observed_coarse": 2.0,
+        "observed_fine": 1.0,
+        "expected_coarse": 2.0,
+        "expected_fine": 1.0,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Vega",
+        "observed_coarse": 0.001,
+        "observed_fine": 0.0005,
+        "expected_coarse": 0.001,
+        "expected_fine": 0.0005,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Rate[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "DividendYield[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      }
+    ]
+  },
+  "N7-2-domain-600": {
+    "status": "PASS",
+    "reference_binding": "325c81055c47fb160d2c79592ca886f47fcc8cffb3c6df9b069108e82ccf48c6",
+    "rows": [
+      {
+        "risk_id": "Delta",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Gamma",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Vega",
+        "observed_coarse": 0.001,
+        "observed_fine": 0.0005,
+        "expected_coarse": 0.001,
+        "expected_fine": 0.0005,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Rate[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "DividendYield[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      }
+    ]
+  },
+  "N7-2-domain-800": {
+    "status": "PASS",
+    "reference_binding": "325c81055c47fb160d2c79592ca886f47fcc8cffb3c6df9b069108e82ccf48c6",
+    "rows": [
+      {
+        "risk_id": "Delta",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Gamma",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Vega",
+        "observed_coarse": 0.001,
+        "observed_fine": 0.0005,
+        "expected_coarse": 0.001,
+        "expected_fine": 0.0005,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Rate[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "DividendYield[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      }
+    ]
+  },
+  "N6-2-space-1601": {
+    "status": "PASS",
+    "reference_binding": "325c81055c47fb160d2c79592ca886f47fcc8cffb3c6df9b069108e82ccf48c6",
+    "rows": [
+      {
+        "risk_id": "Delta",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Gamma",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Vega",
+        "observed_coarse": 0.001,
+        "observed_fine": 0.0005,
+        "expected_coarse": 0.001,
+        "expected_fine": 0.0005,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Rate[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "DividendYield[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      }
+    ]
+  },
+  "N7-1-spot-801-4": {
+    "status": "PASS",
+    "reference_binding": "ba5f3ed1040cdf3a27a79e0436abef40ffde10df136c68643a60484c566216c9",
+    "rows": [
+      {
+        "risk_id": "Delta",
+        "observed_coarse": 4.0,
+        "observed_fine": 2.0,
+        "expected_coarse": 4.0,
+        "expected_fine": 2.0,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Gamma",
+        "observed_coarse": 4.0,
+        "observed_fine": 2.0,
+        "expected_coarse": 4.0,
+        "expected_fine": 2.0,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Vega",
+        "observed_coarse": 0.001,
+        "observed_fine": 0.0005,
+        "expected_coarse": 0.001,
+        "expected_fine": 0.0005,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Rate[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "DividendYield[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      }
+    ]
+  },
+  "N7-1-spot-1601-2": {
+    "status": "PASS",
+    "reference_binding": "b1166a77cf17fede072f019ec4ed1263113a78e7f47895fd4c7623a20709225c",
+    "rows": [
+      {
+        "risk_id": "Delta",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Gamma",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Vega",
+        "observed_coarse": 0.001,
+        "observed_fine": 0.0005,
+        "expected_coarse": 0.001,
+        "expected_fine": 0.0005,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Rate[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "DividendYield[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      }
+    ]
+  },
+  "N7-1-domain-400": {
+    "status": "PASS",
+    "reference_binding": "b1166a77cf17fede072f019ec4ed1263113a78e7f47895fd4c7623a20709225c",
+    "rows": [
+      {
+        "risk_id": "Delta",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Gamma",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Vega",
+        "observed_coarse": 0.001,
+        "observed_fine": 0.0005,
+        "expected_coarse": 0.001,
+        "expected_fine": 0.0005,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Rate[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "DividendYield[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      }
+    ]
+  },
+  "N7-2-spot-801-2": {
+    "status": "PASS",
+    "reference_binding": "f51dd42acec1467796629fc19683366aafdafc1906c93b3f472c012a0d61c58b",
+    "rows": [
+      {
+        "risk_id": "Delta",
+        "observed_coarse": 2.0,
+        "observed_fine": 1.0,
+        "expected_coarse": 2.0,
+        "expected_fine": 1.0,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Gamma",
+        "observed_coarse": 2.0,
+        "observed_fine": 1.0,
+        "expected_coarse": 2.0,
+        "expected_fine": 1.0,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Vega",
+        "observed_coarse": 0.001,
+        "observed_fine": 0.0005,
+        "expected_coarse": 0.001,
+        "expected_fine": 0.0005,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Rate[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "DividendYield[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      }
+    ]
+  },
+  "N7-1-penalty-10000000.0": {
+    "status": "PASS",
+    "reference_binding": "b1166a77cf17fede072f019ec4ed1263113a78e7f47895fd4c7623a20709225c",
+    "rows": [
+      {
+        "risk_id": "Delta",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Gamma",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Vega",
+        "observed_coarse": 0.001,
+        "observed_fine": 0.0005,
+        "expected_coarse": 0.001,
+        "expected_fine": 0.0005,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Rate[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "DividendYield[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      }
+    ]
+  },
+  "N7-1-penalty-100000000.0": {
+    "status": "PASS",
+    "reference_binding": "b1166a77cf17fede072f019ec4ed1263113a78e7f47895fd4c7623a20709225c",
+    "rows": [
+      {
+        "risk_id": "Delta",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Gamma",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Vega",
+        "observed_coarse": 0.001,
+        "observed_fine": 0.0005,
+        "expected_coarse": 0.001,
+        "expected_fine": 0.0005,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Rate[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "DividendYield[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      }
+    ]
+  },
+  "N7-2-parameter-1": {
+    "status": "PASS",
+    "reference_binding": "325c81055c47fb160d2c79592ca886f47fcc8cffb3c6df9b069108e82ccf48c6",
+    "rows": [
+      {
+        "risk_id": "Delta",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Gamma",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Vega",
+        "observed_coarse": 0.001,
+        "observed_fine": 0.0005,
+        "expected_coarse": 0.001,
+        "expected_fine": 0.0005,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Rate[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "DividendYield[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      }
+    ]
+  },
+  "N7-2-parameter-0.5": {
+    "status": "PASS",
+    "reference_binding": "b60c5b84eb0ead96ba7f6d8d243b67edcdf2ac076ef7b85bc49d645be1bd15b6",
+    "rows": [
+      {
+        "risk_id": "Delta",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Gamma",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Vega",
+        "observed_coarse": 0.0005,
+        "observed_fine": 0.00025,
+        "expected_coarse": 0.0005,
+        "expected_fine": 0.00025,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Rate[0]",
+        "observed_coarse": 5e-05,
+        "observed_fine": 2.5e-05,
+        "expected_coarse": 5e-05,
+        "expected_fine": 2.5e-05,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "DividendYield[0]",
+        "observed_coarse": 5e-05,
+        "observed_fine": 2.5e-05,
+        "expected_coarse": 5e-05,
+        "expected_fine": 2.5e-05,
+        "status": "PASS"
+      }
+    ]
+  },
+  "N7-1-penalty-1000000000.0": {
+    "status": "PASS",
+    "reference_binding": "b1166a77cf17fede072f019ec4ed1263113a78e7f47895fd4c7623a20709225c",
+    "rows": [
+      {
+        "risk_id": "Delta",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Gamma",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Vega",
+        "observed_coarse": 0.001,
+        "observed_fine": 0.0005,
+        "expected_coarse": 0.001,
+        "expected_fine": 0.0005,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Rate[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "DividendYield[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      }
+    ]
+  },
+  "N7-1-domain-800": {
+    "status": "PASS",
+    "reference_binding": "b1166a77cf17fede072f019ec4ed1263113a78e7f47895fd4c7623a20709225c",
+    "rows": [
+      {
+        "risk_id": "Delta",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Gamma",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Vega",
+        "observed_coarse": 0.001,
+        "observed_fine": 0.0005,
+        "expected_coarse": 0.001,
+        "expected_fine": 0.0005,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Rate[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "DividendYield[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      }
+    ]
+  },
+  "N6-2-time-4000": {
+    "status": "PASS",
+    "reference_binding": "325c81055c47fb160d2c79592ca886f47fcc8cffb3c6df9b069108e82ccf48c6",
+    "rows": [
+      {
+        "risk_id": "Delta",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Gamma",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Vega",
+        "observed_coarse": 0.001,
+        "observed_fine": 0.0005,
+        "expected_coarse": 0.001,
+        "expected_fine": 0.0005,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Rate[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "DividendYield[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      }
+    ]
+  },
+  "N7-1-parameter-0.25": {
+    "status": "PASS",
+    "reference_binding": "c087fe5f6f459fcb4d5c44c6d68fec372670e84329a306b7651b179b91629f65",
+    "rows": [
+      {
+        "risk_id": "Delta",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Gamma",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Vega",
+        "observed_coarse": 0.00025,
+        "observed_fine": 0.000125,
+        "expected_coarse": 0.00025,
+        "expected_fine": 0.000125,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Rate[0]",
+        "observed_coarse": 2.5e-05,
+        "observed_fine": 1.25e-05,
+        "expected_coarse": 2.5e-05,
+        "expected_fine": 1.25e-05,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "DividendYield[0]",
+        "observed_coarse": 2.5e-05,
+        "observed_fine": 1.25e-05,
+        "expected_coarse": 2.5e-05,
+        "expected_fine": 1.25e-05,
+        "status": "PASS"
+      }
+    ]
+  },
+  "N7-1-domain-600": {
+    "status": "PASS",
+    "reference_binding": "b1166a77cf17fede072f019ec4ed1263113a78e7f47895fd4c7623a20709225c",
+    "rows": [
+      {
+        "risk_id": "Delta",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Gamma",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Vega",
+        "observed_coarse": 0.001,
+        "observed_fine": 0.0005,
+        "expected_coarse": 0.001,
+        "expected_fine": 0.0005,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Rate[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "DividendYield[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      }
+    ]
+  },
+  "N7-1-parameter-0.5": {
+    "status": "PASS",
+    "reference_binding": "52bbede0ef0da358c56600115d277940ad2b1aedb846aa1152c73443a6d6230b",
+    "rows": [
+      {
+        "risk_id": "Delta",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Gamma",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Vega",
+        "observed_coarse": 0.0005,
+        "observed_fine": 0.00025,
+        "expected_coarse": 0.0005,
+        "expected_fine": 0.00025,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Rate[0]",
+        "observed_coarse": 5e-05,
+        "observed_fine": 2.5e-05,
+        "expected_coarse": 5e-05,
+        "expected_fine": 2.5e-05,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "DividendYield[0]",
+        "observed_coarse": 5e-05,
+        "observed_fine": 2.5e-05,
+        "expected_coarse": 5e-05,
+        "expected_fine": 2.5e-05,
+        "status": "PASS"
+      }
+    ]
+  },
+  "N7-2-parameter-0.25": {
+    "status": "PASS",
+    "reference_binding": "1a799dc2b79909020c8e0f5353ee67fe38fd5ec4b0e425fdfd24eb9b0ddef435",
+    "rows": [
+      {
+        "risk_id": "Delta",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Gamma",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Vega",
+        "observed_coarse": 0.00025,
+        "observed_fine": 0.000125,
+        "expected_coarse": 0.00025,
+        "expected_fine": 0.000125,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Rate[0]",
+        "observed_coarse": 2.5e-05,
+        "observed_fine": 1.25e-05,
+        "expected_coarse": 2.5e-05,
+        "expected_fine": 1.25e-05,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "DividendYield[0]",
+        "observed_coarse": 2.5e-05,
+        "observed_fine": 1.25e-05,
+        "expected_coarse": 2.5e-05,
+        "expected_fine": 1.25e-05,
+        "status": "PASS"
+      }
+    ]
+  },
+  "N7-2-spot-1601-2": {
+    "status": "PASS",
+    "reference_binding": "325c81055c47fb160d2c79592ca886f47fcc8cffb3c6df9b069108e82ccf48c6",
+    "rows": [
+      {
+        "risk_id": "Delta",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Gamma",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Vega",
+        "observed_coarse": 0.001,
+        "observed_fine": 0.0005,
+        "expected_coarse": 0.001,
+        "expected_fine": 0.0005,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Rate[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "DividendYield[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      }
+    ]
+  },
+  "N7-2-spot-801-4": {
+    "status": "PASS",
+    "reference_binding": "cb29dc3178a804fda2721cb4b0292798408b9a5d7da9f70fc7821cc47ab0160d",
+    "rows": [
+      {
+        "risk_id": "Delta",
+        "observed_coarse": 4.0,
+        "observed_fine": 2.0,
+        "expected_coarse": 4.0,
+        "expected_fine": 2.0,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Gamma",
+        "observed_coarse": 4.0,
+        "observed_fine": 2.0,
+        "expected_coarse": 4.0,
+        "expected_fine": 2.0,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Vega",
+        "observed_coarse": 0.001,
+        "observed_fine": 0.0005,
+        "expected_coarse": 0.001,
+        "expected_fine": 0.0005,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Rate[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "DividendYield[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      }
+    ]
+  },
+  "N6-1-space-801": {
+    "status": "PASS",
+    "reference_binding": "6b0637d9a47b2acbdd61c3760b05d1dc03a40cb08b7e3cdb2c46f16d3b67a983",
+    "rows": [
+      {
+        "risk_id": "Delta",
+        "observed_coarse": 2.0,
+        "observed_fine": 1.0,
+        "expected_coarse": 2.0,
+        "expected_fine": 1.0,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Gamma",
+        "observed_coarse": 2.0,
+        "observed_fine": 1.0,
+        "expected_coarse": 2.0,
+        "expected_fine": 1.0,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Vega",
+        "observed_coarse": 0.001,
+        "observed_fine": 0.0005,
+        "expected_coarse": 0.001,
+        "expected_fine": 0.0005,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Rate[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "DividendYield[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      }
+    ]
+  },
+  "N7-2-spot-1601-4": {
+    "status": "PASS",
+    "reference_binding": "f51dd42acec1467796629fc19683366aafdafc1906c93b3f472c012a0d61c58b",
+    "rows": [
+      {
+        "risk_id": "Delta",
+        "observed_coarse": 2.0,
+        "observed_fine": 1.0,
+        "expected_coarse": 2.0,
+        "expected_fine": 1.0,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Gamma",
+        "observed_coarse": 2.0,
+        "observed_fine": 1.0,
+        "expected_coarse": 2.0,
+        "expected_fine": 1.0,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Vega",
+        "observed_coarse": 0.001,
+        "observed_fine": 0.0005,
+        "expected_coarse": 0.001,
+        "expected_fine": 0.0005,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Rate[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "DividendYield[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      }
+    ]
+  },
+  "N6-1-time-4000": {
+    "status": "PASS",
+    "reference_binding": "b1166a77cf17fede072f019ec4ed1263113a78e7f47895fd4c7623a20709225c",
+    "rows": [
+      {
+        "risk_id": "Delta",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Gamma",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Vega",
+        "observed_coarse": 0.001,
+        "observed_fine": 0.0005,
+        "expected_coarse": 0.001,
+        "expected_fine": 0.0005,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Rate[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "DividendYield[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      }
+    ]
+  },
+  "N6-2-time-1000": {
+    "status": "PASS",
+    "reference_binding": "325c81055c47fb160d2c79592ca886f47fcc8cffb3c6df9b069108e82ccf48c6",
+    "rows": [
+      {
+        "risk_id": "Delta",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Gamma",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Vega",
+        "observed_coarse": 0.001,
+        "observed_fine": 0.0005,
+        "expected_coarse": 0.001,
+        "expected_fine": 0.0005,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Rate[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "DividendYield[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      }
+    ]
+  },
+  "N6-2-space-801": {
+    "status": "PASS",
+    "reference_binding": "f51dd42acec1467796629fc19683366aafdafc1906c93b3f472c012a0d61c58b",
+    "rows": [
+      {
+        "risk_id": "Delta",
+        "observed_coarse": 2.0,
+        "observed_fine": 1.0,
+        "expected_coarse": 2.0,
+        "expected_fine": 1.0,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Gamma",
+        "observed_coarse": 2.0,
+        "observed_fine": 1.0,
+        "expected_coarse": 2.0,
+        "expected_fine": 1.0,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Vega",
+        "observed_coarse": 0.001,
+        "observed_fine": 0.0005,
+        "expected_coarse": 0.001,
+        "expected_fine": 0.0005,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Rate[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "DividendYield[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      }
+    ]
+  },
+  "N6-1-time-1000": {
+    "status": "PASS",
+    "reference_binding": "b1166a77cf17fede072f019ec4ed1263113a78e7f47895fd4c7623a20709225c",
+    "rows": [
+      {
+        "risk_id": "Delta",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Gamma",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Vega",
+        "observed_coarse": 0.001,
+        "observed_fine": 0.0005,
+        "expected_coarse": 0.001,
+        "expected_fine": 0.0005,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Rate[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "DividendYield[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      }
+    ]
+  },
+  "N6-1-time-2000": {
+    "status": "PASS",
+    "reference_binding": "b1166a77cf17fede072f019ec4ed1263113a78e7f47895fd4c7623a20709225c",
+    "rows": [
+      {
+        "risk_id": "Delta",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Gamma",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Vega",
+        "observed_coarse": 0.001,
+        "observed_fine": 0.0005,
+        "expected_coarse": 0.001,
+        "expected_fine": 0.0005,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Rate[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "DividendYield[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      }
+    ]
+  },
+  "N6-1-space-1601": {
+    "status": "PASS",
+    "reference_binding": "b1166a77cf17fede072f019ec4ed1263113a78e7f47895fd4c7623a20709225c",
+    "rows": [
+      {
+        "risk_id": "Delta",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Gamma",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Vega",
+        "observed_coarse": 0.001,
+        "observed_fine": 0.0005,
+        "expected_coarse": 0.001,
+        "expected_fine": 0.0005,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Rate[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "DividendYield[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      }
+    ]
+  },
+  "N7-2-penalty-10000000.0": {
+    "status": "PASS",
+    "reference_binding": "325c81055c47fb160d2c79592ca886f47fcc8cffb3c6df9b069108e82ccf48c6",
+    "rows": [
+      {
+        "risk_id": "Delta",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Gamma",
+        "observed_coarse": 1.0,
+        "observed_fine": 0.5,
+        "expected_coarse": 1.0,
+        "expected_fine": 0.5,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Vega",
+        "observed_coarse": 0.001,
+        "observed_fine": 0.0005,
+        "expected_coarse": 0.001,
+        "expected_fine": 0.0005,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "Rate[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      },
+      {
+        "risk_id": "DividendYield[0]",
+        "observed_coarse": 0.0001,
+        "observed_fine": 5e-05,
+        "expected_coarse": 0.0001,
+        "expected_fine": 5e-05,
+        "status": "PASS"
+      }
+    ]
+  }
+}
