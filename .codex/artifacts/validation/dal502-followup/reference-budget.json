@@ -1,0 +1,23 @@
+{
+  "charged_nodes": 2997881833992,
+  "completed_nodes": 2997881833992,
+  "node_cap": 3000000000000,
+  "reference_jobs": 1529,
+  "tree_jobs": 1284,
+  "result_errors": 0,
+  "completed_jobs": 1529,
+  "started_epoch": 1794099706.851465,
+  "last_raw_result_epoch": 1794101808.1146717,
+  "execution_wall_seconds": 2101.263206720352,
+  "wall_limit_seconds": 5400,
+  "configured_workers": 4,
+  "reference_parallelism_bound": 4,
+  "final_pair_parallelism": 2,
+  "combined_numerical_parallelism_max": 4,
+  "max_worker_rss_kib": 5212,
+  "rss_worker_limit_kib": 131072,
+  "total_rss_limit_kib": 524288,
+  "raw_output_directory_bytes": 4860134,
+  "raw_output_limit_bytes": 67108864,
+  "stop": "131072/131073 maximum reached; ten TREE bindings unqualified; no further pricing attempts"
+}

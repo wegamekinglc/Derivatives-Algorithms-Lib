@@ -51,8 +51,14 @@ An implemented interface does not establish full numerical acceptance.
 - [DAL-497 acceptance fixtures and gates](specs/dal-497-pde-risk-acceptance.md)
   — Frozen N1–N12 inputs/thresholds, B1–B10 and scoped performance acceptance.
 - [DAL-502 numerical qualification](validation/dal-502-pde-risk-qualification.md)
-  — S3 product FAIL in N5/N7 and CRR-reference INCOMPLETE in N3/N6/N8;
-  reproductions, separated checks and raw-evidence identities.
+  — Original S3 product FAIL/CRR INCOMPLETE checkpoint, preserved with its
+  original source identities.
+- [DAL-502 diffusion-tail repair](validation/dal-502-pde-tail-repair.md)
+  — Accepted production repair, strict RED/GREEN, direct tests, independent
+  row audit and scoped performance.
+- [DAL-502 bounded reference follow-up](validation/dal-502-pde-risk-followup.md)
+  — Current affected qualification: 9 PASS / 0 FAIL / 3 INCOMPLETE; mandatory
+  TREE remains unqualified at the approved maximum. S4 stays paused.
 
 The DAL-497 controls are active requirements, not product validation evidence.
 Historical early-exercise #602 evidence below does not qualify DAL-497 risk.

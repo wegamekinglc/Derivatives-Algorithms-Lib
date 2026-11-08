@@ -1,0 +1,2135 @@
+{
+  "execution": {
+    "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+    "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+    "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+    "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+    "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+    "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+  },
+  "cases": {
+    "N7-1-domain-800": {
+      "origin": "397a26d64b523bec1883eaa13721b3e4b1627b92 repair capture",
+      "executable": "dfd2288ade345d360edae0bacf78542370f7aadb549c9066c7a4bac062e3d447",
+      "library": "7317377c982fd132c20bc8f74634feeb0ad422aa8d1d9dd424deb41077daa125",
+      "source_file": "build/dal502-repair/N7-1-domain-800.json.gz",
+      "sha256": "afe6681c1a51f31e72a7abc5db141d94a820c6d56b9a14ea8cd783a82fb41f36"
+    },
+    "N7-3-domain-800": {
+      "origin": "397a26d64b523bec1883eaa13721b3e4b1627b92 repair capture",
+      "executable": "dfd2288ade345d360edae0bacf78542370f7aadb549c9066c7a4bac062e3d447",
+      "library": "7317377c982fd132c20bc8f74634feeb0ad422aa8d1d9dd424deb41077daa125",
+      "source_file": "build/dal502-repair/N7-3-domain-800.json.gz",
+      "sha256": "51c219603e65ff03c422324635e3198b8f75adb38c792b42d0c5738e430362ea"
+    },
+    "N1-1-120-0": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "f97dff2ca983d28ea3a01819589cac2fd949b7a46a2f9b3adec7b775c1db1bff",
+      "max_rss_kib": 21148,
+      "elapsed_seconds": 5.77253818
+    },
+    "N2-piecewise": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "e8dd059907da5f6a8648fe84d7742f8e6cecd0726ad9486b51784c59affa1642",
+      "max_rss_kib": 22920,
+      "elapsed_seconds": 17.874175103
+    },
+    "N3-0-120": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "073009413f60955f31b2b6f983729331ff474189ed4421980c62cc01d77961b4",
+      "max_rss_kib": 36196,
+      "elapsed_seconds": 16.578083332
+    },
+    "N4-0-100-182": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "31bfd965816005ecea7965d3c5fce928ba1637cdf3f9d219e5f9ac7636d62208",
+      "max_rss_kib": 36196,
+      "elapsed_seconds": 8.198229519
+    },
+    "N4-0-120-182": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "1b8c559e53b92bd68f9903a7ca2e735e09fc1608ab9b3c16270ecdb6382efbe4",
+      "max_rss_kib": 36196,
+      "elapsed_seconds": 8.345547774
+    },
+    "N3-1-120": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "3b9c854dc9d5c40a87e2e05263c8bcb9576b6d4f9cc2dda017e707eb5945aafc",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 17.226236002
+    },
+    "N4-1-100-182": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "fead0bd7799510d4cffd3338ffc77c4ec8c5fbd061244c233578105f597eb3af",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 8.705459726
+    },
+    "N4-1-120-182": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "fa978b611b0797c785a0f5c6fa29cf98e9f8715a943cb4fed0c292f92a652000",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 8.378554907
+    },
+    "N5a-0-american": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "f08e8790197ae3476c5a59a8d60884d28bee866584d5ce88c5eb55266a6fe0b7",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 0.511867026
+    },
+    "N5a-1-bermudan": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "b9f780717297efcdea977facd2594f7da13d29a09253bf38904cca1dfd4059a5",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 0.423428202
+    },
+    "N5a-1-terminal": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "4ce1b877eb8b3ba364fd885245c06d64983eb85a6340edb3f64b6bb48e8642a4",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 0.409600616
+    },
+    "N5b-2028-0-100.0125": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "46c7e0a75c3764eb256230b074d4be299ab9a60aa1b3d8c6da3e6f1962aa1344",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 195.81896742
+    },
+    "N5b-2028-1-100.0125": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "650b5de9605206101c4ee7a93c68a44d437a00e49f4651f388f0f785dfd7f411",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 125.125598359
+    },
+    "N5b-2027-0-100.0125": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "340642642d929b5385bbb5ddd79f23d2399e864070634c608a72595657decd48",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 198.902260841
+    },
+    "N5b-2027-1-100.0125": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "1448337e8e2986bf6ebc347ac9ac543836f7e76f8cd6df0a994f10bed7dd393b",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 116.418319617
+    },
+    "N5c-1": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "d65d867809e87d9b7e5ac2792430bcd02f8dcb750154b7b503598e978a883333",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 16.981221467
+    },
+    "N6-0-space-801": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "dcb13b04c1c20c8880d828e6e6ab64a2f59bd75c0c14b324a145cab5a82d816e",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 3.378557088
+    },
+    "N6-0-time-1000": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "d0e816b4c1b95795de5fe7c5ebaa1f67e11faf42bdee2445cd31b0da33caf6d9",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 0.75959033
+    },
+    "N6-0-time-4000": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "19735886c46192407ae42a41879a95726bf15beb4fd6197f4d4be1887436b4ee",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 2.785546267
+    },
+    "N7-0-domain-600": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "4a888f01d49fb56931eeaa3a8badfd86d001f185e335e5823a16d8b280d2371c",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 8.642558821
+    },
+    "N7-0-penalty-10000000.0": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "07b0a00fd9dd89647625549c2b720a9274b8f9486b0edaf72c86345fb608376c",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 5.681788996
+    },
+    "N7-0-penalty-1000000000.0": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "3a20eaecede52c193f7a0dd9c8085bd437d8acba15e7b9dc9c976a02a2d1d253",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 5.653550581
+    },
+    "N7-0-spot-801-2": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "6cfb5ee42da9b2ca0e70c972a372dfd29a1811d5e61c93c11a9ae50675183bd1",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 2.932041427
+    },
+    "N7-0-spot-1601-2": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "5a1b2c14b851eb1871e90e6a875d1bd07e4dc66e296e09a62be368b74e1eb3f5",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 5.785423682
+    },
+    "N7-0-parameter-0.5": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "9d255b78965d00ec5766422616734bc566cd96dc7ea137093c2601be574e3df7",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 5.563010218
+    },
+    "N6-3-space-401": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "50ba3f04c956294fc74854b82cbb378f2598b98373c610638030e1a3880f3cfb",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 2.154387711
+    },
+    "N6-3-space-1601": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "040d0bea6c613c015c69ab1d8ffdaf34ecdbf0427444bc10e28a6238ded12b8e",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 8.122165582
+    },
+    "N6-3-time-2000": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "95b64bd324024af77e4a2d8e08055f9faad9b7dfa45e8408d6df13d5525c6814",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 2.057798971
+    },
+    "N7-3-domain-400": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "986f83674321d1271f7a41953cff92ce084b378e3cbeb587e59b8cd8e899a7fe",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 7.956406841
+    },
+    "N7-3-penalty-10000000.0": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "250f8487f7d164c577a4caed8a347d55b0314af4424e5cf94b2142778eefe0c8",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 7.977990869
+    },
+    "N7-3-penalty-1000000000.0": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "054c32ebd7c0923e8ec00fe60722e67e0fc6531dcae7fac75b73b2b2ec5dbb7d",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 8.105413028
+    },
+    "N7-3-spot-801-2": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "eb30b62a331b723236b3307ba4c1af10596ca8c7b192c289bb2c019e47ba66d5",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 4.160687576
+    },
+    "N7-3-spot-1601-2": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "3c2952790ee5dcd0a8da0440ea8472e6e99853765bd3231ba65a23e1db9748bd",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 7.936589673
+    },
+    "N7-3-parameter-0.5": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "a52954aa066d50e1d900dc41fc2f64ff60220363be9a29effc3523ae51deb56c",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 8.288495703
+    },
+    "N8-0": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "7ea2247b528801d9777fe3c6af7f6d8f531fa543991d0eef9917de9216e3b27f",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 0.956130354
+    },
+    "N9a": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "1f17564030c8ceb3eefa7c11b525f1ebaa730e9aa24a5217f6a1c278f6d01b37",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 0.000752937
+    },
+    "N10b-0": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "638019e81d01849c944ebbf6a65e795a5ad7ecceff914fa78da9508a9f86624e",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 0.437017549
+    },
+    "N10c-0.25": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "0c5bbd32ffca4ffcc04587214c072506a8de62008ab2b7f87061d3b090048e83",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 4.403776614
+    },
+    "N10d-0-0": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "6490855858b25287d824f36afcfdd92b6b6bb725315e602d493adb6152d069ae",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 5.75828398
+    },
+    "N10d-0-2": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "3901d09ac2d789e03a22d269b1ca6890f8016b55b4ea564bdd044895a290cc7f",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 11.02310065
+    },
+    "N10d-0-4": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "317f193a39bcfc76d8ff816fb3d8476e1e6171bc09899517a6512cf090cf14ab",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 5.583426338
+    },
+    "N10d-1-1": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "8868726920337d67fea758e9c68d0b2849bc9f56c50a058dfa0b8851d13f923e",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 5.712330663
+    },
+    "N10d-1-3": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "a00ad75b4922cf02c2b0a6458a2d4f501bbc0cfedb9629b050ce9e5ae8159467",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 5.67643154
+    },
+    "N10-upwind": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "0ea9692eb93581fc0bc72fb1b272261d6a315ec0e822061bee5c4c5bf5da7fc1",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 1.55996421
+    },
+    "N11-admit-100": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "e62273a7e08a93a1491ac144a1cfccf508beb5b5542197cc02f5c4fde6141c2c",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 5.626313035
+    },
+    "N11-admit-100.125": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "8f91ddc32916893938c9d81a90aad21579cdf7ab14d921aa01f3c8001089053a",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 5.570019679
+    },
+    "N11-space-0-801": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "1db54c625a091293a73610e19fdcb9f2ceda1f549f6aa161e8dc61ecf7d3067b",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 2.870142115
+    },
+    "N11-space-1-401": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "e8a9f083f3d67704acb4150ec8920df70d20dce13c99ec28047575c244a93061",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 1.530010441
+    },
+    "N11-space-1-1601": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "d9e8481d6c0d8f9c078b9a99bef5e0c354ba01dcd1064fc1d85c38ab2f5bf8ec",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 5.59865244
+    },
+    "N12-137-5e-05": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "71a4fd153b3004a94f9456f5c0cbcf48d7559798e51bf8a066238c73b1f95ed8",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 8.227512243
+    },
+    "N12-182-5e-05": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "17e22d554add26aa62cea9480065181b501766ada65e29e60908f6c31ac444c1",
+      "max_rss_kib": 36312,
+      "elapsed_seconds": 8.131409921
+    },
+    "N1-0-100-0.03": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "f107a9432cb0426071a0faad689968b99f4666e2e89bb502b0fe4019a5a022bb",
+      "max_rss_kib": 21092,
+      "elapsed_seconds": 5.723979772
+    },
+    "N2-100": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "ff4957b0f3f1b2461b859e95e76e5f7eb25fe3d39b2f6168696bbdfb378ed298",
+      "max_rss_kib": 22944,
+      "elapsed_seconds": 12.015903522
+    },
+    "N3-0-100": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "5f8fffbcfdafbf5a92575eb9f8e86741c3d7057c87cca4754a1e692bc44f75c7",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 16.639151583
+    },
+    "N4-0-100-137": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "b25cff35248c83903d721b1e31c6a51d6a1f75e6602e1eda50e91af8cfbb2457",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 8.206883765
+    },
+    "N4-0-120-137": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "d370e58adc95e9022af5bea2d150efe8f8573a1fa7fea86393929c4422524300",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 8.2445014
+    },
+    "N3-1-100": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "579ba8d470af8b331ec19abacc86af9a543d7c4a21a9990b364a8c5f26dbfc16",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 17.128120312
+    },
+    "N4-1-100-137": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "2a1d5f736edacc0757b6aed03e057ffa06040e46ff7343acc026dd0cbcc6602f",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 8.503279916
+    },
+    "N4-1-120-137": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "08287d96e834467715fc4671fccfa48bef833f118f7508fefb8f3aa89cf14608",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 8.624355997
+    },
+    "N5a-0-bermudan": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "c5ed0a1646992753f65d5a38f9b7318e865f92f36277fede60fe2bec7a6f6748",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 0.441084301
+    },
+    "N5a-0-terminal": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "fdc61279860144691ca43216e6321cb8ee352c73e9a8449f86f47e46a80a3188",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 0.438183858
+    },
+    "N5a-1-american": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "b6c279eed91a1d0ec3ed3d23f81fc6f7d4e6b2c2f3b08bafc8519251dfb8fc0b",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 0.786574997
+    },
+    "N5b-2028-0-100": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "5238f4c2c9b70f8ef0d78523f377da9a522f23640470d1d97e6c31531c434940",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 194.584743242
+    },
+    "N5b-2028-1-100": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "9f9992a488bbed879570078c3dd68f214042c788e758b66058d128cfbbb87bd8",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 124.854431022
+    },
+    "N5b-2027-0-100": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "420eb4e4c23f9ec0583546f752fda62e34019e262d6abcb2ae7f952b62b9a515",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 197.966268195
+    },
+    "N5b-2027-1-100": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "4b9c88889f62ff1536455f30d2769b4a6397ba30dcbe09cccdc613d21efb2c17",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 115.908287006
+    },
+    "N5c-0": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "f755dca802da01c14f18b4658a4da5a30315d836be1dc88509b984eb0083d620",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 5.697445203
+    },
+    "N6-0-space-401": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "1ec370212f0af068ff3b7e7550f14a900eae19eb4610dad96c5b1cb525666714",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 1.559489342
+    },
+    "N6-0-space-1601": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "5cd743f5420a38ff26dc4cd3a6a118460785c7c74b0a468afc692f2ddd0dc266",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 5.705074225
+    },
+    "N6-0-time-2000": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "a6eb9b8e148ba778f94c6beb3966e411fb9b7899cfa6b7ecf9e50143b7586914",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 1.463610189
+    },
+    "N7-0-domain-400": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "e35530e564d6700cf7c2fb469a4c85ea942f6e47b85d607dc979c686c0493c23",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 5.727435818
+    },
+    "N7-0-domain-800": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "42e7889cd3eec93d601f5552581b8fa2a86e1a1fdb03bd512d38fd4759756957",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 11.890509755
+    },
+    "N7-0-penalty-100000000.0": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "2dfc0d068dd558026f1f847d16e1c18b4cc1eb74cb264abee3f4934b1d3980d3",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 5.674693499
+    },
+    "N7-0-spot-801-4": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "c0c1d912ad5b68425fc8347d4a8c8d5f89505349c5d1ef684f95c39227195ea7",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 2.89623676
+    },
+    "N7-0-spot-1601-4": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "c4d9a383470bfa7d4fd320a289607db102927f0de9fcf1e698e4b7b71eef3678",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 5.687125903
+    },
+    "N7-0-parameter-1": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "7589a883f777240b07ea662875c644809f8f8b14d92997111c6e61077d8561fa",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 5.633710524
+    },
+    "N7-0-parameter-0.25": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "703f5ff4672b00d673ce2ef86e6b388a6435b3c0b117865c344746e8a8b977a2",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 5.902027032
+    },
+    "N6-3-space-801": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "53b60afd74b8e3e60b30ff7515450fa3ee0481903453f6d1b92fe0e09a402bd1",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 4.399140749
+    },
+    "N6-3-time-1000": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "19cd0231ce2b9206c81322dd595100d386894500d8f00b50b7730a04705ef4c0",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 1.048382838
+    },
+    "N6-3-time-4000": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "20ad77dda68dce6db9f24dda953eb9a30f26a2b8b78a943e3ba2cfdcbfe59683",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 4.036014325
+    },
+    "N7-3-domain-600": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "c4b1b25b5225f48b8034725336ebf8563ca149aa302b25711fb484e92961ca0d",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 12.327277999
+    },
+    "N7-3-penalty-100000000.0": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "7b98f861d0b6e99eb35bb24a83cf166b6be85bd319bf035b98037080bcfd465a",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 8.050584408
+    },
+    "N7-3-spot-801-4": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "5357a1ea4542330f54fde326f9605dcb8f1027831255512231bbdf9e0f1ccdd0",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 4.081741745
+    },
+    "N7-3-spot-1601-4": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "fbf43590bae7375662bbc4919459fb063af0c3896f563476753bc14575184449",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 8.289225944
+    },
+    "N7-3-parameter-1": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "988b9dede1ba46a2a15faaa0d791ed25180247dbc77f3f106c7066f79d7030f6",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 8.010687456
+    },
+    "N7-3-parameter-0.25": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "7bea4bc626b5adca64ec0c3229cc5f447a9dfbdaa19b0924e5d46f42b11544be",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 8.057511748
+    },
+    "N8-1": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "2d2bbbe19ead8ac033e5f1fa68c758eb1419a474c84eefecce22fbe516c69fb9",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 2.597867826
+    },
+    "N9c": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "00592a1613770a5e7b7a17136d995662aae05ec865b93e56576e3e90ec1bcb0e",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 0.006169087
+    },
+    "N10b-1e-08": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "b6b4fa1c5ba1ac75e2f45a8154ad4fb50be8daba799432833a836558f8f9e84a",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 15.711621223
+    },
+    "N10c-399.75": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "61f9981da04df9f52963a1963d0d5783c9f21e8c8c8828ef8c47c3958247567e",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 4.325771112
+    },
+    "N10d-0-1": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "7724dde0150f6f6cc2a2d78c3e51e5a4ecd9f4cc5dcae4959d7289c75bd56722",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 5.608274578
+    },
+    "N10d-0-3": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "75ad035f046070c222103187366f109a031c003313e4eb19fbfc04ee6cb0812c",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 5.624907765
+    },
+    "N10d-1-0": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "df79711b0e39ef80d5fcbf4ec22a5141ff195770b47f4db41c796a325fe6f245",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 5.662909887
+    },
+    "N10d-1-2": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "68665c6fba6d87df4ec34271f48d94b0d82e2531c111e25a109ef4a518926211",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 11.038338444
+    },
+    "N10d-1-4": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "8f0a88f3777be9c7a81519938320d2fdc5e86c092a6f58529527f36ccb7ab273",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 5.659306221
+    },
+    "N11-reject-100": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "340959d658d35dcf50f2175a029849586ca1404465a26fa51192a0a5125748a6",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 0.009662839
+    },
+    "N11-reject-100.125": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "e5ef8d4d5880e986acbc0a3d902ffe539593d3646fe91b0bbbdcecdc4d33c2b0",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 0.000544262
+    },
+    "N11-space-0-401": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "d908fb7dd2786df388b6ddf649c9fc4895aa24a6e5cb6a3d58a1a0b149d11b81",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 1.546668228
+    },
+    "N11-space-0-1601": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "76d92cd3683a8bfab68d42eb7b70ed65cfda40dacc87852e0b93dc0736412fa1",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 5.593536169
+    },
+    "N11-space-1-801": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "a453cdd1c18a3061c2dbd955bac9d127e2d02c1076e3bec2e690d58d3e7ccfe6",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 2.900741883
+    },
+    "N12-137-0.0001": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "61d5d62beba43b7c63a252b09a996c561dc653b1bf261e7b37c4461a6e03814f",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 8.261837312
+    },
+    "N12-182-0.0001": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "dd840995f8baffc37fb560a213e23984a2ee4457a82a749b8f15aefd24c2cb80",
+      "max_rss_kib": 36136,
+      "elapsed_seconds": 8.129530891
+    },
+    "N2-80-contacts": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "33d2189484c4933196f67072abf90c7a62c05f4650f7c0e886e5b3ebbad5f3a0",
+      "max_rss_kib": 22512,
+      "elapsed_seconds": 23.350685704
+    },
+    "N2-120-contacts": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "5cadac4316464edfd67f383dbebeaaab22b8f09cf4f7fd456ecbf84015b0b8e9",
+      "max_rss_kib": 23184,
+      "elapsed_seconds": 23.717472419
+    },
+    "N12-137-0.0001-parallel": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "1332e329d97d644cd426b97d0163126dd9ef0c3906430cb4890ceadeaeacf3f4",
+      "max_rss_kib": 23184,
+      "elapsed_seconds": 9.5045872
+    },
+    "N12-182-0.0001-parallel": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "92c05bb8b5a29ef4a082592ed1f6f941c18ed02f52c69a2d2d193be8dbecd627",
+      "max_rss_kib": 23184,
+      "elapsed_seconds": 9.386964201
+    },
+    "N10a-0": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "0e7391b1ca81a4a8cde727738bd1f1311f0416e02ce3175a6558f557eabd358c",
+      "max_rss_kib": 32640,
+      "elapsed_seconds": 31.90931051
+    },
+    "N10a-2": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "faa13a35059193ff2b4e1455b6baaca8a54a050b56662aeeb7709337f4bde88e",
+      "max_rss_kib": 33696,
+      "elapsed_seconds": 30.263055655
+    },
+    "N2-100-contacts": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "7a12f12543ef33111c7d20d508205228e57fc977fc9e0e27eee75f7e437e701d",
+      "max_rss_kib": 22548,
+      "elapsed_seconds": 23.487434735
+    },
+    "N2-piecewise-contacts": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "d1a36d4c772f46b1f2df64e8967255ef0784876b19bafe64bdfe1870e0b9384a",
+      "max_rss_kib": 22948,
+      "elapsed_seconds": 34.694278564
+    },
+    "N12-137-5e-05-parallel": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "bf9b73eee8ad76fe9c0f6de3bba13fa1084a96f20671f22a8885729ad416a8d0",
+      "max_rss_kib": 22948,
+      "elapsed_seconds": 9.446570937
+    },
+    "N12-182-5e-05-parallel": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "473a38b15a434bae1092b941e9e5edb9c621f1ae76f3cedc1d2c7e80d5d45679",
+      "max_rss_kib": 22948,
+      "elapsed_seconds": 9.572865811
+    },
+    "N10a--2": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "8a2e3e3eb7e0ec66ea4bbd6f3072aa409253684e30b9a99e2ef49ea67d780e5a",
+      "max_rss_kib": 32676,
+      "elapsed_seconds": 31.378275591
+    },
+    "N9a-observed": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "accebf8a1ebbe11e77fd37fd54a07d13b0d1dc54c47599120a2cce92a9e5f101",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "2eedf3eb2b6deccbbf438e9aed36dba6f47b977f31204040e72fb15ec8ef8ea9",
+      "max_rss_kib": 4804,
+      "elapsed_seconds": 0.001120708
+    },
+    "N1-0-80-0": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "a73348993785b726a9857dfa3073b65fc936cca104d99b35044d11326878a151",
+      "max_rss_kib": 19700,
+      "elapsed_seconds": 5.325988504
+    },
+    "N1-0-100-0": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "43b0d68c192c1a6aa109ec54cccc192d6d23197ee8c853d078bd7eece9019b35",
+      "max_rss_kib": 21140,
+      "elapsed_seconds": 5.454940942
+    },
+    "N1-0-120-0.03": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "b7ee2e2bd403fe097367189c851e4c3d1eed96bdbc7243c2d94b441f85322f01",
+      "max_rss_kib": 21196,
+      "elapsed_seconds": 5.399523159
+    },
+    "N1-1-80-0.03": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "fe2b3f48e49192e9b6d5276f465fbedaa3804f9fa0beb0213c6b466a66b20caf",
+      "max_rss_kib": 21196,
+      "elapsed_seconds": 5.615597117
+    },
+    "N1-1-100-0.03": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "51d434e3a63c4808cbf31e5c26530212f535d3a70af41c4e9f3c352d719a7751",
+      "max_rss_kib": 21196,
+      "elapsed_seconds": 5.62610354
+    },
+    "N1-default": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "099c207f4a18bfcd675b4edc5e28e41f075a4b2d76bef5460bf1e0ccf9e06296",
+      "max_rss_kib": 21196,
+      "elapsed_seconds": 0.098645048
+    },
+    "N2-120": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "9b77f9fbf22029566410e2afe619effe59a4790c5931c9a0ca39ce7a7159af8a",
+      "max_rss_kib": 23416,
+      "elapsed_seconds": 11.602032034
+    },
+    "N1-0-80-0.03": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "05cc1d54b0a8ee309bf58afaaae52d06e116f3a89929f5506c443754c749ff05",
+      "max_rss_kib": 19040,
+      "elapsed_seconds": 5.235805314
+    },
+    "N1-0-120-0": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "487db1b19d47031fde7af4f0458e85386d9cac42e2d9283201dfce4fcb5c3a14",
+      "max_rss_kib": 21312,
+      "elapsed_seconds": 5.449388192
+    },
+    "N1-1-80-0": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "ca96af6942e15548f6e6bc355f39d8d657086f7121fc7609f1a0a9a3ea6b3d5e",
+      "max_rss_kib": 21368,
+      "elapsed_seconds": 5.510603353
+    },
+    "N1-1-100-0": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "a60e4adabefd285cd93206035b9a84d3aaaac2a0ea40b33e8ec70620e96085ca",
+      "max_rss_kib": 21368,
+      "elapsed_seconds": 5.555353285
+    },
+    "N1-1-120-0.03": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "bf3e0dbc5157a0a76b2f3943f2ee6e266c84a4b37d40afd478d270a54a6b01af",
+      "max_rss_kib": 21368,
+      "elapsed_seconds": 5.664610941
+    },
+    "N2-80": {
+      "origin": "new native batch",
+      "execution": {
+        "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+        "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+        "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+        "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+        "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+        "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+      },
+      "sha256": "adf9b3f5a78f4775ffa0f59c275360e1aa0d1a156a538b508803d812a427c428",
+      "max_rss_kib": 23736,
+      "elapsed_seconds": 11.587239011
+    }
+  },
+  "jobs": {
+    "0fb7ba7b8490afb13ab7330214f1b5f0d13a1f1b604548435c5bd8c9e5aba998": "N1-0-100-0.03",
+    "9e83b6acaf44d98b603c28f59c1e74edad345738c7b11ac2b463d3486f45ae3d": "N1-1-120-0",
+    "d235b5fdbe8f8887c83750cef551c10409c82482e062c626a5ebd6054109e0d5": "N2-100",
+    "d72b839b9922687d5cae4b819fd0bc53ef2eae292941fc4527f405da66943cc7": "N2-piecewise",
+    "c9dd4f0c9419c2f16a3302effdf1cb114f2bf59484d157648fa9683ec8079e0e": "N3-0-100",
+    "6785a319eb12285b61e8aaa2bd6a7ec77accdfe83730b210893c751a40b93d8b": "N3-0-120",
+    "bb28e8fe224a3bb5de412cc0698387ea9e358152f538e0403880e700b5da77bf": "N4-0-100-137",
+    "cddba23663313514f4c508498070cba12d46c595fac44a1ea14d29711d8bb8a2": "N4-0-100-182",
+    "5e020886c787da3cb2071927a3e1c884202deb4065194440567202754cafafcb": "N4-0-120-137",
+    "8e9d97519f5394f556542a7dacddc58dee81c0ffe25efb0e481ffcb064bd4ec3": "N4-0-120-182",
+    "522033d850809a78f882d76c4857b0227310ae5c54ee5ebf9553e366e04aa361": "N3-1-100",
+    "683649080b2f661760dd3b1a5005d6f1008acfa1cc4ca29a73e797c60598e5cd": "N3-1-120",
+    "1565896fb9a5849d725b2e9b338d1b4170aab961888c0e98e39ad6d51d73cf21": "N4-1-100-137",
+    "4ae50a32fb4d358d9c666bd33403ebfc2cbda843c4f42fb012825ca7c7394e8b": "N4-1-100-182",
+    "b0e4c41624af37575ba1d01986a0866679784fec9d98ad6f653b3144e4f68674": "N4-1-120-137",
+    "7688ef222bf850e45960b6fba3f8fb6253825d15777cbba55377f70bf4651607": "N4-1-120-182",
+    "db30fae1c517b4f438cfc17f12978188a54d7bad6191473dba92004eeaab39d2": "N5a-0-bermudan",
+    "005e24a42e146afbdd8e0152e5c0d2ff1ffd6a00a93ea9123b9772afd7c3cb3b": "N5a-0-american",
+    "6196996065c87185d89b33f7a2d94f51171cd11698166ca7c26440ff606138ea": "N5a-0-terminal",
+    "4cf863d4ee720b7ad0e0497149ca8b8ce619d2bbde01a3e1fefd03f805da44f2": "N5a-1-bermudan",
+    "3e07c5d0e6225008d8211e28736ffb287e525b202ad363d5c14dd5b280b9be09": "N5a-1-american",
+    "f4c26bb6f662c98cbcbd3cf8b0f169d37c5512209630c288caeef60e8b241f16": "N5a-1-terminal",
+    "18600bb27197d0ad4e9a3117bab7bf67df90e92501fc32e40befd9492b66a7cb": "N5b-2028-0-100",
+    "c4c97464b19291898922a1b821e75a8de4eb020ad91d7ed31afee08c4df67eaf": "N5b-2028-0-100.0125",
+    "48792423da2db59743e53ad93cddaf35985bd6feea1a399ad8e519de749c4f48": "N5b-2028-1-100",
+    "08977dd0440dc4f96918b6cb38c51ef11488d7836b43e3c1657a42b917191dd6": "N5b-2028-1-100.0125",
+    "c0bf4770b97e0c24e34703713acb7580e33c338bab6b9ad9177263b223af7ab7": "N5b-2027-0-100",
+    "7e567dc078db3b171ad7cbecee087415417858e1814156b9a8488e984cb342e5": "N5b-2027-0-100.0125",
+    "36a788308da9585cdec7faaffc312be404845c387528f446ba96272f64ee1bf0": "N5b-2027-1-100",
+    "b03e98e26b6a02b301e82976f80cf32870fee9471eed1017c61ecb2014866e77": "N5b-2027-1-100.0125",
+    "68544a0547bde3fe5bd6b99afb5fb7afd8154a92fbca8a0bda8659c2a43e34b1": "N5c-0",
+    "8b56b38158cd18abc8c8c03afb6cf2e8ea0440a9f56dfedfede6aa9558c56bea": "N5c-1",
+    "0009b386d70aa740e004aaa9581b1bf73117d8734ee5ac8e6907b24a7c4e3e63": "N6-0-space-401",
+    "80cc686d7a39b383b25ad2d311221a7d73a87f6e39889fd1b454cd070feedbd1": "N6-0-space-801",
+    "2ae41b795b4ff8b40ec216fb8522b1f70048679bacc225fc1a3d9f8af4cf0fbe": "N6-0-space-1601",
+    "b1904dd312ae01daad0aa0d8a78db57b131f800e9432b5ec7057e1c93c694c0e": "N6-0-time-1000",
+    "4abf3086edcf689658d496a24a73ec3973c47c5986ded969bfb788ae7146bfd1": "N6-0-time-2000",
+    "b0ce9ff03674260807989115d37e9084ddde223c8eb39c14003d505fbee038aa": "N6-0-time-4000",
+    "96170a41e92a46983395c2dd45fd3cf9eacaf512b5495d9bf6299129caed7338": "N7-0-domain-400",
+    "ed8989ff91406151e466a32ac39a3a19181bb466dc48b926659d005c9504093a": "N7-0-domain-600",
+    "d59a74b6adfd1f56c052b1ea3d49f02796fd0db4f74349414b268dad0f30dc04": "N7-0-domain-800",
+    "a4f410ecc0bdf506acdc1778506baa26aaa366a35a8298757c5e6d12d00bc1f0": "N7-0-penalty-10000000.0",
+    "3ef3af807fa74b5e8f6b23b14b138559458830ff4f199740f420277eec65e961": "N7-0-penalty-100000000.0",
+    "957595c514fc7f1317308f29e69d01c56a4830170866bb4502f17c3132dfe596": "N7-0-penalty-1000000000.0",
+    "98b46c18aadd04c612b8b43bfad5103d891d82c5f2d7ff1125176d27f6945556": "N7-0-spot-801-4",
+    "808bd1f54134df0db4fe2813e362f36671f898be39c0285ec1bf4842d9d4cf98": "N7-0-spot-801-2",
+    "e5ad995143356ba5f2d9e263a2323f957381df0773faa09e05e9d0087bb89954": "N7-0-spot-1601-4",
+    "da11a9e665d90990263c56f353184140a8eae23df422717000ceead68115ef65": "N7-0-spot-1601-2",
+    "bb15a0bccb7215375a83b329111be421a48e64f1349f2b3e7db98ffcf14bd5af": "N7-0-parameter-1",
+    "c5eb3e56b1b4c294230cfbdce42480c7ca89e50a0743d954758151c076919cc5": "N7-0-parameter-0.5",
+    "6224d356671b31eeeb8d8a62ec4cb86120a0ed007dc44e10286fc4a67869e340": "N7-0-parameter-0.25",
+    "7cbb51e5745836598cdc092592209cffd5c5860844d19fca0debfde0e2c16470": "N6-3-space-401",
+    "b1681d79aa585f4b8992826140d18336ced5160f961034d74d6723f037fd2f0a": "N6-3-space-801",
+    "fb1cb4d7a202abaaab67a57570681382d16a43cef481400630f113f3bc769a0f": "N6-3-space-1601",
+    "fb1b6bc5c28df8529bf4b1d5c83086aff76b5d8b9281e18159984fd37cae7594": "N6-3-time-1000",
+    "e147b8a4f26cc6f4aa41511eb37c2ebb77cc5edc2c8e4b48b430379cc7c9349a": "N6-3-time-2000",
+    "01646f9d954c89a09664d908ab1d3dfe1d3faf26940692b4108a99a90b9f44e9": "N6-3-time-4000",
+    "04a63b1a26d2ce7d3e9eee04a4edf6ef3439047142f9e25c5a254fdf34e7259a": "N7-3-domain-400",
+    "84fd011acd1ed6c5654fc9f0014b356fe0d47e199ca3d1515eeb6b55eaf92a51": "N7-3-domain-600",
+    "10ad16005624f860876ce835883356db6cb0ac4e41129d05d8022b3ffe4aab94": "N7-3-penalty-10000000.0",
+    "2e08e009365fe51046a8b29ba8913cac0ec86b2f14d18620b4624f81f44c8c92": "N7-3-penalty-100000000.0",
+    "663f67053a37762500f07b1fdc5f967fdfea9bcfcc56cb210c7becfb40edfa67": "N7-3-penalty-1000000000.0",
+    "77ac2d6e3e99590f9b8fae87175e50206b5eef2db2b2fd167745119fe5ead907": "N7-3-spot-801-4",
+    "fa401a5eff2cfafebddbe2dcf0d22563265b62829578facc75ccdffb134cf151": "N7-3-spot-801-2",
+    "aec59fdb7b8677490f7bb0787cf1ee36d539d1ee9cb496b32a0bf5a7a73d801d": "N7-3-spot-1601-4",
+    "56fed0e85bd07b09aaa1a15f35d6841b1c2c1ee518f076a1a3b3cb8a50af4f1d": "N7-3-spot-1601-2",
+    "1295883eb07073ebbf04980e8772689cc7bd160af4aeaf8a76712a884897305e": "N7-3-parameter-1",
+    "57ec1c46c2b9b21e35af7d0521ebf7dbbf756eb0e73ecba865dd9ca9741f197a": "N7-3-parameter-0.5",
+    "1687c183fae372aa0ec560b67873c32d70344401b8d60e8af4cfd8236f6fbce3": "N7-3-parameter-0.25",
+    "ed9443eb9a1b512082ffe5482efc15120bbc3df74ad6569ce18ae4ae20f70849": "N8-0",
+    "5341a40ed0fa5e3e434ee0a9a8d5f493f1c290c2576f1ea6ae6a77b870d3eb95": "N8-1",
+    "39dd407085352761a7713d1272fcbb9f0b290d2d078657a23932f40b9080a7b1": "N9a",
+    "8910ded57b2af5a7e6f880aed70f3c9524cdd3fdc42c30735dc27158d2b68ec1": "N9c",
+    "4064cd06b397e1729e9c4557272ef86999ef334b74168f2bbcc3affc87b1886b": "N10b-0",
+    "a2ef6d2984834c7d384c1dd2fff2f7f162f22e1739096671e68fff3ec3637403": "N10b-1e-08",
+    "2dfe5991d01c0d341427d039ad1a5bf7e09b40a4ff8f68818ef49aba7a603ca8": "N10c-0.25",
+    "345fcfc215a3e3fd73846a87dc6e6a4ad3fa9ed2af700b82369b74d126b70bef": "N10c-399.75",
+    "c7c3be8e2b07c97c7afffcd0cb5030c6584a8d9f7f956b8359bb13565b469f5f": "N10d-0-0",
+    "13cac59c2436e0d8f334368bbe2e80ce315b7c81de2b8a6fc121c4b1cfef7a7a": "N10d-0-1",
+    "3a82d5fa85b29f97eb83f971d042a9dfbcb63f960722c44eecf60204a9a71e53": "N10d-0-2",
+    "ab5eae18510037e26b68800ca14dbd17f71ff90f7e19c9f235ffaea84a3ad0ae": "N10d-0-3",
+    "cdc0c4b693888e4f17787bcf690ddb2c073306fa3efa8940f6995576fa8555d4": "N10d-0-4",
+    "6c62a92a2955fa89149f355d9c64e2f6a8c2135567045c87e89d3d5171c21012": "N10d-1-0",
+    "3dc236787825d3a6172f3de056108074d8823a4bf598a6741b5a91be48223e54": "N10d-1-1",
+    "8e87d4c28e76f5e38f97905c0869002a12adf3362ed1058c66a2dbd17e794ac0": "N10d-1-2",
+    "c345cd6ccb5eec4a2f53b9d9fd885b62f6b6153555e9071e2524ad58caa64d95": "N10d-1-3",
+    "ff5f527d2fbd156174a0409b9b657138ecae0be28405ebd6168d639f5a4a6bc7": "N10d-1-4",
+    "9734d479169f608cbedff63d398d0a337b637f3b16067298b75c36429ce9408a": "N10-upwind",
+    "98fcca696ae6c7761f338a0ae7e74c18fc0320766ee4e430847d76646c2f3374": "N11-reject-100",
+    "2a5834eba9541f9313b51d13865ad4e0fdaee193b4f69c23614d386585a2eeac": "N11-admit-100",
+    "e1ba584365fa5aaad69c296bf9576451f641dffe638a0a168dae7e18c558dbdd": "N11-reject-100.125",
+    "5aa2a4f148675e96f353e6b8d70600a51c58bb293d0e35ac13f67fe7709e1f78": "N11-admit-100.125",
+    "1d6974b0a96878ed8c051a39846b459fdd1c606cb4ed8c2237a72266e4fd31b1": "N11-space-0-401",
+    "aab4a3a4968dcc51a663c636380e0e438f9f0a564786aa602c824cc16daba4fc": "N11-space-0-801",
+    "d507b1f3ee27aeba2a2d36664cfba156797e2b42fd6e9f54b753af2a70b15591": "N11-space-0-1601",
+    "5c341ac72f66b57657183bb45621a852b368cd92dfea330a601cd21dd7cae54d": "N11-space-1-401",
+    "d70b6c2069bde82f93aacb1b290d825762092ce43dd294b2b977922f9e196c05": "N11-space-1-801",
+    "b0968914b059f5ab1cec476762f4db9ebc61ab42a6e2beca0b790a9a15bd5294": "N11-space-1-1601",
+    "817b46c90003758d92f59c3d500716965007be6ab462e9f03e4c645b2c4bf5b0": "N12-137-0.0001",
+    "fc8f7a0b59b33ad2991ae52fbb40175c1c79f48457272cf813d767390325cbfe": "N12-137-5e-05",
+    "0d052b0632632eaee739832484b76295ffacdf6977296ec83efa5e3debdd905a": "N12-182-0.0001",
+    "d13a0cec47afa27348f552a04434fbfc6e9de62a546f1844e8cbeff8d8786d02": "N12-182-5e-05",
+    "92c24aef51153c06ce39274c3f4bda501863a74e48760efbe25515d123c28c24": "N1-0-80-0",
+    "2e34ff577cf75cd9b74311878e6c5bf85ba0210a97d33694eacb8b7b32e59c6d": "N1-0-80-0.03",
+    "6b3cfd100a7b5a851d886485ccdf86e6bc5cd1ed1d1199d57df059fcf1876b80": "N1-0-100-0",
+    "a62d8e901fa6cce8aea7cc406e8cee98162d46187d52cc06c49222efd55b8e63": "N1-0-120-0",
+    "76fb1c2f9284e4a8e2865f3df411d297df09b4aa6b02924093688db380e95d0f": "N1-0-120-0.03",
+    "f3110457846534e849bd70995422c5108b2f342b50a1491eb417b19c0c0cdbb7": "N1-1-80-0",
+    "2592889d0922947297a5e317100fce5a965ba74f3901dfe71cfafdbffbdc8a2d": "N1-1-80-0.03",
+    "e7f1de44f7d05a09974ed9ca52395646c925239c2ba6892d7aaf8125dee00ec7": "N1-1-100-0",
+    "034fc63f5786ef4b508a07648722d5367608f51e2ddeef6ba232659c14e37a19": "N1-1-100-0.03",
+    "c399adfb5417729cf76a018f9ab051535cc25e726b7dcd4d37596c1c30680cc6": "N1-1-120-0.03",
+    "a95f48e5e9890e4ad5059aae4dfc4cc6cd5311b4ca773491c325096552148d93": "N1-default",
+    "9c7da1bb3a6212ad9b1abfe200634190c251d544883d99ccecd6fc8f4ac80826": "N2-80",
+    "2f2b41bf7df611d932e3c053bae62b76bf69b2fdf6dfbec060e2fa28454e9a61": "N2-120",
+    "f30f23e1c52614d6b30cfa077d606e457cb713077f5897c9e97f3e39ed8ef3bd": "N2-80-contacts",
+    "1547e300fe076509c5449dff357a319ae24b2cb9902ce46be60d225b9cd47c55": "N2-100-contacts",
+    "8a34f67da5b2be822104b63a96239219c6a61906b0438a1a3788237d61e31e37": "N2-120-contacts",
+    "a12178e645d01f2954d1ac605664c1751279c6b136f244697caea6947492001a": "N2-piecewise-contacts",
+    "c1f557cf4ac4db93edd2ea816eb5d3afe71ac39e47a3fb2f222002f2235222d4": "N12-137-0.0001-parallel",
+    "fbe7920d74b781a18962001090299383ed4002c32f5aa9d34d5e8ad70ce945b0": "N12-137-5e-05-parallel",
+    "c2a98e62c64cf95f442306a4c0262b7f8a3b65fb7f8316b1f20b9fb2fa8e57c9": "N12-182-0.0001-parallel",
+    "2ec79416e3f2e334ff30e93c3a9b9af2703b6863dd447092a124bb18f0ba75d6": "N12-182-5e-05-parallel",
+    "bb8d85b78af8414a4906a20881adc6765e698c5b8edb46af981ad5df3f485540": "N10a-0",
+    "3e37c8170723cd385f557f1ca3338db825b8bcf0f5a93a13c2c1400912d46031": "N10a--2",
+    "4d4d1ff228bd0d8ff2da243d69f7cfed1767740a171cf58ca111658bbff2eefa": "N10a-2",
+    "9dad2c33a04f47b4c8cb65ac1e4a426afaff9a0a33fd627e8aa0b369d7559c57": "N9a-observed"
+  },
+  "job_execution": {
+    "92c24aef51153c06ce39274c3f4bda501863a74e48760efbe25515d123c28c24": {
+      "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+      "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+      "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+      "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+      "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+      "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+    },
+    "2e34ff577cf75cd9b74311878e6c5bf85ba0210a97d33694eacb8b7b32e59c6d": {
+      "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+      "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+      "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+      "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+      "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+      "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+    },
+    "6b3cfd100a7b5a851d886485ccdf86e6bc5cd1ed1d1199d57df059fcf1876b80": {
+      "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+      "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+      "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+      "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+      "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+      "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+    },
+    "a62d8e901fa6cce8aea7cc406e8cee98162d46187d52cc06c49222efd55b8e63": {
+      "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+      "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+      "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+      "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+      "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+      "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+    },
+    "76fb1c2f9284e4a8e2865f3df411d297df09b4aa6b02924093688db380e95d0f": {
+      "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+      "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+      "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+      "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+      "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+      "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+    },
+    "f3110457846534e849bd70995422c5108b2f342b50a1491eb417b19c0c0cdbb7": {
+      "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+      "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+      "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+      "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+      "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+      "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+    },
+    "2592889d0922947297a5e317100fce5a965ba74f3901dfe71cfafdbffbdc8a2d": {
+      "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+      "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+      "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+      "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+      "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+      "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+    },
+    "e7f1de44f7d05a09974ed9ca52395646c925239c2ba6892d7aaf8125dee00ec7": {
+      "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+      "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+      "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+      "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+      "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+      "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+    },
+    "034fc63f5786ef4b508a07648722d5367608f51e2ddeef6ba232659c14e37a19": {
+      "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+      "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+      "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+      "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+      "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+      "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+    },
+    "c399adfb5417729cf76a018f9ab051535cc25e726b7dcd4d37596c1c30680cc6": {
+      "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+      "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+      "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+      "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+      "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+      "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+    },
+    "a95f48e5e9890e4ad5059aae4dfc4cc6cd5311b4ca773491c325096552148d93": {
+      "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+      "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+      "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+      "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+      "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+      "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+    },
+    "9c7da1bb3a6212ad9b1abfe200634190c251d544883d99ccecd6fc8f4ac80826": {
+      "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+      "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+      "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+      "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+      "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+      "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+    },
+    "2f2b41bf7df611d932e3c053bae62b76bf69b2fdf6dfbec060e2fa28454e9a61": {
+      "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+      "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+      "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+      "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+      "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+      "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+    },
+    "f30f23e1c52614d6b30cfa077d606e457cb713077f5897c9e97f3e39ed8ef3bd": {
+      "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+      "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+      "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+      "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+      "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+      "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+    },
+    "1547e300fe076509c5449dff357a319ae24b2cb9902ce46be60d225b9cd47c55": {
+      "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+      "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+      "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+      "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+      "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+      "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+    },
+    "8a34f67da5b2be822104b63a96239219c6a61906b0438a1a3788237d61e31e37": {
+      "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+      "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+      "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+      "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+      "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+      "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+    },
+    "a12178e645d01f2954d1ac605664c1751279c6b136f244697caea6947492001a": {
+      "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+      "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+      "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+      "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+      "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+      "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+    },
+    "c1f557cf4ac4db93edd2ea816eb5d3afe71ac39e47a3fb2f222002f2235222d4": {
+      "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+      "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+      "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+      "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+      "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+      "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+    },
+    "fbe7920d74b781a18962001090299383ed4002c32f5aa9d34d5e8ad70ce945b0": {
+      "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+      "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+      "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+      "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+      "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+      "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+    },
+    "c2a98e62c64cf95f442306a4c0262b7f8a3b65fb7f8316b1f20b9fb2fa8e57c9": {
+      "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+      "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+      "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+      "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+      "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+      "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+    },
+    "2ec79416e3f2e334ff30e93c3a9b9af2703b6863dd447092a124bb18f0ba75d6": {
+      "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+      "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+      "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+      "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+      "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+      "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+    },
+    "bb8d85b78af8414a4906a20881adc6765e698c5b8edb46af981ad5df3f485540": {
+      "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+      "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+      "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+      "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+      "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+      "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+    },
+    "3e37c8170723cd385f557f1ca3338db825b8bcf0f5a93a13c2c1400912d46031": {
+      "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+      "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+      "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+      "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+      "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+      "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+    },
+    "4d4d1ff228bd0d8ff2da243d69f7cfed1767740a171cf58ca111658bbff2eefa": {
+      "executable": "473d7b87a630e7e7a664e09e8c13b7d23c7dc681f5f189d05f1f7013e6bb2a2d",
+      "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+      "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+      "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+      "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+      "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+    },
+    "9dad2c33a04f47b4c8cb65ac1e4a426afaff9a0a33fd627e8aa0b369d7559c57": {
+      "executable": "accebf8a1ebbe11e77fd37fd54a07d13b0d1dc54c47599120a2cce92a9e5f101",
+      "reference_source": "37bade3da00dc2f983ff08a5a68af4491d37a16bc75fc3a70a782430a23ad110",
+      "driver_source": "e8ada55b8676ec5d92ebfbd741d964f9855526ef26b810730a908c3572d51ab9",
+      "flags": "GCC15.2 -O3 -DNDEBUG C++17 x86-64",
+      "configuration": "bc9b05bcbfec570559d1a063ef0e5e2b9d84473c815a4fe7e86f15073d37853d",
+      "compile_commands": "caac05ec3e9acc060d5c2b21958b69fb378aab6ff61d24cb2a3d29d55479c3dd"
+    }
+  }
+}
