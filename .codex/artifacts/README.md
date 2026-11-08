@@ -50,9 +50,12 @@ An implemented interface does not establish full numerical acceptance.
   and compatibility controlling S1–S5.
 - [DAL-497 acceptance fixtures and gates](specs/dal-497-pde-risk-acceptance.md)
   — Frozen N1–N12 inputs/thresholds, B1–B10 and scoped performance acceptance.
+- [DAL-502 numerical qualification](validation/dal-502-pde-risk-qualification.md)
+  — S3 product FAIL in N5/N7 and CRR-reference INCOMPLETE in N3/N6/N8;
+  reproductions, separated checks and raw-evidence identities.
 
-These are active requirements, not product validation evidence. Historical
-early-exercise #602 evidence below does not qualify DAL-497 risk.
+The DAL-497 controls are active requirements, not product validation evidence.
+Historical early-exercise #602 evidence below does not qualify DAL-497 risk.
 
 ## XCCY Implementation and Acceptance Controls
 
