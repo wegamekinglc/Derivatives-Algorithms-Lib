@@ -38,7 +38,8 @@ An implemented interface does not establish full numerical acceptance.
 
 - [DAL-497 owning early-exercise PDE risk](api-notes/dal-497-early-exercise-pde-risk.md)
   — Frozen schema, defaults, availability and projection contract; core
-  implemented and S3 numerically qualified, S4 bindings / S5 delivery pending.
+  implemented and S3 numerically qualified; S4 repair approved and B10 PASS;
+  final CI/acceptance and S5 delivery remain separate.
 - [DAL-398 shared script contract](api-notes/dal-398-script-contract.md).
 - [DAL-410 domestic-collateral Gaussian model](api-notes/dal-410-xccy-mc-model-decision.md).
 - [Prepared mixed-mapping XCCY basket allocation](api-notes/dal-xccy-mixed-mapping-basket.md).
@@ -54,6 +55,9 @@ An implemented interface does not establish full numerical acceptance.
 - [DAL-502 final S3 qualification](validation/dal-502-pde-risk-final.md)
   — Single current qualification entry: 12 PASS / 0 FAIL / 0 INCOMPLETE,
   applicable identities/reviews, final resources and remaining release gates.
+- [DAL-503 risk bindings](validation/dal-503-pde-risk-bindings.md)
+  — Public/Python/Excel checks, retained RED/GREEN and producer identities,
+  accepted repair review and native Windows B10 PASS, with workbook evidence.
 - [DAL-502 numerical qualification](validation/dal-502-pde-risk-qualification.md)
   — Original S3 product FAIL/CRR INCOMPLETE checkpoint, preserved with its
   original source identities.

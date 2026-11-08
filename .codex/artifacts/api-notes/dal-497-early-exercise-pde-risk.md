@@ -4,14 +4,18 @@ Status: active, frozen for schema version 1. Core C++ fixed-plan repricing is
 implemented; S3 numerical qualification is **12 PASS / 0 FAIL / 0 INCOMPLETE**
 under the explicit bounded BBS adoption. The
 [final S3 entry](../validation/dal-502-pde-risk-final.md) binds its evidence
-and limits. Public-facade/Python/Excel risk projections and S5 release acceptance
-remain pending. Audience: core/public C++ implementers, Python and
+and limits. Public-facade/Python/Excel risk projections are implemented in S4;
+S4 repair review is approved and native Windows B10 evidence is PASS;
+final CI/acceptance and S5 release delivery remain separate.
+Audience: core/public C++ implementers, Python and
 Excel binding authors, independent numerical testers and risk consumers.
 The [R1–R11 contract](../specs/dal-497-early-exercise-pde-risk.md) owns semantics;
 the [acceptance contract](../specs/dal-497-pde-risk-acceptance.md) owns fixed
 fixtures and thresholds. This decision owns names, types, field order and
-three-end projections. Core declarations are implemented; the other projections
-remain proposed. The [published guide](../../../docs/methodology/pde/early-exercise.md#owning-core-risk-request)
+three-end projections. The [S4 evidence](../validation/dal-503-pde-risk-bindings.md)
+records projection checks, accepted repair review, native Windows evidence
+and remaining release gates.
+The [published guide](../../../docs/methodology/pde/early-exercise.md#owning-core-risk-request)
 owns current calling and availability guidance.
 
 ## Design baseline and decision
@@ -42,7 +46,7 @@ DV01. Active-set/implicit AAD remains a later design.
 Core declarations are in `dal-cpp/dal/math/pde/earlyexercisepderisk.hpp`.
 Numerical types live in `Dal::PDE`. Machinist enum classes live in `Dal` like
 the existing price enums; never handwritten enum classes. Public header
-proposed `dal-public/src/earlyexercisepderisk.hpp` aliases every numerical type
+`dal-public/src/earlyexercisepderisk.hpp` aliases every numerical type
 and all three validation/evaluation functions below into `Dal`. Existing price
 types are used directly, not wrapped in a second incompatible definition.
 
@@ -451,8 +455,10 @@ required and limit. Partial results always preserve readable records and failure
 ## Open questions and release constraints
 
 No blocking public-interface choice remains for S1. All method/availability,
-default, schema, unit, budget and acceptance choices above are frozen. Windows
-XLL availability, projection checks and S5 delivery remain evidence dependencies.
+default, schema, unit, budget and acceptance choices above are frozen. The
+[S4 entry](../validation/dal-503-pde-risk-bindings.md) binds projection checks,
+native XLL/worksheet evidence and the accepted repair review. Final CI and
+coordinator acceptance remain distinct from S5 performance/examples delivery.
 S3 reference admission is resolved for the reviewed fixed fixtures/scales/levels;
 it does not qualify arbitrary inputs or the pending release exits.
 Any failed smooth qualification or unavoidable old-price incompatibility must
