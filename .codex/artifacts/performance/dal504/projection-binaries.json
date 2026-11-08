@@ -1,0 +1,31 @@
+{
+  "before": {
+    "python_module": "bc037ec1421cec89e89a0aa56abf03b85209ca2db0f837fa5e913e8e49f6f812",
+    "python_probe": "80ca4d019ead47f492819da4ea50655307f316c586170306b50628b4947ac4ca",
+    "excel_projection_probe": "c996cb81260dde23070ef53cdb90f794f28eb6a7854093f2d5706b6fd34ee57b"
+  },
+  "paths": {
+    "python_module": {
+      "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-504-82cd1c13880a/workdir/Derivatives-Algorithms-Lib/build/s5-python/dal/_dal.cpython-313-x86_64-linux-gnu.so",
+      "bytes": 29260792,
+      "sha256": "bc037ec1421cec89e89a0aa56abf03b85209ca2db0f837fa5e913e8e49f6f812"
+    },
+    "python_probe": {
+      "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-504-82cd1c13880a/workdir/Derivatives-Algorithms-Lib/build/s5-python/_dal_pde_risk_test.cpython-313-x86_64-linux-gnu.so",
+      "bytes": 901960,
+      "sha256": "80ca4d019ead47f492819da4ea50655307f316c586170306b50628b4947ac4ca"
+    },
+    "excel_projection_probe": {
+      "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-504-82cd1c13880a/workdir/Derivatives-Algorithms-Lib/build/s5-excel-projection/pde_risk_excel_projection",
+      "bytes": 1339616,
+      "sha256": "c996cb81260dde23070ef53cdb90f794f28eb6a7854093f2d5706b6fd34ee57b"
+    }
+  },
+  "after": {
+    "python_module": "bc037ec1421cec89e89a0aa56abf03b85209ca2db0f837fa5e913e8e49f6f812",
+    "python_probe": "80ca4d019ead47f492819da4ea50655307f316c586170306b50628b4947ac4ca",
+    "excel_projection_probe": "c996cb81260dde23070ef53cdb90f794f28eb6a7854093f2d5706b6fd34ee57b"
+  },
+  "identity_drift": false,
+  "scope": "Final complete P3 replay brackets executable hashes; initial unbracketed diagnostic captures retained separately. No row selection."
+}

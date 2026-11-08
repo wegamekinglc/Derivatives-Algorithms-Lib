@@ -5,8 +5,10 @@ S1/S2 implement core fixed-plan extraction and owning repricing risk.
 S3 numerical qualification is **12 PASS / 0 FAIL /
 0 INCOMPLETE** under the explicit bounded BBS adoption in the acceptance
 contract. The [final S3 entry](../validation/dal-502-pde-risk-final.md) binds
-evidence and review identities. Public/Python/Excel risk projections and full
-S5 release acceptance remain pending; S0 itself executed no product checks.
+evidence and review identities. Public/Python/Excel projections, accepted
+repair review and native Windows B10 are delivered in
+[S4](../validation/dal-503-pde-risk-bindings.md), merged as PR #687 at `1216e03a`.
+S5 acceptance remains separate; S0 itself executed no product checks.
 This contract establishes requirements; the linked records establish evidence.
 
 Authority: accepted P3 plan, attachment `01a1b747-5bcd-777f-ba24-cbcabee04578`,
@@ -42,8 +44,8 @@ Source contracts examined:
 Existing #602 evidence is historical, not qualification for this feature.
 The [published method guide](../../../docs/methodology/pde/early-exercise.md#owning-core-risk-request)
 describes the implemented core risk surface and price solver arithmetic.
-Public/Python/Excel risk projections, their calling recipes and complete
-release examples remain S4/S5 work; numerical qualification has the bounded
+Public/Python/Excel risk projections are implemented; S5 supplies calling
+recipes and runnable release examples. Numerical qualification has the bounded
 scope fixed by the adoption decision.
 
 Scope is one-dimensional BS vanilla CALL/PUT, constant decimal volatility,

@@ -174,13 +174,14 @@ Inspect `IsSuccess()` before `Price()` or `Values()`: nonconverged rollback
 retains diagnostics but makes both accessors throw. Invalid inputs and planned
 budget rejection throw before a result is returned. Default `theta_=1` is
 first order in time; explicit CN has separate monotonicity and resource limits.
-The facade remains price-only. Core C++ additionally provides
-`PDE::EvaluateEarlyExercisePdeRisk` through
-`<dal/math/pde/earlyexercisepderisk.hpp>` and `DAL::cpp`, with fixed-plan
+`<dal-public/src/earlyexercisepderisk.hpp>` additionally re-exports
+`EvaluateEarlyExercisePdeRisk` and its owning types into `Dal`, with fixed-plan
 full-repricing Delta, finite-scale Gamma, Vega and native carry partials.
 See the [core risk contract](methodology/pde/early-exercise.md#owning-core-risk-request)
-for availability, units and cumulative budgets. Public-facade, Python and Excel
-risk projections remain pending. Numerical qualification is limited to fixed
+for availability, units and cumulative budgets, and the
+[public example](../dal-public/examples/early_exercise_pde_risk/early_exercise_pde_risk.cpp)
+for full and PARTIAL results. Python and Excel project the same records.
+Numerical qualification is limited to fixed
 fixtures, bump scales and refinement levels.
 Neither interface adds local volatility. See the
 [method and result contract](methodology/pde/early-exercise.md), and the

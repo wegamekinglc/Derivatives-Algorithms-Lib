@@ -1,0 +1,3 @@
+add_executable(early_exercise_pde_risk_public early_exercise_pde_risk.cpp)
+target_link_libraries(early_exercise_pde_risk_public PRIVATE DAL::public)
+install(TARGETS early_exercise_pde_risk_public RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

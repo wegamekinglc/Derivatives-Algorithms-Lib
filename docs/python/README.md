@@ -1000,6 +1000,36 @@ are exposed. See the [method guide](../methodology/pde/early-exercise.md) for
 ACT/365 events, CN limits, all defaults, original LCP residuals and zero-based
 region slices; a success status is not a continuous-model accuracy certificate.
 
+## Owning early-exercise PDE risk
+
+An existing price request can be copied into a risk request:
+
+```python
+risk_request = dal.EarlyExercisePdeRiskRequest_(request)
+result = dal.EarlyExercisePdeRiskResult_New(risk_request)
+if result.price_available:
+    print(result.price)
+for row in result.risks:
+    if row.status in ("AVAILABLE", "AVAILABLE_EXERCISE_REGION"):
+        print(row.risk_id, row.value, row.unit, row.interpretation)
+    else:
+        print(row.risk_id, row.status, row.reason)
+```
+
+`EarlyExercisePdeRiskSettings_` takes keyword-only flags, absolute bumps,
+stability tolerances and cumulative scenario/work/byte limits. Pass it as
+`EarlyExercisePdeRiskRequest_(request, risk=settings)`. Fields are readonly;
+nested/list getters detach copies and do no new solves. Input numbers reject
+Boolean/enum coercion; counts require nonnegative integers. Evaluation releases
+the GIL after copying inputs and preserves existing caller tape state.
+
+`price_available` does not imply every risk is available. `risk_value("Gamma")`
+raises on an unavailable value. Gamma is a finite-scale model approximation;
+Vega and carry sensitivities are per decimal parameter, without quote DV01
+semantics. The [complete runnable example](../../dal-python/examples/019.early_exercise_pde_risk.py)
+shows Bermudan/American contracts and a boundary PARTIAL table. See the
+[method and budget contract](../methodology/pde/early-exercise.md#owning-core-risk-request).
+
 ## Fixed-grid European PDE risk
 
 ```python

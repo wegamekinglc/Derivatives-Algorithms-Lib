@@ -90,7 +90,12 @@ See [the financial contract](../docs/methodology/pde/aad.md#owning-financial-req
 Facade examples live in `examples/`, link `DAL::public`, and are enabled by
 `DAL_PUBLIC_BUILD_EXAMPLES` when `DAL_BUILD_PUBLIC` is on. Each directory below
 contains a program whose build target, CTest name and installed executable name
-match the directory name.
+match the directory name, except the owning PDE risk example described below.
+
+The [owning early-exercise risk example](examples/early_exercise_pde_risk/)
+uses target/CTest/installed name `early_exercise_pde_risk_public`, separate
+from the core `early_exercise_pde_risk` program. It shows Bermudan/American
+full-risk tables and a boundary PARTIAL result with per-row availability.
 
 | Program                                                                    | Shows                                                                          |
 |----------------------------------------------------------------------------|--------------------------------------------------------------------------------|

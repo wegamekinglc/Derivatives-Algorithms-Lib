@@ -1,0 +1,461 @@
+{
+  "base_sha": "1216e03aaf71071e8e36aef1f24082a1255380f8",
+  "head_sha": "6497255a96e92de626a0fcad96e2c927ba759d5e",
+  "threads": 4,
+  "sampling": "2 rounds, 10 interleaved process samples/side, alternating first side, per-round minimum",
+  "binaries_before": {
+    "base_price": {
+      "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-504-82cd1c13880a/workdir/s5-perf-base-build/dal-cpp/benchmarks/pde_perf/pde_perf",
+      "sha256": "e974ca3c3ae781513a2b5aa7b718e0d75d09fd31aa570fe7962059d477e3492f"
+    },
+    "head_price": {
+      "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-504-82cd1c13880a/workdir/s5-perf-head-build/dal-cpp/benchmarks/pde_perf/pde_perf",
+      "sha256": "ef61af8a0781f797bde5b87a2c47dc7ff71d68c7dc206246967ff4edd5e17aae"
+    },
+    "head_risk": {
+      "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-504-82cd1c13880a/workdir/s5-perf-head-build/dal-cpp/benchmarks/pde_perf/pde_perf",
+      "sha256": "ef61af8a0781f797bde5b87a2c47dc7ff71d68c7dc206246967ff4edd5e17aae"
+    }
+  },
+  "P1": {},
+  "P2": {
+    "Bermudan17": {
+      "repeats": 3,
+      "samples": [
+        {
+          "reference": [
+            84027436,
+            87667324,
+            91518619,
+            88907548,
+            88748851,
+            87450224,
+            89067923,
+            85723091,
+            86384001,
+            87747316
+          ],
+          "risk": [
+            83603629,
+            90277927,
+            88583863,
+            91627375,
+            91498480,
+            85186658,
+            85908098,
+            87271389,
+            86174371,
+            84264091
+          ]
+        },
+        {
+          "reference": [
+            87346288,
+            88857472,
+            87551027,
+            85971381,
+            86403801,
+            87473932,
+            85190807,
+            83919021,
+            87907868,
+            92852324
+          ],
+          "risk": [
+            86270322,
+            89990649,
+            88579068,
+            88231449,
+            87777022,
+            88956598,
+            86803747,
+            86730738,
+            83512367,
+            83851932
+          ]
+        }
+      ],
+      "minima": [
+        {
+          "reference_ns": 84027436,
+          "risk_ns": 83603629
+        },
+        {
+          "reference_ns": 83919021,
+          "risk_ns": 83512367
+        }
+      ],
+      "overhead_percent": [
+        -0.5043674068550663,
+        -0.4845790562785557
+      ],
+      "verdict": "PASS"
+    },
+    "American17": {
+      "repeats": 1,
+      "samples": [
+        {
+          "reference": [
+            222795707,
+            225100256,
+            244080925,
+            241778521,
+            234473726,
+            226929388,
+            234543998,
+            237506529,
+            223330229,
+            255312195
+          ],
+          "risk": [
+            232092540,
+            232269200,
+            233202327,
+            231539921,
+            227457948,
+            226499283,
+            227449039,
+            235775583,
+            229180267,
+            226902629
+          ]
+        },
+        {
+          "reference": [
+            227225453,
+            249431891,
+            225254649,
+            232507976,
+            228246895,
+            229616404,
+            231643136,
+            233080063,
+            228136978,
+            234606292
+          ],
+          "risk": [
+            224756229,
+            228075555,
+            232172291,
+            242067404,
+            223452524,
+            224200283,
+            236449593,
+            229180798,
+            230883229,
+            245380268
+          ]
+        }
+      ],
+      "minima": [
+        {
+          "reference_ns": 222795707,
+          "risk_ns": 226499283
+        },
+        {
+          "reference_ns": 225254649,
+          "risk_ns": 223452524
+        }
+      ],
+      "overhead_percent": [
+        1.6623192833782996,
+        -0.8000389816593789
+      ],
+      "verdict": "PASS"
+    },
+    "TwoCarry25": {
+      "repeats": 2,
+      "samples": [
+        {
+          "reference": [
+            127881224,
+            128162897,
+            129023964,
+            123260619,
+            123505733,
+            124341996,
+            126219281,
+            136304409,
+            127707771,
+            130704414
+          ],
+          "risk": [
+            123919420,
+            126462430,
+            126029606,
+            125794924,
+            131191324,
+            125851038,
+            135270303,
+            127973370,
+            128691992,
+            128779272
+          ]
+        },
+        {
+          "reference": [
+            131770400,
+            128763037,
+            133021396,
+            130369125,
+            128148148,
+            134875619,
+            131246213,
+            134961003,
+            148425743,
+            130384671
+          ],
+          "risk": [
+            136343662,
+            129796500,
+            136585365,
+            129694538,
+            135948798,
+            136108336,
+            131660382,
+            135278354,
+            133159893,
+            132762998
+          ]
+        }
+      ],
+      "minima": [
+        {
+          "reference_ns": 123260619,
+          "risk_ns": 123919420
+        },
+        {
+          "reference_ns": 128148148,
+          "risk_ns": 129694538
+        }
+      ],
+      "overhead_percent": [
+        0.5344780882529987,
+        1.20672052162627
+      ],
+      "verdict": "PASS"
+    },
+    "Boundary17": {
+      "repeats": 1,
+      "samples": [
+        {
+          "reference": [
+            246807144,
+            240245096,
+            263407893,
+            245644019,
+            240424296,
+            243464398,
+            244719827,
+            254177954,
+            237252465,
+            232775904
+          ],
+          "risk": [
+            256513448,
+            246382753,
+            283186672,
+            263219281,
+            263116554,
+            251152403,
+            241070430,
+            264077020,
+            248042546,
+            244191696
+          ]
+        },
+        {
+          "reference": [
+            236458380,
+            244331294,
+            234005240,
+            233129535,
+            235755960,
+            230041503,
+            253570166,
+            245821617,
+            244996351,
+            269643363
+          ],
+          "risk": [
+            235261186,
+            237389276,
+            234823220,
+            235871193,
+            237046253,
+            232878038,
+            250923658,
+            237441027,
+            240420331,
+            282943829
+          ]
+        }
+      ],
+      "minima": [
+        {
+          "reference_ns": 232775904,
+          "risk_ns": 241070430
+        },
+        {
+          "reference_ns": 230041503,
+          "risk_ns": 232878038
+        }
+      ],
+      "overhead_percent": [
+        3.5633095425547046,
+        1.2330535851176494
+      ],
+      "verdict": "PASS"
+    }
+  },
+  "calibration": {
+    "Bermudan17": {
+      "repeats": 3,
+      "diagnostic": {
+        "reference": {
+          "case": "Bermudan17",
+          "mode": "reference",
+          "repeats": 1,
+          "elapsed_ns": 81765665,
+          "ns_per_call": 81765665
+        },
+        "risk": {
+          "case": "Bermudan17",
+          "mode": "risk",
+          "repeats": 1,
+          "elapsed_ns": 83982754,
+          "ns_per_call": 83982754
+        }
+      }
+    },
+    "American17": {
+      "repeats": 1,
+      "diagnostic": {
+        "reference": {
+          "case": "American17",
+          "mode": "reference",
+          "repeats": 1,
+          "elapsed_ns": 229088809,
+          "ns_per_call": 229088809
+        },
+        "risk": {
+          "case": "American17",
+          "mode": "risk",
+          "repeats": 1,
+          "elapsed_ns": 229614349,
+          "ns_per_call": 229614349
+        }
+      }
+    },
+    "TwoCarry25": {
+      "repeats": 2,
+      "diagnostic": {
+        "reference": {
+          "case": "TwoCarry25",
+          "mode": "reference",
+          "repeats": 1,
+          "elapsed_ns": 127032361,
+          "ns_per_call": 127032361
+        },
+        "risk": {
+          "case": "TwoCarry25",
+          "mode": "risk",
+          "repeats": 1,
+          "elapsed_ns": 127232210,
+          "ns_per_call": 127232210
+        }
+      }
+    },
+    "Boundary17": {
+      "repeats": 1,
+      "diagnostic": {
+        "reference": {
+          "case": "Boundary17",
+          "mode": "reference",
+          "repeats": 1,
+          "elapsed_ns": 237122636,
+          "ns_per_call": 237122636
+        },
+        "risk": {
+          "case": "Boundary17",
+          "mode": "risk",
+          "repeats": 1,
+          "elapsed_ns": 238710969,
+          "ns_per_call": 238710969
+        }
+      }
+    }
+  },
+  "preflight": {
+    "Bermudan17": {
+      "case": "Bermudan17",
+      "status": "COMPLETE",
+      "plan_id": "p3v1:sha256:f7e11c158dadee30d5bd93240c4dc3dfe9a6f0c9770e37be2e3c9a6a7ca1784b",
+      "price": 5.797848289061484,
+      "steps": 501,
+      "scenarios": 17,
+      "solves": 8517,
+      "work": 3398283,
+      "payload": 155511,
+      "workspace": 186962,
+      "peak_native": 342473,
+      "planned_payload": 367968,
+      "planned_workspace": 415744,
+      "planned_peak": 783712
+    },
+    "American17": {
+      "case": "American17",
+      "status": "COMPLETE",
+      "plan_id": "p3v1:sha256:6fde6e9cb35978339ba216e604bb0e83a19141d4bab0e2abd50c074703088f4a",
+      "price": 6.084677413110385,
+      "steps": 500,
+      "scenarios": 17,
+      "solves": 26315,
+      "work": 10499685,
+      "payload": 2181187,
+      "workspace": 2212626,
+      "peak_native": 4393813,
+      "planned_payload": 3609000,
+      "planned_workspace": 3656656,
+      "planned_peak": 7265656
+    },
+    "TwoCarry25": {
+      "case": "TwoCarry25",
+      "status": "COMPLETE",
+      "plan_id": "p3v1:sha256:74bf29484869f192f46e5c5194e1d983bc631f24f769fad84a303332a31bf4ce",
+      "price": 6.850538878733262,
+      "steps": 501,
+      "scenarios": 25,
+      "solves": 12525,
+      "work": 4997475,
+      "payload": 160963,
+      "workspace": 188355,
+      "peak_native": 349318,
+      "planned_payload": 409072,
+      "planned_workspace": 421880,
+      "planned_peak": 830952
+    },
+    "Boundary17": {
+      "case": "Boundary17",
+      "status": "PARTIAL",
+      "plan_id": "p3v1:sha256:6fde6e9cb35978339ba216e604bb0e83a19141d4bab0e2abd50c074703088f4a",
+      "price": 18.511546574619935,
+      "steps": 500,
+      "scenarios": 17,
+      "solves": 26315,
+      "work": 10499685,
+      "payload": 2181341,
+      "workspace": 2212626,
+      "peak_native": 4393813,
+      "planned_payload": 3609000,
+      "planned_workspace": 3656656,
+      "planned_peak": 7265656
+    }
+  },
+  "binaries_after": {
+    "base_price": "e974ca3c3ae781513a2b5aa7b718e0d75d09fd31aa570fe7962059d477e3492f",
+    "head_price": "ef61af8a0781f797bde5b87a2c47dc7ff71d68c7dc206246967ff4edd5e17aae",
+    "head_risk": "ef61af8a0781f797bde5b87a2c47dc7ff71d68c7dc206246967ff4edd5e17aae"
+  },
+  "verdict": "PASS"
+}

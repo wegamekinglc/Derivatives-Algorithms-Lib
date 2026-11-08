@@ -1,5 +1,11 @@
 # DAL-502 final S3 numerical qualification
 
+Successor state: S3 merged as PR #685 at `cf089547`; S4 merged as PR #687
+at `1216e03a`, with accepted projection repair and real Windows B10 evidence
+in the [S4 entry](dal-503-pde-risk-bindings.md). The historical S3 handoff
+below retains its checkpoint wording and executable identities; its former
+S4 pending statements do not describe the current delivery state.
+
 **N1–N12: 12 PASS / 0 FAIL / 0 INCOMPLETE.** Coordinator adoption decision
 `01a1ba61-8784-74fe-89bf-29c603550a07` accepts the reviewed bounded
 `BBS-last-step-v1` reference for N3/N6/N7. The last code blocker is closed at

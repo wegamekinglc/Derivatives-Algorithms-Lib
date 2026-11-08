@@ -1,0 +1,792 @@
+{
+  "base_sha": "1216e03aaf71071e8e36aef1f24082a1255380f8",
+  "head_sha": "66702eb0dfa1077a960242e97f553401fa421d9d",
+  "threads": 4,
+  "sampling": "2 rounds, 10 interleaved process samples/side, alternating first side, per-round minimum",
+  "binaries_before": {
+    "base_price": {
+      "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-504-82cd1c13880a/workdir/s5-perf-base-build/dal-cpp/benchmarks/pde_perf/pde_perf",
+      "sha256": "e974ca3c3ae781513a2b5aa7b718e0d75d09fd31aa570fe7962059d477e3492f"
+    },
+    "head_price": {
+      "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-504-82cd1c13880a/workdir/s5-perf-head-build/dal-cpp/benchmarks/pde_perf/pde_perf",
+      "sha256": "139894a0a336cd0152fbadcb718162cf0533bed687819e5e8ced4f9290264e9b"
+    },
+    "head_risk": {
+      "path": "/home/wegamekinglc/multica_workspaces/dal-4ee34dfed184/dal-504-82cd1c13880a/workdir/s5-perf-head-build/dal-cpp/benchmarks/pde_perf/pde_perf",
+      "sha256": "139894a0a336cd0152fbadcb718162cf0533bed687819e5e8ced4f9290264e9b"
+    }
+  },
+  "P1": {
+    "samples": [
+      {
+        "base": [
+          {
+            "Bermudan": 4502000.0,
+            "American": 12860000.0,
+            "Daily": 43205000.0,
+            "NearZero": 669361.0
+          },
+          {
+            "Bermudan": 4624000.0,
+            "American": 13815000.0,
+            "Daily": 44847000.0,
+            "NearZero": 733068.0
+          },
+          {
+            "Bermudan": 4627000.0,
+            "American": 13269000.0,
+            "Daily": 44505000.0,
+            "NearZero": 743594.0
+          },
+          {
+            "Bermudan": 4410000.0,
+            "American": 12772000.0,
+            "Daily": 42178000.0,
+            "NearZero": 684671.0
+          },
+          {
+            "Bermudan": 4363000.0,
+            "American": 12553000.0,
+            "Daily": 42348000.0,
+            "NearZero": 690196.0
+          },
+          {
+            "Bermudan": 4414000.0,
+            "American": 12899000.0,
+            "Daily": 43458000.0,
+            "NearZero": 701315.0
+          },
+          {
+            "Bermudan": 4377000.0,
+            "American": 12668000.0,
+            "Daily": 42795000.0,
+            "NearZero": 695733.0
+          },
+          {
+            "Bermudan": 4399000.0,
+            "American": 13006000.0,
+            "Daily": 43733000.0,
+            "NearZero": 699071.0
+          },
+          {
+            "Bermudan": 4648000.0,
+            "American": 13519000.0,
+            "Daily": 44119000.0,
+            "NearZero": 711424.0
+          },
+          {
+            "Bermudan": 4519000.0,
+            "American": 12687000.0,
+            "Daily": 44017000.0,
+            "NearZero": 758970.0
+          }
+        ],
+        "head": [
+          {
+            "Bermudan": 4460000.0,
+            "American": 12635000.0,
+            "Daily": 43653000.0,
+            "NearZero": 778222.0
+          },
+          {
+            "Bermudan": 4805000.0,
+            "American": 13709000.0,
+            "Daily": 47167000.0,
+            "NearZero": 749324.0
+          },
+          {
+            "Bermudan": 4595000.0,
+            "American": 13148000.0,
+            "Daily": 42029000.0,
+            "NearZero": 673778.0
+          },
+          {
+            "Bermudan": 4405000.0,
+            "American": 12868000.0,
+            "Daily": 42699000.0,
+            "NearZero": 667052.0
+          },
+          {
+            "Bermudan": 4302000.0,
+            "American": 12536000.0,
+            "Daily": 42623000.0,
+            "NearZero": 683021.0
+          },
+          {
+            "Bermudan": 4505000.0,
+            "American": 12631000.0,
+            "Daily": 42739000.0,
+            "NearZero": 692561.0
+          },
+          {
+            "Bermudan": 4480000.0,
+            "American": 12727000.0,
+            "Daily": 42678000.0,
+            "NearZero": 663624.0
+          },
+          {
+            "Bermudan": 4448000.0,
+            "American": 12612000.0,
+            "Daily": 42453000.0,
+            "NearZero": 680432.0
+          },
+          {
+            "Bermudan": 4405000.0,
+            "American": 12952000.0,
+            "Daily": 43170000.0,
+            "NearZero": 703878.0
+          },
+          {
+            "Bermudan": 4437000.0,
+            "American": 12620000.0,
+            "Daily": 43766000.0,
+            "NearZero": 685158.0
+          }
+        ]
+      },
+      {
+        "base": [
+          {
+            "Bermudan": 5152000.0,
+            "American": 13420000.0,
+            "Daily": 45038000.0,
+            "NearZero": 725110.0
+          },
+          {
+            "Bermudan": 4805000.0,
+            "American": 13661000.0,
+            "Daily": 45473000.0,
+            "NearZero": 726975.0
+          },
+          {
+            "Bermudan": 4415000.0,
+            "American": 12795000.0,
+            "Daily": 43480000.0,
+            "NearZero": 730933.0
+          },
+          {
+            "Bermudan": 4629000.0,
+            "American": 13161000.0,
+            "Daily": 44234000.0,
+            "NearZero": 715537.0
+          },
+          {
+            "Bermudan": 4709000.0,
+            "American": 13462000.0,
+            "Daily": 45993000.0,
+            "NearZero": 716048.0
+          },
+          {
+            "Bermudan": 4725000.0,
+            "American": 13162000.0,
+            "Daily": 43318000.0,
+            "NearZero": 717472.0
+          },
+          {
+            "Bermudan": 4770000.0,
+            "American": 12822000.0,
+            "Daily": 45258000.0,
+            "NearZero": 722811.0
+          },
+          {
+            "Bermudan": 4725000.0,
+            "American": 13197000.0,
+            "Daily": 46723000.0,
+            "NearZero": 776404.0
+          },
+          {
+            "Bermudan": 4447000.0,
+            "American": 12906000.0,
+            "Daily": 43893000.0,
+            "NearZero": 694101.0
+          },
+          {
+            "Bermudan": 4515000.0,
+            "American": 12767000.0,
+            "Daily": 43016000.0,
+            "NearZero": 694900.0
+          }
+        ],
+        "head": [
+          {
+            "Bermudan": 4854000.0,
+            "American": 13167000.0,
+            "Daily": 45513000.0,
+            "NearZero": 718754.0
+          },
+          {
+            "Bermudan": 4447000.0,
+            "American": 12866000.0,
+            "Daily": 44325000.0,
+            "NearZero": 712470.0
+          },
+          {
+            "Bermudan": 4724000.0,
+            "American": 13107000.0,
+            "Daily": 43911000.0,
+            "NearZero": 750521.0
+          },
+          {
+            "Bermudan": 4588000.0,
+            "American": 13225000.0,
+            "Daily": 44966000.0,
+            "NearZero": 712157.0
+          },
+          {
+            "Bermudan": 4616000.0,
+            "American": 13373000.0,
+            "Daily": 46474000.0,
+            "NearZero": 722659.0
+          },
+          {
+            "Bermudan": 4589000.0,
+            "American": 12936000.0,
+            "Daily": 44006000.0,
+            "NearZero": 673129.0
+          },
+          {
+            "Bermudan": 4528000.0,
+            "American": 12678000.0,
+            "Daily": 43390000.0,
+            "NearZero": 685425.0
+          },
+          {
+            "Bermudan": 4751000.0,
+            "American": 13631000.0,
+            "Daily": 43496000.0,
+            "NearZero": 684679.0
+          },
+          {
+            "Bermudan": 4957000.0,
+            "American": 12631000.0,
+            "Daily": 43097000.0,
+            "NearZero": 696428.0
+          },
+          {
+            "Bermudan": 4459000.0,
+            "American": 12676000.0,
+            "Daily": 43619000.0,
+            "NearZero": 717281.0
+          }
+        ]
+      }
+    ],
+    "counters": {
+      "rows": [
+        "Bermudan price=5.79785 steps=501 solves=501 work=199899 payload=115416 workspace=58164",
+        "American price=6.08468 steps=500 solves=1549 work=618051 payload=2141144 workspace=58124",
+        "Daily price=6.08339 steps=730 solves=730 work=291270 payload=1641616 workspace=67324",
+        "NearZero price=33.7267 steps=32 solves=64 work=25536 payload=143720 workspace=39404"
+      ]
+    },
+    "Bermudan": {
+      "minima": [
+        {
+          "base_ns": 4363000.0,
+          "head_ns": 4302000.0
+        },
+        {
+          "base_ns": 4415000.0,
+          "head_ns": 4447000.0
+        }
+      ],
+      "deltas_percent": [
+        -1.3981205592482282,
+        0.7248018120045385
+      ],
+      "verdict": "PASS"
+    },
+    "American": {
+      "minima": [
+        {
+          "base_ns": 12553000.0,
+          "head_ns": 12536000.0
+        },
+        {
+          "base_ns": 12767000.0,
+          "head_ns": 12631000.0
+        }
+      ],
+      "deltas_percent": [
+        -0.13542579463076132,
+        -1.0652463382157085
+      ],
+      "verdict": "PASS"
+    },
+    "Daily": {
+      "minima": [
+        {
+          "base_ns": 42178000.0,
+          "head_ns": 42029000.0
+        },
+        {
+          "base_ns": 43016000.0,
+          "head_ns": 43097000.0
+        }
+      ],
+      "deltas_percent": [
+        -0.35326473516998913,
+        0.18830202715269806
+      ],
+      "verdict": "PASS"
+    },
+    "NearZero": {
+      "minima": [
+        {
+          "base_ns": 669361.0,
+          "head_ns": 663624.0
+        },
+        {
+          "base_ns": 694101.0,
+          "head_ns": 673129.0
+        }
+      ],
+      "deltas_percent": [
+        -0.8570860865810825,
+        -3.0214622943923186
+      ],
+      "verdict": "PASS"
+    }
+  },
+  "P2": {
+    "Bermudan17": {
+      "repeats": 3,
+      "samples": [
+        {
+          "reference": [
+            85399759,
+            86124414,
+            84579163,
+            94293359,
+            83469113,
+            83824410,
+            81133331,
+            83826729,
+            84052665,
+            82466584
+          ],
+          "risk": [
+            86615938,
+            87219791,
+            86788449,
+            86311768,
+            82554460,
+            84380416,
+            81172221,
+            81137118,
+            82674748,
+            81244194
+          ]
+        },
+        {
+          "reference": [
+            81473278,
+            80883395,
+            80580031,
+            80736357,
+            85077808,
+            81528504,
+            81501001,
+            81738157,
+            85339266,
+            84081252
+          ],
+          "risk": [
+            82010946,
+            84947471,
+            82118053,
+            86637630,
+            85380701,
+            82218174,
+            80568283,
+            82527833,
+            82337063,
+            81204248
+          ]
+        }
+      ],
+      "minima": [
+        {
+          "reference_ns": 81133331,
+          "risk_ns": 81137118
+        },
+        {
+          "reference_ns": 80580031,
+          "risk_ns": 80568283
+        }
+      ],
+      "overhead_percent": [
+        0.004667625442378309,
+        -0.01457929446564421
+      ],
+      "verdict": "PASS"
+    },
+    "American17": {
+      "repeats": 1,
+      "samples": [
+        {
+          "reference": [
+            221432068,
+            220387888,
+            217441811,
+            218235430,
+            230662418,
+            216694768,
+            219698060,
+            218009752,
+            223581108,
+            218499945
+          ],
+          "risk": [
+            220176189,
+            220701477,
+            222599653,
+            218254555,
+            223298523,
+            217825149,
+            222333097,
+            224122860,
+            220171045,
+            220917936
+          ]
+        },
+        {
+          "reference": [
+            228118922,
+            218839449,
+            218202517,
+            219783097,
+            218056025,
+            215504688,
+            218060410,
+            217481743,
+            217182108,
+            219508631
+          ],
+          "risk": [
+            220571377,
+            220918381,
+            221830013,
+            217784001,
+            215636530,
+            216430934,
+            219328453,
+            219475506,
+            214901578,
+            219875184
+          ]
+        }
+      ],
+      "minima": [
+        {
+          "reference_ns": 216694768,
+          "risk_ns": 217825149
+        },
+        {
+          "reference_ns": 215504688,
+          "risk_ns": 214901578
+        }
+      ],
+      "overhead_percent": [
+        0.5216466509242235,
+        -0.27985934115735134
+      ],
+      "verdict": "PASS"
+    },
+    "TwoCarry25": {
+      "repeats": 2,
+      "samples": [
+        {
+          "reference": [
+            125295031,
+            123240384,
+            119202695,
+            117363203,
+            126929943,
+            119179680,
+            120306839,
+            117281067,
+            123615859,
+            117631528
+          ],
+          "risk": [
+            122147739,
+            123797382,
+            119888886,
+            121010848,
+            117972557,
+            119373068,
+            117662902,
+            119668766,
+            121663346,
+            119519445
+          ]
+        },
+        {
+          "reference": [
+            118495267,
+            117951658,
+            120874290,
+            122717208,
+            121275998,
+            123785527,
+            121122188,
+            117876462,
+            118129153,
+            117123401
+          ],
+          "risk": [
+            119829080,
+            122489343,
+            120094220,
+            120039089,
+            122439074,
+            121775006,
+            127167213,
+            118229833,
+            118351557,
+            120030902
+          ]
+        }
+      ],
+      "minima": [
+        {
+          "reference_ns": 117281067,
+          "risk_ns": 117662902
+        },
+        {
+          "reference_ns": 117123401,
+          "risk_ns": 118229833
+        }
+      ],
+      "overhead_percent": [
+        0.32557258368053343,
+        0.9446720216056637
+      ],
+      "verdict": "PASS"
+    },
+    "Boundary17": {
+      "repeats": 1,
+      "samples": [
+        {
+          "reference": [
+            225231035,
+            221534012,
+            216895460,
+            225914719,
+            228685211,
+            216362566,
+            228119412,
+            220215879,
+            217621715,
+            218292381
+          ],
+          "risk": [
+            222562819,
+            224569350,
+            218277071,
+            226071767,
+            219031038,
+            226783355,
+            219487679,
+            216894929,
+            223144283,
+            219184444
+          ]
+        },
+        {
+          "reference": [
+            220334978,
+            221524846,
+            219545113,
+            220882800,
+            218794052,
+            217594268,
+            217793799,
+            218916536,
+            219250027,
+            219931889
+          ],
+          "risk": [
+            222655811,
+            222027854,
+            225615587,
+            220442361,
+            219524950,
+            215708381,
+            219960765,
+            217282669,
+            219938322,
+            215723727
+          ]
+        }
+      ],
+      "minima": [
+        {
+          "reference_ns": 216362566,
+          "risk_ns": 216894929
+        },
+        {
+          "reference_ns": 217594268,
+          "risk_ns": 215708381
+        }
+      ],
+      "overhead_percent": [
+        0.24605134328088418,
+        -0.8666988415338195
+      ],
+      "verdict": "PASS"
+    }
+  },
+  "calibration": {
+    "Bermudan17": {
+      "repeats": 3,
+      "diagnostic": {
+        "reference": {
+          "case": "Bermudan17",
+          "mode": "reference",
+          "repeats": 1,
+          "elapsed_ns": 82639236,
+          "ns_per_call": 82639236
+        },
+        "risk": {
+          "case": "Bermudan17",
+          "mode": "risk",
+          "repeats": 1,
+          "elapsed_ns": 83518191,
+          "ns_per_call": 83518191
+        }
+      }
+    },
+    "American17": {
+      "repeats": 1,
+      "diagnostic": {
+        "reference": {
+          "case": "American17",
+          "mode": "reference",
+          "repeats": 1,
+          "elapsed_ns": 218836712,
+          "ns_per_call": 218836712
+        },
+        "risk": {
+          "case": "American17",
+          "mode": "risk",
+          "repeats": 1,
+          "elapsed_ns": 223363380,
+          "ns_per_call": 223363380
+        }
+      }
+    },
+    "TwoCarry25": {
+      "repeats": 2,
+      "diagnostic": {
+        "reference": {
+          "case": "TwoCarry25",
+          "mode": "reference",
+          "repeats": 1,
+          "elapsed_ns": 123411245,
+          "ns_per_call": 123411245
+        },
+        "risk": {
+          "case": "TwoCarry25",
+          "mode": "risk",
+          "repeats": 1,
+          "elapsed_ns": 128156867,
+          "ns_per_call": 128156867
+        }
+      }
+    },
+    "Boundary17": {
+      "repeats": 1,
+      "diagnostic": {
+        "reference": {
+          "case": "Boundary17",
+          "mode": "reference",
+          "repeats": 1,
+          "elapsed_ns": 217585995,
+          "ns_per_call": 217585995
+        },
+        "risk": {
+          "case": "Boundary17",
+          "mode": "risk",
+          "repeats": 1,
+          "elapsed_ns": 227208907,
+          "ns_per_call": 227208907
+        }
+      }
+    }
+  },
+  "preflight": {
+    "Bermudan17": {
+      "case": "Bermudan17",
+      "status": "COMPLETE",
+      "plan_id": "p3v1:sha256:f7e11c158dadee30d5bd93240c4dc3dfe9a6f0c9770e37be2e3c9a6a7ca1784b",
+      "price": 5.797848289061484,
+      "steps": 501,
+      "scenarios": 17,
+      "solves": 8517,
+      "work": 3398283,
+      "payload": 155511,
+      "workspace": 186962,
+      "peak_native": 342473,
+      "planned_payload": 367968,
+      "planned_workspace": 415744,
+      "planned_peak": 783712
+    },
+    "American17": {
+      "case": "American17",
+      "status": "COMPLETE",
+      "plan_id": "p3v1:sha256:6fde6e9cb35978339ba216e604bb0e83a19141d4bab0e2abd50c074703088f4a",
+      "price": 6.084677413110385,
+      "steps": 500,
+      "scenarios": 17,
+      "solves": 26315,
+      "work": 10499685,
+      "payload": 2181187,
+      "workspace": 2212626,
+      "peak_native": 4393813,
+      "planned_payload": 3609000,
+      "planned_workspace": 3656656,
+      "planned_peak": 7265656
+    },
+    "TwoCarry25": {
+      "case": "TwoCarry25",
+      "status": "COMPLETE",
+      "plan_id": "p3v1:sha256:74bf29484869f192f46e5c5194e1d983bc631f24f769fad84a303332a31bf4ce",
+      "price": 6.850538878733262,
+      "steps": 501,
+      "scenarios": 25,
+      "solves": 12525,
+      "work": 4997475,
+      "payload": 160963,
+      "workspace": 188355,
+      "peak_native": 349318,
+      "planned_payload": 409072,
+      "planned_workspace": 421880,
+      "planned_peak": 830952
+    },
+    "Boundary17": {
+      "case": "Boundary17",
+      "status": "PARTIAL",
+      "plan_id": "p3v1:sha256:6fde6e9cb35978339ba216e604bb0e83a19141d4bab0e2abd50c074703088f4a",
+      "price": 18.511546574619935,
+      "steps": 500,
+      "scenarios": 17,
+      "solves": 26315,
+      "work": 10499685,
+      "payload": 2181341,
+      "workspace": 2212626,
+      "peak_native": 4393813,
+      "planned_payload": 3609000,
+      "planned_workspace": 3656656,
+      "planned_peak": 7265656
+    }
+  },
+  "binaries_after": {
+    "base_price": "e974ca3c3ae781513a2b5aa7b718e0d75d09fd31aa570fe7962059d477e3492f",
+    "head_price": "139894a0a336cd0152fbadcb718162cf0533bed687819e5e8ced4f9290264e9b",
+    "head_risk": "139894a0a336cd0152fbadcb718162cf0533bed687819e5e8ced4f9290264e9b"
+  },
+  "verdict": "PASS"
+}

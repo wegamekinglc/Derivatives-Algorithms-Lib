@@ -5,12 +5,15 @@ decisions below. S0 froze requirements without executing product checks.
 S3 now qualifies N1–N12 as **12 PASS / 0 FAIL / 0 INCOMPLETE** under the
 [final reference adoption](#adopted-bounded-bbs-tree-reference-dal-502).
 The [final qualification entry](../validation/dal-502-pde-risk-final.md)
-owns the applicable evidence and remaining S4/S5 gates. Requirements below
+owns applicable numerical evidence. [S4](../validation/dal-503-pde-risk-bindings.md)
+has delivered projections and native Windows B10, merged as PR #687;
+[S5](../validation/dal-504-pde-risk-delivery.md) supplies performance/build/examples
+for focused review. Requirements below
 do not by themselves establish binding, performance or release acceptance.
 Core deterministic coverage in
 `dal-cpp/tests/math/pde/test_early_exercise_pde_risk.cpp` is distinct from
 the accepted independent financial/refinement evidence and does not complete
-the pending cross-interface qualification matrix.
+the cross-interface qualification matrix recorded by S4.
 Read together with the [R1–R11 contract](dal-497-early-exercise-pde-risk.md)
 and [API schema](../api-notes/dal-497-early-exercise-pde-risk.md).
 Source baseline is `4e9eb5eb7cae770826e6f4e0a05aeb9bf4c4c44e`.

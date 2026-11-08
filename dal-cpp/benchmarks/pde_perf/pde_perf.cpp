@@ -19,6 +19,8 @@
 using namespace Dal;
 using namespace Dal::PDE;
 
+int RunPdeRiskBenchmark(int argc, char** argv);
+
 namespace {
     constexpr int kSpaceSteps = 200;
     constexpr int kTimeSteps = 200;
@@ -94,6 +96,8 @@ namespace {
 } // namespace
 
 int main(int argc, char** argv) {
+    if (argc > 1 && std::string(argv[1]) == "--risk")
+        return RunPdeRiskBenchmark(argc - 1, argv + 1);
     Dal::RegisterAll_::Init();
     constexpr int kRepeats = 10;
     Bench::PrintHeader();

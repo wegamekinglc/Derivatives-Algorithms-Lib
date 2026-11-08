@@ -5,6 +5,8 @@
 #include <dal/math/aad/native.hpp>
 #include <dal/math/aad/recording.hpp>
 
+#include "../../../dal-cpp/benchmarks/pde_risk_perf/copy.hpp"
+
 namespace py = pybind11;
 using namespace Dal;
 
@@ -214,6 +216,20 @@ namespace {
 } // namespace
 
 PYBIND11_MODULE(_dal_pde_risk_test, m) {
+    m.def("_benchmark_copy", [](const EarlyExercisePdeRiskRequest_& request, size_t reads) {
+        REQUIRE(reads >= 1 && reads <= 1000, "copy probe reads outside [1,1000]");
+        const auto probe = PdeRiskBench::CopyProbe(request, reads);
+        py::dict output;
+        output["compute_ns"] = probe.computeNs_;
+        output["copy_ns"] = probe.copyNs_;
+        output["records"] = probe.records_;
+        output["output_bytes"] = probe.outputBytes_;
+        output["peak_detached_capacity"] = probe.peakDetachedCapacity_;
+        output["work"] = probe.work_;
+        output["solves"] = probe.solves_;
+        output["payload"] = probe.payload_;
+        return output;
+    });
     m.def("_test_early_exercise_risk_core", [](const EarlyExercisePdeRiskRequest_& request) {
         const auto result = PDE::EvaluateEarlyExercisePdeRisk(request);
         py::dict output;

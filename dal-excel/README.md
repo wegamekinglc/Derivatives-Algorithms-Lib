@@ -34,6 +34,10 @@ cmake --build build/core-dev --target dal_excel_portable_tests --parallel
 
 ## Worksheet Model
 
+The [owning early-exercise PDE risk worksheet](examples/012.early_exercise_pde_risk.md)
+shows input/bump tables, handle dependencies, COMPLETE/PARTIAL results and
+per-row unavailable values.
+
 Object constructors return repository handles. Pass those handles to later
 worksheet calls:
 

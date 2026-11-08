@@ -1,0 +1,3 @@
+add_executable(early_exercise_pde_risk early_exercise_pde_risk.cpp)
+target_link_libraries(early_exercise_pde_risk PRIVATE DAL::cpp)
+install(TARGETS early_exercise_pde_risk RUNTIME DESTINATION bin)
