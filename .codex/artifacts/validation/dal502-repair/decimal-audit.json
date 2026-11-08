@@ -1,0 +1,34 @@
+[
+  {
+    "nodes": 3201,
+    "option": "PUT",
+    "result": "WORK_LIMIT 2.0988e-16",
+    "min_saved_exponent": -1068,
+    "max_relative_solution_error": 1.0577620958316091e-14,
+    "max_decimal_backward_error": 1.9096130509205951e-16
+  },
+  {
+    "nodes": 3201,
+    "option": "CALL",
+    "result": "WORK_LIMIT 1.52255e-16",
+    "min_saved_exponent": -998,
+    "max_relative_solution_error": 2.6669211512358884e-15,
+    "max_decimal_backward_error": 1.4384287869347325e-16
+  },
+  {
+    "nodes": 16001,
+    "option": "PUT",
+    "result": "WORK_LIMIT 2.1344e-16",
+    "min_saved_exponent": -15416,
+    "max_relative_solution_error": 1.3310611336789681e-14,
+    "max_decimal_backward_error": 1.8068530945529134e-16
+  },
+  {
+    "nodes": 16001,
+    "option": "CALL",
+    "result": "WORK_LIMIT 1.82057e-16",
+    "min_saved_exponent": -20213,
+    "max_relative_solution_error": 4.379597682201007e-15,
+    "max_decimal_backward_error": 1.5176765648249834e-16
+  }
+]
