@@ -257,6 +257,46 @@ fixtures, thresholds and Q/C/L caps remain unchanged. New-method/repair review
 and any pilot restart remain separate coordinator decisions; N3/N6/N7 stay
 INCOMPLETE, S4 paused, PR #685 draft without auto merge.
 
+### Approved single repaired-producer BBS restart (DAL-502)
+
+Decision `01a1b947-09c0-7561-aea5-6d61b118c7de` authorizes exactly one
+complete restart after repair delivery `8c90d53bd7eb5630554698e346b474ce5b710e39`.
+Freeze the delivered native kernel/source/configuration/executable identity;
+reuse its 4/4 and 41 high-precision witnesses without rerunning them. Generate
+all original 113 requests anew: 84 spot prices, 12 European controls, nine
+explicit formulas and eight expected failures, with the same original inputs,
+paired levels, scales, thresholds and stop rules. No old producer value or
+identity bridge may fill a new result. Old successes, failures and reservations
+remain historical evidence and are not relabeled.
+
+This decision releases the previous stop only for this restart. Round caps
+are 5.7e9 charged nodes and 1e6 BS calls; numerical window600 s, four workers,
+RSS128 MiB each/512 MiB total, raw64 MiB. Every failed attempt and independent
+verification call counts. Reserve the original 5,638,979,836 nodes and 917,572
+native BS calls, plus 100 scalar verification slots (917,672 total). The
+unchanged node formula and expected-failure preflight accounting still apply.
+
+Retain prior BBS consumption 3,230,750,980 charged nodes and 594,267 BS calls,
+including the bounded repair. Explicitly increase cumulative BBS caps to
+9e9 nodes and 2e6 BS calls; old CRR consumption remains 2,997,881,833,992.
+The combined node cap becomes 3,006,881,833,992. Full round reservations imply
+8,869,730,816 cumulative BBS nodes, 1,511,939 cumulative BS calls, and
+3,006,751,564,808 old-CRR-plus-BBS nodes. Validate round and cumulative caps
+before execution and admission; reaching any limit stops further work.
+
+Witnesses must pass before American execution. Unexpected failure stops its
+worker, preserves in-flight data and prevents admission; missing or final
+unqualified results remain INCOMPLETE. Evaluate only the final16384 pair's
+three price/Delta/K*Gamma scale vectors against the original strict quarter
+mesh, raw parity and fine-to-extra-half gates. No intermediate selection,
+kernel repair, extra level or retry is authorized. A concurrent substantive
+review blocker holds qualification pending the coordinator's decision.
+
+This remains a diagnostic pilot: no full-risk/all-binding expansion, mandatory
+TREE replacement or N3/N6/N7 upgrade. Product fixtures/budgets, pure CRR cap
+and all error thresholds are unchanged. S3 remains unqualified, S4 paused,
+DAL-502 in progress and PR #685 draft without auto merge.
+
 ## N1 — European degeneration
 
 Cross product: PUT/CALL; S=80,100,120; q=0,0.03; r=0.05; D0/D1;
